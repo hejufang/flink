@@ -44,13 +44,13 @@ class TableSourceITCase extends StreamingTestBase {
          |  `c` STRING
          |) WITH (
          |  'connector' = 'values',
-         |  'data-id' = '$myTableDataId'
+         |  'data-id' = '$myTableDataId',
+         |  'bounded' = 'false'
          |)
          |""".stripMargin)
 
     val filterableTableDataId = TestValuesTableFactory.registerData(
-      TestFilterableTableSource.defaultRows)
-    // TODO: [FLINK-17425] support filter pushdown for TestValuesTableSource
+      TestLegacyFilterableTableSource.defaultRows)
     tEnv.executeSql(
       s"""
          |CREATE TABLE FilterableTable (
@@ -60,7 +60,9 @@ class TableSourceITCase extends StreamingTestBase {
          |  price DOUBLE
          |) WITH (
          |  'connector' = 'values',
-         |  'data-id' = '$filterableTableDataId'
+         |  'filterable-fields' = 'amount',
+         |  'data-id' = '$filterableTableDataId',
+         |  'bounded' = 'false'
          |)
          |""".stripMargin)
   }
@@ -161,26 +163,26 @@ class TableSourceITCase extends StreamingTestBase {
 
   @Test
   def testTableSourceWithFilterable(): Unit = {
-    val query = "SELECT id, name FROM FilterableTable WHERE amount > 4 AND price < 9"
+    val query = "SELECT id, amount, name FROM FilterableTable WHERE amount > 4 AND price < 9"
     val result = tEnv.sqlQuery(query).toAppendStream[Row]
     val sink = new TestingAppendSink
     result.addSink(sink)
     env.execute()
 
-    val expected = Seq("5,Record_5", "6,Record_6", "7,Record_7", "8,Record_8")
+    val expected = Seq("5,5,Record_5", "6,6,Record_6", "7,7,Record_7", "8,8,Record_8")
     assertEquals(expected.sorted, sink.getAppendResults.sorted)
   }
 
   @Test
   def testTableSourceWithFunctionFilterable(): Unit = {
-    val query = "SELECT id, name FROM FilterableTable " +
+    val query = "SELECT id, amount, name FROM FilterableTable " +
       "WHERE amount > 4 AND price < 9 AND upper(name) = 'RECORD_5'"
     val result = tEnv.sqlQuery(query).toAppendStream[Row]
     val sink = new TestingAppendSink
     result.addSink(sink)
     env.execute()
 
-    val expected = Seq("5,Record_5")
+    val expected = Seq("5,5,Record_5")
     assertEquals(expected.sorted, sink.getAppendResults.sorted)
   }
 
@@ -240,25 +242,27 @@ class TableSourceITCase extends StreamingTestBase {
          |""".stripMargin
     )
 
-    val result = tEnv.sqlQuery("SELECT * FROM T").toAppendStream[Row]
+    val result = tEnv.sqlQuery("SELECT " +
+      "`a`, `b`, `c`, `d`, `e`, `f`, `g`, `h`, `i`, `j`, `k`, " +
+      "`l`, `m`, `n`, `o`, `p`, " +
+      "`q`['k1'], `q`['k2'], `q`['k3'], `q`['k4'] FROM T").toAppendStream[Row]
     val sink = new TestingAppendSink
     result.addSink(sink)
     env.execute()
 
     val expected = Seq(
-      "true,127,32767,2147483647,9223372036854775807,-1.123,-1.123,5.10,1,1,1969-01-01," +
-        "00:00:00.123,1969-01-01T00:00:00.123456789,1969-01-01T00:00:00.123456789Z," +
-        "[1, 2, 3],1,a,2.3,{k1=1}",
       "false,-128,-32768,-2147483648,-9223372036854775808,3.4,3.4,6.10,12,12,1970-09-30," +
-        "01:01:01.123,1970-09-30T01:01:01.123456,1970-09-30T01:01:01.123456Z," +
-        "[4, 5],null,b,4.56,{k4=4, k2=2}",
-      "true,0,0,0,0,0.12,0.12,7.10,123,123,1990-12-24," +
-        "08:10:24.123,1990-12-24T08:10:24.123,1990-12-24T08:10:24.123Z," +
-        "[6, null, 7],3,null,7.86,{k3=null}",
-      "false,5,4,123,1234,1.2345,1.2345,8.12,1234,1234,2020-05-01," +
-        "23:23:23,2020-05-01T23:23:23,2020-05-01T23:23:23Z," +
-        "[8],4,c,null,{null=3}",
-      "null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null"
+        "01:01:01.123,1970-09-30T01:01:01.123456,1970-09-30T01:01:01.123456Z,[4, 5]," +
+        "null,b,4.56,null,2,null,4",
+      "false,5,4,123,1234,1.2345,1.2345,8.12,1234,1234,2020-05-01,23:23:23,2020-05-01T23:23:23," +
+        "2020-05-01T23:23:23Z,[8],4,c,null,null,null,null,null",
+      "null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null," +
+        "null,null,null",
+      "true,0,0,0,0,0.12,0.12,7.10,123,123,1990-12-24,08:10:24.123,1990-12-24T08:10:24.123," +
+        "1990-12-24T08:10:24.123Z,[6, null, 7],3,null,7.86,null,null,null,null",
+      "true,127,32767,2147483647,9223372036854775807,-1.123,-1.123,5.10,1,1,1969-01-01," +
+        "00:00:00.123,1969-01-01T00:00:00.123456789,1969-01-01T00:00:00.123456789Z,[1, 2, 3]," +
+        "1,a,2.3,1,null,null,null"
     )
     assertEquals(expected.sorted.mkString("\n"), sink.getAppendResults.sorted.mkString("\n"))
   }

@@ -21,7 +21,7 @@ package org.apache.flink.table.planner.plan.stream.sql
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api._
 import org.apache.flink.table.planner.expressions.utils.Func0
-import org.apache.flink.table.planner.factories.TestValuesTableFactory.{MockedFilterPushDownTableSource, MockedLookupTableSource}
+import org.apache.flink.table.planner.factories.TestValuesTableFactory.MockedLookupTableSource
 import org.apache.flink.table.planner.utils.TableTestBase
 
 import org.junit.Test
@@ -375,21 +375,21 @@ class TableScanTest extends TableTestBase {
   }
 
   @Test
-  def testUnsupportedAbilityInterface(): Unit = {
+  def testInvalidWatermarkOutputType(): Unit = {
+    thrown.expect(classOf[ValidationException])
+    thrown.expectMessage(
+      "Watermark strategy '' must be of type TIMESTAMP but is of type 'CHAR(0) NOT NULL'.")
     util.addTable(
-      s"""
-         |CREATE TABLE src (
-         |  ts TIMESTAMP(3),
-         |  a INT,
-         |  b DOUBLE
-         |) WITH (
-         |  'connector' = 'values',
-         |  'table-source-class' = '${classOf[MockedFilterPushDownTableSource].getName}'
-         |)
+      """
+        |CREATE TABLE src (
+        |  ts TIMESTAMP(3),
+        |  a INT,
+        |  b DOUBLE,
+        |  WATERMARK FOR `ts` AS ''
+        |) WITH (
+        |  'connector' = 'values'
+        |)
       """.stripMargin)
-    thrown.expect(classOf[UnsupportedOperationException])
-    thrown.expectMessage("DynamicTableSource with SupportsFilterPushDown ability is not supported")
-    util.verifyPlan("SELECT * FROM src", ExplainDetail.CHANGELOG_MODE)
   }
 
   @Test

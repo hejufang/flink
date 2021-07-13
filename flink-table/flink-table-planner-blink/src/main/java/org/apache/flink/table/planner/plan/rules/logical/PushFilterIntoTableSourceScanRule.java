@@ -28,6 +28,7 @@ import org.apache.flink.table.expressions.CallExpression;
 import org.apache.flink.table.expressions.Expression;
 import org.apache.flink.table.expressions.ResolvedExpression;
 import org.apache.flink.table.expressions.resolver.ExpressionResolver;
+import org.apache.flink.table.plan.stats.TableStats;
 import org.apache.flink.table.planner.calcite.FlinkContext;
 import org.apache.flink.table.planner.expressions.converter.ExpressionConverter;
 import org.apache.flink.table.planner.plan.schema.FlinkPreparingTableBase;
@@ -146,9 +147,14 @@ public class PushFilterIntoTableSourceScanRule extends RelOptRule {
 		// record size after applyFilters for update statistics
 		int updatedPredicatesSize = result.getRemainingFilters().size();
 		// set the newStatistic newTableSource and extraDigests
+		long estimatedRowCount = (long) filter.estimateRowCount(call.getMetadataQuery());
 		TableSourceTable newTableSourceTable = oldTableSourceTable.copy(
 			newTableSource,
-			getNewFlinkStatistic(oldTableSourceTable, originPredicatesSize, updatedPredicatesSize),
+			getNewFlinkStatistic(
+				oldTableSourceTable,
+				originPredicatesSize,
+				updatedPredicatesSize,
+				estimatedRowCount),
 			getNewExtraDigests(result.getAcceptedFilters())
 		);
 		TableScan newScan = LogicalTableScan.create(scan.getCluster(), newTableSourceTable, scan.getHints());
@@ -169,7 +175,11 @@ public class PushFilterIntoTableSourceScanRule extends RelOptRule {
 		}
 	}
 
-	private FlinkStatistic getNewFlinkStatistic(TableSourceTable tableSourceTable, int originPredicatesSize, int updatedPredicatesSize) {
+	private FlinkStatistic getNewFlinkStatistic(
+			TableSourceTable tableSourceTable,
+			int originPredicatesSize,
+			int updatedPredicatesSize,
+			long estimatedRowCount) {
 		FlinkStatistic oldStatistic = tableSourceTable.getStatistic();
 		FlinkStatistic newStatistic = null;
 		if (originPredicatesSize == updatedPredicatesSize) {
@@ -179,7 +189,10 @@ public class PushFilterIntoTableSourceScanRule extends RelOptRule {
 			newStatistic = oldStatistic;
 		} else {
 			// Remove tableStats after predicates pushed down
-			newStatistic = FlinkStatistic.builder().statistic(oldStatistic).tableStats(null).build();
+			newStatistic = FlinkStatistic.builder()
+				.statistic(oldStatistic)
+				.tableStats(new TableStats(estimatedRowCount))
+				.build();
 		}
 		return newStatistic;
 	}

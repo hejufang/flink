@@ -19,6 +19,7 @@
 package org.apache.flink.table.planner.plan.rules.logical;
 
 import org.apache.flink.table.api.TableException;
+import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.catalog.Catalog;
 import org.apache.flink.table.catalog.CatalogPartitionSpec;
 import org.apache.flink.table.catalog.CatalogTable;
@@ -155,7 +156,7 @@ public class PushPartitionIntoTableSourceScanRule extends RelOptRule {
 		remainingPartitions.ifPresent(((SupportsPartitionPushDown) dynamicTableSource)::applyPartitions);
 
 		// build new statistic
-		TableStats newTableStat = null;
+		TableStats newTableStats = null;
 		ObjectIdentifier identifier = tableSourceTable.tableIdentifier();
 		ObjectPath tablePath = identifier.toObjectPath();
 		Optional<Catalog> catalogOptional = context.getCatalogManager().getCatalog(identifier.getCatalogName());
@@ -165,16 +166,16 @@ public class PushPartitionIntoTableSourceScanRule extends RelOptRule {
 				partitionStats = getPartitionStats(catalogOptional.get(), tablePath, partition);
 				if (!partitionStats.isPresent()) {
 					// clear all information before
-					newTableStat = null;
+					newTableStats = null;
 					break;
 				} else {
-					newTableStat = newTableStat == null ? partitionStats.get() : newTableStat.merge(partitionStats.get());
+					newTableStats = newTableStats == null ? partitionStats.get() : newTableStats.merge(partitionStats.get());
 				}
 			}
 		}
 		FlinkStatistic newStatistic = FlinkStatistic.builder()
 			.statistic(tableSourceTable.getStatistic())
-			.tableStats(newTableStat)
+			.tableStats(newTableStats)
 			.build();
 
 		String extraDigest = remainingPartitions.map(partition -> ("partitions=[" +
@@ -331,9 +332,11 @@ public class PushPartitionIntoTableSourceScanRule extends RelOptRule {
 			CatalogPartitionSpec spec = new CatalogPartitionSpec(partition);
 			CatalogTableStatistics partitionStat = catalog.getPartitionStatistics(tablePath, spec);
 			CatalogColumnStatistics partitionColStat = catalog.getPartitionColumnStatistics(tablePath, spec);
-			TableStats stats = CatalogTableStatisticsConverter.convertToTableStats(partitionStat, partitionColStat);
+			TableSchema schema = catalog.getTable(tablePath).getSchema();
+			TableStats stats = CatalogTableStatisticsConverter.convertToTableStats(
+				partitionStat, partitionColStat, schema);
 			return Optional.of(stats);
-		} catch (PartitionNotExistException e) {
+		} catch (PartitionNotExistException | TableNotExistException e) {
 			return Optional.empty();
 		}
 	}

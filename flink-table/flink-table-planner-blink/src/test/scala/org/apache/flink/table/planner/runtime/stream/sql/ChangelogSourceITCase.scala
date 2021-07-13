@@ -120,6 +120,7 @@ class ChangelogSourceITCase(state: StateBackendMode) extends StreamingWithStateT
 
   @Test
   def testAggregateOnChangelogSourceAndUpsertSink(): Unit = {
+    env.setParallelism(1)
     val sinkDDL =
       s"""
          |CREATE TABLE user_sink (
