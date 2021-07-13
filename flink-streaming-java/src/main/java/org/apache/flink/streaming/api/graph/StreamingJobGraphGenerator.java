@@ -50,6 +50,7 @@ import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.UdfStreamOperatorFactory;
 import org.apache.flink.streaming.api.transformations.ShuffleMode;
+import org.apache.flink.streaming.runtime.partitioner.BacklogBasedRescalePartitioner;
 import org.apache.flink.streaming.runtime.partitioner.ForwardPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.RescalePartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
@@ -526,7 +527,7 @@ public class StreamingJobGraphGenerator {
 		}
 
 		JobEdge jobEdge;
-		if (partitioner instanceof ForwardPartitioner || partitioner instanceof RescalePartitioner) {
+		if (partitioner instanceof ForwardPartitioner || partitioner instanceof RescalePartitioner || partitioner instanceof BacklogBasedRescalePartitioner) {
 			jobEdge = downStreamVertex.connectNewDataSetAsInput(
 				headVertex,
 				DistributionPattern.POINTWISE,
