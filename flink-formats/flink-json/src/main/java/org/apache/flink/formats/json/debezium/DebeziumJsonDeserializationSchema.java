@@ -93,7 +93,6 @@ public final class DebeziumJsonDeserializationSchema implements DeserializationS
 			// the result type is never used, so it's fine to pass in Debezium's result type
 			resultTypeInfo,
 			false, // ignoreParseErrors already contains the functionality of failOnMissingField
-			false, //todo this default value?
 			ignoreParseErrors,
 			timestampFormatOption);
 	}

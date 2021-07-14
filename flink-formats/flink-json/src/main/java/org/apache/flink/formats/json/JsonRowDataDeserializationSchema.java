@@ -92,9 +92,6 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	/** Flag indicating whether to fail if a field is missing. */
 	private final boolean failOnMissingField;
 
-	/** Flag indicating whether to fill missing field with default value. */
-	private final boolean defaultOnMissingField;
-
 	/** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
 	private final boolean ignoreParseErrors;
 
@@ -123,14 +120,12 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			RowType rowType,
 			TypeInformation<RowData> resultTypeInfo,
 			boolean failOnMissingField,
-			boolean defaultOnMissingField,
 			boolean ignoreParseErrors,
 			TimestampFormat timestampFormat) {
 		this(
 			rowType,
 			resultTypeInfo,
 			failOnMissingField,
-			defaultOnMissingField,
 			ignoreParseErrors,
 			false,
 			timestampFormat,
@@ -142,7 +137,6 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			RowType rowType,
 			TypeInformation<RowData> resultTypeInfo,
 			boolean failOnMissingField,
-			boolean defaultOnMissingField,
 			boolean ignoreParseErrors,
 			boolean byteAsJsonNode,
 			TimestampFormat timestampFormat,
@@ -154,7 +148,6 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 		}
 		this.resultTypeInfo = checkNotNull(resultTypeInfo);
 		this.failOnMissingField = failOnMissingField;
-		this.defaultOnMissingField = defaultOnMissingField;
 		this.ignoreParseErrors = ignoreParseErrors;
 		this.byteAsJsonNode = byteAsJsonNode;
 		this.runtimeConverter = createRowConverter(checkNotNull(rowType));
@@ -202,7 +195,6 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 		}
 		JsonRowDataDeserializationSchema that = (JsonRowDataDeserializationSchema) o;
 		return failOnMissingField == that.failOnMissingField &&
-				defaultOnMissingField == that.defaultOnMissingField &&
 				ignoreParseErrors == that.ignoreParseErrors &&
 				byteAsJsonNode == that.byteAsJsonNode &&
 				resultTypeInfo.equals(that.resultTypeInfo) &&
@@ -214,7 +206,6 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	public int hashCode() {
 		return Objects.hash(
 			failOnMissingField,
-			defaultOnMissingField,
 			ignoreParseErrors,
 			byteAsJsonNode,
 			resultTypeInfo,
@@ -239,34 +230,13 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	 * Creates a runtime converter which is null safe.
 	 */
 	private DeserializationRuntimeConverter createConverter(LogicalType type) {
-		return wrapIntoNullableConverter(type);
-	}
-
-	/**
-	 * Wrap notNullConverter and default-value Converter.
-	 * defaultOnMissingField option has not need to be checked here.{@link JsonRowDataDeserializationSchema#convertField(DeserializationRuntimeConverter, String, JsonNode)}
-	 * @param type
-	 * @return
-	 */
-	private DeserializationRuntimeConverter wrapIntoNullableConverter(LogicalType type) {
-		DeserializationRuntimeConverter baseConverter = createBaseConverter(type);
-		JsonDefaultValue.DeserializationRuntimeConverter defaultValueConverter = JsonDefaultValue.createConverter(type);
-		return (jsonNode) -> {
-			// When jsonNode == null, defaultOnMissingField will always be true.
-			if (jsonNode == null) {
-				return defaultValueConverter.convert();
-			}
-			if (jsonNode.isNull()) {
-				return null;
-			}
-			return baseConverter.convert(jsonNode);
-		};
+		return wrapIntoNullableConverter(createNotNullConverter(type));
 	}
 
 	/**
 	 * Creates a runtime converter which assuming input object is not null.
 	 */
-	private DeserializationRuntimeConverter createBaseConverter(LogicalType type) {
+	private DeserializationRuntimeConverter createNotNullConverter(LogicalType type) {
 		switch (type.getTypeRoot()) {
 			case NULL:
 				return jsonNode -> null;
@@ -494,7 +464,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			DeserializationRuntimeConverter fieldConverter,
 			String fieldName,
 			JsonNode field) {
-		if (field == null && !defaultOnMissingField) {
+		if (field == null) {
 			if (failOnMissingField) {
 				throw new JsonParseException(
 					"Could not find field with name '" + fieldName + "'.");
@@ -504,6 +474,23 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 		} else {
 			return fieldConverter.convert(field);
 		}
+	}
+
+	private DeserializationRuntimeConverter wrapIntoNullableConverter(
+			DeserializationRuntimeConverter converter) {
+		return jsonNode -> {
+			if (jsonNode == null || jsonNode.isNull()) {
+				return null;
+			}
+			try {
+				return converter.convert(jsonNode);
+			} catch (Throwable t) {
+				if (!ignoreParseErrors) {
+					throw t;
+				}
+				return null;
+			}
+		};
 	}
 
 	/**

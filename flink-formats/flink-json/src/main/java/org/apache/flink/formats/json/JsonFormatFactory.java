@@ -46,7 +46,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.apache.flink.formats.json.JsonOptions.BYTES_AS_JSON_NODE;
-import static org.apache.flink.formats.json.JsonOptions.DEFAULT_ON_MISSING_FIELD;
 import static org.apache.flink.formats.json.JsonOptions.ENCODE_IGNORE_NULL_VALUES;
 import static org.apache.flink.formats.json.JsonOptions.ENFORCE_UTF8_ENCODING;
 import static org.apache.flink.formats.json.JsonOptions.FAIL_ON_MISSING_FIELD;
@@ -74,7 +73,6 @@ public class JsonFormatFactory implements
 		validateFormatOptions(formatOptions);
 
 		final boolean failOnMissingField = formatOptions.get(FAIL_ON_MISSING_FIELD);
-		final boolean defaultOnMissingField = formatOptions.get(DEFAULT_ON_MISSING_FIELD);
 		final boolean ignoreParseErrors = formatOptions.get(IGNORE_PARSE_ERRORS);
 		final boolean byteAsJsonNode = formatOptions.get(BYTES_AS_JSON_NODE);
 		final long logParseErrorsInterval = formatOptions.get(LOG_ERROR_RECORDS_INTERVAL).toMillis();
@@ -93,7 +91,6 @@ public class JsonFormatFactory implements
 					rowType,
 					rowDataTypeInfo,
 					failOnMissingField,
-					defaultOnMissingField,
 					ignoreParseErrors,
 					byteAsJsonNode,
 					timestampOption,
@@ -157,7 +154,6 @@ public class JsonFormatFactory implements
 	public Set<ConfigOption<?>> optionalOptions() {
 		Set<ConfigOption<?>> options = new HashSet<>();
 		options.add(FAIL_ON_MISSING_FIELD);
-		options.add(DEFAULT_ON_MISSING_FIELD);
 		options.add(IGNORE_PARSE_ERRORS);
 		options.add(LOG_ERROR_RECORDS_INTERVAL);
 		options.add(TIMESTAMP_FORMAT);

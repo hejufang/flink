@@ -35,12 +35,6 @@ public class JsonOptions {
 			.defaultValue(false)
 			.withDescription("Optional flag to specify whether to fail if a field is missing or not, false by default");
 
-	public static final ConfigOption<Boolean> DEFAULT_ON_MISSING_FIELD = ConfigOptions
-			.key("default-on-missing-field")
-			.booleanType()
-			.defaultValue(false)
-			.withDescription("Optional flag to specify whether to fill missing field with default value");
-
 	public static final ConfigOption<Boolean> IGNORE_PARSE_ERRORS = ConfigOptions
 			.key("ignore-parse-errors")
 			.booleanType()
