@@ -149,7 +149,7 @@ public class JsonRowDataSerDeSchemaTest {
 		RowDataTypeInfo resultTypeInfo = new RowDataTypeInfo(schema);
 
 		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
-			schema, resultTypeInfo, false, false, TimestampFormat.ISO_8601);
+			schema, resultTypeInfo, false, false, false, TimestampFormat.ISO_8601);
 
 		Row expected = new Row(17);
 		expected.setField(0, true);
@@ -218,7 +218,7 @@ public class JsonRowDataSerDeSchemaTest {
 		RowType rowType = (RowType) dataType.getLogicalType();
 
 		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
-			rowType, new RowDataTypeInfo(rowType), false, false,  TimestampFormat.ISO_8601);
+			rowType, new RowDataTypeInfo(rowType), false, false, false,  TimestampFormat.ISO_8601);
 
 		Row expected = new Row(7);
 		expected.setField(0, bool);
@@ -249,7 +249,7 @@ public class JsonRowDataSerDeSchemaTest {
 		).getLogicalType();
 
 		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
-			rowType, new RowDataTypeInfo(rowType), false, false,  TimestampFormat.ISO_8601);
+			rowType, new RowDataTypeInfo(rowType), false, false, false,  TimestampFormat.ISO_8601);
 		JsonRowDataSerializationSchema serializationSchema = new JsonRowDataSerializationSchema(rowType, TimestampFormat.ISO_8601);
 
 		ObjectMapper objectMapper = new ObjectMapper();
@@ -321,7 +321,7 @@ public class JsonRowDataSerDeSchemaTest {
 		).getLogicalType();
 
 		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
-			rowType, new RowDataTypeInfo(rowType), false, true, TimestampFormat.ISO_8601);
+			rowType, new RowDataTypeInfo(rowType), false, false, true, TimestampFormat.ISO_8601);
 		JsonRowDataSerializationSchema serializationSchema = new JsonRowDataSerializationSchema(rowType, TimestampFormat.ISO_8601);
 
 		for (int i = 0; i < jsons.length; i++) {
@@ -358,7 +358,7 @@ public class JsonRowDataSerDeSchemaTest {
 		).getLogicalType();
 
 		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
-			rowType, new RowDataTypeInfo(rowType), false, true, TimestampFormat.ISO_8601);
+			rowType, new RowDataTypeInfo(rowType), false, false, true, TimestampFormat.ISO_8601);
 		JsonRowDataSerializationSchema serializationSchema =
 			new JsonRowDataSerializationSchema(rowType, TimestampFormat.ISO_8601, false, true, false, false, "");
 		for (int i = 0; i < jsons.length; i++) {
@@ -383,7 +383,7 @@ public class JsonRowDataSerDeSchemaTest {
 
 		// pass on missing field
 		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
-			schema, new RowDataTypeInfo(schema), false, false, TimestampFormat.ISO_8601);
+			schema, new RowDataTypeInfo(schema), false, false, false, TimestampFormat.ISO_8601);
 
 		Row expected = new Row(1);
 		Row actual = convertToExternal(deserializationSchema.deserialize(serializedJson), dataType);
@@ -391,7 +391,7 @@ public class JsonRowDataSerDeSchemaTest {
 
 		// fail on missing field
 		deserializationSchema = deserializationSchema = new JsonRowDataDeserializationSchema(
-			schema, new RowDataTypeInfo(schema), true, false, TimestampFormat.ISO_8601);
+			schema, new RowDataTypeInfo(schema), true, false, false, TimestampFormat.ISO_8601);
 
 		thrown.expect(IOException.class);
 		thrown.expectMessage("Failed to deserialize JSON '{\"id\":123123123}'");
@@ -399,7 +399,7 @@ public class JsonRowDataSerDeSchemaTest {
 
 		// ignore on parse error
 		deserializationSchema = new JsonRowDataDeserializationSchema(
-			schema, new RowDataTypeInfo(schema), false, true, TimestampFormat.ISO_8601);
+			schema, new RowDataTypeInfo(schema), false, false, true, TimestampFormat.ISO_8601);
 		actual = convertToExternal(deserializationSchema.deserialize(serializedJson), dataType);
 		assertEquals(expected, actual);
 
@@ -408,7 +408,53 @@ public class JsonRowDataSerDeSchemaTest {
 		// failOnMissingField and ignoreParseErrors both enabled
 		//noinspection ConstantConditions
 		new JsonRowDataDeserializationSchema(
-			schema, new RowDataTypeInfo(schema), true, true, TimestampFormat.ISO_8601);
+			schema, new RowDataTypeInfo(schema), true, false, true, TimestampFormat.ISO_8601);
+	}
+
+	@Test
+	public void testDefaultOnMissingField() throws Exception{
+		boolean bool = false;
+		byte tinyint = (byte) 0;
+		short smallint = (short) 0;
+		int intValue = 0;
+		float floatValue = 0.0f;
+		long bigint = 0L;
+		String name = "";
+		Double[] doubles = new Double[]{0.0};
+		Map map = new HashMap<>();
+		ObjectMapper objectMapper = new ObjectMapper();
+		// Root
+		ObjectNode root = objectMapper.createObjectNode();
+		// root field missing
+		byte[] serializedJson = objectMapper.writeValueAsBytes(root);
+
+		DataType dataType = ROW(
+			FIELD("bool", BOOLEAN()),
+			FIELD("tinyint", TINYINT()),
+			FIELD("smallint", SMALLINT()),
+			FIELD("int", INT()),
+			FIELD("float", FLOAT()),
+			FIELD("bigint", BIGINT()),
+			FIELD("name", STRING()),
+			FIELD("doubles", ARRAY(DOUBLE())),
+			FIELD("map", MAP(STRING(), BIGINT())));
+		RowType schema = (RowType) dataType.getLogicalType();
+		// pass on missing field
+		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
+			schema, new RowDataTypeInfo(schema), false, true, false, TimestampFormat.ISO_8601);
+
+		Row expected = new Row(9);
+		expected.setField(0, bool);
+		expected.setField(1, tinyint);
+		expected.setField(2, smallint);
+		expected.setField(3, intValue);
+		expected.setField(4, floatValue);
+		expected.setField(5, bigint);
+		expected.setField(6, name);
+		expected.setField(7, doubles);
+		expected.setField(8, map);
+		Row actual = convertToExternal(deserializationSchema.deserialize(serializedJson), dataType);
+		assertEquals(expected, actual);
 	}
 
 	@Test
@@ -419,7 +465,7 @@ public class JsonRowDataSerDeSchemaTest {
 		).getLogicalType();
 
 		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
-			rowType, new RowDataTypeInfo(rowType), false, false, TimestampFormat.RFC_3339);
+			rowType, new RowDataTypeInfo(rowType), false, false, false, TimestampFormat.RFC_3339);
 		JsonRowDataSerializationSchema serializationSchema = new JsonRowDataSerializationSchema(rowType, TimestampFormat.RFC_3339);
 
 		ObjectMapper objectMapper = new ObjectMapper();
@@ -440,7 +486,7 @@ public class JsonRowDataSerDeSchemaTest {
 		).getLogicalType();
 
 		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
-			rowType, new RowDataTypeInfo(rowType), false, false, TimestampFormat.SQL);
+			rowType, new RowDataTypeInfo(rowType), false, false, false, TimestampFormat.SQL);
 		JsonRowDataSerializationSchema serializationSchema = new JsonRowDataSerializationSchema(rowType, TimestampFormat.SQL);
 
 		ObjectMapper objectMapper = new ObjectMapper();
@@ -469,7 +515,7 @@ public class JsonRowDataSerDeSchemaTest {
 	private void testIgnoreParseErrors(TestSpec spec) throws Exception {
 		// the parsing field should be null and no exception is thrown
 		JsonRowDataDeserializationSchema ignoreErrorsSchema = new JsonRowDataDeserializationSchema(
-			spec.rowType,  new RowDataTypeInfo(spec.rowType), false, true,
+			spec.rowType,  new RowDataTypeInfo(spec.rowType), false, false, true,
 			TimestampFormat.ISO_8601);
 		Row expected;
 		if (spec.expected != null) {
@@ -487,7 +533,7 @@ public class JsonRowDataSerDeSchemaTest {
 	private void testParseErrors(TestSpec spec) throws Exception {
 		// expect exception if parse error is not ignored
 		JsonRowDataDeserializationSchema failingSchema = new JsonRowDataDeserializationSchema(
-			spec.rowType,  new RowDataTypeInfo(spec.rowType), false, false,
+			spec.rowType,  new RowDataTypeInfo(spec.rowType), false, false, false,
 			spec.timestampFormat);
 
 		thrown.expectMessage(spec.errorMessage);

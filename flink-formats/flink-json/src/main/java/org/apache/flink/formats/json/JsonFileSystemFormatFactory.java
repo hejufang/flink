@@ -45,6 +45,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.formats.json.JsonFormatFactory.validateFormatOptions;
+import static org.apache.flink.formats.json.JsonOptions.DEFAULT_ON_MISSING_FIELD;
 import static org.apache.flink.formats.json.JsonOptions.FAIL_ON_MISSING_FIELD;
 import static org.apache.flink.formats.json.JsonOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.json.JsonOptions.TIMESTAMP_FORMAT;
@@ -80,6 +81,7 @@ public class JsonFileSystemFormatFactory implements FileSystemFormatFactory {
 		ReadableConfig options = context.getFormatOptions();
 		validateFormatOptions(options);
 		boolean failOnMissingField = options.get(FAIL_ON_MISSING_FIELD);
+		boolean defaultOnMissingField = options.get(DEFAULT_ON_MISSING_FIELD);
 		boolean ignoreParseErrors = options.get(IGNORE_PARSE_ERRORS);
 		TimestampFormat timestampOption = options.get(TIMESTAMP_FORMAT);
 
@@ -88,6 +90,7 @@ public class JsonFileSystemFormatFactory implements FileSystemFormatFactory {
 			formatRowType,
 			new GenericTypeInfo(GenericRowData.class),
 			failOnMissingField,
+			defaultOnMissingField,
 			ignoreParseErrors,
 			timestampOption);
 
