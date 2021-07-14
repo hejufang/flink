@@ -22,7 +22,10 @@ import org.apache.flink.streaming.api.graph.PlanJSONGenerator;
 import org.apache.flink.table.planner.utils.StreamTableTestUtil;
 import org.apache.flink.table.planner.utils.TableTestBase;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -32,8 +35,14 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Test for {@link PlanJSONGenerator}.
@@ -132,7 +141,54 @@ public class PlanJSONGeneratorTest extends TableTestBase {
 	private void doVerifyJsonPlan(String sql) {
 		String jsonPlan = util.tableEnv().generatePlanGraphJson(sql);
 		String plainJson = readJSONStringFromFile();
-		assertEquals(plainJson, jsonPlan);
+		ObjectMapper mapper = new ObjectMapper();
+		boolean res = false;
+		String errorMsg = "expected:<" + plainJson + "> but was:<" + jsonPlan + ">";
+		try {
+			JsonNode expected = mapper.readTree(plainJson);
+			JsonNode actual = mapper.readTree(jsonPlan);
+			res = compareJsonTree(expected, actual);
+		} catch (Throwable e) {
+			errorMsg = e.getMessage() + errorMsg;
+			fail(errorMsg);
+		}
+		assertTrue(errorMsg, res);
+	}
+
+	private boolean compareJsonTree(JsonNode a, JsonNode b) {
+		if (a == null || b == null || a.size() != b.size() || a.getClass() != b.getClass()) {
+			return false;
+		}
+		if (a.isArray()) {
+			List<JsonNode> aList = Lists.newArrayList(a.elements());
+			List<JsonNode> bList = Lists.newArrayList(b.elements());
+			aList.sort(Comparator.comparingInt(o -> o.toString().hashCode()));
+			bList.sort(Comparator.comparingInt(o -> o.toString().hashCode()));
+			for (int i = 0; i < aList.size(); i++) {
+				if (!compareJsonTree(aList.get(i), bList.get(i))) {
+					return false;
+				}
+			}
+			return true;
+		} else if (a.isObject()){
+			for (Iterator<String> it = a.fieldNames(); it.hasNext(); ) {
+				String field = it.next();
+				if (!compareJsonTree(a.get(field), b.get(field))) {
+					return false;
+				}
+			}
+			return true;
+		} else {
+			return a.equals(b);
+		}
+	}
+
+	private Set<JsonNode> convertJSONArrayToSet(ArrayNode input) {
+		Set<JsonNode> retVal = new TreeSet<>();
+		for (int i = 0; i < input.size(); i++) {
+			retVal.add(input.get(i));
+		}
+		return retVal;
 	}
 
 	private String readJSONStringFromFile() {

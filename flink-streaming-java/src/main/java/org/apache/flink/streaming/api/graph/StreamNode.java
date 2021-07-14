@@ -48,7 +48,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  * Class representing the operators in the streaming programs, with all their properties.
  */
 @Internal
-public class StreamNode implements Serializable {
+public class StreamNode implements Serializable, Comparable {
 
 	private static final long serialVersionUID = 1L;
 
@@ -390,5 +390,10 @@ public class StreamNode implements Serializable {
 	@Override
 	public int hashCode() {
 		return id;
+	}
+
+	@Override
+	public int compareTo(Object o) {
+		return id - ((StreamNode) o).id;
 	}
 }

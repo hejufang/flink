@@ -58,6 +58,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -889,7 +890,9 @@ public class StreamGraphGenerator {
 
 	private void setUniqueOperatorMetricNames() {
 		Map<String, Integer> suffixIndexMapPerJob = new HashMap<>();
-		for (StreamNode node : streamGraph.getStreamNodes()) {
+		StreamNode[] nodes = streamGraph.getStreamNodes().toArray(new StreamNode[]{});
+		Arrays.sort(nodes);
+		for (StreamNode node : nodes) {
 			String operatorMetricName = node.getOperatorMetricName();
 			node.setOperatorMetricName(
 				UniqueNameGenerator.appendSuffixIfNotUnique(operatorMetricName, suffixIndexMapPerJob));
