@@ -34,6 +34,9 @@ import org.apache.flink.metrics.reporter.Scheduled;
 import org.apache.flink.yarn.YarnConfigKeys;
 
 import org.apache.flink.shaded.byted.org.yaml.snakeyaml.Yaml;
+import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
+import org.apache.flink.shaded.guava18.com.google.common.cache.CacheLoader;
+import org.apache.flink.shaded.guava18.com.google.common.cache.LoadingCache;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -44,6 +47,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -78,6 +82,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private String prefix;	// It is the prefix of all metric and used in UdpMetricsClient's constructor
 	private String region;
 	private String cluster;
+	private LoadingCache<String, Tuple<String, String>> metricNameAndTagsCache;
 
 	// *************************************************************************
 	//     Global Aggregated Metric (add metric name below if needed)
@@ -105,6 +110,16 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		// avoid yarn dependency
 		this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
 		this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
+		long expireAfterTime = config.getLong("expireAfterTime", 1800);
+		this.metricNameAndTagsCache = CacheBuilder.newBuilder()
+			.expireAfterWrite(expireAfterTime, TimeUnit.SECONDS)
+			.build(
+				new CacheLoader<String, Tuple<String, String>>() {
+					@Override
+					public Tuple<String, String> load(String input) throws Exception {
+						return getMetricNameAndTags(input);
+					}
+				});
 	}
 
 	@VisibleForTesting
@@ -187,7 +202,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			for (Map.Entry<Counter, String> counterStringEntry : counters.entrySet()) {
 				String name = counterStringEntry.getValue();
 				double value = counterStringEntry.getKey().getCount();
-				Tuple<String, String> tuple = getMetricNameAndTags(name);
+				Tuple<String, String> tuple = getMetricNameAndTagsInCache(name);
 				// Counter type is for accumulating, in all metric system, including flink metric and
 				// metrics in bytedance. But once we get counter's current value, it's counter property
 				// disappears, and it is a gauge now.
@@ -197,7 +212,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 			for (Map.Entry<Gauge<?>, String> gaugeStringEntry : gauges.entrySet()) {
 				String name = gaugeStringEntry.getValue();
-				Tuple<String, String> tuple = getMetricNameAndTags(name);
+				Tuple<String, String> tuple = getMetricNameAndTagsInCache(name);
 				Object value = gaugeStringEntry.getKey().getValue();
 				if (value instanceof Number) {
 					double d = ((Number) value).doubleValue();
@@ -237,7 +252,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			for (Map.Entry<Meter, String> meterStringEntry : meters.entrySet()) {
 				String name = meterStringEntry.getValue();
 				Meter meter = meterStringEntry.getKey();
-				Tuple<String, String> tuple = getMetricNameAndTags(name);
+				Tuple<String, String> tuple = getMetricNameAndTagsInCache(name);
 				this.client.emitStoreWithTag(prefix(tuple.x, "rate"), meter.getRate(), tuple.y);
 				this.client.emitStoreWithTag(prefix(tuple.x, "count"), meter.getCount(), tuple.y);
 				reportGlobalMetrics("meter", name, tuple.x, meter.getRate(), tuple.y);
@@ -247,7 +262,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				String name = histogramStringEntry.getValue();
 				Histogram histogram = histogramStringEntry.getKey();
 				HistogramStatistics statistics = histogram.getStatistics();
-				Tuple<String, String> tuple = getMetricNameAndTags(name);
+				Tuple<String, String> tuple = getMetricNameAndTagsInCache(name);
 				this.client.emitStoreWithTag(prefix(tuple.x, "count"), histogram.getCount(), tuple.y);
 				this.client.emitStoreWithTag(prefix(tuple.x, "max"), statistics.getMax(), tuple.y);
 				this.client.emitStoreWithTag(prefix(tuple.x, "min"), statistics.getMin(), tuple.y);
@@ -269,6 +284,18 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	@Override
 	public String filterCharacters(String input) {
 		return input;
+	}
+
+	/**
+	 * Get metric name and tag from input in cache.
+	 */
+	public Tuple<String, String> getMetricNameAndTagsInCache(String input) {
+		try {
+			return metricNameAndTagsCache.get(input);
+		} catch (Exception e) {
+			log.debug("get metric name and tag from cache fail", e);
+		}
+		return getMetricNameAndTags(input);
 	}
 
 	/*
