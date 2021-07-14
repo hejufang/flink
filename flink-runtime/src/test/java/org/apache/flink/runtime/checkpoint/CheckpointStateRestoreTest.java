@@ -32,6 +32,8 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedStateHandle;
+import org.apache.flink.runtime.state.OperatorStreamStateHandle;
+import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 import org.apache.flink.runtime.state.testutils.TestCompletedCheckpointStorageLocation;
 import org.apache.flink.util.SerializableObject;
 
@@ -252,7 +254,15 @@ public class CheckpointStateRestoreTest {
 		// There is no task for this
 		{
 			OperatorState taskState = new OperatorState(newOperatorID, 1, 1);
-			taskState.putState(0, new OperatorSubtaskState());
+			OperatorSubtaskState subtaskState = new OperatorSubtaskState(
+				new StateObjectCollection<>(Collections.singletonList(new OperatorStreamStateHandle(
+					new HashMap<>(),
+					new ByteStreamStateHandle("handle", new byte[]{})))),
+				StateObjectCollection.empty(),
+				StateObjectCollection.empty(),
+				StateObjectCollection.empty()
+			);
+			taskState.putState(0, subtaskState);
 
 			checkpointTaskStates.put(newOperatorID, taskState);
 		}
@@ -279,6 +289,53 @@ public class CheckpointStateRestoreTest {
 			fail("Did not throw the expected Exception.");
 		} catch (IllegalStateException ignored) {
 		}
+	}
+
+	@Test
+	public void testSkipStatefullessOperatorState() throws Exception {
+		// --- (1) Create tasks to restore checkpoint with ---
+		JobVertexID jobVertexId1 = new JobVertexID();
+
+		OperatorID operatorId1 = OperatorID.fromJobVertexID(jobVertexId1);
+
+		ExecutionVertex vertex11 = mockExecutionVertex(mockExecution(), jobVertexId1, 0, 3);
+		ExecutionVertex vertex12 = mockExecutionVertex(mockExecution(), jobVertexId1, 1, 3);
+		ExecutionVertex vertex13 = mockExecutionVertex(mockExecution(), jobVertexId1, 2, 3);
+
+		ExecutionJobVertex jobVertex1 = mockExecutionJobVertex(jobVertexId1, new ExecutionVertex[] { vertex11, vertex12, vertex13 });
+
+		Set<ExecutionJobVertex> tasks = new HashSet<>();
+		tasks.add(jobVertex1);
+
+		CheckpointCoordinator coord =
+			new CheckpointCoordinatorBuilder()
+				.build();
+
+		// --- (2) Checkpoint misses state for a jobVertex (should work) ---
+		Map<OperatorID, OperatorState> checkpointTaskStates = new HashMap<>();
+		{
+			OperatorState taskState = new OperatorState(OperatorID.fromJobVertexID(new JobVertexID()), 3, 3);
+			taskState.putState(0, new OperatorSubtaskState());
+			taskState.putState(1, new OperatorSubtaskState());
+			taskState.putState(2, new OperatorSubtaskState());
+
+			checkpointTaskStates.put(operatorId1, taskState);
+		}
+		CompletedCheckpoint checkpoint = new CompletedCheckpoint(
+			new JobID(),
+			0,
+			1,
+			2,
+			new HashMap<>(checkpointTaskStates),
+			Collections.<MasterState>emptyList(),
+			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
+			new TestCompletedCheckpointStorageLocation());
+
+		coord.getCheckpointStore().addCheckpoint(checkpoint);
+
+		assertTrue(coord.restoreLatestCheckpointedStateToAll(tasks, false));
+		assertTrue(coord.restoreLatestCheckpointedStateToAll(tasks, true));
+
 	}
 
 	// ------------------------------------------------------------------------

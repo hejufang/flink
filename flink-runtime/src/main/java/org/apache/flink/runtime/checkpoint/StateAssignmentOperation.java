@@ -605,7 +605,7 @@ public class StateAssignmentOperation {
 			//----------------------------------------find operator for state---------------------------------------------
 
 			if (!allOperatorIDs.contains(operatorGroupStateEntry.getKey())) {
-				if (allowNonRestoredState) {
+				if (allowNonRestoredState || (Checkpoints.isEmptyState(operatorState))) {
 					LOG.info("Skipped checkpoint state for operator {}.", operatorState.getOperatorID());
 				} else {
 					final String message = "There is no operator for the state " + operatorState.getOperatorID() +
@@ -615,6 +615,8 @@ public class StateAssignmentOperation {
 					LOG.error(message);
 					throw new IllegalStateException(message);
 				}
+			} else {
+				LOG.info("Operator {} restored successfully.", operatorState.getOperatorID());
 			}
 		}
 	}

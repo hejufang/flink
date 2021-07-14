@@ -216,6 +216,19 @@ public class Checkpoints {
 				location);
 	}
 
+	public static boolean isEmptyState(OperatorState operatorState) {
+		if (operatorState.getCoordinatorState() != null) {
+			return false;
+		} else {
+			for (OperatorSubtaskState subtaskState : operatorState.getStates()) {
+				if (subtaskState.hasState()) {
+					return false;
+				}
+			}
+			return true;
+		}
+	}
+
 	private static void throwNonRestoredStateException(String checkpointPointer, OperatorID operatorId) {
 		String msg = String.format("Failed to rollback to checkpoint/savepoint %s. " +
 				"Cannot map checkpoint/savepoint state for operator %s to the new program, " +
