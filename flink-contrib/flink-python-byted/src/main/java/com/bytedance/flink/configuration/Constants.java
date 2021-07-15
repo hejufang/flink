@@ -32,6 +32,7 @@ public class Constants {
 	public static final String TMP_DIRS = "io.tmp.dirs";
 	public static final int RUN_MODE_CLUSTER = 0;
 	public static final int RUN_MODE_STANDLONE = 1;
+	public static final String BUFFER_TIMEOUT_KEY = "buffer_timeout";
 	public static final String RUN_TIME_KEY = "topology_standalone_time";
 	public static final int RUN_TIME_VAL = 100;
 	public static final String FLINK_ARGS = "flink_args";

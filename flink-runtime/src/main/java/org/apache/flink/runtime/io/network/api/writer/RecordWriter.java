@@ -112,6 +112,7 @@ public class RecordWriter<T extends IOReadableWritable> {
 				DEFAULT_OUTPUT_FLUSH_THREAD_NAME :
 				DEFAULT_OUTPUT_FLUSH_THREAD_NAME + " for " + taskName;
 
+			LOG.debug("Start output flusher with threadName: {}, timeout: {}", threadName, timeout);
 			outputFlusher = Optional.of(new OutputFlusher(threadName, timeout));
 			outputFlusher.get().start();
 		}

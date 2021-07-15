@@ -83,6 +83,15 @@ public class FlinkTopologyBuilder {
 		this.env = StreamExecutionEnvironment.getExecutionEnvironment();
 		// Set default parallelism to 1.
 		env.setParallelism(1);
+		if (jobConfig.getCommonArgs().containsKey(Constants.BUFFER_TIMEOUT_KEY)) {
+			try {
+				long bufferTimeout = Long.parseLong(String.valueOf(jobConfig.getCommonArgs().get(Constants.BUFFER_TIMEOUT_KEY)));
+				env.setBufferTimeout(bufferTimeout);
+				LOG.info("Set buffer timeout to {}.", bufferTimeout);
+			} catch (Exception e) {
+				LOG.warn("Set buffer timeout failed.", e);
+			}
+		}
 	}
 
 	public void run(String jobName) {
