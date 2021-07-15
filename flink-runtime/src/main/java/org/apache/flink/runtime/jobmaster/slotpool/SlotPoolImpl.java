@@ -634,7 +634,7 @@ public class SlotPoolImpl implements SlotPool {
 			final SlotID newSlotId = new SlotID(taskManagerLocation.getResourceID(), slotOffer.getSlotIndex());
 
 			if (existingSlotId.equals(newSlotId)) {
-				log.info("Received repeated offer for slot [{}]. Ignoring.", allocationID);
+				log.debug("Received repeated offer for slot [{}]. Ignoring.", allocationID);
 
 				// return true here so that the sender will get a positive acknowledgement to the retry
 				// and mark the offering as a success

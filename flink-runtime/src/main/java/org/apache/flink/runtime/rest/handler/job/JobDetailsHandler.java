@@ -141,7 +141,7 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 
 		String metric = WebMonitorUtils.createMetricUrl(configuration);
 		String dtop = WebMonitorUtils.createDtopUrl(configuration);
-		LOGGER.info("metric = {}, dtop = {}", metric, dtop);
+		LOGGER.debug("metric = {}, dtop = {}", metric, dtop);
 
 		return new JobDetailsInfo(
 			executionGraph.getJobID(),

@@ -77,7 +77,7 @@ public class BlacklistUtil {
 	}
 
 	public static RemoteBlacklistReporter createNoOpRemoteBlacklistReporter() {
-		LOG.info("Create NoOpRemoteBlacklistReporter.");
+		LOG.debug("Create NoOpRemoteBlacklistReporter.");
 		return new NoOpBlacklistReporterImpl();
 	}
 

@@ -90,7 +90,7 @@ public class HtapReader implements AutoCloseable {
 			int processId = getProcessId();
 			String logStoreLogDir = readerConfig.getLogStoreLogDir() + "/" + processId;
 			String pageStoreLogDir = readerConfig.getPageStoreLogDir() + "/" + processId;
-			LOG.info("Obtain client with log path: logStorage({}), pageStorage({})",
+			LOG.debug("Obtain client with log path: logStorage({}), pageStorage({})",
 				logStoreLogDir, pageStoreLogDir);
 			return new HtapStorageClient(readerConfig.getInstanceId(),
 				readerConfig.getByteStoreLogPath(), readerConfig.getByteStoreDataPath(),
@@ -172,7 +172,7 @@ public class HtapReader implements AutoCloseable {
 		}
 
 		if (splits.length < minNumSplits) {
-			LOG.warn(" The minimum desired number of splits with your configured parallelism " +
+			LOG.debug(" The minimum desired number of splits with your configured parallelism " +
 				"level is {}. Current kudu splits = {}. {} instances will remain idle.",
 				minNumSplits,
 				splits.length,
