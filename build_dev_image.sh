@@ -42,7 +42,7 @@ done
 
 modules=(`echo $build_module | tr ',' ' '` )
 
-for module in $modules
+for module in ${modules[@]}
 do
   pushd "${module}"
     mvn clean install -DskipTests -T 1C -Pinclude-hadoop -Psql-jars
