@@ -24,6 +24,7 @@ import com.bytedance.htap.meta.ColumnSchema;
 import com.bytedance.htap.meta.Schema;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -102,8 +103,11 @@ public class HtapFilterInfo implements Serializable {
 			case BINARY:
 				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (byte[]) this.value);
 				break;
+			case UINT64:
+				predicate = HtapPredicate.newComparisonPredicate(column, comparison, ((BigDecimal) this.value).unscaledValue());
+				break;
 			default:
-				throw new IllegalArgumentException("Illegal var type: " + column.getType());
+				throw new IllegalArgumentException("Illegal var type for filter pushdown: " + column.getType());
 		}
 		return predicate;
 	}

@@ -30,6 +30,7 @@ import org.apache.flink.table.planner.plan.stats.FlinkStatistic
 import org.apache.flink.table.planner.plan.utils.AggregateUtil
 import org.apache.flink.table.sources.AggregatableTableSource
 import org.apache.flink.table.types.DataType
+import org.apache.flink.table.types.logical.LogicalType
 import org.apache.flink.table.types.utils.TypeConversions
 
 import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall, RelOptRuleOperand}
@@ -106,8 +107,15 @@ extends RelOptRule(operand, description) {
     val aggArgFields = new util.LinkedList[Array[Int]]
     val groupSet = localAgg.getGrouping
     aggInfoList.getActualAggregateInfos.foreach(aggInfo => {
+      val inputType = localAgg.getInput.getRowType
+      import scala.collection.JavaConversions._
+      val argTypes: Array[LogicalType] = aggInfo.agg.getArgList
+        .map(inputType.getFieldList.get(_).getType)
+        .map(FlinkTypeFactory.toLogicalType)
+        .toArray
       if (aggInfo.function.isInstanceOf[AvgAggFunction]) {
-        val (sumAggFunc, countAggFunc) = AggregateUtil.deriveSumAndCountFromAvg(aggInfo.function)
+        val (sumAggFunc, countAggFunc) =
+          AggregateUtil.deriveSumAndCountFromAvg(aggInfo.function, argTypes)
         remainingAggFunctionList.add(sumAggFunc)
         remainingAggFunctionList.add(countAggFunc)
         aggArgFields.add(aggInfo.argIndexes)

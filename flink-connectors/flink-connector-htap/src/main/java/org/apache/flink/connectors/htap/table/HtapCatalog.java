@@ -540,9 +540,11 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 			case INT8:
 			case INT16:
 			case INT32:
+			case UINT64:
 			case INT64:
 			case FLOAT:
 			case DOUBLE:
+			case DECIMAL:
 				return true;
 			default:
 				return false;

@@ -31,10 +31,16 @@ import org.apache.flink.table.planner.calcite.{FlinkTypeFactory, FlinkTypeSystem
 import org.apache.flink.table.planner.dataview.DataViewUtils.useNullSerializerForStateViewFieldsFromAccType
 import org.apache.flink.table.planner.dataview.{DataViewSpec, MapViewSpec}
 import org.apache.flink.table.planner.expressions.{PlannerProctimeAttribute, PlannerRowtimeAttribute, PlannerWindowEnd, PlannerWindowStart}
+import org.apache.flink.table.planner.functions.aggfunctions.AvgAggFunction.DecimalAvgAggFunction
+import org.apache.flink.table.planner.functions.aggfunctions.AvgAggFunction.{ByteAvgAggFunction, DoubleAvgAggFunction, FloatAvgAggFunction, IntAvgAggFunction, LongAvgAggFunction, ShortAvgAggFunction}
+import org.apache.flink.table.planner.functions.aggfunctions.Sum0AggFunction.DecimalSum0AggFunction
+import org.apache.flink.table.planner.functions.aggfunctions.Sum0AggFunction.{ByteSum0AggFunction, DoubleSum0AggFunction, FloatSum0AggFunction, IntSum0AggFunction, LongSum0AggFunction, ShortSum0AggFunction}
 import org.apache.flink.table.planner.functions.aggfunctions.{CountAggFunction, DeclarativeAggregateFunction, Sum0AggFunction}
 import org.apache.flink.table.planner.functions.sql.{FlinkSqlOperatorTable, SqlFirstLastValueAggFunction, SqlListAggFunction}
 import org.apache.flink.table.planner.functions.utils.AggSqlFunction
 import org.apache.flink.table.planner.functions.utils.UserDefinedFunctionUtils._
+import org.apache.flink.table.planner.plan.metadata.FlinkRelMetadataQuery
+import org.apache.flink.table.planner.plan.nodes.physical.stream.StreamPhysicalRel
 import org.apache.flink.table.planner.plan.`trait`.{ModifyKindSetTraitDef, RelModifiedMonotonicity}
 import org.apache.flink.table.runtime.operators.bundle.trigger.CountBundleTrigger
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.{fromDataTypeToLogicalType, fromLogicalTypeToDataType}
@@ -45,19 +51,16 @@ import org.apache.flink.table.types.logical.utils.LogicalTypeChecks
 import org.apache.flink.table.types.logical.utils.LogicalTypeChecks.hasRoot
 import org.apache.flink.table.types.logical.{LogicalTypeRoot, _}
 import org.apache.flink.table.types.utils.TypeConversions.fromLegacyInfoToDataType
+
 import org.apache.calcite.rel.`type`._
 import org.apache.calcite.rel.core.{Aggregate, AggregateCall}
 import org.apache.calcite.sql.fun._
 import org.apache.calcite.sql.validate.SqlMonotonicity
 import org.apache.calcite.sql.{SqlKind, SqlRankFunction}
 import org.apache.calcite.tools.RelBuilder
-import org.apache.flink.table.planner.plan.metadata.FlinkRelMetadataQuery
-import org.apache.flink.table.planner.plan.nodes.physical.stream.StreamPhysicalRel
+
 import java.time.Duration
 import java.util
-
-import org.apache.flink.table.planner.functions.aggfunctions.AvgAggFunction.{ByteAvgAggFunction, DoubleAvgAggFunction, FloatAvgAggFunction, IntAvgAggFunction, LongAvgAggFunction, ShortAvgAggFunction}
-import org.apache.flink.table.planner.functions.aggfunctions.Sum0AggFunction.{ByteSum0AggFunction, DoubleSum0AggFunction, FloatSum0AggFunction, IntSum0AggFunction, LongSum0AggFunction, ShortSum0AggFunction}
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable
@@ -199,7 +202,8 @@ object AggregateUtil extends Enumeration {
   }
 
   def deriveSumAndCountFromAvg(
-      avgAggFunction: UserDefinedFunction): (Sum0AggFunction, CountAggFunction) = {
+      avgAggFunction: UserDefinedFunction,
+      argTypes: Array[LogicalType]): (Sum0AggFunction, CountAggFunction) = {
     avgAggFunction match {
       case _: ByteAvgAggFunction => (new ByteSum0AggFunction, new CountAggFunction)
       case _: ShortAvgAggFunction => (new ShortSum0AggFunction, new CountAggFunction)
@@ -207,6 +211,10 @@ object AggregateUtil extends Enumeration {
       case _: LongAvgAggFunction => (new LongSum0AggFunction, new CountAggFunction)
       case _: FloatAvgAggFunction => (new FloatSum0AggFunction, new CountAggFunction)
       case _: DoubleAvgAggFunction => (new DoubleSum0AggFunction, new CountAggFunction)
+      case _: DecimalAvgAggFunction => {
+        val d = argTypes(0).asInstanceOf[DecimalType]
+        (new DecimalSum0AggFunction(d), new CountAggFunction)
+      }
       case _ => {
         throw new TableException(s"Avg aggregate function does not support: ''$avgAggFunction''" +
           s"Please re-check the function or data type.")

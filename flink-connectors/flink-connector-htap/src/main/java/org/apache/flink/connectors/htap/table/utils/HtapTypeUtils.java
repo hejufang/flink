@@ -79,6 +79,8 @@ public class HtapTypeUtils {
 				return DataTypes.INT();
 			case INT64:
 				return DataTypes.BIGINT();
+			case UINT64:
+				return DataTypes.DECIMAL(20, 0);
 			case DOUBLE:
 				return DataTypes.DOUBLE();
 			case DECIMAL:
