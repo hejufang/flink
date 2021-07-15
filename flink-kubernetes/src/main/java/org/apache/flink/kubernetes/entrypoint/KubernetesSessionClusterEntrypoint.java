@@ -19,6 +19,7 @@
 package org.apache.flink.kubernetes.entrypoint;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
 import org.apache.flink.runtime.entrypoint.SessionClusterEntrypoint;
 import org.apache.flink.runtime.entrypoint.component.DefaultDispatcherResourceManagerComponentFactory;
@@ -50,6 +51,7 @@ public class KubernetesSessionClusterEntrypoint extends SessionClusterEntrypoint
 
 		final ClusterEntrypoint entrypoint = new KubernetesSessionClusterEntrypoint(
 			KubernetesEntrypointUtils.loadConfiguration());
+		LOG.info("Kubernetes JM Pod in host: {}", System.getenv(Constants.ENV_POD_HOST_IP));
 		ClusterEntrypoint.runClusterEntrypoint(entrypoint);
 	}
 }

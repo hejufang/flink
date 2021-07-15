@@ -55,7 +55,9 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.StringUtils;
 
+import io.fabric8.kubernetes.api.model.PodStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -106,6 +108,9 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	private volatile boolean running;
 
+	/** Map from pod name to hostIP. */
+	private final HashMap<String, String> podNameAndHostIPMap;
+
 	public KubernetesResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -141,6 +146,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.configuration = configuration;
 		this.podWorkerResources = new HashMap<>();
 		this.running = false;
+		this.podNameAndHostIPMap = new HashMap<>();
 	}
 
 	@Override
@@ -255,12 +261,33 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	@Override
 	public void onModified(List<KubernetesPod> pods) {
-		runAsync(() -> pods.forEach(this::removePodAndTryRestartIfRequired));
+		runAsync(() -> {
+			for (KubernetesPod pod : pods) {
+				PodStatus status = pod.getInternalResource().getStatus();
+				if (status != null) {
+					String podName = pod.getName();
+					String hostIP = status.getHostIP();
+					if (!StringUtils.isNullOrWhitespaceOnly(hostIP) && !hostIP.equals(podNameAndHostIPMap.get(podName))) {
+						podNameAndHostIPMap.put(podName, hostIP);
+						LOG.info("modified event: a taskManager pod, it's podName: {}, hostIP: {}", podName, hostIP);
+					}
+				}
+				removePodAndTryRestartIfRequired(pod);
+			}
+		});
 	}
 
 	@Override
 	public void onDeleted(List<KubernetesPod> pods) {
-		runAsync(() -> pods.forEach(this::removePodAndTryRestartIfRequired));
+		runAsync(() -> {
+			for (KubernetesPod pod : pods) {
+				String hostIP = podNameAndHostIPMap.remove(pod.getName());
+				if (!StringUtils.isNullOrWhitespaceOnly(hostIP)){
+					LOG.info("deleted event: a taskManager pod, it's podName: {}, hostIP: {}", pod.getName(), hostIP);
+				}
+				removePodAndTryRestartIfRequired(pod);
+			}
+		});
 	}
 
 	@Override

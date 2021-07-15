@@ -80,4 +80,6 @@ public class Constants {
 	public static final int MAXIMUM_CHARACTERS_OF_CLUSTER_ID = 45;
 
 	public static final String RESTART_POLICY_OF_NEVER = "Never";
+
+	public static final String ENV_POD_HOST_IP = "MY_HOST_IP";
 }
