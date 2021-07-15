@@ -18,41 +18,55 @@
 
 package org.apache.flink.runtime.state.cache;
 
-import java.io.IOException;
+import org.apache.flink.runtime.state.cache.sync.DataSynchronizer;
+
+import java.util.function.Predicate;
 
 /**
  * The general interface of cache supports common operations of
  * adding, deleting, updating, and querying.
  */
-public interface Cache<K, V> {
+public abstract class Cache<K, V> {
+
+	/** Monitor the occurrence of internal events in the cache, which is mainly used for metrics statistics. */
+	protected DefaultEventListener<K, V> listener;
+	/** Responsible for data synchronization. */
+	protected DataSynchronizer<K, V> dataSynchronizer;
+	/** write the data to the underlying storage when it is dirty. */
+	protected Predicate<V> dirtyDataChecker;
+
 	/**
 	 * Returns the value associated with {@code key} in this cache.
 	 */
-	V get(K key) throws IOException;
+	public abstract V get(K key) throws Exception;
 
 	/**
 	 * Associates {@code value} with {@code key} in this cache. If the cache previously contained a
 	 * value associated with {@code key}, the old value is replaced by {@code value}.
 	 */
-	void put(K key, V value) throws IOException;
+	public abstract void put(K key, V value) throws Exception;
 
 	/**
 	 * Delete any cached value for key {@code key}.
 	 */
-	void delete(K key) throws IOException;
+	public abstract void delete(K key) throws Exception;
 
 	/**
 	 * Delete all cached value.
 	 */
-	void clear() throws IOException;
+	public abstract void clear() throws Exception;
 
 	/**
 	 * Returns the approximate number of entries in this cache.
 	 */
-	long size();
+	public abstract long size();
 
 	/**
 	 * Configure the event listener inside the cache.
 	 */
-	void configure(EventListener<K, V> listener);
+	public void configure(DefaultEventListener<K, V> listener, DataSynchronizer<K, V> dataSynchronizer, Predicate<V> dirtyDataChecker) {
+		this.listener = listener;
+		this.dataSynchronizer = dataSynchronizer;
+		this.dirtyDataChecker = dirtyDataChecker;
+	}
 }

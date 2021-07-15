@@ -18,26 +18,13 @@
 
 package org.apache.flink.runtime.state.cache;
 
+import org.apache.flink.configuration.MemorySize;
+
 /**
- * The listener responsible for monitoring the internal events of the cache,
- * including cache request, evict, load, etc.
+ * The listener of the memory size, if a {@link Cache} needs to control the size according
+ * to the memory, this interface needs to be implemented.
  */
-public interface EventListener<K, V> {
-	/** Notify that an request event has occurred. */
-	void notifyCacheRequest(K key, V value) throws Exception;
-
-	/** Notify that an evict event has occurred. */
-	void notifyCacheEvict() throws Exception;
-
-	/** Notify that an load event has occurred. */
-	void notifyCacheLoad(boolean success) throws Exception;
-
-	/** Notify that an delete event has occurred. */
-	void notifyCacheDelete() throws Exception;
-
-	/** Notify that an save event has occurred. */
-	void notifyCacheSave() throws Exception;
-
-	/** Notify that an hit event has occurred. */
-	void notifyCacheHit();
+public interface MemorySizeListener {
+	/** When the memory exceeds the limit, the callback will notify the memory overflow. */
+	void notifyExceedMemoryLimit(MemorySize maxMemorySize, MemorySize exceedMemorySize);
 }

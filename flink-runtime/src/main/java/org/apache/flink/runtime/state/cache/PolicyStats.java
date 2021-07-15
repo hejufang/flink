@@ -31,6 +31,8 @@ public class PolicyStats {
 	private long missCount;
 	private long evictionCount;
 	private long loadSuccessCount;
+	private long saveCount;
+	private long deleteCount;
 	private long estimatedKVSize;
 	private MemorySize maxMemorySize;
 
@@ -40,6 +42,8 @@ public class PolicyStats {
 		this.hitCount = 0L;
 		this.missCount = 0L;
 		this.evictionCount = 0L;
+		this.saveCount = 0L;
+		this.deleteCount = 0L;
 		this.estimatedKVSize = 0L;
 		this.maxMemorySize = MemorySize.ZERO;
 	}
@@ -62,6 +66,14 @@ public class PolicyStats {
 
 	public void recordLoadSuccess() {
 		this.loadSuccessCount++;
+	}
+
+	public void recordSave() {
+		this.saveCount++;
+	}
+
+	public void recordDelete() {
+		this.deleteCount++;
 	}
 
 	public void recordEstimatedKVSize(long estimatedKVSize) {
@@ -90,6 +102,14 @@ public class PolicyStats {
 
 	public long getLoadSuccessCount() {
 		return loadSuccessCount;
+	}
+
+	public long getSaveCount() {
+		return saveCount;
+	}
+
+	public long getDeleteCount() {
+		return deleteCount;
 	}
 
 	public long getEstimatedKVSize() {
