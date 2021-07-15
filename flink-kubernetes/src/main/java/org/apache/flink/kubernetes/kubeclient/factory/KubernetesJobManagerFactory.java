@@ -90,6 +90,7 @@ public class KubernetesJobManagerFactory {
 			.editOrNewMetadata()
 				.withName(KubernetesUtils.getDeploymentName(kubernetesJobManagerParameters.getClusterId()))
 				.withLabels(kubernetesJobManagerParameters.getLabels())
+				.withAnnotations(kubernetesJobManagerParameters.getDeploymentAnnotations())
 				.endMetadata()
 			.editOrNewSpec()
 				.withReplicas(1)

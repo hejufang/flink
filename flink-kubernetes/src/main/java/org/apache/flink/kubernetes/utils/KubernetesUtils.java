@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.kubernetes.utils.Constants.JVM_HS_ERROR_PATH;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -204,6 +205,11 @@ public class KubernetesUtils {
 		if (flinkConfig.getBoolean(CoreOptions.FLINK_GC_G1_ENABLE)) {
 			baseJavaOpts += " -XX:+UseG1GC";
 			baseJavaOpts += " -XX:MaxGCPauseMillis=" + flinkConfig.getInteger(CoreOptions.FLINK_MAX_GC_PAUSE_MILLIS);
+		}
+
+		if (flinkConfig.getBoolean(CoreOptions.FLINK_JVM_ERROR_FILE_ENABLED)) {
+			/* Because the default PID number under K8S is 1, it is distinguished by time stamp */
+			baseJavaOpts += " -XX:ErrorFile=" + JVM_HS_ERROR_PATH + "hs_err_ts_" + System.currentTimeMillis() + ".log";
 		}
 
 		if (flinkConfig.getString(configOption).length() > 0) {

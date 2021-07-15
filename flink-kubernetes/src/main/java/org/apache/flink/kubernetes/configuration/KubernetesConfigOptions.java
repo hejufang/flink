@@ -172,6 +172,13 @@ public class KubernetesConfigOptions {
 			.withDescription("The number of task managers to be reserved even if they are expired. "
 				+ "0 for not reserve task managers.");
 
+	public static final ConfigOption<Map<String, String>> KUBERNETES_DEPLOYMENT_ANNOTATIONS =
+		key("kubernetes.deployment.annotations")
+			.mapType()
+			.noDefaultValue()
+			.withDescription("The user-specified annotations that are set to the JobManager Deployment. "
+				+ "The value could be in the form of a1:v1,a2:v2");
+
 	/**
 	 * The following config options need to be set according to the image.
 	 */

@@ -114,6 +114,10 @@ public class KubernetesJobManagerParameters extends AbstractKubernetesParameters
 		return flinkConfig.getInteger(JobManagerOptions.PORT);
 	}
 
+	public Map<String, String> getDeploymentAnnotations() {
+		return flinkConfig.getOptional(KubernetesConfigOptions.KUBERNETES_DEPLOYMENT_ANNOTATIONS).orElse(Collections.emptyMap());
+	}
+
 	public int getBlobServerPort() {
 		final int blobServerPort = KubernetesUtils.parsePort(flinkConfig, BlobServerOptions.PORT);
 		checkArgument(blobServerPort > 0, "%s should not be 0.", BlobServerOptions.PORT.key());

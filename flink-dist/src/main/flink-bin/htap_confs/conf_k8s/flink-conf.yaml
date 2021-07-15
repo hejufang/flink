@@ -48,6 +48,7 @@ common:
   kubernetes.taskmanager.cpu: 8.0
   kubernetes.jobmanager.cpu: 16.0
   kubernetes.jobmanager.service-account: flink
+  kubernetes.deployment.annotations: pod.tce.kubernetes.io/mountHostPath:true
 
   #metrics
   metrics.reporters: opentsdb_reporter
