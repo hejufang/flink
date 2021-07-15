@@ -26,6 +26,7 @@ import org.apache.flink.table.planner.functions.aggfunctions.Sum0AggFunction;
 import org.apache.flink.table.planner.functions.aggfunctions.SumAggFunction;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.DateType;
+import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.DoubleType;
 import org.apache.flink.table.types.logical.FloatType;
 import org.apache.flink.table.types.logical.IntType;
@@ -124,7 +125,8 @@ public class HtapAggregateUtils {
 						&& !(logicalType instanceof IntType)
 						&& !(logicalType instanceof BigIntType)
 						&& !(logicalType instanceof DoubleType)
-						&& !(logicalType instanceof FloatType)) {
+						&& !(logicalType instanceof FloatType)
+						&& !(logicalType instanceof DecimalType)) {
 					return false;
 				}
 			}
@@ -141,7 +143,8 @@ public class HtapAggregateUtils {
 						&& !(logicalType instanceof TimeType)
 						&& !(logicalType instanceof TimestampType)
 						&& !(logicalType instanceof DoubleType)
-						&& !(logicalType instanceof FloatType)) {
+						&& !(logicalType instanceof FloatType)
+						&& !(logicalType instanceof DecimalType)) {
 					return false;
 				}
 			}

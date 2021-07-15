@@ -299,7 +299,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 		List<HtapAggregateInfo> aggregates = new ArrayList<>(aggregateFunctions.size());
 		ListIterator<FunctionDefinition> iterator = aggregateFunctions.listIterator();
 		int cur = 0;
-		RowType rowType = (RowType) flinkSchema.toRowDataType().getLogicalType();
+		RowType rowType = (RowType) getProducedDataType().getLogicalType();
 		while (iterator.hasNext() && cur < aggregateFields.size()) {
 			FunctionDefinition aggFunction = iterator.next();
 			int[] aggFields = aggregateFields.get(cur++);
