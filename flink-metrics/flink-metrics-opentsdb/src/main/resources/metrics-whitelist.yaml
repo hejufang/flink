@@ -227,5 +227,7 @@ non-global:
         processEventDuration,
         processMatchedDuration,
         processUnMatchDuration,
-        processTimeoutDuration
+        processTimeoutDuration,
+      # cache
+        cacheStats
     ]

@@ -19,6 +19,7 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.io.InputStatus;
@@ -51,7 +52,10 @@ import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.runtime.state.CheckpointStorageWorkerView;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendLoader;
+import org.apache.flink.runtime.state.cache.CacheConfigurableOptions;
+import org.apache.flink.runtime.state.cache.CacheConfiguration;
 import org.apache.flink.runtime.state.cache.CacheManager;
+import org.apache.flink.runtime.state.cache.CachedStateBackend;
 import org.apache.flink.runtime.taskmanager.DispatcherThreadFactory;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.util.FatalExitExceptionHandler;
@@ -1118,11 +1122,16 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	private StateBackend createStateBackend() throws Exception {
 		final StateBackend fromApplication = configuration.getStateBackend(getUserCodeClassLoader());
 
-		return StateBackendLoader.fromApplicationOrConfigOrDefault(
-				fromApplication,
-				getEnvironment().getTaskManagerInfo().getConfiguration(),
-				getUserCodeClassLoader(),
-				LOG);
+		StateBackend delegateStateBackend = StateBackendLoader.fromApplicationOrConfigOrDefault(
+			fromApplication,
+			getEnvironment().getTaskManagerInfo().getConfiguration(),
+			getUserCodeClassLoader(),
+			LOG);
+
+		Configuration globalConfiguration = getEnvironment().getTaskManagerInfo().getConfiguration();
+		return globalConfiguration.get(CacheConfigurableOptions.CACHE_ENABLED) ?
+			new CachedStateBackend(getEnvironment().getCacheManager(), delegateStateBackend, CacheConfiguration.fromConfiguration(globalConfiguration)) :
+			delegateStateBackend;
 	}
 
 	/**

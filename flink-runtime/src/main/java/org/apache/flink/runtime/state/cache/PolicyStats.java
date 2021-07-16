@@ -29,7 +29,7 @@ public class PolicyStats {
 	private long requestCount;
 	private long hitCount;
 	private long missCount;
-	private long evictionCount;
+	private long evictCount;
 	private long loadSuccessCount;
 	private long saveCount;
 	private long deleteCount;
@@ -41,7 +41,7 @@ public class PolicyStats {
 		this.requestCount = 0L;
 		this.hitCount = 0L;
 		this.missCount = 0L;
-		this.evictionCount = 0L;
+		this.evictCount = 0L;
 		this.saveCount = 0L;
 		this.deleteCount = 0L;
 		this.estimatedKVSize = 0L;
@@ -61,7 +61,7 @@ public class PolicyStats {
 	}
 
 	public void recordEviction() {
-		this.evictionCount++;
+		this.evictCount++;
 	}
 
 	public void recordLoadSuccess() {
@@ -96,8 +96,8 @@ public class PolicyStats {
 		return missCount;
 	}
 
-	public long getEvictionCount() {
-		return evictionCount;
+	public long getEvictCount() {
+		return evictCount;
 	}
 
 	public long getLoadSuccessCount() {
@@ -132,9 +132,13 @@ public class PolicyStats {
 		return new CacheStatistic(
 			maxMemorySize,
 			new MemorySize(getEstimatedSize()),
+			estimatedKVSize,
 			requestCount,
 			hitCount,
 			missCount,
-			loadSuccessCount);
+			evictCount,
+			loadSuccessCount,
+			saveCount,
+			deleteCount);
 	}
 }

@@ -23,28 +23,40 @@ import org.apache.flink.configuration.MemorySize;
  * Cache statistics collected during the running of the task, such as request count, hit count, etc.
  */
 public class CacheStatistic {
-	public static final CacheStatistic EMPTY_STATISTIC = new CacheStatistic(MemorySize.ZERO, MemorySize.ZERO, 0, 0, 0, 0);
+	public static final CacheStatistic EMPTY_STATISTIC = new CacheStatistic(MemorySize.ZERO, MemorySize.ZERO, 0, 0, 0, 0, 0, 0, 0, 0);
 
 	private MemorySize maxMemorySize;
 	private MemorySize usedMemorySize;
+	private long estimatedKVSize;
 	private long requestCount;
 	private long hitCount;
 	private long missCount;
+	private long evictionCount;
 	private long loadSuccessCount;
+	private long saveCount;
+	private long deleteCount;
 
 	public CacheStatistic(
 			MemorySize maxMemorySize,
 			MemorySize usedMemorySize,
+			long estimatedKVSize,
 			long requestCount,
 			long hitCount,
 			long missCount,
-			long loadSuccessCount) {
+			long evictionCount,
+			long loadSuccessCount,
+			long saveCount,
+			long deleteCount) {
 		this.maxMemorySize = maxMemorySize;
 		this.usedMemorySize = usedMemorySize;
+		this.estimatedKVSize = estimatedKVSize;
 		this.requestCount = requestCount;
 		this.hitCount = hitCount;
 		this.missCount = missCount;
+		this.evictionCount = evictionCount;
 		this.loadSuccessCount = loadSuccessCount;
+		this.saveCount = saveCount;
+		this.deleteCount = deleteCount;
 	}
 
 	public MemorySize getMaxMemorySize() {
@@ -69,5 +81,21 @@ public class CacheStatistic {
 
 	public long getLoadSuccessCount() {
 		return loadSuccessCount;
+	}
+
+	public long getEstimatedKVSize() {
+		return estimatedKVSize;
+	}
+
+	public long getEvictionCount() {
+		return evictionCount;
+	}
+
+	public long getSaveCount() {
+		return saveCount;
+	}
+
+	public long getDeleteCount() {
+		return deleteCount;
 	}
 }

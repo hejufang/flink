@@ -175,7 +175,8 @@ public class CachedStateBackend extends AbstractStateBackend {
 				keyedStateBackend,
 				cacheManager,
 				configuration,
-				env.getTaskInfo());
+				env.getTaskInfo(),
+				metricGroup);
 		} catch (BackendBuildingException e) {
 			throw e;
 		} catch (Exception e) {

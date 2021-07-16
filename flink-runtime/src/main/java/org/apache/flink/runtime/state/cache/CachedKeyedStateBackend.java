@@ -31,6 +31,11 @@ import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.CloseableRegistry;
+import org.apache.flink.metrics.GrafanaGauge;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.TagGauge;
+import org.apache.flink.metrics.TagGaugeStore;
+import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
@@ -51,6 +56,7 @@ import org.apache.flink.runtime.state.cache.internal.DirectListState;
 import org.apache.flink.runtime.state.cache.internal.DirectReducingState;
 import org.apache.flink.runtime.state.cache.memory.MemoryEstimator;
 import org.apache.flink.runtime.state.cache.memory.SerializerMemoryEstimatorFactory;
+import org.apache.flink.runtime.state.cache.monitor.CacheStatistic;
 import org.apache.flink.runtime.state.cache.sync.DataSynchronizer;
 import org.apache.flink.runtime.state.cache.sync.StateSynchronizerFactory;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueElement;
@@ -64,10 +70,11 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RunnableFuture;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -78,6 +85,9 @@ import java.util.stream.Stream;
 public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 	private static final Logger LOG = LoggerFactory.getLogger(CachedKeyedStateBackend.class);
+
+	// metrics of cache
+	private static final String CACHE_STATS = "cacheStats";
 
 	private interface StateFactory {
 		<K, N, V, IS extends State> IS createState(
@@ -116,6 +126,9 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	/** The cache mapping table that has been registered successfully. */
 	private final Map<String, Cache<?, ?>> registeredCache;
 
+	/** A tracker for cache statistics. */
+	private final CacheStatsTracker cacheStatsTracker;
+
 	/** Mark whether this backend is already disposed and prevent duplicate disposing. */
 	private boolean disposed = false;
 
@@ -131,7 +144,8 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			AbstractKeyedStateBackend<K> delegateKeyedStateBackend,
 			CacheManager cacheManager,
 			CacheConfiguration configuration,
-			TaskInfo taskInfo) throws Exception {
+			TaskInfo taskInfo,
+			MetricGroup metricGroup) throws Exception {
 		super(
 			kvStateRegistry,
 			keySerializer,
@@ -143,10 +157,13 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			keyContext);
 		this.delegateKeyedStateBackend = delegateKeyedStateBackend;
 		this.cacheManager = cacheManager;
-		this.registeredCache = new HashMap<>();
+		this.registeredCache = new ConcurrentHashMap<>();
 		this.configuration = configuration;
 		this.cacheFactory = CacheFactory.createCacheFactory(configuration);
 		this.taskInfo = taskInfo;
+		this.cacheStatsTracker = new CacheStatsTracker();
+
+		registerMetrics(metricGroup);
 	}
 
 	@Override
@@ -257,6 +274,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			DefaultEventListener<CacheEntryKey<?, N>, CacheEntryValue<?>> eventListener = new DefaultEventListener<>(policyStats, memoryEstimator);
 			cache.configure(eventListener, dataSynchronizer, CacheEntryValue::isDirty, v -> v.setDirty(false));
 			registeredCache.put(stateDesc.getName(), cache);
+			cacheStatsTracker.addCacheToTrack(stateDesc.getName(), policyStats);
 			LOG.info("Task[{}] registered the cache[{}] successfully.", taskInfo.getTaskNameWithSubtasks(), stateDesc.getName());
 		}
 		return stateFactory.createState(this, delegateState, cache, stateDesc.getDefaultValue());
@@ -348,6 +366,71 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 				return;
 			}
 			throw new UnsupportedOperationException("The existing cache does not support flush to StateBackend.");
+		}
+	}
+
+	private void registerMetrics(MetricGroup metricGroup) {
+		metricGroup.gauge(CACHE_STATS, cacheStatsTracker);
+	}
+
+	/** Responsible for tracking and reporting cache statistics. */
+	private static class CacheStatsTracker implements GrafanaGauge<TagGaugeStore> {
+
+		private static final String STATE_NAME_TAG = "stateName";
+		private static final String STAT_TYPE_TAG = "statType";
+
+		private static final String CACHE_REQUEST_COUNT = "cacheRequestCount";
+		private static final String CACHE_HIT_COUNT = "cacheHitCount";
+		private static final String CACHE_MISS_COUNT = "cacheMissCount";
+		private static final String CACHE_EVICT_COUNT = "cacheEvictCount";
+		private static final String CACHE_LOAD_SUCCESS_COUNT = "cacheLoadSuccessCount";
+		private static final String CACHE_SAVE_COUNT = "cacheSaveCount";
+		private static final String CACHE_DELETE_COUNT = "cacheDeleteCount";
+		private static final String CACHE_ESTIMATED_KV_SIZE = "cacheEstimatedKVSize";
+		private static final String CACHE_MAX_MEMORY_SIZE = "cacheMaxMemorySize";
+		private static final String CACHE_USED_MEMORY_SIZE = "cacheUsedMemorySize";
+
+		private static final Map<String, Function<CacheStatistic, Long>> STATS_MAPS =
+			Stream.of(
+				Tuple2.of(CACHE_REQUEST_COUNT, (Function<CacheStatistic, Long>) CacheStatistic::getRequestCount),
+				Tuple2.of(CACHE_HIT_COUNT, (Function<CacheStatistic, Long>) CacheStatistic::getHitCount),
+				Tuple2.of(CACHE_MISS_COUNT, (Function<CacheStatistic, Long>) CacheStatistic::getMissCount),
+				Tuple2.of(CACHE_EVICT_COUNT, (Function<CacheStatistic, Long>) CacheStatistic::getEvictionCount),
+				Tuple2.of(CACHE_LOAD_SUCCESS_COUNT, (Function<CacheStatistic, Long>) CacheStatistic::getLoadSuccessCount),
+				Tuple2.of(CACHE_SAVE_COUNT, (Function<CacheStatistic, Long>) CacheStatistic::getSaveCount),
+				Tuple2.of(CACHE_DELETE_COUNT, (Function<CacheStatistic, Long>) CacheStatistic::getDeleteCount),
+				Tuple2.of(CACHE_ESTIMATED_KV_SIZE, (Function<CacheStatistic, Long>) CacheStatistic::getEstimatedKVSize),
+				Tuple2.of(CACHE_USED_MEMORY_SIZE, (Function<CacheStatistic, Long>) stats -> stats.getUsedMemorySize().getBytes()),
+				Tuple2.of(CACHE_MAX_MEMORY_SIZE, (Function<CacheStatistic, Long>) stats -> stats.getMaxMemorySize().getBytes())
+			).collect(Collectors.toMap(t -> t.f0, t -> t.f1));
+
+		/** The cache mapping table that has been registered successfully. */
+		private final Map<String, PolicyStats> registeredPolicyStats;
+
+		private final TagGaugeStoreImpl statsStore;
+
+		public CacheStatsTracker() {
+			this.registeredPolicyStats = new ConcurrentHashMap<>();
+			this.statsStore = new TagGaugeStoreImpl(1024, true, false, TagGauge.MetricsReduceType.NO_REDUCE);
+		}
+
+		public void addCacheToTrack(String name, PolicyStats policyStats) {
+			registeredPolicyStats.put(name, policyStats);
+		}
+
+		@Override
+		public TagGaugeStore getValue() {
+			for (Map.Entry<String, PolicyStats> entry : registeredPolicyStats.entrySet()) {
+				CacheStatistic cacheStatistic = entry.getValue().snapshot();
+				for (Map.Entry<String, Function<CacheStatistic, Long>> statMapEntry : STATS_MAPS.entrySet()) {
+					TagGaugeStore.TagValues tag = new TagGaugeStore.TagValuesBuilder()
+						.addTagValue(STATE_NAME_TAG, entry.getKey())
+						.addTagValue(STAT_TYPE_TAG, statMapEntry.getKey())
+						.build();
+					statsStore.addMetric(statMapEntry.getValue().apply(cacheStatistic), tag);
+				}
+			}
+			return statsStore;
 		}
 	}
 }

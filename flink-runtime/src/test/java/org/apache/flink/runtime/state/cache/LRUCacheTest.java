@@ -87,13 +87,13 @@ public class LRUCacheTest {
 		// set a replace key and value
 		cache.put(REPLACE_KEY, REPLACE_VALUE);
 		Assert.assertEquals(REPLACE_VALUE, cache.get(REPLACE_KEY));
-		Assert.assertEquals(1, policyStats.getEvictionCount());
+		Assert.assertEquals(1, policyStats.getEvictCount());
 		Assert.assertEquals(1, policyStats.getSaveCount());
 		Assert.assertEquals(4, policyStats.getRequestCount());
 
 		// try to get a key that exist
 		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY));
-		Assert.assertEquals(2, policyStats.getEvictionCount());
+		Assert.assertEquals(2, policyStats.getEvictCount());
 		Assert.assertEquals(2, policyStats.getSaveCount());
 		Assert.assertEquals(1, policyStats.getLoadSuccessCount());
 	}
@@ -108,7 +108,7 @@ public class LRUCacheTest {
 		cache.put(TEST_KEY, TEST_VALUE);
 		cache.put(REPLACE_KEY, REPLACE_VALUE);
 		Assert.assertEquals(0, policyStats.getDeleteCount());
-		Assert.assertEquals(1, policyStats.getEvictionCount());
+		Assert.assertEquals(1, policyStats.getEvictCount());
 		Assert.assertEquals(1, policyStats.getSaveCount());
 
 		cache.delete(TEST_KEY);
@@ -140,7 +140,7 @@ public class LRUCacheTest {
 
 		cache.put("123", "321");
 		Assert.assertEquals(2, policyStats.getCacheSize());
-		Assert.assertEquals(1, policyStats.getEvictionCount());
+		Assert.assertEquals(1, policyStats.getEvictCount());
 		Assert.assertEquals(1, policyStats.getSaveCount());
 
 		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY));
