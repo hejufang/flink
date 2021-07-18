@@ -56,6 +56,8 @@ import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
+import org.apache.flink.runtime.jobgraph.tasks.JobCheckpointingSettings;
 import org.apache.flink.runtime.jobmanager.OnCompletionActions;
 import org.apache.flink.runtime.jobmanager.PartitionProducerDisposedException;
 import org.apache.flink.runtime.jobmaster.factories.JobManagerJobMetricGroupFactory;
@@ -311,6 +313,15 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			for (Map.Entry<String, String> entry : jobMasterConfiguration.getConfiguration().toMap().entrySet()) {
 				messageSet.addMessage(new Message<>(new ConfigMessage(entry.getKey(), entry.getValue())));
 			}
+
+			JobCheckpointingSettings jobCheckpointingSettings = jobGraph.getCheckpointingSettings();
+			if (jobCheckpointingSettings != null){
+				MessageSet<CheckpointCoordinatorConfiguration> checkpointConfigMessageSet = new MessageSet<>(MessageType.CHECKPOINT_CONFIG);
+				jobManagerJobMetricGroup.gauge("checkpointConfig", checkpointConfigMessageSet);
+				CheckpointCoordinatorConfiguration checkpointCoordinatorConfiguration = jobCheckpointingSettings.getCheckpointCoordinatorConfiguration();
+				checkpointConfigMessageSet.addMessage(new Message<>(checkpointCoordinatorConfiguration));
+			}
+
 		}
 	}
 

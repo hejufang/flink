@@ -25,6 +25,8 @@ public enum MessageType {
 
 	CHECKPOINT("checkpoint"),
 
+	CHECKPOINT_CONFIG("checkpoint_config"),
+
 	ORIGINAL_METRICS("original_metrics"),
 
 	BLACKLIST("blacklist"),
