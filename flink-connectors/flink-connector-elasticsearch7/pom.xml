@@ -64,6 +64,22 @@ under the License.
 			</exclusions>
 		</dependency>
 
+		<!-- override httpclient to 4.5.4, and httpcore to 4.4.7 to fix thread hang problem:
+			https://issues.apache.org/jira/browse/HTTPCORE-446
+		 -->
+
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpcore</artifactId>
+			<version>4.4.7</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient</artifactId>
+			<version>4.5.4</version>
+		</dependency>
+
 		<dependency>
 			<groupId>com.bytedance.search</groupId>
 			<artifactId>bytees_mq_connector</artifactId>
@@ -72,6 +88,10 @@ under the License.
 				<exclusion>
 					<groupId>org.slf4j</groupId>
 					<artifactId>slf4j-log4j12</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.apache.httpcomponents</groupId>
+					<artifactId>httpclient</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>
