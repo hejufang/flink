@@ -29,6 +29,8 @@ import org.apache.flink.streaming.api.graph.GlobalDataExchangeMode;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamGraphGenerator;
 import org.apache.flink.table.api.TableConfig;
+import org.apache.flink.table.api.config.ExecutionConfigOptions;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.List;
 
@@ -81,12 +83,26 @@ public class ExecutorUtils {
 				sn -> sn.setResources(ResourceSpec.UNKNOWN, ResourceSpec.UNKNOWN));
 		boolean useOlapMode = tableConfig.getConfiguration().get(TABLE_EXEC_USE_OLAP_MODE);
 		if (useOlapMode) {
+			if (isShuffleModeAllBlocking(tableConfig)) {
+				throw new FlinkRuntimeException(String.format("Cannot use %s when %s is true, " +
+					"please set %s = %s when you want to use olap mode.",
+					GlobalDataExchangeMode.ALL_EDGES_BLOCKING,
+					TABLE_EXEC_USE_OLAP_MODE.key(),
+					ExecutionConfigOptions.TABLE_EXEC_SHUFFLE_MODE.key(),
+					GlobalDataExchangeMode.ALL_EDGES_PIPELINED));
+			}
 			// We do not overwrite vertices chaining here, so it will depend on the value of
 			// PipelineOptions.OPERATOR_CHAINING in dynamic configurations.
 			boolean useTheSameSlotSharingGroup =
 				tableConfig.getConfiguration().get(ALL_VERTICES_IN_SAME_SLOT_SHARING_GROUP_BY_DEFAULT);
 			streamGraph.setAllVerticesInSameSlotSharingGroupByDefault(useTheSameSlotSharingGroup);
-			streamGraph.setScheduleMode(ScheduleMode.EAGER);
+			// We want to use EAGER here for olap mode, but there may exist BATCH shuffle mode even
+			// when table.exec.shuffle-mode=ALL_EDGES_PIPELINED (see DeadlockBreakupProcessor),
+			// which will lead to an IllegalStateException in
+			// TaskDeploymentDescriptorFactory#handleConsumedPartitionShuffleDescriptorErrors.
+			// The reason why we do not use LAZY_FROM_SOURCES_WITH_BATCH_SLOT_REQUEST is
+			// we want to get timeout Exception when the slot request cannot be satisfied.
+			streamGraph.setScheduleMode(ScheduleMode.LAZY_FROM_SOURCES);
 			streamGraph.setGlobalDataExchangeMode(GlobalDataExchangeMode.ALL_EDGES_PIPELINED);
 		} else {
 			streamGraph.setChaining(true);
