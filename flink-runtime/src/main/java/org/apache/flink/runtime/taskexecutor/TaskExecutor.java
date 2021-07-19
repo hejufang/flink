@@ -57,6 +57,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.jobmaster.AllocatedSlotInfo;
 import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
+import org.apache.flink.runtime.jobmaster.ExecutionGraphException;
 import org.apache.flink.runtime.jobmaster.JMTMRegistrationSuccess;
 import org.apache.flink.runtime.jobmaster.JobMasterGateway;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
@@ -1470,7 +1471,15 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			futureAcknowledge.whenCompleteAsync(
 					(ack, throwable) -> {
 						if (throwable != null) {
-							failTask(executionAttemptID, throwable);
+							if (throwable instanceof ExecutionGraphException) {
+								failTask(executionAttemptID, throwable);
+							} else {
+								// we should always let JM know tasks' state, otherwise there might occur some serious problem.
+								// For example, a task fails but JM didn't receive the notification so that the task will never be
+								// redeployed.
+								log.error("Catch exception when send update task execution state message to job master, ", throwable);
+								onFatalError(throwable);
+							}
 						}
 					},
 					getMainThreadExecutor());
