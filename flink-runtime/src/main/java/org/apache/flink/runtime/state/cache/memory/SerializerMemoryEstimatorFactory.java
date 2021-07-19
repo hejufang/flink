@@ -36,19 +36,16 @@ public class SerializerMemoryEstimatorFactory {
 		StateDescriptor.Type stateType,
 		int estimateSampleCount) {
 
-		TypeSerializer<K> duplicateKeySerializer = keySerializer.duplicate();
-		TypeSerializer<N> duplicateNamespaceSerializer = namespaceSerializer.duplicate();
-		TypeSerializer<V> duplicateValueSerializer = valueSerializer.duplicate();
 		MemoryEstimator memoryEstimator;
 		switch (stateType) {
 			case VALUE:
 			case FOLDING:
 			case REDUCING:
 			case AGGREGATING:
-				memoryEstimator = new ValueStateSerializerEstimator<>(duplicateKeySerializer, duplicateNamespaceSerializer, duplicateValueSerializer);
+				memoryEstimator = new ValueStateSerializerEstimator<>(keySerializer, namespaceSerializer, valueSerializer);
 				break;
 			case MAP:
-				memoryEstimator = new MapStateMemoryEstimator<>(duplicateKeySerializer, duplicateNamespaceSerializer, (MapSerializer) duplicateValueSerializer);
+				memoryEstimator = new MapStateMemoryEstimator<>(keySerializer, namespaceSerializer, (MapSerializer) valueSerializer);
 				break;
 			case LIST:
 				throw new UnsupportedOperationException("Unsupported state type " + stateType.name());

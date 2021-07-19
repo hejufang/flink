@@ -47,7 +47,7 @@ public class LRUCacheTest {
 		LRUCache<String, String> cache = createLRUCache();
 		PolicyStats policyStats = new PolicyStats(cache);
 		policyStats.recordMaxCacheMemorySize(new MemorySize(1));
-		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>(), Objects::nonNull);
+		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>(), Objects::nonNull, v -> {});
 
 		// try to get a key that does not exist
 		Assert.assertNull(cache.get(TEST_KEY));
@@ -75,7 +75,7 @@ public class LRUCacheTest {
 		LRUCache<String, String> cache = createLRUCache();
 		PolicyStats policyStats = new PolicyStats(cache);
 		policyStats.recordMaxCacheMemorySize(new MemorySize(1));
-		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>(), Objects::nonNull);
+		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>(), Objects::nonNull, v -> {});
 
 		// set a key
 		cache.put(TEST_KEY, TEST_VALUE);
@@ -103,7 +103,7 @@ public class LRUCacheTest {
 		LRUCache<String, String> cache = createLRUCache();
 		PolicyStats policyStats = new PolicyStats(cache);
 		policyStats.recordMaxCacheMemorySize(new MemorySize(1));
-		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>(), Objects::nonNull);
+		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>(), Objects::nonNull, v -> {});
 
 		cache.put(TEST_KEY, TEST_VALUE);
 		cache.put(REPLACE_KEY, REPLACE_VALUE);
@@ -131,7 +131,7 @@ public class LRUCacheTest {
 		LRUCache<String, String> cache = createLRUCache();
 		PolicyStats policyStats = new PolicyStats(cache);
 		policyStats.recordMaxCacheMemorySize(new MemorySize(2));
-		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>(), Objects::nonNull);
+		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>(), Objects::nonNull, v -> {});
 
 		cache.put(TEST_KEY, TEST_VALUE);
 		cache.put(REPLACE_KEY, REPLACE_VALUE);

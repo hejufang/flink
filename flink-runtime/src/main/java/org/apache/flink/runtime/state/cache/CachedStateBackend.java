@@ -26,6 +26,7 @@ import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
 import org.apache.flink.runtime.state.AbstractStateBackend;
+import org.apache.flink.runtime.state.BackendBuildingException;
 import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.KeyGroupRange;
@@ -37,6 +38,9 @@ import org.apache.flink.runtime.state.heap.InternalKeyContextImpl;
 import org.apache.flink.runtime.state.tracker.NonStateStatsTracker;
 import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -52,14 +56,25 @@ import java.util.Collection;
  * and encapsulate the cache in the CachedState when creating the state.
  */
 public class CachedStateBackend extends AbstractStateBackend {
+
+	private static final Logger LOG = LoggerFactory.getLogger(CachedStateBackend.class);
+
 	/** The manager responsible for managing the Cache. */
 	private final CacheManager cacheManager;
+
 	/** StateBackend proxied by the cache. */
 	private final StateBackend delegateStateBackend;
 
-	public CachedStateBackend(CacheManager cacheManager, StateBackend delegateStateBackend) {
+	/** The configuration of the cache. */
+	private final CacheConfiguration configuration;
+
+	public CachedStateBackend(
+			CacheManager cacheManager,
+			StateBackend delegateStateBackend,
+			CacheConfiguration configuration) {
 		this.cacheManager = cacheManager;
 		this.delegateStateBackend = delegateStateBackend;
+		this.configuration = configuration;
 	}
 
 	// ------------------------------------------------------------------------
@@ -132,6 +147,7 @@ public class CachedStateBackend extends AbstractStateBackend {
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry,
 		StateStatsTracker statsTracker) throws IOException {
+		//TODO use builder to complete restore
 		try {
 			AbstractKeyedStateBackend<K> keyedStateBackend = delegateStateBackend.createKeyedStateBackend(
 				env,
@@ -146,6 +162,7 @@ public class CachedStateBackend extends AbstractStateBackend {
 				stateHandles,
 				cancelStreamRegistry,
 				statsTracker);
+			// TODO restore cache
 			return new CachedKeyedStateBackend<>(
 				kvStateRegistry,
 				keySerializer,
@@ -156,9 +173,13 @@ public class CachedStateBackend extends AbstractStateBackend {
 				getCompressionDecorator(env.getExecutionConfig()),
 				new InternalKeyContextImpl<>(keyGroupRange, numberOfKeyGroups),
 				keyedStateBackend,
-				cacheManager);
+				cacheManager,
+				configuration,
+				env.getTaskInfo());
+		} catch (BackendBuildingException e) {
+			throw e;
 		} catch (Exception e) {
-			throw new IOException(e);
+			throw new BackendBuildingException("create CachedKeyedStateBackend failed", e);
 		}
 	}
 

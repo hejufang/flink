@@ -237,6 +237,13 @@ public abstract class StateDescriptor<S extends State, T> implements Serializabl
 	}
 
 	/**
+	 * Sets the name for queries to null.
+	 */
+	public void setUnQueryable() {
+		this.queryableStateName = null;
+	}
+
+	/**
 	 * Returns the queryable state name.
 	 *
 	 * @return Queryable state name or <code>null</code> if not set.

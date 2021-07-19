@@ -20,6 +20,7 @@ package org.apache.flink.runtime.state.cache;
 
 import org.apache.flink.runtime.state.cache.sync.DataSynchronizer;
 
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -32,8 +33,10 @@ public abstract class Cache<K, V> {
 	protected DefaultEventListener<K, V> listener;
 	/** Responsible for data synchronization. */
 	protected DataSynchronizer<K, V> dataSynchronizer;
-	/** write the data to the underlying storage when it is dirty. */
+	/** Write the data to the underlying storage when it is dirty. */
 	protected Predicate<V> dirtyDataChecker;
+	/** Call back after data is written to the underlying storage.. */
+	protected Consumer<V> dataSaveCallback;
 
 	/**
 	 * Returns the value associated with {@code key} in this cache.
@@ -52,9 +55,17 @@ public abstract class Cache<K, V> {
 	public abstract void delete(K key) throws Exception;
 
 	/**
+	 * Check whether there is a key that meets the conditions in the cache.
+	 */
+	public abstract boolean contains(Predicate<K> predicate) throws Exception;
+
+	/**
 	 * Delete all cached value.
 	 */
 	public abstract void clear() throws Exception;
+
+	/** Delete all specified cached value. */
+	public abstract void clearSpecifiedData(Predicate<K> filter) throws Exception;
 
 	/**
 	 * Returns the approximate number of entries in this cache.
@@ -64,9 +75,14 @@ public abstract class Cache<K, V> {
 	/**
 	 * Configure the event listener inside the cache.
 	 */
-	public void configure(DefaultEventListener<K, V> listener, DataSynchronizer<K, V> dataSynchronizer, Predicate<V> dirtyDataChecker) {
+	public void configure(
+			DefaultEventListener<K, V> listener,
+			DataSynchronizer<K, V> dataSynchronizer,
+			Predicate<V> dirtyDataChecker,
+			Consumer<V> callback) {
 		this.listener = listener;
 		this.dataSynchronizer = dataSynchronizer;
 		this.dirtyDataChecker = dirtyDataChecker;
+		this.dataSaveCallback = callback;
 	}
 }
