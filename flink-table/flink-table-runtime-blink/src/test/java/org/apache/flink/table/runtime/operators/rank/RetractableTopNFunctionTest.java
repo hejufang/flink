@@ -399,4 +399,22 @@ public class RetractableTopNFunctionTest extends TopNFunctionTestBase {
 		expectedOutput.add(insertRecord("book", 1L, 12, 1L));
 		assertorWithRowNumber.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
 	}
+
+	@Test
+	public void testSelf() throws Exception {
+		String key = "book";
+		AbstractTopNFunction func = createFunction(
+			RankType.ROW_NUMBER, new ConstantRankRange(1, 1), true, false);
+		OneInputStreamOperatorTestHarness<RowData, RowData> testHarness = createTestHarness(func);
+		testHarness.open();
+		testHarness.processElement(insertRecord(key, 1L, 11));
+		testHarness.processElement(insertRecord(key, 2L, 12));
+		testHarness.processElement(insertRecord(key, 3L, 13));
+		testHarness.processElement(deleteRecord(key, 2L, 12));
+		testHarness.close();
+
+		List<Object> expectedOutput = new ArrayList<>();
+		expectedOutput.add(insertRecord(key, 1L, 11));
+		assertorWithoutRowNumber.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+	}
 }
