@@ -20,7 +20,7 @@ package org.apache.flink.connector.abase;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.connector.abase.executor.AbaseLookupExecutor;
-import org.apache.flink.connector.abase.executor.AbaseLookupExecutorBuilder;
+import org.apache.flink.connector.abase.executor.AbaseLookupExecutorFactory;
 import org.apache.flink.connector.abase.options.AbaseLookupOptions;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
 import org.apache.flink.table.api.TableSchema;
@@ -77,7 +77,7 @@ public class AbaseTableSource implements LookupTableSource, SupportsProjectionPu
 			.range(0, childrenType.size())
 			.mapToObj(pos -> RowData.createFieldGetter(childrenType.get(pos).getLogicalType(), pos))
 			.toArray(RowData.FieldGetter[]::new);
-		AbaseLookupExecutor abaseLookupExecutor = AbaseLookupExecutorBuilder.build(
+		AbaseLookupExecutor abaseLookupExecutor = AbaseLookupExecutorFactory.getAbaseLookupExecutor(
 			normalOptions,
 			lookupOptions,
 			schema.getFieldDataTypes(),

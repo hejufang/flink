@@ -29,11 +29,11 @@ import org.apache.flink.table.types.DataType;
 import javax.annotation.Nullable;
 
 /**
- * executor builder, format/value-type.
+ * Lookup Executor factory, format/value-type.
  */
-public class AbaseLookupExecutorBuilder {
+public class AbaseLookupExecutorFactory {
 
-	public static AbaseLookupExecutor build(
+	public static AbaseLookupExecutor getAbaseLookupExecutor(
 			AbaseNormalOptions normalOptions,
 			AbaseLookupOptions lookupOptions,
 			DataType[] fieldTypes,

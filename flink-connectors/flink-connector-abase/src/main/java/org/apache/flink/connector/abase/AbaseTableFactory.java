@@ -21,21 +21,27 @@ package org.apache.flink.connector.abase;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.abase.options.AbaseLookupOptions;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
+import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.connector.abase.utils.AbaseValueType;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.connector.format.DecodingFormat;
+import org.apache.flink.table.connector.format.EncodingFormat;
+import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DeserializationFormatFactory;
+import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
+import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.util.Preconditions;
 
@@ -78,9 +84,9 @@ import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONL
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * Factory for creating configured instances of {@link AbaseTableSource}.
+ * Factory for creating configured instances of {@link AbaseTableSource} and {@link AbaseTableSink}.
  */
-public class AbaseTableFactory implements DynamicTableSourceFactory {
+public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTableSinkFactory {
 	private static final String IDENTIFIER = "byte-abase";
 
 	@Override
@@ -110,6 +116,40 @@ public class AbaseTableFactory implements DynamicTableSourceFactory {
 			TableSchema schema,
 			@Nullable DecodingFormat<DeserializationSchema<RowData>> decodingFormat) {
 		return new AbaseTableSource(normalOptions, lookupOptions, schema, decodingFormat);
+	}
+
+	@Override
+	public DynamicTableSink createDynamicTableSink(Context context) {
+		final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
+		final ReadableConfig config = helper.getOptions();
+		EncodingFormat<SerializationSchema<RowData>> encodingFormat =
+			helper.discoverOptionalEncodingFormat(SerializationFormatFactory.class, FactoryUtil.FORMAT)
+				.orElse(null);
+		helper.validate();
+		validateConfigOptions(config);
+		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
+		AbaseNormalOptions normalOptions = getAbaseNormalOptions(config, physicalSchema);
+		validateSchema(normalOptions, null, physicalSchema);
+		return createAbaseTableSink(
+			normalOptions,
+			getAbaseSinkOptions(config),
+			physicalSchema,
+			encodingFormat
+		);
+
+	}
+
+	protected AbaseTableSink createAbaseTableSink(
+			AbaseNormalOptions options,
+			AbaseSinkOptions insertOptions,
+			TableSchema schema,
+			@Nullable EncodingFormat<SerializationSchema<RowData>> encodingFormat) {
+		return new AbaseTableSink(
+			options,
+			insertOptions,
+			schema,
+			encodingFormat
+		);
 	}
 
 	@Override
@@ -162,7 +202,8 @@ public class AbaseTableFactory implements DynamicTableSourceFactory {
 		AbaseNormalOptions.AbaseOptionsBuilder builder = AbaseNormalOptions.builder()
 			.setCluster(config.get(CLUSTER))
 			.setTable(config.get(TABLE))
-			.setStorage(config.get(CONNECTOR)).setPsm(config.get(PSM))
+			.setStorage(config.get(CONNECTOR))
+			.setPsm(config.get(PSM))
 			.setTimeout((int) config.get(CONNECTION_TIMEOUT).toMillis())
 			.setMinIdleConnections(config.get(CONNECTION_MIN_IDLE_NUM))
 			.setMaxIdleConnections(config.get(CONNECTION_MAX_IDLE_NUM))
@@ -189,6 +230,20 @@ public class AbaseTableFactory implements DynamicTableSourceFactory {
 			config.get(LOOKUP_SPECIFY_HASH_KEYS));
 	}
 
+	private AbaseSinkOptions getAbaseSinkOptions(ReadableConfig config) {
+		AbaseSinkOptions.AbaseInsertOptionsBuilder builder = AbaseSinkOptions.builder()
+			.setFlushMaxRetries(config.get(SINK_MAX_RETRIES))
+			.setMode(config.get(SINK_MODE))
+			.setBufferMaxRows(config.get(SINK_BUFFER_FLUSH_MAX_ROWS))
+			.setBufferFlushInterval(config.get(SINK_BUFFER_FLUSH_INTERVAL).toMillis())
+			.setLogFailuresOnly(config.get(SINK_LOG_FAILURES_ONLY))
+			.setSkipFormatKey(config.get(VALUE_FORMAT_SKIP_KEY))
+			.setIgnoreDelete(config.get(SINK_IGNORE_DELETE))
+			.setParallelism(config.get(PARALLELISM))
+			.setTtlSeconds((int) config.get(SINK_RECORD_TTL).getSeconds());
+		return builder.build();
+	}
+
 	protected void validateConfigOptions(ReadableConfig config) {
 		if (config.get(SINK_MODE).equals(AbaseSinkMode.INCR)) {
 			checkState(config.get(VALUE_TYPE).equals(AbaseValueType.GENERAL)
@@ -206,9 +261,13 @@ public class AbaseTableFactory implements DynamicTableSourceFactory {
 		});
 	}
 
-	private void validateSchema(AbaseNormalOptions options, @Nullable AbaseLookupOptions lookupOptions, TableSchema schema) {
+	private void validateSchema(
+			AbaseNormalOptions options,
+			@Nullable AbaseLookupOptions lookupOptions,
+			TableSchema schema) {
 		if (options.getAbaseValueType().equals(AbaseValueType.HASH) && schema.getFieldCount() == 2) {
-			if (lookupOptions != null && !lookupOptions.isSpecifyHashKeys()) {
+			// Both sink and lookup should be checked.
+			if (lookupOptions == null || !lookupOptions.isSpecifyHashKeys()) {
 				checkState(schema.getFieldDataTypes()[1]
 						.equals(DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
 					"Unsupported type for hash value, should be map<varchar, varchar>");
@@ -230,8 +289,8 @@ public class AbaseTableFactory implements DynamicTableSourceFactory {
 	}
 
 	private Optional<Integer> validateAndGetKeyIndex(
-		ReadableConfig config,
-		TableSchema physicalSchema) {
+			ReadableConfig config,
+			TableSchema physicalSchema) {
 		String[] keyFields = physicalSchema.getPrimaryKey()
 			.map(pk -> pk.getColumns().toArray(new String[0]))
 			.orElse(null);
