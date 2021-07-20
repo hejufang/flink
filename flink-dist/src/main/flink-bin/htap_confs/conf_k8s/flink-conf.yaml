@@ -38,6 +38,8 @@ common:
 
   # The number of task slots that each TaskManager offers. Each slot runs one parallel pipeline.
   taskmanager.numberOfTaskSlots: 4
+  taskmanager.initial-on-start: true
+  taskmanager.number-initial: 8
 
   # kubernetes configuration
   kubernetes.flink.log.dir: /opt/tiger/flink_deploy/log

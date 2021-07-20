@@ -198,8 +198,15 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	@Override
 	public boolean startNewWorker(WorkerResourceSpec workerResourceSpec) {
-		LOG.info("Starting new worker with worker resource spec, {}", workerResourceSpec);
-		requestKubernetesPod(workerResourceSpec);
+		requestKubernetesPod(workerResourceSpec, 1);
+		return true;
+	}
+
+	@Override
+	public boolean startNewWorkers(WorkerResourceSpec workerResourceSpec, int resourceNumber) {
+		LOG.info("Starting new worker with worker resource spec: {}, " +
+			"and request resource number: {}", workerResourceSpec, resourceNumber);
+		requestKubernetesPod(workerResourceSpec, resourceNumber);
 		return true;
 	}
 
@@ -336,37 +343,38 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			++currentMaxAttemptId);
 	}
 
-	private void requestKubernetesPod(WorkerResourceSpec workerResourceSpec) {
-		final KubernetesTaskManagerParameters parameters =
-			createKubernetesTaskManagerParameters(workerResourceSpec);
+	private void requestKubernetesPod(WorkerResourceSpec workerResourceSpec, int podNumber) {
+		for (int i = 0; i < podNumber; i++) {
+			final KubernetesTaskManagerParameters parameters =
+				createKubernetesTaskManagerParameters(workerResourceSpec);
 
-		podWorkerResources.put(parameters.getPodName(), workerResourceSpec);
-		final int pendingWorkerNum = notifyNewWorkerRequested(workerResourceSpec).getNumNotAllocated();
+			podWorkerResources.put(parameters.getPodName(), workerResourceSpec);
+			int pendingWorkerNum = notifyNewWorkerRequested(workerResourceSpec).getNumNotAllocated();
+			log.info("Requesting new TaskManager pod with <{},{}>. Number pending requests {}.",
+				parameters.getTaskManagerMemoryMB(),
+				parameters.getTaskManagerCPU(),
+				pendingWorkerNum);
 
-		log.info("Requesting new TaskManager pod with <{},{}>. Number pending requests {}.",
-			parameters.getTaskManagerMemoryMB(),
-			parameters.getTaskManagerCPU(),
-			pendingWorkerNum);
-
-		final KubernetesPod taskManagerPod =
-			KubernetesTaskManagerFactory.buildTaskManagerKubernetesPod(parameters);
-		kubeClient.createTaskManagerPod(taskManagerPod)
-			.whenCompleteAsync(
-				(ignore, throwable) -> {
-					if (throwable != null) {
-						final Time retryInterval = configuration.getPodCreationRetryInterval();
-						log.warn("Could not start TaskManager in pod {}, retry in {}. ",
-							taskManagerPod.getName(), retryInterval, throwable);
-						podWorkerResources.remove(parameters.getPodName());
-						notifyNewWorkerAllocationFailed(workerResourceSpec);
-						scheduleRunAsync(
-							this::requestKubernetesPodIfRequired,
-							retryInterval);
-					} else {
-						log.info("TaskManager {} will be started with {}.", parameters.getPodName(), workerResourceSpec);
-					}
-				},
-				getMainThreadExecutor());
+			final KubernetesPod taskManagerPod =
+				KubernetesTaskManagerFactory.buildTaskManagerKubernetesPod(parameters);
+			kubeClient.createTaskManagerPod(taskManagerPod)
+				.whenCompleteAsync(
+					(ignore, throwable) -> {
+						if (throwable != null) {
+							final Time retryInterval = configuration.getPodCreationRetryInterval();
+							log.warn("Could not start TaskManager in pod {}, retry in {}. ",
+								taskManagerPod.getName(), retryInterval, throwable);
+							podWorkerResources.remove(parameters.getPodName());
+							notifyNewWorkerAllocationFailed(workerResourceSpec);
+							scheduleRunAsync(
+								this::requestKubernetesPodIfRequired,
+								retryInterval);
+						} else {
+							log.info("TaskManager {} will be started with {}.", parameters.getPodName(), workerResourceSpec);
+						}
+					},
+					getMainThreadExecutor());
+		}
 	}
 
 	private KubernetesTaskManagerParameters createKubernetesTaskManagerParameters(WorkerResourceSpec workerResourceSpec) {
