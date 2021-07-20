@@ -69,6 +69,14 @@ public class HighAvailabilityOptions {
 			.withDeprecatedKeys("high-availability.zookeeper.storageDir", "recovery.zookeeper.storageDir")
 			.withDescription("File system path (URI) where Flink persists metadata in high-availability setups.");
 
+	/**
+	 * File system path (URI) where Flink persists metadata in high-availability setups.
+	 */
+	@Documentation.Section(Documentation.Sections.COMMON_HIGH_AVAILABILITY)
+	public static final ConfigOption<String> HA_COMPLETE_CHECKPOINT_STORAGE_PATH =
+			key("high-availability.complete-checkpoint.storageDir")
+			.noDefaultValue()
+			.withDescription("File system path (URI) where Flink persists metadata in high-availability setups.");
 	// ------------------------------------------------------------------------
 	//  Recovery Options
 	// ------------------------------------------------------------------------

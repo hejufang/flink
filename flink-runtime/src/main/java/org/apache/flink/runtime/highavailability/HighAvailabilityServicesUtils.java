@@ -242,6 +242,40 @@ public class HighAvailabilityServicesUtils {
 		return clusterStoragePath;
 	}
 
+	public static Path getClusterHighAvailableCompletedCheckpointStoragePath(Configuration configuration) {
+		final String storagePath = configuration.getValue(
+			HighAvailabilityOptions.HA_COMPLETE_CHECKPOINT_STORAGE_PATH);
+
+		if (isNullOrWhitespaceOnly(storagePath)) {
+			throw new IllegalConfigurationException("Configuration is missing the mandatory parameter: " +
+				HighAvailabilityOptions.HA_COMPLETE_CHECKPOINT_STORAGE_PATH.key());
+		}
+
+		final Path path;
+		try {
+			path = new Path(storagePath);
+		} catch (Exception e) {
+			throw new IllegalConfigurationException("Invalid path for highly available storage (" +
+				HighAvailabilityOptions.HA_COMPLETE_CHECKPOINT_STORAGE_PATH.key() + ')', e);
+		}
+
+		final String clusterId = configuration.getValue(HighAvailabilityOptions.HA_CLUSTER_ID);
+
+		final Path clusterStoragePath;
+
+		try {
+			clusterStoragePath = new Path(path, clusterId);
+		} catch (Exception e) {
+			throw new IllegalConfigurationException(
+				String.format("Cannot create cluster high available storage path '%s/%s'. This indicates that an invalid cluster id (%s) has been specified.",
+					storagePath,
+					clusterId,
+					HighAvailabilityOptions.HA_CLUSTER_ID.key()),
+				e);
+		}
+		return clusterStoragePath;
+	}
+
 	private static HighAvailabilityServices createCustomHAServices(Configuration config, Executor executor) throws FlinkException {
 		final HighAvailabilityServicesFactory highAvailabilityServicesFactory = loadCustomHighAvailabilityServicesFactory(
 			config.getString(HighAvailabilityOptions.HA_MODE));

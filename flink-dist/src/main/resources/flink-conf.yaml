@@ -47,6 +47,7 @@ common:
   ## High Availability
   high-availability: zookeeper
   high-availability.storageDir: ${hdfs.prefix}/${clusterName}/1.11/ha/
+  high-availability.complete-checkpoint.storageDir: ${checkpoint.hdfs.prefix}/1.11/flink/ha/
   high-availability.zookeeper.path.root: /${dc}/${clusterName}/flink
   high-availability.zookeeper.client.max-retry-attempts: 20 # default 3
   high-availability.zookeeper.client.connection-timeout: 60000 # default 15000ms

@@ -304,7 +304,7 @@ public class ZooKeeperUtils {
 		Path checkpointsPath = new Path(configuration.getString(
 				HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINTS_PATH));
 
-		RetrievableStateStorageHelper<CompletedCheckpoint> stateStorage = createFileSystemStateStorage(
+		RetrievableStateStorageHelper<CompletedCheckpoint> stateStorage = createCompletedCheckpointStateStorage(
 			configuration,
 			HA_STORAGE_COMPLETED_CHECKPOINT);
 
@@ -432,6 +432,13 @@ public class ZooKeeperUtils {
 			String prefix) throws IOException {
 
 		return new FileSystemStateStorageHelper<>(HighAvailabilityServicesUtils.getClusterHighAvailableStoragePath(configuration), prefix);
+	}
+
+	public static <T extends Serializable> FileSystemStateStorageHelper<T> createCompletedCheckpointStateStorage(
+			Configuration configuration,
+			String prefix) throws IOException {
+
+		return new FileSystemStateStorageHelper<>(HighAvailabilityServicesUtils.getClusterHighAvailableCompletedCheckpointStoragePath(configuration), prefix);
 	}
 
 	public static String generateZookeeperPath(String root, String namespace) {
