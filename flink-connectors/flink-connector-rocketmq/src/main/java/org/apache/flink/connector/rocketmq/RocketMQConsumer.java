@@ -105,6 +105,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private final RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
 	private final String brokerQueueList;
 	private final FlinkConnectorRateLimiter rateLimiter;
+	private final long sourceIdleTimeMs;
 	private int parallelism;
 
 	private transient MeterView recordsNumMeterView;
@@ -136,6 +137,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.parallelism = config.getParallelism();
 		this.brokerQueueList = config.getRocketMqBrokerQueueList();
 		this.rateLimiter = config.getRateLimiter();
+		this.sourceIdleTimeMs = config.getIdleTimeOut();
 		saveConfigurationToSystemProperties(config);
 	}
 
@@ -246,6 +248,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			RetryManager.createStrategy(RetryManager.StrategyType.EXPONENTIAL_BACKOFF.name(),
 				RocketMQOptions.CONSUMER_RETRY_TIMES_DEFAULT,
 				RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
+		long lastTimestamp = System.currentTimeMillis();
 		while (running) {
 			List<List<MessageExt>> messageExtsList = new ArrayList<>();
 			synchronized (this) {
@@ -266,10 +269,17 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					skipDirtyCounter.inc();
 					continue;
 				}
+				lastTimestamp = System.currentTimeMillis();
 				ctx.collect(rowData);
 				this.recordsNumMeterView.markEvent();
 				offsetTable.put(messageQueue, messageExt.getMaxOffset());
 			}
+
+			if (System.currentTimeMillis() - lastTimestamp > sourceIdleTimeMs) {
+				lastTimestamp = Long.MAX_VALUE;
+				ctx.markAsTemporarilyIdle();
+			}
+
 			if (messageExts.size() == 0) {
 				Thread.sleep(DEFAULT_SLEEP_MILLISECONDS);
 			} else {

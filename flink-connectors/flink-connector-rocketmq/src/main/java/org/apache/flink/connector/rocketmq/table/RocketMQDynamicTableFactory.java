@@ -79,6 +79,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.TAG;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.TOPIC;
 import static org.apache.flink.table.factories.FactoryUtil.FORMAT;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
+import static org.apache.flink.table.factories.FactoryUtil.SCAN_SOURCE_IDLE_TIMEOUT;
 import static org.apache.flink.table.factories.FactoryUtil.SOURCE_METADATA_COLUMNS;
 
 /**
@@ -156,6 +157,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(FactoryUtil.PARALLELISM);
 		options.add(FactoryUtil.RATE_LIMIT_NUM);
 		options.add(FactoryUtil.SOURCE_KEY_BY_FIELD);
+		options.add(FactoryUtil.SCAN_SOURCE_IDLE_TIMEOUT);
 		return options;
 	}
 
@@ -239,6 +241,10 @@ public class RocketMQDynamicTableFactory implements
 			config.getOptional(FactoryUtil.SOURCE_KEY_BY_FIELD).ifPresent(
 				keyByFields ->
 					rocketMQConfig.setKeyByFields(tableSchema.getIndexListFromFieldNames(keyByFields))
+			);
+			config.getOptional(SCAN_SOURCE_IDLE_TIMEOUT).ifPresent(
+				idle ->
+					rocketMQConfig.setIdleTimeOut(config.get(SCAN_SOURCE_IDLE_TIMEOUT).toMillis())
 			);
 		}
 

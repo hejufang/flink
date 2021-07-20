@@ -46,6 +46,7 @@ public class RocketMQConfig<T> {
 	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
 	private String rocketMqBrokerQueueList;
 	private FlinkConnectorRateLimiter rateLimiter;
+	private long idleTimeOut = Long.MAX_VALUE;
 
 	public MsgDelayLevelSelector<T> getMsgDelayLevelSelector() {
 		return msgDelayLevelSelector;
@@ -160,5 +161,13 @@ public class RocketMQConfig<T> {
 
 	public FlinkConnectorRateLimiter getRateLimiter() {
 		return rateLimiter;
+	}
+
+	public long getIdleTimeOut() {
+		return idleTimeOut;
+	}
+
+	public void setIdleTimeOut(long idleTimeOut) {
+		this.idleTimeOut = idleTimeOut;
 	}
 }

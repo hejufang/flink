@@ -118,6 +118,13 @@ public final class FactoryUtil {
 		.withDescription(
 			"Source metadata.");
 
+	public static final ConfigOption<Duration> SCAN_SOURCE_IDLE_TIMEOUT = ConfigOptions
+		.key("scan.source-idle-timeout")
+		.durationType()
+		.defaultValue(Duration.ofMillis(Long.MAX_VALUE))
+		.withDescription("When a source do not receive any elements for the timeout time, " +
+			"it will be marked as temporarily idle.");
+
 	// ------------------------------------------------------------------------
 	//  Lookup Options
 	// ------------------------------------------------------------------------
