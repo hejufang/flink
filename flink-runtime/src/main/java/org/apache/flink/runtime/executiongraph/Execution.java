@@ -1415,6 +1415,10 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 				updateAccumulatorsAndMetrics(userAccumulators, metrics);
 
+				if (!taskManagerLocationFuture.isDone()) {
+					taskManagerLocationFuture.completeExceptionally(new Exception(t));
+				}
+
 				releaseAssignedResource(t);
 				vertex.getExecutionGraph().deregisterExecution(this);
 
