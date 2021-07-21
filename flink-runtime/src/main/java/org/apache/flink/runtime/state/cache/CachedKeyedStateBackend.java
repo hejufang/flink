@@ -20,8 +20,14 @@ package org.apache.flink.runtime.state.cache;
 
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.TaskInfo;
+import org.apache.flink.api.common.state.AggregatingStateDescriptor;
+import org.apache.flink.api.common.state.FoldingStateDescriptor;
+import org.apache.flink.api.common.state.ListStateDescriptor;
+import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.ReducingStateDescriptor;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.CloseableRegistry;
@@ -37,6 +43,12 @@ import org.apache.flink.runtime.state.PriorityComparable;
 import org.apache.flink.runtime.state.SnapshotResult;
 import org.apache.flink.runtime.state.StateSnapshotTransformer;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
+import org.apache.flink.runtime.state.cache.internal.CachedMapState;
+import org.apache.flink.runtime.state.cache.internal.CachedValueState;
+import org.apache.flink.runtime.state.cache.internal.DirectAggregatingState;
+import org.apache.flink.runtime.state.cache.internal.DirectFoldingState;
+import org.apache.flink.runtime.state.cache.internal.DirectListState;
+import org.apache.flink.runtime.state.cache.internal.DirectReducingState;
 import org.apache.flink.runtime.state.cache.memory.MemoryEstimator;
 import org.apache.flink.runtime.state.cache.memory.SerializerMemoryEstimatorFactory;
 import org.apache.flink.runtime.state.cache.sync.DataSynchronizer;
@@ -52,12 +64,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.RunnableFuture;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -76,7 +88,15 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	}
 
 	@SuppressWarnings("deprecation")
-	private static final Map<Class<? extends StateDescriptor>, StateFactory> STATE_FACTORIES = Collections.emptyMap();
+	private static final Map<Class<? extends StateDescriptor>, StateFactory> STATE_FACTORIES =
+		Stream.of(
+			Tuple2.of(ValueStateDescriptor.class, (StateFactory) CachedValueState::create),
+			Tuple2.of(MapStateDescriptor.class, (StateFactory) CachedMapState::create),
+			Tuple2.of(ListStateDescriptor.class, (StateFactory) DirectListState::create),
+			Tuple2.of(AggregatingStateDescriptor.class, (StateFactory) DirectAggregatingState::create),
+			Tuple2.of(ReducingStateDescriptor.class, (StateFactory) DirectReducingState::create),
+			Tuple2.of(FoldingStateDescriptor.class, (StateFactory) DirectFoldingState::create)
+		).collect(Collectors.toMap(t -> t.f0, t -> t.f1));
 
 	/** KeyedStateBackend actually used by state. */
 	private final AbstractKeyedStateBackend<K> delegateKeyedStateBackend;
@@ -94,7 +114,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	private final TaskInfo taskInfo;
 
 	/** The cache mapping table that has been registered successfully. */
-	private final Map<String, Cache> registeredCache;
+	private final Map<String, Cache<?, ?>> registeredCache;
 
 	/** Mark whether this backend is already disposed and prevent duplicate disposing. */
 	private boolean disposed = false;
@@ -148,7 +168,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	@SuppressWarnings("unchecked")
 	@Override
 	public <N> Stream<K> getKeys(String state, N namespace) {
-		flushSpecifiedCachedStates(registeredCache.get(state), k -> Objects.equals(namespace, ((CacheEntryKey) k).getNamespace()), true);
+		flushSpecifiedCachedStates(registeredCache.get(state), k -> Objects.equals(namespace, ((CacheEntryKey<?, ?>) k).getNamespace()), true);
 		return delegateKeyedStateBackend.getKeys(state, namespace);
 	}
 
@@ -278,7 +298,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			return;
 		}
 		super.dispose();
-		for (Map.Entry<String, Cache> entry : registeredCache.entrySet()) {
+		for (Map.Entry<String, Cache<?, ?>> entry : registeredCache.entrySet()) {
 			cacheManager.unregisterCache(taskInfo, entry.getKey(), entry.getValue());
 			try {
 				entry.getValue().clear();
@@ -292,12 +312,11 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		this.disposed = true;
 	}
 
-	private <N, SV, UK, UV, S extends State> Cache createCache(StateDescriptor<S, SV> stateDesc) {
+	private <SV, S extends State, CK, CV> Cache<CK, CV> createCache(StateDescriptor<S, SV> stateDesc) {
 		switch (stateDesc.getType()) {
 			case VALUE:
-				return cacheFactory.<CacheEntryKey<K, N>, CacheEntryValue<SV>>createCache();
 			case MAP:
-				return cacheFactory.<CacheEntryKey<Tuple2<K, UK>, N>, CacheEntryValue<UV>>createCache();
+				return cacheFactory.createCache();
 			default:
 				return null;
 		}
@@ -306,9 +325,9 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	private void flushAllCachedStates() {
 		boolean flushable = registeredCache.values().stream().allMatch(cache -> cache instanceof FlushSupported);
 		if (flushable) {
-			for (Cache cache : registeredCache.values()) {
+			for (Cache<?, ?> cache : registeredCache.values()) {
 				try {
-					((FlushSupported) cache).flushAll();
+					((FlushSupported<?>) cache).flushAll();
 				} catch (Exception e) {
 					throw new FlinkRuntimeException("an exception occurs when flushing all data in the cache to the StateBackend.", e);
 				}
@@ -318,11 +337,11 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		throw new UnsupportedOperationException("The existing cache does not support flush to StateBackend.");
 	}
 
-	private void flushSpecifiedCachedStates(Cache cache, Predicate filter, boolean invalid) {
+	private <CK, CV> void flushSpecifiedCachedStates(Cache<CK, CV> cache, Predicate<CK> filter, boolean invalid) {
 		if (cache != null) {
 			if (cache instanceof FlushSupported) {
 				try {
-					((FlushSupported) cache).flushSpecifiedData(filter, invalid);
+					((FlushSupported<CK>) cache).flushSpecifiedData(filter, invalid);
 				} catch (Exception e) {
 					throw new FlinkRuntimeException("an exception occurs when flushing all data in the cache to the StateBackend.", e);
 				}
