@@ -27,6 +27,7 @@ common:
   state.checkpoints.dir: ${checkpoint.hdfs.prefix}/1.9/flink/fs_checkpoint_dir
   state.checkpoints.num-retained: 3
   state.savepoint.location-prefix: ${checkpoint.hdfs.prefix}/savepoints
+  savepoint.scheduler.default.interval: 21600000
 
   taskmanager.network.memory.fraction: 0.3
   taskmanager.network.memory.max: 2147483648
