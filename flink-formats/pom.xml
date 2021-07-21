@@ -53,6 +53,7 @@ under the License.
 		<module>flink-pb-base</module>
 		<module>flink-binlog</module>
 		<module>flink-bytes</module>
+		<module>flink-fast-pb</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up

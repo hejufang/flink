@@ -63,5 +63,12 @@ under the License.
 			<destName>flink-binlog-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
+
+		<file>
+			<source>../flink-formats/flink-fast-pb/target/flink-fast-pb-${project.version}.jar</source>
+			<outputDirectory>formats/</outputDirectory>
+			<destName>flink-fast-pb-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
 	</files>
 </assembly>
