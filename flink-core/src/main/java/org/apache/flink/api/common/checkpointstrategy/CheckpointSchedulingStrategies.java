@@ -94,7 +94,7 @@ public final class CheckpointSchedulingStrategies {
 			case "default":
 				final int defaultInterval = cliConfig.getInteger(CheckpointingOptions.SAVEPOINT_SCHEDULING_DEFAULT_INTERVAL);
 
-				if (defaultInterval == -1) {
+				if (defaultInterval == -1 || !("default".equals(cliConfig.getString(CheckpointingOptions.CHECKPOINT_TRIGGER_STRATEGY, "default")))) {
 					return defaultSavepointStrategy();
 				}
 				return defaultSavepointStrategy(defaultInterval);
