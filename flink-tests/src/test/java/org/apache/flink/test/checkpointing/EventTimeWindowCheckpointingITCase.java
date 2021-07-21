@@ -235,6 +235,7 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
 			config.setString(HighAvailabilityOptions.HA_MODE, "ZOOKEEPER");
 			config.setString(HighAvailabilityOptions.HA_ZOOKEEPER_QUORUM, zkServer.getConnectString());
 			config.setString(HighAvailabilityOptions.HA_STORAGE_PATH, haDir.toURI().toString());
+			config.setString(HighAvailabilityOptions.HA_COMPLETE_CHECKPOINT_STORAGE_PATH, haDir.toURI().toString());
 		}
 		return config;
 	}
