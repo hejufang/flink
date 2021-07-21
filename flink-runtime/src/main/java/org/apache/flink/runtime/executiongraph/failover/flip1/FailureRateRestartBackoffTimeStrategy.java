@@ -79,10 +79,15 @@ public class FailureRateRestartBackoffTimeStrategy implements RestartBackoffTime
 
 	@Override
 	public void notifyFailure(Throwable cause) {
-		if (isFailureTimestampsQueueFull()) {
-			failureTimestamps.remove();
+		Long now = clock.absoluteTimeMillis();
+		// Ignore frequent failures within backoffTimeMS.
+		// Otherwise, a single TM failure may cause the job to fail directly in Region Failover Strategy.
+		if (failureTimestamps.isEmpty() || now - failureTimestamps.getLast() >= backoffTimeMS) {
+			if (isFailureTimestampsQueueFull()) {
+				failureTimestamps.remove();
+			}
+			failureTimestamps.add(now);
 		}
-		failureTimestamps.add(clock.absoluteTimeMillis());
 	}
 
 	@Override
