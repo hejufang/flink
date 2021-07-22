@@ -149,6 +149,32 @@ public class DataStream<T> {
 	}
 
 	/**
+	 * Sets the parallelism for this DataStream.
+	 * @param parallelism
+	 * @return This DataStream with set parallelism.
+	 */
+	public DataStream<T> setParallelism(int parallelism) {
+		Preconditions.checkArgument(parallelism > 0 || parallelism == ExecutionConfig.PARALLELISM_DEFAULT,
+			"The parallelism of an operator must be at least 1, or ExecutionConfig.PARALLELISM_DEFAULT (use system default).");
+		transformation.setParallelism(parallelism);
+		return this;
+	}
+
+	/**
+	 * Set the max parallelism for this DataStream.
+	 * @param maxParallelism
+	 * @return The DataStream with set maximum parallelism
+	 */
+	public DataStream<T> setMaxParallelism(int maxParallelism) {
+		Preconditions.checkArgument(maxParallelism > 0,
+			"The maximum parallelism must be greater than 0.");
+		Preconditions.checkArgument(maxParallelism > 0 && maxParallelism <= Integer.MAX_VALUE,
+			"Maximum parallelism must be between 1 and " + Integer.MAX_VALUE + ". Found: " + maxParallelism);
+		transformation.setMaxParallelism(maxParallelism);
+		return this;
+	}
+
+	/**
 	 * Gets the minimum resources for this operator.
 	 *
 	 * @return The minimum resources set for this operator.
