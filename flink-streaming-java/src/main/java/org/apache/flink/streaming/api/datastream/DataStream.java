@@ -35,6 +35,7 @@ import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.common.io.OutputFormat;
 import org.apache.flink.api.common.operators.Keys;
 import org.apache.flink.api.common.operators.ResourceSpec;
+import org.apache.flink.api.common.operators.util.OperatorValidationUtils;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.typeinfo.BasicArrayTypeInfo;
@@ -148,6 +149,29 @@ public class DataStream<T> {
 	 */
 	public int getParallelism() {
 		return transformation.getParallelism();
+	}
+
+	/**
+	 * Set the parallelism for this operator.
+	 * @param parallelism
+	 * @return The operator with set parallelism.
+	 */
+	public DataStream<T> setParallelism(int parallelism) {
+		OperatorValidationUtils.validateParallelism(parallelism);
+		transformation.setParallelism(parallelism);
+		transformation.setUseDefaultParallelism(false);
+		return this;
+	}
+
+	/**
+	 * Sets the maximum parallelism of this operator.
+	 * @param maxParallelism
+	 * @return The operator with set maximum parallelism
+	 */
+	public DataStream<T> setMaxParallelism(int maxParallelism) {
+		OperatorValidationUtils.validateMaxParallelism(maxParallelism);
+		transformation.setMaxParallelism(maxParallelism);
+		return this;
 	}
 
 	/**
