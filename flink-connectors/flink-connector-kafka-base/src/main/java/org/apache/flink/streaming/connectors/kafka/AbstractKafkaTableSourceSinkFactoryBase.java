@@ -40,6 +40,7 @@ import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.InstantiationUtil;
 
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -74,6 +75,7 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_I
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_CLASS;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM_CLASS_WITH_KEYBY;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_FIXED;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_ROUND_ROBIN;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_ROW_FIELDS_HASH;
@@ -494,6 +496,20 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 						final Class<? extends FlinkKafkaPartitioner> partitionerClass =
 							descriptorProperties.getClass(CONNECTOR_SINK_PARTITIONER_CLASS, FlinkKafkaPartitioner.class);
 						return Optional.of((FlinkKafkaPartitioner<Row>) InstantiationUtil.instantiate(partitionerClass));
+					case CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM_CLASS_WITH_KEYBY:
+						final Class<? extends FlinkKafkaPartitioner>
+							customClassWithKeybyPartitionerClass =
+							descriptorProperties.getClass(CONNECTOR_SINK_PARTITIONER_CLASS, FlinkKafkaPartitioner.class);
+						try {
+							Constructor<?> constructor = customClassWithKeybyPartitionerClass.getConstructor(int[].class);
+							Optional.of((FlinkKafkaPartitioner<Row>) constructor.newInstance(getKeybyFieldIndexArray(
+								descriptorProperties.getTableSchema(SCHEMA),
+								descriptorProperties.getString(CONNECTOR_KEYBY_FIELDS))));
+						} catch (NoSuchMethodException e) {
+							throw new TableException("No appropriate constructor for \"connector.keyby-fields\" in custom-class-with-keyby class: " + customClassWithKeybyPartitionerClass.getName());
+						} catch (Exception e) {
+							throw new TableException("Exception on creating custom class: " + customClassWithKeybyPartitionerClass.getName() + ", error: " + e.getMessage());
+						}
 					default:
 						throw new TableException("Unsupported sink partitioner. " +
 							"Validator should have checked that.");
