@@ -92,14 +92,20 @@ public class HtapReaderIterator {
 		this.partitionId = scanner.getPartitionId();
 		this.iteratorBufferCount = new AtomicInteger(0);
 		this.storeScanThread = new StoreScanThread();
-		this.storeScanThread.start();
-		updateCurrentRowIterator();
+
+		try {
+			storeScanThread.start();
+			updateCurrentRowIterator();
+		} catch (Exception e) {
+			storeScanThread.close();
+			throw e;
+		}
 	}
 
 	public void close() {
 		// TODO: HtapScanner may need a close method
 		// scanner.close();
-		this.storeScanThread.isRunning = false;
+		storeScanThread.close();
 	}
 
 	public boolean hasNext() throws IOException {
@@ -270,6 +276,10 @@ public class HtapReaderIterator {
 			} finally {
 				isRunning = false;
 			}
+		}
+
+		public void close() {
+			isRunning = false;
 		}
 	}
 }
