@@ -137,6 +137,20 @@ public final class KeyGroupRangeAssignment {
 				UPPER_BOUND_MAX_PARALLELISM);
 	}
 
+	public static int computeKeyForNonKeyedOperator(int subtaskIndex, int parallelism, int maxParallelism) {
+		for (int i = 0; i < Integer.MAX_VALUE; i++) {
+			int keyGroup = KeyGroupRangeAssignment.assignToKeyGroup(i, maxParallelism);
+			int index = KeyGroupRangeAssignment.computeOperatorIndexForKeyGroup(maxParallelism, parallelism, keyGroup);
+			
+			if (index == subtaskIndex) {
+				return i;
+			}
+		}
+
+		throw new IllegalStateException(String.format("Unable to find the specified key for operator(index=%s,parallelism=%s,maxParallelism=%s)",
+				subtaskIndex, parallelism, maxParallelism));
+	}
+
 	public static void checkParallelismPreconditions(int parallelism) {
 		Preconditions.checkArgument(parallelism > 0
 						&& parallelism <= UPPER_BOUND_MAX_PARALLELISM,
