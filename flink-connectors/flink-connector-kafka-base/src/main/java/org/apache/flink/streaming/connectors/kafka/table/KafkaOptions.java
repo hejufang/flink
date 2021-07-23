@@ -35,6 +35,7 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
 
+import java.lang.reflect.Constructor;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -148,6 +149,13 @@ public class KafkaOptions {
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------
 
+	public static final ConfigOption<String> SINK_PARTITIONER_CLASS = ConfigOptions
+			.key("sink.partition-class")
+			.stringType()
+			.noDefaultValue()
+			.withDeprecatedKeys("flink_1_9.sink-partitioner-class")
+			.withDescription("Optional. specify custom partitioner class.");
+
 	public static final ConfigOption<String> SINK_PARTITIONER = ConfigOptions
 			.key("sink.partitioner")
 			.stringType()
@@ -200,6 +208,7 @@ public class KafkaOptions {
 	public static final String SINK_PARTITIONER_VALUE_FIXED = "fixed";
 	public static final String SINK_PARTITIONER_VALUE_ROUND_ROBIN = "round-robin";
 	public static final String SINK_PARTITIONER_ROW_FIELD_HASH = "row-fields-hash";
+	public static final String SINK_PARTITIONER_VALUE_CUSTOM_CLASS_WITH_KEYBY = "custom-class-with-keyby";
 
 	private static final Set<String> SINK_PARTITIONER_ENUMS = new HashSet<>(Arrays.asList(
 			SINK_PARTITIONER_VALUE_FIXED,
@@ -384,6 +393,28 @@ public class KafkaOptions {
 							dataTypes[i] = schema.getFieldDataType(fieldIndexList[i]).get();
 						}
 						return Optional.of(new FlinkRowDataFieldHashPartitioner(fieldIndexList, dataTypes));
+					case SINK_PARTITIONER_VALUE_CUSTOM_CLASS_WITH_KEYBY:
+						String customKeybyFieldNames =
+							tableOptions.getOptional(SINK_PARTITIONER_FIELD)
+										.orElseThrow(
+											() -> new IllegalArgumentException(
+												String.format("Use '%s' must specific field '%s'",
+													SINK_PARTITIONER_VALUE_CUSTOM_CLASS_WITH_KEYBY, SINK_PARTITIONER_FIELD.key())));
+
+						String customClassName =
+							tableOptions.getOptional(SINK_PARTITIONER_CLASS)
+										.orElseThrow(
+											() -> new IllegalArgumentException(
+												String.format("Use '%s' must specific class by using '%s'",
+													SINK_PARTITIONER_VALUE_CUSTOM_CLASS_WITH_KEYBY, SINK_PARTITIONER_CLASS.key())));
+
+						int[] customFieldIndexList = schema.getIndexListFromFieldNames(customKeybyFieldNames);
+
+						DataType[] customDataTypes = new DataType[customFieldIndexList.length];
+						for (int i = 0; i < customDataTypes.length; i++) {
+							customDataTypes[i] = schema.getFieldDataType(customFieldIndexList[i]).get();
+						}
+						return Optional.of(initializePartitionerWithKeyby(customClassName, customFieldIndexList, customDataTypes, classLoader));
 					// Default fallback to full class name of the partitioner.
 					default:
 						return Optional.of(initializePartitioner(partitioner, classLoader));
@@ -466,6 +497,33 @@ public class KafkaOptions {
 		} catch (ClassNotFoundException | FlinkException e) {
 			throw new ValidationException(
 					String.format("Could not find and instantiate partitioner class '%s'", name), e);
+		}
+	}
+
+	/**
+	 * Returns a class value with the given class name and an int array constructor parameter.
+	 */
+	private static <T> FlinkKafkaPartitioner<T> initializePartitionerWithKeyby(String name, int[] fieldIndexList, DataType[] customDataTypes, ClassLoader classLoader) {
+		try {
+			Class<?> clazz = Class.forName(name, true, classLoader);
+			if (!FlinkKafkaPartitioner.class.isAssignableFrom(clazz)) {
+				throw new ValidationException(
+					String.format("Sink partitioner class '%s' should extend from the required class %s",
+						name,
+						FlinkKafkaPartitioner.class.getName()));
+			}
+
+			try {
+				Constructor<?> constructor = clazz.getConstructor(int[].class, DataType[].class);
+				return  (FlinkKafkaPartitioner<T>) constructor.newInstance(fieldIndexList, customDataTypes);
+			} catch (NoSuchMethodException e) {
+				throw new TableException("No appropriate constructor for \"sink.partition-fields\" in \"connector.sink-partitioner-class\". class: " + name);
+			} catch (Exception e) {
+				throw new TableException("Exception on creating custom class: " + name + ", error: " + e.getMessage());
+			}
+		} catch (ClassNotFoundException e) {
+			throw new ValidationException(
+				String.format("Could not find and instantiate partitioner class '%s'", name), e);
 		}
 	}
 

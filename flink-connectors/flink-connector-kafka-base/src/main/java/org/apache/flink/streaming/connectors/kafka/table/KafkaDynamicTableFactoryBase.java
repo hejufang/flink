@@ -69,6 +69,7 @@ import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SIN
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_IN_FLIGHT_MAX_NUM;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_LOG_FAILURE_ONLY;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PARTITIONER;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PARTITIONER_CLASS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.TOPIC;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.getFlinkKafkaPartitioner;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.getKafkaProperties;
@@ -211,6 +212,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SINK_LOG_FAILURE_ONLY);
 		options.add(SINK_PARTITIONER);
 		options.add(SINK_PARTITIONER_FIELD);
+		options.add(SINK_PARTITIONER_CLASS);
 		options.add(SINK_IN_FLIGHT_BATCH_SIZE_FACTOR);
 		options.add(SINK_IN_FLIGHT_MAX_NUM);
 		options.add(FactoryUtil.SOURCE_METADATA_COLUMNS);
