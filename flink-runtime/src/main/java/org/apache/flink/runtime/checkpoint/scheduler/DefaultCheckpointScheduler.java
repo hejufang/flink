@@ -139,7 +139,6 @@ public class DefaultCheckpointScheduler extends AbstractCheckpointScheduler {
 
 	@Override
 	public void resumeScheduling() {
-		super.startScheduling();
 		// here we do not have to consider minimum checkpoint pause (because we are resuming
 		// from a pause, which indicates that this trigger has waited long enough before that pause)
 		currentPeriodicTrigger = timer.scheduleAtFixedRate(regularCheckpointTask, 0L, baseInterval, TimeUnit.MILLISECONDS);
@@ -147,7 +146,6 @@ public class DefaultCheckpointScheduler extends AbstractCheckpointScheduler {
 
 	@Override
 	public void pauseScheduling() {
-		super.stopScheduling();
 		if (earlyCheckpointTrigger != null) {
 			earlyCheckpointTrigger.cancel(false);
 			// We do not reset it to null! Because this could free us from synchronization.
@@ -161,6 +159,7 @@ public class DefaultCheckpointScheduler extends AbstractCheckpointScheduler {
 
 	@Override
 	public void stopScheduling() {
+		super.stopScheduling();
 		pauseScheduling();
 	}
 

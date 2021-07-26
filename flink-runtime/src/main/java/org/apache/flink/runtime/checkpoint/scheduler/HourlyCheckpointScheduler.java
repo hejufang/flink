@@ -170,14 +170,12 @@ public class HourlyCheckpointScheduler extends AbstractCheckpointScheduler {
 
 	@Override
 	public void resumeScheduling() {
-		super.startScheduling();
 		final long alignedDelay = calcNecessaryDelay(System.currentTimeMillis(), 0L);
 		currentPeriodicTrigger = timer.scheduleAtFixedRate(regularCheckpointTask, alignedDelay, baseInterval, TimeUnit.MILLISECONDS);
 	}
 
 	@Override
 	public void pauseScheduling() {
-		super.stopScheduling();
 		if (earlyCheckpointTrigger != null) {
 			earlyCheckpointTrigger.cancel(false);
 			// We do not reset it to null! Because this could free us from synchronization.
@@ -191,6 +189,7 @@ public class HourlyCheckpointScheduler extends AbstractCheckpointScheduler {
 
 	@Override
 	public void stopScheduling() {
+		super.stopScheduling();
 		pauseScheduling();
 	}
 
