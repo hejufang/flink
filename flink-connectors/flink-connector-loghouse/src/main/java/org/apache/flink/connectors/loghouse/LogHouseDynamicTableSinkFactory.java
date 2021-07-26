@@ -111,10 +111,10 @@ public class LogHouseDynamicTableSinkFactory implements DynamicTableSinkFactory 
 	public DynamicTableSink createDynamicTableSink(Context context) {
 		FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
 
-		helper.validate();
-
 		EncodingFormat<SerializationSchema<RowData>> encodingFormat =
 			helper.discoverEncodingFormat(SerializationFormatFactory.class, FactoryUtil.FORMAT);
+
+		helper.validate();
 
 		TableSchema tableSchema = context.getCatalogTable().getSchema();
 
