@@ -38,4 +38,11 @@ public class DiskUtilsTest {
 				DiskUtils.parseLine(testLine2).orElse(null));
 		Assert.assertEquals(Optional.empty(), DiskUtils.parseLine(testLine3));
 	}
+
+	@Test
+	public void testParseDataDirectory() {
+		Assert.assertEquals("/data24", DiskUtils.parseDataDirectory("/data24/yarn/userlogs"));
+		Assert.assertEquals("/data24", DiskUtils.parseDataDirectory("/data24"));
+		Assert.assertEquals("/opt/sss", DiskUtils.parseDataDirectory("/opt/sss"));
+	}
 }

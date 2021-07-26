@@ -41,6 +41,8 @@ public class DiskUtils {
 
 	public static final String REMOTE_SSD_PREFIX = "/opt/iscsi/yarn";
 
+	private static final String DISK_PREFIX = "/data";
+
 	private static final String[] COMMAND_OUTPUT = new String[] {"NAME", "ROTA", "SIZE", "MOUNTPOINT"};
 	private static final String[] COMMAND = new String[] {"lsblk", "-P", "-o", String.join(",", COMMAND_OUTPUT)};
 
@@ -66,8 +68,18 @@ public class DiskUtils {
 	public static List<String> ssdMounts() {
 		return diskInfos.stream()
 				.filter(x -> x.rota.equals("0"))
-				.map(x -> x.mountpoint)
+				.map(x -> parseDataDirectory(x.mountpoint))
 				.collect(Collectors.toList());
+	}
+
+	@VisibleForTesting
+	public static String parseDataDirectory(String mountpoint) {
+		if (mountpoint.startsWith(DISK_PREFIX)) {
+			String[] elements = mountpoint.split("/");
+			return "/" + elements[1];
+		} else {
+			return mountpoint;
+		}
 	}
 
 	@VisibleForTesting
