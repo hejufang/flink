@@ -497,18 +497,17 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 							descriptorProperties.getClass(CONNECTOR_SINK_PARTITIONER_CLASS, FlinkKafkaPartitioner.class);
 						return Optional.of((FlinkKafkaPartitioner<Row>) InstantiationUtil.instantiate(partitionerClass));
 					case CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM_CLASS_WITH_KEYBY:
-						final Class<? extends FlinkKafkaPartitioner>
-							customClassWithKeybyPartitionerClass =
+						final Class<? extends FlinkKafkaPartitioner> customPartitionerClass =
 							descriptorProperties.getClass(CONNECTOR_SINK_PARTITIONER_CLASS, FlinkKafkaPartitioner.class);
 						try {
-							Constructor<?> constructor = customClassWithKeybyPartitionerClass.getConstructor(int[].class);
-							Optional.of((FlinkKafkaPartitioner<Row>) constructor.newInstance(getKeybyFieldIndexArray(
+							Constructor<?> constructor = customPartitionerClass.getConstructor(int[].class);
+							return Optional.of((FlinkKafkaPartitioner<Row>) constructor.newInstance(getKeybyFieldIndexArray(
 								descriptorProperties.getTableSchema(SCHEMA),
 								descriptorProperties.getString(CONNECTOR_KEYBY_FIELDS))));
 						} catch (NoSuchMethodException e) {
-							throw new TableException("No appropriate constructor for \"connector.keyby-fields\" in custom-class-with-keyby class: " + customClassWithKeybyPartitionerClass.getName());
+							throw new TableException("No appropriate constructor for \"connector.keyby-fields\" in custom-class-with-keyby class: " + customPartitionerClass.getName());
 						} catch (Exception e) {
-							throw new TableException("Exception on creating custom class: " + customClassWithKeybyPartitionerClass.getName() + ", error: " + e.getMessage());
+							throw new TableException("Exception on creating custom class: " + customPartitionerClass.getName() + ", error: " + e.getMessage());
 						}
 					default:
 						throw new TableException("Unsupported sink partitioner. " +
