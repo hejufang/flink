@@ -410,7 +410,8 @@ public class HtapTypeUtils {
 		if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
 			return value.byteValue();
 		} else {
-			throw new IllegalArgumentException("Can not convert Long to Byte");
+			throw new IllegalArgumentException(String.format(
+				"Can not convert Long to Byte because of out of range, value: %s", value));
 		}
 	}
 
@@ -422,7 +423,8 @@ public class HtapTypeUtils {
 		if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
 			return value.shortValue();
 		} else {
-			throw new IllegalArgumentException("Can not convert Long to Short");
+			throw new IllegalArgumentException(String.format(
+				"Can not convert Long to Short because of out of range, value: %s", value));
 		}
 	}
 
@@ -434,7 +436,22 @@ public class HtapTypeUtils {
 		if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
 			return value.intValue();
 		} else {
-			throw new IllegalArgumentException("Can not convert Long to Integer");
+			throw new IllegalArgumentException(String.format(
+				"Can not convert Long to Integer because of out of range, value: %s", value));
+		}
+	}
+
+	/**
+	 * Convert a BigDecimal value to a long value.
+	 * @throws IllegalArgumentException if the BigDecimal value is out of Long's valid range.
+	 */
+	public static Long convertToLong(BigDecimal value) {
+		if (value.compareTo(new BigDecimal(Long.MAX_VALUE)) <= 0 &&
+			value.compareTo(new BigDecimal(Long.MIN_VALUE)) >= 0) {
+			return value.longValue();
+		} else {
+			throw new IllegalArgumentException(String.format("Can not convert BigDecimal to Long" +
+				" value because of out of range, value: %s", value));
 		}
 	}
 }

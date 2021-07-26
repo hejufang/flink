@@ -106,6 +106,9 @@ public class HtapFilterInfo implements Serializable {
 			case UINT64:
 				predicate = HtapPredicate.newComparisonPredicate(column, comparison, ((BigDecimal) this.value).unscaledValue());
 				break;
+			case DECIMAL:
+				predicate = HtapPredicate.newComparisonPredicate(column, comparison, ((BigDecimal) this.value));
+				break;
 			default:
 				throw new IllegalArgumentException("Illegal var type for filter pushdown: " + column.getType());
 		}

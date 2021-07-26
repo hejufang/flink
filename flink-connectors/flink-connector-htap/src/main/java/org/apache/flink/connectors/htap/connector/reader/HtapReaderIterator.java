@@ -22,6 +22,8 @@ import org.apache.flink.connectors.htap.exception.HtapConnectorException;
 import org.apache.flink.connectors.htap.table.utils.HtapAggregateUtils.FlinkAggregateFunction;
 import org.apache.flink.connectors.htap.table.utils.HtapTypeUtils;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.BigIntType;
+import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.DoubleType;
 import org.apache.flink.table.types.logical.FloatType;
 import org.apache.flink.table.types.logical.IntType;
@@ -43,6 +45,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.List;
@@ -187,9 +190,11 @@ public class HtapReaderIterator {
 			// -- 3. SUM/SUM0 aggregation with `Float` will be casted from `Float` to `Double`,
 			//       HtapStore's SumAgg returns `Float` for `Float` fields but BatchExecExchange
 			//       requires `Double`.
-			// -- 4. Aggregations with `Timestamp` will be casted to `LocalDateTime`,
+			// -- 4. SUM/SUM0 aggregation with `Bigint` will be casted from `Decimal`
+			//	     to their original type, as HtapStore's SumAgg returns `Decimal` for these fields.
+			// -- 5. Aggregations with `Timestamp` will be casted to `LocalDateTime`,
 			//       as BatchExecExchange requires.
-			// -- 5. SUM0 aggregate's result will be rewrite as 0 if HtapStore returns `null`.
+			// -- 6. SUM0 aggregate's result will be rewrite as 0 if HtapStore returns `null`.
 			if (aggregatedRow && cur++ >= groupByColumnSize) {
 				LogicalType logicalType = rowType.getTypeAt(cur - 1);
 				FlinkAggregateFunction aggFunction = aggregateFunctions.get(cur - groupByColumnSize - 1);
@@ -199,6 +204,8 @@ public class HtapReaderIterator {
 						value = 0.0F;
 					} else if (logicalType instanceof DoubleType) {
 						value = 0.0D;
+					} else if (logicalType instanceof DecimalType) {
+						value = new BigDecimal(0);
 					} else {
 						value = 0L;
 					}
@@ -223,6 +230,10 @@ public class HtapReaderIterator {
 						Timestamp timestampValue = (Timestamp) value;
 						if (logicalType instanceof TimestampType) {
 							value = timestampValue.toLocalDateTime();
+						}
+					} else if (value instanceof BigDecimal) {
+						if (logicalType instanceof BigIntType) {
+							value = HtapTypeUtils.convertToLong((BigDecimal) value);
 						}
 					}
 				} catch (Exception e) {
