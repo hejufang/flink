@@ -41,6 +41,8 @@ public class DiskUtils {
 
 	public static final String REMOTE_SSD_PREFIX = "/opt/iscsi/yarn";
 
+	private static final String DISK_PREFIX = "/data";
+
 	private static final String[] COMMAND_OUTPUT = new String[] {"NAME", "ROTA", "SIZE", "MOUNTPOINT"};
 	private static final String[] COMMAND = new String[] {"lsblk", "-P", "-o", String.join(",", COMMAND_OUTPUT)};
 
@@ -65,9 +67,19 @@ public class DiskUtils {
 
 	public static List<String> ssdMounts() {
 		return diskInfos.stream()
-				.filter(x -> x.rota.equals("0"))
-				.map(x -> x.mountpoint)
-				.collect(Collectors.toList());
+			.filter(x -> x.rota.equals("0"))
+			.map(x -> parseDataDirectory(x.mountpoint))
+			.collect(Collectors.toList());
+	}
+
+	@VisibleForTesting
+	public static String parseDataDirectory(String mountpoint) {
+		if (mountpoint.startsWith(DISK_PREFIX)) {
+			String[] elements = mountpoint.split("/");
+			return "/" + elements[1];
+		} else {
+			return mountpoint;
+		}
 	}
 
 	@VisibleForTesting
@@ -90,9 +102,9 @@ public class DiskUtils {
 
 	private static Optional<DiskInfo> parseDiskInfo(String[] elements) {
 		final List<String> infos = Arrays.stream(elements)
-				.map(DiskUtils::parseElementValue)
-				.filter(Objects::nonNull)
-				.collect(Collectors.toList());
+			.map(DiskUtils::parseElementValue)
+			.filter(Objects::nonNull)
+			.collect(Collectors.toList());
 		if (infos.size() == elements.length) {
 			return Optional.of(new DiskInfo(infos.get(0), infos.get(1), infos.get(2), infos.get(3)));
 		}
@@ -130,9 +142,9 @@ public class DiskUtils {
 			if (obj instanceof DiskInfo) {
 				final DiskInfo that = (DiskInfo) obj;
 				return name.equals(that.name)
-						&& rota.equals(that.rota)
-						&& size.equals(that.size)
-						&& mountpoint.equals(that.mountpoint);
+					&& rota.equals(that.rota)
+					&& size.equals(that.size)
+					&& mountpoint.equals(that.mountpoint);
 			} else {
 				return false;
 			}
