@@ -19,11 +19,26 @@
 package org.apache.flink.runtime.state.cache;
 
 import org.apache.flink.api.common.TaskInfo;
+import org.apache.flink.api.common.state.StateTtlConfig;
+import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
+import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.common.typeutils.base.IntSerializer;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendTestBase;
+import org.apache.flink.runtime.state.VoidNamespaceSerializer;
+import org.apache.flink.runtime.state.cache.internal.AbstractCachedKeyedState;
+import org.apache.flink.runtime.state.cache.internal.CachedValueState;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
+import org.apache.flink.runtime.state.ttl.TtlValue;
+
+import org.junit.Assert;
+import org.junit.Test;
+
+import java.lang.reflect.Field;
 
 /**
  * Tests for the {@link org.apache.flink.runtime.state.cache.CachedStateBackend}.
@@ -40,6 +55,39 @@ public class CachedStateBackendTest extends StateBackendTestBase<CachedStateBack
 	@Override
 	protected boolean isSerializerPresenceRequiredOnRestore() {
 		return false;
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	public void testTtlStateNotCreatedTwice() throws Exception {
+		AbstractKeyedStateBackend<Integer> backend = createKeyedBackend(IntSerializer.INSTANCE);
+		try {
+			ValueStateDescriptor<Long> kvId = new ValueStateDescriptor<>("id", Long.class);
+			kvId.enableTimeToLive(StateTtlConfig.newBuilder(Time.seconds(1)).build());
+
+			ValueState<Long> state = backend.getOrCreateKeyedState(VoidNamespaceSerializer.INSTANCE, kvId);
+			try {
+				Class<?> ttlValueState = Class.forName("org.apache.flink.runtime.state.ttl.TtlValueState");
+				Assert.assertTrue(ttlValueState.isInstance(state));
+
+				Class<?> abstractTtlDecorator = Class.forName("org.apache.flink.runtime.state.ttl.AbstractTtlDecorator");
+				Field originalState = abstractTtlDecorator.getDeclaredField("original");
+				originalState.setAccessible(true);
+				ValueState<TtlValue<Long>> originValueState = (ValueState<TtlValue<Long>>) originalState.get(state);
+				Assert.assertTrue(originValueState instanceof CachedValueState);
+
+				Field delegateState = AbstractCachedKeyedState.class.getDeclaredField("delegateState");
+				delegateState.setAccessible(true);
+				ValueState<TtlValue<Long>> delegateValueState = (ValueState<TtlValue<Long>>) delegateState.get(originValueState);
+				Class<?> heapValueState = Class.forName("org.apache.flink.runtime.state.heap.HeapValueState");
+				Assert.assertTrue(heapValueState.isInstance(delegateValueState));
+			} catch (ClassNotFoundException e){
+				Assert.fail("Unexpected exception: " + e.getMessage());
+			}
+		} finally {
+			backend.close();
+			backend.dispose();
+		}
 	}
 
 	private CacheConfiguration getCacheConfiguration() {

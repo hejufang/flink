@@ -65,4 +65,25 @@ public interface KeyedStateFactory {
 		@Nonnull TypeSerializer<N> namespaceSerializer,
 		@Nonnull StateDescriptor<S, SV> stateDesc,
 		@Nonnull StateSnapshotTransformFactory<SEV> snapshotTransformFactory) throws Exception;
+
+	/**
+	 * Creates and returns a new {@link InternalKvState}.
+	 *
+	 * @param namespaceSerializer TypeSerializer for the state namespace.
+	 * @param stateDesc The {@code StateDescriptor} that contains the name of the state.
+	 * @param snapshotTransformFactory factory of state snapshot transformer.
+	 * @param addToRegistry Indicates whether it needs to be added to the state list after the state is created.
+	 *
+	 * @param <N> The type of the namespace.
+	 * @param <SV> The type of the stored state value.
+	 * @param <SEV> The type of the stored state value or entry for collection types (list or map).
+	 * @param <S> The type of the public API state.
+	 * @param <IS> The type of internal state.
+	 */
+	@Nonnull
+	<N, SV, SEV, S extends State, IS extends S> IS createInternalState(
+		@Nonnull TypeSerializer<N> namespaceSerializer,
+		@Nonnull StateDescriptor<S, SV> stateDesc,
+		@Nonnull StateSnapshotTransformFactory<SEV> snapshotTransformFactory,
+		boolean addToRegistry) throws Exception;
 }

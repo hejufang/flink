@@ -26,6 +26,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
+import org.apache.flink.runtime.state.StateSnapshotTransformer.StateSnapshotTransformFactory;
 import org.apache.flink.runtime.state.heap.InternalKeyContext;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.ttl.TtlStateFactory;
@@ -33,6 +34,7 @@ import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.Preconditions;
 
+import javax.annotation.Nonnull;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -375,4 +377,18 @@ public abstract class AbstractKeyedStateBackend<K> implements
 		return false;
 	}
 
+	@SuppressWarnings("unchecked")
+	@Override
+	@Nonnull
+	public <N, SV, SEV, S extends State, IS extends S> IS createInternalState(
+		@Nonnull TypeSerializer<N> namespaceSerializer,
+		@Nonnull StateDescriptor<S, SV> stateDesc,
+		@Nonnull StateSnapshotTransformFactory<SEV> snapshotTransformFactory,
+		boolean addToRegistry) throws Exception {
+		IS internalState  = createInternalState(namespaceSerializer, stateDesc, snapshotTransformFactory);
+		if (addToRegistry) {
+			keyValueStatesByName.put(stateDesc.getName(), (InternalKvState<K, ?, ?>) internalState);
+		}
+		return internalState;
+	}
 }

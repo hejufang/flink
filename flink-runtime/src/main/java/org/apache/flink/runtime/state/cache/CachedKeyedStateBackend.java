@@ -243,7 +243,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			if (stateDesc.isQueryable()){
 				stateDesc.setUnQueryable();
 			}
-			internalKvState = (IS) delegateKeyedStateBackend.getOrCreateKeyedState(namespaceSerializer, stateDesc);
+			internalKvState = delegateKeyedStateBackend.createInternalState(namespaceSerializer, stateDesc, snapshotTransformFactory, true);
 		} finally {
 			if (queryableStateName != null) {
 				stateDesc.setQueryable(queryableStateName);
