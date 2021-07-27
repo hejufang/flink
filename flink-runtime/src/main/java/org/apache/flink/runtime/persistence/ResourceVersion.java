@@ -16,26 +16,23 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.zookeeper;
-
-import org.apache.flink.runtime.state.RetrievableStateHandle;
+package org.apache.flink.runtime.persistence;
 
 import java.io.Serializable;
 
 /**
- * State storage helper which is used by {@link ZooKeeperStateHandleStore} to persist state before
- * the state handle is written to ZooKeeper.
+ * Resource version for specific state handle on the underlying storage. The implementation also needs to implement the
+ * {@link Comparable} interface so that we could compare the resource versions.
  *
- * @param <T> The type of the data that can be stored by this storage helper.
+ * @param <R> Type of {@link ResourceVersion}
  */
-public interface RetrievableStateStorageHelper<T extends Serializable> {
+public interface ResourceVersion<R> extends Comparable<R>, Serializable {
 
 	/**
-	 * Stores the given state and returns a state handle to it.
+	 * Check whether the state handle is existing.
 	 *
-	 * @param state State to be stored
-	 * @return State handle to the stored state
-	 * @throws Exception
+	 * @return true if state handle exists with current {@link ResourceVersion} on external storage. Or false
+	 * it does not exist.
 	 */
-	RetrievableStateHandle<T> store(T state) throws Exception;
+	boolean isExisting();
 }

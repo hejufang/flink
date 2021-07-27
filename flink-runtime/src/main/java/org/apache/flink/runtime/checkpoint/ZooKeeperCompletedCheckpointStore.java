@@ -298,7 +298,7 @@ public class ZooKeeperCompletedCheckpointStore implements CompletedCheckpointSto
 
 	@Override
 	public void clearAllCheckpoints() throws Exception {
-		checkpointsInZooKeeper.deleteChildren();
+		checkpointsInZooKeeper.clearEntries();
 	}
 
 	@Override
@@ -351,7 +351,7 @@ public class ZooKeeperCompletedCheckpointStore implements CompletedCheckpointSto
 			completedCheckpoints.clear();
 			if (allDeleted) {
 				LOG.info("All completed checkpoints removed from zookeeper, remove checkpoints path from zookeeper.");
-				checkpointsInZooKeeper.deleteChildren();
+				checkpointsInZooKeeper.clearEntries();
 			}
 		} else {
 			LOG.info("Suspending");

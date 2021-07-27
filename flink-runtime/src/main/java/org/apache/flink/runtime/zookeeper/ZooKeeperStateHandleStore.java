@@ -19,6 +19,9 @@
 package org.apache.flink.runtime.zookeeper;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.runtime.persistence.IntegerResourceVersion;
+import org.apache.flink.runtime.persistence.RetrievableStateStorageHelper;
+import org.apache.flink.runtime.persistence.StateHandleStore;
 import org.apache.flink.runtime.state.RetrievableStateHandle;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.InstantiationUtil;
@@ -75,7 +78,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *
  * @param <T> Type of state
  */
-public class ZooKeeperStateHandleStore<T extends Serializable> {
+public class ZooKeeperStateHandleStore<T extends Serializable> implements StateHandleStore<T, IntegerResourceVersion> {
 
 	private static final Logger LOG = LoggerFactory.getLogger(ZooKeeperStateHandleStore.class);
 
@@ -125,6 +128,7 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 	 * @return The Created {@link RetrievableStateHandle}.
 	 * @throws Exception If a ZooKeeper or state handle operation fails
 	 */
+	@Override
 	public RetrievableStateHandle<T> addAndLock(
 			String pathInZooKeeper,
 			T state) throws Exception {
@@ -175,7 +179,8 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 	 * @param state           The new state to replace the old one
 	 * @throws Exception If a ZooKeeper or state handle operation fails
 	 */
-	public void replace(String pathInZooKeeper, int expectedVersion, T state) throws Exception {
+	@Override
+	public void replace(String pathInZooKeeper, IntegerResourceVersion expectedVersion, T state) throws Exception {
 		checkNotNull(pathInZooKeeper, "Path in ZooKeeper");
 		checkNotNull(state, "State");
 
@@ -193,7 +198,7 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 
 			// Replace state handle in ZooKeeper.
 			client.setData()
-					.withVersion(expectedVersion)
+					.withVersion(expectedVersion.getValue())
 					.forPath(path, serializedStateHandle);
 			success = true;
 		} catch (KeeperException.NoNodeException e) {
@@ -215,7 +220,8 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 	 * @return Version of the ZNode if the path exists, <code>-1</code> otherwise.
 	 * @throws Exception If the ZooKeeper operation fails
 	 */
-	public int exists(String pathInZooKeeper) throws Exception {
+	@Override
+	public IntegerResourceVersion exists(String pathInZooKeeper) throws Exception {
 		checkNotNull(pathInZooKeeper, "Path in ZooKeeper");
 
 		final String path = normalizePath(pathInZooKeeper);
@@ -223,10 +229,10 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 		Stat stat = client.checkExists().forPath(path);
 
 		if (stat != null) {
-			return stat.getVersion();
+			return IntegerResourceVersion.valueOf(stat.getVersion());
 		}
 
-		return -1;
+		return IntegerResourceVersion.notExisting();
 	}
 
 	/**
@@ -239,6 +245,7 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 	 * @throws IOException Thrown if the method failed to deserialize the stored state handle
 	 * @throws Exception Thrown if a ZooKeeper operation failed
 	 */
+	@Override
 	public RetrievableStateHandle<T> getAndLock(String pathInZooKeeper) throws Exception {
 		return get(pathInZooKeeper, true);
 	}
@@ -249,7 +256,8 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 	 * @return List of valid state handle paths in ZooKeeper
 	 * @throws Exception if a ZooKeeper operation fails
 	 */
-	public Collection<String> getAllPaths() throws Exception {
+	@Override
+	public Collection<String> getAllHandles() throws Exception {
 		final String path = "/";
 
 		while (true) {
@@ -276,6 +284,7 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 	 * @throws Exception If a ZooKeeper or state handle operation fails
 	 */
 	@SuppressWarnings("unchecked")
+	@Override
 	public List<Tuple2<RetrievableStateHandle<T>, String>> getAllAndLock() throws Exception {
 		final List<Tuple2<RetrievableStateHandle<T>, String>> stateHandles = new ArrayList<>();
 
@@ -327,6 +336,7 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 	 * @return True if the state handle could be released
 	 * @throws Exception If the ZooKeeper operation or discarding the state handle fails
 	 */
+	@Override
 	public boolean releaseAndTryRemove(String pathInZooKeeper) throws Exception {
 		checkNotNull(pathInZooKeeper, "Path in ZooKeeper");
 
@@ -382,8 +392,9 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 	 *
 	 * @throws Exception if the delete operation fails
 	 */
+	@Override
 	public void releaseAndTryRemoveAll() throws Exception {
-		Collection<String> children = getAllPaths();
+		Collection<String> children = getAllHandles();
 
 		Exception exception = null;
 
@@ -406,6 +417,7 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 	 * @param pathInZooKeeper Path describing the ZooKeeper node
 	 * @throws Exception if the delete operation of the lock node fails
 	 */
+	@Override
 	public void release(String pathInZooKeeper) throws Exception {
 		final String path = normalizePath(pathInZooKeeper);
 
@@ -423,8 +435,9 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 	 *
 	 * @throws Exception if the delete operation of a lock file fails
 	 */
+	@Override
 	public void releaseAll() throws Exception {
-		Collection<String> children = getAllPaths();
+		Collection<String> children = getAllHandles();
 
 		Exception exception = null;
 
@@ -446,10 +459,16 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 	 *
 	 * @throws Exception ZK errors
 	 */
-	public void deleteChildren() throws Exception {
+	@Override
+	public void clearEntries() throws Exception {
 		final String path = "/" + client.getNamespace();
 		LOG.info("Removing {} from ZooKeeper", path);
 		ZKPaths.deleteChildren(client.getZookeeperClient().getZooKeeper(), path, true);
+	}
+
+	@Override
+	public String toString() {
+		return this.getClass().getSimpleName() + "{namespace='" + client.getNamespace() + "'}";
 	}
 
 	// ---------------------------------------------------------------------------------------------------------
