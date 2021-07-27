@@ -41,11 +41,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 /**
- * Test behaviors of {@link ZooKeeperLeaderElectionService} on {@link ConnectionLossException}.
+ * Test behaviors of {@link ZooKeeperLeaderElectionDriver}-backed {@link DefaultLeaderElectionService}
+ * on {@link ConnectionLossException}.
  */
 public class ZooKeeperLeaderElectionConnectionLossTest extends TestLogger {
 
-	private static final String LATCH_PATH = "/latch";
 	private static final String LEADER_PATH = "/leader";
 
 	private static final Duration TIMEOUT = Duration.ofMillis(2000L);
@@ -59,7 +59,7 @@ public class ZooKeeperLeaderElectionConnectionLossTest extends TestLogger {
 		configuration.setString(HighAvailabilityOptions.HA_ZOOKEEPER_QUORUM, zooKeeperResource.getConnectString());
 
 		CuratorFramework client = ZooKeeperUtils.startCuratorFramework(configuration);
-		ZooKeeperLeaderElectionService leaderElectionService = new ZooKeeperLeaderElectionService(client, LATCH_PATH, LEADER_PATH);
+		DefaultLeaderElectionService leaderElectionService = ZooKeeperUtils.createLeaderElectionService(client, configuration, LEADER_PATH);
 
 		try {
 			final OneShotLatch connectionLossLatch = new OneShotLatch();
