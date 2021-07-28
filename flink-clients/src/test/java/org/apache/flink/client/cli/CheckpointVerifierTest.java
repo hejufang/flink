@@ -20,9 +20,13 @@ package org.apache.flink.client.cli;
 
 import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.checkpoint.OperatorState;
+import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.state.KeyGroupRangeOffsets;
+import org.apache.flink.runtime.state.KeyGroupsStateHandle;
+import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,9 +68,12 @@ public class CheckpointVerifierTest {
 
 	@Test
 	public void testVerifyFailWithMismatchParallelism() {
-		buildFailGraphWithMismatchParallelism();
+		buildFailGraphWithMismatchParallelism(false);
 		BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, OperatorState>, CheckpointVerifyResult> strategy;
 		strategy = CheckpointVerifier.getVerifyStrategies().get(1);
+		assertEquals(strategy.apply(tasks, operatorStates), CheckpointVerifyResult.SUCCESS);
+
+		buildFailGraphWithMismatchParallelism(true);
 		assertEquals(strategy.apply(tasks, operatorStates), CheckpointVerifyResult.FAIL_MISMATCH_PARALLELISM);
 	}
 
@@ -101,9 +108,20 @@ public class CheckpointVerifierTest {
 		operatorStates.put(new OperatorID(10, 0), new OperatorState(new OperatorID(10, 0), 100, 100));
 	}
 
-	void buildFailGraphWithMismatchParallelism() {
+	void buildFailGraphWithMismatchParallelism(boolean containKeyedState) {
 		buildSuccessGraph();
 		// put any OperatorState with a small maxParallelism
-		operatorStates.put(new OperatorID(100 * 0, 0), new OperatorState(new OperatorID(100, 0), 1, 1));
+		OperatorState operatorState = new OperatorState(new OperatorID(100, 0), 1, 1);
+		if (containKeyedState) {
+			OperatorSubtaskState subtaskState = new OperatorSubtaskState(
+				null,
+				null,
+				new KeyGroupsStateHandle(new KeyGroupRangeOffsets(0, 0), new ByteStreamStateHandle("test-handler", new byte[0])),
+				null,
+				null,
+				null);
+			operatorState.putState(0, subtaskState);
+		}
+		operatorStates.put(new OperatorID(100 * 0, 0), operatorState);
 	}
 }

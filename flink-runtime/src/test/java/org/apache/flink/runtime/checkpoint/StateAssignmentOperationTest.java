@@ -339,6 +339,41 @@ public class StateAssignmentOperationTest extends TestLogger {
 		Assert.assertEquals(states.get(userDefinedOperatorId).getState(0), getAssignedState(executionJobVertex, operatorId, 0));
 	}
 
+	@Test
+	public void testParallelismPreconditions() throws JobException, JobExecutionException {
+		int numSubTasks = 4;
+		OperatorID operatorId = new OperatorID();
+		OperatorID userDefinedOperatorId = new OperatorID();
+		Set<OperatorID> operatorIds = Collections.singleton(userDefinedOperatorId);
+		Map<OperatorID, OperatorState> states = buildOperatorStatesWithoutChannelState(operatorIds, numSubTasks);
+
+		ExecutionJobVertex executionJobVertex = buildExecutionJobVertex(operatorId, userDefinedOperatorId, 1);
+		StateAssignmentOperation stateAssignmentOperation = new StateAssignmentOperation(0, Collections.singleton(executionJobVertex), states, false);
+		try {
+			stateAssignmentOperation.assignStates();
+		} catch (Exception e) {
+			Assert.fail("need success");
+		}
+
+		executionJobVertex = buildExecutionJobVertex(operatorId, userDefinedOperatorId, 6);
+		stateAssignmentOperation = new StateAssignmentOperation(0, Collections.singleton(executionJobVertex), states, false);
+		try {
+			stateAssignmentOperation.assignStates();
+			Assert.fail("need fail");
+		} catch (Exception e) {
+			//ignore
+		}
+
+		executionJobVertex = buildExecutionJobVertex(operatorId, userDefinedOperatorId, 6);
+		states = buildOperatorStatesWithOnlyOperatorState(operatorIds, numSubTasks);
+		stateAssignmentOperation = new StateAssignmentOperation(0, Collections.singleton(executionJobVertex), states, false);
+		try {
+			stateAssignmentOperation.assignStates();
+		} catch (Exception e) {
+			Assert.fail("need success");
+		}
+	}
+
 	private Set<OperatorID> buildOperatorIds(int operators) {
 		Set<OperatorID> set = new HashSet<>();
 		for (int j = 0; j < operators; j++) {
@@ -359,6 +394,40 @@ public class StateAssignmentOperationTest extends TestLogger {
 					StateObjectCollection.singleton(createNewKeyedStateHandle(KeyGroupRange.of(i, i))),
 					new StateObjectCollection<>(asList(createNewInputChannelStateHandle(10, random), createNewInputChannelStateHandle(10, random))),
 					new StateObjectCollection<>(asList(createNewResultSubpartitionStateHandle(10, random), createNewResultSubpartitionStateHandle(10, random)))));
+			}
+			return state;
+		}));
+	}
+
+	private Map<OperatorID, OperatorState> buildOperatorStatesWithoutChannelState(Set<OperatorID> operators, int numSubTasks) {
+		Random random = new Random();
+		return operators.stream().collect(Collectors.toMap(Function.identity(), operatorID -> {
+			OperatorState state = new OperatorState(operatorID, numSubTasks, numSubTasks);
+			for (int i = 0; i < numSubTasks; i++) {
+				state.putState(i, new OperatorSubtaskState(
+					new StateObjectCollection<>(asList(createNewOperatorStateHandle(10, random), createNewOperatorStateHandle(10, random))),
+					new StateObjectCollection<>(asList(createNewOperatorStateHandle(10, random), createNewOperatorStateHandle(10, random))),
+					StateObjectCollection.singleton(createNewKeyedStateHandle(KeyGroupRange.of(i, i))),
+					StateObjectCollection.singleton(createNewKeyedStateHandle(KeyGroupRange.of(i, i))),
+					new StateObjectCollection<>(),
+					new StateObjectCollection<>()));
+			}
+			return state;
+		}));
+	}
+
+	private Map<OperatorID, OperatorState> buildOperatorStatesWithOnlyOperatorState(Set<OperatorID> operators, int numSubTasks) {
+		Random random = new Random();
+		return operators.stream().collect(Collectors.toMap(Function.identity(), operatorID -> {
+			OperatorState state = new OperatorState(operatorID, numSubTasks, numSubTasks);
+			for (int i = 0; i < numSubTasks; i++) {
+				state.putState(i, new OperatorSubtaskState(
+					new StateObjectCollection<>(asList(createNewOperatorStateHandle(10, random), createNewOperatorStateHandle(10, random))),
+					new StateObjectCollection<>(asList(createNewOperatorStateHandle(10, random), createNewOperatorStateHandle(10, random))),
+					new StateObjectCollection<>(),
+					new StateObjectCollection<>(),
+					new StateObjectCollection<>(),
+					new StateObjectCollection<>()));
 			}
 			return state;
 		}));

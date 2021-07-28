@@ -53,6 +53,7 @@ import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.apache.flink.runtime.checkpoint.StateAssignmentOperation.containKeyedState;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -170,7 +171,8 @@ public class Checkpoints {
 			if (executionJobVertex != null) {
 
 				if (executionJobVertex.getMaxParallelism() == operatorState.getMaxParallelism()
-						|| !executionJobVertex.isMaxParallelismConfigured()) {
+						|| !executionJobVertex.isMaxParallelismConfigured()
+						|| !containKeyedState(operatorState)) {
 					operatorStates.put(operatorState.getOperatorID(), operatorState);
 				} else {
 					String msg = String.format("Failed to rollback to checkpoint/savepoint %s. " +

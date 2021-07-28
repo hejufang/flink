@@ -551,7 +551,7 @@ public class StateAssignmentOperation {
 	private static void checkParallelismPreconditions(OperatorState operatorState, ExecutionJobVertex executionJobVertex) {
 		//----------------------------------------max parallelism preconditions-------------------------------------
 
-		if (operatorState.getMaxParallelism() < executionJobVertex.getParallelism()) {
+		if (operatorState.getMaxParallelism() < executionJobVertex.getParallelism() && containKeyedState(operatorState)) {
 			throw new IllegalStateException("The state for task " + executionJobVertex.getJobVertexId() +
 				" can not be restored. The maximum parallelism (" + operatorState.getMaxParallelism() +
 				") of the restored state is lower than the configured parallelism (" + executionJobVertex.getParallelism() +
@@ -560,7 +560,7 @@ public class StateAssignmentOperation {
 		}
 
 		// check that the number of key groups have not changed or if we need to override it to satisfy the restored state
-		if (operatorState.getMaxParallelism() != executionJobVertex.getMaxParallelism()) {
+		if (operatorState.getMaxParallelism() != executionJobVertex.getMaxParallelism() && containKeyedState(operatorState)) {
 
 			if (!executionJobVertex.isMaxParallelismConfigured()) {
 				// if the max parallelism was not explicitly specified by the user, we derive it from the state
@@ -705,5 +705,12 @@ public class StateAssignmentOperation {
 			LOG.info("A total of {} operatorStateHandles are generated for operator instance[{}], including a total of {} fragments.",
 				newOperatorState.get(firstInstance).size(), firstInstance, fragments);
 		}
+	}
+
+	public static boolean containKeyedState(OperatorState operatorState) {
+		return operatorState.getStates()
+			.stream()
+			.anyMatch(operatorSubtaskState -> !operatorSubtaskState.getManagedKeyedState().isEmpty()
+				|| !operatorSubtaskState.getRawKeyedState().isEmpty());
 	}
 }

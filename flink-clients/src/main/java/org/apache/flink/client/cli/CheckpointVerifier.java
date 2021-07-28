@@ -66,6 +66,7 @@ import static org.apache.flink.configuration.CheckpointingOptions.ALLOW_NON_REST
 import static org.apache.flink.configuration.CheckpointingOptions.CLIENT_CHECKPOINT_VERIFICATION_ENABLE;
 import static org.apache.flink.configuration.CheckpointingOptions.MAX_RETAINED_CHECKPOINTS;
 import static org.apache.flink.runtime.checkpoint.Checkpoints.loadCheckpointMetadata;
+import static org.apache.flink.runtime.checkpoint.StateAssignmentOperation.containKeyedState;
 
 /**
  * Checkpoint verifier at client-end.
@@ -117,7 +118,7 @@ public class CheckpointVerifier {
 				for (OperatorIDPair operatorIDPair : operatorIDs) {
 					OperatorState operatorState = operatorStates.get(operatorIDPair.getGeneratedOperatorID());
 					if (operatorState != null) {
-						if (operatorState.getMaxParallelism() < parallelism) {
+						if (operatorState.getMaxParallelism() < parallelism && containKeyedState(operatorState)) {
 							final String message = "Operator " + operatorState.getOperatorID() + " has " + parallelism +
 								" in new JobGraph, while the max parallelism in OperatorState is " + operatorState.getMaxParallelism() +
 								", could not match the parallelism between new JobGraph and previous state.";

@@ -25,6 +25,9 @@ import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
+import org.apache.flink.runtime.state.KeyGroupRangeOffsets;
+import org.apache.flink.runtime.state.KeyGroupsStateHandle;
+import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.OperatorStreamStateHandle;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
@@ -83,7 +86,7 @@ public class CheckpointMetadataLoadingTest {
 		final OperatorID operatorId = new OperatorID();
 		final int parallelism = 128128;
 
-		final CompletedCheckpointStorageLocation testSavepoint = createSavepointWithOperatorSubtaskState(242L, operatorId, parallelism);
+		final CompletedCheckpointStorageLocation testSavepoint = createSavepointWithOperatorSubtaskState(242L, operatorId, parallelism, true);
 		final Map<JobVertexID, ExecutionJobVertex> tasks = createTasks(operatorId, parallelism, parallelism + 1);
 
 		try {
@@ -91,6 +94,13 @@ public class CheckpointMetadataLoadingTest {
 			fail("Did not throw expected Exception");
 		} catch (IllegalStateException expected) {
 			assertTrue(expected.getMessage().contains("Max parallelism mismatch"));
+		}
+
+		final CompletedCheckpointStorageLocation testSavepointWithoutKeyedState = createSavepointWithOperatorSubtaskState(242L, operatorId, parallelism);
+		try {
+			Checkpoints.loadAndValidateCheckpoint(new JobID(), tasks, testSavepointWithoutKeyedState, cl, false);
+		} catch (IllegalStateException expected) {
+			fail("Should not throw Exception");
 		}
 	}
 
@@ -175,13 +185,23 @@ public class CheckpointMetadataLoadingTest {
 			final long checkpointId,
 			final OperatorID operatorId,
 			final int parallelism) throws IOException {
+		return createSavepointWithOperatorSubtaskState(checkpointId, operatorId, parallelism, false);
+	}
+
+	private static CompletedCheckpointStorageLocation createSavepointWithOperatorSubtaskState(
+			final long checkpointId,
+			final OperatorID operatorId,
+			final int parallelism,
+			boolean containKeyedState) throws IOException {
 
 		final Random rnd = new Random();
+		KeyedStateHandle keyedStateHandle = containKeyedState ?
+			new KeyGroupsStateHandle(new KeyGroupRangeOffsets(0, 1), new ByteStreamStateHandle("testKeyedHandler", new byte[0])) : null;
 
 		final OperatorSubtaskState subtaskState = new OperatorSubtaskState(
 			new OperatorStreamStateHandle(Collections.emptyMap(), new ByteStreamStateHandle("testHandler", new byte[0])),
 			null,
-			null,
+			keyedStateHandle,
 			null,
 			singleton(createNewInputChannelStateHandle(10, rnd)),
 			singleton(createNewResultSubpartitionStateHandle(10, rnd)));
