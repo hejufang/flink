@@ -26,6 +26,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class ExecutionFailNumGauge implements Gauge<Long> {
 
 	public static final String METRIC_NAME = "executionFailNum";
+	public static final String RATE_METRIC_NAME = "executionFailNumRate";
 
 	// ------------------------------------------------------------------------
 

@@ -1004,12 +1004,20 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		return numberOfRestartsCounter.getCount();
 	}
 
+	public Counter getNumberOfRestartsCounter() {
+		return numberOfRestartsCounter;
+	}
+
 	public Counter getNoResourceAvailableExceptionCounter() {
 		return noResourceAvailableExceptionCounter;
 	}
 
 	public long getExecutionFailNum() {
 		return numberOfExecutionFailCounter.getCount();
+	}
+
+	public Counter getNumberOfExecutionFailCounter() {
+		return numberOfExecutionFailCounter;
 	}
 
 	public int getExecutionStatus() {

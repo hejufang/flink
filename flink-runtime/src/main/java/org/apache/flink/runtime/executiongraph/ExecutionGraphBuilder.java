@@ -30,6 +30,7 @@ import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
+import org.apache.flink.metrics.MeterView;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
@@ -535,10 +536,14 @@ public class ExecutionGraphBuilder {
 		metrics.gauge(RestartTimeGauge.METRIC_NAME, new RestartTimeGauge(executionGraph));
 		metrics.gauge(DownTimeGauge.METRIC_NAME, new DownTimeGauge(executionGraph));
 		metrics.gauge(UpTimeGauge.METRIC_NAME, new UpTimeGauge(executionGraph));
+		// register full restart gauge metrics and rate metrics
 		metrics.gauge(NumberOfFullRestartsGauge.METRIC_NAME, new NumberOfFullRestartsGauge(executionGraph));
+		metrics.meter(NumberOfFullRestartsGauge.RATE_METRIC_NAME, new MeterView(executionGraph.getNumberOfRestartsCounter(), 60));
 		metrics.counter(NO_RESOURCE_AVAILABLE_EXCEPTION_METRIC, executionGraph.getNoResourceAvailableExceptionCounter());
 		metrics.gauge(ExecutionGraph.EVENT_METRIC_NAME, jobStartEventMessageSet);
+		// register failover gauge metrics and rate metrics
 		metrics.gauge(ExecutionFailNumGauge.METRIC_NAME, new ExecutionFailNumGauge(executionGraph));
+		metrics.meter(ExecutionFailNumGauge.RATE_METRIC_NAME, new MeterView(executionGraph.getNumberOfExecutionFailCounter(), 60));
 		metrics.gauge(ExecutionStatusGauge.METRIC_NAME, new ExecutionStatusGauge(executionGraph));
 
 		executionGraph.getFailoverStrategy().registerMetrics(metrics);
