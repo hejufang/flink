@@ -22,10 +22,10 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.bytetable.options.ByteTableOptions;
+import org.apache.flink.connector.bytetable.util.BConstants;
 import org.apache.flink.connector.bytetable.util.ByteArrayWrapper;
 import org.apache.flink.connector.bytetable.util.ByteTableConfigurationUtil;
 import org.apache.flink.connector.bytetable.util.ByteTableMutateType;
-import org.apache.flink.connector.bytetable.util.ByteTableReduceUtil;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
@@ -33,13 +33,10 @@ import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.util.FlinkRuntimeException;
-import org.apache.flink.util.StringUtils;
 
 import com.bytedance.bytetable.Client;
 import com.bytedance.bytetable.RowMutation;
 import com.bytedance.bytetable.Table;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.BufferedMutator;
@@ -50,6 +47,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -94,7 +92,6 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 
 	private transient ScheduledExecutorService executor;
 	private transient ScheduledFuture scheduledFuture;
-	private transient AtomicLong numPendingRequests;
 	private transient AtomicLong numInvokeRequests;
 
 	private transient volatile boolean closed = false;
@@ -153,10 +150,8 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 	@Override
 	public void open(Configuration parameters) throws Exception {
 		LOG.info("start open ...");
-		org.apache.hadoop.conf.Configuration config = prepareRuntimeConfiguration();
 		try {
 			this.mutationConverter.open();
-			this.numPendingRequests = new AtomicLong(0);
 			this.numInvokeRequests = new AtomicLong(0);
 			// create a parameter instance, set the table name and custom listener reference.
 			BufferedMutatorParams params = new BufferedMutatorParams(TableName.valueOf(
@@ -165,20 +160,21 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 			if (bufferFlushMaxSizeInBytes > 0) {
 				params.writeBufferSize(bufferFlushMaxSizeInBytes);
 			}
-
 			if (bufferFlushIntervalMillis > 0) {
 				this.executor = Executors.newScheduledThreadPool(
 					1, new ExecutorThreadFactory("bytetable-upsert-sink-flusher"));
 				this.scheduledFuture = this.executor.scheduleWithFixedDelay(() -> {
-					if (closed) {
-						return;
-					}
-					try {
-						flush();
-					} catch (Exception e) {
-						// fail the sink and skip the rest of the items
-						// if the failure handler decides to throw an exception
-						failureThrowable.compareAndSet(null, e);
+					synchronized (ByteTableSinkFunction.this){
+						if (closed) {
+							return;
+						}
+						try {
+							flush();
+						} catch (Exception e) {
+							// fail the sink and skip the rest of the items
+							// if the failure handler decides to throw an exception
+							failureThrowable.compareAndSet(null, e);
+						}
 					}
 				}, bufferFlushIntervalMillis, bufferFlushIntervalMillis, TimeUnit.MILLISECONDS);
 			}
@@ -197,21 +193,6 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 		LOG.info("end open.");
 	}
 
-	private org.apache.hadoop.conf.Configuration prepareRuntimeConfiguration() throws IOException {
-		// create default configuration from current runtime env (`hbase-site.xml` in classpath) first,
-		// and overwrite configuration using serialized configuration from client-side env (`hbase-site.xml` in classpath).
-		// user params from client-side have the highest priority
-		org.apache.hadoop.conf.Configuration runtimeConfig = ByteTableConfigurationUtil.deserializeConfiguration(serializedConfig, HBaseConfiguration.create());
-
-		// do validation: check key option(s) in final runtime configuration
-		if (StringUtils.isNullOrWhitespaceOnly(runtimeConfig.get(HConstants.ZOOKEEPER_QUORUM))) {
-			LOG.error("Can not connect to ByteTable without {} configuration", HConstants.ZOOKEEPER_QUORUM);
-			throw new IOException("Check ByteTable configuration failed, lost: '" + HConstants.ZOOKEEPER_QUORUM + "'!");
-		}
-
-		return runtimeConfig;
-	}
-
 	private void checkErrorAndRethrow() {
 		Throwable cause = failureThrowable.get();
 		if (cause != null) {
@@ -221,7 +202,7 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 
 	@SuppressWarnings("rawtypes")
 	@Override
-	public void invoke(T value, Context context) throws Exception {
+	public synchronized void invoke(T value, Context context) throws Exception {
 		checkErrorAndRethrow();
 
 		if (rateLimiter != null) {
@@ -229,26 +210,23 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 		}
 		ByteArrayWrapper rowkey = mutationConverter.getRowKeyByteArrayWrapper(value);
 		// Reduce the row.
-		if (ByteTableReduceUtil.mutateReduce(cellVersionIndex, rowkey, (RowData) value, rowReduceMap)) {
-			numPendingRequests.incrementAndGet();
-		}
+		mutateReduce(rowkey, (RowData) value);
 		numInvokeRequests.incrementAndGet();
 		// flush when the buffer number of mutations greater than the configured max size.
-		if (bufferFlushMaxMutations > 0 && numPendingRequests.get() >= bufferFlushMaxMutations) {
+		if (bufferFlushMaxMutations > 0 && rowReduceMap.size() >= bufferFlushMaxMutations) {
 			flush();
 		}
 	}
 
 	private synchronized void flush() throws IOException {
-		if (numInvokeRequests.get() > numPendingRequests.get()) {
+		if (numInvokeRequests.get() > rowReduceMap.size()) {
 			LOG.info("Some messages have been reduced while flushing.Invoke num: {}, " +
-					"Actual mutate num: {}", numInvokeRequests, numPendingRequests);
+				"Actual mutate num: {}", numInvokeRequests, rowReduceMap.size());
 		}
 		if (!rowReduceMap.isEmpty()) {
 			mutatorFun.execute();
 			rowReduceMap.clear();
 		}
-		numPendingRequests.set(0);
 		numInvokeRequests.set(0);
 		checkErrorAndRethrow();
 	}
@@ -275,7 +253,7 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 
 	@Override
 	public void snapshotState(FunctionSnapshotContext context) throws Exception {
-		while (numPendingRequests.get() != 0) {
+		while (!rowReduceMap.isEmpty()) {
 			flush();
 		}
 	}
@@ -308,7 +286,6 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 	/**
 	 * Logic for choose which way to mutate.
 	 */
-	@FunctionalInterface
 	public interface MutatorFun extends Serializable {
 		void execute() throws IOException;
 	}
@@ -342,6 +319,24 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 			mutationList.add(mutation);
 		}
 		this.bytetableTable.mutateMultiRow(mutationList);
+	}
+
+	private void mutateReduce(
+			ByteArrayWrapper rowkey,
+			RowData newRow) {
+		// check and solve cellVersion reduce.
+		RowData oldRow;
+		if (rowReduceMap.containsKey(rowkey)) {
+			oldRow = rowReduceMap.get(rowkey);
+			Timestamp newVersion = newRow.getTimestamp(cellVersionIndex, BConstants.MAX_TIMESTAMP_PRECISION).toTimestamp();
+			Timestamp oldVersion = oldRow.getTimestamp(cellVersionIndex, BConstants.MAX_TIMESTAMP_PRECISION).toTimestamp();
+			if (newVersion.getTime() < oldVersion.getTime()) {
+				// We do not need to put an old-version row in batch.
+				return;
+			}
+		}
+		rowReduceMap.put(rowkey, newRow);
+		return;
 	}
 
 }

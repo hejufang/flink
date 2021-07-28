@@ -270,7 +270,6 @@ public class ByteTableSerde {
 	/**
 	 * Runtime encoder that encodes a specified field in {@link RowData} into byte[].
 	 */
-	@FunctionalInterface
 	private interface FieldEncoder extends Serializable {
 		byte[] encode(RowData row, int pos);
 	}
@@ -378,7 +377,6 @@ public class ByteTableSerde {
 	/**
 	 * Runtime decoder that decodes a byte[] into objects of internal data structure.
 	 */
-	@FunctionalInterface
 	private interface FieldDecoder extends Serializable {
 		@Nullable Object decode(byte[] value);
 	}
