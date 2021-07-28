@@ -116,6 +116,12 @@ public class NoFetchingInput extends Input {
 			throw new IllegalArgumentException("bytes cannot be null.");
 		}
 
+		if (count == 0) {
+			// If we do not return here, flink will throw a KryoException when
+			// reaching the end of inputStream.
+			return;
+		}
+
 		try{
 			int bytesRead = 0;
 			int c;

@@ -292,6 +292,10 @@ public class CliFrontend {
 		final PackagedProgram program = getPackagedProgram(programOptions, effectiveConfiguration);
 		warehouseJobStartEventMessageRecorder.buildProgramFinish();
 
+		// reload system properties
+		// Prevent python dashboard from being overwritten
+		putSystemProperties(effectiveConfiguration);
+
 		try {
 			executeProgram(effectiveConfiguration, program);
 		} finally {

@@ -443,6 +443,13 @@ under the License.
 		</dependency>
 
 		<dependency>
+			<groupId>com.bytedance.flink</groupId>
+			<artifactId>flink-python-byted</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
 			<!--We deploy this dependency manually.
 				repo: git@code.byted.org:dp/hive_udf.git
 				commit: 078f6d86826a12bd99dcc84f26fe01a60e6d47df

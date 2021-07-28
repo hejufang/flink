@@ -37,6 +37,7 @@ under the License.
 	<packaging>pom</packaging>
 
 	<modules>
+		<module>flink-python-byted</module>
 		<module>flink-connector-wikiedits</module>
 	</modules>
 
