@@ -120,6 +120,7 @@ public class JsonFormatFactoryTest extends TestLogger {
 						ROW_TYPE,
 						new RowDataTypeInfo(ROW_TYPE),
 						false,
+						false,
 						true,
 						TimestampFormat.ISO_8601);
 
