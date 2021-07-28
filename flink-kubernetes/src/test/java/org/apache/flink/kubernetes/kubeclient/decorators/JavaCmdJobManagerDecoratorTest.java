@@ -77,6 +77,10 @@ public class JavaCmdJobManagerDecoratorTest extends KubernetesJobManagerTestBase
 		flinkConfig.set(KubernetesConfigOptions.FLINK_LOG_DIR, FLINK_LOG_DIR_IN_POD);
 		flinkConfig.set(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS, ENTRY_POINT_CLASS);
 		flinkConfig.set(KubernetesConfigOptions.KUBERNETES_ENTRY_PATH, KUBERNETES_ENTRY_PATH);
+
+		// Disable this option, as we include current system time as part of the file name of JVM err log
+		// in KubernetesUtils::getJavaOpts, which is not test-friendly
+		flinkConfig.setBoolean(CoreOptions.FLINK_JVM_ERROR_FILE_ENABLED, false);
 	}
 
 	@Override
