@@ -777,8 +777,16 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		return numberOfRestartsCounter.getCount();
 	}
 
+	public Counter getNumberOfRestartsCounter() {
+		return numberOfRestartsCounter;
+	}
+
 	public long getExecutionFailNum() {
 		return numberOfExecutionFailCounter.getCount();
+	}
+
+	public Counter getNumberOfExecutionFailCounter() {
+		return numberOfExecutionFailCounter;
 	}
 
 	/**

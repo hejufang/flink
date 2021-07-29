@@ -64,6 +64,7 @@ public class MetricNames {
 
 	@Deprecated
 	public static final String FULL_RESTARTS = "fullRestarts";
+	public static final String FULL_RESTARTS_RATE = "fullRestartsRate";
 
 	public static final String NUM_PENDING_TASK_MANAGER_SLOTS = "numPendingTaskManagerSlots";
 	public static final String NUM_PENDING_SLOT_REQUESTS = "numPendingSlotRequests";

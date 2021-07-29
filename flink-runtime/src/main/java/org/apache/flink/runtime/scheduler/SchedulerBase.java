@@ -27,6 +27,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.InputSplit;
+import org.apache.flink.metrics.MeterView;
 import org.apache.flink.queryablestate.KvStateID;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
@@ -507,7 +508,9 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	private void registerJobMetrics() {
 		jobManagerJobMetricGroup.gauge(MetricNames.NUM_RESTARTS, this::getNumberOfRestarts);
+		// register full restart gauge metrics and rate metrics
 		jobManagerJobMetricGroup.gauge(MetricNames.FULL_RESTARTS, this::getNumberOfRestarts);
+		jobManagerJobMetricGroup.meter(MetricNames.FULL_RESTARTS_RATE, new MeterView(executionGraph.getNumberOfRestartsCounter(), 60));
 		jobManagerJobMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
 	}
 

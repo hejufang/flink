@@ -23,7 +23,9 @@ global:
   name:
     [
         fullRestarts,
+        fullRestartsRate,
         executionFailNum,
+        executionFailNumRate,
         executionStatus,
         noResourceAvailableException,
         currentOffsetsRate,
