@@ -139,6 +139,10 @@ public class NettyConfig {
 		return config.getInteger(NettyShuffleEnvironmentOptions.CLIENT_CONNECT_MAX_RETRY_TIMES);
 	}
 
+	public int getClientTcpUserTimeoutSeconds() {
+		return config.getInteger(NettyShuffleEnvironmentOptions.CLIENT_TCP_USER_TIMEOUT_SECONDS);
+	}
+
 	public TransportType getTransportType() {
 		String transport = config.getString(NettyShuffleEnvironmentOptions.TRANSPORT_TYPE);
 
