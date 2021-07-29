@@ -281,6 +281,17 @@ public class NettyShuffleEnvironmentOptions {
 				" based on the platform. Note that the \"epoll\" mode can get better performance, less GC and have more advanced features which are" +
 				" only available on modern Linux.");
 
+	@Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+	public static final ConfigOption<Integer> CLIENT_TCP_USER_TIMEOUT_SECONDS =
+		key("taskmanager.network.netty.client.tcp-user-timeout-seconds")
+			.defaultValue(0) // default: 0s
+			.withDescription("The Netty client socket ack timeout. The default value is zero which is no effect on the socket." +
+				" Socket failure may take up to 2 hours with the system default value." +
+				" Two hours is the default tcp keepidle time, which means that no TCP data is transmitted between the two parties。" +
+				" However, if we only lose ack packets, the client will think that the connection is alive and will not be able to throw an exception after 2 hours" +
+				" Decreasing tcp_user_timeout allows applications to fail fast." +
+				" See https://man7.org/linux/man-pages/man7/tcp.7.html for more details.");
+
 	// ------------------------------------------------------------------------
 	//  Partition Request Options
 	// ------------------------------------------------------------------------

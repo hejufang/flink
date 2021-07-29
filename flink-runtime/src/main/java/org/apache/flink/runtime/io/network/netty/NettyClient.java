@@ -29,6 +29,7 @@ import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFuture;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInitializer;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelOption;
 import org.apache.flink.shaded.netty4.io.netty.channel.epoll.Epoll;
+import org.apache.flink.shaded.netty4.io.netty.channel.epoll.EpollChannelOption;
 import org.apache.flink.shaded.netty4.io.netty.channel.epoll.EpollEventLoopGroup;
 import org.apache.flink.shaded.netty4.io.netty.channel.epoll.EpollSocketChannel;
 import org.apache.flink.shaded.netty4.io.netty.channel.nio.NioEventLoopGroup;
@@ -79,18 +80,20 @@ class NettyClient {
 		// --------------------------------------------------------------------
 		// Transport-specific configuration
 		// --------------------------------------------------------------------
-
+		boolean epollFlag = false;
 		switch (config.getTransportType()) {
 			case NIO:
 				initNioBootstrap();
 				break;
 
 			case EPOLL:
+				epollFlag = true;
 				initEpollBootstrap();
 				break;
 
 			case AUTO:
 				if (Epoll.isAvailable()) {
+					epollFlag = true;
 					initEpollBootstrap();
 					LOG.info("Transport type 'auto': using EPOLL.");
 				}
@@ -112,6 +115,11 @@ class NettyClient {
 
 		// Pooled allocator for Netty's ByteBuf instances
 		bootstrap.option(ChannelOption.ALLOCATOR, nettyBufferPool);
+
+		// set tcpUserTimeout to quickly check socket status and fail fast
+		if (epollFlag && config.getClientTcpUserTimeoutSeconds() > 0L) {
+			bootstrap.option(EpollChannelOption.TCP_USER_TIMEOUT, config.getClientTcpUserTimeoutSeconds() * 1000);
+		}
 
 		// Receive and send buffer size
 		int receiveAndSendBufferSize = config.getSendAndReceiveBufferSize();
