@@ -35,6 +35,7 @@ import org.apache.flink.util.FlinkRuntimeException;
 import java.util.List;
 
 import static org.apache.flink.configuration.PipelineOptions.ALL_VERTICES_IN_SAME_SLOT_SHARING_GROUP_BY_DEFAULT;
+import static org.apache.flink.configuration.PipelineOptions.OBJECT_REUSE;
 import static org.apache.flink.table.api.config.ExecutionConfigOptions.TABLE_EXEC_USE_OLAP_MODE;
 
 /**
@@ -66,7 +67,9 @@ public class ExecutorUtils {
 	 */
 	public static void setBatchProperties(StreamExecutionEnvironment execEnv, TableConfig tableConfig) {
 		ExecutionConfig executionConfig = execEnv.getConfig();
-		executionConfig.enableObjectReuse();
+		if (!tableConfig.getConfiguration().toMap().containsKey(OBJECT_REUSE.key())) {
+			executionConfig.enableObjectReuse();
+		}
 		executionConfig.setLatencyTrackingInterval(-1);
 		execEnv.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
 		execEnv.setBufferTimeout(-1);
