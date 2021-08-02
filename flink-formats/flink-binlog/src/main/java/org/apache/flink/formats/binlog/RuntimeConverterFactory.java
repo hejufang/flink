@@ -106,6 +106,7 @@ public class RuntimeConverterFactory {
 	private static final Map<String, Class<? extends LogicalType>> JDBC_TO_FLINK_TYPE = getJdbcToFlinkType();
 	private static final Map<String, Class<? extends LogicalType>> JDBC_TO_COMPATIBLE_TYPE = getJdbcToCompatibleType();
 	private static final String ZERO_TIMESTAMP_STR = "0000-00-00 00:00:00";
+	private static final String ZERO_DATE_STR = "0000-00-00";
 
 	/**
 	 * Create runtime converter according to RowTypeInfo.
@@ -188,9 +189,12 @@ public class RuntimeConverterFactory {
 			DynamicMessage columnMessage = (DynamicMessage) o;
 
 			if (VALUE_COLUMN.equals(innerColumnName)) {
-				// validate type for column 'value'.
-				String jdbcTypeName = (String) columnMessage.getField(FIELD_DESCRIPTORS.get(SQL_TYPE_COLUMN));
-				validateType(jdbcTypeName, logicalType, fieldName, innerColumnName);
+				// for binary type, we don't need validate the type
+				if (!(logicalType instanceof VarBinaryType)) {
+					// validate type for column 'value'.
+					String jdbcTypeName = (String) columnMessage.getField(FIELD_DESCRIPTORS.get(SQL_TYPE_COLUMN));
+					validateType(jdbcTypeName, logicalType, fieldName, innerColumnName);
+				}
 				boolean isNull = (boolean) columnMessage.getField(FIELD_DESCRIPTORS.get(NULL_COLUMN));
 				if (isNull) {
 					// This indicates the column value is null.
@@ -300,7 +304,11 @@ public class RuntimeConverterFactory {
 		} else if (logicalType instanceof DoubleType) {
 			return o -> Double.valueOf(((ByteString) o).toStringUtf8());
 		} else if (logicalType instanceof DateType) {
-			return o -> SqlDateTimeUtils.dateToInternal(Date.valueOf(((ByteString) o).toStringUtf8()));
+			return o -> {
+				String v = ((ByteString) o).toStringUtf8();
+				return SqlDateTimeUtils.dateToInternal(
+					v.contains(ZERO_DATE_STR) ? new Date(0) : Date.valueOf(v));
+			};
 		} else if (logicalType instanceof TimeType) {
 			return o -> SqlDateTimeUtils.timeToInternal(Time.valueOf(((ByteString) o).toStringUtf8()));
 		} else if (logicalType instanceof VarBinaryType) {

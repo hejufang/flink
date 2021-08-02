@@ -92,8 +92,10 @@ public class BinlogRowDeserializationSchemaTest {
 			DecimalData.fromBigDecimal(new BigDecimal(Long.MAX_VALUE).add(BigDecimal.ONE), 19, 0), true);
 		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM),
 			new byte[]{-23, 32, -95, 84, 75, 5, 6, 44});
-		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum, TEST_FIELD_NUM),
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM),
 			new byte[]{1, -2, 3, 23, 21, 32, -10, -1});
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), "3".getBytes());
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum, TEST_FIELD_NUM), "0".getBytes());
 	}
 
 	private RowType createRowType() {
@@ -122,6 +124,9 @@ public class BinlogRowDeserializationSchemaTest {
 		rowFields.add(new RowType.RowField("test_unsigned_long", getInnerRowType(() -> new DecimalType(19))));
 		rowFields.add(new RowType.RowField("test_blob", getInnerRowType(VarBinaryType::new)));
 		rowFields.add(new RowType.RowField("test_binary", getInnerRowType(VarBinaryType::new)));
+		// test using varBinary represent different type
+		rowFields.add(new RowType.RowField("test_integer", getInnerRowType(VarBinaryType::new)));
+		rowFields.add(new RowType.RowField("test_test_decimal", getInnerRowType(VarBinaryType::new)));
 		return new RowType(rowFields);
 	}
 
