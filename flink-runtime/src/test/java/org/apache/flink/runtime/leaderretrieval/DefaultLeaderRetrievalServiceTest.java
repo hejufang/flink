@@ -18,10 +18,10 @@
 
 package org.apache.flink.runtime.leaderretrieval;
 
+import org.apache.flink.core.testutils.FlinkMatchers;
 import org.apache.flink.runtime.leaderelection.DefaultLeaderElectionService;
 import org.apache.flink.runtime.leaderelection.LeaderInformation;
 import org.apache.flink.runtime.leaderelection.TestingListener;
-import org.apache.flink.util.CoreMatchers;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.function.RunnableWithException;
 
@@ -82,7 +82,7 @@ public class DefaultLeaderRetrievalServiceTest extends TestLogger {
 				testingLeaderRetrievalDriver.onFatalError(testException);
 
 				testingListener.waitForError(timeout);
-				assertThat(testingListener.getError(), CoreMatchers.containsCause(testException));
+				assertThat(testingListener.getError(), FlinkMatchers.containsCause(testException));
 			});
 		}};
 	}

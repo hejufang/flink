@@ -23,6 +23,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple6;
+import org.apache.flink.core.testutils.FlinkMatchers;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
@@ -46,7 +47,6 @@ import org.apache.flink.runtime.taskexecutor.exceptions.SlotOccupiedException;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
 import org.apache.flink.runtime.testingUtils.TestingUtils;
-import org.apache.flink.util.CoreMatchers;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.function.FunctionUtils;
@@ -1531,7 +1531,7 @@ public class SlotManagerImplTest extends TestLogger {
 			slotManager.registerTaskManager(taskExecutorConnection, slotReport);
 			slotManager.unregisterTaskManager(taskExecutorConnection.getInstanceID(), failureCause);
 
-			assertThat(allocationFailureCause.get(), CoreMatchers.containsCause(failureCause));
+			assertThat(allocationFailureCause.get(), FlinkMatchers.containsCause(failureCause));
 		}
 	}
 

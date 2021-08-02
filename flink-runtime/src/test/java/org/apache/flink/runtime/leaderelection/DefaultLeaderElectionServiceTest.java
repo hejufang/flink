@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.leaderelection;
 
-import org.apache.flink.util.CoreMatchers;
+import org.apache.flink.core.testutils.FlinkMatchers;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.function.RunnableWithException;
 
@@ -184,7 +184,7 @@ public class DefaultLeaderElectionServiceTest extends TestLogger {
 
 				testingContender.waitForError(timeout);
 				assertThat(testingContender.getError(), is(notNullValue()));
-				assertThat(testingContender.getError(), CoreMatchers.containsCause(testException));
+				assertThat(testingContender.getError(), FlinkMatchers.containsCause(testException));
 			});
 		}};
 	}
