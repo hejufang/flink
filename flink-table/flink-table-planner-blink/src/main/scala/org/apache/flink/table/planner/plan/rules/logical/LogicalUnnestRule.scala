@@ -54,23 +54,14 @@ class LogicalUnnestRule(
     val join: LogicalCorrelate = call.rel(0)
     val right = getRel(join.getRight)
 
-    right match {
-      // a filter is pushed above the table function
-      case filter: LogicalFilter =>
-        getRel(filter.getInput) match {
-          case u: Uncollect => !u.withOrdinality
-          case p: LogicalProject => getRel(p.getInput) match {
-            case u: Uncollect => !u.withOrdinality
-            case _ => false
-          }
-          case _ => false
-        }
-      case project: LogicalProject =>
-        getRel(project.getInput) match {
-          case u: Uncollect => !u.withOrdinality
-          case _ => false
-        }
-      case u: Uncollect => !u.withOrdinality
+    matches(right)
+  }
+
+  def matches(rel: RelNode): Boolean = {
+    rel match {
+      case filter: LogicalFilter => matches(getRel(filter.getInput))
+      case project: LogicalProject => matches(getRel(project.getInput))
+      case unnest: Uncollect => !unnest.withOrdinality
       case _ => false
     }
   }

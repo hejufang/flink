@@ -126,4 +126,14 @@ abstract class UnnestTestBase extends TableTestBase {
     util.verifyPlan("SELECT a, b, A._1, A._2 FROM MyTable, UNNEST(MyTable.b) AS A where A._1 > 1")
   }
 
+  @Test
+  def testUnnestWithTwoFilter(): Unit = {
+    util.addTableSource[(Int, Array[(Int, String)])]("MyTable", 'a, 'b)
+    val sqlQuery =
+      """
+        |WITH T AS (SELECT a, c, d FROM MyTable CROSS JOIN UNNEST(b) AS A(c, d) WHERE c <> 0)
+        |SELECT * FROM T WHERE d = 'd'
+      """.stripMargin
+    util.verifyPlan(sqlQuery)
+  }
 }
