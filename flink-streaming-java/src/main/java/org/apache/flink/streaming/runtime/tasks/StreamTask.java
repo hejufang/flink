@@ -19,6 +19,7 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.CloseableRegistry;
@@ -68,6 +69,7 @@ import org.apache.flink.streaming.api.operators.StreamTaskStateInitializer;
 import org.apache.flink.streaming.api.operators.StreamTaskStateInitializerImpl;
 import org.apache.flink.streaming.runtime.io.RecordWriterOutput;
 import org.apache.flink.streaming.runtime.io.StreamInputProcessor;
+import org.apache.flink.streaming.runtime.partitioner.ConfigurableBacklogPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.ConfigurableStreamPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -1265,6 +1267,13 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			if (0 < numKeyGroups) {
 				((ConfigurableStreamPartitioner) outputPartitioner).configure(numKeyGroups);
 			}
+		}
+
+		if (outputPartitioner instanceof ConfigurableBacklogPartitioner) {
+			int partitionerMaxBacklogPerChannel = environment.getTaskManagerInfo().getConfiguration().getInteger(
+					ConfigConstants.PARTITIONER_MAXIMUM_BACKLOG_PER_CHANNEL,
+					ConfigConstants.PARTITIONER_MAXIMUM_BACKLOG_PER_CHANNEL_DEFAULT);
+			((ConfigurableBacklogPartitioner) outputPartitioner).configure(partitionerMaxBacklogPerChannel);
 		}
 
 		RecordWriter<SerializationDelegate<StreamRecord<OUT>>> output = new RecordWriterBuilder<SerializationDelegate<StreamRecord<OUT>>>()

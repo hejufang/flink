@@ -165,6 +165,11 @@ public class PipelinedSubpartition extends ResultSubpartition {
 		return true;
 	}
 
+	@Override
+	public int getApproximateBacklog() {
+		return getBuffersInBacklog();
+	}
+
 	private void handleAddingBarrier(BufferConsumer bufferConsumer, boolean insertAsHead) {
 		assert Thread.holdsLock(buffers);
 		if (insertAsHead) {

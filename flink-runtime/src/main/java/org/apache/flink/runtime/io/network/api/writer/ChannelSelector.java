@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.api.writer;
 
 import org.apache.flink.core.io.IOReadableWritable;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 
 /**
  * The {@link ChannelSelector} determines to which logical channels a record
@@ -35,6 +36,16 @@ public interface ChannelSelector<T extends IOReadableWritable> {
 	 * 		to respective output gate.
 	 */
 	void setup(int numberOfChannels);
+
+	/**
+	 * Initializes the channel selector with the number of output channels.
+	 *
+	 * @param numberOfChannels the total number of output channels which are attached
+	 * 		to respective output gate.
+	 */
+	default void setup(int numberOfChannels, ResultSubpartition[] subpartitions) {
+		setup(numberOfChannels);
+	}
 
 	/**
 	 * Returns the logical channel index, to which the given record should be written. It is

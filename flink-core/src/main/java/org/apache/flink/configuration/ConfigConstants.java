@@ -2163,6 +2163,10 @@ public final class ConfigConstants {
 	 */
 	public static final int FLINK_GC_THREAD_NUM_DEFAULT = 8;
 
+	// ---------------------------- Config For Credit Partitioner ---------------------------
+	public static final String PARTITIONER_MAXIMUM_BACKLOG_PER_CHANNEL = "partitioner.max-backlog-per-channel";
+	public static final int PARTITIONER_MAXIMUM_BACKLOG_PER_CHANNEL_DEFAULT = 2;
+
 	/**
 	 * Not instantiable.
 	 */

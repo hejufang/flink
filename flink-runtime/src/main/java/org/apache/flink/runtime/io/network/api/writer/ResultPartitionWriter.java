@@ -123,6 +123,15 @@ public interface ResultPartitionWriter extends AutoCloseable, AvailabilityProvid
 	default void markBufferBuilderCleaned(int subpartitionIndex) {}
 
 	/**
+	 * Return all subpartitions that the writer uses.
+	 *
+	 * @return subpartitions.
+	 */
+	default ResultSubpartition[] getSubpartitions() {
+		return new ResultSubpartition[]{};
+	}
+
+	/**
 	 * Fail the production of the partition.
 	 *
 	 * <p>This method propagates non-{@code null} failure causes to consumers on a best-effort basis. This call also

@@ -129,6 +129,11 @@ public class ConsumableNotifyingResultPartitionWriterDecorator implements Result
 	}
 
 	@Override
+	public ResultSubpartition[] getSubpartitions() {
+		return partitionWriter.getSubpartitions();
+	}
+
+	@Override
 	public void finish() throws IOException {
 		partitionWriter.finish();
 

@@ -50,7 +50,7 @@ public final class ChannelSelectorRecordWriter<T extends IOReadableWritable> ext
 		super(writer, timeout, taskName);
 
 		this.channelSelector = checkNotNull(channelSelector);
-		this.channelSelector.setup(numberOfChannels);
+		this.channelSelector.setup(numberOfChannels, writer.getSubpartitions());
 
 		this.bufferBuilders = new BufferBuilder[numberOfChannels];
 	}
