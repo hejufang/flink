@@ -36,7 +36,8 @@ CHECK_LIBS_LIST=("lib/*"
                  "connectors/*"
                  "formats/*")
 
-SKIP_LIBS=("flink-pb")
+SKIP_LIBS=("flink-pb"
+           "flink-fast-pb")
 
 flink_home="$1"
 
