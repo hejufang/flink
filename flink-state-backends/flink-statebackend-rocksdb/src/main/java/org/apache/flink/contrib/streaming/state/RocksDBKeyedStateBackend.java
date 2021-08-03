@@ -414,6 +414,9 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 				IOUtils.closeQuietly(kvStateInfo.columnFamilyHandle);
 			}
 
+			// ... copy rocksdb log before close ...
+			RocksDBOperationUtils.copyDbLogToContainerLogDir(instanceBasePath);
+
 			// ... and finally close the DB instance ...
 			IOUtils.closeQuietly(db);
 
