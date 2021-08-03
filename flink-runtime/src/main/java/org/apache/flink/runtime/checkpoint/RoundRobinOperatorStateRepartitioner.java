@@ -103,6 +103,14 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 
 			unionStates = unionStateAggregator.aggregateAllUnionStates(unionStates);
 			fastRepartitionUnionState(unionStates, mergeMapList);
+
+			for (int i = 0; i < mergeMapList.size(); ++i) {
+				result.add(i, new ArrayList<>(mergeMapList.get(i).values()));
+			}
+
+			unionStatesCache.put(hashCode, result);
+
+			return result;
 		} else {
 
 			// Reorganize: group by (State Name -> StreamStateHandle + Offsets)
