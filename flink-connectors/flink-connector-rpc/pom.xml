@@ -45,7 +45,7 @@ under the License.
 				</exclusion>
 				<exclusion>
 					<artifactId>scala-library</artifactId>
-					<groupId>com.scala-lang</groupId>
+					<groupId>org.scala-lang</groupId>
 				</exclusion>
 			</exclusions>
 		</dependency>
