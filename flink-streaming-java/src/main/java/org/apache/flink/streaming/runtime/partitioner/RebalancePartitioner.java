@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.runtime.partitioner;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 
@@ -30,24 +31,44 @@ import java.util.concurrent.ThreadLocalRandom;
  * @param <T> Type of the elements in the Stream being rebalanced
  */
 @Internal
-public class RebalancePartitioner<T> extends StreamPartitioner<T> {
+public class RebalancePartitioner<T> extends StreamPartitioner<T> implements ConfigurableBacklogPartitioner {
+
 	private static final long serialVersionUID = 1L;
 
-	private int nextChannelToSendTo;
+	private int lastSendChannel;
+
+	private ResultSubpartition[] channels;
+
+	private int maxBacklogPerChannel;
 
 	@Override
-	public void setup(int numberOfChannels) {
+	public void setup(int numberOfChannels, ResultSubpartition[] subpartitions) {
 		super.setup(numberOfChannels);
 
-		nextChannelToSendTo = ThreadLocalRandom.current().nextInt(numberOfChannels);
+		lastSendChannel = ThreadLocalRandom.current().nextInt(numberOfChannels);
+		this.channels = subpartitions;
 	}
 
 	@Override
 	public int selectChannel(SerializationDelegate<StreamRecord<T>> record) {
-		nextChannelToSendTo = (nextChannelToSendTo + 1) % numberOfChannels;
-		return nextChannelToSendTo;
+		for (int i = 1; i <= numberOfChannels; i++) {
+			int channel = (lastSendChannel + i) % numberOfChannels;
+			if (channels[channel].getApproximateBacklog() <= maxBacklogPerChannel) {
+				lastSendChannel = channel;
+				return channel;
+			}
+		}
+
+		lastSendChannel = (lastSendChannel + 1) % numberOfChannels;
+		return lastSendChannel;
 	}
 
+	@Override
+	public void configure(int backlog) {
+		this.maxBacklogPerChannel = backlog;
+	}
+
+	@Override
 	public StreamPartitioner<T> copy() {
 		return this;
 	}

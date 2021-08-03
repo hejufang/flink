@@ -59,7 +59,6 @@ import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.UdfStreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.YieldingOperatorFactory;
 import org.apache.flink.streaming.api.transformations.ShuffleMode;
-import org.apache.flink.streaming.runtime.partitioner.BacklogBasedRescalePartitioner;
 import org.apache.flink.streaming.runtime.partitioner.ForwardPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.RescalePartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
@@ -642,7 +641,7 @@ public class StreamingJobGraphGenerator {
 	}
 
 	private static boolean isPointwisePartitioner(StreamPartitioner<?> partitioner) {
-		return partitioner instanceof ForwardPartitioner || partitioner instanceof RescalePartitioner || partitioner instanceof BacklogBasedRescalePartitioner;
+		return partitioner instanceof ForwardPartitioner || partitioner instanceof RescalePartitioner;
 	}
 
 	private ResultPartitionType determineResultPartitionType(StreamPartitioner<?> partitioner) {

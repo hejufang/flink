@@ -89,8 +89,6 @@ import org.apache.flink.streaming.api.windowing.windows.Window;
 import org.apache.flink.streaming.runtime.operators.TimestampsAndWatermarksOperator;
 import org.apache.flink.streaming.runtime.operators.util.AssignerWithPeriodicWatermarksAdapter;
 import org.apache.flink.streaming.runtime.operators.util.AssignerWithPunctuatedWatermarksAdapter;
-import org.apache.flink.streaming.runtime.partitioner.BacklogBasedRebalancePartitioner;
-import org.apache.flink.streaming.runtime.partitioner.BacklogBasedRescalePartitioner;
 import org.apache.flink.streaming.runtime.partitioner.BroadcastPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.CustomPartitionerWrapper;
 import org.apache.flink.streaming.runtime.partitioner.ForwardPartitioner;
@@ -501,11 +499,11 @@ public class DataStream<T> {
 	}
 
 	public DataStream<T> backlogBasedRebalance() {
-		return setConnectionType(new BacklogBasedRebalancePartitioner<>());
+		return setConnectionType(new RebalancePartitioner<>());
 	}
 
 	public DataStream<T> backlogBasedRescale() {
-		return setConnectionType(new BacklogBasedRescalePartitioner<>());
+		return setConnectionType(new RescalePartitioner<>());
 	}
 
 	/**
