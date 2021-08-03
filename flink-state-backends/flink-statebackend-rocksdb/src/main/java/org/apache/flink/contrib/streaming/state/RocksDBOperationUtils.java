@@ -33,7 +33,9 @@ import org.rocksdb.RocksDBException;
 
 import javax.annotation.Nullable;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -46,6 +48,10 @@ import static org.apache.flink.contrib.streaming.state.RocksDBKeyedStateBackend.
  * Utils for RocksDB Operations.
  */
 public class RocksDBOperationUtils {
+
+	public static final String DB_INSTANCE_DIR_STRING = "db";
+	public static final String DB_LOG_FILE_NAME = "LOG";
+
 	public static RocksDB openDB(
 		String path,
 		List<ColumnFamilyDescriptor> stateColumnFamilyDescriptors,
@@ -173,6 +179,25 @@ public class RocksDBOperationUtils {
 				columnFamilyOptions.add(columnFamilyHandle.getDescriptor().getOptions());
 			}
 		} catch (RocksDBException e) {
+			// ignore
+		}
+	}
+
+	/**
+	 * Copy the rocksdb log to current container log dir.
+	 *
+	 */
+	public static void copyDbLogToContainerLogDir(File instanceBasePath) {
+		File userLogDir = new File(System.getProperty("log.file")).getParentFile();
+		try {
+			File instanceRocksDBPath = new File(instanceBasePath, DB_INSTANCE_DIR_STRING);
+			File dbLogFile = new File(instanceRocksDBPath, DB_LOG_FILE_NAME);
+
+			String nowStr = String.valueOf(System.currentTimeMillis());
+			String copiedDbLogFileName = instanceBasePath.getName() + "_" + nowStr + "_" + DB_LOG_FILE_NAME;
+			File copiedDbLogFile = new File(userLogDir, copiedDbLogFileName);
+			Files.copy(dbLogFile.toPath(), copiedDbLogFile.toPath());
+		} catch (Exception e) {
 			// ignore
 		}
 	}
