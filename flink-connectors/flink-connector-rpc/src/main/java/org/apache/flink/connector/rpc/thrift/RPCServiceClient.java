@@ -71,7 +71,7 @@ public class RPCServiceClient implements Serializable {
 			options.getPsm(),
 			options.getTransportType(),
 			clientClass,
-			LoadBalancerType.ConsistentHashV3,
+			LoadBalancerType.Random,
 			new SocketPoolOptions());
 	}
 
