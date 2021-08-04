@@ -28,7 +28,10 @@ import org.json.simple.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +45,10 @@ import static org.apache.flink.monitor.utils.Utils.formatMetricsName;
  */
 public class Dashboard {
 	private static final Logger LOG = LoggerFactory.getLogger(Dashboard.class);
+
+	/** Template for completed container. */
+	private static final String COMPLETED_CONTAINER_TEMPLATE = "completed_container_template.txt";
+
 	private String clusterName;
 	private String jobName;
 	private String formatJobName;
@@ -197,7 +204,13 @@ public class Dashboard {
 	}
 
 	private String renderCompletedContainerRow() {
-		String completedContainerTemplate = Template.COMPLETED_CONTAINER;
+		String completedContainerTemplate = null;
+		try {
+			completedContainerTemplate = renderFromResource(COMPLETED_CONTAINER_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render completed containers metrics.", e);
+			return "";
+		}
 		Map<String, String> completedContainerValues = new HashMap<>();
 		completedContainerValues.put("jobname", jobName);
 		completedContainerValues.put("datasource", dataSource);
@@ -442,6 +455,23 @@ public class Dashboard {
 		map.put("cluster", clusterName);
 		String dashboardJson = renderString(template, map);
 		return dashboardJson;
+	}
+
+	private String renderFromResource(String resource) throws IOException {
+		StringBuilder contentBuilder = new StringBuilder();
+		try (InputStream stream = Dashboard.class.getClassLoader().getResourceAsStream("templates/" + resource)) {
+			BufferedReader br = new BufferedReader(new InputStreamReader(stream));
+			String line;
+			line = br.readLine();
+			while (line != null) {
+				if (!line.startsWith("#")) {
+					contentBuilder.append(line);
+					contentBuilder.append("\n");
+				}
+				line = br.readLine();
+			}
+		}
+		return contentBuilder.toString();
 	}
 
 	public boolean registerDashboard(String url, String token) throws IOException {

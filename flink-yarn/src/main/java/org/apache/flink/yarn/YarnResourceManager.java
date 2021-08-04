@@ -2070,6 +2070,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 							ts - resourceIDLongEntry.getValue(),
 							new TagGaugeStore.TagValuesBuilder()
 									.addTagValue("container_id", pruneContainerId(resourceIDLongEntry.getKey().getResourceIdString()))
+									.addTagValue("container_host", getContainerHost(workerNodeMap.get(resourceIDLongEntry.getKey())))
 									.build()))
 					.collect(Collectors.toList()); });
 		jobManagerMetricGroup.gauge("slowContainerNum", slowContainerManager::getSlowContainerSize);
@@ -2086,6 +2087,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		jobManagerMetricGroup.counter("gangFailedNum", gangFailedCounter);
 		jobManagerMetricGroup.counter("gangDowngradeNum", gangDowngradeCounter);
 		jobManagerMetricGroup.gauge(EVENT_METRIC_NAME, jobStartEventMessageSet);
+	}
+
+	public static String getContainerHost(YarnWorkerNode yarnWorkerNode) {
+		if (yarnWorkerNode != null) {
+			return yarnWorkerNode.getContainer().getNodeId().getHost();
+		} else {
+			return "Unknown";
+		}
 	}
 
 	private void checkSlowContainers() {
