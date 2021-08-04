@@ -165,6 +165,19 @@ public class KafkaOptions {
 			.noDefaultValue()
 			.withDescription("Optional whether only log when write kafka failed.");
 
+	public static final ConfigOption<Integer> SINK_IN_FLIGHT_BATCH_SIZE_FACTOR = ConfigOptions
+			.key("sink.in-flight-batch-size-factor")
+			.intType()
+			.defaultValue(0)
+			.withDescription("Optional the factor of in-flight data size. Max in-flight size is in-flight-factor times kafkaBatchSize.");
+
+	public static final ConfigOption<Integer> SINK_IN_FLIGHT_MAX_NUM = ConfigOptions
+		.key("sink.in-flight-max-num")
+		.intType()
+		.defaultValue(0)
+		.withDescription("Optional number of in-flight records.");
+
+
 	// --------------------------------------------------------------------------------------------
 	// Option enumerations
 	// --------------------------------------------------------------------------------------------

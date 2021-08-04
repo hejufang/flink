@@ -145,6 +145,27 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	/** Number of unacknowledged records. */
 	protected long pendingRecords;
 
+	/** Lock for accessing the in-flight parameters. */
+	protected final SerializableObject inFlightLock = new SerializableObject();
+
+	/** In-flight records' size. */
+	protected long inFlightRecordsSize;
+
+	/** Number of in-flight records. */
+	protected long inFlightRecordsNum;
+
+	/** Single max batch size in kafka. */
+	protected final long kafkaMaxBatchSize;
+
+	/** Total max in-flight size of in-flight data. Set default value*/
+	protected long maxInFlightSize = Long.MAX_VALUE;
+
+	/** The in-flight dataSize factor. */
+	protected int inFlightFactor;
+
+	/** The max number of in-flight records. */
+	protected int maxInFlightNum = 0;
+
 	protected RowKindSinkFilter<IN> rowKindSinkFilter;
 
 	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
@@ -191,6 +212,7 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 				producerConfig.put(key, value);
 			}
 		});
+		this.kafkaMaxBatchSize = Long.valueOf(producerConfig.get(ProducerConfig.BATCH_SIZE_CONFIG).toString());
 	}
 
 	// ---------------------------------- Properties --------------------------
@@ -205,6 +227,14 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	 */
 	public void setLogFailuresOnly(boolean logFailuresOnly) {
 		this.logFailuresOnly = logFailuresOnly;
+	}
+
+	public void setInFlightFactor(int inFlightFactor) {
+		this.inFlightFactor = inFlightFactor;
+	}
+
+	public void setMaxInFlightNum(int maxInFlightNum) {
+		this.maxInFlightNum = maxInFlightNum;
 	}
 
 	/**
@@ -271,6 +301,10 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 			LOG.warn("Flushing on checkpoint is enabled, but checkpointing is not enabled. Disabling flushing.");
 			flushOnCheckpoint = false;
 		}
+		// Calculate the max in-flight data size.
+		if (inFlightFactor > 0) {
+			maxInFlightSize = inFlightFactor * kafkaMaxBatchSize;
+		}
 
 		if (logFailuresOnly) {
 			this.writeFailedCounter =
@@ -282,7 +316,7 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 						LOG.error("Error while sending record to Kafka: " + e.getMessage(), e);
 					}
 					writeFailedCounter.inc();
-					acknowledgeMessage();
+					acknowledgeMessage(metadata);
 				}
 			};
 		}
@@ -293,7 +327,7 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 					if (exception != null && asyncException == null) {
 						asyncException = exception;
 					}
-					acknowledgeMessage();
+					acknowledgeMessage(metadata);
 				}
 			};
 		}
@@ -358,12 +392,28 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 	// ------------------- Logic for handling checkpoint flushing -------------------------- //
 
-	private void acknowledgeMessage() {
+	private void acknowledgeMessage(RecordMetadata recordMetadata) {
 		if (flushOnCheckpoint) {
 			synchronized (pendingRecordsLock) {
 				pendingRecords--;
 				if (pendingRecords == 0) {
 					pendingRecordsLock.notifyAll();
+				}
+			}
+		}
+		if (inFlightFactor > 0 || maxInFlightNum > 0) {
+			synchronized (inFlightLock) {
+				int recordSize = 0;
+				if (recordMetadata.serializedKeySize() > 0) {
+					recordSize += recordMetadata.serializedKeySize();
+				}
+				if (recordMetadata.serializedValueSize() > 0) {
+					recordSize += recordMetadata.serializedValueSize();
+				}
+				inFlightRecordsSize -= recordSize;
+				inFlightRecordsNum--;
+				if (inFlightRecordsSize == 0 || inFlightRecordsNum == 0) {
+					inFlightLock.notifyAll();
 				}
 			}
 		}
@@ -478,6 +528,29 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	protected void acquireRateLimit() {
 		if (rateLimiter != null) {
 			rateLimiter.acquire(1);
+		}
+	}
+
+	/**
+	 * When inFlightRecordsSize is larger than maxInFlightSize, block invoking and wait for all in-flight
+	 * records to be sent.
+	 * @throws InterruptedException
+	 */
+	protected void inFlightWaitFinished() throws InterruptedException {
+		if (inFlightFactor > 0 || maxInFlightNum > 0) {
+			// Choose the min one to check.
+			if (inFlightRecordsSize > maxInFlightSize || inFlightRecordsNum > maxInFlightNum) {
+				synchronized (inFlightLock) {
+					if (inFlightRecordsSize > 0 || inFlightRecordsNum > 0) {
+						LOG.info("Exceed the max in-flight value. Wait for in-flight records onCompletion.");
+						inFlightLock.wait();
+					}
+				}
+				if (inFlightRecordsSize != 0 || inFlightRecordsNum != 0) {
+					throw new IllegalArgumentException(String.format("In-flight Records must be zero after waiting!" +
+						"Record size: %d, Record num: ", inFlightRecordsSize, inFlightRecordsNum));
+				}
+			}
 		}
 	}
 }

@@ -304,6 +304,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 			return;
 		}
 		acquireRateLimit();
+		inFlightWaitFinished();
 		byte[] serializedKey = schema.serializeKey(value);
 		byte[] serializedValue = schema.serializeValue(value);
 		String targetTopic = schema.getTargetTopic(value);
@@ -332,6 +333,19 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 		if (flushOnCheckpoint) {
 			synchronized (pendingRecordsLock) {
 				pendingRecords++;
+			}
+		}
+		if (inFlightFactor > 0 || maxInFlightNum > 0) {
+			synchronized (inFlightLock) {
+				int recordSize = 0;
+				if (serializedKey != null) {
+					recordSize += serializedKey.length;
+				}
+				if (serializedValue != null) {
+					recordSize += serializedValue.length;
+				}
+				inFlightRecordsSize += recordSize;
+				inFlightRecordsNum++;
 			}
 		}
 		producer.send(record, callback);
@@ -382,6 +396,14 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 		 */
 		public void setLogFailuresOnly(boolean logFailuresOnly) {
 			producer.setLogFailuresOnly(logFailuresOnly);
+		}
+
+		public void setInFlightIndex(int inFlightIndex) {
+			producer.setInFlightFactor(inFlightIndex);
+		}
+
+		public void setMaxInFlightNum(int maxInFlightNum) {
+			producer.setMaxInFlightNum(maxInFlightNum);
 		}
 
 		/**
@@ -456,6 +478,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 		return ImmutableMap.<String, Object>builder()
 				.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 60000L)
 				.put(ProducerConfig.RETRIES_CONFIG, 10)
+				.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384)
 				.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 60000)
 				.put(ProducerConfig.LINGER_MS_CONFIG, 5000L)
 				.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, BatchRandomPartitioner.class.getName())

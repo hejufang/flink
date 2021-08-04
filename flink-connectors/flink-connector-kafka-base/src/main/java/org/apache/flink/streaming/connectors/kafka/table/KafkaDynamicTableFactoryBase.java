@@ -61,6 +61,8 @@ import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCA
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_SPECIFIC_OFFSETS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_START_IGNORE_STATE_OFFSETS;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_IN_FLIGHT_BATCH_SIZE_FACTOR;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_IN_FLIGHT_MAX_NUM;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_LOG_FAILURE_ONLY;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PARTITIONER;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.TOPIC;
@@ -200,6 +202,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SINK_LOG_FAILURE_ONLY);
 		options.add(SINK_PARTITIONER);
 		options.add(SINK_PARTITIONER_FIELD);
+		options.add(SINK_IN_FLIGHT_BATCH_SIZE_FACTOR);
+		options.add(SINK_IN_FLIGHT_MAX_NUM);
 		options.add(FactoryUtil.SOURCE_METADATA_COLUMNS);
 		options.add(FactoryUtil.PARALLELISM);
 		options.add(FactoryUtil.SOURCE_KEY_BY_FIELD);
@@ -245,6 +249,10 @@ public abstract class KafkaDynamicTableFactoryBase implements
 
 		String logFailuresOnly = properties.getOrDefault(SINK_LOG_FAILURE_ONLY.key(), "false");
 		otherProperties.put(SINK_LOG_FAILURE_ONLY.key(), logFailuresOnly);
+		String inFlightIndex = properties.getOrDefault(SINK_IN_FLIGHT_BATCH_SIZE_FACTOR.key(), "0");
+		otherProperties.put(SINK_IN_FLIGHT_BATCH_SIZE_FACTOR.key(), inFlightIndex);
+		String maxInFlightNum = properties.getOrDefault(SINK_IN_FLIGHT_MAX_NUM.key(), "0");
+		otherProperties.put(SINK_IN_FLIGHT_MAX_NUM.key(), maxInFlightNum);
 		if (properties.containsKey(FactoryUtil.PARALLELISM.key())) {
 			otherProperties.put(FactoryUtil.PARALLELISM.key(), properties.get(FactoryUtil.PARALLELISM.key()));
 		}

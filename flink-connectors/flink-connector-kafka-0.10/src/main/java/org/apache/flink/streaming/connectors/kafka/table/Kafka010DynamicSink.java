@@ -35,6 +35,8 @@ import org.apache.flink.table.types.DataType;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_IN_FLIGHT_BATCH_SIZE_FACTOR;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_IN_FLIGHT_MAX_NUM;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_LOG_FAILURE_ONLY;
 
 /**
@@ -72,7 +74,11 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 			properties,
 			partitioner.orElse(null));
 		boolean logFailureOnly = Boolean.parseBoolean(otherProperties.getProperty(SINK_LOG_FAILURE_ONLY.key(), "false"));
+		int inFlightIndex = Integer.parseInt(otherProperties.getProperty(SINK_IN_FLIGHT_BATCH_SIZE_FACTOR.key(), "0"));
+		int maxInFlightNum = Integer.parseInt(otherProperties.getProperty(SINK_IN_FLIGHT_MAX_NUM.key(), "0"));
 		flinkKafkaProducerBase.setLogFailuresOnly(logFailureOnly);
+		flinkKafkaProducerBase.setInFlightFactor(inFlightIndex);
+		flinkKafkaProducerBase.setMaxInFlightNum(maxInFlightNum);
 		flinkKafkaProducerBase.setRowKindSinkFilter(RowDataSinkFilter.createIncludeInsertAndUpdateAfterFilter());
 		if (otherProperties.containsKey(FactoryUtil.PARALLELISM.key())) {
 			flinkKafkaProducerBase.setParallelism(
