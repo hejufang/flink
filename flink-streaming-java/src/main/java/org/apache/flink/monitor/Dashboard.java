@@ -69,6 +69,9 @@ public class Dashboard {
 	private static final String STATE_COMPACTION_FLUSH_TEMPLATE = "state_compaction_flush_template.txt";
 	private static final String STATE_WRITE_STALL_TEMPLATE = "state_write_stall_template.txt";
 
+	/** Template for completed container. */
+	private static final String COMPLETED_CONTAINER_TEMPLATE = "completed_container_template.txt";
+
 	private String clusterName;
 	private String jobName;
 	private String formatJobName;
@@ -341,7 +344,13 @@ public class Dashboard {
 	}
 
 	private String renderCompletedContainerRow() {
-		String completedContainerTemplate = Template.COMPLETED_CONTAINER;
+		String completedContainerTemplate = null;
+		try {
+			completedContainerTemplate = renderFromResource(COMPLETED_CONTAINER_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render completed containers metrics.", e);
+			return "";
+		}
 		Map<String, String> completedContainerValues = new HashMap<>();
 		completedContainerValues.put("jobname", jobName);
 		completedContainerValues.put("datasource", dataSource);

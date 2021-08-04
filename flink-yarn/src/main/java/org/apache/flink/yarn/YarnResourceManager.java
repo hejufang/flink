@@ -1300,6 +1300,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 							ts - resourceIDLongEntry.getValue(),
 							new TagGaugeStore.TagValuesBuilder()
 									.addTagValue("container_id", pruneContainerId(resourceIDLongEntry.getKey().getResourceIdString()))
+									.addTagValue("container_host", getContainerHost(workerNodeMap.get(resourceIDLongEntry.getKey())))
 									.build()))
 					.collect(Collectors.toList()); });
 		resourceManagerMetricGroup.gauge("slowContainerNum", slowContainerManager::getSlowContainerTotalNum);
@@ -1307,6 +1308,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		resourceManagerMetricGroup.gauge("pendingRedundantContainerNum", slowContainerManager::getPendingRedundantContainersTotalNum);
 		resourceManagerMetricGroup.gauge("startingRedundantContainerNum", slowContainerManager::getStartingRedundantContainerTotalNum);
 		resourceManagerMetricGroup.gauge("speculativeSlowContainerTimeoutMs", slowContainerManager::getSpeculativeSlowContainerTimeoutMs);
+		resourceManagerMetricGroup.gauge("completedContainer", completedContainerGauge);
 		resourceManagerMetricGroup.counter("gangFailedNum", gangFailedCounter);
 		resourceManagerMetricGroup.counter("gangDowngradeNum", gangDowngradeCounter);
 		resourceManagerMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
@@ -1447,6 +1449,14 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	public ResourceID getResourceID(Container container) {
 		return new ResourceID(container.getId().toString());
+	}
+
+	public static String getContainerHost(YarnWorkerNode yarnWorkerNode) {
+		if (yarnWorkerNode != null) {
+			return yarnWorkerNode.getContainer().getNodeId().getHost();
+		} else {
+			return "Unknown";
+		}
 	}
 
 	@Override
