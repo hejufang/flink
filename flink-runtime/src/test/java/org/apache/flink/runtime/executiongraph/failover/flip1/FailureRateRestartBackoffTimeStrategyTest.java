@@ -72,35 +72,6 @@ public class FailureRateRestartBackoffTimeStrategyTest extends TestLogger {
 	}
 
 	@Test
-	public void testFrequentFailuresExceedingRate() {
-		final int numFailures = 3;
-		final long intervalMS = 10_000L;
-		final long backoffTimeMS = 2_000L;
-
-		ManualClock clock = new ManualClock();
-
-		final FailureRateRestartBackoffTimeStrategy restartStrategy =
-				new FailureRateRestartBackoffTimeStrategy(clock, numFailures, intervalMS, backoffTimeMS);
-
-		// test many frequent failures
-		for (int failuresLeft = 100; failuresLeft > 0; failuresLeft--) {
-			assertTrue(restartStrategy.canRestart());
-			restartStrategy.notifyFailure(failure);
-			clock.advanceTime(1, TimeUnit.MILLISECONDS);
-		}
-		assertTrue(restartStrategy.canRestart());
-
-		// test frequent failures
-		for (int failuresLeft = 3; failuresLeft > 0; failuresLeft--) {
-			assertTrue(restartStrategy.canRestart());
-			restartStrategy.notifyFailure(failure);
-			clock.advanceTime(2000, TimeUnit.MILLISECONDS);
-		}
-
-		assertFalse(restartStrategy.canRestart());
-	}
-
-	@Test
 	public void testBackoffTime() {
 		final long backoffTimeMS = 10_000L;
 

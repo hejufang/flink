@@ -20,8 +20,8 @@ common:
   # Common Setup Options
   ## Fault Tolerance
   restart-strategy: failure-rate
-  restart-strategy.failure-rate.max-failures-per-interval: 10
-  restart-strategy.failure-rate.failure-rate-interval: 10 min
+  restart-strategy.failure-rate.max-failures-per-interval: 5
+  restart-strategy.failure-rate.failure-rate-interval: 30 min
   restart-strategy.failure-rate.delay: 20 s
   jobmanager.execution.failover-strategy: region
   jobmanager.execution.status-dutation-ms: 30000
