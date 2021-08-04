@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.planner.calcite
 
+import org.apache.flink.configuration.ConfigOption
+import org.apache.flink.configuration.ConfigOptions.key
 import org.apache.flink.table.api.PlannerConfig
 import org.apache.flink.table.planner.plan.optimize.program.{BatchOptimizeContext, FlinkChainedProgram, StreamOptimizeContext}
 import org.apache.flink.util.Preconditions
@@ -28,6 +30,7 @@ import org.apache.calcite.sql.parser.SqlParser
 import org.apache.calcite.sql.util.ChainedSqlOperatorTable
 import org.apache.calcite.sql2rel.SqlToRelConverter
 
+import java.lang.{Boolean => JBoolean}
 import java.util.Properties
 
 /**
@@ -181,6 +184,11 @@ trait CalciteConfig extends PlannerConfig {
 }
 
 object CalciteConfig {
+  val CALCITE_SQL_TO_REL_CONVERTER_CONVERT_TABLE_ACCESS_ENABLED: ConfigOption[JBoolean] =
+    key("calcite.sql-to-rel-converter.convert-table-access-enabled")
+      .defaultValue(JBoolean.valueOf(false))
+      .withDescription("Set whether table access references are converted to physical " +
+        "rels immediately")
 
   val DEFAULT: CalciteConfig = createBuilder().build()
 

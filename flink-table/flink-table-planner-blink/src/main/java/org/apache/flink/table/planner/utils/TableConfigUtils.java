@@ -22,7 +22,12 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.planner.calcite.CalciteConfig;
 import org.apache.flink.table.planner.calcite.CalciteConfig$;
+import org.apache.flink.table.planner.calcite.CalciteConfigBuilder;
+import org.apache.flink.table.planner.calcite.FlinkRelFactories;
+import org.apache.flink.table.planner.hint.FlinkHintStrategies;
 import org.apache.flink.table.planner.plan.utils.OperatorType;
+
+import org.apache.calcite.sql2rel.SqlToRelConverter;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -100,6 +105,31 @@ public class TableConfigUtils {
 		} else {
 			return null;
 		}
+	}
+
+	/**
+	 * Update the {@link CalciteConfig} of {@link TableConfig} when the calcite configs are provided
+	 * by configuration of {@link TableConfig}.
+	 * @param tableConfig
+	 */
+	public static void updateCalciteConfig(TableConfig tableConfig) {
+		CalciteConfig initialConfig = tableConfig.getPlannerConfig().unwrap(CalciteConfig.class)
+			.orElse(CalciteConfig$.MODULE$.DEFAULT());
+		CalciteConfigBuilder calciteConfigBuilder = CalciteConfig$.MODULE$.createBuilder(initialConfig);
+		SqlToRelConverter.ConfigBuilder converterConfigBuilder = SqlToRelConverter.configBuilder();
+		// Keep it the same with PlannerContext#getSqlToRelConverterConfig
+		converterConfigBuilder.withTrimUnusedFields(false)
+			.withHintStrategyTable(FlinkHintStrategies.createHintStrategyTable())
+			.withInSubQueryThreshold(Integer.MAX_VALUE)
+			.withExpand(false)
+			.withRelBuilderFactory(FlinkRelFactories.FLINK_REL_BUILDER());
+		if (initialConfig.getSqlToRelConverterConfig().isDefined()) {
+			converterConfigBuilder.withConfig(initialConfig.getSqlToRelConverterConfig().get());
+		}
+		converterConfigBuilder.withConvertTableAccess(tableConfig.getConfiguration()
+			.getBoolean(CalciteConfig$.MODULE$.CALCITE_SQL_TO_REL_CONVERTER_CONVERT_TABLE_ACCESS_ENABLED()));
+		calciteConfigBuilder.replaceSqlToRelConverterConfig(converterConfigBuilder.build());
+		tableConfig.setPlannerConfig(calciteConfigBuilder.build());
 	}
 
 	/**

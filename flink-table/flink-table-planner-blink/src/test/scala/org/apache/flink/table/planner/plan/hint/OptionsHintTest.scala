@@ -19,9 +19,10 @@
 package org.apache.flink.table.planner.plan.hint
 
 import org.apache.flink.table.api.config.TableConfigOptions
-import org.apache.flink.table.api.{DataTypes, TableSchema, ValidationException}
+import org.apache.flink.table.api.{DataTypes, TableConfig, TableSchema, ValidationException}
 import org.apache.flink.table.catalog.{CatalogViewImpl, ObjectPath}
 import org.apache.flink.table.planner.JHashMap
+import org.apache.flink.table.planner.calcite.CalciteConfig
 import org.apache.flink.table.planner.plan.hint.OptionsHintTest.{IS_BOUNDED, Param}
 import org.apache.flink.table.planner.plan.nodes.calcite.LogicalLegacySink
 import org.apache.flink.table.planner.utils.{OptionsTableSink, TableTestBase, TableTestUtil, TestingStatementSet}
@@ -185,6 +186,9 @@ class OptionsHintTest(param: Param)
 
 object OptionsHintTest {
   val IS_BOUNDED = "is-bounded"
+  val config = new TableConfig
+  config.getConfiguration.setBoolean(
+    CalciteConfig.CALCITE_SQL_TO_REL_CONVERTER_CONVERT_TABLE_ACCESS_ENABLED, true)
 
   case class Param(utilSupplier: TableTestBase => TableTestUtil, isBounded: Boolean) {
     override def toString: String = s"$IS_BOUNDED=$isBounded"
@@ -193,7 +197,7 @@ object OptionsHintTest {
   @Parameters(name = "{index}: {0}")
   def parameters(): Array[Param] = {
     Array(
-      Param(_.batchTestUtil(), isBounded = true),
-      Param(_.streamTestUtil(), isBounded = false))
+      Param(_.batchTestUtil(config), isBounded = true),
+      Param(_.streamTestUtil(config), isBounded = false))
   }
 }

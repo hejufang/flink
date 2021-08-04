@@ -23,8 +23,6 @@ import org.apache.flink.table.planner.plan.stats.FlinkStatistic;
 import org.apache.calcite.plan.RelOptSchema;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.RelShuttleImpl;
-import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.type.RelDataType;
 
 import javax.annotation.Nullable;
@@ -52,22 +50,6 @@ public abstract class ExpandingPreparingTable extends FlinkPreparingTableBase {
 
 	@Override
 	public final RelNode toRel(RelOptTable.ToRelContext context) {
-		return expand(context);
-	}
-
-	private RelNode expand(RelOptTable.ToRelContext context) {
-		final RelNode rel = convertToRel(context);
-		// Expand any views
-		return rel.accept(
-			new RelShuttleImpl() {
-				@Override
-				public RelNode visit(TableScan scan) {
-					final RelOptTable table = scan.getTable();
-					if (table instanceof ExpandingPreparingTable) {
-						return ((ExpandingPreparingTable) table).expand(context);
-					}
-					return super.visit(scan);
-				}
-			});
+		return convertToRel(context);
 	}
 }

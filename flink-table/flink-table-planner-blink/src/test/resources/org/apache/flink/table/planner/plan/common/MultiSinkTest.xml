@@ -1,0 +1,147 @@
+<?xml version="1.0" ?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to you under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<Root>
+	<TestCase name="testMultiSinksOnSameQueryOperationCatalogViewTable[0]">
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalSink(table=[default_catalog.default_database.sink1], fields=[a, b])
++- LogicalProject(a=[$0], b=[+($1, 2)])
+   +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]])
+
+LogicalSink(table=[default_catalog.default_database.sink2], fields=[d, sum])
++- LogicalAggregate(group=[{0}], EXPR$1=[SUM($1)])
+   +- LogicalProject(c=[CONCAT($2, _UTF-16LE'test')], b=[+($1, 2)])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]])
+]]>
+
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]], fields=[a, b, c], changelogMode=[I], reuse_id=[1])
+
+Sink(table=[default_catalog.default_database.sink1], fields=[a, b], changelogMode=[NONE])
++- Calc(select=[a, +(b, 2) AS b], changelogMode=[I])
+   +- Reused(reference_id=[1])
+
+Sink(table=[default_catalog.default_database.sink2], fields=[d, sum], changelogMode=[NONE])
++- GroupAggregate(groupBy=[c], select=[c, SUM(b) AS EXPR$1], changelogMode=[I,UB,UA])
+   +- Exchange(distribution=[hash[c]], changelogMode=[I])
+      +- Calc(select=[CONCAT(c, _UTF-16LE'test') AS c, +(b, 2) AS b], changelogMode=[I])
+         +- Reused(reference_id=[1])
+]]>
+
+		</Resource>
+	</TestCase>
+	<TestCase name="testMultiSinksOnSameQueryOperationCatalogViewTable[1]">
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalSink(table=[default_catalog.default_database.sink1], fields=[a, b])
++- LogicalProject(a=[$0], b=[$1])
+   +- LogicalProject(a=[$0], b=[+($1, 2)], c=[CONCAT($2, _UTF-16LE'test')])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]])
+
+LogicalSink(table=[default_catalog.default_database.sink2], fields=[d, sum])
++- LogicalAggregate(group=[{0}], EXPR$1=[SUM($1)])
+   +- LogicalProject(c=[$2], b=[$1])
+      +- LogicalProject(a=[$0], b=[+($1, 2)], c=[CONCAT($2, _UTF-16LE'test')])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]])
+]]>
+
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[a, +(b, 2) AS b, CONCAT(c, _UTF-16LE'test') AS c], changelogMode=[I], reuse_id=[1])
++- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]], fields=[a, b, c], changelogMode=[I])
+
+Sink(table=[default_catalog.default_database.sink1], fields=[a, b], changelogMode=[NONE])
++- Calc(select=[a, b], changelogMode=[I])
+   +- Reused(reference_id=[1])
+
+Sink(table=[default_catalog.default_database.sink2], fields=[d, sum], changelogMode=[NONE])
++- GroupAggregate(groupBy=[c], select=[c, SUM(b) AS EXPR$1], changelogMode=[I,UB,UA])
+   +- Exchange(distribution=[hash[c]], changelogMode=[I])
+      +- Calc(select=[c, b], changelogMode=[I])
+         +- Reused(reference_id=[1])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testMultiSinksOnSameSqlCatalogViewTable[0]">
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalSink(table=[default_catalog.default_database.sink1], fields=[a, b])
++- LogicalProject(a=[$0], b=[+($1, 2)])
+   +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]])
+
+LogicalSink(table=[default_catalog.default_database.sink2], fields=[d, sum])
++- LogicalAggregate(group=[{0}], EXPR$1=[SUM($1)])
+   +- LogicalProject(c=[CONCAT($2, _UTF-16LE'test')], b=[+($1, 2)])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]])
+]]>
+
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]], fields=[a, b, c], changelogMode=[I], reuse_id=[1])
+
+Sink(table=[default_catalog.default_database.sink1], fields=[a, b], changelogMode=[NONE])
++- Calc(select=[a, +(b, 2) AS b], changelogMode=[I])
+   +- Reused(reference_id=[1])
+
+Sink(table=[default_catalog.default_database.sink2], fields=[d, sum], changelogMode=[NONE])
++- GroupAggregate(groupBy=[c], select=[c, SUM(b) AS EXPR$1], changelogMode=[I,UB,UA])
+   +- Exchange(distribution=[hash[c]], changelogMode=[I])
+      +- Calc(select=[CONCAT(c, _UTF-16LE'test') AS c, +(b, 2) AS b], changelogMode=[I])
+         +- Reused(reference_id=[1])
+]]>
+
+		</Resource>
+	</TestCase>
+	<TestCase name="testMultiSinksOnSameSqlCatalogViewTable[1]">
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalSink(table=[default_catalog.default_database.sink1], fields=[a, b])
++- LogicalProject(a=[$0], b=[$1])
+   +- LogicalProject(a=[$0], b=[+($1, 2)], c=[CONCAT($2, _UTF-16LE'test')])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]])
+
+LogicalSink(table=[default_catalog.default_database.sink2], fields=[d, sum])
++- LogicalAggregate(group=[{0}], EXPR$1=[SUM($1)])
+   +- LogicalProject(c=[$2], b=[$1])
+      +- LogicalProject(a=[$0], b=[+($1, 2)], c=[CONCAT($2, _UTF-16LE'test')])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]])
+]]>
+
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[a, +(b, 2) AS b, CONCAT(c, _UTF-16LE'test') AS c], changelogMode=[I], reuse_id=[1])
++- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]], fields=[a, b, c], changelogMode=[I])
+
+Sink(table=[default_catalog.default_database.sink1], fields=[a, b], changelogMode=[NONE])
++- Calc(select=[a, b], changelogMode=[I])
+   +- Reused(reference_id=[1])
+
+Sink(table=[default_catalog.default_database.sink2], fields=[d, sum], changelogMode=[NONE])
++- GroupAggregate(groupBy=[c], select=[c, SUM(b) AS EXPR$1], changelogMode=[I,UB,UA])
+   +- Exchange(distribution=[hash[c]], changelogMode=[I])
+      +- Calc(select=[c, b], changelogMode=[I])
+         +- Reused(reference_id=[1])
+]]>
+		</Resource>
+	</TestCase>
+</Root>

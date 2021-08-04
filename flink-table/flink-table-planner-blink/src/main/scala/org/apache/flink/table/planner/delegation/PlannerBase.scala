@@ -43,7 +43,7 @@ import org.apache.flink.table.planner.plan.reuse.SubplanReuser
 import org.apache.flink.table.planner.plan.utils.SameRelObjectShuttle
 import org.apache.flink.table.planner.sinks.DataStreamTableSink
 import org.apache.flink.table.planner.sinks.TableSinkUtils.{inferSinkPhysicalSchema, validateLogicalPhysicalTypesCompatible, validateSchemaAndApplyImplicitCast, validateTableSink}
-import org.apache.flink.table.planner.utils.{JavaScalaConversionUtil, Logging}
+import org.apache.flink.table.planner.utils.{JavaScalaConversionUtil, Logging, TableConfigUtils}
 import org.apache.flink.table.sinks.TableSink
 import org.apache.flink.table.types.utils.LegacyTypeInfoDataTypeConverter
 import org.apache.flink.table.utils.TableSchemaUtils
@@ -90,6 +90,8 @@ abstract class PlannerBase(
 
   // add all configurations in StreamExecutionEnvironment to TableConfig.
   config.addConfiguration(getExecEnv.getConfiguration)
+
+  TableConfigUtils.updateCalciteConfig(config)
 
   private val sqlExprToRexConverterFactory = new SqlExprToRexConverterFactory {
     override def create(tableRowType: RelDataType): SqlExprToRexConverter =

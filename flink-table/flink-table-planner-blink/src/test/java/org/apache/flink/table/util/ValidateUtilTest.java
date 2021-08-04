@@ -21,6 +21,7 @@ package org.apache.flink.table.util;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.api.TableEnvironment;
+import org.apache.flink.table.planner.calcite.CalciteConfig$;
 import org.apache.flink.table.planner.utils.BatchTableTestUtil;
 import org.apache.flink.table.planner.utils.TableTestBase;
 import org.apache.flink.table.planner.utils.TableTestUtil;
@@ -54,8 +55,10 @@ public class ValidateUtilTest extends TableTestBase {
 	}
 
 	private RelNode getRelNode() {
-
-		BatchTableTestUtil tableTestUtil = batchTestUtil(new TableConfig());
+		TableConfig config = new TableConfig();
+		config.getConfiguration().setBoolean(
+			CalciteConfig$.MODULE$.CALCITE_SQL_TO_REL_CONVERTER_CONVERT_TABLE_ACCESS_ENABLED(), true);
+		BatchTableTestUtil tableTestUtil = batchTestUtil(config);
 		TableEnvironment tableEnv = tableTestUtil.getTableEnv();
 		String ddl =
 			"create table test_table (" +

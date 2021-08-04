@@ -286,6 +286,8 @@ public class PlannerContext {
 	private SqlToRelConverter.Config getSqlToRelConverterConfig(CalciteConfig calciteConfig) {
 		return JavaScalaConversionUtil.<SqlToRelConverter.Config>toJava(calciteConfig.getSqlToRelConverterConfig()).orElseGet(
 				() -> SqlToRelConverter.configBuilder()
+						.withConvertTableAccess(CalciteConfig$.MODULE$
+							.CALCITE_SQL_TO_REL_CONVERTER_CONVERT_TABLE_ACCESS_ENABLED().defaultValue())
 						.withTrimUnusedFields(false)
 						.withHintStrategyTable(FlinkHintStrategies.createHintStrategyTable())
 						.withInSubQueryThreshold(Integer.MAX_VALUE)

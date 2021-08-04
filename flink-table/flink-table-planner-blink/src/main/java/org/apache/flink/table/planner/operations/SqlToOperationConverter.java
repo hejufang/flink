@@ -780,7 +780,8 @@ public class SqlToOperationConverter {
 				expandedQuery,
 				schema,
 				props,
-				comment);
+				comment,
+				operation);
 	}
 
 	/** Convert DROP VIEW statement. */

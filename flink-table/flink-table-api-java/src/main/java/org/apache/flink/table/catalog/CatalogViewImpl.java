@@ -19,6 +19,7 @@
 package org.apache.flink.table.catalog;
 
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.operations.QueryOperation;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,13 +29,26 @@ import java.util.Optional;
  * An implementation of catalog view.
  */
 public class CatalogViewImpl extends AbstractCatalogView {
+	private final QueryOperation queryOperation;
+
+	public CatalogViewImpl(
+			String originalQuery,
+			String expandedQuery,
+			TableSchema schema,
+			Map<String, String> properties,
+			String comment,
+			QueryOperation queryOperation) {
+		super(originalQuery, expandedQuery, schema, properties, comment);
+		this.queryOperation = queryOperation;
+	}
+
 	public CatalogViewImpl(
 			String originalQuery,
 			String expandedQuery,
 			TableSchema schema,
 			Map<String, String> properties,
 			String comment) {
-		super(originalQuery, expandedQuery, schema, properties, comment);
+		this(originalQuery, expandedQuery, schema, properties, comment, null);
 	}
 
 	@Override
@@ -44,8 +58,13 @@ public class CatalogViewImpl extends AbstractCatalogView {
 			getExpandedQuery(),
 			getSchema().copy(),
 			new HashMap<>(getProperties()),
-			getComment()
+			getComment(),
+			getQueryOperation()
 		);
+	}
+
+	public QueryOperation getQueryOperation() {
+		return queryOperation;
 	}
 
 	@Override

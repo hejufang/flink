@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Experimental
 import org.apache.flink.configuration.ConfigOption
 import org.apache.flink.configuration.ConfigOptions.key
 import org.apache.flink.table.api.TableConfig
+import org.apache.flink.table.planner.calcite.CalciteConfig
 import org.apache.flink.table.planner.plan.`trait`.MiniBatchInterval
 import org.apache.flink.table.planner.plan.nodes.calcite.LegacySink
 import org.apache.flink.table.planner.plan.reuse.SubplanReuser.{SubplanReuseContext, SubplanReuseShuttle}
@@ -413,10 +414,15 @@ object RelNodeBlockPlanBuilder {
       sinkNodes: Seq[RelNode],
       config: TableConfig): Seq[RelNodeBlock] = {
     require(sinkNodes.nonEmpty)
-
-    // expand QueryOperationCatalogViewTable in TableScan
-    val shuttle = new ExpandTableScanShuttle
-    val convertedRelNodes = sinkNodes.map(_.accept(shuttle))
+    val convertedRelNodes =
+    if (!config.getConfiguration
+        .getBoolean(CalciteConfig.CALCITE_SQL_TO_REL_CONVERTER_CONVERT_TABLE_ACCESS_ENABLED)) {
+      // expand CatalogSourceTable and SqlCatalogViewTable in TableScan
+      val shuttle = new ExpandTableScanShuttle
+      sinkNodes.map(_.accept(shuttle))
+    } else {
+      sinkNodes
+    }
 
     if (convertedRelNodes.size == 1) {
       Seq(new RelNodeBlock(convertedRelNodes.head))

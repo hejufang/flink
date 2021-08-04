@@ -192,8 +192,9 @@ group by HOP(c, INTERVAL '1' SECOND, INTERVAL '1' MINUTE)
       <![CDATA[
 LogicalProject(EXPR$0=[$1], EXPR$1=[$2])
 +- LogicalAggregate(group=[{0}], EXPR$0=[SUM($1)], EXPR$1=[MAX($2)])
-   +- LogicalProject($f0=[HOP(PROCTIME(), 1000:INTERVAL SECOND, 60000:INTERVAL MINUTE)], a=[$0], b=[$1])
-      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [CollectionTableSource(a, b)]]])
+   +- LogicalProject($f0=[HOP($2, 1000:INTERVAL SECOND, 60000:INTERVAL MINUTE)], a=[$0], b=[$1])
+      +- LogicalProject(a=[$0], b=[$1], c=[PROCTIME()])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [CollectionTableSource(a, b)]]])
 ]]>
     </Resource>
     <Resource name="planAfter">
@@ -427,8 +428,9 @@ group by SESSION(c, INTERVAL '1' MINUTE)
       <![CDATA[
 LogicalProject(EXPR$0=[$1], EXPR$1=[$2])
 +- LogicalAggregate(group=[{0}], EXPR$0=[SUM($1)], EXPR$1=[MAX($2)])
-   +- LogicalProject($f0=[SESSION(PROCTIME(), 60000:INTERVAL MINUTE)], a=[$0], b=[$1])
-      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [CollectionTableSource(a, b)]]])
+   +- LogicalProject($f0=[SESSION($2, 60000:INTERVAL MINUTE)], a=[$0], b=[$1])
+      +- LogicalProject(a=[$0], b=[$1], c=[PROCTIME()])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [CollectionTableSource(a, b)]]])
 ]]>
     </Resource>
     <Resource name="planAfter">
@@ -654,8 +656,9 @@ Union(all=[true], union=[EXPR$0, EXPR$1, EXPR$2, EXPR$3])
       <![CDATA[
 LogicalProject(EXPR$0=[$1], EXPR$1=[$2])
 +- LogicalAggregate(group=[{0}], EXPR$0=[SUM($1)], EXPR$1=[MAX($2)])
-   +- LogicalProject($f0=[$TUMBLE(PROCTIME(), 1000:INTERVAL SECOND)], a=[$0], b=[$1])
-      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [CollectionTableSource(a, b)]]])
+   +- LogicalProject($f0=[$TUMBLE($2, 1000:INTERVAL SECOND)], a=[$0], b=[$1])
+      +- LogicalProject(a=[$0], b=[$1], c=[PROCTIME()])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [CollectionTableSource(a, b)]]])
 ]]>
     </Resource>
     <Resource name="planAfter">

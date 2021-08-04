@@ -22,6 +22,7 @@ import org.apache.flink.api.scala._
 import org.apache.flink.table.api._
 import org.apache.flink.table.catalog.{CatalogBaseTable, CatalogView, CatalogViewImpl, ObjectIdentifier, ObjectPath}
 import org.apache.flink.table.functions.ScalarFunction
+import org.apache.flink.table.planner.calcite.CalciteConfig
 import org.apache.flink.table.planner.plan.common.ViewsExpandingTest.PrimitiveScalarFunction
 import org.apache.flink.table.planner.utils.{TableFunc0, TableTestBase, TableTestUtil, TableTestUtilBase}
 
@@ -218,11 +219,14 @@ class ViewsExpandingTest(tableTestUtil: TableTestBase => TableTestUtil) extends 
 }
 
 object ViewsExpandingTest {
+  val config = new TableConfig
+  config.getConfiguration.setBoolean(
+    CalciteConfig.CALCITE_SQL_TO_REL_CONVERTER_CONVERT_TABLE_ACCESS_ENABLED, true)
   @Parameters
   def parameters(): Array[TableTestBase => TableTestUtilBase] = {
     Array(
-      _.batchTestUtil(),
-      _.streamTestUtil())
+      _.batchTestUtil(config),
+      _.streamTestUtil(config))
   }
 
   // --------------------------------------------------------------------------------------------

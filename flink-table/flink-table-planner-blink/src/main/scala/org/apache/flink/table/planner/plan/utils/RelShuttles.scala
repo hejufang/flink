@@ -17,10 +17,10 @@
  */
 package org.apache.flink.table.planner.plan.utils
 
-import org.apache.flink.table.planner.catalog.QueryOperationCatalogViewTable
-
+import org.apache.flink.table.planner.catalog.{QueryOperationCatalogViewTable, SqlCatalogViewTable}
+import org.apache.flink.table.planner.plan.schema.{CatalogSourceTable, LegacyCatalogSourceTable}
 import com.google.common.collect.Sets
-import org.apache.calcite.plan.{RelOptUtil, ViewExpanders}
+import org.apache.calcite.plan.ViewExpanders
 import org.apache.calcite.rel.core.{TableFunctionScan, TableScan}
 import org.apache.calcite.rel.logical._
 import org.apache.calcite.rel.{RelNode, RelShuttle, RelShuttleImpl}
@@ -167,17 +167,21 @@ class ExpandTableScanShuttle extends RelShuttleImpl {
 
   /**
     * Converts [[LogicalTableScan]] the result [[RelNode]] tree
-    * by calling [[QueryOperationCatalogViewTable]]#toRel
+    * by calling toRel
     */
   override def visit(scan: TableScan): RelNode = {
     scan match {
       case tableScan: LogicalTableScan =>
-        val viewTable = tableScan.getTable.unwrap(classOf[QueryOperationCatalogViewTable])
-        if (viewTable != null) {
-          val rel = viewTable.toRel(ViewExpanders.simpleContext(tableScan.getCluster))
-          rel.accept(this)
-        } else {
-          tableScan
+        val table = tableScan.getTable
+        table match {
+          case viewTable: SqlCatalogViewTable =>
+            val rel = viewTable.convertToRelReuse(ViewExpanders.simpleContext(tableScan.getCluster))
+            rel.accept(this)
+          case _: CatalogSourceTable[_] | _: QueryOperationCatalogViewTable |
+              _: LegacyCatalogSourceTable[_] =>
+            val rel = table.toRel(ViewExpanders.simpleContext(tableScan.getCluster))
+            rel.accept(this)
+          case _ => tableScan
         }
       case otherScan => otherScan
     }
