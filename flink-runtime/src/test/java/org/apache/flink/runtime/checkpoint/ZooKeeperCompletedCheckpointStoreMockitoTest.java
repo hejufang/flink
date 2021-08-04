@@ -67,6 +67,9 @@ import static org.mockito.Mockito.when;
  */
 public class ZooKeeperCompletedCheckpointStoreMockitoTest extends TestLogger {
 
+	private static final ZooKeeperCheckpointStoreUtil zooKeeperCheckpointStoreUtil =
+			ZooKeeperCheckpointStoreUtil.INSTANCE;
+
 	/**
 	 * Tests that the completed checkpoint store can retrieve all checkpoints stored in ZooKeeper
 	 * and ignores those which cannot be retrieved via their state handles.
@@ -158,9 +161,10 @@ public class ZooKeeperCompletedCheckpointStoreMockitoTest extends TestLogger {
 			}
 		});
 
-		ZooKeeperCompletedCheckpointStore zooKeeperCompletedCheckpointStore = new ZooKeeperCompletedCheckpointStore(
+		CompletedCheckpointStore zooKeeperCompletedCheckpointStore = new DefaultCompletedCheckpointStore<>(
 			numCheckpointsToRetain,
 			zooKeeperStateHandleStoreMock,
+			zooKeeperCheckpointStoreUtil,
 			Executors.directExecutor());
 
 		zooKeeperCompletedCheckpointStore.recover();
@@ -282,9 +286,10 @@ public class ZooKeeperCompletedCheckpointStoreMockitoTest extends TestLogger {
 			}
 		});
 
-		ZooKeeperCompletedCheckpointStore zooKeeperCompletedCheckpointStore = new ZooKeeperCompletedCheckpointStore(
+		CompletedCheckpointStore zooKeeperCompletedCheckpointStore = new DefaultCompletedCheckpointStore<>(
 			numCheckpointsToRetain,
 			zooKeeperStateHandleStoreMock,
+			zooKeeperCheckpointStoreUtil,
 			Executors.directExecutor());
 
 		zooKeeperCompletedCheckpointStore.recover();
@@ -343,9 +348,10 @@ public class ZooKeeperCompletedCheckpointStoreMockitoTest extends TestLogger {
 
 		final int numCheckpointsToRetain = 1;
 
-		ZooKeeperCompletedCheckpointStore zooKeeperCompletedCheckpointStore = new ZooKeeperCompletedCheckpointStore(
+		CompletedCheckpointStore zooKeeperCompletedCheckpointStore = new DefaultCompletedCheckpointStore<>(
 			numCheckpointsToRetain,
 			zookeeperStateHandleStoreMock,
+			zooKeeperCheckpointStoreUtil,
 			Executors.directExecutor());
 
 		for (long i = 0; i <= numCheckpointsToRetain; ++i) {

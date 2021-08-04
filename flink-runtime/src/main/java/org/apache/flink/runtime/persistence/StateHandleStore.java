@@ -122,6 +122,18 @@ public interface StateHandleStore<T extends Serializable, R extends ResourceVers
 	 */
 	boolean releaseAndTryRemove(String name) throws Exception;
 
+
+	/**
+	 * Tries to delete the given state handle on Kubernetes or ZooKeeper.
+	 *
+	 * @param name Key name in ConfigMap or child path name in ZooKeeper
+	 *
+	 * @return True if the state handle is not locked and could be deleted
+	 *
+	 * @throws Exception if the ConfigMap or ZooKeeper operation failed
+	 */
+	boolean delete(String name) throws Exception;
+
 	/**
 	 * Releases and removes all the states. Not only the state handles in the distributed coordination system
 	 * will be removed, but also the real state data on the distributed storage will be discarded.

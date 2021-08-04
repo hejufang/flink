@@ -27,8 +27,8 @@ import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
+import org.apache.flink.runtime.checkpoint.DefaultCompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.OperatorState;
-import org.apache.flink.runtime.checkpoint.ZooKeeperCompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
 import org.apache.flink.runtime.concurrent.Executors;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
@@ -38,6 +38,7 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.JobCheckpointingSettings;
+import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.state.CheckpointStorageCoordinatorView;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.StateBackendLoader;
@@ -180,6 +181,13 @@ public class CheckpointVerifier {
 			}
 		}
 
+		// If user does not use ZooKeeper HA, skip.
+		// TODO @chenzhanghao.1997: Support native K8s HA as well
+		if (!HighAvailabilityMode.fromConfig(configuration).equals(HighAvailabilityMode.ZOOKEEPER)) {
+			LOG.info("Only ZooKeeper HA is supported, skip checkpoint verification");
+			return;
+		}
+
 		// -----------------------------------------------------------------
 		// Prepare CompletedCheckpointStore and verify.
 		// -----------------------------------------------------------------
@@ -245,11 +253,11 @@ public class CheckpointVerifier {
 			return CheckpointVerifyResult.ZOOKEEPER_RETRIEVE_FAIL;
 		}
 
-		if (completedCheckpointStore instanceof ZooKeeperCompletedCheckpointStore) {
+		if (completedCheckpointStore instanceof DefaultCompletedCheckpointStore) {
 			// -----------------------------------------------------------------
 			// Load checkpoints on Zookeeper.
 			// -----------------------------------------------------------------
-			ZooKeeperCompletedCheckpointStore zkCompeletedCheckpointStore = (ZooKeeperCompletedCheckpointStore) completedCheckpointStore;
+			DefaultCompletedCheckpointStore zkCompeletedCheckpointStore = (DefaultCompletedCheckpointStore) completedCheckpointStore;
 			try {
 				zkCompeletedCheckpointStore.recover();
 			} catch (Exception e) {
@@ -273,8 +281,8 @@ public class CheckpointVerifier {
 
 				// (2) get checkpoints on ZooKeeper.
 				final Map<Long, Map<OperatorID, OperatorState>> checkpointsOnStore =
-					zkCompeletedCheckpointStore.getAllCheckpoints().stream()
-						.collect(Collectors.toMap(CompletedCheckpoint::getCheckpointID, CompletedCheckpoint::getOperatorStates));
+						(Map<Long, Map<OperatorID, OperatorState>>) zkCompeletedCheckpointStore.getAllCheckpoints().stream()
+							.collect(Collectors.toMap(CompletedCheckpoint::getCheckpointID, CompletedCheckpoint::getOperatorStates));
 				LOG.info("Find checkpoints {} on Zookeeper.", checkpointsOnStore.keySet());
 
 				// (3) merge checkpoints on HDFS to checkpoints on ZooKeeper.

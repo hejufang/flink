@@ -28,13 +28,14 @@ import org.apache.flink.configuration.SecurityOptions;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
+import org.apache.flink.runtime.checkpoint.DefaultCompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.DefaultLastStateConnectionStateListener;
 import org.apache.flink.runtime.checkpoint.ZooKeeperCheckpointIDCounter;
-import org.apache.flink.runtime.checkpoint.ZooKeeperCompletedCheckpointStore;
+import org.apache.flink.runtime.checkpoint.ZooKeeperCheckpointStoreUtil;
+import org.apache.flink.runtime.concurrent.Executors;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmanager.DefaultJobGraphStore;
-import org.apache.flink.runtime.concurrent.Executors;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.jobmanager.JobGraphStore;
 import org.apache.flink.runtime.jobmanager.ZooKeeperJobGraphStoreUtil;
@@ -344,14 +345,15 @@ public class ZooKeeperUtils {
 	}
 
 	/**
-	 * Creates a {@link ZooKeeperCompletedCheckpointStore} instance.
+	 * Creates a {@link DefaultCompletedCheckpointStore} instance with {@link
+	 * ZooKeeperStateHandleStore}.
 	 *
 	 * @param client                         The {@link CuratorFramework} ZooKeeper client to use
 	 * @param configuration                  {@link Configuration} object
 	 * @param jobId                          ID of job to create the instance for
 	 * @param maxNumberOfCheckpointsToRetain The maximum number of checkpoints to retain
 	 * @param executor to run ZooKeeper callbacks
-	 * @return {@link ZooKeeperCompletedCheckpointStore} instance
+	 * @return {@link DefaultCompletedCheckpointStore} instance
 	 * @throws Exception if the completed checkpoint store cannot be created
 	 */
 	public static CompletedCheckpointStore createCompletedCheckpoints(
@@ -382,12 +384,18 @@ public class ZooKeeperUtils {
 			zooKeeperStateHandleStore =  createZooKeeperStateHandleStore(client, checkpointsPath.getPath(), stateStorage);
 		}
 
-		final ZooKeeperCompletedCheckpointStore zooKeeperCompletedCheckpointStore = new ZooKeeperCompletedCheckpointStore(
-			maxNumberOfCheckpointsToRetain,
-			zooKeeperStateHandleStore,
-			executor);
+		final CompletedCheckpointStore zooKeeperCompletedCheckpointStore =
+				new DefaultCompletedCheckpointStore<>(
+						maxNumberOfCheckpointsToRetain,
+						zooKeeperStateHandleStore,
+						ZooKeeperCheckpointStoreUtil.INSTANCE,
+						executor);
 
-		LOG.info("Initialized {} in '{}'.", ZooKeeperCompletedCheckpointStore.class.getSimpleName(), checkpointsPath);
+		LOG.info(
+				"Initialized {} in '{}' with {}.",
+				DefaultCompletedCheckpointStore.class.getSimpleName(),
+				zooKeeperStateHandleStore,
+				checkpointsPath);
 		return zooKeeperCompletedCheckpointStore;
 	}
 

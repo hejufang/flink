@@ -369,10 +369,12 @@ public class ZooKeeperStateHandleStore<T extends Serializable> implements StateH
 
 	/**
 	 * Delete the node from ZooKeeper.
+	 *
 	 * @param pathInZooKeeper Path of state handle to remove
 	 * @return True if the state handle could be released
 	 * @throws Exception If the ZooKeeper operation fails
 	 */
+	@Override
 	public boolean delete(String pathInZooKeeper) throws Exception {
 		checkNotNull(pathInZooKeeper, "Path in ZooKeeper");
 		final String path = normalizePath(pathInZooKeeper);

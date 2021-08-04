@@ -89,6 +89,13 @@ public class FlinkMatchers {
 		return new ContainsCauseMatcher(failureCause);
 	}
 
+	/**
+	 * Checks for a {@link Throwable} that contains the expected error message.
+	 */
+	public static Matcher<Throwable> containsMessage(String errorMessage) {
+		return new ContainsMessageMatcher(errorMessage);
+	}
+
 	// ------------------------------------------------------------------------
 
 	/** This class should not be instantiated. */
@@ -258,6 +265,56 @@ public class FlinkMatchers {
 			Throwable t = throwable;
 			while (t != null) {
 				if (predicate.test(t)) {
+					return Optional.of(t);
+				} else {
+					t = t.getCause();
+				}
+			}
+
+			return Optional.empty();
+		}
+	}
+
+	private static final class ContainsMessageMatcher extends TypeSafeDiagnosingMatcher<Throwable> {
+
+		private final String errorMessage;
+
+		private ContainsMessageMatcher(String errorMessage) {
+			this.errorMessage = errorMessage;
+		}
+
+		@Override
+		protected boolean matchesSafely(Throwable throwable, Description description) {
+			final Optional<Throwable> optionalCause = findThrowableWithMessage(throwable, errorMessage);
+
+			if (!optionalCause.isPresent()) {
+				description
+						.appendText("The throwable ")
+						.appendValue(throwable)
+						.appendText(" does not contain the expected error message ")
+						.appendValue(errorMessage);
+			}
+
+			return optionalCause.isPresent();
+		}
+
+		@Override
+		public void describeTo(Description description) {
+			description
+					.appendText("Expected error message is ")
+					.appendValue(errorMessage);
+		}
+
+		// copied from flink-core to not mess up the dependency design too much, just for a little
+		// utility method
+		private static Optional<Throwable> findThrowableWithMessage(Throwable throwable, String searchMessage) {
+			if (throwable == null || searchMessage == null) {
+				return Optional.empty();
+			}
+
+			Throwable t = throwable;
+			while (t != null) {
+				if (t.getMessage() != null && t.getMessage().contains(searchMessage)) {
 					return Optional.of(t);
 				} else {
 					t = t.getCause();

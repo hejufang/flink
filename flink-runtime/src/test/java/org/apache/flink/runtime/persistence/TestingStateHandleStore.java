@@ -115,6 +115,11 @@ public class TestingStateHandleStore<T extends Serializable> implements StateHan
 	}
 
 	@Override
+	public boolean delete(String name) throws Exception {
+		return false;
+	}
+
+	@Override
 	public void releaseAndTryRemoveAll() throws Exception {
 		removeAllRunnable.run();
 	}
