@@ -25,6 +25,7 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 import java.io.Serializable;
 
 import static org.apache.flink.runtime.executiongraph.ExecutionJobVertex.getAggregateJobVertexState;
+import static org.apache.flink.runtime.executiongraph.ExecutionJobVertex.getStrictModeAggregateJobVertexState;
 
 public class ArchivedExecutionJobVertex implements AccessExecutionJobVertex, Serializable {
 
@@ -117,6 +118,16 @@ public class ArchivedExecutionJobVertex implements AccessExecutionJobVertex, Ser
 		}
 
 		return getAggregateJobVertexState(num, parallelism);
+	}
+
+	@Override
+	public ExecutionState getStrictModeAggregateState() {
+		int[] num = new int[ExecutionState.values().length];
+		for (ArchivedExecutionVertex vertex : this.taskVertices) {
+			num[vertex.getMainExecution().getState().ordinal()]++;
+		}
+
+		return getStrictModeAggregateJobVertexState(num, parallelism);
 	}
 
 	// --------------------------------------------------------------------------------------------

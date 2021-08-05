@@ -264,6 +264,7 @@ public class ArchivedExecutionGraphTest extends TestLogger {
 		assertEquals(runtimeJobVertex.getMaxParallelism(), archivedJobVertex.getMaxParallelism());
 		assertEquals(runtimeJobVertex.getJobVertexId(), archivedJobVertex.getJobVertexId());
 		assertEquals(runtimeJobVertex.getAggregateState(), archivedJobVertex.getAggregateState());
+		assertEquals(runtimeJobVertex.getStrictModeAggregateState(), archivedJobVertex.getStrictModeAggregateState());
 
 		compareStringifiedAccumulators(runtimeJobVertex.getAggregatedUserAccumulatorsStringified(), archivedJobVertex.getAggregatedUserAccumulatorsStringified());
 

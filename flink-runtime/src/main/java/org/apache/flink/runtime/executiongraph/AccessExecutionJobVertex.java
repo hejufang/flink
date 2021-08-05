@@ -76,6 +76,13 @@ public interface AccessExecutionJobVertex {
 	ExecutionState getAggregateState();
 
 	/**
+	 * Returns the strict mode aggregated {@link ExecutionState} for this job vertex.
+	 *
+	 * @return strict mode aggregated state for this job vertex
+	 */
+	ExecutionState getStrictModeAggregateState();
+
+	/**
 	 * Returns the aggregated user-defined accumulators as strings.
 	 *
 	 * @return aggregated user-defined accumulators as strings.

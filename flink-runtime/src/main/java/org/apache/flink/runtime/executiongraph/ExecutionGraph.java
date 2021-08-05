@@ -2154,8 +2154,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			}
 		} else if (newExecutionState == ExecutionState.RUNNING) {
 			if (tasks.values().stream().allMatch(executionJobVertex ->
-				executionJobVertex.getAggregateState().equals(ExecutionState.RUNNING) ||
-					executionJobVertex.getAggregateState().equals(ExecutionState.FINISHED))) {
+				executionJobVertex.getStrictModeAggregateState().equals(ExecutionState.RUNNING) ||
+					executionJobVertex.getStrictModeAggregateState().equals(ExecutionState.FINISHED))) {
 				LOG.info("Execution status switch to RUNNING");
 				updateExecutionStatus(EXECUTION_RUNNING_STATUS);
 			}
