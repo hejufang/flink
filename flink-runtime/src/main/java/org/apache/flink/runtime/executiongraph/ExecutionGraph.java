@@ -1727,13 +1727,14 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 		switch (state.getExecutionState()) {
 			case RUNNING:
+				boolean result = attempt.switchToRunning();
 				if (tasks.values().stream().allMatch(executionJobVertex ->
-					executionJobVertex.getAggregateState().equals(ExecutionState.RUNNING) ||
-						executionJobVertex.getAggregateState().equals(ExecutionState.FINISHED))) {
+					executionJobVertex.getStrictModeAggregateState().equals(ExecutionState.RUNNING) ||
+						executionJobVertex.getStrictModeAggregateState().equals(ExecutionState.FINISHED))) {
 					LOG.info("Execution status switch to RUNNING");
 					updateExecutionStatus(EXECUTION_RUNNING_STATUS);
 				}
-				return attempt.switchToRunning();
+				return result;
 
 			case FINISHED:
 				// this deserialization is exception-free
