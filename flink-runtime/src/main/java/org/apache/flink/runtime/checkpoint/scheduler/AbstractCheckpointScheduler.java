@@ -39,6 +39,9 @@ public abstract class AbstractCheckpointScheduler implements CheckpointScheduler
 	@Override
 	public void startScheduling() {
 		if (periodSavepointScheduler != null) {
+			if (periodSavepointTrigger != null) {
+				periodSavepointTrigger.cancel(false);
+			}
 			periodSavepointTrigger = periodSavepointScheduler.schedule(timer);
 		}
 	}
