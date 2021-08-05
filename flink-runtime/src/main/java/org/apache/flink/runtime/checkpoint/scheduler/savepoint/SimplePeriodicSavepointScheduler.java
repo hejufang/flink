@@ -80,7 +80,7 @@ public class SimplePeriodicSavepointScheduler implements PeriodicSavepointSchedu
 
 	@Override
 	public ScheduledFuture<?> schedule(ScheduledThreadPoolExecutor timer) {
-		return timer.scheduleAtFixedRate(() -> {
+		return timer.scheduleWithFixedDelay(() -> {
 			checkNotNull(savepointLocationPrefix, "savepoint directory prefix for periodic savepoint is not set, " +
 				"set this value in config state.savepoint.location-prefix.");
 			LocalDate currentDate = LocalDate.now();
