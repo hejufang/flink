@@ -18,16 +18,14 @@
 
 package org.apache.flink.runtime.state.cache.sync;
 
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.state.KeyedStateBackend;
 import org.apache.flink.runtime.state.cache.CacheEntryKey;
-import org.apache.flink.runtime.state.cache.CacheEntryValue;
 import org.apache.flink.runtime.state.internal.InternalMapState;
 
 /**
  * MapState's data synchronizer..
  */
-public class MapStateSynchronizer<K, N, UK, UV> extends AbstractStateSynchronizer<Tuple2<K, UK>, K, N, UV> {
+public class MapStateSynchronizer<K, N, UK, UV> extends AbstractStateSynchronizer<K, N, UK, UV> {
 	private final InternalMapState<K, N, UK, UV> delegateState;
 
 	public MapStateSynchronizer(KeyedStateBackend<K> keyedStateBackend, InternalMapState<K, N, UK, UV> delegateState) {
@@ -36,25 +34,20 @@ public class MapStateSynchronizer<K, N, UK, UV> extends AbstractStateSynchronize
 	}
 
 	@Override
-	protected K getCurrentKey(CacheEntryKey<Tuple2<K, UK>, N> cacheKey) {
-		return cacheKey.getKey().f0;
+	protected void updateDelegateState(CacheEntryKey<K, N, UK> key, UV value) throws Exception {
+		delegateState.setCurrentNamespace(key.getNamespace());
+		delegateState.put(key.getUserKey(), value);
 	}
 
 	@Override
-	protected void updateDelegateState(CacheEntryKey<Tuple2<K, UK>, N> key, CacheEntryValue<UV> value) throws Exception {
+	protected UV loadFromDelegateState(CacheEntryKey<K, N, UK> key) throws Exception {
 		delegateState.setCurrentNamespace(key.getNamespace());
-		delegateState.put(key.getKey().f1, value.getValue());
+		return delegateState.get(key.getUserKey());
 	}
 
 	@Override
-	protected UV loadFromDelegateState(CacheEntryKey<Tuple2<K, UK>, N> key) throws Exception {
+	protected void removeFromDelegateState(CacheEntryKey<K, N, UK> key) throws Exception {
 		delegateState.setCurrentNamespace(key.getNamespace());
-		return delegateState.get(key.getKey().f1);
-	}
-
-	@Override
-	protected void removeFromDelegateState(CacheEntryKey<Tuple2<K, UK>, N> key) throws Exception {
-		delegateState.setCurrentNamespace(key.getNamespace());
-		delegateState.remove(key.getKey().f1);
+		delegateState.remove(key.getUserKey());
 	}
 }

@@ -20,7 +20,6 @@ package org.apache.flink.runtime.state.cache.sync;
 
 import org.apache.flink.runtime.state.KeyedStateBackend;
 import org.apache.flink.runtime.state.cache.CacheEntryKey;
-import org.apache.flink.runtime.state.cache.CacheEntryValue;
 
 import javax.annotation.Nullable;
 
@@ -31,7 +30,7 @@ import java.io.IOException;
  * through {@link org.apache.flink.runtime.state.KeyedStateBackend}, and the specific
  * state operations are performed by the subclass.
  */
-public abstract class AbstractStateSynchronizer<CK, K, N, V> implements DataSynchronizer<CacheEntryKey<CK, N>, CacheEntryValue<V>> {
+public abstract class AbstractStateSynchronizer<K, N, UK, UV> implements DataSynchronizer<CacheEntryKey<K, N, UK>, UV> {
 	protected final KeyedStateBackend<K> keyedStateBackend;
 
 	public AbstractStateSynchronizer(KeyedStateBackend<K> keyedStateBackend) {
@@ -39,22 +38,22 @@ public abstract class AbstractStateSynchronizer<CK, K, N, V> implements DataSync
 	}
 
 	@Override
-	public void saveState(CacheEntryKey<CK, N> key, CacheEntryValue<V> value) throws Exception {
-		keyedStateBackend.setCurrentKey(getCurrentKey(key));
+	public void saveState(CacheEntryKey<K, N, UK> key, UV value) throws Exception {
+		keyedStateBackend.setCurrentKey(key.getKey());
 		updateDelegateState(key, value);
 	}
 
 	@Override
 	@Nullable
-	public CacheEntryValue<V> loadState(CacheEntryKey<CK, N> key) throws Exception {
-		keyedStateBackend.setCurrentKey(getCurrentKey(key));
-		V data = loadFromDelegateState(key);
-		return data == null ? null : new CacheEntryValue<>(data, false);
+	public UV loadState(CacheEntryKey<K, N, UK> key) throws Exception {
+		keyedStateBackend.setCurrentKey(key.getKey());
+		UV data = loadFromDelegateState(key);
+		return data;
 	}
 
 	@Override
-	public void removeState(CacheEntryKey<CK, N> key) throws Exception {
-		keyedStateBackend.setCurrentKey(getCurrentKey(key));
+	public void removeState(CacheEntryKey<K, N, UK> key) throws Exception {
+		keyedStateBackend.setCurrentKey(key.getKey());
 		removeFromDelegateState(key);
 	}
 
@@ -63,11 +62,9 @@ public abstract class AbstractStateSynchronizer<CK, K, N, V> implements DataSync
 		//currently do nothing
 	}
 
-	protected abstract K getCurrentKey(CacheEntryKey<CK, N> cacheKey);
+	protected abstract void updateDelegateState(CacheEntryKey<K, N, UK> key, UV value) throws Exception;
 
-	protected abstract void updateDelegateState(CacheEntryKey<CK, N> key, CacheEntryValue<V> value) throws Exception;
+	protected abstract UV loadFromDelegateState(CacheEntryKey<K, N, UK> key) throws Exception;
 
-	protected abstract V loadFromDelegateState(CacheEntryKey<CK, N> key) throws Exception;
-
-	protected abstract void removeFromDelegateState(CacheEntryKey<CK, N> key) throws Exception;
+	protected abstract void removeFromDelegateState(CacheEntryKey<K, N, UK> key) throws Exception;
 }

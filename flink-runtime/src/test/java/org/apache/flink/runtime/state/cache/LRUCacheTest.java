@@ -20,6 +20,7 @@ package org.apache.flink.runtime.state.cache;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.cache.memory.MemoryEstimator;
 import org.apache.flink.runtime.state.cache.sync.DataSynchronizer;
 
@@ -31,7 +32,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * Test that the LRU cache is operating correctly.
@@ -42,29 +42,31 @@ public class LRUCacheTest {
 	private static final String TEST_VALUE = "test_value";
 	private static final String REPLACE_VALUE = "replace_value";
 
+	private final VoidNamespace namespace = VoidNamespace.INSTANCE;
+
 	@Test
 	public void testCachePut() throws Exception {
-		LRUCache<String, String> cache = createLRUCache();
+		Cache<String, VoidNamespace, String, Void, String> cache = createLRUCache();
 		PolicyStats policyStats = new PolicyStats(cache);
 		policyStats.recordMaxCacheMemorySize(new MemorySize(1));
-		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>(), Objects::nonNull, v -> {});
+		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>());
 
 		// try to get a key that does not exist
-		Assert.assertNull(cache.get(TEST_KEY));
+		Assert.assertNull(cache.get(TEST_KEY, namespace));
 		Assert.assertEquals(1, policyStats.getMissCount());
 		Assert.assertEquals(0, policyStats.getLoadSuccessCount());
 		Assert.assertEquals(1, policyStats.getRequestCount());
 
 		// set a key
-		cache.put(TEST_KEY, TEST_VALUE);
-		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY));
+		cache.put(TEST_KEY, namespace, TEST_VALUE);
+		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY, namespace));
 		Assert.assertEquals(1, policyStats.getMissCount());
 		Assert.assertEquals(0, policyStats.getLoadSuccessCount());
 		Assert.assertEquals(3, policyStats.getRequestCount());
 
 		// replace a key
-		cache.put(TEST_KEY, REPLACE_VALUE);
-		Assert.assertEquals(REPLACE_VALUE, cache.get(TEST_KEY));
+		cache.put(TEST_KEY, namespace, REPLACE_VALUE);
+		Assert.assertEquals(REPLACE_VALUE, cache.get(TEST_KEY, namespace));
 		Assert.assertEquals(1, policyStats.getMissCount());
 		Assert.assertEquals(0, policyStats.getLoadSuccessCount());
 		Assert.assertEquals(5, policyStats.getRequestCount());
@@ -72,27 +74,27 @@ public class LRUCacheTest {
 
 	@Test
 	public void testCacheEvict() throws Exception {
-		LRUCache<String, String> cache = createLRUCache();
+		Cache<String, VoidNamespace, String, Void, String> cache = createLRUCache();
 		PolicyStats policyStats = new PolicyStats(cache);
 		policyStats.recordMaxCacheMemorySize(new MemorySize(1));
-		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>(), Objects::nonNull, v -> {});
+		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>());
 
 		// set a key
-		cache.put(TEST_KEY, TEST_VALUE);
-		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY));
+		cache.put(TEST_KEY, namespace, TEST_VALUE);
+		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY, namespace));
 		Assert.assertEquals(0, policyStats.getMissCount());
 		Assert.assertEquals(0, policyStats.getLoadSuccessCount());
 		Assert.assertEquals(2, policyStats.getRequestCount());
 
 		// set a replace key and value
-		cache.put(REPLACE_KEY, REPLACE_VALUE);
-		Assert.assertEquals(REPLACE_VALUE, cache.get(REPLACE_KEY));
+		cache.put(REPLACE_KEY, namespace, REPLACE_VALUE);
+		Assert.assertEquals(REPLACE_VALUE, cache.get(REPLACE_KEY, namespace));
 		Assert.assertEquals(1, policyStats.getEvictCount());
 		Assert.assertEquals(1, policyStats.getSaveCount());
 		Assert.assertEquals(4, policyStats.getRequestCount());
 
 		// try to get a key that exist
-		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY));
+		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY, namespace));
 		Assert.assertEquals(2, policyStats.getEvictCount());
 		Assert.assertEquals(2, policyStats.getSaveCount());
 		Assert.assertEquals(1, policyStats.getLoadSuccessCount());
@@ -100,59 +102,59 @@ public class LRUCacheTest {
 
 	@Test
 	public void testCacheDelete() throws Exception {
-		LRUCache<String, String> cache = createLRUCache();
+		Cache<String, VoidNamespace, String, Void, String> cache = createLRUCache();
 		PolicyStats policyStats = new PolicyStats(cache);
 		policyStats.recordMaxCacheMemorySize(new MemorySize(1));
-		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>(), Objects::nonNull, v -> {});
+		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>());
 
-		cache.put(TEST_KEY, TEST_VALUE);
-		cache.put(REPLACE_KEY, REPLACE_VALUE);
+		cache.put(TEST_KEY, namespace, TEST_VALUE);
+		cache.put(REPLACE_KEY, namespace, REPLACE_VALUE);
 		Assert.assertEquals(0, policyStats.getDeleteCount());
 		Assert.assertEquals(1, policyStats.getEvictCount());
 		Assert.assertEquals(1, policyStats.getSaveCount());
 
-		cache.delete(TEST_KEY);
+		cache.delete(TEST_KEY, namespace);
 		Assert.assertEquals(1, policyStats.getCacheSize());
 		Assert.assertEquals(1, policyStats.getDeleteCount());
-		Assert.assertEquals(REPLACE_VALUE, cache.get(REPLACE_KEY));
+		Assert.assertEquals(REPLACE_VALUE, cache.get(REPLACE_KEY, namespace));
 		Assert.assertEquals(0, policyStats.getMissCount());
 		Assert.assertEquals(0, policyStats.getLoadSuccessCount());
 
-		cache.delete(REPLACE_KEY);
+		cache.delete(REPLACE_KEY, namespace);
 		Assert.assertEquals(0, policyStats.getCacheSize());
 		Assert.assertEquals(2, policyStats.getDeleteCount());
-		Assert.assertNull(cache.get(REPLACE_KEY));
+		Assert.assertNull(cache.get(REPLACE_KEY, namespace));
 		Assert.assertEquals(1, policyStats.getMissCount());
 		Assert.assertEquals(0, policyStats.getLoadSuccessCount());
 	}
 
 	@Test
 	public void testLRUStrategy() throws Exception {
-		LRUCache<String, String> cache = createLRUCache();
+		Cache<String, VoidNamespace, String, Void, String> cache = createLRUCache();
 		PolicyStats policyStats = new PolicyStats(cache);
 		policyStats.recordMaxCacheMemorySize(new MemorySize(2));
-		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>(), Objects::nonNull, v -> {});
+		cache.configure(new DefaultEventListener<>(policyStats, new MockMemoryEstimator<>()), new MockDataSynchronizer<>());
 
-		cache.put(TEST_KEY, TEST_VALUE);
-		cache.put(REPLACE_KEY, REPLACE_VALUE);
-		Assert.assertEquals(cache.get(TEST_KEY), TEST_VALUE);
+		cache.put(TEST_KEY, namespace, TEST_VALUE);
+		cache.put(REPLACE_KEY, namespace, REPLACE_VALUE);
+		Assert.assertEquals(cache.get(TEST_KEY, namespace), TEST_VALUE);
 		Assert.assertEquals(2, policyStats.getCacheSize());
 
-		cache.put("123", "321");
+		cache.put("123", namespace, "321");
 		Assert.assertEquals(2, policyStats.getCacheSize());
 		Assert.assertEquals(1, policyStats.getEvictCount());
 		Assert.assertEquals(1, policyStats.getSaveCount());
 
-		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY));
+		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY, namespace));
 		Assert.assertEquals(0, policyStats.getMissCount());
 	}
 
-	private <K, V> LRUCache<K, V> createLRUCache() throws Exception {
+	private Cache<String, VoidNamespace, String, Void, String> createLRUCache() throws Exception {
 		Configuration configuration = new Configuration();
 		configuration.set(CacheConfigurableOptions.CACHE_STRATEGY, "LRU");
-		CacheFactory cacheFactory = CacheFactory.createCacheFactory(CacheConfiguration.fromConfiguration(configuration));
-		Cache<K, V> cache = cacheFactory.createCache();
-		return (LRUCache<K, V>) cache;
+		CacheStrategyFactory cacheStrategyFactory = CacheStrategyFactory.createCacheStrategyFactory(CacheConfiguration.fromConfiguration(configuration));
+		CacheStrategy<CacheEntryKey<String, VoidNamespace, Void>, Cache.DirtyReference> cacheStrategy = cacheStrategyFactory.createCacheStrategy();
+		return new Cache<>(cacheStrategy, new StateStore.SimpleStateStore<>());
 	}
 
 	private static class MockDataSynchronizer<K, V> implements DataSynchronizer<K, V> {

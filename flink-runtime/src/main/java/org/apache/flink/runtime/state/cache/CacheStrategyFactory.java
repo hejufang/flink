@@ -29,28 +29,28 @@ import java.lang.reflect.Method;
 
 /**
  * The factory method of using {@link CacheConfiguration} to create {@link Cache},
- * each time a new state is created, a cache is created through {@link CacheFactory}
+ * each time a new state is created, a cache is created through {@link CacheStrategyFactory}
  * and registered in {@link CacheManager}, and then the cache is configured according
  * to the registration result of the {@link CacheManager}.
  */
-public abstract class CacheFactory implements Serializable {
-	private static final Logger LOG = LoggerFactory.getLogger(CacheFactory.class);
+public abstract class CacheStrategyFactory implements Serializable {
+	private static final Logger LOG = LoggerFactory.getLogger(CacheStrategyFactory.class);
 	private static final String CREATE_METHOD = "createFactory";
 
-	public abstract <K, V> Cache<K, V> createCache();
+	public abstract <K, V> CacheStrategy<K, V> createCacheStrategy();
 
-	public static CacheFactory createCacheFactory(CacheConfiguration configuration) throws Exception {
-		CacheFactory fallBackCacheFactory = new CacheFactory() {
+	public static CacheStrategyFactory createCacheStrategyFactory(CacheConfiguration configuration) throws Exception {
+		CacheStrategyFactory fallBackCacheStrategyFactory = new CacheStrategyFactory() {
 			@Override
-			public <K, V> Cache<K, V> createCache() {
-				return new LRUCache<>();
+			public <K, V> CacheStrategy<K, V> createCacheStrategy() {
+				return new LRUStrategy<>();
 			}
 		};
 
 		String cacheStrategy = configuration.getCacheStrategy();
 		switch (cacheStrategy.toLowerCase()) {
 			case "lru":
-				return fallBackCacheFactory;
+				return fallBackCacheStrategyFactory;
 			default:
 				try {
 					Class<?> clazz = Class.forName(cacheStrategy);
@@ -59,7 +59,7 @@ public abstract class CacheFactory implements Serializable {
 						if (method != null) {
 							Object result = method.invoke(null, configuration);
 							if (result != null) {
-								return (CacheFactory) result;
+								return (CacheStrategyFactory) result;
 							}
 						}
 					}
@@ -74,7 +74,7 @@ public abstract class CacheFactory implements Serializable {
 				}
 
 				// fallback in case of an error
-				return fallBackCacheFactory;
+				return fallBackCacheStrategyFactory;
 		}
 	}
 }

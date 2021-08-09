@@ -21,22 +21,14 @@ package org.apache.flink.runtime.state.cache.internal;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.queryablestate.client.state.serialization.KvStateSerializer;
 import org.apache.flink.runtime.state.cache.Cache;
-import org.apache.flink.runtime.state.cache.CacheEntryKey;
-import org.apache.flink.runtime.state.cache.CacheEntryValue;
 import org.apache.flink.runtime.state.cache.CachedKeyedStateBackend;
-import org.apache.flink.runtime.state.cache.FlushSupported;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.internal.InternalMapState;
 import org.apache.flink.util.FlinkRuntimeException;
-import org.apache.flink.util.Preconditions;
 
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Objects;
-import java.util.function.Predicate;
 
 /**
  * {@link MapState} implementation that stores state in Cache.
@@ -47,45 +39,28 @@ import java.util.function.Predicate;
  * @param <UV> The type of map value that the state state stores.
  */
 public class CachedMapState<K, N, UK, UV>
-	extends AbstractCachedKeyedState<K, N, Map<UK, UV>, InternalMapState<K, N, UK, UV>, Tuple2<K, UK>, UV>
+	extends AbstractCachedKeyedState<K, N, Map<UK, UV>, UK, UV, InternalMapState<K, N, UK, UV>>
 	implements InternalMapState<K, N, UK, UV> {
-
-	private final FlushSupported<CacheEntryKey<Tuple2<K, UK>, N>> castCache;
-	private final Predicate<CacheEntryKey<Tuple2<K, UK>, N>> currentKeyAndNamespaceFilter;
-	private UK currentUserKey;
 
 	public CachedMapState(
 			CachedKeyedStateBackend<K> cachedKeyedStateBackend,
 			InternalMapState<K, N, UK, UV> internalMapState,
-			Cache<CacheEntryKey<Tuple2<K, UK>, N>, CacheEntryValue<UV>> cache,
+			Cache<K, N, Map<UK, UV>, UK, UV> cache,
 			TypeSerializer<K> keySerializer,
 			TypeSerializer<N> namespaceSerializer,
 			TypeSerializer<Map<UK, UV>> valueSerializer,
 			Map<UK, UV> defaultValue) {
-
 		super(cachedKeyedStateBackend, internalMapState, cache, keySerializer, namespaceSerializer, valueSerializer, defaultValue);
-
-		if (!(cache instanceof FlushSupported)) {
-			throw new FlinkRuntimeException("The cache must support flush operations.");
-		}
-
-		this.castCache = (FlushSupported<CacheEntryKey<Tuple2<K, UK>, N>>) cache;
-		this.currentKeyAndNamespaceFilter = cacheEntryKey ->
-			Objects.equals(getCurrentKey(), cacheEntryKey.getKey().f0)
-				&& Objects.equals(getCurrentNamespace(), cacheEntryKey.getNamespace());
 	}
 
 	@Override
 	public UV get(UK key) throws Exception {
-		currentUserKey = key;
-		CacheEntryValue<UV> cacheValue = cache.get(getCurrentCacheEntryKey());
-		return cacheValue != null ? cacheValue.getValue() : null;
+		return cache.get(getCurrentKey(), getCurrentNamespace(), key);
 	}
 
 	@Override
 	public void put(UK key, UV value) throws Exception {
-		currentUserKey = key;
-		cache.put(getCurrentCacheEntryKey(), new CacheEntryValue<>(value, true));
+		cache.put(getCurrentKey(), getCurrentNamespace(), key, value);
 	}
 
 	@Override
@@ -102,44 +77,42 @@ public class CachedMapState<K, N, UK, UV>
 	@Override
 
 	public void remove(UK key) throws Exception {
-		currentUserKey = key;
-		cache.delete(getCurrentCacheEntryKey());
+		cache.delete(getCurrentKey(), getCurrentNamespace(), key);
 	}
 
 	@Override
 	public boolean contains(UK key) throws Exception {
-		currentUserKey = key;
-		CacheEntryValue<UV> value = cache.get(getCurrentCacheEntryKey());
-		return value != null && value.getValue() != null;
+		if (!cache.contains(getCurrentKey(), getCurrentNamespace(), key)) {
+			keyedStateBackend.setCurrentDelegateKey(getCurrentKey());
+			delegateState.setCurrentNamespace(getCurrentNamespace());
+			return delegateState.contains(key);
+		}
+		return true;
 	}
 
 	@Override
 	public Iterable<Map.Entry<UK, UV>> entries() throws Exception {
-		preIterator();
-		return delegateState.entries();
+		throw new FlinkRuntimeException("wait next mr");
 	}
 
 	@Override
 	public Iterable<UK> keys() throws Exception {
-		preIterator();
-		return delegateState.keys();
+		throw new FlinkRuntimeException("wait next mr");
 	}
 
 	@Override
 	public Iterable<UV> values() throws Exception {
-		preIterator();
-		return delegateState.values();
+		throw new FlinkRuntimeException("wait next mr");
 	}
 
 	@Override
 	public Iterator<Map.Entry<UK, UV>> iterator() throws Exception {
-		preIterator();
-		return delegateState.iterator();
+		return entries().iterator();
 	}
 
 	@Override
 	public boolean isEmpty() throws Exception {
-		if (!cache.contains(currentKeyAndNamespaceFilter)) {
+		if (cache.isEmpty(getCurrentKey(), getCurrentNamespace())) {
 			keyedStateBackend.setCurrentDelegateKey(getCurrentKey());
 			delegateState.setCurrentNamespace(getCurrentNamespace());
 			return delegateState.isEmpty();
@@ -150,7 +123,7 @@ public class CachedMapState<K, N, UK, UV>
 	@Override
 	public void clear() {
 		try {
-			cache.clearSpecifiedData(currentKeyAndNamespaceFilter);
+			cache.clearKeyAndNamespaceData(getCurrentKey(), getCurrentNamespace());
 			keyedStateBackend.setCurrentDelegateKey(getCurrentKey());
 			delegateState.setCurrentNamespace(getCurrentNamespace());
 			delegateState.clear();
@@ -159,27 +132,7 @@ public class CachedMapState<K, N, UK, UV>
 		}
 	}
 
-	@Override
-	public byte[] getSerializedValue(byte[] serializedKeyAndNamespace, TypeSerializer<K> safeKeySerializer, TypeSerializer<N> safeNamespaceSerializer, TypeSerializer<Map<UK, UV>> safeValueSerializer) throws Exception {
-		Preconditions.checkNotNull(serializedKeyAndNamespace);
-		Preconditions.checkNotNull(safeKeySerializer);
-		Preconditions.checkNotNull(safeNamespaceSerializer);
-		Preconditions.checkNotNull(safeValueSerializer);
-
-		Tuple2<K, N> keyAndNamespace = KvStateSerializer.deserializeKeyAndNamespace(
-			serializedKeyAndNamespace, safeKeySerializer, safeNamespaceSerializer);
-		castCache.flushSpecifiedData(key -> Objects.equals(key.getKey().f0, keyAndNamespace.f0)
-			&& Objects.equals(key.getNamespace(), keyAndNamespace.f1), false);
-		return delegateState.getSerializedValue(serializedKeyAndNamespace, safeKeySerializer, safeNamespaceSerializer, safeValueSerializer);
-	}
-
-	@Override
-	protected CacheEntryKey<Tuple2<K, UK>, N> getCurrentCacheEntryKey() {
-		return new CacheEntryKey<>(Tuple2.of(getCurrentKey(), currentUserKey), getCurrentNamespace());
-	}
-
-	private void preIterator() throws Exception {
-		castCache.flushSpecifiedData(currentKeyAndNamespaceFilter, true);
+	private void preIterator() {
 		keyedStateBackend.setCurrentDelegateKey(getCurrentKey());
 		delegateState.setCurrentNamespace(getCurrentNamespace());
 	}

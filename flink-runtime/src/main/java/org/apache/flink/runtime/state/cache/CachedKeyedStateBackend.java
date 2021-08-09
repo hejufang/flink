@@ -118,13 +118,13 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	private final CacheConfiguration configuration;
 
 	/** Factory method for creating cache. */
-	private final CacheFactory cacheFactory;
+	private final CacheStrategyFactory cacheStrategyFactory;
 
 	/** Task-specific information. */
 	private final TaskInfo taskInfo;
 
 	/** The cache mapping table that has been registered successfully. */
-	private final Map<String, Cache<?, ?>> registeredCache;
+	private final Map<String, Cache<K, ?, ?, ?, ?>> registeredCache;
 
 	/** A tracker for cache statistics. */
 	private final CacheStatsTracker cacheStatsTracker;
@@ -159,7 +159,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		this.cacheManager = cacheManager;
 		this.registeredCache = new ConcurrentHashMap<>();
 		this.configuration = configuration;
-		this.cacheFactory = CacheFactory.createCacheFactory(configuration);
+		this.cacheStrategyFactory = CacheStrategyFactory.createCacheStrategyFactory(configuration);
 		this.taskInfo = taskInfo;
 		this.cacheStatsTracker = new CacheStatsTracker();
 
@@ -185,7 +185,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	@SuppressWarnings("unchecked")
 	@Override
 	public <N> Stream<K> getKeys(String state, N namespace) {
-		flushSpecifiedCachedStates(registeredCache.get(state), k -> Objects.equals(namespace, ((CacheEntryKey<?, ?>) k).getNamespace()), true);
+		flushSpecifiedCachedStates(registeredCache.get(state), k -> Objects.equals(namespace, ((CacheEntryKey<K, ?, ?>) k).getNamespace()), true);
 		return delegateKeyedStateBackend.getKeys(state, namespace);
 	}
 
@@ -258,21 +258,21 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		}
 
 		InternalKvState<K, N, SV> delegateState = (InternalKvState<K, N, SV>) internalKvState;
-		Cache<CacheEntryKey<?, N>, CacheEntryValue<?>> cache = createCache(stateDesc);
+		Cache<K, N, SV, ?, ?> cache = createCache(stateDesc);
 		if (cache != null) {
 			PolicyStats policyStats = cacheManager.registerCache(taskInfo, stateDesc.getName(), cache, configuration.getCacheInitialSize());
 			DataSynchronizer dataSynchronizer = StateSynchronizerFactory.createStateSynchronizer(
 				delegateKeyedStateBackend,
 				delegateState,
 				stateDesc.getType());
-			MemoryEstimator<CacheEntryKey<?, N>, CacheEntryValue<?>> memoryEstimator = SerializerMemoryEstimatorFactory.createSampleEstimator(
+			MemoryEstimator<CacheEntryKey<K, N, ?>, ?> memoryEstimator = SerializerMemoryEstimatorFactory.createSampleEstimator(
 				delegateState.getKeySerializer().duplicate(),
 				delegateState.getNamespaceSerializer().duplicate(),
 				delegateState.getValueSerializer().duplicate(),
 				stateDesc.getType(),
 				configuration.getSampleCount());
-			DefaultEventListener<CacheEntryKey<?, N>, CacheEntryValue<?>> eventListener = new DefaultEventListener<>(policyStats, memoryEstimator);
-			cache.configure(eventListener, dataSynchronizer, CacheEntryValue::isDirty, v -> v.setDirty(false));
+			DefaultEventListener eventListener = new DefaultEventListener<>(policyStats, memoryEstimator);
+			cache.configure(eventListener, dataSynchronizer);
 			registeredCache.put(stateDesc.getName(), cache);
 			cacheStatsTracker.addCacheToTrack(stateDesc.getName(), policyStats);
 			LOG.info("Task[{}] registered the cache[{}] successfully.", taskInfo.getTaskNameWithSubtasks(), stateDesc.getName());
@@ -316,7 +316,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			return;
 		}
 		super.dispose();
-		for (Map.Entry<String, Cache<?, ?>> entry : registeredCache.entrySet()) {
+		for (Map.Entry<String, Cache<K, ?, ?, ?, ?>> entry : registeredCache.entrySet()) {
 			cacheManager.unregisterCache(taskInfo, entry.getKey(), entry.getValue());
 			try {
 				entry.getValue().clear();
@@ -330,42 +330,39 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		this.disposed = true;
 	}
 
-	private <SV, S extends State, CK, CV> Cache<CK, CV> createCache(StateDescriptor<S, SV> stateDesc) {
+	@SuppressWarnings("unchecked")
+	private <N, SV, UK, UV, S extends State> Cache<K, N, SV, UK, UV> createCache(StateDescriptor<S, SV> stateDesc) {
+		CacheStrategy<CacheEntryKey<K, N, UK>, Cache.DirtyReference> cacheStrategy;
 		switch (stateDesc.getType()) {
 			case VALUE:
 			case MAP:
-				return cacheFactory.createCache();
+				cacheStrategy = cacheStrategyFactory.createCacheStrategy();
+				StateStore<K, N, ?, ?, UV> stateStore = stateDesc.getType() == StateDescriptor.Type.VALUE ?
+					new StateStore.SimpleStateStore<>() :
+					new StateStore.MapStateStore<>();
+				return new Cache<>(cacheStrategy, (StateStore<K, N, SV, UK, UV>) stateStore);
 			default:
 				return null;
 		}
 	}
 
 	private void flushAllCachedStates() {
-		boolean flushable = registeredCache.values().stream().allMatch(cache -> cache instanceof FlushSupported);
-		if (flushable) {
-			for (Cache<?, ?> cache : registeredCache.values()) {
-				try {
-					((FlushSupported<?>) cache).flushAll();
-				} catch (Exception e) {
-					throw new FlinkRuntimeException("an exception occurs when flushing all data in the cache to the StateBackend.", e);
-				}
+		for (Cache<K, ?, ?, ?, ?> cache : registeredCache.values()) {
+			try {
+				cache.flushAll();
+			} catch (Exception e) {
+				throw new FlinkRuntimeException("an exception occurs when flushing all data in the cache to the StateBackend.", e);
 			}
-			return;
 		}
-		throw new UnsupportedOperationException("The existing cache does not support flush to StateBackend.");
 	}
 
-	private <CK, CV> void flushSpecifiedCachedStates(Cache<CK, CV> cache, Predicate<CK> filter, boolean invalid) {
+	private <N, UK> void flushSpecifiedCachedStates(Cache<K, N, ?, UK, ?> cache, Predicate<CacheEntryKey<K, N, UK>> filter, boolean invalid) {
 		if (cache != null) {
-			if (cache instanceof FlushSupported) {
-				try {
-					((FlushSupported<CK>) cache).flushSpecifiedData(filter, invalid);
-				} catch (Exception e) {
-					throw new FlinkRuntimeException("an exception occurs when flushing all data in the cache to the StateBackend.", e);
-				}
-				return;
+			try {
+				cache.flushSpecifiedData(filter, invalid);
+			} catch (Exception e) {
+				throw new FlinkRuntimeException("an exception occurs when flushing all data in the cache to the StateBackend.", e);
 			}
-			throw new UnsupportedOperationException("The existing cache does not support flush to StateBackend.");
 		}
 	}
 

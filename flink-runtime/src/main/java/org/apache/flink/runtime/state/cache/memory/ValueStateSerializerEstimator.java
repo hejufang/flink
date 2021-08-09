@@ -20,7 +20,6 @@ package org.apache.flink.runtime.state.cache.memory;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.BooleanSerializer;
-import org.apache.flink.runtime.state.cache.CacheEntryValue;
 
 import java.io.IOException;
 
@@ -28,7 +27,7 @@ import java.io.IOException;
  * The estimator that calculates the memory size by the elements in
  * the {@link org.apache.flink.api.common.state.ValueState} through serialization.
  */
-public class ValueStateSerializerEstimator<K, N, S> extends AbstractSerializerMemoryEstimator<K, N, S> {
+public class ValueStateSerializerEstimator<K, N, S> extends AbstractSerializerMemoryEstimator<K, N, Void, S> {
 	private final TypeSerializer<S> stateSerializer;
 	private long stateSize;
 
@@ -42,10 +41,10 @@ public class ValueStateSerializerEstimator<K, N, S> extends AbstractSerializerMe
 	}
 
 	@Override
-	protected long sizeOfValue(CacheEntryValue<S> value) throws IOException {
+	protected long sizeOfValue(S value) throws IOException {
 		if (this.stateSize == -1L || this.stateSerializer.getLength() == -1) {
 			try {
-				stateSerializer.serialize(value.getValue(), outputSerializer);
+				stateSerializer.serialize(value, outputSerializer);
 				stateSize = outputSerializer.length();
 			} finally {
 				outputSerializer.pruneBuffer();

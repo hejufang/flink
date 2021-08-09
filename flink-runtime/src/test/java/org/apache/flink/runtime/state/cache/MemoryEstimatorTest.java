@@ -17,14 +17,12 @@
 
 package org.apache.flink.runtime.state.cache;
 
-
 import org.apache.flink.api.common.typeutils.SimpleTypeSerializerSnapshot;
 import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
 import org.apache.flink.api.common.typeutils.base.MapSerializer;
 import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.api.common.typeutils.base.TypeSerializerSingleton;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.state.VoidNamespace;
@@ -36,6 +34,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import javax.annotation.Nonnull;
+
 import java.io.IOException;
 import java.util.Objects;
 
@@ -52,7 +51,7 @@ public class MemoryEstimatorTest {
 		ValueStateSerializerEstimator<String, VoidNamespace, Long> estimator =
 			new ValueStateSerializerEstimator<>(StringSerializer.INSTANCE, VoidNamespaceSerializer.INSTANCE, LongSerializer.INSTANCE);
 		try {
-			estimator.updateEstimatedSize(new CacheEntryKey<>(TEST_KEY, VoidNamespace.INSTANCE), new CacheEntryValue<>(TEST_VALUE, false));
+			estimator.updateEstimatedSize(new CacheEntryKey<>(TEST_KEY, VoidNamespace.INSTANCE), TEST_VALUE);
 			long size = estimator.getEstimatedSize();
 			Assert.assertEquals(18, size); // key: 8 + 1, namespace: 0, value: 8 + 1
 		} catch (Exception e) {
@@ -65,7 +64,7 @@ public class MemoryEstimatorTest {
 		MapStateMemoryEstimator<String, TimeWindow, String, Long> estimator =
 			new MapStateMemoryEstimator<>(StringSerializer.INSTANCE, TimeWindow.Serializer.INSTANCE, new MapSerializer<>(StringSerializer.INSTANCE, LongSerializer.INSTANCE));
 		try {
-			estimator.updateEstimatedSize(new CacheEntryKey<>(Tuple2.of(TEST_KEY, TEST_USER_KEY), new TimeWindow(TEST_KEY, 0L, 1L)), new CacheEntryValue<>(TEST_VALUE, false));
+			estimator.updateEstimatedSize(new CacheEntryKey<>(TEST_KEY, new TimeWindow(TEST_KEY, 0L, 1L), TEST_USER_KEY), TEST_VALUE);
 			long size = estimator.getEstimatedSize();
 			Assert.assertEquals(58, size); // key: 8 + 13 + 2, namespace: 10 + 8 + 8, value: 8 + 1
 		} catch (Exception e) {
@@ -73,6 +72,9 @@ public class MemoryEstimatorTest {
 		}
 	}
 
+	/**
+	 * Time window for namespace.
+	 */
 	public static class TimeWindow {
 		private final String name;
 		private final long start;

@@ -25,7 +25,6 @@ import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.StringSerializer;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.AbstractStateBackend;
@@ -70,28 +69,25 @@ public class StateDataSynchronizerTest {
 		ValueState<String> valueState = keyedStateBackend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, descriptor);
 		ValueStateSynchronizer<String, VoidNamespace, String> synchronizer = StateSynchronizerFactory.createStateSynchronizer(keyedStateBackend, (InternalKvState<String, VoidNamespace, String>) valueState, descriptor.getType());
 
-		CacheEntryKey<String, VoidNamespace> testKey = new CacheEntryKey<>(TEST_KEY, VoidNamespace.INSTANCE);
-		CacheEntryValue<String> testValue = new CacheEntryValue<>(TEST_VALUE, false);
+		CacheEntryKey<String, VoidNamespace, Void> testKey = new CacheEntryKey<>(TEST_KEY, VoidNamespace.INSTANCE);
 
 		// DataSynchronizer is only responsible for saving data,
 		// so no matter whether it is dirty data or not, it will be written.
-		synchronizer.saveState(testKey, testValue);
-		Assert.assertEquals(testValue, synchronizer.loadState(testKey));
+		synchronizer.saveState(testKey, TEST_VALUE);
+		Assert.assertEquals(TEST_VALUE, synchronizer.loadState(testKey));
 		keyedStateBackend.setCurrentKey(TEST_KEY);
 		Assert.assertEquals(TEST_VALUE, valueState.value());
 
 		// if it is dirty data, write to State.
 		keyedStateBackend.setCurrentKey(NO_USE_KEY);
-		testValue.setDirty(true);
-		synchronizer.saveState(testKey, testValue);
-		CacheEntryValue<String> loadData = synchronizer.loadState(testKey);
+		synchronizer.saveState(testKey, TEST_VALUE);
+		String loadData = synchronizer.loadState(testKey);
 		Assert.assertNotNull(loadData);
-		Assert.assertEquals(loadData.getValue(), TEST_VALUE);
+		Assert.assertEquals(loadData, TEST_VALUE);
 		keyedStateBackend.setCurrentKey(TEST_KEY);
 		Assert.assertEquals(valueState.value(), TEST_VALUE);
 
 		// regardless of whether it is dirty data, the state delete operation is called.
-		testValue.setDirty(false);
 		synchronizer.removeState(testKey);
 		loadData = synchronizer.loadState(testKey);
 		Assert.assertNull(loadData);
@@ -106,28 +102,25 @@ public class StateDataSynchronizerTest {
 		MapState<String, String> mapState = keyedStateBackend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, descriptor);
 		MapStateSynchronizer<String, VoidNamespace, String, String> synchronizer = StateSynchronizerFactory.createStateSynchronizer(keyedStateBackend, (InternalKvState<String, VoidNamespace, ?>) mapState, descriptor.getType());
 
-		CacheEntryKey<Tuple2<String, String>, VoidNamespace> testKey = new CacheEntryKey<>(Tuple2.of(TEST_KEY, TEST_USER_KEY), VoidNamespace.INSTANCE);
-		CacheEntryValue<String> testValue = new CacheEntryValue<>(TEST_USER_VALUE, false);
+		CacheEntryKey<String, VoidNamespace, String> testKey = new CacheEntryKey<>(TEST_KEY, VoidNamespace.INSTANCE, TEST_USER_KEY);
 
 		// DataSynchronizer is only responsible for saving data,
 		// so no matter whether it is dirty data or not, it will be written.
-		synchronizer.saveState(testKey, testValue);
-		Assert.assertEquals(testValue, synchronizer.loadState(testKey));
+		synchronizer.saveState(testKey, TEST_USER_VALUE);
+		Assert.assertEquals(TEST_USER_VALUE, synchronizer.loadState(testKey));
 		keyedStateBackend.setCurrentKey(TEST_KEY);
 		Assert.assertEquals(TEST_USER_VALUE, mapState.get(TEST_USER_KEY));
 
 		// if it is dirty data, write to State.
 		keyedStateBackend.setCurrentKey(NO_USE_KEY);
-		testValue.setDirty(true);
-		synchronizer.saveState(testKey, testValue);
-		CacheEntryValue<String> loadData = synchronizer.loadState(testKey);
+		synchronizer.saveState(testKey, TEST_VALUE);
+		String loadData = synchronizer.loadState(testKey);
 		Assert.assertNotNull(loadData);
-		Assert.assertEquals(loadData.getValue(), TEST_USER_VALUE);
+		Assert.assertEquals(loadData, TEST_VALUE);
 		keyedStateBackend.setCurrentKey(TEST_KEY);
-		Assert.assertEquals(mapState.get(TEST_USER_KEY), TEST_USER_VALUE);
+		Assert.assertEquals(mapState.get(TEST_USER_KEY), TEST_VALUE);
 
 		// regardless of whether it is dirty data, the state delete operation is called.
-		testValue.setDirty(false);
 		synchronizer.removeState(testKey);
 		loadData = synchronizer.loadState(testKey);
 		Assert.assertNull(loadData);

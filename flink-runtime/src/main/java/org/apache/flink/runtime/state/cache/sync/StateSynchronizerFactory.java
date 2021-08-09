@@ -31,12 +31,12 @@ import org.apache.flink.runtime.state.internal.InternalValueState;
  * according to the state type. Currently only {@link ValueState} and {@link MapState} are supported.
  */
 public class StateSynchronizerFactory {
-	public static <CK, K, N, UV, SYN extends AbstractStateSynchronizer<CK, K, N, UV>> SYN createStateSynchronizer(
+	public static <K, N, UK, UV, SYN extends AbstractStateSynchronizer<K, N, UK, UV>> SYN createStateSynchronizer(
 		KeyedStateBackend<K> keyedStateBackend,
 		InternalKvState<K, N, ?> internalKvState,
 		StateDescriptor.Type stateType) {
 
-		AbstractStateSynchronizer<CK, K, N, UV> synchronizer;
+		AbstractStateSynchronizer<K, N, UK, UV> synchronizer;
 
 		switch (stateType) {
 			case VALUE:

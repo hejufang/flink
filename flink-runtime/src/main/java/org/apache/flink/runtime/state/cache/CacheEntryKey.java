@@ -20,23 +20,36 @@ package org.apache.flink.runtime.state.cache;
 
 import org.apache.flink.annotation.Internal;
 
+import javax.annotation.Nullable;
+
 import java.util.Objects;
 
 /**
  * The data structure of the key in the cache.
  */
 @Internal
-public class CacheEntryKey<K, N> {
+public class CacheEntryKey<K, N, UK> {
 	private final K key;
 	private final N namespace;
+	private final UK userKey;
 
 	public CacheEntryKey(K key, N namespace) {
+		this(key, namespace, null);
+	}
+
+	public CacheEntryKey(K key, N namespace, @Nullable UK userKey) {
 		this.key = key;
 		this.namespace = namespace;
+		this.userKey = userKey;
 	}
 
 	public K getKey() {
 		return key;
+	}
+
+	@Nullable
+	public UK getUserKey() {
+		return userKey;
 	}
 
 	public N getNamespace() {
@@ -51,13 +64,14 @@ public class CacheEntryKey<K, N> {
 		if (o == null || getClass() != o.getClass()) {
 			return false;
 		}
-		CacheEntryKey<?, ?> that = (CacheEntryKey<?, ?>) o;
+		CacheEntryKey<?, ?, ?> that = (CacheEntryKey<?, ?, ?>) o;
 		return Objects.equals(key, that.key) &&
-			Objects.equals(namespace, that.namespace);
+			Objects.equals(namespace, that.namespace) &&
+			Objects.equals(userKey, that.userKey);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(key, namespace);
+		return Objects.hash(key, namespace, userKey);
 	}
 }

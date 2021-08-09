@@ -21,9 +21,7 @@ package org.apache.flink.runtime.state.cache.memory;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.BooleanSerializer;
 import org.apache.flink.api.common.typeutils.base.MapSerializer;
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.typeutils.runtime.TupleSerializer;
-import org.apache.flink.runtime.state.cache.CacheEntryValue;
+import org.apache.flink.runtime.state.cache.CacheEntryKey;
 
 import java.io.IOException;
 
@@ -31,25 +29,43 @@ import java.io.IOException;
  * The estimator that calculates the memory size by the elements in
  * the {@link org.apache.flink.api.common.state.MapState} through serialization.
  */
-public class MapStateMemoryEstimator<K, N, UK, UV> extends AbstractSerializerMemoryEstimator<Tuple2, N, UV> {
+public class MapStateMemoryEstimator<K, N, UK, UV> extends AbstractSerializerMemoryEstimator<K, N, UK, UV> {
+	private final TypeSerializer<UK> userKeySerializer;
 	private final TypeSerializer<UV> userValueSerializer;
+	private long userKeySize;
 	private long userValueSize;
 
 	public MapStateMemoryEstimator(
 		TypeSerializer<K> keySerializer,
 		TypeSerializer<N> namespaceSerializer,
 		MapSerializer valueSerializer) {
-		super(new TupleSerializer<>(Tuple2.class, new TypeSerializer[]{keySerializer, valueSerializer.getKeySerializer()}), namespaceSerializer);
+		super(keySerializer, namespaceSerializer);
 		MapSerializer<UK, UV> castedMapSerializer = (MapSerializer<UK, UV>) valueSerializer;
+		this.userKeySerializer = castedMapSerializer.getKeySerializer();
 		this.userValueSerializer = castedMapSerializer.getValueSerializer();
+		this.userKeySize = userKeySerializer.getLength() == -1 ? -1L : userKeySerializer.getLength();
 		this.userValueSize = userValueSerializer.getLength() == -1 ? -1L : userValueSerializer.getLength();
 	}
 
 	@Override
-	protected long sizeOfValue(CacheEntryValue<UV> value) throws IOException {
+	protected long sizeOfKey(CacheEntryKey<K, N, UK> key) throws IOException {
+		long keySize = super.sizeOfKey(key);
+		if (this.userKeySize == -1L || this.userKeySerializer.getLength() == -1) {
+			try {
+				userKeySerializer.serialize(key.getUserKey(), outputSerializer);
+				userKeySize = outputSerializer.length();
+			} finally {
+				outputSerializer.pruneBuffer();
+			}
+		}
+		return userKeySize + keySize;
+	}
+
+	@Override
+	protected long sizeOfValue(UV value) throws IOException {
 		if (this.userValueSize == -1L || this.userValueSerializer.getLength() == -1) {
 			try {
-				userValueSerializer.serialize(value.getValue(), outputSerializer);
+				userValueSerializer.serialize(value, outputSerializer);
 				userValueSize = outputSerializer.length();
 			} finally {
 				outputSerializer.pruneBuffer();

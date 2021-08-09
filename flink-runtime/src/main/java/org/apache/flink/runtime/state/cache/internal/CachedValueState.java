@@ -22,8 +22,6 @@ import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.state.cache.Cache;
-import org.apache.flink.runtime.state.cache.CacheEntryKey;
-import org.apache.flink.runtime.state.cache.CacheEntryValue;
 import org.apache.flink.runtime.state.cache.CachedKeyedStateBackend;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.internal.InternalValueState;
@@ -39,13 +37,13 @@ import java.io.IOException;
  * @param <V> The type of value that the state state stores.
  */
 public class CachedValueState<K, N, V>
-	extends AbstractCachedKeyedState<K, N, V, InternalValueState<K, N, V>, K, V>
+	extends AbstractCachedKeyedState<K, N, V, Void, V, InternalValueState<K, N, V>>
 	implements InternalValueState<K, N, V> {
 
 	public CachedValueState(
 		CachedKeyedStateBackend<K> keyedStateBackend,
 		InternalValueState<K, N, V> valueState,
-		Cache<CacheEntryKey<K, N>, CacheEntryValue<V>> cache,
+		Cache<K, N, V, Void, V> cache,
 		TypeSerializer<K> keySerializer,
 		TypeSerializer<N> namespaceSerializer,
 		TypeSerializer<V> valueSerializer,
@@ -56,8 +54,8 @@ public class CachedValueState<K, N, V>
 	@Override
 	public V value() {
 		try {
-			CacheEntryValue<V> cacheValue = cache.get(getCurrentCacheEntryKey());
-			return cacheValue != null ? cacheValue.getValue() : null;
+			V cacheValue = cache.get(getCurrentKey(), getCurrentNamespace());
+			return cacheValue != null ? cacheValue : getDefaultValue();
 		} catch (Exception e) {
 			throw new FlinkRuntimeException("Error while retrieving data from Cache.", e);
 		}
@@ -71,15 +69,10 @@ public class CachedValueState<K, N, V>
 		}
 
 		try {
-			cache.put(getCurrentCacheEntryKey(), new CacheEntryValue<>(value, true));
+			cache.put(getCurrentKey(), getCurrentNamespace(), value);
 		} catch (Exception e) {
 			throw new FlinkRuntimeException("Error while adding data to Cache", e);
 		}
-	}
-
-	@Override
-	protected CacheEntryKey<K, N> getCurrentCacheEntryKey() {
-		return new CacheEntryKey<>(getCurrentKey(), getCurrentNamespace());
 	}
 
 	@SuppressWarnings("unchecked")

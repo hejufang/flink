@@ -20,13 +20,12 @@ package org.apache.flink.runtime.state.cache.sync;
 
 import org.apache.flink.runtime.state.KeyedStateBackend;
 import org.apache.flink.runtime.state.cache.CacheEntryKey;
-import org.apache.flink.runtime.state.cache.CacheEntryValue;
 import org.apache.flink.runtime.state.internal.InternalValueState;
 
 /**
  * ValueState's data synchronizer..
  */
-public class ValueStateSynchronizer<K, N, V> extends AbstractStateSynchronizer<K, K, N, V> {
+public class ValueStateSynchronizer<K, N, V> extends AbstractStateSynchronizer<K, N, Void, V> {
 	private final InternalValueState<K, N, V> delegateState;
 
 	public ValueStateSynchronizer(KeyedStateBackend<K> keyedStateBackend, InternalValueState<K, N, V> delegateState) {
@@ -35,24 +34,19 @@ public class ValueStateSynchronizer<K, N, V> extends AbstractStateSynchronizer<K
 	}
 
 	@Override
-	protected K getCurrentKey(CacheEntryKey<K, N> cacheKey) {
-		return cacheKey.getKey();
-	}
-
-	@Override
-	protected void updateDelegateState(CacheEntryKey<K, N> key, CacheEntryValue<V> value) throws Exception {
+	protected void updateDelegateState(CacheEntryKey<K, N, Void> key, V value) throws Exception {
 		delegateState.setCurrentNamespace(key.getNamespace());
-		delegateState.update(value.getValue());
+		delegateState.update(value);
 	}
 
 	@Override
-	protected V loadFromDelegateState(CacheEntryKey<K, N> key) throws Exception {
+	protected V loadFromDelegateState(CacheEntryKey<K, N, Void> key) throws Exception {
 		delegateState.setCurrentNamespace(key.getNamespace());
 		return delegateState.value();
 	}
 
 	@Override
-	protected void removeFromDelegateState(CacheEntryKey<K, N> key) throws Exception {
+	protected void removeFromDelegateState(CacheEntryKey<K, N, Void> key) throws Exception {
 		delegateState.setCurrentNamespace(key.getNamespace());
 		delegateState.clear();
 	}

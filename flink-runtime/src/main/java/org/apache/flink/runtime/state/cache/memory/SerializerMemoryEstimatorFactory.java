@@ -22,14 +22,13 @@ import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.MapSerializer;
 import org.apache.flink.runtime.state.cache.CacheEntryKey;
-import org.apache.flink.runtime.state.cache.CacheEntryValue;
 
 /**
  * Provide corresponding memory estimators for different state types and wrap them as {@link SampleStateMemoryEstimator}.
  * Currently, the estimation of {@link org.apache.flink.api.common.state.ListState} is not supported.
  */
 public class SerializerMemoryEstimatorFactory {
-	public static <K, N, V> SampleStateMemoryEstimator<CacheEntryKey<?, N>, CacheEntryValue<?>> createSampleEstimator(
+	public static <K, N, V> SampleStateMemoryEstimator<CacheEntryKey<K, N, ?>, ?> createSampleEstimator(
 		TypeSerializer<K> keySerializer,
 		TypeSerializer<N> namespaceSerializer,
 		TypeSerializer<V> valueSerializer,
@@ -45,7 +44,7 @@ public class SerializerMemoryEstimatorFactory {
 				memoryEstimator = new ValueStateSerializerEstimator<>(keySerializer, namespaceSerializer, valueSerializer);
 				break;
 			case MAP:
-				memoryEstimator = new MapStateMemoryEstimator<>(keySerializer, namespaceSerializer, (MapSerializer) valueSerializer);
+				memoryEstimator = new MapStateMemoryEstimator<>(keySerializer, namespaceSerializer, (MapSerializer<?, ?>) valueSerializer);
 				break;
 			case LIST:
 				throw new UnsupportedOperationException("Unsupported state type " + stateType.name());

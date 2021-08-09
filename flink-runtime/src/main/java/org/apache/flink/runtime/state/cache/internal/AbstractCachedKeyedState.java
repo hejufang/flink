@@ -19,11 +19,7 @@
 package org.apache.flink.runtime.state.cache.internal;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.queryablestate.client.state.serialization.KvStateSerializer;
 import org.apache.flink.runtime.state.cache.Cache;
-import org.apache.flink.runtime.state.cache.CacheEntryKey;
-import org.apache.flink.runtime.state.cache.CacheEntryValue;
 import org.apache.flink.runtime.state.cache.CachedKeyedStateBackend;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -36,11 +32,11 @@ import org.apache.flink.util.Preconditions;
  * @param <K> The type of the key.
  * @param <N> The type of the namespace.
  * @param <SV> The type of values kept internally in state.
+ * @param <UK> The type of the user keys kept internally in state.
+ * @param <UV> The type of the user values kept internally in state.
  * @param <IS> The type of the delegate state.
- * @param <CK> The type of the cache key.
- * @param <CV> The type of the cache value.
  */
-public abstract class AbstractCachedKeyedState<K, N, SV, IS extends InternalKvState<K, N, SV>, CK, CV>
+public abstract class AbstractCachedKeyedState<K, N, SV, UK, UV, IS extends InternalKvState<K, N, SV>>
 	implements InternalKvState<K, N, SV> {
 
 	/** Backend that holds the cached keyed state where we store state. */
@@ -50,7 +46,7 @@ public abstract class AbstractCachedKeyedState<K, N, SV, IS extends InternalKvSt
 	protected final IS delegateState;
 
 	/** The cache currently used to cache the state. */
-	protected final Cache<CacheEntryKey<CK, N>, CacheEntryValue<CV>> cache;
+	protected final Cache<K, N, SV, UK, UV> cache;
 
 	/** Serializer for the key. */
 	protected final TypeSerializer<K> keySerializer;
@@ -70,7 +66,7 @@ public abstract class AbstractCachedKeyedState<K, N, SV, IS extends InternalKvSt
 	public AbstractCachedKeyedState(
 		CachedKeyedStateBackend<K> keyedStateBackend,
 		IS delegateState,
-		Cache<CacheEntryKey<CK, N>, CacheEntryValue<CV>> cache,
+		Cache<K, N, SV, UK, UV> cache,
 		TypeSerializer<K> keySerializer,
 		TypeSerializer<N> namespaceSerializer,
 		TypeSerializer<SV> valueSerializer,
@@ -89,7 +85,7 @@ public abstract class AbstractCachedKeyedState<K, N, SV, IS extends InternalKvSt
 	@Override
 	public void clear() {
 		try {
-			cache.delete(getCurrentCacheEntryKey());
+			cache.delete(getCurrentKey(), currentNamespace);
 		} catch (Exception e) {
 			throw new FlinkRuntimeException("Error while removing entry from cache", e);
 		}
@@ -119,21 +115,7 @@ public abstract class AbstractCachedKeyedState<K, N, SV, IS extends InternalKvSt
 		final TypeSerializer<N> safeNamespaceSerializer,
 		final TypeSerializer<SV> safeValueSerializer) throws Exception {
 
-		Preconditions.checkNotNull(serializedKeyAndNamespace);
-		Preconditions.checkNotNull(safeKeySerializer);
-		Preconditions.checkNotNull(safeNamespaceSerializer);
-		Preconditions.checkNotNull(safeValueSerializer);
-
-		Tuple2<K, N> keyAndNamespace = KvStateSerializer.deserializeKeyAndNamespace(
-			serializedKeyAndNamespace, safeKeySerializer, safeNamespaceSerializer);
-		CacheEntryKey<CK, N> cacheKey = (CacheEntryKey<CK, N>) new CacheEntryKey<>(keyAndNamespace.f0, keyAndNamespace.f1);
-		CacheEntryValue<CV> result = cache.get(cacheKey);
-
-		if (result == null || result.getValue() == null) {
-			return null;
-		}
-		SV value = (SV) result.getValue();
-		return KvStateSerializer.serializeValue(value, safeValueSerializer);
+		throw new UnsupportedOperationException("State query is not supported.");
 	}
 
 	@Override
@@ -159,6 +141,4 @@ public abstract class AbstractCachedKeyedState<K, N, SV, IS extends InternalKvSt
 	protected K getCurrentKey() {
 		return keyedStateBackend.getCurrentKey();
 	}
-
-	protected abstract CacheEntryKey<CK, N> getCurrentCacheEntryKey();
 }

@@ -27,7 +27,7 @@ import java.io.IOException;
 /**
  * An abstract parent class that estimates the memory size of cache elements through a serializer.
  */
-public abstract class AbstractSerializerMemoryEstimator<K, N, S> extends AbstractMemoryEstimator<K, N, S> {
+public abstract class AbstractSerializerMemoryEstimator<K, N, UK, UV> extends AbstractMemoryEstimator<K, N, UK, UV> {
 	private final TypeSerializer<K> keySerializer;
 	private final TypeSerializer<N> namespaceSerializer;
 
@@ -41,12 +41,12 @@ public abstract class AbstractSerializerMemoryEstimator<K, N, S> extends Abstrac
 		this.keySerializer = keySerializer;
 		this.namespaceSerializer = namespaceSerializer;
 		this.keySize = keySerializer.getLength() == -1 ? -1L : keySerializer.getLength();
-		this.namespaceSize = namespaceSerializer.getLength() == -1 ? -1L : namespaceSerializer.getLength();;
+		this.namespaceSize = namespaceSerializer.getLength() == -1 ? -1L : namespaceSerializer.getLength();
 		this.outputSerializer = new DataOutputSerializer(64);
 	}
 
 	@Override
-	protected long sizeOfKey(CacheEntryKey<K, N> key) throws IOException {
+	protected long sizeOfKey(CacheEntryKey<K, N, UK> key) throws IOException {
 		if (keySerializer.getLength() == -1) {
 			try {
 				keySerializer.serialize(key.getKey(), outputSerializer);
