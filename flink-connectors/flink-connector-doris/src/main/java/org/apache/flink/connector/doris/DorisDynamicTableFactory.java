@@ -175,6 +175,12 @@ public class DorisDynamicTableFactory implements DynamicTableSinkFactory {
 		.withDescription("Optional. It defines the interval of updating FE list "
 			+ "when we use doris-fe-psm to get FE list.");
 
+	private static final ConfigOption<String> SINK_FIELD_MAPPING = ConfigOptions
+		.key("sink.field_mapping")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional. It field mapping from flink to doris.");
+
 	@Override
 	public DynamicTableSink createDynamicTableSink(Context context) {
 		TableFactoryHelper helper = createTableFactoryHelper(this, context);
@@ -221,6 +227,7 @@ public class DorisDynamicTableFactory implements DynamicTableSinkFactory {
 		set.add(PARALLELISM);
 		set.add(SEQUENCE_COLUMN);
 		set.add(RATE_LIMIT_NUM);
+		set.add(SINK_FIELD_MAPPING);
 		return set;
 	}
 
@@ -259,6 +266,7 @@ public class DorisDynamicTableFactory implements DynamicTableSinkFactory {
 			rateLimiter.setRate(rate);
 			dorisOptions.setRateLimiter(rateLimiter);
 		});
+		readableConfig.getOptional(SINK_FIELD_MAPPING).ifPresent(dorisOptions::setFieldMapping);
 
 		return dorisOptions.build();
 	}

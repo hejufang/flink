@@ -60,6 +60,7 @@ public class DorisOptions implements Serializable {
 	private final int parallelism;
 	private final String sequenceColumn;
 	private final FlinkConnectorRateLimiter rateLimiter;
+	private final String fieldMapping;
 
 	private DorisOptions(
 			List<Pair<String, Integer>> dorisFEList,
@@ -84,7 +85,8 @@ public class DorisOptions implements Serializable {
 			long feUpdateIntervalMs,
 			int parallelism,
 			String sequenceColumn,
-			FlinkConnectorRateLimiter rateLimiter) {
+			FlinkConnectorRateLimiter rateLimiter,
+			String fieldMapping) {
 		this.dorisFEList = dorisFEList;
 		this.cluster = cluster;
 		this.dataCenter = dataCenter;
@@ -108,6 +110,7 @@ public class DorisOptions implements Serializable {
 		this.parallelism = parallelism;
 		this.sequenceColumn = sequenceColumn;
 		this.rateLimiter = rateLimiter;
+		this.fieldMapping = fieldMapping;
 	}
 
 	public List<Pair<String, Integer>> getDorisFEList() {
@@ -202,6 +205,10 @@ public class DorisOptions implements Serializable {
 		return rateLimiter;
 	}
 
+	public String getFieldMapping() {
+		return fieldMapping;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -234,6 +241,7 @@ public class DorisOptions implements Serializable {
 		private int parallelism;
 		private String sequenceColumn;
 		private FlinkConnectorRateLimiter rateLimiter;
+		private String fieldMapping;
 
 		private Builder() {
 		}
@@ -353,6 +361,11 @@ public class DorisOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setFieldMapping(String fieldMapping) {
+			this.fieldMapping = fieldMapping;
+			return this;
+		}
+
 		public DorisOptions build() {
 			// There are two ways to get connection, through DORIS_FE_LIST or DORIS_FE_PSM + DATA_CENTER,
 			// and the second way has higher priority if they are both set.
@@ -399,7 +412,8 @@ public class DorisOptions implements Serializable {
 				feUpdateIntervalMs,
 				parallelism,
 				sequenceColumn,
-				rateLimiter);
+				rateLimiter,
+				fieldMapping);
 		}
 	}
 }
