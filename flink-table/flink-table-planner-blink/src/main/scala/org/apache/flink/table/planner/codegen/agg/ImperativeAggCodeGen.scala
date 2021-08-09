@@ -153,7 +153,6 @@ class ImperativeAggCodeGen(
          |  $accInternalTerm = ${initializeExpr.resultTerm};
          |}
       """.stripMargin
-      s"$accInternalTerm = ${expr.resultTerm};"
     } else {
       ctx.addReusableMember(s"private $accTypeInternalTerm $accInternalTerm;")
       ctx.addReusableMember(s"private $accTypeExternalTerm $accExternalTerm;")
@@ -345,7 +344,6 @@ class ImperativeAggCodeGen(
 
         val newExpr = inputType match {
           case ct: RowType if isAccTypeInternal =>
-            // acc is never be null
             val fieldType = ct.getTypeAt(index).asInstanceOf[RowType]
             val exprGenerator = new ExprCodeGenerator(ctx, false)
               .bindInput(fieldType, inputTerm = expr.resultTerm)
@@ -355,16 +353,22 @@ class ImperativeAggCodeGen(
               outRecordTerm = newName("acc"),
               reusedOutRow = false,
               fieldCopy = inputFieldCopy)
+            // acc can be null if it's appended and restored from the checkpoint.
+            // see #INFOI-19164,
             val code =
               s"""
                  |${expr.code}
-                 |${ctx.reuseInputUnboxingCode(expr.resultTerm)}
-                 |${converted.code}
+                 |if (!${expr.nullTerm}) {
+                 |  ${ctx.reuseInputUnboxingCode(expr.resultTerm)}
+                 |  ${converted.code}
+                 |}
                """.stripMargin
 
             GeneratedExpression(
               converted.resultTerm,
-              converted.nullTerm,
+              // converted.nullTerm is always false. If expr is null, converted is null too.
+              // Therefore we can use expr.nullTerm to replace the converted.nullTerm.
+              expr.nullTerm,
               code,
               converted.resultType)
           case _ => expr

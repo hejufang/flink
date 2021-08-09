@@ -86,11 +86,6 @@ class CheckpointRecoveryITCase(stateBackend: String) extends TestLogger with Ser
   }
 
   @Test
-  def testCheckpointRecovery(): Unit = {
-    testAddNonDistinct()
-    testAddDistinct()
-  }
-
   def testAddNonDistinct(): Unit = {
     val beforeSQL =
       """
@@ -151,6 +146,65 @@ class CheckpointRecoveryITCase(stateBackend: String) extends TestLogger with Ser
     testWithSQL(beforeSQL, afterSQL, beforeExpectedOutput, afterExpectedOutput)
   }
 
+  @Test
+  def testAddAggWithRowTypeAccumulator(): Unit = {
+    val beforeSQL =
+      """
+        |select
+        |    `int`,
+        |    sum(`double`)
+        |from
+        |    T1
+        |group by
+        |    `int`
+        |""".stripMargin
+    val afterSQL =
+      """
+        |select
+        |    `int`,
+        |    sum(`double`),
+        |    LAST_VALUE_IGNORE_RETRACT(`string`, cast(`int` as bigint))
+        |from
+        |    T1
+        |group by
+        |    `int`
+        |""".stripMargin
+
+    val beforeExpectedOutput = List(
+      "(true,1,1.0)",
+      "(true,2,2.0)",
+      "(false,2,2.0)",
+      "(true,2,4.0)",
+      "(true,5,5.0)",
+      "(true,3,3.0)",
+      "(false,5,5.0)",
+      "(true,5,10.0)",
+      "(false,3,3.0)",
+      "(true,3,6.0)",
+      "(true,4,4.0)"
+    )
+    val afterExpectedOutput = List(
+      "(false,1,1.0,null)",
+      "(true,1,2.0,Hi)",
+      "(false,2,4.0,null)",
+      "(true,2,6.0,Hallo)",
+      "(false,2,6.0,Hallo)",
+      "(true,2,8.0,Hallo)",
+      "(false,5,10.0,null)",
+      "(true,5,15.0,Hello)",
+      "(false,3,6.0,null)",
+      "(true,3,9.0,Hello)",
+      "(false,5,15.0,Hello)",
+      "(true,5,20.0,Hello)",
+      "(false,3,9.0,Hello)",
+      "(true,3,12.0,Hello)",
+      "(false,4,4.0,null)",
+      "(true,4,8.0,Hello world)"
+    )
+    testWithSQL(beforeSQL, afterSQL, beforeExpectedOutput, afterExpectedOutput)
+  }
+
+  @Test
   def testAddDistinct(): Unit = {
     val beforeSQL =
       """
