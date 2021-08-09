@@ -21,14 +21,17 @@ package org.apache.flink.runtime.state.cache.internal;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.state.cache.Cache;
 import org.apache.flink.runtime.state.cache.CachedKeyedStateBackend;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.internal.InternalMapState;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * {@link MapState} implementation that stores state in Cache.
@@ -92,17 +95,55 @@ public class CachedMapState<K, N, UK, UV>
 
 	@Override
 	public Iterable<Map.Entry<UK, UV>> entries() throws Exception {
-		throw new FlinkRuntimeException("wait next mr");
+		preIterator();
+		return () -> {
+			try {
+				return new CachedMapStateIterator<Map.Entry<UK, UV>>(getCurrentKey(), getCurrentNamespace(), cache, delegateState.iterator()) {
+					@Override
+					public Map.Entry<UK, UV> next() {
+						return nextEntry();
+					}
+				};
+			} catch (Exception e) {
+				throw new FlinkRuntimeException("Error while create iterator", e);
+			}
+		};
 	}
 
 	@Override
 	public Iterable<UK> keys() throws Exception {
-		throw new FlinkRuntimeException("wait next mr");
+		preIterator();
+		return () -> {
+			try {
+				return new CachedMapStateIterator<UK>(getCurrentKey(), getCurrentNamespace(), cache, delegateState.iterator()) {
+					@Override
+					public UK next() {
+						Map.Entry<UK, UV> entry = nextEntry();
+						return entry == null ? null : entry.getKey();
+					}
+				};
+			} catch (Exception e) {
+				throw new FlinkRuntimeException("Error while create iterator", e);
+			}
+		};
 	}
 
 	@Override
 	public Iterable<UV> values() throws Exception {
-		throw new FlinkRuntimeException("wait next mr");
+		preIterator();
+		return () -> {
+			try {
+				return new CachedMapStateIterator<UV>(getCurrentKey(), getCurrentNamespace(), cache, delegateState.iterator()) {
+					@Override
+					public UV next() {
+						Map.Entry<UK, UV> entry = nextEntry();
+						return entry == null ? null : entry.getValue();
+					}
+				};
+			} catch (Exception e) {
+				throw new FlinkRuntimeException("Error while create iterator", e);
+			}
+		};
 	}
 
 	@Override
@@ -151,5 +192,128 @@ public class CachedMapState<K, N, UK, UV>
 			internalKvState.getNamespaceSerializer().duplicate(),
 			(TypeSerializer<Map<UK, UV>>) internalKvState.getValueSerializer().duplicate(),
 			(Map<UK, UV>) defaultValue);
+	}
+
+	/**
+	 * Encapsulate the iterator of {@link Cache} and delegateState. First traverse the iterator of
+	 * delegateState, if this data exists in the cache, then return the data in the cache, otherwise
+	 * return directly. When the iterator traversal of delegateState is completed, it starts to
+	 * traverse the unprocessed data in the cache.
+	 */
+	private abstract class CachedMapStateIterator<T> implements Iterator<T> {
+		private final K key;
+
+		private final N namespace;
+
+		private final Cache<K, N, Map<UK, UV>, UK, UV> cache;
+
+		private final Iterator<Map.Entry<UK, UV>> delegateStateIterator;
+
+		private final Set<UK> processedKeys;
+
+		private Iterator<Map.Entry<UK, UV>> currentIterator;
+
+		private CacheEntryWrapper currentCacheEntry;
+
+		public CachedMapStateIterator(K key, N namespace, Cache<K, N, Map<UK, UV>, UK, UV> cache, Iterator<Map.Entry<UK, UV>> delegateStateIterator) {
+			this.key = key;
+			this.namespace = namespace;
+			this.cache = cache;
+			this.delegateStateIterator = delegateStateIterator;
+			this.processedKeys = new HashSet<>((int) cache.size());
+			this.currentIterator = delegateStateIterator;
+		}
+
+		@Override
+		public boolean hasNext() {
+			if (!currentIterator.hasNext() && currentIterator == delegateStateIterator) {
+				currentIterator = cache.iterator(key, namespace, processedKeys);
+			}
+			return currentIterator.hasNext();
+		}
+
+		public Map.Entry<UK, UV> nextEntry() {
+			if (currentIterator == delegateStateIterator) {
+				Map.Entry<UK, UV> currentEntry = currentIterator.next();
+				try {
+					Tuple2<UV, Cache.DirtyReference> cacheValue = cache.getIfPresent(key, namespace, currentEntry.getKey());
+					if (cacheValue != null) {
+						processedKeys.add(currentEntry.getKey());
+						currentCacheEntry = new CacheEntryWrapper(key, namespace, currentEntry.getKey(), cacheValue);
+						return currentCacheEntry;
+					}
+					return currentEntry;
+				} catch (Exception e) {
+					throw new FlinkRuntimeException("Error while get from cache", e);
+				}
+			}
+			currentCacheEntry = null;
+			return currentIterator.next();
+		}
+
+		@Override
+		public void remove() {
+			currentIterator.remove();
+			if (currentCacheEntry != null) {
+				currentCacheEntry.remove();
+			}
+		}
+	}
+
+	/**
+	 * When traversing delegateState, if it exists in the cache, wrap the data in the cache as CacheEntryWrapper.
+	 */
+	private class CacheEntryWrapper implements Map.Entry<UK, UV> {
+		private final K key;
+		private final N namespace;
+		private final UK userKey;
+		private UV userValue;
+		private Cache.DirtyReference dirtyReference;
+		private boolean deleted;
+
+		public CacheEntryWrapper(K key, N namespace, UK userKey, Tuple2<UV, Cache.DirtyReference> userValue) {
+			this.key = key;
+			this.namespace = namespace;
+			this.userKey = userKey;
+			this.userValue = userValue.f0;
+			this.dirtyReference = userValue.f1;
+			this.deleted = false;
+		}
+
+		@Override
+		public UK getKey() {
+			return userKey;
+		}
+
+		@Override
+		public UV getValue() {
+			return deleted ? null : userValue;
+		}
+
+		@Override
+		public UV setValue(UV value) {
+			if (deleted) {
+				throw new IllegalStateException("The value has already been deleted.");
+			}
+
+			UV oldValue = userValue;
+			userValue = value;
+			try {
+				cache.replace(key, namespace, userKey, userValue);
+				dirtyReference.setDirty(true);
+			} catch (Exception e) {
+				throw new FlinkRuntimeException("Error while replace cache value", e);
+			}
+			return oldValue;
+		}
+
+		public void remove() {
+			deleted = true;
+			try {
+				cache.delete(key, namespace, userKey);
+			} catch (Exception e) {
+				throw new FlinkRuntimeException("Error while removing data from cache.", e);
+			}
+		}
 	}
 }

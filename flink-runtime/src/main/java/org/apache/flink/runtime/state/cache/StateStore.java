@@ -38,6 +38,9 @@ public interface StateStore<K, N, SV, UK, UV> {
 	/** Get the data associated with the key, namespace, and userKey from the stateStore. */
 	UV getFromStateStore(K key, N namespace, @Nullable UK userKey);
 
+	/** Get all the data associated with the key and namespace from the stateStore. */
+	SV getAllFromStateStore(K key, N namespace);
+
 	/** Pet the userValue associated with the key, namespace, and userKey into the stateStore. */
 	void putInStateStore(K key, N namespace, @Nullable UK userKey, UV userValue);
 
@@ -70,6 +73,11 @@ public interface StateStore<K, N, SV, UK, UV> {
 		public UV getFromStateStore(K key, N namespace, @Nonnull UK userKey) {
 			Map<UK, UV> userMap = stateStore.get(Tuple2.of(key, namespace));
 			return userMap == null ? null : userMap.get(userKey);
+		}
+
+		@Override
+		public Map<UK, UV> getAllFromStateStore(K key, N namespace) {
+			return stateStore.get(Tuple2.of(key, namespace));
 		}
 
 		@Override
@@ -130,6 +138,11 @@ public interface StateStore<K, N, SV, UK, UV> {
 
 		@Override
 		public V getFromStateStore(K key, N namespace, @Nullable Void userKey) {
+			return stateStore.get(Tuple2.of(key, namespace));
+		}
+
+		@Override
+		public V getAllFromStateStore(K key, N namespace) {
 			return stateStore.get(Tuple2.of(key, namespace));
 		}
 

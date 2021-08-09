@@ -21,13 +21,16 @@ package org.apache.flink.runtime.state.cache;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.runtime.state.cache.sync.DataSynchronizer;
+import org.apache.flink.runtime.util.EmptyIterator;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import javax.annotation.Nullable;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
 
 /**
@@ -162,7 +165,13 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 
 	@SuppressWarnings("unchecked")
 	public Iterator<Map.Entry<UK, UV>> iterator(K key, N namespace, Collection<UK> filterUserKeys) {
-		throw new FlinkRuntimeException("wait next mr");
+		Map<UK, UV> sv = (Map<UK, UV>) stateStore.getAllFromStateStore(key, namespace);
+		if (sv != null) {
+			Map<UK, UV> copyMap = new HashMap<>(sv);
+			copyMap.keySet().removeAll(filterUserKeys);
+			return new CacheIterator(key, namespace, copyMap.entrySet().iterator());
+		}
+		return EmptyIterator.get();
 	}
 
 	/**
@@ -228,6 +237,129 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 	@Override
 	public void notifyExceedMemoryLimit(MemorySize maxMemorySize, MemorySize exceedMemorySize) {
 		cacheStrategy.notifyExceedMemoryLimit(maxMemorySize, exceedMemorySize);
+	}
+
+	/**
+	 * The iterator used for the {@link Cache} traverses the data which not in the delegateState,
+	 * Update and delete operations will be called back through the corresponding interface of the cache.
+	 */
+	private class CacheIterator implements Iterator<Map.Entry<UK, UV>> {
+		private final K key;
+
+		private final N namespace;
+
+		private final Iterator<Map.Entry<UK, UV>> delegateIterator;
+
+		private CacheEntry currentEntry;
+
+		public CacheIterator(K key, N namespace, Iterator<Map.Entry<UK, UV>> delegateIterator) {
+			this.key = key;
+			this.namespace = namespace;
+			this.delegateIterator = delegateIterator;
+		}
+
+		@Override
+		public boolean hasNext() {
+			return delegateIterator.hasNext();
+		}
+
+		@Override
+		public Map.Entry<UK, UV> next() {
+			Map.Entry<UK, UV> entry = delegateIterator.next();
+			currentEntry = entry != null ? new CacheEntry(key, namespace, entry) : null;
+			return currentEntry;
+		}
+
+		@Override
+		public void remove() {
+			if (currentEntry == null || currentEntry.deleted) {
+				throw new IllegalStateException("The remove operation must be called after a valid next operation.");
+			}
+			delegateIterator.remove();
+			currentEntry.remove();
+		}
+	}
+
+	/**
+	 * The {@link Map.Entry} encapsulated for the cache which used to update the cache when the entry is operated.
+	 */
+	private class CacheEntry implements Map.Entry<UK, UV> {
+		private final K key;
+
+		private final N namespace;
+
+		private final Map.Entry<UK, UV> delegateEntry;
+
+		private boolean deleted;
+
+		public CacheEntry(K key, N namespace, Map.Entry<UK, UV> delegateEntry) {
+			this.key = key;
+			this.namespace = namespace;
+			this.delegateEntry = delegateEntry;
+			this.deleted = false;
+		}
+
+		@Override
+		public UK getKey() {
+			return delegateEntry.getKey();
+		}
+
+		@Override
+		public UV getValue() {
+			if (deleted) {
+				return null;
+			} else {
+				return delegateEntry.getValue();
+			}
+		}
+
+		@Override
+		public UV setValue(UV value) {
+			if (deleted) {
+				throw new IllegalStateException("The value has already been deleted.");
+			}
+
+			UV oldValue = delegateEntry.getValue();
+			try {
+				delegateEntry.setValue(value);
+				Cache.this.put(key, namespace, delegateEntry.getKey(), value);
+			} catch (Exception e) {
+				throw new FlinkRuntimeException("Error while putting data into cache.", e);
+			}
+
+			return oldValue;
+		}
+
+		public void remove() {
+			deleted = true;
+			try {
+				Cache.this.delete(key, namespace, delegateEntry.getKey());
+			} catch (Exception e) {
+				throw new FlinkRuntimeException("Error while removing data from cache.", e);
+			}
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+
+			CacheEntry that = (CacheEntry) o;
+			return deleted == that.deleted &&
+				Objects.equals(key, that.key) &&
+				Objects.equals(namespace, that.namespace) &&
+				Objects.equals(delegateEntry, that.delegateEntry);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(key, namespace, delegateEntry, deleted);
+		}
 	}
 
 	/**
