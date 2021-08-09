@@ -47,7 +47,8 @@ public class AbaseLookupExecutorFactory {
 				return new AbaseLookupSpecifyHashKeyExecutor(
 					normalOptions,
 					fieldNames,
-					fieldTypes);
+					fieldTypes,
+					lookupOptions.getRequestedHashKeys());
 			} else if (normalOptions.getAbaseValueType().equals(AbaseValueType.GENERAL)) {
 				return new AbaseLookupGeneralExecutor(
 					normalOptions,

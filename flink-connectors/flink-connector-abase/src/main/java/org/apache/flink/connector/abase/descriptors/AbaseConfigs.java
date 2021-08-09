@@ -25,6 +25,7 @@ import org.apache.flink.connector.abase.utils.AbaseValueType;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 /**
  * Configs describe theAbase Connector.
@@ -85,6 +86,13 @@ public class AbaseConfigs {
 		.defaultValue(false)
 		.withDescription("Optional. The flag decides whether to specify hash keys when get hash values from a " +
 			"redis/abase key with a hash-type value.");
+	public static final ConfigOption<List<String>> LOOKUP_LATER_JOIN_REQUESTED_HASH_KEYS = ConfigOptions
+		.key("lookup.later-join.requested-hash-keys")
+		.stringType()
+		.asList()
+		.noDefaultValue()
+		.withDescription("Optional. Lookup later join requested hash keys, lack of any of which is regarded as " +
+			"failed lookup join. Note that 'lookup.specify-hash-keys' should be true as a prerequisite.");
 
 	//Sink config options
 	public static final ConfigOption<AbaseSinkMode> SINK_MODE = ConfigOptions

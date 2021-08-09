@@ -51,6 +51,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CLUSTER;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTION_MAX_IDLE_NUM;
@@ -58,6 +59,7 @@ import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTI
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTION_MAX_TOTAL_NUM;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTION_MIN_IDLE_NUM;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTION_TIMEOUT;
+import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.LOOKUP_LATER_JOIN_REQUESTED_HASH_KEYS;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.LOOKUP_SPECIFY_HASH_KEYS;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.PSM;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_IGNORE_DELETE;
@@ -193,6 +195,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
 		optionalOptions.add(PSM);
 		optionalOptions.add(LOOKUP_SPECIFY_HASH_KEYS);
+		optionalOptions.add(LOOKUP_LATER_JOIN_REQUESTED_HASH_KEYS);
 		optionalOptions.add(RATE_LIMIT_NUM);
 		return optionalOptions;
 	}
@@ -227,7 +230,8 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			config.get(LOOKUP_LATER_JOIN_RETRY_TIMES),
 			config.get(LOOKUP_CACHE_NULL_VALUE),
 			config.getOptional(LOOKUP_ENABLE_INPUT_KEYBY).orElse(null),
-			config.get(LOOKUP_SPECIFY_HASH_KEYS));
+			config.get(LOOKUP_SPECIFY_HASH_KEYS),
+			config.getOptional(LOOKUP_LATER_JOIN_REQUESTED_HASH_KEYS).orElse(null));
 	}
 
 	private AbaseSinkOptions getAbaseSinkOptions(ReadableConfig config) {
@@ -272,6 +276,14 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 						.equals(DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
 					"Unsupported type for hash value, should be map<varchar, varchar>");
 			}
+		}
+
+		// check whether lookup later join requested hash keys are in the schema
+		if (lookupOptions != null && lookupOptions.isSpecifyHashKeys() &&
+			lookupOptions.getRequestedHashKeys() != null && !lookupOptions.getRequestedHashKeys().isEmpty()) {
+			Set<String> columns = Arrays.stream(schema.getFieldNames()).collect(Collectors.toSet());
+			boolean valid = columns.containsAll(lookupOptions.getRequestedHashKeys());
+			checkState(valid, "Requested hash keys are not in the schema!");
 		}
 	}
 

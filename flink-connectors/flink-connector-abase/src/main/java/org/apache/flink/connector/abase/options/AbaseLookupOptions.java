@@ -21,6 +21,7 @@ package org.apache.flink.connector.abase.options;
 import javax.annotation.Nullable;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -48,6 +49,8 @@ public class AbaseLookupOptions implements Serializable {
 
 	private final boolean specifyHashKeys;
 
+	private final List<String> requestedHashKeys;
+
 	public AbaseLookupOptions(
 			long cacheMaxSize,
 			long cacheExpireMs,
@@ -56,7 +59,8 @@ public class AbaseLookupOptions implements Serializable {
 			int laterRetryTimes,
 			boolean cacheNull,
 			@Nullable Boolean isInputKeyByEnabled,
-			boolean specifyHashKeys) {
+			boolean specifyHashKeys,
+			List<String> requestedHashKeys) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
@@ -65,6 +69,7 @@ public class AbaseLookupOptions implements Serializable {
 		this.cacheNull = cacheNull;
 		this.isInputKeyByEnabled = isInputKeyByEnabled;
 		this.specifyHashKeys = specifyHashKeys;
+		this.requestedHashKeys = requestedHashKeys;
 	}
 
 	public long getCacheMaxSize() {
@@ -100,6 +105,10 @@ public class AbaseLookupOptions implements Serializable {
 		return specifyHashKeys;
 	}
 
+	public List<String> getRequestedHashKeys() {
+		return requestedHashKeys;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (o instanceof AbaseLookupOptions) {
@@ -111,7 +120,8 @@ public class AbaseLookupOptions implements Serializable {
 				Objects.equals(laterRetryTimes, options.laterRetryTimes) &&
 				Objects.equals(cacheNull, options.cacheNull) &&
 				Objects.equals(isInputKeyByEnabled, options.isInputKeyByEnabled) &&
-				specifyHashKeys == options.specifyHashKeys;
+				specifyHashKeys == options.specifyHashKeys &&
+				Objects.equals(requestedHashKeys, options.requestedHashKeys);
 		} else {
 			return false;
 		}

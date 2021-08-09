@@ -24,11 +24,13 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.StringUtils;
 
 import redis.clients.jedis.exceptions.JedisDataException;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * value-type lookup executor supports: Hash(with specify-hash-key).
@@ -43,15 +45,30 @@ public class AbaseLookupSpecifyHashKeyExecutor extends AbaseLookupExecutor {
 	//use for hash value-type
 	private final String[] hashKeys;
 
+	private final int[] requestedHashKeysIndex;
+
+	private final boolean checkRequestedHashKeys;
+
 	public AbaseLookupSpecifyHashKeyExecutor(
 			AbaseNormalOptions normalOptions,
 			String[] fieldNames,
-			DataType[] fieldTypes) {
+			DataType[] fieldTypes,
+			List<String> requestedHashKeys) {
 		super(normalOptions);
 		this.fieldNames = fieldNames;
 		this.hashKeys = Arrays.copyOfRange(fieldNames, 1, fieldNames.length);
 		this.stringValueConverters = Arrays.stream(fieldTypes)
 			.map(StringValueConverters::getConverter).toArray(StringValueConverters.StringValueConverter[]::new);
+		if (requestedHashKeys != null && !requestedHashKeys.isEmpty()) {
+			List<String> keyList = Arrays.stream(hashKeys).collect(Collectors.toList());
+			requestedHashKeysIndex = requestedHashKeys.stream()
+				.mapToInt(keyList::indexOf)
+				.toArray();
+		} else {
+			requestedHashKeysIndex = null;
+		}
+
+		checkRequestedHashKeys = (requestedHashKeysIndex != null && requestedHashKeysIndex.length > 0);
 	}
 
 	@Override
@@ -76,6 +93,14 @@ public class AbaseLookupSpecifyHashKeyExecutor extends AbaseLookupExecutor {
 		// And in case other unexpected return value, check if it is null, too.
 		if (values == null || values.isEmpty()) {
 			return null;
+		}
+		if (checkRequestedHashKeys) {
+			String[] arr = values.toArray(new String[0]);
+			for (int i : requestedHashKeysIndex) {
+				if (StringUtils.isNullOrWhitespaceOnly(arr[i])) {
+					return null;
+				}
+			}
 		}
 		Object[] internalValues = new Object[fieldNames.length];
 		internalValues[0] = stringValueConverters[0].toInternal(key);
