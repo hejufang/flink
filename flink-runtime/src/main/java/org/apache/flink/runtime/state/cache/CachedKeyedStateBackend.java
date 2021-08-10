@@ -383,11 +383,13 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		private static final String CACHE_LOAD_SUCCESS_COUNT = "cacheLoadSuccessCount";
 		private static final String CACHE_SAVE_COUNT = "cacheSaveCount";
 		private static final String CACHE_DELETE_COUNT = "cacheDeleteCount";
+		private static final String CACHE_HIT_RATE = "cacheHitRate";
 		private static final String CACHE_ESTIMATED_KV_SIZE = "cacheEstimatedKVSize";
 		private static final String CACHE_MAX_MEMORY_SIZE = "cacheMaxMemorySize";
 		private static final String CACHE_USED_MEMORY_SIZE = "cacheUsedMemorySize";
+		private static final String SERIALIZATION_REDUCE_RATE = "serializationReduceRate";
 
-		private static final Map<String, Function<CacheStatistic, Long>> STATS_MAPS =
+		private static final Map<String, Function<CacheStatistic, ?>> STATS_MAPS =
 			Stream.of(
 				Tuple2.of(CACHE_REQUEST_COUNT, (Function<CacheStatistic, Long>) CacheStatistic::getRequestCount),
 				Tuple2.of(CACHE_HIT_COUNT, (Function<CacheStatistic, Long>) CacheStatistic::getHitCount),
@@ -398,16 +400,21 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 				Tuple2.of(CACHE_DELETE_COUNT, (Function<CacheStatistic, Long>) CacheStatistic::getDeleteCount),
 				Tuple2.of(CACHE_ESTIMATED_KV_SIZE, (Function<CacheStatistic, Long>) CacheStatistic::getEstimatedKVSize),
 				Tuple2.of(CACHE_USED_MEMORY_SIZE, (Function<CacheStatistic, Long>) stats -> stats.getUsedMemorySize().getBytes()),
-				Tuple2.of(CACHE_MAX_MEMORY_SIZE, (Function<CacheStatistic, Long>) stats -> stats.getMaxMemorySize().getBytes())
+				Tuple2.of(CACHE_MAX_MEMORY_SIZE, (Function<CacheStatistic, Long>) stats -> stats.getMaxMemorySize().getBytes()),
+				Tuple2.of(CACHE_HIT_RATE, (Function<CacheStatistic, Double>) CacheStatistic::getHitRate),
+				Tuple2.of(SERIALIZATION_REDUCE_RATE, (Function<CacheStatistic, Double>) CacheStatistic::getSerializationReduceRate)
 			).collect(Collectors.toMap(t -> t.f0, t -> t.f1));
 
 		/** The cache mapping table that has been registered successfully. */
 		private final Map<String, PolicyStats> registeredPolicyStats;
 
+		private final Map<String, CacheStatistic> lastStatistic;
+
 		private final TagGaugeStoreImpl statsStore;
 
 		public CacheStatsTracker() {
 			this.registeredPolicyStats = new ConcurrentHashMap<>();
+			this.lastStatistic = new ConcurrentHashMap<>();
 			this.statsStore = new TagGaugeStoreImpl(1024, true, false, TagGauge.MetricsReduceType.NO_REDUCE);
 		}
 
@@ -418,14 +425,16 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		@Override
 		public TagGaugeStore getValue() {
 			for (Map.Entry<String, PolicyStats> entry : registeredPolicyStats.entrySet()) {
-				CacheStatistic cacheStatistic = entry.getValue().snapshot();
-				for (Map.Entry<String, Function<CacheStatistic, Long>> statMapEntry : STATS_MAPS.entrySet()) {
+				CacheStatistic currentStatistic = entry.getValue().snapshot();
+				CacheStatistic cacheStatistic = currentStatistic.calculateDelta(lastStatistic.get(entry.getKey()));
+				for (Map.Entry<String, Function<CacheStatistic, ?>> statMapEntry : STATS_MAPS.entrySet()) {
 					TagGaugeStore.TagValues tag = new TagGaugeStore.TagValuesBuilder()
 						.addTagValue(STATE_NAME_TAG, entry.getKey())
 						.addTagValue(STAT_TYPE_TAG, statMapEntry.getKey())
 						.build();
-					statsStore.addMetric(statMapEntry.getValue().apply(cacheStatistic), tag);
+					statsStore.addMetric(((Number) statMapEntry.getValue().apply(cacheStatistic)).doubleValue(), tag);
 				}
+				lastStatistic.put(entry.getKey(), currentStatistic);
 			}
 			return statsStore;
 		}

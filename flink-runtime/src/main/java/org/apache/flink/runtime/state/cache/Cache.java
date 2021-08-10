@@ -214,6 +214,7 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 				CacheEntryKey<K, N, UK> entryKey = entry.getKey();
 				dataSynchronizer.saveState(entry.getKey(), stateStore.getFromStateStore(entryKey.getKey(), entryKey.getNamespace(), entryKey.getUserKey()));
 				dirtyReference.setDirty(false);
+				listener.notifyCacheSave();
 			}
 		}
 	}
@@ -226,10 +227,12 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 				CacheEntryKey<K, N, UK> entryKey = entry.getKey();
 				dataSynchronizer.saveState(entry.getKey(), stateStore.getFromStateStore(entryKey.getKey(), entryKey.getNamespace(), entryKey.getUserKey()));
 				if (invalid) {
+					stateStore.deleteFromStateStore(entryKey.getKey(), entryKey.getNamespace(), entryKey.getUserKey());
 					cacheStrategy.delete(entryKey);
 					continue;
 				}
 				dirtyReference.setDirty(false);
+				listener.notifyCacheSave();
 			}
 		}
 	}

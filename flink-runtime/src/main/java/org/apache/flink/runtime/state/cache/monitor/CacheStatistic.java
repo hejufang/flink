@@ -98,4 +98,28 @@ public class CacheStatistic {
 	public long getDeleteCount() {
 		return deleteCount;
 	}
+
+	public double getHitRate() {
+		long totalCount = hitCount + missCount;
+		return totalCount == 0 ? 0.0 : hitCount / (double) totalCount;
+	}
+
+	public double getSerializationReduceRate() {
+		long reduceCount = requestCount - saveCount - deleteCount - missCount;
+		return requestCount == 0 ? 0.0 : reduceCount / (double) requestCount;
+	}
+
+	public CacheStatistic calculateDelta(CacheStatistic that) {
+		return that == null ? this : new CacheStatistic(
+				maxMemorySize,
+				usedMemorySize,
+				estimatedKVSize,
+			requestCount - that.requestCount,
+			hitCount - that.hitCount,
+			missCount - that.missCount,
+			evictionCount - that.evictionCount,
+			loadSuccessCount - that.loadSuccessCount,
+			saveCount - that.saveCount,
+			deleteCount - that.deleteCount);
+	}
 }
