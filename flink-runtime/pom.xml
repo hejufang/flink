@@ -357,6 +357,12 @@ under the License.
 			<artifactId>oshi-core</artifactId>
 			<optional>true</optional>
 		</dependency>
+
+		<!-- caffeine dependency for stateBackend cache layer -->
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-shaded-caffeine</artifactId>
+		</dependency>
 	</dependencies>
 
 	<!-- Dependency Management to converge transitive dependency versions -->

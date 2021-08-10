@@ -27,8 +27,7 @@ import org.junit.Assert;
 /**
  * Test that the LRU cache is operating correctly.
  */
-public class LRUCacheTest extends CacheStrategyTestBase {
-
+public class LFUCacheTest extends CacheStrategyTestBase {
 	@Override
 	public void testStrategy() throws Exception {
 		Cache<String, VoidNamespace, String, Void, String> cache = createCache();
@@ -40,6 +39,11 @@ public class LRUCacheTest extends CacheStrategyTestBase {
 		cache.put(REPLACE_KEY, namespace, REPLACE_VALUE);
 		Assert.assertEquals(cache.get(TEST_KEY, namespace), TEST_VALUE);
 		Assert.assertEquals(2, policyStats.getCacheSize());
+
+		for (int i = 0; i < 10; i++) {
+			cache.get(TEST_KEY, namespace);
+		}
+		cache.get(REPLACE_KEY, namespace);
 
 		cache.put("123", namespace, "321");
 		Assert.assertEquals(2, policyStats.getCacheSize());
@@ -53,7 +57,7 @@ public class LRUCacheTest extends CacheStrategyTestBase {
 	@Override
 	protected Cache<String, VoidNamespace, String, Void, String> createCache() throws Exception {
 		Configuration configuration = new Configuration();
-		configuration.set(CacheConfigurableOptions.CACHE_STRATEGY, "LRU");
+		configuration.set(CacheConfigurableOptions.CACHE_STRATEGY, "LFU");
 		CacheStrategyFactory cacheStrategyFactory = CacheStrategyFactory.createCacheStrategyFactory(CacheConfiguration.fromConfiguration(configuration));
 		CacheStrategy<CacheEntryKey<String, VoidNamespace, Void>, Cache.DirtyReference> cacheStrategy = cacheStrategyFactory.createCacheStrategy();
 		return new Cache<>(cacheStrategy, new StateStore.SimpleStateStore<>());

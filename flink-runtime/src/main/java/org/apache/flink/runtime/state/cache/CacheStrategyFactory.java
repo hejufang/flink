@@ -51,6 +51,13 @@ public abstract class CacheStrategyFactory implements Serializable {
 		switch (cacheStrategy.toLowerCase()) {
 			case "lru":
 				return fallBackCacheStrategyFactory;
+			case "lfu":
+				return new CacheStrategyFactory() {
+					@Override
+					public <K, V> CacheStrategy<K, V> createCacheStrategy() {
+						return new LFUStrategy<>();
+					}
+				};
 			default:
 				try {
 					Class<?> clazz = Class.forName(cacheStrategy);

@@ -452,6 +452,12 @@ under the License.
 				<version>${zookeeper.version}-${flink.shaded.version}</version>
 			</dependency>
 
+			<dependency>
+				<groupId>org.apache.flink</groupId>
+				<artifactId>flink-shaded-caffeine</artifactId>
+				<version>${flink.shaded.version}</version>
+			</dependency>
+
 			<!-- This manages the 'javax.annotation' annotations (JSR305) -->
 			<dependency>
 				<groupId>com.google.code.findbugs</groupId>
