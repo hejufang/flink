@@ -1670,7 +1670,7 @@ public class CheckpointCoordinator {
 						checkpointStorageLocation = checkpointStorage.resolveCheckpoint(completedCheckpointPointer.f0);
 					}
 					final CompletedCheckpoint completedCheckpoint = Checkpoints.loadAndValidateCheckpoint(
-							job, mappings, checkpointStorageLocation, userClassLoader, allowNonRestoredState);
+							job, mappings, checkpointStorageLocation, userClassLoader, allowNonRestoredState, completedCheckpointPointer.f1);
 					result.add(completedCheckpoint);
 				} catch (Exception e) {
 					LOG.warn("Fail to load checkpoint on {}.", completedCheckpointPointer, e);
