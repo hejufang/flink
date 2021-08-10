@@ -885,14 +885,22 @@ public final class Utils {
 				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE_KEY, dockerImage);
 				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_KEY,
 					YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_DEFAULT);
-				String dockerMounts = YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_DEFAULT;
+				boolean enableDefaultMount = flinkConfiguration.getBoolean(YarnConfigKeys.DOCKER_MOUNTS_DEFAULT_ENABLE_KEY,
+					YarnConfigKeys.DOCKER_MOUNTS_DEFAULT_ENABLE_DEFAULT);
+				List<String> dockerMountList = new ArrayList<>();
 				String otherDockerMounts = flinkConfiguration.getString(
 					YarnConfigKeys.DOCKER_MOUNTS_KEY, null);
-				if (otherDockerMounts != null && !otherDockerMounts.isEmpty()) {
-					dockerMounts = otherDockerMounts + ";" + dockerMounts;
+				if (!StringUtils.isNullOrWhitespaceOnly(otherDockerMounts)) {
+					dockerMountList.add(otherDockerMounts);
 				}
-				LOG.info("Docker mounts: {}", dockerMounts);
-				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY, dockerMounts);
+				if (enableDefaultMount) {
+					dockerMountList.add(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_DEFAULT);
+				}
+				String dockerMounts = String.join(";", dockerMountList);
+				LOG.info("Docker mounts: {}, default enable: {}", dockerMounts, enableDefaultMount);
+				if (!StringUtils.isNullOrWhitespaceOnly(dockerMounts)) {
+					envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY, dockerMounts);
+				}
 				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_KEY,
 						YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_DEFAULT);
 				String dockerLogMounts = YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_DEFAULT;

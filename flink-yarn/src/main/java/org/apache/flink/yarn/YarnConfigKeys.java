@@ -92,6 +92,8 @@ public class YarnConfigKeys {
 	public static final String DOCKER_DEFAULT_IMAGE_KEY = "docker.default_image";
 	public static final String DOCKER_IMAGE_DEFAULT = "yarn_runtime_flink:latest";
 	public static final String DOCKER_MOUNTS_KEY = "docker.mount";
+	public static final String DOCKER_MOUNTS_DEFAULT_ENABLE_KEY = "docker.mount_default.enable";
+	public static final boolean DOCKER_MOUNTS_DEFAULT_ENABLE_DEFAULT = true;
 	public static final String DOCKER_LOG_MOUNTS_KEY = "docker.log.mount";
 	public static final String DOCKER_VERSION_LATEST = "latest";
 	public static final String DOCKER_SERVER_KEY = "docker.server";
