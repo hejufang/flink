@@ -47,6 +47,8 @@ public class RedisLookupOptions implements Serializable {
 	@Nullable
 	private final Boolean isInputKeyByEnabled;
 
+	private final boolean specifyHashKeys;
+
 	private RedisLookupOptions(
 			long cacheMaxSize,
 			long cacheExpireMs,
@@ -54,7 +56,8 @@ public class RedisLookupOptions implements Serializable {
 			boolean cacheNullValue,
 			String keyField,
 			long rateLimit,
-			@Nullable Boolean isInputKeyByEnabled) {
+			@Nullable Boolean isInputKeyByEnabled,
+			boolean specifyHashKeys) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
@@ -62,6 +65,7 @@ public class RedisLookupOptions implements Serializable {
 		this.keyField = keyField;
 		this.rateLimit = rateLimit;
 		this.isInputKeyByEnabled = isInputKeyByEnabled;
+		this.specifyHashKeys = specifyHashKeys;
 	}
 
 	public long getCacheMaxSize() {
@@ -97,6 +101,10 @@ public class RedisLookupOptions implements Serializable {
 		return isInputKeyByEnabled;
 	}
 
+	public boolean isSpecifyHashKeys() {
+		return specifyHashKeys;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (o instanceof RedisLookupOptions) {
@@ -107,7 +115,8 @@ public class RedisLookupOptions implements Serializable {
 					Objects.equals(cacheNullValue, options.cacheNullValue) &&
 					Objects.equals(keyField, options.keyField) &&
 					Objects.equals(rateLimit, options.rateLimit) &&
-					Objects.equals(isInputKeyByEnabled, options.isInputKeyByEnabled);
+					Objects.equals(isInputKeyByEnabled, options.isInputKeyByEnabled) &&
+					Objects.equals(specifyHashKeys, options.specifyHashKeys);
 		} else {
 			return false;
 		}
@@ -126,6 +135,7 @@ public class RedisLookupOptions implements Serializable {
 		private long rateLimit = -1L;
 		// The null default value means this flag is not set by user.
 		private Boolean isInputKeyByEnabled = null;
+		private boolean specifyHashKeys = false;
 
 		/**
 		 * optional, lookup cache max size, over this value, the old data will be eliminated.
@@ -171,6 +181,11 @@ public class RedisLookupOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setSpecifyHashKeys(boolean specifyHashKeys) {
+			this.specifyHashKeys = specifyHashKeys;
+			return this;
+		}
+
 		public RedisLookupOptions build() {
 			return new RedisLookupOptions(
 				cacheMaxSize,
@@ -179,7 +194,8 @@ public class RedisLookupOptions implements Serializable {
 				cacheNullValue,
 				keyField,
 				rateLimit,
-				isInputKeyByEnabled);
+				isInputKeyByEnabled,
+				specifyHashKeys);
 		}
 	}
 

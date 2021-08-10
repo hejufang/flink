@@ -56,6 +56,7 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_LOOKUP_CACHE_TTL = "connector.lookup.cache.ttl";
 	public static final String CONNECTOR_LOOKUP_MAX_RETRIES = "connector.lookup.max-retries";
 	public static final String CONNECTOR_LATER_JOIN_LATENCY_MS = "connector.later-join-latency-ms";
+	public static final String CONNECTOR_LOOKUP_SPECIFY_HASH_KEYS = "lookup.specify-hash-keys";
 
 	public static final String CONNECTOR_RATE_LIMIT = "connector.global-rate-limit";
 
@@ -80,6 +81,7 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 		properties.validateInt(CONNECTOR_LATER_JOIN_LATENCY_MS, true, 1000);
 		properties.validateLong(CONNECTOR_RATE_LIMIT, true, 1);
 		properties.validateBoolean(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY, true);
+		properties.validateBoolean(CONNECTOR_LOOKUP_SPECIFY_HASH_KEYS, true);
 		validateKeyField(properties);
 	}
 

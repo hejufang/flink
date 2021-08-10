@@ -25,6 +25,7 @@ import org.apache.flink.connectors.util.RedisDataType;
 import org.apache.flink.connectors.util.RedisMode;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.FormatDescriptorValidator;
 import org.apache.flink.table.descriptors.RedisValidator;
@@ -72,6 +73,7 @@ import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LOG_FA
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LOOKUP_CACHE_MAX_ROWS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LOOKUP_CACHE_TTL;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LOOKUP_MAX_RETRIES;
+import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LOOKUP_SPECIFY_HASH_KEYS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_MAX_IDLE_CONNECTIONS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_MAX_TOTAL_CONNECTIONS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_MIN_IDLE_CONNECTIONS;
@@ -136,6 +138,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		properties.add(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY);
 		properties.add(CONNECTOR_LATER_JOIN_LATENCY_MS);
 		properties.add(CONNECTOR_KEY_FIELDS);
+		properties.add(CONNECTOR_LOOKUP_SPECIFY_HASH_KEYS);
 
 		// format wildcard
 		properties.add(FORMAT + ".*");
@@ -170,12 +173,21 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 				this.getClass().getClassLoader());
 		}
 
+		RedisOptions redisOptions = getRedisOptions(descriptorProperties);
+		RedisLookupOptions redisLookupOptions = getRedisLookupOptions(descriptorProperties);
+		validateOptions(redisOptions, redisLookupOptions);
 		return RedisTableSource.builder()
-				.setOptions(getRedisOptions(descriptorProperties))
-				.setLookupOptions(getRedisLookupOptions(descriptorProperties))
+				.setOptions(redisOptions)
+				.setLookupOptions(redisLookupOptions)
 				.setSchema(tableSchema)
 				.setDeserializationSchema(deserializationSchema)
 				.build();
+	}
+
+	private void validateOptions(RedisOptions redisOptions, RedisLookupOptions redisLookupOptions) {
+		if (redisLookupOptions.isSpecifyHashKeys() && redisOptions.getRedisDataType() != RedisDataType.HASH) {
+			throw new ValidationException("Option 'lookup.specify-hash-keys' is only supported when 'connector.redis-data-type' is 'hash'");
+		}
 	}
 
 	@Override
@@ -362,6 +374,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		descriptorProperties.getOptionalLong(CONNECTOR_RATE_LIMIT).ifPresent(builder::setRateLimit);
 		descriptorProperties.getOptionalBoolean(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY)
 			.ifPresent(builder::setIsInputKeyByEnabled);
+		descriptorProperties.getOptionalBoolean(CONNECTOR_LOOKUP_SPECIFY_HASH_KEYS).ifPresent(builder::setSpecifyHashKeys);
 
 		return builder.build();
 	}

@@ -39,6 +39,7 @@ import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
 import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
 
 import com.bytedance.kvclient.ClientPool;
+import org.apache.commons.collections.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
@@ -109,6 +110,8 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	private final int maxRetryTimes;
 	private final boolean cacheNullValue;
 	private final int keyFieldIndex;
+	private final boolean specifyHashKeys;
+	private final String[] hashKeys;
 
 	private transient Cache<Row, Row> cache;
 	private transient Meter lookupRequestPerSecond;
@@ -160,6 +163,8 @@ public class RedisLookupFunction extends TableFunction<Row> {
 			throw new ValidationException(String.format("The set lookup key is not equal to the real " +
 				"lookup key. The former is %s, the latter is %s", lookupOptions.getKeyField(), keyNames[0]));
 		}
+		this.specifyHashKeys = lookupOptions.isSpecifyHashKeys();
+		this.hashKeys = Arrays.copyOfRange(fieldNames, 1, fieldNames.length);
 
 		this.deserializationSchema = deserializationSchema;
 	}
@@ -229,6 +234,8 @@ public class RedisLookupFunction extends TableFunction<Row> {
 				long startRequest = System.currentTimeMillis();
 				if (deserializationSchema != null) {
 					row = lookupWithSchema(key, jedis);
+				} else if (specifyHashKeys) {
+					row = getHashValueOfKeysSpecified(key, jedis);
 				} else {
 					switch (redisDataType.getType()) {
 						case REDIS_DATATYPE_STRING:
@@ -307,6 +314,20 @@ public class RedisLookupFunction extends TableFunction<Row> {
 			}
 			valueList.add(keyFieldIndex, convertByteArrayToFieldType(key, keyTypes[0]));
 			return Row.of(valueList.toArray(new Object[0]));
+		}
+		return row;
+	}
+
+	private Row getHashValueOfKeysSpecified(String key, Jedis jedis) {
+		Row row = null;
+		try {
+			List<String> values = jedis.hmget(key, hashKeys);
+			if (CollectionUtils.isNotEmpty(values)) {
+				row = convertToRowWithTypes(key.getBytes(), values.toArray(new String[0]), fieldTypes);
+			}
+		} catch (JedisDataException e) {
+			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
+					"Related command: 'hmget key'.", key), e);
 		}
 		return row;
 	}
@@ -417,6 +438,16 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		Row row = new Row(2);
 		row.setField(0, convertByteArrayToFieldType(key, fieldTypes[0]));
 		row.setField(1, value);
+		return row;
+	}
+
+	public Row convertToRowWithTypes(byte[] key, String[] values, TypeInformation[] fieldTypes) {
+		Row row = new Row(fieldTypes.length);
+		row.setField(0, convertByteArrayToFieldType(key, fieldTypes[0]));
+		for (int i = 0; i < values.length; i++) {
+			Object val = convertByteArrayToFieldType(values[i].getBytes(), fieldTypes[i + 1]);
+			row.setField(i + 1, val);
+		}
 		return row;
 	}
 

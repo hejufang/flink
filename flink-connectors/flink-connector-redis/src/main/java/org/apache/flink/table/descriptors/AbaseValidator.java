@@ -28,6 +28,7 @@ public class AbaseValidator extends RedisValidator {
 		properties.validateString(CONNECTOR_CLUSTER, false, 1);
 		properties.validateString(CONNECTOR_TABLE, false, 1);
 		properties.validateString(CONNECTOR_PSM, false, 1);
+		properties.validateBoolean(CONNECTOR_LOOKUP_SPECIFY_HASH_KEYS, true);
 		validateKeyField(properties);
 	}
 }
