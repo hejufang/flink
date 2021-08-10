@@ -29,6 +29,7 @@ import org.apache.flink.connector.abase.options.AbaseNormalOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.connector.abase.utils.AbaseValueType;
+import org.apache.flink.connector.abase.utils.Constants;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
@@ -89,7 +90,6 @@ import static org.apache.flink.util.Preconditions.checkState;
  * Factory for creating configured instances of {@link AbaseTableSource} and {@link AbaseTableSink}.
  */
 public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTableSinkFactory {
-	private static final String IDENTIFIER = "byte-abase";
 
 	@Override
 	public DynamicTableSource createDynamicTableSource(Context context) {
@@ -156,7 +156,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 
 	@Override
 	public String factoryIdentifier() {
-		return IDENTIFIER;
+		return Constants.ABASE_IDENTIFIER;
 	}
 
 	@Override
@@ -204,7 +204,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		Optional<Integer> keyIndex = validateAndGetKeyIndex(config, physicalSchema);
 		AbaseNormalOptions.AbaseOptionsBuilder builder = AbaseNormalOptions.builder()
 			.setCluster(config.get(CLUSTER))
-			.setTable(config.get(TABLE))
+			.setTable(config.getOptional(TABLE).orElse(null))
 			.setStorage(config.get(CONNECTOR))
 			.setPsm(config.get(PSM))
 			.setTimeout((int) config.get(CONNECTION_TIMEOUT).toMillis())

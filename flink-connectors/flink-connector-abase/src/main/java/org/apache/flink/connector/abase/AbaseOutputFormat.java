@@ -20,6 +20,8 @@ package org.apache.flink.connector.abase;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.connector.abase.client.BaseClient;
+import org.apache.flink.connector.abase.client.ClientPipeline;
 import org.apache.flink.connector.abase.executor.AbaseSinkBatchExecutor;
 import org.apache.flink.connector.abase.executor.AbaseSinkBatchExecutor.ExecuteFunction;
 import org.apache.flink.connector.abase.executor.AbaseSinkBufferReduceExecutor;
@@ -40,9 +42,6 @@ import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.FlinkRuntimeException;
 
-import com.bytedance.abase.AbaseClient;
-import com.bytedance.abase.AbasePipeline;
-import com.bytedance.abase.AbaseTable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.exceptions.JedisDataException;
@@ -77,9 +76,8 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	private final DynamicTableSink.DataStructureConverter converter;
 	private AbaseSinkBatchExecutor batchExecutor;
 	private transient Counter writeFailed;
-	// Abase Client and Table only needs to be initialized once thoughout the life cycle.
-	private transient AbaseClient abaseClient;
-	private transient AbaseTable abaseTable;
+	// Client only needs to be initialized once thoughout the life cycle.
+	private transient BaseClient client;
 	private transient int batchCount = 0;
 	private transient ScheduledExecutorService scheduler;
 	private transient ScheduledFuture<?> scheduledFuture;
@@ -119,7 +117,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 				throw new IOException(e);
 			}
 		}
-		initAbaseClientTable();
+		initClient();
 		if (sinkOptions.isLogFailuresOnly()) {
 			writeFailed = getRuntimeContext().getMetricGroup().counter(WRITE_FAILED_METRIC_NAME);
 		}
@@ -203,7 +201,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	public synchronized void flush() {
 		checkFlushException();
 		for (int retryTimes = 1; retryTimes <= sinkOptions.getFlushMaxRetries(); retryTimes++) {
-			try (AbasePipeline pipeline = abaseTable.pipelined()) {
+			try (ClientPipeline pipeline = client.pipelined()) {
 				for (Object o : batchExecutor.executeBatch(pipeline)) {
 					// In some cases, the commands are not idempotent, like incrby, zadd, etc.
 					// if partial of pipelined commands failed, all commands will be retried.
@@ -260,7 +258,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		}
 	}
 
-	private void writeStringValue(AbasePipeline pipeline, byte[] keyBytes, byte[] valueBytes) {
+	private void writeStringValue(ClientPipeline pipeline, byte[] keyBytes, byte[] valueBytes) {
 		if (valueBytes == null) {
 			pipeline.del(keyBytes);
 			return;
@@ -285,7 +283,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		}
 	}
 
-	private void incrValue(AbasePipeline pipeline, RowData row) {
+	private void incrValue(ClientPipeline pipeline, RowData row) {
 		Object key = fieldGetters[0].getFieldOrNull(row);
 		Object incrementValue = fieldGetters[1].getFieldOrNull(row);
 		if (incrementValue == null) {
@@ -295,14 +293,14 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		if (incrementValue instanceof Long || incrementValue instanceof Integer) {
 			pipeline.incrBy(key.toString(), ((Number) incrementValue).longValue());
 		} else if (incrementValue instanceof Double || incrementValue instanceof Float) {
-			pipeline.incrByFloat(key.toString().getBytes(), ((Number) incrementValue).floatValue());
+			pipeline.incrByFloat(key.toString(), ((Number) incrementValue).floatValue());
 		} else {
 			throw new RuntimeException("Unsupported type for increment value in INCR mode, " +
 				"supported types: Long, Integer, Double, Float.");
 		}
 	}
 
-	private void incrHashValue(AbasePipeline pipeline, RowData row) {
+	private void incrHashValue(ClientPipeline pipeline, RowData row) {
 		Object key = fieldGetters[0].getFieldOrNull(row);
 		Object hashKey = fieldGetters[1].getFieldOrNull(row);
 		Object incrementValue = fieldGetters[2].getFieldOrNull(row);
@@ -315,8 +313,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 			pipeline
 				.hincrBy(key.toString().getBytes(), hashKey.toString().getBytes(), ((Number) incrementValue).longValue());
 		} else if (incrementValue instanceof Double || incrementValue instanceof Float) {
-			pipeline.hincrByFloat(key.toString().getBytes(), hashKey.toString().getBytes(),
-				((Number) incrementValue).floatValue());
+			pipeline.hincrByFloat(key.toString(), hashKey.toString(), ((Number) incrementValue).floatValue());
 		} else {
 			throw new RuntimeException("Unsupported type for increment value in INCR mode, " +
 				"supported types: Long, Integer, Double, Float.");
@@ -339,7 +336,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		}
 	}
 
-	private void writeList(AbasePipeline pipeline, RowData record) {
+	private void writeList(ClientPipeline pipeline, RowData record) {
 		Object key = fieldGetters[0].getFieldOrNull(record);
 		Object value = fieldGetters[1].getFieldOrNull(record);
 		if (value == null) {
@@ -351,7 +348,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		setExpire(pipeline, key);
 	}
 
-	private void writeSet(AbasePipeline pipeline, RowData record) {
+	private void writeSet(ClientPipeline pipeline, RowData record) {
 		Object key = fieldGetters[0].getFieldOrNull(record);
 		Object value = fieldGetters[1].getFieldOrNull(record);
 		if (value == null) {
@@ -363,7 +360,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		setExpire(pipeline, key);
 	}
 
-	private void writeHash(AbasePipeline pipeline, RowData record) {
+	private void writeHash(ClientPipeline pipeline, RowData record) {
 		if (record.getArity() == 2) {
 			Row res = (Row) converter.toExternal(record);
 			Object key = res.getField(0);
@@ -396,7 +393,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		}
 	}
 
-	private void writeZSet(AbasePipeline pipeline, RowData record) {
+	private void writeZSet(ClientPipeline pipeline, RowData record) {
 		Object key = fieldGetters[0].getFieldOrNull(record);
 		Object score = fieldGetters[1].getFieldOrNull(record);
 		Object value = fieldGetters[2].getFieldOrNull(record);
@@ -414,7 +411,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		setExpire(pipeline, key);
 	}
 
-	private void setExpire(AbasePipeline pipeline, Object key) {
+	private void setExpire(ClientPipeline pipeline, Object key) {
 		if (sinkOptions.getTtlSeconds() > 0) {
 			pipeline.expire(key.toString(), sinkOptions.getTtlSeconds());
 		}
@@ -428,12 +425,12 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		closed = true;
 		checkFlushException();
 
-		if (abaseClient != null) {
+		if (client != null) {
 			if (!batchExecutor.isBufferEmpty()) {
 				flush();
 			}
 			try {
-				abaseClient.close();
+				client.close();
 			} catch (Exception e) {
 				throw new IOException(e);
 			}
@@ -447,9 +444,9 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	/**
 	 * init Client and Table.
 	 */
-	private void initAbaseClientTable() {
-		abaseClient = AbaseClientTableUtils.getAbaseClient(normalOptions);
-		abaseTable = abaseClient.getTable(normalOptions.getTable());
+	private void initClient() {
+		this.client = AbaseClientTableUtils.getClientWrapper(normalOptions);
+		this.client.open();
 	}
 
 	/**

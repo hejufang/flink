@@ -84,7 +84,7 @@ public class AbaseLookupSpecifyHashKeyExecutor extends AbaseLookupExecutor {
 	private RowData getHashValueForKeysSpecified(String key) {
 		List<String> values;
 		try {
-			values = abaseTable.hmget(key, hashKeys);
+			values = client.hmget(key, hashKeys);
 		} catch (JedisDataException e) {
 			throw new FlinkRuntimeException(String.format("Specify-Hash-Key Get value failed. Key : %s, " +
 				"Related command: 'hmget key'.", key), e);

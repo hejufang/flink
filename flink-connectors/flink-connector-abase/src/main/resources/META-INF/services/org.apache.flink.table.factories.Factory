@@ -14,3 +14,4 @@
 # limitations under the License.
 
 org.apache.flink.connector.abase.AbaseTableFactory
+org.apache.flink.connector.abase.RedisTableFactory

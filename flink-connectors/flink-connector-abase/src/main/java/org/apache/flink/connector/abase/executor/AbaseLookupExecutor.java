@@ -18,13 +18,10 @@
 
 package org.apache.flink.connector.abase.executor;
 
+import org.apache.flink.connector.abase.client.BaseClient;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
 import org.apache.flink.connector.abase.utils.AbaseClientTableUtils;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.functions.FunctionContext;
-
-import com.bytedance.abase.AbaseClient;
-import com.bytedance.abase.AbaseTable;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -34,8 +31,7 @@ import java.io.Serializable;
  */
 public abstract class AbaseLookupExecutor implements Serializable {
 
-	protected transient AbaseClient abaseClient;
-	protected transient AbaseTable abaseTable;
+	protected transient BaseClient client;
 	protected final AbaseNormalOptions normalOptions;
 
 	public AbaseLookupExecutor(AbaseNormalOptions normalOptions) {
@@ -44,14 +40,14 @@ public abstract class AbaseLookupExecutor implements Serializable {
 
 	public abstract RowData doLookup(Object key) throws IOException;
 
-	public void open(FunctionContext context) throws Exception{
-		this.abaseClient = AbaseClientTableUtils.getAbaseClient(normalOptions);
-		this.abaseTable = abaseClient.getTable(normalOptions.getTable());
+	public void open() throws Exception {
+		this.client = AbaseClientTableUtils.getClientWrapper(normalOptions);
+		this.client.open();
 	}
 
 	public void close() throws Exception {
-		if (abaseClient != null) {
-			abaseClient.close();
+		if (this.client != null) {
+			this.client.close();
 		}
 	}
 }

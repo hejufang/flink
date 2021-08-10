@@ -23,7 +23,6 @@ import org.apache.flink.connector.abase.utils.AbaseValueType;
 import org.apache.flink.table.connector.RuntimeConverter;
 import org.apache.flink.table.connector.source.DynamicTableSource.DataStructureConverter;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -56,8 +55,8 @@ public class AbaseLookupCollectionExecutor extends AbaseLookupExecutor {
 	}
 
 	@Override
-	public void open(FunctionContext context) throws Exception {
-		super.open(context);
+	public void open() throws Exception {
+		super.open();
 		converter.open(RuntimeConverter.Context.create(AbaseLookupCollectionExecutor.class.getClassLoader()));
 	}
 
@@ -65,13 +64,13 @@ public class AbaseLookupCollectionExecutor extends AbaseLookupExecutor {
 		try {
 			switch (normalOptions.getAbaseValueType()) {
 				case LIST:
-					return abaseTable.lrange(key, 0, -1).toArray(new String[0]);
+					return client.lrange(key, 0, -1).toArray(new String[0]);
 				case SET:
-					return abaseTable.smembers(key).toArray(new String[0]);
+					return client.smembers(key).toArray(new String[0]);
 				case ZSET:
-					return abaseTable.zrange(key, 0, -1).toArray(new String[0]);
+					return client.zrange(key, 0, -1).toArray(new String[0]);
 				case HASH:
-					return abaseTable.hgetAll(key);
+					return client.hgetAll(key);
 				default:
 					throw new FlinkRuntimeException(
 						String.format("Unsupported data type, currently supported type: %s",

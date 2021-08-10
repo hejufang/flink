@@ -83,7 +83,7 @@ public class AbaseLookupFunction extends TableFunction<RowData> {
 		if (rateLimiter != null) {
 			rateLimiter.open(context.getRuntimeContext());
 		}
-		abaseLookupExecutor.open(context);
+		abaseLookupExecutor.open();
 		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
 		lookupFailurePerSecond = LookupMetricUtils.registerFailurePerSecond(context.getMetricGroup());
 		requestDelayMs = LookupMetricUtils.registerRequestDelayMs(context.getMetricGroup());

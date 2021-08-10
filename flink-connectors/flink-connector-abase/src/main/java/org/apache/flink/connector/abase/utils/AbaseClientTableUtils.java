@@ -18,11 +18,16 @@
 
 package org.apache.flink.connector.abase.utils;
 
+import org.apache.flink.connector.abase.client.AbaseClientWrapper;
+import org.apache.flink.connector.abase.client.BaseClient;
+import org.apache.flink.connector.abase.client.RedisClientWrapper;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.abase.AbaseClient;
 import com.bytedance.abase.AbaseClientBuilder;
+import com.bytedance.redis.RedisClient;
+import com.bytedance.redis.RedisClientBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +36,14 @@ import org.slf4j.LoggerFactory;
  */
 public class AbaseClientTableUtils {
 	private static final Logger LOG = LoggerFactory.getLogger(AbaseClientTableUtils.class);
+
+	public static BaseClient getClientWrapper(AbaseNormalOptions normalOptions) {
+		if (normalOptions.getStorage().equals(Constants.ABASE_IDENTIFIER)) {
+			return new AbaseClientWrapper(normalOptions);
+		} else {
+			return new RedisClientWrapper(normalOptions);
+		}
+	}
 
 	public static synchronized AbaseClient getAbaseClient(AbaseNormalOptions normalOptions) {
 		AbaseClient client;
@@ -46,6 +59,23 @@ public class AbaseClientTableUtils {
 			throw new FlinkRuntimeException(e);
 		}
 		LOG.info("AbaseClient Connection established");
+		return client;
+	}
+
+	public static synchronized RedisClient getRedisClient(AbaseNormalOptions normalOptions) {
+		RedisClient client;
+		try {
+			client = new RedisClientBuilder(normalOptions.getCluster(), normalOptions.getPsm())
+				.setConnConnectTimeout(normalOptions.getTimeout())
+				.setPoolMaxIdle(normalOptions.getMaxIdleConnections())
+				.setPoolMinIdle(normalOptions.getMinIdleConnections())
+				.setPoolMaxTotal(normalOptions.getMaxTotalConnections())
+				.setConnConnectMaxRetry(normalOptions.getMaxRetries())
+				.build();
+		} catch (Exception e) {
+			throw new FlinkRuntimeException(e);
+		}
+		LOG.info("RedisClient Connection established");
 		return client;
 	}
 }

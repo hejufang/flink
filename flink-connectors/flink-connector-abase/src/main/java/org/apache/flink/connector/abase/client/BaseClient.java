@@ -16,40 +16,38 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.abase.executor;
-
-import org.apache.flink.connector.abase.client.ClientPipeline;
-import org.apache.flink.table.data.RowData;
+package org.apache.flink.connector.abase.client;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
- * Executes commands in batch for incoming records.
+ * abase/redis client wrapper.
+ *
+ * <p>All needed client methods are defined here.
  */
-public abstract class AbaseSinkBatchExecutor<T> implements Serializable {
+public interface BaseClient extends Serializable {
 
-	protected ExecuteFunction<T> execution;
+	void open();
 
-	public AbaseSinkBatchExecutor(ExecuteFunction<T> execution) {
-		this.execution = execution;
-	}
+	void close() throws Exception;
 
-	public abstract void addToBatch(RowData record);
+	byte[] get(byte[] key);
 
-	public abstract List<Object> executeBatch(ClientPipeline pipeline);
+	String get(String key);
 
-	public abstract void reset();
+	List<String> hmget(String key, String... fields);
 
-	/**
-	 * Logic for processing a coming record.
-	 */
-	@FunctionalInterface
-	public interface ExecuteFunction<E> {
+	List<String> lrange(String key, long start, long end);
 
-		void execute(ClientPipeline pipeline, E record);
-	}
+	Set<String> smembers(String key);
 
-	public abstract boolean isBufferEmpty();
+	Set<String> zrange(String key, long start, long end);
+
+	Map<String, String> hgetAll(String key);
+
+	ClientPipeline pipelined();
 
 }

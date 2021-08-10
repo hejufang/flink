@@ -18,9 +18,8 @@
 
 package org.apache.flink.connector.abase.executor;
 
+import org.apache.flink.connector.abase.client.ClientPipeline;
 import org.apache.flink.table.data.RowData;
-
-import com.bytedance.abase.AbasePipeline;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,7 +42,7 @@ public class AbaseSinkGenericExecutor extends AbaseSinkBatchExecutor<RowData> {
 	}
 
 	@Override
-	public List<Object> executeBatch(AbasePipeline pipeline) {
+	public List<Object> executeBatch(ClientPipeline pipeline) {
 		recordBuffer.forEach(record ->
 			execution.execute(pipeline, record));
 		return pipeline.syncAndReturnAll();

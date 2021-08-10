@@ -60,7 +60,7 @@ public class AbaseLookupSchemaExecutor extends AbaseLookupExecutor {
 	public RowData doLookup(Object key) throws IOException {
 		byte[] value;
 		try {
-			value = abaseTable.get(key.toString().getBytes());
+			value = client.get(key.toString().getBytes());
 		} catch (JedisDataException e) {
 			throw new FlinkRuntimeException(String.format("Schema Get value failed. Key : %s, " +
 				"Related command: 'get key'.", key), e);
@@ -80,9 +80,8 @@ public class AbaseLookupSchemaExecutor extends AbaseLookupExecutor {
 		return row;
 	}
 
-	@Override
 	public void open(FunctionContext context) throws Exception {
-		super.open(context);
+		super.open();
 		deserializationSchema.open(() -> context.getMetricGroup().addGroup("user"));
 	}
 

@@ -19,11 +19,10 @@
 package org.apache.flink.connector.abase.executor;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.connector.abase.client.ClientPipeline;
 import org.apache.flink.connector.abase.utils.ByteArrayWrapper;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.types.RowKind;
-
-import com.bytedance.abase.AbasePipeline;
 
 import java.util.HashMap;
 import java.util.List;
@@ -65,7 +64,7 @@ public class AbaseSinkBufferReduceExecutor extends AbaseSinkBatchExecutor<Tuple2
 	}
 
 	@Override
-	public List<Object> executeBatch(AbasePipeline pipeline) {
+	public List<Object> executeBatch(ClientPipeline pipeline) {
 		reduceBuffer.forEach((key, value) ->
 			execution.execute(pipeline, new Tuple2<>(key.getData(), value)));
 		return pipeline.syncAndReturnAll();
