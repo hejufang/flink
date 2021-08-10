@@ -479,6 +479,11 @@ public class YarnConfigOptions {
 			.stringType()
 			.defaultValue(null)
 			.withDescription("Default image of docker on yarn.");
+	public static final ConfigOption<Boolean> DOCKER_MOUNTS_DEFAULT_ENABLE =
+		key("docker.mount_default.enable")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("switch to use docker default mount.");
 	public static final ConfigOption<String> DOCKER_LOG_MOUNTS =
 		key("docker.log.mount")
 			.stringType()
