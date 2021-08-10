@@ -139,7 +139,8 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 		return JdbcBatchStatementExecutor.keyed(
 			sql,
 			keyExtractor,
-			(st, record) -> rowConverter.toExternal(keyExtractor.apply(record), st));
+			// keyExtractor has been applied before statement builder
+			(st, record) -> rowConverter.toExternal(record, st));
 	}
 
 	private static JdbcBatchStatementExecutor<RowData> createBufferReduceExecutor(
