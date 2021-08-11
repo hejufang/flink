@@ -463,6 +463,16 @@ public class YarnConfigOptions {
 					.withDescription("Times of slow container timeout base threshold." +
 							"Means containers which 1.5 times slow than the base threshold should be marked as slow containers.");
 
+	/**
+	 * The number of threads to start yarn containers in yarn resource manager.
+	 */
+	public static final ConfigOption<Integer> CONTAINER_LAUNCHER_NUMBER =
+		key("yarn.container-launcher-thread-number")
+			.intType()
+			.defaultValue(10)
+			.withDeprecatedKeys("yarn.container-launcher-number")
+			.withDescription("The number of threads to start yarn containers in yarn resource manager.");
+
 	/** Config for docker. */
 	public static final ConfigOption<String> DOCKER_IMAGE =
 		key("docker.image")

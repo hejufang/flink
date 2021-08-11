@@ -57,6 +57,7 @@ import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.util.EnvironmentInformation;
+import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.webmonitor.history.HistoryServerUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
@@ -126,6 +127,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -206,6 +209,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private static final String EVENT_METRIC_NAME = "resourceManagerEvent";
 
 	private final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
+
+	private final Executor startContainerExecutor;
 
 	/**
 	 * Fatal on GangScheduler failed allocate containers.
@@ -354,6 +359,10 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		String currentContainerId = System.getenv(ENV_YARN_CONTAINER_ID);
 		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(currentContainerId, false);
+
+		this.startContainerExecutor = Executors.newScheduledThreadPool(
+				flinkConfig.getInteger(YarnConfigOptions.CONTAINER_LAUNCHER_NUMBER),
+				new ExecutorThreadFactory("resourcemanager-start-container"));
 	}
 
 	private RuntimeConfiguration createRuntimeConfigurationWithQosLevel(YarnConfigOptions.RtQoSLevelEnum rtQoSLevel) {
@@ -808,20 +817,22 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private void startTaskExecutorInContainer(Container container, WorkerResourceSpec workerResourceSpec, ResourceID resourceId) {
 		workerNodeMap.put(resourceId, new YarnWorkerNode(container));
 
-		try {
-			warehouseJobStartEventMessageRecorder.createTaskManagerContextStart(container.getId().toString());
-			// Context information used to start a TaskExecutor Java process
-			ContainerLaunchContext taskExecutorLaunchContext = createTaskExecutorLaunchContext(
-				resourceId.toString(),
-				container.getNodeId().getHost(),
-				TaskExecutorProcessUtils.processSpecFromWorkerResourceSpec(flinkConfig, workerResourceSpec));
+		startContainerExecutor.execute(() -> {
+			try {
+				warehouseJobStartEventMessageRecorder.createTaskManagerContextStart(container.getId().toString());
+				// Context information used to start a TaskExecutor Java process
+				ContainerLaunchContext taskExecutorLaunchContext = createTaskExecutorLaunchContext(
+						resourceId.toString(),
+						container.getNodeId().getHost(),
+						TaskExecutorProcessUtils.processSpecFromWorkerResourceSpec(flinkConfig, workerResourceSpec));
 
-			warehouseJobStartEventMessageRecorder.createTaskManagerContextFinish(container.getId().toString());
-			warehouseJobStartEventMessageRecorder.startContainerStart(container.getId().toString());
-			nodeManagerClient.startContainerAsync(container, taskExecutorLaunchContext);
-		} catch (Throwable t) {
-			releaseFailedContainerAndRequestNewContainerIfRequired(container.getId(), t);
-		}
+				warehouseJobStartEventMessageRecorder.createTaskManagerContextFinish(container.getId().toString());
+				warehouseJobStartEventMessageRecorder.startContainerStart(container.getId().toString());
+				nodeManagerClient.startContainerAsync(container, taskExecutorLaunchContext);
+			} catch (Throwable t) {
+				getMainThreadExecutor().execute(() -> releaseFailedContainerAndRequestNewContainerIfRequired(container.getId(), t));
+			}
+		});
 	}
 
 	private void releaseFailedContainerAndRequestNewContainerIfRequired(ContainerId containerId, Throwable throwable) {
