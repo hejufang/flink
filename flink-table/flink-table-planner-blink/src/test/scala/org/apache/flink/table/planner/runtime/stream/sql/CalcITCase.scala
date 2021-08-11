@@ -231,7 +231,7 @@ class CalcITCase extends StreamingTestBase {
 
   @Test
   def testIn(): Unit = {
-    val sqlQuery = "SELECT * FROM MyTable WHERE b in (1,3,4,5,6)"
+    val sqlQuery = "SELECT * FROM MyTable WHERE cast(b as tinyint) in (1,3,4,5,6)"
 
     val t = env.fromCollection(TestData.tupleData3)
       .toTable(tEnv, 'a, 'b, 'c)

@@ -30,6 +30,15 @@ public class ByteHashSet {
 		used = new boolean[Byte.MAX_VALUE - Byte.MIN_VALUE + 1];
 	}
 
+	// parameterized constructor to keep align with other HashSets.
+	public ByteHashSet(final int expected, final float f) {
+		this();
+	}
+
+	public ByteHashSet(final int expected) {
+		this();
+	}
+
 	public boolean add(final byte k) {
 		return !used[k - Byte.MIN_VALUE] && (used[k - Byte.MIN_VALUE] = true);
 	}
