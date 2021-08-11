@@ -173,7 +173,7 @@ public abstract class AbstractStreamOperator<OUT>
 			if (converter != null) {
 				this.output = new DebugLoggingOutput<>(
 					operatorName,
-					output,
+					this.output,
 					converter,
 					location,
 					containingTask.getIndexInSubtaskGroup());
