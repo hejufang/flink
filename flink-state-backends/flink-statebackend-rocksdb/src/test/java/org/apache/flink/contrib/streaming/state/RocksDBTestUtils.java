@@ -98,7 +98,15 @@ public final class RocksDBTestUtils {
 				UncompressedStreamCompressionDecorator.INSTANCE,
 				db,
 				defaultCFHandle,
-				new CloseableRegistry());
+				new CloseableRegistry(),
+				outputDirectory -> {
+					try {
+						Thread.sleep(10L);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+			);
 	}
 
 	public static <K> RocksDBKeyedStateBackend<K> createKeyedStateBackend(

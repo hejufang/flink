@@ -171,4 +171,11 @@ public class RocksDBOptions {
 		.defaultValue(60000L)
 		.withDescription(String.format(
 			"Interval of calling getProperty(\"cfstat\") to dump some metrics about compaction and flush"));
+
+	public static final ConfigOption<Long> ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT = ConfigOptions
+		.key("state.backend.rocksdb.native.checkpoint.timeout")
+		.longType()
+		.defaultValue(600000L)
+		.withDescription(String.format(
+			"The maximum time that a native checkpoint may take."));
 }

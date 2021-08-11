@@ -28,6 +28,7 @@ import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
+import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.state.AsyncSnapshotCallableWithStatistic;
 import org.apache.flink.runtime.state.BatchStateHandle;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
@@ -81,7 +82,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.RunnableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.SST_FILE_SUFFIX;
@@ -135,6 +139,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 	/** Whether state file batching is enabled. */
 	private final boolean isEnableStateFileBatching;
 
+	private final long dbNativeCheckpointTimeout;
+
 	public RocksIncrementalSnapshotStrategy(
 		@Nonnull RocksDB db,
 		@Nonnull ResourceGuard rocksDBResourceGuard,
@@ -150,6 +156,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		long lastCompletedCheckpointId,
 		int numberOfTransferingThreads,
 		int maxRetryTimes,
+		long dbNativeCheckpointTimeout,
 		StateStatsTracker statsTracker,
 		@Nonnull RocksDBStateBatchConfig batchConfig) {
 
@@ -174,6 +181,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		this.isEnableStateFileBatching = batchConfig.isEnableStateFileBatching();
 		this.localDirectoryName = backendUID.toString().replaceAll("[\\-]", "");
 		this.numberOfTransferingThreads = numberOfTransferingThreads;
+		this.dbNativeCheckpointTimeout = dbNativeCheckpointTimeout;
 	}
 
 	@Nonnull
@@ -191,7 +199,13 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		final List<StateMetaInfoSnapshot> stateMetaInfoSnapshots = new ArrayList<>(kvStateInformation.size());
 		final Map<StateHandleID, StreamStateHandle> baseSstFiles = snapshotMetaData(checkpointId, stateMetaInfoSnapshots);
 
-		takeDBNativeCheckpoint(snapshotDirectory);
+		FutureUtils.orTimeout(CompletableFuture.runAsync(() -> {
+			try {
+				takeDBNativeCheckpoint(snapshotDirectory);
+			} catch (Exception e) {
+				throw new CompletionException(e);
+			}
+		}), dbNativeCheckpointTimeout, TimeUnit.MILLISECONDS).get();
 
 		final RocksDBIncrementalSnapshotOperation snapshotOperation =
 			new RocksDBIncrementalSnapshotOperation(
@@ -283,7 +297,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		return baseSstFiles;
 	}
 
-	private void takeDBNativeCheckpoint(@Nonnull SnapshotDirectory outputDirectory) throws Exception {
+	protected void takeDBNativeCheckpoint(@Nonnull SnapshotDirectory outputDirectory) throws Exception {
 		// create hard links of living files in the output path
 		try (
 			ResourceGuard.Lease ignored = rocksDBResourceGuard.acquireResource();

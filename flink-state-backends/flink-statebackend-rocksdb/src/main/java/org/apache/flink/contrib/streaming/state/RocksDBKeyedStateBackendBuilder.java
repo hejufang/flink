@@ -40,6 +40,7 @@ import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.LocalRecoveryConfig;
 import org.apache.flink.runtime.state.PriorityQueueSetFactory;
+import org.apache.flink.runtime.state.SnapshotDirectory;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.StreamStateHandle;
@@ -72,6 +73,7 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -121,9 +123,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	private int numberOfTransferingThreads;
 	private long writeBatchSize = RocksDBConfigurableOptions.WRITE_BATCH_SIZE.defaultValue().getBytes();
 	private int maxRetryTimes;
+	private long dbNativeCheckpointTimeout;
 
 	private RocksDB injectedTestDB; // for testing
 	private ColumnFamilyHandle injectedDefaultColumnFamilyHandle; // for testing
+	private Consumer injectedBeforeTakeDBNativeCheckpoint; // for testing
 
 	public RocksDBKeyedStateBackendBuilder(
 		String operatorIdentifier,
@@ -170,6 +174,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		this.numberOfTransferingThreads = RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM.defaultValue();
 		this.maxRetryTimes = RocksDBOptions.DATA_TRANSFER_MAX_RETRY_TIMES.defaultValue();
 		this.batchConfig = RocksDBStateBatchConfig.createNoBatchingConfig();
+		this.dbNativeCheckpointTimeout = RocksDBOptions.ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT.defaultValue();
 	}
 
 	@VisibleForTesting
@@ -192,7 +197,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		StreamCompressionDecorator keyGroupCompressionDecorator,
 		RocksDB injectedTestDB,
 		ColumnFamilyHandle injectedDefaultColumnFamilyHandle,
-		CloseableRegistry cancelStreamRegistry) {
+		CloseableRegistry cancelStreamRegistry,
+		Consumer beforeTakeDBNativeCheckpoint) {
 		this(
 			operatorIdentifier,
 			userCodeClassLoader,
@@ -214,6 +220,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		);
 		this.injectedTestDB = injectedTestDB;
 		this.injectedDefaultColumnFamilyHandle = injectedDefaultColumnFamilyHandle;
+		this.injectedBeforeTakeDBNativeCheckpoint = beforeTakeDBNativeCheckpoint;
 	}
 
 	@VisibleForTesting
@@ -258,6 +265,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	public RocksDBKeyedStateBackendBuilder<K> setIsDiskValid(boolean isDiskValid) {
 		this.isDiskValid = isDiskValid;
+		return this;
+	}
+
+	public RocksDBKeyedStateBackendBuilder<K> setDBNativeCheckpointTimeout(long dbNativeCheckpointTimeout) {
+		this.dbNativeCheckpointTimeout = dbNativeCheckpointTimeout;
 		return this;
 	}
 
@@ -496,7 +508,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		RocksDBSnapshotStrategyBase<K> checkpointSnapshotStrategy;
 		if (enableIncrementalCheckpointing) {
 			// TODO eventually we might want to separate savepoint and snapshot strategy, i.e. having 2 strategies.
-			checkpointSnapshotStrategy = new RocksIncrementalSnapshotStrategy<>(
+			if (injectedBeforeTakeDBNativeCheckpoint == null){
+				checkpointSnapshotStrategy = new RocksIncrementalSnapshotStrategy<>(
 				db,
 				rocksDBResourceGuard,
 				keySerializerProvider.currentSchemaSerializer(),
@@ -511,8 +524,35 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				lastCompletedCheckpointId,
 				numberOfTransferingThreads,
 				maxRetryTimes,
+				dbNativeCheckpointTimeout,
 				statsTracker,
 				batchConfig);
+			} else {
+				checkpointSnapshotStrategy = new RocksIncrementalSnapshotStrategy<K>(
+					db,
+					rocksDBResourceGuard,
+					keySerializerProvider.currentSchemaSerializer(),
+					kvStateInformation,
+					keyGroupRange,
+					keyGroupPrefixBytes,
+					localRecoveryConfig,
+					cancelStreamRegistry,
+					instanceBasePath,
+					backendUID,
+					materializedSstFiles,
+					lastCompletedCheckpointId,
+					numberOfTransferingThreads,
+					maxRetryTimes,
+					dbNativeCheckpointTimeout,
+					statsTracker,
+					batchConfig) {
+					@Override
+					public void takeDBNativeCheckpoint(@Nonnull SnapshotDirectory outputDirectory) throws Exception {
+						injectedBeforeTakeDBNativeCheckpoint.accept(outputDirectory);
+						super.takeDBNativeCheckpoint(outputDirectory);
+					}
+				};
+			}
 		} else {
 			checkpointSnapshotStrategy = savepointSnapshotStrategy;
 		}

@@ -83,6 +83,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.RunnableFuture;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static junit.framework.TestCase.assertNotNull;
@@ -786,6 +787,71 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 						fail("Detected rocksDBStateDataTransfer thread leak. Thread name: " + t.getName());
 					}
 				}
+			} finally {
+				if (test != null) {
+					IOUtils.closeQuietly(test);
+					test.dispose();
+				}
+				columnFamilyOptions.close();
+			}
+		}
+	}
+
+	@Test
+	public void testDBNativeCheckpointTimeout() throws Exception {
+
+		if (rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL ||
+			rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ) {
+			RocksDBKeyedStateBackend<Integer> test = null;
+			final ColumnFamilyOptions columnFamilyOptions = spy(new ColumnFamilyOptions());
+
+			try {
+				prepareRocksDB();
+				CheckpointStreamFactory streamFactory = createStreamFactory();
+				SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
+				test = RocksDBTestUtils.builderForTestDB(
+					tempFolder.newFolder(),
+					IntSerializer.INSTANCE,
+					db,
+					defaultCFHandle,
+					columnFamilyOptions)
+					.setNumberOfTransferingThreads(2)
+					.setEnableIncrementalCheckpointing(isEnableIncrementalCheckpointing())
+
+					// set timeout to 1 millis
+					.setDBNativeCheckpointTimeout(1)
+					.build();
+
+				ValueStateDescriptor<String> stubState1 =
+					new ValueStateDescriptor<>("StubState-1", StringSerializer.INSTANCE);
+				test.createInternalState(StringSerializer.INSTANCE, stubState1);
+				ValueStateDescriptor<String> stubState2 =
+					new ValueStateDescriptor<>("StubState-2", StringSerializer.INSTANCE);
+				test.createInternalState(StringSerializer.INSTANCE, stubState2);
+
+				ValueStateDescriptor<String> kvId = new ValueStateDescriptor<>("id", String.class);
+
+				ValueState<String> state = test.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+				// write some state
+				test.setCurrentKey(1);
+				state.update("1");
+				test.setCurrentKey(2);
+				state.update("2");
+
+				// draw a snapshot
+
+				try {
+					runSnapshot(
+					test.snapshot(682375462378L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					sharedStateRegistry);
+					fail("Expect TimeoutException here");
+				} catch (Exception e) {
+					assertTrue(ExceptionUtils.findThrowable(e, TimeoutException.class).isPresent());
+				}
+
+				test.dispose();
+
 			} finally {
 				if (test != null) {
 					IOUtils.closeQuietly(test);
