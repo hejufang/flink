@@ -103,4 +103,10 @@ public class RocksDBOptions {
 		.defaultValue(false)
 		.withDescription(String.format(
 				"If this value is set to true, rocksdb could only run on ssd disks"));
+
+	public static final ConfigOption<Long> ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT = ConfigOptions
+		.key("state.backend.rocksdb.native.checkpoint.timeout")
+		.defaultValue(600000L)
+		.withDescription(String.format(
+			"The maximum time that a native checkpoint may take."));
 }

@@ -121,6 +121,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	private RocksDBNativeMetricOptions nativeMetricOptions;
 	private int numberOfTransferingThreads;
 	private int maxRetryTimes;
+	private long dbNativeCheckpointTimeout;
 
 	private RocksDB injectedTestDB; // for testing
 	private ColumnFamilyHandle injectedDefaultColumnFamilyHandle; // for testing
@@ -173,6 +174,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		this.nativeMetricOptions = new RocksDBNativeMetricOptions();
 		this.numberOfTransferingThreads = RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM.defaultValue();
 		this.maxRetryTimes = RocksDBOptions.DATA_TRANSFER_MAX_RETRY_TIMES.defaultValue();
+		this.dbNativeCheckpointTimeout = RocksDBOptions.ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT.defaultValue();
 	}
 
 	@VisibleForTesting
@@ -261,6 +263,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	public RocksDBKeyedStateBackendBuilder<K> setIsDiskValid(boolean isDiskValid) {
 		this.isDiskValid = isDiskValid;
+		return this;
+	}
+
+	public RocksDBKeyedStateBackendBuilder<K> setDBNativeCheckpointTimeout(long dbNativeCheckpointTimeout) {
+		this.dbNativeCheckpointTimeout = dbNativeCheckpointTimeout;
 		return this;
 	}
 
@@ -501,6 +508,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				lastCompletedCheckpointId,
 				numberOfTransferingThreads,
 				maxRetryTimes,
+				dbNativeCheckpointTimeout,
 				statsTracker);
 		} else {
 			checkpointSnapshotStrategy = savepointSnapshotStrategy;

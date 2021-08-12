@@ -78,6 +78,7 @@ import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOption
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.DATA_TRANSFER_MAX_RETRY_TIMES;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL;
+import static org.apache.flink.contrib.streaming.state.RocksDBOptions.ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.TIMER_SERVICE_FACTORY;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.TTL_COMPACT_FILTER_ENABLED;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -125,6 +126,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 
 	private static final int UNDEFINED_NUMBER_OF_TRANSFERING_THREADS = -1;
 	private static final int UNDEFINED_DATA_TRANSFER_MAX_RETRY_TIMES = -1;
+	private static final int UNDEFINED_DB_NATIVE_CHECKPOINT_TIMEOUT = -1;
 
 	// ------------------------------------------------------------------------
 
@@ -191,6 +193,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	private DiskType diskType = DiskType.HDD;
 
 	private boolean isDiskValid = true;
+
+	private long rocksdbNativeCheckpointTimeout;
 
 	// ------------------------------------------------------------------------
 
@@ -297,6 +301,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		this.defaultMetricOptions = new RocksDBNativeMetricOptions();
 		this.enableTtlCompactionFilter = TernaryBoolean.UNDEFINED;
 		this.nThreadOfOperatorStateBackend = 1;
+		this.rocksdbNativeCheckpointTimeout = UNDEFINED_DB_NATIVE_CHECKPOINT_TIMEOUT;
 	}
 
 	/**
@@ -341,6 +346,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		}
 
 		this.maxRetryTimes = config.getInteger(DATA_TRANSFER_MAX_RETRY_TIMES);
+
+		this.rocksdbNativeCheckpointTimeout = config.getLong(ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT);
 
 		this.enableTtlCompactionFilter = original.enableTtlCompactionFilter
 			.resolveUndefined(config.getBoolean(TTL_COMPACT_FILTER_ENABLED));
@@ -618,7 +625,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			.setUseMemoryCache(useMemoryCache)
 			.setMaxCacheSize(maxCacheSize)
 			.setDiscardStatesIfRocksdbRecoverFail(getDiscardStatesIfRocksdbRecoverFail())
-			.setIsDiskValid(isDiskValid);
+			.setIsDiskValid(isDiskValid)
+			.setDBNativeCheckpointTimeout(getDBNativeCheckpointTimeout());
 		return builder.build();
 	}
 
@@ -933,6 +941,11 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	public int getDataTransferMaxRetryTimes() {
 		return maxRetryTimes == UNDEFINED_DATA_TRANSFER_MAX_RETRY_TIMES ?
 			DATA_TRANSFER_MAX_RETRY_TIMES.defaultValue() : maxRetryTimes;
+	}
+
+	public long getDBNativeCheckpointTimeout() {
+		return rocksdbNativeCheckpointTimeout == UNDEFINED_DB_NATIVE_CHECKPOINT_TIMEOUT ?
+			ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT.defaultValue() : rocksdbNativeCheckpointTimeout;
 	}
 
 	/**
