@@ -62,6 +62,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -281,6 +282,10 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			final StateEntry<K, N, V> entry = iter.next();
 			V newState = (V) heapState.migrateSerializedValue(entry.getState(), oldStateInfo.getPreviousStateSerializer(), stateDesc.getSerializer());
 			stateTable.put(entry.getKey(), KeyGroupRangeAssignment.assignToKeyGroup(entry.getKey(), numberOfKeyGroups), entry.getNamespace(), newState);
+		}
+
+		if (stateTable instanceof CopyOnWriteStateTable){
+			Arrays.stream(stateTable.getState()).forEach(stateMap -> ((CopyOnWriteStateMap) stateMap).setStateSerializer(stateDesc.getSerializer()));
 		}
 	}
 
