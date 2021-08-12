@@ -21,7 +21,7 @@ package org.apache.flink.connectors.hive;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
 import java.io.Serializable;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -42,16 +42,20 @@ public class HiveTablePartition implements Serializable {
 	/** The map of partition key names and their values. */
 	private final Map<String, Object> partitionSpec;
 
+	/** The map of partition properties. */
+	private final Map<String, String> partitionProps;
+
 	// Table properties that should be used to initialize SerDe
 	private final Properties tableProps;
 
 	public HiveTablePartition(StorageDescriptor storageDescriptor, Properties tableProps) {
-		this(storageDescriptor, new LinkedHashMap<>(), tableProps);
+		this(storageDescriptor, new HashMap<>(), new HashMap<>(), tableProps);
 	}
 
-	public HiveTablePartition(StorageDescriptor storageDescriptor, Map<String, Object> partitionSpec, Properties tableProps) {
+	public HiveTablePartition(StorageDescriptor storageDescriptor, Map<String, Object> partitionSpec, Map<String, String> partitionProps, Properties tableProps) {
 		this.storageDescriptor = checkNotNull(storageDescriptor, "storageDescriptor can not be null");
 		this.partitionSpec = checkNotNull(partitionSpec, "partitionSpec can not be null");
+		this.partitionProps = checkNotNull(partitionProps, "partitionProps can not be null");
 		this.tableProps = checkNotNull(tableProps, "tableProps can not be null");
 	}
 
@@ -61,6 +65,10 @@ public class HiveTablePartition implements Serializable {
 
 	public Map<String, Object> getPartitionSpec() {
 		return partitionSpec;
+	}
+
+	public Map<String, String> getPartitionProps() {
+		return partitionProps;
 	}
 
 	public Properties getTableProps() {

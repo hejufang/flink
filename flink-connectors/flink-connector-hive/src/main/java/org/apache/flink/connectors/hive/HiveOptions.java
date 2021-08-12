@@ -46,6 +46,37 @@ public class HiveOptions {
 					.defaultValue(1000)
 					.withDescription("Sets max infer parallelism for source operator.");
 
+	public static final ConfigOption<Integer> TABLE_EXEC_HIVE_INFER_SOURCE_PARALLELISM_MIN =
+		key("table.exec.hive.infer-source-parallelism.min")
+			.defaultValue(1)
+			.withDescription("Sets min infer parallelism for source operator.");
+
+	public static final ConfigOption<String> TABLE_EXEC_HIVE_INFER_SOURCE_PARALLELISM_STRATEGY =
+		key("table.exec.hive.infer-source-parallelism-strategy")
+			.stringType()
+			.defaultValue("split-number")
+			.withDescription(
+				"Strategy for inferring parallelism for source operator. " +
+					"Supported strategies: split-number, byte-size");
+
+	public static final ConfigOption<Integer> TABLE_EXEC_HIVE_SPLIT_NUMBER_PER_SUBTASK =
+		key("table.exec.hive.split-number-per-subtask")
+			.intType()
+			.defaultValue(1)
+			.withDescription(
+				"This configs the partition number for each subtask when infer table source " +
+					"parallelism with partition number. This is effective only when " +
+					"'table.exec.hive.infer-source-parallelism-strategy' = 'split-number'.");
+
+	public static final ConfigOption<Integer> TABLE_EXEC_HIVE_BYTE_SIZE_PER_SUBTASK =
+		key("table.exec.hive.byte-size-per-subtask")
+			.intType()
+			.defaultValue(1024 * 1024 * 1024)
+			.withDescription(
+				"This configs the partition number for each subtask when infer table source " +
+					"parallelism with partition number. This is effective only when " +
+					"'table.exec.hive.infer-source-parallelism-strategy' = 'byte-size'.");
+
 	public static final ConfigOption<Boolean> TABLE_EXEC_HIVE_FALLBACK_MAPRED_WRITER =
 			key("table.exec.hive.fallback-mapred-writer")
 					.booleanType()

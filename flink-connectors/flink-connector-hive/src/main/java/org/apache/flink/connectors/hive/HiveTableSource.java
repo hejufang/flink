@@ -128,6 +128,8 @@ public class HiveTableSource implements
 		Validatable {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HiveTableSource.class);
+	private static final String BYTE_SIZE_STRATEGY = "byte-size";
+	private static final String SPLIT_NUMBER_STRATEGY = "split-number";
 	private static final String KEY_VALUE_DELIMITER = ":";
 	private static final int MAX_DISPLAY_PARTITION_SIZE = 10;
 
@@ -211,7 +213,7 @@ public class HiveTableSource implements
 				return createStreamSourceForPartitionTable(execEnv, typeInfo, inputFormat);
 			}
 		} else {
-			return createBatchSource(execEnv, typeInfo, inputFormat);
+			return createBatchSource(execEnv, typeInfo, inputFormat, allHivePartitions);
 		}
 	}
 
@@ -221,8 +223,28 @@ public class HiveTableSource implements
 				STREAMING_SOURCE_ENABLE.defaultValue().toString()));
 	}
 
-	private DataStream<RowData> createBatchSource(StreamExecutionEnvironment execEnv,
-			TypeInformation<RowData> typeInfo, HiveTableInputFormat inputFormat) {
+	private static long getTotalPartitionBytes(List<HiveTablePartition> allHivePartitions) {
+		long totalPartitionBytes = 0L;
+		for (HiveTablePartition hiveTablePartition : allHivePartitions) {
+			String partitionBytes = hiveTablePartition.getPartitionProps().get("totalSize");
+			if (partitionBytes == null) {
+				return -1;
+			}
+			try {
+				totalPartitionBytes += Long.parseLong(partitionBytes);
+			} catch (NumberFormatException e) {
+				LOG.warn("Failed to parse byte size of partition {} " , hiveTablePartition.getPartitionSpec());
+				return -1;
+			}
+		}
+		return totalPartitionBytes;
+	}
+
+	private DataStream<RowData> createBatchSource(
+			StreamExecutionEnvironment execEnv,
+			TypeInformation<RowData> typeInfo,
+			HiveTableInputFormat inputFormat,
+			List<HiveTablePartition> allHivePartitions) {
 		DataStreamSource<RowData> source = execEnv.createInput(inputFormat, typeInfo);
 
 		int parallelism = flinkConf.get(ExecutionConfigOptions.TABLE_EXEC_RESOURCE_DEFAULT_PARALLELISM);
@@ -233,25 +255,65 @@ public class HiveTableSource implements
 						HiveOptions.TABLE_EXEC_HIVE_INFER_SOURCE_PARALLELISM_MAX.key() +
 								" cannot be less than 1");
 			}
-
-			int splitNum;
-			try {
-				long nano1 = System.nanoTime();
-				splitNum = inputFormat.createInputSplits(0).length;
-				long nano2 = System.nanoTime();
-				LOG.info(
-						"Hive source({}) createInputSplits use time: {} ms",
-						tablePath,
-						(nano2 - nano1) / 1_000_000);
-			} catch (IOException e) {
-				throw new FlinkHiveException(e);
+			int min = flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_INFER_SOURCE_PARALLELISM_MIN);
+			if (min < 1) {
+				throw new IllegalConfigurationException(
+						HiveOptions.TABLE_EXEC_HIVE_INFER_SOURCE_PARALLELISM_MIN.key() +
+								" cannot be less than 1");
 			}
-			parallelism = Math.min(splitNum, max);
+
+			String inferParallelismStrategy =
+				flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_INFER_SOURCE_PARALLELISM_STRATEGY);
+			switch (inferParallelismStrategy) {
+				case BYTE_SIZE_STRATEGY:
+					long totalPartitionBytes = getTotalPartitionBytes(allHivePartitions);
+					if (totalPartitionBytes < 0) {
+						LOG.warn("Failed to get total byte size of all used partitions of table {}, " +
+							"use split number to infer source parallelism.", tablePath);
+						parallelism = inferParallelismWithSplitNumber(inputFormat, flinkConf);
+					} else {
+						parallelism = inferParallelismWithByteSize(totalPartitionBytes, flinkConf);
+					}
+					break;
+				case SPLIT_NUMBER_STRATEGY:
+					parallelism = inferParallelismWithSplitNumber(inputFormat, flinkConf);
+					break;
+				default:
+					throw new IllegalArgumentException(String.format("Unsupported strategy: %s, " +
+							"supported strategies: '%s', '%s'.",
+						inferParallelismStrategy, BYTE_SIZE_STRATEGY, SPLIT_NUMBER_STRATEGY));
+			}
+			parallelism = Math.min(parallelism, max);
 			parallelism = limit > 0 ? Math.min(parallelism, (int) limit / 1000) : parallelism;
-			parallelism = Math.max(1, parallelism);
+			parallelism = Math.max(min, parallelism);
 		}
 		source.setParallelism(parallelism);
 		return source.name(explainSource());
+	}
+
+	private int inferParallelismWithSplitNumber(
+			HiveTableInputFormat inputFormat,
+			ReadableConfig flinkConf) {
+		try {
+			long nano1 = System.nanoTime();
+			int splitNumber = inputFormat.createInputSplits(0).length;
+			long nano2 = System.nanoTime();
+			LOG.debug("Hive source({}) createInputSplits use time: {} ms, splitNum = {}",
+				tablePath, (nano2 - nano1) / 1_000_000, splitNumber);
+			int splitNumberPerSubtask =
+				flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_SPLIT_NUMBER_PER_SUBTASK);
+			return (int) Math.ceil(((double) splitNumber) / splitNumberPerSubtask);
+		} catch (IOException e) {
+			throw new FlinkRuntimeException(e);
+		}
+	}
+
+	private int inferParallelismWithByteSize(
+			long totalPartitionBytes,
+			ReadableConfig flinkConf) {
+		int byteSizePerSubtask =
+			flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_BYTE_SIZE_PER_SUBTASK);
+		return (int) Math.ceil(((double) totalPartitionBytes) / byteSizePerSubtask);
 	}
 
 	private DataStream<RowData> createStreamSourceForPartitionTable(
@@ -512,7 +574,10 @@ public class HiveTableSource implements
 			}
 			partitionColValues.put(partitionColName, partitionObject);
 		}
-		return new HiveTablePartition(sd, partitionColValues, tableProps);
+		if (partition.getParameters() == null) {
+			return new HiveTablePartition(sd, partitionColValues, new HashMap<>(), tableProps);
+		}
+		return new HiveTablePartition(sd, partitionColValues, partition.getParameters(), tableProps);
 	}
 
 	private static List<String> partitionSpecToValues(Map<String, String> spec, List<String> partitionColNames) {
