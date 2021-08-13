@@ -22,10 +22,13 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.JobSubmissionResult;
 import org.apache.flink.api.common.accumulators.AccumulatorHelper;
+import org.apache.flink.api.common.time.Deadline;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.client.JobStatusMessage;
 import org.apache.flink.runtime.concurrent.FutureUtils;
+import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.AccessExecutionGraph;
+import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobmaster.JobResult;
@@ -43,7 +46,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -126,6 +131,35 @@ public class MiniClusterClient implements ClusterClient<MiniClusterClient.MiniCl
 	@Override
 	public CompletableFuture<JobStatus> getJobStatus(JobID jobId) {
 		return miniCluster.getJobStatus(jobId);
+	}
+
+	@Override
+	public CompletableFuture<Void> waitAllTaskRunningOrClusterFailed(JobID jobId, long timeout) {
+		Deadline deadline = Deadline.fromNow(Duration.ofMillis(timeout));
+		boolean allRunning = false;
+		while (!allRunning && deadline.hasTimeLeft()) {
+			try {
+				Thread.sleep(10);
+
+				AccessExecutionGraph graph = miniCluster.getExecutionGraph(jobId).get();
+				Iterator<? extends AccessExecutionVertex> iterator = graph.getAllExecutionVertices().iterator();
+				while (iterator.hasNext()) {
+					if (!iterator.next().getExecutionState().equals(ExecutionState.RUNNING)) {
+						break;
+					}
+				}
+
+				if (!iterator.hasNext()) {
+					allRunning = true;
+				}
+			} catch (Exception ignored) {}
+		}
+
+		if (allRunning) {
+			return CompletableFuture.completedFuture(null);
+		} else {
+			throw new IllegalStateException("Job is stuck on initialization. Check related Tests!");
+		}
 	}
 
 	@Override

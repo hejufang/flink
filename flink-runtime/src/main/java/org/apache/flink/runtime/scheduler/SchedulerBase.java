@@ -254,14 +254,15 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 		this.remoteBlacklistReporter = remoteBlacklistReporter;
 
+		this.allowNonRestoredState = jobMasterConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE);
+		this.savepointLocationPrefix = jobMasterConfiguration.getString(CheckpointingOptions.SAVEPOINT_LOCATION_PREFIX);
+
 		this.executionGraph = createAndRestoreExecutionGraph(jobManagerJobMetricGroup, checkNotNull(shuffleMaster), checkNotNull(partitionTracker));
 		this.schedulingTopology = executionGraph.getSchedulingTopology();
 
 		this.inputsLocationsRetriever = new ExecutionGraphToInputsLocationsRetrieverAdapter(executionGraph);
 
 		this.coordinatorMap = createCoordinatorMap();
-		this.allowNonRestoredState = jobMasterConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE);
-		this.savepointLocationPrefix = jobMasterConfiguration.getString(CheckpointingOptions.SAVEPOINT_LOCATION_PREFIX);
 	}
 
 	private ExecutionGraph createAndRestoreExecutionGraph(
