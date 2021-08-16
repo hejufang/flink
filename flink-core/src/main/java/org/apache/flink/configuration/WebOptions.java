@@ -70,6 +70,15 @@ public class WebOptions {
 			.withDescription("Refresh interval for the web-frontend in milliseconds.");
 
 	/**
+	 * The config parameter defining the TTL for web cache in milliseconds.
+	 */
+	public static final ConfigOption<Long> CACHE_TIME_TO_LIVE =
+		key("web.cache-time-to-live")
+			.longType()
+			.defaultValue(3000L)
+			.withDescription("Time to live for the web cache in milliseconds.");
+
+	/**
 	 * Config parameter to override SSL support for the JobManager Web UI.
 	 */
 	@Deprecated

@@ -32,6 +32,8 @@ public class RestHandlerConfiguration {
 
 	private final long refreshInterval;
 
+	private final long cacheTimeToLive;
+
 	private final int maxCheckpointStatisticCacheEntries;
 
 	private final Time timeout;
@@ -42,12 +44,14 @@ public class RestHandlerConfiguration {
 
 	public RestHandlerConfiguration(
 			long refreshInterval,
+			long cacheTimeToLive,
 			int maxCheckpointStatisticCacheEntries,
 			Time timeout,
 			File webUiDir,
 			boolean webSubmitEnabled) {
 		Preconditions.checkArgument(refreshInterval > 0L, "The refresh interval (ms) should be larger than 0.");
 		this.refreshInterval = refreshInterval;
+		this.cacheTimeToLive = cacheTimeToLive;
 
 		this.maxCheckpointStatisticCacheEntries = maxCheckpointStatisticCacheEntries;
 
@@ -58,6 +62,10 @@ public class RestHandlerConfiguration {
 
 	public long getRefreshInterval() {
 		return refreshInterval;
+	}
+
+	public long getCacheTimeToLive() {
+		return cacheTimeToLive;
 	}
 
 	public int getMaxCheckpointStatisticCacheEntries() {
@@ -79,6 +87,8 @@ public class RestHandlerConfiguration {
 	public static RestHandlerConfiguration fromConfiguration(Configuration configuration) {
 		final long refreshInterval = configuration.getLong(WebOptions.REFRESH_INTERVAL);
 
+		final long cacheTimeToLive = configuration.getLong(WebOptions.CACHE_TIME_TO_LIVE);
+
 		final int maxCheckpointStatisticCacheEntries = configuration.getInteger(WebOptions.CHECKPOINTS_HISTORY_SIZE);
 
 		final Time timeout = Time.milliseconds(configuration.getLong(WebOptions.TIMEOUT));
@@ -90,6 +100,7 @@ public class RestHandlerConfiguration {
 
 		return new RestHandlerConfiguration(
 			refreshInterval,
+			cacheTimeToLive,
 			maxCheckpointStatisticCacheEntries,
 			timeout,
 			webUiDir,

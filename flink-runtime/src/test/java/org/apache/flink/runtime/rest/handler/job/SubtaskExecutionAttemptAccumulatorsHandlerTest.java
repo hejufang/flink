@@ -67,7 +67,7 @@ public class SubtaskExecutionAttemptAccumulatorsHandlerTest extends TestLogger {
 			SubtaskExecutionAttemptAccumulatorsHeaders.getInstance(),
 			new DefaultExecutionGraphCache(
 				restHandlerConfiguration.getTimeout(),
-				Time.milliseconds(restHandlerConfiguration.getRefreshInterval())),
+				Time.milliseconds(restHandlerConfiguration.getCacheTimeToLive())),
 			TestingUtils.defaultExecutor());
 
 		// Instance a empty request.
