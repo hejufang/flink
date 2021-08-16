@@ -60,6 +60,10 @@ public class BufferReduceStatementExecutor implements JdbcBatchStatementExecutor
 
 	@Override
 	public void addToBatch(RowData record) throws SQLException {
+		// just ignores update before messages.
+		if (record.getRowKind() == RowKind.UPDATE_BEFORE) {
+			return;
+		}
 		RowData key = keyExtractor.apply(record);
 		boolean flag = changeFlag(record.getRowKind());
 		RowData value = valueTransform.apply(record); // copy or not
