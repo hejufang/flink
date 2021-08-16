@@ -145,6 +145,18 @@ public class Checkpoints {
 			ClassLoader classLoader,
 			boolean allowNonRestoredState) throws IOException {
 
+		return loadAndValidateCheckpoint(jobId, tasks, location, classLoader, allowNonRestoredState, true);
+	}
+
+	@SuppressWarnings("deprecation")
+	public static CompletedCheckpoint loadAndValidateCheckpoint(
+			JobID jobId,
+			Map<JobVertexID, ExecutionJobVertex> tasks,
+			CompletedCheckpointStorageLocation location,
+			ClassLoader classLoader,
+			boolean allowNonRestoredState,
+			boolean isSavepoint) throws IOException {
+
 		checkNotNull(jobId, "jobId");
 		checkNotNull(tasks, "tasks");
 		checkNotNull(location, "location");
@@ -229,7 +241,7 @@ public class Checkpoints {
 		}
 
 		// (3) convert to checkpoint so the system can fall back to it
-		CheckpointProperties props = CheckpointProperties.forSavepoint();
+		CheckpointProperties props = isSavepoint ? CheckpointProperties.forSavepoint() : CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.RETAIN_ON_CANCELLATION, false);
 
 		return new CompletedCheckpoint(
 				jobId,
