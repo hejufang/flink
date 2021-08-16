@@ -276,6 +276,11 @@ public class CheckpointingOptions {
 		.defaultValue(false)
 		.withDescription("Verify the validation of latest checkpoint at client.");
 
+	public static final ConfigOption<Boolean> PREFER_CHECKPOINT_FOR_RECOVERY = ConfigOptions
+		.key("checkpoint.prefer-checkpoint-for-recovery")
+		.defaultValue(false)
+		.withDescription("If enabled, a job recovery should fallback to checkpoint when there is a more recent savepoint.");
+
 	// Flink cross version hard code
 	public static final ConfigOption<Boolean> CROSS_VERSION = ConfigOptions
 			.key("state.checkpoint.cross-version")

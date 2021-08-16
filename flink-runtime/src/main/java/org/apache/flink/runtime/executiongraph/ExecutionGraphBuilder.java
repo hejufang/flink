@@ -510,6 +510,9 @@ public class ExecutionGraphBuilder {
 			final boolean aggregateUnionState = jobManagerConfig.getBoolean(CheckpointingOptions.UNION_STATE_AGGREGATION_ENABLED);
 			chkConfig.setAggregateUnionState(aggregateUnionState);
 
+			final boolean preferCheckpointForRecovery = jobManagerConfig.getBoolean(CheckpointingOptions.PREFER_CHECKPOINT_FOR_RECOVERY);
+			chkConfig.setPreferCheckpointForRecovery(preferCheckpointForRecovery);
+
 			final CheckpointTriggerStrategy triggerStrategy = jobManagerConfig.getEnum(CheckpointTriggerStrategy.class, CheckpointingOptions.CHECKPOINT_TRIGGER_STRATEGY);
 			CheckpointTriggerConfiguration triggerConfiguration = new CheckpointTriggerConfiguration(triggerStrategy, sortedTopology);
 			chkConfig.setCheckpointTriggerConfiguration(triggerConfiguration);

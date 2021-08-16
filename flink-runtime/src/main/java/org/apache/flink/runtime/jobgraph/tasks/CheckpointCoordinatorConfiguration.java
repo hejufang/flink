@@ -68,7 +68,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 	 */
 	private final boolean isExactlyOnce;
 
-	private final boolean isPreferCheckpointForRecovery;
+	private boolean isPreferCheckpointForRecovery;
 
 	private boolean failOnInvalidTokens;
 
@@ -226,6 +226,10 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	public void setCheckpointTriggerConfiguration(CheckpointTriggerConfiguration checkpointTriggerConfiguration) {
 		this.checkpointTriggerConfiguration = checkpointTriggerConfiguration;
+	}
+
+	public void setPreferCheckpointForRecovery(boolean preferCheckpointForRecovery){
+		this.isPreferCheckpointForRecovery = preferCheckpointForRecovery;
 	}
 
 	@Override
