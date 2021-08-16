@@ -107,6 +107,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -288,9 +289,53 @@ public class HiveParser extends ParserImpl {
 
 			}
 		} catch (IOException | ParseException | SemanticException e) {
-			throw new FlinkRuntimeException("Faield to parse statements: " + statement, e);
+			throw new FlinkRuntimeException("Failed to parse statements: " + statement, e);
 		}
 
+		return Collections.emptySet();
+	}
+
+	/**
+	 * Extract resources with statements and hive catalog.
+	 * Caution: This method is only used for FFS, do not use it with any other purpose.
+	 * */
+	public static Set<AddResourcesOperation> extractResourcesFromMultiStatements(String statements, HiveCatalog hiveCatalog) {
+		return HiveParserUtils.splitSQLStatements(statements).stream()
+			.map(statement -> extractResources(statement, hiveCatalog))
+			.flatMap(Collection::stream)
+			.collect(Collectors.toSet());
+	}
+
+	private static Set<AddResourcesOperation> extractResources(String statement, HiveCatalog hiveCatalog) {
+		HiveConf hiveConf = hiveCatalog.getHiveConf();
+		boolean hasProcessed = handleSetCommand(statement, hiveConf);
+		if (hasProcessed) {
+			return Collections.emptySet();
+		}
+		try {
+			// We use 'default' as default db for now to remove dependence on catalog manager or
+			// table environment.
+			String defaultDb = "default";
+			startSessionState(hiveConf, defaultDb);
+			final HiveParserContext context = new HiveParserContext(hiveConf);
+			final ASTNode node = HiveASTParseUtils.parse(statement, context);
+			if (DDL_NODES.contains(node.getType())) {
+				HiveParserQueryState queryState = new HiveParserQueryState(hiveConf);
+				HiveParserDDLSemanticAnalyzer ddlAnalyzer = new HiveParserDDLSemanticAnalyzer(
+					queryState, context, hiveCatalog, defaultDb);
+				Serializable work = ddlAnalyzer.analyzeInternal(node);
+
+				if (work instanceof FunctionWork) {
+					CreateFunctionDesc desc = ((FunctionWork) work).getCreateFunctionDesc();
+					if (desc != null) {
+						return Collections.singleton(
+							new AddResourcesOperation(convertHiveResource(desc.getResources())));
+					}
+				}
+			}
+		} catch (IOException | ParseException | SemanticException e) {
+			throw new FlinkRuntimeException("Failed to parse statements: " + statement, e);
+		}
 		return Collections.emptySet();
 	}
 
@@ -422,6 +467,26 @@ public class HiveParser extends ParserImpl {
 			SessionState sessionState = new HiveParserSessionState(hiveConf, contextCL);
 			sessionState.initTxnMgr(hiveConf);
 			sessionState.setCurrentDatabase(catalogManager.getCurrentDatabase());
+			// some Hive functions needs the timestamp
+			setCurrentTimestamp(sessionState);
+			SessionState.start(sessionState);
+		} catch (LockException e) {
+			throw new FlinkHiveException("Failed to init SessionState", e);
+		} finally {
+			// don't let SessionState mess up with our context classloader
+			Thread.currentThread().setContextClassLoader(contextCL);
+		}
+	}
+
+	/**
+	 * Caution: This method is only used for FFS, do not use it with any other purpose.
+	 * */
+	private static void startSessionState(HiveConf hiveConf, String defaultDb) {
+		final ClassLoader contextCL = Thread.currentThread().getContextClassLoader();
+		try {
+			SessionState sessionState = new HiveParserSessionState(hiveConf, contextCL);
+			sessionState.initTxnMgr(hiveConf);
+			sessionState.setCurrentDatabase(defaultDb);
 			// some Hive functions needs the timestamp
 			setCurrentTimestamp(sessionState);
 			SessionState.start(sessionState);

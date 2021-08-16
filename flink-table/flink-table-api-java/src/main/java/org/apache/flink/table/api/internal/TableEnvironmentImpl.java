@@ -747,7 +747,7 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 				continue;
 			}
 			Preconditions.checkState(operations.size() == 1,
-				"The size of operation must be one, but get: " + operations.get(0));
+				"The size of operation must be one, but get: " + operations);
 			Operation operation = operations.get(0);
 			if (operation instanceof QueryOperation) {
 				table = sqlQueryInternal(operation);
@@ -851,6 +851,14 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	}
 
 	private Tuple2<Optional<TableResult>, Optional<StatementSet>> sqlInternal(String stmt) {
+		if (getParser().isHiveParser()) {
+			return sqlInternalHive(stmt);
+		} else {
+			return sqlInternalDefault(stmt);
+		}
+	}
+
+	private Tuple2<Optional<TableResult>, Optional<StatementSet>> sqlInternalDefault(String stmt) {
 		StatementSet statementSet = createStatementSet();
 		boolean hasModifyOperation = false;
 		Optional<TableResult> tableResultOptional = Optional.empty();
@@ -869,6 +877,41 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 				}
 			}
 			// Just skip QueryOperation here.
+		}
+
+		if (hasModifyOperation) {
+			statementSetOptional = Optional.of(statementSet);
+		}
+		return Tuple2.of(tableResultOptional, statementSetOptional);
+	}
+
+	private Tuple2<Optional<TableResult>, Optional<StatementSet>> sqlInternalHive(String stmt) {
+		Parser parser = getParser();
+		List<String> statementList = getParser().splitStatements(stmt);
+
+		StatementSet statementSet = createStatementSet();
+		boolean hasModifyOperation = false;
+		Optional<TableResult> tableResultOptional = Optional.empty();
+		Optional<StatementSet> statementSetOptional = Optional.empty();
+
+		for (int i = 0; i < statementList.size(); i++) {
+			String statement = statementList.get(i);
+			List<Operation> operations = parser.parse(statement);
+			if (operations.isEmpty()) {
+				continue;
+			}
+			Preconditions.checkState(operations.size() == 1,
+				"The size of operation must be one, but get: " + operations);
+			Operation operation = operations.get(0);
+			if (operation instanceof ModifyOperation) {
+				statementSet.addOperation((ModifyOperation) operation);
+				hasModifyOperation = true;
+			} else if (!(operation instanceof QueryOperation)) {
+				TableResult tableResult = executeOperation(operation);
+				if (i == statementList.size() - 1) {
+					tableResultOptional = Optional.of(tableResult);
+				}
+			}
 		}
 
 		if (hasModifyOperation) {
