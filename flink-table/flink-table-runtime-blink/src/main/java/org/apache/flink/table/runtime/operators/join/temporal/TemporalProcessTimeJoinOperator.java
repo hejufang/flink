@@ -69,6 +69,7 @@ public class TemporalProcessTimeJoinOperator
 
 	@Override
 	public void open() throws Exception {
+		super.open();
 		this.joinCondition = generatedJoinCondition.newInstance(getRuntimeContext().getUserCodeClassLoader());
 		FunctionUtils.setFunctionRuntimeContext(joinCondition, getRuntimeContext());
 		FunctionUtils.openFunction(joinCondition, new Configuration());

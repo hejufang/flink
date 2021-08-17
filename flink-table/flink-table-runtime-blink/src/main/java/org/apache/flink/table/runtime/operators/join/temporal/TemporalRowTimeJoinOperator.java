@@ -143,6 +143,7 @@ public class TemporalRowTimeJoinOperator
 
 	@Override
 	public void open() throws Exception {
+		super.open();
 		joinCondition = generatedJoinCondition.newInstance(getRuntimeContext().getUserCodeClassLoader());
 		joinCondition.setRuntimeContext(getRuntimeContext());
 		joinCondition.open(new Configuration());
