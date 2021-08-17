@@ -27,10 +27,18 @@ import org.apache.flink.shaded.byted.org.byted.infsec.client.SecTokenC;
 public class SecUtil {
 	public static Identity getIdentityFromToken() {
 		try {
-			String token = SecTokenC.getToken(false);
+			String token = getGDPRToken();
 			return SecTokenC.parseToken(token);
 		} catch (InfSecException e) {
-			throw new FlinkRuntimeException("Failed to get token!", e);
+			throw new FlinkRuntimeException("Failed to parse the gdpr token!", e);
+		}
+	}
+
+	public static String getGDPRToken() {
+		try {
+			return SecTokenC.getToken(false);
+		} catch (InfSecException e) {
+			throw new FlinkRuntimeException("Failed to get the gdpr token!", e);
 		}
 	}
 }

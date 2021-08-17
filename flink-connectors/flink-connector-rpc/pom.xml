@@ -33,7 +33,7 @@ under the License.
 		<dependency>
 			<groupId>com.bytedance.arch</groupId>
 			<artifactId>utils</artifactId>
-			<version>1.0.0</version>
+			<version>1.0.0.20</version>
 			<exclusions>
 				<exclusion>
 					<groupId>log4j</groupId>
@@ -92,8 +92,12 @@ under the License.
 											<shadedPattern>org.apache.flink.connector.rpc.shaded.org.apache.thrift</shadedPattern>
 										</relocation>
 										<relocation>
-											<pattern>com.bytedance</pattern>
-											<shadedPattern>org.apache.flink.connector.rpc.shaded.com.bytedance</shadedPattern>
+											<pattern>com.bytedance.arch</pattern>
+											<shadedPattern>org.apache.flink.connector.rpc.shaded.com.bytedance.arch</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.bytedance.commons</pattern>
+											<shadedPattern>org.apache.flink.shaded.byted.com.bytedance.commons</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>com.google</pattern>

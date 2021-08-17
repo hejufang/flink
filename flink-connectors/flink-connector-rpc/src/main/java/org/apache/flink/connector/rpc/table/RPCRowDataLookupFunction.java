@@ -40,17 +40,24 @@ import org.apache.flink.table.metric.LookupMetricUtils;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import org.apache.flink.shaded.byted.com.bytedance.commons.consul.Discovery;
 import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
 import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonFactory;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonGenerator;
 
 import org.apache.thrift.TServiceClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -67,6 +74,7 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 	private static final Logger LOG = LoggerFactory.getLogger(RPCRowDataLookupFunction.class);
 
 	private final RPCLookupOptions rpcLookupOptions;
+	private final RPCOptions rpcOptions;
 	private final RPCServiceClient serviceClient;
 	private final Class<?> requestClass;
 	private final Class<?> responseClass;
@@ -74,13 +82,14 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 	private final int[] keyIndices;
 	private final DataType dataType;
 	private final FlinkConnectorRateLimiter rateLimiter;
-
+	private final Map<String, String> reusedExtraMap;
 	private String psm;
 	private transient RowJavaBeanConverter requestConverter;
 	private transient RowJavaBeanConverter responseConverter;
 	private transient Cache<RowData, RowData> cache;
 	private transient ExecutorService executor;
 	private transient Field baseField;
+	private transient Field extraField;
 	private transient Meter lookupRequestPerSecond;
 	private transient Meter lookupFailurePerSecond;
 	private transient Histogram requestDelayMs;
@@ -92,6 +101,7 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 			DataType dataType,
 			String[] fieldNames) {
 		this.rpcLookupOptions = rpcLookupOptions;
+		this.rpcOptions = rpcOptions;
 		this.fieldNames = fieldNames;
 		this.keyIndices = keyIndices;
 		this.dataType = dataType;
@@ -101,6 +111,7 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 		this.serviceClient = new RPCServiceClient(rpcOptions, clientClass, requestClass);
 		this.psm = rpcOptions.getPsm();
 		this.rateLimiter = rpcOptions.getRateLimiter();
+		this.reusedExtraMap = generateExtraInfoForReq();
 	}
 
 	@Override
@@ -148,6 +159,44 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 				}
 			}
 		}
+		if (baseField != null) {
+			Class<?> extraClass = baseField.getType();
+			try {
+				extraField = extraClass.getField("Extra");
+			} catch (Exception e) {
+				try {
+					extraField = extraClass.getField("extra");
+				} catch (Exception e2) {
+					LOG.info("There is no Extra or extra field in request class, cannot set extra.");
+				}
+			}
+		}
+	}
+
+	private Map<String, String> generateExtraInfoForReq() {
+		Map<String, String> extraMap = new HashMap<>();
+		Discovery discovery = new Discovery();
+		extraMap.put("idc", discovery.dc);
+		final StringWriter writer = new StringWriter(1024);
+
+		final JsonFactory factory = new JsonFactory();
+		final JsonGenerator gen;
+		String userExtra;
+		try {
+			gen = factory.createGenerator(writer);
+			gen.writeStartObject();
+			gen.writeStringField("gdpr-token", SecUtil.getGDPRToken());
+			gen.writeStringField("dest_service", rpcOptions.getConsul());
+			gen.writeStringField("dest_cluster", rpcOptions.getCluster() == null ? "default" : rpcOptions.getCluster());
+			gen.writeStringField("dest_method", rpcOptions.getThriftMethod());
+			gen.writeEndObject();
+			gen.close();
+			userExtra =  writer.toString();
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to generate plan", e);
+		}
+		extraMap.put("user_extra", userExtra);
+		return extraMap;
 	}
 
 	/**
@@ -262,6 +311,7 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 			try {
 				ObjectUtil.setPsm(thriftRequestObj, baseField, psm);
 				ObjectUtil.setLogID(thriftRequestObj, baseField, logID);
+				ObjectUtil.setUserExtra(thriftRequestObj, baseField, extraField, reusedExtraMap);
 			} catch (Exception ex) {
 				throw new FlinkRuntimeException(ex);
 			}

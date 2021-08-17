@@ -22,6 +22,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Map;
 
 /** Util for manipulating objects.*/
 public class ObjectUtil {
@@ -44,6 +45,25 @@ public class ObjectUtil {
 			oriBase = baseClass.newInstance();
 		}
 		baseClass.getField("LogID").set(oriBase, logID);
+		baseField.set(requestObject, oriBase);
+	}
+
+	public static void setUserExtra(
+			Object requestObject,
+			Field baseField,
+			Field extraField,
+			Map<String, String> extraMap) throws IllegalAccessException, InstantiationException {
+		Object oriBase = baseField.get(requestObject);
+		Class<?> baseClass = baseField.getType();
+		if (oriBase == null) {
+			oriBase = baseClass.newInstance();
+		}
+		Map<String, String> extra = (Map<String, String>) extraField.get(oriBase);
+		if (extra != null) {
+			extraMap.forEach((key, value) ->
+				extra.merge(key, value, (v1, v2) -> v1));
+		}
+		extraField.set(oriBase, extra);
 		baseField.set(requestObject, oriBase);
 	}
 
