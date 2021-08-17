@@ -208,6 +208,7 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 				result = outputStream.closeAndGetHandle();
 				outputStream = null;
 			}
+			LOG.info("Merge {} files into Batch ({}).", numFiles, batchFileID);
 
 			// (4) wrap the state handle to BatchStateHandle
 			return new BatchStateHandle(result, fileNames, offsetsAndSizes, batchFileID);

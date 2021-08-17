@@ -660,6 +660,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 
 				totalStateSize += Files.size(filePath);
 			}
+			LOG.info("Find {} files in DBNativeCheckpointDir, including {} incremental files, {} existing files and {} miscFiles.", files.length, sstFiles.size(), sstFilePaths.size(), miscFilePaths.size());
 		}
 
 		@Nonnull
