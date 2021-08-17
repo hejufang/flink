@@ -75,12 +75,12 @@ final class Elasticsearch7Configuration extends ElasticsearchConfiguration {
 		return config.get(PARALLELISM);
 	}
 
-	public Optional<Integer> getConnectTimeout() {
-		return config.getOptional(CONNECT_TIMEOUT).map(t -> (int) t.toMillis());
+	public int getConnectTimeout() {
+		return (int) config.get(CONNECT_TIMEOUT).toMillis();
 	}
 
-	public Optional<Integer> getSocketTimeout() {
-		return config.getOptional(SOCKET_TIMEOUT).map(t -> (int) t.toMillis());
+	public int getSocketTimeout() {
+		return (int) config.get(SOCKET_TIMEOUT).toMillis();
 	}
 
 	public Optional<Long> getRateLimitNum() {

@@ -26,7 +26,6 @@ import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer;
 import org.apache.flink.streaming.connectors.elasticsearch7.ElasticsearchSink;
 import org.apache.flink.streaming.connectors.elasticsearch7.RestClientFactory;
-import org.apache.flink.streaming.connectors.elasticsearch7.util.ESHttpRoutePlanner;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -38,12 +37,18 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalTypeFamily;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.types.RowKind;
+import org.apache.flink.util.FlinkRuntimeException;
 
+import org.apache.flink.shaded.byted.org.byted.infsec.client.InfSecException;
+import org.apache.flink.shaded.byted.org.byted.infsec.client.SecTokenC;
+
+import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.message.BasicHeader;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
@@ -59,7 +64,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BYTE_ES_GDPR_ENABLED;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BYTE_ES_MODE_ENABLED;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.CONNECTION_PATH_PREFIX;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.IGNORE_INVALID_DATA;
@@ -73,6 +77,10 @@ import static org.apache.flink.table.types.logical.LogicalTypeRoot.DECIMAL;
  */
 @Internal
 final class Elasticsearch7DynamicSink implements DynamicTableSink {
+
+	private static final Logger LOG = LoggerFactory.getLogger(Elasticsearch7DynamicSink.class);
+	private static final String BYTEES_GDPR_HEADER_KEY = "Gdpr-Token";
+
 	@VisibleForTesting
 	static final Elasticsearch7RequestFactory REQUEST_FACTORY = new Elasticsearch7DynamicSink.Elasticsearch7RequestFactory();
 
@@ -227,8 +235,8 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 			config.getBulkFlushBackoffType().ifPresent(builder::setBulkFlushBackoffType);
 			config.getBulkFlushBackoffRetries().ifPresent(builder::setBulkFlushBackoffRetries);
 			config.getBulkFlushBackoffDelay().ifPresent(builder::setBulkFlushBackoffDelay);
-			config.getConnectTimeout().ifPresent(builder::setConnectTimeout);
-			config.getSocketTimeout().ifPresent(builder::setSocketTimeout);
+			builder.setConnectTimeout(config.getConnectTimeout());
+			builder.setSocketTimeout(config.getSocketTimeout());
 
 			// we must overwrite the default factory which is defined with a lambda because of a bug
 			// in shading lambda serialization shading see FLINK-18006
@@ -239,8 +247,10 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 					config.getPassword().get()));
 			} else if (config.config.getOptional(URI).isPresent()) {
 				String prefix = config.config.get(CONNECTION_PATH_PREFIX);
-				boolean gdprEnabled = config.config.get(BYTE_ES_GDPR_ENABLED);
-				builder.setRestClientFactory(new RoutedRestClientFactory(prefix, gdprEnabled));
+				builder.setRestClientFactory(new RoutedRestClientFactory(
+					prefix,
+					config.getConnectTimeout(),
+					config.getSocketTimeout()));
 			} else {
 				builder.setRestClientFactory(new DefaultRestClientFactory(config.getPathPrefix().orElse(null)));
 			}
@@ -362,11 +372,16 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 		private static final long serialVersionUID = 1L;
 
 		private final String pathPrefix;
-		private final boolean enableGdpr;
+		private final int connectTimeoutMs;
+		private final int socketTimeoutMs;
 
-		public RoutedRestClientFactory(@Nullable String pathPrefix, boolean enableGdpr) {
+		public RoutedRestClientFactory(
+				@Nullable String pathPrefix,
+				int connectTimeoutMs,
+				int socketTimeoutMs) {
 			this.pathPrefix = pathPrefix;
-			this.enableGdpr = enableGdpr;
+			this.connectTimeoutMs = connectTimeoutMs;
+			this.socketTimeoutMs = socketTimeoutMs;
 		}
 
 		@Override
@@ -374,8 +389,23 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 			if (pathPrefix != null) {
 				restClientBuilder.setPathPrefix(pathPrefix);
 			}
-			restClientBuilder.setHttpClientConfigCallback(httpAsyncClientBuilder ->
-				httpAsyncClientBuilder.setRoutePlanner(new ESHttpRoutePlanner(enableGdpr)));
+			// add GDPR header
+			restClientBuilder.setDefaultHeaders(new Header[]{new BasicHeader(BYTEES_GDPR_HEADER_KEY, getGdprToken())});
+
+			restClientBuilder.setRequestConfigCallback(requestConfigBuilder ->
+				requestConfigBuilder.setConnectTimeout(connectTimeoutMs).setSocketTimeout(socketTimeoutMs));
+		}
+
+		private String getGdprToken() {
+			try {
+				String token = SecTokenC.getToken(false);
+				if (token != null && !token.isEmpty()) {
+					return token;
+				}
+			} catch (InfSecException e) {
+				throw new FlinkRuntimeException(e);
+			}
+			return null;
 		}
 
 		@Override

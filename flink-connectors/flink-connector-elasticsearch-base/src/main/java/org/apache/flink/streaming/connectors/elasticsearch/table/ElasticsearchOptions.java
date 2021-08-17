@@ -147,14 +147,14 @@ public class ElasticsearchOptions {
 	public static final ConfigOption<Duration> CONNECT_TIMEOUT =
 		ConfigOptions.key("connect_timeout")
 			.durationType()
-			.noDefaultValue()
+			.defaultValue(Duration.ofSeconds(30))
 			.withDescription("Option for connect timeout of elasticsearch client, " +
 				"it uses org.apache.http.client.config.RequestConfig$Builder#setConnectTimeout internally.");
 
 	public static final ConfigOption<Duration> SOCKET_TIMEOUT =
 		ConfigOptions.key("socket_timeout")
 			.durationType()
-			.noDefaultValue()
+			.defaultValue(Duration.ofSeconds(60))
 			.withDescription("Option for socket timeout of elasticsearch client, " +
 				"it uses org.apache.http.client.config.RequestConfig$Builder#setSocketTimeout internally.");
 
