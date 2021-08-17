@@ -30,7 +30,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class TaskInfo {
 
 	private final String taskName;
+	private final String taskMetricName;
 	private final String taskNameWithSubtasks;
+	private final String taskMetricNameWithSubtasks;
 	private final String allocationIDAsString;
 	private final int maxNumberOfParallelSubtasks;
 	private final int indexOfSubtask;
@@ -59,6 +61,24 @@ public class TaskInfo {
 		int numberOfParallelSubtasks,
 		int attemptNumber,
 		String allocationIDAsString) {
+		this(
+			taskName,
+			taskName,
+			maxNumberOfParallelSubtasks,
+			indexOfSubtask,
+			numberOfParallelSubtasks,
+			attemptNumber,
+			allocationIDAsString);
+	}
+
+	public TaskInfo(
+		String taskName,
+		String taskMetricName,
+		int maxNumberOfParallelSubtasks,
+		int indexOfSubtask,
+		int numberOfParallelSubtasks,
+		int attemptNumber,
+		String allocationIDAsString) {
 
 		checkArgument(indexOfSubtask >= 0, "Task index must be a non-negative number.");
 		checkArgument(maxNumberOfParallelSubtasks >= 1, "Max parallelism must be a positive number.");
@@ -67,11 +87,13 @@ public class TaskInfo {
 		checkArgument(indexOfSubtask < numberOfParallelSubtasks, "Task index must be less than parallelism.");
 		checkArgument(attemptNumber >= 0, "Attempt number must be a non-negative number.");
 		this.taskName = checkNotNull(taskName, "Task Name must not be null.");
+		this.taskMetricName = checkNotNull(taskName, "Task Metric Name must not be null.");
 		this.maxNumberOfParallelSubtasks = maxNumberOfParallelSubtasks;
 		this.indexOfSubtask = indexOfSubtask;
 		this.numberOfParallelSubtasks = numberOfParallelSubtasks;
 		this.attemptNumber = attemptNumber;
 		this.taskNameWithSubtasks = taskName + " (" + (indexOfSubtask + 1) + '/' + numberOfParallelSubtasks + ')' + "- execution # " + attemptNumber;
+		this.taskMetricNameWithSubtasks = taskMetricName + " (" + (indexOfSubtask + 1) + '/' + numberOfParallelSubtasks + ')' + "- execution # " + attemptNumber;
 		this.allocationIDAsString = checkNotNull(allocationIDAsString);
 	}
 
@@ -82,6 +104,15 @@ public class TaskInfo {
 	 */
 	public String getTaskName() {
 		return this.taskName;
+	}
+
+	/**
+	 * Returns the metric name of the task.
+	 *
+	 * @return The metric name of the task.
+	 */
+	public String getTaskMetricName() {
+		return this.taskMetricName;
 	}
 
 	/**
@@ -130,6 +161,17 @@ public class TaskInfo {
 	 */
 	public String getTaskNameWithSubtasks() {
 		return this.taskNameWithSubtasks;
+	}
+
+	/**
+	 * Returns the metric name of the task, appended with the subtask indicator, such as "MyTask (3/6)",
+	 * where 3 would be ({@link #getIndexOfThisSubtask()} + 1), and 6 would be
+	 * {@link #getNumberOfParallelSubtasks()}.
+	 *
+	 * @return The metric name of the task, with subtask indicator.
+	 */
+	public String getTaskMetricNameWithSubtasks() {
+		return this.taskMetricNameWithSubtasks;
 	}
 
 	/**

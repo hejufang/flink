@@ -170,6 +170,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	/** The name of the task, including subtask indexes. */
 	private final String taskNameWithSubtask;
 
+	/** The metric name of the task, including subtask indexes, mainly used for logging. */
+	private final String taskMetricNameWithSubtask;
+
 	/** The job-wide configuration object. */
 	private final Configuration jobConfiguration;
 
@@ -394,6 +397,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 		this.taskInfo = new TaskInfo(
 				taskInformation.getTaskName(),
+				taskInformation.getTaskMetricName(),
 				taskInformation.getMaxNumberOfSubtasks(),
 				subtaskIndex,
 				taskInformation.getNumberOfSubtasks(),
@@ -406,6 +410,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		this.executionId  = Preconditions.checkNotNull(executionAttemptID);
 		this.allocationId = Preconditions.checkNotNull(slotAllocationId);
 		this.taskNameWithSubtask = taskInfo.getTaskNameWithSubtasks();
+		this.taskMetricNameWithSubtask = taskInfo.getTaskMetricNameWithSubtasks();
 		this.jobConfiguration = jobInformation.getJobConfiguration();
 		this.taskConfiguration = taskInformation.getTaskConfiguration();
 		this.requiredJarFiles = jobInformation.getRequiredJarFileBlobKeys();
@@ -444,10 +449,10 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 		// create the reader and writer structures
 
-		final String taskNameWithSubtaskAndId = taskNameWithSubtask + " (" + executionId + ')';
+		final String taskMetricNameWithSubtaskAndId = taskMetricNameWithSubtask + " (" + executionId + ')';
 
 		final ShuffleIOOwnerContext taskShuffleContext = shuffleEnvironment
-			.createShuffleIOOwnerContext(taskNameWithSubtaskAndId, executionId, metrics.getIOMetricGroup());
+			.createShuffleIOOwnerContext(taskMetricNameWithSubtaskAndId, executionId, metrics.getIOMetricGroup());
 
 		// produced intermediate result partitions
 		final ResultPartitionWriter[] resultPartitionWriters = shuffleEnvironment.createResultPartitionWriters(
@@ -483,7 +488,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		invokableHasBeenCanceled = new AtomicBoolean(false);
 
 		// finally, create the executing thread, but do not start it
-		executingThread = new Thread(TASK_THREADS_GROUP, this, taskNameWithSubtask);
+		executingThread = new Thread(TASK_THREADS_GROUP, this, taskMetricNameWithSubtask);
 	}
 
 	// ------------------------------------------------------------------------
@@ -722,7 +727,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			}
 			catch (Exception e) {
 				throw new Exception(
-					String.format("Exception while adding files to distributed cache of task %s (%s).", taskNameWithSubtask, executionId), e);
+					String.format("Exception while adding files to distributed cache of task %s (%s).", taskMetricNameWithSubtask, executionId), e);
 			}
 
 			if (isCanceledOrFailed()) {
@@ -880,21 +885,21 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 					}
 					// unexpected state, go to failed
 					else if (transitionState(current, ExecutionState.FAILED, t)) {
-						LOG.error("Unexpected state in task {} ({}) during an exception: {}.", taskNameWithSubtask, executionId, current);
+						LOG.error("Unexpected state in task {} ({}) during an exception: {}.", taskMetricNameWithSubtask, executionId, current);
 						break;
 					}
 					// else fall through the loop and
 				}
 			}
 			catch (Throwable tt) {
-				String message = String.format("FATAL - exception in exception handler of task %s (%s).", taskNameWithSubtask, executionId);
+				String message = String.format("FATAL - exception in exception handler of task %s (%s).", taskMetricNameWithSubtask, executionId);
 				LOG.error(message, tt);
 				notifyFatalError(message, tt);
 			}
 		}
 		finally {
 			try {
-				LOG.info("Freeing task resources for {} ({}).", taskNameWithSubtask, executionId);
+				LOG.info("Freeing task resources for {} ({}).", taskMetricNameWithSubtask, executionId);
 
 				// clear the reference to the invokable. this helps guard against holding references
 				// to the invokable and its structures in cases where this Task object is still referenced
@@ -919,7 +924,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			}
 			catch (Throwable t) {
 				// an error in the resource cleanup is fatal
-				String message = String.format("FATAL - exception in resource cleanup of task %s (%s).", taskNameWithSubtask, executionId);
+				String message = String.format("FATAL - exception in resource cleanup of task %s (%s).", taskMetricNameWithSubtask, executionId);
 				LOG.error(message, t);
 				notifyFatalError(message, t);
 			}
@@ -931,7 +936,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				metrics.close();
 			}
 			catch (Throwable t) {
-				LOG.error("Error during metrics de-registration of task {} ({}).", taskNameWithSubtask, executionId, t);
+				LOG.error("Error during metrics de-registration of task {} ({}).", taskMetricNameWithSubtask, executionId, t);
 			}
 		}
 	}
@@ -956,7 +961,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	 * has failed, is canceled, or is being canceled at the moment.
 	 */
 	private void releaseResources() {
-		LOG.debug("Release task {} network resources (state: {}).", taskNameWithSubtask, getExecutionState());
+		LOG.debug("Release task {} network resources (state: {}).", taskMetricNameWithSubtask, getExecutionState());
 
 		for (ResultPartitionWriter partitionWriter : consumableNotifyingPartitionWriters) {
 			taskEventDispatcher.unregisterPartition(partitionWriter.getPartitionId());
@@ -969,7 +974,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		try {
 			taskStateManager.close();
 		} catch (Exception e) {
-			LOG.error("Failed to close task state manager for task {}.", taskNameWithSubtask, e);
+			LOG.error("Failed to close task state manager for task {}.", taskMetricNameWithSubtask, e);
 		}
 	}
 
@@ -983,7 +988,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				partitionWriter.close();
 			} catch (Throwable t) {
 				ExceptionUtils.rethrowIfFatalError(t);
-				LOG.error("Failed to release result partition for task {}.", taskNameWithSubtask, t);
+				LOG.error("Failed to release result partition for task {}.", taskMetricNameWithSubtask, t);
 			}
 		}
 
@@ -992,7 +997,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				inputGate.close();
 			} catch (Throwable t) {
 				ExceptionUtils.rethrowIfFatalError(t);
-				LOG.error("Failed to release input gate for task {}.", taskNameWithSubtask, t);
+				LOG.error("Failed to release input gate for task {}.", taskMetricNameWithSubtask, t);
 			}
 		}
 	}
@@ -1040,9 +1045,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	private boolean transitionState(ExecutionState currentState, ExecutionState newState, Throwable cause) {
 		if (STATE_UPDATER.compareAndSet(this, currentState, newState)) {
 			if (cause == null) {
-				LOG.info("{} ({}) switched from {} to {}.", taskNameWithSubtask, executionId, currentState, newState);
+				LOG.info("{} ({}) switched from {} to {}.", taskMetricNameWithSubtask, executionId, currentState, newState);
 			} else {
-				LOG.warn("{} ({}) switched from {} to {}.", taskNameWithSubtask, executionId, currentState, newState, cause);
+				LOG.warn("{} ({}) switched from {} to {}.", taskMetricNameWithSubtask, executionId, currentState, newState, cause);
 			}
 
 			return true;
@@ -1064,7 +1069,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	 * <p>This method never blocks.</p>
 	 */
 	public void cancelExecution() {
-		LOG.info("Attempting to cancel task {} ({}).", taskNameWithSubtask, executionId);
+		LOG.info("Attempting to cancel task {} ({}).", taskMetricNameWithSubtask, executionId);
 		cancelOrFailAndCancelInvokable(ExecutionState.CANCELING, null);
 	}
 
@@ -1079,7 +1084,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	 */
 	@Override
 	public void failExternally(Throwable cause) {
-		LOG.info("Attempting to fail task externally {} ({}).", taskNameWithSubtask, executionId);
+		LOG.info("Attempting to fail task externally {} ({}).", taskMetricNameWithSubtask, executionId);
 		cancelOrFailAndCancelInvokable(ExecutionState.FAILED, cause);
 	}
 
@@ -1088,7 +1093,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			cancelOrFailAndCancelInvokableInternal(targetState, cause);
 		} catch (Throwable t) {
 			if (ExceptionUtils.isJvmFatalOrOutOfMemoryError(t)) {
-				String message = String.format("FATAL - exception in cancelling task %s (%s).", taskNameWithSubtask, executionId);
+				String message = String.format("FATAL - exception in cancelling task %s (%s).", taskMetricNameWithSubtask, executionId);
 				notifyFatalError(message, t);
 			} else {
 				throw t;
@@ -1104,7 +1109,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			// if the task is already canceled (or canceling) or finished or failed,
 			// then we need not do anything
 			if (current.isTerminal() || current == ExecutionState.CANCELING) {
-				LOG.info("Task {} is already in state {}", taskNameWithSubtask, current);
+				LOG.info("Task {} is already in state {}", taskMetricNameWithSubtask, current);
 				return;
 			}
 
@@ -1127,19 +1132,19 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 					if (invokable != null && invokableHasBeenCanceled.compareAndSet(false, true)) {
 						this.failureCause = cause;
 
-						LOG.info("Triggering cancellation of task code {} ({}).", taskNameWithSubtask, executionId);
+						LOG.info("Triggering cancellation of task code {} ({}).", taskMetricNameWithSubtask, executionId);
 
 						// because the canceling may block on user code, we cancel from a separate thread
 						// we do not reuse the async call handler, because that one may be blocked, in which
 						// case the canceling could not continue
 
 						// The canceller calls cancel and interrupts the executing thread once
-						Runnable canceler = new TaskCanceler(LOG, this::closeNetworkResources, invokable, executingThread, taskNameWithSubtask);
+						Runnable canceler = new TaskCanceler(LOG, this::closeNetworkResources, invokable, executingThread, taskMetricNameWithSubtask);
 
 						Thread cancelThread = new Thread(
 								executingThread.getThreadGroup(),
 								canceler,
-								String.format("Canceler for %s (%s).", taskNameWithSubtask, executionId));
+								String.format("Canceler for %s (%s).", taskMetricNameWithSubtask, executionId));
 						cancelThread.setDaemon(true);
 						cancelThread.setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE);
 						cancelThread.start();
@@ -1151,13 +1156,13 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 									LOG,
 									invokable,
 									executingThread,
-									taskNameWithSubtask,
+									taskMetricNameWithSubtask,
 									taskCancellationInterval);
 
 							Thread interruptingThread = new Thread(
 									executingThread.getThreadGroup(),
 									interrupter,
-									String.format("Canceler/Interrupts for %s (%s).", taskNameWithSubtask, executionId));
+									String.format("Canceler/Interrupts for %s (%s).", taskMetricNameWithSubtask, executionId));
 							interruptingThread.setDaemon(true);
 							interruptingThread.setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE);
 							interruptingThread.start();
@@ -1175,7 +1180,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 									executingThread.getThreadGroup(),
 									cancelWatchdog,
 									String.format("Cancellation Watchdog for %s (%s).",
-											taskNameWithSubtask, executionId));
+											taskMetricNameWithSubtask, executionId));
 							watchDogThread.setDaemon(true);
 							watchDogThread.setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE);
 							watchDogThread.start();
@@ -1186,7 +1191,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			}
 			else {
 				throw new IllegalStateException(String.format("Unexpected state: %s of task %s (%s).",
-					current, taskNameWithSubtask, executionId));
+					current, taskMetricNameWithSubtask, executionId));
 			}
 		}
 	}
@@ -1243,26 +1248,26 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				// This may happen if the mailbox is closed. It means that the task is shutting down, so we just ignore it.
 				LOG.debug(
 					"Triggering checkpoint {} for {} ({}) was rejected by the mailbox",
-					checkpointID, taskNameWithSubtask, executionId);
+					checkpointID, taskMetricNameWithSubtask, executionId);
 			}
 			catch (Throwable t) {
 				if (getExecutionState() == ExecutionState.RUNNING) {
 					failExternally(new Exception(
 						"Error while triggering checkpoint " + checkpointID + " for " +
-							taskNameWithSubtask, t));
+							taskMetricNameWithSubtask, t));
 				} else {
 					LOG.debug("Encountered error while triggering checkpoint {} for " +
 						"{} ({}) while being not in state running.", checkpointID,
-						taskNameWithSubtask, executionId, t);
+						taskMetricNameWithSubtask, executionId, t);
 				}
 			}
 		}
 		else {
-			LOG.debug("Declining checkpoint request for non-running task {} ({}).", taskNameWithSubtask, executionId);
+			LOG.debug("Declining checkpoint request for non-running task {} ({}).", taskMetricNameWithSubtask, executionId);
 
 			// send back a message that we did not do the checkpoint
 			checkpointResponder.declineCheckpoint(jobId, executionId, checkpointID,
-					new CheckpointException("Task name with subtask : " + taskNameWithSubtask, CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_NOT_READY));
+					new CheckpointException("Task name with subtask : " + taskMetricNameWithSubtask, CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_NOT_READY));
 		}
 	}
 
@@ -1278,7 +1283,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				// This may happen if the mailbox is closed. It means that the task is shutting down, so we just ignore it.
 				LOG.debug(
 					"Notify checkpoint complete {} for {} ({}) was rejected by the mailbox",
-					checkpointID, taskNameWithSubtask, executionId);
+					checkpointID, taskMetricNameWithSubtask, executionId);
 			}
 			catch (Throwable t) {
 				if (getExecutionState() == ExecutionState.RUNNING) {
@@ -1290,7 +1295,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			}
 		}
 		else {
-			LOG.debug("Ignoring checkpoint commit notification for non-running task {}.", taskNameWithSubtask);
+			LOG.debug("Ignoring checkpoint commit notification for non-running task {}.", taskMetricNameWithSubtask);
 		}
 	}
 
@@ -1306,7 +1311,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				// This may happen if the mailbox is closed. It means that the task is shutting down, so we just ignore it.
 				LOG.debug(
 					"Notify checkpoint abort {} for {} ({}) was rejected by the mailbox",
-					checkpointID, taskNameWithSubtask, executionId);
+					checkpointID, taskMetricNameWithSubtask, executionId);
 			}
 			catch (Throwable t) {
 				if (getExecutionState() == ExecutionState.RUNNING) {
@@ -1318,7 +1323,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			}
 		}
 		else {
-			LOG.info("Ignoring checkpoint aborted notification for non-running task {}.", taskNameWithSubtask);
+			LOG.info("Ignoring checkpoint aborted notification for non-running task {}.", taskMetricNameWithSubtask);
 		}
 	}
 
@@ -1363,7 +1368,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				invokable.cancel();
 			}
 			catch (Throwable t) {
-				LOG.error("Error while canceling task {}.", taskNameWithSubtask, t);
+				LOG.error("Error while canceling task {}.", taskMetricNameWithSubtask, t);
 			}
 		}
 	}

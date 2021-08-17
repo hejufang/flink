@@ -37,6 +37,13 @@ public interface AccessExecutionVertex {
 	String getTaskNameWithSubtaskIndex();
 
 	/**
+	 * Returns the metric name of this execution vertex in the format "myTask (2/7)".
+	 *
+	 * @return metric name of this execution vertex
+	 */
+	String getTaskMetricNameWithSubtaskIndex();
+
+	/**
 	 * Returns the subtask index of this execution vertex.
 	 *
 	 * @return subtask index of this execution vertex.

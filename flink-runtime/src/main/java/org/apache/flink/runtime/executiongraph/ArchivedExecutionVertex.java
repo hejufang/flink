@@ -39,6 +39,8 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 	/** The name in the format "myTask (2/7)", cached to avoid frequent string concatenations */
 	private final String taskNameWithSubtask;
 
+	private final String taskMetricNameWithSubtask;
+
 	private final ArchivedExecution currentExecution;    // this field must never be null
 
 	private final List<ArchivedExecution> copyExecutions;
@@ -53,6 +55,7 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 		this.subTaskIndex = vertex.getParallelSubtaskIndex();
 		this.priorExecutions = vertex.getCopyOfPriorExecutionsList();
 		this.taskNameWithSubtask = vertex.getTaskNameWithSubtaskIndex();
+		this.taskMetricNameWithSubtask = vertex.getTaskMetricNameWithSubtaskIndex();
 		this.currentExecution = vertex.getCurrentExecutionAttempt().archive();
 
 		this.copyExecutions = new ArrayList<>();
@@ -77,6 +80,7 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 			List<ArchivedExecution> copyExecutions) {
 		this.subTaskIndex = subTaskIndex;
 		this.taskNameWithSubtask = taskNameWithSubtask;
+		this.taskMetricNameWithSubtask = taskNameWithSubtask;
 		this.currentExecution = currentExecution;
 		this.priorExecutions = priorExecutions;
 		this.copyExecutions = copyExecutions;
@@ -91,6 +95,11 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 	@Override
 	public String getTaskNameWithSubtaskIndex() {
 		return this.taskNameWithSubtask;
+	}
+
+	@Override
+	public String getTaskMetricNameWithSubtaskIndex() {
+		return this.taskMetricNameWithSubtask;
 	}
 
 	@Override

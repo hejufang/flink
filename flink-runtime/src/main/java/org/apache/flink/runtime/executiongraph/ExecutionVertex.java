@@ -92,6 +92,8 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	/** The name in the format "myTask (2/7)", cached to avoid frequent string concatenations. */
 	private final String taskNameWithSubtask;
 
+	private final String taskMetricNameWithSubtask;
+
 	private CoLocationConstraint locationConstraint;
 
 	/** The current or latest execution attempt of this vertex's task. */
@@ -151,6 +153,8 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		this.executionVertexId = new ExecutionVertexID(jobVertex.getJobVertexId(), subTaskIndex);
 		this.taskNameWithSubtask = String.format("%s (%d/%d)",
 				jobVertex.getJobVertex().getName(), subTaskIndex + 1, jobVertex.getParallelism());
+		this.taskMetricNameWithSubtask = String.format("%s (%d/%d)",
+				jobVertex.getJobVertex().getMetricName(), subTaskIndex + 1, jobVertex.getParallelism());
 
 		this.resultPartitions = new LinkedHashMap<>(producedDataSets.length, 1);
 
@@ -222,6 +226,11 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	@Override
 	public String getTaskNameWithSubtaskIndex() {
 		return this.taskNameWithSubtask;
+	}
+
+	@Override
+	public String getTaskMetricNameWithSubtaskIndex() {
+		return this.taskMetricNameWithSubtask;
 	}
 
 	public int getTotalNumberOfParallelSubtasks() {
@@ -556,7 +565,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	 */
 	public Execution resetForNewExecution(final long timestamp, final long originatingGlobalModVersion)
 			throws GlobalModVersionMismatch {
-		LOG.debug("Resetting execution vertex {} for new execution.", getTaskNameWithSubtaskIndex());
+		LOG.debug("Resetting execution vertex {} for new execution.", getTaskMetricNameWithSubtaskIndex());
 
 		synchronized (priorExecutions) {
 			// check if another global modification has been triggered since the
@@ -741,7 +750,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 				cancelFutures.add(exec.getReleaseFuture());
 			}
 			FutureUtils.combineAll(cancelFutures).whenComplete((ignore, throwable) -> {
-				LOG.info("Successfully cancel copy executions in {}.", getTaskNameWithSubtaskIndex());
+				LOG.info("Successfully cancel copy executions in {}.", getTaskMetricNameWithSubtaskIndex());
 			});
 		}
 	}
