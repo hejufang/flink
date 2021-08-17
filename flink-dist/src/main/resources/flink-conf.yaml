@@ -193,6 +193,9 @@ common:
   taskmanager.number-extra-initial: 0
   taskmanager.extra-initial-fraction: 0
 
+  taskmanager.network.netty.transport: auto
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
+
   # yarn slow container detection
   yarn.slow-container.enabled: true
   yarn.slow-container.timeout-ms: 120000
@@ -423,8 +426,6 @@ quoka:
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
-  taskmanager.network.netty.transport: auto
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
 
 quaga:
   dc: cn
@@ -434,8 +435,6 @@ quaga:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   ipv6.enabled: true
-  taskmanager.network.netty.transport: auto
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
 
 quele:
   dc: cn
@@ -629,8 +628,6 @@ boe:
   grafana.domain_url: "https://grafana-boe.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiTURSV01QeWNDZXJXYUNBdEhkSU94U2tKajU2M1BVM24iLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   yarn.provided.lib.dirs.enabled: false
-  taskmanager.network.netty.transport: auto
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
 
 cof:
   dc: vm
@@ -680,5 +677,3 @@ boei18n:
   grafana.domain_url: "https://grafana-boei18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoicndEUGRnNHpUZE9Gcm04VE5QSDdDV3JzbG8wWFZYa3IiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   yarn.provided.lib.dirs.enabled: false
-  taskmanager.network.netty.transport: auto
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
