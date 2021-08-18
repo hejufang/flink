@@ -301,12 +301,49 @@ public class JobManagerOptions {
 
 	/**
 	 * The max number of completed jobs that can be kept in the job store.
+	 * No effect when {@link JobManagerOptions#JOB_STORE_SPLIT_FAILED_AND_NON_FAILED_JOBS} is set to false.
 	 */
 	@Documentation.Section(Documentation.Sections.ALL_JOB_MANAGER)
 	public static final ConfigOption<Integer> JOB_STORE_MAX_CAPACITY =
 		key("jobstore.max-capacity")
 			.defaultValue(Integer.MAX_VALUE)
 			.withDescription("The max number of completed jobs that can be kept in the job store.");
+
+	/**
+	 * Whether two separate job stores should be used for failed and non-failed jobs respectively.
+	 */
+	@Documentation.Section(Documentation.Sections.ALL_JOB_MANAGER)
+	public static final ConfigOption<Boolean> JOB_STORE_SPLIT_FAILED_AND_NON_FAILED_JOBS =
+		key("jobstore.split-failed-and-non-failed-jobs")
+			.booleanType()
+			.defaultValue(Boolean.FALSE)
+			.withDescription("Controls whether two separate job stores should be used for failed and non-failed jobs respectively.");
+
+	/**
+	 * The max number of completed jobs that can be kept in the job store for failed jobs.
+	 * Only takes effect when {@link JobManagerOptions#JOB_STORE_SPLIT_FAILED_AND_NON_FAILED_JOBS} is set to true.
+	 */
+	@Documentation.Section(Documentation.Sections.ALL_JOB_MANAGER)
+	public static final ConfigOption<Integer> JOB_STORE_FAILED_MAX_CAPACITY =
+		key("jobstore.failed.max-capacity")
+			.intType()
+			.defaultValue(Integer.MAX_VALUE)
+			.withDescription("The max number of completed jobs that can be kept in the job store for failed jobs." +
+					"Notice that it only takes effect when '" + JOB_STORE_SPLIT_FAILED_AND_NON_FAILED_JOBS.key() +
+					"' is set to true");
+
+	/**
+	 * The max number of completed jobs that can be kept in the job store for non-failed jobs.
+	 * Only takes effect when {@link JobManagerOptions#JOB_STORE_SPLIT_FAILED_AND_NON_FAILED_JOBS} is set to true.
+	 */
+	@Documentation.Section(Documentation.Sections.ALL_JOB_MANAGER)
+	public static final ConfigOption<Integer> JOB_STORE_NON_FAILED_MAX_CAPACITY =
+		key("jobstore.non-failed.max-capacity")
+			.intType()
+			.defaultValue(Integer.MAX_VALUE)
+			.withDescription("The max number of completed jobs that can be kept in the job store for non-failed jobs." +
+					"Notice that it only takes effect when '" + JOB_STORE_SPLIT_FAILED_AND_NON_FAILED_JOBS.key() +
+					"' is set to true");
 
 	/**
 	 * The timeout in milliseconds for requesting a slot from Slot Pool.

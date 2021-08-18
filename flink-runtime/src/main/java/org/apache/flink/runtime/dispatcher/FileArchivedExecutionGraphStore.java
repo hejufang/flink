@@ -49,6 +49,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -66,7 +67,13 @@ public class FileArchivedExecutionGraphStore implements ArchivedExecutionGraphSt
 
 	private final File storageDir;
 
+	private final boolean splitFailedAndNonFailedJobs;
+
 	private final Cache<JobID, JobDetails> jobDetailsCache;
+
+	private final Cache<JobID, JobDetails> failedJobDetailsCache;
+
+	private final Cache<JobID, JobDetails> nonFailedJobDetailsCache;
 
 	private final LoadingCache<JobID, ArchivedExecutionGraph> archivedExecutionGraphCache;
 
@@ -87,6 +94,28 @@ public class FileArchivedExecutionGraphStore implements ArchivedExecutionGraphSt
 			long maximumCacheSizeBytes,
 			ScheduledExecutor scheduledExecutor,
 			Ticker ticker) throws IOException {
+		this(
+			rootDir,
+			expirationTime,
+			false,
+			maximumCapacity,
+			0,
+			0,
+			maximumCacheSizeBytes,
+			scheduledExecutor,
+			ticker);
+	}
+
+	public FileArchivedExecutionGraphStore(
+			File rootDir,
+			Time expirationTime,
+			boolean splitFailedAndNonFailedJobs,
+			int maximumCapacity,
+			int maximumFailedJobCapacity,
+			int maximumNonFailedJobCapacity,
+			long maximumCacheSizeBytes,
+			ScheduledExecutor scheduledExecutor,
+			Ticker ticker) throws IOException {
 
 		final File storageDirectory = initExecutionGraphStorageDirectory(rootDir);
 
@@ -101,13 +130,17 @@ public class FileArchivedExecutionGraphStore implements ArchivedExecutionGraphSt
 		Preconditions.checkArgument(
 			storageDirectory.exists() && storageDirectory.isDirectory(),
 			"The storage directory must exist and be a directory.");
-		this.jobDetailsCache = CacheBuilder.newBuilder()
-			.expireAfterWrite(expirationTime.toMilliseconds(), TimeUnit.MILLISECONDS)
-			.maximumSize(maximumCapacity)
-			.removalListener(
-				(RemovalListener<JobID, JobDetails>) notification -> deleteExecutionGraphFile(notification.getKey()))
-			.ticker(ticker)
-			.build();
+
+		this.splitFailedAndNonFailedJobs = splitFailedAndNonFailedJobs;
+		if (splitFailedAndNonFailedJobs) {
+			this.jobDetailsCache = CacheBuilder.newBuilder().build();
+			this.failedJobDetailsCache = initJobDetailsCache(expirationTime, maximumFailedJobCapacity, ticker);
+			this.nonFailedJobDetailsCache = initJobDetailsCache(expirationTime, maximumNonFailedJobCapacity, ticker);
+		} else {
+			this.jobDetailsCache = initJobDetailsCache(expirationTime, maximumCapacity, ticker);
+			this.failedJobDetailsCache = CacheBuilder.newBuilder().build();
+			this.nonFailedJobDetailsCache = CacheBuilder.newBuilder().build();
+		}
 
 		this.archivedExecutionGraphCache = CacheBuilder.newBuilder()
 			.maximumWeight(maximumCacheSizeBytes)
@@ -133,7 +166,11 @@ public class FileArchivedExecutionGraphStore implements ArchivedExecutionGraphSt
 
 	@Override
 	public int size() {
-		return Math.toIntExact(jobDetailsCache.size());
+		if (splitFailedAndNonFailedJobs) {
+			return Math.toIntExact(failedJobDetailsCache.size() + nonFailedJobDetailsCache.size());
+		} else {
+			return Math.toIntExact(jobDetailsCache.size());
+		}
 	}
 
 	@Override
@@ -179,7 +216,15 @@ public class FileArchivedExecutionGraphStore implements ArchivedExecutionGraphSt
 
 		final JobDetails detailsForJob = WebMonitorUtils.createDetailsForJob(archivedExecutionGraph);
 
-		jobDetailsCache.put(jobId, detailsForJob);
+		if (splitFailedAndNonFailedJobs) {
+			if (jobStatus == JobStatus.FAILED) {
+				failedJobDetailsCache.put(jobId, detailsForJob);
+			} else {
+				nonFailedJobDetailsCache.put(jobId, detailsForJob);
+			}
+		} else {
+			jobDetailsCache.put(jobId, detailsForJob);
+		}
 		archivedExecutionGraphCache.put(jobId, archivedExecutionGraph);
 	}
 
@@ -190,20 +235,40 @@ public class FileArchivedExecutionGraphStore implements ArchivedExecutionGraphSt
 
 	@Override
 	public Collection<JobDetails> getAvailableJobDetails() {
-		return jobDetailsCache.asMap().values();
+		if (splitFailedAndNonFailedJobs) {
+			final ArrayList<JobDetails> allJobDetails = new ArrayList<>();
+			allJobDetails.addAll(failedJobDetailsCache.asMap().values());
+			allJobDetails.addAll(nonFailedJobDetailsCache.asMap().values());
+			return allJobDetails;
+		} else {
+			return jobDetailsCache.asMap().values();
+		}
 	}
 
 	@Nullable
 	@Override
 	public JobDetails getAvailableJobDetails(JobID jobId) {
-		return jobDetailsCache.getIfPresent(jobId);
+		if (splitFailedAndNonFailedJobs) {
+			JobDetails availableJobDetails = failedJobDetailsCache.getIfPresent(jobId);
+			if (availableJobDetails == null) {
+				availableJobDetails = nonFailedJobDetailsCache.getIfPresent(jobId);
+			}
+			return availableJobDetails;
+		} else {
+			return jobDetailsCache.getIfPresent(jobId);
+		}
 	}
 
 	@Override
 	public void close() throws IOException {
 		cleanupFuture.cancel(false);
 
-		jobDetailsCache.invalidateAll();
+		if (splitFailedAndNonFailedJobs) {
+			failedJobDetailsCache.invalidateAll();
+			nonFailedJobDetailsCache.invalidateAll();
+		} else {
+			jobDetailsCache.invalidateAll();
+		}
 
 		// clean up the storage directory
 		FileUtils.deleteFileOrDirectory(storageDir);
@@ -265,7 +330,12 @@ public class FileArchivedExecutionGraphStore implements ArchivedExecutionGraphSt
 		}
 
 		archivedExecutionGraphCache.invalidate(jobId);
-		jobDetailsCache.invalidate(jobId);
+		if (splitFailedAndNonFailedJobs) {
+			failedJobDetailsCache.invalidate(jobId);
+			nonFailedJobDetailsCache.invalidate(jobId);
+		} else {
+			jobDetailsCache.invalidate(jobId);
+		}
 	}
 
 	private static File initExecutionGraphStorageDirectory(File tmpDir) throws IOException {
@@ -280,6 +350,16 @@ public class FileArchivedExecutionGraphStore implements ArchivedExecutionGraphSt
 		}
 
 		throw new IOException("Could not create executionGraphStorage directory in " + tmpDir + '.');
+	}
+
+	private Cache<JobID, JobDetails> initJobDetailsCache(Time expirationTime, int maximumCapacity, Ticker ticker) {
+		return CacheBuilder.newBuilder()
+			.expireAfterWrite(expirationTime.toMilliseconds(), TimeUnit.MILLISECONDS)
+			.maximumSize(maximumCapacity)
+			.removalListener(
+				(RemovalListener<JobID, JobDetails>) notification -> deleteExecutionGraphFile(notification.getKey()))
+			.ticker(ticker)
+			.build();
 	}
 
 	// --------------------------------------------------------------

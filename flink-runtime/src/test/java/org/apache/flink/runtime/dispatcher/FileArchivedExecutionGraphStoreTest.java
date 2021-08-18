@@ -53,6 +53,7 @@ import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
@@ -143,6 +144,37 @@ public class FileArchivedExecutionGraphStoreTest extends TestLogger {
 		final File rootDir = temporaryFolder.newFolder();
 
 		try (final FileArchivedExecutionGraphStore executionGraphStore = createDefaultExecutionGraphStore(rootDir)) {
+			for (ArchivedExecutionGraph executionGraph : executionGraphs) {
+				executionGraphStore.put(executionGraph);
+			}
+
+			assertThat(executionGraphStore.getAvailableJobDetails(), Matchers.containsInAnyOrder(jobDetails.toArray()));
+		}
+	}
+
+	/**
+	 * Tests that we obtain the correct collection of available job details when splitting failed and non-failed jobs.
+	 */
+	@Test
+	public void testAvailableJobDetailsWhenSplittingFailedAndNonFailedJobs() throws IOException {
+		final int numberExecutionGraphs = 10;
+		final Collection<ArchivedExecutionGraph> executionGraphs = generateTerminalExecutionGraphs(numberExecutionGraphs);
+
+		final Collection<JobDetails> jobDetails = generateJobDetails(executionGraphs);
+
+		final File rootDir = temporaryFolder.newFolder();
+
+		try (final FileArchivedExecutionGraphStore executionGraphStore = new FileArchivedExecutionGraphStore(
+			rootDir,
+			Time.hours(1L),
+			true,
+			Integer.MAX_VALUE,
+			Integer.MAX_VALUE,
+			Integer.MAX_VALUE,
+			10000L,
+			TestingUtils.defaultScheduledExecutor(),
+			Ticker.systemTicker())) {
+
 			for (ArchivedExecutionGraph executionGraph : executionGraphs) {
 				executionGraphStore.put(executionGraph);
 			}
@@ -304,11 +336,99 @@ public class FileArchivedExecutionGraphStoreTest extends TestLogger {
 		}
 	}
 
+	/**
+	 * Tests that the size of {@link FileArchivedExecutionGraphStore} is no more than the configured max capacity
+	 * and the old execution graphs will be purged if the total added number exceeds the max capacity when splitting
+	 * failed and non-failed jobs.
+	 */
+	@Test
+	public void testMaximumCapacityWhenSplittingFailedAndNonFailedJobs() throws IOException {
+		final File rootDir = temporaryFolder.newFolder();
+
+		final int maxFailedJobCapacity = 10;
+		final int maxNonFailedJobCapacity = 10;
+		final int totalMaxCapacity = maxFailedJobCapacity + maxNonFailedJobCapacity;
+		final int numberExecutionGraphs = 10;
+
+		// old execution graphs to fill up both failed job store and non-failed job store
+		final Collection<ArchivedExecutionGraph> oldFailedExecutionGraphs =
+			generateTerminalExecutionGraphs(numberExecutionGraphs, JobStatus.FAILED);
+		final Collection<ArchivedExecutionGraph> oldFinishedExecutionGraphs =
+			generateTerminalExecutionGraphs(numberExecutionGraphs, JobStatus.FINISHED);
+
+		// new execution graphs to completely flush all the old execution graphs
+		// in both failed job store and non-failed job store
+		final Collection<ArchivedExecutionGraph> newFailedExecutionGraphs =
+			generateTerminalExecutionGraphs(numberExecutionGraphs, JobStatus.FAILED);
+		final Collection<ArchivedExecutionGraph> newCanceledExecutionGraphs =
+			generateTerminalExecutionGraphs(numberExecutionGraphs, JobStatus.CANCELED);
+
+		final Collection<JobDetails> jobDetails =
+			Stream.concat(
+				generateJobDetails(newFailedExecutionGraphs).stream(),
+				generateJobDetails(newCanceledExecutionGraphs).stream()
+			)
+			.collect(Collectors.toList());
+
+		try (final FileArchivedExecutionGraphStore executionGraphStore = new FileArchivedExecutionGraphStore(
+			rootDir,
+			Time.hours(1L),
+			true,
+			0,
+			maxFailedJobCapacity,
+			maxNonFailedJobCapacity,
+			10000L,
+			TestingUtils.defaultScheduledExecutor(),
+			Ticker.systemTicker())) {
+
+			for (ArchivedExecutionGraph executionGraph : oldFailedExecutionGraphs) {
+				executionGraphStore.put(executionGraph);
+				// no more than the configured maximum capacity for failed jobs
+				assertTrue(executionGraphStore.size() <= maxFailedJobCapacity);
+			}
+			for (ArchivedExecutionGraph executionGraph : oldFinishedExecutionGraphs) {
+				executionGraphStore.put(executionGraph);
+				// no more than the configured total maximum capacity
+				assertTrue(executionGraphStore.size() <= totalMaxCapacity);
+			}
+
+			// equals to the configured total maximum capacity
+			assertEquals(totalMaxCapacity, executionGraphStore.size());
+
+			for (ArchivedExecutionGraph executionGraph : newFailedExecutionGraphs) {
+				executionGraphStore.put(executionGraph);
+				// equals to the configured total maximum capacity
+				assertEquals(totalMaxCapacity, executionGraphStore.size());
+			}
+			for (ArchivedExecutionGraph executionGraph : newCanceledExecutionGraphs) {
+				executionGraphStore.put(executionGraph);
+				// equals to the configured total maximum capacity
+				assertEquals(totalMaxCapacity, executionGraphStore.size());
+			}
+
+			// the older execution graphs are purged
+			assertThat(executionGraphStore.getAvailableJobDetails(), Matchers.containsInAnyOrder(jobDetails.toArray()));
+		}
+	}
+
 	private Collection<ArchivedExecutionGraph> generateTerminalExecutionGraphs(int number) {
 		final Collection<ArchivedExecutionGraph> executionGraphs = new ArrayList<>(number);
 
 		for (int i = 0; i < number; i++) {
 			final JobStatus state = GLOBALLY_TERMINAL_JOB_STATUS.get(ThreadLocalRandom.current().nextInt(GLOBALLY_TERMINAL_JOB_STATUS.size()));
+			executionGraphs.add(
+				new ArchivedExecutionGraphBuilder()
+					.setState(state)
+					.build());
+		}
+
+		return executionGraphs;
+	}
+
+	private Collection<ArchivedExecutionGraph> generateTerminalExecutionGraphs(int number, JobStatus state) {
+		final Collection<ArchivedExecutionGraph> executionGraphs = new ArrayList<>(number);
+
+		for (int i = 0; i < number; i++) {
 			executionGraphs.add(
 				new ArchivedExecutionGraphBuilder()
 					.setState(state)

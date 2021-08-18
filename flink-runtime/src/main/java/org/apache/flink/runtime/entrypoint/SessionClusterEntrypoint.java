@@ -47,13 +47,19 @@ public abstract class SessionClusterEntrypoint extends ClusterEntrypoint {
 		final File tmpDir = new File(ConfigurationUtils.parseTempDirectories(configuration)[0]);
 
 		final Time expirationTime =  Time.seconds(configuration.getLong(JobManagerOptions.JOB_STORE_EXPIRATION_TIME));
+		final boolean splitFailedAndNonFailedJobs = configuration.getBoolean(JobManagerOptions.JOB_STORE_SPLIT_FAILED_AND_NON_FAILED_JOBS);
 		final int maximumCapacity = configuration.getInteger(JobManagerOptions.JOB_STORE_MAX_CAPACITY);
+		final int maximumFailedJobCapacity = configuration.getInteger(JobManagerOptions.JOB_STORE_FAILED_MAX_CAPACITY);
+		final int maximumNonFailedJobCapacity = configuration.getInteger(JobManagerOptions.JOB_STORE_NON_FAILED_MAX_CAPACITY);
 		final long maximumCacheSizeBytes = configuration.getLong(JobManagerOptions.JOB_STORE_CACHE_SIZE);
 
 		return new FileArchivedExecutionGraphStore(
 			tmpDir,
 			expirationTime,
+			splitFailedAndNonFailedJobs,
 			maximumCapacity,
+			maximumFailedJobCapacity,
+			maximumNonFailedJobCapacity,
 			maximumCacheSizeBytes,
 			scheduledExecutor,
 			Ticker.systemTicker());
