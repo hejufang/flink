@@ -52,14 +52,6 @@ under the License.
 			</includes>
 			<outputFileNameMapping>flink-shaded-zookeeper-${zookeeper.version}.jar</outputFileNameMapping>
 		</dependencySet>
-		<dependencySet>
-			<unpack>false</unpack>
-			<outputDirectory>hive</outputDirectory>
-			<includes>
-				<include>com.bytedance:flink-hive-udf</include>
-			</includes>
-			<scope>provided</scope>
-		</dependencySet>
 	</dependencySets>
 
 	<files>
