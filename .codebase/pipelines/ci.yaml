@@ -4,7 +4,7 @@ trigger:
     branches: [ "flink-1.11" ]
 jobs:
   build:
-    image: hub.byted.org/yarn/flink_bet_maven:53abbc05c3274f39176b9ca72455ec8f
+    image: hub.byted.org/yarn/flink_bet_maven:d2a30895a84daad65a4171985fd64440
     steps:
       - uses: actions/checkout@v1
         inputs:
