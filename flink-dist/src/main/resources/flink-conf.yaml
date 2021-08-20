@@ -118,7 +118,6 @@ common:
   # Full TaskManagerOptions
   taskmanager.network.netty.sendReceiveBufferSize: 4194304
   taskmanager.serializer.prune.buffer.threshold: 262144
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
 
   # RPC / Akka
   akka.ask.timeout: 180 s # default 10 s
@@ -433,6 +432,7 @@ quoka:
   cluster.evenly-spread-out-slots: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
 
 quaga:
   dc: cn
@@ -442,6 +442,7 @@ quaga:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   ipv6.enabled: true
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
 
 quele:
   dc: cn
@@ -639,6 +640,7 @@ boe:
   register-dashboard.token: "Bearer eyJrIjoiTURSV01QeWNDZXJXYUNBdEhkSU94U2tKajU2M1BVM24iLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
 
 cof:
   dc: vm
@@ -691,3 +693,4 @@ boei18n:
   register-dashboard.token: "Bearer eyJrIjoicndEUGRnNHpUZE9Gcm04VE5QSDdDV3JzbG8wWFZYa3IiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
