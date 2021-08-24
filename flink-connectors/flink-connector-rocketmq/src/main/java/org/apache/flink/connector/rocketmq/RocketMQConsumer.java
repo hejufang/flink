@@ -283,7 +283,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			if (messageExts.size() == 0) {
 				Thread.sleep(DEFAULT_SLEEP_MILLISECONDS);
 			} else {
-				RetryManager.retry(() -> consumer.ack(messageExts.get(messageExts.size() - 1)), strategy);
+				synchronized (this) {
+					RetryManager.retry(() -> consumer.ack(messageExts.get(messageExts.size() - 1)), strategy);
+				}
 			}
 		}
 	}
