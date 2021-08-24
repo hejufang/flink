@@ -71,8 +71,8 @@ import java.util.stream.Collectors;
  * Test savepoint rescaling.
  */
 @RunWith(Parameterized.class)
-public class RecoveryITCase extends TestLogger {
-	private static final Logger LOG = LoggerFactory.getLogger(RecoveryITCase.class);
+public class CEPRecoveryITCase extends TestLogger {
+	private static final Logger LOG = LoggerFactory.getLogger(CEPRecoveryITCase.class);
 
 	private static final int numTaskManagers = 2;
 	private static final int slotsPerTaskManager = 2;

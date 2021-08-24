@@ -80,6 +80,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -105,7 +106,6 @@ public class CoCepOperator<IN, KEY, OUT>
 
 	private static final byte[] STATE_CLEANER_TIMER_PAYLOAD = "stateCleanerTimerPayload".getBytes();
 	private static final byte[] TIME_ADVANCER_TIMER_PAYLOAD = "timeAdvancerTimerPayload".getBytes();
-
 
 	private final boolean isProcessingTime;
 
@@ -432,7 +432,7 @@ public class CoCepOperator<IN, KEY, OUT>
 
 				// we have an event with a valid timestamp, so
 				// we buffer it until we receive the proper watermark.
-				saveRegisterWatermarkTimer();
+				saveRegisterWatermarkTimer(timestamp);
 				bufferEvent(value, timestamp);
 			} else if (lateDataOutputTag != null) {
 				output.collect(lateDataOutputTag, element);
@@ -464,6 +464,14 @@ public class CoCepOperator<IN, KEY, OUT>
 	 * whenever the watermark advances, which is what we want for working off the queue of
 	 * buffered elements.
 	 */
+	private void saveRegisterWatermarkTimer(long timestamp) {
+		long currentWatermark = timerService.currentWatermark();
+		// protect against overflow
+		if (currentWatermark + 1 > currentWatermark) {
+			timerService.registerEventTimeTimer(VoidNamespace.INSTANCE, timestamp);
+		}
+	}
+
 	private void saveRegisterWatermarkTimer() {
 		long currentWatermark = timerService.currentWatermark();
 		// protect against overflow
@@ -490,7 +498,7 @@ public class CoCepOperator<IN, KEY, OUT>
 	@Override
 	public void onEventTime(InternalTimer<KEY, VoidNamespace> timer) throws Exception {
 
-		if (timer.getPayload() != null && timer.getPayload().equals(TIME_ADVANCER_TIMER_PAYLOAD)){
+		if (timer.getPayload() != null && Arrays.equals(timer.getPayload(), TIME_ADVANCER_TIMER_PAYLOAD)){
 			processTimeAdvancerTimer(timer.getTimestamp());
 			return;
 		}
@@ -499,8 +507,8 @@ public class CoCepOperator<IN, KEY, OUT>
 
 		triggerComputeWithWatermark(sortedTimestamps, timerService.currentWatermark());
 
-		if (!sortedTimestamps.isEmpty() || !this.isPartialMatchesEmpty()) {
-			saveRegisterWatermarkTimer();
+		if (!sortedTimestamps.isEmpty()) {
+			saveRegisterWatermarkTimer(sortedTimestamps.peek());
 		}
 
 		updateLastSeenWatermark(timerService.currentWatermark());
@@ -514,12 +522,12 @@ public class CoCepOperator<IN, KEY, OUT>
 	public void onProcessingTime(InternalTimer<KEY, VoidNamespace> timer) throws Exception {
 
 		byte[] timerPayload = timer.getPayload();
-		if (timer.getPayload() != null && timer.getPayload().equals(TIME_ADVANCER_TIMER_PAYLOAD)){
+		if (timerPayload != null && Arrays.equals(timerPayload, TIME_ADVANCER_TIMER_PAYLOAD)){
 			processTimeAdvancerTimer(timer.getTimestamp());
 			return;
 		}
 		triggerComputeWithWatermark(getSortedTimestamps(), Long.MAX_VALUE);
-		if (timerPayload != null && timerPayload.equals(STATE_CLEANER_TIMER_PAYLOAD)){
+		if (timerPayload != null && Arrays.equals(timerPayload, STATE_CLEANER_TIMER_PAYLOAD)){
 			clearAllStates();
 		}
 	}
@@ -544,15 +552,21 @@ public class CoCepOperator<IN, KEY, OUT>
 	private void triggerComputeWithWatermark(PriorityQueue<Long> sortedTimestamps, Long watermark) throws Exception {
 
 		HashMap<String, NFAState> tmpComputationStates = new HashMap<>();
+
+		Iterator<Map.Entry<String, Pattern>> iter = this.patternStates.iterator();
+		while (iter.hasNext()){
+			Map.Entry<String, Pattern> entry = iter.next();
+			String patternId = entry.getKey();
+			NFAState nfaState = getNFAState(patternId);
+			tmpComputationStates.put(patternId, nfaState);
+		}
+
 		while (!sortedTimestamps.isEmpty() && sortedTimestamps.peek() <= watermark) {
 			long timestamp = sortedTimestamps.poll();
 			try (Stream<IN> data = sort(elementQueueState.get(timestamp))) {
 				final List<IN> elements = data.collect(Collectors.toList());
-				Iterator<Map.Entry<String, Pattern>> iter = this.patternStates.iterator();
-				while (iter.hasNext()) {
-					Map.Entry<String, Pattern> entry = iter.next();
-					String patternId = entry.getKey();
-					NFAState nfaState = getNFAState(patternId);
+				for (Map.Entry<String, NFAState> patternNFAStateEntry : tmpComputationStates.entrySet()) {
+					NFAState nfaState = patternNFAStateEntry.getValue();
 					advanceTime(nfaState, timestamp);
 					for (IN event : elements) {
 						try {
@@ -561,15 +575,14 @@ public class CoCepOperator<IN, KEY, OUT>
 							throw new RuntimeException(e);
 						}
 					}
-					tmpComputationStates.put(patternId, nfaState);
 				}
 			}
 			elementQueueState.remove(timestamp);
 		}
 
-		Iterator<Map.Entry<String, NFAState>> iter = tmpComputationStates.entrySet().iterator();
-		while (iter.hasNext()) {
-			NFAState nfaState = iter.next().getValue();
+		Iterator<Map.Entry<String, NFAState>> newNFAIterator = tmpComputationStates.entrySet().iterator();
+		while (newNFAIterator.hasNext()) {
+			NFAState nfaState = newNFAIterator.next().getValue();
 			//if using processingTime , No need to advanceTime
 			if (watermark != Long.MAX_VALUE) {
 				advanceTime(nfaState, watermark);
@@ -643,7 +656,7 @@ public class CoCepOperator<IN, KEY, OUT>
 			NFA nfa = usingNFAs.get(nfaState.getPatternId());
 			Collection<Map<String, List<IN>>> patterns =
 				nfa.process(sharedBufferAccessor, nfaState, event, timestamp, afterMatchSkipStrategy, cepTimerService);
-			if (nfa.isEndWithNoPattern() && nfaState.isNewStartPartiailMatch()){
+			if (nfa.getWindowTime() > 0 && nfaState.isNewStartPartiailMatch()){
 				registerTimeAdvancerTimer(timestamp, nfa.getWindowTime());
 			}
 			nfaState.resetNewStartPartiailMatch();
