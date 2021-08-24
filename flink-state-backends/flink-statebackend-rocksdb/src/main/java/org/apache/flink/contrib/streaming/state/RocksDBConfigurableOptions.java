@@ -210,4 +210,9 @@ public class RocksDBConfigurableOptions implements Serializable {
 					"%s, %s, %s or %s, and RocksDB choose '%s' as default style.", NO_COMPRESSION.name(), SNAPPY_COMPRESSION.name(),
 				ZLIB_COMPRESSION.name(), BZLIB2_COMPRESSION.name(), LZ4_COMPRESSION.name(), LZ4HC_COMPRESSION.name(), XPRESS_COMPRESSION.name(),
 				ZSTD_COMPRESSION.name(), DISABLE_COMPRESSION_OPTION.name(), SNAPPY_COMPRESSION.name()));
+
+	public static final ConfigOption<Boolean> BLOOMFILTER_ENABLED =
+		key("state.backend.rocksdb.bloomfilter.enabled")
+			.defaultValue(false)
+			.withDescription("Whether enable bloom filter feature in block.");
 }

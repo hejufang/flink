@@ -24,6 +24,7 @@ import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.util.Preconditions;
 
 import org.rocksdb.BlockBasedTableConfig;
+import org.rocksdb.BloomFilter;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.CompactionStyle;
 import org.rocksdb.CompressionType;
@@ -42,6 +43,7 @@ import java.util.Set;
 
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOCK_CACHE_SIZE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOCK_SIZE;
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOOMFILTER_ENABLED;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.COMPACTION_STYLE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.COMPRESSION_TYPE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.LOG_LEVEL;
@@ -155,6 +157,13 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 
 		if (isOptionConfigured(BLOCK_CACHE_SIZE)) {
 			blockBasedTableConfig.setBlockCacheSize(getBlockCacheSize());
+		}
+
+		if (isOptionConfigured(BLOOMFILTER_ENABLED)) {
+			final boolean enabled = Boolean.parseBoolean(getInternal(BLOOMFILTER_ENABLED.key()));
+			if (enabled) {
+				blockBasedTableConfig.setFilter(new BloomFilter());
+			}
 		}
 
 		return currentOptions.setTableFormatConfig(blockBasedTableConfig);
