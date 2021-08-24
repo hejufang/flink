@@ -188,8 +188,8 @@ public class RocksDBOperationUtils {
 	 *
 	 */
 	public static void copyDbLogToContainerLogDir(File instanceBasePath) {
-		File userLogDir = new File(System.getProperty("log.file")).getParentFile();
 		try {
+			File userLogDir = new File(System.getProperty("log.file")).getParentFile();
 			File instanceRocksDBPath = new File(instanceBasePath, DB_INSTANCE_DIR_STRING);
 			File dbLogFile = new File(instanceRocksDBPath, DB_LOG_FILE_NAME);
 

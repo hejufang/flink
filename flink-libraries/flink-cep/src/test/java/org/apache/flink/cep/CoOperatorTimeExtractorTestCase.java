@@ -25,6 +25,7 @@ import org.apache.flink.cep.functions.timestamps.CepTimestampExtractor;
 import org.apache.flink.cep.pattern.parser.TestTupleParser;
 import org.apache.flink.cep.time.Time;
 import org.apache.flink.cep.utils.CEPUtils;
+import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -32,7 +33,11 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.util.Collector;
 
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -52,7 +57,19 @@ import static org.junit.Assert.assertEquals;
 /**
  * CoOperatorITCase.
  */
+@RunWith(Parameterized.class)
 public class CoOperatorTimeExtractorTestCase implements Serializable{
+
+	@Parameterized.Parameter
+	public String statebackend;
+
+	@Parameterized.Parameters(name = "backend = {0}")
+	public static Object[] data() {
+		return new Object[]{"filesystem", "rocksdb"};
+	}
+
+	@ClassRule
+	public static TemporaryFolder temporaryFolder = new TemporaryFolder();
 
 	private static ArrayBlockingQueue<Object> queue = new ArrayBlockingQueue<>(1024);
 
@@ -145,8 +162,11 @@ public class CoOperatorTimeExtractorTestCase implements Serializable{
 
 	private List<String> runTestWithTimestampExtractor(CepTimestampExtractor cepTimestampExtractor, Long stateTTL) throws IOException {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setParallelism(1);
 		env.setBufferTimeout(100);
+		env.getConfig().enableNewTimerMechanism();
 
 		HashMap<String, String> ttlProperty = new HashMap();
 		ttlProperty.put(CEPUtils.TTL_KEY, String.valueOf(stateTTL));

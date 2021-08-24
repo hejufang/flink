@@ -70,8 +70,8 @@ import java.util.stream.Collectors;
  * Test savepoint rescaling.
  */
 @RunWith(Parameterized.class)
-public class RecoveryITCase extends TestLogger {
-	private static final Logger LOG = LoggerFactory.getLogger(RecoveryITCase.class);
+public class CEPRecoveryITCase extends TestLogger {
+	private static final Logger LOG = LoggerFactory.getLogger(CEPRecoveryITCase.class);
 
 	private static final int numTaskManagers = 2;
 	private static final int slotsPerTaskManager = 2;
@@ -154,7 +154,7 @@ public class RecoveryITCase extends TestLogger {
 			final JobID jobID = jobGraph.getJobID();
 
 			client.setDetached(true);
-			client.submitJob(jobGraph, RecoveryITCase.class.getClassLoader());
+			client.submitJob(jobGraph, CEPRecoveryITCase.class.getClassLoader());
 
 			TestSink.workCompletedLatch.await(deadline.timeLeft().toMillis(), TimeUnit.MILLISECONDS);
 
@@ -172,7 +172,7 @@ public class RecoveryITCase extends TestLogger {
 			scaledJobGraph.setSavepointRestoreSettings(SavepointRestoreSettings.forPath(savepointPath));
 
 			client.setDetached(false);
-			client.submitJob(scaledJobGraph, RecoveryITCase.class.getClassLoader());
+			client.submitJob(scaledJobGraph, CEPRecoveryITCase.class.getClassLoader());
 
 		} finally {
 		}

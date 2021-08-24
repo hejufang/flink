@@ -24,6 +24,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.cep.functions.MultiplePatternProcessFunction;
 import org.apache.flink.cep.pattern.parser.TestCepEventParser;
 import org.apache.flink.cep.test.TestData;
+import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
@@ -34,7 +35,11 @@ import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.util.Collector;
 
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -53,7 +58,19 @@ import static org.junit.Assert.assertEquals;
 /**
  * CoOperatorITCase.
  */
+@RunWith(Parameterized.class)
 public class CoOperatorITCase {
+
+	@Parameterized.Parameter
+	public String statebackend;
+
+	@Parameterized.Parameters(name = "backend = {0}")
+	public static Object[] data() {
+		return new Object[]{"filesystem", "rocksdb"};
+	}
+
+	@ClassRule
+	public static TemporaryFolder temporaryFolder = new TemporaryFolder();
 
 	private static ArrayBlockingQueue<Object> queue = new ArrayBlockingQueue<>(1024);
 
@@ -141,7 +158,8 @@ public class CoOperatorITCase {
 				Tuple2.of(new Event(1, "middle", 2.0), 3L),
 				Tuple2.of(new Event(2, "buy", 2.0), 1L),
 				Tuple2.of(new Event(2, "middle1", 2.0), 2L),
-				Tuple2.of(new Event(3, "buy", 2.0), 1L)
+				Tuple2.of(new Event(3, "buy", 2.0), 1L),
+				Tuple2.of(new Event(3, "highWatermark", 2.0), 100L)
 		};
 		queue.addAll(Arrays.asList(data));
 		assertEquals(Arrays.asList("pattern_notfollowedby,2", "pattern_notfollowedby,3"), runTest());
@@ -204,9 +222,12 @@ public class CoOperatorITCase {
 
 	private List<String> runTest() throws IOException {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setParallelism(1);
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setBufferTimeout(10);
+		env.getConfig().enableNewTimerMechanism();
 
 		DataStream<String> patternJsonStream = env.addSource(new PatternJsonStream());
 		DataStream<Event> input = env.addSource(new EventStream())

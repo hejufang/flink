@@ -28,6 +28,7 @@ import org.apache.flink.cep.pattern.parser.TestCepEventParser;
 import org.apache.flink.cep.test.TestData;
 import org.apache.flink.cep.time.Time;
 import org.apache.flink.cep.utils.TestEmptyPatternStreamFactory;
+import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
@@ -37,7 +38,11 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.util.Collector;
 
+import org.junit.ClassRule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -52,11 +57,25 @@ import static org.junit.Assert.assertEquals;
 /**
  * Tests for CEP Pattern Stream.
  */
+@RunWith(Parameterized.class)
 public class CEPPatternStreamITCase {
+
+	@Parameterized.Parameter
+	public String statebackend;
+
+	@Parameterized.Parameters(name = "backend = {0}")
+	public static Object[] data() {
+		return new Object[]{"filesystem", "rocksdb"};
+	}
+
+	@ClassRule
+	public static TemporaryFolder temporaryFolder = new TemporaryFolder();
 
 	@Test
 	public void testEmptyPatternStream() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
 		DataStream<Pattern<Event, Event>> patternDataStream = env.addSource(new PatternDataStream());
@@ -91,6 +110,8 @@ public class CEPPatternStreamITCase {
 	@Test
 	public void testPatternJsonStream() throws IOException {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(2);
 
@@ -143,6 +164,8 @@ public class CEPPatternStreamITCase {
 	@Test
 	public void testPatternDataStream() throws IOException {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(2);
 
@@ -221,6 +244,8 @@ public class CEPPatternStreamITCase {
 	@Test
 	public void testNotFollowedBy() throws IOException {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(2);
 
@@ -279,6 +304,8 @@ public class CEPPatternStreamITCase {
 	@Test
 	public void testAllowSinglePartialMatchPerKeyStream() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(2);
 
@@ -342,6 +369,8 @@ public class CEPPatternStreamITCase {
 	@Test
 	public void testCountPattern() throws IOException {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(2);
 
@@ -388,6 +417,8 @@ public class CEPPatternStreamITCase {
 	@Test
 	public void testSumPattern() throws IOException {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(2);
 
@@ -434,6 +465,8 @@ public class CEPPatternStreamITCase {
 	@Test
 	public void testMultiplePatterns() throws IOException {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(1);
 
@@ -484,6 +517,8 @@ public class CEPPatternStreamITCase {
 	@Test
 	public void testNoFollowByWithWindow() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(1);
 
@@ -543,6 +578,9 @@ public class CEPPatternStreamITCase {
 	@Test
 	public void testNoFollowByWithInPatternInProcessingTime() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
+		env.getConfig().enableNewTimerMechanism();
 		env.setParallelism(1);
 
 		Pattern<Event, Event> pattern = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {
@@ -620,6 +658,8 @@ public class CEPPatternStreamITCase {
 		@Test
 	public void testSinglePattern() throws IOException {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(1);
 
@@ -680,6 +720,8 @@ public class CEPPatternStreamITCase {
 	@Test
 	public void testPatternList() throws IOException {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(1);
 
