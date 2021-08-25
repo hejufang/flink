@@ -52,6 +52,9 @@ common:
   kubernetes.jobmanager.service-account: flink
   kubernetes.deployment.annotations: pod.tce.kubernetes.io/mountHostPath:true
 
+  # jvm
+  flink.parallel.gc.thread.use.cores: true
+
   #metrics
   metrics.reporters: opentsdb_reporter
   metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter

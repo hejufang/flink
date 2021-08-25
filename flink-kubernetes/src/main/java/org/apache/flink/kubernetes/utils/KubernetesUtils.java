@@ -19,6 +19,7 @@
 package org.apache.flink.kubernetes.utils;
 
 import org.apache.flink.client.program.PackagedProgramUtils;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
@@ -167,7 +168,11 @@ public class KubernetesUtils {
 			opts = getJavaOpts(flinkConfig, CoreOptions.FLINK_TM_JVM_OPTIONS);
 			logFileName = "taskmanager";
 		}
-		startCommandValues.put("jvmopts", opts);
+
+		// add gc thread for jvm configuration
+		final String jvmOpts = getJavaOptsWithParallelGCThreads(opts, flinkConfig, mode == ClusterComponent.JOB_MANAGER);
+
+		startCommandValues.put("jvmopts", jvmOpts);
 
 		startCommandValues.put("logging",
 			getLogging(logDirectory + "/" + logFileName + ".log", configDirectory, hasLogback, hasLog4j));
@@ -217,6 +222,29 @@ public class KubernetesUtils {
 		} else {
 			return baseJavaOpts;
 		}
+	}
+
+	private static String getJavaOptsWithParallelGCThreads(String baseJavaOpts, Configuration flinkConfig, boolean isJobManager) {
+
+		// use cores as gc.thread.num
+		if (flinkConfig.getBoolean(CoreOptions.FLINK_GC_THREAD_NUM_USE_CORES)) {
+			if (!baseJavaOpts.contains("-XX:ParallelGCThreads=")) {
+
+				double containerVcores;
+				if (isJobManager) {
+					containerVcores = flinkConfig.getDouble(KubernetesConfigOptions.JOB_MANAGER_CPU);
+				} else {
+					containerVcores = flinkConfig.getDouble(KubernetesConfigOptions.TASK_MANAGER_CPU);
+				}
+
+				if (containerVcores <= 0) {
+					baseJavaOpts += " -XX:ParallelGCThreads=" + ConfigConstants.FLINK_GC_THREAD_NUM_DEFAULT;
+				} else {
+					baseJavaOpts += " -XX:ParallelGCThreads=" + (int) Math.ceil(containerVcores);
+				}
+			}
+		}
+		return baseJavaOpts;
 	}
 
 	private static String getLogging(String logFile, String confDir, boolean hasLogback, boolean hasLog4j) {

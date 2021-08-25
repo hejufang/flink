@@ -37,6 +37,9 @@ common:
   # The number of task slots that each TaskManager offers. Each slot runs one parallel pipeline.
   taskmanager.numberOfTaskSlots: 4
 
+  # jvm
+  flink.parallel.gc.thread.use.cores: true
+
   #metrics
   metrics.reporters: opentsdb_reporter
   metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
