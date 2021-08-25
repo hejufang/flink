@@ -162,7 +162,9 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 		if (isOptionConfigured(BLOOMFILTER_ENABLED)) {
 			final boolean enabled = Boolean.parseBoolean(getInternal(BLOOMFILTER_ENABLED.key()));
 			if (enabled) {
-				blockBasedTableConfig.setFilter(new BloomFilter());
+				BloomFilter bloomFilter = new BloomFilter();
+				handlesToClose.add(bloomFilter);
+				blockBasedTableConfig.setFilter(bloomFilter);
 			}
 		}
 
@@ -397,6 +399,11 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 		return this;
 	}
 
+	public DefaultConfigurableOptionsFactory useBloomFilter(boolean useBloomFilter) {
+		setInternal(BLOOMFILTER_ENABLED.key(), String.valueOf(useBloomFilter));
+		return this;
+	}
+
 	// --------------------------------------------------------------------------
 	// Period of Rocksdb dump status.
 	// --------------------------------------------------------------------------
@@ -430,7 +437,8 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 		MIN_WRITE_BUFFER_NUMBER_TO_MERGE,
 		BLOCK_SIZE,
 		BLOCK_CACHE_SIZE,
-		COMPRESSION_TYPE
+		COMPRESSION_TYPE,
+		BLOOMFILTER_ENABLED
 	};
 
 	private static final Set<ConfigOption<?>> POSITIVE_INT_CONFIG_SET = new HashSet<>(Arrays.asList(
