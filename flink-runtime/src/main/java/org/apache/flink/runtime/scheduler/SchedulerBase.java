@@ -24,10 +24,12 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.InputSplit;
 import org.apache.flink.metrics.MeterView;
+import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.queryablestate.KvStateID;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
@@ -129,7 +131,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -521,6 +525,17 @@ public abstract class SchedulerBase implements SchedulerNG {
 		jobManagerJobMetricGroup.gauge(MetricNames.FULL_RESTARTS, this::getNumberOfRestarts);
 		jobManagerJobMetricGroup.meter(MetricNames.FULL_RESTARTS_RATE, new MeterView(executionGraph.getNumberOfRestartsCounter(), 60));
 		jobManagerJobMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
+
+		jobManagerJobMetricGroup.gauge(MetricNames.EXECUTION_STATE_TIME, () -> (TagGaugeStore) () -> executionGraph.getAllVertices().values().stream()
+				.flatMap((Function<ExecutionJobVertex, Stream<Tuple3<ExecutionState, Long, String>>>) executionJobVertex -> executionJobVertex.getExecutionStateTime().entrySet().stream()
+						.map(stateTimeEntry -> new Tuple3<>(stateTimeEntry.getKey(), stateTimeEntry.getValue(), String.valueOf(executionJobVertex.getJobVertex().getIndexInCreatedOrder()))))
+				.map(tuple -> new TagGaugeStore.TagGaugeMetric(
+						tuple.f1,
+						new TagGaugeStore.TagValuesBuilder()
+								.addTagValue(MetricNames.EXECUTION_STATE_TAG_STATE_NAME, tuple.f0.name())
+								.addTagValue(MetricNames.EXECUTION_STATE_TAG_VERTEX_INDEX_NAME, tuple.f2)
+								.build()))
+				.collect(Collectors.toList()));
 	}
 
 	protected abstract void startSchedulingInternal();

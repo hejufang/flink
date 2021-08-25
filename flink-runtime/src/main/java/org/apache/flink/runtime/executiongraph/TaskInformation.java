@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.executiongraph;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.Preconditions;
@@ -38,6 +39,9 @@ public class TaskInformation implements Serializable {
 	/** Name of the task. */
 	private final String taskName;
 
+	/** Job vertex Index in created order of the task. */
+	private final int vertexIndexInCreatedOrder;
+
 	/** Name of the task used for metrics. */
 	private final String taskMetricName;
 
@@ -53,6 +57,7 @@ public class TaskInformation implements Serializable {
 	/** Configuration for the task. */
 	private final Configuration taskConfiguration;
 
+	@VisibleForTesting
 	public TaskInformation(
 		JobVertexID jobVertexId,
 		String taskName,
@@ -60,11 +65,12 @@ public class TaskInformation implements Serializable {
 		int maxNumberOfSubtasks,
 		String invokableClassName,
 		Configuration taskConfiguration) {
-		this(jobVertexId, taskName, taskName, numberOfSubtasks, maxNumberOfSubtasks, invokableClassName, taskConfiguration);
+		this(jobVertexId, -1, taskName, taskName, numberOfSubtasks, maxNumberOfSubtasks, invokableClassName, taskConfiguration);
 	}
 
 	public TaskInformation(
 			JobVertexID jobVertexId,
+			int vertexIndexInCreatedOrder,
 			String taskName,
 			String taskMetricName,
 			int numberOfSubtasks,
@@ -72,6 +78,7 @@ public class TaskInformation implements Serializable {
 			String invokableClassName,
 			Configuration taskConfiguration) {
 		this.jobVertexId = Preconditions.checkNotNull(jobVertexId);
+		this.vertexIndexInCreatedOrder = vertexIndexInCreatedOrder;
 		this.taskName = Preconditions.checkNotNull(taskName);
 		this.taskMetricName = Preconditions.checkNotNull(taskMetricName);
 		this.numberOfSubtasks = numberOfSubtasks;
@@ -82,6 +89,10 @@ public class TaskInformation implements Serializable {
 
 	public JobVertexID getJobVertexId() {
 		return jobVertexId;
+	}
+
+	public int getVertexIndexInCreatedOrder() {
+		return vertexIndexInCreatedOrder;
 	}
 
 	public String getTaskName() {

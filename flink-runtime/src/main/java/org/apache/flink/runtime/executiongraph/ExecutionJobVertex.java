@@ -21,11 +21,11 @@ package org.apache.flink.runtime.executiongraph;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.Archiveable;
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.accumulators.AccumulatorHelper;
-import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.MemorySize;
@@ -404,6 +404,7 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 
 				final TaskInformation taskInformation = new TaskInformation(
 					jobVertex.getID(),
+					jobVertex.getIndexInCreatedOrder(),
 					jobVertex.getName(),
 					jobVertex.getMetricName(),
 					parallelism,
@@ -439,6 +440,19 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 		}
 
 		return getStrictModeAggregateJobVertexState(num, parallelism);
+	}
+
+	public Map<ExecutionState, Long> getExecutionStateTime() {
+		Map<ExecutionState, Long> stateTime = new HashMap<>();
+		long ts = System.currentTimeMillis();
+		for (ExecutionVertex vertex : this.taskVertices) {
+			ExecutionState state = vertex.getExecutionState();
+			long time = ts - vertex.getStateTimestamp(state);
+			if (time > stateTime.getOrDefault(state, -1L)) {
+				stateTime.put(state, time);
+			}
+		}
+		return stateTime;
 	}
 
 	//---------------------------------------------------------------------------------------------

@@ -66,6 +66,12 @@ public class MetricNames {
 	public static final String FULL_RESTARTS = "fullRestarts";
 	public static final String FULL_RESTARTS_RATE = "fullRestartsRate";
 
+	public static final String EXECUTION_STATE_TAG_STATE_NAME = "state";
+	public static final String EXECUTION_STATE_TAG_VERTEX_INDEX_NAME = "vertexIndex";
+	public static final String EXECUTION_STATE_TAG_SUBTASK_ID_NAME = "subtaskId";
+	public static final String EXECUTION_STATE_TIME = "executionStateTime";
+	public static final String TASK_EXECUTOR_EXECUTION_STATE_TIME = "taskExecutorExecutionStateTime";
+
 	public static final String NUM_PENDING_TASK_MANAGER_SLOTS = "numPendingTaskManagerSlots";
 	public static final String NUM_PENDING_SLOT_REQUESTS = "numPendingSlotRequests";
 

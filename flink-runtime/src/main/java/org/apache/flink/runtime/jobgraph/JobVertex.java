@@ -59,6 +59,8 @@ public class JobVertex implements java.io.Serializable {
 	/** The ID of the vertex. */
 	private final JobVertexID id;
 
+	private int indexInCreatedOrder = -1;
+
 	/** The IDs of all operators contained in this vertex.
 	 *
 	 * <p>The ID pairs are stored depth-first post-order; for the forking chain below the ID's would be stored as [D, E, B, C, A].
@@ -184,6 +186,14 @@ public class JobVertex implements java.io.Serializable {
 	 */
 	public JobVertexID getID() {
 		return this.id;
+	}
+
+	public int getIndexInCreatedOrder() {
+		return indexInCreatedOrder;
+	}
+
+	public void setIndexInCreatedOrder(int indexInCreatedOrder) {
+		this.indexInCreatedOrder = indexInCreatedOrder;
 	}
 
 	/**
