@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.resourcemanager.slotmanager;
 
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.instance.InstanceID;
 
@@ -35,8 +36,11 @@ public enum AnyMatchingSlotMatchingStrategy implements SlotMatchingStrategy {
 	public <T extends TaskManagerSlotInformation> Optional<T> findMatchingSlot(
 			ResourceProfile requestedProfile,
 			Collection<T> freeSlots,
+			Collection<ResourceID> bannedResources,
 			Function<InstanceID, Integer> numberRegisteredSlotsLookup) {
 
-		return freeSlots.stream().filter(slot -> slot.isMatchingRequirement(requestedProfile)).findAny();
+		return freeSlots.stream()
+				.filter(slot -> slot.isMatchingRequirement(requestedProfile) && !bannedResources.contains(slot.getSlotId().getResourceID()))
+				.findAny();
 	}
 }

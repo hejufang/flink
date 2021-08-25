@@ -698,8 +698,8 @@ public class SlotManagerImpl implements SlotManager {
 
 		final Optional<TaskManagerSlot> optionalMatchingSlot = slotMatchingStrategy.findMatchingSlot(
 			requestResourceProfile,
-			freeSlots.values().stream().filter(slot -> !bannedResources.contains(slot.getTaskManagerConnection().getResourceID()))
-					.collect(Collectors.toSet()),
+			freeSlots.values(),
+			bannedResources,
 			this::getNumberRegisteredSlotsOf);
 
 		optionalMatchingSlot.ifPresent(taskManagerSlot -> {

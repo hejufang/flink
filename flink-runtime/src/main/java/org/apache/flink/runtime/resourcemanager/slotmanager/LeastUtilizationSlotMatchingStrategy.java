@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.resourcemanager.slotmanager;
 
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.util.Preconditions;
@@ -26,6 +27,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -40,13 +42,18 @@ public enum LeastUtilizationSlotMatchingStrategy implements SlotMatchingStrategy
 	public <T extends TaskManagerSlotInformation> Optional<T> findMatchingSlot(
 			ResourceProfile requestedProfile,
 			Collection<T> freeSlots,
+			Collection<ResourceID> bannedResources,
 			Function<InstanceID, Integer> numberRegisteredSlotsLookup) {
-		final Map<InstanceID, Integer> numSlotsPerTaskExecutor = freeSlots.stream()
+		Set<T> availableFreeSlots = freeSlots.stream()
+				.filter(slot -> !bannedResources.contains(slot.getSlotId().getResourceID()))
+				.collect(Collectors.toSet());
+
+		final Map<InstanceID, Integer> numSlotsPerTaskExecutor = availableFreeSlots.stream()
 			.collect(Collectors.groupingBy(
 				TaskManagerSlotInformation::getInstanceId,
 				Collectors.reducing(0, i -> 1, Integer::sum)));
 
-		return freeSlots.stream()
+		return availableFreeSlots.stream()
 			.filter(taskManagerSlot -> taskManagerSlot.isMatchingRequirement(requestedProfile))
 			.min(Comparator.comparingDouble(taskManagerSlot -> calculateUtilization(taskManagerSlot.getInstanceId(), numberRegisteredSlotsLookup, numSlotsPerTaskExecutor)));
 	}

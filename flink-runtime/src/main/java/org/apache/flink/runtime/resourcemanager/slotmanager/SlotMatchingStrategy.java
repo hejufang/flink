@@ -18,10 +18,12 @@
 
 package org.apache.flink.runtime.resourcemanager.slotmanager;
 
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.instance.InstanceID;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -36,11 +38,20 @@ public interface SlotMatchingStrategy {
 	 *
 	 * @param requestedProfile to find a matching slot for
 	 * @param freeSlots collection of free slots
+	 * @param bannedResources collection of banned resources.
 	 * @param numberRegisteredSlotsLookup lookup for the number of registered slots
 	 * @return Returns a matching slots or {@link Optional#empty()} if there is none
 	 */
 	<T extends TaskManagerSlotInformation> Optional<T> findMatchingSlot(
 		ResourceProfile requestedProfile,
 		Collection<T> freeSlots,
+		Collection<ResourceID> bannedResources,
 		Function<InstanceID, Integer> numberRegisteredSlotsLookup);
+
+	default <T extends TaskManagerSlotInformation> Optional<T> findMatchingSlot(
+			ResourceProfile requestedProfile,
+			Collection<T> freeSlots,
+			Function<InstanceID, Integer> numberRegisteredSlotsLookup) {
+		return findMatchingSlot(requestedProfile, freeSlots, Collections.emptySet(), numberRegisteredSlotsLookup);
+	}
 }
