@@ -73,15 +73,15 @@ public final class StandaloneApplicationClusterEntryPoint extends ApplicationClu
 			System.exit(1);
 		}
 
+		Configuration configuration = loadConfigurationFromClusterConfig(clusterConfiguration);
 		PackagedProgram program = null;
 		try {
-			program = getPackagedProgram(clusterConfiguration);
+			program = getPackagedProgram(clusterConfiguration, configuration);
 		} catch (Exception e) {
 			LOG.error("Could not create application program.", e);
 			System.exit(1);
 		}
 
-		Configuration configuration = loadConfigurationFromClusterConfig(clusterConfiguration);
 		try {
 			configureExecution(configuration, program);
 		} catch (Exception e) {
@@ -103,20 +103,23 @@ public final class StandaloneApplicationClusterEntryPoint extends ApplicationClu
 	}
 
 	private static PackagedProgram getPackagedProgram(
-			final StandaloneApplicationClusterConfiguration clusterConfiguration) throws IOException, FlinkException {
+			final StandaloneApplicationClusterConfiguration clusterConfiguration,
+			Configuration configuration) throws IOException, FlinkException {
 		final PackagedProgramRetriever programRetriever = getPackagedProgramRetriever(
 				clusterConfiguration.getArgs(),
-				clusterConfiguration.getJobClassName());
+				clusterConfiguration.getJobClassName(),
+				configuration);
 		return programRetriever.getPackagedProgram();
 	}
 
 	private static PackagedProgramRetriever getPackagedProgramRetriever(
 			final String[] programArguments,
-			@Nullable final String jobClassName) throws IOException {
+			@Nullable final String jobClassName,
+			Configuration configuration) throws IOException {
 		final File userLibDir = tryFindUserLibDirectory().orElse(null);
 		final ClassPathPackagedProgramRetriever.Builder retrieverBuilder =
 				ClassPathPackagedProgramRetriever
-						.newBuilder(programArguments)
+						.newBuilder(programArguments, configuration)
 						.setUserLibDirectory(userLibDir)
 						.setJobClassName(jobClassName);
 		return retrieverBuilder.build();
