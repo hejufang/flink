@@ -59,18 +59,28 @@ public class ExecutionGraphToInputsLocationsRetrieverAdapter implements InputsLo
 
 		List<Collection<ExecutionVertexID>> resultPartitionProducers = new ArrayList<>(ev.getNumberOfInputs());
 		for (ConsumedPartitionGroup consumedPartitions : ev.getAllConsumedPartitions()) {
-			List<ExecutionVertexID> producers = partitionGroupProducers.getOrDefault(consumedPartitions, null);
-			if (producers == null) {
-				producers = new ArrayList<>(consumedPartitions.getResultPartitions().size());
-				for (IntermediateResultPartitionID consumedPartitionId : consumedPartitions.getResultPartitions()) {
-					ExecutionVertex producer = executionGraph.getResultPartition(consumedPartitionId).getProducer();
-					producers.add(producer.getID());
-				}
-				partitionGroupProducers.put(consumedPartitions, producers);
-			}
+			Collection<ExecutionVertexID> producers = getConsumedResultPartitionsProducers(consumedPartitions);
 			resultPartitionProducers.add(producers);
 		}
 		return resultPartitionProducers;
+	}
+
+	@Override
+	public Collection<ConsumedPartitionGroup> getConsumedPartitionGroups(ExecutionVertexID executionVertexId) {
+		return getExecutionVertex(executionVertexId).getAllConsumedPartitions();
+	}
+
+	public Collection<ExecutionVertexID> getConsumedResultPartitionsProducers(ConsumedPartitionGroup consumedPartitionGroup) {
+		List<ExecutionVertexID> producers = partitionGroupProducers.getOrDefault(consumedPartitionGroup, null);
+		if (producers == null) {
+			producers = new ArrayList<>(consumedPartitionGroup.getResultPartitions().size());
+			for (IntermediateResultPartitionID consumedPartitionId : consumedPartitionGroup.getResultPartitions()) {
+				ExecutionVertex producer = executionGraph.getResultPartition(consumedPartitionId).getProducer();
+				producers.add(producer.getID());
+			}
+			partitionGroupProducers.put(consumedPartitionGroup, producers);
+		}
+		return producers;
 	}
 
 	@Override

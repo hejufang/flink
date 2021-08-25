@@ -18,7 +18,9 @@
 
 package org.apache.flink.runtime.scheduler;
 
-import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.runtime.jobgraph.DistributionPattern;
+import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
+import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.taskmanager.LocalTaskManagerLocation;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
@@ -31,29 +33,41 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 /**
  * A simple inputs locations retriever for testing purposes.
  */
 class TestingInputsLocationsRetriever implements InputsLocationsRetriever {
 
-	private final Map<ExecutionVertexID, List<ExecutionVertexID>> producersByConsumer;
+	private final Map<ConsumedPartitionGroup, List<ExecutionVertexID>> producersByConsumedPartitionGroup;
+
+	private final Map<ExecutionVertexID, List<ConsumedPartitionGroup>> consumedPartitionGroupByConsumer;
 
 	private final Map<ExecutionVertexID, CompletableFuture<TaskManagerLocation>> taskManagerLocationsByVertex = new HashMap<>();
 
-	TestingInputsLocationsRetriever(final Map<ExecutionVertexID, List<ExecutionVertexID>> producersByConsumer) {
-		this.producersByConsumer = new HashMap<>(producersByConsumer);
+	TestingInputsLocationsRetriever(final Map<ConsumedPartitionGroup, List<ExecutionVertexID>> producersByConsumedPartitionGroup, final Map<ExecutionVertexID, List<ConsumedPartitionGroup>> consumedPartitionGroupByConsumer) {
+		this.producersByConsumedPartitionGroup = producersByConsumedPartitionGroup;
+		this.consumedPartitionGroupByConsumer = consumedPartitionGroupByConsumer;
 	}
 
 	@Override
 	public Collection<Collection<ExecutionVertexID>> getConsumedResultPartitionsProducers(final ExecutionVertexID executionVertexId) {
-		final Map<JobVertexID, List<ExecutionVertexID>> executionVerticesByJobVertex =
-				producersByConsumer.getOrDefault(executionVertexId, Collections.emptyList())
-						.stream()
-						.collect(Collectors.groupingBy(ExecutionVertexID::getJobVertexId));
+		List<Collection<ExecutionVertexID>> resultPartitionProducers = new ArrayList<>();
+		for (ConsumedPartitionGroup consumedPartitionGroup : consumedPartitionGroupByConsumer.getOrDefault(executionVertexId, Collections.emptyList())) {
+			Collection<ExecutionVertexID> producers = getConsumedResultPartitionsProducers(consumedPartitionGroup);
+			resultPartitionProducers.add(producers);
+		}
+		return resultPartitionProducers;
+	}
 
-		return new ArrayList<>(executionVerticesByJobVertex.values());
+	@Override
+	public Collection<ConsumedPartitionGroup> getConsumedPartitionGroups(ExecutionVertexID executionVertexId) {
+		return consumedPartitionGroupByConsumer.getOrDefault(executionVertexId, Collections.emptyList());
+	}
+
+	@Override
+	public Collection<ExecutionVertexID> getConsumedResultPartitionsProducers(ConsumedPartitionGroup consumedPartitionGroup) {
+		return producersByConsumedPartitionGroup.get(consumedPartitionGroup);
 	}
 
 	@Override
@@ -77,17 +91,33 @@ class TestingInputsLocationsRetriever implements InputsLocationsRetriever {
 
 	static class Builder {
 
-		private final Map<ExecutionVertexID, List<ExecutionVertexID>> producersByConsumer = new HashMap<>();
+		private final Map<ConsumedPartitionGroup, List<ExecutionVertexID>> producersByConsumedPartitionGroup = new HashMap<>();
+		private final Map<ExecutionVertexID, List<ConsumedPartitionGroup>> consumedPartitionGroupByConsumer = new HashMap<>();
 
 		public Builder connectConsumerToProducer(final ExecutionVertexID consumer, final ExecutionVertexID producer) {
-			producersByConsumer
-				.computeIfAbsent(consumer, (key) -> new ArrayList<>())
-				.add(producer);
+			return connectConsumerToProducer(consumer, producer, DistributionPattern.POINTWISE);
+		}
+
+		public Builder connectConsumerToProducer(final ExecutionVertexID consumer, final ExecutionVertexID producer, DistributionPattern distributionPattern) {
+			ConsumedPartitionGroup consumedPartitionGroup = consumedPartitionGroupByConsumer
+					.computeIfAbsent(consumer, key -> new ArrayList<>())
+					.stream()
+					.filter(group -> group.getProducerVertexId().equals(producer.getJobVertexId()))
+					.findFirst()
+					.orElseGet(() -> {
+						ConsumedPartitionGroup group = new ConsumedPartitionGroup(new IntermediateResultPartitionID(), distributionPattern, producer.getJobVertexId());
+						consumedPartitionGroupByConsumer.get(consumer).add(group);
+						return group;
+					});
+
+			producersByConsumedPartitionGroup
+					.computeIfAbsent(consumedPartitionGroup, key -> new ArrayList<>())
+					.add(producer);
 			return this;
 		}
 
 		public TestingInputsLocationsRetriever build() {
-			return new TestingInputsLocationsRetriever(producersByConsumer);
+			return new TestingInputsLocationsRetriever(producersByConsumedPartitionGroup, consumedPartitionGroupByConsumer);
 		}
 
 	}

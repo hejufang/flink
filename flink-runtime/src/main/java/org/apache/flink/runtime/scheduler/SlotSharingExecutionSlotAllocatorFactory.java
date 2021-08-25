@@ -47,8 +47,12 @@ class SlotSharingExecutionSlotAllocatorFactory implements ExecutionSlotAllocator
 			context.getSchedulingTopology(),
 			context.getLogicalSlotSharingGroups(),
 			context.getCoLocationGroups());
+		PreferredLocationsRetriever preferredLocationsRetriever = new DefaultPreferredLocationsRetriever(
+			context.getStateLocationRetriever(),
+			context.getInputsLocationsRetriever(),
+			slotSharingStrategy::getPreferredExecutionSlotSharingGroups);
 		SharedSlotProfileRetrieverFactory sharedSlotProfileRetrieverFactory = new MergingSharedSlotProfileRetrieverFactory(
-			context::getPreferredLocations,
+			preferredLocationsRetriever,
 			context::getResourceProfile,
 			context::getPriorAllocationId);
 		return new SlotSharingExecutionSlotAllocator(

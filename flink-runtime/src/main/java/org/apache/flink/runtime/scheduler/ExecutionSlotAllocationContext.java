@@ -25,20 +25,19 @@ import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroupDesc;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingTopology;
-import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
-import java.util.Collection;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
  * Context for slot allocation.
  */
-class ExecutionSlotAllocationContext implements PreferredLocationsRetriever {
+class ExecutionSlotAllocationContext {
 
-	private final PreferredLocationsRetriever preferredLocationsRetriever;
+	private final StateLocationRetriever stateLocationRetriever;
+
+	private final InputsLocationsRetriever inputsLocationsRetriever;
 
 	private final Function<ExecutionVertexID, ResourceProfile> resourceProfileRetriever;
 
@@ -51,14 +50,16 @@ class ExecutionSlotAllocationContext implements PreferredLocationsRetriever {
 	private final Supplier<Set<CoLocationGroupDesc>> coLocationGroupSupplier;
 
 	ExecutionSlotAllocationContext(
-			final PreferredLocationsRetriever preferredLocationsRetriever,
+			final StateLocationRetriever stateLocationRetriever,
+			final InputsLocationsRetriever inputsLocationsRetriever,
 			final Function<ExecutionVertexID, ResourceProfile> resourceProfileRetriever,
 			final Function<ExecutionVertexID, AllocationID> priorAllocationIdRetriever,
 			final SchedulingTopology schedulingTopology,
 			final Supplier<Set<SlotSharingGroup>> logicalSlotSharingGroupSupplier,
 			final Supplier<Set<CoLocationGroupDesc>> coLocationGroupSupplier) {
 
-		this.preferredLocationsRetriever = preferredLocationsRetriever;
+		this.stateLocationRetriever = stateLocationRetriever;
+		this.inputsLocationsRetriever = inputsLocationsRetriever;
 		this.resourceProfileRetriever = resourceProfileRetriever;
 		this.priorAllocationIdRetriever = priorAllocationIdRetriever;
 		this.schedulingTopology = schedulingTopology;
@@ -66,11 +67,12 @@ class ExecutionSlotAllocationContext implements PreferredLocationsRetriever {
 		this.coLocationGroupSupplier = coLocationGroupSupplier;
 	}
 
-	@Override
-	public CompletableFuture<Collection<TaskManagerLocation>> getPreferredLocations(
-			final ExecutionVertexID executionVertexId,
-			final Set<ExecutionVertexID> producersToIgnore) {
-		return preferredLocationsRetriever.getPreferredLocations(executionVertexId, producersToIgnore);
+	public StateLocationRetriever getStateLocationRetriever() {
+		return stateLocationRetriever;
+	}
+
+	public InputsLocationsRetriever getInputsLocationsRetriever() {
+		return inputsLocationsRetriever;
 	}
 
 	ResourceProfile getResourceProfile(final ExecutionVertexID executionVertexId) {

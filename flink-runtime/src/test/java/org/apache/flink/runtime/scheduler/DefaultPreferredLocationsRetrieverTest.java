@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.scheduler;
 
-import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.taskmanager.LocalTaskManagerLocation;
@@ -27,15 +26,16 @@ import org.apache.flink.util.TestLogger;
 
 import org.junit.Test;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.Assert.assertThat;
 
@@ -51,8 +51,15 @@ public class DefaultPreferredLocationsRetrieverTest extends TestLogger {
 		final TestingInputsLocationsRetriever.Builder locationRetrieverBuilder =
 			new TestingInputsLocationsRetriever.Builder();
 
+		final Map<ExecutionSlotSharingGroup, List<ExecutionSlotSharingGroup>> groupPreferredMap = new HashMap<>();
+
 		final ExecutionVertexID consumerId = new ExecutionVertexID(new JobVertexID(), 0);
+		final ExecutionSlotSharingGroup consumerGroup = new ExecutionSlotSharingGroup(Collections.singleton(consumerId));
 		final ExecutionVertexID producerId = new ExecutionVertexID(new JobVertexID(), 0);
+		final ExecutionSlotSharingGroup producerGroup = new ExecutionSlotSharingGroup(Collections.singleton(producerId));
+		groupPreferredMap.put(consumerGroup, Collections.singletonList(producerGroup));
+		groupPreferredMap.put(producerGroup, Collections.emptyList());
+
 		locationRetrieverBuilder.connectConsumerToProducer(consumerId, producerId);
 
 		final TestingInputsLocationsRetriever inputsLocationsRetriever = locationRetrieverBuilder.build();
@@ -61,92 +68,13 @@ public class DefaultPreferredLocationsRetrieverTest extends TestLogger {
 
 		final PreferredLocationsRetriever locationsRetriever = new DefaultPreferredLocationsRetriever(
 			id -> Optional.of(stateLocation),
-			inputsLocationsRetriever);
+			inputsLocationsRetriever,
+			groupPreferredMap::get);
 
 		final CompletableFuture<Collection<TaskManagerLocation>> preferredLocations =
-			locationsRetriever.getPreferredLocations(consumerId, Collections.emptySet());
+			locationsRetriever.getPreferredLocations(consumerGroup, Collections.emptySet());
 
 		assertThat(preferredLocations.getNow(null), contains(stateLocation));
-	}
-
-	@Test
-	public void testInputLocationsIgnoresEdgeOfTooManyLocations() {
-		final TestingInputsLocationsRetriever.Builder locationRetrieverBuilder =
-			new TestingInputsLocationsRetriever.Builder();
-
-		final ExecutionVertexID consumerId = new ExecutionVertexID(new JobVertexID(), 0);
-
-		final int producerParallelism = ExecutionVertex.MAX_DISTINCT_LOCATIONS_TO_CONSIDER + 1;
-		final List<ExecutionVertexID> producerIds = new ArrayList<>(producerParallelism);
-		final JobVertexID producerJobVertexId = new JobVertexID();
-		for (int i = 0; i < producerParallelism; i++) {
-			final ExecutionVertexID producerId = new ExecutionVertexID(producerJobVertexId, i);
-			locationRetrieverBuilder.connectConsumerToProducer(consumerId, producerId);
-			producerIds.add(producerId);
-		}
-
-		final TestingInputsLocationsRetriever inputsLocationsRetriever = locationRetrieverBuilder.build();
-
-		for (int i = 0; i < producerParallelism; i++) {
-			inputsLocationsRetriever.markScheduled(producerIds.get(i));
-		}
-
-		final PreferredLocationsRetriever locationsRetriever = new DefaultPreferredLocationsRetriever(
-			id -> Optional.empty(),
-			inputsLocationsRetriever);
-
-		final CompletableFuture<Collection<TaskManagerLocation>> preferredLocations =
-			locationsRetriever.getPreferredLocations(consumerId, Collections.emptySet());
-
-		assertThat(preferredLocations.getNow(null), hasSize(0));
-	}
-
-	@Test
-	public void testInputLocationsChoosesInputOfFewerLocations() {
-		final TestingInputsLocationsRetriever.Builder locationRetrieverBuilder =
-			new TestingInputsLocationsRetriever.Builder();
-
-		final ExecutionVertexID consumerId = new ExecutionVertexID(new JobVertexID(), 0);
-
-		int parallelism1 = 3;
-		final JobVertexID jobVertexId1 = new JobVertexID();
-		final List<ExecutionVertexID> producers1 = new ArrayList<>(parallelism1);
-		for (int i = 0; i < parallelism1; i++) {
-			final ExecutionVertexID producerId = new ExecutionVertexID(jobVertexId1, i);
-			producers1.add(producerId);
-			locationRetrieverBuilder.connectConsumerToProducer(consumerId, producerId);
-		}
-
-		final JobVertexID jobVertexId2 = new JobVertexID();
-		int parallelism2 = 5;
-		final List<ExecutionVertexID> producers2 = new ArrayList<>(parallelism2);
-		for (int i = 0; i < parallelism2; i++) {
-			final ExecutionVertexID producerId = new ExecutionVertexID(jobVertexId2, i);
-			producers2.add(producerId);
-			locationRetrieverBuilder.connectConsumerToProducer(consumerId, producerId);
-		}
-
-		final TestingInputsLocationsRetriever inputsLocationsRetriever = locationRetrieverBuilder.build();
-
-		final List<TaskManagerLocation> expectedLocations = new ArrayList<>(parallelism1);
-		for (int i = 0; i < parallelism1; i++) {
-			inputsLocationsRetriever.assignTaskManagerLocation(producers1.get(i));
-			expectedLocations.add(
-				inputsLocationsRetriever.getTaskManagerLocation(producers1.get(i)).get().getNow(null));
-		}
-
-		for (int i = 0; i < parallelism2; i++) {
-			inputsLocationsRetriever.assignTaskManagerLocation(producers2.get(i));
-		}
-
-		final PreferredLocationsRetriever locationsRetriever = new DefaultPreferredLocationsRetriever(
-			id -> Optional.empty(),
-			inputsLocationsRetriever);
-
-		final CompletableFuture<Collection<TaskManagerLocation>> preferredLocations =
-			locationsRetriever.getPreferredLocations(consumerId, Collections.emptySet());
-
-		assertThat(preferredLocations.getNow(null), containsInAnyOrder(expectedLocations.toArray()));
 	}
 
 	@Test
@@ -155,14 +83,22 @@ public class DefaultPreferredLocationsRetrieverTest extends TestLogger {
 			new TestingInputsLocationsRetriever.Builder();
 
 		final ExecutionVertexID consumerId = new ExecutionVertexID(new JobVertexID(), 0);
+		final ExecutionSlotSharingGroup consumerGroup = new ExecutionSlotSharingGroup(Collections.singleton(consumerId));
 
 		final JobVertexID producerJobVertexId = new JobVertexID();
 
 		final ExecutionVertexID producerId1 = new ExecutionVertexID(producerJobVertexId, 0);
+		final ExecutionSlotSharingGroup producerGroup1 = new ExecutionSlotSharingGroup(Collections.singleton(producerId1));
 		locationRetrieverBuilder.connectConsumerToProducer(consumerId, producerId1);
 
 		final ExecutionVertexID producerId2 = new ExecutionVertexID(producerJobVertexId, 1);
+		final ExecutionSlotSharingGroup producerGroup2 = new ExecutionSlotSharingGroup(Collections.singleton(producerId2));
 		locationRetrieverBuilder.connectConsumerToProducer(consumerId, producerId2);
+
+		final Map<ExecutionSlotSharingGroup, List<ExecutionSlotSharingGroup>> groupPreferredMap = new HashMap<>();
+		groupPreferredMap.put(producerGroup1, Collections.emptyList());
+		groupPreferredMap.put(producerGroup2, Collections.emptyList());
+		groupPreferredMap.put(consumerGroup, Arrays.asList(producerGroup1, producerGroup2));
 
 		final TestingInputsLocationsRetriever inputsLocationsRetriever = locationRetrieverBuilder.build();
 
@@ -174,10 +110,11 @@ public class DefaultPreferredLocationsRetrieverTest extends TestLogger {
 
 		final PreferredLocationsRetriever locationsRetriever = new DefaultPreferredLocationsRetriever(
 			id -> Optional.empty(),
-			inputsLocationsRetriever);
+			inputsLocationsRetriever,
+			groupPreferredMap::get);
 
 		final CompletableFuture<Collection<TaskManagerLocation>> preferredLocations =
-			locationsRetriever.getPreferredLocations(consumerId, Collections.singleton(producerId1));
+			locationsRetriever.getPreferredLocations(consumerGroup, Collections.singleton(producerId1));
 
 		assertThat(preferredLocations.getNow(null), hasSize(1));
 

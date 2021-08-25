@@ -110,9 +110,13 @@ public class MergingSharedSlotProfileRetrieverTest {
 		locations.put(executions.get(1), Arrays.asList(allLocations.get(1), allLocations.get(2)));
 
 		SlotProfile slotProfile = getSlotProfile(
-			(executionVertexId, producersToIgnore) -> {
-				assertThat(producersToIgnore, containsInAnyOrder(executions.toArray()));
-				return CompletableFuture.completedFuture(locations.get(executionVertexId));
+			(group, producersToIgnore) -> {
+				assertThat(producersToIgnore, containsInAnyOrder(group.getExecutionVertexIds().toArray()));
+				return CompletableFuture.completedFuture(
+						group.getExecutionVertexIds().stream()
+								.map(locations::get)
+								.flatMap(Collection::stream)
+								.collect(Collectors.toList()));
 			},
 			executions,
 			Collections.nCopies(3, ResourceProfile.ZERO),
@@ -175,7 +179,7 @@ public class MergingSharedSlotProfileRetrieverTest {
 
 	private static TaskManagerLocation createTaskManagerLocation() {
 		try {
-			return new TaskManagerLocation(ResourceID.generate(), InetAddress.getByAddress(new byte[] {1, 2, 3, 4}), 8888);
+			return new TaskManagerLocation(ResourceID.generate(), InetAddress.getByAddress(new byte[] {127, 0, 0, 1}), 8888);
 		} catch (UnknownHostException e) {
 			throw new FlinkRuntimeException("unexpected", e);
 		}

@@ -35,11 +35,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +49,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.runtime.executiongraph.ExecutionVertex.MAX_DISTINCT_LOCATIONS_TO_CONSIDER;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -60,6 +63,8 @@ class LocalInputPreferredSlotSharingStrategy implements SlotSharingStrategy {
 
 	private final Map<ExecutionVertexID, ExecutionSlotSharingGroup> executionSlotSharingGroupMap;
 
+	private final Map<ExecutionSlotSharingGroup, List<ExecutionSlotSharingGroup>> executionPreferredSlotSharingGroup;
+
 	LocalInputPreferredSlotSharingStrategy(
 			final SchedulingTopology topology,
 			final Set<SlotSharingGroup> logicalSlotSharingGroups,
@@ -70,7 +75,104 @@ class LocalInputPreferredSlotSharingStrategy implements SlotSharingStrategy {
 			topology,
 			logicalSlotSharingGroups,
 			coLocationGroups).build();
-		LOG.info("build executionSlotSharingGroupMap take {} ms.", System.currentTimeMillis() - startTime);
+		LOG.debug("build executionSlotSharingGroupMap take {} ms.", System.currentTimeMillis() - startTime);
+
+		startTime = System.currentTimeMillis();
+		this.executionPreferredSlotSharingGroup = buildPreferredSlotSharingGroup(topology);
+		LOG.debug("build executionPreferredSlotSharingGroup take {} ms.", System.currentTimeMillis() - startTime);
+	}
+
+	private Map<ExecutionSlotSharingGroup, List<ExecutionSlotSharingGroup>> buildPreferredSlotSharingGroup(SchedulingTopology topology) {
+		Map<ExecutionSlotSharingGroup, List<ExecutionSlotSharingGroup>> executionPreferredSlotSharingGroup = new HashMap<>();
+		for (ExecutionSlotSharingGroup group : new HashSet<>(executionSlotSharingGroupMap.values())) {
+			for (ExecutionVertexID executionVertexID : group.getExecutionVertexIds()) {
+				executionPreferredSlotSharingGroup
+						.computeIfAbsent(group, g -> new ArrayList<>())
+						.addAll(calculatePreferredSlotSharingGroup(executionVertexID, topology));
+			}
+		}
+
+		removeCyclePreferredGroup(executionPreferredSlotSharingGroup);
+
+		return executionPreferredSlotSharingGroup;
+	}
+
+	private List<ExecutionSlotSharingGroup> calculatePreferredSlotSharingGroup(ExecutionVertexID executionVertexID, SchedulingTopology topology) {
+		SchedulingExecutionVertex executionVertex = topology.getVertex(executionVertexID);
+
+		List<ExecutionSlotSharingGroup> bestPreferredGroups = Collections.emptyList();
+
+		final Collection<ConsumedPartitionGroup> consumedPartitionGroups = executionVertex.getGroupedConsumedResults();
+		for (ConsumedPartitionGroup group : consumedPartitionGroups) {
+			if (group.getDistributionPattern().equals(DistributionPattern.ALL_TO_ALL)) {
+				continue;
+			}
+			List<ExecutionSlotSharingGroup> preferredGroups = group.getResultPartitions().stream()
+					.map(intermediateResultPartitionID -> topology.getResultPartition(intermediateResultPartitionID).getProducer().getId())
+					.map(executionSlotSharingGroupMap::get)
+					.filter(executionSlotSharingGroup -> !executionSlotSharingGroup.getExecutionVertexIds().contains(executionVertexID))
+					.collect(Collectors.toList());
+
+			// inputs which have too many distinct sources are not considered because
+			// input locality does not make much difference in this case and it could
+			// be a long time to wait for all the location futures to complete
+			if (preferredGroups.size() > MAX_DISTINCT_LOCATIONS_TO_CONSIDER) {
+				preferredGroups = Collections.emptyList();
+			}
+
+			if (!preferredGroups.isEmpty() && (bestPreferredGroups.isEmpty() || preferredGroups.size() < bestPreferredGroups.size())) {
+				bestPreferredGroups = preferredGroups;
+			}
+		}
+		return bestPreferredGroups;
+	}
+
+	private void removeCyclePreferredGroup(
+			final Map<ExecutionSlotSharingGroup, List<ExecutionSlotSharingGroup>> executionPreferredSlotSharingGroup) {
+		// The groups in visiting, if preferred group is in visiting, this means that the current preferred edge will cause a cycle.
+		Set<ExecutionSlotSharingGroup> visitingGroups = new HashSet<>();
+		// The groups already visited, this means this node and its children has no cycle.
+		Set<ExecutionSlotSharingGroup> visitedGroups = new HashSet<>();
+		for (ExecutionSlotSharingGroup currentGroup : executionPreferredSlotSharingGroup.keySet()) {
+			removeCyclePreferredGroupDFS(currentGroup, visitingGroups, visitedGroups, executionPreferredSlotSharingGroup);
+		}
+		checkState(visitingGroups.isEmpty(), "VisitingGroups is not empty after removeCyclePreferredGroup.");
+		checkState(visitedGroups.size() == executionPreferredSlotSharingGroup.size(), "not all group in executionPreferredSlotSharingGroup is visited.");
+	}
+
+	private void removeCyclePreferredGroupDFS(
+			ExecutionSlotSharingGroup currentGroup,
+			final Set<ExecutionSlotSharingGroup> visitingGroups,
+			final Set<ExecutionSlotSharingGroup> visitedGroups,
+			final Map<ExecutionSlotSharingGroup, List<ExecutionSlotSharingGroup>> executionPreferredSlotSharingGroup) {
+		if (visitedGroups.contains(currentGroup)) {
+			return;
+		}
+
+		if (visitingGroups.contains(currentGroup)) {
+			throw new IllegalStateException(
+					"VisitingGroups should not be visited again, this is a bug while buildPreferredSlotSharingGroup.");
+		}
+
+		visitingGroups.add(currentGroup);
+		List<ExecutionSlotSharingGroup> preferredGroups = executionPreferredSlotSharingGroup.get(currentGroup);
+		Iterator<ExecutionSlotSharingGroup> iterator = preferredGroups.iterator();
+		while (iterator.hasNext()) {
+			ExecutionSlotSharingGroup group = iterator.next();
+			if (visitingGroups.contains(group)) {
+				// This edge will cause cycle, remove it.
+				iterator.remove();
+			} else if (!visitedGroups.contains(group)) {
+				removeCyclePreferredGroupDFS(group, visitingGroups, visitedGroups, executionPreferredSlotSharingGroup);
+			}
+		}
+		visitingGroups.remove(currentGroup);
+		visitedGroups.add(currentGroup);
+	}
+
+	@Override
+	public List<ExecutionSlotSharingGroup> getPreferredExecutionSlotSharingGroups(ExecutionSlotSharingGroup executionSlotSharingGroup) {
+		return executionPreferredSlotSharingGroup.get(executionSlotSharingGroup);
 	}
 
 	@Override

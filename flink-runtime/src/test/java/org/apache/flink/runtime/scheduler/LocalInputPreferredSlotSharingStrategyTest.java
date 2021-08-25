@@ -37,6 +37,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
@@ -373,5 +374,143 @@ public class LocalInputPreferredSlotSharingStrategyTest extends TestLogger {
 		assertEquals(strategy.getExecutionSlotSharingGroup(ev12.getId()), strategy.getExecutionSlotSharingGroup(ev31.getId()));
 		assertEquals(strategy.getExecutionSlotSharingGroup(ev13.getId()), strategy.getExecutionSlotSharingGroup(ev22.getId()));
 		assertEquals(strategy.getExecutionSlotSharingGroup(ev14.getId()), strategy.getExecutionSlotSharingGroup(ev32.getId()));
+	}
+
+	@Test
+	public void testInputLocationsChoosesInputOfFewerLocations() {
+		final TestingSchedulingTopology topology = new TestingSchedulingTopology();
+
+		final TestingSchedulingExecutionVertex ev11 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 0);
+		final TestingSchedulingExecutionVertex ev12 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 1);
+
+		final TestingSchedulingExecutionVertex ev21 = topology.newExecutionVertex(JOB_VERTEX_ID_2, 0);
+		final TestingSchedulingExecutionVertex ev22 = topology.newExecutionVertex(JOB_VERTEX_ID_2, 1);
+		final TestingSchedulingExecutionVertex ev23 = topology.newExecutionVertex(JOB_VERTEX_ID_2, 2);
+		final TestingSchedulingExecutionVertex ev24 = topology.newExecutionVertex(JOB_VERTEX_ID_2, 3);
+
+		final TestingSchedulingExecutionVertex ev31 = topology.newExecutionVertex(JOB_VERTEX_ID_3, 0);
+
+		topology.connect(Arrays.asList(ev11, ev12), ev31, ResultPartitionType.PIPELINED, DistributionPattern.POINTWISE);
+		topology.connect(Arrays.asList(ev21, ev22, ev23, ev24), ev31, ResultPartitionType.PIPELINED, DistributionPattern.POINTWISE);
+
+		final SlotSharingStrategy strategy = new LocalInputPreferredSlotSharingStrategy(
+				topology,
+				slotSharingGroups,
+				Collections.emptySet());
+
+		ExecutionSlotSharingGroup group31 = strategy.getExecutionSlotSharingGroup(ev31.getId());
+		ExecutionSlotSharingGroup group11 = strategy.getExecutionSlotSharingGroup(ev11.getId());
+		ExecutionSlotSharingGroup group12 = strategy.getExecutionSlotSharingGroup(ev12.getId());
+
+		assertThat(strategy.getPreferredExecutionSlotSharingGroups(group31), hasSize(2));
+		assertThat(strategy.getPreferredExecutionSlotSharingGroups(group31), containsInAnyOrder(group11, group12));
+	}
+
+	@Test
+	public void testInputLocationsIgnoresEdgeOfTooManyLocations() {
+		final TestingSchedulingTopology topology = new TestingSchedulingTopology();
+
+		final TestingSchedulingExecutionVertex ev11 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 0);
+		final TestingSchedulingExecutionVertex ev12 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 1);
+		final TestingSchedulingExecutionVertex ev13 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 2);
+		final TestingSchedulingExecutionVertex ev14 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 3);
+		final TestingSchedulingExecutionVertex ev15 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 4);
+		final TestingSchedulingExecutionVertex ev16 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 5);
+		final TestingSchedulingExecutionVertex ev17 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 6);
+		final TestingSchedulingExecutionVertex ev18 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 7);
+		final TestingSchedulingExecutionVertex ev19 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 8);
+		final TestingSchedulingExecutionVertex ev110 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 9);
+
+		final TestingSchedulingExecutionVertex ev21 = topology.newExecutionVertex(JOB_VERTEX_ID_2, 0);
+
+		topology.connect(
+				Arrays.asList(ev11, ev12, ev13, ev14, ev15, ev16, ev17, ev18, ev19, ev110),
+				ev21,
+				ResultPartitionType.PIPELINED,
+				DistributionPattern.POINTWISE);
+
+		final SlotSharingStrategy strategy = new LocalInputPreferredSlotSharingStrategy(
+				topology,
+				slotSharingGroups,
+				Collections.emptySet());
+
+		ExecutionSlotSharingGroup group21 = strategy.getExecutionSlotSharingGroup(ev21.getId());
+		assertThat(strategy.getPreferredExecutionSlotSharingGroups(group21), empty());
+	}
+
+	@Test
+	public void testPreferredGroupIgnoreAllToAllConnection() {
+		final TestingSchedulingTopology topology = new TestingSchedulingTopology();
+
+		final TestingSchedulingExecutionVertex ev11 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 0);
+		final TestingSchedulingExecutionVertex ev12 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 1);
+
+		final TestingSchedulingExecutionVertex ev21 = topology.newExecutionVertex(JOB_VERTEX_ID_2, 0);
+
+		topology.connect(
+				Arrays.asList(ev11, ev12),
+				ev21,
+				ResultPartitionType.PIPELINED,
+				DistributionPattern.ALL_TO_ALL);
+
+		final SlotSharingStrategy strategy = new LocalInputPreferredSlotSharingStrategy(
+				topology,
+				slotSharingGroups,
+				Collections.emptySet());
+
+		ExecutionSlotSharingGroup group21 = strategy.getExecutionSlotSharingGroup(ev21.getId());
+		assertThat(strategy.getPreferredExecutionSlotSharingGroups(group21), empty());
+	}
+
+	@Test
+	public void testMultiPreferredGroupAsPriority() {
+		final TestingSchedulingTopology topology = new TestingSchedulingTopology();
+
+		final TestingSchedulingExecutionVertex ev11 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 0);
+
+		final TestingSchedulingExecutionVertex ev21 = topology.newExecutionVertex(JOB_VERTEX_ID_2, 0);
+		final TestingSchedulingExecutionVertex ev22 = topology.newExecutionVertex(JOB_VERTEX_ID_2, 1);
+
+		final TestingSchedulingExecutionVertex ev31 = topology.newExecutionVertex(JOB_VERTEX_ID_3, 0);
+		final TestingSchedulingExecutionVertex ev32 = topology.newExecutionVertex(JOB_VERTEX_ID_3, 1);
+
+		topology.connect(ev11, Arrays.asList(ev21, ev22), ResultPartitionType.PIPELINED, DistributionPattern.POINTWISE);
+
+		topology.connect(ev11, Arrays.asList(ev31, ev32), ResultPartitionType.PIPELINED, DistributionPattern.POINTWISE);
+
+		final SlotSharingStrategy strategy = new LocalInputPreferredSlotSharingStrategy(
+				topology,
+				slotSharingGroups,
+				Collections.emptySet());
+
+		ExecutionSlotSharingGroup group31 = strategy.getExecutionSlotSharingGroup(ev31.getId());
+		ExecutionSlotSharingGroup group32 = strategy.getExecutionSlotSharingGroup(ev32.getId());
+		assertThat(strategy.getPreferredExecutionSlotSharingGroups(group31), empty());
+		assertThat(strategy.getPreferredExecutionSlotSharingGroups(group32), containsInAnyOrder(group31, group31));
+	}
+
+	@Test
+	public void testNoCycleInPreferredGroup() {
+		final TestingSchedulingTopology topology = new TestingSchedulingTopology();
+
+		final TestingSchedulingExecutionVertex ev11 = topology.newExecutionVertex(JOB_VERTEX_ID_1, 0);
+
+		final TestingSchedulingExecutionVertex ev21 = topology.newExecutionVertex(JOB_VERTEX_ID_2, 0);
+
+		final TestingSchedulingExecutionVertex ev31 = topology.newExecutionVertex(JOB_VERTEX_ID_3, 0);
+		final TestingSchedulingExecutionVertex ev32 = topology.newExecutionVertex(JOB_VERTEX_ID_3, 1);
+
+		topology.connect(ev11, Arrays.asList(ev31, ev32), ResultPartitionType.PIPELINED, DistributionPattern.POINTWISE);
+
+		topology.connect(ev21, Arrays.asList(ev31, ev32), ResultPartitionType.PIPELINED, DistributionPattern.POINTWISE);
+
+		final SlotSharingStrategy strategy = new LocalInputPreferredSlotSharingStrategy(
+				topology,
+				slotSharingGroups,
+				Collections.emptySet());
+
+		ExecutionSlotSharingGroup group31 = strategy.getExecutionSlotSharingGroup(ev31.getId());
+		ExecutionSlotSharingGroup group32 = strategy.getExecutionSlotSharingGroup(ev32.getId());
+		assertEquals(1, strategy.getPreferredExecutionSlotSharingGroups(group31).size() + strategy.getPreferredExecutionSlotSharingGroups(group32).size());
 	}
 }

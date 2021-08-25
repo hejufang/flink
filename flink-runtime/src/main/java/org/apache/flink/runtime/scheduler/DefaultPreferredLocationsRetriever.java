@@ -26,11 +26,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
-import static org.apache.flink.runtime.executiongraph.ExecutionVertex.MAX_DISTINCT_LOCATIONS_TO_CONSIDER;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -44,32 +46,53 @@ public class DefaultPreferredLocationsRetriever implements PreferredLocationsRet
 
 	private final InputsLocationsRetriever inputsLocationsRetriever;
 
+	private final Function<ExecutionSlotSharingGroup, List<ExecutionSlotSharingGroup>> producerGroupRetriever;
+
 	DefaultPreferredLocationsRetriever(
 			final StateLocationRetriever stateLocationRetriever,
-			final InputsLocationsRetriever inputsLocationsRetriever) {
+			final InputsLocationsRetriever inputsLocationsRetriever,
+			final Function<ExecutionSlotSharingGroup, List<ExecutionSlotSharingGroup>> producerGroupRetriever) {
 
 		this.stateLocationRetriever = checkNotNull(stateLocationRetriever);
 		this.inputsLocationsRetriever = checkNotNull(inputsLocationsRetriever);
+		this.producerGroupRetriever = checkNotNull(producerGroupRetriever);
 	}
 
 	@Override
 	public CompletableFuture<Collection<TaskManagerLocation>> getPreferredLocations(
-			final ExecutionVertexID executionVertexId,
+			final ExecutionSlotSharingGroup executionSlotSharingGroup,
 			final Set<ExecutionVertexID> producersToIgnore) {
 
-		checkNotNull(executionVertexId);
+		checkNotNull(executionSlotSharingGroup);
 		checkNotNull(producersToIgnore);
 
-		final Collection<TaskManagerLocation> preferredLocationsBasedOnState =
-			getPreferredLocationsBasedOnState(executionVertexId);
-		if (!preferredLocationsBasedOnState.isEmpty()) {
-			return CompletableFuture.completedFuture(preferredLocationsBasedOnState);
+		Collection<TaskManagerLocation> preferredLocationsPerExecution = new HashSet<>();
+		for (ExecutionVertexID executionVertexId : executionSlotSharingGroup.getExecutionVertexIds()) {
+			final Collection<TaskManagerLocation> preferredLocationsBasedOnState =
+					getPreferredLocationsBasedOnState(executionVertexId);
+			if (!preferredLocationsBasedOnState.isEmpty()) {
+				preferredLocationsPerExecution.addAll(preferredLocationsBasedOnState);
+			}
 		}
 
-		return getPreferredLocationsBasedOnInputs(executionVertexId, producersToIgnore);
+		if (!preferredLocationsPerExecution.isEmpty()) {
+			return CompletableFuture.completedFuture(preferredLocationsPerExecution);
+		}
+
+		List<ExecutionVertexID> producers = producerGroupRetriever.apply(executionSlotSharingGroup).stream()
+				.map(ExecutionSlotSharingGroup::getExecutionVertexIds)
+				.filter(executionVertexIDS -> !executionVertexIDS.isEmpty())
+				.map(executionVertexIDS -> executionVertexIDS.iterator().next())
+				.collect(Collectors.toList());
+
+		if (!producers.isEmpty()) {
+			return FutureUtils.combineAll(getInputLocationFutures(producersToIgnore, producers));
+		}
+
+		return CompletableFuture.completedFuture(Collections.emptyList());
 	}
 
-	private Collection<TaskManagerLocation> getPreferredLocationsBasedOnState(
+	protected Collection<TaskManagerLocation> getPreferredLocationsBasedOnState(
 			final ExecutionVertexID executionVertexId) {
 
 		return stateLocationRetriever.getStateLocation(executionVertexId)
@@ -77,25 +100,7 @@ public class DefaultPreferredLocationsRetriever implements PreferredLocationsRet
 			.orElse(Collections.emptySet());
 	}
 
-	private CompletableFuture<Collection<TaskManagerLocation>> getPreferredLocationsBasedOnInputs(
-			final ExecutionVertexID executionVertexId,
-			final Set<ExecutionVertexID> producersToIgnore) {
-
-		CompletableFuture<Collection<TaskManagerLocation>> preferredLocations =
-			CompletableFuture.completedFuture(Collections.emptyList());
-
-		final Collection<Collection<ExecutionVertexID>> allProducers =
-			inputsLocationsRetriever.getConsumedResultPartitionsProducers(executionVertexId);
-		for (Collection<ExecutionVertexID> producers : allProducers) {
-			final Collection<CompletableFuture<TaskManagerLocation>> locationsFutures =
-				getInputLocationFutures(producersToIgnore, producers);
-
-			preferredLocations = combineLocations(preferredLocations, locationsFutures);
-		}
-		return preferredLocations;
-	}
-
-	private Collection<CompletableFuture<TaskManagerLocation>> getInputLocationFutures(
+	protected Collection<CompletableFuture<TaskManagerLocation>> getInputLocationFutures(
 			final Set<ExecutionVertexID> producersToIgnore,
 			final Collection<ExecutionVertexID> producers) {
 
@@ -109,34 +114,8 @@ public class DefaultPreferredLocationsRetriever implements PreferredLocationsRet
 				optionalLocationFuture = Optional.empty();
 			}
 			optionalLocationFuture.ifPresent(locationsFutures::add);
-
-			// inputs which have too many distinct sources are not considered because
-			// input locality does not make much difference in this case and it could
-			// be a long time to wait for all the location futures to complete
-			if (locationsFutures.size() > MAX_DISTINCT_LOCATIONS_TO_CONSIDER) {
-				return Collections.emptyList();
-			}
 		}
 
 		return locationsFutures;
-	}
-
-	private CompletableFuture<Collection<TaskManagerLocation>> combineLocations(
-			final CompletableFuture<Collection<TaskManagerLocation>> locationsCombinedAlready,
-			final Collection<CompletableFuture<TaskManagerLocation>> locationsToCombine) {
-
-		final CompletableFuture<Set<TaskManagerLocation>> uniqueLocationsFuture =
-			FutureUtils.combineAll(locationsToCombine).thenApply(HashSet::new);
-
-		return locationsCombinedAlready.thenCombine(
-			uniqueLocationsFuture,
-			(locationsOnOneEdge, locationsOnAnotherEdge) -> {
-				if ((!locationsOnOneEdge.isEmpty() && locationsOnAnotherEdge.size() > locationsOnOneEdge.size())
-					|| locationsOnAnotherEdge.isEmpty()) {
-					return locationsOnOneEdge;
-				} else {
-					return locationsOnAnotherEdge;
-				}
-			});
 	}
 }

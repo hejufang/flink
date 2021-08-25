@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.scheduler;
 
 import org.apache.flink.runtime.executiongraph.Execution;
+import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
@@ -38,6 +39,10 @@ public interface InputsLocationsRetriever {
 	 * @return the producers of the result partitions group by job vertex id
 	 */
 	Collection<Collection<ExecutionVertexID>> getConsumedResultPartitionsProducers(ExecutionVertexID executionVertexId);
+
+	Collection<ConsumedPartitionGroup> getConsumedPartitionGroups(ExecutionVertexID executionVertexId);
+
+	Collection<ExecutionVertexID> getConsumedResultPartitionsProducers(ConsumedPartitionGroup consumedPartitionGroup);
 
 	/**
 	 * Get the task manager location future for an execution.

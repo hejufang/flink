@@ -163,7 +163,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		this.schedulingStrategy = schedulingStrategyFactory.createInstance(this, getSchedulingTopology());
 
 		final ExecutionSlotAllocationContext slotAllocationContext = new ExecutionSlotAllocationContext(
-			getPreferredLocationsRetriever(),
+			getStateLocationRetriever(),
+			getInputsLocationsRetriever(),
 			executionVertexID -> getExecutionVertex(executionVertexID).getResourceProfile(),
 			executionVertexID -> getExecutionVertex(executionVertexID).getLatestPriorAllocation(),
 			getSchedulingTopology(),

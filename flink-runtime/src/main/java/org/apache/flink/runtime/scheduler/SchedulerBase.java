@@ -153,7 +153,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	private final InputsLocationsRetriever inputsLocationsRetriever;
 
-	private final PreferredLocationsRetriever preferredLocationsRetriever;
+	private final StateLocationRetriever stateLocationRetriever;
 
 	private final BackPressureStatsTracker backPressureStatsTracker;
 
@@ -267,8 +267,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		this.schedulingTopology = executionGraph.getSchedulingTopology();
 
 		this.inputsLocationsRetriever = new ExecutionGraphToInputsLocationsRetrieverAdapter(executionGraph);
-		final StateLocationRetriever stateLocationRetriever = executionVertexId -> getExecutionVertex(executionVertexId).getPreferredLocationBasedOnState();
-		this.preferredLocationsRetriever = new DefaultPreferredLocationsRetriever(stateLocationRetriever, inputsLocationsRetriever);
+		this.stateLocationRetriever = executionVertexId -> getExecutionVertex(executionVertexId).getPreferredLocationBasedOnState();
 
 		this.coordinatorMap = createCoordinatorMap();
 	}
@@ -433,8 +432,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 		return inputsLocationsRetriever;
 	}
 
-	protected PreferredLocationsRetriever getPreferredLocationsRetriever() {
-		return preferredLocationsRetriever;
+	protected final StateLocationRetriever getStateLocationRetriever() {
+		return stateLocationRetriever;
 	}
 
 	protected final void prepareExecutionGraphForNgScheduling() {

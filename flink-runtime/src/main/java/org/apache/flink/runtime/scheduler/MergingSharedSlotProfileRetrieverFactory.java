@@ -21,7 +21,6 @@ package org.apache.flink.runtime.scheduler;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotProfile;
-import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.Preconditions;
@@ -61,7 +60,7 @@ class MergingSharedSlotProfileRetrieverFactory implements SharedSlotProfileRetri
 			.map(priorAllocationIdRetriever)
 			.filter(Objects::nonNull)
 			.collect(Collectors.toSet());
-		return new MergingSharedSlotProfileRetriever(allPriorAllocationIds, bulk, bannedLocationsRetriever);
+		return new MergingSharedSlotProfileRetriever(allPriorAllocationIds, bannedLocationsRetriever);
 	}
 
 	/**
@@ -73,19 +72,12 @@ class MergingSharedSlotProfileRetrieverFactory implements SharedSlotProfileRetri
 		 */
 		private final Set<AllocationID> allBulkPriorAllocationIds;
 
-		/**
-		 * All {@link ExecutionVertexID}s of the bulk.
-		 */
-		private final Set<ExecutionVertexID> producersToIgnore;
-
 		private final Function<ExecutionVertexID, Collection<TaskManagerLocation>> bannedLocationsRetriever;
 
 		private MergingSharedSlotProfileRetriever(
 				Set<AllocationID> allBulkPriorAllocationIds,
-				Set<ExecutionVertexID> producersToIgnore,
 				Function<ExecutionVertexID, Collection<TaskManagerLocation>> bannedLocationsRetriever) {
 			this.allBulkPriorAllocationIds = Preconditions.checkNotNull(allBulkPriorAllocationIds);
-			this.producersToIgnore = Preconditions.checkNotNull(producersToIgnore);
 			this.bannedLocationsRetriever = Preconditions.checkNotNull(bannedLocationsRetriever);
 		}
 
@@ -112,20 +104,15 @@ class MergingSharedSlotProfileRetrieverFactory implements SharedSlotProfileRetri
 		public CompletableFuture<SlotProfile> getSlotProfileFuture(ExecutionSlotSharingGroup executionSlotSharingGroup) {
 			ResourceProfile totalSlotResourceProfile = ResourceProfile.ZERO;
 			Collection<AllocationID> priorAllocations = new HashSet<>();
-			Collection<CompletableFuture<Collection<TaskManagerLocation>>> preferredLocationsPerExecution = new ArrayList<>();
 			Collection<TaskManagerLocation> bannedLocations = new ArrayList<>();
+			Set<ExecutionVertexID> ignoreProducers = executionSlotSharingGroup.getExecutionVertexIds();
+			CompletableFuture<Collection<TaskManagerLocation>> preferredLocationsFuture =
+					preferredLocationsRetriever.getPreferredLocations(executionSlotSharingGroup, ignoreProducers);
 			for (ExecutionVertexID execution : executionSlotSharingGroup.getExecutionVertexIds()) {
 				totalSlotResourceProfile = totalSlotResourceProfile.merge(resourceProfileRetriever.apply(execution));
 				priorAllocations.add(priorAllocationIdRetriever.apply(execution));
-				preferredLocationsPerExecution.add(preferredLocationsRetriever
-					.getPreferredLocations(execution, producersToIgnore));
 				bannedLocations.addAll(bannedLocationsRetriever.apply(execution));
 			}
-
-			CompletableFuture<Collection<TaskManagerLocation>> preferredLocationsFuture = FutureUtils
-				.combineAll(preferredLocationsPerExecution)
-				.thenApply(executionPreferredLocations ->
-					executionPreferredLocations.stream().flatMap(Collection::stream).collect(Collectors.toList()));
 
 			ResourceProfile physicalSlotResourceProfile = totalSlotResourceProfile;
 			return preferredLocationsFuture.thenApply(

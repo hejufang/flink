@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.scheduler;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 
 import java.util.Collections;
@@ -33,6 +34,11 @@ class ExecutionSlotSharingGroup {
 
 	ExecutionSlotSharingGroup() {
 		this.executionVertexIds = new HashSet<>();
+	}
+
+	@VisibleForTesting
+	ExecutionSlotSharingGroup(Set<ExecutionVertexID> executionVertexIds) {
+		this.executionVertexIds = executionVertexIds;
 	}
 
 	void addVertex(final ExecutionVertexID executionVertexId) {
