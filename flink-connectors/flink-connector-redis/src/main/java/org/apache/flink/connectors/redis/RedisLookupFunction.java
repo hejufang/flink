@@ -306,14 +306,14 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		Row row = null;
 		if (value != null) {
 			row = deserializationSchema.deserialize(value);
-		}
-		if (keyFieldIndex >= 0) {
-			List<Object> valueList = new ArrayList<>();
-			for (int i = 0; i < row.getArity(); i++) {
-				valueList.add(row.getField(i));
+			if (keyFieldIndex >= 0) {
+				List<Object> valueList = new ArrayList<>();
+				for (int i = 0; i < row.getArity(); i++) {
+					valueList.add(row.getField(i));
+				}
+				valueList.add(keyFieldIndex, convertByteArrayToFieldType(key, keyTypes[0]));
+				return Row.of(valueList.toArray(new Object[0]));
 			}
-			valueList.add(keyFieldIndex, convertByteArrayToFieldType(key, keyTypes[0]));
-			return Row.of(valueList.toArray(new Object[0]));
 		}
 		return row;
 	}
