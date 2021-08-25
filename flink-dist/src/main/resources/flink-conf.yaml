@@ -283,6 +283,7 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
 larva:
   dc: cn
@@ -290,6 +291,7 @@ larva:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
 locst:
   dc: cn
@@ -358,6 +360,7 @@ horse:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
 hibis:
   dc: cn
@@ -432,7 +435,7 @@ quoka:
   cluster.evenly-spread-out-slots: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
 quaga:
   dc: cn
@@ -442,7 +445,7 @@ quaga:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   ipv6.enabled: true
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
 quele:
   dc: cn
@@ -640,7 +643,7 @@ boe:
   register-dashboard.token: "Bearer eyJrIjoiTURSV01QeWNDZXJXYUNBdEhkSU94U2tKajU2M1BVM24iLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
 cof:
   dc: vm
@@ -693,4 +696,4 @@ boei18n:
   register-dashboard.token: "Bearer eyJrIjoicndEUGRnNHpUZE9Gcm04VE5QSDdDV3JzbG8wWFZYa3IiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 120
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
