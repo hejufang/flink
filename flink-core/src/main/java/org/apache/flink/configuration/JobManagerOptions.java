@@ -414,6 +414,13 @@ public class JobManagerOptions {
 			.defaultValue(30000)
 			.withDescription("the failover monitor duration in milliseconds.");
 
+	public static final ConfigOption<Boolean> SLOT_SHARING_EXECUTION_SLOT_ALLOCATOR_ENABLED =
+		key("jobmanager.slot-sharing-execution-slot-allocator.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether enable SlotSharingExecutionSlotAllocator.");
+
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

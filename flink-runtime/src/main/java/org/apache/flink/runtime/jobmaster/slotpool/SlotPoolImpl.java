@@ -41,6 +41,7 @@ import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnfulfillableSlotRequestException;
 import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.apache.flink.runtime.util.DualKeyLinkedMap;
 import org.apache.flink.util.clock.Clock;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
@@ -134,6 +135,8 @@ public class SlotPoolImpl implements SlotPool {
 
 	private ComponentMainThreadExecutor componentMainThreadExecutor;
 
+	private boolean batchSlotRequestTimeoutCheckEnabled;
+
 	// ------------------------------------------------------------------------
 
 	public SlotPoolImpl(
@@ -160,6 +163,8 @@ public class SlotPoolImpl implements SlotPool {
 		this.jobManagerAddress = null;
 
 		this.componentMainThreadExecutor = null;
+
+		this.batchSlotRequestTimeoutCheckEnabled = true;
 	}
 
 	// ------------------------------------------------------------------------
@@ -354,7 +359,7 @@ public class SlotPoolImpl implements SlotPool {
 	}
 
 	private void slotRequestToResourceManagerFailed(SlotRequestId slotRequestID, Throwable failure) {
-		final PendingRequest request = pendingRequests.getKeyA(slotRequestID);
+		final PendingRequest request = pendingRequests.getValueByKeyA(slotRequestID);
 		if (request != null) {
 			if (isBatchRequestAndFailureCanBeIgnored(request, failure)) {
 				log.debug("Ignoring failed request to the resource manager for a batch slot request.");
@@ -455,6 +460,11 @@ public class SlotPoolImpl implements SlotPool {
 
 		return requestNewAllocatedSlotInternal(pendingRequest)
 			.thenApply(Function.identity());
+	}
+
+	@Override
+	public void disableBatchSlotRequestTimeoutCheck() {
+		batchSlotRequestTimeoutCheckEnabled = false;
 	}
 
 	@Override
@@ -876,6 +886,10 @@ public class SlotPoolImpl implements SlotPool {
 	}
 
 	protected void checkBatchSlotTimeout() {
+		if (!batchSlotRequestTimeoutCheckEnabled) {
+			return;
+		}
+
 		final Collection<PendingRequest> pendingBatchRequests = getPendingBatchRequests();
 
 		if (!pendingBatchRequests.isEmpty()) {
@@ -1055,11 +1069,11 @@ public class SlotPoolImpl implements SlotPool {
 		 * @return The allocated slot, null if we can't find a match
 		 */
 		AllocatedSlot get(final AllocationID allocationID) {
-			return allocatedSlotsById.getKeyA(allocationID);
+			return allocatedSlotsById.getValueByKeyA(allocationID);
 		}
 
 		AllocatedSlot get(final SlotRequestId slotRequestId) {
-			return allocatedSlotsById.getKeyB(slotRequestId);
+			return allocatedSlotsById.getValueByKeyB(slotRequestId);
 		}
 
 		/**

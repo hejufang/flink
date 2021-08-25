@@ -18,28 +18,22 @@
 
 package org.apache.flink.runtime.scheduler;
 
-import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
-import java.util.List;
+import java.util.Optional;
 
 /**
- * Component responsible for assigning slots to a collection of {@link Execution}.
+ * Component to retrieve the state location of an execution vertex.
  */
-public interface ExecutionSlotAllocator {
+@FunctionalInterface
+public interface StateLocationRetriever {
 
 	/**
-	 * Allocate slots for the given executions.
+	 * Returns state location of an execution vertex.
 	 *
-	 * @param executionVertexSchedulingRequirements The requirements for scheduling the executions.
+	 * @param executionVertexId id of the execution vertex
+	 * @return optional that is assigned with the vertex's state location if the location exists, otherwise empty
 	 */
-	List<SlotExecutionVertexAssignment> allocateSlotsFor(
-			List<ExecutionVertexSchedulingRequirements> executionVertexSchedulingRequirements);
-
-	/**
-	 * Cancel an ongoing slot request.
-	 *
-	 * @param executionVertexId identifying which slot request should be canceled.
-	 */
-	void cancel(ExecutionVertexID executionVertexId);
+	Optional<TaskManagerLocation> getStateLocation(ExecutionVertexID executionVertexId);
 }

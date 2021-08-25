@@ -47,6 +47,10 @@ public class DefaultLogicalVertex implements LogicalVertex<DefaultLogicalVertex,
 		this.resultRetriever = checkNotNull(resultRetriever);
 	}
 
+	public JobVertex getJobVertex() {
+		return jobVertex;
+	}
+
 	@Override
 	public JobVertexID getId() {
 		return jobVertex.getID();

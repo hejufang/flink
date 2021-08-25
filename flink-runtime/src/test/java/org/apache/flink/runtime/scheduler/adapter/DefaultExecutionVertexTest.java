@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.scheduler.adapter;
 
 import org.apache.flink.runtime.execution.ExecutionState;
+import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -72,7 +73,7 @@ public class DefaultExecutionVertexTest extends TestLogger {
 		schedulingResultPartition.setProducer(producerVertex);
 
 		List<ConsumedPartitionGroup> consumedPartitionIds =
-			Collections.singletonList(new ConsumedPartitionGroup(intermediateResultPartitionId));
+			Collections.singletonList(new ConsumedPartitionGroup(intermediateResultPartitionId, DistributionPattern.ALL_TO_ALL, producerVertex.getId().getJobVertexId()));
 		Map<IntermediateResultPartitionID, DefaultResultPartition> resultPartitionById =
 			Collections.singletonMap(intermediateResultPartitionId, schedulingResultPartition);
 

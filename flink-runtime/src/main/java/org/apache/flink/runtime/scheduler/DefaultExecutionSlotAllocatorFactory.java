@@ -35,7 +35,7 @@ public class DefaultExecutionSlotAllocatorFactory implements ExecutionSlotAlloca
 	}
 
 	@Override
-	public ExecutionSlotAllocator createInstance(final InputsLocationsRetriever inputsLocationsRetriever) {
+	public ExecutionSlotAllocator createInstance(final InputsLocationsRetriever inputsLocationsRetriever, final ExecutionSlotAllocationContext context) {
 		return new DefaultExecutionSlotAllocator(slotProvider, inputsLocationsRetriever);
 	}
 }

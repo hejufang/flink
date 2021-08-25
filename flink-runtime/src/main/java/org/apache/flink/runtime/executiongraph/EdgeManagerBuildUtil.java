@@ -59,7 +59,9 @@ public class EdgeManagerBuildUtil {
 			new ConsumedPartitionGroup(
 				Arrays.stream(ires.getPartitions())
 					.map(IntermediateResultPartition::getPartitionId)
-					.collect(Collectors.toList()));
+					.collect(Collectors.toList()),
+				DistributionPattern.ALL_TO_ALL,
+				ires.getProducer().getJobVertexId());
 		for (ExecutionVertex ev : taskVertices) {
 			ev.setConsumedPartitions(consumedPartitions, inputNumber);
 		}
@@ -90,7 +92,7 @@ public class EdgeManagerBuildUtil {
 				partition.setConsumers(consumerVertexGroup);
 
 				ConsumedPartitionGroup consumedPartitionGroup =
-					new ConsumedPartitionGroup(partition.getPartitionId());
+					new ConsumedPartitionGroup(partition.getPartitionId(), DistributionPattern.POINTWISE, ires.getProducer().getJobVertexId());
 				executionVertex.setConsumedPartitions(consumedPartitionGroup, inputNumber);
 			}
 		} else if (sourceCount > targetCount) {
@@ -127,7 +129,7 @@ public class EdgeManagerBuildUtil {
 				}
 
 				ConsumedPartitionGroup consumedPartitionGroup =
-					new ConsumedPartitionGroup(consumedPartitions);
+					new ConsumedPartitionGroup(consumedPartitions, DistributionPattern.POINTWISE, ires.getProducer().getJobVertexId());
 				executionVertex.setConsumedPartitions(consumedPartitionGroup, inputNumber);
 			}
 		} else {
@@ -135,7 +137,7 @@ public class EdgeManagerBuildUtil {
 
 				IntermediateResultPartition partition = ires.getPartitions()[partitionNum];
 				ConsumedPartitionGroup consumerPartitionGroup =
-					new ConsumedPartitionGroup(partition.getPartitionId());
+					new ConsumedPartitionGroup(partition.getPartitionId(), DistributionPattern.POINTWISE, ires.getProducer().getJobVertexId());
 
 				List<ExecutionVertexID> consumers = new ArrayList<>(targetCount / sourceCount + 1);
 

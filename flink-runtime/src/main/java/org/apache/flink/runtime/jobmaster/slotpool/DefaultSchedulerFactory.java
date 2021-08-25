@@ -42,6 +42,11 @@ public class DefaultSchedulerFactory implements SchedulerFactory {
 		return new SchedulerImpl(slotSelectionStrategy, slotPool);
 	}
 
+	@Override
+	public SlotSelectionStrategy getSlotSelectionStrategy() {
+		return slotSelectionStrategy;
+	}
+
 	@Nonnull
 	private static SlotSelectionStrategy selectSlotSelectionStrategy(@Nonnull Configuration configuration) {
 		final boolean evenlySpreadOutSlots = configuration.getBoolean(ClusterOptions.EVENLY_SPREAD_OUT_SLOTS_STRATEGY);

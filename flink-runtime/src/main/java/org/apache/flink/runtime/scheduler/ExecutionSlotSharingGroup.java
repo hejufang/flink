@@ -18,28 +18,28 @@
 
 package org.apache.flink.runtime.scheduler;
 
-import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 
-import java.util.List;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
- * Component responsible for assigning slots to a collection of {@link Execution}.
+ * Represents execution vertices that will run the same shared slot.
  */
-public interface ExecutionSlotAllocator {
+class ExecutionSlotSharingGroup {
 
-	/**
-	 * Allocate slots for the given executions.
-	 *
-	 * @param executionVertexSchedulingRequirements The requirements for scheduling the executions.
-	 */
-	List<SlotExecutionVertexAssignment> allocateSlotsFor(
-			List<ExecutionVertexSchedulingRequirements> executionVertexSchedulingRequirements);
+	private final Set<ExecutionVertexID> executionVertexIds;
 
-	/**
-	 * Cancel an ongoing slot request.
-	 *
-	 * @param executionVertexId identifying which slot request should be canceled.
-	 */
-	void cancel(ExecutionVertexID executionVertexId);
+	ExecutionSlotSharingGroup() {
+		this.executionVertexIds = new HashSet<>();
+	}
+
+	void addVertex(final ExecutionVertexID executionVertexId) {
+		executionVertexIds.add(executionVertexId);
+	}
+
+	Set<ExecutionVertexID> getExecutionVertexIds() {
+		return Collections.unmodifiableSet(executionVertexIds);
+	}
 }

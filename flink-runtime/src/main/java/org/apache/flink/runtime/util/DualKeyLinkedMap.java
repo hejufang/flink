@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.jobmaster.slotpool;
+package org.apache.flink.runtime.util;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 
@@ -50,7 +50,7 @@ public class DualKeyLinkedMap<A, B, V> {
 		return aMap.size();
 	}
 
-	public V getKeyA(A aKey) {
+	public V getValueByKeyA(A aKey) {
 		final Tuple2<B, V> value = aMap.get(aKey);
 
 		if (value != null) {
@@ -60,11 +60,25 @@ public class DualKeyLinkedMap<A, B, V> {
 		}
 	}
 
-	public V getKeyB(B bKey) {
+	public V getValueByKeyB(B bKey) {
 		final A aKey = bMap.get(bKey);
 
 		if (aKey != null) {
 			return aMap.get(aKey).f1;
+		} else {
+			return null;
+		}
+	}
+
+	public A getKeyAByKeyB(B bKey) {
+		return bMap.get(bKey);
+	}
+
+	public B getKeyBByKeyA(A aKey) {
+		final Tuple2<B, V> value = aMap.get(aKey);
+
+		if (value != null) {
+			return value.f0;
 		} else {
 			return null;
 		}

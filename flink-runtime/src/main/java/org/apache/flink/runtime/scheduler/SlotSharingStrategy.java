@@ -18,28 +18,28 @@
 
 package org.apache.flink.runtime.scheduler;
 
-import org.apache.flink.runtime.executiongraph.Execution;
+import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroupDesc;
+import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
+import org.apache.flink.runtime.scheduler.strategy.SchedulingTopology;
 
-import java.util.List;
+import java.util.Set;
 
 /**
- * Component responsible for assigning slots to a collection of {@link Execution}.
+ * Strategy which determines {@link ExecutionSlotSharingGroup} for each execution vertex.
  */
-public interface ExecutionSlotAllocator {
+interface SlotSharingStrategy {
 
-	/**
-	 * Allocate slots for the given executions.
-	 *
-	 * @param executionVertexSchedulingRequirements The requirements for scheduling the executions.
-	 */
-	List<SlotExecutionVertexAssignment> allocateSlotsFor(
-			List<ExecutionVertexSchedulingRequirements> executionVertexSchedulingRequirements);
+	ExecutionSlotSharingGroup getExecutionSlotSharingGroup(
+		ExecutionVertexID executionVertexId);
 
-	/**
-	 * Cancel an ongoing slot request.
-	 *
-	 * @param executionVertexId identifying which slot request should be canceled.
-	 */
-	void cancel(ExecutionVertexID executionVertexId);
+	Set<ExecutionSlotSharingGroup> getExecutionSlotSharingGroups();
+
+	@FunctionalInterface
+	interface Factory {
+		SlotSharingStrategy create(
+			SchedulingTopology topology,
+			Set<SlotSharingGroup> logicalSlotSharingGroups,
+			Set<CoLocationGroupDesc> coLocationGroups);
+	}
 }

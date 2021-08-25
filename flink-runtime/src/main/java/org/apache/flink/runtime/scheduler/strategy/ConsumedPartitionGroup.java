@@ -18,7 +18,9 @@
 
 package org.apache.flink.runtime.scheduler.strategy;
 
+import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 
 import java.util.Collections;
 import java.util.List;
@@ -29,18 +31,30 @@ import java.util.Objects;
  */
 public class ConsumedPartitionGroup {
 
+	private final JobVertexID producerVertexId;
 	private final List<IntermediateResultPartitionID> resultPartitions;
+	private final DistributionPattern distributionPattern;
 
-	public ConsumedPartitionGroup(List<IntermediateResultPartitionID> resultPartitions) {
+	public ConsumedPartitionGroup(List<IntermediateResultPartitionID> resultPartitions, DistributionPattern distributionPattern, JobVertexID jobVertexID) {
 		this.resultPartitions = resultPartitions;
+		this.distributionPattern = distributionPattern;
+		this.producerVertexId = jobVertexID;
 	}
 
-	public ConsumedPartitionGroup(IntermediateResultPartitionID resultPartition) {
-		this(Collections.singletonList(resultPartition));
+	public ConsumedPartitionGroup(IntermediateResultPartitionID resultPartition, DistributionPattern distributionPattern, JobVertexID jobVertexID) {
+		this(Collections.singletonList(resultPartition), distributionPattern, jobVertexID);
 	}
 
 	public List<IntermediateResultPartitionID> getResultPartitions() {
 		return resultPartitions;
+	}
+
+	public DistributionPattern getDistributionPattern() {
+		return distributionPattern;
+	}
+
+	public JobVertexID getProducerVertexId() {
+		return producerVertexId;
 	}
 
 	@Override
@@ -52,11 +66,13 @@ public class ConsumedPartitionGroup {
 			return false;
 		}
 		ConsumedPartitionGroup that = (ConsumedPartitionGroup) o;
-		return Objects.equals(resultPartitions, that.resultPartitions);
+		return Objects.equals(producerVertexId, that.producerVertexId)
+				&& Objects.equals(resultPartitions, that.resultPartitions)
+				&& distributionPattern == that.distributionPattern;
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(resultPartitions);
+		return Objects.hash(producerVertexId, resultPartitions, distributionPattern);
 	}
 }

@@ -18,28 +18,27 @@
 
 package org.apache.flink.runtime.scheduler;
 
-import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
-import java.util.List;
+import java.util.Collection;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Component responsible for assigning slots to a collection of {@link Execution}.
+ * Component to retrieve the preferred locations of an execution vertex.
  */
-public interface ExecutionSlotAllocator {
+@FunctionalInterface
+public interface PreferredLocationsRetriever {
 
 	/**
-	 * Allocate slots for the given executions.
+	 * Returns preferred locations of an execution vertex.
 	 *
-	 * @param executionVertexSchedulingRequirements The requirements for scheduling the executions.
+	 * @param executionVertexId id of the execution vertex
+	 * @param producersToIgnore producer vertices to ignore when calculating input locations
+	 * @return future of preferred locations
 	 */
-	List<SlotExecutionVertexAssignment> allocateSlotsFor(
-			List<ExecutionVertexSchedulingRequirements> executionVertexSchedulingRequirements);
-
-	/**
-	 * Cancel an ongoing slot request.
-	 *
-	 * @param executionVertexId identifying which slot request should be canceled.
-	 */
-	void cancel(ExecutionVertexID executionVertexId);
+	CompletableFuture<Collection<TaskManagerLocation>> getPreferredLocations(
+		ExecutionVertexID executionVertexId,
+		Set<ExecutionVertexID> producersToIgnore);
 }

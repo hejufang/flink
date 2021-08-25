@@ -20,6 +20,7 @@ package org.apache.flink.runtime.scheduler.strategy;
 
 import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -238,7 +239,9 @@ public class InputDependencyConstraintCheckerTest extends TestLogger {
 					.add(new ConsumedPartitionGroup(
 						testingSchedulingResultPartitions.stream()
 							.map(TestingSchedulingResultPartition::getId)
-							.collect(Collectors.toList()))));
+							.collect(Collectors.toList()),
+						DistributionPattern.ALL_TO_ALL,
+						new JobVertexID())));
 
 			return this;
 		}

@@ -65,6 +65,7 @@ import org.apache.flink.runtime.jobmaster.slotpool.Scheduler;
 import org.apache.flink.runtime.jobmaster.slotpool.SchedulerFactory;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotPool;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotPoolFactory;
+import org.apache.flink.runtime.jobmaster.slotpool.SlotSelectionStrategy;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalListener;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -177,6 +178,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final SlotPool slotPool;
 
+	private final SlotSelectionStrategy slotSelectionStrategy;
+
 	private final Scheduler scheduler;
 
 	private final SchedulerNGFactory schedulerNGFactory;
@@ -270,6 +273,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 		this.slotPool = checkNotNull(slotPoolFactory).createSlotPool(jobGraph.getJobID());
 
+		this.slotSelectionStrategy = schedulerFactory.getSlotSelectionStrategy();
+
 		this.scheduler = checkNotNull(schedulerFactory).createScheduler(slotPool);
 
 		this.registeredTaskManagers = new HashMap<>(4);
@@ -332,6 +337,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			backPressureStatsTracker,
 			ioExecutorService,
 			jobMasterConfiguration.getConfiguration(),
+			slotSelectionStrategy,
+			slotPool,
 			scheduler,
 			scheduledExecutorService,
 			userCodeLoader,

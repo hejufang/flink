@@ -30,4 +30,6 @@ public interface SchedulerFactory {
 	 */
 	@Nonnull
 	Scheduler createScheduler(@Nonnull SlotPool slotPool);
+
+	SlotSelectionStrategy getSlotSelectionStrategy();
 }
