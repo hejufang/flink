@@ -148,6 +148,7 @@ public class SingleInputGateBuilder {
 			bufferPoolFactory,
 			bufferDecompressor,
 			segmentProvider,
+			InputChannelTestUtils.newUnregisteredInputChannelMetrics(),
 			channelProvider,
 			null);
 		if (channelFactory != null) {

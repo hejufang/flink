@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Used to transform channels with Single Task Failover feature.
@@ -43,7 +44,7 @@ public interface ChannelProvider {
 
 	PartitionInfo getPartitionInfoAndRemove(int channelIndex);
 
-	void cachePartitionInfo(int channelIndex, ResourceID localLocation, NettyShuffleDescriptor shuffleDescriptor);
+	void cachePartitionInfo(InputChannel inputChannel, ResourceID localLocation, NettyShuffleDescriptor shuffleDescriptor);
 
 	/**
 	 * Used to store the updated partitions.
@@ -58,6 +59,23 @@ public interface ChannelProvider {
 			this.localLocation = localLocation;
 			this.shuffleDescriptor = shuffleDescriptor;
 			this.timestamp = System.currentTimeMillis();
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			PartitionInfo that = (PartitionInfo) o;
+			return timestamp == that.timestamp && Objects.equals(localLocation, that.localLocation) && Objects.equals(shuffleDescriptor, that.shuffleDescriptor);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(localLocation, shuffleDescriptor, timestamp);
 		}
 	}
 }

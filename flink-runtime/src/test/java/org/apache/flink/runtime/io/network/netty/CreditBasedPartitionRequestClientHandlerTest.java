@@ -675,6 +675,7 @@ public class CreditBasedPartitionRequestClientHandlerTest {
 				100,
 				new SimpleCounter(),
 				new SimpleCounter(),
+				new SimpleCounter(),
 				0,
 				null,
 				false);

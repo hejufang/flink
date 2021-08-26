@@ -167,6 +167,7 @@ public class SingleInputGateFactory {
 			bufferPoolFactory,
 			bufferDecompressor,
 			networkBufferPool,
+			metrics,
 			channelProvider,
 			executor);
 

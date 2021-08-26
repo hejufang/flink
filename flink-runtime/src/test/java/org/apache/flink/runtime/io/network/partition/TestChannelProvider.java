@@ -68,7 +68,7 @@ public class TestChannelProvider implements ChannelProvider {
 	}
 
 	@Override
-	public void cachePartitionInfo(int channelIndex, ResourceID localLocation, NettyShuffleDescriptor shuffleDescriptor) {
-		cachedPartitionInfos.put(channelIndex, new PartitionInfo(localLocation, shuffleDescriptor));
+	public void cachePartitionInfo(InputChannel inputChannel, ResourceID localLocation, NettyShuffleDescriptor shuffleDescriptor) {
+		cachedPartitionInfos.put(inputChannel.getChannelIndex(), new PartitionInfo(localLocation, shuffleDescriptor));
 	}
 }

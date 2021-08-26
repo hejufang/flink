@@ -147,6 +147,7 @@ public class InputChannelBuilder {
 			maxBackoff,
 			metrics.getNumBytesInRemoteCounter(),
 			metrics.getNumBuffersInRemoteCounter(),
+			metrics.getNumBuffersInDropped(),
 			5,
 			Executors.newSingleThreadScheduledExecutor(),
 			false);
@@ -178,6 +179,7 @@ public class InputChannelBuilder {
 				maxBackoff,
 				metrics.getNumBytesInRemoteCounter(),
 				metrics.getNumBuffersInRemoteCounter(),
+				metrics.getNumBuffersInDropped(),
 				5,
 			Executors.newSingleThreadScheduledExecutor(),
 				isRecoverable);

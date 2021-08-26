@@ -347,6 +347,7 @@ public class InputGateFairnessTest {
 				STUB_BUFFER_POOL_FACTORY,
 				null,
 				new UnpooledMemorySegmentProvider(32 * 1024),
+				InputChannelTestUtils.newUnregisteredInputChannelMetrics(),
 				new TestChannelProvider(),
 				Executors.newSingleThreadScheduledExecutor());
 

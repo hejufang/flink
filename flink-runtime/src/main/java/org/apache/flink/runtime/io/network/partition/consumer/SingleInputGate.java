@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.memory.MemorySegmentProvider;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateReader;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.event.AbstractEvent;
@@ -32,6 +33,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferProvider;
 import org.apache.flink.runtime.io.network.buffer.BufferReceivedListener;
+import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
@@ -196,6 +198,10 @@ public class SingleInputGate extends IndexedInputGate {
 	@Nullable
 	private final ScheduledExecutorService executor;
 
+	private final Counter numChannelsUpdatedByJM;
+	private final Counter numChannelsUpdatedByTask;
+
+	@VisibleForTesting
 	public SingleInputGate(
 		String owningTaskName,
 		int gateIndex,
@@ -207,6 +213,7 @@ public class SingleInputGate extends IndexedInputGate {
 		SupplierWithException<BufferPool, IOException> bufferPoolFactory,
 		@Nullable BufferDecompressor bufferDecompressor,
 		MemorySegmentProvider memorySegmentProvider,
+		InputChannelMetrics metrics,
 		@Nullable ChannelProvider channelProvider,
 		@Nullable ScheduledExecutorService executor) {
 
@@ -238,6 +245,9 @@ public class SingleInputGate extends IndexedInputGate {
 
 		this.channelProvider = channelProvider;
 		this.executor = executor;
+
+		this.numChannelsUpdatedByJM = metrics.getNumChannelsUpdatedByJM();
+		this.numChannelsUpdatedByTask = metrics.getNumChannelsUpdatedByTask();
 	}
 
 	@Override
@@ -514,18 +524,11 @@ public class SingleInputGate extends IndexedInputGate {
 			} else if (channelProvider != null && !current.isChannelAvailable() && current.isReadyToUpdate()) {
 				// create a new channel if it's not available
 				transformChannel(current, shuffleDescriptor, localLocation);
+				numChannelsUpdatedByJM.inc();
 			} else {
-				if (channelProvider != null && current.isChannelAvailable()) {
-					// this may happend in two cases below:
-					// (1) the network is too slow that channel cannot sense the failure on upstream side
-					// (2) the upstream fails but the container and its TCP connection is still alive
-					LOG.info("{}: channel {} is still available, transform it immediately.", owningTaskName, current);
-					transformChannel(current, shuffleDescriptor, localLocation);
-				} else {
-					LOG.info("{}: Ignore incoming updateInputChannel({}) rpc request.", owningTaskName, shuffleDescriptor.getResultPartitionID());
-					if (channelProvider != null) {
-						channelProvider.cachePartitionInfo(current.channelIndex, localLocation, shuffleDescriptor);
-					}
+				LOG.info("{}: Ignore incoming updateInputChannel({}) rpc request.", owningTaskName, shuffleDescriptor.getResultPartitionID());
+				if (channelProvider != null) {
+					channelProvider.cachePartitionInfo(current, localLocation, shuffleDescriptor);
 				}
 			}
 		}
@@ -544,6 +547,7 @@ public class SingleInputGate extends IndexedInputGate {
 				LOG.info("Find PartitionInfo from cache. (index={}, timestamp={})", current.channelIndex, partitionInfo.timestamp);
 
 				transformChannel(current, partitionInfo.shuffleDescriptor, partitionInfo.localLocation);
+				numChannelsUpdatedByTask.inc();
 			}
 		}
 	}

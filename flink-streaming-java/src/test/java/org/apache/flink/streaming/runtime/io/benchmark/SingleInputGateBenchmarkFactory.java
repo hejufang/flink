@@ -165,6 +165,7 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
 				maxBackoff,
 				metrics.getNumBytesInRemoteCounter(),
 				metrics.getNumBuffersInRemoteCounter(),
+				metrics.getNumBuffersInDropped(),
 				5,
 				null,
 				false);

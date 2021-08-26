@@ -29,3 +29,4 @@ mvn clean install -DskipTests -Dcheckstyle.skip=true -T 1C -Pinclude-hadoop -Psq
 # flink test
 mvn clean -Dflink.forkCount=1 -Dflink.forkCountTestPackage=1 -Dtest="org/apache/flink/test/checkpointing/*" test -pl flink-tests
 mvn clean -Dflink.forkCount=1 -Dflink.forkCountTestPackage=1 -Dtest="org/apache/flink/test/state/*" test -pl flink-tests
+mvn clean -Dflink.forkCount=1 -Dflink.forkCountTestPackage=1 -Dtest="org/apache/flink/test/single/*" test -pl flink-tests

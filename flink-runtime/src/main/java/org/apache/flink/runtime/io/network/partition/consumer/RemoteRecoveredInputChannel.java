@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.consumer;
 
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateReader;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
@@ -79,6 +80,7 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
 			maxBackoff,
 			numBytesIn,
 			numBuffersIn,
+			new SimpleCounter(),
 			maxDelayTimeMs,
 			executor,
 			isRecoverable);

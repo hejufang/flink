@@ -108,6 +108,8 @@ public class RemoteInputChannel extends InputChannel {
 
 	private final BufferManager bufferManager;
 
+	private final Counter numBuffersInDropped;
+
 	public RemoteInputChannel(
 		SingleInputGate inputGate,
 		int channelIndex,
@@ -118,10 +120,13 @@ public class RemoteInputChannel extends InputChannel {
 		int maxBackoff,
 		Counter numBytesIn,
 		Counter numBuffersIn,
+		Counter numBuffersInDropped,
 		long maxDelayTimeMs,
 		ScheduledExecutorService executor,
 		boolean isRecoverable) {
 		super(inputGate, channelIndex, partitionId, initialBackOff, maxBackoff, numBytesIn, numBuffersIn, maxDelayTimeMs, executor, isRecoverable);
+
+		this.numBuffersInDropped = numBuffersInDropped;
 		this.connectionId = checkNotNull(connectionId);
 		this.connectionManager = checkNotNull(connectionManager);
 		this.bufferManager = new BufferManager(inputGate.getMemorySegmentProvider(), this, 0);
@@ -453,6 +458,12 @@ public class RemoteInputChannel extends InputChannel {
 		boolean recycleBuffer = true;
 
 		try {
+			if (!isChannelAvailable()) {
+				LOG.info("Channel {} is unavailable, buffer is ignored.", this);
+				numBuffersInDropped.inc();
+				return;
+			}
+
 			if (expectedSequenceNumber != sequenceNumber) {
 				onError(new BufferReorderingException(expectedSequenceNumber, sequenceNumber));
 				return;
@@ -467,6 +478,7 @@ public class RemoteInputChannel extends InputChannel {
 				// after releaseAllResources() released all buffers from receivedBuffers
 				// (see above for details).
 				if (isReleased.get() || !isChannelAvailable()) {
+					numBuffersInDropped.inc();
 					return;
 				}
 

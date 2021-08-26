@@ -56,7 +56,10 @@ global:
         postJobRawTotalStateSize,
         numPatternsAdded,
         numPatternsDropped,
-        numPatternsUsed
+        numPatternsUsed,
+        numChannelsUpdatedByJM,
+        numChannelsUpdatedByTask,
+        numChannelsInjectedError
     ]
 
 non-global:
@@ -97,6 +100,11 @@ non-global:
         numRecordsInPerSecond,
         numRecordsOutPerSecond,
         numRecordsDropped,
+        numBuffersInDropped,
+        numChannelsUpdatedByJM,
+        numChannelsUpdatedByTask,
+        numChannelsInjectedError,
+        numChannelsCached,
       # late Records Dropped
         numLateRecordsDropped,
       # Lookup Table Metrics

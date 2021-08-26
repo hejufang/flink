@@ -139,6 +139,7 @@ class UnknownInputChannel extends InputChannel {
 			maxBackoff,
 			metrics.getNumBytesInRemoteCounter(),
 			metrics.getNumBuffersInRemoteCounter(),
+			metrics.getNumBuffersInDropped(),
 			maxDelayTimeMs,
 			executor,
 			isRecoverable);

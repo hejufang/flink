@@ -33,6 +33,7 @@ public class MetricNames {
 	public static final String IO_NUM_RECORDS_OUT_RATE = IO_NUM_RECORDS_OUT + SUFFIX_RATE;
 
 	public static final String IO_NUM_RECORDS_DROPPED = "numRecordsDropped";
+	public static final String IO_NUM_BUFFERS_DROPPED = "numBuffersInDropped";
 
 	public static final String IO_NUM_BYTES_IN = "numBytesIn";
 	public static final String IO_NUM_BYTES_OUT = "numBytesOut";
@@ -99,4 +100,9 @@ public class MetricNames {
 	public static final String NUM_PENDING_FUTURE_TASK = "numPendingFutureTask";
 	public static final String NUM_RUNNING_FUTURE_TASK = "numRunningFutureTask";
 	public static final String FUTURE_THREAD_POOL_USAGE = "futureThreadPoolUsage";
+
+	public static final String NUM_CHANNELS_UPDATED_BY_JM = "numChannelsUpdatedByJM";
+	public static final String NUM_CHANNELS_UPDATED_BY_TASK = "numChannelsUpdatedByTask";
+	public static final String NUM_CHANNELS_INJECTED_ERROR = "numChannelsInjectedError";
+	public static final String NUM_CHANNELS_CACHED = "numChannelsCached";
 }

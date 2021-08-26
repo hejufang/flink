@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.consumer;
 
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
@@ -34,6 +35,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * This is used to provide channel transformation.
@@ -57,6 +60,10 @@ public class ChannelProviderImpl implements ChannelProvider {
 
 	private long maxDelayTimeMs;
 
+	private final Counter numChannelsCached;
+	private final Counter numChannelsInjectedError;
+	private final AtomicLong injectErrorCount;
+
 	public ChannelProviderImpl(
 			ConnectionManager connectionManager,
 			InputChannelMetrics metrics,
@@ -74,6 +81,9 @@ public class ChannelProviderImpl implements ChannelProvider {
 		this.maxDelayTimeMs = maxDelayTimeMs;
 
 		this.cachedPartitionInfos = new HashMap<>();
+		this.injectErrorCount = new AtomicLong(0);
+		this.numChannelsInjectedError = metrics.getNumChannelsInjectedError();
+		this.numChannelsCached = metrics.getNumChannelsCached();
 	}
 
 	@Override
@@ -93,6 +103,7 @@ public class ChannelProviderImpl implements ChannelProvider {
 				current.getMaxBackoff(),
 				metrics.getNumBytesInRemoteCounter(),
 				metrics.getNumBuffersInRemoteCounter(),
+				metrics.getNumBuffersInDropped(),
 				maxDelayTimeMs,
 				executor,
 				isRecoverable);
@@ -125,11 +136,46 @@ public class ChannelProviderImpl implements ChannelProvider {
 	}
 
 	@Override
-	public void cachePartitionInfo(int channelIndex, ResourceID localLocation, NettyShuffleDescriptor shuffleDescriptor) {
+	public void cachePartitionInfo(InputChannel inputChannel, ResourceID localLocation, NettyShuffleDescriptor shuffleDescriptor) {
+		final int channelIndex = inputChannel.channelIndex;
 		if (cachedPartitionInfos.containsKey(channelIndex)) {
 			LOG.warn("ChannelProvider has already cached this partitionInfo.(index={}, timestamp={})", channelIndex, cachedPartitionInfos.get(channelIndex).timestamp);
 		}
 
-		cachedPartitionInfos.put(channelIndex, new PartitionInfo(localLocation, shuffleDescriptor));
+		final PartitionInfo partitionInfo = new PartitionInfo(localLocation, shuffleDescriptor);
+		cachedPartitionInfos.put(channelIndex, partitionInfo);
+
+		// the cached partitionInfo should be used very soon except for cases that yarn container becomes wild
+		executor.schedule(new DisableChannelRunnable(inputChannel, partitionInfo), 3 * maxDelayTimeMs, TimeUnit.MILLISECONDS);
+		this.numChannelsCached.inc();
+		this.numChannelsInjectedError.inc(injectErrorCount.get() - this.numChannelsInjectedError.getCount());
+	}
+
+	private class DisableChannelRunnable implements Runnable {
+
+		private final int channelIndex;
+		private final PartitionInfo partitionInfo;
+		private final InputChannel inputChannel;
+
+		DisableChannelRunnable(InputChannel inputChannel, PartitionInfo partitionInfo) {
+			this.inputChannel = inputChannel;
+			this.channelIndex = inputChannel.channelIndex;
+			this.partitionInfo = partitionInfo;
+		}
+
+		@Override
+		public void run() {
+			if (cachedPartitionInfos.containsKey(channelIndex)
+				&& cachedPartitionInfos.get(channelIndex).equals(partitionInfo)
+				&& inputChannel.isChannelAvailable()) {
+				// usually this means the channel cannot sense the upstream failure
+				LOG.info("The channel {} is still available, inject error.", inputChannel);
+				if (inputChannel instanceof RemoteInputChannel) {
+					RemoteInputChannel remoteInputChannel = (RemoteInputChannel) inputChannel;
+					remoteInputChannel.onError(new IllegalStateException("There may be a wild yarn container, fail this channel."));
+					injectErrorCount.incrementAndGet();
+				}
+			}
+		}
 	}
 }
