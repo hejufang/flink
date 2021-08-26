@@ -20,7 +20,6 @@ package org.apache.flink.runtime.entrypoint;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ClusterOptions;
-import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
@@ -46,7 +45,6 @@ import org.apache.flink.runtime.entrypoint.parser.CommandLineParser;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils;
-import org.apache.flink.runtime.io.network.partition.external.ExternalBlockShuffleServiceOptions;
 import org.apache.flink.runtime.metrics.MetricRegistryConfiguration;
 import org.apache.flink.runtime.metrics.MetricRegistryImpl;
 import org.apache.flink.runtime.metrics.ReporterSetup;
@@ -72,8 +70,6 @@ import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ShutdownHookUtil;
 
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -229,32 +225,6 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 			// write host information into configuration
 			configuration.setString(JobManagerOptions.ADDRESS, commonRpcService.getAddress());
 			configuration.setInteger(JobManagerOptions.PORT, commonRpcService.getPort());
-
-			// write shuffle service port
-			if (!configuration.containsKey(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.key())) {
-				final YarnConfiguration yarnConfig = new YarnConfiguration();
-				if (System.getenv().containsKey(ConfigConstants.ENV_HADOOP_CONF_DIR)) {
-					// hardcode here because confp/yarn-site.xml cannot be read by yarnConfig
-					final String confDir = System.getenv().get(ConfigConstants.ENV_HADOOP_CONF_DIR);
-					final StringBuilder sb = new StringBuilder(confDir);
-					if (!confDir.endsWith("/")) {
-						sb.append("/");
-					}
-					if (yarnConfig.getOverridedClusterName() != null) {
-						sb.append("yarn-site_" + yarnConfig.getOverridedClusterName() + ".xml");
-					} else {
-						sb.append("yarn-site.xml");
-					}
-
-					final String path = sb.toString();
-					LOG.info("Using hadoop conf file {} to configure shuffle service port.", path);
-					yarnConfig.addResource(new Path(path));
-				}
-				final int port = yarnConfig.getInt(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.key(),
-						ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.defaultValue());
-				configuration.set(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT, port);
-			}
-			LOG.info("Using port {} as shuffle service port.", configuration.get(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT));
 
 			final DispatcherResourceManagerComponentFactory dispatcherResourceManagerComponentFactory = createDispatcherResourceManagerComponentFactory(configuration);
 

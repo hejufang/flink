@@ -28,14 +28,18 @@ import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.SecurityOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
+import org.apache.flink.runtime.io.network.partition.external.ExternalBlockShuffleServiceOptions;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.yarn.Utils;
 import org.apache.flink.yarn.YarnConfigKeys;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -50,6 +54,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * {@link YarnJobClusterEntrypoint}.
  */
 public class YarnEntrypointUtils {
+	private static final Logger LOG = LoggerFactory.getLogger(YarnEntrypointUtils.class);
 
 	public static Configuration loadConfiguration(String workingDirectory, Map<String, String> env) {
 		Configuration configuration = GlobalConfiguration.loadConfiguration(workingDirectory);
@@ -131,5 +136,33 @@ public class YarnEntrypointUtils {
 				YarnConfigOptions.UserJarInclusion.DISABLED);
 
 		return userJarInclusion == YarnConfigOptions.UserJarInclusion.DISABLED ? userLibDir : Optional.empty();
+	}
+
+	public static void loadYarnShuffleServiceConfiguration(final Configuration configuration) {
+		// write shuffle service port
+		if (!configuration.containsKey(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.key())) {
+			final YarnConfiguration yarnConfig = new YarnConfiguration();
+			if (System.getenv().containsKey(ConfigConstants.ENV_HADOOP_CONF_DIR)) {
+				// hardcode here because confp/yarn-site.xml cannot be read by yarnConfig
+				final String confDir = System.getenv().get(ConfigConstants.ENV_HADOOP_CONF_DIR);
+				final StringBuilder sb = new StringBuilder(confDir);
+				if (!confDir.endsWith("/")) {
+					sb.append("/");
+				}
+				if (yarnConfig.getOverridedClusterName() != null) {
+					sb.append("yarn-site_" + yarnConfig.getOverridedClusterName() + ".xml");
+				} else {
+					sb.append("yarn-site.xml");
+				}
+
+				final String path = sb.toString();
+				LOG.info("Using hadoop conf file {} to configure shuffle service port.", path);
+				yarnConfig.addResource(new Path(path));
+			}
+			final int port = yarnConfig.getInt(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.key(),
+				ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.defaultValue());
+			configuration.set(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT, port);
+		}
+		LOG.info("Using port {} as shuffle service port.", configuration.get(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT));
 	}
 }

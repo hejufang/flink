@@ -102,6 +102,8 @@ public final class YarnApplicationClusterEntryPoint extends ApplicationClusterEn
 		YarnApplicationClusterEntryPoint yarnApplicationClusterEntrypoint =
 				new YarnApplicationClusterEntryPoint(configuration, program);
 
+		YarnEntrypointUtils.loadYarnShuffleServiceConfiguration(configuration);
+
 		ClusterEntrypoint.runClusterEntrypoint(yarnApplicationClusterEntrypoint);
 	}
 

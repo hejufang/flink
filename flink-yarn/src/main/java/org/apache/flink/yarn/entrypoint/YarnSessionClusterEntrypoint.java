@@ -77,6 +77,8 @@ public class YarnSessionClusterEntrypoint extends SessionClusterEntrypoint {
 
 		YarnSessionClusterEntrypoint yarnSessionClusterEntrypoint = new YarnSessionClusterEntrypoint(configuration);
 
+		YarnEntrypointUtils.loadYarnShuffleServiceConfiguration(configuration);
+
 		ClusterEntrypoint.runClusterEntrypoint(yarnSessionClusterEntrypoint);
 	}
 }

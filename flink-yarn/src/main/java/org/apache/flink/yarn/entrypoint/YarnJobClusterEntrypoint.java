@@ -104,6 +104,8 @@ public class YarnJobClusterEntrypoint extends JobClusterEntrypoint {
 		// start a Flink version reporter.
 		startVersionReporter(configuration);
 
+		YarnEntrypointUtils.loadYarnShuffleServiceConfiguration(configuration);
+
 		ClusterEntrypoint.runClusterEntrypoint(yarnJobClusterEntrypoint);
 	}
 }
