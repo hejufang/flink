@@ -50,6 +50,7 @@ import org.apache.flink.runtime.operators.testutils.MockInputSplitProvider;
 import org.apache.flink.runtime.query.KvStateRegistry;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.TaskStateManager;
+import org.apache.flink.runtime.state.cache.CacheManager;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 import org.apache.flink.runtime.taskexecutor.TestGlobalAggregateManager;
 import org.apache.flink.runtime.taskmanager.CheckpointResponder;
@@ -121,6 +122,8 @@ public class StreamMockEnvironment implements Environment {
 	private TaskMetricGroup taskMetricGroup = UnregisteredMetricGroups.createUnregisteredTaskMetricGroup();
 
 	private CheckpointResponder checkpointResponder = NoOpCheckpointResponder.INSTANCE;
+
+	private CacheManager cacheManager;
 
 	public StreamMockEnvironment(
 		Configuration jobConfig,
@@ -383,5 +386,14 @@ public class StreamMockEnvironment implements Environment {
 
 	public void setCheckpointResponder(CheckpointResponder checkpointResponder) {
 		this.checkpointResponder = checkpointResponder;
+	}
+
+	@Override
+	public CacheManager getCacheManager() {
+		return cacheManager;
+	}
+
+	public void setCacheManager(CacheManager cacheManager) {
+		this.cacheManager = cacheManager;
 	}
 }

@@ -33,6 +33,10 @@ import org.apache.flink.runtime.operators.testutils.MockInputSplitProvider;
 import org.apache.flink.runtime.state.LocalRecoveryConfig;
 import org.apache.flink.runtime.state.TestLocalRecoveryConfig;
 import org.apache.flink.runtime.state.TestTaskStateManager;
+import org.apache.flink.runtime.state.cache.CacheConfigurableOptions;
+import org.apache.flink.runtime.state.cache.CacheConfiguration;
+import org.apache.flink.runtime.state.cache.DefaultCacheManager;
+import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.collector.selector.OutputSelector;
 import org.apache.flink.streaming.api.graph.StreamConfig;
@@ -82,6 +86,7 @@ public class StreamTaskMailboxTestHarnessBuilder<OUT> {
 	protected final ArrayList<Integer> inputChannelsPerGate = new ArrayList<>();
 
 	private boolean setupCalled = false;
+	private TaskManagerRuntimeInfo taskManagerRuntimeInfo;
 
 	public StreamTaskMailboxTestHarnessBuilder(
 			FunctionWithException<Environment, ? extends StreamTask<OUT, ?>, Exception> taskFactory,
@@ -125,6 +130,13 @@ public class StreamTaskMailboxTestHarnessBuilder<OUT> {
 			bufferSize,
 			taskStateManager);
 
+		if (taskManagerRuntimeInfo != null) {
+			streamMockEnvironment.setTaskManagerInfo(taskManagerRuntimeInfo);
+			Configuration configuration = taskManagerRuntimeInfo.getConfiguration();
+			if (configuration.get(CacheConfigurableOptions.CACHE_ENABLED)) {
+				streamMockEnvironment.setCacheManager(new DefaultCacheManager(CacheConfiguration.fromConfiguration(configuration)));
+			}
+		}
 		streamMockEnvironment.setCheckpointResponder(taskStateManager.getCheckpointResponder());
 		initializeInputs(streamMockEnvironment);
 
@@ -266,6 +278,11 @@ public class StreamTaskMailboxTestHarnessBuilder<OUT> {
 
 	public StreamTaskMailboxTestHarnessBuilder<OUT> setTaskStateSnapshot(long checkpointId, TaskStateSnapshot snapshot) {
 		taskStateSnapshots = Collections.singletonMap(checkpointId, snapshot);
+		return this;
+	}
+
+	public StreamTaskMailboxTestHarnessBuilder<OUT> setTaskManagerRuntimeInfo(TaskManagerRuntimeInfo taskManagerRuntimeInfo) {
+		this.taskManagerRuntimeInfo = taskManagerRuntimeInfo;
 		return this;
 	}
 }
