@@ -43,9 +43,11 @@ import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.OperatorStreamStateHandle;
 import org.apache.flink.runtime.state.PlaceholderStreamStateHandle;
 import org.apache.flink.runtime.state.SharedStateRegistry;
+import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.filesystem.FileStateHandle;
+import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 import org.apache.flink.runtime.state.testutils.TestCompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.testutils.RecoverableCompletedCheckpointStore;
@@ -61,6 +63,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.verification.VerificationMode;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -85,6 +88,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.apache.flink.runtime.checkpoint.CheckpointCoordinatorTestingUtils.mockExecutionJobVertex;
 import static org.apache.flink.runtime.checkpoint.CheckpointCoordinatorTestingUtils.mockExecutionVertex;
 import static org.apache.flink.runtime.checkpoint.CheckpointFailureReason.CHECKPOINT_EXPIRED;
+import static org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage.CHECKPOINT_DIR_PREFIX;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -2425,6 +2429,39 @@ public class CheckpointCoordinatorTest extends TestLogger {
 
 		void setOwner(CheckpointCoordinator coordinator) {
 			this.owner = checkNotNull(coordinator);
+		}
+	}
+
+	@Test
+	public void testCheckpointFolderAlreadyExists() throws Exception {
+		// set up the coordinator
+		File checkpointBaseDir = tmpFolder.newFolder();
+		StateBackend backend = new FsStateBackend(checkpointBaseDir.toURI());
+		final JobID jid = new JobID();
+		CheckpointCoordinator coord =
+			new CheckpointCoordinatorBuilder()
+				.setCheckpointStateBackend(backend)
+				.setJobId(jid)
+				.setTimer(manuallyTriggeredScheduledExecutor)
+				.build();
+
+		TestingCheckpointIDCounter idCounter = new TestingCheckpointIDCounter();
+		idCounter.setOwner(coord);
+
+		try {
+			// create a folder with the same name to this checkpoint in advance.
+			long chkID = idCounter.get();
+			String jobID = jid.toString();
+			String checkPointDir = tmpFolder.newFolder(checkpointBaseDir.getName(), jobID, CHECKPOINT_DIR_PREFIX + chkID).getAbsolutePath();
+
+			// trigger the first checkpoint. this should succeed even the parent folder has a same chk-${checkpointID} folder already exists.
+			final CompletableFuture<CompletedCheckpoint> checkpointFuture = coord.triggerCheckpoint(false);
+			manuallyTriggeredScheduledExecutor.triggerAll();
+			assertFalse(checkpointFuture.isCompletedExceptionally());
+			assertEquals(1, coord.getNumberOfPendingCheckpoints());
+			assertEquals(checkPointDir, coord.getPendingCheckpoints().get(chkID).getTargetLocation().getMetadataFilePath().getParent().getPath());
+		} finally {
+			coord.shutdown(JobStatus.FINISHED);
 		}
 	}
 }
