@@ -38,6 +38,10 @@ public class PreviousAllocationSlotSelectionStrategyTest extends LocationPrefere
 		super(PreviousAllocationSlotSelectionStrategy.create());
 	}
 
+	protected PreviousAllocationSlotSelectionStrategyTest(SlotSelectionStrategy slotSelectionStrategy) {
+		super(slotSelectionStrategy);
+	}
+
 	@Test
 	public void matchPreviousAllocationOverridesPreferredLocation() {
 
@@ -49,7 +53,7 @@ public class PreviousAllocationSlotSelectionStrategyTest extends LocationPrefere
 			Collections.emptySet());
 		Optional<SlotSelectionStrategy.SlotInfoAndLocality> match = runMatching(slotProfile);
 
-		Assert.assertEquals(slotInfo3, match.get().getSlotInfo());
+		Assert.assertEquals(aid3, match.get().getSlotInfo().getAllocationId());
 
 		slotProfile = SlotProfile.priorAllocation(
 			resourceProfile,
@@ -59,7 +63,7 @@ public class PreviousAllocationSlotSelectionStrategyTest extends LocationPrefere
 			Collections.emptySet());
 		match = runMatching(slotProfile);
 
-		Assert.assertEquals(slotInfo2, match.get().getSlotInfo());
+		Assert.assertEquals(aid2, match.get().getSlotInfo().getAllocationId());
 	}
 
 	@Test
@@ -73,7 +77,7 @@ public class PreviousAllocationSlotSelectionStrategyTest extends LocationPrefere
 			Collections.emptySet());
 		Optional<SlotSelectionStrategy.SlotInfoAndLocality> match = runMatching(slotProfile);
 
-		Assert.assertEquals(slotInfo4, match.get().getSlotInfo());
+		Assert.assertEquals(aid4, match.get().getSlotInfo().getAllocationId());
 	}
 
 	@Test
@@ -110,6 +114,6 @@ public class PreviousAllocationSlotSelectionStrategyTest extends LocationPrefere
 		Optional<SlotSelectionStrategy.SlotInfoAndLocality> match = runMatching(slotProfile);
 
 		// we expect that the candidate that is not blacklisted is returned
-		Assert.assertEquals(slotInfo2, match.get().getSlotInfo());
+		Assert.assertEquals(aid2, match.get().getSlotInfo().getAllocationId());
 	}
 }

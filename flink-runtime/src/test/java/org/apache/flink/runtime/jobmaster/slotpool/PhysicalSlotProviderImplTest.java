@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.jobmaster.slotpool;
 
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotProfile;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
@@ -51,6 +52,8 @@ public class PhysicalSlotProviderImplTest {
 
 	private PhysicalSlotProvider physicalSlotProvider;
 
+	private Time timeout = Time.seconds(10);
+
 	@BeforeClass
 	public static void setupClass() {
 		singleThreadScheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
@@ -67,7 +70,7 @@ public class PhysicalSlotProviderImplTest {
 	@Before
 	public void setup() throws Exception {
 		slotPool = new SlotPoolBuilder(mainThreadExecutor).build();
-		physicalSlotProvider = new PhysicalSlotProviderImpl(LocationPreferenceSlotSelectionStrategy.createDefault(), slotPool);
+		physicalSlotProvider = new PhysicalSlotProviderImpl(LocationPreferenceSlotSelectionStrategy.createRoundRobin(), slotPool);
 	}
 
 	@After
@@ -95,7 +98,7 @@ public class PhysicalSlotProviderImplTest {
 	private CompletableFuture<PhysicalSlotRequest.Result> allocateSlot(PhysicalSlotRequest request) {
 		return CompletableFuture
 			.supplyAsync(
-				() -> physicalSlotProvider.allocatePhysicalSlot(request, null),
+				() -> physicalSlotProvider.allocatePhysicalSlot(request, timeout),
 				mainThreadExecutor)
 			.thenCompose(Function.identity());
 	}

@@ -37,7 +37,7 @@ import java.util.concurrent.CompletableFuture;
  *     <li>{@link SlotExecutionVertexAssignment}
  * </ul>
  */
-class DeploymentHandle {
+public class DeploymentHandle {
 
 	private final ExecutionVertexVersion requiredVertexVersion;
 

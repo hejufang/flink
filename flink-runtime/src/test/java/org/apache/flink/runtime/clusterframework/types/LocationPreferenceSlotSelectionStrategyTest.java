@@ -87,7 +87,7 @@ public class LocationPreferenceSlotSelectionStrategyTest extends SlotSelectionSt
 
 		Assert.assertTrue(match.isPresent());
 		final SlotSelectionStrategy.SlotInfoAndLocality slotInfoAndLocality = match.get();
-		assertThat(candidates, hasItem(withSlotInfo(slotInfoAndLocality.getSlotInfo())));
+		assertThat(candidates, hasItem(withSlotInfo(slotInfoAndLocality.getSlotInfo().getAllocationId())));
 		assertThat(slotInfoAndLocality, hasLocality(Locality.UNCONSTRAINED));
 	}
 
@@ -100,7 +100,7 @@ public class LocationPreferenceSlotSelectionStrategyTest extends SlotSelectionSt
 		Assert.assertTrue(match.isPresent());
 		final SlotSelectionStrategy.SlotInfoAndLocality slotInfoAndLocality = match.get();
 		final SlotInfo slotInfo = slotInfoAndLocality.getSlotInfo();
-		assertThat(candidates, hasItem(withSlotInfo(slotInfo)));
+		assertThat(candidates, hasItem(withSlotInfo(slotInfo.getAllocationId())));
 		assertThat(slotInfoAndLocality, hasLocality(Locality.HOST_LOCAL));
 	}
 
@@ -108,8 +108,8 @@ public class LocationPreferenceSlotSelectionStrategyTest extends SlotSelectionSt
 		return new LocalityFeatureMatcher(locality);
 	}
 
-	private Matcher<SlotSelectionStrategy.SlotInfoAndResources> withSlotInfo(SlotInfo slotInfo) {
-		return new SlotInfoFeatureMatcher(slotInfo);
+	private Matcher<SlotSelectionStrategy.SlotInfoAndResources> withSlotInfo(AllocationID allocationID) {
+		return new SlotInfoFeatureMatcher(allocationID);
 	}
 
 	@Test
@@ -121,7 +121,7 @@ public class LocationPreferenceSlotSelectionStrategyTest extends SlotSelectionSt
 
 		Assert.assertTrue(match.isPresent());
 		final SlotSelectionStrategy.SlotInfoAndLocality slotInfoAndLocality = match.get();
-		assertThat(candidates, hasItem(withSlotInfo(slotInfoAndLocality.getSlotInfo())));
+		assertThat(candidates, hasItem(withSlotInfo(slotInfoAndLocality.getSlotInfo().getAllocationId())));
 		assertThat(slotInfoAndLocality, hasLocality(Locality.NON_LOCAL));
 	}
 
@@ -131,17 +131,17 @@ public class LocationPreferenceSlotSelectionStrategyTest extends SlotSelectionSt
 		SlotProfile slotProfile = SlotProfile.preferredLocality(resourceProfile, Collections.singletonList(tml2));
 		Optional<SlotSelectionStrategy.SlotInfoAndLocality> match = runMatching(slotProfile);
 
-		Assert.assertEquals(slotInfo2, match.get().getSlotInfo());
+		Assert.assertEquals(aid2, match.get().getSlotInfo().getAllocationId());
 
 		slotProfile = SlotProfile.preferredLocality(resourceProfile, Arrays.asList(tmlX, tml4));
 		match = runMatching(slotProfile);
 
-		Assert.assertEquals(slotInfo4, match.get().getSlotInfo());
+		Assert.assertEquals(aid4, match.get().getSlotInfo().getAllocationId());
 
 		slotProfile = SlotProfile.preferredLocality(resourceProfile, Arrays.asList(tml3, tml1, tml3, tmlX));
 		match = runMatching(slotProfile);
 
-		Assert.assertEquals(slotInfo3, match.get().getSlotInfo());
+		Assert.assertEquals(aid3, match.get().getSlotInfo().getAllocationId());
 	}
 
 	@Test
@@ -160,17 +160,29 @@ public class LocationPreferenceSlotSelectionStrategyTest extends SlotSelectionSt
 		Optional<SlotSelectionStrategy.SlotInfoAndLocality> match = runMatching(slotProfile);
 
 		// available previous allocation should override blacklisting
-		Assert.assertEquals(slotInfo3, match.get().getSlotInfo());
+		Assert.assertEquals(aid3, match.get().getSlotInfo().getAllocationId());
 	}
 
-	private static class SlotInfoFeatureMatcher extends FeatureMatcher<SlotSelectionStrategy.SlotInfoAndResources, SlotInfo> {
-		SlotInfoFeatureMatcher(SlotInfo slotInfo) {
-			super(is(slotInfo), "Slot info of a SlotInfoAndResources instance", "slotInfo");
+	@Test
+	public void testBannedLocations() {
+		SlotProfile slotProfile = SlotProfile.priorAllocation(
+			resourceProfile,
+			resourceProfile,
+			Collections.singleton(tml1),
+			Collections.singleton(tml1),
+			Collections.singletonList(aid1),
+			new HashSet<>());
+		Assert.assertFalse(runMatching(slotProfile).isPresent());
+	}
+
+	private static class SlotInfoFeatureMatcher extends FeatureMatcher<SlotSelectionStrategy.SlotInfoAndResources, AllocationID> {
+		SlotInfoFeatureMatcher(AllocationID allocationID) {
+			super(is(allocationID), "Slot info of a SlotInfoAndResources instance", "slotInfo");
 		}
 
 		@Override
-		protected SlotInfo featureValueOf(SlotSelectionStrategy.SlotInfoAndResources actual) {
-			return actual.getSlotInfo();
+		protected AllocationID featureValueOf(SlotSelectionStrategy.SlotInfoAndResources actual) {
+			return actual.getSlotInfo().getAllocationId();
 		}
 	}
 

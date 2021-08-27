@@ -121,13 +121,12 @@ class SlotSharingExecutionSlotAllocator implements ExecutionSlotAllocator {
 
 		SharedSlotProfileRetriever sharedSlotProfileRetriever = sharedSlotProfileRetrieverFactory
 			.createFromBulk(new HashSet<>(executionVertexIds), executionVertexID -> bannedLocations.getOrDefault(executionVertexID, Collections.emptyList()));
+
+		// allocate slot one by one to keep vertices in topology order.
 		Map<ExecutionVertexID, SlotExecutionVertexAssignment> assignments = executionVertexIds
-			.stream()
-			.collect(Collectors.groupingBy(slotSharingStrategy::getExecutionSlotSharingGroup))
-			.entrySet()
-			.stream()
-			.flatMap(entry -> allocateLogicalSlotsFromSharedSlot(sharedSlotProfileRetriever, entry.getKey(), entry.getValue()))
-			.collect(Collectors.toMap(SlotExecutionVertexAssignment::getExecutionVertexId, a -> a));
+				.stream()
+				.flatMap(executionVertexID -> allocateLogicalSlotsFromSharedSlot(sharedSlotProfileRetriever, slotSharingStrategy.getExecutionSlotSharingGroup(executionVertexID), Collections.singleton(executionVertexID)))
+				.collect(Collectors.toMap(SlotExecutionVertexAssignment::getExecutionVertexId, a -> a));
 
 		return executionVertexIds.stream().map(assignments::get).collect(Collectors.toList());
 	}
@@ -151,6 +150,7 @@ class SlotSharingExecutionSlotAllocator implements ExecutionSlotAllocator {
 			SharedSlotProfileRetriever sharedSlotProfileRetriever,
 			ExecutionSlotSharingGroup executionSlotSharingGroup,
 			Collection<ExecutionVertexID> executions) {
+		LOG.debug("start to allocate slot for {}", executions);
 		SharedSlot sharedSlot = getOrAllocateSharedSlot(executionSlotSharingGroup, sharedSlotProfileRetriever);
 		return executions
 			.stream()

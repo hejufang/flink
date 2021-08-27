@@ -35,9 +35,9 @@ import org.apache.flink.runtime.jobmaster.JobMasterConfiguration;
 import org.apache.flink.runtime.jobmaster.TestingJobManagerSharedServicesBuilder;
 import org.apache.flink.runtime.jobmaster.factories.UnregisteredJobManagerJobMetricGroupFactory;
 import org.apache.flink.runtime.jobmaster.slotpool.DefaultSchedulerFactory;
-import org.apache.flink.runtime.jobmaster.slotpool.DefaultSlotPoolFactory;
 import org.apache.flink.runtime.jobmaster.slotpool.SchedulerFactory;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotPoolFactory;
+import org.apache.flink.runtime.jobmaster.slotpool.SlotPoolFactoryLoader;
 import org.apache.flink.runtime.leaderretrieval.SettableLeaderRetrievalService;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -159,8 +159,8 @@ public class JobMasterBuilder {
 			jmResourceId,
 			jobGraph,
 			highAvailabilityServices,
-			slotPoolFactory != null ? slotPoolFactory : DefaultSlotPoolFactory.fromConfiguration(configuration),
-			schedulerFactory != null ? schedulerFactory : DefaultSchedulerFactory.fromConfiguration(configuration),
+			slotPoolFactory != null ? slotPoolFactory : SlotPoolFactoryLoader.createSlotPoolFactory(configuration, jobGraph.getScheduleMode()),
+			schedulerFactory != null ? schedulerFactory : DefaultSchedulerFactory.fromConfiguration(configuration, jobGraph.getScheduleMode()),
 			jobManagerSharedServices,
 			heartbeatServices,
 			UnregisteredJobManagerJobMetricGroupFactory.INSTANCE,

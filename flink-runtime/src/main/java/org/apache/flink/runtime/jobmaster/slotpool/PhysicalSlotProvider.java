@@ -19,8 +19,10 @@
 package org.apache.flink.runtime.jobmaster.slotpool;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.jobmaster.SlotRequestId;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -48,4 +50,6 @@ public interface PhysicalSlotProvider {
 	 * @param cause of the cancellation
 	 */
 	void cancelSlotRequest(SlotRequestId slotRequestId, Throwable cause);
+
+	default void setRequiredResources(Map<ResourceProfile, Integer> requiredResources) { }
 }

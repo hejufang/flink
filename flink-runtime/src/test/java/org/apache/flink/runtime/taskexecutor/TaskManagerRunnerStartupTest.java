@@ -54,7 +54,6 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.List;
@@ -155,7 +154,7 @@ public class TaskManagerRunnerStartupTest extends TestLogger {
 	 */
 	@Test
 	public void testStartupWhenNetworkStackFailsToInitialize() throws Exception {
-		final ServerSocket blocker = new ServerSocket(0, 50, InetAddress.getByName(LOCAL_HOST));
+		final ServerSocket blocker = new ServerSocket(0, 50);
 
 		try {
 			final Configuration cfg = createFlinkConfiguration();

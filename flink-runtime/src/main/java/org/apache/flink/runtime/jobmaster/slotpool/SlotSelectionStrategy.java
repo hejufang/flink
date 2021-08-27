@@ -27,6 +27,7 @@ import javax.annotation.Nonnull;
 
 import java.util.Collection;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Interface for slot selection strategies to be used in the {@link Scheduler}.
@@ -44,6 +45,18 @@ public interface SlotSelectionStrategy {
 	Optional<SlotInfoAndLocality> selectBestSlotForProfile(
 		@Nonnull Collection<SlotInfoAndResources> availableSlots,
 		@Nonnull SlotProfile slotProfile);
+
+	default Optional<SlotInfoAndLocality> selectBestSlotForProfile(
+		@Nonnull SlotProfile slotProfile,
+		@Nonnull SlotPool slotPool) {
+		Collection<SlotSelectionStrategy.SlotInfoAndResources> slotInfoList =
+				slotPool.getAvailableSlotsInformation()
+						.stream()
+						.map(SlotSelectionStrategy.SlotInfoAndResources::fromSingleSlot)
+						.collect(Collectors.toList());
+
+		return selectBestSlotForProfile(slotInfoList, slotProfile);
+	}
 
 	/**
 	 * This class is a value type that combines a {@link SlotInfo} with its remaining {@link ResourceProfile}.

@@ -363,6 +363,14 @@ public class JobManagerOptions {
 			// default matches heartbeat.timeout so that sticky allocation is not lost on timeouts for local recovery
 			.defaultValue(HeartbeatManagerOptions.HEARTBEAT_TIMEOUT.defaultValue())
 			.withDescription("The timeout in milliseconds for a idle slot in Slot Pool.");
+
+	@Documentation.Section(Documentation.Sections.EXPERT_SCHEDULING)
+	public static final ConfigOption<Boolean> SLOT_POOL_ROUND_ROBIN =
+			key("slot-pool.round-robin")
+					.booleanType()
+					.defaultValue(false)
+					.withDescription("Whether allocation slots with round robin slot pool.");
+
 	/**
 	 * Config parameter determining the scheduler implementation.
 	 */

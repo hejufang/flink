@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.scheduler;
 
+import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.instance.SlotSharingGroupId;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -47,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.executiongraph.ExecutionVertex.MAX_DISTINCT_LOCATIONS_TO_CONSIDER;
@@ -63,12 +66,23 @@ class LocalInputPreferredSlotSharingStrategy implements SlotSharingStrategy {
 
 	private final Map<ExecutionVertexID, ExecutionSlotSharingGroup> executionSlotSharingGroupMap;
 
+	private final Map<ResourceProfile, Set<ExecutionSlotSharingGroup>> executionSlotSharingGroupMapByResourceProfile;
+
 	private final Map<ExecutionSlotSharingGroup, List<ExecutionSlotSharingGroup>> executionPreferredSlotSharingGroup;
 
+	@VisibleForTesting
 	LocalInputPreferredSlotSharingStrategy(
 			final SchedulingTopology topology,
 			final Set<SlotSharingGroup> logicalSlotSharingGroups,
 			final Set<CoLocationGroupDesc> coLocationGroups) {
+		this(topology, logicalSlotSharingGroups, coLocationGroups, executionVertexID -> ResourceProfile.UNKNOWN);
+	}
+
+	LocalInputPreferredSlotSharingStrategy(
+			final SchedulingTopology topology,
+			final Set<SlotSharingGroup> logicalSlotSharingGroups,
+			final Set<CoLocationGroupDesc> coLocationGroups,
+			Function<ExecutionVertexID, ResourceProfile> resourceProfileRetriever) {
 
 		long startTime = System.currentTimeMillis();
 		this.executionSlotSharingGroupMap = new ExecutionSlotSharingGroupBuilder(
@@ -77,9 +91,24 @@ class LocalInputPreferredSlotSharingStrategy implements SlotSharingStrategy {
 			coLocationGroups).build();
 		LOG.debug("build executionSlotSharingGroupMap take {} ms.", System.currentTimeMillis() - startTime);
 
+		this.executionSlotSharingGroupMapByResourceProfile = calculateExecutionSlotSharingGroupResourceProfile(resourceProfileRetriever);
+
 		startTime = System.currentTimeMillis();
 		this.executionPreferredSlotSharingGroup = buildPreferredSlotSharingGroup(topology);
 		LOG.debug("build executionPreferredSlotSharingGroup take {} ms.", System.currentTimeMillis() - startTime);
+	}
+
+	private Map<ResourceProfile, Set<ExecutionSlotSharingGroup>> calculateExecutionSlotSharingGroupResourceProfile(
+			Function<ExecutionVertexID, ResourceProfile> resourceProfileRetriever) {
+		Map<ResourceProfile, Set<ExecutionSlotSharingGroup>> resourceProfileSetMap = new HashMap<>();
+		for (ExecutionSlotSharingGroup executionSlotSharingGroup : executionSlotSharingGroupMap.values()) {
+			ResourceProfile totalSlotResourceProfile = ResourceProfile.ZERO;
+			for (ExecutionVertexID execution : executionSlotSharingGroup.getExecutionVertexIds()) {
+				totalSlotResourceProfile = totalSlotResourceProfile.merge(resourceProfileRetriever.apply(execution));
+				resourceProfileSetMap.computeIfAbsent(totalSlotResourceProfile, r -> new HashSet<>()).add(executionSlotSharingGroup);
+			}
+		}
+		return resourceProfileSetMap;
 	}
 
 	private Map<ExecutionSlotSharingGroup, List<ExecutionSlotSharingGroup>> buildPreferredSlotSharingGroup(SchedulingTopology topology) {
@@ -181,6 +210,11 @@ class LocalInputPreferredSlotSharingStrategy implements SlotSharingStrategy {
 	}
 
 	@Override
+	public Map<ResourceProfile, Set<ExecutionSlotSharingGroup>> getExecutionSlotSharingGroupMapByResourceProfile() {
+		return executionSlotSharingGroupMapByResourceProfile;
+	}
+
+	@Override
 	public Set<ExecutionSlotSharingGroup> getExecutionSlotSharingGroups() {
 		return new HashSet<>(executionSlotSharingGroupMap.values());
 	}
@@ -250,12 +284,19 @@ class LocalInputPreferredSlotSharingStrategy implements SlotSharingStrategy {
 				JobVertexID jobVertexID = jobVertexExecutions.getKey();
 				List<SchedulingExecutionVertex> executionVertices = jobVertexExecutions.getValue();
 				int executionParallelism = executionVertices.size();
+				// try to get group from CoLocated or Producer.
 				final List<SchedulingExecutionVertex> remaining = tryFindOptimalAvailableExecutionSlotSharingGroupFor(
 					executionVertices);
 
-				final List<SchedulingExecutionVertex> remainingAfterSpreadOut = trySpreadOutExecutionToGroup(jobVertexID, remaining, executionParallelism);
-
-				findAvailableExecutionSlotSharingGroupFor(jobVertexID, remainingAfterSpreadOut);
+				if (!remaining.isEmpty()) {
+					// try to spread out execution to groups.
+					final List<SchedulingExecutionVertex> remainingAfterSpreadOut = trySpreadOutExecutionToGroup(jobVertexID, remaining, executionParallelism);
+					if (!remainingAfterSpreadOut.isEmpty()) {
+						// Usually there will be no remaining After trySpreadOutExecutionToGroup,
+						// findAvailableExecutionSlotSharingGroupFor just in case of some bad case.
+						findAvailableExecutionSlotSharingGroupFor(jobVertexID, remainingAfterSpreadOut);
+					}
+				}
 
 				updateConstraintToExecutionSlotSharingGroupMap(executionVertices);
 			}

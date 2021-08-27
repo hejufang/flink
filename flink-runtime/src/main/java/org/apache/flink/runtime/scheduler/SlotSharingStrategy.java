@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.scheduler;
 
+import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroupDesc;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
@@ -25,6 +26,7 @@ import org.apache.flink.runtime.scheduler.strategy.SchedulingTopology;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -39,6 +41,10 @@ interface SlotSharingStrategy {
 
 	default List<ExecutionSlotSharingGroup> getPreferredExecutionSlotSharingGroups(ExecutionSlotSharingGroup executionSlotSharingGroup) {
 		return Collections.emptyList();
+	}
+
+	default Map<ResourceProfile, Set<ExecutionSlotSharingGroup>> getExecutionSlotSharingGroupMapByResourceProfile() {
+		return Collections.emptyMap();
 	}
 
 	@FunctionalInterface

@@ -35,7 +35,7 @@ import java.util.concurrent.CompletableFuture;
  * Testing extension of the {@link SlotPoolImpl} which adds additional methods
  * for testing.
  */
-public class TestingSlotPoolImpl extends SlotPoolImpl {
+public class TestingSlotPoolImpl extends RoundRobinSlotPoolImpl {
 
 	private ResourceProfile lastRequestedSlotResourceProfile;
 

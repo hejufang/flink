@@ -152,10 +152,18 @@ public class ExecutionGraphNotEnoughResourceTest extends TestLogger {
 		final TaskManagerGateway taskManagerGateway = new SimpleAckingTaskManagerGateway();
 		final String jobManagerAddress = "foobar";
 		final ResourceManagerGateway resourceManagerGateway = new TestingResourceManagerGateway();
-		slotPool.start(JobMasterId.generate(), jobManagerAddress, mainThreadExecutor);
-		slotPool.connectToResourceManager(resourceManagerGateway);
 		Scheduler scheduler = new SchedulerImpl(LocationPreferenceSlotSelectionStrategy.createDefault(), slotPool);
-		scheduler.start(mainThreadExecutor);
+		CompletableFuture.runAsync(
+				() -> {
+					try {
+						slotPool.start(JobMasterId.generate(), jobManagerAddress, mainThreadExecutor);
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
+					slotPool.connectToResourceManager(resourceManagerGateway);
+					scheduler.start(mainThreadExecutor);
+				},
+				mainThreadExecutor).join();
 
 		CompletableFuture.runAsync(() -> slotPool.registerTaskManager(taskManagerLocation.getResourceID()), mainThreadExecutor).join();
 

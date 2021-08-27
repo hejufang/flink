@@ -28,9 +28,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -50,6 +50,11 @@ public class PhysicalSlotProviderImpl implements PhysicalSlotProvider {
 	}
 
 	@Override
+	public void setRequiredResources(Map<ResourceProfile, Integer> requiredResources) {
+		slotPool.setRequiredResourceNumber(requiredResources);
+	}
+
+	@Override
 	public CompletableFuture<PhysicalSlotRequest.Result> allocatePhysicalSlot(PhysicalSlotRequest physicalSlotRequest, Time timeout) {
 		SlotRequestId slotRequestId = physicalSlotRequest.getSlotRequestId();
 		SlotProfile slotProfile = physicalSlotRequest.getSlotProfile();
@@ -57,30 +62,30 @@ public class PhysicalSlotProviderImpl implements PhysicalSlotProvider {
 
 		LOG.debug("Received slot request [{}] with resource requirements: {}", slotRequestId, resourceProfile);
 
-		Optional<PhysicalSlot> availablePhysicalSlot = tryAllocateFromAvailable(slotRequestId, slotProfile);
+		CompletableFuture<Optional<PhysicalSlot>> availablePhysicalSlot = tryAllocateFromAvailable(slotRequestId, slotProfile, timeout);
 
 		CompletableFuture<PhysicalSlot> slotFuture;
-		slotFuture = availablePhysicalSlot
-			.map(CompletableFuture::completedFuture)
-			.orElseGet(() -> requestNewSlot(
-				slotRequestId,
-				resourceProfile,
-				physicalSlotRequest.getSlotProfile().getBannedLocations(),
-				physicalSlotRequest.willSlotBeOccupiedIndefinitely(),
-				timeout));
+		slotFuture = availablePhysicalSlot.thenCompose(
+				physicalSlot -> physicalSlot
+						.map(CompletableFuture::completedFuture)
+						.orElseGet(() -> requestNewSlot(
+								slotRequestId,
+								resourceProfile,
+								physicalSlotRequest.getSlotProfile().getBannedLocations(),
+								physicalSlotRequest.willSlotBeOccupiedIndefinitely(),
+								timeout)));
 
 		return slotFuture.thenApply(physicalSlot -> new PhysicalSlotRequest.Result(slotRequestId, physicalSlot));
 	}
 
-	private Optional<PhysicalSlot> tryAllocateFromAvailable(SlotRequestId slotRequestId, SlotProfile slotProfile) {
-		Collection<SlotSelectionStrategy.SlotInfoAndResources> slotInfoList =
-			slotPool.getAvailableSlotsInformation()
-				.stream()
-				.map(SlotSelectionStrategy.SlotInfoAndResources::fromSingleSlot)
-				.collect(Collectors.toList());
+	private CompletableFuture<Optional<PhysicalSlot>> tryAllocateFromAvailable(SlotRequestId slotRequestId, SlotProfile slotProfile, Time timeout) {
+		return slotPool.getRequiredResourceSatisfiedFutureWithTimeout(timeout).thenApply(
+				ignore -> tryAllocateFromAvailableInternal(slotRequestId, slotProfile));
+	}
 
+	private Optional<PhysicalSlot> tryAllocateFromAvailableInternal(SlotRequestId slotRequestId, SlotProfile slotProfile) {
 		Optional<SlotSelectionStrategy.SlotInfoAndLocality> selectedAvailableSlot =
-			slotSelectionStrategy.selectBestSlotForProfile(slotInfoList, slotProfile);
+			slotSelectionStrategy.selectBestSlotForProfile(slotProfile, slotPool);
 
 		return selectedAvailableSlot.flatMap(
 			slotInfoAndLocality -> slotPool.allocateAvailableSlot(

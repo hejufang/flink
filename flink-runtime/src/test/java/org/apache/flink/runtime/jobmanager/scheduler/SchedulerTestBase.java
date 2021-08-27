@@ -79,8 +79,15 @@ public abstract class SchedulerTestBase extends TestLogger {
 		final JobMasterId jobMasterId = JobMasterId.generate();
 		final String jobManagerAddress = "localhost";
 		componentMainThreadExecutor = getComponentMainThreadExecutor();
-		slotPool.start(jobMasterId, jobManagerAddress, componentMainThreadExecutor);
-		scheduler.start(componentMainThreadExecutor);
+		CompletableFuture.runAsync(
+				() -> {
+					try {
+						slotPool.start(jobMasterId, jobManagerAddress, componentMainThreadExecutor);
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
+					scheduler.start(componentMainThreadExecutor);
+				}, componentMainThreadExecutor).join();
 	}
 
 	protected abstract ComponentMainThreadExecutor getComponentMainThreadExecutor();

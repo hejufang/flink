@@ -101,7 +101,9 @@ public class DefaultSchedulerBatchSchedulingTest extends TestLogger {
 		final JobGraph jobGraph = createJobGraph(parallelism);
 		jobGraph.setScheduleMode(ScheduleMode.LAZY_FROM_SOURCES_WITH_BATCH_SLOT_REQUEST);
 
-		try (final SlotPoolImpl slotPool = createSlotPool(mainThreadExecutor, batchSlotTimeout)) {
+		final SlotPoolImpl slotPool = createSlotPool(mainThreadExecutor, batchSlotTimeout);
+
+		try {
 			final ArrayBlockingQueue<ExecutionAttemptID> submittedTasksQueue = new ArrayBlockingQueue<>(parallelism);
 			TestingTaskExecutorGateway testingTaskExecutorGateway = new TestingTaskExecutorGatewayBuilder()
 				.setSubmitTaskConsumer(
@@ -144,6 +146,8 @@ public class DefaultSchedulerBatchSchedulingTest extends TestLogger {
 			}
 
 			assertThat(terminationFuture.get(), is(JobStatus.FINISHED));
+		} finally {
+			CompletableFuture.runAsync(slotPool::close, mainThreadExecutor).join();
 		}
 	}
 

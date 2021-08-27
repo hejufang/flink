@@ -67,7 +67,14 @@ public class SlotPoolBuilder {
 			TestingUtils.infiniteTime(),
 			batchSlotTimeout);
 
-		slotPool.start(JobMasterId.generate(), "foobar", componentMainThreadExecutor);
+		CompletableFuture.runAsync(
+				() -> {
+					try {
+						slotPool.start(JobMasterId.generate(), "foobar", componentMainThreadExecutor);
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
+				}, componentMainThreadExecutor).join();
 
 		CompletableFuture.runAsync(() -> slotPool.connectToResourceManager(resourceManagerGateway), componentMainThreadExecutor).join();
 

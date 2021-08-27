@@ -142,4 +142,8 @@ public abstract class LocationPreferenceSlotSelectionStrategy implements SlotSel
 	public static LocationPreferenceSlotSelectionStrategy createEvenlySpreadOut() {
 		return new EvenlySpreadOutLocationPreferenceSlotSelectionStrategy();
 	}
+
+	public static RoundRobinLocationPreferenceSlotSelectionStrategy createRoundRobin() {
+		return new RoundRobinLocationPreferenceSlotSelectionStrategy();
+	}
 }

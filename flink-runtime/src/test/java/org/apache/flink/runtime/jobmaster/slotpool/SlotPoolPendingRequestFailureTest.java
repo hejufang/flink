@@ -142,7 +142,16 @@ public class SlotPoolPendingRequestFailureTest extends TestLogger {
 		final ScheduledExecutorService singleThreadExecutor = Executors.newSingleThreadScheduledExecutor();
 		final ComponentMainThreadExecutor componentMainThreadExecutor = ComponentMainThreadExecutorServiceAdapter.forSingleThreadExecutor(singleThreadExecutor);
 
-		final SlotPoolImpl slotPool = setUpSlotPool(componentMainThreadExecutor);
+		final CompletableFuture<SlotPoolImpl> slotPoolFuture = CompletableFuture
+				.supplyAsync(() -> {
+					try {
+						return setUpSlotPool(componentMainThreadExecutor);
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
+				}, componentMainThreadExecutor);
+
+		SlotPoolImpl slotPool = slotPoolFuture.get();
 
 		try {
 			final Time timeout = Time.milliseconds(5L);

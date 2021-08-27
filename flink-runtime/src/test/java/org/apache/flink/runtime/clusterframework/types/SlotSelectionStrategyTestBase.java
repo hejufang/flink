@@ -26,9 +26,6 @@ import org.apache.flink.runtime.jobmaster.slotpool.SlotSelectionStrategy;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.TestLogger;
 
-import org.junit.Assert;
-import org.junit.Test;
-
 import java.net.InetAddress;
 import java.util.Collections;
 import java.util.HashSet;
@@ -89,17 +86,5 @@ public abstract class SlotSelectionStrategyTestBase extends TestLogger {
 
 	protected Optional<SlotSelectionStrategy.SlotInfoAndLocality> runMatching(SlotProfile slotProfile) {
 		return selectionStrategy.selectBestSlotForProfile(candidates, slotProfile);
-	}
-
-	@Test
-	public void testBannedLocations() {
-		SlotProfile slotProfile = SlotProfile.priorAllocation(
-				resourceProfile,
-				resourceProfile,
-				Collections.singleton(tml1),
-				Collections.singleton(tml1),
-				Collections.singletonList(aid1),
-				new HashSet<>());
-		Assert.assertFalse(selectionStrategy.selectBestSlotForProfile(candidates, slotProfile).isPresent());
 	}
 }

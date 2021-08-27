@@ -21,6 +21,8 @@ package org.apache.flink.runtime.jobmaster.slotpool;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.runtime.jobgraph.ScheduleMode;
 
 import javax.annotation.Nonnull;
 
@@ -48,10 +50,15 @@ public class DefaultSchedulerFactory implements SchedulerFactory {
 	}
 
 	@Nonnull
-	private static SlotSelectionStrategy selectSlotSelectionStrategy(@Nonnull Configuration configuration) {
+	private static SlotSelectionStrategy selectSlotSelectionStrategy(@Nonnull Configuration configuration, ScheduleMode scheduleMode) {
 		final boolean evenlySpreadOutSlots = configuration.getBoolean(ClusterOptions.EVENLY_SPREAD_OUT_SLOTS_STRATEGY);
+		final boolean roundRobinSlotPoolEnabled = configuration.getBoolean(JobManagerOptions.SLOT_POOL_ROUND_ROBIN);
 
 		final SlotSelectionStrategy locationPreferenceSlotSelectionStrategy;
+
+		if (roundRobinSlotPoolEnabled && scheduleMode.equals(ScheduleMode.EAGER)) {
+			return LocationPreferenceSlotSelectionStrategy.createRoundRobin();
+		}
 
 		if (evenlySpreadOutSlots) {
 			locationPreferenceSlotSelectionStrategy = LocationPreferenceSlotSelectionStrategy.createEvenlySpreadOut();
@@ -67,7 +74,7 @@ public class DefaultSchedulerFactory implements SchedulerFactory {
 	}
 
 	public static DefaultSchedulerFactory fromConfiguration(
-		@Nonnull Configuration configuration) {
-		return new DefaultSchedulerFactory(selectSlotSelectionStrategy(configuration));
+		@Nonnull Configuration configuration, @Nonnull ScheduleMode scheduleMode) {
+		return new DefaultSchedulerFactory(selectSlotSelectionStrategy(configuration, scheduleMode));
 	}
 }

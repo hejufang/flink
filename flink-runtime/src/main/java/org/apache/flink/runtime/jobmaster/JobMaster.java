@@ -401,6 +401,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		final FlinkException cause = new FlinkException("Stopping JobMaster for job " + jobGraph.getName() +
 			'(' + jobGraph.getJobID() + ").");
 
+		slotPool.markWillBeClosed();
+
 		for (ResourceID taskManagerResourceId : taskManagerResourceIds) {
 			disconnectTaskManager(taskManagerResourceId, cause);
 		}

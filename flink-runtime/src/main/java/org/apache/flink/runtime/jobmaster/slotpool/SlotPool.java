@@ -27,6 +27,7 @@ import org.apache.flink.runtime.jobmanager.slots.TaskManagerGateway;
 import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.jobmaster.SlotRequestId;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
@@ -34,8 +35,10 @@ import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import javax.annotation.Nonnull;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 
 /**
  * The Interface of a slot pool that manages slots.
@@ -52,6 +55,8 @@ public interface SlotPool extends AllocatedSlotActions, AutoCloseable {
 		ComponentMainThreadExecutor jmMainThreadScheduledExecutor) throws Exception;
 
 	void suspend();
+
+	default void markWillBeClosed() { }
 
 	void close();
 
@@ -194,4 +199,30 @@ public interface SlotPool extends AllocatedSlotActions, AutoCloseable {
 	 * @return the allocated slots on the task manager
 	 */
 	AllocatedSlotReport createAllocatedSlotReport(ResourceID taskManagerId);
+
+	default void setRequiredResourceNumber(Map<ResourceProfile, Integer> requiredResourceNumber) { }
+
+	default CompletableFuture<Acknowledge> getRequiredResourceSatisfiedFuture() {
+		return CompletableFuture.completedFuture(Acknowledge.get());
+	}
+
+	default CompletableFuture<Acknowledge> getRequiredResourceSatisfiedFutureWithTimeout(Time timeout) {
+		return CompletableFuture.completedFuture(Acknowledge.get());
+	}
+
+	default Optional<AllocatedSlot> getNextAvailableSlot(ResourceProfile resourceProfile, Predicate<AllocatedSlot> predicate) {
+		throw new UnsupportedOperationException();
+	}
+
+	default Optional<AllocatedSlot> getByAllocationID(ResourceProfile resourceProfile, AllocationID allocationID) {
+		throw new UnsupportedOperationException();
+	}
+
+	default Optional<AllocatedSlot> getByTaskManagerLocation(ResourceProfile resourceProfile, TaskManagerLocation taskManagerLocation, Predicate<AllocatedSlot> predicate) {
+		throw new UnsupportedOperationException();
+	}
+
+	default Optional<AllocatedSlot> getByHost(ResourceProfile resourceProfile, String host, Predicate<AllocatedSlot> predicate) {
+		throw new UnsupportedOperationException();
+	}
 }

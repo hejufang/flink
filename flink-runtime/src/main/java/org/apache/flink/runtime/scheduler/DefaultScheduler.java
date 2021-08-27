@@ -97,7 +97,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
 	private final Set<ExecutionVertexID> verticesWaitingForRestart;
 
-	DefaultScheduler(
+	public DefaultScheduler(
 		final Logger log,
 		final JobGraph jobGraph,
 		final BackPressureStatsTracker backPressureStatsTracker,
@@ -407,7 +407,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		return FutureUtils.waitForAll(slotAssignedFutures);
 	}
 
-	private BiFunction<Void, Throwable, Void> deployAll(final List<DeploymentHandle> deploymentHandles) {
+	public BiFunction<Void, Throwable, Void> deployAll(final List<DeploymentHandle> deploymentHandles) {
 		return (ignored, throwable) -> {
 			propagateIfNonNull(throwable);
 			long startDeployTaskTime = System.currentTimeMillis();

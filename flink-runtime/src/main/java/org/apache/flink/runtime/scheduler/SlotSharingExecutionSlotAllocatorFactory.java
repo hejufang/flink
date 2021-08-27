@@ -19,20 +19,25 @@
 package org.apache.flink.runtime.scheduler;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.jobmaster.slotpool.PhysicalSlotProvider;
 import org.apache.flink.runtime.scheduler.SharedSlotProfileRetriever.SharedSlotProfileRetrieverFactory;
+
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Factory for {@link SlotSharingExecutionSlotAllocator}.
  */
-class SlotSharingExecutionSlotAllocatorFactory implements ExecutionSlotAllocatorFactory {
+public class SlotSharingExecutionSlotAllocatorFactory implements ExecutionSlotAllocatorFactory {
 	private final PhysicalSlotProvider slotProvider;
 
+	// It means streaming slot currently.
 	private final boolean slotWillBeOccupiedIndefinitely;
 
 	private final Time allocationTimeout;
 
-	SlotSharingExecutionSlotAllocatorFactory(
+	public SlotSharingExecutionSlotAllocatorFactory(
 			PhysicalSlotProvider slotProvider,
 			boolean slotWillBeOccupiedIndefinitely,
 			Time allocationTimeout) {
@@ -46,7 +51,18 @@ class SlotSharingExecutionSlotAllocatorFactory implements ExecutionSlotAllocator
 		SlotSharingStrategy slotSharingStrategy = new LocalInputPreferredSlotSharingStrategy(
 			context.getSchedulingTopology(),
 			context.getLogicalSlotSharingGroups(),
-			context.getCoLocationGroups());
+			context.getCoLocationGroups(),
+			context::getResourceProfile);
+
+		if (slotWillBeOccupiedIndefinitely) {
+			Map<ResourceProfile, Integer> requiredResources = slotSharingStrategy
+					.getExecutionSlotSharingGroupMapByResourceProfile()
+					.entrySet()
+					.stream()
+					.collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().size()));
+			slotProvider.setRequiredResources(requiredResources);
+		}
+
 		PreferredLocationsRetriever preferredLocationsRetriever = new DefaultPreferredLocationsRetriever(
 			context.getStateLocationRetriever(),
 			context.getInputsLocationsRetriever(),

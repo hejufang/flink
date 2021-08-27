@@ -88,11 +88,11 @@ import org.apache.flink.runtime.jobmanager.PartitionProducerDisposedException;
 import org.apache.flink.runtime.jobmanager.slots.TaskManagerGateway;
 import org.apache.flink.runtime.jobmaster.factories.UnregisteredJobManagerJobMetricGroupFactory;
 import org.apache.flink.runtime.jobmaster.slotpool.DefaultSchedulerFactory;
-import org.apache.flink.runtime.jobmaster.slotpool.DefaultSlotPoolFactory;
 import org.apache.flink.runtime.jobmaster.slotpool.PhysicalSlot;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotInfoWithUtilization;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotPool;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotPoolFactory;
+import org.apache.flink.runtime.jobmaster.slotpool.SlotPoolFactoryLoader;
 import org.apache.flink.runtime.jobmaster.utils.JobMasterBuilder;
 import org.apache.flink.runtime.leaderretrieval.SettableLeaderRetrievalService;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -309,8 +309,8 @@ public class JobMasterTest extends TestLogger {
 				jmResourceId,
 				jobGraph,
 				haServices,
-				DefaultSlotPoolFactory.fromConfiguration(configuration),
-				DefaultSchedulerFactory.fromConfiguration(configuration),
+				SlotPoolFactoryLoader.createSlotPoolFactory(configuration, jobGraph.getScheduleMode()),
+				DefaultSchedulerFactory.fromConfiguration(configuration, jobGraph.getScheduleMode()),
 				jobManagerSharedServices,
 				heartbeatServices,
 				UnregisteredJobManagerJobMetricGroupFactory.INSTANCE,
@@ -1653,8 +1653,8 @@ public class JobMasterTest extends TestLogger {
 			jmResourceId,
 			jobGraph,
 			haServices,
-			DefaultSlotPoolFactory.fromConfiguration(configuration),
-			DefaultSchedulerFactory.fromConfiguration(configuration),
+			SlotPoolFactoryLoader.createSlotPoolFactory(configuration, jobGraph.getScheduleMode()),
+			DefaultSchedulerFactory.fromConfiguration(configuration, jobGraph.getScheduleMode()),
 			jobManagerSharedServices,
 			heartbeatServices,
 			UnregisteredJobManagerJobMetricGroupFactory.INSTANCE,
