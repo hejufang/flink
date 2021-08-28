@@ -166,7 +166,6 @@ public class CoOperatorTimeExtractorTestCase implements Serializable{
 		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setParallelism(1);
 		env.setBufferTimeout(100);
-		env.getConfig().enableNewTimerMechanism();
 
 		HashMap<String, String> ttlProperty = new HashMap();
 		ttlProperty.put(CEPUtils.TTL_KEY, String.valueOf(stateTTL));

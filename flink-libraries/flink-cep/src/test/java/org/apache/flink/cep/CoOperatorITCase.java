@@ -227,7 +227,6 @@ public class CoOperatorITCase {
 		env.setParallelism(1);
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setBufferTimeout(10);
-		env.getConfig().enableNewTimerMechanism();
 
 		DataStream<String> patternJsonStream = env.addSource(new PatternJsonStream());
 		DataStream<Event> input = env.addSource(new EventStream())

@@ -222,6 +222,9 @@ public class MultiplePatternStreamBuilder<IN> {
 		final TypeSerializer<IN> inputSerializer = inputStream.getType().createSerializer(inputStream.getExecutionConfig());
 		final boolean isProcessingTime = inputStream.getExecutionEnvironment().getStreamTimeCharacteristic() == TimeCharacteristic.ProcessingTime;
 
+		// enable the new Timer mechanism to use "PayLoad" feature in CoCepOperator
+		inputStream.getExecutionEnvironment().getConfig().enableNewTimerMechanism();
+
 		final CoCepOperator<IN, K, OUT> operator = new CoCepOperator<>(
 				inputSerializer,
 				isProcessingTime,
