@@ -47,6 +47,8 @@ public class NFAStateSerializer extends TypeSerializerSingleton<NFAState> {
 
 	private static final long serialVersionUID = 2098282423980597010L;
 
+	public static final NFAStateSerializer INSTANCE = new NFAStateSerializer();
+
 	/**
 	 * NOTE: this field should actually be final.
 	 * The reason that it isn't final is due to backward compatible deserialization
@@ -194,7 +196,7 @@ public class NFAStateSerializer extends TypeSerializerSingleton<NFAState> {
 		return computationStates;
 	}
 
-	private void serializeSingleComputationState(
+	public void serializeSingleComputationState(
 			ComputationState computationState,
 			DataOutputView target) throws IOException {
 
@@ -205,7 +207,7 @@ public class NFAStateSerializer extends TypeSerializerSingleton<NFAState> {
 		serializeStartEvent(computationState.getStartEventID(), target);
 	}
 
-	private ComputationState deserializeSingleComputationState(DataInputView source) throws IOException {
+	public ComputationState deserializeSingleComputationState(DataInputView source) throws IOException {
 		String stateName = StringValue.readString(source);
 		NodeId prevState = nodeIdSerializer.deserialize(source);
 		DeweyNumber version = versionSerializer.deserialize(source);

@@ -25,6 +25,7 @@ import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.IntSerializer;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
+import org.apache.flink.api.common.typeutils.base.array.BytePrimitiveArraySerializer;
 import org.apache.flink.util.WrappingRuntimeException;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Iterables;
@@ -56,11 +57,15 @@ public class SharedBuffer<V> {
 	private static final String entriesStateName = "sharedBuffer-entries";
 	private static final String eventsStateName = "sharedBuffer-events";
 	private static final String eventsCountStateName = "sharedBuffer-events-count";
+	private static final String userAccumulatorStateName = "user-acc";
 
 	private MapState<EventId, Lockable<V>> eventsBuffer;
 	/** The number of events seen so far in the stream per timestamp. */
 	private MapState<Long, Integer> eventsCount;
 	private MapState<NodeId, Lockable<SharedBufferNode>> entries;
+
+	// defined by users to store state
+	private MapState<UserAccumulatorId, byte[]> userAccumulator;
 
 	/** The cache of eventsBuffer State. */
 	private Map<EventId, Lockable<V>> eventsBufferCache = new HashMap<>();
@@ -69,10 +74,6 @@ public class SharedBuffer<V> {
 	private Map<NodeId, Lockable<SharedBufferNode>> entryCache = new HashMap<>();
 
 	public SharedBuffer(KeyedStateStore stateStore, TypeSerializer<V> valueSerializer) {
-		this(null, stateStore, valueSerializer, -1L);
-	}
-
-	public SharedBuffer(String uniqueId, KeyedStateStore stateStore, TypeSerializer<V> valueSerializer, long ttl) {
 		final MapStateDescriptor<EventId, Lockable<V>> eventsDescriptor = new MapStateDescriptor<>(
 				eventsStateName,
 				EventId.EventIdSerializer.INSTANCE,
@@ -85,10 +86,16 @@ public class SharedBuffer<V> {
 				eventsCountStateName,
 				LongSerializer.INSTANCE,
 				IntSerializer.INSTANCE);
+		final MapStateDescriptor<UserAccumulatorId, byte[]> userAccumulatorDescriptor = new MapStateDescriptor<>(
+			userAccumulatorStateName,
+			UserAccumulatorId.UserAccumulatorIdSerializer.INSTANCE,
+			BytePrimitiveArraySerializer.INSTANCE
+		);
 
 		this.eventsBuffer = stateStore.getMapState(eventsDescriptor);
 		this.entries = stateStore.getMapState(entriesDescriptor);
 		this.eventsCount = stateStore.getMapState(eventsCountDescriptor);
+		this.userAccumulator = stateStore.getMapState(userAccumulatorDescriptor);
 	}
 
 	/**
@@ -247,6 +254,7 @@ public class SharedBuffer<V> {
 	void clearKeyedState() {
 		eventsBuffer.clear();
 		eventsCount.clear();
+		userAccumulator.clear();
 		entries.clear();
 	}
 
@@ -280,4 +288,15 @@ public class SharedBuffer<V> {
 		return entryCache.size();
 	}
 
+	public Iterator<UserAccumulatorId> getAccumulatorIdIterator() throws Exception {
+		return userAccumulator.keys().iterator();
+	}
+
+	public byte[] getAccumulator(UserAccumulatorId userAccumulatorId) throws Exception {
+		return userAccumulator.get(userAccumulatorId);
+	}
+
+	public void putAccumulator(UserAccumulatorId userAccumulatorId, byte[] data) throws Exception {
+		userAccumulator.put(userAccumulatorId, data);
+	}
 }

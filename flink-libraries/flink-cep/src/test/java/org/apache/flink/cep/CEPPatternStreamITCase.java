@@ -167,6 +167,7 @@ public class CEPPatternStreamITCase {
 		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
 		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.setBufferTimeout(10);
 		env.setParallelism(2);
 
 		Pattern<Event, Event> pattern = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {

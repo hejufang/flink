@@ -18,6 +18,7 @@
 
 package org.apache.flink.cep.pattern.conditions;
 
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.cep.Event;
 import org.apache.flink.cep.pattern.conditions.v2.EventParserConditionV2;
 import org.apache.flink.cep.pattern.parser.TestCepEventParser;
@@ -102,6 +103,16 @@ public class CondtionsTest {
 	}
 
 	private static class TestContext implements IterativeCondition.Context<Event> {
+
+		@Override
+		public <ACC> ACC getAccumulator(String stateKey, TypeSerializer<ACC> serializer) throws Exception {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public <ACC> void putAccumulator(String stateKey, ACC accumulator, TypeSerializer<ACC> serializer) throws Exception {
+			throw new UnsupportedOperationException();
+		}
 
 		@Override
 		public Iterable<Event> getEventsForPattern(String name) throws Exception {

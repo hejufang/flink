@@ -90,8 +90,6 @@ import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.flink.cep.utils.CEPUtils.generateUniqueId;
-
 /**
  * The CepOperator which can cooperate with pattern data stream.
  */
@@ -347,7 +345,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		this.usingNFAs.put(patternId, nfa);
 		this.patternStates.put(patternId, pattern);
 		if (!this.partialMatches.containsKey(patternId)) {
-			this.partialMatches.put(patternId, new SharedBuffer<>(generateUniqueId(patternId, hash), getKeyedStateStore(), inputSerializer, ttlMilliSeconds));
+			this.partialMatches.put(patternId, new SharedBuffer<>(getKeyedStateStore(), inputSerializer));
 		} else {
 			this.partialMatches.get(patternId).getAccessor().clearMemoryCache();
 		}

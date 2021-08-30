@@ -38,9 +38,18 @@ public abstract class RichCompositeIterativeCondition<T> extends RichIterativeCo
 
 	@SafeVarargs
 	public RichCompositeIterativeCondition(final IterativeCondition<T>... nestedConditions) {
+		boolean hasAccumulatedCondition = false;
 		for (IterativeCondition<T> condition : nestedConditions) {
+			if (condition instanceof AccumulateStateCondition) {
+				hasAccumulatedCondition = true;
+			}
 			Preconditions.checkNotNull(condition, "The condition cannot be null.");
 		}
+
+		if (nestedConditions.length > 1 && hasAccumulatedCondition) {
+			throw new UnsupportedOperationException("AccumulatorStateCondition cannot be nested.");
+		}
+
 		this.nestedConditions = nestedConditions;
 	}
 

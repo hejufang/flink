@@ -29,6 +29,7 @@ import org.apache.flink.cep.pattern.MalformedPatternException;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.Quantifier;
 import org.apache.flink.cep.pattern.Quantifier.Times;
+import org.apache.flink.cep.pattern.conditions.AccumulateStateCondition;
 import org.apache.flink.cep.pattern.conditions.BooleanConditions;
 import org.apache.flink.cep.pattern.conditions.IterativeCondition;
 import org.apache.flink.cep.pattern.conditions.RichAndCondition;
@@ -307,10 +308,18 @@ public class NFACompiler {
 					lastSink = notFollow;
 				} else if (currentPattern.getQuantifier().getConsumingStrategy() == Quantifier.ConsumingStrategy.NOT_FOLLOW) {
 					//skip notFollow patterns, they are converted into edge conditions
+					final IterativeCondition<T> notCondition = (IterativeCondition<T>) currentPattern.getCondition();
+					if (notCondition instanceof AccumulateStateCondition) {
+						throw new UnsupportedOperationException("Cannot use accmulator state in NOT_FOLLOWEDBY strategy.");
+					}
 				} else if (currentPattern.getQuantifier().getConsumingStrategy() == Quantifier.ConsumingStrategy.NOT_NEXT) {
 					final State<T> notNext = createState(currentPattern.getName(), State.StateType.Normal);
 					final IterativeCondition<T> notCondition = getTakeCondition(currentPattern);
 					final State<T> stopState = createStopState(notCondition, currentPattern.getName());
+
+					if (notCondition instanceof AccumulateStateCondition) {
+						throw new UnsupportedOperationException("Cannot use accmulator state in NOT_NEXT strategy.");
+					}
 
 					if (lastSink.isFinal()) {
 						//so that the proceed to final is not fired

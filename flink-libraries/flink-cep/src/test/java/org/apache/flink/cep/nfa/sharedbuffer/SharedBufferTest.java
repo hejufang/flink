@@ -18,7 +18,10 @@
 
 package org.apache.flink.cep.nfa.sharedbuffer;
 
+import org.apache.flink.api.common.typeutils.base.MapSerializer;
+import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.cep.Event;
+import org.apache.flink.cep.nfa.ComputationState;
 import org.apache.flink.cep.nfa.DeweyNumber;
 import org.apache.flink.cep.utils.TestSharedBuffer;
 import org.apache.flink.util.TestLogger;
@@ -34,6 +37,7 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -318,4 +322,33 @@ public class SharedBufferTest extends TestLogger {
 		assertTrue(sharedBuffer.isEmpty());
 	}
 
+	@Test
+	public void testUserAccumulator() throws Exception {
+		SharedBuffer<Event> sharedBuffer = TestSharedBuffer.createTestBuffer(Event.createTypeSerializer());
+		ComputationState computationState = ComputationState.createState(
+			"middle",
+			new NodeId(new EventId(1, 100L), "middle"),
+			DeweyNumber.fromString("1.0.0"),
+			120L,
+			new EventId(2, 119L));
+
+		Map<String, String> data = new HashMap<>();
+		data.put("a", "a-value");
+		data.put("b", "b-value");
+		try (SharedBufferAccessor<Event> sharedBufferAccessor = sharedBuffer.getAccessor()) {
+			sharedBufferAccessor.putAccumulator("stateKey", computationState, data,
+				new MapSerializer<>(StringSerializer.INSTANCE, StringSerializer.INSTANCE));
+
+			Map<String, String> acc = sharedBufferAccessor.getAccumulator("stateKey", computationState,
+				new MapSerializer<>(StringSerializer.INSTANCE, StringSerializer.INSTANCE));
+			assertEquals("a-value", acc.get("a"));
+			assertEquals(2, acc.size());
+
+			sharedBufferAccessor.removeAccumulator(computationState);
+
+			Map<String, String> acc1 = sharedBufferAccessor.getAccumulator("stateKey", computationState,
+				new MapSerializer<>(StringSerializer.INSTANCE, StringSerializer.INSTANCE));
+			assertNull(acc1);
+		}
+	}
 }

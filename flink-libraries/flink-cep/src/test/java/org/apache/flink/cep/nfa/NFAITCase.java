@@ -18,12 +18,16 @@
 
 package org.apache.flink.cep.nfa;
 
+import org.apache.flink.api.common.typeutils.base.DoubleSerializer;
+import org.apache.flink.api.common.typeutils.base.IntSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.cep.Event;
 import org.apache.flink.cep.SubEvent;
+import org.apache.flink.cep.TestRichIterativeCondition;
 import org.apache.flink.cep.nfa.aftermatch.AfterMatchSkipStrategy;
 import org.apache.flink.cep.nfa.sharedbuffer.SharedBuffer;
 import org.apache.flink.cep.nfa.sharedbuffer.SharedBufferAccessor;
+import org.apache.flink.cep.nfa.sharedbuffer.UserAccumulatorId;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.Quantifier;
 import org.apache.flink.cep.pattern.conditions.SimpleCondition;
@@ -55,6 +59,8 @@ import static org.apache.flink.cep.utils.NFATestUtilities.compareMaps;
 import static org.apache.flink.cep.utils.NFATestUtilities.feedNFA;
 import static org.apache.flink.cep.utils.NFAUtils.compile;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyLong;
 
@@ -2873,5 +2879,72 @@ public class NFAITCase extends TestLogger {
 			nfa.advanceTime(accessor, nfa.createInitialNFAState(), 2);
 			Mockito.verify(accessor, Mockito.times(1)).advanceTime(2);
 		}
+	}
+
+	@Test
+	public void testSharedBufferAccumulator() throws Exception {
+		Pattern<Event, ?> pattern = Pattern.<Event>begin("start").where(
+			new TestRichIterativeCondition<Event>() {
+				@Override
+				public void accumulate(Event value, Context<Event> ctx) throws Exception {
+					if (value.getName().equals("a")) {
+						Double sum = ctx.getAccumulator("sum(price)", DoubleSerializer.INSTANCE);
+						ctx.putAccumulator("sum(price)", sum == null ? value.getPrice() : sum + value.getPrice(), DoubleSerializer.INSTANCE);
+					}
+				}
+
+				@Override
+				public boolean filter(Event value, Context<Event> ctx) throws Exception {
+					if (!value.getName().equals("a")) {
+						return false;
+					}
+					return ctx.getAccumulator("sum(price)", DoubleSerializer.INSTANCE) > 10.0;
+				}
+			}
+		).notFollowedBy("end").where(new TestRichIterativeCondition<Event>() {
+			@Override
+			public void accumulate(Event value, Context<Event> ctx) throws Exception {
+				if (value.getName().equals("b")) {
+					Integer count = ctx.getAccumulator("count(*)", IntSerializer.INSTANCE);
+					ctx.putAccumulator("count(*)", count == null ? 1 : ++count, IntSerializer.INSTANCE);
+				}
+			}
+
+			@Override
+			public boolean filter(Event value, Context<Event> ctx) throws Exception {
+				if (!value.getName().equals("b") ||  ctx.getAccumulator("count(*)", IntSerializer.INSTANCE) == null) {
+					return false;
+				}
+				return ctx.getAccumulator("count(*)", IntSerializer.INSTANCE) > 2;
+			}
+		}).within(Time.milliseconds(10));
+
+		Event a1 = new Event(40, "a", 1.0);
+		Event a2 = new Event(40, "a", 10.0);
+		Event b1 = new Event(40, "b", 2.0);
+		Event b2 = new Event(40, "b", 2.0);
+		Event b3 = new Event(40, "b", 2.0);
+		NFA<Event> nfa = compile(pattern, false);
+
+		NFAState nfaState = nfa.createInitialNFAState();
+		NFATestHarness nfaTestHarness = NFATestHarness.forNFA(nfa).withNFAState(nfaState).withSharedBuffer(sharedBuffer).build();
+
+		nfaTestHarness.feedRecord(new StreamRecord<>(a1, 1L));
+		ComputationState computationState = nfaState.getPartialMatches().peek();
+		assertNotNull(sharedBuffer.getAccumulator(new UserAccumulatorId(computationState, "sum(price)")));
+
+		nfaTestHarness.feedRecord(new StreamRecord<>(a2, 2L));
+		assertNull(sharedBuffer.getAccumulator(new UserAccumulatorId(computationState, "sum(price)")));
+
+		ComputationState computationState1 = nfaState.getPartialMatches().stream().filter(x -> x.getCurrentStateName().equals("end")).findFirst().get();
+		nfaTestHarness.feedRecord(new StreamRecord<>(b1, 3L));
+		assertNull(sharedBuffer.getAccumulator(new UserAccumulatorId(computationState, "sum(price)")));
+		assertNotNull(sharedBuffer.getAccumulator(new UserAccumulatorId(computationState1, "count(*)")));
+
+		nfaTestHarness.feedRecord(new StreamRecord<>(b2, 4L));
+		assertNotNull(sharedBuffer.getAccumulator(new UserAccumulatorId(computationState1, "count(*)")));
+
+		nfaTestHarness.feedRecord(new StreamRecord<>(b3, 30L));
+		assertNull(sharedBuffer.getAccumulator(new UserAccumulatorId(computationState1, "count(*)")));
 	}
 }
