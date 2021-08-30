@@ -72,8 +72,12 @@ public abstract class FirstValueAggFunction<T> extends AggregateFunction<T, Gene
 			if (converter != null) {
 				value = converter.toInternal(value);
 			}
+			// multiply 1_000_000 to make its precision to nanoseconds,
+			// to make it compatible with old implementation.
+			// old implementation uses System.nanoTime(), which should only be used to measure elapsed time,
+			// not the actual timestamp, because it may be different in different machine.
 			acc.setField(0, value);
-			acc.setField(1, System.nanoTime());
+			acc.setField(1, System.currentTimeMillis() * 1_000_000);
 		}
 	}
 

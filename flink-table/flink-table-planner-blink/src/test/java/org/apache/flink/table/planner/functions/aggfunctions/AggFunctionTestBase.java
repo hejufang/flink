@@ -267,6 +267,12 @@ public abstract class AggFunctionTestBase<T, ACC> {
 			} else {
 				throw new TableException("Unsupported now");
 			}
+			// current precision is 1ms, hence to make test stable, we should make every record's time different.
+			try {
+				Thread.sleep(1);
+			} catch (InterruptedException e) {
+				// ignore.
+			}
 		}
 		return accumulator;
 	}
