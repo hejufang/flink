@@ -90,6 +90,8 @@ public class Constants {
 
 	public static final String ENV_POD_HOST_IP = "MY_HOST_IP";
 
+	public static final String ENV_POD_NAME = "MY_POD_NAME";
+
 	public static final String JVM_HS_ERROR_PATH = "/var/log/tiger/";
 
 	public static final String NATIVE_KUBERNETES_COMMAND = "native-k8s";

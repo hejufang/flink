@@ -42,7 +42,7 @@ common:
   taskmanager.number-initial: 8
 
   # kubernetes configuration
-  kubernetes.flink.log.dir: /opt/tiger/flink_deploy/log
+  kubernetes.flink.log.dir: /var/log/tiger
   kubernetes.flink.conf.dir: /opt/tiger/flink_deploy/conf
   kubernetes.entry.path: /opt/tiger/flink_deploy/bin/kubernetes-entry.sh
   kubernetes.cluster-id: flink-native-test

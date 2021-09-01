@@ -51,7 +51,7 @@ public class KubernetesSessionClusterEntrypoint extends SessionClusterEntrypoint
 
 		final ClusterEntrypoint entrypoint = new KubernetesSessionClusterEntrypoint(
 			KubernetesEntrypointUtils.loadConfiguration());
-		LOG.info("Kubernetes JM Pod in host: {}", System.getenv(Constants.ENV_POD_HOST_IP));
+		LOG.info("Kubernetes JM PodName {} in host {}", System.getenv(Constants.ENV_POD_NAME), System.getenv(Constants.ENV_POD_HOST_IP));
 		ClusterEntrypoint.runClusterEntrypoint(entrypoint);
 	}
 }

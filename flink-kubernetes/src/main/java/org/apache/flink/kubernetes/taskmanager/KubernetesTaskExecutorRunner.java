@@ -45,7 +45,7 @@ public class KubernetesTaskExecutorRunner {
 		Preconditions.checkArgument(resourceID != null,
 			"Pod name variable %s not set", Constants.ENV_FLINK_POD_NAME);
 
-		LOG.info("Kubernetes TM Pod in host: {}", System.getenv(Constants.ENV_POD_HOST_IP));
+		LOG.info("Kubernetes TM PodName is {} in host {}", System.getenv(Constants.ENV_POD_NAME), System.getenv(Constants.ENV_POD_HOST_IP));
 		TaskManagerRunner.runTaskManagerSecurely(args, new ResourceID(resourceID));
 	}
 }
