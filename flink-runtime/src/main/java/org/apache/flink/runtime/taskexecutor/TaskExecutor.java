@@ -1471,7 +1471,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			futureAcknowledge.whenCompleteAsync(
 					(ack, throwable) -> {
 						if (throwable != null) {
-							if (throwable instanceof ExecutionGraphException) {
+							if (ExceptionUtils.findThrowable(throwable, ExecutionGraphException.class).isPresent()) {
 								failTask(executionAttemptID, throwable);
 							} else {
 								// we should always let JM know tasks' state, otherwise there might occur some serious problem.
