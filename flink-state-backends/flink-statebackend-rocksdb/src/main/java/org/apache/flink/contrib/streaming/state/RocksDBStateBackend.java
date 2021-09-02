@@ -78,7 +78,6 @@ import java.util.UUID;
 
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.WRITE_BATCH_SIZE;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM;
-import static org.apache.flink.contrib.streaming.state.RocksDBOptions.DATA_TRANSFER_MAX_RETRY_TIMES;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.TIMER_SERVICE_FACTORY;
@@ -375,7 +374,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			this.discardStatesIfRocksdbRecoverFail = original.discardStatesIfRocksdbRecoverFail;
 		}
 
-		this.maxRetryTimes = config.get(DATA_TRANSFER_MAX_RETRY_TIMES);
+		this.maxRetryTimes = config.get(CheckpointingOptions.DATA_TRANSFER_MAX_RETRY_ATTEMPTS);
 
 		this.rocksdbNativeCheckpointTimeout = config.get(ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT);
 
@@ -1023,7 +1022,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 
 	public int getDataTransferMaxRetryTimes() {
 		return maxRetryTimes == UNDEFINED_DATA_TRANSFER_MAX_RETRY_TIMES ?
-			DATA_TRANSFER_MAX_RETRY_TIMES.defaultValue() : maxRetryTimes;
+			CheckpointingOptions.DATA_TRANSFER_MAX_RETRY_ATTEMPTS.defaultValue() : maxRetryTimes;
 	}
 
 	public long getDBNativeCheckpointTimeout() {

@@ -159,6 +159,15 @@ public class CheckpointingOptions {
 				"recovery. Local recovery currently only covers keyed state backends. Currently, MemoryStateBackend does " +
 				"not support local recovery and ignore this option");
 
+	/**
+	 * The config parameter defining the maximum number of retries when accessing hdfs in the checkpoint phase.
+	 */
+	public static final ConfigOption<Integer> DATA_TRANSFER_MAX_RETRY_ATTEMPTS = ConfigOptions
+			.key("state.checkpoint.data.transfer.max-retry-attempts")
+			.intType()
+			.defaultValue(3)
+			.withDescription("The maximum number of retries when accessing hdfs in the checkpoint phase");
+
 	// ------------------------------------------------------------------------
 	//  Options specific to the file-system-based state backends
 	// ------------------------------------------------------------------------

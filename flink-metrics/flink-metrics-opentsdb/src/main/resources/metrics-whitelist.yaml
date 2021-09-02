@@ -59,7 +59,8 @@ global:
         numPatternsUsed,
         numChannelsUpdatedByJM,
         numChannelsUpdatedByTask,
-        numChannelsInjectedError
+        numChannelsInjectedError,
+        numberOfHdfsRetries
     ]
 
 non-global:

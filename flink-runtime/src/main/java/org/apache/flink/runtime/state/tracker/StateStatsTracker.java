@@ -45,4 +45,10 @@ public interface StateStatsTracker {
 	 * @param batchingMessage Message of state file batching metrics.
 	 */
 	void updateIncrementalBatchingStatistics(WarehouseStateFileBatchingMessage batchingMessage);
+
+	/**
+	 * Callback when all file transfers in checkpoint are completed or failed.
+	 * @param retryCount The number of retries.
+	 */
+	void updateRetryCounter(int retryCount);
 }

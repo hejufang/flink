@@ -26,6 +26,8 @@ import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.runtime.checkpoint.WarehouseRestoreMessage;
 import org.apache.flink.runtime.checkpoint.WarehouseSnapshotMessage;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * StateStatsTracker implemented by default.
  * The snapshot and restore metrics will be reported to the warehouse and opentsdb.
@@ -40,6 +42,7 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 	private static final String STATE_SNAPSHOT_DURATION = "syncDuration";
 	private static final String STATE_UPLOAD_DURATION = "uploadDuration";
 	private static final String STATE_UPLOAD_SIZE = "uploadSizeInBytes";
+	private static final String CHECKPOINT_HDFS_RETRY_COUNT = "numberOfHdfsRetries";
 
 	// restore metrics
 	private static final String STATE_RECOVER_DURATION = "stateRecoverTime";
@@ -76,9 +79,13 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 	private final TagGauge preUploadFileNumGauge = createTagGauge();
 	private final TagGauge postUploadFileNumGauge = createTagGauge();
 
+	private final AtomicInteger hdfsRetryCounter;
+
 	public DefaultStateStatsTracker(MetricGroup metricGroup) {
+		hdfsRetryCounter = new AtomicInteger(0);
 		registerMetrics(metricGroup);
 	}
+
 	/**
 	 * Callback when a state backend snapshot completes.
 	 *
@@ -101,6 +108,11 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 		updateRecoverStatistic(message);
 	}
 
+	@Override
+	public void updateRetryCounter(int retryCount) {
+		hdfsRetryCounter.getAndAdd(retryCount);
+	}
+
 	/**
 	 * Register the exposed metrics.
 	 *
@@ -113,6 +125,7 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 		metricGroup.gauge(WAREHOUSE_STATE_BACKEND_STATE_FILE_BATCHING, stateBatchingMessageSet);
 
 		// snapshot metrics
+		metricGroup.gauge(CHECKPOINT_HDFS_RETRY_COUNT, () -> hdfsRetryCounter.getAndSet(0));
 		metricGroup.gauge(STATE_SNAPSHOT_DURATION, syncDurationGauge);
 		metricGroup.gauge(STATE_UPLOAD_DURATION, uploadDurationGauge);
 		metricGroup.gauge(STATE_UPLOAD_SIZE, uploadSizeGauge);

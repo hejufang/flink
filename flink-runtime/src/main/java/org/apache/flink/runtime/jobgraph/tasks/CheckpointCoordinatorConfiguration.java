@@ -26,6 +26,7 @@ import org.apache.flink.runtime.checkpoint.trigger.CheckpointTriggerConfiguratio
 import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
+
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -78,6 +79,9 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	@Nullable
 	private String savepointLocationPrefix;
+
+	/** The maximum number of retries for checkpoint writing hdfs. */
+	private int transferMaxRetryAttempts;
 
 	/**
 	 * @deprecated use {@link #builder()}.
@@ -236,6 +240,14 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	public void setCheckpointTriggerConfiguration(CheckpointTriggerConfiguration checkpointTriggerConfiguration) {
 		this.checkpointTriggerConfiguration = checkpointTriggerConfiguration;
+	}
+
+	public int getTransferMaxRetryAttempts() {
+		return transferMaxRetryAttempts;
+	}
+
+	public void setTransferMaxRetryAttempts(int transferMaxRetryAttempts) {
+		this.transferMaxRetryAttempts = transferMaxRetryAttempts;
 	}
 
 	@Override

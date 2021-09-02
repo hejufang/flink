@@ -221,6 +221,9 @@ public class CheckpointCoordinator {
 	/** determine how to trigger the checkpoint. */
 	private final PendingTriggerFactory pendingTriggerFactory;
 
+	/** The maximum number of retries for checkpoint writing hdfs. */
+	private final int transferMaxRetryAttempts;
+
 	// --------------------------------------------------------------------------------------------
 
 	@VisibleForTesting
@@ -382,6 +385,7 @@ public class CheckpointCoordinator {
 		this.isExactlyOnceMode = chkConfig.isExactlyOnce();
 		this.unalignedCheckpointsEnabled = chkConfig.isUnalignedCheckpointsEnabled();
 		this.aggregateUnionState = chkConfig.isAggregateUnionState();
+		this.transferMaxRetryAttempts = Math.max(chkConfig.getTransferMaxRetryAttempts(), 1);
 
 		this.recentPendingCheckpoints = new ArrayDeque<>(NUM_GHOST_CHECKPOINT_IDS);
 		this.masterHooks = new HashMap<>();
@@ -838,7 +842,8 @@ public class CheckpointCoordinator {
 			executor,
 			onCompletionPromise,
 			pendingTrigger,
-			checkpointStorage);
+			checkpointStorage,
+			transferMaxRetryAttempts);
 
 		if (statsTracker != null) {
 			PendingCheckpointStats callback = statsTracker.reportPendingCheckpoint(

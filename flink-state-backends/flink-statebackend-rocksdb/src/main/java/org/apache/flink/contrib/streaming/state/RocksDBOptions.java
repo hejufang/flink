@@ -70,11 +70,6 @@ public class RocksDBOptions {
 		.defaultValue(1)
 		.withDescription("The number of threads (per stateful operator) used to transfer (download and upload) files in RocksDBStateBackend.");
 
-	public static final ConfigOption<Integer> DATA_TRANSFER_MAX_RETRY_TIMES = ConfigOptions
-		.key("state.backend.rocksdb.transfer.max-retry-times")
-		.defaultValue(3)
-		.withDescription("Max times of retry transfering data to HDFS.");
-
 	/**
 	 * The predefined settings for RocksDB DBOptions and ColumnFamilyOptions by Flink community.
 	 */

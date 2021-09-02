@@ -460,6 +460,9 @@ public class ExecutionGraphBuilder {
 			final boolean aggregateUnionState = jobManagerConfig.getBoolean(CheckpointingOptions.UNION_STATE_AGGREGATION_ENABLED);
 			chkConfig.setAggregateUnionState(aggregateUnionState);
 
+			int hdfsMaxRetryAttempts = jobManagerConfig.getInteger(CheckpointingOptions.DATA_TRANSFER_MAX_RETRY_ATTEMPTS);
+			chkConfig.setTransferMaxRetryAttempts(hdfsMaxRetryAttempts);
+
 			final CheckpointTriggerStrategy triggerStrategy = jobManagerConfig.getEnum(CheckpointTriggerStrategy.class, CheckpointingOptions.CHECKPOINT_TRIGGER_STRATEGY);
 			CheckpointTriggerConfiguration triggerConfiguration = new CheckpointTriggerConfiguration(triggerStrategy, sortedTopology);
 			chkConfig.setCheckpointTriggerConfiguration(triggerConfiguration);

@@ -86,6 +86,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.SST_FILE_SUFFIX;
@@ -393,6 +394,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		protected SnapshotResult<KeyedStateHandle> callInternal() throws Exception {
 
 			boolean completed = false;
+			AtomicInteger retryCounter = new AtomicInteger(0);
 
 			// Handle to the meta data file
 			SnapshotResult<StreamStateHandle> metaStateHandle = null;
@@ -416,7 +418,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				postRawTotalStateSize += metaStateHandle.getStateSize();
 
 				long uploadBeginTs = System.currentTimeMillis();
-				uploadSstFiles(sstFilesToHandles, miscFilesToHandles);
+				uploadSstFiles(sstFilesToHandles, miscFilesToHandles, retryCounter);
 				uploadDuration.getAndAdd(System.currentTimeMillis() - uploadBeginTs);
 
 				LOG.info("Uploading sst files (checkpoint={}) cost {}ms in incremental snapshot.", checkpointId,
@@ -515,6 +517,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 
 				return snapshotResult;
 			} finally {
+				statsTracker.updateRetryCounter(retryCounter.get());
 				if (!completed) {
 					LOG.warn("Checkpoint {}, failure incremental RocksDB snapshot!", checkpointId);
 					final List<StateObject> statesToDiscard =
@@ -614,7 +617,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 
 		private void uploadSstFiles(
 			@Nonnull Map<StateHandleID, StreamStateHandle> sstFilesToHandles,
-			@Nonnull Map<StateHandleID, StreamStateHandle> miscFilesToHandles) throws Exception {
+			@Nonnull Map<StateHandleID, StreamStateHandle> miscFilesToHandles,
+			AtomicInteger retryCounter) throws Exception {
 
 			// write state data
 			Preconditions.checkState(localBackupDirectory.exists());
@@ -629,11 +633,13 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				sstFilesToHandles.putAll(stateUploader.uploadFilesToCheckpointFs(
 					sstFilePaths,
 					checkpointStreamFactory,
-					snapshotCloseableRegistry));
+					snapshotCloseableRegistry,
+					retryCounter));
 				miscFilesToHandles.putAll(stateUploader.uploadFilesToCheckpointFs(
 					miscFilePaths,
 					checkpointStreamFactory,
-					snapshotCloseableRegistry));
+					snapshotCloseableRegistry,
+					retryCounter));
 			}
 		}
 

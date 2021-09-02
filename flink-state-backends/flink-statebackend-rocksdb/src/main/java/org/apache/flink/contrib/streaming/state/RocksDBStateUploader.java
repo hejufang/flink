@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /**
@@ -84,11 +85,19 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 		@Nonnull Map<StateHandleID, Path> files,
 		CheckpointStreamFactory checkpointStreamFactory,
 		CloseableRegistry closeableRegistry) throws Exception {
+		return uploadFilesToCheckpointFs(files, checkpointStreamFactory, closeableRegistry, new AtomicInteger(0));
+	}
+
+	public Map<StateHandleID, StreamStateHandle> uploadFilesToCheckpointFs(
+		@Nonnull Map<StateHandleID, Path> files,
+		CheckpointStreamFactory checkpointStreamFactory,
+		CloseableRegistry closeableRegistry,
+		AtomicInteger retryCounter) throws Exception {
 
 		Map<StateHandleID, StreamStateHandle> handles = new HashMap<>();
 
 		Map<StateHandleID, CompletableFuture<StreamStateHandle>> futures =
-			createUploadFutures(files, checkpointStreamFactory, closeableRegistry);
+			createUploadFutures(files, checkpointStreamFactory, closeableRegistry, retryCounter);
 
 		try {
 			FutureUtils.waitForAll(futures.values()).get();
@@ -112,13 +121,14 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 	private Map<StateHandleID, CompletableFuture<StreamStateHandle>> createUploadFutures(
 		Map<StateHandleID, Path> files,
 		CheckpointStreamFactory checkpointStreamFactory,
-		CloseableRegistry closeableRegistry) throws Exception {
+		CloseableRegistry closeableRegistry,
+		AtomicInteger retryCounter) throws Exception {
 		Map<StateHandleID, CompletableFuture<StreamStateHandle>> futures = new HashMap<>(files.size());
 
 		if (batchStrategy == null) {
 			for (Map.Entry<StateHandleID, Path> entry : files.entrySet()) {
 				final Supplier<StreamStateHandle> supplier =
-					tryWithMultipleTimes(() -> uploadLocalFileToCheckpointFs(entry.getValue(), checkpointStreamFactory, closeableRegistry));
+					tryWithMultipleTimes(() -> uploadLocalFileToCheckpointFs(entry.getValue(), checkpointStreamFactory, closeableRegistry), retryCounter);
 				futures.put(entry.getKey(), CompletableFuture.supplyAsync(supplier, executorService));
 			}
 		} else {
@@ -126,7 +136,7 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 			Map<StateHandleID, List<RocksDBFileMeta>> batches = batchStrategy.batch(files);
 			for (Map.Entry<StateHandleID, List<RocksDBFileMeta>> entry : batches.entrySet()) {
 				final Supplier<StreamStateHandle> supplier =
-					tryWithMultipleTimes(() -> uploadLocalFileToCheckpointFs(entry.getKey(), entry.getValue(), checkpointStreamFactory, closeableRegistry));
+					tryWithMultipleTimes(() -> uploadLocalFileToCheckpointFs(entry.getKey(), entry.getValue(), checkpointStreamFactory, closeableRegistry), retryCounter);
 
 				// state file ID -> stream state handle (shared by all state files in the batch)
 				CompletableFuture<StreamStateHandle> sharedStateHandle = CompletableFuture.supplyAsync(supplier, executorService);
@@ -223,7 +233,7 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 	// Utilities
 	// ---------------------------------------------------
 
-	private Supplier<StreamStateHandle> tryWithMultipleTimes(SupplierWithException<StreamStateHandle, IOException> internalCallable) {
+	private Supplier<StreamStateHandle> tryWithMultipleTimes(SupplierWithException<StreamStateHandle, IOException> internalCallable, AtomicInteger retryCounter) {
 		return CheckedSupplier.unchecked(() -> {
 			int tryCount = 0;
 			while (true) {
@@ -234,6 +244,7 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 						throw t;
 					}
 					LOG.warn("Fail to upload file to HDFS, retrying...", t);
+					retryCounter.getAndIncrement();
 				}
 			}
 		});

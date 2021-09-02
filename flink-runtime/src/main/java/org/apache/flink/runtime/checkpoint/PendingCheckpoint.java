@@ -36,7 +36,9 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.function.BiConsumerWithException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -142,6 +145,8 @@ public class PendingCheckpoint {
 
 	private final int numNeedAcknowledgedSubtasks;
 
+	private final int transferMaxRetryAttempts;
+
 	// --------------------------------------------------------------------------------------------
 
 	public PendingCheckpoint(
@@ -193,7 +198,8 @@ public class PendingCheckpoint {
 			executor,
 			onCompletionPromise,
 			pendingTrigger,
-			null);
+			null,
+			1);
 	}
 
 	public PendingCheckpoint(
@@ -208,7 +214,8 @@ public class PendingCheckpoint {
 		Executor executor,
 		CompletableFuture<CompletedCheckpoint> onCompletionPromise,
 		PendingTriggerFactory.PendingTrigger pendingTrigger,
-		@Nullable CheckpointStorageCoordinatorView checkpointStorage) {
+		@Nullable CheckpointStorageCoordinatorView checkpointStorage,
+		int transferMaxRetryAttempts) {
 
 		checkArgument(verticesToConfirm.size() > 0,
 			"Checkpoint needs at least one vertex that commits the checkpoint");
@@ -233,6 +240,8 @@ public class PendingCheckpoint {
 		this.pendingTrigger = pendingTrigger;
 		this.numNeedAcknowledgedSubtasks = verticesToConfirm.size();
 		this.checkpointStorage = checkpointStorage;
+		Preconditions.checkArgument(transferMaxRetryAttempts >= 1);
+		this.transferMaxRetryAttempts = transferMaxRetryAttempts;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -397,21 +406,13 @@ public class PendingCheckpoint {
 					LOG.info("Savepoint {} completed successfully, store savepoint simple metadata: {}", checkpointId, savepointSimpleMetadata);
 
 					CheckpointStorageLocation savepointMetaInCheckpointDirLocation = checkpointStorage.initializeLocationForSavepointMetaInCheckpointDir(checkpointId);
-
-					try (CheckpointMetadataOutputStream out = savepointMetaInCheckpointDirLocation.createMetadataOutputStream()) {
-						Checkpoints.storeSavepointSimpleMetadata(savepointSimpleMetadata, out);
-						out.closeAndFinalizeCheckpoint();
-					}
+					writeMetadataWithRetry(savepointSimpleMetadata, savepointMetaInCheckpointDirLocation, Checkpoints::storeSavepointSimpleMetadata, transferMaxRetryAttempts);
 				}
 
 				// write out the metadata
 				final CheckpointMetadata savepoint = new CheckpointMetadata(checkpointId, operatorStates.values(), masterStates);
-				final CompletedCheckpointStorageLocation finalizedLocation;
-
-				try (CheckpointMetadataOutputStream out = targetLocation.createMetadataOutputStream()) {
-					Checkpoints.storeCheckpointMetadata(savepoint, out);
-					finalizedLocation = out.closeAndFinalizeCheckpoint();
-				}
+				final CompletedCheckpointStorageLocation finalizedLocation =
+					writeMetadataWithRetry(savepoint, targetLocation, Checkpoints::storeCheckpointMetadata, transferMaxRetryAttempts);
 
 				CompletedCheckpoint completed = new CompletedCheckpoint(
 						jobId,
@@ -819,5 +820,25 @@ public class PendingCheckpoint {
 	public String toString() {
 		return String.format("Pending Checkpoint %d @ %d - confirmed=%d, pending=%d",
 				checkpointId, checkpointTimestamp, getNumberOfAcknowledgedTasks(), getNumberOfNonAcknowledgedTasks());
+	}
+
+	private <M> CompletedCheckpointStorageLocation writeMetadataWithRetry(
+			M metadata,
+			CheckpointStorageLocation targetLocation,
+			BiConsumerWithException<M, OutputStream, IOException> consumer,
+			int maxRetryAttempts) throws IOException {
+		for (int retryAttempts = 1; retryAttempts <= maxRetryAttempts; retryAttempts++) {
+			try (CheckpointMetadataOutputStream out = targetLocation.createMetadataOutputStream()) {
+				consumer.accept(metadata, out);
+				return out.closeAndFinalizeCheckpoint();
+			} catch (Throwable t) {
+				if (retryAttempts < maxRetryAttempts) {
+					LOG.warn("Write metadata for checkpoint[{}] failed, retry...", checkpointId);
+					continue;
+				}
+				throw t;
+			}
+		}
+		throw new FlinkRuntimeException("Write metadata for checkpoint[" + checkpointId + "] failed");
 	}
 }

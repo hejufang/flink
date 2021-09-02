@@ -40,4 +40,9 @@ public class NonStateStatsTracker implements StateStatsTracker {
 	public void updateIncrementalBatchingStatistics(WarehouseStateFileBatchingMessage batchingMessage) {
 		// do nothing
 	}
+
+	@Override
+	public void updateRetryCounter(int retryCount) {
+		// do nothing
+	}
 }
