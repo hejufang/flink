@@ -194,6 +194,7 @@ public class CEPPatternStreamITCase {
 
 		// (Event, timestamp)
 		DataStream<Event> input = env.addSource(new EventStream(
+				Tuple2.of(new Event(1, "warmUp", 1.0), 5L),
 				Tuple2.of(new Event(1, "start", 1.0), 5L),
 				Tuple2.of(new Event(2, "middle", 2.0), 4L),
 				Tuple2.of(new Event(2, "start", 2.0), 3L),

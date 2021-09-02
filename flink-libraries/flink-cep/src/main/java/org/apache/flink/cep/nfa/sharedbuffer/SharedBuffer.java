@@ -22,16 +22,22 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.state.KeyedStateStore;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.IntSerializer;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
+import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.api.common.typeutils.base.array.BytePrimitiveArraySerializer;
+import org.apache.flink.runtime.state.KeyedStateBackend;
+import org.apache.flink.runtime.state.internal.InternalMapState;
 import org.apache.flink.util.WrappingRuntimeException;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Iterables;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -67,6 +73,9 @@ public class SharedBuffer<V> {
 	// defined by users to store state
 	private MapState<UserAccumulatorId, byte[]> userAccumulator;
 
+	private List<StateDescriptor> stateDescriptors;
+
+
 	/** The cache of eventsBuffer State. */
 	private Map<EventId, Lockable<V>> eventsBufferCache = new HashMap<>();
 
@@ -96,6 +105,8 @@ public class SharedBuffer<V> {
 		this.entries = stateStore.getMapState(entriesDescriptor);
 		this.eventsCount = stateStore.getMapState(eventsCountDescriptor);
 		this.userAccumulator = stateStore.getMapState(userAccumulatorDescriptor);
+
+		this.stateDescriptors = Arrays.asList(eventsDescriptor, entriesDescriptor, eventsCountDescriptor, userAccumulatorDescriptor);
 	}
 
 	/**
@@ -258,9 +269,25 @@ public class SharedBuffer<V> {
 		entries.clear();
 	}
 
+	void clearPatternState(KeyedStateBackend keyedStateBackend, String pattern) throws Exception {
+		for (StateDescriptor stateDescriptor : stateDescriptors) {
+			keyedStateBackend.applyToAllKeys(pattern, StringSerializer.INSTANCE, stateDescriptor, (key, state) -> {
+				state.clear();
+			});
+		}
+	}
+
 	void clearMemoryCache() {
 		entryCache.clear();
 		eventsBufferCache.clear();
+	}
+
+	void setCurrentNamespace(String namespace){
+		((InternalMapState) eventsBuffer).setCurrentNamespace(namespace);
+		((InternalMapState) eventsCount).setCurrentNamespace(namespace);
+		((InternalMapState) entries).setCurrentNamespace(namespace);
+		((InternalMapState) userAccumulator).setCurrentNamespace(namespace);
+
 	}
 
 	@VisibleForTesting

@@ -24,6 +24,7 @@ import org.apache.flink.cep.nfa.ComputationState;
 import org.apache.flink.cep.nfa.DeweyNumber;
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
+import org.apache.flink.runtime.state.KeyedStateBackend;
 import org.apache.flink.util.WrappingRuntimeException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -322,8 +323,18 @@ public class SharedBufferAccessor<V> implements AutoCloseable {
 	 *
 	 * @throws Exception Thrown if the system cannot access the state.
 	 */
+	@Override
 	public void close() throws Exception {
 		sharedBuffer.flushCache();
+	}
+
+	public void setCurrentNamespace(String namespace){
+		sharedBuffer.setCurrentNamespace(namespace);
+	}
+
+	public void clearPatternState(KeyedStateBackend keyedStateBackend, String pattern) throws Exception {
+		setCurrentNamespace(pattern);
+		sharedBuffer.clearPatternState(keyedStateBackend, pattern);
 	}
 
 	public <ACC> ACC getAccumulator(String stateKey, ComputationState computationState, TypeSerializer<ACC> serializer) throws Exception {

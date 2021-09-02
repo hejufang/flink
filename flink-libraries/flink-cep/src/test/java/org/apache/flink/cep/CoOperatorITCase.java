@@ -138,6 +138,7 @@ public class CoOperatorITCase {
 		Object[] data = {
 				TestData.SUM_PATTERN_1,
 				new Barrier(),
+				Tuple2.of(new Event(1, "warmUp", 2.0), 2L),
 				Tuple2.of(new Event(1, "buy", 2.0), 2L),
 				Tuple2.of(new Event(1, "buy", 4.0), 1L),
 				Tuple2.of(new Event(1, "buy", 1.0), 8L),
@@ -187,6 +188,7 @@ public class CoOperatorITCase {
 				TestData.SUM_PATTERN_1,
 				TestData.FOLLOWEDBY_PATTERN,
 				new Barrier(),
+				Tuple2.of(new Event(1, "warmUp", 1.0), 2L),
 				Tuple2.of(new Event(1, "buy", 1.0), 2L),
 				Tuple2.of(new Event(1, "buy", 3.0), 1L),
 				Tuple2.of(new Event(1, "buy", 5.0), 8L),
@@ -208,6 +210,7 @@ public class CoOperatorITCase {
 		Object[] data = {
 				TestData.SUM_PATTERN_1,
 				new Barrier(),
+				Tuple2.of(new Event(2, "warmUp", 1.0), 2L),
 				Tuple2.of(new Event(2, "buy", 1.0), 2L),
 				Tuple2.of(new Event(2, "buy", 3.0), 1L),
 				new Barrier(),

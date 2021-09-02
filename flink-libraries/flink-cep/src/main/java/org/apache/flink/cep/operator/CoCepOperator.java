@@ -58,6 +58,7 @@ import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
+import org.apache.flink.runtime.state.internal.InternalValueState;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.AbstractUdfStreamOperator;
 import org.apache.flink.streaming.api.operators.InternalTimer;
@@ -118,7 +119,7 @@ public class CoCepOperator<IN, KEY, OUT>
 	private static final String STATE_CLEANER_TIMER_LAST_UPDATE_TIME_STATE_NAME = "stateCleanerTimerLastUpdateTimeStateName";
 
 	private transient MapState<Long, List<IN>> elementQueueState;
-	private transient MapState<String, NFAState> computationStates;
+	private transient InternalValueState<KEY, String, NFAState>  computationStates;
 	private transient Map<String, SharedBuffer<IN>> partialMatches;
 	/**
 	 *  Each key has its own watermark in state.
@@ -171,6 +172,8 @@ public class CoCepOperator<IN, KEY, OUT>
 	private final long ttlMilliSeconds;
 
 	private final CepTimestampExtractor<IN> timestampExtractor;
+
+	private ValueStateDescriptor<NFAState> nfaStateValueStateDescriptor;
 
 
 	// ------------------------------------------------------------------------
@@ -240,9 +243,9 @@ public class CoCepOperator<IN, KEY, OUT>
 		super.initializeState(context);
 
 		// initializeState through the provided context
-		MapStateDescriptor<String, NFAState> descriptor = new MapStateDescriptor<>(NFA_STATE_NAME, new StringSerializer(), new NFAStateSerializer());
+		nfaStateValueStateDescriptor = new ValueStateDescriptor<>(NFA_STATE_NAME, new NFAStateSerializer());
 
-		computationStates = context.getKeyedStateStore().getMapState(descriptor);
+		computationStates = (InternalValueState<KEY, String, NFAState>) getOrCreateKeyedState(StringSerializer.INSTANCE, nfaStateValueStateDescriptor);
 
 		patternStates = context.getOperatorStateStore().getBroadcastState(
 				new MapStateDescriptor<>(PATTERN_STATE_NAME, new StringSerializer(), new KryoSerializer<>(Pattern.class, new ExecutionConfig())));
@@ -315,14 +318,15 @@ public class CoCepOperator<IN, KEY, OUT>
 			return;
 		}
 
-		if (this.patternStates.contains(pattern.getPatternId()) && this.patternStates.get(patternId).getHash() == pattern.getHash()) {
+		if (this.patternStates.contains(patternId) && this.patternStates.get(patternId).getHash() == pattern.getHash()) {
 			// do nothing if there is an exactly same pattern
 			return;
 		}
 
 		// update currentNFA
-		if (this.usingNFAs.containsKey(pattern.getPatternId())) {
-			this.usingNFAs.get(pattern.getPatternId()).close();
+		if (this.usingNFAs.containsKey(patternId)) {
+			this.usingNFAs.get(patternId).close();
+			disableOldPattern(patternId);
 		}
 		LOG.info("Initialize a new pattern from upstream(id={},hash={})", pattern.getPatternId(), pattern.getHash());
 		initializeNewPattern(pattern);
@@ -330,6 +334,7 @@ public class CoCepOperator<IN, KEY, OUT>
 
 	// TODO. add the state removal here
 	private void disableOldPattern(String patternId) throws Exception {
+		clearStateForPattern(patternId);
 		this.usingNFAs.remove(patternId);
 		this.patternStates.remove(patternId);
 		this.partialMatches.remove(patternId);
@@ -345,7 +350,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		this.usingNFAs.put(patternId, nfa);
 		this.patternStates.put(patternId, pattern);
 		if (!this.partialMatches.containsKey(patternId)) {
-			this.partialMatches.put(patternId, new SharedBuffer<>(getKeyedStateStore(), inputSerializer));
+			this.partialMatches.put(patternId, new SharedBuffer(new PerPatternKeyedStateStore(patternId, getKeyedStateBackend(), getExecutionConfig()), inputSerializer));
 		} else {
 			this.partialMatches.get(patternId).getAccessor().clearMemoryCache();
 		}
@@ -526,7 +531,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		}
 		triggerComputeWithWatermark(getSortedTimestamps(), Long.MAX_VALUE);
 		if (timerPayload != null && Arrays.equals(timerPayload, STATE_CLEANER_TIMER_PAYLOAD)){
-			clearAllStates();
+			clearStateForKey();
 		}
 	}
 
@@ -599,37 +604,46 @@ public class CoCepOperator<IN, KEY, OUT>
 	}
 
 	private NFAState getNFAState(String patternId) throws Exception {
-		NFAState nfaState = computationStates.get(patternId);
-		if (nfaState != null && usingNFAs.containsKey(patternId) && usingNFAs.get(patternId).getHash() == nfaState.getHash()) {
+		computationStates.setCurrentNamespace(patternId);
+		NFAState nfaState = computationStates.value();
+		if (nfaState != null){
 			return nfaState;
 		} else {
-			Preconditions.checkArgument(usingNFAs.get(patternId) != null, "The pattern is not defined. Please check your pattern data stream if using broadcast.");
-			NFAState newNFAState = usingNFAs.get(patternId).createInitialNFAState();
-			computationStates.put(patternId, newNFAState);
-			// clear the data state in shared buffer
-//			partialMatches.get(patternId).getAccessor().clearKeyedState();
-			return newNFAState;
+			return usingNFAs.get(patternId).createInitialNFAState();
 		}
 	}
 
 	private void updateNFA(NFAState nfaState) throws Exception {
+		computationStates.setCurrentNamespace(nfaState.getPatternId());
 		if (nfaState.isStateChanged()) {
 			nfaState.resetStateChanged();
-			computationStates.put(nfaState.getPatternId(), nfaState);
+			computationStates.update(nfaState);
 		}
 	}
 
-	private void clearAllStates() {
+	// clear state for key
+	private void clearStateForKey() {
 		numStateCleanerTriggered.inc();
 		if (timestampExtractor != null){
 			keyedWatermark.clear();
 		}
 		stateCleanerTimerLastUpdateTime.clear();
 		elementQueueState.clear();
-		computationStates.clear();
 		partialMatches.forEach((patternId, sharedBuffer) -> {
+			computationStates.setCurrentNamespace(patternId);
+			computationStates.clear();
+			sharedBuffer.getAccessor().setCurrentNamespace(patternId);
 			sharedBuffer.getAccessor().clearKeyedState();
 		});
+	}
+
+	private void clearStateForPattern(String pattern) throws Exception {
+
+		LOG.info("clear State for pattern {}", pattern);
+		getKeyedStateBackend().applyToAllKeys(pattern, StringSerializer.INSTANCE, nfaStateValueStateDescriptor, (key, state) -> {
+			state.clear();
+		});
+		partialMatches.get(pattern).getAccessor().clearPatternState(getKeyedStateBackend(), pattern);
 	}
 
 	private PriorityQueue<Long> getSortedTimestamps() throws Exception {
@@ -651,6 +665,7 @@ public class CoCepOperator<IN, KEY, OUT>
 	private void processEvent(NFAState nfaState, IN event, long timestamp) throws Exception {
 		long processEventStartTime = System.currentTimeMillis();
 		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.get(nfaState.getPatternId()).getAccessor()) {
+			sharedBufferAccessor.setCurrentNamespace(nfaState.getPatternId());
 			NFA nfa = usingNFAs.get(nfaState.getPatternId());
 			Collection<Map<String, List<IN>>> patterns =
 				nfa.process(sharedBufferAccessor, nfaState, event, timestamp, afterMatchSkipStrategy, cepTimerService);
@@ -688,6 +703,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		long advanceTimeStartMillis = System.currentTimeMillis();
 		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.get(nfaState.getPatternId()).getAccessor()) {
 			// output pending states matches
+			sharedBufferAccessor.setCurrentNamespace(nfaState.getPatternId());
 			Collection<Map<String, List<IN>>> pendingMatches = usingNFAs.get(nfaState.getPatternId()).pendingStateMatches(sharedBufferAccessor, nfaState, timestamp);
 			if (!pendingMatches.isEmpty()) {
 				processMatchedSequences(nfaState.getPatternId(), pendingMatches, timestamp);
@@ -825,6 +841,16 @@ public class CoCepOperator<IN, KEY, OUT>
 	boolean hasNonEmptySharedBuffer(KEY key) throws Exception {
 		setCurrentKey(key);
 		return !partialMatches.isEmpty();
+	}
+
+	@VisibleForTesting
+	Map<String, SharedBuffer<IN>> getPartialMatches() throws Exception {
+		return partialMatches;
+	}
+
+	@VisibleForTesting
+	InternalValueState<KEY, String, NFAState> getNFAState() throws Exception {
+		return computationStates;
 	}
 
 	@VisibleForTesting
