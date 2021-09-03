@@ -18,9 +18,10 @@
 
 package org.apache.flink.util;
 
-import com.sun.istack.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nonnull;
 
 /**
  * Utility class to format names for metric reporting.
@@ -83,7 +84,7 @@ public class MetricUtils {
 		return taskName;
 	}
 
-	private static String replaceSpecialCharacters(@NotNull String name) {
+	private static String replaceSpecialCharacters(@Nonnull String name) {
 		return name
 			.replaceAll("\\W", "_")
 			.replaceAll("_+", "_");

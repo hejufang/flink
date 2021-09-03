@@ -19,7 +19,6 @@
 
 # common jar path need to check, the target jar should not have class start with these.
 COMMON_JAR_PATH_LIST=("com.bytedance.commons"
-                       "org.apache.http.client"
                        "com.fasterxml.jackson"
                        "com.google.protobuf"
                        "com.google.common"
@@ -37,7 +36,8 @@ CHECK_LIBS_LIST=("lib/*"
                  "formats/*")
 
 SKIP_LIBS=("flink-pb"
-           "flink-fast-pb")
+           "flink-fast-pb"
+           "flink-s3-fs-presto")
 
 flink_home="$1"
 
