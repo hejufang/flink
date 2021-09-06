@@ -663,6 +663,48 @@ gavia:
   table.exec.hive.permission-check.gemini-server-url: http://gemini-gcp.byted.org/api/query/gcp/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
 
+otter:
+  dc: us-ttp
+  clusterName: otter
+  high-availability.zookeeper.quorum: 10.113.156.88:2187,10.113.156.226:2187,10.113.156.244:2187,10.113.156.4:2187,10.113.156.42:2187
+  hdfs.prefix: hdfs://harunaoci/flink_oci
+  checkpoint.hdfs.prefix: hdfs://harunaoci/home/byte_flink_checkpoint
+  dashboard.data_source: bytetsd_us_ttp
+  dtop.data_source: dtop_gcp
+  dtop.database: dtop_gcp
+  smart-resources.service-name: data.inf.sr_estimater
+  kafka_server_url: https://kafka-config-tx.tiktokd.net
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  docker.server:  image-manager.Byted.org
+  docker.hub: hub.tiktokd.org
+  docker.region: US-TTP
+  yaop_url: http://yaop-tx.tiktokd.org
+  jobmeta.db.name: flink_meta_us_ttp
+  grafana.domain_url: "https://grafana-tx.tiktokd.org"
+  register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-oci.tiktokd.org/api/query/oci/verifyUsersPrivilege
+
+octop:
+  dc: us-ttp
+  clusterName: octop
+  high-availability.zookeeper.quorum: 10.113.156.88:2187,10.113.156.226:2187,10.113.156.244:2187,10.113.156.4:2187,10.113.156.42:2187
+  hdfs.prefix: hdfs://harunaoci/flink_oci
+  checkpoint.hdfs.prefix: hdfs://harunaoci/home/byte_flink_checkpoint
+  dashboard.data_source: bytetsd_us_ttp
+  dtop.data_source: dtop_gcp
+  dtop.database: dtop_gcp
+  smart-resources.service-name: data.inf.sr_estimater
+  kafka_server_url: https://kafka-config-tx.tiktokd.net
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  docker.server:  image-manager.Byted.org
+  docker.hub: hub.tiktokd.org
+  docker.region: US-TTP
+  yaop_url: http://yaop-tx.tiktokd.org
+  jobmeta.db.name: flink_meta_us_ttp
+  grafana.domain_url: "https://grafana-tx.tiktokd.org"
+  register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-oci.tiktokd.org/api/query/oci/verifyUsersPrivilege
+
 alisg:
   dc: sg
   clusterName: alisg
