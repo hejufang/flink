@@ -54,6 +54,7 @@ import java.util.UUID;
 import static org.apache.flink.client.cli.CliFrontendTestUtils.TEST_JAR_MAIN_CLASS;
 import static org.apache.flink.client.cli.CliFrontendTestUtils.getTestJarPath;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 
 /**
@@ -225,6 +226,54 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 //	}
 
 	@Test
+	public void testRestoreFromSavepointWithApplicationMode() throws Exception {
+		final String jobName = "testRestoreFromSavepointWithApplicationMode";
+		final String namespace = "testNS";
+		System.setProperty(ConfigConstants.JOB_NAME_KEY, jobName);
+
+		final String checkpointFolder = tmp.newFolder().getAbsolutePath();
+		final String savepointPath = tmp.newFolder().getAbsolutePath() + "/" + UUID.randomUUID();
+
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE.key(), namespace);
+		configuration.setString(CheckpointingOptions.STATE_BACKEND.key(), "filesystem");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY.key(), "file://" + checkpointFolder);
+
+		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
+			new Path(savepointPath).getFileSystem(),
+			new Path(savepointPath, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(savepointPath))) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		String[] args = {
+			"-cn", "test",
+			"-t", "remote",
+			"-D" + CheckpointingOptions.RESTORE_SAVEPOINT_PATH.key() + "=" + "file://" + savepointPath,
+			"-D" + CheckpointingOptions.STATE_BACKEND.key() + "=filesystem",
+			"-D" + CheckpointingOptions.CHECKPOINTS_DIRECTORY.key() + "=file://" + checkpointFolder,
+			"-D" + CheckpointingOptions.CHECKPOINTS_NAMESPACE.key() + "=" + namespace,
+			"-Dclassloader.resolve-order=parent-first",
+			"-DclusterName=flink",
+			getTestJarPath()};
+
+		final String errorMsg = "Application Mode not supported by standalone deployments.";
+
+		try {
+			verifyCliFrontendWithApplicationMode(configuration, args, cliUnderTest, "parent-first", ParentFirstClassLoader.class.getName());
+		} catch (Exception e) {
+			//expected
+			assertTrue(e instanceof UnsupportedOperationException);
+			assertEquals(errorMsg, e.getMessage());
+		}
+
+		// verify the sp-1 exists
+		FileSystem fs = new Path(checkpointFolder).getFileSystem();
+		Assert.assertEquals(3, fs.listStatus(new Path(new Path(checkpointFolder, jobName), namespace)).length);
+		Assert.assertTrue(fs.exists(new Path(new Path(new Path(checkpointFolder, jobName), namespace), "sp-1")));
+	}
+
+	@Test
 	public void testDynamicPropertiesWithParentFirstClassloader() throws Exception {
 		String[] args = {
 			"-cn", "flink",
@@ -281,6 +330,17 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 		TestingCliFrontend testFrontend =
 			new TestingCliFrontend(configuration, cliUnderTest, expectedResolveOrderOption, userCodeClassLoaderClassName);
 		testFrontend.run(parameters); // verifies the expected values (see below)
+	}
+
+	public static void verifyCliFrontendWithApplicationMode(
+		Configuration configuration,
+		String[] parameters,
+		GenericCLI cliUnderTest,
+		String expectedResolveOrderOption,
+		String userCodeClassLoaderClassName) throws Exception {
+		TestingCliFrontend testFrontend =
+			new TestingCliFrontend(configuration, cliUnderTest, expectedResolveOrderOption, userCodeClassLoaderClassName);
+		testFrontend.runApplication(parameters); // verifies the expected values (see below)
 	}
 
 	private static final class TestingCliFrontend extends CliFrontend {

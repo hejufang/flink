@@ -207,9 +207,16 @@ public class CliFrontend {
 
 	protected void runApplication(String[] args) throws Exception {
 		LOG.info("Running 'run-application' command.");
-
+		args = setJobName(args);
 		final Options commandOptions = CliFrontendParser.getRunCommandOptions();
 		final CommandLine commandLine = getCommandLine(commandOptions, args, true);
+
+		String owner = commandLine.getOptionValue(CliFrontendParser.OWNER_OPTION.getOpt());
+		if (owner == null) {
+			owner = "";
+		}
+		LOG.info("owner = {}", owner);
+		System.setProperty("owner", owner);
 
 		if (commandLine.hasOption(HELP_OPTION.getOpt())) {
 			CliFrontendParser.printHelpForRun(customCommandLines);
@@ -226,8 +233,24 @@ public class CliFrontend {
 
 		programOptions.validate();
 		final URI uri = PackagedProgramUtils.resolveURI(programOptions.getJarFilePath());
-		final Configuration effectiveConfiguration = getEffectiveConfiguration(
+		Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, Collections.singletonList(uri.toString()));
+
+		final String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
+			programOptions.setSavepointSettings(
+				effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH),
+				effectiveConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE)
+			);
+			// pass savepoint settings to jobGraph through the updated programOptions
+			effectiveConfiguration = getEffectiveConfiguration(
+				activeCommandLine, commandLine, programOptions, Collections.singletonList(uri.toString()));
+
+			// remove this config in case of JM failover
+			final String savepointPath = effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
+			effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
+			initializeCheckpointNamespaceDirectory(activeCommandLine, commandLine, jobName, savepointPath);
+		}
 		final ApplicationConfiguration applicationConfiguration =
 				new ApplicationConfiguration(programOptions.getProgramArgs(), programOptions.getEntryPointClassName());
 		deployer.run(effectiveConfiguration, applicationConfiguration);
