@@ -21,7 +21,7 @@ package org.apache.flink.table.planner.plan.nodes.common
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.io.InputFormat
 import org.apache.flink.api.dag.Transformation
-import org.apache.flink.streaming.api.datastream.DataStreamSource
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.functions.SpecificParallelism
 import org.apache.flink.table.api.TableConfig
@@ -109,8 +109,9 @@ abstract class CommonPhysicalTableSourceScan(
         operator.getTransformation
       case provider: DataStreamScanProvider =>
         val dataStream = provider.produceDataStream(env)
-        if (!sourceChainEnable) {
-          dataStream.asInstanceOf[DataStreamSource[RowData]].disableChaining().getTransformation
+        if (!sourceChainEnable && dataStream.isInstanceOf[SingleOutputStreamOperator[RowData]]) {
+          dataStream.asInstanceOf[SingleOutputStreamOperator[RowData]]
+            .disableChaining().getTransformation
         } else {
           dataStream.getTransformation
         }
