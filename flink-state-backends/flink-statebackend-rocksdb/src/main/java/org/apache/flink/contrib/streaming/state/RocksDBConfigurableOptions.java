@@ -169,4 +169,9 @@ public class RocksDBConfigurableOptions implements Serializable {
 					"%s, %s, %s or %s, and RocksDB choose '%s' as default style.", NO_COMPRESSION.name(), SNAPPY_COMPRESSION.name(),
 				ZLIB_COMPRESSION.name(), BZLIB2_COMPRESSION.name(), LZ4_COMPRESSION.name(), LZ4HC_COMPRESSION.name(), XPRESS_COMPRESSION.name(),
 				ZSTD_COMPRESSION.name(), DISABLE_COMPRESSION_OPTION.name(), SNAPPY_COMPRESSION.name()));
+
+	public static final ConfigOption<String> AUTO_COMPACTION_ENABLED =
+		key("state.backend.rocksdb.auto.compaction.enabled")
+		.defaultValue("true")
+		.withDeprecatedKeys("Whether enable auto compaction.");
 }
