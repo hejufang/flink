@@ -299,6 +299,9 @@ public class KafkaConsumerThread<T> extends Thread {
 				if (records == null) {
 					try {
 						records = (bytedKafkaConfig.getSampleInterval() > 0) ? getSampledRecordsAfterInterval() : getRecordsFromKafka();
+						if (rateLimiter != null) {
+							rateLimiter.acquire(records.count());
+						}
 					}
 					catch (WakeupException we) {
 						continue;
@@ -663,9 +666,6 @@ public class KafkaConsumerThread<T> extends Thread {
 	@VisibleForTesting
 	protected ConsumerRecords<byte[], byte[]> getRecordsFromKafka() {
 		ConsumerRecords<byte[], byte[]> records = consumer.poll(pollTimeout);
-		if (rateLimiter != null) {
-			rateLimiter.acquire(records.count());
-		}
 		return records;
 	}
 
