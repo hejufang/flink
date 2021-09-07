@@ -55,6 +55,7 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
+import org.apache.commons.collections.ListUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -1220,16 +1221,11 @@ public class CheckpointCoordinator {
 				throw new IllegalStateException("CheckpointCoordinator is shut down");
 			}
 
-			// We create a new shared state registry object, so that all pending async disposal requests from previous
-			// runs will go against the old object (were they can do no harm).
-			// This must happen under the checkpoint lock.
-			sharedStateRegistry.close();
-			sharedStateRegistry = sharedStateRegistryFactory.create(executor);
-
 			// Recover the checkpoints, TODO this could be done only when there is a new leader, not on each recovery
 			// do not need to recover the checkpoint store on failover
 			// if findCheckpointInCheckpointStorage equals to true, it means the job just starts and needs to load
 			// checkpoint from HDFS
+			List<CompletedCheckpoint> oriCompletedCheckpoints = completedCheckpointStore.getAllCheckpoints();
 			if (findCheckpointInCheckpointStorage) {
 				if (!crossVersion) {
 					completedCheckpointStore.recover();
@@ -1265,11 +1261,27 @@ public class CheckpointCoordinator {
 				}
 			}
 
-			// Now, we re-register all (shared) states from the checkpoint store with the new registry
-			for (CompletedCheckpoint completedCheckpoint : completedCheckpointStore.getAllCheckpoints()) {
-				completedCheckpoint.registerSharedStatesAfterRestored(sharedStateRegistry);
-				// inject Checkpoint Storage to expire savepoint simple metadata
-				completedCheckpoint.setCheckpointStorage(checkpointStorage);
+			// Only re-register shared state when the CompletedCheckpointStore changes.
+			List<CompletedCheckpoint> curCompletedCheckpoints = completedCheckpointStore.getAllCheckpoints();
+			if (!ListUtils.isEqualList(oriCompletedCheckpoints, curCompletedCheckpoints)) {
+				LOG.info("The completed checkpoint store has changed, and the shared state needs to be re-registered. " +
+						"Previous checkpoints are {}, restored checkpoints are: {}.",
+					oriCompletedCheckpoints.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()),
+					curCompletedCheckpoints.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()));
+				// We create a new shared state registry object, so that all pending async disposal requests from previous
+				// runs will go against the old object (were they can do no harm).
+				// This must happen under the checkpoint lock.
+				sharedStateRegistry.close();
+				sharedStateRegistry = sharedStateRegistryFactory.create(executor);
+
+				// Now, we re-register all (shared) states from the checkpoint store with the new registry
+				for (CompletedCheckpoint completedCheckpoint : completedCheckpointStore.getAllCheckpoints()) {
+					completedCheckpoint.registerSharedStatesAfterRestored(sharedStateRegistry);
+					// inject Checkpoint Storage to expire savepoint simple metadata
+					completedCheckpoint.setCheckpointStorage(checkpointStorage);
+				}
+			} else {
+				LOG.info("The completed checkpoint store has not changed, no need to re-register shared state.");
 			}
 			LOG.info("After restoring CompletedCheckpointStore, checkpoints {}, savepoints {}.",
 				completedCheckpointStore.getAllCheckpoints().stream().filter(CompletedCheckpoint::isCheckpoint).map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()),
