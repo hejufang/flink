@@ -215,4 +215,9 @@ public class RocksDBConfigurableOptions implements Serializable {
 		key("state.backend.rocksdb.bloomfilter.enabled")
 			.defaultValue(false)
 			.withDescription("Whether enable bloom filter feature in block.");
+
+	public static final ConfigOption<Boolean> AUTO_COMPACTION_ENABLED =
+		key("state.backend.rocksdb.auto-compaction.enabled")
+			.defaultValue(true)
+			.withDeprecatedKeys("Whether enable auto compaction.");
 }

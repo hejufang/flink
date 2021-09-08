@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.AUTO_COMPACTION_ENABLED;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOCK_CACHE_SIZE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOCK_SIZE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOOMFILTER_ENABLED;
@@ -135,6 +136,10 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 
 		if (isOptionConfigured(COMPRESSION_TYPE)) {
 			currentOptions.setCompressionType(getCompressionType());
+		}
+
+		if (isOptionConfigured(AUTO_COMPACTION_ENABLED)) {
+			currentOptions.setDisableAutoCompactions(!getAutoCompaction());
 		}
 
 		TableFormatConfig tableFormatConfig = currentOptions.tableFormatConfig();
@@ -258,6 +263,15 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 
 	public DefaultConfigurableOptionsFactory setCompactionStyle(CompactionStyle compactionStyle) {
 		setInternal(COMPACTION_STYLE.key(), compactionStyle.name());
+		return this;
+	}
+
+	private boolean getAutoCompaction() {
+		return Boolean.parseBoolean(getInternal(AUTO_COMPACTION_ENABLED.key()));
+	}
+
+	public DefaultConfigurableOptionsFactory setAutoCompaction(boolean autoCompaction) {
+		setInternal(AUTO_COMPACTION_ENABLED.key(), String.valueOf(autoCompaction));
 		return this;
 	}
 
@@ -438,7 +452,8 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 		BLOCK_SIZE,
 		BLOCK_CACHE_SIZE,
 		COMPRESSION_TYPE,
-		BLOOMFILTER_ENABLED
+		BLOOMFILTER_ENABLED,
+		AUTO_COMPACTION_ENABLED
 	};
 
 	private static final Set<ConfigOption<?>> POSITIVE_INT_CONFIG_SET = new HashSet<>(Arrays.asList(
