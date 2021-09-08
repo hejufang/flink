@@ -37,7 +37,8 @@ CHECK_LIBS_LIST=("lib/*"
 
 SKIP_LIBS=("flink-pb"
            "flink-fast-pb"
-           "flink-s3-fs-presto")
+           "flink-s3-fs-presto"
+           "flink-dist")
 
 flink_home="$1"
 

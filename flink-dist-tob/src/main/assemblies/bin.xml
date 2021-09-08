@@ -148,12 +148,12 @@ under the License.
 			<fileMode>0644</fileMode>
 		</file>-->
 
-		<!--<file>
+		<file>
 			<source>../flink-metrics/flink-metrics-gcs-log/target/flink-metrics-gcs-log-${project.version}.jar</source>
 			<outputDirectory>lib/</outputDirectory>
 			<destName>flink-metrics-gcs-log-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
-		</file>-->
+		</file>
 	</files>
 
 	<fileSets>

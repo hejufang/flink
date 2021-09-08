@@ -176,6 +176,12 @@ under the License.
 		</dependency>
 
 		<dependency>
+			<artifactId>protobuf-java</artifactId>
+			<groupId>com.google.protobuf</groupId>
+			<version>2.6.1</version>
+		</dependency>
+
+		<dependency>
 			<groupId>org.apache.logging.log4j</groupId>
 			<artifactId>log4j-core</artifactId>
 			<scope>compile</scope>
@@ -279,12 +285,12 @@ under the License.
 			<scope>provided</scope>
 		</dependency>
 
-		<!--<dependency>
+		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-metrics-gcs-log</artifactId>
 			<version>${project.version}</version>
 			<scope>provided</scope>
-		</dependency>-->
+		</dependency>
 
 		<dependency>
 			<groupId>org.apache.flink</groupId>
@@ -818,10 +824,10 @@ under the License.
 									<pattern>com.codahale.metrics</pattern>
 									<shadedPattern>${shading.prefix}.com.codahale.metrics</shadedPattern>
 								</relocation>
-								<relocation>
+								<!--<relocation>
 									<pattern>com.google.protobuf</pattern>
 									<shadedPattern>${shading.prefix}.com.google.protobuf</shadedPattern>
-								</relocation>
+								</relocation>-->
 								<relocation>
 									<pattern>com.fasterxml.jackson</pattern>
 									<shadedPattern>${shading.prefix}.com.fasterxml.jackson</shadedPattern>
