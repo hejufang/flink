@@ -171,7 +171,7 @@ public class RocksDBConfigurableOptions implements Serializable {
 				ZSTD_COMPRESSION.name(), DISABLE_COMPRESSION_OPTION.name(), SNAPPY_COMPRESSION.name()));
 
 	public static final ConfigOption<String> AUTO_COMPACTION_ENABLED =
-		key("state.backend.rocksdb.auto.compaction.enabled")
+		key("state.backend.rocksdb.auto-compaction.enabled")
 		.defaultValue("true")
 		.withDeprecatedKeys("Whether enable auto compaction.");
 }
