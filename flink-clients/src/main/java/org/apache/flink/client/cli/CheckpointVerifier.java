@@ -25,6 +25,7 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.runtime.OperatorIDPair;
+import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.DefaultCompletedCheckpointStore;
@@ -85,7 +86,7 @@ public class CheckpointVerifier {
 
 	static {
 		verifyStrategies = new ArrayList<>();
-		// Strategy 1: all OperatorID in OperatorState must exist in new JobGraph
+		// Strategy 1: all OperatorID with state in OperatorState must exist in new JobGraph
 		verifyStrategies.add((tasks, operatorStates) -> {
 			Set<OperatorID> allOperatorIDs = new HashSet<>();
 			for (JobVertex jobVertex : tasks.values()) {
@@ -96,7 +97,7 @@ public class CheckpointVerifier {
 				OperatorState operatorState = operatorGroupStateEntry.getValue();
 				//----------------------------------------find operator for state---------------------------------------------
 
-				if (!allOperatorIDs.contains(operatorGroupStateEntry.getKey())) {
+				if (!allOperatorIDs.contains(operatorGroupStateEntry.getKey()) && !Checkpoints.isEmptyState(operatorState)) {
 					final String message = "There is no operator for the state " + operatorState.getOperatorID() +
 						". If you see this, usually it means that the job's topology is changed. And " +
 						" the state in previous checkpoint cannot be used in current job !!! \n" +

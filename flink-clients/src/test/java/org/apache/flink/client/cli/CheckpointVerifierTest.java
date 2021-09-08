@@ -77,6 +77,14 @@ public class CheckpointVerifierTest {
 		assertEquals(strategy.apply(tasks, operatorStates), CheckpointVerifyResult.FAIL_MISMATCH_PARALLELISM);
 	}
 
+	@Test
+	public void testVerifySuccessWithMissOperatorIDButEmptyOperatorState() {
+		buildGraphWithMissOperatorIDWithEmptyOperatorState();
+		BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, OperatorState>, CheckpointVerifyResult> strategy;
+		strategy = CheckpointVerifier.getVerifyStrategies().get(0);
+		assertEquals(strategy.apply(tasks, operatorStates), CheckpointVerifyResult.SUCCESS);
+	}
+
 	void buildSuccessGraph() {
 		tasks = new HashMap<>();
 		operatorStates = new HashMap<>();
@@ -104,8 +112,20 @@ public class CheckpointVerifierTest {
 
 	void buildFailGraphWithMissOperatorID() {
 		buildSuccessGraph();
-		// put a never exist OperatorID into operatorStates
-		operatorStates.put(new OperatorID(10, 0), new OperatorState(new OperatorID(10, 0), 100, 100));
+		// put a never exist OperatorID with coordinator state into operatorStates
+		OperatorID operatorID = new OperatorID(10, 0);
+		OperatorState operatorState = new OperatorState(operatorID, 100, 100);
+		// put coordinator settings to operatorState
+		operatorState.setCoordinatorState(new ByteStreamStateHandle("MockHandleName", new byte[5]));
+		operatorStates.put(operatorID, operatorState);
+	}
+
+	void buildGraphWithMissOperatorIDWithEmptyOperatorState() {
+		buildSuccessGraph();
+		// put a never exist OperatorID with empty state into operatorStates
+		OperatorID operatorID = new OperatorID(10, 0);
+		OperatorState operatorState = new OperatorState(operatorID, 100, 100);
+		operatorStates.put(operatorID, operatorState);
 	}
 
 	void buildFailGraphWithMismatchParallelism(boolean containKeyedState) {
