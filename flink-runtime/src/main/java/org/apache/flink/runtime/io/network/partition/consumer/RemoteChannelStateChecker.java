@@ -44,7 +44,7 @@ public class RemoteChannelStateChecker {
 		this.taskNameWithSubtask = taskNameWithSubtask;
 	}
 
-	public boolean isProducerReadyOrAbortConsumption(ResponseHandle responseHandle) {
+	public boolean isProducerReadyOrAbortConsumption(ResponseHandle responseHandle, boolean forcePartitionRecoverable){
 		Either<ExecutionState, Throwable> result = responseHandle.getProducerExecutionState();
 		ExecutionState consumerExecutionState = responseHandle.getConsumerExecutionState();
 		if (!isConsumerStateValidForConsumption(consumerExecutionState)) {
@@ -60,9 +60,13 @@ public class RemoteChannelStateChecker {
 				abortConsumptionOrIgnoreCheckResult(responseHandle);
 			}
 		} else {
-			handleFailedCheckResult(responseHandle);
+			handleFailedCheckResult(responseHandle, forcePartitionRecoverable);
 		}
 		return false;
+	}
+
+	public boolean isProducerReadyOrAbortConsumption(ResponseHandle responseHandle) {
+		return isProducerReadyOrAbortConsumption(responseHandle, false);
 	}
 
 	private static boolean isConsumerStateValidForConsumption(
@@ -118,9 +122,11 @@ public class RemoteChannelStateChecker {
 		return result.isLeft() ? result.left() : ExecutionState.RUNNING;
 	}
 
-	private void handleFailedCheckResult(ResponseHandle responseHandle) {
+	private void handleFailedCheckResult(ResponseHandle responseHandle, boolean forcePartitionRecoverable) {
 		Throwable throwable = responseHandle.getProducerExecutionState().right();
-		if (throwable instanceof PartitionProducerDisposedException) {
+		// if use force-partition-recoverable, task will not full-restart.
+		// So switch state to failed when PartitionProducerDisposedException occur with force-partition-recoverable enable.
+		if (throwable instanceof PartitionProducerDisposedException && !forcePartitionRecoverable) {
 			String msg = String.format(
 				"Producer %s of partition %s disposed. Cancelling execution.",
 				resultPartitionId.getProducerId(),

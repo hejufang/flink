@@ -831,7 +831,7 @@ public class SingleInputGate extends IndexedInputGate {
 			partitionId,
 			((PartitionProducerStateProvider.ResponseHandle responseHandle) -> {
 				boolean isProducingState = new RemoteChannelStateChecker(partitionId, owningTaskName)
-					.isProducerReadyOrAbortConsumption(responseHandle);
+					.isProducerReadyOrAbortConsumption(responseHandle, channelProvider != null);
 				if (isProducingState) {
 					try {
 						retriggerPartitionRequest(partitionId.getPartitionId());

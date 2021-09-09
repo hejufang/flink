@@ -591,6 +591,30 @@ public class TaskTest extends TestLogger {
 			// Reset latches
 			setup();
 
+			// PartitionProducerDisposedException in single task failover
+			final Task task = createTaskBuilder()
+				.setInvokable(InvokableBlockingInInvoke.class)
+				.setConsumableNotifier(consumableNotifier)
+				.setPartitionProducerStateChecker(partitionChecker)
+				.setExecutor(Executors.directExecutor())
+				.build();
+			TestTaskBuilder.setTaskState(task, ExecutionState.RUNNING);
+
+			final CompletableFuture<ExecutionState> promise = new CompletableFuture<>();
+			when(partitionChecker.requestPartitionProducerState(eq(task.getJobID()), eq(resultId), eq(partitionId))).thenReturn(promise);
+
+			task.requestPartitionProducerState(resultId, partitionId, checkResult ->
+				assertThat(remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult, true), is(false))
+			);
+
+			promise.completeExceptionally(new PartitionProducerDisposedException(partitionId));
+			assertEquals(ExecutionState.FAILED, task.getExecutionState());
+		}
+
+		{
+			// Reset latches
+			setup();
+
 			// Any other exception
 			final Task task = createTaskBuilder()
 				.setInvokable(InvokableBlockingInInvoke.class)
