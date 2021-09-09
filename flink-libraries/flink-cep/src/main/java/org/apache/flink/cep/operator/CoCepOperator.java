@@ -37,7 +37,6 @@ import org.apache.flink.cep.EventComparator;
 import org.apache.flink.cep.functions.MultiplePatternProcessFunction;
 import org.apache.flink.cep.functions.MultiplePatternTimedOutPartialMatchHandler;
 import org.apache.flink.cep.functions.PatternProcessFunction;
-import org.apache.flink.cep.functions.TimedOutPartialMatchHandler;
 import org.apache.flink.cep.functions.timestamps.CepTimestampExtractor;
 import org.apache.flink.cep.nfa.NFA;
 import org.apache.flink.cep.nfa.NFAState;
@@ -359,7 +358,7 @@ public class CoCepOperator<IN, KEY, OUT>
 	}
 
 	private NFA<IN> compileNFA(Pattern<IN, IN> pattern) {
-		final boolean timeoutHandling = getUserFunction() instanceof TimedOutPartialMatchHandler;
+		final boolean timeoutHandling = getUserFunction() instanceof MultiplePatternTimedOutPartialMatchHandler;
 		final NFACompiler.NFAFactory<IN> nfaFactory = NFACompiler.compileFactory(pattern, timeoutHandling, pattern.isAllowSinglePartialMatchPerKey());
 		return nfaFactory.createNFA();
 	}

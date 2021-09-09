@@ -32,11 +32,13 @@ import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.util.Collector;
+import org.apache.flink.util.OutputTag;
 
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -791,6 +793,86 @@ public class CEPPatternStreamITCase {
 		resultList.sort(String::compareTo);
 
 		assertEquals(Arrays.asList("pattern1,1.0,5.0", "pattern2,1.0,3.0"), resultList);
+	}
+
+	@Test
+	public void testTimeoutHandling() throws Exception {
+
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.setParallelism(1);
+
+		Pattern<Event, Event> pattern = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("start");
+			}
+		}).followedBy("end").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("end");
+			}
+		}).within(Time.milliseconds(5));
+
+		pattern.setPatternMeta("followByPatternWithIn", 1);
+
+		DataStream<Pattern<Event, Event>> patternDataStream = env.addSource(new PatternDataStream());
+
+		DataStream<Event> input = env.addSource(new EventStream(
+			Tuple2.of(new Event(1, "start", 1.0), 5L),
+			Tuple2.of(new Event(2, "start", 2.0), 5L),
+			Tuple2.of(new Event(3, "start", 3.0), 5L),
+			Tuple2.of(new Event(1, "end", 4.0), 6L),
+			Tuple2.of(new Event(3, "end", 5.0), 20L),
+
+			// last element for high final watermark
+			Tuple2.of(new Event(7, "middle", 5.0), 100L)
+		))
+			.assignTimestampsAndWatermarks(new AssignerWithPunctuatedWatermarks<Tuple2<Event, Long>>() {
+				@Override
+				public long extractTimestamp(Tuple2<Event, Long> element, long currentTimestamp) {
+					return element.f1;
+				}
+
+				@Override
+				public Watermark checkAndGetNextWatermark(Tuple2<Event, Long> lastElement, long extractedTimestamp) {
+					return new Watermark(lastElement.f1 - 5);
+				}
+			})
+			.map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
+			.keyBy((KeySelector<Event, Integer>) Event::getId);
+
+		final OutputTag<String> timeoutTag = new OutputTag<String>("timeoutTag"){};
+
+		SingleOutputStreamOperator<String> result = CEP.pattern(input, patternDataStream)
+			.withInitialPatterns(Collections.singletonList(pattern))
+			.select(
+				timeoutTag,
+				new MultiplePatternTimeoutFunction<Event, String>() {
+					@Override
+					public String timeout(Tuple2<String, Map<String, List<Event>>> pattern, long timeoutTimestamp) throws Exception {
+						return pattern.f0 + "," +
+						pattern.f1.get("start").get(0).getPrice();
+					}
+				},
+		(MultiplePatternSelectFunction<Event, String>) pattern1 ->
+					pattern1.f0 + "," +
+						pattern1.f1.get("start").get(0).getPrice());
+
+		List<String> resultList = new ArrayList<>();
+		List<String> timeoutResultList = new ArrayList<>();
+
+		DataStreamUtils.collect(result).forEachRemaining(resultList::add);
+		DataStreamUtils.collect(result.getSideOutput(timeoutTag)).forEachRemaining(timeoutResultList::add);
+
+		resultList.sort(String::compareTo);
+		timeoutResultList.sort(String::compareTo);
+
+		assertEquals(Arrays.asList("followByPatternWithIn,1.0"), resultList);
+		assertEquals(Arrays.asList("followByPatternWithIn,2.0", "followByPatternWithIn,3.0"), timeoutResultList);
+
 	}
 
 	private static class PatternJsonStream implements SourceFunction<String> {
