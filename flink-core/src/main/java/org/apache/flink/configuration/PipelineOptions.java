@@ -36,6 +36,20 @@ import static org.apache.flink.configuration.description.TextElement.text;
  */
 @PublicEvolving
 public class PipelineOptions {
+
+	/**
+	 * UID of the job, which is unique and stable across restarts. It identifies an application (or
+	 * task), a concept desired by some upper development platforms for task management. Each
+	 * running instance of an application is a Flink job.
+	 */
+	public static final ConfigOption<String> JOB_UID =
+		key("pipeline.job-uid")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("UID of the job, which is unique and stable across restarts. It identifies an application" +
+				" (or task), a concept desired by some upper development platforms for task management. Each running" +
+				" instance of an application is a Flink job.");
+
 	/**
 	 * A list of jar files that contain the user-defined function (UDF) classes and all classes used from within the UDFs.
 	 */

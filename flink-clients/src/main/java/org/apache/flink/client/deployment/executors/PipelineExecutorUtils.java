@@ -23,8 +23,12 @@ import org.apache.flink.api.dag.Pipeline;
 import org.apache.flink.client.FlinkPipelineTranslationUtil;
 import org.apache.flink.client.cli.ExecutionConfigAccessor;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.PipelineOptionsInternal;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
@@ -36,6 +40,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * Utility class with method related to job execution.
  */
 public class PipelineExecutorUtils {
+
+	private static final Logger LOG = LoggerFactory.getLogger(PipelineExecutorUtils.class);
 
 	/**
 	 * Creates the {@link JobGraph} corresponding to the provided {@link Pipeline}.
@@ -55,8 +61,12 @@ public class PipelineExecutorUtils {
 				.getJobGraph(pipeline, configuration, executionConfigAccessor.getParallelism());
 
 		configuration
+				.getOptional(PipelineOptions.JOB_UID)
+				.ifPresent(jobUID -> jobGraph.setJobUID(jobUID));
+		configuration
 				.getOptional(PipelineOptionsInternal.PIPELINE_FIXED_JOB_ID)
 				.ifPresent(strJobID -> jobGraph.setJobID(JobID.fromHexString(strJobID)));
+		LOG.info("JobGraph is generated with JobUID = {}, JobID = {}", jobGraph.getJobUID(), jobGraph.getJobID());
 
 		jobGraph.addJars(executionConfigAccessor.getJars());
 		jobGraph.setClasspaths(executionConfigAccessor.getClasspaths());

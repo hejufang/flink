@@ -174,10 +174,12 @@ public class ExecutionGraphBuilder {
 
 		checkNotNull(jobGraph, "job graph cannot be null");
 
+		final String jobUid = jobGraph.getJobUID();
 		final String jobName = jobGraph.getName();
 		final JobID jobId = jobGraph.getJobID();
 
 		final JobInformation jobInformation = new JobInformation(
+			jobUid,
 			jobId,
 			jobName,
 			jobGraph.getSerializedExecutionConfig(),

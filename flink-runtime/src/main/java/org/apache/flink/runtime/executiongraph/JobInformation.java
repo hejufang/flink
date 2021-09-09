@@ -25,6 +25,8 @@ import org.apache.flink.runtime.blob.PermanentBlobKey;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 import java.net.URL;
 import java.util.Collection;
@@ -35,6 +37,13 @@ import java.util.Collection;
 public class JobInformation implements Serializable {
 
 	private static final long serialVersionUID = 8367087049937822140L;
+
+	/**
+	 * UID of the job, which is unique and stable across restarts. It identifies an application (or
+	 * task), a concept desired by some upper development platforms for task management. Each
+	 * running instance of an application is a Flink job.
+	 */
+	private final String jobUid;
 
 	/** Id of the job */
 	private final JobID jobId;
@@ -54,7 +63,6 @@ public class JobInformation implements Serializable {
 	/** URLs specifying the classpath to add to the class loader */
 	private final Collection<URL> requiredClasspathURLs;
 
-
 	public JobInformation(
 			JobID jobId,
 			String jobName,
@@ -62,12 +70,28 @@ public class JobInformation implements Serializable {
 			Configuration jobConfiguration,
 			Collection<PermanentBlobKey> requiredJarFileBlobKeys,
 			Collection<URL> requiredClasspathURLs) {
+		this(null, jobId, jobName, serializedExecutionConfig, jobConfiguration, requiredJarFileBlobKeys, requiredClasspathURLs);
+	}
+
+	public JobInformation(
+			@Nullable String jobUid,
+			JobID jobId,
+			String jobName,
+			SerializedValue<ExecutionConfig> serializedExecutionConfig,
+			Configuration jobConfiguration,
+			Collection<PermanentBlobKey> requiredJarFileBlobKeys,
+			Collection<URL> requiredClasspathURLs) {
+		this.jobUid = jobUid;
 		this.jobId = Preconditions.checkNotNull(jobId);
 		this.jobName = Preconditions.checkNotNull(jobName);
 		this.serializedExecutionConfig = Preconditions.checkNotNull(serializedExecutionConfig);
 		this.jobConfiguration = Preconditions.checkNotNull(jobConfiguration);
 		this.requiredJarFileBlobKeys = Preconditions.checkNotNull(requiredJarFileBlobKeys);
 		this.requiredClasspathURLs = Preconditions.checkNotNull(requiredClasspathURLs);
+	}
+
+	public String getJobUid() {
+		return jobUid;
 	}
 
 	public JobID getJobId() {

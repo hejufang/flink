@@ -45,6 +45,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.core.execution.DefaultExecutorServiceLoader;
 import org.apache.flink.core.fs.FileSystem;
@@ -292,6 +293,12 @@ public class CliFrontend {
 
 		final Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, jobJars);
+
+		// If jobUID is not set, set it to jobName for backward-compatibility
+		if (!effectiveConfiguration.contains(PipelineOptions.JOB_UID) && jobName != null) {
+			effectiveConfiguration.setString(PipelineOptions.JOB_UID, jobName);
+		}
+
 		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
 			programOptions.setSavepointSettings(
 				effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH),
