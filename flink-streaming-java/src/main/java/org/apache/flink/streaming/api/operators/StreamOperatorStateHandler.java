@@ -197,6 +197,8 @@ public class StreamOperatorStateHandler {
 				snapshotInProgress.setKeyedStateManagedFuture(
 					keyedStateBackend.snapshot(checkpointId, timestamp, factory, checkpointOptions));
 			}
+			snapshotStateMeta(checkpointOptions, checkpointId, timestamp, snapshotInProgress, operatorName);
+
 		} catch (Exception snapshotException) {
 			try {
 				snapshotInProgress.cancel();
@@ -213,6 +215,27 @@ public class StreamOperatorStateHandler {
 				snapshotException.addSuppressed(e);
 			}
 			throw new CheckpointException(snapshotFailMessage, CheckpointFailureReason.CHECKPOINT_DECLINED, snapshotException);
+		}
+	}
+
+	private void snapshotStateMeta(CheckpointOptions checkpointOptions, long checkpointId, long timestamp, OperatorSnapshotFutures snapshotInProgress, String operatorName){
+		try {
+			if (checkpointOptions.getCheckpointType().isSavepoint()) {
+				if (null != operatorStateBackend) {
+					snapshotInProgress.setOperatorStateMetaFuture(
+						operatorStateBackend.snapshotStateMeta(checkpointId, timestamp, checkpointOptions));
+				}
+
+				if (null != keyedStateBackend) {
+					snapshotInProgress.setKeyedStateMetaFuture(
+						keyedStateBackend.snapshotStateMeta(checkpointId, timestamp, checkpointOptions));
+				}
+			}
+		} catch (Exception snapshotMetaException) {
+			// only log the error.
+			String snapshotFailMessage = "Could not complete stateMetaSnapshot " + checkpointId + " for operator " +
+				operatorName + ".";
+			LOG.error(snapshotFailMessage);
 		}
 	}
 

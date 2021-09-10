@@ -19,6 +19,9 @@
 package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
+import org.apache.flink.runtime.checkpoint.OperatorSubtaskStateMeta;
+import org.apache.flink.runtime.checkpoint.RegisteredKeyedStateMeta;
+import org.apache.flink.runtime.checkpoint.RegisteredOperatorStateMeta;
 import org.apache.flink.runtime.checkpoint.StateObjectCollection;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.state.InputChannelStateHandle;
@@ -43,6 +46,9 @@ public class OperatorSnapshotFinalizer {
 	/** Secondary replica of the operator subtask state for faster, local recovery on TM. */
 	private final OperatorSubtaskState taskLocalState;
 
+	/** Primary replica of the operator subtask state meta for report to JM. */
+	private final OperatorSubtaskStateMeta jobManagerOwnedStateMeta;
+
 	public OperatorSnapshotFinalizer(
 		@Nonnull OperatorSnapshotFutures snapshotFutures) throws ExecutionException, InterruptedException {
 
@@ -62,6 +68,10 @@ public class OperatorSnapshotFinalizer {
 
 		SnapshotResult<StateObjectCollection<ResultSubpartitionStateHandle>> resultSubpartition = snapshotFutures.getResultSubpartitionStateFuture().get();
 
+		SnapshotResult<RegisteredOperatorStateMeta> operatorStateMeta = snapshotFutures.getOperatorStateMetaFuture().get();
+
+		SnapshotResult<RegisteredKeyedStateMeta> keyedStateMeta = snapshotFutures.getKeyedStateMetaFuture().get();
+
 		jobManagerOwnedState = new OperatorSubtaskState(
 			operatorManaged.getJobManagerOwnedSnapshot(),
 			operatorRaw.getJobManagerOwnedSnapshot(),
@@ -69,6 +79,11 @@ public class OperatorSnapshotFinalizer {
 			keyedRaw.getJobManagerOwnedSnapshot(),
 			inputChannel.getJobManagerOwnedSnapshot(),
 			resultSubpartition.getJobManagerOwnedSnapshot()
+		);
+
+		jobManagerOwnedStateMeta = new OperatorSubtaskStateMeta(
+			operatorStateMeta.getJobManagerOwnedSnapshot(),
+			keyedStateMeta.getJobManagerOwnedSnapshot()
 		);
 
 		taskLocalState = new OperatorSubtaskState(
@@ -87,5 +102,9 @@ public class OperatorSnapshotFinalizer {
 
 	public OperatorSubtaskState getJobManagerOwnedState() {
 		return jobManagerOwnedState;
+	}
+
+	public OperatorSubtaskStateMeta getJobManagerOwnedStateMeta() {
+		return jobManagerOwnedStateMeta;
 	}
 }

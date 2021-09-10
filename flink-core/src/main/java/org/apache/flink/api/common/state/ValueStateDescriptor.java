@@ -126,4 +126,24 @@ public class ValueStateDescriptor<T> extends StateDescriptor<ValueState<T>, T> {
 	public Type getType() {
 		return Type.VALUE;
 	}
+
+	@Override
+	public ValueStateDescriptor<T> duplicate(){
+
+		ValueStateDescriptor<T> duplicate;
+		if	(isSerializerInitialized()) {
+
+			duplicate = new ValueStateDescriptor(name, getSerializer(), defaultValue);
+		} else {
+			duplicate = new ValueStateDescriptor(name, getTypeInfo(), defaultValue);
+		}
+		if (isQueryable()) {
+			duplicate.setQueryable(getQueryableStateName());
+		}
+		if (getTtlConfig().isEnabled()) {
+			duplicate.enableTimeToLive(getTtlConfig());
+		}
+
+		return duplicate;
+	}
 }

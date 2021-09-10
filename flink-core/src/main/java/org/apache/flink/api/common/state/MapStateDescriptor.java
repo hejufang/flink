@@ -118,4 +118,24 @@ public class MapStateDescriptor<UK, UV> extends StateDescriptor<MapState<UK, UV>
 
 		return ((MapSerializer<UK, UV>) rawSerializer).getValueSerializer();
 	}
+
+	@Override
+	public MapStateDescriptor<UK, UV> duplicate(){
+
+		MapStateDescriptor<UK, UV> duplicate;
+		if (isSerializerInitialized()) {
+			duplicate = new MapStateDescriptor(name, getKeySerializer(), getValueSerializer());
+		} else {
+			MapTypeInfo mapTypeInfo = (MapTypeInfo) getTypeInfo();
+			duplicate = new MapStateDescriptor(name, mapTypeInfo.getKeyTypeInfo(), mapTypeInfo.getValueTypeInfo());
+		}
+		if (isQueryable()) {
+			duplicate.setQueryable(getQueryableStateName());
+		}
+		if (getTtlConfig().isEnabled()) {
+			duplicate.enableTimeToLive(getTtlConfig());
+		}
+
+		return duplicate;
+	}
 }

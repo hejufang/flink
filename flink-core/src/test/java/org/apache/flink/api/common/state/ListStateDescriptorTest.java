@@ -19,6 +19,7 @@
 package org.apache.flink.api.common.state;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.api.common.typeutils.base.StringSerializer;
@@ -114,5 +115,56 @@ public class ListStateDescriptorTest {
 		TypeSerializer<List<String>> listSerializerB = descr.getSerializer();
 
 		assertNotSame(listSerializerA, listSerializerB);
+	}
+
+	@Test
+	public void testStateDescriptorDuplication() {
+		// we need a serializer that actually duplicates for testing (a stateful one)
+		// we use Kryo here, because it meets these conditions
+		TypeSerializer<String> statefulSerializer = new KryoSerializer<>(String.class, new ExecutionConfig());
+
+		ListStateDescriptor<String> descr = new ListStateDescriptor<>("foobar", statefulSerializer);
+		ListStateDescriptor<String> descr1 = descr.duplicate();
+
+		TypeSerializer<String> serializerA = descr.getElementSerializer();
+		TypeSerializer<String> serializerB = descr1.getElementSerializer();
+
+		assertEquals(descr, descr1);
+
+		// check that the retrieved serializers are not the same
+		assertNotSame(serializerA, serializerB);
+		assertEquals(serializerA, serializerB);
+
+		TypeSerializer<List<String>> listSerializerA = descr.getSerializer();
+		TypeSerializer<List<String>> listSerializerB = descr1.getSerializer();
+
+		assertNotSame(listSerializerA, listSerializerB);
+		assertEquals(listSerializerA, listSerializerB);
+	}
+
+	@Test
+	public void testStateDescriptorDuplicationWithTypeInfo() {
+		// we need a serializer that actually duplicates for testing (a stateful one)
+		// we use Kryo here, because it meets these conditions
+
+		ListStateDescriptor<String> descr = new ListStateDescriptor<>("foobar", Types.STRING);
+		ListStateDescriptor<String> descr1 = descr.duplicate();
+
+		descr.initializeSerializerUnlessSet(new ExecutionConfig());
+		descr1.initializeSerializerUnlessSet(new ExecutionConfig());
+
+		TypeSerializer<String> serializerA = descr.getElementSerializer();
+		TypeSerializer<String> serializerB = descr1.getElementSerializer();
+
+		assertEquals(descr, descr1);
+
+		// check that the retrieved serializers are not the same
+		assertEquals(serializerA, serializerB);
+
+		TypeSerializer<List<String>> listSerializerA = descr.getSerializer();
+		TypeSerializer<List<String>> listSerializerB = descr1.getSerializer();
+
+		assertNotSame(listSerializerA, listSerializerB);
+		assertEquals(listSerializerA, listSerializerB);
 	}
 }

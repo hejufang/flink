@@ -104,4 +104,24 @@ public class AggregatingStateDescriptor<IN, ACC, OUT> extends StateDescriptor<Ag
 	public Type getType() {
 		return Type.AGGREGATING;
 	}
+
+	@Override
+	public AggregatingStateDescriptor<IN, ACC, OUT> duplicate(){
+
+		AggregatingStateDescriptor<IN, ACC, OUT> duplicate;
+
+		if	(isSerializerInitialized()) {
+			duplicate = new AggregatingStateDescriptor(name, aggFunction, getSerializer());
+		} else {
+			duplicate = new AggregatingStateDescriptor(name, aggFunction, getTypeInfo());
+		}
+
+		if (isQueryable()) {
+			duplicate.setQueryable(getQueryableStateName());
+		}
+		if (getTtlConfig().isEnabled()) {
+			duplicate.enableTimeToLive(getTtlConfig());
+		}
+		return duplicate;
+	}
 }

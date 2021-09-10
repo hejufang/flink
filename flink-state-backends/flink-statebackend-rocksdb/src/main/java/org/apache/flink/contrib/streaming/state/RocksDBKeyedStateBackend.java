@@ -37,6 +37,7 @@ import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.contrib.streaming.state.iterator.RocksStateKeysAndNamespaceIterator;
 import org.apache.flink.contrib.streaming.state.iterator.RocksStateKeysIterator;
 import org.apache.flink.contrib.streaming.state.snapshot.RocksDBSnapshotStrategyBase;
+import org.apache.flink.contrib.streaming.state.snapshot.RocksIncrementalSnapshotStrategy;
 import org.apache.flink.contrib.streaming.state.ttl.RocksDbTtlCompactFiltersManager;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.memory.DataInputDeserializer;
@@ -64,6 +65,7 @@ import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueElement;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueSetFactory;
 import org.apache.flink.runtime.state.heap.InternalKeyContext;
+import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -516,6 +518,15 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		chosenSnapshotStrategy.logSyncCompleted(streamFactory, startTime);
 
 		return snapshotRunner;
+	}
+
+	@Override
+	public BackendType getBackendType(){
+		if (checkpointSnapshotStrategy instanceof RocksIncrementalSnapshotStrategy){
+			return BackendType.INCREMENTAL_ROCKSDB_STATE_BACKEND;
+		} else {
+			return BackendType.FULL_ROCKSDB_STATE_BACKEND;
+		}
 	}
 
 	@Override

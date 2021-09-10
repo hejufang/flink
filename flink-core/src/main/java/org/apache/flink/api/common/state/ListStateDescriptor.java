@@ -95,4 +95,23 @@ public class ListStateDescriptor<T> extends StateDescriptor<ListState<T>, List<T
 	public Type getType() {
 		return Type.LIST;
 	}
+
+	@Override
+	public ListStateDescriptor<T> duplicate(){
+
+		ListStateDescriptor<T> duplicate;
+		if	(isSerializerInitialized()) {
+			duplicate = new ListStateDescriptor(name, getElementSerializer());
+		} else {
+			duplicate = new ListStateDescriptor(name, ((ListTypeInfo) getTypeInfo()).getElementTypeInfo());
+		}
+		if (isQueryable()) {
+			duplicate.setQueryable(getQueryableStateName());
+		}
+		if (getTtlConfig().isEnabled()) {
+			duplicate.enableTimeToLive(getTtlConfig());
+		}
+
+		return duplicate;
+	}
 }

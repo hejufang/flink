@@ -81,7 +81,9 @@ public class OperatorSnapshotFinalizerTest extends TestLogger {
 			new PseudoNotDoneFuture<>(manOper),
 			new PseudoNotDoneFuture<>(rawOper),
 			new PseudoNotDoneFuture<>(inputChannel),
-			new PseudoNotDoneFuture<>(resultSubpartition));
+			new PseudoNotDoneFuture<>(resultSubpartition),
+			new PseudoNotDoneFuture<>(SnapshotResult.empty()),
+			new PseudoNotDoneFuture<>(SnapshotResult.empty()));
 
 		for (Future<?> f : snapshotFutures.getAllFutures()) {
 			assertFalse(f.isDone());

@@ -18,24 +18,24 @@
 
 package org.apache.flink.runtime.state;
 
-import org.apache.flink.api.common.state.OperatorStateStore;
-import org.apache.flink.runtime.checkpoint.RegisteredOperatorStateMeta;
-import org.apache.flink.util.Disposable;
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 
-import java.io.Closeable;
+import javax.annotation.Nonnull;
+import java.util.concurrent.Future;
 
 /**
- * Interface that combines both, the user facing {@link OperatorStateStore} interface and the system interface
- * {@link SnapshotStrategy}
+ * Interface for different snapshot approaches in state backends. Implementing classes should ideally be stateless or at
+ * least threadsafe, i.e. this is a functional interface and is can be called in parallel by multiple checkpoints.
  *
+ * @param <S> type of the returned state object that represents the result of the snapshot operation.
  */
-public interface OperatorStateBackend extends
-	OperatorStateStore,
-	SnapshotStrategy<SnapshotResult<OperatorStateHandle>>,
-	StateMetaSnapshotStrategy<SnapshotResult<RegisteredOperatorStateMeta>>,
-	Closeable,
-	Disposable {
+@Internal
+public interface StateMetaSnapshotStrategy<S extends StateObject> {
 
-	@Override
-	void dispose();
+	@Nonnull
+	Future<S> snapshotStateMeta(
+		long checkpointId,
+		long timestamp,
+		@Nonnull CheckpointOptions checkpointOptions) throws Exception;
 }

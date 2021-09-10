@@ -232,6 +232,25 @@ public class StateDescriptorTest {
 		threads.clear();
 	}
 
+	@Test
+	public void testStateDescriptorDuplicate() throws Exception {
+		final String name = "testSerializerLazyInitializeInParallel";
+		// use PojoTypeInfo which will create a new serializer when createSerializer is invoked.
+		final TestStateDescriptor<String> desc =
+			new TestStateDescriptor<>(name, new PojoTypeInfo<>(String.class, new ArrayList<>()));
+
+		final TestStateDescriptor<String> desc1 = desc.duplicate();
+
+		assertEquals(desc, desc1);
+		assertNotSame(desc, desc1);
+
+		desc.initializeSerializerUnlessSet(new ExecutionConfig());
+		desc1.initializeSerializerUnlessSet(new ExecutionConfig());
+
+		assertEquals(desc.getSerializer(), desc1.getSerializer());
+		assertNotSame(desc.getSerializer(), desc1.getSerializer());
+	}
+
 	// ------------------------------------------------------------------------
 	//  Mock implementations and test types
 	// ------------------------------------------------------------------------
@@ -256,6 +275,27 @@ public class StateDescriptorTest {
 		public Type getType() {
 			return Type.VALUE;
 		}
+
+		@Override
+		public TestStateDescriptor<T> duplicate(){
+
+			TestStateDescriptor<T> duplicate;
+			if	(isSerializerInitialized()) {
+
+				duplicate = new TestStateDescriptor(name, getSerializer());
+			} else {
+				duplicate = new TestStateDescriptor(name, getTypeInfo());
+			}
+
+			if (isQueryable()) {
+				duplicate.setQueryable(getQueryableStateName());
+			}
+			if (getTtlConfig().isEnabled()) {
+				duplicate.enableTimeToLive(getTtlConfig());
+			}
+
+			return duplicate;
+		}
 	}
 
 	private static class OtherTestStateDescriptor<T> extends StateDescriptor<State, T> {
@@ -277,6 +317,27 @@ public class StateDescriptorTest {
 		@Override
 		public Type getType() {
 			return Type.VALUE;
+		}
+
+		@Override
+		public OtherTestStateDescriptor<T> duplicate(){
+
+			OtherTestStateDescriptor<T> duplicate;
+			if	(isSerializerInitialized()) {
+
+				duplicate = new OtherTestStateDescriptor(name, getSerializer());
+			} else {
+				duplicate = new OtherTestStateDescriptor(name, getTypeInfo());
+			}
+
+			if (isQueryable()) {
+				duplicate.setQueryable(getQueryableStateName());
+			}
+			if (getTtlConfig().isEnabled()) {
+				duplicate.enableTimeToLive(getTtlConfig());
+			}
+
+			return duplicate;
 		}
 	}
 }

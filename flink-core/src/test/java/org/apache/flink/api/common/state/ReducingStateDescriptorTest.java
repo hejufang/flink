@@ -28,6 +28,8 @@ import org.apache.flink.util.TestLogger;
 
 import org.junit.Test;
 
+import java.io.IOException;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
@@ -84,5 +86,26 @@ public class ReducingStateDescriptorTest extends TestLogger {
 
 		original.initializeSerializerUnlessSet(new ExecutionConfig());
 		assertEquals(original, same);
+	}
+
+	@Test
+	public void testStateDescriptorDuplication() throws IOException {
+		final String name = "testName";
+		final ReduceFunction<String> reducer = (a, b) -> a;
+
+		ReducingStateDescriptor<String> original = new ReducingStateDescriptor<>(name, reducer, String.class);
+		ReducingStateDescriptor<String> same = original.duplicate();
+		ReducingStateDescriptor<String> sameBySerializer = new ReducingStateDescriptor<>(name, reducer, StringSerializer.INSTANCE);
+
+		// test that hashCode() works on state descriptors with initialized and uninitialized serializers
+		assertEquals(original.hashCode(), same.hashCode());
+		assertEquals(same.hashCode(), sameBySerializer.hashCode());
+
+		same.initializeSerializerUnlessSet(new ExecutionConfig());
+		original.initializeSerializerUnlessSet(new ExecutionConfig());
+
+		assertEquals(original.getSerializer(), same.getSerializer());
+		assertEquals(same.getSerializer(), sameBySerializer.getSerializer());
+
 	}
 }

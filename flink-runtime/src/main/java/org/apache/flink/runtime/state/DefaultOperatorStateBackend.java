@@ -25,22 +25,27 @@ import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
+import org.apache.flink.runtime.checkpoint.RegisteredOperatorStateMeta;
+import org.apache.flink.runtime.checkpoint.StateMetaData;
+import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StateMigrationException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Future;
 import java.util.concurrent.RunnableFuture;
 
 /**
@@ -95,6 +100,9 @@ public class DefaultOperatorStateBackend implements OperatorStateBackend {
 
 	private final Map<String, BackendWritableBroadcastState<?, ?>> accessedBroadcastStatesByName;
 
+	/** Map for all registered states. Maps state name -> state desc. */
+	private final HashMap<String, Tuple2<OperatorStateHandle.Mode, StateDescriptor>> operatorStateDescByName;
+
 	private final AbstractSnapshotStrategy<OperatorStateHandle> snapshotStrategy;
 
 	public DefaultOperatorStateBackend(
@@ -112,6 +120,7 @@ public class DefaultOperatorStateBackend implements OperatorStateBackend {
 		this.accessedStatesByName = accessedStatesByName;
 		this.accessedBroadcastStatesByName = accessedBroadcastStatesByName;
 		this.snapshotStrategy = snapshotStrategy;
+		this.operatorStateDescByName = new HashMap<>();
 	}
 
 	public ExecutionConfig getExecutionConfig() {
@@ -138,6 +147,7 @@ public class DefaultOperatorStateBackend implements OperatorStateBackend {
 		IOUtils.closeQuietly(closeStreamOnCancelRegistry);
 		registeredOperatorStates.clear();
 		registeredBroadcastStates.clear();
+		operatorStateDescByName.clear();
 	}
 
 	// -------------------------------------------------------------------------------------------
@@ -205,6 +215,7 @@ public class DefaultOperatorStateBackend implements OperatorStateBackend {
 			broadcastState.setStateMetaInfo(restoredBroadcastStateMetaInfo);
 		}
 
+		operatorStateDescByName.put(name, new Tuple2<>(OperatorStateHandle.Mode.BROADCAST, stateDescriptor.duplicate()));
 		accessedBroadcastStatesByName.put(name, broadcastState);
 		return broadcastState;
 	}
@@ -237,6 +248,27 @@ public class DefaultOperatorStateBackend implements OperatorStateBackend {
 
 		snapshotStrategy.logSyncCompleted(streamFactory, syncStartTime);
 		return snapshotRunner;
+	}
+
+	@Nonnull
+	@Override
+	public Future<SnapshotResult<RegisteredOperatorStateMeta>> snapshotStateMeta(long checkpointId, long timestamp, @Nonnull CheckpointOptions checkpointOptions) throws Exception {
+
+		if (operatorStateDescByName.isEmpty()) {
+			return DoneFuture.of(SnapshotResult.empty());
+		}
+
+		HashMap<String, StateMetaData> stateMetaDataMap = new HashMap<>(operatorStateDescByName.size());
+		operatorStateDescByName.forEach( (stateName, modeStateDescriptorTuple) -> {
+			OperatorStateHandle.Mode mode = modeStateDescriptorTuple.f0;
+			StateDescriptor stateDescriptor = modeStateDescriptorTuple.f1;
+			StateMetaData stateMetaData = new RegisteredOperatorStateMeta.OperatorStateMetaData(mode, stateDescriptor.getName(), stateDescriptor.getType(), stateDescriptor.duplicate());
+			stateMetaDataMap.put(stateName, stateMetaData);
+		} );
+
+		RegisteredOperatorStateMeta registeredOperatorStateMeta = new RegisteredOperatorStateMeta(BackendType.OPERATOR_STATE_BACKEND, stateMetaDataMap);
+
+		return DoneFuture.of(SnapshotResult.of(registeredOperatorStateMeta));
 	}
 
 	private <S> ListState<S> getListState(
@@ -301,6 +333,7 @@ public class DefaultOperatorStateBackend implements OperatorStateBackend {
 			partitionableListState.setStateMetaInfo(restoredPartitionableListStateMetaInfo);
 		}
 
+		operatorStateDescByName.put(name, new Tuple2<>(mode, stateDescriptor));
 		accessedStatesByName.put(name, partitionableListState);
 		return partitionableListState;
 	}
@@ -323,5 +356,4 @@ public class DefaultOperatorStateBackend implements OperatorStateBackend {
 				"Was [" + actualMode + "], " +
 				"registered with [" + expectedMode + "].");
 	}
-
 }

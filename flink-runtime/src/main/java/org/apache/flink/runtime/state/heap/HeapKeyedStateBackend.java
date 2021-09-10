@@ -52,6 +52,7 @@ import org.apache.flink.runtime.state.StateSnapshotRestore;
 import org.apache.flink.runtime.state.StateSnapshotTransformer.StateSnapshotTransformFactory;
 import org.apache.flink.runtime.state.StateSnapshotTransformers;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
+import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.StateMigrationException;
@@ -359,6 +360,11 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 		snapshotStrategy.logSyncCompleted(streamFactory, startTime);
 		return snapshotRunner;
+	}
+
+	@Override
+	public BackendType getBackendType() {
+		return BackendType.HEAP_STATE_BACKEND;
 	}
 
 	@Override

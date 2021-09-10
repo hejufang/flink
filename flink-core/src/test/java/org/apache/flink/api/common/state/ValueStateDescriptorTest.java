@@ -28,8 +28,11 @@ import org.apache.flink.util.TestLogger;
 
 import org.junit.Test;
 
+import java.io.IOException;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
 
 /**
  * Tests for the {@link ValueStateDescriptor}.
@@ -90,5 +93,31 @@ public class ValueStateDescriptorTest extends TestLogger {
 		assertEquals(defaultValue, copy.getDefaultValue());
 		assertNotNull(copy.getSerializer());
 		assertEquals(serializer, copy.getSerializer());
+	}
+
+	@Test
+	public void testStateDescriptorDuplication() throws IOException {
+		// we need a serializer that actually duplicates for testing (a stateful one)
+		// we use Kryo here, because it meets these conditions
+				// ensure that we correctly read very large data when deserializing the default value
+
+		TypeSerializer<String> serializer = new KryoSerializer<>(String.class, new ExecutionConfig());
+		byte[] data = new byte[200000];
+		for (int i = 0; i < 200000; i++) {
+			data[i] = 65;
+		}
+		data[199000] = '\0';
+
+		String defaultValue = new String(data, ConfigConstants.DEFAULT_CHARSET);
+
+		ValueStateDescriptor<String> descr =
+				new ValueStateDescriptor<>("testName", serializer, defaultValue);
+
+		ValueStateDescriptor<String> descr1 = descr.duplicate();
+
+		assertEquals(descr.getName(), descr1.getName());
+		assertEquals(descr.getDefaultValue(), descr1.getDefaultValue());
+		assertEquals(descr.getSerializer(), descr1.getSerializer());
+		assertNotSame(descr.getSerializer(), descr1.getSerializer());
 	}
 }

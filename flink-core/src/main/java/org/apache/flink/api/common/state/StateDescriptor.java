@@ -286,6 +286,10 @@ public abstract class StateDescriptor<S extends State, T> implements Serializabl
 		return ttlConfig;
 	}
 
+	public TypeInformation<T> getTypeInfo() {
+		return typeInfo;
+	}
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -417,5 +421,9 @@ public abstract class StateDescriptor<S extends State, T> implements Serializabl
 		} else {
 			defaultValue = null;
 		}
+	}
+
+	public StateDescriptor<S, T> duplicate(){
+		return this;
 	}
 }

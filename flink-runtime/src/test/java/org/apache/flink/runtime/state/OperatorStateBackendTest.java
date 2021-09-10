@@ -33,11 +33,13 @@ import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
+import org.apache.flink.runtime.checkpoint.RegisteredOperatorStateMeta;
 import org.apache.flink.runtime.checkpoint.StateObjectCollection;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.state.memory.MemCheckpointStreamFactory;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
+import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.runtime.util.BlockerCheckpointStreamFactory;
 import org.apache.flink.runtime.util.BlockingCheckpointOutputStream;
 import org.apache.flink.util.Preconditions;
@@ -58,6 +60,7 @@ import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
@@ -501,6 +504,133 @@ public class OperatorStateBackendTest {
 			if (stateHandle != null) {
 				stateHandle.discardState();
 			}
+		}
+	}
+
+	@Test
+	public void testStateMetaSnapshotEmpty() throws Exception {
+		final AbstractStateBackend abstractStateBackend = new MemoryStateBackend(4096);
+		abstractStateBackend.setOperatorStateRestoreThreads(restoreThreads);
+		CloseableRegistry cancelStreamRegistry = new CloseableRegistry();
+
+		final OperatorStateBackend operatorStateBackend =
+				abstractStateBackend.createOperatorStateBackend(createMockEnvironment(), "testOperator", emptyStateHandles, cancelStreamRegistry);
+
+		Future<SnapshotResult<RegisteredOperatorStateMeta>> snapshot =
+				operatorStateBackend.snapshotStateMeta(0L, 0L, CheckpointOptions.forCheckpointWithDefaultLocation());
+
+		SnapshotResult<RegisteredOperatorStateMeta> snapshotResult = snapshot.get();
+		RegisteredOperatorStateMeta stateMeta = snapshotResult.getJobManagerOwnedSnapshot();
+		assertNull(stateMeta);
+	}
+
+	@Test
+	public void testStateMetaSnapshotBroadcastStateWithEmptyOperatorState() throws Exception {
+		final AbstractStateBackend abstractStateBackend = new MemoryStateBackend(4096);
+		abstractStateBackend.setOperatorStateRestoreThreads(restoreThreads);
+
+		OperatorStateBackend operatorStateBackend =
+			abstractStateBackend.createOperatorStateBackend(
+				createMockEnvironment(),
+				"testOperator",
+				emptyStateHandles,
+				new CloseableRegistry());
+
+		final MapStateDescriptor<Integer, Integer> broadcastStateDesc = new MapStateDescriptor<>(
+				"test-broadcast", BasicTypeInfo.INT_TYPE_INFO, BasicTypeInfo.INT_TYPE_INFO);
+		operatorStateBackend.getBroadcastState(broadcastStateDesc);
+
+		try {
+			Future<SnapshotResult<RegisteredOperatorStateMeta>> snapshot =
+				operatorStateBackend.snapshotStateMeta(0L, 0L, CheckpointOptions.forCheckpointWithDefaultLocation());
+
+			SnapshotResult<RegisteredOperatorStateMeta> snapshotResult = snapshot.get();
+			RegisteredOperatorStateMeta stateMeta = snapshotResult.getJobManagerOwnedSnapshot();
+			RegisteredOperatorStateMeta.OperatorStateMetaData registeredOperatorStateMeta = (RegisteredOperatorStateMeta.OperatorStateMetaData) stateMeta.getStateMetaData().get("test-broadcast");
+
+			assertEquals(stateMeta.getBackendType(), BackendType.OPERATOR_STATE_BACKEND);
+			assertEquals(registeredOperatorStateMeta.getDistributeMode(), OperatorStateHandle.Mode.BROADCAST);
+			assertEquals(registeredOperatorStateMeta.getStateDescriptor(), broadcastStateDesc);
+		} finally {
+			operatorStateBackend.close();
+			operatorStateBackend.dispose();
+		}
+	}
+
+	@Test
+	public void testSnapshotMeta() throws Exception {
+		OperatorStateBackend operatorStateBackend =
+			new DefaultOperatorStateBackendBuilder(
+				OperatorStateBackendTest.class.getClassLoader(),
+				new ExecutionConfig(),
+				true,
+				emptyStateHandles,
+				new CloseableRegistry()).setRestoreThreads(restoreThreads).build();
+
+		ListStateDescriptor<MutableType> stateDescriptor1 =
+				new ListStateDescriptor<>("test1", new JavaSerializer<MutableType>());
+		ListStateDescriptor<MutableType> stateDescriptor2 =
+				new ListStateDescriptor<>("test2", new JavaSerializer<MutableType>());
+		ListStateDescriptor<MutableType> stateDescriptor3 =
+				new ListStateDescriptor<>("test3", new JavaSerializer<MutableType>());
+
+		MapStateDescriptor<MutableType, MutableType> broadcastStateDescriptor1 =
+				new MapStateDescriptor<>("test4", new JavaSerializer<MutableType>(), new JavaSerializer<MutableType>());
+		MapStateDescriptor<MutableType, MutableType> broadcastStateDescriptor2 =
+				new MapStateDescriptor<>("test5", new JavaSerializer<MutableType>(), new JavaSerializer<MutableType>());
+		MapStateDescriptor<MutableType, MutableType> broadcastStateDescriptor3 =
+				new MapStateDescriptor<>("test6", new JavaSerializer<MutableType>(), new JavaSerializer<MutableType>());
+
+		ListState<MutableType> listState1 = operatorStateBackend.getListState(stateDescriptor1);
+		ListState<MutableType> listState2 = operatorStateBackend.getListState(stateDescriptor2);
+		ListState<MutableType> listState3 = operatorStateBackend.getUnionListState(stateDescriptor3);
+
+		BroadcastState<MutableType, MutableType> broadcastState1 = operatorStateBackend.getBroadcastState(broadcastStateDescriptor1);
+		BroadcastState<MutableType, MutableType> broadcastState2 = operatorStateBackend.getBroadcastState(broadcastStateDescriptor2);
+		BroadcastState<MutableType, MutableType> broadcastState3 = operatorStateBackend.getBroadcastState(broadcastStateDescriptor3);
+
+		listState1.add(MutableType.of(42));
+		listState1.add(MutableType.of(4711));
+
+		listState2.add(MutableType.of(7));
+		listState2.add(MutableType.of(13));
+		listState2.add(MutableType.of(23));
+
+		listState3.add(MutableType.of(17));
+		listState3.add(MutableType.of(18));
+		listState3.add(MutableType.of(19));
+		listState3.add(MutableType.of(20));
+
+		broadcastState1.put(MutableType.of(1), MutableType.of(2));
+		broadcastState1.put(MutableType.of(2), MutableType.of(5));
+		broadcastState2.put(MutableType.of(2), MutableType.of(5));
+
+		try {
+			Future<SnapshotResult<RegisteredOperatorStateMeta>> stateMetaSnapshot =
+				operatorStateBackend.snapshotStateMeta(0L, 0L, CheckpointOptions.forCheckpointWithDefaultLocation());
+
+			SnapshotResult<RegisteredOperatorStateMeta> snapshotResult = stateMetaSnapshot.get();
+			RegisteredOperatorStateMeta stateMeta = snapshotResult.getJobManagerOwnedSnapshot();
+
+			assertEquals(stateMeta.getBackendType(), BackendType.OPERATOR_STATE_BACKEND);
+
+			assertEquals(stateMeta.getStateMetaData().size(), 6);
+
+			RegisteredOperatorStateMeta.OperatorStateMetaData operatorStateMetaData1 = (RegisteredOperatorStateMeta.OperatorStateMetaData) stateMeta.getStateMetaData().get("test1");
+			RegisteredOperatorStateMeta.OperatorStateMetaData operatorStateMetaData3 = (RegisteredOperatorStateMeta.OperatorStateMetaData) stateMeta.getStateMetaData().get("test3");
+			RegisteredOperatorStateMeta.OperatorStateMetaData operatorStateMetaData6 = (RegisteredOperatorStateMeta.OperatorStateMetaData) stateMeta.getStateMetaData().get("test6");
+
+			assertEquals(operatorStateMetaData1.getStateDescriptor(), stateDescriptor1);
+			assertEquals(operatorStateMetaData1.getDistributeMode(), OperatorStateHandle.Mode.SPLIT_DISTRIBUTE);
+
+			assertEquals(operatorStateMetaData3.getStateDescriptor(), stateDescriptor3);
+			assertEquals(operatorStateMetaData3.getDistributeMode(), OperatorStateHandle.Mode.UNION);
+
+			assertEquals(operatorStateMetaData6.getStateDescriptor(), broadcastStateDescriptor3);
+			assertEquals(operatorStateMetaData6.getDistributeMode(), OperatorStateHandle.Mode.BROADCAST);
+		} finally {
+			operatorStateBackend.close();
+			operatorStateBackend.dispose();
 		}
 	}
 

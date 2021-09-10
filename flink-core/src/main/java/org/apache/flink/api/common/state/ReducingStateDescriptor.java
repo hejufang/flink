@@ -94,4 +94,24 @@ public class ReducingStateDescriptor<T> extends StateDescriptor<ReducingState<T>
 	public Type getType() {
 		return Type.REDUCING;
 	}
+
+	@Override
+	public ReducingStateDescriptor<T> duplicate(){
+
+		ReducingStateDescriptor<T> duplicate;
+		if (isSerializerInitialized()) {
+
+			duplicate = new ReducingStateDescriptor(name, reduceFunction, getSerializer());
+		} else {
+			duplicate = new ReducingStateDescriptor(name, reduceFunction, getTypeInfo());
+		}
+		if (isQueryable()) {
+			duplicate.setQueryable(getQueryableStateName());
+		}
+		if (getTtlConfig().isEnabled()) {
+			duplicate.enableTimeToLive(getTtlConfig());
+		}
+
+		return duplicate;
+	}
 }

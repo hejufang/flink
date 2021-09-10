@@ -62,6 +62,7 @@ import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.queryablestate.KvStateID;
 import org.apache.flink.queryablestate.client.state.serialization.KvStateSerializer;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
+import org.apache.flink.runtime.checkpoint.RegisteredKeyedStateMeta;
 import org.apache.flink.runtime.checkpoint.StateAssignmentOperation;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
@@ -121,11 +122,11 @@ import static java.util.Arrays.asList;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.isA;
-import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.isOneOf;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.both;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.isOneOf;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -3681,6 +3682,106 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 		state.clear();
 
 		assertEquals(0, backend.numKeyValueStateEntries());
+
+		backend.dispose();
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	public void testStateMetaSnapshot() throws Exception {
+		AbstractKeyedStateBackend<Integer> backend = createKeyedBackend(IntSerializer.INSTANCE);
+
+		ValueStateDescriptor<String> kvId = new ValueStateDescriptor<>("id", String.class);
+
+		ValueState<String> state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+		backend.setCurrentKey(0);
+		state.update("hello");
+
+		Future<SnapshotResult<RegisteredKeyedStateMeta>> snapshot =
+			backend.snapshotStateMeta(0L, 0L, CheckpointOptions.forCheckpointWithDefaultLocation());
+
+		SnapshotResult<RegisteredKeyedStateMeta> snapshotResult = snapshot.get();
+		RegisteredKeyedStateMeta stateMeta = snapshotResult.getJobManagerOwnedSnapshot();
+
+		assertEquals(1, stateMeta.getStateMetaData().size());
+		assertEquals(kvId, stateMeta.getStateMetaData().get("id").getStateDescriptor());
+		assertEquals(StateDescriptor.Type.VALUE, stateMeta.getStateMetaData().get("id").getType());
+
+		MapStateDescriptor<String, Integer> mapStateDescriptor = new MapStateDescriptor<>("mapState", StringSerializer.INSTANCE, IntSerializer.INSTANCE);
+		MapState<String, Integer> state2 = backend.getPartitionedState("ns2", StringSerializer.INSTANCE, mapStateDescriptor);
+
+		Future<SnapshotResult<RegisteredKeyedStateMeta>> snapshot1 =
+			backend.snapshotStateMeta(1L, 1L, CheckpointOptions.forCheckpointWithDefaultLocation());
+		SnapshotResult<RegisteredKeyedStateMeta> snapshotResult1 = snapshot1.get();
+		RegisteredKeyedStateMeta stateMeta1 = snapshotResult1.getJobManagerOwnedSnapshot();
+		assertEquals(2, stateMeta1.getStateMetaData().size());
+		assertEquals(mapStateDescriptor, stateMeta1.getStateMetaData().get("mapState").getStateDescriptor());
+		assertEquals(StateDescriptor.Type.MAP, stateMeta1.getStateMetaData().get("mapState").getType());
+
+		ReducingStateDescriptor<String> reducingStateDescriptor = new ReducingStateDescriptor<>("reducingState", new AppendingReduce(), String.class);
+		ReducingState<String> state3 = backend.getPartitionedState(
+				VoidNamespace.INSTANCE,
+				VoidNamespaceSerializer.INSTANCE, reducingStateDescriptor);
+
+		final AggregatingStateDescriptor<Long, MutableLong, Long> aggregatingStateDescriptor =
+			new AggregatingStateDescriptor<>("aggregatingState", new MutableAggregatingAddingFunction(), MutableLong.class);
+
+		AggregatingState<Long, Long> state4 =
+				backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, aggregatingStateDescriptor);
+
+		Future<SnapshotResult<RegisteredKeyedStateMeta>> snapshot2 =
+			backend.snapshotStateMeta(1L, 1L, CheckpointOptions.forCheckpointWithDefaultLocation());
+		SnapshotResult<RegisteredKeyedStateMeta> snapshotResult2 = snapshot2.get();
+		RegisteredKeyedStateMeta stateMeta2 = snapshotResult2.getJobManagerOwnedSnapshot();
+		assertEquals(4, stateMeta2.getStateMetaData().size());
+		assertEquals(aggregatingStateDescriptor, stateMeta2.getStateMetaData().get("aggregatingState").getStateDescriptor());
+		assertEquals(StateDescriptor.Type.AGGREGATING, stateMeta2.getStateMetaData().get("aggregatingState").getType());
+		assertEquals(reducingStateDescriptor, stateMeta2.getStateMetaData().get("reducingState").getStateDescriptor());
+		assertEquals(StateDescriptor.Type.REDUCING, stateMeta2.getStateMetaData().get("reducingState").getType());
+
+		backend.dispose();
+	}
+
+	@Test
+	public void testStateMetaSnapshotWithRestore() throws Exception {
+		CheckpointStreamFactory streamFactory = createStreamFactory();
+		SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
+		AbstractKeyedStateBackend<Integer> backend = createKeyedBackend(IntSerializer.INSTANCE, env);
+
+		ValueStateDescriptor<String> kvId = new ValueStateDescriptor<>("id", String.class);
+
+		ValueState<String> state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+		Future<SnapshotResult<RegisteredKeyedStateMeta>> snapshot1 =
+			backend.snapshotStateMeta(1L, 1L, CheckpointOptions.forCheckpointWithDefaultLocation());
+
+		SnapshotResult<RegisteredKeyedStateMeta> snapshotResult = snapshot1.get();
+		KeyedStateHandle snapshot = runSnapshot(
+			backend.snapshot(
+				1L,
+				2L,
+				streamFactory,
+				CheckpointOptions.forCheckpointWithDefaultLocation()),
+			sharedStateRegistry);
+		RegisteredKeyedStateMeta stateMeta = snapshotResult.getJobManagerOwnedSnapshot();
+		assertEquals(1, stateMeta.getStateMetaData().size());
+
+		backend.dispose();
+		backend = restoreKeyedBackend(IntSerializer.INSTANCE, snapshot, env);
+
+		Future<SnapshotResult<RegisteredKeyedStateMeta>> snapshot2 =
+			backend.snapshotStateMeta(2L, 2L, CheckpointOptions.forCheckpointWithDefaultLocation());
+		SnapshotResult<RegisteredKeyedStateMeta> snapshotResult2 = snapshot2.get();
+		RegisteredKeyedStateMeta stateMeta2 = snapshotResult2.getJobManagerOwnedSnapshot();
+		assertNull(stateMeta2);
+
+		state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+		Future<SnapshotResult<RegisteredKeyedStateMeta>> snapshot3 =
+			backend.snapshotStateMeta(3L, 3L, CheckpointOptions.forCheckpointWithDefaultLocation());
+		SnapshotResult<RegisteredKeyedStateMeta> snapshotResult3= snapshot3.get();
+		RegisteredKeyedStateMeta stateMeta3 = snapshotResult3.getJobManagerOwnedSnapshot();
+		assertEquals(1, stateMeta3.getStateMetaData().size());
 
 		backend.dispose();
 	}

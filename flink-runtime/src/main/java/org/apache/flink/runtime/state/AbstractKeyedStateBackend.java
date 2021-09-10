@@ -25,20 +25,25 @@ import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
+import org.apache.flink.runtime.checkpoint.RegisteredKeyedStateMeta;
+import org.apache.flink.runtime.checkpoint.StateMetaData;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.StateSnapshotTransformer.StateSnapshotTransformFactory;
 import org.apache.flink.runtime.state.heap.InternalKeyContext;
 import org.apache.flink.runtime.state.internal.InternalKvState;
+import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.runtime.state.ttl.TtlStateFactory;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nonnull;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -52,17 +57,18 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public abstract class AbstractKeyedStateBackend<K> implements
 	KeyedStateBackend<K>,
 	SnapshotStrategy<SnapshotResult<KeyedStateHandle>>,
+	StateMetaSnapshotStrategy<SnapshotResult<RegisteredKeyedStateMeta>>,
 	Closeable,
 	CheckpointListener {
 
 	// state metrics of key and value
-	protected final String STATE_AVERAGE_KEY_SIZE = "stateAverageKeySize";
-	protected final String STATE_AVERAGE_VALUE_SIZE = "stateAverageValueSize";
-	protected final String STATE_MAX_KEY_SIZE = "stateMaxKeySize";
-	protected final String STATE_MAX_VALUE_SIZE = "stateMaxValueSize";
-	protected final String STATE_AVERAGE_OP_LATENCY = "stateAverageOpLatency";
-	protected final String STATE_MAX_OP_LATENCY = "stateMaxOpLatency";
-	protected final String STATE_AVERAGE_OP_RATE = "stateAverageOpRate";
+	protected static final String STATE_AVERAGE_KEY_SIZE = "stateAverageKeySize";
+	protected static final String STATE_AVERAGE_VALUE_SIZE = "stateAverageValueSize";
+	protected static final String STATE_MAX_KEY_SIZE = "stateMaxKeySize";
+	protected static final String STATE_MAX_VALUE_SIZE = "stateMaxValueSize";
+	protected static final String STATE_AVERAGE_OP_LATENCY = "stateAverageOpLatency";
+	protected static final String STATE_MAX_OP_LATENCY = "stateMaxOpLatency";
+	protected static final String STATE_AVERAGE_OP_RATE = "stateAverageOpRate";
 
 	/** The key serializer. */
 	protected final TypeSerializer<K> keySerializer;
@@ -72,6 +78,9 @@ public abstract class AbstractKeyedStateBackend<K> implements
 
 	/** So that we can give out state when the user uses the same key. */
 	private final HashMap<String, InternalKvState<K, ?, ?>> keyValueStatesByName;
+
+	/** Map for all registered states. Maps state name -> state desc. */
+	private final HashMap<String, StateDescriptor> keyValueStateDescByName;
 
 	/** For caching the last accessed partitioned state. */
 	private String lastName;
@@ -143,6 +152,7 @@ public abstract class AbstractKeyedStateBackend<K> implements
 		this.userCodeClassLoader = Preconditions.checkNotNull(userCodeClassLoader);
 		this.cancelStreamRegistry = cancelStreamRegistry;
 		this.keyValueStatesByName = new HashMap<>();
+		this.keyValueStateDescByName = new HashMap<>();
 		this.executionConfig = executionConfig;
 		this.keyGroupCompressionDecorator = keyGroupCompressionDecorator;
 		this.ttlTimeProvider = Preconditions.checkNotNull(ttlTimeProvider);
@@ -174,6 +184,7 @@ public abstract class AbstractKeyedStateBackend<K> implements
 		lastName = null;
 		lastState = null;
 		keyValueStatesByName.clear();
+		keyValueStateDescByName.clear();
 	}
 
 	/**
@@ -290,6 +301,7 @@ public abstract class AbstractKeyedStateBackend<K> implements
 			kvState = TtlStateFactory.createStateAndWrapWithTtlIfEnabled(
 				namespaceSerializer, stateDescriptor, this, ttlTimeProvider);
 			keyValueStatesByName.put(stateDescriptor.getName(), kvState);
+			keyValueStateDescByName.put(stateDescriptor.getName(), stateDescriptor.duplicate());
 			publishQueryableStateIfEnabled(stateDescriptor, kvState);
 		}
 		return (S) kvState;
@@ -346,6 +358,28 @@ public abstract class AbstractKeyedStateBackend<K> implements
 		return state;
 	}
 
+	@Nonnull
+	@Override
+	public Future<SnapshotResult<RegisteredKeyedStateMeta>> snapshotStateMeta(long checkpointId, long timestamp, @Nonnull CheckpointOptions checkpointOptions) throws Exception {
+
+		HashMap<String, StateMetaData> stateMetaDataMap = new HashMap<>(keyValueStateDescByName.size());
+		keyValueStateDescByName.forEach((stateName, stateDescriptor) -> {
+			StateMetaData stateMetaData = new RegisteredKeyedStateMeta.KeyedStateMetaData(stateDescriptor.getName(), stateDescriptor.getType(), stateDescriptor);
+			stateMetaDataMap.put(stateName, stateMetaData);
+		});
+
+		BackendType backendType = getBackendType();
+
+		if (stateMetaDataMap.isEmpty()) {
+			return DoneFuture.of(SnapshotResult.empty());
+		}
+		RegisteredKeyedStateMeta registeredKeyedStateMeta = new RegisteredKeyedStateMeta(keySerializer.duplicate(), backendType, stateMetaDataMap);
+
+		return DoneFuture.of(SnapshotResult.of(registeredKeyedStateMeta));
+	}
+
+	public abstract BackendType getBackendType();
+
 	@Override
 	public void close() throws IOException {
 		cancelStreamRegistry.close();
@@ -388,6 +422,7 @@ public abstract class AbstractKeyedStateBackend<K> implements
 		IS internalState  = createInternalState(namespaceSerializer, stateDesc, snapshotTransformFactory);
 		if (addToRegistry) {
 			keyValueStatesByName.put(stateDesc.getName(), (InternalKvState<K, ?, ?>) internalState);
+			keyValueStateDescByName.put(stateDesc.getName(), stateDesc.duplicate());
 		}
 		return internalState;
 	}

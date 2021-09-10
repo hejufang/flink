@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -55,16 +56,26 @@ public class TaskStateSnapshot implements CompositeStateHandle {
 	 */
 	private final Map<OperatorID, OperatorSubtaskState> subtaskStatesByOperatorID;
 
+	/**
+	 * Mapping from an operator id to the stateMeta of one subtask of this operator.
+	 */
+	private final Map<OperatorID, OperatorSubtaskStateMeta> subtaskStateMetaByOperatorID;
+
 	public TaskStateSnapshot() {
 		this(10);
 	}
 
 	public TaskStateSnapshot(int size) {
-		this(new HashMap<>(size));
+		this(new HashMap<>(size), new HashMap<>(size));
 	}
 
 	public TaskStateSnapshot(Map<OperatorID, OperatorSubtaskState> subtaskStatesByOperatorID) {
+		this(subtaskStatesByOperatorID, new HashMap<>(10));
+	}
+
+	public TaskStateSnapshot(Map<OperatorID, OperatorSubtaskState> subtaskStatesByOperatorID, Map<OperatorID, OperatorSubtaskStateMeta> subtaskStateMetaByOperatorID) {
 		this.subtaskStatesByOperatorID = Preconditions.checkNotNull(subtaskStatesByOperatorID);
+		this.subtaskStateMetaByOperatorID = subtaskStateMetaByOperatorID;
 	}
 
 	/**
@@ -84,6 +95,21 @@ public class TaskStateSnapshot implements CompositeStateHandle {
 		@Nonnull OperatorSubtaskState state) {
 
 		return subtaskStatesByOperatorID.put(operatorID, Preconditions.checkNotNull(state));
+	}
+
+	/**
+	 * Maps the given operator id to the given subtask state. Returns the subtask state of a previous mapping, if such
+	 * a mapping existed or null otherwise.
+	 */
+	public OperatorSubtaskStateMeta putSubtaskStateMetaByOperatorId(
+		@Nonnull OperatorID operatorID,
+		@Nonnull OperatorSubtaskStateMeta stateMeta) {
+
+		return subtaskStateMetaByOperatorID.put(operatorID, Preconditions.checkNotNull(stateMeta));
+	}
+
+	public OperatorSubtaskStateMeta getSubtaskStateMetaByOperatorId(@Nonnull OperatorID operatorID) {
+		return subtaskStateMetaByOperatorID.get(operatorID);
 	}
 
 	/**
@@ -143,18 +169,20 @@ public class TaskStateSnapshot implements CompositeStateHandle {
 
 		TaskStateSnapshot that = (TaskStateSnapshot) o;
 
-		return subtaskStatesByOperatorID.equals(that.subtaskStatesByOperatorID);
+		return subtaskStatesByOperatorID.equals(that.subtaskStatesByOperatorID) &&
+			subtaskStateMetaByOperatorID.equals(that.subtaskStateMetaByOperatorID);
 	}
 
 	@Override
 	public int hashCode() {
-		return subtaskStatesByOperatorID.hashCode();
+		return Objects.hash(subtaskStatesByOperatorID, subtaskStatesByOperatorID);
 	}
 
 	@Override
 	public String toString() {
 		return "TaskOperatorSubtaskStates{" +
 			"subtaskStatesByOperatorID=" + subtaskStatesByOperatorID +
+			"stateMetaByOperatorID=" + subtaskStateMetaByOperatorID +
 			'}';
 	}
 }

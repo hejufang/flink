@@ -111,6 +111,10 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 				localTaskOperatorSubtaskStates.putSubtaskStateByOperatorID(
 					operatorID,
 					finalizedSnapshots.getTaskLocalState());
+
+				jobManagerTaskOperatorSubtaskStates.putSubtaskStateMetaByOperatorId(
+					operatorID,
+					finalizedSnapshots.getJobManagerOwnedStateMeta());
 			}
 
 			final long asyncEndNanos = System.nanoTime();

@@ -125,4 +125,35 @@ public class MapStateDescriptorTest {
 
 		assertNotSame(serializerA, serializerB);
 	}
+
+	@Test
+	public void testStateDescriptorDuplication() {
+		// we need a serializer that actually duplicates for testing (a stateful one)
+		// we use Kryo here, because it meets these conditions
+		TypeSerializer<String> keySerializer = new KryoSerializer<>(String.class, new ExecutionConfig());
+		TypeSerializer<Long> valueSerializer = new KryoSerializer<>(Long.class, new ExecutionConfig());
+
+		MapStateDescriptor<String, Long> descr = new MapStateDescriptor<>("foobar", keySerializer, valueSerializer);
+
+		MapStateDescriptor<String, Long> descr1 = descr.duplicate();
+
+		TypeSerializer<String> keySerializerA = descr.getKeySerializer();
+		TypeSerializer<String> keySerializerB = descr1.getKeySerializer();
+		TypeSerializer<Long> valueSerializerA = descr.getValueSerializer();
+		TypeSerializer<Long> valueSerializerB = descr1.getValueSerializer();
+
+		assertEquals(descr, descr1);
+
+		// check that we did not retrieve the same serializers
+		assertNotSame(keySerializerA, keySerializerB);
+		assertNotSame(valueSerializerA, valueSerializerB);
+		assertEquals(keySerializerA, keySerializerB);
+		assertEquals(valueSerializerA, valueSerializerB);
+
+		TypeSerializer<Map<String, Long>> serializerA = descr.getSerializer();
+		TypeSerializer<Map<String, Long>> serializerB = descr1.getSerializer();
+
+		assertNotSame(serializerA, serializerB);
+		assertEquals(serializerA, serializerB);
+	}
 }

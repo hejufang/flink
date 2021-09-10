@@ -62,6 +62,7 @@ import org.apache.flink.runtime.state.cache.sync.StateSynchronizerFactory;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueElement;
 import org.apache.flink.runtime.state.heap.InternalKeyContext;
 import org.apache.flink.runtime.state.internal.InternalKvState;
+import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -297,6 +298,11 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			@Nonnull CheckpointOptions checkpointOptions) throws Exception {
 		flushAllCachedStates();
 		return delegateKeyedStateBackend.snapshot(checkpointId, timestamp, streamFactory, checkpointOptions);
+	}
+
+	@Override
+	public BackendType getBackendType() {
+		return delegateKeyedStateBackend.getBackendType();
 	}
 
 	@SuppressWarnings("unchecked")

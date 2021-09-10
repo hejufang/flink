@@ -108,4 +108,23 @@ public class FoldingStateDescriptor<T, ACC> extends StateDescriptor<FoldingState
 	public Type getType() {
 		return Type.FOLDING;
 	}
+
+	@Override
+	public FoldingStateDescriptor<T, ACC> duplicate(){
+
+		FoldingStateDescriptor<T, ACC> duplicate;
+		if	(isSerializerInitialized()) {
+			duplicate = new FoldingStateDescriptor(name, getDefaultValue(), foldFunction, getSerializer());
+		} else {
+			duplicate = new FoldingStateDescriptor(name, getDefaultValue(), foldFunction, getTypeInfo());
+		}
+
+		if (isQueryable()) {
+			duplicate.setQueryable(getQueryableStateName());
+		}
+		if (getTtlConfig().isEnabled()) {
+			duplicate.enableTimeToLive(getTtlConfig());
+		}
+		return duplicate;
+	}
 }
