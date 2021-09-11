@@ -31,6 +31,8 @@ import java.util.Objects;
  */
 abstract class RegisteredStateMetaBase implements Serializable, StateObject {
 
+	private static final long serialVersionUID = 1L;
+
 	/** The type of the StateBackend. */
 	protected BackendType backendType;
 

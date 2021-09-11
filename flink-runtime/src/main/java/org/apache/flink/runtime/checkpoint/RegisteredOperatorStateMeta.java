@@ -29,6 +29,8 @@ import java.util.Map;
  */
 public class RegisteredOperatorStateMeta extends RegisteredStateMetaBase {
 
+	private static final long serialVersionUID = 1L;
+
 	public RegisteredOperatorStateMeta(BackendType backendType, Map<String, StateMetaData> stateMetaData) {
 		super(backendType, stateMetaData);
 	}

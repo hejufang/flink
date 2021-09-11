@@ -30,6 +30,8 @@ import java.util.Map;
  */
 public class RegisteredKeyedStateMeta extends RegisteredStateMetaBase {
 
+	private static final long serialVersionUID = 1L;
+
 	/** The key serializer. */
 	private TypeSerializer keySerializer;
 
