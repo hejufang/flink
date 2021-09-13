@@ -25,6 +25,7 @@ import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlJoin;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlMatchRecognize;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlSnapshot;
@@ -190,6 +191,9 @@ public class TableExtractor {
 				SqlCreateView sqlCreateView = (SqlCreateView) sqlNode;
 				context.getAllViewNames().add(sqlCreateView.getViewName().toString());
 				return extractSourceAndDimensionTables(sqlCreateView.getQuery(), false, context);
+			case MATCH_RECOGNIZE:
+				SqlMatchRecognize sqlMatchRecognize = (SqlMatchRecognize) sqlNode;
+				return Collections.singleton(sqlMatchRecognize.getTableRef().toString());
 			default:
 				if (sqlNode instanceof SqlCall) {
 					SqlCall sqlCall1 = (SqlCall) sqlNode;

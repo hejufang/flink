@@ -158,6 +158,56 @@ public class TableExtractorTest {
 		extractTables(sql, expectedResult);
 	}
 
+	@Test
+	public void testExtractTablesWithCEP() {
+		String sql = "create table ies_antispam_aweme_collect(\n" +
+			"    milli_timestamp bigint,\n" +
+			"    uid bigint,\n" +
+			"    action string,\n" +
+			"    event_ts timestamp(3),\n" +
+			"    WATERMARK for event_ts AS event_ts - INTERVAL '1' MINUTE\n" +
+			")with(\n" +
+			"    'connector'='kafka-0.10',\n" +
+			"    'topic'='ies_antispam_aweme_collect',\n" +
+			"    'scan.startup.mode'='latest-offset',\n" +
+			"    'properties.group.id'='dws_douyin_api_sequence_test',\n" +
+			"    'properties.cluster'='bmq_security_riskctrl',\n" +
+			"    'format'='json'\n" +
+			");\n" +
+			"\n" +
+			"create table mysink(\n" +
+			"    uid bigint,\n" +
+			"    act1 string,\n" +
+			"    act2 string\n" +
+			")with(\n" +
+			"    'connector'='print'\n" +
+			");\n" +
+			"\n" +
+			"insert into mysink\n" +
+			"select\n" +
+			"    T.uid,T.act1,T.act2\n" +
+			"from\n" +
+			"    ies_antispam_aweme_collect\n" +
+			"match_recognize(\n" +
+			"    partition by uid\n" +
+			"    order by event_ts\n" +
+			"    measures\n" +
+			"        A.action as act1,\n" +
+			"        B.action as act2\n" +
+			"    pattern (A B)\n" +
+			"    define\n" +
+			"        A as action='act1',\n" +
+			"        B as action='act2'\n" +
+			") T";
+
+		TableExtractor.ExtractResult expectedResult =
+			new TableExtractor.ExtractResult(
+				new HashSet<>(Arrays.asList("ies_antispam_aweme_collect")),
+				new HashSet<>(Arrays.asList("mysink")),
+				Collections.emptySet());
+		extractTables(sql, expectedResult);
+	}
+
 	private void extractTables(String sql, TableExtractor.ExtractResult expectedResult) {
 		try {
 			List<SqlNode> sqlNodes = createFlinkParser(sql).parseStmtList().getList();
