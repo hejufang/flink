@@ -42,13 +42,12 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.shaded.byted.org.byted.infsec.client.InfSecException;
 import org.apache.flink.shaded.byted.org.byted.infsec.client.SecTokenC;
 
-import org.apache.http.Header;
 import org.apache.http.HttpHost;
+import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.message.BasicHeader;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
@@ -389,9 +388,11 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 			if (pathPrefix != null) {
 				restClientBuilder.setPathPrefix(pathPrefix);
 			}
-			// add GDPR header
-			restClientBuilder.setDefaultHeaders(new Header[]{new BasicHeader(BYTEES_GDPR_HEADER_KEY, getGdprToken())});
-
+			// add dynamic GDPR header
+			restClientBuilder.setHttpClientConfigCallback(httpClientBuilder ->
+				httpClientBuilder.addInterceptorLast((HttpRequestInterceptor) (httpRequest, httpContext) -> {
+				httpRequest.addHeader(BYTEES_GDPR_HEADER_KEY, getGdprToken());
+			}));
 			restClientBuilder.setRequestConfigCallback(requestConfigBuilder ->
 				requestConfigBuilder.setConnectTimeout(connectTimeoutMs).setSocketTimeout(socketTimeoutMs));
 		}
