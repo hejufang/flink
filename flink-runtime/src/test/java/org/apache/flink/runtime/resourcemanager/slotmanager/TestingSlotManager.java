@@ -69,6 +69,11 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
+	public int getNumSlotsPerWorker() {
+		return 0;
+	}
+
+	@Override
 	public Map<WorkerResourceSpec, Integer> getRequiredResources() {
 		return getRequiredResourcesSupplier.get();
 	}

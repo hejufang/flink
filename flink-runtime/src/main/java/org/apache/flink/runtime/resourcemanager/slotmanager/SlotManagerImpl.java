@@ -286,6 +286,11 @@ public class SlotManagerImpl implements SlotManager {
 		return (int) pendingSlots.values().stream().filter(slot -> slot.getAssignedPendingSlotRequest() != null).count();
 	}
 
+	@Override
+	public int getNumSlotsPerWorker() {
+		return numSlotsPerWorker;
+	}
+
 	// ---------------------------------------------------------------------------------------------
 	// Component lifecycle methods
 	// ---------------------------------------------------------------------------------------------
@@ -343,6 +348,12 @@ public class SlotManagerImpl implements SlotManager {
 		slotManagerMetricGroup.gauge(
 			MetricNames.NUM_PENDING_SLOT_REQUESTS,
 			() -> (long) getNumberPendingSlotRequests());
+		slotManagerMetricGroup.gauge(
+			MetricNames.NUM_LACK_SLOTS,
+			() -> (long)(getNumberPendingSlotRequests() - getNumberPendingTaskManagerSlots() - getNumberFreeSlots()));
+		slotManagerMetricGroup.gauge(
+			MetricNames.NUM_EXCESS_WORKERS,
+			() -> (long)((getNumberFreeSlots() / getNumSlotsPerWorker())));
 	}
 
 	/**

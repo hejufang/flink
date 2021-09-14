@@ -53,6 +53,8 @@ public interface SlotManager extends AutoCloseable {
 
 	int getNumberFreeSlotsOf(InstanceID instanceId);
 
+	int getNumSlotsPerWorker();
+
 	/**
 	 * Get number of workers SlotManager requested from {@link ResourceActions} that are not yet fulfilled.
 	 * @return a map whose key set is all the unique resource specs of the pending workers,

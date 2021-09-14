@@ -46,6 +46,7 @@ import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
 import org.apache.flink.runtime.messages.webmonitor.SmartResourcesStats;
+import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ActiveResourceManager;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
@@ -1323,8 +1324,22 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		resourceManagerMetricGroup.counter("gangFailedNum", gangFailedCounter);
 		resourceManagerMetricGroup.counter("gangDowngradeNum", gangDowngradeCounter);
 		resourceManagerMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
+		resourceManagerMetricGroup.gauge(
+			MetricNames.NUM_LACK_WORKERS,
+			() -> (long) getNumLackWorks());
 	}
 
+	private int getNumLackWorks(){
+		for (Map.Entry<WorkerResourceSpec, Integer> requiredWorkersPerResourceSpec : getRequiredResources().entrySet()) {
+			final WorkerResourceSpec workerResourceSpec = requiredWorkersPerResourceSpec.getKey();
+			//There is only one element in requiredWorkersPerResourceSpec, so the result is returned after the first calculation is completed
+			return requiredWorkersPerResourceSpec.getValue() -
+				(getNumRequestedNotRegisteredWorkersFor(workerResourceSpec) -
+					slowContainerManager.getStartingRedundantContainerNum(workerResourceSpec) -
+					slowContainerManager.getPendingRedundantContainersNum(workerResourceSpec));
+		}
+		return 0;
+	}
 
 	// ------------------------------------------------------------------------
 	//	Slow start container
