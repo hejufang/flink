@@ -30,6 +30,7 @@ import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.metrics.GrafanaGauge;
 import org.apache.flink.metrics.MetricGroup;
@@ -186,7 +187,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	@SuppressWarnings("unchecked")
 	@Override
 	public <N> Stream<K> getKeys(String state, N namespace) {
-		flushSpecifiedCachedStates(registeredCache.get(state), k -> Objects.equals(namespace, ((CacheEntryKey<K, ?, ?>) k).getNamespace()), true);
+		flushSpecifiedCachedStates(registeredCache.get(state), k -> Objects.equals(namespace, k.f1), true);
 		return delegateKeyedStateBackend.getKeys(state, namespace);
 	}
 
@@ -266,7 +267,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 				delegateKeyedStateBackend,
 				delegateState,
 				stateDesc.getType());
-			MemoryEstimator<CacheEntryKey<K, N, ?>, ?> memoryEstimator = SerializerMemoryEstimatorFactory.createSampleEstimator(
+			MemoryEstimator<Tuple3<K, N, ?>, ?> memoryEstimator = SerializerMemoryEstimatorFactory.createSampleEstimator(
 				delegateState.getKeySerializer().duplicate(),
 				delegateState.getNamespaceSerializer().duplicate(),
 				delegateState.getValueSerializer().duplicate(),
@@ -338,7 +339,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 	@SuppressWarnings("unchecked")
 	private <N, SV, UK, UV, S extends State> Cache<K, N, SV, UK, UV> createCache(StateDescriptor<S, SV> stateDesc) {
-		CacheStrategy<CacheEntryKey<K, N, UK>, Cache.DirtyReference> cacheStrategy;
+		CacheStrategy<Tuple3<K, N, UK>, Cache.DirtyReference> cacheStrategy;
 		switch (stateDesc.getType()) {
 			case VALUE:
 			case MAP:
@@ -362,7 +363,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		}
 	}
 
-	private <N, UK> void flushSpecifiedCachedStates(Cache<K, N, ?, UK, ?> cache, Predicate<CacheEntryKey<K, N, UK>> filter, boolean invalid) {
+	private <N, UK> void flushSpecifiedCachedStates(Cache<K, N, ?, UK, ?> cache, Predicate<Tuple3<K, N, UK>> filter, boolean invalid) {
 		if (cache != null) {
 			try {
 				cache.flushSpecifiedData(filter, invalid);

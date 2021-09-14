@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.state.cache;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.runtime.state.cache.sync.DataSynchronizer;
 import org.apache.flink.runtime.util.EmptyIterator;
@@ -31,26 +32,34 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.function.Predicate;
 
 /**
  * The general interface of cache supports common operations of
  * adding, deleting, updating, and querying.
  */
-public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, N, UK>>, MemorySizeListener {
-	private final CacheStrategy<CacheEntryKey<K, N, UK>, DirtyReference> cacheStrategy;
+public class Cache<K, N, SV, UK, UV> implements FlushSupported<Tuple3<K, N, UK>>, MemorySizeListener {
+	private final CacheStrategy<Tuple3<K, N, UK>, DirtyReference> cacheStrategy;
 
 	private final StateStore<K, N, SV, UK, UV> stateStore;
 
+	private final Tuple3<K, N, UK> cacheEntryKey;
+
 	/** Monitor the occurrence of internal events in the cache, which is mainly used for metrics statistics. */
-	private DefaultEventListener<CacheEntryKey<K, N, UK>, UV> listener;
+	private DefaultEventListener<Tuple3<K, N, UK>, UV> listener;
 
 	/** Responsible for data synchronization. */
-	private DataSynchronizer<CacheEntryKey<K, N, UK>, UV> dataSynchronizer;
+	private DataSynchronizer<Tuple3<K, N, UK>, UV> dataSynchronizer;
 
-	public Cache(CacheStrategy<CacheEntryKey<K, N, UK>, DirtyReference> cacheStrategy, StateStore<K, N, SV, UK, UV> stateStore) {
+	private BlockingQueue<Tuple3<K, N, UK>> reusedQueue;
+
+	public Cache(CacheStrategy<Tuple3<K, N, UK>, DirtyReference> cacheStrategy, StateStore<K, N, SV, UK, UV> stateStore) {
 		this.cacheStrategy = cacheStrategy;
 		this.stateStore = stateStore;
+		this.cacheEntryKey = new Tuple3<>();
+		this.reusedQueue = new ArrayBlockingQueue<>(16);
 	}
 
 	public final UV get(K key, N namespace) throws Exception {
@@ -61,7 +70,7 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 	 * Returns the value associated with {@code key} in this cache.
 	 */
 	public UV get(K key, N namespace, @Nullable UK userKey) throws Exception {
-		CacheEntryKey<K, N, UK> cacheEntryKey = new CacheEntryKey<>(key, namespace, userKey);
+		cacheEntryKey.setFields(key, namespace, userKey);
 		DirtyReference dirtyReference = cacheStrategy.getIfPresent(cacheEntryKey);
 		UV value;
 		if (dirtyReference != null) { // If dirtyReference is not null, mean it is in the cache. We can direct return from the cache.
@@ -73,7 +82,8 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 			listener.notifyCacheRequest(cacheEntryKey, value);
 			if (value != null) {
 				stateStore.putInStateStore(key, namespace, userKey, value);
-				cacheStrategy.put(cacheEntryKey, new DirtyReference(false));
+				Tuple3<K, N, UK> entryKey = getOrCreateCacheEntryKey(key, namespace, userKey);
+				cacheStrategy.put(entryKey, new DirtyReference(false));
 			}
 			listener.notifyCacheLoad(value != null);
 		}
@@ -89,7 +99,7 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 	 * value associated with {@code key}, the old value is replaced by {@code value}.
 	 */
 	public void put(K key, N namespace, @Nullable UK userKey, UV userValue) throws Exception {
-		CacheEntryKey<K, N, UK> cacheEntryKey = new CacheEntryKey<>(key, namespace, userKey);
+		Tuple3<K, N, UK> cacheEntryKey = getOrCreateCacheEntryKey(key, namespace, userKey);
 		listener.notifyCacheRequest(cacheEntryKey, userValue);
 		stateStore.putInStateStore(key, namespace, userKey, userValue);
 		cacheStrategy.put(cacheEntryKey, new DirtyReference(true));
@@ -103,7 +113,7 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 	 * Delete any cached value for key {@code key}.
 	 */
 	public void delete(K key, N namespace, @Nullable UK userKey) throws Exception {
-		CacheEntryKey<K, N, UK> cacheEntryKey = new CacheEntryKey<>(key, namespace, userKey);
+		cacheEntryKey.setFields(key, namespace, userKey);
 		listener.notifyCacheRequest(cacheEntryKey, null);
 		stateStore.deleteFromStateStore(key, namespace, userKey);
 		cacheStrategy.delete(cacheEntryKey);
@@ -115,7 +125,7 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 	 * Returns the value associated with {@code key} in this cache.
 	 */
 	public Tuple2<UV, DirtyReference> getIfPresent(K key, N namespace, @Nullable UK userKey) throws Exception {
-		CacheEntryKey<K, N, UK> cacheEntryKey = new CacheEntryKey<>(key, namespace, userKey);
+		cacheEntryKey.setFields(key, namespace, userKey);
 		DirtyReference dirtyReference = cacheStrategy.getIfPresent(cacheEntryKey);
 		if (dirtyReference != null) {
 			listener.notifyCacheHit();
@@ -130,7 +140,7 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 	 * Delete any cached value for key {@code key}.
 	 */
 	public void replace(K key, N namespace, @Nullable UK userKey, UV userValue) throws Exception {
-		CacheEntryKey<K, N, UK> cacheEntryKey = new CacheEntryKey<>(key, namespace, userKey);
+		cacheEntryKey.setFields(key, namespace, userKey);
 		stateStore.putInStateStore(key, namespace, userKey, userValue);
 		listener.notifyCacheRequest(cacheEntryKey, userValue);
 	}
@@ -159,7 +169,7 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 
 	/** Delete all specified cached value. */
 	public void clearKeyAndNamespaceData(K key, N namespace) throws Exception {
-		Iterable<CacheEntryKey<K, N, UK>> clearedKeys = stateStore.clearFromStateStore(key, namespace);
+		Iterable<Tuple3<K, N, UK>> clearedKeys = stateStore.clearFromStateStore(key, namespace);
 		cacheStrategy.clear(clearedKeys);
 	}
 
@@ -185,21 +195,22 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 	 * Configure the event listener inside the cache.
 	 */
 	public void configure(
-			DefaultEventListener<CacheEntryKey<K, N, UK>, UV> listener,
-			DataSynchronizer<CacheEntryKey<K, N, UK>, UV> dataSynchronizer) {
+			DefaultEventListener<Tuple3<K, N, UK>, UV> listener,
+			DataSynchronizer<Tuple3<K, N, UK>, UV> dataSynchronizer) {
 		this.listener = listener;
 		this.dataSynchronizer = dataSynchronizer;
 		this.cacheStrategy.initialize(
 			listener.getPolicyStats().getMaxMemorySize().getBytes(),
 			(key, dirty) -> Math.toIntExact(listener.getMemoryEstimator().getEstimatedSize()),
-			(CacheEntryKey<K, N, UK> key, DirtyReference dirtyReference) -> {
+			(Tuple3<K, N, UK> key, DirtyReference dirtyReference) -> {
 				try {
 					this.listener.notifyCacheEvict();
-					UV oldValue = stateStore.deleteFromStateStore(key.getKey(), key.getNamespace(), key.getUserKey());
+					UV oldValue = stateStore.deleteFromStateStore(key.f0, key.f1, key.f2);
 					if (dirtyReference.isDirty()) {
 						dataSynchronizer.saveState(key, oldValue);
 						this.listener.notifyCacheSave();
 					}
+					reusedQueue.offer(key);
 				} catch (Exception e) {
 					throw new FlinkRuntimeException("evict from cache failed", e);
 				}
@@ -208,11 +219,11 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 
 	@Override
 	public void flushAll() throws Exception {
-		for (Map.Entry<CacheEntryKey<K, N, UK>, DirtyReference> entry : cacheStrategy.entrySet()) {
+		for (Map.Entry<Tuple3<K, N, UK>, DirtyReference> entry : cacheStrategy.entrySet()) {
 			DirtyReference dirtyReference = entry.getValue();
 			if (dirtyReference.isDirty()) {
-				CacheEntryKey<K, N, UK> entryKey = entry.getKey();
-				dataSynchronizer.saveState(entry.getKey(), stateStore.getFromStateStore(entryKey.getKey(), entryKey.getNamespace(), entryKey.getUserKey()));
+				Tuple3<K, N, UK> entryKey = entry.getKey();
+				dataSynchronizer.saveState(entry.getKey(), stateStore.getFromStateStore(entryKey.f0, entryKey.f1, entryKey.f2));
 				dirtyReference.setDirty(false);
 				listener.notifyCacheSave();
 			}
@@ -220,19 +231,20 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 	}
 
 	@Override
-	public void flushSpecifiedData(Predicate<CacheEntryKey<K, N, UK>> filter, boolean invalid) throws Exception {
-		for (Map.Entry<CacheEntryKey<K, N, UK>, DirtyReference> entry : cacheStrategy.entrySet()) {
+	public void flushSpecifiedData(Predicate<Tuple3<K, N, UK>> filter, boolean invalid) throws Exception {
+		Iterator<Map.Entry<Tuple3<K, N, UK>, DirtyReference>> iterator = cacheStrategy.entrySet().iterator();
+		Map.Entry<Tuple3<K, N, UK>, DirtyReference> entry;
+		while (iterator.hasNext()) {
+			entry = iterator.next();
 			DirtyReference dirtyReference = entry.getValue();
 			if (filter.test(entry.getKey()) && dirtyReference.isDirty()) {
-				CacheEntryKey<K, N, UK> entryKey = entry.getKey();
-				dataSynchronizer.saveState(entry.getKey(), stateStore.getFromStateStore(entryKey.getKey(), entryKey.getNamespace(), entryKey.getUserKey()));
+				Tuple3<K, N, UK> entryKey = entry.getKey();
+				dataSynchronizer.saveState(entry.getKey(), stateStore.getFromStateStore(entryKey.f0, entryKey.f1, entryKey.f2));
 				if (invalid) {
-					stateStore.deleteFromStateStore(entryKey.getKey(), entryKey.getNamespace(), entryKey.getUserKey());
-					cacheStrategy.delete(entryKey);
+					iterator.remove();
 					continue;
 				}
 				dirtyReference.setDirty(false);
-				listener.notifyCacheSave();
 			}
 		}
 	}
@@ -240,6 +252,15 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 	@Override
 	public void notifyExceedMemoryLimit(MemorySize maxMemorySize, MemorySize exceedMemorySize) {
 		cacheStrategy.notifyExceedMemoryLimit(maxMemorySize, exceedMemorySize);
+	}
+
+	private Tuple3<K, N, UK> getOrCreateCacheEntryKey(K key, N namespace, UK userKey) {
+		Tuple3<K, N, UK> entryKey = reusedQueue.poll();
+		if (entryKey == null) {
+			return Tuple3.of(key, namespace, userKey);
+		}
+		entryKey.setFields(key, namespace, userKey);
+		return entryKey;
 	}
 
 	/**
@@ -325,7 +346,7 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<CacheEntryKey<K, 
 			UV oldValue = delegateEntry.getValue();
 			try {
 				delegateEntry.setValue(value);
-				Cache.this.put(key, namespace, delegateEntry.getKey(), value);
+				Cache.this.replace(key, namespace, delegateEntry.getKey(), value);
 			} catch (Exception e) {
 				throw new FlinkRuntimeException("Error while putting data into cache.", e);
 			}

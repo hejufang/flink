@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.state.cache;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.util.EmptyIterator;
 
 import javax.annotation.Nonnull;
@@ -48,7 +49,7 @@ public interface StateStore<K, N, SV, UK, UV> {
 	UV deleteFromStateStore(K key, N namespace, @Nullable UK userKey);
 
 	/** Clear all the data associated with the key and namespace from the stateStore. */
-	Iterable<CacheEntryKey<K, N, UK>> clearFromStateStore(K key, N namespace);
+	Iterable<Tuple3<K, N, UK>> clearFromStateStore(K key, N namespace);
 
 	/** Clear all the data in the state store. */
 	void clearAll();
@@ -100,10 +101,10 @@ public interface StateStore<K, N, SV, UK, UV> {
 		}
 
 		@Override
-		public Iterable<CacheEntryKey<K, N, UK>> clearFromStateStore(K key, N namespace) {
+		public Iterable<Tuple3<K, N, UK>> clearFromStateStore(K key, N namespace) {
 			Map<UK, UV> userMap = stateStore.remove(Tuple2.of(key, namespace));
 			if (userMap != null) {
-				return () -> userMap.keySet().stream().map(userKey -> new CacheEntryKey<>(key, namespace, userKey)).collect(Collectors.toList()).iterator();
+				return () -> userMap.keySet().stream().map(userKey -> Tuple3.of(key, namespace, userKey)).collect(Collectors.toList()).iterator();
 			}
 			return EmptyIterator.get();
 		}
@@ -157,9 +158,9 @@ public interface StateStore<K, N, SV, UK, UV> {
 		}
 
 		@Override
-		public Iterable<CacheEntryKey<K, N, Void>> clearFromStateStore(K key, N namespace) {
+		public Iterable<Tuple3<K, N, Void>> clearFromStateStore(K key, N namespace) {
 			stateStore.remove(Tuple2.of(key, namespace));
-			return Collections.singletonList(new CacheEntryKey<>(key, namespace));
+			return Collections.singletonList(Tuple3.of(key, namespace, null));
 		}
 
 		@Override

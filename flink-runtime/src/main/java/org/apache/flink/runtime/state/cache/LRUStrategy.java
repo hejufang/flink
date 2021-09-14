@@ -20,70 +20,89 @@ package org.apache.flink.runtime.state.cache;
 
 import org.apache.flink.configuration.MemorySize;
 
-import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
-
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
 /**
- * LRU cache strategy implemented by encapsulating guava cache.
+ * LRU cache strategy implemented by {@link LinkedHashMap}.
  */
 public class LRUStrategy<K, V> implements CacheStrategy<K, V> {
-	private org.apache.flink.shaded.guava18.com.google.common.cache.Cache<K, V> delegateCache;
+	private long maxSize;
+	private BiFunction<K, V, Integer> kVSizeEstimator;
+	private LinkedHashMap<K, V> map;
 
 	@Override
 	public void initialize(long initialSize, BiFunction<K, V, Integer> kVSizeEstimator, BiConsumer<K, V> removeListener) {
-		delegateCache = CacheBuilder.newBuilder()
-			.maximumWeight(initialSize)
-			.weigher(kVSizeEstimator::apply)
-			.removalListener(removalNotification -> {
-				if (removalNotification.wasEvicted()) {
-					removeListener.accept(removalNotification.getKey(), removalNotification.getValue());
+		this.maxSize = initialSize;
+		this.kVSizeEstimator = kVSizeEstimator;
+		this.map = new LinkedHashMap<K, V>(1024, 0.75f, true) {
+			private static final long serialVersionUID = 1;
+
+			@Override
+			protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+				if (LRUStrategy.this.size() > maxSize) {
+					removeListener.accept(eldest.getKey(), eldest.getValue());
+					return true;
 				}
-			})
-			.build();
+				return false;
+			}
+		};
 	}
 
 	@Override
 	public V getIfPresent(K key) {
-		return delegateCache.getIfPresent(key);
+		ensureSize();
+		return map.get(key);
 	}
 
 	@Override
 	public void put(K key, V value) {
-		delegateCache.put(key, value);
+		ensureSize();
+		map.put(key, value);
 	}
 
 	@Override
 	public void delete(K key) {
-		delegateCache.invalidate(key);
+		ensureSize();
+		map.remove(key);
 	}
 
 	@Override
 	public void clear() {
-		delegateCache.invalidateAll();
+		map.clear();
 	}
 
 	@Override
 	public void clear(Iterable<K> keys) {
-		delegateCache.invalidateAll(keys);
+		Iterator<K> it = keys.iterator();
+		while (it.hasNext()) {
+			map.remove(it.next());
+		}
 	}
 
 	@Override
 	public Set<Map.Entry<K, V>> entrySet() {
-		return delegateCache.asMap().entrySet();
+		return map.entrySet();
 	}
 
 	@Override
 	public long size() {
-		return delegateCache.size();
+		return kVSizeEstimator.apply(null, null) * map.size();
 	}
 
 	@Override
 	public void notifyExceedMemoryLimit(MemorySize maxMemorySize, MemorySize exceedMemorySize) {
-		// Since the maximumWeight of the guava cache is used to ensure
-		// the size of the cache, no operation is required.
+		// do nothing
+	}
+
+	private void ensureSize() {
+		while (size() > maxSize) {
+			map.put(null, null);
+			map.remove(null);
+		}
 	}
 }

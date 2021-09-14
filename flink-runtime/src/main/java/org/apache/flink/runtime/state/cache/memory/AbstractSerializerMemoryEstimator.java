@@ -19,8 +19,8 @@
 package org.apache.flink.runtime.state.cache.memory;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.memory.DataOutputSerializer;
-import org.apache.flink.runtime.state.cache.CacheEntryKey;
 
 import java.io.IOException;
 
@@ -46,10 +46,10 @@ public abstract class AbstractSerializerMemoryEstimator<K, N, UK, UV> extends Ab
 	}
 
 	@Override
-	protected long sizeOfKey(CacheEntryKey<K, N, UK> key) throws IOException {
+	protected long sizeOfKey(Tuple3<K, N, UK> key) throws IOException {
 		if (keySerializer.getLength() == -1) {
 			try {
-				keySerializer.serialize(key.getKey(), outputSerializer);
+				keySerializer.serialize(key.f0, outputSerializer);
 				keySize = outputSerializer.length();
 			} finally {
 				outputSerializer.pruneBuffer();
@@ -58,7 +58,7 @@ public abstract class AbstractSerializerMemoryEstimator<K, N, UK, UV> extends Ab
 
 		if (namespaceSerializer.getLength() == -1) {
 			try {
-				namespaceSerializer.serialize(key.getNamespace(), outputSerializer);
+				namespaceSerializer.serialize(key.f1, outputSerializer);
 				namespaceSize = outputSerializer.length();
 			} finally {
 				outputSerializer.pruneBuffer();

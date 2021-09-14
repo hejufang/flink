@@ -21,14 +21,14 @@ package org.apache.flink.runtime.state.cache.memory;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.MapSerializer;
-import org.apache.flink.runtime.state.cache.CacheEntryKey;
+import org.apache.flink.api.java.tuple.Tuple3;
 
 /**
  * Provide corresponding memory estimators for different state types and wrap them as {@link SampleStateMemoryEstimator}.
  * Currently, the estimation of {@link org.apache.flink.api.common.state.ListState} is not supported.
  */
 public class SerializerMemoryEstimatorFactory {
-	public static <K, N, V> SampleStateMemoryEstimator<CacheEntryKey<K, N, ?>, ?> createSampleEstimator(
+	public static <K, N, V> SampleStateMemoryEstimator<Tuple3<K, N, ?>, ?> createSampleEstimator(
 		TypeSerializer<K> keySerializer,
 		TypeSerializer<N> namespaceSerializer,
 		TypeSerializer<V> valueSerializer,

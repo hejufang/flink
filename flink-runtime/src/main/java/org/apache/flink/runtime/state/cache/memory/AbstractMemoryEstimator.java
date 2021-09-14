@@ -18,30 +18,31 @@
 
 package org.apache.flink.runtime.state.cache.memory;
 
-import org.apache.flink.runtime.state.cache.CacheEntryKey;
+import org.apache.flink.api.java.tuple.Tuple3;
 
 import java.io.IOException;
 
 /**
  * An abstract class for estimating the memory size of cache elements.
  */
-public abstract class AbstractMemoryEstimator<K, N, UK, UV> implements MemoryEstimator<CacheEntryKey<K, N, UK>, UV> {
+public abstract class AbstractMemoryEstimator<K, N, UK, UV> implements MemoryEstimator<Tuple3<K, N, UK>, UV> {
+	public static final long OBJECT_OVERHEAD = 80L; // 2 * (Map.Node(32 bytes) + Object(8 bytes))
 
 	private long keySize;
 	private long valueSize;
 
 	@Override
-	public void updateEstimatedSize(CacheEntryKey<K, N, UK> key, UV value) throws IOException {
+	public void updateEstimatedSize(Tuple3<K, N, UK> key, UV value) throws IOException {
 		this.keySize = sizeOfKey(key);
 		this.valueSize = sizeOfValue(value);
 	}
 
 	@Override
 	public long getEstimatedSize() {
-		return keySize + valueSize;
+		return keySize + valueSize + OBJECT_OVERHEAD;
 	}
 
-	protected abstract long sizeOfKey(CacheEntryKey<K, N, UK> key) throws IOException;
+	protected abstract long sizeOfKey(Tuple3<K, N, UK> key) throws IOException;
 
 	protected abstract long sizeOfValue(UV value) throws IOException;
 }

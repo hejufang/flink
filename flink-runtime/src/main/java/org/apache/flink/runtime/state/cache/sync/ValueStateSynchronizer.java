@@ -18,8 +18,8 @@
 
 package org.apache.flink.runtime.state.cache.sync;
 
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.state.KeyedStateBackend;
-import org.apache.flink.runtime.state.cache.CacheEntryKey;
 import org.apache.flink.runtime.state.internal.InternalValueState;
 
 /**
@@ -34,20 +34,20 @@ public class ValueStateSynchronizer<K, N, V> extends AbstractStateSynchronizer<K
 	}
 
 	@Override
-	protected void updateDelegateState(CacheEntryKey<K, N, Void> key, V value) throws Exception {
-		delegateState.setCurrentNamespace(key.getNamespace());
+	protected void updateDelegateState(Tuple3<K, N, Void> key, V value) throws Exception {
+		delegateState.setCurrentNamespace(key.f1);
 		delegateState.update(value);
 	}
 
 	@Override
-	protected V loadFromDelegateState(CacheEntryKey<K, N, Void> key) throws Exception {
-		delegateState.setCurrentNamespace(key.getNamespace());
+	protected V loadFromDelegateState(Tuple3<K, N, Void> key) throws Exception {
+		delegateState.setCurrentNamespace(key.f1);
 		return delegateState.value();
 	}
 
 	@Override
-	protected void removeFromDelegateState(CacheEntryKey<K, N, Void> key) throws Exception {
-		delegateState.setCurrentNamespace(key.getNamespace());
+	protected void removeFromDelegateState(Tuple3<K, N, Void> key) throws Exception {
+		delegateState.setCurrentNamespace(key.f1);
 		delegateState.clear();
 	}
 }

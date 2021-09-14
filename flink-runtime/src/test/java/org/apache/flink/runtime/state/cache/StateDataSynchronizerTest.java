@@ -25,6 +25,7 @@ import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.StringSerializer;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.AbstractStateBackend;
@@ -69,7 +70,7 @@ public class StateDataSynchronizerTest {
 		ValueState<String> valueState = keyedStateBackend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, descriptor);
 		ValueStateSynchronizer<String, VoidNamespace, String> synchronizer = StateSynchronizerFactory.createStateSynchronizer(keyedStateBackend, (InternalKvState<String, VoidNamespace, String>) valueState, descriptor.getType());
 
-		CacheEntryKey<String, VoidNamespace, Void> testKey = new CacheEntryKey<>(TEST_KEY, VoidNamespace.INSTANCE);
+		Tuple3<String, VoidNamespace, Void> testKey = Tuple3.of(TEST_KEY, VoidNamespace.INSTANCE, null);
 
 		// DataSynchronizer is only responsible for saving data,
 		// so no matter whether it is dirty data or not, it will be written.
@@ -102,7 +103,7 @@ public class StateDataSynchronizerTest {
 		MapState<String, String> mapState = keyedStateBackend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, descriptor);
 		MapStateSynchronizer<String, VoidNamespace, String, String> synchronizer = StateSynchronizerFactory.createStateSynchronizer(keyedStateBackend, (InternalKvState<String, VoidNamespace, ?>) mapState, descriptor.getType());
 
-		CacheEntryKey<String, VoidNamespace, String> testKey = new CacheEntryKey<>(TEST_KEY, VoidNamespace.INSTANCE, TEST_USER_KEY);
+		Tuple3<String, VoidNamespace, String> testKey = Tuple3.of(TEST_KEY, VoidNamespace.INSTANCE, TEST_USER_KEY);
 
 		// DataSynchronizer is only responsible for saving data,
 		// so no matter whether it is dirty data or not, it will be written.

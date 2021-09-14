@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.state.cache;
 
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.runtime.state.VoidNamespace;
@@ -59,7 +60,7 @@ public class LFUCacheTest extends CacheStrategyTestBase {
 		Configuration configuration = new Configuration();
 		configuration.set(CacheConfigurableOptions.CACHE_STRATEGY, "LFU");
 		CacheStrategyFactory cacheStrategyFactory = CacheStrategyFactory.createCacheStrategyFactory(CacheConfiguration.fromConfiguration(configuration));
-		CacheStrategy<CacheEntryKey<String, VoidNamespace, Void>, Cache.DirtyReference> cacheStrategy = cacheStrategyFactory.createCacheStrategy();
+		CacheStrategy<Tuple3<String, VoidNamespace, Void>, Cache.DirtyReference> cacheStrategy = cacheStrategyFactory.createCacheStrategy();
 		return new Cache<>(cacheStrategy, new StateStore.SimpleStateStore<>());
 	}
 }

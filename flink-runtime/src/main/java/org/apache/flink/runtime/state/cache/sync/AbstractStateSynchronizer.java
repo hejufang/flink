@@ -18,8 +18,8 @@
 
 package org.apache.flink.runtime.state.cache.sync;
 
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.state.KeyedStateBackend;
-import org.apache.flink.runtime.state.cache.CacheEntryKey;
 
 import javax.annotation.Nullable;
 
@@ -30,7 +30,7 @@ import java.io.IOException;
  * through {@link org.apache.flink.runtime.state.KeyedStateBackend}, and the specific
  * state operations are performed by the subclass.
  */
-public abstract class AbstractStateSynchronizer<K, N, UK, UV> implements DataSynchronizer<CacheEntryKey<K, N, UK>, UV> {
+public abstract class AbstractStateSynchronizer<K, N, UK, UV> implements DataSynchronizer<Tuple3<K, N, UK>, UV> {
 	protected final KeyedStateBackend<K> keyedStateBackend;
 
 	public AbstractStateSynchronizer(KeyedStateBackend<K> keyedStateBackend) {
@@ -38,22 +38,22 @@ public abstract class AbstractStateSynchronizer<K, N, UK, UV> implements DataSyn
 	}
 
 	@Override
-	public void saveState(CacheEntryKey<K, N, UK> key, UV value) throws Exception {
-		keyedStateBackend.setCurrentKey(key.getKey());
+	public void saveState(Tuple3<K, N, UK> key, UV value) throws Exception {
+		keyedStateBackend.setCurrentKey(key.f0);
 		updateDelegateState(key, value);
 	}
 
 	@Override
 	@Nullable
-	public UV loadState(CacheEntryKey<K, N, UK> key) throws Exception {
-		keyedStateBackend.setCurrentKey(key.getKey());
+	public UV loadState(Tuple3<K, N, UK> key) throws Exception {
+		keyedStateBackend.setCurrentKey(key.f0);
 		UV data = loadFromDelegateState(key);
 		return data;
 	}
 
 	@Override
-	public void removeState(CacheEntryKey<K, N, UK> key) throws Exception {
-		keyedStateBackend.setCurrentKey(key.getKey());
+	public void removeState(Tuple3<K, N, UK> key) throws Exception {
+		keyedStateBackend.setCurrentKey(key.f0);
 		removeFromDelegateState(key);
 	}
 
@@ -62,9 +62,9 @@ public abstract class AbstractStateSynchronizer<K, N, UK, UV> implements DataSyn
 		//currently do nothing
 	}
 
-	protected abstract void updateDelegateState(CacheEntryKey<K, N, UK> key, UV value) throws Exception;
+	protected abstract void updateDelegateState(Tuple3<K, N, UK> key, UV value) throws Exception;
 
-	protected abstract UV loadFromDelegateState(CacheEntryKey<K, N, UK> key) throws Exception;
+	protected abstract UV loadFromDelegateState(Tuple3<K, N, UK> key) throws Exception;
 
-	protected abstract void removeFromDelegateState(CacheEntryKey<K, N, UK> key) throws Exception;
+	protected abstract void removeFromDelegateState(Tuple3<K, N, UK> key) throws Exception;
 }

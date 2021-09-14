@@ -18,8 +18,8 @@
 
 package org.apache.flink.runtime.state.cache.sync;
 
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.state.KeyedStateBackend;
-import org.apache.flink.runtime.state.cache.CacheEntryKey;
 import org.apache.flink.runtime.state.internal.InternalMapState;
 
 /**
@@ -34,20 +34,20 @@ public class MapStateSynchronizer<K, N, UK, UV> extends AbstractStateSynchronize
 	}
 
 	@Override
-	protected void updateDelegateState(CacheEntryKey<K, N, UK> key, UV value) throws Exception {
-		delegateState.setCurrentNamespace(key.getNamespace());
-		delegateState.put(key.getUserKey(), value);
+	protected void updateDelegateState(Tuple3<K, N, UK> key, UV value) throws Exception {
+		delegateState.setCurrentNamespace(key.f1);
+		delegateState.put(key.f2, value);
 	}
 
 	@Override
-	protected UV loadFromDelegateState(CacheEntryKey<K, N, UK> key) throws Exception {
-		delegateState.setCurrentNamespace(key.getNamespace());
-		return delegateState.get(key.getUserKey());
+	protected UV loadFromDelegateState(Tuple3<K, N, UK> key) throws Exception {
+		delegateState.setCurrentNamespace(key.f1);
+		return delegateState.get(key.f2);
 	}
 
 	@Override
-	protected void removeFromDelegateState(CacheEntryKey<K, N, UK> key) throws Exception {
-		delegateState.setCurrentNamespace(key.getNamespace());
-		delegateState.remove(key.getUserKey());
+	protected void removeFromDelegateState(Tuple3<K, N, UK> key) throws Exception {
+		delegateState.setCurrentNamespace(key.f1);
+		delegateState.remove(key.f2);
 	}
 }

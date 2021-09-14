@@ -21,7 +21,7 @@ package org.apache.flink.runtime.state.cache.memory;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.BooleanSerializer;
 import org.apache.flink.api.common.typeutils.base.MapSerializer;
-import org.apache.flink.runtime.state.cache.CacheEntryKey;
+import org.apache.flink.api.java.tuple.Tuple3;
 
 import java.io.IOException;
 
@@ -48,11 +48,11 @@ public class MapStateMemoryEstimator<K, N, UK, UV> extends AbstractSerializerMem
 	}
 
 	@Override
-	protected long sizeOfKey(CacheEntryKey<K, N, UK> key) throws IOException {
+	protected long sizeOfKey(Tuple3<K, N, UK> key) throws IOException {
 		long keySize = super.sizeOfKey(key);
 		if (this.userKeySize == -1L || this.userKeySerializer.getLength() == -1) {
 			try {
-				userKeySerializer.serialize(key.getUserKey(), outputSerializer);
+				userKeySerializer.serialize(key.f2, outputSerializer);
 				userKeySize = outputSerializer.length();
 			} finally {
 				outputSerializer.pruneBuffer();
