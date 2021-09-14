@@ -129,6 +129,14 @@ under the License.
 											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.org.byted.infsec</shadedPattern>
 										</relocation>
 										<relocation>
+											<pattern>org.byted.security</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.org.byted.security</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>META-INF/native/liborg_byted_security_shaded</pattern>
+											<shadedPattern>META-INF/native/liborg_apache_flink_connector_rocketmq_shaded_org_byted_security_shaded</shadedPattern>
+										</relocation>
+										<relocation>
 											<pattern>io.grpc</pattern>
 											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.io.grpc</shadedPattern>
 										</relocation>
