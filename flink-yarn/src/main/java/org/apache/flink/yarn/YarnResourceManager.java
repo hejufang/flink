@@ -150,10 +150,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	/** YARN container map. Package private for unit test purposes. */
 	private final ConcurrentMap<ResourceID, YarnWorkerNode> workerNodeMap;
-
-	/** Get recovered WorkerNode Set from YARN When AM failover. */
-	private final Set<ResourceID> recoveredWorkerNodeSet;
-
 	/** Environment variable name of the final container id used by the YarnResourceManager.
 	 * Container ID generation may vary across Hadoop versions. */
 	static final String ENV_FLINK_CONTAINER_ID = "_FLINK_CONTAINER_ID";
@@ -272,8 +268,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		blacklistReporter.addIgnoreExceptionClass(ExpectedContainerCompletedException.class);
 
 		this.workerNodeMap = new ConcurrentHashMap<>();
-		this.recoveredWorkerNodeSet = new HashSet<>();
-
 		final int yarnHeartbeatIntervalMS = flinkConfig.getInteger(
 				YarnConfigOptions.HEARTBEAT_DELAY_SECONDS) * 1000;
 
@@ -431,8 +425,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		return resourceManagerClient;
 	}
 
-	@VisibleForTesting
-	protected void getContainersFromPreviousAttempts(final RegisterApplicationMasterResponse registerApplicationMasterResponse) {
+	private void getContainersFromPreviousAttempts(final RegisterApplicationMasterResponse registerApplicationMasterResponse) {
 		final List<Container> containersFromPreviousAttempts =
 			registerApplicationMasterResponseReflector.getContainersFromPreviousAttempts(registerApplicationMasterResponse);
 
@@ -443,7 +436,9 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		for (final Container container : containersFromPreviousAttempts) {
 			ResourceID resourceID = new ResourceID(container.getId().toString());
 			workerNodeMap.put(resourceID, new YarnWorkerNode(container));
-			recoveredWorkerNodeSet.add(resourceID);
+			// todo update requestedNotRegisteredWorkerCounter.
+			// todo update slowContainerManager.
+			// todo check slow container manager logic with out these containers.
 		}
 	}
 
@@ -480,7 +475,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	@Override
 	protected void initialize() throws ResourceManagerException {
-		slowContainerManager.setSlowContainerActions(new SlowContainerActionsImpl());
 		try {
 			resourceManagerClient = createAndStartResourceManagerClient(
 				yarnConfig,
@@ -496,6 +490,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	@Override
 	protected void startServicesOnLeadership() {
 		super.startServicesOnLeadership();
+//		slowContainerManager.setYarnResourceManager(this);
+		slowContainerManager.setSlowContainerActions(new SlowContainerActionsImpl());
 		scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
 	}
 
@@ -1052,12 +1048,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		Optional<Resource> containerResourceOptional = getContainerResource(workerResourceSpec);
 
 		if (containerResourceOptional.isPresent() && workerNumber > 0) {
-			// try to fetch recovered containers and return unallocated number
-			int unallocatedWorkerNumber = fetchFromRecoveredContainers(workerResourceSpec, workerNumber);
-			if (unallocatedWorkerNumber == 0) {
-				return true;
-			}
-
 			boolean useGang = gangSchedulerEnabled;
 			if (gangSchedulerEnabled) {
 				if (System.currentTimeMillis() - gangLastDowngradeTimestamp < gangDowngradeTimeoutMilli) {
@@ -1068,9 +1058,9 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 					gangLastDowngradeTimestamp = -1;
 				}
 			}
-			log.info("Allocate {} containers, Using gang scheduler: {}", unallocatedWorkerNumber, useGang);
+			log.info("Allocate {} containers, Using gang scheduler: {}", workerNumber, useGang);
 			AMRMClient.ContainerRequest containerRequest = null;
-			for (int i = 0; i < unallocatedWorkerNumber; i++) {
+			for (int i = 0; i < workerNumber; i++) {
 				containerRequest = getContainerRequest(containerResourceOptional.get(), useGang);
 				resourceManagerClient.addContainerRequest(containerRequest);
 			}
@@ -1078,7 +1068,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			// make sure we transmit the request fast and receive fast news of granted allocations
 			resourceManagerClient.setHeartbeatInterval(containerRequestHeartbeatIntervalMillis);
 			int numPendingWorkers = 0;
-			for (int i = 0; i < unallocatedWorkerNumber; i++) {
+			for (int i = 0; i < workerNumber; i++) {
 				numPendingWorkers = notifyNewWorkerRequested(workerResourceSpec).getNumNotAllocated();
 			}
 
@@ -1090,48 +1080,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		} else {
 			return false;
 		}
-	}
-
-	/**
-	 * Fetch workerNumber of matching WorkerResourceSpec container from recovered Containers.
-	 * @param workerResourceSpec WorkerResourceSpec.
-	 * @param workerNumber The quantity of need to allocate.
-	 * @return The quantity of unallocated.
-	 */
-	private int fetchFromRecoveredContainers(WorkerResourceSpec workerResourceSpec, int workerNumber) {
-		Optional<Resource> containerResourceOptional = getContainerResource(workerResourceSpec);
-
-		if (containerResourceOptional.isPresent()) {
-			Resource requestResource = containerResourceOptional.get();
-			Iterator<ResourceID> resourceIDIterator = recoveredWorkerNodeSet.iterator();
-
-			while (resourceIDIterator.hasNext()) {
-				if (workerNumber <= 0){
-					break;
-				}
-
-				ResourceID resourceID = resourceIDIterator.next();
-				if (workerNodeMap.containsKey(resourceID)) {
-					Container container = workerNodeMap.get(resourceID).getContainer();
-					if (yarnBlackedHosts.contains(container.getNodeId().getHost())){
-						workerNodeMap.remove(resourceID);
-						resourceIDIterator.remove();
-						resourceManagerClient.releaseAssignedContainer(container.getId(), WorkerExitCode.IN_BLACKLIST);
-						notifyAllocatedWorkerStopped(resourceID);
-						continue;
-					}
-
-					if (requestResource.equals(container.getResource())) {
-						workerNumber--;
-						resourceIDIterator.remove();
-						notifyRecoveredWorkerAllocated(workerResourceSpec, resourceID);
-					}
-				} else {
-					resourceIDIterator.remove();
-				}
-			}
-		}
-		return workerNumber;
 	}
 
 	@Nonnull
@@ -1370,16 +1318,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	@Override
 	protected void notifyAllocatedWorkerRegistered(ResourceID resourceID) {
-		// When previous container is registered, represent recovered worker node been used.
-		recoveredWorkerNodeSet.remove(resourceID);
 		slowContainerManager.notifyWorkerStarted(resourceID);
 		super.notifyAllocatedWorkerRegistered(resourceID);
-	}
-
-	@Override
-	protected void notifyRecoveredWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID) {
-		slowContainerManager.notifyRecoveredWorkerAllocated(workerResourceSpec, resourceID);
-		super.notifyRecoveredWorkerAllocated(workerResourceSpec, resourceID);
 	}
 
 	// ------------------------------------------------------------------------

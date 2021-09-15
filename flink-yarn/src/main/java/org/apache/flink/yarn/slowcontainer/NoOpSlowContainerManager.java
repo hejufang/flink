@@ -64,12 +64,6 @@ public class NoOpSlowContainerManager implements SlowContainerManager {
 	}
 
 	@Override
-	public void notifyRecoveredWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID) {
-		startingContainers.put(resourceID, System.currentTimeMillis());
-		allContainers.put(resourceID, CONTAINER_NOT_START_TIME_MS);
-	}
-
-	@Override
 	public void checkSlowContainer() {}
 
 	@Override

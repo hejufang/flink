@@ -336,13 +336,10 @@ public class SlotPoolImpl implements SlotPool {
 
 		pendingRequest.getAllocatedSlotFuture().whenComplete(
 			(AllocatedSlot allocatedSlot, Throwable throwable) -> {
-				if (throwable != null) {
-					// cancel the slot request if there is a failure
+				if (throwable != null || !allocationId.equals(allocatedSlot.getAllocationId())) {
+					// cancel the slot request if there is a failure or if the pending request has
+					// been completed with another allocated slot
 					resourceManagerGateway.cancelSlotRequest(allocationId);
-				} else if (!allocationId.equals(allocatedSlot.getAllocationId())) {
-					// cancel the slot request and remove pending slot
-					// if the pending request has been completed with another allocated slot
-					resourceManagerGateway.cancelSlotRequestAndPendingSlot(allocationId);
 				}
 			});
 

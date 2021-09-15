@@ -470,22 +470,6 @@ public class SlotManagerImpl implements SlotManager {
 	 */
 	@Override
 	public boolean unregisterSlotRequest(AllocationID allocationId) {
-		return unregisterSlotRequestAndRemovePendingSlot(allocationId, false);
-	}
-
-	/**
-	 * Cancels a pending slot request and removes a pending slot with the given allocation id. If there is no such
-	 * pending request, then nothing is done.
-	 *
-	 * @param allocationId identifying the pending slot request
-	 * @return True if a pending slot request was found; otherwise false
-	 */
-	@Override
-	public boolean unregisterSlotRequestAndPendingSlot(AllocationID allocationId) {
-		return unregisterSlotRequestAndRemovePendingSlot(allocationId, true);
-	}
-
-	private boolean unregisterSlotRequestAndRemovePendingSlot(AllocationID allocationId, boolean isRemovePendingSlot) {
 		checkInit();
 
 		PendingSlotRequest pendingSlotRequest = pendingSlotRequests.remove(allocationId);
@@ -493,7 +477,7 @@ public class SlotManagerImpl implements SlotManager {
 		if (null != pendingSlotRequest) {
 			LOG.info("Cancel slot request {}.", allocationId);
 
-			cancelPendingSlotRequest(pendingSlotRequest, isRemovePendingSlot);
+			cancelPendingSlotRequest(pendingSlotRequest);
 
 			return true;
 		} else {
@@ -1126,17 +1110,10 @@ public class SlotManagerImpl implements SlotManager {
 	}
 
 	private void returnPendingTaskManagerSlotIfAssigned(PendingSlotRequest pendingSlotRequest) {
-		returnPendingTaskManagerSlotIfAssigned(pendingSlotRequest, false);
-	}
-
-	private void returnPendingTaskManagerSlotIfAssigned(PendingSlotRequest pendingSlotRequest, boolean isRemovePendingSlot) {
 		final PendingTaskManagerSlot pendingTaskManagerSlot = pendingSlotRequest.getAssignedPendingTaskManagerSlot();
 		if (pendingTaskManagerSlot != null) {
 			pendingTaskManagerSlot.unassignPendingSlotRequest();
 			pendingSlotRequest.unassignPendingTaskManagerSlot();
-			if (isRemovePendingSlot) {
-				pendingSlots.remove(pendingTaskManagerSlot.getTaskManagerSlotId());
-			}
 		}
 	}
 
@@ -1293,18 +1270,9 @@ public class SlotManagerImpl implements SlotManager {
 	 * @param pendingSlotRequest to cancel
 	 */
 	private void cancelPendingSlotRequest(PendingSlotRequest pendingSlotRequest) {
-		cancelPendingSlotRequest(pendingSlotRequest, false);
-	}
-
-	/**
-	 * Cancels the given slot request and Removes the pending slot.
-	 *
-	 * @param pendingSlotRequest to cancel
-	 */
-	private void cancelPendingSlotRequest(PendingSlotRequest pendingSlotRequest, boolean isRemovePendingSlot) {
 		CompletableFuture<Acknowledge> request = pendingSlotRequest.getRequestFuture();
 
-		returnPendingTaskManagerSlotIfAssigned(pendingSlotRequest, isRemovePendingSlot);
+		returnPendingTaskManagerSlotIfAssigned(pendingSlotRequest);
 
 		if (null != request) {
 			request.cancel(false);

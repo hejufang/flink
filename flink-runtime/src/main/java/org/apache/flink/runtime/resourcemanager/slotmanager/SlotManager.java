@@ -115,15 +115,6 @@ public interface SlotManager extends AutoCloseable {
 	boolean unregisterSlotRequest(AllocationID allocationId);
 
 	/**
-	 * Cancels a pending slot request and removes a pending slot with the given allocation id.
-	 * If there is no such pending request, then nothing is done.
-	 *
-	 * @param allocationId identifying the pending slot request
-	 * @return True if a pending slot request was found; otherwise false
-	 */
-	boolean unregisterSlotRequestAndPendingSlot(AllocationID allocationId);
-
-	/**
 	 * Registers a new task manager at the slot manager. This will make the task managers slots
 	 * known and, thus, available for allocation.
 	 *

@@ -537,11 +537,6 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	}
 
 	@Override
-	public void cancelSlotRequestAndPendingSlot(AllocationID allocationID) {
-		slotManager.unregisterSlotRequestAndPendingSlot(allocationID);
-	}
-
-	@Override
 	public void notifySlotAvailable(
 			final InstanceID instanceID,
 			final SlotID slotId,
@@ -1224,8 +1219,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	protected void startServicesOnLeadership() {
 		startHeartbeatServices();
 
-		blacklistTracker.start(getMainThreadExecutor(), new BlacklistActionsImpl());
 		slotManager.start(getFencingToken(), getMainThreadExecutor(), new ResourceActionsImpl());
+		blacklistTracker.start(getMainThreadExecutor(), new BlacklistActionsImpl());
 	}
 
 	/**
