@@ -644,6 +644,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	public void run() {
 		try {
 			doRun();
+		} catch (Throwable t) {
+			LOG.error("Error while run task {}.", taskMetricNameWithSubtask, t);
+			throw t;
 		} finally {
 			terminationFuture.complete(executionState);
 		}
@@ -1072,7 +1075,11 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				LOG.warn("{} ({}) switched from {} to {}.", taskMetricNameWithSubtask, executionId, currentState, newState, cause);
 			}
 
-			markTimestamp(newState, System.currentTimeMillis());
+			try {
+				markTimestamp(newState, System.currentTimeMillis());
+			} catch (Throwable t) {
+				LOG.error("Mark timestamp for {} failed.", taskMetricNameWithSubtask, t);
+			}
 			return true;
 		} else {
 			return false;
@@ -1175,6 +1182,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 						// the periodic interrupting thread - a different thread than the canceller, in case
 						// the application code does blocking stuff in its cancellation paths.
 						if (invokable.shouldInterruptOnCancel()) {
+							LOG.info("Task {} starts interrupting thread.", taskMetricNameWithSubtask);
 							Runnable interrupter = new TaskInterrupter(
 									LOG,
 									invokable,
@@ -1194,6 +1202,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 						// if a cancellation timeout is set, the watchdog thread kills the process
 						// if graceful cancellation does not succeed
 						if (taskCancellationTimeout > 0) {
+							LOG.info("Task {} starts watchdog thread.", taskMetricNameWithSubtask);
 							Runnable cancelWatchdog = new TaskCancelerWatchDog(
 									executingThread,
 									taskManagerActions,
