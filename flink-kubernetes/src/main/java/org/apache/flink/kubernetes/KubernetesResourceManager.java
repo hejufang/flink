@@ -53,7 +53,6 @@ import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerExcept
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
-import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
@@ -164,6 +163,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	@Override
 	public CompletableFuture<Void> onStop() {
+		LOG.info("stopping");
 		if (!running) {
 			return FutureUtils.completedVoidFuture();
 		}
@@ -178,13 +178,17 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			throwable = t;
 		}
 
-		try {
-			kubeClient.close();
-		} catch (Throwable t) {
-			throwable = ExceptionUtils.firstOrSuppressed(t, throwable);
-		}
+		return getStopTerminationFutureOrCompletedExceptionally(throwable).whenComplete((ignored, t) -> {
+			kubeClient.stopAndCleanupCluster(clusterId);
+			LOG.info("delete the cluster {}", clusterId);
 
-		return getStopTerminationFutureOrCompletedExceptionally(throwable);
+			try {
+				kubeClient.close();
+			} catch (Throwable t1) {
+				LOG.error("There is some error while closing the kubeClient.", t1);
+			}
+			LOG.info("kubeClient closed.");
+		});
 	}
 
 	@Override
@@ -193,7 +197,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			"Stopping kubernetes cluster, clusterId: {}, diagnostics: {}",
 			clusterId,
 			diagnostics == null ? "" : diagnostics);
-		kubeClient.stopAndCleanupCluster(clusterId);
+		// TODO: 2021/9/15 here change the behavior of register application in k8s, but not changed in yarn, we need to look with the community at how to fix it better
+		//kubeClient.stopAndCleanupCluster(clusterId);
 	}
 
 	@Override

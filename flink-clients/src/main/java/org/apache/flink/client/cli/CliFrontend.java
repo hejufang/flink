@@ -208,7 +208,7 @@ public class CliFrontend {
 
 	protected void runApplication(String[] args) throws Exception {
 		LOG.info("Running 'run-application' command.");
-		args = setJobName(args);
+		//args = setJobName(args);
 		final Options commandOptions = CliFrontendParser.getRunCommandOptions();
 		final CommandLine commandLine = getCommandLine(commandOptions, args, true);
 

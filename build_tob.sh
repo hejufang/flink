@@ -25,15 +25,15 @@ cp pom_tob.xml pom.xml
 rm -rf flink-filesystems/pom.xml
 cp flink-filesystems/pom_tob.xml flink-filesystems/pom.xml
 
-
 # compile current branch
 mvn clean package -U -DskipTests -Pinclude-hadoop -Dhadoop.version=3.2.1 -Psql-jars -Pdocs-and-source
 
 # copy flink-1.11 to output
 mkdir -p output
-#rm -rf flink-dist/target/flink-1.11-byted-SNAPSHOT-bin/flink-1.11-byted-SNAPSHOT/opt
 cp -r flink-dist/target/flink-1.11-byted-SNAPSHOT-bin/flink-1.11-byted-SNAPSHOT/* output/
 mkdir output/plugins/s3-fs-presto
 cp output/opt/flink-s3-fs-presto-1.11-byted-SNAPSHOT.jar output/plugins/s3-fs-presto/
+rm -rf output/opt
+
 # common jar conflict
 bash tools/common-jar-check/common_jar_check.sh "output/"

@@ -348,6 +348,11 @@ under the License.
 									<pattern>org.apache.flink.runtime.util</pattern>
 									<shadedPattern>org.apache.flink.fs.s3presto.common</shadedPattern>
 								</relocation>
+								<!-- shade fasterxml utility classes, forces plugin classloader for them -->
+								<relocation>
+									<pattern>com.fasterxml</pattern>
+									<shadedPattern>org.apache.flink.fs.s3presto.shaded.com.fasterxml</shadedPattern>
+								</relocation>
 							</relocations>
 							<filters>
 								<filter>

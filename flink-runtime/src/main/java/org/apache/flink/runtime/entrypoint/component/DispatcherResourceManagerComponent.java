@@ -143,9 +143,14 @@ public class DispatcherResourceManagerComponent implements AutoCloseableAsync {
 			exception = ExceptionUtils.firstOrSuppressed(e, exception);
 		}
 
-		terminationFutures.add(dispatcherRunner.closeAsync());
-
-		terminationFutures.add(resourceManager.closeAsync());
+		terminationFutures.add(dispatcherRunner.closeAsync().whenComplete((ignored, t) -> {
+			if (t != null) {
+				LOG.info("closing the dispatcherRunner failed.", t);
+			} else {
+				LOG.info("closing the dispatcherRunner success.");
+			}
+			resourceManager.closeAsync();
+		}));
 
 		if (exception != null) {
 			terminationFutures.add(FutureUtils.completedExceptionally(exception));

@@ -139,6 +139,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private final Map<JobID, CompletableFuture<Void>> jobManagerTerminationFutures;
 
+	private final Map<JobID, CompletableFuture<Acknowledge>> archiveExecutionGraphFutures;
+
 	protected final CompletableFuture<ApplicationStatus> shutDownFuture;
 
 	public Dispatcher(
@@ -175,6 +177,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		this.jobManagerRunnerFactory = dispatcherServices.getJobManagerRunnerFactory();
 
 		this.jobManagerTerminationFutures = new HashMap<>(2);
+
+		this.archiveExecutionGraphFutures = new HashMap<>(1);
 
 		this.shutDownFuture = new CompletableFuture<>();
 
@@ -244,10 +248,18 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	public CompletableFuture<Void> onStop() {
 		log.info("Stopping dispatcher {}.", getAddress());
 
+		// now just waiting the finish of archiving before stopping the cluster.
+		final CompletableFuture<Void> allArchiveExecutionGraphAndGetResultFuture = archiveExecutionGraphAndGetResultFuture();
+
 		final CompletableFuture<Void> allJobManagerRunnersTerminationFuture = terminateJobManagerRunnersAndGetTerminationFuture();
 
+		final Collection<CompletableFuture<Void>> terminationFutures = new ArrayList<>(2);
+
+		terminationFutures.add(allArchiveExecutionGraphAndGetResultFuture);
+		terminationFutures.add(allJobManagerRunnersTerminationFuture);
+
 		return FutureUtils.runAfterwards(
-			allJobManagerRunnersTerminationFuture,
+			FutureUtils.completeAll(terminationFutures),
 			() -> {
 				dispatcherBootstrap.stop();
 
@@ -790,6 +802,11 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		return FutureUtils.completeAll(values);
 	}
 
+	private CompletableFuture<Void> archiveExecutionGraphAndGetResultFuture() {
+		final Collection<CompletableFuture<Acknowledge>> values = archiveExecutionGraphFutures.values();
+		return FutureUtils.completeAll(values);
+	}
+
 	protected void onFatalError(Throwable throwable) {
 		fatalErrorHandler.onFatalError(throwable);
 	}
@@ -823,6 +840,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		final CompletableFuture<Acknowledge> executionGraphFuture = historyServerArchivist.archiveExecutionGraph(archivedExecutionGraph);
 
+		this.archiveExecutionGraphFutures.put(archivedExecutionGraph.getJobID(), executionGraphFuture);
+
 		executionGraphFuture.whenComplete(
 			(Acknowledge ignored, Throwable throwable) -> {
 				if (throwable != null) {
@@ -831,6 +850,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 						archivedExecutionGraph.getJobName(),
 						archivedExecutionGraph.getJobID(),
 						throwable);
+				} else {
+					log.debug("archive completed job {}({}) to the history server.",
+						archivedExecutionGraph.getJobName(),
+						archivedExecutionGraph.getJobID());
 				}
 			});
 	}
