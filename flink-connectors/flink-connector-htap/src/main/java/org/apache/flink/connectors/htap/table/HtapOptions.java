@@ -71,4 +71,10 @@ public class HtapOptions {
 			.stringType()
 			.defaultValue("default-cluster")
 			.withDescription("The name of current ByteHTAP cluster for monitoring");
+
+	public static final ConfigOption<Boolean> TABLE_EXEC_HTAP_IN_DRY_RUN_MODE =
+		key("table.exec.htap.in-dry-run-mode")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether run htap source in dry run mode.");
 }

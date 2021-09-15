@@ -71,6 +71,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.connectors.htap.table.HtapOptions.TABLE_EXEC_HTAP_IN_DRY_RUN_MODE;
 import static org.apache.flink.connectors.htap.table.utils.HtapTableUtils.toHtapFilterInfo;
 
 /**
@@ -175,6 +176,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 		HtapTable table = readerConfig.getCheckPointLSN() == -1L ?
 			metaClient.getTable(tableInfo.getName()) :
 			metaClient.getTable(tableInfo.getName(), readerConfig.getCheckPointLSN());
+		boolean inDryRunMode = flinkConf.get(TABLE_EXEC_HTAP_IN_DRY_RUN_MODE);
 		HtapRowInputFormat inputFormat = new HtapRowInputFormat(
 			readerConfig,
 			flinkConf.get(HtapOptions.HTAP_CLUSTER_NAME),
@@ -186,7 +188,8 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			aggregateFunctions == null ? Collections.emptyList() : aggregateFunctions,
 			outputDataType,
 			limit,
-			pushedDownPartitions);
+			pushedDownPartitions,
+			inDryRunMode);
 		int parallelism = flinkConf.get(ExecutionConfigOptions.TABLE_EXEC_RESOURCE_DEFAULT_PARALLELISM);
 		if (flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM)) {
 			int max = flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM_MAX);

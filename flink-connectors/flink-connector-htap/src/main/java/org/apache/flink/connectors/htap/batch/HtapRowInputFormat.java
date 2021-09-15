@@ -65,6 +65,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private final DataType outputDataType;
 	private final long limit;
 	private final Set<Integer> pushedDownPartitions;
+	private final boolean inDryRunMode;
 
 	private boolean endReached;
 
@@ -82,7 +83,8 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 			List<FlinkAggregateFunction> aggregateFunctions,
 			DataType outputDataType,
 			long limit,
-			Set<Integer> pushedDownPartitions) {
+			Set<Integer> pushedDownPartitions,
+			boolean inDryRunMode) {
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
 		this.htapClusterName = checkNotNull(htapClusterName, "htapClusterName could not be null");
 		this.table = checkNotNull(table, "table could not be null");
@@ -96,6 +98,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 		this.outputDataType = outputDataType;
 		this.limit = limit;
 		this.pushedDownPartitions = pushedDownPartitions;
+		this.inDryRunMode = inDryRunMode;
 	}
 
 	@Override
@@ -104,6 +107,9 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 
 	@Override
 	public void open(HtapInputSplit split) throws IOException {
+		if (inDryRunMode) {
+			return;
+		}
 		endReached = false;
 		createHtapReader();
 
@@ -149,17 +155,17 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 
 	@Override
 	public boolean reachedEnd() {
-		return endReached;
+		return inDryRunMode || endReached;
 	}
 
 	@Override
 	public Row nextRecord(Row reuse) throws IOException {
 		// check that current iterator has next rows
-		if (this.resultIterator.hasNext()) {
-			return resultIterator.next();
-		} else {
+		if (inDryRunMode || !this.resultIterator.hasNext()) {
 			endReached = true;
 			return null;
+		} else {
+			return resultIterator.next();
 		}
 	}
 }
