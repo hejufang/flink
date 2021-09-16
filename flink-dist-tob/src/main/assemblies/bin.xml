@@ -52,14 +52,6 @@ under the License.
 			</includes>
 			<outputFileNameMapping>flink-shaded-zookeeper-${zookeeper.version}.jar</outputFileNameMapping>
 		</dependencySet>
-		<dependencySet>
-			<unpack>false</unpack>
-			<outputDirectory>hive</outputDirectory>
-			<includes>
-				<include>com.bytedance:flink-hive-udf</include>
-			</includes>
-			<scope>provided</scope>
-		</dependencySet>
 	</dependencySets>
 
 	<files>
@@ -67,14 +59,6 @@ under the License.
 		<file>
 			<source>target/flink-dist_${scala.binary.version}-${project.version}.jar</source>
 			<outputDirectory>lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<!-- copy python base jar -->
-		<file>
-			<source>../flink-contrib/flink-python-byted/target/flink-python-byted-${project.version}.jar</source>
-			<outputDirectory>basejar/</outputDirectory>
-			<destName>flink-python-byted.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
 

@@ -454,42 +454,6 @@ under the License.
 			<version>${project.version}</version>
 			<scope>provided</scope>
 		</dependency>
-
-		<dependency>
-			<groupId>com.bytedance.flink</groupId>
-			<artifactId>flink-python-byted</artifactId>
-			<version>${project.version}</version>
-			<scope>provided</scope>
-		</dependency>
-
-		<dependency>
-			<!--We deploy this dependency manually.
-				repo: git@code.byted.org:dp/hive_udf.git
-				commit: 078f6d86826a12bd99dcc84f26fe01a60e6d47df
-				changes after commit:
-					1. artifactId(hive-udf -> flink-hive-udf)
-					2. version(1.0.0-SNAPSHOT -> 0.0.2)
-					3. exclude 'org.slf4j:slf4j-log4j12' in shade plugin
-			 -->
-			<groupId>com.bytedance</groupId>
-			<artifactId>flink-hive-udf</artifactId>
-			<version>${hive.udf.version}</version>
-			<scope>provided</scope>
-			<exclusions>
-				<exclusion>
-					<groupId>org.slf4j</groupId>
-					<artifactId>slf4j-log4j12</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>log4j</groupId>
-					<artifactId>log4j</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>jline</groupId>
-					<artifactId>jline</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
 		<!-- end optional Flink libraries -->
 
 		<dependency>
