@@ -86,7 +86,7 @@ public class YarnRestClusterClient extends RestClusterClient<ApplicationId> {
 											result.completeExceptionally(new GangScheduleFailedException(errMsg));
 											return false;
 									}
-									LOG.warn("Error while check resource info, ", throwable);
+									LOG.warn("Error while check resource info, please check Yarn web {}", applicationReport.getTrackingUrl(), throwable);
 									return true;
 								} catch (YarnException | IOException e) {
 									LOG.error("Error while get cluster status for {}", getClusterId(), e);
