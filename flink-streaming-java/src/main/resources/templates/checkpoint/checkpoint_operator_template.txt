@@ -17,7 +17,7 @@
 ################################################################################
 
 {
-  "collapse": true,
+  "collapsed": true,
   "height": 250,
   "panels": [
     {
@@ -27,7 +27,13 @@
       "dashes": false,
       "datasource": "${datasource}",
       "fill": 1,
-      "id": 75,
+      "id": ${id},
+      "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 0,
+                "y": ${rowOrder}
+              },
       "legend": {
         "alignAsTable": true,
         "avg": false,
@@ -97,7 +103,13 @@
       "dashes": false,
       "datasource": "${datasource}",
       "fill": 1,
-      "id": 76,
+      "id": ${id},
+      "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 12,
+                "y": ${rowOrder}
+              },
       "legend": {
         "alignAsTable": true,
         "avg": false,
@@ -167,7 +179,13 @@
       "dashes": false,
       "datasource": "${datasource}",
       "fill": 1,
-      "id": 77,
+      "id": ${id},
+      "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 0,
+                "y": ${rowOrder}
+              },
       "legend": {
         "alignAsTable": true,
         "avg": false,
@@ -237,7 +255,13 @@
       "dashes": false,
       "datasource": "${datasource}",
       "fill": 1,
-      "id": 78,
+      "id": ${id},
+      "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 12,
+                "y": ${rowOrder}
+              },
       "legend": {
         "alignAsTable": true,
         "avg": false,
@@ -306,5 +330,13 @@
   "repeatRowId": null,
   "showTitle": false,
   "title": "Checkpoint Operator Performance",
+      "type": "row",
+      "id":${id},
+        "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": ${rowOrder}
+              },
   "titleSize": "h6"
 }

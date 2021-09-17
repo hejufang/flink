@@ -17,7 +17,7 @@
 ################################################################################
 
 {
-  "collapse": true,
+  "collapsed": true,
   "height": 250,
   "panels": [
   {
@@ -27,7 +27,13 @@
       "dashes": false,
       "datasource": "${datasource}",
       "fill": 1,
-      "id": 81,
+      "id": ${id},
+      "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 0,
+                "y": ${rowOrder}
+              },
       "legend": {
         "alignAsTable": true,
         "avg": true,
@@ -96,7 +102,13 @@
       "dashes": false,
       "datasource": "${datasource}",
       "fill": 1,
-      "id": 82,
+      "id": ${id},
+      "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 12,
+                "y": ${rowOrder}
+              },
       "legend": {
         "alignAsTable": true,
         "avg": true,
@@ -164,5 +176,13 @@
     "repeatRowId": null,
     "showTitle": false,
     "title": "Checkpoint Timer",
+        "type": "row",
+        "id":${id},
+          "gridPos": {
+                  "h": 1,
+                  "w": 24,
+                  "x": 0,
+                  "y": ${rowOrder}
+                },
     "titleSize": "h6"
 }

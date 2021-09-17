@@ -25,6 +25,7 @@ global:
         fullRestarts,
         fullRestartsRate,
         downtime,
+        uptime,
         restartingTime,
         executionStateTime,
         executionFailNum,
@@ -72,6 +73,7 @@ non-global:
     [
       # job info
         downtime,
+        uptime,
         fullRestarts,
         executionFailNum,
         executionStatus,
@@ -138,6 +140,7 @@ non-global:
         numberOfSuccessfulSpeculation,
       # CPU
         Load,
+        Cores,
       # Checkpoints
         numberOfContinuousCheckpointFailure,
         numberOfTriggerFailedCheckpoints,

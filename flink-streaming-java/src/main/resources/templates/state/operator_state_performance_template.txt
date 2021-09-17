@@ -17,7 +17,7 @@
 ################################################################################
 
 {
-  "collapse": true,
+  "collapsed": true,
   "height": 250,
   "panels": [{
     "aliasColors": {},
@@ -26,7 +26,13 @@
     "dashes": false,
     "datasource": "${datasource}",
     "fill": 1,
-    "id": 112,
+    "id": ${id},
+     "gridPos": {
+          "h": 7,
+          "w": 12,
+          "x": 0,
+          "y": ${rowOrder}
+        },
     "legend": {
       "alignAsTable": true,
       "avg": true,
@@ -96,7 +102,13 @@
     "dashes": false,
     "datasource": "${datasource}",
     "fill": 1,
-    "id": 113,
+    "id": ${id},
+    "gridPos": {
+              "h": 7,
+              "w": 12,
+              "x": 12,
+              "y": ${rowOrder}
+            },
     "legend": {
       "alignAsTable": true,
       "avg": true,
@@ -166,7 +178,13 @@
     "dashes": false,
     "datasource": "${datasource}",
     "fill": 1,
-    "id": 114,
+    "id": ${id},
+    "gridPos": {
+              "h": 7,
+              "w": 12,
+              "x": 0,
+              "y": ${rowOrder}
+            },
     "legend": {
       "alignAsTable": true,
       "avg": true,
@@ -237,7 +255,13 @@
     "dashes": false,
     "datasource": "${datasource}",
     "fill": 1,
-    "id": 115,
+    "id": ${id},
+    "gridPos": {
+              "h": 7,
+              "w": 12,
+              "x": 12,
+              "y": ${rowOrder}
+            },
     "legend": {
       "alignAsTable": true,
       "avg": true,
@@ -308,7 +332,13 @@
     "dashes": false,
     "datasource": "${datasource}",
     "fill": 1,
-    "id": 116,
+    "id": ${id},
+    "gridPos": {
+              "h": 7,
+              "w": 12,
+              "x": 0,
+              "y": ${rowOrder}
+            },
     "legend": {
       "alignAsTable": true,
       "avg": true,
@@ -379,7 +409,13 @@
     "dashes": false,
     "datasource": "${datasource}",
     "fill": 1,
-    "id": 117,
+    "id": ${id},
+    "gridPos": {
+              "h": 7,
+              "w": 12,
+              "x": 12,
+              "y": ${rowOrder}
+            },
     "legend": {
       "alignAsTable": true,
       "avg": true,
@@ -450,7 +486,13 @@
       "dashes": false,
       "datasource": "${datasource}",
       "fill": 1,
-      "id": 120,
+      "id": ${id},
+      "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 0,
+                "y": ${rowOrder}
+              },
       "legend": {
         "alignAsTable": true,
         "avg": true,
@@ -521,7 +563,13 @@
       "dashes": false,
       "datasource": "${datasource}",
       "fill": 1,
-      "id": 121,
+      "id": ${id},
+      "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 12,
+                "y": ${rowOrder}
+              },
       "legend": {
         "alignAsTable": true,
         "avg": true,
@@ -592,7 +640,13 @@
       "dashes": false,
       "datasource": "${datasource}",
       "fill": 1,
-      "id": 122,
+      "id": ${id},
+      "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 0,
+                "y": ${rowOrder}
+              },
       "legend": {
         "alignAsTable": true,
         "avg": true,
@@ -662,7 +716,13 @@
       "dashes": false,
       "datasource": "${datasource}",
       "fill": 1,
-      "id": 123,
+      "id": ${id},
+      "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 12,
+                "y": ${rowOrder}
+              },
       "legend": {
         "alignAsTable": true,
         "avg": true,
@@ -731,5 +791,13 @@
   "repeatRowId": null,
   "showTitle": false,
   "title": "Operator State Performance",
+  "type": "row",
+    "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": ${rowOrder}
+          },
+  "id":${id},
   "titleSize": "h6"
 }

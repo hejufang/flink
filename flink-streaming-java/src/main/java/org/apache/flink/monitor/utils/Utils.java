@@ -17,6 +17,7 @@
 
 package org.apache.flink.monitor.utils;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.monitor.Dashboard;
 import org.apache.flink.monitor.JobMeta;
@@ -47,6 +48,7 @@ import java.util.stream.Collectors;
 public class Utils {
 	private static final Logger LOG = LoggerFactory.getLogger(Utils.class);
 	private static final Pattern CLUSTER_WITH_DC_PATTERN = Pattern.compile("(.*)\\.service\\.(\\w+)");
+	private static final String RMQ_CONSUMER_DASHBOARD_URL_FORMAT = "%s/dashboard/db/rocketmq-health_diagnosisjian-kong?refresh=1m&orgId=1&from=now-12h&to=now&var-cluster=%s&var-cg=%s&var-dc=*&var-topic=%s&var-data_source=%s";
 
 	public static List<String> getTasks(JobGraph jobGraph) {
 		List<String> tasks = new ArrayList<>();
@@ -69,6 +71,12 @@ public class Utils {
 	public static List<String> filterLookupOperators(List<String> operators) {
 		return operators.stream()
 			.filter(s -> s.startsWith("LookupJoin"))
+			.collect(Collectors.toList());
+	}
+
+	public static List<String> filterWindowOperators(List<String> operators) {
+		return operators.stream()
+			.filter(s -> s.contains("Window"))
 			.collect(Collectors.toList());
 	}
 
@@ -110,13 +118,31 @@ public class Utils {
 		for (Object object : jsonArray) {
 			JSONObject jsonObject = (JSONObject) object;
 			String kafkaCluster = (String) jsonObject.get("cluster");
-			String kafkaTopicPrefix = KafkaUtil.getKafkaTopicPrefix(kafkaCluster, kafkaServerUrl);
+			Tuple2<String, String> metricPrefix = KafkaUtil.getKafkaTopicPrefix(kafkaCluster, kafkaServerUrl);
+			String kafkaTopicPrefix = metricPrefix.f0;
 			String topic = (String) jsonObject.get("topic");
 			String consumer = (String) jsonObject.get("consumer");
 			String metric = String.format("%s.%s.%s.lag.size", kafkaTopicPrefix, topic, consumer);
 			kafkaMetricsList.add(metric);
 		}
 		return kafkaMetricsList;
+	}
+
+	public static List<Tuple2<String, String>> getKafkaConsumerUrls(String kafkaServerUrl, String dataSource) {
+		List<Tuple2<String, String>> kafkaConsumerUrls = new ArrayList<>();
+		JSONArray jsonArray = getKafkaTopics();
+		for (Object object : jsonArray) {
+			JSONObject jsonObject = (JSONObject) object;
+			String kafkaCluster = (String) jsonObject.get("cluster");
+			Tuple2<String, String> metricPrefix = KafkaUtil.getKafkaTopicPrefix(kafkaCluster, kafkaServerUrl);
+			String kafkaTopicPrefix = metricPrefix.f0;
+			String kafkaBrokerPrefix = metricPrefix.f1;
+			String topic = (String) jsonObject.get("topic");
+			String consumer = (String) jsonObject.get("consumer");
+			String url = KafkaUtil.getKafkaConsumerDashboardUrl(consumer, topic, kafkaTopicPrefix, kafkaBrokerPrefix, dataSource);
+			kafkaConsumerUrls.add(Tuple2.of(topic, url));
+		}
+		return kafkaConsumerUrls;
 	}
 
 	public static JSONArray getKafkaTopics() {
@@ -240,5 +266,27 @@ public class Utils {
 						ConfigConstants.REGISTER_DASHBOARD_ENABLED, ConfigConstants.REGISTER_DASHBOARD_ENABLED_DEFAULT))) {
 			registerDashboard(streamGraph, jobGraph);
 		}
+	}
+
+	public static <T> List<List<T>> splitList(List<T> source, int subListSize) {
+		List<List<T>> result = new ArrayList<>();
+		int sourceSize = source.size();
+		int size = (sourceSize % subListSize) == 0 ? (sourceSize / subListSize) : ((sourceSize / subListSize) + 1);
+		for (int i = 0; i < size; i++) {
+			List<T> subList = new ArrayList<T>();
+			for (int j = i * subListSize; j < (i + 1) * subListSize; j++) {
+				if (j < sourceSize) {
+					subList.add(source.get(j));
+				}
+			}
+			result.add(subList);
+		}
+		return result;
+	}
+
+	public static String getRmqDashboardUrl(String cluster, String consumerGroup, String topic, String dataSource) {
+		String grafanaDomainUrl = System.getProperty(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+			ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
+		return String.format(RMQ_CONSUMER_DASHBOARD_URL_FORMAT, grafanaDomainUrl, cluster, consumerGroup, topic, dataSource);
 	}
 }

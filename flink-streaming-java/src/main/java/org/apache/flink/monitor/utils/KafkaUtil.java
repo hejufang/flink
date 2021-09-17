@@ -17,6 +17,9 @@
 
 package org.apache.flink.monitor.utils;
 
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ConfigConstants;
+
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -31,8 +34,10 @@ import java.io.IOException;
 public class KafkaUtil {
 	private static final String METRICS_PREFIX_QUERY_URL =
 		"/queryClusterMetricsPrefix.do?cluster=%s";
+	private static final String KAFKA_CONSUMER_DASHBOARD_URL_FORMAT = "%s/dashboard/db/data-inf-kafka-user-consumer_offset?orgId=1&var-consumer_group=%s&var-topic=%s&var-topic_related_metric_prefix=%s&var-broker_related_metric_prefix=%s&var-data_source=%s&var-dc=*&refresh=1m";
 	private static final String CLUSTER_METRICS_PREFIX_KEY = "clusterMetricsPrefix";
 	private static final String TOPIC_RELATED_METRIC_PREFIX = "topic_related_metric_prefix";
+	private static final String BROKER_RELATED_METRIC_PREFIX = "broker_related_metric_prefix";
 	private static final Logger LOG = LoggerFactory.getLogger(KafkaUtil.class);
 	private static final int MAX_RETRY_TIMES = 3;
 	private static final String METRICS_SEPARATOR = ",";
@@ -40,7 +45,7 @@ public class KafkaUtil {
 	/**
 	 * @return Kafka topic prefix. Return null if there is something wrong.
 	 */
-	public static String getKafkaTopicPrefix(String cluster, String kafkaServerUrl) {
+	public static Tuple2<String, String> getKafkaTopicPrefix(String cluster, String kafkaServerUrl) {
 		String url = String.format(kafkaServerUrl + METRICS_PREFIX_QUERY_URL, cluster);
 		LOG.info("kafka metrics query url = {}", url);
 		int retryTimes = 0;
@@ -63,12 +68,23 @@ public class KafkaUtil {
 				if (topicMetricPrefix != null && topicMetricPrefix.contains(METRICS_SEPARATOR)) {
 					topicMetricPrefix = topicMetricPrefix.split(METRICS_SEPARATOR)[0];
 				}
-				return topicMetricPrefix;
+				String brokerMetricPrefix =
+					(String) kafkaMetricPrefix.get(BROKER_RELATED_METRIC_PREFIX);
+				if (brokerMetricPrefix != null && brokerMetricPrefix.contains(METRICS_SEPARATOR)) {
+					brokerMetricPrefix = brokerMetricPrefix.split(METRICS_SEPARATOR)[0];
+				}
+				return Tuple2.of(topicMetricPrefix, brokerMetricPrefix);
 			} catch (IOException | ParseException e) {
 				LOG.warn("Failed to get kafka topic prefix. kafka cluster = {}, " +
 					"kafkaServerUrl = {}", cluster, kafkaServerUrl, e);
 			}
 		}
 		return null;
+	}
+
+	public static String getKafkaConsumerDashboardUrl(String consumerGroup, String topic, String topicPrefix, String brokerPrefix, String datasource) {
+		String grafanaDomainUrl = System.getProperty(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+			ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
+		return String.format(KAFKA_CONSUMER_DASHBOARD_URL_FORMAT, grafanaDomainUrl, consumerGroup, topic, topicPrefix, brokerPrefix, datasource);
 	}
 }
