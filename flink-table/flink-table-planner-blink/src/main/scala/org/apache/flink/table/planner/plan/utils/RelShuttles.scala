@@ -175,11 +175,13 @@ class ExpandTableScanShuttle extends RelShuttleImpl {
         val table = tableScan.getTable
         table match {
           case viewTable: SqlCatalogViewTable =>
-            val rel = viewTable.convertToRelReuse(ViewExpanders.simpleContext(tableScan.getCluster))
+            val rel = viewTable.convertToRelReuse(
+              ViewExpanders.simpleContext(tableScan.getCluster, tableScan.getHints))
             rel.accept(this)
           case _: CatalogSourceTable[_] | _: QueryOperationCatalogViewTable |
               _: LegacyCatalogSourceTable[_] =>
-            val rel = table.toRel(ViewExpanders.simpleContext(tableScan.getCluster))
+            val rel = table.toRel(
+              ViewExpanders.simpleContext(tableScan.getCluster, tableScan.getHints))
             rel.accept(this)
           case _ => tableScan
         }
