@@ -29,7 +29,7 @@ import java.util.function.BiFunction;
 public interface CacheStrategy<K, V> extends MemorySizeListener {
 
 	/** Perform some initial configuration of the cache strategy. */
-	void initialize(long initialSize, BiFunction<K, V, Integer> kVSizeEstimator, BiConsumer<K, V> removeListener);
+	void initialize(long initialMemorySize, BiFunction<K, V, Integer> kVSizeEstimator, BiConsumer<K, V> removeListener);
 
 	/**
 	 * Returns the value associated with {@code key} in this cache,

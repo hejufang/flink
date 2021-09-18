@@ -34,9 +34,9 @@ public class LFUStrategy<K, V> implements CacheStrategy<K, V> {
 	private org.apache.flink.shaded.com.github.benmanes.caffeine.cache.Cache<K, V> delegateCache;
 
 	@Override
-	public void initialize(long initialSize, BiFunction<K, V, Integer> kVSizeEstimator, BiConsumer<K, V> removeListener) {
+	public void initialize(long initialMemorySize, BiFunction<K, V, Integer> kVSizeEstimator, BiConsumer<K, V> removeListener) {
 		delegateCache = Caffeine.newBuilder()
-			.maximumWeight(initialSize)
+			.maximumWeight(initialMemorySize)
 			.weigher(kVSizeEstimator::apply)
 			.executor(Runnable::run)
 			.removalListener((k, v, removalCause) -> {

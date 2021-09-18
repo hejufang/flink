@@ -31,20 +31,20 @@ import java.util.function.BiFunction;
  * LRU cache strategy implemented by {@link LinkedHashMap}.
  */
 public class LRUStrategy<K, V> implements CacheStrategy<K, V> {
-	private long maxSize;
+	private long maxMemorySize;
 	private BiFunction<K, V, Integer> kVSizeEstimator;
 	private LinkedHashMap<K, V> map;
 
 	@Override
-	public void initialize(long initialSize, BiFunction<K, V, Integer> kVSizeEstimator, BiConsumer<K, V> removeListener) {
-		this.maxSize = initialSize;
+	public void initialize(long initialMemorySize, BiFunction<K, V, Integer> kVSizeEstimator, BiConsumer<K, V> removeListener) {
+		this.maxMemorySize = initialMemorySize;
 		this.kVSizeEstimator = kVSizeEstimator;
 		this.map = new LinkedHashMap<K, V>(1024, 0.75f, true) {
 			private static final long serialVersionUID = 1;
 
 			@Override
 			protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
-				if (LRUStrategy.this.size() > maxSize) {
+				if (LRUStrategy.this.estimateMemorySize() > maxMemorySize) {
 					removeListener.accept(eldest.getKey(), eldest.getValue());
 					return true;
 				}
@@ -55,19 +55,19 @@ public class LRUStrategy<K, V> implements CacheStrategy<K, V> {
 
 	@Override
 	public V getIfPresent(K key) {
-		ensureSize();
+		ensureMemorySize();
 		return map.get(key);
 	}
 
 	@Override
 	public void put(K key, V value) {
-		ensureSize();
+		ensureMemorySize();
 		map.put(key, value);
 	}
 
 	@Override
 	public void delete(K key) {
-		ensureSize();
+		ensureMemorySize();
 		map.remove(key);
 	}
 
@@ -91,7 +91,7 @@ public class LRUStrategy<K, V> implements CacheStrategy<K, V> {
 
 	@Override
 	public long size() {
-		return kVSizeEstimator.apply(null, null) * map.size();
+		return map.size();
 	}
 
 	@Override
@@ -99,10 +99,14 @@ public class LRUStrategy<K, V> implements CacheStrategy<K, V> {
 		// do nothing
 	}
 
-	private void ensureSize() {
-		while (size() > maxSize) {
+	private void ensureMemorySize() {
+		while (estimateMemorySize() > maxMemorySize) {
 			map.put(null, null);
 			map.remove(null);
 		}
+	}
+
+	private long estimateMemorySize() {
+		return kVSizeEstimator.apply(null, null) * map.size();
 	}
 }
