@@ -43,6 +43,7 @@ common:
   kubernetes.taskmanager.cpu: 2.0
   kubernetes.jobmanager.cpu: 1.0
   kubernetes.jobmanager.service-account: gts
+  kubernetes.rest-service.exposed.type: ClusterIP
 
   prune.buffer.threshold: 262144
 
