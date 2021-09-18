@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
+import org.apache.flink.runtime.checkpoint.metadata.CheckpointStateMetadata;
 import org.apache.flink.runtime.checkpoint.metadata.MetadataSerializer;
 import org.apache.flink.runtime.checkpoint.metadata.MetadataSerializers;
 import org.apache.flink.runtime.checkpoint.metadata.MetadataV3Serializer;
@@ -93,6 +94,14 @@ public class Checkpoints {
 		out.writeInt(MetadataV3Serializer.VERSION);
 		MetadataV3Serializer.serialize(checkpointMetadata, out);
 	}
+
+	public static void storeCheckpointStateMetadata(
+			CheckpointStateMetadata checkpointStateMetadata,
+			OutputStream out) throws IOException {
+		DataOutputStream dos = new DataOutputStream(out);
+		MetadataV3Serializer.serializeStateMeta(checkpointStateMetadata, dos);
+	}
+
 
 	// ------------------------------------------------------------------------
 	//  Reading and validating checkpoint metadata

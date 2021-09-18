@@ -18,9 +18,10 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 
-import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -35,32 +36,42 @@ public class OperatorStateMeta implements Serializable {
 	/** The id of the operator. */
 	private final OperatorID operatorID;
 
+	@Nullable
 	private String operatorName;
 
-	@Nonnull
+	@Nullable
+	private String uid;
+
+	@Nullable
 	private RegisteredOperatorStateMeta registeredOperatorStateMeta;
 
-	@Nonnull
+	@Nullable
 	private RegisteredKeyedStateMeta registeredKeyedStateMeta;
 
 	public OperatorStateMeta(OperatorID operatorID) {
-		this.operatorID = operatorID;
+		this(operatorID, null, null, null, null);
 	}
 
-	public OperatorStateMeta(OperatorID operatorID, RegisteredOperatorStateMeta registeredOperatorStateMeta, RegisteredKeyedStateMeta registeredKeyedStateMeta) {
+	@VisibleForTesting
+	public OperatorStateMeta(OperatorID operatorID, String operatorName, String uid) {
+		this(operatorID, operatorName, uid, null, null);
+	}
+
+	public OperatorStateMeta(OperatorID operatorID, String operatorName, String uid, RegisteredOperatorStateMeta registeredOperatorStateMeta, RegisteredKeyedStateMeta registeredKeyedStateMeta) {
 		this.operatorID = operatorID;
-		this.registeredKeyedStateMeta = registeredKeyedStateMeta;
+		this.uid = uid;
+		this.operatorName = operatorName;
 		this.registeredOperatorStateMeta = registeredOperatorStateMeta;
+		this.registeredKeyedStateMeta = registeredKeyedStateMeta;
 	}
 
 	public OperatorID getOperatorID() {
 		return operatorID;
 	}
 
-	public void mergeSubtaskStateMeta(OperatorSubtaskStateMeta operatorSubtaskStateMeta) {
+	public OperatorStateMeta mergeSubtaskStateMeta(OperatorSubtaskStateMeta operatorSubtaskStateMeta) {
 
 		RegisteredKeyedStateMeta mergedKeyedStateMeta = operatorSubtaskStateMeta.getRegisteredKeyedStateMeta();
-
 		RegisteredOperatorStateMeta mergedOperatorStateMeta = operatorSubtaskStateMeta.getRegisteredOperatorStateMeta();
 
 		if (registeredKeyedStateMeta == null){
@@ -74,17 +85,21 @@ public class OperatorStateMeta implements Serializable {
 		} else {
 			registeredOperatorStateMeta.merge(mergedOperatorStateMeta);
 		}
+		return this;
 	}
 
 	@Override
 	public String toString() {
 		return "OperatorState(" +
 			"operatorID: " + operatorID +
+			", operatorName: " + operatorName +
+			", operatorUid: " + uid +
 			", registeredOperatorStateMeta: " + registeredOperatorStateMeta +
 			", registeredKeyedStateMeta: " + registeredKeyedStateMeta +
 			')';
 	}
 
+	@Nullable
 	public String getOperatorName() {
 		return operatorName;
 	}
@@ -93,9 +108,18 @@ public class OperatorStateMeta implements Serializable {
 		this.operatorName = operatorName;
 	}
 
+	@Nullable
+	public String getUid() {
+		return this.uid;
+	}
+
+	public void setUid (String uid) {
+		this.uid = uid;
+	}
+
 	@Override
 	public int hashCode() {
-		return 31 * Objects.hash(operatorID, registeredOperatorStateMeta, registeredKeyedStateMeta);
+		return 31 * Objects.hash(operatorID, registeredOperatorStateMeta, registeredKeyedStateMeta, uid, operatorName);
 	}
 
 	@Override
@@ -103,12 +127,21 @@ public class OperatorStateMeta implements Serializable {
 		if (obj instanceof OperatorStateMeta) {
 			OperatorStateMeta other = (OperatorStateMeta) obj;
 
-			return operatorID.equals(other.operatorID)
-				&& operatorName.equals(other.operatorName)
-				&& registeredOperatorStateMeta.equals(other.registeredOperatorStateMeta)
-				&& registeredKeyedStateMeta.equals(other.registeredKeyedStateMeta);
+			return Objects.equals(operatorID, other.operatorID)
+				&& Objects.equals(operatorName, other.operatorName)
+				&& Objects.equals(uid, other.uid)
+				&& Objects.equals(registeredOperatorStateMeta, other.registeredOperatorStateMeta)
+				&& Objects.equals(registeredKeyedStateMeta, other.registeredKeyedStateMeta);
 		} else {
 			return false;
 		}
+	}
+
+	public RegisteredOperatorStateMeta getOperatorStateMeta(){
+		return this.registeredOperatorStateMeta;
+	}
+
+	public RegisteredKeyedStateMeta getKeyedStateMeta(){
+		return this.registeredKeyedStateMeta;
 	}
 }

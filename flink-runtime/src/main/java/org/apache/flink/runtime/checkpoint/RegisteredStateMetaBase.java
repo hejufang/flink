@@ -29,7 +29,7 @@ import java.util.Objects;
 /**
  * Base class for all registered stateMeta in state backends.
  */
-abstract class RegisteredStateMetaBase implements Serializable, StateObject {
+public abstract class RegisteredStateMetaBase implements Serializable, StateObject {
 
 	private static final long serialVersionUID = 1L;
 
@@ -50,6 +50,10 @@ abstract class RegisteredStateMetaBase implements Serializable, StateObject {
 	 * This method is used to merge stateMeta of the same state in the same operator.
 	 */
 	public RegisteredStateMetaBase merge(RegisteredStateMetaBase registeredStateMetaBase){
+
+		if (registeredStateMetaBase == null){
+			return this;
+		}
 
 		Preconditions.checkArgument(registeredStateMetaBase.backendType.equals(backendType), "The merge operation is allowed only if the BackendType is the same");
 		Map<String, StateMetaData> mergedStateMeta = registeredStateMetaBase.getStateMetaData();

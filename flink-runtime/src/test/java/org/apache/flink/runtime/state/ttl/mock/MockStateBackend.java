@@ -92,6 +92,9 @@ public class MockStateBackend extends AbstractStateBackend {
 					}
 
 					@Override
+					public CheckpointMetadataOutputStream createStateMetadataOutputStream() { return null; }
+
+					@Override
 					public void disposeOnFailure() {
 
 					}

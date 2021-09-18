@@ -22,6 +22,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.api.common.operators.ResourceSpec;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.InputSplitSource;
 import org.apache.flink.runtime.OperatorIDPair;
@@ -34,10 +35,11 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 
 import javax.annotation.Nullable;
-
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -137,6 +139,9 @@ public class JobVertex implements java.io.Serializable {
 
 	/** Whether the vertex supports speculation. */
 	private boolean supportSpeculation = true;
+
+	/** Map of each operator uid and names. */
+	private Map<OperatorID, Tuple2<String, String>> chainedOperatorUidAndNames = new HashMap<>();
 
 	// --------------------------------------------------------------------------------------------
 
@@ -622,6 +627,14 @@ public class JobVertex implements java.io.Serializable {
 
 	public void setSupportSpeculation(boolean supportSpeculation) {
 		this.supportSpeculation = supportSpeculation;
+	}
+
+	public void setOperatorUidAndNames(Map<OperatorID, Tuple2<String, String>> chainedOperatorUidAndNames) {
+		this.chainedOperatorUidAndNames = chainedOperatorUidAndNames;
+	}
+
+	public Map<OperatorID, Tuple2<String, String>> getOperatorUidAndNames() {
+		return this.chainedOperatorUidAndNames;
 	}
 
 	// --------------------------------------------------------------------------------------------

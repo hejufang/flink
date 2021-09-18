@@ -46,6 +46,8 @@ public class FsCheckpointStorageLocation extends FsCheckpointStreamFactory imple
 
 	private final Path metadataFilePath;
 
+	private final Path stateMetadataFilePath;
+
 	private final CheckpointStorageLocationReference reference;
 
 	private final int fileStateSizeThreshold;
@@ -91,6 +93,7 @@ public class FsCheckpointStorageLocation extends FsCheckpointStreamFactory imple
 		Path metadataDir = EntropyInjector.removeEntropyMarkerIfPresent(fileSystem, checkpointDir);
 
 		this.metadataFilePath = new Path(metadataDir, AbstractFsCheckpointStorage.METADATA_FILE_NAME);
+		this.stateMetadataFilePath = new Path(metadataDir, AbstractFsCheckpointStorage.STATE_METADATA_FILE_NAME);
 		this.fileStateSizeThreshold = fileStateSizeThreshold;
 		this.writeBufferSize = writeBufferSize;
 	}
@@ -123,6 +126,11 @@ public class FsCheckpointStorageLocation extends FsCheckpointStreamFactory imple
 	@Override
 	public CheckpointMetadataOutputStream createMetadataOutputStream() throws IOException {
 		return new FsCheckpointMetadataOutputStream(fileSystem, metadataFilePath, checkpointDirectory);
+	}
+
+	@Override
+	public CheckpointMetadataOutputStream createStateMetadataOutputStream() throws IOException {
+		return new FsCheckpointMetadataOutputStream(fileSystem, stateMetadataFilePath, checkpointDirectory);
 	}
 
 	@Override

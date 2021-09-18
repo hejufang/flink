@@ -44,6 +44,8 @@ public class PersistentMetadataCheckpointStorageLocation
 
 	private final Path metadataFilePath;
 
+	private final Path stateMetadataFilePath;
+
 	/**
 	 * Creates a checkpoint storage persists metadata to a file system and stores state
 	 * in line in state handles with the metadata.
@@ -61,6 +63,7 @@ public class PersistentMetadataCheckpointStorageLocation
 		this.fileSystem = checkNotNull(fileSystem);
 		this.checkpointDirectory = checkNotNull(checkpointDir);
 		this.metadataFilePath = new Path(checkpointDir, AbstractFsCheckpointStorage.METADATA_FILE_NAME);
+		this.stateMetadataFilePath = new Path(checkpointDir, AbstractFsCheckpointStorage.STATE_METADATA_FILE_NAME);
 	}
 
 	// ------------------------------------------------------------------------
@@ -68,6 +71,11 @@ public class PersistentMetadataCheckpointStorageLocation
 	@Override
 	public CheckpointMetadataOutputStream createMetadataOutputStream() throws IOException {
 		return new FsCheckpointMetadataOutputStream(fileSystem, metadataFilePath, checkpointDirectory);
+	}
+
+	@Override
+	public CheckpointMetadataOutputStream createStateMetadataOutputStream() throws IOException {
+		return new FsCheckpointMetadataOutputStream(fileSystem, stateMetadataFilePath, checkpointDirectory);
 	}
 
 	@Override

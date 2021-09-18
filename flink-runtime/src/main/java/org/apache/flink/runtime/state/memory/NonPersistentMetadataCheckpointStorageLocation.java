@@ -49,6 +49,11 @@ public class NonPersistentMetadataCheckpointStorageLocation
 	}
 
 	@Override
+	public CheckpointMetadataOutputStream createStateMetadataOutputStream() throws IOException {
+		return new MetadataOutputStream();
+	}
+
+	@Override
 	public void disposeOnFailure() {}
 
 	@Override

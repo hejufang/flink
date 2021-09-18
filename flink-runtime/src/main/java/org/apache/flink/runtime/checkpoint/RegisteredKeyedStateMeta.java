@@ -50,6 +50,10 @@ public class RegisteredKeyedStateMeta extends RegisteredStateMetaBase {
 
 	@Override
 	public RegisteredStateMetaBase merge(RegisteredStateMetaBase registeredStateMetaBase){
+
+		if (registeredStateMetaBase == null){
+			return this;
+		}
 		Preconditions.checkArgument(registeredStateMetaBase instanceof RegisteredKeyedStateMeta);
 		Preconditions.checkArgument(((RegisteredKeyedStateMeta) registeredStateMetaBase).getKeySerializer().equals(keySerializer), "The merge operation is allowed only if the keySerializer is the same");
 		return super.merge(registeredStateMetaBase);
@@ -59,8 +63,8 @@ public class RegisteredKeyedStateMeta extends RegisteredStateMetaBase {
 	public String toString() {
 		return "RegisteredKeyedStateMeta{" +
 				"keySerializer=" + keySerializer +
-				"backendType=" + backendType +
-				"stateMetaDataMap=" + stateMetaDataMap +
+				", backendType=" + backendType +
+				", stateMetaDataMap=" + stateMetaDataMap +
 				'}';
 	}
 

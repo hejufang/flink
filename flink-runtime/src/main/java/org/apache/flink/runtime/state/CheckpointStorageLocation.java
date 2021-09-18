@@ -41,6 +41,14 @@ public interface CheckpointStorageLocation extends CheckpointStreamFactory {
 	CheckpointMetadataOutputStream createMetadataOutputStream() throws IOException;
 
 	/**
+	 * Creates the output stream to persist the checkpoint stateMetadata to.
+	 *
+	 * @return The output stream to persist the checkpoint stateMetadata to.
+	 * @throws IOException Thrown, if the stream cannot be opened due to an I/O error.
+	 */
+	CheckpointMetadataOutputStream createStateMetadataOutputStream() throws IOException;
+
+	/**
 	 * Disposes the checkpoint location in case the checkpoint has failed.
 	 * This method disposes all the data at that location, not just the data written
 	 * by the particular node or process that calls this method.

@@ -281,6 +281,37 @@ public class StreamingJobGraphGeneratorTest extends TestLogger {
 	}
 
 	@Test
+	public void testOperatorUid() throws Exception {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+		List<String> resList = new ArrayList<>();
+
+		// set parallelism to 2 to avoid chaining with source in case when available processors is 1.
+		env.setParallelism(2);
+
+		// fromElements -> CHAIN(Map -> Print)
+		env.fromElements(1, 2, 3).uid("sourceUid")
+			.map(new MapFunction<Integer, Integer>() {
+				@Override
+				public Integer map(Integer value) throws Exception {
+					return value;
+				}
+			}).uid("mapUid")
+			.print().uid("printUid");
+
+		JobGraph jobGraph = StreamingJobGraphGenerator.createJobGraph(env.getStreamGraph());
+
+		List<JobVertex> verticesSorted = jobGraph.getVerticesSortedTopologicallyFromSources();
+		for (JobVertex jobVertex : verticesSorted) {
+			for (Map.Entry<OperatorID, Tuple2<String, String>> operatorUidAndName : jobVertex.getOperatorUidAndNames().entrySet()) {
+				resList.add(operatorUidAndName.getValue().f0);
+			}
+		}
+		resList.sort(String::compareTo);
+		assertEquals(resList, Arrays.asList("mapUid", "printUid", "sourceUid"));
+	}
+
+	@Test
 	public void testOperatorCoordinatorAddedToJobVertex() {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		DataStream<Integer> stream = env.fromSource(

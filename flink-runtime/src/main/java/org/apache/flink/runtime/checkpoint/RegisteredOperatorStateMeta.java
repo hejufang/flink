@@ -39,7 +39,7 @@ public class RegisteredOperatorStateMeta extends RegisteredStateMetaBase {
 	public String toString() {
 		return "RegisteredOperatorStateMeta{" +
 				"backendType=" + backendType +
-				"stateMetaDataMap=" + stateMetaDataMap +
+				", stateMetaDataMap=" + stateMetaDataMap +
 				'}';
 	}
 

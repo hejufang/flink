@@ -21,6 +21,7 @@ package org.apache.flink.runtime.checkpoint;
 import javax.annotation.Nonnull;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * This class encapsulates the state meta for one parallel instance of an operator.Among them, {@link RegisteredOperatorStateMeta}
@@ -48,8 +49,9 @@ public class OperatorSubtaskStateMeta implements Serializable {
 		if (obj instanceof OperatorSubtaskStateMeta) {
 			OperatorSubtaskStateMeta other = (OperatorSubtaskStateMeta) obj;
 
-			return registeredOperatorStateMeta.equals(other.registeredOperatorStateMeta)
-				&& registeredKeyedStateMeta.equals(other.registeredKeyedStateMeta);
+			// registeredOperatorStateMeta or registeredKeyedStateMeta could be null
+			return Objects.equals(registeredOperatorStateMeta, other.registeredOperatorStateMeta)
+				&& Objects.equals(registeredKeyedStateMeta, other.registeredKeyedStateMeta);
 		} else {
 			return false;
 		}
@@ -57,9 +59,7 @@ public class OperatorSubtaskStateMeta implements Serializable {
 
 	@Override
 	public int hashCode() {
-		int result = getRegisteredKeyedStateMeta().hashCode();
-		result = 31 * result + getRegisteredOperatorStateMeta().hashCode();
-		return result;
+		return Objects.hash(registeredOperatorStateMeta, registeredKeyedStateMeta);
 	}
 
 	@Override
@@ -79,4 +79,13 @@ public class OperatorSubtaskStateMeta implements Serializable {
 	public RegisteredKeyedStateMeta getRegisteredKeyedStateMeta() {
 		return registeredKeyedStateMeta;
 	}
+
+	public static OperatorSubtaskStateMeta empty(){
+		return new OperatorSubtaskStateMeta(null, null);
+	}
+
+	public static OperatorSubtaskStateMeta of(RegisteredOperatorStateMeta registeredOperatorStateMeta, RegisteredKeyedStateMeta registeredKeyedStateMeta){
+		return new OperatorSubtaskStateMeta(registeredOperatorStateMeta, registeredKeyedStateMeta);
+	}
+
 }

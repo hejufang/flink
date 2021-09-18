@@ -467,6 +467,8 @@ public class StreamingJobGraphGenerator {
 			}
 		}
 
+		jobVertex.setOperatorUidAndNames(chainInfo.getChainedOperatorUidAndNames(streamNodeId));
+
 		jobVertex.setMetricName(chainedMetricNames.get(streamNodeId));
 
 		jobVertex.setResources(chainedMinResources.get(streamNodeId), chainedPreferredResources.get(streamNodeId));
@@ -1036,6 +1038,7 @@ public class StreamingJobGraphGenerator {
 		private final Map<Integer, byte[]> hashes;
 		private final List<Map<Integer, byte[]>> legacyHashes;
 		private final Map<Integer, List<Tuple2<byte[], byte[]>>> chainedOperatorHashes;
+		private final Map<Integer, Map<OperatorID, Tuple2<String, String>>> chainedOperatorUidAndNames;
 		private final List<OperatorCoordinator.Provider> coordinatorProviders;
 		private final StreamGraph streamGraph;
 
@@ -1048,6 +1051,7 @@ public class StreamingJobGraphGenerator {
 			this.hashes = hashes;
 			this.legacyHashes = legacyHashes;
 			this.chainedOperatorHashes = new HashMap<>();
+			this.chainedOperatorUidAndNames = new HashMap<>();
 			this.coordinatorProviders = new ArrayList<>();
 			this.streamGraph = streamGraph;
 		}
@@ -1064,6 +1068,10 @@ public class StreamingJobGraphGenerator {
 			return chainedOperatorHashes.get(startNodeId);
 		}
 
+		private Map<OperatorID, Tuple2<String, String>> getChainedOperatorUidAndNames(int startNodeId) {
+			return chainedOperatorUidAndNames.get(startNodeId);
+		}
+
 		private List<OperatorCoordinator.Provider> getCoordinatorProviders() {
 			return coordinatorProviders;
 		}
@@ -1072,17 +1080,25 @@ public class StreamingJobGraphGenerator {
 			List<Tuple2<byte[], byte[]>> operatorHashes =
 					chainedOperatorHashes.computeIfAbsent(startNodeId, k -> new ArrayList<>());
 
+			Map<OperatorID, Tuple2<String, String>> operatorUidAndNames =
+					chainedOperatorUidAndNames.computeIfAbsent(startNodeId, k -> new HashMap<>());
+
 			byte[] primaryHashBytes = hashes.get(currentNodeId);
 
 			for (Map<Integer, byte[]> legacyHash : legacyHashes) {
 				operatorHashes.add(new Tuple2<>(primaryHashBytes, legacyHash.get(currentNodeId)));
 			}
 
+			OperatorID operatorID = new OperatorID(primaryHashBytes);
+
+			StreamNode streamNode = streamGraph.getStreamNode(currentNodeId);
+			operatorUidAndNames.put(operatorID, Tuple2.of(streamNode.getTransformationUID(), streamNode.getOperatorName()));
+
 			streamGraph
 					.getStreamNode(currentNodeId)
 					.getCoordinatorProvider(operatorName, new OperatorID(getHash(currentNodeId)))
 					.map(coordinatorProviders::add);
-			return new OperatorID(primaryHashBytes);
+			return operatorID;
 		}
 
 		private OperatorChainInfo newChain(Integer startNodeId) {

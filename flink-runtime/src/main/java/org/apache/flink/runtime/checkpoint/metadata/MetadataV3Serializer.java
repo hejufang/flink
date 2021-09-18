@@ -20,8 +20,17 @@ package org.apache.flink.runtime.checkpoint.metadata;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.state.StateDescriptor;
+import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.core.memory.DataInputViewStreamWrapper;
+import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.runtime.checkpoint.OperatorState;
+import org.apache.flink.runtime.checkpoint.OperatorStateMeta;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
+import org.apache.flink.runtime.checkpoint.RegisteredKeyedStateMeta;
+import org.apache.flink.runtime.checkpoint.RegisteredOperatorStateMeta;
+import org.apache.flink.runtime.checkpoint.RegisteredStateMetaBase;
+import org.apache.flink.runtime.checkpoint.StateMetaData;
 import org.apache.flink.runtime.checkpoint.StateObjectCollection;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.InputChannelStateHandle;
@@ -30,6 +39,8 @@ import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.ResultSubpartitionStateHandle;
 import org.apache.flink.runtime.state.StateObject;
 import org.apache.flink.runtime.state.StreamStateHandle;
+import org.apache.flink.runtime.state.tracker.BackendType;
+import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.function.BiConsumerWithException;
 
 import javax.annotation.Nullable;
@@ -37,6 +48,12 @@ import javax.annotation.Nullable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -53,6 +70,12 @@ public class MetadataV3Serializer extends MetadataV2V3SerializerBase implements 
 
 	/** The metadata format version. */
 	public static final int VERSION = 3;
+
+	private static final byte NULL_STATE_META = 0;
+	private static final byte KEYED_STATE_META = 1;
+	private static final byte OPERATOR_STATE_META = 2;
+	private static final byte NULL_STRING = 3;
+	private static final byte NON_NULL_STRING = 4;
 
 	/** The singleton instance of the serializer. */
 	public static final MetadataV3Serializer INSTANCE = new MetadataV3Serializer();
@@ -78,6 +101,170 @@ public class MetadataV3Serializer extends MetadataV2V3SerializerBase implements 
 	@Override
 	public CheckpointMetadata deserialize(DataInputStream dis, ClassLoader classLoader, String externalPointer) throws IOException {
 		return deserializeMetadata(dis, externalPointer);
+	}
+
+	// ------------------------------------------------------------------------
+	//  (De)serialization stateMeta
+	// ------------------------------------------------------------------------
+
+	public static void serializeStateMeta(CheckpointStateMetadata checkpointStateMetadata, DataOutputStream dos) throws IOException {
+		INSTANCE.serializeStateMetadata(checkpointStateMetadata, dos);
+	}
+
+	public CheckpointStateMetadata deserializeStateMeta(DataInputStream dis, ClassLoader classLoader, String externalPointer) throws IOException, ClassNotFoundException {
+		return deserializeStateMetadata(dis, externalPointer);
+	}
+
+	public void serializeStateMetadata(CheckpointStateMetadata checkpointStateMetadata, DataOutputStream dos) throws IOException {
+		// first: checkpoint ID
+		dos.writeLong(checkpointStateMetadata.getCheckpointId());
+
+		// then: OperatorStateMeta
+		Collection<OperatorStateMeta> operatorStateMetas = checkpointStateMetadata.getOperatorStateMetas();
+		dos.writeInt(operatorStateMetas.size());
+
+		for (OperatorStateMeta operatorStateMeta : operatorStateMetas) {
+			// Operator ID
+			dos.writeLong(operatorStateMeta.getOperatorID().getLowerPart());
+			dos.writeLong(operatorStateMeta.getOperatorID().getUpperPart());
+			// Operator Name
+			if (operatorStateMeta.getOperatorName() == null){
+				dos.writeByte(NULL_STRING);
+			} else {
+				dos.writeByte(NON_NULL_STRING);
+				dos.writeUTF(operatorStateMeta.getOperatorName());
+			}
+			// Operator Uid
+			if (operatorStateMeta.getUid() == null){
+				dos.writeByte(NULL_STRING);
+			} else {
+				dos.writeByte(NON_NULL_STRING);
+				dos.writeUTF(operatorStateMeta.getUid());
+			}
+			// OperatorStateMeta and KeyedStateMeta
+			serializeRegisteredStateMeta(operatorStateMeta.getOperatorStateMeta(), dos);
+			serializeRegisteredStateMeta(operatorStateMeta.getKeyedStateMeta(), dos);
+		}
+	}
+
+	protected void serializeRegisteredStateMeta(RegisteredStateMetaBase registeredStateMetaBase, DataOutputStream dos) throws IOException {
+
+		if (registeredStateMetaBase == null){
+			dos.writeByte(NULL_STATE_META);
+		} else if (registeredStateMetaBase instanceof RegisteredKeyedStateMeta){
+			RegisteredKeyedStateMeta keyedStateMeta = (RegisteredKeyedStateMeta) registeredStateMetaBase;
+
+			dos.writeByte(KEYED_STATE_META);
+			DataOutputViewStreamWrapper outView = new DataOutputViewStreamWrapper(dos);
+			TypeSerializerSnapshot.writeVersionedSnapshot(outView, keyedStateMeta.getKeySerializer().snapshotConfiguration());
+			dos.writeUTF(keyedStateMeta.getBackendType().name());
+
+			Map<String, StateMetaData> stateMetaDataMap = keyedStateMeta.getStateMetaData();
+			dos.writeInt(stateMetaDataMap.size());
+			for (Map.Entry<String, StateMetaData> entry : stateMetaDataMap.entrySet()) {
+				dos.writeUTF(entry.getKey());
+				dos.write(InstantiationUtil.serializeObject(entry.getValue().getStateDescriptor()));
+			}
+		} else if (registeredStateMetaBase instanceof RegisteredOperatorStateMeta){
+			RegisteredOperatorStateMeta operatorStateMeta = (RegisteredOperatorStateMeta) registeredStateMetaBase;
+
+			dos.writeByte(OPERATOR_STATE_META);
+			dos.writeUTF(operatorStateMeta.getBackendType().name());
+			Map<String, StateMetaData> stateMetaDataMap = operatorStateMeta.getStateMetaData();
+			dos.writeInt(stateMetaDataMap.size());
+
+			for (Map.Entry<String, StateMetaData> entry : stateMetaDataMap.entrySet()) {
+				dos.writeUTF(entry.getKey());
+				RegisteredOperatorStateMeta.OperatorStateMetaData stateMetaData = (RegisteredOperatorStateMeta.OperatorStateMetaData) (entry.getValue());
+				dos.writeInt(stateMetaData.getDistributeMode().ordinal());
+
+				ObjectOutputStream oos = new ObjectOutputStream(dos);
+				oos.writeObject(entry.getValue().getStateDescriptor());
+			}
+		} else {
+			throw new IllegalStateException("Unknown RegisteredStateMetaBase type: " + registeredStateMetaBase.getClass());
+		}
+
+	}
+
+	public CheckpointStateMetadata deserializeStateMetadata(DataInputStream dis, String externalPointer) throws IOException, ClassNotFoundException {
+
+		final long checkpointId = dis.readLong();
+		final Collection<OperatorStateMeta> operatorStateMetas;
+
+		if (checkpointId < 0) {
+			throw new IOException("invalid checkpoint ID: " + checkpointId);
+		}
+
+		final int numOperatorStateMeta = dis.readInt();
+
+		if (numOperatorStateMeta == 0){
+			operatorStateMetas = Collections.EMPTY_LIST;
+		} else if (numOperatorStateMeta > 0){
+			operatorStateMetas = new ArrayList<>(numOperatorStateMeta);
+			for (int i = 0; i < numOperatorStateMeta; i++) {
+
+				// OperatorID
+				OperatorID operatorID = new OperatorID(dis.readLong(), dis.readLong());
+
+				// OperatorName and uid
+				String operatorName = null;
+				String uid = null;
+				if (dis.readByte() != NULL_STRING) {
+					operatorName = dis.readUTF();
+				}
+
+				if (dis.readByte() != NULL_STRING) {
+					uid = dis.readUTF();
+				}
+
+				// RegisteredOperatorStateMeta And RegisteredKeyedStateMeta
+				RegisteredOperatorStateMeta registeredOperatorStateMeta = (RegisteredOperatorStateMeta) deserializeStateMetaData(dis, externalPointer);
+				RegisteredKeyedStateMeta registeredKeyedStateMeta = (RegisteredKeyedStateMeta) deserializeStateMetaData(dis, externalPointer);
+				OperatorStateMeta operatorStateMeta = new OperatorStateMeta(operatorID, operatorName, uid, registeredOperatorStateMeta, registeredKeyedStateMeta);
+				operatorStateMetas.add(operatorStateMeta);
+			}
+		} else {
+			throw new IOException("invalid number of OperatorStateMetas: " + numOperatorStateMeta);
+		}
+		return new CheckpointStateMetadata(checkpointId, operatorStateMetas);
+	}
+
+	private RegisteredStateMetaBase deserializeStateMetaData(DataInputStream dis, String externalPointer) throws IOException, ClassNotFoundException {
+
+		int stateMetaType = dis.readByte();
+		if (stateMetaType == NULL_STATE_META){
+			return null;
+		} else if (stateMetaType == KEYED_STATE_META){
+			// keySerializer
+			TypeSerializerSnapshot keySerializerSnapshot = TypeSerializerSnapshot.readVersionedSnapshot(new DataInputViewStreamWrapper(dis), getClass().getClassLoader());
+			// backendType
+			String backendTypeString = dis.readUTF();
+			int stateMetaMapSize = dis.readInt();
+			Map<String, StateMetaData> stateMetaDataMap = new HashMap<>();
+			for (int i = 0; i < stateMetaMapSize; i++) {
+				String key = dis.readUTF();
+				ObjectInputStream ois = new ObjectInputStream(dis);
+				StateDescriptor stateDescriptor = (StateDescriptor) ois.readObject();
+				stateMetaDataMap.put(key, new RegisteredKeyedStateMeta.KeyedStateMetaData(stateDescriptor.getName(), stateDescriptor.getType(), stateDescriptor));
+			}
+			return new RegisteredKeyedStateMeta(keySerializerSnapshot.restoreSerializer(), BackendType.valueOf(backendTypeString), stateMetaDataMap);
+		} else if (stateMetaType == OPERATOR_STATE_META){
+			// backendType
+			String backendTypeString = dis.readUTF();
+			int stateMetaMapSize = dis.readInt();
+			Map<String, StateMetaData> stateMetaDataMap = new HashMap<>();
+			for (int i = 0; i < stateMetaMapSize; i++) {
+				String key = dis.readUTF();
+				int mode = dis.readInt();
+				ObjectInputStream ois = new ObjectInputStream(dis);
+				StateDescriptor stateDescriptor = (StateDescriptor) ois.readObject();
+				stateMetaDataMap.put(key, new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.values()[mode], stateDescriptor.getName(), stateDescriptor.getType(), stateDescriptor));
+			}
+			return new RegisteredOperatorStateMeta(BackendType.valueOf(backendTypeString), stateMetaDataMap);
+		} else {
+			throw new IllegalStateException("Unknown stateMetaType num : " + stateMetaType);
+		}
 	}
 
 	// ------------------------------------------------------------------------
