@@ -83,6 +83,8 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final boolean lazyAllocate;
 
+	private final Duration requestNetworkSegmentTimeout;
+
 	public NettyShuffleEnvironmentConfiguration(
 			int numNetworkBuffers,
 			int networkBufferSize,
@@ -101,7 +103,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			int maxBuffersPerChannel,
 			long maxDelayTimeMs,
 			boolean isRecoverable,
-			boolean lazyAllocate) {
+			boolean lazyAllocate,
+			Duration requestNetworkSegmentTimeout) {
 
 		this.numNetworkBuffers = numNetworkBuffers;
 		this.networkBufferSize = networkBufferSize;
@@ -121,6 +124,7 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.maxDelayTimeMs = maxDelayTimeMs;
 		this.isRecoverable = isRecoverable;
 		this.lazyAllocate = lazyAllocate;
+		this.requestNetworkSegmentTimeout = requestNetworkSegmentTimeout;
 	}
 
 	// ------------------------------------------------------------------------
@@ -197,6 +201,10 @@ public class NettyShuffleEnvironmentConfiguration {
 		return lazyAllocate;
 	}
 
+	public Duration getRequestNetworkSegmentTimeout() {
+		return requestNetworkSegmentTimeout;
+	}
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -254,6 +262,8 @@ public class NettyShuffleEnvironmentConfiguration {
 		long maxDelayTimeMs = configuration.getLong(HeartbeatManagerOptions.HEARTBEAT_TIMEOUT);
 		boolean isRecoverable = configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE);
 		boolean lazyAllocate = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BUFFERS_MEMORY_LAZY_ALLOCATE);
+		Duration requestNetworkSegmentTimeout = Duration.ofMillis(configuration.getLong(
+				NettyShuffleEnvironmentOptions.NETWORK_BUFFER_MEMORY_REQUEST_TIMEOUT_MILLS));
 
 		return new NettyShuffleEnvironmentConfiguration(
 			numberOfNetworkBuffers,
@@ -273,7 +283,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			maxBuffersPerChannel,
 			maxDelayTimeMs,
 			isRecoverable,
-			lazyAllocate);
+			lazyAllocate,
+			requestNetworkSegmentTimeout);
 	}
 
 	/**

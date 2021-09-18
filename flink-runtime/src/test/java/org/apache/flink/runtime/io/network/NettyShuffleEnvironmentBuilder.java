@@ -70,6 +70,8 @@ public class NettyShuffleEnvironmentBuilder {
 
 	private Executor ioExecutor = Executors.directExecutor();
 
+	private Duration requestNetworkSegmentTimeout = Duration.ofMillis(0L);
+
 	public NettyShuffleEnvironmentBuilder setTaskManagerLocation(ResourceID taskManagerLocation) {
 		this.taskManagerLocation = taskManagerLocation;
 		return this;
@@ -140,6 +142,11 @@ public class NettyShuffleEnvironmentBuilder {
 		return this;
 	}
 
+	public NettyShuffleEnvironmentBuilder setRequestNetworkSegmentTimeoutSec(Duration requestNetworkSegmentTimeout) {
+		this.requestNetworkSegmentTimeout = requestNetworkSegmentTimeout;
+		return this;
+	}
+
 	public NettyShuffleEnvironment build() {
 		return NettyShuffleServiceFactory.createNettyShuffleEnvironment(
 			new NettyShuffleEnvironmentConfiguration(
@@ -160,7 +167,8 @@ public class NettyShuffleEnvironmentBuilder {
 				maxBuffersPerChannel,
 				5,
 				false,
-				false),
+				false,
+				requestNetworkSegmentTimeout),
 			taskManagerLocation,
 			new TaskEventDispatcher(),
 			resultPartitionManager,

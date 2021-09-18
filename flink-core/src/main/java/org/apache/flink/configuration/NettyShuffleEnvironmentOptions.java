@@ -332,6 +332,12 @@ public class NettyShuffleEnvironmentOptions {
 			.defaultValue(false)
 			.withDescription("Whether to allocate all memory segments at startup or allocate when task request buffers.");
 
+	public static final ConfigOption<Long> NETWORK_BUFFER_MEMORY_REQUEST_TIMEOUT_MILLS =
+		key("taskmanager.network.segment.request-timeout-ms")
+			.longType()
+			.defaultValue(0L)
+			.withDescription("Request network segment from local buffer timeout, 0 for waiting until some other segments are available.");
+
 	/** Not intended to be instantiated. */
 	private NettyShuffleEnvironmentOptions() {}
 }

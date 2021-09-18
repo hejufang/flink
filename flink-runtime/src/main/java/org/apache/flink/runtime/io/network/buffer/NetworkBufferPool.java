@@ -84,6 +84,8 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 	private final boolean lazyAllocate;
 
+	private final long requestNetworkSegmentTimeoutMills;
+
 	// Track the number of segments that have been allocated.
 	private AtomicInteger numberOfAllocatedMemorySegments = new AtomicInteger(0);
 
@@ -109,11 +111,28 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 	 * Allocates all {@link MemorySegment} instances managed by this pool.
 	 */
 	public NetworkBufferPool(
-		int numberOfSegmentsToAllocate,
-		int segmentSize,
-		int numberOfSegmentsToRequest,
-		Duration requestSegmentsTimeout,
-		boolean lazyAllocate) {
+			int numberOfSegmentsToAllocate,
+			int segmentSize,
+			int numberOfSegmentsToRequest,
+			Duration requestSegmentsTimeout,
+			boolean lazyAllocate) {
+		this(
+			numberOfSegmentsToAllocate,
+			segmentSize,
+			numberOfSegmentsToRequest,
+			requestSegmentsTimeout,
+			lazyAllocate,
+			Duration.ofMillis(0L)
+		);
+	}
+
+	public NetworkBufferPool(
+			int numberOfSegmentsToAllocate,
+			int segmentSize,
+			int numberOfSegmentsToRequest,
+			Duration requestSegmentsTimeout,
+			boolean lazyAllocate,
+			Duration requestNetworkSegmentTimeout) {
 		this.totalNumberOfMemorySegments = numberOfSegmentsToAllocate;
 		this.memorySegmentSize = segmentSize;
 
@@ -125,6 +144,7 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 				"The timeout for requesting exclusive buffers should be positive.");
 		this.requestSegmentsTimeout = requestSegmentsTimeout;
 		this.lazyAllocate = lazyAllocate;
+		this.requestNetworkSegmentTimeoutMills = requestNetworkSegmentTimeout.toMillis();
 
 		try {
 			this.availableMemorySegments = new ArrayDeque<>(numberOfSegmentsToAllocate);
@@ -639,5 +659,9 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 				TaskManagerOptions.NETWORK_MEMORY_FRACTION.key(),
 				TaskManagerOptions.NETWORK_MEMORY_MIN.key(),
 				TaskManagerOptions.NETWORK_MEMORY_MAX.key());
+	}
+
+	public long getRequestNetworkSegmentTimeoutMills() {
+		return requestNetworkSegmentTimeoutMills;
 	}
 }

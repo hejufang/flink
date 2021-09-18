@@ -32,6 +32,8 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -287,11 +289,16 @@ class LocalBufferPool implements BufferPool {
 
 	private MemorySegment requestMemorySegmentBlocking(int targetChannel) throws InterruptedException, IOException {
 		MemorySegment segment;
+		long networkSegmentTimeoutMills = networkBufferPool.getRequestNetworkSegmentTimeoutMills();
 		while ((segment = requestMemorySegment(targetChannel)) == null) {
 			try {
-				// wait until available
-				getAvailableFuture().get();
-			} catch (ExecutionException e) {
+				if (networkSegmentTimeoutMills > 0) {
+					getAvailableFuture().get(networkSegmentTimeoutMills, TimeUnit.MILLISECONDS);
+				} else {
+					// wait until available
+					getAvailableFuture().get();
+				}
+			} catch (ExecutionException | TimeoutException e) {
 				LOG.error("The available future is completed exceptionally.", e);
 				ExceptionUtils.rethrow(e);
 			}
