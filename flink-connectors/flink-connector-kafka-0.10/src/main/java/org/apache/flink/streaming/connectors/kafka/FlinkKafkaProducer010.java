@@ -30,6 +30,7 @@ import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
 
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.internals.BatchRandomPartitioner;
@@ -482,6 +483,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 				.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 60000)
 				.put(ProducerConfig.LINGER_MS_CONFIG, 5000L)
 				.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, BatchRandomPartitioner.class.getName())
-				.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 1000).build();
+				.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 1000)
+				.put(CommonClientConfigs.ENABLE_ZTI_TOKEN, true).build();
 	}
 }
