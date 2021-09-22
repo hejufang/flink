@@ -133,6 +133,17 @@ under the License.
 			</exclusions>
 		</dependency>
 
+		<!--There is no real usage.
+			In before flink-shaded-hadoop-2-uber will contains infsecclient, So some jobs may not package this in there user jar.
+			but now we relocation infsecclient in flink-shaded-hadoop2-user. So these jobs will be failed because of missing class.
+			So, we package infsecclient in flink-dist module, these jobs can use infsecclient classes in flink-dist.
+		-->
+		<dependency>
+			<groupId>org.byted.infsec</groupId>
+			<artifactId>infsecclient</artifactId>
+			<version>${infsec.version}</version>
+		</dependency>
+
 		<!-- Default file system support. The Hadoop and MapR dependencies -->
 		<!--       are optional, so not being added to the dist jar        -->
 

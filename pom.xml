@@ -162,6 +162,8 @@ under the License.
 		<jamicmp.referenceVersion>1.8.0</jamicmp.referenceVersion>
 		<japicmp.outputDir>tools/japicmp-output</japicmp.outputDir>
 
+		<infsec.version>1.4.1</infsec.version>
+
 		<flink.release.version>1.9</flink.release.version>
 	</properties>
 
