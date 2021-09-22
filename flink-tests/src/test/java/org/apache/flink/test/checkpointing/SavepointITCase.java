@@ -339,7 +339,7 @@ public class SavepointITCase extends TestLogger {
 			// parallel subtask
 			String errMsg = "Did not write expected number of savepoint/checkpoint files to directory: "
 				+ Arrays.toString(savepointFiles);
-			assertEquals(errMsg, 1 + parallelism, savepointFiles.length);
+			assertEquals(errMsg, 2 + parallelism, savepointFiles.length);
 		} else {
 			fail(String.format("Returned savepoint path (%s) is not valid.", savepointPath));
 		}
