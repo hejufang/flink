@@ -19,88 +19,7 @@
 {
   "collapsed": false,
   "height": 250,
-  "panels": [
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "${datasource}",
-      "fill": 1,
-      "id": ${id},
-      "gridPos": {
-                "h": 7,
-                "w": 12,
-                "x": 0,
-                "y": ${rowOrder}
-              },
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "span": 6,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "aggregator": "sum",
-          "alias": "numberOfFailedCheckpoints",
-          "downsampleAggregator": "avg",
-          "downsampleFillPolicy": "none",
-          "metric": "flink.jobmanager.${jobname}.numberOfFailedCheckpoints",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Checkpoint Failures(关注连续失败次数)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [{
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ]
-    }],
+  "panels": [],
     "repeat": null,
     "repeatIteration": null,
     "repeatRowId": null,
@@ -115,7 +34,92 @@
                   "y": ${rowOrder}
                 },
     "titleSize": "h6"
-},
+},{
+        "aliasColors": {},
+        "bars": false,
+        "dashLength": 10,
+        "dashes": false,
+        "datasource": "${datasource}",
+        "fill": 1,
+        "id": ${id},
+        "gridPos": {
+                  "h": 7,
+                  "w": 12,
+                  "x": 0,
+                  "y": ${rowOrder}
+                },
+        "legend": {
+          "avg": false,
+          "current": false,
+          "max": false,
+          "min": false,
+          "show": true,
+          "total": false,
+          "values": false
+        },
+        "lines": true,
+        "linewidth": 1,
+        "links": [],
+        "nullPointMode": "null",
+        "percentage": false,
+        "pointradius": 5,
+        "points": false,
+        "renderer": "flot",
+        "seriesOverrides": [],
+        "spaceLength": 10,
+        "span": 6,
+        "stack": false,
+        "steppedLine": false,
+        "targets": [
+          {
+            "aggregator": "sum",
+            "alias": "numberOfFailedCheckpoints",
+            "downsampleAggregator": "avg",
+            "downsampleFillPolicy": "none",
+            "metric": "flink.jobmanager.${jobname}.numberOfFailedCheckpoints",
+            "refId": "A"
+          }
+        ],
+        "thresholds": [],
+        "timeFrom": null,
+        "timeShift": null,
+          "links": [{
+                          "title": "Checkpoint的失败数量",
+                          "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#YmzdoW",
+                          "targetBlank": true
+                        }],
+        "title": "Checkpoint Failures(关注连续失败次数)",
+        "tooltip": {
+          "shared": true,
+          "sort": 0,
+          "value_type": "individual"
+        },
+        "type": "graph",
+        "xaxis": {
+          "buckets": null,
+          "mode": "time",
+          "name": null,
+          "show": true,
+          "values": []
+        },
+        "yaxes": [{
+            "format": "short",
+            "label": null,
+            "logBase": 1,
+            "max": null,
+            "min": null,
+            "show": true
+          },
+          {
+            "format": "short",
+            "label": null,
+            "logBase": 1,
+            "max": null,
+            "min": null,
+            "show": true
+          }
+        ]
+      },
      {
        "aliasColors": {},
        "bars": false,
@@ -165,6 +169,11 @@
        "thresholds": [],
        "timeFrom": null,
        "timeShift": null,
+         "links": [{
+                         "title": "Checkpoint的制作时间",
+                         "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#Xw4d61",
+                         "targetBlank": true
+                       }],
        "title": "Checkpoint Duration(关注Checkpoint耗时，正常在10分钟内)",
        "tooltip": {
          "shared": true,
@@ -254,6 +263,11 @@
        "thresholds": [],
        "timeFrom": null,
        "timeShift": null,
+         "links": [{
+                         "title": "Checkpoint的增量大小和总大小",
+                         "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#eoHxL3",
+                         "targetBlank": true
+                       }],
        "title": "Checkpoint State Size(关注状态大小和变化趋势)",
        "tooltip": {
          "shared": true,
@@ -353,6 +367,11 @@
        "thresholds": [],
        "timeFrom": null,
        "timeShift": null,
+          "links": [{
+                          "title": "HDFS 客户端接口的请求时延",
+                          "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#MJrW8U",
+                          "targetBlank": true
+                        }],
        "title": "Hdfs Operation Latency(关注HDFS服务,延迟通常在秒级以下）",
        "tooltip": {
          "shared": true,

@@ -63,6 +63,11 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
+        "links": [{
+                        "title": "Task制作Checkpoint时抢占Lock的耗时",
+                        "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#h1Uq6N",
+                        "targetBlank": true
+                      }],
       "title": "Lock Contention Duration(关注CPU和反压，正常在秒级以下)",
       "tooltip": {
         "shared": true,
@@ -139,6 +144,11 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
+        "links": [{
+                        "title": "算子制作Checkpoint时barrier对齐的耗时",
+                        "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#jEGAMl",
+                        "targetBlank": true
+                      }],
       "title": "Barrier Align Duration(关注反压，正常在秒级)",
       "tooltip": {
         "shared": true,
@@ -215,6 +225,11 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
+        "links": [{
+                        "title": "算子制作Checkpoint时创建本地快照的耗时",
+                        "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#KXnuPw",
+                        "targetBlank": true
+                      }],
       "title": "Sync Duration(关注自定义的snapshot，正常分钟级以下)",
       "tooltip": {
         "shared": true,

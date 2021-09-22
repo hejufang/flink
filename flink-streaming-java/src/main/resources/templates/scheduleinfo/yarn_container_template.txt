@@ -21,6 +21,7 @@
   "bars": false,
   "dashLength": 10,
   "dashes": false,
+      "description": "1. allocatedContainerNum  \n分配完成的container个数  \n2. pendingRequestedContainerNum  \n申请中的container个数  \n3. gangDowngradeNum  \n从 Gang 回退到 Fair 的次数  \n4. gangFailedNum  \n通过 Gang 申请资源失败的次数",
   "datasource": "${datasource}",
   "fill": 1,
   "id": ${id},

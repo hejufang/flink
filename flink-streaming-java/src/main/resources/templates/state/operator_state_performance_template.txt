@@ -63,6 +63,11 @@
     "thresholds": [],
     "timeFrom": null,
     "timeShift": null,
+      "links": [{
+                      "title": "各个算子中访问的Key的大小情况",
+                      "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#SnhueQ",
+                      "targetBlank": true
+                    }],
     "title": "State Avg/Max Key Size(对比Max和Avg大小，查看是否有异常Key)",
     "tooltip": {
       "shared": true,
@@ -139,6 +144,11 @@
     "thresholds": [],
     "timeFrom": null,
     "timeShift": null,
+      "links": [{
+                      "title": "各个算子中访问的Key对应的value大小情况",
+                      "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#CcMabU",
+                      "targetBlank": true
+                    }],
     "title": "State Avg/Max Value Size(对比Max和Avg大小，查看是否有异常Value)",
     "tooltip": {
       "shared": true,
@@ -215,6 +225,11 @@
     "thresholds": [],
     "timeFrom": null,
     "timeShift": null,
+      "links": [{
+                      "title": "各个算子中访问状态的时延",
+                      "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#Fs0cxt",
+                      "targetBlank": true
+                    }],
     "title": "State Operation Latency(关注GC和磁盘IO，正常为微秒或毫秒级）",
     "tooltip": {
       "shared": true,
@@ -292,6 +307,11 @@
     "thresholds": [],
     "timeFrom": null,
     "timeShift": null,
+      "links": [{
+                      "title": "各个算子中访问状态的频率",
+                      "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#Ivq1Ny",
+                      "targetBlank": true
+                    }],
     "title": "State Operation Rate(关注业务State处理逻辑)",
     "tooltip": {
       "shared": true,
@@ -369,6 +389,11 @@
     "thresholds": [],
     "timeFrom": null,
     "timeShift": null,
+      "links": [{
+                      "title": "各个算子中各个状态占用的内存大小",
+                      "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#5ooF6T",
+                      "targetBlank": true
+                    }],
     "title": "State Memory Size(关注内存和GC，反映state在内存中的大小)",
     "tooltip": {
       "shared": true,
@@ -446,6 +471,11 @@
     "thresholds": [],
     "timeFrom": null,
     "timeShift": null,
+      "links": [{
+                      "title": "各个算子中各个状态占用的空间大小，包括内存和磁盘",
+                      "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#k4uJVU",
+                      "targetBlank": true
+                    }],
     "title": "State Total Size(关注数据倾斜和热点数据，同一个算子的状态大小应基本一致)",
     "tooltip": {
       "shared": true,
@@ -523,6 +553,11 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
+        "links": [{
+                        "title": "各个算子中各个状态的 Compaction 情况",
+                        "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#Onutn0",
+                        "targetBlank": true
+                      }],
       "title": "State Compaction Count(关注RocksDB LSM形态)",
       "tooltip": {
         "shared": true,
@@ -600,6 +635,11 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
+        "links": [{
+                        "title": "RocksDB 写操作是否被降级/停止",
+                        "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#S3K7GO",
+                        "targetBlank": true
+                      }],
       "title": "State Write Stall(关注RocksDB写性能)",
       "tooltip": {
         "shared": true,
@@ -677,6 +717,11 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
+        "links": [{
+                        "title": "开启Cache特性后，各个算子中各个Cache的命中率",
+                        "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#wVsISu",
+                        "targetBlank": true
+                      }],
       "title": "Cache 命中率(反映Cache对state操作的优化效果,关注整体CPU使用)",
       "tooltip": {
         "shared": true,
@@ -753,6 +798,11 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
+        "links": [{
+                        "title": "开启Cache特性后，Cache在内存中占用的空间大小",
+                        "url": "https://bytedance.feishu.cn/docs/doccn4wi6UYmKAw5GduAhxfEDZe#1ZVuJo",
+                        "targetBlank": true
+                      }],
       "title": "Cache 内存使用量(反映Cache占用的内存大小,关注GC和内存是否溢出)",
       "tooltip": {
         "shared": true,

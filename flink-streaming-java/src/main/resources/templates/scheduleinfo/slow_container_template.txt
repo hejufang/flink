@@ -24,7 +24,6 @@
   "datasource": "${datasource}",
   "fill": 1,
   "id": ${id},
-    "description": "Kafka consumer client fetch latency",
   "gridPos": {
             "h": 10,
             "w": 12,

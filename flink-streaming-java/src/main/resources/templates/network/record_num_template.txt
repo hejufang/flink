@@ -24,6 +24,7 @@
   "datasource": "${datasource}",
   "fill": 1,
   "id": ${id},
+    "description": "task 输入输出数据速率",
   "gridPos": {
             "h": 7,
             "w": 24,

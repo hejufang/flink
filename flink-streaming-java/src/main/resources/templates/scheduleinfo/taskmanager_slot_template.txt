@@ -24,6 +24,7 @@
   "datasource": "${datasource}",
   "fill": 1,
   "id": ${id},
+    "description": "1.numRegisteredTaskManagers  \n申请的taskmanager数  \n2.taskSlotsTotal  \n总共的slot数  \n3.taskSlotsAvailable  \ntaskSlotsAvailable = 总slots - max{parallelism}  \n总slots = tm_slot * tm_num  \ntaskSlotsAvailable指的是没有使用的slot数，实际是浪费的slot数，如果这个值比较大，请调整slot总数，保证tm_slot * tm_num >= max{parallelism}即可，可以选择加大并发度，或者减小tm_num 或 tm_slot.   \n作业最大并发就是作业最大能利用的slot数。",
   "gridPos": {
             "h": 10,
             "w": 12,

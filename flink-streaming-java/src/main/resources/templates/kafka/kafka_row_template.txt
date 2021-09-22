@@ -17,7 +17,7 @@
 ################################################################################
 
 {
-  "collapsed": true,
+  "collapsed": ${collapsed},
   "height": 250,
   "panels": [${panels}],
     "gridPos": {

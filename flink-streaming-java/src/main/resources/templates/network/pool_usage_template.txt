@@ -22,7 +22,7 @@
   "dashLength": 10,
   "dashes": false,
   "datasource": "${datasource}",
-    "description": "inputPoolUsage: 输入队列的buffer使用率，这个值大说明本task或下游处理不过来\n\noutputPoolUsage: 输出队列的buffer使用率，这个值大说明本task的下游处理不过来\n\n如果我们看到有task 的poll_Usage 高，有可能是该task处理不过来，也有可能是其下游task处理不过来，然后触发反压机制。所以，优先查看下游的问题，这个更有可能是根本问题。inputPoolUsage > 0 的最下游的task。加上tag: host=*, 看是否某一台机器的高，如果是，重点检查这台机器和这上面的taskmanager, 比如，检查这台机器的负载（机器负载查询）。",
+    "description": "1. inputPoolUsage: 输入队列的buffer使用率，这个值大说明本task或下游处理不过来  \n2. outputPoolUsage: 输出队列的buffer使用率，这个值大说明本task的下游处理不过来  \n如果我们看到有task 的poll_Usage 高，有可能是该task处理不过来，也有可能是其下游task处理不过来，然后触发反压机制。所以，优先查看下游的问题，这个更有可能是根本问题。inputPoolUsage > 0 的最下游的task。加上tag: host=*, 看是否某一台机器的高，如果是，重点检查这台机器和这上面的taskmanager, 比如，检查这台机器的负载（机器负载查询）。",
   "fill": 1,
     "gridPos": {
       "h": 7,
