@@ -180,6 +180,10 @@ non-global:
         writeFailed,
       # yarn containers
         allocatedContainerNum,
+        allocatedCPU,
+        allocatedMemory,
+        pendingCPU,
+        pendingMemory,
         startingContainers,
         pendingRequestedContainerNum,
         slowContainerNum,

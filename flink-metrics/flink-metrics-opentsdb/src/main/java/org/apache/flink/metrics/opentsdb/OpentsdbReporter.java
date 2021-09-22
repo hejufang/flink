@@ -81,6 +81,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private String prefix;	// It is the prefix of all metric and used in UdpMetricsClient's constructor
 	private String region;
 	private String cluster;
+	private String queue;
 
 	// *************************************************************************
 	//     Global Aggregated Metric (add metric name below if needed)
@@ -107,6 +108,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 		this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
 		this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
+		this.queue = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_QUEUE);
 	}
 
 	@VisibleForTesting
@@ -284,6 +286,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		tags.add(new TagKv("jobname", this.jobName));
 		tags.add(new TagKv("region", this.region));
 		tags.add(new TagKv("cluster", this.cluster));
+		tags.add(new TagKv("queue", this.queue));
 		tags.add(new TagKv(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE));
 		if (key.contains("jobmanager")) {
 			Matcher m = JOB_MANAGER_PATTERN.matcher(key);
