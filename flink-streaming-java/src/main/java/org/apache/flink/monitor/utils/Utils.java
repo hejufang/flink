@@ -59,9 +59,28 @@ public class Utils {
 		return tasks;
 	}
 
+	public static List<String> getSortedTasks(JobGraph jobGraph) {
+		List<String> tasks = new ArrayList<>();
+		for (JobVertex vertex : jobGraph.getVerticesSortedTopologicallyFromSources()) {
+			String name = MetricUtils.formatTaskMetricName(vertex.getMetricName());
+			tasks.add(name);
+		}
+		return tasks;
+	}
+
 	public static List<String> getOperators(StreamGraph streamGraph) {
 		List<String> operators = new ArrayList<>();
 		for (StreamNode node : streamGraph.getStreamNodes()) {
+			String name = node.getOperatorMetricName();
+			operators.add(name);
+		}
+		return operators;
+	}
+
+	public static List<String> getSortedOperators(StreamGraph streamGraph) {
+		List<String> operators = new ArrayList<>();
+		List<StreamNode> streamNodes = streamGraph.getStreamNodeSortedTopologicallyFromSources();
+		for (StreamNode node : streamNodes) {
 			String name = node.getOperatorMetricName();
 			operators.add(name);
 		}
@@ -83,6 +102,18 @@ public class Utils {
 	public static List<String> getOperatorsExceptSources(StreamGraph streamGraph) {
 		List<String> result = new ArrayList<>();
 		List<String> operators = getOperators(streamGraph);
+		List<String> sources = getSources(streamGraph);
+		for (String operator: operators) {
+			if (!sources.contains(operator)) {
+				result.add(operator);
+			}
+		}
+		return result;
+	}
+
+	public static List<String> getSortedOperatorsExceptSources(StreamGraph streamGraph) {
+		List<String> result = new ArrayList<>();
+		List<String> operators = getSortedOperators(streamGraph);
 		List<String> sources = getSources(streamGraph);
 		for (String operator: operators) {
 			if (!sources.contains(operator)) {

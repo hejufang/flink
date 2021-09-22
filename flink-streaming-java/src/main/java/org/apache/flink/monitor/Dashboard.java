@@ -1019,11 +1019,11 @@ public class Dashboard {
 
 	public String renderDashboard() {
 		List<String> rows = new ArrayList<>();
-		List <String> operators = Utils.getOperators(streamGraph);
-		List <String> operatorsButSources = Utils.getOperatorsExceptSources(streamGraph);
+		List <String> operators = Utils.getSortedOperators(streamGraph);
+		List <String> operatorsButSources = Utils.getSortedOperatorsExceptSources(streamGraph);
 		List <String> sources = Utils.getSources(streamGraph);
 		List <String> sinks = Utils.getSinks(streamGraph);
-		List <String> tasks = Utils.getTasks(jobGraph);
+		List <String> tasks = Utils.getSortedTasks(jobGraph);
 		List <String> lookupOperators = Utils.filterLookupOperators(operators);
 		List <String> windowOperators = Utils.filterWindowOperators(operators);
 		String kafkaServerUrl = System.getProperty(ConfigConstants.KAFKA_SERVER_URL_KEY,
