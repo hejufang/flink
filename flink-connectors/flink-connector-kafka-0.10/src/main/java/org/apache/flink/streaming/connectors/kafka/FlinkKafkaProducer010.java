@@ -409,7 +409,8 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 				.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 1000)
 				.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 60000)
 				.put(ProducerConfig.LINGER_MS_CONFIG, 5000)
-				.put(CommonClientConfigs.START_TIMEOUT_MS, 300000).build();
+				.put(CommonClientConfigs.START_TIMEOUT_MS, 300000)
+				.put(CommonClientConfigs.ENABLE_ZTI_TOKEN, true).build();
 	}
 
 	/**
