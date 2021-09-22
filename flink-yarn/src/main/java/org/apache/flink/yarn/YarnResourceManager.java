@@ -2061,7 +2061,20 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	}
 
 	private void registerMetrics() {
-		jobManagerMetricGroup.gauge("allocatedContainerNum", workerNodeMap::size);
+		jobManagerMetricGroup.gauge("allocatedContainerNum", () -> (TagGaugeStore) () -> {
+			List<TagGaugeStore.TagGaugeMetric> tagGaugeMetrics = new ArrayList<>();
+			tagGaugeMetrics.add(new TagGaugeStore.TagGaugeMetric(
+				workerNodeMap.size(),
+				new TagGaugeStore.TagValuesBuilder()
+					.addTagValue("cores", String.valueOf(defaultCpus))
+					.addTagValue("memory", String.valueOf(defaultTaskManagerMemoryMB))
+					.build()));
+			return tagGaugeMetrics;
+		});
+		jobManagerMetricGroup.gauge("allocatedCPU", () -> defaultCpus * workerNodeMap.size());
+		jobManagerMetricGroup.gauge("allocatedMemory", () -> defaultTaskManagerMemoryMB * workerNodeMap.size());
+		jobManagerMetricGroup.gauge("pendingCPU", () -> defaultCpus * numPendingContainerRequests);
+		jobManagerMetricGroup.gauge("pendingMemory", () -> defaultTaskManagerMemoryMB * numPendingContainerRequests);
 		jobManagerMetricGroup.gauge("pendingRequestedContainerNum", () -> numPendingContainerRequests);
 		jobManagerMetricGroup.gauge("startingContainers", () -> (TagGaugeStore) () -> {
 			long ts = System.currentTimeMillis();
