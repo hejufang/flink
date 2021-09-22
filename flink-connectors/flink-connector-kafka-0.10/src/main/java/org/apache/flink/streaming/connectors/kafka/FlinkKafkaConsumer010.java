@@ -345,7 +345,8 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 	@Override
 	protected Map<String, Object> getDefaultConfig() {
 		return ImmutableMap.of(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, 60000,
-			CommonClientConfigs.START_TIMEOUT_MS, 30000);
+			CommonClientConfigs.START_TIMEOUT_MS, 30000,
+			CommonClientConfigs.ENABLE_ZTI_TOKEN, true);
 	}
 
 	private static KafkaDeserializationSchemaWrapper getDeserializationSchema(DeserializationSchema valueDeserializer, Properties props) {
