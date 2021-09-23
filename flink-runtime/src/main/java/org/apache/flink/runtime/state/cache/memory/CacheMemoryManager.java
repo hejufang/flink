@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.state.cache.memory;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.util.Preconditions;
 
@@ -106,11 +107,11 @@ public class CacheMemoryManager {
 	 * Calculate the scale up size based on the remaining memory space and the scale up ratio.
 	 * @return need to allocate memory space.
 	 */
-	public MemorySize computeScaleUpSize() {
+	public Tuple2<Integer, MemorySize> computeScaleUpSize() {
 		Preconditions.checkState(running, "Memory manager not running");
 		synchronized (lock) {
-			long scaleUpBlocks =  (long) Math.floor(scaleUpRatio * availableBlocks);
-			return blockSize.multiply(scaleUpBlocks);
+			int scaleUpBlocks =  (int) Math.floor(scaleUpRatio * availableBlocks);
+			return Tuple2.of(scaleUpBlocks, blockSize);
 		}
 	}
 
@@ -118,11 +119,11 @@ public class CacheMemoryManager {
 	 * Calculate the scale down size based on the allocated memory space and scale down ratio.
 	 * @return need to release memory space.
 	 */
-	public MemorySize computeScaleDownSize() {
+	public Tuple2<Integer, MemorySize> computeScaleDownSize() {
 		Preconditions.checkState(running, "Memory manager not running");
 		synchronized (lock) {
-			long scaleDownBlocks = (long) Math.ceil(scaleDownRatio * allocatedBlocks);
-			return blockSize.multiply(scaleDownBlocks);
+			int scaleDownBlocks = (int) Math.ceil(scaleDownRatio * allocatedBlocks);
+			return Tuple2.of(scaleDownBlocks, blockSize);
 		}
 	}
 

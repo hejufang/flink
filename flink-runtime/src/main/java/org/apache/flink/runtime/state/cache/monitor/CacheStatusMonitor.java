@@ -24,7 +24,6 @@ import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -58,7 +57,7 @@ public class CacheStatusMonitor {
 	/**
 	 * Get runtime statistics of all caches.
 	 */
-	public Map<Cache, CacheStatistic> getCacheStatusStatistics() throws IOException {
+	public Map<Cache, CacheStatistic> getCacheStatusStatistics() {
 		Preconditions.checkState(running, "Cache status monitor not running");
 		Map<Cache, CacheStatistic> cacheStatistics = new HashMap<>(cacheStatus.size());
 		for (Map.Entry<Cache, PolicyStats> entry : cacheStatus.entrySet()) {

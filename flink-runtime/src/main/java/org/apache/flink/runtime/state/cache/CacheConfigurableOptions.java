@@ -113,11 +113,25 @@ public class CacheConfigurableOptions {
 			.withDescription("The minimum space reserved by the cache in the memory. The cache cannot " +
 				"be lower than this value when it is scaled down.");
 
-	public static final ConfigOption<Long> GC_TIME_THRESHOLD =
-		key("state.backend.cache.gcTimeThreshold")
+	public static final ConfigOption<Long> MAX_GC_TIME_THRESHOLD =
+		key("state.backend.cache.maxGcTimeThreshold")
+			.longType()
+			.defaultValue(5000L)
+			.withDescription("The maximum time for single GC in a heap monitoring cycle. If the " +
+				"threshold is exceeded, the cache scale down operation will be triggered.");
+
+	public static final ConfigOption<Long> AVG_GC_TIME_THRESHOLD =
+		key("state.backend.cache.avgGcTimeThreshold")
 			.longType()
 			.defaultValue(2000L)
-			.withDescription("The maximum time allowed for GC in a heap monitoring cycle. If the " +
+			.withDescription("The average time allowed for GC in a heap monitoring cycle. If the " +
+				"threshold is exceeded, the cache scale down operation will be triggered.");
+
+	public static final ConfigOption<Long> GC_COUNT_THRESHOLD =
+		key("state.backend.cache.gcCountThreshold")
+			.longType()
+			.defaultValue(20L)
+			.withDescription("The maximum count allowed for GC in a heap monitoring cycle. If the " +
 				"threshold is exceeded, the cache scale down operation will be triggered.");
 
 	public static final ConfigOption<Double> LOW_HEAP_THRESHOLD =

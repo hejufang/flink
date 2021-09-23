@@ -20,6 +20,7 @@ package org.apache.flink.runtime.state.cache;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.runtime.state.cache.scale.ScaleCondition;
 
 import java.util.Objects;
 
@@ -49,8 +50,7 @@ public class CacheConfiguration {
 	//-------------------------- scaling configuration ----------------------//
 	private int scaleNum;
 	private MemorySize cacheMinSize;
-	private long gcTimeThreshold;
-	private double lowHeapThreshold;
+	private ScaleCondition scaleCondition;
 	private double scaleUpRetainedSizeWeight;
 	private double scaleUpLoadSuccessCountWeight;
 	private double scaleDownRetainedSizeWeight;
@@ -68,8 +68,7 @@ public class CacheConfiguration {
 			long heapMonitorInterval,
 			int scaleNum,
 			MemorySize cacheMinSize,
-			long gcTimeThreshold,
-			double lowHeapThreshold,
+			ScaleCondition scaleCondition,
 			double scaleUpRetainedSizeWeight,
 			double scaleUpLoadSuccessCountWeight,
 			double scaleDownRetainedSizeWeight,
@@ -85,8 +84,7 @@ public class CacheConfiguration {
 		this.heapMonitorInterval = heapMonitorInterval;
 		this.scaleNum = scaleNum;
 		this.cacheMinSize = cacheMinSize;
-		this.gcTimeThreshold = gcTimeThreshold;
-		this.lowHeapThreshold = lowHeapThreshold;
+		this.scaleCondition = scaleCondition;
 		this.scaleUpRetainedSizeWeight = scaleUpRetainedSizeWeight;
 		this.scaleUpLoadSuccessCountWeight = scaleUpLoadSuccessCountWeight;
 		this.scaleDownRetainedSizeWeight = scaleDownRetainedSizeWeight;
@@ -181,20 +179,12 @@ public class CacheConfiguration {
 		this.cacheMinSize = cacheMinSize;
 	}
 
-	public long getGcTimeThreshold() {
-		return gcTimeThreshold;
+	public ScaleCondition getScaleCondition() {
+		return scaleCondition;
 	}
 
-	public void setGcTimeThreshold(long gcTimeThreshold) {
-		this.gcTimeThreshold = gcTimeThreshold;
-	}
-
-	public double getLowHeapThreshold() {
-		return lowHeapThreshold;
-	}
-
-	public void setLowHeapThreshold(double lowHeapThreshold) {
-		this.lowHeapThreshold = lowHeapThreshold;
+	public void setScaleCondition(ScaleCondition scaleCondition) {
+		this.scaleCondition = scaleCondition;
 	}
 
 	public double getScaleUpRetainedSizeWeight() {
@@ -244,8 +234,7 @@ public class CacheConfiguration {
 			Double.compare(that.scaleDownRatio, scaleDownRatio) == 0 &&
 			heapMonitorInterval == that.heapMonitorInterval &&
 			scaleNum == that.scaleNum &&
-			gcTimeThreshold == that.gcTimeThreshold &&
-			Double.compare(that.lowHeapThreshold, lowHeapThreshold) == 0 &&
+			Objects.equals(scaleCondition, that.scaleCondition) &&
 			Double.compare(that.scaleUpRetainedSizeWeight, scaleUpRetainedSizeWeight) == 0 &&
 			Double.compare(that.scaleUpLoadSuccessCountWeight, scaleUpLoadSuccessCountWeight) == 0 &&
 			Double.compare(that.scaleDownRetainedSizeWeight, scaleDownRetainedSizeWeight) == 0 &&
@@ -271,8 +260,7 @@ public class CacheConfiguration {
 			heapMonitorInterval,
 			scaleNum,
 			cacheMinSize,
-			gcTimeThreshold,
-			lowHeapThreshold,
+			scaleCondition,
 			scaleUpRetainedSizeWeight,
 			scaleUpLoadSuccessCountWeight,
 			scaleDownRetainedSizeWeight,
@@ -297,8 +285,11 @@ public class CacheConfiguration {
 		//-------------------------- scaling manager configuration ----------------------//
 		int scaleNum = configuration.getInteger(CacheConfigurableOptions.CACHE_SCALE_NUM);
 		MemorySize cacheMinSize = configuration.get(CacheConfigurableOptions.CACHE_MIN_SIZE);
-		long gcTimeThreshold = configuration.getLong(CacheConfigurableOptions.GC_TIME_THRESHOLD);
+		long maxGcTimeThreshold = configuration.getLong(CacheConfigurableOptions.MAX_GC_TIME_THRESHOLD);
+		long avgGcTimeThreshold = configuration.getLong(CacheConfigurableOptions.AVG_GC_TIME_THRESHOLD);
+		long gcCountThreshold = configuration.getLong(CacheConfigurableOptions.GC_COUNT_THRESHOLD);
 		double lowHeapThreshold = configuration.getDouble(CacheConfigurableOptions.LOW_HEAP_THRESHOLD);
+		ScaleCondition scaleCondition = new ScaleCondition(maxGcTimeThreshold, avgGcTimeThreshold, gcCountThreshold, lowHeapThreshold);
 		double scaleUpRetainedSizeWeight = configuration.getDouble(CacheConfigurableOptions.SCALE_UP_RETAINED_SIZE_WEIGHT);
 		double scaleUpLoadSuccessCountWeight = configuration.getDouble(CacheConfigurableOptions.SCALE_UP_LOAD_SUCCESS_COUNT_WEIGHT);
 		double scaleDownRetainedSizeWeight = configuration.getDouble(CacheConfigurableOptions.SCALE_DOWN_RETAINED_SIZE_WEIGHT);
@@ -316,8 +307,7 @@ public class CacheConfiguration {
 			heapMonitorInterval,
 			scaleNum,
 			cacheMinSize,
-			gcTimeThreshold,
-			lowHeapThreshold,
+			scaleCondition,
 			scaleUpRetainedSizeWeight,
 			scaleUpLoadSuccessCountWeight,
 			scaleDownRetainedSizeWeight,
