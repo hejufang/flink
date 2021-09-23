@@ -17,19 +17,60 @@
 
 package org.apache.flink.runtime.state.cache.monitor;
 
-import org.apache.flink.configuration.MemorySize;
-
 /**
  * The monitored heap status result.
  */
 public class HeapMonitorResult {
-	private final long gcTime;
-	private final MemorySize heapUsage;
-	private final MemorySize maxHeapSize;
+	private final long maxGcTime;
+	private final long totalGcTime;
+	private final long totalMemoryUsageAfterGc;
+	private final long gcCount;
+	private final long maxMemorySize;
 
-	public HeapMonitorResult(long gcTime, MemorySize heapUsage, MemorySize maxHeapSize) {
-		this.gcTime = gcTime;
-		this.heapUsage = heapUsage;
-		this.maxHeapSize = maxHeapSize;
+	public HeapMonitorResult(long maxGcTime, long totalGcTime, long totalMemoryUsageAfterGc, long gcCount, long maxMemorySize) {
+		this.maxGcTime = maxGcTime;
+		this.totalGcTime = totalGcTime;
+		this.totalMemoryUsageAfterGc = totalMemoryUsageAfterGc;
+		this.gcCount = gcCount;
+		this.maxMemorySize = maxMemorySize;
+	}
+
+	public long getMaxGcTime() {
+		return maxGcTime;
+	}
+
+	public long getTotalGcTime() {
+		return totalGcTime;
+	}
+
+	public long getTotalMemoryUsageAfterGc() {
+		return totalMemoryUsageAfterGc;
+	}
+
+	public long getGcCount() {
+		return gcCount;
+	}
+
+	public long getMaxMemorySize() {
+		return maxMemorySize;
+	}
+
+	public long getAvgMemoryUsageAfterGc() {
+		return gcCount > 0 ? totalMemoryUsageAfterGc / gcCount : 0L;
+	}
+
+	public long getAvgGcTime() {
+		return gcCount > 0 ? totalGcTime / gcCount : 0L;
+	}
+
+	@Override
+	public String toString() {
+		return "HeapMonitorResult{" +
+			"maxGcTime=" + maxGcTime +
+			", totalGcTime=" + totalGcTime +
+			", totalMemoryUsageAfterGc=" + totalMemoryUsageAfterGc +
+			", gcCount=" + gcCount +
+			", maxMemorySize=" + maxMemorySize +
+			'}';
 	}
 }
