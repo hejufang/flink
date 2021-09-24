@@ -18,7 +18,6 @@
 package org.apache.flink.connector.rocketmq;
 
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
-import org.apache.flink.connector.rocketmq.RocketMQOptions.AssignQueueStrategy;
 import org.apache.flink.connector.rocketmq.selector.MsgDelayLevelSelector;
 import org.apache.flink.connector.rocketmq.selector.TopicSelector;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
@@ -41,7 +40,7 @@ public class RocketMQConfig<T> {
 	private int delayLevel = MSG_DELAY_LEVEL_DEFAULT;
 	private String tag;
 	private int sendBatchSize;
-	private AssignQueueStrategy assignQueueStrategy = AssignQueueStrategy.FIXED;
+	private RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
 	private int[] keyByFields;
 	private Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
 	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
@@ -116,11 +115,11 @@ public class RocketMQConfig<T> {
 		this.sendBatchSize = sendBatchSize;
 	}
 
-	public AssignQueueStrategy getAssignQueueStrategy() {
+	public RocketMQOptions.AssignQueueStrategy getAssignQueueStrategy() {
 		return assignQueueStrategy;
 	}
 
-	public void setAssignQueueStrategy(AssignQueueStrategy assignQueueStrategy) {
+	public void setAssignQueueStrategy(RocketMQOptions.AssignQueueStrategy assignQueueStrategy) {
 		this.assignQueueStrategy = assignQueueStrategy;
 	}
 
