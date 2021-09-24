@@ -208,7 +208,6 @@ public class CliFrontend {
 
 	protected void runApplication(String[] args) throws Exception {
 		LOG.info("Running 'run-application' command.");
-		//args = setJobName(args);
 		final Options commandOptions = CliFrontendParser.getRunCommandOptions();
 		final CommandLine commandLine = getCommandLine(commandOptions, args, true);
 
@@ -237,7 +236,9 @@ public class CliFrontend {
 		Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, Collections.singletonList(uri.toString()));
 
-		final String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		setEffectiveJobName(effectiveConfiguration);
+		final String jobName = effectiveConfiguration.getString(PipelineOptions.NAME);
+
 		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
 			programOptions.setSavepointSettings(
 				effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH),
@@ -289,10 +290,11 @@ public class CliFrontend {
 
 		final List<URL> jobJars = getJobJarAndDependencies(programOptions);
 
-		final String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
-
 		final Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, jobJars);
+
+		setEffectiveJobName(effectiveConfiguration);
+		final String jobName = effectiveConfiguration.getString(PipelineOptions.NAME);
 
 		// If jobUID is not set, set it to jobName for backward-compatibility
 		if (!effectiveConfiguration.contains(PipelineOptions.JOB_UID) && jobName != null) {
@@ -986,33 +988,35 @@ public class CliFrontend {
 
 		final CustomCommandLine activeCommandLine = validateAndGetActiveCommandLine(commandLine);
 
+		final Configuration effectiveConfiguration = activeCommandLine.getEffectiveConfiguration(commandLine);
+
+		setEffectiveJobName(effectiveConfiguration);
+		final String jobName = effectiveConfiguration.getString(PipelineOptions.NAME);
+
 		if (checkpointOptions.isAnalyzation()) {
 			final String path = checkpointOptions.getMetadataPath();
 			List<String> infos = CheckpointMetadataAnalyzer.analyze(path);
 			infos.forEach(System.out::println);
 		} else if (checkpointOptions.isVerification()) {
-			return verifyCheckpoint(commandLine, checkpointOptions, activeCommandLine);
+			return verifyCheckpoint(effectiveConfiguration, checkpointOptions);
 		} else {
 			String[] cleanedArgs = checkpointOptions.getArgs();
 			final JobID jobId = cleanedArgs.length >= 1 ? parseJobId(cleanedArgs[0]) : null;
-
-			String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
 			if (jobName == null && jobId == null) {
 				throw new CliArgsException("Missing JobID and JobName. Specify one of them.");
 			}
 
-			clearCheckpoints(activeCommandLine, commandLine, jobId, jobName, checkpointOptions.getCheckpointID());
+			clearCheckpoints(effectiveConfiguration, jobId, jobName, checkpointOptions.getCheckpointID());
 		}
 		return 0;
 	}
 
-	private int verifyCheckpoint(CommandLine commandLine, CheckpointOptions checkpointOptions, CustomCommandLine activeCommandLine) {
+	private int verifyCheckpoint(Configuration effectiveConfiguration, CheckpointOptions checkpointOptions) {
 		PackagedProgram program = null;
 		try {
 			LOG.info("Building ghost program from JAR file");
 			program = buildGhostProgram(checkpointOptions);
 
-			Configuration effectiveConfiguration = activeCommandLine.getEffectiveConfiguration(commandLine);
 			effectiveConfiguration.set(RUN_WITH_CHECKPOINT_VERIFY, true);
 			effectiveConfiguration.set(CoreOptions.DEFAULT_PARALLELISM, checkpointOptions.getParallelism());
 			effectiveConfiguration.set(CheckpointingOptions.CLIENT_CHECKPOINT_VERIFICATION_ENABLE, true);
@@ -1092,15 +1096,12 @@ public class CliFrontend {
 	}
 
 	private void clearCheckpoints(
-			CustomCommandLine customCommandLine,
-			CommandLine commandLine,
+			Configuration effectiveConfiguration,
 			JobID jobID,
 			String jobName,
 			int checkpointID) throws Exception {
 
 		jobID = jobID == null ? JobID.generate() : jobID;
-
-		Configuration effectiveConfiguration = customCommandLine.getEffectiveConfiguration(commandLine);
 
 		// clear checkpoints on zookeeper.
 		ZooKeeperUtils.clearCheckpoints(effectiveConfiguration, jobID, jobName, checkpointID);
@@ -1312,6 +1313,25 @@ public class CliFrontend {
 			throw new CliArgsException(e.getMessage());
 		}
 		return jobId;
+	}
+
+	/**
+	 * Sets {@link PipelineOptions#NAME} and system property {@link ConfigConstants#JOB_NAME_KEY} to
+	 * the effective job name. The system property is set for metric reporters and other misc usages.
+	 * For backward-compatibility, the job name set by -ynm in {@link #setJobName} has the highest
+	 * precedence.
+	 *
+	 * @param configuration effective configuration for running commands
+	 */
+	private void setEffectiveJobName(Configuration configuration) {
+		final String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		if (jobName != null) {
+			configuration.setString(PipelineOptions.NAME, jobName);
+		}
+		final String effectiveJobName = configuration.getString(PipelineOptions.NAME);
+		if (effectiveJobName != null) {
+			System.setProperty(ConfigConstants.JOB_NAME_KEY, effectiveJobName);
+		}
 	}
 
 	/**

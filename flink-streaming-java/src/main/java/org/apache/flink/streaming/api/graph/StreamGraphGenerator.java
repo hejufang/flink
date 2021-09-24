@@ -24,7 +24,6 @@ import org.apache.flink.api.common.cache.DistributedCache;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
@@ -52,7 +51,6 @@ import org.apache.flink.streaming.api.transformations.TwoInputTransformation;
 import org.apache.flink.streaming.api.transformations.UnionTransformation;
 import org.apache.flink.streaming.runtime.io.MultipleInputSelectionHandler;
 import org.apache.flink.streaming.util.UniqueNameGenerator;
-import org.apache.flink.util.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -218,11 +216,6 @@ public class StreamGraphGenerator {
 		streamGraph.setScheduleMode(scheduleMode);
 		streamGraph.setUserArtifacts(userArtifacts);
 		streamGraph.setTimeCharacteristic(timeCharacteristic);
-		String newJobName = getJobNameFromProperty();
-		if (newJobName != null) {
-			LOG.info("Update job name to {}.", newJobName);
-			jobName = newJobName;
-		}
 		streamGraph.setJobName(jobName);
 		streamGraph.setGlobalDataExchangeMode(globalDataExchangeMode);
 		streamGraph.setIsBatchJob(isBatchJob);
@@ -876,16 +869,6 @@ public class StreamGraphGenerator {
 		} else {
 			return;
 		}
-	}
-
-	public String getJobNameFromProperty() {
-		String appName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
-		// Replace job name with yarn app name.
-		if (!StringUtils.isNullOrWhitespaceOnly(appName)){
-			return appName;
-		}
-		LOG.warn("can not get job name by key '{}' from property.", ConfigConstants.JOB_NAME_KEY);
-		return null;
 	}
 
 	private void setUniqueOperatorMetricNames() {

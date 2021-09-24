@@ -418,6 +418,8 @@ public class ExecutionEnvironment {
 				this.cacheFile.clear();
 				this.cacheFile.addAll(DistributedCache.parseCachedFilesFromString(f));
 			});
+		configuration.getOptional(PipelineOptions.NAME)
+			.ifPresent(jobName -> this.getConfiguration().set(PipelineOptions.NAME, jobName));
 		config.configure(configuration, classLoader);
 	}
 
@@ -870,7 +872,7 @@ public class ExecutionEnvironment {
 	 * @throws Exception Thrown, if the program executions fails.
 	 */
 	public JobExecutionResult execute() throws Exception {
-		return execute(getDefaultName());
+		return execute(getJobName());
 	}
 
 	/**
@@ -940,7 +942,7 @@ public class ExecutionEnvironment {
 	 */
 	@PublicEvolving
 	public final JobClient executeAsync() throws Exception {
-		return executeAsync(getDefaultName());
+		return executeAsync(getJobName());
 	}
 
 	/**
@@ -993,7 +995,7 @@ public class ExecutionEnvironment {
 	 * @throws Exception Thrown, if the compiler could not be instantiated.
 	 */
 	public String getExecutionPlan() throws Exception {
-		Plan p = createProgramPlan(getDefaultName(), false);
+		Plan p = createProgramPlan(getJobName(), false);
 		return ExecutionPlanUtil.getExecutionPlanAsJSON(p);
 	}
 
@@ -1046,7 +1048,7 @@ public class ExecutionEnvironment {
 	 */
 	@Internal
 	public Plan createProgramPlan() {
-		return createProgramPlan(getDefaultName());
+		return createProgramPlan(getJobName());
 	}
 
 	/**
@@ -1117,12 +1119,13 @@ public class ExecutionEnvironment {
 	}
 
 	/**
-	 * Gets a default job name, based on the timestamp when this method is invoked.
+	 * Gets the job name. If user defined job name is not found in the configuration,
+	 * the default name based on the timestamp when this method is invoked will return.
 	 *
-	 * @return A default job name.
+	 * @return A job name.
 	 */
-	private static String getDefaultName() {
-		return "Flink Java Job at " + Calendar.getInstance().getTime();
+	private String getJobName() {
+		return configuration.getString(PipelineOptions.NAME, "Flink Java Job at " + Calendar.getInstance().getTime());
 	}
 
 	// --------------------------------------------------------------------------------------------

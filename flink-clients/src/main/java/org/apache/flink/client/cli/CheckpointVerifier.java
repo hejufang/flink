@@ -21,9 +21,9 @@ package org.apache.flink.client.cli;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
-import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
@@ -142,7 +142,7 @@ public class CheckpointVerifier {
 	 * @return true if HDFS has completed checkpoint; false if none.
 	 */
 	public static boolean beforeVerify(Configuration configuration) {
-		String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		String jobName = configuration.getString(PipelineOptions.NAME);
 		if (jobName == null) {
 			return false;
 		}

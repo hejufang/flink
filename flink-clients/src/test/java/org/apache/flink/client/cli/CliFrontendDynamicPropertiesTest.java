@@ -24,6 +24,7 @@ import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
@@ -40,6 +41,7 @@ import org.apache.flink.util.ChildFirstClassLoader;
 
 import org.apache.flink.shaded.org.apache.commons.cli.Options;
 
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
@@ -75,7 +77,6 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 
 	@AfterClass
 	public static void shutdown() {
-		System.setProperty(ConfigConstants.JOB_NAME_KEY, "");
 		CliFrontendTestUtils.restoreSystemOut();
 	}
 
@@ -91,18 +92,18 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 		cliUnderTest.addGeneralOptions(testOptions);
 	}
 
+	@After
+	public void cleanup() {
+		System.clearProperty(ConfigConstants.JOB_NAME_KEY);
+	}
+
 	@Test
 	public void testRestoreFromSavepoint() throws Exception {
 		final String jobName = "testRestoreFromSavepoint";
 		final String namespace = "testNS";
-		System.setProperty(ConfigConstants.JOB_NAME_KEY, jobName);
 
 		final String checkpointFolder = tmp.newFolder().getAbsolutePath();
 		final String savepointPath = tmp.newFolder().getAbsolutePath() + "/" + UUID.randomUUID();
-
-		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE.key(), namespace);
-		configuration.setString(CheckpointingOptions.STATE_BACKEND.key(), "filesystem");
-		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY.key(), "file://" + checkpointFolder);
 
 		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
 			new Path(savepointPath).getFileSystem(),
@@ -115,6 +116,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 		String[] args = {
 			"-cn", "test",
 			"-e", "test-executor",
+			"-D" + PipelineOptions.NAME.key() + "=" + jobName,
 			"-D" + CheckpointingOptions.RESTORE_SAVEPOINT_PATH.key() + "=" + "file://" + savepointPath,
 			"-D" + CheckpointingOptions.STATE_BACKEND.key() + "=filesystem",
 			"-D" + CheckpointingOptions.CHECKPOINTS_DIRECTORY.key() + "=file://" + checkpointFolder,
@@ -135,7 +137,6 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 	public void testRestoreFromSavepointOnExistingNamespace() throws Exception {
 		final String jobName = "testRestoreFromSavepointOnExistingNamespace";
 		final String namespace = "testNS";
-		System.setProperty(ConfigConstants.JOB_NAME_KEY, jobName);
 
 		final String checkpointFolder = tmp.newFolder().getAbsolutePath();
 		final String savepointPath = tmp.newFolder().getAbsolutePath() + "/" + UUID.randomUUID();
@@ -158,6 +159,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 		String[] args = {
 			"-cn", "test",
 			"-e", "test-executor",
+			"-D" + PipelineOptions.NAME.key() + "=" + jobName,
 			"-D" + CheckpointingOptions.RESTORE_SAVEPOINT_PATH.key() + "=" + "file://" + savepointPath,
 			"-D" + CheckpointingOptions.STATE_BACKEND.key() + "=filesystem",
 			"-D" + CheckpointingOptions.CHECKPOINTS_DIRECTORY.key() + "=file://" + checkpointFolder,
@@ -229,14 +231,9 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 	public void testRestoreFromSavepointWithApplicationMode() throws Exception {
 		final String jobName = "testRestoreFromSavepointWithApplicationMode";
 		final String namespace = "testNS";
-		System.setProperty(ConfigConstants.JOB_NAME_KEY, jobName);
 
 		final String checkpointFolder = tmp.newFolder().getAbsolutePath();
 		final String savepointPath = tmp.newFolder().getAbsolutePath() + "/" + UUID.randomUUID();
-
-		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE.key(), namespace);
-		configuration.setString(CheckpointingOptions.STATE_BACKEND.key(), "filesystem");
-		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY.key(), "file://" + checkpointFolder);
 
 		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
 			new Path(savepointPath).getFileSystem(),
@@ -249,6 +246,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 		String[] args = {
 			"-cn", "test",
 			"-t", "remote",
+			"-D" + PipelineOptions.NAME.key() + "=" + jobName,
 			"-D" + CheckpointingOptions.RESTORE_SAVEPOINT_PATH.key() + "=" + "file://" + savepointPath,
 			"-D" + CheckpointingOptions.STATE_BACKEND.key() + "=filesystem",
 			"-D" + CheckpointingOptions.CHECKPOINTS_DIRECTORY.key() + "=file://" + checkpointFolder,

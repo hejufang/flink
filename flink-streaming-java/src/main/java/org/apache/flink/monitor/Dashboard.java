@@ -24,7 +24,6 @@ import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.util.MetricUtils;
-import org.apache.flink.util.StringUtils;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 
@@ -65,12 +64,7 @@ public class Dashboard {
 		this.clusterName = clusterName;
 		this.streamGraph = streamGraph;
 		this.jobGraph = jobGraph;
-		String jobNameFromProperty = System.getProperty(ConfigConstants.JOB_NAME_KEY);
-		if (StringUtils.isNullOrWhitespaceOnly(jobNameFromProperty)) {
-			this.jobName = jobGraph.getName();
-		} else {
-			this.jobName = jobNameFromProperty;
-		}
+		this.jobName = jobGraph.getName();
 		this.formatJobName = MetricUtils.formatJobMetricName(jobGraph.getName());
 		this.dataSource = dataSource;
 	}

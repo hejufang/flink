@@ -25,6 +25,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.dag.Pipeline;
 import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.PlanJSONGenerator;
@@ -929,7 +930,7 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	public TableResult executeInternal(List<ModifyOperation> operations) {
 		List<Transformation<?>> transformations = translate(operations);
 		List<String> sinkIdentifierNames = extractSinkIdentifierNames(operations);
-		String jobName = "insert-into_" + String.join(",", sinkIdentifierNames);
+		String jobName = getJobName("insert-into_" + String.join(",", sinkIdentifierNames));
 		Pipeline pipeline = execEnv.createPipeline(transformations, tableConfig, jobName);
 		try {
 			JobClient jobClient = execEnv.executeAsync(pipeline);
@@ -961,7 +962,8 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 				operation
 		);
 		List<Transformation<?>> transformations = translate(Collections.singletonList(sinkOperation));
-		Pipeline pipeline = execEnv.createPipeline(transformations, tableConfig, "collect");
+		String jobName = getJobName("collect");
+		Pipeline pipeline = execEnv.createPipeline(transformations, tableConfig, jobName);
 		try {
 			JobClient jobClient = execEnv.executeAsync(pipeline);
 			tableSink.setJobClient(jobClient);
@@ -1427,6 +1429,10 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 					}
 				}
 		).collect(Collectors.toList());
+	}
+
+	private String getJobName(String defaultJobName) {
+		return tableConfig.getConfiguration().getString(PipelineOptions.NAME, defaultJobName);
 	}
 
 	/** Get catalog from catalogName or throw a ValidationException if the catalog not exists. */
