@@ -28,6 +28,10 @@ import org.apache.flink.util.FlinkRuntimeException;
 
 import redis.clients.jedis.exceptions.JedisDataException;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 /**
  * value-type lookup executor supports: List, Set, Zset, Hash(without specify-hash-key) .
  */
@@ -64,13 +68,29 @@ public class AbaseLookupCollectionExecutor extends AbaseLookupExecutor {
 		try {
 			switch (normalOptions.getAbaseValueType()) {
 				case LIST:
-					return client.lrange(key, 0, -1).toArray(new String[0]);
+					List<String> list = client.lrange(key, 0, -1);
+					if (list == null || list.isEmpty()) {
+						return null;
+					}
+					return list.toArray(new String[0]);
 				case SET:
-					return client.smembers(key).toArray(new String[0]);
+					Set<String> set = client.smembers(key);
+					if (set == null || set.isEmpty()) {
+						return null;
+					}
+					return set.toArray(new String[0]);
 				case ZSET:
-					return client.zrange(key, 0, -1).toArray(new String[0]);
+					Set<String> zset = client.zrange(key, 0, -1);
+					if (zset == null || zset.isEmpty()) {
+						return null;
+					}
+					return zset.toArray(new String[0]);
 				case HASH:
-					return client.hgetAll(key);
+					Map<String, String> map = client.hgetAll(key);
+					if (map == null || map.isEmpty()) {
+						return null;
+					}
+					return map;
 				default:
 					throw new FlinkRuntimeException(
 						String.format("Unsupported data type, currently supported type: %s",
