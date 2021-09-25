@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.resourcemanager;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ResourceManagerOptions;
@@ -57,7 +58,9 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static org.hamcrest.Matchers.anyOf;
@@ -260,6 +263,60 @@ public class ResourceManagerTest extends TestLogger {
 		assertFalse(success);
 	}
 
+	@Test
+	public void testDisconnectJobManagerWithTerminalStatusShouldRemoveJob() throws Exception {
+		testDisconnectJobManager(JobStatus.CANCELED);
+	}
+
+	@Test
+	public void testDisconnectJobManagerWithNonTerminalStatusShouldNotRemoveJob() throws Exception {
+		testDisconnectJobManager(JobStatus.FAILING);
+	}
+
+	private void testDisconnectJobManager(JobStatus jobStatus) throws Exception {
+		final Configuration configuration = new Configuration();
+		final TestingJobMasterGateway jobMasterGateway =
+				new TestingJobMasterGatewayBuilder()
+						.setAddress(UUID.randomUUID().toString())
+						.build();
+		rpcService.registerGateway(jobMasterGateway.getAddress(), jobMasterGateway);
+
+		final JobLeaderIdService jobLeaderIdService =
+				new JobLeaderIdService(
+						highAvailabilityServices,
+						rpcService.getScheduledExecutor(),
+						TestingUtils.infiniteTime());
+		resourceManager = createAndStartResourceManager(heartbeatServices, jobLeaderIdService, configuration);
+
+		highAvailabilityServices.setJobMasterLeaderRetrieverFunction(
+				requestedJobId ->
+						new SettableLeaderRetrievalService(
+								jobMasterGateway.getAddress(),
+								jobMasterGateway.getFencingToken().toUUID()));
+
+		final JobID jobId = JobID.generate();
+		final ResourceManagerGateway resourceManagerGateway =
+				resourceManager.getSelfGateway(ResourceManagerGateway.class);
+		resourceManagerGateway.registerJobManager(
+				jobMasterGateway.getFencingToken(),
+				ResourceID.generate(),
+				jobMasterGateway.getAddress(),
+				jobId,
+				1,
+				TIMEOUT);
+		final boolean isAdded = runInMainThread(() -> jobLeaderIdService.containsJob(jobId));
+		assertThat(isAdded, is(true));
+
+		resourceManagerGateway.disconnectJobManager(jobId, jobStatus, null);
+		final boolean isRemoved = runInMainThread(() -> !jobLeaderIdService.containsJob(jobId));
+		assertThat(isRemoved, is(jobStatus.isGloballyTerminalState()));
+	}
+
+	private <T> T runInMainThread(Callable<T> callable) throws Exception {
+		return resourceManager
+				.runInMainThread(callable, TIMEOUT)
+				.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
+	}
 
 	private void runHeartbeatTimeoutTest(
 			ThrowingConsumer<ResourceManagerGateway, Exception> registerComponentAtResourceManager,
@@ -273,13 +330,19 @@ public class ResourceManagerTest extends TestLogger {
 
 	private TestingResourceManager createAndStartResourceManager(HeartbeatServices heartbeatServices,
 																 Configuration configuration) throws Exception {
+		final JobLeaderIdService jobLeaderIdService = new JobLeaderIdService(
+				highAvailabilityServices,
+				rpcService.getScheduledExecutor(),
+				TestingUtils.infiniteTime());
+		return createAndStartResourceManager(heartbeatServices, jobLeaderIdService, configuration);
+	}
+
+	private TestingResourceManager createAndStartResourceManager(HeartbeatServices heartbeatServices,
+																 JobLeaderIdService jobLeaderIdService,
+																 Configuration configuration) throws Exception {
 		final SlotManager slotManager = SlotManagerBuilder.newBuilder()
 			.setScheduledExecutor(rpcService.getScheduledExecutor())
 			.build();
-		final JobLeaderIdService jobLeaderIdService = new JobLeaderIdService(
-			highAvailabilityServices,
-			rpcService.getScheduledExecutor(),
-			TestingUtils.infiniteTime());
 
 		final TestingResourceManager resourceManager = new TestingResourceManager(
 			rpcService,

@@ -1146,7 +1146,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		resourceManagerHeartbeatManager.unmonitorTarget(resourceManagerResourceID);
 
 		ResourceManagerGateway resourceManagerGateway = establishedResourceManagerConnection.getResourceManagerGateway();
-		resourceManagerGateway.disconnectJobManager(jobGraph.getJobID(), cause);
+		resourceManagerGateway.disconnectJobManager(jobGraph.getJobID(), schedulerNG.requestJobStatus(), cause);
 		slotPool.disconnectResourceManager();
 		remoteBlacklistReporter.disconnectResourceManager();
 	}

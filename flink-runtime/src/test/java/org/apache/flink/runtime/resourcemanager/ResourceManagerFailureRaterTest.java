@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.resourcemanager;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ResourceManagerOptions;
@@ -258,7 +259,7 @@ public class ResourceManagerFailureRaterTest {
 		RegistrationResponse response2 = successfulFuture2.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
 		assertTrue(response instanceof JobMasterRegistrationSuccess);
 		assertTrue(response2 instanceof JobMasterRegistrationSuccess);
-		resourceManager.disconnectJobManager(jobId2, new Exception());
+		resourceManager.disconnectJobManager(jobId2, JobStatus.FAILED, new Exception());
 		for (int i = 0; i < (slotNum + slotNum2) * 2; i++) {
 			resourceManager.recordWorkerFailure();
 		}
@@ -291,7 +292,7 @@ public class ResourceManagerFailureRaterTest {
 		RegistrationResponse response2 = successfulFuture2.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
 		assertTrue(response instanceof JobMasterRegistrationSuccess);
 		assertTrue(response2 instanceof JobMasterRegistrationSuccess);
-		resourceManager.disconnectJobManager(jobId2, new Exception());
+		resourceManager.disconnectJobManager(jobId2, JobStatus.FAILED, new Exception());
 
 		for (int i = 0; i < (slotNum + slotNum2) * 2 + 1; i++) {
 			resourceManager.recordWorkerFailure();
