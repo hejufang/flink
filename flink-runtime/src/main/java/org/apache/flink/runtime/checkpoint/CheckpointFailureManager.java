@@ -151,6 +151,8 @@ public class CheckpointFailureManager {
 				if (remoteClassName.equals("org.apache.hadoop.security.token.SecretManager$InvalidToken")
 						|| (t.getMessage().contains("token") && t.getMessage().contains("expire"))) {
 					return true;
+				} else if (t.toString().contains("InfSecSException")) {
+					return true;
 				}
 			}
 			t = t.getCause();
