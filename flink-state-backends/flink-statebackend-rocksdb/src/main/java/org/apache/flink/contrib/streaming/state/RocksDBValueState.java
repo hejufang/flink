@@ -119,6 +119,22 @@ class RocksDBValueState<K, N, V>
 		}
 	}
 
+	@Override
+	public void clearIfPresent() {
+		long startTs = System.nanoTime();
+		try {
+			byte[] keyBytes = serializeCurrentKeyWithGroupAndNamespace();
+			byte[] valueBytes = backend.db.get(columnFamily, keyBytes);
+			if (valueBytes != null) {
+				backend.db.delete(columnFamily, writeOptions, keyBytes);
+			}
+		} catch (RocksDBException e) {
+			throw new FlinkRuntimeException("Error while removing entry from RocksDB", e);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.REMOVE);
+		}
+	}
+
 	@SuppressWarnings("unchecked")
 	static <K, N, SV, S extends State, IS extends S> IS create(
 		StateDescriptor<S, SV> stateDesc,

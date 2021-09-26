@@ -48,7 +48,7 @@ public class ValueStateSynchronizer<K, N, V> extends AbstractStateSynchronizer<K
 	@Override
 	protected void removeFromDelegateState(Tuple3<K, N, Void> key) throws Exception {
 		delegateState.setCurrentNamespace(key.f1);
-		delegateState.clear();
+		delegateState.clearIfPresent();
 	}
 }
 

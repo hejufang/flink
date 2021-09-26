@@ -177,6 +177,20 @@ class RocksDBMapState<K, N, UK, UV>
 	}
 
 	@Override
+	public void removeIfPresent(UK userKey) throws Exception {
+		long startTs = System.nanoTime();
+		try {
+			byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(userKey, userKeySerializer);
+			byte[] rawValueBytes = backend.db.get(columnFamily, rawKeyBytes);
+			if (rawValueBytes != null) {
+				backend.db.delete(columnFamily, writeOptions, rawKeyBytes);
+			}
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.REMOVE);
+		}
+	}
+
+	@Override
 	public boolean contains(UK userKey) throws IOException, RocksDBException {
 		long startTs = System.nanoTime();
 		try {

@@ -68,4 +68,10 @@ public interface ValueState<T> extends State {
 	 */
 	void update(T value) throws IOException;
 
+	/**
+	 * Removes the value mapped under the current key only if it present.
+	 */
+	default void clearIfPresent() {
+		clear();
+	}
 }

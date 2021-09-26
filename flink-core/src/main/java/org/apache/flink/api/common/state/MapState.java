@@ -80,6 +80,17 @@ public interface MapState<UK, UV> extends State {
 	void remove(UK key) throws Exception;
 
 	/**
+	 * Deletes the mapping of the given key only if it present.
+	 *
+	 * @param key The key of the mapping
+	 *
+	 * @throws Exception Thrown if the system cannot access the state.
+	 */
+	default void removeIfPresent(UK key) throws Exception {
+		remove(key);
+	}
+
+	/**
 	 * Returns whether there exists the given mapping.
 	 *
 	 * @param key The key of the mapping

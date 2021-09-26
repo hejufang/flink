@@ -48,6 +48,6 @@ public class MapStateSynchronizer<K, N, UK, UV> extends AbstractStateSynchronize
 	@Override
 	protected void removeFromDelegateState(Tuple3<K, N, UK> key) throws Exception {
 		delegateState.setCurrentNamespace(key.f1);
-		delegateState.remove(key.f2);
+		delegateState.removeIfPresent(key.f2);
 	}
 }
