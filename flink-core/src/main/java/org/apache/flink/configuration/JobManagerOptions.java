@@ -428,7 +428,14 @@ public class JobManagerOptions {
 			.defaultValue(false)
 			.withDescription("Whether enable SlotSharingExecutionSlotAllocator.");
 
-
+	/**
+	 * Force close checkpoint operations.
+	 */
+	public static final ConfigOption<Boolean> JOBMANAGER_CHECKPOINT_FORCE_CLOSE =
+		key("jobmanager.checkpoint.force-close")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Use this flag to force disable checkpoint related operations(create/close) in job master.");
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

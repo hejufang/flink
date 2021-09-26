@@ -278,7 +278,8 @@ public class ExecutionGraphBuilder {
 
 		// configure the state checkpointing
 		JobCheckpointingSettings snapshotSettings = jobGraph.getCheckpointingSettings();
-		if (snapshotSettings != null) {
+		boolean checkpointForceClose = jobManagerConfig.getBoolean(JobManagerOptions.JOBMANAGER_CHECKPOINT_FORCE_CLOSE);
+		if (!checkpointForceClose && snapshotSettings != null) {
 			List<ExecutionJobVertex> triggerVertices =
 					idToVertex(snapshotSettings.getVerticesToTrigger(), executionGraph);
 
