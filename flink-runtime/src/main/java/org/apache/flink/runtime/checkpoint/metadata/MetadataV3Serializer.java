@@ -111,8 +111,8 @@ public class MetadataV3Serializer extends MetadataV2V3SerializerBase implements 
 		INSTANCE.serializeStateMetadata(checkpointStateMetadata, dos);
 	}
 
-	public CheckpointStateMetadata deserializeStateMeta(DataInputStream dis, ClassLoader classLoader, String externalPointer) throws IOException, ClassNotFoundException {
-		return deserializeStateMetadata(dis, externalPointer);
+	public CheckpointStateMetadata deserializeStateMeta(DataInputStream dis) throws IOException, ClassNotFoundException {
+		return deserializeStateMetadata(dis);
 	}
 
 	public void serializeStateMetadata(CheckpointStateMetadata checkpointStateMetadata, DataOutputStream dos) throws IOException {
@@ -187,7 +187,7 @@ public class MetadataV3Serializer extends MetadataV2V3SerializerBase implements 
 
 	}
 
-	public CheckpointStateMetadata deserializeStateMetadata(DataInputStream dis, String externalPointer) throws IOException, ClassNotFoundException {
+	public CheckpointStateMetadata deserializeStateMetadata(DataInputStream dis) throws IOException, ClassNotFoundException {
 
 		final long checkpointId = dis.readLong();
 		final Collection<OperatorStateMeta> operatorStateMetas;
@@ -219,8 +219,8 @@ public class MetadataV3Serializer extends MetadataV2V3SerializerBase implements 
 				}
 
 				// RegisteredOperatorStateMeta And RegisteredKeyedStateMeta
-				RegisteredOperatorStateMeta registeredOperatorStateMeta = (RegisteredOperatorStateMeta) deserializeStateMetaData(dis, externalPointer);
-				RegisteredKeyedStateMeta registeredKeyedStateMeta = (RegisteredKeyedStateMeta) deserializeStateMetaData(dis, externalPointer);
+				RegisteredOperatorStateMeta registeredOperatorStateMeta = (RegisteredOperatorStateMeta) deserializeStateMetaData(dis);
+				RegisteredKeyedStateMeta registeredKeyedStateMeta = (RegisteredKeyedStateMeta) deserializeStateMetaData(dis);
 				OperatorStateMeta operatorStateMeta = new OperatorStateMeta(operatorID, operatorName, uid, registeredOperatorStateMeta, registeredKeyedStateMeta);
 				operatorStateMetas.add(operatorStateMeta);
 			}
@@ -230,7 +230,7 @@ public class MetadataV3Serializer extends MetadataV2V3SerializerBase implements 
 		return new CheckpointStateMetadata(checkpointId, operatorStateMetas);
 	}
 
-	private RegisteredStateMetaBase deserializeStateMetaData(DataInputStream dis, String externalPointer) throws IOException, ClassNotFoundException {
+	private RegisteredStateMetaBase deserializeStateMetaData(DataInputStream dis) throws IOException, ClassNotFoundException {
 
 		int stateMetaType = dis.readByte();
 		if (stateMetaType == NULL_STATE_META){

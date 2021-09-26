@@ -24,7 +24,11 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import javax.annotation.Nullable;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * The full state meta of the logical operator which is formed by merging all {@link OperatorSubtaskState}s.
@@ -143,5 +147,32 @@ public class OperatorStateMeta implements Serializable {
 
 	public RegisteredKeyedStateMeta getKeyedStateMeta(){
 		return this.registeredKeyedStateMeta;
+	}
+
+	public Set<String> getAllStateName(){
+
+		Set<String> stateNames = new HashSet<>();
+		if (registeredKeyedStateMeta != null){
+			stateNames.addAll(registeredKeyedStateMeta.getAllStateName());
+		}
+
+		if (registeredOperatorStateMeta != null){
+			stateNames.addAll(registeredOperatorStateMeta.getAllStateName());
+		}
+		return stateNames;
+	}
+
+	public Collection<StateMetaData> getAllStateMeta() {
+
+		ArrayList<StateMetaData> stateMetaCollection = new ArrayList();
+		if (registeredKeyedStateMeta != null) {
+			stateMetaCollection.addAll(registeredKeyedStateMeta.getAllStateMeta());
+		}
+
+		if (registeredOperatorStateMeta != null) {
+			stateMetaCollection.addAll(registeredOperatorStateMeta.getAllStateMeta());
+		}
+
+		return stateMetaCollection;
 	}
 }

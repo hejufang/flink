@@ -385,7 +385,7 @@ public class MetadataV3SerializerTest {
 
 		byte[] bytes = baos.toByteArray();
 		DataInputStream in = new DataInputViewStreamWrapper(new ByteArrayInputStreamWithPos(bytes));
-		CheckpointStateMetadata deserialized = serializer.deserializeStateMetadata(in, basePath);
+		CheckpointStateMetadata deserialized = serializer.deserializeStateMetadata(in);
 
 		assertEquals(checkpointId, deserialized.getCheckpointId());
 		assertEquals(operatorStateMetas, deserialized.getOperatorStateMetas());

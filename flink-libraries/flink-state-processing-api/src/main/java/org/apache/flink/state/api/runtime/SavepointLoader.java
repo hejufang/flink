@@ -21,8 +21,10 @@ package org.apache.flink.state.api.runtime;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
+import org.apache.flink.runtime.checkpoint.metadata.CheckpointStateMetadata;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage;
+import org.apache.flink.runtime.state.filesystem.FileStateHandle;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -51,6 +53,15 @@ public final class SavepointLoader {
 
 		try (DataInputStream stream = new DataInputStream(location.getMetadataHandle().openInputStream())) {
 			return Checkpoints.loadCheckpointMetadata(stream, Thread.currentThread().getContextClassLoader(), savepointPath);
+		}
+	}
+
+	public static CheckpointStateMetadata loadSavepointStateMetadata(String savepointPath) throws IOException, ClassNotFoundException {
+		FileStateHandle fileStateHandle = AbstractFsCheckpointStorage
+			.resolveStateMetaFileHandle(savepointPath);
+
+		try (DataInputStream stream = new DataInputStream(fileStateHandle.openInputStream())) {
+			return Checkpoints.loadCheckpointStateMetadata(stream, Thread.currentThread().getContextClassLoader(), savepointPath);
 		}
 	}
 }

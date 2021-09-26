@@ -23,8 +23,10 @@ import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Base class for all registered stateMeta in state backends.
@@ -90,6 +92,14 @@ public abstract class RegisteredStateMetaBase implements Serializable, StateObje
 
 	public Map<String, StateMetaData> getStateMetaData(){
 		return stateMetaDataMap;
+	}
+
+	public Set<String> getAllStateName(){
+		return stateMetaDataMap.keySet();
+	}
+
+	public Collection<StateMetaData> getAllStateMeta() {
+		return stateMetaDataMap.values();
 	}
 
 	@Override

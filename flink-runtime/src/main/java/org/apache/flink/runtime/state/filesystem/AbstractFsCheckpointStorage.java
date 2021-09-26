@@ -339,6 +339,64 @@ public abstract class AbstractFsCheckpointStorage implements CheckpointStorage {
 				pointer);
 	}
 
+	public static FileStateHandle resolveStateMetaFileHandle(String checkpointPointer) throws IOException {
+
+		checkNotNull(checkpointPointer, "checkpointPointer");
+		checkArgument(!checkpointPointer.isEmpty(), "empty checkpoint pointer");
+
+		// check if the pointer is in fact a valid file path
+		final Path path;
+		try {
+			path = new Path(checkpointPointer);
+		}
+		catch (Exception e) {
+			throw new IOException("Checkpoint/savepoint path '" + checkpointPointer + "' is not a valid file URI. " +
+					"Either the pointer path is invalid, or the checkpoint was created by a different state backend.");
+		}
+
+		// check if the file system can be accessed
+		final FileSystem fs;
+		try {
+			fs = path.getFileSystem();
+		}
+		catch (IOException e) {
+			throw new IOException("Cannot access file system for checkpoint/savepoint path '" +
+					checkpointPointer + "'.", e);
+		}
+
+		final FileStatus status;
+		try {
+			status = fs.getFileStatus(path);
+		}
+		catch (FileNotFoundException e) {
+			throw new FileNotFoundException("Cannot find checkpoint or savepoint " +
+					"file/directory '" + checkpointPointer + "' on file system '" + fs.getUri().getScheme() + "'.");
+		}
+
+		// if we are here, the file / directory exists
+		final FileStatus metadataFileStatus;
+
+		// If this is a directory, we need to find the meta data file
+		if (status.isDir()) {
+			final Path metadataFilePath = new Path(path, STATE_METADATA_FILE_NAME);
+			try {
+				metadataFileStatus = fs.getFileStatus(metadataFilePath);
+			}
+			catch (FileNotFoundException e) {
+				throw new FileNotFoundException("Cannot find meta data file '" + STATE_METADATA_FILE_NAME +
+						"' in directory '" + path + "'. Please try to load the checkpoint/savepoint " +
+						"directly from the metadata file instead of the directory.");
+			}
+		} else {
+			metadataFileStatus = status;
+		}
+
+		final FileStateHandle stateMetaFileHandle = new FileStateHandle(
+				metadataFileStatus.getPath(), metadataFileStatus.getLen());
+
+		return stateMetaFileHandle;
+	}
+
 	public String resolveSavepointPointer(String savepointSimpleMetadataPointer) throws IOException {
 		checkNotNull(savepointSimpleMetadataPointer, "simple savepoint metadata Pointer");
 		checkArgument(!savepointSimpleMetadataPointer.isEmpty(), "empty simple savepoint metadata pointer");

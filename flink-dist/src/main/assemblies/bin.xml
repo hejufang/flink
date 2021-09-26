@@ -100,6 +100,14 @@ under the License.
 			<fileMode>0644</fileMode>
 		</file>
 
+		<!-- Flink Libraries JAR -->
+		<file>
+			<source>../flink-libraries/flink-state-processing-api/target/flink-state-processor-api_${scala.binary.version}-${project.version}.jar</source>
+			<outputDirectory>lib/</outputDirectory>
+			<destName>flink-state-processor-api_${scala.binary.version}-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+
 		<!-- Built-in formats -->
 		<file>
 			<source>../flink-formats/flink-csv/target/flink-csv-${project.version}.jar</source>
@@ -215,7 +223,7 @@ under the License.
 			<outputDirectory>bin</outputDirectory>
 			<fileMode>0755</fileMode>
 		</fileSet>
-		
+
 		<!-- copy default configuration -->
 		<fileSet>
 			<directory>src/main/flink-bin/conf</directory>

@@ -21,12 +21,13 @@ package org.apache.flink.runtime.checkpoint.metadata;
 import org.apache.flink.runtime.checkpoint.OperatorStateMeta;
 import org.apache.flink.util.Disposable;
 
+import java.io.Serializable;
 import java.util.Collection;
 
 /**
  * The State Metadata of a snapshot (checkpoint or savepoint).
  */
-public class CheckpointStateMetadata implements Disposable {
+public class CheckpointStateMetadata implements Disposable , Serializable {
 
 	/** The checkpoint ID. */
 	private final long checkpointId;

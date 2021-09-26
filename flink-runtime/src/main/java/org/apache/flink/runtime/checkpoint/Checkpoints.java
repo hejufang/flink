@@ -127,6 +127,14 @@ public class Checkpoints {
 		}
 	}
 
+	public static CheckpointStateMetadata loadCheckpointStateMetadata(DataInputStream in, ClassLoader classLoader, String externalPointer) throws IOException, ClassNotFoundException {
+		checkNotNull(in, "input stream");
+		checkNotNull(classLoader, "classLoader");
+
+		MetadataV3Serializer metadataV3Serializer = MetadataV3Serializer.INSTANCE;
+		return metadataV3Serializer.deserializeStateMetadata(in);
+	}
+
 	private static void printMetadata(CheckpointMetadata metadata, String checkpointPointer) {
 		if (LOG.isDebugEnabled()) {
 			LOG.debug("================= Start {} ==============", checkpointPointer);
