@@ -92,6 +92,11 @@ class StatementSetImpl implements StatementSet {
 	}
 
 	@Override
+	public List<ModifyOperation> getModifyOperations() {
+		return Collections.unmodifiableList(operations);
+	}
+
+	@Override
 	public String explain(ExplainDetail... extraDetails) {
 		List<Operation> operationList = operations.stream().map(o -> (Operation) o).collect(Collectors.toList());
 		return tableEnvironment.explainInternal(operationList, extraDetails);

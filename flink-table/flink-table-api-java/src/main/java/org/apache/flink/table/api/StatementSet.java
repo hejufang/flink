@@ -21,6 +21,8 @@ package org.apache.flink.table.api;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.table.operations.ModifyOperation;
 
+import java.util.List;
+
 /**
  * A {@link StatementSet} accepts DML statements or {@link Table}s,
  * the planner can optimize all added statements and Tables together
@@ -51,6 +53,13 @@ public interface StatementSet {
 	 * add a {@link ModifyOperation} to the set.
 	 */
 	default StatementSet addOperation(ModifyOperation operation) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * get all {@link ModifyOperation}s in the set.
+	 */
+	default List<ModifyOperation> getModifyOperations() {
 		throw new UnsupportedOperationException();
 	}
 

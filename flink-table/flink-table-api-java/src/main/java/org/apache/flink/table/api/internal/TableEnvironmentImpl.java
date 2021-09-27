@@ -145,6 +145,7 @@ import org.apache.flink.table.sources.TableSourceValidation;
 import org.apache.flink.table.types.AbstractDataType;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.utils.LogicalTypeCasts;
 import org.apache.flink.table.utils.PrintUtils;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.types.Row;
@@ -827,6 +828,36 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	public Optional<StatementSet> getStatementSetBySql(String stmt) {
 		Tuple2<Optional<TableResult>, Optional<StatementSet>> tuple2 = sqlInternal(stmt);
 		return tuple2.f1;
+	}
+
+	@Override
+	public void validateSinkSchemaForStatementSet(StatementSet statementSet) throws TableException {
+		for (ModifyOperation operation : statementSet.getModifyOperations()) {
+			if (operation instanceof CatalogSinkModifyOperation) {
+				CatalogSinkModifyOperation catalogSinkModifyOperation = (CatalogSinkModifyOperation) operation;
+				TableSchema querySchema = catalogSinkModifyOperation.getChild().getTableSchema();
+				Optional<CatalogManager.TableLookupResult> lookupResult = catalogManager.getTable(catalogSinkModifyOperation.getTableIdentifier());
+				if (!lookupResult.isPresent()) {
+					throw new TableException(String.format("table '%s' not exist", catalogSinkModifyOperation.getTableIdentifier()));
+				}
+				TableSchema sinkSchema = lookupResult.get().getResolvedSchema();
+
+				// this keeps align with TableSinkUtils#validateSchemaAndApplyImplicitCast in blink planner module.
+				boolean supportsImplicitCast = LogicalTypeCasts.supportsImplicitCast(
+					querySchema.toRowDataType().getLogicalType(),
+					sinkSchema.toRowDataType().getLogicalType());
+				if (!supportsImplicitCast) {
+					throw new TableException(String.format("query and sink table schema do not match, sink table name is: '%s'\n" +
+							"query's table schema is:\n" +
+							"%s\n" +
+							"sink's table schema is:\n" +
+							"%s",
+						catalogSinkModifyOperation.getTableIdentifier(),
+						querySchema,
+						sinkSchema));
+				}
+			}
+		}
 	}
 
 	@Override

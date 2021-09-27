@@ -962,6 +962,18 @@ public interface TableEnvironment {
 	}
 
 	/**
+	 * Validate query and sink schema for INSERT statement.
+	 * Why not add this check to {@link SqlToOperationConverter#convertSqlInsert}?
+	 * 1. INSERT statement may precede CREATE TABLE statement in current design;
+	 * 2. there are multiple places which produce INSERT statement, e.t. hive parser.
+	 * @param statementSet the statement set which should be validated.
+	 * @throws TableException if query and sink schema not match.
+	 */
+	default void validateSinkSchemaForStatementSet(StatementSet statementSet) throws TableException {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
 	 * Generate a JSON representation of JobGraph with more information from StreamGraph, for
 	 * example, operators in jobVertices. For more detail, please refer to
 	 * https://bytedance.feishu.cn/docs/doccniwrzlgmstZcP7dEneVkpNh#GzmzLo.
