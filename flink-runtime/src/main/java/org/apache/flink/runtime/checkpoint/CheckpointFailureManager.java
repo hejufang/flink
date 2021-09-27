@@ -25,8 +25,8 @@ import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.SerializedThrowable;
 
-import org.apache.hadoop.ipc.RemoteException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -146,12 +146,12 @@ public class CheckpointFailureManager {
 	public boolean isTokenProblemInTraces(Throwable throwable){
 		Throwable t = throwable;
 		while (t != null) {
-			if (t instanceof RemoteException) {
-				String remoteClassName = ((RemoteException) t).getClassName();
-				if (remoteClassName.equals("org.apache.hadoop.security.token.SecretManager$InvalidToken")
-						|| (t.getMessage().contains("token") && t.getMessage().contains("expire"))) {
+			if (t instanceof SerializedThrowable) {
+				SerializedThrowable st = (SerializedThrowable) t;
+				String message = st.getMessage();
+				if (message.contains("InfSecSException")) {
 					return true;
-				} else if (t.toString().contains("InfSecSException")) {
+				} else if (message.contains("token") && message.contains("expire")) {
 					return true;
 				}
 			}

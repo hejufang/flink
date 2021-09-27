@@ -35,8 +35,10 @@ public class CheckpointFailureManagerTest extends TestLogger {
 	public void testTokenExpire() {
 		TestFailJobCallback callback = new TestFailJobCallback();
 		CheckpointFailureManager failureManager = new CheckpointFailureManager(2, callback);
-		RemoteException ex1 = new RemoteException("org.byted.infsec.infsecs.InfSecSException",
-				"org.byted.infsec.infsecs.InfSecSException: org.byted.infsec.infsecs.InfSecSException: token expired");
+		CheckpointException ex1 = new CheckpointException(
+			CheckpointFailureReason.CHECKPOINT_ASYNC_EXCEPTION,
+			new RemoteException("org.byted.infsec.infsecs.InfSecSException",
+				"org.byted.infsec.infsecs.InfSecSException: org.byted.infsec.infsecs.InfSecSException: token expired"));
 		Assert.assertTrue(failureManager.isTokenProblemInTraces(ex1));
 
 		CheckpointException ex2 = new CheckpointException(
