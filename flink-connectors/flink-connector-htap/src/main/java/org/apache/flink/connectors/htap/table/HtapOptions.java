@@ -65,4 +65,10 @@ public class HtapOptions {
 			.withDescription(
 				"Strategy for inferring parallelism for source operator. " +
 					"Supported strategies: partition-number, row-number");
+
+	public static final ConfigOption<String> HTAP_CLUSTER_NAME =
+		key("htap.cluster.name")
+			.stringType()
+			.defaultValue("default-cluster")
+			.withDescription("The name of current ByteHTAP cluster for monitoring");
 }

@@ -279,7 +279,7 @@ public class HtapReaderIterator {
 				if (t instanceof HtapException) {
 					HtapException htapException = (HtapException) t;
 					scanException = new HtapConnectorException(
-							htapException.getErrorCode(), htapException.getMessage());
+						htapException.getErrorCode(), htapException.getMessage());
 				} else {
 					scanException = new IOException(t);
 				}

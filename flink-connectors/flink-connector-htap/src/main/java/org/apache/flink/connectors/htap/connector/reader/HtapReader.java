@@ -58,6 +58,7 @@ public class HtapReader implements AutoCloseable {
 	private final HtapStorageClient client;
 	private final long limit;
 	private final Set<Integer> pushedDownPartitions;
+	private final String htapClusterName;
 
 	public HtapReader(
 			HtapTable table,
@@ -69,7 +70,8 @@ public class HtapReader implements AutoCloseable {
 			List<FlinkAggregateFunction> aggregateFunctions,
 			DataType outputDataType,
 			long limit,
-			Set<Integer> pushedDownPartitions) throws IOException {
+			Set<Integer> pushedDownPartitions,
+			String htapClusterName) throws IOException {
 		this.table = checkNotNull(table, "table could not be null");
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
 		this.tableFilters = checkNotNull(tableFilters, "tableFilters could not be null");
@@ -79,6 +81,7 @@ public class HtapReader implements AutoCloseable {
 		this.groupByColumns = checkNotNull(groupByColumns, "groupByColumns could not be null");
 		this.aggregateFunctions = checkNotNull(
 				aggregateFunctions, "aggregateFunctions could not be null");
+		this.htapClusterName = checkNotNull(htapClusterName, "htapClusterName could not be null");
 		this.outputDataType = outputDataType;
 		this.client = obtainStorageClient();
 		this.limit = limit;
@@ -94,7 +97,7 @@ public class HtapReader implements AutoCloseable {
 				logStoreLogDir, pageStoreLogDir);
 			return new HtapStorageClient(readerConfig.getInstanceId(),
 				readerConfig.getByteStoreLogPath(), readerConfig.getByteStoreDataPath(),
-				logStoreLogDir, pageStoreLogDir);
+				logStoreLogDir, pageStoreLogDir, htapClusterName);
 		} catch (HtapException e) {
 			LOG.error("create htap storage client failed for table: " + table.getName(), e);
 			throw new HtapConnectorException(e.getErrorCode(), e.getMessage());
@@ -108,7 +111,7 @@ public class HtapReader implements AutoCloseable {
 	public HtapReaderIterator scanner(byte[] token, int partitionId) throws IOException {
 		try {
 			return new HtapReaderIterator(
-				HtapScanToken.deserializeIntoScanner(token, partitionId, client, table),
+				HtapScanToken.deserializeIntoScanner(token, partitionId, client, table, htapClusterName),
 				aggregateFunctions, outputDataType, groupByColumns.size());
 		} catch (Exception e) {
 			throw new IOException("build HtapReaderIterator error", e);

@@ -101,6 +101,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 	public HtapCatalog(
 			String catalogName,
 			String db,
+			String htapClusterName,
 			String metaSvcRegion,
 			String metaSvcCluster,
 			String instanceId,
@@ -118,11 +119,12 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		this.logStoreLogDir = logStoreLogDir;
 		this.pageStoreLogDir = pageStoreLogDir;
 		this.batchSizeBytes = batchSizeBytes;
-		this.metaClient = HtapMetaUtils.getMetaClient(metaSvcRegion, metaSvcCluster, instanceId);
+		this.metaClient = HtapMetaUtils.getMetaClient(htapClusterName, metaSvcRegion, metaSvcCluster, instanceId);
 	}
 
 	public HtapCatalog(
 			String db,
+			String htapClusterName,
 			String metaSvcRegion,
 			String metaSvcCluster,
 			String instanceId,
@@ -131,7 +133,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 			String logStoreLogDir,
 			String pageStoreLogDir,
 			int batchSizeBytes) {
-		this(HTAP, db, metaSvcRegion, metaSvcCluster, instanceId, byteStoreLogPath,
+		this(HTAP, db, htapClusterName, metaSvcRegion, metaSvcCluster, instanceId, byteStoreLogPath,
 			logStoreLogDir, byteStoreDataPath, pageStoreLogDir, batchSizeBytes);
 	}
 

@@ -63,6 +63,7 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 
 	public static final String HTAP = "htap";
 	public static final String HTAP_TABLE = "htap.table";
+	public static final String HTAP_CLUSTER_NAME = "htap.cluster-name";
 	public static final String HTAP_META_REGION = "htap.meta-region";
 	public static final String HTAP_META_CLUSTER = "htap.meta-cluster";
 	public static final String HTAP_META_DB = "htap.db-name";
@@ -92,6 +93,7 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 	public List<String> supportedProperties() {
 		List<String> properties = new ArrayList<>();
 		properties.add(HTAP_TABLE);
+		properties.add(HTAP_CLUSTER_NAME);
 		properties.add(HTAP_META_REGION);
 		properties.add(HTAP_META_CLUSTER);
 		properties.add(HTAP_INSTANCE_ID);

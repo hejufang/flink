@@ -54,6 +54,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private static final Logger LOG = LoggerFactory.getLogger(HtapRowInputFormat.class);
 
 	private final HtapReaderConfig readerConfig;
+	private final String htapClusterName;
 	private final HtapTable table;
 
 	private final List<HtapFilterInfo> tableFilters;
@@ -72,6 +73,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 
 	public HtapRowInputFormat(
 			HtapReaderConfig readerConfig,
+			String htapClusterName,
 			HtapTable table,
 			List<HtapFilterInfo> tableFilters,
 			List<String> tableProjections,
@@ -82,6 +84,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 			long limit,
 			Set<Integer> pushedDownPartitions) {
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
+		this.htapClusterName = checkNotNull(htapClusterName, "htapClusterName could not be null");
 		this.table = checkNotNull(table, "table could not be null");
 		this.tableFilters = checkNotNull(tableFilters, "tableFilters could not be null");
 		this.tableProjections = checkNotNull(
@@ -110,7 +113,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private void createHtapReader() throws IOException {
 		htapReader = new HtapReader(table, readerConfig, tableFilters, tableProjections,
 			tableAggregates, groupByColumns, aggregateFunctions, outputDataType, limit,
-			pushedDownPartitions);
+			pushedDownPartitions, htapClusterName);
 	}
 
 	@Override

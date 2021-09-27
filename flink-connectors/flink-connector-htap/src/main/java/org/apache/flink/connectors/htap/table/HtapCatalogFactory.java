@@ -35,6 +35,7 @@ import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BATCH_SIZE_BYTES;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BYTESTORE_DATAPATH;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BYTESTORE_LOGPATH;
+import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_CLUSTER_NAME;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_INSTANCE_ID;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_LOGSTORE_LOGDIR;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_META_CLUSTER;
@@ -73,6 +74,7 @@ public class HtapCatalogFactory implements CatalogFactory {
 	@Override
 	public List<String> supportedProperties() {
 		List<String> properties = new ArrayList<>();
+		properties.add(HTAP_CLUSTER_NAME);
 		properties.add(HTAP_META_REGION);
 		properties.add(HTAP_META_CLUSTER);
 		properties.add(HTAP_META_DB);
@@ -103,6 +105,7 @@ public class HtapCatalogFactory implements CatalogFactory {
 		HtapCatalog htapCatalog = new HtapCatalog(
 			name,
 			defaultDatabase,
+			descriptorProperties.getString(HTAP_CLUSTER_NAME),
 			descriptorProperties.getString(HTAP_META_REGION),
 			descriptorProperties.getString(HTAP_META_CLUSTER),
 			descriptorProperties.getString(HTAP_INSTANCE_ID),
@@ -134,6 +137,7 @@ public class HtapCatalogFactory implements CatalogFactory {
 	private DescriptorProperties getValidatedProperties(Map<String, String> properties) {
 		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
 		descriptorProperties.putProperties(properties);
+		descriptorProperties.validateString(HTAP_CLUSTER_NAME, true);
 		descriptorProperties.validateString(HTAP_META_REGION, false);
 		descriptorProperties.validateString(HTAP_META_CLUSTER, false);
 		descriptorProperties.validateString(HTAP_META_DB, false);

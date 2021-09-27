@@ -168,6 +168,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 	public DataStream<Row> getDataStream(StreamExecutionEnvironment env) {
 		// TM should not access meta service, so we get metadata here and propagate it out.
 		HtapMetaClient metaClient = HtapMetaUtils.getMetaClient(
+			flinkConf.get(HtapOptions.HTAP_CLUSTER_NAME),
 			readerConfig.getMetaSvcRegion(),
 			readerConfig.getMetaSvcCluster(),
 			readerConfig.getInstanceId());
@@ -176,6 +177,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			metaClient.getTable(tableInfo.getName(), readerConfig.getCheckPointLSN());
 		HtapRowInputFormat inputFormat = new HtapRowInputFormat(
 			readerConfig,
+			flinkConf.get(HtapOptions.HTAP_CLUSTER_NAME),
 			table,
 			predicates == null ? Collections.emptyList() : predicates,
 			projectedFields == null ? Collections.emptyList() : Lists.newArrayList(projectedFields),
