@@ -23,6 +23,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.RegisteredKeyedStateMeta;
@@ -80,7 +81,7 @@ public abstract class AbstractKeyedStateBackend<K> implements
 	private final HashMap<String, InternalKvState<K, ?, ?>> keyValueStatesByName;
 
 	/** Map for all registered states. Maps state name -> state desc. */
-	private final HashMap<String, StateDescriptor> keyValueStateDescByName;
+	private final HashMap<String, Tuple2<TypeSerializer<?>, StateDescriptor<?, ?>>> kvNamespaceSerAndStateDescByName;
 
 	/** For caching the last accessed partitioned state. */
 	private String lastName;
@@ -152,7 +153,7 @@ public abstract class AbstractKeyedStateBackend<K> implements
 		this.userCodeClassLoader = Preconditions.checkNotNull(userCodeClassLoader);
 		this.cancelStreamRegistry = cancelStreamRegistry;
 		this.keyValueStatesByName = new HashMap<>();
-		this.keyValueStateDescByName = new HashMap<>();
+		this.kvNamespaceSerAndStateDescByName = new HashMap<>();
 		this.executionConfig = executionConfig;
 		this.keyGroupCompressionDecorator = keyGroupCompressionDecorator;
 		this.ttlTimeProvider = Preconditions.checkNotNull(ttlTimeProvider);
@@ -184,7 +185,7 @@ public abstract class AbstractKeyedStateBackend<K> implements
 		lastName = null;
 		lastState = null;
 		keyValueStatesByName.clear();
-		keyValueStateDescByName.clear();
+		kvNamespaceSerAndStateDescByName.clear();
 	}
 
 	/**
@@ -301,7 +302,7 @@ public abstract class AbstractKeyedStateBackend<K> implements
 			kvState = TtlStateFactory.createStateAndWrapWithTtlIfEnabled(
 				namespaceSerializer, stateDescriptor, this, ttlTimeProvider);
 			keyValueStatesByName.put(stateDescriptor.getName(), kvState);
-			keyValueStateDescByName.put(stateDescriptor.getName(), stateDescriptor.duplicate());
+			kvNamespaceSerAndStateDescByName.put(stateDescriptor.getName(), Tuple2.of(namespaceSerializer.duplicate(), stateDescriptor.duplicate()));
 			publishQueryableStateIfEnabled(stateDescriptor, kvState);
 		}
 		return (S) kvState;
@@ -362,9 +363,9 @@ public abstract class AbstractKeyedStateBackend<K> implements
 	@Override
 	public Future<SnapshotResult<RegisteredKeyedStateMeta>> snapshotStateMeta(long checkpointId, long timestamp, @Nonnull CheckpointOptions checkpointOptions) throws Exception {
 
-		HashMap<String, StateMetaData> stateMetaDataMap = new HashMap<>(keyValueStateDescByName.size());
-		keyValueStateDescByName.forEach((stateName, stateDescriptor) -> {
-			StateMetaData stateMetaData = new RegisteredKeyedStateMeta.KeyedStateMetaData(stateDescriptor.getName(), stateDescriptor.getType(), stateDescriptor);
+		HashMap<String, StateMetaData> stateMetaDataMap = new HashMap<>(kvNamespaceSerAndStateDescByName.size());
+		kvNamespaceSerAndStateDescByName.forEach((stateName, namespaceSerAndStateDesc) -> {
+			StateMetaData stateMetaData = new RegisteredKeyedStateMeta.KeyedStateMetaData(namespaceSerAndStateDesc.f1.getName(), namespaceSerAndStateDesc.f1.getType(), namespaceSerAndStateDesc.f1, namespaceSerAndStateDesc.f0.duplicate());
 			stateMetaDataMap.put(stateName, stateMetaData);
 		});
 
@@ -422,7 +423,7 @@ public abstract class AbstractKeyedStateBackend<K> implements
 		IS internalState  = createInternalState(namespaceSerializer, stateDesc, snapshotTransformFactory);
 		if (addToRegistry) {
 			keyValueStatesByName.put(stateDesc.getName(), (InternalKvState<K, ?, ?>) internalState);
-			keyValueStateDescByName.put(stateDesc.getName(), stateDesc.duplicate());
+			kvNamespaceSerAndStateDescByName.put(stateDesc.getName(), Tuple2.of(namespaceSerializer.duplicate(), stateDesc.duplicate()));
 		}
 		return internalState;
 	}

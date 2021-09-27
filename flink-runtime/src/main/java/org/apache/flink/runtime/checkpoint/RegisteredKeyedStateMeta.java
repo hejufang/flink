@@ -18,8 +18,10 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.runtime.state.VoidNamespaceSerializer;
 import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.util.Preconditions;
 
@@ -115,15 +117,47 @@ public class RegisteredKeyedStateMeta extends RegisteredStateMetaBase {
 	 */
 	public static class KeyedStateMetaData extends StateMetaData {
 
+		private TypeSerializer namespaceSerializer;
+
+		@VisibleForTesting
 		public KeyedStateMetaData(String name, StateDescriptor.Type type, StateDescriptor stateDescriptor) {
+			this(name, type, stateDescriptor, VoidNamespaceSerializer.INSTANCE);
+		}
+
+		public KeyedStateMetaData(String name, StateDescriptor.Type type, StateDescriptor stateDescriptor, TypeSerializer namespaceSerializer) {
 			super(name, type, stateDescriptor);
+			this.namespaceSerializer = namespaceSerializer;
+		}
+
+		public TypeSerializer getNamespaceSerializer(){
+			return this.namespaceSerializer;
 		}
 
 		@Override
 		public String toString(){
 			return "KeyedStateMetaData{" +
+				"namespaceSerializer=" + namespaceSerializer.toString() + "," +
 				"stateDescriptor=" + stateDescriptor +
 				'}';
+		}
+
+		@Override
+		public int hashCode() {
+			int result = namespaceSerializer.hashCode();
+			result = 31 * result + stateDescriptor.hashCode();
+			return result;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (!(o instanceof RegisteredKeyedStateMeta.KeyedStateMetaData)) {
+				return false;
+			}
+			RegisteredKeyedStateMeta.KeyedStateMetaData that = (RegisteredKeyedStateMeta.KeyedStateMetaData) o;
+			return namespaceSerializer.equals(that.namespaceSerializer) && stateDescriptor.equals(that.stateDescriptor);
 		}
 	}
 }

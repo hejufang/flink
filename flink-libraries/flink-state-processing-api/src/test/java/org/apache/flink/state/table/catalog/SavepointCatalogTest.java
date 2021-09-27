@@ -82,8 +82,8 @@ public class SavepointCatalogTest {
 
 		final TableResult result = tEnv.executeSql("select * from state_meta");
 		List expect = new ArrayList();
-		expect.add(Row.of("bc764cd8ddf7a0cff126f51c16239658", null, null, false, null, "topic-partition-offset-states", "LIST", "OPERATOR_STATE_BACKEND"));
-		expect.add(Row.of("6fe83e977ea8ea576938e21ab20d3024", null, null, true, "Tuple1", "average", "VALUE", "INCREMENTAL_ROCKSDB_STATE_BACKEND"));
+		expect.add(Row.of("bc764cd8ddf7a0cff126f51c16239658", "Source: mySource", null, false, null, "topic-partition-offset-states", "LIST", "OPERATOR_STATE_BACKEND"));
+		expect.add(Row.of("6fe83e977ea8ea576938e21ab20d3024", "Flat Map", null, true, "Tuple1", "average", "VALUE", "INCREMENTAL_ROCKSDB_STATE_BACKEND"));
 		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
 
 	}

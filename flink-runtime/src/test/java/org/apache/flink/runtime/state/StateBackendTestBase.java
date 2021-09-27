@@ -3703,10 +3703,12 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 
 		SnapshotResult<RegisteredKeyedStateMeta> snapshotResult = snapshot.get();
 		RegisteredKeyedStateMeta stateMeta = snapshotResult.getJobManagerOwnedSnapshot();
+		RegisteredKeyedStateMeta.KeyedStateMetaData idStateMetaData = (RegisteredKeyedStateMeta.KeyedStateMetaData) stateMeta.getStateMetaData().get("id");
 
 		assertEquals(1, stateMeta.getStateMetaData().size());
-		assertEquals(kvId, stateMeta.getStateMetaData().get("id").getStateDescriptor());
-		assertEquals(StateDescriptor.Type.VALUE, stateMeta.getStateMetaData().get("id").getType());
+		assertEquals(kvId, idStateMetaData.getStateDescriptor());
+		assertEquals(StateDescriptor.Type.VALUE, idStateMetaData.getType());
+		assertEquals(VoidNamespaceSerializer.INSTANCE, idStateMetaData.getNamespaceSerializer());
 
 		MapStateDescriptor<String, Integer> mapStateDescriptor = new MapStateDescriptor<>("mapState", StringSerializer.INSTANCE, IntSerializer.INSTANCE);
 		MapState<String, Integer> state2 = backend.getPartitionedState("ns2", StringSerializer.INSTANCE, mapStateDescriptor);
@@ -3715,9 +3717,12 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 			backend.snapshotStateMeta(1L, 1L, CheckpointOptions.forCheckpointWithDefaultLocation());
 		SnapshotResult<RegisteredKeyedStateMeta> snapshotResult1 = snapshot1.get();
 		RegisteredKeyedStateMeta stateMeta1 = snapshotResult1.getJobManagerOwnedSnapshot();
+		RegisteredKeyedStateMeta.KeyedStateMetaData mapStateMetaData = (RegisteredKeyedStateMeta.KeyedStateMetaData) stateMeta1.getStateMetaData().get("mapState");
+
 		assertEquals(2, stateMeta1.getStateMetaData().size());
-		assertEquals(mapStateDescriptor, stateMeta1.getStateMetaData().get("mapState").getStateDescriptor());
-		assertEquals(StateDescriptor.Type.MAP, stateMeta1.getStateMetaData().get("mapState").getType());
+		assertEquals(mapStateDescriptor, mapStateMetaData.getStateDescriptor());
+		assertEquals(StateDescriptor.Type.MAP, mapStateMetaData.getType());
+		assertEquals(StringSerializer.INSTANCE, mapStateMetaData.getNamespaceSerializer());
 
 		ReducingStateDescriptor<String> reducingStateDescriptor = new ReducingStateDescriptor<>("reducingState", new AppendingReduce(), String.class);
 		ReducingState<String> state3 = backend.getPartitionedState(
@@ -3737,8 +3742,11 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 		assertEquals(4, stateMeta2.getStateMetaData().size());
 		assertEquals(aggregatingStateDescriptor, stateMeta2.getStateMetaData().get("aggregatingState").getStateDescriptor());
 		assertEquals(StateDescriptor.Type.AGGREGATING, stateMeta2.getStateMetaData().get("aggregatingState").getType());
+		assertEquals(VoidNamespaceSerializer.INSTANCE, ((RegisteredKeyedStateMeta.KeyedStateMetaData) stateMeta2.getStateMetaData().get("aggregatingState")).getNamespaceSerializer());
+
 		assertEquals(reducingStateDescriptor, stateMeta2.getStateMetaData().get("reducingState").getStateDescriptor());
 		assertEquals(StateDescriptor.Type.REDUCING, stateMeta2.getStateMetaData().get("reducingState").getType());
+		assertEquals(VoidNamespaceSerializer.INSTANCE, ((RegisteredKeyedStateMeta.KeyedStateMetaData) stateMeta2.getStateMetaData().get("reducingState")).getNamespaceSerializer());
 
 		backend.dispose();
 	}

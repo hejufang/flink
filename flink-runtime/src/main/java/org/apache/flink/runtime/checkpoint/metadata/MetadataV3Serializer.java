@@ -155,15 +155,26 @@ public class MetadataV3Serializer extends MetadataV2V3SerializerBase implements 
 			RegisteredKeyedStateMeta keyedStateMeta = (RegisteredKeyedStateMeta) registeredStateMetaBase;
 
 			dos.writeByte(KEYED_STATE_META);
+			// keySerializer
 			DataOutputViewStreamWrapper outView = new DataOutputViewStreamWrapper(dos);
 			TypeSerializerSnapshot.writeVersionedSnapshot(outView, keyedStateMeta.getKeySerializer().snapshotConfiguration());
+
+			// stateBackend type
 			dos.writeUTF(keyedStateMeta.getBackendType().name());
 
 			Map<String, StateMetaData> stateMetaDataMap = keyedStateMeta.getStateMetaData();
 			dos.writeInt(stateMetaDataMap.size());
 			for (Map.Entry<String, StateMetaData> entry : stateMetaDataMap.entrySet()) {
+
+				// stateName
 				dos.writeUTF(entry.getKey());
-				dos.write(InstantiationUtil.serializeObject(entry.getValue().getStateDescriptor()));
+
+				RegisteredKeyedStateMeta.KeyedStateMetaData keyedStateMetaData = (RegisteredKeyedStateMeta.KeyedStateMetaData) (entry.getValue());
+				// state Descriptor
+				dos.write(InstantiationUtil.serializeObject(keyedStateMetaData.getStateDescriptor()));
+				// namespace Serializer
+				DataOutputViewStreamWrapper namespaceSerOutView = new DataOutputViewStreamWrapper(dos);
+				TypeSerializerSnapshot.writeVersionedSnapshot(namespaceSerOutView, keyedStateMetaData.getNamespaceSerializer().snapshotConfiguration());
 			}
 		} else if (registeredStateMetaBase instanceof RegisteredOperatorStateMeta){
 			RegisteredOperatorStateMeta operatorStateMeta = (RegisteredOperatorStateMeta) registeredStateMetaBase;
@@ -246,7 +257,9 @@ public class MetadataV3Serializer extends MetadataV2V3SerializerBase implements 
 				String key = dis.readUTF();
 				ObjectInputStream ois = new ObjectInputStream(dis);
 				StateDescriptor stateDescriptor = (StateDescriptor) ois.readObject();
-				stateMetaDataMap.put(key, new RegisteredKeyedStateMeta.KeyedStateMetaData(stateDescriptor.getName(), stateDescriptor.getType(), stateDescriptor));
+
+				TypeSerializerSnapshot namespaceSerializerSnapshot = TypeSerializerSnapshot.readVersionedSnapshot(new DataInputViewStreamWrapper(dis), getClass().getClassLoader());
+				stateMetaDataMap.put(key, new RegisteredKeyedStateMeta.KeyedStateMetaData(stateDescriptor.getName(), stateDescriptor.getType(), stateDescriptor, namespaceSerializerSnapshot.restoreSerializer()));
 			}
 			return new RegisteredKeyedStateMeta(keySerializerSnapshot.restoreSerializer(), BackendType.valueOf(backendTypeString), stateMetaDataMap);
 		} else if (stateMetaType == OPERATOR_STATE_META){
