@@ -142,6 +142,11 @@ public final class StreamTaskNetworkInput<T> implements StreamTaskInput<T> {
 		this.channelIndexes = getChannelIndexes(checkpointedInputGate);
 	}
 
+	@VisibleForTesting
+	RecordDeserializer<?> getDeserializerByChannelInfo(InputChannelInfo inputChannelInfo){
+		return recordDeserializers[channelIndexes.get(inputChannelInfo)];
+	}
+
 	@Override
 	public InputStatus emitNext(DataOutput<T> output) throws Exception {
 
@@ -207,8 +212,7 @@ public final class StreamTaskNetworkInput<T> implements StreamTaskInput<T> {
 			final AbstractEvent event = bufferOrEvent.getEvent();
 			// TODO: with checkpointedInputGate.isFinished() we might not need to support any events on this level.
 			if (event.getClass() == UnavailableChannelEvent.class) {
-				LOG.info("Receive UnavailableChannelEvent, clean channel {}.", bufferOrEvent.getChannelInfo().getInputChannelIdx());
-				cleanChannel(bufferOrEvent.getChannelInfo().getInputChannelIdx());
+				cleanChannel(channelIndexes.get(bufferOrEvent.getChannelInfo()));
 				return;
 			} else if (event.getClass() != EndOfPartitionEvent.class) {
 				throw new IOException("Unexpected event: " + event);
@@ -259,13 +263,17 @@ public final class StreamTaskNetworkInput<T> implements StreamTaskInput<T> {
 	 * Clean buffers when receiving UnavailableChannelEvent.
 	 */
 	public void cleanChannel(int channelIndex) {
-		if (channelIndex < recordDeserializers.length) {
-			RecordDeserializer<?> deserializer = recordDeserializers[channelIndex];
-			Buffer buffer = deserializer.getCurrentBuffer();
-			if (buffer != null && !buffer.isRecycled()) {
-				buffer.recycleBuffer();
-			}
-			deserializer.clear();
+		LOG.info("Receive UnavailableChannelEvent, clean channel {}.", channelIndex);
+		RecordDeserializer<?> deserializer = recordDeserializers[channelIndex];
+		Buffer buffer = deserializer.getCurrentBuffer();
+		if (buffer != null && !buffer.isRecycled()) {
+			buffer.recycleBuffer();
+		}
+		deserializer.clear();
+
+		if (lastChannel == channelIndex) {
+			LOG.info("clean current record deserializer on channel {}.", channelIndex);
+			currentRecordDeserializer = null;
 		}
 	}
 

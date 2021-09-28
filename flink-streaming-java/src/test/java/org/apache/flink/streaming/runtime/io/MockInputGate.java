@@ -151,4 +151,8 @@ public class MockInputGate extends InputGate {
 	@Override
 	public void registerBufferReceivedListener(BufferReceivedListener listener) {
 	}
+
+	public Queue<BufferOrEvent> getBufferOrEvents() {
+		return bufferOrEvents;
+	}
 }

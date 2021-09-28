@@ -213,6 +213,13 @@ public class RemoteInputChannel extends InputChannel {
 
 		numBytesIn.inc(next.getSize());
 		numBuffersIn.inc();
+
+		if (!isChannelAvailable()) {
+			LOG.info("{} : This channel is unavailable, will return unavailable channelEvent.", this);
+			return Optional.of(new BufferAndAvailability(
+				EventSerializer.toBuffer(UnavailableChannelEvent.INSTANCE), false, 0));
+		}
+
 		return Optional.of(new BufferAndAvailability(next, moreAvailable, 0));
 	}
 

@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.disk.iomanager.IOManagerAsync;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
+import org.apache.flink.runtime.io.network.api.UnavailableChannelEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.api.serialization.RecordSerializer;
 import org.apache.flink.runtime.io.network.api.serialization.SpanningRecordSerializer;
@@ -99,6 +100,35 @@ public class StreamTaskNetworkInputTest {
 		assertHasNextElement(input, output);
 		assertHasNextElement(input, output);
 		assertEquals(2, output.getNumberOfEmittedRecords());
+	}
+
+	/**
+	 * Test clean channel when UnavailableChannelEvent occur.
+	 * @throws Exception
+	 */
+	@Test
+	public void testCleanChannel() throws Exception {
+		VerifyRecordsDataOutput output = new VerifyRecordsDataOutput<>();
+
+		InputChannelInfo channelInfo = new InputChannelInfo(0, 0);
+		BufferOrEvent event = new BufferOrEvent(UnavailableChannelEvent.INSTANCE, channelInfo);
+		List<BufferOrEvent> buffers = new ArrayList<>();
+		buffers.add(event);
+		buffers.add(createDataBuffer());
+
+		TestRecordDeserializer[] deserializers = createDeserializers(2);
+		StreamTaskNetworkInput<Long> input = new StreamTaskNetworkInput<>(
+			new CheckpointedInputGate(
+				new BufferOrEventMockInputGate(2, buffers, false),
+				new CheckpointBarrierTracker(2, new DummyCheckpointInvokable())),
+			LongSerializer.INSTANCE,
+			new StatusWatermarkValve(2, output),
+			0,
+			deserializers);
+
+		input.emitNext(output);
+		TestRecordDeserializer deserializer = (TestRecordDeserializer) input.getDeserializerByChannelInfo(channelInfo);
+		assertTrue(deserializer.cleared);
 	}
 
 	/**
@@ -344,6 +374,22 @@ public class StreamTaskNetworkInputTest {
 
 		int getNumberOfEmittedRecords() {
 			return numberOfEmittedRecords;
+		}
+	}
+
+	private static class BufferOrEventMockInputGate extends MockInputGate{
+
+		public BufferOrEventMockInputGate(int numberOfChannels, List<BufferOrEvent> bufferOrEvents) {
+			super(numberOfChannels, bufferOrEvents);
+		}
+
+		public BufferOrEventMockInputGate(int numberOfChannels, List<BufferOrEvent> bufferOrEvents, boolean finishAfterLastBuffer) {
+			super(numberOfChannels, bufferOrEvents, finishAfterLastBuffer);
+		}
+
+		@Override
+		public List<InputChannelInfo> getChannelInfos() {
+			return getBufferOrEvents().stream().map(BufferOrEvent::getChannelInfo).collect(Collectors.toList());
 		}
 	}
 }
