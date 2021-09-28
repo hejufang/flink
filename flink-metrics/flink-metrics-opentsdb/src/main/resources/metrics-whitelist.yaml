@@ -25,6 +25,7 @@ global:
         fullRestarts,
         fullRestartsRate,
         downtime,
+        jobVersion,
         uptime,
         restartingTime,
         executionStateTime,

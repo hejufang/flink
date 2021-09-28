@@ -350,10 +350,10 @@ public class SlotManagerImpl implements SlotManager {
 			() -> (long) getNumberPendingSlotRequests());
 		slotManagerMetricGroup.gauge(
 			MetricNames.NUM_LACK_SLOTS,
-			() -> (long)(getNumberPendingSlotRequests() - getNumberPendingTaskManagerSlots() - getNumberFreeSlots()));
+			() -> (long) (getNumberPendingSlotRequests() - getNumberPendingTaskManagerSlots() - getNumberFreeSlots()));
 		slotManagerMetricGroup.gauge(
 			MetricNames.NUM_EXCESS_WORKERS,
-			() -> (long)((getNumberFreeSlots() / getNumSlotsPerWorker())));
+			() -> (long) ((getNumberFreeSlots() / getNumSlotsPerWorker())));
 	}
 
 	/**

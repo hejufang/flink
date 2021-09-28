@@ -23,10 +23,13 @@ import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.metrics.ConfigMessage;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
+import org.apache.flink.metrics.TagGauge;
+import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.queryablestate.KvStateID;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
@@ -102,10 +105,12 @@ import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
+import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.SerializedValue;
+import org.apache.flink.util.StringUtils;
 
 import org.slf4j.Logger;
 
@@ -328,6 +333,66 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			}
 
 		}
+
+		if (jobManagerJobMetricGroup != null) {
+			TagGauge jobVersionTagGauge = new TagGauge.TagGaugeBuilder().build();
+			jobVersionTagGauge.addMetric(1, createVersionTagValues());
+			jobManagerJobMetricGroup.gauge("jobVersion", jobVersionTagGauge);
+		}
+	}
+
+	private TagGaugeStore.TagValues createVersionTagValues() {
+		// create tags to custom metric flink.job.jobVersion
+		// tags: version, commitId, commitDate, isInDockerMode, subVersion, flinkJobType, owner, dockerImage, flinkApi, appType
+		EnvironmentInformation.RevisionInformation revisionInformation = EnvironmentInformation.getRevisionInformation();
+		String version = EnvironmentInformation.getVersion();
+		String commitId = revisionInformation.commitId;
+		String commitDate = null;
+		if (revisionInformation.commitDate != null) {
+			commitDate = revisionInformation.commitDate.replace(" ", "_");
+		}
+		boolean isInDockerMode = this.jobMasterConfiguration.getConfiguration().getBoolean(ConfigConstants.IS_IN_DOCKER_MODE_KEY, false);
+		String subVersion = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.FLINK_SUBVERSION_KEY, null);
+		String flinkJobType = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.FLINK_JOB_TYPE_KEY, ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
+		String dockerImage = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.DOCKER_IMAGE, null);
+		String flinkApi = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
+		String appType = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.APPLICATION_TYPE, null);
+		String appName = System.getenv().get(ConfigConstants.ENV_FLINK_YARN_JOB);
+		String owner = null;
+		if (!StringUtils.isNullOrWhitespaceOnly(appName)) {
+			// we assume that the format of appName is {jobName}_{owner}
+			int index = appName.lastIndexOf("_");
+			if (index > 0) {
+				if (index + 1 < appName.length()) {
+					owner = appName.substring(index + 1);
+				}
+			}
+		}
+		TagGaugeStore.TagValuesBuilder tagValuesBuilder = new TagGaugeStore.TagValuesBuilder()
+			.addTagValue("version", version)
+			.addTagValue("commitId", commitId)
+			.addTagValue("commitDate", commitDate)
+			.addTagValue("isInDockerMode", String.valueOf(isInDockerMode));
+
+		if (!StringUtils.isNullOrWhitespaceOnly(flinkJobType)) {
+			tagValuesBuilder.addTagValue("flinkJobType", flinkJobType);
+		}
+		if (!StringUtils.isNullOrWhitespaceOnly(subVersion)) {
+			tagValuesBuilder.addTagValue("subVersion", subVersion);
+		}
+		if (!StringUtils.isNullOrWhitespaceOnly(owner)) {
+			tagValuesBuilder.addTagValue("owner", owner);
+		}
+		if (!StringUtils.isNullOrWhitespaceOnly(dockerImage)) {
+			tagValuesBuilder.addTagValue("dockerImage", dockerImage);
+		}
+		if (!StringUtils.isNullOrWhitespaceOnly(flinkApi)) {
+			tagValuesBuilder.addTagValue("flinkApi", flinkApi);
+		}
+		if (!StringUtils.isNullOrWhitespaceOnly(appType)) {
+			tagValuesBuilder.addTagValue("appType", appType);
+		}
+		return tagValuesBuilder.build();
 	}
 
 	private SchedulerNG createScheduler(final JobManagerJobMetricGroup jobManagerJobMetricGroup) throws Exception {
