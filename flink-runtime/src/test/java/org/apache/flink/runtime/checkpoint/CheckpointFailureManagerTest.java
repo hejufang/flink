@@ -45,6 +45,12 @@ public class CheckpointFailureManagerTest extends TestLogger {
 			CheckpointFailureReason.CHECKPOINT_ASYNC_EXCEPTION,
 			new RemoteException("org.byted.infsec.infsecs.InfSecSException", "org.byted.infsec.infsecs.InfSecSException: token expired!"));
 		Assert.assertTrue(failureManager.isTokenProblemInTraces(ex2));
+
+		// test when message is null
+		CheckpointException ex3 = new CheckpointException(
+			CheckpointFailureReason.CHECKPOINT_ASYNC_EXCEPTION,
+			new Exception());
+		Assert.assertFalse(failureManager.isTokenProblemInTraces(ex3));
 	}
 
 	@Test

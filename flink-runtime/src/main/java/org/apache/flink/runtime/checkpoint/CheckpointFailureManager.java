@@ -149,10 +149,12 @@ public class CheckpointFailureManager {
 			if (t instanceof SerializedThrowable) {
 				SerializedThrowable st = (SerializedThrowable) t;
 				String message = st.getMessage();
-				if (message.contains("InfSecSException")) {
-					return true;
-				} else if (message.contains("token") && message.contains("expire")) {
-					return true;
+				if (message != null) {
+					if (message.contains("InfSecSException")) {
+						return true;
+					} else if (message.contains("token") && message.contains("expire")) {
+						return true;
+					}
 				}
 			}
 			t = t.getCause();
