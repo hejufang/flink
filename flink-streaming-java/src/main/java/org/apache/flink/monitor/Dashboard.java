@@ -698,7 +698,7 @@ public class Dashboard {
 		return poolUsageRow;
 	}
 
-	private List<String> renderRecordIndNumSplitRow(List<String> operators) {
+	private List<String> renderRecordNumSplitRow(List<String> operators) {
 		if (operators.size() < targetLimit) {
 			return Lists.newArrayList(renderRecordIndNumRow(operators, ""), renderRecordOutNumRow(operators, ""));
 		}
@@ -1041,7 +1041,7 @@ public class Dashboard {
 		}
 		overViewPanels.add(renderOperatorLatencyRow(operatorsButSources));
 		overViewPanels.add(renderPoolUsageRow(tasks));
-		overViewPanels.add(renderRecordNumRow(tasks));
+		overViewPanels.add(renderRecordNumRow(operators));
 
 		// add overview row
 		rows.add(renderRowTemplate(DashboardTemplate.OVERVIEW_ROW_TEMPLATE, overViewPanels, false));
@@ -1054,7 +1054,7 @@ public class Dashboard {
 		// add network row
 		List<String> networkPanels = Lists.newArrayList();
 		networkPanels.addAll(renderPoolUsageSplitRow(tasks));
-		networkPanels.addAll(renderRecordIndNumSplitRow(tasks));
+		networkPanels.addAll(renderRecordNumSplitRow(operators));
 		networkPanels.add(renderNetworkMemoryRow());
 		rows.add(renderRowTemplate(DashboardTemplate.NETWORK_ROW_TEMPLATE, networkPanels));
 
