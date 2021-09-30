@@ -196,6 +196,12 @@ public class CliFrontendParser {
 			"Pip (version >= 7.1.0) and SetupTools (version >= 37.0.0). " +
 			"Please ensure that the specified environment meets the above requirements.");
 
+	public static final Option DOWNLOAD_SRC_OPTION = new Option("src", "sources", true,
+		"File list that need to be download. Each files are separated by semicolon. Directory is not supported");
+
+	public static final Option DOWNLOAD_DEST_OPTION = new Option("dest", "destination", true,
+		"The saved path of downloading files. This must be a directory.");
+
 	static {
 		HELP_OPTION.setRequired(false);
 
@@ -327,6 +333,12 @@ public class CliFrontendParser {
 	static Options getCancelCommandOptions() {
 		Options options = buildGeneralOptions(new Options());
 		return options.addOption(CANCEL_WITH_SAVEPOINT_OPTION);
+	}
+
+	static Options getDownloadCommandOptions() {
+		return buildGeneralOptions(new Options())
+			.addOption(DOWNLOAD_SRC_OPTION)
+			.addOption(DOWNLOAD_DEST_OPTION);
 	}
 
 	static Options getStopCommandOptions() {
@@ -504,6 +516,19 @@ public class CliFrontendParser {
 
 		printCustomCliOptions(customCommandLines, formatter, false);
 
+		System.out.println();
+	}
+
+	public static void printHelpForDownload(Collection<CustomCommandLine> customCommandLines) {
+		HelpFormatter formatter = new HelpFormatter();
+		formatter.setLeftPadding(5);
+		formatter.setWidth(80);
+
+		System.out.println("\nAction \"download\" download file to local directory.");
+		System.out.println("\n  Syntax: download -src <file list> -dest <save path>");
+		System.out.println("\n  Example: download -src file1;file2 -dest /opt/tiger/workdir");
+		formatter.setSyntaxPrefix("  \"download\" action options:");
+		formatter.printHelp(" ", getDownloadCommandOptions());
 		System.out.println();
 	}
 

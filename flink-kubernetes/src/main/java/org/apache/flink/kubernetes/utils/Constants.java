@@ -29,6 +29,7 @@ public class Constants {
 
 	public static final String CONFIG_FILE_LOGBACK_NAME = "logback.xml";
 	public static final String CONFIG_FILE_LOG4J_NAME = "log4j.properties";
+	public static final String CONFIG_FILE_LOG4J_CLIENT_NAME = "log4j-cli.properties";
 
 	public static final String FLINK_CONF_VOLUME = "flink-config-volume";
 	public static final String CONFIG_MAP_PREFIX = "flink-config-";
@@ -86,4 +87,9 @@ public class Constants {
 	public static final String ENV_POD_HOST_IP = "MY_HOST_IP";
 
 	public static final String JVM_HS_ERROR_PATH = "/var/log/tiger/";
+
+	public static final String FILE_DOWNLOAD_VOLUME = "file-download-volume";
+
+	public static final String FILE_SCHEME = "file";
+	public static final String LOCAL_SCHEME = "local";
 }

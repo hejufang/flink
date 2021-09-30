@@ -58,7 +58,6 @@ import static org.apache.flink.client.cli.CliFrontendTestUtils.getTestJarPath;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-
 /**
  * Tests for the RUN command with Dynamic Properties.
  */
@@ -269,6 +268,39 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 		FileSystem fs = new Path(checkpointFolder).getFileSystem();
 		Assert.assertEquals(3, fs.listStatus(new Path(new Path(checkpointFolder, jobName), namespace)).length);
 		Assert.assertTrue(fs.exists(new Path(new Path(new Path(checkpointFolder, jobName), namespace), "sp-1")));
+	}
+
+	@Test
+	public void testMutipleExternalFileWithApplicationMode() throws Exception {
+		final String jobName = "testRestoreFromSavepointWithApplicationMode";
+		final String namespace = "testNS";
+		System.setProperty(ConfigConstants.JOB_NAME_KEY, jobName);
+
+		final String checkpointFolder = tmp.newFolder().getAbsolutePath();
+
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE.key(), namespace);
+		configuration.setString(CheckpointingOptions.STATE_BACKEND.key(), "filesystem");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY.key(), "file://" + checkpointFolder);
+
+		String[] args = {
+			"-cn", "test",
+			"-t", "remote",
+			"-D" + PipelineOptions.EXTERNAL_RESOURCES.key() + "=" + "file://file1.jar;file://file2.jar;file://file3.jar",
+			"-D" + PipelineOptions.UPLOAD_REMOTE_DIR.key() + "=" + "hdfs:///tmp",
+			"-Dclassloader.resolve-order=parent-first",
+			"-DclusterName=flink",
+			"local:///job.jar"};
+
+		final String errorMsg = "Application Mode not supported by standalone deployments.";
+
+		try {
+			// just check whether there will be any exception.
+			verifyCliFrontendWithApplicationMode(configuration, args, cliUnderTest, "parent-first", ParentFirstClassLoader.class.getName());
+		} catch (Exception e) {
+			//expected
+			assertTrue(e instanceof UnsupportedOperationException);
+			assertEquals(errorMsg, e.getMessage());
+		}
 	}
 
 	@Test

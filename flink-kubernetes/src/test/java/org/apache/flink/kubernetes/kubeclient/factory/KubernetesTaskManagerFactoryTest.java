@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.kubeclient.factory;
 
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.kubernetes.KubernetesTestUtils;
 import org.apache.flink.kubernetes.kubeclient.KubernetesTaskManagerTestBase;
 import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesTaskManagerParameters;
@@ -26,6 +27,8 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.Pod;
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -57,6 +60,18 @@ public class KubernetesTaskManagerFactoryTest extends KubernetesTaskManagerTestB
 		assertEquals(POD_NAME, this.resultPod.getMetadata().getName());
 		assertEquals(5, this.resultPod.getMetadata().getLabels().size());
 		assertEquals(2, this.resultPod.getSpec().getVolumes().size());
+	}
+
+	@Test
+	public void testPodContainsRemoteFiles() {
+		flinkConfig.set(PipelineOptions.JARS, Collections.singletonList("hdfs:///path/of/user.jar"));
+		flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES,
+			Arrays.asList("hdfs:///path/of/file1.jar", "hdfs:///path/file2.jar", "hdfs:///path/file3.jar"));
+		Pod pod =
+			KubernetesTaskManagerFactory.buildTaskManagerKubernetesPod(kubernetesTaskManagerParameters).getInternalResource();
+		assertEquals(POD_NAME, pod.getMetadata().getName());
+		assertEquals(1, pod.getSpec().getInitContainers().size());
+		assertEquals(3, pod.getSpec().getVolumes().size());
 	}
 
 	@Test

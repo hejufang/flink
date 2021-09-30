@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.configuration.GlobalConfiguration.FLINK_CONF_FILENAME;
+import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOG4J_CLIENT_NAME;
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOG4J_NAME;
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOGBACK_NAME;
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_MAP_PREFIX;
@@ -176,6 +177,8 @@ public class FlinkConfMountDecorator extends AbstractKubernetesStepDecorator {
 		final String confDir = kubernetesComponentConf.getConfigDirectory();
 		final File logbackFile = new File(confDir, CONFIG_FILE_LOGBACK_NAME);
 		final File log4jFile = new File(confDir, CONFIG_FILE_LOG4J_NAME);
+		// TM/TM needs flink client to download remote file, so we need to provide log4j-cli.properties in configmap
+		final File log4jClientFile = new File(confDir, CONFIG_FILE_LOG4J_CLIENT_NAME);
 
 		List<File> localLogConfFiles = new ArrayList<>();
 		if (logbackFile.exists()) {
@@ -183,6 +186,9 @@ public class FlinkConfMountDecorator extends AbstractKubernetesStepDecorator {
 		}
 		if (log4jFile.exists()) {
 			localLogConfFiles.add(log4jFile);
+		}
+		if (log4jClientFile.exists()) {
+			localLogConfFiles.add(log4jClientFile);
 		}
 
 		return localLogConfFiles;

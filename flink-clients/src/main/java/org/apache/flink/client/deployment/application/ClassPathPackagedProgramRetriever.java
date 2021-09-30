@@ -24,6 +24,7 @@ import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.client.program.PackagedProgramRetriever;
 import org.apache.flink.client.program.ProgramInvocationException;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkException;
@@ -43,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.function.Supplier;
 import java.util.jar.JarEntry;
@@ -94,9 +96,23 @@ public class ClassPathPackagedProgramRetriever implements PackagedProgramRetriev
 		this.programArguments = requireNonNull(programArguments, "programArguments");
 		this.jobClassName = jobClassName;
 		this.jarsOnClassPath = requireNonNull(jarsOnClassPath);
-		this.userClassPaths = discoverUserClassPaths(userLibDirectory);
 		this.jarFile = jarFile;
 		this.configuration = configuration;
+		this.userClassPaths = getUserClassPathsFromUserLibAndFileDownloadDir();
+	}
+
+	private Collection<URL> getUserClassPathsFromUserLibAndFileDownloadDir() throws IOException {
+		Collection<URL> userClassPaths = discoverUserClassPaths(userLibDirectory);
+		File downloadedFileMountedDir = new File(configuration.getString(PipelineOptions.FILE_MOUNTED_PATH));
+		if (downloadedFileMountedDir.exists() && downloadedFileMountedDir.isDirectory()) {
+			Collection<URL> downloadFiles = discoverUserClassPaths(downloadedFileMountedDir);
+			List<URL> urlList = new ArrayList<>(downloadFiles.size() + userClassPaths.size());
+			urlList.addAll(userClassPaths);
+			urlList.addAll(downloadFiles);
+			return Collections.unmodifiableCollection(urlList);
+		} else {
+			return userClassPaths;
+		}
 	}
 
 	private Collection<URL> discoverUserClassPaths(@Nullable File jobDir) throws IOException {

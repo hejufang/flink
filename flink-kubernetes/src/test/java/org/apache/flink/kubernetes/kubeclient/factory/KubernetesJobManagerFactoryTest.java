@@ -18,9 +18,12 @@
 
 package org.apache.flink.kubernetes.kubeclient.factory;
 
+import org.apache.flink.configuration.DeploymentOptions;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.kubernetes.KubernetesTestUtils;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptionsInternal;
+import org.apache.flink.kubernetes.configuration.KubernetesDeploymentTarget;
 import org.apache.flink.kubernetes.entrypoint.KubernetesSessionClusterEntrypoint;
 import org.apache.flink.kubernetes.kubeclient.KubernetesJobManagerSpecification;
 import org.apache.flink.kubernetes.kubeclient.KubernetesJobManagerTestBase;
@@ -43,6 +46,8 @@ import io.fabric8.kubernetes.api.model.apps.DeploymentSpec;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -216,6 +221,42 @@ public class KubernetesJobManagerFactoryTest extends KubernetesJobManagerTestBas
 		assertEquals("some data", resultDatas.get("logback.xml"));
 		assertTrue(resultDatas.get(FLINK_CONF_FILENAME)
 			.contains(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS.key() + ": " + ENTRY_POINT_CLASS));
+	}
+
+	@Test
+	public void testInitContainerWithRemoteJar() throws IOException {
+		flinkConfig.set(PipelineOptions.JARS, Collections.singletonList("local:///path/of/user.jar"));
+		flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES,
+			Arrays.asList("hdfs:///path/of/file1.jar", "hdfs:///path/file2.jar", "hdfs:///path/file3.jar"));
+		flinkConfig.set(DeploymentOptions.TARGET, KubernetesDeploymentTarget.APPLICATION.getName());
+
+		KubernetesJobManagerSpecification kubernetesJobManagerSpecification =
+			KubernetesJobManagerFactory.buildKubernetesJobManagerSpecification(kubernetesJobManagerParameters);
+
+		final PodSpec podSpec = kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
+		assertFalse("should use init container to download hdfs file", podSpec.getInitContainers().isEmpty());
+		assertTrue("should use init container to download hdfs file",
+			podSpec.getInitContainers().get(0).getArgs().stream().anyMatch(
+				arg -> arg.contains("hdfs:///path/of/file1.jar")
+		));
+		assertTrue("hdfs file should be downloaded to emptyDir type volume",
+			podSpec.getVolumes().stream().anyMatch(volume -> volume.getEmptyDir() != null)
+		);
+	}
+
+	@Test
+	public void testInitContainerWithLocalJar() throws IOException {
+		flinkConfig.set(PipelineOptions.JARS, Collections.singletonList("local:///path/of/user.jar"));
+		flinkConfig.set(DeploymentOptions.TARGET, KubernetesDeploymentTarget.APPLICATION.getName());
+
+		KubernetesJobManagerSpecification kubernetesJobManagerSpecification =
+			KubernetesJobManagerFactory.buildKubernetesJobManagerSpecification(kubernetesJobManagerParameters);
+
+		final PodSpec podSpec = kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
+		assertTrue("should not use init container for local file", podSpec.getInitContainers().isEmpty());
+		assertTrue("should not create emptyDir volume",
+			podSpec.getVolumes().stream().allMatch(volume -> volume.getEmptyDir() == null)
+		);
 	}
 
 	@Test

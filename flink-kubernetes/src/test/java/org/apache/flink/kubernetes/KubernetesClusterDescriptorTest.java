@@ -38,6 +38,7 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -135,9 +136,27 @@ public class KubernetesClusterDescriptorTest extends KubernetesClientTestBase {
 		checkUpdatedConfigAndResourceSetting();
 	}
 
+	/**
+	 * Ignore this because now application cluster support remote file and local disk file.
+	 */
 	@Test
+	@Ignore
 	public void testDeployApplicationClusterWithNonLocalSchema() {
 		flinkConfig.set(PipelineOptions.JARS, Collections.singletonList("file:///path/of/user.jar"));
+		flinkConfig.set(DeploymentOptions.TARGET, KubernetesDeploymentTarget.APPLICATION.getName());
+		assertThrows(
+			"Only \"local\" is supported as schema for application mode.",
+			IllegalArgumentException.class,
+			() -> descriptor.deployApplicationCluster(clusterSpecification, appConfig));
+	}
+
+	/**
+	 * Ignore this because now application cluster support remote file and local disk file.
+	 */
+	@Test
+	@Ignore
+	public void testDeployApplicationClusterWithHdfsSchema() {
+		flinkConfig.set(PipelineOptions.JARS, Collections.singletonList("hdfs:///path/of/user.jar"));
 		flinkConfig.set(DeploymentOptions.TARGET, KubernetesDeploymentTarget.APPLICATION.getName());
 		assertThrows(
 			"Only \"local\" is supported as schema for application mode.",

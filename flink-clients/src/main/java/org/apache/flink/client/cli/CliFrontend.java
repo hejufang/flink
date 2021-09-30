@@ -49,6 +49,7 @@ import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.core.execution.DefaultExecutorServiceLoader;
 import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
@@ -71,8 +72,10 @@ import org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.ZooKeeperUtils;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.ShutdownHookUtil;
+import org.apache.flink.util.function.FunctionUtils;
 import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
@@ -128,6 +131,7 @@ public class CliFrontend {
 	private static final String ACTION_STOP = "stop";
 	private static final String ACTION_SAVEPOINT = "savepoint";
 	private static final String ACTION_CHECKPOINT = "checkpoint";
+	private static final String ACTION_DOWNLOAD = "download";
 
 	// configuration dir parameters
 	private static final String CONFIG_DIRECTORY_FALLBACK_1 = "../conf";
@@ -255,6 +259,9 @@ public class CliFrontend {
 		}
 		final ApplicationConfiguration applicationConfiguration =
 				new ApplicationConfiguration(programOptions.getProgramArgs(), programOptions.getEntryPointClassName());
+		// initialize file system again because client will pass some parameter via command arguments
+		configuration.addAll(effectiveConfiguration);
+		FileSystem.initialize(configuration, PluginUtils.createPluginManagerFromRootFolder(configuration));
 		deployer.run(effectiveConfiguration, applicationConfiguration);
 	}
 
@@ -1406,6 +1413,9 @@ public class CliFrontend {
 		try {
 			// do action
 			switch (action) {
+				case ACTION_DOWNLOAD:
+					download(params);
+					return 0;
 				case ACTION_RUN:
 					run(params);
 					return 0;
@@ -1458,6 +1468,34 @@ public class CliFrontend {
 			return handleMissingJobException();
 		} catch (Exception e) {
 			return handleError(e);
+		}
+	}
+
+	/**
+	 * command: `bin/flink download -src "file1;file2" -dest /opt/tiger/workdir`.
+	 *
+	 * @param args
+	 * @throws IOException
+	 */
+	public void download(String[] args) throws Exception {
+		LOG.info("Running 'download' command with args: {}", String.join(" ", args));
+		final Options commandOptions = CliFrontendParser.getDownloadCommandOptions();
+		final CommandLine commandLine = getCommandLine(commandOptions, args, true);
+		if (commandLine.hasOption(HELP_OPTION.getOpt())) {
+			CliFrontendParser.printHelpForDownload(customCommandLines);
+			return;
+		}
+		final DownloadOptions downloadOptions = new DownloadOptions(commandLine);
+		downloadOptions.validate();
+		String targetDir = downloadOptions.getSavePath();
+		List<URI> remoteFiles = downloadOptions.getRemoteFiles().stream()
+			.map(FunctionUtils.uncheckedFunction(PackagedProgramUtils::resolveURI))
+			.collect(Collectors.toList());
+		for (URI uri : remoteFiles) {
+			Path path = new Path(uri);
+			String targetPath = String.join("/", targetDir, path.getName());
+			LOG.info("download remote file {} into local dir {}", uri.toString(), targetPath);
+			FileUtils.copy(path, new Path(targetPath), false);
 		}
 	}
 
