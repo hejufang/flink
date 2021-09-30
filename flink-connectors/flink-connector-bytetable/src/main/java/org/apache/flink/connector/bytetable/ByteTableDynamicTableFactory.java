@@ -119,6 +119,12 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 			"Can be set to '0' to disable it. Note, both 'sink.buffer-flush.max-size' and 'sink.buffer-flush.max-rows' " +
 			"can be set to '0' with the flush interval set allowing for complete async processing of buffered actions.");
 
+	public static final ConfigOption<Duration> SINK_RECORD_TTL = ConfigOptions
+		.key("sink.record.ttl")
+		.durationType()
+		.defaultValue(Duration.ZERO)
+		.withDescription("Optional. Record ttl, zero means not setting ttl");
+
 	private static final ConfigOption<Integer> BYTETABLE_CONN_TIMEOUT = ConfigOptions
 		.key("bytetable-conn-timeout")
 		.intType()
@@ -207,6 +213,7 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 		writeBuilder.setBufferFlushMaxSizeInBytes(helper.getOptions().get(SINK_BUFFER_FLUSH_MAX_SIZE).getBytes());
 		writeBuilder.setBufferFlushIntervalMillis(helper.getOptions().get(SINK_BUFFER_FLUSH_INTERVAL).toMillis());
 		writeBuilder.setBufferFlushMaxRows(helper.getOptions().get(SINK_BUFFER_FLUSH_MAX_ROWS));
+		writeBuilder.setCellTTLMicroSeconds(helper.getOptions().get(SINK_RECORD_TTL).toMillis() * 1000);
 		String nullStringLiteral = helper.getOptions().get(NULL_STRING_LITERAL);
 		ByteTableSchema byteTableSchema = ByteTableSchema.fromTableSchema(tableSchema);
 
@@ -240,6 +247,7 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 		set.add(SINK_BUFFER_FLUSH_MAX_SIZE);
 		set.add(SINK_BUFFER_FLUSH_MAX_ROWS);
 		set.add(SINK_BUFFER_FLUSH_INTERVAL);
+		set.add(SINK_RECORD_TTL);
 		set.add(RATE_LIMIT_NUM);
 		set.add(BYTETABLE_CONN_TIMEOUT);
 		set.add(BYTETABLE_CHAN_TIMEOUT);

@@ -62,6 +62,9 @@ public class ByteTableSerde {
 	// cell Version
 	private final int cellVersionIndex;
 
+	// cell ttl (micro seconds)
+	private final long cellTTLMicroSeconds;
+
 	// family keys
 	private final byte[][] families;
 	// qualifier keys
@@ -78,10 +81,11 @@ public class ByteTableSerde {
 	private final FieldDecoder[][] qualifierDecoders;
 	private final GenericRowData rowWithRowKey;
 
-	public ByteTableSerde(ByteTableSchema byteTableSchemaSchema, final String nullStringLiteral) {
+	public ByteTableSerde(ByteTableSchema byteTableSchemaSchema, final String nullStringLiteral, long cellTTLMicroSeconds) {
 		this.families = byteTableSchemaSchema.getFamilyKeys();
 		this.rowkeyIndex = byteTableSchemaSchema.getRowKeyIndex();
 		this.cellVersionIndex = byteTableSchemaSchema.getCellVersionIndex();
+		this.cellTTLMicroSeconds = cellTTLMicroSeconds;
 		LogicalType rowkeyType = byteTableSchemaSchema.getRowKeyDataType().map(DataType::getLogicalType).orElse(null);
 
 		// field length need take row key into account if it exists.
@@ -152,7 +156,12 @@ public class ByteTableSerde {
 					byte[] qualifier = qualifiers[f][q];
 					// serialize value
 					byte[] value = qualifierEncoders[f][q].encode(familyRow, q);
-					put.putWithTimestamp(familyKey, qualifier, cellVersion, value);
+					if (cellTTLMicroSeconds > 0) {
+						long absoluteTime = System.currentTimeMillis() * 1000 + cellTTLMicroSeconds;
+						put.putWithTimestampAndExpires(familyKey, qualifier, cellVersion, absoluteTime, value);
+					} else {
+						put.putWithTimestamp(familyKey, qualifier, cellVersion, value);
+					}
 				}
 			}
 		}

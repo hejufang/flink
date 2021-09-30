@@ -63,7 +63,7 @@ public class ByteTableRowDataInputFormat extends AbstractTableInputFormat<RowDat
 	@Override
 	public void configure(Configuration parameters) {
 		LOG.info("Initializing ByteTable configuration.");
-		this.serde = new ByteTableSerde(schema, nullStringLiteral);
+		this.serde = new ByteTableSerde(schema, nullStringLiteral, 0);
 		connectToTable();
 		if (table != null) {
 			scan = getScanner();

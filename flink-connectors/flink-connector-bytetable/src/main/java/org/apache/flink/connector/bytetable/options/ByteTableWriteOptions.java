@@ -37,13 +37,17 @@ public class ByteTableWriteOptions implements Serializable {
 	private final long bufferFlushMaxRows;
 	private final long bufferFlushIntervalMillis;
 
+	private final long cellTTLMicroSeconds;
+
 	private ByteTableWriteOptions(
 			long bufferFlushMaxSizeInBytes,
 			long bufferFlushMaxMutations,
-			long bufferFlushIntervalMillis) {
+			long bufferFlushIntervalMillis,
+			long ttlMicroSeconds) {
 		this.bufferFlushMaxSizeInBytes = bufferFlushMaxSizeInBytes;
 		this.bufferFlushMaxRows = bufferFlushMaxMutations;
 		this.bufferFlushIntervalMillis = bufferFlushIntervalMillis;
+		this.cellTTLMicroSeconds = ttlMicroSeconds;
 	}
 
 	public long getBufferFlushMaxSizeInBytes() {
@@ -58,12 +62,17 @@ public class ByteTableWriteOptions implements Serializable {
 		return bufferFlushIntervalMillis;
 	}
 
+	public long getCellTTLMicroSeconds() {
+		return cellTTLMicroSeconds;
+	}
+
 	@Override
 	public String toString() {
 		return "ByteTableWriteOptions{" +
 			"bufferFlushMaxSizeInBytes=" + bufferFlushMaxSizeInBytes +
 			", bufferFlushMaxRows=" + bufferFlushMaxRows +
 			", bufferFlushIntervalMillis=" + bufferFlushIntervalMillis +
+			", cellTTLMicroSeconds=" + cellTTLMicroSeconds +
 			'}';
 	}
 
@@ -78,12 +87,13 @@ public class ByteTableWriteOptions implements Serializable {
 		ByteTableWriteOptions that = (ByteTableWriteOptions) o;
 		return bufferFlushMaxSizeInBytes == that.bufferFlushMaxSizeInBytes &&
 			bufferFlushMaxRows == that.bufferFlushMaxRows &&
-			bufferFlushIntervalMillis == that.bufferFlushIntervalMillis;
+			bufferFlushIntervalMillis == that.bufferFlushIntervalMillis &&
+			cellTTLMicroSeconds == that.cellTTLMicroSeconds;
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(bufferFlushMaxSizeInBytes, bufferFlushMaxRows, bufferFlushIntervalMillis);
+		return Objects.hash(bufferFlushMaxSizeInBytes, bufferFlushMaxRows, bufferFlushIntervalMillis, cellTTLMicroSeconds);
 	}
 
 	/**
@@ -99,8 +109,9 @@ public class ByteTableWriteOptions implements Serializable {
 	public static class Builder {
 
 		private long bufferFlushMaxSizeInBytes = ConnectionConfiguration.WRITE_BUFFER_SIZE_DEFAULT;
-		private long bufferFlushMaxRows = 0;
-		private long bufferFlushIntervalMillis = 0;
+		private long bufferFlushMaxRows = 0L;
+		private long bufferFlushIntervalMillis = 0L;
+		private long cellTTLMicroSeconds = 0L;
 
 		/**
 		 * Optional. Sets when to flush a buffered request based on the memory size of rows currently added.
@@ -129,6 +140,10 @@ public class ByteTableWriteOptions implements Serializable {
 			return this;
 		}
 
+		public void setCellTTLMicroSeconds(long cellTTLMicroSeconds) {
+			this.cellTTLMicroSeconds = cellTTLMicroSeconds;
+		}
+
 		/**
 		 * Creates a new instance of {@link ByteTableWriteOptions}.
 		 */
@@ -136,7 +151,8 @@ public class ByteTableWriteOptions implements Serializable {
 			return new ByteTableWriteOptions(
 				bufferFlushMaxSizeInBytes,
 				bufferFlushMaxRows,
-				bufferFlushIntervalMillis);
+				bufferFlushIntervalMillis,
+				cellTTLMicroSeconds);
 		}
 	}
 }

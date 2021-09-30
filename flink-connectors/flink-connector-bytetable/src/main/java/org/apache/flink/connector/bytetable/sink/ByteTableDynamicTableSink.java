@@ -71,7 +71,7 @@ public class ByteTableDynamicTableSink implements DynamicTableSink {
 			byteTableName,
 			byteTableClientConf,
 			byteTableOptions,
-			new RowDataToMutationConverter(byteTableSchema, nullStringLiteral),
+			new RowDataToMutationConverter(byteTableSchema, nullStringLiteral, writeOptions.getCellTTLMicroSeconds()),
 			writeOptions.getBufferFlushMaxSizeInBytes(),
 			writeOptions.getBufferFlushMaxRows(),
 			writeOptions.getBufferFlushIntervalMillis(),

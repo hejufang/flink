@@ -37,16 +37,18 @@ public class RowDataToMutationConverter implements ByteTableMutationConverter<Ro
 
 	private final ByteTableSchema schema;
 	private final String nullStringLiteral;
+	private final long cellTTLMicroSeconds;
 	private transient ByteTableSerde serde;
 
-	public RowDataToMutationConverter(ByteTableSchema schema, final String nullStringLiteral) {
+	public RowDataToMutationConverter(ByteTableSchema schema, final String nullStringLiteral, long cellTTLMicroSeconds) {
 		this.schema = schema;
 		this.nullStringLiteral = nullStringLiteral;
+		this.cellTTLMicroSeconds = cellTTLMicroSeconds;
 	}
 
 	@Override
 	public void open() {
-		this.serde = new ByteTableSerde(schema, nullStringLiteral);
+		this.serde = new ByteTableSerde(schema, nullStringLiteral, cellTTLMicroSeconds);
 	}
 
 	@Override

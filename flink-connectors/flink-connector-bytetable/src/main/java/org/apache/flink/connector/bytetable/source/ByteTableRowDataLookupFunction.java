@@ -136,7 +136,7 @@ public class ByteTableRowDataLookupFunction extends TableFunction<RowData> {
 			LOG.error("Exception while creating connection to ByteTable.", ioe);
 			throw new RuntimeException("Cannot create connection to ByteTable.", ioe);
 		}
-		this.serde = new ByteTableSerde(byteTableSchema, nullStringLiteral);
+		this.serde = new ByteTableSerde(byteTableSchema, nullStringLiteral, 0);
 		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
 		requestDelayMs = LookupMetricUtils.registerRequestDelayMs(context.getMetricGroup());
 		if (rateLimiter != null) {
