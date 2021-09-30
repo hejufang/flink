@@ -19,6 +19,8 @@ package org.apache.flink.connector.rocketmq;
 
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.connector.rocketmq.selector.DeferLoopSelector;
+import org.apache.flink.connector.rocketmq.selector.DeferMillisSelector;
 import org.apache.flink.connector.rocketmq.selector.MsgDelayLevelSelector;
 import org.apache.flink.connector.rocketmq.selector.TopicSelector;
 import org.apache.flink.connector.rocketmq.serialization.KeyValueSerializationSchema;
@@ -27,16 +29,21 @@ import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
+import com.bytedance.mqproxy.proto.MessageType;
 import com.bytedance.rocketmq.clientv2.message.Message;
 import com.bytedance.rocketmq.clientv2.producer.DefaultMQProducer;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.DEFER_MILLIS_MAX;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.DEFER_MILLIS_MIN;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.MSG_DELAY_LEVEL00;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.getRocketMQProperties;
 
@@ -54,6 +61,8 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	private Map<String, String> props;
 	private final TopicSelector<T> topicSelector;
 	private int messageDelayLevel;
+	private final DeferLoopSelector<T> deferLoopSelector;
+	private final DeferMillisSelector<T> deferMillisSelector;
 	private int parallelism;
 	private final MsgDelayLevelSelector<T> msgDelayLevelSelector;
 	private final FlinkConnectorRateLimiter rateLimiter;
@@ -75,6 +84,8 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		this.msgDelayLevelSelector = rocketMQConfig.getMsgDelayLevelSelector();
 		this.parallelism = rocketMQConfig.getParallelism();
 		this.rateLimiter = rocketMQConfig.getRateLimiter();
+		this.deferMillisSelector = rocketMQConfig.getDeferMillisSelector();
+		this.deferLoopSelector = rocketMQConfig.getDeferLoopSelector();
 	}
 
 	@Override
@@ -135,6 +146,28 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		if (delayLevel > MSG_DELAY_LEVEL00) {
 			msg.setDelayLevel(delayLevel);
 		}
+
+		if (deferMillisSelector != null) {
+			long millis = deferMillisSelector.getDeferMillis(input);
+			if (millis < DEFER_MILLIS_MIN || millis > DEFER_MILLIS_MAX) {
+				throw new FlinkRuntimeException(
+					String.format("millis value %s not in range [%s, %s], origin row value is %s",
+						millis, DEFER_MILLIS_MIN, DEFER_MILLIS_MAX, Arrays.toString(value)));
+			}
+			msg.setDeferMillis(millis);
+			msg.setMessageType(MessageType.Defer);
+			if (deferLoopSelector != null) {
+				int loop = deferLoopSelector.getDeferLoop(input);
+				if (loop < 0) {
+					throw new FlinkRuntimeException(
+						String.format("loop value %s not greater or equal 0, origin row value is %s",
+							loop, Arrays.toString(value))
+					);
+				}
+				msg.setDeferLoops(loop);
+			}
+		}
+
 		return msg;
 	}
 

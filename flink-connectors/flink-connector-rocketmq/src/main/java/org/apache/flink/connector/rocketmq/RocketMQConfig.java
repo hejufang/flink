@@ -18,6 +18,8 @@
 package org.apache.flink.connector.rocketmq;
 
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.connector.rocketmq.selector.DeferLoopSelector;
+import org.apache.flink.connector.rocketmq.selector.DeferMillisSelector;
 import org.apache.flink.connector.rocketmq.selector.MsgDelayLevelSelector;
 import org.apache.flink.connector.rocketmq.selector.TopicSelector;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
@@ -38,6 +40,8 @@ public class RocketMQConfig<T> {
 	private String group;
 	private String topic;
 	private int delayLevel = MSG_DELAY_LEVEL_DEFAULT;
+	private DeferMillisSelector<T> deferMillisSelector;
+	private DeferLoopSelector<T> deferLoopSelector;
 	private String tag;
 	private int sendBatchSize;
 	private RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
@@ -169,5 +173,23 @@ public class RocketMQConfig<T> {
 
 	public void setIdleTimeOut(long idleTimeOut) {
 		this.idleTimeOut = idleTimeOut;
+	}
+
+	public DeferMillisSelector<T> getDeferMillisSelector() {
+		return deferMillisSelector;
+	}
+
+	public RocketMQConfig<T> setDeferMillisSelector(DeferMillisSelector<T> deferMillisSelector) {
+		this.deferMillisSelector = deferMillisSelector;
+		return this;
+	}
+
+	public DeferLoopSelector<T> getDeferLoopSelector() {
+		return deferLoopSelector;
+	}
+
+	public RocketMQConfig<T> setDeferLoopSelector(DeferLoopSelector<T> deferLoopSelector) {
+		this.deferLoopSelector = deferLoopSelector;
+		return this;
 	}
 }

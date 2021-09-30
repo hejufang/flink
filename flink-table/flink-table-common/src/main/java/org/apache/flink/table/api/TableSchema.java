@@ -411,7 +411,7 @@ public class TableSchema {
 			String keybyFieldName = fieldNameArray[i].trim();
 			int fieldIndex = getFieldNameIndex(keybyFieldName)
 				.orElseThrow(() -> new IllegalArgumentException(
-					String.format("keyby field '%s' not found in table. All field names are : %s.",
+					String.format("Field '%s' not found in table. All field names are : %s.",
 						keybyFieldName,
 						Arrays.asList(getFieldNames()))));
 			keybyFieldIndexArray[i] = fieldIndex;

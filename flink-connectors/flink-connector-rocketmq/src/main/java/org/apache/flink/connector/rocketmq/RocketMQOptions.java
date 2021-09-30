@@ -44,6 +44,9 @@ public abstract class RocketMQOptions {
 	public static final int CONSUMER_RETRY_TIMES_DEFAULT = 10;
 	public static final int CONSUMER_RETRY_INIT_TIME_MS_DEFAULT = 600;
 
+	public static final long DEFER_MILLIS_MIN = 1L * 1000;
+	public static final long DEFER_MILLIS_MAX = 32L * 24 * 3600 * 1000;
+
 	// metrics
 	public static final String TOPIC_METRICS_GROUP = "topic";
 	public static final String CONSUMER_GROUP_METRICS_GROUP = "group";
@@ -139,6 +142,30 @@ public abstract class RocketMQOptions {
 			.stringType()
 			.noDefaultValue()
 			.withDescription("Optional specific delay level field.");
+
+	public static final ConfigOption<String> SINK_DEFER_MILLIS_FIELD = ConfigOptions
+		.key("sink.defer-millis-field")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional specific defer millis field.");
+
+	public static final ConfigOption<Long> SINK_DEFER_MILLIS = ConfigOptions
+		.key("sink.defer-millis")
+		.longType()
+		.noDefaultValue()
+		.withDescription("Optional specific defer millis value.");
+
+	public static final ConfigOption<String> SINK_DEFER_LOOP_FIELD = ConfigOptions
+		.key("sink.defer-loop-field")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional specific defer loop field.");
+
+	public static final ConfigOption<Integer> SINK_DEFER_LOOP = ConfigOptions
+		.key("sink.defer-loop")
+		.intType()
+		.noDefaultValue()
+		.withDescription("Optional specific defer loop value.");
 
 	public static final ConfigOption<String> SINK_TOPIC_SELECTOR = ConfigOptions
 			.key("sink.topic-selector")
