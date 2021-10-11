@@ -18,7 +18,6 @@
 package org.apache.flink.connector.rocketmq.table;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
-import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
 import org.apache.flink.connector.rocketmq.RocketMQConsumer;
 import org.apache.flink.connector.rocketmq.RocketMQMetadata;
@@ -36,7 +35,7 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
-import org.apache.flink.table.runtime.types.TypeInfoDataTypeConverter;
+import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -76,13 +75,13 @@ public class RocketMQDynamicSource implements ScanTableSource {
 		DeserializationSchema<RowData> schema = decodingFormat.createRuntimeDecoder(runtimeProviderContext, outputDataType);
 		RocketMQConsumer<RowData> consumer =
 			new RocketMQConsumer<>(createDeserializationSchema(schema), props, rocketMQConfig);
-		if (rocketMQConfig.getKeyByFields() != null) {
+		if (rocketMQConfig.getKeySelector() != null) {
 			DataStreamScanProvider dataStreamScanProvider = new DataStreamScanProvider() {
 				@Override
 				public DataStream<RowData> produceDataStream(StreamExecutionEnvironment execEnv) {
-					TypeInformation<RowData> typeInfo = (TypeInformation<RowData>) TypeInfoDataTypeConverter
-						.fromDataTypeToTypeInfo(outputDataType);
-					return execEnv.addSource(consumer, typeInfo).keyBy(rocketMQConfig.getKeyByFields());
+					RowDataTypeInfo typeInfo = (RowDataTypeInfo) consumer.getProducedType();
+					return execEnv.addSource(consumer, typeInfo)
+						.keyBy(rocketMQConfig.getKeySelector());
 				}
 
 				@Override

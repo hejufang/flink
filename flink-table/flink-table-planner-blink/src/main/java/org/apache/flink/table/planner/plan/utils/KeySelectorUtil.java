@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.planner.plan.utils;
 
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.planner.codegen.CodeGeneratorContext;
 import org.apache.flink.table.planner.codegen.ProjectionCodeGenerator;
@@ -68,4 +69,12 @@ public class KeySelectorUtil {
 		}
 	}
 
+	public static RowDataKeySelector getRowDataSelector(
+			int[] keyFields,
+			RowDataTypeInfo rowType,
+			Configuration configuration) {
+		TableConfig tableConfig = new TableConfig();
+		tableConfig.addConfiguration(configuration);
+		return getRowDataSelector(keyFields, rowType, tableConfig);
+	}
 }

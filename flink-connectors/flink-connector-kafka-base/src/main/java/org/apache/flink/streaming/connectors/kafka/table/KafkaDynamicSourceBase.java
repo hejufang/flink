@@ -22,7 +22,6 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
-import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase;
@@ -35,7 +34,7 @@ import org.apache.flink.table.connector.source.DataStreamScanProvider;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceFunctionProvider;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.runtime.types.TypeInfoDataTypeConverter;
+import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.Preconditions;
@@ -182,13 +181,13 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 		}
 
 		kafkaConsumer.setStartIgnoreStateOffsets(kafkaSourceConfig.isStartIgnoreStateOffsets());
-		if (kafkaSourceConfig.getKeyedList() != null) {
+		if (kafkaSourceConfig.getKeySelector() != null) {
 			return new DataStreamScanProvider() {
 				@Override
 				public DataStream<RowData> produceDataStream(StreamExecutionEnvironment execEnv) {
-					TypeInformation<RowData> typeInfo = (TypeInformation<RowData>) TypeInfoDataTypeConverter
-						.fromDataTypeToTypeInfo(outputDataType);
-					return execEnv.addSource(kafkaConsumer, typeInfo).keyBy(kafkaSourceConfig.getKeyedList());
+					RowDataTypeInfo typeInfo = (RowDataTypeInfo) kafkaConsumer.getProducedType();
+					return execEnv.addSource(kafkaConsumer, typeInfo)
+							.keyBy(kafkaSourceConfig.getKeySelector());
 				}
 
 				@Override

@@ -18,6 +18,7 @@
 package org.apache.flink.connector.rocketmq;
 
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.connector.rocketmq.RocketMQOptions.AssignQueueStrategy;
 import org.apache.flink.connector.rocketmq.selector.DeferLoopSelector;
 import org.apache.flink.connector.rocketmq.selector.DeferMillisSelector;
@@ -46,8 +47,9 @@ public class RocketMQConfig<T> {
 	private String tag;
 	private int sendBatchSize;
 	private AssignQueueStrategy assignQueueStrategy = AssignQueueStrategy.FIXED;
-	private int[] keyByFields;
+	private int[] sinkKeyByFields;
 	private Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
+	private KeySelector<T, T> keySelector;
 	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
 	private String rocketMqBrokerQueueList;
 	private FlinkConnectorRateLimiter rateLimiter;
@@ -128,14 +130,6 @@ public class RocketMQConfig<T> {
 		this.assignQueueStrategy = assignQueueStrategy;
 	}
 
-	public int[] getKeyByFields() {
-		return keyByFields;
-	}
-
-	public void setKeyByFields(int[] keyByFields) {
-		this.keyByFields = keyByFields;
-	}
-
 	public Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> getMetadataMap() {
 		return metadataMap;
 	}
@@ -154,6 +148,14 @@ public class RocketMQConfig<T> {
 
 	public String getRocketMqBrokerQueueList() {
 		return rocketMqBrokerQueueList;
+	}
+
+	public int[] getSinkKeyByFields() {
+		return sinkKeyByFields;
+	}
+
+	public void setSinkKeyByFields(int[] sinkKeyByFields) {
+		this.sinkKeyByFields = sinkKeyByFields;
 	}
 
 	public void setRocketMqBrokerQueueList(String rocketMqBrokerQueueList) {
@@ -191,6 +193,15 @@ public class RocketMQConfig<T> {
 
 	public RocketMQConfig<T> setDeferLoopSelector(DeferLoopSelector<T> deferLoopSelector) {
 		this.deferLoopSelector = deferLoopSelector;
+		return this;
+	}
+
+	public KeySelector<T, T> getKeySelector() {
+		return keySelector;
+	}
+
+	public RocketMQConfig<T> setKeySelector(KeySelector<T, T> keySelector) {
+		this.keySelector = keySelector;
 		return this;
 	}
 }

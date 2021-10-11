@@ -22,6 +22,7 @@ import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimite
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
 import org.apache.flink.connector.rocketmq.RocketMQMetadata;
@@ -40,9 +41,12 @@ import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
+import org.apache.flink.table.planner.plan.utils.KeySelectorUtil;
+import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.IntType;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.StringUtils;
 
@@ -111,7 +115,12 @@ public class RocketMQDynamicTableFactory implements
 		helper.validateExcept(PROPERTIES_PREFIX);
 
 		RocketMQOptions.validateTableOptions(helper.getOptions());
-		RocketMQConfig<RowData> rocketMQConfig = createMQConfig(context.getCatalogTable().getSchema(), helper.getOptions(), false);
+		RocketMQConfig<RowData> rocketMQConfig =
+			createRocketmqSourceConfig(
+				context.getCatalogTable().getSchema(),
+				helper.getOptions(),
+				(RowType) sourceDataType.getLogicalType(),
+				(Configuration) context.getConfiguration());
 		return new RocketMQDynamicSource(sourceDataType, context.getCatalogTable().getOptions(), decodingFormat, rocketMQConfig);
 	}
 
@@ -173,6 +182,23 @@ public class RocketMQDynamicTableFactory implements
 		return options;
 	}
 
+	private RocketMQConfig<RowData> createRocketmqSourceConfig(
+			TableSchema tableSchema,
+			ReadableConfig config,
+			RowType rowType,
+			Configuration configuration) {
+		RocketMQConfig<RowData> rocketMQConfig = createMQConfig(tableSchema, config, false);
+
+		config.getOptional(FactoryUtil.SOURCE_KEY_BY_FIELD).ifPresent(
+			keyByFields -> {
+				int[] fields = tableSchema.getIndexListFromFieldNames(keyByFields);
+				rocketMQConfig.setKeySelector(
+					KeySelectorUtil.getRowDataSelector(fields, new RowDataTypeInfo(rowType), configuration));
+			}
+		);
+		return rocketMQConfig;
+	}
+
 	private RocketMQConfig<RowData> createMQConfig(TableSchema tableSchema, ReadableConfig config, boolean isSink) {
 		RocketMQConfig<RowData> rocketMQConfig = new RocketMQConfig<>();
 
@@ -212,7 +238,7 @@ public class RocketMQDynamicTableFactory implements
 
 			config.getOptional(FactoryUtil.SINK_PARTITIONER_FIELD).ifPresent(
 				keyByFields ->
-					rocketMQConfig.setKeyByFields(tableSchema.getIndexListFromFieldNames(keyByFields))
+					rocketMQConfig.setSinkKeyByFields(tableSchema.getIndexListFromFieldNames(keyByFields))
 			);
 
 			validateConflictConf(config, SINK_DEFER_MILLIS, SINK_DEFER_MILLIS_FIELD);
@@ -305,10 +331,6 @@ public class RocketMQDynamicTableFactory implements
 			config.getOptional(SOURCE_METADATA_COLUMNS).ifPresent(
 				metadataInfo ->
 					validateAndSetMetadata(metadataInfo, rocketMQConfig, tableSchema));
-			config.getOptional(FactoryUtil.SOURCE_KEY_BY_FIELD).ifPresent(
-				keyByFields ->
-					rocketMQConfig.setKeyByFields(tableSchema.getIndexListFromFieldNames(keyByFields))
-			);
 			config.getOptional(SCAN_SOURCE_IDLE_TIMEOUT).ifPresent(
 				idle ->
 					rocketMQConfig.setIdleTimeOut(config.get(SCAN_SOURCE_IDLE_TIMEOUT).toMillis())

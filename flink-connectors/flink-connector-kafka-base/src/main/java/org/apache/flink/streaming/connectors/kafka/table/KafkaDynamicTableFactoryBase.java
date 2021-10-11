@@ -21,6 +21,7 @@ package org.apache.flink.streaming.connectors.kafka.table;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.streaming.connectors.kafka.config.KafkaSourceConfig;
 import org.apache.flink.streaming.connectors.kafka.config.Metadata;
@@ -39,7 +40,10 @@ import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
+import org.apache.flink.table.planner.plan.utils.KeySelectorUtil;
+import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.HashSet;
@@ -97,6 +101,11 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		validateTableOptions(tableOptions);
 
 		DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
+		KafkaSourceConfig kafkaSourceConfig = getKafkaSourceConfig(
+			context.getCatalogTable().getSchema(),
+			tableOptions,
+			(RowType) producedDataType.getLogicalType(),
+			(Configuration) context.getConfiguration());
 		final KafkaOptions.StartupOptions startupOptions = getStartupOptions(tableOptions, topic);
 		return createKafkaTableSource(
 				producedDataType,
@@ -106,7 +115,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 				startupOptions.startupMode,
 				startupOptions.specificOffsets,
 				startupOptions.startupTimestampMillis,
-				getKafkaSourceConfig(context.getCatalogTable().getSchema(), tableOptions));
+				kafkaSourceConfig);
 	}
 
 	@Override
@@ -210,7 +219,11 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		return options;
 	}
 
-	private KafkaSourceConfig getKafkaSourceConfig(TableSchema tableSchema, ReadableConfig readableConfig) {
+	private KafkaSourceConfig getKafkaSourceConfig(
+			TableSchema tableSchema,
+			ReadableConfig readableConfig,
+			RowType rowType,
+			Configuration configuration) {
 		KafkaSourceConfig sourceConfig = new KafkaSourceConfig();
 
 		String cluster = readableConfig.get(PROPS_CLUSTER);
@@ -238,8 +251,11 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		}
 
 		readableConfig.getOptional(FactoryUtil.SOURCE_KEY_BY_FIELD).ifPresent(
-			keybyFields ->
-				sourceConfig.setKeyedList(tableSchema.getIndexListFromFieldNames(keybyFields))
+			keybyFields -> {
+				int[] fields = tableSchema.getIndexListFromFieldNames(keybyFields);
+				sourceConfig.setKeySelector(
+					KeySelectorUtil.getRowDataSelector(fields, new RowDataTypeInfo(rowType), configuration));
+			}
 		);
 		return sourceConfig;
 	}

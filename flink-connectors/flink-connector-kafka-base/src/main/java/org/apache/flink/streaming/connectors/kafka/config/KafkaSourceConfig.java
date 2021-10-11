@@ -17,11 +17,12 @@
 
 package org.apache.flink.streaming.connectors.kafka.config;
 
+import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.types.DataType;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 
@@ -41,7 +42,7 @@ public class KafkaSourceConfig implements Serializable {
 	private Integer parallelism;
 	private boolean startIgnoreStateOffsets;
 	private boolean forceManuallyCommitOffsets;
-	private int[] keyedList;
+	private KeySelector<RowData, RowData> keySelector;
 
 	public long getRateLimitNumber() {
 		return rateLimitNumber;
@@ -139,12 +140,12 @@ public class KafkaSourceConfig implements Serializable {
 		this.forceManuallyCommitOffsets = forceManuallyCommitOffsets;
 	}
 
-	public int[] getKeyedList() {
-		return keyedList;
+	public KeySelector<RowData, RowData> getKeySelector() {
+		return keySelector;
 	}
 
-	public void setKeyedList(int[] keyedList) {
-		this.keyedList = keyedList;
+	public void setKeySelector(KeySelector<RowData, RowData> keySelector) {
+		this.keySelector = keySelector;
 	}
 
 	@Override
@@ -168,13 +169,13 @@ public class KafkaSourceConfig implements Serializable {
 			Objects.equals(parallelism, that.parallelism) &&
 			Objects.equals(startIgnoreStateOffsets, that.startIgnoreStateOffsets) &&
 			Objects.equals(forceManuallyCommitOffsets, that.forceManuallyCommitOffsets) &&
-			Arrays.equals(keyedList, that.keyedList);
+			Objects.equals(keySelector, that.keySelector);
 	}
 
 	@Override
 	public int hashCode() {
 		return Objects.hash(rateLimitNumber, scanSampleInterval, scanSampleNum, partitionTopicList,
 			kafkaResetNewPartition, withoutMetaDataType, metadataMap, manualCommitInterval, relativeOffset,
-			parallelism, keyedList, startIgnoreStateOffsets, forceManuallyCommitOffsets);
+			parallelism, keySelector, startIgnoreStateOffsets, forceManuallyCommitOffsets);
 	}
 }

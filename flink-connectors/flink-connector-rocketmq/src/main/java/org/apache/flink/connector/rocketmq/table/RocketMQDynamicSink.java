@@ -80,8 +80,8 @@ public class RocketMQDynamicSink implements DynamicTableSink {
 	private static KeyValueSerializationSchemaWrapper<RowData> getSchemaByConfig(
 			SerializationSchema<RowData> serializationSchema,
 			RocketMQConfig<RowData> rocketMQConfig) {
-		if (rocketMQConfig.getKeyByFields() != null) {
-			return new KeyByPartitionSerializationSchema(serializationSchema, rocketMQConfig.getKeyByFields());
+		if (rocketMQConfig.getSinkKeyByFields() != null) {
+			return new KeyByPartitionSerializationSchema(serializationSchema, rocketMQConfig.getSinkKeyByFields());
 		} else {
 			return new KeyValueSerializationSchemaWrapper<>(serializationSchema);
 		}
