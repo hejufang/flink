@@ -59,7 +59,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -235,9 +234,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			assignMessageQueues(this::allocFixedMessageQueue);
 		}
 
-		for (MessageQueuePb messageQueuePb: assignedMessageQueuePbs) {
-			resetOffset(messageQueuePb);
-		}
+		resetAllOffset();
 
 		if (assignQueueStrategy == RocketMQOptions.AssignQueueStrategy.FIXED) {
 			updateThread = createUpdateThread();
@@ -251,7 +248,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		long lastTimestamp = System.currentTimeMillis();
 		while (running) {
 			List<List<MessageExt>> messageExtsList = new ArrayList<>();
-			synchronized (this) {
+			synchronized (consumer) {
 				if (assignedMessageQueuePbs == null || assignedMessageQueuePbs.size() == 0) {
 					ctx.markAsTemporarilyIdle();
 					this.wait();
@@ -264,6 +261,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					rateLimiter.acquire(1);
 				}
 				MessageQueue messageQueue = createMessageQueue(messageExt.getMessageQueue());
+				offsetTable.put(messageQueue, messageExt.getMaxOffset());
 				T rowData = schema.deserialize(messageQueue, messageExt);
 				if (rowData == null) {
 					skipDirtyCounter.inc();
@@ -272,7 +270,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				lastTimestamp = System.currentTimeMillis();
 				ctx.collect(rowData);
 				this.recordsNumMeterView.markEvent();
-				offsetTable.put(messageQueue, messageExt.getMaxOffset());
 			}
 
 			if (System.currentTimeMillis() - lastTimestamp > sourceIdleTimeMs) {
@@ -283,7 +280,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			if (messageExts.size() == 0) {
 				Thread.sleep(DEFAULT_SLEEP_MILLISECONDS);
 			} else {
-				synchronized (this) {
+				synchronized (consumer) {
 					RetryManager.retry(() -> consumer.ack(messageExts.get(messageExts.size() - 1)), strategy);
 				}
 			}
@@ -305,28 +302,18 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 	private void assignMessageQueues(
 			SupplierWithException<List<MessageQueuePb>, InterruptedException> supplier) throws InterruptedException {
-		List<MessageQueuePb> currentMessageQueues = supplier.get();
-		if (tryReplaceOld(currentMessageQueues)) {
-			synchronized (this) {
-				if (!currentMessageQueues.isEmpty()) {
-					consumer.assign(currentMessageQueues);
-					this.notify();
-				}
+		synchronized (consumer) {
+			List<MessageQueuePb> currentMessageQueues = supplier.get();
+			Set<MessageQueue> newQueues =
+				currentMessageQueues.stream().map(pb -> createMessageQueue(pb)).collect(Collectors.toSet());
+			if (assignedMessageQueueSet == null || !assignedMessageQueueSet.equals(newQueues)) {
+				LOG.info("Assign {} with {}.", assignedMessageQueueSet, newQueues);
+				assignedMessageQueuePbs = currentMessageQueues;
+				assignedMessageQueueSet = newQueues;
+				consumer.assign(assignedMessageQueuePbs);
+				resetAllOffset();
 			}
 		}
-	}
-
-	private boolean tryReplaceOld(List<MessageQueuePb> queuePbList) {
-		Set<MessageQueue> newQueues =
-			queuePbList.stream().map(pb -> createMessageQueue(pb)).collect(Collectors.toSet());
-		if (assignedMessageQueueSet == null || !assignedMessageQueueSet.equals(newQueues)) {
-			LOG.info("Assign {} with {}.", assignedMessageQueueSet, newQueues);
-			assignedMessageQueuePbs = queuePbList;
-			assignedMessageQueueSet = newQueues;
-			return true;
-		}
-
-		return false;
 	}
 
 	/**
@@ -353,24 +340,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		}
 	}
 
-	private List<MessageQueuePb> allocRoundRobinMessageQueues() throws InterruptedException {
-		QueryTopicQueuesResult queryTopicQueuesResult = consumer.queryTopicQueues(topic);
-		validateResponse(queryTopicQueuesResult.getErrorCode(), queryTopicQueuesResult.getErrorMsg());
-		List<MessageQueuePb> queuePbList = new ArrayList<>(queryTopicQueuesResult.getMessageQueues());
-		// brokerName with queueId represent a min consumer unit in rocketMQ like kafka partition
-		queuePbList.sort(
-			Comparator.comparing(MessageQueuePb::getBrokerName).thenComparingInt(MessageQueuePb::getQueueId));
-		List<MessageQueuePb> resultQueues = new ArrayList<>();
-		for (int i = 0; i < queuePbList.size(); i++) {
-			if ((i % parallelism) == subTaskId) {
-				resultQueues.add(queuePbList.get(i));
-			}
-		}
-		return resultQueues;
-	}
-
 	private List<MessageQueuePb> allocFixedMessageQueue() throws InterruptedException {
-		QueryTopicQueuesResult queryTopicQueuesResult = consumer.queryTopicQueues(topic);
+		QueryTopicQueuesResult queryTopicQueuesResult;
+		queryTopicQueuesResult = consumer.queryTopicQueues(topic);
 		validateResponse(queryTopicQueuesResult.getErrorCode(), queryTopicQueuesResult.getErrorMsg());
 		List<MessageQueuePb> messageQueuePbList = new ArrayList<>();
 		for (MessageQueuePb queuePb: queryTopicQueuesResult.getMessageQueues()) {
@@ -406,60 +378,74 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			return;
 		}
 
-		ResetOffsetResult resetOffsetResult;
+		ResetOffsetResult resetOffsetResult = null;
 		if (isRestored) {
 			offset = restoredOffsets.get(messageQueue);
 			if (offset != null) {
 				resetOffsetResult = consumer.resetOffsetToSpecified(topic, group, queuePbList, offset, false);
 				validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
+				offsetTable.put(messageQueue, resetOffsetResult.getResetOffsetMap().get(messageQueuePb));
 				return;
 			}
 		}
 
 		String startupMode = props.getOrDefault(SCAN_STARTUP_MODE.key(), SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS);
 		QueryOffsetResult queryOffsetResult;
-		switch (startupMode) {
-			case SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS:
-				queryOffsetResult = consumer.queryCommitOffset(topic, queuePbList);
-				validateResponse(queryOffsetResult.getErrorCode(), queryOffsetResult.getErrorMsg());
-				if (getOnlyOffset(queryOffsetResult) < 0) {
-					// We cannot get normal offset from RMQ.
-					// Default setting is earliest, in case of data loss.
-					String initialOffset = props.getOrDefault(RocketMQOptions.CONSUMER_OFFSET_RESET_TO, CONSUMER_OFFSET_EARLIEST);
-					switch (initialOffset) {
-						case CONSUMER_OFFSET_EARLIEST:
-							resetOffsetResult = consumer.resetOffsetToEarliest(topic, group, queuePbList, false);
-							break;
-						case CONSUMER_OFFSET_LATEST:
-							resetOffsetResult = consumer.resetOffsetToLatest(topic, group, queuePbList, false);
-							break;
-						case CONSUMER_OFFSET_TIMESTAMP:
-							long timestamp = RocketMQUtils.getLong(props,
-								RocketMQOptions.CONSUMER_OFFSET_FROM_TIMESTAMP, System.currentTimeMillis());
-							resetOffsetResult = consumer.resetOffsetByTimestamp(topic, group, queuePbList, timestamp, false);
-							break;
-						default:
-							throw new IllegalArgumentException("Unknown value for CONSUMER_OFFSET_RESET_TO.");
+		synchronized (consumer) {
+			switch (startupMode) {
+				case SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS:
+					queryOffsetResult = consumer.queryCommitOffset(topic, queuePbList);
+					validateResponse(queryOffsetResult.getErrorCode(), queryOffsetResult.getErrorMsg());
+					if (getOnlyOffset(queryOffsetResult) < 0) {
+						// We cannot get normal offset from RMQ.
+						// Default setting is earliest, in case of data loss.
+						String initialOffset = props.getOrDefault(RocketMQOptions.CONSUMER_OFFSET_RESET_TO, CONSUMER_OFFSET_EARLIEST);
+						switch (initialOffset) {
+							case CONSUMER_OFFSET_EARLIEST:
+								resetOffsetResult = consumer.resetOffsetToEarliest(topic, group, queuePbList, false);
+								break;
+							case CONSUMER_OFFSET_LATEST:
+								resetOffsetResult = consumer.resetOffsetToLatest(topic, group, queuePbList, false);
+								break;
+							case CONSUMER_OFFSET_TIMESTAMP:
+								long timestamp = RocketMQUtils.getLong(props,
+									RocketMQOptions.CONSUMER_OFFSET_FROM_TIMESTAMP, System.currentTimeMillis());
+								resetOffsetResult = consumer.resetOffsetByTimestamp(topic, group, queuePbList, timestamp, false);
+								break;
+							default:
+								throw new IllegalArgumentException("Unknown value for CONSUMER_OFFSET_RESET_TO.");
+						}
+						validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
+					} else {
+						offsetTable.put(messageQueue, queryOffsetResult.getOffsetMap().get(messageQueuePb));
 					}
+					break;
+				case SCAN_STARTUP_MODE_VALUE_EARLIEST:
+					resetOffsetResult = consumer.resetOffsetToEarliest(topic, group, queuePbList, false);
 					validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
-				}
-				break;
-			case SCAN_STARTUP_MODE_VALUE_EARLIEST:
-				resetOffsetResult = consumer.resetOffsetToEarliest(topic, group, queuePbList, false);
-				validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
-				break;
-			case SCAN_STARTUP_MODE_VALUE_LATEST:
-				resetOffsetResult = consumer.resetOffsetToLatest(topic, group, queuePbList, false);
-				validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
-				break;
-			case SCAN_STARTUP_MODE_VALUE_TIMESTAMP:
-				long timestamp = RocketMQUtils.getLong(props,
-					SCAN_STARTUP_TIMESTAMP_MILLIS.key(), System.currentTimeMillis());
-				resetOffsetResult = consumer.resetOffsetByTimestamp(topic, group, queuePbList, timestamp, false);
-				validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
-				break;
-			default:
-				throw new IllegalArgumentException("Unknown value for startup-mode: " + startupMode);
+					break;
+				case SCAN_STARTUP_MODE_VALUE_LATEST:
+					resetOffsetResult = consumer.resetOffsetToLatest(topic, group, queuePbList, false);
+					validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
+					break;
+				case SCAN_STARTUP_MODE_VALUE_TIMESTAMP:
+					long timestamp = RocketMQUtils.getLong(props,
+						SCAN_STARTUP_TIMESTAMP_MILLIS.key(), System.currentTimeMillis());
+					resetOffsetResult = consumer.resetOffsetByTimestamp(topic, group, queuePbList, timestamp, false);
+					validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
+					break;
+				default:
+					throw new IllegalArgumentException("Unknown value for startup-mode: " + startupMode);
+			}
+		}
+		if (resetOffsetResult != null) {
+			offsetTable.put(messageQueue, resetOffsetResult.getResetOffsetMap().get(messageQueuePb));
+		}
+	}
+
+	private void resetAllOffset() throws InterruptedException {
+		for (MessageQueuePb messageQueuePb: assignedMessageQueuePbs) {
+			resetOffset(messageQueuePb);
 		}
 	}
 

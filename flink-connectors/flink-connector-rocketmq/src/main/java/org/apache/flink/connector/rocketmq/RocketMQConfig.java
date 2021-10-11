@@ -18,6 +18,7 @@
 package org.apache.flink.connector.rocketmq;
 
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.connector.rocketmq.RocketMQOptions.AssignQueueStrategy;
 import org.apache.flink.connector.rocketmq.selector.DeferLoopSelector;
 import org.apache.flink.connector.rocketmq.selector.DeferMillisSelector;
 import org.apache.flink.connector.rocketmq.selector.MsgDelayLevelSelector;
@@ -44,7 +45,7 @@ public class RocketMQConfig<T> {
 	private DeferLoopSelector<T> deferLoopSelector;
 	private String tag;
 	private int sendBatchSize;
-	private RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
+	private AssignQueueStrategy assignQueueStrategy = AssignQueueStrategy.FIXED;
 	private int[] keyByFields;
 	private Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
 	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
@@ -119,11 +120,11 @@ public class RocketMQConfig<T> {
 		this.sendBatchSize = sendBatchSize;
 	}
 
-	public RocketMQOptions.AssignQueueStrategy getAssignQueueStrategy() {
+	public AssignQueueStrategy getAssignQueueStrategy() {
 		return assignQueueStrategy;
 	}
 
-	public void setAssignQueueStrategy(RocketMQOptions.AssignQueueStrategy assignQueueStrategy) {
+	public void setAssignQueueStrategy(AssignQueueStrategy assignQueueStrategy) {
 		this.assignQueueStrategy = assignQueueStrategy;
 	}
 
