@@ -24,6 +24,8 @@ import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.blacklist.BlacklistActions;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.reporter.BlacklistReporter;
@@ -137,6 +139,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	private final HighAvailabilityServices highAvailabilityServices;
 
 	private final HeartbeatServices heartbeatServices;
+
+	private final Counter heartbeatTimeoutWithJM = new SimpleCounter();
+
+	private final Counter heartbeatTimeoutWithTM = new SimpleCounter();
 
 	/** Fatal error handler. */
 	private final FatalErrorHandler fatalErrorHandler;
@@ -279,6 +285,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			jobLeaderIdService.start(new JobLeaderIdActionsImpl());
 
 			registerTaskExecutorMetrics();
+			registerJobManagerMetrics();
 		} catch (Exception e) {
 			handleStartResourceManagerServicesException(e);
 		}
@@ -973,6 +980,12 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 	}
 
+	private void registerJobManagerMetrics(){
+		resourceManagerMetricGroup.counter(
+			MetricNames.NUM_RM_HEARTBEAT_TIMOUT_FROM_JM,
+			heartbeatTimeoutWithJM);
+	}
+
 	private void registerTaskExecutorMetrics() {
 		resourceManagerMetricGroup.gauge(
 			MetricNames.NUM_REGISTERED_TASK_MANAGERS,
@@ -980,6 +993,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		resourceManagerMetricGroup.meter(
 			MetricNames.WORKER_FAILURE_RATE,
 			failureRater);
+		resourceManagerMetricGroup.counter(
+			MetricNames.NUM_RM_HEARTBEAT_TIMOUT_FROM_TM,
+			heartbeatTimeoutWithTM);
 	}
 
 	private void clearStateInternal() {
@@ -1450,6 +1466,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		@Override
 		public void notifyHeartbeatTimeout(final ResourceID resourceID) {
 			validateRunsInMainThread();
+			heartbeatTimeoutWithTM.inc();
 			log.info("The heartbeat of TaskManager with id {} timed out.", resourceID);
 
 			closeTaskManagerConnection(
@@ -1485,7 +1502,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		public void notifyHeartbeatTimeout(final ResourceID resourceID) {
 			validateRunsInMainThread();
 			log.info("The heartbeat of JobManager with id {} timed out.", resourceID);
-
+			heartbeatTimeoutWithJM.inc();
 			if (jmResourceIdRegistrations.containsKey(resourceID)) {
 				JobManagerRegistration jobManagerRegistration = jmResourceIdRegistrations.get(resourceID);
 

@@ -79,6 +79,13 @@ public class MetricNames {
 	public static final String NUM_EXCESS_WORKERS = "numExcessWorkers";
 	public static final String NUM_LACK_WORKERS = "numLackWorkers";
 
+	public static final String NUM_RM_HEARTBEAT_TIMOUT_FROM_JM = "RMHeartbeatTimeoutFromJM";
+	public static final String NUM_RM_HEARTBEAT_TIMOUT_FROM_TM = "RMHeartbeatTimeoutFromTM";
+	public static final String NUM_JM_HEARTBEAT_TIMOUT_FROM_RM = "JMHeartbeatTimeoutFromRM";
+	public static final String NUM_JM_HEARTBEAT_TIMOUT_FROM_TM = "JMHeartbeatTimeoutFromTM";
+	public static final String NUM_TM_HEARTBEAT_TIMOUT_FROM_RM = "TMHeartbeatTimeoutFromRM";
+	public static final String NUM_TM_HEARTBEAT_TIMOUT_FROM_JM = "TMHeartbeatTimeoutFromJM";
+
 	public static final String MEMORY_USED = "Used";
 	public static final String MEMORY_COMMITTED = "Committed";
 	public static final String MEMORY_MAX = "Max";

@@ -21,6 +21,8 @@ package org.apache.flink.runtime.taskexecutor;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
 import org.apache.flink.runtime.blob.BlobCacheService;
@@ -238,8 +240,12 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	/** The heartbeat manager for job manager in the task manager. */
 	private final HeartbeatManager<AllocatedSlotReport, AccumulatorReport> jobManagerHeartbeatManager;
 
+	private final Counter heartbeatTimeoutWithJM = new SimpleCounter();
+
 	/** The heartbeat manager for resource manager in the task manager. */
 	private final HeartbeatManager<Void, TaskExecutorHeartbeatPayload> resourceManagerHeartbeatManager;
+
+	private final Counter heartbeatTimeoutWithRM = new SimpleCounter();
 
 	private final TaskExecutorPartitionTracker partitionTracker;
 
@@ -506,6 +512,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			}
 			return tagGaugeMetrics;
 		});
+		taskManagerMetricGroup.counter(MetricNames.NUM_TM_HEARTBEAT_TIMOUT_FROM_JM, heartbeatTimeoutWithJM);
+		taskManagerMetricGroup.counter(MetricNames.NUM_TM_HEARTBEAT_TIMOUT_FROM_RM, heartbeatTimeoutWithRM);
 	}
 
 	// ======================================================================
@@ -1993,6 +2001,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		@Override
 		public void notifyHeartbeatTimeout(final ResourceID resourceID) {
 			validateRunsInMainThread();
+			heartbeatTimeoutWithJM.inc();
 			log.info("The heartbeat of JobManager with id {} timed out.", resourceID);
 
 			jobTable
@@ -2041,6 +2050,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		@Override
 		public void notifyHeartbeatTimeout(final ResourceID resourceId) {
 			validateRunsInMainThread();
+			heartbeatTimeoutWithRM.inc();
 			// first check whether the timeout is still valid
 			if (establishedResourceManagerConnection != null && establishedResourceManagerConnection.getResourceManagerResourceId().equals(resourceId)) {
 				log.info("The heartbeat of ResourceManager with id {} timed out.", resourceId);

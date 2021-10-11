@@ -28,6 +28,8 @@ import org.apache.flink.metrics.ConfigMessage;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.queryablestate.KvStateID;
@@ -76,6 +78,7 @@ import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.PerformCheckpoint;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
+import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
@@ -160,6 +163,10 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	private final JobGraph jobGraph;
 
 	private final int minSlotsNum;
+
+	private final Counter heartbeatTimeoutWithRM = new SimpleCounter();
+
+	private final Counter heartbeatTimeoutWithTM = new SimpleCounter();
 
 	private final Time rpcTimeout;
 
@@ -323,6 +330,9 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			for (Map.Entry<String, String> entry : jobMasterConfiguration.getConfiguration().toMap().entrySet()) {
 				messageSet.addMessage(new Message<>(new ConfigMessage(entry.getKey(), entry.getValue())));
 			}
+
+			jobManagerJobMetricGroup.counter(MetricNames.NUM_JM_HEARTBEAT_TIMOUT_FROM_RM, heartbeatTimeoutWithRM);
+			jobManagerJobMetricGroup.counter(MetricNames.NUM_JM_HEARTBEAT_TIMOUT_FROM_TM, heartbeatTimeoutWithTM);
 
 			JobCheckpointingSettings jobCheckpointingSettings = jobGraph.getCheckpointingSettings();
 			if (jobCheckpointingSettings != null){
@@ -1346,6 +1356,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		@Override
 		public void notifyHeartbeatTimeout(ResourceID resourceID) {
 			validateRunsInMainThread();
+			heartbeatTimeoutWithTM.inc();
 			disconnectTaskManager(
 				resourceID,
 				new TimeoutException("Heartbeat of TaskManager with id " + resourceID + " timed out."));
@@ -1372,7 +1383,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		public void notifyHeartbeatTimeout(final ResourceID resourceId) {
 			validateRunsInMainThread();
 			log.info("The heartbeat of ResourceManager with id {} timed out.", resourceId);
-
+			heartbeatTimeoutWithRM.inc();
 			if (establishedResourceManagerConnection != null && establishedResourceManagerConnection.getResourceManagerResourceID().equals(resourceId)) {
 				reconnectToResourceManager(
 					new JobMasterException(

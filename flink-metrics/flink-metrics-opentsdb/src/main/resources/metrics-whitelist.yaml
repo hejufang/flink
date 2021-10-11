@@ -80,6 +80,7 @@ non-global:
         executionStatus,
         restartingTime,
         noResourceAvailableException,
+        numRunningJobs,
       # TaskManager / Slot
         numRegisteredTaskManagers,
         numPendingTaskManagerSlots,
@@ -256,5 +257,12 @@ non-global:
       # cache
         cacheStats,
       # tm
-        taskExecutorExecutionStateTime
+        taskExecutorExecutionStateTime,
+      # heartbeat
+        RMHeartbeatTimeoutFromJM,
+        RMHeartbeatTimeoutFromTM,
+        JMHeartbeatTimeoutFromRM,
+        JMHeartbeatTimeoutFromTM,
+        TMHeartbeatTimeoutFromRM,
+        TMHeartbeatTimeoutFromJM
     ]
