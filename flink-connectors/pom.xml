@@ -44,9 +44,9 @@ under the License.
 		<elasticsearch6ad.version>5.6.x-ad-0.0.2</elasticsearch6ad.version>
 		<elasticsearch7.version>7.5.1</elasticsearch7.version>
 		<kafka010.version>0.10.1.1</kafka010.version>
-		<kafka010.byted.version>0.10.1.2-bd1.7.10</kafka010.byted.version>
+		<kafka010.byted.version>0.10.1.2-bd1.7.12</kafka010.byted.version>
 		<kafka.base.version>0.10.1.1</kafka.base.version>
-		<kafka.base.byted.version>0.10.1.2-bd1.7.10</kafka.base.byted.version>
+		<kafka.base.byted.version>0.10.1.2-bd1.7.12</kafka.base.byted.version>
 		<metrics4j.version>1.0.27</metrics4j.version>
 		<redis.version>2.2.2-fix-consul-SNAPSHOT</redis.version>
 		<rocketmq.version>4.6.12-BYTEDANCE</rocketmq.version>
