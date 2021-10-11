@@ -59,6 +59,14 @@ public class CheckpointVerifierTest {
 	}
 
 	@Test
+	public void testVerifySuccessWithSetUserDefinedOperatorID() {
+		buildSuccessGraphWithUserDefinedOperatorID();
+		for (BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, OperatorState>, CheckpointVerifyResult> strategy : CheckpointVerifier.getVerifyStrategies()) {
+			assertEquals(strategy.apply(tasks, operatorStates), CheckpointVerifyResult.SUCCESS);
+		}
+	}
+
+	@Test
 	public void testVerifyFailWithMissOperatorID() {
 		buildFailGraphWithMissOperatorID();
 		BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, OperatorState>, CheckpointVerifyResult> strategy;
@@ -102,9 +110,42 @@ public class CheckpointVerifierTest {
 		for (int i = 0; i < 10; i++) {
 			for (int j = 0; j < 3; j++) {
 				if (random.nextBoolean()) {
+
+					OperatorState operatorState = new OperatorState(new OperatorID(100 * i, j), 100, 100);
+					operatorState.setCoordinatorState(new ByteStreamStateHandle("MockHandleName", new byte[5]));
+
 					operatorStates.put(
 						new OperatorID(100 * i, j),
-						new OperatorState(new OperatorID(100 * i, j), 100, 100));
+						operatorState);
+				}
+			}
+		}
+	}
+
+	void buildSuccessGraphWithUserDefinedOperatorID() {
+		tasks = new HashMap<>();
+		operatorStates = new HashMap<>();
+		for (int i = 0; i < 10; i++) {
+			List<OperatorIDPair> operatorIDs = new ArrayList<>();
+			for (int j = 0; j < 3; j++) {
+				operatorIDs.add(OperatorIDPair.of(new OperatorID(20L + i, 20L + j), new OperatorID(100 * i, j)));
+			}
+			JobVertex jobVertex = new JobVertex("vertex-" + i, new JobVertexID(), operatorIDs);
+			jobVertex.setParallelism(10);
+			jobVertex.setMaxParallelism(100);
+			tasks.put(new JobVertexID(), jobVertex);
+		}
+
+		for (int i = 0; i < 10; i++) {
+			for (int j = 0; j < 3; j++) {
+				if (random.nextBoolean()) {
+
+					OperatorState operatorState = new OperatorState(new OperatorID(100 * i, j), 100, 100);
+					operatorState.setCoordinatorState(new ByteStreamStateHandle("MockHandleName", new byte[5]));
+
+					operatorStates.put(
+						new OperatorID(100 * i, j),
+						operatorState);
 				}
 			}
 		}

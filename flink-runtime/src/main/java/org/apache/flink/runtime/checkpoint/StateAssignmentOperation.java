@@ -108,7 +108,10 @@ public class StateAssignmentOperation {
 			List<OperatorState> operatorStates = new ArrayList<>(operatorIDPairs.size());
 			boolean statelessSubTasks = true;
 			for (OperatorIDPair operatorIDPair : operatorIDPairs) {
-				OperatorID operatorID = operatorIDPair.getUserDefinedOperatorID().orElse(operatorIDPair.getGeneratedOperatorID());
+				OperatorID operatorID =
+					operatorIDPair.getUserDefinedOperatorID()
+						.filter(localOperators::containsKey)
+						.orElse(operatorIDPair.getGeneratedOperatorID());
 
 				OperatorState operatorState = localOperators.remove(operatorID);
 				if (operatorState == null) {

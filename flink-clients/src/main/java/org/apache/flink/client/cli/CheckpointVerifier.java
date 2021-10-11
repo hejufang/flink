@@ -90,7 +90,11 @@ public class CheckpointVerifier {
 		verifyStrategies.add((tasks, operatorStates) -> {
 			Set<OperatorID> allOperatorIDs = new HashSet<>();
 			for (JobVertex jobVertex : tasks.values()) {
-				allOperatorIDs.addAll(jobVertex.getOperatorIDs().stream().map(OperatorIDPair::getGeneratedOperatorID).collect(Collectors.toList()));
+				allOperatorIDs.addAll(jobVertex.getOperatorIDs().stream().map(operatorIDPair -> {
+					return operatorIDPair.getUserDefinedOperatorID()
+						.filter(operatorStates::containsKey)
+						.orElse(operatorIDPair.getGeneratedOperatorID());
+				}).collect(Collectors.toList()));
 			}
 
 			for (Map.Entry<OperatorID, OperatorState> operatorGroupStateEntry : operatorStates.entrySet()) {
