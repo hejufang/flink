@@ -103,7 +103,22 @@ public class RedisPipelineWrapper implements ClientPipeline {
 	}
 
 	@Override
-	public Response<Long> expire(String key, int seconds) {
+	public Response<Long> hexpires(String key, int seconds) {
+		return redisPipeline.expire(key, seconds);
+	}
+
+	@Override
+	public Response<Long> lexpires(String key, int seconds) {
+		return redisPipeline.expire(key, seconds);
+	}
+
+	@Override
+	public Response<Long> sexpires(String key, int seconds) {
+		return redisPipeline.expire(key, seconds);
+	}
+
+	@Override
+	public Response<Long> zexpires(String key, int seconds) {
 		return redisPipeline.expire(key, seconds);
 	}
 

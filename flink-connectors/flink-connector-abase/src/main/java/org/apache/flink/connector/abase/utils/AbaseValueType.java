@@ -27,7 +27,7 @@ import java.util.stream.Stream;
 public enum AbaseValueType {
 	GENERAL(false),
 	HASH(false),
-	LIST(false),
+	LIST(true),
 	SET(true),
 	ZSET(true);
 

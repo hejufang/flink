@@ -103,8 +103,23 @@ public class AbasePipelineWrapper implements ClientPipeline {
 	}
 
 	@Override
-	public Response<Long> expire(String key, int seconds) {
-		return abasePipeline.expire(key, seconds);
+	public Response<Long> hexpires(String key, int seconds) {
+		return abasePipeline.Hsetexpires(key, seconds);
+	}
+
+	@Override
+	public Response<Long> lexpires(String key, int seconds) {
+		return abasePipeline.Lsetexpires(key, seconds);
+	}
+
+	@Override
+	public Response<Long> sexpires(String key, int seconds) {
+		return abasePipeline.Ssetexpires(key, seconds);
+	}
+
+	@Override
+	public Response<Long> zexpires(String key, int seconds) {
+		return abasePipeline.Zsetexpires(key, seconds);
 	}
 
 	@Override

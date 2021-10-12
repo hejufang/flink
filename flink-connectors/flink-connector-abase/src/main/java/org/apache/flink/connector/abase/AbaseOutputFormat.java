@@ -345,7 +345,9 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		} else {
 			pipeline.lpush(key.toString().getBytes(), value.toString().getBytes());
 		}
-		setExpire(pipeline, key);
+		if (sinkOptions.getTtlSeconds() > 0) {
+			pipeline.lexpires(key.toString(), sinkOptions.getTtlSeconds());
+		}
 	}
 
 	private void writeSet(ClientPipeline pipeline, RowData record) {
@@ -357,13 +359,16 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		} else {
 			pipeline.sadd(key.toString().getBytes(), value.toString().getBytes());
 		}
-		setExpire(pipeline, key);
+		if (sinkOptions.getTtlSeconds() > 0) {
+			pipeline.sexpires(key.toString(), sinkOptions.getTtlSeconds());
+		}
 	}
 
 	private void writeHash(ClientPipeline pipeline, RowData record) {
+		Object key;
 		if (record.getArity() == 2) {
 			Row res = (Row) converter.toExternal(record);
-			Object key = res.getField(0);
+			key = res.getField(0);
 			Object hashMap = res.getField(1);
 			if (hashMap == null) {
 				throw new FlinkRuntimeException(String.format("The hashmap of %s should not be null.", key));
@@ -374,9 +379,8 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 				return;
 			}
 			pipeline.hmset(key.toString().getBytes(), byteMap);
-			setExpire(pipeline, key);
 		} else {
-			Object key = fieldGetters[0].getFieldOrNull(record);
+			key = fieldGetters[0].getFieldOrNull(record);
 			Object hashKey = fieldGetters[1].getFieldOrNull(record);
 			Object hashValue = fieldGetters[2].getFieldOrNull(record);
 			if (hashKey == null || hashValue == null) {
@@ -389,7 +393,9 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 				return;
 			}
 			pipeline.hset(key.toString().getBytes(), hashKey.toString().getBytes(), hashValue.toString().getBytes());
-			setExpire(pipeline, key);
+		}
+		if (sinkOptions.getTtlSeconds() > 0) {
+			pipeline.hexpires(key.toString(), sinkOptions.getTtlSeconds());
 		}
 	}
 
@@ -408,12 +414,8 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 					"be subclass of Number.", score.getClass().getName()));
 		}
 		pipeline.zadd(key.toString().getBytes(), ((Number) score).doubleValue(), value.toString().getBytes());
-		setExpire(pipeline, key);
-	}
-
-	private void setExpire(ClientPipeline pipeline, Object key) {
 		if (sinkOptions.getTtlSeconds() > 0) {
-			pipeline.expire(key.toString(), sinkOptions.getTtlSeconds());
+			pipeline.zexpires(key.toString(), sinkOptions.getTtlSeconds());
 		}
 	}
 
