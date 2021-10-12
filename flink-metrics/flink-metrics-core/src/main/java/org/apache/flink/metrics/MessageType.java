@@ -37,7 +37,9 @@ public enum MessageType {
 
 	SNAPSHOT("snapshot"),
 
-	RESTORE("restore");
+	RESTORE("restore"),
+
+	CACHE_LAYER("cache_layer");
 
 	private final String name;
 

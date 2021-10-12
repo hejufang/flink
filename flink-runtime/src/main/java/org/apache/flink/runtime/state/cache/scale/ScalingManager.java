@@ -63,8 +63,15 @@ public class ScalingManager implements HeapStatusListener {
 	/** The number of caches that need to be selected for each scale. */
 	private final int numberOfScaleCache;
 
+	private final MemorySize cacheMinSize;
+
+	private final MemorySize cacheMaxSize;
+
 	/** Callback after the scale is completed. */
-	private final ScaleCallback scaleCallback;
+	private final ScaleCallback<MemorySize> scaleCallback;
+
+	/** Indicates whether scale is turned on. */
+	private final boolean enableScale;
 
 	/** Indicates whether the service is still running. */
 	private volatile boolean running;
@@ -75,22 +82,42 @@ public class ScalingManager implements HeapStatusListener {
 			WeightCalculator<CacheWeightMeta> scaleUpCalculator,
 			WeightCalculator<CacheWeightMeta> scaleDownCalculator,
 			ScaleCondition scaleCondition,
-			int numberOfScaleCache) {
+			boolean enableScale,
+			int numberOfScaleCache,
+			MemorySize cacheMinSize,
+			MemorySize cacheMaxSize) {
+		Preconditions.checkArgument(cacheMaxSize.getBytes() > cacheMinSize.getBytes());
 		this.cacheMemoryManager = cacheMemoryManager;
 		this.cacheStatusMonitor = cacheStatusMonitor;
 		this.scaleUpCalculator = scaleUpCalculator;
 		this.scaleDownCalculator = scaleDownCalculator;
 		this.numberOfScaleCache = numberOfScaleCache;
 		this.scaleCondition = scaleCondition;
+		this.cacheMaxSize = cacheMaxSize;
+		this.cacheMinSize = cacheMinSize;
+		this.enableScale = enableScale;
 		this.running = true;
 		this.scaleCallback = scaleResult -> {
-			//TODO update memoryManager
+			if (scaleResult.isSuccess() && scaleResult.getAction() == Action.SCALE_DOWN) {
+				cacheMemoryManager.releaseMemory(scaleResult.getActualScaleSize());
+			} else if (scaleResult.getAction() == Action.SCALE_UP) {
+				MemorySize remainedSize = scaleResult.getRecommendedSize().subtract(scaleResult.getActualScaleSize());
+				if (remainedSize.getBytes() > 0) {
+					cacheMemoryManager.releaseMemory(remainedSize);
+				}
+			}
+			LOG.info("{} cache success: {}. Recommended scaled size: {}, actual scale size: {}",
+				scaleResult.getAction(), scaleResult.isSuccess(), scaleResult.getRecommendedSize(), scaleResult.getActualScaleSize());
 		};
 	}
 
 	@Override
 	public void notifyHeapStatus(HeapMonitorResult result) {
 		Preconditions.checkState(running, "Scaling manager not running");
+
+		if (!enableScale) {
+			return;
+		}
 
 		Action action = decideAction(result);
 		if (LOG.isDebugEnabled()) {
@@ -122,41 +149,46 @@ public class ScalingManager implements HeapStatusListener {
 	 * Calculate the size of the scale up, and select Cache to trigger the scale.
 	 */
 	private void doScaleUp() {
-		// 1.filter out caches whose current usage is less than 0.5 because there is no need to scale up.
+		// 1.CacheMemoryManager calculates the number of blocks used for scale up.
+		Tuple2<Integer, MemorySize> scaleUpSize = cacheMemoryManager.computeScaleUpSize();
+		// 2.filter out caches whose current usage is less than 0.5 or reach the maximum size because there is no need to scale up.
 		Map<Cache, CacheStatistic> cacheStatistics = cacheStatusMonitor.getCacheStatusStatistics().entrySet().stream()
 			.filter(entry -> {
 				CacheStatistic cacheStatistic = entry.getValue();
-				return ((double) cacheStatistic.getUsedMemorySize().getBytes()) / cacheStatistic.getMaxMemorySize().getBytes() > 0.5;
+				return ((double) cacheStatistic.getUsedMemorySize().getBytes()) / cacheStatistic.getMaxMemorySize().getBytes() > 0.5
+					&& cacheStatistic.getMaxMemorySize().getBytes() + scaleUpSize.f1.getBytes() < cacheMaxSize.getBytes();
 			}).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-		// 2.normalize and calculate the weights
+		// 3.normalize and calculate the weights
 		List<Tuple2<Cache, Double>> computedWeights = normalizeAndComputeWeight(cacheStatistics, scaleUpCalculator);
-		// 3.sort the weights
+		// 4.sort the weights
 		sortCacheWeights(computedWeights);
-		// 4.CacheMemoryManager calculates the number of blocks used for scale up.
-		Tuple2<Integer, MemorySize> scaleUpSize = cacheMemoryManager.computeScaleUpSize();
 		// 5.calculate the cache that needs to be scaled up and the corresponding size.
 		Map<Cache, MemorySize> scaleCacheSize = computeScaleCacheSize(computedWeights, scaleUpSize.f0, scaleUpSize.f1, numberOfScaleCache);
-		// TODO Call scaleUp after the cache implements the Scalable interface.
+		for (Map.Entry<Cache, MemorySize> entry : scaleCacheSize.entrySet()) {
+			MemorySize allocateSize = cacheMemoryManager.allocateMemory(entry.getValue());
+			entry.getKey().scaleUp(allocateSize, cacheMaxSize, scaleCallback);
+		}
 	}
 
 	/**
 	 * Calculate the size of the scale down, and select Cache to trigger the scale.
 	 */
 	private void doScaleDown() {
-		// 1.filter out caches whose size is already 0, because they can no longer be scaled down.
-		Map<Cache, CacheStatistic> cacheStatistics = cacheStatusMonitor.getCacheStatusStatistics().entrySet().stream()
-			.filter(entry -> entry.getValue().getMaxMemorySize().getBytes() > 0)
-			.collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue()));
-		// 2.normalize and calculate the weights
-		List<Tuple2<Cache, Double>> computedWeights = normalizeAndComputeWeight(cacheStatistics, scaleDownCalculator);
-		// 3.sort the weights
-		sortCacheWeights(computedWeights);
-		// 4.CacheMemoryManager calculates the number of blocks used for scale down.
+		// 1.CacheMemoryManager calculates the number of blocks used for scale down.
 		Tuple2<Integer, MemorySize> scaleDownSize = cacheMemoryManager.computeScaleDownSize();
+		// 2.filter out caches whose size is already reached the minimum value, because they can no longer be scaled down.
+		Map<Cache, CacheStatistic> cacheStatistics = cacheStatusMonitor.getCacheStatusStatistics().entrySet().stream()
+			.filter(entry -> entry.getValue().getMaxMemorySize().getBytes() - scaleDownSize.f1.getBytes() >= cacheMinSize.getBytes())
+			.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+		// 3.normalize and calculate the weights
+		List<Tuple2<Cache, Double>> computedWeights = normalizeAndComputeWeight(cacheStatistics, scaleDownCalculator);
+		// 4.sort the weights
+		sortCacheWeights(computedWeights);
 		// 5.calculate the cache that needs to be scaled down and the corresponding size.
 		Map<Cache, MemorySize> scaleCacheSize = computeScaleCacheSize(computedWeights, scaleDownSize.f0, scaleDownSize.f1, numberOfScaleCache);
-
-		// TODO Call scaleDown after the cache implements the Scalable interface.
+		for (Map.Entry<Cache, MemorySize> entry : scaleCacheSize.entrySet()) {
+			entry.getKey().scaleDown(entry.getValue(), cacheMinSize, scaleCallback);
+		}
 	}
 
 	/**
@@ -218,7 +250,8 @@ public class ScalingManager implements HeapStatusListener {
 		return scaleCacheSize;
 	}
 
-	enum Action {
+	/** Action of scale. */
+	public enum Action {
 		NONE, SCALE_DOWN, SCALE_UP
 	}
 }

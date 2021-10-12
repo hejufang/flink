@@ -33,8 +33,18 @@ import java.util.function.BiFunction;
 public class LFUStrategy<K, V> implements CacheStrategy<K, V> {
 	private org.apache.flink.shaded.com.github.benmanes.caffeine.cache.Cache<K, V> delegateCache;
 
+	private BiFunction<K, V, Integer> kVSizeEstimator;
+	private long maxMemorySize;
+	private long incrementalRemoveCount;
+
+	public LFUStrategy(long incrementalRemoveCount) {
+		this.incrementalRemoveCount = incrementalRemoveCount;
+	}
+
 	@Override
 	public void initialize(long initialMemorySize, BiFunction<K, V, Integer> kVSizeEstimator, BiConsumer<K, V> removeListener) {
+		this.maxMemorySize = initialMemorySize;
+		this.kVSizeEstimator = kVSizeEstimator;
 		delegateCache = Caffeine.newBuilder()
 			.maximumWeight(initialMemorySize)
 			.weigher(kVSizeEstimator::apply)
@@ -48,16 +58,19 @@ public class LFUStrategy<K, V> implements CacheStrategy<K, V> {
 
 	@Override
 	public V getIfPresent(K key) {
+		ensureMemorySize();
 		return delegateCache.getIfPresent(key);
 	}
 
 	@Override
 	public void put(K key, V value) {
+		ensureMemorySize();
 		delegateCache.put(key, value);
 	}
 
 	@Override
 	public void delete(K key) {
+		ensureMemorySize();
 		delegateCache.invalidate(key);
 	}
 
@@ -82,8 +95,20 @@ public class LFUStrategy<K, V> implements CacheStrategy<K, V> {
 	}
 
 	@Override
-	public void notifyExceedMemoryLimit(MemorySize maxMemorySize, MemorySize exceedMemorySize) {
-		// Since the maximumWeight of the guava cache is used to ensure
-		// the size of the cache, no operation is required.
+	public void updateMemoryCapacity(MemorySize maxMemorySize) {
+		this.maxMemorySize = maxMemorySize.getBytes();
+	}
+
+	private void ensureMemorySize() {
+		delegateCache.policy().eviction().ifPresent(kvEviction -> {
+			if (kvEviction.getMaximum() != maxMemorySize) {
+				long newSize = maxMemorySize;
+				long currentSize = kvEviction.weightedSize().getAsLong();
+				if (currentSize > maxMemorySize) {
+					newSize = Math.max(currentSize - kVSizeEstimator.apply(null, null) * incrementalRemoveCount, maxMemorySize);
+				}
+				kvEviction.setMaximum(newSize);
+			}
+		});
 	}
 }

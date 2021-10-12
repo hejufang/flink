@@ -43,7 +43,7 @@ public abstract class CacheStrategyFactory implements Serializable {
 		CacheStrategyFactory fallBackCacheStrategyFactory = new CacheStrategyFactory() {
 			@Override
 			public <K, V> CacheStrategy<K, V> createCacheStrategy() {
-				return new LRUStrategy<>();
+				return new LRUStrategy<>(configuration.getIncrementalRemoveCount());
 			}
 		};
 
@@ -55,7 +55,7 @@ public abstract class CacheStrategyFactory implements Serializable {
 				return new CacheStrategyFactory() {
 					@Override
 					public <K, V> CacheStrategy<K, V> createCacheStrategy() {
-						return new LFUStrategy<>();
+						return new LFUStrategy<>(configuration.getIncrementalRemoveCount());
 					}
 				};
 			default:

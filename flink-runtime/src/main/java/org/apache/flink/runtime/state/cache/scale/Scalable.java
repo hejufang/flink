@@ -26,11 +26,11 @@ public interface Scalable<T> {
 	 * Scale up the {@link org.apache.flink.runtime.state.cache.Cache} according to the specified size,
 	 * and notify the scale result through a {@link ScaleCallback} after the scale is completed.
 	 */
-	void scaleUp(T size, ScaleCallback callback);
+	void scaleUp(T scaleSize, T maxSize, ScaleCallback<T> callback);
 
 	/**
 	 * Scale down the {@link org.apache.flink.runtime.state.cache.Cache} according to the specified size,
 	 * and notify the scale result through a {@link ScaleCallback} after the scale is completed.
 	 */
-	void scaleDown(T size, ScaleCallback callback);
+	void scaleDown(T scaleSize, T minSize, ScaleCallback<T> callback);
 }

@@ -18,10 +18,16 @@
 
 package org.apache.flink.runtime.state.cache.scale;
 
+import org.apache.flink.runtime.state.cache.CacheStrategy;
+import org.apache.flink.runtime.state.cache.LFUStrategy;
+
 /**
- * Used to call back after the scale is completed.
+ * Test the scale of the lfu cache.
  */
-public interface ScaleCallback<T> {
-	/** Call back after the scale is completed. */
-	void notifyScaleResult(ScaleResult<T> scaleResult);
+public class LFUCacheScaleTest extends CacheScaleTestBase {
+
+	@Override
+	protected <K, V> CacheStrategy<K, V> createCacheStrategy() {
+		return new LFUStrategy<>(3L);
+	}
 }

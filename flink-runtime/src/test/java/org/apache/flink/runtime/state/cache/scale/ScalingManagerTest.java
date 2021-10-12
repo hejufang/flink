@@ -48,15 +48,15 @@ public class ScalingManagerTest {
 		WeightCalculator<CacheWeightMeta> weightCalculator = new DefaultCacheWeightCalculator(WEIGHT_RETAINED_SIZE, WEIGHT_LOAD_SUCCESS_COUNT);
 		Map<Cache, CacheStatistic> cacheStatistics = new LinkedHashMap<>(3);
 
-		Cache firstCache = new Cache(new LRUStrategy<>(), new StateStore.SimpleStateStore());
+		Cache firstCache = new Cache(new LRUStrategy<>(3L), new StateStore.SimpleStateStore());
 		CacheStatistic firstCacheStatistic = createCacheStatistic(MemorySize.parse("64m"), 1024);
 		cacheStatistics.put(firstCache, firstCacheStatistic);
 
-		Cache secondCache = new Cache(new LRUStrategy<>(), new StateStore.SimpleStateStore());
+		Cache secondCache = new Cache(new LRUStrategy<>(3L), new StateStore.SimpleStateStore());
 		CacheStatistic secondStatistic = createCacheStatistic(MemorySize.parse("32m"), 2048);
 		cacheStatistics.put(secondCache, secondStatistic);
 
-		Cache thirdCache = new Cache(new LRUStrategy<>(), new StateStore.SimpleStateStore());
+		Cache thirdCache = new Cache(new LRUStrategy<>(3L), new StateStore.SimpleStateStore());
 		CacheStatistic thirdStatistic = createCacheStatistic(MemorySize.parse("16m"), 256);
 		cacheStatistics.put(thirdCache, thirdStatistic);
 
@@ -75,7 +75,7 @@ public class ScalingManagerTest {
 		List<Tuple2<Cache, Double>> expectedWeights = new ArrayList<>(3);
 
 		for (int i = 0; i < 3; i++) {
-			Cache cache = new Cache(new LRUStrategy<>(), new StateStore.SimpleStateStore());
+			Cache cache = new Cache(new LRUStrategy<>(3L), new StateStore.SimpleStateStore());
 			computedWeights.add(Tuple2.of(cache, (double) i / 3));
 			expectedWeights.add(Tuple2.of(cache, (double) i / 3));
 		}
@@ -88,13 +88,13 @@ public class ScalingManagerTest {
 	public void testComputeScaleCacheSize() {
 		List<Tuple2<Cache, Double>> sortedWeights = new ArrayList<>(3);
 
-		Cache firstCache = new Cache(new LRUStrategy<>(), new StateStore.SimpleStateStore());
+		Cache firstCache = new Cache(new LRUStrategy<>(3L), new StateStore.SimpleStateStore());
 		sortedWeights.add(Tuple2.of(firstCache, 0.8));
 
-		Cache secondCache = new Cache(new LRUStrategy<>(), new StateStore.SimpleStateStore());
+		Cache secondCache = new Cache(new LRUStrategy<>(3L), new StateStore.SimpleStateStore());
 		sortedWeights.add(Tuple2.of(secondCache, 0.6));
 
-		Cache thirdCache = new Cache(new LRUStrategy<>(), new StateStore.SimpleStateStore());
+		Cache thirdCache = new Cache(new LRUStrategy<>(3L), new StateStore.SimpleStateStore());
 		sortedWeights.add(Tuple2.of(thirdCache, 0.4));
 
 		// when the number of blocks is greater than the number of caches that need to be scaled
@@ -141,12 +141,16 @@ public class ScalingManagerTest {
 			maxMemorySize,
 			1024,
 			loadSuccessCount * 10,
-		loadSuccessCount * 8,
-		loadSuccessCount * 2,
-		loadSuccessCount,
-		loadSuccessCount,
-		loadSuccessCount,
-		0);
+			loadSuccessCount * 8,
+			loadSuccessCount * 2,
+			loadSuccessCount,
+			loadSuccessCount,
+			loadSuccessCount,
+			0,
+			0,
+			0,
+			MemorySize.ZERO,
+			MemorySize.ZERO);
 	}
 
 }

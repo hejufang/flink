@@ -23,13 +23,37 @@ package org.apache.flink.runtime.state.cache.scale;
  * @param <T> The granularity of the scale.
  */
 public class ScaleResult<T> {
+	private final ScalingManager.Action action;
 	private final boolean success;
-	private final T scaleSize;
+	private final T recommendedSize;
+	private final T actualScaleSize;
 	private final String msg;
 
-	public ScaleResult(boolean success, T scaleSize, String msg) {
+	public ScaleResult(ScalingManager.Action action, boolean success, T recommendedSize, T actualScaleSize, String msg) {
+		this.action = action;
 		this.success = success;
-		this.scaleSize = scaleSize;
+		this.recommendedSize = recommendedSize;
+		this.actualScaleSize = actualScaleSize;
 		this.msg = msg;
+	}
+
+	public ScalingManager.Action getAction() {
+		return action;
+	}
+
+	public boolean isSuccess() {
+		return success;
+	}
+
+	public T getRecommendedSize() {
+		return recommendedSize;
+	}
+
+	public T getActualScaleSize() {
+		return actualScaleSize;
+	}
+
+	public String getMsg() {
+		return msg;
 	}
 }

@@ -34,7 +34,11 @@ public class PolicyStats {
 	private long saveCount;
 	private long deleteCount;
 	private long estimatedKVSize;
+	private long scaleUpCount;
+	private long scaleDownCount;
 	private MemorySize maxMemorySize;
+	private MemorySize scaleUpMemorySize;
+	private MemorySize scaleDownMemorySize;
 
 	public PolicyStats(Cache cache) {
 		this.cache = cache;
@@ -45,7 +49,11 @@ public class PolicyStats {
 		this.saveCount = 0L;
 		this.deleteCount = 0L;
 		this.estimatedKVSize = 0L;
+		this.scaleUpCount = 0L;
+		this.scaleDownCount = 0L;
 		this.maxMemorySize = MemorySize.ZERO;
+		this.scaleUpMemorySize = MemorySize.ZERO;
+		this.scaleDownMemorySize = MemorySize.ZERO;
 	}
 
 	public void recordOperation() {
@@ -78,6 +86,16 @@ public class PolicyStats {
 
 	public void recordEstimatedKVSize(long estimatedKVSize) {
 		this.estimatedKVSize = estimatedKVSize;
+	}
+
+	public void recordScaleUp(MemorySize scaleSize) {
+		this.scaleUpCount++;
+		this.scaleUpMemorySize = scaleUpMemorySize.add(scaleSize);
+	}
+
+	public void recordScaleDown(MemorySize scaleSize) {
+		this.scaleDownCount++;
+		this.scaleDownMemorySize = scaleDownMemorySize.add(scaleSize);
 	}
 
 	public void recordMaxCacheMemorySize(MemorySize memorySize) {
@@ -139,6 +157,10 @@ public class PolicyStats {
 			evictCount,
 			loadSuccessCount,
 			saveCount,
-			deleteCount);
+			deleteCount,
+			scaleUpCount,
+			scaleDownCount,
+			scaleUpMemorySize,
+			scaleDownMemorySize);
 	}
 }

@@ -34,6 +34,11 @@ public class LRUStrategy<K, V> implements CacheStrategy<K, V> {
 	private long maxMemorySize;
 	private BiFunction<K, V, Integer> kVSizeEstimator;
 	private LinkedHashMap<K, V> map;
+	private long incrementalRemoveSize;
+
+	public LRUStrategy(long incrementalRemoveSize) {
+		this.incrementalRemoveSize = incrementalRemoveSize;
+	}
 
 	@Override
 	public void initialize(long initialMemorySize, BiFunction<K, V, Integer> kVSizeEstimator, BiConsumer<K, V> removeListener) {
@@ -95,12 +100,16 @@ public class LRUStrategy<K, V> implements CacheStrategy<K, V> {
 	}
 
 	@Override
-	public void notifyExceedMemoryLimit(MemorySize maxMemorySize, MemorySize exceedMemorySize) {
-		// do nothing
+	public void updateMemoryCapacity(MemorySize maxMemorySize) {
+		this.maxMemorySize = maxMemorySize.getBytes();
 	}
 
 	private void ensureMemorySize() {
-		while (estimateMemorySize() > maxMemorySize) {
+		long i = 0;
+		// Because LinkedHashMap relies on inserting a record to perform the remove operation,
+		// and only one head node can be removed at a time. Therefore, we trigger the remove
+		// operation by inserting an empty node.
+		while (estimateMemorySize() > maxMemorySize && i++ < incrementalRemoveSize) {
 			map.put(null, null);
 			map.remove(null);
 		}

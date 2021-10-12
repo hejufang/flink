@@ -27,7 +27,6 @@ import org.apache.flink.runtime.state.cache.monitor.HeapStatusListener;
 import org.apache.flink.runtime.state.cache.monitor.HeapStatusMonitor;
 import org.apache.flink.runtime.state.cache.scale.CacheWeightMeta;
 import org.apache.flink.runtime.state.cache.scale.DefaultCacheWeightCalculator;
-import org.apache.flink.runtime.state.cache.scale.ScaleCondition;
 import org.apache.flink.runtime.state.cache.scale.ScalingManager;
 import org.apache.flink.runtime.state.cache.scale.WeightCalculator;
 import org.apache.flink.util.Preconditions;
@@ -119,16 +118,16 @@ public class DefaultCacheManager implements CacheManager {
 				configuration.getScaleDownRetainedSizeWeight(),
 				configuration.getScaleDownLoadSuccessCountWeight());
 
-		int numberOfScaleCache = configuration.getScaleNum();
-		ScaleCondition scaleCondition = configuration.getScaleCondition();
-
 		return new ScalingManager(
 			cacheMemoryManager,
 			cacheStatusMonitor,
 			scaleUpCalculator,
 			scaleDownCalculator,
-			scaleCondition,
-			numberOfScaleCache);
+			configuration.getScaleCondition(),
+			configuration.isEnableScale(),
+			configuration.getScaleNum(),
+			configuration.getCacheMinSize(),
+			configuration.getCacheMaxSize());
 	}
 
 	public HeapStatusMonitor initializeHeapStatusMonitor(HeapStatusListener listener, CacheConfiguration configuration) {

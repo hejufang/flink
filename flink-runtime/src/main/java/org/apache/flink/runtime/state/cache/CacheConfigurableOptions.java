@@ -100,6 +100,12 @@ public class CacheConfigurableOptions {
 	// Scaling manager configuration
 	//--------------------------------------------------------------------------
 
+	public static final ConfigOption<Boolean> CACHE_SCALE_ENABLE =
+		key("state.backend.cache.scale.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether to enable the scale feature for the cache layer, the default value is false.");
+
 	public static final ConfigOption<Integer> CACHE_SCALE_NUM =
 		key("state.backend.cache.scale.num")
 			.intType()
@@ -112,6 +118,13 @@ public class CacheConfigurableOptions {
 			.defaultValue(MemorySize.ZERO)
 			.withDescription("The minimum space reserved by the cache in the memory. The cache cannot " +
 				"be lower than this value when it is scaled down.");
+
+	public static final ConfigOption<MemorySize> CACHE_MAX_SIZE =
+		key("state.backend.cache.maxSize")
+			.memoryType()
+			.defaultValue(MemorySize.ofMebiBytes(64L))
+			.withDescription("The maximum space reserved by the cache in the memory. The cache cannot " +
+				"be larger than this value when it is scaled up.");
 
 	public static final ConfigOption<Long> MAX_GC_TIME_THRESHOLD =
 		key("state.backend.cache.maxGcTimeThreshold")
@@ -164,4 +177,10 @@ public class CacheConfigurableOptions {
 			.doubleType()
 			.defaultValue(-0.3)
 			.withDescription("The weight value of load-success-count in the scale down operation.");
+
+	public static final ConfigOption<Long> CACHE_INCREMENTAL_REMOVE_COUNT =
+		key("state.backend.cache.incremental.remove.count")
+			.longType()
+			.defaultValue(3L)
+			.withDescription("The maximum number of cache remove data at a time.");
 }

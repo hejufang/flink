@@ -33,6 +33,9 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.metrics.GrafanaGauge;
+import org.apache.flink.metrics.Message;
+import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.metrics.TagGaugeStore;
@@ -58,6 +61,7 @@ import org.apache.flink.runtime.state.cache.internal.DirectReducingState;
 import org.apache.flink.runtime.state.cache.memory.MemoryEstimator;
 import org.apache.flink.runtime.state.cache.memory.SerializerMemoryEstimatorFactory;
 import org.apache.flink.runtime.state.cache.monitor.CacheStatistic;
+import org.apache.flink.runtime.state.cache.scale.WarehouseCacheLayerMessage;
 import org.apache.flink.runtime.state.cache.sync.DataSynchronizer;
 import org.apache.flink.runtime.state.cache.sync.StateSynchronizerFactory;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueElement;
@@ -89,7 +93,12 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	private static final Logger LOG = LoggerFactory.getLogger(CachedKeyedStateBackend.class);
 
 	// metrics of cache
+	private static final String NUMBER_OF_SCALE_UP = "numberOfScaleUp";
+	private static final String NUMBER_OF_SCALE_DOWN = "numberOfScaleDown";
+	private static final String CACHE_MIN_REMAINED_CAPACITY = "cacheMinRemainedCapacity";
+	private static final String CACHE_TOTAL_REMAINED_CAPACITY = "cacheTotalRemainedCapacity";
 	private static final String CACHE_STATS = "cacheStats";
+	private static final String WAREHOUSE_CACHE_LAYER_STATS = "warehouseCacheLayerStats";
 
 	private interface StateFactory {
 		<K, N, V, IS extends State> IS createState(
@@ -163,7 +172,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		this.configuration = configuration;
 		this.cacheStrategyFactory = CacheStrategyFactory.createCacheStrategyFactory(configuration);
 		this.taskInfo = taskInfo;
-		this.cacheStatsTracker = new CacheStatsTracker();
+		this.cacheStatsTracker = new CacheStatsTracker(taskInfo, configuration);
 
 		registerMetrics(metricGroup);
 	}
@@ -324,6 +333,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		}
 		super.dispose();
 		for (Map.Entry<String, Cache<K, ?, ?, ?, ?>> entry : registeredCache.entrySet()) {
+			entry.getValue().transitionToFinish();
 			cacheManager.unregisterCache(taskInfo, entry.getKey(), entry.getValue());
 			try {
 				entry.getValue().clear();
@@ -375,6 +385,11 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 	private void registerMetrics(MetricGroup metricGroup) {
 		metricGroup.gauge(CACHE_STATS, cacheStatsTracker);
+		metricGroup.gauge(NUMBER_OF_SCALE_UP, () -> cacheStatsTracker.getGlobalCacheLayerStats().numberOfScaleUp);
+		metricGroup.gauge(NUMBER_OF_SCALE_DOWN, () -> cacheStatsTracker.getGlobalCacheLayerStats().numberOfScaleDown);
+		metricGroup.gauge(CACHE_MIN_REMAINED_CAPACITY, () -> cacheStatsTracker.getGlobalCacheLayerStats().cacheMinRemainedCapacity);
+		metricGroup.gauge(CACHE_TOTAL_REMAINED_CAPACITY, () -> cacheStatsTracker.getGlobalCacheLayerStats().cacheTotalRemainedCapacity);
+		metricGroup.gauge(WAREHOUSE_CACHE_LAYER_STATS, cacheStatsTracker.getCacheLayerMessageSet());
 	}
 
 	/** Responsible for tracking and reporting cache statistics. */
@@ -395,6 +410,12 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		private static final String CACHE_MAX_MEMORY_SIZE = "cacheMaxMemorySize";
 		private static final String CACHE_USED_MEMORY_SIZE = "cacheUsedMemorySize";
 		private static final String SERIALIZATION_REDUCE_RATE = "serializationReduceRate";
+		private static final String CACHE_NUMBER_OF_SCALE_UP = "numberOfScaleUp";
+		private static final String CACHE_NUMBER_OF_SCALE_DOWN = "numberOfScaleDown";
+		private static final String CACHE_SCALE_UP_SIZE = "cacheScaleUpSize";
+		private static final String CACHE_SCALE_DOWN_SIZE = "cacheScaleDownSize";
+
+		private static final MessageSet<WarehouseCacheLayerMessage> cacheLayerMessageSet = new MessageSet<>(MessageType.CACHE_LAYER);
 
 		private static final Map<String, Function<CacheStatistic, ?>> STATS_MAPS =
 			Stream.of(
@@ -409,7 +430,11 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 				Tuple2.of(CACHE_USED_MEMORY_SIZE, (Function<CacheStatistic, Long>) stats -> stats.getUsedMemorySize().getBytes()),
 				Tuple2.of(CACHE_MAX_MEMORY_SIZE, (Function<CacheStatistic, Long>) stats -> stats.getMaxMemorySize().getBytes()),
 				Tuple2.of(CACHE_HIT_RATE, (Function<CacheStatistic, Double>) CacheStatistic::getHitRate),
-				Tuple2.of(SERIALIZATION_REDUCE_RATE, (Function<CacheStatistic, Double>) CacheStatistic::getSerializationReduceRate)
+				Tuple2.of(SERIALIZATION_REDUCE_RATE, (Function<CacheStatistic, Double>) CacheStatistic::getSerializationReduceRate),
+				Tuple2.of(CACHE_NUMBER_OF_SCALE_UP, (Function<CacheStatistic, Long>) CacheStatistic::getScaleUpCount),
+				Tuple2.of(CACHE_NUMBER_OF_SCALE_DOWN, (Function<CacheStatistic, Long>) CacheStatistic::getScaleDownCount),
+				Tuple2.of(CACHE_SCALE_UP_SIZE, (Function<CacheStatistic, Long>) stats -> stats.getScaleUpSize().getBytes()),
+				Tuple2.of(CACHE_SCALE_DOWN_SIZE, (Function<CacheStatistic, Long>) stats -> stats.getScaleDownSize().getBytes())
 			).collect(Collectors.toMap(t -> t.f0, t -> t.f1));
 
 		/** The cache mapping table that has been registered successfully. */
@@ -419,10 +444,19 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 		private final TagGaugeStoreImpl statsStore;
 
-		public CacheStatsTracker() {
+		private final TaskInfo taskInfo;
+
+		private final CacheConfiguration configuration;
+
+		private GlobalCacheLayerStats globalCacheLayerStats;
+
+		public CacheStatsTracker(TaskInfo taskInfo, CacheConfiguration configuration) {
+			this.taskInfo = taskInfo;
+			this.configuration = configuration;
 			this.registeredPolicyStats = new ConcurrentHashMap<>();
 			this.lastStatistic = new ConcurrentHashMap<>();
 			this.statsStore = new TagGaugeStoreImpl(1024, true, false, TagGauge.MetricsReduceType.NO_REDUCE);
+			this.globalCacheLayerStats = new GlobalCacheLayerStats(configuration.getMaxHeapSize().getBytes());
 		}
 
 		public void addCacheToTrack(String name, PolicyStats policyStats) {
@@ -431,6 +465,7 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 		@Override
 		public TagGaugeStore getValue() {
+			this.globalCacheLayerStats = new GlobalCacheLayerStats(configuration.getMaxHeapSize().getBytes());
 			for (Map.Entry<String, PolicyStats> entry : registeredPolicyStats.entrySet()) {
 				CacheStatistic currentStatistic = entry.getValue().snapshot();
 				CacheStatistic cacheStatistic = currentStatistic.calculateDelta(lastStatistic.get(entry.getKey()));
@@ -441,9 +476,76 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 						.build();
 					statsStore.addMetric(((Number) statMapEntry.getValue().apply(cacheStatistic)).doubleValue(), tag);
 				}
+				WarehouseCacheLayerMessage warehouseMessage = new WarehouseCacheLayerMessage(
+					taskInfo.getIndexOfThisSubtask(),
+					entry.getKey(),
+					configuration.getCacheInitialSize().getBytes(),
+					configuration.getCacheMinSize().getBytes(),
+					configuration.getCacheMaxSize().getBytes(),
+					configuration.getMaxHeapSize().getBytes(),
+					cacheStatistic.getHitRate(),
+					cacheStatistic.getSerializationReduceRate(),
+					cacheStatistic.getScaleUpCount(),
+					cacheStatistic.getScaleDownCount(),
+					cacheStatistic.getEstimatedKVSize(),
+					cacheStatistic.getUsedMemorySize().getBytes(),
+					cacheStatistic.getMaxMemorySize().getBytes());
+				cacheLayerMessageSet.addMessage(new Message<>(warehouseMessage));
+				globalCacheLayerStats.updateValue(
+					cacheStatistic.getScaleUpCount(),
+					cacheStatistic.getScaleDownCount(),
+					configuration.getCacheMaxSize().getBytes() - cacheStatistic.getMaxMemorySize().getBytes(),
+					cacheStatistic.getMaxMemorySize().getBytes());
 				lastStatistic.put(entry.getKey(), currentStatistic);
 			}
 			return statsStore;
+		}
+
+		public TagGaugeStore getStatsStore() {
+			return statsStore;
+		}
+
+		public MessageSet<WarehouseCacheLayerMessage> getCacheLayerMessageSet() {
+			return cacheLayerMessageSet;
+		}
+
+		public GlobalCacheLayerStats getGlobalCacheLayerStats() {
+			return globalCacheLayerStats;
+		}
+	}
+
+	private static class GlobalCacheLayerStats {
+		private long numberOfScaleUp;
+		private long numberOfScaleDown;
+		private long cacheMinRemainedCapacity;
+		private long cacheTotalRemainedCapacity;
+
+		public GlobalCacheLayerStats(long cacheTotalRemainedCapacity) {
+			this.numberOfScaleUp = 0L;
+			this.numberOfScaleDown = 0L;
+			this.cacheMinRemainedCapacity = Long.MAX_VALUE;
+			this.cacheTotalRemainedCapacity = cacheTotalRemainedCapacity;
+		}
+
+		public void updateValue(
+				long numberOfScaleUp,
+				long numberOfScaleDown,
+				long cacheMinRemainedCapacity,
+				long cacheMaxMemorySize) {
+			this.numberOfScaleUp += numberOfScaleUp;
+			this.numberOfScaleDown += numberOfScaleDown;
+			this.cacheMinRemainedCapacity = Math.min(this.cacheMinRemainedCapacity, cacheMinRemainedCapacity);
+			this.cacheTotalRemainedCapacity -= cacheMaxMemorySize;
+		}
+
+		@Override
+		public String toString() {
+			return "GlobalCacheLayerStats{" +
+				"numberOfScaleUp=" + numberOfScaleUp +
+				", numberOfScaleDown=" + numberOfScaleDown +
+				", cacheMinRemainedCapacity=" + cacheMinRemainedCapacity +
+				", cacheTotalRemainedCapacity=" + cacheTotalRemainedCapacity +
+				'}';
 		}
 	}
 }

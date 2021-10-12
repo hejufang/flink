@@ -48,13 +48,16 @@ public class CacheConfiguration {
 	private long heapMonitorInterval;
 
 	//-------------------------- scaling configuration ----------------------//
+	private boolean enableScale;
 	private int scaleNum;
 	private MemorySize cacheMinSize;
+	private MemorySize cacheMaxSize;
 	private ScaleCondition scaleCondition;
 	private double scaleUpRetainedSizeWeight;
 	private double scaleUpLoadSuccessCountWeight;
 	private double scaleDownRetainedSizeWeight;
 	private double scaleDownLoadSuccessCountWeight;
+	private long incrementalRemoveCount;
 
 	public CacheConfiguration(
 			boolean enableCache,
@@ -66,13 +69,16 @@ public class CacheConfiguration {
 			double scaleUpRatio,
 			double scaleDownRatio,
 			long heapMonitorInterval,
+			boolean enableScale,
 			int scaleNum,
 			MemorySize cacheMinSize,
+			MemorySize cacheMaxSize,
 			ScaleCondition scaleCondition,
 			double scaleUpRetainedSizeWeight,
 			double scaleUpLoadSuccessCountWeight,
 			double scaleDownRetainedSizeWeight,
-			double scaleDownLoadSuccessCountWeight) {
+			double scaleDownLoadSuccessCountWeight,
+			long incrementalRemoveCount) {
 		this.enableCache = enableCache;
 		this.cacheStrategy = cacheStrategy;
 		this.cacheInitialSize = cacheInitialSize;
@@ -82,13 +88,16 @@ public class CacheConfiguration {
 		this.scaleUpRatio = scaleUpRatio;
 		this.scaleDownRatio = scaleDownRatio;
 		this.heapMonitorInterval = heapMonitorInterval;
+		this.enableScale = enableScale;
 		this.scaleNum = scaleNum;
 		this.cacheMinSize = cacheMinSize;
+		this.cacheMaxSize = cacheMaxSize;
 		this.scaleCondition = scaleCondition;
 		this.scaleUpRetainedSizeWeight = scaleUpRetainedSizeWeight;
 		this.scaleUpLoadSuccessCountWeight = scaleUpLoadSuccessCountWeight;
 		this.scaleDownRetainedSizeWeight = scaleDownRetainedSizeWeight;
 		this.scaleDownLoadSuccessCountWeight = scaleDownLoadSuccessCountWeight;
+		this.incrementalRemoveCount = incrementalRemoveCount;
 	}
 
 	public boolean isEnableCache() {
@@ -163,6 +172,14 @@ public class CacheConfiguration {
 		this.heapMonitorInterval = heapMonitorInterval;
 	}
 
+	public boolean isEnableScale() {
+		return enableScale;
+	}
+
+	public void setEnableScale(boolean enableScale) {
+		this.enableScale = enableScale;
+	}
+
 	public int getScaleNum() {
 		return scaleNum;
 	}
@@ -177,6 +194,14 @@ public class CacheConfiguration {
 
 	public void setCacheMinSize(MemorySize cacheMinSize) {
 		this.cacheMinSize = cacheMinSize;
+	}
+
+	public MemorySize getCacheMaxSize() {
+		return cacheMaxSize;
+	}
+
+	public void setCacheMaxSize(MemorySize cacheMaxSize) {
+		this.cacheMaxSize = cacheMaxSize;
 	}
 
 	public ScaleCondition getScaleCondition() {
@@ -219,6 +244,14 @@ public class CacheConfiguration {
 		this.scaleDownLoadSuccessCountWeight = scaleDownLoadSuccessCountWeight;
 	}
 
+	public long getIncrementalRemoveCount() {
+		return incrementalRemoveCount;
+	}
+
+	public void setIncrementalRemoveCount(long incrementalRemoveCount) {
+		this.incrementalRemoveCount = incrementalRemoveCount;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -233,6 +266,7 @@ public class CacheConfiguration {
 			Double.compare(that.scaleUpRatio, scaleUpRatio) == 0 &&
 			Double.compare(that.scaleDownRatio, scaleDownRatio) == 0 &&
 			heapMonitorInterval == that.heapMonitorInterval &&
+			enableScale == that.enableScale &&
 			scaleNum == that.scaleNum &&
 			Objects.equals(scaleCondition, that.scaleCondition) &&
 			Double.compare(that.scaleUpRetainedSizeWeight, scaleUpRetainedSizeWeight) == 0 &&
@@ -243,7 +277,9 @@ public class CacheConfiguration {
 			Objects.equals(cacheInitialSize, that.cacheInitialSize) &&
 			Objects.equals(maxHeapSize, that.maxHeapSize) &&
 			Objects.equals(blockSize, that.blockSize) &&
-			Objects.equals(cacheMinSize, that.cacheMinSize);
+			Objects.equals(cacheMinSize, that.cacheMinSize) &&
+			Objects.equals(cacheMaxSize, that.cacheMaxSize) &&
+			Objects.equals(incrementalRemoveCount, that.incrementalRemoveCount);
 	}
 
 	@Override
@@ -258,13 +294,16 @@ public class CacheConfiguration {
 			scaleUpRatio,
 			scaleDownRatio,
 			heapMonitorInterval,
+			enableScale,
 			scaleNum,
 			cacheMinSize,
+			cacheMaxSize,
 			scaleCondition,
 			scaleUpRetainedSizeWeight,
 			scaleUpLoadSuccessCountWeight,
 			scaleDownRetainedSizeWeight,
-			scaleDownLoadSuccessCountWeight);
+			scaleDownLoadSuccessCountWeight,
+			incrementalRemoveCount);
 	}
 
 	public static CacheConfiguration fromConfiguration(Configuration configuration) {
@@ -283,8 +322,10 @@ public class CacheConfiguration {
 		long heapMonitorInterval = configuration.getLong(CacheConfigurableOptions.HEAP_MONITOR_INTERVAL);
 
 		//-------------------------- scaling manager configuration ----------------------//
+		boolean enableScale = configuration.getBoolean(CacheConfigurableOptions.CACHE_SCALE_ENABLE);
 		int scaleNum = configuration.getInteger(CacheConfigurableOptions.CACHE_SCALE_NUM);
 		MemorySize cacheMinSize = configuration.get(CacheConfigurableOptions.CACHE_MIN_SIZE);
+		MemorySize cacheMaxSize = configuration.get(CacheConfigurableOptions.CACHE_MAX_SIZE);
 		long maxGcTimeThreshold = configuration.getLong(CacheConfigurableOptions.MAX_GC_TIME_THRESHOLD);
 		long avgGcTimeThreshold = configuration.getLong(CacheConfigurableOptions.AVG_GC_TIME_THRESHOLD);
 		long gcCountThreshold = configuration.getLong(CacheConfigurableOptions.GC_COUNT_THRESHOLD);
@@ -294,6 +335,7 @@ public class CacheConfiguration {
 		double scaleUpLoadSuccessCountWeight = configuration.getDouble(CacheConfigurableOptions.SCALE_UP_LOAD_SUCCESS_COUNT_WEIGHT);
 		double scaleDownRetainedSizeWeight = configuration.getDouble(CacheConfigurableOptions.SCALE_DOWN_RETAINED_SIZE_WEIGHT);
 		double scaleDownLoadSuccessCountWeight = configuration.getDouble(CacheConfigurableOptions.SCALE_DOWN_LOAD_SUCCESS_COUNT_WEIGHT);
+		long incrementalRemoveCount = configuration.getLong(CacheConfigurableOptions.CACHE_INCREMENTAL_REMOVE_COUNT);
 
 		return new CacheConfiguration(
 			enableCache,
@@ -305,12 +347,15 @@ public class CacheConfiguration {
 			scaleUpRatio,
 			scaleDownRatio,
 			heapMonitorInterval,
+			enableScale,
 			scaleNum,
 			cacheMinSize,
+			cacheMaxSize,
 			scaleCondition,
 			scaleUpRetainedSizeWeight,
 			scaleUpLoadSuccessCountWeight,
 			scaleDownRetainedSizeWeight,
-			scaleDownLoadSuccessCountWeight);
+			scaleDownLoadSuccessCountWeight,
+			incrementalRemoveCount);
 	}
 }

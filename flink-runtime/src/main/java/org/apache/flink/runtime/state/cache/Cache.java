@@ -21,6 +21,10 @@ package org.apache.flink.runtime.state.cache;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.runtime.state.cache.scale.Scalable;
+import org.apache.flink.runtime.state.cache.scale.ScaleCallback;
+import org.apache.flink.runtime.state.cache.scale.ScaleResult;
+import org.apache.flink.runtime.state.cache.scale.ScalingManager;
 import org.apache.flink.runtime.state.cache.sync.DataSynchronizer;
 import org.apache.flink.runtime.util.EmptyIterator;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -34,18 +38,21 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
 /**
  * The general interface of cache supports common operations of
  * adding, deleting, updating, and querying.
  */
-public class Cache<K, N, SV, UK, UV> implements FlushSupported<Tuple3<K, N, UK>>, MemorySizeListener {
+public class Cache<K, N, SV, UK, UV> implements FlushSupported<Tuple3<K, N, UK>>, Scalable<MemorySize> {
 	private final CacheStrategy<Tuple3<K, N, UK>, DirtyReference> cacheStrategy;
 
 	private final StateStore<K, N, SV, UK, UV> stateStore;
 
 	private final Tuple3<K, N, UK> cacheEntryKey;
+
+	private final AtomicReference<Status> status;
 
 	/** Monitor the occurrence of internal events in the cache, which is mainly used for metrics statistics. */
 	private DefaultEventListener<Tuple3<K, N, UK>, UV> listener;
@@ -60,6 +67,7 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<Tuple3<K, N, UK>>
 		this.stateStore = stateStore;
 		this.cacheEntryKey = new Tuple3<>();
 		this.reusedQueue = new ArrayBlockingQueue<>(16);
+		this.status = new AtomicReference<>(Status.RUNNING);
 	}
 
 	public final UV get(K key, N namespace) throws Exception {
@@ -167,7 +175,9 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<Tuple3<K, N, UK>>
 		stateStore.clearAll();
 	}
 
-	/** Delete all specified cached value. */
+	/**
+	 * Delete all specified cached value.
+	 */
 	public void clearKeyAndNamespaceData(K key, N namespace) throws Exception {
 		Iterable<Tuple3<K, N, UK>> clearedKeys = stateStore.clearFromStateStore(key, namespace);
 		cacheStrategy.clear(clearedKeys);
@@ -195,8 +205,8 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<Tuple3<K, N, UK>>
 	 * Configure the event listener inside the cache.
 	 */
 	public void configure(
-			DefaultEventListener<Tuple3<K, N, UK>, UV> listener,
-			DataSynchronizer<Tuple3<K, N, UK>, UV> dataSynchronizer) {
+		DefaultEventListener<Tuple3<K, N, UK>, UV> listener,
+		DataSynchronizer<Tuple3<K, N, UK>, UV> dataSynchronizer) {
 		this.listener = listener;
 		this.dataSynchronizer = dataSynchronizer;
 		this.cacheStrategy.initialize(
@@ -250,8 +260,47 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<Tuple3<K, N, UK>>
 	}
 
 	@Override
-	public void notifyExceedMemoryLimit(MemorySize maxMemorySize, MemorySize exceedMemorySize) {
-		cacheStrategy.notifyExceedMemoryLimit(maxMemorySize, exceedMemorySize);
+	public void scaleUp(MemorySize scaleSize, MemorySize maxSize, ScaleCallback<MemorySize> callback) {
+		if (status.compareAndSet(Status.RUNNING, Status.SCALING)) {
+			try {
+				MemorySize currentMaxMemorySize = listener.getPolicyStats().getMaxMemorySize();
+				MemorySize newMaxMemorySize = new MemorySize(Math.min(maxSize.getBytes(), currentMaxMemorySize.add(scaleSize).getBytes()));
+				MemorySize actualScaleSize = newMaxMemorySize.subtract(currentMaxMemorySize);
+				listener.getPolicyStats().recordMaxCacheMemorySize(newMaxMemorySize);
+				cacheStrategy.updateMemoryCapacity(newMaxMemorySize);
+				callback.notifyScaleResult(new ScaleResult<>(ScalingManager.Action.SCALE_UP, true, scaleSize, actualScaleSize, "scale up success"));
+				listener.getPolicyStats().recordScaleUp(actualScaleSize);
+			} finally {
+				status.compareAndSet(Status.SCALING, Status.RUNNING);
+			}
+		} else {
+			callback.notifyScaleResult(new ScaleResult<>(ScalingManager.Action.SCALE_UP, false, scaleSize, MemorySize.ZERO, "no need to scale up"));
+		}
+	}
+
+	@Override
+	public void scaleDown(MemorySize scaleSize, MemorySize minSize, ScaleCallback<MemorySize> callback) {
+		if (status.compareAndSet(Status.RUNNING, Status.SCALING)) {
+			try {
+				MemorySize currentMaxMemorySize = listener.getPolicyStats().getMaxMemorySize();
+				MemorySize newMaxMemorySize = new MemorySize(Math.max(currentMaxMemorySize.getBytes() - scaleSize.getBytes(), minSize.getBytes()));
+				MemorySize actualScaleSize = currentMaxMemorySize.subtract(newMaxMemorySize);
+				listener.getPolicyStats().recordMaxCacheMemorySize(newMaxMemorySize);
+				cacheStrategy.updateMemoryCapacity(newMaxMemorySize);
+				callback.notifyScaleResult(new ScaleResult<>(ScalingManager.Action.SCALE_DOWN, true, scaleSize, actualScaleSize, "scale down success"));
+				listener.getPolicyStats().recordScaleDown(actualScaleSize);
+			} finally {
+				status.compareAndSet(Status.SCALING, Status.RUNNING);
+			}
+		} else {
+			callback.notifyScaleResult(new ScaleResult<>(ScalingManager.Action.SCALE_DOWN, false, scaleSize, MemorySize.ZERO, "no need to scale down"));
+		}
+	}
+
+	public void transitionToFinish() {
+		while (!status.compareAndSet(Status.RUNNING, Status.FINISH)) {
+			// do nothing
+		}
 	}
 
 	private Tuple3<K, N, UK> getOrCreateCacheEntryKey(K key, N namespace, UK userKey) {
@@ -403,5 +452,10 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<Tuple3<K, N, UK>>
 		public void setDirty(boolean dirty) {
 			this.dirty = dirty;
 		}
+	}
+
+	/** Status of the cache. */
+	public enum Status {
+		RUNNING, SCALING, FINISH
 	}
 }

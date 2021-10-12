@@ -62,7 +62,11 @@ global:
         numChannelsUpdatedByJM,
         numChannelsUpdatedByTask,
         numChannelsInjectedError,
-        numberOfHdfsRetries
+        numberOfHdfsRetries,
+        numberOfScaleUp,
+        numberOfScaleDown,
+        cacheMinRemainedCapacity,
+        cacheTotalRemainedCapacity
     ]
 
 non-global:

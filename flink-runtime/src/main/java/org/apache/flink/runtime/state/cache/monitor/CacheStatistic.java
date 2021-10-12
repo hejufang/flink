@@ -23,7 +23,7 @@ import org.apache.flink.configuration.MemorySize;
  * Cache statistics collected during the running of the task, such as request count, hit count, etc.
  */
 public class CacheStatistic {
-	public static final CacheStatistic EMPTY_STATISTIC = new CacheStatistic(MemorySize.ZERO, MemorySize.ZERO, 0, 0, 0, 0, 0, 0, 0, 0);
+	public static final CacheStatistic EMPTY_STATISTIC = new CacheStatistic(MemorySize.ZERO, MemorySize.ZERO, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, MemorySize.ZERO, MemorySize.ZERO);
 
 	private MemorySize maxMemorySize;
 	private MemorySize usedMemorySize;
@@ -35,6 +35,10 @@ public class CacheStatistic {
 	private long loadSuccessCount;
 	private long saveCount;
 	private long deleteCount;
+	private long scaleUpCount;
+	private long scaleDownCount;
+	private MemorySize scaleUpSize;
+	private MemorySize scaleDownSize;
 
 	public CacheStatistic(
 			MemorySize maxMemorySize,
@@ -46,7 +50,11 @@ public class CacheStatistic {
 			long evictionCount,
 			long loadSuccessCount,
 			long saveCount,
-			long deleteCount) {
+			long deleteCount,
+			long scaleUpCount,
+			long scaleDownCount,
+			MemorySize scaleUpSize,
+			MemorySize scaleDownSize) {
 		this.maxMemorySize = maxMemorySize;
 		this.usedMemorySize = usedMemorySize;
 		this.estimatedKVSize = estimatedKVSize;
@@ -57,6 +65,10 @@ public class CacheStatistic {
 		this.loadSuccessCount = loadSuccessCount;
 		this.saveCount = saveCount;
 		this.deleteCount = deleteCount;
+		this.scaleUpCount = scaleUpCount;
+		this.scaleDownCount = scaleDownCount;
+		this.scaleUpSize = scaleUpSize;
+		this.scaleDownSize = scaleDownSize;
 	}
 
 	public MemorySize getMaxMemorySize() {
@@ -99,6 +111,22 @@ public class CacheStatistic {
 		return deleteCount;
 	}
 
+	public long getScaleUpCount() {
+		return scaleUpCount;
+	}
+
+	public long getScaleDownCount() {
+		return scaleDownCount;
+	}
+
+	public MemorySize getScaleUpSize() {
+		return scaleUpSize;
+	}
+
+	public MemorySize getScaleDownSize() {
+		return scaleDownSize;
+	}
+
 	public double getHitRate() {
 		long totalCount = hitCount + missCount;
 		return totalCount == 0 ? 0.0 : hitCount / (double) totalCount;
@@ -120,6 +148,10 @@ public class CacheStatistic {
 			evictionCount - that.evictionCount,
 			loadSuccessCount - that.loadSuccessCount,
 			saveCount - that.saveCount,
-			deleteCount - that.deleteCount);
+			deleteCount - that.deleteCount,
+			scaleUpCount - that.scaleUpCount,
+			scaleDownCount - that.scaleDownCount,
+			scaleUpSize.subtract(that.scaleUpSize),
+			scaleDownSize.subtract(that.scaleDownSize));
 	}
 }

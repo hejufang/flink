@@ -26,5 +26,5 @@ import org.apache.flink.configuration.MemorySize;
  */
 public interface MemorySizeListener {
 	/** When the memory exceeds the limit, the callback will notify the memory overflow. */
-	void notifyExceedMemoryLimit(MemorySize maxMemorySize, MemorySize exceedMemorySize);
+	void updateMemoryCapacity(MemorySize maxMemorySize);
 }
