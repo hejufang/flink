@@ -114,6 +114,9 @@ public class CollectResultFetcher<T> {
 
 		// this is to avoid sleeping before first try
 		boolean beforeFirstTry = true;
+
+		// this is to reduce warning log
+		long firstExceptionTime = -1;
 		do {
 			T res = buffer.next();
 			if (res != null) {
@@ -127,7 +130,6 @@ public class CollectResultFetcher<T> {
 				sleepBeforeRetry();
 			}
 			beforeFirstTry = false;
-
 			if (isJobTerminated()) {
 				// job terminated, read results from accumulator
 				jobTerminated = true;
@@ -141,7 +143,25 @@ public class CollectResultFetcher<T> {
 				try {
 					response = sendRequest(buffer.version, requestOffset);
 				} catch (Exception e) {
-					LOG.warn("An exception occurs when fetching query results", e);
+					// Exceptions may happen in this case:
+					// 1. job status is not terminated when we check it.
+					// 2. send request to coordinator as we think it is not terminated
+					// Job may become terminated when we send request to coordinator as 1 and 2
+					// is not atomic.
+					// We do not want to print warning logs in this case but just continue
+					// this loop.
+					if (firstExceptionTime < 0) {
+						firstExceptionTime = System.currentTimeMillis();
+					}
+
+					// This is little trick that we assume that the job status will
+					// update within 3s. This is heavily dependent on the configuration
+					// 'web.cache-time-to-live'.
+					if (System.currentTimeMillis() - firstExceptionTime > 3000) {
+						LOG.warn("An exception occurs when fetching query results", e);
+					} else {
+						LOG.debug("An exception occurs when fetching query results", e);
+					}
 					continue;
 				}
 				// the response will contain data (if any) starting exactly from requested offset
