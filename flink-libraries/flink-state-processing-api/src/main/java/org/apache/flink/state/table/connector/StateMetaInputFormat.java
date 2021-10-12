@@ -23,19 +23,13 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.io.GenericInputFormat;
 import org.apache.flink.api.common.io.NonParallelInput;
 import org.apache.flink.core.io.GenericInputSplit;
-import org.apache.flink.runtime.checkpoint.OperatorStateMeta;
-import org.apache.flink.runtime.checkpoint.RegisteredKeyedStateMeta;
-import org.apache.flink.runtime.checkpoint.StateMetaData;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointStateMetadata;
-import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.state.api.runtime.SavepointLoader;
+import org.apache.flink.state.table.connector.iterators.StateMetaIterator;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.types.Row;
 
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -73,7 +67,7 @@ public class StateMetaInputFormat extends GenericInputFormat<RowData> implements
 				throw new RuntimeException("load savepoint StateMetadata failed with ClassNotFoundException.");
 			}
 		}
-		stateMetaIterator = new StateMetaIterator(checkpointStateMetadata);
+		stateMetaIterator = new StateMetaIterator(checkpointStateMetadata, converter);
 		super.open(split);
 	}
 
@@ -91,76 +85,4 @@ public class StateMetaInputFormat extends GenericInputFormat<RowData> implements
 	public void close() throws IOException {
 	}
 
-	private class StateMetaIterator implements Iterator<RowData> {
-
-		private final Iterator<OperatorStateMeta> operatorStateMetaIterator;
-
-		private OperatorStateMeta curOperatorStateMeta;
-
-		private Iterator<StateMetaData> stateMetaDataIterator;
-
-		public StateMetaIterator(CheckpointStateMetadata checkpointStateMetadata){
-			operatorStateMetaIterator = checkpointStateMetadata.getOperatorStateMetas().iterator();
-		}
-
-		@Override
-		public boolean hasNext() {
-
-			while (true) {
-				if (curOperatorStateMeta != null) {
-					if (stateMetaDataIterator.hasNext()) {
-						return true;
-					} else {
-						curOperatorStateMeta = null;
-						stateMetaDataIterator = null;
-					}
-				} else if (operatorStateMetaIterator.hasNext()){
-					curOperatorStateMeta = operatorStateMetaIterator.next();
-					stateMetaDataIterator = curOperatorStateMeta.getAllStateMeta().iterator();
-				} else {
-					return false;
-				}
-			}
-		}
-
-		@Override
-		public RowData next() {
-			if (hasNext()) {
-				StateMetaData stateMetaData = stateMetaDataIterator.next();
-				return converterToRowData(curOperatorStateMeta, stateMetaData);
-			} else {
-				throw new NoSuchElementException();
-			}
-		}
-
-		private RowData converterToRowData(OperatorStateMeta curOperatorStateMeta, StateMetaData stateMetaData) {
-
-			Row row = new Row(8);
-			row.setField(0, curOperatorStateMeta.getOperatorID().toString());
-			row.setField(1, curOperatorStateMeta.getOperatorName());
-			row.setField(2, curOperatorStateMeta.getUid());
-
-			boolean isKeyedState;
-			String keyType = null;
-			BackendType backendType;
-
-			if (stateMetaData instanceof RegisteredKeyedStateMeta.KeyedStateMetaData) {
-				isKeyedState = true;
-
-				RegisteredKeyedStateMeta curKeyedStateMeta = curOperatorStateMeta.getKeyedStateMeta();
-				backendType = curKeyedStateMeta.getBackendType();
-				keyType = curKeyedStateMeta.getKeySerializer().createInstance().getClass().getSimpleName();
-			} else {
-				isKeyedState = false;
-				backendType = curOperatorStateMeta.getOperatorStateMeta().getBackendType();
-			}
-
-			row.setField(3, isKeyedState);
-			row.setField(4, keyType);
-			row.setField(5, stateMetaData.getName());
-			row.setField(6, stateMetaData.getType().toString());
-			row.setField(7, backendType.getBackendType());
-			return (RowData) converter.toInternal(row);
-		}
-	}
 }

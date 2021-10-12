@@ -193,7 +193,7 @@ public class WindowReaderTest {
 		Assert.assertEquals(Arrays.asList(Tuple2.of(2, 1), Tuple2.of(2, 1)), list);
 	}
 
-	private static WindowOperator<Integer, Integer, ?, Void, ?> getWindowOperator(
+	public static WindowOperator<Integer, Integer, ?, Void, ?> getWindowOperator(
 		Function<KeyedStream<Integer, Integer>, SingleOutputStreamOperator<Integer>> window) {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);

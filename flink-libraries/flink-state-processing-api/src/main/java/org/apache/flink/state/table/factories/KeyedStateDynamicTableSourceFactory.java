@@ -22,7 +22,7 @@ package org.apache.flink.state.table.factories;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
-import org.apache.flink.state.table.tables.StateMetaDynamicTableSource;
+import org.apache.flink.state.table.tables.KeyedStateDynamicTableSource;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
@@ -31,20 +31,32 @@ import org.apache.flink.table.types.DataType;
 import java.util.HashSet;
 import java.util.Set;
 
-import static org.apache.flink.state.table.catalog.SavepointCatalogUtils.SAVEPOINT_META_TABLE_NAME;
+import static org.apache.flink.state.table.catalog.SavepointCatalogUtils.SAVEPOINT_KEYED_STATE_TABLE_NAME;
 
 /**
  * Factory for StateMeta batch table source.
  */
-public class StateMetaDynamicTableSourceFactory implements DynamicTableSourceFactory {
+public class KeyedStateDynamicTableSourceFactory implements DynamicTableSourceFactory {
 
-	private static final String IDENTIFIER = SAVEPOINT_META_TABLE_NAME;
+	private static final String IDENTIFIER = SAVEPOINT_KEYED_STATE_TABLE_NAME;
 
 	private static final ConfigOption<String> PATH = ConfigOptions
 		.key("path")
 		.stringType()
 		.noDefaultValue()
 		.withDescription("Required. It defines savepoint path.");
+
+	private static final ConfigOption<String> OPERATOR_ID = ConfigOptions
+		.key("operatorID")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Required. It defines operatorID.");
+
+	private static final ConfigOption<String> STATE_NAME = ConfigOptions
+		.key("stateName")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Required. It defines stateName.");
 
 	@Override
 	public String factoryIdentifier() {
@@ -55,6 +67,8 @@ public class StateMetaDynamicTableSourceFactory implements DynamicTableSourceFac
 	public Set<ConfigOption<?>> requiredOptions() {
 		Set<ConfigOption<?>> set = new HashSet<>();
 		set.add(PATH);
+		set.add(OPERATOR_ID);
+		set.add(STATE_NAME);
 		return set;
 	}
 
@@ -71,10 +85,12 @@ public class StateMetaDynamicTableSourceFactory implements DynamicTableSourceFac
 
 		ReadableConfig config = helper.getOptions();
 		String savepointPath = config.get(PATH);
+		String operatorID = config.get(OPERATOR_ID);
+		String stateName = config.get(STATE_NAME);
 
 		DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
 
-		return new StateMetaDynamicTableSource(savepointPath, producedDataType);
+		return new KeyedStateDynamicTableSource(savepointPath, operatorID, stateName, producedDataType);
 
 	}
 }

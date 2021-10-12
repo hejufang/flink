@@ -162,6 +162,25 @@ public class OperatorStateMeta implements Serializable {
 		return stateNames;
 	}
 
+	public Set<String> getAllKeyedStateName(){
+
+		Set<String> stateNames = new HashSet<>();
+		if (registeredKeyedStateMeta != null){
+			stateNames.addAll(registeredKeyedStateMeta.getAllStateName());
+		}
+		return stateNames;
+	}
+
+	public Set<String> getAllOperatorStateName(){
+
+		Set<String> stateNames = new HashSet<>();
+
+		if (registeredOperatorStateMeta != null){
+			stateNames.addAll(registeredOperatorStateMeta.getAllStateName());
+		}
+		return stateNames;
+	}
+
 	public Collection<StateMetaData> getAllStateMeta() {
 
 		ArrayList<StateMetaData> stateMetaCollection = new ArrayList();

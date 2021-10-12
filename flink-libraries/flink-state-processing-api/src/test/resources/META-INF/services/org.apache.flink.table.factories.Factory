@@ -14,3 +14,4 @@
 # limitations under the License.
 
 org.apache.flink.state.table.factories.StateMetaDynamicTableSourceFactory
+org.apache.flink.state.table.factories.KeyedStateDynamicTableSourceFactory

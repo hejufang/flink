@@ -17,8 +17,9 @@
  * under the License.
  */
 
-package org.apache.flink.state.table.connector;
+package org.apache.flink.state.table.tables;
 
+import org.apache.flink.state.table.connector.KeyedStateInputFormatV2;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.InputFormatProvider;
@@ -28,24 +29,28 @@ import org.apache.flink.table.types.DataType;
 /**
  * StateMetaDynamicTableSource.
  */
-public class StateMetaDynamicTableSource implements ScanTableSource{
+public class KeyedStateDynamicTableSource implements ScanTableSource{
 
 	private String savepointPath;
 	private DataType producedDataType;
+	private String operatorID;
+	private String stateName;
 
-	public StateMetaDynamicTableSource(String savepointPath, DataType producedDataType) {
+	public KeyedStateDynamicTableSource(String savepointPath, String operatorID, String stateName, DataType producedDataType) {
 		this.savepointPath = savepointPath;
 		this.producedDataType = producedDataType;
+		this.operatorID = operatorID;
+		this.stateName = stateName;
 	}
 
 	@Override
 	public DynamicTableSource copy() {
-		return new StateMetaDynamicTableSource(savepointPath, producedDataType);
+		return new KeyedStateDynamicTableSource(savepointPath, operatorID, stateName, producedDataType);
 	}
 
 	@Override
 	public String asSummaryString() {
-		return "savepointStateMeta";
+		return "keyedState";
 	}
 
 	@Override
@@ -55,10 +60,10 @@ public class StateMetaDynamicTableSource implements ScanTableSource{
 
 	@Override
 	public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
-
 			DataStructureConverter converter = runtimeProviderContext.createDataStructureConverter(producedDataType);
 
-			return InputFormatProvider.of(new StateMetaInputFormat(savepointPath, converter));
+			KeyedStateInputFormatV2.Builder builder = new KeyedStateInputFormatV2.Builder(savepointPath, operatorID, stateName, converter);
+			return InputFormatProvider.of(builder.build());
 
 	}
 }
