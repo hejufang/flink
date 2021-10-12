@@ -57,17 +57,17 @@ public class AbaseConfigs {
 	public static final ConfigOption<Integer> CONNECTION_MAX_TOTAL_NUM = ConfigOptions
 		.key("connection.max-total-num")
 		.intType()
-		.defaultValue(1)
+		.defaultValue(5)
 		.withDescription("Optional. Max abase connections of a internal Abase pool.");
 	public static final ConfigOption<Integer> CONNECTION_MAX_IDLE_NUM = ConfigOptions
 		.key("connection.max-idle-num")
 		.intType()
-		.defaultValue(1)
+		.defaultValue(5)
 		.withDescription("Optional. Max idle abase connections of a internal Abase pool.");
 	public static final ConfigOption<Integer> CONNECTION_MIN_IDLE_NUM = ConfigOptions
 		.key("connection.min-idle-num")
 		.intType()
-		.defaultValue(1)
+		.defaultValue(5)
 		.withDescription("Optional. Min idle abase connections of a internal Abase pool.");
 	public static final ConfigOption<Duration> CONNECTION_TIMEOUT = ConfigOptions
 		.key("connection.timeout")
