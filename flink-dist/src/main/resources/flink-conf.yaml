@@ -670,8 +670,8 @@ otter:
   hdfs.prefix: hdfs://harunaoci/flink_oci
   checkpoint.hdfs.prefix: hdfs://harunaoci/home/byte_flink_checkpoint
   dashboard.data_source: bytetsd_us_ttp
-  dtop.data_source: dtop_gcp
-  dtop.database: dtop_gcp
+  dtop.data_source: inf_yarn_dtop_ttp
+  dtop.database: inf_dtop_yarn_ttp
   smart-resources.service-name: data.inf.sr_estimater
   kafka_server_url: https://kafka-config-tx.tiktokd.net
   log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
@@ -691,8 +691,8 @@ octop:
   hdfs.prefix: hdfs://harunaoci/flink_oci
   checkpoint.hdfs.prefix: hdfs://harunaoci/home/byte_flink_checkpoint
   dashboard.data_source: bytetsd_us_ttp
-  dtop.data_source: dtop_gcp
-  dtop.database: dtop_gcp
+  dtop.data_source: inf_yarn_dtop_ttp
+  dtop.database: inf_dtop_yarn_ttp
   smart-resources.service-name: data.inf.sr_estimater
   kafka_server_url: https://kafka-config-tx.tiktokd.net
   log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
