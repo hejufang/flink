@@ -26,8 +26,10 @@ import org.apache.flink.configuration.Configuration;
 
 import javax.annotation.Nullable;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
-import java.util.Objects;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -36,6 +38,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 @Internal
 public class ApplicationConfiguration {
+	private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
+
 
 	public static final ConfigOption<List<String>> APPLICATION_ARGS = ConfigOptions
 			.key("$internal.application.program-args")
@@ -72,7 +76,7 @@ public class ApplicationConfiguration {
 	public void applyToConfiguration(final Configuration configuration) {
 		checkNotNull(configuration);
 
-		ConfigUtils.encodeArrayToConfig(configuration, APPLICATION_ARGS, programArguments, Objects::toString);
+		ConfigUtils.encodeArrayToConfig(configuration, APPLICATION_ARGS, programArguments, obj -> Base64.getEncoder().encodeToString(obj.getBytes(DEFAULT_CHARSET)));
 		if (applicationClassName != null) {
 			configuration.set(APPLICATION_MAIN_CLASS, applicationClassName);
 		}
@@ -81,7 +85,7 @@ public class ApplicationConfiguration {
 	public static ApplicationConfiguration fromConfiguration(final Configuration configuration) {
 		checkNotNull(configuration);
 
-		final List<String> programArgsList = ConfigUtils.decodeListFromConfig(configuration, APPLICATION_ARGS, String::new);
+		final List<String> programArgsList = ConfigUtils.decodeListFromConfig(configuration, APPLICATION_ARGS, str -> new String(Base64.getDecoder().decode(str), DEFAULT_CHARSET));
 
 		final String[] programArgs = programArgsList.toArray(new String[0]);
 		final String applicationClassName = configuration.get(APPLICATION_MAIN_CLASS);
