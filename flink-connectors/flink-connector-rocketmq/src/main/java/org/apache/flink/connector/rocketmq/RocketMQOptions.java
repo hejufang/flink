@@ -174,13 +174,12 @@ public abstract class RocketMQOptions {
 			.withDescription("Optional topic select field.");
 
 	// TODO: Implement this
-	public static final ConfigOption<Integer> SINK_ASYNC_MODE_ENABLED = ConfigOptions
+	public static final ConfigOption<Boolean> SINK_ASYNC_MODE_ENABLED = ConfigOptions
 			.key("sink.async-mode-enabled")
-			.intType()
-			.noDefaultValue()
+			.booleanType()
+			.defaultValue(false)
 			.withDescription("Whether sink use async mode, currently it has not been implemented");
 
-	// TODO: Implement this
 	public static final ConfigOption<Boolean> SINK_BATCH_FLUSH_ENABLE = ConfigOptions
 			.key("sink.batch-flush-enabled")
 			.booleanType()

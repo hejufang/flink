@@ -26,6 +26,7 @@ import org.apache.flink.connector.rocketmq.selector.TopicSelector;
 import org.apache.flink.connector.rocketmq.serialization.KeyValueSerializationSchema;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
+import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
@@ -35,12 +36,18 @@ import org.apache.flink.util.Preconditions;
 import com.bytedance.mqproxy.proto.MessageType;
 import com.bytedance.rocketmq.clientv2.message.Message;
 import com.bytedance.rocketmq.clientv2.producer.DefaultMQProducer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.DEFER_MILLIS_MAX;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.DEFER_MILLIS_MIN;
@@ -52,6 +59,8 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.getRocketMQPro
  */
 public class RocketMQProducer<T> extends RichSinkFunction<T> implements CheckpointedFunction, SpecificParallelism {
 	private static final long serialVersionUID = 1L;
+
+	private static final Logger LOG = LoggerFactory.getLogger(RocketMQProducer.class);
 
 	private KeyValueSerializationSchema<T> serializationSchema;
 	private final String cluster;
@@ -66,8 +75,13 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	private int parallelism;
 	private final MsgDelayLevelSelector<T> msgDelayLevelSelector;
 	private final FlinkConnectorRateLimiter rateLimiter;
+	private final long flushIntervalMs;
+	private boolean batchFlushEnable;
 
 	private transient DefaultMQProducer producer;
+	private transient ScheduledExecutorService scheduler;
+	private transient ScheduledFuture<?> scheduledFuture;
+	private transient volatile Exception flushException;
 
 	// TODO: support async write rocketmq
 	public RocketMQProducer(
@@ -86,6 +100,8 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		this.rateLimiter = rocketMQConfig.getRateLimiter();
 		this.deferMillisSelector = rocketMQConfig.getDeferMillisSelector();
 		this.deferLoopSelector = rocketMQConfig.getDeferLoopSelector();
+		this.batchFlushEnable = rocketMQConfig.isBatchFlushEnable();
+		this.flushIntervalMs = rocketMQConfig.getFlushIntervalMs();
 	}
 
 	@Override
@@ -99,10 +115,33 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		if (rateLimiter != null) {
 			rateLimiter.open(getRuntimeContext());
 		}
+
+		if (msgDelayLevelSelector != null || messageDelayLevel > 0) {
+			batchFlushEnable = false;
+			LOG.warn("Batch flush is disable because you use delay level.");
+		}
+
+		if (batchFlushEnable) {
+			this.scheduler = Executors.newScheduledThreadPool(
+				1, new ExecutorThreadFactory("rocketmq-interval-flush-thread"));
+			this.scheduledFuture = this.scheduler.scheduleWithFixedDelay(() -> {
+				synchronized (messageList) {
+					try {
+						flushMessages();
+					} catch (Exception e) {
+						LOG.error("Flush failed ");
+						flushException = e;
+					}
+				}
+			}, flushIntervalMs, flushIntervalMs, TimeUnit.MILLISECONDS);
+		}
 	}
 
 	@Override
 	public void snapshotState(FunctionSnapshotContext context) throws Exception {
+		synchronized (messageList) {
+			flushMessages();
+		}
 	}
 
 	@Override
@@ -114,10 +153,32 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		if (rateLimiter != null) {
 			rateLimiter.acquire(1);
 		}
+
+		if (flushException != null) {
+			throw flushException;
+		}
+
 		Message message = prepareMessage(value);
-		messageList.add(message);
-		if (messageList.size() >= batchSize) {
-			producer.send(messageList);
+		if (batchFlushEnable) {
+			synchronized (messageList) {
+				messageList.add(message);
+				if (messageList.size() >= batchSize) {
+					flushMessages();
+				}
+			}
+		} else {
+			producer.send(message);
+		}
+	}
+
+	private void flushMessages() {
+		if (messageList.size() > 0) {
+			try {
+				producer.send(messageList);
+			} catch (Exception e) {
+				LOG.error("Flush exception", e);
+				throw new FlinkRuntimeException("Rocketmq flush exception", e);
+			}
 			messageList.clear();
 		}
 	}
@@ -173,8 +234,19 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 
 	@Override
 	public void close() throws Exception {
+		if (scheduledFuture != null) {
+			scheduledFuture.cancel(false);
+			scheduledFuture = null;
+		}
+
+		if (scheduler != null) {
+			scheduler.shutdown();
+			scheduler = null;
+		}
+
 		if (producer != null) {
 			producer.shutdown();
+			producer = null;
 		}
 	}
 

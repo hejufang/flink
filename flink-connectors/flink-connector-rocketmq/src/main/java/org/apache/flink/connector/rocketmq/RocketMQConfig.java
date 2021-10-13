@@ -54,6 +54,8 @@ public class RocketMQConfig<T> {
 	private String rocketMqBrokerQueueList;
 	private FlinkConnectorRateLimiter rateLimiter;
 	private long idleTimeOut = Long.MAX_VALUE;
+	private boolean batchFlushEnable = true;
+	private long flushIntervalMs = FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis();
 
 	public MsgDelayLevelSelector<T> getMsgDelayLevelSelector() {
 		return msgDelayLevelSelector;
@@ -122,6 +124,14 @@ public class RocketMQConfig<T> {
 		this.sendBatchSize = sendBatchSize;
 	}
 
+	public long getFlushIntervalMs() {
+		return flushIntervalMs;
+	}
+
+	public void setFlushIntervalMs(long flushIntervalMs) {
+		this.flushIntervalMs = flushIntervalMs;
+	}
+
 	public AssignQueueStrategy getAssignQueueStrategy() {
 		return assignQueueStrategy;
 	}
@@ -164,6 +174,14 @@ public class RocketMQConfig<T> {
 
 	public void setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
 		this.rateLimiter = rateLimiter;
+	}
+
+	public boolean isBatchFlushEnable() {
+		return batchFlushEnable;
+	}
+
+	public void setBatchFlushEnable(boolean batchFlushEnable) {
+		this.batchFlushEnable = batchFlushEnable;
 	}
 
 	public FlinkConnectorRateLimiter getRateLimiter() {

@@ -54,7 +54,6 @@ import com.bytedance.rocketmq.clientv2.message.MessageQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -92,6 +91,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.TOPIC;
 import static org.apache.flink.table.factories.FactoryUtil.FORMAT;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SCAN_SOURCE_IDLE_TIMEOUT;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SOURCE_METADATA_COLUMNS;
 
 /**
@@ -179,6 +179,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(FactoryUtil.RATE_LIMIT_NUM);
 		options.add(FactoryUtil.SOURCE_KEY_BY_FIELD);
 		options.add(FactoryUtil.SCAN_SOURCE_IDLE_TIMEOUT);
+		options.add(FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL);
 		return options;
 	}
 
@@ -302,12 +303,14 @@ public class RocketMQDynamicTableFactory implements
 				rocketMQConfig.setGroup(UUID.randomUUID().toString());
 			}
 
-			Arrays.asList(SINK_ASYNC_MODE_ENABLED, SINK_BATCH_FLUSH_ENABLE).forEach(
-				confKey ->
-					config.getOptional(SINK_ASYNC_MODE_ENABLED).ifPresent(
-						x ->
-							LOG.warn("Param {} not supported in current version.", SINK_ASYNC_MODE_ENABLED.key())
-					)
+			config.getOptional(SINK_BATCH_FLUSH_ENABLE).ifPresent(rocketMQConfig::setBatchFlushEnable);
+			config.getOptional(SINK_BUFFER_FLUSH_INTERVAL).ifPresent(
+				interval -> rocketMQConfig.setFlushIntervalMs(interval.toMillis())
+			);
+
+			config.getOptional(SINK_ASYNC_MODE_ENABLED).ifPresent(
+				x ->
+					LOG.warn("Param {} not supported in current version.", SINK_ASYNC_MODE_ENABLED.key())
 			);
 			rocketMQConfig.setSendBatchSize(config.get(SINK_BATCH_SIZE));
 		} else {
