@@ -265,6 +265,8 @@ abstract class StreamExecGroupWindowAggregateBase(
       .builder()
       .withInputFields(inputFields.toArray)
 
+    var notUseMiniBatch = false
+
     val newBuilder = window match {
       case TumblingGroupWindow(_, timeField, size, offset)
         if isProctimeAttribute(timeField) && hasTimeIntervalType(size) =>
@@ -308,6 +310,13 @@ abstract class StreamExecGroupWindowAggregateBase(
 
       case SessionGroupWindow(_, timeField, gap)
         if isProctimeAttribute(timeField) =>
+        // disable mini-batch for processing-time session-window for now because:
+        // when current session window is triggered, there may be some data in cache,
+        // after processing these data, the triggered window may have been merged.
+        if (config.getConfiguration.getBoolean(
+            ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_DISABLE_PROCTIME_SESSION_WINDOW)) {
+          notUseMiniBatch = true
+        }
         builder.session(toDuration(gap)).withProcessingTime()
 
       case SessionGroupWindow(_, timeField, gap)
@@ -327,7 +336,8 @@ abstract class StreamExecGroupWindowAggregateBase(
       newBuilder.enableEmitUnchanged()
     }
 
-    if (config.getConfiguration.getBoolean(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED)) {
+    if (config.getConfiguration.getBoolean(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED)
+        && !notUseMiniBatch) {
       newBuilder.withBundleTrigger(AggregateUtil.createMiniBatchTrigger(config))
     }
 

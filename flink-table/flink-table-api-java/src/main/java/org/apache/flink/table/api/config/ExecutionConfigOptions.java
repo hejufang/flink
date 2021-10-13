@@ -258,6 +258,15 @@ public class ExecutionConfigOptions {
 				"NOTE: MiniBatch only works for non-windowed aggregations currently. If " + TABLE_EXEC_MINIBATCH_ENABLED.key() +
 				" is set true, its value must be positive.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_MINIBATCH_DISABLE_PROCTIME_SESSION_WINDOW =
+		key("table.exec.mini-batch.disable-proctime-session-window")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("Whether disable mini-batch for proctime session window. It's true by default, " +
+				"because mini-batch bundle trigger conflicts with session window merging. This config " +
+				"is a protection for unexpected behavior changes.");
+
 	// ------------------------------------------------------------------------
 	//  Other Exec Options
 	// ------------------------------------------------------------------------
