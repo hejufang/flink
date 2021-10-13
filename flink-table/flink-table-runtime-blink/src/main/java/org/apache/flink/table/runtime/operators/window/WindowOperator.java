@@ -564,6 +564,7 @@ public class WindowOperator<K, W extends Window>
 			if (enableMiniBatch && bundle.size() > 0) {
 				finishBundle();
 				setCurrentKey(timer.getKey());
+				triggerContext.window = timer.getNamespace();
 			}
 			// fire
 			emitWindowResult(triggerContext.window);
