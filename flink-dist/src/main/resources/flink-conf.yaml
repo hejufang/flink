@@ -202,7 +202,6 @@ common:
   jobmanager.upload-user-jar: false
   taskmanager.number-extra-initial: 0
   taskmanager.extra-initial-fraction: 0
-  jobmanager.execution.schedule-task-fairly: false
 
   # yarn slow container detection
   yarn.slow-container.enabled: true
@@ -233,7 +232,6 @@ common:
   bytedance.streaming.taskmanager.initial-on-start: true
   bytedance.streaming.taskmanager.number-initial-percentage: 1.0
   bytedance.streaming.flink.job_api: DataStream
-  bytedance.streaming.jobmanager.execution.schedule-task-fairly: true
   bytedance.streaming.jobmanager.partition.release-during-job-execution: false
   bytedance.streaming.cluster.evenly-spread-out-slots: true
   bytedance.streaming.execution.wait-running-on-detached: true
@@ -433,11 +431,13 @@ quoka:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
-  cluster.evenly-spread-out-slots: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
   taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 60000
+  bytedance.streaming.cluster.evenly-spread-out-slots: false
+  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
+  bytedance.streaming.slot-pool.round-robin: true
 
 quaga:
   dc: cn
