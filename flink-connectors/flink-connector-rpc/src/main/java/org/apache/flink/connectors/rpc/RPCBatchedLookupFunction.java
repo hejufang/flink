@@ -34,6 +34,7 @@ import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -180,8 +181,17 @@ public class RPCBatchedLookupFunction extends AbstractRPCLookupFunction
 		List<Object> responseThriftObjects = ThriftUtil.getInnerListFromInstance(
 			responseObject, responseClass, rpcLookupOptions.getResponseListFieldName());
 		if (responseThriftObjects.size() != requestThriftObjList.size()) {
+			String statusMessage = "None";
+			try {
+				Field baseResponse = responseClass.getField("BaseResp");
+				Field status = baseResponse.getType().getField("StatusMessage");
+				statusMessage = (String) status.get(baseResponse.get(responseObject));
+			} catch (Exception e) {
+				LOG.error("Something wrong occurred.", e);
+			}
 			throw new FlinkRuntimeException("The result size from RPC response does not match request size. " +
-				"request size: " + requestThriftObjList.size() + ", response size: " + responseThriftObjects.size());
+				"request size: " + requestThriftObjList.size() + ", response size: " + responseThriftObjects.size()
+				+ ", the status message is " + statusMessage);
 		}
 		long requestDelay = System.currentTimeMillis() - startRequest;
 		updateRequestDelayMetric(requestDelay);
