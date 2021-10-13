@@ -103,6 +103,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.function.Consumer;
 
+import static org.apache.flink.runtime.execution.ExecutionState.CREATED;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -150,6 +151,9 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 
 	/** The vertex in the JobGraph whose code the task executes. */
 	private final JobVertexID vertexId;
+
+	/** The vertex index in created order. Only used for metrics. */
+	private final int vertexIndexInCreatedOrder;
 
 	/** The execution attempt of the parallel subtask. */
 	private final ExecutionAttemptID executionId;
@@ -261,6 +265,8 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 	/** The current execution state of the task. */
 	private volatile ExecutionState executionState = ExecutionState.CREATED;
 
+	private final long[] stateTimestamps;
+
 	/** The observed exception, in case the task execution failed. */
 	private volatile Throwable failureCause;
 
@@ -335,6 +341,7 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 		this.jobId = jobInformation.getJobId();
 		this.jobName = jobInformation.getJobName();
 		this.vertexId = taskInformation.getJobVertexId();
+		this.vertexIndexInCreatedOrder = taskInformation.getVertexIndexInCreatedOrder();
 		this.executionId  = Preconditions.checkNotNull(executionAttemptID);
 		this.allocationId = Preconditions.checkNotNull(slotAllocationId);
 		this.taskNameWithSubtask = taskInfo.getTaskNameWithSubtasks();
@@ -371,6 +378,9 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 
 		this.partitionProducerStateChecker = Preconditions.checkNotNull(partitionProducerStateChecker);
 		this.executor = Preconditions.checkNotNull(executor);
+
+		this.stateTimestamps = new long[ExecutionState.values().length];
+		markTimestamp(CREATED, System.currentTimeMillis());
 
 		// create the reader and writer structures
 
@@ -425,6 +435,10 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 
 	public JobVertexID getJobVertexId() {
 		return vertexId;
+	}
+
+	public int getVertexIndexInCreatedOrder() {
+		return vertexIndexInCreatedOrder;
 	}
 
 	public ExecutionAttemptID getExecutionId() {
@@ -501,6 +515,14 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 	 */
 	public ExecutionState getExecutionState() {
 		return this.executionState;
+	}
+
+	public long getStateTimestamp(ExecutionState state) {
+		return this.stateTimestamps[state.ordinal()];
+	}
+
+	private void markTimestamp(ExecutionState state, long timestamp) {
+		this.stateTimestamps[state.ordinal()] = timestamp;
 	}
 
 	/**
@@ -998,6 +1020,11 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 				LOG.info("{} ({}) switched from {} to {}.", taskNameWithSubtask, executionId, currentState, newState, cause);
 			}
 
+			try {
+				markTimestamp(newState, System.currentTimeMillis());
+			} catch (Throwable t) {
+				LOG.error("Mark timestamp for {} failed.", taskNameWithSubtask, t);
+			}
 			return true;
 		} else {
 			return false;

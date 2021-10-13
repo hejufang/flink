@@ -400,6 +400,7 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 
 				final TaskInformation taskInformation = new TaskInformation(
 					jobVertex.getID(),
+					jobVertex.getIndexInCreatedOrder(),
 					jobVertex.getName(),
 					parallelism,
 					maxParallelism,
@@ -447,6 +448,18 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 				'}';
 	}
 
+	public Map<ExecutionState, Long> getExecutionStateTime() {
+		Map<ExecutionState, Long> stateTime = new HashMap<>();
+		long ts = System.currentTimeMillis();
+		for (ExecutionVertex vertex : this.taskVertices) {
+			ExecutionState state = vertex.getExecutionState();
+			long time = ts - vertex.getStateTimestamp(state);
+			if (time > stateTime.getOrDefault(state, -1L)) {
+				stateTime.put(state, time);
+			}
+		}
+		return stateTime;
+	}
 
 	//---------------------------------------------------------------------------------------------
 

@@ -17,6 +17,7 @@
  */
 package org.apache.flink.runtime.executiongraph;
 
+import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.util.EvictingBoundedList;
 
 import javax.annotation.Nullable;
@@ -124,5 +125,15 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 	@Override
 	public Map<String, List<Integer>> getOutputSubTasks(){
 		return outputSubTasks;
+	}
+
+	@Override
+	public ExecutionState getExecutionState() {
+		return mainExecution.getState();
+	}
+
+	@Override
+	public long getStateTimestamp(ExecutionState state) {
+		return mainExecution.getStateTimestamp(state);
 	}
 }

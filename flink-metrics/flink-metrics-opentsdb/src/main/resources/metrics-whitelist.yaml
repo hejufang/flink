@@ -24,6 +24,9 @@ global:
     [
         fullRestarts,
         fullRestartsRate,
+        downtime,
+        restartingTime,
+        executionStateTime,
         executionFailNum,
         executionFailNumRate,
         executionStatus,
@@ -207,5 +210,7 @@ non-global:
         processEventDuration,
         processMatchedDuration,
         processUnMatchDuration,
-        processTimeoutDuration
+        processTimeoutDuration,
+      # tm
+        taskExecutorExecutionStateTime
     ]

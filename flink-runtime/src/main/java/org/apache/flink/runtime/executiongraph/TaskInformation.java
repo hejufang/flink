@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.executiongraph;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.Preconditions;
@@ -38,11 +39,14 @@ public class TaskInformation implements Serializable {
 	/** Name of the task */
 	private final String taskName;
 
+	/** Job vertex Index in created order of the task. */
+	private final int vertexIndexInCreatedOrder;
+
 	/** The number of subtasks for this operator */
 	private final int numberOfSubtasks;
 
 	/** The maximum parallelism == number of key groups */
-	private final int maxNumberOfSubtaks;
+	private final int maxNumberOfSubtasks;
 
 	/** Class name of the invokable to run */
 	private final String invokableClassName;
@@ -50,23 +54,40 @@ public class TaskInformation implements Serializable {
 	/** Configuration for the task */
 	private final Configuration taskConfiguration;
 
+	@VisibleForTesting
 	public TaskInformation(
 			JobVertexID jobVertexId,
 			String taskName,
 			int numberOfSubtasks,
-			int maxNumberOfSubtaks,
+			int maxNumberOfSubtasks,
+			String invokableClassName,
+			Configuration taskConfiguration) {
+		this(jobVertexId, -1, taskName, numberOfSubtasks, maxNumberOfSubtasks, invokableClassName, taskConfiguration);
+	}
+
+	public TaskInformation(
+			JobVertexID jobVertexId,
+			int vertexIndexInCreatedOrder,
+			String taskName,
+			int numberOfSubtasks,
+			int maxNumberOfSubtasks,
 			String invokableClassName,
 			Configuration taskConfiguration) {
 		this.jobVertexId = Preconditions.checkNotNull(jobVertexId);
+		this.vertexIndexInCreatedOrder = vertexIndexInCreatedOrder;
 		this.taskName = Preconditions.checkNotNull(taskName);
-		this.numberOfSubtasks = Preconditions.checkNotNull(numberOfSubtasks);
-		this.maxNumberOfSubtaks = Preconditions.checkNotNull(maxNumberOfSubtaks);
+		this.numberOfSubtasks = numberOfSubtasks;
+		this.maxNumberOfSubtasks = maxNumberOfSubtasks;
 		this.invokableClassName = Preconditions.checkNotNull(invokableClassName);
 		this.taskConfiguration = Preconditions.checkNotNull(taskConfiguration);
 	}
 
 	public JobVertexID getJobVertexId() {
 		return jobVertexId;
+	}
+
+	public int getVertexIndexInCreatedOrder() {
+		return vertexIndexInCreatedOrder;
 	}
 
 	public String getTaskName() {
@@ -78,7 +99,7 @@ public class TaskInformation implements Serializable {
 	}
 
 	public int getMaxNumberOfSubtaks() {
-		return maxNumberOfSubtaks;
+		return maxNumberOfSubtasks;
 	}
 
 	public String getInvokableClassName() {

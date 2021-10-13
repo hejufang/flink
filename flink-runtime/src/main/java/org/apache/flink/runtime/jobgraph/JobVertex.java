@@ -55,6 +55,8 @@ public class JobVertex implements java.io.Serializable {
 	/** The ID of the vertex. */
 	private final JobVertexID id;
 
+	private int indexInCreatedOrder = -1;
+
 	/** The alternative IDs of the vertex. */
 	private final ArrayList<JobVertexID> idAlternatives = new ArrayList<>();
 
@@ -177,6 +179,13 @@ public class JobVertex implements java.io.Serializable {
 		return this.id;
 	}
 
+	public int getIndexInCreatedOrder() {
+		return indexInCreatedOrder;
+	}
+
+	public void setIndexInCreatedOrder(int indexInCreatedOrder) {
+		this.indexInCreatedOrder = indexInCreatedOrder;
+	}
 	/**
 	 * Returns a list of all alternative IDs of this job vertex.
 	 *

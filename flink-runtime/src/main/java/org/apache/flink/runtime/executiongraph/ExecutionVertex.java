@@ -301,6 +301,16 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		return new ExecutionInfo(subTaskIndex, getConsumableExecution(false, false).getAttemptNumber());
 	}
 
+	@Override
+	public ExecutionState getExecutionState() {
+		return mainExecution.getState();
+	}
+
+	@Override
+	public long getStateTimestamp(ExecutionState state) {
+		return mainExecution.getStateTimestamp(state);
+	}
+
 	/**
 	 * Called when initializing InputGateDeploymentDescriptor of downstream exeuutions.
 	 */

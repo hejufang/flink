@@ -17,6 +17,8 @@
  */
 package org.apache.flink.runtime.executiongraph;
 
+import org.apache.flink.runtime.execution.ExecutionState;
+
 import javax.annotation.Nullable;
 
 import java.util.List;
@@ -48,6 +50,22 @@ public interface AccessExecutionVertex {
 	AccessExecution getMainExecution();
 
 	List<? extends AccessExecution> getCopyExecutions();
+
+
+	/**
+	 * Returns the current {@link ExecutionState} for this execution vertex.
+	 *
+	 * @return execution state for this execution vertex
+	 */
+	ExecutionState getExecutionState();
+
+	/**
+	 * Returns the timestamp for the given {@link ExecutionState}.
+	 *
+	 * @param state state for which the timestamp should be returned
+	 * @return timestamp for the given state
+	 */
+	long getStateTimestamp(ExecutionState state);
 
 	/**
 	 * Returns the execution for the given attempt number.

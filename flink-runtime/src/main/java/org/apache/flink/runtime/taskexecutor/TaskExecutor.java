@@ -21,6 +21,7 @@ package org.apache.flink.runtime.taskexecutor;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
 import org.apache.flink.runtime.blob.BlobCacheService;
 import org.apache.flink.runtime.blob.TransientBlobCache;
@@ -66,6 +67,7 @@ import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalListener;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.StackTraceSampleResponse;
+import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.TaskManagerMetricGroup;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.pyflink.PYFlinkProgressCache;
@@ -318,6 +320,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			jobLeaderService.start(getAddress(), getRpcService(), haServices, new JobLeaderListenerImpl());
 
 			fileCache = new FileCache(taskManagerConfiguration.getTmpDirectories(), blobCacheService.getPermanentBlobService());
+
+			registerMetrics();
+
 		} catch (Exception e) {
 			handleStartTaskExecutorServicesException(e);
 		}
@@ -418,6 +423,30 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		stopHeartbeatServices();
 
 		ExceptionUtils.tryRethrowException(exception);
+	}
+
+	public void registerMetrics() {
+		taskManagerMetricGroup.gauge(MetricNames.TASK_EXECUTOR_EXECUTION_STATE_TIME, () -> (TagGaugeStore) () -> {
+			List<TagGaugeStore.TagGaugeMetric> tagGaugeMetrics = new ArrayList<>();
+			long ts = System.currentTimeMillis();
+			for (JobManagerConnection jobManagerConnection : jobManagerTable.getJobManagerConnections().values()) {
+				JobID jobID = jobManagerConnection.getJobID();
+				for (Iterator<Task> it = taskSlotTable.getTasks(jobID); it.hasNext(); ) {
+					Task task = it.next();
+					long vertexIndex = task.getVertexIndexInCreatedOrder();
+					long subtaskId = task.getTaskInfo().getIndexOfThisSubtask();
+					ExecutionState state = task.getExecutionState();
+					tagGaugeMetrics.add(new TagGaugeStore.TagGaugeMetric(
+						ts - task.getStateTimestamp(state),
+						new TagGaugeStore.TagValuesBuilder()
+							.addTagValue(MetricNames.EXECUTION_STATE_TAG_VERTEX_INDEX_NAME, String.valueOf(vertexIndex))
+							.addTagValue(MetricNames.EXECUTION_STATE_TAG_SUBTASK_ID_NAME, String.valueOf(subtaskId))
+							.addTagValue(MetricNames.EXECUTION_STATE_TAG_STATE_NAME, state.name())
+							.build()));
+				}
+			}
+			return tagGaugeMetrics;
+		});
 	}
 
 	private void startHeartbeatServices() {

@@ -22,9 +22,11 @@ package org.apache.flink.runtime.scheduler;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.InputSplit;
+import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.queryablestate.KvStateID;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
@@ -68,6 +70,7 @@ import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.InitializeCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.PerformCheckpoint;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
+import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.query.KvStateLocation;
 import org.apache.flink.runtime.query.KvStateLocationRegistry;
@@ -92,6 +95,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -127,6 +133,8 @@ public class LegacyScheduler implements SchedulerNG {
 	private final RestartStrategy restartStrategy;
 
 	private final BlobWriter blobWriter;
+
+	private final JobManagerJobMetricGroup jobManagerJobMetricGroup;
 
 	private final Time slotRequestTimeout;
 
@@ -165,6 +173,7 @@ public class LegacyScheduler implements SchedulerNG {
 		this.userCodeLoader = checkNotNull(userCodeLoader);
 		this.checkpointRecoveryFactory = checkNotNull(checkpointRecoveryFactory);
 		this.rpcTimeout = checkNotNull(rpcTimeout);
+		this.jobManagerJobMetricGroup = checkNotNull(jobManagerJobMetricGroup);
 
 		final RestartStrategies.RestartStrategyConfiguration restartStrategyConfiguration =
 			jobGraph.getSerializedExecutionConfig()
@@ -273,7 +282,7 @@ public class LegacyScheduler implements SchedulerNG {
 	@Override
 	public void startScheduling() {
 		mainThreadExecutor.assertRunningInMainThread();
-
+		registerJobMetrics();
 		try {
 			executionGraph.scheduleForExecution();
 		}
@@ -543,6 +552,19 @@ public class LegacyScheduler implements SchedulerNG {
 				// Concurrent shut down of the coordinator
 			}
 		}
+	}
+
+	private void registerJobMetrics() {
+		jobManagerJobMetricGroup.gauge(MetricNames.EXECUTION_STATE_TIME, () -> (TagGaugeStore) () -> executionGraph.getAllVertices().values().stream()
+			.flatMap((Function<ExecutionJobVertex, Stream<Tuple3<ExecutionState, Long, String>>>) executionJobVertex -> executionJobVertex.getExecutionStateTime().entrySet().stream()
+				.map(stateTimeEntry -> new Tuple3<>(stateTimeEntry.getKey(), stateTimeEntry.getValue(), String.valueOf(executionJobVertex.getJobVertex().getIndexInCreatedOrder()))))
+			.map(tuple -> new TagGaugeStore.TagGaugeMetric(
+				tuple.f1,
+				new TagGaugeStore.TagValuesBuilder()
+					.addTagValue(MetricNames.EXECUTION_STATE_TAG_STATE_NAME, tuple.f0.name())
+					.addTagValue(MetricNames.EXECUTION_STATE_TAG_VERTEX_INDEX_NAME, tuple.f2)
+					.build()))
+			.collect(Collectors.toList()));
 	}
 
 	@Override

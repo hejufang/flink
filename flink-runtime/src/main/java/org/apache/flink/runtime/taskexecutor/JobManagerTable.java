@@ -49,6 +49,10 @@ public class JobManagerTable {
 		}
 	}
 
+	public Map<JobID, JobManagerConnection> getJobManagerConnections() {
+		return jobManagerConnections;
+	}
+
 	public JobManagerConnection remove(JobID jobId) {
 		return jobManagerConnections.remove(jobId);
 	}
