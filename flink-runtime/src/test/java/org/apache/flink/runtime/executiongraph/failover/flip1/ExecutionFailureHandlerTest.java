@@ -20,6 +20,7 @@ package org.apache.flink.runtime.executiongraph.failover.flip1;
 
 import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingExecutionVertex;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingTopology;
@@ -32,6 +33,7 @@ import org.junit.Test;
 
 import java.util.Collections;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -91,6 +93,30 @@ public class ExecutionFailureHandlerTest extends TestLogger {
 			// expected
 		}
 		assertEquals(1, executionFailureHandler.getNumberOfRestarts());
+	}
+
+	@Test
+	public void testNoResourceAvailableExceptions() {
+		final Set<ExecutionVertexID> tasksToRestart = Collections.singleton(
+				new ExecutionVertexID(new JobVertexID(), 0));
+		failoverStrategy.setTasksToRestart(tasksToRestart);
+
+		// trigger a task failure
+		final FailureHandlingResult result = executionFailureHandler.getFailureHandlingResult(
+				new ExecutionVertexID(new JobVertexID(), 0),
+				new CompletionException(new NoResourceAvailableException("test failure")));
+
+		// verify results
+		assertTrue(result.canRestart());
+		assertEquals(RESTART_DELAY_MS, result.getRestartDelayMS());
+		assertEquals(tasksToRestart, result.getVerticesToRestart());
+		try {
+			result.getError();
+			fail("Cannot get error when the restarting is accepted");
+		} catch (IllegalStateException ex) {
+			// expected
+		}
+		assertEquals(1, executionFailureHandler.getNumberOfNoResourceAvailableExceptions());
 	}
 
 	/**
