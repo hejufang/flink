@@ -630,6 +630,18 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		return failureCause;
 	}
 
+	public Map<String, Integer> getNumberOfInputChannels() {
+		Map<String, Integer> numberOfChannels = new HashMap<>();
+		for (IndexedInputGate inputGate : inputGates) {
+			for (int i = 0; i < inputGate.getNumberOfInputChannels(); i++) {
+				String channelType = inputGate.getChannel(i).getClass().getSimpleName();
+				numberOfChannels.put(channelType,
+						numberOfChannels.getOrDefault(channelType, 0) + 1);
+			}
+		}
+		return numberOfChannels;
+	}
+
 	/**
 	 * Starts the task's thread.
 	 */

@@ -478,6 +478,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	protected abstract long getNumberOfRestarts();
 
+	protected abstract long getNumberOfNoResourceAvailableExceptions();
+
 	private Map<ExecutionVertexID, ExecutionVertexVersion> incrementVersionsOfAllVertices() {
 		return executionVertexVersioner.recordVertexModifications(
 			IterableUtils.toStream(schedulingTopology.getVertices())
@@ -523,6 +525,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 		// register full restart gauge metrics and rate metrics
 		jobManagerJobMetricGroup.gauge(MetricNames.FULL_RESTARTS, this::getNumberOfRestarts);
 		jobManagerJobMetricGroup.meter(MetricNames.FULL_RESTARTS_RATE, new MeterView(executionGraph.getNumberOfRestartsCounter(), 60));
+		jobManagerJobMetricGroup.gauge(MetricNames.NO_RESOURCE_AVAILABLE_EXCEPTION, this::getNumberOfNoResourceAvailableExceptions);
+
 		jobManagerJobMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
 
 		jobManagerJobMetricGroup.gauge(MetricNames.EXECUTION_STATE_TIME, () -> (TagGaugeStore) () -> executionGraph.getAllVertices().values().stream()

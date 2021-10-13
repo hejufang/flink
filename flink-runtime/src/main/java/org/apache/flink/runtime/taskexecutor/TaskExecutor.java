@@ -130,6 +130,7 @@ import org.apache.flink.runtime.util.JvmUtils;
 import org.apache.flink.types.SerializableOptional;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.IterableUtils;
 import org.apache.flink.util.MetricUtils;
 import org.apache.flink.util.OptionalConsumer;
 import org.apache.flink.util.Preconditions;
@@ -514,6 +515,25 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		});
 		taskManagerMetricGroup.counter(MetricNames.NUM_TM_HEARTBEAT_TIMOUT_FROM_JM, heartbeatTimeoutWithJM);
 		taskManagerMetricGroup.counter(MetricNames.NUM_TM_HEARTBEAT_TIMOUT_FROM_RM, heartbeatTimeoutWithRM);
+
+		taskManagerMetricGroup.gauge(MetricNames.NUMBER_TASK_PER_TASK_EXECUTOR, () ->
+				jobTable.getJobs().stream()
+						.flatMap(job ->
+								IterableUtils.toStream(() -> taskSlotTable.getTasks(job.getJobId())))
+						.count());
+
+		taskManagerMetricGroup.gauge(MetricNames.METRIC_INPUT_CHANNEL_NUMBER, () ->
+				(TagGaugeStore) () -> jobTable.getJobs().stream()
+						.flatMap(job -> IterableUtils.toStream(() -> taskSlotTable.getTasks(job.getJobId())))
+						.flatMap(task -> task.getNumberOfInputChannels().entrySet().stream())
+						.collect(Collectors.groupingBy(Map.Entry::getKey, Collectors.summingInt(Map.Entry::getValue)))
+						.entrySet().stream()
+						.map(stringIntegerEntry -> new TagGaugeStore.TagGaugeMetric(
+								stringIntegerEntry.getValue(),
+								new TagGaugeStore.TagValuesBuilder()
+										.addTagValue("channelType", stringIntegerEntry.getKey())
+										.build()))
+						.collect(Collectors.toList()));
 	}
 
 	// ======================================================================

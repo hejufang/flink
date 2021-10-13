@@ -19,11 +19,13 @@ package org.apache.flink.runtime.executiongraph.failover.flip1;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.JobException;
+import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingExecutionVertex;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingTopology;
 import org.apache.flink.runtime.throwable.ThrowableClassifier;
 import org.apache.flink.runtime.throwable.ThrowableType;
+import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.IterableUtils;
 
 import java.util.Optional;
@@ -48,6 +50,8 @@ public class ExecutionFailureHandler {
 
 	/** Number of all restarts happened since this job is submitted. */
 	private long numberOfRestarts;
+
+	private long numberOfNoResourceAvailableExceptions;
 
 	/**
 	 * Creates the handler to deal with task failures.
@@ -99,6 +103,10 @@ public class ExecutionFailureHandler {
 			final Set<ExecutionVertexID> verticesToRestart,
 			final boolean globalFailure) {
 
+		if (ExceptionUtils.findThrowable(cause, NoResourceAvailableException.class).isPresent()) {
+			numberOfNoResourceAvailableExceptions++;
+		}
+
 		if (isUnrecoverableError(cause)) {
 			return FailureHandlingResult.unrecoverable(
 				new JobException("The failure is not recoverable", cause), globalFailure);
@@ -128,5 +136,9 @@ public class ExecutionFailureHandler {
 
 	public long getNumberOfRestarts() {
 		return numberOfRestarts;
+	}
+
+	public long getNumberOfNoResourceAvailableExceptions() {
+		return numberOfNoResourceAvailableExceptions;
 	}
 }

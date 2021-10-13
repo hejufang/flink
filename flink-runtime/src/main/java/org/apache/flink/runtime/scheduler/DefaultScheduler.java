@@ -186,6 +186,11 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	}
 
 	@Override
+	protected long getNumberOfNoResourceAvailableExceptions() {
+		return executionFailureHandler.getNumberOfNoResourceAvailableExceptions();
+	}
+
+	@Override
 	protected void startSchedulingInternal() {
 		log.info("Starting scheduling with scheduling strategy [{}]", schedulingStrategy.getClass().getName());
 		prepareExecutionGraphForNgScheduling();
@@ -411,7 +416,6 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		return (ignored, throwable) -> {
 			propagateIfNonNull(throwable);
 			long startDeployTaskTime = System.currentTimeMillis();
-			log.info("start to deploy tasks.");
 			warehouseJobStartEventMessageRecorder.scheduleTaskFinish(executionGraph.getGlobalModVersion());
 			warehouseJobStartEventMessageRecorder.deployTaskStart(executionGraph.getGlobalModVersion());
 			for (final DeploymentHandle deploymentHandle : deploymentHandles) {

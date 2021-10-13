@@ -108,6 +108,8 @@ non-global:
       # Task In/Out Pool Usage
         inPoolUsage,
         outPoolUsage,
+      # Task InputChannels number
+        numberOfInputChannels,
       # In/Out Record Number
         numRecordsInPerSecond,
         numRecordsOutPerSecond,
@@ -262,6 +264,7 @@ non-global:
         cacheStats,
       # tm
         taskExecutorExecutionStateTime,
+        numberOfTasks,
       # heartbeat
         RMHeartbeatTimeoutFromJM,
         RMHeartbeatTimeoutFromTM,
