@@ -60,6 +60,7 @@ import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INT
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_MAX_ROWS;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONLY;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_MAX_RETRIES;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_RECORD_TTL;
 import static org.apache.flink.table.utils.TableSchemaUtils.replacePrimaryKeyIfNotSpecified;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -129,6 +130,7 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 		optionalOptions.add(SINK_LOG_FAILURES_ONLY);
 		optionalOptions.add(SINK_IGNORE_NULL_COLUMNS);
 		optionalOptions.add(SINK_MAX_RETRIES);
+		optionalOptions.add(SINK_RECORD_TTL);
 
 		optionalOptions.add(LOOKUP_ASYNC_ENABLED);
 		optionalOptions.add(LOOKUP_ASYNC_CONCURRENCY);
@@ -190,6 +192,7 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 			.setMaxRetryTimes(configs.get(SINK_MAX_RETRIES))
 			.setIgnoreNull(configs.get(SINK_IGNORE_NULL_COLUMNS))
 			.setLogFailuresOnly(configs.get(SINK_LOG_FAILURES_ONLY))
+			.setTtlSeconds((int) configs.get(SINK_RECORD_TTL).getSeconds())
 			.setParallelism(configs.get(PARALLELISM))
 			.setKeyFields(keyFields)
 			.build();

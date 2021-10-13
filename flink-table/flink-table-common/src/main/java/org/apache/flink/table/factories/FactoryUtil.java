@@ -224,6 +224,12 @@ public final class FactoryUtil {
 		.defaultValue(5)
 		.withDescription("Optional. Max retry times if flushing failed.");
 
+	public static final ConfigOption<Duration> SINK_RECORD_TTL = ConfigOptions
+		.key("sink.record.ttl")
+		.durationType()
+		.defaultValue(Duration.ZERO)
+		.withDescription("Optional. TTL of wrote records, the unit of which is second. 0 means no TTL.");
+
 	public static final ConfigOption<String> RETRY_STRATEGY = ConfigOptions
 		.key("retry-strategy")
 		.stringType()

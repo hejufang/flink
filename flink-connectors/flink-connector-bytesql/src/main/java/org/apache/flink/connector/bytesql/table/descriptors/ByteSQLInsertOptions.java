@@ -35,6 +35,7 @@ public class ByteSQLInsertOptions implements Serializable {
 	private final String[] keyFields;
 	private final boolean ignoreNull;
 	private final boolean logFailuresOnly;
+	private final int ttlSeconds;
 
 	private ByteSQLInsertOptions(
 			int bufferFlushMaxRows,
@@ -43,7 +44,8 @@ public class ByteSQLInsertOptions implements Serializable {
 			int parallelism,
 			String[] keyFields,
 			boolean ignoreNull,
-			boolean logFailuresOnly) {
+			boolean logFailuresOnly,
+			int ttlSeconds) {
 		this.bufferFlushMaxRows = bufferFlushMaxRows;
 		this.bufferFlushIntervalMills = bufferFlushIntervalMills;
 		this.maxRetryTimes = maxRetryTimes;
@@ -51,6 +53,7 @@ public class ByteSQLInsertOptions implements Serializable {
 		this.keyFields = keyFields;
 		this.ignoreNull = ignoreNull;
 		this.logFailuresOnly = logFailuresOnly;
+		this.ttlSeconds = ttlSeconds;
 	}
 
 	public int getBufferFlushMaxRows() {
@@ -81,6 +84,10 @@ public class ByteSQLInsertOptions implements Serializable {
 		return logFailuresOnly;
 	}
 
+	public int getTtlSeconds() {
+		return ttlSeconds;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -95,7 +102,8 @@ public class ByteSQLInsertOptions implements Serializable {
 				Objects.equals(parallelism, options.parallelism) &&
 				Arrays.equals(keyFields, options.keyFields) &&
 				(ignoreNull == options.ignoreNull) &&
-				(logFailuresOnly == options.logFailuresOnly);
+				(logFailuresOnly == options.logFailuresOnly) &&
+				(ttlSeconds == options.getTtlSeconds());
 		} else {
 			return false;
 		}
@@ -112,6 +120,7 @@ public class ByteSQLInsertOptions implements Serializable {
 		private String[] keyFields;
 		private boolean ignoreNull;
 		private boolean logFailuresOnly;
+		private int ttlSeconds = 0;
 
 		/**
 		 * optional, flush max size (includes all append, upsert and delete records),
@@ -158,6 +167,11 @@ public class ByteSQLInsertOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setTtlSeconds(int ttlSeconds) {
+			this.ttlSeconds = ttlSeconds;
+			return this;
+		}
+
 		public ByteSQLInsertOptions build() {
 			return new ByteSQLInsertOptions(
 				bufferFlushMaxRows,
@@ -166,7 +180,8 @@ public class ByteSQLInsertOptions implements Serializable {
 				parallelism,
 				keyFields,
 				ignoreNull,
-				logFailuresOnly);
+				logFailuresOnly,
+				ttlSeconds);
 		}
 	}
 }

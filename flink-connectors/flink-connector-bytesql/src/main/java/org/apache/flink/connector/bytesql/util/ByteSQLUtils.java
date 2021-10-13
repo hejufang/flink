@@ -77,12 +77,18 @@ public class ByteSQLUtils {
 			"(" + columns + ")" + " VALUES (" + placeholders + ")";
 	}
 
-	public static String getUpsertStatement(String tableName, String[] fieldNames) {
+	public static String getUpsertStatement(String tableName, String[] fieldNames, int ttlSeconds) {
+		StringBuilder sb = new StringBuilder();
+		if (ttlSeconds > 0) {
+			sb.append(String.format("/* {\"ttl\": %d} */ ", ttlSeconds));
+		}
 		String updateClause = Arrays.stream(fieldNames)
 			.map(f -> quoteIdentifier(f) + "=VALUES(" + quoteIdentifier(f) + ")")
 			.collect(Collectors.joining(", "));
-		return getInsertIntoStatement(tableName, fieldNames) +
-			" ON DUPLICATE KEY UPDATE " + updateClause;
+		sb.append(getInsertIntoStatement(tableName, fieldNames));
+		sb.append(" ON DUPLICATE KEY UPDATE ");
+		sb.append(updateClause);
+		return sb.toString();
 	}
 
 	public static String getDeleteStatement(String tableName, String[] conditionFields) {

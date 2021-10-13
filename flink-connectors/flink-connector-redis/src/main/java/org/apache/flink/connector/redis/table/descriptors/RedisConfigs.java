@@ -91,11 +91,6 @@ public class RedisConfigs {
 		.defaultValue(RedisSinkMode.INSERT)
 		.withDescription("Optional. Insert mode, which can be either incr or insert.");
 
-	public static final ConfigOption<Duration> SINK_RECORD_TTL = ConfigOptions
-		.key("sink.record.ttl")
-		.durationType()
-		.defaultValue(Duration.ZERO)
-		.withDescription("Optional. TTL of wrote records, the unit of which is second. 0 means no TTL.");
 	public static final ConfigOption<Integer> SINK_MAX_RETRIES = ConfigOptions
 		.key("sink.max-retries")
 		.intType()

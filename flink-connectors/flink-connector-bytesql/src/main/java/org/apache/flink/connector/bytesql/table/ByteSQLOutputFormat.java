@@ -105,7 +105,8 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 			this.deleteSQL = null;
 		}
 		this.fieldNames = nameList.toArray(new String[]{});
-		this.upsertSQL = ByteSQLUtils.getUpsertStatement(options.getTableName(), fieldNames);
+		this.upsertSQL = ByteSQLUtils.getUpsertStatement(
+			options.getTableName(), fieldNames, insertOptions.getTtlSeconds());
 		this.isAppendOnly = isAppendOnly;
 		this.fieldGetters = IntStream
 			.range(0, fieldNames.length)
@@ -268,7 +269,8 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 			i++;
 		}
 		String upsertFormatter = ByteSQLUtils
-			.getUpsertStatement(options.getTableName(), fieldNameList.toArray(new String[]{}));
+			.getUpsertStatement(
+				options.getTableName(), fieldNameList.toArray(new String[]{}), insertOptions.getTtlSeconds());
 		return ByteSQLUtils.generateActualSql(upsertFormatter, GenericRowData.of(fields.toArray()), fieldGetters);
 	}
 
