@@ -1767,7 +1767,16 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 
 		TemporalTableFunction function = table.createTemporalTableFunction(timeAttribute, primaryKeys);
 
-		functionCatalog.registerTemporarySystemFunction(temporalTableName, function, false);
+		TypeInformation<Row> typeInfo = UserDefinedFunctionHelper
+			.getReturnTypeOfTableFunction(function, null);
+
+		// It's a workaround:
+		// For PROCTIME() in source DDL, we will produce 'NOT NULL' datatype,
+		// and for left outer join, all right table fields will be forced to be nullable,
+		// then `LogicalCorrelateWithFilterToJoinFromTemporalTableFunctionRule` will fail.
+		// Hence we make this align with 1.9's logic. 1.9 uses legacy type system, and
+		// everything will be nullable after `TypeConversions.fromLegacyInfoToDataType`
+		functionCatalog.registerTempSystemTableFunction(temporalTableName, function, typeInfo);
 	}
 
 	protected TableImpl createTable(QueryOperation tableOperation) {

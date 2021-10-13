@@ -146,6 +146,46 @@ class TemporalJoinTest extends TableTestBase {
     util.verifyPlan(sqlQuery)
   }
 
+  @Test
+  def testLeftOuterJoinForSourceDDL(): Unit = {
+    // PROCTIME() produces 'TIME ATTRIBUTE PROCTIME NOT NULL'
+    val SourceDDL =
+      """
+        |CREATE TABLE MyTable2(
+        |  name varchar,
+        |  id int,
+        |  proctime AS PROCTIME()
+        |) WITH (
+        |  'connector' = 'values'
+        |)
+        |""".stripMargin
+    util.getTableEnv.executeSql(SourceDDL)
+    val DDL =
+      """CREATE TEMPORAL TABLE FUNCTION my_func
+        |AS MyTable2
+        |WITH (
+        |  'primary-keys' = 'name',
+        |  'time-attribute' = 'proctime'
+        |)
+        |""".stripMargin
+    util.getTableEnv.executeSql(DDL)
+
+    val sqlQuery =
+      """SELECT
+        |  T.name,
+        |  O.o_amount,
+        |  T.id
+        |FROM
+        |  ProctimeOrders O
+        |  LEFT OUTER JOIN
+        |  LATERAL TABLE (my_func(o_proctime)) T
+        |ON
+        |  O.o_currency = T.name
+        |""".stripMargin
+
+    util.verifyPlan(sqlQuery)
+  }
+
   /**
     * Test versioned joins with more complicated query.
     * Important thing here is that we have complex OR join condition

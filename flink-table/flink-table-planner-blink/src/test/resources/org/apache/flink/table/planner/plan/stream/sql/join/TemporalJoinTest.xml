@@ -47,7 +47,7 @@ LogicalProject(name=[$3], o_amount=[$0], id=[$4])
 +- LogicalFilter(condition=[=($1, $3)])
    +- LogicalCorrelate(correlation=[$cor0], joinType=[inner], requiredColumns=[{2}])
       :- LogicalTableScan(table=[[default_catalog, default_database, ProctimeOrders]])
-      +- LogicalTableFunctionScan(invocation=[my_func($cor0.o_proctime)], rowType=[RecordType:peek_no_expand(VARCHAR(2147483647) name, INTEGER id, TIME ATTRIBUTE(PROCTIME) proctime)])
+      +- LogicalTableFunctionScan(invocation=[my_func($cor0.o_proctime)], rowType=[RecordType(VARCHAR(2147483647) name, INTEGER id, TIME ATTRIBUTE(PROCTIME) proctime)], elementType=[class [Ljava.lang.Object;])
 ]]>
 	</Resource>
 	  <Resource name="planAfter">
@@ -194,6 +194,27 @@ Calc(select=[*(o_amount, rate) AS rate])
    :  +- DataStreamScan(table=[[default_catalog, default_database, ProctimeOrders]], fields=[o_amount, o_currency, o_proctime])
    +- Exchange(distribution=[hash[currency]])
       +- DataStreamScan(table=[[default_catalog, default_database, ProctimeRatesHistory]], fields=[currency, rate, proctime])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testLeftOuterJoinForSourceDDL">
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalProject(name=[$3], o_amount=[$0], id=[$4])
++- LogicalCorrelate(correlation=[$cor0], joinType=[left], requiredColumns=[{1, 2}])
+   :- LogicalTableScan(table=[[default_catalog, default_database, ProctimeOrders]])
+   +- LogicalFilter(condition=[=($cor0.o_currency, $0)])
+      +- LogicalTableFunctionScan(invocation=[my_func($cor0.o_proctime)], rowType=[RecordType(VARCHAR(2147483647) name, INTEGER id, TIME ATTRIBUTE(PROCTIME) proctime)], elementType=[class [Ljava.lang.Object;])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[name, o_amount, id])
++- TemporalJoin(joinType=[LeftOuterJoin], where=[AND(__TEMPORAL_JOIN_CONDITION(o_proctime, name), =(o_currency, name))], select=[o_amount, o_currency, o_proctime, name, id])
+   :- Exchange(distribution=[hash[o_currency]])
+   :  +- DataStreamScan(table=[[default_catalog, default_database, ProctimeOrders]], fields=[o_amount, o_currency, o_proctime])
+   +- Exchange(distribution=[hash[name]])
+      +- TableSourceScan(table=[[default_catalog, default_database, MyTable2]], fields=[name, id])
 ]]>
 		</Resource>
 	</TestCase>
