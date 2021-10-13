@@ -241,11 +241,11 @@ public abstract class AbstractFsCheckpointStorage implements CheckpointStorage {
 		return new Path(baseCheckpointPath, jobId.toString());
 	}
 
-	protected static Path getCheckpointDirectoryForJob(Path baseCheckpointPath, String jobName, @Nullable String checkpointsNamespace) {
+	protected static Path getCheckpointDirectoryForJob(Path baseCheckpointPath, String jobUID, @Nullable String checkpointsNamespace) {
 		if (checkpointsNamespace != null) {
-			return new Path(new Path(baseCheckpointPath, jobName), checkpointsNamespace);
+			return new Path(new Path(baseCheckpointPath, jobUID), checkpointsNamespace);
 		} else {
-			return new Path(baseCheckpointPath, jobName);
+			return new Path(baseCheckpointPath, jobUID);
 		}
 	}
 

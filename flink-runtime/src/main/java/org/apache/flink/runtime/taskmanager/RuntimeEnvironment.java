@@ -57,6 +57,7 @@ public class RuntimeEnvironment implements Environment {
 
 	private final JobID jobId;
 	private final String jobName;
+	private final String jobUID;
 	private final JobVertexID jobVertexId;
 	private final ExecutionAttemptID executionId;
 
@@ -102,6 +103,7 @@ public class RuntimeEnvironment implements Environment {
 	public RuntimeEnvironment(
 			JobID jobId,
 			String jobName,
+			String jobUID,
 			JobVertexID jobVertexId,
 			ExecutionAttemptID executionId,
 			ExecutionConfig executionConfig,
@@ -131,6 +133,7 @@ public class RuntimeEnvironment implements Environment {
 		this(
 			jobId,
 			jobName,
+			jobUID,
 			jobVertexId,
 			executionId,
 			executionConfig,
@@ -162,6 +165,7 @@ public class RuntimeEnvironment implements Environment {
 	public RuntimeEnvironment(
 			JobID jobId,
 			String jobName,
+			String jobUID,
 			JobVertexID jobVertexId,
 			ExecutionAttemptID executionId,
 			ExecutionConfig executionConfig,
@@ -191,6 +195,7 @@ public class RuntimeEnvironment implements Environment {
 
 		this.jobId = checkNotNull(jobId);
 		this.jobName = jobName;
+		this.jobUID = jobUID;
 		this.jobVertexId = checkNotNull(jobVertexId);
 		this.executionId = checkNotNull(executionId);
 		this.taskInfo = checkNotNull(taskInfo);
@@ -234,6 +239,11 @@ public class RuntimeEnvironment implements Environment {
 	@Override
 	public String getJobName() {
 		return jobName;
+	}
+
+	@Override
+	public String getJobUID() {
+		return jobUID;
 	}
 
 	@Override

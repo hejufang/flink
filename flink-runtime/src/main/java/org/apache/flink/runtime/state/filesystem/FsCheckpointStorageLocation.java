@@ -35,7 +35,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * A storage location for checkpoints on a file system.
  */
 public class FsCheckpointStorageLocation extends FsCheckpointStreamFactory implements CheckpointStorageLocation {
-
 	private final FileSystem fileSystem;
 
 	private final Path checkpointDirectory;
@@ -88,7 +87,6 @@ public class FsCheckpointStorageLocation extends FsCheckpointStreamFactory imple
 		this.sharedStateDirectory = checkNotNull(sharedStateDir);
 		this.taskOwnedStateDirectory = checkNotNull(taskOwnedStateDir);
 		this.reference = checkNotNull(reference);
-
 		// the metadata file should not have entropy in its path
 		Path metadataDir = EntropyInjector.removeEntropyMarkerIfPresent(fileSystem, checkpointDir);
 

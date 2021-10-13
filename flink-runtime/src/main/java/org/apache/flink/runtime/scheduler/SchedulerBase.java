@@ -902,7 +902,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 			"set this value in config state.savepoint.location-prefix.");
 		LocalDate currentDate = LocalDate.now();
 		String dateSubDir = String.format("%04d%02d%02d", currentDate.getYear(), currentDate.getMonthValue(), currentDate.getDayOfMonth());
-		String manualSavepointPath = String.format("%s/%s/%s/%s", savepointLocationPrefix, dateSubDir, jobGraph.getName(), savepointId);
+		String manualSavepointPath = String.format("%s/%s/%s/%s", savepointLocationPrefix, dateSubDir, jobGraph.getJobUID(), savepointId);
 		log.info("On triggering manual savepoint at {}", manualSavepointPath);
 
 		if (blockSource) {

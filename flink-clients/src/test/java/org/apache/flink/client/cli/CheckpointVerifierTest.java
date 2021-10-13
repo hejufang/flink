@@ -18,27 +18,41 @@
 
 package org.apache.flink.client.cli;
 
+import org.apache.flink.configuration.CheckpointingOptions;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.OperatorIDPair;
+import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.checkpoint.OperatorState;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
+import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.state.CheckpointMetadataOutputStream;
 import org.apache.flink.runtime.state.KeyGroupRangeOffsets;
 import org.apache.flink.runtime.state.KeyGroupsStateHandle;
+import org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage;
+import org.apache.flink.runtime.state.filesystem.FsCheckpointMetadataOutputStream;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.BiFunction;
 
+import static org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage.CHECKPOINT_DIR_PREFIX;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -49,6 +63,9 @@ public class CheckpointVerifierTest {
 	public Map<OperatorID, OperatorState> operatorStates;
 	public Map<JobVertexID, JobVertex> tasks;
 	public Random random = new Random();
+
+	@Rule
+	public final TemporaryFolder tmp = new TemporaryFolder();
 
 	@Test
 	public void testVerifySuccess() {
@@ -91,6 +108,45 @@ public class CheckpointVerifierTest {
 		BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, OperatorState>, CheckpointVerifyResult> strategy;
 		strategy = CheckpointVerifier.getVerifyStrategies().get(0);
 		assertEquals(strategy.apply(tasks, operatorStates), CheckpointVerifyResult.SUCCESS);
+	}
+
+	@Test
+	public void testBeforeVerifyWithoutJobUID() {
+		Configuration conf = new Configuration();
+		conf.setString(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		boolean verifyResult = CheckpointVerifier.beforeVerify(conf);
+		// exit with null jobUID
+		assertEquals(false, verifyResult);
+	}
+
+	@Test
+	public void testBeforeVerifyInconsistentJobNameAndJobUID() throws Exception {
+		final String jobUID = "juid";
+		final String jobName = "jName";
+		final String namespace = "ns";
+
+		final File checkpointFolder = tmp.newFolder();
+		final String jUidMetadataFolder = new Path(new Path(new Path(checkpointFolder.getAbsolutePath(), jobUID), namespace), CHECKPOINT_DIR_PREFIX + "1").getPath();
+
+		// Only create _metadata file in juid folder
+		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
+			new Path(jUidMetadataFolder).getFileSystem(),
+			new Path(jUidMetadataFolder, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(jUidMetadataFolder))) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		Configuration conf = new Configuration();
+		conf.setString(PipelineOptions.JOB_UID, jobUID);
+		conf.setString(PipelineOptions.NAME, jobName);
+		conf.setString(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		conf.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, new Path(checkpointFolder.toURI()).toString());
+		conf.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, namespace);
+		boolean verifyResult = CheckpointVerifier.beforeVerify(conf);
+
+		// Check if there exists any completed checkpoints on HDFS in advance: true
+		assertEquals(true, verifyResult);
 	}
 
 	void buildSuccessGraph() {

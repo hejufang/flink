@@ -35,12 +35,12 @@ public class TestingCheckpointRecoveryFactory implements CheckpointRecoveryFacto
 	}
 
 	@Override
-	public CompletedCheckpointStore createCheckpointStore(JobID jobId, String jobName, int maxNumberOfCheckpointsToRetain, ClassLoader userClassLoader) throws Exception {
+	public CompletedCheckpointStore createCheckpointStore(JobID jobId, String jobUID, int maxNumberOfCheckpointsToRetain, ClassLoader userClassLoader) throws Exception {
 		return store;
 	}
 
 	@Override
-	public CheckpointIDCounter createCheckpointIDCounter(JobID jobId, String jobName) throws Exception {
+	public CheckpointIDCounter createCheckpointIDCounter(JobID jobId, String jobUID) throws Exception {
 		return counter;
 	}
 }

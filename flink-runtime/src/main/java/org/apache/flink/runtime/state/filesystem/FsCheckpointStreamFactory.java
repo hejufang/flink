@@ -247,7 +247,6 @@ public class FsCheckpointStreamFactory implements CheckpointStreamFactory {
 			this(basePath, fs, bufferSize, localStateThreshold, allowRelativePaths, new FsCheckpointStorage.CheckpointWriteFileStatistic());
 		}
 
-
 		public FsCheckpointStateOutputStream(
 				Path basePath,
 				FileSystem fs,

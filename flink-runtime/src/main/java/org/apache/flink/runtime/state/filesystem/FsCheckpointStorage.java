@@ -133,7 +133,7 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 			Path checkpointBaseDirectory,
 			@Nullable Path defaultSavepointDirectory,
 			JobID jobId,
-			@Nullable String jobName,
+			@Nullable String jobUID,
 			@Nullable String checkpointsNamespace,
 			int fileSizeThreshold,
 			int writeBufferSize,
@@ -145,8 +145,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 		checkArgument(writeBufferSize >= 0);
 
 		this.fileSystem = checkNotNull(fs);
-		if (jobName != null) {
-			this.checkpointsDirectory = getCheckpointDirectoryForJob(checkpointBaseDirectory, jobName, checkpointsNamespace);
+		if (jobUID != null) {
+			this.checkpointsDirectory = getCheckpointDirectoryForJob(checkpointBaseDirectory, jobUID, checkpointsNamespace);
 		} else {
 			this.checkpointsDirectory = getCheckpointDirectoryForJob(checkpointBaseDirectory, jobId);
 		}

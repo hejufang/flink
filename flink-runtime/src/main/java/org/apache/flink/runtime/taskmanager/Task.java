@@ -77,7 +77,6 @@ import org.apache.flink.runtime.taskexecutor.BackPressureSampleableTask;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 import org.apache.flink.runtime.taskexecutor.KvStateService;
 import org.apache.flink.runtime.taskexecutor.PartitionProducerStateChecker;
-import org.apache.flink.util.TaskManagerExceptionUtils;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotPayload;
 import org.apache.flink.runtime.util.FatalExitExceptionHandler;
 import org.apache.flink.types.Either;
@@ -86,6 +85,7 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
+import org.apache.flink.util.TaskManagerExceptionUtils;
 import org.apache.flink.util.WrappingRuntimeException;
 
 import org.slf4j.Logger;
@@ -155,6 +155,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	private final JobID jobId;
 
 	private final String jobName;
+	private final String jobUID;
 
 	/** The vertex in the JobGraph whose code the task executes. */
 	private final JobVertexID vertexId;
@@ -412,6 +413,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 		this.jobId = jobInformation.getJobId();
 		this.jobName = jobInformation.getJobName();
+		this.jobUID = jobInformation.getJobUID();
 		this.vertexId = taskInformation.getJobVertexId();
 		this.vertexIndexInCreatedOrder = taskInformation.getVertexIndexInCreatedOrder();
 		this.executionId  = Preconditions.checkNotNull(executionAttemptID);
@@ -780,6 +782,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			Environment env = new RuntimeEnvironment(
 				jobId,
 				jobName,
+				jobUID,
 				vertexId,
 				executionId,
 				executionConfig,

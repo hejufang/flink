@@ -21,6 +21,10 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.CheckpointingOptions;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
 import org.apache.flink.runtime.checkpoint.trigger.CheckpointTriggerConfiguration;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
@@ -34,25 +38,33 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
+import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.util.TestLogger;
 
 import org.hamcrest.Matchers;
+import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 
 /**
  * Tests for the interaction between the {@link ExecutionGraph} and the {@link CheckpointCoordinator}.
  */
 public class ExecutionGraphCheckpointCoordinatorTest extends TestLogger {
-
+	@Rule
+	public final TemporaryFolder tmp = new TemporaryFolder();
 	/**
 	 * Tests that the checkpoint coordinator is shut down if the execution graph
 	 * is failed.
@@ -133,6 +145,81 @@ public class ExecutionGraphCheckpointCoordinatorTest extends TestLogger {
 		assertThat(checkpointCoordinator.isShutdown(), is(true));
 		assertThat(counterShutdownFuture.get(), is(JobStatus.FINISHED));
 		assertThat(storeShutdownFuture.get(), is(JobStatus.FINISHED));
+	}
+
+	/**
+	 * Tests that the checkpoint path is initialized with jobUID if the inconsistent jobUID and jobName are both set.
+	 */
+	@Test
+	public void testInitCheckpointCoordinatorWithInconsistentJobUIDAndJobName() throws Exception {
+		final Time timeout = Time.days(1L);
+		final String jobUID = "juid";
+		final String jobName = "jname";
+		final String namespace = "ns";
+		final File checkpointRootDir = tmp.newFolder();
+
+		JobVertex jobVertex = new JobVertex("MockVertex");
+		jobVertex.setInvokableClass(AbstractInvokable.class);
+
+		final CompletableFuture<JobStatus> counterShutdownFuture = new CompletableFuture<>();
+		CheckpointIDCounter counter = new TestingCheckpointIDCounter(counterShutdownFuture);
+
+		final CompletableFuture<JobStatus> storeShutdownFuture = new CompletableFuture<>();
+		CompletedCheckpointStore store = new TestingCompletedCheckpointStore(storeShutdownFuture);
+
+		final JobGraph jobGraph = new JobGraph(jobName, jobVertex);
+		jobGraph.setJobUID(jobUID);
+		final ExecutionGraph graph = TestingExecutionGraphBuilder
+			.newBuilder()
+			.setJobGraph(jobGraph)
+			.setRpcTimeout(timeout)
+			.setAllocationTimeout(timeout)
+			.build();
+
+		CheckpointCoordinatorConfiguration chkConfig = new CheckpointCoordinatorConfiguration(
+			100,
+			100,
+			100,
+			1,
+			CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION,
+			true,
+			false,
+			false,
+			0);
+
+		CheckpointTriggerConfiguration triggerConfiguration = new CheckpointTriggerConfiguration(CheckpointTriggerStrategy.DEFAULT, Collections.singletonList(jobVertex));
+		chkConfig.setCheckpointTriggerConfiguration(triggerConfiguration);
+		FsStateBackend stateBackend = new FsStateBackend(checkpointRootDir.toURI().toString());
+		Configuration conf = new Configuration();
+		conf.set(CheckpointingOptions.CHECKPOINTS_NAMESPACE, namespace);
+		stateBackend = stateBackend.configure(conf, Thread.currentThread().getContextClassLoader());
+		graph.enableCheckpointing(
+			chkConfig,
+			Collections.emptyList(),
+			Collections.emptyList(),
+			Collections.emptyList(),
+			Collections.emptyList(),
+			counter,
+			store,
+			stateBackend,
+			CheckpointStatsTrackerTest.createTestTracker(),
+			new GlobalCheckpointHandler(),
+			UnregisteredMetricGroups.createUnregisteredJobManagerMetricGroup());
+		final CheckpointCoordinator checkpointCoordinator = graph.getCheckpointCoordinator();
+		assertThat(checkpointCoordinator, Matchers.notNullValue());
+		checkpointCoordinator.getCheckpointStorage().initializeLocationForCheckpoint(1L);
+		checkpointCoordinator.getCheckpointStorage().initializeLocationForSavepointMetaInCheckpointDir(2L);
+
+		Path expectedCheckpointRoot = new Path(new Path(checkpointRootDir.getAbsolutePath(), jobUID), namespace);
+		Path nonExpectedCheckpointRoot = new Path(new Path(checkpointRootDir.getAbsolutePath(), jobName), namespace);
+		FileSystem fs = new Path(expectedCheckpointRoot.getPath()).getFileSystem();
+		// Verify the sp- and chk- folders exist in the checkpoint parent folder with jobUID
+		Assert.assertTrue(fs.exists(new Path(expectedCheckpointRoot, "sp-2")));
+		Assert.assertTrue(fs.exists(new Path(expectedCheckpointRoot, "chk-1")));
+		// There should be 4 status in the expected jobUID folder
+		assertEquals(4, fs.listStatus(expectedCheckpointRoot).length);
+		// The jobName folder shouldn't exists
+		assertFalse(fs.exists(nonExpectedCheckpointRoot));
 	}
 
 	private ExecutionGraph createExecutionGraphAndEnableCheckpointing(

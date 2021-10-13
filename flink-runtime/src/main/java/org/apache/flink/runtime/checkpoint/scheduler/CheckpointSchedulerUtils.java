@@ -115,7 +115,7 @@ public final class CheckpointSchedulerUtils {
 
 	public static void setupSavepointScheduler(
 			CheckpointScheduler scheduler,
-			String jobName,
+			String jobUID,
 			CheckpointCoordinator coordinator,
 			CheckpointCoordinatorConfiguration chkConfig) {
 
@@ -142,7 +142,7 @@ public final class CheckpointSchedulerUtils {
 						baseInterval = minPauseBetweenCheckpoints;
 					}
 
-					scheduler.setPeriodSavepointScheduler(new SimplePeriodicSavepointScheduler(jobName, chkConfig.getSavepointLocationPrefix(), baseInterval, minPauseBetweenCheckpoints, coordinator));
+					scheduler.setPeriodSavepointScheduler(new SimplePeriodicSavepointScheduler(jobUID, chkConfig.getSavepointLocationPrefix(), baseInterval, minPauseBetweenCheckpoints, coordinator));
 					LOG.info("Setup savepoint scheduler with interval {}, minPause {}, prefix {}", baseInterval, minPauseBetweenCheckpoints, chkConfig.getSavepointLocationPrefix());
 				} else {
 					LOG.warn("Inconsistent savepoint scheduler configuration. A configuration with class {} has been recognized as Default strategy.",

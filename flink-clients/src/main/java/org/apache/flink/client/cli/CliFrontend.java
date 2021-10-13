@@ -240,9 +240,8 @@ public class CliFrontend {
 		Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, Collections.singletonList(uri.toString()));
 
-		setEffectiveJobName(effectiveConfiguration);
-		final String jobName = effectiveConfiguration.getString(PipelineOptions.NAME);
-
+		setEffectiveJobNameAndJobUID(effectiveConfiguration);
+		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
 		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
 			programOptions.setSavepointSettings(
 				effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH),
@@ -255,7 +254,7 @@ public class CliFrontend {
 			// remove this config in case of JM failover
 			final String savepointPath = effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
 			effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
-			initializeCheckpointNamespaceDirectory(activeCommandLine, commandLine, jobName, savepointPath);
+			initializeCheckpointNamespaceDirectory(activeCommandLine, commandLine, jobUID, savepointPath);
 		}
 		final ApplicationConfiguration applicationConfiguration =
 				new ApplicationConfiguration(programOptions.getProgramArgs(), programOptions.getEntryPointClassName());
@@ -300,13 +299,8 @@ public class CliFrontend {
 		final Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, jobJars);
 
-		setEffectiveJobName(effectiveConfiguration);
-		final String jobName = effectiveConfiguration.getString(PipelineOptions.NAME);
-
-		// If jobUID is not set, set it to jobName for backward-compatibility
-		if (!effectiveConfiguration.contains(PipelineOptions.JOB_UID) && jobName != null) {
-			effectiveConfiguration.setString(PipelineOptions.JOB_UID, jobName);
-		}
+		setEffectiveJobNameAndJobUID(effectiveConfiguration);
+		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
 
 		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
 			programOptions.setSavepointSettings(
@@ -316,7 +310,7 @@ public class CliFrontend {
 			// remove this config in case of JM failover
 			final String savepointPath = effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
 			effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
-			initializeCheckpointNamespaceDirectory(activeCommandLine, commandLine, jobName, savepointPath);
+			initializeCheckpointNamespaceDirectory(activeCommandLine, commandLine, jobUID, savepointPath);
 		}
 
 		LOG.debug("Effective executor configuration: {}", effectiveConfiguration);
@@ -997,9 +991,8 @@ public class CliFrontend {
 
 		final Configuration effectiveConfiguration = activeCommandLine.getEffectiveConfiguration(commandLine);
 
-		setEffectiveJobName(effectiveConfiguration);
-		final String jobName = effectiveConfiguration.getString(PipelineOptions.NAME);
-
+		setEffectiveJobNameAndJobUID(effectiveConfiguration);
+		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
 		if (checkpointOptions.isAnalyzation()) {
 			final String path = checkpointOptions.getMetadataPath();
 			List<String> infos = CheckpointMetadataAnalyzer.analyze(path);
@@ -1009,11 +1002,11 @@ public class CliFrontend {
 		} else {
 			String[] cleanedArgs = checkpointOptions.getArgs();
 			final JobID jobId = cleanedArgs.length >= 1 ? parseJobId(cleanedArgs[0]) : null;
-			if (jobName == null && jobId == null) {
-				throw new CliArgsException("Missing JobID and JobName. Specify one of them.");
+			if (jobUID == null && jobId == null) {
+				throw new CliArgsException("Missing JobID and jobUID. Specify one of them.");
 			}
 
-			clearCheckpoints(effectiveConfiguration, jobId, jobName, checkpointOptions.getCheckpointID());
+			clearCheckpoints(effectiveConfiguration, jobId, checkpointOptions.getCheckpointID());
 		}
 		return 0;
 	}
@@ -1054,7 +1047,7 @@ public class CliFrontend {
 	private void initializeCheckpointNamespaceDirectory(
 		CustomCommandLine customCommandLine,
 		CommandLine commandLine,
-		String jobName,
+		String jobUID,
 		String savepointPath) throws Exception {
 
 		JobID jobID = JobID.generate();
@@ -1062,7 +1055,7 @@ public class CliFrontend {
 
 		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 		StateBackend stateBackend = Checkpoints.loadStateBackend(effectiveConfiguration, classLoader, LOG);
-		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobName);
+		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobUID);
 
 		if (checkpointStorage.findCompletedCheckpointPointerV2().size() > 0) {
 			final String namespace = effectiveConfiguration.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
@@ -1105,18 +1098,18 @@ public class CliFrontend {
 	private void clearCheckpoints(
 			Configuration effectiveConfiguration,
 			JobID jobID,
-			String jobName,
 			int checkpointID) throws Exception {
 
 		jobID = jobID == null ? JobID.generate() : jobID;
+		String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
 
 		// clear checkpoints on zookeeper.
-		ZooKeeperUtils.clearCheckpoints(effectiveConfiguration, jobID, jobName, checkpointID);
+		ZooKeeperUtils.clearCheckpoints(effectiveConfiguration, jobID, jobUID, checkpointID);
 
 		// clear checkpoints on HDFS.
 		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 		StateBackend stateBackend = Checkpoints.loadStateBackend(effectiveConfiguration, classLoader, LOG);
-		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobName);
+		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobUID);
 		if (checkpointID > 0) {
 			checkpointStorage.clearCheckpointPointers(checkpointID);
 		} else {
@@ -1131,7 +1124,7 @@ public class CliFrontend {
 				.replaceFirst("byte_flink_checkpoint_20210220", "byte_flink_checkpoint");
 			effectiveConfiguration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, oldPath);
 			StateBackend oldStateBackend = Checkpoints.loadStateBackend(effectiveConfiguration, classLoader, LOG);
-			CheckpointStorage oldCheckpointStorage = oldStateBackend.createCheckpointStorage(jobID, jobName);
+			CheckpointStorage oldCheckpointStorage = oldStateBackend.createCheckpointStorage(jobID, jobUID);
 			if (checkpointID > 0) {
 				oldCheckpointStorage.clearCheckpointPointers(checkpointID);
 			} else {
@@ -1330,7 +1323,7 @@ public class CliFrontend {
 	 *
 	 * @param configuration effective configuration for running commands
 	 */
-	private void setEffectiveJobName(Configuration configuration) {
+	private void setEffectiveJobNameAndJobUID(Configuration configuration) {
 		final String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
 		if (jobName != null) {
 			configuration.setString(PipelineOptions.NAME, jobName);
@@ -1338,6 +1331,11 @@ public class CliFrontend {
 		final String effectiveJobName = configuration.getString(PipelineOptions.NAME);
 		if (effectiveJobName != null) {
 			System.setProperty(ConfigConstants.JOB_NAME_KEY, effectiveJobName);
+			// If jobUID is not set, set it to jobName for backward-compatibility
+			if (!configuration.contains(PipelineOptions.JOB_UID)) {
+				configuration.setString(PipelineOptions.JOB_UID, effectiveJobName);
+				LOG.info("JobUID is not set, set it to jobName for backward-compatibility, jobName: {}, jobUID: {}", effectiveJobName, configuration.getString(PipelineOptions.JOB_UID));
+			}
 		}
 	}
 

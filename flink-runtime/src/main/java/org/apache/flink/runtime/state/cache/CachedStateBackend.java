@@ -92,13 +92,13 @@ public class CachedStateBackend extends AbstractStateBackend {
 	}
 
 	@Override
-	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
-		return delegateStateBackend.createCheckpointStorage(jobId, jobName);
+	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobUID) throws IOException {
+		return delegateStateBackend.createCheckpointStorage(jobId, jobUID);
 	}
 
 	@Override
-	public CheckpointStorage createCheckpointStorage(JobID jobId, @Nullable String jobName, MetricGroup metricGroup) throws IOException {
-		return delegateStateBackend.createCheckpointStorage(jobId, jobName, metricGroup);
+	public CheckpointStorage createCheckpointStorage(JobID jobId, @Nullable String jobUID, MetricGroup metricGroup) throws IOException {
+		return delegateStateBackend.createCheckpointStorage(jobId, jobUID, metricGroup);
 	}
 
 	// ------------------------------------------------------------------------

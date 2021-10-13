@@ -36,8 +36,13 @@ import org.apache.flink.runtime.taskexecutor.TestGlobalAggregateManager;
 import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
 import org.apache.flink.runtime.util.TestingTaskManagerRuntimeInfo;
 
+/**
+ * MockEnvironmentBuilder servers the test jobs need an environment.
+ */
+
 public class MockEnvironmentBuilder {
 	private String taskName = "mock-task";
+	private String jobUID = "juid";
 	private MockInputSplitProvider inputSplitProvider = null;
 	private int bufferSize = 16;
 	private TaskStateManager taskStateManager = new TestTaskStateManager();
@@ -150,12 +155,18 @@ public class MockEnvironmentBuilder {
 		return this;
 	}
 
+	public MockEnvironmentBuilder setJobUID(String jobUID) {
+		this.jobUID = jobUID;
+		return this;
+	}
+
 	public MockEnvironment build() {
 		if (ioManager == null) {
 			ioManager = new IOManagerAsync();
 		}
 		return new MockEnvironment(
 			jobID,
+			jobUID,
 			jobVertexID,
 			taskName,
 			inputSplitProvider,

@@ -43,24 +43,24 @@ public class JobInformation implements Serializable {
 	 * task), a concept desired by some upper development platforms for task management. Each
 	 * running instance of an application is a Flink job.
 	 */
-	private final String jobUid;
+	private final String jobUID;
 
-	/** Id of the job */
+	/** Id of the job. */
 	private final JobID jobId;
 
-	/** Job name */
+	/** Job name. */
 	private final String jobName;
 
-	/** Serialized execution config because it can contain user code classes */
+	/** Serialized execution config because it can contain user code classes. */
 	private final SerializedValue<ExecutionConfig> serializedExecutionConfig;
 
-	/** Configuration of the job */
+	/** Configuration of the job. */
 	private final Configuration jobConfiguration;
 
-	/** Blob keys for the required jar files */
+	/** Blob keys for the required jar files. */
 	private final Collection<PermanentBlobKey> requiredJarFileBlobKeys;
 
-	/** URLs specifying the classpath to add to the class loader */
+	/** URLs specifying the classpath to add to the class loader. */
 	private final Collection<URL> requiredClasspathURLs;
 
 	public JobInformation(
@@ -74,14 +74,14 @@ public class JobInformation implements Serializable {
 	}
 
 	public JobInformation(
-			@Nullable String jobUid,
+			@Nullable String jobUID,
 			JobID jobId,
 			String jobName,
 			SerializedValue<ExecutionConfig> serializedExecutionConfig,
 			Configuration jobConfiguration,
 			Collection<PermanentBlobKey> requiredJarFileBlobKeys,
 			Collection<URL> requiredClasspathURLs) {
-		this.jobUid = jobUid;
+		this.jobUID = jobUID;
 		this.jobId = Preconditions.checkNotNull(jobId);
 		this.jobName = Preconditions.checkNotNull(jobName);
 		this.serializedExecutionConfig = Preconditions.checkNotNull(serializedExecutionConfig);
@@ -90,8 +90,8 @@ public class JobInformation implements Serializable {
 		this.requiredClasspathURLs = Preconditions.checkNotNull(requiredClasspathURLs);
 	}
 
-	public String getJobUid() {
-		return jobUid;
+	public String getJobUID() {
+		return jobUID;
 	}
 
 	public JobID getJobId() {
@@ -119,8 +119,6 @@ public class JobInformation implements Serializable {
 	}
 
 	// ------------------------------------------------------------------------
-
-
 	@Override
 	public String toString() {
 		return "JobInformation for '" + jobName + "' (" + jobId + ')';

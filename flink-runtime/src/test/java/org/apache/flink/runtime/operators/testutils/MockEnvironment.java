@@ -35,7 +35,6 @@ import org.apache.flink.runtime.io.network.TaskEventDispatcher;
 import org.apache.flink.runtime.io.network.api.writer.RecordCollectingResultPartitionWriter;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
-import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.IteratorWrappingTestSingleInputGate;
 import org.apache.flink.runtime.io.network.util.TestPooledBufferProvider;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -119,6 +118,7 @@ public class MockEnvironment implements Environment, AutoCloseable {
 	private final TaskMetricGroup taskMetricGroup;
 
 	private final ExternalResourceInfoProvider externalResourceInfoProvider;
+	private final String jobUID;
 
 	public static MockEnvironmentBuilder builder() {
 		return new MockEnvironmentBuilder();
@@ -126,6 +126,7 @@ public class MockEnvironment implements Environment, AutoCloseable {
 
 	protected MockEnvironment(
 			JobID jobID,
+			String jobUID,
 			JobVertexID jobVertexID,
 			String taskName,
 			MockInputSplitProvider inputSplitProvider,
@@ -145,6 +146,7 @@ public class MockEnvironment implements Environment, AutoCloseable {
 			ExternalResourceInfoProvider externalResourceInfoProvider) {
 
 		this.jobID = jobID;
+		this.jobUID = jobUID;
 		this.jobVertexID = jobVertexID;
 
 		this.taskInfo = new TaskInfo(taskName, maxParallelism, subtaskIndex, parallelism, 0);

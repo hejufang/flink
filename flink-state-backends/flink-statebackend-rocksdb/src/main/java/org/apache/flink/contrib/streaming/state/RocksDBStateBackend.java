@@ -581,13 +581,13 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	}
 
 	@Override
-	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
-		return checkpointStreamBackend.createCheckpointStorage(jobId, jobName);
+	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobUID) throws IOException {
+		return checkpointStreamBackend.createCheckpointStorage(jobId, jobUID);
 	}
 
 	@Override
-	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobName, MetricGroup metricGroup) throws IOException {
-		return checkpointStreamBackend.createCheckpointStorage(jobId, jobName, metricGroup);
+	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobUID, MetricGroup metricGroup) throws IOException {
+		return checkpointStreamBackend.createCheckpointStorage(jobId, jobUID, metricGroup);
 	}
 
 	// ------------------------------------------------------------------------

@@ -174,12 +174,12 @@ public class ExecutionGraphBuilder {
 
 		checkNotNull(jobGraph, "job graph cannot be null");
 
-		final String jobUid = jobGraph.getJobUID();
+		final String jobUID = jobGraph.getJobUID();
 		final String jobName = jobGraph.getName();
 		final JobID jobId = jobGraph.getJobID();
 
 		final JobInformation jobInformation = new JobInformation(
-			jobUid,
+			jobUID,
 			jobId,
 			jobName,
 			jobGraph.getSerializedExecutionConfig(),
@@ -335,8 +335,8 @@ public class ExecutionGraphBuilder {
 							jobManagerConfig.getInteger(CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS));
 				}
 
-				completedCheckpoints = recoveryFactory.createCheckpointStore(jobId, jobName, maxNumberOfCheckpointsToRetain, classLoader);
-				checkpointIdCounter = recoveryFactory.createCheckpointIDCounter(jobId, jobName);
+				completedCheckpoints = recoveryFactory.createCheckpointStore(jobId, jobUID, maxNumberOfCheckpointsToRetain, classLoader);
+				checkpointIdCounter = recoveryFactory.createCheckpointIDCounter(jobId, jobUID);
 			}
 			catch (Exception e) {
 				throw new JobExecutionException(jobId, "Failed to initialize high-availability checkpoint handler", e);

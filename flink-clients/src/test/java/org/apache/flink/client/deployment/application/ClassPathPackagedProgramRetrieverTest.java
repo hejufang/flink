@@ -137,12 +137,12 @@ public class ClassPathPackagedProgramRetrieverTest extends TestLogger {
 	public void testJobGraphRetrieval() throws IOException, FlinkException, ProgramInvocationException {
 		final int parallelism = 42;
 		final JobID jobId = new JobID();
-		final String jobUid = "magicID";
+		final String jobUID = "magicID";
 
 		final Configuration configuration = new Configuration();
 		configuration.setInteger(CoreOptions.DEFAULT_PARALLELISM, parallelism);
 		configuration.set(PipelineOptionsInternal.PIPELINE_FIXED_JOB_ID, jobId.toHexString());
-		configuration.set(PipelineOptions.JOB_UID, jobUid);
+		configuration.set(PipelineOptions.JOB_UID, jobUID);
 
 		final ClassPathPackagedProgramRetriever retrieverUnderTest =
 			ClassPathPackagedProgramRetriever.newBuilder(PROGRAM_ARGUMENTS, new Configuration())
@@ -155,7 +155,7 @@ public class ClassPathPackagedProgramRetrieverTest extends TestLogger {
 		assertThat(jobGraph.getSavepointRestoreSettings(), is(equalTo(SavepointRestoreSettings.none())));
 		assertThat(jobGraph.getMaximumParallelism(), is(parallelism));
 		assertEquals(jobGraph.getJobID(), jobId);
-		assertEquals(jobGraph.getJobUID(), jobUid);
+		assertEquals(jobGraph.getJobUID(), jobUID);
 	}
 
 	@Test

@@ -49,15 +49,15 @@ import java.util.Collection;
  * (typically a replicated highly-available filesystem, like <a href="https://hadoop.apache.org/">HDFS</a>,
  * <a href="https://ceph.com/">Ceph</a>, <a href="https://aws.amazon.com/documentation/s3/">S3</a>,
  * <a href="https://cloud.google.com/storage/">GCS</a>, etc).
- * 
+ *
  * <p>The {@code RocksDBStateBackend} stores working state in <a href="http://rocksdb.org/">RocksDB</a>,
  * and checkpoints the state by default to a filesystem (similar to the {@code FsStateBackend}).
- * 
+ *
  * <h2>Raw Bytes Storage and Backends</h2>
- * 
- * The {@code StateBackend} creates services for <i>raw bytes storage</i> and for <i>keyed state</i>
+ *
+ * <p>The {@code StateBackend} creates services for <i>raw bytes storage</i> and for <i>keyed state</i>
  * and <i>operator state</i>.
- * 
+ *
  * <p>The <i>raw bytes storage</i> (through the {@link CheckpointStreamFactory}) is the fundamental
  * service that simply stores bytes in a fault tolerant fashion. This service is used by the JobManager
  * to store checkpoint and recovery metadata and is typically also used by the keyed- and operator state
@@ -69,12 +69,12 @@ import java.util.Collection;
  * However, it is also possible that for example a keyed state backend simply implements the bridge to
  * a key/value store, and that it does not need to store anything in the raw byte storage upon a
  * checkpoint.
- * 
+ *
  * <h2>Serializability</h2>
- * 
- * State Backends need to be {@link java.io.Serializable serializable}, because they distributed
- * across parallel processes (for distributed execution) together with the streaming application code. 
- * 
+ *
+ * <p>State Backends need to be {@link java.io.Serializable serializable}, because they distributed
+ * across parallel processes (for distributed execution) together with the streaming application code.
+ *
  * <p>Because of that, {@code StateBackend} implementations (typically subclasses
  * of {@link AbstractStateBackend}) are meant to be like <i>factories</i> that create the proper
  * states stores that provide access to the persistent storage and hold the keyed- and operator
@@ -82,8 +82,8 @@ import java.util.Collection;
  * configurations) which makes it easier to be serializable.
  *
  * <h2>Thread Safety</h2>
- * 
- * State backend implementations have to be thread-safe. Multiple threads may be creating
+ *
+ * <p>State backend implementations have to be thread-safe. Multiple threads may be creating
  * streams and keyed-/operator state backends concurrently.
  */
 @PublicEvolving
@@ -119,20 +119,20 @@ public interface StateBackend extends java.io.Serializable {
 	 */
 	CheckpointStorage createCheckpointStorage(JobID jobId) throws IOException;
 
-	default CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
+	default CheckpointStorage createCheckpointStorage(JobID jobId, String jobUID) throws IOException {
 		return createCheckpointStorage(jobId);
 	}
 
-	default CheckpointStorage createCheckpointStorage(JobID jobId, @Nullable String jobName, MetricGroup metricGroup) throws IOException {
-		if (jobName == null) {
+	default CheckpointStorage createCheckpointStorage(JobID jobId, @Nullable String jobUID, MetricGroup metricGroup) throws IOException {
+		if (jobUID == null) {
 			return createCheckpointStorage(jobId);
 		} else {
-			return createCheckpointStorage(jobId, jobName);
+			return createCheckpointStorage(jobId, jobUID);
 		}
 	}
 
 	// ------------------------------------------------------------------------
-	//  Structure Backends 
+	//  Structure Backends
 	// ------------------------------------------------------------------------
 	/**
 	 * Creates a new {@link AbstractKeyedStateBackend} that is responsible for holding <b>keyed state</b>

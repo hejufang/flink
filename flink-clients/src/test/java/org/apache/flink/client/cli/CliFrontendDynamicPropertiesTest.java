@@ -99,6 +99,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 	@Test
 	public void testRestoreFromSavepoint() throws Exception {
 		final String jobName = "testRestoreFromSavepoint";
+		final String jobUID = jobName;
 		final String namespace = "testNS";
 
 		final String checkpointFolder = tmp.newFolder().getAbsolutePath();
@@ -128,13 +129,14 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 
 		// verify the sp-1 exists
 		FileSystem fs = new Path(checkpointFolder).getFileSystem();
-		Assert.assertEquals(3, fs.listStatus(new Path(new Path(checkpointFolder, jobName), namespace)).length);
-		Assert.assertTrue(fs.exists(new Path(new Path(new Path(checkpointFolder, jobName), namespace), "sp-1")));
+		Assert.assertEquals(3, fs.listStatus(new Path(new Path(checkpointFolder, jobUID), namespace)).length);
+		Assert.assertTrue(fs.exists(new Path(new Path(new Path(checkpointFolder, jobUID), namespace), "sp-1")));
 	}
 
 	@Test(expected = IllegalStateException.class)
 	public void testRestoreFromSavepointOnExistingNamespace() throws Exception {
 		final String jobName = "testRestoreFromSavepointOnExistingNamespace";
+		final String jobUID = jobName;
 		final String namespace = "testNS";
 
 		final String checkpointFolder = tmp.newFolder().getAbsolutePath();
@@ -147,7 +149,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 		// create a savepoint here
 		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 		StateBackend stateBackend = Checkpoints.loadStateBackend(configuration, classLoader, null);
-		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(JobID.generate(), jobName);
+		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(JobID.generate(), jobUID);
 		CheckpointStorageLocation savepointMetaInCheckpointDirLocation = checkpointStorage.initializeLocationForSavepointMetaInCheckpointDir(1L);
 
 		try (CheckpointMetadataOutputStream out = savepointMetaInCheckpointDirLocation.createMetadataOutputStream()) {
@@ -229,6 +231,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 	@Test
 	public void testRestoreFromSavepointWithApplicationMode() throws Exception {
 		final String jobName = "testRestoreFromSavepointWithApplicationMode";
+		final String jobUID = jobName;
 		final String namespace = "testNS";
 
 		final String checkpointFolder = tmp.newFolder().getAbsolutePath();
@@ -266,8 +269,8 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 
 		// verify the sp-1 exists
 		FileSystem fs = new Path(checkpointFolder).getFileSystem();
-		Assert.assertEquals(3, fs.listStatus(new Path(new Path(checkpointFolder, jobName), namespace)).length);
-		Assert.assertTrue(fs.exists(new Path(new Path(new Path(checkpointFolder, jobName), namespace), "sp-1")));
+		Assert.assertEquals(3, fs.listStatus(new Path(new Path(checkpointFolder, jobUID), namespace)).length);
+		Assert.assertTrue(fs.exists(new Path(new Path(new Path(checkpointFolder, jobUID), namespace), "sp-1")));
 	}
 
 	@Test
@@ -347,6 +350,190 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 		};
 
 		verifyCliFrontend(configuration, args, cliUnderTest, "child-first", ChildFirstClassLoader.class.getName());
+	}
+
+	@Test
+	public void testRestoreFromSavepointWithInconsistentJobUIDAndJobName() throws Exception {
+		final String jobUID = "juid";
+		final String jobName = "jName";
+		final String namespace = "ns";
+
+		final String checkpointFolder = tmp.newFolder().getAbsolutePath();
+		final String savepointPath = tmp.newFolder().getAbsolutePath() + "/" + UUID.randomUUID();
+
+		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
+			new Path(savepointPath).getFileSystem(),
+			new Path(savepointPath, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(savepointPath))) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		String[] args = {
+			"-cn", "test",
+			"-t", "remote",
+			"-D" + PipelineOptions.NAME.key() + "=" + jobName,
+			"-D" + PipelineOptions.JOB_UID.key() + "=" + jobUID,
+			"-D" + CheckpointingOptions.RESTORE_SAVEPOINT_PATH.key() + "=" + "file://" + savepointPath,
+			"-D" + CheckpointingOptions.STATE_BACKEND.key() + "=filesystem",
+			"-D" + CheckpointingOptions.CHECKPOINTS_DIRECTORY.key() + "=file://" + checkpointFolder,
+			"-D" + CheckpointingOptions.CHECKPOINTS_NAMESPACE.key() + "=" + namespace,
+			"-Dclassloader.resolve-order=parent-first",
+			"-DclusterName=flink",
+			getTestJarPath()};
+
+		final String errorMsg = "Application Mode not supported by standalone deployments.";
+
+		try {
+			verifyCliFrontend(configuration, args, cliUnderTest, "parent-first", ParentFirstClassLoader.class.getName());
+		} catch (Exception e) {
+			//expected
+			assertTrue(e instanceof UnsupportedOperationException);
+			assertEquals(errorMsg, e.getMessage());
+		}
+		FileSystem fs = new Path(checkpointFolder).getFileSystem();
+		// verify there are 3 status in jobUID folder
+		Assert.assertEquals(3, fs.listStatus(new Path(new Path(checkpointFolder, jobUID), namespace)).length);
+		// verify the sp-1 exists
+		Assert.assertTrue(fs.exists(new Path(new Path(new Path(checkpointFolder, jobUID), namespace), "sp-1")));
+		// verify the jobName folder doesn't exists when the inconsistent jobUID was set
+		Assert.assertFalse(fs.exists(new Path(checkpointFolder, jobName)));
+	}
+
+	@Test
+	public void testRestoreFromSavepointWithOnlyJobNameSet() throws Exception {
+		final String jobName = "jName";
+		final String namespace = "ns";
+
+		final String checkpointFolder = tmp.newFolder().getAbsolutePath();
+		final String savepointPath = tmp.newFolder().getAbsolutePath() + "/" + UUID.randomUUID();
+
+		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
+			new Path(savepointPath).getFileSystem(),
+			new Path(savepointPath, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(savepointPath))) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		String[] args = {
+			"-cn", "test",
+			"-t", "remote",
+			"-D" + PipelineOptions.NAME.key() + "=" + jobName,
+			"-D" + CheckpointingOptions.RESTORE_SAVEPOINT_PATH.key() + "=" + "file://" + savepointPath,
+			"-D" + CheckpointingOptions.STATE_BACKEND.key() + "=filesystem",
+			"-D" + CheckpointingOptions.CHECKPOINTS_DIRECTORY.key() + "=file://" + checkpointFolder,
+			"-D" + CheckpointingOptions.CHECKPOINTS_NAMESPACE.key() + "=" + namespace,
+			"-Dclassloader.resolve-order=parent-first",
+			"-DclusterName=flink",
+			getTestJarPath()};
+
+		final String errorMsg = "Application Mode not supported by standalone deployments.";
+
+		try {
+			verifyCliFrontend(configuration, args, cliUnderTest, "parent-first", ParentFirstClassLoader.class.getName());
+		} catch (Exception e) {
+			//expected
+			assertTrue(e instanceof UnsupportedOperationException);
+			assertEquals(errorMsg, e.getMessage());
+		}
+		FileSystem fs = new Path(checkpointFolder).getFileSystem();
+		// verify there are 3 status in jobUID folder
+		Assert.assertEquals(3, fs.listStatus(new Path(new Path(checkpointFolder, jobName), namespace)).length);
+		// verify the sp-1 exists
+		Assert.assertTrue(fs.exists(new Path(new Path(new Path(checkpointFolder, jobName), namespace), "sp-1")));
+	}
+
+	@Test
+	public void testInconsistentJobUIDAndJobNameInApplicationMode() throws Exception {
+		final String jobUID = "juid";
+		final String jobName = "jName";
+		final String namespace = "ns";
+
+		final String checkpointFolder = tmp.newFolder().getAbsolutePath();
+		final String savepointPath = tmp.newFolder().getAbsolutePath() + "/" + UUID.randomUUID();
+
+		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
+			new Path(savepointPath).getFileSystem(),
+			new Path(savepointPath, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(savepointPath))) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		String[] args = {
+			"-cn", "test",
+			"-t", "remote",
+			"-D" + PipelineOptions.NAME.key() + "=" + jobName,
+			"-D" + PipelineOptions.JOB_UID.key() + "=" + jobUID,
+			"-D" + CheckpointingOptions.RESTORE_SAVEPOINT_PATH.key() + "=" + "file://" + savepointPath,
+			"-D" + CheckpointingOptions.STATE_BACKEND.key() + "=filesystem",
+			"-D" + CheckpointingOptions.CHECKPOINTS_DIRECTORY.key() + "=file://" + checkpointFolder,
+			"-D" + CheckpointingOptions.CHECKPOINTS_NAMESPACE.key() + "=" + namespace,
+			"-Dclassloader.resolve-order=parent-first",
+			"-DclusterName=flink",
+			getTestJarPath()};
+
+		final String errorMsg = "Application Mode not supported by standalone deployments.";
+
+		try {
+			verifyCliFrontendWithApplicationMode(configuration, args, cliUnderTest, "parent-first", ParentFirstClassLoader.class.getName());
+		} catch (Exception e) {
+			//expected
+			assertTrue(e instanceof UnsupportedOperationException);
+			assertEquals(errorMsg, e.getMessage());
+		}
+		FileSystem fs = new Path(checkpointFolder).getFileSystem();
+		// verify there are 3 status in jobUID folder
+		Assert.assertEquals(3, fs.listStatus(new Path(new Path(checkpointFolder, jobUID), namespace)).length);
+		// verify the sp-1 exists
+		Assert.assertTrue(fs.exists(new Path(new Path(new Path(checkpointFolder, jobUID), namespace), "sp-1")));
+		// verify the jobName folder doesn't exists when the inconsistent jobUID was set
+		Assert.assertFalse(fs.exists(new Path(checkpointFolder, jobName)));
+	}
+
+	@Test
+	public void testOnlyJobNameSetInApplicationMode() throws Exception {
+		final String jobName = "jName";
+		final String namespace = "ns";
+
+		final String checkpointFolder = tmp.newFolder().getAbsolutePath();
+		final String savepointPath = tmp.newFolder().getAbsolutePath() + "/" + UUID.randomUUID();
+
+		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
+			new Path(savepointPath).getFileSystem(),
+			new Path(savepointPath, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(savepointPath))) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		String[] args = {
+			"-cn", "test",
+			"-t", "remote",
+			"-D" + PipelineOptions.NAME.key() + "=" + jobName,
+			"-D" + CheckpointingOptions.RESTORE_SAVEPOINT_PATH.key() + "=" + "file://" + savepointPath,
+			"-D" + CheckpointingOptions.STATE_BACKEND.key() + "=filesystem",
+			"-D" + CheckpointingOptions.CHECKPOINTS_DIRECTORY.key() + "=file://" + checkpointFolder,
+			"-D" + CheckpointingOptions.CHECKPOINTS_NAMESPACE.key() + "=" + namespace,
+			"-Dclassloader.resolve-order=parent-first",
+			"-DclusterName=flink",
+			getTestJarPath()};
+
+		final String errorMsg = "Application Mode not supported by standalone deployments.";
+
+		try {
+			verifyCliFrontendWithApplicationMode(configuration, args, cliUnderTest, "parent-first", ParentFirstClassLoader.class.getName());
+		} catch (Exception e) {
+			//expected
+			assertTrue(e instanceof UnsupportedOperationException);
+			assertEquals(errorMsg, e.getMessage());
+		}
+		FileSystem fs = new Path(checkpointFolder).getFileSystem();
+		// verify there are 3 status in jobUID folder
+		Assert.assertEquals(3, fs.listStatus(new Path(new Path(checkpointFolder, jobName), namespace)).length);
+		// verify the sp-1 exists
+		Assert.assertTrue(fs.exists(new Path(new Path(new Path(checkpointFolder, jobName), namespace), "sp-1")));
 	}
 
 	// --------------------------------------------------------------------------------------------

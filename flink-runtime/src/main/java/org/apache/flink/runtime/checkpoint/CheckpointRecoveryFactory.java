@@ -33,7 +33,7 @@ public interface CheckpointRecoveryFactory {
 	 * @param userClassLoader User code class loader of the job
 	 * @return {@link CompletedCheckpointStore} instance for the job
 	 */
-	CompletedCheckpointStore createCheckpointStore(JobID jobId, String jobName, int maxNumberOfCheckpointsToRetain, ClassLoader userClassLoader)
+	CompletedCheckpointStore createCheckpointStore(JobID jobId, String jobUID, int maxNumberOfCheckpointsToRetain, ClassLoader userClassLoader)
 			throws Exception;
 
 	/**
@@ -42,6 +42,6 @@ public interface CheckpointRecoveryFactory {
 	 * @param jobId Job ID to recover checkpoints for
 	 * @return {@link CheckpointIDCounter} instance for the job
 	 */
-	CheckpointIDCounter createCheckpointIDCounter(JobID jobId, String jobName) throws Exception;
+	CheckpointIDCounter createCheckpointIDCounter(JobID jobId, String jobUID) throws Exception;
 
 }

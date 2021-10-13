@@ -146,13 +146,12 @@ public class CheckpointVerifier {
 	 * @return true if HDFS has completed checkpoint; false if none.
 	 */
 	public static boolean beforeVerify(Configuration configuration) {
-		String jobName = configuration.getString(PipelineOptions.NAME);
-		if (jobName == null) {
+		String jobUID = configuration.getString(PipelineOptions.JOB_UID);
+		if (jobUID == null) {
 			return false;
 		}
-
 		// use a fake JobID, just for checkpoint verification
-		checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(configuration, ClassLoader.getSystemClassLoader(), new JobID(), jobName);
+		checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(configuration, ClassLoader.getSystemClassLoader(), new JobID(), jobUID);
 		LOG.info("Pre-check checkpoints {} on HDFS, if zero: {}, exit immediately", checkpointsOnStorage.keySet(), checkpointsOnStorage.isEmpty());
 		return !checkpointsOnStorage.isEmpty();
 	}
@@ -207,7 +206,7 @@ public class CheckpointVerifier {
 			// construct CompletedCheckpointStore (ZooKeeper)
 			try {
 				completedCheckpointStore = haService.getCheckpointRecoveryFactory().createCheckpointStore(
-					jobGraph.getJobID(), jobGraph.getName(), configuration.getInteger(MAX_RETAINED_CHECKPOINTS), ClassLoader.getSystemClassLoader());
+					jobGraph.getJobID(), jobGraph.getJobUID(), configuration.getInteger(MAX_RETAINED_CHECKPOINTS), ClassLoader.getSystemClassLoader());
 
 				verifyResult = CheckpointVerifier.doVerify(jobGraph, classLoader, completedCheckpointStore, configuration);
 			} catch (Exception e) {
@@ -244,7 +243,7 @@ public class CheckpointVerifier {
 		CompletedCheckpointStore completedCheckpointStore,
 		Configuration configuration) {
 		JobID jobID = jobGraph.getJobID();
-		String jobName = jobGraph.getName();
+		String jobUID = jobGraph.getJobUID();
 		Iterable<JobVertex> taskVertices = jobGraph.getVertices();
 		Map<JobVertexID, JobVertex> tasks = new HashMap<>();
 
@@ -276,7 +275,7 @@ public class CheckpointVerifier {
 			try {
 				// (1) get checkpoints on HDFS.
 				if (checkpointsOnStorage == null) {
-					checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(configuration, classLoader, jobID, jobName);
+					checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(configuration, classLoader, jobID, jobUID);
 				}
 				LOG.info("Find checkpoints {} on HDFS.", checkpointsOnStorage.keySet());
 				if (checkpointsOnStorage.size() == 0) {
@@ -344,7 +343,7 @@ public class CheckpointVerifier {
 	 * @param configuration Configuration of client.
 	 * @param classLoader User ClassLoader.
 	 * @param jobID The job's ID.
-	 * @param jobName The job's name.
+	 * @param jobUID The job's UID.
 	 * @return The map of checkpoint ID to collection of operator state on HDFS.
 	 *
 	 */
@@ -352,7 +351,7 @@ public class CheckpointVerifier {
 		Configuration configuration,
 		ClassLoader classLoader,
 		JobID jobID,
-		String jobName) {
+		String jobUID) {
 		Preconditions.checkNotNull(jobID, "jobId");
 		Preconditions.checkNotNull(classLoader, "classLoader");
 
@@ -365,7 +364,7 @@ public class CheckpointVerifier {
 		try {
 			CheckpointStorageCoordinatorView checkpointStorage =
 				StateBackendLoader.loadStateBackendFromConfig(configuration, classLoader, LOG)
-					.createCheckpointStorage(jobID, jobName);
+					.createCheckpointStorage(jobID, jobUID);
 
 			for (String completedCheckpointPointer : checkpointStorage.findCompletedCheckpointPointer()) {
 				// just load MAX_RETAINED_CHECKPOINTS checkpoints from HDFS, more detail INFOI-18858.

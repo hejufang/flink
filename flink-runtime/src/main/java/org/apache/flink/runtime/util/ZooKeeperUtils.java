@@ -360,7 +360,7 @@ public class ZooKeeperUtils {
 			CuratorFramework client,
 			Configuration configuration,
 			JobID jobId,
-			String jobName,
+			String jobUID,
 			int maxNumberOfCheckpointsToRetain,
 			Executor executor) throws Exception {
 
@@ -375,9 +375,9 @@ public class ZooKeeperUtils {
 
 		ZooKeeperStateHandleStore<CompletedCheckpoint> zooKeeperStateHandleStore;
 
-		if (jobName != null) {
-			String namespace = createNamespace(configuration, jobName);
-			checkpointsPath = new Path(checkpointsPath, jobName);
+		if (jobUID != null) {
+			String namespace = createNamespace(configuration, jobUID);
+			checkpointsPath = new Path(checkpointsPath, jobUID);
 			zooKeeperStateHandleStore =  createZooKeeperStateHandleStore(client, checkpointsPath.getPath(), namespace, stateStorage);
 		} else {
 			checkpointsPath = new Path(checkpointsPath, jobId.toString());
@@ -455,15 +455,15 @@ public class ZooKeeperUtils {
 	}
 
 	/**
-	 * Create new zookeeper namespace with jobName.
+	 * Create new zookeeper namespace with jobUID.
 	 *
-	 * @param configuration                  {@link Configuration} object
-	 * @param jobName                        Name of job to create the instance for
-	 * @return new zookeeper namespace with jobName.
+	 * @param configuration                 {@link Configuration} object
+	 * @param jobUID                        UID of job to create the instance for
+	 * @return new zookeeper namespace with jobUID.
 	 */
-	private static String createNamespace(Configuration configuration, String jobName) {
+	private static String createNamespace(Configuration configuration, String jobUID) {
 		String root = configuration.getString(HighAvailabilityOptions.HA_ZOOKEEPER_ROOT);
-		Path namespace = new Path(root, jobName);
+		Path namespace = new Path(root, jobUID);
 		String checkpointJobDirectory = configuration.getString(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
 		if (checkpointJobDirectory != null) {
 			namespace = new Path(namespace, checkpointJobDirectory);
@@ -483,14 +483,14 @@ public class ZooKeeperUtils {
 			CuratorFramework client,
 			Configuration configuration,
 			JobID jobId,
-			String jobName) throws Exception {
+			String jobUID) throws Exception {
 
 		Path checkpointIdCounterPath = new Path(configuration.getString(
 				HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINT_COUNTER_PATH));
 
-		if (jobName != null) {
-			String namespace = createNamespace(configuration, jobName);
-			checkpointIdCounterPath = new Path(checkpointIdCounterPath, jobName);
+		if (jobUID != null) {
+			String namespace = createNamespace(configuration, jobUID);
+			checkpointIdCounterPath = new Path(checkpointIdCounterPath, jobUID);
 			return new ZooKeeperCheckpointIDCounter(client, checkpointIdCounterPath.getPath(), new DefaultLastStateConnectionStateListener(), namespace);
 		} else {
 			checkpointIdCounterPath = new Path(checkpointIdCounterPath, jobId.toString());
@@ -605,18 +605,18 @@ public class ZooKeeperUtils {
 	 * Clear checkpoint path in ZooKeeper.
 	 * @param configuration The configuration of the job
 	 * @param jobID The jobID
-	 * @param jobName The name of Job
+	 * @param jobUID The UID of Job
 	 * @param checkpointID The Checkpoint id to clear
 	 * @throws Exception ZK errors
 	 */
-	public static void clearCheckpoints(Configuration configuration, JobID jobID, String jobName, int checkpointID) throws Exception {
+	public static void clearCheckpoints(Configuration configuration, JobID jobID, String jobUID, int checkpointID) throws Exception {
 		Executor executor = Executors.directExecutor();
 		try (CuratorFramework zkCli = ZooKeeperUtils.startCuratorFramework(configuration)) {
 			CompletedCheckpointStore completedCheckpointStore = ZooKeeperUtils.createCompletedCheckpoints(
 					zkCli,
 					configuration,
 					jobID,
-					jobName,
+					jobUID,
 					1,
 					executor);
 			if (checkpointID > 0) {
@@ -628,10 +628,10 @@ public class ZooKeeperUtils {
 	}
 
 	@VisibleForTesting
-	public static String generateCheckpointsPath(Configuration configuration, String jobName) {
+	public static String generateCheckpointsPath(Configuration configuration, String jobUID) {
 		Path checkpointsPath = new Path(configuration.getString(HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINTS_PATH));
-		String namespace = createNamespace(configuration, jobName);
-		checkpointsPath = new Path(checkpointsPath, jobName);
+		String namespace = createNamespace(configuration, jobUID);
+		checkpointsPath = new Path(checkpointsPath, jobUID);
 		return (new Path(namespace, checkpointsPath)).getPath();
 	}
 

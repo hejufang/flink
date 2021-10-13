@@ -37,11 +37,10 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class SimplePeriodicSavepointScheduler implements PeriodicSavepointScheduler{
 	private static final Logger LOG = LoggerFactory.getLogger(SimplePeriodicSavepointScheduler.class);
-
 	/**
-	 * The job whose checkpoint this coordinator coordinates.
+	 * Job unique id to identify a job. The job whose checkpoint this coordinator coordinates.
 	 */
-	private final String jobName;
+	private final String jobUID;
 
 	/**
 	 * Detach savepoint location prefix. Set by dynamic property state.savepoint.location-prefix.
@@ -67,13 +66,13 @@ public class SimplePeriodicSavepointScheduler implements PeriodicSavepointSchedu
 	private final CheckpointCoordinator coordinator;
 
 	public SimplePeriodicSavepointScheduler(
-			String jobName,
+			String jobUID,
 			@Nullable String savepointLocationPrefix,
 			long baseInterval,
 			long minPauseMillis,
 			CheckpointCoordinator coordinator) {
 
-		this.jobName = jobName;
+		this.jobUID = jobUID;
 		this.savepointLocationPrefix = savepointLocationPrefix;
 		this.baseInterval = baseInterval;
 		this.minPauseMillis = minPauseMillis;
@@ -87,13 +86,13 @@ public class SimplePeriodicSavepointScheduler implements PeriodicSavepointSchedu
 				"set this value in config state.savepoint.location-prefix.");
 			LocalDate currentDate = LocalDate.now();
 			String dateSubDir = String.format("%04d%02d%02d", currentDate.getYear(), currentDate.getMonthValue(), currentDate.getDayOfMonth());
-			String periodicSavepointPath = String.format("%s/%s/%s", savepointLocationPrefix, dateSubDir, jobName);
+			String periodicSavepointPath = String.format("%s/%s/%s", savepointLocationPrefix, dateSubDir, jobUID);
 
 			try {
 				LOG.info("On triggering periodic savepoint at {}", periodicSavepointPath);
 				coordinator.triggerSavepoint(periodicSavepointPath);
 			} catch (Exception e) {
-				LOG.error("Exception while triggering savepoint for job {}.", jobName, e);
+				LOG.error("Exception while triggering savepoint for job {}.", jobUID, e);
 			}
 		}, baseInterval, baseInterval, TimeUnit.MILLISECONDS);
 	}

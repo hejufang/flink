@@ -230,7 +230,7 @@ public class CheckpointCoordinator {
 	@VisibleForTesting
 	public CheckpointCoordinator(
 			JobID job,
-			String jobName,
+			String jobUID,
 			CheckpointCoordinatorConfiguration chkConfig,
 			ExecutionVertex[] tasksToTrigger,
 			ExecutionVertex[] tasksToWaitFor,
@@ -246,7 +246,7 @@ public class CheckpointCoordinator {
 
 		this(
 				job,
-				jobName,
+				jobUID,
 				chkConfig,
 				tasksToTrigger,
 				tasksToWaitFor,
@@ -265,7 +265,7 @@ public class CheckpointCoordinator {
 	@VisibleForTesting
 	public CheckpointCoordinator(
 		JobID job,
-		String jobName,
+		String jobUID,
 		CheckpointCoordinatorConfiguration chkConfig,
 		ExecutionVertex[] tasksToTrigger,
 		ExecutionVertex[] tasksToWaitFor,
@@ -282,7 +282,7 @@ public class CheckpointCoordinator {
 
 		this(
 			job,
-			jobName,
+			jobUID,
 			chkConfig,
 			tasksToTrigger,
 			tasksToWaitFor,
@@ -303,7 +303,7 @@ public class CheckpointCoordinator {
 	@VisibleForTesting
 	public CheckpointCoordinator(
 			JobID job,
-			String jobName,
+			String jobUID,
 			CheckpointCoordinatorConfiguration chkConfig,
 			ExecutionVertex[] tasksToTrigger,
 			ExecutionVertex[] tasksToWaitFor,
@@ -320,7 +320,7 @@ public class CheckpointCoordinator {
 			CheckpointHandler checkpointHandler,
 			MetricGroup metricGroup) {
 		this(job,
-			jobName,
+			jobUID,
 			chkConfig,
 			tasksToTrigger,
 			tasksToWaitFor,
@@ -346,7 +346,7 @@ public class CheckpointCoordinator {
 
 	public CheckpointCoordinator(
 			JobID job,
-			@Nullable String jobName,
+			@Nullable String jobUID,
 			CheckpointCoordinatorConfiguration chkConfig,
 			ExecutionVertex[] tasksToTrigger,
 			ExecutionVertex[] tasksToWaitFor,
@@ -393,7 +393,7 @@ public class CheckpointCoordinator {
 
 		this.timer = timer;
 		this.checkpointScheduler = createCheckpointScheduler(job, this, chkConfig);
-		setupSavepointScheduler(checkpointScheduler, jobName, this, chkConfig);
+		setupSavepointScheduler(checkpointScheduler, jobUID, this, chkConfig);
 		this.checkpointScheduler.setTimer(timer);
 
 		this.checkpointHandler = checkpointHandler;
@@ -403,7 +403,7 @@ public class CheckpointCoordinator {
 		this.pendingTriggerFactory = pendingTriggerFactory;
 
 		try {
-			this.checkpointStorage = checkpointStateBackend.createCheckpointStorage(job, jobName, metricGroup);
+			this.checkpointStorage = checkpointStateBackend.createCheckpointStorage(job, jobUID, metricGroup);
 			if (isPeriodicCheckpointingConfigured()) {
 				// do not create checkpoint directory if checkpoint is disabled
 				checkpointStorage.initializeBaseLocations();
@@ -549,7 +549,7 @@ public class CheckpointCoordinator {
 	 * {@link #triggerSavepoint(String)}, this targetLocation will not create a random subdir to
 	 * hold the new savepoint, while directly accommodating all savepoint data and meta files.
 	 *
-	 * @param targetLocation format %detach_savepoint_prefix%/%date%/%jobName%/%UUID%.
+	 * @param targetLocation format %detach_savepoint_prefix%/%date%/%jobUID%/%UUID%.
 	 * @param savepointId a redundant uuid in targetLocation, just to serve {@link #pendingSavepointsUnsafe}.
 	 * @return A future to the completed checkpoint
 	 */

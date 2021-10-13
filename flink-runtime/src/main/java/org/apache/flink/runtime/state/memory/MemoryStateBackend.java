@@ -301,7 +301,7 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 	}
 
 	@Override
-	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
+	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobUID) throws IOException {
 		return createCheckpointStorage(jobId);
 	}
 
