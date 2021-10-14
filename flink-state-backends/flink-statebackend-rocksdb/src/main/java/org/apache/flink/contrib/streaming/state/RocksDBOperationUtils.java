@@ -42,11 +42,14 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static org.apache.flink.contrib.streaming.state.RocksDBKeyedStateBackend.MERGE_OPERATOR_NAME;
 
@@ -61,6 +64,9 @@ public class RocksDBOperationUtils {
 
 	public static final String DB_INSTANCE_DIR_STRING = "db";
 	public static final String DB_LOG_FILE_NAME = "LOG";
+	public static final String DB_LOG_FILE_PREFIX = "job_";
+	public static final String DB_LOG_FILE_UUID = "_uuid_";
+	public static final String DB_LOG_FILE_OP = "_op_";
 
 	public static RocksDB openDB(
 		String path,
@@ -246,6 +252,22 @@ public class RocksDBOperationUtils {
 			String nowStr = String.valueOf(System.currentTimeMillis());
 			String copiedDbLogFileName = instanceBasePath.getName() + "_" + nowStr + "_" + DB_LOG_FILE_NAME;
 			File copiedDbLogFile = new File(userLogDir, copiedDbLogFileName);
+			Integer maxRetain = RocksDBOptions.MAX_NUM_ROCKSDB_LOG_RATAIN.defaultValue();
+			String[] opSubTaskNameSplited = instanceBasePath.getName().split(DB_LOG_FILE_UUID);
+			if (opSubTaskNameSplited.length == 2) { // For those valid named files we need to remove the older files and only retain limited log files in container.
+				String opSubtaskPrefix = opSubTaskNameSplited[0];
+
+				try (Stream<Path> stream = Files.list(userLogDir.toPath())) {
+					stream
+						.filter(file -> !Files.isDirectory(file))
+						.filter(file -> file.getFileName().toString().startsWith(DB_LOG_FILE_PREFIX) && file.getFileName().toString().endsWith(DB_LOG_FILE_NAME))
+						.filter(file -> file.getFileName().toString().startsWith(opSubtaskPrefix))
+						.map(file -> file.toFile())
+						.sorted(Comparator.comparing(File::lastModified).reversed())
+						.skip(maxRetain - 1)
+						.forEach(file -> file.delete());
+				}
+			}
 			Files.copy(dbLogFile.toPath(), copiedDbLogFile.toPath());
 		} catch (Exception e) {
 			// ignore

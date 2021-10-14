@@ -77,6 +77,9 @@ import java.util.Random;
 import java.util.UUID;
 
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.WRITE_BATCH_SIZE;
+import static org.apache.flink.contrib.streaming.state.RocksDBOperationUtils.DB_LOG_FILE_OP;
+import static org.apache.flink.contrib.streaming.state.RocksDBOperationUtils.DB_LOG_FILE_PREFIX;
+import static org.apache.flink.contrib.streaming.state.RocksDBOperationUtils.DB_LOG_FILE_UUID;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT;
@@ -649,7 +652,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 
 		File instanceBasePath = new File(
 			getNextStoragePath(),
-			"job_" + jobId + "_op_" + fileCompatibleIdentifier + "_uuid_" + UUID.randomUUID());
+			DB_LOG_FILE_PREFIX + jobId + DB_LOG_FILE_OP + fileCompatibleIdentifier + DB_LOG_FILE_UUID + UUID.randomUUID());
 
 		LocalRecoveryConfig localRecoveryConfig =
 			env.getTaskStateManager().createLocalRecoveryConfig();
