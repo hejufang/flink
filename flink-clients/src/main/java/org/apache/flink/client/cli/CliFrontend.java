@@ -1115,22 +1115,6 @@ public class CliFrontend {
 		} else {
 			checkpointStorage.clearAllCheckpointPointers();
 		}
-
-		// also clear 1.9 checkpoints on storage
-		final String currentPath = effectiveConfiguration.getString(CheckpointingOptions.CHECKPOINTS_DIRECTORY);
-		if (currentPath != null) {
-			LOG.info("Checkpoints on 1.11(path={}) are cleared, clear 1.9 checkpoints now.", currentPath);
-			final String oldPath = currentPath.replaceFirst("1.11", "1.9")
-				.replaceFirst("byte_flink_checkpoint_20210220", "byte_flink_checkpoint");
-			effectiveConfiguration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, oldPath);
-			StateBackend oldStateBackend = Checkpoints.loadStateBackend(effectiveConfiguration, classLoader, LOG);
-			CheckpointStorage oldCheckpointStorage = oldStateBackend.createCheckpointStorage(jobID, jobUID);
-			if (checkpointID > 0) {
-				oldCheckpointStorage.clearCheckpointPointers(checkpointID);
-			} else {
-				oldCheckpointStorage.clearAllCheckpointPointers();
-			}
-		}
 	}
 
 	// --------------------------------------------------------------------------------------------

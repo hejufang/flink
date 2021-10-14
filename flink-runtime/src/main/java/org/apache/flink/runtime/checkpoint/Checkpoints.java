@@ -115,7 +115,6 @@ public class Checkpoints {
 
 		if (magicNumber == HEADER_MAGIC_NUMBER) {
 			final int version = in.readInt();
-			LOG.debug("Using version {} serializer to deserialize checkpoint {}.", version, externalPointer);
 			final MetadataSerializer serializer = MetadataSerializers.getSerializer(version);
 			return serializer.deserialize(in, classLoader, externalPointer);
 		}
@@ -133,18 +132,6 @@ public class Checkpoints {
 
 		MetadataV3Serializer metadataV3Serializer = MetadataV3Serializer.INSTANCE;
 		return metadataV3Serializer.deserializeStateMetadata(in);
-	}
-
-	private static void printMetadata(CheckpointMetadata metadata, String checkpointPointer) {
-		if (LOG.isDebugEnabled()) {
-			LOG.debug("================= Start {} ==============", checkpointPointer);
-			for (OperatorState operatorState : metadata.getOperatorStates()) {
-				for (OperatorSubtaskState subtaskState : operatorState.getStates()) {
-					LOG.debug(subtaskState.toString());
-				}
-			}
-			LOG.debug("================= End {} ==============", checkpointPointer);
-		}
 	}
 
 	public static CompletedCheckpoint loadAndValidateCheckpoint(
@@ -178,7 +165,6 @@ public class Checkpoints {
 		try (InputStream in = metadataHandle.openInputStream()) {
 			DataInputStream dis = new DataInputStream(in);
 			checkpointMetadata = loadCheckpointMetadata(dis, classLoader, checkpointPointer);
-			printMetadata(checkpointMetadata, checkpointPointer);
 		}
 
 		// generate mapping from operator to task

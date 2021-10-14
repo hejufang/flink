@@ -308,10 +308,4 @@ public class CheckpointingOptions {
 		.key("state.savepoint.location-prefix")
 		.noDefaultValue()
 		.withDescription("HDFS path prefix for detach savepoint and periodic savepoint");
-
-	// Flink cross version hard code
-
-	public static final ConfigOption<Boolean> CROSS_VERSION = ConfigOptions
-		.key("state.checkpoint.cross-version")
-		.defaultValue(false);
 }
