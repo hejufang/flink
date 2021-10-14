@@ -64,6 +64,9 @@ public class MetricNames {
 	public static final String EXECUTION_STATE_TIME = "executionStateTime";
 	public static final String TASK_EXECUTOR_EXECUTION_STATE_TIME = "taskExecutorExecutionStateTime";
 
+	public static final String NUM_LACK_SLOTS = "numLackSlots";
+	public static final String NUM_EXCESS_WORKERS = "numExcessWorkers";
+
 	public static final String MEMORY_USED = "Used";
 	public static final String MEMORY_COMMITTED = "Committed";
 	public static final String MEMORY_MAX = "Max";

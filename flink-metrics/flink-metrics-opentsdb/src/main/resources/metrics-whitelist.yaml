@@ -82,6 +82,9 @@ non-global:
         numPendingSlotRequests,
         taskSlotsTotal,
         taskSlotsAvailable,
+        numLackSlots,
+        numExcessWorkers,
+        numLackWorkers,
       # Memory
         Used,
         Committed,

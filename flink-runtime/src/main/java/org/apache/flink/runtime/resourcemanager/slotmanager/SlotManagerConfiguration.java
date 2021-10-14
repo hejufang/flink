@@ -46,6 +46,7 @@ public class SlotManagerConfiguration {
 	private final boolean waitResultConsumedBeforeRelease;
 	private final boolean evenlySpreadOutSlots;
 	private final int numInitialTaskManagers;
+	private final int numSlotsPerWorker;
 	private final boolean shufflePendingSlots;
 
 	public SlotManagerConfiguration(
@@ -53,13 +54,15 @@ public class SlotManagerConfiguration {
 		Time slotRequestTimeout,
 		Time taskManagerTimeout,
 		boolean waitResultConsumedBeforeRelease,
-		boolean evenlySpreadOutSlots) {
+		boolean evenlySpreadOutSlots,
+		int numSlotsPerWorker) {
 		this(taskManagerRequestTimeout,
 			slotRequestTimeout,
 			taskManagerTimeout,
 			waitResultConsumedBeforeRelease,
 			0,
-			evenlySpreadOutSlots);
+			evenlySpreadOutSlots,
+			numSlotsPerWorker);
 	}
 
 	public SlotManagerConfiguration(
@@ -68,7 +71,8 @@ public class SlotManagerConfiguration {
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
 			int numInitialTaskManagers,
-			boolean evenlySpreadOutSlots) {
+			boolean evenlySpreadOutSlots,
+			int numSlotsPerWorker) {
 
 		this(taskManagerRequestTimeout,
 				slotRequestTimeout,
@@ -76,7 +80,8 @@ public class SlotManagerConfiguration {
 				waitResultConsumedBeforeRelease,
 				numInitialTaskManagers,
 				false,
-				evenlySpreadOutSlots);
+				evenlySpreadOutSlots,
+				numSlotsPerWorker);
 	}
 
 	public SlotManagerConfiguration(
@@ -86,7 +91,8 @@ public class SlotManagerConfiguration {
 			boolean waitResultConsumedBeforeRelease,
 			int numInitialTaskManagers,
 			boolean shufflePendingSlots,
-			boolean evenlySpreadOutSlots) {
+			boolean evenlySpreadOutSlots,
+			int numSlotsPerWorker) {
 
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
@@ -95,6 +101,7 @@ public class SlotManagerConfiguration {
 		this.numInitialTaskManagers = numInitialTaskManagers;
 		this.shufflePendingSlots = shufflePendingSlots;
 		this.evenlySpreadOutSlots = evenlySpreadOutSlots;
+		this.numSlotsPerWorker = numSlotsPerWorker;
 	}
 
 	public Time getTaskManagerRequestTimeout() {
@@ -117,6 +124,9 @@ public class SlotManagerConfiguration {
 		return numInitialTaskManagers;
 	}
 
+	public int getNumSlotsPerWorker() {
+		return numSlotsPerWorker;
+	}
 	public boolean isShufflePendingSlots() {
 		return shufflePendingSlots;
 	}
@@ -145,6 +155,8 @@ public class SlotManagerConfiguration {
 
 		int numInitialTaskManagers = configuration.getInteger(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS);
 
+		int numSlotsPerWorker = configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
+
 		boolean shufflePendingSlots = configuration.getBoolean(ResourceManagerOptions.SHUFFLE_PENDING_SLOTS);
 		boolean evenlySpreadOutSlots = configuration.getBoolean(ClusterOptions.EVENLY_SPREAD_OUT_SLOTS_STRATEGY);
 
@@ -155,7 +167,8 @@ public class SlotManagerConfiguration {
 			waitResultConsumedBeforeRelease,
 			numInitialTaskManagers,
 			shufflePendingSlots,
-			evenlySpreadOutSlots);
+			evenlySpreadOutSlots,
+			numSlotsPerWorker);
 	}
 
 	private static Time getSlotRequestTimeout(final Configuration configuration) {

@@ -2100,6 +2100,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		jobManagerMetricGroup.counter("gangFailedNum", gangFailedCounter);
 		jobManagerMetricGroup.counter("gangDowngradeNum", gangDowngradeCounter);
 		jobManagerMetricGroup.gauge(EVENT_METRIC_NAME, jobStartEventMessageSet);
+		jobManagerMetricGroup.gauge("numLackWorkers", () -> (long) getNumLackWorks());
+	}
+
+	private int getNumLackWorks(){
+		int numberRequestedNotStartedWorkers = slowContainerManager.getStartingContainerSize() + numPendingContainerRequests;
+		int numberRequestedNotStartedRedundantWorkers = slowContainerManager.getStartingRedundantContainerSize() + slowContainerManager.getPendingRedundantContainersNum();
+		int numberRequiredWorkers = (int) Math.ceil(getNumberRequiredTaskManagerSlots() / (double) numberOfTaskSlots) + slowContainerManager.getTotalRedundantContainersNum() - numberRequestedNotStartedRedundantWorkers;
+		return numberRequiredWorkers - (numberRequestedNotStartedWorkers - numberRequestedNotStartedRedundantWorkers);
 	}
 
 	public static String getContainerHost(YarnWorkerNode yarnWorkerNode) {

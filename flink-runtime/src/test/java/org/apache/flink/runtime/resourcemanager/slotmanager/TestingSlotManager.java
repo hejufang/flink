@@ -66,6 +66,11 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
+	public int getNumSlotsPerWorker() {
+		return 0;
+	}
+
+	@Override
 	public int getNumberPendingTaskManagerSlots() {
 		return 0;
 	}
@@ -169,6 +174,11 @@ public class TestingSlotManager implements SlotManager {
 	@Override
 	public void unregisterTaskManagersAndReleaseResources() {
 
+	}
+
+	@Override
+	public int numExtraTaskManagersNeedRequest() {
+		return 0;
 	}
 
 	@Override

@@ -939,7 +939,13 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			() -> (long) slotManager.getNumberPendingTaskManagers());
 		jobManagerMetricGroup.gauge(
 			NUM_PENDING_SLOT_REQUESTS,
-			() -> (long) slotManager.getNumberPendingSlotRequests());
+			() -> (long) slotManager.getNumberPendingSlotRequests() +  slotManager.getNumberWaitingTaskManagerSlotRequests());
+		jobManagerMetricGroup.gauge(
+			MetricNames.NUM_LACK_SLOTS,
+			() -> (long)(calcNumLackslots()));
+		jobManagerMetricGroup.gauge(
+			MetricNames.NUM_EXCESS_WORKERS,
+			() -> (long)(slotManager.getNumberFreeSlots() / slotManager.getNumSlotsPerWorker() - slotManager.numExtraTaskManagersNeedRequest()));
 	}
 
 	private void clearStateInternal() {
@@ -953,6 +959,13 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			onFatalError(new ResourceManagerException("Could not properly clear the job leader id service.", e));
 		}
 		clearStateFuture = clearStateAsync();
+	}
+
+	private long calcNumLackslots() {
+		long numberPendingSlotRequests = slotManager.getNumberPendingSlotRequests();
+		long numberWaitingAndExtraSlots =  slotManager.getNumberWaitingTaskManagerSlotRequests() + slotManager.numExtraTaskManagersNeedRequest() * slotManager.getNumSlotsPerWorker();
+		long numberSlotsHandled = slotManager.getNumberPendingTaskManagerSlots() + slotManager.getNumberFreeSlots();
+		return numberPendingSlotRequests + numberWaitingAndExtraSlots - numberSlotsHandled;
 	}
 
 	/**

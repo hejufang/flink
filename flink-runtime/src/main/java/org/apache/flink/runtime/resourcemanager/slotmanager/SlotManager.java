@@ -54,6 +54,8 @@ public interface SlotManager extends AutoCloseable {
 
 	int getNumberFreeSlotsOf(InstanceID instanceId);
 
+	int getNumSlotsPerWorker();
+
 	int getNumberPendingTaskManagerSlots();
 
 	int getNumberPendingTaskManagers();
@@ -167,4 +169,6 @@ public interface SlotManager extends AutoCloseable {
 
 	@VisibleForTesting
 	void unregisterTaskManagersAndReleaseResources();
+
+	int numExtraTaskManagersNeedRequest();
 }

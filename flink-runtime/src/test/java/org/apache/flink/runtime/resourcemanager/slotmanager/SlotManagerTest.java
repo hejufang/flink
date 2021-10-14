@@ -1327,7 +1327,11 @@ public class SlotManagerTest extends TestLogger {
 	}
 
 	private SlotManagerImpl createSlotManager(ResourceManagerId resourceManagerId, ResourceActions resourceManagerActions) {
-		SlotManagerImpl slotManager = SlotManagerBuilder.newBuilder().build();
+		return createSlotManager(resourceManagerId, resourceManagerActions, 1);
+	}
+
+	private SlotManagerImpl createSlotManager(ResourceManagerId resourceManagerId, ResourceActions resourceManagerActions, int numSlotsPerWorker) {
+		SlotManagerImpl slotManager = SlotManagerBuilder.newBuilder().setNumSlotsPerWorker(numSlotsPerWorker).build();
 		slotManager.start(resourceManagerId, Executors.directExecutor(), resourceManagerActions);
 		return slotManager;
 	}

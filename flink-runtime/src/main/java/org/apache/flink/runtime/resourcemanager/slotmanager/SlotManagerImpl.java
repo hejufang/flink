@@ -149,6 +149,8 @@ public class SlotManagerImpl implements SlotManager {
 	/** The sum of all job's needed initial extra taskmanagers. */
 	private int numInitialExtraTaskManagers = 0;
 
+	private final int numSlotsPerWorker;
+
 	/** Number of task managers. */
 	private int numInitialTaskManagers;
 
@@ -159,7 +161,8 @@ public class SlotManagerImpl implements SlotManager {
 			Time slotRequestTimeout,
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
-			int numInitialTaskManagers) {
+			int numInitialTaskManagers,
+			int numSlotsPerWorker) {
 		this(slotMatchingStrategy,
 				scheduledExecutor,
 				taskManagerRequestTimeout,
@@ -167,7 +170,8 @@ public class SlotManagerImpl implements SlotManager {
 				taskManagerTimeout,
 				waitResultConsumedBeforeRelease,
 				numInitialTaskManagers,
-				false);
+				false,
+				numSlotsPerWorker);
 	}
 
 	public SlotManagerImpl(
@@ -178,7 +182,8 @@ public class SlotManagerImpl implements SlotManager {
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
 			int numInitialTaskManagers,
-			boolean shufflePendingSlots) {
+			boolean shufflePendingSlots,
+			int numSlotsPerWorker) {
 
 		this.slotMatchingStrategy = Preconditions.checkNotNull(slotMatchingStrategy);
 		this.scheduledExecutor = Preconditions.checkNotNull(scheduledExecutor);
@@ -187,7 +192,7 @@ public class SlotManagerImpl implements SlotManager {
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
 		this.numInitialTaskManagers = numInitialTaskManagers;
-
+		this.numSlotsPerWorker = numSlotsPerWorker;
 		this.shufflePendingSlots = shufflePendingSlots;
 
 		slots = new HashMap<>(16);
@@ -269,6 +274,11 @@ public class SlotManagerImpl implements SlotManager {
 	@Override
 	public int getNumberAssignedPendingTaskManagerSlots() {
 		return (int) pendingSlots.values().stream().filter(slot -> slot.getAssignedPendingSlotRequest() != null).count();
+	}
+
+	@Override
+	public int getNumSlotsPerWorker() {
+		return numSlotsPerWorker;
 	}
 
 	/**
@@ -1437,6 +1447,10 @@ public class SlotManagerImpl implements SlotManager {
 	/** As the only number for judge whether need request resources. */
 	private int numTaskManagersNeedRequest() {
 		return getMinimalTaskManagerNumber() + numExtraTaskManagers.get();
+	}
+
+	public int numExtraTaskManagersNeedRequest() {
+		return numInitialExtraTaskManagers + numExtraTaskManagers.get();
 	}
 
 	private boolean taskManagerNotEnough() {
