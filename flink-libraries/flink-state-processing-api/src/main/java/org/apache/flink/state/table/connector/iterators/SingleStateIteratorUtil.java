@@ -18,6 +18,7 @@
 package org.apache.flink.state.table.connector.iterators;
 
 import org.apache.flink.api.common.state.AppendingState;
+import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.State;
@@ -62,8 +63,14 @@ public class SingleStateIteratorUtil {
 			.collect(Collectors.toMap(t -> t.f0, t -> t.f1));
 
 	private static <S extends State> Iterator createMapStateIterator(S state) throws Exception {
+		if (state instanceof MapState){
 			return ((MapState) state).iterator();
+		} else if (state instanceof BroadcastState){
+			return ((BroadcastState) state).iterator();
+		} else {
+			throw new RuntimeException("Unsupported state type");
 		}
+	}
 
 	private static <S extends State> Iterator createListStateIterator(S state) throws Exception {
 		return ((Iterable) ((ListState) state).get()).iterator();

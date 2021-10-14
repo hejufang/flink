@@ -59,7 +59,7 @@ import static org.apache.flink.runtime.checkpoint.StateAssignmentOperation.reDis
  * @param <OT> The type of the input.
  */
 @Internal
-abstract class OperatorStateInputFormat<OT> extends RichInputFormat<OT, OperatorStateInputSplit> {
+public abstract class OperatorStateInputFormat<OT> extends RichInputFormat<OT, OperatorStateInputSplit> {
 
 	private static final long serialVersionUID = -2286490341042373742L;
 
@@ -71,9 +71,9 @@ abstract class OperatorStateInputFormat<OT> extends RichInputFormat<OT, Operator
 
 	private transient CloseableRegistry registry;
 
-	private transient Iterator<OT> elements;
+	protected transient Iterator<OT> elements;
 
-	OperatorStateInputFormat(OperatorState operatorState, boolean isUnionType) {
+	public OperatorStateInputFormat(OperatorState operatorState, boolean isUnionType) {
 		Preconditions.checkNotNull(operatorState, "The operator state cannot be null");
 
 		this.operatorState = operatorState;
@@ -96,6 +96,7 @@ abstract class OperatorStateInputFormat<OT> extends RichInputFormat<OT, Operator
 		return new DefaultInputSplitAssigner(inputSplits);
 	}
 
+	@Override
 	public OperatorStateInputSplit[] createInputSplits(int minNumSplits) {
 		OperatorStateInputSplit[] splits = getOperatorStateInputSplits(minNumSplits);
 

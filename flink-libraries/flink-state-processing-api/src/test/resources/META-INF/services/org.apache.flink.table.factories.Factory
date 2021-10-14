@@ -15,3 +15,4 @@
 
 org.apache.flink.state.table.factories.StateMetaDynamicTableSourceFactory
 org.apache.flink.state.table.factories.KeyedStateDynamicTableSourceFactory
+org.apache.flink.state.table.factories.OperatorStateDynamicTableSourceFactory

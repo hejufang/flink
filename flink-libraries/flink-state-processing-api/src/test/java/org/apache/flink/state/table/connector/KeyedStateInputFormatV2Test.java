@@ -67,7 +67,7 @@ import java.util.List;
 import static org.apache.flink.state.api.input.WindowReaderTest.getWindowOperator;
 
 /**
- * Test case for StateMetaInputFormat.
+ * Test case for KeyedStateInputFormatV2.
  */
 public class KeyedStateInputFormatV2Test {
 

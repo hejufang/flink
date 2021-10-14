@@ -37,7 +37,7 @@ public class OperatorStateRowDataConverter<T> implements RowDataConverter<T> {
 	public RowData converterToRowData(T value, Context context) {
 
 		Row row = new Row(1);
-		row.setField(0, value);
+		row.setField(0, value.toString());
 
 		return (RowData) converter.toInternal(row);
 	}
