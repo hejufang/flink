@@ -26,6 +26,7 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.api.model.ServicePortBuilder;
+import io.fabric8.kubernetes.api.model.extensions.Ingress;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -103,5 +104,21 @@ public class ExternalServiceDecoratorTest extends KubernetesJobManagerTestBase {
 		this.flinkConfig.set(KubernetesConfigOptions.REST_SERVICE_EXPOSED_TYPE, KubernetesConfigOptions.ServiceExposedType.ClusterIP);
 		final List<HasMetadata> servicesWithClusterIP = this.externalServiceDecorator.buildAccompanyingKubernetesResources();
 		assertEquals(KubernetesConfigOptions.ServiceExposedType.ClusterIP.name(), ((Service) servicesWithClusterIP.get(0)).getSpec().getType());
+	}
+
+	@Test
+	public void testIngress() throws IOException {
+		this.flinkConfig.set(KubernetesConfigOptions.REST_SERVICE_EXPOSED_TYPE, KubernetesConfigOptions.ServiceExposedType.ClusterIP);
+		this.flinkConfig.set(KubernetesConfigOptions.KUBERNETES_INGRESS_HOST, "lf-cloudnative.byted.org");
+		this.flinkConfig.set(KubernetesConfigOptions.KUBERNETES_INGRESS_ENABLE, true);
+		final List<HasMetadata> resources = this.externalServiceDecorator.buildAccompanyingKubernetesResources();
+		assertEquals(2, resources.size());
+		Ingress ingress = (Ingress) resources.get(1);
+		assertEquals(ExternalServiceDecorator.getIngressHost(CLUSTER_ID, "lf-cloudnative.byted.org"),
+			ingress.getSpec().getRules().get(0).getHost());
+		assertEquals(ExternalServiceDecorator.getExternalServiceName(CLUSTER_ID),
+			ingress.getSpec().getRules().get(0).getHttp().getPaths().get(0).getBackend().getServiceName());
+		assertEquals(Integer.valueOf(kubernetesJobManagerParameters.getRestPort()),
+			ingress.getSpec().getRules().get(0).getHttp().getPaths().get(0).getBackend().getServicePort().getIntVal());
 	}
 }

@@ -30,6 +30,7 @@ import org.apache.flink.kubernetes.configuration.KubernetesConfigOptionsInternal
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
+import org.apache.flink.util.StringUtils;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -118,6 +119,18 @@ public class KubernetesJobManagerParameters extends AbstractKubernetesParameters
 		return flinkConfig.getOptional(KubernetesConfigOptions.KUBERNETES_DEPLOYMENT_ANNOTATIONS).orElse(Collections.emptyMap());
 	}
 
+	public Map<String, String> getIngressAnnotations() {
+		return flinkConfig.getOptional(KubernetesConfigOptions.KUBERNETES_INGRESS_ANNOTATIONS).orElse(Collections.emptyMap());
+	}
+
+	public String getIngressHost() {
+		final String host = flinkConfig.getString(KubernetesConfigOptions.KUBERNETES_INGRESS_HOST);
+		if (StringUtils.isNullOrWhitespaceOnly(host)) {
+			throw new IllegalArgumentException(KubernetesConfigOptions.CLUSTER_ID.key() + " must not be blank.");
+		}
+		return host;
+	}
+
 	public int getBlobServerPort() {
 		final int blobServerPort = KubernetesUtils.parsePort(flinkConfig, BlobServerOptions.PORT);
 		checkArgument(blobServerPort > 0, "%s should not be 0.", BlobServerOptions.PORT.key());
@@ -137,6 +150,10 @@ public class KubernetesJobManagerParameters extends AbstractKubernetesParameters
 
 	public KubernetesConfigOptions.ServiceExposedType getRestServiceExposedType() {
 		return flinkConfig.get(KubernetesConfigOptions.REST_SERVICE_EXPOSED_TYPE);
+	}
+
+	public boolean enableIngress() {
+		return flinkConfig.get(KubernetesConfigOptions.KUBERNETES_INGRESS_ENABLE);
 	}
 
 	public boolean isInternalServiceEnabled() {

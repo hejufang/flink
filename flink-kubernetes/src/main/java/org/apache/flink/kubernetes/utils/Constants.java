@@ -26,6 +26,7 @@ public class Constants {
 	// Kubernetes api version
 	public static final String API_VERSION = "v1";
 	public static final String APPS_API_VERSION = "apps/v1";
+	public static final String INGRESS_API_VERSION = "networking.k8s.io/v1beta1";
 
 	public static final String CONFIG_FILE_LOGBACK_NAME = "logback.xml";
 	public static final String CONFIG_FILE_LOG4J_NAME = "log4j.properties";
@@ -41,6 +42,7 @@ public class Constants {
 	public static final String ENV_HADOOP_HOME = "HADOOP_HOME";
 
 	public static final String FLINK_REST_SERVICE_SUFFIX = "-rest";
+	public static final String FLINK_INGRESS_SUFFIX = "-ingress";
 
 	public static final String NAME_SEPARATOR = "-";
 

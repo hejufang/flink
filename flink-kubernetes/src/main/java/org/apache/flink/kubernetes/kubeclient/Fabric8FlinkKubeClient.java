@@ -37,6 +37,7 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.extensions.Ingress;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -140,7 +141,18 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 	}
 
 	@Override
-	public Optional<Endpoint> getRestEndpoint(String clusterId) {
+	public Optional<Endpoint> getRestEndpoint(String clusterId, boolean enableIngress) {
+		if (enableIngress) {
+			Optional<Ingress> ingress = getIngress(clusterId);
+			if (ingress.isPresent()) {
+				// The port number is always 443 (https) for ingress
+				return Optional.of(
+					new Endpoint(ingress.get().getSpec().getRules().get(0).getHost(), 443));
+			} else {
+				LOG.warn("Ingress enabled but can not found corresponding ingress, try find rest endpoint from service");
+			}
+		}
+
 		Optional<KubernetesService> restService = getRestService(clusterId);
 		if (!restService.isPresent()) {
 			return Optional.empty();
@@ -207,6 +219,25 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 		}
 
 		return Optional.of(new KubernetesService(service));
+	}
+
+	private Optional<Ingress> getIngress(String clusterId) {
+		final String ingressName = ExternalServiceDecorator.getIngressName(clusterId);
+
+		final Ingress ingress = this.internalClient
+			.extensions()
+			.ingresses()
+			.inNamespace(namespace)
+			.withName(ingressName)
+			.fromServer()
+			.get();
+
+		if (ingress == null) {
+			LOG.info("Ingress {} does not exist", ingressName);
+			return Optional.empty();
+		}
+
+		return Optional.of(ingress);
 	}
 
 	@Override

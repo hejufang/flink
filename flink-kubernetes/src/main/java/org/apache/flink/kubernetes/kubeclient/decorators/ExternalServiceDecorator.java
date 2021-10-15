@@ -22,12 +22,21 @@ import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesJobManagerPar
 import org.apache.flink.kubernetes.utils.Constants;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
+import io.fabric8.kubernetes.api.model.extensions.HTTPIngressRuleValueBuilder;
+import io.fabric8.kubernetes.api.model.extensions.Ingress;
+import io.fabric8.kubernetes.api.model.extensions.IngressBackendBuilder;
+import io.fabric8.kubernetes.api.model.extensions.IngressBuilder;
+import io.fabric8.kubernetes.api.model.extensions.IngressRule;
+import io.fabric8.kubernetes.api.model.extensions.IngressRuleBuilder;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -64,8 +73,40 @@ public class ExternalServiceDecorator extends AbstractKubernetesStepDecorator {
 					.endPort()
 				.endSpec()
 			.build();
-
-		return Collections.singletonList(externalService);
+		if (!kubernetesJobManagerParameters.enableIngress()) {
+			return Collections.singletonList(externalService);
+		} else {
+			final String ingressName = getIngressName(kubernetesJobManagerParameters.getClusterId());
+			final String host = getIngressHost(kubernetesJobManagerParameters.getClusterId(), kubernetesJobManagerParameters.getIngressHost());
+			final Map<String, String> annotations = kubernetesJobManagerParameters.getIngressAnnotations();
+			final IngressRule ingressRule = new IngressRuleBuilder()
+				.withHost(host)
+				.withHttp(new HTTPIngressRuleValueBuilder()
+					.addNewPath()
+					.withPath("/")
+					.withBackend(
+						new IngressBackendBuilder()
+							.withServiceName(serviceName)
+							.withServicePort(new IntOrString(kubernetesJobManagerParameters.getRestPort()))
+						.build()
+					)
+					.endPath()
+					.build()
+				)
+				.build();
+			final Ingress ingress = new IngressBuilder()
+				.withApiVersion(Constants.INGRESS_API_VERSION)
+				.withNewMetadata()
+				.withName(ingressName)
+				.withNamespace(kubernetesJobManagerParameters.getNamespace())
+				.withAnnotations(annotations)
+				.endMetadata()
+				.withNewSpec()
+				.withRules(ingressRule)
+				.endSpec()
+				.build();
+			return Arrays.asList(externalService, ingress);
+		}
 	}
 
 	/**
@@ -73,6 +114,20 @@ public class ExternalServiceDecorator extends AbstractKubernetesStepDecorator {
 	 */
 	public static String getExternalServiceName(String clusterId) {
 		return clusterId + Constants.FLINK_REST_SERVICE_SUFFIX;
+	}
+
+	/**
+	 * Generate name of the created ingress.
+	 */
+	public static String getIngressName(String clusterId) {
+		return clusterId + Constants.FLINK_INGRESS_SUFFIX;
+	}
+
+	/**
+	 * Generate hostname of the created ingress.
+	 */
+	public static String getIngressHost(String clusterId, String host) {
+		return clusterId + "." + host;
 	}
 
 	/**
