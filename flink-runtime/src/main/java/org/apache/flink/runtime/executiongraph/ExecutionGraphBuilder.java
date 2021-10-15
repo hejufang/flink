@@ -173,9 +173,8 @@ public class ExecutionGraphBuilder {
 		}
 
 		checkNotNull(jobGraph, "job graph cannot be null");
-
-		final String jobUID = jobGraph.getJobUID();
 		final String jobName = jobGraph.getName();
+		final String jobUID = jobGraph.getJobUID() == null ? jobName : jobGraph.getJobUID();
 		final JobID jobId = jobGraph.getJobID();
 
 		final JobInformation jobInformation = new JobInformation(

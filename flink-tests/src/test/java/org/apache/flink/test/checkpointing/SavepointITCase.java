@@ -742,7 +742,6 @@ public class SavepointITCase extends TestLogger {
 			.map(new StatefulCounter());
 
 		stream.addSink(new DiscardingSink<>());
-
 		return env.getStreamGraph(JOB_NAME).getJobGraph();
 	}
 

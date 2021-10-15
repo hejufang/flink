@@ -346,7 +346,7 @@ public class CheckpointCoordinator {
 
 	public CheckpointCoordinator(
 			JobID job,
-			@Nullable String jobUID,
+			String jobUID,
 			CheckpointCoordinatorConfiguration chkConfig,
 			ExecutionVertex[] tasksToTrigger,
 			ExecutionVertex[] tasksToWaitFor,

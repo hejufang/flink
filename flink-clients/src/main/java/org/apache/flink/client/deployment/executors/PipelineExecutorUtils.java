@@ -59,10 +59,12 @@ public class PipelineExecutorUtils {
 		final ExecutionConfigAccessor executionConfigAccessor = ExecutionConfigAccessor.fromConfiguration(configuration);
 		final JobGraph jobGraph = FlinkPipelineTranslationUtil
 				.getJobGraph(pipeline, configuration, executionConfigAccessor.getParallelism());
-
 		configuration
 				.getOptional(PipelineOptions.JOB_UID)
 				.ifPresent(jobUID -> jobGraph.setJobUID(jobUID));
+		if (jobGraph.getJobUID() == null) {
+			jobGraph.setJobUID(jobGraph.getName());
+		}
 		configuration
 				.getOptional(PipelineOptionsInternal.PIPELINE_FIXED_JOB_ID)
 				.ifPresent(strJobID -> jobGraph.setJobID(JobID.fromHexString(strJobID)));

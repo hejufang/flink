@@ -301,7 +301,6 @@ public class CliFrontend {
 
 		setEffectiveJobNameAndJobUID(effectiveConfiguration);
 		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
-
 		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
 			programOptions.setSavepointSettings(
 				effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH),

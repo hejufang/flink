@@ -25,8 +25,6 @@ import org.apache.flink.runtime.blob.PermanentBlobKey;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 
-import javax.annotation.Nullable;
-
 import java.io.Serializable;
 import java.net.URL;
 import java.util.Collection;
@@ -64,17 +62,17 @@ public class JobInformation implements Serializable {
 	private final Collection<URL> requiredClasspathURLs;
 
 	public JobInformation(
-			JobID jobId,
-			String jobName,
-			SerializedValue<ExecutionConfig> serializedExecutionConfig,
-			Configuration jobConfiguration,
-			Collection<PermanentBlobKey> requiredJarFileBlobKeys,
-			Collection<URL> requiredClasspathURLs) {
-		this(null, jobId, jobName, serializedExecutionConfig, jobConfiguration, requiredJarFileBlobKeys, requiredClasspathURLs);
+		JobID jobId,
+		String jobName,
+		SerializedValue<ExecutionConfig> serializedExecutionConfig,
+		Configuration jobConfiguration,
+		Collection<PermanentBlobKey> requiredJarFileBlobKeys,
+		Collection<URL> requiredClasspathURLs) {
+		this("jobUID", jobId, jobName, serializedExecutionConfig, jobConfiguration, requiredJarFileBlobKeys, requiredClasspathURLs);
 	}
 
 	public JobInformation(
-			@Nullable String jobUID,
+			String jobUID,
 			JobID jobId,
 			String jobName,
 			SerializedValue<ExecutionConfig> serializedExecutionConfig,
