@@ -255,6 +255,8 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 								// output and state update are atomic
 								synchronized (lock) {
 									if (data == null) {
+										LOG.warn("Message [broker: {}, queue: {}, offset: {}, message_id: {}] is invalid",
+											msg.getBornHostString(), msg.getQueueId(), msg.getQueueOffset(), msg.getMsgId());
 										skipDirty.inc();
 									} else {
 										context.collectWithTimestamp(data, msg.getBornTimestamp());

@@ -452,6 +452,8 @@ public abstract class AbstractFetcher<T, KPH> {
 		} else {
 			// if the record is null, simply just update the offset state for partition
 			skipDirty.inc();
+			LOG.warn("Message [topic {}, partition {}, offset {}]",
+				partitionState.getTopic(), partitionState.getPartition(), offset);
 			synchronized (checkpointLock) {
 				partitionState.setOffset(offset);
 				partitionState.consumerRecordsNumInc();
