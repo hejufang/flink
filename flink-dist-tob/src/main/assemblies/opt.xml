@@ -45,12 +45,12 @@
 			<fileMode>0644</fileMode>
 		</file>
 
-		<!--<file>
+		<file>
 			<source>../flink-filesystems/flink-s3-fs-hadoop/target/flink-s3-fs-hadoop-${project.version}.jar</source>
 			<outputDirectory>opt/</outputDirectory>
 			<destName>flink-s3-fs-hadoop-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
-		</file>-->
+		</file>
 
 		<file>
 			<source>../flink-filesystems/flink-s3-fs-presto/target/flink-s3-fs-presto-${project.version}.jar</source>
@@ -59,7 +59,7 @@
 			<fileMode>0644</fileMode>
 		</file>
 
-		<!--<file>
+		<file>
 			<source>../flink-filesystems/flink-swift-fs-hadoop/target/flink-swift-fs-hadoop-${project.version}.jar</source>
 			<outputDirectory>opt/</outputDirectory>
 			<destName>flink-swift-fs-hadoop-${project.version}.jar</destName>
@@ -78,7 +78,7 @@
 			<outputDirectory>opt/</outputDirectory>
 			<destName>flink-azure-fs-hadoop-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
-		</file>-->
+		</file>
 
 		<!-- Queryable State -->
 		<file>

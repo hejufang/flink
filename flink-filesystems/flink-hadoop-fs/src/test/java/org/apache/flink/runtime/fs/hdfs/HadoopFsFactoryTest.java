@@ -61,4 +61,16 @@ public class HadoopFsFactoryTest extends TestLogger {
 			assertTrue(e.getMessage().contains("authority"));
 		}
 	}
+
+	@Test
+	public void testSetVipConfReflection() throws IOException {
+		final URI uri = URI.create("hdfs://hdfsvip/home/byte_flink_checkpoint_20210220");
+
+		HadoopFsFactory factory = new HadoopFsFactory();
+		FileSystem fs = factory.create(uri);
+
+		assertEquals(uri.getScheme(), fs.getUri().getScheme());
+		assertEquals(uri.getAuthority(), fs.getUri().getAuthority());
+		assertEquals(uri.getPort(), fs.getUri().getPort());
+	}
 }

@@ -26,11 +26,13 @@ import org.apache.flink.core.fs.LimitedConnectionsFileSystem.ConnectionLimitingS
 import org.apache.flink.core.fs.UnsupportedFileSystemSchemeException;
 import org.apache.flink.runtime.configuration.HdfsConfigOptions;
 import org.apache.flink.runtime.util.HadoopUtils;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.UnknownHostException;
 
@@ -110,7 +112,18 @@ public class HadoopFsFactory implements FileSystemFactory {
 					}
 
 					LOG.info("Hadoop is using vip conf on {}.", ipPort);
-					org.apache.hadoop.fs.FileSystem.SetVipConf(vipConfig, ipPort);
+
+					// use Java reflection to be compatible with open source Hadoop
+					Class<?> clz = Class.forName("org.apache.hadoop.fs.FileSystem");
+					try {
+						Method method = clz.getMethod("SetVipConf", org.apache.hadoop.conf.Configuration.class, String.class);
+						method.invoke(null, vipConfig, ipPort);
+					} catch (NoSuchMethodException ex) {
+						LOG.info("Filesystem does not have SetVipConf() method, please check flink-conf.yaml.");
+						throw new FlinkRuntimeException(ex);
+					} catch (Throwable t) {
+						throw new FlinkRuntimeException(t);
+					}
 					hadoopConfig = vipConfig;
 				}
 			} else {
