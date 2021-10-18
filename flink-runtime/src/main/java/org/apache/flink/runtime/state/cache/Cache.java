@@ -28,6 +28,7 @@ import org.apache.flink.runtime.state.cache.scale.ScalingManager;
 import org.apache.flink.runtime.state.cache.sync.DataSynchronizer;
 import org.apache.flink.runtime.util.EmptyIterator;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
 
@@ -79,13 +80,13 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<Tuple3<K, N, UK>>
 	 */
 	public UV get(K key, N namespace, @Nullable UK userKey) throws Exception {
 		cacheEntryKey.setFields(key, namespace, userKey);
-		DirtyReference dirtyReference = cacheStrategy.getIfPresent(cacheEntryKey);
-		UV value;
-		if (dirtyReference != null) { // If dirtyReference is not null, mean it is in the cache. We can direct return from the cache.
+		UV value = stateStore.getFromStateStore(key, namespace, userKey);
+		if (value != null) { // If value is not null, mean it is in the cache. We can direct return from the cache.
+			DirtyReference dirtyReference = cacheStrategy.getIfPresent(cacheEntryKey);
+			Preconditions.checkNotNull(dirtyReference, "Cached state not in cache strategy");
 			listener.notifyCacheHit();
-			value = stateStore.getFromStateStore(key, namespace, userKey);
 			listener.notifyCacheRequest(cacheEntryKey, value);
-		} else { // If dirtyReference is null, mean it not in the cache. We need load from delegate state.
+		} else { // If value is null, mean it not in the cache. We need load from delegate state.
 			value = dataSynchronizer.loadState(cacheEntryKey);
 			listener.notifyCacheRequest(cacheEntryKey, value);
 			if (value != null) {
@@ -134,10 +135,11 @@ public class Cache<K, N, SV, UK, UV> implements FlushSupported<Tuple3<K, N, UK>>
 	 */
 	public Tuple2<UV, DirtyReference> getIfPresent(K key, N namespace, @Nullable UK userKey) throws Exception {
 		cacheEntryKey.setFields(key, namespace, userKey);
-		DirtyReference dirtyReference = cacheStrategy.getIfPresent(cacheEntryKey);
-		if (dirtyReference != null) {
+		UV value = stateStore.getFromStateStore(key, namespace, userKey);
+		if (value != null) {
+			DirtyReference dirtyReference = cacheStrategy.getIfPresent(cacheEntryKey);
+			Preconditions.checkNotNull(dirtyReference, "Cached state not in cache strategy");
 			listener.notifyCacheHit();
-			UV value = stateStore.getFromStateStore(key, namespace, userKey);
 			listener.notifyCacheRequest(cacheEntryKey, value);
 			return Tuple2.of(value, dirtyReference);
 		}

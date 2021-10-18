@@ -21,7 +21,9 @@ package org.apache.flink.runtime.state.cache;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.cache.memory.MemoryEstimator;
+import org.apache.flink.runtime.state.cache.scale.ScaleResult;
 import org.apache.flink.runtime.state.cache.sync.DataSynchronizer;
+import org.apache.flink.util.Preconditions;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -31,6 +33,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Basic test class for cache strategy.
@@ -122,6 +125,104 @@ public abstract class CacheStrategyTestBase {
 	}
 
 	@Test
+	public void testCacheGetWithScaleDown() throws Exception {
+		Cache<String, VoidNamespace, String, Void, String> cache = createCache();
+		PolicyStats policyStats = configureCache(cache);
+
+		// put a key
+		cache.put(TEST_KEY, namespace, TEST_VALUE);
+		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY, namespace));
+		Assert.assertEquals(0, policyStats.getMissCount());
+		Assert.assertEquals(0, policyStats.getLoadSuccessCount());
+		Assert.assertEquals(2, policyStats.getRequestCount());
+		Assert.assertEquals(1, policyStats.getHitCount());
+		Assert.assertEquals(1, policyStats.getMaxMemorySize().getBytes());
+		Assert.assertEquals(1, policyStats.getEstimatedSize());
+
+		// scale down to 0
+		AtomicReference<ScaleResult<MemorySize>> scaleResult = new AtomicReference<>();
+		cache.scaleDown(new MemorySize(1L), MemorySize.ZERO, result -> scaleResult.set(result));
+		Assert.assertEquals(0, policyStats.getMaxMemorySize().getBytes());
+		Assert.assertEquals(1, policyStats.getEstimatedSize());
+
+		// request
+		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY, namespace));
+		Assert.assertEquals(0, policyStats.getEstimatedSize());
+		Assert.assertEquals(3, policyStats.getRequestCount());
+		Assert.assertEquals(0, policyStats.getMissCount());
+		Assert.assertEquals(0, policyStats.getLoadSuccessCount());
+		Assert.assertEquals(2, policyStats.getHitCount());
+
+		// request again
+		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY, namespace));
+		Assert.assertEquals(4, policyStats.getRequestCount());
+		Assert.assertEquals(1, policyStats.getMissCount());
+		Assert.assertEquals(1, policyStats.getLoadSuccessCount());
+		Assert.assertEquals(2, policyStats.getHitCount());
+	}
+
+	@Test
+	public void testCachePutWithScaleDown() throws Exception {
+		Cache<String, VoidNamespace, String, Void, String> cache = createCache();
+		PolicyStats policyStats = configureCache(cache);
+
+		// put a key
+		cache.put(TEST_KEY, namespace, TEST_VALUE);
+		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY, namespace));
+		Assert.assertEquals(0, policyStats.getMissCount());
+		Assert.assertEquals(0, policyStats.getLoadSuccessCount());
+		Assert.assertEquals(2, policyStats.getRequestCount());
+		Assert.assertEquals(1, policyStats.getHitCount());
+		Assert.assertEquals(1, policyStats.getMaxMemorySize().getBytes());
+		Assert.assertEquals(1, policyStats.getEstimatedSize());
+
+		// scale down to 0
+		AtomicReference<ScaleResult<MemorySize>> scaleResult = new AtomicReference<>();
+		cache.scaleDown(new MemorySize(1L), MemorySize.ZERO, result -> scaleResult.set(result));
+		Assert.assertEquals(0, policyStats.getMaxMemorySize().getBytes());
+		Assert.assertEquals(1, policyStats.getEstimatedSize());
+
+		// put again
+		cache.put(TEST_KEY, namespace, REPLACE_VALUE);
+		Assert.assertEquals(0, policyStats.getEstimatedSize());
+		Assert.assertEquals(3, policyStats.getRequestCount());
+		Assert.assertEquals(0, policyStats.getMissCount());
+		Assert.assertEquals(0, policyStats.getLoadSuccessCount());
+		Assert.assertEquals(1, policyStats.getHitCount());
+		Assert.assertEquals(REPLACE_VALUE, cache.get(TEST_KEY, namespace));
+		Assert.assertEquals(1, policyStats.getLoadSuccessCount());
+		Assert.assertEquals(1, policyStats.getHitCount());
+	}
+
+	@Test
+	public void testCacheDeleteWithScaleDown() throws Exception {
+		Cache<String, VoidNamespace, String, Void, String> cache = createCache();
+		PolicyStats policyStats = configureCache(cache);
+
+		// put a key
+		cache.put(TEST_KEY, namespace, TEST_VALUE);
+		Assert.assertEquals(TEST_VALUE, cache.get(TEST_KEY, namespace));
+		Assert.assertEquals(0, policyStats.getMissCount());
+		Assert.assertEquals(0, policyStats.getLoadSuccessCount());
+		Assert.assertEquals(2, policyStats.getRequestCount());
+		Assert.assertEquals(1, policyStats.getHitCount());
+		Assert.assertEquals(1, policyStats.getMaxMemorySize().getBytes());
+		Assert.assertEquals(1, policyStats.getEstimatedSize());
+
+		// scale down to 0
+		AtomicReference<ScaleResult<MemorySize>> scaleResult = new AtomicReference<>();
+		cache.scaleDown(new MemorySize(1L), MemorySize.ZERO, result -> scaleResult.set(result));
+		Assert.assertEquals(0, policyStats.getMaxMemorySize().getBytes());
+		Assert.assertEquals(1, policyStats.getEstimatedSize());
+
+		// delete
+		cache.delete(TEST_KEY, namespace);
+		Assert.assertEquals(0, policyStats.getEstimatedSize());
+		Assert.assertEquals(3, policyStats.getRequestCount());
+		Assert.assertNull(cache.get(TEST_KEY, namespace));
+	}
+
+	@Test
 	public abstract void testStrategy() throws Exception;
 
 	protected PolicyStats configureCache(Cache<String, VoidNamespace, String, Void, String> cache) throws Exception {
@@ -148,6 +249,7 @@ public abstract class CacheStrategyTestBase {
 
 		@Override
 		public void saveState(K key, V value) throws Exception {
+			Preconditions.checkNotNull(value, "state can not be null");
 			map.put(key, value);
 		}
 

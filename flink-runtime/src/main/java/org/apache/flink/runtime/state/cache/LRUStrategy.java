@@ -60,20 +60,21 @@ public class LRUStrategy<K, V> implements CacheStrategy<K, V> {
 
 	@Override
 	public V getIfPresent(K key) {
+		V value = map.get(key);
 		ensureMemorySize();
-		return map.get(key);
+		return value;
 	}
 
 	@Override
 	public void put(K key, V value) {
-		ensureMemorySize();
 		map.put(key, value);
+		ensureMemorySize();
 	}
 
 	@Override
 	public void delete(K key) {
-		ensureMemorySize();
 		map.remove(key);
+		ensureMemorySize();
 	}
 
 	@Override

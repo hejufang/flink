@@ -58,20 +58,21 @@ public class LFUStrategy<K, V> implements CacheStrategy<K, V> {
 
 	@Override
 	public V getIfPresent(K key) {
+		V value = delegateCache.getIfPresent(key);
 		ensureMemorySize();
-		return delegateCache.getIfPresent(key);
+		return value;
 	}
 
 	@Override
 	public void put(K key, V value) {
-		ensureMemorySize();
 		delegateCache.put(key, value);
+		ensureMemorySize();
 	}
 
 	@Override
 	public void delete(K key) {
-		ensureMemorySize();
 		delegateCache.invalidate(key);
+		ensureMemorySize();
 	}
 
 	@Override
