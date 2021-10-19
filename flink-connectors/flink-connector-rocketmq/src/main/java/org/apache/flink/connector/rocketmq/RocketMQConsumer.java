@@ -248,7 +248,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		long lastTimestamp = System.currentTimeMillis();
 		while (running) {
 			List<List<MessageExt>> messageExtsList = new ArrayList<>();
-			synchronized (consumer) {
+			synchronized (RocketMQConsumer.this) {
 				if (assignedMessageQueuePbs == null || assignedMessageQueuePbs.size() == 0) {
 					ctx.markAsTemporarilyIdle();
 					this.wait();
@@ -280,7 +280,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			if (messageExts.size() == 0) {
 				Thread.sleep(DEFAULT_SLEEP_MILLISECONDS);
 			} else {
-				synchronized (consumer) {
+				synchronized (RocketMQConsumer.this) {
 					RetryManager.retry(() -> consumer.ack(messageExts.get(messageExts.size() - 1)), strategy);
 				}
 			}
@@ -302,14 +302,22 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 	private void assignMessageQueues(
 			SupplierWithException<List<MessageQueuePb>, InterruptedException> supplier) throws InterruptedException {
-		synchronized (consumer) {
+		synchronized (RocketMQConsumer.this) {
 			List<MessageQueuePb> currentMessageQueues = supplier.get();
 			Set<MessageQueue> newQueues =
 				currentMessageQueues.stream().map(pb -> createMessageQueue(pb)).collect(Collectors.toSet());
 			if (assignedMessageQueueSet == null || !assignedMessageQueueSet.equals(newQueues)) {
 				LOG.info("Assign {} with {}.", assignedMessageQueueSet, newQueues);
+				boolean isInitEmpty = assignedMessageQueuePbs != null && assignedMessageQueuePbs.isEmpty();
 				assignedMessageQueuePbs = currentMessageQueues;
 				assignedMessageQueueSet = newQueues;
+				if (assignedMessageQueuePbs.isEmpty()) {
+					LOG.warn("No queue assigned in this task.");
+					return;
+				}
+				if (isInitEmpty) {
+					this.notifyAll();
+				}
 				consumer.assign(assignedMessageQueuePbs);
 				resetAllOffset();
 			}
@@ -391,7 +399,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 		String startupMode = props.getOrDefault(SCAN_STARTUP_MODE.key(), SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS);
 		QueryOffsetResult queryOffsetResult;
-		synchronized (consumer) {
+		synchronized (RocketMQConsumer.this) {
 			switch (startupMode) {
 				case SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS:
 					queryOffsetResult = consumer.queryCommitOffset(topic, queuePbList);
