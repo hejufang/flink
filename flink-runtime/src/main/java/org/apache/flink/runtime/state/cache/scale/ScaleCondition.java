@@ -47,7 +47,7 @@ public class ScaleCondition {
 
 	public boolean shouldScaleDown(HeapMonitorResult monitorResult) {
 		return monitorResult.getMaxGcTime() > maxGcTimeThreshold ||
-			monitorResult.getAvgGcTime() > avgGcTimeThreshold ||
+			(monitorResult.getGcCount() > 2 && monitorResult.getAvgGcTime() > avgGcTimeThreshold) ||
 			monitorResult.getGcCount() > gcCountThreshold;
 	}
 

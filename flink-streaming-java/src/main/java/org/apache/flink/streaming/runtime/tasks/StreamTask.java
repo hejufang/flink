@@ -57,6 +57,7 @@ import org.apache.flink.runtime.state.cache.CacheConfigurableOptions;
 import org.apache.flink.runtime.state.cache.CacheConfiguration;
 import org.apache.flink.runtime.state.cache.CacheManager;
 import org.apache.flink.runtime.state.cache.CachedStateBackend;
+import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.runtime.taskmanager.DispatcherThreadFactory;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.util.FatalExitExceptionHandler;
@@ -1131,7 +1132,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			LOG);
 
 		Configuration globalConfiguration = getEnvironment().getTaskManagerInfo().getConfiguration();
-		return globalConfiguration.get(CacheConfigurableOptions.CACHE_ENABLED) ?
+		return globalConfiguration.get(CacheConfigurableOptions.CACHE_ENABLED) && !(delegateStateBackend instanceof FsStateBackend) ?
 			new CachedStateBackend(getEnvironment().getCacheManager(), delegateStateBackend, CacheConfiguration.fromConfiguration(globalConfiguration)) :
 			delegateStateBackend;
 	}

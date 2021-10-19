@@ -455,6 +455,16 @@ quoka:
   docker.namespace: yarn
   docker.image: yarn_runtime_flink:latest
   execution.cancellation.timeout.enable: true
+  state.backend.cache.enable: true
+  state.backend.cache.maxHeapSize: 1g
+  state.backend.cache.blockSize: 4m
+  state.backend.cache.initial.size: 4m
+  state.backend.cache.maxSize: 64m
+  state.backend.cache.scale.enable: true
+  state.backend.cache.gcCountThreshold: 40
+  state.backend.cache.avgGcTimeThreshold: 3000
+  state.backend.cache.maxGcTimeThreshold: 10000
+  state.backend.cache.lowHeapThreshold: 0.4
 
 quaga:
   dc: cn
