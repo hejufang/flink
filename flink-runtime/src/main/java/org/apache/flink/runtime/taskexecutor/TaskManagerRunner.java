@@ -47,6 +47,7 @@ import org.apache.flink.runtime.metrics.MetricRegistryImpl;
 import org.apache.flink.runtime.metrics.ReporterSetup;
 import org.apache.flink.runtime.metrics.groups.TaskManagerMetricGroup;
 import org.apache.flink.runtime.metrics.util.MetricUtils;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
@@ -256,6 +257,11 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 
 	@Override
 	public void onFatalError(Throwable exception) {
+		onFatalError(exception, WorkerExitCode.TASKMANAGER_GENERAL_ERROR_CODE);
+	}
+
+	@Override
+	public void onFatalError(Throwable exception, int exitCode) {
 		Throwable enrichedException = TaskManagerExceptionUtils.tryEnrichTaskManagerError(exception);
 		LOG.error("Fatal error occurred while executing the TaskManager. Shutting it down...", enrichedException);
 
@@ -263,7 +269,7 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 		// as it does not usually require more class loading to fail again with the Metaspace OutOfMemoryError.
 		if (ExceptionUtils.isJvmFatalOrOutOfMemoryError(enrichedException) &&
 				!ExceptionUtils.isMetaspaceOutOfMemoryError(enrichedException)) {
-			terminateJVM();
+			terminateJVM(exitCode);
 		} else {
 			closeAsync();
 
@@ -271,13 +277,13 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 
 			terminationFuture.whenComplete(
 				(Void ignored, Throwable throwable) -> {
-					terminateJVM();
+					terminateJVM(exitCode);
 				});
 		}
 	}
 
-	private void terminateJVM() {
-		System.exit(RUNTIME_FAILURE_RETURN_CODE);
+	private void terminateJVM(int exitCode) {
+		System.exit(exitCode);
 	}
 
 	// --------------------------------------------------------------------------------------------

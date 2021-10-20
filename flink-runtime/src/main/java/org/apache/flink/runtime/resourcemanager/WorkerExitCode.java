@@ -23,6 +23,7 @@ package org.apache.flink.runtime.resourcemanager;
  */
 public class WorkerExitCode {
 	// Flink on YARN exit code should like -8xxxx
+	public static final int TASKMANAGER_GENERAL_ERROR_CODE = 2;
 	public static final int UNKNOWN = -80000;
 	public static final int SLOW_CONTAINER = -80001;
 	public static final int START_CONTAINER_ERROR = -80002;
@@ -33,4 +34,18 @@ public class WorkerExitCode {
 	public static final int MAX_SLOT_EXCEED = -80007;
 	public static final int EXCESS_CONTAINER = -80008;
 	public static final int EXIT_BY_JOB_MANAGER = -80009;
+	public static final int TASKMANAGER_STSRT_ERROR = -80010;
+	public static final int TASKMANAGER_RELEASE_PARTIITION_ERROR = -80011;
+	public static final int TASKMANAGER_RELEASESLOT_ERROR = -80012;
+	public static final int TASKMANAGER_RELEASESLOT_NOTFOUND = -80013;
+	public static final int TASKMANAGER_REGISTRATER_RM_TIMEOUT = -80014;
+	public static final int TASKMANAGER_UPDATE_STATE_RPC_ERROR = -80015;
+	public static final int TASKMANAGER_UPDATE_STATE_ERROR = -80016;
+	public static final int TASKMANAGER_LISTENLEADER_RM_ERROR = -80017;
+	public static final int TASKMANAGER_LISTENLEADER_JM_ERROR = -80018;
+	public static final int TASKMANAGER_REGISTRATER_RM_ERROR = -80019;
+	public static final int TASKMANAGER_EXIT_TIMEOUT = -80020;
+	public static final int TASKMANAGER_PROCESS_EXCEPTION_ERROR = -80021;
+	public static final int TASKMANAGER_CLEAN_RESOURCE_ERROR = -80022;
+	public static final int TASKMANAGER_CANCEL_TASK_TIMEOUT = -80023;
 }

@@ -24,6 +24,7 @@ import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.plugin.PluginManager;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.testutils.SystemExitTrackingSecurityManager;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.TimeUtils;
@@ -83,7 +84,7 @@ public class TaskManagerRunnerTest extends TestLogger {
 		taskManagerRunner = createTaskManagerRunner(configuration);
 
 		Integer statusCode = systemExitTrackingSecurityManager.getSystemExitFuture().get();
-		assertThat(statusCode, is(equalTo(TaskManagerRunner.RUNTIME_FAILURE_RETURN_CODE)));
+		assertThat(statusCode, is(equalTo(WorkerExitCode.TASKMANAGER_REGISTRATER_RM_TIMEOUT)));
 	}
 
 	private static Configuration createConfiguration() {

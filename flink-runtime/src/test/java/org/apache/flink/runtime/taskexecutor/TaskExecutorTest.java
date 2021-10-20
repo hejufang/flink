@@ -76,6 +76,7 @@ import org.apache.flink.runtime.registration.RegistrationResponse.Decline;
 import org.apache.flink.runtime.registration.RetryingRegistrationConfiguration;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.utils.TestingResourceManagerGateway;
 import org.apache.flink.runtime.rpc.RpcUtils;
 import org.apache.flink.runtime.rpc.TestingRpcService;
@@ -1600,7 +1601,7 @@ public class TaskExecutorTest extends TestLogger {
 		try (TaskSubmissionTestEnvironment env = new Builder(jobId).build()) {
 			String testExceptionMsg = "Test exception of fatal error.";
 
-			env.getTaskExecutor().onFatalError(new Exception(testExceptionMsg));
+			env.getTaskExecutor().onFatalError(new Exception(testExceptionMsg), WorkerExitCode.TASKMANAGER_GENERAL_ERROR_CODE);
 
 			Throwable exception = env.getTestingFatalErrorHandler().getErrorFuture().get();
 			env.getTestingFatalErrorHandler().clearError();

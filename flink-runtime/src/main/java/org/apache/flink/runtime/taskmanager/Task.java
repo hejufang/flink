@@ -67,6 +67,7 @@ import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.TaskNotRunningException;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
 import org.apache.flink.runtime.state.CheckpointListener;
@@ -934,7 +935,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			catch (Throwable tt) {
 				String message = String.format("FATAL - exception in exception handler of task %s (%s).", taskMetricNameWithSubtask, executionId);
 				LOG.error(message, tt);
-				notifyFatalError(message, tt);
+				notifyFatalError(message, tt, WorkerExitCode.TASKMANAGER_PROCESS_EXCEPTION_ERROR);
 			}
 		}
 		finally {
@@ -966,7 +967,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				// an error in the resource cleanup is fatal
 				String message = String.format("FATAL - exception in resource cleanup of task %s (%s).", taskMetricNameWithSubtask, executionId);
 				LOG.error(message, t);
-				notifyFatalError(message, t);
+				notifyFatalError(message, t, WorkerExitCode.TASKMANAGER_CLEAN_RESOURCE_ERROR);
 			}
 
 			// un-register the metrics at the end so that the task may already be
@@ -1059,8 +1060,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		taskManagerActions.updateTaskExecutionState(new TaskExecutionState(jobId, executionId, executionState, failureCause));
 	}
 
-	private void notifyFatalError(String message, Throwable cause) {
-		taskManagerActions.notifyFatalError(message, cause);
+	private void notifyFatalError(String message, Throwable cause, int exitCode) {
+		taskManagerActions.notifyFatalError(message, cause, exitCode);
 	}
 
 	/**
@@ -1139,7 +1140,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		} catch (Throwable t) {
 			if (ExceptionUtils.isJvmFatalOrOutOfMemoryError(t)) {
 				String message = String.format("FATAL - exception in cancelling task %s (%s).", taskMetricNameWithSubtask, executionId);
-				notifyFatalError(message, t);
+				notifyFatalError(message, t, WorkerExitCode.TASKMANAGER_CANCEL_TASK_TIMEOUT);
 			} else {
 				throw t;
 			}
@@ -1696,7 +1697,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 				if (executerThread.isAlive()) {
 					String msg = "Task did not exit gracefully within " + (timeoutMillis / 1000) + " + seconds.";
-					taskManager.notifyFatalError(msg, new FlinkRuntimeException(msg));
+					taskManager.notifyFatalError(msg, new FlinkRuntimeException(msg), WorkerExitCode.TASKMANAGER_EXIT_TIMEOUT);
 				}
 			}
 			catch (Throwable t) {

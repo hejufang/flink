@@ -207,6 +207,174 @@
       {
         "matcher": {
           "id": "byName",
+          "options": "-80010"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80010 (无法启动TM)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80011"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80011 (释放或恢复partition失败)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80012"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80012 (申请slot出现异常之后无法释放slot)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80013"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80013 (申请slot出现异常之后释放slot，slot无法找到)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80014"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80014 (注册到RM超时)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80015"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80015 (发送更新状态信息到JM时发生RPC异常)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80016"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80016 (发送更新状态信息到JM时发生错误)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80017"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80017 (监听RM leadership出错)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80018"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80018 (监听JM leadership出错)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80019"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80019 (注册到RM失败)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80020"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80020 (TM退出超时)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80021"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80021 (处理异常时出现错误)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80022"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80022 (清理TM资源时出现异常)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80023"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80023 (取消TM时出现异常)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
           "options": "-103"
         },
         "properties": [

@@ -89,6 +89,7 @@ import org.apache.flink.runtime.registration.RegistrationConnectionListener;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -371,7 +372,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			startTaskExecutorServices();
 		} catch (Exception e) {
 			final TaskManagerException exception = new TaskManagerException(String.format("Could not start the TaskExecutor %s", getAddress()), e);
-			onFatalError(exception);
+			onFatalError(exception, WorkerExitCode.TASKMANAGER_STSRT_ERROR);
 			throw exception;
 		}
 
@@ -846,7 +847,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			closeJobManagerConnectionIfNoAllocatedResources(jobId);
 		} catch (Throwable t) {
 			// TODO: Do we still need this catch branch?
-			onFatalError(t);
+			onFatalError(t, WorkerExitCode.TASKMANAGER_RELEASE_PARTIITION_ERROR);
 		}
 
 		// TODO: Maybe it's better to return an Acknowledge here to notify the JM about the success/failure with an Exception
@@ -991,7 +992,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			} catch (SlotNotFoundException slotNotFoundException) {
 				// slot no longer existent, this should actually never happen, because we've
 				// just allocated the slot. So let's fail hard in this case!
-				onFatalError(slotNotFoundException);
+				onFatalError(slotNotFoundException, WorkerExitCode.TASKMANAGER_RELEASESLOT_NOTFOUND);
 			}
 
 			// release local state under the allocation id.
@@ -999,7 +1000,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 			// sanity check
 			if (!taskSlotTable.isSlotFree(slotId.getSlotNumber())) {
-				onFatalError(new Exception("Could not free slot " + slotId));
+				onFatalError(new Exception("Could not free slot " + slotId), WorkerExitCode.TASKMANAGER_RELEASESLOT_ERROR);
 			}
 
 			return FutureUtils.completedExceptionally(new SlotAllocationException("Could not create new job.", e));
@@ -1312,7 +1313,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				new RegistrationTimeoutException(
 					String.format("Could not register at the ResourceManager within the specified maximum " +
 						"registration duration %s. This indicates a problem with this instance. Terminating now.",
-						maxRegistrationDuration)));
+						maxRegistrationDuration)),
+					WorkerExitCode.TASKMANAGER_REGISTRATER_RM_TIMEOUT);
 		}
 	}
 
@@ -1628,7 +1630,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 							// For example, a task fails but JM didn't receive the notification so that the task will never be
 							// redeployed.
 							log.error("Catch exception when send update task execution state message to job master, ", throwable);
-							onFatalError(throwable);
+							onFatalError(throwable, WorkerExitCode.TASKMANAGER_UPDATE_STATE_ERROR);
 						}
 					}
 				},
@@ -1638,7 +1640,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			// For example, a task fails but JM didn't receive the notification so that the task will never be
 			// redeployed.
 			log.error("Catch exception when send update task execution state message to job master, ", t);
-			onFatalError(t);
+			onFatalError(t, WorkerExitCode.TASKMANAGER_UPDATE_STATE_RPC_ERROR);
 		}
 	}
 
@@ -1853,13 +1855,13 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	 *
 	 * @param t The exception describing the fatal error
 	 */
-	void onFatalError(final Throwable t) {
+	void onFatalError(final Throwable t, int exitCode) {
 		try {
 			log.error("Fatal error occurred in TaskExecutor {}.", getAddress(), t);
 		} catch (Throwable ignored) {}
 
 		// The fatal error handler implementation should make sure that this call is non-blocking
-		fatalErrorHandler.onFatalError(t);
+		fatalErrorHandler.onFatalError(t, exitCode);
 	}
 
 	// ------------------------------------------------------------------------
@@ -1895,7 +1897,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		@Override
 		public void handleError(Exception exception) {
-			onFatalError(exception);
+			onFatalError(exception, WorkerExitCode.TASKMANAGER_LISTENLEADER_RM_ERROR);
 		}
 	}
 
@@ -1931,7 +1933,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		@Override
 		public void handleError(Throwable throwable) {
-			onFatalError(throwable);
+			onFatalError(throwable, WorkerExitCode.TASKMANAGER_LISTENLEADER_JM_ERROR);
 		}
 	}
 
@@ -1964,7 +1966,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		@Override
 		public void onRegistrationFailure(Throwable failure) {
-			onFatalError(failure);
+			onFatalError(failure, WorkerExitCode.TASKMANAGER_REGISTRATER_RM_ERROR);
 		}
 	}
 
@@ -1977,12 +1979,17 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		@Override
 		public void notifyFatalError(String message, Throwable cause) {
+			notifyFatalError(message, cause, WorkerExitCode.TASKMANAGER_GENERAL_ERROR_CODE);
+		}
+
+		@Override
+		public void notifyFatalError(String message, Throwable cause, int exitCode) {
 			try {
 				log.error(message, cause);
 			} catch (Throwable ignored) {}
 
 			// The fatal error handler implementation should make sure that this call is non-blocking
-			fatalErrorHandler.onFatalError(cause);
+			fatalErrorHandler.onFatalError(cause, exitCode);
 		}
 
 		@Override

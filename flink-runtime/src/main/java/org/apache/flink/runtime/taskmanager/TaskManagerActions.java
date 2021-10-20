@@ -34,6 +34,10 @@ public interface TaskManagerActions {
 	 */
 	void notifyFatalError(String message, Throwable cause);
 
+	default void notifyFatalError(String message, Throwable cause, int exitCode) {
+		notifyFatalError(message, cause);
+	}
+
 	/**
 	 * Tells the task manager to fail the given task.
 	 *

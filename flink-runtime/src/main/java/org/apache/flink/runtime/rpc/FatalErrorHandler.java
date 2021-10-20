@@ -32,4 +32,8 @@ public interface FatalErrorHandler {
 	 * @param exception cause
 	 */
 	void onFatalError(Throwable exception);
+
+	default void onFatalError(Throwable exception, int exitCode) {
+		onFatalError(exception);
+	}
 }
