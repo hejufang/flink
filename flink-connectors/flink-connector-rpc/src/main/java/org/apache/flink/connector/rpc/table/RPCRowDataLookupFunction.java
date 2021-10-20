@@ -46,6 +46,7 @@ import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonFactory;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonGenerator;
 
+import org.apache.thrift.TException;
 import org.apache.thrift.TServiceClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -288,15 +289,20 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 			Object requestObject,
 			GenericRowData lookupKeys) {
 		long startRequest = System.currentTimeMillis();
-		Object responseObject = serviceClient.sendRequest(requestObject);
-		long requestDelay = System.currentTimeMillis() - startRequest;
-		requestDelayMs.update(requestDelay);
-		// A null response will be returned by service client when request is failed.
-		// This includes the all kinds of exceptions before getting the response.
-		// todo: make exceptions marked with flag indicates if they are retryable or not and treat them differently.
-		if (responseObject == null) {
-			throw new RuntimeException("The response object is null, please find more information from" +
-				" the tm log. Or you can change the failure handle strategy to ignore the error.");
+		Object responseObject;
+		try {
+			responseObject = serviceClient.sendRequest(requestObject);
+			long requestDelay = System.currentTimeMillis() - startRequest;
+			requestDelayMs.update(requestDelay);
+			// A null response will be returned by service client when request is failed.
+			// This includes the all kinds of exceptions before getting the response.
+			// todo: make exceptions marked with flag indicates if they are retryable or not and treat them differently.
+			if (responseObject == null) {
+				throw new RuntimeException("The response object is null, please find more information from" +
+					" the tm log. Or you can change the failure handle strategy to ignore the error.");
+			}
+		} catch (TException e) {
+			throw new RuntimeException("Sending request to service failed.", e);
 		}
 		RowData responseValue = responseConverter.toInternal(responseObject);
 		RowData result = assembleRow(lookupKeys, responseValue);

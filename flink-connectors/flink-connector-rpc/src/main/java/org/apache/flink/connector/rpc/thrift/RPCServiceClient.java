@@ -25,6 +25,7 @@ import com.bytedance.arch.transport.ServiceClient;
 import com.bytedance.arch.transport.ServiceMeta;
 import com.bytedance.arch.transport.SocketPoolOptions;
 import com.bytedance.arch.transport.loadbalance.LoadBalancerType;
+import org.apache.thrift.TException;
 import org.apache.thrift.TServiceClient;
 
 import java.io.Serializable;
@@ -76,7 +77,7 @@ public class RPCServiceClient implements Serializable {
 	}
 
 	@SuppressWarnings("unchecked")
-	public Object sendRequest(Object request) {
+	public Object sendRequest(Object request) throws TException {
 		return socketPool.call(
 			request,
 			(RpcFunction) (client, request1) -> {
