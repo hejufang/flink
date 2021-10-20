@@ -179,6 +179,8 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 					for (ConsumerRecord<byte[], byte[]> record : partitionRecords) {
 						deserializer.deserialize(record, kafkaCollector);
 						if (!kafkaCollector.getAndResetIsCollected()) {
+							LOG.warn("Message [topic: {}, partition: {}, offset: {} is invalid]",
+								partition.getTopic(), partition.getPartition(), partition.getOffset());
 							skipDirtyCounter.inc();
 						}
 

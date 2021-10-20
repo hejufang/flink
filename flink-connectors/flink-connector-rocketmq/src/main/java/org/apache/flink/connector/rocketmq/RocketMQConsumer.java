@@ -265,6 +265,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				T rowData = schema.deserialize(messageQueue, messageExt);
 				if (rowData == null) {
 					skipDirtyCounter.inc();
+					LOG.warn("Message [topic: {}, brokerName: {}, queueId: {}, offset: {}] is invalid",
+						messageQueue.getTopic(), messageQueue.getBrokerName(),
+						messageQueue.getQueueId(), messageExt.getQueueOffset());
 					continue;
 				}
 				lastTimestamp = System.currentTimeMillis();
