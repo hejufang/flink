@@ -139,7 +139,7 @@ public class ByteSQLLookupExecutor implements Serializable {
 		}
 		String realSQL;
 		try {
-			realSQL = ByteSQLUtils.generateActualSql(query, (index) -> inputs[index]);
+			realSQL = ByteSQLUtils.generateActualSql(query, keyRow, fieldGetters);
 		} catch (ByteSQLException e) {
 			throw new RuntimeException(String.format("Resolving parameters from %s failed for query: %s.",
 				keyRow.toString(), query), e);
