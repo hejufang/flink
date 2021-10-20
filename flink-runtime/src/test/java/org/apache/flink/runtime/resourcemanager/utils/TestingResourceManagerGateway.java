@@ -305,6 +305,11 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 	}
 
 	@Override
+	public void releaseTaskManager(ResourceID resourceID, Exception cause) {
+		disconnectTaskManager(resourceID, cause);
+	}
+
+	@Override
 	public void disconnectJobManager(JobID jobId, JobStatus jobStatus, Exception cause) {
 		final Consumer<Tuple3<JobID, JobStatus, Throwable>> currentConsumer = disconnectJobManagerConsumer;
 

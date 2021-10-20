@@ -25,9 +25,11 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.execution.ExecutionState;
+import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.executiongraph.failover.flip1.ExecutionFailureHandler;
@@ -52,6 +54,7 @@ import org.apache.flink.runtime.shuffle.ShuffleMaster;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FlinkException;
 
 import org.slf4j.Logger;
 
@@ -306,7 +309,33 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		notifyCoordinatorOfCancellation(vertex);
 
 		executionSlotAllocator.cancel(executionVertexId);
-		return executionVertexOperations.cancel(vertex);
+		CompletableFuture<?> cancel = executionVertexOperations.cancel(vertex);
+		Execution execution = vertex.getCurrentExecutionAttempt();
+		if (executionCancellationTimeoutEnable) {
+			log.debug("check execution {} cancellation timeout enable", execution.getVertexWithAttempt());
+			getMainThreadExecutor().schedule(() -> checkCancelingTimeout(execution),
+				executionCancellationTimeout, TimeUnit.MILLISECONDS);
+		}
+		return cancel;
+	}
+
+	private void checkCancelingTimeout(Execution execution) {
+
+		// If the task status stack in canceling, force close the taskManager.
+		if (!execution.getReleaseFuture().isDone()) {
+			log.warn("Task did not exit gracefully within " + executionCancellationTimeout / 1000 + " + seconds.");
+			ResourceID resourceID = execution.getAssignedResourceLocation().getResourceID();
+			FlinkException cause = new FlinkException("Task did not exit gracefully, it should be force shutdown.");
+			if (resourceManagerGateway == null) {
+				log.warn("Scheduler has no ResourceManager connected");
+				return;
+			}
+			try {
+				resourceManagerGateway.releaseTaskManager(resourceID, cause);
+			} catch (Exception e) {
+				log.error("close canceling timeout task {} fail", execution, e);
+			}
+		}
 	}
 
 	@Override

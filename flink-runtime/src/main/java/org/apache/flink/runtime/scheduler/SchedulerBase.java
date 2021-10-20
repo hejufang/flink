@@ -27,6 +27,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.core.io.InputSplit;
 import org.apache.flink.metrics.MeterView;
 import org.apache.flink.metrics.TagGaugeStore;
@@ -94,6 +95,7 @@ import org.apache.flink.runtime.operators.coordination.TaskNotRunningException;
 import org.apache.flink.runtime.query.KvStateLocation;
 import org.apache.flink.runtime.query.KvStateLocationRegistry;
 import org.apache.flink.runtime.query.UnknownKvStateLocation;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
@@ -194,6 +196,11 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	protected final RemoteBlacklistReporter remoteBlacklistReporter;
 
+	protected ResourceManagerGateway resourceManagerGateway = null;
+
+	protected final long executionCancellationTimeout;
+	protected final boolean executionCancellationTimeoutEnable;
+
 	private final boolean allowNonRestoredState;
 
 	protected final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
@@ -262,6 +269,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 		this.allowNonRestoredState = jobMasterConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE);
 		this.savepointLocationPrefix = jobMasterConfiguration.getString(CheckpointingOptions.SAVEPOINT_LOCATION_PREFIX);
+		this.executionCancellationTimeout = jobMasterConfiguration.getLong(ExecutionOptions.EXECUTION_CANCELLATION_TIMEOUT);
+		this.executionCancellationTimeoutEnable = jobMasterConfiguration.getBoolean(ExecutionOptions.EXECUTION_CANCELLATION_TIMEOUT_ENABLE);
 
 		this.executionGraph = createAndRestoreExecutionGraph(jobManagerJobMetricGroup, checkNotNull(shuffleMaster), checkNotNull(partitionTracker));
 		this.schedulingTopology = executionGraph.getSchedulingTopology();
@@ -504,6 +513,11 @@ public abstract class SchedulerBase implements SchedulerNG {
 		this.mainThreadExecutor = checkNotNull(mainThreadExecutor);
 		initializeOperatorCoordinators(mainThreadExecutor);
 		executionGraph.start(mainThreadExecutor);
+	}
+
+	@Override
+	public void setResourceManager(final ResourceManagerGateway resourceManagerGateway) {
+		this.resourceManagerGateway = checkNotNull(resourceManagerGateway);
 	}
 
 	@Override

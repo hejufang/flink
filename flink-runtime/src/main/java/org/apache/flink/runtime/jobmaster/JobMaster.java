@@ -1177,6 +1177,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 			slotPool.connectToResourceManager(resourceManagerGateway);
 
+			schedulerNG.setResourceManager(resourceManagerGateway);
+
 			remoteBlacklistReporter.connectToResourceManager(resourceManagerGateway);
 
 			resourceManagerHeartbeatManager.monitorTarget(resourceManagerResourceId, new HeartbeatTarget<Void>() {

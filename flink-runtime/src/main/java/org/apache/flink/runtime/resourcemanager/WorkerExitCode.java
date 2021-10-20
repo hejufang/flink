@@ -32,4 +32,5 @@ public class WorkerExitCode {
 	public static final int EXIT_BY_TASK_MANAGER = -80006;
 	public static final int MAX_SLOT_EXCEED = -80007;
 	public static final int EXCESS_CONTAINER = -80008;
+	public static final int EXIT_BY_JOB_MANAGER = -80009;
 }

@@ -114,6 +114,7 @@ common:
   # Full JobManager Options
   resourcemanager.taskmanager-timeout: 600000
   slot.request.timeout: 300000
+  execution.cancellation.timeout.ms: 300000
 
   # Full TaskManagerOptions
   taskmanager.network.netty.sendReceiveBufferSize: 4194304
@@ -438,6 +439,7 @@ quoka:
   bytedance.streaming.cluster.evenly-spread-out-slots: false
   bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
   bytedance.streaming.slot-pool.round-robin: true
+  execution.cancellation.timeout.enable: true
 
 quaga:
   dc: cn

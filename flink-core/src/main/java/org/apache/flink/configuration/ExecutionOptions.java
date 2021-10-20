@@ -92,4 +92,17 @@ public class ExecutionOptions {
 									.text("Note: Blocking shuffle means data will be fully produced before sent to consumer tasks. " +
 											"Pipelined shuffle means data will be sent to consumer tasks once produced.")
 									.build());
+
+	public static final ConfigOption<Long> EXECUTION_CANCELLATION_TIMEOUT =
+		ConfigOptions.key("execution.cancellation.timeout.ms")
+			.longType()
+			.defaultValue(300000L)
+			.withDescription("Timeout in milliseconds after which a execution cancellation times out and" +
+				" close the TaskManager.");
+
+	public static final ConfigOption<Boolean> EXECUTION_CANCELLATION_TIMEOUT_ENABLE =
+		ConfigOptions.key("execution.cancellation.timeout.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("enable TaskManager cancellation timeout.");
 }

@@ -501,6 +501,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	}
 
 	@Override
+	public void releaseTaskManager(final ResourceID resourceId, final Exception cause) {
+		closeTaskManagerConnection(resourceId, cause, WorkerExitCode.EXIT_BY_JOB_MANAGER);
+	}
+
+	@Override
 	public void disconnectJobManager(final JobID jobId, JobStatus jobStatus, final Exception cause) {
 		if (jobStatus.isGloballyTerminalState()) {
 			removeJob(jobId);

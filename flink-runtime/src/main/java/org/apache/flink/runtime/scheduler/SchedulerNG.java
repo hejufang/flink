@@ -47,6 +47,7 @@ import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.query.KvStateLocation;
 import org.apache.flink.runtime.query.UnknownKvStateLocation;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
@@ -99,6 +100,8 @@ public interface SchedulerNG {
 	JobStatus requestJobStatus();
 
 	JobDetails requestJobDetails();
+
+	void setResourceManager(ResourceManagerGateway resourceManagerGateway);
 
 	// ------------------------------------------------------------------------------------
 	// Methods below do not belong to Scheduler but are included due to historical reasons
