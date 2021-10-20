@@ -68,7 +68,7 @@ public class JobMeta {
 			ConfigConstants.APPLICATION_NAME_DEFAULT);
 		String jobName = streamGraph.getJobName();
 		String tasks = Utils.list2JSONArray(Utils.getTasks(jobGraph)).toJSONString();
-		String operators = Utils.list2JSONArray(Utils.getOperaters(streamGraph)).toJSONString();
+		String operators = Utils.list2JSONArray(Utils.getOperators(streamGraph)).toJSONString();
 		if ("".equals(dc) || "".equals(cluster) || "".equals(jobName)) {
 			LOG.warn("Failed to save job meta to database, " +
 				"because there is no available dc, cluster or jobName.");

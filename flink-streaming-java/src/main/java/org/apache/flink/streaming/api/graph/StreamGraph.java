@@ -19,6 +19,7 @@ package org.apache.flink.streaming.api.graph;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.InvalidProgramException;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.cache.DistributedCache;
 import org.apache.flink.api.common.io.InputFormat;
@@ -63,8 +64,11 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -776,5 +780,82 @@ public class StreamGraph extends StreamingPlan {
 	@Override
 	public boolean isBatchJob() {
 		return isBatchJob;
+	}
+
+
+	/**
+	 * Get sorted streamNode list.
+	 */
+	public List<StreamNode> getStreamNodeSortedTopologicallyFromSources() throws InvalidProgramException {
+
+		if (this.streamNodes.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		List<StreamNode> sorted = new ArrayList<>(this.streamNodes.size());
+		Set<StreamNode> remaining = new LinkedHashSet<>(getStreamNodes());
+
+		// start by finding the streamNode with no input edges
+		{
+			Iterator<StreamNode> iter = remaining.iterator();
+			while (iter.hasNext()) {
+				StreamNode streamNode = iter.next();
+
+				if (streamNode.getInEdges().isEmpty()) {
+					sorted.add(streamNode);
+					iter.remove();
+				}
+			}
+		}
+
+		int startNodePos = 0;
+
+		// traverse from the nodes that were added until we found all elements
+		while (!remaining.isEmpty()) {
+
+			// first check if we have more candidates to start traversing from. if not, then the
+			// graph is cyclic, which is not permitted
+			if (startNodePos >= sorted.size()) {
+				throw new InvalidProgramException("The stream graph is cyclic.");
+			}
+
+			StreamNode current = sorted.get(startNodePos++);
+			addNodesThatHaveNoUpStream(current, sorted, remaining);
+		}
+
+		return sorted;
+	}
+
+	private void addNodesThatHaveNoUpStream(StreamNode start, List<StreamNode> target, Set<StreamNode> remaining) {
+
+		// forward traverse over all out edges.
+		for (StreamEdge outEdge : start.getOutEdges()) {
+			StreamNode streamNode = getStreamNode(outEdge.getTargetId());
+
+			// a streamNode can be added, if it has no upstream that are still in the 'remaining' set
+			if (!remaining.contains(streamNode)) {
+				continue;
+			}
+
+			boolean hasNewUpStream = false;
+
+			for (StreamEdge e : streamNode.getInEdges()) {
+				// skip the edge through which we came
+				if (e == outEdge) {
+					continue;
+				}
+
+				if (remaining.contains(getStreamNode(e.getSourceId()))) {
+					hasNewUpStream = true;
+					break;
+				}
+			}
+
+			if (!hasNewUpStream) {
+				target.add(streamNode);
+				remaining.remove(streamNode);
+				addNodesThatHaveNoUpStream(streamNode, target, remaining);
+			}
+		}
 	}
 }

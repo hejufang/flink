@@ -17,6 +17,8 @@
 
 package org.apache.flink.monitor.utils;
 
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.streaming.api.graph.StreamGraph;
@@ -43,6 +45,7 @@ public class Utils {
 	private static final int METRICS_OPERATOR_NAME_MAX_LENGTH = 40;
 	private static final int METRICS_TASK_NAME_MAX_LENGTH = 100;
 	private static final Pattern CLUSTER_WITH_DC_PATTERN = Pattern.compile("(.*)\\.service\\.(\\w+)");
+	private static final String RMQ_CONSUMER_DASHBOARD_URL_FORMAT = "%s/dashboard/db/rocketmq-health_diagnosisjian-kong?refresh=1m&orgId=1&from=now-12h&to=now&var-cluster=%s&var-cg=%s&var-dc=*&var-topic=%s&var-data_source=%s";
 
 	public static String replaceSpecialCharacter(String name) {
 		if (name != null) {
@@ -64,9 +67,30 @@ public class Utils {
 		return tasks;
 	}
 
-	public static List<String> getOperaters(StreamGraph streamGraph) {
+	public static List<String> getSortedTasks(JobGraph jobGraph) {
+		List<String> tasks = new ArrayList<>();
+		for (JobVertex vertex : jobGraph.getVerticesSortedTopologicallyFromSources()) {
+			String name = vertex.getName();
+			name = formatTask(name);
+			tasks.add(name);
+		}
+		return tasks;
+	}
+
+	public static List<String> getOperators(StreamGraph streamGraph) {
 		List<String> operators = new ArrayList<>();
 		for (StreamNode node : streamGraph.getStreamNodes()) {
+			String name = node.getOperatorName();
+			name = formatOperater(name);
+			operators.add(name);
+		}
+		return operators;
+	}
+
+	public static List<String> getSortedOperators(StreamGraph streamGraph) {
+		List<String> operators = new ArrayList<>();
+		List<StreamNode> streamNodes = streamGraph.getStreamNodeSortedTopologicallyFromSources();
+		for (StreamNode node : streamNodes) {
 			String name = node.getOperatorName();
 			name = formatOperater(name);
 			operators.add(name);
@@ -80,9 +104,15 @@ public class Utils {
 			.collect(Collectors.toList());
 	}
 
-	public static List<String> getOperatersExceptSources(StreamGraph streamGraph) {
+	public static List<String> filterWindowOperators(List<String> operators) {
+		return operators.stream()
+			.filter(s -> s.contains("Window"))
+			.collect(Collectors.toList());
+	}
+
+	public static List<String> getOperatorsExceptSources(StreamGraph streamGraph) {
 		List<String> result = new ArrayList<>();
-		List<String> operators = getOperaters(streamGraph);
+		List<String> operators = getSortedOperators(streamGraph);
 		List<String> sources = getSources(streamGraph);
 		for (String operator: operators) {
 			if (!sources.contains(operator)) {
@@ -138,13 +168,31 @@ public class Utils {
 		for (Object object : jsonArray) {
 			JSONObject jsonObject = (JSONObject) object;
 			String kafkaCluster = (String) jsonObject.get("cluster");
-			String kafkaTopicPrefix = KafkaUtil.getKafkaTopicPrefix(kafkaCluster, kafkaServerUrl);
+			Tuple2<String, String> metricPrefix = KafkaUtil.getKafkaTopicPrefix(kafkaCluster, kafkaServerUrl);
+			String kafkaTopicPrefix = metricPrefix.f0;
 			String topic = (String) jsonObject.get("topic");
 			String consumer = (String) jsonObject.get("consumer");
 			String metric = String.format("%s.%s.%s.lag.size", kafkaTopicPrefix, topic, consumer);
 			kafkaMetricsList.add(metric);
 		}
 		return kafkaMetricsList;
+	}
+
+	public static List<Tuple2<String, String>> getKafkaConsumerUrls(String kafkaServerUrl, String dataSource) {
+		List<Tuple2<String, String>> kafkaConsumerUrls = new ArrayList<>();
+		JSONArray jsonArray = getKafkaTopics();
+		for (Object object : jsonArray) {
+			JSONObject jsonObject = (JSONObject) object;
+			String kafkaCluster = (String) jsonObject.get("cluster");
+			Tuple2<String, String> metricPrefix = KafkaUtil.getKafkaTopicPrefix(kafkaCluster, kafkaServerUrl);
+			String kafkaTopicPrefix = metricPrefix.f0;
+			String kafkaBrokerPrefix = metricPrefix.f1;
+			String topic = (String) jsonObject.get("topic");
+			String consumer = (String) jsonObject.get("consumer");
+			String url = KafkaUtil.getKafkaConsumerDashboardUrl(consumer, topic, kafkaTopicPrefix, kafkaBrokerPrefix, dataSource);
+			kafkaConsumerUrls.add(Tuple2.of(topic, url));
+		}
+		return kafkaConsumerUrls;
 	}
 
 	public static JSONArray getKafkaTopics() {
@@ -210,5 +258,27 @@ public class Utils {
 			jsonArray.add(o);
 		}
 		return jsonArray;
+	}
+
+	public static <T> List<List<T>> splitList(List<T> source, int subListSize) {
+		List<List<T>> result = new ArrayList<>();
+		int sourceSize = source.size();
+		int size = (sourceSize % subListSize) == 0 ? (sourceSize / subListSize) : ((sourceSize / subListSize) + 1);
+		for (int i = 0; i < size; i++) {
+			List<T> subList = new ArrayList<T>();
+			for (int j = i * subListSize; j < (i + 1) * subListSize; j++) {
+				if (j < sourceSize) {
+					subList.add(source.get(j));
+				}
+			}
+			result.add(subList);
+		}
+		return result;
+	}
+
+	public static String getRmqDashboardUrl(String cluster, String consumerGroup, String topic, String dataSource) {
+		String grafanaDomainUrl = System.getProperty(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+			ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
+		return String.format(RMQ_CONSUMER_DASHBOARD_URL_FORMAT, grafanaDomainUrl, cluster, consumerGroup, topic, dataSource);
 	}
 }

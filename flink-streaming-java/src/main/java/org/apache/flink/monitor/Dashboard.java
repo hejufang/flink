@@ -17,12 +17,17 @@
 
 package org.apache.flink.monitor;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.monitor.utils.HttpUtil;
 import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
+import org.apache.flink.util.StringUtils;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
+
+import org.apache.commons.collections.CollectionUtils;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.slf4j.Logger;
@@ -37,17 +42,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static org.apache.flink.monitor.utils.Utils.formatMetricsName;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Provides methods for registring grafana dashboard.
+ * Provides methods for registering grafana dashboard.
  */
 public class Dashboard {
 	private static final Logger LOG = LoggerFactory.getLogger(Dashboard.class);
-
-	/** Template for completed container. */
-	private static final String COMPLETED_CONTAINER_TEMPLATE = "completed_container_template.txt";
 
 	private String clusterName;
 	private String jobName;
@@ -55,13 +57,19 @@ public class Dashboard {
 	private String dataSource;
 	private JobGraph jobGraph;
 	private StreamGraph streamGraph;
+	// not split for now.
+	private static final int targetLimit = Integer.MAX_VALUE;
 
-	public Dashboard(String clusterName, String dataSource, StreamGraph streamGraph,
-		JobGraph jobGraph) {
+	public Dashboard(String clusterName, String dataSource, StreamGraph streamGraph, JobGraph jobGraph) {
 		this.clusterName = clusterName;
 		this.streamGraph = streamGraph;
 		this.jobGraph = jobGraph;
-		this.jobName = jobGraph.getName();
+		String jobNameFromProperty = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		if (StringUtils.isNullOrWhitespaceOnly(jobNameFromProperty)) {
+			this.jobName = jobGraph.getName();
+		} else {
+			this.jobName = jobNameFromProperty;
+		}
 		this.formatJobName = formatMetricsName(jobGraph.getName());
 		this.dataSource = dataSource;
 	}
@@ -80,7 +88,14 @@ public class Dashboard {
 	}
 
 	private String renderJobInfoRow() {
-		String jobInfoTemplate = Template.JOB_INFO;
+		String jobInfoTemplate;
+
+		try {
+			jobInfoTemplate = renderFromResource(DashboardTemplate.JOB_INFO_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		Map<String, String> jobInfoValues = new HashMap<>();
 		jobInfoValues.put("jobname", formatJobName);
 		jobInfoValues.put("datasource", dataSource);
@@ -88,48 +103,139 @@ public class Dashboard {
 		return jobInfoRow;
 	}
 
-	private String renderKafkaLagSizeRow(List<String> lags) {
-		String lagSizeTargetTemplate = Template.KAFKA_LAG_SIZE_TARGET;
+	private String renderOverviewRow() {
+		String template;
+
+		try {
+			template = renderFromResource(DashboardTemplate.OVERVIEW_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		Map<String, String> values = new HashMap<>();
+		values.put("jobname", formatJobName);
+		values.put("datasource", dataSource);
+		String row = renderString(template, values);
+		return row;
+	}
+
+	private String renderRowTemplate(String rowTemplateName, List<String> panels) {
+
+		return renderRowTemplate(rowTemplateName, panels, true);
+	}
+
+	private String renderRowTemplate(String rowTemplateName, List<String> panels, boolean collapse) {
+
+		try {
+			String rowTemplate = renderFromResource(rowTemplateName);
+			Map<String, String> panelValues = new HashMap<>();
+			panelValues.put("collapsed", String.valueOf(collapse));
+			if (collapse) {
+				if (CollectionUtils.isNotEmpty(panels)) {
+					panelValues.put("panels", String.join(",", panels));
+				} else {
+					panelValues.put("panels", "");
+				}
+				return renderString(rowTemplate, panelValues);
+			} else {
+				panelValues.put("panels", "");
+				String row = renderString(rowTemplate, panelValues);
+				return row + "," + String.join(",", panels);
+			}
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+	}
+
+	private String renderKafkaLagSizeRow(List<String> lags, List<Tuple2<String, String>> kafkaConsumerUrls) {
+		String lagSizeTargetTemplate;
+		String lagSizeTemplate;
+		String linkTemplate;
+
+		try {
+			lagSizeTargetTemplate = renderFromResource(DashboardTemplate.KAFKA_LAG_SIZE_TARGET_TEMPLATE);
+			lagSizeTemplate = renderFromResource(DashboardTemplate.KAFKA_LAG_SIZE_TEMPLATE);
+			linkTemplate = renderFromResource(DashboardTemplate.KAFKA_LAG_LINK_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		List<String> lagsList = new ArrayList<>();
 		for (String l : lags) {
 			Map<String, String> lagSizeTargetValues = new HashMap<>();
 			lagSizeTargetValues.put("lag", l);
 			lagsList.add(renderString(lagSizeTargetTemplate, lagSizeTargetValues));
 		}
+		List<String> linksList = new ArrayList<>();
+		Map<String, String> linkValues = new HashMap<>();
+		for (Tuple2<String, String> tuple : kafkaConsumerUrls) {
+			linkValues.put("topic", tuple.f0);
+			linkValues.put("url", tuple.f1);
+			linksList.add(renderString(linkTemplate, linkValues));
+		}
 		String targets = String.join(",", lagsList);
+		String links = String.join(",", linksList);
 		Map<String, String> lagSizeValues = new HashMap<>();
 		lagSizeValues.put("targets", targets);
+		lagSizeValues.put("links", links);
 		lagSizeValues.put("datasource", dataSource);
-		String lagSizeTemplate = Template.KAFKA_LAG_SIZE;
 		String lagSizeRow = renderString(lagSizeTemplate, lagSizeValues);
 		return lagSizeRow;
 	}
 
 	private String renderRocketMQLagSizeRow(JSONArray rocketMQConfArray) {
-		String lagSizeTargetTemplate = Template.ROCKETMQ_LAG_SIZE_TARGET;
+		String lagSizeTargetTemplate;
+		String lagSizeTemplate;
+		String linkTemplate;
+
+		try {
+			lagSizeTargetTemplate = renderFromResource(DashboardTemplate.ROCKETMQ_LAG_SIZE_TARGET_TEMPLATE);
+			lagSizeTemplate = renderFromResource(DashboardTemplate.ROCKETMQ_LAG_SIZE_TEMPLATE);
+			linkTemplate = renderFromResource(DashboardTemplate.ROCKETMQ_LAG_LINK_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		List<String> lagsList = new ArrayList<>();
+		List<String> linksList = new ArrayList<>();
+		Map<String, String> linkValues = new HashMap<>();
 		for (Object o : rocketMQConfArray) {
 			JSONObject json = (JSONObject) o;
 			Map<String, String> lagSizeTargetValues = new HashMap<>();
 			String[] clusterAndDcArray = Utils.parseClusterAndDc(json.get("cluster").toString());
 			lagSizeTargetValues.put("metric_name", "rocketmq.consumer_group.depth");
-			lagSizeTargetValues.put("cluster", clusterAndDcArray[0]);
-			lagSizeTargetValues.put("topic", json.get("topic").toString());
+			String cluster = clusterAndDcArray[0];
+			lagSizeTargetValues.put("cluster", cluster);
+			String topic = json.get("topic").toString();
+			lagSizeTargetValues.put("topic", topic);
 			lagSizeTargetValues.put("dc", "*");
-			lagSizeTargetValues.put("consumer_group", json.get("consumer_group").toString());
+			String consumerGroup = json.get("consumer_group").toString();
+			lagSizeTargetValues.put("consumer_group", consumerGroup);
+			String url = Utils.getRmqDashboardUrl(cluster, consumerGroup, topic, dataSource);
+			linkValues.put("topic", topic);
+			linkValues.put("url", url);
+			linksList.add(renderString(linkTemplate, linkValues));
 			lagsList.add(renderString(lagSizeTargetTemplate, lagSizeTargetValues));
 		}
 		String targets = String.join(",", lagsList);
 		Map<String, String> lagSizeValues = new HashMap<>();
 		lagSizeValues.put("targets", targets);
 		lagSizeValues.put("datasource", dataSource);
-		String lagSizeTemplate = Template.ROCKETMQ_LAG_SIZE;
+		lagSizeValues.put("links", String.join(",", linksList));
 		String lagSizeRow = renderString(lagSizeTemplate, lagSizeValues);
 		return lagSizeRow;
 	}
 
 	private String renderTmSlotRow() {
-		String tmSlotTemplate = Template.TM_SLOT;
+		String tmSlotTemplate;
+
+		try {
+			tmSlotTemplate = renderFromResource(DashboardTemplate.TASK_MANAGER_SLOT_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		Map<String, String> tmSlotValues = new HashMap<>();
 		tmSlotValues.put("jobname", jobName);
 		tmSlotValues.put("datasource", dataSource);
@@ -137,8 +243,32 @@ public class Dashboard {
 		return tmSlotRow;
 	}
 
-	private String renderMemoryRow() {
-		String memoryTemplate = Template.MEMORY;
+	private String renderJMMemoryRow() {
+		String memoryTemplate;
+
+		try {
+			memoryTemplate = renderFromResource(DashboardTemplate.JM_MEMORY_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		Map<String, String> memoryValues = new HashMap<>();
+		memoryValues.put("jobname", jobName);
+		memoryValues.put("datasource", dataSource);
+
+		String memoryRow = renderString(memoryTemplate, memoryValues);
+		return memoryRow;
+	}
+
+	private String renderTMMemoryRow() {
+		String memoryTemplate;
+
+		try {
+			memoryTemplate = renderFromResource(DashboardTemplate.TM_MEMORY_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		Map<String, String> memoryValues = new HashMap<>();
 		memoryValues.put("jobname", jobName);
 		memoryValues.put("datasource", dataSource);
@@ -146,8 +276,82 @@ public class Dashboard {
 		return memoryRow;
 	}
 
-	private String renderGcRow() {
-		String gcTemplate = Template.GC;
+	private String renderJMThreadRow() {
+		String threadTemplate;
+
+		try {
+			threadTemplate = renderFromResource(DashboardTemplate.JM_THREAD_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		Map<String, String> memoryValues = new HashMap<>();
+		memoryValues.put("jobname", jobName);
+		memoryValues.put("datasource", dataSource);
+
+		String memoryRow = renderString(threadTemplate, memoryValues);
+		return memoryRow;
+	}
+
+	private String renderTMThreadRow() {
+		String threadTemplate;
+
+		try {
+			threadTemplate = renderFromResource(DashboardTemplate.TM_THREAD_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		Map<String, String> values = new HashMap<>();
+		values.put("jobname", jobName);
+		values.put("datasource", dataSource);
+		String row = renderString(threadTemplate, values);
+		return row;
+	}
+
+	// metric not stable， disable for now.
+	private String renderJMCPURow() {
+		String cpuTemplate;
+
+		try {
+			cpuTemplate = renderFromResource(DashboardTemplate.JM_CORES_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		Map<String, String> values = new HashMap<>();
+		values.put("jobname", jobName);
+		values.put("datasource", dataSource);
+
+		String row = renderString(cpuTemplate, values);
+		return row;
+	}
+
+	private String renderTMCPURow() {
+		String cpuTemplate;
+
+		try {
+			cpuTemplate = renderFromResource(DashboardTemplate.TM_CORES_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		Map<String, String> values = new HashMap<>();
+		values.put("jobname", jobName);
+		values.put("datasource", dataSource);
+		String row = renderString(cpuTemplate, values);
+		return row;
+	}
+
+	private String renderJMGcRow() {
+		String gcTemplate;
+
+		try {
+			gcTemplate = renderFromResource(DashboardTemplate.JM_GC_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		Map<String, String> gcValues = new HashMap<>();
 		gcValues.put("jobname", jobName);
 		gcValues.put("datasource", dataSource);
@@ -155,18 +359,50 @@ public class Dashboard {
 		return gcRow;
 	}
 
-	private String renderCheckpointRow() {
-		String checkpointTemplate = Template.CHECKPOINT;
+	private String renderTMGcRow() {
+		String gcTemplate;
+
+		try {
+			gcTemplate = renderFromResource(DashboardTemplate.TM_GC_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		Map<String, String> gcValues = new HashMap<>();
+		gcValues.put("jobname", jobName);
+		gcValues.put("datasource", dataSource);
+		String gcRow = renderString(gcTemplate, gcValues);
+		return gcRow;
+	}
+
+	private String renderCheckpointsRow() {
+		String template;
+
+		try {
+			template = renderFromResource(DashboardTemplate.CHECKPOINT_CHECKPOINTS_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		Map<String, String> checkpointValues = new HashMap<>();
 		checkpointValues.put("jobname", formatJobName);
 		checkpointValues.put("datasource", dataSource);
-		String checkpointRow = renderString(checkpointTemplate, checkpointValues);
+		String checkpointRow = renderString(template, checkpointValues);
 		return checkpointRow;
 	}
 
 	private String renderCheckpointDurationRow(List<String> operators) {
+		String targetTemplate;
+		String checkpointDurationTemplate;
+
+		try {
+			targetTemplate = renderFromResource(DashboardTemplate.CHECKPOINT_DURATION_TARGET_TEMPLATE);
+			checkpointDurationTemplate = renderFromResource(DashboardTemplate.CHECKPOINT_DURATION_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		// Render target
-		String targetTemplate = Template.CHECKPOINT_DURATION_TASK_TARGET;
 		List<String> targetList = new ArrayList<>();
 		for (String o : operators) {
 			Map<String, String> targetValues = new HashMap<>();
@@ -178,15 +414,21 @@ public class Dashboard {
 
 		// Render complete configuration
 		Map<String, String> checkpointDurationValues = new HashMap<>();
-		checkpointDurationValues.put("taskTargets", taskTargets);
+		checkpointDurationValues.put("targets", taskTargets);
 		checkpointDurationValues.put("datasource", dataSource);
-		String checkpointDurationTemplate = Template.CHECKPOINT_DURATION;
 		String checkpointDurationRow = renderString(checkpointDurationTemplate, checkpointDurationValues);
 		return checkpointDurationRow;
 	}
 
 	private String renderSlowContainerRow() {
-		String slowContainerTemplate = Template.SLOW_CONTAINER;
+		String slowContainerTemplate;
+
+		try {
+			slowContainerTemplate = renderFromResource(DashboardTemplate.SLOW_CONTAINER_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		Map<String, String> slowContainerValues = new HashMap<>();
 		slowContainerValues.put("jobname", jobName);
 		slowContainerValues.put("datasource", dataSource);
@@ -195,18 +437,24 @@ public class Dashboard {
 	}
 
 	private String renderYarnContainerRow() {
-		String slowContainerTemplate = Template.YARN_CONTAINER;
+		String yarnContainerTemplate;
+		try {
+			yarnContainerTemplate = renderFromResource(DashboardTemplate.YARN_CONTAINER_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		Map<String, String> yarnContainerValues = new HashMap<>();
 		yarnContainerValues.put("jobname", jobName);
 		yarnContainerValues.put("datasource", dataSource);
-		String yarnContainerRow  = renderString(slowContainerTemplate, yarnContainerValues);
+		String yarnContainerRow = renderString(yarnContainerTemplate, yarnContainerValues);
 		return yarnContainerRow;
 	}
 
 	private String renderCompletedContainerRow() {
 		String completedContainerTemplate = null;
 		try {
-			completedContainerTemplate = renderFromResource(COMPLETED_CONTAINER_TEMPLATE);
+			completedContainerTemplate = renderFromResource(DashboardTemplate.COMPLETED_CONTAINER_TEMPLATE);
 		} catch (IOException e) {
 			LOG.error("Fail to render completed containers metrics.", e);
 			return "";
@@ -218,43 +466,231 @@ public class Dashboard {
 	}
 
 	private String renderPoolUsageRow(List<String> operators) {
-		String poolUsageTargetTemplate = Template.POOL_USAGE_TARGET;
+		String inPoolUsageTargetTemplate;
+		String outPoolUsageTargetTemplate;
+		String poolUsageTemplate;
+
+		try {
+			inPoolUsageTargetTemplate = renderFromResource(DashboardTemplate.IN_POOL_USAGE_TARGET_TEMPLATE);
+			outPoolUsageTargetTemplate = renderFromResource(DashboardTemplate.OUT_POOL_USAGE_TARGET_TEMPLATE);
+			poolUsageTemplate = renderFromResource(DashboardTemplate.POOL_USAGE_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		List<String> poolUsageList = new ArrayList<>();
-		for (String o : operators) {
+		for (int i = 0; i < operators.size(); i++) {
 			Map<String, String> poolUsageTargetValues = new HashMap<>();
-			poolUsageTargetValues.put("operator", o);
+			poolUsageTargetValues.put("operator", operators.get(i));
 			poolUsageTargetValues.put("jobname", formatJobName);
-			poolUsageList.add(renderString(poolUsageTargetTemplate, poolUsageTargetValues));
+			poolUsageTargetValues.put("hide", i > targetLimit / 2 ? "true" : "false");
+			poolUsageList.add(renderString(inPoolUsageTargetTemplate, poolUsageTargetValues));
+			poolUsageList.add(renderString(outPoolUsageTargetTemplate, poolUsageTargetValues));
 		}
 		String targets = String.join(",", poolUsageList);
 		Map<String, String> poolUsageValues = new HashMap<>();
 		poolUsageValues.put("targets", targets);
 		poolUsageValues.put("datasource", dataSource);
-		String poolUsageTemplate = Template.POOL_USAGE;
+		String poolUsageRow = renderString(poolUsageTemplate, poolUsageValues);
+		return poolUsageRow;
+	}
+
+	private List<String> renderPoolUsageSplitRow(List<String> operators) {
+		if (operators.size() < targetLimit) {
+			return Lists.newArrayList(renderInPoolUsageRow(operators, ""), renderOutPoolUsageRow(operators, ""));
+		}
+
+		List<List<String>> operatorLists = Utils.splitList(operators, targetLimit);
+		List<String> rows = Lists.newArrayList();
+		for (int i = 0; i < operatorLists.size(); i++) {
+			List<String> operatorList = operatorLists.get(i);
+			rows.add(renderInPoolUsageRow(operatorList, "#" + i));
+			rows.add(renderOutPoolUsageRow(operatorList, "#" + i));
+		}
+		return rows;
+	}
+
+	private String renderInPoolUsageRow(List<String> operators, String suffix) {
+		String inPoolUsageTargetTemplate;
+		String poolUsageTemplate;
+
+		try {
+			inPoolUsageTargetTemplate = renderFromResource(DashboardTemplate.IN_POOL_USAGE_TARGET_TEMPLATE);
+			poolUsageTemplate = renderFromResource(DashboardTemplate.IN_POOL_USAGE_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		List<String> poolUsageList = new ArrayList<>();
+		for (String o : operators) {
+			Map<String, String> poolUsageTargetValues = new HashMap<>();
+			poolUsageTargetValues.put("operator", o);
+			poolUsageTargetValues.put("jobname", formatJobName);
+			poolUsageTargetValues.put("hide", "false");
+			poolUsageList.add(renderString(inPoolUsageTargetTemplate, poolUsageTargetValues));
+		}
+		String targets = String.join(",", poolUsageList);
+		Map<String, String> poolUsageValues = new HashMap<>();
+		poolUsageValues.put("targets", targets);
+		poolUsageValues.put("datasource", dataSource);
+		poolUsageValues.put("suffix", suffix);
+		String poolUsageRow = renderString(poolUsageTemplate, poolUsageValues);
+		return poolUsageRow;
+	}
+
+	private String renderOutPoolUsageRow(List<String> operators, String suffix) {
+		String outPoolUsageTargetTemplate;
+		String poolUsageTemplate;
+
+		try {
+			outPoolUsageTargetTemplate = renderFromResource(DashboardTemplate.OUT_POOL_USAGE_TARGET_TEMPLATE);
+			poolUsageTemplate = renderFromResource(DashboardTemplate.OUT_POOL_USAGE_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		List<String> poolUsageList = new ArrayList<>();
+		for (String o : operators) {
+			Map<String, String> poolUsageTargetValues = new HashMap<>();
+			poolUsageTargetValues.put("operator", o);
+			poolUsageTargetValues.put("jobname", formatJobName);
+			poolUsageTargetValues.put("hide", "false");
+			poolUsageList.add(renderString(outPoolUsageTargetTemplate, poolUsageTargetValues));
+		}
+		String targets = String.join(",", poolUsageList);
+		Map<String, String> poolUsageValues = new HashMap<>();
+		poolUsageValues.put("targets", targets);
+		poolUsageValues.put("datasource", dataSource);
+		poolUsageValues.put("suffix", suffix);
 		String poolUsageRow = renderString(poolUsageTemplate, poolUsageValues);
 		return poolUsageRow;
 	}
 
 	private String renderRecordNumRow(List<String> operators) {
-		String recordNumTargetTemplate = Template.RECORD_NUM_TARGET;
+		String recordInNumTargetTemplate;
+		String recordOutNumTargetTemplate;
+		String recordNumTemplate;
+
+		try {
+			recordInNumTargetTemplate = renderFromResource(DashboardTemplate.RECORD_IN_PER_SECOND_TARGET_TEMPLATE);
+			recordOutNumTargetTemplate = renderFromResource(DashboardTemplate.RECORD_OUT_PER_SECOND_TARGET_TEMPLATE);
+			recordNumTemplate = renderFromResource(DashboardTemplate.RECORD_NUM_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		List<String> recordNumList = new ArrayList<>();
 		for (String o : operators) {
 			Map<String, String> recordNumTargetValues = new HashMap<>();
 			recordNumTargetValues.put("operator", o);
 			recordNumTargetValues.put("jobname", formatJobName);
-			recordNumList.add(renderString(recordNumTargetTemplate, recordNumTargetValues));
+			recordNumList.add(renderString(recordInNumTargetTemplate, recordNumTargetValues));
+			recordNumList.add(renderString(recordOutNumTargetTemplate, recordNumTargetValues));
 		}
 		String targets = String.join(",", recordNumList);
 		Map<String, String> recordNumValues = new HashMap<>();
 		recordNumValues.put("targets", targets);
 		recordNumValues.put("datasource", dataSource);
-		String poolUsageTemplate = Template.RECORD_NUM;
-		String poolUsageRow = renderString(poolUsageTemplate, recordNumValues);
+		String poolUsageRow = renderString(recordNumTemplate, recordNumValues);
+		return poolUsageRow;
+	}
+
+	private List<String> renderRecordIndNumSplitRow(List<String> operators) {
+		if (operators.size() < targetLimit) {
+			return Lists.newArrayList(renderRecordIndNumRow(operators, ""), renderRecordOutNumRow(operators, ""));
+		}
+
+		List<List<String>> operatorLists = Utils.splitList(operators, targetLimit);
+		List<String> rows = Lists.newArrayList();
+		for (int i = 0; i < operatorLists.size(); i++) {
+			List<String> operatorList = operatorLists.get(i);
+			rows.add(renderRecordIndNumRow(operatorList, "#" + i));
+			rows.add(renderRecordOutNumRow(operatorList, "#" + i));
+		}
+		return rows;
+	}
+
+	private String renderRecordIndNumRow(List<String> operators, String suffix) {
+		String recordInNumTargetTemplate;
+		String recordNumTemplate;
+
+		try {
+			recordInNumTargetTemplate = renderFromResource(DashboardTemplate.RECORD_IN_PER_SECOND_TARGET_TEMPLATE);
+			recordNumTemplate = renderFromResource(DashboardTemplate.RECORD_IN_NUM_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		List<String> recordNumList = new ArrayList<>();
+		for (String o : operators) {
+			Map<String, String> recordNumTargetValues = new HashMap<>();
+			recordNumTargetValues.put("operator", o);
+			recordNumTargetValues.put("jobname", formatJobName);
+			recordNumList.add(renderString(recordInNumTargetTemplate, recordNumTargetValues));
+		}
+		String targets = String.join(",", recordNumList);
+		Map<String, String> recordNumValues = new HashMap<>();
+		recordNumValues.put("targets", targets);
+		recordNumValues.put("datasource", dataSource);
+		recordNumValues.put("suffix", suffix);
+		String poolUsageRow = renderString(recordNumTemplate, recordNumValues);
+		return poolUsageRow;
+	}
+
+	private String renderRecordOutNumRow(List<String> operators, String suffix) {
+		String recordOutNumTargetTemplate;
+		String recordNumTemplate;
+
+		try {
+			recordOutNumTargetTemplate = renderFromResource(DashboardTemplate.RECORD_OUT_PER_SECOND_TARGET_TEMPLATE);
+			recordNumTemplate = renderFromResource(DashboardTemplate.RECORD_OUT_NUM_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		List<String> recordNumList = new ArrayList<>();
+		for (String o : operators) {
+			Map<String, String> recordNumTargetValues = new HashMap<>();
+			recordNumTargetValues.put("operator", o);
+			recordNumTargetValues.put("jobname", formatJobName);
+			recordNumList.add(renderString(recordOutNumTargetTemplate, recordNumTargetValues));
+		}
+		String targets = String.join(",", recordNumList);
+		Map<String, String> recordNumValues = new HashMap<>();
+		recordNumValues.put("targets", targets);
+		recordNumValues.put("datasource", dataSource);
+		recordNumValues.put("suffix", suffix);
+		String poolUsageRow = renderString(recordNumTemplate, recordNumValues);
+		return poolUsageRow;
+	}
+
+	private String renderNetworkMemoryRow() {
+		String networkMemoryTemplate;
+
+		try {
+			networkMemoryTemplate = renderFromResource(DashboardTemplate.NETWORK_MEMORY_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		Map<String, String> networkMemoryValues = new HashMap<>();
+		networkMemoryValues.put("datasource", dataSource);
+		networkMemoryValues.put("jobname", jobName);
+		String poolUsageRow = renderString(networkMemoryTemplate, networkMemoryValues);
 		return poolUsageRow;
 	}
 
 	private String renderLateRecordsDropped(List<String> operators) {
-		String lateRecordsDroppedTargetTemplate = Template.LATE_RECORDS_DROPPED_TARGET;
+		String lateRecordsDroppedTargetTemplate;
+		String lateRecordsDroppedTemplate;
+
+		try {
+			lateRecordsDroppedTargetTemplate = renderFromResource(DashboardTemplate.LATE_RECORD_DROPPED_TARGET_TEMPLATE);
+			lateRecordsDroppedTemplate = renderFromResource(DashboardTemplate.LATE_RECORDS_DROPPED_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		List<String> lateRecordsDroppedList = new ArrayList<>();
 		for (String o : operators) {
 			Map<String, String> lateRecordsDroppedTarget = new HashMap<>();
@@ -266,12 +702,20 @@ public class Dashboard {
 		Map<String, String> lateRecordsDroppedValues = new HashMap<>();
 		lateRecordsDroppedValues.put("targets", targets);
 		lateRecordsDroppedValues.put("datasource", dataSource);
-		String lateRecordsDroppedTemplate = Template.LATE_RECORDS_DROPPED;
 		return renderString(lateRecordsDroppedTemplate, lateRecordsDroppedValues);
 	}
 
 	private String renderDirtyRecordsSourceSkippedRow(List<String> sources) {
-		String dirtyRecordsSkippedTargetTemplate = Template.DIRTY_RECORDS_SOURCE_SKIPPED_TARGET;
+		String dirtyRecordsSkippedTargetTemplate;
+		String dirtyRecordsSkippedTemplate;
+
+		try {
+			dirtyRecordsSkippedTargetTemplate = renderFromResource(DashboardTemplate.DIRTY_RECORDS_SOURCE_SKIPPED_TARGET_TEMPLATE);
+			dirtyRecordsSkippedTemplate = renderFromResource(DashboardTemplate.DIRTY_RECORDS_SOURCE_SKIPPED_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		List<String> dirtyRecordsSkippedList = new ArrayList<>();
 		for (String source : sources) {
 			Map<String, String> dirtyRecordsSkippedTarget = new HashMap<>();
@@ -285,12 +729,20 @@ public class Dashboard {
 		Map<String, String> dirtyRecordsSkippedValues = new HashMap<>();
 		dirtyRecordsSkippedValues.put("targets", targets);
 		dirtyRecordsSkippedValues.put("datasource", dataSource);
-		String dirtyRecordsSkippedTemplate = Template.DIRTY_RECORDS_SOURCE_SKIPPED;
 		return renderString(dirtyRecordsSkippedTemplate, dirtyRecordsSkippedValues);
 	}
 
 	private String renderRecordsSinkSkippedRow(List<String> sinks) {
-		String recordsSkippedTargetTemplate = Template.RECORDS_SINK_SKIPPED_TARGET;
+		String recordsSkippedTargetTemplate;
+		String recordsWriteSkippedTemplate;
+
+		try {
+			recordsSkippedTargetTemplate = renderFromResource(DashboardTemplate.RECORDS_SINK_SKIPPED_TARGET_TEMPLATE);
+			recordsWriteSkippedTemplate = renderFromResource(DashboardTemplate.RECORDS_SINK_SKIPPED_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		List<String> recordsWriteSkippedList = new ArrayList<>();
 		for (String sink : sinks) {
 			Map<String, String> recordsWriteSkippedTarget = new HashMap<>();
@@ -304,63 +756,117 @@ public class Dashboard {
 		Map<String, String> recordsWriteSkippedValues = new HashMap<>();
 		recordsWriteSkippedValues.put("targets", targets);
 		recordsWriteSkippedValues.put("datasource", dataSource);
-		String recordsWriteSkippedTemplate = Template.RECORDS_SINK_SKIPPED;
 		return renderString(recordsWriteSkippedTemplate, recordsWriteSkippedValues);
 	}
 
-	private String renderLookupHitRateRow(List<String> operators) {
-		String lookupJoinHitRateTarget = Template.LOOKUP_JOIN_HIT_RATE_TARGET;
-		List<String> metricRows = new ArrayList<>();
-		for (String o : operators) {
-			Map<String, String> lookupJoinHitRateTargetValues = new HashMap<>(2);
-			lookupJoinHitRateTargetValues.put("operator", o);
-			lookupJoinHitRateTargetValues.put("jobname", formatJobName);
-			metricRows.add(renderString(lookupJoinHitRateTarget, lookupJoinHitRateTargetValues));
-		}
-		String targets = String.join(",", metricRows);
-		Map<String, String> lookupJoinHitRateValues = new HashMap<>(2);
-		lookupJoinHitRateValues.put("targets", targets);
-		lookupJoinHitRateValues.put("datasource", dataSource);
-		String operatorLatencyTemplate = Template.LOOKUP_JOIN_HIT_RATE;
-		String lookupJoinHitRateRow = renderString(operatorLatencyTemplate, lookupJoinHitRateValues);
-		return lookupJoinHitRateRow;
-	}
-
 	private String renderLookupRow(List<String> operators, String target, String metric) {
+		String targetTemplate;
+		String metricTemplate;
+
+		try {
+			targetTemplate = renderFromResource(target);
+			metricTemplate = renderFromResource(metric);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		List<String> metricRows = new ArrayList<>();
 		for (String o : operators) {
 			Map<String, String> targetValues = new HashMap<>(2);
 			targetValues.put("operator", o);
 			targetValues.put("jobname", formatJobName);
-			metricRows.add(renderString(target, targetValues));
+			metricRows.add(renderString(targetTemplate, targetValues));
 		}
 		String targets = String.join(",", metricRows);
 		Map<String, String> values = new HashMap<>(2);
 		values.put("targets", targets);
 		values.put("datasource", dataSource);
-		return renderString(metric, values);
+		return renderString(metricTemplate, values);
+	}
+
+	private String renderWindowWatermarkLagRow(List<String> operators) {
+		String targetTemplate;
+		String metricTemplate;
+
+		try {
+			targetTemplate = renderFromResource(DashboardTemplate.WATERMARK_LATENCY_TARGET_TEMPLATE);
+			metricTemplate = renderFromResource(DashboardTemplate.WATERMARK_LATENCY_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		List<String> metricRows = new ArrayList<>();
+		for (String o : operators) {
+			Map<String, String> targetValues = new HashMap<>(2);
+			targetValues.put("operator", o);
+			targetValues.put("jobname", formatJobName);
+			metricRows.add(renderString(targetTemplate, targetValues));
+		}
+		String targets = String.join(",", metricRows);
+		Map<String, String> values = new HashMap<>(2);
+		values.put("targets", targets);
+		values.put("datasource", dataSource);
+		return renderString(metricTemplate, values);
 	}
 
 	private String renderOperatorLatencyRow(List<String> operators) {
-		String operatorLatencyTarget = Template.OPERATOR_LATENCY_TARGET;
+		return renderOperatorLatencyRow(operators, "");
+	}
+
+	private String renderOperatorLatencyRow(List<String> operators, String suffix) {
+		String operatorLatencyTarget;
+		String operatorLatencyTemplate;
+
+		try {
+			operatorLatencyTarget = renderFromResource(DashboardTemplate.OPERATOR_LATENCY_TARGET_TEMPLATE);
+			operatorLatencyTemplate = renderFromResource(DashboardTemplate.OPERATOR_LATENCY_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		List<String> recordNumList = new ArrayList<>();
-		for (String o : operators) {
+		for (int i = 0; i < operators.size(); i++) {
 			Map<String, String> operatorLatencyTargetValues = new HashMap<>();
-			operatorLatencyTargetValues.put("operator", o);
+			operatorLatencyTargetValues.put("operator", operators.get(i));
 			operatorLatencyTargetValues.put("jobname", formatJobName);
+			operatorLatencyTargetValues.put("hide", i > targetLimit ? "true" : "false");
 			recordNumList.add(renderString(operatorLatencyTarget, operatorLatencyTargetValues));
 		}
 		String targets = String.join(",", recordNumList);
 		Map<String, String> operatorLatencyValues = new HashMap<>();
 		operatorLatencyValues.put("targets", targets);
 		operatorLatencyValues.put("datasource", dataSource);
-		String operatorLatencyTemplate = Template.OPERATOR_LATENCY;
+		operatorLatencyValues.put("suffix", "");
 		String operatorLatencyRow = renderString(operatorLatencyTemplate, operatorLatencyValues);
 		return operatorLatencyRow;
 	}
 
+	private List<String> renderOperatorSplitRow(List<String> operators) {
+		if (operators.size() < targetLimit) {
+			return Lists.newArrayList(renderOperatorLatencyRow(operators, ""), renderOutPoolUsageRow(operators, ""));
+		}
+
+		List<List<String>> operatorLists = Utils.splitList(operators, targetLimit);
+		List<String> rows = Lists.newArrayList();
+		for (int i = 0; i < operatorLists.size(); i++) {
+			List<String> operatorList = operatorLists.get(i);
+			rows.add(renderOperatorLatencyRow(operatorList, "#" + i));
+			rows.add(renderOperatorLatencyRow(operatorList, "#" + i));
+		}
+		return rows;
+	}
+
 	private String renderKafkaOffsetRow(List<String> sources) {
-		String kafkaOffsetTargetTemplate = Template.KAFKA_OFFSET_TARGET;
+		String kafkaOffsetTargetTemplate;
+		String kafkaOffsetTemplate;
+
+		try {
+			kafkaOffsetTargetTemplate = renderFromResource(DashboardTemplate.KAFKA_OFFSET_TARGET_TEMPLATE);
+			kafkaOffsetTemplate = renderFromResource(DashboardTemplate.KAFKA_OFFSET_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		List<String> kafkaOffsetList = new ArrayList<>();
 		for (String s : sources) {
 			Map<String, String> kafkaOffsetTargetValues = new HashMap<>();
@@ -372,13 +878,21 @@ public class Dashboard {
 		Map<String, String> kafkaOffsetValues = new HashMap<>();
 		kafkaOffsetValues.put("targets", targets);
 		kafkaOffsetValues.put("datasource", dataSource);
-		String kafkaOffsetTemplate = Template.KAFKA_OFFSET;
 		String kafkaOffsetRow = renderString(kafkaOffsetTemplate, kafkaOffsetValues);
 		return kafkaOffsetRow;
 	}
 
 	private String renderKafkaLatencyRow(List<String> sources) {
-		String kafkaLatencyTargetTemplate = Template.KAFKA_LATENCY_TARGET;
+		String kafkaLatencyTargetTemplate;
+		String kafkaLatencyTemplate;
+
+		try {
+			kafkaLatencyTargetTemplate = renderFromResource(DashboardTemplate.KAFKA_LATENCY_TARGET_TEMPLATE);
+			kafkaLatencyTemplate = renderFromResource(DashboardTemplate.KAFKA_LATENCY_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		List<String> kafkaLatencyList = new ArrayList<>();
 		for (String s : sources) {
 			Map<String, String> kafkaLatencyTargetValues = new HashMap<>();
@@ -390,70 +904,124 @@ public class Dashboard {
 		Map<String, String> kafkaOffsetValues = new HashMap<>();
 		kafkaOffsetValues.put("targets", targets);
 		kafkaOffsetValues.put("datasource", dataSource);
-		String kafkaLatencyTemplate = Template.KAFKA_LATENCY;
 		String kafkaLatencyRow = renderString(kafkaLatencyTemplate, kafkaOffsetValues);
 		return kafkaLatencyRow;
 	}
 
-	private String renderDashboard() {
+	public String renderDashboard() {
 		List<String> rows = new ArrayList<>();
-		List <String> operators = Utils.getOperaters(streamGraph);
-		List <String> operatorsButSources = Utils.getOperatersExceptSources(streamGraph);
+		List <String> operators = Utils.getSortedOperators(streamGraph);
+		List <String> operatorsButSources = Utils.getOperatorsExceptSources(streamGraph);
 		List <String> sources = Utils.getSources(streamGraph);
 		List <String> sinks = Utils.getSinks(streamGraph);
-		List <String> tasks = Utils.getTasks(jobGraph);
-		List<String> lookupOperators = Utils.filterLookupOperators(operators);
+		List <String> tasks = Utils.getSortedTasks(jobGraph);
+		List <String> lookupOperators = Utils.filterLookupOperators(operators);
+		List <String> windowOperators = Utils.filterWindowOperators(operators);
 		String kafkaServerUrl = System.getProperty(ConfigConstants.KAFKA_SERVER_URL_KEY,
 			ConfigConstants.KAFKA_SERVER_URL_DEFAUL);
 		JSONArray rocketmqConfigArray = Utils.getRocketMQConfigurations();
 		List<String> kafkaMetricsList = Utils.getKafkaLagSizeMetrics(kafkaServerUrl);
+		List<Tuple2<String, String>> kafkaConsumerUrls = Utils.getKafkaConsumerUrls(kafkaServerUrl, dataSource);
+
+		List<String> overViewPanels = Lists.newArrayList();
+		overViewPanels.add(renderOverviewRow());
+		overViewPanels.add(renderJobInfoRow());
+		List<String> kafkaPanels = Lists.newArrayList();
 		if (!kafkaMetricsList.isEmpty()) {
-			rows.add(renderKafkaLagSizeRow(kafkaMetricsList));
-			rows.add(renderKafkaOffsetRow(sources));
-			rows.add(renderKafkaLatencyRow(sources));
+			String kafkaLagSizeRow = renderKafkaLagSizeRow(kafkaMetricsList, kafkaConsumerUrls);
+			overViewPanels.add(kafkaLagSizeRow);
+			kafkaPanels.add(renderKafkaOffsetRow(sources));
+			kafkaPanels.add(renderKafkaLatencyRow(sources));
 		}
 		if (!rocketmqConfigArray.isEmpty()) {
-			rows.add(renderRocketMQLagSizeRow(rocketmqConfigArray));
+			overViewPanels.add(renderRocketMQLagSizeRow(rocketmqConfigArray));
 		}
-		rows.add(renderMemoryRow());
-		rows.add(renderRecordNumRow(operators));
-		rows.add(renderLateRecordsDropped(operators));
-		rows.add(renderDirtyRecordsSourceSkippedRow(sources));
-		rows.add(renderRecordsSinkSkippedRow(sinks));
-		rows.add(renderLookupRow(
-			lookupOperators,
-			Template.LOOKUP_JOIN_HIT_RATE_TARGET,
-			Template.LOOKUP_JOIN_HIT_RATE));
-		rows.add(renderLookupRow(
-			lookupOperators,
-			Template.LOOKUP_JOIN_REQUEST_PER_SECOND_TARGET,
-			Template.LOOKUP_JOIN_REQUEST_PER_SECOND));
-		rows.add(renderLookupRow(
-			lookupOperators,
-			Template.LOOKUP_JOIN_FAILURE_PER_SECOND_TARGET,
-			Template.LOOKUP_JOIN_FAILURE_PER_SECOND));
-		rows.add(renderLookupRow(
-			lookupOperators,
-			Template.LOOKUP_JOIN_REQUEST_DELAY_P99_TARGET,
-			Template.LOOKUP_JOIN_REQUEST_DELAY_P99));
-		rows.add(renderOperatorLatencyRow(operatorsButSources));
-		rows.add(renderPoolUsageRow(tasks));
-		rows.add(renderGcRow());
-		rows.add(renderCheckpointRow());
-		rows.add(renderCheckpointDurationRow(operators));
-		rows.add(renderJobInfoRow());
-		rows.add(renderTmSlotRow());
-		rows.add(renderSlowContainerRow());
-		rows.add(renderYarnContainerRow());
-		rows.add(renderCompletedContainerRow());
+		overViewPanels.add(renderOperatorLatencyRow(operatorsButSources));
+		overViewPanels.add(renderPoolUsageRow(tasks));
+		overViewPanels.add(renderRecordNumRow(operators));
 
-		String template = Template.TEMPLATE;
+		// add overview row
+		rows.add(renderRowTemplate(DashboardTemplate.OVERVIEW_ROW_TEMPLATE, overViewPanels, false));
+
+		// add kafka row
+		if (CollectionUtils.isNotEmpty(kafkaPanels)) {
+			rows.add(renderRowTemplate(DashboardTemplate.KAFKA_ROW_TEMPLATE, kafkaPanels, false));
+		}
+
+		// add network row
+		List<String> networkPanels = Lists.newArrayList();
+		networkPanels.addAll(renderPoolUsageSplitRow(tasks));
+		networkPanels.addAll(renderRecordIndNumSplitRow(operators));
+		networkPanels.add(renderNetworkMemoryRow());
+		rows.add(renderRowTemplate(DashboardTemplate.NETWORK_ROW_TEMPLATE, networkPanels));
+
+		// add jvm row
+		List<String> jvmPanels = Lists.newArrayList();
+		jvmPanels.add(renderJMMemoryRow());
+		jvmPanels.add(renderTMMemoryRow());
+		jvmPanels.add(renderJMGcRow());
+		jvmPanels.add(renderTMGcRow());
+		jvmPanels.add(renderJMThreadRow());
+		jvmPanels.add(renderTMThreadRow());
+		rows.add(renderRowTemplate(DashboardTemplate.JVM_ROW_TEMPLATE, jvmPanels, false));
+
+		// add schedule info row
+		List<String> scheduleInfoPanels = Lists.newArrayList();
+		scheduleInfoPanels.add(renderTmSlotRow());
+		scheduleInfoPanels.add(renderYarnContainerRow());
+		scheduleInfoPanels.add(renderSlowContainerRow());
+		scheduleInfoPanels.add(renderCompletedContainerRow());
+		rows.add(renderRowTemplate(DashboardTemplate.SCHEDULE_INFO_ROW_TEMPLATE, scheduleInfoPanels, false));
+
+		// add watermark row
+		List<String> watermarkPanels = Lists.newArrayList();
+		watermarkPanels.add(renderLateRecordsDropped(operators));
+		watermarkPanels.add(renderWindowWatermarkLagRow(windowOperators));
+		rows.add(renderRowTemplate(DashboardTemplate.WATERMARK_ROW_TEMPLATE, watermarkPanels));
+
+		// add checkpoint row
+		List<String> checkpointPanels = Lists.newArrayList();
+		checkpointPanels.add(renderCheckpointsRow());
+		checkpointPanels.add(renderCheckpointDurationRow(tasks));
+		rows.add(renderRowTemplate(DashboardTemplate.CHECKPOINT_ROW_TEMPLATE, checkpointPanels));
+
+		// add sql operator row
+		List<String> sqlOperatorPanels = Lists.newArrayList();
+
+		sqlOperatorPanels.add(renderDirtyRecordsSourceSkippedRow(sources));
+		sqlOperatorPanels.add(renderRecordsSinkSkippedRow(sinks));
+		sqlOperatorPanels.add(renderLookupRow(
+			lookupOperators,
+			DashboardTemplate.LOOKUP_JOIN_HIT_RATE_TARGET_TEMPLATE,
+			DashboardTemplate.LOOKUP_JOIN_HIT_RATE_TEMPLATE));
+		sqlOperatorPanels.add(renderLookupRow(
+			lookupOperators,
+			DashboardTemplate.LOOKUP_JOIN_FAIL_PER_SECOND_TARGET_TEMPLATE,
+			DashboardTemplate.LOOKUP_JOIN_FAIL_PER_SECOND_TEMPLATE));
+		sqlOperatorPanels.add(renderLookupRow(
+			lookupOperators,
+			DashboardTemplate.LOOKUP_JOIN_REQUEST_PER_SECOND_TARGET_TEMPLATE,
+			DashboardTemplate.LOOKUP_JOIN_REQUEST_PER_SECOND_TEMPLATE));
+		sqlOperatorPanels.add(renderLookupRow(
+			lookupOperators,
+			DashboardTemplate.LOOKUP_JOIN_REQUEST_DELAY_P99_PER_SECOND_TARGET_TEMPLATE,
+			DashboardTemplate.LOOKUP_JOIN_REQUEST_DELAY_P99_PER_SECOND_TEMPLATE));
+		rows.add(renderRowTemplate(DashboardTemplate.SQLOPERATOR_ROW_TEMPLATE, sqlOperatorPanels));
+
+		String template;
+
+		try {
+			template = renderFromResource(DashboardTemplate.DASHBOARD_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
 		String rowsStr = String.join(",", rows);
 		Map<String, String> map = new HashMap<>();
 		map.put("rows", rowsStr);
 		map.put("jobname", jobName);
 		map.put("cluster", clusterName);
-		String dashboardJson = renderString(template, map);
+		String dashboardJson = renderAutoIncreasingGlobalId(renderString(template, map));
 		return dashboardJson;
 	}
 
@@ -463,7 +1031,7 @@ public class Dashboard {
 			BufferedReader br = new BufferedReader(new InputStreamReader(stream));
 			String line;
 			line = br.readLine();
-			while (line != null) {
+			while (line != null){
 				if (!line.startsWith("#")) {
 					contentBuilder.append(line);
 					contentBuilder.append("\n");
@@ -472,6 +1040,29 @@ public class Dashboard {
 			}
 		}
 		return contentBuilder.toString();
+	}
+
+	private String renderAutoIncreasingGlobalId(String template){
+		String idOrder = renderAutoIncreasingGlobalId(template, "\\$\\{id\\}");
+		String rowOrder = renderAutoIncreasingGlobalId(idOrder, "\\$\\{rowOrder\\}");
+		return rowOrder;
+	}
+
+	private String renderAutoIncreasingGlobalId(String template, String regex) {
+		int id = 0;
+		Matcher matcher = Pattern.compile(regex).matcher(template);
+		matcher.reset();
+		boolean result = matcher.find();
+		if (result) {
+			StringBuffer sb = new StringBuffer();
+			do {
+				matcher.appendReplacement(sb, String.valueOf(id += 100));
+				result = matcher.find();
+			} while (result);
+			matcher.appendTail(sb);
+			return sb.toString();
+		}
+		return template;
 	}
 
 	public boolean registerDashboard(String url, String token) throws IOException {
@@ -491,4 +1082,17 @@ public class Dashboard {
 		}
 		return success;
 	}
+
+	/**
+	 *  Parse input to write metric. Replace the charset which didn't
+	 *  in [A-Za-z0-9_] to '_'. Because some characters metrics doesn't support.
+	 *  Example "flink-test$job" to "flink_test_job".
+	 */
+	public static String formatMetricsName(String input) {
+		String result = input.replaceAll("[^\\w.]", "_")
+			.replaceAll("\\.+", ".")
+			.replaceAll("_+", "_");
+		return result;
+	}
+
 }

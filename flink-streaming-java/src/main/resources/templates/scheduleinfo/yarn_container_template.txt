@@ -1,0 +1,174 @@
+################################################################################
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+################################################################################
+
+{
+  "aliasColors": {},
+  "bars": false,
+  "dashLength": 10,
+  "dashes": false,
+      "description": "1. allocatedContainerNum  \n分配完成的container个数  \n2. pendingRequestedContainerNum  \n申请中的container个数  \n3. gangDowngradeNum  \n从 Gang 回退到 Fair 的次数  \n4. gangFailedNum  \n通过 Gang 申请资源失败的次数",
+  "datasource": "${datasource}",
+  "fill": 1,
+  "id": ${id},
+  "gridPos": {
+            "h": 10,
+            "w": 12,
+            "x": 12,
+            "y": ${rowOrder}
+          },
+  "legend": {
+    "alignAsTable": true,
+    "avg": true,
+    "current": true,
+    "max": true,
+    "min": false,
+    "rightSide": false,
+    "show": true,
+    "sort": null,
+    "sortDesc": null,
+    "total": false,
+    "values": true
+  },
+  "lines": true,
+  "linewidth": 1,
+  "links": [],
+  "nullPointMode": "null",
+  "percentage": false,
+  "pointradius": 5,
+  "points": false,
+  "renderer": "flot",
+  "seriesOverrides": [
+    {
+      "alias": "startingContainerTime",
+      "yaxis": 2
+    }
+  ],
+  "spaceLength": 10,
+  "span": 6,
+  "stack": false,
+  "steppedLine": false,
+  "targets": [
+    {
+      "aggregator": "max",
+      "alias": "startingContainerTime",
+      "downsampleAggregator": "avg",
+      "downsampleFillPolicy": "none",
+      "metric": "flink.jobmanager.startingContainers",
+      "refId": "A",
+      "tags": {
+        "jobname": "${jobname}"
+      },
+      "hide": false
+    },
+    {
+      "aggregator": "sum",
+      "alias": "allocatedContainerNum",
+      "downsampleAggregator": "avg",
+      "downsampleFillPolicy": "none",
+      "metric": "flink.jobmanager.allocatedContainerNum",
+      "refId": "B",
+      "tags": {
+        "jobname": "${jobname}"
+      },
+      "hide": false
+    },
+    {
+      "aggregator": "sum",
+      "alias": "pendingRequestedContainerNum",
+      "downsampleAggregator": "avg",
+      "downsampleFillPolicy": "none",
+      "metric": "flink.jobmanager.pendingRequestedContainerNum",
+      "refId": "C",
+      "tags": {
+        "jobname": "${jobname}"
+      },
+      "hide": false
+    },
+    {
+      "aggregator": "count",
+      "alias": "startingContainerNum",
+      "downsampleAggregator": "avg",
+      "downsampleFillPolicy": "none",
+      "metric": "flink.jobmanager.startingContainers",
+      "refId": "D",
+      "tags": {
+        "jobname": "${jobname}"
+      },
+      "hide": false
+    },
+    {
+      "aggregator": "sum",
+      "alias": "gangDowngradeNum",
+      "downsampleAggregator": "avg",
+      "downsampleFillPolicy": "none",
+      "metric": "flink.jobmanager.gangDowngradeNum",
+      "refId": "E",
+      "tags": {
+        "jobname": "${jobname}"
+      },
+      "hide": false
+    },
+    {
+      "aggregator": "sum",
+      "alias": "gangFailedNum",
+      "downsampleAggregator": "avg",
+      "downsampleFillPolicy": "none",
+      "metric": "flink.jobmanager.gangFailedNum",
+      "refId": "F",
+      "tags": {
+        "jobname": "${jobname}"
+      },
+      "hide": false
+    }
+  ],
+  "thresholds": [],
+  "timeFrom": null,
+  "timeShift": null,
+  "title": "YarnContainer Info",
+  "tooltip": {
+    "shared": true,
+    "sort": 0,
+    "value_type": "individual"
+  },
+  "type": "graph",
+  "xaxis": {
+    "buckets": null,
+    "mode": "time",
+    "name": null,
+    "show": true,
+    "values": []
+  },
+  "yaxes": [
+    {
+      "format": "short",
+      "label": null,
+      "logBase": 1,
+      "max": null,
+      "min": null,
+      "show": true
+    },
+    {
+      "format": "ms",
+      "label": null,
+      "logBase": 1,
+      "max": null,
+      "min": null,
+      "show": true
+    }
+  ]
+}
