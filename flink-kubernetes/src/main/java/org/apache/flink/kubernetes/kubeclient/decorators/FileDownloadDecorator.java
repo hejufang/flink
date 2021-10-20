@@ -31,12 +31,10 @@ import org.apache.flink.util.function.FunctionUtils;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
-import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
-import io.fabric8.kubernetes.api.model.VolumeMount;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -112,16 +110,9 @@ public class FileDownloadDecorator extends AbstractKubernetesStepDecorator {
 		String downloadTemplate = kubernetesParameters.getFlinkConfiguration().getString(PipelineOptions.DOWNLOAD_TEMPLATE);
 		String downloadCommand = downloadTemplate.replace("%files%", remoteFiles)
 			.replace("%target%", fileMountedPath);
-		// we need to mount flink conf volume, hadoop conf volume, and downloader volume
-		List<VolumeMount> volumeMounts = basicMainContainer.getVolumeMounts();
-		List<EnvVar> envVarList = basicMainContainer.getEnv();
-		return new ContainerBuilder()
+		return new ContainerBuilder(basicMainContainer)
 			.withName("downloader")
-			.withImage(kubernetesParameters.getImage())
-			.withCommand(kubernetesParameters.getContainerEntrypoint())
 			.withArgs(Arrays.asList("/bin/bash", "-c", downloadCommand))
-			.addAllToVolumeMounts(volumeMounts)
-			.addAllToEnv(envVarList)
 			.build();
 	}
 

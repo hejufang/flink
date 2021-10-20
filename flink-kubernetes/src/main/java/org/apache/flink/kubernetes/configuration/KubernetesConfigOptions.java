@@ -22,6 +22,7 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.docs.Documentation;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ExternalResourceOptions;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.description.Description;
 import org.apache.flink.configuration.description.TextElement;
 import org.apache.flink.runtime.util.EnvironmentInformation;
@@ -150,6 +151,12 @@ public class KubernetesConfigOptions {
 		.withDescription("Image to use for Flink containers. " +
 			"The specified image must be based upon the same Apache Flink and Scala versions as used by the application. " +
 			"Visit https://hub.docker.com/_/flink?tab=tags for the images provided by the Flink project.");
+
+	public static final ConfigOption<String> CONTAINER_WORK_DIR =
+		key("kubernetes.container.work.dir")
+			.stringType()
+			.defaultValue(PipelineOptions.FILE_MOUNTED_PATH.defaultValue())
+			.withDescription("The working directory of jobmanager and taskmanager.");
 
 	public static final ConfigOption<List<String>> KUBERNETES_JOB_MANAGER_POST_START_HANDLER_COMMANDS =
 		key("kubernetes.jobmanager.post-start-handler.commands")

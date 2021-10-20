@@ -40,6 +40,8 @@ public interface KubernetesParameters {
 
 	String getImage();
 
+	String getWorkingDir();
+
 	KubernetesConfigOptions.ImagePullPolicy getImagePullPolicy();
 
 	LocalObjectReference[] getImagePullSecrets();

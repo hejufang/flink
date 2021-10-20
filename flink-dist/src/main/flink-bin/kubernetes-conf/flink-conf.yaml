@@ -32,12 +32,14 @@ common:
   kubernetes.flink.log.dir: /var/log/tiger
   kubernetes.flink.conf.dir: /opt/tiger/flink_deploy/conf
   kubernetes.entry.path: /opt/tiger/flink_deploy/bin/kubernetes-entry.sh
-  kubernetes.container-start-command-template: "cd /opt/tiger/workdir;pwd;%java% %classpath% %jvmmem% %jvmopts% %logging% %class% %args%"
+  kubernetes.container-start-command-template: "%java% %classpath% %jvmmem% %jvmopts% %logging% %class% %args%"
   kubernetes.namespace: flink
   kubernetes.taskmanager.cpu: 2.0
   kubernetes.jobmanager.cpu: 1.0
   kubernetes.jobmanager.service-account: flink
   kubernetes.deployment.annotations: "pod.tce.kubernetes.io/mountHostPath:true"
+  kubernetes.container.work.dir: /opt/tiger/workdir
+  pipeline.file-mounted-path: /opt/tiger/workdir
 
   prune.buffer.threshold: 262144
 
