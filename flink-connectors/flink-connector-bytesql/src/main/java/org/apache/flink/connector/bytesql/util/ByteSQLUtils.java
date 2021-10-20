@@ -98,18 +98,25 @@ public class ByteSQLUtils {
 		return "DELETE FROM " + quoteIdentifier(tableName) + " WHERE " + conditionClause;
 	}
 
+	/**
+	 * Get data by index.
+	 */
+	@FunctionalInterface
+	public interface DataGetter {
+		Object get(int i);
+	}
+
 	public static String generateActualSql(
 			String sqlQuery,
-			RowData row,
-			RowData.FieldGetter[] fieldGetters) throws ByteSQLException {
+			DataGetter dataGetter) throws ByteSQLException {
 		String[] parts = sqlQuery.split("\\?");
 		StringBuilder sb = new StringBuilder();
 
 		for (int i = 0; i < parts.length; i++) {
 			String part = parts[i];
 			sb.append(part);
-			if (i < row.getArity()) {
-				sb.append(format(fieldGetters[i].getFieldOrNull(row)));
+			if (i < parts.length - 1) {
+				sb.append(format(dataGetter.get(i)));
 			}
 		}
 		return sb.toString();

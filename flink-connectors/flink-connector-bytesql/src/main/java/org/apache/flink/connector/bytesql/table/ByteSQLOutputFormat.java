@@ -96,15 +96,15 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 		this.options = options;
 		this.insertOptions = insertOptions;
 		List<String> nameList = rowType.getFieldNames();
+		this.fieldNames = nameList.toArray(new String[]{});
 		if (!isAppendOnly) {
 			String[] pkFieldNames = insertOptions.getKeyFields();
 			this.pkFields = Arrays.stream(pkFieldNames).mapToInt(nameList::indexOf).toArray();
-			this.deleteSQL = ByteSQLUtils.getDeleteStatement(options.getTableName(), pkFieldNames);
+			this.deleteSQL = ByteSQLUtils.getDeleteStatement(options.getTableName(), fieldNames);
 		} else {
 			this.pkFields = null;
 			this.deleteSQL = null;
 		}
-		this.fieldNames = nameList.toArray(new String[]{});
 		this.upsertSQL = ByteSQLUtils.getUpsertStatement(
 			options.getTableName(), fieldNames, insertOptions.getTtlSeconds());
 		this.isAppendOnly = isAppendOnly;
@@ -187,17 +187,18 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 				try {
 					transaction = byteSQLDB.beginTransaction();
 					for (Map.Entry<RowData, Tuple2<Boolean, RowData>> entry : keyToRows.entrySet()) {
-						RowData pk = entry.getKey();
 						Tuple2<Boolean, RowData> tuple = entry.getValue();
 						if (tuple.f0) {
-							sql = ByteSQLUtils.generateActualSql(deleteSQL, pk, fieldGetters);
+							sql = ByteSQLUtils.generateActualSql(deleteSQL,
+								(index) -> fieldGetters[index].getFieldOrNull(tuple.f1));
 							transaction.rawQuery(sql);
 						}
 						if (tuple.f1 != null) {
 							if (insertOptions.isIgnoreNull()) {
 								sql = generateUpsertSQLWithoutNull(tuple.f1);
 							} else {
-								sql = ByteSQLUtils.generateActualSql(upsertSQL, tuple.f1, fieldGetters);
+								sql = ByteSQLUtils.generateActualSql(upsertSQL,
+									(index) -> fieldGetters[index].getFieldOrNull(tuple.f1));
 							}
 							transaction.rawQuery(sql);
 						}
@@ -269,9 +270,9 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 			i++;
 		}
 		String upsertFormatter = ByteSQLUtils
-			.getUpsertStatement(
-				options.getTableName(), fieldNameList.toArray(new String[]{}), insertOptions.getTtlSeconds());
-		return ByteSQLUtils.generateActualSql(upsertFormatter, GenericRowData.of(fields.toArray()), fieldGetters);
+			.getUpsertStatement(options.getTableName(),
+				fieldNameList.toArray(new String[]{}), insertOptions.getTtlSeconds());
+		return ByteSQLUtils.generateActualSql(upsertFormatter, fields::get);
 	}
 
 	/**

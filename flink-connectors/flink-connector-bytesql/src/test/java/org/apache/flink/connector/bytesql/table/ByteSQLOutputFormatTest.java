@@ -79,9 +79,9 @@ public class ByteSQLOutputFormatTest {
 			false
 		);
 		String sql = byteSQLOutputFormat
-			.generateUpsertSQLWithoutNull(GenericRowData.of(1, null, StringData.fromString("x")));
-		String expectedSQL = "INSERT INTO `test`(`id`, `text`) " +
-			"VALUES (1, 'x') ON DUPLICATE KEY UPDATE `id`=VALUES(`id`), `text`=VALUES(`text`)";
+			.generateUpsertSQLWithoutNull(GenericRowData.of(null, null, StringData.fromString("x")));
+		String expectedSQL = "INSERT INTO `test`(`text`) " +
+			"VALUES ('x') ON DUPLICATE KEY UPDATE `text`=VALUES(`text`)";
 		assertEquals(sql, expectedSQL);
 	}
 
