@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.warehouseevent;
+package org.apache.flink.event;
 
 import java.util.Objects;
 

@@ -28,6 +28,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.WebOptions;
+import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.metrics.MeterView;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.JobException;
@@ -72,7 +73,6 @@ import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendLoader;
 import org.apache.flink.util.DynamicCodeLoadingException;
 import org.apache.flink.util.SerializedValue;
-import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -166,10 +166,10 @@ public class ExecutionGraphBuilder {
 		FailoverStrategy.Factory failoverStrategyFactory,
 		SpeculationStrategy speculationStrategy,
 		final RemoteBlacklistReporter remoteBlacklistReporter,
-		final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) throws JobExecutionException, JobException {
+		final AbstractEventRecorder abstractEventRecorder) throws JobExecutionException, JobException {
 
-		if (warehouseJobStartEventMessageRecorder != null) {
-			warehouseJobStartEventMessageRecorder.buildExecutionGraphStart();
+		if (abstractEventRecorder != null) {
+			abstractEventRecorder.buildExecutionGraphStart();
 		}
 
 		checkNotNull(jobGraph, "job graph cannot be null");
@@ -240,8 +240,8 @@ public class ExecutionGraphBuilder {
 
 		final long initMasterStart = System.nanoTime();
 		log.info("Running initialization on master for job {} ({}).", jobName, jobId);
-		if (warehouseJobStartEventMessageRecorder != null) {
-			warehouseJobStartEventMessageRecorder.buildExecutionGraphInitialization();
+		if (abstractEventRecorder != null) {
+			abstractEventRecorder.buildExecutionGraphInitialization();
 		}
 
 		for (JobVertex vertex : jobGraph.getVertices()) {
@@ -268,7 +268,7 @@ public class ExecutionGraphBuilder {
 		if (log.isDebugEnabled()) {
 			log.debug("Adding {} vertices from job graph {} ({}).", sortedTopology.size(), jobName, jobId);
 		}
-		executionGraph.attachJobGraph(sortedTopology, warehouseJobStartEventMessageRecorder);
+		executionGraph.attachJobGraph(sortedTopology, abstractEventRecorder);
 
 		if (log.isDebugEnabled()) {
 			log.debug("Successfully created execution graph from job graph {} ({}).", jobName, jobId);
@@ -499,8 +499,8 @@ public class ExecutionGraphBuilder {
 		log.info("Successfully ran buildExecutionGraph on master in {} ms.",
 				(System.nanoTime() - initMasterStart) / 1_000_000);
 
-		if (warehouseJobStartEventMessageRecorder != null) {
-			warehouseJobStartEventMessageRecorder.buildExecutionGraphFinish();
+		if (abstractEventRecorder != null) {
+			abstractEventRecorder.buildExecutionGraphFinish();
 		}
 		return executionGraph;
 	}

@@ -29,12 +29,12 @@ import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.core.execution.DetachedJobExecutionResult;
 import org.apache.flink.core.execution.PipelineExecutorServiceLoader;
+import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.runtime.client.JobExecutionException;
 import org.apache.flink.runtime.execution.librarycache.FlinkUserCodeClassLoaders;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmaster.JobResult;
 import org.apache.flink.util.ExceptionUtils;
-import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,7 +135,7 @@ public enum ClientUtils {
 			PackagedProgram program,
 			boolean enforceSingleJobExecution,
 			boolean suppressSysout,
-			@Nullable final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) throws ProgramInvocationException {
+			@Nullable final AbstractEventRecorder abstractEventRecorder) throws ProgramInvocationException {
 		checkNotNull(executorServiceLoader);
 		final ClassLoader userCodeClassLoader = program.getUserCodeClassLoader();
 		final ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
@@ -157,7 +157,7 @@ public enum ClientUtils {
 				userCodeClassLoader,
 				enforceSingleJobExecution,
 				suppressSysout,
-				warehouseJobStartEventMessageRecorder);
+				abstractEventRecorder);
 
 			try {
 				program.invokeInteractiveModeForExecution();

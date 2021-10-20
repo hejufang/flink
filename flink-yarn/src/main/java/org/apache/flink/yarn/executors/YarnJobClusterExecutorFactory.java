@@ -23,7 +23,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.core.execution.PipelineExecutor;
 import org.apache.flink.core.execution.PipelineExecutorFactory;
-import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
+import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.yarn.configuration.YarnDeploymentTarget;
 
 import javax.annotation.Nonnull;
@@ -54,9 +54,9 @@ public class YarnJobClusterExecutorFactory implements PipelineExecutorFactory {
 	}
 
 	@Override
-	public PipelineExecutor getExecutor(Configuration configuration, WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) {
+	public PipelineExecutor getExecutor(Configuration configuration, AbstractEventRecorder abstractEventRecorder) {
 		try {
-			return new YarnJobClusterExecutor(warehouseJobStartEventMessageRecorder);
+			return new YarnJobClusterExecutor(abstractEventRecorder);
 		} catch (NoClassDefFoundError e) {
 			throw new IllegalStateException(YarnDeploymentTarget.ERROR_MESSAGE);
 		}

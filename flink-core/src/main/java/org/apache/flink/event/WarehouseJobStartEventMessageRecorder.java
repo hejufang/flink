@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.warehouseevent;
+package org.apache.flink.event;
 
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
@@ -25,12 +25,11 @@ import org.apache.flink.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  *
  */
-public class WarehouseJobStartEventMessageRecorder {
+public class WarehouseJobStartEventMessageRecorder implements AbstractEventRecorder {
 	public static final String EVENT_ACTION_START = "start";
 	public static final String EVENT_ACTION_FINISH = "finish";
 
@@ -406,14 +405,5 @@ public class WarehouseJobStartEventMessageRecorder {
 				EVENT_TYPE_START_CONTAINER,
 				EVENT_ACTION_FINISH);
 		doRecord(message);
-	}
-
-	public static void recordWarehouseEvent(
-			WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder,
-			Consumer<WarehouseJobStartEventMessageRecorder> consumer) {
-
-		if (warehouseJobStartEventMessageRecorder != null) {
-			consumer.accept(warehouseJobStartEventMessageRecorder);
-		}
 	}
 }

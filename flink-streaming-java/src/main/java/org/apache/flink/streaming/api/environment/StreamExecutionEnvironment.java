@@ -61,6 +61,7 @@ import org.apache.flink.core.execution.PipelineExecutor;
 import org.apache.flink.core.execution.PipelineExecutorFactory;
 import org.apache.flink.core.execution.PipelineExecutorServiceLoader;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.state.AbstractStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
@@ -98,7 +99,6 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SplittableIterator;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.WrappingRuntimeException;
-import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import com.esotericsoftware.kryo.Serializer;
 
@@ -115,9 +115,9 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import static org.apache.flink.event.AbstractEventRecorder.recordAbstractEvent;
 import static org.apache.flink.monitor.utils.Utils.registerDashboard;
 import static org.apache.flink.util.Preconditions.checkNotNull;
-import static org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder.recordWarehouseEvent;
 
 /**
  * The StreamExecutionEnvironment is the context in which a streaming program is executed. A
@@ -183,7 +183,7 @@ public class StreamExecutionEnvironment {
 	private boolean isBatchJob = false;
 
 	@Nullable
-	protected final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
+	protected final AbstractEventRecorder abstractEventRecorder;
 
 	// --------------------------------------------------------------------------------------------
 	// Constructor and Properties
@@ -238,11 +238,11 @@ public class StreamExecutionEnvironment {
 			final PipelineExecutorServiceLoader executorServiceLoader,
 			final Configuration configuration,
 			final ClassLoader userClassloader,
-			@Nullable WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) {
+			@Nullable AbstractEventRecorder abstractEventRecorder) {
 		this.executorServiceLoader = checkNotNull(executorServiceLoader);
 		this.configuration = checkNotNull(configuration);
 		this.userClassloader = userClassloader == null ? getClass().getClassLoader() : userClassloader;
-		this.warehouseJobStartEventMessageRecorder = warehouseJobStartEventMessageRecorder;
+		this.abstractEventRecorder = abstractEventRecorder;
 
 		// the configuration of a job or an operator can be specified at the following places:
 		//     i) at the operator level using e.g. parallelism using the SingleOutputStreamOperator.setParallelism().
@@ -1837,7 +1837,7 @@ public class StreamExecutionEnvironment {
 
 		registerDashboard(streamGraph);
 		CompletableFuture<JobClient> jobClientFuture = executorFactory
-			.getExecutor(configuration, warehouseJobStartEventMessageRecorder)
+			.getExecutor(configuration, abstractEventRecorder)
 			.execute(streamGraph, configuration);
 
 		try {
@@ -1847,9 +1847,9 @@ public class StreamExecutionEnvironment {
 			if (!configuration.getBoolean(DeploymentOptions.ATTACHED)
 					&& configuration.getBoolean(DeploymentOptions.WAIT_RUNNING_IF_DETACHED)) {
 
-				recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::checkSlotEnoughStart);
+				recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::checkSlotEnoughStart);
 				jobClient.waitAllTaskRunningOrClusterFailed().get();
-				recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::checkSlotEnoughFinish);
+				recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::checkSlotEnoughFinish);
 			}
 
 			return jobClient;
@@ -1898,7 +1898,7 @@ public class StreamExecutionEnvironment {
 	 */
 	@Internal
 	public StreamGraph getStreamGraph(String jobName, boolean clearTransformations) {
-		recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::buildStreamGraphStart);
+		recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::buildStreamGraphStart);
 
 		StreamGraph streamGraph = getStreamGraphGenerator().setJobName(jobName).generate();
 		if (clearTransformations) {
@@ -1919,7 +1919,7 @@ public class StreamExecutionEnvironment {
 			streamGraph.setGlobalDataExchangeMode(GlobalDataExchangeMode.valueOf(configuration.get(ExecutionOptions.EXEC_SHUFFLE_MODE)));
 		}
 
-		recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::buildStreamGraphFinish);
+		recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::buildStreamGraphFinish);
 
 		return streamGraph;
 	}

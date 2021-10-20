@@ -26,13 +26,13 @@ import org.apache.flink.core.execution.DetachedJobExecutionResult;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.core.execution.JobListener;
 import org.apache.flink.core.execution.PipelineExecutorServiceLoader;
+import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironmentFactory;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.ShutdownHookUtil;
-import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,8 +68,8 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 			final ClassLoader userCodeClassLoader,
 			final boolean enforceSingleJobExecution,
 			final boolean suppressSysout,
-			@Nullable final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) {
-		super(executorServiceLoader, configuration, userCodeClassLoader, warehouseJobStartEventMessageRecorder);
+			@Nullable final AbstractEventRecorder abstractEventRecorder) {
+		super(executorServiceLoader, configuration, userCodeClassLoader, abstractEventRecorder);
 		this.suppressSysout = suppressSysout;
 		this.enforceSingleJobExecution = enforceSingleJobExecution;
 
@@ -161,14 +161,14 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 			final ClassLoader userCodeClassLoader,
 			final boolean enforceSingleJobExecution,
 			final boolean suppressSysout,
-			@Nullable final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) {
+			@Nullable final AbstractEventRecorder abstractEventRecorder) {
 		StreamExecutionEnvironmentFactory factory = () -> new StreamContextEnvironment(
 			executorServiceLoader,
 			configuration,
 			userCodeClassLoader,
 			enforceSingleJobExecution,
 			suppressSysout,
-			warehouseJobStartEventMessageRecorder);
+			abstractEventRecorder);
 		initializeContextEnvironment(factory);
 	}
 

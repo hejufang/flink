@@ -29,6 +29,8 @@ import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.core.io.InputSplit;
+import org.apache.flink.event.CompoundRecorder;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.metrics.MeterView;
 import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.queryablestate.KvStateID;
@@ -113,7 +115,6 @@ import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.IterableUtils;
 import org.apache.flink.util.function.FunctionUtils;
-import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.slf4j.Logger;
 
@@ -205,6 +206,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	protected final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
 
+	protected final CompoundRecorder compoundRecorder;
+
 	// warehouse messages
 	public static final String EVENT_METRIC_NAME = "executionGraphEvent";
 
@@ -243,6 +246,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		this.checkpointRecoveryFactory = checkNotNull(checkpointRecoveryFactory);
 		this.rpcTimeout = checkNotNull(rpcTimeout);
 		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(false);
+		this.compoundRecorder = new CompoundRecorder(this.warehouseJobStartEventMessageRecorder);
 
 		final RestartStrategies.RestartStrategyConfiguration restartStrategyConfiguration =
 			jobGraph.getSerializedExecutionConfig()
@@ -334,7 +338,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 			failoverStrategy,
 			speculationStrategy,
 			remoteBlacklistReporter,
-			warehouseJobStartEventMessageRecorder);
+			compoundRecorder);
 	}
 
 	/**

@@ -25,6 +25,8 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.event.CompoundRecorder;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.TagGauge;
@@ -63,7 +65,6 @@ import org.apache.flink.runtime.webmonitor.history.HistoryServerUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
-import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
 import org.apache.flink.yarn.exceptions.ContainerCompletedException;
@@ -206,6 +207,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private static final String EVENT_METRIC_NAME = "resourceManagerEvent";
 
 	private final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
+
+	private final CompoundRecorder compoundRecorder;
 
 	private final Executor startContainerExecutor;
 
@@ -354,7 +357,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		String currentContainerId = System.getenv(ENV_YARN_CONTAINER_ID);
 		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(currentContainerId, false);
-
+		this.compoundRecorder = new CompoundRecorder(this.warehouseJobStartEventMessageRecorder);
 		this.startContainerExecutor = Executors.newScheduledThreadPool(
 				flinkConfig.getInteger(YarnConfigOptions.CONTAINER_LAUNCHER_NUMBER),
 				new ExecutorThreadFactory("resourcemanager-start-container"));
@@ -603,7 +606,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	protected YarnWorkerNode workerStarted(ResourceID resourceID) {
 		YarnWorkerNode workerNode = workerNodeMap.get(resourceID);
 		if (workerNode != null) {
-			warehouseJobStartEventMessageRecorder.startContainerFinish(workerNode.getContainer().getId().toString());
+			compoundRecorder.startContainerFinish(workerNode.getContainer().getId().toString());
 		}
 		return workerNode;
 	}
@@ -816,15 +819,15 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		startContainerExecutor.execute(() -> {
 			try {
-				warehouseJobStartEventMessageRecorder.createTaskManagerContextStart(container.getId().toString());
+				compoundRecorder.createTaskManagerContextStart(container.getId().toString());
 				// Context information used to start a TaskExecutor Java process
 				ContainerLaunchContext taskExecutorLaunchContext = createTaskExecutorLaunchContext(
 						resourceId.toString(),
 						container.getNodeId().getHost(),
 						TaskExecutorProcessUtils.processSpecFromWorkerResourceSpec(flinkConfig, workerResourceSpec));
 
-				warehouseJobStartEventMessageRecorder.createTaskManagerContextFinish(container.getId().toString());
-				warehouseJobStartEventMessageRecorder.startContainerStart(container.getId().toString());
+				compoundRecorder.createTaskManagerContextFinish(container.getId().toString());
+				compoundRecorder.startContainerStart(container.getId().toString());
 				nodeManagerClient.startContainerAsync(container, taskExecutorLaunchContext);
 			} catch (Throwable t) {
 				getMainThreadExecutor().execute(() -> releaseFailedContainerAndRequestNewContainerIfRequired(container.getId(), t));

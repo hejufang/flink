@@ -51,11 +51,15 @@ import org.apache.flink.core.execution.DefaultExecutorServiceLoader;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.plugin.PluginUtils;
+import org.apache.flink.event.CompoundRecorder;
+import org.apache.flink.event.MetricEventRecorder;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
 import org.apache.flink.runtime.checkpoint.metadata.savepoint.SavepointSimpleMetadata;
 import org.apache.flink.runtime.client.JobStatusMessage;
 import org.apache.flink.runtime.messages.Acknowledge;
+import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.MetricRegistryConfiguration;
 import org.apache.flink.runtime.metrics.MetricRegistryImpl;
 import org.apache.flink.runtime.metrics.ReporterSetup;
@@ -76,7 +80,6 @@ import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.ShutdownHookUtil;
 import org.apache.flink.util.function.FunctionUtils;
-import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 import org.apache.flink.shaded.org.apache.commons.cli.Options;
@@ -157,6 +160,8 @@ public class CliFrontend {
 	private MetricRegistryImpl metricRegistry = null;
 	private ClientMetricGroup clientMetricGroup = null;
 	private WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(true);
+	private MetricEventRecorder metricEventRecorder = new MetricEventRecorder();
+	private CompoundRecorder compoundRecorder = new CompoundRecorder(this.warehouseJobStartEventMessageRecorder, metricEventRecorder);
 
 	public CliFrontend(
 			Configuration configuration,
@@ -396,6 +401,7 @@ public class CliFrontend {
 	private void registerMetrics() {
 		if (clientMetricGroup != null) {
 			clientMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
+			clientMetricGroup.gauge(MetricNames.TIME_AM_START, () -> metricEventRecorder.getJMStartDuration());
 		}
 	}
 
@@ -1121,7 +1127,7 @@ public class CliFrontend {
 	// --------------------------------------------------------------------------------------------
 
 	protected void executeProgram(final Configuration configuration, final PackagedProgram program) throws ProgramInvocationException {
-		ClientUtils.executeProgram(new DefaultExecutorServiceLoader(), configuration, program, false, false, warehouseJobStartEventMessageRecorder);
+		ClientUtils.executeProgram(new DefaultExecutorServiceLoader(), configuration, program, false, false, compoundRecorder);
 	}
 
 	/**

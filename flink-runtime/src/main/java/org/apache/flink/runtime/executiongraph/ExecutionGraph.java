@@ -29,6 +29,8 @@ import org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+
+import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.SimpleCounter;
@@ -96,7 +98,6 @@ import org.apache.flink.util.SerializedThrowable;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.clock.SystemClock;
-import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1010,7 +1011,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		attachJobGraph(topologiallySorted, null);
 	}
 
-	public void attachJobGraph(List<JobVertex> topologiallySorted, final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) throws JobException {
+	public void attachJobGraph(List<JobVertex> topologiallySorted, final AbstractEventRecorder abstractEventRecorder) throws JobException {
 
 		assertRunningInJobMasterMainThread();
 
@@ -1060,15 +1061,15 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			newExecJobVertices.add(ejv);
 		}
 
-		if (warehouseJobStartEventMessageRecorder != null) {
-			warehouseJobStartEventMessageRecorder.buildExecutionGraphAttachJobVertex();
+		if (abstractEventRecorder != null) {
+			abstractEventRecorder.buildExecutionGraphAttachJobVertex();
 		}
 
 		// the topology assigning should happen before notifying new vertices to failoverStrategy
 		executionTopology = new DefaultExecutionTopology(this);
 
-		if (warehouseJobStartEventMessageRecorder != null) {
-			warehouseJobStartEventMessageRecorder.buildExecutionGraphExecutionTopology();
+		if (abstractEventRecorder != null) {
+			abstractEventRecorder.buildExecutionGraphExecutionTopology();
 		}
 
 		failoverStrategy.notifyNewVertices(newExecJobVertices);

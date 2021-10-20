@@ -20,7 +20,7 @@ package org.apache.flink.core.execution;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
+import org.apache.flink.event.AbstractEventRecorder;
 
 /**
  * A factory for selecting and instantiating the adequate {@link PipelineExecutor}
@@ -46,7 +46,7 @@ public interface PipelineExecutorFactory {
 	 */
 	PipelineExecutor getExecutor(final Configuration configuration);
 
-	default PipelineExecutor getExecutor(final Configuration configuration, final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) {
+	default PipelineExecutor getExecutor(final Configuration configuration, final AbstractEventRecorder abstractEventRecorder) {
 		return getExecutor(configuration);
 	}
 }

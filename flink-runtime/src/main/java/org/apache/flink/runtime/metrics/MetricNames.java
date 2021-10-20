@@ -83,6 +83,8 @@ public class MetricNames {
 	public static final String NUM_EXCESS_WORKERS = "numExcessWorkers";
 	public static final String NUM_LACK_WORKERS = "numLackWorkers";
 
+	public static final String TIME_AM_START = "timeOfAMStart";
+
 	public static final String NUM_RM_HEARTBEAT_TIMOUT_FROM_JM = "RMHeartbeatTimeoutFromJM";
 	public static final String NUM_RM_HEARTBEAT_TIMOUT_FROM_TM = "RMHeartbeatTimeoutFromTM";
 	public static final String NUM_JM_HEARTBEAT_TIMOUT_FROM_RM = "JMHeartbeatTimeoutFromRM";

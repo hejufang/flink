@@ -271,5 +271,7 @@ non-global:
         JMHeartbeatTimeoutFromRM,
         JMHeartbeatTimeoutFromTM,
         TMHeartbeatTimeoutFromRM,
-        TMHeartbeatTimeoutFromJM
+        TMHeartbeatTimeoutFromJM,
+      # am
+        timeOfAMStart
     ]
