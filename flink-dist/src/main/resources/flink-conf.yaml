@@ -283,6 +283,9 @@ lepad:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
   taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
+  bytedance.streaming.cluster.evenly-spread-out-slots: false
+  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
+  bytedance.streaming.slot-pool.round-robin: true
 
 larva:
   dc: cn
@@ -321,6 +324,9 @@ leser:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   yarn.provided.lib.dirs.enabled: true
+  bytedance.streaming.cluster.evenly-spread-out-slots: false
+  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
+  bytedance.streaming.slot-pool.round-robin: true
 
 lobst:
   dc: cn
@@ -360,6 +366,9 @@ horse:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
   taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
+  bytedance.streaming.cluster.evenly-spread-out-slots: false
+  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
+  bytedance.streaming.slot-pool.round-robin: true
 
 hibis:
   dc: cn
@@ -451,6 +460,9 @@ quaga:
   ipv6.enabled: true
   taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 60000
+  bytedance.streaming.cluster.evenly-spread-out-slots: false
+  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
+  bytedance.streaming.slot-pool.round-robin: true
 
 quele:
   dc: cn
@@ -674,6 +686,9 @@ boe:
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
   taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
+  bytedance.streaming.cluster.evenly-spread-out-slots: false
+  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
+  bytedance.streaming.slot-pool.round-robin: true
 
 cof:
   dc: vm
