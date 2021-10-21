@@ -454,7 +454,6 @@ quoka:
   bytedance.streaming.slot-pool.round-robin: true
   docker.namespace: yarn
   docker.image: yarn_runtime_flink:latest
-  execution.cancellation.timeout.enable: true
   state.backend.cache.enable: true
   state.backend.cache.maxHeapSize: 1g
   state.backend.cache.blockSize: 4m
