@@ -29,6 +29,7 @@ import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.client.program.rest.retry.ExponentialWaitStrategy;
 import org.apache.flink.client.program.rest.retry.WaitStrategy;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.client.JobStatusMessage;
 import org.apache.flink.runtime.client.JobSubmissionException;
@@ -178,7 +179,8 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 			config,
 			null,
 			clusterId,
-			new ExponentialWaitStrategy(10L, 2000L),
+			new ExponentialWaitStrategy(config.getLong(RestOptions.CLUSTER_CLIENT_RETRY_INIT_DELAY),
+					config.getLong(RestOptions.CLUSTER_CLIENT_RETRY_MAX_DELAY)),
 			clientHAServices);
 	}
 

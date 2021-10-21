@@ -116,6 +116,28 @@ public class RestOptions {
 				"(See also `%s`).", RETRY_MAX_ATTEMPTS.key()));
 
 	/**
+	 * The initial delay in ms that the cluster client waits between retries
+	 * when using ExponentialWaitStrategy.
+	 */
+	@Documentation.Section(Documentation.Sections.EXPERT_REST)
+	public static final ConfigOption<Long> CLUSTER_CLIENT_RETRY_INIT_DELAY =
+		key("rest.cluster-client.retry.initial-delay")
+			.defaultValue(10L)
+			.withDescription("The initial delay in ms that the cluster client waits between retries " +
+					"when using ExponentialWaitStrategy.");
+
+	/**
+	 * The max delay in ms that the cluster client waits between retries
+	 * when using ExponentialWaitStrategy.
+	 */
+	@Documentation.Section(Documentation.Sections.EXPERT_REST)
+	public static final ConfigOption<Long> CLUSTER_CLIENT_RETRY_MAX_DELAY =
+		key("rest.cluster-client.retry.max-delay")
+			.defaultValue(2_000L)
+			.withDescription("The max delay in ms that the cluster client waits between retries " +
+					"when using ExponentialWaitStrategy.");
+
+	/**
 	 * The maximum time in ms for the client to establish a TCP connection.
 	 */
 	@Documentation.Section(Documentation.Sections.EXPERT_REST)
