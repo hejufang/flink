@@ -78,6 +78,7 @@ public class S3EntropyFsFactoryTest extends TestLogger {
 		TestFsFactory() {
 			super("testFs", new HadoopConfigLoader(
 					new String[0],
+					new String[0],
 					new String[0][],
 					"",
 					Collections.emptySet(),

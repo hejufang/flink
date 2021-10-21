@@ -44,6 +44,7 @@ public abstract class AbstractAzureFSFactory implements FileSystemFactory {
 	private static final Logger LOG = LoggerFactory.getLogger(AzureFSFactory.class);
 
 	private static final String[] FLINK_CONFIG_PREFIXES = { "fs.azure.", "azure." };
+	private static final String[] COMMON_CONFIG_PREFIXES = {};
 	private static final String HADOOP_CONFIG_PREFIX = "fs.azure.";
 
 	private static final String[][] MIRRORED_CONFIG_KEYS = {};
@@ -56,7 +57,7 @@ public abstract class AbstractAzureFSFactory implements FileSystemFactory {
 	private Configuration flinkConfig;
 
 	public AbstractAzureFSFactory() {
-		this.configLoader = new HadoopConfigLoader(FLINK_CONFIG_PREFIXES, MIRRORED_CONFIG_KEYS,
+		this.configLoader = new HadoopConfigLoader(FLINK_CONFIG_PREFIXES, COMMON_CONFIG_PREFIXES, MIRRORED_CONFIG_KEYS,
 			HADOOP_CONFIG_PREFIX, PACKAGE_PREFIXES_TO_SHADE, CONFIG_KEYS_TO_SHADE, FLINK_SHADING_PREFIX);
 	}
 

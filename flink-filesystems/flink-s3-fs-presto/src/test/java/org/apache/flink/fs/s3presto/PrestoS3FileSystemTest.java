@@ -78,6 +78,18 @@ public class PrestoS3FileSystemTest {
 	}
 
 	@Test
+	public void testSetCustomCredentialsProvider() throws Exception{
+		final Configuration conf = new Configuration();
+		conf.setString("s3.use-instance-credentials", "false");
+		conf.setString("s3.credentials-provider", "org.apache.flink.fs.s3presto.VolcengineStsCredentialsProvider");
+		conf.setString("kubernetes.secrets", "sts-credentials:/etc/secrets");
+		FileSystem.initialize(conf);
+
+		FileSystem fs = FileSystem.get(new URI("s3://test"));
+		validateCustomCredentials(fs, VolcengineStsCredentialsProvider.class);
+	}
+
+	@Test
 	public void testShadingOfAwsCredProviderConfig() {
 		final Configuration conf = new Configuration();
 		conf.setString("presto.s3.credentials-provider", "com.amazonaws.auth.ContainerCredentialsProvider");
@@ -103,6 +115,18 @@ public class PrestoS3FileSystemTest {
 		try (PrestoS3FileSystem prestoFs = (PrestoS3FileSystem) hadoopFs) {
 			AWSCredentialsProvider provider = getAwsCredentialsProvider(prestoFs);
 			assertTrue(provider instanceof AWSStaticCredentialsProvider);
+		}
+	}
+
+	private static void validateCustomCredentials(FileSystem fs, Class customCredentialsProvider) throws Exception {
+		assertTrue(fs instanceof FlinkS3FileSystem);
+
+		org.apache.hadoop.fs.FileSystem hadoopFs = ((FlinkS3FileSystem) fs).getHadoopFileSystem();
+		assertTrue(hadoopFs instanceof PrestoS3FileSystem);
+
+		try (PrestoS3FileSystem prestoFs = (PrestoS3FileSystem) hadoopFs) {
+			AWSCredentialsProvider provider = getAwsCredentialsProvider(prestoFs);
+			assertTrue(customCredentialsProvider.isInstance(provider));
 		}
 	}
 

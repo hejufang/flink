@@ -39,6 +39,7 @@ import java.util.Collections;
 public class S3FileSystemFactory extends AbstractS3FileSystemFactory {
 
 	private static final String[] FLINK_CONFIG_PREFIXES = { "s3.", "presto.s3." };
+	private static final String[] COMMON_CONFIG_PREFIXES = { "kubernetes." };
 
 	private static final String[][] MIRRORED_CONFIG_KEYS = {
 			{ "presto.s3.access.key", "presto.s3.access-key" },
@@ -57,7 +58,7 @@ public class S3FileSystemFactory extends AbstractS3FileSystemFactory {
 
 	@VisibleForTesting
 	static HadoopConfigLoader createHadoopConfigLoader() {
-		return new HadoopConfigLoader(FLINK_CONFIG_PREFIXES, MIRRORED_CONFIG_KEYS,
+		return new HadoopConfigLoader(FLINK_CONFIG_PREFIXES, COMMON_CONFIG_PREFIXES, MIRRORED_CONFIG_KEYS,
 			"presto.s3.", Collections.emptySet(), Collections.emptySet(), "");
 	}
 

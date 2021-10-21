@@ -37,6 +37,9 @@ public class HadoopConfigLoader {
 	/** The prefixes that Flink adds to the Hadoop fs config. */
 	private final String[] flinkConfigPrefixes;
 
+	/** The common prefixes that needs to be passed from flink to hadoop. */
+	private final String[] commonConfigPrefixes;
+
 	/** Keys that are replaced (after prefix replacement, to give a more uniform experience
 	 * across different file system implementations. */
 	private final String[][] mirroredConfigKeys;
@@ -56,12 +59,14 @@ public class HadoopConfigLoader {
 
 	public HadoopConfigLoader(
 		@Nonnull String[] flinkConfigPrefixes,
+		@Nonnull String[] commonConfigPrefixes,
 		@Nonnull String[][] mirroredConfigKeys,
 		@Nonnull String hadoopConfigPrefix,
 		Set<String> packagePrefixesToShade,
 		@Nonnull Set<String> configKeysToShade,
 		@Nonnull String flinkShadingPrefix) {
 		this.flinkConfigPrefixes = flinkConfigPrefixes;
+		this.commonConfigPrefixes = commonConfigPrefixes;
 		this.mirroredConfigKeys = mirroredConfigKeys;
 		this.hadoopConfigPrefix = hadoopConfigPrefix;
 		this.packagePrefixesToShade = packagePrefixesToShade;
@@ -102,6 +107,11 @@ public class HadoopConfigLoader {
 					hadoopConfig.set(newKey, newValue);
 
 					LOG.debug("Adding Flink config entry for {} as {} to Hadoop config", key, newKey);
+				}
+			}
+			for (String prefix : commonConfigPrefixes) {
+				if (key.startsWith(prefix)) { // common config
+					hadoopConfig.set(key, flinkConfig.getString(key, null));
 				}
 			}
 		}

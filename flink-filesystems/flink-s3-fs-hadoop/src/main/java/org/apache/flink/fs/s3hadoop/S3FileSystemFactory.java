@@ -41,6 +41,7 @@ public class S3FileSystemFactory extends AbstractS3FileSystemFactory {
 	private static final Logger LOG = LoggerFactory.getLogger(S3FileSystemFactory.class);
 
 	private static final String[] FLINK_CONFIG_PREFIXES = { "s3.", "s3a.", "fs.s3a." };
+	private static final String[] COMMON_CONFIG_PREFIXES = {};
 
 	private static final String[][] MIRRORED_CONFIG_KEYS = {
 			{ "fs.s3a.access-key", "fs.s3a.access.key" },
@@ -59,7 +60,7 @@ public class S3FileSystemFactory extends AbstractS3FileSystemFactory {
 
 	@VisibleForTesting
 	static HadoopConfigLoader createHadoopConfigLoader() {
-		return new HadoopConfigLoader(FLINK_CONFIG_PREFIXES, MIRRORED_CONFIG_KEYS,
+		return new HadoopConfigLoader(FLINK_CONFIG_PREFIXES, COMMON_CONFIG_PREFIXES, MIRRORED_CONFIG_KEYS,
 			"fs.s3a.", Collections.emptySet(), Collections.emptySet(), "");
 	}
 
