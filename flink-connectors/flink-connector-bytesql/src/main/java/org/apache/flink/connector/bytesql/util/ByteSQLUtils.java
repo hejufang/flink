@@ -60,7 +60,7 @@ public class ByteSQLUtils {
 			List<String> conditionFields) {
 		String selectExpressions = String.join(", ", selectFields);
 		String fieldExpressions = conditionFields.stream()
-			.map(f -> f + "=?")
+			.map(f -> f + "=%s")
 			.collect(Collectors.joining(" AND "));
 		return "SELECT " + selectExpressions + " FROM " +
 			tableName + (conditionFields.size() > 0 ? " WHERE " + fieldExpressions : "");
@@ -71,7 +71,7 @@ public class ByteSQLUtils {
 			.map(ByteSQLUtils::quoteIdentifier)
 			.collect(Collectors.joining(", "));
 		String placeholders = Arrays.stream(fieldNames)
-			.map(f -> "?")
+			.map(f -> "%s")
 			.collect(Collectors.joining(", "));
 		return "INSERT INTO " + quoteIdentifier(tableName) +
 			"(" + columns + ")" + " VALUES (" + placeholders + ")";
@@ -93,26 +93,24 @@ public class ByteSQLUtils {
 
 	public static String getDeleteStatement(String tableName, String[] conditionFields) {
 		String conditionClause = Arrays.stream(conditionFields)
-			.map(f -> quoteIdentifier(f) + "=?")
+			.map(f -> quoteIdentifier(f) + "=%s")
 			.collect(Collectors.joining(" AND "));
 		return "DELETE FROM " + quoteIdentifier(tableName) + " WHERE " + conditionClause;
 	}
 
+	/**
+	 * Generate the actual sql by filling the template with the field values.
+	 * @param sqlQuery  the template of sql.
+	 * @param values  the actual field values.
+	 */
 	public static String generateActualSql(
 			String sqlQuery,
-			RowData row,
-			RowData.FieldGetter[] fieldGetters) throws ByteSQLException {
-		String[] parts = sqlQuery.split("\\?");
-		StringBuilder sb = new StringBuilder();
-
-		for (int i = 0; i < parts.length; i++) {
-			String part = parts[i];
-			sb.append(part);
-			if (i < row.getArity()) {
-				sb.append(format(fieldGetters[i].getFieldOrNull(row)));
-			}
+			Object[] values) throws ByteSQLException {
+		Object[] formatted = new Object[values.length];
+		for (int i = 0; i < values.length; i++) {
+			formatted[i] = format(values[i]);
 		}
-		return sb.toString();
+		return String.format(sqlQuery, formatted);
 	}
 
 	public static List<RowData> convertResponseToRows(
