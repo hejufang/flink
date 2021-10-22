@@ -120,6 +120,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQSource.class);
 	private static final String TASK_RUNNING_STATE = "task_running_state";
 	private static final String OFFSETS_STATE_NAME = "topic-partition-offset-states";
+	private static final String NEW_OFFSETS_STATE_NAME = "rmq-topic-offset-states";
 	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
 	private static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
 	private transient Counter skipDirty;
@@ -525,6 +526,24 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 			OFFSETS_STATE_NAME, TypeInformation.of(new TypeHint<Tuple2<MessageQueue, Long>>() {
 
 		})));
+
+		// ************************* DTS State Compatibility *******************************
+		// add new states into current version
+		ListState<Tuple2<com.bytedance.rocketmq.clientv2.message.MessageQueue, Long>> newUnionOffsetStates = context.getOperatorStateStore()
+				.getUnionListState(new ListStateDescriptor<>(NEW_OFFSETS_STATE_NAME, TypeInformation.of(
+						new TypeHint<Tuple2<com.bytedance.rocketmq.clientv2.message.MessageQueue, Long>>() {
+						})));
+
+		for (Tuple2<com.bytedance.rocketmq.clientv2.message.MessageQueue, Long> newState : newUnionOffsetStates.get()) {
+			com.bytedance.rocketmq.clientv2.message.MessageQueue legacyQueue = newState.f0;
+			this.unionOffsetStates.add(Tuple2.of(
+					new MessageQueue(legacyQueue.getTopic(), legacyQueue.getBrokerName(), legacyQueue.getQueueId()),
+					newState.f1));
+		}
+
+		newUnionOffsetStates.clear();
+		// ************************* DTS State Compatibility *******************************
+
 		if (!schema.isStreamingMode()) {
 			this.runningState = context.getOperatorStateStore().getUnionListState(new ListStateDescriptor<>(
 				TASK_RUNNING_STATE, TypeInformation.of(new TypeHint<Boolean>() {

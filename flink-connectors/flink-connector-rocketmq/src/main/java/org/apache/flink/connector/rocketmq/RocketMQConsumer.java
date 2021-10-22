@@ -91,6 +91,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private static final int DEFAULT_SLEEP_MILLISECONDS = 1;
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQConsumer.class);
 	private static final String OFFSETS_STATE_NAME = "rmq-topic-offset-states";
+	private static final String LEGACY_OFFSETS_STATE_NAME = "topic-partition-offset-states";
 	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
 	private static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
 	public static final String ROCKET_MQ_CONSUMER_METRICS_GROUP = "RocketMQConsumer";
@@ -205,6 +206,24 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.unionOffsetStates = context.getOperatorStateStore().getUnionListState(new ListStateDescriptor<>(
 			OFFSETS_STATE_NAME, TypeInformation.of(new TypeHint<Tuple2<MessageQueue, Long>>() {})
 		));
+
+		// ************************* DTS State Compatibility *******************************
+		// add legacy states into current version
+		ListState<Tuple2<org.apache.rocketmq.common.message.MessageQueue, Long>> legacyUnionOffsetStates = context.getOperatorStateStore()
+			.getUnionListState(new ListStateDescriptor<>(LEGACY_OFFSETS_STATE_NAME, TypeInformation.of(
+				new TypeHint<Tuple2<org.apache.rocketmq.common.message.MessageQueue, Long>>() {
+				})));
+
+		for (Tuple2<org.apache.rocketmq.common.message.MessageQueue, Long> legacyState : legacyUnionOffsetStates.get()) {
+			org.apache.rocketmq.common.message.MessageQueue legacyQueue = legacyState.f0;
+			this.unionOffsetStates.add(Tuple2.of(
+				new MessageQueue(legacyQueue.getTopic(), legacyQueue.getBrokerName(), legacyQueue.getQueueId()),
+				legacyState.f1));
+		}
+
+		legacyUnionOffsetStates.clear();
+		// ************************* DTS State Compatibility *******************************
+
 		lastSnapshotQueues = new HashSet<>();
 		offsetTable = new ConcurrentHashMap<>();
 		restoredOffsets = new HashMap<>();
