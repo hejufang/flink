@@ -452,8 +452,9 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 		Map<ExecutionState, Long> stateTime = new HashMap<>();
 		long ts = System.currentTimeMillis();
 		for (ExecutionVertex vertex : this.taskVertices) {
-			ExecutionState state = vertex.getExecutionState();
-			long time = ts - vertex.getStateTimestamp(state);
+			Execution execution = vertex.getMainExecution();
+			ExecutionState state = execution.getState();
+			long time = ts - execution.getStateTimestamp(state);
 			if (time > stateTime.getOrDefault(state, -1L)) {
 				stateTime.put(state, time);
 			}
