@@ -650,7 +650,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		assertRunningInJobMasterMainThread();
 
 		return FutureUtils.thenApplyAsyncIfNotDone(
-			registerProducedPartitions(vertex, location, attemptId, sendScheduleOrUpdateConsumersMessage),
+			registerProducedPartitions(vertex, location, attemptId, sendScheduleOrUpdateConsumersMessage, attemptNumber),
 			vertex.getExecutionGraph().getJobMasterMainThreadExecutor(),
 			producedPartitionsCache -> {
 				producedPartitions = producedPartitionsCache;
@@ -684,9 +684,10 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			ExecutionVertex vertex,
 			TaskManagerLocation location,
 			ExecutionAttemptID attemptId,
-			boolean sendScheduleOrUpdateConsumersMessage) {
+			boolean sendScheduleOrUpdateConsumersMessage,
+			int attemptNumber) {
 
-		ProducerDescriptor producerDescriptor = ProducerDescriptor.create(location, attemptId);
+		ProducerDescriptor producerDescriptor = ProducerDescriptor.create(location, attemptId, attemptNumber);
 
 		Collection<IntermediateResultPartition> partitions = vertex.getProducedPartitions().values();
 		Collection<CompletableFuture<ResultPartitionDeploymentDescriptor>> partitionRegistrations =

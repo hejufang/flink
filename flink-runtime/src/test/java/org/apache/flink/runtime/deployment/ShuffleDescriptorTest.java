@@ -165,7 +165,8 @@ public class ShuffleDescriptorTest extends TestLogger {
 			location,
 			id.getProducerId(),
 			STUB_CONNECTION_ID.getAddress().getAddress(),
-			STUB_CONNECTION_ID.getAddress().getPort());
+			STUB_CONNECTION_ID.getAddress().getPort(),
+			0);
 		PartitionDescriptor partitionDescriptor = PartitionDescriptorBuilder
 			.newBuilder()
 			.setPartitionId(id.getPartitionId())

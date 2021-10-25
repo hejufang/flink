@@ -567,7 +567,7 @@ public class ExecutionTest extends TestLogger {
 
 		boolean incompletePartitionRegistrationRejected = false;
 		try {
-			Execution.registerProducedPartitions(sourceVertex, new LocalTaskManagerLocation(), new ExecutionAttemptID(), false);
+			Execution.registerProducedPartitions(sourceVertex, new LocalTaskManagerLocation(), new ExecutionAttemptID(), false, 0);
 		} catch (IllegalStateException e) {
 			incompletePartitionRegistrationRejected = true;
 		}

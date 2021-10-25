@@ -473,6 +473,10 @@ public final class Utils {
 		ctx.setLocalResources(taskManagerLocalResources);
 
 		Map<String, String> containerEnv = new HashMap<>();
+
+		// put applicationId
+		containerEnv.put(YarnConfigKeys.ENV_APP_ID, appId);
+
 		final String subpartitionType = flinkConfig.getString(NETWORK_BLOCKING_SHUFFLE_TYPE);
 		if (subpartitionType.equals("yarn")) {
 			ctx.setServiceData(Collections.singletonMap(YARN_SHUFFLE_SERVICE_NAME, ByteBuffer.allocate(0)));

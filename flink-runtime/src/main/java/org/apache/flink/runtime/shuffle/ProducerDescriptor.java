@@ -51,16 +51,20 @@ public class ProducerDescriptor {
 	 */
 	private final int dataPort;
 
+	private final int attemptNumber;
+
 	@VisibleForTesting
 	public ProducerDescriptor(
 			ResourceID producerLocation,
 			ExecutionAttemptID producerExecutionId,
 			InetAddress address,
-			int dataPort) {
+			int dataPort,
+			int attemptNumber) {
 		this.producerLocation = checkNotNull(producerLocation);
 		this.producerExecutionId = checkNotNull(producerExecutionId);
 		this.address = checkNotNull(address);
 		this.dataPort = dataPort;
+		this.attemptNumber = attemptNumber;
 	}
 
 	public ResourceID getProducerLocation() {
@@ -79,11 +83,16 @@ public class ProducerDescriptor {
 		return dataPort;
 	}
 
-	public static ProducerDescriptor create(TaskManagerLocation producerLocation, ExecutionAttemptID attemptId) {
+	public int getAttemptNumber() {
+		return attemptNumber;
+	}
+
+	public static ProducerDescriptor create(TaskManagerLocation producerLocation, ExecutionAttemptID attemptId, int attemptNumber) {
 		return new ProducerDescriptor(
 			producerLocation.getResourceID(),
 			attemptId,
 			producerLocation.address(),
-			producerLocation.dataPort());
+			producerLocation.dataPort(),
+			attemptNumber);
 	}
 }

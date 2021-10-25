@@ -48,7 +48,8 @@ public enum YarnShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor> {
 					producerDescriptor.getProducerLocation(),
 					producerDescriptor.getProducerExecutionId(),
 					producerDescriptor.getAddress(),
-					port);
+					port,
+					producerDescriptor.getAttemptNumber());
 		}
 
 		NettyShuffleDescriptor shuffleDeploymentDescriptor = new NettyShuffleDescriptor(
