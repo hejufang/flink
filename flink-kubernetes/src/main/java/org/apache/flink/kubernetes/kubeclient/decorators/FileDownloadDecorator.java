@@ -19,14 +19,12 @@
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
 import org.apache.flink.client.program.PackagedProgramUtils;
-import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.parameters.AbstractKubernetesParameters;
 import org.apache.flink.kubernetes.utils.Constants;
-import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.FunctionUtils;
 
 import io.fabric8.kubernetes.api.model.Container;
@@ -37,10 +35,11 @@ import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -52,15 +51,12 @@ public class FileDownloadDecorator extends AbstractKubernetesStepDecorator {
 
 	private final String fileMountedPath;
 	private final AbstractKubernetesParameters kubernetesParameters;
-	private final List<URI> remoteFiles = new ArrayList<>();
+	private final Set<URI> remoteFiles = new HashSet<>();
 
 	public FileDownloadDecorator(AbstractKubernetesParameters kubernetesParameters) {
 		this.kubernetesParameters = checkNotNull(kubernetesParameters);
 		this.fileMountedPath = kubernetesParameters.getFlinkConfiguration().getString(PipelineOptions.FILE_MOUNTED_PATH);
-		List<URI> userJars = getRemoteFilesForApplicationMode(kubernetesParameters.getFlinkConfiguration(), PipelineOptions.JARS);
-		Preconditions.checkArgument(userJars.size() <= 1, "Should only have one jar");
-		List<URI> uris = getRemoteFilesForApplicationMode(kubernetesParameters.getFlinkConfiguration(), PipelineOptions.EXTERNAL_RESOURCES);
-		this.remoteFiles.addAll(userJars);
+		List<URI> uris = getRemoteFilesForApplicationMode(kubernetesParameters.getFlinkConfiguration());
 		this.remoteFiles.addAll(uris);
 	}
 
@@ -90,15 +86,15 @@ public class FileDownloadDecorator extends AbstractKubernetesStepDecorator {
 			.build();
 	}
 
-	private static List<URI> getRemoteFilesForApplicationMode(Configuration configuration, ConfigOption<List<String>> fileOption) {
-		if (!configuration.contains(fileOption)) {
+	private static List<URI> getRemoteFilesForApplicationMode(Configuration configuration) {
+		if (!configuration.contains(PipelineOptions.EXTERNAL_RESOURCES)) {
 			return Collections.emptyList();
 		}
-		return configuration.get(fileOption).stream()
+		return configuration.get(PipelineOptions.EXTERNAL_RESOURCES).stream()
 			.map(
 				FunctionUtils.uncheckedFunction(
 					PackagedProgramUtils::resolveURI))
-			.filter(uri -> !uri.getScheme().equals("local") && !uri.getScheme().equals("file"))
+			.filter(uri -> !uri.getScheme().equals(Constants.LOCAL_SCHEME) && !uri.getScheme().equals(Constants.FILE_SCHEME))
 			.collect(Collectors.toList());
 	}
 
