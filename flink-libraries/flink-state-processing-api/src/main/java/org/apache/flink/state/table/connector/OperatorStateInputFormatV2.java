@@ -71,7 +71,7 @@ public class OperatorStateInputFormatV2<S extends State, T> extends OperatorStat
 
 	@Override
 	protected final Iterable<RowData> getElements(OperatorStateBackend restoredBackend) throws Exception {
-		return new OperatorStateIterator(restoredBackend, distributeMode, descriptor, new OperatorStateRowDataConverter(converter));
+		return new OperatorStateIterator(restoredBackend, distributeMode, descriptor, new OperatorStateRowDataConverter(converter, descriptor.getSerializer()));
 	}
 
 	@Override

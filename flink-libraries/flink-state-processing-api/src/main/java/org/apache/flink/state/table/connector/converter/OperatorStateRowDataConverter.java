@@ -18,6 +18,7 @@
 
 package org.apache.flink.state.table.connector.converter;
 
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.types.Row;
@@ -28,16 +29,18 @@ import org.apache.flink.types.Row;
 public class OperatorStateRowDataConverter<T> implements RowDataConverter<T> {
 
 	private final DynamicTableSource.DataStructureConverter converter;
+	private FormatterFactory.Formatter formatter;
 
-	public OperatorStateRowDataConverter(DynamicTableSource.DataStructureConverter converter) {
+	public OperatorStateRowDataConverter(DynamicTableSource.DataStructureConverter converter, TypeSerializer valueSerializer) {
 		this.converter = converter;
+		this.formatter = FormatterFactory.getFormatter(valueSerializer);
 	}
 
 	@Override
 	public RowData converterToRowData(T value, Context context) {
 
 		Row row = new Row(1);
-		row.setField(0, value.toString());
+		row.setField(0, formatter.format(value));
 
 		return (RowData) converter.toInternal(row);
 	}

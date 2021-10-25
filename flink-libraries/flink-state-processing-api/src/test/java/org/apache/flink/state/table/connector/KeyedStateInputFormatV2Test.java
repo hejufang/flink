@@ -232,7 +232,6 @@ public class KeyedStateInputFormatV2Test {
 
 			testHarness.setup(VoidSerializer.INSTANCE);
 			testHarness.open();
-
 			testHarness.processElement(1, 1);
 			testHarness.processElement(2, 2);
 			testHarness.processElement(3, 3);

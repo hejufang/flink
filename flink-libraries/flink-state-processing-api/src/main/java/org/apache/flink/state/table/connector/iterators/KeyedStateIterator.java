@@ -39,7 +39,7 @@ public class KeyedStateIterator<K, N, S extends State, T> implements CloseableIt
 
 	private final StateDescriptor<S, T> descriptor;
 	private final AbstractKeyedStateBackend<K> backend;
-	private final Iterator<Tuple2<K, N>> keysAndNamespace;
+	private final Iterator<Tuple2<K, N>> keysAndNamespaces;
 	private final TypeSerializer<N> namespaceSerializer;
 	private final AutoCloseable resource;
 
@@ -55,9 +55,7 @@ public class KeyedStateIterator<K, N, S extends State, T> implements CloseableIt
 		this.namespaceSerializer = namespaceSerializer;
 		this.resource = backend.getKeysAndNamespaces(descriptor.getName());
 		this.rowDataConverter = rowDataConverter;
-
-		Stream<Tuple2<K, N>> keysAndNamespaceStream = backend.getKeysAndNamespaces(descriptor.getName());
-		this.keysAndNamespace = keysAndNamespaceStream.iterator();
+		this.keysAndNamespaces = ((Stream<Tuple2<K, N>>) resource).iterator();
 		this.context = new KeyedStateRowDataConverter.KeyedStateConverterContext();
 
 	}
@@ -72,9 +70,9 @@ public class KeyedStateIterator<K, N, S extends State, T> implements CloseableIt
 				} else {
 					singleStateIterator = null;
 				}
-			} else if (keysAndNamespace.hasNext()) {
+			} else if (keysAndNamespaces.hasNext()) {
 
-				curKeyAndNamespace = keysAndNamespace.next();
+				curKeyAndNamespace = keysAndNamespaces.next();
 				try {
 					S state = backend.getPartitionedState(curKeyAndNamespace.f1, namespaceSerializer, descriptor);
 					context.setKey(curKeyAndNamespace.f0);

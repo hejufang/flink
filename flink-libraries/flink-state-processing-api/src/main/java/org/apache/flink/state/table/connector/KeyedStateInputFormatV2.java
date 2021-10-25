@@ -145,7 +145,7 @@ public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInpu
 			.build();
 		final StreamOperatorStateContext context = getStreamOperatorStateContext(environment);
 		keyedStateBackend = (AbstractKeyedStateBackend<K>) context.keyedStateBackend();
-		stateIterator = new KeyedStateIterator(stateDescriptor, keyedStateBackend, namespaceSerializer, new KeyedStateRowDataConverter(converter));
+		stateIterator = new KeyedStateIterator(stateDescriptor, keyedStateBackend, namespaceSerializer, new KeyedStateRowDataConverter(converter, keySerializer, namespaceSerializer, stateDescriptor.getSerializer()));
 	}
 
 	private StreamOperatorStateContext getStreamOperatorStateContext(Environment environment) throws IOException {
@@ -169,12 +169,12 @@ public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInpu
 
 	@Override
 	public void close() throws IOException {
+		IOUtils.closeQuietly(stateIterator);
+		IOUtils.closeQuietly(registry);
 		try {
-		if (keyedStateBackend != null) {
+			if (keyedStateBackend != null) {
 				keyedStateBackend.dispose();
 			}
-			IOUtils.closeQuietly(stateIterator);
-			IOUtils.closeQuietly(registry);
 		} catch (Exception e) {
 			throw new IOException("Failed to close state backend", e);
 		}

@@ -56,7 +56,7 @@ public class StateMetaRowDataConverter implements RowDataConverter<StateMetaData
 
 			RegisteredKeyedStateMeta curKeyedStateMeta = operatorStateMeta.getKeyedStateMeta();
 			backendType = curKeyedStateMeta.getBackendType();
-			keyType = curKeyedStateMeta.getKeySerializer().createInstance().getClass().getSimpleName();
+			keyType = FormatterFactory.TypeFormatter.INSTANCE.format(curKeyedStateMeta.getKeySerializer());
 		} else {
 			isKeyedState = false;
 			backendType = operatorStateMeta.getOperatorStateMeta().getBackendType();

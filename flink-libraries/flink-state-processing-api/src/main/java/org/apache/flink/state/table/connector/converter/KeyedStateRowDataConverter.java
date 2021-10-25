@@ -17,6 +17,7 @@
 
 package org.apache.flink.state.table.connector.converter;
 
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.types.Row;
@@ -28,9 +29,14 @@ import org.apache.flink.types.Row;
 public class KeyedStateRowDataConverter<V> implements RowDataConverter<V> {
 
 	private final DynamicTableSource.DataStructureConverter converter;
+	private FormatterFactory.Formatter[] formatters = new FormatterFactory.Formatter[3];
 
-	public KeyedStateRowDataConverter(DynamicTableSource.DataStructureConverter converter){
+	public KeyedStateRowDataConverter(DynamicTableSource.DataStructureConverter converter, TypeSerializer keySerializer,  TypeSerializer namespaceSerializer,  TypeSerializer valueSerializer){
 		this.converter = converter;
+		this.formatters[0] = FormatterFactory.getFormatter(keySerializer);
+		this.formatters[1] = FormatterFactory.getFormatter(namespaceSerializer);
+		this.formatters[2] = FormatterFactory.getFormatter(valueSerializer);
+
 	}
 
 	@Override
@@ -39,13 +45,12 @@ public class KeyedStateRowDataConverter<V> implements RowDataConverter<V> {
 		KeyedStateConverterContext keyedStateConverterContext = (KeyedStateConverterContext) context;
 
 		Row row = new Row(3);
-		row.setField(0, keyedStateConverterContext.getKey().toString());
-		row.setField(1, keyedStateConverterContext.getNamespace().toString());
-		row.setField(2, value.toString());
+		row.setField(0, formatters[0].format(keyedStateConverterContext.getKey()));
+		row.setField(1, formatters[1].format(keyedStateConverterContext.getNamespace()));
+		row.setField(2, formatters[2].format(value));
 
 		return (RowData) converter.toInternal(row);
 	}
-
 
 	/**
 	 * @param <K> current key
@@ -72,7 +77,6 @@ public class KeyedStateRowDataConverter<V> implements RowDataConverter<V> {
 			this.namespace = namespace;
 		}
 	}
-
 }
 
 
