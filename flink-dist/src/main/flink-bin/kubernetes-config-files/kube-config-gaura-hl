@@ -1,0 +1,37 @@
+################################################################################
+#  Licensed to the Apache Software Foundation (ASF) under one
+#  or more contributor license agreements.  See the NOTICE file
+#  distributed with this work for additional information
+#  regarding copyright ownership.  The ASF licenses this file
+#  to you under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance
+#  with the License.  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+# limitations under the License.
+################################################################################
+
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVORENDQXB5Z0F3SUJBZ0lCQVRBTkJna3Foa2lHOXcwQkFRc0ZBREJMTVE0d0RBWURWUVFHRXdWRGFHbHUKWVRFUU1BNEdBMVVFQ0JNSFFtVnBhbWx1WnpFU01CQUdBMVVFQ2hNSlFubDBaV1JoYm1ObE1STXdFUVlEVlFRRApFd3ByZFdKbGNtNWxkR1Z6TUI0WERURTRNVEF4T0RBM016azBNVm9YRFRJNE1UQXhOVEEzTXprME1Wb3dTekVPCk1Bd0dBMVVFQmhNRlEyaHBibUV4RURBT0JnTlZCQWdUQjBKbGFXcHBibWN4RWpBUUJnTlZCQW9UQ1VKNWRHVmsKWVc1alpURVRNQkVHQTFVRUF4TUthM1ZpWlhKdVpYUmxjekNDQWFJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dHUApBRENDQVlvQ2dnR0JBS1JSckN5SnhreFg3ZWxYMDdaY0Q4WmpEcDlINVJNNlc2b28zdkd1ZEJnbjNIcjY1YlJRCm1xaHRTSmNkKzByWDNTRXk1WXlZdTVzYXU1akQ2ODVKUFkxZUM3VnVtTng1V2tPQW1tNDZweFBWZml6QkJzZ0sKaE82Y0JaK0pjVm5JNGkzazdxK3RGMXF0UlRSdGROWFcwd08zVjc2R1o3S3BXRVZZSUJoblNkQ3Vqckp3aGloZQo2cnZtaHcwMW8zbmFTekhENXFrVnNlQlpvbzNaeTRYNVFBRFNscHN2VFZGcGtkaHd0VXJtS1VjR3VpSTc3bHlBCnZVTCt0a25RWXNpblV4dEFBTm9rOStXeGw3RFhjZmNyMEdPZnpLaEV1cm9Gdkp2RzlCYTZHQXQyRnFpaGxNUGUKTnFnRjdxNllqTmZmcXQrRmlvaHFDc2Ywb2VmZGhZbVJzOWFOc2htRWhENGRBTDdmTEpXVURXeWhaVDJLNmt1UgprQUFMUldnMzJkclNzVTJoUmJEeXBSakkyVlVvSWlPWmgyZ0Z1SjZNTlR6UGNWUDhMYjFJdGZqVzBTVXZXV3IzCktFK0hDQTM3SUxGL3JJVU5aOE44aXBwSFRsc1gxQ2UrU1duVENzSG01MFFTWXZqNWRPdC9ycGZUQ0ozQy8waXYKMUFyeWIyVEVFdWowVHdJREFRQUJveU13SVRBT0JnTlZIUThCQWY4RUJBTUNBU1l3RHdZRFZSMFRBUUgvQkFVdwpBd0VCL3pBTkJna3Foa2lHOXcwQkFRc0ZBQU9DQVlFQVJmV0pFY2RucUprQzdrWmxlZGU3eUx0VjRtMldQMTJHCkRVSnpacmduYWVqMTVlRVlkV1FlaGhMN2lKdXFlalpHVklkYXJzeW5TYmFzamZnTXZQNUpuU0FRb2xyS2k2ZnoKQzh2TG0zUE1maXZ6NEJwaUxuNUdROHd5dmh0VUxrWDg0MnQyUUUyVWJMdURuSmN5YmMzZHlxNHhYK2x5U1FPOQp1L2Rxa1pJQmo2SHVsczJwbWhCNUxYWTFwN1F6MnllS0RIUnpzTjl2TWJhbFB6WkszcVVMaUtRemVTTlN1d3NSCjh5MVJXK3puQzhOdi9RR2dsMmkxZUxyck82S2ZvbVRqN3kvR2xGM2lPenpZbFptempLQjM0VzlhUkZiK2pGc2MKUG5KT2w5UW9tYWRoVHVGSW9LT2kzclJoaXZ5bWhXZ2pFekFSeG9QY3JWRkJVcUdUUEkvblJDa3lMTUhxdnV2WgprKzJSdUlhNDMyS2hTQ1BydW5uOVdqQldCOEg2TmkxSC9xVnBGeDdRby9lV1lYRXVRSmpqb2ZUc1J2TUMwNDdrCk5YdlZoTm1uTjFzaG12Mmt6TitjMWZuUWVOMm01dC9FRDhzY2hTR3BIYXZJRXZ5THFBVExTN2Q0WEJDMWJHUFkKdzJ1ci9KR2pGc2NyVkxMRFdtU2hRR1Flb211WEJ6MlQKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+    server: https://gaura-hl.k8s-hl.byted.org:6443
+  name: gaura-hl
+contexts:
+- context:
+    cluster: gaura-hl
+    namespace: flink
+    user: flink
+  name: gaura-hl
+current-context: gaura-hl
+kind: Config
+preferences: {}
+users:
+- name: flink
+  user:
+    token: eyJhbGciOiJSUzI1NiIsImtpZCI6IjVCRC1xcndLb2pqaW93MDBfY01QNEF3T3lpYjhHV1lBTVo4SFpOYWRnVjQifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJmbGluayIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJmbGluay10b2tlbi1zaDdnciIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJmbGluayIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6ImZhOGY5YmRmLTFmN2MtNGIyMS04ODcyLWJkZjJlMDJlZWNiYSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpmbGluazpmbGluayJ9.Y_VEFvhZFpGnQtBMpgrD0kCStdDCCNBF8QZFqa9PkGZ4a3xkVAlzkLsBSPL4uPcRHrpNR3_4PyDDJzvkw9n4rQO-pM2lFogATUzueucfQcWK7Dh_ySQjuyiIJbAr1mT6UMUzNm7nSHWVHFJ70PStIPRGegCZgvKhpvJIZ8iURCmgW7Ty3yTp3S9_15Sr85xes5QzoKBI1OT0rlZyotzcOBc2MVkzc7jAvhc7WUrR5UCX3Ko0huKbvhinXllPgDOmHdoqQ94lSSORTFcVzw8nn6l9eNHIgT3U2ecohCT-AtRbVim7B0fcpxoX_C7z5Mfol_ablB_ryALAln74BzX59Q

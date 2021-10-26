@@ -250,6 +250,11 @@ under the License.
 			<outputDirectory>kubernetes-conf</outputDirectory>
 			<fileMode>0644</fileMode>
 		</fileSet>
+		<fileSet>
+			<directory>src/main/flink-bin/kubernetes-config-files</directory>
+			<outputDirectory>kubernetes-config-files</outputDirectory>
+			<fileMode>0644</fileMode>
+		</fileSet>
 
 		<!-- create an empty log directory -->
 		<fileSet>

@@ -86,9 +86,18 @@ common:
   flink.client.yarn.config.yarn.client.failover-max-attempts: -1
   flink.client.yarn.config.yarn.resourcemanager.connect.retry-interval.ms: 1000
   flink.client.yarn.config.yarn.resourcemanager.connect.max-wait.ms: 900000
-
-  # provided lib dirs
   yarn.provided.lib.dirs.enabled: true
+
+  # kubernetes configuration
+  kubernetes.flink.log.dir: /var/log/tiger
+  kubernetes.flink.conf.dir: /opt/tiger/flink_deploy/conf
+  kubernetes.entry.path: /opt/tiger/flink_deploy/bin/kubernetes-entry.sh
+  kubernetes.namespace: flink
+  kubernetes.jobmanager.service-account: flink
+  kubernetes.deployment.annotations: "pod.tce.kubernetes.io/mountHostPath:true"
+  pipeline.download-template: "/opt/tiger/flink_deploy/bin/flink download -src '%files%' -dest %target% > /var/log/tiger/flink-download.log 2>&1"
+  kubernetes.container.work.dir: /opt/tiger/workdir
+  pipeline.file-mounted-path: /opt/tiger/workdir
 
   # Metrics
   metrics.reporters: opentsdb_reporter,databus_reporter
@@ -258,6 +267,7 @@ common:
   flink.hdfs.ipc.client.connect.timeout: 2000
   flink.hdfs.ipc.client.connect.retry.interval: 500
 
+# yarn clusters
 flink:
   dc: cn
   clusterName: flink
@@ -761,3 +771,50 @@ boei18n:
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
   taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
+
+# kubernetes clusters
+gaura-hl:
+  dc: cn
+  clusterName: gaura-hl
+  high-availability: none
+  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  # service & ingress related
+  kubernetes.rest-service.exposed.type: ClusterIP
+  kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
+  kubernetes.ingress.enable: true
+  kubernetes.ingress.host: "hl-gaura.byted.org"
+  kubernetes.config.file: "${FLINK_HOME}/kubernetes-config-files/kube-config-gaura-hl"
+  # External jars we needed, use ',' to separator different jars.
+  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
+
+cloudnative-lf:
+  dc: cn
+  clusterName: cloudnative-lf
+  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  # service & ingress related
+  kubernetes.rest-service.exposed.type: ClusterIP
+  kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
+  kubernetes.ingress.enable: true
+  kubernetes.ingress.host: "lf-cloudnative.byted.org"
+  kubernetes.config.file: "${FLINK_HOME}/kubernetes-config-files/kube-config-cloudnative-lf"
+  # External jars we needed, use ',' to separator different jars.
+  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
+
+cloudnative-lq:
+  dc: cn
+  clusterName: cloudnative-lq
+  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  # service & ingress related
+  kubernetes.rest-service.exposed.type: ClusterIP
+  kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
+  kubernetes.ingress.enable: true
+  kubernetes.ingress.host: "lq-cloudnative.byted.org"
+  kubernetes.config.file: "${FLINK_HOME}/kubernetes-config-files/kube-config-cloudnative-lq"
+  # External jars we needed, use ',' to separator different jars.
+  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"

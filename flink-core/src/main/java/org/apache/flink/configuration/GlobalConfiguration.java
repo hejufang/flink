@@ -20,6 +20,7 @@ package org.apache.flink.configuration;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +66,9 @@ public final class GlobalConfiguration {
 			ConfigConstants.HDFS_PREFIX_KEY,
 			ConfigConstants.DC_KEY,
 			ConfigConstants.CHECKPOINT_HDFS_PREFIX_KEY};
+
+	private static final String[] ENV_PARAM_KEYS = {
+			ConfigConstants.ENV_FLINK_HOME_DIR};
 
 	// --------------------------------------------------------------------------------------------
 
@@ -202,6 +206,13 @@ public final class GlobalConfiguration {
 					String paramKey = String.format("${%s}", param);
 					if (value.contains(paramKey)) {
 						value = value.replace(paramKey, (String) allYamlConf.get(param));
+					}
+				}
+				for (String param : ENV_PARAM_KEYS) {
+					String paramKey = String.format("${%s}", param);
+					String paramValue = System.getenv(param);
+					if (value.contains(paramKey) && !StringUtils.isNullOrWhitespaceOnly(paramValue)) {
+						value = value.replace(paramKey, paramValue);
 					}
 				}
 				config.setString(key, value);
