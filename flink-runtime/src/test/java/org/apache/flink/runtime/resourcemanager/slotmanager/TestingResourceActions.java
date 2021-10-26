@@ -42,15 +42,20 @@ public class TestingResourceActions implements ResourceActions {
 	private final Function<WorkerResourceSpec, Boolean> allocateResourceFunction;
 
 	@Nonnull
+	BiConsumer<WorkerResourceSpec, Integer> allocateResourcesFunction;
+
+	@Nonnull
 	private final Consumer<Tuple3<JobID, AllocationID, Exception>> notifyAllocationFailureConsumer;
 
 	public TestingResourceActions(
 			@Nonnull BiConsumer<InstanceID, Exception> releaseResourceConsumer,
 			@Nonnull Function<WorkerResourceSpec, Boolean> allocateResourceFunction,
-			@Nonnull Consumer<Tuple3<JobID, AllocationID, Exception>> notifyAllocationFailureConsumer) {
+			@Nonnull Consumer<Tuple3<JobID, AllocationID, Exception>> notifyAllocationFailureConsumer,
+			@Nonnull BiConsumer<WorkerResourceSpec, Integer> allocateResourcesFunction) {
 		this.releaseResourceConsumer = releaseResourceConsumer;
 		this.allocateResourceFunction = allocateResourceFunction;
 		this.notifyAllocationFailureConsumer = notifyAllocationFailureConsumer;
+		this.allocateResourcesFunction = allocateResourcesFunction;
 	}
 
 	@Override
@@ -65,7 +70,8 @@ public class TestingResourceActions implements ResourceActions {
 
 	@Override
 	public boolean allocateResources(WorkerResourceSpec workerResourceSpec, int workerNumber) {
-		return false;
+		allocateResourcesFunction.accept(workerResourceSpec, new Integer(workerNumber));
+		return true;
 	}
 
 	@Override

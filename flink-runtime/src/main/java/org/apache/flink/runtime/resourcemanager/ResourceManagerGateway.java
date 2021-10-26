@@ -37,6 +37,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.webmonitor.SmartResourcesStats;
 import org.apache.flink.runtime.metrics.dump.MetricQueryService;
 import org.apache.flink.runtime.registration.RegistrationResponse;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
@@ -72,7 +73,7 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 		ResourceID jobMasterResourceId,
 		String jobMasterAddress,
 		JobID jobId,
-		int minSlotsNum,
+		JobInfo jobInfo,
 		@RpcTimeout Time timeout);
 
 	/**

@@ -37,6 +37,7 @@ import org.apache.flink.runtime.leaderelection.TestingLeaderElectionService;
 import org.apache.flink.runtime.leaderretrieval.SettableLeaderRetrievalService;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.registration.RegistrationResponse;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerBuilder;
 import org.apache.flink.runtime.rpc.RpcUtils;
@@ -196,12 +197,13 @@ public class ResourceManagerFailureRaterTest {
 	@Test
 	public void testTaskManagerBasedFailureRater() throws Exception {
 		int slotNum = 6;
+		JobInfo jobInfo = new JobInfo(slotNum);
 		CompletableFuture<RegistrationResponse> successfulFuture = resourceManagerGateway.registerJobManager(
 			jobMasterGateway.getFencingToken(),
 			jobMasterResourceId,
 			jobMasterGateway.getAddress(),
 			jobId,
-			slotNum,
+			jobInfo,
 			TIMEOUT);
 		RegistrationResponse response = successfulFuture.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
 		assertTrue(response instanceof JobMasterRegistrationSuccess);
@@ -218,12 +220,13 @@ public class ResourceManagerFailureRaterTest {
 	@Test
 	public void testTaskManagerBasedFailureRaterExceed() throws Exception {
 		int slotNum = 6;
+		JobInfo jobInfo = new JobInfo(slotNum);
 		CompletableFuture<RegistrationResponse> successfulFuture = resourceManagerGateway.registerJobManager(
 			jobMasterGateway.getFencingToken(),
 			jobMasterResourceId,
 			jobMasterGateway.getAddress(),
 			jobId,
-			slotNum,
+			jobInfo,
 			TIMEOUT);
 		RegistrationResponse response = successfulFuture.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
 		assertTrue(response instanceof JobMasterRegistrationSuccess);
@@ -241,19 +244,21 @@ public class ResourceManagerFailureRaterTest {
 	public void testTaskManagerBasedFailureRaterCloseJM() throws Exception {
 		int slotNum = 6;
 		int slotNum2 = 13;
+		JobInfo jobInfo = new JobInfo(slotNum);
+		JobInfo jobInfo2 = new JobInfo(slotNum2);
 		CompletableFuture<RegistrationResponse> successfulFuture = resourceManagerGateway.registerJobManager(
 			jobMasterGateway.getFencingToken(),
 			jobMasterResourceId,
 			jobMasterGateway.getAddress(),
 			jobId,
-			slotNum,
+			jobInfo,
 			TIMEOUT);
 		CompletableFuture<RegistrationResponse> successfulFuture2 = resourceManagerGateway.registerJobManager(
 			jobMasterGateway.getFencingToken(),
 			jobMasterResourceId,
 			jobMasterGateway.getAddress(),
 			jobId2,
-			slotNum2,
+			jobInfo2,
 			TIMEOUT);
 		RegistrationResponse response = successfulFuture.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
 		RegistrationResponse response2 = successfulFuture2.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
@@ -274,19 +279,21 @@ public class ResourceManagerFailureRaterTest {
 	public void testTaskManagerBasedFailureRaterCloseJMExceed() throws Exception {
 		int slotNum = 6;
 		int slotNum2 = 13;
+		JobInfo jobInfo = new JobInfo(slotNum);
+		JobInfo jobInfo2 = new JobInfo(slotNum2);
 		CompletableFuture<RegistrationResponse> successfulFuture = resourceManagerGateway.registerJobManager(
 			jobMasterGateway.getFencingToken(),
 			jobMasterResourceId,
 			jobMasterGateway.getAddress(),
 			jobId,
-			slotNum,
+			jobInfo,
 			TIMEOUT);
 		CompletableFuture<RegistrationResponse> successfulFuture2 = resourceManagerGateway.registerJobManager(
 			jobMasterGateway2.getFencingToken(),
 			jobMasterResourceId2,
 			jobMasterGateway.getAddress(),
 			jobId2,
-			slotNum2,
+			jobInfo2,
 			TIMEOUT);
 		RegistrationResponse response = successfulFuture.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
 		RegistrationResponse response2 = successfulFuture2.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);

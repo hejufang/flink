@@ -67,6 +67,7 @@ import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -419,7 +420,7 @@ public class MesosResourceManagerTest extends TestLogger {
 			public final JobMasterGateway gateway;
 			public final JobMasterId jobMasterId;
 			public final SettableLeaderRetrievalService leaderRetrievalService;
-			public final int minSlotsNum;
+			public final JobInfo jobInfo;
 
 			MockJobMaster(JobID jobID) {
 				this.jobID = jobID;
@@ -428,7 +429,7 @@ public class MesosResourceManagerTest extends TestLogger {
 				this.gateway = mock(JobMasterGateway.class);
 				this.jobMasterId = JobMasterId.generate();
 				this.leaderRetrievalService = new SettableLeaderRetrievalService(this.address, this.jobMasterId.toUUID());
-				this.minSlotsNum = 0;
+				this.jobInfo = new JobInfo(1);
 			}
 		}
 
@@ -476,7 +477,7 @@ public class MesosResourceManagerTest extends TestLogger {
 		 */
 		public void registerJobMaster(MockJobMaster jobMaster) throws Exception  {
 			CompletableFuture<RegistrationResponse> registration = resourceManager.registerJobManager(
-				jobMaster.jobMasterId, jobMaster.resourceID, jobMaster.address, jobMaster.jobID, jobMaster.minSlotsNum, timeout);
+				jobMaster.jobMasterId, jobMaster.resourceID, jobMaster.address, jobMaster.jobID, jobMaster.jobInfo, timeout);
 			assertTrue(registration.get() instanceof JobMasterRegistrationSuccess);
 		}
 

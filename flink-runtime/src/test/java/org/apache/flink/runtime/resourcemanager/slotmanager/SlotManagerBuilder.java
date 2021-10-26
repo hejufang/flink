@@ -130,4 +130,25 @@ public class SlotManagerBuilder {
 		slotManager.start(resourceManagerId, Executors.directExecutor(), resourceManagerActions);
 		return slotManager;
 	}
+
+	public SlotManagerImpl buildAndStartWithInitialTMOn(ResourceManagerId resourceManagerId, ResourceActions resourceManagerActions, int numInitialTaskManagers) {
+		final SlotManagerConfiguration slotManagerConfiguration = new SlotManagerConfiguration(
+			taskManagerRequestTimeout,
+			slotRequestTimeout,
+			taskManagerTimeout,
+			waitResultConsumedBeforeRelease,
+			slotMatchingStrategy,
+			defaultWorkerResourceSpec,
+			numSlotsPerWorker,
+			maxSlotNum,
+			numInitialTaskManagers,
+			true);
+
+		final SlotManagerImpl slotManager = new SlotManagerImpl(
+			scheduledExecutor,
+			slotManagerConfiguration,
+			slotManagerMetricGroup);
+		slotManager.start(resourceManagerId, Executors.directExecutor(), resourceManagerActions);
+		return slotManager;
+	}
 }

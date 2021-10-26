@@ -24,6 +24,7 @@ import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.ConfigMessage;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
@@ -90,6 +91,7 @@ import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.registration.RetryingRegistration;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
@@ -162,7 +164,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final JobGraph jobGraph;
 
-	private final int minSlotsNum;
+	private final JobInfo jobInfo;
 
 	private final Counter heartbeatTimeoutWithRM = new SimpleCounter();
 
@@ -322,7 +324,12 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.taskManagerHeartbeatManager = NoOpHeartbeatManager.getInstance();
 		this.resourceManagerHeartbeatManager = NoOpHeartbeatManager.getInstance();
 
-		this.minSlotsNum = jobGraph.calcMinRequiredSlotsNum();
+		final int slotsPerTaskManager = jobMasterConfiguration.getConfiguration().getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
+		final int numTaskManagers = (jobGraph.calcMinRequiredSlotsNum() + slotsPerTaskManager - 1) / slotsPerTaskManager;
+		final double initialPercentage = jobMasterConfiguration.getConfiguration().getDouble(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS_PERCENTAGE);
+		final int initialExtraTaskManagers = jobMasterConfiguration.getConfiguration().getInteger(TaskManagerOptions.NUM_EXTRA_INITIAL_TASK_MANAGERS);
+		this.jobInfo = new JobInfo(jobGraph.calcMinRequiredSlotsNum(), (int) (numTaskManagers * initialPercentage), initialExtraTaskManagers);
+
 		// send job's configuration
 		if (jobManagerJobMetricGroup != null) {
 			final MessageSet<ConfigMessage> messageSet = new MessageSet<>(MessageType.JOB_CONFIG);
@@ -1306,7 +1313,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 						jobManagerResourceID,
 						jobManagerRpcAddress,
 						jobID,
-						minSlotsNum,
+						jobInfo,
 						timeout);
 				}
 			};

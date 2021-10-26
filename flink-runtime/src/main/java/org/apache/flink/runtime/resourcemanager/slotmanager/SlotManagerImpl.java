@@ -25,6 +25,7 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
+import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -36,6 +37,7 @@ import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnfulfillableSlotRequestException;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnection;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.SlotStatus;
@@ -47,7 +49,6 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.MathUtils;
 import org.apache.flink.util.OptionalConsumer;
 import org.apache.flink.util.Preconditions;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,6 +69,7 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -96,9 +98,6 @@ public class SlotManagerImpl implements SlotManager {
 
 	/** Index of all currently free slots. */
 	private final LinkedHashMap<SlotID, TaskManagerSlot> freeSlots;
-
-	/** Number of task managers. */
-	private final int numInitialTaskManagers;
 
 	/** Initial task managers on slot manager start. */
 	private final boolean initialTaskManager;
@@ -155,6 +154,13 @@ public class SlotManagerImpl implements SlotManager {
 	private final ResourceProfile defaultSlotResourceProfile;
 
 	private final SlotManagerMetricGroup slotManagerMetricGroup;
+
+
+	/** Number of task managers. */
+	private int numInitialTaskManagers = 0;
+
+	/** Number of extra initial task managers that will always keep. */
+	private int numInitialExtraTaskManagers = 0;
 
 	public SlotManagerImpl(
 			ScheduledExecutor scheduledExecutor,
@@ -291,6 +297,28 @@ public class SlotManagerImpl implements SlotManager {
 		return numSlotsPerWorker;
 	}
 
+
+	@Override
+	public void initializeJobResources(JobID jobID, JobInfo jobInfo) {
+		if(!(mainThreadExecutor instanceof ExecutorService)) {
+			assertRunningInMainThread();
+		}
+
+		// TODO. support multiple jobs requirement with JobID
+		final int jobInitialTaskManagers = jobInfo.getInitialTaskManagers();
+		final int jobInitialExtraTaskManagers = jobInfo.getInitialExtraTaskManagers();
+
+		// To support multiple jobs, we need to know whether multiple jobs
+		// share the resources or apply their own. Currently we let them share the resources.
+
+		numInitialExtraTaskManagers += jobInitialExtraTaskManagers;
+		numInitialTaskManagers = Math.max(numInitialTaskManagers, jobInitialTaskManagers);
+
+		final int requestedTaskManagers = numTaskManagersNeedRequest() - (getNumberRegisteredSlots() + getNumberPendingTaskManagerSlots()) / getNumSlotsPerWorker();
+		LOG.info("Job {} is initializing {} TaskManagers.", jobID, requestedTaskManagers);
+		initialResources(requestedTaskManagers);
+	}
+
 	// ---------------------------------------------------------------------------------------------
 	// Component lifecycle methods
 	// ---------------------------------------------------------------------------------------------
@@ -350,12 +378,18 @@ public class SlotManagerImpl implements SlotManager {
 			() -> (long) getNumberPendingSlotRequests());
 		slotManagerMetricGroup.gauge(
 			MetricNames.NUM_LACK_SLOTS,
-			() -> (long) (getNumberPendingSlotRequests() - getNumberPendingTaskManagerSlots() - getNumberFreeSlots()));
+			() -> (long) (calcNumLackslots()));
 		slotManagerMetricGroup.gauge(
 			MetricNames.NUM_EXCESS_WORKERS,
-			() -> (long) ((getNumberFreeSlots() / getNumSlotsPerWorker())));
+			() -> (long) ((getNumberFreeSlots() / getNumSlotsPerWorker() - numInitialExtraTaskManagers)));
 	}
 
+	private long calcNumLackslots() {
+		long numberPendingSlotRequests = getNumberPendingSlotRequests();
+		long numberWaitingAndExtraSlots =  numInitialExtraTaskManagers * getNumSlotsPerWorker();
+		long numberSlotsHandled = getNumberPendingTaskManagerSlots() + getNumberFreeSlots();
+		return numberPendingSlotRequests + numberWaitingAndExtraSlots - numberSlotsHandled;
+	}
 	/**
 	 * Suspends the component. This clears the internal state of the slot manager.
 	 */
@@ -1301,12 +1335,16 @@ public class SlotManagerImpl implements SlotManager {
 
 			ArrayList<TaskManagerRegistration> timedOutTaskManagers = new ArrayList<>(taskManagerRegistrations.size());
 
+			// Keep numInitialTaskManagers taskExecutors.
+			int canReleaseNum = Math.max(0, taskManagerRegistrations.size() - numTaskManagersNeedRequest());
 			// first retrieve the timed out TaskManagers
 			for (TaskManagerRegistration taskManagerRegistration : taskManagerRegistrations.values()) {
-				if (currentTime - taskManagerRegistration.getIdleSince() >= taskManagerTimeout.toMilliseconds()) {
+				if (currentTime - taskManagerRegistration.getIdleSince() >= taskManagerTimeout.toMilliseconds()
+						&& canReleaseNum > 0) {
 					// we collect the instance ids first in order to avoid concurrent modifications by the
 					// ResourceActions.releaseResource call
 					timedOutTaskManagers.add(taskManagerRegistration);
+					canReleaseNum--;
 				}
 			}
 
@@ -1385,6 +1423,17 @@ public class SlotManagerImpl implements SlotManager {
 
 	private void checkInit() {
 		Preconditions.checkState(started, "The slot manager has not been started.");
+	}
+
+
+	private int numTaskManagersNeedRequest() {
+		return numInitialTaskManagers + numInitialExtraTaskManagers;
+	}
+
+	private void assertRunningInMainThread() {
+		if (!(mainThreadExecutor instanceof ComponentMainThreadExecutor.DummyComponentMainThreadExecutor)) {
+			((ComponentMainThreadExecutor) mainThreadExecutor).assertRunningInMainThread();
+		}
 	}
 
 	// ---------------------------------------------------------------------------------------------

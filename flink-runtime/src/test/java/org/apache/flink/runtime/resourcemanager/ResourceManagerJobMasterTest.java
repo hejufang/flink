@@ -39,6 +39,7 @@ import org.apache.flink.runtime.leaderretrieval.SettableLeaderRetrievalService;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerBuilder;
 import org.apache.flink.runtime.rpc.RpcUtils;
@@ -73,7 +74,7 @@ public class ResourceManagerJobMasterTest extends TestLogger {
 
 	private JobID jobId;
 
-	private int minSlotsNum;
+	private JobInfo jobInfo;
 
 	private TestingJobMasterGateway jobMasterGateway;
 
@@ -96,7 +97,7 @@ public class ResourceManagerJobMasterTest extends TestLogger {
 		rpcService = new TestingRpcService();
 
 		jobId = new JobID();
-		minSlotsNum = 1;
+		jobInfo = new JobInfo(1);
 
 		createAndRegisterJobMasterGateway();
 		jobMasterResourceId = ResourceID.generate();
@@ -197,7 +198,7 @@ public class ResourceManagerJobMasterTest extends TestLogger {
 			jobMasterResourceId,
 			jobMasterGateway.getAddress(),
 			jobId,
-			minSlotsNum,
+			jobInfo,
 			TIMEOUT);
 		RegistrationResponse response = successfulFuture.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
 		assertTrue(response instanceof JobMasterRegistrationSuccess);
@@ -217,7 +218,7 @@ public class ResourceManagerJobMasterTest extends TestLogger {
 			jobMasterResourceId,
 			jobMasterGateway.getAddress(),
 			jobId,
-			minSlotsNum,
+			jobInfo,
 			TIMEOUT);
 
 		try {
@@ -240,7 +241,7 @@ public class ResourceManagerJobMasterTest extends TestLogger {
 			jobMasterResourceId,
 			jobMasterGateway.getAddress(),
 			jobId,
-			minSlotsNum,
+			jobInfo,
 			TIMEOUT);
 		assertTrue(unMatchedLeaderFuture.get() instanceof RegistrationResponse.Decline);
 	}
@@ -257,7 +258,7 @@ public class ResourceManagerJobMasterTest extends TestLogger {
 			jobMasterResourceId,
 			invalidAddress,
 			jobId,
-			minSlotsNum,
+			jobInfo,
 			TIMEOUT);
 		assertTrue(invalidAddressFuture.get(5, TimeUnit.SECONDS) instanceof RegistrationResponse.Decline);
 	}
@@ -276,7 +277,7 @@ public class ResourceManagerJobMasterTest extends TestLogger {
 			jobMasterResourceId,
 			jobMasterGateway.getAddress(),
 			unknownJobIDToHAServices,
-			minSlotsNum,
+			jobInfo,
 			TIMEOUT);
 
 		try {

@@ -34,6 +34,7 @@ import java.util.function.Function;
 public class TestingResourceActionsBuilder {
 	private BiConsumer<InstanceID, Exception> releaseResourceConsumer = (ignoredA, ignoredB) -> {};
 	private Function<WorkerResourceSpec, Boolean> allocateResourceFunction = (ignored) -> true;
+	private BiConsumer<WorkerResourceSpec, Integer> allocateResourcesFunction = (ignoredA,ignoredB) -> {};
 	private Consumer<Tuple3<JobID, AllocationID, Exception>> notifyAllocationFailureConsumer = (ignored) -> {};
 
 	public TestingResourceActionsBuilder setReleaseResourceConsumer(BiConsumer<InstanceID, Exception> releaseResourceConsumer) {
@@ -54,12 +55,17 @@ public class TestingResourceActionsBuilder {
 		return this;
 	}
 
+	public TestingResourceActionsBuilder setAllocateResourceConsumer(BiConsumer<WorkerResourceSpec, Integer> allocateResourceConsumer) {
+		this.allocateResourcesFunction = allocateResourceConsumer;
+		return this;
+	}
+
 	public TestingResourceActionsBuilder setNotifyAllocationFailureConsumer(Consumer<Tuple3<JobID, AllocationID, Exception>> notifyAllocationFailureConsumer) {
 		this.notifyAllocationFailureConsumer = notifyAllocationFailureConsumer;
 		return this;
 	}
 
 	public TestingResourceActions build() {
-		return new TestingResourceActions(releaseResourceConsumer, allocateResourceFunction, notifyAllocationFailureConsumer);
+		return new TestingResourceActions(releaseResourceConsumer, allocateResourceFunction, notifyAllocationFailureConsumer, allocateResourcesFunction);
 	}
 }

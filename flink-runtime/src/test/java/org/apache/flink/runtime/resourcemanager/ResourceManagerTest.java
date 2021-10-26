@@ -37,6 +37,7 @@ import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.leaderretrieval.SettableLeaderRetrievalService;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.registration.RegistrationResponse;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerBuilder;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
@@ -193,6 +194,7 @@ public class ResourceManagerTest extends TestLogger {
 			.build();
 		rpcService.registerGateway(jobMasterGateway.getAddress(), jobMasterGateway);
 		final JobID jobId = new JobID();
+		final JobInfo jobInfo = new JobInfo(1);
 		final ResourceID jobMasterResourceId = ResourceID.generate();
 		final LeaderRetrievalService jobMasterLeaderRetrievalService = new SettableLeaderRetrievalService(jobMasterGateway.getAddress(), jobMasterGateway.getFencingToken().toUUID());
 
@@ -208,7 +210,7 @@ public class ResourceManagerTest extends TestLogger {
 					jobMasterResourceId,
 					jobMasterGateway.getAddress(),
 					jobId,
-					1,
+					jobInfo,
 					TIMEOUT);
 
 				assertThat(registrationFuture.get(), instanceOf(RegistrationResponse.Success.class));
@@ -295,6 +297,7 @@ public class ResourceManagerTest extends TestLogger {
 								jobMasterGateway.getFencingToken().toUUID()));
 
 		final JobID jobId = JobID.generate();
+		final JobInfo jobInfo = new JobInfo(1);
 		final ResourceManagerGateway resourceManagerGateway =
 				resourceManager.getSelfGateway(ResourceManagerGateway.class);
 		resourceManagerGateway.registerJobManager(
@@ -302,7 +305,7 @@ public class ResourceManagerTest extends TestLogger {
 				ResourceID.generate(),
 				jobMasterGateway.getAddress(),
 				jobId,
-				1,
+				jobInfo,
 				TIMEOUT);
 		final boolean isAdded = runInMainThread(() -> jobLeaderIdService.containsJob(jobId));
 		assertThat(isAdded, is(true));

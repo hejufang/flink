@@ -44,6 +44,7 @@ import org.apache.flink.runtime.resourcemanager.ResourceOverview;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnknownTaskExecutorException;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
@@ -194,7 +195,7 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 	}
 
 	@Override
-	public CompletableFuture<RegistrationResponse> registerJobManager(JobMasterId jobMasterId, ResourceID jobMasterResourceId, String jobMasterAddress, JobID jobId, int minSlotsNum, Time timeout) {
+	public CompletableFuture<RegistrationResponse> registerJobManager(JobMasterId jobMasterId, ResourceID jobMasterResourceId, String jobMasterAddress, JobID jobId, JobInfo jobInfo, Time timeout) {
 		final QuadFunction<JobMasterId, ResourceID, String, JobID, CompletableFuture<RegistrationResponse>> currentConsumer = registerJobManagerFunction;
 
 		if (currentConsumer != null) {

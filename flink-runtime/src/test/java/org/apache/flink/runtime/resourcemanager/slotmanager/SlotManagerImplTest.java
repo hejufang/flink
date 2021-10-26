@@ -36,6 +36,7 @@ import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnection;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.SlotStatus;
@@ -220,6 +221,36 @@ public class SlotManagerImplTest extends TestLogger {
 			slotManager.registerSlotRequest(slotRequest);
 
 			allocateResourceFuture.get();
+		}
+	}
+
+	@Test
+	public void testSlotRequestWithExtraSlot() throws Exception {
+		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
+		final ResourceProfile resourceProfile = ResourceProfile.fromResources(42.0, 1337);
+		final SlotRequest slotRequest = new SlotRequest(
+			new JobID(),
+			new AllocationID(),
+			resourceProfile,
+			"localhost");
+
+		final AtomicInteger slotCounter = new AtomicInteger(0);
+		ResourceActions resourceManagerActions = new TestingResourceActionsBuilder()
+			.setAllocateResourceConsumer(ignored -> {
+				slotCounter.incrementAndGet();
+			}).setAllocateResourceConsumer((ignoredA, num) -> {
+				for (int i = 0; i < num; i ++) {
+					slotCounter.incrementAndGet();
+				}
+			}).build();
+		SlotManagerBuilder slotManagerBuilder = createSlotManagerBuilder();
+		try (SlotManager slotManager = slotManagerBuilder.buildAndStartWithInitialTMOn(resourceManagerId, resourceManagerActions, 1)) {
+			assertEquals("slot number before register slot request", 1, slotCounter.get());
+			JobInfo jobInfo = new JobInfo(1,1,2);
+			slotManager.registerSlotRequest(slotRequest);
+			assertEquals("slot number after register slot request", 1, slotCounter.get());
+			slotManager.initializeJobResources(slotRequest.getJobId(), jobInfo);
+			assertEquals("slot number after request extra slot", 3, slotCounter.get());
 		}
 	}
 
