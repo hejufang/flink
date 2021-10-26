@@ -56,8 +56,10 @@ public class JavaCmdJobManagerDecoratorTest extends KubernetesJobManagerTestBase
 	private static final String logback =
 			String.format("-Dlogback.configurationFile=file:%s/logback.xml", FLINK_CONF_DIR_IN_POD);
 	private static final String log4j =
-			String.format("-Dlog4j.configurationFile=file:%s/log4j.properties", FLINK_CONF_DIR_IN_POD);
+			String.format("-Dlog4j.configurationFile=file:%s/log4j.properties -Dlog4j2.isThreadContextMapInheritable=true", FLINK_CONF_DIR_IN_POD);
 	private static final String jmLogfile = String.format("-Dlog.file=%s/jobmanager.log", FLINK_LOG_DIR_IN_POD);
+	private static final String logLevel = "-Dlog.level=INFO";
+	private static final String defaultLogSetting = "-Dlog.databus.channel=yarn_container_level_log -Dlog.databus.level=WARN -Dlog.databus.permitsPerSecond=1000";
 	private static final String jmLogRedirects =
 			String.format("1> %s/jobmanager.out 2> %s/jobmanager.err",
 					FLINK_LOG_DIR_IN_POD, FLINK_LOG_DIR_IN_POD);
@@ -207,7 +209,7 @@ public class JavaCmdJobManagerDecoratorTest extends KubernetesJobManagerTestBase
 
 		final String expectedCommand = java + " 1 " + classpath + " 2 " + jmJvmMem +
 				" " + jvmOpts + " " + jmJvmOpts +
-				" " + jmLogfile + " " + logback + " " + log4j +
+				" " + jmLogfile + " " + logLevel + " " + logback + " " + log4j + " " + defaultLogSetting +
 				" " + ENTRY_POINT_CLASS + " " + jmLogRedirects;
 
 		final List<String> expectedArgs = Arrays.asList("/bin/bash", "-c", expectedCommand);
@@ -234,7 +236,7 @@ public class JavaCmdJobManagerDecoratorTest extends KubernetesJobManagerTestBase
 		assertEquals(Collections.singletonList(KUBERNETES_ENTRY_PATH), resultMainContainer.getCommand());
 
 		final String expectedCommand = java + " " + jmJvmMem +
-				" " + jmLogfile + " " + logback + " " + log4j +
+				" " + jmLogfile + " " + logLevel + " " + logback + " " + log4j + " " + defaultLogSetting +
 				" " + jvmOpts + " " + jmJvmOpts +
 				" " + ENTRY_POINT_CLASS + " " + jmLogRedirects;
 
@@ -245,7 +247,7 @@ public class JavaCmdJobManagerDecoratorTest extends KubernetesJobManagerTestBase
 	private String getJobManagerExpectedCommand(String jvmAllOpts, String logging) {
 		return java + " " + classpath + " " + jmJvmMem +
 				(jvmAllOpts.isEmpty() ? "" : " " + jvmAllOpts) +
-				(logging.isEmpty() ? "" : " " + jmLogfile + " " + logging) +
+				(logging.isEmpty() ? "" : " " + jmLogfile + " " + logLevel + " " + logging + " " + defaultLogSetting) +
 				" " + ENTRY_POINT_CLASS + " " + jmLogRedirects;
 	}
 }

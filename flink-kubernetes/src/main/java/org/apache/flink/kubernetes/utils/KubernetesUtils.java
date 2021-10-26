@@ -183,7 +183,7 @@ public class KubernetesUtils {
 		startCommandValues.put("jvmopts", jvmOpts);
 
 		startCommandValues.put("logging",
-			getLogging(logDirectory + "/" + logFileName + ".log", configDirectory, hasLogback, hasLog4j));
+			getLogging(logDirectory + "/" + logFileName + ".log", configDirectory, hasLogback, hasLog4j, flinkConfig));
 
 		startCommandValues.put("class", mainClass);
 
@@ -363,15 +363,40 @@ public class KubernetesUtils {
 		return baseJavaOpts;
 	}
 
-	private static String getLogging(String logFile, String confDir, boolean hasLogback, boolean hasLog4j) {
+	private static String getLogging(String logFile, String confDir, boolean hasLogback, boolean hasLog4j, Configuration flinkConfig) {
 		StringBuilder logging = new StringBuilder();
 		if (hasLogback || hasLog4j) {
 			logging.append("-Dlog.file=").append(logFile);
+			logging.append(" -Dlog.level=").append(flinkConfig.get(CoreOptions.FLINK_LOG_LEVEL));
 			if (hasLogback) {
 				logging.append(" -Dlogback.configurationFile=file:").append(confDir).append("/logback.xml");
 			}
 			if (hasLog4j) {
 				logging.append(" -Dlog4j.configurationFile=file:").append(confDir).append("/log4j.properties");
+				//enable child threads to inherit the Thread Context Map
+				logging.append(" -Dlog4j2.isThreadContextMapInheritable=true");
+			}
+
+			// databus channel configuration for log collection.
+			String databusChannel = flinkConfig.getString(ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_KEY,
+					ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_DEFAULT);
+			String databusLevel = flinkConfig.getString(ConfigConstants.FLINK_LOG_DATABUS_LEVEL_KEY,
+					ConfigConstants.FLINK_LOG_DATABUS_LEVEL_DEFAULT);
+			Long permitsPerSecond = flinkConfig.getLong(ConfigConstants.FLINK_LOG_DATABUS_PERMITS_PER_SECOND_KEY,
+					ConfigConstants.FLINK_LOG_DATABUS_PERMITS_PER_SECOND_DEFAULT);
+			logging.append(" -Dlog.databus.channel=").append(databusChannel);
+			logging.append(" -Dlog.databus.level=").append(databusLevel);
+			logging.append(" -Dlog.databus.permitsPerSecond=").append(permitsPerSecond);
+
+			// streamlog configuration for log collection.
+			if (flinkConfig.getBoolean(ConfigConstants.FLINK_LOG_STREAMLOG_ENABLED_KEY,
+					ConfigConstants.FLINK_LOG_STREAMLOG_ENABLED_DEFAULT)) {
+				String streamlogPsm = flinkConfig.getString(ConfigConstants.FLINK_LOG_STREAMLOG_PSM_KEY,
+						ConfigConstants.FLINK_LOG_STREAMLOG_PSM_DEFAULT);
+				logging.append(" -Dlog.streamlog.psm=").append(streamlogPsm);
+				String streamlogLevel = flinkConfig.getString(ConfigConstants.FLINK_LOG_STREAMLOG_LEVEL_KEY,
+						ConfigConstants.FLINK_LOG_STREAMLOG_LEVEL_DEFAULT);
+				logging.append(" -Dlog.streamlog.level=").append(streamlogLevel);
 			}
 		}
 		return logging.toString();

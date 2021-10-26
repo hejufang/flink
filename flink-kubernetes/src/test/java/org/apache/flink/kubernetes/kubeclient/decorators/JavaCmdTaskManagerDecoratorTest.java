@@ -60,9 +60,11 @@ public class JavaCmdTaskManagerDecoratorTest extends KubernetesTaskManagerTestBa
 	private static final String logback =
 			String.format("-Dlogback.configurationFile=file:%s/logback.xml", FLINK_CONF_DIR_IN_POD);
 	private static final String log4j =
-			String.format("-Dlog4j.configurationFile=file:%s/log4j.properties", FLINK_CONF_DIR_IN_POD);
+			String.format("-Dlog4j.configurationFile=file:%s/log4j.properties -Dlog4j2.isThreadContextMapInheritable=true", FLINK_CONF_DIR_IN_POD);
 	private static final String tmLogfile =
 			String.format("-Dlog.file=%s/taskmanager.log", FLINK_LOG_DIR_IN_POD);
+	private static final String logLevel = "-Dlog.level=INFO";
+	private static final String defaultLogSetting = "-Dlog.databus.channel=yarn_container_level_log -Dlog.databus.level=WARN -Dlog.databus.permitsPerSecond=1000";
 	private static final String tmLogRedirects = String.format(
 			"1> %s/taskmanager.out 2> %s/taskmanager.err",
 		FLINK_LOG_DIR_IN_POD,
@@ -207,7 +209,7 @@ public class JavaCmdTaskManagerDecoratorTest extends KubernetesTaskManagerTestBa
 
 		final String expectedCommand = java + " 1 " + classpath + " 2 " + tmJvmMem +
 				" " + jvmOpts + " " + tmJvmOpts +
-				" " + tmLogfile + " " + logback + " " + log4j +
+				" " + tmLogfile + " " + logLevel + " " + logback + " " + log4j + " " + defaultLogSetting +
 				" " + mainClass + " " + mainClassArgs + " " + tmLogRedirects;
 		final List<String> expectedArgs = Arrays.asList("/bin/bash", "-c", expectedCommand);
 		assertEquals(resultMainContainer.getArgs(), expectedArgs);
@@ -233,7 +235,7 @@ public class JavaCmdTaskManagerDecoratorTest extends KubernetesTaskManagerTestBa
 		assertEquals(Collections.singletonList(KUBERNETES_ENTRY_PATH), resultMainContainer.getCommand());
 
 		final String expectedCommand = java + " " + tmJvmMem +
-				" " + tmLogfile + " " + logback + " " + log4j +
+				" " + tmLogfile + " " + logLevel + " " + logback + " " + log4j + " " + defaultLogSetting +
 				" " + jvmOpts + " " + tmJvmOpts + " " + mainClass +
 				" " + mainClassArgs + " " + tmLogRedirects;
 		final List<String> expectedArgs = Arrays.asList("/bin/bash", "-c", expectedCommand);
@@ -243,7 +245,7 @@ public class JavaCmdTaskManagerDecoratorTest extends KubernetesTaskManagerTestBa
 	private String getTaskManagerExpectedCommand(String jvmAllOpts, String logging) {
 		return java + " " + classpath + " " + tmJvmMem +
 				(jvmAllOpts.isEmpty() ? "" : " " + jvmAllOpts) +
-				(logging.isEmpty() ? "" : " " + tmLogfile + " " + logging) +
+				(logging.isEmpty() ? "" : " " + tmLogfile + " " + logLevel + " " + logging + " " + defaultLogSetting) +
 				" " + mainClass + " " +  mainClassArgs + " " + tmLogRedirects;
 	}
 }
