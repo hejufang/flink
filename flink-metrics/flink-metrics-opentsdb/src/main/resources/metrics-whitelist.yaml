@@ -22,6 +22,7 @@
 global:
   name:
     [
+        numRestarts,
         fullRestarts,
         fullRestartsRate,
         downtime,
@@ -79,6 +80,7 @@ non-global:
       # job info
         downtime,
         uptime,
+        numRestarts,
         fullRestarts,
         executionFailNum,
         executionStatus,

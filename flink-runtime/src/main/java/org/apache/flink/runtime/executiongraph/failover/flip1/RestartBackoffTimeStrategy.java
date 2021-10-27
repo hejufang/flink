@@ -43,6 +43,15 @@ public interface RestartBackoffTimeStrategy {
 	 */
 	void notifyFailure(Throwable cause);
 
+	/**
+	 * Returns whether a restart should be fallback to global.
+	 *
+	 * @return whether a restart should be fallback to global.
+	 */
+	default boolean isFallbackToGlobalRestart(){
+		return false;
+	}
+
 	// ------------------------------------------------------------------------
 	//  factory
 	// ------------------------------------------------------------------------

@@ -65,6 +65,7 @@ public class MetricNames {
 
 	@Deprecated
 	public static final String FULL_RESTARTS = "fullRestarts";
+	public static final String FULL_RESTARTS_TAG_STRATEGY_NAME = "failoverStrategy";
 	public static final String FULL_RESTARTS_RATE = "fullRestartsRate";
 
 	public static final String NO_RESOURCE_AVAILABLE_EXCEPTION = "noResourceAvailableException";

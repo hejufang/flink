@@ -123,6 +123,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -210,6 +211,9 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	// warehouse messages
 	public static final String EVENT_METRIC_NAME = "executionGraphEvent";
+
+	private static final String METRIC_FALLBACK_TO_RESTART_NAME = "fallbackToRestart";
+
 
 	private final String savepointLocationPrefix;
 
@@ -490,6 +494,10 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	protected abstract long getNumberOfRestarts();
 
+	protected abstract String getFailoverStrategyName();
+
+	protected abstract Long getNumberOfFallbackToFullRestarts();
+
 	protected abstract long getNumberOfNoResourceAvailableExceptions();
 
 	private Map<ExecutionVertexID, ExecutionVertexVersion> incrementVersionsOfAllVertices() {
@@ -538,7 +546,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 	}
 
 	private void registerJobMetrics() {
-		jobManagerJobMetricGroup.gauge(MetricNames.NUM_RESTARTS, this::getNumberOfRestarts);
+
 		// register full restart gauge metrics and rate metrics
 		jobManagerJobMetricGroup.gauge(MetricNames.FULL_RESTARTS, this::getNumberOfRestarts);
 		jobManagerJobMetricGroup.meter(MetricNames.FULL_RESTARTS_RATE, new MeterView(executionGraph.getNumberOfRestartsCounter(), 60));
@@ -556,6 +564,22 @@ public abstract class SchedulerBase implements SchedulerNG {
 								.addTagValue(MetricNames.EXECUTION_STATE_TAG_VERTEX_INDEX_NAME, tuple.f2)
 								.build()))
 				.collect(Collectors.toList()));
+
+		jobManagerJobMetricGroup.gauge(MetricNames.NUM_RESTARTS, () -> (TagGaugeStore) () -> {
+			List<TagGaugeStore.TagGaugeMetric> tagGaugeMetrics = new ArrayList<>();
+			tagGaugeMetrics.add(new TagGaugeStore.TagGaugeMetric(
+				getNumberOfRestarts() - getNumberOfFallbackToFullRestarts(),
+				new TagGaugeStore.TagValuesBuilder()
+					.addTagValue(MetricNames.FULL_RESTARTS_TAG_STRATEGY_NAME, getFailoverStrategyName())
+					.build()));
+			tagGaugeMetrics.add(new TagGaugeStore.TagGaugeMetric(
+				getNumberOfFallbackToFullRestarts(),
+				new TagGaugeStore.TagValuesBuilder()
+					.addTagValue(MetricNames.FULL_RESTARTS_TAG_STRATEGY_NAME, METRIC_FALLBACK_TO_RESTART_NAME)
+					.build()));
+			return tagGaugeMetrics;
+		});
+
 	}
 
 	protected abstract void startSchedulingInternal();

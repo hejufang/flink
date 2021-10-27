@@ -51,6 +51,9 @@ public class ExecutionFailureHandler {
 	/** Number of all restarts happened since this job is submitted. */
 	private long numberOfRestarts;
 
+	/** Number of fallback to all restarts happened since this job is submitted. */
+	private long numberOfFallbackToFullRestarts;
+
 	private long numberOfNoResourceAvailableExceptions;
 
 	/**
@@ -115,11 +118,14 @@ public class ExecutionFailureHandler {
 		restartBackoffTimeStrategy.notifyFailure(cause);
 		if (restartBackoffTimeStrategy.canRestart()) {
 			numberOfRestarts++;
+			if (globalFailure) {
+				numberOfFallbackToFullRestarts++;
+			}
 
 			return FailureHandlingResult.restartable(
 				verticesToRestart,
 				restartBackoffTimeStrategy.getBackoffTime(),
-				globalFailure);
+				globalFailure || restartBackoffTimeStrategy.isFallbackToGlobalRestart());
 		} else {
 			return FailureHandlingResult.unrecoverable(
 				new JobException("Recovery is suppressed by " + restartBackoffTimeStrategy, cause),
@@ -138,7 +144,15 @@ public class ExecutionFailureHandler {
 		return numberOfRestarts;
 	}
 
+	public long getNumberOfFallbackToFullRestarts() {
+		return numberOfFallbackToFullRestarts;
+	}
+
 	public long getNumberOfNoResourceAvailableExceptions() {
 		return numberOfNoResourceAvailableExceptions;
+	}
+
+	public FailoverStrategy getFailoverStrategy() {
+		return failoverStrategy;
 	}
 }

@@ -133,6 +133,12 @@ public class RestartStrategyOptions {
 					code("failure-rate"))
 				.build());
 
+	public static final ConfigOption<Boolean> RESTART_STRATEGY_RECOVERABL_FAILURE_RATE_ENABLE = ConfigOptions
+		.key("restart-strategy.recoverable-failure-rate.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Switch to enable single failover failure-rate");
+
 	private RestartStrategyOptions() {
 		throw new UnsupportedOperationException("This class should never be instantiated.");
 	}

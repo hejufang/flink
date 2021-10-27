@@ -478,6 +478,8 @@ quoka:
   state.backend.cache.avgGcTimeThreshold: 3000
   state.backend.cache.maxGcTimeThreshold: 10000
   state.backend.cache.lowHeapThreshold: 0.4
+  restart-strategy.recoverable-failure-rate.fallback-global-restart: true
+  restart-strategy.recoverable-failure-rate.enable: true
 
 quaga:
   dc: cn

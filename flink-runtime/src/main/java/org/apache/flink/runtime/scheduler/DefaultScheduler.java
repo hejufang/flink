@@ -22,6 +22,7 @@ package org.apache.flink.runtime.scheduler;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
@@ -189,6 +190,16 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	}
 
 	@Override
+	protected String getFailoverStrategyName() {
+		return executionFailureHandler.getFailoverStrategy().getClass().getSimpleName();
+	}
+
+	@Override
+	protected Long getNumberOfFallbackToFullRestarts() {
+		return executionFailureHandler.getNumberOfFallbackToFullRestarts();
+	}
+
+	@Override
 	protected long getNumberOfNoResourceAvailableExceptions() {
 		return executionFailureHandler.getNumberOfNoResourceAvailableExceptions();
 	}
@@ -219,6 +230,11 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		setGlobalFailureCause(error);
 		notifyCoordinatorsAboutTaskFailure(executionVertexId, error);
 		final FailureHandlingResult failureHandlingResult = executionFailureHandler.getFailureHandlingResult(executionVertexId, error);
+		if (failureHandlingResult.canRestart() && failureHandlingResult.isGlobalFailure()) {
+			// Fallback to global restart.
+			handleGlobalFailure(new JobException("Fallback to global restart.", error));
+			return;
+		}
 		maybeRestartTasks(failureHandlingResult);
 	}
 
