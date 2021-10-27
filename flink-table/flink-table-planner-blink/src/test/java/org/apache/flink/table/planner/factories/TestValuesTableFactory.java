@@ -250,6 +250,14 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		.noDefaultValue();
 
 	/**
+	 * whether boolean type lookup key is supported in source.
+	 */
+	private static final ConfigOption<Boolean> BOOLEAN_LOOKUP_KEY_SUPPORTED = ConfigOptions
+		.key("boolean-lookup-key-supported")
+		.booleanType()
+		.defaultValue(false);
+
+	/**
 	 * Parse partition list from Options with the format as "key1:val1,key2:val2;key1:val3,key2:val4".
 	 */
 	private static final ConfigOption<List<String>> PARTITION_LIST = ConfigOptions
@@ -280,6 +288,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		filterableFields.ifPresent(filterableFieldsSet::addAll);
 		Boolean isInputKeyByEnable = helper.getOptions().getOptional(LOOKUP_ENABLE_INPUT_KEYBY).orElse(null);
 		DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
+		boolean isBooleanKeySupported = helper.getOptions().get(BOOLEAN_LOOKUP_KEY_SUPPORTED);
 
 		if (sourceClass.equals("DEFAULT")) {
 			Collection<Row> data = registeredData.getOrDefault(dataId, Collections.emptyList());
@@ -311,7 +320,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				Long.MAX_VALUE,
 				partitions,
 				isInputKeyByEnable,
-				producedDataType);
+				producedDataType,
+				isBooleanKeySupported);
 		} else {
 			try {
 				return InstantiationUtil.instantiate(
@@ -362,7 +372,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 			NESTED_PROJECTION_SUPPORTED,
 			FILTERABLE_FIELDS,
 			PARTITION_LIST,
-			LOOKUP_ENABLE_INPUT_KEYBY));
+			LOOKUP_ENABLE_INPUT_KEYBY,
+			BOOLEAN_LOOKUP_KEY_SUPPORTED));
 	}
 
 	private static List<Map<String, String>> parsePartitionList(List<String> stringPartitions) {
@@ -469,6 +480,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		private List<Map<String, String>> allPartitions;
 		private final Boolean isInputKeyByEnable;
 		private DataType producedDataType;
+		private final Boolean isBooleanKeySupported;
 
 		private TestValuesTableSource(
 			TableSchema physicalSchema,
@@ -485,7 +497,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 			long limit,
 			List<Map<String, String>> allPartitions,
 			Boolean isInputKeyByEnable,
-			DataType producedDataType) {
+			DataType producedDataType,
+			boolean isBooleanKeySupported) {
 			this.physicalSchema = physicalSchema;
 			this.changelogMode = changelogMode;
 			this.bounded = bounded;
@@ -501,6 +514,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 			this.allPartitions = allPartitions;
 			this.isInputKeyByEnable = isInputKeyByEnable;
 			this.producedDataType = producedDataType;
+			this.isBooleanKeySupported = isBooleanKeySupported;
 		}
 
 		@Override
@@ -634,6 +648,11 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 			return Optional.ofNullable(isInputKeyByEnable);
 		}
 
+		@Override
+		public boolean isBooleanKeySupported() {
+			return isBooleanKeySupported;
+		}
+
 		private Function<String, Comparable<?>> getValueGetter(Row row) {
 			return fieldName -> {
 				int idx = Arrays.asList(physicalSchema.getFieldNames()).indexOf(fieldName);
@@ -658,7 +677,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				limit,
 				allPartitions,
 				isInputKeyByEnable,
-				producedDataType);
+				producedDataType,
+				isBooleanKeySupported);
 		}
 
 		@Override

@@ -52,7 +52,7 @@ import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
 import org.apache.flink.table.sources.LookupableTableSource
 import org.apache.flink.table.types.DataType
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils.toInternalConversionClass
-import org.apache.flink.table.types.logical.{LogicalType, RowType, TypeInformationRawType}
+import org.apache.flink.table.types.logical.{BooleanType, LogicalType, RowType, TypeInformationRawType}
 import org.apache.flink.types.Row
 import com.google.common.primitives.Primitives
 import org.apache.calcite.plan.{RelOptCluster, RelOptTable, RelTraitSet}
@@ -61,6 +61,7 @@ import org.apache.calcite.rel.core.{JoinInfo, JoinRelType}
 import org.apache.calcite.rel.{RelNode, RelWriter, SingleRel}
 import org.apache.calcite.rex._
 import org.apache.calcite.sql.SqlKind
+import org.apache.calcite.sql.`type`.SqlTypeName
 import org.apache.calcite.sql.fun.SqlStdOperatorTable
 import org.apache.calcite.sql.validate.SqlValidatorUtil
 import org.apache.calcite.tools.RelBuilder
@@ -132,12 +133,15 @@ abstract class CommonLookupJoin(
   val temporalTableSchema: TableSchema = FlinkTypeFactory.toTableSchema(temporalTable.getRowType)
   // join key pairs from left input field index to temporal table field index
   val joinKeyPairs: Array[IntPair] = getTemporalTableJoinKeyPairs(joinInfo, calcOnTemporalTable)
+  // whether is boolean lookup join key is supported in the source
+  val isBooleanKeySupported: Boolean = isBooleanKeySupported(temporalTable)
   // all potential index keys, mapping from field index in table source to LookupKey
   val allLookupKeys: Map[Int, LookupKey] = analyzeLookupKeys(
     cluster.getRexBuilder,
     joinKeyPairs,
     temporalTableSchema,
-    calcOnTemporalTable)
+    calcOnTemporalTable,
+    isBooleanKeySupported)
   val lookupKeyIndicesInOrder: Array[Int] = allLookupKeys.keys.toList.sorted.toArray
   // remaining condition the filter joined records (left input record X lookup-ed records)
   val remainingCondition: Option[RexNode] = getRemainingJoinCondition(
@@ -661,6 +665,21 @@ abstract class CommonLookupJoin(
   }
 
   /**
+   * Return whether boolean look join key is supported in the source.
+   *
+   * @param table source table
+   * @return if it's supported
+   */
+  private def isBooleanKeySupported(table: RelOptTable): Boolean = {
+    table match {
+      case t: TableSourceTable =>
+        val tableSource = t.tableSource.asInstanceOf[LookupTableSource]
+        tableSource.isBooleanKeySupported
+      case _ => false
+    }
+  }
+
+  /**
     * Analyze potential lookup keys (including [[LiteralConstantLookupKey]],
     * [[ArrayConstantLookupKey]] and [[FieldRefLookupKey]])
     * of the temporal table from the join condition and calc program on the temporal table.
@@ -668,13 +687,15 @@ abstract class CommonLookupJoin(
     * @param rexBuilder the RexBuilder
     * @param joinKeyPairs join key pairs from left input field index to temporal table field index
     * @param calcOnTemporalTable  the calc program on temporal table
+   *  @param isBooleanKeySupported whether is boolean key supported in lookup source
     * @return all the potential lookup keys
     */
   private def analyzeLookupKeys(
       rexBuilder: RexBuilder,
       joinKeyPairs: Array[IntPair],
       temporalTableSchema: TableSchema,
-      calcOnTemporalTable: Option[RexProgram]): Map[Int, LookupKey] = {
+      calcOnTemporalTable: Option[RexProgram],
+      isBooleanKeySupported: Boolean): Map[Int, LookupKey] = {
     // field_index_in_table_source => constant_lookup_key
     val constantLookupKeys = new mutable.HashMap[Int, ConstantLookupKey]
     // analyze constant lookup keys
@@ -684,7 +705,7 @@ abstract class CommonLookupJoin(
         cluster.getRexBuilder,
         program.expandLocalRef(program.getCondition))
       // presume 'A = 1 AND A = 2' will be reduced to ALWAYS_FALSE
-      extractConstantFieldsFromEquiCondition(condition, constantLookupKeys)
+      extractConstantFieldsFromEquiCondition(condition, constantLookupKeys, isBooleanKeySupported)
     }
     val fieldRefLookupKeys = joinKeyPairs.map(p => (p.target, FieldRefLookupKey(p.source)))
     (constantLookupKeys ++ fieldRefLookupKeys).toMap
@@ -754,16 +775,20 @@ abstract class CommonLookupJoin(
 
   private def extractConstantFieldsFromEquiCondition(
       condition: RexNode,
-      constantFieldMap: mutable.HashMap[Int, ConstantLookupKey]): Unit = condition match {
+      constantFieldMap: mutable.HashMap[Int, ConstantLookupKey],
+      isBooleanSupported: Boolean): Unit = condition match {
     case c: RexCall if c.getKind == SqlKind.AND =>
-      c.getOperands.asScala.foreach(r => extractConstantField(r, constantFieldMap))
-    case rex: RexNode => extractConstantField(rex, constantFieldMap)
+      c.getOperands.asScala.foreach(r =>
+        extractConstantField(r, constantFieldMap, isBooleanSupported)
+      )
+    case rex: RexNode => extractConstantField(rex, constantFieldMap, isBooleanSupported)
     case _ =>
   }
 
   private def extractConstantField(
       pred: RexNode,
-      constantFieldMap: mutable.HashMap[Int, ConstantLookupKey]): Unit = pred match {
+      constantFieldMap: mutable.HashMap[Int, ConstantLookupKey],
+      isBooleanSupported: Boolean): Unit = pred match {
     case c: RexCall if c.getKind == SqlKind.EQUALS =>
       var left = c.getOperands.get(0)
       var right = c.getOperands.get(1)
@@ -795,6 +820,20 @@ abstract class CommonLookupJoin(
           return
       }
       constantFieldMap.put(index, lookupKey)
+    case c: RexInputRef if isBooleanSupported && c.getType.getSqlTypeName == SqlTypeName.BOOLEAN =>
+      val booleanKey = LiteralConstantLookupKey(new BooleanType(),
+        cluster.getRexBuilder.makeLiteral(true))
+      constantFieldMap.put(c.getIndex, booleanKey)
+    case c: RexCall if isBooleanSupported && (c.getKind == SqlKind.NOT ||
+      c.getKind == SqlKind.IS_NOT_TRUE || c.getKind == SqlKind.IS_NOT_FALSE) =>
+      val index = c.getOperands.get(0) match {
+        case rex: RexInputRef => rex.getIndex
+        case _ => return
+      }
+      val bool = if (c.getKind == SqlKind.IS_NOT_FALSE) true else false
+      val booleanKey = LiteralConstantLookupKey(new BooleanType(),
+        cluster.getRexBuilder.makeLiteral(bool));
+      constantFieldMap.put(index, booleanKey);
     case _ => // ignore
   }
 

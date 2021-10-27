@@ -76,4 +76,9 @@ public class RPCDynamicTableSource implements LookupTableSource {
 	public Optional<Boolean> isInputKeyByEnabled() {
 		return Optional.ofNullable(lookupOptions.isInputKeyByEnabled());
 	}
+
+	@Override
+	public boolean isBooleanKeySupported() {
+		return true;
+	}
 }

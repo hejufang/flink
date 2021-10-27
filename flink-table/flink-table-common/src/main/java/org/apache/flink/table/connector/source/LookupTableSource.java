@@ -123,4 +123,11 @@ public interface LookupTableSource extends DynamicTableSource {
 	default Optional<Boolean> isInputKeyByEnabled() {
 		return Optional.empty();
 	}
+
+	/**
+	 * return whether boolean type lookup key is supported.
+	 */
+	default boolean isBooleanKeySupported() {
+		return false;
+	}
 }

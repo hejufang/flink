@@ -736,4 +736,128 @@ Calc(select=[a, b, c, PROCTIME_MATERIALIZE(proctime) AS proctime, rowtime, CAST(
 ]]>
     </Resource>
   </TestCase>
+  <TestCase name="testJoinTemporalTableWithBooleanConstantConditionSupported[LegacyTableSource=true]">
+    <Resource name="sql">
+      <![CDATA[
+SELECT * FROM MyTable AS T
+JOIN BooleanKeySupportedLookupTable FOR SYSTEM_TIME AS OF T.proctime AS D
+ ON D.id           =  T.a
+AND D.bool_eq      =  TRUE
+AND D.bool_not_eq  <> TRUE
+AND D.bool_is_not1 IS NOT TRUE
+AND D.bool_is_not2 IS NOT FALSE
+AND D.bool_cast    = cast('false' as BOOLEAN)
+      ]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(a=[$0], b=[$1], c=[$2], proctime=[$3], rowtime=[$4], id=[$5], bool_eq=[$6], bool_not_eq=[$7], bool_is_not1=[$8], bool_is_not2=[$9], bool_cast=[$10])
++- LogicalCorrelate(correlation=[$cor0], joinType=[inner], requiredColumns=[{0, 3}])
+   :- LogicalTableScan(table=[[default_catalog, default_database, MyTable]])
+   +- LogicalFilter(condition=[AND(=($0, $cor0.a), =($1, true), <>($2, true), IS NOT TRUE($3), IS NOT FALSE($4), =($5, CAST(_UTF-16LE'false'):BOOLEAN NOT NULL))])
+      +- LogicalSnapshot(period=[$cor0.proctime])
+         +- LogicalTableScan(table=[[default_catalog, default_database, BooleanKeySupportedLookupTable]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[a, b, c, PROCTIME_MATERIALIZE(proctime) AS proctime, rowtime, id, bool_eq, bool_not_eq, bool_is_not1, bool_is_not2, bool_cast])
++- LookupJoin(table=[default_catalog.default_database.BooleanKeySupportedLookupTable], joinType=[InnerJoin], async=[false], lookup=[id=a, bool_cast=false, bool_eq=true, bool_not_eq=false, bool_is_not1=false, bool_is_not2=true], where=[AND(bool_eq, IS NOT TRUE(bool_is_not1), IS NOT FALSE(bool_is_not2), NOT(bool_not_eq), NOT(bool_cast))], select=[a, b, c, proctime, rowtime, id, bool_eq, bool_not_eq, bool_is_not1, bool_is_not2, bool_cast])
+   +- DataStreamScan(table=[[default_catalog, default_database, MyTable]], fields=[a, b, c, proctime, rowtime])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testJoinTemporalTableWithBooleanConstantConditionSupported[LegacyTableSource=false]">
+    <Resource name="sql">
+      <![CDATA[
+SELECT * FROM MyTable AS T
+JOIN BooleanKeySupportedLookupTable FOR SYSTEM_TIME AS OF T.proctime AS D
+ ON D.id           =  T.a
+AND D.bool_eq      =  TRUE
+AND D.bool_not_eq  <> TRUE
+AND D.bool_is_not1 IS NOT TRUE
+AND D.bool_is_not2 IS NOT FALSE
+AND D.bool_cast    = cast('false' as BOOLEAN)
+      ]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(a=[$0], b=[$1], c=[$2], proctime=[$3], rowtime=[$4], id=[$5], bool_eq=[$6], bool_not_eq=[$7], bool_is_not1=[$8], bool_is_not2=[$9], bool_cast=[$10])
++- LogicalCorrelate(correlation=[$cor0], joinType=[inner], requiredColumns=[{0, 3}])
+   :- LogicalTableScan(table=[[default_catalog, default_database, MyTable]])
+   +- LogicalFilter(condition=[AND(=($0, $cor0.a), =($1, true), <>($2, true), IS NOT TRUE($3), IS NOT FALSE($4), =($5, CAST(_UTF-16LE'false'):BOOLEAN NOT NULL))])
+      +- LogicalSnapshot(period=[$cor0.proctime])
+         +- LogicalTableScan(table=[[default_catalog, default_database, BooleanKeySupportedLookupTable]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[a, b, c, PROCTIME_MATERIALIZE(proctime) AS proctime, rowtime, id, bool_eq, bool_not_eq, bool_is_not1, bool_is_not2, bool_cast])
++- LookupJoin(table=[default_catalog.default_database.BooleanKeySupportedLookupTable], joinType=[InnerJoin], async=[false], lookup=[id=a, bool_cast=false, bool_eq=true, bool_not_eq=false, bool_is_not1=false, bool_is_not2=true], where=[AND(bool_eq, IS NOT TRUE(bool_is_not1), IS NOT FALSE(bool_is_not2), NOT(bool_not_eq), NOT(bool_cast))], select=[a, b, c, proctime, rowtime, id, bool_eq, bool_not_eq, bool_is_not1, bool_is_not2, bool_cast])
+   +- DataStreamScan(table=[[default_catalog, default_database, MyTable]], fields=[a, b, c, proctime, rowtime])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testJoinTemporalTableWithBooleanConstantConditionUnsupported[LegacyTableSource=true]">
+    <Resource name="sql">
+      <![CDATA[
+SELECT * FROM MyTable AS T
+JOIN BooleanKeyUnsupportedLookupTable FOR SYSTEM_TIME AS OF T.proctime AS D
+ ON D.id           =  T.a
+AND D.bool_eq      =  TRUE
+AND D.bool_not_eq  <> TRUE
+AND D.bool_is_not1 IS NOT TRUE
+AND D.bool_is_not2 IS NOT FALSE
+AND D.bool_cast    = cast('false' as BOOLEAN)
+      ]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(a=[$0], b=[$1], c=[$2], proctime=[$3], rowtime=[$4], id=[$5], bool_eq=[$6], bool_not_eq=[$7], bool_is_not1=[$8], bool_is_not2=[$9], bool_cast=[$10])
++- LogicalCorrelate(correlation=[$cor0], joinType=[inner], requiredColumns=[{0, 3}])
+   :- LogicalTableScan(table=[[default_catalog, default_database, MyTable]])
+   +- LogicalFilter(condition=[AND(=($0, $cor0.a), =($1, true), <>($2, true), IS NOT TRUE($3), IS NOT FALSE($4), =($5, CAST(_UTF-16LE'false'):BOOLEAN NOT NULL))])
+      +- LogicalSnapshot(period=[$cor0.proctime])
+         +- LogicalTableScan(table=[[default_catalog, default_database, BooleanKeyUnsupportedLookupTable]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[a, b, c, PROCTIME_MATERIALIZE(proctime) AS proctime, rowtime, id, bool_eq, bool_not_eq, bool_is_not1, bool_is_not2, bool_cast])
++- LookupJoin(table=[default_catalog.default_database.BooleanKeyUnsupportedLookupTable], joinType=[InnerJoin], async=[false], lookup=[id=a], where=[AND(bool_eq, IS NOT TRUE(bool_is_not1), IS NOT FALSE(bool_is_not2), NOT(bool_not_eq), NOT(bool_cast))], select=[a, b, c, proctime, rowtime, id, bool_eq, bool_not_eq, bool_is_not1, bool_is_not2, bool_cast])
+   +- DataStreamScan(table=[[default_catalog, default_database, MyTable]], fields=[a, b, c, proctime, rowtime])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testJoinTemporalTableWithBooleanConstantConditionUnsupported[LegacyTableSource=false]">
+    <Resource name="sql">
+      <![CDATA[
+SELECT * FROM MyTable AS T
+JOIN BooleanKeyUnsupportedLookupTable FOR SYSTEM_TIME AS OF T.proctime AS D
+ ON D.id           =  T.a
+AND D.bool_eq      =  TRUE
+AND D.bool_not_eq  <> TRUE
+AND D.bool_is_not1 IS NOT TRUE
+AND D.bool_is_not2 IS NOT FALSE
+AND D.bool_cast    = cast('false' as BOOLEAN)
+      ]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(a=[$0], b=[$1], c=[$2], proctime=[$3], rowtime=[$4], id=[$5], bool_eq=[$6], bool_not_eq=[$7], bool_is_not1=[$8], bool_is_not2=[$9], bool_cast=[$10])
++- LogicalCorrelate(correlation=[$cor0], joinType=[inner], requiredColumns=[{0, 3}])
+   :- LogicalTableScan(table=[[default_catalog, default_database, MyTable]])
+   +- LogicalFilter(condition=[AND(=($0, $cor0.a), =($1, true), <>($2, true), IS NOT TRUE($3), IS NOT FALSE($4), =($5, CAST(_UTF-16LE'false'):BOOLEAN NOT NULL))])
+      +- LogicalSnapshot(period=[$cor0.proctime])
+         +- LogicalTableScan(table=[[default_catalog, default_database, BooleanKeyUnsupportedLookupTable]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[a, b, c, PROCTIME_MATERIALIZE(proctime) AS proctime, rowtime, id, bool_eq, bool_not_eq, bool_is_not1, bool_is_not2, bool_cast])
++- LookupJoin(table=[default_catalog.default_database.BooleanKeyUnsupportedLookupTable], joinType=[InnerJoin], async=[false], lookup=[id=a], where=[AND(bool_eq, IS NOT TRUE(bool_is_not1), IS NOT FALSE(bool_is_not2), NOT(bool_not_eq), NOT(bool_cast))], select=[a, b, c, proctime, rowtime, id, bool_eq, bool_not_eq, bool_is_not1, bool_is_not2, bool_cast])
+   +- DataStreamScan(table=[[default_catalog, default_database, MyTable]], fields=[a, b, c, proctime, rowtime])
+]]>
+    </Resource>
+  </TestCase>
 </Root>
