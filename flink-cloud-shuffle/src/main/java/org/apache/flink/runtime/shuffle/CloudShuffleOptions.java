@@ -21,6 +21,7 @@ package org.apache.flink.runtime.shuffle;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.MemorySize;
 
 import com.bytedance.css.common.CssConf;
 
@@ -57,6 +58,18 @@ public class CloudShuffleOptions {
 			.intType()
 			.noDefaultValue()
 			.withDescription("CSS number of workers");
+
+	public static final ConfigOption<MemorySize> CLOUD_SHUFFLE_SERVICE_BUFFER_SIZE = ConfigOptions
+			.key("flink.cloud-shuffle-service.buffer-size")
+			.memoryType()
+			.defaultValue(MemorySize.parse("32kb"))
+			.withDescription("Memory size of buffers.");
+
+	public static final ConfigOption<Integer> CLOUD_SHUFFLE_SERVICE_BUFFERS_PER_MAPPER = ConfigOptions
+			.key("flink.cloud-shuffle-service.buffers-per-mapper")
+			.intType()
+			.defaultValue(2)
+			.withDescription("Number of buffers per mapper.");
 
 	// used for TM
 	public static CssConf fromConfiguration(Configuration configuration) {

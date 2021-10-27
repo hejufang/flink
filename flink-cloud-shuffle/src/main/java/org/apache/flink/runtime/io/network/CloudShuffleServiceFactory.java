@@ -19,15 +19,19 @@
 package org.apache.flink.runtime.io.network;
 
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.runtime.io.network.partition.ResultPartition;
-import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
+import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.shuffle.CloudShuffleDescriptor;
+import org.apache.flink.runtime.shuffle.CloudShuffleEnvironment;
+import org.apache.flink.runtime.shuffle.CloudShuffleInputGate;
 import org.apache.flink.runtime.shuffle.CloudShuffleMaster;
 import org.apache.flink.runtime.shuffle.CloudShuffleOptions;
+import org.apache.flink.runtime.shuffle.CloudShuffleResultPartition;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironmentContext;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
 import org.apache.flink.runtime.shuffle.ShuffleServiceFactory;
+import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +40,7 @@ import org.slf4j.LoggerFactory;
  * CloudShuffleServiceFactory.
  */
 public class CloudShuffleServiceFactory
-		implements ShuffleServiceFactory<CloudShuffleDescriptor, ResultPartition, SingleInputGate> {
+		implements ShuffleServiceFactory<CloudShuffleDescriptor, CloudShuffleResultPartition, CloudShuffleInputGate> {
 	private static final Logger LOG = LoggerFactory.getLogger(CloudShuffleServiceFactory.class);
 
 	@Override
@@ -49,7 +53,24 @@ public class CloudShuffleServiceFactory
 	}
 
 	@Override
-	public ShuffleEnvironment<ResultPartition, SingleInputGate> createShuffleEnvironment(ShuffleEnvironmentContext shuffleEnvironmentContext) {
-		throw new UnsupportedOperationException("not supported in this MR");
+	public ShuffleEnvironment<CloudShuffleResultPartition, CloudShuffleInputGate> createShuffleEnvironment(ShuffleEnvironmentContext shuffleEnvironmentContext) {
+		final Configuration configuration = shuffleEnvironmentContext.getConfiguration();
+
+		// calculate network memory
+		final MemorySize networkMemorySize = shuffleEnvironmentContext.getNetworkMemorySize();
+		final MemorySize segmentSize = configuration.get(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_BUFFER_SIZE);
+		final int segmentSizeBytes = (int) segmentSize.getBytes();
+		final int numberOfSegments = (int) (networkMemorySize.getBytes() / segmentSizeBytes);
+
+		Preconditions.checkArgument(numberOfSegments > 0);
+
+		LOG.info("Create NetworkBufferPool(numberOfSegments={}, segmentSize={})", numberOfSegments, segmentSize);
+		NetworkBufferPool networkBufferPool = new NetworkBufferPool(
+				numberOfSegments,
+				segmentSizeBytes,
+				Integer.MAX_VALUE);
+		return new CloudShuffleEnvironment(
+				shuffleEnvironmentContext.getConfiguration(),
+				networkBufferPool);
 	}
 }
