@@ -23,6 +23,7 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DelegatingConfiguration;
 import org.apache.flink.configuration.MetricOptions;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.plugin.PluginManager;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.reporter.InstantiateViaFactory;
@@ -184,7 +185,20 @@ public final class ReporterSetup {
 			DelegatingConfiguration delegatingConfiguration = new DelegatingConfiguration(
 				configuration,
 				ConfigConstants.METRICS_REPORTER_PREFIX + namedReporter + '.');
-
+			// add "is_kubernetes" flag
+			delegatingConfiguration.setBoolean(
+				ConfigConstants.IS_KUBERNETES_KEY, configuration.getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false));
+			// add region, cluster, queue info into configuration with prefix;
+			delegatingConfiguration.setString(
+				ConfigConstants.DC_KEY, configuration.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT));
+			delegatingConfiguration.setString(
+				ConfigConstants.CLUSTER_NAME_KEY, configuration.getString(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT));
+			delegatingConfiguration.setString(
+				ConfigConstants.QUEUE_KEY, configuration.getString(ConfigConstants.QUEUE_KEY, ConfigConstants.QUEUE_DEFAULT));
+			// on yarn, this parameter should already be set.
+			if (!delegatingConfiguration.containsKey("jobname")) {
+				delegatingConfiguration.setString("jobname", configuration.getOptional(PipelineOptions.NAME).orElse("flink"));
+			}
 			reporterConfigurations.add(Tuple2.of(namedReporter, delegatingConfiguration));
 		}
 		return reporterConfigurations;

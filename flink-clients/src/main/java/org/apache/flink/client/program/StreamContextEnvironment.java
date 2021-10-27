@@ -136,7 +136,7 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 	@Override
 	public JobClient executeAsync(StreamGraph streamGraph) throws Exception {
 		validateAllowedExecution();
-		registerDashboard(streamGraph);
+		registerDashboard(streamGraph, getConfiguration());
 		final JobClient jobClient = super.executeAsync(streamGraph);
 
 		if (!suppressSysout) {

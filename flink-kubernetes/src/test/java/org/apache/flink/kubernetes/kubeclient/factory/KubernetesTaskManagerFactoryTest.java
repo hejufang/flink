@@ -71,7 +71,6 @@ public class KubernetesTaskManagerFactoryTest extends KubernetesTaskManagerTestB
 			KubernetesTaskManagerFactory.buildTaskManagerKubernetesPod(kubernetesTaskManagerParameters).getInternalResource();
 		assertEquals(POD_NAME, pod.getMetadata().getName());
 		assertEquals(1, pod.getSpec().getInitContainers().size());
-		assertEquals(3, pod.getSpec().getVolumes().size());
 	}
 
 	@Test

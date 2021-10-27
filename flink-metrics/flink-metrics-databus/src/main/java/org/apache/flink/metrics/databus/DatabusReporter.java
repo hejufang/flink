@@ -114,9 +114,16 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 	public void open(MetricConfig config) {
 		this.clientWrapper = new DatabusClientWrapper(config.getString(
 				ConfigConstants.FLINK_DATA_WAREHOUSE_CHANNEL_KEY, ConfigConstants.FLINK_DATA_WAREHOUSE_CHANNEL_DEFAULT));
-		this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
-		this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
-		this.queue = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_QUEUE);
+		if (config.getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false)) {
+			this.region = config.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
+			this.cluster = config.getString(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT);
+			this.queue = config.getString(ConfigConstants.QUEUE_KEY, ConfigConstants.QUEUE_DEFAULT);
+		} else {
+			this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
+			this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
+			this.queue = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_QUEUE);
+		}
+		// todo, how to deal with these env var in k8s?
 		this.user = System.getenv(YarnConfigKeys.ENV_HADOOP_USER_NAME);
 		this.applicationId = System.getenv(YarnConfigKeys.ENV_APP_ID);
 		this.host = System.getenv(YarnConfigKeys.ENV_FLINK_NODE_ID);
@@ -124,7 +131,7 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		this.commitId = EnvironmentInformation.getRevisionInformation().commitId;
 		this.commitDate = EnvironmentInformation.getRevisionInformation().commitDate;
 		this.version = EnvironmentInformation.getVersion();
-		this.jobName = getJobName();
+		this.jobName = getJobName(config);
 
 		if (this.host == null) {
 			try {
@@ -248,15 +255,15 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		this.region = region;
 	}
 
-	public String getJobName() {
+	public String getJobName(MetricConfig metricConfig) {
 		// get job name from yarn env.
 		String jobName = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_JOB);
 		if (jobName != null && jobName.lastIndexOf("_") > 0) {
 			// remove username from job name.
 			jobName = jobName.substring(0, jobName.lastIndexOf("_"));
 		} else {
-			// get job name from client env.
-			jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
+			// get job name from config
+			jobName = metricConfig.getString("jobname", ConfigConstants.JOB_NAME_DEFAULT);
 		}
 		return jobName;
 	}

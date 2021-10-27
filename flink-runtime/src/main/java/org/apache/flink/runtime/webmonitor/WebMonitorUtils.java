@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
@@ -323,8 +324,8 @@ public final class WebMonitorUtils {
 		} else {
 			String grafanaDomainUrl = configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
 				ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
-			String applicationName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
-				ConfigConstants.APPLICATION_NAME_DEFAULT);
+			String applicationName = configuration.getOptional(PipelineOptions.NAME)
+				.orElse(ConfigConstants.APPLICATION_NAME_DEFAULT);
 			String jobName = applicationName;
 			if (applicationName.lastIndexOf("_") != -1) {
 				jobName = applicationName.substring(0, applicationName.lastIndexOf("_"))
@@ -340,15 +341,23 @@ public final class WebMonitorUtils {
 		if (configuration == null) {
 			return null;
 		} else {
-			String grafanaDomainUrl = configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
-				ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
-			String applicationName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
-				ConfigConstants.APPLICATION_NAME_DEFAULT);
-			String dataSource = configuration.getString(ConfigConstants.DTOP_DATA_SOURCE_KEY,
-				ConfigConstants.DTOP_DATA_SOURCE_DEFAULT);
-			String database = configuration.getString(ConfigConstants.DTOP_DATABASE_KEY,
-				ConfigConstants.DTOP_DATABASE_DEFAULT);
-			return String.format(ConfigConstants.DTOP_TEMPLATE, grafanaDomainUrl, applicationName, dataSource, database);
+			if (configuration.getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false)) {
+				String grafanaDomainUrl = configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+					ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
+				String psm = System.getenv(ConfigConstants.PSM_ENV_KEY);
+				String physicalCluster = System.getenv(ConfigConstants.PHYSICAL_CLUSTER_ENV_KEY);
+				return String.format(ConfigConstants.DTOP_TEMPLATE_KUBERNETES, grafanaDomainUrl, psm, physicalCluster);
+			} else {
+				String grafanaDomainUrl = configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+					ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
+				String applicationName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
+					ConfigConstants.APPLICATION_NAME_DEFAULT);
+				String dataSource = configuration.getString(ConfigConstants.DTOP_DATA_SOURCE_KEY,
+					ConfigConstants.DTOP_DATA_SOURCE_DEFAULT);
+				String database = configuration.getString(ConfigConstants.DTOP_DATABASE_KEY,
+					ConfigConstants.DTOP_DATABASE_DEFAULT);
+				return String.format(ConfigConstants.DTOP_TEMPLATE, grafanaDomainUrl, applicationName, dataSource, database);
+			}
 		}
 	}
 }

@@ -2054,10 +2054,13 @@ public final class ConfigConstants {
 
 	public static final String APPLICATION_ID_KEY = "applicationID";
 
+	public static final String IS_KUBERNETES_KEY = "is_kubernetes";
 	public static final String DC_KEY = "dc";
 	public static final String DC_DEFAULT = "cn";
 	public static final String CLUSTER_NAME_KEY = "clusterName";
 	public static final String CLUSTER_NAME_DEFAULT = "flink";
+	public static final String QUEUE_KEY = "queue";
+	public static final String QUEUE_DEFAULT = "flink";
 
 	public static final String JOB_NAME_KEY = "jobName";
 	public static final String JOB_NAME_DEFAULT = "unknown";
@@ -2065,13 +2068,19 @@ public final class ConfigConstants {
 	public static final String DATA_SOURCE_KEY = "dataSource";
 	public static final String DATA_SOURCE_DEFAULT = "bytetsd";
 	public static final String CHECKPOINT_HDFS_PREFIX_KEY = "checkpoint.hdfs.prefix";
-
+	// for yarn resource
 	public static final String DTOP_DATA_SOURCE_KEY = "dtop.data_source";
 	public static final String DTOP_DATA_SOURCE_DEFAULT = "dtop_cn";
 	public static final String DTOP_DATABASE_KEY = "dtop.database";
 	public static final String DTOP_DATABASE_DEFAULT = "dtop";
 	public static final String DTOP_TEMPLATE =
 		"%s/dashboard/db/flink-resource-monitor-new?orgId=1&refresh=1m&var-appName=%s&var-datasource=%s&var-database=%s";
+	// for k8s resource, k8s will help to set these env var
+	public static final String PSM_ENV_KEY = "TCE_PSM";
+	public static final String PHYSICAL_CLUSTER_ENV_KEY = "CLOUDNATIVE_CLUSTER";
+	public static final String DTOP_TEMPLATE_KUBERNETES =
+		"%s/dashboard/db/flink-on-k8s-resource?orgId=1&refresh=1m&var-psm=%s&var-physicalCluster=%s";
+
 	public static final String METRIC_TEMPLATE = "%s/dashboard/db/flink-%s-%s?orgId=1";
 
 	// ---------------------------- Print GC Detail & dump on OOM Config ------------------------------

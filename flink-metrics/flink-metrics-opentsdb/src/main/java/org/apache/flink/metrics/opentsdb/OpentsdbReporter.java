@@ -20,6 +20,7 @@ package org.apache.flink.metrics.opentsdb;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Histogram;
@@ -106,9 +107,15 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		log.info("prefix = {} jobName = {}", this.prefix, this.jobName);
 		loadAllMetrics();
 
-		this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
-		this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
-		this.queue = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_QUEUE);
+		if (config.getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false)) {
+			this.region = config.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
+			this.cluster = config.getString(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT);
+			this.queue = config.getString(ConfigConstants.QUEUE_KEY, ConfigConstants.QUEUE_DEFAULT);
+		} else {
+			this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
+			this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
+			this.queue = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_QUEUE);
+		}
 	}
 
 	@VisibleForTesting

@@ -144,7 +144,6 @@ public class KubernetesJobManagerFactoryTest extends KubernetesJobManagerTestBas
 
 		assertEquals(1, resultedMainContainer.getCommand().size());
 		assertEquals(3, resultedMainContainer.getArgs().size());
-
 		assertEquals(1, resultedMainContainer.getVolumeMounts().size());
 	}
 
@@ -268,7 +267,9 @@ public class KubernetesJobManagerFactoryTest extends KubernetesJobManagerTestBas
 			.anyMatch(resource -> resource.getMetadata().getName().equals(HadoopConfMountDecorator.getHadoopConfConfigMapName(CLUSTER_ID))));
 
 		final PodSpec podSpec = kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
-		assertTrue(podSpec.getVolumes().stream().anyMatch(volume -> volume.getConfigMap().getName().equals(EXISTING_HADOOP_CONF_CONFIG_MAP)));
+		assertTrue(podSpec.getVolumes().stream().anyMatch(
+			volume -> volume.getConfigMap() != null && volume.getConfigMap().getName().equals(EXISTING_HADOOP_CONF_CONFIG_MAP))
+		);
 	}
 
 	@Test

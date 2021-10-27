@@ -780,10 +780,13 @@ boei18n:
 gaura-hl:
   dc: cn
   clusterName: gaura-hl
+  is_kubernetes: true
   high-availability: none
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  containerized.taskmanager.env.METRICS_USE_SOCK: true
+  metrics.reporter.opentsdb_reporter.use_domain_sock: true
   # service & ingress related
   kubernetes.rest-service.exposed.type: ClusterIP
   kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
@@ -796,9 +799,13 @@ gaura-hl:
 cloudnative-lf:
   dc: cn
   clusterName: cloudnative-lf
+  is_kubernetes: true
+  high-availability: none
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  containerized.taskmanager.env.METRICS_USE_SOCK: true
+  metrics.reporter.opentsdb_reporter.use_domain_sock: true
   # service & ingress related
   kubernetes.rest-service.exposed.type: ClusterIP
   kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
@@ -811,9 +818,13 @@ cloudnative-lf:
 cloudnative-lq:
   dc: cn
   clusterName: cloudnative-lq
+  is_kubernetes: true
+  high-availability: none
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  containerized.taskmanager.env.METRICS_USE_SOCK: true
+  metrics.reporter.opentsdb_reporter.use_domain_sock: true
   # service & ingress related
   kubernetes.rest-service.exposed.type: ClusterIP
   kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"

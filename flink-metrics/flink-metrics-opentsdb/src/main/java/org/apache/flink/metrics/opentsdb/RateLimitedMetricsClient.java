@@ -20,10 +20,10 @@ package org.apache.flink.metrics.opentsdb;
 
 import org.apache.flink.metrics.MetricConfig;
 
+import org.apache.flink.shaded.byted.com.bytedance.metrics.UdpMetricsClient;
 import org.apache.flink.shaded.guava18.com.google.common.annotations.VisibleForTesting;
 import org.apache.flink.shaded.guava18.com.google.common.util.concurrent.RateLimiter;
 
-import com.bytedance.metrics.UdpMetricsClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +42,7 @@ public class RateLimitedMetricsClient {
 
 	private static final String METRICS_REPORTER_QUANTILE_SUFFIX = "quantile";
 	private static final Double METRICS_REPORTER_QUANTILE_DEFAULT = 0.4;
+	private static final String USE_DOMAIN_SOCK = "use_domain_sock";
 
 	private final UdpMetricsClient udpMetricsClient;
 
@@ -57,6 +58,10 @@ public class RateLimitedMetricsClient {
 
 	public RateLimitedMetricsClient(String prefix, MetricConfig config) {
 		this.udpMetricsClient = new UdpMetricsClient(prefix);
+		if (config.getBoolean(USE_DOMAIN_SOCK, false)) {
+			LOG.info("Use unix domain socket to report metrics.");
+			this.udpMetricsClient.setUseDomainSock(true);
+		}
 		this.interval = parseIntervalToSeconds(config.getString(METRICS_REPORTER_INTERVAL_SUFFIX, METRICS_REPORTER_INTERVAL_DEFAULT));
 		this.quantile = config.getDouble(METRICS_REPORTER_QUANTILE_SUFFIX, METRICS_REPORTER_QUANTILE_DEFAULT);
 		this.metricCount = 0;

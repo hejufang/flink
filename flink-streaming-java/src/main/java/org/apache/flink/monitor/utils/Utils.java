@@ -19,6 +19,7 @@ package org.apache.flink.monitor.utils;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.monitor.Dashboard;
 import org.apache.flink.monitor.JobMeta;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -229,17 +230,14 @@ public class Utils {
 		return jsonArray;
 	}
 
-	private static void registerDashboard(StreamGraph streamGraph, JobGraph jobGraph) {
-		String clusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY,
-				ConfigConstants.CLUSTER_NAME_DEFAULT);
+	private static void registerDashboard(StreamGraph streamGraph, JobGraph jobGraph, Configuration jobConfig) {
+		String clusterName = jobConfig.getString(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT);
 		LOG.info("clusterName = {}", clusterName);
-		String dataSource = System.getProperty(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY,
-				ConfigConstants.DASHBOARD_DATA_SOURCE_DEFAULT);
+		String dataSource = jobConfig.getString(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY, ConfigConstants.DASHBOARD_DATA_SOURCE_DEFAULT);
 		LOG.info("dataSource = {}", dataSource);
-		String grafanaDomainUrl = System.getProperty(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
-				ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
+		String grafanaDomainUrl = jobConfig.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY, ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
 		String url = String.format(ConfigConstants.METRIC_REGISTER_URL_TEMPLATE, grafanaDomainUrl);
-		String token = System.getProperty(ConfigConstants.REGISTER_DASHBOARD_TOKEN);
+		String token = jobConfig.getString(ConfigConstants.REGISTER_DASHBOARD_TOKEN, "");
 		if (url == null || token == null) {
 			throw new IllegalArgumentException(
 					"dashboard url or token not exists, please config by "
@@ -290,12 +288,11 @@ public class Utils {
 		return metaData;
 	}
 
-	public static void registerDashboard(StreamGraph streamGraph) {
+	public static void registerDashboard(StreamGraph streamGraph, Configuration jobConfig) {
 		JobGraph jobGraph = streamGraph.getJobGraph();
-		if (Boolean.parseBoolean(
-				System.getProperty(
-						ConfigConstants.REGISTER_DASHBOARD_ENABLED, ConfigConstants.REGISTER_DASHBOARD_ENABLED_DEFAULT))) {
-			registerDashboard(streamGraph, jobGraph);
+		boolean enableDashboard = jobConfig.getBoolean(ConfigConstants.REGISTER_DASHBOARD_ENABLED, false);
+		if (enableDashboard) {
+			registerDashboard(streamGraph, jobGraph, jobConfig);
 		}
 	}
 
