@@ -144,8 +144,10 @@ import org.apache.flink.table.sources.TableSource;
 import org.apache.flink.table.sources.TableSourceValidation;
 import org.apache.flink.table.types.AbstractDataType;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.inference.TypeTransformations;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeCasts;
+import org.apache.flink.table.types.utils.DataTypeUtils;
 import org.apache.flink.table.utils.PrintUtils;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.types.Row;
@@ -842,10 +844,20 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 				}
 				TableSchema sinkSchema = lookupResult.get().getResolvedSchema();
 
-				// this keeps align with TableSinkUtils#validateSchemaAndApplyImplicitCast in blink planner module.
+				// below keeps align with TableSinkUtils#validateSchemaAndApplyImplicitCast in blink planner module.
+				LogicalType sinkLogicalType = DataTypeUtils
+					// we recognize legacy decimal is the same to default decimal
+					// we ignore NULL constraint, the NULL constraint will be checked during runtime
+					// see StreamExecSink and BatchExecSink
+					.transform(
+						sinkSchema.toRowDataType(),
+						TypeTransformations.legacyDecimalToDefaultDecimal(),
+						TypeTransformations.legacyRawToTypeInfoRaw(),
+						TypeTransformations.toNullable())
+					.getLogicalType();
 				boolean supportsImplicitCast = LogicalTypeCasts.supportsImplicitCast(
 					querySchema.toRowDataType().getLogicalType(),
-					sinkSchema.toRowDataType().getLogicalType());
+					sinkLogicalType);
 				if (!supportsImplicitCast) {
 					throw new TableException(String.format("query and sink table schema do not match, sink table name is: '%s'\n" +
 							"query's table schema is:\n" +

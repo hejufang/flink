@@ -110,6 +110,75 @@ class TableEnvironmentITCase(tableEnvName: String, isStreaming: Boolean) extends
   }
 
   @Test
+  def testValidateSinkSchemaWithPrimaryKey(): Unit = {
+    val result = tEnv.getStatementSetBySql(
+      """
+        |create table source_table (
+        |  col1 int,
+        |  col2 bigint,
+        |  col3 varchar
+        |) with (
+        |  'connector' = 'faking'
+        |);
+        |create table sink_table (
+        | c1 int,
+        | c2 bigint,
+        | c3 varchar,
+        | primary key(c2, c3) not enforced
+        |) with (
+        |  'connector' = 'faking'
+        |);
+        |insert into sink_table select * from source_table;
+        |""".stripMargin)
+    assertTrue(result.isPresent)
+    tEnv.validateSinkSchemaForStatementSet(result.get())
+  }
+
+  @Test
+  def testValidateInsertIntoNonExistedSink(): Unit = {
+    val result = tEnv.getStatementSetBySql(
+      """
+        |create table source_table (
+        |  col1 int,
+        |  col2 bigint,
+        |  col3 varchar
+        |) with (
+        |  'connector' = 'faking'
+        |);
+        |insert into sink_table select * from source_table;
+        |""".stripMargin)
+    assertTrue(result.isPresent)
+    expectedException.expectMessage(
+      "table '`default_catalog`.`default_database`.`sink_table`' not exist")
+    tEnv.validateSinkSchemaForStatementSet(result.get())
+  }
+
+  @Test
+  def testValidateWrongSinkSchema(): Unit = {
+    val result = tEnv.getStatementSetBySql(
+      """
+        |create table source_table (
+        |  col1 int,
+        |  col2 bigint,
+        |  col3 varchar
+        |) with (
+        |  'connector' = 'faking'
+        |);
+        |create table sink_table (
+        | c1 int,
+        | c2 bigint,
+        | c3 bigint
+        |) with (
+        |  'connector' = 'faking'
+        |);
+        |insert into sink_table select * from source_table;
+        |""".stripMargin)
+    assertTrue(result.isPresent)
+    expectedException.expectMessage("query and sink table schema do not match")
+    tEnv.validateSinkSchemaForStatementSet(result.get())
+  }
+
+  @Test
   def testExplainAndExecuteSingleSink(): Unit = {
     val sinkPath = TestTableSourceSinks.createCsvTemporarySinkTable(
       tEnv, new TableSchema(Array("first"), Array(STRING)), "MySink1")
