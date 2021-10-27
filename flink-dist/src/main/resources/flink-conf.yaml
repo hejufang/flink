@@ -283,6 +283,8 @@ dw:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  docker.namespace: yarn
+  docker.image: yarn_runtime_flink:latest
 
 lepad:
   dc: cn
@@ -304,8 +306,6 @@ larva:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
-  docker.namespace: yarn
-  docker.image: yarn_runtime_flink:latest
 
 locst:
   dc: cn
