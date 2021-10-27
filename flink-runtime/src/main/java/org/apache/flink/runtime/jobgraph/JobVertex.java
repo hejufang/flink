@@ -143,6 +143,8 @@ public class JobVertex implements java.io.Serializable {
 	/** Map of each operator uid and names. */
 	private Map<OperatorID, Tuple2<String, String>> chainedOperatorUidAndNames = new HashMap<>();
 
+	private boolean isBounded = false;
+
 	// --------------------------------------------------------------------------------------------
 
 	/**
@@ -642,5 +644,13 @@ public class JobVertex implements java.io.Serializable {
 	@Override
 	public String toString() {
 		return this.name + " (" + this.invokableClassName + ')';
+	}
+
+	public boolean isBounded() {
+		return isBounded;
+	}
+
+	public void setBounded(boolean bounded) {
+		isBounded = bounded;
 	}
 }

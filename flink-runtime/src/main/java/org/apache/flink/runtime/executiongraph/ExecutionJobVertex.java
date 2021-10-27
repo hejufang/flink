@@ -321,6 +321,10 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 		return jobVertex;
 	}
 
+	public boolean isBounded() {
+		return jobVertex.isBounded();
+	}
+
 	@Override
 	public String getName() {
 		return getJobVertex().getName();

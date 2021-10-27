@@ -32,6 +32,8 @@ public enum CheckpointFailureReason {
 	MINIMUM_TIME_BETWEEN_CHECKPOINTS(true, "The minimum time between checkpoints is still pending. " +
 			"Checkpoint will be triggered after the minimum time."),
 
+	NOT_ALL_REQUIRED_TASKS_IN_RIGHT_STATE(true, "Not all required tasks are in right state."),
+
 	NOT_ALL_REQUIRED_TASKS_RUNNING(true, "Not all required tasks are currently running."),
 
 	EXCEPTION(true, "An Exception occurred while triggering the checkpoint."),

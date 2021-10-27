@@ -22,6 +22,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.InvalidProgramException;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.cache.DistributedCache;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.OperatorIDPair;
@@ -665,5 +666,31 @@ public class JobGraph implements Serializable {
 			minRequiredSlotsNum += parallelism;
 		}
 		return minRequiredSlotsNum;
+	}
+
+	public void setJobVertexBoundedProperties(List<Tuple2<JobVertexID, Boolean>> jobVertexIdAndBoundedProperties){
+
+		// reset jobVertex BoundedProperties
+		jobVertexIdAndBoundedProperties.forEach(jobVertexIDAndProperty -> {
+			findVertexByID(jobVertexIDAndProperty.f0).setBounded(jobVertexIDAndProperty.f1);
+		});
+
+		// for jobVertex with only Bounded inputs, we should also change it to Bounded.
+		for (JobVertex vertex : getVerticesSortedTopologicallyFromSources()) {
+			if (vertex.isBounded()){
+				continue;
+			}
+			if (vertex.isInputVertex()){
+				continue;
+			}
+
+			List unBoundedInput = vertex.getInputs().stream()
+				.filter(input -> !input.getSource().getProducer().isBounded())
+				.collect(Collectors.toList());
+
+			if(unBoundedInput.isEmpty()){
+				vertex.setBounded(true);
+			}
+		}
 	}
 }

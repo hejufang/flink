@@ -18,46 +18,63 @@
 
 package org.apache.flink.runtime.checkpoint.trigger;
 
+import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 
 import org.apache.commons.lang3.ArrayUtils;
 
 import java.util.Arrays;
 
-
 /**
  * Checkpoint related tasks.
  */
 public class CheckpointTasks {
 	/** Tasks who need to be sent a message when a checkpoint is started. */
-	private final ExecutionVertex[] tasksToTrigger;
+	private final CheckpointTask[] tasksToTrigger;
 
 	/** Tasks who need to acknowledge a checkpoint before it succeeds. */
-	private final ExecutionVertex[] tasksToWaitFor;
+	private final CheckpointTask[] tasksToWaitFor;
 
 	/** Tasks who need to be sent a message when a checkpoint is confirmed. */
-	private final ExecutionVertex[] tasksToCommitTo;
+	private final CheckpointTask[] tasksToCommitTo;
 
 	public CheckpointTasks(
 		ExecutionVertex[] tasksToTrigger,
 		ExecutionVertex[] tasksToWaitFor,
 		ExecutionVertex[] tasksToCommitTo) {
 
-		this.tasksToTrigger = tasksToTrigger;
-		this.tasksToWaitFor = tasksToWaitFor;
-		this.tasksToCommitTo = tasksToCommitTo;
+		this.tasksToTrigger = transToCheckpointTasks(tasksToTrigger, CheckpointPeriod.TRIGGER);
+		this.tasksToWaitFor = transToCheckpointTasks(tasksToWaitFor, CheckpointPeriod.ACK);
+		this.tasksToCommitTo = transToCheckpointTasks(tasksToCommitTo, CheckpointPeriod.CONFIRM);
 	}
 
-	public ExecutionVertex[] getTasksToTrigger() {
+	public CheckpointTask[] getTasksToTrigger() {
 		return tasksToTrigger;
 	}
 
-	public ExecutionVertex[] getTasksToWaitFor() {
+	public CheckpointTask[] getTasksToWaitFor() {
 		return tasksToWaitFor;
 	}
 
-	public ExecutionVertex[] getTasksToCommitTo() {
+	public CheckpointTask[] getTasksToCommitTo() {
 		return tasksToCommitTo;
+	}
+
+	public static CheckpointTask[] transToCheckpointTasks(ExecutionVertex[] tasks, CheckpointPeriod checkpointPeriod){
+		CheckpointTask[] wrappedTasks = new CheckpointTask[tasks.length];
+		for (int i = 0; i < tasks.length; i++) {
+			wrappedTasks[i] = wrap(tasks[i], checkpointPeriod);
+		}
+		return wrappedTasks;
+	}
+
+	public static CheckpointTask wrap(ExecutionVertex executionVertex, CheckpointPeriod checkpointPeriod){
+		// for bounded vertex, we only need assert whether it has finished, and it would not actually execute trigger、ack or confirm
+		if (executionVertex.isBounded()){
+			return new CheckpointTask(executionVertex, ExecutionState.FINISHED, false);
+		}
+		// for default stream vertex, it will really participate in checkpoint and need to confirm that the status is running.
+		return new CheckpointTask(executionVertex, ExecutionState.RUNNING, true);
 	}
 
 	public void reverseTriggerTasks() {
@@ -71,5 +88,11 @@ public class CheckpointTasks {
 			", tasksToWaitFor=" + Arrays.toString(tasksToWaitFor) +
 			", tasksToCommitTo=" + Arrays.toString(tasksToCommitTo) +
 			'}';
+	}
+
+	private enum CheckpointPeriod {
+		TRIGGER,
+		ACK,
+		CONFIRM;
 	}
 }

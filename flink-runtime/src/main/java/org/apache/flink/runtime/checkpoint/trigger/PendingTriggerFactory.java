@@ -23,7 +23,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
-import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
@@ -35,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Factory used to build {@link PendingTrigger}.
@@ -97,50 +97,61 @@ public class PendingTriggerFactory {
 	 */
 	public static PendingTrigger createPendingTrigger(
 		JobID job,
-		ExecutionVertex[] tasksToTrigger,
-		ExecutionVertex[] tasksToWaitFor,
-		ExecutionVertex[] tasksToCommit,
+		CheckpointTask[] tasksToTrigger,
+		CheckpointTask[] tasksToWaitFor,
+		CheckpointTask[] tasksToCommit,
 		boolean levelTrigger) throws CheckpointException {
-		// check if all tasks that we need to trigger are running.
-		// if not, abort the checkpoint
-		Execution[] triggerTasks = new Execution[tasksToTrigger.length];
+		// check if all tasks that we need to trigger are in right state.
+		// if not, abort the checkpoint.
+		// only the task need execute would be triggered.
+		ArrayList<Execution> triggerTasks = new ArrayList();
 		for (int i = 0; i < tasksToTrigger.length; i++) {
 			Execution ee = tasksToTrigger[i].getCurrentExecutionAttempt();
 			if (ee == null) {
 				LOG.info("Checkpoint triggering task {} of job {} is not being executed at the moment. Aborting checkpoint.",
 					tasksToTrigger[i].getTaskNameWithSubtaskIndex(),
 					job);
-				throw new CheckpointException(CheckpointFailureReason.NOT_ALL_REQUIRED_TASKS_RUNNING);
-			} else if (ee.getState() == ExecutionState.RUNNING) {
-				triggerTasks[i] = ee;
+				throw new CheckpointException(CheckpointFailureReason.NOT_ALL_REQUIRED_TASKS_IN_RIGHT_STATE);
+			} else if (ee.getState() == tasksToTrigger[i].getExpectState()) {
+				if (tasksToTrigger[i].needExecute()) {
+					triggerTasks.add(ee);
+				}
 			} else {
 				LOG.info("Checkpoint triggering task {} of job {} is not in state {} but {} instead. Aborting checkpoint.",
 					tasksToTrigger[i].getTaskNameWithSubtaskIndex(),
 					job,
-					ExecutionState.RUNNING,
+					tasksToTrigger[i].getExpectState(),
 					ee.getState());
-				throw new CheckpointException(CheckpointFailureReason.NOT_ALL_REQUIRED_TASKS_RUNNING);
+				throw new CheckpointException(CheckpointFailureReason.NOT_ALL_REQUIRED_TASKS_IN_RIGHT_STATE);
 			}
 		}
 
-		// next, check if all tasks that need to acknowledge the checkpoint are running.
+		// next, check if all tasks that need to acknowledge the checkpoint are in right state.
 		// if not, abort the checkpoint
-		Map<ExecutionAttemptID, ExecutionVertex> ackTasks = new HashMap<>(tasksToWaitFor.length);
+		Map<ExecutionAttemptID, ExecutionVertex> ackTasks = new HashMap<>();
 
-		for (ExecutionVertex ev : tasksToWaitFor) {
-			Execution ee = ev.getCurrentExecutionAttempt();
-			if (ee != null && ee.getState() == ExecutionState.RUNNING) {
-				ackTasks.put(ee.getAttemptId(), ev);
+		for (CheckpointTask ct : tasksToWaitFor) {
+			Execution ee = ct.getCurrentExecutionAttempt();
+			if (ee != null && ee.getState() == ct.getExpectState()) {
+				if (ct.needExecute()) {
+					ackTasks.put(ee.getAttemptId(), ct.getExecutionVertex());
+				}
 			} else {
 				LOG.info("Checkpoint acknowledging task {} of job {} is not being executed at the moment. Aborting checkpoint.",
-					ev.getTaskNameWithSubtaskIndex(),
+					ct.getTaskNameWithSubtaskIndex(),
 					job);
 				throw new CheckpointException(CheckpointFailureReason.NOT_ALL_REQUIRED_TASKS_RUNNING);
 			}
 		}
+
+		ExecutionVertex[] commitTask = Stream.of(tasksToCommit)
+			.filter(task -> task.needExecute())
+			.map(task -> task.getExecutionVertex())
+			.toArray(ExecutionVertex[]::new);
+
 		return levelTrigger ?
-			new LevelPendingTrigger(triggerTasks, ackTasks, tasksToCommit) :
-			new DefaultPendingTrigger(triggerTasks, ackTasks, tasksToCommit);
+			new LevelPendingTrigger(triggerTasks.stream().toArray(Execution[]::new), ackTasks, commitTask) :
+			new DefaultPendingTrigger(triggerTasks.stream().toArray(Execution[]::new), ackTasks, commitTask);
 	}
 
 	@VisibleForTesting

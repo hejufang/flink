@@ -215,6 +215,8 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		return this.jobVertex.getJobVertex().getName();
 	}
 
+	public boolean isBounded() { return this.jobVertex.isBounded(); }
+
 	/**
 	 * Creates a simple name representation in the style 'taskname (x/y)', where
 	 * 'taskname' is the name as returned by {@link #getTaskName()}, 'x' is the parallel
