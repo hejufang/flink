@@ -324,12 +324,19 @@ public final class WebMonitorUtils {
 		} else {
 			String grafanaDomainUrl = configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
 				ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
-			String applicationName = configuration.getOptional(PipelineOptions.NAME)
-				.orElse(ConfigConstants.APPLICATION_NAME_DEFAULT);
-			String jobName = applicationName;
-			if (applicationName.lastIndexOf("_") != -1) {
-				jobName = applicationName.substring(0, applicationName.lastIndexOf("_"))
-					.replace(".", "-");
+			String jobName;
+			if (configuration.getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false)) {
+				jobName = configuration.getOptional(PipelineOptions.NAME)
+					.orElse(ConfigConstants.APPLICATION_NAME_DEFAULT);
+			} else {
+				// yarn env
+				String applicationName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
+					ConfigConstants.APPLICATION_NAME_DEFAULT);
+				jobName = applicationName;
+				if (applicationName.lastIndexOf("_") != -1) {
+					jobName = applicationName.substring(0, applicationName.lastIndexOf("_"))
+						.replace(".", "-");
+				}
 			}
 			String clusterName = configuration.getString(ConfigConstants.CLUSTER_NAME_KEY,
 				ConfigConstants.CLUSTER_NAME_DEFAULT);
