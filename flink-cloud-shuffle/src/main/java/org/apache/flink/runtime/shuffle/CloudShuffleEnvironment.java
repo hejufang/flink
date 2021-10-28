@@ -168,6 +168,8 @@ public class CloudShuffleEnvironment implements ShuffleEnvironment<CloudShuffleR
 				}
 			}
 
+			final int segmentSize = (int) configuration.get(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_BUFFER_SIZE).getBytes();
+
 			CloudShuffleInputGate[] inputGates = new CloudShuffleInputGate[inputGateDeploymentDescriptors.size()];
 			for (int gateIndex = 0; gateIndex < inputGates.length; gateIndex++) {
 				final InputGateDeploymentDescriptor igdd = inputGateDeploymentDescriptors.get(gateIndex);
@@ -179,7 +181,7 @@ public class CloudShuffleEnvironment implements ShuffleEnvironment<CloudShuffleR
 						cloudShuffleDescriptor.getShuffleId(),
 						igdd.getConsumedSubpartitionIndex(),
 						cloudShuffleDescriptor.getNumberOfMappers(),
-						cloudShuffleDescriptor.getNumberOfReducers());
+						segmentSize);
 			}
 
 			return Arrays.asList(inputGates);

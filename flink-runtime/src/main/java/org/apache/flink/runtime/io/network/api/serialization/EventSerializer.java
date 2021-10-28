@@ -27,6 +27,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointType;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.network.api.CancelCheckpointMarker;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
+import org.apache.flink.runtime.io.network.api.CloudShuffleVerifierEvent;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.EndOfSuperstepEvent;
 import org.apache.flink.runtime.io.network.api.UnavailableChannelEvent;
@@ -73,6 +74,8 @@ public class EventSerializer {
 
 	private static final int CHECKPOINT_TYPE_SYNC_DETACH_SAVEPOINT = 7;
 
+	private static final int CLOUD_SHUFFLE_VERIFIER_EVENT = 8;
+
 	// ------------------------------------------------------------------------
 	//  Serialization Logic
 	// ------------------------------------------------------------------------
@@ -100,6 +103,13 @@ public class EventSerializer {
 			ByteBuffer buf = ByteBuffer.allocate(12);
 			buf.putInt(0, CANCEL_CHECKPOINT_MARKER_EVENT);
 			buf.putLong(4, marker.getCheckpointId());
+			return buf;
+		}
+		else if (eventClass == CloudShuffleVerifierEvent.class) {
+			CloudShuffleVerifierEvent verifierEvent = (CloudShuffleVerifierEvent) event;
+
+			ByteBuffer buf = ByteBuffer.allocate(8);
+			buf.putLong(verifierEvent.getSendBytes());
 			return buf;
 		}
 		else {
@@ -149,6 +159,8 @@ public class EventSerializer {
 				return type == CANCEL_CHECKPOINT_MARKER_EVENT;
 			} else if (eventClass.equals(UnavailableChannelEvent.class)) {
 				return type == UNAVAILABLE_CHANNEL_EVENT;
+			} else if (eventClass.equals(CloudShuffleVerifierEvent.class)) {
+				return type == CLOUD_SHUFFLE_VERIFIER_EVENT;
 			} else {
 				throw new UnsupportedOperationException("Unsupported eventClass = " + eventClass);
 			}
@@ -189,6 +201,10 @@ public class EventSerializer {
 			else if (type == CANCEL_CHECKPOINT_MARKER_EVENT) {
 				long id = buffer.getLong();
 				return new CancelCheckpointMarker(id);
+			}
+			else if (type == CLOUD_SHUFFLE_VERIFIER_EVENT) {
+				long sendBytes = buffer.getLong();
+				return new CloudShuffleVerifierEvent(sendBytes);
 			}
 			else if (type == OTHER_EVENT) {
 				try {

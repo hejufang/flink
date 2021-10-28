@@ -16,21 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network;
+package org.apache.flink.runtime.shuffle;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
-import org.apache.flink.runtime.shuffle.CloudShuffleDescriptor;
-import org.apache.flink.runtime.shuffle.CloudShuffleEnvironment;
-import org.apache.flink.runtime.shuffle.CloudShuffleInputGate;
-import org.apache.flink.runtime.shuffle.CloudShuffleMaster;
-import org.apache.flink.runtime.shuffle.CloudShuffleOptions;
-import org.apache.flink.runtime.shuffle.CloudShuffleResultPartition;
-import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
-import org.apache.flink.runtime.shuffle.ShuffleEnvironmentContext;
-import org.apache.flink.runtime.shuffle.ShuffleMaster;
-import org.apache.flink.runtime.shuffle.ShuffleServiceFactory;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
