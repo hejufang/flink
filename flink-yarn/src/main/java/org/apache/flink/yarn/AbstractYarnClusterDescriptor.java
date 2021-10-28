@@ -1943,6 +1943,13 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			javaOpts += " " + flinkConfiguration.getString(CoreOptions.FLINK_JM_JVM_OPTIONS);
 		}
 
+		// Set "java.io.tmpdir" to "{{PWD}}/tmp" directory to avoid exploding the system "/tmp" directory
+		// by Flink and many third-party libraries used by users which also utilize this property (that's why
+		// we don't directly set the option "CoreOptions#TMP_DIRS").
+		if (!javaOpts.contains("-Djava.io.tmpdir=")) {
+			javaOpts += " -Djava.io.tmpdir=./tmp";
+		}
+
 		String logLevel = flinkConfiguration.getString(ConfigConstants.FLINK_LOG_LEVEL_KEY,
 			ConfigConstants.FLINK_LOG_LEVEL_DEFAULT);
 		javaOpts += " -Dlog.level=" + logLevel;
