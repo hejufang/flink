@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateReader;
+import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.event.TaskEvent;
@@ -430,6 +431,16 @@ public class SingleInputGate extends IndexedInputGate {
 	@Override
 	public InputChannel getChannel(int channelIndex) {
 		return channels[channelIndex];
+	}
+
+	@Override
+	public InputChannelInfo getChannelInfo(int channelIndex) {
+		return channels[channelIndex].getChannelInfo();
+	}
+
+	@Override
+	public String getChannelType(int channelIndex) {
+		return channels[channelIndex].getClass().getSimpleName();
 	}
 
 	// ------------------------------------------------------------------------

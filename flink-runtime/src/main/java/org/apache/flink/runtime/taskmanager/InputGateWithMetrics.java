@@ -20,6 +20,7 @@ package org.apache.flink.runtime.taskmanager;
 
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateReader;
+import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.io.network.buffer.BufferReceivedListener;
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
@@ -68,6 +69,16 @@ public class InputGateWithMetrics extends IndexedInputGate {
 	@Override
 	public InputChannel getChannel(int channelIndex) {
 		return inputGate.getChannel(channelIndex);
+	}
+
+	@Override
+	public InputChannelInfo getChannelInfo(int channelIndex) {
+		return inputGate.getChannelInfo(channelIndex);
+	}
+
+	@Override
+	public String getChannelType(int channelIndex) {
+		return inputGate.getChannelType(channelIndex);
 	}
 
 	@Override

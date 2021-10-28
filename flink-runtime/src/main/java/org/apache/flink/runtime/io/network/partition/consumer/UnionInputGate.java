@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateReader;
+import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.buffer.BufferReceivedListener;
@@ -146,6 +147,18 @@ public class UnionInputGate extends InputGate {
 		int gateIndex = inputChannelToInputGateIndex[channelIndex];
 		return inputGatesByGateIndex.get(gateIndex)
 			.getChannel(channelIndex - inputGateChannelIndexOffsets[gateIndex]);
+	}
+
+	@Override
+	public InputChannelInfo getChannelInfo(int channelIndex) {
+		int gateIndex = inputChannelToInputGateIndex[channelIndex];
+		return inputGatesByGateIndex.get(gateIndex).getChannelInfo(channelIndex - inputGateChannelIndexOffsets[gateIndex]);
+	}
+
+	@Override
+	public String getChannelType(int channelIndex) {
+		int gateIndex = inputChannelToInputGateIndex[channelIndex];
+		return inputGatesByGateIndex.get(gateIndex).getChannelType(channelIndex - inputGateChannelIndexOffsets[gateIndex]);
 	}
 
 	@Override

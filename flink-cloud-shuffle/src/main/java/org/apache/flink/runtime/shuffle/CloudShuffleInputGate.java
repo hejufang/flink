@@ -199,8 +199,6 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 		throw new UnsupportedOperationException();
 	}
 
-/*
-	TODO. this part will be submitted in another MR.
 	@Override
 	public String getChannelType(int channelIndex) {
 		return "CLOUD";
@@ -210,7 +208,6 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 	public InputChannelInfo getChannelInfo(int channelIndex) {
 		return inputChannelInfos[channelIndex];
 	}
-*/
 
 	@Override
 	public List<InputChannelInfo> getChannelInfos() {

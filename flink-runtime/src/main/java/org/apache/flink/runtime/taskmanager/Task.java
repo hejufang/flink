@@ -637,7 +637,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		Map<String, Integer> numberOfChannels = new HashMap<>();
 		for (IndexedInputGate inputGate : inputGates) {
 			for (int i = 0; i < inputGate.getNumberOfInputChannels(); i++) {
-				String channelType = inputGate.getChannel(i).getClass().getSimpleName();
+				String channelType = inputGate.getChannelType(i);
 				numberOfChannels.put(channelType,
 						numberOfChannels.getOrDefault(channelType, 0) + 1);
 			}

@@ -77,6 +77,16 @@ public class MockIndexedInputGate extends IndexedInputGate {
 	}
 
 	@Override
+	public InputChannelInfo getChannelInfo(int channelIndex) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public String getChannelType(int channelIndex) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
 	public List<InputChannelInfo> getChannelInfos() {
 		return IntStream.range(0, numberOfInputChannels)
 				.mapToObj(channelIndex -> new InputChannelInfo(gateIndex, channelIndex))

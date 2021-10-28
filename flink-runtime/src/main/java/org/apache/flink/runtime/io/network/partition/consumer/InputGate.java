@@ -121,12 +121,16 @@ public abstract class InputGate implements PullingAsyncDataInput<BufferOrEvent>,
 	 */
 	public abstract InputChannel getChannel(int channelIndex);
 
+	public abstract InputChannelInfo getChannelInfo(int channelIndex);
+
+	public abstract String getChannelType(int channelIndex);
+
 	/**
 	 * Returns the channel infos of this gate.
 	 */
 	public List<InputChannelInfo> getChannelInfos() {
 		return IntStream.range(0, getNumberOfInputChannels())
-			.mapToObj(index -> getChannel(index).getChannelInfo())
+			.mapToObj(this::getChannelInfo)
 			.collect(Collectors.toList());
 	}
 
