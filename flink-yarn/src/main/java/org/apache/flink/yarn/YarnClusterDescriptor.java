@@ -1617,6 +1617,13 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			javaOpts += " " + flinkConfiguration.getString(CoreOptions.FLINK_JM_JVM_OPTIONS);
 		}
 
+		// Set "java.io.tmpdir" to "{{PWD}}/tmp" directory to avoid exploding the system "/tmp" directory
+		// by Flink and many third-party libraries used by users which also utilize this property (that's why
+		// we don't directly set the option "CoreOptions#TMP_DIRS").
+		if (!javaOpts.contains("-Djava.io.tmpdir=")) {
+			javaOpts += " -Djava.io.tmpdir=./tmp";
+		}
+
 		String logDirectory = ApplicationConstants.LOG_DIR_EXPANSION_VAR;
 		if (flinkConfiguration.getString(CoreOptions.FLINK_GC_LOG_OPTS).length() > 0) {
 			javaOpts += " " + flinkConfiguration.getString(CoreOptions.FLINK_GC_LOG_OPTS);

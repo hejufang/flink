@@ -180,6 +180,7 @@ public class BootstrapToolsTest extends TestLogger {
 		// no logging, with/out krb5
 		final String java = "$JAVA_HOME/bin/java";
 		final String jvmmem = "-Xmx111 -Xms111 -XX:MaxDirectMemorySize=222 -XX:MaxMetaspaceSize=333";
+		final String tmpdir = "-Djava.io.tmpdir=./tmp";
 		final String jvmOpts = "-Djvm"; // if set
 		final String tmJvmOpts = "-DtmJvm"; // if set
 		final String logfile = "-Dlog.file=./logs/taskmanager.log"; // if set
@@ -205,6 +206,7 @@ public class BootstrapToolsTest extends TestLogger {
 
 		assertEquals(
 			java + " " + jvmmem +
+				" " + tmpdir +
 				" " + errorFile +
 				"" + // jvmOpts
 				" " + logging +
@@ -215,6 +217,7 @@ public class BootstrapToolsTest extends TestLogger {
 
 		assertEquals(
 			java + " " + jvmmem +
+				" " + tmpdir +
 				" " + errorFile +
 				"" + // jvmOpts
 				" " + logging +
@@ -226,6 +229,7 @@ public class BootstrapToolsTest extends TestLogger {
 		final String krb5 = "-Djava.security.krb5.conf=krb5.conf";
 		assertEquals(
 			java + " " + jvmmem +
+				" " + tmpdir +
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" " + logging +
@@ -237,6 +241,7 @@ public class BootstrapToolsTest extends TestLogger {
 		// logback only, with/out krb5
 		assertEquals(
 			java + " " + jvmmem +
+				" " + tmpdir +
 				" " + errorFile +
 				"" + // jvmOpts
 				" " + logfile + " " + logLevel + " " + logback +
@@ -248,6 +253,7 @@ public class BootstrapToolsTest extends TestLogger {
 
 		assertEquals(
 			java + " " + jvmmem +
+				" " + tmpdir +
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" " + logfile + " " + logLevel + " " + logback +
@@ -260,6 +266,7 @@ public class BootstrapToolsTest extends TestLogger {
 		// log4j, with/out krb5
 		assertEquals(
 			java + " " + jvmmem +
+				" " + tmpdir +
 				" " + errorFile +
 				"" + // jvmOpts
 				" " + logfile + " " + logLevel + " " + log4j +
@@ -271,6 +278,7 @@ public class BootstrapToolsTest extends TestLogger {
 
 		assertEquals(
 			java + " " + jvmmem +
+				" " + tmpdir +
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" " + logfile + " " + logLevel + " " + log4j +
@@ -283,6 +291,7 @@ public class BootstrapToolsTest extends TestLogger {
 		// logback + log4j, with/out krb5
 		assertEquals(
 			java + " " + jvmmem +
+				" " + tmpdir +
 				" " + errorFile +
 				"" + // jvmOpts
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
@@ -294,6 +303,7 @@ public class BootstrapToolsTest extends TestLogger {
 
 		assertEquals(
 			java + " " + jvmmem +
+				" " + tmpdir +
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
@@ -308,6 +318,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				" " + jvmOpts +
+				" " + tmpdir +
 				" " + errorFile +
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
 				" " + logging +
@@ -319,6 +330,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				" " + jvmOpts +
+				" " + tmpdir +
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
@@ -333,6 +345,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				" " + jvmOpts + " " + tmJvmOpts +
+				" " + tmpdir +
 				" " + errorFile +
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
 				" " + logging +
@@ -344,6 +357,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				" " + jvmOpts + " " + tmJvmOpts +
+				" " + tmpdir +
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
@@ -360,6 +374,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " 1 " + jvmmem +
 				" 2 " + jvmOpts + " " + tmJvmOpts +
+				" " + tmpdir +
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" 3 " + logfile + " " + logLevel + " " + logback + " " + log4j +
@@ -376,6 +391,7 @@ public class BootstrapToolsTest extends TestLogger {
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
 				" " + logging +
 				" " + jvmOpts + " " + tmJvmOpts +
+				" " + tmpdir +
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" " + jvmmem +

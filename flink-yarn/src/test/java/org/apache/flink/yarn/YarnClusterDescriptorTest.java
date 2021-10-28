@@ -208,6 +208,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 
 		final JobManagerProcessSpec jobManagerProcessSpec = createDefaultJobManagerProcessSpec(1024);
 		final String java = "$JAVA_HOME/bin/java";
+		final String tmpdir = "-Djava.io.tmpdir=./tmp";
 		final String jvmmem = JobManagerProcessUtils.generateJvmParametersStr(jobManagerProcessSpec, cfg);
 		final String jvmOpts = "-Djvm"; // if set
 		final String jmJvmOpts = "-DjmJvm"; // if set
@@ -236,6 +237,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					"" + // jvmOpts
+					" " + tmpdir +
 					" " + errorFile +
 					"" + // logging
 					" " + mainClass + " " + redirects,
@@ -249,6 +251,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					"" + // jvmOpts
+					" " + tmpdir +
 					" " + errorFile +
 					" " + krb5 +
 					"" + // logging
@@ -265,6 +268,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					"" + // jvmOpts
+					" " + tmpdir +
 					" " + errorFile +
 					" " + logfile + " " + logback + " " + logLevel +
 					" " + logging +
@@ -280,6 +284,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					"" + // jvmOpts
+					" " + tmpdir +
 					" " + errorFile +
 					" " + krb5 +
 					" " + logfile + " " + logback + " " + logLevel +
@@ -297,6 +302,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					"" + // jvmOpts
+					" " + tmpdir +
 					" " + errorFile +
 					" " + logfile + " " + log4j + " " + logLevel +
 					" " + logging +
@@ -312,6 +318,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					"" + // jvmOpts
+					" " + tmpdir +
 					" " + errorFile +
 					" " + krb5 +
 					" " + logfile + " " + log4j + " " + logLevel +
@@ -329,6 +336,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					"" + // jvmOpts
+					" " + tmpdir +
 					" " + errorFile +
 					" " + logfile + " " + logback + " " + logLevel +
 					" " + logging +
@@ -344,6 +352,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					"" + // jvmOpts
+					" " + tmpdir +
 					" " + errorFile +
 					" " + krb5 +
 					" " + logfile + " " + logback + " " + logLevel +
@@ -364,6 +373,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					" " + jvmOpts +
+					" " + tmpdir +
 					" " + errorFile +
 					" " + logfile + " " + logback + " " + logLevel +
 					" " + logging +
@@ -379,6 +389,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					" " + jvmOpts + // jvmOpts
+					" " + tmpdir +
 					" " + errorFile +
 					" " + krb5 +
 					" " + logfile + " " + logback + " " + logLevel +
@@ -398,6 +409,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					" " + jvmOpts + " " + jmJvmOpts +
+					" " + tmpdir +
 					" " + errorFile +
 					" " + logfile + " " + log4j + " " + logLevel +
 					" " + logging +
@@ -413,6 +425,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					" " + jvmOpts + " " + jmJvmOpts + // jvmOpts
+					" " + tmpdir +
 					" " + errorFile +
 					" " + krb5 +
 					" " + logfile + " " + log4j + " " + logLevel +
@@ -433,6 +446,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " 1 " + jvmmem +
 					" 2 " + jvmOpts + " " + jmJvmOpts +
+					" " + tmpdir +
 					" " + errorFile +
 					" " + krb5 + // jvmOpts
 					" 3 " + logfile + " " + logback + " " + logLevel +
@@ -454,6 +468,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 					" " + logfile + " " + logback + " " + logLevel +
 					" " + logging +
 					" " + jvmOpts + " " + jmJvmOpts + // jvmOpts
+					" " + tmpdir +
 					" " + errorFile +
 					" " + krb5 +
 					" " + jvmmem +
