@@ -127,6 +127,7 @@ public interface ResultPartitionWriter extends AutoCloseable, AvailabilityProvid
 	 *
 	 * @return subpartitions.
 	 */
+	@Nullable
 	default ResultSubpartition[] getSubpartitions() {
 		return new ResultSubpartition[]{};
 	}

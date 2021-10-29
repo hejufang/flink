@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.partition.TestingJobMasterPartitionTr
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.util.TestLogger;
 
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.HashMap;
@@ -67,5 +68,21 @@ public class ExecutionGraphResultPartitionAvailabilityCheckerTest extends TestLo
 		for (IntermediateResultPartitionID irpID : expectedAvailability.keySet()) {
 			assertEquals(expectedAvailability.get(irpID), resultPartitionAvailabilityChecker.isAvailable(irpID));
 		}
+	}
+
+	@Test
+	public void testPartitionAvailabilityWithCSS() {
+		// let the partition tracker respect the expected availability result
+		final TestingJobMasterPartitionTracker partitionTracker = new TestingJobMasterPartitionTracker();
+		partitionTracker.setIsPartitionTrackedFunction(rpID -> false);
+
+		// the execution attempt ID should make no difference in this case
+		final Function<IntermediateResultPartitionID, ResultPartitionID> partitionIDMapper =
+			intermediateResultPartitionID -> new ResultPartitionID(intermediateResultPartitionID, new ExecutionAttemptID());
+
+		final ResultPartitionAvailabilityChecker resultPartitionAvailabilityChecker =
+			new ExecutionGraphResultPartitionAvailabilityChecker(partitionIDMapper, partitionTracker, true);
+
+		Assert.assertTrue(resultPartitionAvailabilityChecker.isAvailable(new IntermediateResultPartitionID()));
 	}
 }

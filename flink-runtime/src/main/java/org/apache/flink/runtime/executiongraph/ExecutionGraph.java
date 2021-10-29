@@ -377,9 +377,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			JobMasterPartitionTracker partitionTracker,
 			ScheduleMode scheduleMode,
 			SpeculationStrategy speculationStrategy,
-			boolean isRecoverable,
 			final RemoteBlacklistReporter remoteBlacklistReporter,
-			final DefaultLogicalTopology logicalTopology) throws IOException {
+			final DefaultLogicalTopology logicalTopology,
+			boolean isRecoverable,
+			boolean useCloudShuffleService) throws IOException {
 
 		this.jobInformation = Preconditions.checkNotNull(jobInformation);
 
@@ -437,7 +438,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 		this.resultPartitionAvailabilityChecker = new ExecutionGraphResultPartitionAvailabilityChecker(
 			this::createResultPartitionId,
-			partitionTracker);
+			partitionTracker,
+			useCloudShuffleService);
 		this.isRecoverable = isRecoverable;
 
 		this.edgeManager = new EdgeManager();

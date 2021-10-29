@@ -55,8 +55,9 @@ public final class BroadcastRecordWriter<T extends IOReadableWritable> extends R
 	BroadcastRecordWriter(
 			ResultPartitionWriter writer,
 			long timeout,
-			String taskName) {
-		super(writer, timeout, taskName);
+			String taskName,
+			boolean allowPartialRecord) {
+		super(writer, timeout, taskName, allowPartialRecord);
 	}
 
 	@Override

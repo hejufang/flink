@@ -46,8 +46,9 @@ public final class ChannelSelectorRecordWriter<T extends IOReadableWritable> ext
 			ResultPartitionWriter writer,
 			ChannelSelector<T> channelSelector,
 			long timeout,
-			String taskName) {
-		super(writer, timeout, taskName);
+			String taskName,
+			boolean allowPartialRecord) {
+		super(writer, timeout, taskName, allowPartialRecord);
 
 		this.channelSelector = checkNotNull(channelSelector);
 		this.channelSelector.setup(numberOfChannels, writer.getSubpartitions());

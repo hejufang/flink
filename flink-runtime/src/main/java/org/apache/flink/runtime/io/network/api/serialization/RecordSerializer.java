@@ -34,15 +34,23 @@ public interface RecordSerializer<T extends IOReadableWritable> {
 	enum SerializationResult {
 		PARTIAL_RECORD_MEMORY_SEGMENT_FULL(false, true),
 		FULL_RECORD_MEMORY_SEGMENT_FULL(true, true),
-		FULL_RECORD(true, false);
+		FULL_RECORD(true, false),
+		OUT_OF_SPACE(false, false, true);
 
 		private final boolean isFullRecord;
 
 		private final boolean isFullBuffer;
 
+		private final boolean outOfSpace;
+
 		SerializationResult(boolean isFullRecord, boolean isFullBuffer) {
+			this(isFullRecord, isFullBuffer, false);
+		}
+
+		SerializationResult(boolean isFullRecord, boolean isFullBuffer, boolean outOfSpace) {
 			this.isFullRecord = isFullRecord;
 			this.isFullBuffer = isFullBuffer;
+			this.outOfSpace = outOfSpace;
 		}
 
 		/**
@@ -62,6 +70,15 @@ public interface RecordSerializer<T extends IOReadableWritable> {
 		 */
 		public boolean isFullBuffer() {
 			return this.isFullBuffer;
+		}
+
+		/**
+		 * Whether the record can be filled into the target buffer.
+		 *
+		 * @return <tt>true</tt> if the target buffer cannot take the record.
+		 */
+		public boolean isOutOfSpace() {
+			return this.outOfSpace;
 		}
 	}
 
@@ -98,4 +115,9 @@ public interface RecordSerializer<T extends IOReadableWritable> {
 	 * @return <tt>true</tt> if has some serialized data pending copying to the result {@link BufferBuilder}.
 	 */
 	boolean hasSerializedData();
+
+	/**
+	 * @return size of serialized data.
+	 */
+	int getSerializedSize();
 }

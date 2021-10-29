@@ -30,6 +30,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Random;
 
 import static org.apache.flink.runtime.io.network.buffer.BufferBuilderTestUtils.createBufferBuilder;
@@ -38,6 +39,27 @@ import static org.apache.flink.runtime.io.network.buffer.BufferBuilderTestUtils.
  * Tests for the {@link SpanningRecordSerializer}.
  */
 public class SpanningRecordSerializerTest {
+
+	@Test
+	public void testAllowPartialRecord() throws IOException {
+		final SpanningRecordSerializer<SerializationTestType> serializer = new SpanningRecordSerializer<>(false);
+
+		final SerializationTestType randomIntRecord = Util.randomRecord(SerializationTestTypeFactory.INT);
+		serializer.serializeRecord(randomIntRecord);
+
+		BufferBuilder bufferBuilder1 = createBufferBuilder(32);
+		bufferBuilder1.append(ByteBuffer.wrap(new byte[30]));
+		RecordSerializer.SerializationResult result1 = serializer.copyToBufferBuilder(bufferBuilder1);
+		// cannot fill because only 2 bytes space left
+		Assert.assertTrue(result1.isOutOfSpace());
+
+		serializer.prune();
+
+		BufferBuilder bufferBuilder2 = createBufferBuilder(32);
+		bufferBuilder1.append(ByteBuffer.wrap(new byte[28]));
+		RecordSerializer.SerializationResult result2 = serializer.copyToBufferBuilder(bufferBuilder2);
+		Assert.assertFalse(result2.isOutOfSpace());
+	}
 
 	@Test
 	public void testHasSerializedData() throws IOException {

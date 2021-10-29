@@ -21,6 +21,8 @@ package org.apache.flink.runtime.io.network.api.writer;
 import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 
+import javax.annotation.Nullable;
+
 /**
  * The {@link ChannelSelector} determines to which logical channels a record
  * should be written to.
@@ -43,7 +45,7 @@ public interface ChannelSelector<T extends IOReadableWritable> {
 	 * @param numberOfChannels the total number of output channels which are attached
 	 * 		to respective output gate.
 	 */
-	default void setup(int numberOfChannels, ResultSubpartition[] subpartitions) {
+	default void setup(int numberOfChannels, @Nullable ResultSubpartition[] subpartitions) {
 		setup(numberOfChannels);
 	}
 

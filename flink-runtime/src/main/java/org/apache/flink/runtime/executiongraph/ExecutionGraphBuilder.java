@@ -69,6 +69,7 @@ import org.apache.flink.runtime.jobgraph.tasks.JobCheckpointingSettings;
 import org.apache.flink.runtime.jobgraph.topology.DefaultLogicalTopology;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
+import org.apache.flink.runtime.shuffle.ShuffleOptions;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendLoader;
 import org.apache.flink.util.DynamicCodeLoadingException;
@@ -189,8 +190,8 @@ public class ExecutionGraphBuilder {
 		final int maxPriorAttemptsHistoryLength =
 				jobManagerConfig.getInteger(JobManagerOptions.MAX_ATTEMPTS_HISTORY_SIZE);
 
-		final boolean isRecoverable =
-				jobManagerConfig.getBoolean(FORCE_PARTITION_RECOVERABLE);
+		final boolean isRecoverable = jobManagerConfig.getBoolean(FORCE_PARTITION_RECOVERABLE);
+		final boolean useCloudShuffleService = jobManagerConfig.getBoolean(ShuffleOptions.CLOUD_SHUFFLE_SERVICE_ENABLED);
 
 		final PartitionReleaseStrategy.Factory partitionReleaseStrategyFactory =
 			PartitionReleaseStrategyFactoryLoader.loadPartitionReleaseStrategyFactory(jobManagerConfig);
@@ -216,9 +217,10 @@ public class ExecutionGraphBuilder {
 					partitionTracker,
 					jobGraph.getScheduleMode(),
 					speculationStrategy,
-					isRecoverable,
 					remoteBlacklistReporter,
-					new DefaultLogicalTopology(jobGraph));
+					new DefaultLogicalTopology(jobGraph),
+					isRecoverable,
+					useCloudShuffleService);
 					executionGraph.setExecutionStatusDuration(jobManagerConfig.getInteger(JobManagerOptions.EXECUTION_STATUS_DURATION_MS));
 		} catch (IOException e) {
 			throw new JobException("Could not create the ExecutionGraph.", e);

@@ -22,6 +22,8 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 
+import javax.annotation.Nullable;
+
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -37,12 +39,13 @@ public class RebalancePartitioner<T> extends StreamPartitioner<T> implements Con
 
 	private int lastSendChannel;
 
+	@Nullable
 	private ResultSubpartition[] channels;
 
 	private int maxBacklogPerChannel;
 
 	@Override
-	public void setup(int numberOfChannels, ResultSubpartition[] subpartitions) {
+	public void setup(int numberOfChannels, @Nullable ResultSubpartition[] subpartitions) {
 		super.setup(numberOfChannels);
 
 		lastSendChannel = ThreadLocalRandom.current().nextInt(numberOfChannels);
@@ -53,7 +56,7 @@ public class RebalancePartitioner<T> extends StreamPartitioner<T> implements Con
 	public int selectChannel(SerializationDelegate<StreamRecord<T>> record) {
 		for (int i = 1; i <= numberOfChannels; i++) {
 			int channel = (lastSendChannel + i) % numberOfChannels;
-			if (channels[channel].getApproximateBacklog() <= maxBacklogPerChannel) {
+			if (channels != null && channels[channel].getApproximateBacklog() <= maxBacklogPerChannel) {
 				lastSendChannel = channel;
 				return channel;
 			}

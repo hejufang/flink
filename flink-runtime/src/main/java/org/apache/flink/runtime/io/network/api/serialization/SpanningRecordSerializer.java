@@ -43,11 +43,19 @@ public class SpanningRecordSerializer<T extends IOReadableWritable> implements R
 	/** Intermediate buffer for data serialization (wrapped from {@link #serializationBuffer}). */
 	private ByteBuffer dataBuffer;
 
+	private boolean allowPartialRecord;
+
 	public SpanningRecordSerializer() {
+		this(true);
+	}
+
+	public SpanningRecordSerializer(boolean allowPartialRecord) {
 		serializationBuffer = new DataOutputSerializer(128);
 
 		// ensure initial state with hasRemaining false (for correct continueWritingWithNextBufferBuilder logic)
 		dataBuffer = serializationBuffer.wrapAsByteBuffer();
+
+		this.allowPartialRecord = allowPartialRecord;
 	}
 
 	/**
@@ -87,6 +95,10 @@ public class SpanningRecordSerializer<T extends IOReadableWritable> implements R
 	 */
 	@Override
 	public SerializationResult copyToBufferBuilder(BufferBuilder targetBuffer) {
+		if (!allowPartialRecord && dataBuffer.remaining() > targetBuffer.getWritableBytes()) {
+			return SerializationResult.OUT_OF_SPACE;
+		}
+
 		targetBuffer.append(dataBuffer);
 		targetBuffer.commit();
 
@@ -116,5 +128,10 @@ public class SpanningRecordSerializer<T extends IOReadableWritable> implements R
 	@Override
 	public boolean hasSerializedData() {
 		return dataBuffer.hasRemaining();
+	}
+
+	@Override
+	public int getSerializedSize() {
+		return dataBuffer.remaining();
 	}
 }

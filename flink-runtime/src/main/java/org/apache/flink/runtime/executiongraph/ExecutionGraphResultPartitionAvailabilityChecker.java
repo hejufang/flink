@@ -17,6 +17,7 @@
 
 package org.apache.flink.runtime.executiongraph;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.executiongraph.failover.flip1.ResultPartitionAvailabilityChecker;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -38,16 +39,27 @@ public class ExecutionGraphResultPartitionAvailabilityChecker implements ResultP
 	/** The tracker that tracks all available result partitions. */
 	private final JobMasterPartitionTracker partitionTracker;
 
+	/** Whether to use css or not. */
+	private final boolean useCloudShuffleService;
+
+	@VisibleForTesting
 	ExecutionGraphResultPartitionAvailabilityChecker(
 			final Function<IntermediateResultPartitionID, ResultPartitionID> partitionIDMapper,
 			final JobMasterPartitionTracker partitionTracker) {
+		this(partitionIDMapper, partitionTracker, false);
+	}
 
+	ExecutionGraphResultPartitionAvailabilityChecker(
+		final Function<IntermediateResultPartitionID, ResultPartitionID> partitionIDMapper,
+		final JobMasterPartitionTracker partitionTracker,
+		final boolean useCloudShuffleService) {
 		this.partitionIDMapper = checkNotNull(partitionIDMapper);
 		this.partitionTracker = checkNotNull(partitionTracker);
+		this.useCloudShuffleService = useCloudShuffleService;
 	}
 
 	@Override
 	public boolean isAvailable(final IntermediateResultPartitionID resultPartitionID) {
-		return partitionTracker.isPartitionTracked(partitionIDMapper.apply(resultPartitionID));
+		return useCloudShuffleService || partitionTracker.isPartitionTracked(partitionIDMapper.apply(resultPartitionID));
 	}
 }

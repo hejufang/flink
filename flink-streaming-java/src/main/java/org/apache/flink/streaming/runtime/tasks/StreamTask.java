@@ -50,6 +50,7 @@ import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
+import org.apache.flink.runtime.shuffle.ShuffleOptions;
 import org.apache.flink.runtime.state.CheckpointStorageWorkerView;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendLoader;
@@ -1277,10 +1278,13 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			((ConfigurableBacklogPartitioner) outputPartitioner).configure(partitionerMaxBacklogPerChannel);
 		}
 
+		final boolean allowPartialRecord = environment.getTaskManagerInfo().getConfiguration().getBoolean(
+			ShuffleOptions.SHUFFLE_ALLOW_PARTIAL_RECORD);
 		RecordWriter<SerializationDelegate<StreamRecord<OUT>>> output = new RecordWriterBuilder<SerializationDelegate<StreamRecord<OUT>>>()
 			.setChannelSelector(outputPartitioner)
 			.setTimeout(bufferTimeout)
 			.setTaskName(taskName)
+			.setAllowPartialRecord(allowPartialRecord)
 			.build(bufferWriter);
 		output.setMetricGroup(environment.getMetricGroup().getIOMetricGroup());
 		return output;
