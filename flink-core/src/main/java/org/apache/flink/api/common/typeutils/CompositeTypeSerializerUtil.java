@@ -21,6 +21,8 @@ package org.apache.flink.api.common.typeutils;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.util.Preconditions;
 
+import javax.annotation.Nullable;
+
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -102,7 +104,7 @@ public class CompositeTypeSerializerUtil {
 
 			// if any one of the new nested serializers is incompatible, we can just short circuit the result
 			if (compatibility.isIncompatible()) {
-				return IntermediateCompatibilityResult.definedIncompatibleResult();
+				return IntermediateCompatibilityResult.definedIncompatibleResult(compatibility.getMessage());
 			}
 
 			if (compatibility.isCompatibleAfterMigration()) {
@@ -133,28 +135,36 @@ public class CompositeTypeSerializerUtil {
 
 		private final TypeSerializerSchemaCompatibility.Type compatibilityType;
 		private final TypeSerializer<?>[] nestedSerializers;
+		@Nullable
+		private final String message;
 
 		static <T> IntermediateCompatibilityResult<T> definedCompatibleAsIsResult(TypeSerializer<?>[] originalSerializers) {
-			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.COMPATIBLE_AS_IS, originalSerializers);
+			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.COMPATIBLE_AS_IS, originalSerializers, null);
 		}
 
 		static <T> IntermediateCompatibilityResult<T> definedIncompatibleResult() {
-			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.INCOMPATIBLE, null);
+			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.INCOMPATIBLE, null, null);
+		}
+
+		static <T> IntermediateCompatibilityResult<T> definedIncompatibleResult(String message) {
+			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.INCOMPATIBLE, null, message);
 		}
 
 		static <T> IntermediateCompatibilityResult<T> definedCompatibleAfterMigrationResult() {
-			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.COMPATIBLE_AFTER_MIGRATION, null);
+			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.COMPATIBLE_AFTER_MIGRATION, null, null);
 		}
 
 		static <T> IntermediateCompatibilityResult<T> undefinedReconfigureResult(TypeSerializer<?>[] reconfiguredNestedSerializers) {
-			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.COMPATIBLE_WITH_RECONFIGURED_SERIALIZER, reconfiguredNestedSerializers);
+			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.COMPATIBLE_WITH_RECONFIGURED_SERIALIZER, reconfiguredNestedSerializers, null);
 		}
 
 		private IntermediateCompatibilityResult(
 				TypeSerializerSchemaCompatibility.Type compatibilityType,
-				TypeSerializer<?>[] nestedSerializers) {
+				TypeSerializer<?>[] nestedSerializers,
+				String message) {
 			this.compatibilityType = checkNotNull(compatibilityType);
 			this.nestedSerializers = nestedSerializers;
+			this.message = message;
 		}
 
 		public boolean isCompatibleWithReconfiguredSerializer() {
@@ -195,6 +205,10 @@ public class CompositeTypeSerializerUtil {
 					|| compatibilityType == TypeSerializerSchemaCompatibility.Type.COMPATIBLE_WITH_RECONFIGURED_SERIALIZER,
 				"only intermediate compatibility types COMPATIBLE_AS_IS and COMPATIBLE_WITH_RECONFIGURED_SERIALIZER have nested serializers.");
 			return nestedSerializers;
+		}
+
+		public String getMessage() {
+			return message;
 		}
 	}
 

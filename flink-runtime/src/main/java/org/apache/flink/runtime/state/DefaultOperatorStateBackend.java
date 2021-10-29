@@ -203,13 +203,13 @@ public class DefaultOperatorStateBackend implements OperatorStateBackend {
 			TypeSerializerSchemaCompatibility<K> keyCompatibility =
 				restoredBroadcastStateMetaInfo.updateKeySerializer(broadcastStateKeySerializer);
 			if (keyCompatibility.isIncompatible()) {
-				throw new StateMigrationException("The new key typeSerializer for broadcast state must not be incompatible.");
+				throw new StateMigrationException("The new key typeSerializer for broadcast state must not be incompatible, details: " + keyCompatibility.getMessage());
 			}
 
 			TypeSerializerSchemaCompatibility<V> valueCompatibility =
 				restoredBroadcastStateMetaInfo.updateValueSerializer(broadcastStateValueSerializer);
 			if (valueCompatibility.isIncompatible()) {
-				throw new StateMigrationException("The new value typeSerializer for broadcast state must not be incompatible.");
+				throw new StateMigrationException("The new value typeSerializer for broadcast state must not be incompatible, details: " + valueCompatibility.getMessage());
 			}
 
 			broadcastState.setStateMetaInfo(restoredBroadcastStateMetaInfo);
@@ -327,7 +327,7 @@ public class DefaultOperatorStateBackend implements OperatorStateBackend {
 			TypeSerializerSchemaCompatibility<S> stateCompatibility =
 				restoredPartitionableListStateMetaInfo.updatePartitionStateSerializer(newPartitionStateSerializer);
 			if (stateCompatibility.isIncompatible()) {
-				throw new StateMigrationException("The new state typeSerializer for operator state must not be incompatible.");
+				throw new StateMigrationException("The new state typeSerializer for operator state must not be incompatible, details : " + stateCompatibility.getMessage());
 			}
 
 			partitionableListState.setStateMetaInfo(restoredPartitionableListStateMetaInfo);
