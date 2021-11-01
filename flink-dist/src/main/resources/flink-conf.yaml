@@ -47,6 +47,7 @@ common:
   yarn.env-include-flink-conf: true
   yarn.runtime-conf.qos-level: share
   flink.jobmanager.yarn.config.yarn.client.failover-max-attempts: -1
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 60000
   flink.jobmanager.yarn.config.yarn.resourcemanager.connect.retry-interval.ms: 1000
   flink.jobmanager.yarn.config.yarn.resourcemanager.connect.max-wait.ms: -1
   flink.client.yarn.config.yarn.client.failover-max-attempts: -1
@@ -412,6 +413,7 @@ quail:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
 
 quoll:
   dc: cn
@@ -419,6 +421,7 @@ quoll:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
 
 quoka:
   dc: cn
@@ -431,6 +434,7 @@ quoka:
   ipv6.enabled: true
   taskmanager.network.netty.transport: auto
   taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
 
 quaga:
   dc: cn
@@ -442,6 +446,7 @@ quaga:
   ipv6.enabled: true
   taskmanager.network.netty.transport: auto
   taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
 
 quele:
   dc: cn
@@ -450,6 +455,7 @@ quele:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
 
 camel:
   dc: cn
