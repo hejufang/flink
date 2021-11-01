@@ -125,10 +125,11 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 			// update the shuffleId
 			shuffleIds.put(resultId, shuffleId);
 
-			LOG.info("Register shuffle (id={}) with {} mappers and {} reducers",
-					shuffleId,
-					numberOfPartitions,
-					numberOfSubpartitions);
+			LOG.info("Producer {} registers shuffle (id={}) with {} mappers and {} reducers",
+				producerDescriptor.getProducerExecutionId(),
+				shuffleId,
+				numberOfPartitions,
+				numberOfSubpartitions);
 		}
 
 		final int currentShuffleId = shuffleIds.get(resultId);

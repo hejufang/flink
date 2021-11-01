@@ -35,7 +35,7 @@ public class CloudShuffleServiceFactory
 
 	@Override
 	public ShuffleMaster<CloudShuffleDescriptor> createShuffleMaster(Configuration configuration) {
-		if (!configuration.getBoolean(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_ENABLED)) {
+		if (!configuration.getBoolean(ShuffleOptions.CLOUD_SHUFFLE_SERVICE_ENABLED)) {
 			throw new UnsupportedOperationException("shuffle-service-factory.class should be set to enable cloud shuffle service.");
 		}
 

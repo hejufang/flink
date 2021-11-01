@@ -60,6 +60,8 @@ public class CloudShuffleWriter implements Closeable {
 
 	private final long[] sendBytes;
 
+	private long outBytes;
+
 	public CloudShuffleWriter(
 			String applicationId,
 			int shuffleId,
@@ -99,6 +101,9 @@ public class CloudShuffleWriter implements Closeable {
 			final Buffer buffer = bufferConsumer.build();
 			try {
 				writeBuffer(buffer, reducerId);
+
+				// collect metrics
+				outBytes += buffer.getSize();
 				sendBytes[reducerId] += buffer.getSize();
 			} finally {
 				buffer.recycleBuffer();
@@ -155,5 +160,9 @@ public class CloudShuffleWriter implements Closeable {
 	@VisibleForTesting
 	public BufferConsumer getCurrentBuffer(int reducerId) {
 		return currentBuffers[reducerId];
+	}
+
+	public long getOutBytes() {
+		return outBytes;
 	}
 }

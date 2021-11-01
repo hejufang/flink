@@ -64,14 +64,16 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 
 	private final long[] receiveBytes;
 
+	private long inputBytes;
+
 	public CloudShuffleInputGate(
-			int gateIndex,
-			String applicationId,
-			ShuffleClient shuffleClient,
-			int shuffleId,
-			int reducerId,
-			int numberOfMappers,
-			int segmentSize) {
+		int gateIndex,
+		String applicationId,
+		ShuffleClient shuffleClient,
+		int shuffleId,
+		int reducerId,
+		int numberOfMappers,
+		int segmentSize) {
 		this.gateIndex = gateIndex;
 		this.numberOfMappers = numberOfMappers;
 
@@ -131,6 +133,9 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 		if (cloudBuffer == null) {
 			return Optional.empty();
 		}
+
+		// collect metrics
+		inputBytes += cloudBuffer.getNetworkBuffer().getSize();
 
 		return Optional.of(transformToBufferOrEvent(cloudBuffer.getNetworkBuffer(), cloudBuffer.getMapperId()));
 	}
@@ -244,5 +249,9 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 	@Override
 	public void close() throws Exception {
 		cloudShuffleReader.close();
+	}
+
+	public long getInBytes() {
+		return inputBytes;
 	}
 }

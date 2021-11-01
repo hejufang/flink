@@ -172,6 +172,10 @@ public abstract class ResultSubpartition {
 	 */
 	public abstract int unsynchronizedGetNumberOfQueuedBuffers();
 
+	public long getOutBytes() {
+		return 0L;
+	}
+
 	// ------------------------------------------------------------------------
 
 	/**

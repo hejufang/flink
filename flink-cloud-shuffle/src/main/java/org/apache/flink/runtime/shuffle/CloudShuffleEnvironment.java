@@ -42,9 +42,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-import static org.apache.flink.runtime.io.network.CloudShuffleMetricFactory.createShuffleIOOwnerMetricGroup;
 import static org.apache.flink.runtime.io.network.metrics.NettyShuffleMetricFactory.METRIC_GROUP_INPUT;
 import static org.apache.flink.runtime.io.network.metrics.NettyShuffleMetricFactory.METRIC_GROUP_OUTPUT;
+import static org.apache.flink.runtime.shuffle.metrics.CloudShuffleMetricFactory.createShuffleIOOwnerMetricGroup;
+import static org.apache.flink.runtime.shuffle.metrics.CloudShuffleMetricFactory.registerInputMetrics;
+import static org.apache.flink.runtime.shuffle.metrics.CloudShuffleMetricFactory.registerOutputMetrics;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -130,22 +132,23 @@ public class CloudShuffleEnvironment implements ShuffleEnvironment<CloudShuffleR
 				final int requiredMemorySegments = shuffleDescriptor.getNumberOfMappers() * buffersPerMapper;
 
 				resultPartitions[partitionIndex] = new CloudShuffleResultPartition(
-						deploymentDescriptor.getMaxParallelism(),
-						shuffleDescriptor.getResultPartitionID(),
-						cssClient,
-						bufferPoolOwner -> networkBufferPool.createBufferPool(
-								requiredMemorySegments, // just use the max number of segments to be simpler
-								requiredMemorySegments,
-								bufferPoolOwner,
-								shuffleDescriptor.getNumberOfReducers(),
-								Integer.MAX_VALUE),
-						applicationId,
-						shuffleDescriptor.getShuffleId(),
-						shuffleDescriptor.getMapperId(),
-						shuffleDescriptor.getMapperAttemptId(),
-						shuffleDescriptor.getNumberOfMappers(),
-						shuffleDescriptor.getNumberOfReducers());
+					deploymentDescriptor.getMaxParallelism(),
+					shuffleDescriptor.getResultPartitionID(),
+					cssClient,
+					bufferPoolOwner -> networkBufferPool.createBufferPool(
+							requiredMemorySegments, // just use the max number of segments to be simpler
+							requiredMemorySegments,
+							bufferPoolOwner,
+							shuffleDescriptor.getNumberOfReducers(),
+							Integer.MAX_VALUE),
+					applicationId,
+					shuffleDescriptor.getShuffleId(),
+					shuffleDescriptor.getMapperId(),
+					shuffleDescriptor.getMapperAttemptId(),
+					shuffleDescriptor.getNumberOfMappers(),
+					shuffleDescriptor.getNumberOfReducers());
 			}
+			registerOutputMetrics(ownerContext.getOutputGroup(), resultPartitions);
 
 			return  Arrays.asList(resultPartitions);
 		}
@@ -175,14 +178,15 @@ public class CloudShuffleEnvironment implements ShuffleEnvironment<CloudShuffleR
 				final InputGateDeploymentDescriptor igdd = inputGateDeploymentDescriptors.get(gateIndex);
 				final CloudShuffleDescriptor cloudShuffleDescriptor = (CloudShuffleDescriptor) igdd.getShuffleDescriptors()[0];
 				inputGates[gateIndex] = new CloudShuffleInputGate(
-						gateIndex,
-						applicationId,
-						cssClient,
-						cloudShuffleDescriptor.getShuffleId(),
-						igdd.getConsumedSubpartitionIndex(),
-						cloudShuffleDescriptor.getNumberOfMappers(),
-						segmentSize);
+					gateIndex,
+					applicationId,
+					cssClient,
+					cloudShuffleDescriptor.getShuffleId(),
+					igdd.getConsumedSubpartitionIndex(),
+					cloudShuffleDescriptor.getNumberOfMappers(),
+					segmentSize);
 			}
+			registerInputMetrics(ownerContext.getInputGroup(), inputGates);
 
 			return Arrays.asList(inputGates);
 		}

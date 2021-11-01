@@ -87,13 +87,13 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 		this.mapperAttemptId = mapperAttemptId;
 
 		this.cloudShuffleWriter = new CloudShuffleWriter(
-				applicationId,
-				shuffleId,
-				mapperId,
-				mapperAttemptId,
-				numberOfMappers,
-				numberOfReducers,
-				shuffleClient);
+			applicationId,
+			shuffleId,
+			mapperId,
+			mapperAttemptId,
+			numberOfMappers,
+			numberOfReducers,
+			shuffleClient);
 	}
 
 	@Override
@@ -156,6 +156,7 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 			bufferConsumer.close();
 			throw ex;
 		}
+
 		return cloudShuffleWriter.add(bufferConsumer, subpartitionIndex);
 	}
 
@@ -238,5 +239,9 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 	@Override
 	public String toString() {
 		return "CloudShuffleResultPartition " + partitionId.toString();
+	}
+
+	public long getOutBytes() {
+		return cloudShuffleWriter.getOutBytes();
 	}
 }

@@ -67,7 +67,11 @@ global:
         numberOfScaleUp,
         numberOfScaleDown,
         cacheMinRemainedCapacity,
-        cacheTotalRemainedCapacity
+        cacheTotalRemainedCapacity,
+        nettyShuffleOutputBytes,
+        nettyShuffleInputBytes,
+        cloudShuffleOutputBytes,
+        cloudShuffleInputBytes
     ]
 
 non-global:

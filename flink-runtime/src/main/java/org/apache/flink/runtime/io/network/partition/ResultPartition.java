@@ -271,6 +271,14 @@ public class ResultPartition implements ResultPartitionWriter, BufferPoolOwner {
 		return getAllPartitions();
 	}
 
+	public long getOutBytes() {
+		long outBytes = 0L;
+		for (ResultSubpartition subpartition : subpartitions) {
+			outBytes += subpartition.getOutBytes();
+		}
+		return outBytes;
+	}
+
 	/**
 	 * Finishes the result partition.
 	 *

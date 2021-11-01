@@ -905,4 +905,12 @@ public class SingleInputGate extends IndexedInputGate {
 	public Map<IntermediateResultPartitionID, InputChannel> getInputChannels() {
 		return inputChannels;
 	}
+
+	public long getInBytes() {
+		long sum = 0L;
+		for (InputChannel channel : channels) {
+			sum += channel.getInBytes();
+		}
+		return sum;
+	}
 }

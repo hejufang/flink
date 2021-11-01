@@ -16,9 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network;
+package org.apache.flink.runtime.shuffle.metrics;
 
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.RateGauge;
+import org.apache.flink.runtime.shuffle.CloudShuffleInputGate;
+import org.apache.flink.runtime.shuffle.CloudShuffleResultPartition;
 
 /**
  * CloudShuffleMetricFactory.
@@ -26,9 +29,37 @@ import org.apache.flink.metrics.MetricGroup;
 public class CloudShuffleMetricFactory {
 
 	private static final String METRIC_GROUP_SHUFFLE = "Shuffle";
-	private static final String METRIC_GROUP_CLOUD = "CLOUD";
+	private static final String METRIC_GROUP_CLOUD = "Cloud";
+
+	// metrics to measure global shuffle
+	private static final String METRIC_SHUFFLE_OUTPUT_BYTES = "cloudShuffleOutputBytes";
+	private static final String METRIC_SHUFFLE_INPUT_BYTES = "cloudShuffleInputBytes";
 
 	public static MetricGroup createShuffleIOOwnerMetricGroup(MetricGroup parentGroup) {
 		return parentGroup.addGroup(METRIC_GROUP_SHUFFLE).addGroup(METRIC_GROUP_CLOUD);
+	}
+
+	public static void registerOutputMetrics(
+		MetricGroup outputGroup,
+		CloudShuffleResultPartition[] resultPartitions) {
+		outputGroup.gauge(METRIC_SHUFFLE_OUTPUT_BYTES, new RateGauge(() -> {
+			long sum = 0L;
+			for (CloudShuffleResultPartition rp : resultPartitions) {
+				sum += rp.getOutBytes();
+			}
+			return sum;
+		}));
+	}
+
+	public static void registerInputMetrics(
+		MetricGroup inputGroup,
+		CloudShuffleInputGate[] inputGates) {
+		inputGroup.gauge(METRIC_SHUFFLE_INPUT_BYTES, new RateGauge(() -> {
+			long sum = 0L;
+			for (CloudShuffleInputGate rp : inputGates) {
+				sum += rp.getInBytes();
+			}
+			return sum;
+		}));
 	}
 }

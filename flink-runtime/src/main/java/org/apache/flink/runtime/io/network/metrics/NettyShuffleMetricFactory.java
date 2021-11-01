@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.metrics;
 
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.RateGauge;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartition;
@@ -82,6 +83,10 @@ public class NettyShuffleMetricFactory {
 
 	private static final String METRIC_CONNECT_SUCCESS_RETRY_TIMES = "connectSuccessRetryTimes";
 	private static final String METRIC_CONNECT_FAIL_RETRY_TIMES = "connectFailRetryTimes";
+
+	// metrics to measure global shuffle
+	private static final String METRIC_SHUFFLE_OUTPUT_BYTES = "nettyShuffleOutputBytes";
+	private static final String METRIC_SHUFFLE_INPUT_BYTES = "nettyShuffleInputBytes";
 
 	private NettyShuffleMetricFactory() {
 	}
@@ -182,6 +187,15 @@ public class NettyShuffleMetricFactory {
 			outputGroup,
 			outputGroup.addGroup(METRIC_GROUP_BUFFERS),
 			resultPartitions);
+
+		// collect metrics
+		outputGroup.gauge(METRIC_SHUFFLE_OUTPUT_BYTES, new RateGauge(() -> {
+			long sum = 0L;
+			for (ResultPartition rp : resultPartitions) {
+				sum += rp.getOutBytes();
+			}
+			return sum;
+		}));
 	}
 
 	private static void registerOutputMetrics(
@@ -205,6 +219,14 @@ public class NettyShuffleMetricFactory {
 			inputGroup,
 			inputGroup.addGroup(METRIC_GROUP_BUFFERS),
 			inputGates);
+
+		inputGroup.gauge(METRIC_SHUFFLE_INPUT_BYTES, new RateGauge(() -> {
+			long sum = 0L;
+			for (SingleInputGate ig : inputGates) {
+				sum += ig.getInBytes();
+			}
+			return sum;
+		}));
 	}
 
 	private static void registerInputMetrics(

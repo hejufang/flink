@@ -35,12 +35,6 @@ public class CloudShuffleOptions {
 
 	public static final String PREFIX = "flink.cloud-shuffle-service.";
 
-	public static final ConfigOption<Boolean> CLOUD_SHUFFLE_SERVICE_ENABLED = ConfigOptions
-			.key("flink.cloud-shuffle-service.enabled")
-			.booleanType()
-			.defaultValue(false)
-			.withDescription("Whether enabling cloud shuffle service or not.");
-
 	public static final ConfigOption<String> CLOUD_SHUFFLE_SERVICE_ADDRESS = ConfigOptions
 			.key("flink.cloud-shuffle-service.address")
 			.stringType()

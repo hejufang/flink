@@ -142,6 +142,10 @@ public abstract class InputChannel {
 		this.maxDelayTimeMs = maxDelayTimeMs;
 	}
 
+	public long getInBytes() {
+		return numBytesIn.getCount();
+	}
+
 	// ------------------------------------------------------------------------
 	// Properties
 	// ------------------------------------------------------------------------

@@ -97,6 +97,8 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 	/** Flag indicating whether the subpartition has been released. */
 	private boolean isReleased;
 
+	private long outBytes;
+
 	public BoundedBlockingSubpartition(
 			int index,
 			ResultPartition parent,
@@ -181,6 +183,7 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 				numBuffersAndEventsWritten++;
 				if (buffer.isBuffer()) {
 					numDataBuffersWritten++;
+					outBytes += buffer.getSize();
 				}
 			}
 			finally {
@@ -281,6 +284,11 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 
 	int getBuffersInBacklog() {
 		return numDataBuffersWritten;
+	}
+
+	@Override
+	public long getOutBytes() {
+		return outBytes;
 	}
 
 	// ---------------------------- factories --------------------------------
