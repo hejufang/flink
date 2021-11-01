@@ -89,7 +89,7 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
 		log.info("Using restart back off time strategy {} for {} ({}).", restartBackoffTimeStrategy, jobGraph.getName(), jobGraph.getJobID());
 
 		final ExecutionSlotAllocatorFactory executionSlotAllocatorFactory = ExecutionSlotAllocatorFactoryLoader.loadExecutionSlotAllocatorFactory(
-				jobMasterConfiguration, slotProvider, jobGraph.getScheduleMode(), slotRequestTimeout, slotSelectionStrategy, slotPool);
+				jobMasterConfiguration, slotProvider, jobGraph.getScheduleMode(), slotRequestTimeout, slotSelectionStrategy, slotPool, jobManagerJobMetricGroup);
 
 		final SpeculationStrategy.Factory speculationStrategyFactory = SpeculationStrategyLoader.loadSpeculationStrategy(jobMasterConfiguration);
 

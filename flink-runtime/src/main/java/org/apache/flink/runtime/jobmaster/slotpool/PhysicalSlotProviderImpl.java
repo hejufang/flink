@@ -19,9 +19,12 @@
 package org.apache.flink.runtime.jobmaster.slotpool;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotProfile;
 import org.apache.flink.runtime.jobmaster.SlotRequestId;
+import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
 import org.slf4j.Logger;
@@ -44,9 +47,15 @@ public class PhysicalSlotProviderImpl implements PhysicalSlotProvider {
 
 	private final SlotPool slotPool;
 
-	public PhysicalSlotProviderImpl(SlotSelectionStrategy slotSelectionStrategy, SlotPool slotPool) {
+	private final JobManagerJobMetricGroup jobManagerJobMetricGroup;
+
+	private final Counter allocateFromAvailableFailedCounter = new SimpleCounter();
+
+	public PhysicalSlotProviderImpl(SlotSelectionStrategy slotSelectionStrategy, SlotPool slotPool, JobManagerJobMetricGroup jobManagerJobMetricGroup) {
 		this.slotSelectionStrategy = checkNotNull(slotSelectionStrategy);
 		this.slotPool = checkNotNull(slotPool);
+		this.jobManagerJobMetricGroup = checkNotNull(jobManagerJobMetricGroup);
+		registerMetrics();
 	}
 
 	@Override
@@ -84,14 +93,20 @@ public class PhysicalSlotProviderImpl implements PhysicalSlotProvider {
 	}
 
 	private Optional<PhysicalSlot> tryAllocateFromAvailableInternal(SlotRequestId slotRequestId, SlotProfile slotProfile) {
-		Optional<SlotSelectionStrategy.SlotInfoAndLocality> selectedAvailableSlot =
-			slotSelectionStrategy.selectBestSlotForProfile(slotProfile, slotPool);
+		try {
+			Optional<SlotSelectionStrategy.SlotInfoAndLocality> selectedAvailableSlot =
+					slotSelectionStrategy.selectBestSlotForProfile(slotProfile, slotPool);
 
-		return selectedAvailableSlot.flatMap(
-			slotInfoAndLocality -> slotPool.allocateAvailableSlot(
-				slotRequestId,
-				slotInfoAndLocality.getSlotInfo().getAllocationId())
-		);
+			return selectedAvailableSlot.flatMap(
+					slotInfoAndLocality -> slotPool.allocateAvailableSlot(
+							slotRequestId,
+							slotInfoAndLocality.getSlotInfo().getAllocationId())
+			);
+		} catch (Exception e) {
+			LOG.error("Allocate slot from available slots failed, this is a bug of scheduler.", e);
+			allocateFromAvailableFailedCounter.inc();
+			return Optional.empty();
+		}
 	}
 
 	private CompletableFuture<PhysicalSlot> requestNewSlot(
@@ -108,5 +123,9 @@ public class PhysicalSlotProviderImpl implements PhysicalSlotProvider {
 	@Override
 	public void cancelSlotRequest(SlotRequestId slotRequestId, Throwable cause) {
 		slotPool.releaseSlot(slotRequestId, cause);
+	}
+
+	private void registerMetrics() {
+		jobManagerJobMetricGroup.counter("allocateFromAvailableFailedNumber", allocateFromAvailableFailedCounter);
 	}
 }

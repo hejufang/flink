@@ -24,6 +24,8 @@ import org.apache.flink.runtime.clusterframework.types.SlotProfile;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.jobmaster.SlotRequestId;
+import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
+
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -70,7 +72,7 @@ public class PhysicalSlotProviderImplTest {
 	@Before
 	public void setup() throws Exception {
 		slotPool = new SlotPoolBuilder(mainThreadExecutor).build();
-		physicalSlotProvider = new PhysicalSlotProviderImpl(LocationPreferenceSlotSelectionStrategy.createRoundRobin(), slotPool);
+		physicalSlotProvider = new PhysicalSlotProviderImpl(LocationPreferenceSlotSelectionStrategy.createRoundRobin(), slotPool, UnregisteredMetricGroups.createUnregisteredJobManagerJobMetricGroup());
 	}
 
 	@After

@@ -72,6 +72,7 @@ global:
         nettyShuffleInputBytes,
         cloudShuffleOutputBytes,
         cloudShuffleInputBytes
+        allocateFromAvailableFailedNumber
     ]
 
 non-global:

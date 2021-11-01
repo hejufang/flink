@@ -366,6 +366,9 @@ public class RoundRobinSlotPoolImpl extends MinResourceSlotPoolImpl {
 
 		public Optional<T> getNextAvailableNotIncreaseIndex(Predicate<T> predicate) {
 			if (hasNext()) {
+				if (isIndexOutOfBound()) {
+					resetIndex();
+				}
 				int i = index;
 				do {
 					T resource = resources.get(i);

@@ -29,6 +29,7 @@ import org.apache.flink.runtime.jobmaster.slotpool.PhysicalSlotProviderImpl;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotPool;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotSelectionStrategy;
+import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,11 +41,11 @@ public class ExecutionSlotAllocatorFactoryLoader {
 	private static final Logger LOG = LoggerFactory.getLogger(ExecutionSlotAllocatorFactoryLoader.class);
 
 	public static ExecutionSlotAllocatorFactory loadExecutionSlotAllocatorFactory(
-			Configuration config, SlotProvider slotProvider, ScheduleMode scheduleMode, Time slotRequestTimeout, SlotSelectionStrategy slotSelectionStrategy, SlotPool slotPool) {
+			Configuration config, SlotProvider slotProvider, ScheduleMode scheduleMode, Time slotRequestTimeout, SlotSelectionStrategy slotSelectionStrategy, SlotPool slotPool, JobManagerJobMetricGroup jobManagerJobMetricGroup) {
 		final boolean enabled = config.getBoolean(JobManagerOptions.SLOT_SHARING_EXECUTION_SLOT_ALLOCATOR_ENABLED);
 		if (enabled) {
 			LOG.info("Using {} as ExecutionSlotAllocatorFactory.", SlotSharingExecutionSlotAllocatorFactory.class.getName());
-			final PhysicalSlotProvider physicalSlotProvider = new PhysicalSlotProviderImpl(slotSelectionStrategy, slotPool);
+			final PhysicalSlotProvider physicalSlotProvider = new PhysicalSlotProviderImpl(slotSelectionStrategy, slotPool, jobManagerJobMetricGroup);
 			boolean slotWillBeOccupiedIndefinitely;
 			switch (scheduleMode) {
 				case LAZY_FROM_SOURCES_WITH_BATCH_SLOT_REQUEST:
