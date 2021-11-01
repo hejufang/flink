@@ -52,30 +52,20 @@ public class CloudShuffleMasterTest {
 		final int applicationAttemptNumber = 2;
 		final CloudShuffleMaster cloudShuffleMaster = new CloudShuffleMaster("TEST_APP_ID", testShuffleClient, applicationAttemptNumber);
 
-		final PartitionDescriptor partitionDescriptor1 = new PartitionDescriptor(
-				new IntermediateDataSetID(),
-				2,
-				new IntermediateResultPartitionID(new IntermediateDataSetID(), 0),
-				ResultPartitionType.BLOCKING,
-				10,
-				0);
-		final ProducerDescriptor producerDescriptor1 = new ProducerDescriptor(
-				new ResourceID("resource"),
-				new ExecutionAttemptID(),
-				InetAddress.getByName("192.168.1.1"),
-				-1,
-				0);
+		final PartitionDescriptor partitionDescriptor1 = buildRandomPartitionDescriptor();
+		final ProducerDescriptor producerDescriptor1 = buildRandomProducerDescriptor();
 		cloudShuffleMaster.registerPartitionWithProducer(partitionDescriptor1, producerDescriptor1);
 		Assert.assertEquals((applicationAttemptNumber << 16) + 1, cloudShuffleMaster.getCurrentShuffleId());
 
-		// task failover and same vertex re-register shuffle
-		final ProducerDescriptor producerDescriptor2 = new ProducerDescriptor(
-				new ResourceID("resource"),
-				new ExecutionAttemptID(),
-				InetAddress.getByName("192.168.1.1"),
-				-1,
-				1);
+		// task failover and keep the same shuffleId
+		final ProducerDescriptor producerDescriptor2 = buildRandomProducerDescriptor();
 		cloudShuffleMaster.registerPartitionWithProducer(partitionDescriptor1, producerDescriptor2);
+		Assert.assertEquals((applicationAttemptNumber << 16) + 1, cloudShuffleMaster.getCurrentShuffleId());
+
+		// register a new shuffle
+		final PartitionDescriptor partitionDescriptor2 = buildRandomPartitionDescriptor();
+		final ProducerDescriptor producerDescriptor3 = buildRandomProducerDescriptor();
+		cloudShuffleMaster.registerPartitionWithProducer(partitionDescriptor2, producerDescriptor3);
 		Assert.assertEquals((applicationAttemptNumber << 16) + 2, cloudShuffleMaster.getCurrentShuffleId());
 	}
 
@@ -86,5 +76,24 @@ public class CloudShuffleMasterTest {
 		final CloudShuffleMaster cloudShuffleMaster = new CloudShuffleMaster("TEST_APP_ID", testShuffleClient, 2);
 		final int attempt = cloudShuffleMaster.getApplicationAttemptNumber(containerId);
 		Assert.assertEquals(2, attempt);
+	}
+
+	private PartitionDescriptor buildRandomPartitionDescriptor() {
+		return new PartitionDescriptor(
+				new IntermediateDataSetID(),
+				2,
+				new IntermediateResultPartitionID(new IntermediateDataSetID(), 0),
+				ResultPartitionType.BLOCKING,
+				10,
+				0);
+	}
+
+	private ProducerDescriptor buildRandomProducerDescriptor() throws UnknownHostException {
+		return new ProducerDescriptor(
+				new ResourceID("resource"),
+				new ExecutionAttemptID(),
+				InetAddress.getByName("192.168.1.1"),
+				-1,
+				0);
 	}
 }

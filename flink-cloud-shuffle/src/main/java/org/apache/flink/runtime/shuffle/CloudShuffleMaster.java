@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetAddress;
-import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,8 +51,6 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 
 	private final Map<IntermediateDataSetID, Integer> shuffleIds;
 
-	private final Map<Integer, BitSet> shuffleRegistry;
-
 	private final String applicationId;
 	private final int applicationAttemptNumber;
 
@@ -69,7 +66,6 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 			ShuffleClient cssClient,
 			int applicationAttemptNumber) {
 		this.shuffleIds = new HashMap<>();
-		this.shuffleRegistry = new HashMap<>();
 		this.applicationId = applicationId;
 		this.applicationAttemptNumber = applicationAttemptNumber;
 		this.cssClient = cssClient;
@@ -96,7 +92,6 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 		final CssConf cssConf = CloudShuffleOptions.fromConfiguration(configuration);
 		this.cssClient = (ShuffleClientImpl) ShuffleClient.get(cssConf);
 		this.shuffleIds = new HashMap<>();
-		this.shuffleRegistry = new HashMap<>();
 		this.applicationId = System.getenv("_APP_ID");
 		this.applicationAttemptNumber = getApplicationAttemptNumber(System.getenv("CONTAINER_ID"));
 		this.shuffleIdGenerator = new AtomicInteger(applicationAttemptNumber << 16);
@@ -112,8 +107,7 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 		final int numberOfSubpartitions = partitionDescriptor.getNumberOfSubpartitions();
 		final IntermediateDataSetID resultId = partitionDescriptor.getResultId();
 
-		if (!shuffleIds.containsKey(resultId)
-				|| (shuffleIds.containsKey(resultId) && shuffleRegistry.get(shuffleIds.get(resultId)).get(mapperIndex))) {
+		if (!shuffleIds.containsKey(resultId)) {
 			// new shuffle or there's already same shuffle before
 			final int shuffleId = shuffleIdGenerator.incrementAndGet();
 
@@ -130,7 +124,6 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 
 			// update the shuffleId
 			shuffleIds.put(resultId, shuffleId);
-			shuffleRegistry.put(shuffleId, new BitSet());
 
 			LOG.info("Register shuffle (id={}) with {} mappers and {} reducers",
 					shuffleId,
@@ -139,7 +132,6 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 		}
 
 		final int currentShuffleId = shuffleIds.get(resultId);
-		shuffleRegistry.get(currentShuffleId).set(mapperIndex);
 
 		CloudShuffleDescriptor cloudShuffleDescriptor = new CloudShuffleDescriptor(
 				new ResultPartitionID(partitionDescriptor.getPartitionId(), producerDescriptor.getProducerExecutionId()),
