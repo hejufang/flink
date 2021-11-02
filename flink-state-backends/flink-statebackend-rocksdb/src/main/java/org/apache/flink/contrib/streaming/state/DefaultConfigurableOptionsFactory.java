@@ -26,6 +26,7 @@ import org.apache.flink.util.Preconditions;
 import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.BloomFilter;
 import org.rocksdb.ColumnFamilyOptions;
+import org.rocksdb.CompactionOptionsFIFO;
 import org.rocksdb.CompactionStyle;
 import org.rocksdb.CompressionType;
 import org.rocksdb.DBOptions;
@@ -47,6 +48,8 @@ import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOption
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOOMFILTER_ENABLED;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.COMPACTION_STYLE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.COMPRESSION_TYPE;
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.FIFO_COMPACTION_MAX_TABLE_SIZE;
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.LEVEL0_FILE_NUMBER_COMPACTION_TRIGGER;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.LOG_LEVEL;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_BACKGROUND_COMPACTION_THREADS;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_BACKGROUND_FLUSH_THREADS;
@@ -107,7 +110,19 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 	@Override
 	public ColumnFamilyOptions createColumnOptions(ColumnFamilyOptions currentOptions, Collection<AutoCloseable> handlesToClose) {
 		if (isOptionConfigured(COMPACTION_STYLE)) {
-			currentOptions.setCompactionStyle(getCompactionStyle());
+			CompactionStyle compactionStyle = getCompactionStyle();
+			currentOptions.setCompactionStyle(compactionStyle);
+			if (compactionStyle.equals(CompactionStyle.FIFO)) {
+				if (isOptionConfigured(FIFO_COMPACTION_MAX_TABLE_SIZE)) {
+					CompactionOptionsFIFO compactionOptionsFIFO = new CompactionOptionsFIFO();
+					compactionOptionsFIFO.setMaxTableFilesSize(getFIFOCompactionMaxTableSize());
+					currentOptions.setCompactionOptionsFIFO(compactionOptionsFIFO);
+				}
+			}
+		}
+
+		if (isOptionConfigured(LEVEL0_FILE_NUMBER_COMPACTION_TRIGGER)) {
+			currentOptions.setLevel0FileNumCompactionTrigger(getLevel0FileNumberCompactionTrigger());
 		}
 
 		if (isOptionConfigured(USE_DYNAMIC_LEVEL_SIZE)) {
@@ -292,6 +307,14 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 	// Whether to configure RocksDB to pick target size of each level dynamically.
 	//--------------------------------------------------------------------------
 
+	private long getFIFOCompactionMaxTableSize() {
+		return MemorySize.parseBytes(getInternal(FIFO_COMPACTION_MAX_TABLE_SIZE.key()));
+	}
+
+	private int getLevel0FileNumberCompactionTrigger() {
+		return Integer.parseInt(getInternal(LEVEL0_FILE_NUMBER_COMPACTION_TRIGGER.key()));
+	}
+
 	private boolean getUseDynamicLevelSize() {
 		return getInternal(USE_DYNAMIC_LEVEL_SIZE.key()).compareToIgnoreCase("false") != 0;
 	}
@@ -453,7 +476,11 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 		BLOCK_CACHE_SIZE,
 		COMPRESSION_TYPE,
 		BLOOMFILTER_ENABLED,
-		AUTO_COMPACTION_ENABLED
+		AUTO_COMPACTION_ENABLED,
+		LEVEL0_FILE_NUMBER_COMPACTION_TRIGGER,
+
+		// FIFO compaction
+		FIFO_COMPACTION_MAX_TABLE_SIZE
 	};
 
 	private static final Set<ConfigOption<?>> POSITIVE_INT_CONFIG_SET = new HashSet<>(Arrays.asList(

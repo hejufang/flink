@@ -220,4 +220,15 @@ public class RocksDBConfigurableOptions implements Serializable {
 		key("state.backend.rocksdb.auto-compaction.enabled")
 			.defaultValue(true)
 			.withDeprecatedKeys("Whether enable auto compaction.");
+
+	public static final ConfigOption<MemorySize> FIFO_COMPACTION_MAX_TABLE_SIZE =
+		key("state.backend.rocksdb.fifo-compaction.max-table-files-size")
+			.memoryType()
+			.defaultValue(MemorySize.parse("40gb"))
+			.withDeprecatedKeys("");
+
+	public static final ConfigOption<Integer> LEVEL0_FILE_NUMBER_COMPACTION_TRIGGER =
+		key("state.backend.rocksdb.compaction.level0-file-num-compaction-trigger")
+			.defaultValue(4)
+			.withDeprecatedKeys("");
 }
