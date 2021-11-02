@@ -321,6 +321,7 @@ public class CheckpointCoordinator {
 			MetricGroup metricGroup) {
 		this(job,
 			jobUID,
+			null,
 			chkConfig,
 			tasksToTrigger,
 			tasksToWaitFor,
@@ -347,6 +348,7 @@ public class CheckpointCoordinator {
 	public CheckpointCoordinator(
 			JobID job,
 			String jobUID,
+			@Nullable String namespace,
 			CheckpointCoordinatorConfiguration chkConfig,
 			ExecutionVertex[] tasksToTrigger,
 			ExecutionVertex[] tasksToWaitFor,
@@ -393,7 +395,7 @@ public class CheckpointCoordinator {
 
 		this.timer = timer;
 		this.checkpointScheduler = createCheckpointScheduler(job, this, chkConfig);
-		setupSavepointScheduler(checkpointScheduler, jobUID, this, chkConfig);
+		setupSavepointScheduler(checkpointScheduler, jobUID, namespace, this, chkConfig);
 		this.checkpointScheduler.setTimer(timer);
 
 		this.checkpointHandler = checkpointHandler;

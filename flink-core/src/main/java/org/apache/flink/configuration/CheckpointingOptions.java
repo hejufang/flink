@@ -198,12 +198,21 @@ public class CheckpointingOptions {
 				"(i.e. all TaskManagers and JobManagers).");
 
 	/**
-	 * The namespace for checkpoints of one job.
+	 * The namespace for checkpoints of one job managed by user, will be deprecated in the future.
 	 */
 	public static final ConfigOption<String> CHECKPOINTS_NAMESPACE = ConfigOptions
 			.key("state.checkpoints.namespace")
 			.defaultValue("default")
-			.withDescription("The namespace for checkpoints of one job.");
+			.withDescription("The namespace for checkpoints of one job managed by user.");
+
+	/**
+	 * The namespace for checkpoints of one job managed by platform.
+	 */
+	public static final ConfigOption<String> SNAPSHOT_NAMESPACE = ConfigOptions
+		.key("snapshot.namespace")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("The namespace for checkpoints of one job managed by platform.");
 
 	/**
 	 * Allow to skip checkpoint state that cannot be restored.

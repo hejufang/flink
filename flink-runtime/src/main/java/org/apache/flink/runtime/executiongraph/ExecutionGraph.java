@@ -29,7 +29,6 @@ import org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
-
 import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
@@ -506,6 +505,36 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	}
 
 	public void enableCheckpointing(
+		CheckpointCoordinatorConfiguration chkConfig,
+		List<ExecutionJobVertex> verticesToTrigger,
+		List<ExecutionJobVertex> verticesToWaitFor,
+		List<ExecutionJobVertex> verticesToCommitTo,
+		List<MasterTriggerRestoreHook<?>> masterHooks,
+		CheckpointIDCounter checkpointIDCounter,
+		CompletedCheckpointStore checkpointStore,
+		StateBackend checkpointStateBackend,
+		CheckpointStatsTracker statsTracker,
+		CheckpointHandler checkpointHandler,
+		MetricGroup metricGroup
+	) {
+		this.enableCheckpointing(
+			null,
+			chkConfig,
+			verticesToTrigger,
+			verticesToWaitFor,
+			verticesToCommitTo,
+			masterHooks,
+			checkpointIDCounter,
+			checkpointStore,
+			checkpointStateBackend,
+			statsTracker,
+			checkpointHandler,
+			metricGroup
+		);
+	}
+
+	public void enableCheckpointing(
+			@Nullable String namespace,
 			CheckpointCoordinatorConfiguration chkConfig,
 			List<ExecutionJobVertex> verticesToTrigger,
 			List<ExecutionJobVertex> verticesToWaitFor,
@@ -556,6 +585,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		checkpointCoordinator = new CheckpointCoordinator(
 			jobInformation.getJobId(),
 			jobInformation.getJobUID(),
+			namespace,
 			chkConfig,
 			tasksToTrigger,
 			tasksToWaitFor,

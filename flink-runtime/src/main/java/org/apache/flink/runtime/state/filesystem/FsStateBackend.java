@@ -527,13 +527,15 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 		if (config != null) {
 			checkNotNull(jobId, "jobId");
 			checkNotNull(jobUID, "jobUID");
+			// If snapshot.namespace is offered, use it to initialize checkpoint storage first, or use state.checkpoints.namespace by default.
+			String namespace = config.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
 			return new FsCheckpointStorage(
 					getCheckpointPath().getFileSystem(),
 					getCheckpointPath(),
 					getSavepointPath(),
 					jobId,
 					jobUID,
-					config.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE),
+					namespace,
 					getMinFileSizeThreshold(),
 					getWriteBufferSize(),
 					metricGroup,

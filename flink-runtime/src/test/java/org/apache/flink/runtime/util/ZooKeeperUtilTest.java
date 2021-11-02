@@ -18,14 +18,48 @@
 
 package org.apache.flink.runtime.util;
 
+import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
+import org.apache.flink.runtime.testutils.ZooKeeperTestUtils;
+import org.apache.flink.runtime.zookeeper.ZooKeeperTestEnvironment;
 import org.apache.flink.util.TestLogger;
+
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
+/**
+ * Tests for the {@link ZooKeeperUtils}.
+ */
 public class ZooKeeperUtilTest extends TestLogger {
+	private static ZooKeeperTestEnvironment zooKeeper;
+
+	@Rule
+	public final TemporaryFolder tmp = new TemporaryFolder();
+
+	@BeforeClass
+	public static void setup() {
+		zooKeeper = new ZooKeeperTestEnvironment(1);
+	}
+
+	@Before
+	public void cleanUp() throws Exception {
+		zooKeeper.deleteAll();
+	}
+
+	@AfterClass
+	public static void tearDown() throws Exception {
+		if (zooKeeper != null) {
+			zooKeeper.shutdown();
+		}
+	}
 
 	@Test
 	public void testZooKeeperEnsembleConnectStringConfiguration() throws Exception {
@@ -68,6 +102,18 @@ public class ZooKeeperUtilTest extends TestLogger {
 			actual = ZooKeeperUtils.getZooKeeperEnsemble(conf);
 			assertEquals(expected, actual);
 		}
+	}
+
+	@Test
+	public void testCreateZKNamespace() throws Exception{
+		String snapshotNamespace = "snapshot_namespace";
+		String jobUID = "juid";
+		String fsStateHandlePath = tmp.newFolder().getPath();
+		Configuration configuration = ZooKeeperTestUtils.createZooKeeperHAConfig(zooKeeper.getConnectString(), fsStateHandlePath);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, snapshotNamespace);
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, snapshotNamespace);
+		String path = ZooKeeperUtils.generateCheckpointsPath(configuration, jobUID);
+		assertTrue(path.contains(snapshotNamespace));
 	}
 
 	private Configuration setQuorum(Configuration conf, String quorum) {

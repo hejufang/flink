@@ -245,6 +245,7 @@ public class CliFrontend {
 		Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, Collections.singletonList(uri.toString()));
 
+		replaceCheckpointNamepsaceWithSnapshotNamespace(effectiveConfiguration);
 		setEffectiveJobNameAndJobUID(effectiveConfiguration);
 		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
 		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
@@ -259,7 +260,7 @@ public class CliFrontend {
 			// remove this config in case of JM failover
 			final String savepointPath = effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
 			effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
-			initializeCheckpointNamespaceDirectory(activeCommandLine, commandLine, jobUID, savepointPath);
+			initializeCheckpointNamespaceDirectory(effectiveConfiguration, jobUID, savepointPath);
 		}
 		final ApplicationConfiguration applicationConfiguration =
 				new ApplicationConfiguration(programOptions.getProgramArgs(), programOptions.getEntryPointClassName());
@@ -304,6 +305,7 @@ public class CliFrontend {
 		final Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, jobJars);
 
+		replaceCheckpointNamepsaceWithSnapshotNamespace(effectiveConfiguration);
 		setEffectiveJobNameAndJobUID(effectiveConfiguration);
 		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
 		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
@@ -314,7 +316,7 @@ public class CliFrontend {
 			// remove this config in case of JM failover
 			final String savepointPath = effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
 			effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
-			initializeCheckpointNamespaceDirectory(activeCommandLine, commandLine, jobUID, savepointPath);
+			initializeCheckpointNamespaceDirectory(effectiveConfiguration, jobUID, savepointPath);
 		}
 
 		LOG.debug("Effective executor configuration: {}", effectiveConfiguration);
@@ -996,6 +998,7 @@ public class CliFrontend {
 
 		final Configuration effectiveConfiguration = activeCommandLine.getEffectiveConfiguration(commandLine);
 
+		replaceCheckpointNamepsaceWithSnapshotNamespace(effectiveConfiguration);
 		setEffectiveJobNameAndJobUID(effectiveConfiguration);
 		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
 		if (checkpointOptions.isAnalyzation()) {
@@ -1050,32 +1053,33 @@ public class CliFrontend {
 	}
 
 	private void initializeCheckpointNamespaceDirectory(
-		CustomCommandLine customCommandLine,
-		CommandLine commandLine,
+		Configuration effectiveConfiguration,
 		String jobUID,
 		String savepointPath) throws Exception {
 
 		JobID jobID = JobID.generate();
-		Configuration effectiveConfiguration = customCommandLine.getEffectiveConfiguration(commandLine);
 
 		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 		StateBackend stateBackend = Checkpoints.loadStateBackend(effectiveConfiguration, classLoader, LOG);
 		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobUID);
 
-		if (checkpointStorage.findCompletedCheckpointPointerV2().size() > 0) {
-			final String namespace = effectiveConfiguration.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
-			throw new IllegalStateException(String.format("Namespace %s exists! Please switch to a new namespace.", namespace));
-		}
+		Integer size = checkpointStorage.findCompletedCheckpointPointerV2().size();
+		if (size > 0) {
+			if (effectiveConfiguration.get(CheckpointingOptions.SNAPSHOT_NAMESPACE) == null) {
+				final String namespace = effectiveConfiguration.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
+				throw new IllegalStateException(String.format("Namespace %s exists! Please switch to a new namespace.", namespace));
+			}
+		} else {
+			CheckpointMetadata savepointMeta = loadSavepointMetadata(savepointPath);
 
-		CheckpointMetadata savepointMeta = loadSavepointMetadata(savepointPath);
+			CheckpointStorageLocation savepointMetaInCheckpointDirLocation = checkpointStorage.initializeLocationForSavepointMetaInCheckpointDir(savepointMeta.getCheckpointId());
 
-		CheckpointStorageLocation savepointMetaInCheckpointDirLocation = checkpointStorage.initializeLocationForSavepointMetaInCheckpointDir(savepointMeta.getCheckpointId());
-
-		LOG.info("Write savepoint metadata in {} and refer to {}.",
-			savepointMetaInCheckpointDirLocation.getMetadataFilePath().getPath(), savepointPath);
-		try (CheckpointMetadataOutputStream out = savepointMetaInCheckpointDirLocation.createMetadataOutputStream()) {
-			Checkpoints.storeSavepointSimpleMetadata(new SavepointSimpleMetadata(savepointMeta.getCheckpointId(), savepointPath), out);
-			out.closeAndFinalizeCheckpoint();
+			LOG.info("Write savepoint metadata in {} and refer to {}.",
+				savepointMetaInCheckpointDirLocation.getMetadataFilePath().getPath(), savepointPath);
+			try (CheckpointMetadataOutputStream out = savepointMetaInCheckpointDirLocation.createMetadataOutputStream()) {
+				Checkpoints.storeSavepointSimpleMetadata(new SavepointSimpleMetadata(savepointMeta.getCheckpointId(), savepointPath), out);
+				out.closeAndFinalizeCheckpoint();
+			}
 		}
 
 		// clear checkpoints on zookeeper.
@@ -1325,6 +1329,17 @@ public class CliFrontend {
 				configuration.setString(PipelineOptions.JOB_UID, effectiveJobName);
 				LOG.info("JobUID is not set, set it to jobName for backward-compatibility, jobName: {}, jobUID: {}", effectiveJobName, configuration.getString(PipelineOptions.JOB_UID));
 			}
+		}
+	}
+
+	/**
+	 * If snapshot.namespace is set, replace state.checkpoints.namespace with snapshot.namespace for snapshot.namespace has higher priority.
+	 * @param configuration effective configuration for running commands
+	 */
+	private void replaceCheckpointNamepsaceWithSnapshotNamespace(Configuration configuration) {
+		final String snapshotNamespace = configuration.getString(CheckpointingOptions.SNAPSHOT_NAMESPACE);
+		if (snapshotNamespace != null) {
+			configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, snapshotNamespace);
 		}
 	}
 

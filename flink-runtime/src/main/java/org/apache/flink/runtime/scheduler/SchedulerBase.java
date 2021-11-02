@@ -944,7 +944,13 @@ public abstract class SchedulerBase implements SchedulerNG {
 		LocalDate currentDate = LocalDate.now();
 		String dateSubDir = String.format("%04d%02d%02d", currentDate.getYear(), currentDate.getMonthValue(), currentDate.getDayOfMonth());
 		String jobUID = jobGraph.getJobUID() == null ? jobGraph.getName() : jobGraph.getJobUID();
-		String manualSavepointPath = String.format("%s/%s/%s/%s", savepointLocationPrefix, dateSubDir, jobUID, savepointId);
+		String namespace = jobMasterConfiguration.getString(CheckpointingOptions.SNAPSHOT_NAMESPACE);
+		String manualSavepointPath;
+		if (namespace != null) {
+			manualSavepointPath = String.format("%s/%s/%s/%s/%s", savepointLocationPrefix, dateSubDir, jobUID, namespace, savepointId);
+		} else {
+			manualSavepointPath = String.format("%s/%s/%s/%s", savepointLocationPrefix, dateSubDir, jobUID, savepointId);
+		}
 		log.info("On triggering manual savepoint at {}", manualSavepointPath);
 
 		if (blockSource) {

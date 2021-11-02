@@ -35,8 +35,8 @@ import org.apache.flink.runtime.state.CheckpointMetadataOutputStream;
 import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.StateBackend;
-import org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointMetadataOutputStream;
+import org.apache.flink.runtime.state.filesystem.FsCheckpointStorage;
 import org.apache.flink.util.ChildFirstClassLoader;
 
 import org.apache.flink.shaded.org.apache.commons.cli.Options;
@@ -50,11 +50,15 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.client.cli.CliFrontendTestUtils.TEST_JAR_MAIN_CLASS;
 import static org.apache.flink.client.cli.CliFrontendTestUtils.getTestJarPath;
+import static org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage.METADATA_FILE_NAME;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -107,7 +111,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 
 		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
 			new Path(savepointPath).getFileSystem(),
-			new Path(savepointPath, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(savepointPath, METADATA_FILE_NAME),
 			new Path(savepointPath))) {
 			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
 			out.closeAndFinalizeCheckpoint();
@@ -239,7 +243,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 
 		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
 			new Path(savepointPath).getFileSystem(),
-			new Path(savepointPath, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(savepointPath, METADATA_FILE_NAME),
 			new Path(savepointPath))) {
 			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
 			out.closeAndFinalizeCheckpoint();
@@ -363,7 +367,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 
 		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
 			new Path(savepointPath).getFileSystem(),
-			new Path(savepointPath, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(savepointPath, METADATA_FILE_NAME),
 			new Path(savepointPath))) {
 			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
 			out.closeAndFinalizeCheckpoint();
@@ -410,7 +414,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 
 		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
 			new Path(savepointPath).getFileSystem(),
-			new Path(savepointPath, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(savepointPath, METADATA_FILE_NAME),
 			new Path(savepointPath))) {
 			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
 			out.closeAndFinalizeCheckpoint();
@@ -455,7 +459,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 
 		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
 			new Path(savepointPath).getFileSystem(),
-			new Path(savepointPath, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(savepointPath, METADATA_FILE_NAME),
 			new Path(savepointPath))) {
 			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
 			out.closeAndFinalizeCheckpoint();
@@ -502,7 +506,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 
 		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
 			new Path(savepointPath).getFileSystem(),
-			new Path(savepointPath, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(savepointPath, METADATA_FILE_NAME),
 			new Path(savepointPath))) {
 			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
 			out.closeAndFinalizeCheckpoint();
@@ -534,6 +538,83 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 		Assert.assertEquals(3, fs.listStatus(new Path(new Path(checkpointFolder, jobName), namespace)).length);
 		// verify the sp-1 exists
 		Assert.assertTrue(fs.exists(new Path(new Path(new Path(checkpointFolder, jobName), namespace), "sp-1")));
+	}
+
+	@Test
+	public void testRestoreFromSavepointWithNewSnapshotNamespace() throws Exception {
+		String snapshotNamespace = "snapshot_namespace";
+		String checkpointNamespace = "checkpoint_namespace";
+		String jobName = "jname";
+		String jobUID = jobName;
+
+		String checkpointDir = tmp.newFolder().getAbsolutePath();
+		String savepoint = tmp.newFolder().getAbsolutePath() + "/" + UUID.randomUUID();
+		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
+			new Path(savepoint).getFileSystem(),
+			new Path(savepoint, METADATA_FILE_NAME),
+			new Path(savepoint))) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+		String[] args = {
+			"-cn", "test",
+			"-e", "test-executor",
+			"-D" + PipelineOptions.NAME.key() + "=" + jobName,
+			"-D" + CheckpointingOptions.SNAPSHOT_NAMESPACE.key() + "=" + snapshotNamespace,
+			"-D" + CheckpointingOptions.CHECKPOINTS_NAMESPACE.key() + "=" + checkpointNamespace,
+			"-D" + CheckpointingOptions.RESTORE_SAVEPOINT_PATH.key() + "=file://" + savepoint,
+			"-D" + CheckpointingOptions.CHECKPOINTS_DIRECTORY.key() + "=file://" + checkpointDir,
+			"-D" + CheckpointingOptions.STATE_BACKEND.key() + "=filesystem",
+			"-Dclassloader.resolve-order=parent-first",
+			"-DclusterName=flink",
+			getTestJarPath()};
+
+		verifyCliFrontend(configuration, args, cliUnderTest, "parent-first", ParentFirstClassLoader.class.getName());
+		// Savepoint metadata is copied to checkpoint dir with folder-name sp-1
+		assertTrue(Files.exists(Paths.get(checkpointDir, jobUID, snapshotNamespace, "sp-1", METADATA_FILE_NAME)));
+	}
+
+	@Test
+	public void testRestoreFromSavepointWithExistingSnapshotNamespace() throws Exception {
+		String snapshotNamespace = "snapshot_namespace";
+		String checkpointNamespace = "checkpoint_namespace";
+		String jobName = "testRestoreFromSavepointWithExistingSnapshotNamespace";
+		String jobUID = jobName;
+
+		String checkpointDir = tmp.newFolder().getAbsolutePath();
+		String savepoint = tmp.newFolder().getAbsolutePath() + "/" + UUID.randomUUID();
+
+		configuration.setString(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, Paths.get(checkpointDir).toUri().toString());
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, snapshotNamespace);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, snapshotNamespace);
+
+		StateBackend stateBackend = Checkpoints.loadStateBackend(configuration, Thread.currentThread().getContextClassLoader(), null);
+		FsCheckpointStorage storage = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
+		CheckpointStorageLocation location = storage.initializeLocationForCheckpoint(1L);
+
+		try (CheckpointMetadataOutputStream out = location.createMetadataOutputStream()) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+		String[] args = new String[]{
+			"-cn", "test",
+			"-t", "remote",
+			"-DclusterName=flink",
+			"-Dclassloader.resolve-order=parent-first",
+			"-D" + PipelineOptions.NAME.key() + "=" + jobName,
+			"-D" + CheckpointingOptions.STATE_BACKEND.key() + "=filesystem",
+			"-D" + CheckpointingOptions.CHECKPOINTS_DIRECTORY.key() + "=file://" + checkpointDir,
+			"-D" + CheckpointingOptions.CHECKPOINTS_NAMESPACE.key() + "=" + checkpointNamespace,
+			"-D" + CheckpointingOptions.SNAPSHOT_NAMESPACE.key() + "=" + snapshotNamespace,
+			"-D" + CheckpointingOptions.RESTORE_SAVEPOINT_PATH.key() + "=file://" + savepoint,
+			getTestJarPath()
+		};
+		verifyCliFrontend(configuration, args, cliUnderTest, "parent-first", ParentFirstClassLoader.class.getName());
+		// No savepoint will be copied to checkpoint dir, and client didn't throw IllegalStateException
+		assertTrue(Files.notExists(Paths.get(checkpointDir, jobUID, snapshotNamespace, "sp-1")));
+		assertTrue(Files.exists(Paths.get(checkpointDir, jobUID, snapshotNamespace, "chk-1", METADATA_FILE_NAME)));
+		assertEquals(3, Files.list(Paths.get(checkpointDir, jobUID, snapshotNamespace)).collect(Collectors.toList()).size());
 	}
 
 	// --------------------------------------------------------------------------------------------

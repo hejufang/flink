@@ -43,6 +43,11 @@ public class SimplePeriodicSavepointScheduler implements PeriodicSavepointSchedu
 	private final String jobUID;
 
 	/**
+	 * The namespace for savepoints of a job, managed by platform.
+	 */
+	private final String namespace;
+
+	/**
 	 * Detach savepoint location prefix. Set by dynamic property state.savepoint.location-prefix.
 	 */
 	@Nullable
@@ -66,12 +71,13 @@ public class SimplePeriodicSavepointScheduler implements PeriodicSavepointSchedu
 	private final CheckpointCoordinator coordinator;
 
 	public SimplePeriodicSavepointScheduler(
+			@Nullable String namespace,
 			String jobUID,
 			@Nullable String savepointLocationPrefix,
 			long baseInterval,
 			long minPauseMillis,
 			CheckpointCoordinator coordinator) {
-
+		this.namespace = namespace;
 		this.jobUID = jobUID;
 		this.savepointLocationPrefix = savepointLocationPrefix;
 		this.baseInterval = baseInterval;
@@ -86,8 +92,12 @@ public class SimplePeriodicSavepointScheduler implements PeriodicSavepointSchedu
 				"set this value in config state.savepoint.location-prefix.");
 			LocalDate currentDate = LocalDate.now();
 			String dateSubDir = String.format("%04d%02d%02d", currentDate.getYear(), currentDate.getMonthValue(), currentDate.getDayOfMonth());
-			String periodicSavepointPath = String.format("%s/%s/%s", savepointLocationPrefix, dateSubDir, jobUID);
-
+			String periodicSavepointPath;
+			if (namespace != null) {
+				periodicSavepointPath = String.format("%s/%s/%s/%s", savepointLocationPrefix, dateSubDir, jobUID, namespace);
+			} else {
+				periodicSavepointPath = String.format("%s/%s/%s", savepointLocationPrefix, dateSubDir, jobUID);
+			}
 			try {
 				LOG.info("On triggering periodic savepoint at {}", periodicSavepointPath);
 				coordinator.triggerSavepoint(periodicSavepointPath);

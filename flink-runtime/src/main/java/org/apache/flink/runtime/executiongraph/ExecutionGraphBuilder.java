@@ -470,7 +470,10 @@ public class ExecutionGraphBuilder {
 			CheckpointTriggerConfiguration triggerConfiguration = new CheckpointTriggerConfiguration(triggerStrategy, sortedTopology);
 			chkConfig.setCheckpointTriggerConfiguration(triggerConfiguration);
 
+			String namespace = jobManagerConfig.getString(CheckpointingOptions.SNAPSHOT_NAMESPACE);
+
 			executionGraph.enableCheckpointing(
+				namespace,
 				chkConfig,
 				triggerVertices,
 				ackVertices,

@@ -19,13 +19,17 @@
 package org.apache.flink.runtime.state.filesystem;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.configuration.CheckpointingOptions;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.fs.local.LocalFileSystem;
+import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
 import org.apache.flink.runtime.state.CheckpointStreamFactory.CheckpointStateOutputStream;
 import org.apache.flink.runtime.state.CheckpointedStateScope;
+import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointStreamFactory.FsCheckpointStateOutputStream;
 
@@ -36,6 +40,7 @@ import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
 
@@ -53,7 +58,6 @@ public class FsCheckpointStorageTest extends AbstractFileCheckpointStorageTestBa
 
 	private static final int FILE_SIZE_THRESHOLD = 1024;
 	private static final int WRITE_BUFFER_SIZE = 4096;
-
 	// ------------------------------------------------------------------------
 	//  General Fs-based checkpoint storage tests, inherited
 	// ------------------------------------------------------------------------
@@ -241,6 +245,24 @@ public class FsCheckpointStorageTest extends AbstractFileCheckpointStorageTestBa
 			(FsCheckpointStorageLocation) storage.resolveCheckpointStorageLocation(2L, savepointLocationReference);
 		final FileSystem fileSystem = savepointStreamFactory.getFileSystem();
 		assertTrue(fileSystem instanceof LocalFileSystem);
+	}
+
+	@Test
+	public void testCreateCheckpointStorageWithSnapshotNamespace() throws Exception {
+		String snapshotNamespace = "snapshot_namespace";
+		String statebackend = "filesystem";
+		String jobUID = "juid";
+		URI checkpointURI = randomTempPath().toUri();
+		Configuration configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, snapshotNamespace);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, snapshotNamespace);
+		configuration.setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+		StateBackend stateBackend = Checkpoints.loadStateBackend(configuration, classLoader, null);
+		FsCheckpointStorage storage = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
+		Path checkpointDir = storage.getCheckpointsDirectory();
+		assertTrue(checkpointDir.toString().endsWith(snapshotNamespace));
 	}
 
 	// ------------------------------------------------------------------------
