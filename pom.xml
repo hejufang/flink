@@ -175,7 +175,7 @@ under the License.
 		<hivemetastore.hadoop.version>2.7.5</hivemetastore.hadoop.version>
 		<japicmp.referenceVersion>1.11.1</japicmp.referenceVersion>
 		<japicmp.outputDir>tools/japicmp-output</japicmp.outputDir>
-		<snakeyaml.version>1.19</snakeyaml.version>
+		<snakeyaml.version>1.24</snakeyaml.version>
 	</properties>
 
 	<dependencies>

@@ -74,7 +74,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Kubernetes specific implementation of the {@link ResourceManager}.
  */
 public class KubernetesResourceManager extends ActiveResourceManager<KubernetesWorkerNode>
-	implements FlinkKubeClient.PodCallbackHandler {
+	implements FlinkKubeClient.WatchCallbackHandler<KubernetesPod> {
 
 	private static final Logger LOG = LoggerFactory.getLogger(KubernetesResourceManager.class);
 
