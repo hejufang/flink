@@ -44,6 +44,7 @@ import static org.apache.flink.contrib.streaming.state.RocksDBOperationUtils.DB_
 import static org.apache.flink.contrib.streaming.state.RocksDBOperationUtils.DB_LOG_FILE_OP;
 import static org.apache.flink.contrib.streaming.state.RocksDBOperationUtils.DB_LOG_FILE_PREFIX;
 import static org.apache.flink.contrib.streaming.state.RocksDBOperationUtils.DB_LOG_FILE_UUID;
+import static org.apache.flink.contrib.streaming.state.RocksDBOperationUtils.MAX_NUM_ROCKSDB_LOG_RATAIN;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
@@ -118,7 +119,7 @@ public class RocksDBOperationsUtilsTest {
 		List<Path> nonRetained = Files.list(Paths.get(userLogDirPath)).filter(file -> !Files.isDirectory(file))
 			.filter(file -> file.getFileName().toString().startsWith(prefix) && (file.getFileName().toString().endsWith("_0_LOG") || file.getFileName().toString().endsWith("_1_LOG"))).collect(Collectors.toList());
 		assertEquals(2, allFiles.size());
-		assertEquals(RocksDBOptions.MAX_NUM_ROCKSDB_LOG_RATAIN.defaultValue().intValue(), allPrefixedFiles.size());
+		assertEquals(MAX_NUM_ROCKSDB_LOG_RATAIN.intValue(), allPrefixedFiles.size());
 		assertEquals(1, retained.size());
 		// Verify there is no old file exists
 		assertEquals(0, nonRetained.size());

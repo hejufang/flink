@@ -36,6 +36,7 @@ import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -57,17 +58,19 @@ import static org.apache.flink.contrib.streaming.state.RocksDBKeyedStateBackend.
  * Utils for RocksDB Operations.
  */
 public class RocksDBOperationUtils {
+	private static final Logger LOG = LoggerFactory.getLogger(RocksDBOperationUtils.class);
 
 	private static final String MANAGED_MEMORY_RESOURCE_ID = "state-rocks-managed-memory";
 
 	private static final String FIXED_SLOT_MEMORY_RESOURCE_ID = "state-rocks-fixed-slot-memory";
+	public static final Integer MAX_NUM_ROCKSDB_LOG_RATAIN = 1;
+	public static final Integer MAX_SIZE_ROCKSDB_LOG_RETAIN = 104857600;
 
 	public static final String DB_INSTANCE_DIR_STRING = "db";
 	public static final String DB_LOG_FILE_NAME = "LOG";
 	public static final String DB_LOG_FILE_PREFIX = "job_";
 	public static final String DB_LOG_FILE_UUID = "_uuid_";
 	public static final String DB_LOG_FILE_OP = "_op_";
-
 	public static RocksDB openDB(
 		String path,
 		List<ColumnFamilyDescriptor> stateColumnFamilyDescriptors,
@@ -249,10 +252,14 @@ public class RocksDBOperationUtils {
 			File instanceRocksDBPath = new File(instanceBasePath, DB_INSTANCE_DIR_STRING);
 			File dbLogFile = new File(instanceRocksDBPath, DB_LOG_FILE_NAME);
 
+			if (dbLogFile.length() > MAX_SIZE_ROCKSDB_LOG_RETAIN) {
+				LOG.info("RocksDB log size exceeds 100M, skip copying it to user log dir.");
+				return;
+			}
+
 			String nowStr = String.valueOf(System.currentTimeMillis());
 			String copiedDbLogFileName = instanceBasePath.getName() + "_" + nowStr + "_" + DB_LOG_FILE_NAME;
 			File copiedDbLogFile = new File(userLogDir, copiedDbLogFileName);
-			Integer maxRetain = RocksDBOptions.MAX_NUM_ROCKSDB_LOG_RATAIN.defaultValue();
 			String[] opSubTaskNameSplited = instanceBasePath.getName().split(DB_LOG_FILE_UUID);
 			if (opSubTaskNameSplited.length == 2) { // For those valid named files we need to remove the older files and only retain limited log files in container.
 				String opSubtaskPrefix = opSubTaskNameSplited[0];
@@ -264,7 +271,7 @@ public class RocksDBOperationUtils {
 						.filter(file -> file.getFileName().toString().startsWith(opSubtaskPrefix))
 						.map(file -> file.toFile())
 						.sorted(Comparator.comparing(File::lastModified).reversed())
-						.skip(maxRetain - 1)
+						.skip(MAX_NUM_ROCKSDB_LOG_RATAIN - 1)
 						.forEach(file -> file.delete());
 				}
 			}

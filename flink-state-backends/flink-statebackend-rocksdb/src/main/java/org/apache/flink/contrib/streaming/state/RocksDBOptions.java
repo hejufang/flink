@@ -173,11 +173,4 @@ public class RocksDBOptions {
 		.defaultValue(600000L)
 		.withDescription(String.format(
 			"The maximum time that a native checkpoint may take."));
-
-	public static final ConfigOption<Integer> MAX_NUM_ROCKSDB_LOG_RATAIN = ConfigOptions
-		.key("state.backend.rocksdb.log.retain.max")
-		.intType()
-		.defaultValue(1)
-		.withDescription(String.format(
-			"The maximum number of rocksDB log files need to be retained in container's user-log directory"));
 }
