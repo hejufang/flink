@@ -395,9 +395,11 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		return new MessageQueue(queuePb.getTopic(), queuePb.getBrokerName(), queuePb.getQueueId());
 	}
 
+	// keep same logic with flink-connector-rocketmq-legacy #AllocateMessageQueueStrategyParallelism#allocate()
 	private boolean belongToThisTask(MessageQueue messageQueue) {
-		return (((messageQueue.hashCode() * 31) & 0x7FFFFFFF) % parallelism == subTaskId) &&
-			(specificMessageQueueSet == null || specificMessageQueueSet.contains(messageQueue));
+		int startIndex = ((messageQueue.toString().hashCode() * 31) & 0x7FFFFFFF) % parallelism;
+		int assignedSubTaskId = (startIndex + messageQueue.getQueueId()) % parallelism;
+		return (assignedSubTaskId == subTaskId) && (specificMessageQueueSet == null || specificMessageQueueSet.contains(messageQueue));
 	}
 
 	private void resetOffset(MessageQueuePb messageQueuePb) throws InterruptedException {
