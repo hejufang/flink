@@ -21,16 +21,23 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinatorTestingUtils.CheckpointCoordinatorBuilder;
 import org.apache.flink.runtime.concurrent.ManuallyTriggeredScheduledExecutor;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
+import org.apache.flink.runtime.executiongraph.TestingExecutionGraphBuilder;
+import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration.CheckpointCoordinatorConfigurationBuilder;
 import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
@@ -38,6 +45,8 @@ import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
 import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
+import org.apache.flink.runtime.state.KeyGroupRangeOffsets;
+import org.apache.flink.runtime.state.KeyGroupsStateHandle;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.OperatorStreamStateHandle;
@@ -84,10 +93,12 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.checkpoint.CheckpointCoordinatorTestingUtils.mockExecutionJobVertex;
 import static org.apache.flink.runtime.checkpoint.CheckpointCoordinatorTestingUtils.mockExecutionVertex;
 import static org.apache.flink.runtime.checkpoint.CheckpointFailureReason.CHECKPOINT_EXPIRED;
+import static org.apache.flink.runtime.checkpoint.StateHandleDummyUtil.createNewOperatorStateHandle;
 import static org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage.CHECKPOINT_DIR_PREFIX;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.junit.Assert.assertEquals;
@@ -2598,6 +2609,118 @@ public class CheckpointCoordinatorTest extends TestLogger {
 			assertEquals(checkPointDir, coord.getPendingCheckpoints().get(chkID).getTargetLocation().getMetadataFilePath().getParent().getPath());
 		} finally {
 			coord.shutdown(JobStatus.FINISHED);
+		}
+	}
+
+	@Test
+	public void testFindAllCompletedCheckpointsOnStorage() throws Exception {
+		File checkpointBaseDir = tmpFolder.newFolder();
+		StateBackend backend = new FsStateBackend(checkpointBaseDir.toURI());
+		final JobID jid = new JobID();
+
+		JobVertex jv1 = new JobVertex("TestVertex1", new JobVertexID());
+		jv1.setParallelism(1);
+		jv1.setMaxParallelism(1);
+		jv1.setInvokableClass(AbstractInvokable.class);
+
+		JobVertex jv2 = new JobVertex("TestVertex2", new JobVertexID());
+		jv2.setParallelism(1);
+		jv2.setMaxParallelism(1);
+		jv2.setInvokableClass(AbstractInvokable.class);
+
+		ExecutionGraph graph = TestingExecutionGraphBuilder
+			.newBuilder()
+			.setJobGraph(new JobGraph(jv1, jv2))
+			.build();
+		ExecutionJobVertex ejv1 = new ExecutionJobVertex(graph, jv1, 1, JobManagerOptions.MAX_ATTEMPTS_HISTORY_SIZE.defaultValue(), AkkaUtils.getDefaultTimeout(), 1, System.currentTimeMillis());
+		ExecutionJobVertex ejv2 = new ExecutionJobVertex(graph, jv2, 1, JobManagerOptions.MAX_ATTEMPTS_HISTORY_SIZE.defaultValue(), AkkaUtils.getDefaultTimeout(), 1, System.currentTimeMillis());
+
+		Set<ExecutionVertex> tasks = new HashSet<>(2);
+		tasks.add(ejv1.getTaskVertices()[0]);
+		tasks.add(ejv2.getTaskVertices()[0]);
+		ejv1.getTaskVertices()[0].getCurrentExecutionAttempt().transitionState(ExecutionState.RUNNING);
+		ejv2.getTaskVertices()[0].getCurrentExecutionAttempt().transitionState(ExecutionState.RUNNING);
+
+		CheckpointCoordinator coord =
+			new CheckpointCoordinatorBuilder()
+				.setCheckpointStateBackend(backend)
+				.setJobId(jid)
+				.setTasks(tasks.toArray(new ExecutionVertex[0]))
+				.setTimer(manuallyTriggeredScheduledExecutor)
+				.build();
+
+		// trigger the first checkpoint. this should succeed
+		final CompletableFuture<CompletedCheckpoint> checkpointFuture = coord.triggerCheckpoint(false);
+		manuallyTriggeredScheduledExecutor.triggerAll();
+		assertFalse(checkpointFuture.isCompletedExceptionally());
+
+		Random random = new Random();
+		KeyGroupRangeOffsets keyGroupRangeOffsets = new KeyGroupRangeOffsets(KeyGroupRange.of(0, 0), new long[]{0L});
+		StreamStateHandle streamStateHandle = new ByteStreamStateHandle("state", new byte[0]);
+		OperatorID opID1 = OperatorID.fromJobVertexID(ejv1.getJobVertexId());
+		TaskStateSnapshot taskOperatorSubtaskStates1 = new TaskStateSnapshot(Collections.singletonMap(opID1, new OperatorSubtaskState(
+			new StateObjectCollection<>(Collections.singletonList(createNewOperatorStateHandle(10, random))),
+			new StateObjectCollection<>(Collections.singletonList(createNewOperatorStateHandle(10, random))),
+			StateObjectCollection.singleton(new KeyGroupsStateHandle(keyGroupRangeOffsets, streamStateHandle)),
+			StateObjectCollection.singleton(new KeyGroupsStateHandle(keyGroupRangeOffsets, streamStateHandle)))));
+		// acknowledge from one of the tasks
+		AcknowledgeCheckpoint acknowledgeCheckpoint1 = new AcknowledgeCheckpoint(jid, ejv1.getTaskVertices()[0].getCurrentExecutionAttempt().getAttemptId(), 1L, new CheckpointMetrics(), taskOperatorSubtaskStates1);
+		coord.receiveAcknowledgeMessage(acknowledgeCheckpoint1, TASK_MANAGER_LOCATION_INFO);
+
+		OperatorID opID2 = OperatorID.fromJobVertexID(ejv2.getJobVertexId());
+		TaskStateSnapshot taskOperatorSubtaskStates2 = new TaskStateSnapshot(Collections.singletonMap(opID2, new OperatorSubtaskState(
+			new StateObjectCollection<>(Collections.singletonList(createNewOperatorStateHandle(10, random))),
+			new StateObjectCollection<>(Collections.singletonList(createNewOperatorStateHandle(10, random))),
+			StateObjectCollection.singleton(new KeyGroupsStateHandle(keyGroupRangeOffsets, streamStateHandle)),
+			StateObjectCollection.singleton(new KeyGroupsStateHandle(keyGroupRangeOffsets, streamStateHandle)))));
+		// acknowledge from one of the other tasks
+		AcknowledgeCheckpoint acknowledgeCheckpoint2 = new AcknowledgeCheckpoint(jid, ejv2.getTaskVertices()[0].getCurrentExecutionAttempt().getAttemptId(), 1L, new CheckpointMetrics(), taskOperatorSubtaskStates2);
+		coord.receiveAcknowledgeMessage(acknowledgeCheckpoint2, TASK_MANAGER_LOCATION_INFO);
+
+		// the now we should have a completed checkpoint
+		assertEquals(1, coord.getNumberOfRetainedSuccessfulCheckpoints());
+		assertEquals(0, coord.getNumberOfPendingCheckpoints());
+		CompletedCheckpoint completedCheckpoint = coord.getCheckpointStore().getLatestCheckpoint(false);
+
+		Set<CompletedCheckpoint> checkpointsOnStorage = coord.findAllCompletedCheckpointsOnStorage(
+			tasks.stream().map(ExecutionVertex::getJobVertex).collect(Collectors.toSet()),
+			false,
+			true,
+			Thread.currentThread().getContextClassLoader());
+
+		assertEquals(1, checkpointsOnStorage.size());
+		CompletedCheckpoint completedCheckpointOnStorage = checkpointsOnStorage.iterator().next();
+		assertEquals(completedCheckpoint.getOperatorStates(), completedCheckpointOnStorage.getOperatorStates());
+
+		try {
+			JobVertex jv3 = new JobVertex("TestVertex3", new JobVertexID());
+			jv3.setParallelism(1);
+			jv3.setMaxParallelism(1);
+			jv3.setInvokableClass(AbstractInvokable.class);
+
+			ExecutionGraph graph2 = TestingExecutionGraphBuilder
+				.newBuilder()
+				.setJobGraph(new JobGraph(jv3))
+				.build();
+			ExecutionJobVertex ejv3 = new ExecutionJobVertex(graph2, jv3, 1, JobManagerOptions.MAX_ATTEMPTS_HISTORY_SIZE.defaultValue(), AkkaUtils.getDefaultTimeout(), 1, System.currentTimeMillis());
+
+			ejv3.getTaskVertices()[0].getCurrentExecutionAttempt().transitionState(ExecutionState.RUNNING);
+			StateBackend backend2 = new FsStateBackend(checkpointBaseDir.toURI());
+			CheckpointCoordinator coord2 =
+				new CheckpointCoordinatorBuilder()
+					.setCheckpointStateBackend(backend2)
+					.setJobId(jid)
+					.setTasks(ejv3.getTaskVertices())
+					.setTimer(manuallyTriggeredScheduledExecutor)
+					.build();
+			coord2.findAllCompletedCheckpointsOnStorage(
+				Collections.singleton(ejv3),
+				false,
+				true,
+				Thread.currentThread().getContextClassLoader());
+			fail("The state should be incompatible.");
+		} catch (IllegalStateException e) {
+			// ignore
 		}
 	}
 }
