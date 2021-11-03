@@ -1383,6 +1383,9 @@ public class CheckpointCoordinator {
 					final CompletedCheckpoint completedCheckpoint = Checkpoints.loadAndValidateCheckpoint(
 							job, tasks, checkpointStorageLocation, userClassLoader, allowNonRestoredState, completedCheckpointPointer.f1);
 					result.add(completedCheckpoint);
+				} catch (IllegalStateException e) {
+					LOG.error("Failed to rollback to checkpoint/savepoint from {}", completedCheckpointPointer.f0, e);
+					throw e;
 				} catch (Exception e) {
 					LOG.warn("Fail to load checkpoint on {}.", completedCheckpointPointer, e);
 				}
