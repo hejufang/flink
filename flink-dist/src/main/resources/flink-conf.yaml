@@ -284,8 +284,6 @@ dw:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  docker.namespace: yarn
-  docker.image: yarn_runtime_flink:latest
 
 lepad:
   dc: cn
@@ -369,8 +367,6 @@ hyrax:
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  docker.namespace: yarn
-  docker.image: yarn_runtime_flink:latest
 
 horse:
   dc: cn
@@ -441,8 +437,6 @@ quail:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  docker.namespace: yarn
-  docker.image: yarn_runtime_flink:latest
 
 quoll:
   dc: cn
@@ -451,8 +445,6 @@ quoll:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  docker.namespace: yarn
-  docker.image: yarn_runtime_flink:latest
 
 quoka:
   dc: cn
@@ -467,8 +459,6 @@ quoka:
   bytedance.streaming.cluster.evenly-spread-out-slots: false
   bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
   bytedance.streaming.slot-pool.round-robin: true
-  docker.namespace: yarn
-  docker.image: yarn_runtime_flink:latest
   state.backend.cache.enable: true
   state.backend.cache.maxHeapSize: 1g
   state.backend.cache.blockSize: 4m
@@ -495,8 +485,6 @@ quaga:
   bytedance.streaming.cluster.evenly-spread-out-slots: false
   bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
   bytedance.streaming.slot-pool.round-robin: true
-  docker.namespace: yarn
-  docker.image: yarn_runtime_flink:latest
 
 quele:
   dc: cn
@@ -506,8 +494,6 @@ quele:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  docker.namespace: yarn
-  docker.image: yarn_runtime_flink:latest
 
 camel:
   dc: cn
