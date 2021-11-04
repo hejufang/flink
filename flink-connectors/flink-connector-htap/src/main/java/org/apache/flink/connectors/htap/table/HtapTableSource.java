@@ -416,7 +416,8 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 
 	@Override
 	public String explainSource() {
-		return "HtapTableSource[schema=" + Arrays.toString(getTableSchema().getFieldNames()) +
+		return "HtapTableSource[tablePath=" + tablePath +
+			", schema=" + Arrays.toString(getTableSchema().getFieldNames()) +
 			", filter=" + predicateString() +
 			", isFilterPushedDown=" + isFilterPushedDown +
 			", limit=" + limit +
