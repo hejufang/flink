@@ -35,7 +35,7 @@ common:
   kubernetes.namespace: flink
   kubernetes.taskmanager.cpu: 2.0
   kubernetes.jobmanager.cpu: 1.0
-  kubernetes.jobmanager.service-account: flink
+  kubernetes.service-account: flink
   kubernetes.deployment.annotations: "pod.tce.kubernetes.io/mountHostPath:true"
   kubernetes.container.work.dir: /opt/tiger/workdir
   pipeline.file-mounted-path: /opt/tiger/workdir
