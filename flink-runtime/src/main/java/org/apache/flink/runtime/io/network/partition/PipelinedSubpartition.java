@@ -374,17 +374,10 @@ public class PipelinedSubpartition extends ResultSubpartition {
 
 	@Override
 	public String toString() {
-		final long numBuffers;
-		final long numBytes;
-		final boolean finished;
-		final boolean hasReadView;
-
-		synchronized (buffers) {
-			numBuffers = getTotalNumberOfBuffers();
-			numBytes = getTotalNumberOfBytes();
-			finished = isFinished;
-			hasReadView = readView != null;
-		}
+		final long numBuffers = getTotalNumberOfBuffers();
+		final long numBytes = getTotalNumberOfBytes();
+		final boolean finished = isFinished;
+		final boolean hasReadView = readView != null;
 
 		return String.format(
 			"PipelinedSubpartition#%d [number of buffers: %d (%d bytes), number of buffers in backlog: %d, finished? %s, read view? %s]",
