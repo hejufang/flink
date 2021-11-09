@@ -24,6 +24,9 @@ import java.util.function.Consumer;
  * Event Recorder interface.
  */
 public interface AbstractEventRecorder {
+
+	void setJobId (String jobId);
+
 	void buildProgramStart();
 
 	void buildProgramFinish();

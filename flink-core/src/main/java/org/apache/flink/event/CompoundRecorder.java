@@ -37,6 +37,10 @@ public class CompoundRecorder implements AbstractEventRecorder{
 		recorderList.add(warehouseJobStartEventMessageRecorder);
 	}
 
+	public void setJobId (String jobId) {
+		recordCompoundRecorderEvent(r -> r.setJobId(jobId));
+	}
+
 	public void buildProgramStart() {
 		recordCompoundRecorderEvent(r -> r.buildProgramStart());
 	}

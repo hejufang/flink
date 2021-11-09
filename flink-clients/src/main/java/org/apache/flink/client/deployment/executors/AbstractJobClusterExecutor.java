@@ -76,6 +76,9 @@ public class AbstractJobClusterExecutor<ClusterID, ClientFactory extends Cluster
 		final JobGraph jobGraph = PipelineExecutorUtils.getJobGraph(pipeline, configuration);
 
 		recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::buildJobGraphFinish);
+		if (abstractEventRecorder != null) {
+			abstractEventRecorder.setJobId(jobGraph.getJobID().toString());
+		}
 
 		CheckpointVerifier.verify(jobGraph, ClassLoader.getSystemClassLoader(), configuration);
 

@@ -249,7 +249,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		this.userCodeLoader = checkNotNull(userCodeLoader);
 		this.checkpointRecoveryFactory = checkNotNull(checkpointRecoveryFactory);
 		this.rpcTimeout = checkNotNull(rpcTimeout);
-		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(false);
+		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(null, jobGraph.getJobID().toString(), false);
 		this.compoundRecorder = new CompoundRecorder(this.warehouseJobStartEventMessageRecorder);
 
 		final RestartStrategies.RestartStrategyConfiguration restartStrategyConfiguration =

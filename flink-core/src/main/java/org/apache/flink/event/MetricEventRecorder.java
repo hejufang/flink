@@ -36,6 +36,11 @@ public class MetricEventRecorder implements AbstractEventRecorder {
 	static Map<String, Long> eventTimestamp = new HashMap<>();
 
 	@Override
+	public void setJobId (String jobId) {
+
+	}
+
+	@Override
 	public void buildProgramStart() {
 
 	}
