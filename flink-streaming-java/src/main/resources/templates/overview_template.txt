@@ -16,7 +16,7 @@
 # limitations under the License.
 ################################################################################
 {
-                 "datasource": null,
+                 "datasource": "${datasource}",
                  "description": "任务运行时间",
                  "fieldConfig": {
                    "defaults": {
@@ -80,7 +80,7 @@
                  "type": "stat"
                },
                {
-                 "datasource": null,
+                 "datasource": "${datasource}",
                  "description": "Full failover次数",
                  "fieldConfig": {
                    "defaults": {
@@ -146,7 +146,7 @@
                  "type": "stat"
                },
                {
-                 "datasource": null,
+                 "datasource": "${datasource}",
                  "description": "总共的slot",
                  "fieldConfig": {
                    "defaults": {
@@ -214,7 +214,7 @@
                  "type": "stat"
                },
                {
-                 "datasource": null,
+                 "datasource": "${datasource}",
                  "description": "可用空闲的slot",
                  "fieldConfig": {
                    "defaults": {
