@@ -41,7 +41,7 @@ common:
   execution.checkpointing.mode: EXACTLY_ONCE
   execution.checkpointing.timeout: 10 min
   state.savepoint.location-prefix: ${checkpoint.hdfs.prefix}/savepoints
-  savepoint.scheduler.default.interval: 7200000
+  savepoint.scheduler.default.interval: 21600000
   state.backend.rocksdb.memory.managed: false
 
   ## High Availability
