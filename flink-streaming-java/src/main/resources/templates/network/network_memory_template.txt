@@ -134,5 +134,5 @@
     "align": false,
     "alignLevel": null
   },
-  "datasource": null
+  "datasource": "${datasource}"
 }
