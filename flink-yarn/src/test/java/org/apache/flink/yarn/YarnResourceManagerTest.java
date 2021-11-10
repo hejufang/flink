@@ -921,21 +921,170 @@ public class YarnResourceManagerTest extends TestLogger {
 	}
 
 	/**
+	 * Test slow container completed after some redundant container registered. <br/>
+	 * 1. request and allocated 10 containers. <br/>
+	 * 2. registered 7 containers. <br/>
+	 * 3. request 3 redundant containers. <br/>
+	 * 4. register 2 redundant containers. <br/>
+	 * 5. complete 1 slow containers. <br/>
+	 * 6. verify request 1 new container. <br/>
+	 * 7. registered 1 slow container. <br/>
+	 * 8. verify all starting/pending containers released. <br/>
+	 */
+	@Test
+	public void testSlowContainerCompletedAfterRedundantRegistered() throws Exception {
+		flinkConfig.setBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED, true);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
+		new Context() {{
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				addContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			final List<CompletableFuture<Acknowledge>> removeContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				removeContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger removeContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			final List<CompletableFuture<Acknowledge>> releaseContainerFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				releaseContainerFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger releaseContainerFuturesNumCompleted = new AtomicInteger(0);
+
+			testingYarnAMRMClientAsync.setGetMatchingRequestsFunction(
+					tuple -> Collections.singletonList(
+							pendingRequests.stream()
+									.filter(r -> r.getCapability().equals(tuple.f2))
+									.collect(Collectors.toList())));
+			testingYarnAMRMClientAsync.setAddContainerRequestConsumer(
+					(request, ignore) -> {
+						pendingRequests.add(request);
+						addContainerRequestFutures.get(addContainerRequestFuturesNumCompleted.getAndIncrement()).complete(request.getCapability());
+					});
+
+			testingYarnAMRMClientAsync.setRemoveContainerRequestConsumer(
+					(r, ignore) -> {
+						pendingRequests.remove(r);
+						removeContainerRequestFutures.get(removeContainerRequestFuturesNumCompleted.getAndIncrement()).complete(Acknowledge.get());
+					});
+			testingYarnAMRMClientAsync.setReleaseAssignedContainerConsumer(
+					(c, ignore) -> releaseContainerFutures.get(releaseContainerFuturesNumCompleted.getAndIncrement()).complete(Acknowledge.get()));
+
+			runTest(() -> {
+				List<Container> testContainers = new ArrayList<>();
+				for (int i = 0; i < 20; i++) {
+					testContainers.add(createTestingContainer());
+				}
+
+				// request 10 containers.
+				for (int i = 0; i < 10; i++) {
+					registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+				}
+
+				// Verify all containers requested
+				for (int i = 0; i < 10; i++) {
+					verifyFutureCompleted(addContainerRequestFutures.get(i));
+				}
+				assertEquals(10, pendingRequests.size());
+
+				// Mock that all containers are allocated
+				resourceManager.onContainersAllocated(testContainers.subList(0, 10));
+
+				// Verify pending requests has removed.
+				for (int i = 0; i < 10; i++) {
+					verifyFutureCompleted(removeContainerRequestFutures.get(i));
+				}
+				assertEquals(0, pendingRequests.size());
+
+				// register 7 containers, 000000~000006.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+				for (int i = 0; i < 7; i++) {
+					Container container = testContainers.get(i);
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				}
+				assertEquals(7, rmServices.slotManager.getNumberRegisteredSlots());
+
+				Thread.sleep(5000);
+
+				// verify request 3 containers (000010,000011,000012) for slow container(000007, 000008,000009).
+				for (int i = 10; i < 13; i++) {
+					verifyFutureCompleted(addContainerRequestFutures.get(i));
+				}
+				assertEquals(3, pendingRequests.size());
+
+				// allocated 3 container.
+				resourceManager.onContainersAllocated(testContainers.subList(10, 13));
+				for (int i = 10; i < 13; i++) {
+					verifyFutureCompleted(removeContainerRequestFutures.get(i));
+				}
+
+				// registered 2 redundant container. 000010, 000011
+				for (int i : Arrays.asList(10, 12)) {
+					Container container = testContainers.get(i);
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				}
+				// verify current state.
+				assertEquals(0, pendingRequests.size());
+				SlowContainerManagerImpl slowContainerManager = (SlowContainerManagerImpl) resourceManager.getSlowContainerManager();
+				assertEquals(3, slowContainerManager.getSlowContainerTotalNum());
+				assertEquals(1, slowContainerManager.getStartingRedundantContainerTotalNum());
+				assertEquals(4, slowContainerManager.getStartingContainerTotalNum());
+				assertEquals(0, slowContainerManager.getPendingRedundantContainersTotalNum());
+
+				// Mock that container 000007 is completed, while the worker is still pending
+				ContainerStatus testingContainerStatus = createTestingContainerStatus(testContainers.get(7).getId());
+				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
+				// wait container completed.
+				Thread.sleep(500);
+
+				// verify allocate a new container.
+				verifyFutureCompleted(addContainerRequestFutures.get(13));
+				assertEquals(1, pendingRequests.size());
+				assertEquals(2, slowContainerManager.getSlowContainerTotalNum());
+				assertEquals(1, slowContainerManager.getStartingRedundantContainerTotalNum());
+				assertEquals(3, slowContainerManager.getStartingContainerTotalNum());
+				assertEquals(0, slowContainerManager.getPendingRedundantContainersTotalNum());
+
+				// register 1 container. 000008
+				for (int i : Collections.singletonList(8)) {
+					Container container = testContainers.get(i);
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				}
+				assertEquals(10, rmServices.slotManager.getNumberRegisteredSlots());
+
+				// verify pending 000012 removed.
+				verifyFutureCompleted(removeContainerRequestFutures.get(13));
+				assertEquals(0, pendingRequests.size());
+				assertEquals(0, slowContainerManager.getSlowContainerTotalNum());
+				assertEquals(0, slowContainerManager.getStartingRedundantContainerTotalNum());
+				assertEquals(0, slowContainerManager.getStartingContainerTotalNum());
+				assertEquals(0, slowContainerManager.getPendingRedundantContainersTotalNum());
+			});
+		}};
+	}
+
+	/**
 	 * 1. request 11 containers
 	 * 2. allocated 11 containers
 	 * 3. registered 9 containers
 	 * 4. verify request 2 containers by slow container manager
 	 * 5. allocated 1 container
-	 * 6. completed 1 container(not redundant)
-	 * 7. verify request 1 container by startNewWorkerIfNeeded
-	 * 8. completed 1 container(redundant)
-	 * 9. verify not request new container
-	 * 10. allocated 1 containers and registered 2 container(1 redundant)
-	 * 11. verify all starting containers are released and pending requests are removed
-	 * 12. request,allocated,started 1 container
+	 * 6. completed 1 container(not redundant, not slow)
+	 * 7. verify not request new container
+	 * 8. completed 1 container(slow)
+	 * 9. verify request 1 new container
+	 * 10. completed 1 container(redundant)
+	 * 11. verify not request new container
+	 * 12. allocated 1 containers and registered 2 container(1 redundant)
+	 * 13. verify all starting containers are released and pending requests are removed
 	 */
 	@Test
-	public void testContainerCompletedWithSlowContainer() throws Exception {
+	public void testContainerCompletedBeforeRedundantRegistered() throws Exception {
 		flinkConfig.setBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
 		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
@@ -989,13 +1138,13 @@ public class YarnResourceManagerTest extends TestLogger {
 					registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
 				}
 
-				// Verify both containers requested
+				// Verify all containers requested
 				for (int i = 0; i < 11; i++) {
 					verifyFutureCompleted(addContainerRequestFutures.get(i));
 				}
 				assertEquals(11, pendingRequests.size());
 
-				// Mock that containers is allocated
+				// all containers are allocated.
 				resourceManager.onContainersAllocated(testContainers.subList(0, 11));
 
 				// Verify pending requests has removed.
@@ -1004,7 +1153,7 @@ public class YarnResourceManagerTest extends TestLogger {
 				}
 				assertEquals(0, pendingRequests.size());
 
-				// register 9 container, 000000~000008.
+				// register 9 containers, 000000~000008.
 				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
 				for (int i = 0; i < 9; i++) {
 					Container container = testContainers.get(i);
@@ -1014,7 +1163,7 @@ public class YarnResourceManagerTest extends TestLogger {
 
 				Thread.sleep(5000);
 
-				// requests 2 container (000011,000012) for slow container(000009, 000010).
+				// verify request 2 containers (000011,000012) for slow container(000009, 000010).
 				for (int i = 11; i < 13; i++) {
 					verifyFutureCompleted(addContainerRequestFutures.get(i));
 				}
@@ -1024,11 +1173,11 @@ public class YarnResourceManagerTest extends TestLogger {
 				resourceManager.onContainersAllocated(testContainers.subList(11, 12));
 				verifyFutureCompleted(removeContainerRequestFutures.get(11));
 
-				// Mock that container 000000 is completed, while the worker is still pending
+				// Mock that container 000000(started) is completed
 				ContainerStatus testingContainerStatus = createTestingContainerStatus(testContainers.get(0).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
 
-				// verify not allocate a container
+				// verify not allocate container
 				assertEquals(1, pendingRequests.size());
 				SlowContainerManagerImpl slowContainerManager = (SlowContainerManagerImpl) resourceManager.getSlowContainerManager();
 				assertEquals(2, slowContainerManager.getSlowContainerTotalNum());
@@ -1036,10 +1185,11 @@ public class YarnResourceManagerTest extends TestLogger {
 				assertEquals(3, slowContainerManager.getStartingContainerTotalNum());
 				assertEquals(1, slowContainerManager.getPendingRedundantContainersTotalNum());
 
-				// Mock that container 000009 is completed, while the worker is still pending
+				// Mock that container 000009(slow) is completed, while the worker is still pending
 				testingContainerStatus = createTestingContainerStatus(testContainers.get(9).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
 
+				// verify allocate a new container.
 				verifyFutureCompleted(addContainerRequestFutures.get(13));
 				assertEquals(2, pendingRequests.size());
 				assertEquals(1, slowContainerManager.getSlowContainerTotalNum());
@@ -1047,12 +1197,13 @@ public class YarnResourceManagerTest extends TestLogger {
 				assertEquals(2, slowContainerManager.getStartingContainerTotalNum());
 				assertEquals(1, slowContainerManager.getPendingRedundantContainersTotalNum());
 
-				// Mock that container 000011 is completed, while the worker is still pending
+				// Mock that container 000011(redundant) is completed
 				testingContainerStatus = createTestingContainerStatus(testContainers.get(11).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
 				// wait container completed.
 				Thread.sleep(500);
 
+				// verify not allocate new container.
 				assertEquals(2, pendingRequests.size());
 				assertEquals(1, slowContainerManager.getSlowContainerTotalNum());
 				assertEquals(0, slowContainerManager.getStartingRedundantContainerTotalNum());
@@ -1074,16 +1225,11 @@ public class YarnResourceManagerTest extends TestLogger {
 				// verify pending 000012 removed.
 				verifyFutureCompleted(removeContainerRequestFutures.get(13));
 				assertEquals(0, pendingRequests.size());
-
-				// request new container
-				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
-				// allocated 1 container. 000014
-				resourceManager.onContainersAllocated(testContainers.subList(14, 15));
-				verifyFutureCompleted(removeContainerRequestFutures.get(14));
-				// 000014 started.
-				Container container = testContainers.get(14);
-				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
-				assertEquals(11, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, slowContainerManager.getSlowContainerTotalNum());
+				assertEquals(0, slowContainerManager.getStartingRedundantContainerTotalNum());
+				assertEquals(0, slowContainerManager.getStartingContainerTotalNum());
+				assertEquals(0, slowContainerManager.getPendingRedundantContainersTotalNum());
+				assertEquals(0, slowContainerManager.getRedundantContainerTotalNum());
 			});
 		}};
 	}

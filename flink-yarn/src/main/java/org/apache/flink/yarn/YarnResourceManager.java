@@ -1038,8 +1038,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			// exclude redundant container requests for slow container.
 			while (requiredWorkersPerResourceSpec.getValue() >
 					(getNumRequestedNotRegisteredWorkersFor(workerResourceSpec)
-							- slowContainerManager.getPendingRedundantContainersNum(workerResourceSpec)
-							- slowContainerManager.getStartingRedundantContainerNum(workerResourceSpec))) {
+							- slowContainerManager.getRedundantContainerNum(workerResourceSpec))) {
 				final boolean requestContainerSuccess = tryStartNewWorker(workerResourceSpec);
 				Preconditions.checkState(requestContainerSuccess,
 					"Cannot request container for worker resource spec {}.", workerResourceSpec);
