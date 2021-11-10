@@ -313,7 +313,7 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 
 	@Override
 	public String toString() {
-		return "LocalInputChannel [" + partitionId + "]";
+		return "LocalInputChannel#" + channelIndex + " [" + partitionId + "]";
 	}
 
 	@Override

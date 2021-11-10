@@ -300,7 +300,7 @@ public class RemoteInputChannel extends InputChannel {
 
 	@Override
 	public String toString() {
-		return "RemoteInputChannel [" + partitionId + " at " + connectionId + "]";
+		return "RemoteInputChannel#" + channelIndex + " [" + partitionId + " at " + connectionId + "]";
 	}
 
 	// ------------------------------------------------------------------------
@@ -551,6 +551,10 @@ public class RemoteInputChannel extends InputChannel {
 
 	public void onError(Throwable cause) {
 		if (isRecoverable) {
+			if (!isChannelAvailable()) {
+				LOG.info("Channel {} is unavailable, the error {} is ignored.", this, cause.getMessage());
+				return;
+			}
 			// send event
 			final boolean wasEmpty;
 			synchronized (receivedBuffers) {
