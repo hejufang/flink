@@ -138,6 +138,8 @@ public interface SlotManager extends AutoCloseable {
 	 */
 	boolean unregisterTaskManager(InstanceID instanceId, Exception cause);
 
+	void unregisterJobMaster(JobInfo jobInfo);
+
 	/**
 	 * Reports the current slot allocations for a task manager identified by the given instance id.
 	 *

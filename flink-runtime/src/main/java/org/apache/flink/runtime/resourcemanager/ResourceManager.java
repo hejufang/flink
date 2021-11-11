@@ -1078,6 +1078,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			jobManagerHeartbeatManager.unmonitorTarget(jobManagerResourceId);
 			failureRater.onRequiredSlotNumChanged(-jobManagerRegistration.getJobInfo().getMinSlotsNum());
 			jmResourceIdRegistrations.remove(jobManagerResourceId);
+			slotManager.unregisterJobMaster(jobManagerRegistration.getJobInfo());
 
 			// tell the job manager about the disconnect
 			jobMasterGateway.disconnectResourceManager(getFencingToken(), cause);

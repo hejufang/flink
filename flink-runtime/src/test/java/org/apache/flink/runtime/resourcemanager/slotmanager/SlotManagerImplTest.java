@@ -239,18 +239,110 @@ public class SlotManagerImplTest extends TestLogger {
 			.setAllocateResourceConsumer(ignored -> {
 				slotCounter.incrementAndGet();
 			}).setAllocateResourceConsumer((ignoredA, num) -> {
-				for (int i = 0; i < num; i ++) {
+				for (int i = 0; i < num; i++) {
 					slotCounter.incrementAndGet();
 				}
 			}).build();
 		SlotManagerBuilder slotManagerBuilder = createSlotManagerBuilder();
 		try (SlotManager slotManager = slotManagerBuilder.buildAndStartWithInitialTMOn(resourceManagerId, resourceManagerActions, 1)) {
 			assertEquals("slot number before register slot request", 1, slotCounter.get());
-			JobInfo jobInfo = new JobInfo(1,1,2);
+			JobInfo jobInfo = new JobInfo(1, 1, 2);
 			slotManager.registerSlotRequest(slotRequest);
 			assertEquals("slot number after register slot request", 1, slotCounter.get());
 			slotManager.initializeJobResources(slotRequest.getJobId(), jobInfo);
 			assertEquals("slot number after request extra slot", 3, slotCounter.get());
+		}
+	}
+
+	@Test
+	public void testMaintainMinContainNum() throws Exception {
+		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
+		final ResourceID resourceID = ResourceID.generate();
+		final ResourceProfile resourceProfile = ResourceProfile.fromResources(42.0, 1337);
+		final SlotRequest slotRequest = new SlotRequest(
+			new JobID(),
+			new AllocationID(),
+			resourceProfile,
+			"localhost");
+
+		final TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder().createTestingTaskExecutorGateway();
+
+		final TaskExecutorConnection taskExecutorConnection = new TaskExecutorConnection(resourceID, taskExecutorGateway);
+
+		final AtomicInteger slotCounter = new AtomicInteger(0);
+		ResourceActions resourceManagerActions = new TestingResourceActionsBuilder()
+			.setAllocateResourceConsumer(ignored -> {
+				slotCounter.incrementAndGet();
+			}).setAllocateResourceConsumer((ignoredA, num) -> {
+				for (int i = 0; i < num; i++) {
+					slotCounter.incrementAndGet();
+				}
+			}).setReleaseResourceConsumer((instanceId, ignored) -> {
+				slotCounter.decrementAndGet();
+			}).build();
+		SlotManagerBuilder slotManagerBuilder = createSlotManagerBuilder();
+
+		final SlotStatus slotStatus = createEmptySlotStatus(new SlotID(resourceID, 0), ResourceProfile.fromResources(1.0, 1));
+		final SlotReport initialSlotReport = new SlotReport(slotStatus);
+
+		try (final SlotManager slotManager = createSlotManagerBuilder()
+			.buildAndStartWithDirectExec(resourceManagerId, resourceManagerActions)) {
+			JobInfo jobInfo = new JobInfo(1, 1, 2);
+			slotManager.registerTaskManager(taskExecutorConnection, initialSlotReport);
+			slotManager.initializeJobResources(slotRequest.getJobId(), jobInfo);
+			assertEquals("TM number after request extra slot", 2, slotCounter.get());
+			slotManager.unregisterTaskManager(taskExecutorConnection.getInstanceID(), TEST_EXCEPTION);
+			assertEquals("TM number after unregisterTaskManager", 3, slotCounter.get());
+		}
+	}
+
+	@Test
+	public void testMaintainMinContainNumWithMoreSlotPerTM() throws Exception {
+		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
+		final ResourceID resourceID = ResourceID.generate();
+		final int slotNum = 2;
+		final ResourceProfile resourceProfile = ResourceProfile.fromResources(42.0, 1337);
+		final SlotRequest slotRequest = new SlotRequest(
+			new JobID(),
+			new AllocationID(),
+			resourceProfile,
+			"localhost");
+
+		final TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder().createTestingTaskExecutorGateway();
+
+		final TaskExecutorConnection taskExecutorConnection = new TaskExecutorConnection(resourceID, taskExecutorGateway);
+
+		final AtomicInteger slotCounter = new AtomicInteger(0);
+		ResourceActions resourceManagerActions = new TestingResourceActionsBuilder()
+			.setAllocateResourceConsumer(ignored -> {
+				slotCounter.incrementAndGet();
+			}).setAllocateResourceConsumer((ignoredA, num) -> {
+				for (int i = 0; i < num; i++) {
+					slotCounter.incrementAndGet();
+				}
+			}).setReleaseResourceConsumer((instanceId, ignored) -> {
+				slotCounter.decrementAndGet();
+			}).build();
+		SlotManagerBuilder slotManagerBuilder = createSlotManagerBuilder();
+
+		final SlotID slotId1 = new SlotID(resourceID, 0);
+		final SlotID slotId2 = new SlotID(resourceID, 1);
+
+		final ResourceProfile resourceProfileSlot = ResourceProfile.fromResources(1.0, 1);
+		final SlotStatus slotStatus1 = new SlotStatus(slotId1, resourceProfileSlot);
+		final SlotStatus slotStatus2 = new SlotStatus(slotId2, resourceProfileSlot);
+
+		final SlotReport slotReport = new SlotReport(Arrays.asList(slotStatus1, slotStatus2));
+
+		try (final SlotManager slotManager = createSlotManagerBuilder()
+			.setNumSlotsPerWorker(slotNum)
+			.buildAndStartWithDirectExec(resourceManagerId, resourceManagerActions)) {
+			JobInfo jobInfo = new JobInfo(1, 1, 2);
+			slotManager.registerTaskManager(taskExecutorConnection, slotReport);
+			slotManager.initializeJobResources(slotRequest.getJobId(), jobInfo);
+			assertEquals("TM number after request extra slot", 2, slotCounter.get());
+			slotManager.unregisterTaskManager(taskExecutorConnection.getInstanceID(), TEST_EXCEPTION);
+			assertEquals("TM number after unregisterTaskManager", 3, slotCounter.get());
 		}
 	}
 

@@ -49,6 +49,7 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.MathUtils;
 import org.apache.flink.util.OptionalConsumer;
 import org.apache.flink.util.Preconditions;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -297,10 +298,9 @@ public class SlotManagerImpl implements SlotManager {
 		return numSlotsPerWorker;
 	}
 
-
 	@Override
 	public void initializeJobResources(JobID jobID, JobInfo jobInfo) {
-		if(!(mainThreadExecutor instanceof ExecutorService)) {
+		if (!(mainThreadExecutor instanceof ExecutorService)) {
 			assertRunningInMainThread();
 		}
 
@@ -378,7 +378,7 @@ public class SlotManagerImpl implements SlotManager {
 			() -> (long) getNumberPendingSlotRequests());
 		slotManagerMetricGroup.gauge(
 			MetricNames.NUM_LACK_SLOTS,
-			() -> (long) (calcNumLackslots()));
+			() -> calcNumLackslots());
 		slotManagerMetricGroup.gauge(
 			MetricNames.NUM_EXCESS_WORKERS,
 			() -> (long) ((getNumberFreeSlots() / getNumSlotsPerWorker() - numInitialExtraTaskManagers)));
@@ -390,6 +390,7 @@ public class SlotManagerImpl implements SlotManager {
 		long numberSlotsHandled = getNumberPendingTaskManagerSlots() + getNumberFreeSlots();
 		return numberPendingSlotRequests + numberWaitingAndExtraSlots - numberSlotsHandled;
 	}
+
 	/**
 	 * Suspends the component. This clears the internal state of the slot manager.
 	 */
@@ -417,7 +418,7 @@ public class SlotManagerImpl implements SlotManager {
 		ArrayList<InstanceID> registeredTaskManagers = new ArrayList<>(taskManagerRegistrations.keySet());
 
 		for (InstanceID registeredTaskManager : registeredTaskManagers) {
-			unregisterTaskManager(registeredTaskManager, new SlotManagerException("The slot manager is being suspended."));
+			unregisterTaskManager(registeredTaskManager, new SlotManagerException("The slot manager is being suspended."), false);
 		}
 
 		resourceManagerId = null;
@@ -576,6 +577,10 @@ public class SlotManagerImpl implements SlotManager {
 
 	@Override
 	public boolean unregisterTaskManager(InstanceID instanceId, Exception cause) {
+		return unregisterTaskManager(instanceId, cause, true);
+	}
+
+	public boolean unregisterTaskManager(InstanceID instanceId, Exception cause, boolean tryAllocateNewResource) {
 		checkInit();
 
 		LOG.debug("Unregister TaskManager {} from the SlotManager.", instanceId);
@@ -584,12 +589,22 @@ public class SlotManagerImpl implements SlotManager {
 
 		if (null != taskManagerRegistration) {
 			internalUnregisterTaskManager(taskManagerRegistration, cause);
-
+			LOG.info("the register container number {}, job need min number of container {}", taskManagerRegistrations.size(), numTaskManagersNeedRequest());
+			if (tryAllocateNewResource && taskManagerNotEnough()) {
+				allocateResource(ResourceProfile.UNKNOWN);
+			}
 			return true;
 		} else {
 			LOG.debug("There is no task manager registered with instance ID {}. Ignoring this message.", instanceId);
 
 			return false;
+		}
+	}
+
+	public void unregisterJobMaster(JobInfo jobInfo) {
+		final int jobInitialExtraTaskManagers = jobInfo.getInitialExtraTaskManagers();
+		if (numInitialExtraTaskManagers >= jobInitialExtraTaskManagers) {
+			numInitialExtraTaskManagers -= jobInitialExtraTaskManagers;
 		}
 	}
 
@@ -1425,9 +1440,12 @@ public class SlotManagerImpl implements SlotManager {
 		Preconditions.checkState(started, "The slot manager has not been started.");
 	}
 
-
 	private int numTaskManagersNeedRequest() {
 		return numInitialTaskManagers + numInitialExtraTaskManagers;
+	}
+
+	private boolean taskManagerNotEnough() {
+		return slots.size() + pendingSlots.size() < numTaskManagersNeedRequest() * getNumSlotsPerWorker();
 	}
 
 	private void assertRunningInMainThread() {

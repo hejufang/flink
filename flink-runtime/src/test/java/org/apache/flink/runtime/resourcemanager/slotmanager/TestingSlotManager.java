@@ -156,6 +156,10 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
+	public void unregisterJobMaster(JobInfo jobInfo) {
+	}
+
+	@Override
 	public boolean reportSlotStatus(InstanceID instanceId, SlotReport slotReport) {
 		return false;
 	}
