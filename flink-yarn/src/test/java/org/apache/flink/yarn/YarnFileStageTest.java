@@ -220,6 +220,7 @@ public class YarnFileStageTest extends TestLogger {
 				targetFileSystem,
 				targetDir,
 				Collections.emptyList(),
+				Collections.emptyList(),
 				applicationId,
 				DFSConfigKeys.DFS_REPLICATION_DEFAULT);
 
@@ -284,6 +285,7 @@ public class YarnFileStageTest extends TestLogger {
 			final YarnApplicationFileUploader uploader = YarnApplicationFileUploader.from(
 				targetFileSystem,
 				targetDir,
+				Collections.emptyList(),
 				Collections.emptyList(),
 				applicationId,
 				DFSConfigKeys.DFS_REPLICATION_DEFAULT);

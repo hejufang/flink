@@ -719,11 +719,13 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		ApplicationSubmissionContext appContext = yarnApplication.getApplicationSubmissionContext();
 
 		final List<Path> providedLibDirs = getRemoteSharedPaths(configuration);
+		final List<Path> providedUserSharedLibs = getRemoteUserSharedPaths(configuration);
 
 		final YarnApplicationFileUploader fileUploader = YarnApplicationFileUploader.from(
 			fs,
 			homeDir,
 			providedLibDirs,
+			providedUserSharedLibs,
 			appContext.getApplicationId(),
 			getFileReplication());
 
@@ -864,6 +866,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			userJarFiles,
 			userJarInclusion == YarnConfigOptions.UserJarInclusion.DISABLED ?
 				ConfigConstants.DEFAULT_FLINK_USR_LIB_DIR : Path.CUR_DIR);
+		final List<String> userSharedDependencies = fileUploader.registerProvidedUserSharedResources();
+		if (!userSharedDependencies.isEmpty()) {
+			userClassPaths.addAll(userSharedDependencies);
+		}
 
 		if (userJarInclusion == YarnConfigOptions.UserJarInclusion.ORDER) {
 			systemClassPaths.addAll(userClassPaths);
@@ -1242,6 +1248,19 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			}
 		}
 		return providedLibDirs;
+	}
+
+	private List<Path> getRemoteUserSharedPaths(Configuration configuration) throws IOException, FlinkException {
+		final List<Path> providedUserSharedLibs = ConfigUtils.decodeListFromConfig(
+				configuration, YarnConfigOptions.PROVIDED_USER_SHARED_LIB_DIRS, Path::new);
+		for (Path path : providedUserSharedLibs) {
+			if (!Utils.isRemotePath(path.toString())) {
+				throw new FlinkException(
+						"The \"" + YarnConfigOptions.PROVIDED_USER_SHARED_LIB_DIRS.key() + "\" should only contain" +
+								" dirs accessible from all worker nodes, while the \"" + path + "\" is local.");
+			}
+		}
+		return providedUserSharedLibs;
 	}
 
 	private static String encodeYarnLocalResourceDescriptorListToString(List<YarnLocalResourceDescriptor> resources) {

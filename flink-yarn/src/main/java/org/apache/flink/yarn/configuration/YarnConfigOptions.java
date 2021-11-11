@@ -282,6 +282,13 @@ public class YarnConfigOptions {
 					.defaultValue(false)
 					.withDescription("Whether enable provided lib dirs.");
 
+	public static final ConfigOption<List<String>> PROVIDED_USER_SHARED_LIB_DIRS =
+			key("yarn.provided.user.shared.libs")
+					.stringType()
+					.asList()
+					.noDefaultValue()
+					.withDescription("User may share jars between jobs such as client jar for CSS.");
+
 	/** Defines the configuration key of that external resource in Yarn. This is used as a suffix in an actual config. */
 	public static final String EXTERNAL_RESOURCE_YARN_CONFIG_KEY_SUFFIX = "yarn.config-key";
 

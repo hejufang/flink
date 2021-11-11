@@ -62,6 +62,7 @@ public class YarnApplicationFileUploaderTest extends TestLogger {
 				FileSystem.get(new YarnConfiguration()),
 				new Path(temporaryFolder.getRoot().toURI()),
 				Collections.singletonList(new Path(flinkLibDir.toURI())),
+				Collections.emptyList(),
 				ApplicationId.newInstance(0, 0),
 				DFSConfigKeys.DFS_REPLICATION_DEFAULT)) {
 
@@ -90,6 +91,7 @@ public class YarnApplicationFileUploaderTest extends TestLogger {
 						fileSystem,
 						new Path(temporaryFolder.getRoot().toURI()),
 						Arrays.asList(new Path(flinkLibDir1.toURI()), new Path(flinkLibDir2.toURI())),
+						Collections.emptyList(),
 						ApplicationId.newInstance(0, 0),
 						DFSConfigKeys.DFS_REPLICATION_DEFAULT));
 		} finally {

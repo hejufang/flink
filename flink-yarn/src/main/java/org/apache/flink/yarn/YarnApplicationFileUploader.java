@@ -86,6 +86,12 @@ class YarnApplicationFileUploader implements AutoCloseable {
  	 */
 	private final Map<String, FileStatus> providedSharedLibs;
 
+	/**
+	 * providedSharedLibs only support flink-dist related jars, this
+	 * support that user can specify their shared jars on distributed filesystem.
+	 */
+	private final Map<String, FileStatus> providedUserSharedLibs;
+
 	private final Map<String, LocalResource> localResources;
 
 	private final int fileReplication;
@@ -100,6 +106,7 @@ class YarnApplicationFileUploader implements AutoCloseable {
 			final FileSystem fileSystem,
 			final Path homeDir,
 			final List<Path> providedLibDirs,
+			final List<Path> providedUserSharedLibs,
 			final ApplicationId applicationId,
 			final int fileReplication) throws IOException {
 		this.fileSystem = checkNotNull(fileSystem);
@@ -109,6 +116,7 @@ class YarnApplicationFileUploader implements AutoCloseable {
 		this.localResources = new HashMap<>();
 		this.applicationDir = getApplicationDir(applicationId);
 		this.providedSharedLibs = getAllFilesInProvidedLibDirs(providedLibDirs);
+		this.providedUserSharedLibs = getAllJarsInProvidedUserSharedLibs(providedUserSharedLibs);
 
 		this.remotePaths = new ArrayList<>();
 		this.envShipResourceList = new ArrayList<>();
@@ -363,13 +371,36 @@ class YarnApplicationFileUploader implements AutoCloseable {
 		return classPaths;
 	}
 
+	List<String> registerProvidedUserSharedResources() {
+		checkNotNull(localResources);
+
+		final ArrayList<String> classPaths = new ArrayList<>();
+		providedUserSharedLibs.forEach(
+				(fileName, fileStatus) -> {
+					final Path filePath = fileStatus.getPath();
+					LOG.info("Using remote file {} to register local resource", filePath);
+
+					final YarnLocalResourceDescriptor descriptor = YarnLocalResourceDescriptor
+							.fromFileStatus(fileName, fileStatus, LocalResourceVisibility.PUBLIC);
+					localResources.put(fileName, descriptor.toLocalResource());
+					remotePaths.add(filePath);
+					envShipResourceList.add(descriptor);
+
+					if (!isFlinkDistJar(filePath.getName()) && !isPlugin(filePath)) {
+						classPaths.add(fileName);
+					}
+				});
+		return classPaths;
+	}
+
 	static YarnApplicationFileUploader from(
 			final FileSystem fileSystem,
 			final Path homeDirectory,
 			final List<Path> providedLibDirs,
+			final List<Path> providedUserSharedLibs,
 			final ApplicationId applicationId,
 			final int fileReplication) throws IOException {
-		return new YarnApplicationFileUploader(fileSystem, homeDirectory, providedLibDirs, applicationId, fileReplication);
+		return new YarnApplicationFileUploader(fileSystem, homeDirectory, providedLibDirs, providedUserSharedLibs, applicationId, fileReplication);
 	}
 
 	private Path copyToRemoteApplicationDir(
@@ -471,6 +502,34 @@ class YarnApplicationFileUploader implements AutoCloseable {
 											.collect(Collectors.joining(", ")));
 						}
 					}
+				})
+		);
+		return Collections.unmodifiableMap(allFiles);
+	}
+
+	private Map<String, FileStatus> getAllJarsInProvidedUserSharedLibs(List<Path> providedUserSharedLibs) {
+		final Map<String, FileStatus> allFiles = new LinkedHashMap<>();
+		checkNotNull(providedUserSharedLibs).forEach(
+				FunctionUtils.uncheckedConsumer(
+						path -> {
+							FileStatus locatedFileStatus = fileSystem.getFileStatus(path);
+
+							final String name = path.getParent().toUri()
+									.relativize(locatedFileStatus.getPath().toUri())
+									.toString();
+
+							final FileStatus prevMapping = allFiles.put(name, locatedFileStatus);
+							if (prevMapping != null) {
+								throw new IOException(
+										"Two files with the same filename exist in the shared libs: " +
+												prevMapping.getPath() + " - " + locatedFileStatus.getPath() +
+												". Please deduplicate.");
+							}
+
+							LOG.info("The following files were found in the user shared lib dir: {}",
+									allFiles.values().stream()
+											.map(fileStatus -> fileStatus.getPath().toString())
+											.collect(Collectors.joining(", ")));
 				})
 		);
 		return Collections.unmodifiableMap(allFiles);
