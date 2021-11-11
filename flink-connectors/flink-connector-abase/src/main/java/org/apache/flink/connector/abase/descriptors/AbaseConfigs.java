@@ -36,14 +36,12 @@ public class AbaseConfigs {
 		.stringType()
 		.noDefaultValue()
 		.withDescription("Required. Name of abase cluster.");
-	// TODO: the default psm should be inf.dayu.${jobName}
 	public static final ConfigOption<String> PSM = ConfigOptions
 		.key("psm")
 		.stringType()
-		.defaultValue("inf.flink.default_psm")
-		.withDescription("Optional. Name of PSM." +
-			"default value is just make abase client happy, if users wants detailed metric, " +
-			"they should set it directly.");
+		.noDefaultValue()
+		.withDescription("Deprecated. The tracing psm will be set as job psm at runtime, " +
+			"even if it's explicitly configured");
 	public static final ConfigOption<String> TABLE = ConfigOptions
 		.key("table")
 		.stringType()

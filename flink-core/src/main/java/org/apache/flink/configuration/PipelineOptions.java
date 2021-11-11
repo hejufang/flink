@@ -38,6 +38,11 @@ import static org.apache.flink.configuration.description.TextElement.text;
 public class PipelineOptions {
 
 	/**
+	 * The prefix of dorado job psm name.
+	 */
+	public static final String JOB_PSM_PREFIX = "inf.dayu.";
+
+	/**
 	 * UID of the job, which is unique and stable across restarts. It identifies an application (or
 	 * task), a concept desired by some upper development platforms for task management. Each
 	 * running instance of an application is a Flink job.

@@ -23,6 +23,7 @@ import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimite
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.abase.options.AbaseLookupOptions;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
@@ -46,6 +47,9 @@ import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.util.Preconditions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
@@ -54,6 +58,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.configuration.PipelineOptions.JOB_PSM_PREFIX;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CLUSTER;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTION_MAX_IDLE_NUM;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTION_MAX_RETRIES;
@@ -91,6 +96,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTableSinkFactory {
 
+	private static final Logger LOG = LoggerFactory.getLogger(AbaseTableFactory.class);
+
 	@Override
 	public DynamicTableSource createDynamicTableSource(Context context) {
 		final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
@@ -102,7 +109,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		validateConfigOptions(config);
 
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
-		AbaseNormalOptions normalOptions = getAbaseNormalOptions(config, physicalSchema);
+		AbaseNormalOptions normalOptions = getAbaseNormalOptions(config, physicalSchema, getJobPSM(context.getConfiguration()));
 		AbaseLookupOptions lookupOptions = getAbaseLookupOptions(config);
 		validateSchema(normalOptions, lookupOptions, physicalSchema);
 		return createAbaseTableSource(
@@ -130,7 +137,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		helper.validate();
 		validateConfigOptions(config);
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
-		AbaseNormalOptions normalOptions = getAbaseNormalOptions(config, physicalSchema);
+		AbaseNormalOptions normalOptions = getAbaseNormalOptions(config, physicalSchema, getJobPSM(context.getConfiguration()));
 		validateSchema(normalOptions, null, physicalSchema);
 		return createAbaseTableSink(
 			normalOptions,
@@ -200,13 +207,13 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		return optionalOptions;
 	}
 
-	private AbaseNormalOptions getAbaseNormalOptions(ReadableConfig config, TableSchema physicalSchema) {
+	private AbaseNormalOptions getAbaseNormalOptions(ReadableConfig config, TableSchema physicalSchema, String jobPSM) {
 		Optional<Integer> keyIndex = validateAndGetKeyIndex(config, physicalSchema);
 		AbaseNormalOptions.AbaseOptionsBuilder builder = AbaseNormalOptions.builder()
 			.setCluster(config.get(CLUSTER))
 			.setTable(config.getOptional(TABLE).orElse(null))
 			.setStorage(config.get(CONNECTOR))
-			.setPsm(config.get(PSM))
+			.setPsm(jobPSM)
 			.setTimeout((int) config.get(CONNECTION_TIMEOUT).toMillis())
 			.setMinIdleConnections(config.get(CONNECTION_MIN_IDLE_NUM))
 			.setMaxIdleConnections(config.get(CONNECTION_MAX_IDLE_NUM))
@@ -315,5 +322,12 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			return physicalSchema.getFieldNameIndex(keyFields[0]);
 		}
 		return Optional.empty();
+	}
+
+	private static String getJobPSM(ReadableConfig config) {
+		String jobName = config.getOptional(PipelineOptions.NAME).orElse("UNKNOWN_JOB");
+		String jobPSM = JOB_PSM_PREFIX + jobName;
+		LOG.info("Get job psm: {}", jobPSM);
+		return jobPSM;
 	}
 }
