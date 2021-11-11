@@ -503,6 +503,12 @@ public class KubernetesUtils {
 			baseJavaOpts += " -XX:MaxGCPauseMillis=" + flinkConfig.getInteger(CoreOptions.FLINK_MAX_GC_PAUSE_MILLIS);
 		}
 
+		String logDirectory = flinkConfig.getString(KubernetesConfigOptions.FLINK_LOG_DIR);
+		if (flinkConfig.getString(CoreOptions.FLINK_GC_LOG_OPTS).length() > 0) {
+			baseJavaOpts += " " + flinkConfig.getString(CoreOptions.FLINK_GC_LOG_OPTS);
+			baseJavaOpts += " -Xloggc:" + logDirectory + "/gc.log";
+		}
+
 		if (flinkConfig.getBoolean(CoreOptions.FLINK_JVM_ERROR_FILE_ENABLED)) {
 			/* Because the default PID number under K8S is 1, it is distinguished by time stamp */
 			baseJavaOpts += " -XX:ErrorFile=" + JVM_HS_ERROR_PATH + "hs_err_ts_" + System.currentTimeMillis() + ".log";

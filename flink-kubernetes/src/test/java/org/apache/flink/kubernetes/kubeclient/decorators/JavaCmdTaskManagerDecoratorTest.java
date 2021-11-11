@@ -118,6 +118,21 @@ public class JavaCmdTaskManagerDecoratorTest extends KubernetesTaskManagerTestBa
 	}
 
 	@Test
+	public void testStartCommandWithGcLogOpts() {
+		String gcOps = "-XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M";
+		flinkConfig.set(CoreOptions.FLINK_GC_LOG_OPTS, gcOps);
+		final Container resultMainContainer =
+			javaCmdTaskManagerDecorator.decorateFlinkPod(baseFlinkPod).getMainContainer();
+
+		assertEquals(Collections.singletonList(KUBERNETES_ENTRY_PATH), resultMainContainer.getCommand());
+		final String expectedCommand = getTaskManagerExpectedCommand(
+			gcOps + " -Xloggc:" + FLINK_LOG_DIR_IN_POD + "/gc.log",
+			"");
+		final List<String> expectedArgs = Arrays.asList("/bin/bash", "-c", expectedCommand);
+		assertEquals(expectedArgs, resultMainContainer.getArgs());
+	}
+
+	@Test
 	public void testStartCommandWithLog4j() throws IOException {
 		KubernetesTestUtils.createTemporyFile("some data", flinkConfDir, CONFIG_FILE_LOG4J_NAME);
 
