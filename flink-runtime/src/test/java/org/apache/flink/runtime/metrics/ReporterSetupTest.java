@@ -21,6 +21,7 @@ package org.apache.flink.runtime.metrics;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MetricOptions;
+import org.apache.flink.configuration.UnmodifiableConfiguration;
 import org.apache.flink.core.plugin.TestingPluginManager;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.reporter.InstantiateViaFactory;
@@ -106,6 +107,23 @@ public class ReporterSetupTest extends TestLogger {
 
 		Assert.assertTrue(reporter2Config.isPresent());
 		assertReporter2Configured(reporter2Config.get());
+	}
+
+	/**
+	 * Verifies that a reporter can be configured from a unmodifiable configuration.
+	 */
+	@Test
+	public void testReporterWithUnmodifiableConfiguration() {
+		final Configuration config = new Configuration();
+
+		configureReporter1(config);
+
+		final List<ReporterSetup> reporterSetups = ReporterSetup.fromConfiguration(new UnmodifiableConfiguration(config), null);
+
+		Assert.assertEquals(1, reporterSetups.size());
+
+		final ReporterSetup reporterSetup = reporterSetups.get(0);
+		assertReporter1Configured(reporterSetup);
 	}
 
 	/**

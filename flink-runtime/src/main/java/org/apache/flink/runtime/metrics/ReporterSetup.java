@@ -178,9 +178,11 @@ public final class ReporterSetup {
 		return namedOrderedReporters;
 	}
 
-	private static List<Tuple2<String, Configuration>> loadReporterConfigurations(Configuration configuration, Set<String> namedReporters) {
+	private static List<Tuple2<String, Configuration>> loadReporterConfigurations(Configuration flinkConfig, Set<String> namedReporters) {
 		final List<Tuple2<String, Configuration>> reporterConfigurations = new ArrayList<>(namedReporters.size());
 
+		// we don't want to operate in the original configuration, because some of them (mini cluster) are using unmodifiable configuration.
+		Configuration configuration = new Configuration(flinkConfig);
 		for (String namedReporter: namedReporters) {
 			DelegatingConfiguration delegatingConfiguration = new DelegatingConfiguration(
 				configuration,

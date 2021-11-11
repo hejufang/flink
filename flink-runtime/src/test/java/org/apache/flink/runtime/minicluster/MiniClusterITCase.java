@@ -25,6 +25,7 @@ import org.apache.flink.api.common.JobSubmissionResult;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.runtime.client.JobExecutionException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
@@ -76,6 +77,30 @@ public class MiniClusterITCase extends TestLogger {
 			.setNumSlotsPerTaskManager(slotsPerTM)
 			.setRpcServiceSharing(RpcServiceSharing.SHARED)
 			.setConfiguration(getDefaultConfiguration())
+			.build();
+
+		try (final MiniCluster miniCluster = new MiniCluster(cfg)) {
+			miniCluster.start();
+
+			miniCluster.executeJobBlocking(getSimpleJob(numOfTMs * slotsPerTM));
+		}
+	}
+
+	@Test
+	public void runJobWithMetricReporter() throws Exception {
+		final int numOfTMs = 3;
+		final int slotsPerTM = 7;
+
+		Configuration configuration = getDefaultConfiguration();
+		configuration.setString(MetricOptions.REPORTERS_LIST, "opentsdb_reporter");
+		configuration.setString("metrics.reporter.opentsdb_reporter.class", "org.apache.flink.metrics.opentsdb.OpentsdbReporter");
+		configuration.setString("metrics.reporter.opentsdb_reporter.interval", "20 SECONDS");
+
+		final MiniClusterConfiguration cfg = new MiniClusterConfiguration.Builder()
+			.setNumTaskManagers(numOfTMs)
+			.setNumSlotsPerTaskManager(slotsPerTM)
+			.setRpcServiceSharing(RpcServiceSharing.SHARED)
+			.setConfiguration(configuration)
 			.build();
 
 		try (final MiniCluster miniCluster = new MiniCluster(cfg)) {
