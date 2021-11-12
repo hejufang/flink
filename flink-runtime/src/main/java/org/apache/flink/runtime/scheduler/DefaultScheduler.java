@@ -29,6 +29,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
+import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
@@ -54,6 +55,7 @@ import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategyFactory;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 
@@ -70,6 +72,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -100,6 +103,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	private final ExecutionVertexOperations executionVertexOperations;
 
 	private final Set<ExecutionVertexID> verticesWaitingForRestart;
+
+	private final ScheduledExecutor taskCancelingCheckExecutor;
 
 	public DefaultScheduler(
 		final Logger log,
@@ -177,6 +182,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		this.executionSlotAllocator = checkNotNull(executionSlotAllocatorFactory).createInstance(getInputsLocationsRetriever(), slotAllocationContext);
 
 		this.verticesWaitingForRestart = new HashSet<>();
+		this.taskCancelingCheckExecutor = new ScheduledExecutorServiceAdapter(Executors.newSingleThreadScheduledExecutor(
+			new ExecutorThreadFactory("Task canceling check")));
 		warehouseJobStartEventMessageRecorder.createSchedulerFinish();
 	}
 
@@ -329,14 +336,29 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		Execution execution = vertex.getCurrentExecutionAttempt();
 		if (executionCancellationTimeoutEnable) {
 			log.debug("check execution {} cancellation timeout enable", execution.getVertexWithAttempt());
-			getMainThreadExecutor().schedule(() -> checkCancelingTimeout(execution),
+			taskCancelingCheckExecutor.schedule(() -> checkCancelingTimeoutDelay(execution),
 				executionCancellationTimeout, TimeUnit.MILLISECONDS);
 		}
 		return cancel;
 	}
 
-	private void checkCancelingTimeout(Execution execution) {
+	private void checkCancelingTimeoutDelay(Execution execution) {
 
+		if (!execution.getReleaseFuture().isDone()) {
+			CompletableFuture<Void> checkCancelingTimeout = CompletableFuture.supplyAsync(() -> {
+				checkCancelingTimeout(execution);
+				return null;
+			}, getMainThreadExecutor());
+			// kill tm one by one to reduce main thread pressure.
+			try {
+				checkCancelingTimeout.get();
+			} catch (Exception e) {
+				log.error("checkCancelingTimeout fail, execution: {}", execution);
+			}
+		}
+	}
+
+	private void checkCancelingTimeout(Execution execution) {
 		// If the task status stack in canceling, force close the taskManager.
 		if (!execution.getReleaseFuture().isDone()) {
 			log.warn("Task did not exit gracefully within " + executionCancellationTimeout / 1000 + " + seconds.");
