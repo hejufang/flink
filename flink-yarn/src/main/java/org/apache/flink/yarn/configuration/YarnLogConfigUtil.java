@@ -114,6 +114,8 @@ public class YarnLogConfigUtil {
 			String streamlogLevel = configuration.getString(ConfigConstants.FLINK_LOG_STREAMLOG_LEVEL_KEY,
 				ConfigConstants.FLINK_LOG_STREAMLOG_LEVEL_DEFAULT);
 			logCommand += " -Dlog.streamlog.level=" + streamlogLevel;
+		} else {
+			logCommand += " -Dlog.streamlog.level=" + ConfigConstants.FLINK_LOG_STREAMLOG_OFF_LEVEL;
 		}
 		return logCommand;
 	}

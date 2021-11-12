@@ -202,7 +202,8 @@ public class BootstrapToolsTest extends TestLogger {
 			"1>> ./logs/taskmanager.out 2>> ./logs/taskmanager.err";
 		final String logging = "-Dlog.databus.channel=yarn_container_level_log" +
 			" " + "-Dlog.databus.level=WARN" +
-			" " + "-Dlog.databus.permitsPerSecond=1000";
+			" " + "-Dlog.databus.permitsPerSecond=1000" +
+			" " + "-Dlog.streamlog.level=OFF";
 
 		assertEquals(
 			java + " " + jvmmem +

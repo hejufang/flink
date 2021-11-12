@@ -2166,6 +2166,7 @@ public final class ConfigConstants {
 
 	public static final String FLINK_LOG_STREAMLOG_LEVEL_KEY = "log4j.appender.streamlog.level";
 	public static final String FLINK_LOG_STREAMLOG_LEVEL_DEFAULT = "INFO";
+	public static final String FLINK_LOG_STREAMLOG_OFF_LEVEL = "OFF";
 
 	public static final String FLINK_LOG_STREAMLOG_PSM_KEY = "log4j.appender.streamlog.psm";
 	public static final String FLINK_LOG_STREAMLOG_PSM_DEFAULT = "default";

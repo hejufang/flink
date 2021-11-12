@@ -17,7 +17,6 @@
 
 package org.apache.flink.metrics.databus;
 
-import org.apache.flink.metrics.logagent.LogAgentClientWrapper;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.yarn.YarnConfigKeys;
 
@@ -57,7 +56,6 @@ import java.util.concurrent.TimeUnit;
 public final class DatabusAppender extends AbstractAppender {
 
 	private static final String LINE_SEP = System.getProperty("line.separator");
-	private static final String STREAMLOG_PSM_KEY = "log.streamlog.psm";
 
 	private String channel;
 	private String metricsChannel;
@@ -65,11 +63,8 @@ public final class DatabusAppender extends AbstractAppender {
 	private int port;
 	private int permitsPerSecond;
 	private Level databusLevel;
-	private Level streamlogLevel;
-	private String streamlogPsm;
 
 	private DatabusClient databusClient;
-	private LogAgentClientWrapper logAgentClientWrapper;
 	private RateLimiter rateLimiter;
 	private final ScheduledExecutorService executor;
 	private TimerTask reporterTask;
@@ -82,7 +77,7 @@ public final class DatabusAppender extends AbstractAppender {
 
 	private final Object reportLock = new Object();
 
-	DatabusAppender(final String channel, final String metricsChannel, final long metricsUpdateInterval, final int port, int permitsPerSecond, final String name, Level databusLevel, Level streamlogLevel,
+	DatabusAppender(final String channel, final String metricsChannel, final long metricsUpdateInterval, final int port, int permitsPerSecond, final String name, Level databusLevel,
 					final Layout<? extends Serializable> layout, final Filter filter, final boolean ignoreExceptions, final Property[] properties) {
 		super(name, filter, layout, ignoreExceptions, properties);
 		this.channel = channel;
@@ -91,7 +86,6 @@ public final class DatabusAppender extends AbstractAppender {
 		this.port = port;
 		this.permitsPerSecond = permitsPerSecond;
 		this.databusLevel = databusLevel;
-		this.streamlogLevel = streamlogLevel;
 		this.executor = Executors.newSingleThreadScheduledExecutor(new ExecutorThreadFactory("databusAppender-metrics-reporter"));
 	}
 
@@ -127,10 +121,6 @@ public final class DatabusAppender extends AbstractAppender {
 					databusClient.send(ThreadContext.get("ip"), message, 0);
 					sendDatabusMessageCount++;
 				}
-				if (logAgentClientWrapper != null && event.getLevel().isMoreSpecificThan(streamlogLevel)){
-					logAgentClientWrapper.send(event);
-					sendStreamlogMessageCount++;
-				}
 				sendMessageCount++;
 			} catch (IOException e) {
 				LOGGER.error("Could send message by databus client.", e);
@@ -141,20 +131,8 @@ public final class DatabusAppender extends AbstractAppender {
 	@Override
 	public void start() {
 		super.start();
-
 		initThreadContext();
-
 		this.databusClient = new DatabusClient(port, channel);
-
-		String psmOrDefault = System.getProperty(STREAMLOG_PSM_KEY);
-		if (psmOrDefault != null) {
-			this.streamlogPsm = psmOrDefault.equals("default") ? System.getenv(YarnConfigKeys.ENV_LOAD_SERVICE_PSM) : psmOrDefault;
-			if (streamlogPsm != null){
-				System.out.println("init logAgentClientWrapper using psm : " + streamlogPsm);
-				this.logAgentClientWrapper = new LogAgentClientWrapper(streamlogPsm);
-			}
-		}
-
 		this.rateLimiter = RateLimiter.create(permitsPerSecond);
 		this.reporterTask = new DatabusAppenderMetricsReporter(this);
 		executor.scheduleWithFixedDelay(reporterTask, 0L, metricsUpdateInterval, TimeUnit.MILLISECONDS);
@@ -176,6 +154,8 @@ public final class DatabusAppender extends AbstractAppender {
 		ThreadContext.put("hadoop_user", EnvUtils.getHadoopUser());
 		ThreadContext.put("yarn_job", EnvUtils.getYarnJob());
 		ThreadContext.put("yarn_queue", EnvUtils.getYarnQueue());
+		String applicationId = System.getenv(YarnConfigKeys.ENV_APP_ID) == null ? "unkown" : System.getenv(YarnConfigKeys.ENV_APP_ID);
+		ThreadContext.put("application_id", applicationId);
 	}
 
 	@Override
@@ -258,9 +238,6 @@ public final class DatabusAppender extends AbstractAppender {
 		@PluginAttribute(value = "databusLevel", defaultString = "WARN")
 		private String databusLevel;
 
-		@PluginAttribute(value = "streamlogLevel", defaultString = "INFO")
-		private String streamlogLevel;
-
 		@SuppressWarnings("resource")
 		@Override
 		public DatabusAppender build() {
@@ -270,7 +247,7 @@ public final class DatabusAppender extends AbstractAppender {
 				return null;
 			}
 			System.out.println("DatabusAppender start with : channel " + channel + ", metricsChannel : " + metricsChannel);
-			return new DatabusAppender(channel, metricsChannel, metricsUpdateInterval, port, permitsPerSecond, getName(), Level.getLevel(databusLevel), Level.getLevel(streamlogLevel), layout, getFilter(), isIgnoreExceptions(), getPropertyArray());
+			return new DatabusAppender(channel, metricsChannel, metricsUpdateInterval, port, permitsPerSecond, getName(), Level.getLevel(databusLevel), layout, getFilter(), isIgnoreExceptions(), getPropertyArray());
 		}
 	}
 

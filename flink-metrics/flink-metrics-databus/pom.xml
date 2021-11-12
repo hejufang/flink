@@ -32,7 +32,7 @@ under the License.
 	<artifactId>flink-metrics-databus</artifactId>
 
 	<properties>
-		<logging.version>0.0.3-SNAPSHOT</logging.version>
+		<logging.version>1.0.1-beta.3-SNAPSHOT</logging.version>
 	</properties>
 
 	<dependencies>
@@ -79,6 +79,42 @@ under the License.
 					<artifactId>logback-core</artifactId>
 					<groupId>ch.qos.logback</groupId>
 				</exclusion>
+				<exclusion>
+					<artifactId>hadoop-mapreduce-client-core</artifactId>
+					<groupId>org.apache.hadoop</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>hadoop-yarn-common</artifactId>
+					<groupId>org.apache.hadoop</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>hadoop-hdfs</artifactId>
+					<groupId>org.apache.hadoop</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>hadoop-yarn-api</artifactId>
+					<groupId>org.apache.hadoop</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>databus4j</artifactId>
+					<groupId>com.bytedance.data</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>hadoop-common</artifactId>
+					<groupId>org.apache.hadoop</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>btrace</artifactId>
+					<groupId>com.bytedance</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>hadoop-4mc</artifactId>
+					<groupId>com.hadoop.fourmc</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>guava</artifactId>
+					<groupId>com.google.guava</groupId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<dependency>
@@ -100,33 +136,10 @@ under the License.
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
-			<groupId>com.bytedance.base</groupId>
-			<artifactId>logging-starter</artifactId>
+			<groupId>com.bytedance</groupId>
+			<artifactId>log4j2-lang-nonspring</artifactId>
 			<version>${logging.version}</version>
-			<exclusions>
-				<exclusion>
-					<artifactId>logback-ext</artifactId>
-					<groupId>com.bytedance.base</groupId>
-				</exclusion>
-				<exclusion>
-					<artifactId>logback-core</artifactId>
-					<groupId>ch.qos.logback</groupId>
-				</exclusion>
-				<exclusion>
-					<artifactId>logback-classic</artifactId>
-					<groupId>ch.qos.logback</groupId>
-				</exclusion>
-				<exclusion>
-					<artifactId>okio</artifactId>
-					<groupId>com.squareup.okio</groupId>
-				</exclusion>
-				<exclusion>
-					<artifactId>guava</artifactId>
-					<groupId>com.google.guava</groupId>
-				</exclusion>
-			</exclusions>
 		</dependency>
-
 	</dependencies>
 
 	<build>
@@ -170,6 +183,30 @@ under the License.
 								<relocation>
 									<pattern>com.sun.xml</pattern>
 									<shadedPattern>org.apache.flink.metrics.databus.shaded.com.sun.xml</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.google</pattern>
+									<shadedPattern>org.apache.flink.metrics.databus.shaded.com.google</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.fasterxml.jackson</pattern>
+									<shadedPattern>org.apache.flink.metrics.databus.shaded.com.fasterxml.jackson</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>okhttp3</pattern>
+									<shadedPattern>org.apache.flink.metrics.databus.shaded.okhttp3</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>okio</pattern>
+									<shadedPattern>org.apache.flink.metrics.databus.shaded.okio</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.commons</pattern>
+									<shadedPattern>org.apache.flink.metrics.databus.shaded.org.apache.commons</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>io.github</pattern>
+									<shadedPattern>org.apache.flink.metrics.databus.shaded.io.github</shadedPattern>
 								</relocation>
 							</relocations>
 						</configuration>

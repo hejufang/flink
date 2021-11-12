@@ -230,7 +230,8 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			"2>> " + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.err";
 		final String logging = "-Dlog.databus.channel=yarn_container_level_log" +
 			" " + "-Dlog.databus.level=WARN" +
-			" " + "-Dlog.databus.permitsPerSecond=1000";
+			" " + "-Dlog.databus.permitsPerSecond=1000" +
+			" " + "-Dlog.streamlog.level=OFF";
 
 		try {
 			// no logging, with/out krb5

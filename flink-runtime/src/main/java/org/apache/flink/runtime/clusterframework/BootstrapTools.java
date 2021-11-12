@@ -501,6 +501,8 @@ public class BootstrapTools {
 			String streamlogLevel = flinkConfig.getString(ConfigConstants.FLINK_LOG_STREAMLOG_LEVEL_KEY,
 				ConfigConstants.FLINK_LOG_STREAMLOG_LEVEL_DEFAULT);
 			logging += " -Dlog.streamlog.level=" + streamlogLevel;
+		} else {
+			logging += " -Dlog.streamlog.level=" + ConfigConstants.FLINK_LOG_STREAMLOG_OFF_LEVEL;
 		}
 
 		startCommandValues.put("logging", logging);

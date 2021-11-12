@@ -578,6 +578,8 @@ public class KubernetesUtils {
 				String streamlogLevel = flinkConfig.getString(ConfigConstants.FLINK_LOG_STREAMLOG_LEVEL_KEY,
 						ConfigConstants.FLINK_LOG_STREAMLOG_LEVEL_DEFAULT);
 				logging.append(" -Dlog.streamlog.level=").append(streamlogLevel);
+			} else {
+				logging.append(" -Dlog.streamlog.level=").append(ConfigConstants.FLINK_LOG_STREAMLOG_OFF_LEVEL);
 			}
 		}
 		return logging.toString();
