@@ -96,8 +96,10 @@ common:
   kubernetes.namespace: flink
   kubernetes.jobmanager.service-account: flink
   kubernetes.deployment.annotations: "pod.tce.kubernetes.io/mountHostPath:true"
-  pipeline.download-template: "/opt/tiger/flink_deploy/bin/flink download -src '%files%' -dest %target% > /var/log/tiger/flink-download.log 2>&1"
   kubernetes.container.work.dir: /opt/tiger/workdir
+  kubernetes.web-shell.enabled: true
+
+  pipeline.download-template: "/opt/tiger/flink_deploy/bin/flink download -src '%files%' -dest %target% > /var/log/tiger/flink-download.log 2>&1"
   pipeline.file-mounted-path: /opt/tiger/workdir
 
   # Metrics

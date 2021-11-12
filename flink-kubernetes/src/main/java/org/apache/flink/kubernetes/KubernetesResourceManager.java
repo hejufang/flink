@@ -53,6 +53,7 @@ import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerExcept
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
@@ -69,6 +70,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
 
 /**
  * Kubernetes specific implementation of the {@link ResourceManager}.
@@ -110,6 +113,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	/** Map from pod name to hostIP. */
 	private final HashMap<String, String> podNameAndHostIPMap;
 
+	private final boolean enableWebShell;
+
 	public KubernetesResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -146,6 +151,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.podWorkerResources = new HashMap<>();
 		this.running = false;
 		this.podNameAndHostIPMap = new HashMap<>();
+		this.enableWebShell = flinkConfig.getBoolean(KubernetesConfigOptions.KUBERNETES_WEB_SHELL_ENABLED);
 	}
 
 	@Override
@@ -322,6 +328,36 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		} else {
 			onFatalError(throwable);
 		}
+	}
+
+	public CompletableFuture<String> requestJMWebShell(@RpcTimeout Time timeout) {
+		CompletableFuture<String> jmWebShell = new CompletableFuture<>();
+		if (enableWebShell) {
+			String podName = System.getenv(ENV_FLINK_POD_NAME);
+			String namespace =  flinkConfig.getString(KubernetesConfigOptions.NAMESPACE);
+			String webShell = KubernetesUtils.getWebShell(podName, namespace);
+			jmWebShell.complete(webShell);
+		} else {
+			jmWebShell.complete("");
+		}
+		return jmWebShell;
+	}
+
+	public String getTaskManagerWebShell(ResourceID resourceId, String host) {
+		if (enableWebShell) {
+			String podName = resourceId.getResourceIdString();
+			String namespace =  flinkConfig.getString(KubernetesConfigOptions.NAMESPACE);
+			return KubernetesUtils.getWebShell(podName, namespace);
+		} else {
+			return super.getTaskManagerWebShell(resourceId, host);
+		}
+	}
+
+	public CompletableFuture<String> requestJobManagerLogUrl(@RpcTimeout Time timeout) {
+		// todo, will return stream log url in the future
+		CompletableFuture<String> jmLog = new CompletableFuture<>();
+		jmLog.complete("");
+		return jmLog;
 	}
 
 	@VisibleForTesting

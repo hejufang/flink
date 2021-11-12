@@ -585,6 +585,13 @@ public class KubernetesUtils {
 		return logging.toString();
 	}
 
+	public static String getWebShell(String podName, String namespace) {
+		String zoneName = System.getenv(Constants.ZONE_ENV_KEY);
+		String idc = System.getenv(Constants.INTERNAL_IDC_ENV_KEY);
+		String clusterName = System.getenv(Constants.PHYSICAL_CLUSTER_ENV_KEY);
+		return String.format(Constants.WEB_SHELL_TEMPLATE, zoneName, idc, clusterName, podName, namespace);
+	}
+
 	/**
 	 * Cluster components.
 	 */

@@ -108,4 +108,9 @@ public class Constants {
 
 	public static final String FILE_SCHEME = "file";
 	public static final String LOCAL_SCHEME = "local";
+
+	public static final String WEB_SHELL_TEMPLATE = "https://webshellauth.byted.org/webshell/auth?zoneName=%s&idc=%s&clusterName=%s&podName=%s&namespace=%s";
+	public static final String ZONE_ENV_KEY = "TCE_ZONE";
+	public static final String INTERNAL_IDC_ENV_KEY = "TCE_INTERNAL_IDC";
+	public static final String PHYSICAL_CLUSTER_ENV_KEY = "TCE_PHYSICAL_CLUSTER";
 }

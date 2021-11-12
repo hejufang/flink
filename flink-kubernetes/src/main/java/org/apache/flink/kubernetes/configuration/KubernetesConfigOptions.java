@@ -201,6 +201,12 @@ public class KubernetesConfigOptions {
 			.withDescription("The number of task managers to be reserved even if they are expired. "
 				+ "0 for not reserve task managers.");
 
+	public static final ConfigOption<Boolean> KUBERNETES_WEB_SHELL_ENABLED =
+		key("kubernetes.web-shell.enabled")
+			.booleanType()
+			.defaultValue(Boolean.FALSE)
+			.withDescription("Whether to enable web shell for kubernetes.");
+
 	public static final ConfigOption<Map<String, String>> KUBERNETES_DEPLOYMENT_ANNOTATIONS =
 		key("kubernetes.deployment.annotations")
 			.mapType()
