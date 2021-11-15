@@ -73,7 +73,7 @@ class PushLimitIntoLegacyTableSourceScanRuleTest extends TableTestBase {
     util.verifyPlan("SELECT a, c FROM LimitTable LIMIT -1")
   }
 
-  @Test(expected = classOf[SqlParserException])
+  @Test
   def testMysqlLimit(): Unit = {
     util.verifyPlan("SELECT a, c FROM LimitTable LIMIT 1, 10")
   }

@@ -16,6 +16,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <Root>
+	<TestCase name="testMysqlLimit">
+		<Resource name="sql">
+			<![CDATA[SELECT a, c FROM LimitTable LIMIT 1, 10]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalSort(offset=[1], fetch=[10])
++- LogicalProject(a=[$0], c=[$2])
+   +- LogicalTableScan(table=[[default_catalog, default_database, LimitTable]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+LogicalProject(a=[$0], c=[$2])
++- FlinkLogicalSort(offset=[1], fetch=[10])
+   +- FlinkLogicalLegacyTableSourceScan(table=[[default_catalog, default_database, LimitTable, source: [limit: 11]]], fields=[a, b, c])
+]]>
+		</Resource>
+	</TestCase>
 	<TestCase name="testCanPushdownLimitWithoutOffset">
 		<Resource name="sql">
 			<![CDATA[SELECT a, c FROM LimitTable LIMIT 5]]>
