@@ -207,168 +207,168 @@
       {
         "matcher": {
           "id": "byName",
-          "options": "-80010"
+          "options": "200"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80010 (无法启动TM)"
+            "value": "200 (无法启动TM)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80011"
+          "options": "201"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80011 (释放或恢复partition失败)"
+            "value": "201 (释放或恢复partition失败)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80012"
+          "options": "202"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80012 (申请slot出现异常之后无法释放slot)"
+            "value": "202 (申请slot出现异常之后无法释放slot)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80013"
+          "options": "203"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80013 (申请slot出现异常之后释放slot，slot无法找到)"
+            "value": "203 (申请slot出现异常之后释放slot，slot无法找到)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80014"
+          "options": "204"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80014 (注册到RM超时)"
+            "value": "204 (注册到RM超时)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80015"
+          "options": "205"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80015 (发送更新状态信息到JM时发生RPC异常)"
+            "value": "205 (发送更新状态信息到JM时发生RPC异常)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80016"
+          "options": "206"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80016 (发送更新状态信息到JM时发生错误)"
+            "value": "206 (发送更新状态信息到JM时发生错误)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80017"
+          "options": "207"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80017 (监听RM leadership出错)"
+            "value": "207 (监听RM leadership出错)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80018"
+          "options": "208"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80018 (监听JM leadership出错)"
+            "value": "208 (监听JM leadership出错)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80019"
+          "options": "209"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80019 (注册到RM失败)"
+            "value": "209 (注册到RM失败)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80020"
+          "options": "210"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80020 (TM退出超时)"
+            "value": "210 (TASK 退出超时)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80021"
+          "options": "211"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80021 (处理异常时出现错误)"
+            "value": "211 (TASK 结束流程出现异常)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80022"
+          "options": "212"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80022 (清理TM资源时出现异常)"
+            "value": "212 (TASK 故障清理资源时出现异常)"
           }
         ]
       },
       {
         "matcher": {
           "id": "byName",
-          "options": "-80023"
+          "options": "213"
         },
         "properties": [
           {
             "id": "displayName",
-            "value": "-80023 (取消TM时出现异常)"
+            "value": "213 (cancel Task 超时异常)"
           }
         ]
       },

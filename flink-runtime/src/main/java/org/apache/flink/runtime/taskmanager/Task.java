@@ -1697,7 +1697,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 				if (executerThread.isAlive()) {
 					String msg = "Task did not exit gracefully within " + (timeoutMillis / 1000) + " + seconds.";
-					taskManager.notifyFatalError(msg, new FlinkRuntimeException(msg), WorkerExitCode.TASKMANAGER_EXIT_TIMEOUT);
+					taskManager.notifyFatalError(msg, new FlinkRuntimeException(msg), WorkerExitCode.TASKMANAGER_TASK_EXIT_TIMEOUT);
 				}
 			}
 			catch (Throwable t) {
