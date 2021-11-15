@@ -245,47 +245,63 @@ public abstract class AbstractTopNFunction extends KeyedProcessFunctionWithClean
 
 	protected void collectInsert(Collector<RowData> out, RowData inputRow, long rank) {
 		if (isInRankRange(rank)) {
+			RowKind oldKind = inputRow.getRowKind();
 			out.collect(createOutputRow(inputRow, rank, RowKind.INSERT));
+			inputRow.setRowKind(oldKind);
 		}
 	}
 
 	protected void collectInsert(Collector<RowData> out, RowData inputRow) {
+		RowKind oldKind = inputRow.getRowKind();
 		inputRow.setRowKind(RowKind.INSERT);
 		out.collect(inputRow);
+		inputRow.setRowKind(oldKind);
 	}
 
 	protected void collectDelete(Collector<RowData> out, RowData inputRow, long rank) {
 		if (isInRankRange(rank)) {
+			RowKind oldKind = inputRow.getRowKind();
 			out.collect(createOutputRow(inputRow, rank, RowKind.DELETE));
+			inputRow.setRowKind(oldKind);
 		}
 	}
 
 	protected void collectDelete(Collector<RowData> out, RowData inputRow) {
+		RowKind oldKind = inputRow.getRowKind();
 		inputRow.setRowKind(RowKind.DELETE);
 		out.collect(inputRow);
+		inputRow.setRowKind(oldKind);
 	}
 
 	protected void collectUpdateAfter(Collector<RowData> out, RowData inputRow, long rank) {
 		if (isInRankRange(rank)) {
+			RowKind oldKind = inputRow.getRowKind();
 			out.collect(createOutputRow(inputRow, rank, RowKind.UPDATE_AFTER));
+			inputRow.setRowKind(oldKind);
 		}
 	}
 
 	protected void collectUpdateAfter(Collector<RowData> out, RowData inputRow) {
+		RowKind oldKind = inputRow.getRowKind();
 		inputRow.setRowKind(RowKind.UPDATE_AFTER);
 		out.collect(inputRow);
+		inputRow.setRowKind(oldKind);
 	}
 
 	protected void collectUpdateBefore(Collector<RowData> out, RowData inputRow, long rank) {
 		if (generateUpdateBefore && isInRankRange(rank)) {
+			RowKind oldKind = inputRow.getRowKind();
 			out.collect(createOutputRow(inputRow, rank, RowKind.UPDATE_BEFORE));
+			inputRow.setRowKind(oldKind);
 		}
 	}
 
 	protected void collectUpdateBefore(Collector<RowData> out, RowData inputRow) {
 		if (generateUpdateBefore) {
+			RowKind oldKind = inputRow.getRowKind();
 			inputRow.setRowKind(RowKind.UPDATE_BEFORE);
 			out.collect(inputRow);
+			inputRow.setRowKind(oldKind);
 		}
 	}
 

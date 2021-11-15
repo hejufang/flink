@@ -449,6 +449,30 @@ public class RetractableTopNFunctionTest extends TopNFunctionTestBase {
 	}
 
 	@Test
+	public void testRetract() throws Exception {
+		AbstractTopNFunction func = createFunction(RankType.ROW_NUMBER, new ConstantRankRange(1, 1), true,
+			false);
+		OneInputStreamOperatorTestHarness<RowData, RowData> testHarness = createTestHarness(func);
+		testHarness.open();
+		testHarness.processElement(insertRecord("a", 1, 2));
+		testHarness.processElement(insertRecord("a", 2, 1));
+		testHarness.processElement(deleteRecord("a", 1, 2));
+		testHarness.processElement(deleteRecord("a", 2, 1));
+		testHarness.processElement(insertRecord("a", 3, 2));
+		testHarness.processElement(insertRecord("a", 4, 1));
+
+		List<Object> expectedOutput = new ArrayList<>();
+		expectedOutput.add(insertRecord("a", 1, 2));
+		expectedOutput.add(deleteRecord("a", 1, 2));
+		expectedOutput.add(insertRecord("a", 2, 1));
+		expectedOutput.add(deleteRecord("a", 2, 1));
+		expectedOutput.add(insertRecord("a", 3, 2));
+		expectedOutput.add(deleteRecord("a", 3, 2));
+		expectedOutput.add(insertRecord("a", 4, 1));
+		assertorWithRowNumber.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+	}
+
+	@Test
 	public void testRetractRecordOutOfRankRangeWithoutRowNumber() throws Exception {
 		AbstractTopNFunction func = createFunction(RankType.ROW_NUMBER, new ConstantRankRange(1, 2), false,
 			false);
