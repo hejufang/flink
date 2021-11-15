@@ -51,6 +51,11 @@ class LimitTest extends TableTestBase {
   }
 
   @Test
+  def testLimitWithOffset2(): Unit = {
+    util.verifyPlan("SELECT a, c FROM MyTable LIMIT 10, 1")
+  }
+
+  @Test
   def testLimitWithOffset0(): Unit = {
     util.verifyPlan("SELECT a, c FROM MyTable LIMIT 10 OFFSET 0")
   }

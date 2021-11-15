@@ -65,6 +65,11 @@ class LegacyLimitTest extends TableTestBase {
   }
 
   @Test
+  def testLimitWithOffset2(): Unit = {
+    util.verifyPlan("SELECT a, c FROM MyTable LIMIT 10, 1")
+  }
+
+  @Test
   def testLimitWithOffset0(): Unit = {
     util.verifyPlan("SELECT a, c FROM MyTable LIMIT 10 OFFSET 0")
   }
@@ -133,5 +138,4 @@ class LegacyLimitTest extends TableTestBase {
     val sqlQuery = "SELECT a, c FROM LimitTable OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY"
     util.verifyPlan(sqlQuery)
   }
-
 }

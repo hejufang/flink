@@ -128,7 +128,7 @@ public enum FlinkSqlConformance implements SqlConformance {
 
 	@Override
 	public boolean isLimitStartCountAllowed() {
-		return false;
+		return true;
 	}
 
 	@Override

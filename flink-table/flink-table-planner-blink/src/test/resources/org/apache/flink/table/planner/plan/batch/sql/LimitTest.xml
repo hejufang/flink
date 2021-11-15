@@ -227,7 +227,28 @@ Calc(select=[a, c])
 ]]>
     </Resource>
   </TestCase>
-  <TestCase name="testLimitWithOffset0">
+	<TestCase name="testLimitWithOffset2">
+		<Resource name="sql">
+			<![CDATA[SELECT a, c FROM MyTable LIMIT 10, 1]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalSort(offset=[10], fetch=[1])
++- LogicalProject(a=[$0], c=[$2])
+   +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[a, c])
++- Limit(offset=[10], fetch=[1], global=[true])
+   +- Exchange(distribution=[single])
+      +- Limit(offset=[0], fetch=[11], global=[false])
+         +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]], fields=[a, b, c])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testLimitWithOffset0">
     <Resource name="sql">
       <![CDATA[SELECT a, c FROM MyTable LIMIT 10 OFFSET 0]]>
     </Resource>
