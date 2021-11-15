@@ -193,7 +193,7 @@ public class TableExtractor {
 				return extractSourceAndDimensionTables(sqlCreateView.getQuery(), false, context);
 			case MATCH_RECOGNIZE:
 				SqlMatchRecognize sqlMatchRecognize = (SqlMatchRecognize) sqlNode;
-				return Collections.singleton(sqlMatchRecognize.getTableRef().toString());
+				return extractSourceAndDimensionTables(sqlMatchRecognize.getTableRef(), true, context);
 			default:
 				if (sqlNode instanceof SqlCall) {
 					SqlCall sqlCall1 = (SqlCall) sqlNode;

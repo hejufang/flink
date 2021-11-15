@@ -208,6 +208,94 @@ public class TableExtractorTest {
 		extractTables(sql, expectedResult);
 	}
 
+	@Test
+	public void testExtractTablesWithCEPAndView() {
+		String sql =
+			"CREATE  TABLE dwd_byte_rtc_media_stats_audio_send (\n" +
+			"            ts              AS LONG_TO_TIMESTAMP(COALESCE(event_time, 0)),\n" +
+			"            WATERMARK       FOR ts AS (ts - INTERVAL '8' MINUTE),\n" +
+			"            device_id       VARCHAR,\n" +
+			"            encinputmute    INT,\n" +
+			"            audio_level     DOUBLE,\n" +
+			"            down_stream_num INT,\n" +
+			"            rtc_session_id  VARCHAR,\n" +
+			"            event_time      BIGINT,\n" +
+			"            dw_is_valid     INT\n" +
+			"        ) WITH ();\n" +
+			"CREATE  TABLE dwd_byte_rtc_event (\n" +
+			"            ts           AS LONG_TO_TIMESTAMP(COALESCE(event_time, 0)),\n" +
+			"            WATERMARK    FOR ts AS (ts - INTERVAL '8' MINUTE),\n" +
+			"            device_id    VARCHAR,\n" +
+			"            event_key    VARCHAR,\n" +
+			"            sdk_api_name VARCHAR,\n" +
+			"            message      VARCHAR,\n" +
+			"            event_time   BIGINT,\n" +
+			"            dw_is_valid  INT\n" +
+			"        ) WITH ();\n" +
+			"CREATE  VIEW union_data AS (\n" +
+			"            SELECT  device_id,\n" +
+			"                    rtc_session_id,\n" +
+			"                    encinputmute,\n" +
+			"                    audio_level,\n" +
+			"                    down_stream_num,\n" +
+			"                    CAST(NULL AS VARCHAR) AS event_key,\n" +
+			"                    CAST(NULL AS VARCHAR) AS sdk_api_name,\n" +
+			"                    CAST(NULL AS VARCHAR) AS message,\n" +
+			"                    event_time,\n" +
+			"                    ts\n" +
+			"            FROM    dwd_byte_rtc_media_stats_audio_send\n" +
+			"            WHERE   dw_is_valid = 1\n" +
+			"            UNION ALL\n" +
+			"            SELECT  device_id,\n" +
+			"                    CAST(NULL AS VARCHAR) AS rtc_session_id,\n" +
+			"                    CAST(NULL AS INT) AS encinputmute,\n" +
+			"                    CAST(NULL AS DOUBLE) AS audio_level,\n" +
+			"                    CAST(NULL AS INT) AS down_stream_num,\n" +
+			"                    event_key,\n" +
+			"                    sdk_api_name,\n" +
+			"                    message,\n" +
+			"                    event_time,\n" +
+			"                    ts\n" +
+			"            FROM    dwd_byte_rtc_event\n" +
+			"                    -- only consider valid data\n" +
+			"            WHERE   dw_is_valid = 1\n" +
+			"            AND     event_key = 'rtc_sdk_api_call'\n" +
+			"            AND     sdk_api_name = 'enableLocalAudio'\n" +
+			"            AND     message = '{enable: 1}'\n" +
+			"        );\n" +
+			"CREATE  TABLE print_sink (event_time BIGINT, rtc_session_id VARCHAR, device_id VARCHAR)\n" +
+			"        WITH ('connector' = 'print');\n" +
+			"INSERT INTO print_sink\n" +
+			"SELECT  event_time,\n" +
+			"        rtc_session_id,\n" +
+			"        did\n" +
+			"FROM    union_data MATCH_RECOGNIZE (\n" +
+			"            PARTITION BY\n" +
+			"                    device_id\n" +
+			"            ORDER BY\n" +
+			"                    ts MEASURES FIRST(NO_VOICE.event_time) AS event_time,\n" +
+			"                    FIRST(NO_VOICE.rtc_session_id) AS rtc_session_id,\n" +
+			"                    FIRST(NO_VOICE.device_id) AS did ONE ROW PER MATCH\n" +
+			"            AFTER   MATCH SKIP TO LAST NO_VOICE PATTERN (NO_VOICE + HAS_VOICE) WITHIN INTERVAL '1' HOUR DEFINE NO_VOICE AS down_stream_num > 0\n" +
+			"            AND     audio_level = 127.0\n" +
+			"            AND     encinputmute = 0,\n" +
+			"                    --         START_AUDIO_CAPTURE AS event_key = 'rtc_sdk_api_call'\n" +
+			"                    -- AND     sdk_api_name = 'enableLocalAudio'\n" +
+			"                    -- AND     message = '{enable: 1}',\n" +
+			"                    HAS_VOICE AS NOT (\n" +
+			"                        down_stream_num > 0\n" +
+			"                        AND audio_level = 127.0\n" +
+			"                        AND encinputmute = 0\n" +
+			"                    )\n" +
+			"        )";
+		TableExtractor.ExtractResult expectedResult =
+			new TableExtractor.ExtractResult(
+				new HashSet<>(Arrays.asList("dwd_byte_rtc_media_stats_audio_send", "dwd_byte_rtc_event")),
+				new HashSet<>(Arrays.asList("print_sink")),
+				Collections.emptySet());
+		extractTables(sql, expectedResult);
+	}
+
 	private void extractTables(String sql, TableExtractor.ExtractResult expectedResult) {
 		try {
 			List<SqlNode> sqlNodes = createFlinkParser(sql).parseStmtList().getList();
