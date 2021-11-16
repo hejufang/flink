@@ -205,6 +205,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					offset = restoredOffsets.get(messageQueue);
 				}
 				if (offset != null) {
+					LOG.info("Queue {} store offset {} to state", messageQueue.toString(), offset);
 					unionOffsetStates.add(new Tuple2<>(messageQueue, offset));
 				} else {
 					LOG.warn("{} offset is null.", messageQueue.toString());
@@ -251,6 +252,8 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				return queueAndOffset.f1;
 			})
 		);
+		LOG.info("Recovered lastSnapshotQueues {}", lastSnapshotQueues);
+		LOG.info("Recovered restoredOffsets {}", restoredOffsets.entrySet());
 	}
 
 	@Override
@@ -414,9 +417,11 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 	private void resetOffset(MessageQueuePb messageQueuePb) throws InterruptedException {
 		MessageQueue messageQueue = createMessageQueue(messageQueuePb);
+		String queueName = formatQueue(messageQueuePb);
 		List<MessageQueuePb> queuePbList = Arrays.asList(messageQueuePb);
 		Long offset = offsetTable.get(messageQueue);
 		if (offset != null) {
+			LOG.info("Queue {} use cache offset {}", queueName, offset);
 			return;
 		}
 
@@ -426,7 +431,10 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			if (offset != null) {
 				resetOffsetResult = consumer.resetOffsetToSpecified(topic, group, queuePbList, offset, false);
 				validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
-				offsetTable.put(messageQueue, resetOffsetResult.getResetOffsetMap().get(messageQueuePb));
+				Long newOffset = resetOffsetResult.getResetOffsetMap().get(messageQueuePb);
+				offsetTable.put(messageQueue, offset);
+				LOG.info("Queue {} use checkpoint offset {}, after reset offset {}",
+					queueName, offset, newOffset);
 				return;
 			}
 		}
@@ -459,23 +467,33 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 							default:
 								throw new IllegalArgumentException("Unknown value for scan.consumer-offset-reset-to: " + initialOffset);
 						}
+						LOG.info("Group offset not exist, reset {} to {} offset {}",
+							queueName, initialOffset, resetOffsetResult.getResetOffsetMap().get(messageQueuePb));
 						validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
 					} else {
-						offsetTable.put(messageQueue, queryOffsetResult.getOffsetMap().get(messageQueuePb));
+						offset = queryOffsetResult.getOffsetMap().get(messageQueuePb);
+						LOG.info("Queue {} group offset {}", queueName, offset);
+						offsetTable.put(messageQueue, offset);
 					}
 					break;
 				case SCAN_STARTUP_MODE_VALUE_EARLIEST:
 					resetOffsetResult = consumer.resetOffsetToEarliest(topic, group, queuePbList, false);
 					validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
+					LOG.info("Reset {} to earliest offset {}",
+						formatQueue(messageQueuePb), resetOffsetResult.getResetOffsetMap().get(messageQueuePb));
 					break;
 				case SCAN_STARTUP_MODE_VALUE_LATEST:
 					resetOffsetResult = consumer.resetOffsetToLatest(topic, group, queuePbList, false);
 					validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
+					LOG.info("Reset {} to latest offset {}",
+						formatQueue(messageQueuePb), resetOffsetResult.getResetOffsetMap().get(messageQueuePb));
 					break;
 				case SCAN_STARTUP_MODE_VALUE_TIMESTAMP:
 					long timestamp = RocketMQUtils.getLong(props,
 						SCAN_STARTUP_TIMESTAMP_MILLIS.key(), System.currentTimeMillis());
 					resetOffsetResult = consumer.resetOffsetByTimestamp(topic, group, queuePbList, timestamp, false);
+					LOG.info("Reset {} to timestamp {} offset {}",
+						formatQueue(messageQueuePb), timestamp, resetOffsetResult.getResetOffsetMap().get(messageQueuePb));
 					validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
 					break;
 				default:
@@ -534,5 +552,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			return null;
 		}
 		return new HashSet<>(messageQueues);
+	}
+
+	private String formatQueue(MessageQueuePb messageQueuePb) {
+		return String.format("[broker %s, queue %s]", messageQueuePb.getBrokerName(), messageQueuePb.getQueueId());
 	}
 }
