@@ -24,6 +24,7 @@ import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserializationSchema;
 import org.apache.flink.metrics.Counter;
@@ -49,6 +50,7 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.Obje
 import com.bytedance.mqproxy.proto.MessageExt;
 import com.bytedance.mqproxy.proto.MessageQueuePb;
 import com.bytedance.mqproxy.proto.ResponseCode;
+import com.bytedance.rocketmq.clientv2.config.ConsumerConfig;
 import com.bytedance.rocketmq.clientv2.consumer.DefaultMQPullConsumer;
 import com.bytedance.rocketmq.clientv2.consumer.QueryOffsetResult;
 import com.bytedance.rocketmq.clientv2.consumer.QueryTopicQueuesResult;
@@ -63,7 +65,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -94,6 +98,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private static final String LEGACY_OFFSETS_STATE_NAME = "topic-partition-offset-states";
 	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
 	private static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
+	private static final String INSTANCE_ID_TEMPLATE = "flink_%s_rmq_%s_%s_%s";
 	public static final String ROCKET_MQ_CONSUMER_METRICS_GROUP = "RocketMQConsumer";
 
 	private final String cluster;
@@ -106,6 +111,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private final String brokerQueueList;
 	private final FlinkConnectorRateLimiter rateLimiter;
 	private final long sourceIdleTimeMs;
+	private final String jobName;
 	private int parallelism;
 
 	private transient MeterView recordsNumMeterView;
@@ -138,21 +144,25 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.brokerQueueList = config.getRocketMqBrokerQueueList();
 		this.rateLimiter = config.getRateLimiter();
 		this.sourceIdleTimeMs = config.getIdleTimeOut();
+		this.jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
 		saveConfigurationToSystemProperties(config);
 	}
 
 	@Override
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
-		this.consumer = new DefaultMQPullConsumer(cluster, topic, group, getRocketMQProperties(props));
-		this.consumer.setInstanceName(topic + "_" + getRuntimeContext().getIndexOfThisSubtask());
+		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
+
+		Properties properties = getRocketMQProperties(props);
+		String instanceName = String.format(INSTANCE_ID_TEMPLATE, jobName, topic, subTaskId, UUID.randomUUID());
+		LOG.info("Current rocketmq instance name is {}", instanceName);
+		properties.setProperty(ConsumerConfig.INSTANCE_NAME, instanceName);
+		this.consumer = new DefaultMQPullConsumer(cluster, topic, group, properties);
 		if (this.parallelism > 0) {
 			assert this.parallelism == getRuntimeContext().getNumberOfParallelSubtasks();
 		} else {
 			this.parallelism = getRuntimeContext().getNumberOfParallelSubtasks();
 		}
-
-		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
 
 		MetricGroup metricGroup = getRuntimeContext().getMetricGroup().addGroup(ROCKET_MQ_CONSUMER_METRICS_GROUP)
 			.addGroup(RocketMQOptions.TOPIC_METRICS_GROUP, this.topic)
