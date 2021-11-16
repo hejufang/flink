@@ -190,6 +190,8 @@ common:
 
   # The Netty send and receive buffer size.
   taskmanager.network.netty.sendReceiveBufferSize: 4194304
+  taskmanager.network.netty.transport: auto
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
   taskmanager.number-extra-initial: 0
   taskmanager.extra-initial-fraction: 0
@@ -276,8 +278,6 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  taskmanager.network.netty.transport: auto
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
 larva:
   dc: cn
@@ -285,8 +285,6 @@ larva:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  taskmanager.network.netty.transport: auto
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
 locst:
   dc: cn
@@ -355,8 +353,6 @@ horse:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  taskmanager.network.netty.transport: auto
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
 hibis:
   dc: cn
@@ -432,8 +428,6 @@ quoka:
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
-  taskmanager.network.netty.transport: auto
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
 
 quaga:
@@ -444,8 +438,6 @@ quaga:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   ipv6.enabled: true
-  taskmanager.network.netty.transport: auto
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
 
 quele:
@@ -705,8 +697,6 @@ boe:
   grafana.domain_url: "https://grafana-boe.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiTURSV01QeWNDZXJXYUNBdEhkSU94U2tKajU2M1BVM24iLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   yarn.provided.lib.dirs.enabled: false
-  taskmanager.network.netty.transport: auto
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
 cof:
   dc: vm
@@ -756,5 +746,3 @@ boei18n:
   grafana.domain_url: "https://grafana-boei18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoicndEUGRnNHpUZE9Gcm04VE5QSDdDV3JzbG8wWFZYa3IiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   yarn.provided.lib.dirs.enabled: false
-  taskmanager.network.netty.transport: auto
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
