@@ -74,6 +74,8 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.MSG_DELAY_LEVE
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.PROPERTIES_PREFIX;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_ASSIGN_QUEUE_STRATEGY;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_BROKER_QUEUE_LIST;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_FROM_TIMESTAMP_MILLIS;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_RESET_TO;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_FORCE_AUTO_COMMIT;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
@@ -176,6 +178,8 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SCAN_BROKER_QUEUE_LIST);
 		options.add(SINK_BATCH_FLUSH_ENABLE);
 		options.add(SINK_ASYNC_MODE_ENABLED);
+		options.add(SCAN_CONSUMER_OFFSET_RESET_TO);
+		options.add(SCAN_CONSUMER_OFFSET_FROM_TIMESTAMP_MILLIS);
 		options.add(FactoryUtil.PARALLELISM);
 		options.add(FactoryUtil.RATE_LIMIT_NUM);
 		options.add(FactoryUtil.SOURCE_KEY_BY_FIELD);

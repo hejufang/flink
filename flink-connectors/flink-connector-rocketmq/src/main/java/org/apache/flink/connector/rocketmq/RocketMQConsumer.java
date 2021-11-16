@@ -71,9 +71,11 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-import static org.apache.flink.connector.rocketmq.RocketMQOptions.CONSUMER_OFFSET_EARLIEST;
-import static org.apache.flink.connector.rocketmq.RocketMQOptions.CONSUMER_OFFSET_LATEST;
-import static org.apache.flink.connector.rocketmq.RocketMQOptions.CONSUMER_OFFSET_TIMESTAMP;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_FROM_TIMESTAMP_MILLIS;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_RESET_TO;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_EARLIEST;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_LATEST;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_TIMESTAMP;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE_VALUE_EARLIEST;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS;
@@ -439,21 +441,23 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					if (getOnlyOffset(queryOffsetResult) < 0) {
 						// We cannot get normal offset from RMQ.
 						// Default setting is earliest, in case of data loss.
-						String initialOffset = props.getOrDefault(RocketMQOptions.CONSUMER_OFFSET_RESET_TO, CONSUMER_OFFSET_EARLIEST);
+						String initialOffset = props.getOrDefault(SCAN_CONSUMER_OFFSET_RESET_TO.key(),
+							SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_EARLIEST);
+						LOG.warn("Can't get group offset from RMQ normally, resetting offset to {}", initialOffset);
 						switch (initialOffset) {
-							case CONSUMER_OFFSET_EARLIEST:
+							case SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_EARLIEST:
 								resetOffsetResult = consumer.resetOffsetToEarliest(topic, group, queuePbList, false);
 								break;
-							case CONSUMER_OFFSET_LATEST:
+							case SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_LATEST:
 								resetOffsetResult = consumer.resetOffsetToLatest(topic, group, queuePbList, false);
 								break;
-							case CONSUMER_OFFSET_TIMESTAMP:
+							case SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_TIMESTAMP:
 								long timestamp = RocketMQUtils.getLong(props,
-									RocketMQOptions.CONSUMER_OFFSET_FROM_TIMESTAMP, System.currentTimeMillis());
+									SCAN_CONSUMER_OFFSET_FROM_TIMESTAMP_MILLIS.key(), System.currentTimeMillis());
 								resetOffsetResult = consumer.resetOffsetByTimestamp(topic, group, queuePbList, timestamp, false);
 								break;
 							default:
-								throw new IllegalArgumentException("Unknown value for CONSUMER_OFFSET_RESET_TO.");
+								throw new IllegalArgumentException("Unknown value for scan.consumer-offset-reset-to: " + initialOffset);
 						}
 						validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
 					} else {

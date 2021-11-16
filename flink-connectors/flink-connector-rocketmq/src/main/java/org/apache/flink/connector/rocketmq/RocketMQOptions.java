@@ -40,6 +40,11 @@ public abstract class RocketMQOptions {
 	public static final String SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS = "group";
 	public static final String SCAN_STARTUP_MODE_VALUE_TIMESTAMP = "timestamp";
 
+	// Reset offset.
+	public static final String SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_EARLIEST = "earliest";
+	public static final String SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_LATEST = "latest";
+	public static final String SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_TIMESTAMP = "timestamp";
+
 	// Consumer will retry 10 times and cost 10 minutes at most
 	public static final int CONSUMER_RETRY_TIMES_DEFAULT = 10;
 	public static final int CONSUMER_RETRY_INIT_TIME_MS_DEFAULT = 600;
@@ -122,6 +127,19 @@ public abstract class RocketMQOptions {
 			.noDefaultValue()
 			.withDescription("Whether force commit offset, currently it has not been implemented");
 
+	public static final ConfigOption<String> SCAN_CONSUMER_OFFSET_RESET_TO = ConfigOptions
+		.key("scan.consumer-offset-reset-to")
+		.stringType()
+		.defaultValue(SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_EARLIEST)
+		.withDescription("Optional reset consumer, if we cannot get normal offset from RMQ, valid enumerations are:"
+				+ "\"earliest\",\"latest\",\"timestamp\", default is \"earliest\"");
+
+	public static final ConfigOption<Long> SCAN_CONSUMER_OFFSET_FROM_TIMESTAMP_MILLIS = ConfigOptions
+		.key("scan.consumer-offset-from-timestamp-millis")
+		.longType()
+		.noDefaultValue()
+		.withDescription("Optional consumer offset reset from timestamp");
+
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------
@@ -199,8 +217,14 @@ public abstract class RocketMQOptions {
 		SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS,
 		SCAN_STARTUP_MODE_VALUE_TIMESTAMP));
 
+	private static final Set<String> SCAN_CONSUMER_OFFSET_RESET_TO_ENUMS = new HashSet<>(Arrays.asList(
+		SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_EARLIEST,
+		SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_LATEST,
+		SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_TIMESTAMP));
+
 	public static void validateTableOptions(ReadableConfig tableOptions) {
 		validateScanStartupMode(tableOptions);
+		validateScanOffsetReset(tableOptions);
 		validateSinkPartitioner(tableOptions);
 	}
 
@@ -247,17 +271,36 @@ public abstract class RocketMQOptions {
 			});
 	}
 
+	private static void validateScanOffsetReset(ReadableConfig tableOptions) {
+		tableOptions.getOptional(SCAN_CONSUMER_OFFSET_RESET_TO)
+			.map(String::toLowerCase)
+			.ifPresent(strategy -> {
+				if (!SCAN_CONSUMER_OFFSET_RESET_TO_ENUMS.contains(strategy)) {
+					throw new ValidationException(
+						String.format("Invalid value for option '%s'. Support values are %s, but was: %s",
+							SCAN_CONSUMER_OFFSET_RESET_TO.key(),
+							String.join(",", SCAN_CONSUMER_OFFSET_RESET_TO_ENUMS),
+							strategy));
+				}
+
+				String startupMode = tableOptions
+					.getOptional(SCAN_STARTUP_MODE)
+					.orElse(SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS);
+				if (!startupMode.equalsIgnoreCase(SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS)) {
+					throw new ValidationException(String.format("'%s' startup mode is is required when %s is enabled"
+							+ " but '%s'.",
+						SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS,
+						SCAN_CONSUMER_OFFSET_RESET_TO.key(),
+						startupMode));
+				}
+			});
+	}
+
 	private static void validateSinkPartitioner(ReadableConfig tableOptions) {
 	}
 
 	// Connector Config
 	public static final String CONNECTOR_TYPE_VALUE_ROCKETMQ = "rocketmq";
-
-	public static final String CONSUMER_OFFSET_RESET_TO = "consumer.offset.reset.to";
-	public static final String CONSUMER_OFFSET_LATEST = "latest";
-	public static final String CONSUMER_OFFSET_EARLIEST = "earliest";
-	public static final String CONSUMER_OFFSET_TIMESTAMP = "timestamp";
-	public static final String CONSUMER_OFFSET_FROM_TIMESTAMP = "consumer.offset.from.timestamp";
 
 	public static final int MSG_DELAY_LEVEL00 = 0; // no delay
 	public static final int MSG_DELAY_LEVEL_DEFAULT = MSG_DELAY_LEVEL00; // no delay
