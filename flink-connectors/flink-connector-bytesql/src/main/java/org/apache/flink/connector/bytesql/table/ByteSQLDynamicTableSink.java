@@ -51,7 +51,7 @@ public class ByteSQLDynamicTableSink implements DynamicTableSink {
 	@Override
 	public ChangelogMode getChangelogMode(ChangelogMode requestedMode) {
 		setIsAppendOnly(requestedMode);
-		validatePrimaryKey(requestedMode);
+		validatePrimaryKey();
 		return ChangelogMode.newBuilder()
 			.addContainedKind(RowKind.INSERT)
 			.addContainedKind(RowKind.DELETE)
@@ -63,9 +63,11 @@ public class ByteSQLDynamicTableSink implements DynamicTableSink {
 		isAppendOnly = ChangelogMode.insertOnly().equals(requestedMode);
 	}
 
-	private void validatePrimaryKey(ChangelogMode requestedMode) {
+	private void validatePrimaryKey() {
 		checkState(isAppendOnly || insertOptions.getKeyFields() != null,
 			"please declare primary key for sink table when query contains update/delete record.");
+		checkState(!insertOptions.isIgnoreNull() || insertOptions.getKeyFields() != null,
+			"please declare primary key if ignore null mode is turned on.");
 	}
 
 	@Override

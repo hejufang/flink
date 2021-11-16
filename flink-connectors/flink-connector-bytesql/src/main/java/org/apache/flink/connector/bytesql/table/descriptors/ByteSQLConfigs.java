@@ -62,6 +62,12 @@ public class ByteSQLConfigs {
 		.noDefaultValue()
 		.withDescription("Required. The ByteSQL password.");
 
+	public static final ConfigOption<String> DB_CLASS = ConfigOptions
+		.key("db.class")
+		.stringType()
+		.defaultValue("org.apache.flink.connector.bytesql.client.ByteSQLDBWrapper")
+		.withDescription("the class name of db");
+
 	public static final ConfigOption<Duration> CONNECTION_TIMEOUT = ConfigOptions
 		.key("connection.timeout")
 		.durationType()

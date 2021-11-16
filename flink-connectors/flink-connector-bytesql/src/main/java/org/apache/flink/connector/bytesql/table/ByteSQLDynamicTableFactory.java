@@ -41,6 +41,7 @@ import java.util.Set;
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.CONNECTION_TIMEOUT;
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.CONSUL;
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.DATABASE;
+import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.DB_CLASS;
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.LOOKUP_ASYNC_CONCURRENCY;
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.LOOKUP_ASYNC_ENABLED;
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.PASSWORD;
@@ -58,6 +59,7 @@ import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_MAX_ROWS;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_IGNORE_DELETE;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONLY;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_MAX_RETRIES;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_RECORD_TTL;
@@ -125,10 +127,12 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 		Set<ConfigOption<?>> optionalOptions = new HashSet<>();
 		optionalOptions.add(PARALLELISM);
 		optionalOptions.add(CONNECTION_TIMEOUT);
+		optionalOptions.add(DB_CLASS);
 		optionalOptions.add(SINK_BUFFER_FLUSH_MAX_ROWS);
 		optionalOptions.add(SINK_BUFFER_FLUSH_INTERVAL);
 		optionalOptions.add(SINK_LOG_FAILURES_ONLY);
 		optionalOptions.add(SINK_IGNORE_NULL_COLUMNS);
+		optionalOptions.add(SINK_IGNORE_DELETE);
 		optionalOptions.add(SINK_MAX_RETRIES);
 		optionalOptions.add(SINK_RECORD_TTL);
 
@@ -159,6 +163,7 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 			.setTableName(configs.get(TABLE))
 			.setUsername(configs.get(USERNAME))
 			.setPassword(configs.get(PASSWORD))
+			.setDbClassName(configs.get(DB_CLASS))
 			.setConnectionTimeout(configs.get(CONNECTION_TIMEOUT).toMillis())
 			.setRateLimiter(rateLimiter)
 			.build();
@@ -192,6 +197,7 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 			.setMaxRetryTimes(configs.get(SINK_MAX_RETRIES))
 			.setIgnoreNull(configs.get(SINK_IGNORE_NULL_COLUMNS))
 			.setLogFailuresOnly(configs.get(SINK_LOG_FAILURES_ONLY))
+			.setIgnoreDelete(configs.get(SINK_IGNORE_DELETE))
 			.setTtlSeconds((int) configs.get(SINK_RECORD_TTL).getSeconds())
 			.setParallelism(configs.get(PARALLELISM))
 			.setKeyFields(keyFields)

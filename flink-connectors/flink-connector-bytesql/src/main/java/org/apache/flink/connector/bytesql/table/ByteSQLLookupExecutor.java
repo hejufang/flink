@@ -50,7 +50,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
 
 /**
  * A query executor for lookupFunctions reading data from ByteSQL.
@@ -62,7 +61,6 @@ public class ByteSQLLookupExecutor implements Serializable {
 	private final ByteSQLLookupOptions lookupOptions;
 	private final ByteSQLRowConverter rowConverter;
 	private final String query;
-	private final RowData.FieldGetter[] fieldGetters;
 	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private transient ByteSQLDB byteSQLDB;
@@ -82,10 +80,6 @@ public class ByteSQLLookupExecutor implements Serializable {
 		this.query = ByteSQLUtils.getSelectFromStatement(
 			options.getTableName(), fieldNames, keyNames);
 		this.rowConverter = new ByteSQLRowConverter(rowType);
-		this.fieldGetters = IntStream
-			.range(0, fieldNames.size())
-			.mapToObj(pos -> RowData.createFieldGetter(rowType.getTypeAt(pos), pos))
-			.toArray(RowData.FieldGetter[]::new);
 		this.rateLimiter = options.getRateLimiter();
 	}
 

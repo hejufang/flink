@@ -23,6 +23,7 @@ import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import java.io.Serializable;
 import java.util.Objects;
 
+import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.DB_CLASS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -35,6 +36,7 @@ public class ByteSQLOptions implements Serializable {
 	private final String tableName;
 	private final String username;
 	private final String password;
+	private final String dbClassName;
 	private final long connectionTimeout;
 	private final FlinkConnectorRateLimiter rateLimiter;
 
@@ -44,6 +46,7 @@ public class ByteSQLOptions implements Serializable {
 			String tableName,
 			String username,
 			String password,
+			String dbClassName,
 			long connectionTimeout,
 			FlinkConnectorRateLimiter rateLimiter) {
 		this.consul = consul;
@@ -51,6 +54,7 @@ public class ByteSQLOptions implements Serializable {
 		this.tableName = tableName;
 		this.username = username;
 		this.password = password;
+		this.dbClassName = dbClassName;
 		this.connectionTimeout = connectionTimeout;
 		this.rateLimiter = rateLimiter;
 	}
@@ -75,6 +79,10 @@ public class ByteSQLOptions implements Serializable {
 		return password;
 	}
 
+	public String getDbClassName() {
+		return dbClassName;
+	}
+
 	public long getConnectionTimeout() {
 		return connectionTimeout;
 	}
@@ -96,6 +104,7 @@ public class ByteSQLOptions implements Serializable {
 				Objects.equals(tableName, options.tableName) &&
 				Objects.equals(username, options.username) &&
 				Objects.equals(password, options.password) &&
+				Objects.equals(dbClassName, options.dbClassName) &&
 				connectionTimeout == options.connectionTimeout &&
 				Objects.equals(rateLimiter, options.rateLimiter);
 		} else {
@@ -111,6 +120,7 @@ public class ByteSQLOptions implements Serializable {
 			tableName,
 			username,
 			password,
+			dbClassName,
 			connectionTimeout,
 			rateLimiter
 		);
@@ -125,6 +135,7 @@ public class ByteSQLOptions implements Serializable {
 		private String tableName;
 		private String username;
 		private String password;
+		private String dbClassName = DB_CLASS.defaultValue();
 		private long connectionTimeout = 2000;
 		private FlinkConnectorRateLimiter rateLimiter;
 
@@ -168,6 +179,11 @@ public class ByteSQLOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setDbClassName(String dbClassName) {
+			this.dbClassName = dbClassName;
+			return this;
+		}
+
 		/**
 		 * optional, set connection timeout, default 2000ms.
 		 */
@@ -196,6 +212,7 @@ public class ByteSQLOptions implements Serializable {
 				tableName,
 				username,
 				password,
+				dbClassName,
 				connectionTimeout,
 				rateLimiter);
 		}

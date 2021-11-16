@@ -35,6 +35,7 @@ public class ByteSQLInsertOptions implements Serializable {
 	private final String[] keyFields;
 	private final boolean ignoreNull;
 	private final boolean logFailuresOnly;
+	private final boolean ignoreDelete;
 	private final int ttlSeconds;
 
 	private ByteSQLInsertOptions(
@@ -45,6 +46,7 @@ public class ByteSQLInsertOptions implements Serializable {
 			String[] keyFields,
 			boolean ignoreNull,
 			boolean logFailuresOnly,
+			boolean ignoreDelete,
 			int ttlSeconds) {
 		this.bufferFlushMaxRows = bufferFlushMaxRows;
 		this.bufferFlushIntervalMills = bufferFlushIntervalMills;
@@ -53,6 +55,7 @@ public class ByteSQLInsertOptions implements Serializable {
 		this.keyFields = keyFields;
 		this.ignoreNull = ignoreNull;
 		this.logFailuresOnly = logFailuresOnly;
+		this.ignoreDelete = ignoreDelete;
 		this.ttlSeconds = ttlSeconds;
 	}
 
@@ -84,6 +87,10 @@ public class ByteSQLInsertOptions implements Serializable {
 		return logFailuresOnly;
 	}
 
+	public boolean isIgnoreDelete() {
+		return ignoreDelete;
+	}
+
 	public int getTtlSeconds() {
 		return ttlSeconds;
 	}
@@ -103,6 +110,7 @@ public class ByteSQLInsertOptions implements Serializable {
 				Arrays.equals(keyFields, options.keyFields) &&
 				(ignoreNull == options.ignoreNull) &&
 				(logFailuresOnly == options.logFailuresOnly) &&
+				(ignoreDelete == options.ignoreDelete) &&
 				(ttlSeconds == options.getTtlSeconds());
 		} else {
 			return false;
@@ -120,6 +128,7 @@ public class ByteSQLInsertOptions implements Serializable {
 		private String[] keyFields;
 		private boolean ignoreNull;
 		private boolean logFailuresOnly;
+		private boolean ignoreDelete = true;
 		private int ttlSeconds = 0;
 
 		/**
@@ -167,6 +176,11 @@ public class ByteSQLInsertOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setIgnoreDelete(boolean ignoreDelete) {
+			this.ignoreDelete = ignoreDelete;
+			return this;
+		}
+
 		public Builder setTtlSeconds(int ttlSeconds) {
 			this.ttlSeconds = ttlSeconds;
 			return this;
@@ -181,6 +195,7 @@ public class ByteSQLInsertOptions implements Serializable {
 				keyFields,
 				ignoreNull,
 				logFailuresOnly,
+				ignoreDelete,
 				ttlSeconds);
 		}
 	}

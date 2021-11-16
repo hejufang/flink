@@ -1,0 +1,8 @@
+INSERT INTO `test`(`id`, `text`, `ts`) VALUES (1, 'Hi', '1970-01-01 00:00:00.001000') ON DUPLICATE KEY UPDATE `id`=VALUES(`id`), `text`=VALUES(`text`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`id`, `text`, `ts`) VALUES (2, 'Hello', '1970-01-01 00:00:00.002000') ON DUPLICATE KEY UPDATE `id`=VALUES(`id`), `text`=VALUES(`text`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`id`, `text`, `ts`) VALUES (3, 'Hello world', '1970-01-01 00:00:00.003000') ON DUPLICATE KEY UPDATE `id`=VALUES(`id`), `text`=VALUES(`text`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`id`, `text`, `ts`) VALUES (4, 'Hello world, how are you?', '1970-01-01 00:00:00.004000') ON DUPLICATE KEY UPDATE `id`=VALUES(`id`), `text`=VALUES(`text`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`id`, `text`, `ts`) VALUES (5, 'I am fine.', '1970-01-01 00:00:00.005000') ON DUPLICATE KEY UPDATE `id`=VALUES(`id`), `text`=VALUES(`text`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`id`, `text`, `ts`) VALUES (6, 'Luke Skywalker', '1970-01-01 00:00:00.006000') ON DUPLICATE KEY UPDATE `id`=VALUES(`id`), `text`=VALUES(`text`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`id`, `text`, `ts`) VALUES (7, NULL, '1970-01-01 00:00:00.007000') ON DUPLICATE KEY UPDATE `id`=VALUES(`id`), `text`=VALUES(`text`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`id`, `text`, `ts`) VALUES (8, 'Hello', '1970-01-01 00:00:00.008000') ON DUPLICATE KEY UPDATE `id`=VALUES(`id`), `text`=VALUES(`text`), `ts`=VALUES(`ts`)

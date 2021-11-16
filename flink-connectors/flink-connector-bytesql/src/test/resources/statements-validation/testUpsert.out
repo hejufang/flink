@@ -1,0 +1,8 @@
+INSERT INTO `test`(`cnt`, `lencnt`, `cTag`, `ts`) VALUES (1, 1, 1, '1970-01-01 00:00:00.001000') ON DUPLICATE KEY UPDATE `cnt`=VALUES(`cnt`), `lencnt`=VALUES(`lencnt`), `cTag`=VALUES(`cTag`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`cnt`, `lencnt`, `cTag`, `ts`) VALUES (2, 1, 2, '1970-01-01 00:00:00.002000') ON DUPLICATE KEY UPDATE `cnt`=VALUES(`cnt`), `lencnt`=VALUES(`lencnt`), `cTag`=VALUES(`cTag`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`cnt`, `lencnt`, `cTag`, `ts`) VALUES (2, 2, 3, '1970-01-01 00:00:00.003000') ON DUPLICATE KEY UPDATE `cnt`=VALUES(`cnt`), `lencnt`=VALUES(`lencnt`), `cTag`=VALUES(`cTag`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`cnt`, `lencnt`, `cTag`, `ts`) VALUES (3, 1, 4, '1970-01-01 00:00:00.004000') ON DUPLICATE KEY UPDATE `cnt`=VALUES(`cnt`), `lencnt`=VALUES(`lencnt`), `cTag`=VALUES(`cTag`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`cnt`, `lencnt`, `cTag`, `ts`) VALUES (3, 2, 5, '1970-01-01 00:00:00.005000') ON DUPLICATE KEY UPDATE `cnt`=VALUES(`cnt`), `lencnt`=VALUES(`lencnt`), `cTag`=VALUES(`cTag`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`cnt`, `lencnt`, `cTag`, `ts`) VALUES (3, 3, 6, '1970-01-01 00:00:00.006000') ON DUPLICATE KEY UPDATE `cnt`=VALUES(`cnt`), `lencnt`=VALUES(`lencnt`), `cTag`=VALUES(`cTag`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`cnt`, `lencnt`, `cTag`, `ts`) VALUES (4, 0, 7, '1970-01-01 00:00:00.007000') ON DUPLICATE KEY UPDATE `cnt`=VALUES(`cnt`), `lencnt`=VALUES(`lencnt`), `cTag`=VALUES(`cTag`), `ts`=VALUES(`ts`)
+INSERT INTO `test`(`cnt`, `lencnt`, `cTag`, `ts`) VALUES (4, 1, 8, '1970-01-01 00:00:00.008000') ON DUPLICATE KEY UPDATE `cnt`=VALUES(`cnt`), `lencnt`=VALUES(`lencnt`), `cTag`=VALUES(`cTag`), `ts`=VALUES(`ts`)

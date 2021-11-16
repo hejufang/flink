@@ -1,0 +1,8 @@
+INSERT INTO `test`(`num`, `id`) VALUES (1, 1) ON DUPLICATE KEY UPDATE `num`=VALUES(`num`), `id`=VALUES(`id`)
+INSERT INTO `test`(`num`, `id`) VALUES (2, 2) ON DUPLICATE KEY UPDATE `num`=VALUES(`num`), `id`=VALUES(`id`)
+INSERT INTO `test`(`num`, `id`) VALUES (2, 3) ON DUPLICATE KEY UPDATE `num`=VALUES(`num`), `id`=VALUES(`id`)
+DELETE FROM `test` WHERE `num`=3 AND `id`=4
+INSERT INTO `test`(`num`, `id`) VALUES (3, 5) ON DUPLICATE KEY UPDATE `num`=VALUES(`num`), `id`=VALUES(`id`)
+INSERT INTO `test`(`num`, `id`) VALUES (3, 6) ON DUPLICATE KEY UPDATE `num`=VALUES(`num`), `id`=VALUES(`id`)
+INSERT INTO `test`(`num`, `id`) VALUES (4, 7) ON DUPLICATE KEY UPDATE `num`=VALUES(`num`), `id`=VALUES(`id`)
+INSERT INTO `test`(`num`, `id`) VALUES (4, 8) ON DUPLICATE KEY UPDATE `num`=VALUES(`num`), `id`=VALUES(`id`)

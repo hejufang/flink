@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.bytesql.table;
+package org.apache.flink.connector.bytesql.table.executor;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connector.bytesql.table.descriptors.ByteSQLInsertOptions;
@@ -35,21 +35,20 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 
 /**
- * Tests for {@link ByteSQLOutputFormat}.
+ * Tests for batch executors.
  */
-public class ByteSQLOutputFormatTest {
-	private ByteSQLOutputFormat byteSQLOutputFormat;
-	private static String[] fieldNames = new String[] {"id", "name", "text"};
+public class BatchExecutorTest {
+	private static final String[] fieldNames = new String[] {"id", "name", "text"};
 	StringData constantStringA = StringData.fromString("a");
 	StringData constantStringB = StringData.fromString("b");
-	private static DataType[] fieldDataTypes = new DataType[] {
+	private static final DataType[] fieldDataTypes = new DataType[] {
 		DataTypes.INT(),
 		DataTypes.STRING(),
 		DataTypes.STRING()
@@ -57,7 +56,6 @@ public class ByteSQLOutputFormatTest {
 	RowType rowType = RowType.of(Arrays.stream(fieldDataTypes).
 		map(DataType::getLogicalType).toArray(LogicalType[]::new), fieldNames);
 	private static final ByteSQLOptions.Builder optionBuilder = ByteSQLOptions.builder();
-	private final ByteSQLInsertOptions.Builder insertOptionsBuilder = ByteSQLInsertOptions.builder();
 	static {
 		optionBuilder
 			.setConsul("dummy")
@@ -69,17 +67,18 @@ public class ByteSQLOutputFormatTest {
 
 	@Test
 	public void testGenerateUpsertSQLWithoutNull() throws ByteSQLException {
+		ByteSQLInsertOptions.Builder insertOptionsBuilder = ByteSQLInsertOptions.builder();
 		insertOptionsBuilder.setIgnoreNull(true);
 		insertOptionsBuilder.setBufferFlushMaxRows(Integer.MAX_VALUE);
 		insertOptionsBuilder.setKeyFields(new String[]{"id"});
-		byteSQLOutputFormat = new ByteSQLOutputFormat(
+
+		PartiallyUpdateStatementExecutor executor = (PartiallyUpdateStatementExecutor) ByteSQLSinkExecutorBuilder.build(
 			optionBuilder.build(),
 			insertOptionsBuilder.build(),
 			rowType,
-			false
-		);
-		String sql = byteSQLOutputFormat
-			.generateUpsertSQLWithoutNull(GenericRowData.of(null, null, StringData.fromString("x")));
+			false);
+
+		String sql = executor.generateUpsertSQLWithoutNull(GenericRowData.of(null, null, StringData.fromString("x")));
 		String expectedSQL = "INSERT INTO `test`(`text`) " +
 			"VALUES ('x') ON DUPLICATE KEY UPDATE `text`=VALUES(`text`)";
 		assertEquals(expectedSQL, sql);
@@ -87,84 +86,105 @@ public class ByteSQLOutputFormatTest {
 
 	@Test
 	public void testMergeRow() {
+		ByteSQLInsertOptions.Builder insertOptionsBuilder = ByteSQLInsertOptions.builder();
+		insertOptionsBuilder.setIgnoreNull(true);
+		insertOptionsBuilder.setBufferFlushMaxRows(Integer.MAX_VALUE);
 		insertOptionsBuilder.setKeyFields(new String[]{"id"});
-		byteSQLOutputFormat = new ByteSQLOutputFormat(
+
+		PartiallyUpdateStatementExecutor executor = (PartiallyUpdateStatementExecutor) ByteSQLSinkExecutorBuilder.build(
 			optionBuilder.build(),
 			insertOptionsBuilder.build(),
 			rowType,
-			false
-		);
+			false);
 		RowData newRow = GenericRowData.of(1, null, constantStringB);
-		RowData actual1 = byteSQLOutputFormat.mergeRow(newRow, null);
+		RowData actual1 = executor.mergeRow(newRow, null);
 		assertEquals(GenericRowData.of(1, null, constantStringB), actual1);
 		RowData oldRow2 = GenericRowData.of(1, null, constantStringA);
-		RowData actual2 = byteSQLOutputFormat.mergeRow(newRow, oldRow2);
+		RowData actual2 = executor.mergeRow(newRow, oldRow2);
 		assertEquals(GenericRowData.of(1, null, constantStringB), actual2);
 		RowData oldRow3 = GenericRowData.of(null, constantStringB, constantStringA);
-		RowData actual3 = byteSQLOutputFormat.mergeRow(newRow, oldRow3);
+		RowData actual3 = executor.mergeRow(newRow, oldRow3);
 		assertEquals(GenericRowData.of(1, constantStringB, constantStringB), actual3);
 	}
 
 	@Test
-	public void testAddRow() {
-		insertOptionsBuilder.setIgnoreNull(true);
+	public void testAddToBatch() {
+		ByteSQLInsertOptions.Builder insertOptionsBuilder = ByteSQLInsertOptions.builder();
 		insertOptionsBuilder.setBufferFlushMaxRows(Integer.MAX_VALUE);
 		insertOptionsBuilder.setKeyFields(new String[]{"id"});
-		byteSQLOutputFormat = new ByteSQLOutputFormat(
+
+		BufferReduceStatementExecutor executor = (BufferReduceStatementExecutor) ByteSQLSinkExecutorBuilder.build(
 			optionBuilder.build(),
 			insertOptionsBuilder.build(),
 			rowType,
-			false
-		);
+			false);
 		List<RowData> recordBuffer = new ArrayList<>();
-		Map<RowData, Tuple2<Boolean, RowData>> keyToRows = new HashMap<>();
-		Map<RowData, Tuple2<Boolean, RowData>> expectedMap = new HashMap<>();
+		Map<GenericRowData, RowData> expectedMap = new LinkedHashMap<>();
 		//test insert
 		recordBuffer.add(GenericRowData.ofKind(RowKind.INSERT, 0, constantStringA, constantStringB));
-		recordBuffer.forEach(byteSQLOutputFormat.addRow(keyToRows));
-		expectedMap.put(GenericRowData.of(0), new Tuple2<>(false, GenericRowData.of(0,
-			constantStringA, constantStringB)));
-		assertEquals(expectedMap, keyToRows);
+		recordBuffer.forEach(executor::addToBatch);
+		expectedMap.put(GenericRowData.of(0), GenericRowData.of(0, constantStringA, constantStringB));
+		assertEquals(expectedMap, executor.reduceBuffer);
 		//test delete
 		recordBuffer.add(GenericRowData.ofKind(RowKind.DELETE, 0, constantStringA, constantStringB));
-		recordBuffer.forEach(byteSQLOutputFormat.addRow(keyToRows));
+		recordBuffer.forEach(executor::addToBatch);
 		expectedMap.clear();
-		expectedMap.put(GenericRowData.of(0), new Tuple2<>(true, null));
-		assertEquals(expectedMap, keyToRows);
+		expectedMap.put(GenericRowData.of(0), null);
+		assertEquals(expectedMap, executor.reduceBuffer);
 		//test delete, update
 		recordBuffer.add(GenericRowData.ofKind(RowKind.UPDATE_AFTER, 0, null, constantStringB));
-		recordBuffer.forEach(byteSQLOutputFormat.addRow(keyToRows));
+		recordBuffer.forEach(executor::addToBatch);
 		expectedMap.clear();
-		expectedMap.put(GenericRowData.of(0), new Tuple2<>(true,
-			GenericRowData.ofKind(RowKind.UPDATE_AFTER, 0, null, constantStringB)));
-		assertEquals(expectedMap, keyToRows);
-		//test delete, update, update
-		recordBuffer.add(GenericRowData.ofKind(RowKind.UPDATE_AFTER, 0, constantStringA, constantStringB));
-		recordBuffer.forEach(byteSQLOutputFormat.addRow(keyToRows));
-		expectedMap.clear();
-		expectedMap.put(GenericRowData.of(0), new Tuple2<>(true,
-			GenericRowData.ofKind(RowKind.UPDATE_AFTER, 0, constantStringA, constantStringB)));
-		assertEquals(expectedMap, keyToRows);
-		//test delete, update, update, delete
-		recordBuffer.add(GenericRowData.ofKind(RowKind.DELETE, 0, constantStringA, constantStringB));
-		recordBuffer.forEach(byteSQLOutputFormat.addRow(keyToRows));
-		expectedMap.clear();
-		expectedMap.put(GenericRowData.of(0), new Tuple2<>(true, null));
-		assertEquals(expectedMap, keyToRows);
+		expectedMap.put(GenericRowData.of(0),
+			GenericRowData.ofKind(RowKind.UPDATE_AFTER, 0, null, constantStringB));
+		assertEquals(expectedMap, executor.reduceBuffer);
 	}
 
 	@Test
-	public void testGetKeyToRowsValue() {
-		// insert message
-		RowData input1 = GenericRowData.ofKind(RowKind.INSERT, 0, "a", "b");
-		Tuple2<Boolean, RowData> outputTuple1 = ByteSQLOutputFormat.getKeyToRowsValue(input1);
-		Tuple2<Boolean, RowData> expectedTuple1 = new Tuple2<>(false,
-			GenericRowData.ofKind(RowKind.INSERT, 0, "a", "b"));
-		assertEquals(expectedTuple1, outputTuple1);
-		// delete message
-		RowData input2 = GenericRowData.ofKind(RowKind.DELETE, 0, "a", "b");
-		Tuple2<Boolean, RowData> outputTuple2 = ByteSQLOutputFormat.getKeyToRowsValue(input2);
-		Tuple2<Boolean, RowData> expectedTuple2 = new Tuple2<>(true, null);
-		assertEquals(expectedTuple2, outputTuple2);
+	public void testAddToBatchForIgnoreNullMode() {
+		ByteSQLInsertOptions.Builder insertOptionsBuilder = ByteSQLInsertOptions.builder();
+		insertOptionsBuilder.setIgnoreNull(true);
+		insertOptionsBuilder.setBufferFlushMaxRows(Integer.MAX_VALUE);
+		insertOptionsBuilder.setKeyFields(new String[]{"id"});
+
+		PartiallyUpdateStatementExecutor executor = (PartiallyUpdateStatementExecutor) ByteSQLSinkExecutorBuilder.build(
+			optionBuilder.build(),
+			insertOptionsBuilder.build(),
+			rowType,
+			false);
+		List<RowData> recordBuffer = new ArrayList<>();
+		Map<GenericRowData, Tuple2<Boolean, RowData>> expectedMap = new LinkedHashMap<>();
+		//test insert
+		recordBuffer.add(GenericRowData.ofKind(RowKind.INSERT, 0, constantStringA, constantStringB));
+		recordBuffer.forEach(executor::addToBatch);
+		expectedMap.put(GenericRowData.of(0), new Tuple2<>(false, GenericRowData.of(0,
+			constantStringA, constantStringB)));
+		assertEquals(expectedMap, executor.reduceBuffer);
+		//test delete
+		recordBuffer.add(GenericRowData.ofKind(RowKind.DELETE, 0, constantStringA, constantStringB));
+		recordBuffer.forEach(executor::addToBatch);
+		expectedMap.clear();
+		expectedMap.put(GenericRowData.of(0), new Tuple2<>(true, null));
+		assertEquals(expectedMap, executor.reduceBuffer);
+		//test delete, update
+		recordBuffer.add(GenericRowData.ofKind(RowKind.UPDATE_AFTER, 0, null, constantStringB));
+		recordBuffer.forEach(executor::addToBatch);
+		expectedMap.clear();
+		expectedMap.put(GenericRowData.of(0), new Tuple2<>(true,
+			GenericRowData.ofKind(RowKind.UPDATE_AFTER, 0, null, constantStringB)));
+		assertEquals(expectedMap, executor.reduceBuffer);
+		//test delete, update, update
+		recordBuffer.add(GenericRowData.ofKind(RowKind.UPDATE_AFTER, 0, constantStringA, constantStringB));
+		recordBuffer.forEach(executor::addToBatch);
+		expectedMap.clear();
+		expectedMap.put(GenericRowData.of(0), new Tuple2<>(true,
+			GenericRowData.ofKind(RowKind.UPDATE_AFTER, 0, constantStringA, constantStringB)));
+		assertEquals(expectedMap, executor.reduceBuffer);
+		//test delete, update, update, delete
+		recordBuffer.add(GenericRowData.ofKind(RowKind.DELETE, 0, constantStringA, constantStringB));
+		recordBuffer.forEach(executor::addToBatch);
+		expectedMap.clear();
+		expectedMap.put(GenericRowData.of(0), new Tuple2<>(true, null));
+		assertEquals(expectedMap, executor.reduceBuffer);
 	}
 }

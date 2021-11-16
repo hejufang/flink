@@ -108,6 +108,10 @@ public final class GenericRowData implements RowData {
 		return this.fields[pos];
 	}
 
+	public Object[] getFields() {
+		return fields;
+	}
+
 	@Override
 	public int getArity() {
 		return fields.length;
