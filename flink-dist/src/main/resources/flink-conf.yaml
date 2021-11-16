@@ -131,6 +131,7 @@ common:
   # Full TaskManagerOptions
   taskmanager.network.netty.sendReceiveBufferSize: 4194304
   taskmanager.serializer.prune.buffer.threshold: 262144
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
   # RPC / Akka
   akka.ask.timeout: 180 s # default 10 s
@@ -299,7 +300,6 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
   state.backend.cache.enable: true
   state.backend.cache.maxHeapSize: 1g
   state.backend.cache.blockSize: 4m
@@ -320,7 +320,6 @@ larva:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
 
 locst:
   dc: cn
@@ -392,7 +391,6 @@ horse:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
   bytedance.streaming.cluster.evenly-spread-out-slots: false
   bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
   bytedance.streaming.slot-pool.round-robin: true
@@ -470,7 +468,6 @@ quoka:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   bytedance.streaming.cluster.evenly-spread-out-slots: false
   bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
@@ -497,7 +494,6 @@ quaga:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   ipv6.enabled: true
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   bytedance.streaming.cluster.evenly-spread-out-slots: false
   bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
@@ -787,7 +783,6 @@ boe:
   register-dashboard.token: "Bearer eyJrIjoiTURSV01QeWNDZXJXYUNBdEhkSU94U2tKajU2M1BVM24iLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
   bytedance.streaming.cluster.evenly-spread-out-slots: false
   bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
   bytedance.streaming.slot-pool.round-robin: true
@@ -847,7 +842,6 @@ boei18n:
   register-dashboard.token: "Bearer eyJrIjoicndEUGRnNHpUZE9Gcm04VE5QSDdDV3JzbG8wWFZYa3IiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
   flink.cloud-shuffle-service.support: false
 
 # kubernetes clusters
