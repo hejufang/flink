@@ -28,6 +28,7 @@ import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkFunctionProvider;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.types.RowKind;
 
 import java.util.Map;
 
@@ -55,7 +56,11 @@ public class RocketMQDynamicSink implements DynamicTableSink {
 
 	@Override
 	public ChangelogMode getChangelogMode(ChangelogMode requestedMode) {
-		return encodingFormat.getChangelogMode();
+		return ChangelogMode.newBuilder()
+			.addContainedKind(RowKind.INSERT)
+			.addContainedKind(RowKind.DELETE)
+			.addContainedKind(RowKind.UPDATE_AFTER)
+			.build();
 	}
 
 	@Override

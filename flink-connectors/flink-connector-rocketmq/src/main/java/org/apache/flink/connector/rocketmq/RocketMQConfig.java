@@ -26,6 +26,7 @@ import org.apache.flink.connector.rocketmq.selector.MsgDelayLevelSelector;
 import org.apache.flink.connector.rocketmq.selector.TopicSelector;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.factories.FactoryUtil;
+import org.apache.flink.table.functions.RowKindSinkFilter;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.Map;
@@ -56,6 +57,7 @@ public class RocketMQConfig<T> {
 	private long idleTimeOut = Long.MAX_VALUE;
 	private boolean batchFlushEnable = true;
 	private long flushIntervalMs = FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis();
+	private RowKindSinkFilter<T> rowKindSinkFilter;
 
 	public MsgDelayLevelSelector<T> getMsgDelayLevelSelector() {
 		return msgDelayLevelSelector;
@@ -221,5 +223,13 @@ public class RocketMQConfig<T> {
 	public RocketMQConfig<T> setKeySelector(KeySelector<T, T> keySelector) {
 		this.keySelector = keySelector;
 		return this;
+	}
+
+	public RowKindSinkFilter<T> getRowKindSinkFilter() {
+		return rowKindSinkFilter;
+	}
+
+	public void setRowKindSinkFilter(RowKindSinkFilter<T> rowKindSinkFilter) {
+		this.rowKindSinkFilter = rowKindSinkFilter;
 	}
 }

@@ -30,6 +30,7 @@ import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
+import org.apache.flink.table.functions.RowKindSinkFilter;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
@@ -76,6 +77,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	private final MsgDelayLevelSelector<T> msgDelayLevelSelector;
 	private final FlinkConnectorRateLimiter rateLimiter;
 	private final long flushIntervalMs;
+	private final RowKindSinkFilter<T> rowKindSinkFilter;
 	private boolean batchFlushEnable;
 
 	private transient DefaultMQProducer producer;
@@ -102,6 +104,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		this.deferLoopSelector = rocketMQConfig.getDeferLoopSelector();
 		this.batchFlushEnable = rocketMQConfig.isBatchFlushEnable();
 		this.flushIntervalMs = rocketMQConfig.getFlushIntervalMs();
+		this.rowKindSinkFilter = rocketMQConfig.getRowKindSinkFilter();
 	}
 
 	@Override
@@ -150,6 +153,10 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 
 	@Override
 	public void invoke(T value, Context context) throws Exception {
+		if (rowKindSinkFilter != null && !rowKindSinkFilter.filter(value)) {
+			return;
+		}
+
 		if (rateLimiter != null) {
 			rateLimiter.acquire(1);
 		}
@@ -245,6 +252,9 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		}
 
 		if (producer != null) {
+			synchronized (messageList) {
+				flushMessages();
+			}
 			producer.shutdown();
 			producer = null;
 		}

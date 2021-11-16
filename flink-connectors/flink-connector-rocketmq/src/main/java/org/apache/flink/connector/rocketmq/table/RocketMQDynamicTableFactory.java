@@ -41,6 +41,7 @@ import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
+import org.apache.flink.table.functions.RowDataSinkFilter;
 import org.apache.flink.table.planner.plan.utils.KeySelectorUtil;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.table.types.DataType;
@@ -219,6 +220,8 @@ public class RocketMQDynamicTableFactory implements
 					rowData ->
 						Math.min(MSG_DELAY_LEVEL18, Math.max(rowData.getInt(delayFieldIndex), MSG_DELAY_LEVEL00)));
 			}
+
+			rocketMQConfig.setRowKindSinkFilter(RowDataSinkFilter.createIncludeInsertAndUpdateAfterFilter());
 
 			String topicSelectorType = config.get(SINK_TOPIC_SELECTOR);
 			switch (topicSelectorType) {
