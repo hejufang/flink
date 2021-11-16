@@ -222,6 +222,7 @@ public class NettyShuffleEnvironment implements ShuffleEnvironment<ResultPartiti
 			@SuppressWarnings("deprecation")
 			InputChannelMetrics inputChannelMetrics = new InputChannelMetrics(networkInputGroup, ownerContext.getParentGroup());
 
+			boolean isBlocking = true;
 			SingleInputGate[] inputGates = new SingleInputGate[inputGateDeploymentDescriptors.size()];
 			for (int gateIndex = 0; gateIndex < inputGates.length; gateIndex++) {
 				final InputGateDeploymentDescriptor igdd = inputGateDeploymentDescriptors.get(gateIndex);
@@ -235,9 +236,13 @@ public class NettyShuffleEnvironment implements ShuffleEnvironment<ResultPartiti
 				inputGatesById.put(id, inputGate);
 				inputGate.getCloseFuture().thenRun(() -> inputGatesById.remove(id));
 				inputGates[gateIndex] = inputGate;
+
+				if (!igdd.getConsumedPartitionType().isBlocking()) {
+					isBlocking = false;
+				}
 			}
 
-			registerInputMetrics(config.isNetworkDetailedMetrics(), networkInputGroup, inputGates);
+			registerInputMetrics(config.isNetworkDetailedMetrics(), networkInputGroup, inputGates, isBlocking);
 			return Arrays.asList(inputGates);
 		}
 	}

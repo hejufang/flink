@@ -270,6 +270,10 @@ common:
   flink.hdfs.ipc.client.connect.timeout: 2000
   flink.hdfs.ipc.client.connect.retry.interval: 500
 
+  # cloud shuffle service
+  flink.cloud-shuffle-service.support: true
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator.byted.org
+
 # yarn clusters
 flink:
   dc: cn
@@ -523,6 +527,7 @@ stork:
   save-meta.enabled: false
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
 
 shark:
   dc: sg
@@ -542,6 +547,7 @@ shark:
   save-meta.enabled: false
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
 
 marmt:
   dc: va
@@ -564,6 +570,7 @@ marmt:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
 
 macaw:
   dc: va
@@ -586,6 +593,7 @@ macaw:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
 
 mouse:
   dc: va
@@ -608,6 +616,7 @@ mouse:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
 
 grila:
   dc: i18n_gcp
@@ -631,6 +640,7 @@ grila:
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.gemini-server-url: http://gemini-gcp.byted.org/api/query/gcp/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
 
 gavia:
   dc: i18n_gcp
@@ -654,6 +664,7 @@ gavia:
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.gemini-server-url: http://gemini-gcp.byted.org/api/query/gcp/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
 
 otter:
   dc: us-ttp
@@ -675,6 +686,7 @@ otter:
   grafana.domain_url: "https://grafana-tx.tiktokd.org"
   register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
   table.exec.hive.permission-check.gemini-server-url: http://gemini-oci.tiktokd.org/api/query/oci/verifyUsersPrivilege
+  flink.cloud-shuffle-service.support: false
 
 octop:
   dc: us-ttp
@@ -696,6 +708,7 @@ octop:
   grafana.domain_url: "https://grafana-tx.tiktokd.org"
   register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
   table.exec.hive.permission-check.gemini-server-url: http://gemini-oci.tiktokd.org/api/query/oci/verifyUsersPrivilege
+  flink.cloud-shuffle-service.support: false
 
 alisg:
   dc: sg
@@ -714,6 +727,7 @@ alisg:
   docker.region: Aliyun_SG
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
+  flink.cloud-shuffle-service.support: false
 
 sloth:
   dc: sg
@@ -733,6 +747,7 @@ sloth:
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
+  flink.cloud-shuffle-service.support: false
 
 boe:
   dc: vm
@@ -756,6 +771,7 @@ boe:
   bytedance.streaming.cluster.evenly-spread-out-slots: false
   bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
   bytedance.streaming.slot-pool.round-robin: true
+  flink.cloud-shuffle-service.support: false
 
 cof:
   dc: vm
@@ -771,6 +787,7 @@ cof:
   cluster.evenly-spread-out-slots: true
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
 
 swan:
   dc: ka
@@ -780,6 +797,7 @@ swan:
   checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
 
 koala:
   dc: ka2
@@ -789,6 +807,7 @@ koala:
   checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
 
 boei18n:
   dc: vm
@@ -809,6 +828,7 @@ boei18n:
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
   taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
+  flink.cloud-shuffle-service.support: false
 
 # kubernetes clusters
 gaura-hl:
@@ -832,6 +852,7 @@ gaura-hl:
   kubernetes.config.file: "${FLINK_HOME}/kubernetes-config-files/kube-config-gaura-hl"
   # External jars we needed, use ',' to separator different jars.
   flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
+  flink.cloud-shuffle-service.support: false
 
 cloudnative-lf:
   dc: cn
@@ -853,6 +874,7 @@ cloudnative-lf:
   kubernetes.config.file: "${FLINK_HOME}/kubernetes-config-files/kube-config-cloudnative-lf"
   # External jars we needed, use ',' to separator different jars.
   flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
+  flink.cloud-shuffle-service.support: false
 
 cloudnative-lq:
   dc: cn
@@ -874,3 +896,4 @@ cloudnative-lq:
   kubernetes.config.file: "${FLINK_HOME}/kubernetes-config-files/kube-config-cloudnative-lq"
   # External jars we needed, use ',' to separator different jars.
   flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
+  flink.cloud-shuffle-service.support: false

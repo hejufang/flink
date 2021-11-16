@@ -213,20 +213,23 @@ public class NettyShuffleMetricFactory {
 	public static void registerInputMetrics(
 			boolean isDetailedMetrics,
 			MetricGroup inputGroup,
-			SingleInputGate[] inputGates) {
+			SingleInputGate[] inputGates,
+			boolean isBlockingInput) {
 		registerInputMetrics(
 			isDetailedMetrics,
 			inputGroup,
 			inputGroup.addGroup(METRIC_GROUP_BUFFERS),
 			inputGates);
 
-		inputGroup.gauge(METRIC_SHUFFLE_INPUT_BYTES, new RateGauge(() -> {
-			long sum = 0L;
-			for (SingleInputGate ig : inputGates) {
-				sum += ig.getInBytes();
-			}
-			return sum;
-		}));
+		if (isBlockingInput) {
+			inputGroup.gauge(METRIC_SHUFFLE_INPUT_BYTES, new RateGauge(() -> {
+				long sum = 0L;
+				for (SingleInputGate ig : inputGates) {
+					sum += ig.getInBytes();
+				}
+				return sum;
+			}));
+		}
 	}
 
 	private static void registerInputMetrics(

@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.dag.Pipeline;
 import org.apache.flink.client.cli.CheckpointVerifier;
 import org.apache.flink.client.cli.ExecutionConfigAccessor;
+import org.apache.flink.client.css.CloudShuffleCoordinator;
 import org.apache.flink.client.deployment.ClusterClientFactory;
 import org.apache.flink.client.deployment.ClusterClientJobClientAdapter;
 import org.apache.flink.client.deployment.ClusterDescriptor;
@@ -95,6 +96,10 @@ public class AbstractJobClusterExecutor<ClusterID, ClientFactory extends Cluster
 			final ClusterSpecification clusterSpecification = clusterClientFactory.getClusterSpecification(configuration);
 
 			recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::submitJobStart);
+
+			// reconfigure with CSS Coordinator
+			CloudShuffleCoordinator.reconfigureConfig(jobGraph, clusterSpecification, configuration);
+
 			final ClusterClientProvider<ClusterID> clusterClientProvider = clusterDescriptor
 					.deployJobCluster(clusterSpecification, jobGraph, configAccessor.getDetachedMode());
 			LOG.info("Job has been submitted with JobID " + jobGraph.getJobID());

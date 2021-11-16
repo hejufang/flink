@@ -35,6 +35,18 @@ public class CloudShuffleOptions {
 
 	public static final String PREFIX = "flink.cloud-shuffle-service.";
 
+	public static final ConfigOption<Boolean> CLOUD_SHUFFLE_SERVICE_SUPPORT = ConfigOptions
+		.key("flink.cloud-shuffle-service.support")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Whether the cluster supports CSS or not.");
+
+	public static final ConfigOption<String> CLOUD_SHUFFLE_SERVICE_COORDINATOR_URL = ConfigOptions
+		.key("flink.cloud-shuffle-service.coordinator.url")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("CSS Coordinator URL");
+
 	public static final ConfigOption<String> CLOUD_SHUFFLE_SERVICE_ADDRESS = ConfigOptions
 			.key("flink.cloud-shuffle-service.address")
 			.stringType()
@@ -46,6 +58,24 @@ public class CloudShuffleOptions {
 			.stringType()
 			.noDefaultValue()
 			.withDescription("CSS port");
+
+	public static final ConfigOption<String> CLOUD_SHUFFLE_CLUSTER = ConfigOptions
+		.key("flink.cloud-shuffle-service.css.cluster.name")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("css cluster name");
+
+	public static final ConfigOption<String> CLOUD_SHUFFLE_ZK_ADDRESS = ConfigOptions
+		.key("flink.cloud-shuffle-service.css.zookeeper.address")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("css zookeeper address");
+
+	public static final ConfigOption<String> CLOUD_SHUFFLE_REGISTRY_TYPE = ConfigOptions
+			.key("flink.cloud-shuffle-service.css.worker.registry.type")
+			.stringType()
+			.defaultValue("zookeeper")
+			.withDescription("css worker registry type");
 
 	public static final ConfigOption<Integer> CLOUD_SHUFFLE_SERVICE_NUMBER_OF_WORKERS = ConfigOptions
 			.key("flink.cloud-shuffle-service.number-of-workers")

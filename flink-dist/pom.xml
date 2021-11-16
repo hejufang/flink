@@ -107,7 +107,7 @@ under the License.
 			<artifactId>flink-metrics-core</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-        
+
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-mesos_${scala.binary.version}</artifactId>
@@ -144,6 +144,13 @@ under the License.
 			</exclusions>
 		</dependency>
 
+		<!-- Cloud Shuffle Service support -->
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-cloud-shuffle</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+
 		<!-- Default file system support. The Hadoop and MapR dependencies -->
 		<!--       are optional, so not being added to the dist jar        -->
 
@@ -159,7 +166,7 @@ under the License.
 			<version>${project.version}</version>
 		</dependency>
 
-		<!-- Concrete logging framework - we add this only here (and not in the 
+		<!-- Concrete logging framework - we add this only here (and not in the
 			root POM) to not tie the projects to one specific framework and make
 			it easier for users to swap logging frameworks -->
 
@@ -237,7 +244,7 @@ under the License.
 		</dependency>
 
 		<!--
-			The following dependencies are packaged in 'opt/' 
+			The following dependencies are packaged in 'opt/'
 			The scope of these dependencies needs to be 'provided' so that
 			they are not included into the 'flink-dist' uber jar.
 		-->
