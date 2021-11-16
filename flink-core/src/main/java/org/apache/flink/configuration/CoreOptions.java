@@ -440,4 +440,10 @@ public class CoreOptions {
 		.stringType()
 		.noDefaultValue()
 		.withDescription("Preload classes for TaskManager, multi classes split by ';'.");
+
+	public static final ConfigOption<Boolean> USE_ADDRESS_AS_HOSTNAME_ENABLE =
+		key("endpoint.use-address-as-hostname.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Use taskmanager address as hostname, will not lookup hostname by dns.");
 }

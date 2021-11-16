@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.apache.flink.util.StringUtils;
 
 import java.net.InetAddress;
 
@@ -53,6 +54,8 @@ public class ProducerDescriptor {
 
 	private final int attemptNumber;
 
+	private final String hostname;
+
 	@VisibleForTesting
 	public ProducerDescriptor(
 			ResourceID producerLocation,
@@ -60,11 +63,23 @@ public class ProducerDescriptor {
 			InetAddress address,
 			int dataPort,
 			int attemptNumber) {
+		this(producerLocation, producerExecutionId, address, dataPort, attemptNumber, null);
+	}
+
+	@VisibleForTesting
+	public ProducerDescriptor(
+			ResourceID producerLocation,
+			ExecutionAttemptID producerExecutionId,
+			InetAddress address,
+			int dataPort,
+			int attemptNumber,
+			String hostname) {
 		this.producerLocation = checkNotNull(producerLocation);
 		this.producerExecutionId = checkNotNull(producerExecutionId);
 		this.address = checkNotNull(address);
 		this.dataPort = dataPort;
 		this.attemptNumber = attemptNumber;
+		this.hostname = hostname;
 	}
 
 	public ResourceID getProducerLocation() {
@@ -87,12 +102,21 @@ public class ProducerDescriptor {
 		return attemptNumber;
 	}
 
+	public String getHostname() {
+		if (StringUtils.isNullOrWhitespaceOnly(hostname)) {
+			return address.getCanonicalHostName();
+		} else {
+			return hostname;
+		}
+	}
+
 	public static ProducerDescriptor create(TaskManagerLocation producerLocation, ExecutionAttemptID attemptId, int attemptNumber) {
 		return new ProducerDescriptor(
 			producerLocation.getResourceID(),
 			attemptId,
 			producerLocation.address(),
 			producerLocation.dataPort(),
-			attemptNumber);
+			attemptNumber,
+			producerLocation.getFQDNHostname());
 	}
 }

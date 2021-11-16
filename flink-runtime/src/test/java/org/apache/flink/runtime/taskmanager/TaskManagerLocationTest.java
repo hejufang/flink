@@ -138,7 +138,24 @@ public class TaskManagerLocationTest {
 			fail(e.getMessage());
 		}
 	}
-	
+
+	@Test
+	public void testGetHostnameByAddress() {
+		try {
+			TaskManagerLocation info1 = new TaskManagerLocation(ResourceID.generate(), InetAddress.getByName("127.0.0.1"), 19871, true);
+			assertEquals(info1.getFQDNHostname(), "127.0.0.1");
+			assertEquals(info1.getHostname(), "127.0.0.1");
+
+			TaskManagerLocation info2 = new TaskManagerLocation(ResourceID.generate(), InetAddress.getByName("1.2.3.4"), 8888, true);
+			assertEquals(info2.getFQDNHostname(), "1.2.3.4");
+			assertEquals(info2.getHostname(), "1.2.3.4");
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			fail(e.getMessage());
+		}
+	}
+
 	@Test
 	public void testGetHostname0() {
 		try {

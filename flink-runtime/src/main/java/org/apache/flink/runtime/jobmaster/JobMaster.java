@@ -24,6 +24,7 @@ import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.ConfigMessage;
 import org.apache.flink.metrics.Counter;
@@ -241,6 +242,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final RemoteBlacklistReporter remoteBlacklistReporter;
 
+	private final boolean useAddressAsHostNameEnable;
+
 	// ------------------------------------------------------------------------
 
 	public JobMaster(
@@ -277,6 +280,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.schedulerNGFactory = checkNotNull(schedulerNGFactory);
 		this.heartbeatServices = checkNotNull(heartbeatServices);
 		this.jobMetricGroupFactory = checkNotNull(jobMetricGroupFactory);
+		this.useAddressAsHostNameEnable = jobMasterConfiguration.getConfiguration().getBoolean(CoreOptions.USE_ADDRESS_AS_HOSTNAME_ENABLE);
 
 		final String jobName = jobGraph.getName();
 		final JobID jid = jobGraph.getJobID();
@@ -723,7 +727,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 		final TaskManagerLocation taskManagerLocation;
 		try {
-			taskManagerLocation = TaskManagerLocation.fromUnresolvedLocation(unresolvedTaskManagerLocation);
+			taskManagerLocation = TaskManagerLocation.fromUnresolvedLocation(unresolvedTaskManagerLocation, useAddressAsHostNameEnable);
 		} catch (Throwable throwable) {
 			final String errMsg = String.format(
 				"Could not accept TaskManager registration. TaskManager address %s cannot be resolved. %s",

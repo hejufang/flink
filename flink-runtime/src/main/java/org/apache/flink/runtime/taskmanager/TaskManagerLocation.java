@@ -77,6 +77,11 @@ public class TaskManagerLocation implements Comparable<TaskManagerLocation>, jav
 	 */
 	@VisibleForTesting
 	public TaskManagerLocation(ResourceID resourceID, InetAddress inetAddress, int dataPort) {
+		this(resourceID, inetAddress, dataPort, false);
+	}
+
+	@VisibleForTesting
+	public TaskManagerLocation(ResourceID resourceID, InetAddress inetAddress, int dataPort, boolean useAddressAsHostname) {
 		// -1 indicates a local instance connection info
 		checkArgument(dataPort > 0 || dataPort == -1, "dataPort must be > 0, or -1 (local)");
 
@@ -84,21 +89,33 @@ public class TaskManagerLocation implements Comparable<TaskManagerLocation>, jav
 		this.inetAddress = checkNotNull(inetAddress);
 		this.dataPort = dataPort;
 
-		// get FQDN hostname on this TaskManager.
-		this.fqdnHostName = getFqdnHostName(inetAddress);
-
-		this.hostName = getHostName(inetAddress);
+		if (useAddressAsHostname) {
+			this.fqdnHostName = inetAddress.getHostAddress();
+			this.hostName = inetAddress.getHostAddress();
+		} else {
+			// get FQDN hostname on this TaskManager.
+			this.fqdnHostName = getFqdnHostName(inetAddress);
+			this.hostName = getHostName(inetAddress);
+		}
 
 		this.stringRepresentation = String.format(
 				"%s @ %s (dataPort=%d)", resourceID, fqdnHostName, dataPort);
 	}
 
-	public static TaskManagerLocation fromUnresolvedLocation(final UnresolvedTaskManagerLocation unresolvedLocation)
+	public static TaskManagerLocation fromUnresolvedLocation(
+			final UnresolvedTaskManagerLocation unresolvedLocation,
+			final boolean useAddressAsHostname)
 		throws UnknownHostException {
 		return new TaskManagerLocation(
-			unresolvedLocation.getResourceID(),
-			InetAddress.getByName(unresolvedLocation.getExternalAddress()),
-			unresolvedLocation.getDataPort());
+				unresolvedLocation.getResourceID(),
+				InetAddress.getByName(unresolvedLocation.getExternalAddress()),
+				unresolvedLocation.getDataPort(),
+				useAddressAsHostname);
+	}
+
+	public static TaskManagerLocation fromUnresolvedLocation(final UnresolvedTaskManagerLocation unresolvedLocation)
+		throws UnknownHostException {
+		return fromUnresolvedLocation(unresolvedLocation, false);
 	}
 
 	// ------------------------------------------------------------------------
