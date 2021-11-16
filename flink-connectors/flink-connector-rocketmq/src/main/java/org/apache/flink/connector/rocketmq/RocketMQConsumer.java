@@ -263,8 +263,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			assignMessageQueues(this::allocFixedMessageQueue);
 		}
 
-		resetAllOffset();
-
 		if (assignQueueStrategy == RocketMQOptions.AssignQueueStrategy.FIXED) {
 			updateThread = createUpdateThread();
 			updateThread.start();
@@ -350,8 +348,8 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				if (isInitEmpty) {
 					this.notifyAll();
 				}
-				consumer.assign(assignedMessageQueuePbs);
 				resetAllOffset();
+				consumer.assign(assignedMessageQueuePbs);
 			}
 		}
 	}
