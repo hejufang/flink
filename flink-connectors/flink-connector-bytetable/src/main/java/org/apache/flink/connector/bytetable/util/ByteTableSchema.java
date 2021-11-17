@@ -50,6 +50,8 @@ public class ByteTableSchema implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
+	private static final String CELL_VERSION_COLUMN_NAME = "cellVersion";
+
 	// A Map with key as column family.
 	private final Map<String, Map<String, DataType>> familyMap = new LinkedHashMap<>();
 
@@ -380,7 +382,7 @@ public class ByteTableSchema implements Serializable {
 						fromLogicalToDataType(qualifier.getType()));
 				}
 			}  else if (fieldType.getChildren().size() == 0) {
-				if (field.getName().equalsIgnoreCase("cellVersion")) {
+				if (field.getName().equalsIgnoreCase(CELL_VERSION_COLUMN_NAME)) {
 					if (!fieldType.getClass().equals(TimestampType.class)) {
 						throw new FlinkRuntimeException("CellVersion type must be Timestamp.");
 					}

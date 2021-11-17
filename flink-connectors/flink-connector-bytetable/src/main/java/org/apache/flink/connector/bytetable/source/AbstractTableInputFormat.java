@@ -26,12 +26,15 @@ import org.apache.flink.api.common.io.statistics.BaseStatistics;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.bytetable.util.ByteTableConfigurationUtil;
 import org.apache.flink.core.io.InputSplitAssigner;
+import org.apache.flink.util.Preconditions;
 
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.client.HTable;
+import org.apache.hadoop.hbase.client.RegionLocator;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.slf4j.Logger;
@@ -53,7 +56,8 @@ abstract class AbstractTableInputFormat<T> extends RichInputFormat<T, TableInput
 	// helper variable to decide whether the input is exhausted or not
 	protected boolean endReached = false;
 
-	protected transient HTable table = null;
+	protected transient Table table = null;
+	protected transient RegionLocator regionLocator = null;
 	protected transient Scan scan = null;
 
 	/** ByteTable iterator wrapper. */
@@ -114,17 +118,9 @@ abstract class AbstractTableInputFormat<T> extends RichInputFormat<T, TableInput
 
 	@Override
 	public void open(TableInputSplit split) throws IOException {
-		if (table == null) {
-			throw new IOException("The ByteTable table has not been opened! " +
-				"This needs to be done in configure().");
-		}
-		if (scan == null) {
-			throw new IOException("Scan has not been initialized! " +
-				"This needs to be done in configure().");
-		}
-		if (split == null) {
-			throw new IOException("Input split is null!");
-		}
+		Preconditions.checkNotNull(table, "The ByteTable table has not been opened! ");
+		Preconditions.checkNotNull(scan, "The ByteTable table has not been opened! ");
+		Preconditions.checkNotNull(split, "Input split is null!");
 
 		logSplitInfo("opening", split);
 
@@ -199,24 +195,23 @@ abstract class AbstractTableInputFormat<T> extends RichInputFormat<T, TableInput
 			if (table != null) {
 				table.close();
 			}
+			if (regionLocator != null) {
+				regionLocator.close();
+			}
 		} finally {
 			table = null;
+			regionLocator = null;
 		}
 	}
 
 	@Override
 	public TableInputSplit[] createInputSplits(final int minNumSplits) throws IOException {
-		if (table == null) {
-			throw new IOException("The ByteTable table has not been opened! " +
-				"This needs to be done in configure().");
-		}
-		if (scan == null) {
-			throw new IOException("Scan has not been initialized! " +
-				"This needs to be done in configure().");
-		}
+		Preconditions.checkNotNull(table, "The ByteTable table has not been initialized!");
+		Preconditions.checkNotNull(regionLocator, "The region locator has not been initialized!");
+		Preconditions.checkNotNull(scan, "The ByteTable table has not been initialized!");
 
 		// Get the starting and ending row keys for every region in the currently open table
-		final Pair<byte[][], byte[][]> keys = table.getRegionLocator().getStartEndKeys();
+		final Pair<byte[][], byte[][]> keys = regionLocator.getStartEndKeys();
 		if (keys == null || keys.getFirst() == null || keys.getFirst().length == 0) {
 			throw new IOException("Expecting at least one region.");
 		}
@@ -229,7 +224,7 @@ abstract class AbstractTableInputFormat<T> extends RichInputFormat<T, TableInput
 		for (int i = 0; i < keys.getFirst().length; i++) {
 			final byte[] startKey = keys.getFirst()[i];
 			final byte[] endKey = keys.getSecond()[i];
-			final String regionLocation = table.getRegionLocator().getRegionLocation(startKey, false).getHostnamePort();
+			final String regionLocation = regionLocator.getRegionLocation(startKey, false).getHostnamePort();
 			// Test if the given region is to be included in the InputSplit while splitting the regions of a table
 			if (!includeRegionInScan(startKey, endKey)) {
 				continue;
@@ -246,7 +241,7 @@ abstract class AbstractTableInputFormat<T> extends RichInputFormat<T, TableInput
 				final byte[] splitStop = (scanWithNoUpperBound || Bytes.compareTo(endKey, stopRow) <= 0)
 					&& !isLastRegion ? endKey : stopRow;
 				int id = splits.size();
-				final TableInputSplit split = new TableInputSplit(id, hosts, table.getTableName(), splitStart, splitStop);
+				final TableInputSplit split = new TableInputSplit(id, hosts, table.getName().getName(), splitStart, splitStop);
 				splits.add(split);
 			}
 		}
@@ -254,7 +249,7 @@ abstract class AbstractTableInputFormat<T> extends RichInputFormat<T, TableInput
 		for (TableInputSplit split : splits) {
 			logSplitInfo("created", split);
 		}
-		return splits.toArray(new TableInputSplit[splits.size()]);
+		return splits.toArray(new TableInputSplit[0]);
 	}
 
 	/**

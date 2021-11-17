@@ -24,11 +24,10 @@ import org.apache.flink.connector.bytetable.util.ByteTableSchema;
 import org.apache.flink.connector.bytetable.util.ByteTableSerde;
 import org.apache.flink.table.data.RowData;
 
+import com.bytedance.bytetable.hbase.BytetableConnection;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.TableNotFoundException;
-import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
-import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.slf4j.Logger;
@@ -87,14 +86,16 @@ public class ByteTableRowDataInputFormat extends AbstractTableInputFormat<RowDat
 
 	private void connectToTable() {
 		try {
-			Connection conn = ConnectionFactory.createConnection(getHadoopConfiguration());
-			super.table = (HTable) conn.getTable(TableName.valueOf(tableName));
+			BytetableConnection conn = (BytetableConnection) ConnectionFactory.createConnection(getHadoopConfiguration());
+			TableName hTableName = TableName.valueOf(tableName);
+			table = conn.getTable(hTableName);
+			regionLocator = conn.getRegionLocator(hTableName);
 		} catch (TableNotFoundException tnfe) {
 			LOG.error("The table " + tableName + " not found ", tnfe);
 			throw new RuntimeException("ByteTable table '" + tableName + "' not found.", tnfe);
 		} catch (IOException ioe) {
-			LOG.error("Exception while creating connection to ByteTable.", ioe);
-			throw new RuntimeException("Cannot create connection to ByteTable.", ioe);
+			LOG.error("Exception while creating connection to ByteTable: " + tableName, ioe);
+			throw new RuntimeException("Cannot create connection to ByteTable: " + tableName, ioe);
 		}
 	}
 }

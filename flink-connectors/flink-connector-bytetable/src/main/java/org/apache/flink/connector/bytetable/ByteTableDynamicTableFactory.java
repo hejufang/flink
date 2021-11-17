@@ -23,6 +23,8 @@ import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimite
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.configuration.PipelineOptions;
+import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.bytetable.options.ByteTableOptions;
 import org.apache.flink.connector.bytetable.options.ByteTableWriteOptions;
 import org.apache.flink.connector.bytetable.sink.ByteTableDynamicTableSink;
@@ -39,12 +41,15 @@ import org.apache.flink.table.factories.FactoryUtil.TableFactoryHelper;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.apache.flink.configuration.PipelineOptions.JOB_PSM_PREFIX;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.createTableFactoryHelper;
 
@@ -52,6 +57,8 @@ import static org.apache.flink.table.factories.FactoryUtil.createTableFactoryHel
  * ByteTable connector factory.
  */
 public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, DynamicTableSinkFactory {
+	private static final Logger LOG = LoggerFactory.getLogger(ByteTableDynamicTableFactory.class);
+
 	private static final String IDENTIFIER = "bytetable";
 
 	private static final ConfigOption<String> DATABASE = ConfigOptions
@@ -70,7 +77,8 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 		.key("psm")
 		.stringType()
 		.noDefaultValue()
-		.withDescription("Name of PSM.");
+		.withDescription("Deprecated. The tracing psm will be set as job psm at runtime, " +
+			"even if it's explicitly configured.");
 
 	private static final ConfigOption<String> CLUSTER = ConfigOptions
 		.key("cluster")
@@ -161,7 +169,7 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 		Configuration byteTableClientConf = HBaseConfiguration.create();
 		//Connection impl should be com.bytedance.bytetable.hbase.BytetableConnection when use ByteTable.
 		byteTableClientConf.set(BConstants.HBASE_CLIENT_CONNECTION_IMPL, BConstants.BYTETABLE_CLIENT_IMPL);
-		byteTableClientConf.set(BConstants.BYTETABLE_CLIENT_PSM, helper.getOptions().get(PSM));
+		byteTableClientConf.set(BConstants.BYTETABLE_CLIENT_PSM, getJobPSM(context.getConfiguration()));
 		byteTableClientConf.set(BConstants.BYTETABLE_CLIENT_CLUSTERNAME, helper.getOptions().get(CLUSTER));
 		byteTableClientConf.set(BConstants.BYTETABLE_CLIENT_SERVICENAME, helper.getOptions().get(SERVICE));
 		//ByteTable does not support RegionSizeCalculator, so set it false.
@@ -194,7 +202,7 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 		ByteTableOptions.Builder bytetableOptionsBuilder = ByteTableOptions.builder();
 		bytetableOptionsBuilder.setDatabase(helper.getOptions().get(DATABASE));
 		bytetableOptionsBuilder.setTableName(helper.getOptions().get(TABLE_NAME));
-		bytetableOptionsBuilder.setPsm(helper.getOptions().get(PSM));
+		bytetableOptionsBuilder.setPsm(getJobPSM(context.getConfiguration()));
 		bytetableOptionsBuilder.setCluster(helper.getOptions().get(CLUSTER));
 		bytetableOptionsBuilder.setService(helper.getOptions().get(SERVICE));
 		bytetableOptionsBuilder.setConnTimeoutMs(helper.getOptions().get(BYTETABLE_CONN_TIMEOUT));
@@ -233,7 +241,6 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 	public Set<ConfigOption<?>> requiredOptions() {
 		Set<ConfigOption<?>> set = new HashSet<>();
 		set.add(TABLE_NAME);
-		set.add(PSM);
 		set.add(CLUSTER);
 		set.add(SERVICE);
 		return set;
@@ -253,6 +260,7 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 		set.add(BYTETABLE_CHAN_TIMEOUT);
 		set.add(BYTETABLE_REQ_TIMEOUT);
 		set.add(BYTETABLE_MUTATE_TYPE);
+		set.add(PSM);
 		return set;
 	}
 
@@ -284,5 +292,12 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 						"column families and qualifiers are defined as ROW type.");
 			}
 		});
+	}
+
+	private static String getJobPSM(ReadableConfig config) {
+		String jobName = config.getOptional(PipelineOptions.NAME).orElse("UNKNOWN_JOB");
+		String jobPSM = JOB_PSM_PREFIX + jobName;
+		LOG.info("Get job psm: {}", jobPSM);
+		return jobPSM;
 	}
 }
