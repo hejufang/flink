@@ -98,6 +98,9 @@ class StreamExecTableSourceScan(
     val source = createSourceTransformation(
       planner.getExecEnv, getRelDetailedDescription, planner.getTableConfig)
     PhysicalPlanUtil.setDebugLoggingConverter(planner.getTableConfig, getRowType, source)
+    // Different connectors vary in behaviors, we temporarily believe they all use states.
+    // todo: make this property specified by connector itself.
+    source.setHasState(true)
     new FakeTransformation[RowData](
       source, "ChangeToDefaultParallel", ExecutionConfig.PARALLELISM_DEFAULT)
   }

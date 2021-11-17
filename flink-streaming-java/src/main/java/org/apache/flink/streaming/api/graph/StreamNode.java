@@ -56,6 +56,10 @@ public class StreamNode implements Serializable, Comparable {
 	private int parallelism;
 	private boolean isUseDefaultParallelism;
 	/**
+	 * Flag that indicates whether the operator this node represents has states.
+	 */
+	private boolean hasState;
+	/**
 	 * Maximum parallelism for this stream node. The maximum parallelism is the upper limit for
 	 * dynamic scaling and the number of key groups used for partitioned state.
 	 */
@@ -180,6 +184,14 @@ public class StreamNode implements Serializable, Comparable {
 
 	public void setUseDefaultParallelism(boolean useDefaultParallelism) {
 		isUseDefaultParallelism = useDefaultParallelism;
+	}
+
+	public boolean isHasState() {
+		return hasState;
+	}
+
+	public void setHasState(boolean hasState) {
+		this.hasState = hasState;
 	}
 
 	/**
@@ -351,7 +363,7 @@ public class StreamNode implements Serializable, Comparable {
 		return transformationUID;
 	}
 
-	void setTransformationUID(String transformationId) {
+	public void setTransformationUID(String transformationId) {
 		this.transformationUID = transformationId;
 	}
 

@@ -18,72 +18,27 @@
 
 package org.apache.flink.table.planner.runtime.stream.sql
 
-import org.apache.flink.api.common.functions.RichMapFunction
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.NoRestartStrategyConfiguration
 import org.apache.flink.api.scala._
 import org.apache.flink.client.ClientUtils
-import org.apache.flink.configuration.{CheckpointingOptions, Configuration}
 import org.apache.flink.runtime.jobgraph.{JobGraph, SavepointRestoreSettings}
-import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration
 import org.apache.flink.streaming.api.TimeCharacteristic
-import org.apache.flink.streaming.api.functions.sink.SinkFunction
-import org.apache.flink.streaming.api.functions.source.{RichSourceFunction, SourceFunction}
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.table.api._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 import org.apache.flink.table.api.bridge.scala._
 import org.apache.flink.table.planner.runtime.utils.TimeTestUtil.TimestampAndWatermarkWithOffset
-import org.apache.flink.test.util.MiniClusterWithClientResource
 import org.apache.flink.types.Row
-import org.apache.flink.util.TestLogger
 
-import org.junit.rules.TemporaryFolder
-import org.junit.runner.RunWith
-import org.junit.runners.Parameterized
-import org.junit.{After, Before, Test}
+import org.junit.Test
 import org.junit.Assert._
 
-import scala.collection.mutable
 import scala.collection.JavaConverters._
-
 import java.math.BigDecimal
-import java.util
-import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.TimeUnit
 
-
-@RunWith(classOf[Parameterized])
-class CheckpointRecoveryITCase(stateBackend: String) extends TestLogger with Serializable {
-
-  var cluster: MiniClusterWithClientResource = _
-  val temporaryFolder = new TemporaryFolder()
-
-  @Before
-  def setup(): Unit = {
-    val config = new Configuration()
-
-    temporaryFolder.create()
-    val checkpointDir = temporaryFolder.newFolder()
-    val savepointDir = temporaryFolder.newFolder()
-
-    config.setString(CheckpointingOptions.STATE_BACKEND, stateBackend)
-    config.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointDir.toURI.toString)
-    config.setString(CheckpointingOptions.SAVEPOINT_DIRECTORY, savepointDir.toURI.toString)
-
-    cluster = new MiniClusterWithClientResource(
-      new MiniClusterResourceConfiguration.Builder()
-        .setConfiguration(config)
-        .setNumberTaskManagers(2)
-        .setNumberSlotsPerTaskManager(2)
-        .build())
-    cluster.before()
-  }
-
-  @After
-  def close(): Unit = {
-    if (cluster != null) {
-      cluster.after()
-    }
-  }
+class CheckpointRecoveryITCase(stateBackend: String)
+    extends CheckpointRecoveryTestBase(stateBackend) with Serializable {
 
   @Test
   def testAddNonDistinct(): Unit = {
@@ -285,7 +240,7 @@ class CheckpointRecoveryITCase(stateBackend: String) extends TestLogger with Ser
 
     val jobGraph1 = build1stJob(beforeSQL, sink1)
     val jobId = jobGraph1.getJobID
-    Latch.reset()
+    Latch.init(8)
     client.submitJob(jobGraph1)
     Latch.latch.await(60, TimeUnit.SECONDS)
     log.warn("================ Data is sent ================")
@@ -361,85 +316,5 @@ class CheckpointRecoveryITCase(stateBackend: String) extends TestLogger with Ser
     val jobGraphAfter = env.getStreamGraph.getJobGraph()
     jobGraphAfter.setSavepointRestoreSettings(SavepointRestoreSettings.forPath(savepointPath))
     jobGraphAfter
-  }
-}
-
-object CheckpointRecoveryITCase {
-  @Parameterized.Parameters
-  def parameters(): util.Collection[String] = {
-    util.Arrays.asList("rocksdb", "filesystem")
-  }
-}
-
-class TestSource(exitAfterSendData: Boolean) extends RichSourceFunction[
-  (Long, Int, Double, Float, BigDecimal, String, String)] {
-
-  val data = List(
-    (1L, 1, 1d, 1f, new BigDecimal("1"), "Hi", "a"),
-    (2L, 2, 2d, 2f, new BigDecimal("2"), "Hallo", "a"),
-    (3L, 2, 2d, 2f, new BigDecimal("2"), "Hello", "a"),
-    (4L, 5, 5d, 5f, new BigDecimal("5"), "Hello", "a"),
-    (7L, 3, 3d, 3f, new BigDecimal("3"), "Hello", "b"),
-    (6L, 5, 5d, 5f, new BigDecimal("5"), "Hello", "a"),
-    (8L, 3, 3d, 3f, new BigDecimal("3"), "Hello world", "a"),
-    (16L, 4, 4d, 4f, new BigDecimal("4"), "Hello world", "b"))
-  var running = true
-  var emitted = false
-
-  override def run(ctx: SourceFunction.SourceContext[
-    (Long, Int, Double, Float, BigDecimal, String, String)]): Unit = {
-    while (running) {
-      if (!emitted) {
-        emitted = true
-        data.foreach(row => {
-          ctx.collect(row)
-        })
-      }
-      Thread.sleep(200)
-
-      if (exitAfterSendData) {
-        return
-      }
-    }
-  }
-
-  override def cancel(): Unit = {
-    running = false
-  }
-}
-
-class LatchMapper[T] extends RichMapFunction[T, T] {
-
-  override def open(parameters: Configuration): Unit = {
-    super.open(parameters)
-  }
-
-  override def map(value: T): T = {
-    Latch.latch.countDown()
-    value
-  }
-}
-
-class TestSink[T] extends SinkFunction[T] {
-
-  override def invoke(value: T): Unit = {
-    TestSink.results += value.toString
-    println(value)
-  }
-}
-
-object TestSink {
-  var results: mutable.ArrayBuffer[String] = _
-
-  def reset(): Unit = {
-    results = mutable.ArrayBuffer.empty[String]
-  }
-}
-
-object Latch {
-  var latch: CountDownLatch = _
-
-  def reset(): Unit = {
-    latch = new CountDownLatch(8)
   }
 }

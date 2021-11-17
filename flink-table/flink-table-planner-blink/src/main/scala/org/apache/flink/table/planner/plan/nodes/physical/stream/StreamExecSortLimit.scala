@@ -213,6 +213,8 @@ class StreamExecSortLimit(
     val selector = EmptyRowDataKeySelector.INSTANCE
     ret.setStateKeySelector(selector)
     ret.setStateKeyType(selector.getProducedType)
+
+    ret.setHasState(true)
     ret
   }
 }

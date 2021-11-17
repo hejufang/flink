@@ -129,6 +129,8 @@ class StreamExecSort(
       ret.setParallelism(1)
       ret.setMaxParallelism(1)
     }
+
+    ret.setHasState(true)
     ret
   }
 }

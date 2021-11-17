@@ -28,8 +28,11 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.streaming.api.graph.PlanGraph;
 import org.apache.flink.streaming.api.graph.PlanJSONGenerator;
 import org.apache.flink.streaming.api.graph.StreamGraph;
+import org.apache.flink.streaming.api.graph.StreamGraphHasher;
+import org.apache.flink.streaming.api.graph.StreamGraphHasherV2;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.ExplainDetail;
@@ -155,7 +158,6 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.calcite.sql.SqlNode;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -894,6 +896,56 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		return planJSONGenerator.generatePlan();
 	}
 
+	public StreamGraph generateStreamGraph(String stmt) {
+		List<SqlNode> sqlNodes = getParser().parseToSqlNodes(stmt);
+		List<ModifyOperation> operations = new ArrayList<>();
+		for (SqlNode sqlNode : sqlNodes) {
+			Operation operation = getParser().convertSqlNodeToOperation(sqlNode);
+			if (operation instanceof ModifyOperation) {
+				operations.add((ModifyOperation) operation);
+			} else if (!(operation instanceof QueryOperation)) {
+				executeOperation(operation);
+			}
+		}
+		if (operations.isEmpty()) {
+			throw new IllegalStateException("No operators defined in streaming topology. Cannot generate Json.");
+		}
+		List<Transformation<?>> transformations = translate(operations);
+		List<String> sinkIdentifierNames = extractSinkIdentifierNames(operations);
+		String jobName = getJobName("insert-into_" + String.join(",", sinkIdentifierNames));
+		return (StreamGraph) execEnv.createPipeline(transformations, tableConfig, jobName);
+	}
+
+	@Override
+	public String applyOldGraph(String oldGraphJson, String stmt) {
+		StreamGraph streamGraph = generateStreamGraph(stmt);
+		return StreamGraph.Utils.applyOldGraph(oldGraphJson, streamGraph);
+	}
+
+	@Override
+	public StreamGraph validateAndApplyConfigToStreamGraph(String stmt, String planGraphJson) {
+		PlanGraph planGraph = PlanGraph.Utils.resolvePlanGraph(planGraphJson);
+		StreamGraph streamGraph = generateStreamGraph(stmt);
+		StreamGraphHasher defaultStreamGraphHasher = new StreamGraphHasherV2();
+		Map<Integer, byte[]> generatedHashes = defaultStreamGraphHasher
+			.traverseStreamGraphAndGenerateHashes(streamGraph);
+		StreamGraph.Utils.validateAndApplyConfigToStreamGraph(streamGraph, planGraph, generatedHashes);
+		return streamGraph;
+	}
+
+	@Override
+	public TableResult executeWithPlanGraph(String stmt, String planGraphJson) {
+		StreamGraph streamGraph = validateAndApplyConfigToStreamGraph(stmt, planGraphJson);
+		streamGraph.setUserProvidedHashInvolved(true);
+		try {
+			execEnv.executeAsync(streamGraph);
+			// No need to specify the detail in the result here.
+			return TableResultImpl.TABLE_RESULT_OK;
+		} catch (Exception e) {
+			throw new TableException("Failed to execute sql", e);
+		}
+	}
+
 	private Tuple2<Optional<TableResult>, Optional<StatementSet>> sqlInternal(String stmt) {
 		if (getParser().isHiveParser()) {
 			return sqlInternalHive(stmt);
@@ -1417,7 +1469,7 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 					LogicalType logicalType = c.getType().getLogicalType();
 					return new Object[]{
 						c.getName(),
-						StringUtils.removeEnd(logicalType.toString(), " NOT NULL"),
+						org.apache.commons.lang3.StringUtils.removeEnd(logicalType.toString(), " NOT NULL"),
 						logicalType.isNullable(),
 						fieldToPrimaryKey.getOrDefault(c.getName(), null),
 						c.getExpr().orElse(null),

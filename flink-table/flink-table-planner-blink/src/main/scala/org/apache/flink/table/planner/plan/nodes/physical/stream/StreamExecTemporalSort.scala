@@ -119,6 +119,7 @@ class StreamExecTemporalSort(
         )
     }
     PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, ret)
+    ret.setHasState(true)
     ret
   }
 

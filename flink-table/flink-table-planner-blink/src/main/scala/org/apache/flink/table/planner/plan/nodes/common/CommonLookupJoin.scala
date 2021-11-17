@@ -288,6 +288,7 @@ abstract class CommonLookupJoin(
       .map(temporalTableSchema.getFieldDataTypes()(_)).map(fromDataTypeToLogicalType)
 
     val leftOuterJoin = joinType == JoinRelType.LEFT
+    var hasState = false
 
     val operatorFactory = if (isAsyncEnabled) {
       val asyncBufferCapacity= config.getConfiguration
@@ -432,6 +433,7 @@ abstract class CommonLookupJoin(
               leftOuterJoin,
               rightRowType.getFieldCount)
           } else {
+            hasState = true
             new LookupJoinWithCalcRetryRunner(
               generatedFetcher,
               generatedCalc,
@@ -460,6 +462,7 @@ abstract class CommonLookupJoin(
               leftOuterJoin,
               rightRowType.getFieldCount)
           } else {
+            hasState = true
             new LookupJoinWithRetryRunner(
               generatedFetcher,
               generatedCollector,
@@ -532,12 +535,15 @@ abstract class CommonLookupJoin(
 
     PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, operatorFactory)
 
-    ExecNode.createOneInputTransformation(
+    val ret = ExecNode.createOneInputTransformation(
       inputTransformation,
       getRelDetailedDescription,
       operatorFactory,
       RowDataTypeInfo.of(resultRowType),
       inputTransformation.getParallelism)
+
+    ret.setHasState(hasState)
+    ret
   }
 
   private def rowTypeEquals(expected: TypeInformation[_], actual: TypeInformation[_]): Boolean = {

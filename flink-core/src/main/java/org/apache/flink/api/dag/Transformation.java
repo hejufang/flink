@@ -128,6 +128,11 @@ public abstract class Transformation<T> {
 	private boolean isUseDefaultParallelism;
 
 	/**
+	 * Flag that indicates whether the transformation has states.
+	 */
+	private boolean hasState;
+
+	/**
 	 * The maximum parallelism for this stream transformation. It defines the upper limit for
 	 * dynamic scaling and the number of key groups used for partitioned state.
 	 */
@@ -249,6 +254,14 @@ public abstract class Transformation<T> {
 	public Transformation<T> setUseDefaultParallelism(boolean useDefaultParallelism) {
 		isUseDefaultParallelism = useDefaultParallelism;
 		return this;
+	}
+
+	public boolean isHasState() {
+		return hasState;
+	}
+
+	public void setHasState(boolean hasState) {
+		this.hasState = hasState;
 	}
 
 	/**

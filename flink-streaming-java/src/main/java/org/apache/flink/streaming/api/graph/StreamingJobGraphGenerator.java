@@ -112,7 +112,14 @@ public class StreamingJobGraphGenerator {
 	}
 
 	public static JobGraph createJobGraph(StreamGraph streamGraph, @Nullable JobID jobID) {
-		return new StreamingJobGraphGenerator(streamGraph, jobID).createJobGraph();
+		return new StreamingJobGraphGenerator(streamGraph, jobID).createJobGraph(false);
+	}
+
+	public static JobGraph createJobGraph(
+			StreamGraph streamGraph,
+			@Nullable JobID jobID,
+			boolean userProvidedHashInvolved) {
+		return new StreamingJobGraphGenerator(streamGraph, jobID).createJobGraph(userProvidedHashInvolved);
 	}
 
 	// ------------------------------------------------------------------------
@@ -158,21 +165,30 @@ public class StreamingJobGraphGenerator {
 		jobGraph = new JobGraph(jobID, streamGraph.getJobName());
 	}
 
-	private JobGraph createJobGraph() {
+	private JobGraph createJobGraph(boolean userProvidedHashInvolved) {
 		preValidate();
 
 		// make sure that all vertices start immediately
 		jobGraph.setScheduleMode(streamGraph.getScheduleMode());
-
-		// Generate deterministic hashes for the nodes in order to identify them across
-		// submission iff they didn't change.
-		Map<Integer, byte[]> hashes = defaultStreamGraphHasher.traverseStreamGraphAndGenerateHashes(streamGraph);
 
 		// Generate legacy version hashes for backwards compatibility
 		List<Map<Integer, byte[]>> legacyHashes = new ArrayList<>(legacyStreamGraphHashers.size());
 		for (StreamGraphHasher hasher : legacyStreamGraphHashers) {
 			legacyHashes.add(hasher.traverseStreamGraphAndGenerateHashes(streamGraph));
 		}
+
+		// Generate deterministic hashes for the nodes in order to identify them across
+		// submission if they didn't change.
+		if (userProvidedHashInvolved) {
+			((StreamGraphHasherV2) defaultStreamGraphHasher).setUserProvidedHashes(
+				new HashSet<String>() {{
+					for (byte[] hash: legacyHashes.get(0).values()) {
+						add(org.apache.flink.util.StringUtils.byteToHexString(hash));
+					}
+				}});
+		}
+		Map<Integer, byte[]> hashes = defaultStreamGraphHasher.traverseStreamGraphAndGenerateHashes(streamGraph);
+
 		Map<Integer, OperatorIDPair> operatorIDMap = new HashMap<>();
 		for (Map.Entry<Integer, byte[]> entry : hashes.entrySet()) {
 			for (Map<Integer, byte[]> legecyHash : legacyHashes) {

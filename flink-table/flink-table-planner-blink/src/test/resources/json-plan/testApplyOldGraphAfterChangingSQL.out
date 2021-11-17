@@ -1,29 +1,28 @@
 {
     "jobVertices":[
         {
-            "id":"78e1c2a5ca3c922f751946d4b080fbc6",
+            "id":"b080e590961014636a30c94838ad784a",
             "parallelism":4,
-            "name":"IntervalJoin_joinTyp -> Calc_select_id_desc_ -> Sink_Sink_table_defa",
+            "name":"GroupAggregate_group -> Sink_Sink_table_defa",
             "inputs":[
                 {
                     "id":"51397532e2d9c7a21097a30d590b3114",
                     "shipStrategy":"HASH"
                 },
                 {
-                    "id":"798f7268aeb5fde00858b7c9723d65f1",
+                    "id":"8b9f3e513101bcc5d198aee685286d98",
                     "shipStrategy":"HASH"
                 }
             ],
             "containedNodes":[
-                "fe1036e48d45cdf80a45285a02d1569c",
-                "b92128d2c3686ea3d36290914e3b5fc6",
-                "78e1c2a5ca3c922f751946d4b080fbc6"
+                "f7b1fba6d83db738b317718374477110",
+                "b080e590961014636a30c94838ad784a"
             ]
         },
         {
             "id":"51397532e2d9c7a21097a30d590b3114",
             "parallelism":4,
-            "name":"WatermarkAssigner_ro -> Calc_select_id_num_e",
+            "name":"WatermarkAssigner_ro -> Calc_select_id_name_",
             "inputs":[
                 {
                     "id":"bc764cd8ddf7a0cff126f51c16239658",
@@ -44,9 +43,9 @@
             ]
         },
         {
-            "id":"798f7268aeb5fde00858b7c9723d65f1",
+            "id":"8b9f3e513101bcc5d198aee685286d98",
             "parallelism":4,
-            "name":"WatermarkAssigner_ro_1",
+            "name":"WatermarkAssigner_ro_1 -> Calc_select_id_desc_",
             "inputs":[
                 {
                     "id":"feca28aff5a3958840bee985ee7de4d3",
@@ -54,7 +53,8 @@
                 }
             ],
             "containedNodes":[
-                "798f7268aeb5fde00858b7c9723d65f1"
+                "10d2d5f80cb0f089bed012a81510aa25",
+                "8b9f3e513101bcc5d198aee685286d98"
             ]
         },
         {
@@ -71,18 +71,19 @@
             "nodeDesc":"bc764cd8ddf7a0cff126f51c16239658",
             "name":"Source_TableSourceSc",
             "jobVertexID":"bc764cd8ddf7a0cff126f51c16239658",
-            "generatedOperatorID":"bc764cd8ddf7a0cff126f51c16239658",
+            "generatedOperatorID":"af02c5a51bf07311b21e52535bc0f992",
+            "userProvidedHash":"bc764cd8ddf7a0cff126f51c16239658",
             "description":"Source: TableSourceScan(table=[[default_catalog, default_database, source1]], fields=[id, name, num, eventtime])",
             "parallelism":1,
             "hasState":true,
-            "isChanged":false,
-            "isFromOldGraph":false
+            "isChanged":true,
+            "isFromOldGraph":true
         },
         {
             "nodeDesc":"51397532e2d9c7a21097a30d590b3114",
             "name":"WatermarkAssigner_ro",
             "jobVertexID":"51397532e2d9c7a21097a30d590b3114",
-            "generatedOperatorID":"51397532e2d9c7a21097a30d590b3114",
+            "generatedOperatorID":"424dfc4f24de147c53af044214e85ede",
             "description":"WatermarkAssigner(rowtime=[eventtime], watermark=[(eventtime - 5000:INTERVAL SECOND)])",
             "parallelism":4,
             "hasState":false,
@@ -98,17 +99,17 @@
             "outputs":[
                 {
                     "nodeDesc":"e1aa9a3f1b74e8aee21b292597024e03",
-                    "nodeName":"Calc(select=[id, num, eventtime])",
+                    "nodeName":"Calc(select=[id, name, num])",
                     "shipStrategy":"FORWARD"
                 }
             ]
         },
         {
             "nodeDesc":"e1aa9a3f1b74e8aee21b292597024e03",
-            "name":"Calc_select_id_num_e",
+            "name":"Calc_select_id_name_",
             "jobVertexID":"51397532e2d9c7a21097a30d590b3114",
-            "generatedOperatorID":"e1aa9a3f1b74e8aee21b292597024e03",
-            "description":"Calc(select=[id, num, eventtime])",
+            "generatedOperatorID":"f2de1342dd733b70a1238e6adae121c9",
+            "description":"Calc(select=[id, name, num])",
             "parallelism":4,
             "hasState":false,
             "isChanged":false,
@@ -122,8 +123,8 @@
             ],
             "outputs":[
                 {
-                    "nodeDesc":"78e1c2a5ca3c922f751946d4b080fbc6",
-                    "nodeName":"IntervalJoin(joinType=[InnerJoin], windowBounds=[isRowTime=true, leftLowerBound=-3600000, leftUpperBound=3600000, leftTimeIndex=2, rightTimeIndex=2], where=[((id = id0) AND (eventtime >= (eventtime0 - 3600000:INTERVAL HOUR)) AND (eventtime <= (eventtime0 + 3600000:INTERVAL HOUR)))], select=[id, num, eventtime, id0, desc, eventtime0])",
+                    "nodeDesc":"b080e590961014636a30c94838ad784a",
+                    "nodeName":"GroupAggregate(groupBy=[id, name], select=[id, name, SUM(num) AS EXPR$2])",
                     "shipStrategy":"HASH"
                 }
             ]
@@ -140,10 +141,10 @@
             "isFromOldGraph":false
         },
         {
-            "nodeDesc":"798f7268aeb5fde00858b7c9723d65f1",
+            "nodeDesc":"8b9f3e513101bcc5d198aee685286d98",
             "name":"WatermarkAssigner_ro_1",
-            "jobVertexID":"798f7268aeb5fde00858b7c9723d65f1",
-            "generatedOperatorID":"798f7268aeb5fde00858b7c9723d65f1",
+            "jobVertexID":"8b9f3e513101bcc5d198aee685286d98",
+            "generatedOperatorID":"8b9f3e513101bcc5d198aee685286d98",
             "description":"WatermarkAssigner(rowtime=[eventtime], watermark=[(eventtime - 5000:INTERVAL SECOND)])",
             "parallelism":4,
             "hasState":false,
@@ -158,72 +159,73 @@
             ],
             "outputs":[
                 {
-                    "nodeDesc":"78e1c2a5ca3c922f751946d4b080fbc6",
-                    "nodeName":"IntervalJoin(joinType=[InnerJoin], windowBounds=[isRowTime=true, leftLowerBound=-3600000, leftUpperBound=3600000, leftTimeIndex=2, rightTimeIndex=2], where=[((id = id0) AND (eventtime >= (eventtime0 - 3600000:INTERVAL HOUR)) AND (eventtime <= (eventtime0 + 3600000:INTERVAL HOUR)))], select=[id, num, eventtime, id0, desc, eventtime0])",
-                    "shipStrategy":"HASH"
-                }
-            ]
-        },
-        {
-            "nodeDesc":"78e1c2a5ca3c922f751946d4b080fbc6",
-            "name":"IntervalJoin_joinTyp",
-            "jobVertexID":"78e1c2a5ca3c922f751946d4b080fbc6",
-            "generatedOperatorID":"78e1c2a5ca3c922f751946d4b080fbc6",
-            "description":"IntervalJoin(joinType=[InnerJoin], windowBounds=[isRowTime=true, leftLowerBound=-3600000, leftUpperBound=3600000, leftTimeIndex=2, rightTimeIndex=2], where=[((id = id0) AND (eventtime >= (eventtime0 - 3600000:INTERVAL HOUR)) AND (eventtime <= (eventtime0 + 3600000:INTERVAL HOUR)))], select=[id, num, eventtime, id0, desc, eventtime0])",
-            "parallelism":4,
-            "hasState":true,
-            "isChanged":false,
-            "isFromOldGraph":false,
-            "inputs":[
-                {
-                    "nodeDesc":"e1aa9a3f1b74e8aee21b292597024e03",
-                    "nodeName":"Calc(select=[id, num, eventtime])",
-                    "shipStrategy":"HASH"
-                },
-                {
-                    "nodeDesc":"798f7268aeb5fde00858b7c9723d65f1",
-                    "nodeName":"WatermarkAssigner(rowtime=[eventtime], watermark=[(eventtime - 5000:INTERVAL SECOND)])",
-                    "shipStrategy":"HASH"
-                }
-            ],
-            "outputs":[
-                {
-                    "nodeDesc":"b92128d2c3686ea3d36290914e3b5fc6",
-                    "nodeName":"Calc(select=[id, desc, num])",
+                    "nodeDesc":"10d2d5f80cb0f089bed012a81510aa25",
+                    "nodeName":"Calc(select=[id, desc AS name, CAST(CHAR_LENGTH(desc)) AS num])",
                     "shipStrategy":"FORWARD"
                 }
             ]
         },
         {
-            "nodeDesc":"b92128d2c3686ea3d36290914e3b5fc6",
+            "nodeDesc":"10d2d5f80cb0f089bed012a81510aa25",
             "name":"Calc_select_id_desc_",
-            "jobVertexID":"78e1c2a5ca3c922f751946d4b080fbc6",
-            "generatedOperatorID":"b92128d2c3686ea3d36290914e3b5fc6",
-            "description":"Calc(select=[id, desc, num])",
+            "jobVertexID":"8b9f3e513101bcc5d198aee685286d98",
+            "generatedOperatorID":"10d2d5f80cb0f089bed012a81510aa25",
+            "description":"Calc(select=[id, desc AS name, CAST(CHAR_LENGTH(desc)) AS num])",
             "parallelism":4,
             "hasState":false,
             "isChanged":false,
             "isFromOldGraph":false,
             "inputs":[
                 {
-                    "nodeDesc":"78e1c2a5ca3c922f751946d4b080fbc6",
-                    "nodeName":"IntervalJoin(joinType=[InnerJoin], windowBounds=[isRowTime=true, leftLowerBound=-3600000, leftUpperBound=3600000, leftTimeIndex=2, rightTimeIndex=2], where=[((id = id0) AND (eventtime >= (eventtime0 - 3600000:INTERVAL HOUR)) AND (eventtime <= (eventtime0 + 3600000:INTERVAL HOUR)))], select=[id, num, eventtime, id0, desc, eventtime0])",
+                    "nodeDesc":"8b9f3e513101bcc5d198aee685286d98",
+                    "nodeName":"WatermarkAssigner(rowtime=[eventtime], watermark=[(eventtime - 5000:INTERVAL SECOND)])",
                     "shipStrategy":"FORWARD"
                 }
             ],
             "outputs":[
                 {
-                    "nodeDesc":"fe1036e48d45cdf80a45285a02d1569c",
+                    "nodeDesc":"b080e590961014636a30c94838ad784a",
+                    "nodeName":"GroupAggregate(groupBy=[id, name], select=[id, name, SUM(num) AS EXPR$2])",
+                    "shipStrategy":"HASH"
+                }
+            ]
+        },
+        {
+            "nodeDesc":"b080e590961014636a30c94838ad784a",
+            "name":"GroupAggregate_group",
+            "jobVertexID":"b080e590961014636a30c94838ad784a",
+            "generatedOperatorID":"6b625dc30411f4ba1ae11cc17ecfecef",
+            "userProvidedHash":"b5c8d46f3e7b141acf271f12622e752b",
+            "description":"GroupAggregate(groupBy=[id, name], select=[id, name, SUM(num) AS EXPR$2])",
+            "parallelism":4,
+            "hasState":true,
+            "isChanged":true,
+            "isFromOldGraph":true,
+            "inputs":[
+                {
+                    "nodeDesc":"e1aa9a3f1b74e8aee21b292597024e03",
+                    "nodeName":"Calc(select=[id, name, num])",
+                    "shipStrategy":"HASH"
+                },
+                {
+                    "nodeDesc":"10d2d5f80cb0f089bed012a81510aa25",
+                    "nodeName":"Calc(select=[id, desc AS name, CAST(CHAR_LENGTH(desc)) AS num])",
+                    "shipStrategy":"HASH"
+                }
+            ],
+            "outputs":[
+                {
+                    "nodeDesc":"f7b1fba6d83db738b317718374477110",
                     "nodeName":"Sink: Sink(table=[default_catalog.default_database.sink], fields=[id, name, num])",
                     "shipStrategy":"FORWARD"
                 }
             ]
         },
         {
-            "nodeDesc":"fe1036e48d45cdf80a45285a02d1569c",
+            "nodeDesc":"f7b1fba6d83db738b317718374477110",
             "name":"Sink_Sink_table_defa",
-            "jobVertexID":"78e1c2a5ca3c922f751946d4b080fbc6",
-            "generatedOperatorID":"fe1036e48d45cdf80a45285a02d1569c",
+            "jobVertexID":"b080e590961014636a30c94838ad784a",
+            "generatedOperatorID":"2c5343f54a3c57e1c3c6a40a3225e5b5",
             "description":"Sink: Sink(table=[default_catalog.default_database.sink], fields=[id, name, num])",
             "parallelism":4,
             "hasState":false,
@@ -231,8 +233,8 @@
             "isFromOldGraph":false,
             "inputs":[
                 {
-                    "nodeDesc":"b92128d2c3686ea3d36290914e3b5fc6",
-                    "nodeName":"Calc(select=[id, desc, num])",
+                    "nodeDesc":"b080e590961014636a30c94838ad784a",
+                    "nodeName":"GroupAggregate(groupBy=[id, name], select=[id, name, SUM(num) AS EXPR$2])",
                     "shipStrategy":"FORWARD"
                 }
             ],

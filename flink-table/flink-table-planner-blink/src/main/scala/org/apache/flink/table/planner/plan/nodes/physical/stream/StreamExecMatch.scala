@@ -231,6 +231,8 @@ class StreamExecMatch(
         transformation.setMaxParallelism(1)
       }
       setKeySelector(transformation, inputTypeInfo, config)
+
+      transformation.setHasState(true)
       transformation
     }
   }

@@ -166,7 +166,7 @@ class StreamExecIntervalJoin(
             remainCondition,
             "IntervalJoinFunction")
 
-          if (isRowTime) {
+          val transformation = if (isRowTime) {
             createRowTimeJoin(
               leftPlan,
               rightPlan,
@@ -185,6 +185,8 @@ class StreamExecIntervalJoin(
               rightKeys,
               tableConfig)
           }
+          transformation.setHasState(true)
+          transformation
         }
       case FlinkJoinType.ANTI =>
         throw new TableException(

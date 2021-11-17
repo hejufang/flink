@@ -21,6 +21,7 @@ package org.apache.flink.streaming.api.graph;
 import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.streaming.api.operators.UdfStreamOperatorFactory;
+import org.apache.flink.util.StringUtils;
 
 import org.apache.flink.shaded.guava18.com.google.common.hash.HashFunction;
 import org.apache.flink.shaded.guava18.com.google.common.hash.Hasher;
@@ -53,6 +54,14 @@ public class StreamGraphHasherV2 implements StreamGraphHasher {
 
 	private static final Logger LOG = LoggerFactory.getLogger(StreamGraphHasherV2.class);
 
+	private Set<String> userProvidedHashes;
+
+	public StreamGraphHasherV2() {}
+
+	public void setUserProvidedHashes(Set<String> userProvidedHashes) {
+		this.userProvidedHashes = userProvidedHashes;
+	}
+
 	/**
 	 * Returns a map with a hash for each {@link StreamNode} of the {@link
 	 * StreamGraph}. The hash is used as the {@link JobVertexID} in order to
@@ -69,7 +78,7 @@ public class StreamGraphHasherV2 implements StreamGraphHasher {
 	 *   <li>input nodes hashes
 	 * </ul>
 	 *
-	 * @return A map from {@link StreamNode#id} to hash as 16-byte array.
+	 * @return A map from {@link StreamNode#getId()} to hash as 16-byte array.
 	 */
 	@Override
 	public Map<Integer, byte[]> traverseStreamGraphAndGenerateHashes(StreamGraph streamGraph) {
@@ -247,6 +256,13 @@ public class StreamGraphHasherV2 implements StreamGraphHasher {
 			}
 		}
 
+		// If the hash collides with user-provided hash, take it as input.
+		if (userProvidedHashes != null && userProvidedHashes.contains(StringUtils.byteToHexString(hash))) {
+			for (int j = 0; j < hash.length; j++) {
+				hash[j] = (byte) (hash[j] * 37 ^ hash[j]);
+			}
+		}
+
 		if (LOG.isDebugEnabled()) {
 			String udfClassName = "";
 			if (node.getOperatorFactory() instanceof UdfStreamOperatorFactory) {
@@ -267,7 +283,7 @@ public class StreamGraphHasherV2 implements StreamGraphHasher {
 	 * the current state of the hash.
 	 *
 	 * <p>The specified ID is local to this node. We cannot use the
-	 * {@link StreamNode#id}, because it is incremented in a static counter.
+	 * {@link StreamNode#getId()}, because it is incremented in a static counter.
 	 * Therefore, the IDs for identical jobs will otherwise be different.
 	 */
 	private void generateNodeLocalHash(Hasher hasher, int id) {

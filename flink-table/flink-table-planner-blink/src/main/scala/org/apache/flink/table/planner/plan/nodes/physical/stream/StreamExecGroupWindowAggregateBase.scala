@@ -197,6 +197,8 @@ abstract class StreamExecGroupWindowAggregateBase(
     // set KeyType and Selector for state
     transformation.setStateKeySelector(selector)
     transformation.setStateKeyType(selector.getProducedType)
+
+    transformation.setHasState(true)
     transformation
   }
 

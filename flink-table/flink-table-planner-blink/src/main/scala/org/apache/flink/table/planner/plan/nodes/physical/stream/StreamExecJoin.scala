@@ -189,6 +189,8 @@ class StreamExecJoin(
     // set KeyType and Selector for state
     ret.setStateKeySelectors(leftSelect, rightSelect)
     ret.setStateKeyType(leftSelect.getProducedType)
+
+    ret.setHasState(true)
     ret
   }
 

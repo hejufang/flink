@@ -156,6 +156,8 @@ class StreamExecDeduplicate(
     val selector = KeySelectorUtil.getRowDataSelector(uniqueKeys, rowTypeInfo, tableConfig)
     ret.setStateKeySelector(selector)
     ret.setStateKeyType(selector.getProducedType)
+
+    ret.setHasState(true)
     ret
   }
 }

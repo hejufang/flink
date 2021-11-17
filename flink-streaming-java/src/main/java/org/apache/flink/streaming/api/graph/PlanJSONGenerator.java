@@ -21,15 +21,22 @@ import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.jobgraph.JobEdge;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
+import org.apache.flink.util.StringUtils;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonInclude;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Helper class for generating a JSON representation of {@link PlanGraph}.
@@ -37,10 +44,36 @@ import java.util.Map;
 public class PlanJSONGenerator {
 	private final StreamGraph streamGraph;
 	private final JobGraph jobGraph;
+	private final boolean isEdited;
+	private final Map<String, PlanGraph.StreamGraphVertex> streamNodeMappings = new LinkedHashMap<>();
+	@Nullable
+	private Set<Integer> editedNodes;
+	/**
+	 * Mapping of generateOperatorIDs and deterministicIDs.
+	 */
+	@Nullable
+	private Map<String, String> deterministicIDMappings;
 
 	public PlanJSONGenerator(StreamGraph streamGraph, JobGraph jobGraph) {
 		this.streamGraph = streamGraph;
 		this.jobGraph = jobGraph;
+		this.isEdited = false;
+	}
+
+	public PlanJSONGenerator(
+			StreamGraph streamGraph,
+			JobGraph jobGraph,
+			Set<Integer> editedNodes,
+			Map<Integer, byte[]> deterministicIDs) {
+		this.streamGraph = streamGraph;
+		this.jobGraph = jobGraph;
+		this.editedNodes = editedNodes;
+		this.deterministicIDMappings = new HashMap<>();
+		for (Map.Entry<Integer, OperatorIDPair> e: jobGraph.getOperatorIDMap().entrySet()) {
+			this.deterministicIDMappings.put(e.getValue().getGeneratedOperatorID().toString(),
+				StringUtils.byteToHexString(deterministicIDs.get(e.getKey())));
+		}
+		this.isEdited = true;
 	}
 
 	public String generatePlan() {
@@ -73,50 +106,77 @@ public class PlanJSONGenerator {
 				.comparingInt((Integer id) -> streamGraph.getSinkIDs().contains(id) ? 1 : 0)
 				.thenComparingInt(id -> id);
 			operatorIDs.sort(operatorIDComparator);
-			List<StreamGraphVertex> streamNodes = new ArrayList<>();
-			visit(streamNodes, operatorIDs);
-			planGraph.setStreamNodes(streamNodes);
+			Set<String> sourceHashes = new HashSet<>();
+			visit(operatorIDs, sourceHashes);
+			planGraph.setStreamNodes(new ArrayList<>(streamNodeMappings.values()));
+			planGraph.setSources(sourceHashes);
 		}
 
-		private void visit(List<StreamGraphVertex> streamNodes, List<Integer> toVisit) {
+		private void visit(
+				List<Integer> toVisit,
+				Set<String> sourceHashes) {
 			Integer vertexID = toVisit.get(0);
 			StreamNode vertex = streamGraph.getStreamNode(vertexID);
-			StreamGraphVertex node = new StreamGraphVertex();
+			PlanGraph.StreamGraphVertex node = new PlanGraph.StreamGraphVertex();
 			decorateNode(node, vertex);
 
 			if (!streamGraph.getSourceIDs().contains(vertexID)) {
-				List<StreamGraphInput> inputs = new ArrayList<>();
+				List<PlanGraph.StreamGraphEdge> inputs = new ArrayList<>();
 				node.setInputs(inputs);
 				for (StreamEdge inEdge : vertex.getInEdges()) {
-					int inputID = inEdge.getSourceId();
-					decorateEdge(inputs, inEdge, inputID);
+					decorateEdge(inputs, inEdge, true);
 				}
+				List<PlanGraph.StreamGraphEdge> outputs = new ArrayList<>();
+				node.setOutputs(outputs);
+				for (StreamEdge outEdge : vertex.getOutEdges()) {
+					decorateEdge(outputs, outEdge, false);
+				}
+			} else {
+				String generatedOperatorID = operatorIDMap.get(vertex.getId()).getGeneratedOperatorID().toString();
+				sourceHashes.add(getDeterministicID(generatedOperatorID));
 			}
-			streamNodes.add(node);
+			streamNodeMappings.put(node.getGeneratedOperatorID(), node);
 			toVisit.remove(vertexID);
 
 			// We temporally ignore the iterative data stream as it's not supported now in SQL.
 			if (!toVisit.isEmpty()) {
-				visit(streamNodes, toVisit);
+				visit(toVisit, sourceHashes);
 			}
 		}
 
-		private void decorateNode(StreamGraphVertex node, StreamNode vertex) {
-			String hash = operatorIDMap.get(vertex.getId()).getGeneratedOperatorID().toString();
-			// todo: implement the generation logic of nodeDesc so that the nodeDesc will stay unchanged when
-			// the topology is changed but the node itself is unchanged.
-			node.setNodeDesc(hash);
+		private void decorateNode(PlanGraph.StreamGraphVertex node, StreamNode vertex) {
+			OperatorIDPair idPair = operatorIDMap.get(vertex.getId());
+			String generatedOperatorID = idPair.getGeneratedOperatorID().toString();
+			if (isEdited && editedNodes.contains(vertex.getId())) {
+				node.setIsChanged(true);
+				// Only when applying old configs to new graph, editedNodes will be set.
+				node.setIsFromOldGraph(true);
+			}
+			node.setNodeDesc(getDeterministicID(generatedOperatorID));
 			node.setName(vertex.getOperatorMetricName());
-			node.setUid(hash);
+			node.setGeneratedOperatorID(generatedOperatorID);
+			node.setUserProvidedHash(vertex.getUserHash());
 			node.setDescription(vertex.getOperatorName());
 			node.setParallelism(vertex.getParallelism());
+			node.setHasState(vertex.isHasState());
 		}
 
-		private void decorateEdge(List<StreamGraphInput> inputs, StreamEdge inEdge, int mappedInputID) {
-			StreamGraphInput input = new StreamGraphInput();
-			inputs.add(input);
-			input.setNodeDesc(operatorIDMap.get(mappedInputID).getGeneratedOperatorID().toString());
-			input.setShipStrategy(inEdge.getPartitioner().toString());
+		private void decorateEdge(
+				List<PlanGraph.StreamGraphEdge> edges,
+				StreamEdge streamEdge,
+				boolean isInput) {
+			PlanGraph.StreamGraphEdge edge = new PlanGraph.StreamGraphEdge();
+			edges.add(edge);
+			String generatedOperatorID;
+			if (isInput) {
+				generatedOperatorID = operatorIDMap.get(streamEdge.getSourceId()).getGeneratedOperatorID().toString();
+				edge.setNodeName(streamEdge.getSourceOperatorName());
+			} else {
+				generatedOperatorID = operatorIDMap.get(streamEdge.getTargetId()).getGeneratedOperatorID().toString();
+				edge.setNodeName(streamEdge.getTargetOperatorName());
+			}
+			edge.setNodeDesc(getDeterministicID(generatedOperatorID));
+			edge.setShipStrategy(streamEdge.getPartitioner().toString());
 		}
 	}
 
@@ -128,14 +188,14 @@ public class PlanJSONGenerator {
 		}
 
 		private void visit() {
-			List<JobGraphVertex> nodes = new ArrayList<>();
+			List<PlanGraph.JobGraphVertex> nodes = new ArrayList<>();
 			for (JobVertex vertex : jobGraph.getVertices()) {
-				JobGraphVertex node = new JobGraphVertex();
+				PlanGraph.JobGraphVertex node = new PlanGraph.JobGraphVertex();
 				nodes.add(node);
 				decorateNode(node, vertex);
 				if (!vertex.isInputVertex()) {
 					// write the input edge properties
-					List<JobGraphInput> inputs = new ArrayList<>();
+					List<PlanGraph.JobGraphInput> inputs = new ArrayList<>();
 					node.setInputs(inputs);
 					for (JobEdge edge : vertex.getInputs()) {
 						if (edge.getSource() == null) {
@@ -149,21 +209,21 @@ public class PlanJSONGenerator {
 			planGraph.setJobVertices(nodes);
 		}
 
-		private void decorateNode(JobGraphVertex node, JobVertex vertex) {
+		private void decorateNode(PlanGraph.JobGraphVertex node, JobVertex vertex) {
 			String name = vertex.getOperatorPrettyName() != null ?
 				vertex.getOperatorPrettyName() : vertex.getMetricName();
 			// write the core properties
-			node.setId(vertex.getID().toString());
+			node.setId(getDeterministicID(vertex.getID().toString()));
 			node.setParallelism(vertex.getParallelism());
 			node.setName(name);
 		}
 
-		private void decorateEdge(List<JobGraphInput> inputs, JobEdge edge) {
+		private void decorateEdge(List<PlanGraph.JobGraphInput> inputs, JobEdge edge) {
 			JobVertex predecessor = edge.getSource().getProducer();
 			String shipStrategy = edge.getShipStrategyName();
-			JobGraphInput input = new JobGraphInput();
+			PlanGraph.JobGraphInput input = new PlanGraph.JobGraphInput();
 			inputs.add(input);
-			input.setId(predecessor.getID().toString());
+			input.setId(getDeterministicID(predecessor.getID().toString()));
 			if (shipStrategy != null) {
 				input.setShipStrategy(shipStrategy);
 			}
@@ -172,13 +232,27 @@ public class PlanJSONGenerator {
 		/**
 		 * Unfold the chained operators in one job vertex.
 		 */
-		private void unfoldChain(JobGraphVertex node, JobVertex vertex) {
+		private void unfoldChain(PlanGraph.JobGraphVertex node, JobVertex vertex) {
 			List<String> containedNodes = new ArrayList<>();
 			node.setContainedNodes(containedNodes);
 			for (OperatorIDPair id : vertex.getOperatorIDs()) {
-				containedNodes.add(id.getGeneratedOperatorID().toString());
+				String generatedOperatorID = id.getGeneratedOperatorID().toString();
+				containedNodes.add(getDeterministicID(generatedOperatorID));
+				streamNodeMappings.get(generatedOperatorID)
+					.setJobVertexID(getDeterministicID(vertex.getID().toString()));
 			}
 		}
+	}
 
+	/**
+	 * return the deterministic id of the node. When the graph hasn't been edited.
+	 * the deterministic id is the same as the generatedID.
+	 */
+	private String getDeterministicID(String generatedOperatorID) {
+		if (isEdited) {
+			return deterministicIDMappings.get(generatedOperatorID);
+		} else {
+			return generatedOperatorID;
+		}
 	}
 }

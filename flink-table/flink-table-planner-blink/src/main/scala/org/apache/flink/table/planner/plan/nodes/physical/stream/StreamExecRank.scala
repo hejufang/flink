@@ -224,6 +224,8 @@ class StreamExecRank(
       partitionKey.toArray, inputRowTypeInfo, tableConfig)
     ret.setStateKeySelector(selector)
     ret.setStateKeyType(selector.getProducedType)
+
+    ret.setHasState(true)
     ret
   }
 }

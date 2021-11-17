@@ -22,6 +22,8 @@ import org.apache.flink.annotation.Experimental;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.streaming.api.graph.PlanGraph;
+import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.table.api.internal.TableEnvironmentImpl;
 import org.apache.flink.table.catalog.Catalog;
 import org.apache.flink.table.descriptors.ConnectTableDescriptor;
@@ -977,10 +979,47 @@ public interface TableEnvironment {
 	 * Generate a JSON representation of JobGraph with more information from StreamGraph, for
 	 * example, operators in jobVertices. For more detail, please refer to
 	 * https://bytedance.feishu.cn/docs/doccniwrzlgmstZcP7dEneVkpNh#GzmzLo.
+	 *
 	 * @param stmt The multiple SQL statements to evaluate.
 	 * @return The JSON representation of JobGraph which also contains information from StreamGraph.
 	 */
 	default String generatePlanGraphJson(String stmt) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Apply configs of old {@link PlanGraph} into a new {@link PlanGraph} generated from the provided sql statements.
+	 *
+	 * @param oldGraphJson Json string of old {@link PlanGraph}.
+	 * @param stmt SQL statements to be used for generating a new {@link PlanGraph}.
+	 * @return Json string of new generated {@link PlanGraph} which old configs are applied to.
+	 */
+	default String applyOldGraph(String oldGraphJson, String stmt) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Validate the provided {@link PlanGraph} is matched with {@link StreamGraph} generated from the provided sql
+	 * statements and apply configs of configs in {@link PlanGraph} into {@link StreamGraph} if they are matched.
+	 *
+	 * <p>A {@link PlanGraph} and a {@link StreamGraph} is considered matched if they describes entirely the same topology.
+	 *
+	 * @param stmt SQL statements to be used for generating a {@link StreamGraph}.
+	 * @param planGraphJson Json string of {@link PlanGraph}
+	 * @return Generated {@link StreamGraph} which configs in
+	 */
+	default StreamGraph validateAndApplyConfigToStreamGraph(String stmt, String planGraphJson) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Execute the statements with some configs provided by the plan graph.
+	 *
+	 * @param stmt The multiple SQL statements to evaluate.
+	 * @param planGraph The JSON representation of JobGraph which also contains information from StreamGraph.
+	 * @return content for DQL/SHOW/DESCRIBE/EXPLAIN.
+	 */
+	default TableResult executeWithPlanGraph(String stmt, String planGraph) {
 		throw new UnsupportedOperationException();
 	}
 

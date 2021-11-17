@@ -192,6 +192,8 @@ class StreamExecGlobalGroupAggregate(
     // set KeyType and Selector for state
     ret.setStateKeySelector(selector)
     ret.setStateKeyType(selector.getProducedType)
+
+    ret.setHasState(true)
     ret
   }
 

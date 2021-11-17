@@ -42,48 +42,87 @@
         {
             "nodeDesc":"bc764cd8ddf7a0cff126f51c16239658",
             "name":"Source_TableSourceSc",
-            "uid":"bc764cd8ddf7a0cff126f51c16239658",
+            "jobVertexID":"bc764cd8ddf7a0cff126f51c16239658",
+            "generatedOperatorID":"bc764cd8ddf7a0cff126f51c16239658",
             "description":"Source: TableSourceScan(table=[[default_catalog, default_database, source1]], fields=[id, name, num, eventtime])",
-            "parallelism":1
+            "parallelism":1,
+            "hasState":true,
+            "isChanged":false,
+            "isFromOldGraph":false
         },
         {
             "nodeDesc":"0a448493b4782967b150582570326227",
             "name":"WatermarkAssigner_ro",
-            "uid":"0a448493b4782967b150582570326227",
+            "jobVertexID":"0a448493b4782967b150582570326227",
+            "generatedOperatorID":"0a448493b4782967b150582570326227",
             "description":"WatermarkAssigner(rowtime=[eventtime], watermark=[(eventtime - 5000:INTERVAL SECOND)])",
             "parallelism":4,
+            "hasState":false,
+            "isChanged":false,
+            "isFromOldGraph":false,
             "inputs":[
                 {
                     "nodeDesc":"bc764cd8ddf7a0cff126f51c16239658",
+                    "nodeName":"Source: TableSourceScan(table=[[default_catalog, default_database, source1]], fields=[id, name, num, eventtime])",
                     "shipStrategy":"RESCALE"
+                }
+            ],
+            "outputs":[
+                {
+                    "nodeDesc":"e70bbd798b564e0a50e10e343f1ac56b",
+                    "nodeName":"GroupWindowAggregate(groupBy=[id, name], window=[TumblingGroupWindow('w$, eventtime, 21600000)], select=[id, name, SUM(num) AS EXPR$2])",
+                    "shipStrategy":"HASH"
                 }
             ]
         },
         {
             "nodeDesc":"e70bbd798b564e0a50e10e343f1ac56b",
             "name":"GroupWindowAggregate",
-            "uid":"e70bbd798b564e0a50e10e343f1ac56b",
+            "jobVertexID":"e70bbd798b564e0a50e10e343f1ac56b",
+            "generatedOperatorID":"e70bbd798b564e0a50e10e343f1ac56b",
             "description":"GroupWindowAggregate(groupBy=[id, name], window=[TumblingGroupWindow('w$, eventtime, 21600000)], select=[id, name, SUM(num) AS EXPR$2])",
             "parallelism":4,
+            "hasState":true,
+            "isChanged":false,
+            "isFromOldGraph":false,
             "inputs":[
                 {
                     "nodeDesc":"0a448493b4782967b150582570326227",
+                    "nodeName":"WatermarkAssigner(rowtime=[eventtime], watermark=[(eventtime - 5000:INTERVAL SECOND)])",
                     "shipStrategy":"HASH"
+                }
+            ],
+            "outputs":[
+                {
+                    "nodeDesc":"604ee7bed040266218075078a35a4449",
+                    "nodeName":"Sink: Sink(table=[default_catalog.default_database.sink], fields=[id, name, num])",
+                    "shipStrategy":"FORWARD"
                 }
             ]
         },
         {
             "nodeDesc":"604ee7bed040266218075078a35a4449",
             "name":"Sink_Sink_table_defa",
-            "uid":"604ee7bed040266218075078a35a4449",
+            "jobVertexID":"e70bbd798b564e0a50e10e343f1ac56b",
+            "generatedOperatorID":"604ee7bed040266218075078a35a4449",
             "description":"Sink: Sink(table=[default_catalog.default_database.sink], fields=[id, name, num])",
             "parallelism":4,
+            "hasState":false,
+            "isChanged":false,
+            "isFromOldGraph":false,
             "inputs":[
                 {
                     "nodeDesc":"e70bbd798b564e0a50e10e343f1ac56b",
+                    "nodeName":"GroupWindowAggregate(groupBy=[id, name], window=[TumblingGroupWindow('w$, eventtime, 21600000)], select=[id, name, SUM(num) AS EXPR$2])",
                     "shipStrategy":"FORWARD"
                 }
+            ],
+            "outputs":[
+
             ]
         }
+    ],
+    "sources":[
+        "bc764cd8ddf7a0cff126f51c16239658"
     ]
 }

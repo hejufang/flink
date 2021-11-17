@@ -146,6 +146,8 @@ class StreamExecTemporalJoin(
     // set KeyType and Selector for state
     ret.setStateKeySelectors(leftKeySelector, rightKeySelector)
     ret.setStateKeyType(leftKeySelector.asInstanceOf[ResultTypeQueryable[_]].getProducedType)
+
+    ret.setHasState(true)
     ret
   }
 
