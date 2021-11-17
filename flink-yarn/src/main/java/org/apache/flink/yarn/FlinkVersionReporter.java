@@ -53,7 +53,7 @@ public class FlinkVersionReporter implements Runnable {
 		udpMetricsClient = new UdpMetricsClient(FLINK_VERSION_METRICS_PREFIX);
 		String subVersion = this.flinkConfig.getString(ConfigConstants.FLINK_SUBVERSION_KEY, null);
 		String flinkJobType = this.flinkConfig.getString(ConfigConstants.FLINK_JOB_TYPE_KEY, ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
-		boolean isInDockerMode = this.flinkConfig.getBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, false);
+		boolean isInDockerMode = this.flinkConfig.getBoolean(YarnConfigOptions.DOCKER_ENABLED, false);
 		String dockerImage = this.flinkConfig.getString(YarnConfigOptions.DOCKER_IMAGE);
 		String dc = this.flinkConfig.getString(ConfigConstants.DC_KEY, null);
 		String flinkApi = this.flinkConfig.getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");

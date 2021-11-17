@@ -699,8 +699,8 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		String dockerImage =
 			flinkConfiguration.getString(YarnConfigOptions.DOCKER_IMAGE);
 
-		boolean isInDockerMode = !StringUtils.isNullOrWhitespaceOnly(dockerImage);
-		flinkConfiguration.setBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, isInDockerMode);
+		boolean dockerEnabled = !(StringUtils.isNullOrWhitespaceOnly(dockerImage)) && flinkConfiguration.getBoolean(YarnConfigOptions.DOCKER_ENABLED);
+		flinkConfiguration.setBoolean(YarnConfigOptions.DOCKER_ENABLED, dockerEnabled);
 
 		final FileSystem fs = FileSystem.get(yarnConfiguration);
 		String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY,

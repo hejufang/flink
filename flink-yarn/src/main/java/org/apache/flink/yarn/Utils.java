@@ -742,8 +742,11 @@ public final class Utils {
 									Map<String, String> envMap) {
 		try {
 			String dockerImage = flinkConfiguration.getString(YarnConfigOptions.DOCKER_IMAGE);
-
-			if (StringUtils.isNullOrWhitespaceOnly(dockerImage)) {
+			boolean dockerEnabled = flinkConfiguration.getBoolean(YarnConfigOptions.DOCKER_ENABLED);
+			if (!dockerEnabled) {
+				LOG.info("Deactivate docker image, run on physical machines.");
+				return;
+			} else if (StringUtils.isNullOrWhitespaceOnly(dockerImage)) {
 				LOG.info("No docker image configured, run on physical machines.");
 				return;
 			}

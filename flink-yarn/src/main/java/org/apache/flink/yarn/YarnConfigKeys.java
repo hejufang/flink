@@ -64,7 +64,6 @@ public class YarnConfigKeys {
 	// ------------------------------------------------------------------------
 
 	// ---------------------------- Config for docker ---------------------------
-	public static final String IS_IN_DOCKER_MODE_KEY = "isInDockerMode";
 	public static final String ENV_YARN_CONTAINER_RUNTIME_TYPE_KEY = "YARN_CONTAINER_RUNTIME_TYPE";
 	public static final String ENV_YARN_CONTAINER_RUNTIME_TYPE_DEFAULT = "docker";
 	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE_KEY =

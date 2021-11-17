@@ -481,6 +481,11 @@ public class YarnConfigOptions {
 			.withDescription("The number of threads to start yarn containers in yarn resource manager.");
 
 	/** Config for docker. */
+	public static final ConfigOption<Boolean> DOCKER_ENABLED =
+		key("docker.enabled")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("Whether enable docker image.");
 	public static final ConfigOption<String> DOCKER_IMAGE =
 		key("docker.image")
 			.stringType()

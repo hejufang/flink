@@ -2099,7 +2099,8 @@ public final class ConfigConstants {
 	public static final String FLINK_JOB_TYPE_KEY = "flink.job_type";
 	public static final String FLINK_JOB_API_KEY = "flink.job_api";
 	public static final String FLINK_JOB_TYPE_DEFAULT = "JavaFlink";
-	public static final String IS_IN_DOCKER_MODE_KEY = "isInDockerMode";
+	//docker.enabled is also used in class YarnConfigOptions, please maker sure to keep the two keys consistent
+	public static final String IS_IN_DOCKER_MODE_KEY = "docker.enabled";
 	public static final String DOCKER_IMAGE = "docker.image";
 	public static final String APPLICATION_TYPE = "yarn.application.type";
 	public static final String ENV_FLINK_YARN_JOB = "_FLINK_YARN_JOB";
