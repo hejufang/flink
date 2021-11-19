@@ -208,6 +208,18 @@ under the License.
 									<pattern>io.github</pattern>
 									<shadedPattern>org.apache.flink.metrics.databus.shaded.io.github</shadedPattern>
 								</relocation>
+								<relocation>
+									<pattern>com.orbitz</pattern>
+									<shadedPattern>org.apache.flink.metrics.databus.shaded.com.orbitz</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.squareup</pattern>
+									<shadedPattern>org.apache.flink.metrics.databus.shaded.com.squareup</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>retrofit2</pattern>
+									<shadedPattern>org.apache.flink.metrics.databus.shaded.retrofit2</shadedPattern>
+								</relocation>
 							</relocations>
 						</configuration>
 					</execution>
