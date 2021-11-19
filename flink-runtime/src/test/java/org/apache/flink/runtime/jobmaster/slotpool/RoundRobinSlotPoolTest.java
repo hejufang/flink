@@ -37,6 +37,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -80,6 +81,64 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 		}
 		assertThat(allocatedSlots, contains(s1, s3, s6, s2, s4, s5));
 		assertTrue(roundRobinAvailableSlots.allSlots.get(ResourceProfile.ANY).slots.isEmpty());
+	}
+
+	@Test
+	public void testRoundRobinAvailableSlotsWithPredict() throws Exception {
+		RoundRobinSlotPoolImpl.RoundRobinAvailableSlots roundRobinAvailableSlots = new RoundRobinSlotPoolImpl.RoundRobinAvailableSlots();
+		InetAddress host1 = InetAddress.getByAddress(new byte[]{127, 0, 0, 1});
+		InetAddress host2 = InetAddress.getByAddress(new byte[]{127, 0, 0, 2});
+		TaskManagerLocation tm1 = new TaskManagerLocation(new ResourceID("1"), host1, 1);
+		TaskManagerLocation tm2 = new TaskManagerLocation(new ResourceID("2"), host2, 1);
+		TaskManagerLocation tm3 = new TaskManagerLocation(new ResourceID("3"), host1, 2);
+		AllocatedSlot s1 = createAllocatedSlot(tm1, 0);
+		AllocatedSlot s2 = createAllocatedSlot(tm1, 1);
+		AllocatedSlot s3 = createAllocatedSlot(tm2, 0);
+		AllocatedSlot s4 = createAllocatedSlot(tm2, 1);
+		AllocatedSlot s5 = createAllocatedSlot(tm2, 2);
+		AllocatedSlot s6 = createAllocatedSlot(tm3, 0);
+		long ts = System.currentTimeMillis();
+		roundRobinAvailableSlots.add(s1, ts);
+		roundRobinAvailableSlots.add(s2, ts);
+		roundRobinAvailableSlots.add(s3, ts);
+		roundRobinAvailableSlots.add(s4, ts);
+		roundRobinAvailableSlots.add(s5, ts);
+		roundRobinAvailableSlots.add(s6, ts);
+
+		Optional<AllocatedSlot> optionalAllocatedSlot = roundRobinAvailableSlots.getNextAvailableSlot(ResourceProfile.ANY, s -> s == s5);
+		assertTrue(optionalAllocatedSlot.isPresent());
+	}
+
+	@Test
+	public void testRoundRobinAvailableSlotsByTaskManagerAfterRound() throws Exception {
+		RoundRobinSlotPoolImpl.RoundRobinAvailableSlots roundRobinAvailableSlots = new RoundRobinSlotPoolImpl.RoundRobinAvailableSlots();
+		InetAddress host1 = InetAddress.getByAddress(new byte[]{127, 0, 0, 1});
+		InetAddress host2 = InetAddress.getByAddress(new byte[]{127, 0, 0, 2});
+		TaskManagerLocation tm1 = new TaskManagerLocation(new ResourceID("1"), host1, 1);
+		TaskManagerLocation tm2 = new TaskManagerLocation(new ResourceID("2"), host2, 1);
+		TaskManagerLocation tm3 = new TaskManagerLocation(new ResourceID("3"), host1, 2);
+		AllocatedSlot s1 = createAllocatedSlot(tm1, 0);
+		AllocatedSlot s2 = createAllocatedSlot(tm1, 1);
+		AllocatedSlot s3 = createAllocatedSlot(tm2, 0);
+		AllocatedSlot s4 = createAllocatedSlot(tm2, 1);
+		AllocatedSlot s5 = createAllocatedSlot(tm2, 2);
+		AllocatedSlot s6 = createAllocatedSlot(tm3, 0);
+		long ts = System.currentTimeMillis();
+		roundRobinAvailableSlots.add(s1, ts);
+		roundRobinAvailableSlots.add(s2, ts);
+		roundRobinAvailableSlots.add(s3, ts);
+		roundRobinAvailableSlots.add(s4, ts);
+		roundRobinAvailableSlots.add(s5, ts);
+		roundRobinAvailableSlots.add(s6, ts);
+
+		Optional<AllocatedSlot> optionalAllocatedSlot = roundRobinAvailableSlots.getNextAvailableSlot(ResourceProfile.ANY, s -> s == s5);
+		assertTrue(optionalAllocatedSlot.isPresent());
+		roundRobinAvailableSlots.tryRemove(optionalAllocatedSlot.get().getAllocationId());
+
+		optionalAllocatedSlot = roundRobinAvailableSlots.getByTaskManagerLocation(ResourceProfile.ANY, tm3, s -> s == s6);
+		assertTrue(optionalAllocatedSlot.isPresent());
+		roundRobinAvailableSlots.tryRemove(optionalAllocatedSlot.get().getAllocationId());
+		assertEquals(4, roundRobinAvailableSlots.allSlots.get(ResourceProfile.ANY).slots.size());
 	}
 
 	@Test
