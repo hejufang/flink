@@ -240,9 +240,7 @@ public class RoundRobinSlotPoolImpl extends MinResourceSlotPoolImpl {
 					// must not null.
 					if (allocatedSlotResourceWithCounter.hasNext()) {
 						Optional<AllocatedSlot> optionalAllocatedSlot = allocatedSlotResourceWithCounter.getNext();
-						if (optionalAllocatedSlot.isPresent()) {
-							allocatedSlot = optionalAllocatedSlot.get();
-						}
+						allocatedSlot = optionalAllocatedSlot.orElse(null);
 						if (!allocatedSlotResourceWithCounter.isIndexOutOfBound()) {
 							allSlotOutOfBound = false;
 						}
@@ -264,7 +262,7 @@ public class RoundRobinSlotPoolImpl extends MinResourceSlotPoolImpl {
 					if (predicate.test(allocatedSlot)) {
 						return Optional.of(allocatedSlot);
 					} else {
-						if (unavailableSlots.contains(allocatedSlot)) {
+						if (unavailableSlots.size() == slots.size()) {
 							return Optional.empty();
 						} else {
 							unavailableSlots.add(allocatedSlot);

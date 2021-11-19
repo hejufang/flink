@@ -72,6 +72,7 @@ public class RoundRobinLocationPreferenceSlotSelectionStrategy extends DefaultLo
 				AllocatedSlot slot = optionalSlot.get();
 				if (!bannedResourceIDs.contains(slot.getTaskManagerLocation().getResourceID())
 						&& !bannedHostnames.contains(slot.getTaskManagerLocation().getFQDNHostname())) {
+					LOG.debug("allocate {} for allocated id {}.", slot.getAllocationId(), allocationID);
 					return Optional.of(SlotInfoAndLocality.of(optionalSlot.get(), Locality.LOCAL));
 				}
 			}
@@ -101,6 +102,7 @@ public class RoundRobinLocationPreferenceSlotSelectionStrategy extends DefaultLo
 				location,
 				slot -> !blackListedAllocations.contains(slot.getAllocationId()));
 			if (optionalSlot.isPresent()) {
+				LOG.debug("allocate {} by TaskManager {}.", optionalSlot.get().getAllocationId(), location);
 				return Optional.of(SlotInfoAndLocality.of(optionalSlot.get(), Locality.LOCAL));
 			}
 		}
@@ -114,6 +116,7 @@ public class RoundRobinLocationPreferenceSlotSelectionStrategy extends DefaultLo
 				host,
 				slot -> !blackListedAllocations.contains(slot.getAllocationId()));
 			if (optionalSlot.isPresent()) {
+				LOG.debug("allocate {} by host {}.", optionalSlot.get().getAllocationId(), host);
 				return Optional.of(SlotInfoAndLocality.of(optionalSlot.get(), Locality.HOST_LOCAL));
 			}
 		}
