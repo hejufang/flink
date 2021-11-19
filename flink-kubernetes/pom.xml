@@ -166,6 +166,10 @@ under the License.
 							</filters>
 							<relocations>
 								<relocation>
+									<pattern>io.fabric8.kubernetes</pattern>
+									<shadedPattern>org.apache.flink.kubernetes.shaded.io.fabric8.kubernetes</shadedPattern>
+								</relocation>
+								<relocation>
 									<pattern>com.fasterxml.jackson</pattern>
 									<shadedPattern>org.apache.flink.kubernetes.shaded.com.fasterxml.jackson</shadedPattern>
 								</relocation>
