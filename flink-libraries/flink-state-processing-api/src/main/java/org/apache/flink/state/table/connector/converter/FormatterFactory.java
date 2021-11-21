@@ -18,6 +18,7 @@
 package org.apache.flink.state.table.connector.converter;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.base.MapSerializer;
 import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.MapData;
 import org.apache.flink.table.data.RowData;
@@ -47,9 +48,10 @@ public class FormatterFactory {
 	 * StateIteratorFactory.
 	 */
 	public static Formatter getFormatter(TypeSerializer typeSerializer){
-
 		if (typeSerializer instanceof RowDataSerializer){
 			return new RowDataFormatter((RowDataSerializer) typeSerializer);
+		} else if (typeSerializer instanceof MapSerializer) {
+			return MapFormatter.build(typeSerializer);
 		} else {
 			return StringFormatter.build();
 		}
@@ -79,17 +81,7 @@ public class FormatterFactory {
 			if (o == null){
 				return NULL_STRING;
 			}
-
-			if (o instanceof Map.Entry){
-				Map.Entry entry = (Map.Entry) o;
-				StringBuilder sb = new StringBuilder();
-				sb.append(entry.getKey())
-					.append("=")
-					.append(entry.getValue());
-				return sb.toString();
-			} else {
-				return o.toString();
-			}
+			return o.toString();
 		}
 	}
 
@@ -112,7 +104,7 @@ public class FormatterFactory {
 			return getRowString(types, (RowData) o);
 		}
 
-		public String getRowString(LogicalType[] types, RowData rowData){
+		public String getRowString(LogicalType[] types, RowData rowData) {
 			StringBuilder sb = new StringBuilder();
 			sb.append("Row(");
 			for (int i = 0; i < types.length; i++) {
@@ -185,6 +177,47 @@ public class FormatterFactory {
 				return getArrayString(type, (ArrayData) fieldOrNull);
 			}
 			return fieldOrNull.toString();
+		}
+	}
+
+	/**
+	 * MapFormatter use to Format MapState.
+	 */
+	public static class MapFormatter implements Formatter {
+
+		private Formatter keyFormatter;
+		private Formatter valueFormatter;
+
+		MapFormatter(Formatter keyFormatter, Formatter valueFormatter){
+			this.keyFormatter = keyFormatter;
+			this.valueFormatter = valueFormatter;
+		}
+
+		@Override
+		public String format(Object o) {
+			if (o == null){
+				return NULL_STRING;
+			}
+
+			Map.Entry entry = (Map.Entry) o;
+			StringBuilder sb = new StringBuilder();
+			sb.append(keyFormatter.format(entry.getKey()))
+				.append("=")
+				.append(valueFormatter.format(entry.getValue()));
+			return sb.toString();
+		}
+
+		public static MapFormatter build(TypeSerializer keySerializer, TypeSerializer valueSerializer){
+			return new MapFormatter(getFormatter(keySerializer), getFormatter(valueSerializer));
+		}
+
+		public static MapFormatter build(TypeSerializer typeSerializer) {
+			if (typeSerializer instanceof MapSerializer) {
+				MapSerializer mapSerializer = (MapSerializer) typeSerializer;
+				return MapFormatter.build(mapSerializer.getKeySerializer(), mapSerializer.getValueSerializer());
+			} else {
+				throw new RuntimeException("UnSupported mapSerializer Type " + typeSerializer.getClass());
+			}
 		}
 	}
 

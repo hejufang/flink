@@ -20,6 +20,7 @@ package org.apache.flink.state.table.connector;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.IntSerializer;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
+import org.apache.flink.api.common.typeutils.base.MapSerializer;
 import org.apache.flink.state.table.connector.converter.FormatterFactory;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.data.GenericRowData;
@@ -39,6 +40,8 @@ import org.apache.flink.table.types.logical.RowType;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.HashMap;
 
 /**
  * Test case for SavepointCatalog.
@@ -98,7 +101,6 @@ public class RowDataFormatTest {
 
 	@Test
 	public void testFormatRowDataWithMap(){
-
 		RowDataSerializer rowDataSerializer = new RowDataSerializer(
 			new LogicalType[]{
 				DataTypes.INT().getLogicalType(),
@@ -178,5 +180,23 @@ public class RowDataFormatTest {
 				StringDataSerializer.INSTANCE,
 				StringDataSerializer.INSTANCE,
 			});
+	}
+
+	@Test
+	public void testFormatMapWithRowData(){
+		BinaryRowData key = new BinaryRowData(4);
+		BinaryRowWriter writer = new BinaryRowWriter(key);
+
+		writer.writeInt(0, 1);
+		writer.writeLong(1, 5L);
+		writer.writeString(2, str);
+		writer.writeString(3, str);
+		writer.complete();
+		MapSerializer mapSerializer = new MapSerializer(createSerializer(), IntSerializer.INSTANCE);
+		HashMap<BinaryRowData, Integer> hashMap = new HashMap<>();
+		hashMap.put(key, 1);
+		String formatResult = FormatterFactory.getFormatter(mapSerializer).format(hashMap.entrySet().stream().findFirst().get());
+
+		Assert.assertEquals(formatResult, "Row(1,5,haha,haha)=1");
 	}
 }
