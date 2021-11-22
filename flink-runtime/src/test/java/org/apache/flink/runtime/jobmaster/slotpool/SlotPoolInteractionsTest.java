@@ -87,7 +87,8 @@ public class SlotPoolInteractionsTest extends TestLogger {
 			SystemClock.getInstance(),
 			TestingUtils.infiniteTime(),
 			TestingUtils.infiniteTime(),
-			TestingUtils.infiniteTime()
+			TestingUtils.infiniteTime(),
+			false
 		)) {
 
 			pool.start(JobMasterId.generate(), "foobar", testMainThreadExecutor.getMainThreadExecutor());
@@ -313,7 +314,8 @@ public class SlotPoolInteractionsTest extends TestLogger {
 				clock,
 				rpcTimeout,
 				idleSlotTimeout,
-				batchSlotTimeout);
+				batchSlotTimeout,
+				false);
 
 			releaseSlotConsumer = null;
 			timeoutPendingSlotRequestConsumer = null;

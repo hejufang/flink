@@ -1754,7 +1754,11 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			markTimestamp(targetState);
 
 			if (error == null) {
-				LOG.info("{} ({}) switched from {} to {}.", getVertexWithAttempt(), getAttemptId(), currentState, targetState);
+				if (vertex.getExecutionGraph().isJobLogDetailDisable()) {
+					LOG.debug("{} ({}) switched from {} to {}.", getVertexWithAttempt(), getAttemptId(), currentState, targetState);
+				} else {
+					LOG.info("{} ({}) switched from {} to {}.", getVertexWithAttempt(), getAttemptId(), currentState, targetState);
+				}
 			} else {
 				if (LOG.isInfoEnabled()) {
 					final String locationInformation = getAssignedResourceLocation() != null ? getAssignedResourceLocation().toString() : "not deployed";

@@ -297,6 +297,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	/** This class loader should be set as the context class loader for threads that may dynamically load user code. */
 	private ClassLoader userCodeClassLoader;
 
+	private final boolean jobLogDetailDisable;
+
 	/**
 	 * <p><b>IMPORTANT:</b> This constructor may not start any work that would need to
 	 * be undone in the case of a failing task deployment.</p>
@@ -361,7 +363,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			resultPartitionConsumableNotifier,
 			partitionProducerStateChecker,
 			executor,
-			new NonCacheManager());
+			new NonCacheManager(),
+			false);
 	}
 
 	public Task(
@@ -394,7 +397,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		ResultPartitionConsumableNotifier resultPartitionConsumableNotifier,
 		PartitionProducerStateChecker partitionProducerStateChecker,
 		Executor executor,
-		CacheManager cacheManager) {
+		CacheManager cacheManager,
+		boolean jobLogDetailDisable) {
 
 		Preconditions.checkNotNull(jobInformation);
 		Preconditions.checkNotNull(taskInformation);
@@ -502,6 +506,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 		// finally, create the executing thread, but do not start it
 		executingThread = new Thread(TASK_THREADS_GROUP, this, taskMetricNameWithSubtask);
+
+		this.jobLogDetailDisable = jobLogDetailDisable;
 	}
 
 	// ------------------------------------------------------------------------
@@ -722,7 +728,11 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 			// first of all, get a user-code classloader
 			// this may involve downloading the job's JAR files and/or classes
-			LOG.info("Loading JAR files for task {}.", this);
+			if (jobLogDetailDisable) {
+				LOG.debug("Loading JAR files for task {}.", this);
+			} else {
+				LOG.info("Loading JAR files for task {}.", this);
+			}
 
 			userCodeClassLoader = createUserCodeClassloader();
 			final ExecutionConfig executionConfig = serializedExecutionConfig.deserializeValue(userCodeClassLoader);
@@ -747,8 +757,11 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			// memory to run the necessary data exchanges
 			// the registration must also strictly be undone
 			// ----------------------------------------------------------------
-
-			LOG.info("Registering task at network: {}.", this);
+			if (jobLogDetailDisable) {
+				LOG.debug("Registering task at network: {}.", this);
+			} else {
+				LOG.info("Registering task at network: {}.", this);
+			}
 
 			setupPartitionsAndGates(consumableNotifyingPartitionWriters, inputGates);
 
@@ -940,7 +953,11 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		}
 		finally {
 			try {
-				LOG.info("Freeing task resources for {} ({}).", taskMetricNameWithSubtask, executionId);
+				if (jobLogDetailDisable) {
+					LOG.debug("Freeing task resources for {} ({}).", taskMetricNameWithSubtask, executionId);
+				} else {
+					LOG.info("Freeing task resources for {} ({}).", taskMetricNameWithSubtask, executionId);
+				}
 
 				// clear the reference to the invokable. this helps guard against holding references
 				// to the invokable and its structures in cases where this Task object is still referenced
@@ -1086,7 +1103,11 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	private boolean transitionState(ExecutionState currentState, ExecutionState newState, Throwable cause) {
 		if (STATE_UPDATER.compareAndSet(this, currentState, newState)) {
 			if (cause == null) {
-				LOG.info("{} ({}) switched from {} to {}.", taskMetricNameWithSubtask, executionId, currentState, newState);
+				if (jobLogDetailDisable) {
+					LOG.debug("{} ({}) switched from {} to {}.", taskMetricNameWithSubtask, executionId, currentState, newState);
+				} else {
+					LOG.info("{} ({}) switched from {} to {}.", taskMetricNameWithSubtask, executionId, currentState, newState);
+				}
 			} else {
 				LOG.warn("{} ({}) switched from {} to {}.", taskMetricNameWithSubtask, executionId, currentState, newState, cause);
 			}

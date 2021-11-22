@@ -342,7 +342,8 @@ public class TaskManagerServices {
 			taskManagerServicesConfiguration.getTaskExecutorResourceSpec(),
 			taskManagerServicesConfiguration.getTimerServiceShutdownTimeout(),
 			taskManagerServicesConfiguration.getPageSize(),
-			ioExecutor);
+			ioExecutor,
+			taskManagerServicesConfiguration.getConfiguration().getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE));
 
 		final JobTable jobTable = DefaultJobTable.create();
 
@@ -395,7 +396,8 @@ public class TaskManagerServices {
 			final TaskExecutorResourceSpec taskExecutorResourceSpec,
 			final long timerServiceShutdownTimeout,
 			final int pageSize,
-			final Executor memoryVerificationExecutor) {
+			final Executor memoryVerificationExecutor,
+			final boolean jobLogDetailDisable) {
 		final TimerService<AllocationID> timerService = new TimerService<>(
 			new ScheduledThreadPoolExecutor(1),
 			timerServiceShutdownTimeout);
@@ -405,7 +407,8 @@ public class TaskManagerServices {
 			TaskExecutorResourceUtils.generateDefaultSlotResourceProfile(taskExecutorResourceSpec, numberOfSlots),
 			pageSize,
 			timerService,
-			memoryVerificationExecutor);
+			memoryVerificationExecutor,
+			jobLogDetailDisable);
 	}
 
 	private static ShuffleEnvironment<?, ?> createShuffleEnvironment(

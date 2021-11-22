@@ -124,6 +124,8 @@ public class SlotPoolImpl implements SlotPool {
 
 	protected final Clock clock;
 
+	private final boolean jobLogDetailDisable;
+
 	/** the fencing token of the job manager. */
 	private JobMasterId jobMasterId;
 
@@ -144,7 +146,8 @@ public class SlotPoolImpl implements SlotPool {
 			Clock clock,
 			Time rpcTimeout,
 			Time idleSlotTimeout,
-			Time batchSlotTimeout) {
+			Time batchSlotTimeout,
+			boolean jobLogDetailDisable) {
 
 		this.jobId = checkNotNull(jobId);
 		this.clock = checkNotNull(clock);
@@ -157,6 +160,7 @@ public class SlotPoolImpl implements SlotPool {
 		this.availableSlots = createAvailableSlots();
 		this.pendingRequests = new DualKeyLinkedMap<>(16);
 		this.waitingForResourceManager = new LinkedHashMap<>(16);
+		this.jobLogDetailDisable = jobLogDetailDisable;
 
 		this.jobMasterId = null;
 		this.resourceManagerGateway = null;
@@ -328,7 +332,11 @@ public class SlotPoolImpl implements SlotPool {
 		checkNotNull(resourceManagerGateway);
 		checkNotNull(pendingRequest);
 
-		log.info("Requesting new slot [{}] and profile {} from resource manager.", pendingRequest.getSlotRequestId(), pendingRequest.getResourceProfile());
+		if (jobLogDetailDisable) {
+			log.debug("Requesting new slot [{}] and profile {} from resource manager.", pendingRequest.getSlotRequestId(), pendingRequest.getResourceProfile());
+		} else {
+			log.info("Requesting new slot [{}] and profile {} from resource manager.", pendingRequest.getSlotRequestId(), pendingRequest.getResourceProfile());
+		}
 
 		final AllocationID allocationId = new AllocationID();
 

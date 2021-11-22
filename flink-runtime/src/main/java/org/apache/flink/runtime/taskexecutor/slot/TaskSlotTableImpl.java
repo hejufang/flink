@@ -114,13 +114,16 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
 	 */
 	private final Executor memoryVerificationExecutor;
 
+	private final boolean jobLogDetailDisable;
+
 	public TaskSlotTableImpl(
 			final int numberSlots,
 			final ResourceProfile totalAvailableResourceProfile,
 			final ResourceProfile defaultSlotResourceProfile,
 			final int memoryPageSize,
 			final TimerService<AllocationID> timerService,
-			final Executor memoryVerificationExecutor) {
+			final Executor memoryVerificationExecutor,
+			final boolean jobLogDetailDisable) {
 		Preconditions.checkArgument(0 < numberSlots, "The number of task slots must be greater than 0.");
 
 		this.numberSlots = numberSlots;
@@ -144,6 +147,7 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
 		closingFuture = new CompletableFuture<>();
 
 		this.memoryVerificationExecutor = memoryVerificationExecutor;
+		this.jobLogDetailDisable = jobLogDetailDisable;
 	}
 
 	@Override
@@ -358,7 +362,11 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
 	private boolean markExistingSlotActive(TaskSlot<T> taskSlot) {
 		if (taskSlot.markActive()) {
 			// unregister a potential timeout
-			LOG.info("Activate slot {}.", taskSlot.getAllocationId());
+			if (jobLogDetailDisable) {
+				LOG.debug("Activate slot {}.", taskSlot.getAllocationId());
+			} else {
+				LOG.info("Activate slot {}.", taskSlot.getAllocationId());
+			}
 
 			timerService.unregisterTimeout(taskSlot.getAllocationId());
 

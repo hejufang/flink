@@ -23,6 +23,7 @@ import org.apache.flink.configuration.AkkaOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.configuration.UnmodifiableConfiguration;
 import org.apache.flink.runtime.akka.AkkaUtils;
@@ -77,6 +78,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	private final RetryingRegistrationConfiguration retryingRegistrationConfiguration;
 
+	private final boolean jobLogDetailDisable;
+
 	public TaskManagerConfiguration(
 			int numberSlots,
 			ResourceProfile defaultSlotResourceProfile,
@@ -90,7 +93,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			@Nullable String taskManagerStdoutPath,
 			@Nullable String taskManagerLogDir,
 			String taskManagerExternalAddress,
-			RetryingRegistrationConfiguration retryingRegistrationConfiguration) {
+			RetryingRegistrationConfiguration retryingRegistrationConfiguration,
+			boolean jobLogDetailDisable) {
 
 		this.numberSlots = numberSlots;
 		this.defaultSlotResourceProfile = defaultSlotResourceProfile;
@@ -105,6 +109,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		this.taskManagerLogDir = taskManagerLogDir;
 		this.taskManagerExternalAddress = taskManagerExternalAddress;
 		this.retryingRegistrationConfiguration = retryingRegistrationConfiguration;
+		this.jobLogDetailDisable = jobLogDetailDisable;
 	}
 
 	public int getNumberSlots() {
@@ -167,6 +172,10 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		return retryingRegistrationConfiguration;
 	}
 
+	public boolean isJobLogDetailDisable() {
+		return jobLogDetailDisable;
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Static factory methods
 	// --------------------------------------------------------------------------------------------
@@ -225,6 +234,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		}
 
 		final RetryingRegistrationConfiguration retryingRegistrationConfiguration = RetryingRegistrationConfiguration.fromConfiguration(configuration);
+		final boolean jobLogDetailDisable = configuration.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 
 		return new TaskManagerConfiguration(
 			numberSlots,
@@ -239,6 +249,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			taskManagerStdoutPath,
 			taskManagerLogDir,
 			externalAddress,
-			retryingRegistrationConfiguration);
+			retryingRegistrationConfiguration,
+			jobLogDetailDisable);
 	}
 }

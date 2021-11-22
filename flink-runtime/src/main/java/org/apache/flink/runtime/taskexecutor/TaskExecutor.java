@@ -701,11 +701,16 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				resultPartitionConsumableNotifier,
 				partitionStateChecker,
 				getRpcService().getExecutor(),
-				taskExecutorServices.getCacheManager());
+				taskExecutorServices.getCacheManager(),
+				taskManagerConfiguration.isJobLogDetailDisable());
 
 			taskMetricGroup.gauge(MetricNames.IS_BACKPRESSURED, task::isBackPressured);
 
-			log.info("Received task {}.", task.getTaskInfo().getTaskNameWithSubtasks());
+			if (taskManagerConfiguration.isJobLogDetailDisable()) {
+				log.debug("Received task {}.", task.getTaskInfo().getTaskNameWithSubtasks());
+			} else {
+				log.info("Received task {} for job {}.", task.getTaskInfo().getTaskNameWithSubtasks(), jobId);
+			}
 
 			boolean taskAdded;
 
@@ -962,8 +967,13 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		final Time timeout) {
 		// TODO: Filter invalid requests from the resource manager by using the instance/registration Id
 
-		log.info("Receive slot request {} for job {} from resource manager with leader id {}.",
-			allocationId, jobId, resourceManagerId);
+		if (taskManagerConfiguration.isJobLogDetailDisable()) {
+			log.debug("Receive slot request {} for job {} from resource manager with leader id {}.",
+				allocationId, jobId, resourceManagerId);
+		} else {
+			log.info("Receive slot request {} for job {} from resource manager with leader id {}.",
+				allocationId, jobId, resourceManagerId);
+		}
 
 		if (!isConnectedToResourceManager(resourceManagerId)) {
 			final String message = String.format("TaskManager is not connected to the resource manager %s.", resourceManagerId);
@@ -1030,9 +1040,17 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			ResourceProfile resourceProfile) throws SlotAllocationException {
 		if (taskSlotTable.isSlotFree(slotId.getSlotNumber())) {
 			if (taskSlotTable.allocateSlot(slotId.getSlotNumber(), jobId, allocationId, resourceProfile, taskManagerConfiguration.getTimeout())) {
-				log.info("Allocated slot for {}.", allocationId);
+				if (taskManagerConfiguration.isJobLogDetailDisable()) {
+					log.debug("Allocated slot for {}.", allocationId);
+				} else {
+					log.debug("Allocated slot for {} in job {}.", allocationId, jobId);
+				}
 			} else {
-				log.info("Could not allocate slot for {}.", allocationId);
+				if (taskManagerConfiguration.isJobLogDetailDisable()) {
+					log.debug("Could not allocate slot for {}.", allocationId);
+				} else {
+					log.debug("Could not allocate slot for {} in job {}.", allocationId, jobId);
+				}
 				throw new SlotAllocationException("Could not allocate slot.");
 			}
 		} else if (!taskSlotTable.isAllocated(slotId.getSlotNumber(), jobId, allocationId)) {
@@ -1332,7 +1350,11 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		final JobID jobId = jobManagerConnection.getJobId();
 
 		if (taskSlotTable.hasAllocatedSlots(jobId)) {
-			log.info("Offer reserved slots to the leader of job {}.", jobId);
+			if (taskManagerConfiguration.isJobLogDetailDisable()) {
+				log.debug("Offer reserved slots to the leader of job {}.", jobId);
+			} else {
+				log.info("Offer reserved slots to the leader of job {}.", jobId);
+			}
 
 			final JobMasterGateway jobMasterGateway = jobManagerConnection.getJobManagerGateway();
 
@@ -1658,8 +1680,13 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				}
 			}
 
-			log.info("Un-registering task and sending final execution state {} to JobManager for task {} {}.",
-				task.getExecutionState(), task.getTaskInfo().getTaskNameWithSubtasks(), task.getExecutionId());
+			if (taskManagerConfiguration.isJobLogDetailDisable()) {
+				log.debug("Un-registering task and sending final execution state {} to JobManager for task {} {}.",
+					task.getExecutionState(), task.getTaskInfo().getTaskNameWithSubtasks(), task.getExecutionId());
+			} else {
+				log.info("Un-registering task and sending final execution state {} to JobManager for task {} {}.",
+					task.getExecutionState(), task.getTaskInfo().getTaskNameWithSubtasks(), task.getExecutionId());
+			}
 
 			AccumulatorSnapshot accumulatorSnapshot = task.getAccumulatorRegistry().getSnapshot();
 

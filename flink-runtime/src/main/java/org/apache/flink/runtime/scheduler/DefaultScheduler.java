@@ -22,6 +22,7 @@ package org.apache.flink.runtime.scheduler;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
@@ -106,6 +107,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
 	private final ScheduledExecutor taskCancelingCheckExecutor;
 
+	private final boolean jobLogDetailDisable;
+
 	public DefaultScheduler(
 		final Logger log,
 		final JobGraph jobGraph,
@@ -170,6 +173,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			failoverStrategy,
 			restartBackoffTimeStrategy);
 		this.schedulingStrategy = schedulingStrategyFactory.createInstance(this, getSchedulingTopology());
+		this.jobLogDetailDisable = jobMasterConfiguration.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 
 		final ExecutionSlotAllocationContext slotAllocationContext = new ExecutionSlotAllocationContext(
 			getStateLocationRetriever(),
@@ -178,7 +182,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			executionVertexID -> getExecutionVertex(executionVertexID).getLatestPriorAllocation(),
 			getSchedulingTopology(),
 			() -> getJobGraph().getSlotSharingGroups(),
-			() -> getJobGraph().getCoLocationGroupDescriptors());
+			() -> getJobGraph().getCoLocationGroupDescriptors(),
+			jobLogDetailDisable);
 		this.executionSlotAllocator = checkNotNull(executionSlotAllocatorFactory).createInstance(getInputsLocationsRetriever(), slotAllocationContext);
 
 		this.verticesWaitingForRestart = new HashSet<>();
@@ -493,7 +498,11 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 				FutureUtils.assertNoException(
 					slotAssigned.handle(deployOrHandleError(deploymentHandle)));
 			}
-			log.info("Deploy Task take {} ms.", System.currentTimeMillis() - startDeployTaskTime);
+			if (jobLogDetailDisable) {
+				log.info("Deploy Task take {} ms for job {}.", System.currentTimeMillis() - startDeployTaskTime, getJobId());
+			} else {
+				log.info("Deploy Task take {} ms.", System.currentTimeMillis() - startDeployTaskTime);
+			}
 			warehouseJobStartEventMessageRecorder.deployTaskFinish(executionGraph.getGlobalModVersion());
 			return null;
 		};

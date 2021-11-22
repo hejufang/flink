@@ -21,6 +21,7 @@ package org.apache.flink.runtime.jobmaster.slotpool;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.util.clock.Clock;
@@ -45,15 +46,19 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 	@Nonnull
 	private final Time batchSlotTimeout;
 
+	private final boolean jobLogDetailDisable;
+
 	public RoundRobinSlotPoolFactory(
 			@Nonnull Clock clock,
 			@Nonnull Time rpcTimeout,
 			@Nonnull Time slotIdleTimeout,
-			@Nonnull Time batchSlotTimeout) {
+			@Nonnull Time batchSlotTimeout,
+			boolean jobLogDetailDisable) {
 		this.clock = clock;
 		this.rpcTimeout = rpcTimeout;
 		this.slotIdleTimeout = slotIdleTimeout;
 		this.batchSlotTimeout = batchSlotTimeout;
+		this.jobLogDetailDisable = jobLogDetailDisable;
 	}
 
 	@Override
@@ -64,7 +69,8 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 			clock,
 			rpcTimeout,
 			slotIdleTimeout,
-			batchSlotTimeout);
+			batchSlotTimeout,
+			jobLogDetailDisable);
 	}
 
 	public static RoundRobinSlotPoolFactory fromConfiguration(@Nonnull Configuration configuration) {
@@ -72,11 +78,13 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 		final Time rpcTimeout = AkkaUtils.getTimeoutAsTime(configuration);
 		final Time slotIdleTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_IDLE_TIMEOUT));
 		final Time batchSlotTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT));
+		final boolean jobLogDetailDisable = configuration.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 
 		return new RoundRobinSlotPoolFactory(
 			SystemClock.getInstance(),
 			rpcTimeout,
 			slotIdleTimeout,
-			batchSlotTimeout);
+			batchSlotTimeout,
+			jobLogDetailDisable);
 	}
 }

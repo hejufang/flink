@@ -69,11 +69,15 @@ public class DefaultExecutionSlotAllocator implements ExecutionSlotAllocator {
 
 	private final InputsLocationsRetriever inputsLocationsRetriever;
 
+	private final boolean jobLogDetailDisable;
+
 	public DefaultExecutionSlotAllocator(
 			SlotProviderStrategy slotProviderStrategy,
-			InputsLocationsRetriever inputsLocationsRetriever) {
+			InputsLocationsRetriever inputsLocationsRetriever,
+			boolean jobLogDetailDisable) {
 		this.slotProviderStrategy = checkNotNull(slotProviderStrategy);
 		this.inputsLocationsRetriever = checkNotNull(inputsLocationsRetriever);
+		this.jobLogDetailDisable = jobLogDetailDisable;
 
 		pendingSlotAssignments = new HashMap<>();
 	}
@@ -95,7 +99,11 @@ public class DefaultExecutionSlotAllocator implements ExecutionSlotAllocator {
 			final SlotRequestId slotRequestId = new SlotRequestId();
 			final SlotSharingGroupId slotSharingGroupId = schedulingRequirements.getSlotSharingGroupId();
 
-			LOG.info("Allocate slot with id {} for execution {}", slotRequestId, executionVertexId);
+			if (jobLogDetailDisable) {
+				LOG.debug("Allocate slot with id {} for execution {}", slotRequestId, executionVertexId);
+			} else {
+				LOG.info("Allocate slot with id {} for execution {}", slotRequestId, executionVertexId);
+			}
 
 			CompletableFuture<LogicalSlot> slotFuture = calculatePreferredLocations(
 					executionVertexId,
@@ -132,7 +140,11 @@ public class DefaultExecutionSlotAllocator implements ExecutionSlotAllocator {
 			slotExecutionVertexAssignments.add(slotExecutionVertexAssignment);
 		}
 
-		LOG.info("Create allocate slot futures take {} ms.", System.currentTimeMillis() - startAllocateSlotTime);
+		if (jobLogDetailDisable) {
+			LOG.debug("Create allocate slot futures take {} ms.", System.currentTimeMillis() - startAllocateSlotTime);
+		} else {
+			LOG.info("Create allocate slot futures take {} ms.", System.currentTimeMillis() - startAllocateSlotTime);
+		}
 
 		return slotExecutionVertexAssignments;
 	}

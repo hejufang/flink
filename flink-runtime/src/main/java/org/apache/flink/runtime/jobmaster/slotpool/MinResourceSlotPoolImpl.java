@@ -67,8 +67,9 @@ public abstract class MinResourceSlotPoolImpl extends SlotPoolImpl {
 			Clock clock,
 			Time rpcTimeout,
 			Time idleSlotTimeout,
-			Time batchSlotTimeout) {
-		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout);
+			Time batchSlotTimeout,
+			boolean jobLogDetailDisable) {
+		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable);
 	}
 
 	@Override

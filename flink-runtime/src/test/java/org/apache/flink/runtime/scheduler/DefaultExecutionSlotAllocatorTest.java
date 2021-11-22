@@ -267,7 +267,8 @@ public class DefaultExecutionSlotAllocatorTest extends TestLogger {
 				ScheduleMode.EAGER,
 				slotProvider,
 				Time.seconds(10)),
-			inputsLocationsRetriever);
+			inputsLocationsRetriever,
+			false);
 	}
 
 	private List<ExecutionVertexSchedulingRequirements> createSchedulingRequirements(ExecutionVertexID... executionVertexIds) {

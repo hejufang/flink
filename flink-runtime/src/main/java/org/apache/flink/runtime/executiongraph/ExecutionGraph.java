@@ -355,6 +355,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	private int executionStatusDuration = 30000;
 
+	private final boolean jobLogDetailDisable;
+
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
 	// --------------------------------------------------------------------------------------------
@@ -379,7 +381,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			final RemoteBlacklistReporter remoteBlacklistReporter,
 			final DefaultLogicalTopology logicalTopology,
 			boolean isRecoverable,
-			boolean useCloudShuffleService) throws IOException {
+			boolean useCloudShuffleService,
+			boolean jobLogDetailDisable) throws IOException {
 
 		this.jobInformation = Preconditions.checkNotNull(jobInformation);
 
@@ -449,6 +452,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 		this.remoteBlacklistReporter = remoteBlacklistReporter;
 		this.remoteBlacklistReporter.setExecutionGraph(this);
+		this.jobLogDetailDisable = jobLogDetailDisable;
 		LOG.info("Job recovers via failover strategy: {}", failoverStrategy.getStrategyName());
 	}
 
@@ -1504,7 +1508,11 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		// now do the actual state transition
 		if (state == current) {
 			state = newState;
-			LOG.info("Job {} ({}) switched from state {} to {}.", getJobName(), getJobID(), current, newState, error);
+			if (jobLogDetailDisable) {
+				LOG.debug("Job {} ({}) switched from state {} to {}.", getJobName(), getJobID(), current, newState, error);
+			} else {
+				LOG.info("Job {} ({}) switched from state {} to {}.", getJobName(), getJobID(), current, newState, error);
+			}
 
 			stateTimestamps[newState.ordinal()] = System.currentTimeMillis();
 			notifyJobStatusChange(newState, error);
@@ -1764,7 +1772,11 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				if (tasks.values().stream().allMatch(executionJobVertex ->
 					executionJobVertex.getStrictModeAggregateState().equals(ExecutionState.RUNNING) ||
 						executionJobVertex.getStrictModeAggregateState().equals(ExecutionState.FINISHED))) {
-					LOG.info("Execution status switch to RUNNING");
+					if (jobLogDetailDisable) {
+						LOG.debug("Execution status switch to RUNNING for job {}", getJobID());
+					} else {
+						LOG.info("Execution status switch to RUNNING");
+					}
 					updateExecutionStatus(EXECUTION_RUNNING_STATUS);
 				}
 				return result;
@@ -2024,5 +2036,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	PartitionReleaseStrategy getPartitionReleaseStrategy() {
 		return partitionReleaseStrategy;
+	}
+
+	public boolean isJobLogDetailDisable() {
+		return jobLogDetailDisable;
 	}
 }

@@ -49,6 +49,8 @@ class ExecutionSlotAllocationContext {
 
 	private final Supplier<Set<CoLocationGroupDesc>> coLocationGroupSupplier;
 
+	private final boolean jobLogDetailDisable;
+
 	ExecutionSlotAllocationContext(
 			final StateLocationRetriever stateLocationRetriever,
 			final InputsLocationsRetriever inputsLocationsRetriever,
@@ -56,7 +58,8 @@ class ExecutionSlotAllocationContext {
 			final Function<ExecutionVertexID, AllocationID> priorAllocationIdRetriever,
 			final SchedulingTopology schedulingTopology,
 			final Supplier<Set<SlotSharingGroup>> logicalSlotSharingGroupSupplier,
-			final Supplier<Set<CoLocationGroupDesc>> coLocationGroupSupplier) {
+			final Supplier<Set<CoLocationGroupDesc>> coLocationGroupSupplier,
+			final boolean jobLogDetailDisable) {
 
 		this.stateLocationRetriever = stateLocationRetriever;
 		this.inputsLocationsRetriever = inputsLocationsRetriever;
@@ -65,6 +68,7 @@ class ExecutionSlotAllocationContext {
 		this.schedulingTopology = schedulingTopology;
 		this.logicalSlotSharingGroupSupplier = logicalSlotSharingGroupSupplier;
 		this.coLocationGroupSupplier = coLocationGroupSupplier;
+		this.jobLogDetailDisable = jobLogDetailDisable;
 	}
 
 	public StateLocationRetriever getStateLocationRetriever() {
@@ -93,5 +97,9 @@ class ExecutionSlotAllocationContext {
 
 	Set<CoLocationGroupDesc> getCoLocationGroups() {
 		return coLocationGroupSupplier.get();
+	}
+
+	boolean isJobLogDetailDisable() {
+		return jobLogDetailDisable;
 	}
 }

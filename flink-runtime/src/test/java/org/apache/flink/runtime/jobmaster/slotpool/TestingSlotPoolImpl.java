@@ -54,7 +54,7 @@ public class TestingSlotPoolImpl extends RoundRobinSlotPoolImpl {
 			Time rpcTimeout,
 			Time idleSlotTimeout,
 			Time batchSlotTimeout) {
-		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout);
+		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, false);
 	}
 
 	void triggerCheckIdleSlot() {

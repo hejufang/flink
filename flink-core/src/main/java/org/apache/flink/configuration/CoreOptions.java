@@ -446,4 +446,13 @@ public class CoreOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Use taskmanager address as hostname, will not lookup hostname by dns.");
+
+	/**
+	 * There're too many logs about job, disable some detail log when the flag is true.
+	 */
+	public static final ConfigOption<Boolean> FLINK_JOB_LOG_DETAIL_DISABLE = ConfigOptions
+		.key("flink.job.log-detail-disable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Use debug level for some logs of job when the flag is true, otherwise use info level.");
 }

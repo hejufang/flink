@@ -24,6 +24,7 @@ import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.blacklist.BlacklistActions;
@@ -108,7 +109,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *
  * <p>It offers the following methods as part of its rpc interface to interact with him remotely:
  * <ul>
- *     <li>{@link #registerJobManager(JobMasterId, ResourceID, String, JobID, int, Time)} registers a {@link JobMaster} at the resource manager</li>
+ *     <li>{@link #registerJobManager(JobMasterId, ResourceID, String, JobID, JobInfo, Time)} registers a {@link JobMaster} at the resource manager</li>
  *     <li>{@link #requestSlot(JobMasterId, SlotRequest, Time)} requests a slot from the resource manager</li>
  * </ul>
  */
@@ -162,6 +163,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	protected final ResourceManagerMetricGroup resourceManagerMetricGroup;
 
 	private final FailureRater failureRater;
+
+	private final boolean jobLogDetailDisable;
 
 	/** The service to elect a ResourceManager leader. */
 	private LeaderElectionService leaderElectionService;
@@ -259,6 +262,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 		this.blacklistTracker = BlacklistUtil.createBlacklistTracker(flinkConfig, resourceManagerMetricGroup);
 		this.blacklistReporter = BlacklistUtil.createLocalBlacklistReporter(flinkConfig, blacklistTracker);
+		this.jobLogDetailDisable = flinkConfig.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 	}
 
 	// ------------------------------------------------------------------------
@@ -526,10 +530,17 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 		if (null != jobManagerRegistration) {
 			if (Objects.equals(jobMasterId, jobManagerRegistration.getJobMasterId())) {
-				log.info("Request slot with profile {} for job {} with allocation id {}.",
-					slotRequest.getResourceProfile(),
-					slotRequest.getJobId(),
-					slotRequest.getAllocationId());
+				if (jobLogDetailDisable) {
+					log.debug("Request slot with profile {} for job {} with allocation id {}.",
+						slotRequest.getResourceProfile(),
+						slotRequest.getJobId(),
+						slotRequest.getAllocationId());
+				} else {
+					log.info("Request slot with profile {} for job {} with allocation id {}.",
+						slotRequest.getResourceProfile(),
+						slotRequest.getJobId(),
+						slotRequest.getAllocationId());
+				}
 
 				try {
 					slotManager.registerSlotRequest(slotRequest);

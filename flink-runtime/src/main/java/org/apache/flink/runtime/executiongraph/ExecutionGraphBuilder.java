@@ -25,6 +25,7 @@ import org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.WebOptions;
@@ -192,6 +193,7 @@ public class ExecutionGraphBuilder {
 
 		final boolean isRecoverable = jobManagerConfig.getBoolean(FORCE_PARTITION_RECOVERABLE);
 		final boolean useCloudShuffleService = jobManagerConfig.getBoolean(ShuffleOptions.CLOUD_SHUFFLE_SERVICE_ENABLED);
+		final boolean jobLogDetailDisable = jobManagerConfig.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 
 		final PartitionReleaseStrategy.Factory partitionReleaseStrategyFactory =
 			PartitionReleaseStrategyFactoryLoader.loadPartitionReleaseStrategyFactory(jobManagerConfig);
@@ -220,7 +222,8 @@ public class ExecutionGraphBuilder {
 					remoteBlacklistReporter,
 					new DefaultLogicalTopology(jobGraph),
 					isRecoverable,
-					useCloudShuffleService);
+					useCloudShuffleService,
+					jobLogDetailDisable);
 					executionGraph.setExecutionStatusDuration(jobManagerConfig.getInteger(JobManagerOptions.EXECUTION_STATUS_DURATION_MS));
 		} catch (IOException e) {
 			throw new JobException("Could not create the ExecutionGraph.", e);
