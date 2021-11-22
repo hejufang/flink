@@ -41,6 +41,16 @@ under the License.
 			<artifactId>flink-connector-elasticsearch7_${scala.binary.version}</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+
+		<!--
+		IMPORTANT: dependencyManagement will override all versions except explicitly declared in
+		current module. Hence, we must declare httpcore:4.4.12 here.
+		-->
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpcore</artifactId>
+			<version>4.4.12</version>
+		</dependency>
 	</dependencies>
 
 	<build>
