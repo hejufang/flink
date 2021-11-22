@@ -144,6 +144,13 @@ under the License.
 			</exclusions>
 		</dependency>-->
 
+		<!-- Cloud Shuffle Service support -->
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-cloud-shuffle</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+
 		<!-- Default file system support. The Hadoop and MapR dependencies -->
 		<!--       are optional, so not being added to the dist jar        -->
 
