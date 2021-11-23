@@ -148,4 +148,8 @@ public interface CheckpointStorageCoordinatorView {
 	}
 
 	default void removeSavepointSimpleMetadataPathInCheckpointDir(long checkpointId) throws IOException {}
+
+	default Tuple2<String, Boolean> findLatestSnapshotCrossNamespaces(int maxLatestNamespaceTracing, String namespace) throws IOException {
+		return new Tuple2<>();
+	}
 }

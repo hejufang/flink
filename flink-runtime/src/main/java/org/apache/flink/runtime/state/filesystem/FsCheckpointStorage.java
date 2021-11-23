@@ -28,10 +28,12 @@ import org.apache.flink.metrics.GrafanaGauge;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.View;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
+import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.CheckpointStreamFactory.CheckpointStateOutputStream;
+import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointStreamFactory.FsCheckpointStateOutputStream;
 
 import org.slf4j.Logger;
@@ -39,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -618,5 +621,124 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 	@Override
 	public void renameNamespaceDirectory(String targetName) throws IOException {
 		fileSystem.rename(checkpointsDirectory, new Path(checkpointsDirectory.getParent(), targetName));
+	}
+
+	@SuppressWarnings("checkstyle:EmptyStatement")
+	@Override
+	public Tuple2<String, Boolean> findLatestSnapshotCrossNamespaces(int maxLatestNamespaceTracing, String namespace) throws IOException {
+		List<Path> modifySortedDirs;
+		FileStatus[] namespaceStatuses = fileSystem.listStatus(checkpointsDirectory.getParent());
+		modifySortedDirs = Arrays.stream(namespaceStatuses)
+			.filter(fileStatus -> fileStatus.isDir())
+			.sorted(Comparator.comparing(FileStatus::getModificationTime, Comparator.reverseOrder()))
+			.limit(maxLatestNamespaceTracing)
+			.map(fileStatus -> fileStatus.getPath())
+			.collect(Collectors.toList());
+		LOG.info("Got {} existing namespace paths for job", modifySortedDirs.size());
+		int sizeCompletedSnapshotInChkDir = findCompletedCheckpointPointerV2().size();
+		String latestSnapshotPath = null;
+		boolean isSavepoint = false;
+		for (Path checkpointDir : modifySortedDirs) {
+			FileStatus[] checkpointStatuses = fileSystem.listStatus(checkpointDir);
+			if (checkpointStatuses == null || checkpointStatuses.length == 0) {
+				continue;
+			}
+			LOG.info("Scanning namespace path for latest snapshot: {}, there are {} checkpoint dirs in it.", checkpointDir.getPath(), checkpointStatuses.length);
+			Arrays.sort(checkpointStatuses, new Comparator<FileStatus>() {
+				@Override
+				public int compare(FileStatus f1, FileStatus f2) {
+					return Long.compare(getCheckpointIDFromFileStatus(f2), getCheckpointIDFromFileStatus(f1)); // reverse the checkpointID
+				}
+			});
+			boolean foundLatest = false;
+			for (FileStatus fileStatus : checkpointStatuses) {
+				Path dirPath = fileStatus.getPath();
+				String dirName = dirPath.getName();
+				if ((dirName.startsWith(CHECKPOINT_DIR_PREFIX) || dirName.startsWith(SAVEPOINT_DIR_PREFIX))
+					&& fileSystem.exists(new Path(dirPath, METADATA_FILE_NAME))) {
+					if (dirName.startsWith(SAVEPOINT_DIR_PREFIX) && checkValidSavepointMetadata(dirPath.toString())) {
+						foundLatest = true;
+						latestSnapshotPath = dirPath.toString();
+						isSavepoint = true;
+						break;
+					} else if (dirName.startsWith(CHECKPOINT_DIR_PREFIX) && checkValidCheckpointMetadata(dirPath.toString())) {
+						foundLatest = true;
+						latestSnapshotPath = dirPath.toString();
+						isSavepoint = false;
+						break;
+					}
+				}
+			}
+			if (foundLatest) {
+				break;
+			}
+		}
+		verifyRestoringFromLatest(latestSnapshotPath, namespace, sizeCompletedSnapshotInChkDir);
+		if (isSavepoint) {
+			try {
+				latestSnapshotPath = resolveSavepoint(latestSnapshotPath).getExternalPointer();
+			} catch (IOException e) {
+				LOG.error("Failed to find actual savepoint path for {}", latestSnapshotPath);
+				throw e;
+			}
+		}
+		boolean needResetSavepointSettings = sizeCompletedSnapshotInChkDir == 0;
+		LOG.info("latest snapshot path :{}, needResetSavepointSettings: {}", latestSnapshotPath, needResetSavepointSettings);
+		return new Tuple2<>(latestSnapshotPath, needResetSavepointSettings);
+	}
+
+	private boolean checkValidCheckpointMetadata(String path) {
+		try {
+			CompletedCheckpointStorageLocation location = resolveCheckpoint(path);
+			try (DataInputStream stream = new DataInputStream(location.getMetadataHandle().openInputStream())) {
+				Checkpoints.loadCheckpointMetadata(stream, Thread.currentThread().getContextClassLoader(), location.getExternalPointer());
+			}
+			return true;
+		} catch (Exception e) {
+			LOG.info("Invalid checkpoint {}, skip it", path);
+			return false;
+		}
+	}
+
+	private boolean checkValidSavepointMetadata(String path) {
+		try {
+			CompletedCheckpointStorageLocation location = resolveSavepoint(path);
+			try (DataInputStream stream = new DataInputStream(location.getMetadataHandle().openInputStream())) {
+				Checkpoints.loadCheckpointMetadata(stream, Thread.currentThread().getContextClassLoader(), location.getExternalPointer());
+			}
+			return true;
+		} catch (Exception e) {
+			LOG.info("Invalid savepoint {}, skip it", path);
+			return false;
+		}
+	}
+
+	private void verifyRestoringFromLatest(String latestSnapshotPath, String namespace, int sizeCompletedSnapshotInChkDir) throws IllegalStateException {
+		if (latestSnapshotPath == null) {
+			throw new IllegalStateException("Can't find any completed snapshot. " +
+				"Maybe the job has never succeeded making a completed snapshot, or the latest completed snapshot is too far from now. " +
+				"Please switch to 'restoring without states' manually.");
+		}
+		if (sizeCompletedSnapshotInChkDir > 0 && !latestSnapshotPath.contains(namespace)) {
+			throw new IllegalStateException(String.format("There is completed snapshot in namespace %s, but got latest completed snapshot at %s.", namespace, latestSnapshotPath));
+		}
+	}
+
+	private long getCheckpointIDFromFileStatus(FileStatus fileStatus) {
+		long checkpointId;
+		try {
+			String dirName = fileStatus.getPath().getName();
+			if (dirName.startsWith(CHECKPOINT_DIR_PREFIX)) {
+				checkpointId = Long.parseLong(dirName.substring(CHECKPOINT_DIR_PREFIX.length()));
+			} else if (dirName.startsWith(SAVEPOINT_DIR_PREFIX)) {
+				checkpointId = Long.parseLong(dirName.substring(SAVEPOINT_DIR_PREFIX.length()));
+			} else {
+				checkpointId = Long.MIN_VALUE;
+			}
+		} catch (Exception e) {
+			LOG.info("Exception when parsing checkpoint {} id.", fileStatus.getPath(), e);
+			return Long.MIN_VALUE;
+		}
+		return checkpointId;
 	}
 }

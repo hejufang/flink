@@ -215,6 +215,15 @@ public class CheckpointingOptions {
 		.withDescription("The namespace for checkpoints of one job managed by platform.");
 
 	/**
+	 * The max number of tracing latest namespaces for restoring from latest snapshot.
+	 */
+	public static final ConfigOption<Integer> MAX_TRACING_NAMESPACES = ConfigOptions
+		.key("tracing.latest.namespace.max-size")
+		.intType()
+		.defaultValue(100)
+		.withDescription("The max number of tracing latest namespaces for restoring from latest snapshot.");
+
+	/**
 	 * Allow to skip checkpoint state that cannot be restored.
 	 */
 	public static final ConfigOption<Boolean> ALLOW_NON_RESTORED_STATE = ConfigOptions

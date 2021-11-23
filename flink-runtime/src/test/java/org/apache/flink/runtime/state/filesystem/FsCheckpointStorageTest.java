@@ -19,13 +19,18 @@
 package org.apache.flink.runtime.state.filesystem;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.fs.local.LocalFileSystem;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
+import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
+import org.apache.flink.runtime.checkpoint.metadata.savepoint.SavepointSimpleMetadata;
+import org.apache.flink.runtime.state.CheckpointMetadataOutputStream;
 import org.apache.flink.runtime.state.CheckpointStorage;
+import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
 import org.apache.flink.runtime.state.CheckpointStreamFactory.CheckpointStateOutputStream;
 import org.apache.flink.runtime.state.CheckpointedStateScope;
@@ -37,12 +42,15 @@ import org.junit.Test;
 
 import javax.annotation.Nonnull;
 
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -263,6 +271,164 @@ public class FsCheckpointStorageTest extends AbstractFileCheckpointStorageTestBa
 		FsCheckpointStorage storage = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
 		Path checkpointDir = storage.getCheckpointsDirectory();
 		assertTrue(checkpointDir.toString().endsWith(snapshotNamespace));
+	}
+
+	@Test
+	public void testFindLatestCheckpointSnapshotCrossNamespaces() throws Exception {
+		String jobUID = "juid";
+		String namespace = "ns";
+		String statebackend = "filesystem";
+		URI checkpointURI = randomTempPath().toUri();
+		Configuration configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, namespace);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, namespace);
+		configuration.setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+		StateBackend stateBackend = Checkpoints.loadStateBackend(configuration, classLoader, null);
+		FsCheckpointStorage storage = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
+		// craete chk-1 in checkpoint dir
+		CheckpointStorageLocation location = storage.initializeLocationForCheckpoint(1L);
+
+		try (CheckpointMetadataOutputStream out = location.createMetadataOutputStream()) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		// create sp-2 in checkpoint dir but without the actual savepoint _metadata created
+		CheckpointStorageLocation savepointMetaInCheckpointDirLocation = storage.initializeLocationForSavepointMetaInCheckpointDir(2L);
+
+		try (CheckpointMetadataOutputStream out = savepointMetaInCheckpointDirLocation.createMetadataOutputStream()) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(2L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		Tuple2<String, Boolean> latestSnapshot = storage.findLatestSnapshotCrossNamespaces(100, namespace);
+		// Found latest snapshot chk-1, because sp-2 is invalid
+		assertEquals(location.getMetadataFilePath().getParent().toString(), latestSnapshot.f0);
+		assertFalse(latestSnapshot.f1);
+	}
+
+	@Test
+	public void testFindLatestSavepointSnapshotCrossNamespaces() throws Exception {
+		String jobUID = "juid";
+		String namespace = "ns";
+		String statebackend = "filesystem";
+		URI checkpointURI = randomTempPath().toUri();
+		Configuration configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, namespace);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, namespace);
+		configuration.setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+		StateBackend stateBackend = Checkpoints.loadStateBackend(configuration, classLoader, null);
+		FsCheckpointStorage storage = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
+		// craete chk-1 in checkpoint dir
+		CheckpointStorageLocation location = storage.initializeLocationForCheckpoint(1L);
+
+		try (CheckpointMetadataOutputStream out = location.createMetadataOutputStream()) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		// create sp-2 in checkpoint dir
+		CheckpointStorageLocation savepointMetaInCheckpointDirLocation = storage.initializeLocationForSavepointMetaInCheckpointDir(2L);
+		// create actual savepoint metadata in savepoint dir
+		final String savepointPath = tmp.newFolder().getAbsolutePath() + "/" + UUID.randomUUID();
+		try (CheckpointMetadataOutputStream out = savepointMetaInCheckpointDirLocation.createMetadataOutputStream()) {
+			Checkpoints.storeSavepointSimpleMetadata(new SavepointSimpleMetadata(2L, savepointPath), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
+			new Path(savepointPath).getFileSystem(),
+			new Path(savepointPath, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			new Path(savepointPath))) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(2L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		Tuple2<String, Boolean> latestSnapshot = storage.findLatestSnapshotCrossNamespaces(100, namespace);
+		// Found latest snapshot sp-2's actual savepoint path
+		assertEquals(savepointPath, new URI(latestSnapshot.f0).getPath());
+		assertFalse(latestSnapshot.f1);
+	}
+
+	@Test
+	public void testFindLatestSnapshotWithEmptyNamespace() throws Exception {
+		String jobUID = "juid";
+		String namespace = "ns";
+		String emptyNamespace = "emptyns";
+		String statebackend = "filesystem";
+		URI checkpointURI = randomTempPath().toUri();
+		Configuration configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, namespace);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, namespace);
+		configuration.setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+		StateBackend stateBackend = Checkpoints.loadStateBackend(configuration, classLoader, null);
+		FsCheckpointStorage storageOld = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
+		// craete chk-1 in checkpoint dir
+		CheckpointStorageLocation location = storageOld.initializeLocationForCheckpoint(1L);
+
+		try (CheckpointMetadataOutputStream out = location.createMetadataOutputStream()) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, emptyNamespace);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, emptyNamespace);
+		FsCheckpointStorage storageNew = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
+		Thread.sleep(1000);
+		storageNew.initializeLocationForCheckpoint(1L);
+
+		Tuple2<String, Boolean> latestSnapshot = storageNew.findLatestSnapshotCrossNamespaces(100, emptyNamespace);
+		// Found latest snapshot chk-1
+		assertEquals(location.getMetadataFilePath().getParent().toString(), latestSnapshot.f0);
+		assertTrue(latestSnapshot.f1);
+	}
+
+	@Test
+	public void testCannotFindLatestSnapshot() throws Exception {
+		String jobUID = "juid";
+		String namespace = "ns";
+		String emptyNamespace = "emptyns";
+		String statebackend = "filesystem";
+		final int nonMagicNumber = 22;
+		URI checkpointURI = randomTempPath().toUri();
+		Configuration configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, namespace);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, namespace);
+		configuration.setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+		StateBackend stateBackend = Checkpoints.loadStateBackend(configuration, classLoader, null);
+		FsCheckpointStorage storageOld = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
+		// craete chk-1 in checkpoint dir
+		CheckpointStorageLocation location = storageOld.initializeLocationForCheckpoint(1L);
+
+		try (CheckpointMetadataOutputStream out = location.createMetadataOutputStream()) {
+			DataOutputStream dos = new DataOutputStream(out);
+			dos.writeInt(nonMagicNumber);
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, emptyNamespace);
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, emptyNamespace);
+		FsCheckpointStorage storageNew = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
+		Thread.sleep(1000);
+		storageNew.initializeLocationForCheckpoint(1L);
+
+		Tuple2<String, Boolean> latestSnapshot = null;
+		try {
+			latestSnapshot = storageNew.findLatestSnapshotCrossNamespaces(100, emptyNamespace);
+		} catch (Exception e) {
+			//expected
+			assertTrue(e instanceof IllegalStateException);
+		}
+		// Can't find any completed snapshot because the _metadata is crashed
+		assertEquals(null, latestSnapshot);
 	}
 
 	// ------------------------------------------------------------------------
