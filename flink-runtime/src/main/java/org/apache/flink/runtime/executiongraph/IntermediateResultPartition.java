@@ -21,6 +21,7 @@ package org.apache.flink.runtime.executiongraph;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.scheduler.strategy.ConsumerVertexGroup;
+import org.apache.flink.runtime.shuffle.ShuffleInfo;
 
 import java.util.List;
 
@@ -32,6 +33,9 @@ public class IntermediateResultPartition {
 
 	private final IntermediateResultPartitionID partitionId;
 
+	/** Unique ID for a group of upstream-downstream shuffle. */
+	private ShuffleInfo shuffleInfo;
+
 	/** Whether this partition has produced some data. */
 	private boolean hasDataProduced = false;
 
@@ -39,6 +43,7 @@ public class IntermediateResultPartition {
 		this.totalResult = totalResult;
 		this.producer = producer;
 		this.partitionId = new IntermediateResultPartitionID(totalResult.getId(), partitionNumber);
+		this.shuffleInfo = null;
 
 		producer.getExecutionGraph().registerResultPartition(partitionId, this);
 	}
@@ -92,6 +97,14 @@ public class IntermediateResultPartition {
 
 	public void setConsumers(ConsumerVertexGroup consumers) {
 		producer.getExecutionGraph().getEdgeManager().addPartitionConsumers(partitionId, consumers);
+	}
+
+	public void setShuffleInfo(ShuffleInfo shuffleInfo) {
+		this.shuffleInfo = shuffleInfo;
+	}
+
+	public ShuffleInfo getShuffleInfo() {
+		return shuffleInfo;
 	}
 
 	EdgeManager getEdgeManager() {

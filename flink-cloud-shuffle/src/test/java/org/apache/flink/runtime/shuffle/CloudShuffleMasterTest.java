@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Tests for {@link CloudShuffleMaster}.
@@ -39,7 +40,7 @@ import java.util.List;
 public class CloudShuffleMasterTest {
 
 	@Test
-	public void testShuffleIdGenerator() throws UnknownHostException {
+	public void testShuffleIdGenerator() throws UnknownHostException, ExecutionException, InterruptedException {
 		final boolean[] shuffleRegistered = {false};
 		final TestShuffleClient testShuffleClient = new TestShuffleClient() {
 			@Override
@@ -52,21 +53,21 @@ public class CloudShuffleMasterTest {
 		final int applicationAttemptNumber = 2;
 		final CloudShuffleMaster cloudShuffleMaster = new CloudShuffleMaster("TEST_APP_ID", testShuffleClient, applicationAttemptNumber);
 
-		final PartitionDescriptor partitionDescriptor1 = buildRandomPartitionDescriptor();
+		final PartitionDescriptor partitionDescriptor1 = buildRandomPartitionDescriptor(new ShuffleInfo(1, 0, 1, 0, 1));
 		final ProducerDescriptor producerDescriptor1 = buildRandomProducerDescriptor();
-		cloudShuffleMaster.registerPartitionWithProducer(partitionDescriptor1, producerDescriptor1);
-		Assert.assertEquals((applicationAttemptNumber << 16) + 1, cloudShuffleMaster.getCurrentShuffleId());
+		final CloudShuffleDescriptor shuffleDescriptor1 = cloudShuffleMaster.registerPartitionWithProducer(partitionDescriptor1, producerDescriptor1).get();
+		Assert.assertEquals((applicationAttemptNumber << 16) + partitionDescriptor1.getShuffleInfo().getShuffleId(), shuffleDescriptor1.getShuffleId());
 
 		// task failover and keep the same shuffleId
 		final ProducerDescriptor producerDescriptor2 = buildRandomProducerDescriptor();
-		cloudShuffleMaster.registerPartitionWithProducer(partitionDescriptor1, producerDescriptor2);
-		Assert.assertEquals((applicationAttemptNumber << 16) + 1, cloudShuffleMaster.getCurrentShuffleId());
+		final CloudShuffleDescriptor shuffleDescriptor2 = cloudShuffleMaster.registerPartitionWithProducer(partitionDescriptor1, producerDescriptor2).get();
+		Assert.assertEquals((applicationAttemptNumber << 16) + partitionDescriptor1.getShuffleInfo().getShuffleId(), shuffleDescriptor2.getShuffleId());
 
 		// register a new shuffle
-		final PartitionDescriptor partitionDescriptor2 = buildRandomPartitionDescriptor();
+		final PartitionDescriptor partitionDescriptor2 = buildRandomPartitionDescriptor(new ShuffleInfo(2, 0, 1, 0, 1));
 		final ProducerDescriptor producerDescriptor3 = buildRandomProducerDescriptor();
-		cloudShuffleMaster.registerPartitionWithProducer(partitionDescriptor2, producerDescriptor3);
-		Assert.assertEquals((applicationAttemptNumber << 16) + 2, cloudShuffleMaster.getCurrentShuffleId());
+		final CloudShuffleDescriptor shuffleDescriptor3 = cloudShuffleMaster.registerPartitionWithProducer(partitionDescriptor2, producerDescriptor3).get();
+		Assert.assertEquals((applicationAttemptNumber << 16) + partitionDescriptor2.getShuffleInfo().getShuffleId(), shuffleDescriptor3.getShuffleId());
 	}
 
 	@Test
@@ -78,14 +79,15 @@ public class CloudShuffleMasterTest {
 		Assert.assertEquals(2, attempt);
 	}
 
-	private PartitionDescriptor buildRandomPartitionDescriptor() {
+	private PartitionDescriptor buildRandomPartitionDescriptor(ShuffleInfo shuffleInfo) {
 		return new PartitionDescriptor(
 				new IntermediateDataSetID(),
 				2,
 				new IntermediateResultPartitionID(new IntermediateDataSetID(), 0),
 				ResultPartitionType.BLOCKING,
 				10,
-				0);
+				0,
+				shuffleInfo);
 	}
 
 	private ProducerDescriptor buildRandomProducerDescriptor() throws UnknownHostException {

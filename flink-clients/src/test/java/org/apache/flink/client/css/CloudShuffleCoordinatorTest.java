@@ -65,7 +65,7 @@ public class CloudShuffleCoordinatorTest {
 		JobVertex jobVertex4 = new JobVertex("sink");
 		jobVertex4.connectNewDataSetAsInput(jobVertex3, DistributionPattern.POINTWISE, ResultPartitionType.BLOCKING);
 		JobGraph jobGraph2 = new JobGraph("graph-2", jobVertex3, jobVertex4);
-		Assert.assertFalse(CloudShuffleCoordinator.isValidJobGraph(jobGraph2));
+		Assert.assertTrue(CloudShuffleCoordinator.isValidJobGraph(jobGraph2));
 
 		// test all-to-all and BLOCKING
 		JobVertex jobVertex5 = new JobVertex("source");

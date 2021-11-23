@@ -21,7 +21,6 @@ package org.apache.flink.runtime.shuffle;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 
 import com.bytedance.css.api.CssShuffleContext;
 import com.bytedance.css.client.ShuffleClient;
@@ -37,7 +36,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * ShuffleMaster for Cloud Shuffle Service.
@@ -45,11 +43,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor> {
 	private static final Logger LOG = LoggerFactory.getLogger(CloudShuffleMaster.class);
 
-	// use high 16 bit as Application Attempt
-	// use low 16 bit as Shuffle Id
-	private final AtomicInteger shuffleIdGenerator;
+	private final int baseShuffleId;
 
-	private final Map<IntermediateDataSetID, Integer> shuffleIds;
+	private final Map<Integer, ShuffleInfo> shuffleIds;
 
 	private final String applicationId;
 	private final int applicationAttemptNumber;
@@ -69,7 +65,10 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 		this.applicationId = applicationId;
 		this.applicationAttemptNumber = applicationAttemptNumber;
 		this.cssClient = cssClient;
-		this.shuffleIdGenerator = new AtomicInteger(applicationAttemptNumber << 16);
+
+		// use high 16 bit as Application Attempt
+		// use low 16 bit as Shuffle Id
+		this.baseShuffleId = applicationAttemptNumber << 16;
 	}
 
 	public CloudShuffleMaster(Configuration configuration) {
@@ -94,7 +93,7 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 		this.shuffleIds = new HashMap<>();
 		this.applicationId = System.getenv("_APP_ID");
 		this.applicationAttemptNumber = getApplicationAttemptNumber(System.getenv("CONTAINER_ID"));
-		this.shuffleIdGenerator = new AtomicInteger(applicationAttemptNumber << 16);
+		this.baseShuffleId = applicationAttemptNumber << 16;
 	}
 
 	@Override
@@ -102,45 +101,43 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 			PartitionDescriptor partitionDescriptor,
 			ProducerDescriptor producerDescriptor) {
 
-		final int numberOfPartitions = partitionDescriptor.getTotalNumberOfPartitions();
 		final int mapperIndex = partitionDescriptor.getPartitionId().getPartitionNum();
-		final int numberOfSubpartitions = partitionDescriptor.getNumberOfSubpartitions();
-		final IntermediateDataSetID resultId = partitionDescriptor.getResultId();
 
-		if (!shuffleIds.containsKey(resultId)) {
-			// new shuffle or there's already same shuffle before
-			final int shuffleId = shuffleIdGenerator.incrementAndGet();
+		final ShuffleInfo shuffleInfo = partitionDescriptor.getShuffleInfo();
+		final int shuffleId = baseShuffleId + shuffleInfo.getShuffleId();
 
+		if (!shuffleIds.containsKey(shuffleId)) {
 			// send RPC request to register the shuffleId
 			try {
 				final List<PartitionInfo> partitionInfos = cssClient.registerShuffle(
 						this.applicationId,
 						shuffleId,
-						numberOfPartitions, // number of mappers
-						numberOfSubpartitions); // number of reducers
+						shuffleInfo.getNumberOfMappers(), // number of mappers
+						shuffleInfo.getNumberOfReducers()); // number of reducers
 			} catch (IOException e) {
 				throw new IllegalStateException(e);
 			}
 
 			// update the shuffleId
-			shuffleIds.put(resultId, shuffleId);
+			shuffleIds.put(shuffleId, shuffleInfo);
 
 			LOG.info("Producer {} registers shuffle (id={}) with {} mappers and {} reducers",
 				producerDescriptor.getProducerExecutionId(),
 				shuffleId,
-				numberOfPartitions,
-				numberOfSubpartitions);
+				shuffleInfo.getNumberOfMappers(),
+				shuffleInfo.getNumberOfReducers());
 		}
-
-		final int currentShuffleId = shuffleIds.get(resultId);
 
 		CloudShuffleDescriptor cloudShuffleDescriptor = new CloudShuffleDescriptor(
 				new ResultPartitionID(partitionDescriptor.getPartitionId(), producerDescriptor.getProducerExecutionId()),
-				currentShuffleId,
+				new CloudShuffleDescriptor.CloudShuffleInfo(
+					shuffleId,
+					shuffleInfo.getMapperBeginIndex(),
+					shuffleInfo.getMapperEndIndex(),
+					shuffleInfo.getReducerBeginIndex(),
+					shuffleInfo.getReducerEndIndex()),
 				mapperIndex,
 				producerDescriptor.getAttemptNumber(),
-				numberOfPartitions,
-				numberOfSubpartitions,
 				masterHost,
 				masterPort);
 
@@ -167,11 +164,6 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 			System.exit(-1000);
 		}
 		return fqdnHostName;
-	}
-
-	@VisibleForTesting
-	public int getCurrentShuffleId() {
-		return shuffleIdGenerator.get();
 	}
 
 	@VisibleForTesting

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.shuffle;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 
+import java.io.Serializable;
 import java.util.Optional;
 
 /**
@@ -28,37 +29,34 @@ import java.util.Optional;
  */
 public class CloudShuffleDescriptor implements ShuffleDescriptor {
 
+	private static final long serialVersionUID = 951657789L;
+
 	private final ResultPartitionID resultPartitionID;
-	private final int shuffleId;
 	private final int mapperId;
 	private final int mapperAttemptId;
-	private final int numberOfMappers;
-	private final int numberOfReducers;
+
+	private final CloudShuffleInfo shuffleInfo;
 
 	private final String masterHost;
 	private final String masterPort;
 
 	public CloudShuffleDescriptor(
 			ResultPartitionID resultPartitionID,
-			int shuffleId,
+			CloudShuffleInfo shuffleInfo,
 			int mapperId,
 			int mapperAttemptId,
-			int numberOfMappers,
-			int numberOfReducers,
 			String masterHost,
 			String masterPort) {
 		this.resultPartitionID = resultPartitionID;
-		this.shuffleId = shuffleId;
+		this.shuffleInfo = shuffleInfo;
 		this.mapperId = mapperId;
 		this.mapperAttemptId = mapperAttemptId;
-		this.numberOfMappers = numberOfMappers;
-		this.numberOfReducers = numberOfReducers;
 		this.masterHost = masterHost;
 		this.masterPort = masterPort;
 	}
 
 	public int getShuffleId() {
-		return shuffleId;
+		return shuffleInfo.getShuffleId();
 	}
 
 	public int getMapperId() {
@@ -70,11 +68,27 @@ public class CloudShuffleDescriptor implements ShuffleDescriptor {
 	}
 
 	public int getNumberOfMappers() {
-		return numberOfMappers;
+		return shuffleInfo.getNumberOfMappers();
 	}
 
 	public int getNumberOfReducers() {
-		return numberOfReducers;
+		return shuffleInfo.getNumberOfReducers();
+	}
+
+	public int getMapperBeginIndex() {
+		return shuffleInfo.getMapperBeginIndex();
+	}
+
+	public int getMapperEndIndex() {
+		return shuffleInfo.getMapperEndIndex();
+	}
+
+	public int getReducerBeginIndex() {
+		return shuffleInfo.getReducerBeginIndex();
+	}
+
+	public int getReducerEndIndex() {
+		return shuffleInfo.getReducerEndIndex();
 	}
 
 	@Override
@@ -93,5 +107,67 @@ public class CloudShuffleDescriptor implements ShuffleDescriptor {
 
 	public String getMasterPort() {
 		return masterPort;
+	}
+
+	/**
+	 * CloudShuffleInfo.
+	 */
+	public static class CloudShuffleInfo implements Serializable {
+		private static final long serialVersionUID = 926787515L;
+
+		// high 16bit is application attempt
+		// low 16bit is shuffleId from ShuffleInfo.java
+		private final int shuffleId;
+		private final int mapperBeginIndex;
+		private final int mapperEndIndex;
+		private final int reducerBeginIndex;
+		private final int reducerEndIndex;
+
+		public CloudShuffleInfo(int shuffleId, int mapperBeginIndex, int mapperEndIndex, int reducerBeginIndex, int reducerEndIndex) {
+			this.shuffleId = shuffleId;
+			this.mapperBeginIndex = mapperBeginIndex;
+			this.mapperEndIndex = mapperEndIndex;
+			this.reducerBeginIndex = reducerBeginIndex;
+			this.reducerEndIndex = reducerEndIndex;
+		}
+
+		public int getShuffleId() {
+			return shuffleId;
+		}
+
+		public int getMapperBeginIndex() {
+			return mapperBeginIndex;
+		}
+
+		public int getMapperEndIndex() {
+			return mapperEndIndex;
+		}
+
+		public int getReducerBeginIndex() {
+			return reducerBeginIndex;
+		}
+
+		public int getReducerEndIndex() {
+			return reducerEndIndex;
+		}
+
+		public int getNumberOfMappers() {
+			return mapperEndIndex - mapperBeginIndex + 1;
+		}
+
+		public int getNumberOfReducers() {
+			return reducerEndIndex - reducerBeginIndex + 1;
+		}
+
+		@Override
+		public String toString() {
+			return "CloudShuffleInfo{" +
+				"shuffleId=" + shuffleId +
+				", mapperBeginIndex=" + mapperBeginIndex +
+				", mapperEndIndex=" + mapperEndIndex +
+				", reducerBeginIndex=" + reducerBeginIndex +
+				", reducerEndIndex=" + reducerEndIndex +
+				'}';
+		}
 	}
 }

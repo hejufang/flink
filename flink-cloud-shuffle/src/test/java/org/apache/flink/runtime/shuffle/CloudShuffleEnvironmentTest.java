@@ -38,11 +38,9 @@ public class CloudShuffleEnvironmentTest {
 
 		boolean changed = environment.setUpMasterHostAndPort(new Configuration(), new CloudShuffleDescriptor(
 				new ResultPartitionID(),
+				new CloudShuffleDescriptor.CloudShuffleInfo(1, 0, 1, 0, 1),
 				1,
 				1,
-				1,
-				2,
-				2,
 				"master-address",
 				"master-port"));
 		Assert.assertTrue(changed);

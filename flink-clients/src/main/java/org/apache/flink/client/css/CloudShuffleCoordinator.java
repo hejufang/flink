@@ -155,8 +155,8 @@ public class CloudShuffleCoordinator {
 					for (JobEdge edge : dataSet.getConsumers()) {
 						final DistributionPattern distributionPattern = edge.getDistributionPattern();
 						if (!distributionPattern.equals(DistributionPattern.ALL_TO_ALL)) {
-							LOG.info("JobGraph has POINTWISE distribution, cannot use Cloud Shuffle Service.");
-							return false;
+							LOG.info("JobGraph has POINTWISE distribution, use Cloud Shuffle Service.");
+							return true;
 						}
 					}
 				}

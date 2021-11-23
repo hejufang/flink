@@ -50,6 +50,8 @@ import java.util.stream.Collectors;
 public class CloudShuffleInputGate extends IndexedInputGate {
 	private static final Logger LOG = LoggerFactory.getLogger(CloudShuffleInputGate.class);
 
+	private final String taskName;
+
 	private final int gateIndex;
 
 	private final int numberOfMappers;
@@ -67,6 +69,7 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 	private long inputBytes;
 
 	public CloudShuffleInputGate(
+		String taskName,
 		int gateIndex,
 		String applicationId,
 		ShuffleClient shuffleClient,
@@ -74,12 +77,14 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 		int reducerId,
 		int numberOfMappers,
 		int segmentSize) {
+		this.taskName = taskName;
 		this.gateIndex = gateIndex;
 		this.numberOfMappers = numberOfMappers;
 
-		LOG.info("Reader(appId={},shuffleId={},reducerId={},numberOfMappers={})",
+		LOG.info("Task {} create Reader(appId={},shuffleId={},reducerId={},numberOfMappers={})",
+				taskName,
 				applicationId,
-				shuffleClient,
+				shuffleId,
 				reducerId,
 				numberOfMappers);
 		this.cloudShuffleReader = new CloudShuffleReader(

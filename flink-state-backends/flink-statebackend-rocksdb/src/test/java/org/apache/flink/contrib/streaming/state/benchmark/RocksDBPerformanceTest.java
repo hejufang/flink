@@ -87,7 +87,7 @@ public class RocksDBPerformanceTest extends TestLogger {
 				.setDisableWAL(true);
 	}
 
-	@Test(timeout = 2000)
+	@Test(timeout = 10000)
 	@RetryOnFailure(times = 3)
 	public void testRocksDbMergePerformance() throws Exception {
 		final int num = 50000;
@@ -139,7 +139,7 @@ public class RocksDBPerformanceTest extends TestLogger {
 		}
 	}
 
-	@Test(timeout = 2000)
+	@Test(timeout = 10000)
 	@RetryOnFailure(times = 3)
 	public void testRocksDbRangeGetPerformance() throws Exception {
 		final int num = 50000;

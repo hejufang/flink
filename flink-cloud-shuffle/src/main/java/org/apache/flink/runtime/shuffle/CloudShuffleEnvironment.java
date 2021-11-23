@@ -132,6 +132,7 @@ public class CloudShuffleEnvironment implements ShuffleEnvironment<CloudShuffleR
 				final int requiredMemorySegments = shuffleDescriptor.getNumberOfMappers() * buffersPerMapper;
 
 				resultPartitions[partitionIndex] = new CloudShuffleResultPartition(
+					ownerContext.getOwnerName(),
 					deploymentDescriptor.getMaxParallelism(),
 					shuffleDescriptor.getResultPartitionID(),
 					cssClient,
@@ -143,7 +144,7 @@ public class CloudShuffleEnvironment implements ShuffleEnvironment<CloudShuffleR
 							Integer.MAX_VALUE),
 					applicationId,
 					shuffleDescriptor.getShuffleId(),
-					shuffleDescriptor.getMapperId(),
+					shuffleDescriptor.getMapperId() - shuffleDescriptor.getMapperBeginIndex(), // start from 0
 					shuffleDescriptor.getMapperAttemptId(),
 					shuffleDescriptor.getNumberOfMappers(),
 					shuffleDescriptor.getNumberOfReducers());
@@ -179,6 +180,7 @@ public class CloudShuffleEnvironment implements ShuffleEnvironment<CloudShuffleR
 				final InputGateDeploymentDescriptor igdd = inputGateDeploymentDescriptors.get(gateIndex);
 				final CloudShuffleDescriptor cloudShuffleDescriptor = (CloudShuffleDescriptor) igdd.getShuffleDescriptors()[0];
 				inputGates[gateIndex] = new CloudShuffleInputGate(
+					ownerContext.getOwnerName(),
 					gateIndex,
 					applicationId,
 					cssClient,

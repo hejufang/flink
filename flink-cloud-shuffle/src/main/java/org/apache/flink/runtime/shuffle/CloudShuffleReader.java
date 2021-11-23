@@ -25,7 +25,7 @@ import org.apache.flink.runtime.shuffle.buffer.CloudShuffleBuffer;
 import org.apache.flink.runtime.shuffle.util.CloudShuffleReadWriterUtil;
 
 import com.bytedance.css.client.ShuffleClient;
-import com.bytedance.css.client.stream.CssInputStreamImpl;
+import com.bytedance.css.client.stream.CssInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +42,7 @@ public class CloudShuffleReader implements BufferRecycler {
 
 	private final ArrayDeque<MemorySegment> buffers;
 
-	private CssInputStreamImpl inputStream;
+	private CssInputStream inputStream;
 
 	public CloudShuffleReader(
 			int memorySegmentSize,
@@ -58,7 +58,7 @@ public class CloudShuffleReader implements BufferRecycler {
 		}
 
 		try {
-			inputStream = (CssInputStreamImpl) shuffleClient.readPartitions(
+			inputStream = shuffleClient.readPartitions(
 					applicationId,
 					shuffleId,
 					new int[] {reducerId},

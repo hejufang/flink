@@ -57,14 +57,28 @@ public class PartitionDescriptor implements Serializable {
 	/** Connection index to identify this partition of intermediate result. */
 	private final int connectionIndex;
 
+	/** Shuffle Info for a group of upstream-downstream shuffle. */
+	private final ShuffleInfo shuffleInfo;
+
 	@VisibleForTesting
+	public PartitionDescriptor(
+		IntermediateDataSetID resultId,
+		int totalNumberOfPartitions,
+		IntermediateResultPartitionID partitionId,
+		ResultPartitionType partitionType,
+		int numberOfSubpartitions,
+		int connectionIndex) {
+		this(resultId, totalNumberOfPartitions, partitionId, partitionType, numberOfSubpartitions, connectionIndex, null);
+	}
+
 	public PartitionDescriptor(
 			IntermediateDataSetID resultId,
 			int totalNumberOfPartitions,
 			IntermediateResultPartitionID partitionId,
 			ResultPartitionType partitionType,
 			int numberOfSubpartitions,
-			int connectionIndex) {
+			int connectionIndex,
+			ShuffleInfo shuffleInfo) {
 		this.resultId = checkNotNull(resultId);
 		checkArgument(totalNumberOfPartitions >= 1);
 		this.totalNumberOfPartitions = totalNumberOfPartitions;
@@ -73,6 +87,7 @@ public class PartitionDescriptor implements Serializable {
 		checkArgument(numberOfSubpartitions >= 1);
 		this.numberOfSubpartitions = numberOfSubpartitions;
 		this.connectionIndex = connectionIndex;
+		this.shuffleInfo = shuffleInfo;
 	}
 
 	public IntermediateDataSetID getResultId() {
@@ -99,16 +114,21 @@ public class PartitionDescriptor implements Serializable {
 		return connectionIndex;
 	}
 
+	public ShuffleInfo getShuffleInfo() {
+		return shuffleInfo;
+	}
+
 	@Override
 	public String toString() {
 		return String.format(
 			"PartitionDescriptor [result id: %s, partition id: %s, partition type: %s, " +
-				"subpartitions: %d, connection index: %d]",
+				"subpartitions: %d, connection index: %d, shuffle id: %s]",
 			resultId,
 			partitionId,
 			partitionType,
 			numberOfSubpartitions,
-			connectionIndex);
+			connectionIndex,
+			shuffleInfo);
 	}
 
 	public static PartitionDescriptor from(IntermediateResultPartition partition) {
@@ -133,6 +153,7 @@ public class PartitionDescriptor implements Serializable {
 			partition.getPartitionId(),
 			result.getResultType(),
 			numberOfSubpartitions,
-			result.getConnectionIndex());
+			result.getConnectionIndex(),
+			partition.getShuffleInfo());
 	}
 }

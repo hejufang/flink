@@ -48,6 +48,8 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class CloudShuffleResultPartition implements ResultPartitionWriter, BufferPoolOwner {
 	private static final Logger LOG = LoggerFactory.getLogger(CloudShuffleResultPartition.class);
 
+	private final String taskName;
+
 	private final ResultPartitionID partitionId;
 
 	private BufferPool bufferPool;
@@ -67,6 +69,7 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 	private final CloudShuffleWriter cloudShuffleWriter;
 
 	public CloudShuffleResultPartition(
+			String taskName,
 			int numTargetKeyGroups,
 			ResultPartitionID partitionId,
 			ShuffleClient shuffleClient,
@@ -77,12 +80,12 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 			int mapperAttemptId,
 			int numberOfMappers,
 			int numberOfReducers) {
+		this.taskName = taskName;
 		this.numberOfReducers = numberOfReducers;
 		this.numTargetKeyGroups = numTargetKeyGroups;
 		this.partitionId = checkNotNull(partitionId);
 		this.bufferPoolFactory = bufferPoolFactory;
 
-		// TODO. Cloud Shuffle Information
 		this.mapperId = mapperId;
 		this.mapperAttemptId = mapperAttemptId;
 
