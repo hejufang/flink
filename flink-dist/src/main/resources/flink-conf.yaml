@@ -249,8 +249,10 @@ common:
   bytedance.streaming.taskmanager.number-initial-percentage: 1.0
   bytedance.streaming.flink.job_api: DataStream
   bytedance.streaming.jobmanager.partition.release-during-job-execution: false
-  bytedance.streaming.cluster.evenly-spread-out-slots: true
   bytedance.streaming.execution.wait-running-on-detached: true
+  bytedance.streaming.cluster.evenly-spread-out-slots: false
+  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
+  bytedance.streaming.slot-pool.round-robin: true
 
   # hdfs conf for checkpoint
   flink.checkpoint.hdfs.dfs.datanode.socket.write.timeout: 30000
@@ -312,9 +314,6 @@ lepad:
   state.backend.cache.avgGcTimeThreshold: 3000
   state.backend.cache.maxGcTimeThreshold: 10000
   state.backend.cache.lowHeapThreshold: 0.4
-  bytedance.streaming.cluster.evenly-spread-out-slots: false
-  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
-  bytedance.streaming.slot-pool.round-robin: true
 
 larva:
   dc: cn
@@ -352,9 +351,6 @@ leser:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   yarn.provided.lib.dirs.enabled: true
-  bytedance.streaming.cluster.evenly-spread-out-slots: false
-  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
-  bytedance.streaming.slot-pool.round-robin: true
 
 lobst:
   dc: cn
@@ -393,9 +389,6 @@ horse:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  bytedance.streaming.cluster.evenly-spread-out-slots: false
-  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
-  bytedance.streaming.slot-pool.round-robin: true
 
 hibis:
   dc: cn
@@ -471,9 +464,6 @@ quoka:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  bytedance.streaming.cluster.evenly-spread-out-slots: false
-  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
-  bytedance.streaming.slot-pool.round-robin: true
   state.backend.cache.enable: true
   state.backend.cache.maxHeapSize: 1g
   state.backend.cache.blockSize: 4m
@@ -497,9 +487,6 @@ quaga:
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  bytedance.streaming.cluster.evenly-spread-out-slots: false
-  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
-  bytedance.streaming.slot-pool.round-robin: true
 
 quele:
   dc: cn
@@ -785,9 +772,6 @@ boe:
   register-dashboard.token: "Bearer eyJrIjoiTURSV01QeWNDZXJXYUNBdEhkSU94U2tKajU2M1BVM24iLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
-  bytedance.streaming.cluster.evenly-spread-out-slots: false
-  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
-  bytedance.streaming.slot-pool.round-robin: true
   flink.cloud-shuffle-service.support: false
 
 cof:
