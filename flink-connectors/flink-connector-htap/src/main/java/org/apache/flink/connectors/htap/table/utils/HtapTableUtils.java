@@ -115,6 +115,9 @@ public class HtapTableUtils {
 				return convertBinaryComparison(functionDefinition, children);
 			} else if (children.size() > 0 &&
 					functionDefinition.equals(BuiltInFunctionDefinitions.OR)) {
+				return convertOptimizedIsInExpression(children);
+			} else if (children.size() > 1 &&
+					functionDefinition.equals(BuiltInFunctionDefinitions.IN)) {
 				return convertIsInExpression(children);
 			}
 		}
@@ -198,7 +201,9 @@ public class HtapTableUtils {
 		return Optional.empty();
 	}
 
-	private static Optional<HtapFilterInfo> convertIsInExpression(List<Expression> children) {
+	// some `in` expression will optimized into `equal` expression connected with `or`
+	// e.g. a in (1,2,3) => a = 1 or a = 2 or a = 3
+	private static Optional<HtapFilterInfo> convertOptimizedIsInExpression(List<Expression> children) {
 		// IN operation will be: or(equals(field, value1), or(equals(field, value2), ...)) in blink
 		// For FilterType IS_IN, all internal CallExpression's function need to be equals and
 		// fields need to be same
@@ -254,6 +259,31 @@ public class HtapTableUtils {
 		}
 		HtapFilterInfo.Builder builder = HtapFilterInfo.Builder.create(columnName);
 		return Optional.of(builder.isIn(values).build());
+	}
+
+	private static Optional<HtapFilterInfo> convertIsInExpression(List<Expression> children) {
+		if (isFieldReferenceExpression(children.get(0))) {
+			List<Expression> valueExprs = children.subList(1, children.size());
+			Optional<FieldReferenceExpression> optionalFieldExpr =
+				getFieldReferenceExpression(children.get(0));
+
+			if (optionalFieldExpr.isPresent()) {
+				FieldReferenceExpression fieldReferenceExpression = optionalFieldExpr.get();
+				String fieldName = fieldReferenceExpression.getName();
+				List<Object> values = new ArrayList<>();
+				for (Expression expr : valueExprs) {
+					if (isValueLiteralExpression(expr)) {
+						values.add(
+							extractValueLiteral(fieldReferenceExpression, (ValueLiteralExpression) expr));
+					} else {
+						return Optional.empty();
+					}
+				}
+				HtapFilterInfo.Builder builder = HtapFilterInfo.Builder.create(fieldName);
+				return Optional.of(builder.isIn(values).build());
+			}
+		}
+		return Optional.empty();
 	}
 
 	private static Object extractValueLiteral(

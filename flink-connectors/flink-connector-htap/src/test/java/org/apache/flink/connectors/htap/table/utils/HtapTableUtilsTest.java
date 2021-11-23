@@ -436,7 +436,22 @@ public class HtapTableUtilsTest {
 			Arrays.asList(equalExpression, equalExpression),
 			DataTypes.BOOLEAN());
 
-		// OR(`filed`, `literal`)
+		CallExpression inExpression = new CallExpression(
+			BuiltInFunctionDefinitions.IN,
+			Arrays.asList(STR_FIELD, STR_VALUE_1, STR_VALUE_2, STR_VALUE_3, STR_VALUE_4),
+			DataTypes.BOOLEAN());
+
+		// IN(`field`, `literal1`, `literal2`, `literal3`, `literal4`)
+		info = HtapTableUtils.toHtapFilterInfo(inExpression)
+			.orElse(null);
+
+		expected = HtapFilterInfo.Builder.create("str_test")
+			.isIn(Arrays.asList("str1", "str2", "str3", "str4"))
+			.build();
+
+		Assert.assertEquals(expected, info);
+
+		// OR(`field`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.OR,
 			Arrays.asList(INT_FIELD, INT_VALUE_1),
