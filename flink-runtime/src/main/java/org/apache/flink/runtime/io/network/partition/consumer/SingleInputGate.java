@@ -909,7 +909,9 @@ public class SingleInputGate extends IndexedInputGate {
 	public long getInBytes() {
 		long sum = 0L;
 		for (InputChannel channel : channels) {
-			sum += channel.getInBytes();
+			if (channel != null) {
+				sum += channel.getInBytes();
+			}
 		}
 		return sum;
 	}
