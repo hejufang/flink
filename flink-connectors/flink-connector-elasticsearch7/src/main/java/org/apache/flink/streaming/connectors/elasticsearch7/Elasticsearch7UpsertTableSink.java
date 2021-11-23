@@ -28,12 +28,17 @@ import org.apache.flink.streaming.connectors.elasticsearch.ActionRequestFailureH
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase;
 import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer;
-import org.apache.flink.streaming.connectors.elasticsearch7.util.ESHttpRoutePlanner;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 
+import org.apache.flink.shaded.byted.org.byted.infsec.client.InfSecException;
+import org.apache.flink.shaded.byted.org.byted.infsec.client.SecTokenC;
+
+import org.apache.http.Header;
 import org.apache.http.HttpHost;
+import org.apache.http.message.BasicHeader;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
@@ -63,7 +68,6 @@ import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchU
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.BULK_FLUSH_MAX_SIZE;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.CONNECT_TIMEOUT;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.DISABLE_FLUSH_ON_CHECKPOINT;
-import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.ENABLE_BYTE_ES_GDPR;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.REST_PATH_PREFIX;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.SOCKET_TIMEOUT;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.URI;
@@ -73,6 +77,8 @@ import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchU
  */
 @Internal
 public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkBase {
+
+	private static final String BYTEES_GDPR_HEADER_KEY = "Gdpr-Token";
 
 	@VisibleForTesting
 	static final RequestFactory UPDATE_REQUEST_FACTORY =
@@ -283,8 +289,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			.ifPresent(v -> builder.setSocketTimeout(Integer.parseInt(v)));
 
 		if (psm.isPresent()) {
-			boolean enableGdpr = Boolean.parseBoolean(sinkOptions.getOrDefault(ENABLE_BYTE_ES_GDPR, "false"));
-			builder.setRestClientFactory(new RoutedRestClientFactory(sinkOptions.get(REST_PATH_PREFIX), enableGdpr));
+
+			builder.setRestClientFactory(new RoutedRestClientFactory(sinkOptions.get(REST_PATH_PREFIX)));
 		} else {
 			builder.setRestClientFactory(new DefaultRestClientFactory(sinkOptions.get(REST_PATH_PREFIX)));
 		}
@@ -361,11 +367,9 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 		private static final long serialVersionUID = 1L;
 
 		private final String pathPrefix;
-		private final boolean enableGdpr;
 
-		public RoutedRestClientFactory(@Nullable String pathPrefix, boolean enableGdpr) {
+		public RoutedRestClientFactory(@Nullable String pathPrefix) {
 			this.pathPrefix = pathPrefix;
-			this.enableGdpr = enableGdpr;
 		}
 
 		@Override
@@ -373,8 +377,20 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			if (pathPrefix != null) {
 				restClientBuilder.setPathPrefix(pathPrefix);
 			}
-			restClientBuilder.setHttpClientConfigCallback(httpAsyncClientBuilder ->
-				httpAsyncClientBuilder.setRoutePlanner(new ESHttpRoutePlanner(enableGdpr)));
+			// add GDPR header
+			restClientBuilder.setDefaultHeaders(new Header[]{new BasicHeader(BYTEES_GDPR_HEADER_KEY, getGdprToken())});
+		}
+
+		private String getGdprToken() {
+			try {
+				String token = SecTokenC.getToken(false);
+				if (token != null && !token.isEmpty()) {
+					return token;
+				}
+			} catch (InfSecException e) {
+				throw new FlinkRuntimeException(e);
+			}
+			return null;
 		}
 
 		@Override

@@ -63,10 +63,14 @@ under the License.
 			https://issues.apache.org/jira/browse/HTTPCORE-446
 		 -->
 
+		<!--
+		See: https://stackoverflow.com/questions/59714835/connectionclosedexception-while-using-elastic-resthighlevelclient-bulk-request
+		The core problem is flink parent's dependencyManagement overrides httpcore's version to 4.4.6.
+		-->
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpcore</artifactId>
-			<version>4.4.7</version>
+			<version>4.4.12</version>
 		</dependency>
 
 		<dependency>
@@ -98,6 +102,18 @@ under the License.
 			<groupId>org.elasticsearch.client</groupId>
 			<artifactId>elasticsearch-rest-high-level-client</artifactId>
 			<version>${elasticsearch7.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.elasticsearch.client</groupId>
+			<artifactId>elasticsearch-rest-client-sniffer</artifactId>
+			<version>${elasticsearch7.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-shaded-bytedance-commons</artifactId>
+			<version>${flink.shaded.version}</version>
 		</dependency>
 
 		<!--

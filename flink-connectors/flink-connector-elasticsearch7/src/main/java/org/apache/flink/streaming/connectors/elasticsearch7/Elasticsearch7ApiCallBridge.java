@@ -21,7 +21,10 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchApiCallBridge;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase;
 import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer;
+import org.apache.flink.streaming.connectors.elasticsearch7.util.ConsulNodesSniffer;
 import org.apache.flink.util.Preconditions;
+
+import org.apache.flink.shaded.byted.com.bytedance.commons.consul.Discovery;
 
 import org.apache.http.HttpHost;
 import org.elasticsearch.action.bulk.BackoffPolicy;
@@ -31,6 +34,9 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.sniff.NodesSniffer;
+import org.elasticsearch.client.sniff.SniffOnFailureListener;
+import org.elasticsearch.client.sniff.Sniffer;
 import org.elasticsearch.common.unit.TimeValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +47,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase.CONFIG_CONNECT_TIMEOUT;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase.CONFIG_SOCKET_TIMEOUT;
@@ -54,6 +61,12 @@ public class Elasticsearch7ApiCallBridge implements ElasticsearchApiCallBridge<R
 	private static final long serialVersionUID = -5222683870097809633L;
 
 	private static final Logger LOG = LoggerFactory.getLogger(Elasticsearch7ApiCallBridge.class);
+
+	private static final Discovery DISCOVERY = new Discovery();
+
+	private static final String ES_HTTP_SCHEMA = "http";
+
+	private static final String ES_PSM_SCHEMA = "psm";
 
 	/**
 	 * User-provided HTTP Host.
@@ -73,6 +86,10 @@ public class Elasticsearch7ApiCallBridge implements ElasticsearchApiCallBridge<R
 
 	@Override
 	public RestHighLevelClient createClient(Map<String, String> clientConfig) throws IOException {
+		if (httpHosts.size() == 1 && ES_PSM_SCHEMA.equals(httpHosts.get(0).getSchemeName())) {
+			return createSnifferClientByPsm(httpHosts, clientConfig);
+		}
+
 		RestClientBuilder builder =
 			RestClient.builder(httpHosts.toArray(new HttpHost[httpHosts.size()]))
 			.setRequestConfigCallback(
@@ -102,6 +119,64 @@ public class Elasticsearch7ApiCallBridge implements ElasticsearchApiCallBridge<R
 		if (LOG.isInfoEnabled()) {
 			LOG.info("Created Elasticsearch RestHighLevelClient connected to {}", httpHosts.toString());
 		}
+
+		return rhlClient;
+	}
+
+	private RestHighLevelClient createSnifferClientByPsm(List<HttpHost> httpHosts, Map<String, String> clientConfig) {
+		if (httpHosts.size() != 1 || !httpHosts.get(0).getSchemeName().equals(ES_PSM_SCHEMA)) {
+			throw new RuntimeException("Create psm sniffer client must have only one host and psm schema!");
+		}
+		// 截取psm
+		String psm = null;
+		String cluster = "default";
+		String hostName = httpHosts.get(0).getHostName();
+
+		int userInfoIdx = hostName.indexOf('@');
+		if (userInfoIdx >= 0) {
+			hostName = hostName.substring(userInfoIdx + 1);
+		}
+
+		int clusterIdx = hostName.indexOf('$');
+		if (clusterIdx > 0) {
+			psm = hostName.substring(0, clusterIdx);
+			cluster = hostName.substring(clusterIdx + 1);
+		}
+
+		// find all nodes by consul
+		List<HttpHost> nodes = DISCOVERY.translateOne(psm).stream()
+			.map(serviceNode -> new HttpHost(serviceNode.getHost(), serviceNode.getPort(), ES_HTTP_SCHEMA))
+			.collect(Collectors.toList());
+		if (nodes.size() <= 0) {
+			throw new RuntimeException("There are no reachable Elasticsearch nodes!");
+		}
+
+		// create client
+		RestClientBuilder builder = RestClient.builder(nodes.toArray(new HttpHost[0]));
+
+		builder.setRequestConfigCallback(requestConfigBuilder -> {
+			if (clientConfig.containsKey(CONFIG_CONNECT_TIMEOUT)) {
+				requestConfigBuilder
+					.setConnectTimeout(Integer.parseInt(clientConfig.get(CONFIG_CONNECT_TIMEOUT)));
+			}
+			if (clientConfig.containsKey(CONFIG_SOCKET_TIMEOUT)) {
+				requestConfigBuilder
+					.setSocketTimeout(Integer.parseInt(clientConfig.get(CONFIG_SOCKET_TIMEOUT)));
+			}
+			return requestConfigBuilder;
+		});
+
+		// create and config sniffer
+		SniffOnFailureListener listener = new SniffOnFailureListener();
+		builder.setFailureListener(listener);
+
+		restClientFactory.configureRestClientBuilder(builder);
+		RestHighLevelClient rhlClient = new RestHighLevelClient(builder);
+		NodesSniffer nodesSniffer = new ConsulNodesSniffer(rhlClient.getLowLevelClient(), psm, cluster, ES_HTTP_SCHEMA);
+		Sniffer sniffer = Sniffer.builder(rhlClient.getLowLevelClient()).setNodesSniffer(nodesSniffer).build();
+		listener.setSniffer(sniffer);
+
+		LOG.info("Create client successful, psm: {}, hosts: {}", psm, nodes.stream().map(HttpHost::toHostString).collect(Collectors.joining(";")));
 
 		return rhlClient;
 	}
