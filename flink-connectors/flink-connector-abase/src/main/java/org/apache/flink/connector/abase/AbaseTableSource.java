@@ -36,6 +36,7 @@ import org.apache.flink.table.utils.TableSchemaUtils;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
@@ -128,5 +129,25 @@ public class AbaseTableSource implements LookupTableSource, SupportsProjectionPu
 	@Override
 	public void applyProjection(int[][] projectedFields) {
 		this.schema = TableSchemaUtils.projectSchema(schema, projectedFields);
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (!(o instanceof AbaseTableSource)) {
+			return false;
+		}
+		AbaseTableSource that = (AbaseTableSource) o;
+		return Objects.equals(normalOptions, that.normalOptions) &&
+			Objects.equals(lookupOptions, that.lookupOptions) &&
+			Objects.equals(decodingFormat, that.decodingFormat) &&
+			Objects.equals(schema, that.schema);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(normalOptions, lookupOptions, decodingFormat, schema);
 	}
 }

@@ -23,6 +23,7 @@ import org.apache.flink.connector.abase.utils.AbaseValueType;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * normal options for abase: source/sink.
@@ -239,5 +240,45 @@ public class AbaseNormalOptions implements Serializable {
 				", abaseValueType=" + abaseValueType +
 				'}';
 		}
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (!(o instanceof AbaseNormalOptions)) {
+			return false;
+		}
+		AbaseNormalOptions that = (AbaseNormalOptions) o;
+		return timeout == that.timeout &&
+			maxTotalConnections == that.maxTotalConnections &&
+			maxIdleConnections == that.maxIdleConnections &&
+			minIdleConnections == that.minIdleConnections &&
+			maxRetries == that.maxRetries &&
+			keyIndex == that.keyIndex &&
+			Objects.equals(cluster, that.cluster) &&
+			Objects.equals(table, that.table) &&
+			Objects.equals(storage, that.storage) &&
+			Objects.equals(psm, that.psm) &&
+			abaseValueType == that.abaseValueType &&
+			Objects.equals(rateLimiter, that.rateLimiter);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(
+			cluster,
+			table,
+			storage,
+			psm,
+			timeout,
+			maxTotalConnections,
+			maxIdleConnections,
+			minIdleConnections,
+			maxRetries,
+			keyIndex,
+			abaseValueType,
+			rateLimiter);
 	}
 }

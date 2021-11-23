@@ -210,7 +210,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 	private AbaseNormalOptions getAbaseNormalOptions(ReadableConfig config, TableSchema physicalSchema, String jobPSM) {
 		Optional<Integer> keyIndex = validateAndGetKeyIndex(config, physicalSchema);
 		AbaseNormalOptions.AbaseOptionsBuilder builder = AbaseNormalOptions.builder()
-			.setCluster(config.get(CLUSTER))
+			.setCluster(transformClusterName(config.get(CLUSTER)))
 			.setTable(config.getOptional(TABLE).orElse(null))
 			.setStorage(config.get(CONNECTOR))
 			.setPsm(jobPSM)
@@ -322,6 +322,23 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			return physicalSchema.getFieldNameIndex(keyFields[0]);
 		}
 		return Optional.empty();
+	}
+
+	/**
+	 * convert abase cluster name "{cluster}.service" to "{cluster}".
+	 *
+	 * @param clusterName abase/redis cluster name
+	 * @return compatible cluster name of flink1.9
+	 */
+	private static String transformClusterName(String clusterName) {
+		// the same splitting cluster name logic as abase java client 2.4.2
+		if (clusterName.startsWith("abase_")) {
+			String[] token = clusterName.split("\\.");
+			if (token.length == 2 && token[1].equals("service")) {
+				clusterName = token[0];
+			}
+		}
+		return clusterName;
 	}
 
 	private static String getJobPSM(ReadableConfig config) {

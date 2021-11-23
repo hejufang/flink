@@ -22,6 +22,7 @@ import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * sink options for abase: sink.
@@ -202,4 +203,37 @@ public class AbaseSinkOptions implements Serializable {
 		}
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (!(o instanceof AbaseSinkOptions)) {
+			return false;
+		}
+		AbaseSinkOptions that = (AbaseSinkOptions) o;
+		return flushMaxRetries == that.flushMaxRetries &&
+			bufferMaxRows == that.bufferMaxRows &&
+			bufferFlushInterval == that.bufferFlushInterval &&
+			ttlSeconds == that.ttlSeconds &&
+			parallelism == that.parallelism &&
+			logFailuresOnly == that.logFailuresOnly &&
+			skipFormatKey == that.skipFormatKey &&
+			ignoreDelete == that.ignoreDelete &&
+			mode == that.mode;
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(
+			flushMaxRetries,
+			mode,
+			bufferMaxRows,
+			bufferFlushInterval,
+			ttlSeconds,
+			parallelism,
+			logFailuresOnly,
+			skipFormatKey,
+			ignoreDelete);
+	}
 }
