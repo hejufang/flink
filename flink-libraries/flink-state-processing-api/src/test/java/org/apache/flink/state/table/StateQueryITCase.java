@@ -35,9 +35,12 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.state.FunctionInitializationContext;
+import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.state.table.catalog.SavepointCatalog;
 import org.apache.flink.state.table.catalog.resolver.LocationResolver;
+import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.DiscardingSink;
@@ -62,6 +65,7 @@ import org.junit.runners.Parameterized;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
@@ -133,12 +137,22 @@ public class StateQueryITCase {
 		final TableResult result = tEnv.executeSql("show tables");
 
 		List expect = new ArrayList();
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8#all_keyed_states"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8#all_operator_states"));
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8#listState"));
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8#mapState"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8#unionState"));
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8#valueState"));
 
 		expect.add(Row.of("state_meta"));
+		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
+	}
 
+	@Test
+	public void testShowViews(){
+		final TableResult result = tEnv.executeSql("show views");
+		List expect = new ArrayList();
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8#all_states"));
 		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
 	}
 
@@ -163,46 +177,86 @@ public class StateQueryITCase {
 			default:
 				throw new IllegalStateException("Unsupported state backend selected.");
 		}
-
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", true, "Integer", "valueState", "VALUE", stateBackendType));
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", true, "Integer", "listState", "LIST", stateBackendType));
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", true, "Integer", "mapState", "MAP", stateBackendType));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", false, null, "unionState", "LIST", "OPERATOR_STATE_BACKEND"));
 		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
-
 	}
 
 	@Test
 	public void testKeyedListStateQuery() {
-
 		final TableResult result = tEnv.executeSql("select * from `0e1febe90327d1cea326114660ec1de8#listState`");
 		List expect = new ArrayList();
 		expect.add(Row.of("3", "VoidNamespace", "value_0"));
 		expect.add(Row.of("3", "VoidNamespace", "value_1"));
 		expect.add(Row.of("3", "VoidNamespace", "value_2"));
 		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
-
 	}
 
 	@Test
 	public void testKeyedValueStateQuery() {
-
 		final TableResult result = tEnv.executeSql("select * from `0e1febe90327d1cea326114660ec1de8#valueState`");
 		List expect = new ArrayList();
 		expect.add(Row.of("3", "VoidNamespace", "3"));
 		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
-
 	}
 
 	@Test
 	public void testKeyedMapStateQuery() {
-
 		final TableResult result = tEnv.executeSql("select * from `0e1febe90327d1cea326114660ec1de8#mapState`");
 		List expect = new ArrayList();
 		expect.add(Row.of("3", "VoidNamespace", "userKey_0=value_0"));
 		expect.add(Row.of("3", "VoidNamespace", "userKey_1=value_1"));
 		expect.add(Row.of("3", "VoidNamespace", "userKey_2=value_2"));
 		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
+	}
 
+	@Test
+	public void testUnionStateQuery() {
+		final TableResult result = tEnv.executeSql("select * from `0e1febe90327d1cea326114660ec1de8#unionState`");
+		List expect = new ArrayList();
+		expect.add(Row.of("value_0"));
+		expect.add(Row.of("value_1"));
+		expect.add(Row.of("value_2"));
+		List restList = Lists.newArrayList(result.collect());
+		expect.sort(Comparator.comparing(rowData -> rowData.toString()));
+		restList.sort(Comparator.comparing(rowData -> rowData.toString()));
+
+		Assert.assertEquals(expect, restList);
+	}
+
+	@Test
+	public void testAllKeyedQuery() {
+		final TableResult result = tEnv.executeSql("select * from `0e1febe90327d1cea326114660ec1de8#all_keyed_states`");
+		List expect = new ArrayList();
+		expect.add(Row.of("listState", "3", "VoidNamespace", "value_0"));
+		expect.add(Row.of("listState", "3", "VoidNamespace", "value_1"));
+		expect.add(Row.of("listState", "3", "VoidNamespace", "value_2"));
+		expect.add(Row.of("mapState", "3", "VoidNamespace", "userKey_0=value_0"));
+		expect.add(Row.of("mapState", "3", "VoidNamespace", "userKey_1=value_1"));
+		expect.add(Row.of("mapState", "3", "VoidNamespace", "userKey_2=value_2"));
+		expect.add(Row.of("valueState", "3", "VoidNamespace", "3"));
+
+		List restList = Lists.newArrayList(result.collect());
+		expect.sort(Comparator.comparing(rowData -> rowData.toString()));
+		restList.sort(Comparator.comparing(rowData -> rowData.toString()));
+
+		Assert.assertEquals(expect, restList);
+	}
+
+	@Test
+	public void testAllOperatorStateQuery() {
+		final TableResult result = tEnv.executeSql("select * from `0e1febe90327d1cea326114660ec1de8#all_operator_states`");
+		List expect = new ArrayList();
+		expect.add(Row.of("unionState", "value_0"));
+		expect.add(Row.of("unionState", "value_1"));
+		expect.add(Row.of("unionState", "value_2"));
+		List restList = Lists.newArrayList(result.collect());
+		expect.sort(Comparator.comparing(rowData -> rowData.toString()));
+		restList.sort(Comparator.comparing(rowData -> rowData.toString()));
+
+		Assert.assertEquals(expect, restList);
 	}
 
 	private String submitJobAndTakeSavepoint(MiniClusterResourceFactory clusterFactory, int parallelism) throws Exception {
@@ -288,17 +342,20 @@ public class StateQueryITCase {
 		}
 	}
 
-	static class StatefulFunction extends RichFlatMapFunction<Integer, Void> {
+	static class StatefulFunction extends RichFlatMapFunction<Integer, Void> implements CheckpointedFunction {
 
 		private static volatile CountDownLatch progressLatch = new CountDownLatch(0);
 
 		private ValueStateDescriptor<Integer> valueStateDescriptor = new ValueStateDescriptor<>("valueState", Types.INT);
 		private MapStateDescriptor<String, String> mapStateDescriptor = new MapStateDescriptor<>("mapState", Types.STRING, Types.STRING);
 		private ListStateDescriptor<String> listStateDescriptor = new ListStateDescriptor<>("listState", Types.STRING);
+		private ListStateDescriptor<String> unionStateDescriptor = new ListStateDescriptor<>("unionState", Types.STRING);
+
 
 		ValueState<Integer> valueState;
 		MapState<String, String> mapState;
 		ListState<String> listState;
+		ListState<String> unionState;
 
 		@Override
 		public void open(Configuration parameters) {
@@ -311,17 +368,25 @@ public class StateQueryITCase {
 		public void flatMap(Integer value, Collector<Void> out) throws Exception {
 			valueState.update(value);
 
-			ArrayList<String> listVaules = new ArrayList();
+			ArrayList<String> listValues = new ArrayList();
 
 			for (Integer i = 0; i < value; i++) {
 				String userKey = "userKey_" + i;
 				String userValue = "value_" + i;
 				mapState.put(userKey, userValue);
-				listVaules.add(userValue);
+				listValues.add(userValue);
 			}
-
-			listState.update(listVaules);
+			unionState.update(listValues);
+			listState.update(listValues);
 			progressLatch.countDown();
+		}
+
+		@Override
+		public void snapshotState(FunctionSnapshotContext context) {}
+
+		@Override
+		public void initializeState(FunctionInitializationContext context) throws Exception {
+			unionState = context.getOperatorStateStore().getUnionListState(unionStateDescriptor);
 		}
 
 		static CountDownLatch getProgressLatch() {

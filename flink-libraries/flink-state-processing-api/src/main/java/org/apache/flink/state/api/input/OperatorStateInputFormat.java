@@ -176,7 +176,7 @@ public abstract class OperatorStateInputFormat<OT> extends RichInputFormat<OT, O
 		return elements.next();
 	}
 
-	private static OperatorStateBackend createOperatorStateBackend(
+	public static OperatorStateBackend createOperatorStateBackend(
 		RuntimeContext runtimeContext,
 		Collection<OperatorStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry){

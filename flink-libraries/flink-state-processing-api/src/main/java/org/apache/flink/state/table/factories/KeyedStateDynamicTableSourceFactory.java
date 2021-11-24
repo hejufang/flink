@@ -52,8 +52,8 @@ public class KeyedStateDynamicTableSourceFactory implements DynamicTableSourceFa
 		.noDefaultValue()
 		.withDescription("Required. It defines operatorID.");
 
-	private static final ConfigOption<String> STATE_NAME = ConfigOptions
-		.key("stateName")
+	private static final ConfigOption<String> STATE_NAMES = ConfigOptions
+		.key("stateNames")
 		.stringType()
 		.noDefaultValue()
 		.withDescription("Required. It defines stateName.");
@@ -68,7 +68,7 @@ public class KeyedStateDynamicTableSourceFactory implements DynamicTableSourceFa
 		Set<ConfigOption<?>> set = new HashSet<>();
 		set.add(PATH);
 		set.add(OPERATOR_ID);
-		set.add(STATE_NAME);
+		set.add(STATE_NAMES);
 		return set;
 	}
 
@@ -80,17 +80,15 @@ public class KeyedStateDynamicTableSourceFactory implements DynamicTableSourceFa
 
 	@Override
 	public DynamicTableSource createDynamicTableSource(Context context) {
-
 		FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
 
 		ReadableConfig config = helper.getOptions();
 		String savepointPath = config.get(PATH);
 		String operatorID = config.get(OPERATOR_ID);
-		String stateName = config.get(STATE_NAME);
+		String stateNames = config.get(STATE_NAMES);
+		DataType dataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
 
-		DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
-
-		return new KeyedStateDynamicTableSource(savepointPath, operatorID, stateName, producedDataType);
+		return new KeyedStateDynamicTableSource(savepointPath, operatorID, stateNames, dataType);
 
 	}
 }

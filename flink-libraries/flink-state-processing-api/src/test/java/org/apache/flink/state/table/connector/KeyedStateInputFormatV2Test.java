@@ -42,16 +42,13 @@ import org.apache.flink.streaming.api.operators.StreamFlatMap;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.util.KeyedOneInputStreamOperatorTestHarness;
 import org.apache.flink.streaming.util.MockStreamingRuntimeContext;
-import org.apache.flink.table.connector.source.DynamicTableSource;
+import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.binary.BinaryStringData;
-import org.apache.flink.table.runtime.connector.source.ScanRuntimeProviderContext;
-import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.Collector;
 
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -61,8 +58,10 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.state.api.input.WindowReaderTest.getWindowOperator;
 
@@ -72,9 +71,7 @@ import static org.apache.flink.state.api.input.WindowReaderTest.getWindowOperato
 public class KeyedStateInputFormatV2Test {
 
 	private static ValueStateDescriptor<Integer> valueStateDescriptor = new ValueStateDescriptor<>("valueState", Types.INT);
-
 	private static MapStateDescriptor<String, String> mapStateDescriptor = new MapStateDescriptor<>("mapState", Types.STRING, Types.STRING);
-
 	private static ListStateDescriptor<String> listStateDescriptor = new ListStateDescriptor<>("listState", Types.STRING);
 
 	private static OneInputStreamOperator keyedStateOperator = new StreamFlatMap<>(new KeyedStateInputFormatV2Test.StatefulFunction());
@@ -84,29 +81,23 @@ public class KeyedStateInputFormatV2Test {
 
 	@ClassRule
 	public static TemporaryFolder temporaryFolder = new TemporaryFolder();
-	private static DynamicTableSource.DataStructureConverter converter;
-
-	@Before
-	public void setUpConverter(){
-		DataType keyedStateDataType = SavepointCatalogUtils.KEYED_STATE_TABLE_SCHEMA.toPhysicalRowDataType();
-		converter = ScanRuntimeProviderContext.INSTANCE.createDataStructureConverter(keyedStateDataType);
-	}
+	private static TableSchema tableSchema = SavepointCatalogUtils.KEYED_STATE_TABLE_SCHEMA;
 
 	public KeyedStateInputFormatV2 setUpKeyedStateInputFormat(StateDescriptor stateDescriptor, OneInputStreamOperator operator) throws Exception {
+		return setUpKeyedStateInputFormat(Collections.singletonList(stateDescriptor), operator);
+	}
 
-		builder = new KeyedStateInputFormatV2.Builder(temporaryFolder.newFolder().toURI().toString(), operatorID.toString(), stateDescriptor.getName(), converter);
-
+	public KeyedStateInputFormatV2 setUpKeyedStateInputFormat(List<StateDescriptor> stateDescriptors, OneInputStreamOperator operator) throws Exception {
+		List<String> stateNames = stateDescriptors.stream().map(stateDescriptor -> stateDescriptor.getName()).collect(Collectors.toList());
+		builder = new KeyedStateInputFormatV2.Builder(temporaryFolder.newFolder().toURI().toString(), operatorID.toString(), stateNames, tableSchema.toPhysicalRowDataType());
 		OperatorSnapshotFinalizer state = createOperatorSubtaskState(operator);
 		OperatorState operatorState = new OperatorState(operatorID, 1, 128);
 		operatorState.putState(0, state.getJobManagerOwnedState());
-
 		OperatorStateMeta operatorStateMeta = new OperatorStateMeta(operatorID);
 		operatorStateMeta.mergeSubtaskStateMeta(state.getJobManagerOwnedStateMeta());
-
 		builder.setOperatorState(operatorState);
 		builder.setOperatorStateMeta(operatorStateMeta);
 		KeyedStateInputFormatV2 format = builder.build();
-
 		return format;
 	}
 
@@ -182,6 +173,34 @@ public class KeyedStateInputFormatV2Test {
 	}
 
 	@Test
+	public void testReadMultiState() throws Exception {
+		List<StateDescriptor> inputStateDesc = Arrays.asList(listStateDescriptor, mapStateDescriptor, valueStateDescriptor);
+		KeyedStateInputFormatV2 format = setUpKeyedStateInputFormat(inputStateDesc, keyedStateOperator);
+		KeyGroupRangeInputSplit split = format.createInputSplits(1)[0];
+		List<RowData> data = readInputSplit(format, split);
+
+		List<GenericRowData> expect = Arrays.asList(
+			genResultRow("1", "VoidNamespace", "value_0"),
+			genResultRow("2", "VoidNamespace", "value_0"),
+			genResultRow("2", "VoidNamespace", "value_1"),
+			genResultRow("3", "VoidNamespace", "value_0"),
+			genResultRow("3", "VoidNamespace", "value_1"),
+			genResultRow("3", "VoidNamespace", "value_2"),
+			genResultRow("1", "VoidNamespace", "userKey_0=value_0"),
+			genResultRow("2", "VoidNamespace", "userKey_0=value_0"),
+			genResultRow("2", "VoidNamespace", "userKey_1=value_1"),
+			genResultRow("3", "VoidNamespace", "userKey_0=value_0"),
+			genResultRow("3", "VoidNamespace", "userKey_1=value_1"),
+			genResultRow("3", "VoidNamespace", "userKey_2=value_2"),
+			genResultRow("1", "VoidNamespace", "1"),
+			genResultRow("2", "VoidNamespace", "2"),
+			genResultRow("3", "VoidNamespace", "3"));
+		expect.sort(Comparator.comparing(rowData -> rowData.toString()));
+
+		Assert.assertEquals("Incorrect data read from input split", expect, data);
+	}
+
+	@Test
 	public void testReaderWindowState() throws Exception {
 		OneInputStreamOperator windowOperator = getWindowOperator(stream -> stream.timeWindow(Time.milliseconds(1)).reduce(new ReduceSum()));
 
@@ -209,17 +228,13 @@ public class KeyedStateInputFormatV2Test {
 
 		List<RowData> data = new ArrayList<>();
 		format.setRuntimeContext(new MockStreamingRuntimeContext(false, 1, 0));
-
 		format.openInputFormat();
 		format.open(split);
-
 		while (!format.reachedEnd()) {
 			data.add(format.nextRecord(null));
 		}
-
 		format.close();
 		format.closeInputFormat();
-
 		data.sort(Comparator.comparing(rowData -> rowData.toString()));
 		return data;
 	}
@@ -255,16 +270,13 @@ public class KeyedStateInputFormatV2Test {
 		@Override
 		public void flatMap(Integer value, Collector<Void> out) throws Exception {
 			valueState.update(value);
-
 			ArrayList<String> listVaules = new ArrayList();
-
 			for (Integer i = 0; i < value; i++) {
 				String userKey = "userKey_" + i;
 				String userValue = "value_" + i;
 				mapState.put(userKey, userValue);
 				listVaules.add(userValue);
 			}
-
 			listState.update(listVaules);
 		}
 	}

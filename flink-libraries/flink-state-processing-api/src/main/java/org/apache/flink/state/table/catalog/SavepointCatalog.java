@@ -44,6 +44,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import static org.apache.flink.state.table.catalog.SavepointCatalogUtils.getTablesFromCheckpointStateMetaData;
+import static org.apache.flink.state.table.catalog.SavepointCatalogUtils.getViewsFromCheckpointStateMetaData;
 import static org.apache.flink.state.table.catalog.SavepointCatalogUtils.resolveTableExist;
 import static org.apache.flink.state.table.catalog.SavepointCatalogUtils.resolveTableSchema;
 
@@ -146,7 +147,17 @@ public class SavepointCatalog extends AbstractReadOnlyCatalog {
 
 	@Override
 	public List<String> listViews(String databaseName) throws DatabaseNotExistException, CatalogException {
-		return null;
+		if (!databaseExists(databaseName)) {
+			throw new DatabaseNotExistException(getName(), databaseName);
+		}
+		try {
+			CheckpointStateMetadata stateMetadata = SavepointLoader.loadSavepointStateMetadata(resolver.getEffectiveSavepointPath(databaseName).toString());
+			return getViewsFromCheckpointStateMetaData(stateMetadata);
+		} catch (IOException e) {
+			throw new DatabaseNotExistException(getName(), databaseName);
+		} catch (ClassNotFoundException e) {
+			throw new CatalogException("list Table failed with ClassNotFoundException: " + e.getMessage());
+		}
 	}
 
 	// Unsupported Operation

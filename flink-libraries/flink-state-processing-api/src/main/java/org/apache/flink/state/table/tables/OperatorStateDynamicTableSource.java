@@ -26,6 +26,12 @@ import org.apache.flink.table.connector.source.InputFormatProvider;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.types.DataType;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static org.apache.flink.state.table.catalog.SavepointCatalogUtils.MULTI_STATE_NAME_SEPARATOR;
+
 /**
  * StateMetaDynamicTableSource.
  */
@@ -34,18 +40,18 @@ public class OperatorStateDynamicTableSource implements ScanTableSource{
 	private String savepointPath;
 	private DataType producedDataType;
 	private String operatorID;
-	private String stateName;
+	private String stateNames;
 
-	public OperatorStateDynamicTableSource(String savepointPath, String operatorID, String stateName, DataType producedDataType) {
+	public OperatorStateDynamicTableSource(String savepointPath, String operatorID, String stateNames, DataType producedDataType) {
 		this.savepointPath = savepointPath;
 		this.producedDataType = producedDataType;
 		this.operatorID = operatorID;
-		this.stateName = stateName;
+		this.stateNames = stateNames;
 	}
 
 	@Override
 	public DynamicTableSource copy() {
-		return new OperatorStateDynamicTableSource(savepointPath, operatorID, stateName, producedDataType);
+		return new OperatorStateDynamicTableSource(savepointPath, operatorID, stateNames, producedDataType);
 	}
 
 	@Override
@@ -60,9 +66,9 @@ public class OperatorStateDynamicTableSource implements ScanTableSource{
 
 	@Override
 	public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
-			DataStructureConverter converter = runtimeProviderContext.createDataStructureConverter(producedDataType);
-			OperatorStateInputFormatV2.Builder builder = new OperatorStateInputFormatV2.Builder(savepointPath, operatorID, stateName, converter);
-			return InputFormatProvider.of(builder.build());
+		List<String> stateNameList = Arrays.stream(stateNames.split(MULTI_STATE_NAME_SEPARATOR)).collect(Collectors.toList());
+		OperatorStateInputFormatV2.Builder builder = new OperatorStateInputFormatV2.Builder(savepointPath, operatorID, stateNameList, producedDataType);
+		return InputFormatProvider.of(builder.build());
 	}
 }
 

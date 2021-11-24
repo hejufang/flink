@@ -42,16 +42,12 @@ import org.apache.flink.streaming.util.AbstractStreamOperatorTestHarness;
 import org.apache.flink.streaming.util.MockStreamingRuntimeContext;
 import org.apache.flink.streaming.util.OneInputStreamOperatorTestHarness;
 import org.apache.flink.streaming.util.TwoInputStreamOperatorTestHarness;
-import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.binary.BinaryStringData;
-import org.apache.flink.table.runtime.connector.source.ScanRuntimeProviderContext;
-import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.Collector;
 
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -60,6 +56,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Test case for OperatorStateInputFormatV2.
@@ -69,27 +67,23 @@ public class OperatorStateInputFormatV2Test {
 	private static ListStateDescriptor<Integer> unionStateDescriptor = new ListStateDescriptor<>("union", Types.INT);
 	private static MapStateDescriptor<Integer, Integer> broadCastStateDescriptor = new MapStateDescriptor<>("broadcast", Types.INT, Types.INT);
 	private static ListStateDescriptor<Integer> listStateDescriptor = new ListStateDescriptor<>("list", Types.INT);
+	private static ListStateDescriptor<Integer> multiListStateDescriptor1 = new ListStateDescriptor<>("multiList1", Types.INT);
+	private static ListStateDescriptor<Integer> multiListStateDescriptor2 = new ListStateDescriptor<>("multiList2", Types.INT);
 
 	private static OperatorStateInputFormatV2.Builder builder;
 	private static OperatorID operatorID = OperatorIDGenerator.fromUid("uid");
 
 	@ClassRule
 	public static TemporaryFolder temporaryFolder = new TemporaryFolder();
-	private static DynamicTableSource.DataStructureConverter converter;
 
-	@Before
-	public void setUpConverter(){
-		DataType operatorStateDataType = SavepointCatalogUtils.OPERATOR_STATE_TABLE_SCHEMA.toPhysicalRowDataType();
-		converter = ScanRuntimeProviderContext.INSTANCE.createDataStructureConverter(operatorStateDataType);
-	}
+	public OperatorStateInputFormatV2 setUpOperatorStateInputFormat(List<StateDescriptor> stateDescriptors) throws Exception {
 
-	public OperatorStateInputFormatV2 setUpOperatorStateInputFormat(StateDescriptor stateDescriptor) throws Exception {
-
-		builder = new OperatorStateInputFormatV2.Builder(temporaryFolder.newFolder().toURI().toString(), operatorID.toString(), stateDescriptor.getName(), converter);
+		builder = new OperatorStateInputFormatV2.Builder(temporaryFolder.newFolder().toURI().toString(), operatorID.toString(), stateDescriptors.stream().map(desc -> desc.getName()).collect(Collectors.toList()),
+			SavepointCatalogUtils.OPERATOR_STATE_TABLE_SCHEMA.toPhysicalRowDataType());
 
 		AbstractStreamOperatorTestHarness testHarness;
 
-		switch (stateDescriptor.getName()){
+		switch (stateDescriptors.get(0).getName()) {
 			case "union":
 				testHarness = getUnionStateTestHarness();
 				break;
@@ -98,6 +92,9 @@ public class OperatorStateInputFormatV2Test {
 				break;
 			case "list":
 				testHarness = getListStateTestHarness();
+				break;
+			case "multiList1":
+				testHarness = getMultiListStateTestHarness();
 				break;
 			default:
 				throw new RuntimeException("Unsupported state descriptor");
@@ -114,6 +111,10 @@ public class OperatorStateInputFormatV2Test {
 		builder.setOperatorStateMeta(operatorStateMeta);
 
 		return builder.build();
+	}
+
+	public OperatorStateInputFormatV2 setUpOperatorStateInputFormat(StateDescriptor stateDescriptor) throws Exception {
+		return setUpOperatorStateInputFormat(Collections.singletonList(stateDescriptor));
 	}
 
 	@Test
@@ -138,7 +139,6 @@ public class OperatorStateInputFormatV2Test {
 	public void testReadListState() throws Exception {
 
 		OperatorStateInputFormatV2 format = setUpOperatorStateInputFormat(listStateDescriptor);
-
 		// without rescaling
 		OperatorStateInputSplit inputSplit = format.createInputSplits(1)[0];
 		format.setRuntimeContext(new MockStreamingRuntimeContext(false, 1, 0));
@@ -148,7 +148,7 @@ public class OperatorStateInputFormatV2Test {
 				genResultRow("1"),
 				genResultRow("2"),
 				genResultRow("3"));
-
+		Assert.assertEquals("Failed to read correct list state from state backend", results, expected);
 		// change the parallelism to 3
 		OperatorStateInputSplit inputSplitAfterScaleUp = format.createInputSplits(3)[0];
 		format.setRuntimeContext(new MockStreamingRuntimeContext(false, 3, 0));
@@ -157,18 +157,25 @@ public class OperatorStateInputFormatV2Test {
 		List<GenericRowData> expectedAfterScaleUp = Arrays.asList(
 				genResultRow("1"));
 		Assert.assertEquals("Failed to read correct list state from state backend", resultsAfterScaleUp, expectedAfterScaleUp);
+
+		// change the parallelism to 3
+		OperatorStateInputSplit inputSplitAfterScaleUp2 = format.createInputSplits(3)[2];
+		format.setRuntimeContext(new MockStreamingRuntimeContext(false, 3, 0));
+		format.open(inputSplitAfterScaleUp2);
+		List<RowData> resultsAfterScaleUp2 = getQueryResult(format);
+		List<GenericRowData> expectedAfterScaleUp2 = Arrays.asList(
+				genResultRow("2"));
+		Assert.assertEquals("Failed to read correct list state from state backend", resultsAfterScaleUp2, expectedAfterScaleUp2);
 	}
 
 	@Test
 	public void testReadUnionState() throws Exception {
-
 		OperatorStateInputFormatV2 format = setUpOperatorStateInputFormat(unionStateDescriptor);
 		OperatorStateInputSplit inputSplit = format.createInputSplits(1)[0];
 		format.setRuntimeContext(new MockStreamingRuntimeContext(false, 4, 0));
 		format.open(inputSplit);
 
 		List<RowData> results = getQueryResult(format);
-
 		List<GenericRowData> expected = Arrays.asList(
 				genResultRow("1"),
 				genResultRow("2"),
@@ -181,6 +188,42 @@ public class OperatorStateInputFormatV2Test {
 		format.open(inputSplitAfterScaleUp);
 		List<RowData> resultsAfterScaleUp = getQueryResult(format);
 		Assert.assertEquals("Failed to read correct union state from state backend", expected, resultsAfterScaleUp);
+		// only will split 0 can read data
+		OperatorStateInputSplit inputSplitAfterScaleUp2 = format.createInputSplits(3)[1];
+		format.setRuntimeContext(new MockStreamingRuntimeContext(false, 3, 0));
+		format.open(inputSplitAfterScaleUp2);
+		List<RowData> resultsAfterScaleUp2 = getQueryResult(format);
+		Assert.assertEquals("Failed to read correct union state from state backend", Collections.emptyList(), resultsAfterScaleUp2);
+	}
+
+	@Test
+	public void testReadMultiState() throws Exception {
+
+		OperatorStateInputFormatV2 format = setUpOperatorStateInputFormat(Stream.of(multiListStateDescriptor1, multiListStateDescriptor2).collect(Collectors.toList()));
+		OperatorStateInputSplit inputSplit = format.createInputSplits(1)[0];
+		format.setRuntimeContext(new MockStreamingRuntimeContext(false, 4, 0));
+		format.open(inputSplit);
+
+		List<RowData> results = getQueryResult(format);
+
+		List<GenericRowData> expected = Arrays.asList(
+				genResultRow("1"),
+				genResultRow("2"),
+				genResultRow("3"),
+				genResultRow("1"),
+				genResultRow("2"),
+				genResultRow("3"));
+		Assert.assertEquals("Failed to read correct union state from state backend", expected, results);
+
+		// change the parallelism to 3
+		OperatorStateInputSplit inputSplitAfterScaleUp = format.createInputSplits(3)[0];
+		format.setRuntimeContext(new MockStreamingRuntimeContext(false, 3, 0));
+		format.open(inputSplitAfterScaleUp);
+		List<GenericRowData> expectedAfterScaleUp = Arrays.asList(
+			genResultRow("1"),
+			genResultRow("1"));
+		List<RowData> resultsAfterScaleUp = getQueryResult(format);
+		Assert.assertEquals("Failed to read correct union state from state backend", expectedAfterScaleUp, resultsAfterScaleUp);
 	}
 
 	List<RowData> getQueryResult(OperatorStateInputFormatV2 format){
@@ -251,15 +294,46 @@ public class OperatorStateInputFormatV2Test {
 		}
 	}
 
-	private OneInputStreamOperatorTestHarness<Integer, Void> getUnionStateTestHarness() throws Exception {
+	static class MultiListStatefulFunction implements FlatMapFunction<Integer, Void>, CheckpointedFunction {
+		ListState<Integer> state1;
+		ListState<Integer> state2;
 
-		OneInputStreamOperatorTestHarness testHarness = new OneInputStreamOperatorTestHarness<>(new StreamFlatMap<>(new UnionStatefulFunction()), IntSerializer.INSTANCE);
+		@Override
+		public void flatMap(Integer value, Collector<Void> out) throws Exception {
+			state1.add(value);
+			state2.add(value);
+		}
+
+		@Override
+		public void snapshotState(FunctionSnapshotContext context) {
+		}
+
+		@Override
+		public void initializeState(FunctionInitializationContext context) throws Exception {
+			state1 = context.getOperatorStateStore().getListState(multiListStateDescriptor1);
+			state2 = context.getOperatorStateStore().getListState(multiListStateDescriptor2);
+
+		}
+	}
+
+	private OneInputStreamOperatorTestHarness<Integer, Void> getMultiListStateTestHarness() throws Exception {
+		OneInputStreamOperatorTestHarness testHarness = new OneInputStreamOperatorTestHarness<>(new StreamFlatMap<>(new MultiListStatefulFunction()), IntSerializer.INSTANCE);
 		testHarness.open();
 
 		testHarness.processElement(1, 0);
 		testHarness.processElement(2, 0);
 		testHarness.processElement(3, 0);
 
+		return testHarness;
+	}
+
+	private OneInputStreamOperatorTestHarness<Integer, Void> getUnionStateTestHarness() throws Exception {
+
+		OneInputStreamOperatorTestHarness testHarness = new OneInputStreamOperatorTestHarness<>(new StreamFlatMap<>(new UnionStatefulFunction()), IntSerializer.INSTANCE);
+		testHarness.open();
+		testHarness.processElement(1, 0);
+		testHarness.processElement(2, 0);
+		testHarness.processElement(3, 0);
 		return testHarness;
 	}
 

@@ -60,7 +60,11 @@ public class SavepointCatalogTest {
 		final TableResult result = tEnv.executeSql("show tables");
 
 		List expect = new ArrayList();
+		expect.add(Row.of("6fe83e977ea8ea576938e21ab20d3024#all_keyed_states"));
+		expect.add(Row.of("6fe83e977ea8ea576938e21ab20d3024#all_operator_states"));
 		expect.add(Row.of("6fe83e977ea8ea576938e21ab20d3024#average"));
+		expect.add(Row.of("bc764cd8ddf7a0cff126f51c16239658#all_keyed_states"));
+		expect.add(Row.of("bc764cd8ddf7a0cff126f51c16239658#all_operator_states"));
 		expect.add(Row.of("bc764cd8ddf7a0cff126f51c16239658#topic-partition-offset-states"));
 		expect.add(Row.of("state_meta"));
 

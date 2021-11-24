@@ -48,16 +48,14 @@ public class KeyedStateIterator<K, N, S extends State, T> implements CloseableIt
 	private KeyedStateRowDataConverter rowDataConverter;
 	private KeyedStateRowDataConverter.KeyedStateConverterContext context;
 
-	public KeyedStateIterator(StateDescriptor<S, T> descriptor, AbstractKeyedStateBackend<K> backend, TypeSerializer<N> namespaceSerializer, KeyedStateRowDataConverter rowDataConverter) {
-
-		this.descriptor = descriptor;
+	public KeyedStateIterator(Tuple2<StateDescriptor<S, T>, TypeSerializer<N>> stateDescriptorNamespaceSerializer, AbstractKeyedStateBackend<K> backend, KeyedStateRowDataConverter rowDataConverter, KeyedStateRowDataConverter.KeyedStateConverterContext context) {
+		this.descriptor = stateDescriptorNamespaceSerializer.f0;
 		this.backend = backend;
-		this.namespaceSerializer = namespaceSerializer;
+		this.namespaceSerializer = stateDescriptorNamespaceSerializer.f1;
 		this.resource = backend.getKeysAndNamespaces(descriptor.getName());
 		this.rowDataConverter = rowDataConverter;
 		this.keysAndNamespaces = ((Stream<Tuple2<K, N>>) resource).iterator();
-		this.context = new KeyedStateRowDataConverter.KeyedStateConverterContext();
-
+		this.context = context;
 	}
 
 	@Override

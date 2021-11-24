@@ -18,36 +18,42 @@
 package org.apache.flink.state.table.connector.converter;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
-import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.Row;
 
 /**
  *  A class used to convert the keyed State to the {@link RowData}
  *  with schema  {@link org.apache.flink.state.table.catalog.SavepointCatalogUtils#STATE_META_TABLE_SCHEMA}.
  */
-public class KeyedStateRowDataConverter<V> implements RowDataConverter<V> {
+public class KeyedStateRowDataConverter<V> extends AbstractStateConverter<V> {
 
-	private final DynamicTableSource.DataStructureConverter converter;
-	private FormatterFactory.Formatter[] formatters = new FormatterFactory.Formatter[3];
+	FormatterFactory.Formatter keyFormatter;
+	FormatterFactory.Formatter namespaceFormatter;
 
-	public KeyedStateRowDataConverter(DynamicTableSource.DataStructureConverter converter, TypeSerializer keySerializer,  TypeSerializer namespaceSerializer,  TypeSerializer valueSerializer){
-		this.converter = converter;
-		this.formatters[0] = FormatterFactory.getFormatter(keySerializer);
-		this.formatters[1] = FormatterFactory.getFormatter(namespaceSerializer);
-		this.formatters[2] = FormatterFactory.getFormatter(valueSerializer);
-
+	public KeyedStateRowDataConverter(TypeSerializer keySerializer, TypeSerializer namespaceSerializer, TypeSerializer valueSerializer, DataType dataType) {
+		super(valueSerializer, dataType);
+		this.keyFormatter = FormatterFactory.getFormatter(keySerializer);
+		this.namespaceFormatter = FormatterFactory.getFormatter(namespaceSerializer);
 	}
 
 	@Override
 	public RowData converterToRowData(V value, Context context){
-
 		KeyedStateConverterContext keyedStateConverterContext = (KeyedStateConverterContext) context;
+		int index = 0;
+		Row row = new Row(fieldNames.size());
 
-		Row row = new Row(3);
-		row.setField(0, formatters[0].format(keyedStateConverterContext.getKey()));
-		row.setField(1, formatters[1].format(keyedStateConverterContext.getNamespace()));
-		row.setField(2, formatters[2].format(value));
+		if (fieldNames.contains(OPERATOR_ID_FIELD_NAME)){
+			row.setField(index++ , getOperatorId(context));
+		}
+
+		if (fieldNames.contains(STATE_NAME_FIELD_NAME)){
+			row.setField(index++ , getStateName(context));
+		}
+
+		row.setField(index++, keyFormatter.format(keyedStateConverterContext.getKey()));
+		row.setField(index++, namespaceFormatter.format(keyedStateConverterContext.getNamespace()));
+		row.setField(index++, valueFormatter.format(value));
 
 		return (RowData) converter.toInternal(row);
 	}
@@ -56,7 +62,7 @@ public class KeyedStateRowDataConverter<V> implements RowDataConverter<V> {
 	 * @param <K> current key
 	 * @param <N> current namespace
 	 */
-	public static class KeyedStateConverterContext<K , N> implements Context {
+	public static class KeyedStateConverterContext<K , N> extends StateContext {
 
 		private K key;
 		private N namespace;

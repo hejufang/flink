@@ -41,12 +41,14 @@ public class OperatorStateIterator<S extends State, T> implements CloseableItera
 	private OperatorStateRowDataConverter rowDataConverter;
 	private OperatorStateBackend operatorStateBackend;
 	private OperatorStateHandle.Mode distributeMode;
+	private Context context;
 
-	public OperatorStateIterator(OperatorStateBackend operatorStateBackend, OperatorStateHandle.Mode distributeMode, StateDescriptor<S, T> descriptor, OperatorStateRowDataConverter rowDataConverter) {
+	public OperatorStateIterator(OperatorStateBackend operatorStateBackend, OperatorStateHandle.Mode distributeMode, StateDescriptor<S, T> descriptor, OperatorStateRowDataConverter rowDataConverter, Context context) {
 		this.operatorStateBackend = operatorStateBackend;
 		this.descriptor = descriptor;
 		this.rowDataConverter = rowDataConverter;
 		this.distributeMode = distributeMode;
+		this.context = context;
 	}
 
 	@Override
@@ -54,7 +56,7 @@ public class OperatorStateIterator<S extends State, T> implements CloseableItera
 		if (singleStateIterator == null) {
 			try {
 				S state = registerStateByDistributeMode(distributeMode, descriptor, operatorStateBackend);
-				singleStateIterator = new SingleStateIterator(SingleStateIteratorUtil.getStateIterator(descriptor, state), rowDataConverter, new Context() {});
+				singleStateIterator = new SingleStateIterator(SingleStateIteratorUtil.getStateIterator(descriptor, state), rowDataConverter, context);
 			} catch (Exception e) {
 				throw new RuntimeException("get Operator State failed", e);
 			}

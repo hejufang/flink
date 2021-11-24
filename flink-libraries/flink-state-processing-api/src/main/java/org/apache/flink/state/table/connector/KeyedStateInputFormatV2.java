@@ -25,6 +25,7 @@ import org.apache.flink.api.common.io.statistics.BaseStatistics;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
 import org.apache.flink.core.fs.CloseableRegistry;
@@ -52,16 +53,21 @@ import org.apache.flink.streaming.api.operators.KeyContext;
 import org.apache.flink.streaming.api.operators.StreamOperatorStateContext;
 import org.apache.flink.streaming.api.operators.StreamTaskStateInitializer;
 import org.apache.flink.streaming.api.operators.StreamTaskStateInitializerImpl;
-import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.CollectionUtil;
 import org.apache.flink.util.IOUtils;
+
+import org.apache.commons.collections.IteratorUtils;
 
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -71,33 +77,22 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInputFormat<RowData, KeyGroupRangeInputSplit> implements KeyContext {
 
 	private OperatorState operatorState;
-
-	private DynamicTableSource.DataStructureConverter converter;
-
-
 	private StateBackend stateBackend;
 	private TypeSerializer<K> keySerializer;
-	private TypeSerializer<N> namespaceSerializer;
-	private StateDescriptor<S, T> stateDescriptor;
+	private List<Tuple2<StateDescriptor<S, T>, TypeSerializer<N>>> stateDescAndNamespaceSerializers;
+	private DataType dataType;
 
 	private transient AbstractKeyedStateBackend<K> keyedStateBackend;
 	private transient CloseableRegistry registry;
-	private transient KeyedStateIterator stateIterator;
+	private transient List<KeyedStateIterator> keyedStateIteratorList;
+	private transient Iterator<RowData> stateIteratorWrapper;
 
-	public KeyedStateInputFormatV2(
-		StateBackend stateBackend,
-		TypeSerializer<K> keySerializer,
-		TypeSerializer<N> namespaceSerializer,
-		StateDescriptor<S, T> stateDescriptor,
-		OperatorState operatorState,
-		DynamicTableSource.DataStructureConverter converter){
-
+	public KeyedStateInputFormatV2(StateBackend stateBackend, TypeSerializer keySerializer, OperatorState operatorState, List<Tuple2<StateDescriptor<S, T>, TypeSerializer<N>>> stateDescAndNamespaceSerializers, DataType dataType) {
 		this.stateBackend = stateBackend;
 		this.keySerializer = keySerializer;
-		this.namespaceSerializer = namespaceSerializer;
-		this.stateDescriptor = stateDescriptor;
+		this.stateDescAndNamespaceSerializers = stateDescAndNamespaceSerializers;
 		this.operatorState = operatorState;
-		this.converter = converter;
+		this.dataType = dataType;
 	}
 
 	@Override
@@ -145,7 +140,18 @@ public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInpu
 			.build();
 		final StreamOperatorStateContext context = getStreamOperatorStateContext(environment);
 		keyedStateBackend = (AbstractKeyedStateBackend<K>) context.keyedStateBackend();
-		stateIterator = new KeyedStateIterator(stateDescriptor, keyedStateBackend, namespaceSerializer, new KeyedStateRowDataConverter(converter, keySerializer, namespaceSerializer, stateDescriptor.getSerializer()));
+
+		keyedStateIteratorList = stateDescAndNamespaceSerializers.stream()
+			.map(stateDescAndNamespaceSerializer -> {
+				KeyedStateRowDataConverter keyedStateRowDataConverter = new KeyedStateRowDataConverter(keySerializer, stateDescAndNamespaceSerializer.f1, stateDescAndNamespaceSerializer.f0.getSerializer(), dataType);
+				KeyedStateRowDataConverter.KeyedStateConverterContext converterContext = new KeyedStateRowDataConverter.KeyedStateConverterContext();
+				converterContext.setOperatorID(operatorState.getOperatorID().toString());
+				converterContext.setStateName(stateDescAndNamespaceSerializer.f0.getName());
+				return new KeyedStateIterator(stateDescAndNamespaceSerializer, keyedStateBackend, keyedStateRowDataConverter, converterContext);
+			})
+			.collect(Collectors.toList());
+		stateIteratorWrapper = IteratorUtils.chainedIterator(keyedStateIteratorList);
+
 	}
 
 	private StreamOperatorStateContext getStreamOperatorStateContext(Environment environment) throws IOException {
@@ -169,7 +175,9 @@ public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInpu
 
 	@Override
 	public void close() throws IOException {
-		IOUtils.closeQuietly(stateIterator);
+		keyedStateIteratorList.forEach(stateIterator -> {
+			IOUtils.closeQuietly(stateIterator);
+		});
 		IOUtils.closeQuietly(registry);
 		try {
 			if (keyedStateBackend != null) {
@@ -182,12 +190,12 @@ public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInpu
 
 	@Override
 	public boolean reachedEnd() {
-		return !stateIterator.hasNext();
+		return !stateIteratorWrapper.hasNext();
 	}
 
 	@Override
 	public RowData nextRecord(RowData reuse) throws IOException {
-		return stateIterator.next();
+		return stateIteratorWrapper.next();
 	}
 
 	private static KeyGroupRangeInputSplit createKeyGroupRangeInputSplit(
@@ -231,21 +239,23 @@ public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInpu
 
 		private String savepointPath;
 		private final String operatorID;
-		private final String stateName;
-		private DynamicTableSource.DataStructureConverter converter;
+		private final List<String> stateNames;
+		private final DataType dataType;
 
 		private OperatorStateMeta operatorStateMeta;
 		private OperatorState operatorState;
 		private StateBackend stateBackend;
-		private StateDescriptor stateDescriptor;
 		private TypeSerializer keySerializer;
-		private TypeSerializer namespaceSerializer;
 
-		public Builder(String savepointPath, String operatorID, String stateName, DynamicTableSource.DataStructureConverter converter){
+		public Builder(String savepointPath, String operatorID, String stateName, DataType dataType){
+			this(savepointPath, operatorID, Collections.singletonList(stateName), dataType);
+		}
+
+		public Builder(String savepointPath, String operatorID, List<String> stateNames, DataType dataType){
 			this.savepointPath = savepointPath;
 			this.operatorID = operatorID;
-			this.stateName = stateName;
-			this.converter = converter;
+			this.stateNames = stateNames;
+			this.dataType = dataType;
 		}
 
 		public KeyedStateInputFormatV2 build() {
@@ -276,9 +286,8 @@ public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInpu
 			}
 
 			RegisteredKeyedStateMeta registeredKeyedStateMeta = operatorStateMeta.getKeyedStateMeta();
-			RegisteredKeyedStateMeta.KeyedStateMetaData keyedStateMetaData = (RegisteredKeyedStateMeta.KeyedStateMetaData) registeredKeyedStateMeta.getStateMetaData().get(stateName);
-
-			if (stateBackend == null){
+			this.keySerializer = registeredKeyedStateMeta.getKeySerializer();
+			if (stateBackend == null) {
 				try {
 					stateBackend = getStateBackendFromStateMeta(registeredKeyedStateMeta.getBackendType());
 				} catch (IOException e) {
@@ -286,10 +295,13 @@ public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInpu
 
 				}
 			}
-			this.keySerializer = registeredKeyedStateMeta.getKeySerializer();
-			this.namespaceSerializer = keyedStateMetaData.getNamespaceSerializer();
-			this.stateDescriptor = keyedStateMetaData.getStateDescriptor();
-			return new KeyedStateInputFormatV2(stateBackend, keySerializer, namespaceSerializer, stateDescriptor, operatorState, converter);
+
+			List<Tuple2<StateDescriptor, TypeSerializer>> stateDescAndNamespaceSer = stateNames.stream()
+				.map(stateName -> (RegisteredKeyedStateMeta.KeyedStateMetaData) registeredKeyedStateMeta.getStateMetaData().get(stateName))
+				.map(keyedStateMetaData -> Tuple2.of(keyedStateMetaData.getStateDescriptor(), keyedStateMetaData.getNamespaceSerializer()))
+				.collect(Collectors.toList());
+
+			return new KeyedStateInputFormatV2(stateBackend, keySerializer, operatorState, stateDescAndNamespaceSer, dataType);
 		}
 
 		@VisibleForTesting

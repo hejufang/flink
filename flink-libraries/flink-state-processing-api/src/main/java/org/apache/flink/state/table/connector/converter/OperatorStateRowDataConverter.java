@@ -19,28 +19,31 @@
 package org.apache.flink.state.table.connector.converter;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
-import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.Row;
 
 /**
  * OperatorStateRowDataConverter.
  */
-public class OperatorStateRowDataConverter<T> implements RowDataConverter<T> {
+public class OperatorStateRowDataConverter<T> extends AbstractStateConverter<T> {
 
-	private final DynamicTableSource.DataStructureConverter converter;
-	private FormatterFactory.Formatter formatter;
-
-	public OperatorStateRowDataConverter(DynamicTableSource.DataStructureConverter converter, TypeSerializer valueSerializer) {
-		this.converter = converter;
-		this.formatter = FormatterFactory.getFormatter(valueSerializer);
+	public OperatorStateRowDataConverter(TypeSerializer valueSerializer, DataType dataType) {
+		super(valueSerializer, dataType);
 	}
 
 	@Override
 	public RowData converterToRowData(T value, Context context) {
 
-		Row row = new Row(1);
-		row.setField(0, formatter.format(value));
+		int index = 0;
+		Row row = new Row(fieldNames.size());
+		if (fieldNames.contains(OPERATOR_ID_FIELD_NAME)){
+			row.setField(index++ , getOperatorId(context));
+		}
+		if (fieldNames.contains(STATE_NAME_FIELD_NAME)){
+			row.setField(index++ , getStateName(context));
+		}
+		row.setField(index++, valueFormatter.format(value));
 
 		return (RowData) converter.toInternal(row);
 	}
