@@ -20,7 +20,6 @@ package org.apache.flink.connector.bytetable.sink;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.connector.bytetable.util.ByteArrayWrapper;
-import org.apache.flink.table.data.RowData;
 
 import com.bytedance.bytetable.RowMutation;
 import org.apache.hadoop.hbase.client.Delete;
@@ -46,7 +45,7 @@ public interface ByteTableMutationConverter<T> extends Serializable {
 	 * Converts the input record into ByteTable {@link Mutation}. A mutation can be a
 	 * {@link Put} or {@link Delete}.
 	 */
-	RowMutation convertToMutation(RowData record) throws IOException;
+	RowMutation convertToMutation(T record) throws IOException;
 
 	ByteArrayWrapper getRowKeyByteArrayWrapper(T record);
 }

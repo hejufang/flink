@@ -85,7 +85,7 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 	private final int cellVersionIndex;
 	private final MutatorFun mutatorFun;
 
-	private Map<ByteArrayWrapper, RowData> rowReduceMap;
+	private Map<ByteArrayWrapper, T> rowReduceMap;
 
 	private transient Client bytetableClient;
 	private transient Table bytetableTable;
@@ -210,7 +210,7 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 		}
 		ByteArrayWrapper rowkey = mutationConverter.getRowKeyByteArrayWrapper(value);
 		// Reduce the row.
-		mutateReduce(rowkey, (RowData) value);
+		mutateReduce(rowkey, value);
 		numInvokeRequests.incrementAndGet();
 		// flush when the buffer number of mutations greater than the configured max size.
 		if (bufferFlushMaxMutations > 0 && rowReduceMap.size() >= bufferFlushMaxMutations) {
@@ -304,8 +304,8 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 	}
 
 	private synchronized void mutateSingleRow() throws IOException {
-		for (Map.Entry<ByteArrayWrapper, RowData> entry : rowReduceMap.entrySet()) {
-			RowData row = entry.getValue();
+		for (Map.Entry<ByteArrayWrapper, T> entry : rowReduceMap.entrySet()) {
+			T row = entry.getValue();
 			RowMutation mutation = mutationConverter.convertToMutation(row);
 			this.bytetableTable.mutate(mutation);
 		}
@@ -313,8 +313,8 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 
 	private synchronized void mutateMultiRow() throws IOException {
 		List<RowMutation> mutationList = new ArrayList<>();
-		for (Map.Entry<ByteArrayWrapper, RowData> entry : rowReduceMap.entrySet()) {
-			RowData row = entry.getValue();
+		for (Map.Entry<ByteArrayWrapper, T> entry : rowReduceMap.entrySet()) {
+			T row = entry.getValue();
 			RowMutation mutation = mutationConverter.convertToMutation(row);
 			mutationList.add(mutation);
 		}
@@ -323,12 +323,11 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 
 	private void mutateReduce(
 			ByteArrayWrapper rowkey,
-			RowData newRow) {
+			T newRow) {
 		// check and solve cellVersion reduce.
-		RowData oldRow;
-		if (rowReduceMap.containsKey(rowkey)) {
-			oldRow = rowReduceMap.get(rowkey);
-			Timestamp newVersion = newRow.getTimestamp(cellVersionIndex, BConstants.MAX_TIMESTAMP_PRECISION).toTimestamp();
+		if (rowReduceMap.containsKey(rowkey) && cellVersionIndex >= 0 && newRow instanceof RowData) {
+			RowData oldRow = (RowData) rowReduceMap.get(rowkey);
+			Timestamp newVersion = ((RowData) newRow).getTimestamp(cellVersionIndex, BConstants.MAX_TIMESTAMP_PRECISION).toTimestamp();
 			Timestamp oldVersion = oldRow.getTimestamp(cellVersionIndex, BConstants.MAX_TIMESTAMP_PRECISION).toTimestamp();
 			if (newVersion.getTime() < oldVersion.getTime()) {
 				// We do not need to put an old-version row in batch.
@@ -336,7 +335,6 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 			}
 		}
 		rowReduceMap.put(rowkey, newRow);
-		return;
 	}
 
 }
