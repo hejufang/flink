@@ -40,6 +40,7 @@ common:
   state.backend.state-file-batch.enable: true
   execution.checkpointing.mode: EXACTLY_ONCE
   execution.checkpointing.timeout: 10 min
+  execution.checkpointing.ignore-checkpoints-on-checkpoint-disabled: true
   state.savepoint.location-prefix: ${checkpoint.hdfs.prefix}/savepoints
   savepoint.scheduler.default.interval: 21600000
   state.backend.rocksdb.memory.managed: false

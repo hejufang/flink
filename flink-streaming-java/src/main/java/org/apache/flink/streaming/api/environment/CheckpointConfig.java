@@ -100,6 +100,9 @@ public class CheckpointConfig implements java.io.Serializable {
 	/** Flag to enable unaligned checkpoints. */
 	private boolean unalignedCheckpointsEnabled;
 
+	/** Flag to ignore checkpoint/savepoint when checkpoint is disabled. */
+	private boolean ignoreCheckpointsOnCheckpointDisabled = false;
+
 	/** Cleanup behaviour for persistent checkpoints. */
 	private ExternalizedCheckpointCleanup externalizedCheckpointCleanup = ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION;
 
@@ -490,6 +493,20 @@ public class CheckpointConfig implements java.io.Serializable {
 	}
 
 	/**
+	 * True if restoring is ignored when checkpointing is disabled.
+	 */
+	public void setIgnoreCheckpointsOnCheckpointDisabled(boolean ignoreCheckpointsOnCheckpointDisabled) {
+		this.ignoreCheckpointsOnCheckpointDisabled = ignoreCheckpointsOnCheckpointDisabled;
+	}
+
+	/**
+	 * Return whether to ignore restoring from checkpoints when checkpointing is disabled.
+	 */
+	public boolean isIgnoreCheckpointsOnCheckpointDisabled() {
+		return ignoreCheckpointsOnCheckpointDisabled;
+	}
+
+	/**
 	 * Returns the cleanup behaviour for externalized checkpoints.
 	 *
 	 * @return The cleanup behaviour for externalized checkpoints or
@@ -601,5 +618,7 @@ public class CheckpointConfig implements java.io.Serializable {
 			.ifPresent(this::enableExternalizedCheckpoints);
 		configuration.getOptional(ExecutionCheckpointingOptions.ENABLE_UNALIGNED)
 			.ifPresent(this::enableUnalignedCheckpoints);
+		configuration.getOptional(ExecutionCheckpointingOptions.IGNORE_CHECKPOINTS_ON_CHECKPOINT_DISABLED)
+			.ifPresent(this::setIgnoreCheckpointsOnCheckpointDisabled);
 	}
 }

@@ -149,4 +149,10 @@ public class ExecutionCheckpointingOptions {
 					TextElement.code(CheckpointingMode.EXACTLY_ONCE.toString()),
 					TextElement.code(MAX_CONCURRENT_CHECKPOINTS.key()))
 				.build());
+
+	public static final ConfigOption<Boolean> IGNORE_CHECKPOINTS_ON_CHECKPOINT_DISABLED =
+		ConfigOptions.key("execution.checkpointing.ignore-checkpoints-on-checkpoint-disabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("If enabled, a job would not restore from a checkpoint/savepoint when checkpointing is disabled.");
 }

@@ -1042,7 +1042,7 @@ public class StreamingJobGraphGenerator {
 			serializedStateBackend,
 			serializedHooks);
 
-		if (cfg.isCheckpointingEnabled()) {
+		if (cfg.isCheckpointingEnabled() || !cfg.isIgnoreCheckpointsOnCheckpointDisabled()) {
 			jobGraph.setSnapshotSettings(settings);
 		} else {
 			LOG.info("Checkpoint is disabled.");
