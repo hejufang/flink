@@ -25,7 +25,7 @@ import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
-import org.apache.flink.util.SerializedThrowable;
+import org.apache.flink.util.TokenExpirationUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -120,7 +120,7 @@ public class CheckpointFailureManager {
 			ExecutionAttemptID executionAttemptID) {
 
 		// report failure if token problem
-		if (isTokenProblemInTraces(exception)) {
+		if (TokenExpirationUtils.isTokenProblemInTraces(exception)) {
 			reporter.reportFailure(executionAttemptID, exception, System.currentTimeMillis());
 		}
 
@@ -136,30 +136,10 @@ public class CheckpointFailureManager {
 	 * If the throwable is caused, directly or indirectly, by expired tokens, we need to for the whole job to restart.
 	 */
 	private void checkTokenProblemInTraces(Throwable throwable) {
-		if (isTokenProblemInTraces(throwable)) {
+		if (TokenExpirationUtils.isTokenProblemInTraces(throwable)) {
 			LOG.error("Temporary fix to invalid token problem: kill the job and force it to restart.", throwable);
 			System.exit(1); // anything but zero
 		}
-	}
-
-	@VisibleForTesting
-	public boolean isTokenProblemInTraces(Throwable throwable){
-		Throwable t = throwable;
-		while (t != null) {
-			if (t instanceof SerializedThrowable) {
-				SerializedThrowable st = (SerializedThrowable) t;
-				String message = st.getMessage();
-				if (message != null) {
-					if (message.contains("InfSecSException")) {
-						return true;
-					} else if (message.contains("token") && message.contains("expire")) {
-						return true;
-					}
-				}
-			}
-			t = t.getCause();
-		}
-		return false;
 	}
 
 	private void checkContinuousCheckpointCount(CheckpointException exception, long checkpointId) {

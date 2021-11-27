@@ -29,6 +29,7 @@ import org.apache.flink.streaming.api.operators.OperatorSnapshotFinalizer;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFutures;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.TokenExpirationUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -177,6 +178,9 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 	}
 
 	private void handleExecutionException(Exception e) {
+		if (TokenExpirationUtils.isTokenProblemInTraces(e)) {
+			System.exit(1);
+		}
 
 		boolean didCleanup = false;
 		AsyncCheckpointState currentState = asyncCheckpointState.get();
@@ -268,5 +272,4 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 			taskName,
 			checkpointMetaData.getCheckpointId());
 	}
-
 }

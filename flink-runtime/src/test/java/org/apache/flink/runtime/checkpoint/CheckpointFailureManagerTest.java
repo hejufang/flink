@@ -17,6 +17,8 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
+import org.apache.flink.runtime.blacklist.reporter.NoOpBlacklistReporterImpl;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.util.TestLogger;
 
@@ -33,24 +35,37 @@ public class CheckpointFailureManagerTest extends TestLogger {
 
 	@Test
 	public void testTokenExpire() {
+		final int[] failure = {0};
 		TestFailJobCallback callback = new TestFailJobCallback();
-		CheckpointFailureManager failureManager = new CheckpointFailureManager(2, callback);
+		CheckpointFailureManager failureManager = new CheckpointFailureManager(
+			2,
+			callback,
+			new NoOpBlacklistReporterImpl() {
+				@Override
+				public void reportFailure(ExecutionAttemptID attemptID, Throwable t, long timestamp) {
+					failure[0]++;
+				}
+			},
+			new UnregisteredMetricsGroup());
 		CheckpointException ex1 = new CheckpointException(
 			CheckpointFailureReason.CHECKPOINT_ASYNC_EXCEPTION,
 			new RemoteException("org.byted.infsec.infsecs.InfSecSException",
 				"org.byted.infsec.infsecs.InfSecSException: org.byted.infsec.infsecs.InfSecSException: token expired"));
-		Assert.assertTrue(failureManager.isTokenProblemInTraces(ex1));
+		failureManager.handleTaskLevelCheckpointException(ex1, 1L, new ExecutionAttemptID());
+		Assert.assertEquals(1, failure[0]);
 
 		CheckpointException ex2 = new CheckpointException(
 			CheckpointFailureReason.CHECKPOINT_ASYNC_EXCEPTION,
 			new RemoteException("org.byted.infsec.infsecs.InfSecSException", "org.byted.infsec.infsecs.InfSecSException: token expired!"));
-		Assert.assertTrue(failureManager.isTokenProblemInTraces(ex2));
+		failureManager.handleTaskLevelCheckpointException(ex2, 1L, new ExecutionAttemptID());
+		Assert.assertEquals(2, failure[0]);
 
 		// test when message is null
 		CheckpointException ex3 = new CheckpointException(
 			CheckpointFailureReason.CHECKPOINT_ASYNC_EXCEPTION,
 			new Exception());
-		Assert.assertFalse(failureManager.isTokenProblemInTraces(ex3));
+		failureManager.handleTaskLevelCheckpointException(ex3, 1L, new ExecutionAttemptID());
+		Assert.assertEquals(2, failure[0]);
 	}
 
 	@Test
