@@ -42,7 +42,7 @@ public class StateMetaRowDataConverter implements RowDataConverter<StateMetaData
 
 		OperatorStateMeta operatorStateMeta = ((StateMetaConverterContext) context).getOperatorStateMeta();
 
-		Row row = new Row(8);
+		Row row = new Row(9);
 		row.setField(0, operatorStateMeta.getOperatorID().toString());
 		row.setField(1, operatorStateMeta.getOperatorName());
 		row.setField(2, operatorStateMeta.getUid());
@@ -67,6 +67,8 @@ public class StateMetaRowDataConverter implements RowDataConverter<StateMetaData
 		row.setField(5, stateMetaData.getName());
 		row.setField(6, stateMetaData.getType().toString());
 		row.setField(7, backendType.getBackendType());
+		row.setField(8, FormatterFactory.TypeFormatter.INSTANCE.format(stateMetaData.getStateDescriptor().getSerializer()));
+
 		return (RowData) converter.toInternal(row);
 	}
 

@@ -86,8 +86,8 @@ public class SavepointCatalogTest {
 
 		final TableResult result = tEnv.executeSql("select * from state_meta");
 		List expect = new ArrayList();
-		expect.add(Row.of("bc764cd8ddf7a0cff126f51c16239658", "Source: mySource", null, false, null, "topic-partition-offset-states", "LIST", "OPERATOR_STATE_BACKEND"));
-		expect.add(Row.of("6fe83e977ea8ea576938e21ab20d3024", "Flat Map", null, true, "Tuple1", "average", "VALUE", "INCREMENTAL_ROCKSDB_STATE_BACKEND"));
+		expect.add(Row.of("bc764cd8ddf7a0cff126f51c16239658", "Source: mySource", null, false, null, "topic-partition-offset-states", "LIST", "OPERATOR_STATE_BACKEND", "List<Tuple2>"));
+		expect.add(Row.of("6fe83e977ea8ea576938e21ab20d3024", "Flat Map", null, true, "Tuple1", "average", "VALUE", "INCREMENTAL_ROCKSDB_STATE_BACKEND", "Tuple2"));
 		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
 
 	}
@@ -98,14 +98,14 @@ public class SavepointCatalogTest {
 
 		final TableResult result = tEnv.executeSql("select * from state_meta where operator_id = '000000000000000a0000000000000000'");
 		List expect = new ArrayList();
-		expect.add(Row.of("000000000000000a0000000000000000", "testName", "testUid", true, "String", "test-state2", "MAP", "MOCK_STATE_BACKEND"));
-		expect.add(Row.of("000000000000000a0000000000000000", "testName", "testUid", false, null, "test-state", "LIST", "OPERATOR_STATE_BACKEND"));
+		expect.add(Row.of("000000000000000a0000000000000000", "testName", "testUid", true, "String", "test-state2", "MAP", "MOCK_STATE_BACKEND", "Map<String, String>"));
+		expect.add(Row.of("000000000000000a0000000000000000", "testName", "testUid", false, null, "test-state", "LIST", "OPERATOR_STATE_BACKEND", "List<Long>"));
 		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
 
 		final TableResult result1 = tEnv.executeSql("select * from state_meta where is_keyed_state = false");
 		List expect1 = new ArrayList();
-		expect1.add(Row.of("000000000000000a0000000000000000", "testName", "testUid", false, null, "test-state", "LIST", "OPERATOR_STATE_BACKEND"));
-		expect1.add(Row.of("000000000000001e0000000000000000", "testName2", "testUid2", false, null, "test-state", "LIST", "OPERATOR_STATE_BACKEND"));
+		expect1.add(Row.of("000000000000000a0000000000000000", "testName", "testUid", false, null, "test-state", "LIST", "OPERATOR_STATE_BACKEND", "List<Long>"));
+		expect1.add(Row.of("000000000000001e0000000000000000", "testName2", "testUid2", false, null, "test-state", "LIST", "OPERATOR_STATE_BACKEND", "List<Long>"));
 		Assert.assertEquals(expect1, Lists.newArrayList(result1.collect()));
 
 	}

@@ -18,6 +18,7 @@
 package org.apache.flink.state.table.connector.converter;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.api.common.typeutils.base.MapSerializer;
 import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.MapData;
@@ -230,8 +231,15 @@ public class FormatterFactory {
 
 		@Override
 		public String format(Object o) {
-			if (o instanceof RowDataSerializer){
+			if (o instanceof RowDataSerializer) {
 				return  RowType.of(((RowDataSerializer) o).getTypes()).asSummaryString();
+			} else if (o instanceof ListSerializer) {
+				String elementFormat =  format(((ListSerializer<?>) o).getElementSerializer());
+				return "List<" + elementFormat + ">";
+			} else if (o instanceof MapSerializer) {
+				String keyFormat =  format(((MapSerializer) o).getKeySerializer());
+				String valueFormat =  format(((MapSerializer) o).getValueSerializer());
+				return "Map<" + keyFormat + ", " + valueFormat + ">";
 			} else {
 				return ((TypeSerializer) o).createInstance().getClass().getSimpleName();
 			}

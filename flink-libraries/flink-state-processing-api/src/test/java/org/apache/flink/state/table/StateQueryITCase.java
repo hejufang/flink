@@ -177,10 +177,10 @@ public class StateQueryITCase {
 			default:
 				throw new IllegalStateException("Unsupported state backend selected.");
 		}
-		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", true, "Integer", "valueState", "VALUE", stateBackendType));
-		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", true, "Integer", "listState", "LIST", stateBackendType));
-		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", true, "Integer", "mapState", "MAP", stateBackendType));
-		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", false, null, "unionState", "LIST", "OPERATOR_STATE_BACKEND"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", true, "Integer", "valueState", "VALUE", stateBackendType, "Integer"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", true, "Integer", "listState", "LIST", stateBackendType, "List<String>"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", true, "Integer", "mapState", "MAP", stateBackendType, "Map<String, String>"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", false, null, "unionState", "LIST", "OPERATOR_STATE_BACKEND", "List<String>"));
 		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
 	}
 
@@ -310,7 +310,6 @@ public class StateQueryITCase {
 		Configuration conf = new Configuration();
 		conf.set(MAX_RETAINED_CHECKPOINTS, maxRetainedCheckpoints);
 		env.getCheckpointConfig().configure(conf);
-
 		DataStream stream = env
 			.addSource(new InfiniteTestSource())
 			.keyBy(x -> x)

@@ -62,7 +62,6 @@ public abstract class SavepointReaderKeyedStateITCase<B extends StateBackend> ex
 			StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 			env.setStateBackend(getStateBackend());
 			env.setParallelism(4);
-
 			env
 				.addSource(source)
 				.rebalance()

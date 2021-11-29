@@ -65,6 +65,7 @@ public class SavepointCatalogUtils {
 			.field("state_name", DataTypes.STRING())
 			.field("state_type", DataTypes.STRING())
 			.field("state_backend_type", DataTypes.STRING())
+			.field("value_type", DataTypes.STRING())
 			.build();
 
 	public static final TableSchema KEYED_STATE_TABLE_SCHEMA =

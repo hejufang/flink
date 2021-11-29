@@ -142,7 +142,7 @@ public class StateMetaInputFormatTest {
 		CheckpointStateMetadata res = serAndDeSerCheckpointMetaCheckpointMeta(1, Collections.singletonList(operatorStateMeta), null);
 
 		List expect = new LinkedList();
-		expect.add(genResultRow("000000000000000a0000000000000000", "testName", "testUid", true, "String", "test-state2", "MAP", "MOCK_STATE_BACKEND"));
+		expect.add(genResultRow("000000000000000a0000000000000000", "testName", "testUid", true, "String", "test-state2", "MAP", "MOCK_STATE_BACKEND", "Map<String, String>"));
 		assertEquals(expect.get(0), traverseCheckpointStateMeta(res).toArray()[0]);
 
 	}
@@ -170,8 +170,8 @@ public class StateMetaInputFormatTest {
 		CheckpointStateMetadata deserialized = serAndDeSerCheckpointMetaCheckpointMeta(1, Collections.singletonList(operatorStateMeta), null);
 
 		List expect = new LinkedList();
-		expect.add(genResultRow("000000000000000a0000000000000000", null, null, true, "String", "test-state2", "MAP", "MOCK_STATE_BACKEND"));
-		expect.add(genResultRow("000000000000000a0000000000000000", null, null, false, null, "test-state", "LIST", "OPERATOR_STATE_BACKEND"));
+		expect.add(genResultRow("000000000000000a0000000000000000", null, null, true, "String", "test-state2", "MAP", "MOCK_STATE_BACKEND", "Map<String, String>"));
+		expect.add(genResultRow("000000000000000a0000000000000000", null, null, false, null, "test-state", "LIST", "OPERATOR_STATE_BACKEND", "List<Long>"));
 		assertEquals(expect, traverseCheckpointStateMeta(deserialized));
 
 	}
@@ -202,10 +202,10 @@ public class StateMetaInputFormatTest {
 		CheckpointStateMetadata deserialized = serAndDeSerCheckpointMetaCheckpointMeta(1, Arrays.asList(operatorStateMeta1, operatorStateMeta2, operatorStateMeta3), null);
 
 		List expect = new LinkedList();
-		expect.add(genResultRow("000000000000000a0000000000000000", "testName", "testUid", true, "String", "test-state2", "MAP", "MOCK_STATE_BACKEND"));
-		expect.add(genResultRow("000000000000000a0000000000000000", "testName", "testUid", false, null, "test-state", "LIST", "OPERATOR_STATE_BACKEND"));
-		expect.add(genResultRow("00000000000000140000000000000000", "testName1", "testUid1", true, "String", "test-state2", "MAP", "MOCK_STATE_BACKEND"));
-		expect.add(genResultRow("000000000000001e0000000000000000", "testName2", "testUid2", false, null, "test-state", "LIST", "OPERATOR_STATE_BACKEND"));
+		expect.add(genResultRow("000000000000000a0000000000000000", "testName", "testUid", true, "String", "test-state2", "MAP", "MOCK_STATE_BACKEND", "Map<String, String>"));
+		expect.add(genResultRow("000000000000000a0000000000000000", "testName", "testUid", false, null, "test-state", "LIST", "OPERATOR_STATE_BACKEND", "List<Long>"));
+		expect.add(genResultRow("00000000000000140000000000000000", "testName1", "testUid1", true, "String", "test-state2", "MAP", "MOCK_STATE_BACKEND", "Map<String, String>"));
+		expect.add(genResultRow("000000000000001e0000000000000000", "testName2", "testUid2", false, null, "test-state", "LIST", "OPERATOR_STATE_BACKEND", "List<Long>"));
 
 		assertEquals(expect, traverseCheckpointStateMeta(deserialized));	}
 
@@ -239,9 +239,9 @@ public class StateMetaInputFormatTest {
 		return deserialized;
 	}
 
-	private GenericRowData genResultRow(String opID, String opName, String uid, boolean isKeyedState, String keyType, String stateName, String stateType, String backendType){
+	private GenericRowData genResultRow(String opID, String opName, String uid, boolean isKeyedState, String keyType, String stateName, String stateType, String backendType, String valueType){
 
-		GenericRowData genericRowData = new GenericRowData(8);
+		GenericRowData genericRowData = new GenericRowData(9);
 		genericRowData.setField(0, BinaryStringData.fromString(opID));
 		genericRowData.setField(1, BinaryStringData.fromString(opName));
 		genericRowData.setField(2, BinaryStringData.fromString(uid));
@@ -250,6 +250,7 @@ public class StateMetaInputFormatTest {
 		genericRowData.setField(5, BinaryStringData.fromString(stateName));
 		genericRowData.setField(6, BinaryStringData.fromString(stateType));
 		genericRowData.setField(7, BinaryStringData.fromString(backendType));
+		genericRowData.setField(8, BinaryStringData.fromString(valueType));
 
 		return genericRowData;
 	}
