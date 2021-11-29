@@ -192,7 +192,7 @@ public class ExecutionGraphBuilder {
 				jobManagerConfig.getInteger(JobManagerOptions.MAX_ATTEMPTS_HISTORY_SIZE);
 
 		final boolean isRecoverable = jobManagerConfig.getBoolean(FORCE_PARTITION_RECOVERABLE);
-		final boolean useCloudShuffleService = jobManagerConfig.getBoolean(ShuffleOptions.CLOUD_SHUFFLE_SERVICE_ENABLED);
+		final boolean cloudShuffleMode = jobManagerConfig.getBoolean(ShuffleOptions.SHUFFLE_CLOUD_SHUFFLE_MODE);
 		final boolean jobLogDetailDisable = jobManagerConfig.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 
 		final PartitionReleaseStrategy.Factory partitionReleaseStrategyFactory =
@@ -222,7 +222,7 @@ public class ExecutionGraphBuilder {
 					remoteBlacklistReporter,
 					new DefaultLogicalTopology(jobGraph),
 					isRecoverable,
-					useCloudShuffleService,
+					cloudShuffleMode,
 					jobLogDetailDisable);
 					executionGraph.setExecutionStatusDuration(jobManagerConfig.getInteger(JobManagerOptions.EXECUTION_STATUS_DURATION_MS));
 		} catch (IOException e) {

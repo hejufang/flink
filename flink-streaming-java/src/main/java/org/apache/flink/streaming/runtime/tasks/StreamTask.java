@@ -1278,13 +1278,13 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			((ConfigurableBacklogPartitioner) outputPartitioner).configure(partitionerMaxBacklogPerChannel);
 		}
 
-		final boolean allowPartialRecord = environment.getTaskManagerInfo().getConfiguration().getBoolean(
-			ShuffleOptions.SHUFFLE_ALLOW_PARTIAL_RECORD);
+		final boolean cloudShuffleMode = environment.getTaskManagerInfo().getConfiguration().getBoolean(
+			ShuffleOptions.SHUFFLE_CLOUD_SHUFFLE_MODE);
 		RecordWriter<SerializationDelegate<StreamRecord<OUT>>> output = new RecordWriterBuilder<SerializationDelegate<StreamRecord<OUT>>>()
 			.setChannelSelector(outputPartitioner)
 			.setTimeout(bufferTimeout)
 			.setTaskName(taskName)
-			.setAllowPartialRecord(allowPartialRecord)
+			.setCloudShuffleMode(cloudShuffleMode)
 			.build(bufferWriter);
 		output.setMetricGroup(environment.getMetricGroup().getIOMetricGroup());
 		return output;

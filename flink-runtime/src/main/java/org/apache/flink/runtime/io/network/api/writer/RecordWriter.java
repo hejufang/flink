@@ -93,11 +93,11 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 	/** To avoid synchronization overhead on the critical path, best-effort error tracking is enough here.*/
 	private Throwable flusherException;
 
-	RecordWriter(ResultPartitionWriter writer, long timeout, String taskName, boolean allowPartialRecord) {
+	RecordWriter(ResultPartitionWriter writer, long timeout, String taskName, boolean cloudShuffleMode) {
 		this.targetPartition = writer;
 		this.numberOfChannels = writer.getNumberOfSubpartitions();
 
-		this.serializer = new SpanningRecordSerializer<T>(allowPartialRecord);
+		this.serializer = new SpanningRecordSerializer<T>(cloudShuffleMode);
 
 		checkArgument(timeout >= -1);
 		this.flushAlways = (timeout == 0);

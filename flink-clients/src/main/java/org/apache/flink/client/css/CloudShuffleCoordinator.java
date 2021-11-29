@@ -75,9 +75,15 @@ public class CloudShuffleCoordinator {
 			.withDescription("A custom type for your YARN application..");
 
 	public static boolean reconfigureConfig(JobGraph jobGraph, ClusterSpecification clusterSpecification, Configuration configuration) {
+		// whether user enables css or not
+		if (!configuration.getBoolean(ShuffleOptions.CLOUD_SHUFFLE_SERVICE_ENABLED)) {
+			return false;
+		}
+		// whether this is a batch job or not
 		if (!configuration.getString(APPLICATION_TYPE).equals("Apache Flink Batch")) {
 			return false;
 		}
+		// whether this is a valid graph or not
 		if (!isValidJobGraph(jobGraph)) {
 			return false;
 		}
@@ -187,8 +193,7 @@ public class CloudShuffleCoordinator {
 
 		// reconfigure configuration
 		setIfAbsent(configuration, SHUFFLE_SERVICE_FACTORY_CLASS, "org.apache.flink.runtime.shuffle.CloudShuffleServiceFactory");
-		setIfAbsent(configuration, ShuffleOptions.CLOUD_SHUFFLE_SERVICE_ENABLED, true);
-		setIfAbsent(configuration, ShuffleOptions.SHUFFLE_ALLOW_PARTIAL_RECORD, false);
+		setIfAbsent(configuration, ShuffleOptions.SHUFFLE_CLOUD_SHUFFLE_MODE, true);
 		setIfAbsent(configuration, CloudShuffleOptions.CLOUD_SHUFFLE_REGISTRY_TYPE, "zookeeper");
 		setIfAbsent(configuration, CloudShuffleOptions.CLOUD_SHUFFLE_CLUSTER, clusterName);
 		setIfAbsent(configuration, CloudShuffleOptions.CLOUD_SHUFFLE_ZK_ADDRESS, zkAddr);

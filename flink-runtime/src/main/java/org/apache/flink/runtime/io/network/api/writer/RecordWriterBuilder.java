@@ -31,7 +31,7 @@ public class RecordWriterBuilder<T extends IOReadableWritable> {
 
 	private String taskName = "test";
 
-	private boolean allowPartialRecord = true;
+	private boolean cloudShuffleMode = false;
 
 	public RecordWriterBuilder<T> setChannelSelector(ChannelSelector<T> selector) {
 		this.selector = selector;
@@ -48,16 +48,16 @@ public class RecordWriterBuilder<T extends IOReadableWritable> {
 		return this;
 	}
 
-	public RecordWriterBuilder<T> setAllowPartialRecord(boolean allowPartialRecord) {
-		this.allowPartialRecord = allowPartialRecord;
+	public RecordWriterBuilder<T> setCloudShuffleMode(boolean cloudShuffleMode) {
+		this.cloudShuffleMode = cloudShuffleMode;
 		return this;
 	}
 
 	public RecordWriter<T> build(ResultPartitionWriter writer) {
 		if (selector.isBroadcast()) {
-			return new BroadcastRecordWriter<>(writer, timeout, taskName, allowPartialRecord);
+			return new BroadcastRecordWriter<>(writer, timeout, taskName, cloudShuffleMode);
 		} else {
-			return new ChannelSelectorRecordWriter<>(writer, selector, timeout, taskName, allowPartialRecord);
+			return new ChannelSelectorRecordWriter<>(writer, selector, timeout, taskName, cloudShuffleMode);
 		}
 	}
 }

@@ -32,9 +32,8 @@ public class ShuffleOptions {
 		.defaultValue(false)
 		.withDescription("Whether css is enabled.");
 
-	/** Whether to allow partial record in a buffer. */
-	public static final ConfigOption<Boolean> SHUFFLE_ALLOW_PARTIAL_RECORD = ConfigOptions
-		.key("shuffle.allow-partial-record")
-		.defaultValue(true)
-		.withDescription("Whether to allow partial record in a buffer.");
+	public static final ConfigOption<Boolean> SHUFFLE_CLOUD_SHUFFLE_MODE = ConfigOptions
+		.key("shuffle.cloud-shuffle-mode")
+		.defaultValue(false)
+		.withDescription("True if CSS is enabled, it will affect partition availability and shuffle data format.");
 }

@@ -39,8 +39,8 @@ public class ExecutionGraphResultPartitionAvailabilityChecker implements ResultP
 	/** The tracker that tracks all available result partitions. */
 	private final JobMasterPartitionTracker partitionTracker;
 
-	/** Whether to use css or not. */
-	private final boolean useCloudShuffleService;
+	/** Partition is always available when css is enabled. */
+	private final boolean cloudShuffleMode;
 
 	@VisibleForTesting
 	ExecutionGraphResultPartitionAvailabilityChecker(
@@ -52,14 +52,14 @@ public class ExecutionGraphResultPartitionAvailabilityChecker implements ResultP
 	ExecutionGraphResultPartitionAvailabilityChecker(
 		final Function<IntermediateResultPartitionID, ResultPartitionID> partitionIDMapper,
 		final JobMasterPartitionTracker partitionTracker,
-		final boolean useCloudShuffleService) {
+		final boolean cloudShuffleMode) {
 		this.partitionIDMapper = checkNotNull(partitionIDMapper);
 		this.partitionTracker = checkNotNull(partitionTracker);
-		this.useCloudShuffleService = useCloudShuffleService;
+		this.cloudShuffleMode = cloudShuffleMode;
 	}
 
 	@Override
 	public boolean isAvailable(final IntermediateResultPartitionID resultPartitionID) {
-		return useCloudShuffleService || partitionTracker.isPartitionTracked(partitionIDMapper.apply(resultPartitionID));
+		return cloudShuffleMode || partitionTracker.isPartitionTracked(partitionIDMapper.apply(resultPartitionID));
 	}
 }

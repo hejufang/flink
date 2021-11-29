@@ -41,8 +41,8 @@ import static org.apache.flink.runtime.io.network.buffer.BufferBuilderTestUtils.
 public class SpanningRecordSerializerTest {
 
 	@Test
-	public void testAllowPartialRecord() throws IOException {
-		final SpanningRecordSerializer<SerializationTestType> serializer = new SpanningRecordSerializer<>(false);
+	public void testCloudShuffleModeSerializer() throws IOException {
+		final SpanningRecordSerializer<SerializationTestType> serializer = new SpanningRecordSerializer<>(true);
 
 		final SerializationTestType randomIntRecord = Util.randomRecord(SerializationTestTypeFactory.INT);
 		serializer.serializeRecord(randomIntRecord);
