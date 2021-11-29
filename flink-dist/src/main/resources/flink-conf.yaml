@@ -295,6 +295,16 @@ dw:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  state.backend.cache.enable: true
+  state.backend.cache.maxHeapSize: 1g
+  state.backend.cache.blockSize: 4m
+  state.backend.cache.initial.size: 4m
+  state.backend.cache.maxSize: 64m
+  state.backend.cache.scale.enable: true
+  state.backend.cache.gcCountThreshold: 40
+  state.backend.cache.avgGcTimeThreshold: 3000
+  state.backend.cache.maxGcTimeThreshold: 10000
+  state.backend.cache.lowHeapThreshold: 0.4
 
 lepad:
   dc: cn
@@ -389,6 +399,16 @@ horse:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
+  state.backend.cache.enable: true
+  state.backend.cache.maxHeapSize: 1g
+  state.backend.cache.blockSize: 4m
+  state.backend.cache.initial.size: 4m
+  state.backend.cache.maxSize: 64m
+  state.backend.cache.scale.enable: true
+  state.backend.cache.gcCountThreshold: 40
+  state.backend.cache.avgGcTimeThreshold: 3000
+  state.backend.cache.maxGcTimeThreshold: 10000
+  state.backend.cache.lowHeapThreshold: 0.4
 
 hibis:
   dc: cn
@@ -566,6 +586,16 @@ marmt:
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
   flink.cloud-shuffle-service.support: false
+  state.backend.cache.enable: true
+  state.backend.cache.maxHeapSize: 1g
+  state.backend.cache.blockSize: 4m
+  state.backend.cache.initial.size: 4m
+  state.backend.cache.maxSize: 64m
+  state.backend.cache.scale.enable: true
+  state.backend.cache.gcCountThreshold: 40
+  state.backend.cache.avgGcTimeThreshold: 3000
+  state.backend.cache.maxGcTimeThreshold: 10000
+  state.backend.cache.lowHeapThreshold: 0.4
 
 macaw:
   dc: va
