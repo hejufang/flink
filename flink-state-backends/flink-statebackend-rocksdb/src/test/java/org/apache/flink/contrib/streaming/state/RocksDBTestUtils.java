@@ -105,8 +105,15 @@ public final class RocksDBTestUtils {
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
-				}
-			);
+				},
+				() -> {
+					try {
+						Thread.sleep(10L);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					return null;
+				});
 	}
 
 	public static <K> RocksDBKeyedStateBackend<K> createKeyedStateBackend(

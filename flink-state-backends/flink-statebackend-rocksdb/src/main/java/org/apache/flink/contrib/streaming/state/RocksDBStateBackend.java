@@ -82,6 +82,7 @@ import static org.apache.flink.contrib.streaming.state.RocksDBOperationUtils.DB_
 import static org.apache.flink.contrib.streaming.state.RocksDBOperationUtils.DB_LOG_FILE_UUID;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL;
+import static org.apache.flink.contrib.streaming.state.RocksDBOptions.ROCKSDB_DISPOSE_TIMEOUT;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.TIMER_SERVICE_FACTORY;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -132,6 +133,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	private static final long UNDEFINED_WRITE_BATCH_SIZE = -1;
 	private static final int UNDEFINED_DATA_TRANSFER_MAX_RETRY_TIMES = -1;
 	private static final int UNDEFINED_DB_NATIVE_CHECKPOINT_TIMEOUT = -1;
+	private static final int UNDEFINED_DISPOSE_TIMEOUT = -1;
+
 
 	// ------------------------------------------------------------------------
 
@@ -205,6 +208,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	private boolean isDiskValid = true;
 
 	private long rocksdbNativeCheckpointTimeout;
+
+	private long disposeTimeout;
 
 	// ------------------------------------------------------------------------
 
@@ -309,6 +314,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		this.writeBatchSize = UNDEFINED_WRITE_BATCH_SIZE;
 		this.nThreadOfOperatorStateBackend = 1;
 		this.rocksdbNativeCheckpointTimeout = UNDEFINED_DB_NATIVE_CHECKPOINT_TIMEOUT;
+		this.disposeTimeout = UNDEFINED_DISPOSE_TIMEOUT;
 	}
 
 	/**
@@ -380,6 +386,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		this.maxRetryTimes = config.get(CheckpointingOptions.DATA_TRANSFER_MAX_RETRY_ATTEMPTS);
 
 		this.rocksdbNativeCheckpointTimeout = config.get(ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT);
+		this.disposeTimeout = config.get(ROCKSDB_DISPOSE_TIMEOUT);
 
 		this.memoryConfiguration = RocksDBMemoryConfiguration.fromOtherAndConfiguration(original.memoryConfiguration, config);
 		this.memoryConfiguration.validate();
@@ -694,6 +701,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			.setDiscardStatesIfRocksdbRecoverFail(getDiscardStatesIfRocksdbRecoverFail())
 			.setIsDiskValid(isDiskValid)
 			.setDBNativeCheckpointTimeout(getDBNativeCheckpointTimeout())
+			.setDisposeTimeout(getDisposeTimeout())
 			.setStatsTracker(statsTracker);
 		return builder.build();
 	}
@@ -1031,6 +1039,11 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	public long getDBNativeCheckpointTimeout() {
 		return rocksdbNativeCheckpointTimeout == UNDEFINED_DB_NATIVE_CHECKPOINT_TIMEOUT ?
 			ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT.defaultValue() : rocksdbNativeCheckpointTimeout;
+	}
+
+	public long getDisposeTimeout() {
+		return disposeTimeout == UNDEFINED_DISPOSE_TIMEOUT ?
+			ROCKSDB_DISPOSE_TIMEOUT.defaultValue() : disposeTimeout;
 	}
 
 	/**

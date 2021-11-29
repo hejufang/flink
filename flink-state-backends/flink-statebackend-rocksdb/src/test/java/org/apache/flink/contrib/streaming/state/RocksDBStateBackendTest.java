@@ -50,6 +50,7 @@ import org.apache.flink.util.IOUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -859,6 +860,32 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 				}
 				columnFamilyOptions.close();
 			}
+		}
+	}
+
+	@Test
+	public void testDisposeTimeout() throws Exception {
+		RocksDBKeyedStateBackend<Integer> test = null;
+		final ColumnFamilyOptions columnFamilyOptions = spy(new ColumnFamilyOptions());
+
+		prepareRocksDB();
+		test = RocksDBTestUtils.builderForTestDB(
+			tempFolder.newFolder(),
+			IntSerializer.INSTANCE,
+			db,
+			defaultCFHandle,
+			columnFamilyOptions)
+			.setNumberOfTransferingThreads(2)
+			.setEnableIncrementalCheckpointing(isEnableIncrementalCheckpointing())
+			// set timeout to 1 millis
+			.setDisposeTimeout(1)
+			.build();
+
+		try {
+			test.dispose();
+			fail("Expect TimeoutException here");
+		} catch (Exception e) {
+			Assert.assertEquals(e.getMessage(), "Failed to dispose RocksdbKeyedStateBackend.");
 		}
 	}
 

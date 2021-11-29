@@ -76,6 +76,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -125,10 +126,12 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	private long writeBatchSize = RocksDBConfigurableOptions.WRITE_BATCH_SIZE.defaultValue().getBytes();
 	private int maxRetryTimes;
 	private long dbNativeCheckpointTimeout;
+	private long disposeTimeout;
 
 	private RocksDB injectedTestDB; // for testing
 	private ColumnFamilyHandle injectedDefaultColumnFamilyHandle; // for testing
 	private Consumer injectedBeforeTakeDBNativeCheckpoint; // for testing
+	private Supplier injectedBeforeDispose; // for testing
 
 	public RocksDBKeyedStateBackendBuilder(
 		String operatorIdentifier,
@@ -176,6 +179,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		this.maxRetryTimes = CheckpointingOptions.DATA_TRANSFER_MAX_RETRY_ATTEMPTS.defaultValue();
 		this.batchConfig = RocksDBStateBatchConfig.createNoBatchingConfig();
 		this.dbNativeCheckpointTimeout = RocksDBOptions.ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT.defaultValue();
+		this.disposeTimeout = RocksDBOptions.ROCKSDB_DISPOSE_TIMEOUT.defaultValue();
 	}
 
 	@VisibleForTesting
@@ -199,7 +203,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		RocksDB injectedTestDB,
 		ColumnFamilyHandle injectedDefaultColumnFamilyHandle,
 		CloseableRegistry cancelStreamRegistry,
-		Consumer beforeTakeDBNativeCheckpoint) {
+		Consumer beforeTakeDBNativeCheckpoint,
+		Supplier beforeDispose) {
 		this(
 			operatorIdentifier,
 			userCodeClassLoader,
@@ -222,6 +227,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		this.injectedTestDB = injectedTestDB;
 		this.injectedDefaultColumnFamilyHandle = injectedDefaultColumnFamilyHandle;
 		this.injectedBeforeTakeDBNativeCheckpoint = beforeTakeDBNativeCheckpoint;
+		this.injectedBeforeDispose = beforeDispose;
 	}
 
 	@VisibleForTesting
@@ -271,6 +277,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	public RocksDBKeyedStateBackendBuilder<K> setDBNativeCheckpointTimeout(long dbNativeCheckpointTimeout) {
 		this.dbNativeCheckpointTimeout = dbNativeCheckpointTimeout;
+		return this;
+	}
+
+	public RocksDBKeyedStateBackendBuilder<K> setDisposeTimeout(long disposeTimeout) {
+		this.disposeTimeout = disposeTimeout;
 		return this;
 	}
 
@@ -390,33 +401,72 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 			keyGroupRange,
 			numberOfKeyGroups
 		);
-		return new RocksDBKeyedStateBackend<>(
-			this.userCodeClassLoader,
-			this.instanceBasePath,
-			this.optionsContainer,
-			columnFamilyOptionsFactory,
-			this.kvStateRegistry,
-			this.keySerializerProvider.currentSchemaSerializer(),
-			this.executionConfig,
-			this.ttlTimeProvider,
-			db,
-			kvStateInformation,
-			keyGroupPrefixBytes,
-			cancelStreamRegistryForBackend,
-			this.keyGroupCompressionDecorator,
-			rocksDBResourceGuard,
-			snapshotStrategy.checkpointSnapshotStrategy,
-			snapshotStrategy.savepointSnapshotStrategy,
-			writeBatchWrapper,
-			defaultColumnFamilyHandle,
-			nativeMetricMonitor,
-			sharedRocksKeyBuilder,
-			priorityQueueFactory,
-			ttlCompactFiltersManager,
-			keyContext,
-			writeBatchSize,
-			metricGroup,
-			isDiskValid);
+
+		if (injectedBeforeDispose == null){
+			return new RocksDBKeyedStateBackend<>(
+				this.userCodeClassLoader,
+				this.instanceBasePath,
+				this.optionsContainer,
+				columnFamilyOptionsFactory,
+				this.kvStateRegistry,
+				this.keySerializerProvider.currentSchemaSerializer(),
+				this.executionConfig,
+				this.ttlTimeProvider,
+				db,
+				kvStateInformation,
+				keyGroupPrefixBytes,
+				cancelStreamRegistryForBackend,
+				this.keyGroupCompressionDecorator,
+				rocksDBResourceGuard,
+				snapshotStrategy.checkpointSnapshotStrategy,
+				snapshotStrategy.savepointSnapshotStrategy,
+				writeBatchWrapper,
+				defaultColumnFamilyHandle,
+				nativeMetricMonitor,
+				sharedRocksKeyBuilder,
+				priorityQueueFactory,
+				ttlCompactFiltersManager,
+				keyContext,
+				writeBatchSize,
+				metricGroup,
+				isDiskValid,
+				disposeTimeout);
+		} else {
+			return new RocksDBKeyedStateBackend(
+				this.userCodeClassLoader,
+				this.instanceBasePath,
+				this.optionsContainer,
+				columnFamilyOptionsFactory,
+				this.kvStateRegistry,
+				this.keySerializerProvider.currentSchemaSerializer(),
+				this.executionConfig,
+				this.ttlTimeProvider,
+				db,
+				kvStateInformation,
+				keyGroupPrefixBytes,
+				cancelStreamRegistryForBackend,
+				this.keyGroupCompressionDecorator,
+				rocksDBResourceGuard,
+				snapshotStrategy.checkpointSnapshotStrategy,
+				snapshotStrategy.savepointSnapshotStrategy,
+				writeBatchWrapper,
+				defaultColumnFamilyHandle,
+				nativeMetricMonitor,
+				sharedRocksKeyBuilder,
+				priorityQueueFactory,
+				ttlCompactFiltersManager,
+				keyContext,
+				writeBatchSize,
+				metricGroup,
+				isDiskValid,
+				disposeTimeout) {
+				@Override
+				public void doDispose() {
+					injectedBeforeDispose.get();
+					super.doDispose();
+				}
+			};
+		}
 	}
 
 	private AbstractRocksDBRestoreOperation<K> getRocksDBRestoreOperation(
