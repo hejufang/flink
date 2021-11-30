@@ -69,6 +69,12 @@ public class HadoopConfMountDecoratorTest extends KubernetesJobManagerTestBase {
 	}
 
 	@Test
+	public void testExistingHadoopConfigInHostPathVolume() throws IOException {
+		flinkConfig.set(KubernetesConfigOptions.HADOOP_CONF_MOUNTED_HOST_PATH_VOLUME, EXISTING_HADOOP_CONF_CONFIG_MAP);
+		assertEquals(0, hadoopConfMountDecorator.buildAccompanyingKubernetesResources().size());
+	}
+
+	@Test
 	public void testExistingConfigMapPrecedeOverHadoopConfEnv() throws IOException {
 		// set existing ConfigMap
 		flinkConfig.set(KubernetesConfigOptions.HADOOP_CONF_CONFIG_MAP, EXISTING_HADOOP_CONF_CONFIG_MAP);

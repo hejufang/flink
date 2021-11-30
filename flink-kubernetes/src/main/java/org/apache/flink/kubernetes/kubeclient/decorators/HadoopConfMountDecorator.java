@@ -22,6 +22,7 @@ import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.parameters.AbstractKubernetesParameters;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.util.FileUtils;
+import org.apache.flink.util.StringUtils;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
@@ -34,6 +35,7 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
+import io.fabric8.kubernetes.api.model.VolumeMount;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,8 +70,54 @@ public class HadoopConfMountDecorator extends AbstractKubernetesStepDecorator {
 
 	@Override
 	public FlinkPod decorateFlinkPod(FlinkPod flinkPod) {
-		Volume hadoopConfVolume;
-
+		Volume hadoopConfVolume = null;
+		final Optional<String> existingHadoopConfHostPathVolume = kubernetesParameters.getExistingHadoopConfigurationHostPathVolume();
+		if (existingHadoopConfHostPathVolume.isPresent()) {
+			// read hadoop conf from host path volume instead of config map
+			String hostPathVolumeName = existingHadoopConfHostPathVolume.get();
+			for (Volume volume : flinkPod.getPod().getSpec().getVolumes()) {
+				if (volume.getName().equals(hostPathVolumeName)) {
+					hadoopConfVolume = volume;
+					break;
+				}
+			}
+			if (hadoopConfVolume != null) {
+				String hadoopConfMountedPath = null;
+				for (VolumeMount volumeMount: flinkPod.getMainContainer().getVolumeMounts()){
+					if (volumeMount.getName().equals(hostPathVolumeName)) {
+						hadoopConfMountedPath = volumeMount.getMountPath();
+					}
+				}
+				final Container containerWithHadoopConf;
+				// to set the HADOOP_CONF_DIR environment variable
+				if (StringUtils.isNullOrWhitespaceOnly(hadoopConfMountedPath)) {
+					// if the volume haven't been mounted in container
+					containerWithHadoopConf = new ContainerBuilder(flinkPod.getMainContainer())
+						.addNewVolumeMount()
+						.withName(hadoopConfVolume.getName())
+						.withMountPath(Constants.HADOOP_CONF_DIR_IN_POD)
+						.withReadOnly(true)
+						.endVolumeMount()
+						.addNewEnv()
+						.withName(Constants.ENV_HADOOP_CONF_DIR)
+						.withValue(Constants.HADOOP_CONF_DIR_IN_POD)
+						.endEnv()
+						.build();
+				} else {
+					// The volume have been mounted in container, set the mounted path as env var: "HADOOP_CONF_DIR"
+					containerWithHadoopConf = new ContainerBuilder(flinkPod.getMainContainer())
+						.addNewEnv()
+						.withName(Constants.ENV_HADOOP_CONF_DIR)
+						.withValue(hadoopConfMountedPath)
+						.endEnv()
+						.build();
+				}
+				return new FlinkPod.Builder(flinkPod)
+					.withMainContainer(containerWithHadoopConf)
+					.build();
+			}
+			LOG.error("Set kubernetes.hadoop.conf.mounted-host-path-volume.name but this volume is not mounted in container");
+		}
 		final Optional<String> existingConfigMap = kubernetesParameters.getExistingHadoopConfigurationConfigMap();
 		if (existingConfigMap.isPresent()) {
 			hadoopConfVolume = new VolumeBuilder()
@@ -133,10 +181,13 @@ public class HadoopConfMountDecorator extends AbstractKubernetesStepDecorator {
 
 	@Override
 	public List<HasMetadata> buildAccompanyingKubernetesResources() throws IOException {
+		if (kubernetesParameters.getExistingHadoopConfigurationHostPathVolume().isPresent()) {
+			// we will get hadoop configuration from local host instead of config map
+			return Collections.emptyList();
+		}
 		if (kubernetesParameters.getExistingHadoopConfigurationConfigMap().isPresent()) {
 			return Collections.emptyList();
 		}
-
 		final Optional<String> localHadoopConfigurationDirectory = kubernetesParameters.getLocalHadoopConfigurationDirectory();
 		if (!localHadoopConfigurationDirectory.isPresent()) {
 			return Collections.emptyList();

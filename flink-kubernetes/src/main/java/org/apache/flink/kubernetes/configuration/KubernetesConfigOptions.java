@@ -250,6 +250,15 @@ public class KubernetesConfigOptions {
 		.withDescription("The flink conf directory that will be mounted in pod. The flink-conf.yaml, log4j.properties, " +
 			"logback.xml in this path will be overwritten from config map.");
 
+	public static final ConfigOption<List<String>> FLINK_MOUNTED_HOST_PATH =
+		key("kubernetes.flink.mounted-host-path")
+			.stringType()
+			.asList()
+			.noDefaultValue()
+			.withDescription("The host path list that will be mounted by Flink task manager and job manager. The list is " +
+				"separated by semicolon, each item contains three elements: volume name, path in host, path to be mounted in container. " +
+				"E.g. conf-volume1,/path1/in/host,/path1/in/container;conf-volume2,/path2/in/host,/path2/in/container");
+
 	public static final ConfigOption<String> FLINK_LOG_DIR =
 		key("kubernetes.flink.log.dir")
 		.stringType()
@@ -262,6 +271,13 @@ public class KubernetesConfigOptions {
 		.noDefaultValue()
 		.withDescription("Specify the name of an existing ConfigMap that contains custom Hadoop configuration " +
 			"to be mounted on the JobManager(s) and TaskManagers.");
+
+	public static final ConfigOption<String> HADOOP_CONF_MOUNTED_HOST_PATH_VOLUME =
+		key("kubernetes.hadoop.conf.mounted-host-path-volume.name")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("Specify the name of an existing host path type volume that contains custom Hadoop configuration " +
+				"to be mounted on the JobManager(s) and TaskManagers.");
 
 	public static final ConfigOption<Map<String, String>> JOB_MANAGER_ANNOTATIONS =
 		key("kubernetes.jobmanager.annotations")

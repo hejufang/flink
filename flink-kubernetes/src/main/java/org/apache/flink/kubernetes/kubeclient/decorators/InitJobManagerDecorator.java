@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesJobManagerParameters;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesToleration;
@@ -34,10 +35,16 @@ import io.fabric8.kubernetes.api.model.EnvVarSourceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
+import io.fabric8.kubernetes.api.model.Volume;
+import io.fabric8.kubernetes.api.model.VolumeBuilder;
+import io.fabric8.kubernetes.api.model.VolumeMount;
+import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.kubernetes.utils.Constants.API_VERSION;
@@ -53,13 +60,23 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
 
 	private final KubernetesJobManagerParameters kubernetesJobManagerParameters;
+	private final Map<String, Tuple2<String, String>> mountedHostPaths;
 
 	public InitJobManagerDecorator(KubernetesJobManagerParameters kubernetesJobManagerParameters) {
 		this.kubernetesJobManagerParameters = checkNotNull(kubernetesJobManagerParameters);
+		this.mountedHostPaths = kubernetesJobManagerParameters.getMountedHostPath();
 	}
 
 	@Override
 	public FlinkPod decorateFlinkPod(FlinkPod flinkPod) {
+		List<Volume> volumeList = new ArrayList<>(mountedHostPaths.size());
+		for  (Map.Entry<String,  Tuple2<String, String>> entry: mountedHostPaths.entrySet()) {
+			final Volume volume = new VolumeBuilder()
+				.withName(entry.getKey())
+				.withNewHostPath(entry.getValue().f0, Constants.DEFAULT_HOST_PATH_TYPE)
+				.build();
+			volumeList.add(volume);
+		}
 		final Pod basicPod = new PodBuilder(flinkPod.getPod())
 			.withApiVersion(API_VERSION)
 			.editOrNewMetadata()
@@ -70,6 +87,7 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
 				.withServiceAccountName(kubernetesJobManagerParameters.getServiceAccount())
 				.withImagePullSecrets(kubernetesJobManagerParameters.getImagePullSecrets())
 				.withNodeSelector(kubernetesJobManagerParameters.getNodeSelector())
+				.addAllToVolumes(volumeList)
 				.withTolerations(kubernetesJobManagerParameters.getTolerations().stream()
 					.map(e -> KubernetesToleration.fromMap(e).getInternalResource())
 					.collect(Collectors.toList()))
@@ -89,7 +107,15 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
 				kubernetesJobManagerParameters.getJobManagerMemoryMB(),
 				kubernetesJobManagerParameters.getJobManagerCPU(),
 				Collections.emptyMap());
-
+		List<VolumeMount> volumeMountList = new ArrayList<>(mountedHostPaths.size());
+		for  (Map.Entry<String,  Tuple2<String, String>> entry: mountedHostPaths.entrySet()) {
+			final VolumeMount volumeMount = new VolumeMountBuilder()
+				.withName(entry.getKey())
+				.withMountPath(entry.getValue().f1)
+				.withReadOnly(true)
+				.build();
+			volumeMountList.add(volumeMount);
+		}
 		return new ContainerBuilder(container)
 				.withName(kubernetesJobManagerParameters.getJobManagerMainContainerName())
 				.withImage(kubernetesJobManagerParameters.getImage())
@@ -98,6 +124,7 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
 				.withResources(requirements)
 				.withPorts(getContainerPorts())
 				.withEnv(getCustomizedEnvs())
+				.addAllToVolumeMounts(volumeMountList)
 				.addNewEnv()
 					.withName(ENV_FLINK_POD_IP_ADDRESS)
 					.withValueFrom(new EnvVarSourceBuilder()

@@ -275,6 +275,25 @@ public class KubernetesJobManagerFactoryTest extends KubernetesJobManagerTestBas
 	}
 
 	@Test
+	public void testExistingHadoopConfigInHostPathVolume() throws IOException {
+		flinkConfig.set(KubernetesConfigOptions.HADOOP_CONF_MOUNTED_HOST_PATH_VOLUME, "hadoop-config-host-path-volume");
+		flinkConfig.setString(KubernetesConfigOptions.FLINK_MOUNTED_HOST_PATH.key(),
+			"hadoop-config-host-path-volume,/opt/tiger/yarn_deploy, /opt/tiger/yarn_deploy;");
+		kubernetesJobManagerSpecification = KubernetesJobManagerFactory.buildKubernetesJobManagerSpecification(kubernetesJobManagerParameters);
+
+		assertFalse(kubernetesJobManagerSpecification.getAccompanyingResources().stream()
+			.anyMatch(resource -> resource.getMetadata().getName().equals(HadoopConfMountDecorator.getHadoopConfConfigMapName(CLUSTER_ID))));
+
+		final PodSpec podSpec = kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
+		assertTrue(podSpec.getVolumes().stream().anyMatch(
+			volume -> volume.getName().equals("hadoop-config-host-path-volume"))
+		);
+		assertTrue(podSpec.getContainers().get(0).getEnv().stream().anyMatch(
+			envVar -> envVar.getName().equals(Constants.ENV_HADOOP_CONF_DIR) && envVar.getValue().equals("/opt/tiger/yarn_deploy"))
+		);
+	}
+
+	@Test
 	public void testHadoopConfConfigMap() throws IOException {
 		setHadoopConfDirEnv();
 		generateHadoopConfFileItems();

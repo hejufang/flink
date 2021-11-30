@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.kubeclient.parameters;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptionsInternal;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
@@ -29,6 +30,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -118,6 +120,30 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 		return Collections.unmodifiableMap(KubernetesUtils.getCommonLabels(getClusterId()));
 	}
 
+	/**
+	 * Return map of host path that container needs.
+	 * volume name -> (path in host, path to be mounted in container)
+	 * @return
+	 */
+	public Map<String, Tuple2<String, String>> getMountedHostPath() {
+		Map<String, Tuple2<String, String>> mountedHostPathMap = new HashMap<>();
+		List<String> hostPathList = flinkConfig.getOptional(KubernetesConfigOptions.FLINK_MOUNTED_HOST_PATH)
+			.orElse(Collections.emptyList());
+		for (String mountedHostPath: hostPathList){
+			String[] nameAndPaths = mountedHostPath.split(",");
+			String volumeName = nameAndPaths[0].trim();
+			checkArgument(StringUtils.isNotBlank(volumeName), "volume name is blank");
+			checkArgument(nameAndPaths.length == 3 && !mountedHostPathMap.containsKey(volumeName),
+				"Duplicated volume name or illegal formats");
+			String pathInHost = nameAndPaths[1].trim();
+			String pathInContainer = nameAndPaths[2].trim();
+			checkArgument(StringUtils.isNotBlank(pathInHost), "path in host is blank");
+			checkArgument(StringUtils.isNotBlank(pathInContainer), "path in container is blank");
+			mountedHostPathMap.put(volumeName, Tuple2.of(pathInHost, pathInContainer));
+		}
+		return mountedHostPathMap;
+	}
+
 	@Override
 	public String getFlinkConfDirInPod() {
 		return flinkConfig.getString(KubernetesConfigOptions.FLINK_CONF_DIR);
@@ -159,6 +185,15 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 			return Optional.empty();
 		} else {
 			return Optional.of(existingHadoopConfigMap.trim());
+		}
+	}
+
+	public Optional<String> getExistingHadoopConfigurationHostPathVolume() {
+		final String existingHadoopConfigVolume = flinkConfig.getString(KubernetesConfigOptions.HADOOP_CONF_MOUNTED_HOST_PATH_VOLUME);
+		if (StringUtils.isBlank(existingHadoopConfigVolume)) {
+			return Optional.empty();
+		} else {
+			return Optional.of(existingHadoopConfigVolume.trim());
 		}
 	}
 

@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.kubeclient.parameters;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptionsInternal;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
@@ -34,6 +35,7 @@ import java.util.Random;
 import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 /**
  * General tests for the {@link AbstractKubernetesParameters}.
@@ -70,6 +72,49 @@ public class AbstractKubernetesParametersTest extends TestLogger {
 		final String confDir = "/path/of/flink-conf";
 		flinkConfig.set(DeploymentOptionsInternal.CONF_DIR, confDir);
 		assertThat(testingKubernetesParameters.getConfigDirectory(), is(confDir));
+	}
+
+	@Test
+	public void getMountedPath(){
+		flinkConfig.setString(KubernetesConfigOptions.FLINK_MOUNTED_HOST_PATH.key(),
+			"hadoop-config-volume,/opt/tiger/yarn_deploy, /opt/tiger/yarn_deploy;");
+		Map<String, Tuple2<String, String>> mountedHostPathMap = testingKubernetesParameters.getMountedHostPath();
+		assertThat(mountedHostPathMap.size(), is(1));
+		assertTrue(mountedHostPathMap.containsKey("hadoop-config-volume"));
+	}
+
+	@Test
+	public void getMultipleMountedPath(){
+		flinkConfig.setString(
+			KubernetesConfigOptions.FLINK_MOUNTED_HOST_PATH.key(),
+			"hadoop-config-volume,/opt/tiger/yarn_deploy, /opt/tiger/yarn_deploy;" +
+				"hadoop-config-volume2,/opt/tiger/yarn_deploy2, /opt/tiger/yarn_deploy2;");
+		Map<String, Tuple2<String, String>> mountedHostPathMap = testingKubernetesParameters.getMountedHostPath();
+		assertThat(mountedHostPathMap.size(), is(2));
+		assertTrue(mountedHostPathMap.containsKey("hadoop-config-volume"));
+		assertTrue(mountedHostPathMap.containsKey("hadoop-config-volume2"));
+	}
+
+	@Test
+	public void getWrongFormatsMountedPath(){
+		flinkConfig.setString(KubernetesConfigOptions.FLINK_MOUNTED_HOST_PATH.key(),
+			"hadoop-config-volume,/opt/tiger/yarn_deploy;");
+		assertThrows(
+			"Duplicated volume name or illegal formats",
+			IllegalArgumentException.class,
+			testingKubernetesParameters::getMountedHostPath
+		);
+	}
+
+	@Test
+	public void getBlankMountedPath(){
+		flinkConfig.setString(KubernetesConfigOptions.FLINK_MOUNTED_HOST_PATH.key(),
+			"hadoop-config-volume,,/opt/tiger/yarn_deploy;");
+		assertThrows(
+			"path in host is blank",
+			IllegalArgumentException.class,
+			testingKubernetesParameters::getMountedHostPath
+		);
 	}
 
 	@Test

@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesTaskManagerParameters;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesToleration;
@@ -31,8 +32,14 @@ import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
+import io.fabric8.kubernetes.api.model.Volume;
+import io.fabric8.kubernetes.api.model.VolumeBuilder;
+import io.fabric8.kubernetes.api.model.VolumeMount;
+import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
@@ -44,13 +51,23 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 
 	private final KubernetesTaskManagerParameters kubernetesTaskManagerParameters;
+	private final Map<String, Tuple2<String, String>> mountedHostPaths;
 
 	public InitTaskManagerDecorator(KubernetesTaskManagerParameters kubernetesTaskManagerParameters) {
 		this.kubernetesTaskManagerParameters = checkNotNull(kubernetesTaskManagerParameters);
+		this.mountedHostPaths = kubernetesTaskManagerParameters.getMountedHostPath();
 	}
 
 	@Override
 	public FlinkPod decorateFlinkPod(FlinkPod flinkPod) {
+		List<Volume> volumeList = new ArrayList<>(mountedHostPaths.size());
+		for  (Map.Entry<String,  Tuple2<String, String>> entry: mountedHostPaths.entrySet()) {
+			final Volume volume = new VolumeBuilder()
+				.withName(entry.getKey())
+				.withNewHostPath(entry.getValue().f0, Constants.DEFAULT_HOST_PATH_TYPE)
+				.build();
+			volumeList.add(volume);
+		}
 		final Pod basicPod = new PodBuilder(flinkPod.getPod())
 			.withApiVersion(Constants.API_VERSION)
 			.editOrNewMetadata()
@@ -66,6 +83,7 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 				.withTolerations(kubernetesTaskManagerParameters.getTolerations().stream()
 					.map(e -> KubernetesToleration.fromMap(e).getInternalResource())
 					.collect(Collectors.toList()))
+				.addAllToVolumes(volumeList)
 				.endSpec()
 			.build();
 
@@ -82,13 +100,22 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 				kubernetesTaskManagerParameters.getTaskManagerMemoryMB(),
 				kubernetesTaskManagerParameters.getTaskManagerCPU(),
 				kubernetesTaskManagerParameters.getTaskManagerExternalResources());
-
+		List<VolumeMount> volumeMountList = new ArrayList<>(mountedHostPaths.size());
+		for  (Map.Entry<String,  Tuple2<String, String>> entry: mountedHostPaths.entrySet()) {
+			final VolumeMount volumeMount = new VolumeMountBuilder()
+				.withName(entry.getKey())
+				.withMountPath(entry.getValue().f1)
+				.withReadOnly(true)
+				.build();
+			volumeMountList.add(volumeMount);
+		}
 		return new ContainerBuilder(container)
 				.withName(kubernetesTaskManagerParameters.getTaskManagerMainContainerName())
 				.withImage(kubernetesTaskManagerParameters.getImage())
 				.withImagePullPolicy(kubernetesTaskManagerParameters.getImagePullPolicy().name())
 				.withWorkingDir(kubernetesTaskManagerParameters.getWorkingDir())
 				.withResources(resourceRequirements)
+				.addAllToVolumeMounts(volumeMountList)
 				.withPorts(new ContainerPortBuilder()
 					.withName(Constants.TASK_MANAGER_RPC_PORT_NAME)
 					.withContainerPort(kubernetesTaskManagerParameters.getRPCPort())

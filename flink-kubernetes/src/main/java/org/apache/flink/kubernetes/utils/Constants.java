@@ -113,4 +113,10 @@ public class Constants {
 	public static final String ZONE_ENV_KEY = "TCE_ZONE";
 	public static final String INTERNAL_IDC_ENV_KEY = "TCE_INTERNAL_IDC";
 	public static final String PHYSICAL_CLUSTER_ENV_KEY = "TCE_PHYSICAL_CLUSTER";
+
+	// This is the default hostPath type for a hostPath volume.
+	// Some example values of the type: DirectoryOrCreate, FileOrCreate, File...
+	// Empty string (default) is for backward compatibility, which means that no checks will be performed before
+	// mounting the hostPath volume. We set empty string as default because we do not know which type that user will mount.
+	public static final String DEFAULT_HOST_PATH_TYPE = "";
 }
