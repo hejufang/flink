@@ -139,6 +139,9 @@ public class CliFrontend {
 	// warehouse messages
 	private static final String EVENT_METRIC_NAME = "clientEvent";
 
+	// restore from latest
+	private static final String RESTORE_FROM_LATEST = "latest";
+
 	// --------------------------------------------------------------------------------------------
 
 	private final Configuration configuration;
@@ -239,6 +242,9 @@ public class CliFrontend {
 		Configuration effectiveConfiguration = customCommandLine.getEffectiveConfiguration(commandLine);
 
 		final String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		if (RESTORE_FROM_LATEST.equals(effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH))) {
+			effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
+		}
 		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
 			runOptions.setSavepointSettings(
 					effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH),
