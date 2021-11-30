@@ -36,8 +36,9 @@
 		<javax.servlet.version>3.1.0</javax.servlet.version>
 		<!-- override to be same with flink 1.12.2 -->
 		<parquet.version>1.11.1</parquet.version>
-		<hive.version>1.2.2-bd76</hive.version>
-		<hudi.version>0.7.0-bd9</hudi.version>
+		<hive.version>1.2.2-bd83</hive.version>
+		<!-- hotfix: olap/hudi/merge_requests/468 -->
+		<hudi.version>0.7.0-bd19-hotfix1</hudi.version>
 		<hbase.version>1.2.3</hbase.version>
 	</properties>
 
@@ -83,6 +84,7 @@
 									<include>org.apache.hudi:hudi-sync-common</include>
 									<include>org.apache.hudi:hudi-hadoop-mr</include>
 									<include>org.apache.hudi:hudi-timeline-service</include>
+									<include>org.apache.hudi:hudi-bms</include>
 
 									<include>com.yammer.metrics:metrics-core</include>
 									<include>com.beust:jcommander</include>
@@ -255,6 +257,7 @@
 										<exclude>META-INF/*.DSA</exclude>
 										<exclude>META-INF/*.RSA</exclude>
 										<exclude>META-INF/services/javax.*</exclude>
+										<exclude>**/log4j.properties</exclude>
 									</excludes>
 								</filter>
 							</filters>
@@ -283,6 +286,17 @@
 
 	<dependencies>
 		<!-- Hoodie -->
+		<dependency>
+			<groupId>org.apache.hudi</groupId>
+			<artifactId>hudi-bms</artifactId>
+			<version>${hudi.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>log4j</groupId>
+					<artifactId>log4j</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<dependency>
 			<groupId>org.apache.hudi</groupId>
 			<artifactId>hudi-common</artifactId>
@@ -647,13 +661,4 @@
 			</exclusions>
 		</dependency>
 	</dependencies>
-
-	<profiles>
-		<profile>
-			<id>flink-bundle-shade-hive</id>
-			<properties>
-				<flink.bundle.hive.scope>compile</flink.bundle.hive.scope>
-			</properties>
-		</profile>
-	</profiles>
 </project>

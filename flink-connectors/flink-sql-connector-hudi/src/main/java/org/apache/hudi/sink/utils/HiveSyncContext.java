@@ -29,9 +29,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hive.conf.HiveConf;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,93 +37,83 @@ import java.util.Map;
  * Hive synchronization context.
  *
  * <p>Use this context to create the {@link HiveSyncTool} for synchronization.
- * Copied from Hudi, adding relocation logic for hive configs.
  */
 public class HiveSyncContext {
-  private static final Logger LOG = LoggerFactory.getLogger(HiveSyncContext.class);
+	private final HiveSyncConfig syncConfig;
+	private final HiveConf hiveConf;
+	private final FileSystem fs;
 
-  private final HiveSyncConfig syncConfig;
-  private final HiveConf hiveConf;
-  private final FileSystem fs;
+	private HiveSyncContext(HiveSyncConfig syncConfig, HiveConf hiveConf, FileSystem fs) {
+		this.syncConfig = syncConfig;
+		this.hiveConf = hiveConf;
+		this.fs = fs;
+	}
 
-  private HiveSyncContext(HiveSyncConfig syncConfig, HiveConf hiveConf, FileSystem fs) {
-    this.syncConfig = syncConfig;
-    this.hiveConf = hiveConf;
-    this.fs = fs;
-  }
+	public HiveSyncTool hiveSyncTool() {
+		return new HiveSyncTool(this.syncConfig, this.hiveConf, this.fs);
+	}
 
-  public HiveSyncTool hiveSyncTool() {
-    return new HiveSyncTool(this.syncConfig, this.hiveConf, this.fs);
-  }
+	public static HiveSyncContext create(Configuration conf) {
+		HiveSyncConfig syncConfig = buildSyncConfig(conf);
+		org.apache.hadoop.conf.Configuration hadoopConf = StreamerUtil.getHadoopConf();
+		String path = conf.getString(FlinkOptions.PATH);
+		FileSystem fs = FSUtils.getFs(path, hadoopConf);
+		HiveConf hiveConf = new HiveConf();
+		hiveConf.addResource(hadoopConf);
+		hiveConf.verifyAndSet("hive.client.enable.load.functions", "false");
+		hiveConf.verifyAndSet("hive.client.enable.prefer_ipv6", "true");
+		hiveConf.verifyAndSet("hive.hms.client.execute.set_token", "true");
+		hiveConf.verifyAndSet("hive.metastore.use.consul", conf.getString(FlinkOptions.HIVE_SYNC_USE_CONSUL));
+		hiveConf.verifyAndSet("hive.metastore.consul.name", conf.getString(FlinkOptions.HIVE_SYNC_CONSUL_NAME));
+		hiveConf.verifyAndSet("hive.metastore.consul.name.first", conf.getString(FlinkOptions.HIVE_SYNC_CONSUL_NAME_FIRST));
+		hiveConf.verifyAndSet("hive.client.namespace", conf.getString(FlinkOptions.HIVE_SYNC_CLIENT_NAMESPACE));
+		hiveConf.verifyAndSet("hive.metastore.uris", conf.getString(FlinkOptions.HIVE_SYNC_METASTORE_URIS));
 
-  public static HiveSyncContext create(Configuration conf) {
-    HiveSyncConfig syncConfig = buildSyncConfig(conf);
-    org.apache.hadoop.conf.Configuration hadoopConf = StreamerUtil.getHadoopConf();
-    String path = conf.getString(FlinkOptions.PATH);
-    FileSystem fs = FSUtils.getFs(path, hadoopConf);
-    String hiveConfLocation = conf.get(FlinkOptions.HIVE_CONF_LOCATION);
-    HiveConf hiveConf = new HiveConf();
-    if (hiveConfLocation.equals("")) {
-      hiveConf.addResource(hadoopConf);
-    } else {
-      hiveConf.addResource(new org.apache.hadoop.fs.Path(hiveConfLocation));
-      hiveConf.verifyAndSet("hive.client.enable.load.functions", "false");
-      hiveConf.verifyAndSet("hive.metastore.use.consul", hiveConf.get("hive.metastore.use.consul"));
-      // Flink environment has outdated hive conf, we will load this conf from dts-dump conf
-      hiveConf.verifyAndSet("hive.metastore.consul.name", "data.olap.catalogservice");
-      hiveConf.verifyAndSet("hive.metastore.consul.name.first", "data.olap.catalogservice");
-      hiveConf.verifyAndSet("hive.client.namespace", "LF_HL_HIVE");
-      hiveConf.verifyAndSet("hive.metastore.uris", hiveConf.get("hive.metastore.uris"));
-      hiveConf.verifyAndSet("hive.hms.client.execute.set_token", "true");
-      hiveConf.verifyAndSet("hive.client.enable.prefer_ipv6", hiveConf.get("hive.client.enable.prefer_ipv6", "true"));
-      hiveConf.verifyAndSet("hive.conf.location", hiveConfLocation);
-    }
+		// this is a hack, replacing all hive packages to shaded one.
+		// 'org.apache.hadoop.hive' will be relocated, hence we use 'apache.hadoop.hive' instead.
+		Map<String, String> toBeChanged = new HashMap<>();
+		for (Map.Entry<String, String> entry : hiveConf) {
+			if (entry.getValue().contains("apache.hadoop.hive") &&
+				!entry.getValue().contains("org.apache.flink.hudi.shaded")) {
+				toBeChanged.put(entry.getKey(), entry.getValue().replaceAll(
+					"apache.hadoop.hive" ,
+					"apache.flink.hudi.shaded.org.apache.hadoop.hive"
+				));
+			}
+		}
+		for (Map.Entry<String, String> entry : toBeChanged.entrySet()) {
+			hiveConf.set(entry.getKey(), entry.getValue());
+		}
+		return new HiveSyncContext(syncConfig, hiveConf, fs);
+	}
 
-    // this is a hack, replacing all hive packages to shaded one.
-	// 'org.apache.hadoop.hive' will be relocated, hence we use 'apache.hadoop.hive' instead.
-    Map<String, String> toBeChanged = new HashMap<>();
-    for (Map.Entry<String, String> entry : hiveConf) {
-      if (entry.getValue().contains("apache.hadoop.hive") &&
-          !entry.getValue().contains("org.apache.flink.hudi.shaded")) {
-        LOG.info("replacing " + entry.getKey() + "=" + entry.getValue());
-        toBeChanged.put(entry.getKey(), entry.getValue().replaceAll(
-                "apache.hadoop.hive" ,
-                "apache.flink.hudi.shaded.org.apache.hadoop.hive"
-        ));
-      }
-    }
-    for (Map.Entry<String, String> entry : toBeChanged.entrySet()) {
-      hiveConf.set(entry.getKey(), entry.getValue());
-    }
-    return new HiveSyncContext(syncConfig, hiveConf, fs);
-  }
+	public HiveConf getHiveConf() {
+		return hiveConf;
+	}
 
-  public HiveConf getHiveConf() {
-    return hiveConf;
-  }
-
-  private static HiveSyncConfig buildSyncConfig(Configuration conf) {
-    HiveSyncConfig hiveSyncConfig = new HiveSyncConfig();
-    hiveSyncConfig.basePath = conf.getString(FlinkOptions.PATH);
-    hiveSyncConfig.baseFileFormat = conf.getString(FlinkOptions.HIVE_SYNC_FILE_FORMAT);
-    hiveSyncConfig.usePreApacheInputFormat = false;
-    hiveSyncConfig.databaseName = conf.getString(FlinkOptions.HIVE_SYNC_DB);
-    hiveSyncConfig.tableName = conf.getString(FlinkOptions.HIVE_SYNC_TABLE);
-    hiveSyncConfig.hiveUser = conf.getString(FlinkOptions.HIVE_SYNC_USERNAME);
-    hiveSyncConfig.hivePass = conf.getString(FlinkOptions.HIVE_SYNC_PASSWORD);
-    hiveSyncConfig.jdbcUrl = conf.getString(FlinkOptions.HIVE_SYNC_JDBC_URL);
-    hiveSyncConfig.partitionFields = Arrays.asList(FilePathUtils.extractHivePartitionKeys(conf));
-    hiveSyncConfig.partitionValueExtractorClass = conf.getString(FlinkOptions.HIVE_SYNC_PARTITION_EXTRACTOR_CLASS);
-    hiveSyncConfig.useJdbc = conf.getBoolean(FlinkOptions.HIVE_SYNC_USE_JDBC);
-    // needs to support metadata table for flink
-    hiveSyncConfig.useFileListingFromMetadata = false;
-    hiveSyncConfig.verifyMetadataFileListing = false;
-    //hiveSyncConfig.ignoreExceptions = conf.getBoolean(FlinkOptions.HIVE_SYNC_IGNORE_EXCEPTIONS);
-    hiveSyncConfig.supportTimestamp = conf.getBoolean(FlinkOptions.HIVE_SYNC_SUPPORT_TIMESTAMP);
-    hiveSyncConfig.autoCreateDatabase = conf.getBoolean(FlinkOptions.HIVE_SYNC_AUTO_CREATE_DB);
-    hiveSyncConfig.decodePartition = conf.getBoolean(FlinkOptions.URL_ENCODE_PARTITIONING);
-    hiveSyncConfig.skipROSuffix = conf.getBoolean(FlinkOptions.HIVE_SYNC_SKIP_RO_SUFFIX);
-    hiveSyncConfig.assumeDatePartitioning = conf.getBoolean(FlinkOptions.HIVE_SYNC_ASSUME_DATE_PARTITION);
-    return hiveSyncConfig;
-  }
+	private static HiveSyncConfig buildSyncConfig(Configuration conf) {
+		HiveSyncConfig hiveSyncConfig = new HiveSyncConfig();
+		hiveSyncConfig.basePath = conf.getString(FlinkOptions.PATH);
+		hiveSyncConfig.baseFileFormat = conf.getString(FlinkOptions.HIVE_SYNC_FILE_FORMAT);
+		hiveSyncConfig.usePreApacheInputFormat = false;
+		hiveSyncConfig.databaseName = conf.getString(FlinkOptions.HIVE_SYNC_DB);
+		hiveSyncConfig.tableName = conf.getString(FlinkOptions.HIVE_SYNC_TABLE);
+		hiveSyncConfig.hiveUser = conf.getString(FlinkOptions.HIVE_SYNC_USERNAME);
+		hiveSyncConfig.hivePass = conf.getString(FlinkOptions.HIVE_SYNC_PASSWORD);
+		hiveSyncConfig.jdbcUrl = conf.getString(FlinkOptions.HIVE_SYNC_JDBC_URL);
+		hiveSyncConfig.partitionFields = Arrays.asList(FilePathUtils.extractHivePartitionKeys(conf));
+		hiveSyncConfig.partitionValueExtractorClass = conf.getString(FlinkOptions.HIVE_SYNC_PARTITION_EXTRACTOR_CLASS);
+		hiveSyncConfig.useJdbc = conf.getBoolean(FlinkOptions.HIVE_SYNC_USE_JDBC);
+		// needs to support metadata table for flink
+		hiveSyncConfig.useFileListingFromMetadata = false;
+		hiveSyncConfig.verifyMetadataFileListing = false;
+		//hiveSyncConfig.ignoreExceptions = conf.getBoolean(FlinkOptions.HIVE_SYNC_IGNORE_EXCEPTIONS);
+		hiveSyncConfig.supportTimestamp = conf.getBoolean(FlinkOptions.HIVE_SYNC_SUPPORT_TIMESTAMP);
+		hiveSyncConfig.autoCreateDatabase = conf.getBoolean(FlinkOptions.HIVE_SYNC_AUTO_CREATE_DB);
+		hiveSyncConfig.decodePartition = conf.getBoolean(FlinkOptions.URL_ENCODE_PARTITIONING);
+		hiveSyncConfig.skipROSuffix = conf.getBoolean(FlinkOptions.HIVE_SYNC_SKIP_RO_SUFFIX);
+		hiveSyncConfig.isBytelakeTable = conf.getBoolean(FlinkOptions.HIVE_SYNC_IS_BYTELAKE);
+		hiveSyncConfig.assumeDatePartitioning = conf.getBoolean(FlinkOptions.HIVE_SYNC_ASSUME_DATE_PARTITION);
+		return hiveSyncConfig;
+	}
 }
