@@ -96,7 +96,13 @@ public class YarnClusterClientFactory extends AbstractContainerizedClusterClient
 
 		Utils.updateYarnConfigForClient(yarnConfiguration, configuration);
 
-		final YarnClient yarnClient = YarnClient.createYarnClient();
+		final YarnClient yarnClient;
+		if (configuration.getBoolean(YarnConfigOptions.YARN_RES_LAKE_ENABLED)) {
+			LOG.info("Use ResLake init yarn client.");
+			yarnClient = YarnClient.createClient(YarnClient.ClientType.RESLAKE);
+		} else {
+			yarnClient = YarnClient.createYarnClient();
+		}
 
 		yarnClient.init(yarnConfiguration);
 		yarnClient.start();

@@ -550,6 +550,12 @@ public class YarnConfigOptions {
 				" Default is (\"share\") mode, and also (\"share\") mode," +
 				" (\"reserved\") mode, or \"any\") mode.");
 
+	public static final ConfigOption<Boolean> YARN_RES_LAKE_ENABLED =
+			key("yarn.res-lake.enabled")
+					.booleanType()
+					.defaultValue(false)
+					.withDescription("Whether use ResLake to submit job.");
+
 	/** This class is not meant to be instantiated. */
 	private YarnConfigOptions() {}
 

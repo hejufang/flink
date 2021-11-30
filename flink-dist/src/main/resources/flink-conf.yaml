@@ -81,6 +81,7 @@ common:
   yarn.check.application.name.unique: false
   yarn.check.application.name.unique.region: false
   yarn.runtime-conf.qos-level: share
+  yarn.res-lake.enabled: false
   flink.jobmanager.yarn.config.yarn.client.failover-max-attempts: -1
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 60000
   flink.jobmanager.yarn.config.yarn.resourcemanager.connect.retry-interval.ms: 1000

@@ -1150,7 +1150,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::prepareAMContextFinish);
 
 		// add a hook to clean up in case deployment fails
-		Thread deploymentFailureHook = new DeploymentFailureHook(yarnApplication, fileUploader.getApplicationDir());
+		Thread deploymentFailureHook = new DeploymentFailureHook(yarnApplication, fileUploader.getApplicationDir(), configuration);
 		Runtime.getRuntime().addShutdownHook(deploymentFailureHook);
 		recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::deployYarnClusterStart);
 		LOG.info("Submitting application master " + appId);
@@ -1567,13 +1567,18 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		private final YarnClientApplication yarnApplication;
 		private final Path yarnFilesDir;
 
-		DeploymentFailureHook(YarnClientApplication yarnApplication, Path yarnFilesDir) {
+		DeploymentFailureHook(YarnClientApplication yarnApplication, Path yarnFilesDir, Configuration configuration) {
 			this.yarnApplication = Preconditions.checkNotNull(yarnApplication);
 			this.yarnFilesDir = Preconditions.checkNotNull(yarnFilesDir);
 
 			// A new yarn client need to be created in shutdown hook in order to avoid
 			// the yarn client has been closed by YarnClusterDescriptor.
-			this.yarnClient = YarnClient.createYarnClient();
+			if (configuration.getBoolean(YarnConfigOptions.YARN_RES_LAKE_ENABLED)) {
+				LOG.info("Use ResLake init yarn client.");
+				this.yarnClient = YarnClient.createClient(YarnClient.ClientType.RESLAKE);
+			} else {
+				this.yarnClient = YarnClient.createYarnClient();
+			}
 			this.yarnClient.init(yarnConfiguration);
 		}
 
