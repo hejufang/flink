@@ -23,13 +23,23 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
+import org.apache.flink.configuration.PipelineOptions;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.kubernetes.KubernetesTestUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.TestLogger;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
 
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
@@ -37,6 +47,9 @@ import static org.junit.Assert.fail;
  * Tests for {@link KubernetesUtils}.
  */
 public class KubernetesUtilsTest extends TestLogger {
+
+	@Rule
+	public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
 	@Test
 	public void testParsePortRange() {
@@ -74,6 +87,68 @@ public class KubernetesUtilsTest extends TestLogger {
 	@Test
 	public void testCheckWithFixedPort() {
 		testCheckAndUpdatePortConfigOption("6123", "16123", "6123");
+	}
+
+	@Test
+	public void testUploadDiskFilesWithOnlyRemoteFiles() throws IOException {
+		final Configuration config = new Configuration();
+		File uploadDir = temporaryFolder.newFolder().getAbsoluteFile();
+
+		config.setString(PipelineOptions.JARS.key(), "hdfs:///path/of/user.jar");
+		config.set(PipelineOptions.EXTERNAL_RESOURCES,
+			Arrays.asList("hdfs:///path/of/file1.jar", "hdfs:///path/file2.jar", "hdfs:///path/file3.jar"));
+		KubernetesUtils.uploadLocalDiskFilesToRemote(config, new Path(uploadDir.toURI()));
+		assertEquals("all remote files need to be added in external-resource list",
+			4, config.get(PipelineOptions.EXTERNAL_RESOURCES).size());
+	}
+
+	@Test
+	public void testUploadDiskFilesContainsDiskFile() throws IOException {
+		final Configuration config = new Configuration();
+		File uploadDir = temporaryFolder.newFolder().getAbsoluteFile();
+		File resourceFolder = temporaryFolder.newFolder().getAbsoluteFile();
+		KubernetesTestUtils.createTemporyFile("some data", resourceFolder, "user.jar");
+		KubernetesTestUtils.createTemporyFile("some data", resourceFolder, "file1.jar");
+
+		String userJar = new File(resourceFolder, "user.jar").toString();
+		String file1 = new File(resourceFolder, "file1.jar").toString();
+		config.setString(PipelineOptions.JARS.key(), userJar);
+		config.set(PipelineOptions.EXTERNAL_RESOURCES,
+			Arrays.asList(file1, "hdfs:///path/file2.jar", "hdfs:///path/file3.jar"));
+		KubernetesUtils.uploadLocalDiskFilesToRemote(config, new Path(uploadDir.toURI()));
+		assertEquals("all remote files need to be added in external-resource list",
+			4, config.get(PipelineOptions.EXTERNAL_RESOURCES).size());
+		assertFalse("disk file should be uploaded",
+			config.get(PipelineOptions.EXTERNAL_RESOURCES).contains(userJar));
+		assertFalse("disk file should be uploaded",
+			config.get(PipelineOptions.EXTERNAL_RESOURCES).contains(file1));
+	}
+
+	@Test
+	public void testUploadDiskFilesOnlyContainsUserJarInDisk() throws IOException {
+		final Configuration config = new Configuration();
+		File uploadDir = temporaryFolder.newFolder().getAbsoluteFile();
+		File resourceFolder = temporaryFolder.newFolder().getAbsoluteFile();
+		KubernetesTestUtils.createTemporyFile("some data", resourceFolder, "user.jar");
+		String userJar = new File(resourceFolder, "user.jar").toString();
+
+		config.setString(PipelineOptions.JARS.key(), userJar);
+		KubernetesUtils.uploadLocalDiskFilesToRemote(config, new Path(uploadDir.toURI()));
+		assertEquals("all remote files need to be added in external-resource list",
+			1, config.get(PipelineOptions.EXTERNAL_RESOURCES).size());
+		assertFalse("disk file should be uploaded",
+			config.get(PipelineOptions.EXTERNAL_RESOURCES).contains(userJar));
+	}
+
+	@Test
+	public void testUploadDiskFilesOnlyContainsUserJarInRemote() throws IOException {
+		final Configuration config = new Configuration();
+		File uploadDir = temporaryFolder.newFolder().getAbsoluteFile();
+
+		config.setString(PipelineOptions.JARS.key(), "hdfs:///path/of/user.jar");
+		KubernetesUtils.uploadLocalDiskFilesToRemote(config, new Path(uploadDir.toURI()));
+		assertEquals("all remote files need to be added in external-resource list",
+			1, config.get(PipelineOptions.EXTERNAL_RESOURCES).size());
 	}
 
 	private void testCheckAndUpdatePortConfigOption(String port, String fallbackPort, String expectedPort) {

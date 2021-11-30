@@ -419,21 +419,20 @@ public class KubernetesUtils {
 				}
 			}
 		).count();
-		if (numOfDiskFiles <= 0) {
-			// don't need to upload any file
-			return;
-		}
-		try {
-			FileSystem fileSystem = targetDir.getFileSystem();
-			if (!fileSystem.exists(targetDir)) {
-				fileSystem.mkdirs(targetDir);
+		if (numOfDiskFiles > 0) {
+			// If there are any file to be uploaded, we should ensure the target dir is existing
+			try {
+				FileSystem fileSystem = targetDir.getFileSystem();
+				if (!fileSystem.exists(targetDir)) {
+					fileSystem.mkdirs(targetDir);
+				}
+			} catch (IOException e) {
+				LOG.error("create target dir {} failed:", targetDir, e);
+				return;
 			}
-		} catch (IOException e) {
-			LOG.error("create target dir {} failed:", targetDir, e);
-			return;
 		}
 		// upload user jar
-		List<String> uploadedJars = new ArrayList<>();
+		List<String> toBeDownloadedFiles = new ArrayList<>();
 		List<String> jars = flinkConfig.get(PipelineOptions.JARS)
 			.stream()
 			.map(FunctionUtils.uncheckedFunction(
@@ -442,10 +441,14 @@ public class KubernetesUtils {
 					if (jarURI.getScheme().equals(Constants.FILE_SCHEME)) {
 						// upload to target dir
 						String uploadedPath = copyFileToTargetRemoteDir(jarURI, targetDir);
-						uploadedJars.add(uploadedPath);
+						toBeDownloadedFiles.add(uploadedPath);
 						return uploadedPath;
+					} else if (jarURI.getScheme().equals(Constants.LOCAL_SCHEME)){
+						// return the path directly if it is a local file path (located inside the image)
+						return jarURI.toString();
 					} else {
-						// return directly if it is a local (located inside the image) or remote file path
+						// if it is a remote file path, add it into download-file list and return this path directly
+						toBeDownloadedFiles.add(jarURI.toString());
 						return jarURI.toString();
 					}
 				}
@@ -470,7 +473,7 @@ public class KubernetesUtils {
 				)
 			).collect(Collectors.toList());
 		// add remote files in "JARS" to "EXTERNAL_RESOURCES", FileDownloadDecorator will setup to download these files.
-		resources.addAll(uploadedJars);
+		resources.addAll(toBeDownloadedFiles);
 		// replace path of resources by the uploaded path
 		flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES, resources);
 	}

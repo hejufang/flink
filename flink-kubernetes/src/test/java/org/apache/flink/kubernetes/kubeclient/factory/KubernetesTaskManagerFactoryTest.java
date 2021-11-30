@@ -28,7 +28,6 @@ import io.fabric8.kubernetes.api.model.Pod;
 import org.junit.Test;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOG4J_NAME;
@@ -66,7 +65,8 @@ public class KubernetesTaskManagerFactoryTest extends KubernetesTaskManagerTestB
 
 	@Test
 	public void testPodContainsRemoteFiles() {
-		flinkConfig.set(PipelineOptions.JARS, Collections.singletonList("hdfs:///path/of/user.jar"));
+		// the remote user jar will be added into external-resources list by Flink client, so
+		// TM's initContainer will not care about PipelineOptions.JARS.
 		flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES,
 			Arrays.asList("hdfs:///path/of/file1.jar", "hdfs:///path/file2.jar", "hdfs:///path/file3.jar"));
 		Pod pod =
