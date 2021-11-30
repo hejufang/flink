@@ -1159,6 +1159,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		try {
 			cancelOrFailAndCancelInvokableInternal(targetState, cause);
 		} catch (Throwable t) {
+			LOG.error("Fail to cancel task {} ({}).", taskMetricNameWithSubtask, executionId, t);
 			if (ExceptionUtils.isJvmFatalOrOutOfMemoryError(t)) {
 				String message = String.format("FATAL - exception in cancelling task %s (%s).", taskMetricNameWithSubtask, executionId);
 				notifyFatalError(message, t, WorkerExitCode.TASKMANAGER_CANCEL_TASK_TIMEOUT);
