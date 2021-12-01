@@ -61,6 +61,11 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 
 	private static final long serialVersionUID = -2394696997971923995L;
 
+	private static final long DEFAULT_STATE_SIZE = 0L;
+
+	/** Magic number for restoring job. */
+	public static final long MAGIC_STATE_SIZE = -829L;
+
 	/**
 	 * Snapshot from the {@link org.apache.flink.runtime.state.OperatorStateBackend}.
 	 */
@@ -100,7 +105,7 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 	 * represents the size before registering shared states, which excludes
 	 * placeholders in shared states.
 	 */
-	private final long stateSize;
+	private long stateSize;
 
 	/**
 	 * Empty state.
@@ -136,6 +141,25 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 		@Nonnull StateObjectCollection<KeyedStateHandle> rawKeyedState,
 		@Nonnull StateObjectCollection<InputChannelStateHandle> inputChannelState,
 		@Nonnull StateObjectCollection<ResultSubpartitionStateHandle> resultSubpartitionState) {
+		this(
+			managedOperatorState,
+			rawOperatorState,
+			managedKeyedState,
+			rawKeyedState,
+			inputChannelState,
+			resultSubpartitionState,
+			DEFAULT_STATE_SIZE);
+	}
+
+	// Used for job restoring without calculating stateSize
+	public OperatorSubtaskState(
+		@Nonnull StateObjectCollection<OperatorStateHandle> managedOperatorState,
+		@Nonnull StateObjectCollection<OperatorStateHandle> rawOperatorState,
+		@Nonnull StateObjectCollection<KeyedStateHandle> managedKeyedState,
+		@Nonnull StateObjectCollection<KeyedStateHandle> rawKeyedState,
+		@Nonnull StateObjectCollection<InputChannelStateHandle> inputChannelState,
+		@Nonnull StateObjectCollection<ResultSubpartitionStateHandle> resultSubpartitionState,
+		long stateSize) {
 
 		this.managedOperatorState = Preconditions.checkNotNull(managedOperatorState);
 		this.rawOperatorState = Preconditions.checkNotNull(rawOperatorState);
@@ -143,14 +167,11 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 		this.rawKeyedState = Preconditions.checkNotNull(rawKeyedState);
 		this.inputChannelState = Preconditions.checkNotNull(inputChannelState);
 		this.resultSubpartitionState = Preconditions.checkNotNull(resultSubpartitionState);
-
-		long calculateStateSize = managedOperatorState.getStateSize();
-		calculateStateSize += rawOperatorState.getStateSize();
-		calculateStateSize += managedKeyedState.getStateSize();
-		calculateStateSize += rawKeyedState.getStateSize();
-		calculateStateSize += inputChannelState.getStateSize();
-		calculateStateSize += resultSubpartitionState.getStateSize();
-		stateSize = calculateStateSize;
+		if (stateSize == MAGIC_STATE_SIZE) {
+			this.stateSize = stateSize;
+		} else {
+			this.stateSize = calculateStateSize();
+		}
 	}
 
 	/**
@@ -261,6 +282,9 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 
 	@Override
 	public long getStateSize() {
+		if (stateSize == MAGIC_STATE_SIZE) {
+			stateSize = calculateStateSize();
+		}
 		return stateSize;
 	}
 
@@ -348,5 +372,15 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 			|| rawKeyedState.hasState()
 			|| inputChannelState.hasState()
 			|| resultSubpartitionState.hasState();
+	}
+
+	private long calculateStateSize() {
+		long calculateStateSize = managedOperatorState.getStateSize();
+		calculateStateSize += rawOperatorState.getStateSize();
+		calculateStateSize += managedKeyedState.getStateSize();
+		calculateStateSize += rawKeyedState.getStateSize();
+		calculateStateSize += inputChannelState.getStateSize();
+		calculateStateSize += resultSubpartitionState.getStateSize();
+		return calculateStateSize;
 	}
 }

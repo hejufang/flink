@@ -296,7 +296,8 @@ public class StateAssignmentOperation {
 			new StateObjectCollection<>(subManagedKeyedState.getOrDefault(instanceID, emptyList())),
 			new StateObjectCollection<>(subRawKeyedState.getOrDefault(instanceID, emptyList())),
 			new StateObjectCollection<>(inputChannelStates.getOrDefault(instanceID, emptyList())),
-			new StateObjectCollection<>(resultSubpartitionStates.getOrDefault(instanceID, emptyList())));
+			new StateObjectCollection<>(resultSubpartitionStates.getOrDefault(instanceID, emptyList())),
+			OperatorSubtaskState.MAGIC_STATE_SIZE);
 	}
 
 	public void checkParallelismPreconditions(List<OperatorState> operatorStates, ExecutionJobVertex executionJobVertex) {
