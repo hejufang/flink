@@ -67,6 +67,12 @@ public class HtapTableUtilsTest {
 	private static final ResolvedExpression STR_VALUE_3 = new ValueLiteralExpression(
 		"str3", new AtomicDataType(new VarCharType(false, 1)));
 
+	private static final ResolvedExpression STR_VALUE_4 = new ValueLiteralExpression(
+		"str4", new AtomicDataType(new VarCharType(false, 1)));
+
+	private static final ResolvedExpression STR_VALUE_5 = new ValueLiteralExpression(
+		"1", new AtomicDataType(new VarCharType(false, 1)));
+
 	// `int_test` = 1
 	private static final CallExpression INT_EQUAL_EXPRESSION_1 = new CallExpression(
 		BuiltInFunctionDefinitions.EQUALS,
@@ -316,7 +322,6 @@ public class HtapTableUtilsTest {
 		expected = HtapFilterInfo.Builder.create("int_test")
 			.equalTo(1L)
 			.build();
-
 		Assert.assertEquals(info, expected);
 
 		// =(cast(cast(`int_test` as int) as double), 1)
@@ -327,7 +332,16 @@ public class HtapTableUtilsTest {
 		expected = HtapFilterInfo.Builder.create("int_test")
 			.equalTo(1L)
 			.build();
+		Assert.assertEquals(info, expected);
 
+		// =(cast(cast(`int_test` as int) as double), 1)
+		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
+			BuiltInFunctionDefinitions.EQUALS,
+			Arrays.asList(castCastExpression, STR_VALUE_5),
+			DataTypes.BOOLEAN())).orElse(null);
+		expected = HtapFilterInfo.Builder.create("int_test")
+			.equalTo(1L)
+			.build();
 		Assert.assertEquals(info, expected);
 
 		// >=(`field`, `literal`)

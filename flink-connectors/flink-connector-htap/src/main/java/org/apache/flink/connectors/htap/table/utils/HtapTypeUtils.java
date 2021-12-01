@@ -204,6 +204,7 @@ public class HtapTypeUtils {
 		checkNotNull(dataType, "type cannot be null");
 		checkNotNull(valueLiteralExpression, "literal cannot be null");
 		LogicalType logicalType = dataType.getLogicalType();
+		LOG.debug("Get literal value, valueLiteralExpression = {}, dataType = {}", valueLiteralExpression, dataType);
 		return logicalType
 			.accept(new ConversionTypeLogicalTypeVisitor(valueLiteralExpression, dataType));
 	}
@@ -230,10 +231,20 @@ public class HtapTypeUtils {
 
 		@Override
 		public Object visit(TinyIntType tinyIntType) {
-			if (valueLiteralExpression.getOutputDataType().getLogicalType() instanceof IntType) {
+			LogicalType literalType = valueLiteralExpression.getOutputDataType().getLogicalType();
+			if (literalType instanceof IntType) {
 				Integer value = valueLiteralExpression.getValueAs(Integer.class).orElse(null);
 				if (value != null && value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
 					return value.byteValue();
+				}
+			} else if (literalType instanceof VarCharType) {
+				String value = valueLiteralExpression.getValueAs(String.class).orElse(null);
+				if (value != null) {
+					try {
+						return Byte.parseByte(value);
+					} catch (NumberFormatException e) {
+						return null;
+					}
 				}
 			}
 			return defaultMethod(tinyIntType);
@@ -241,10 +252,20 @@ public class HtapTypeUtils {
 
 		@Override
 		public Object visit(SmallIntType smallIntType) {
-			if (valueLiteralExpression.getOutputDataType().getLogicalType() instanceof IntType) {
+			LogicalType literalType = valueLiteralExpression.getOutputDataType().getLogicalType();
+			if (literalType instanceof IntType) {
 				Integer value = valueLiteralExpression.getValueAs(Integer.class).orElse(null);
 				if (value != null && value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
 					return value.shortValue();
+				}
+			} else if (literalType instanceof VarCharType) {
+				String value = valueLiteralExpression.getValueAs(String.class).orElse(null);
+				if (value != null) {
+					try {
+						return Short.parseShort(value);
+					} catch (NumberFormatException e) {
+						return null;
+					}
 				}
 			}
 			return defaultMethod(smallIntType);
@@ -252,10 +273,20 @@ public class HtapTypeUtils {
 
 		@Override
 		public Object visit(BigIntType bigIntType) {
-			if (valueLiteralExpression.getOutputDataType().getLogicalType() instanceof IntType) {
+			LogicalType literalType = valueLiteralExpression.getOutputDataType().getLogicalType();
+			if (literalType instanceof IntType) {
 				Integer value = valueLiteralExpression.getValueAs(Integer.class).orElse(null);
 				if (value != null) {
 					return value.longValue();
+				}
+			} else if (literalType instanceof VarCharType) {
+				String value = valueLiteralExpression.getValueAs(String.class).orElse(null);
+				if (value != null) {
+					try {
+						return Long.parseLong(value);
+					} catch (NumberFormatException e) {
+						return null;
+					}
 				}
 			}
 			return defaultMethod(bigIntType);
@@ -280,6 +311,16 @@ public class HtapTypeUtils {
 				}
 				return extracted;
 			}
+			if (literalType instanceof VarCharType) {
+				String str = valueLiteralExpression.getValueAs(String.class).orElse(null);
+				if (str != null) {
+					try {
+						return Float.parseFloat(str);
+					} catch (NumberFormatException e) {
+						return null;
+					}
+				}
+			}
 			return defaultMethod(floatType);
 		}
 
@@ -287,8 +328,8 @@ public class HtapTypeUtils {
 		public Object visit(DoubleType doubleType) {
 			// If operator is not `=`, literal is `DecimalType`,
 			// so we should cast it down to `Double`
-			if (valueLiteralExpression.getOutputDataType()
-				.getLogicalType() instanceof DecimalType) {
+			LogicalType literalType = valueLiteralExpression.getOutputDataType().getLogicalType();
+			if (literalType instanceof DecimalType) {
 				BigDecimal value = valueLiteralExpression.getValueAs(BigDecimal.class)
 					.orElse(null);
 				if (value != null) {
@@ -298,6 +339,15 @@ public class HtapTypeUtils {
 						return null;
 					}
 					return extracted;
+				}
+			} else if (literalType instanceof VarCharType) {
+				String value = valueLiteralExpression.getValueAs(String.class).orElse(null);
+				if (value != null) {
+					try {
+						return Double.parseDouble(value);
+					} catch (NumberFormatException e) {
+						return null;
+					}
 				}
 			}
 			return defaultMethod(doubleType);
