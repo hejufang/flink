@@ -133,6 +133,11 @@ public class HtapTableUtils {
 		return exp instanceof CallExpression;
 	}
 
+	private static boolean isCastExpression(Expression exp) {
+		return exp instanceof CallExpression &&
+				((CallExpression) exp).getFunctionDefinition().equals(BuiltInFunctionDefinitions.CAST);
+	}
+
 	private static Optional<HtapFilterInfo> convertUnaryIsNullExpression(
 			FunctionDefinition functionDefinition,
 			List<Expression> children) {
@@ -167,11 +172,13 @@ public class HtapTableUtils {
 		} else {
 			return Optional.empty();
 		}
+		LOG.debug("fieldReferenceExpression: {}", fieldReferenceExpression);
 		if (fieldReferenceExpression == null) {
 			return Optional.empty();
 		}
 		String columnName = fieldReferenceExpression.getName();
 		Object value = extractValueLiteral(fieldReferenceExpression, valueLiteralExpression);
+		LOG.debug("Extracted value from literal: {}", value);
 		if (value == null) {
 			return Optional.empty();
 		}
@@ -260,10 +267,21 @@ public class HtapTableUtils {
 		if (isFieldReferenceExpression(exp)) {
 			return Optional.of((FieldReferenceExpression) exp);
 		}
-		if (isCallExpression(exp)) {
+		return getFieldRefFromRecursiveCast(exp);
+	}
+
+	/**
+	 * Return filed reference expression from recursive cast, or Optional.empty() for other cases.
+	 * e.g. cast(cast(col1, CHAR(1)), VARCHAR(32)) => col1
+	 * */
+	private static Optional<FieldReferenceExpression> getFieldRefFromRecursiveCast(Expression exp) {
+		if (isCastExpression(exp)) {
 			CallExpression callExpression = (CallExpression) exp;
-			if (callExpression.getFunctionDefinition().equals(BuiltInFunctionDefinitions.CAST)) {
-				return Optional.of((FieldReferenceExpression) callExpression.getChildren().get(0));
+			Expression firstChild = callExpression.getChildren().get(0);
+			if (isFieldReferenceExpression(firstChild)) {
+				return Optional.of((FieldReferenceExpression) firstChild);
+			} else if (isCastExpression(firstChild)) {
+				return getFieldRefFromRecursiveCast(firstChild);
 			}
 		}
 		return Optional.empty();

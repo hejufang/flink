@@ -342,8 +342,8 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 					predicate, tableInfo.getName());
 			}
 		}
-		LOG.info("applied predicates: flink predicates: [{}], pushed predicates: [{}]",
-			predicates, htapPredicates);
+		LOG.info("{} applied predicates: flink predicates: [{}], pushed predicates: [{}]",
+			tablePath, predicates, htapPredicates);
 
 		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, flinkConf,
 			tablePath, htapPredicates, projectedFields, groupByFields, aggregates, aggregateFunctions,

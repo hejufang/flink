@@ -39,6 +39,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.flink.table.expressions.ApiExpressionUtils.typeLiteral;
+
 /**
  * Unit Tests for {@link HtapTableUtils}.
  */
@@ -150,6 +152,7 @@ public class HtapTableUtilsTest {
 		DataTypes.BOOLEAN());
 
 	HtapFilterInfo info;
+	HtapFilterInfo expected;
 
 	@Test
 	public void testConvertUnaryIsNullExpression() {
@@ -188,20 +191,36 @@ public class HtapTableUtilsTest {
 
 	@Test
 	public void testConvertBinaryComparison() {
-		List<ResolvedExpression> childrenBeginWithFiled = Arrays.asList(INT_FIELD, INT_VALUE_1);
+		List<ResolvedExpression> childrenBeginWithField = Arrays.asList(INT_FIELD, INT_VALUE_1);
 		List<ResolvedExpression> childrenBeginWithLiteral = Arrays.asList(INT_VALUE_1, INT_FIELD);
 		List<ResolvedExpression> childrenFields = Arrays.asList(INT_FIELD, INT_FIELD);
 		List<ResolvedExpression> childrenLiterals = Arrays.asList(INT_VALUE_1, INT_VALUE_1);
 
-		// >(`filed`, `literal`)
+		CallExpression castExpression = new CallExpression(
+			BuiltInFunctionDefinitions.CAST,
+			Arrays.asList(
+				new FieldReferenceExpression("int_test", DataTypes.BIGINT(), 0, 0),
+				typeLiteral(DataTypes.INT())),
+			DataTypes.INT()
+		);
+
+		CallExpression castCastExpression = new CallExpression(
+			BuiltInFunctionDefinitions.CAST,
+			Arrays.asList(
+				castExpression,
+				typeLiteral(DataTypes.DOUBLE())),
+			DataTypes.DOUBLE()
+		);
+
+		// >(`field`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.GREATER_THAN,
-			childrenBeginWithFiled,
+			childrenBeginWithField,
 			DataTypes.BOOLEAN()))
 			.orElse(null);
 		Assert.assertNotNull(info);
 
-		// >(`literal`, `filed`)
+		// >(`literal`, `field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.GREATER_THAN,
 			childrenBeginWithLiteral,
@@ -209,7 +228,7 @@ public class HtapTableUtilsTest {
 			.orElse(null);
 		Assert.assertNotNull(info);
 
-		// >(`filed`, `filed`)
+		// >(`field`, `field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.GREATER_THAN,
 			childrenFields,
@@ -225,15 +244,15 @@ public class HtapTableUtilsTest {
 			.orElse(null);
 		Assert.assertNull(info);
 
-		// <(`filed`, `literal`)
+		// <(`field`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.LESS_THAN,
-			childrenBeginWithFiled,
+			childrenBeginWithField,
 			DataTypes.BOOLEAN()))
 			.orElse(null);
 		Assert.assertNotNull(info);
 
-		// <(`literal`, `filed`)
+		// <(`literal`, `field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.LESS_THAN,
 			childrenBeginWithLiteral,
@@ -241,7 +260,7 @@ public class HtapTableUtilsTest {
 			.orElse(null);
 		Assert.assertNotNull(info);
 
-		// <(`filed`, `filed`)
+		// <(`field`, `field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.LESS_THAN,
 			childrenFields,
@@ -257,15 +276,15 @@ public class HtapTableUtilsTest {
 			.orElse(null);
 		Assert.assertNull(info);
 
-		// =(`filed`, `literal`)
+		// =(`field`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.EQUALS,
-			childrenBeginWithFiled,
+			childrenBeginWithField,
 			DataTypes.BOOLEAN()))
 			.orElse(null);
 		Assert.assertNotNull(info);
 
-		// =(`literal`, `filed`)
+		// =(`literal`, `field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.EQUALS,
 			childrenBeginWithLiteral,
@@ -273,7 +292,7 @@ public class HtapTableUtilsTest {
 			.orElse(null);
 		Assert.assertNotNull(info);
 
-		// =(`filed`, `filed`)
+		// =(`field`, `field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.EQUALS,
 			childrenFields,
@@ -289,15 +308,37 @@ public class HtapTableUtilsTest {
 			.orElse(null);
 		Assert.assertNull(info);
 
-		// >=(`filed`, `literal`)
+//		// =(cast(`int_test` as int), 1)
+		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
+			BuiltInFunctionDefinitions.EQUALS,
+			Arrays.asList(castExpression, INT_VALUE_1),
+			DataTypes.BOOLEAN())).orElse(null);
+		expected = HtapFilterInfo.Builder.create("int_test")
+			.equalTo(1L)
+			.build();
+
+		Assert.assertEquals(info, expected);
+
+		// =(cast(cast(`int_test` as int) as double), 1)
+		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
+			BuiltInFunctionDefinitions.EQUALS,
+			Arrays.asList(castCastExpression, INT_VALUE_1),
+			DataTypes.BOOLEAN())).orElse(null);
+		expected = HtapFilterInfo.Builder.create("int_test")
+			.equalTo(1L)
+			.build();
+
+		Assert.assertEquals(info, expected);
+
+		// >=(`field`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.GREATER_THAN_OR_EQUAL,
-			childrenBeginWithFiled,
+			childrenBeginWithField,
 			DataTypes.BOOLEAN()))
 			.orElse(null);
 		Assert.assertNotNull(info);
 
-		// >=(`literal`, `filed`)
+		// >=(`literal`, `field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.GREATER_THAN_OR_EQUAL,
 			childrenBeginWithLiteral,
@@ -305,7 +346,7 @@ public class HtapTableUtilsTest {
 			.orElse(null);
 		Assert.assertNotNull(info);
 
-		// >=(`filed`, `filed`)
+		// >=(`field`, `field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.GREATER_THAN_OR_EQUAL,
 			childrenFields,
@@ -321,15 +362,15 @@ public class HtapTableUtilsTest {
 			.orElse(null);
 		Assert.assertNull(info);
 
-		// <=(`filed`, `literal`)
+		// <=(`field`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.LESS_THAN_OR_EQUAL,
-			childrenBeginWithFiled,
+			childrenBeginWithField,
 			DataTypes.BOOLEAN()))
 			.orElse(null);
 		Assert.assertNotNull(info);
 
-		// <=(`literal`, `filed`)
+		// <=(`literal`, `field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.LESS_THAN_OR_EQUAL,
 			childrenBeginWithLiteral,
@@ -337,7 +378,7 @@ public class HtapTableUtilsTest {
 			.orElse(null);
 		Assert.assertNotNull(info);
 
-		// <=(`filed`, `filed`)
+		// <=(`field`, `field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.LESS_THAN_OR_EQUAL,
 			childrenFields,

@@ -26,6 +26,7 @@ import com.bytedance.htap.meta.Schema;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * HtapFilterInfo.
@@ -140,6 +141,25 @@ public class HtapFilterInfo implements Serializable {
 		return "HtapFilterInfo[Column=" + (column == null ? "null" : column) +
 			", FilterType=" + (type == null ? "null" : type.toString()) +
 			", Value=" + (value == null ? "null" : value.toString()) + "]";
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		HtapFilterInfo that = (HtapFilterInfo) o;
+		return Objects.equals(column, that.column) &&
+			type == that.type &&
+			Objects.equals(value, that.value);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(column, type, value);
 	}
 
 	/**
