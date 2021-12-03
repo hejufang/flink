@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.leaderretrieval;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.leaderelection.LeaderInformation;
 import org.apache.flink.runtime.leaderelection.ZooKeeperLeaderElectionDriver;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -154,7 +155,6 @@ public class ZooKeeperLeaderRetrievalDriver implements LeaderRetrievalDriver, No
 			case SUSPENDED:
 				LOG.warn("Connection to ZooKeeper suspended. Can no longer retrieve the leader from " +
 					"ZooKeeper.");
-				leaderRetrievalEventHandler.notifyLeaderAddress(LeaderInformation.empty());
 				break;
 			case RECONNECTED:
 				LOG.info("Connection to ZooKeeper was reconnected. Leader retrieval can be restarted.");
@@ -171,6 +171,11 @@ public class ZooKeeperLeaderRetrievalDriver implements LeaderRetrievalDriver, No
 	private void onReconnectedConnectionState() {
 		// check whether we find some new leader information in ZooKeeper
 		retrieveLeaderInformationFromZooKeeper();
+	}
+
+	@VisibleForTesting
+	public String getRetrievalPath() {
+		return retrievalPath;
 	}
 
 	@Override
