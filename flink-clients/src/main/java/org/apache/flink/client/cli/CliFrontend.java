@@ -24,7 +24,6 @@ import org.apache.flink.api.common.InvalidProgramException;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.dag.Pipeline;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.client.ClientUtils;
 import org.apache.flink.client.FlinkPipelineTranslationUtil;
 import org.apache.flink.client.deployment.ClusterClientFactory;
@@ -59,6 +58,7 @@ import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
 import org.apache.flink.runtime.checkpoint.metadata.savepoint.SavepointSimpleMetadata;
 import org.apache.flink.runtime.client.JobStatusMessage;
+import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.MetricRegistryConfiguration;
@@ -117,6 +117,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.flink.client.cli.CliFrontendParser.HELP_OPTION;
 import static org.apache.flink.configuration.DeploymentOptions.RUN_WITH_CHECKPOINT_VERIFY;
+import static org.apache.flink.streaming.api.environment.CheckpointConfig.RESTORE_FROM_LATEST;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -143,9 +144,6 @@ public class CliFrontend {
 
 	// warehouse messages
 	private static final String EVENT_METRIC_NAME = "clientEvent";
-
-	// restore from latest snapshot identifier
-	private static final String RESTORE_FROM_LATEST = "latest";
 
 	// --------------------------------------------------------------------------------------------
 
@@ -246,7 +244,7 @@ public class CliFrontend {
 
 		programOptions.validate();
 		final URI uri = PackagedProgramUtils.resolveURI(programOptions.getJarFilePath());
-		Configuration effectiveConfiguration = getEffectiveConfiguration(
+		final Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, Collections.singletonList(uri.toString()));
 
 		replaceCheckpointNamepsaceWithSnapshotNamespace(effectiveConfiguration);
@@ -254,27 +252,15 @@ public class CliFrontend {
 		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
 		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
 			String savepointPath = effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
-			boolean needSetSavepointSettings = true;
-			// User specified restoring job from latest snapshot
-			if (RESTORE_FROM_LATEST.equals(savepointPath)) {
-				// If we get null as latest, it'll throw exception here.
-				Tuple2<String, Boolean> latestSnapshotPathAndNamespaceEmpty = findLatestSnapshotCrossNamespaces(effectiveConfiguration, jobUID);
-				// modify the 'latest' savepoint path to the real latest snapshot path
-				savepointPath = latestSnapshotPathAndNamespaceEmpty.f0;
-				effectiveConfiguration.setString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH, savepointPath);
-				needSetSavepointSettings = latestSnapshotPathAndNamespaceEmpty.f1;
-			}
-			if (needSetSavepointSettings) {
-				programOptions.setSavepointSettings(
-					savepointPath,
-					effectiveConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE)
-				);
-				// pass savepoint settings to jobGraph through the updated programOptions
-				effectiveConfiguration = getEffectiveConfiguration(
-					activeCommandLine, commandLine, programOptions, Collections.singletonList(uri.toString()));
-
-				// remove this config in case of JM failover
-				effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
+			programOptions.setSavepointSettings(
+				savepointPath,
+				effectiveConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE)
+			);
+			// pass savepoint settings to jobGraph through the updated programOptions
+			SavepointRestoreSettings.toConfiguration(programOptions.getSavepointRestoreSettings(), effectiveConfiguration);
+			// remove this config in case of JM failover
+			effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
+			if (!RESTORE_FROM_LATEST.equals(savepointPath)) {
 				initializeCheckpointNamespaceDirectory(effectiveConfiguration, jobUID, savepointPath);
 			}
 		}
@@ -326,22 +312,15 @@ public class CliFrontend {
 		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
 		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
 			String savepointPath = effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
-			boolean needSetSavepointSettings = true;
-			if (RESTORE_FROM_LATEST.equals(savepointPath)) {
-				// If we get null as latest, it'll throw exception here.
-				Tuple2<String, Boolean> latestSnapshotPathAndNamespaceEmpty = findLatestSnapshotCrossNamespaces(effectiveConfiguration, jobUID);
-				// modify the 'latest' savepoint path to the real latest snapshot path
-				savepointPath = latestSnapshotPathAndNamespaceEmpty.f0;
-				effectiveConfiguration.setString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH, savepointPath);
-				needSetSavepointSettings = latestSnapshotPathAndNamespaceEmpty.f1;
-			}
-			if (needSetSavepointSettings) {
-				programOptions.setSavepointSettings(
-					effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH),
-					effectiveConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE)
-				);
-				// remove this config in case of JM failover
-				effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
+			programOptions.setSavepointSettings(
+				effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH),
+				effectiveConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE)
+			);
+			// pass savepoint settings to jobGraph through the updated programOptions
+			SavepointRestoreSettings.toConfiguration(programOptions.getSavepointRestoreSettings(), effectiveConfiguration);
+			// remove this config in case of JM failover
+			effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
+			if (!RESTORE_FROM_LATEST.equals(savepointPath)) {
 				initializeCheckpointNamespaceDirectory(effectiveConfiguration, jobUID, savepointPath);
 			}
 		}
@@ -1119,23 +1098,6 @@ public class CliFrontend {
 //		final String targetNamespace = configuration.getString(CheckpointingOptions.CHECKPOINTS_NAMESPACE) + "_" + System.currentTimeMillis();
 //		LOG.info("Rename the old checkpoint namespace to {}", targetNamespace);
 //		checkpointStorage.renameNamespaceDirectory(targetNamespace);
-	}
-
-	private Tuple2<String, Boolean> findLatestSnapshotCrossNamespaces (
-		Configuration effectiveConfiguration,
-		String jobUID) throws Exception {
-
-		if (effectiveConfiguration.get(CheckpointingOptions.SNAPSHOT_NAMESPACE) == null) {
-			throw new IllegalStateException(String.format("Illegal dynamic parameters: snapshot.namespace is null and restore path is 'latest'"));
-		}
-		JobID jobID = JobID.generate();
-		final String namespace = effectiveConfiguration.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
-
-		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-		StateBackend stateBackend = Checkpoints.loadStateBackend(effectiveConfiguration, classLoader, LOG);
-		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobUID);
-
-		return checkpointStorage.findLatestSnapshotCrossNamespaces(effectiveConfiguration.get(CheckpointingOptions.MAX_TRACING_NAMESPACES), namespace);
 	}
 
 	private CheckpointMetadata loadSavepointMetadata(String savepointPath) throws IOException {

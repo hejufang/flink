@@ -26,13 +26,14 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.PipelineOptionsInternal;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.streaming.api.environment.CheckpointConfig;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
-import java.net.MalformedURLException;
+import java.io.IOException;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -52,7 +53,7 @@ public class PipelineExecutorUtils {
 	 *                         savepoint settings used to bootstrap its state.
 	 * @return the corresponding {@link JobGraph}.
 	 */
-	public static JobGraph getJobGraph(@Nonnull final Pipeline pipeline, @Nonnull final Configuration configuration) throws MalformedURLException {
+	public static JobGraph getJobGraph(@Nonnull final Pipeline pipeline, @Nonnull final Configuration configuration) throws IOException {
 		checkNotNull(pipeline);
 		checkNotNull(configuration);
 
@@ -73,6 +74,8 @@ public class PipelineExecutorUtils {
 		jobGraph.addJars(executionConfigAccessor.getJars());
 		jobGraph.setClasspaths(executionConfigAccessor.getClasspaths());
 		jobGraph.setSavepointRestoreSettings(executionConfigAccessor.getSavepointRestoreSettings());
+		// reconfigure savepoint restore settings
+		CheckpointConfig.reconfigureLatestSnapshot(jobGraph, configuration);
 
 		return jobGraph;
 	}

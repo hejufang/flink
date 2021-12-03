@@ -20,15 +20,25 @@ package org.apache.flink.streaming.api.environment;
 
 import org.apache.flink.annotation.Public;
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.CheckpointingOptions;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.runtime.checkpoint.Checkpoints;
+import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
+import org.apache.flink.runtime.state.CheckpointStorage;
+import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -70,6 +80,9 @@ public class CheckpointConfig implements java.io.Serializable {
 
 	/** The default interval of checkpoint if enable: 30 seconds. */
 	public static final long DEFAULT_INTERVAL_CHECKPOINT_ENABLED = 30 * 1000L;
+
+	/** restore from latest snapshot identifier. */
+	public static final String RESTORE_FROM_LATEST = "latest";
 
 	// ------------------------------------------------------------------------
 
@@ -583,6 +596,9 @@ public class CheckpointConfig implements java.io.Serializable {
 	 * @param configuration a configuration to read the values from
 	 */
 	public void configure(ReadableConfig configuration) {
+		// move it ahead of CHECKPOINTING_ENABLE checking in case CHECKPOINTING_ENABLE = false and directly returned.
+		configuration.getOptional(ExecutionCheckpointingOptions.IGNORE_CHECKPOINTS_ON_CHECKPOINT_DISABLED)
+			.ifPresent(this::setIgnoreCheckpointsOnCheckpointDisabled);
 		Optional<Boolean> optionalCheckpointingEnabled =
 			configuration.getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_ENABLE);
 		if (optionalCheckpointingEnabled.isPresent()) {
@@ -618,7 +634,37 @@ public class CheckpointConfig implements java.io.Serializable {
 			.ifPresent(this::enableExternalizedCheckpoints);
 		configuration.getOptional(ExecutionCheckpointingOptions.ENABLE_UNALIGNED)
 			.ifPresent(this::enableUnalignedCheckpoints);
-		configuration.getOptional(ExecutionCheckpointingOptions.IGNORE_CHECKPOINTS_ON_CHECKPOINT_DISABLED)
-			.ifPresent(this::setIgnoreCheckpointsOnCheckpointDisabled);
+	}
+
+	public static void reconfigureLatestSnapshot(JobGraph jobGraph, final Configuration configuration) throws IOException {
+		if (RESTORE_FROM_LATEST.equals(jobGraph.getSavepointRestoreSettings().getRestorePath()) && jobGraph.getCheckpointingSettings() != null) {
+			Tuple2<String, Boolean> latestSnapshotPathAndNamespaceEmpty = findLatestSnapshotCrossNamespaces(configuration, jobGraph.getJobUID());
+			boolean needResetSavepointSettings = latestSnapshotPathAndNamespaceEmpty.f1;
+			String latestSnapshotPath = latestSnapshotPathAndNamespaceEmpty.f0;
+			if (needResetSavepointSettings && latestSnapshotPath != null) {
+				SavepointRestoreSettings savepointRestoreSettings = SavepointRestoreSettings.forPath(latestSnapshotPath, jobGraph.getSavepointRestoreSettings().allowNonRestoredState());
+				jobGraph.setSavepointRestoreSettings(savepointRestoreSettings);
+			} else {
+				// clean the 'latest' savepoint path settings
+				jobGraph.setSavepointRestoreSettings(SavepointRestoreSettings.none());
+			}
+		}
+	}
+
+	private static Tuple2<String, Boolean> findLatestSnapshotCrossNamespaces (
+		Configuration configuration,
+		String jobUID) throws IOException {
+
+		if (configuration.get(CheckpointingOptions.SNAPSHOT_NAMESPACE) == null) {
+			throw new IllegalStateException(String.format("Illegal dynamic parameters: snapshot.namespace is null and restore path is 'latest'"));
+		}
+		JobID jobID = JobID.generate();
+		final String namespace = configuration.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
+
+		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+		StateBackend stateBackend = Checkpoints.loadStateBackend(configuration, classLoader, LOG);
+		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobUID);
+
+		return checkpointStorage.findLatestSnapshotCrossNamespaces(configuration.get(CheckpointingOptions.MAX_TRACING_NAMESPACES), namespace);
 	}
 }
