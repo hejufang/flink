@@ -253,6 +253,7 @@ common:
   bytedance.streaming.cluster.evenly-spread-out-slots: false
   bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
   bytedance.streaming.slot-pool.round-robin: true
+  bytedance.streaming.yarn.res-lake.enabled: false
 
   # hdfs conf for checkpoint
   flink.checkpoint.hdfs.dfs.datanode.socket.write.timeout: 30000
@@ -382,6 +383,8 @@ hl:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
 
 hyrax:
   dc: cn
@@ -483,6 +486,8 @@ quoll:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
 
 quoka:
   dc: cn
