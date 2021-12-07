@@ -600,6 +600,7 @@ marmt:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
+  bytedance.streaming.yarn.check.application.name.unique.region: true
   yarn.provided.lib.dirs.enabled: false
   flink.cloud-shuffle-service.support: false
   state.backend.cache.enable: true
@@ -788,6 +789,7 @@ sloth:
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
+  bytedance.streaming.yarn.check.application.name.unique.region: true
   flink.cloud-shuffle-service.support: false
   state.backend.cache.enable: true
   state.backend.cache.maxHeapSize: 1g
