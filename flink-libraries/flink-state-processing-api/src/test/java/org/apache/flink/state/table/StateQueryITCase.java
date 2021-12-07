@@ -48,6 +48,8 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.TableResult;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.table.planner.calcite.CalciteConfig$;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
@@ -65,6 +67,7 @@ import org.junit.runners.Parameterized;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -112,7 +115,9 @@ public class StateQueryITCase {
 		final String savepointPath = submitJobAndTakeSavepoint(clusterFactory, 1);
 
 		EnvironmentSettings settings = EnvironmentSettings.newInstance().useBlinkPlanner().inBatchMode().build();
-		this.tEnv = TableEnvironment.create(settings);
+		StreamExecutionEnvironment execEnv = StreamExecutionEnvironment.getExecutionEnvironment();
+		execEnv.getConfiguration().setBoolean(CalciteConfig$.MODULE$.CALCITE_SQL_TO_REL_CONVERTER_CONVERT_TABLE_ACCESS_ENABLED().key(), true);
+		tEnv = StreamTableEnvironment.create(execEnv, settings);
 
 		resolver = new LocationResolver() {
 			@Override
@@ -143,7 +148,9 @@ public class StateQueryITCase {
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8#mapState"));
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8#unionState"));
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8#valueState"));
-
+		expect.add(Row.of("64248066b88fd35e9203cd469ffb4a53#all_keyed_states"));
+		expect.add(Row.of("64248066b88fd35e9203cd469ffb4a53#all_operator_states"));
+		expect.add(Row.of("64248066b88fd35e9203cd469ffb4a53#unionState"));
 		expect.add(Row.of("state_meta"));
 		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
 	}
@@ -153,6 +160,12 @@ public class StateQueryITCase {
 		final TableResult result = tEnv.executeSql("show views");
 		List expect = new ArrayList();
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8#all_states"));
+		expect.add(Row.of("64248066b88fd35e9203cd469ffb4a53#all_states"));
+
+		expect.add(Row.of("all_keyed_states"));
+		expect.add(Row.of("all_operator_states"));
+		expect.add(Row.of("all_states"));
+
 		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
 	}
 
@@ -181,6 +194,8 @@ public class StateQueryITCase {
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", true, "Integer", "listState", "LIST", stateBackendType, "List<String>"));
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", true, "Integer", "mapState", "MAP", stateBackendType, "Map<String, String>"));
 		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "Flat Map", "uid", false, null, "unionState", "LIST", "OPERATOR_STATE_BACKEND", "List<String>"));
+		expect.add(Row.of("64248066b88fd35e9203cd469ffb4a53", "Source: Custom Source", "source_uid", false, null, "unionState", "LIST", "OPERATOR_STATE_BACKEND", "List<String>"));
+
 		Assert.assertEquals(expect, Lists.newArrayList(result.collect()));
 	}
 
@@ -259,6 +274,83 @@ public class StateQueryITCase {
 		Assert.assertEquals(expect, restList);
 	}
 
+	@Test
+	public void testOperatorAllStatesQuery() {
+		final TableResult result = tEnv.executeSql("select * from `0e1febe90327d1cea326114660ec1de8#all_states`");
+		List expect = new ArrayList();
+		expect.add(Row.of("unionState", "null", "null", "value_0"));
+		expect.add(Row.of("unionState", "null", "null", "value_1"));
+		expect.add(Row.of("unionState", "null", "null", "value_2"));
+		expect.add(Row.of("listState", "3", "VoidNamespace", "value_0"));
+		expect.add(Row.of("listState", "3", "VoidNamespace", "value_1"));
+		expect.add(Row.of("listState", "3", "VoidNamespace", "value_2"));
+		expect.add(Row.of("mapState", "3", "VoidNamespace", "userKey_0=value_0"));
+		expect.add(Row.of("mapState", "3", "VoidNamespace", "userKey_1=value_1"));
+		expect.add(Row.of("mapState", "3", "VoidNamespace", "userKey_2=value_2"));
+		expect.add(Row.of("valueState", "3", "VoidNamespace", "3"));
+		List restList = Lists.newArrayList(result.collect());
+		expect.sort(Comparator.comparing(rowData -> rowData.toString()));
+		restList.sort(Comparator.comparing(rowData -> rowData.toString()));
+
+		Assert.assertEquals(expect, restList);
+	}
+
+	@Test
+	public void testJobAllKeyedStatesQuery() {
+		final TableResult result = tEnv.executeSql("select * from all_keyed_states");
+		List expect = new ArrayList();
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "listState", "3", "VoidNamespace", "value_0"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "listState", "3", "VoidNamespace", "value_1"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "listState", "3", "VoidNamespace", "value_2"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "mapState", "3", "VoidNamespace", "userKey_0=value_0"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "mapState", "3", "VoidNamespace", "userKey_1=value_1"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "mapState", "3", "VoidNamespace", "userKey_2=value_2"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "valueState", "3", "VoidNamespace", "3"));
+		List restList = Lists.newArrayList(result.collect());
+		expect.sort(Comparator.comparing(rowData -> rowData.toString()));
+		restList.sort(Comparator.comparing(rowData -> rowData.toString()));
+
+		Assert.assertEquals(expect, restList);
+	}
+
+	@Test
+	public void testJobAllOperatorStatesQuery() {
+		final TableResult result = tEnv.executeSql("select * from all_operator_states");
+		List expect = new ArrayList();
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "unionState", "value_0"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "unionState", "value_1"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "unionState", "value_2"));
+		expect.add(Row.of("64248066b88fd35e9203cd469ffb4a53", "unionState", "3"));
+
+		List restList = Lists.newArrayList(result.collect());
+		expect.sort(Comparator.comparing(rowData -> rowData.toString()));
+		restList.sort(Comparator.comparing(rowData -> rowData.toString()));
+
+		Assert.assertEquals(expect, restList);
+	}
+
+	@Test
+	public void testJobAllStatesQuery() {
+		final TableResult result = tEnv.executeSql("select * from all_states");
+		List expect = new ArrayList();
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "unionState", "null", "null", "value_0"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "unionState", "null", "null", "value_1"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "unionState", "null", "null", "value_2"));
+		expect.add(Row.of("64248066b88fd35e9203cd469ffb4a53", "unionState", "null", "null", "3"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "listState", "3", "VoidNamespace", "value_0"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "listState", "3", "VoidNamespace", "value_1"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "listState", "3", "VoidNamespace", "value_2"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "mapState", "3", "VoidNamespace", "userKey_0=value_0"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "mapState", "3", "VoidNamespace", "userKey_1=value_1"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "mapState", "3", "VoidNamespace", "userKey_2=value_2"));
+		expect.add(Row.of("0e1febe90327d1cea326114660ec1de8", "valueState", "3", "VoidNamespace", "3"));
+		List restList = Lists.newArrayList(result.collect());
+		expect.sort(Comparator.comparing(rowData -> rowData.toString()));
+		restList.sort(Comparator.comparing(rowData -> rowData.toString()));
+
+		Assert.assertEquals(expect, restList);
+	}
+
 	private String submitJobAndTakeSavepoint(MiniClusterResourceFactory clusterFactory, int parallelism) throws Exception {
 		final JobGraph jobGraph = createJobGraph(parallelism, 0, 1000, 10);
 		final JobID jobId = jobGraph.getJobID();
@@ -310,8 +402,9 @@ public class StateQueryITCase {
 		Configuration conf = new Configuration();
 		conf.set(MAX_RETAINED_CHECKPOINTS, maxRetainedCheckpoints);
 		env.getCheckpointConfig().configure(conf);
+
 		DataStream stream = env
-			.addSource(new InfiniteTestSource())
+			.addSource(new InfiniteTestSource()).uid("source_uid")
 			.keyBy(x -> x)
 			.flatMap(new StatefulFunction()).uid("uid");
 
@@ -320,16 +413,20 @@ public class StateQueryITCase {
 		return env.getStreamGraph(JOB_NAME).getJobGraph();
 	}
 
-	private static class InfiniteTestSource implements SourceFunction<Integer> {
+	private static class InfiniteTestSource implements SourceFunction<Integer>, CheckpointedFunction {
 
 		private static final long serialVersionUID = 1L;
 		private volatile boolean running = true;
+		private ListStateDescriptor<String> unionStateDescriptor = new ListStateDescriptor<>("unionState", Types.STRING);
+		private ListState<String> unionState;
 
 		@Override
 		public void run(SourceContext<Integer> ctx) throws Exception {
+			int cnt = 0;
 			while (running) {
 				synchronized (ctx.getCheckpointLock()) {
 					ctx.collect(3);
+					unionState.update(Arrays.asList("3"));
 				}
 				Thread.sleep(1);
 			}
@@ -338,6 +435,17 @@ public class StateQueryITCase {
 		@Override
 		public void cancel() {
 			running = false;
+		}
+
+		@Override
+		public void snapshotState(FunctionSnapshotContext context) throws Exception {
+
+		}
+
+		@Override
+		public void initializeState(FunctionInitializationContext context) throws Exception {
+			unionState = context.getOperatorStateStore().getUnionListState(unionStateDescriptor);
+
 		}
 	}
 

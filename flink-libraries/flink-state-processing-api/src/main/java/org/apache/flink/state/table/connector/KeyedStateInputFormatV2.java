@@ -63,6 +63,7 @@ import org.apache.commons.collections.IteratorUtils;
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -175,9 +176,12 @@ public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInpu
 
 	@Override
 	public void close() throws IOException {
-		keyedStateIteratorList.forEach(stateIterator -> {
+		if (keyedStateIteratorList != null) {
+			keyedStateIteratorList.forEach(stateIterator -> {
 			IOUtils.closeQuietly(stateIterator);
-		});
+			});
+		}
+
 		IOUtils.closeQuietly(registry);
 		try {
 			if (keyedStateBackend != null) {
@@ -296,10 +300,12 @@ public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInpu
 				}
 			}
 
-			List<Tuple2<StateDescriptor, TypeSerializer>> stateDescAndNamespaceSer = stateNames.stream()
+			List<Tuple2<StateDescriptor, TypeSerializer>> stateDescAndNamespaceSer = new ArrayList<>();
+			if (registeredKeyedStateMeta != null) {
+				stateNames.stream()
 				.map(stateName -> (RegisteredKeyedStateMeta.KeyedStateMetaData) registeredKeyedStateMeta.getStateMetaData().get(stateName))
-				.map(keyedStateMetaData -> Tuple2.of(keyedStateMetaData.getStateDescriptor(), keyedStateMetaData.getNamespaceSerializer()))
-				.collect(Collectors.toList());
+				.forEach(keyedStateMetaData -> stateDescAndNamespaceSer.add(Tuple2.of(keyedStateMetaData.getStateDescriptor(), keyedStateMetaData.getNamespaceSerializer())));
+			}
 
 			return new KeyedStateInputFormatV2(stateBackend, keySerializer, operatorState, stateDescAndNamespaceSer, dataType);
 		}

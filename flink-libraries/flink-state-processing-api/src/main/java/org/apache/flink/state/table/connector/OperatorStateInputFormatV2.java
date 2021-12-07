@@ -55,6 +55,7 @@ import org.apache.flink.util.IOUtils;
 import org.apache.commons.collections.IteratorUtils;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -224,10 +225,12 @@ public class OperatorStateInputFormatV2<S extends State, T> extends RichInputFor
 				}
 			}
 			RegisteredOperatorStateMeta registeredOperatorStateMeta = operatorStateMeta.getOperatorStateMeta();
-			List<Tuple2<StateDescriptor, OperatorStateHandle.Mode>> stateDescAndDistributeMode = stateNames.stream()
-				.map(stateName -> (RegisteredOperatorStateMeta.OperatorStateMetaData) registeredOperatorStateMeta.getStateMetaData().get(stateName))
-				.map(operatorStateMetaData -> Tuple2.of(operatorStateMetaData.getStateDescriptor(), operatorStateMetaData.getDistributeMode()))
-				.collect(Collectors.toList());
+			List<Tuple2<StateDescriptor, OperatorStateHandle.Mode>> stateDescAndDistributeMode = new ArrayList<>();
+			if (registeredOperatorStateMeta != null) {
+				stateNames.stream()
+					.map(stateName -> (RegisteredOperatorStateMeta.OperatorStateMetaData) registeredOperatorStateMeta.getStateMetaData().get(stateName))
+					.forEach(operatorStateMetaData -> stateDescAndDistributeMode.add(Tuple2.of(operatorStateMetaData.getStateDescriptor(), operatorStateMetaData.getDistributeMode())));
+			}
 			return new OperatorStateInputFormatV2(operatorState, stateDescAndDistributeMode, dataType);
 		}
 

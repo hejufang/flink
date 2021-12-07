@@ -39,7 +39,7 @@ import org.apache.flink.runtime.checkpoint.metadata.MetadataV3Serializer;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.tracker.BackendType;
-import org.apache.flink.state.table.catalog.SavepointCatalogUtils;
+import org.apache.flink.state.table.catalog.tables.StateMetaTable;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
@@ -76,7 +76,7 @@ public class StateMetaInputFormatTest {
 	@Before
 	public void setUpConverter(){
 
-		DataType savepointDatatype = SavepointCatalogUtils.STATE_META_TABLE_SCHEMA.toPhysicalRowDataType();
+		DataType savepointDatatype = StateMetaTable.STATE_META_TABLE_SCHEMA.toPhysicalRowDataType();
 		converter = ScanRuntimeProviderContext.INSTANCE.createDataStructureConverter(savepointDatatype);
 	}
 

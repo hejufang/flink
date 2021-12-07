@@ -19,13 +19,20 @@ package org.apache.flink.state.table.catalog;
 
 import org.apache.flink.runtime.checkpoint.OperatorStateMeta;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointStateMetadata;
-import org.apache.flink.table.api.DataTypes;
-import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.state.table.catalog.tables.KeyedStateTable;
+import org.apache.flink.state.table.catalog.tables.OperatorAllKeyedStateTable;
+import org.apache.flink.state.table.catalog.tables.OperatorAllOperatorStateTable;
+import org.apache.flink.state.table.catalog.tables.OperatorStateTable;
+import org.apache.flink.state.table.catalog.tables.SavepointTable;
+import org.apache.flink.state.table.catalog.tables.StateMetaTable;
+import org.apache.flink.state.table.catalog.views.JobAllKeyedStateView;
+import org.apache.flink.state.table.catalog.views.JobAllOperatorStateView;
+import org.apache.flink.state.table.catalog.views.JobAllStateView;
+import org.apache.flink.state.table.catalog.views.OperatorAllStateView;
+import org.apache.flink.state.table.catalog.views.SavepointView;
 import org.apache.flink.table.catalog.CatalogBaseTable;
-import org.apache.flink.table.catalog.CatalogTableImpl;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -45,54 +52,21 @@ public class SavepointCatalogUtils {
 	public static final String ALL_KEYED_STATES_NAME = "all_keyed_states";
 	public static final String ALL_OPERATOR_STATES_NAME = "all_operator_states";
 
-	private static final String STATE_TABLE_SEPARATOR = "#";
+	public static final String STATE_TABLE_SEPARATOR = "#";
 	public static final String MULTI_STATE_NAME_SEPARATOR = ",";
 
 	public static final String SAVEPOINT_STATE_TABLE_NAME_FORMAT = "%s#%s";
 
-	private static final List<String> SAVEPOINT_MULTI_STATE_TABLE_NAMES = Stream.of(
+	private static final List<String> SAVEPOINT_OPERATOR_MULTI_STATE_TABLE_NAMES = Stream.of(
 		ALL_KEYED_STATES_NAME,
 		ALL_OPERATOR_STATES_NAME
 	).collect(Collectors.toList());
 
-	public static final TableSchema STATE_META_TABLE_SCHEMA =
-		TableSchema.builder()
-			.field("operator_id", DataTypes.STRING())
-			.field("operator_name", DataTypes.STRING())
-			.field("uid", DataTypes.STRING())
-			.field("is_keyed_state", DataTypes.BOOLEAN())
-			.field("key_type", DataTypes.STRING())
-			.field("state_name", DataTypes.STRING())
-			.field("state_type", DataTypes.STRING())
-			.field("state_backend_type", DataTypes.STRING())
-			.field("value_type", DataTypes.STRING())
-			.build();
-
-	public static final TableSchema KEYED_STATE_TABLE_SCHEMA =
-		TableSchema.builder()
-			.field("key", DataTypes.STRING())
-			.field("namespace", DataTypes.STRING())
-			.field("value", DataTypes.STRING())
-			.build();
-
-	public static final TableSchema OPERATOR_STATE_TABLE_SCHEMA =
-		TableSchema.builder()
-			.field("value", DataTypes.STRING())
-			.build();
-
-	public static final TableSchema OPERATOR_KEYED_STATE_VIEW_SCHEMA =
-		TableSchema.builder()
-			.field("state_name", DataTypes.STRING())
-			.field("key", DataTypes.STRING())
-			.field("namespace", DataTypes.STRING())
-			.field("value", DataTypes.STRING())
-			.build();
-
-	public static final TableSchema OPERATOR_OPERATOR_STATE_VIEW_SCHEMA =
-		TableSchema.builder()
-			.field("state_name", DataTypes.STRING())
-			.field("value", DataTypes.STRING())
-			.build();
+	private static final List<String> SAVEPOINT_JOB_MULTI_STATE_TABLE_NAMES = Stream.of(
+		ALL_STATES_NAME,
+		ALL_KEYED_STATES_NAME,
+		ALL_OPERATOR_STATES_NAME
+	).collect(Collectors.toList());
 
 	public static List<String> getTablesFromCheckpointStateMetaData(CheckpointStateMetadata checkpointStateMetadata){
 		ArrayList<String> tableList = new ArrayList<>();
@@ -102,7 +76,7 @@ public class SavepointCatalogUtils {
 		checkpointStateMetadata.getOperatorStateMetas().stream()
 			.filter(operatorStateMeta -> !operatorStateMeta.getAllStateName().isEmpty())
 			.forEach(operatorStateMeta -> {
-			SAVEPOINT_MULTI_STATE_TABLE_NAMES.forEach(multiStateTableName -> {
+			SAVEPOINT_OPERATOR_MULTI_STATE_TABLE_NAMES.forEach(multiStateTableName -> {
 				tableList.add(String.format(SAVEPOINT_STATE_TABLE_NAME_FORMAT, operatorStateMeta.getOperatorID(), multiStateTableName));
 			});
 			operatorStateMeta.getAllStateName().forEach(stateName -> {
@@ -118,67 +92,61 @@ public class SavepointCatalogUtils {
 		checkpointStateMetadata.getOperatorStateMetas().forEach(operatorStateMeta -> {
 			viewList.add(String.format(SAVEPOINT_STATE_TABLE_NAME_FORMAT, operatorStateMeta.getOperatorID(), ALL_STATES_NAME));
 		});
+		viewList.addAll(SAVEPOINT_JOB_MULTI_STATE_TABLE_NAMES);
 		return viewList;
 	}
 
 	public static CatalogBaseTable resolveTableSchema(CheckpointStateMetadata stateMetadata, String savepointPath, String tableName){
 
-		if (tableName.equals(SAVEPOINT_META_TABLE_NAME)){
-			return resolveStateMetaTable(savepointPath);
+		if (tableName.equals(SAVEPOINT_META_TABLE_NAME)) {
+			return new StateMetaTable(tableName, savepointPath).getTable();
 		} else if (getViewsFromCheckpointStateMetaData(stateMetadata).contains(tableName)){
-			return resolveStateView(tableName);
+			return resolveStateView(tableName, stateMetadata).getView();
 		} else if (getTablesFromCheckpointStateMetaData(stateMetadata).contains(tableName)){
-			String operatorID = tableName.split(STATE_TABLE_SEPARATOR)[0];
-			String stateName = tableName.split(STATE_TABLE_SEPARATOR)[1];
-			return resolveStateTable(operatorID, stateName, savepointPath, stateMetadata);
+			return resolveStateTable(savepointPath, tableName, stateMetadata).getTable();
 		} else {
 			String errorMsg = String.format("table %s does not exist in savepointPath %s", tableName, savepointPath);
 			throw new RuntimeException(errorMsg);
 		}
 	}
 
-	private static CatalogBaseTable resolveStateView(String tableName) {
-		return null;
+	private static SavepointView resolveStateView(String tableName, CheckpointStateMetadata stateMetadata) {
+
+		if (tableName.equals(ALL_STATES_NAME)) {
+			return new JobAllStateView(stateMetadata);
+		} else if (tableName.equals(ALL_KEYED_STATES_NAME)) {
+			return new JobAllKeyedStateView(stateMetadata);
+		} else if (tableName.equals(ALL_OPERATOR_STATES_NAME)) {
+			return new JobAllOperatorStateView(stateMetadata);
+		} else if (tableName.contains(ALL_STATES_NAME)) {
+			return new OperatorAllStateView(tableName);
+		} else {
+			throw new RuntimeException("could not find view in CheckpointStateMeta");
+		}
 	}
 
-	public static CatalogBaseTable resolveStateMetaTable(String savepointPath) {
-			HashMap<String, String> properties = new HashMap<>(10);
-			properties.put("path", savepointPath);
-			properties.put("connector", SAVEPOINT_META_TABLE_NAME);
-			return new CatalogTableImpl(STATE_META_TABLE_SCHEMA, properties, "");
-	}
+	public static SavepointTable resolveStateTable(String savepointPath, String tableName, CheckpointStateMetadata stateMetadata) {
 
-	public static CatalogBaseTable resolveStateTable(String operatorID, String stateName, String savepointPath, CheckpointStateMetadata stateMetadata) {
-
-		HashMap<String, String> properties = new HashMap<>(10);
+		String operatorID = tableName.split(STATE_TABLE_SEPARATOR)[0];
+		String stateName = tableName.split(STATE_TABLE_SEPARATOR)[1];
 		Optional<OperatorStateMeta> matchedOperatorStateMeta = stateMetadata.getOperatorStateMetas().stream().filter(operatorStateMeta -> {
 			return operatorID.equals(operatorStateMeta.getOperatorID().toString());
 		}).findFirst();
 		OperatorStateMeta operatorStateMeta = matchedOperatorStateMeta.orElseThrow(() -> new RuntimeException("could not find operatorId in CheckpointStateMeta"));
-		properties.put("path", savepointPath);
-		properties.put("operatorID", operatorID);
-		TableSchema tableSchema;
 
 		if (operatorStateMeta.getAllOperatorStateName().contains(stateName)){
-			tableSchema = OPERATOR_STATE_TABLE_SCHEMA;
-			properties.put("stateNames", stateName);
-			properties.put("connector", SAVEPOINT_OPERATOR_STATE_TABLE_NAME);
+			return new OperatorStateTable(tableName, savepointPath, operatorID, stateName);
 		} else if (operatorStateMeta.getAllKeyedStateName().contains(stateName)){
-			tableSchema = KEYED_STATE_TABLE_SCHEMA;
-			properties.put("stateNames", stateName);
-			properties.put("connector", SAVEPOINT_KEYED_STATE_TABLE_NAME);
+			return new KeyedStateTable(tableName, savepointPath, operatorID, stateName);
 		} else if (stateName.equals(ALL_KEYED_STATES_NAME)){
-			tableSchema = OPERATOR_KEYED_STATE_VIEW_SCHEMA;
-			properties.put("stateNames", String.join(MULTI_STATE_NAME_SEPARATOR, operatorStateMeta.getAllKeyedStateName()));
-			properties.put("connector", SAVEPOINT_KEYED_STATE_TABLE_NAME);
+			String stateNames = String.join(MULTI_STATE_NAME_SEPARATOR, operatorStateMeta.getAllKeyedStateName());
+			return new OperatorAllKeyedStateTable(tableName, savepointPath, operatorID, stateNames);
 		} else if (stateName.equals(ALL_OPERATOR_STATES_NAME)){
-			tableSchema = OPERATOR_OPERATOR_STATE_VIEW_SCHEMA;
-			properties.put("stateNames", String.join(MULTI_STATE_NAME_SEPARATOR, operatorStateMeta.getAllOperatorStateName()));
-			properties.put("connector", SAVEPOINT_OPERATOR_STATE_TABLE_NAME);
+			String stateNames = String.join(MULTI_STATE_NAME_SEPARATOR, operatorStateMeta.getAllOperatorStateName());
+			return new OperatorAllOperatorStateTable(tableName, savepointPath, operatorID, stateNames);
 		} else {
 			throw new RuntimeException("could not find state in CheckpointStateMeta");
 		}
-		return new CatalogTableImpl(tableSchema, properties, "");
 	}
 
 	public static boolean resolveTableExist(CheckpointStateMetadata stateMetadata, String databaseName, String tableName){
@@ -190,3 +158,6 @@ public class SavepointCatalogUtils {
 		}
 	}
 }
+
+
+

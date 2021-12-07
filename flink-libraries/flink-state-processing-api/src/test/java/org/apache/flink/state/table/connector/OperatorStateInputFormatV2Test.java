@@ -31,7 +31,7 @@ import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.state.api.input.splits.OperatorStateInputSplit;
 import org.apache.flink.state.api.runtime.OperatorIDGenerator;
-import org.apache.flink.state.table.catalog.SavepointCatalogUtils;
+import org.apache.flink.state.table.catalog.tables.OperatorStateTable;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFinalizer;
@@ -79,7 +79,7 @@ public class OperatorStateInputFormatV2Test {
 	public OperatorStateInputFormatV2 setUpOperatorStateInputFormat(List<StateDescriptor> stateDescriptors) throws Exception {
 
 		builder = new OperatorStateInputFormatV2.Builder(temporaryFolder.newFolder().toURI().toString(), operatorID.toString(), stateDescriptors.stream().map(desc -> desc.getName()).collect(Collectors.toList()),
-			SavepointCatalogUtils.OPERATOR_STATE_TABLE_SCHEMA.toPhysicalRowDataType());
+			OperatorStateTable.OPERATOR_STATE_TABLE_SCHEMA.toPhysicalRowDataType());
 
 		AbstractStreamOperatorTestHarness testHarness;
 

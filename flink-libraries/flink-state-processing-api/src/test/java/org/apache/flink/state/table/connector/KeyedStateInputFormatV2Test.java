@@ -35,7 +35,7 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.state.api.input.splits.KeyGroupRangeInputSplit;
 import org.apache.flink.state.api.runtime.OperatorIDGenerator;
 import org.apache.flink.state.api.utils.ReduceSum;
-import org.apache.flink.state.table.catalog.SavepointCatalogUtils;
+import org.apache.flink.state.table.catalog.tables.KeyedStateTable;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFinalizer;
 import org.apache.flink.streaming.api.operators.StreamFlatMap;
@@ -81,7 +81,7 @@ public class KeyedStateInputFormatV2Test {
 
 	@ClassRule
 	public static TemporaryFolder temporaryFolder = new TemporaryFolder();
-	private static TableSchema tableSchema = SavepointCatalogUtils.KEYED_STATE_TABLE_SCHEMA;
+	private static TableSchema tableSchema = KeyedStateTable.KEYED_STATE_TABLE_SCHEMA;
 
 	public KeyedStateInputFormatV2 setUpKeyedStateInputFormat(StateDescriptor stateDescriptor, OneInputStreamOperator operator) throws Exception {
 		return setUpKeyedStateInputFormat(Collections.singletonList(stateDescriptor), operator);
