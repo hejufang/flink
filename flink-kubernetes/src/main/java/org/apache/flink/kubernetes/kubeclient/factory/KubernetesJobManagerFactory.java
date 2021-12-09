@@ -33,6 +33,7 @@ import org.apache.flink.kubernetes.kubeclient.decorators.MountSecretsDecorator;
 import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesJobManagerParameters;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
+import org.apache.flink.util.StringUtils;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.HasMetadata;
@@ -40,6 +41,8 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -51,6 +54,8 @@ import java.util.Map;
  * include the Deployment, the ConfigMap(s), and the Service(s).
  */
 public class KubernetesJobManagerFactory {
+
+	private static final Logger LOG = LoggerFactory.getLogger(KubernetesJobManagerFactory.class);
 
 	public static KubernetesJobManagerSpecification buildKubernetesJobManagerSpecification(
 			KubernetesJobManagerParameters kubernetesJobManagerParameters) throws IOException {
@@ -84,11 +89,23 @@ public class KubernetesJobManagerFactory {
 			KubernetesJobManagerParameters kubernetesJobManagerParameters) {
 		final Container resolvedMainContainer = flinkPod.getMainContainer();
 
-		final Pod resolvedPod = new PodBuilder(flinkPod.getPod())
-			.editOrNewSpec()
+		final Pod resolvedPod;
+
+		if (StringUtils.isNullOrWhitespaceOnly(kubernetesJobManagerParameters.getSchedulerName())) {
+			resolvedPod = new PodBuilder(flinkPod.getPod())
+				.editOrNewSpec()
 				.addToContainers(resolvedMainContainer)
 				.endSpec()
-			.build();
+				.build();
+		} else {
+			LOG.info("Set the schedulerName of JM pod to {}.", kubernetesJobManagerParameters.getSchedulerName());
+			resolvedPod = new PodBuilder(flinkPod.getPod())
+				.editOrNewSpec()
+				.addToContainers(resolvedMainContainer)
+				.withSchedulerName(kubernetesJobManagerParameters.getSchedulerName())
+				.endSpec()
+				.build();
+		}
 
 		final Map<String, String> labels = resolvedPod.getMetadata().getLabels();
 

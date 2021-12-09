@@ -315,6 +315,20 @@ public class KubernetesJobManagerFactoryTest extends KubernetesJobManagerTestBas
 	}
 
 	@Test
+	public void testSchedulerName() throws IOException {
+		String schedulerName = "volcano";
+		flinkConfig.set(KubernetesConfigOptions.KUBERNETES_SCHEDULER_NAME, schedulerName);
+		kubernetesJobManagerSpecification = KubernetesJobManagerFactory.buildKubernetesJobManagerSpecification(kubernetesJobManagerParameters);
+
+		assertFalse(kubernetesJobManagerSpecification.getAccompanyingResources().stream()
+			.anyMatch(resource -> resource.getMetadata().getName().equals(HadoopConfMountDecorator.getHadoopConfConfigMapName(CLUSTER_ID))));
+
+		final PodSpec podSpec = kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
+
+		assertEquals(schedulerName, podSpec.getSchedulerName());
+	}
+
+	@Test
 	public void testEmptyHadoopConfDirectory() throws IOException {
 		setHadoopConfDirEnv();
 		kubernetesJobManagerSpecification = KubernetesJobManagerFactory.buildKubernetesJobManagerSpecification(kubernetesJobManagerParameters);

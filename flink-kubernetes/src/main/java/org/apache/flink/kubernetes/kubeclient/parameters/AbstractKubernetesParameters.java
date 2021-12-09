@@ -167,6 +167,11 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 	}
 
 	@Override
+	public String getSchedulerName() {
+		return flinkConfig.getString(KubernetesConfigOptions.KUBERNETES_SCHEDULER_NAME);
+	}
+
+	@Override
 	public boolean hasLogback() {
 		final String confDir = getConfigDirectory();
 		final File logbackFile = new File(confDir, CONFIG_FILE_LOGBACK_NAME);

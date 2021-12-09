@@ -99,6 +99,11 @@ public interface KubernetesParameters {
 	String getContainerEntrypoint();
 
 	/**
+	 * The schedulerName set in the pod while creating.
+	 */
+	String getSchedulerName();
+
+	/**
 	 * Whether the logback.xml is located.
 	 */
 	boolean hasLogback();
