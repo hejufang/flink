@@ -87,6 +87,9 @@ public interface KubernetesParameters {
     /** The docker entrypoint that starts processes in the container. */
     String getContainerEntrypoint();
 
+    /** The schedulerName set in the pod while creating. */
+    String getSchedulerName();
+
     /** Whether the logback.xml is located. */
     boolean hasLogback();
 

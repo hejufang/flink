@@ -63,6 +63,8 @@ import static org.apache.flink.configuration.GlobalConfiguration.FLINK_CONF_FILE
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOG4J_NAME;
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOGBACK_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 /** General tests for the {@link KubernetesJobManagerFactory}. */
 class KubernetesJobManagerFactoryTest extends KubernetesJobManagerTestBase {
@@ -467,5 +469,18 @@ class KubernetesJobManagerFactoryTest extends KubernetesJobManagerTestBase {
                         flinkPod, kubernetesJobManagerParameters);
         assertThat(kubernetesJobManagerSpecification.getDeployment().getSpec().getReplicas())
                 .isEqualTo(JOBMANAGER_REPLICAS);
+    }
+
+    @Test
+    public void testSchedulerName() throws IOException {
+        String schedulerName = "volcano";
+        flinkConfig.set(KubernetesConfigOptions.KUBERNETES_SCHEDULER_NAME, schedulerName);
+        kubernetesJobManagerSpecification =
+                KubernetesJobManagerFactory.buildKubernetesJobManagerSpecification(
+                        flinkPod, kubernetesJobManagerParameters);
+
+        final PodSpec podSpec = kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
+
+        assertThat(podSpec.getSchedulerName()).isEqualTo(schedulerName);
     }
 }

@@ -30,12 +30,17 @@ import org.apache.flink.kubernetes.kubeclient.decorators.MountSecretsDecorator;
 import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesTaskManagerParameters;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.StringUtils;
 
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Utility class for constructing the TaskManager Pod on the JobManager. */
 public class KubernetesTaskManagerFactory {
+
+    private static final Logger LOG = LoggerFactory.getLogger(KubernetesTaskManagerFactory.class);
 
     public static KubernetesPod buildTaskManagerKubernetesPod(
             FlinkPod podTemplate, KubernetesTaskManagerParameters kubernetesTaskManagerParameters) {
@@ -56,12 +61,23 @@ public class KubernetesTaskManagerFactory {
             flinkPod = stepDecorator.decorateFlinkPod(flinkPod);
         }
 
-        final Pod resolvedPod =
-                new PodBuilder(flinkPod.getPodWithoutMainContainer())
-                        .editOrNewSpec()
-                        .addToContainers(flinkPod.getMainContainer())
-                        .endSpec()
-                        .build();
+        final Pod resolvedPod;
+
+        if (StringUtils.isNullOrWhitespaceOnly(kubernetesTaskManagerParameters.getSchedulerName())) {
+            resolvedPod = new PodBuilder(flinkPod.getPodWithoutMainContainer())
+                    .editOrNewSpec()
+                    .addToContainers(flinkPod.getMainContainer())
+                    .endSpec()
+                    .build();
+        } else {
+            LOG.info("Set the schedulerName of TM pod to {}.", kubernetesTaskManagerParameters.getSchedulerName());
+            resolvedPod = new PodBuilder(flinkPod.getPodWithoutMainContainer())
+                    .editOrNewSpec()
+                    .addToContainers(flinkPod.getMainContainer())
+                    .withSchedulerName(kubernetesTaskManagerParameters.getSchedulerName())
+                    .endSpec()
+                    .build();
+        }
 
         return new KubernetesPod(resolvedPod);
     }

@@ -20,6 +20,7 @@ package org.apache.flink.kubernetes.kubeclient.factory;
 
 import org.apache.flink.configuration.SecurityOptions;
 import org.apache.flink.kubernetes.KubernetesTestUtils;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.KubernetesTaskManagerTestBase;
 import org.apache.flink.kubernetes.utils.Constants;
@@ -73,6 +74,17 @@ class KubernetesTaskManagerFactoryTest extends KubernetesTaskManagerTestBase {
         assertThat(this.resultPod.getMetadata().getName()).isEqualTo(POD_NAME);
         assertThat(this.resultPod.getMetadata().getLabels()).hasSize(5);
         assertThat(this.resultPod.getSpec().getVolumes()).hasSize(4);
+    }
+
+    @Test
+    public void testSchedulerName() {
+        String schedulerName = "volcano";
+        flinkConfig.set(KubernetesConfigOptions.KUBERNETES_SCHEDULER_NAME, schedulerName);
+        Pod pod =
+                KubernetesTaskManagerFactory.buildTaskManagerKubernetesPod(
+                                new FlinkPod.Builder().build(), kubernetesTaskManagerParameters)
+                        .getInternalResource();
+        assertThat(pod.getSpec().getSchedulerName()).isEqualTo(schedulerName);
     }
 
     @Test

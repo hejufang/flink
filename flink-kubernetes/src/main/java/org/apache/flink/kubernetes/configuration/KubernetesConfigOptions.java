@@ -315,6 +315,12 @@ public class KubernetesConfigOptions {
                             "Specify the name of an existing ConfigMap that contains custom Hadoop configuration "
                                     + "to be mounted on the JobManager(s) and TaskManagers.");
 
+    public static final ConfigOption<String> KUBERNETES_SCHEDULER_NAME =
+            key("kubernetes.scheduler-name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The user-specified scheduler name that will be used into Flink Pod, including the JM and the TM pod.");
+
     public static final ConfigOption<Map<String, String>> JOB_MANAGER_ANNOTATIONS =
             key("kubernetes.jobmanager.annotations")
                     .mapType()
