@@ -44,7 +44,7 @@ public class LogAgentAppender extends Log4j2AgentAppender {
 	private String psm;
 
 	public LogAgentAppender(String name, Filter filter, PatternLayout patternLayout) {
-		super(name, patternLayout);
+		super(name, patternLayout, true);
 		addFilter(filter);
 	}
 
