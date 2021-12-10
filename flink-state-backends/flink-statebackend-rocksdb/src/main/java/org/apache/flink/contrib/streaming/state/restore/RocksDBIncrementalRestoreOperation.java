@@ -19,6 +19,8 @@
 package org.apache.flink.contrib.streaming.state.restore;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.contrib.streaming.state.RocksDBIncrementalCheckpointUtils;
 import org.apache.flink.contrib.streaming.state.RocksDBKeySerializationUtils;
 import org.apache.flink.contrib.streaming.state.RocksDBKeyedStateBackend.RocksDbKvStateInfo;
@@ -32,6 +34,7 @@ import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.state.BackendBuildingException;
 import org.apache.flink.runtime.state.BatchStateHandle;
 import org.apache.flink.runtime.state.DirectoryStateHandle;
@@ -49,6 +52,7 @@ import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
 import org.apache.flink.runtime.state.tracker.BackendType;
+import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -77,6 +81,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -85,6 +90,15 @@ import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -122,7 +136,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		@Nonnull Collection<KeyedStateHandle> restoreStateHandles,
 		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager,
 		@Nonnegative long writeBatchSize,
-		boolean discardStatesIfRocksdbRecoverFail) {
+		boolean discardStatesIfRocksdbRecoverFail,
+		RestoreOptions restoreOptions) {
 		super(keyGroupRange,
 			keyGroupPrefixBytes,
 			numberOfTransferringThreads,
@@ -138,7 +153,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			metricGroup,
 			restoreStateHandles,
 			ttlCompactFiltersManager,
-			BackendType.INCREMENTAL_ROCKSDB_STATE_BACKEND);
+			BackendType.INCREMENTAL_ROCKSDB_STATE_BACKEND,
+			restoreOptions);
 		this.operatorIdentifier = operatorIdentifier;
 		this.restoredSstFiles = new TreeMap<>();
 		this.lastCompletedCheckpointId = -1L;
@@ -165,9 +181,12 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 				!Objects.equals(theFirstStateHandle.getKeyGroupRange(), keyGroupRange));
 
 			boolean isRestoreFromBatch = checkBatchingEnabled();
+			boolean restoreWithSstFileWriter = (restoreOptions != null && restoreOptions.isUseSstFileWriter());
 
-			if (isRescaling && theFirstStateHandle instanceof IncrementalRemoteKeyedStateHandle) {
+			if (isRescaling && theFirstStateHandle instanceof IncrementalRemoteKeyedStateHandle && !restoreWithSstFileWriter) {
 				restoreWithRescaling(restoreStateHandles);
+			} else if (isRescaling && theFirstStateHandle instanceof IncrementalRemoteKeyedStateHandle) {
+				restoreWithRescalingV2(restoreStateHandles);
 			} else if (isRescaling && theFirstStateHandle instanceof IncrementalLocalKeyedStateHandle) {
 				restoreWithRescalingByLocalKeyedStateHandle(restoreStateHandles);
 			} else {
@@ -419,6 +438,134 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		}
 	}
 
+	/** Use sst file writer for parallel recovery. */
+	private void restoreWithRescalingV2(Collection<KeyedStateHandle> restoreStateHandles) throws Exception {
+		Preconditions.checkArgument(restoreOptions.getNumberOfAsyncExecutor() >= 4);
+		final ExecutorService executorService = Executors.newFixedThreadPool(
+			restoreOptions.getNumberOfAsyncExecutor(),
+			new ExecutorThreadFactory("Flink-RocksDB-restore-async-executor"));
+
+		List<CompletableFuture<?>> allFutures = new ArrayList<>();
+		final Path tmpIngestInstancePath = instanceBasePath.getAbsoluteFile().toPath().resolve("ingest-" + UUID.randomUUID().toString());
+
+		ReentrantLock lock = new ReentrantLock();
+		Condition nextOne = lock.newCondition();
+		AtomicReference<Exception> error = new AtomicReference<>(null);
+		AtomicLong restoreSizeInProgress = new AtomicLong(0L);
+		AtomicInteger restoreHandlesInProgress = new AtomicInteger(0);
+
+		try {
+			// First select initialHandle to restore or open an empty db, which is done in an asynchronous thread.
+			KeyedStateHandle initialHandle = RocksDBIncrementalCheckpointUtils.chooseTheBestStateHandleForInitial(
+				restoreStateHandles, keyGroupRange);
+			CompletableFuture<Void> baseDBFuture;
+			// Init base DB instance
+			if (initialHandle != null) {
+				restoreStateHandles.remove(initialHandle);
+				restoreSizeInProgress.getAndAdd(initialHandle.getTotalStateSize());
+				baseDBFuture = CompletableFuture.runAsync(() -> {
+					try {
+						checkError(error); // fail-fast
+						initDBWithRescaling(initialHandle);
+						LOG.info("Initialize the base db successfully.");
+					} catch (Exception e) {
+						error.compareAndSet(null, e);
+						throw new CompletionException(e);
+					} finally {
+						try {
+							lock.lock();
+							restoreSizeInProgress.getAndUpdate(oldValue -> oldValue - initialHandle.getTotalStateSize());
+							nextOne.signalAll();
+						} finally {
+							lock.unlock();
+						}
+					}
+				}, executorService);
+			} else {
+				LOG.info("No initial handle is selected. Open an empty db directly.");
+				openDB();
+				baseDBFuture = CompletableFuture.completedFuture(null);
+			}
+			allFutures.add(baseDBFuture);
+
+			List<CompletableFuture<Collection<Tuple3<StateMetaInfoSnapshot, KeyGroupRange, List<String>>>>> sstFutures = new ArrayList<>();
+			AtomicInteger sstIdCounter = new AtomicInteger(1);
+
+			// Traverse all the KeyedStateHandles and use SstFileWriter to create sst files in multiple threads.
+			for (KeyedStateHandle rawStateHandle : restoreStateHandles) {
+				if (!(rawStateHandle instanceof IncrementalRemoteKeyedStateHandle)) {
+					throw new IllegalStateException("Unexpected state handle type, " +
+						"expected " + IncrementalRemoteKeyedStateHandle.class +
+						", but found " + rawStateHandle.getClass());
+				}
+
+				checkError(error);
+				try {
+					lock.lock();
+					// Ensure that the disk space occupied by the KeyedStateHandle that is being restored at the
+					// same time does not exceed the limit, and it will not cause all threads to be waiting.
+					while (restoreSizeInProgress.get() > restoreOptions.getMaxDiskSizeInProgress() ||
+						restoreHandlesInProgress.get() >= restoreOptions.getNumberOfAsyncExecutor() / 2) {
+						checkError(error); // fail-fast
+						nextOne.await();
+					}
+					restoreHandlesInProgress.getAndIncrement();
+					restoreSizeInProgress.getAndAdd(rawStateHandle.getTotalStateSize());
+				} finally {
+					lock.unlock();
+				}
+
+				sstFutures.add(CompletableFuture.supplyAsync(() -> {
+					try {
+						return buildSstFilesForKeyedStateHandle(rawStateHandle, tmpIngestInstancePath, sstIdCounter, error, executorService);
+					} catch (Exception e) {
+						error.compareAndSet(null, e);
+						throw new CompletionException(e);
+					} finally {
+						try {
+							lock.lock();
+							restoreHandlesInProgress.getAndDecrement();
+							restoreSizeInProgress.getAndUpdate(oldValue -> oldValue - rawStateHandle.getTotalStateSize());
+							nextOne.signalAll();
+						} finally {
+							lock.unlock();
+						}
+					}
+				}, executorService));
+			}
+
+			allFutures.addAll(sstFutures);
+			FutureUtils.completeAll(allFutures).get();
+			baseDBFuture.thenCombine(FutureUtils.combineAll(sstFutures), (unused, allSstFiles) -> {
+				try {
+					checkError(error);
+					for (Collection<Tuple3<StateMetaInfoSnapshot, KeyGroupRange, List<String>>> sstFiles : allSstFiles) {
+						for (Tuple3<StateMetaInfoSnapshot, KeyGroupRange, List<String>> cfSstFiles : sstFiles) {
+							ColumnFamilyHandle targetColumnFamilyHandle = getOrRegisterStateColumnFamilyHandle(null, cfSstFiles.f0).columnFamilyHandle;
+							if (cfSstFiles.f2.size() == 0) {
+								LOG.info("{} for {} does not have a new sst file to ingest.", cfSstFiles.f0.getName(), cfSstFiles.f1);
+							} else {
+								LOG.info("{} with {} ingest {} sst files", cfSstFiles.f0.getName(), cfSstFiles.f1, cfSstFiles.f2.size());
+								db.ingestExternalFile(targetColumnFamilyHandle, cfSstFiles.f2, restoreOptions.getIngestExternalFileOptions());
+							}
+						}
+					}
+					return null;
+				} catch (Exception e) {
+					error.compareAndSet(null, e);
+					throw new CompletionException(e);
+				}
+			}).get();
+		} catch (Exception e) {
+			error.compareAndSet(null, e);
+			FutureUtils.completeAll(allFutures).get();
+			throw error.get();
+		} finally {
+			executorService.shutdownNow();
+			cleanUpPathQuietly(tmpIngestInstancePath);
+		}
+	}
+
 	private void initDBWithRescaling(KeyedStateHandle initialHandle) throws Exception {
 
 		assert (initialHandle instanceof IncrementalRemoteKeyedStateHandle || initialHandle instanceof IncrementalLocalKeyedStateHandle);
@@ -569,6 +716,13 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 	private RestoredDBInstance restoreDBInstanceFromStateHandle(
 		IncrementalRemoteKeyedStateHandle restoreStateHandle,
 		Path temporaryRestoreInstancePath) throws Exception {
+		return restoreDBInstanceFromStateHandle(restoreStateHandle, temporaryRestoreInstancePath, false);
+	}
+
+	private RestoredDBInstance restoreDBInstanceFromStateHandle(
+		IncrementalRemoteKeyedStateHandle restoreStateHandle,
+		Path temporaryRestoreInstancePath,
+		boolean readOnly) throws Exception {
 
 		long downloadBegin = System.currentTimeMillis();
 		try (RocksDBStateDownloader rocksDBStateDownloader =
@@ -595,7 +749,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			columnFamilyDescriptors,
 			columnFamilyHandles,
 			RocksDBOperationUtils.createColumnFamilyOptions(columnFamilyOptionsFactory, "default"),
-			dbOptions);
+			dbOptions,
+			readOnly);
 
 		return new RestoredDBInstance(restoreDb, columnFamilyHandles, columnFamilyDescriptors, stateMetaInfoSnapshots);
 	}
@@ -693,5 +848,141 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			this.downloadFileNum.getAndAdd(1);
 		}
 		this.downloadSizeInBytes.getAndAdd(restoreStateHandle.getStateSize());
+	}
+
+	/** Create sst files that is the intersection of KeyedStateHandle and Task. */
+	private Collection<Tuple3<StateMetaInfoSnapshot, KeyGroupRange, List<String>>> buildSstFilesForKeyedStateHandle(
+			KeyedStateHandle rawStateHandle,
+			Path tmpIngestInstancePath,
+			AtomicInteger sstIdCounter,
+			AtomicReference<Exception> error,
+			ExecutorService executorService) throws Exception {
+
+		checkError(error);
+		Path temporaryRestoreInstancePath = instanceBasePath.getAbsoluteFile().toPath().resolve(UUID.randomUUID().toString());
+		final Path tmpSstDir = tmpIngestInstancePath.resolve("keyGroup-" + rawStateHandle.getKeyGroupRange().getStartKeyGroup() + "-" + rawStateHandle.getKeyGroupRange().getEndKeyGroup());
+		List<CompletableFuture<Tuple3<StateMetaInfoSnapshot, KeyGroupRange, List<String>>>> futures = new ArrayList<>();
+
+		try (RestoredDBInstance tmpRestoreDBInfo = restoreDBInstanceFromStateHandle(
+			(IncrementalRemoteKeyedStateHandle) rawStateHandle,
+			temporaryRestoreInstancePath,
+			true)) {
+
+			Files.createDirectories(tmpSstDir);
+			List<ColumnFamilyDescriptor> tmpColumnFamilyDescriptors = tmpRestoreDBInfo.columnFamilyDescriptors;
+			List<ColumnFamilyHandle> tmpColumnFamilyHandles = tmpRestoreDBInfo.columnFamilyHandles;
+			KeyGroupRange[] keyGroupRanges = splitKeyGroupRange(
+				rawStateHandle,
+				rawStateHandle.getKeyGroupRange().getIntersection(keyGroupRange),
+				restoreOptions.getNumberOfAsyncExecutor());
+
+			for (int i = 0; i < tmpColumnFamilyDescriptors.size(); ++i) {
+				ColumnFamilyHandle tmpColumnFamilyHandle = tmpColumnFamilyHandles.get(i);
+				StateMetaInfoSnapshot stateMetaInfoSnapshot = tmpRestoreDBInfo.stateMetaInfoSnapshots.get(i);
+				for (KeyGroupRange keyGroupRange : keyGroupRanges) {
+					checkError(error);
+					futures.add(CompletableFuture.supplyAsync(() -> {
+						try {
+							return buildSstFilesForKeyedGroupRange(
+								tmpRestoreDBInfo.db,
+								tmpColumnFamilyHandle,
+								stateMetaInfoSnapshot,
+								tmpRestoreDBInfo.readOptions,
+								keyGroupRange,
+								tmpSstDir,
+								sstIdCounter,
+								error);
+						} catch (Exception e) {
+							error.compareAndSet(null, e);
+							throw new CompletionException(e);
+						} }, executorService));
+				}
+			}
+			FutureUtils.completeAll(futures).get();
+			return FutureUtils.combineAll(futures).get();
+		} catch (Exception e) {
+			error.compareAndSet(null, e);
+			FutureUtils.completeAll(futures).get();
+			throw e;
+		} finally {
+			cleanUpPathQuietly(temporaryRestoreInstancePath);
+		}
+	}
+
+	/**
+	 * Create sst files with the specified KeyGroupRange.
+	 * @param db temporary db
+	 * @param tmpColumnFamilyHandle specified column family
+	 * @param stateMetaInfoSnapshot original stateMetaInfo
+	 * @param readOptions rocksdb read options
+	 * @param keyGroupRange the keyGroup range that needs to be restored
+	 * @param tmpSstDir temporary recover directory
+	 * @param sstIdCounter used for temporary sst file
+	 * @param error record and check error
+	 */
+	private Tuple3<StateMetaInfoSnapshot, KeyGroupRange, List<String>> buildSstFilesForKeyedGroupRange(
+			RocksDB db,
+			ColumnFamilyHandle tmpColumnFamilyHandle,
+			StateMetaInfoSnapshot stateMetaInfoSnapshot,
+			ReadOptions readOptions,
+			KeyGroupRange keyGroupRange,
+			Path tmpSstDir,
+			AtomicInteger sstIdCounter,
+			AtomicReference<Exception> error) throws Exception {
+
+		checkError(error);
+		byte[] startKeyGroupPrefixBytes = new byte[keyGroupPrefixBytes];
+		RocksDBKeySerializationUtils.serializeKeyGroup(keyGroupRange.getStartKeyGroup(), startKeyGroupPrefixBytes);
+
+		byte[] stopKeyGroupPrefixBytes = new byte[keyGroupPrefixBytes];
+		RocksDBKeySerializationUtils.serializeKeyGroup(keyGroupRange.getEndKeyGroup() + 1, stopKeyGroupPrefixBytes);
+
+		try (RocksIteratorWrapper iterator = RocksDBOperationUtils.getRocksIterator(db, tmpColumnFamilyHandle, readOptions)) {
+			RocksDBSSTFileWriter rocksDBSSTFileWriter = new RocksDBSSTFileWriter(
+				tmpSstDir,
+				new KeyGroupDataIterator.RocksDBKeyGroupIterator(iterator, startKeyGroupPrefixBytes, stopKeyGroupPrefixBytes),
+				stateMetaInfoSnapshot,
+				restoreOptions.getMaxSstFileSize(),
+				restoreOptions.getEnvOptions(),
+				restoreOptions.getOptions(),
+				sstIdCounter,
+				error);
+			Tuple2<StateMetaInfoSnapshot, List<String>> sstFiles = rocksDBSSTFileWriter.buildSstFiles();
+			return Tuple3.of(sstFiles.f0, keyGroupRange, sstFiles.f1);
+		} catch (Exception e) {
+			error.compareAndSet(null, e);
+			throw e;
+		}
+	}
+
+	/** Split the KeyGroupRange into multiple KeyGroupRange for multi-threaded recovery. */
+	private KeyGroupRange[] splitKeyGroupRange(KeyedStateHandle keyedStateHandle, KeyGroupRange keyGroupRange, int numberOfSplit) {
+		int maxSplit = Math.min(keyGroupRange.getNumberOfKeyGroups(), numberOfSplit);
+		if (keyedStateHandle.getTotalStateSize() > 0 && keyedStateHandle.getKeyGroupRange().getNumberOfKeyGroups() > 0) {
+			long avgKeyGroupSize = Math.max(keyedStateHandle.getTotalStateSize() / keyedStateHandle.getKeyGroupRange().getNumberOfKeyGroups(), 1L);
+			int minKeyGroups = (int) Math.ceil((double) RestoreOptions.MIN_STATE_SIZE_OF_KEY_GROUP_RANGE / avgKeyGroupSize);
+			maxSplit = Math.min(maxSplit, (int) Math.ceil((double) keyGroupRange.getNumberOfKeyGroups() / minKeyGroups));
+		}
+		KeyGroupRange[] keyGroupRanges = new KeyGroupRange[maxSplit];
+		int factor = keyGroupRange.getNumberOfKeyGroups() / maxSplit;
+		int remained = keyGroupRange.getNumberOfKeyGroups() % maxSplit;
+		int lastEndKeyGroup = keyGroupRange.getStartKeyGroup() - 1;
+		for (int i = 0; i < keyGroupRanges.length; i++) {
+			int startKeyGroup = lastEndKeyGroup + 1;
+			lastEndKeyGroup = startKeyGroup + factor - 1;
+			if (remained > 0) {
+				lastEndKeyGroup++;
+				remained--;
+			}
+			keyGroupRanges[i] = KeyGroupRange.of(startKeyGroup, lastEndKeyGroup);
+		}
+		LOG.info("splitKeyGroupRange {} to {}", keyGroupRange, Arrays.toString(keyGroupRanges));
+		return keyGroupRanges;
+	}
+
+	private void checkError(AtomicReference<Exception> error) throws Exception {
+		if (error.get() != null) {
+			throw error.get();
+		}
 	}
 }

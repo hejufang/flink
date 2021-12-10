@@ -77,6 +77,16 @@ public class RocksDBOperationUtils {
 		List<ColumnFamilyHandle> stateColumnFamilyHandles,
 		ColumnFamilyOptions columnFamilyOptions,
 		DBOptions dbOptions) throws IOException {
+		return openDB(path, stateColumnFamilyDescriptors, stateColumnFamilyHandles, columnFamilyOptions, dbOptions, false);
+	}
+
+	public static RocksDB openDB(
+		String path,
+		List<ColumnFamilyDescriptor> stateColumnFamilyDescriptors,
+		List<ColumnFamilyHandle> stateColumnFamilyHandles,
+		ColumnFamilyOptions columnFamilyOptions,
+		DBOptions dbOptions,
+		boolean readOnly) throws IOException {
 		List<ColumnFamilyDescriptor> columnFamilyDescriptors =
 			new ArrayList<>(1 + stateColumnFamilyDescriptors.size());
 
@@ -88,11 +98,17 @@ public class RocksDBOperationUtils {
 		RocksDB dbRef;
 
 		try {
-			dbRef = RocksDB.open(
-				Preconditions.checkNotNull(dbOptions),
-				Preconditions.checkNotNull(path),
-				columnFamilyDescriptors,
-				stateColumnFamilyHandles);
+			dbRef = readOnly ?
+				RocksDB.openReadOnly(
+					Preconditions.checkNotNull(dbOptions),
+					Preconditions.checkNotNull(path),
+					columnFamilyDescriptors,
+					stateColumnFamilyHandles) :
+				RocksDB.open(
+					Preconditions.checkNotNull(dbOptions),
+					Preconditions.checkNotNull(path),
+					columnFamilyDescriptors,
+					stateColumnFamilyHandles);
 		} catch (RocksDBException e) {
 			IOUtils.closeQuietly(columnFamilyOptions);
 			columnFamilyDescriptors.forEach((cfd) -> IOUtils.closeQuietly(cfd.getOptions()));

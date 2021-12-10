@@ -23,6 +23,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.contrib.streaming.state.restore.AbstractRocksDBRestoreOperation;
+import org.apache.flink.contrib.streaming.state.restore.RestoreOptions;
 import org.apache.flink.contrib.streaming.state.restore.RocksDBFullRestoreOperation;
 import org.apache.flink.contrib.streaming.state.restore.RocksDBIncrementalRestoreOperation;
 import org.apache.flink.contrib.streaming.state.restore.RocksDBNoneRestoreOperation;
@@ -127,6 +128,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	private int maxRetryTimes;
 	private long dbNativeCheckpointTimeout;
 	private long disposeTimeout;
+	private RestoreOptions restoreOptions; // for restore
 
 	private RocksDB injectedTestDB; // for testing
 	private ColumnFamilyHandle injectedDefaultColumnFamilyHandle; // for testing
@@ -180,6 +182,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		this.batchConfig = RocksDBStateBatchConfig.createNoBatchingConfig();
 		this.dbNativeCheckpointTimeout = RocksDBOptions.ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT.defaultValue();
 		this.disposeTimeout = RocksDBOptions.ROCKSDB_DISPOSE_TIMEOUT.defaultValue();
+		this.restoreOptions = new RestoreOptions.Builder().build();
 	}
 
 	@VisibleForTesting
@@ -282,6 +285,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	public RocksDBKeyedStateBackendBuilder<K> setDisposeTimeout(long disposeTimeout) {
 		this.disposeTimeout = disposeTimeout;
+		return this;
+	}
+
+	public RocksDBKeyedStateBackendBuilder<K> setRestoreOptions(RestoreOptions restoreOptions) {
+		this.restoreOptions = restoreOptions;
 		return this;
 	}
 
@@ -491,7 +499,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				nativeMetricOptions,
 				metricGroup,
 				restoreStateHandles,
-				ttlCompactFiltersManager);
+				ttlCompactFiltersManager,
+				restoreOptions);
 		}
 		KeyedStateHandle firstStateHandle = restoreStateHandles.iterator().next();
 		if (firstStateHandle instanceof IncrementalKeyedStateHandle) {
@@ -513,7 +522,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				restoreStateHandles,
 				ttlCompactFiltersManager,
 				writeBatchSize,
-				discardStatesIfRocksdbRecoverFail);
+				discardStatesIfRocksdbRecoverFail,
+				restoreOptions);
 		} else {
 			return new RocksDBFullRestoreOperation<>(
 				keyGroupRange,
@@ -531,7 +541,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				metricGroup,
 				restoreStateHandles,
 				ttlCompactFiltersManager,
-				writeBatchSize);
+				writeBatchSize,
+				restoreOptions);
 		}
 	}
 

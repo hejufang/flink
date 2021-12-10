@@ -87,6 +87,7 @@ public abstract class AbstractRocksDBRestoreOperation<K> extends RestoreOperatio
 	// - Full restore
 	//   - data ingestion after db open: #getOrRegisterStateColumnFamilyHandle before creating column family
 	protected final RocksDbTtlCompactFiltersManager ttlCompactFiltersManager;
+	protected final RestoreOptions restoreOptions;
 
 	protected RocksDB db;
 	protected ColumnFamilyHandle defaultColumnFamilyHandle;
@@ -109,7 +110,8 @@ public abstract class AbstractRocksDBRestoreOperation<K> extends RestoreOperatio
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
 		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager,
-		BackendType backendType) {
+		BackendType backendType,
+		RestoreOptions restoreOptions) {
 		super(backendType);
 		this.keyGroupRange = keyGroupRange;
 		this.keyGroupPrefixBytes = keyGroupPrefixBytes;
@@ -130,6 +132,7 @@ public abstract class AbstractRocksDBRestoreOperation<K> extends RestoreOperatio
 		this.columnFamilyHandles = new ArrayList<>(1);
 		this.columnFamilyDescriptors = Collections.emptyList();
 		this.numberOfRestoreTransferThreads = numberOfTransferringThreads;
+		this.restoreOptions = restoreOptions;
 	}
 
 	void openDB() throws IOException {
@@ -181,7 +184,7 @@ public abstract class AbstractRocksDBRestoreOperation<K> extends RestoreOperatio
 		return registeredStateMetaInfoEntry;
 	}
 
-	KeyedBackendSerializationProxy<K> readMetaData(DataInputView dataInputView)
+	synchronized KeyedBackendSerializationProxy<K> readMetaData(DataInputView dataInputView)
 		throws IOException, StateMigrationException {
 		// isSerializerPresenceRequired flag is set to false, since for the RocksDB state backend,
 		// deserialization of state happens lazily during runtime; we depend on the fact

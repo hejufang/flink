@@ -23,6 +23,7 @@ import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.contrib.streaming.state.restore.RestoreOptions;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
 import org.apache.flink.runtime.checkpoint.StateAssignmentOperation;
 import org.apache.flink.runtime.state.KeyGroupRange;
@@ -93,8 +94,13 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 	}
 
 	@Test
-	@SuppressWarnings("unchecked")
 	public void testScalingUp() throws Exception {
+		testScalingUp(false);
+		testScalingUp(true);
+	}
+
+	@SuppressWarnings("unchecked")
+	public void testScalingUp(boolean useSstFileWriter) throws Exception {
 
 		// -----------------------------------------> test with initial parallelism 1 <---------------------------------------
 
@@ -103,7 +109,7 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 		try (
 			KeyedOneInputStreamOperatorTestHarness<String, String, Integer> harness =
 				getHarnessTest(keySelector, maxParallelism, 1, 0)) {
-			harness.setStateBackend(getStateBackend());
+			harness.setStateBackend(getStateBackend(useSstFileWriter));
 			harness.open();
 
 			validHarnessResult(harness, 1, records);
@@ -135,7 +141,7 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 			KeyGroupRange localKeyGroupRange20 = keyGroupPartitions.get(0);
 			Assert.assertEquals(new KeyGroupRange(0, 4), localKeyGroupRange20);
 			harness2[0] = getHarnessTest(keySelector, maxParallelism, 2, 0);
-			harness2[0].setStateBackend(getStateBackend());
+			harness2[0].setStateBackend(getStateBackend(useSstFileWriter));
 			harness2[0].setup();
 			harness2[0].initializeState(initState1);
 			harness2[0].open();
@@ -144,7 +150,7 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 			KeyGroupRange localKeyGroupRange21 = keyGroupPartitions.get(1);
 			Assert.assertEquals(new KeyGroupRange(5, 9), localKeyGroupRange21);
 			harness2[1] = getHarnessTest(keySelector, maxParallelism, 2, 1);
-			harness2[1].setStateBackend(getStateBackend());
+			harness2[1].setStateBackend(getStateBackend(useSstFileWriter));
 			harness2[1].setup();
 			harness2[1].initializeState(initState2);
 			harness2[1].open();
@@ -192,7 +198,7 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 			KeyGroupRange localKeyGroupRange30 = keyGroupPartitions.get(0);
 			Assert.assertEquals(new KeyGroupRange(0, 3), localKeyGroupRange30);
 			harness3[0] = getHarnessTest(keySelector, maxParallelism, 3, 0);
-			harness3[0].setStateBackend(getStateBackend());
+			harness3[0].setStateBackend(getStateBackend(useSstFileWriter));
 			harness3[0].setup();
 			harness3[0].initializeState(initState1);
 			harness3[0].open();
@@ -201,7 +207,7 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 			KeyGroupRange localKeyGroupRange31 = keyGroupPartitions.get(1);
 			Assert.assertEquals(new KeyGroupRange(4, 6), localKeyGroupRange31);
 			harness3[1] = getHarnessTest(keySelector, maxParallelism, 3, 1);
-			harness3[1].setStateBackend(getStateBackend());
+			harness3[1].setStateBackend(getStateBackend(useSstFileWriter));
 			harness3[1].setup();
 			harness3[1].initializeState(initState2);
 			harness3[1].open();
@@ -210,7 +216,7 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 			KeyGroupRange localKeyGroupRange32 = keyGroupPartitions.get(2);
 			Assert.assertEquals(new KeyGroupRange(7, 9), localKeyGroupRange32);
 			harness3[2] = getHarnessTest(keySelector, maxParallelism, 3, 2);
-			harness3[2].setStateBackend(getStateBackend());
+			harness3[2].setStateBackend(getStateBackend(useSstFileWriter));
 			harness3[2].setup();
 			harness3[2].initializeState(initState3);
 			harness3[2].open();
@@ -230,6 +236,12 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 	@Test
 	@SuppressWarnings("unchecked")
 	public void testScalingDown() throws Exception {
+		testScalingDown(false);
+		testScalingDown(true);
+	}
+
+	@SuppressWarnings("unchecked")
+	public void testScalingDown(boolean useSstFileWriter) throws Exception {
 
 		// -----------------------------------------> test with initial parallelism 3 <---------------------------------------
 
@@ -245,21 +257,21 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 			KeyGroupRange localKeyGroupRange30 = keyGroupPartitions.get(0);
 			Assert.assertEquals(new KeyGroupRange(0, 3), localKeyGroupRange30);
 			harness3[0] = getHarnessTest(keySelector, maxParallelism, 3, 0);
-			harness3[0].setStateBackend(getStateBackend());
+			harness3[0].setStateBackend(getStateBackend(useSstFileWriter));
 			harness3[0].open();
 
 			// task's key-group [4, 6]
 			KeyGroupRange localKeyGroupRange31 = keyGroupPartitions.get(1);
 			Assert.assertEquals(new KeyGroupRange(4, 6), localKeyGroupRange31);
 			harness3[1] = getHarnessTest(keySelector, maxParallelism, 3, 1);
-			harness3[1].setStateBackend(getStateBackend());
+			harness3[1].setStateBackend(getStateBackend(useSstFileWriter));
 			harness3[1].open();
 
 			// task's key-group [7, 9]
 			KeyGroupRange localKeyGroupRange32 = keyGroupPartitions.get(2);
 			Assert.assertEquals(new KeyGroupRange(7, 9), localKeyGroupRange32);
 			harness3[2] = getHarnessTest(keySelector, maxParallelism, 3, 2);
-			harness3[2].setStateBackend(getStateBackend());
+			harness3[2].setStateBackend(getStateBackend(useSstFileWriter));
 			harness3[2].open();
 
 			validHarnessResult(harness3[0], 1, records[0], records[1], records[2], records[3]);
@@ -301,7 +313,7 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 			KeyGroupRange localKeyGroupRange20 = keyGroupPartitions.get(0);
 			Assert.assertEquals(new KeyGroupRange(0, 4), localKeyGroupRange20);
 			harness2[0] = getHarnessTest(keySelector, maxParallelism, 2, 0);
-			harness2[0].setStateBackend(getStateBackend());
+			harness2[0].setStateBackend(getStateBackend(useSstFileWriter));
 			harness2[0].setup();
 			harness2[0].initializeState(initState1);
 			harness2[0].open();
@@ -310,7 +322,7 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 			KeyGroupRange localKeyGroupRange21 = keyGroupPartitions.get(1);
 			Assert.assertEquals(new KeyGroupRange(5, 9), localKeyGroupRange21);
 			harness2[1] = getHarnessTest(keySelector, maxParallelism, 2, 1);
-			harness2[1].setStateBackend(getStateBackend());
+			harness2[1].setStateBackend(getStateBackend(useSstFileWriter));
 			harness2[1].setup();
 			harness2[1].initializeState(initState2);
 			harness2[1].open();
@@ -342,7 +354,7 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 				getHarnessTest(keySelector, maxParallelism, 1, 0)) {
 
 			// this will choose the state handle generated by harness2[0] to init the target db without any clipping.
-			harness.setStateBackend(getStateBackend());
+			harness.setStateBackend(getStateBackend(useSstFileWriter));
 			harness.setup();
 			harness.initializeState(initState1);
 			harness.open();
@@ -384,6 +396,14 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 			maxParallelism,
 			taskParallelism,
 			subtaskIdx);
+	}
+
+	private StateBackend getStateBackend(boolean useSstFileWriter) throws Exception {
+		RocksDBStateBackend stateBackend = (RocksDBStateBackend) getStateBackend();
+		if (useSstFileWriter) {
+			stateBackend.setRestoreOptions(new RestoreOptions.Builder().setUseSstFileWriter(true).build());
+		}
+		return stateBackend;
 	}
 
 	private StateBackend getStateBackend() throws Exception {

@@ -22,8 +22,11 @@ import org.apache.flink.annotation.docs.Documentation;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.configuration.description.Description;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend.PriorityQueueStateType;
 
+import static org.apache.flink.configuration.ConfigOptions.key;
+import static org.apache.flink.configuration.description.TextElement.code;
 import static org.apache.flink.contrib.streaming.state.PredefinedOptions.DEFAULT;
 import static org.apache.flink.contrib.streaming.state.PredefinedOptions.FLASH_SSD_OPTIMIZED;
 import static org.apache.flink.contrib.streaming.state.PredefinedOptions.SPINNING_DISK_OPTIMIZED;
@@ -180,4 +183,41 @@ public class RocksDBOptions {
 		.defaultValue(60000L)
 		.withDescription(String.format(
 			"The maximum time that dispose state backend may take."));
+
+	//--------------------------------------------------------------------------
+	// Provided configurable options for restore
+	//--------------------------------------------------------------------------
+
+	public static final ConfigOption<Boolean> ROCKSDB_RESTORE_WITH_SST_FILE_WRITER = ConfigOptions
+		.key("state.backend.rocksdb.restore-with-sstWriter")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Whether to use sst file writer when recovering.");
+
+	public static final ConfigOption<MemorySize> MAX_SST_SIZE_FOR_SST_FILE_WRITER = ConfigOptions
+		.key("state.backend.rocksdb.max-sst-size-for-sstWriter")
+		.memoryType()
+		.defaultValue(MemorySize.ofMebiBytes(64L))
+		.withDescription("The maximum size of the sst file created by the sst file writer.");
+
+	public static final ConfigOption<MemorySize> MAX_DISK_SIZE_IN_PROGRESS = ConfigOptions
+		.key("state.backend.rocksdb.max-disk-size-in-progress")
+		.memoryType()
+		.defaultValue(MemorySize.parse("20gb"))
+		.withDescription("The maximum disk space occupied by files that are being restored at the same time.");
+
+	/**
+	 * The vcores exposed by YARN. Copy from YarnConfigOptions.
+	 */
+	public static final ConfigOption<Double> VCORES =
+		key("yarn.containers.vcores")
+			.doubleType()
+			.defaultValue(-1.0)
+			.withDescription(Description.builder().text(
+				"The number of virtual cores (vcores) per YARN container. By default, the number of vcores" +
+					" is set to the number of slots per TaskManager, if set, or to 1, otherwise. In order for this" +
+					" parameter to be used your cluster must have CPU scheduling enabled. You can do this by setting" +
+					" the %s.",
+				code("org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.FairScheduler"))
+				.build());
 }
