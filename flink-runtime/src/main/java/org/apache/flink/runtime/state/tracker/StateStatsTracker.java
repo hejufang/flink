@@ -51,4 +51,11 @@ public interface StateStatsTracker {
 	 * @param retryCount The number of retries.
 	 */
 	void updateRetryCounter(int retryCount);
+
+	/**
+	 * Callback when a state backend restore failed.
+	 *
+	 * @param message Message of restore metrics.
+	 */
+	void reportFailedRestore(WarehouseRestoreMessage message);
 }

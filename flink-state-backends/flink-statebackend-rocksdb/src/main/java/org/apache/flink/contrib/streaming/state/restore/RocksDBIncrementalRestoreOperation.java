@@ -52,6 +52,7 @@ import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
 import org.apache.flink.runtime.state.tracker.BackendType;
+import org.apache.flink.runtime.state.tracker.RestoreMode;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
@@ -182,19 +183,23 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 
 			boolean isRestoreFromBatch = checkBatchingEnabled();
 			boolean restoreWithSstFileWriter = (restoreOptions != null && restoreOptions.isUseSstFileWriter());
+			this.rescaling = isRescaling ? 1 : 0;
 
 			if (isRescaling && theFirstStateHandle instanceof IncrementalRemoteKeyedStateHandle && !restoreWithSstFileWriter) {
+				this.restoreMode = RestoreMode.INCREMENTAL_WRITE_BATCH;
 				restoreWithRescaling(restoreStateHandles);
 			} else if (isRescaling && theFirstStateHandle instanceof IncrementalRemoteKeyedStateHandle) {
+				this.restoreMode = RestoreMode.INCREMENTAL_SST_WRITER;
 				restoreWithRescalingV2(restoreStateHandles);
 			} else if (isRescaling && theFirstStateHandle instanceof IncrementalLocalKeyedStateHandle) {
+				this.restoreMode = RestoreMode.INCREMENTAL_WRITE_BATCH;
 				restoreWithRescalingByLocalKeyedStateHandle(restoreStateHandles);
 			} else {
+				this.restoreMode = RestoreMode.DIRECTLY_OPEN_DB;
 				restoreWithoutRescaling(theFirstStateHandle);
 			}
 
 			this.restoreCheckpointID = lastCompletedCheckpointId;
-			this.rescaling = isRescaling ? 1 : 0;
 
 			return new RocksDBRestoreResult(this.db, defaultColumnFamilyHandle,
 				nativeMetricMonitor, lastCompletedCheckpointId, backendUID, restoredSstFiles, isRestoreFromBatch);
@@ -558,7 +563,11 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			}).get();
 		} catch (Exception e) {
 			error.compareAndSet(null, e);
-			FutureUtils.completeAll(allFutures).get();
+			try {
+				FutureUtils.completeAll(allFutures).join();
+			} catch (Exception ignore) {
+				// ignore
+			}
 			throw error.get();
 		} finally {
 			executorService.shutdownNow();

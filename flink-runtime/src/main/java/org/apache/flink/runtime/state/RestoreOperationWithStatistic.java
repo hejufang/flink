@@ -20,6 +20,7 @@ package org.apache.flink.runtime.state;
 
 import org.apache.flink.runtime.checkpoint.WarehouseRestoreMessage;
 import org.apache.flink.runtime.state.tracker.BackendType;
+import org.apache.flink.runtime.state.tracker.RestoreMode;
 import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 
 import java.util.Collection;
@@ -32,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public abstract class RestoreOperationWithStatistic<R> implements RestoreOperation<R> {
 	private final BackendType backendType;
 	// metrics
+	protected RestoreMode restoreMode = RestoreMode.FULL_WRITE_BATCH;
 	protected long restoreCheckpointID = -1L;
 	protected int numberOfRestoreTransferThreads = 1;
 	protected int rescaling = 0;
@@ -53,21 +55,40 @@ public abstract class RestoreOperationWithStatistic<R> implements RestoreOperati
 	}
 
 	public R restoreWithStatistic(StateStatsTracker statsTracker) throws Exception {
-		long restoreStart = System.currentTimeMillis();
-		R result = restore();
-		statsTracker.reportCompletedRestore(new WarehouseRestoreMessage(
-			backendType.name(),
-			restoreCheckpointID,
-			numberOfRestoreTransferThreads,
-			rescaling,
-			downloadFileNum.getAndSet(0),
-			writeKeyNum.getAndSet(0L),
-			downloadDuration.getAndSet(0L),
-			writeKeyDuration.getAndSet(0L),
-			System.currentTimeMillis() - restoreStart,
-			downloadSizeInBytes.getAndSet(0L)
-		));
-		return result;
+		try {
+			long restoreStart = System.currentTimeMillis();
+			R result = restore();
+			statsTracker.reportCompletedRestore(new WarehouseRestoreMessage(
+				backendType.name(),
+				restoreMode.name(),
+				restoreCheckpointID,
+				numberOfRestoreTransferThreads,
+				rescaling,
+				downloadFileNum.getAndSet(0),
+				writeKeyNum.getAndSet(0L),
+				downloadDuration.getAndSet(0L),
+				writeKeyDuration.getAndSet(0L),
+				System.currentTimeMillis() - restoreStart,
+				downloadSizeInBytes.getAndSet(0L),
+				null
+			));
+			return result;
+		} catch (Exception e) {
+			statsTracker.reportFailedRestore(new WarehouseRestoreMessage(
+				backendType.name(),
+				restoreMode.name(),
+				restoreCheckpointID,
+				numberOfRestoreTransferThreads,
+				rescaling,
+				-1,
+				-1,
+				-1,
+				-1,
+				-1,
+				-1,
+				e));
+			throw e;
+		}
 	}
 
 	protected void updateDownloadStats(Collection<? extends StreamStateHandle> stateHandles, long writeKeyDuration) {

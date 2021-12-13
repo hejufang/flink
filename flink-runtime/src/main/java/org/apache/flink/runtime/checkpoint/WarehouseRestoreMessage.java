@@ -18,11 +18,14 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import javax.annotation.Nullable;
+
 /**
  * Warehouse message for restore.
  */
 public class WarehouseRestoreMessage {
 	private final String backendType;
+	private final String restoreMode;
 	private final long checkpointID;
 	private final int numberOfTransferringThreads;
 	private final int rescaling;
@@ -36,8 +39,11 @@ public class WarehouseRestoreMessage {
 
 	private final long downloadSizeInBytes;
 
+	private final String errMsg;
+
 	public WarehouseRestoreMessage(
 			String backendType,
+			String restoreMode,
 			long checkpointID,
 			int numberOfTransferringThreads,
 			int rescaling,
@@ -46,8 +52,10 @@ public class WarehouseRestoreMessage {
 			long downloadDuration,
 			long writeKeyDuration,
 			long stateRecoverTime,
-			long downloadSizeInBytes) {
+			long downloadSizeInBytes,
+			@Nullable Exception exception) {
 		this.backendType = backendType;
+		this.restoreMode = restoreMode;
 		this.checkpointID = checkpointID;
 		this.numberOfTransferringThreads = numberOfTransferringThreads;
 		this.rescaling = rescaling;
@@ -57,6 +65,7 @@ public class WarehouseRestoreMessage {
 		this.writeKeyDuration = writeKeyDuration;
 		this.stateRecoverTime = stateRecoverTime;
 		this.downloadSizeInBytes = downloadSizeInBytes;
+		this.errMsg = exception == null ? "success" : exception.toString();
 	}
 
 	public String getBackendType() {
@@ -99,10 +108,19 @@ public class WarehouseRestoreMessage {
 		return downloadSizeInBytes;
 	}
 
+	public String getRestoreMode() {
+		return restoreMode;
+	}
+
+	public String getErrMsg() {
+		return errMsg;
+	}
+
 	@Override
 	public String toString() {
 		return "WarehouseRestoreMessage{" +
 			"backendType='" + backendType + '\'' +
+			", restoreMode='" + restoreMode + '\'' +
 			", checkpointID=" + checkpointID +
 			", numberOfTransferringThreads=" + numberOfTransferringThreads +
 			", rescaling=" + rescaling +
@@ -112,6 +130,7 @@ public class WarehouseRestoreMessage {
 			", writeKeyDuration=" + writeKeyDuration +
 			", stateRecoverTime=" + stateRecoverTime +
 			", downloadSizeInBytes=" + downloadSizeInBytes +
+			", errMsg=" + errMsg +
 			'}';
 	}
 }

@@ -20,6 +20,8 @@ package org.apache.flink.metrics.opentsdb;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
@@ -46,6 +48,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -77,6 +80,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"(\\S+)\\.(sqlgateway\\.\\S+)");
 	private static final int METRICS_NAME_MAX_LENGTH = 255;
 	private static final AtomicInteger registerIdCounter = new AtomicInteger(1);
+
+	private static final int MAX_PENDING_REPORT_METRICS = 4096;
+
 	private RateLimitedMetricsClient client;
 	private String jobName;
 	private String prefix;	// It is the prefix of all metric and used in UdpMetricsClient's constructor
@@ -97,7 +103,13 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private final Set<String> nonGlobalNeededMetrics = new HashSet<>();
 	private final Set<String> nonGlobalContainsNeededMetrics = new HashSet<>();
 
+	// metrics that needs to be reported when unregistering
+	private final Set<String> reportUnregisteredNeededMetrics = new HashSet<>();
+
 	private final Map<String, Tuple2<String, Integer>> globalMetricNames = new LinkedHashMap<>();
+
+	List<Tuple3<String, Double, String>> pendingReportMetrics = new CopyOnWriteArrayList<>();
+	List<Tuple5<String, String, String, Double, String>> pendingGlobalReportMetrics = new CopyOnWriteArrayList<>();
 
 	@Override
 	public void open(MetricConfig config) {
@@ -136,6 +148,10 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		// load non-global prefix metrics
 		List<String> nonGlobalContainsMetrics = (List<String>) nonGlobal.get("substring");
 		nonGlobalContainsNeededMetrics.addAll(nonGlobalContainsMetrics);
+		// load report-during-unregister metrics
+		Map<String, Object> reportDuringUnregister = (Map<String, Object>) metrics.get("report-during-unregister");
+		List<String> reportUnregisteredMetrics = (List<String>) reportDuringUnregister.get("name");
+		reportUnregisteredNeededMetrics.addAll(reportUnregisteredMetrics);
 	}
 
 	private boolean filterByContaines(String name) {
@@ -177,6 +193,85 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	}
 
 	@Override
+	public void notifyOfRemovedMetric(Metric metric, String metricName, MetricGroup group) {
+		String name = null;
+		synchronized (this) {
+			if (metric instanceof Counter) {
+				name = counters.remove(metric);
+			} else if (metric instanceof Gauge) {
+				name = gauges.remove(metric);
+			} else if (metric instanceof Histogram) {
+				name = histograms.remove(metric);
+			} else if (metric instanceof Meter) {
+				name = meters.remove(metric);
+			} else {
+				log.warn("Cannot remove unknown metric type {}. This indicates that the reporter " +
+					"does not support this metric type.", metric.getClass().getName());
+			}
+
+			try {
+				if (pendingReportMetrics.size() > MAX_PENDING_REPORT_METRICS
+					|| pendingGlobalReportMetrics.size() > MAX_PENDING_REPORT_METRICS) {
+					pendingReportMetrics.clear();
+					pendingGlobalReportMetrics.clear();
+				}
+
+				if (name != null && reportUnregisteredNeededMetrics.contains(metricName)) {
+					Tuple<String, String> tuple = getMetricNameAndTags(name);
+					if (metric instanceof Counter) {
+						double value = ((Counter) metric).getCount();
+						pendingReportMetrics.add(Tuple3.of(tuple.x, value, tuple.y));
+						pendingGlobalReportMetrics.add(Tuple5.of("counter", name, tuple.x, value, tuple.y));
+					} else if (metric instanceof Gauge) {
+						Object value = ((Gauge<?>) metric).getValue();
+						if (value instanceof Number) {
+							pendingReportMetrics.add(Tuple3.of(tuple.x, ((Number) value).doubleValue(), tuple.y));
+							pendingGlobalReportMetrics.add(Tuple5.of("gauge", name, tuple.x, ((Number) value).doubleValue(), tuple.y));
+						} else if (value instanceof String){
+							try {
+								double d = Double.parseDouble((String) value);
+								pendingReportMetrics.add(Tuple3.of(tuple.x, d, tuple.y));
+								pendingGlobalReportMetrics.add(Tuple5.of("gauge", name, tuple.x, d, tuple.y));
+							} catch (NumberFormatException nf) {
+								// ignore
+							}
+						} else if (value instanceof TagGaugeStore) {
+							TagGaugeStore tagGaugeStoreValue = (TagGaugeStore) value;
+							final List<TagGaugeStore.TagGaugeMetric> tagGaugeMetrics = tagGaugeStoreValue.getMetricValuesList();
+							final Map<String, Double> compositedMetrics = new HashMap<>();
+							for (TagGaugeStore.TagGaugeMetric tagGaugeMetric : tagGaugeMetrics) {
+								final String compositeTags = TagKv.compositeTags(tuple.y,
+									tagGaugeMetric.getTagValues().getTagValues().entrySet().stream().map(
+										entry -> new TagKv(entry.getKey(), entry.getValue())).collect(Collectors.toList()));
+								compositedMetrics.put(compositeTags, tagGaugeMetric.getMetricValue());
+							}
+
+							// send composited metrics
+							for (Map.Entry<String, Double> entry : compositedMetrics.entrySet()) {
+								pendingReportMetrics.add(Tuple3.of(tuple.x, entry.getValue(), entry.getKey()));
+								pendingGlobalReportMetrics.add(Tuple5.of("gauge", name, tuple.x, entry.getValue(), entry.getKey()));
+							}
+							tagGaugeStoreValue.metricReported();
+						}
+					} else if (metric instanceof Histogram) {
+						HistogramStatistics statistics = ((Histogram) metric).getStatistics();
+						pendingReportMetrics.add(Tuple3.of(prefix(tuple.x, "mean"), statistics.getMean(), tuple.y));
+						pendingReportMetrics.add(Tuple3.of(prefix(tuple.x, "p99"), statistics.getQuantile(0.99), tuple.y));
+						pendingGlobalReportMetrics.add(Tuple5.of("histogram", name, tuple.x, (double) ((Histogram) metric).getCount(), tuple.y));
+					} else {
+						pendingReportMetrics.add(Tuple3.of(prefix(tuple.x, "rate"), ((Meter) metric).getRate(), tuple.y));
+						pendingReportMetrics.add(Tuple3.of(prefix(tuple.x, "count"), (double) ((Meter) metric).getCount(), tuple.y));
+						pendingGlobalReportMetrics.add(Tuple5.of("meter", name, tuple.x, ((Meter) metric).getRate(), tuple.y));
+					}
+				}
+			} catch (Exception e) {
+				// ignore
+			}
+
+		}
+	}
+
+	@Override
 	public void close() {
 		report();
 		log.info("OpentsdbReporter closed.");
@@ -196,6 +291,16 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	@Override
 	public void report() {
 		try {
+			for (Tuple3<String, Double, String> pendingMetric : pendingReportMetrics) {
+				this.client.emitStoreWithTag(pendingMetric.f0, pendingMetric.f1, pendingMetric.f2);
+			}
+			pendingReportMetrics.clear();
+
+			for (Tuple5<String, String, String, Double, String> pendingMetric : pendingGlobalReportMetrics) {
+				reportGlobalMetrics(pendingMetric.f0, pendingMetric.f1, pendingMetric.f2, pendingMetric.f3, pendingMetric.f4);
+			}
+			pendingGlobalReportMetrics.clear();
+
 			for (Map.Entry<Counter, String> counterStringEntry : counters.entrySet()) {
 				String name = counterStringEntry.getValue();
 				double value = counterStringEntry.getKey().getCount();

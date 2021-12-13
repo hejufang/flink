@@ -49,6 +49,8 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 	private static final String STATE_DOWNLOAD_DURATION = "downloadDuration";
 	private static final String STATE_WRITE_KEY_DURATION = "writeKeyDuration";
 	private static final String STATE_DOWNLOAD_SIZE = "downloadSizeInBytes";
+	private static final String NUMBER_OF_RECOVER_SUCCESS = "numberOfRecoverSuccess";
+	private static final String NUMBER_OF_RECOVER_FAILED = "numberOfRecoverFailed";
 
 	// warehouse
 	private static final MessageSet<WarehouseSnapshotMessage> snapshotMessageSet = new MessageSet<>(MessageType.SNAPSHOT);
@@ -63,6 +65,8 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 	private final TagGauge downloadDurationGauge = createTagGauge();
 	private final TagGauge writeKeyDurationGauge = createTagGauge();
 	private final TagGauge downloadSizeInByGauge = createTagGauge();
+	private final TagGauge recoverFailedGauge = createTagGauge();
+	private final TagGauge recoverSuccessGauge = createTagGauge();
 
 	// incremental checkpoint specific metrics
 	private static final String PRE_RAW_TOTAL_STATE_SIZE = "preRawTotalStateSize";
@@ -113,6 +117,12 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 		hdfsRetryCounter.getAndAdd(retryCount);
 	}
 
+	@Override
+	public void reportFailedRestore(WarehouseRestoreMessage message) {
+		restoreMessageSet.addMessage(new Message<>(message));
+		updateRecoverFailedStatistic(message);
+	}
+
 	/**
 	 * Register the exposed metrics.
 	 *
@@ -135,6 +145,8 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 		metricGroup.gauge(STATE_DOWNLOAD_DURATION, downloadDurationGauge);
 		metricGroup.gauge(STATE_WRITE_KEY_DURATION, writeKeyDurationGauge);
 		metricGroup.gauge(STATE_DOWNLOAD_SIZE, downloadSizeInByGauge);
+		metricGroup.gauge(NUMBER_OF_RECOVER_SUCCESS, recoverSuccessGauge);
+		metricGroup.gauge(NUMBER_OF_RECOVER_FAILED, recoverFailedGauge);
 
 		// state file batching metrics
 		metricGroup.gauge(PRE_RAW_TOTAL_STATE_SIZE, preRawTotalStateSizeGauge);
@@ -157,11 +169,13 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 	private void updateRecoverStatistic(WarehouseRestoreMessage restoreMessage) {
 		TagGaugeStore.TagValues tagValues = new TagGaugeStore.TagValuesBuilder()
 			.addTagValue("backend", restoreMessage.getBackendType())
+			.addTagValue("restoreMode", restoreMessage.getRestoreMode())
 			.build();
 		stateRecoverTimeGauge.addMetric(restoreMessage.getStateRecoverTime(), tagValues);
 		downloadDurationGauge.addMetric(restoreMessage.getDownloadDuration(), tagValues);
 		writeKeyDurationGauge.addMetric(restoreMessage.getWriteKeyDuration(), tagValues);
 		downloadSizeInByGauge.addMetric(restoreMessage.getDownloadSizeInBytes(), tagValues);
+		recoverSuccessGauge.addMetric(1, tagValues);
 	}
 
 	public void updateIncrementalBatchingStatistics(WarehouseStateFileBatchingMessage batchingMessage) {
@@ -173,6 +187,15 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 		postSstFileNumGauge.addMetric(batchingMessage.getPostSstFileNum(), tagValues);
 		preUploadFileNumGauge.addMetric(batchingMessage.getPreUploadFileNum(), tagValues);
 		postUploadFileNumGauge.addMetric(batchingMessage.getPostUploadFileNum(), tagValues);
+	}
+
+	private void updateRecoverFailedStatistic(WarehouseRestoreMessage restoreMessage) {
+		TagGaugeStore.TagValues tagValues = new TagGaugeStore.TagValuesBuilder()
+			.addTagValue("backend", restoreMessage.getBackendType())
+			.addTagValue("restoreMode", restoreMessage.getRestoreMode())
+			.addTagValue("errMsg", restoreMessage.getErrMsg())
+			.build();
+		recoverFailedGauge.addMetric(1, tagValues);
 	}
 
 	private TagGauge createTagGauge() {

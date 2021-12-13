@@ -18,36 +18,24 @@
 
 package org.apache.flink.runtime.state.tracker;
 
-import org.apache.flink.runtime.checkpoint.WarehouseRestoreMessage;
-import org.apache.flink.runtime.checkpoint.WarehouseSnapshotMessage;
-
 /**
- * A stateStatsTracker that does not report any information.
+ * The enumerated type of restore mode.
  */
-public class NonStateStatsTracker implements StateStatsTracker {
+public enum RestoreMode {
 
-	@Override
-	public void reportCompletedSnapshot(WarehouseSnapshotMessage message) {
-		// do nothing
+	DIRECTLY_OPEN_DB("DIRECTLY_OPEN_DB"),
+	FULL_WRITE_BATCH("FULL_WRITE_BATCH"),
+	INCREMENTAL_WRITE_BATCH("INCREMENTAL_WRITE_BATCH"),
+	FULL_SST_WRITER("FULL_SST_WRITER"),
+	INCREMENTAL_SST_WRITER("INCREMENTAL_SST_WRITER");
+
+	private final String restoreMode;
+
+	RestoreMode(String restoreMode) {
+		this.restoreMode = restoreMode;
 	}
 
-	@Override
-	public void reportCompletedRestore(WarehouseRestoreMessage message) {
-		// do nothing
-	}
-
-	@Override
-	public void updateIncrementalBatchingStatistics(WarehouseStateFileBatchingMessage batchingMessage) {
-		// do nothing
-	}
-
-	@Override
-	public void updateRetryCounter(int retryCount) {
-		// do nothing
-	}
-
-	@Override
-	public void reportFailedRestore(WarehouseRestoreMessage message) {
-		// do nothing
+	public String getRestoreMode() {
+		return restoreMode;
 	}
 }

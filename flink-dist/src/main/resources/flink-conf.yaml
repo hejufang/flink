@@ -493,6 +493,9 @@ quoka:
   execution.cancellation.timeout.enable: true
   checkpoint.discard.historical.num: 3
   checkpoint.discard.delay.time: 1800000
+  state.backend.rocksdb.restore-with-sstWriter: true
+  state.backend.rocksdb.max-disk-size-in-progress: 30gb
+  stat.backend.rocksdb.max-sst-size-for-sstWriter: 64mb
 
 quaga:
   dc: cn

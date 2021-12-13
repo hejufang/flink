@@ -74,7 +74,9 @@ global:
         cloudShuffleInputBytes,
         allocateFromAvailableFailedNumber,
         numberOfDiscardExpiredCheckpointFolder,
-        numJobRequiredWorkers
+        numJobRequiredWorkers,
+        numberOfRecoverSuccess,
+        numberOfRecoverFailed
     ]
 
 non-global:
@@ -185,6 +187,8 @@ non-global:
         downloadDuration,
         writeKeyDuration,
         downloadSizeInBytes,
+        numberOfRecoverSuccess,
+        numberOfRecoverFailed,
       # Timer
         processingTimerTriggerCount,
         processingTimerLatencyMax,
@@ -283,4 +287,12 @@ non-global:
         TMHeartbeatTimeoutFromJM,
       # am
         timeOfAMStart
+    ]
+
+report-during-unregister:
+  name:
+    [
+        numberOfHdfsRetries,
+        numberOfRecoverSuccess,
+        numberOfRecoverFailed
     ]
