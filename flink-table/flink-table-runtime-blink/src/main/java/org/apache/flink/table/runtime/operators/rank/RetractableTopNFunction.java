@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.runtime.operators.rank;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.ValueState;
@@ -41,7 +42,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -455,14 +455,15 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 	 * instance is serializable, and a RecordComparator instance could be restored based on the deserialized
 	 * ComparatorWrapper instance.
 	 */
-	private static class ComparatorWrapper implements Comparator<RowData>, Serializable {
+	@VisibleForTesting
+	public static class ComparatorWrapper implements Comparator<RowData>, Serializable {
 
 		private static final long serialVersionUID = 4386377835781068140L;
 
 		private transient Comparator<RowData> comparator;
 		private GeneratedRecordComparator generatedRecordComparator;
 
-		private ComparatorWrapper(GeneratedRecordComparator generatedRecordComparator) {
+		public ComparatorWrapper(GeneratedRecordComparator generatedRecordComparator) {
 			this.generatedRecordComparator = generatedRecordComparator;
 		}
 
@@ -479,9 +480,7 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 			if (obj instanceof ComparatorWrapper) {
 				ComparatorWrapper o = (ComparatorWrapper) obj;
 				GeneratedRecordComparator oGeneratedComparator = o.generatedRecordComparator;
-				return generatedRecordComparator.getClassName().equals(oGeneratedComparator.getClassName()) &&
-						generatedRecordComparator.getCode().equals(oGeneratedComparator.getCode()) &&
-						Arrays.equals(generatedRecordComparator.getReferences(), oGeneratedComparator.getReferences());
+				return generatedRecordComparator.equals(oGeneratedComparator);
 			} else {
 				return false;
 			}

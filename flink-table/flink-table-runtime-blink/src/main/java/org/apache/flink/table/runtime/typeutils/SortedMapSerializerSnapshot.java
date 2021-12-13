@@ -98,14 +98,41 @@ public class SortedMapSerializerSnapshot<K, V> implements TypeSerializerSnapshot
 	public TypeSerializerSchemaCompatibility<SortedMap<K, V>> resolveSchemaCompatibility(
 			TypeSerializer<SortedMap<K, V>> newSerializer) {
 		if (!(newSerializer instanceof SortedMapSerializer)) {
-			String message = String.format("new serializer %s is not a SortedMapSerializer.", newSerializer.getClass().getName());
+			String message = String.format("new serializer %s is not a SortedMapSerializer.",
+				newSerializer.getClass().getName());
 			return TypeSerializerSchemaCompatibility.incompatible(message);
 		}
+
 		SortedMapSerializer newSortedMapSerializer = (SortedMapSerializer) newSerializer;
+
 		if (!comparator.equals(newSortedMapSerializer.getComparator())) {
 			return TypeSerializerSchemaCompatibility.incompatible("The comparator is not equal.");
-		} else {
-			return TypeSerializerSchemaCompatibility.compatibleAsIs();
 		}
+
+		TypeSerializerSnapshot<?>[] kvSerializerSnapshots = nestedSerializersSnapshotDelegate
+			.getNestedSerializerSnapshots();
+
+		TypeSerializerSnapshot<?> keySerializerSnapshot = kvSerializerSnapshots[0];
+		TypeSerializerSnapshot<?> valueSerializerSnapshot = kvSerializerSnapshots[1];
+
+		TypeSerializerSchemaCompatibility<K> keySchemaCompatibility = keySerializerSnapshot
+			.resolveSchemaCompatibility(newSortedMapSerializer.getKeySerializer());
+
+		if (keySchemaCompatibility.isIncompatible()) {
+			String message = String.format("The key serializer of the sortedMap is not compatible due to %s",
+				keySchemaCompatibility.getMessage());
+			return TypeSerializerSchemaCompatibility.incompatible(message);
+		}
+
+		TypeSerializerSchemaCompatibility<K> valueSchemaCompatibility = valueSerializerSnapshot
+			.resolveSchemaCompatibility(newSortedMapSerializer.getValueSerializer());
+
+		if (valueSchemaCompatibility.isIncompatible()) {
+			String message = String.format("The value serializer of the sortedMap is not compatible due to %s",
+				valueSchemaCompatibility.getMessage());
+			return TypeSerializerSchemaCompatibility.incompatible(message);
+		}
+
+		return TypeSerializerSchemaCompatibility.compatibleAsIs();
 	}
 }

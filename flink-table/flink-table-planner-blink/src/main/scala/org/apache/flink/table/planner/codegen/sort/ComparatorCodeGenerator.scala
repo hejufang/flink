@@ -56,6 +56,8 @@ object ComparatorCodeGenerator {
     val compareCode = GenerateUtils.generateRowCompare(
       ctx, keys, keyTypes, orders, nullsIsLast, "o1", "o2")
 
+    val inputsForGen: Array[Object] = Array(keys, keyTypes, orders, nullsIsLast)
+
     val code =
       j"""
       public class $className implements ${baseClass.getCanonicalName} {
@@ -78,7 +80,7 @@ object ComparatorCodeGenerator {
       }
       """.stripMargin
 
-    new GeneratedRecordComparator(className, code, ctx.references.toArray)
+    new GeneratedRecordComparator(className, code, ctx.references.toArray, inputsForGen)
   }
 
 }

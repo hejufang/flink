@@ -36,4 +36,7 @@ public class GeneratedRecordComparator extends GeneratedClass<RecordComparator> 
 		super(className, code, references);
 	}
 
+	public GeneratedRecordComparator(String className, String code, Object[] references, Object[] inputs) {
+		super(className, code, references, inputs);
+	}
 }

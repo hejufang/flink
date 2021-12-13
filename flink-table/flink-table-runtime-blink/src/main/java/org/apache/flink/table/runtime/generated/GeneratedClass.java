@@ -19,6 +19,7 @@
 package org.apache.flink.table.runtime.generated;
 
 import java.io.Serializable;
+import java.util.Arrays;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -31,16 +32,28 @@ public abstract class GeneratedClass<T> implements Serializable {
 	private final String className;
 	private final String code;
 	private final Object[] references;
+	/**
+	 * Source terms for generating this class.
+	 * As the name of variables and classes in the generated code depends on a counter,
+	 * which is not stable enough. We should compare the inputs instead of the generated code
+	 * when we want to tell whether two generated classes are equal or not.
+	 */
+	private final Object[] sourcesForGenerating;
 
 	private transient Class<T> compiledClass;
 
 	protected GeneratedClass(String className, String code, Object[] references) {
+		this(className, code, references, null);
+	}
+
+	public GeneratedClass(String className, String code, Object[] references, Object[] sourcesForGenerating) {
 		checkNotNull(className, "name must not be null");
 		checkNotNull(code, "code must not be null");
 		checkNotNull(references, "references must not be null");
 		this.className = className;
 		this.code = code;
 		this.references = references;
+		this.sourcesForGenerating = sourcesForGenerating;
 	}
 
 	/**
@@ -94,5 +107,14 @@ public abstract class GeneratedClass<T> implements Serializable {
 
 	public Class<T> getClass(ClassLoader classLoader) {
 		return compile(classLoader);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof GeneratedClass) {
+			return Arrays.deepEquals(((GeneratedClass) obj).sourcesForGenerating, this.sourcesForGenerating);
+		} else {
+			return false;
+		}
 	}
 }
