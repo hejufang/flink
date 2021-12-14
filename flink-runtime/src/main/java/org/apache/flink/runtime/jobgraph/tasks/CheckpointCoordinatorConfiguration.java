@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.CheckpointRetentionPolicy;
+import org.apache.flink.runtime.checkpoint.DiscardHistoricalCheckpointConfiguration;
 import org.apache.flink.runtime.checkpoint.trigger.CheckpointTriggerConfiguration;
 import org.apache.flink.util.Preconditions;
 
@@ -83,6 +84,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 	/** The maximum number of retries for checkpoint writing hdfs. */
 	private int transferMaxRetryAttempts;
 
+	private DiscardHistoricalCheckpointConfiguration discardHistoricalCheckpointConfiguration;
 	/**
 	 * @deprecated use {@link #builder()}.
 	 */
@@ -250,6 +252,14 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		this.transferMaxRetryAttempts = transferMaxRetryAttempts;
 	}
 
+	public DiscardHistoricalCheckpointConfiguration getDiscardHistoricalCheckpointConfiguration() {
+		return discardHistoricalCheckpointConfiguration;
+	}
+
+	public void setDiscardHistoricalCheckpointConfiguration(DiscardHistoricalCheckpointConfiguration discardHistoricalCheckpointConfiguration) {
+		this.discardHistoricalCheckpointConfiguration = discardHistoricalCheckpointConfiguration;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -271,6 +281,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			isPreferCheckpointForRecovery == that.isPreferCheckpointForRecovery &&
 			tolerableCheckpointFailureNumber == that.tolerableCheckpointFailureNumber &&
 			aggregateUnionState == that.aggregateUnionState &&
+			Objects.equals(discardHistoricalCheckpointConfiguration, that.discardHistoricalCheckpointConfiguration) &&
 			Objects.equals(checkpointTriggerConfiguration, that.checkpointTriggerConfiguration);
 	}
 
@@ -289,7 +300,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 				savepointSchedulerConfiguration,
 				tolerableCheckpointFailureNumber,
 				aggregateUnionState,
-				checkpointTriggerConfiguration);
+				checkpointTriggerConfiguration,
+				discardHistoricalCheckpointConfiguration);
 	}
 
 	@Override
@@ -306,6 +318,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			", tolerableCheckpointFailureNumber=" + tolerableCheckpointFailureNumber +
 			", aggregateUnionState=" + aggregateUnionState +
 			", checkpointTriggerConfiguration=" + checkpointTriggerConfiguration +
+			", discardHistoricalCheckpointConfiguration=" + discardHistoricalCheckpointConfiguration +
 			'}';
 	}
 

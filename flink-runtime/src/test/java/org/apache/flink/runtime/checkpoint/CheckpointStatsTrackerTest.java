@@ -44,6 +44,9 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Test for {@link CheckpointStatsTracker}.
+ */
 public class CheckpointStatsTrackerTest {
 
 	/**
@@ -318,9 +321,10 @@ public class CheckpointStatsTrackerTest {
 			CheckpointStatsTracker.LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC,
 			CheckpointStatsTracker.NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD,
 			CheckpointStatsTracker.NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD,
-			CheckpointStatsTracker.WAREHOUSE_CHECKPOINTS
+			CheckpointStatsTracker.WAREHOUSE_CHECKPOINTS,
+			CheckpointStatsTracker.NUMBER_OF_FS_DISCARD_EXPIRED_CHECKPOINT_FOLDER
 		)));
-		assertEquals(14, registeredGaugeNames.size());
+		assertEquals(15, registeredGaugeNames.size());
 	}
 
 	/**
@@ -351,7 +355,7 @@ public class CheckpointStatsTrackerTest {
 			metricGroup);
 
 		// Make sure to adjust this test if metrics are added/removed
-		assertEquals(14, registeredGauges.size());
+		assertEquals(15, registeredGauges.size());
 
 		// Check initial values
 		Gauge<Long> numCheckpoints = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.NUMBER_OF_CHECKPOINTS_METRIC);

@@ -40,6 +40,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointIDCounter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.checkpoint.CheckpointStatsTracker;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
+import org.apache.flink.runtime.checkpoint.DiscardHistoricalCheckpointConfiguration;
 import org.apache.flink.runtime.checkpoint.MasterTriggerRestoreHook;
 import org.apache.flink.runtime.checkpoint.handler.CheckpointHandler;
 import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
@@ -473,6 +474,16 @@ public class ExecutionGraphBuilder {
 			final CheckpointTriggerStrategy triggerStrategy = jobManagerConfig.getEnum(CheckpointTriggerStrategy.class, CheckpointingOptions.CHECKPOINT_TRIGGER_STRATEGY);
 			CheckpointTriggerConfiguration triggerConfiguration = new CheckpointTriggerConfiguration(triggerStrategy, sortedTopology);
 			chkConfig.setCheckpointTriggerConfiguration(triggerConfiguration);
+
+			int numDiscardHistoricalOnce = jobManagerConfig.getInteger(CheckpointingOptions.NUM_DISCARD_HISTORICAL);
+			long fixedDelayTimeDiscardHistorical = jobManagerConfig.getLong(CheckpointingOptions.FIXED_DELAY_TIME_DESCARD_HISTORICAL);
+			String expiredCheckpointDirectoryPrefix = jobManagerConfig.getString(CheckpointingOptions.EXPIRED_CHECKPOINT_DIR);
+			DiscardHistoricalCheckpointConfiguration discardHistoricalCheckpointConfiguration = new DiscardHistoricalCheckpointConfiguration(
+				numDiscardHistoricalOnce,
+				fixedDelayTimeDiscardHistorical,
+				expiredCheckpointDirectoryPrefix
+			);
+			chkConfig.setDiscardHistoricalCheckpointConfiguration(discardHistoricalCheckpointConfiguration);
 
 			String namespace = jobManagerConfig.getString(CheckpointingOptions.SNAPSHOT_NAMESPACE);
 

@@ -72,7 +72,8 @@ global:
         nettyShuffleInputBytes,
         cloudShuffleOutputBytes,
         cloudShuffleInputBytes,
-        allocateFromAvailableFailedNumber
+        allocateFromAvailableFailedNumber,
+        numberOfDiscardExpiredCheckpointFolder
     ]
 
 non-global:

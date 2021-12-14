@@ -306,6 +306,18 @@ public class CheckpointStatsTracker {
 	}
 
 	/**
+	 * Callback when a checkpoint is discarded.
+	 */
+	public void reportDiscardedCheckpoint() {
+		statsReadWriteLock.lock();
+		try {
+			counts.incrementDiscardedHistoricalCheckpoints();
+		} finally {
+			statsReadWriteLock.unlock();
+		}
+	}
+
+	/**
 	 * Creates an empty map with a {@link TaskStateStats} instance per task
 	 * that is involved in the checkpoint.
 	 *
@@ -390,6 +402,7 @@ public class CheckpointStatsTracker {
 
 	static final String POST_JOB_RAW_TOTAL_STATE_SIZE = "postJobRawTotalStateSize";
 
+	static final String NUMBER_OF_FS_DISCARD_EXPIRED_CHECKPOINT_FOLDER = "numberOfDiscardExpiredCheckpointFolder";
 	/**
 	 * Register the exposed metrics.
 	 *
@@ -410,6 +423,7 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(WAREHOUSE_CHECKPOINTS, MESSAGE_SET);
 		metricGroup.gauge(PRE_JOB_RAW_TOTAL_STATE_SIZE, new LatestCompletedCheckpointPreJobBatchTotalStateSize());
 		metricGroup.gauge(POST_JOB_RAW_TOTAL_STATE_SIZE, new LatestCompletedCheckpointPostJobBatchTotalStateSize());
+		metricGroup.gauge(NUMBER_OF_FS_DISCARD_EXPIRED_CHECKPOINT_FOLDER, new DiscardedHistoricalCheckpointsCounter());
 	}
 
 	private class CheckpointsCounter implements Gauge<Long> {
@@ -521,6 +535,13 @@ public class CheckpointStatsTracker {
 			} else {
 				return -1L;
 			}
+		}
+	}
+
+	private class DiscardedHistoricalCheckpointsCounter implements Gauge<Long> {
+		@Override
+		public Long getValue() {
+			return counts.getNumberOfDiscardedHistoricalCheckpoints();
 		}
 	}
 }

@@ -42,6 +42,10 @@ common:
   execution.checkpointing.timeout: 10 min
   execution.checkpointing.ignore-checkpoints-on-checkpoint-disabled: true
   state.savepoint.location-prefix: ${checkpoint.hdfs.prefix}/savepoints
+  state.checkpoints.expired.location-prefix: ${checkpoint.hdfs.prefix}/expire
+  checkpoint.discard.historical.num: 0
+  checkpoint.discard.delay.time: 0
+
   savepoint.scheduler.default.interval: 21600000
   state.backend.rocksdb.memory.managed: false
 
@@ -487,6 +491,8 @@ quoka:
   restart-strategy.recoverable-failure-rate.fallback-global-restart: true
   restart-strategy.recoverable-failure-rate.enable: true
   execution.cancellation.timeout.enable: true
+  checkpoint.discard.historical.num: 3
+  checkpoint.discard.delay.time: 1800000
 
 quaga:
   dc: cn

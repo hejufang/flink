@@ -294,6 +294,22 @@ public class CheckpointingOptions {
 		.withDescription("The interval between two consecutive checkpoints under the default fixed rate strategy.");
 
 	// ------------------------------------------------------------------------
+	// Checkpoint discard options
+	// ------------------------------------------------------------------------
+
+	public static final ConfigOption<Integer> NUM_DISCARD_HISTORICAL = ConfigOptions
+		.key("checkpoint.discard.historical.num")
+		.intType()
+		.defaultValue(3)
+		.withDescription("Number of discarding historical residual checkpoint directories at single discarding operation. ");
+
+	public static final ConfigOption<Long> FIXED_DELAY_TIME_DESCARD_HISTORICAL = ConfigOptions
+		.key("checkpoint.discard.delay.time")
+		.longType()
+		.defaultValue(1800000L)
+		.withDescription("Fixed delay time for discarding historical residual checkpoint directories. ");
+
+	// ------------------------------------------------------------------------
 	//  Others
 	// ------------------------------------------------------------------------
 
@@ -326,4 +342,10 @@ public class CheckpointingOptions {
 		.key("state.savepoint.location-prefix")
 		.noDefaultValue()
 		.withDescription("HDFS path prefix for detach savepoint and periodic savepoint");
+
+	public static final ConfigOption<String> EXPIRED_CHECKPOINT_DIR = ConfigOptions
+		.key("state.checkpoints.expired.location-prefix")
+		.stringType()
+		.noDefaultValue()
+		.withDeprecatedKeys("HDFS path prefix for expired checkpoint");
 }
