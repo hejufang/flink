@@ -37,6 +37,7 @@ import org.hamcrest.Matchers;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +62,12 @@ public class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
 			put("a2", "v2");
 		}
 	};
+	private static final Map<String, String> ADDITIONAL_ANNOTATIONS = new HashMap<String, String>() {
+		{
+			put("a3", "v3");
+			put("a2", "v2_new");
+		}
+	};
 	private static final String TOLERATION_STRING = "key:key1,operator:Equal,value:value1,effect:NoSchedule;" +
 		"KEY:key2,operator:Exists,Effect:NoExecute,tolerationSeconds:6000";
 	private static final List<Toleration> TOLERATION = Arrays.asList(
@@ -76,8 +83,11 @@ public class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
 
 		this.flinkConfig.set(KubernetesConfigOptions.KUBERNETES_SERVICE_ACCOUNT, SERVICE_ACCOUNT_NAME);
 		this.flinkConfig.set(KubernetesConfigOptions.CONTAINER_IMAGE_PULL_SECRETS, IMAGE_PULL_SECRETS);
-		this.flinkConfig.set(KubernetesConfigOptions.JOB_MANAGER_ANNOTATIONS, ANNOTATIONS);
+		this.flinkConfig.set(KubernetesConfigOptions.JOB_MANAGER_ANNOTATIONS, Collections.unmodifiableMap(ANNOTATIONS));
 		this.flinkConfig.setString(KubernetesConfigOptions.JOB_MANAGER_TOLERATIONS.key(), TOLERATION_STRING);
+		ADDITIONAL_ANNOTATIONS.forEach(
+				(k, v) -> this.flinkConfig.setString(KubernetesConfigOptions.JOB_MANAGER_ANNOTATIONS.key() + "." + k, v)
+		);
 	}
 
 	@Override
@@ -165,7 +175,9 @@ public class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
 	@Test
 	public void testPodAnnotations() {
 		final Map<String, String> resultAnnotations = kubernetesJobManagerParameters.getAnnotations();
-		assertThat(resultAnnotations, is(equalTo(ANNOTATIONS)));
+		final Map<String, String> wantedAnnotations = new HashMap<>(ANNOTATIONS);
+		wantedAnnotations.putAll(ADDITIONAL_ANNOTATIONS);
+		assertThat(resultAnnotations, is(equalTo(wantedAnnotations)));
 	}
 
 	@Test

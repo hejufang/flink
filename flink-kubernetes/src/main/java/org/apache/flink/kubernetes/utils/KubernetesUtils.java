@@ -22,6 +22,7 @@ import org.apache.flink.client.program.PackagedProgramUtils;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.fs.FileSystem;
@@ -593,6 +594,19 @@ public class KubernetesUtils {
 		String idc = System.getenv(Constants.INTERNAL_IDC_ENV_KEY);
 		String clusterName = System.getenv(Constants.PHYSICAL_CLUSTER_ENV_KEY);
 		return String.format(Constants.WEB_SHELL_TEMPLATE, zoneName, idc, clusterName, podName, namespace);
+	}
+
+	/**
+	 * Get Annotations with ConfigOption.
+	 * First get all annotations by option key directly,
+	 * Then get all annotations with optionKey as prefix.
+	 * @return annotations.
+	 */
+	public static Map<String, String> getAnnotations(Configuration configuration, ConfigOption<Map<String, String>> option) {
+		Map<String, String> annotations = new HashMap<>(configuration.getOptional(option).orElse(Collections.emptyMap()));
+		String annotationPrefix = option.key() + ".";
+		annotations.putAll(ConfigurationUtils.getPrefixedKeyValuePairs(annotationPrefix, configuration));
+		return annotations;
 	}
 
 	/**

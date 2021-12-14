@@ -79,7 +79,7 @@ public class KubernetesJobManagerParameters extends AbstractKubernetesParameters
 
 	@Override
 	public Map<String, String> getAnnotations() {
-		return flinkConfig.getOptional(KubernetesConfigOptions.JOB_MANAGER_ANNOTATIONS).orElse(Collections.emptyMap());
+		return KubernetesUtils.getAnnotations(flinkConfig, KubernetesConfigOptions.JOB_MANAGER_ANNOTATIONS);
 	}
 
 	@Override
@@ -88,7 +88,7 @@ public class KubernetesJobManagerParameters extends AbstractKubernetesParameters
 	}
 
 	public Map<String, String> getRestServiceAnnotations() {
-		return flinkConfig.getOptional(KubernetesConfigOptions.REST_SERVICE_ANNOTATIONS).orElse(Collections.emptyMap());
+		return KubernetesUtils.getAnnotations(flinkConfig, KubernetesConfigOptions.REST_SERVICE_ANNOTATIONS);
 	}
 
 	public String getJobManagerMainContainerName() {
@@ -116,11 +116,11 @@ public class KubernetesJobManagerParameters extends AbstractKubernetesParameters
 	}
 
 	public Map<String, String> getDeploymentAnnotations() {
-		return flinkConfig.getOptional(KubernetesConfigOptions.KUBERNETES_DEPLOYMENT_ANNOTATIONS).orElse(Collections.emptyMap());
+		return KubernetesUtils.getAnnotations(flinkConfig, KubernetesConfigOptions.KUBERNETES_DEPLOYMENT_ANNOTATIONS);
 	}
 
 	public Map<String, String> getIngressAnnotations() {
-		return flinkConfig.getOptional(KubernetesConfigOptions.KUBERNETES_INGRESS_ANNOTATIONS).orElse(Collections.emptyMap());
+		return KubernetesUtils.getAnnotations(flinkConfig, KubernetesConfigOptions.KUBERNETES_INGRESS_ANNOTATIONS);
 	}
 
 	public String getIngressHost() {
