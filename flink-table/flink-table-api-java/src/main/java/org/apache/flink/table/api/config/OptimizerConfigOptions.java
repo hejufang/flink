@@ -143,4 +143,13 @@ public class OptimizerConfigOptions {
 			.defaultValue(true)
 			.withDescription("When it is true, the optimizer will " +
 				"use statistics of catalog table.");
+
+	// todo: turn it off
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
+	public static final ConfigOption<Boolean> TABLE_OPTIMIZER_REDUCE_CAST_FALLBACK =
+		key("table.optimizer.reduce-cast-fallback")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("When it is true, the optimizer will " +
+				"use former flawed ReduceExpressionsRule of cast for state compatibility consideration.");
 }

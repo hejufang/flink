@@ -144,6 +144,40 @@ Calc(select=[ROW(a, b, c) AS EXPR$0, ARRAY(12, b) AS EXPR$1, MAP(a, c) AS EXPR$2
 ]]>
     </Resource>
   </TestCase>
+  <TestCase name="testCastInCoalesce">
+    <Resource name="sql">
+      <![CDATA[SELECT COALESCE(CAST(c AS INT), 0) FROM MyTable6]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(EXPR$0=[CASE(IS NOT NULL(CAST($2):INTEGER), CAST(CAST($2):INTEGER):INTEGER NOT NULL, 0)])
++- LogicalTableScan(table=[[default_catalog, default_database, MyTable6, source: [TestTableSource(a, b, c)]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[CASE(IS NOT NULL(CAST(c)), CAST(c), 0) AS EXPR$0])
++- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable6, source: [TestTableSource(a, b, c)]]], fields=[a, b, c])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testCastInCoalesceFallBack">
+    <Resource name="sql">
+      <![CDATA[SELECT COALESCE(CAST(c AS INT), 0) FROM MyTable6]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(EXPR$0=[CASE(IS NOT NULL(CAST($2):INTEGER), CAST(CAST($2):INTEGER):INTEGER NOT NULL, 0)])
++- LogicalTableScan(table=[[default_catalog, default_database, MyTable6, source: [TestTableSource(a, b, c)]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[CASE(IS NOT NULL(c), CAST(c), 0) AS EXPR$0])
++- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable6, source: [TestTableSource(a, b, c)]]], fields=[a, b, c])
+]]>
+    </Resource>
+  </TestCase>
   <TestCase name="testMultiFilters">
     <Resource name="sql">
       <![CDATA[SELECT * FROM (SELECT * FROM MyTable WHERE b > 0) t WHERE a < 50]]>

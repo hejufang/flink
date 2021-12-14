@@ -96,15 +96,29 @@ object FlinkBatchProgram {
     chainedProgram.addLast(DECORRELATE, new FlinkDecorrelateProgram)
 
     // default rewrite, includes: predicate simplification, expression reduction, etc.
+    val defaultRewriteRules = {
+      if (config.getBoolean(OptimizerConfigOptions.TABLE_OPTIMIZER_REDUCE_CAST_FALLBACK)) {
+        FlinkBatchRuleSets.DEFAULT_REWRITE_RULES_FALLBACK
+      } else {
+        FlinkBatchRuleSets.DEFAULT_REWRITE_RULES
+      }
+    }
     chainedProgram.addLast(
       DEFAULT_REWRITE,
       FlinkHepRuleSetProgramBuilder.newBuilder
         .setHepRulesExecutionType(HEP_RULES_EXECUTION_TYPE.RULE_SEQUENCE)
         .setHepMatchOrder(HepMatchOrder.BOTTOM_UP)
-        .add(FlinkBatchRuleSets.DEFAULT_REWRITE_RULES)
+        .add(defaultRewriteRules)
         .build())
 
     // rule based optimization: push down predicate(s)
+    val filterRules = {
+      if (config.getBoolean(OptimizerConfigOptions.TABLE_OPTIMIZER_REDUCE_CAST_FALLBACK)) {
+        FlinkBatchRuleSets.FILTER_PREPARE_RULES_FALLBACK
+      } else {
+        FlinkBatchRuleSets.FILTER_PREPARE_RULES
+      }
+    }
     chainedProgram.addLast(
       PREDICATE_PUSHDOWN,
       FlinkGroupProgramBuilder.newBuilder[BatchOptimizeContext]
@@ -120,7 +134,7 @@ object FlinkBatchProgram {
               FlinkHepRuleSetProgramBuilder.newBuilder
                 .setHepRulesExecutionType(HEP_RULES_EXECUTION_TYPE.RULE_COLLECTION)
                 .setHepMatchOrder(HepMatchOrder.BOTTOM_UP)
-                .add(FlinkBatchRuleSets.FILTER_PREPARE_RULES)
+                .add(filterRules)
                 .build(), "other predicate rewrite")
             .setIterations(5).build(), "predicate rewrite")
         .addProgram(

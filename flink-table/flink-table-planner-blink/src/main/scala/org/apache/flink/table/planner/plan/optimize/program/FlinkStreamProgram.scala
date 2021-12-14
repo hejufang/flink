@@ -99,16 +99,30 @@ object FlinkStreamProgram {
 
     // default rewrite, includes: predicate simplification, expression reduction, window
     // properties rewrite, etc.
+    val defaultRewriteRules = {
+      if (config.getBoolean(OptimizerConfigOptions.TABLE_OPTIMIZER_REDUCE_CAST_FALLBACK)) {
+        FlinkStreamRuleSets.DEFAULT_REWRITE_RULES_FALLBACK
+      } else {
+        FlinkStreamRuleSets.DEFAULT_REWRITE_RULES
+      }
+    }
     chainedProgram.addLast(
       DEFAULT_REWRITE,
       FlinkHepRuleSetProgramBuilder.newBuilder
         .setHepRulesExecutionType(HEP_RULES_EXECUTION_TYPE.RULE_SEQUENCE)
         .setHepMatchOrder(HepMatchOrder.BOTTOM_UP)
-        .add(FlinkStreamRuleSets.DEFAULT_REWRITE_RULES)
+        .add(defaultRewriteRules)
         .build())
 
     // rule based optimization: push down predicate(s) in where clause, so it only needs to read
     // the required data
+    val filterRules = {
+      if (config.getBoolean(OptimizerConfigOptions.TABLE_OPTIMIZER_REDUCE_CAST_FALLBACK)) {
+        FlinkStreamRuleSets.FILTER_PREPARE_RULES_FALLBACK
+      } else {
+        FlinkStreamRuleSets.FILTER_PREPARE_RULES
+      }
+    }
     chainedProgram.addLast(
       PREDICATE_PUSHDOWN,
       FlinkGroupProgramBuilder.newBuilder[StreamOptimizeContext]
@@ -116,7 +130,7 @@ object FlinkStreamProgram {
           FlinkHepRuleSetProgramBuilder.newBuilder
             .setHepRulesExecutionType(HEP_RULES_EXECUTION_TYPE.RULE_COLLECTION)
             .setHepMatchOrder(HepMatchOrder.BOTTOM_UP)
-            .add(FlinkStreamRuleSets.FILTER_PREPARE_RULES)
+            .add(filterRules)
             .build(), "filter rules")
         .addProgram(
           FlinkHepRuleSetProgramBuilder.newBuilder

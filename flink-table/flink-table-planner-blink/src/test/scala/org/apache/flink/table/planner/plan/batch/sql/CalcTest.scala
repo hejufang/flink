@@ -22,9 +22,9 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.java.typeutils.TypeExtractor
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api._
+import org.apache.flink.table.api.config.OptimizerConfigOptions
 import org.apache.flink.table.planner.plan.utils.MyPojo
 import org.apache.flink.table.planner.utils.TableTestBase
-
 import org.junit.Test
 
 import java.sql.{Date, Time, Timestamp}
@@ -160,5 +160,21 @@ class CalcTest extends TableTestBase {
   @Test
   def testCollationDeriveOnCalc(): Unit = {
     util.verifyPlan("SELECT CAST(a AS INT), CAST(b AS VARCHAR) FROM (VALUES (3, 'c')) T(a,b)")
+  }
+
+  @Test
+  def testCastInCoalesce(): Unit = {
+    util.addTableSource[(String, Int, Timestamp)]("MyTable6", 'a, 'b, 'c)
+    util.verifyPlan("SELECT COALESCE(CAST(c AS INT), 0) FROM MyTable6")
+  }
+
+  @Test
+  def testCastInCoalesceFallBack(): Unit = {
+    val conf: TableConfig = new TableConfig
+    conf.getConfiguration.setBoolean(
+      OptimizerConfigOptions.TABLE_OPTIMIZER_REDUCE_CAST_FALLBACK.key, true);
+    val util = batchTestUtil(conf)
+    util.addTableSource[(String, Int, Timestamp)]("MyTable6", 'a, 'b, 'c)
+    util.verifyPlan("SELECT COALESCE(CAST(c AS INT), 0) FROM MyTable6")
   }
 }

@@ -76,6 +76,12 @@ object FlinkBatchRuleSets {
     ReduceExpressionsRule.CALC_INSTANCE,
     ReduceExpressionsRule.JOIN_INSTANCE
   )
+  private val REDUCE_EXPRESSION_RULES_FALLBACK: RuleSet = RuleSets.ofList(
+    ReduceExpressionsRule.FILTER_INSTANCE_FALLBACK,
+    ReduceExpressionsRule.PROJECT_INSTANCE_FALLBACK,
+    ReduceExpressionsRule.CALC_INSTANCE_FALLBACK,
+    ReduceExpressionsRule.JOIN_INSTANCE_FALLBACK
+  )
 
   /**
     * RuleSet to rewrite coalesce to case when
@@ -106,27 +112,35 @@ object FlinkBatchRuleSets {
   /**
     * RuleSet to normalize plans for batch
     */
+  val rules = List(
+    // Transform window to LogicalWindowAggregate
+    BatchLogicalWindowAggregateRule.INSTANCE,
+    WindowPropertiesRules.WINDOW_PROPERTIES_RULE,
+    WindowPropertiesRules.WINDOW_PROPERTIES_HAVING_RULE,
+    //ensure union set operator have the same row type
+    new CoerceInputsRule(classOf[LogicalUnion], false),
+    //ensure intersect set operator have the same row type
+    new CoerceInputsRule(classOf[LogicalIntersect], false),
+    //ensure except set operator have the same row type
+    new CoerceInputsRule(classOf[LogicalMinus], false),
+    ConvertToNotInOrInRule.INSTANCE,
+    // optimize limit 0
+    FlinkLimit0RemoveRule.INSTANCE,
+    // unnest rule
+    LogicalUnnestRule.INSTANCE
+  )
   val DEFAULT_REWRITE_RULES: RuleSet = RuleSets.ofList((
     PREDICATE_SIMPLIFY_EXPRESSION_RULES.asScala ++
       REWRITE_COALESCE_RULES.asScala ++
       REDUCE_EXPRESSION_RULES.asScala ++
-      List(
-        // Transform window to LogicalWindowAggregate
-        BatchLogicalWindowAggregateRule.INSTANCE,
-        WindowPropertiesRules.WINDOW_PROPERTIES_RULE,
-        WindowPropertiesRules.WINDOW_PROPERTIES_HAVING_RULE,
-        //ensure union set operator have the same row type
-        new CoerceInputsRule(classOf[LogicalUnion], false),
-        //ensure intersect set operator have the same row type
-        new CoerceInputsRule(classOf[LogicalIntersect], false),
-        //ensure except set operator have the same row type
-        new CoerceInputsRule(classOf[LogicalMinus], false),
-        ConvertToNotInOrInRule.INSTANCE,
-        // optimize limit 0
-        FlinkLimit0RemoveRule.INSTANCE,
-        // unnest rule
-        LogicalUnnestRule.INSTANCE
-      )).asJava)
+      rules
+    ).asJava)
+  val DEFAULT_REWRITE_RULES_FALLBACK: RuleSet = RuleSets.ofList((
+    PREDICATE_SIMPLIFY_EXPRESSION_RULES.asScala ++
+      REWRITE_COALESCE_RULES.asScala ++
+      REDUCE_EXPRESSION_RULES_FALLBACK.asScala ++
+      rules
+    ).asJava)
 
   /**
     * RuleSet about filter
@@ -158,6 +172,14 @@ object FlinkBatchRuleSets {
       ++ PREDICATE_SIMPLIFY_EXPRESSION_RULES.asScala
       // reduce expressions in filters and joins
       ++ REDUCE_EXPRESSION_RULES.asScala
+    ).asJava
+  )
+  val FILTER_PREPARE_RULES_FALLBACK: RuleSet = RuleSets.ofList((
+    FILTER_RULES.asScala
+      // simplify predicate expressions in filters and joins
+      ++ PREDICATE_SIMPLIFY_EXPRESSION_RULES.asScala
+      // reduce expressions in filters and joins
+      ++ REDUCE_EXPRESSION_RULES_FALLBACK.asScala
     ).asJava
   )
 
