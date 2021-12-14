@@ -169,6 +169,7 @@ public class TemporalRowTimeJoinOperator
 
 	@Override
 	public void processElement1(StreamRecord<RowData> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		RowData row = element.getValue();
 		checkNotRetraction(row);
 
@@ -176,10 +177,12 @@ public class TemporalRowTimeJoinOperator
 		registerSmallestTimer(getLeftTime(row)); // Timer to emit and clean up the state
 
 		registerProcessingCleanupTimer();
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	@Override
 	public void processElement2(StreamRecord<RowData> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		RowData row = element.getValue();
 		checkNotRetraction(row);
 
@@ -188,6 +191,7 @@ public class TemporalRowTimeJoinOperator
 		registerSmallestTimer(rowTime); // Timer to clean up the state
 
 		registerProcessingCleanupTimer();
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	@Override

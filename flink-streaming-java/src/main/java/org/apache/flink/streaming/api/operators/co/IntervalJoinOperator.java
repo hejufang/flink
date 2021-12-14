@@ -191,7 +191,9 @@ public class IntervalJoinOperator<K, T1, T2, OUT>
 	 */
 	@Override
 	public void processElement1(StreamRecord<T1> record) throws Exception {
+		long startTimestamp = System.nanoTime();
 		processElement(record, leftBuffer, rightBuffer, lowerBound, upperBound, true);
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	/**
@@ -205,7 +207,9 @@ public class IntervalJoinOperator<K, T1, T2, OUT>
 	 */
 	@Override
 	public void processElement2(StreamRecord<T2> record) throws Exception {
+		long startTimestamp = System.nanoTime();
 		processElement(record, rightBuffer, leftBuffer, -upperBound, -lowerBound, false);
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	@SuppressWarnings("unchecked")

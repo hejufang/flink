@@ -86,7 +86,9 @@ public class KeyedProcessOperator<K, IN, OUT>
 	public void processElement(StreamRecord<IN> element) throws Exception {
 		collector.setTimestamp(element);
 		context.element = element;
+		long startTimestamp = System.nanoTime();
 		userFunction.processElement(element.getValue(), context, collector);
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 		context.element = null;
 	}
 

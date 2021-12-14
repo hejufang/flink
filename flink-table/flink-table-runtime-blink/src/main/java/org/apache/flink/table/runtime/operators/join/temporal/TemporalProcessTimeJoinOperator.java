@@ -85,6 +85,7 @@ public class TemporalProcessTimeJoinOperator
 
 	@Override
 	public void processElement1(StreamRecord<RowData> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		RowData rightSideRow = rightState.value();
 		RowData leftSideRow = element.getValue();
 		outRow.setRowKind(leftSideRow.getRowKind());
@@ -103,10 +104,12 @@ public class TemporalProcessTimeJoinOperator
 			collector.collect(outRow);
 		}
 		registerProcessingCleanupTimer();
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	@Override
 	public void processElement2(StreamRecord<RowData> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		if (RowDataUtil.isAccumulateMsg(element.getValue())) {
 			rightState.update(element.getValue());
 			registerProcessingCleanupTimer();
@@ -114,6 +117,7 @@ public class TemporalProcessTimeJoinOperator
 			rightState.clear();
 			cleanupLastTimer();
 		}
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	@Override

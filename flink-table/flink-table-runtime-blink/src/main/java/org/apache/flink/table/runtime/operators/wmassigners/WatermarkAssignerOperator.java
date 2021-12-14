@@ -105,6 +105,7 @@ public class WatermarkAssignerOperator
 
 	@Override
 	public void processElement(StreamRecord<RowData> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		if (idleTimeout > 0) {
 			// mark the channel active
 			streamStatusMaintainer.toggleStreamStatus(StreamStatus.ACTIVE);
@@ -127,6 +128,7 @@ public class WatermarkAssignerOperator
 		if (currentWatermark - lastWatermark > watermarkInterval) {
 			advanceWatermark();
 		}
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	private void advanceWatermark() {

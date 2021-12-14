@@ -94,6 +94,7 @@ public class StreamingSemiAntiJoinOperator extends AbstractStreamingJoinOperator
 	 */
 	@Override
 	public void processElement1(StreamRecord<RowData> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		RowData input = element.getValue();
 		AssociatedRecords associatedRecords = AssociatedRecords.of(input, true, rightRecordStateView, joinCondition);
 		if (associatedRecords.isEmpty()) {
@@ -114,6 +115,7 @@ public class StreamingSemiAntiJoinOperator extends AbstractStreamingJoinOperator
 			input.setRowKind(RowKind.INSERT);
 			leftRecordStateView.retractRecord(input);
 		}
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	/**
@@ -153,6 +155,7 @@ public class StreamingSemiAntiJoinOperator extends AbstractStreamingJoinOperator
 	 */
 	@Override
 	public void processElement2(StreamRecord<RowData> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		RowData input = element.getValue();
 		boolean isAccumulateMsg = RowDataUtil.isAccumulateMsg(input);
 		RowKind inputRowKind = input.getRowKind();
@@ -202,5 +205,6 @@ public class StreamingSemiAntiJoinOperator extends AbstractStreamingJoinOperator
 				}
 			} // ignore when associated number == 0
 		}
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 }

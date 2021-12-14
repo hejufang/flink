@@ -76,6 +76,7 @@ public class ProcTimeSortOperator extends BaseTemporalSortOperator {
 
 	@Override
 	public void processElement(StreamRecord<RowData> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		RowData input = element.getValue();
 		long currentTime = timerService.currentProcessingTime();
 
@@ -84,6 +85,7 @@ public class ProcTimeSortOperator extends BaseTemporalSortOperator {
 
 		// register a timer for the next millisecond to sort and emit buffered data
 		timerService.registerProcessingTimeTimer(currentTime + 1);
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	@Override

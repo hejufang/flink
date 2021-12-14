@@ -94,6 +94,7 @@ public class StreamSortOperator extends TableStreamOperator<RowData> implements
 
 	@Override
 	public void processElement(StreamRecord<RowData> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		RowData originalInput = element.getValue();
 		BinaryRowData input = rowDataSerializer.toBinaryRow(originalInput).copy();
 		input.setRowKind(RowKind.INSERT); // erase RowKind for state updating
@@ -109,6 +110,7 @@ public class StreamSortOperator extends TableStreamOperator<RowData> implements
 				inputBuffer.put(input, count - 1);
 			}
 		}
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	@Override

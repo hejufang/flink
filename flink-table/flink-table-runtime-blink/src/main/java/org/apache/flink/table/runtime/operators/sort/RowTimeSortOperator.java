@@ -95,6 +95,7 @@ public class RowTimeSortOperator extends BaseTemporalSortOperator {
 
 	@Override
 	public void processElement(StreamRecord<RowData> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		RowData input = element.getValue();
 
 		// timestamp of the processed row
@@ -119,6 +120,7 @@ public class RowTimeSortOperator extends BaseTemporalSortOperator {
 			}
 
 		}
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	@Override
