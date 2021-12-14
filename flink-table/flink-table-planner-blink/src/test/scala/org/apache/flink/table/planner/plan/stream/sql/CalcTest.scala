@@ -163,6 +163,10 @@ class CalcTest extends TableTestBase {
 
   @Test
   def testCastInCoalesce(): Unit = {
+    val conf: TableConfig = new TableConfig
+    conf.getConfiguration.setBoolean(
+      OptimizerConfigOptions.TABLE_OPTIMIZER_REDUCE_CAST_FALLBACK.key, false);
+    val util = batchTestUtil(conf)
     util.addTableSource[(String, Int, Timestamp)]("MyTable6", 'a, 'b, 'c)
     util.verifyPlan("SELECT COALESCE(CAST(c AS INT), 0) FROM MyTable6")
   }
