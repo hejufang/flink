@@ -123,7 +123,7 @@ public class TableConfigOptions {
 	public static final ConfigOption<Boolean> DETERMINISTIC_PROJECTION =
 		key("table.exec.deterministic-projection.enabled")
 			.booleanType()
-			.defaultValue(false)
+			.defaultValue(true)
 			.withDescription("This option controls whether ProjectionCodeGenerator will produce\n" +
 				"a deterministic order between different generation for same fields.");
 
