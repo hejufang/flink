@@ -512,6 +512,153 @@ public class JsonRowDataSerDeSchemaTest {
 		}
 	}
 
+	@Test
+	public void testSerUnwrappedFileds() throws Exception {
+		String[] unwrappedNames = {"unwrapped_map", "unwrapped_row"};
+
+		ObjectMapper objectMapper = new ObjectMapper();
+		ObjectNode root = objectMapper.createObjectNode();
+		root.put("regular_int_filed", 100);
+		root.put("map_shadowed_filed", "100");
+		root.putObject("unwrapped_map")
+				.put("nested_int", 200)
+				.put("map_shadowed_filed", 200)
+				.put("map_unshadowed_filed", 200);
+		root.putObject("regular_map")
+				.put("map_shadowed_filed", "300")
+				.put("map_unshadowed_filed", "300");
+		root.put("map_unshadowed_filed", 100.0);
+		root.putObject("row_shadowed_filed")
+				.put("flink", 123)
+				.put("json", 456);
+		ObjectNode nestedRow = objectMapper.createObjectNode();
+		nestedRow.put("nested_string", "nested_flink");
+		nestedRow.put("nested_double", 1000.0);
+		nestedRow.putObject("row_shadowed_filed").put("flink", "123").put("json", "456");
+		ObjectNode innerRow = objectMapper.createObjectNode().put("flink", 123).put("json", "456");
+		nestedRow.set("row_unshadowed_filed", innerRow);
+		root.set("unwrapped_row", nestedRow);
+		root.putObject("row_unshadowed_filed")
+				.put("flink", "123")
+				.put("json", 456);
+		byte[] serializedJson = objectMapper.writeValueAsBytes(root);
+
+		ObjectNode actualRoot = objectMapper.createObjectNode();
+		actualRoot.put("regular_int_filed", 100);
+		actualRoot.put("map_shadowed_filed", 200);
+		actualRoot.put("map_unshadowed_filed", 100.0);
+		actualRoot.put("nested_int", 200);
+		actualRoot.putObject("regular_map")
+			.put("map_shadowed_filed", "300")
+			.put("map_unshadowed_filed", "300");
+		actualRoot.putObject("row_shadowed_filed").put("json", "456").put("flink", "123");
+		actualRoot.put("nested_string", "nested_flink");
+		actualRoot.put("nested_double", 1000.0);
+		actualRoot.putObject("row_unshadowed_filed")
+			.put("flink", "123")
+			.put("json", 456);
+		byte[] actualJson = objectMapper.writeValueAsBytes(actualRoot);
+
+		DataType dataType = ROW(
+			FIELD("regular_int_filed", INT()),
+			FIELD("map_shadowed_filed", STRING()),
+			FIELD("unwrapped_map", MAP(STRING(), INT())),
+			FIELD("regular_map", MAP(STRING(), STRING())),
+			FIELD("map_unshadowed_filed", DOUBLE()),
+			FIELD("row_shadowed_filed", MAP(STRING(), INT())),
+			FIELD("unwrapped_row", ROW(
+					FIELD("nested_string", STRING()),
+					FIELD("nested_double", DOUBLE()),
+					FIELD("row_shadowed_filed", MAP(STRING(), STRING())),
+					FIELD("row_unshadowed_filed", ROW(
+							FIELD("flink", INT()),
+							FIELD("json", STRING()))))
+			),
+			FIELD("row_unshadowed_filed", ROW(
+					FIELD("flink", STRING()),
+					FIELD("json", INT()))
+			));
+		RowType schema = (RowType) dataType.getLogicalType();
+		RowDataTypeInfo resultTypeInfo = new RowDataTypeInfo(schema);
+
+		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
+				schema,
+				resultTypeInfo,
+				true,
+				false,
+				false,
+				TimestampFormat.ISO_8601);
+		RowData rowData = deserializationSchema.deserialize(serializedJson);
+
+		JsonRowDataSerializationSchema serializationSchema = JsonRowDataSerializationSchema.builder()
+				.setRowType(schema)
+				.setTimestampFormat(TimestampFormat.ISO_8601)
+				.setUnwrappedFiledNames(Arrays.asList(unwrappedNames))
+				.build();
+
+		byte[] actualBytes = serializationSchema.serialize(rowData);
+		assertEquals(new String(actualJson), new String(actualBytes));
+	}
+
+	@Test
+	public void testMapReuseIssueWhenUnwrapped() throws Exception {
+		DataType dataType = ROW(
+			FIELD("id", INT()),
+			FIELD("map", MAP(STRING(), INT())));
+		RowType schema = (RowType) dataType.getLogicalType();
+		RowDataTypeInfo resultTypeInfo = new RowDataTypeInfo(schema);
+		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
+			schema,
+			resultTypeInfo,
+			true,
+			false,
+			false,
+			TimestampFormat.ISO_8601);
+		String[] unwrappedNames = {"map"};
+		JsonRowDataSerializationSchema serializationSchema = JsonRowDataSerializationSchema.builder()
+			.setRowType(schema)
+			.setTimestampFormat(TimestampFormat.ISO_8601)
+			.setUnwrappedFiledNames(Arrays.asList(unwrappedNames))
+			.build();
+
+		// deserialize first record
+		ObjectMapper objectMapper = new ObjectMapper();
+		ObjectNode root = objectMapper.createObjectNode();
+		root.put("id", 100);
+		root.putObject("map")
+			.put("flink", 200)
+			.put("json", 200);
+		byte[] serializedJson = objectMapper.writeValueAsBytes(root);
+
+		ObjectNode actualRoot = objectMapper.createObjectNode();
+		actualRoot.put("id", 100);
+		actualRoot.put("json", 200);
+		actualRoot.put("flink", 200);
+		byte[] actualJson = objectMapper.writeValueAsBytes(actualRoot);
+
+		RowData rowData = deserializationSchema.deserialize(serializedJson);
+		byte[] actualBytes = serializationSchema.serialize(rowData);
+		assertEquals(new String(actualJson), new String(actualBytes));
+
+		// deserialize second record
+		root.removeAll();
+		root.put("id", 200);
+		root.putObject("map")
+			.put("json", 300)
+			.put("debug", 300);
+		serializedJson = objectMapper.writeValueAsBytes(root);
+
+		actualRoot.removeAll();
+		actualRoot.put("id", 200);
+		actualRoot.put("debug", 300);
+		actualRoot.put("json", 300);
+		actualJson = objectMapper.writeValueAsBytes(actualRoot);
+
+		rowData = deserializationSchema.deserialize(serializedJson);
+		actualBytes = serializationSchema.serialize(rowData);
+		assertEquals(new String(actualJson), new String(actualBytes));
+	}
+
 	private void testIgnoreParseErrors(TestSpec spec) throws Exception {
 		// the parsing field should be null and no exception is thrown
 		JsonRowDataDeserializationSchema ignoreErrorsSchema = new JsonRowDataDeserializationSchema(

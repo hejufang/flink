@@ -30,11 +30,13 @@ import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.LogicalTypeFamily;
+import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.table.types.logical.MultisetType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeChecks;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableSet;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
@@ -46,13 +48,16 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static org.apache.flink.formats.json.TimeFormats.ISO8601_TIMESTAMP_FORMAT;
 import static org.apache.flink.formats.json.TimeFormats.RFC3339_TIMESTAMP_FORMAT;
 import static org.apache.flink.formats.json.TimeFormats.SQL_TIMESTAMP_FORMAT;
 import static org.apache.flink.formats.json.TimeFormats.SQL_TIME_FORMAT;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * Serialization schema that serializes an object of Flink internal data structure into a JSON bytes.
@@ -94,10 +99,20 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 
 	private final String changelogColumnName;
 
+	private final Set<String> unwrappedFieldNames;
+
+	/**
+	 * @deprecated please use {@link JsonRowDataSerializationSchema.Builder}.
+	 */
+	@Deprecated
 	public JsonRowDataSerializationSchema(RowType rowType, TimestampFormat timestampFormat) {
 		this(rowType, timestampFormat, false, false, false, false,  "");
 	}
 
+	/**
+	 * @deprecated please use {@link JsonRowDataSerializationSchema.Builder}.
+	 */
+	@Deprecated
 	public JsonRowDataSerializationSchema(
 			RowType rowType,
 			TimestampFormat timestampFormat,
@@ -106,6 +121,25 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 			boolean byteAsJsonNode,
 			boolean encodeAsChangelog,
 			String changelogColumnName) {
+		this(rowType,
+			timestampFormat,
+			enforceUTF8Encoding,
+			ignoreNullValues,
+			byteAsJsonNode,
+			encodeAsChangelog,
+			changelogColumnName,
+			null);
+	}
+
+	private JsonRowDataSerializationSchema(
+			RowType rowType,
+			TimestampFormat timestampFormat,
+			boolean enforceUTF8Encoding,
+			boolean ignoreNullValues,
+			boolean byteAsJsonNode,
+			boolean encodeAsChangelog,
+			String changelogColumnName,
+			List<String> unwrappedFiledNameList) {
 		this.rowType = rowType;
 		this.timestampFormat = timestampFormat;
 		this.enforceUTF8Encoding = enforceUTF8Encoding;
@@ -114,6 +148,12 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 		this.runtimeConverter = createConverter(rowType);
 		this.encodeAsChangelog = encodeAsChangelog;
 		this.changelogColumnName = changelogColumnName;
+		// todo: use path search instead of name matching
+		if (unwrappedFiledNameList != null && !unwrappedFiledNameList.isEmpty()) {
+			this.unwrappedFieldNames = ImmutableSet.copyOf(unwrappedFiledNameList);
+		} else {
+			this.unwrappedFieldNames = null;
+		}
 	}
 
 	@Override
@@ -134,6 +174,109 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 		} catch (Throwable t) {
 			throw new RuntimeException("Could not serialize row '" + row + "'. " +
 				"Make sure that the schema matches the input.", t);
+		}
+	}
+
+	/**
+	 * Creates a builder for {@link JsonRowDataSerializationSchema.Builder}.
+	 */
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	/**
+	 * Builder of {@link JsonRowDataSerializationSchema}.
+	 */
+	public static class Builder {
+		private RowType rowType;
+		private TimestampFormat timestampFormat;
+		private boolean enforceUTF8Encoding = false;
+		private boolean ignoreNullValues = false;
+		private boolean byteAsJsonNode = false;
+		private boolean encodeAsChangelog = false;
+		private String changelogColumnName = "";
+		private List<String> unwrappedFiledNameList = null;
+
+		private Builder() {
+			// private constructor
+		}
+
+		/**
+		 * required, row data type.
+		 */
+		public Builder setRowType(RowType rowType) {
+			this.rowType = rowType;
+			return this;
+		}
+
+		/**
+		 * required, timestamp format.
+		 */
+		public Builder setTimestampFormat(TimestampFormat timestampFormat) {
+			this.timestampFormat = timestampFormat;
+			return this;
+		}
+
+		/**
+		 * optional.
+		 */
+		public Builder setEnforceUTF8Encoding(boolean enforceUTF8Encoding) {
+			this.enforceUTF8Encoding = enforceUTF8Encoding;
+			return this;
+		}
+
+		/**
+		 * optional.
+		 */
+		public Builder setIgnoreNullValues(boolean ignoreNullValues) {
+			this.ignoreNullValues = ignoreNullValues;
+			return this;
+		}
+
+		/**
+		 * optional.
+		 */
+		public Builder setByteAsJsonNode(boolean byteAsJsonNode) {
+			this.byteAsJsonNode = byteAsJsonNode;
+			return this;
+		}
+
+		/**
+		 * optional.
+		 */
+		public Builder setEncodeAsChangelog(boolean encodeAsChangelog) {
+			this.encodeAsChangelog = encodeAsChangelog;
+			return this;
+		}
+
+		/**
+		 * optional.
+		 */
+		public Builder setChangelogColumnName(String changelogColumnName) {
+			this.changelogColumnName = changelogColumnName;
+			return this;
+		}
+
+		/**
+		 * optional.
+		 */
+		public Builder setUnwrappedFiledNames(List<String> unwrappedFiledNameList) {
+			this.unwrappedFiledNameList = unwrappedFiledNameList;
+			return this;
+		}
+
+		public JsonRowDataSerializationSchema build() {
+			checkNotNull(rowType, "No row type is specified.");
+			checkNotNull(timestampFormat, "No timestamp format is sepcified.");
+			return new JsonRowDataSerializationSchema(
+				rowType,
+				timestampFormat,
+				enforceUTF8Encoding,
+				ignoreNullValues,
+				byteAsJsonNode,
+				encodeAsChangelog,
+				changelogColumnName,
+				unwrappedFiledNameList);
 		}
 	}
 
@@ -368,17 +511,33 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 				node = mapper.createObjectNode();
 			} else {
 				node = (ObjectNode) reuse;
+				if (unwrappedFieldNames != null) {
+					node.removeAll();
+				}
 			}
 			RowData row = (RowData) value;
 			for (int i = 0; i < fieldCount; i++) {
 				String fieldName = fieldNames[i];
 				Object field = RowData.get(row, i, fieldTypes[i]);
 				if (field != null || !ignoreNullValues) {
-					node.set(fieldName, fieldConverters[i].convert(mapper, node.get(fieldName), field));
+					JsonNode jsonNode = fieldConverters[i].convert(mapper, node.get(fieldName), field);
+					if (isUnwrapped(fieldName, fieldTypes[i])) {
+						node.setAll((ObjectNode) jsonNode);   // overwrite outside duplicate keys if any
+					} else {
+						node.set(fieldName, jsonNode);        // may overwrite previous unwrapped keys
+					}
 				}
 			}
 			return node;
 		};
+	}
+
+	private boolean isUnwrapped(String fieldName, LogicalType fieldType) {
+		if (unwrappedFieldNames == null || unwrappedFieldNames.isEmpty()) {
+			return false;
+		}
+		return (unwrappedFieldNames.contains(fieldName)) &&
+			(fieldType.getTypeRoot() == LogicalTypeRoot.ROW || fieldType.getTypeRoot() == LogicalTypeRoot.MAP);
 	}
 
 	private SerializationRuntimeConverter wrapIntoNullableConverter(

@@ -42,6 +42,7 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonParser.Fe
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -53,6 +54,7 @@ import static org.apache.flink.formats.json.JsonOptions.FAIL_ON_MISSING_FIELD;
 import static org.apache.flink.formats.json.JsonOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.json.JsonOptions.LOG_ERROR_RECORDS_INTERVAL;
 import static org.apache.flink.formats.json.JsonOptions.TIMESTAMP_FORMAT;
+import static org.apache.flink.formats.json.JsonOptions.UNWRAPPED_FIELD_NAMES;
 
 /**
  * Table format factory for providing configured instances of JSON to RowData
@@ -119,6 +121,7 @@ public class JsonFormatFactory implements
 		final boolean enforceUTF8Encoding = formatOptions.get(ENFORCE_UTF8_ENCODING);
 		final boolean ignoreNullValues = formatOptions.get(ENCODE_IGNORE_NULL_VALUES);
 		final boolean byteAsJsonNode = formatOptions.get(BYTES_AS_JSON_NODE);
+		final List<String> unwrappedFiledNameList = formatOptions.getOptional(UNWRAPPED_FIELD_NAMES).orElse(null);
 
 		return new EncodingFormat<SerializationSchema<RowData>>() {
 			@Override
@@ -126,14 +129,14 @@ public class JsonFormatFactory implements
 					DynamicTableSink.Context context,
 					DataType consumedDataType) {
 				final RowType rowType = (RowType) consumedDataType.getLogicalType();
-				return new JsonRowDataSerializationSchema(
-					rowType,
-					timestampOption,
-					enforceUTF8Encoding,
-					ignoreNullValues,
-					byteAsJsonNode,
-					false,
-					"");
+				return JsonRowDataSerializationSchema.builder()
+						.setRowType(rowType)
+						.setTimestampFormat(timestampOption)
+						.setEnforceUTF8Encoding(enforceUTF8Encoding)
+						.setIgnoreNullValues(ignoreNullValues)
+						.setByteAsJsonNode(byteAsJsonNode)
+						.setUnwrappedFiledNames(unwrappedFiledNameList)
+						.build();
 			}
 
 			@Override
@@ -164,6 +167,7 @@ public class JsonFormatFactory implements
 		options.add(ENFORCE_UTF8_ENCODING);
 		options.add(ENCODE_IGNORE_NULL_VALUES);
 		options.add(BYTES_AS_JSON_NODE);
+		options.add(UNWRAPPED_FIELD_NAMES);
 		return options;
 	}
 

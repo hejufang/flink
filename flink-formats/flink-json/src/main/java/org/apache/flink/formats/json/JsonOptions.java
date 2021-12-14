@@ -23,6 +23,7 @@ import org.apache.flink.configuration.ConfigOptions;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 /**
  * This class holds configuration constants used by json format.
@@ -81,5 +82,12 @@ public class JsonOptions {
 			.booleanType()
 			.defaultValue(false)
 			.withDescription("Optional flag to ignore null values during encoding.");
+
+	public static final ConfigOption<List<String>> UNWRAPPED_FIELD_NAMES = ConfigOptions
+			.key("unwrapped-filed-names")
+			.stringType()
+			.asList()
+			.noDefaultValue()
+			.withDescription("Optional flag to unwrap row/map during encoding.");
 
 }
