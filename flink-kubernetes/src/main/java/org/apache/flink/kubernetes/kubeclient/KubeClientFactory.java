@@ -81,8 +81,9 @@ public class KubeClientFactory {
 		config.setNamespace(namespace);
 
 		final NamespacedKubernetesClient client = new DefaultKubernetesClient(config);
-
-		return new Fabric8FlinkKubeClient(flinkConfig, client, KubeClientFactory::createThreadPoolForAsyncIO);
+		final int poolSize =
+			flinkConfig.get(KubernetesConfigOptions.KUBERNETES_CLIENT_IO_EXECUTOR_POOL_SIZE);
+		return new Fabric8FlinkKubeClient(flinkConfig, client, () -> KubeClientFactory.createThreadPoolForAsyncIO(poolSize));
 	}
 
 	@VisibleForTesting
@@ -99,7 +100,7 @@ public class KubeClientFactory {
 		}
 	}
 
-	private static ExecutorService createThreadPoolForAsyncIO() {
-		return Executors.newFixedThreadPool(2, new ExecutorThreadFactory("FlinkKubeClient-IO"));
+	private static ExecutorService createThreadPoolForAsyncIO(int poolSize) {
+		return Executors.newFixedThreadPool(poolSize, new ExecutorThreadFactory("FlinkKubeClient-IO"));
 	}
 }

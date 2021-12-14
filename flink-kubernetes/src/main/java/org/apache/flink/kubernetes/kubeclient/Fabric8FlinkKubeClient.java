@@ -78,6 +78,8 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 	private final String namespace;
 	private final int maxRetryAttempts;
 
+	private Deployment masterDeployment = null;
+
 	private final ExecutorService kubeClientExecutorService;
 
 	public Fabric8FlinkKubeClient(
@@ -117,14 +119,15 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 
 	@Override
 	public CompletableFuture<Void> createTaskManagerPod(KubernetesPod kubernetesPod) {
+		if (masterDeployment == null){
+			masterDeployment = this.internalClient
+				.apps()
+				.deployments()
+				.withName(KubernetesUtils.getDeploymentName(clusterId))
+				.get();
+		}
 		return CompletableFuture.runAsync(
 			() -> {
-				final Deployment masterDeployment = this.internalClient
-					.apps()
-					.deployments()
-					.withName(KubernetesUtils.getDeploymentName(clusterId))
-					.get();
-
 				if (masterDeployment == null) {
 					throw new RuntimeException(
 						"Failed to find Deployment named " + clusterId + " in namespace " + this.namespace);
