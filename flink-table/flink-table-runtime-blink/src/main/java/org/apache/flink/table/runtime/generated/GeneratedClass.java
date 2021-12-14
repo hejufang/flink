@@ -28,6 +28,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * to get an instance by reference objects easily.
  */
 public abstract class GeneratedClass<T> implements Serializable {
+	private static final long serialVersionUID = 6170410716745042722L;
 
 	private final String className;
 	private final String code;
@@ -112,7 +113,15 @@ public abstract class GeneratedClass<T> implements Serializable {
 	@Override
 	public boolean equals(Object obj) {
 		if (obj instanceof GeneratedClass) {
-			return Arrays.deepEquals(((GeneratedClass) obj).sourcesForGenerating, this.sourcesForGenerating);
+			GeneratedClass generatedClass = (GeneratedClass) obj;
+			if (generatedClass.sourcesForGenerating == null || this.sourcesForGenerating == null) {
+				//For backward compatibility, as the old serialized object doesn't contain sourcesForGenerating.
+				return this.getClassName().equals(generatedClass.getClassName()) &&
+					this.getCode().equals(generatedClass.getCode()) &&
+					Arrays.equals(this.getReferences(), generatedClass.getReferences());
+			} else {
+				return Arrays.deepEquals(generatedClass.sourcesForGenerating, this.sourcesForGenerating);
+			}
 		} else {
 			return false;
 		}

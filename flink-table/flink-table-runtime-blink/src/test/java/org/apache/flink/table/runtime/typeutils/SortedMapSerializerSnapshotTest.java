@@ -46,6 +46,33 @@ public class SortedMapSerializerSnapshotTest {
 	@Test
 	public void testGeneratedComparatorChanged() throws IOException {
 		GeneratedRecordComparator oldGeneratedComparator =
+			new GeneratedRecordComparator("Class1", "compare1", new Object[0], new Object[]{"sample"});
+		Comparator<RowData> oldComparatorWrapper = new RetractableTopNFunction.ComparatorWrapper(oldGeneratedComparator);
+		SortedMapTypeInfo<RowData, Integer> oldTypeInfo =
+			new SortedMapTypeInfo<>(
+				new RowDataTypeInfo(new IntType()),
+				BasicTypeInfo.INT_TYPE_INFO,
+				oldComparatorWrapper);
+		TypeSerializer<SortedMap<RowData, Integer>> oldTypeSerializer = oldTypeInfo.createSerializer(new ExecutionConfig());
+
+		GeneratedRecordComparator newGeneratedComparator =
+			new GeneratedRecordComparator("Class2", "compare2", new Object[0], new Object[]{"sample"});
+		Comparator<RowData> newComparatorWrapper = new RetractableTopNFunction.ComparatorWrapper(newGeneratedComparator);
+		SortedMapTypeInfo<RowData, Integer> newTypeInfo =
+			new SortedMapTypeInfo<>(
+				new RowDataTypeInfo(new IntType()),
+				BasicTypeInfo.INT_TYPE_INFO,
+				newComparatorWrapper);
+		TypeSerializer<SortedMap<RowData, Integer>> newTypeSerializer = newTypeInfo.createSerializer(new ExecutionConfig());
+
+		TypeSerializerSchemaCompatibility<SortedMap<RowData, Integer>> actualSchemaCompatibility =
+			snapshotSerializerAndGetSchemaCompatibilityAfterRestore(oldTypeSerializer, newTypeSerializer);
+		assertTrue(actualSchemaCompatibility.isCompatibleAsIs());
+	}
+
+	@Test
+	public void testGeneratedComparatorBackwardCompatibility() throws IOException {
+		GeneratedRecordComparator oldGeneratedComparator =
 			new GeneratedRecordComparator("Class1", "compare1", new Object[0]);
 		Comparator<RowData> oldComparatorWrapper = new RetractableTopNFunction.ComparatorWrapper(oldGeneratedComparator);
 		SortedMapTypeInfo<RowData, Integer> oldTypeInfo =
@@ -56,7 +83,7 @@ public class SortedMapSerializerSnapshotTest {
 		TypeSerializer<SortedMap<RowData, Integer>> oldTypeSerializer = oldTypeInfo.createSerializer(new ExecutionConfig());
 
 		GeneratedRecordComparator newGeneratedComparator =
-			new GeneratedRecordComparator("Class2", "compare2", new Object[0]);
+			new GeneratedRecordComparator("Class1", "compare1", new Object[0], new Object[]{"sample"});
 		Comparator<RowData> newComparatorWrapper = new RetractableTopNFunction.ComparatorWrapper(newGeneratedComparator);
 		SortedMapTypeInfo<RowData, Integer> newTypeInfo =
 			new SortedMapTypeInfo<>(
