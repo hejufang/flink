@@ -61,6 +61,8 @@ public class MetricNames {
 	public static final String NUM_REGISTERED_TASK_MANAGERS = "numRegisteredTaskManagers";
 	public static final String WORKER_FAILURE_RATE = "workerFailureRate";
 
+	public static final String NUM_JOB_REQUIRED_WORKERS = "numJobRequiredWorkers";
+
 	public static final String NUM_RESTARTS = "numRestarts";
 
 	@Deprecated

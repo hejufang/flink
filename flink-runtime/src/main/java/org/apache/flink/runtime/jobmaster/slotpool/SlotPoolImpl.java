@@ -561,8 +561,12 @@ public class SlotPoolImpl implements SlotPool {
 			log.debug("Fulfilling pending slot request [{}] early with returned slot [{}]",
 				pendingRequest.getSlotRequestId(), allocatedSlot.getAllocationId());
 
-			allocatedSlots.add(pendingRequest.getSlotRequestId(), allocatedSlot);
-			pendingRequest.getAllocatedSlotFuture().complete(allocatedSlot);
+			if (pendingRequest.getAllocatedSlotFuture().complete(allocatedSlot)) {
+				allocatedSlots.add(pendingRequest.getSlotRequestId(), allocatedSlot);
+			} else {
+				log.warn("PendingRequest {} is already fulfilled by other allocated slot, will try another PendingRequest.", pendingRequest.getSlotRequestId());
+				tryFulfillSlotRequestOrMakeAvailable(allocatedSlot);
+			}
 		} else {
 			markSlotAvailable(allocatedSlot);
 		}

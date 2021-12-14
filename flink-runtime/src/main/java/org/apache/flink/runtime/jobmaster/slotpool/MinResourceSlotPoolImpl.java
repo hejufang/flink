@@ -36,7 +36,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -46,7 +45,7 @@ import java.util.stream.Collectors;
 /**
  * SlotPool which allocate min resources before offer slots.
  */
-public abstract class MinResourceSlotPoolImpl extends SlotPoolImpl {
+public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 	private final Map<ResourceProfile, Integer> requiredResourceNumber = new HashMap<>();
 
 	// requested ResourceProfile
@@ -209,11 +208,8 @@ public abstract class MinResourceSlotPoolImpl extends SlotPoolImpl {
 	protected boolean tryFulFillPendingRequiredResources(PendingRequest pendingRequest, AllocatedSlot allocatedSlot) {
 		componentMainThreadExecutor.assertRunningInMainThread();
 		ResourceProfile resourceProfile = pendingRequest.getResourceProfile();
-		if (allocatedRequiredResources.getOrDefault(resourceProfile, Collections.emptySet()).contains(allocatedSlot)) {
-			log.debug("Allocated slot {} already in allocatedRequiredResources, ignore.", allocatedSlot);
-			return false;
-		}
 		if (pendingRequiredResources.getOrDefault(resourceProfile, Collections.emptySet()).contains(pendingRequest)) {
+			removePendingRequest(pendingRequest.getSlotRequestId());
 			markSlotAvailable(allocatedSlot);
 			pendingRequest.getAllocatedSlotFuture().complete(allocatedSlot);
 			return true;
@@ -225,25 +221,18 @@ public abstract class MinResourceSlotPoolImpl extends SlotPoolImpl {
 	protected boolean tryFulFillPendingRequiredResources(AllocatedSlot allocatedSlot) {
 		componentMainThreadExecutor.assertRunningInMainThread();
 		ResourceProfile resourceProfile = allocatedSlot.getResourceProfile();
-		if (allocatedRequiredResources.getOrDefault(resourceProfile, Collections.emptySet()).contains(allocatedSlot)) {
-			log.debug("Allocated slot {} already in allocatedRequiredResources, ignore.", allocatedSlot);
-			return false;
-		}
-
-		Optional<PendingRequest> pendingRequest = pollMatchingPendingRequiredRequest(allocatedSlot);
-		return pendingRequest
-				.filter(request -> tryFulFillPendingRequiredResources(request, allocatedSlot))
-				.isPresent();
-	}
-
-	private Optional<PendingRequest> pollMatchingPendingRequiredRequest(final AllocatedSlot slot) {
-		ResourceProfile resourceProfile = slot.getResourceProfile();
 		for (Map.Entry<ResourceProfile, Set<PendingRequest>> entry : pendingRequiredResources.entrySet()) {
 			if (resourceProfile.isMatching(entry.getKey()) && !entry.getValue().isEmpty()) {
-				return entry.getValue().stream().findFirst();
+				for (PendingRequest pendingRequest : entry.getValue()) {
+					if (tryFulFillPendingRequiredResources(pendingRequest, allocatedSlot)) {
+						return true;
+					} else {
+						log.error("try to fulfill PendingRequest {} failed, it is a bug.", pendingRequest.getSlotRequestId());
+					}
+				}
 			}
 		}
-		return Optional.empty();
+		return false;
 	}
 
 	@Override

@@ -73,7 +73,8 @@ global:
         cloudShuffleOutputBytes,
         cloudShuffleInputBytes,
         allocateFromAvailableFailedNumber,
-        numberOfDiscardExpiredCheckpointFolder
+        numberOfDiscardExpiredCheckpointFolder,
+        numJobRequiredWorkers
     ]
 
 non-global:

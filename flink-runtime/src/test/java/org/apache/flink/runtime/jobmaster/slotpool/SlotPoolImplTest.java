@@ -46,10 +46,10 @@ import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
 import org.apache.flink.runtime.taskmanager.LocalTaskManagerLocation;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.testingUtils.TestingUtils;
-import org.apache.flink.util.clock.ManualClock;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.TestLogger;
+import org.apache.flink.util.clock.ManualClock;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
 
@@ -72,11 +72,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -85,7 +82,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.closeTo;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -741,246 +737,6 @@ public class SlotPoolImplTest extends TestLogger {
 			}
 		}
 	}
-
-	// -----------------
-
-	@Test
-	public void testRequiredResource() throws Exception {
-		SlotPoolImpl slotPool = createSlotPoolImpl();
-		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
-		requiredResource.put(ResourceProfile.UNKNOWN, 10);
-		slotPool.setRequiredResourceNumber(requiredResource);
-		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-
-		final ArrayBlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(10);
-			resourceManagerGateway.setRequestSlotConsumer(
-				slotRequest -> allocationIds.offer(slotRequest.getAllocationId()));
-		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
-		assertEquals(10, allocationIds.size());
-
-		final List<SlotOffer> slotOffers = new ArrayList<>(10);
-
-		for (int i = 0; i < 10; i++) {
-			slotOffers.add(new SlotOffer(allocationIds.take(), i, ResourceProfile.ANY));
-		}
-
-		slotPool.registerTaskManager(taskManagerLocation.getResourceID());
-		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
-
-		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-		assertEquals(10, slotPool.getAvailableSlotsInformation().size());
-	}
-
-	@Test
-	public void testRequiredResourceFulFilledByFree() throws Exception {
-		SlotPoolImpl slotPool = createSlotPoolImpl();
-		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
-		requiredResource.put(ResourceProfile.UNKNOWN, 10);
-		slotPool.setRequiredResourceNumber(requiredResource);
-		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-
-		final ArrayBlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(10);
-		resourceManagerGateway.setRequestSlotConsumer(
-				slotRequest -> allocationIds.offer(slotRequest.getAllocationId()));
-		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
-		assertEquals(10, allocationIds.size());
-
-		final List<SlotOffer> slotOffers = new ArrayList<>(10);
-
-		for (int i = 0; i < 9; i++) {
-			slotOffers.add(new SlotOffer(allocationIds.take(), i, ResourceProfile.ANY));
-		}
-		slotOffers.add(new SlotOffer(new AllocationID(), 9, ResourceProfile.ANY));
-
-		slotPool.registerTaskManager(taskManagerLocation.getResourceID());
-		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
-
-		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-		assertEquals(10, slotPool.getAvailableSlotsInformation().size());
-	}
-
-	@Test
-	public void testRequestRequiredResourceWhenFailAllocation() throws Exception {
-		SlotPoolImpl slotPool = createSlotPoolImpl();
-		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
-		requiredResource.put(ResourceProfile.UNKNOWN, 10);
-		slotPool.setRequiredResourceNumber(requiredResource);
-		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-
-		final ArrayBlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(10);
-			resourceManagerGateway.setRequestSlotConsumer(
-				slotRequest -> allocationIds.offer(slotRequest.getAllocationId()));
-		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
-		assertEquals(10, allocationIds.size());
-
-		// pending request failed.
-		slotPool.failAllocation(allocationIds.take(), new Exception("Expected."));
-
-		assertEquals(10, allocationIds.size());
-
-		final List<SlotOffer> slotOffers = new ArrayList<>(10);
-
-		AllocationID allocationID = allocationIds.peek();
-
-		for (int i = 0; i < 3; i++) {
-			slotOffers.add(new SlotOffer(allocationIds.take(), i, ResourceProfile.ANY));
-		}
-
-		slotPool.registerTaskManager(taskManagerLocation.getResourceID());
-		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
-		assertEquals(3, slotPool.getAvailableSlotsInformation().size());
-
-		// allocated slot failed.
-		slotPool.failAllocation(allocationID, new Exception("Expected."));
-
-		assertEquals(8, allocationIds.size());
-		assertEquals(2, slotPool.getAvailableSlotsInformation().size());
-
-		slotOffers.clear();
-		for (int i = 0; i < 8; i++) {
-			slotOffers.add(new SlotOffer(allocationIds.take(), i, ResourceProfile.ANY));
-		}
-
-		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
-
-		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-		assertEquals(0, allocationIds.size());
-		assertEquals(10, slotPool.getAvailableSlotsInformation().size());
-
-		// task manager released.
-		slotPool.releaseTaskManager(taskManagerLocation.getResourceID(), new Exception("Expected."));
-		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-		assertEquals(10, allocationIds.size());
-		assertEquals(0, slotPool.getAvailableSlotsInformation().size());
-	}
-
-	@Test
-	public void testRequiredResourceSlotPoolIdleCheck() throws Exception {
-		ManualClock clock = new ManualClock();
-		TestingSlotPoolImpl slotPool = createSlotPoolImpl(clock);
-		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
-		requiredResource.put(ResourceProfile.UNKNOWN, 10);
-		slotPool.setRequiredResourceNumber(requiredResource);
-		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-
-		final ArrayBlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(10);
-			resourceManagerGateway.setRequestSlotConsumer(
-				slotRequest -> allocationIds.offer(slotRequest.getAllocationId()));
-		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
-		assertEquals(10, allocationIds.size());
-
-		final List<SlotOffer> slotOffers = new ArrayList<>(10);
-
-		for (int i = 0; i < 10; i++) {
-			slotOffers.add(new SlotOffer(allocationIds.take(), i, ResourceProfile.ANY));
-		}
-
-		slotPool.registerTaskManager(taskManagerLocation.getResourceID());
-		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
-
-		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-		assertEquals(10, slotPool.getAvailableSlotsInformation().size());
-
-		slotPool.offerSlot(taskManagerLocation, taskManagerGateway, new SlotOffer(new AllocationID(), 10, ResourceProfile.ANY));
-		assertEquals(11, slotPool.getAvailableSlotsInformation().size());
-
-		clock.advanceTime(11, TimeUnit.SECONDS);
-		slotPool.triggerCheckIdleSlot();
-
-		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-		assertEquals(10, slotPool.getAvailableSlotsInformation().size());
-	}
-
-	@Test
-	public void testRequireResourceSlotPoolSuspendAndClose() throws Exception {
-		SlotPoolImpl slotPool = createSlotPoolImpl();
-		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
-		requiredResource.put(ResourceProfile.UNKNOWN, 10);
-		slotPool.setRequiredResourceNumber(requiredResource);
-		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-		final ArrayBlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(10);
-		resourceManagerGateway.setRequestSlotConsumer(slotRequest -> allocationIds.offer(slotRequest.getAllocationId()));
-		resourceManagerGateway.setCancelSlotConsumer(allocationIds::remove);
-		final ArrayBlockingQueue<AllocationID> freeAllocations = new ArrayBlockingQueue<>(10);
-		taskManagerGateway.setFreeSlotFunction((allocationId, t) -> {
-			freeAllocations.offer(allocationId);
-			return CompletableFuture.completedFuture(Acknowledge.get());
-		});
-		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
-		assertEquals(10, allocationIds.size());
-
-		// suspend slot pool will cancel all requests.
-		slotPool.suspend();
-		assertEquals(0, allocationIds.size());
-
-		// start slot pool will request 10 slot for required resources.
-		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
-		assertEquals(10, allocationIds.size());
-
-		final List<SlotOffer> slotOffers = new ArrayList<>(10);
-		for (int i = 0; i < 10; i++) {
-			slotOffers.add(new SlotOffer(allocationIds.take(), i, ResourceProfile.ANY));
-		}
-
-		slotPool.registerTaskManager(taskManagerLocation.getResourceID());
-		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
-
-		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-		assertEquals(10, slotPool.getAvailableSlotsInformation().size());
-
-		// suspend slot pool will not call taskmanager.free
-		slotPool.suspend();
-		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-		assertEquals(0, slotPool.getAvailableSlotsInformation().size());
-		assertEquals(0, freeAllocations.size());
-
-		// start slot pool again, and old taskmanager slots will offer to this slotpool
-		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
-		assertEquals(10, allocationIds.size());
-		slotPool.registerTaskManager(taskManagerLocation.getResourceID());
-		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
-		assertEquals(10, slotPool.getAvailableSlotsInformation().size());
-		assertEquals(0, allocationIds.size());
-
-		// close slot pool will free taskmanager slots.
-		slotPool.close();
-		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-		assertEquals(0, slotPool.getAvailableSlotsInformation().size());
-		assertEquals(10, freeAllocations.size());
-	}
-
-	@Test
-	public void testSlotPoolMinResourceFutureTimeout() throws Exception {
-		SlotPoolImpl slotPool = createSlotPoolImpl();
-		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
-		requiredResource.put(ResourceProfile.UNKNOWN, 10);
-		slotPool.setRequiredResourceNumber(requiredResource);
-		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
-
-		final ScheduledExecutorService singleThreadExecutor = Executors.newSingleThreadScheduledExecutor();
-		final ComponentMainThreadExecutor componentMainThreadExecutor = ComponentMainThreadExecutorServiceAdapter.forSingleThreadExecutor(singleThreadExecutor);
-		componentMainThreadExecutor.execute(
-				() -> {
-					try {
-						setupSlotPool(slotPool, resourceManagerGateway, componentMainThreadExecutor);
-					} catch (Exception e) {
-						throw new RuntimeException(e);
-					}
-				}
-		);
-
-		final CompletableFuture<Acknowledge> minResourceFuture = CompletableFuture
-				.supplyAsync(() -> slotPool.getRequiredResourceSatisfiedFutureWithTimeout(Time.milliseconds(1000)), componentMainThreadExecutor)
-				.thenCompose(Function.identity());
-		try {
-			minResourceFuture.get();
-			fail("Expected that the future completes with a TimeoutException.");
-		} catch (Exception e) {
-			assertThat(ExceptionUtils.stripExecutionException(e), instanceOf(TimeoutException.class));
-		}
-	}
-
-	// -----------------
 
 	private List<AllocationID> registerAndOfferSlots(TaskManagerLocation taskManagerLocation, SlotPoolImpl slotPool, int numberOfSlotsToRegister) {
 		slotPool.registerTaskManager(taskManagerLocation.getResourceID());

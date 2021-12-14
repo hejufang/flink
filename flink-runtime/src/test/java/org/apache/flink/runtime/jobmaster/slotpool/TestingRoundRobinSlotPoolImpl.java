@@ -32,14 +32,14 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Testing extension of the {@link SlotPoolImpl} which adds additional methods
+ * Testing extension of the {@link RoundRobinSlotPoolImpl} which adds additional methods
  * for testing.
  */
-public class TestingSlotPoolImpl extends SlotPoolImpl {
+public class TestingRoundRobinSlotPoolImpl extends RoundRobinSlotPoolImpl {
 
 	private ResourceProfile lastRequestedSlotResourceProfile;
 
-	public TestingSlotPoolImpl(JobID jobId) {
+	public TestingRoundRobinSlotPoolImpl(JobID jobId) {
 		this(
 			jobId,
 			SystemClock.getInstance(),
@@ -48,7 +48,7 @@ public class TestingSlotPoolImpl extends SlotPoolImpl {
 			Time.milliseconds(JobManagerOptions.SLOT_IDLE_TIMEOUT.defaultValue()));
 	}
 
-	public TestingSlotPoolImpl(
+	public TestingRoundRobinSlotPoolImpl(
 			JobID jobId,
 			Clock clock,
 			Time rpcTimeout,
@@ -59,10 +59,6 @@ public class TestingSlotPoolImpl extends SlotPoolImpl {
 
 	void triggerCheckIdleSlot() {
 		runAsync(this::checkIdleSlot);
-	}
-
-	void triggerCheckBatchSlotTimeout() {
-		runAsync(this::checkBatchSlotTimeout);
 	}
 
 	@Override

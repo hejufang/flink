@@ -359,6 +359,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			TagGauge jobVersionTagGauge = new TagGauge.TagGaugeBuilder().build();
 			jobVersionTagGauge.addMetric(1, createVersionTagValues());
 			jobManagerJobMetricGroup.gauge("jobVersion", jobVersionTagGauge);
+			jobManagerJobMetricGroup.gauge(MetricNames.NUM_JOB_REQUIRED_WORKERS, () -> jobInfo.getInitialTaskManagers() + jobInfo.getInitialExtraTaskManagers());
 		}
 	}
 

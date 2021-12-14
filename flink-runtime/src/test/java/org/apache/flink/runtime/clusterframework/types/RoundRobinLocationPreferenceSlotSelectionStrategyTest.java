@@ -28,7 +28,7 @@ import org.apache.flink.runtime.jobmaster.slotpool.LocationPreferenceSlotSelecti
 import org.apache.flink.runtime.jobmaster.slotpool.RoundRobinLocationPreferenceSlotSelectionStrategy;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotPool;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotSelectionStrategy;
-import org.apache.flink.runtime.jobmaster.slotpool.TestingSlotPoolImpl;
+import org.apache.flink.runtime.jobmaster.slotpool.TestingRoundRobinSlotPoolImpl;
 import org.apache.flink.runtime.resourcemanager.utils.TestingResourceManagerGateway;
 import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
 
@@ -41,7 +41,7 @@ import java.util.Optional;
  * Tests for {@link RoundRobinLocationPreferenceSlotSelectionStrategy}.
  */
 public class RoundRobinLocationPreferenceSlotSelectionStrategyTest extends PreviousAllocationSlotSelectionStrategyTest {
-	private final SlotPool slotPool = new TestingSlotPoolImpl(new JobID());
+	private final SlotPool slotPool = new TestingRoundRobinSlotPoolImpl(new JobID());
 
 	private SimpleAckingTaskManagerGateway taskManagerGateway;
 
