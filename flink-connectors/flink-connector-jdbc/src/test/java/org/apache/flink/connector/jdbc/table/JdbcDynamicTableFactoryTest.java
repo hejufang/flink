@@ -73,6 +73,7 @@ public class JdbcDynamicTableFactoryTest {
 			.setUsername("user")
 			.setPassword("pass")
 			.setUseBytedanceMysql(false)
+			.setPsm("inf.flink.default_psm")
 			.build();
 		JdbcLookupOptions lookupOptions = JdbcLookupOptions.builder()
 			.setCacheMaxSize(-1)
@@ -124,6 +125,7 @@ public class JdbcDynamicTableFactoryTest {
 			.setTableName("mytable")
 			.setDriverName("com.mysql.jdbc.Driver")
 			.setUseBytedanceMysql(false)
+			.setPsm("inf.flink.default_psm")
 			.build();
 		JdbcReadOptions readOptions = JdbcReadOptions.builder()
 			.setPartitionColumnName("aaa")
@@ -160,6 +162,7 @@ public class JdbcDynamicTableFactoryTest {
 			.setTableName("mytable")
 			.setDriverName("com.mysql.jdbc.Driver")
 			.setUseBytedanceMysql(false)
+			.setPsm("inf.flink.default_psm")
 			.build();
 		JdbcLookupOptions lookupOptions = JdbcLookupOptions.builder()
 			.setCacheMaxSize(1000)
@@ -189,6 +192,7 @@ public class JdbcDynamicTableFactoryTest {
 			.setTableName("mytable")
 			.setDriverName("com.mysql.jdbc.Driver")
 			.setUseBytedanceMysql(false)
+			.setPsm("inf.flink.default_psm")
 			.build();
 		JdbcExecutionOptions executionOptions = JdbcExecutionOptions.builder()
 			.withBatchSize(1000)

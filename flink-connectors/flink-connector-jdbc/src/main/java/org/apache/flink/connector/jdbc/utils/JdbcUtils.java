@@ -18,6 +18,11 @@
 
 package org.apache.flink.connector.jdbc.utils;
 
+import org.apache.flink.table.data.DecimalData;
+import org.apache.flink.table.data.StringData;
+import org.apache.flink.table.data.TimestampData;
+import org.apache.flink.table.types.logical.DecimalType;
+import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.types.Row;
 
 import org.slf4j.Logger;
@@ -199,6 +204,99 @@ public class JdbcUtils {
 				break;
 			case java.sql.Types.TIMESTAMP:
 				ret = set.getTimestamp(index + 1);
+				break;
+			case java.sql.Types.BINARY:
+			case java.sql.Types.VARBINARY:
+			case java.sql.Types.LONGVARBINARY:
+				ret = set.getBytes(index + 1);
+				break;
+			default:
+				ret = set.getObject(index + 1);
+				LOG.warn("Unmanaged sql type ({}) for column {}. Best effort approach to get its value: {}.",
+					type, index + 1, ret);
+				break;
+
+			// case java.sql.Types.SQLXML
+			// case java.sql.Types.ARRAY:
+			// case java.sql.Types.JAVA_OBJECT:
+			// case java.sql.Types.BLOB:
+			// case java.sql.Types.CLOB:
+			// case java.sql.Types.NCLOB:
+			// case java.sql.Types.DATALINK:
+			// case java.sql.Types.DISTINCT:
+			// case java.sql.Types.OTHER:
+			// case java.sql.Types.REF:
+			// case java.sql.Types.ROWID:
+			// case java.sql.Types.STRUC
+		}
+
+		if (set.wasNull()) {
+			return null;
+		} else {
+			return ret;
+		}
+	}
+
+	/**
+	 * This is copied from {@link #getFieldFromResultSet(int, int, ResultSet)}, which is the old connector's impl.
+	 * Modified for string/decimal/timestamp/date/time types, because they have corresponding internal data representation.
+	 */
+	public static Object getInternalFieldDataFromResultSet(
+			int index,
+			int type,
+			ResultSet set,
+			LogicalType logicalType) throws SQLException {
+		Object ret;
+		switch (type) {
+			case java.sql.Types.NULL:
+				ret = null;
+				break;
+			case java.sql.Types.BOOLEAN:
+			case java.sql.Types.BIT:
+				ret = set.getBoolean(index + 1);
+				break;
+			case java.sql.Types.CHAR:
+			case java.sql.Types.NCHAR:
+			case java.sql.Types.VARCHAR:
+			case java.sql.Types.LONGVARCHAR:
+			case java.sql.Types.LONGNVARCHAR:
+				ret = StringData.fromString(set.getString(index + 1));
+				break;
+			case java.sql.Types.TINYINT:
+				ret = set.getByte(index + 1);
+				break;
+			case java.sql.Types.SMALLINT:
+				ret = set.getShort(index + 1);
+				break;
+			case java.sql.Types.INTEGER:
+				ret = set.getInt(index + 1);
+				break;
+			case java.sql.Types.BIGINT:
+				ret = set.getLong(index + 1);
+				break;
+			case java.sql.Types.REAL:
+				ret = set.getFloat(index + 1);
+				break;
+			case java.sql.Types.FLOAT:
+			case java.sql.Types.DOUBLE:
+				ret = set.getDouble(index + 1);
+				break;
+			case java.sql.Types.DECIMAL:
+			case java.sql.Types.NUMERIC:
+				DecimalType decimalType = (DecimalType) logicalType;
+				ret = DecimalData.fromBigDecimal(
+					set.getBigDecimal(index + 1),
+					decimalType.getPrecision(),
+					decimalType.getScale());
+				break;
+			case java.sql.Types.DATE:
+				ret = (int) set.getDate(index + 1).toLocalDate().toEpochDay();
+				break;
+			case java.sql.Types.TIME:
+				ret = (int) (set.getTime(index + 1).toLocalTime().toNanoOfDay() / 1_000_000L);
+				break;
+			case java.sql.Types.TIMESTAMP:
+				ret = TimestampData.fromTimestamp(set.getTimestamp(index + 1));
 				break;
 			case java.sql.Types.BINARY:
 			case java.sql.Types.VARBINARY:

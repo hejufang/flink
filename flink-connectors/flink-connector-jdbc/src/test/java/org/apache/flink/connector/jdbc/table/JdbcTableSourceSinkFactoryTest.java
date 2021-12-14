@@ -34,6 +34,7 @@ import org.apache.flink.table.sources.TableSourceValidation;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -48,6 +49,7 @@ import static org.junit.Assert.fail;
  * Test for {@link JdbcTableSource} and {@link JdbcUpsertTableSink} created
  * by {@link JdbcTableSourceSinkFactory}.
  */
+@Ignore("no need to test old connector")
 public class JdbcTableSourceSinkFactoryTest {
 
 	private static final TableSchema schema = TableSchema.builder()

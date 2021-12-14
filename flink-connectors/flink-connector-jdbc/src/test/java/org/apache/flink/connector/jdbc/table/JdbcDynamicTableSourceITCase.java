@@ -109,6 +109,7 @@ public class JdbcDynamicTableSourceITCase extends AbstractTestBase {
 				") WITH (" +
 				"  'connector'='jdbc'," +
 				"  'url'='" + DB_URL + "'," +
+				"  'use-bytedance-mysql'='false'," +
 				"  'table-name'='" + INPUT_TABLE + "'" +
 				")"
 		);
@@ -147,6 +148,7 @@ public class JdbcDynamicTableSourceITCase extends AbstractTestBase {
 				") WITH (" +
 				"  'connector'='jdbc'," +
 				"  'url'='" + DB_URL + "'," +
+				"  'use-bytedance-mysql'='false'," +
 				"  'table-name'='" + INPUT_TABLE + "'," +
 				"  'scan.partition.column'='id'," +
 				"  'scan.partition.num'='2'," +

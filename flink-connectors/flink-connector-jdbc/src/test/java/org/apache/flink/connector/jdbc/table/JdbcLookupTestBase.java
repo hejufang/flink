@@ -51,21 +51,36 @@ public class JdbcLookupTestBase extends AbstractTestBase {
 					"id1 INT NOT NULL DEFAULT 0," +
 					"id2 VARCHAR(20) NOT NULL," +
 					"comment1 VARCHAR(1000)," +
-					"comment2 VARCHAR(1000))");
+					"comment2 VARCHAR(1000)," +
+					"boolean_field BOOLEAN DEFAULT TRUE," +
+					"smallint_field SMALLINT," +
+					"int_field INT DEFAULT 2," +
+					"bigint_field BIGINT DEFAULT 1," +
+					"float_field FLOAT," +
+					"double_field DOUBLE," +
+					"decimal_field DECIMAL(30, 10)," +
+					"real_field REAL," +
+					"numeric_field NUMERIC," +
+					"char_field CHAR(5)," +
+					"date_field DATE," +
+					"time_field TIME," +
+					"timestamp_field TIMESTAMP)");
 
 			Object[][] data = new Object[][] {
-					new Object[] {1, "1", "11-c1-v1", "11-c2-v1"},
-					new Object[] {1, "1", "11-c1-v2", "11-c2-v2"},
-					new Object[] {2, "3", null, "23-c2"},
-					new Object[] {2, "5", "25-c1", "25-c2"},
-					new Object[] {3, "8", "38-c1", "38-c2"}
+					new Object[] {1, "1", "11-c1-v1", "11-c2-v1", "true", "12", "12345", "12345678", "123.456", "123.456789", "123456789.987654321", "654.321", "135.246", "aaaaa", "2021-12-06", "20:12:35", "2021-12-06 20:12:35"},
+					new Object[] {1, "1", "11-c1-v2", "11-c2-v2", "true", "12", "12345", "12345678", "123.456", "123.456789", "123456789.987654321", "654.321", "135.246", "bbbbb", "2021-12-06", "20:12:35", "2021-12-06 20:12:35"},
+					new Object[] {2, "3", null, "23-c2", "true", "12", "12345", "12345678", "123.456", "123.456789", "123456789.987654321", "654.321", "135.246", "ccccc", "2021-12-06", "20:12:35", "2021-12-06 20:12:35"},
+					new Object[] {2, "5", "25-c1", "25-c2", "true", "12", "12345", "12345678", "123.456", "123.456789", "123456789.987654321", "654.321", "135.246", "ddddd", "2021-12-06", "20:12:35", "2021-12-06 20:12:35"},
+					new Object[] {3, "8", "38-c1", "38-c2", "true", "12", "12345", "12345678", "123.456", "123.456789", "123456789.987654321", "654.321", "135.246", "eeeee", "2021-12-06", "20:12:35", "2021-12-06 20:12:35"}
 			};
 			boolean[] surroundedByQuotes = new boolean[] {
-				false, true, true, true
+				false, true, true, true, false, false, false, false, false, false, false, false, false, true, true, true, true
 			};
 
 			StringBuilder sqlQueryBuilder = new StringBuilder(
-					"INSERT INTO " + LOOKUP_TABLE + " (id1, id2, comment1, comment2) VALUES ");
+					"INSERT INTO " + LOOKUP_TABLE + " (id1, id2, comment1, comment2, boolean_field, smallint_field, " +
+						"int_field, bigint_field, float_field, double_field, decimal_field, real_field, " +
+						"numeric_field, char_field, date_field, time_field, timestamp_field) VALUES ");
 			for (int i = 0; i < data.length; i++) {
 				sqlQueryBuilder.append("(");
 				for (int j = 0; j < data[i].length; j++) {

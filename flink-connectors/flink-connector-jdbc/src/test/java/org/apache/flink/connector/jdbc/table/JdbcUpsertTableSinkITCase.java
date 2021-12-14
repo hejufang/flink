@@ -34,6 +34,7 @@ import org.apache.flink.types.Row;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.sql.Connection;
@@ -52,6 +53,7 @@ import static org.apache.flink.table.api.Expressions.$;
 /**
  * IT case for {@link JdbcUpsertTableSink}.
  */
+@Ignore("no need to test old connector")
 public class JdbcUpsertTableSinkITCase extends AbstractTestBase {
 
 	public static final String DB_URL = "jdbc:derby:memory:upsert";

@@ -153,6 +153,7 @@ public class JdbcLookupTableITCase extends JdbcLookupTestBase {
 				") with(" +
 				"  'connector'='jdbc'," +
 				"  'url'='" + DB_URL + "'," +
+				"  'use-bytedance-mysql'='false'," +
 				"  'table-name'='" + LOOKUP_TABLE + "'" +
 				"  %s)", useCache ? cacheConfig : ""));
 

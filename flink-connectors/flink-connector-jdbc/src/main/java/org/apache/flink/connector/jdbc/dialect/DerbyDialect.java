@@ -20,6 +20,7 @@ package org.apache.flink.connector.jdbc.dialect;
 
 import org.apache.flink.connector.jdbc.internal.converter.DerbyRowConverter;
 import org.apache.flink.connector.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.types.logical.RowType;
 
@@ -48,7 +49,12 @@ class DerbyDialect extends AbstractDialect {
 
 	@Override
 	public JdbcRowConverter getRowConverter(RowType rowType) {
-		return new DerbyRowConverter(rowType);
+		return new DerbyRowConverter(rowType, null);
+	}
+
+	@Override
+	public JdbcRowConverter getRowConverter(RowType rowType, JdbcOptions jdbcOptions) {
+		return new DerbyRowConverter(rowType, jdbcOptions);
 	}
 
 	@Override

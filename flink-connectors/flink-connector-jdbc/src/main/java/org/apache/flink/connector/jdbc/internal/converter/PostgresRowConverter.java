@@ -45,7 +45,7 @@ public class PostgresRowConverter extends AbstractJdbcRowConverter {
 	}
 
 	public PostgresRowConverter(RowType rowType) {
-		super(rowType);
+		super(rowType, null);
 	}
 
 	@Override

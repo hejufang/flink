@@ -20,6 +20,7 @@ package org.apache.flink.connector.jdbc.dialect;
 
 import org.apache.flink.connector.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.flink.connector.jdbc.internal.converter.MySQLRowConverter;
+import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.types.logical.RowType;
 
@@ -52,7 +53,12 @@ public class MySQLDialect extends AbstractDialect {
 
 	@Override
 	public JdbcRowConverter getRowConverter(RowType rowType) {
-		return new MySQLRowConverter(rowType);
+		return new MySQLRowConverter(rowType, null);
+	}
+
+	@Override
+	public JdbcRowConverter getRowConverter(RowType rowType, JdbcOptions jdbcOptions) {
+		return new MySQLRowConverter(rowType, jdbcOptions);
 	}
 
 	@Override

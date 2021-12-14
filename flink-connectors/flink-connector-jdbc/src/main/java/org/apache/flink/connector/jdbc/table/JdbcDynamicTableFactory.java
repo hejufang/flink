@@ -115,6 +115,13 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		.stringType()
 		.noDefaultValue()
 		.withDescription("init sql which will be executed when create a db connection.");
+	public static final ConfigOption<Boolean> COMPATIBLE_MODE = ConfigOptions
+		.key("compatible-mode")
+		.booleanType()
+		.defaultValue(true)
+		.withDescription("The compatible mode uses ResultSet.getXXX to read values, " +
+			"this can do some auto converting logic. E.g. we can use bigint to read decimal type and " +
+			"unsigned bigint.");
 
 	// read config options
 	private static final ConfigOption<String> SCAN_PARTITION_COLUMN = ConfigOptions
@@ -240,6 +247,7 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 			rateLimiter.setRate(rate);
 			builder.setRateLimiter(rateLimiter);
 		});
+		builder.setCompatibleMode(readableConfig.get(COMPATIBLE_MODE));
 		return builder.build();
 	}
 
@@ -331,6 +339,7 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		optionalOptions.add(LOOKUP_CACHE_NULL_VALUE);
 		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
 		optionalOptions.add(RATE_LIMIT_NUM);
+		optionalOptions.add(COMPATIBLE_MODE);
 		return optionalOptions;
 	}
 

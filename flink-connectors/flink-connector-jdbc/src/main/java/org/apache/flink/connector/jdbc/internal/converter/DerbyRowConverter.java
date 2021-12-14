@@ -18,6 +18,7 @@
 
 package org.apache.flink.connector.jdbc.internal.converter;
 
+import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.table.types.logical.RowType;
 
 /**
@@ -32,7 +33,7 @@ public class DerbyRowConverter extends AbstractJdbcRowConverter {
 		return "Derby";
 	}
 
-	public DerbyRowConverter(RowType rowType) {
-		super(rowType);
+	public DerbyRowConverter(RowType rowType, JdbcOptions jdbcOptions) {
+		super(rowType, jdbcOptions);
 	}
 }

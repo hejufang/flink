@@ -18,6 +18,7 @@
 
 package org.apache.flink.connector.jdbc.internal.converter;
 
+import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.table.types.logical.RowType;
 
 /**
@@ -32,7 +33,7 @@ public class MySQLRowConverter extends AbstractJdbcRowConverter {
 		return "MySQL";
 	}
 
-	public MySQLRowConverter(RowType rowType) {
-		super(rowType);
+	public MySQLRowConverter(RowType rowType, JdbcOptions jdbcOptions) {
+		super(rowType, jdbcOptions);
 	}
 }

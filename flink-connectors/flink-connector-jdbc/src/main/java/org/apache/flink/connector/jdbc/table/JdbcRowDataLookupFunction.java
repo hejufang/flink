@@ -117,8 +117,8 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 			options.getTableName(), fieldNames, keyNames);
 		this.jdbcDialect = JdbcDialects.get(dbURL)
 			.orElseThrow(() -> new UnsupportedOperationException(String.format("Unknown dbUrl:%s", dbURL)));
-		this.jdbcRowConverter = jdbcDialect.getRowConverter(rowType);
-		this.lookupKeyRowConverter = jdbcDialect.getRowConverter(RowType.of(Arrays.stream(keyTypes).map(DataType::getLogicalType).toArray(LogicalType[]::new)));
+		this.jdbcRowConverter = jdbcDialect.getRowConverter(rowType, options);
+		this.lookupKeyRowConverter = jdbcDialect.getRowConverter(RowType.of(Arrays.stream(keyTypes).map(DataType::getLogicalType).toArray(LogicalType[]::new)), options);
 		this.rateLimiter = options.getRateLimiter();
 	}
 

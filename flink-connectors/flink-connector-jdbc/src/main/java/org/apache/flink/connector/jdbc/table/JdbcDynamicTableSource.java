@@ -115,7 +115,7 @@ public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSourc
 		}
 		builder.setQuery(query);
 		final RowType rowType = (RowType) physicalSchema.toRowDataType().getLogicalType();
-		builder.setRowConverter(dialect.getRowConverter(rowType));
+		builder.setRowConverter(dialect.getRowConverter(rowType, options));
 		builder.setRowDataTypeInfo((TypeInformation<RowData>) runtimeProviderContext
 			.createTypeInformation(physicalSchema.toRowDataType()));
 

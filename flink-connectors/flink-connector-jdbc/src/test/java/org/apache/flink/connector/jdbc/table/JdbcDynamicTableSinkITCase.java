@@ -161,6 +161,7 @@ public class JdbcDynamicTableSinkITCase extends AbstractTestBase {
 				") WITH (" +
 				"  'connector'='jdbc'," +
 				"  'url'='" + DB_URL + "'," +
+				"  'use-bytedance-mysql'='false'," +
 				"  'table-name'='" + OUTPUT_TABLE4 + "'" +
 				")");
 
@@ -200,6 +201,7 @@ public class JdbcDynamicTableSinkITCase extends AbstractTestBase {
 				") WITH (" +
 				"  'connector'='jdbc'," +
 				"  'url'='" + DB_URL + "'," +
+				"  'use-bytedance-mysql'='false'," +
 				"  'table-name'='" + OUTPUT_TABLE1 + "'" +
 				")");
 
@@ -239,6 +241,7 @@ public class JdbcDynamicTableSinkITCase extends AbstractTestBase {
 				") WITH (" +
 				"  'connector'='jdbc'," +
 				"  'url'='" + DB_URL + "'," +
+				"  'use-bytedance-mysql'='false'," +
 				"  'table-name'='" + OUTPUT_TABLE2 + "'" +
 				")");
 
@@ -266,6 +269,7 @@ public class JdbcDynamicTableSinkITCase extends AbstractTestBase {
 				") WITH ( " +
 				"'connector' = 'jdbc'," +
 				"'url'='" + DB_URL + "'," +
+				"'use-bytedance-mysql' = 'false'," +
 				"'table-name' = '" + OUTPUT_TABLE3 + "'," +
 				"'sink.buffer-flush.max-rows' = '2'," +
 				"'sink.buffer-flush.interval' = '300ms'," +
@@ -292,6 +296,7 @@ public class JdbcDynamicTableSinkITCase extends AbstractTestBase {
 	@Test
 	public void testReadingFromChangelogSource() throws SQLException {
 		TableEnvironment tEnv = TableEnvironment.create(EnvironmentSettings.newInstance().build());
+		tEnv.getConfig().getConfiguration().setString("table.exec.resource.default-parallelism", "1");
 		String dataId = TestValuesTableFactory.registerData(TestData.userChangelog());
 		tEnv.executeSql("CREATE TABLE user_logs (\n" +
 				"  user_id STRING,\n" +
@@ -313,6 +318,7 @@ public class JdbcDynamicTableSinkITCase extends AbstractTestBase {
 			") WITH (\n" +
 			"  'connector' = 'jdbc'," +
 			"  'url'='" + DB_URL + "'," +
+			"  'use-bytedance-mysql'='false'," +
 			"  'table-name' = '" + USER_TABLE + "'," +
 			"  'sink.buffer-flush.max-rows' = '100'," +
 			"  'sink.buffer-flush.interval' = '0'" + // disable async flush

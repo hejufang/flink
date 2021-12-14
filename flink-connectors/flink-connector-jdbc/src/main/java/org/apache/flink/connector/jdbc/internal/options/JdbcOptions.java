@@ -41,10 +41,12 @@ public class JdbcOptions extends JdbcConnectionOptions {
 		"&zeroDateTimeBehavior=CONVERT_TO_NULL";
 
 	public static final int CONNECTION_CHECK_TIMEOUT_SECONDS = 60;
+	private static final boolean DEFAULT_COMPATIBLE_MODE = true;
 
 	private String tableName;
 	private JdbcDialect dialect;
 	private final FlinkConnectorRateLimiter rateLimiter;
+	private final boolean compatibleMode;
 
 	private JdbcOptions(
 			String dbURL,
@@ -58,11 +60,13 @@ public class JdbcOptions extends JdbcConnectionOptions {
 			String psm,
 			String dbname,
 			String initSql,
-			FlinkConnectorRateLimiter rateLimiter) {
+			FlinkConnectorRateLimiter rateLimiter,
+			boolean compatibleMode) {
 		super(dbURL, driverName, username, password, useBytedanceMysql, consul, psm, dbname, initSql);
 		this.tableName = tableName;
 		this.dialect = dialect;
 		this.rateLimiter = rateLimiter;
+		this.compatibleMode = compatibleMode;
 	}
 
 	public String getTableName() {
@@ -75,6 +79,10 @@ public class JdbcOptions extends JdbcConnectionOptions {
 
 	public FlinkConnectorRateLimiter getRateLimiter() {
 		return rateLimiter;
+	}
+
+	public boolean isCompatibleMode() {
+		return compatibleMode;
 	}
 
 	public static Builder builder() {
@@ -96,7 +104,8 @@ public class JdbcOptions extends JdbcConnectionOptions {
 				Objects.equals(psm, options.psm) &&
 				Objects.equals(dbname, options.dbname) &&
 				Objects.equals(initSql, options.initSql) &&
-				Objects.equals(rateLimiter, options.rateLimiter);
+				Objects.equals(rateLimiter, options.rateLimiter) &&
+				Objects.equals(compatibleMode, options.compatibleMode);
 		} else {
 			return false;
 		}
@@ -118,6 +127,7 @@ public class JdbcOptions extends JdbcConnectionOptions {
 		private String dbname;
 		private String initSql;
 		private FlinkConnectorRateLimiter rateLimiter;
+		private boolean compatibleMode = DEFAULT_COMPATIBLE_MODE;
 
 		/**
 		 * required, table name.
@@ -217,6 +227,11 @@ public class JdbcOptions extends JdbcConnectionOptions {
 			return this;
 		}
 
+		public Builder setCompatibleMode(boolean compatibleMode) {
+			this.compatibleMode = compatibleMode;
+			return this;
+		}
+
 		public JdbcOptions build() {
 			checkNotNull(tableName, "No tableName supplied.");
 			if (this.dialect == null) {
@@ -253,7 +268,8 @@ public class JdbcOptions extends JdbcConnectionOptions {
 				psm,
 				dbname,
 				initSql,
-				rateLimiter);
+				rateLimiter,
+				compatibleMode);
 		}
 	}
 }

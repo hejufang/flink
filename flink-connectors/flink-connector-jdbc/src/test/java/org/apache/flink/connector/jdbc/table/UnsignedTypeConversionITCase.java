@@ -33,6 +33,7 @@ import ch.vorburger.mariadb4j.junit.MariaDB4jRule;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.math.BigDecimal;
@@ -54,6 +55,7 @@ import static org.junit.Assert.assertEquals;
  * Test unsigned type conversion between Flink and JDBC driver mysql, the test underlying use
  * MariaDB to mock a DB which use mysql driver too.
  */
+@Ignore("MariaDB requires libssl 1.0.0 in the env")
 public class UnsignedTypeConversionITCase extends AbstractTestBase {
 
 	private static final String DEFAULT_DB_NAME = "test";

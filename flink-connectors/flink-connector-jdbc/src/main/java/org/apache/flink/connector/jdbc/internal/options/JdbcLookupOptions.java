@@ -113,7 +113,7 @@ public class JdbcLookupOptions implements Serializable {
 		private long cacheMaxSize = -1L;
 		private long cacheExpireMs = -1L;
 		private int maxRetryTimes = JdbcExecutionOptions.DEFAULT_MAX_RETRY_TIMES;
-		private long laterRetryMs = -1;
+		private long laterRetryMs = 0;
 		private int laterRetryTimes = FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES.defaultValue();
 		private boolean cacheNull = FactoryUtil.LOOKUP_CACHE_NULL_VALUE.defaultValue();
 		// The null default value means this flag is not set by user.

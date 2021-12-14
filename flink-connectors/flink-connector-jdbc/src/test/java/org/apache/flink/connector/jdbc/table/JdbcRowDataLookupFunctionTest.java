@@ -20,9 +20,11 @@ package org.apache.flink.connector.jdbc.table;
 
 import org.apache.flink.connector.jdbc.internal.options.JdbcLookupOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
+import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
@@ -31,6 +33,7 @@ import org.apache.flink.util.Collector;
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -64,7 +67,9 @@ public class JdbcRowDataLookupFunctionTest extends JdbcLookupTestBase {
 		ListOutputCollector collector = new ListOutputCollector();
 		lookupFunction.setCollector(collector);
 
-		lookupFunction.open(null);
+		FunctionContext functionContext = Mockito.mock(FunctionContext.class);
+		Mockito.when(functionContext.getMetricGroup()).thenReturn(new UnregisteredMetricsGroup());
+		lookupFunction.open(functionContext);
 
 		lookupFunction.eval(1, StringData.fromString("1"));
 

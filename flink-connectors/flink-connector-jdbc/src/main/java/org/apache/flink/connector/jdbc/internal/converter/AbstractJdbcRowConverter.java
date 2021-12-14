@@ -18,7 +18,9 @@
 
 package org.apache.flink.connector.jdbc.internal.converter;
 
+import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.connector.jdbc.utils.JdbcTypeUtil;
+import org.apache.flink.connector.jdbc.utils.JdbcUtils;
 import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
@@ -29,7 +31,11 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.TimestampType;
+import org.apache.flink.table.types.utils.LegacyTypeInfoDataTypeConverter;
+import org.apache.flink.table.types.utils.LogicalTypeDataTypeConverter;
 import org.apache.flink.table.types.utils.TypeConversions;
+
+import javax.annotation.Nullable;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -42,6 +48,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Arrays;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -55,9 +62,12 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
 	protected final JdbcSerializationConverter[] toExternalConverters;
 	protected final LogicalType[] fieldTypes;
 
+	private final boolean compatibleMode;
+	private final int[] outputSqlTypes;
+
 	public abstract String converterName();
 
-	public AbstractJdbcRowConverter(RowType rowType) {
+	public AbstractJdbcRowConverter(RowType rowType, @Nullable JdbcOptions jdbcOptions) {
 		this.rowType = checkNotNull(rowType);
 		this.fieldTypes = rowType.getFields().stream()
 			.map(RowType.RowField::getType)
@@ -68,14 +78,31 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
 			toInternalConverters[i] = createNullableInternalConverter(rowType.getTypeAt(i));
 			toExternalConverters[i] = createNullableExternalConverter(fieldTypes[i]);
 		}
+		if (jdbcOptions != null && jdbcOptions.isCompatibleMode()) {
+			compatibleMode = true;
+			outputSqlTypes = Arrays.stream(fieldTypes)
+				.map(LogicalTypeDataTypeConverter::toDataType)
+				.map(LegacyTypeInfoDataTypeConverter::toLegacyTypeInfo)
+				.mapToInt(JdbcTypeUtil::typeInformationToSqlType)
+				.toArray();
+		} else {
+			compatibleMode = false;
+			outputSqlTypes = null;
+		}
 	}
 
 	@Override
 	public RowData toInternal(ResultSet resultSet) throws SQLException {
 		GenericRowData genericRowData = new GenericRowData(rowType.getFieldCount());
 		for (int pos = 0; pos < rowType.getFieldCount(); pos++) {
-			Object field = resultSet.getObject(pos + 1);
-			genericRowData.setField(pos, toInternalConverters[pos].deserialize(field));
+			if (compatibleMode) {
+				Object result = JdbcUtils.getInternalFieldDataFromResultSet(
+					pos, outputSqlTypes[pos], resultSet, fieldTypes[pos]);
+				genericRowData.setField(pos, result);
+			} else {
+				Object field = resultSet.getObject(pos + 1);
+				genericRowData.setField(pos, toInternalConverters[pos].deserialize(field));
+			}
 		}
 		return genericRowData;
 	}
