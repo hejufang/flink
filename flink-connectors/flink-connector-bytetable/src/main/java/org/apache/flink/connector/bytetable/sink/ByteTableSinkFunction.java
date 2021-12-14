@@ -219,6 +219,7 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 	}
 
 	private synchronized void flush() throws IOException {
+		checkErrorAndRethrow();
 		if (numInvokeRequests.get() > rowReduceMap.size()) {
 			LOG.info("Some messages have been reduced while flushing.Invoke num: {}, " +
 				"Actual mutate num: {}", numInvokeRequests, rowReduceMap.size());
@@ -228,25 +229,28 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 			rowReduceMap.clear();
 		}
 		numInvokeRequests.set(0);
-		checkErrorAndRethrow();
 	}
 
 	@Override
 	public void close() throws Exception {
 		closed = true;
 
-		if (bytetableClient != null) {
-			bytetableClient.close();
-		}
-
-		if (bytetableTable != null) {
-			bytetableTable.close();
-		}
-
 		if (scheduledFuture != null) {
 			scheduledFuture.cancel(false);
 			if (executor != null) {
 				executor.shutdownNow();
+			}
+		}
+
+		try {
+			flush();
+		} finally {
+			if (bytetableClient != null) {
+				bytetableClient.close();
+			}
+
+			if (bytetableTable != null) {
+				bytetableTable.close();
 			}
 		}
 	}
