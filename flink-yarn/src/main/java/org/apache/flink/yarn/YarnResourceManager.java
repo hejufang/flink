@@ -63,6 +63,7 @@ import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.webmonitor.history.HistoryServerUtils;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.LoggerHelper;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
@@ -710,10 +711,10 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 					if (yarnWorkerNode != null) {
 						log.warn("Container {} on {} completed with exit code {}, {}",
-								containerStatus.getContainerId(),
-								yarnWorkerNode.getContainer().getNodeId().getHost(),
-								containerStatus.getExitStatus(),
-								containerStatus.getDiagnostics());
+								LoggerHelper.secMark("containerId", containerStatus.getContainerId()),
+								LoggerHelper.secMark("host", yarnWorkerNode.getContainer().getNodeId().getHost()),
+								LoggerHelper.secMark("exitStatus", containerStatus.getExitStatus()),
+								LoggerHelper.secMark("diagnostics", containerStatus.getDiagnostics()));
 						ContainerCompletedException containerCompletedException = ContainerCompletedException.fromExitCode(
 								containerStatus.getExitStatus(),
 								containerStatus.getDiagnostics());

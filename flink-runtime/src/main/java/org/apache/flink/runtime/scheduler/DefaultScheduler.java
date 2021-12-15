@@ -59,6 +59,7 @@ import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.LoggerHelper;
 
 import org.slf4j.Logger;
 
@@ -166,7 +167,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		final FailoverStrategy failoverStrategy = failoverStrategyFactory.create(
 			getSchedulingTopology(),
 			getResultPartitionAvailabilityChecker());
-		log.info("Using failover strategy {} for {} ({}).", failoverStrategy, jobGraph.getName(), jobGraph.getJobID());
+		log.info("Using failover strategy {} for {} ({}).", LoggerHelper.secMark("failoverStrategy", failoverStrategy), LoggerHelper.secMark("jobName", jobGraph.getName()), LoggerHelper.secMark("jobID", jobGraph.getJobID()));
 
 		this.executionFailureHandler = new ExecutionFailureHandler(
 			getSchedulingTopology(),

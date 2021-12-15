@@ -35,6 +35,7 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.ResultSubpartitionStateHandle;
 import org.apache.flink.runtime.state.StateObject;
+import org.apache.flink.util.LoggerHelper;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -616,7 +617,7 @@ public class StateAssignmentOperation {
 							". If you see this, usually it means that the job's topology is changed. And " +
 							" the state in previous checkpoint cannot be used in current job !!! \n" +
 							" You need to revert your changes or change state.checkpoints.namespace to start a new checkpoint.";
-					LOG.error(message);
+					LOG.error(LoggerHelper.secMark("errMsg", message));
 					throw new IllegalStateException(message);
 				}
 			} else {

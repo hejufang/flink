@@ -84,6 +84,7 @@ import org.apache.flink.runtime.taskexecutor.TaskExecutorHeartbeatPayload;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.LoggerHelper;
 import org.apache.flink.util.clock.SystemClock;
 
 import javax.annotation.Nullable;
@@ -1111,7 +1112,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		WorkerRegistration<WorkerType> workerRegistration = taskExecutors.remove(resourceID);
 
 		if (workerRegistration != null) {
-			log.info("Closing TaskExecutor connection {} with exit code {} because: {}", resourceID, exitCode, cause.getMessage());
+			log.info("Closing TaskExecutor connection {} with exit code {} because: {}", LoggerHelper.secMark("resourceID", resourceID), LoggerHelper.secMark("exitCode", exitCode), LoggerHelper.secMark("errMsg", cause.getMessage()));
 
 			// TODO :: suggest failed task executor to stop itself
 			slotManager.unregisterTaskManager(workerRegistration.getInstanceID(), cause);

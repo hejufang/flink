@@ -68,6 +68,7 @@ import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.LoggerHelper;
 import org.apache.flink.util.OptionalFailure;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
@@ -1757,7 +1758,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 				if (vertex.getExecutionGraph().isJobLogDetailDisable()) {
 					LOG.debug("{} ({}) switched from {} to {}.", getVertexWithAttempt(), getAttemptId(), currentState, targetState);
 				} else {
-					LOG.info("{} ({}) switched from {} to {}.", getVertexWithAttempt(), getAttemptId(), currentState, targetState);
+					LOG.info("{} ({}) switched from {} to {}.", LoggerHelper.secMark("vertexWithAttempt", getVertexWithAttempt()), LoggerHelper.secMark("attemptId", getAttemptId()), LoggerHelper.secMark("executionState", currentState), LoggerHelper.secMark("executionState", targetState));
 				}
 			} else {
 				if (LOG.isInfoEnabled()) {
@@ -1765,12 +1766,12 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 					LOG.info(
 						"{} ({}) switched from {} to {} on {}.",
-						getVertexWithAttempt(),
-						getAttemptId(),
-						currentState,
-						targetState,
-						locationInformation,
-						error);
+						LoggerHelper.secMark("vertexWithAttempt", getVertexWithAttempt()),
+						LoggerHelper.secMark("attemptId", getAttemptId()),
+						LoggerHelper.secMark("executionState", currentState),
+						LoggerHelper.secMark("executionState", targetState),
+						LoggerHelper.secMark("locationInformation", locationInformation),
+						LoggerHelper.secMark("errMsg", error));
 				}
 			}
 

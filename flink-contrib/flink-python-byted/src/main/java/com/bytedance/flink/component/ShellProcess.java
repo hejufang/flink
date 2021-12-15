@@ -17,6 +17,8 @@
 
 package com.bytedance.flink.component;
 
+import org.apache.flink.util.LoggerHelper;
+
 import com.bytedance.flink.configuration.Constants;
 import com.bytedance.flink.exception.NoOutputException;
 import com.bytedance.flink.pojo.RuntimeConfig;
@@ -156,7 +158,7 @@ public class ShellProcess implements Serializable {
 		String pid = String.valueOf(this.pid.longValue());
 		String coreMsg = CoreDumpUtils.checkCoreDump(pid);
 		if (coreMsg != null) {
-			LOG.error(coreMsg);
+			LOG.error(LoggerHelper.secMark("coreMsg", coreMsg));
 		}
 		if (killProcessGroup) {
 			LOG.info("Component " + taskName + " killing process " + pid + " using processTree");

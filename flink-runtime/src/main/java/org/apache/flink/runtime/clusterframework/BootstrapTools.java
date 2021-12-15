@@ -505,6 +505,11 @@ public class BootstrapTools {
 			logging += " -Dlog.streamlog.level=" + ConfigConstants.FLINK_LOG_STREAMLOG_OFF_LEVEL;
 		}
 
+		if (flinkConfig.getBoolean(ConfigConstants.FLINK_LOG_SEC_MARK_ENABLED_KEY,
+				ConfigConstants.FLINK_LOG_SEC_MARK_ENABLED_DEFAULT)) {
+			logging += " -Dlog.sec.mark.enabled=true";
+		}
+
 		startCommandValues.put("logging", logging);
 		startCommandValues.put("class", mainClass.getName());
 		startCommandValues.put("redirects",

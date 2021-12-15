@@ -33,6 +33,7 @@ import org.apache.flink.runtime.blacklist.WarehouseBlacklistRecordMessage;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
+import org.apache.flink.util.LoggerHelper;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -278,7 +279,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 			Class<? extends Throwable> t = hostFailure.getException().getClass();
 			int numberOfExceptionHost = calculateHosts(t);
 			if (numberOfExceptionHost > blacklistMaxLength) {
-				LOG.info("{} occur on too many hosts {}, ignore this failure.", t, numberOfExceptionHost);
+				LOG.info("{} occur on too many hosts {}, ignore this failure.", LoggerHelper.secMark("errMsg", t), LoggerHelper.secMark("numberOfExceptionHost", numberOfExceptionHost));
 				return false;
 			}
 

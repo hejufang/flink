@@ -692,6 +692,7 @@ otter:
   smart-resources.service-name: data.inf.sr_estimater
   kafka_server_url: https://kafka-config-tx.tiktokd.net
   log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  log4j.sec.mark.enabled: true
   docker.server:  image-manager.tiktokd.org
   docker.hub: hub.tiktokd.org
   docker.region: US-TTP
@@ -714,6 +715,7 @@ octop:
   smart-resources.service-name: data.inf.sr_estimater
   kafka_server_url: https://kafka-config-tx.tiktokd.net
   log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  log4j.sec.mark.enabled: true
   docker.server:  image-manager.tiktokd.org
   docker.hub: hub.tiktokd.org
   docker.region: US-TTP

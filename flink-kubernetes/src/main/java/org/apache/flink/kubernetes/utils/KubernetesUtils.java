@@ -585,6 +585,11 @@ public class KubernetesUtils {
 			} else {
 				logging.append(" -Dlog.streamlog.level=").append(ConfigConstants.FLINK_LOG_STREAMLOG_OFF_LEVEL);
 			}
+
+			if (flinkConfig.getBoolean(ConfigConstants.FLINK_LOG_SEC_MARK_ENABLED_KEY,
+					ConfigConstants.FLINK_LOG_SEC_MARK_ENABLED_DEFAULT)) {
+				logging.append(" -Dlog.sec.mark.enabled=true");
+			}
 		}
 		return logging.toString();
 	}

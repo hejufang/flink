@@ -84,6 +84,7 @@ import org.apache.flink.types.Either;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.LoggerHelper;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.TaskManagerExceptionUtils;
@@ -1106,10 +1107,10 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				if (jobLogDetailDisable) {
 					LOG.debug("{} ({}) switched from {} to {}.", taskMetricNameWithSubtask, executionId, currentState, newState);
 				} else {
-					LOG.info("{} ({}) switched from {} to {}.", taskMetricNameWithSubtask, executionId, currentState, newState);
+					LOG.info("{} ({}) switched from {} to {}.", LoggerHelper.secMark("taskMetricNameWithSubtask", taskMetricNameWithSubtask), LoggerHelper.secMark("executionId", executionId), LoggerHelper.secMark("executionState", currentState), LoggerHelper.secMark("executionState", newState));
 				}
 			} else {
-				LOG.warn("{} ({}) switched from {} to {}.", taskMetricNameWithSubtask, executionId, currentState, newState, cause);
+				LOG.warn("{} ({}) switched from {} to {}.", LoggerHelper.secMark("taskMetricNameWithSubtask", taskMetricNameWithSubtask), LoggerHelper.secMark("executionId", executionId), LoggerHelper.secMark("executionState", currentState), LoggerHelper.secMark("executionState", newState), LoggerHelper.secMark("errMsg", cause));
 			}
 
 			try {

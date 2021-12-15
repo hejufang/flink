@@ -2172,6 +2172,9 @@ public final class ConfigConstants {
 	public static final String FLINK_LOG_STREAMLOG_PSM_KEY = "log4j.appender.streamlog.psm";
 	public static final String FLINK_LOG_STREAMLOG_PSM_DEFAULT = "default";
 
+	public static final String FLINK_LOG_SEC_MARK_ENABLED_KEY = "log4j.sec.mark.enabled";
+	public static final boolean FLINK_LOG_SEC_MARK_ENABLED_DEFAULT = false;
+
 	/**
 	 * The default gc thread num, see {@link CoreOptions#FLINK_GC_THREAD_NUM_USE_CORES}.
 	 */

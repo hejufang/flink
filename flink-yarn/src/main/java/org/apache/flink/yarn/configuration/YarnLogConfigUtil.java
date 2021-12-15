@@ -117,6 +117,12 @@ public class YarnLogConfigUtil {
 		} else {
 			logCommand += " -Dlog.streamlog.level=" + ConfigConstants.FLINK_LOG_STREAMLOG_OFF_LEVEL;
 		}
+
+		if (configuration.getBoolean(ConfigConstants.FLINK_LOG_SEC_MARK_ENABLED_KEY,
+				ConfigConstants.FLINK_LOG_SEC_MARK_ENABLED_DEFAULT)) {
+			logCommand += " -Dlog.sec.mark.enabled=true";
+		}
+
 		return logCommand;
 	}
 
