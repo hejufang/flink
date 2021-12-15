@@ -18,6 +18,7 @@
 package org.apache.flink.connectors.htap.batch;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.io.DefaultInputSplitAssigner;
 import org.apache.flink.api.common.io.RichInputFormat;
 import org.apache.flink.api.common.io.statistics.BaseStatistics;
@@ -30,6 +31,7 @@ import org.apache.flink.connectors.htap.connector.reader.HtapReaderConfig;
 import org.apache.flink.connectors.htap.connector.reader.HtapReaderIterator;
 import org.apache.flink.connectors.htap.table.utils.HtapAggregateUtils.FlinkAggregateFunction;
 import org.apache.flink.core.io.InputSplitAssigner;
+import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.Row;
 
@@ -52,7 +54,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private static final long serialVersionUID = 1L;
 
 	private static final Logger LOG = LoggerFactory.getLogger(HtapRowInputFormat.class);
-
+	private static final int MAX_TASK_NAME_LENGTH = 40;
 	private final HtapReaderConfig readerConfig;
 	private final String htapClusterName;
 	private final HtapTable table;
@@ -71,6 +73,9 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 
 	private transient HtapReader htapReader;
 	private transient HtapReaderIterator resultIterator;
+	private transient String subTaskFullName;
+	private transient long splitStartTime = -1;
+	private transient int currentPartition = -1;
 
 	public HtapRowInputFormat(
 			HtapReaderConfig readerConfig,
@@ -107,19 +112,42 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 
 	@Override
 	public void open(HtapInputSplit split) throws IOException {
+		splitStartTime = System.currentTimeMillis();
+		subTaskFullName = getSubtaskFullName();
 		if (inDryRunMode) {
 			return;
 		}
 		endReached = false;
 		createHtapReader();
+		resultIterator = htapReader.scanner(split.getScanToken(), split.getSplitNumber(), subTaskFullName);
+		currentPartition = split.getSplitNumber();
 
-		resultIterator = htapReader.scanner(split.getScanToken(), split.getSplitNumber());
+		LOG.debug("{}, open split of partition {} spend: {}ms",
+			subTaskFullName, currentPartition, System.currentTimeMillis() - splitStartTime);
+	}
+
+	/**
+	 * Get subtask full name with format "jobId_croppedTaskName(subtaskId/parallel)".
+	 * */
+	private String getSubtaskFullName() {
+		int subtaskId = getRuntimeContext().getIndexOfThisSubtask();
+		int parallel = getRuntimeContext().getNumberOfParallelSubtasks();
+		String taskName = getRuntimeContext().getTaskName();
+		if (taskName != null && taskName.length() > MAX_TASK_NAME_LENGTH) {
+			taskName = taskName.substring(0, MAX_TASK_NAME_LENGTH);
+		}
+		RuntimeContext runtimeContext = getRuntimeContext();
+		String jobId = "unknown_job";
+		if (runtimeContext instanceof StreamingRuntimeContext) {
+			jobId = ((StreamingRuntimeContext) runtimeContext).getJobId().toString();
+		}
+		return String.format("%s_%s(%s/%s)", jobId, taskName, subtaskId, parallel);
 	}
 
 	private void createHtapReader() throws IOException {
 		htapReader = new HtapReader(table, readerConfig, tableFilters, tableProjections,
 			tableAggregates, groupByColumns, aggregateFunctions, outputDataType, limit,
-			pushedDownPartitions, htapClusterName);
+			pushedDownPartitions, htapClusterName, subTaskFullName);
 	}
 
 	@Override
@@ -128,12 +156,17 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 			try {
 				resultIterator.close();
 			} catch (Exception e) {
-				LOG.error("result iterator close error", e);
+				LOG.error("{} result iterator close error", subTaskFullName);
 			}
 		}
 		if (htapReader != null) {
 			htapReader.close();
 			htapReader = null;
+		}
+		long splitEndTime = System.currentTimeMillis();
+		if (currentPartition >= 0 && splitStartTime > 0) {
+			LOG.debug("{} total source time for partition({}): {}ms",
+				subTaskFullName, currentPartition, splitEndTime - splitStartTime);
 		}
 	}
 

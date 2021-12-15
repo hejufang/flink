@@ -59,6 +59,7 @@ public class HtapReader implements AutoCloseable {
 	private final long limit;
 	private final Set<Integer> pushedDownPartitions;
 	private final String htapClusterName;
+	private final String subTaskFullName;
 
 	public HtapReader(
 			HtapTable table,
@@ -71,7 +72,8 @@ public class HtapReader implements AutoCloseable {
 			DataType outputDataType,
 			long limit,
 			Set<Integer> pushedDownPartitions,
-			String htapClusterName) throws IOException {
+			String htapClusterName,
+			String subTaskFullName) throws IOException {
 		this.table = checkNotNull(table, "table could not be null");
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
 		this.tableFilters = checkNotNull(tableFilters, "tableFilters could not be null");
@@ -86,6 +88,7 @@ public class HtapReader implements AutoCloseable {
 		this.client = obtainStorageClient();
 		this.limit = limit;
 		this.pushedDownPartitions = pushedDownPartitions;
+		this.subTaskFullName = subTaskFullName;
 	}
 
 	private HtapStorageClient obtainStorageClient() throws IOException {
@@ -93,13 +96,14 @@ public class HtapReader implements AutoCloseable {
 			int processId = getProcessId();
 			String logStoreLogDir = readerConfig.getLogStoreLogDir() + "/" + processId;
 			String pageStoreLogDir = readerConfig.getPageStoreLogDir() + "/" + processId;
-			LOG.debug("Obtain client with log path: logStorage({}), pageStorage({})",
-				logStoreLogDir, pageStoreLogDir);
+			LOG.debug("{} Obtain client with log path: logStorage({}), pageStorage({})",
+				subTaskFullName, logStoreLogDir, pageStoreLogDir);
 			return new HtapStorageClient(readerConfig.getInstanceId(),
 				readerConfig.getByteStoreLogPath(), readerConfig.getByteStoreDataPath(),
 				logStoreLogDir, pageStoreLogDir, htapClusterName);
 		} catch (HtapException e) {
-			LOG.error("create htap storage client failed for table: " + table.getName(), e);
+			LOG.error("{} create htap storage client failed for table: {}",
+				subTaskFullName, table.getName(), e);
 			throw new HtapConnectorException(e.getErrorCode(), e.getMessage());
 		}
 	}
@@ -108,13 +112,16 @@ public class HtapReader implements AutoCloseable {
 		return Integer.parseInt(ManagementFactory.getRuntimeMXBean().getName().split("@")[0]);
 	}
 
-	public HtapReaderIterator scanner(byte[] token, int partitionId) throws IOException {
+	public HtapReaderIterator scanner(
+			byte[] token,
+			int partitionId,
+			String subTaskFullName) throws IOException {
 		try {
 			return new HtapReaderIterator(
 				HtapScanToken.deserializeIntoScanner(token, partitionId, client, table, htapClusterName),
-				aggregateFunctions, outputDataType, groupByColumns.size());
+				aggregateFunctions, outputDataType, groupByColumns.size(), subTaskFullName);
 		} catch (Exception e) {
-			throw new IOException("build HtapReaderIterator error", e);
+			throw new IOException(subTaskFullName + " build HtapReaderIterator error", e);
 		}
 	}
 
@@ -175,8 +182,9 @@ public class HtapReader implements AutoCloseable {
 		}
 
 		if (splits.length < minNumSplits) {
-			LOG.debug(" The minimum desired number of splits with your configured parallelism " +
+			LOG.debug("{} The minimum desired number of splits with your configured parallelism " +
 				"level is {}. Current kudu splits = {}. {} instances will remain idle.",
+				subTaskFullName,
 				minNumSplits,
 				splits.length,
 				(minNumSplits - splits.length)
@@ -195,7 +203,7 @@ public class HtapReader implements AutoCloseable {
 				// client.close();
 			}
 		} catch (Exception e) {
-			LOG.error("Error while closing htap client.", e);
+			LOG.error("{} error while closing htap client.", subTaskFullName, e);
 		}
 	}
 }

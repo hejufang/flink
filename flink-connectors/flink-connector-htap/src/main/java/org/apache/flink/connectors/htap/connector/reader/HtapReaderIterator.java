@@ -72,8 +72,13 @@ public class HtapReaderIterator {
 	private final DataType outputDataType;
 	private final int groupByColumnSize;
 	private final String tableName;
+	private final String subTaskFullName;
 	private final int partitionId;
-	private long conversionCostMs = 0L;
+	private long oneRoundConversionCostMs = 0L;
+	private long totalConversionCostMs = 0L;
+	private long oneRoundRowCount = 0L;
+	private long totalRowCount = 0L;
+	private long scanThreadTotalSleepTimeMs = 0L;
 	private int roundCount = 0;
 
 	private final StoreScanThread storeScanThread;
@@ -85,13 +90,15 @@ public class HtapReaderIterator {
 			HtapScanner scanner,
 			List<FlinkAggregateFunction> aggregateFunctions,
 			DataType outputDataType,
-			int groupByColumnSize) throws IOException {
+			int groupByColumnSize,
+			String subTaskFullName) throws IOException {
 		this.scanner = scanner;
 		this.aggregateFunctions = checkNotNull(
 				aggregateFunctions, "aggregateFunctions could not be null");
 		this.outputDataType = outputDataType;
 		this.groupByColumnSize = groupByColumnSize;
 		this.tableName = scanner.getTable().getName();
+		this.subTaskFullName = subTaskFullName;
 		this.partitionId = scanner.getPartitionId();
 		this.iteratorBufferCount = new AtomicInteger(0);
 		this.storeScanThread = new StoreScanThread();
@@ -108,6 +115,9 @@ public class HtapReaderIterator {
 	public void close() {
 		// TODO: HtapScanner may need a close method
 		// scanner.close();
+		LOG.info("{} statistics for partition({}): totalRowCount = {}, totalConversionCostMs = {}," +
+				"scanThreadTotalSleepTimeMs = {}", subTaskFullName, partitionId, totalRowCount,
+			totalConversionCostMs, scanThreadTotalSleepTimeMs);
 		storeScanThread.close();
 	}
 
@@ -131,19 +141,24 @@ public class HtapReaderIterator {
 		long beforeConvert = System.currentTimeMillis();
 		Row flinkRow = toFlinkRow(this.currentRowIterator.next());
 		long afterConvert = System.currentTimeMillis();
-		conversionCostMs += (afterConvert - beforeConvert);
+		oneRoundConversionCostMs += (afterConvert - beforeConvert);
+		oneRoundRowCount++;
 		return flinkRow;
 	}
 
 	// Poll new row iterator from iteratorLinkBuffer or wait for background scan thread
 	// make the currentRowIterator be null if no other result for this htap scanner.
 	private void updateCurrentRowIterator() throws IOException {
-		LOG.debug("table: {}, partition: {}, round: {}, conversionCost: {}ms",
-				tableName, partitionId, roundCount, conversionCostMs);
-		conversionCostMs = 0L;
+		totalRowCount += oneRoundRowCount;
+		totalConversionCostMs += oneRoundConversionCostMs;
+		LOG.debug("{} table: {}, partition: {}, round: {}, rowCountInOneRound: {}," +
+				"conversionCostMsOneRound: {}ms", subTaskFullName, tableName, partitionId, roundCount,
+			oneRoundRowCount, oneRoundConversionCostMs);
+		oneRoundConversionCostMs = 0L;
+		oneRoundRowCount = 0;
 		roundCount++;
-		LOG.debug("Before fetch rows from buffer {}-{} in round[{}]",
-				tableName, partitionId, roundCount);
+		LOG.debug("{} before fetch rows from buffer {}-{} in round[{}]",
+			subTaskFullName, tableName, partitionId, roundCount);
 
 		while (storeScanThread.isRunning && iteratorLinkBuffer.isEmpty()) {
 			try {
@@ -160,8 +175,8 @@ public class HtapReaderIterator {
 			this.currentRowIterator = iteratorLinkBuffer.poll();
 		}
 
-		LOG.debug("After fetch rows from buffer {}-{} in round[{}]",
-				tableName, partitionId, roundCount);
+		LOG.debug("{} after fetch rows from buffer {}-{} in round[{}]",
+			subTaskFullName, tableName, partitionId, roundCount);
 	}
 
 	private Row toFlinkRow(RowResult row) {
@@ -254,27 +269,37 @@ public class HtapReaderIterator {
 		public volatile IOException scanException = null;
 		private volatile int scanRoundCount = 0;
 
+		public StoreScanThread() {
+			super("StoreScanThread" + "-" + subTaskFullName);
+		}
+
 		@Override
 		public void run() {
 			try {
+				long startTime = System.currentTimeMillis();
 				while (isRunning && scanner.hasMoreRows()) {
 					if (iteratorBufferCount.get() * scanner.getBatchSizeBytes() <
 							MAX_BUFFER_SIZE) {
 						scanRoundCount++;
 						iteratorBufferCount.getAndIncrement();
-						LOG.debug("Before fetch rows from store {}-{} in round[{}]",
-								tableName, partitionId, scanRoundCount);
+						LOG.debug("{} before fetch rows from store {}-{} in round[{}]",
+							subTaskFullName, tableName, partitionId, scanRoundCount);
 						iteratorLinkBuffer.add(scanner.nextRows());
-						LOG.debug("After fetch rows from store {}-{} in round[{}]",
-								tableName, partitionId, scanRoundCount);
+						LOG.debug("{} after fetch rows from store {}-{} in round[{}]",
+							subTaskFullName, tableName, partitionId, scanRoundCount);
 					} else {
-						LOG.debug("buffer is full for {}-{} in round[{}] with max {} Bytes, " +
+						LOG.debug("Subtask({}) buffer is full for {}-{} in round[{}] with max {} Bytes, " +
 								"current buffer iterator count {}, scan batch bytes {}",
-								tableName, partitionId, scanRoundCount, MAX_BUFFER_SIZE,
-								iteratorBufferCount.get(), scanner.getBatchSizeBytes());
+							subTaskFullName, tableName, partitionId, scanRoundCount,
+							MAX_BUFFER_SIZE, iteratorBufferCount.get(), scanner.getBatchSizeBytes());
 						Thread.sleep(10);
+						scanThreadTotalSleepTimeMs += 10;
 					}
 				}
+				long endTime = System.currentTimeMillis();
+				LOG.debug("{} fetched all rows from store {}-{} with {} round, cost time: {}ms," +
+						"sleep time: {}ms", subTaskFullName, tableName, partitionId, scanRoundCount,
+					endTime - startTime, scanThreadTotalSleepTimeMs);
 			} catch (Throwable t) {
 				if (t instanceof HtapException) {
 					HtapException htapException = (HtapException) t;
@@ -283,7 +308,7 @@ public class HtapReaderIterator {
 				} else {
 					scanException = new IOException(t);
 				}
-				LOG.error("scan HTAP store error", t);
+				LOG.error("{} scan HTAP store error", subTaskFullName, t);
 			} finally {
 				isRunning = false;
 			}

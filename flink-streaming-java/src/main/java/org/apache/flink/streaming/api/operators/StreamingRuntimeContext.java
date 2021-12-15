@@ -20,6 +20,7 @@ package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.externalresource.ExternalResourceInfo;
 import org.apache.flink.api.common.functions.BroadcastVariableInitializer;
@@ -259,5 +260,14 @@ public class StreamingRuntimeContext extends AbstractRuntimeUDFContext {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	/**
+	 * Get job id.
+	 *
+	 * @return job id.
+	 * */
+	public JobID getJobId() {
+		return taskEnvironment.getJobID();
 	}
 }
