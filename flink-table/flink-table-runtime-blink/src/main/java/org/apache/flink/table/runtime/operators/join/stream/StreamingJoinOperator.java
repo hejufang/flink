@@ -112,16 +112,12 @@ public class StreamingJoinOperator extends AbstractStreamingJoinOperator {
 
 	@Override
 	public void processElement1(StreamRecord<RowData> element) throws Exception {
-		long startTimestamp = System.nanoTime();
 		processElement(element.getValue(), leftRecordStateView, rightRecordStateView, true);
-		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	@Override
 	public void processElement2(StreamRecord<RowData> element) throws Exception {
-		long startTimestamp = System.nanoTime();
 		processElement(element.getValue(), rightRecordStateView, leftRecordStateView, false);
-		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	/**

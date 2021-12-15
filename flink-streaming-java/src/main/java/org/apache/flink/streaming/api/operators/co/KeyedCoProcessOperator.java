@@ -75,9 +75,7 @@ public class KeyedCoProcessOperator<K, IN1, IN2, OUT>
 	public void processElement1(StreamRecord<IN1> element) throws Exception {
 		collector.setTimestamp(element);
 		context.element = element;
-		long startTimestamp = System.nanoTime();
 		userFunction.processElement1(element.getValue(), context, collector);
-		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 		context.element = null;
 	}
 
@@ -85,9 +83,7 @@ public class KeyedCoProcessOperator<K, IN1, IN2, OUT>
 	public void processElement2(StreamRecord<IN2> element) throws Exception {
 		collector.setTimestamp(element);
 		context.element = element;
-		long startTimestamp = System.nanoTime();
 		userFunction.processElement2(element.getValue(), context, collector);
-		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 		context.element = null;
 	}
 

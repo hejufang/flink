@@ -56,7 +56,6 @@ object OperatorCodeGenerator extends Logging {
     val abstractBaseClass = ctx.getOperatorBaseClass
     val baseClass = classOf[OneInputStreamOperator[IN, OUT]]
     val inputTypeTerm = boxedTypeTermForType(inputType)
-    val startTimeTerm = CodeGenUtils.DEFAULT_START_PROCESSING_TIME_TERM
 
     val (endInput, endInputImpl) = endInputCode match {
       case None => ("", "")
@@ -105,13 +104,11 @@ object OperatorCodeGenerator extends Logging {
 
         @Override
         public void processElement($STREAM_RECORD $ELEMENT) throws Exception {
-          long $startTimeTerm = System.nanoTime();
           $inputTypeTerm $inputTerm = ($inputTypeTerm) ${converter(s"$ELEMENT.getValue()")};
           ${ctx.reusePerRecordCode()}
           ${ctx.reuseLocalVariableCode()}
           ${if (lazyInputUnboxingCode) "" else ctx.reuseInputUnboxingCode()}
           $processCode
-          getOperatorLatency().update((System.nanoTime() - $startTimeTerm) / 1000);
         }
 
         $endInput
@@ -150,7 +147,6 @@ object OperatorCodeGenerator extends Logging {
     val baseClass = classOf[TwoInputStreamOperator[IN1, IN2, OUT]]
     val inputTypeTerm1 = boxedTypeTermForType(input1Type)
     val inputTypeTerm2 = boxedTypeTermForType(input2Type)
-    val startTimeTerm = CodeGenUtils.DEFAULT_START_PROCESSING_TIME_TERM
 
     val (nextSel, nextSelImpl) = nextSelectionCode match {
       case None => ("", "")
@@ -231,21 +227,17 @@ object OperatorCodeGenerator extends Logging {
         @Override
         public void processElement1($STREAM_RECORD $ELEMENT)
          throws Exception {
-          long $startTimeTerm = System.nanoTime();
           ${ctx.reuseLocalVariableCode()}
           $inputTypeTerm1 $input1Term = ${generateInputTerm(inputTypeTerm1)}
           $processCode1
-          getOperatorLatency().update((System.nanoTime() - $startTimeTerm) / 1000);
         }
 
         @Override
         public void processElement2($STREAM_RECORD $ELEMENT)
          throws Exception {
-          long $startTimeTerm = System.nanoTime();
           ${ctx.reuseLocalVariableCode()}
           $inputTypeTerm2 $input2Term = ${generateInputTerm(inputTypeTerm2)}
           $processCode2
-          getOperatorLatency().update((System.nanoTime() - $startTimeTerm) / 1000);
         }
 
         $nextSel

@@ -69,8 +69,6 @@ object CodeGenUtils {
 
   val DEFAULT_CONTEXT_TERM = "ctx"
 
-  val DEFAULT_START_PROCESSING_TIME_TERM = "startTimestamp"
-
   // -------------------------- CANONICAL CLASS NAMES ---------------------------------------
 
   val BINARY_ROW: String = className[BinaryRowData]

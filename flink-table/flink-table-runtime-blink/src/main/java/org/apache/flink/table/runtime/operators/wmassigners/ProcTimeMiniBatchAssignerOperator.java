@@ -69,7 +69,6 @@ public class ProcTimeMiniBatchAssignerOperator extends AbstractStreamOperator<Ro
 
 	@Override
 	public void processElement(StreamRecord<RowData> element) throws Exception {
-		long startTimestamp = System.nanoTime();
 		long now = getProcessingTimeService().getCurrentProcessingTime();
 		long currentBatch = now - now % intervalMs;
 		if (currentBatch > currentWatermark) {
@@ -78,7 +77,6 @@ public class ProcTimeMiniBatchAssignerOperator extends AbstractStreamOperator<Ro
 			output.emitWatermark(new Watermark(currentBatch));
 		}
 		output.collect(element);
-		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	@Override
