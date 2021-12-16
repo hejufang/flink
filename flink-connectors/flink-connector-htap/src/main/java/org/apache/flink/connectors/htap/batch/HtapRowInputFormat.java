@@ -54,7 +54,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private static final long serialVersionUID = 1L;
 
 	private static final Logger LOG = LoggerFactory.getLogger(HtapRowInputFormat.class);
-	private static final int MAX_TASK_NAME_LENGTH = 40;
+	private static final int MAX_TASK_NAME_LENGTH = 60;
 	private final HtapReaderConfig readerConfig;
 	private final String htapClusterName;
 	private final HtapTable table;
@@ -76,6 +76,8 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private transient String subTaskFullName;
 	private transient long splitStartTime = -1;
 	private transient int currentPartition = -1;
+	private transient long openTime = -1;
+	private transient long totalNextRecordTime = 0;
 
 	public HtapRowInputFormat(
 			HtapReaderConfig readerConfig,
@@ -122,8 +124,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 		resultIterator = htapReader.scanner(split.getScanToken(), split.getSplitNumber(), subTaskFullName);
 		currentPartition = split.getSplitNumber();
 
-		LOG.debug("{}, open split of partition {} spend: {}ms",
-			subTaskFullName, currentPartition, System.currentTimeMillis() - splitStartTime);
+		openTime = System.currentTimeMillis() - splitStartTime;
 	}
 
 	/**
@@ -163,10 +164,11 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 			htapReader.close();
 			htapReader = null;
 		}
-		long splitEndTime = System.currentTimeMillis();
+		long totalSplitTime = System.currentTimeMillis() - splitStartTime;
 		if (currentPartition >= 0 && splitStartTime > 0) {
-			LOG.debug("{} total source time for partition({}): {}ms",
-				subTaskFullName, currentPartition, splitEndTime - splitStartTime);
+			LOG.info("{} total source time for partition({}): {}ms, open spend: {}ms," +
+					" totalNextRecordTime: {}ms", subTaskFullName, currentPartition,
+				totalSplitTime, openTime, totalNextRecordTime);
 		}
 	}
 
@@ -193,12 +195,16 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 
 	@Override
 	public Row nextRecord(Row reuse) throws IOException {
+		long startTime = System.currentTimeMillis();
+		Row result;
 		// check that current iterator has next rows
 		if (inDryRunMode || !this.resultIterator.hasNext()) {
 			endReached = true;
-			return null;
+			result = null;
 		} else {
-			return resultIterator.next();
+			result = resultIterator.next();
 		}
+		totalNextRecordTime += (System.currentTimeMillis() - startTime);
+		return result;
 	}
 }
