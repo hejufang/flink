@@ -26,8 +26,6 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.ReadableConfig;
-import org.apache.flink.configuration.TaskManagerOptions;
-import org.apache.flink.contrib.streaming.state.restore.RestoreOptions;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.DiskUtils;
 import org.apache.flink.core.fs.Path;
@@ -59,7 +57,6 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.TernaryBoolean;
 
-import org.rocksdb.CompressionType;
 import org.rocksdb.NativeLibraryLoader;
 import org.rocksdb.RocksDB;
 import org.slf4j.Logger;
@@ -213,8 +210,6 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	private long rocksdbNativeCheckpointTimeout;
 
 	private long disposeTimeout;
-
-	private RestoreOptions restoreOptions;
 
 	// ------------------------------------------------------------------------
 
@@ -386,21 +381,6 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			this.discardStatesIfRocksdbRecoverFail = TernaryBoolean.fromBoolean(config.get(DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL));
 		} else {
 			this.discardStatesIfRocksdbRecoverFail = original.discardStatesIfRocksdbRecoverFail;
-		}
-
-		if (original.restoreOptions != null) {
-			this.restoreOptions = original.restoreOptions;
-		} else {
-			CompressionType compressionType = config.get(RocksDBConfigurableOptions.COMPRESSION_TYPE) != null ?
-				CompressionType.valueOf(config.get(RocksDBConfigurableOptions.COMPRESSION_TYPE)) :
-				CompressionType.SNAPPY_COMPRESSION;
-			this.restoreOptions = new RestoreOptions.Builder()
-				.setUseSstFileWriter(config.get(RocksDBOptions.ROCKSDB_RESTORE_WITH_SST_FILE_WRITER))
-				.setNumberOfAsyncExecutor((int) Math.ceil(config.get(RocksDBOptions.VCORES) * 2 / config.get(TaskManagerOptions.NUM_TASK_SLOTS)))
-				.setMaxDiskSizeInProgress(config.get(RocksDBOptions.MAX_DISK_SIZE_IN_PROGRESS).getBytes())
-				.setMaxSstFileSize(config.get(RocksDBOptions.MAX_SST_SIZE_FOR_SST_FILE_WRITER).getBytes())
-				.setCompressionType(compressionType)
-				.build();
 		}
 
 		this.maxRetryTimes = config.get(CheckpointingOptions.DATA_TRANSFER_MAX_RETRY_ATTEMPTS);
@@ -722,7 +702,6 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			.setIsDiskValid(isDiskValid)
 			.setDBNativeCheckpointTimeout(getDBNativeCheckpointTimeout())
 			.setDisposeTimeout(getDisposeTimeout())
-			.setRestoreOptions(restoreOptions)
 			.setStatsTracker(statsTracker);
 		return builder.build();
 	}
@@ -1089,10 +1068,6 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 				"state file batching requires enabling incremental checkpointing");
 		}
 		this.batchConfig = batchConfig;
-	}
-
-	public void setRestoreOptions(RestoreOptions restoreOptions) {
-		this.restoreOptions = restoreOptions;
 	}
 
 	public boolean getDiscardStatesIfRocksdbRecoverFail() {

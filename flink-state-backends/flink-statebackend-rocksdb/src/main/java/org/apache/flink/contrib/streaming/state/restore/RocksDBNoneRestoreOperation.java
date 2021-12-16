@@ -57,8 +57,7 @@ public class RocksDBNoneRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 		RocksDBNativeMetricOptions nativeMetricOptions,
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> restoreStateHandles,
-		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager,
-		RestoreOptions restoreOptions
+		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager
 	) {
 		super(keyGroupRange,
 			keyGroupPrefixBytes,
@@ -75,8 +74,7 @@ public class RocksDBNoneRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 			metricGroup,
 			restoreStateHandles,
 			ttlCompactFiltersManager,
-			BackendType.NO_STATE_WITH_ROCKSDB_BACKEND,
-			restoreOptions);
+			BackendType.NO_STATE_WITH_ROCKSDB_BACKEND);
 	}
 
 	@Override

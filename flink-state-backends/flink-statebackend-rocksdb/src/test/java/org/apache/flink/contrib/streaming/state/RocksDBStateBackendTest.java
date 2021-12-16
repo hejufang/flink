@@ -19,14 +19,11 @@
 package org.apache.flink.contrib.streaming.state;
 
 import org.apache.flink.api.common.ExecutionConfig;
-import org.apache.flink.api.common.state.MapState;
-import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.base.IntSerializer;
 import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
@@ -34,8 +31,6 @@ import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
 import org.apache.flink.runtime.state.BatchStateHandle;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
-import org.apache.flink.runtime.state.KeyGroupRange;
-import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.apache.flink.runtime.state.SnapshotResult;
@@ -121,20 +116,15 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 	private ValueState<String> testState2;
 
 	@Parameterized.Parameters(name = "RocksDB snapshot type ={0}")
-	public static Collection<Object[]> parameters() {
+	public static Collection<RocksDBStateBackendEnum> parameters() {
 		return Arrays.asList(
-			new Object[]{RocksDBStateBackendEnum.FULL, false},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, false},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, true},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ, false},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ, true});
+			RocksDBStateBackendEnum.FULL,
+			RocksDBStateBackendEnum.INCREMENTAL,
+			RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ);
 	}
 
 	@Parameterized.Parameter
 	public RocksDBStateBackendEnum rocksDBStateBackendEnum;
-
-	@Parameterized.Parameter(1)
-	public boolean restoreWithSstFileWriter;
 
 	enum RocksDBStateBackendEnum {
 		FULL, INCREMENTAL, INCREMENTAL_BATCH_FIX_SIZE_SEQ
@@ -181,10 +171,6 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 		Configuration configuration = new Configuration();
 		configuration.set(RocksDBOptions.TIMER_SERVICE_FACTORY, RocksDBStateBackend.PriorityQueueStateType.ROCKSDB);
 		configuration.setBoolean(RocksDBOptions.DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL, discardStatesIfRocksdbRecoverFail);
-		if (restoreWithSstFileWriter) {
-			configuration.set(RocksDBOptions.ROCKSDB_RESTORE_WITH_SST_FILE_WRITER, true);
-			configuration.set(RocksDBOptions.MAX_SST_SIZE_FOR_SST_FILE_WRITER, MemorySize.parse("5k"));
-		}
 		backend = backend.configure(configuration, Thread.currentThread().getContextClassLoader());
 		backend.setDbStoragePath(dbPath);
 		return backend;
@@ -945,208 +931,6 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 		keyedStateBackend.dispose();
 		verify(spyDB, times(1)).close();
 		assertEquals(true, keyedStateBackend.isDisposed());
-	}
-
-	@Test
-	public void testSstFileWriterRecoverMode() throws Exception {
-		if (restoreWithSstFileWriter && (rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL ||
-			rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ)) {
-			CheckpointStreamFactory streamFactory = createStreamFactory();
-
-			SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
-
-			// use an IntSerializer at first
-			AbstractKeyedStateBackend<Integer> backend1 = createKeyedBackend(IntSerializer.INSTANCE, 20, KeyGroupRange.of(0, 9), env);
-			AbstractKeyedStateBackend<Integer> backend2 = createKeyedBackend(IntSerializer.INSTANCE, 20, KeyGroupRange.of(10, 19), env);
-
-			ValueStateDescriptor<String> kvId = new ValueStateDescriptor<>("id", String.class);
-			ValueState<String> valueState1 = backend1.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
-			ValueState<String> valueState2 = backend2.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
-
-			MapStateDescriptor<String, String> kvMap = new MapStateDescriptor<>("kvMap", String.class, String.class);
-			MapState<String, String> mapState1 = backend1.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvMap);
-			MapState<String, String> mapState2 = backend2.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvMap);
-
-			for (int i = 0; i < 1_0000; i++) {
-				int keyGroup = KeyGroupRangeAssignment.assignToKeyGroup(i, 20);
-				if (keyGroup < 10) {
-					update(i, backend1, valueState1, mapState1);
-				} else {
-					update(i, backend2, valueState2, mapState2);
-				}
-			}
-
-			// draw a snapshot
-			IncrementalRemoteKeyedStateHandle backend1Snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
-				backend1.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
-				sharedStateRegistry);
-			IncrementalRemoteKeyedStateHandle backend2Snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
-				backend2.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
-				sharedStateRegistry);
-
-			backend1.dispose();
-			backend2.dispose();
-
-			// verify recover success.
-			backend1 = restoreKeyedBackend(IntSerializer.INSTANCE, 20, KeyGroupRange.of(0, 9), new ArrayList<>(Arrays.asList(backend1Snapshot1)), env);
-			valueState1 = backend1.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
-			mapState1 = backend1.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvMap);
-
-			backend2 = restoreKeyedBackend(IntSerializer.INSTANCE, 20, KeyGroupRange.of(10, 19), new ArrayList<>(Arrays.asList(backend2Snapshot1)), env);
-			valueState2 = backend2.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
-			mapState2 = backend2.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvMap);
-
-			for (int i = 0; i < 1_0000; i++) {
-				int keyGroup = KeyGroupRangeAssignment.assignToKeyGroup(i, 20);
-				if (keyGroup < 10) {
-					checkStateExist(i, backend1, valueState1, mapState1);
-					checkStateNotExist(i, backend2, valueState2, mapState2);
-				} else {
-					checkStateExist(i, backend2, valueState2, mapState2);
-					checkStateNotExist(i, backend1, valueState1, mapState1);
-				}
-			}
-			backend1.dispose();
-			backend2.dispose();
-
-			// scale up
-			backend1 = restoreKeyedBackend(IntSerializer.INSTANCE, 20, KeyGroupRange.of(0, 6), new ArrayList<>(Arrays.asList(backend1Snapshot1)), env);
-			valueState1 = backend1.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
-			mapState1 = backend1.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvMap);
-
-			backend2 = restoreKeyedBackend(IntSerializer.INSTANCE, 20, KeyGroupRange.of(7, 13), new ArrayList<>(Arrays.asList(backend1Snapshot1, backend2Snapshot1)), env);
-			valueState2 = backend2.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
-			mapState2 = backend2.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvMap);
-
-			AbstractKeyedStateBackend<Integer> backend3 = restoreKeyedBackend(IntSerializer.INSTANCE, 20, KeyGroupRange.of(14, 20), new ArrayList<>(Arrays.asList(backend2Snapshot1)), env);
-			ValueState<String> valueState3 = backend3.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
-			MapState<String, String> mapState3 = backend3.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvMap);
-
-			for (int i = 0; i < 10_000; i++) {
-				int keyGroup = KeyGroupRangeAssignment.assignToKeyGroup(i, 20);
-				if (keyGroup < 7) {
-					checkStateExist(i, backend1, valueState1, mapState1);
-					checkStateNotExist(i, backend2, valueState2, mapState2);
-					checkStateNotExist(i, backend3, valueState3, mapState3);
-				} else if (keyGroup < 14) {
-					checkStateExist(i, backend2, valueState2, mapState2);
-					checkStateNotExist(i, backend1, valueState1, mapState1);
-					checkStateNotExist(i, backend3, valueState3, mapState3);
-				} else {
-					checkStateExist(i, backend3, valueState3, mapState3);
-					checkStateNotExist(i, backend2, valueState2, mapState2);
-					checkStateNotExist(i, backend1, valueState1, mapState1);
-				}
-			}
-
-			backend1.dispose();
-			backend2.dispose();
-			backend3.dispose();
-
-			// scale down
-			backend1 = restoreKeyedBackend(IntSerializer.INSTANCE, 20, KeyGroupRange.of(0, 19), new ArrayList<>(Arrays.asList(backend1Snapshot1, backend2Snapshot1)), env);
-			valueState1 = backend1.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
-			mapState1 = backend1.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvMap);
-			for (int i = 0; i < 10_000; i++) {
-				checkStateExist(i, backend1, valueState1, mapState1);
-			}
-			backend1.dispose();
-		}
-	}
-
-	@Test
-	public void testSstFileWriterRecoverModeWithError() throws Exception {
-		if (restoreWithSstFileWriter && (rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL ||
-			rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ)) {
-			CheckpointStreamFactory streamFactory = createStreamFactory();
-
-			SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
-
-			// use an IntSerializer at first
-			AbstractKeyedStateBackend<Integer> backend1 = createKeyedBackend(IntSerializer.INSTANCE, 20, KeyGroupRange.of(0, 9), env);
-			AbstractKeyedStateBackend<Integer> backend2 = createKeyedBackend(IntSerializer.INSTANCE, 20, KeyGroupRange.of(10, 19), env);
-
-			ValueStateDescriptor<String> kvId = new ValueStateDescriptor<>("id", String.class);
-			ValueState<String> valueState1 = backend1.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
-			ValueState<String> valueState2 = backend2.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
-
-			MapStateDescriptor<String, String> kvMap = new MapStateDescriptor<>("kvMap", String.class, String.class);
-			MapState<String, String> mapState1 = backend1.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvMap);
-			MapState<String, String> mapState2 = backend2.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvMap);
-
-			for (int i = 0; i < 1_0000; i++) {
-				int keyGroup = KeyGroupRangeAssignment.assignToKeyGroup(i, 20);
-				if (keyGroup < 10) {
-					update(i, backend1, valueState1, mapState1);
-				} else {
-					update(i, backend2, valueState2, mapState2);
-				}
-			}
-
-			// draw a snapshot
-			IncrementalRemoteKeyedStateHandle backend1Snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
-				backend1.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
-				sharedStateRegistry);
-			IncrementalRemoteKeyedStateHandle backend2Snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
-				backend2.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
-				sharedStateRegistry);
-
-			backend1.dispose();
-			backend2.dispose();
-			backend1 = null;
-
-			Thread.currentThread().interrupt();
-			try {
-				// scale
-				backend1 = restoreKeyedBackend(IntSerializer.INSTANCE, 20, KeyGroupRange.of(0, 6), new ArrayList<>(Arrays.asList(backend1Snapshot1)), env);
-				fail();
-			} catch (Exception ignore) {
-				// ignore
-			} finally {
-				if (backend1 != null) {
-					backend1.dispose();
-				}
-			}
-		}
-	}
-
-	private void update(
-			Integer key,
-			AbstractKeyedStateBackend<Integer> backend,
-			ValueState<String> valueState,
-			MapState<String, String> mapState) throws Exception {
-
-		backend.setCurrentKey(key);
-		valueState.update(String.valueOf(key));
-		for (int j = 0; j < 3; j++) {
-			mapState.put(key + "-key-" + j, key + "-value-" + j);
-		}
-	}
-
-	private void checkStateExist(
-			Integer key,
-			AbstractKeyedStateBackend<Integer> backend,
-			ValueState<String> valueState,
-			MapState<String, String> mapState) throws Exception {
-
-		backend.setCurrentKey(key);
-		assertEquals(String.valueOf(key), valueState.value());
-		for (int j = 0; j < 3; j++) {
-			assertEquals(key + "-value-" + j, mapState.get(key + "-key-" + j));
-		}
-	}
-
-	private void checkStateNotExist(
-		Integer key,
-		AbstractKeyedStateBackend<Integer> backend,
-		ValueState<String> valueState,
-		MapState<String, String> mapState) throws Exception {
-
-		backend.setCurrentKey(key);
-		assertNull(valueState.value());
-		for (int j = 0; j < 3; j++) {
-			assertNull(mapState.get(key + "-key-" + j));
-		}
 	}
 
 	private static class AcceptAllFilter implements IOFileFilter {

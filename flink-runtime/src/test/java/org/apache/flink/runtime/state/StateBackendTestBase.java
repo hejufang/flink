@@ -164,7 +164,7 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 	// lazily initialized stream storage
 	private CheckpointStreamFactory checkpointStreamFactory;
 
-	protected MockEnvironment env;
+	private MockEnvironment env;
 
 	protected abstract B getStateBackend() throws Exception;
 
