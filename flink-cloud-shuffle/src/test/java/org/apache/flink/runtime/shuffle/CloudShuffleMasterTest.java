@@ -24,13 +24,14 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 
-import com.bytedance.css.common.protocol.PartitionInfo;
+import com.bytedance.css.common.protocol.PartitionGroup;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -44,9 +45,9 @@ public class CloudShuffleMasterTest {
 		final boolean[] shuffleRegistered = {false};
 		final TestShuffleClient testShuffleClient = new TestShuffleClient() {
 			@Override
-			public List<PartitionInfo> registerShuffle(String s, int i, int i1, int i2) throws IOException {
+			public List<PartitionGroup> registerPartitionGroup(String s, int i, int i1, int i2, int i3) throws IOException {
 				shuffleRegistered[0] = true;
-				return null;
+				return Collections.singletonList(new PartitionGroup(1, 1, 1, 1, "", 1, "", 1));
 			}
 		};
 

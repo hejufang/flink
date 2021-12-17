@@ -55,9 +55,8 @@ public final class BroadcastRecordWriter<T extends IOReadableWritable> extends R
 	BroadcastRecordWriter(
 			ResultPartitionWriter writer,
 			long timeout,
-			String taskName,
-			boolean cloudShuffleMode) {
-		super(writer, timeout, taskName, cloudShuffleMode);
+			String taskName) {
+		super(writer, timeout, taskName);
 	}
 
 	@Override

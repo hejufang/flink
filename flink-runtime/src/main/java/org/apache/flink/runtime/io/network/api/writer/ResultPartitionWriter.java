@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.api.writer;
 
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateReader;
+import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.AvailabilityProvider;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
@@ -28,6 +29,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
  * A buffer-oriented runtime result writer API for producing results.
@@ -149,4 +151,16 @@ public interface ResultPartitionWriter extends AutoCloseable, AvailabilityProvid
 	 * <p>Closing of partition is still needed afterwards.
 	 */
 	void finish() throws IOException;
+
+	default void broadcastEvent(AbstractEvent event) throws IOException {
+		throw new UnsupportedOperationException();
+	}
+
+	default void addRecord(ByteBuffer rawBuffer, int selectChannel) throws IOException {
+		throw new UnsupportedOperationException();
+	}
+
+	default void broadcastRecord(ByteBuffer rawBuffer) throws IOException {
+		throw new UnsupportedOperationException();
+	}
 }

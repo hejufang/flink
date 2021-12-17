@@ -55,9 +55,17 @@ public class RecordWriterBuilder<T extends IOReadableWritable> {
 
 	public RecordWriter<T> build(ResultPartitionWriter writer) {
 		if (selector.isBroadcast()) {
-			return new BroadcastRecordWriter<>(writer, timeout, taskName, cloudShuffleMode);
+			if (cloudShuffleMode) {
+				return new CloudShuffleBroadcastRecordWriter<>(writer, timeout, taskName);
+			} else {
+				return new BroadcastRecordWriter<>(writer, timeout, taskName);
+			}
 		} else {
-			return new ChannelSelectorRecordWriter<>(writer, selector, timeout, taskName, cloudShuffleMode);
+			if (cloudShuffleMode) {
+				return new CloudShuffleChannelSelectorRecordWriter<>(writer, selector, timeout, taskName);
+			} else {
+				return new ChannelSelectorRecordWriter<>(writer, selector, timeout, taskName);
+			}
 		}
 	}
 }

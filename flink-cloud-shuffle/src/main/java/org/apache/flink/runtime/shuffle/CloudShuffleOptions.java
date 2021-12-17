@@ -86,14 +86,26 @@ public class CloudShuffleOptions {
 	public static final ConfigOption<MemorySize> CLOUD_SHUFFLE_SERVICE_BUFFER_SIZE = ConfigOptions
 			.key("flink.cloud-shuffle-service.buffer-size")
 			.memoryType()
-			.defaultValue(MemorySize.parse("32kb"))
-			.withDescription("Memory size of buffers.");
+			.defaultValue(MemorySize.parse("4mb"))
+			.withDescription("Max size for a single buffer.");
 
-	public static final ConfigOption<Integer> CLOUD_SHUFFLE_SERVICE_BUFFERS_PER_MAPPER = ConfigOptions
-			.key("flink.cloud-shuffle-service.buffers-per-mapper")
-			.intType()
-			.defaultValue(2)
-			.withDescription("Number of buffers per mapper.");
+	public static final ConfigOption<MemorySize> CLOUD_SHUFFLE_SERVICE_MAX_BATCH_SIZE = ConfigOptions
+		.key("flink.cloud-shuffle-service.max-batch-size")
+		.memoryType()
+		.defaultValue(MemorySize.parse("128mb"))
+		.withDescription("Max batch size for a pushAll.");
+
+	public static final ConfigOption<MemorySize> CLOUD_SHUFFLE_SERVICE_MAX_BATCH_SIZE_PER_GROUP = ConfigOptions
+		.key("flink.cloud-shuffle-service.max-batch-size-per-group")
+		.memoryType()
+		.defaultValue(MemorySize.parse("64mb"))
+		.withDescription("Max group size for a group batch push.");
+
+	public static final ConfigOption<MemorySize> CLOUD_SHUFFLE_SERVICE_INITIAL_SIZE_PER_REDUCER = ConfigOptions
+		.key("flink.cloud-shuffle-service.initial-size-per-reducer")
+		.memoryType()
+		.defaultValue(MemorySize.parse("32kb"))
+		.withDescription("Initial size for each reducer.");
 
 	// used for TM
 	public static CssConf fromConfiguration(Configuration configuration) {

@@ -43,19 +43,11 @@ public class SpanningRecordSerializer<T extends IOReadableWritable> implements R
 	/** Intermediate buffer for data serialization (wrapped from {@link #serializationBuffer}). */
 	private ByteBuffer dataBuffer;
 
-	private final boolean cloudShuffleMode;
-
 	public SpanningRecordSerializer() {
-		this(false);
-	}
-
-	public SpanningRecordSerializer(boolean cloudShuffleMode) {
 		serializationBuffer = new DataOutputSerializer(128);
 
 		// ensure initial state with hasRemaining false (for correct continueWritingWithNextBufferBuilder logic)
 		dataBuffer = serializationBuffer.wrapAsByteBuffer();
-
-		this.cloudShuffleMode = cloudShuffleMode;
 	}
 
 	/**
@@ -95,10 +87,6 @@ public class SpanningRecordSerializer<T extends IOReadableWritable> implements R
 	 */
 	@Override
 	public SerializationResult copyToBufferBuilder(BufferBuilder targetBuffer) {
-		if (cloudShuffleMode && dataBuffer.remaining() > targetBuffer.getWritableBytes()) {
-			return SerializationResult.OUT_OF_SPACE;
-		}
-
 		targetBuffer.append(dataBuffer);
 		targetBuffer.commit();
 
@@ -131,7 +119,7 @@ public class SpanningRecordSerializer<T extends IOReadableWritable> implements R
 	}
 
 	@Override
-	public int getSerializedSize() {
-		return dataBuffer.remaining();
+	public ByteBuffer getRawBuffer() {
+		return dataBuffer;
 	}
 }

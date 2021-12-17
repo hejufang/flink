@@ -108,8 +108,9 @@ public class EventSerializer {
 		else if (eventClass == CloudShuffleVerifierEvent.class) {
 			CloudShuffleVerifierEvent verifierEvent = (CloudShuffleVerifierEvent) event;
 
-			ByteBuffer buf = ByteBuffer.allocate(8);
-			buf.putLong(verifierEvent.getSendBytes());
+			ByteBuffer buf = ByteBuffer.allocate(12);
+			buf.putInt(0, CLOUD_SHUFFLE_VERIFIER_EVENT);
+			buf.putLong(4, verifierEvent.getSendBytes());
 			return buf;
 		}
 		else {

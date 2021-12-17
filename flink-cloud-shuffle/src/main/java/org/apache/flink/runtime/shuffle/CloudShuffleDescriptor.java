@@ -21,7 +21,10 @@ package org.apache.flink.runtime.shuffle;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 
+import com.bytedance.css.common.protocol.PartitionGroup;
+
 import java.io.Serializable;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -91,6 +94,10 @@ public class CloudShuffleDescriptor implements ShuffleDescriptor {
 		return shuffleInfo.getReducerEndIndex();
 	}
 
+	public List<PartitionGroup> getPartitionGroups() {
+		return shuffleInfo.getPartitionGroups();
+	}
+
 	@Override
 	public ResultPartitionID getResultPartitionID() {
 		return resultPartitionID;
@@ -122,13 +129,15 @@ public class CloudShuffleDescriptor implements ShuffleDescriptor {
 		private final int mapperEndIndex;
 		private final int reducerBeginIndex;
 		private final int reducerEndIndex;
+		private final List<PartitionGroup> partitionGroups;
 
-		public CloudShuffleInfo(int shuffleId, int mapperBeginIndex, int mapperEndIndex, int reducerBeginIndex, int reducerEndIndex) {
+		public CloudShuffleInfo(int shuffleId, int mapperBeginIndex, int mapperEndIndex, int reducerBeginIndex, int reducerEndIndex, List<PartitionGroup> partitionGroups) {
 			this.shuffleId = shuffleId;
 			this.mapperBeginIndex = mapperBeginIndex;
 			this.mapperEndIndex = mapperEndIndex;
 			this.reducerBeginIndex = reducerBeginIndex;
 			this.reducerEndIndex = reducerEndIndex;
+			this.partitionGroups = partitionGroups;
 		}
 
 		public int getShuffleId() {
@@ -159,6 +168,10 @@ public class CloudShuffleDescriptor implements ShuffleDescriptor {
 			return reducerEndIndex - reducerBeginIndex + 1;
 		}
 
+		public List<PartitionGroup> getPartitionGroups() {
+			return partitionGroups;
+		}
+
 		@Override
 		public String toString() {
 			return "CloudShuffleInfo{" +
@@ -167,6 +180,7 @@ public class CloudShuffleDescriptor implements ShuffleDescriptor {
 				", mapperEndIndex=" + mapperEndIndex +
 				", reducerBeginIndex=" + reducerBeginIndex +
 				", reducerEndIndex=" + reducerEndIndex +
+				", partitionGroups=" + partitionGroups +
 				'}';
 		}
 	}

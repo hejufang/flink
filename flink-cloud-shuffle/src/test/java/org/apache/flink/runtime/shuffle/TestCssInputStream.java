@@ -18,26 +18,35 @@
 
 package org.apache.flink.runtime.shuffle;
 
-import org.apache.flink.configuration.Configuration;
+import com.bytedance.css.client.MetricsCallback;
+import com.bytedance.css.client.stream.CssInputStream;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
- * CloudShuffleServiceFactory.
+ * Utility for CSS InputStream.
  */
-public class CloudShuffleServiceFactory
-		implements ShuffleServiceFactory<CloudShuffleDescriptor, CloudShuffleResultPartition, CloudShuffleInputGate> {
-	private static final Logger LOG = LoggerFactory.getLogger(CloudShuffleServiceFactory.class);
+public class TestCssInputStream extends CssInputStream {
 
-	@Override
-	public ShuffleMaster<CloudShuffleDescriptor> createShuffleMaster(Configuration configuration) {
-		return new CloudShuffleMaster(configuration);
+	private InputStream inputStream;
+
+	public TestCssInputStream(byte[] data) {
+		this.inputStream = new ByteArrayInputStream(data);
 	}
 
 	@Override
-	public ShuffleEnvironment<CloudShuffleResultPartition, CloudShuffleInputGate> createShuffleEnvironment(ShuffleEnvironmentContext shuffleEnvironmentContext) {
-		// calculate network memory
-		return new CloudShuffleEnvironment(shuffleEnvironmentContext.getConfiguration());
+	public void setCallback(MetricsCallback metricsCallback) {
+	}
+
+	@Override
+	public int read() throws IOException {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public int read(byte[] b, int off, int len) throws IOException {
+		return this.inputStream.read(b, off, len);
 	}
 }

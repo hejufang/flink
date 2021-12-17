@@ -19,11 +19,13 @@
 package org.apache.flink.runtime.shuffle;
 
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.io.IOException;
+import java.util.ArrayList;
 
 /**
  * Tests for {@link CloudShuffleEnvironment}.
@@ -32,17 +34,21 @@ public class CloudShuffleEnvironmentTest {
 
 	@Test
 	public void testSetup() {
-		final CloudShuffleEnvironment environment = new CloudShuffleEnvironment(
-				new Configuration(),
-				new NetworkBufferPool(4, 32 * 1024, 4));
+		final CloudShuffleEnvironment environment = new CloudShuffleEnvironment(new Configuration());
 
 		boolean changed = environment.setUpMasterHostAndPort(new Configuration(), new CloudShuffleDescriptor(
 				new ResultPartitionID(),
-				new CloudShuffleDescriptor.CloudShuffleInfo(1, 0, 1, 0, 1),
+				new CloudShuffleDescriptor.CloudShuffleInfo(1, 0, 1, 0, 1, new ArrayList<>()),
 				1,
 				1,
 				"master-address",
 				"master-port"));
 		Assert.assertTrue(changed);
+	}
+
+	@Test
+	public void testPositivePort() throws IOException {
+		final CloudShuffleEnvironment environment = new CloudShuffleEnvironment(new Configuration());
+		Assert.assertTrue(environment.start() > 0);
 	}
 }

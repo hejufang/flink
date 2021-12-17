@@ -25,11 +25,11 @@ import org.apache.flink.runtime.shuffle.buffer.CloudShuffleBuffer;
 import org.apache.flink.runtime.shuffle.util.CloudShuffleReadWriterUtil;
 
 import com.bytedance.css.client.ShuffleClient;
-import com.bytedance.css.client.stream.CssInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayDeque;
 
 /**
@@ -42,7 +42,9 @@ public class CloudShuffleReader implements BufferRecycler {
 
 	private final ArrayDeque<MemorySegment> buffers;
 
-	private CssInputStream inputStream;
+	private InputStream inputStream;
+
+	private boolean reachEnd;
 
 	public CloudShuffleReader(
 			int memorySegmentSize,
@@ -68,6 +70,8 @@ public class CloudShuffleReader implements BufferRecycler {
 			LOG.error("Fail to connect to remote shuffle service.", e);
 			throw new RuntimeException(e);
 		}
+
+		this.reachEnd = false;
 	}
 
 	public CloudShuffleBuffer pollNext() throws IOException {
@@ -78,10 +82,15 @@ public class CloudShuffleReader implements BufferRecycler {
 
 		final CloudShuffleBuffer next = CloudShuffleReadWriterUtil.readFromCloudShuffleSerivice(inputStream, memory, this);
 		if (next == null) {
+			reachEnd = true;
 			recycle(memory);
 		}
 
 		return next;
+	}
+
+	public boolean isReachEnd() {
+		return reachEnd;
 	}
 
 	@Override
@@ -90,10 +99,11 @@ public class CloudShuffleReader implements BufferRecycler {
 		buffers.addLast(memorySegment);
 	}
 
-	public void close() {
+	public void close() throws IOException {
 		while (!buffers.isEmpty()) {
 			MemorySegment segment = buffers.pollFirst();
 			segment.free();
 		}
+		inputStream.close();
 	}
 }

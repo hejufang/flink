@@ -47,6 +47,30 @@ public class CloudShuffleReadWriterUtil {
 
 	private static final short HEADER_VALUE_IS_EVENT = 1;
 
+	public static int calculateHeaderSize(int numberOfHeaders) {
+		return numberOfHeaders * HEADER_LENGTH;
+	}
+
+	public static int writeToCloudShuffleService(
+		int mapperId,
+		byte[] reducerData,
+		int length,
+		ByteBuffer[] arrayWithHeaderBuffer,
+		byte[] dst,
+		int offset) {
+		final ByteBuffer headerBuffer = arrayWithHeaderBuffer[0];
+		headerBuffer.clear();
+		headerBuffer.putInt(mapperId);
+		headerBuffer.putShort(HEADER_VALUE_IS_BUFFER);
+		headerBuffer.putInt(length);
+		headerBuffer.flip();
+
+		final int bytesExpected = HEADER_LENGTH + length;
+		headerBuffer.get(dst, offset, HEADER_LENGTH);
+		System.arraycopy(reducerData, 0, dst, offset + HEADER_LENGTH, length);
+		return bytesExpected;
+	}
+
 	public static byte[] writeToCloudShuffleService(int mapperId, Buffer buffer, ByteBuffer[] arrayWithHeaderBuffer) {
 		final ByteBuffer headerBuffer = arrayWithHeaderBuffer[0];
 		headerBuffer.clear();

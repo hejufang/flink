@@ -26,7 +26,7 @@ import com.bytedance.css.api.CssShuffleContext;
 import com.bytedance.css.client.ShuffleClient;
 import com.bytedance.css.client.impl.ShuffleClientImpl;
 import com.bytedance.css.common.CssConf;
-import com.bytedance.css.common.protocol.PartitionInfo;
+import com.bytedance.css.common.protocol.PartitionGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +45,7 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 
 	private final int baseShuffleId;
 
-	private final Map<Integer, ShuffleInfo> shuffleIds;
+	private final Map<Integer, CloudShuffleDescriptor.CloudShuffleInfo> shuffleIds;
 
 	private final String applicationId;
 	private final int applicationAttemptNumber;
@@ -56,6 +56,8 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 	private String masterHost;
 	private String masterPort;
 
+	private final CssConf cssConf;
+
 	@VisibleForTesting
 	public CloudShuffleMaster(
 			String applicationId,
@@ -65,6 +67,7 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 		this.applicationId = applicationId;
 		this.applicationAttemptNumber = applicationAttemptNumber;
 		this.cssClient = cssClient;
+		this.cssConf = new CssConf();
 
 		// use high 16 bit as Application Attempt
 		// use low 16 bit as Shuffle Id
@@ -88,7 +91,7 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 			System.exit(-100);
 		}
 
-		final CssConf cssConf = CloudShuffleOptions.fromConfiguration(configuration);
+		this.cssConf = CloudShuffleOptions.fromConfiguration(configuration);
 		this.cssClient = (ShuffleClientImpl) ShuffleClient.get(cssConf);
 		this.shuffleIds = new HashMap<>();
 		this.applicationId = System.getenv("_APP_ID");
@@ -108,20 +111,35 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 
 		if (!shuffleIds.containsKey(shuffleId)) {
 			// send RPC request to register the shuffleId
+			List<PartitionGroup> partitionGroups = null;
 			try {
-				final List<PartitionInfo> partitionInfos = cssClient.registerShuffle(
+				partitionGroups = cssClient.registerPartitionGroup(
 						this.applicationId,
 						shuffleId,
 						shuffleInfo.getNumberOfMappers(), // number of mappers
-						shuffleInfo.getNumberOfReducers()); // number of reducers
+						shuffleInfo.getNumberOfReducers(),
+						CssConf.maxPartitionsPerGroup(cssConf)); // number of reducers
+				for (PartitionGroup group : partitionGroups) {
+					LOG.info("partitionGroupId: {}, startPartition: {}, endPartition: {}.", group.partitionGroupId, group.startPartition, group.endPartition);
+				}
 			} catch (IOException e) {
 				throw new IllegalStateException(e);
 			}
 
-			// update the shuffleId
-			shuffleIds.put(shuffleId, shuffleInfo);
+			if (partitionGroups.isEmpty()) {
+				throw new IllegalStateException();
+			}
 
-			LOG.info("Producer {} registers shuffle (id={}) with {} mappers and {} reducers",
+			// update the shuffleId
+			shuffleIds.put(shuffleId, new CloudShuffleDescriptor.CloudShuffleInfo(
+				shuffleId,
+				shuffleInfo.getMapperBeginIndex(),
+				shuffleInfo.getMapperEndIndex(),
+				shuffleInfo.getReducerBeginIndex(),
+				shuffleInfo.getReducerEndIndex(),
+				partitionGroups));
+
+			LOG.info("Producer {} registers partitionGroup (id={}) with {} mappers and {} reducers",
 				producerDescriptor.getProducerExecutionId(),
 				shuffleId,
 				shuffleInfo.getNumberOfMappers(),
@@ -130,12 +148,7 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 
 		CloudShuffleDescriptor cloudShuffleDescriptor = new CloudShuffleDescriptor(
 				new ResultPartitionID(partitionDescriptor.getPartitionId(), producerDescriptor.getProducerExecutionId()),
-				new CloudShuffleDescriptor.CloudShuffleInfo(
-					shuffleId,
-					shuffleInfo.getMapperBeginIndex(),
-					shuffleInfo.getMapperEndIndex(),
-					shuffleInfo.getReducerBeginIndex(),
-					shuffleInfo.getReducerEndIndex()),
+				shuffleIds.get(shuffleId),
 				mapperIndex,
 				producerDescriptor.getAttemptNumber(),
 				masterHost,

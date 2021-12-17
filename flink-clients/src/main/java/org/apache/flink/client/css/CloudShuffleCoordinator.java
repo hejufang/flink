@@ -59,6 +59,8 @@ public class CloudShuffleCoordinator {
 
 	private static final String PATH = "/css/v1/api/permission/ask";
 
+	public static final String PREFIX = "flink.cloud-shuffle-service.";
+
 	/** copy from YarnConfigOptions. */
 	private static final ConfigOption<List<String>> PROVIDED_USER_SHARED_LIB_DIRS =
 		key("yarn.provided.user.shared.libs")
@@ -219,21 +221,26 @@ public class CloudShuffleCoordinator {
 		while (iter.hasNext()) {
 			String key = iter.next();
 			String value = commonConf.get(key).asText();
-			LOG.info("CloudShuffleCoordinator inject config(key={},value={}).", key, value);
-			setIfAbsent(configuration, key, value);
+			if (setIfAbsent(configuration, PREFIX + key, value)) {
+				LOG.info("CloudShuffleCoordinator inject config(key={},value={}).", key, value);
+			}
 		}
 	}
 
-	private static void setIfAbsent(Configuration configuration, String key, String value) {
+	private static boolean setIfAbsent(Configuration configuration, String key, String value) {
 		if (!configuration.containsKey(key)) {
 			configuration.setString(key, value);
+			return true;
 		}
+		return false;
 	}
 
-	private static <T> void setIfAbsent(Configuration configuration, ConfigOption<T> option, T value) {
+	private static <T> boolean setIfAbsent(Configuration configuration, ConfigOption<T> option, T value) {
 		if (!configuration.contains(option)) {
 			configuration.set(option, value);
+			return true;
 		}
+		return false;
 	}
 
 	private static class CoordinatorQuery {

@@ -19,26 +19,27 @@
 package org.apache.flink.runtime.shuffle;
 
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateReader;
+import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
-import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferPoolOwner;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.util.FlinkRuntimeException;
-import org.apache.flink.util.function.FunctionWithException;
 
 import com.bytedance.css.client.ShuffleClient;
+import com.bytedance.css.common.protocol.PartitionGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -51,10 +52,6 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 	private final String taskName;
 
 	private final ResultPartitionID partitionId;
-
-	private BufferPool bufferPool;
-
-	private final FunctionWithException<BufferPoolOwner, BufferPool, IOException> bufferPoolFactory;
 
 	public final int numTargetKeyGroups;
 
@@ -69,22 +66,25 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 	private final CloudShuffleWriter cloudShuffleWriter;
 
 	public CloudShuffleResultPartition(
-			String taskName,
-			int numTargetKeyGroups,
-			ResultPartitionID partitionId,
-			ShuffleClient shuffleClient,
-			FunctionWithException<BufferPoolOwner, BufferPool, IOException> bufferPoolFactory,
-			String applicationId,
-			int shuffleId,
-			int mapperId,
-			int mapperAttemptId,
-			int numberOfMappers,
-			int numberOfReducers) {
+		String taskName,
+		int numTargetKeyGroups,
+		ResultPartitionID partitionId,
+		ShuffleClient shuffleClient,
+		String applicationId,
+		int shuffleId,
+		int mapperId,
+		int mapperAttemptId,
+		int numberOfMappers,
+		int numberOfReducers,
+		long segmentSize,
+		long maxBatchSize,
+		long maxBatchSizePerGroup,
+		long initialSizePerReducer,
+		Map<Integer, PartitionGroup> reducerIdToGroups) {
 		this.taskName = taskName;
 		this.numberOfReducers = numberOfReducers;
 		this.numTargetKeyGroups = numTargetKeyGroups;
 		this.partitionId = checkNotNull(partitionId);
-		this.bufferPoolFactory = bufferPoolFactory;
 
 		this.mapperId = mapperId;
 		this.mapperAttemptId = mapperAttemptId;
@@ -96,23 +96,22 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 			mapperAttemptId,
 			numberOfMappers,
 			numberOfReducers,
-			shuffleClient);
+			shuffleClient,
+			segmentSize,
+			maxBatchSize,
+			maxBatchSizePerGroup,
+			initialSizePerReducer,
+			reducerIdToGroups);
 	}
 
 	@Override
 	public void setup() throws IOException {
-		checkState(this.bufferPool == null, "Bug in result partition setup logic: Already registered buffer pool.");
-
-		BufferPool bufferPool = checkNotNull(bufferPoolFactory.apply(this));
-		checkArgument(bufferPool.getNumberOfRequiredMemorySegments() >= getNumberOfSubpartitions(),
-				"Bug in result partition setup logic: Buffer pool has not enough guaranteed buffers for this result partition.");
-
-		this.bufferPool = bufferPool;
+		// do nothing
 	}
 
 	@Override
 	public CompletableFuture<?> getAvailableFuture() {
-		return bufferPool.getAvailableFuture();
+		return AvailabilityHelper.AVAILABLE;
 	}
 
 	@Override
@@ -137,13 +136,12 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 
 	@Override
 	public BufferBuilder getBufferBuilder(int targetChannel) throws IOException, InterruptedException {
-		checkInProduceState();
-		return bufferPool.requestBufferBuilderBlocking(targetChannel);
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	public BufferBuilder tryGetBufferBuilder(int targetChannel) throws IOException {
-		return bufferPool.requestBufferBuilder(targetChannel);
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
@@ -151,16 +149,7 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 			BufferConsumer bufferConsumer,
 			int subpartitionIndex,
 			boolean isPriorityEvent) throws IOException {
-		checkNotNull(bufferConsumer);
-
-		try {
-			checkInProduceState();
-		} catch (Exception ex) {
-			bufferConsumer.close();
-			throw ex;
-		}
-
-		return cloudShuffleWriter.add(bufferConsumer, subpartitionIndex);
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
@@ -184,15 +173,30 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 	}
 
 	@Override
+	public void broadcastEvent(AbstractEvent event) throws IOException {
+		cloudShuffleWriter.broadcastEvent(event);
+	}
+
+	@Override
+	public void addRecord(ByteBuffer rawBuffer, int selectChannel) throws IOException {
+		cloudShuffleWriter.addRecord(rawBuffer, selectChannel);
+	}
+
+	@Override
+	public void broadcastRecord(ByteBuffer rawBuffer) throws IOException {
+		cloudShuffleWriter.broadcastRecord(rawBuffer);
+	}
+
+	@Override
 	public boolean isSubpartitionAvailable(int subpartitionIndex) {
 		// used for Recoverable Single Task Failover
-		return true;
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	public boolean needToCleanBufferBuilder(int subpartitionIndex) {
 		// used for Recoverable Single Task Failover
-		return false;
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
@@ -224,9 +228,6 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 
 	@Override
 	public void close() throws Exception {
-		if (bufferPool != null) {
-			bufferPool.lazyDestroy();
-		}
 		LOG.info("ResultPartition(execution={},mapperId={}) is closing.", mapperAttemptId, mapperId);
 	}
 

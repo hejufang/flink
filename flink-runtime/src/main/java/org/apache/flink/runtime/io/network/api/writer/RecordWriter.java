@@ -68,7 +68,7 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 
 	private static final Logger LOG = LoggerFactory.getLogger(RecordWriter.class);
 
-	private final ResultPartitionWriter targetPartition;
+	protected final ResultPartitionWriter targetPartition;
 
 	protected final int numberOfChannels;
 
@@ -93,11 +93,11 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 	/** To avoid synchronization overhead on the critical path, best-effort error tracking is enough here.*/
 	private Throwable flusherException;
 
-	RecordWriter(ResultPartitionWriter writer, long timeout, String taskName, boolean cloudShuffleMode) {
+	RecordWriter(ResultPartitionWriter writer, long timeout, String taskName) {
 		this.targetPartition = writer;
 		this.numberOfChannels = writer.getNumberOfSubpartitions();
 
-		this.serializer = new SpanningRecordSerializer<T>(cloudShuffleMode);
+		this.serializer = new SpanningRecordSerializer<T>();
 
 		checkArgument(timeout >= -1);
 		this.flushAlways = (timeout == 0);
@@ -150,21 +150,6 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 		boolean pruneTriggered = false;
 		BufferBuilder bufferBuilder = getBufferBuilder(targetChannel);
 		SerializationResult result = serializer.copyToBufferBuilder(bufferBuilder);
-
-		if (result.isOutOfSpace()) {
-			finishBufferBuilder(bufferBuilder);
-
-			bufferBuilder = requestNewBufferBuilder(targetChannel);
-			SerializationResult resendResult = serializer.copyToBufferBuilder(bufferBuilder);
-			if (resendResult.isOutOfSpace()) {
-				final String msg = String.format("Record size is too large(size=%s).", serializer.getSerializedSize());
-				throw new IllegalStateException(msg);
-			}
-
-			// do not need to prune the buffer
-			return false;
-		}
-
 		while (result.isFullBuffer()) {
 			finishBufferBuilder(bufferBuilder);
 
@@ -228,6 +213,10 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 	protected void finishBufferBuilder(BufferBuilder bufferBuilder) {
 		numBytesOut.inc(bufferBuilder.finish());
 		numBuffersOut.inc();
+	}
+
+	protected void incNumBytesOut(int bytes) {
+		numBytesOut.inc(bytes);
 	}
 
 	@Override

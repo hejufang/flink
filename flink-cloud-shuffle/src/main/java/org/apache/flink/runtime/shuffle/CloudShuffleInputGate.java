@@ -37,7 +37,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -58,15 +57,17 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 
 	private final CloudShuffleReader cloudShuffleReader;
 
-	private boolean hasReceivedAllEndOfPartitionEvents;
-
 	private final InputChannelInfo[] inputChannelInfos;
-
-	private final BitSet channelsWithEndOfPartitionEvents;
 
 	private final long[] receiveBytes;
 
+	private final long[] expectedReceiveBytes;
+
 	private long inputBytes;
+
+	private boolean isFinished;
+
+	private int endOfPartitionEventsSent;
 
 	public CloudShuffleInputGate(
 		String taskName,
@@ -96,12 +97,13 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 				shuffleClient);
 
 		this.inputChannelInfos = new InputChannelInfo[numberOfMappers];
-		this.channelsWithEndOfPartitionEvents = new BitSet(numberOfMappers);
 		this.receiveBytes = new long[numberOfMappers];
-		this.hasReceivedAllEndOfPartitionEvents = false;
+		this.expectedReceiveBytes = new long[numberOfMappers];
 		for (int i = 0; i < numberOfMappers; i++) {
 			this.inputChannelInfos[i] = new InputChannelInfo(gateIndex, i);
 		}
+
+		this.isFinished = false;
 
 		// mark the InputGate as available first
 		markAvailable();
@@ -119,7 +121,7 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 
 	@Override
 	public boolean isFinished() {
-		return hasReceivedAllEndOfPartitionEvents;
+		return isFinished;
 	}
 
 	@Override
@@ -130,19 +132,52 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 
 	@Override
 	public Optional<BufferOrEvent> pollNext() throws IOException, InterruptedException {
-		if (hasReceivedAllEndOfPartitionEvents) {
+		if (isFinished) {
 			return Optional.empty();
+		}
+
+		if (cloudShuffleReader.isReachEnd()) {
+			// data are fetched out, send EndOfPartition events
+			return sendEndOfPartitionEvent();
 		}
 
 		CloudShuffleBuffer cloudBuffer = cloudShuffleReader.pollNext();
 		if (cloudBuffer == null) {
+			if (cloudShuffleReader.isReachEnd()) {
+				// let task continue fetching EndOfPartition events
+				return pollNext();
+			}
 			return Optional.empty();
 		}
 
 		// collect metrics
 		inputBytes += cloudBuffer.getNetworkBuffer().getSize();
 
-		return Optional.of(transformToBufferOrEvent(cloudBuffer.getNetworkBuffer(), cloudBuffer.getMapperId()));
+		BufferOrEvent bufferOrEvent = transformToBufferOrEvent(cloudBuffer.getNetworkBuffer(), cloudBuffer.getMapperId());
+		if (bufferOrEvent.isEvent()) {
+			if (bufferOrEvent.getEvent() instanceof CloudShuffleVerifierEvent) {
+				return pollNext();
+			}
+		}
+		return Optional.of(bufferOrEvent);
+	}
+
+	private Optional<BufferOrEvent> sendEndOfPartitionEvent() {
+		final int count = endOfPartitionEventsSent;
+		if (endOfPartitionEventsSent == numberOfMappers - 1) {
+			LOG.info("Task {} sends all EndOfPartitionEvent.", taskName);
+			verifyReceivedBytes();
+			isFinished = true;
+		}
+
+		LOG.info("Task {} sends {} EndOfPartitionEvent.", taskName, count);
+		endOfPartitionEventsSent++;
+
+		return Optional.of(new BufferOrEvent(
+			EndOfPartitionEvent.INSTANCE,
+			inputChannelInfos[count],
+			!isFinished,
+			4));
 	}
 
 	private BufferOrEvent transformToBufferOrEvent(
@@ -166,27 +201,23 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 			buffer.recycleBuffer();
 		}
 
-		if (event.getClass() == EndOfPartitionEvent.class) {
-			channelsWithEndOfPartitionEvents.set(mapperId);
-
-			if (channelsWithEndOfPartitionEvents.cardinality() == numberOfMappers) {
-				LOG.info("Receive All EndOfPartitionEvent from upstream tasks.");
-				hasReceivedAllEndOfPartitionEvents = true;
-				markAvailable();
-			}
-
-			LOG.info("Receive EndOfPartitionEvent from mapper(id={}).", mapperId);
-			final boolean moreAvailable = !hasReceivedAllEndOfPartitionEvents;
-			return new BufferOrEvent(event, inputChannelInfos[mapperId], moreAvailable, buffer.getSize());
-		} else if (event.getClass() == CloudShuffleVerifierEvent.class) {
+		if (event.getClass() == CloudShuffleVerifierEvent.class) {
 			final CloudShuffleVerifierEvent verifierEvent = (CloudShuffleVerifierEvent) event;
 			final long expectBytes = verifierEvent.getSendBytes();
-			if (expectBytes != receiveBytes[mapperId]) {
-				throw new IllegalStateException("The length of sent bytes is not equal to the length of received bytes.");
-			}
+			LOG.info("Task {} Mapper(id={}) send CloudShuffleVerifierEvent(bytes={})", taskName, mapperId, expectBytes);
+			expectedReceiveBytes[mapperId] = expectBytes;
 		}
 
 		return new BufferOrEvent(event, inputChannelInfos[mapperId], true, buffer.getSize());
+	}
+
+	private void verifyReceivedBytes() {
+		for (int i = 0; i < numberOfMappers; i++) {
+			if (expectedReceiveBytes[i] != receiveBytes[i]) {
+				final String message = String.format("Task %s Mapper(id=%s) send %s bytes, but should receive %s bytes.", taskName, i, receiveBytes[i], expectedReceiveBytes[i]);
+				throw new IllegalStateException(message);
+			}
+		}
 	}
 
 	@Override
@@ -254,6 +285,7 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 	@Override
 	public void close() throws Exception {
 		cloudShuffleReader.close();
+		endOfPartitionEventsSent = 0;
 	}
 
 	public long getInBytes() {

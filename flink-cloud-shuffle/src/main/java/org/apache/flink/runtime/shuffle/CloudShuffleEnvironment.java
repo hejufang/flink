@@ -25,13 +25,13 @@ import org.apache.flink.runtime.deployment.InputGateDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.ResultPartitionDeploymentDescriptor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.PartitionInfo;
-import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.util.Preconditions;
 
 import com.bytedance.css.client.ShuffleClient;
 import com.bytedance.css.common.CssConf;
+import com.bytedance.css.common.protocol.PartitionGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +40,9 @@ import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.flink.runtime.io.network.metrics.NettyShuffleMetricFactory.METRIC_GROUP_INPUT;
 import static org.apache.flink.runtime.io.network.metrics.NettyShuffleMetricFactory.METRIC_GROUP_OUTPUT;
@@ -56,13 +58,11 @@ public class CloudShuffleEnvironment implements ShuffleEnvironment<CloudShuffleR
 	private static final Logger LOG = LoggerFactory.getLogger(CloudShuffleEnvironment.class);
 
 	// the port is used to identify the TaskManager on Flink UI(not actually used)
-	private static final int PORT = new java.util.Random().nextInt();
+	private static final int PORT = Math.abs(new java.util.Random().nextInt());
 
 	private final Object lock = new Object();
 
 	private final Configuration configuration;
-
-	private final NetworkBufferPool networkBufferPool;
 
 	private final String applicationId;
 
@@ -73,11 +73,8 @@ public class CloudShuffleEnvironment implements ShuffleEnvironment<CloudShuffleR
 	private String currentCSSMasterAddress;
 	private String currentCSSMasterPort;
 
-	public CloudShuffleEnvironment(
-			Configuration configuration,
-			NetworkBufferPool networkBufferPool) {
+	public CloudShuffleEnvironment(Configuration configuration) {
 		this.configuration = configuration;
-		this.networkBufferPool = networkBufferPool;
 		this.isClosed = false;
 
 		this.applicationId = System.getenv("_APP_ID");
@@ -122,32 +119,40 @@ public class CloudShuffleEnvironment implements ShuffleEnvironment<CloudShuffleR
 
 			CloudShuffleResultPartition[] resultPartitions = new CloudShuffleResultPartition[resultPartitionDeploymentDescriptors.size()];
 
-			final int buffersPerMapper = configuration.getInteger(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_BUFFERS_PER_MAPPER);
+			final long segmentSize = configuration.get(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_BUFFER_SIZE).getBytes();
+			final long maxBatchSize = configuration.get(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_MAX_BATCH_SIZE).getBytes();
+			final long maxBatchSizePerGroup = configuration.get(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_MAX_BATCH_SIZE_PER_GROUP).getBytes();
+			final long initialSizePerReducer = configuration.get(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_INITIAL_SIZE_PER_REDUCER).getBytes();
 
 			for (int partitionIndex = 0; partitionIndex < resultPartitionDeploymentDescriptors.size(); partitionIndex++) {
 				ResultPartitionDeploymentDescriptor deploymentDescriptor = resultPartitionDeploymentDescriptors.get(partitionIndex);
 				CloudShuffleDescriptor shuffleDescriptor = (CloudShuffleDescriptor) deploymentDescriptor.getShuffleDescriptor();
 
-				// like #ResultPartitionFactory#createBufferPoolFactory()
-				final int requiredMemorySegments = shuffleDescriptor.getNumberOfMappers() * buffersPerMapper;
+				List<PartitionGroup> partitionGroups = shuffleDescriptor.getPartitionGroups();
+				cssClient.applyShufflePartitionGroup(shuffleDescriptor.getShuffleId(), partitionGroups);
+				final Map<Integer, PartitionGroup> reducerIdToGroups = new HashMap<>(shuffleDescriptor.getNumberOfReducers());
+				for (PartitionGroup group : partitionGroups) {
+					for (int i = group.startPartition; i < group.endPartition; i++) {
+						reducerIdToGroups.put(i, group);
+					}
+				}
 
 				resultPartitions[partitionIndex] = new CloudShuffleResultPartition(
 					ownerContext.getOwnerName(),
 					deploymentDescriptor.getMaxParallelism(),
 					shuffleDescriptor.getResultPartitionID(),
 					cssClient,
-					bufferPoolOwner -> networkBufferPool.createBufferPool(
-							requiredMemorySegments, // just use the max number of segments to be simpler
-							requiredMemorySegments,
-							bufferPoolOwner,
-							shuffleDescriptor.getNumberOfReducers(),
-							Integer.MAX_VALUE),
 					applicationId,
 					shuffleDescriptor.getShuffleId(),
 					shuffleDescriptor.getMapperId() - shuffleDescriptor.getMapperBeginIndex(), // start from 0
 					shuffleDescriptor.getMapperAttemptId(),
 					shuffleDescriptor.getNumberOfMappers(),
-					shuffleDescriptor.getNumberOfReducers());
+					shuffleDescriptor.getNumberOfReducers(),
+					segmentSize,
+					maxBatchSize,
+					maxBatchSizePerGroup,
+					initialSizePerReducer,
+					reducerIdToGroups);
 			}
 			registerOutputMetrics(ownerContext.getOutputGroup(), resultPartitions);
 
@@ -219,17 +224,6 @@ public class CloudShuffleEnvironment implements ShuffleEnvironment<CloudShuffleR
 	@Override
 	public void close() throws Exception {
 		synchronized (lock) {
-			// make sure that the global buffer pool re-acquires all buffers
-			networkBufferPool.destroyAllBufferPools();
-
-			// destroy the buffer pool
-			try {
-				networkBufferPool.destroy();
-			}
-			catch (Throwable t) {
-				LOG.warn("Network buffer pool did not shut down properly.", t);
-			}
-
 			isClosed = true;
 		}
 	}

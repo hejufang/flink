@@ -46,9 +46,8 @@ public final class ChannelSelectorRecordWriter<T extends IOReadableWritable> ext
 			ResultPartitionWriter writer,
 			ChannelSelector<T> channelSelector,
 			long timeout,
-			String taskName,
-			boolean cloudShuffleMode) {
-		super(writer, timeout, taskName, cloudShuffleMode);
+			String taskName) {
+		super(writer, timeout, taskName);
 
 		this.channelSelector = checkNotNull(channelSelector);
 		this.channelSelector.setup(numberOfChannels, writer.getSubpartitions());

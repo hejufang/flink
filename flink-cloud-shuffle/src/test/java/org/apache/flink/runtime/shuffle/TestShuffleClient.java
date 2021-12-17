@@ -35,6 +35,14 @@ import java.util.List;
  */
 public class TestShuffleClient extends ShuffleClient {
 
+	int numberOfReducers;
+
+	public TestShuffleClient() {}
+
+	public TestShuffleClient(int numberOfReducers) {
+		this.numberOfReducers = numberOfReducers;
+	}
+
 	@Override
 	public int pushData(String s, int i, int i1, int i2, int i3, byte[] bytes, int i4, int i5, int i6, int i7) throws IOException {
 		throw new UnsupportedOperationException();
@@ -46,7 +54,18 @@ public class TestShuffleClient extends ShuffleClient {
 	}
 
 	@Override
-	public int[] batchPushData(String s, int i, int i1, int i2, int[] ints, byte[] bytes, int[] ints1, int[] ints2, int i3, int i4, boolean b) throws IOException {
+	public int[] batchPushData(
+		String applicationId,
+		int shuffleId,
+		int mapperId,
+		int mapperAttemptId,
+		int[] reducerIdArray,
+		byte[] data,
+		int[] offsetArray,
+		int[] lengthArray,
+		int numMappers,
+		int numPartitions,
+		boolean skipCompress) throws IOException {
 		throw new UnsupportedOperationException();
 	}
 
@@ -71,7 +90,7 @@ public class TestShuffleClient extends ShuffleClient {
 	}
 
 	@Override
-	public CssInputStream readPartitions(String s, int i, int[] ints, int i1, int i2) throws IOException {
+	public CssInputStream readPartitions(String applicationId, int shuffleId, int[] reduceIds, int startMapIndex, int endMapIndex) throws IOException {
 		throw new UnsupportedOperationException();
 	}
 
