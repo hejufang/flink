@@ -186,20 +186,20 @@ public class RemoteInputChannel extends InputChannel {
 
 		final Buffer next;
 		final boolean moreAvailable;
+		final boolean needUpdateInputChannel;
 
 		synchronized (receivedBuffers) {
 			next = receivedBuffers.poll();
 			moreAvailable = !receivedBuffers.isEmpty();
+			needUpdateInputChannel = !moreAvailable && !isChannelAvailable();
+		}
 
-			if (!moreAvailable) {
-				if (!isChannelAvailable()) {
-					try {
-						LOG.info("{} : This channel is unavailable, ready to update.", this);
-						inputGate.tryUpdateInputChannelFromChannelProviderCache(this);
-					} catch (InterruptedException e) {
-						setError(e);
-					}
-				}
+		if (needUpdateInputChannel) {
+			try {
+				LOG.info("{} : This channel is unavailable, ready to update.", this);
+				inputGate.tryUpdateInputChannelFromChannelProviderCache(this);
+			} catch (InterruptedException e) {
+				setError(e);
 			}
 		}
 
