@@ -22,7 +22,7 @@
             "inputs":[
                 {
                     "id":"20ba6b65f97481d5570070de90e4e791",
-                    "shipStrategy":"FORWARD"
+                    "shipStrategy":"RESCALE"
                 }
             ],
             "containedNodes":[
@@ -86,7 +86,7 @@
                 {
                     "nodeDesc":"c09dc291fad93d575e015871097bfc60",
                     "nodeName":"Calc(select=[id, name, num])",
-                    "shipStrategy":"FORWARD"
+                    "shipStrategy":"RESCALE"
                 }
             ]
         },
@@ -104,7 +104,7 @@
                 {
                     "nodeDesc":"20ba6b65f97481d5570070de90e4e791",
                     "nodeName":"WatermarkAssigner(rowtime=[eventtime], watermark=[(eventtime - 5000:INTERVAL SECOND)])",
-                    "shipStrategy":"FORWARD"
+                    "shipStrategy":"RESCALE"
                 }
             ],
             "outputs":[
