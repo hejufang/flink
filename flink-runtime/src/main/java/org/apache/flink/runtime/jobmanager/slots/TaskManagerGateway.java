@@ -34,6 +34,7 @@ import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorOperatorEventGateway;
 import org.apache.flink.util.SerializedValue;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -72,6 +73,10 @@ public interface TaskManagerGateway extends TaskExecutorOperatorEventGateway {
 	CompletableFuture<Acknowledge> submitTask(
 		TaskDeploymentDescriptor tdd,
 		Time timeout);
+
+	default CompletableFuture<Acknowledge> submitTaskList(List<TaskDeploymentDescriptor> deploymentDescriptors, Time timeout) {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * Cancel the given task.

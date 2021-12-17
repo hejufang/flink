@@ -45,10 +45,13 @@ import org.apache.flink.util.TestLogger;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -58,6 +61,7 @@ import java.util.function.Supplier;
  * Test base for scheduler related test cases. The test are
  * executed with the {@link SlotPool}.
  */
+@RunWith(Parameterized.class)
 public abstract class SchedulerTestBase extends TestLogger {
 
 	protected TestingSlotPoolSlotProvider testingSlotProvider;
@@ -68,10 +72,18 @@ public abstract class SchedulerTestBase extends TestLogger {
 
 	private ComponentMainThreadExecutor componentMainThreadExecutor;
 
+	@Parameterized.Parameter
+	public boolean batchRequestSlotsEnable;
+
+	@Parameterized.Parameters(name = "batchRequestSlotsEnable = {0}")
+	public static Collection<Boolean> batchRequestSlotsEnable() {
+		return Arrays.asList(true, false);
+	}
+
 	@Before
 	public void setup() throws Exception {
 		final JobID jobId = new JobID();
-		slotPool = new TestingSlotPoolImpl(jobId);
+		slotPool = new TestingSlotPoolImpl(jobId, batchRequestSlotsEnable);
 		scheduler = new SchedulerImpl(LocationPreferenceSlotSelectionStrategy.createDefault(), slotPool);
 
 		testingSlotProvider = new TestingSlotPoolSlotProvider();

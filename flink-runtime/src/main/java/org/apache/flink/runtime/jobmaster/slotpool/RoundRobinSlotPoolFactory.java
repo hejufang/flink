@@ -48,17 +48,21 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 
 	private final boolean jobLogDetailDisable;
 
+	private final boolean batchRequestSlotsEnable;
+
 	public RoundRobinSlotPoolFactory(
 			@Nonnull Clock clock,
 			@Nonnull Time rpcTimeout,
 			@Nonnull Time slotIdleTimeout,
 			@Nonnull Time batchSlotTimeout,
-			boolean jobLogDetailDisable) {
+			boolean jobLogDetailDisable,
+			boolean batchRequestSlotsEnable) {
 		this.clock = clock;
 		this.rpcTimeout = rpcTimeout;
 		this.slotIdleTimeout = slotIdleTimeout;
 		this.batchSlotTimeout = batchSlotTimeout;
 		this.jobLogDetailDisable = jobLogDetailDisable;
+		this.batchRequestSlotsEnable = batchRequestSlotsEnable;
 	}
 
 	@Override
@@ -70,7 +74,8 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 			rpcTimeout,
 			slotIdleTimeout,
 			batchSlotTimeout,
-			jobLogDetailDisable);
+			jobLogDetailDisable,
+			batchRequestSlotsEnable);
 	}
 
 	public static RoundRobinSlotPoolFactory fromConfiguration(@Nonnull Configuration configuration) {
@@ -79,12 +84,14 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 		final Time slotIdleTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_IDLE_TIMEOUT));
 		final Time batchSlotTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT));
 		final boolean jobLogDetailDisable = configuration.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
+		final boolean batchRequestSlotsEnable = configuration.getBoolean(JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE);
 
 		return new RoundRobinSlotPoolFactory(
 			SystemClock.getInstance(),
 			rpcTimeout,
 			slotIdleTimeout,
 			batchSlotTimeout,
-			jobLogDetailDisable);
+			jobLogDetailDisable,
+			batchRequestSlotsEnable);
 	}
 }

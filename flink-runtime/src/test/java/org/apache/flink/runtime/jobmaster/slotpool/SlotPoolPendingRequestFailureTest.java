@@ -36,7 +36,11 @@ import org.apache.flink.util.function.ThrowingRunnable;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -56,6 +60,7 @@ import static org.junit.Assert.fail;
 /**
  * Tests for the failing of pending slot requests at the {@link SlotPool}.
  */
+@RunWith(Parameterized.class)
 public class SlotPoolPendingRequestFailureTest extends TestLogger {
 
 	private static final JobID jobId = new JobID();
@@ -64,6 +69,14 @@ public class SlotPoolPendingRequestFailureTest extends TestLogger {
 	public static final Time TIMEOUT = Time.seconds(10L);
 
 	private TestingResourceManagerGateway resourceManagerGateway;
+
+	@Parameterized.Parameter
+	public boolean batchRequestSlotsEnable;
+
+	@Parameterized.Parameters(name = "batchRequestSlotsEnable = {0}")
+	public static Collection<Boolean> batchRequestSlotsEnable() {
+		return Arrays.asList(true, false);
+	}
 
 	@Before
 	public void setup() {
@@ -185,7 +198,7 @@ public class SlotPoolPendingRequestFailureTest extends TestLogger {
 	}
 
 	private SlotPoolImpl setUpSlotPool(ComponentMainThreadExecutor componentMainThreadExecutor) throws Exception {
-		final SlotPoolImpl slotPool = new TestingSlotPoolImpl(jobId);
+		final SlotPoolImpl slotPool = new TestingSlotPoolImpl(jobId, batchRequestSlotsEnable);
 		slotPool.start(JobMasterId.generate(), "foobar", componentMainThreadExecutor);
 		slotPool.connectToResourceManager(resourceManagerGateway);
 

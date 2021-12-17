@@ -51,6 +51,7 @@ import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.query.KvStateRegistry;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.state.TestTaskStateManager;
+import org.apache.flink.runtime.state.cache.NonCacheManager;
 import org.apache.flink.runtime.taskexecutor.KvStateService;
 import org.apache.flink.runtime.taskexecutor.PartitionProducerStateChecker;
 import org.apache.flink.runtime.taskexecutor.TestGlobalAggregateManager;
@@ -61,7 +62,11 @@ import org.apache.flink.util.TestLogger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -75,6 +80,7 @@ import static org.mockito.Mockito.mock;
 /**
  * Testing asynchronous call of {@link Task}.
  */
+@RunWith(Parameterized.class)
 public class TaskAsyncCallTest extends TestLogger {
 
 	/** Number of expected checkpoints. */
@@ -90,6 +96,14 @@ public class TaskAsyncCallTest extends TestLogger {
 	private static OneShotLatch triggerLatch;
 
 	private ShuffleEnvironment<?, ?> shuffleEnvironment;
+
+	@Parameterized.Parameter
+	public boolean submitNotifyRunningEnable;
+
+	@Parameterized.Parameters(name = "submitNotifyRunningEnable = {0}")
+	public static Collection<Boolean> submitNotifyRunningEnable() {
+		return Arrays.asList(true, false);
+	}
 
 	@Before
 	public void createQueuesAndActors() {
@@ -212,7 +226,10 @@ public class TaskAsyncCallTest extends TestLogger {
 			taskMetricGroup,
 			consumableNotifier,
 			partitionProducerStateChecker,
-			executor);
+			executor,
+			new NonCacheManager(),
+			false,
+			submitNotifyRunningEnable);
 	}
 
 	/**

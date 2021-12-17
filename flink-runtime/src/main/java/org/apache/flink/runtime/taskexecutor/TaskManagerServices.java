@@ -83,6 +83,7 @@ public class TaskManagerServices {
 	private final ExecutorService ioExecutor;
 	private final LibraryCacheManager libraryCacheManager;
 	private final CacheManager cacheManager;
+	private final boolean taskSubmitRunning;
 
 	TaskManagerServices(
 		UnresolvedTaskManagerLocation unresolvedTaskManagerLocation,
@@ -132,6 +133,41 @@ public class TaskManagerServices {
 		LibraryCacheManager libraryCacheManager,
 		CacheManager cacheManager) {
 
+		this(
+			unresolvedTaskManagerLocation,
+			managedMemorySize,
+			ioManager,
+			shuffleEnvironment,
+			kvStateService,
+			broadcastVariableManager,
+			taskSlotTable,
+			jobTable,
+			jobLeaderService,
+			taskManagerStateStore,
+			taskEventDispatcher,
+			ioExecutor,
+			libraryCacheManager,
+			cacheManager,
+			false);
+	}
+
+	TaskManagerServices(
+			UnresolvedTaskManagerLocation unresolvedTaskManagerLocation,
+			long managedMemorySize,
+			IOManager ioManager,
+			ShuffleEnvironment<?, ?> shuffleEnvironment,
+			KvStateService kvStateService,
+			BroadcastVariableManager broadcastVariableManager,
+			TaskSlotTable<Task> taskSlotTable,
+			JobTable jobTable,
+			JobLeaderService jobLeaderService,
+			TaskExecutorLocalStateStoresManager taskManagerStateStore,
+			TaskEventDispatcher taskEventDispatcher,
+			ExecutorService ioExecutor,
+			LibraryCacheManager libraryCacheManager,
+			CacheManager cacheManager,
+			boolean taskSubmitRunning) {
+
 		this.unresolvedTaskManagerLocation = Preconditions.checkNotNull(unresolvedTaskManagerLocation);
 		this.managedMemorySize = managedMemorySize;
 		this.ioManager = Preconditions.checkNotNull(ioManager);
@@ -146,6 +182,7 @@ public class TaskManagerServices {
 		this.ioExecutor = Preconditions.checkNotNull(ioExecutor);
 		this.libraryCacheManager = Preconditions.checkNotNull(libraryCacheManager);
 		this.cacheManager = cacheManager;
+		this.taskSubmitRunning = taskSubmitRunning;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -206,6 +243,10 @@ public class TaskManagerServices {
 
 	public CacheManager getCacheManager() {
 		return cacheManager;
+	}
+
+	public boolean isTaskSubmitRunning() {
+		return taskSubmitRunning;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -373,6 +414,7 @@ public class TaskManagerServices {
 
 		CacheConfiguration cacheConfiguration = CacheConfiguration.fromConfiguration(taskManagerServicesConfiguration.getConfiguration());
 		CacheManager cacheManager = cacheConfiguration.isEnableCache() ? new DefaultCacheManager(cacheConfiguration) : new NonCacheManager();
+		boolean taskSubmitRunning = taskManagerServicesConfiguration.getConfiguration().getBoolean(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY);
 
 		return new TaskManagerServices(
 			unresolvedTaskManagerLocation,
@@ -388,7 +430,8 @@ public class TaskManagerServices {
 			taskEventDispatcher,
 			ioExecutor,
 			libraryCacheManager,
-			cacheManager);
+			cacheManager,
+			taskSubmitRunning);
 	}
 
 	private static TaskSlotTable<Task> createTaskSlotTable(

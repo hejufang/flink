@@ -52,6 +52,12 @@ public class SlotManagerConfiguration {
 	private final int numInitialTaskManagers;
 	private final boolean initialTaskManager;
 
+	private final int maxPendingJobSlotRequestsSize;
+
+	private final boolean batchRandomEnable;
+
+	private final boolean batchRequestEnable;
+
 	public SlotManagerConfiguration(
 			Time taskManagerRequestTimeout,
 			Time slotRequestTimeout,
@@ -69,6 +75,9 @@ public class SlotManagerConfiguration {
 				numSlotsPerWorker,
 				maxSlotNum,
 				0,
+				false,
+				Integer.MAX_VALUE,
+				false,
 				false);
 	}
 
@@ -82,7 +91,10 @@ public class SlotManagerConfiguration {
 			int numSlotsPerWorker,
 			int maxSlotNum,
 			int numInitialTaskManagers,
-			boolean initialTaskManager) {
+			boolean initialTaskManager,
+			int maxPendingJobSlotRequestsSize,
+			boolean batchRandomEnable,
+			boolean batchRequestEnable) {
 
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
@@ -96,6 +108,9 @@ public class SlotManagerConfiguration {
 		this.maxSlotNum = maxSlotNum;
 		this.numInitialTaskManagers = numInitialTaskManagers;
 		this.initialTaskManager = initialTaskManager;
+		this.maxPendingJobSlotRequestsSize = maxPendingJobSlotRequestsSize;
+		this.batchRandomEnable = batchRandomEnable;
+		this.batchRequestEnable = batchRequestEnable;
 	}
 
 	public Time getTaskManagerRequestTimeout() {
@@ -138,6 +153,18 @@ public class SlotManagerConfiguration {
 		return initialTaskManager;
 	}
 
+	public int getMaxPendingJobSlotRequestsSize() {
+		return maxPendingJobSlotRequestsSize;
+	}
+
+	public boolean isBatchRandomEnable() {
+		return batchRandomEnable;
+	}
+
+	public boolean isBatchRequestEnable() {
+		return batchRequestEnable;
+	}
+
 	public static SlotManagerConfiguration fromConfiguration(
 			Configuration configuration,
 			WorkerResourceSpec defaultWorkerResourceSpec) throws ConfigurationException {
@@ -169,6 +196,12 @@ public class SlotManagerConfiguration {
 
 		boolean initialTaskManager = configuration.getBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START);
 
+		int maxPendingJobSlotRequestsSize = configuration.getInteger(ResourceManagerOptions.MAX_PENDING_JOB_SLOT_REQUESTS_SIZE);
+
+		boolean batchRandomEnable = configuration.getBoolean(ResourceManagerOptions.BATCH_REQUEST_RANDOM_SLOTS_ENABLE);
+
+		boolean batchRequestEnable = configuration.getBoolean(JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE);
+
 		return new SlotManagerConfiguration(
 			rpcTimeout,
 			slotRequestTimeout,
@@ -179,7 +212,10 @@ public class SlotManagerConfiguration {
 			numSlotsPerWorker,
 			maxSlotNum,
 			numInitialTaskManagers,
-			initialTaskManager);
+			initialTaskManager,
+			maxPendingJobSlotRequestsSize,
+			batchRandomEnable,
+			batchRequestEnable);
 	}
 
 	private static Time getSlotRequestTimeout(final Configuration configuration) {

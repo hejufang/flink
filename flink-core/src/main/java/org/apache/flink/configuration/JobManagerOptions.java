@@ -436,6 +436,25 @@ public class JobManagerOptions {
 			.booleanType()
 			.defaultValue(false)
 			.withDescription("Use this flag to force disable checkpoint related operations(create/close) in job master.");
+
+	/**
+	 * Whether the job master request slots in batch and submit task list to task executor.
+	 */
+	public static final ConfigOption<Boolean> JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE =
+		key("jobmanager.batch-request-slots.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Job master batch request after create connection to resource manager.");
+
+	/**
+	 * The limit of batch size when jm submit tasks to tm for akka frame limitation.
+	 */
+	public static final ConfigOption<Integer> JOBMANAGER_SUBMIT_BATCH_TASK_COUNT =
+		key("jobmanager.batch-submit-task.count")
+			.intType()
+			.defaultValue(10)
+			.withDescription("The count of job master batch submit task to task executor.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

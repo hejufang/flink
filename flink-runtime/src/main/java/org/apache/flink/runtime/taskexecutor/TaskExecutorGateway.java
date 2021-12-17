@@ -39,6 +39,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
+import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceRequestSlot;
 import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.RpcGateway;
@@ -48,6 +49,7 @@ import org.apache.flink.types.SerializableOptional;
 import org.apache.flink.util.SerializedValue;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -77,6 +79,16 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
 		ResourceManagerId resourceManagerId,
 		@RpcTimeout Time timeout);
 
+
+	default CompletableFuture<Acknowledge> requestJobSlotList(
+		JobID jobId,
+		String targetAddress,
+		ResourceManagerId resourceManagerId,
+		List<ResourceRequestSlot> resourceSlotList,
+		@RpcTimeout Time timeout) {
+		throw new UnsupportedOperationException();
+	}
+
 	CompletableFuture<TaskBackPressureResponse> requestTaskBackPressure(
 		ExecutionAttemptID executionAttemptId,
 		int requestId,
@@ -94,6 +106,10 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
 		TaskDeploymentDescriptor tdd,
 		JobMasterId jobMasterId,
 		@RpcTimeout Time timeout);
+
+	default CompletableFuture<Acknowledge> submitTaskList(List<TaskDeploymentDescriptor> tdds, JobMasterId jobMasterId, Time timeout) {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * Update the task where the given partitions can be found.

@@ -59,10 +59,13 @@ import org.hamcrest.Matchers;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import javax.annotation.Nonnull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -92,6 +95,7 @@ import static org.junit.Assert.fail;
 /**
  * Tests for the {@link SlotPoolImpl}.
  */
+@RunWith(Parameterized.class)
 public class SlotPoolImplTest extends TestLogger {
 
 	private final Time timeout = Time.seconds(10L);
@@ -106,6 +110,14 @@ public class SlotPoolImplTest extends TestLogger {
 
 	private ComponentMainThreadExecutor mainThreadExecutor =
 		ComponentMainThreadExecutorServiceAdapter.forMainThread();
+
+	@Parameterized.Parameter
+	public boolean batchRequestEnable;
+
+	@Parameterized.Parameters(name = "batchRequestEnable = {0}")
+	public static Collection<Boolean> parameters() {
+		return Arrays.asList(true, false);
+	}
 
 	@Before
 	public void setUp() throws Exception {
@@ -152,7 +164,7 @@ public class SlotPoolImplTest extends TestLogger {
 
 	@Nonnull
 	private SlotPoolImpl createSlotPoolImpl() {
-		return new TestingSlotPoolImpl(jobId);
+		return new TestingSlotPoolImpl(jobId, batchRequestEnable);
 	}
 
 	@Test
@@ -561,7 +573,8 @@ public class SlotPoolImplTest extends TestLogger {
 			clock,
 			TestingUtils.infiniteTime(),
 			timeout,
-			TestingUtils.infiniteTime());
+			TestingUtils.infiniteTime(),
+			batchRequestEnable);
 	}
 
 	/**

@@ -31,7 +31,11 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -45,6 +49,7 @@ import static org.junit.Assert.assertThat;
 /**
  * Tests for {@link PhysicalSlotProviderImpl}.
  */
+@RunWith(Parameterized.class)
 public class PhysicalSlotProviderImplTest {
 	private static ScheduledExecutorService singleThreadScheduledExecutorService;
 
@@ -55,6 +60,14 @@ public class PhysicalSlotProviderImplTest {
 	private PhysicalSlotProvider physicalSlotProvider;
 
 	private Time timeout = Time.seconds(10);
+
+	@Parameterized.Parameter
+	public boolean batchRequestEnable;
+
+	@Parameterized.Parameters(name = "batchRequestEnable = {0}")
+	public static Collection<Boolean> parameters() {
+		return Arrays.asList(true, false);
+	}
 
 	@BeforeClass
 	public static void setupClass() {
@@ -71,7 +84,7 @@ public class PhysicalSlotProviderImplTest {
 
 	@Before
 	public void setup() throws Exception {
-		slotPool = new SlotPoolBuilder(mainThreadExecutor).build();
+		slotPool = new SlotPoolBuilder(mainThreadExecutor, batchRequestEnable).build();
 		physicalSlotProvider = new PhysicalSlotProviderImpl(LocationPreferenceSlotSelectionStrategy.createRoundRobin(), slotPool, UnregisteredMetricGroups.createUnregisteredJobManagerJobMetricGroup());
 	}
 

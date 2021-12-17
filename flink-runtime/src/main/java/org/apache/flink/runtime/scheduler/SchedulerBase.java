@@ -1255,6 +1255,14 @@ public abstract class SchedulerBase implements SchedulerNG {
 		return coordinatorMap;
 	}
 
+	protected Time getRpcTimeout() {
+		return rpcTimeout;
+	}
+
+	protected ScheduledExecutorService getFutureExecutor() {
+		return futureExecutor;
+	}
+
 	// ------------------------------------------------------------------------
 	//  access utils for testing
 	// ------------------------------------------------------------------------

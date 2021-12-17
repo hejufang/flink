@@ -33,21 +33,34 @@ import org.apache.flink.runtime.resourcemanager.utils.TestingResourceManagerGate
 import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
 
 import org.junit.Before;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Optional;
 
 /**
  * Tests for {@link RoundRobinLocationPreferenceSlotSelectionStrategy}.
  */
+@RunWith(Parameterized.class)
 public class RoundRobinLocationPreferenceSlotSelectionStrategyTest extends PreviousAllocationSlotSelectionStrategyTest {
-	private final SlotPool slotPool = new TestingRoundRobinSlotPoolImpl(new JobID());
+	private SlotPool slotPool;
 
 	private SimpleAckingTaskManagerGateway taskManagerGateway;
 
 	private TestingResourceManagerGateway resourceManagerGateway;
 
 	private final ComponentMainThreadExecutor mainThreadExecutor = ComponentMainThreadExecutorServiceAdapter.forMainThread();
+
+	@Parameterized.Parameter
+	public boolean batchRequestSlotsEnable;
+
+	@Parameterized.Parameters(name = "batchRequestSlotsEnable = {0}")
+	public static Collection<Boolean> batchRequestSlotsEnable() {
+		return Arrays.asList(true, false);
+	}
 
 	public RoundRobinLocationPreferenceSlotSelectionStrategyTest() {
 		super(LocationPreferenceSlotSelectionStrategy.createRoundRobin());
@@ -62,7 +75,7 @@ public class RoundRobinLocationPreferenceSlotSelectionStrategyTest extends Previ
 
 	private void setupSlotPool() throws Exception {
 		final String jobManagerAddress = "foobar";
-
+		slotPool = new TestingRoundRobinSlotPoolImpl(new JobID(), batchRequestSlotsEnable);
 		slotPool.start(JobMasterId.generate(), jobManagerAddress, mainThreadExecutor);
 		slotPool.connectToResourceManager(resourceManagerGateway);
 

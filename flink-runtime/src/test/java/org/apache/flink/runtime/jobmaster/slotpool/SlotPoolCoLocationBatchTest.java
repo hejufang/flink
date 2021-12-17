@@ -53,11 +53,11 @@ import static org.junit.Assert.assertNotEquals;
 /**
  * Test cases for {@link CoLocationConstraint} with the {@link SlotPoolImpl}.
  */
-public class SlotPoolCoLocationTest extends TestLogger {
+public class SlotPoolCoLocationBatchTest extends TestLogger {
 
 	@Rule
 	public final SlotPoolResource slotPoolResource =
-		new SlotPoolResource(PreviousAllocationSlotSelectionStrategy.create(), false);
+		new SlotPoolResource(PreviousAllocationSlotSelectionStrategy.create(), true);
 
 	/**
 	 * Tests the scheduling of two tasks with a parallelism of 2 and a co-location constraint.

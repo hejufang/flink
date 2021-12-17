@@ -52,11 +52,11 @@ import static org.junit.Assert.fail;
 /**
  * Test cases for slot sharing with the {@link SlotPoolImpl}.
  */
-public class SlotPoolSlotSharingTest extends TestLogger {
+public class SlotPoolSlotSharingBatchTest extends TestLogger {
 
 	@Rule
 	public final SlotPoolResource slotPoolResource =
-		new SlotPoolResource(PreviousAllocationSlotSelectionStrategy.create(), false);
+		new SlotPoolResource(PreviousAllocationSlotSelectionStrategy.create(), true);
 
 	@Test
 	public void testSingleQueuedSharedSlotScheduling() throws Exception {
@@ -334,7 +334,7 @@ public class SlotPoolSlotSharingTest extends TestLogger {
 		final BlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(2);
 		final TestingResourceManagerGateway testingResourceManagerGateway = slotPoolResource.getTestingResourceManagerGateway();
 		testingResourceManagerGateway.setRequestSlotConsumer(
-				(SlotRequest slotRequest) -> allocationIds.offer(slotRequest.getAllocationId()));
+			(SlotRequest slotRequest) -> allocationIds.offer(slotRequest.getAllocationId()));
 
 		final TaskManagerLocation taskManagerLocation = new LocalTaskManagerLocation();
 
@@ -348,23 +348,23 @@ public class SlotPoolSlotSharingTest extends TestLogger {
 
 		final SlotProvider slotProvider = slotPoolResource.getSlotProvider();
 		CompletableFuture<LogicalSlot> logicalSlotFuture1 = slotProvider.allocateSlot(
-				new ScheduledUnit(
-						jobVertexId1,
-						slotSharingGroupId,
-						null),
-				SlotProfile.noLocality(largeRequestResource),
-				TestingUtils.infiniteTime());
+			new ScheduledUnit(
+				jobVertexId1,
+				slotSharingGroupId,
+				null),
+			SlotProfile.noLocality(largeRequestResource),
+			TestingUtils.infiniteTime());
 
 		final AllocationID allocationId1 = allocationIds.take();
 
 		// This should fulfill the first request.
 		boolean offerFuture = slotPool.offerSlot(
-				taskManagerLocation,
-				new SimpleAckingTaskManagerGateway(),
-				new SlotOffer(
-						allocationId1,
-						0,
-						allocatedSlotRp));
+			taskManagerLocation,
+			new SimpleAckingTaskManagerGateway(),
+			new SlotOffer(
+				allocationId1,
+				0,
+				allocatedSlotRp));
 
 		assertTrue(offerFuture);
 		assertTrue(logicalSlotFuture1.isDone());
@@ -372,22 +372,22 @@ public class SlotPoolSlotSharingTest extends TestLogger {
 
 		// The second request should not share the same slot with the first request since it is large.
 		CompletableFuture<LogicalSlot> logicalSlotFuture2 = slotProvider.allocateSlot(
-				new ScheduledUnit(
-						jobVertexId2,
-						slotSharingGroupId,
-						null),
-				SlotProfile.noLocality(largeRequestResource),
-				TestingUtils.infiniteTime());
+			new ScheduledUnit(
+				jobVertexId2,
+				slotSharingGroupId,
+				null),
+			SlotProfile.noLocality(largeRequestResource),
+			TestingUtils.infiniteTime());
 		assertFalse(logicalSlotFuture2.isDone());
 
 		// The third request should be able to share the same slot with the first request since it is small.
 		CompletableFuture<LogicalSlot> logicalSlotFuture3 = slotProvider.allocateSlot(
-				new ScheduledUnit(
-						jobVertexId3,
-						slotSharingGroupId,
-						null),
-				SlotProfile.noLocality(smallRequestResource),
-				TestingUtils.infiniteTime());
+			new ScheduledUnit(
+				jobVertexId3,
+				slotSharingGroupId,
+				null),
+			SlotProfile.noLocality(smallRequestResource),
+			TestingUtils.infiniteTime());
 		assertTrue(logicalSlotFuture3.isDone());
 		assertEquals(allocationId1, logicalSlotFuture1.get().getAllocationId());
 
@@ -395,12 +395,12 @@ public class SlotPoolSlotSharingTest extends TestLogger {
 		final AllocationID allocationId2 = allocationIds.take();
 		// This should fulfill the first two requests.
 		offerFuture = slotPool.offerSlot(
-				taskManagerLocation,
-				new SimpleAckingTaskManagerGateway(),
-				new SlotOffer(
-						allocationId2,
-						0,
-						allocatedSlotRp));
+			taskManagerLocation,
+			new SimpleAckingTaskManagerGateway(),
+			new SlotOffer(
+				allocationId2,
+				0,
+				allocatedSlotRp));
 
 		assertTrue(offerFuture);
 		assertTrue(logicalSlotFuture2.isDone());

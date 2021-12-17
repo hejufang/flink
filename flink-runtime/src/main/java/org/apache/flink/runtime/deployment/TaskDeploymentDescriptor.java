@@ -26,6 +26,7 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.JobInformation;
 import org.apache.flink.runtime.executiongraph.TaskInformation;
+import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
@@ -127,8 +128,8 @@ public final class TaskDeploymentDescriptor implements Serializable {
 	/** The allocation ID of the slot in which the task shall be run. */
 	private final AllocationID allocationId;
 
-	/** The task's index in the subtask group. */
-	private final int subtaskIndex;
+	/** The task's execution vertex id. */
+	private final ExecutionVertexID executionVertexId;
 
 	/** Attempt number the task. */
 	private final int attemptNumber;
@@ -152,7 +153,7 @@ public final class TaskDeploymentDescriptor implements Serializable {
 		MaybeOffloaded<TaskInformation> serializedTaskInformation,
 		ExecutionAttemptID executionAttemptId,
 		AllocationID allocationId,
-		int subtaskIndex,
+		ExecutionVertexID executionVertexId,
 		int attemptNumber,
 		int targetSlotNumber,
 		@Nullable JobManagerTaskRestore taskRestore,
@@ -167,8 +168,8 @@ public final class TaskDeploymentDescriptor implements Serializable {
 		this.executionId = Preconditions.checkNotNull(executionAttemptId);
 		this.allocationId = Preconditions.checkNotNull(allocationId);
 
-		Preconditions.checkArgument(0 <= subtaskIndex, "The subtask index must be positive.");
-		this.subtaskIndex = subtaskIndex;
+		Preconditions.checkArgument(0 <= executionVertexId.getSubtaskIndex(), "The subtask index must be positive.");
+		this.executionVertexId = executionVertexId;
 
 		Preconditions.checkArgument(0 <= attemptNumber, "The attempt number must be positive.");
 		this.attemptNumber = attemptNumber;
@@ -237,7 +238,7 @@ public final class TaskDeploymentDescriptor implements Serializable {
 	 * @return the task's index in the subtask group
 	 */
 	public int getSubtaskIndex() {
-		return subtaskIndex;
+		return executionVertexId.getSubtaskIndex();
 	}
 
 	/**
@@ -346,5 +347,9 @@ public final class TaskDeploymentDescriptor implements Serializable {
 		strBuilder.append("]");
 
 		return strBuilder.toString();
+	}
+
+	public ExecutionVertexID getExecutionVertexId() {
+		return this.executionVertexId;
 	}
 }

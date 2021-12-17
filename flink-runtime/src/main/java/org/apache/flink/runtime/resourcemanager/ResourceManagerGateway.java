@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.runtime.JobSlotRequestList;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blob.BlobServer;
 import org.apache.flink.runtime.blob.TransientBlobKey;
@@ -86,6 +87,11 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 	CompletableFuture<Acknowledge> requestSlot(
 		JobMasterId jobMasterId,
 		SlotRequest slotRequest,
+		@RpcTimeout Time timeout);
+
+	CompletableFuture<Acknowledge> requestJobSlots(
+		JobMasterId jobMasterId,
+		JobSlotRequestList jobSlotRequestList,
 		@RpcTimeout Time timeout);
 
 	/**

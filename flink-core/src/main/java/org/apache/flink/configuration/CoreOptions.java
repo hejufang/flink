@@ -455,4 +455,13 @@ public class CoreOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Use debug level for some logs of job when the flag is true, otherwise use info level.");
+
+	/**
+	 * Task will be switched to running when it is submitted to task executor.
+	 */
+	public static final ConfigOption<Boolean> FLINK_SUBMIT_RUNNING_NOTIFY = ConfigOptions
+		.key("flink.job.submit-to-running.notify")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("The task will be switch to running when it is submitted to task executor, this will reduce the message between jm and tm.");
 }

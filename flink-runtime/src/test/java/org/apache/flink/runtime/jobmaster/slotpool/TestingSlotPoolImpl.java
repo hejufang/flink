@@ -39,13 +39,14 @@ public class TestingSlotPoolImpl extends SlotPoolImpl {
 
 	private ResourceProfile lastRequestedSlotResourceProfile;
 
-	public TestingSlotPoolImpl(JobID jobId) {
+	public TestingSlotPoolImpl(JobID jobId, boolean batchRequestSlotsEnable) {
 		this(
 			jobId,
 			SystemClock.getInstance(),
 			AkkaUtils.getDefaultTimeout(),
 			AkkaUtils.getDefaultTimeout(),
-			Time.milliseconds(JobManagerOptions.SLOT_IDLE_TIMEOUT.defaultValue()));
+			Time.milliseconds(JobManagerOptions.SLOT_IDLE_TIMEOUT.defaultValue()),
+			batchRequestSlotsEnable);
 	}
 
 	public TestingSlotPoolImpl(
@@ -53,8 +54,9 @@ public class TestingSlotPoolImpl extends SlotPoolImpl {
 			Clock clock,
 			Time rpcTimeout,
 			Time idleSlotTimeout,
-			Time batchSlotTimeout) {
-		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, false);
+			Time batchSlotTimeout,
+			boolean batchRequestSlotsEnable) {
+		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, false, batchRequestSlotsEnable);
 	}
 
 	void triggerCheckIdleSlot() {

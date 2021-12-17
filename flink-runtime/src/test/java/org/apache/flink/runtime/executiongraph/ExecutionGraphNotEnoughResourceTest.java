@@ -54,9 +54,13 @@ import org.apache.flink.util.function.ThrowingRunnable;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -65,6 +69,7 @@ import static org.junit.Assert.assertEquals;
 /**
  * Tests ExecutionGraph schedule behavior with not enough resource.
  */
+@RunWith(Parameterized.class)
 public class ExecutionGraphNotEnoughResourceTest extends TestLogger {
 
 	private static TestingComponentMainThreadExecutor.Resource mainThreadExecutorResource;
@@ -73,6 +78,14 @@ public class ExecutionGraphNotEnoughResourceTest extends TestLogger {
 
 	private static final JobID TEST_JOB_ID = new JobID();
 	private static final int NUM_TASKS = 31;
+
+	@Parameterized.Parameter
+	public boolean batchRequestSlotsEnable;
+
+	@Parameterized.Parameters(name = "batchRequestSlotsEnable = {0}")
+	public static Collection<Boolean> batchRequestSlotsEnable() {
+		return Arrays.asList(true, false);
+	}
 
 	@BeforeClass
 	public static void setupClass() {
@@ -93,7 +106,7 @@ public class ExecutionGraphNotEnoughResourceTest extends TestLogger {
 
 		SlotPool slotPool = null;
 		try {
-			slotPool = new TestingSlotPoolImpl(TEST_JOB_ID);
+			slotPool = new TestingSlotPoolImpl(TEST_JOB_ID, batchRequestSlotsEnable);
 			final Scheduler scheduler = createSchedulerWithSlots(
 				parallelism - 1, slotPool, new LocalTaskManagerLocation());
 

@@ -61,11 +61,15 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -86,6 +90,7 @@ import static org.junit.Assert.assertTrue;
 /**
  * Tests the restart behaviour of the {@link ExecutionGraph}.
  */
+@RunWith(Parameterized.class)
 public class ExecutionGraphRestartTest extends TestLogger {
 
 	private static final int NUM_TASKS = 31;
@@ -94,6 +99,14 @@ public class ExecutionGraphRestartTest extends TestLogger {
 		ComponentMainThreadExecutorServiceAdapter.forMainThread();
 
 	private static final JobID TEST_JOB_ID = new JobID();
+
+	@Parameterized.Parameter
+	public boolean batchRequestSlotsEnable;
+
+	@Parameterized.Parameters(name = "batchRequestSlotsEnable = {0}")
+	public static Collection<Boolean> batchRequestSlotsEnable() {
+		return Arrays.asList(true, false);
+	}
 
 	// ------------------------------------------------------------------------
 
@@ -158,7 +171,7 @@ public class ExecutionGraphRestartTest extends TestLogger {
 
 	@Nonnull
 	private SlotPoolImpl createSlotPoolImpl() {
-		return new TestingSlotPoolImpl(TEST_JOB_ID);
+		return new TestingSlotPoolImpl(TEST_JOB_ID, batchRequestSlotsEnable);
 	}
 
 	@Test

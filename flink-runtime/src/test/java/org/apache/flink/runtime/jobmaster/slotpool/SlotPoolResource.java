@@ -44,9 +44,12 @@ public class SlotPoolResource extends ExternalResource {
 
 	private final ComponentMainThreadExecutor mainThreadExecutor;
 
-	public SlotPoolResource(@Nonnull SlotSelectionStrategy schedulingStrategy) {
+	private final boolean batchRequestSlotsEnable;
+
+	public SlotPoolResource(@Nonnull SlotSelectionStrategy schedulingStrategy, boolean batchRequestSlotsEnable) {
 		this.schedulingStrategy = schedulingStrategy;
 		this.mainThreadExecutor = ComponentMainThreadExecutorServiceAdapter.forMainThread();
+		this.batchRequestSlotsEnable = batchRequestSlotsEnable;
 		slotPool = null;
 		testingResourceManagerGateway = null;
 	}
@@ -78,7 +81,7 @@ public class SlotPoolResource extends ExternalResource {
 
 		testingResourceManagerGateway = new TestingResourceManagerGateway();
 
-		slotPool = new TestingSlotPoolImpl(new JobID());
+		slotPool = new TestingSlotPoolImpl(new JobID(), batchRequestSlotsEnable);
 		scheduler = new SchedulerImpl(schedulingStrategy, slotPool);
 		slotPool.start(JobMasterId.generate(), "foobar", mainThreadExecutor);
 		scheduler.start(mainThreadExecutor);

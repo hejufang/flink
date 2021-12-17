@@ -59,6 +59,7 @@ public class TaskManagerServicesBuilder {
 	private ExecutorService ioExecutor;
 	private LibraryCacheManager libraryCacheManager;
 	private long managedMemorySize;
+	private boolean submitNotifyRunningEnable;
 
 	public TaskManagerServicesBuilder() {
 		unresolvedTaskManagerLocation = new LocalUnresolvedTaskManagerLocation();
@@ -74,6 +75,7 @@ public class TaskManagerServicesBuilder {
 		ioExecutor = TestingUtils.defaultExecutor();
 		libraryCacheManager = TestingLibraryCacheManager.newBuilder().build();
 		managedMemorySize = MemoryManager.MIN_PAGE_SIZE;
+		submitNotifyRunningEnable = false;
 	}
 
 	public TaskManagerServicesBuilder setUnresolvedTaskManagerLocation(UnresolvedTaskManagerLocation unresolvedTaskManagerLocation) {
@@ -83,6 +85,11 @@ public class TaskManagerServicesBuilder {
 
 	public TaskManagerServicesBuilder setIoManager(IOManager ioManager) {
 		this.ioManager = ioManager;
+		return this;
+	}
+
+	public TaskManagerServicesBuilder setSubmitNotifyRunningEnable(boolean submitNotifyRunningEnable) {
+		this.submitNotifyRunningEnable = submitNotifyRunningEnable;
 		return this;
 	}
 

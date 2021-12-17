@@ -23,6 +23,7 @@ import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
@@ -31,10 +32,14 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
+import org.apache.flink.runtime.deployment.GatewayTaskDeployment;
+import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
+import org.apache.flink.runtime.executiongraph.IntermediateResultPartition;
+import org.apache.flink.runtime.executiongraph.PartitionInfo;
 import org.apache.flink.runtime.executiongraph.failover.flip1.ExecutionFailureHandler;
 import org.apache.flink.runtime.executiongraph.failover.flip1.FailoverStrategy;
 import org.apache.flink.runtime.executiongraph.failover.flip1.FailureHandlingResult;
@@ -45,12 +50,14 @@ import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
+import org.apache.flink.runtime.jobmanager.slots.TaskManagerGateway;
 import org.apache.flink.runtime.jobmaster.LogicalSlot;
 import org.apache.flink.runtime.jobmaster.slotpool.ThrowingSlotProvider;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
+import org.apache.flink.runtime.scheduler.strategy.LazyFromSourcesSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategyFactory;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
@@ -67,6 +74,7 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +90,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.runtime.execution.ExecutionState.RUNNING;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -109,6 +118,12 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	private final ScheduledExecutor taskCancelingCheckExecutor;
 
 	private final boolean jobLogDetailDisable;
+
+	private final boolean batchRequestSlotsEnable;
+
+	private final int batchTaskCount;
+
+	private final boolean taskSubmitToRunningStatus;
 
 	public DefaultScheduler(
 		final Logger log,
@@ -163,11 +178,17 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		this.delayExecutor = checkNotNull(delayExecutor);
 		this.userCodeLoader = checkNotNull(userCodeLoader);
 		this.executionVertexOperations = checkNotNull(executionVertexOperations);
+		this.batchRequestSlotsEnable = jobMasterConfiguration.getBoolean(JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE);
+		this.batchTaskCount = jobMasterConfiguration.getInteger(JobManagerOptions.JOBMANAGER_SUBMIT_BATCH_TASK_COUNT);
+		this.taskSubmitToRunningStatus = jobMasterConfiguration.getBoolean(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY);
+		if (taskSubmitToRunningStatus && !batchRequestSlotsEnable) {
+			throw new IllegalArgumentException(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY.key() + " can be true only when "
+				+ JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE.key() + " is true first.");
+		}
 
 		final FailoverStrategy failoverStrategy = failoverStrategyFactory.create(
 			getSchedulingTopology(),
 			getResultPartitionAvailabilityChecker());
-		log.info("Using failover strategy {} for {} ({}).", LoggerHelper.secMark("failoverStrategy", failoverStrategy), LoggerHelper.secMark("jobName", jobGraph.getName()), LoggerHelper.secMark("jobID", jobGraph.getJobID()));
 
 		this.executionFailureHandler = new ExecutionFailureHandler(
 			getSchedulingTopology(),
@@ -175,6 +196,15 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			restartBackoffTimeStrategy);
 		this.schedulingStrategy = schedulingStrategyFactory.createInstance(this, getSchedulingTopology());
 		this.jobLogDetailDisable = jobMasterConfiguration.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
+		if (schedulingStrategy instanceof LazyFromSourcesSchedulingStrategy &&
+				jobMasterConfiguration.getBoolean(JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE)) {
+			throw new UnsupportedOperationException("LazyFromSourcesSchedulingStrategy doesn't support batch request slots.");
+		}
+		log.info("Using failover strategy {} scheduler {} for {} ({}).",
+			LoggerHelper.secMark("failoverStrategy", failoverStrategy),
+			LoggerHelper.secMark("schedulerStrategy", schedulingStrategy.getClass().getSimpleName()),
+			LoggerHelper.secMark("jobName", jobGraph.getName()),
+			LoggerHelper.secMark("jobID", jobGraph.getJobID()));
 
 		final ExecutionSlotAllocationContext slotAllocationContext = new ExecutionSlotAllocationContext(
 			getStateLocationRetriever(),
@@ -491,13 +521,35 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			long startDeployTaskTime = System.currentTimeMillis();
 			warehouseJobStartEventMessageRecorder.scheduleTaskFinish(executionGraph.getGlobalModVersion());
 			warehouseJobStartEventMessageRecorder.deployTaskStart(executionGraph.getGlobalModVersion());
-			for (final DeploymentHandle deploymentHandle : deploymentHandles) {
-				final SlotExecutionVertexAssignment slotExecutionVertexAssignment = deploymentHandle.getSlotExecutionVertexAssignment();
-				final CompletableFuture<LogicalSlot> slotAssigned = slotExecutionVertexAssignment.getLogicalSlotFuture();
-				checkState(slotAssigned.isDone());
+			if (batchRequestSlotsEnable) {
+				GatewayDeploymentManager gatewayDeploymentManager = new GatewayDeploymentManager();
+				for (final DeploymentHandle deploymentHandle : deploymentHandles) {
+					final SlotExecutionVertexAssignment slotExecutionVertexAssignment = deploymentHandle.getSlotExecutionVertexAssignment();
+					final CompletableFuture<LogicalSlot> slotAssigned = slotExecutionVertexAssignment.getLogicalSlotFuture();
+					checkState(slotAssigned.isDone());
 
-				FutureUtils.assertNoException(
-					slotAssigned.handle(deployOrHandleError(deploymentHandle)));
+					FutureUtils.assertNoException(
+						slotAssigned.handle(deployOrHandleError(deploymentHandle, gatewayDeploymentManager)));
+				}
+				for (Map.Entry<ResourceID, List<GatewayTaskDeployment>> entry : gatewayDeploymentManager.getGatewayDeploymentList().entrySet()) {
+					if (taskSubmitToRunningStatus) {
+						notifyTaskRunning(entry);
+					}
+					TaskManagerGateway gateway = gatewayDeploymentManager.getTaskManagerGateway(entry.getKey());
+					getFutureExecutor().execute(() -> {
+						submitTaskList(entry, gateway);
+					});
+				}
+				log.info("Deploy Task take {} ms for job {} with tasks {}.", System.currentTimeMillis() - startDeployTaskTime, getJobId(), deploymentHandles.size());
+			} else {
+				for (final DeploymentHandle deploymentHandle : deploymentHandles) {
+					final SlotExecutionVertexAssignment slotExecutionVertexAssignment = deploymentHandle.getSlotExecutionVertexAssignment();
+					final CompletableFuture<LogicalSlot> slotAssigned = slotExecutionVertexAssignment.getLogicalSlotFuture();
+					checkState(slotAssigned.isDone());
+
+					FutureUtils.assertNoException(
+						slotAssigned.handle(deployOrHandleError(deploymentHandle)));
+				}
 			}
 			if (jobLogDetailDisable) {
 				log.info("Deploy Task take {} ms for job {}.", System.currentTimeMillis() - startDeployTaskTime, getJobId());
@@ -507,6 +559,77 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			warehouseJobStartEventMessageRecorder.deployTaskFinish(executionGraph.getGlobalModVersion());
 			return null;
 		};
+	}
+
+	private void notifyTaskRunning(Map.Entry<ResourceID, List<GatewayTaskDeployment>> entry) {
+		CompletableFuture.runAsync(() -> {
+				for (GatewayTaskDeployment gatewayTaskDeployment : entry.getValue()) {
+					updateTaskExecutionState(new TaskExecutionState(getJobId(), gatewayTaskDeployment.getExecution().getAttemptId(), RUNNING));
+				}
+			},
+			getMainThreadExecutor());
+	}
+
+	private void submitTaskList(Map.Entry<ResourceID, List<GatewayTaskDeployment>> entry, TaskManagerGateway gateway) {
+		List<GatewayDeploymentListEntity> taskDescriptorsList = new ArrayList<>();
+		List<TaskDeploymentDescriptor> descriptors = new ArrayList<>(batchTaskCount);
+		List<GatewayTaskDeployment> gatewayTaskDeployments = new ArrayList<>(batchTaskCount);
+		for (GatewayTaskDeployment deployment : entry.getValue()) {
+			TaskDeploymentDescriptor deploymentDescriptor = deployment.getTaskDeploymentDescriptor();
+			if (descriptors.size() >= batchTaskCount) {
+				taskDescriptorsList.add(new GatewayDeploymentListEntity(descriptors, gatewayTaskDeployments));
+				descriptors = new ArrayList<>(batchTaskCount);
+				gatewayTaskDeployments = new ArrayList<>(batchTaskCount);
+			}
+			descriptors.add(deploymentDescriptor);
+			gatewayTaskDeployments.add(deployment);
+		}
+		if (!descriptors.isEmpty()) {
+			taskDescriptorsList.add(new GatewayDeploymentListEntity(descriptors, gatewayTaskDeployments));
+		}
+		for (GatewayDeploymentListEntity gatewayDeploymentListEntity : taskDescriptorsList) {
+			gateway.submitTaskList(gatewayDeploymentListEntity.getDescriptorList(), getRpcTimeout())
+				.whenCompleteAsync((acknowledge, failure) -> {
+						if (null == failure) {
+							for (GatewayTaskDeployment deployment : gatewayDeploymentListEntity.getGatewayTaskDeploymentList()) {
+								Execution execution = deployment.getExecution();
+								if (deployment.isUpdateConsumers()) {
+									for (IntermediateResultPartition partition : execution.getVertex().getProducedPartitions().values()) {
+										if (partition.getIntermediateResult().getResultType().isPipelined()) {
+											for (ExecutionVertexID consumerVertexId : partition.getConsumers().get(0).getVertices()) {
+												final ExecutionVertex consumerVertex = execution.getVertex().getExecutionGraph().getVertex(consumerVertexId);
+												final Execution consumer = consumerVertex.getCurrentExecutionAttempt();
+												final ExecutionState consumerState = consumer.getState();
+
+												final PartitionInfo partitionInfo = Execution.createPartitionInfo(partition);
+
+												if (consumerState == RUNNING) {
+													consumer.sendUpdatePartitionInfoRpcCall(Collections.singleton(partitionInfo));
+												} else {
+													consumerVertex.cachePartitionInfo(partitionInfo);
+												}
+											}
+										}
+									}
+								}
+							}
+						} else {
+							for (GatewayTaskDeployment deployment : entry.getValue()) {
+								Execution execution = deployment.getExecution();
+								if (failure instanceof TimeoutException) {
+									String taskname = execution.getVertex().getTaskNameWithSubtaskIndex() + " (" + execution.getAttemptId() + ')';
+
+									execution.markFailed(new Exception(
+										"Cannot deploy task " + taskname + " - TaskManager (" + execution.getAssignedResourceLocation()
+											+ ") not responding after a rpcTimeout of " + execution.getRpcTimeout(), failure));
+								} else {
+									execution.markFailed(failure);
+								}
+							}
+						}
+					},
+					getMainThreadExecutor());
+		}
 	}
 
 	private static void propagateIfNonNull(final Throwable throwable) {
@@ -582,10 +705,44 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		};
 	}
 
+	private BiFunction<Object, Throwable, Void> deployOrHandleError(
+			final DeploymentHandle deploymentHandle,
+			final GatewayDeploymentManager gatewayDeploymentManager) {
+		final ExecutionVertexVersion requiredVertexVersion = deploymentHandle.getRequiredVertexVersion();
+		final ExecutionVertexID executionVertexId = requiredVertexVersion.getExecutionVertexId();
+
+		return (ignored, throwable) -> {
+			if (executionVertexVersioner.isModified(requiredVertexVersion)) {
+				log.info("Refusing to deploy execution vertex {} because this deployment was " +
+					"superseded by another deployment", executionVertexId);
+				return null;
+			}
+
+			if (throwable == null) {
+				deployTaskSafe(executionVertexId, deploymentHandle.getDeploymentOption(), gatewayDeploymentManager);
+			} else {
+				handleTaskDeploymentFailure(executionVertexId, throwable);
+			}
+			return null;
+		};
+	}
+
 	private void deployTaskSafe(final ExecutionVertexID executionVertexId, final DeploymentOption deploymentOption) {
 		try {
 			final ExecutionVertex executionVertex = getExecutionVertex(executionVertexId);
 			executionVertexOperations.deploy(executionVertex, deploymentOption);
+		} catch (Throwable e) {
+			handleTaskDeploymentFailure(executionVertexId, e);
+		}
+	}
+
+	private void deployTaskSafe(
+			final ExecutionVertexID executionVertexId,
+			final DeploymentOption deploymentOption,
+			final GatewayDeploymentManager gatewayDeploymentManager) {
+		try {
+			final ExecutionVertex executionVertex = getExecutionVertex(executionVertexId);
+			executionVertexOperations.deploy(executionVertex, deploymentOption, gatewayDeploymentManager);
 		} catch (Throwable e) {
 			handleTaskDeploymentFailure(executionVertexId, e);
 		}

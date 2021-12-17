@@ -21,6 +21,8 @@ package org.apache.flink.runtime.jobmaster.slotpool;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.runtime.JobSlotRequest;
+import org.apache.flink.runtime.JobSlotRequestList;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
@@ -126,6 +128,8 @@ public class SlotPoolImpl implements SlotPool {
 
 	private final boolean jobLogDetailDisable;
 
+	private final boolean batchRequestSlotsEnable;
+
 	/** the fencing token of the job manager. */
 	private JobMasterId jobMasterId;
 
@@ -141,6 +145,7 @@ public class SlotPoolImpl implements SlotPool {
 
 	// ------------------------------------------------------------------------
 
+	@VisibleForTesting
 	public SlotPoolImpl(
 			JobID jobId,
 			Clock clock,
@@ -148,12 +153,25 @@ public class SlotPoolImpl implements SlotPool {
 			Time idleSlotTimeout,
 			Time batchSlotTimeout,
 			boolean jobLogDetailDisable) {
+		this(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable, false);
+	}
+
+
+	public SlotPoolImpl(
+		JobID jobId,
+		Clock clock,
+		Time rpcTimeout,
+		Time idleSlotTimeout,
+		Time batchSlotTimeout,
+		boolean jobLogDetailDisable,
+		boolean batchRequestSlotsEnable) {
 
 		this.jobId = checkNotNull(jobId);
 		this.clock = checkNotNull(clock);
 		this.rpcTimeout = checkNotNull(rpcTimeout);
 		this.idleSlotTimeout = checkNotNull(idleSlotTimeout);
 		this.batchSlotTimeout = checkNotNull(batchSlotTimeout);
+		this.batchRequestSlotsEnable = batchRequestSlotsEnable;
 
 		this.registeredTaskManagers = new HashSet<>(16);
 		this.allocatedSlots = new AllocatedSlots();
@@ -239,7 +257,7 @@ public class SlotPoolImpl implements SlotPool {
 
 		componentMainThreadExecutor.assertRunningInMainThread();
 
-		log.info("Suspending SlotPool.");
+		log.info("Suspending SlotPool for job {}.", jobId);
 
 		cancelPendingSlotRequests();
 
@@ -266,7 +284,7 @@ public class SlotPoolImpl implements SlotPool {
 
 	@Override
 	public void close() {
-		log.info("Stopping SlotPool.");
+		log.info("Stopping SlotPool for job {}.", jobId);
 
 		cancelPendingSlotRequests();
 
@@ -289,8 +307,12 @@ public class SlotPoolImpl implements SlotPool {
 		this.resourceManagerGateway = checkNotNull(resourceManagerGateway);
 
 		// work on all slots waiting for this connection
-		for (PendingRequest pendingRequest : waitingForResourceManager.values()) {
-			requestSlotFromResourceManager(resourceManagerGateway, pendingRequest);
+		if (batchRequestSlotsEnable) {
+			requestJobSlotsFromResourceManager(resourceManagerGateway, waitingForResourceManager.values());
+		} else {
+			for (PendingRequest pendingRequest : waitingForResourceManager.values()) {
+				requestSlotFromResourceManager(resourceManagerGateway, pendingRequest);
+			}
 		}
 
 		// all sent off
@@ -363,6 +385,56 @@ public class SlotPoolImpl implements SlotPool {
 				// on failure, fail the request future
 				if (failure != null) {
 					slotRequestToResourceManagerFailed(pendingRequest.getSlotRequestId(), failure);
+				}
+			});
+	}
+
+	private void requestJobSlotsFromResourceManager(
+			final ResourceManagerGateway resourceManagerGateway,
+			final Collection<PendingRequest> pendingRequestList) {
+
+		checkNotNull(resourceManagerGateway);
+		checkNotNull(pendingRequestList);
+		if (pendingRequestList.isEmpty()) {
+			return;
+		}
+
+		log.info("Requesting new slot [{}] from resource manager for job {}.", pendingRequestList.size(), jobId);
+
+		final List<PendingRequest> currentRequestList = new ArrayList<>(pendingRequestList);
+		JobSlotRequestList jobSlotRequestList = new JobSlotRequestList(jobId, jobManagerAddress);
+		for (PendingRequest pendingRequest : currentRequestList) {
+			final AllocationID allocationId = new AllocationID();
+			jobSlotRequestList.addJobSlotRequest(
+				new JobSlotRequest(
+					allocationId,
+					pendingRequest.getResourceProfile(),
+					pendingRequest.getBannedLocations()));
+			pendingRequests.put(pendingRequest.getSlotRequestId(), allocationId, pendingRequest);
+			pendingRequest.getAllocatedSlotFuture().whenComplete(
+				(AllocatedSlot allocatedSlot, Throwable throwable) -> {
+					if (throwable != null || !allocationId.equals(allocatedSlot.getAllocationId())) {
+						// cancel the slot request if there is a failure or if the pending request has
+						// been completed with another allocated slot
+						resourceManagerGateway.cancelSlotRequest(allocationId);
+					}
+				});
+		}
+
+		CompletableFuture<Acknowledge> rmResponse = resourceManagerGateway.requestJobSlots(
+			jobMasterId,
+			jobSlotRequestList,
+			rpcTimeout);
+
+		FutureUtils.whenCompleteAsyncIfNotDone(
+			rmResponse,
+			componentMainThreadExecutor,
+			(Acknowledge ignored, Throwable failure) -> {
+				// on failure, fail the request future
+				if (failure != null) {
+					for (PendingRequest pendingRequest : currentRequestList) {
+						slotRequestToResourceManagerFailed(pendingRequest.getSlotRequestId(), failure);
+					}
 				}
 			});
 	}

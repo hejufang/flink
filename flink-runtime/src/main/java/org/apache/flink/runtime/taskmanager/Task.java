@@ -276,6 +276,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	/** atomic flag that makes sure the invokable is canceled exactly once upon error. */
 	private final AtomicBoolean invokableHasBeenCanceled;
 
+	private final boolean taskSubmitRunning;
+
 	/** The invokable of this task, if initialized. All accesses must copy the reference and
 	 * check for null, as this field is cleared as part of the disposal logic. */
 	@Nullable
@@ -365,6 +367,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			partitionProducerStateChecker,
 			executor,
 			new NonCacheManager(),
+			false,
 			false);
 	}
 
@@ -399,7 +402,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		PartitionProducerStateChecker partitionProducerStateChecker,
 		Executor executor,
 		CacheManager cacheManager,
-		boolean jobLogDetailDisable) {
+		boolean jobLogDetailDisable,
+		boolean taskSubmitRunning) {
 
 		Preconditions.checkNotNull(jobInformation);
 		Preconditions.checkNotNull(taskInformation);
@@ -461,6 +465,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		this.partitionProducerStateChecker = Preconditions.checkNotNull(partitionProducerStateChecker);
 		this.executor = Preconditions.checkNotNull(executor);
 		this.cacheManager = cacheManager;
+		this.taskSubmitRunning = taskSubmitRunning;
 
 		this.stateTimestamps = new long[ExecutionState.values().length];
 		markTimestamp(CREATED, System.currentTimeMillis());
@@ -847,7 +852,10 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			}
 
 			// notify everyone that we switched to running
-			taskManagerActions.updateTaskExecutionState(new TaskExecutionState(jobId, executionId, ExecutionState.RUNNING));
+			// if taskSubmitRunning is true, the task will be switch running in job master directly when it is submitted.
+			if (!taskSubmitRunning) {
+				taskManagerActions.updateTaskExecutionState(new TaskExecutionState(jobId, executionId, ExecutionState.RUNNING));
+			}
 
 			// make sure the user code classloader is accessible thread-locally
 			executingThread.setContextClassLoader(userCodeClassLoader);

@@ -48,8 +48,9 @@ public class RoundRobinSlotPoolImpl extends MinResourceSlotPoolImpl {
 			Time rpcTimeout,
 			Time idleSlotTimeout,
 			Time batchSlotTimeout,
-			boolean jobLogDetailDisable) {
-		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable);
+			boolean jobLogDetailDisable,
+			boolean batchRequestSlotsEnable) {
+		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable, batchRequestSlotsEnable);
 	}
 
 	@Override

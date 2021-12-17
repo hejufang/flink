@@ -35,6 +35,14 @@ public class DefaultExecutionVertexOperations implements ExecutionVertexOperatio
 	}
 
 	@Override
+	public void deploy(
+			ExecutionVertex executionVertex,
+			DeploymentOption deploymentOption,
+			GatewayDeploymentManager gatewayDeploymentManager) throws JobException {
+		executionVertex.getExecution(deploymentOption.isDeployCopy()).deploy(deploymentOption.isNotifyConsumer(), gatewayDeploymentManager);
+	}
+
+	@Override
 	public CompletableFuture<?> cancel(final ExecutionVertex executionVertex) {
 		return executionVertex.cancel();
 	}

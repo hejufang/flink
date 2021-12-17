@@ -832,7 +832,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		}
 	}
 
-	void cachePartitionInfo(PartitionInfo partitionInfo) {
+	public void cachePartitionInfo(PartitionInfo partitionInfo) {
 		getCurrentExecutionAttempt().cachePartitionInfo(Collections.singletonList(partitionInfo));
 	}
 

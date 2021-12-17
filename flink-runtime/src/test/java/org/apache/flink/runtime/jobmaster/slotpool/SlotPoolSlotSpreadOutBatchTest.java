@@ -54,12 +54,12 @@ import static org.hamcrest.Matchers.not;
  * Tests for the {@link SchedulerImpl} and {@link SlotPoolImpl} which verify
  * the spread out of slots.
  */
-public class SlotPoolSlotSpreadOutTest extends TestLogger {
+public class SlotPoolSlotSpreadOutBatchTest extends TestLogger {
 
 	public static final Time TIMEOUT = Time.seconds(10L);
 
 	@Rule
-	public final SlotPoolResource slotPoolResource = new SlotPoolResource(LocationPreferenceSlotSelectionStrategy.createEvenlySpreadOut(), false);
+	public final SlotPoolResource slotPoolResource = new SlotPoolResource(LocationPreferenceSlotSelectionStrategy.createEvenlySpreadOut(), true);
 
 	@Test
 	public void allocateSingleSlot_withNoRequirements_selectsSlotSoThatWorkloadIsSpreadOut() {

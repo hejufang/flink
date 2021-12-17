@@ -31,6 +31,13 @@ public interface ExecutionVertexOperations {
 
 	void deploy(ExecutionVertex executionVertex, DeploymentOption deploymentOption) throws JobException;
 
+	default void deploy(
+		ExecutionVertex executionVertex,
+		DeploymentOption deploymentOption,
+		GatewayDeploymentManager gatewayDeploymentManager) throws JobException {
+		throw new UnsupportedOperationException();
+	}
+
 	CompletableFuture<?> cancel(ExecutionVertex executionVertex);
 
 	void markFailed(ExecutionVertex executionVertex, Throwable cause);

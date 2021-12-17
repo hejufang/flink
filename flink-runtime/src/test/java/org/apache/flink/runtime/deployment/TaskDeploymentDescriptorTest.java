@@ -32,6 +32,7 @@ import org.apache.flink.runtime.executiongraph.TaskInformation;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.operators.BatchTask;
+import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.TestLogger;
 
@@ -137,7 +138,7 @@ public class TaskDeploymentDescriptorTest extends TestLogger {
 			taskInformation,
 			execId,
 			allocationId,
-			indexInSubtaskGroup,
+			new ExecutionVertexID(new JobVertexID(), indexInSubtaskGroup),
 			attemptNumber,
 			targetSlotNumber,
 			taskRestore,

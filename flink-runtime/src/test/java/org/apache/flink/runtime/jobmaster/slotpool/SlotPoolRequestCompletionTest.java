@@ -34,7 +34,10 @@ import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.function.CheckedSupplier;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -50,9 +53,18 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 /**
  * Tests how the {@link SlotPoolImpl} completes slot requests.
  */
+@RunWith(Parameterized.class)
 public class SlotPoolRequestCompletionTest extends TestLogger {
 
 	private static final Time TIMEOUT = Time.seconds(10L);
+
+	@Parameterized.Parameter
+	public boolean batchRequestSlotsEnable;
+
+	@Parameterized.Parameters(name = "batchRequestSlotsEnable = {0}")
+	public static Collection<Boolean> batchRequestSlotsEnable() {
+		return Arrays.asList(true, false);
+	}
 
 	/**
 	 * Tests that the {@link SlotPoolImpl} completes slots in request order.
@@ -121,7 +133,7 @@ public class SlotPoolRequestCompletionTest extends TestLogger {
 	}
 
 	private SlotPoolImpl setUpSlotPool() throws Exception {
-		final SlotPoolImpl slotPool = new TestingSlotPoolImpl(new JobID());
+		final SlotPoolImpl slotPool = new TestingSlotPoolImpl(new JobID(), batchRequestSlotsEnable);
 
 		slotPool.start(JobMasterId.generate(), "foobar", ComponentMainThreadExecutorServiceAdapter.forMainThread());
 

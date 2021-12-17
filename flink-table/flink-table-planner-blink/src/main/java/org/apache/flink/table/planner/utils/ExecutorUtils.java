@@ -105,7 +105,8 @@ public class ExecutorUtils {
 			// TaskDeploymentDescriptorFactory#handleConsumedPartitionShuffleDescriptorErrors.
 			// The reason why we do not use LAZY_FROM_SOURCES_WITH_BATCH_SLOT_REQUEST is
 			// we want to get timeout Exception when the slot request cannot be satisfied.
-			streamGraph.setScheduleMode(ScheduleMode.LAZY_FROM_SOURCES);
+			// TODO should be fix to EAGER_WITH_BLOCK strategy by @huweihua later.
+			streamGraph.setScheduleMode(ScheduleMode.EAGER);
 			streamGraph.setGlobalDataExchangeMode(GlobalDataExchangeMode.ALL_EDGES_PIPELINED);
 		} else {
 			streamGraph.setChaining(true);

@@ -50,11 +50,15 @@ import org.apache.flink.util.function.CheckedSupplier;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -68,6 +72,7 @@ import static org.junit.Assert.fail;
 /**
  * Tests base for the scheduling of batch jobs.
  */
+@RunWith(Parameterized.class)
 public class DefaultSchedulerBatchSchedulingTest extends TestLogger {
 
 	protected final Logger log = LoggerFactory.getLogger(getClass());
@@ -76,6 +81,14 @@ public class DefaultSchedulerBatchSchedulingTest extends TestLogger {
 
 	private static ScheduledExecutorService singleThreadScheduledExecutorService;
 	private static ComponentMainThreadExecutor mainThreadExecutor;
+
+	@Parameterized.Parameter
+	public boolean batchRequestEnable;
+
+	@Parameterized.Parameters(name = "batchRequestEnable = {0}")
+	public static Collection<Boolean> parameters() {
+		return Arrays.asList(true, false);
+	}
 
 	@BeforeClass
 	public static void setupClass() {
@@ -181,7 +194,7 @@ public class DefaultSchedulerBatchSchedulingTest extends TestLogger {
 	}
 
 	private SlotPoolImpl createSlotPool(ComponentMainThreadExecutor mainThreadExecutor, Time batchSlotTimeout) throws Exception {
-		return new SlotPoolBuilder(mainThreadExecutor)
+		return new SlotPoolBuilder(mainThreadExecutor, batchRequestEnable)
 			.setBatchSlotTimeout(batchSlotTimeout)
 			.build();
 	}

@@ -27,6 +27,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.SimpleCounter;
+import org.apache.flink.runtime.JobSlotRequestList;
 import org.apache.flink.runtime.blacklist.BlacklistActions;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.reporter.BlacklistReporter;
@@ -76,6 +77,7 @@ import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.FencedRpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
 import org.apache.flink.runtime.taskexecutor.FileType;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
@@ -545,6 +547,37 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 				try {
 					slotManager.registerSlotRequest(slotRequest);
+				} catch (ResourceManagerException e) {
+					return FutureUtils.completedExceptionally(e);
+				}
+
+				return CompletableFuture.completedFuture(Acknowledge.get());
+			} else {
+				return FutureUtils.completedExceptionally(new ResourceManagerException("The job leader's id " +
+					jobManagerRegistration.getJobMasterId() + " does not match the received id " + jobMasterId + '.'));
+			}
+
+		} else {
+			return FutureUtils.completedExceptionally(new ResourceManagerException("Could not find registered job manager for job " + jobId + '.'));
+		}
+	}
+
+	public CompletableFuture<Acknowledge> requestJobSlots(
+			JobMasterId jobMasterId,
+			JobSlotRequestList jobSlotRequestList,
+			@RpcTimeout Time timeout) {
+
+		JobID jobId = jobSlotRequestList.getJobId();
+		JobManagerRegistration jobManagerRegistration = jobManagerRegistrations.get(jobId);
+
+		if (null != jobManagerRegistration) {
+			if (Objects.equals(jobMasterId, jobManagerRegistration.getJobMasterId())) {
+				log.info("Request slot list({}) for job {}.",
+					jobSlotRequestList.getSlotRequests().size(),
+					jobId);
+
+				try {
+					slotManager.registerJobSlotRequests(jobSlotRequestList);
 				} catch (ResourceManagerException e) {
 					return FutureUtils.completedExceptionally(e);
 				}

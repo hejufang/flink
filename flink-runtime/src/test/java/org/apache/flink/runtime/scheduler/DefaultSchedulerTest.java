@@ -23,6 +23,8 @@ import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.hooks.TestMasterHook;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
@@ -65,6 +67,7 @@ import org.apache.flink.shaded.guava18.com.google.common.collect.Iterables;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runners.Parameterized;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -124,12 +127,29 @@ public class DefaultSchedulerTest extends TestLogger {
 
 	private TestExecutionSlotAllocator testExecutionSlotAllocator;
 
+	@Parameterized.Parameter
+	public boolean batchRequestSlotsEnable;
+
+	@Parameterized.Parameter(1)
+	public boolean submitNotifyRunningEnable;
+
+	@Parameterized.Parameters(name = "batchRequestSlotsEnable = {0}, submitNotifyRunningEnable = {1}")
+	public Boolean[][] parameters() {
+		return new Boolean[][]{
+			new Boolean[] {false, false},
+			new Boolean[] {true, false},
+			new Boolean[] {true, true},
+		};
+	}
+
 	@Before
 	public void setUp() throws Exception {
 		executor = Executors.newSingleThreadExecutor();
 		scheduledExecutorService = new DirectScheduledExecutorService();
 
 		configuration = new Configuration();
+		configuration.setBoolean(JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE, batchRequestSlotsEnable);
+		configuration.setBoolean(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY, submitNotifyRunningEnable);
 
 		testRestartBackoffTimeStrategy = new TestRestartBackoffTimeStrategy(true, 0);
 

@@ -35,8 +35,11 @@ import org.apache.flink.util.TestLogger;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -54,6 +57,7 @@ import static org.junit.Assert.fail;
 /**
  * Tests for batch slot requests.
  */
+@RunWith(Parameterized.class)
 public class SlotPoolBatchSlotRequestTest extends TestLogger {
 
 	private static final ResourceProfile resourceProfile = ResourceProfile.fromResources(1.0, 1024);
@@ -61,6 +65,14 @@ public class SlotPoolBatchSlotRequestTest extends TestLogger {
 	public static final CompletableFuture[] COMPLETABLE_FUTURES_EMPTY_ARRAY = new CompletableFuture[0];
 	private static ScheduledExecutorService singleThreadScheduledExecutorService;
 	private static ComponentMainThreadExecutor mainThreadExecutor;
+
+	@Parameterized.Parameter
+	public boolean batchRequestEnable;
+
+	@Parameterized.Parameters(name = "batchRequestEnable = {0}")
+	public static Collection<Boolean> parameters() {
+		return Arrays.asList(true, false);
+	}
 
 	@BeforeClass
 	public static void setupClass() {
@@ -81,7 +93,7 @@ public class SlotPoolBatchSlotRequestTest extends TestLogger {
 	 */
 	@Test
 	public void testPendingBatchSlotRequestTimeout() throws Exception {
-		try (final SlotPoolImpl slotPool = new SlotPoolBuilder(mainThreadExecutor)
+		try (final SlotPoolImpl slotPool = new SlotPoolBuilder(mainThreadExecutor, batchRequestEnable)
 				.build()) {
 			final CompletableFuture<PhysicalSlot> slotFuture = SlotPoolUtils.requestNewAllocatedBatchSlot(
 				slotPool,
@@ -107,7 +119,7 @@ public class SlotPoolBatchSlotRequestTest extends TestLogger {
 		final ComponentMainThreadExecutor directMainThreadExecutor = ComponentMainThreadExecutorServiceAdapter.forMainThread();
 		final ManualClock clock = new ManualClock();
 
-		try (final TestingSlotPoolImpl slotPool = new SlotPoolBuilder(directMainThreadExecutor)
+		try (final TestingSlotPoolImpl slotPool = new SlotPoolBuilder(directMainThreadExecutor, batchRequestEnable)
 				.setClock(clock)
 				.setBatchSlotTimeout(batchSlotTimeout)
 				.build()) {
@@ -141,7 +153,7 @@ public class SlotPoolBatchSlotRequestTest extends TestLogger {
 		final ComponentMainThreadExecutor directMainThreadExecutor = ComponentMainThreadExecutorServiceAdapter.forMainThread();
 
 		final Time batchSlotTimeout = Time.milliseconds(1000L);
-		try (final SlotPoolImpl slotPool = new SlotPoolBuilder(directMainThreadExecutor)
+		try (final SlotPoolImpl slotPool = new SlotPoolBuilder(directMainThreadExecutor, batchRequestEnable)
 			.setBatchSlotTimeout(batchSlotTimeout)
 			.setResourceManagerGateway(testingResourceManagerGateway)
 			.build()) {
@@ -166,7 +178,7 @@ public class SlotPoolBatchSlotRequestTest extends TestLogger {
 
 		final ComponentMainThreadExecutor directMainThreadExecutor = ComponentMainThreadExecutorServiceAdapter.forMainThread();
 
-		try (final SlotPoolImpl slotPool = new SlotPoolBuilder(directMainThreadExecutor)
+		try (final SlotPoolImpl slotPool = new SlotPoolBuilder(directMainThreadExecutor, batchRequestEnable)
 			.setResourceManagerGateway(testingResourceManagerGateway)
 			.build()) {
 
@@ -191,7 +203,7 @@ public class SlotPoolBatchSlotRequestTest extends TestLogger {
 		final ComponentMainThreadExecutor directMainThreadExecutor = ComponentMainThreadExecutorServiceAdapter.forMainThread();
 
 		final Time batchSlotTimeout = Time.milliseconds(1000L);
-		try (final SlotPoolImpl slotPool = new SlotPoolBuilder(directMainThreadExecutor)
+		try (final SlotPoolImpl slotPool = new SlotPoolBuilder(directMainThreadExecutor, batchRequestEnable)
 			.setBatchSlotTimeout(batchSlotTimeout)
 			.setResourceManagerGateway(testingResourceManagerGateway)
 			.build()) {
@@ -213,7 +225,7 @@ public class SlotPoolBatchSlotRequestTest extends TestLogger {
 
 		final ComponentMainThreadExecutor directMainThreadExecutor = ComponentMainThreadExecutorServiceAdapter.forMainThread();
 
-		try (final SlotPoolImpl slotPool = new SlotPoolBuilder(directMainThreadExecutor)
+		try (final SlotPoolImpl slotPool = new SlotPoolBuilder(directMainThreadExecutor, batchRequestEnable)
 			.setResourceManagerGateway(testingResourceManagerGateway)
 			.build()) {
 
@@ -233,7 +245,7 @@ public class SlotPoolBatchSlotRequestTest extends TestLogger {
 		final ManualClock clock = new ManualClock();
 		final Time batchSlotTimeout = Time.milliseconds(1000L);
 
-		try (final TestingSlotPoolImpl slotPool = new SlotPoolBuilder(directMainThreadExecutor)
+		try (final TestingSlotPoolImpl slotPool = new SlotPoolBuilder(directMainThreadExecutor, batchRequestEnable)
 				.setClock(clock)
 				.setBatchSlotTimeout(batchSlotTimeout)
 				.build()) {

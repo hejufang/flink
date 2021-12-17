@@ -38,6 +38,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
+import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.UnknownShuffleDescriptor;
 import org.apache.flink.types.Either;
@@ -62,7 +63,7 @@ public class TaskDeploymentDescriptorFactory {
 	private final MaybeOffloaded<TaskInformation> taskInfo;
 	private final JobID jobID;
 	private final boolean allowUnknownPartitions;
-	private final int subtaskIndex;
+	private final ExecutionVertexID executionVertexId;
 	private final List<ConsumedPartitionGroup> consumedPartitions;
 	private final Map<IntermediateResultPartitionID, IntermediateResultPartition> resultPartitionsById;
 	private static boolean isCopy;
@@ -74,7 +75,7 @@ public class TaskDeploymentDescriptorFactory {
 			MaybeOffloaded<TaskInformation> taskInfo,
 			JobID jobID,
 			boolean allowUnknownPartitions,
-			int subtaskIndex,
+			ExecutionVertexID executionVertexId,
 			boolean isCopy,
 			List<ConsumedPartitionGroup> consumedPartitions,
 			Map<IntermediateResultPartitionID, IntermediateResultPartition> resultPartitionsById) {
@@ -84,7 +85,7 @@ public class TaskDeploymentDescriptorFactory {
 		this.taskInfo = taskInfo;
 		this.jobID = jobID;
 		this.allowUnknownPartitions = allowUnknownPartitions;
-		this.subtaskIndex = subtaskIndex;
+		this.executionVertexId = executionVertexId;
 		this.consumedPartitions = consumedPartitions;
 		this.resultPartitionsById = resultPartitionsById;
 
@@ -102,7 +103,7 @@ public class TaskDeploymentDescriptorFactory {
 			taskInfo,
 			executionId,
 			allocationID,
-			subtaskIndex,
+			executionVertexId,
 			attemptNumber,
 			targetSlotNumber,
 			taskRestore,
@@ -121,7 +122,7 @@ public class TaskDeploymentDescriptorFactory {
 
 			int numConsumer = resultPartition.getConsumers().get(0).getVertices().size();
 
-			int queueToRequest = subtaskIndex % numConsumer;
+			int queueToRequest = executionVertexId.getSubtaskIndex() % numConsumer;
 			IntermediateResult consumedIntermediateResult = resultPartition.getIntermediateResult();
 			IntermediateDataSetID resultId = consumedIntermediateResult.getId();
 			ResultPartitionType partitionType = consumedIntermediateResult.getResultType();
@@ -174,7 +175,7 @@ public class TaskDeploymentDescriptorFactory {
 			getSerializedTaskInformation(executionVertex.getJobVertex().getTaskInformationOrBlobKey()),
 			executionGraph.getJobID(),
 			executionGraph.getScheduleMode().allowLazyDeployment(),
-			executionVertex.getParallelSubtaskIndex(),
+			executionVertex.getID(),
 			false,
 			executionVertex.getAllConsumedPartitions(),
 			executionGraph.getIntermediateResultPartitionMapping());
@@ -192,7 +193,7 @@ public class TaskDeploymentDescriptorFactory {
 			getSerializedTaskInformation(executionVertex.getJobVertex().getTaskInformationOrBlobKey()),
 			executionGraph.getJobID(),
 			executionGraph.getScheduleMode().allowLazyDeployment() || executionGraph.isRecoverable(),
-			execution.getParallelSubtaskIndex(),
+			execution.getVertex().getID(),
 			execution.isCopy(),
 			executionVertex.getAllConsumedPartitions(),
 			executionGraph.getIntermediateResultPartitionMapping());

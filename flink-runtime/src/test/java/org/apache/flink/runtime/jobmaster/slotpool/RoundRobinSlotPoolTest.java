@@ -98,7 +98,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 
 	@Nonnull
 	private TestingRoundRobinSlotPoolImpl createRoundRobinSlotPoolImpl() {
-		return new TestingRoundRobinSlotPoolImpl(jobId);
+		return new TestingRoundRobinSlotPoolImpl(jobId, false);
 	}
 
 	@Nonnull
@@ -108,7 +108,8 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 				clock,
 				TestingUtils.infiniteTime(),
 				timeout,
-				TestingUtils.infiniteTime());
+				TestingUtils.infiniteTime(),
+				false);
 	}
 
 	private static void setupSlotPool(

@@ -22,13 +22,16 @@ import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.topology.VertexID;
 
+import java.io.Serializable;
+
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * Id identifying {@link ExecutionVertex}.
  */
-public class ExecutionVertexID implements VertexID {
+public class ExecutionVertexID implements VertexID, Serializable {
+	private static final long serialVersionUID = 1L;
 	private final JobVertexID jobVertexId;
 
 	private final int subtaskIndex;

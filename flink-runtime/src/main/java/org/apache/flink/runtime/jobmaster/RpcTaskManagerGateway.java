@@ -36,6 +36,7 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -70,6 +71,11 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
 	@Override
 	public CompletableFuture<Acknowledge> submitTask(TaskDeploymentDescriptor tdd, Time timeout) {
 		return taskExecutorGateway.submitTask(tdd, jobMasterId, timeout);
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> submitTaskList(List<TaskDeploymentDescriptor> tdds, Time timeout) {
+		return taskExecutorGateway.submitTaskList(tdds, jobMasterId, timeout);
 	}
 
 	@Override

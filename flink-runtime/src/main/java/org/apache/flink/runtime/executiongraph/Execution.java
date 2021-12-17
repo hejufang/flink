@@ -34,6 +34,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.SlotProfile;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.FutureUtils;
+import org.apache.flink.runtime.deployment.GatewayTaskDeployment;
 import org.apache.flink.runtime.deployment.ResultPartitionDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptorFactory;
@@ -56,6 +57,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.TaskNotRunningException;
+import org.apache.flink.runtime.scheduler.GatewayDeploymentManager;
 import org.apache.flink.runtime.scheduler.strategy.ConsumerVertexGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.shuffle.NettyShuffleMaster;
@@ -859,6 +861,68 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		}
 	}
 
+	public void deploy(boolean updateConsumers, GatewayDeploymentManager gatewayDeploymentManager) throws JobException {
+		assertRunningInJobMasterMainThread();
+
+		final LogicalSlot slot  = assignedResource;
+
+		checkNotNull(slot, "In order to deploy the execution we first have to assign a resource via tryAssignResource.");
+
+		// Check if the TaskManager died in the meantime
+		// This only speeds up the response to TaskManagers failing concurrently to deployments.
+		// The more general check is the rpcTimeout of the deployment call
+		if (!slot.isAlive()) {
+			throw new JobException("Target slot (TaskManager) for deployment is no longer alive.");
+		}
+
+		// make sure exactly one deployment call happens from the correct state
+		// note: the transition from CREATED to DEPLOYING is for testing purposes only
+		ExecutionState previous = this.state;
+		if (previous == SCHEDULED || previous == CREATED) {
+			if (!transitionState(previous, DEPLOYING)) {
+				// race condition, someone else beat us to the deploying call.
+				// this should actually not happen and indicates a race somewhere else
+				throw new IllegalStateException("Cannot deploy task: Concurrent deployment call race.");
+			}
+		}
+		else {
+			// vertex may have been cancelled, or it was already scheduled
+			throw new IllegalStateException("The vertex must be in CREATED or SCHEDULED state to be deployed. Found state " + previous);
+		}
+		if (this != slot.getPayload()) {
+			throw new IllegalStateException(
+				String.format("The execution %s has not been assigned to the assigned slot.", this));
+		}
+
+		try {
+
+			// race double check, did we fail/cancel and do we need to release the slot?
+			if (this.state != DEPLOYING) {
+				slot.releaseSlot(new FlinkException("Actual state of execution " + this + " (" + state + ") does not match expected state DEPLOYING."));
+				return;
+			}
+
+			final TaskDeploymentDescriptor deployment = TaskDeploymentDescriptorFactory
+				.fromExecution(this, attemptNumber)
+				.createDeploymentDescriptor(
+					slot.getAllocationId(),
+					slot.getPhysicalSlotNumber(),
+					taskRestore,
+					producedPartitions.values());
+
+			// null taskRestore to let it be GC'ed
+			taskRestore = null;
+
+			gatewayDeploymentManager.addGatewayDeployment(slot.getTaskManagerLocation().getResourceID(), slot.getTaskManagerGateway(), new GatewayTaskDeployment(deployment, updateConsumers, this));
+		}
+		catch (Throwable t) {
+			markFailed(t);
+			if (isLegacyScheduling()) {
+				ExceptionUtils.rethrow(t);
+			}
+		}
+	}
+
 	public void cancel() {
 		// depending on the previous state, we go directly to cancelled (no cancel call necessary)
 		// -- or to canceling (cancel call needs to be sent to the task manager)
@@ -1030,7 +1094,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		}
 	}
 
-	private static PartitionInfo createPartitionInfo(IntermediateResultPartition consumedPartition) {
+	public static PartitionInfo createPartitionInfo(IntermediateResultPartition consumedPartition) {
 		IntermediateDataSetID intermediateDataSetID =
 			consumedPartition.getIntermediateResult().getId();
 		ShuffleDescriptor shuffleDescriptor =
@@ -1177,7 +1241,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	 *
 	 * @param t The exception that caused the task to fail.
 	 */
-	void markFailed(Throwable t) {
+	public void markFailed(Throwable t) {
 		processFail(t, true);
 	}
 
@@ -1593,7 +1657,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	 *
 	 * @param partitionInfos for the remote task
 	 */
-	private void sendUpdatePartitionInfoRpcCall(
+	public void sendUpdatePartitionInfoRpcCall(
 			final Iterable<PartitionInfo> partitionInfos) {
 
 		final LogicalSlot slot = assignedResource;
@@ -1882,5 +1946,9 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 	private void assertRunningInJobMasterMainThread() {
 		vertex.getExecutionGraph().assertRunningInJobMasterMainThread();
+	}
+
+	public Time getRpcTimeout() {
+		return rpcTimeout;
 	}
 }

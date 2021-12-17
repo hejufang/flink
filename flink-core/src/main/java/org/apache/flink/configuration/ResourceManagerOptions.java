@@ -101,6 +101,22 @@ public class ResourceManagerOptions {
 			"for streaming workloads, which may fail if there are not enough slots. Note that this configuration option does not take " +
 			"effect for standalone clusters, where how many slots are allocated is not controlled by Flink.");
 
+	@Documentation.Section(Documentation.Sections.EXPERT_SCHEDULING)
+	public static final ConfigOption<Integer> MAX_PENDING_JOB_SLOT_REQUESTS_SIZE = ConfigOptions
+			.key("slotmanager.max-pending-job-slot-requests-size")
+			.intType()
+			.defaultValue(Integer.MAX_VALUE)
+			.withDescription("Defines the maximum number of pending job slots requests that the Flink cluster allocates.");
+
+	/**
+	 * Whether assign slot random when jobmanager request batch slots from resourcemanager.
+	 */
+	public static final ConfigOption<Boolean> BATCH_REQUEST_RANDOM_SLOTS_ENABLE = ConfigOptions
+		.key("resourcemanager.batch.request-random-slots.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("True for assign random from free slots in batch request, false for assign slot in order.");
+
 	/**
 	 * The timeout for a slot request to be discarded, in milliseconds.
 	 * @deprecated Use {@link JobManagerOptions#SLOT_REQUEST_TIMEOUT}.

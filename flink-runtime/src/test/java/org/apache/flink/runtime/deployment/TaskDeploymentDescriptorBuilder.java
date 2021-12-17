@@ -29,6 +29,7 @@ import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.JobInformation;
 import org.apache.flink.runtime.executiongraph.TaskInformation;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.util.SerializedValue;
 
 import javax.annotation.Nullable;
@@ -143,7 +144,7 @@ public class TaskDeploymentDescriptorBuilder {
 			serializedTaskInformation,
 			executionId,
 			allocationId,
-			subtaskIndex,
+			new ExecutionVertexID(new JobVertexID(), subtaskIndex),
 			attemptNumber,
 			targetSlotNumber,
 			taskRestore,

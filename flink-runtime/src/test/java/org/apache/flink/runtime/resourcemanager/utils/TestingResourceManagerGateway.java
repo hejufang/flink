@@ -23,6 +23,8 @@ import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.runtime.JobSlotRequest;
+import org.apache.flink.runtime.JobSlotRequestList;
 import org.apache.flink.runtime.blob.TransientBlobKey;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
@@ -221,6 +223,29 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 
 		CompletableFuture<Acknowledge> slotFuture = slotFutureReference.getAndSet(null);
 
+		if (slotFuture != null) {
+			return slotFuture;
+		} else {
+			return CompletableFuture.completedFuture(Acknowledge.get());
+		}
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> requestJobSlots(JobMasterId jobMasterId, JobSlotRequestList jobSlotRequestList, Time timeout) {
+		Consumer<SlotRequest> currentRequestSlotConsumer = requestSlotConsumer;
+
+		if (currentRequestSlotConsumer != null) {
+			for (JobSlotRequest jobSlotRequest : jobSlotRequestList.getSlotRequests()) {
+				SlotRequest slotRequest = new SlotRequest(
+					jobSlotRequestList.getJobId(),
+					jobSlotRequest.getAllocationId(),
+					jobSlotRequest.getResourceProfile(),
+					jobSlotRequestList.getTargetAddress());
+				currentRequestSlotConsumer.accept(slotRequest);
+			}
+		}
+
+		CompletableFuture<Acknowledge> slotFuture = slotFutureReference.getAndSet(null);
 		if (slotFuture != null) {
 			return slotFuture;
 		} else {

@@ -40,6 +40,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
+import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceRequestSlot;
 import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.RpcTimeout;
@@ -50,6 +51,7 @@ import org.apache.flink.util.function.TriConsumer;
 import org.apache.flink.util.function.TriFunction;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
@@ -130,6 +132,16 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 	@Override
 	public CompletableFuture<Acknowledge> requestSlot(SlotID slotId, JobID jobId, AllocationID allocationId, ResourceProfile resourceProfile, String targetAddress, ResourceManagerId resourceManagerId, Time timeout) {
 		return requestSlotFunction.apply(Tuple6.of(slotId, jobId, allocationId, resourceProfile, targetAddress, resourceManagerId));
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> requestJobSlotList(
+			JobID jobId,
+			String targetAddress,
+			ResourceManagerId resourceManagerId,
+			List<ResourceRequestSlot> resourceSlotList,
+			@RpcTimeout Time timeout) {
+		return CompletableFuture.completedFuture(Acknowledge.get());
 	}
 
 	@Override

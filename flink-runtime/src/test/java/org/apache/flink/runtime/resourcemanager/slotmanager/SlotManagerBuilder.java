@@ -40,6 +40,7 @@ public class SlotManagerBuilder {
 	private int numSlotsPerWorker;
 	private SlotManagerMetricGroup slotManagerMetricGroup;
 	private int maxSlotNum;
+	private boolean batchRequestEnable;
 
 	private SlotManagerBuilder() {
 		this.slotMatchingStrategy = AnyMatchingSlotMatchingStrategy.INSTANCE;
@@ -52,6 +53,7 @@ public class SlotManagerBuilder {
 		this.numSlotsPerWorker = 1;
 		this.slotManagerMetricGroup = UnregisteredMetricGroups.createUnregisteredSlotManagerMetricGroup();
 		this.maxSlotNum = ResourceManagerOptions.MAX_SLOT_NUM.defaultValue();
+		this.batchRequestEnable = false;
 	}
 
 	public static SlotManagerBuilder newBuilder() {
@@ -108,6 +110,11 @@ public class SlotManagerBuilder {
 		return this;
 	}
 
+	public SlotManagerBuilder setBatchRequestEnable(boolean batchRequestEnable) {
+		this.batchRequestEnable = batchRequestEnable;
+		return this;
+	}
+
 	public SlotManagerImpl build() {
 		final SlotManagerConfiguration slotManagerConfiguration = new SlotManagerConfiguration(
 			taskManagerRequestTimeout,
@@ -117,7 +124,12 @@ public class SlotManagerBuilder {
 			slotMatchingStrategy,
 			defaultWorkerResourceSpec,
 			numSlotsPerWorker,
-			maxSlotNum);
+			maxSlotNum,
+			0,
+			false,
+			Integer.MAX_VALUE,
+			false,
+			batchRequestEnable);
 
 		return new SlotManagerImpl(
 			scheduledExecutor,
@@ -142,7 +154,10 @@ public class SlotManagerBuilder {
 			numSlotsPerWorker,
 			maxSlotNum,
 			numInitialTaskManagers,
-			true);
+			true,
+			100,
+			false,
+			batchRequestEnable);
 
 		final SlotManagerImpl slotManager = new SlotManagerImpl(
 			scheduledExecutor,

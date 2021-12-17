@@ -20,6 +20,7 @@ package org.apache.flink.runtime.resourcemanager.slotmanager;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.JobSlotRequestList;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
@@ -102,6 +103,10 @@ public interface SlotManager extends AutoCloseable {
 	 * @throws ResourceManagerException if the slot request failed (e.g. not enough resources left)
 	 */
 	boolean registerSlotRequest(SlotRequest slotRequest) throws ResourceManagerException;
+
+	default boolean registerJobSlotRequests(JobSlotRequestList jobSlotRequestList) throws ResourceManagerException {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * Cancel all pending slot requests.

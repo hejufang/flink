@@ -52,6 +52,7 @@ import org.apache.flink.runtime.jobmaster.utils.TestingJobMasterGateway;
 import org.apache.flink.runtime.jobmaster.utils.TestingJobMasterGatewayBuilder;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
+import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.PartitionDescriptor;
 import org.apache.flink.runtime.shuffle.PartitionDescriptorBuilder;
@@ -71,10 +72,13 @@ import org.apache.flink.util.TestLogger;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -95,6 +99,7 @@ import static org.mockito.Mockito.mock;
 /**
  * Tests for submission logic of the {@link TaskExecutor}.
  */
+@RunWith(Parameterized.class)
 public class TaskExecutorSubmissionTest extends TestLogger {
 
 	private static final long TEST_TIMEOUT = 20000L;
@@ -105,6 +110,14 @@ public class TaskExecutorSubmissionTest extends TestLogger {
 	private static final Time timeout = Time.milliseconds(10000L);
 
 	private JobID jobId = new JobID();
+
+	@Parameterized.Parameter
+	public boolean submitNotifyRunningEnable;
+
+	@Parameterized.Parameters(name = "submitNotifyRunningEnable = {0}")
+	public static Collection<Boolean> submitNotifyRunningEnable() {
+		return Arrays.asList(true, false);
+	}
 
 	/**
 	 * Tests that we can submit a task to the TaskManager given that we've allocated a slot there.
@@ -177,6 +190,7 @@ public class TaskExecutorSubmissionTest extends TestLogger {
 		try (TaskSubmissionTestEnvironment env =
 			new TaskSubmissionTestEnvironment.Builder(jobId)
 				.setSlotSize(2)
+				.setSubmitNotifyRunningEnable(submitNotifyRunningEnable)
 				.addTaskManagerActionListener(eid1, ExecutionState.RUNNING, task1RunningFuture)
 				.addTaskManagerActionListener(eid2, ExecutionState.RUNNING, task2RunningFuture)
 				.addTaskManagerActionListener(eid1, ExecutionState.CANCELED, task1CanceledFuture)
@@ -770,7 +784,7 @@ public class TaskExecutorSubmissionTest extends TestLogger {
 			new TaskDeploymentDescriptor.NonOffloaded<>(serializedJobVertexInformation),
 			executionAttemptId,
 			new AllocationID(),
-			subtaskIndex,
+			new ExecutionVertexID(new JobVertexID(), subtaskIndex),
 			attemptNumber,
 			targetSlotNumber,
 			null,

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.resourcemanager.slotmanager;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.JobPendingSlotRequestList;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -30,6 +31,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -48,11 +52,18 @@ public class PendingSlotRequest {
 	/** Timestamp when this pending slot request has been created. */
 	private final long creationTimestamp;
 
+	private final Optional<JobPendingSlotRequestList> jobPendingSlotRequestListOptional;
+
 	public PendingSlotRequest(SlotRequest slotRequest) {
+		this(slotRequest, System.currentTimeMillis(), Optional.empty());
+	}
+
+	public PendingSlotRequest(SlotRequest slotRequest, long creationTimestamp, Optional<JobPendingSlotRequestList> jobPendingSlotRequestListOptional) {
 		this.slotRequest = Preconditions.checkNotNull(slotRequest);
 		this.requestFuture = null;
 		this.pendingTaskManagerSlot = null;
-		creationTimestamp = System.currentTimeMillis();
+		this.creationTimestamp = creationTimestamp;
+		this.jobPendingSlotRequestListOptional = jobPendingSlotRequestListOptional;
 	}
 
 	// ------------------------------------------------------------------------
@@ -106,5 +117,13 @@ public class PendingSlotRequest {
 
 	public void unassignPendingTaskManagerSlot() {
 		this.pendingTaskManagerSlot = null;
+	}
+
+	public List<PendingSlotRequest> removeBatchPendingRequestList() {
+		if (jobPendingSlotRequestListOptional.isPresent()) {
+			return jobPendingSlotRequestListOptional.get().removeSlotRequests();
+		} else {
+			return Collections.emptyList();
+		}
 	}
 }

@@ -107,7 +107,8 @@ class TaskSubmissionTestEnvironment implements AutoCloseable {
 			List<Tuple3<ExecutionAttemptID, ExecutionState, CompletableFuture<Void>>> taskManagerActionListeners,
 			@Nullable String metricQueryServiceAddress,
 			TestingRpcService testingRpcService,
-			ShuffleEnvironment<?, ?> shuffleEnvironment) throws Exception {
+			ShuffleEnvironment<?, ?> shuffleEnvironment,
+			boolean submitNotifyRunningEnable) throws Exception {
 
 		this.haServices = new TestingHighAvailabilityServices();
 		this.haServices.setResourceManagerLeaderRetriever(new SettableLeaderRetrievalService());
@@ -151,6 +152,7 @@ class TaskSubmissionTestEnvironment implements AutoCloseable {
 			.setTaskSlotTable(taskSlotTable)
 			.setJobTable(jobTable)
 			.setTaskStateManager(localStateStoresManager)
+			.setSubmitNotifyRunningEnable(submitNotifyRunningEnable)
 			.build();
 
 		taskExecutor = createTaskExecutor(taskManagerServices, metricQueryServiceAddress, configuration);
@@ -305,6 +307,8 @@ class TaskSubmissionTestEnvironment implements AutoCloseable {
 
 		private List<Tuple3<ExecutionAttemptID, ExecutionState, CompletableFuture<Void>>> taskManagerActionListeners = new ArrayList<>();
 
+		private boolean submitNotifyRunningEnable;
+
 		public Builder(JobID jobId) {
 			this.jobId = jobId;
 		}
@@ -361,6 +365,11 @@ class TaskSubmissionTestEnvironment implements AutoCloseable {
 			return this;
 		}
 
+		public Builder setSubmitNotifyRunningEnable(boolean submitNotifyRunningEnable) {
+			this.submitNotifyRunningEnable = submitNotifyRunningEnable;
+			return this;
+		}
+
 		public TaskSubmissionTestEnvironment build() throws Exception {
 			final TestingRpcService testingRpcService = new TestingRpcService();
 			final ShuffleEnvironment<?, ?> network = optionalShuffleEnvironment.orElseGet(() -> {
@@ -383,7 +392,8 @@ class TaskSubmissionTestEnvironment implements AutoCloseable {
 				taskManagerActionListeners,
 				metricQueryServiceAddress,
 				testingRpcService,
-				network);
+				network,
+				submitNotifyRunningEnable);
 		}
 	}
 }
