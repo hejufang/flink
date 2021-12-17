@@ -112,7 +112,8 @@ public class RocksDBFullRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> restoreStateHandles,
 		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager,
-		@Nonnegative long writeBatchSize) {
+		@Nonnegative long writeBatchSize,
+		RestoreOptions restoreOptions) {
 		super(
 			keyGroupRange,
 			keyGroupPrefixBytes,
@@ -129,7 +130,8 @@ public class RocksDBFullRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 			metricGroup,
 			restoreStateHandles,
 			ttlCompactFiltersManager,
-			BackendType.FULL_ROCKSDB_STATE_BACKEND);
+			BackendType.FULL_ROCKSDB_STATE_BACKEND,
+			restoreOptions);
 		checkArgument(writeBatchSize >= 0, "Write batch size have to be no negative.");
 		this.writeBatchSize = writeBatchSize;
 	}

@@ -25,6 +25,7 @@ import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.contrib.streaming.state.restore.RestoreOptions;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -53,6 +54,7 @@ import org.junit.rules.TemporaryFolder;
 import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.CompactionStyle;
+import org.rocksdb.CompressionType;
 import org.rocksdb.DBOptions;
 import org.rocksdb.InfoLogLevel;
 import org.rocksdb.util.SizeUnit;
@@ -522,6 +524,7 @@ public class RocksDBStateBackendConfigTest {
 			configuration.setString(RocksDBConfigurableOptions.WRITE_BUFFER_SIZE.key(), "64 MB");
 			configuration.setString(RocksDBConfigurableOptions.BLOCK_SIZE.key(), "4 kb");
 			configuration.setString(RocksDBConfigurableOptions.BLOCK_CACHE_SIZE.key(), "512 mb");
+			configuration.setString(RocksDBConfigurableOptions.COMPRESSION_TYPE.key(), "no_compression");
 
 			DefaultConfigurableOptionsFactory optionsFactory = new DefaultConfigurableOptionsFactory();
 			optionsFactory.configure(configuration);
@@ -542,11 +545,91 @@ public class RocksDBStateBackendConfigTest {
 				assertEquals(4, columnOptions.maxWriteBufferNumber());
 				assertEquals(2, columnOptions.minWriteBufferNumberToMerge());
 				assertEquals(64 * SizeUnit.MB, columnOptions.writeBufferSize());
+				assertEquals(CompressionType.NO_COMPRESSION, columnOptions.compressionType());
 
 				BlockBasedTableConfig tableConfig = (BlockBasedTableConfig) columnOptions.tableFormatConfig();
 				assertEquals(4 * SizeUnit.KB, tableConfig.blockSize());
 				assertEquals(512 * SizeUnit.MB, tableConfig.blockCacheSize());
 			}
+		}
+	}
+
+	@Test
+	public void testRocksDBConfigurableOptions() throws Exception {
+		String checkpointPath = tempFolder.newFolder().toURI().toString();
+		RocksDBStateBackend rocksDbBackend = new RocksDBStateBackend(checkpointPath);
+
+		Configuration configuration = new Configuration();
+		DefaultConfigurableOptionsFactory defaultOptionsFactory = new DefaultConfigurableOptionsFactory();
+		assertTrue(defaultOptionsFactory.configure(configuration).getConfiguredOptions().isEmpty());
+
+		// verify illegal configuration
+		{
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.LOG_LEVEL.key(), "DEBUG");
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.STATS_DUMP_PERIOD_SECONDS.key(), "A");
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.COMPACTION_STYLE.key(), "error_level");
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.USE_DYNAMIC_LEVEL_SIZE.key(), "-TRUE");
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.TARGET_FILE_SIZE_BASE.key(), "-8 mb");
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.MAX_SIZE_LEVEL_BASE.key(), "-128MB");
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.MAX_BACKGROUND_THREADS.key(), "-4");
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.MAX_WRITE_BUFFER_NUMBER.key(), "-4");
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.MIN_WRITE_BUFFER_NUMBER_TO_MERGE.key(), "-2");
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.WRITE_BUFFER_SIZE.key(), "-64 MB");
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.BLOCK_SIZE.key(), "-4 kb");
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.BLOCK_CACHE_SIZE.key(), "-512 mb");
+			verifyIllegalArgument(rocksDbBackend, RocksDBConfigurableOptions.COMPRESSION_TYPE.key(), "compression");
+			verifyIllegalArgument(rocksDbBackend, RocksDBOptions.ROCKSDB_RESTORE_WITH_SST_FILE_WRITER.key(), "-true");
+			verifyIllegalArgument(rocksDbBackend, RocksDBOptions.MAX_DISK_SIZE_IN_PROGRESS.key(), "-10g");
+			verifyIllegalArgument(rocksDbBackend, RocksDBOptions.MAX_SST_SIZE_FOR_SST_FILE_WRITER.key(), "-32m");
+		}
+
+		// verify legal configuration
+		{
+			configuration.setString(RocksDBConfigurableOptions.LOG_LEVEL.key(), "DEBUG_LEVEL");
+			configuration.setString(RocksDBConfigurableOptions.STATS_DUMP_PERIOD_SECONDS.key(), "300");
+			configuration.setString(RocksDBConfigurableOptions.COMPACTION_STYLE.key(), "level");
+			configuration.setString(RocksDBConfigurableOptions.USE_DYNAMIC_LEVEL_SIZE.key(), "TRUE");
+			configuration.setString(RocksDBConfigurableOptions.TARGET_FILE_SIZE_BASE.key(), "8 mb");
+			configuration.setString(RocksDBConfigurableOptions.MAX_SIZE_LEVEL_BASE.key(), "128MB");
+			configuration.setString(RocksDBConfigurableOptions.MAX_BACKGROUND_THREADS.key(), "4");
+			configuration.setString(RocksDBConfigurableOptions.MAX_WRITE_BUFFER_NUMBER.key(), "4");
+			configuration.setString(RocksDBConfigurableOptions.MIN_WRITE_BUFFER_NUMBER_TO_MERGE.key(), "2");
+			configuration.setString(RocksDBConfigurableOptions.WRITE_BUFFER_SIZE.key(), "64 MB");
+			configuration.setString(RocksDBConfigurableOptions.BLOCK_SIZE.key(), "4 kb");
+			configuration.setString(RocksDBConfigurableOptions.BLOCK_CACHE_SIZE.key(), "512 mb");
+			configuration.setString(RocksDBConfigurableOptions.COMPRESSION_TYPE.key(), "no_compression");
+			configuration.setString(RocksDBOptions.ROCKSDB_RESTORE_WITH_SST_FILE_WRITER.key(), "true");
+			configuration.setString(RocksDBOptions.MAX_DISK_SIZE_IN_PROGRESS.key(), "10g");
+			configuration.setString(RocksDBOptions.MAX_SST_SIZE_FOR_SST_FILE_WRITER.key(), "32m");
+			configuration.setString(RocksDBOptions.VCORES.key(), "3");
+		}
+
+		rocksDbBackend = rocksDbBackend.configure(configuration, getClass().getClassLoader());
+		try (RocksDBResourceContainer optionsContainer = rocksDbBackend.createOptionsAndResourceContainer()) {
+			DBOptions dbOptions = optionsContainer.getDbOptions();
+			assertEquals(-1, dbOptions.maxOpenFiles());
+			assertEquals(InfoLogLevel.DEBUG_LEVEL, dbOptions.infoLogLevel());
+			assertEquals(300, dbOptions.statsDumpPeriodSec());
+
+			ColumnFamilyOptions columnOptions = optionsContainer.getColumnOptions();
+			assertEquals(CompactionStyle.LEVEL, columnOptions.compactionStyle());
+			assertTrue(columnOptions.levelCompactionDynamicLevelBytes());
+			assertEquals(8 * SizeUnit.MB, columnOptions.targetFileSizeBase());
+			assertEquals(128 * SizeUnit.MB, columnOptions.maxBytesForLevelBase());
+			assertEquals(4, columnOptions.maxWriteBufferNumber());
+			assertEquals(2, columnOptions.minWriteBufferNumberToMerge());
+			assertEquals(64 * SizeUnit.MB, columnOptions.writeBufferSize());
+			assertEquals(CompressionType.NO_COMPRESSION, columnOptions.compressionType());
+
+			BlockBasedTableConfig tableConfig = (BlockBasedTableConfig) columnOptions.tableFormatConfig();
+			assertEquals(4 * SizeUnit.KB, tableConfig.blockSize());
+			assertEquals(512 * SizeUnit.MB, tableConfig.blockCacheSize());
+
+			RestoreOptions restoreOptions = rocksDbBackend.getRestoreOptions();
+			assertEquals(6, restoreOptions.getNumberOfAsyncExecutor());
+			assertEquals(true, restoreOptions.isUseSstFileWriter());
+			assertEquals(32 * SizeUnit.MB, restoreOptions.getMaxSstFileSize());
+			assertEquals(10 * SizeUnit.GB, restoreOptions.getMaxDiskSizeInProgress());
 		}
 	}
 
@@ -759,6 +842,26 @@ public class RocksDBStateBackendConfigTest {
 		DefaultConfigurableOptionsFactory optionsFactory = new DefaultConfigurableOptionsFactory();
 		try {
 			optionsFactory.configure(configuration);
+			fail("Not throwing expected IllegalArgumentException.");
+		} catch (IllegalArgumentException e) {
+			// ignored
+		}
+	}
+
+	private void verifyIllegalArgument(
+		RocksDBStateBackend stateBackend,
+		String key,
+		String value) throws Exception {
+		try {
+			Configuration configuration = new Configuration();
+			configuration.setString(key, value);
+			stateBackend = stateBackend.configure(configuration, getClass().getClassLoader());
+			try (RocksDBResourceContainer optionsContainer = stateBackend.createOptionsAndResourceContainer()) {
+				optionsContainer.getDbOptions();
+				ColumnFamilyOptions columnOptions = optionsContainer.getColumnOptions();
+				columnOptions.tableFormatConfig();
+				stateBackend.getRestoreOptions();
+			}
 			fail("Not throwing expected IllegalArgumentException.");
 		} catch (IllegalArgumentException e) {
 			// ignored
