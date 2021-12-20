@@ -16,19 +16,16 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.clusterframework.types;
+package org.apache.flink.runtime.jobmaster.slotpool;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.clusterframework.types.PreviousAllocationSlotSelectionStrategyTest;
+import org.apache.flink.runtime.clusterframework.types.SlotProfile;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.executiongraph.utils.SimpleAckingTaskManagerGateway;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.jobmaster.SlotInfo;
-import org.apache.flink.runtime.jobmaster.slotpool.LocationPreferenceSlotSelectionStrategy;
-import org.apache.flink.runtime.jobmaster.slotpool.RoundRobinLocationPreferenceSlotSelectionStrategy;
-import org.apache.flink.runtime.jobmaster.slotpool.SlotPool;
-import org.apache.flink.runtime.jobmaster.slotpool.SlotSelectionStrategy;
-import org.apache.flink.runtime.jobmaster.slotpool.TestingRoundRobinSlotPoolImpl;
 import org.apache.flink.runtime.resourcemanager.utils.TestingResourceManagerGateway;
 import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
 
@@ -43,6 +40,7 @@ import java.util.Optional;
 
 /**
  * Tests for {@link RoundRobinLocationPreferenceSlotSelectionStrategy}.
+ * This will run all parent tests.
  */
 @RunWith(Parameterized.class)
 public class RoundRobinLocationPreferenceSlotSelectionStrategyTest extends PreviousAllocationSlotSelectionStrategyTest {

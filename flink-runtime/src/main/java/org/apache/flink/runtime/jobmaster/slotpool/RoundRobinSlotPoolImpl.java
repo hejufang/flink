@@ -26,6 +26,9 @@ import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.clock.Clock;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -166,6 +169,7 @@ public class RoundRobinSlotPoolImpl extends MinResourceSlotPoolImpl {
 	 * Available slots with RoundRobin selection strategy by Resource Profile.
 	 */
 	protected static class RoundRobinAvailableSlotsByResourceProfile {
+		private final Logger log = LoggerFactory.getLogger(getClass());
 		// an index for check whether slot is useful.
 		final Map<AllocationID, AllocatedSlot> slots;
 
@@ -240,7 +244,7 @@ public class RoundRobinSlotPoolImpl extends MinResourceSlotPoolImpl {
 					TaskManagerLocation taskManagerLocation = optionalTaskManagerLocation.get();
 					ResourceWithCounter<AllocatedSlot> allocatedSlotResourceWithCounter = slotsByTaskManager.get(taskManagerLocation);
 					// must not null.
-					if (allocatedSlotResourceWithCounter.hasNext()) {
+					if (allocatedSlotResourceWithCounter != null && allocatedSlotResourceWithCounter.hasNext()) {
 						Optional<AllocatedSlot> optionalAllocatedSlot = allocatedSlotResourceWithCounter.getNext();
 						allocatedSlot = optionalAllocatedSlot.orElse(null);
 						if (!allocatedSlotResourceWithCounter.isIndexOutOfBound()) {
@@ -248,9 +252,16 @@ public class RoundRobinSlotPoolImpl extends MinResourceSlotPoolImpl {
 						}
 					} else {
 						slotsByTaskManager.remove(taskManagerLocation);
+						taskManagers.remove(taskManagerLocation);
+						for (AllocatedSlot slot : slots.values()) {
+							if (slot.getTaskManagerLocation().equals(taskManagerLocation)) {
+								slots.remove(slot.getAllocationId());
+								log.error("slot {} has been removed from ResourceWithCounter, but not in slots. it is a bug, please check.", slot.getAllocationId());
+							}
+						}
 					}
 				}
-				if (taskManagers.isIndexOutOfBound()) {
+				if (taskManagers.hasNext() && taskManagers.isIndexOutOfBound()) {
 					taskManagers.resetIndex();
 					if (allSlotOutOfBound) {
 						for (ResourceWithCounter<AllocatedSlot> r : slotsByTaskManager.values()) {
@@ -332,7 +343,10 @@ public class RoundRobinSlotPoolImpl extends MinResourceSlotPoolImpl {
 		}
 	}
 
-	private static class ResourceWithCounter<T> {
+	/**
+	 * Resources(Slot,TaskManagerLocation) collections with index counter.
+	 */
+	protected static class ResourceWithCounter<T> {
 		List<T> resources = new ArrayList<>();
 		Set<T> availableResourceSet = new HashSet<>();
 		int index = 0;
@@ -414,10 +428,6 @@ public class RoundRobinSlotPoolImpl extends MinResourceSlotPoolImpl {
 				clear();
 			}
 			return result;
-		}
-
-		public Set<T> getResources() {
-			return availableResourceSet;
 		}
 	}
 }

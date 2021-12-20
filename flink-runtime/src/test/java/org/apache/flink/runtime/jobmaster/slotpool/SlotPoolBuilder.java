@@ -35,11 +35,15 @@ import java.util.concurrent.CompletableFuture;
  */
 public class SlotPoolBuilder {
 
-	private ComponentMainThreadExecutor componentMainThreadExecutor;
+	private final ComponentMainThreadExecutor componentMainThreadExecutor;
 	private ResourceManagerGateway resourceManagerGateway = new TestingResourceManagerGateway();
 	private Time batchSlotTimeout = Time.milliseconds(2L);
 	private Clock clock = SystemClock.getInstance();
-	private boolean batchRequestSlotsEnable;
+	private final boolean batchRequestSlotsEnable;
+
+	public SlotPoolBuilder(ComponentMainThreadExecutor componentMainThreadExecutor) {
+		this(componentMainThreadExecutor, false);
+	}
 
 	public SlotPoolBuilder(ComponentMainThreadExecutor componentMainThreadExecutor, boolean batchRequestSlotsEnable) {
 		this.componentMainThreadExecutor = componentMainThreadExecutor;
@@ -82,5 +86,28 @@ public class SlotPoolBuilder {
 		CompletableFuture.runAsync(() -> slotPool.connectToResourceManager(resourceManagerGateway), componentMainThreadExecutor).join();
 
 		return slotPool;
+	}
+
+	public TestingRoundRobinSlotPoolImpl buildRoundRobinWithoutSetup() {
+		return new TestingRoundRobinSlotPoolImpl(
+				new JobID(),
+				clock,
+				TestingUtils.infiniteTime(),
+				TestingUtils.infiniteTime(),
+				batchSlotTimeout,
+				batchRequestSlotsEnable);
+	}
+
+	public void setupSlotPool(SlotPoolImpl slotPool) {
+		CompletableFuture.runAsync(
+				() -> {
+					try {
+						slotPool.start(JobMasterId.generate(), "foobar", componentMainThreadExecutor);
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
+				}, componentMainThreadExecutor).join();
+
+		CompletableFuture.runAsync(() -> slotPool.connectToResourceManager(resourceManagerGateway), componentMainThreadExecutor).join();
 	}
 }

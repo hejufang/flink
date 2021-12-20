@@ -114,7 +114,7 @@ public class LocationPreferenceSlotSelectionStrategyTest extends SlotSelectionSt
 
 	@Test
 	public void returnsNonLocalMatchingIfResourceProfileCanBeFulfilledButNotTheTMLocationPreferences() throws Exception {
-		final InetAddress nonHostLocalInetAddress = InetAddress.getByAddress(new byte[]{10, 0, 0, 24});
+		final InetAddress nonHostLocalInetAddress = InetAddress.getByAddress(new byte[]{127, 0, 0, 24});
 		final TaskManagerLocation nonLocalTm = new TaskManagerLocation(new ResourceID("non-local-tm"), nonHostLocalInetAddress, 42);
 		SlotProfile slotProfile = SlotProfile.preferredLocality(resourceProfile, Collections.singletonList(nonLocalTm));
 		Optional<SlotSelectionStrategy.SlotInfoAndLocality> match = runMatching(slotProfile);

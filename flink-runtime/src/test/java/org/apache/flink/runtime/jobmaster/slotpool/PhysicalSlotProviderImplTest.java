@@ -37,6 +37,8 @@ import org.junit.runners.Parameterized;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -44,6 +46,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
 /**
@@ -108,6 +111,42 @@ public class PhysicalSlotProviderImplTest {
 		assertThat(slotFuture.isDone(), is(false));
 		addSlotToSlotPool();
 		slotFuture.get();
+	}
+
+	@Test
+	public void testSetRequiredResources() throws Exception {
+		SlotPoolBuilder slotPoolBuilder = new SlotPoolBuilder(mainThreadExecutor);
+		TestingRoundRobinSlotPoolImpl slotPool = slotPoolBuilder.buildRoundRobinWithoutSetup();
+
+		PhysicalSlotProvider physicalSlotProvider = new PhysicalSlotProviderImpl(LocationPreferenceSlotSelectionStrategy.createRoundRobin(), slotPool, UnregisteredMetricGroups.createUnregisteredJobManagerJobMetricGroup());
+		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
+		requiredResource.put(ResourceProfile.UNKNOWN, 10);
+		physicalSlotProvider.setRequiredResources(requiredResource);
+
+		slotPoolBuilder.setupSlotPool(slotPool);
+
+		assertEquals(10, slotPool.getPendingRequests().size());
+	}
+
+	@Test
+	public void testCancelSlotRequest() throws Exception {
+		SlotPoolBuilder slotPoolBuilder = new SlotPoolBuilder(mainThreadExecutor);
+		TestingRoundRobinSlotPoolImpl slotPool = slotPoolBuilder.buildRoundRobinWithoutSetup();
+
+		PhysicalSlotProvider physicalSlotProvider = new PhysicalSlotProviderImpl(LocationPreferenceSlotSelectionStrategy.createRoundRobin(), slotPool, UnregisteredMetricGroups.createUnregisteredJobManagerJobMetricGroup());
+		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
+		requiredResource.put(ResourceProfile.UNKNOWN, 10);
+		physicalSlotProvider.setRequiredResources(requiredResource);
+
+		slotPoolBuilder.setupSlotPool(slotPool);
+
+		assertEquals(10, slotPool.getPendingRequests().size());
+
+		// stop keep min resource.
+		slotPool.markWillBeClosed();
+		SlotRequestId pendingRequestId = slotPool.getPendingRequests().keySetA().stream().findFirst().get();
+		CompletableFuture.runAsync(() -> physicalSlotProvider.cancelSlotRequest(pendingRequestId, new Exception("excepted")), mainThreadExecutor).join();
+		assertEquals(9, slotPool.getPendingRequests().size());
 	}
 
 	private CompletableFuture<PhysicalSlotRequest.Result> allocateSlot(PhysicalSlotRequest request) {

@@ -27,6 +27,7 @@ import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.executiongraph.utils.SimpleAckingTaskManagerGateway;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
+import org.apache.flink.runtime.jobmaster.SlotRequestId;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.utils.TestingResourceManagerGateway;
@@ -45,6 +46,7 @@ import javax.annotation.Nonnull;
 
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -128,6 +131,20 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 	// ------------------------------------
 
 	@Test
+	public void testNoRequiredResource() throws Exception {
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		final ArrayBlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(10);
+		resourceManagerGateway.setRequestSlotConsumer(
+				slotRequest -> allocationIds.offer(slotRequest.getAllocationId()));
+		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
+		assertEquals(0, slotPool.getPendingRequests().size());
+		assertEquals(0, allocationIds.size());
+		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
+		slotPool.close();
+		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
+	}
+
+	@Test
 	public void testRequiredResource() throws Exception {
 		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
 		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
@@ -165,6 +182,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 		final ArrayBlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(10);
 		resourceManagerGateway.setRequestSlotConsumer(
 				slotRequest -> allocationIds.offer(slotRequest.getAllocationId()));
+		resourceManagerGateway.setCancelSlotConsumer(allocationIds::remove);
 		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
 		assertEquals(10, allocationIds.size());
 
@@ -181,6 +199,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
 		assertEquals(10, slotPool.getAvailableSlotsInformation().size());
 		assertEquals(0, slotPool.getPendingRequests().size());
+		assertEquals(0, allocationIds.size());
 
 		slotOffers.clear();
 		slotOffers.add(new SlotOffer(new AllocationID(), 9, ResourceProfile.ANY));
@@ -188,6 +207,52 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 		assertEquals(11, slotPool.getAvailableSlotsInformation().size());
 		assertEquals(0, slotPool.getPendingRequests().size());
 		assertEquals(0, slotPool.getAllocatedSlots().size());
+	}
+
+	@Test
+	public void testRequiredResourceWithOtherRequest() throws Exception {
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
+		requiredResource.put(ResourceProfile.UNKNOWN, 10);
+		slotPool.setRequiredResourceNumber(requiredResource);
+		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
+		final ArrayBlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(20);
+		resourceManagerGateway.setRequestSlotConsumer(
+				slotRequest -> allocationIds.offer(slotRequest.getAllocationId()));
+		resourceManagerGateway.setCancelSlotConsumer(allocationIds::remove);
+		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
+		assertEquals(10, allocationIds.size());
+
+		SlotRequestId slotRequestId = new SlotRequestId();
+		SlotPoolImpl.PendingRequest pendingRequest = new SlotPoolImpl.PendingRequest(slotRequestId, ResourceProfile.UNKNOWN, false, Collections.emptyList());
+		slotPool.requestNewAllocatedSlotInternal(pendingRequest);
+		assertEquals(11, allocationIds.size());
+		List<AllocationID> allocationIDList = new ArrayList<>(allocationIds);
+
+		final List<SlotOffer> slotOffers = new ArrayList<>(10);
+
+		for (int i = 0; i < 9; i++) {
+			slotOffers.add(new SlotOffer(allocationIDList.get(i), i, ResourceProfile.ANY));
+		}
+		slotOffers.add(new SlotOffer(allocationIDList.get(10), 10, ResourceProfile.ANY));
+
+		slotPool.registerTaskManager(taskManagerLocation.getResourceID());
+		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
+
+		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
+		assertEquals(9, slotPool.getAvailableSlotsInformation().size());
+		assertEquals(1, slotPool.getAllocatedSlots().size());
+		assertEquals(1, slotPool.getPendingRequests().size());
+
+		slotOffers.clear();
+		slotOffers.add(new SlotOffer(new AllocationID(), 11, ResourceProfile.ANY));
+		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
+
+		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
+		assertEquals(10, slotPool.getAvailableSlotsInformation().size());
+		assertEquals(10, allocationIds.size());
+		assertEquals(1, slotPool.getAllocatedSlots().size());
+		assertEquals(0, slotPool.getPendingRequests().size());
 	}
 
 	@Test
@@ -297,18 +362,45 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 			freeAllocations.offer(allocationId);
 			return CompletableFuture.completedFuture(Acknowledge.get());
 		});
+
 		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
+		// check request 10 init slots.
 		assertEquals(10, allocationIds.size());
+		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
+
+		// offer 5 slots.
+		List<SlotOffer> slotOffers = new ArrayList<>(10);
+		for (int i = 0; i < 5; i++) {
+			slotOffers.add(new SlotOffer(allocationIds.take(), i, ResourceProfile.ANY));
+		}
+		slotPool.registerTaskManager(taskManagerLocation.getResourceID());
+		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
+		assertEquals(5, slotPool.getAvailableSlots().size());
+		assertEquals(5, allocationIds.size());
+		assertEquals(5, slotPool.getPendingRequests().size());
+
+		slotPool.markWillBeClosed();
+
+		slotPool.releaseTaskManager(taskManagerLocation.getResourceID(), new Exception("except"));
+		assertEquals(0, slotPool.getAvailableSlots().size());
+		assertEquals(5, allocationIds.size());
+		assertEquals(5, slotPool.getPendingRequests().size());
+		assertEquals(5, freeAllocations.size());
+		freeAllocations.clear();
 
 		// suspend slot pool will cancel all requests.
 		slotPool.suspend();
+		assertEquals(0, slotPool.getAvailableSlots().size());
 		assertEquals(0, allocationIds.size());
+		assertEquals(0, slotPool.getPendingRequests().size());
+		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
 
 		// start slot pool will request 10 slot for required resources.
 		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
 		assertEquals(10, allocationIds.size());
+		assertEquals(10, slotPool.getPendingRequests().size());
 
-		final List<SlotOffer> slotOffers = new ArrayList<>(10);
+		slotOffers = new ArrayList<>(10);
 		for (int i = 0; i < 10; i++) {
 			slotOffers.add(new SlotOffer(allocationIds.take(), i, ResourceProfile.ANY));
 		}
@@ -318,6 +410,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 
 		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
 		assertEquals(10, slotPool.getAvailableSlotsInformation().size());
+		assertEquals(0, slotPool.getPendingRequests().size());
 
 		// suspend slot pool will not call taskmanager.free
 		slotPool.suspend();
@@ -327,15 +420,18 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 
 		// start slot pool again, and old taskmanager slots will offer to this slotpool
 		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
+		assertEquals(10, slotPool.getPendingRequests().size());
 		assertEquals(10, allocationIds.size());
 		slotPool.registerTaskManager(taskManagerLocation.getResourceID());
 		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
 		assertEquals(10, slotPool.getAvailableSlotsInformation().size());
+		assertEquals(0, slotPool.getPendingRequests().size());
 		assertEquals(0, allocationIds.size());
 
 		// close slot pool will free taskmanager slots.
 		slotPool.close();
 		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
+		assertEquals(0, slotPool.getPendingRequests().size());
 		assertEquals(0, slotPool.getAvailableSlotsInformation().size());
 		assertEquals(10, freeAllocations.size());
 	}
@@ -372,7 +468,93 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 	}
 
 	// ------------------------------------
-	// Test RoundRobin slot selection
+	// Test RoundRobinSlotPool slot selection
+	// ------------------------------------
+
+	@Test
+	public void testGetByAllocationId() throws Exception {
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
+
+		InetAddress host1 = InetAddress.getByAddress(new byte[]{127, 0, 0, 1});
+		InetAddress host2 = InetAddress.getByAddress(new byte[]{127, 0, 0, 2});
+		TaskManagerLocation tm1 = new TaskManagerLocation(new ResourceID("1"), host1, 1);
+		TaskManagerLocation tm2 = new TaskManagerLocation(new ResourceID("2"), host2, 1);
+		TaskManagerLocation tm3 = new TaskManagerLocation(new ResourceID("3"), host1, 2);
+		AllocationID s1 = new AllocationID();
+		AllocationID s2 = new AllocationID();
+		AllocationID s3 = new AllocationID();
+		AllocationID s4 = new AllocationID();
+		AllocationID s5 = new AllocationID();
+		AllocationID s6 = new AllocationID();
+		slotPool.registerTaskManager(tm1.getResourceID());
+		slotPool.registerTaskManager(tm2.getResourceID());
+		slotPool.registerTaskManager(tm3.getResourceID());
+		slotPool.offerSlot(tm1, taskManagerGateway, new SlotOffer(s1, 0, ResourceProfile.ANY));
+		slotPool.offerSlot(tm1, taskManagerGateway, new SlotOffer(s2, 1, ResourceProfile.ANY));
+		slotPool.offerSlot(tm2, taskManagerGateway, new SlotOffer(s3, 0, ResourceProfile.ANY));
+		slotPool.offerSlot(tm2, taskManagerGateway, new SlotOffer(s4, 1, ResourceProfile.ANY));
+		slotPool.offerSlot(tm2, taskManagerGateway, new SlotOffer(s5, 2, ResourceProfile.ANY));
+		slotPool.offerSlot(tm3, taskManagerGateway, new SlotOffer(s6, 0, ResourceProfile.ANY));
+
+		List<AllocatedSlot> allocatedSlots = new ArrayList<>();
+		allocatedSlots.add(slotPool.getByAllocationID(ResourceProfile.ANY, s4).get());
+		slotPool.allocateAvailableSlot(new SlotRequestId(), allocatedSlots.get(0).getAllocationId());
+
+		allocatedSlots.add(slotPool.getByHost(ResourceProfile.ANY, tm1.getFQDNHostname(), alwaysTure).get());
+		slotPool.allocateAvailableSlot(new SlotRequestId(), allocatedSlots.get(1).getAllocationId());
+
+		allocatedSlots.add(slotPool.getByTaskManagerLocation(ResourceProfile.ANY, tm2, alwaysTure).get());
+		slotPool.allocateAvailableSlot(new SlotRequestId(), allocatedSlots.get(2).getAllocationId());
+		while (true) {
+			Optional<AllocatedSlot> optionalAllocatedSlot = slotPool.getNextAvailableSlot(ResourceProfile.ANY, alwaysTure);
+			if (!optionalAllocatedSlot.isPresent()) {
+				break;
+			} else {
+				allocatedSlots.add(optionalAllocatedSlot.get());
+				slotPool.allocateAvailableSlot(new SlotRequestId(), optionalAllocatedSlot.get().getAllocationId());
+			}
+		}
+		assertThat(allocatedSlots.stream().map(AllocatedSlot::getAllocationId).collect(Collectors.toList()), contains(s4, s1, s3, s6, s2, s5));
+		RoundRobinSlotPoolImpl.RoundRobinAvailableSlots availableSlots = (RoundRobinSlotPoolImpl.RoundRobinAvailableSlots) slotPool.getAvailableSlots();
+		assertTrue(availableSlots.allSlots.get(ResourceProfile.ANY).slots.isEmpty());
+		assertTrue(availableSlots.allSlots.get(ResourceProfile.ANY).slotsByTaskManager.isEmpty());
+		assertTrue(availableSlots.allSlots.get(ResourceProfile.ANY).taskManagersByHost.isEmpty());
+		assertFalse(availableSlots.allSlots.get(ResourceProfile.ANY).taskManagers.hasNext());
+		assertEquals(6, slotPool.getAllocatedSlots().size());
+	}
+
+	// ------------------------------------
+	// Test RoundRobinAvailableSlotsByResourceProfile slot selection
+	// ------------------------------------
+
+	@Test
+	public void testRemoveSlotNotExits() {
+		RoundRobinSlotPoolImpl.RoundRobinAvailableSlotsByResourceProfile roundRobinAvailableSlotsByResourceProfile = new RoundRobinSlotPoolImpl.RoundRobinAvailableSlotsByResourceProfile();
+		assertFalse(roundRobinAvailableSlotsByResourceProfile.removeSlot(new AllocatedSlot(new AllocationID(), taskManagerLocation, 0, ResourceProfile.ANY, taskManagerGateway)));
+		AllocatedSlot allocatedSlot = new AllocatedSlot(new AllocationID(), taskManagerLocation, 0, ResourceProfile.ANY, taskManagerGateway);
+		roundRobinAvailableSlotsByResourceProfile.addSlot(allocatedSlot);
+		assertTrue(roundRobinAvailableSlotsByResourceProfile.removeSlot(allocatedSlot));
+	}
+
+	@Test
+	public void testGetByRoundRobinAfterRemove() {
+		RoundRobinSlotPoolImpl.RoundRobinAvailableSlotsByResourceProfile slots = new RoundRobinSlotPoolImpl.RoundRobinAvailableSlotsByResourceProfile();
+		AllocatedSlot allocatedSlot = new AllocatedSlot(new AllocationID(), taskManagerLocation, 0, ResourceProfile.ANY, taskManagerGateway);
+		slots.addSlot(allocatedSlot);
+		slots.slotsByTaskManager.get(taskManagerLocation).remove(allocatedSlot);
+		Optional<AllocatedSlot> slot = slots.getNextAvailable(ignore -> true);
+		assertFalse(slot.isPresent());
+		assertTrue(slots.slots.isEmpty());
+		slots.addSlot(allocatedSlot);
+		slots.slotsByTaskManager.get(taskManagerLocation).markRemove(allocatedSlot);
+		slot = slots.getNextAvailable(ignore -> true);
+		assertFalse(slot.isPresent());
+		assertTrue(slots.slots.isEmpty());
+	}
+
+	// ------------------------------------
+	// Test RoundRobinAvailableSlots slot selection
 	// ------------------------------------
 
 	@Test
@@ -459,14 +641,44 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 		roundRobinAvailableSlots.add(s5, ts);
 		roundRobinAvailableSlots.add(s6, ts);
 
-		Optional<AllocatedSlot> optionalAllocatedSlot = roundRobinAvailableSlots.getNextAvailableSlot(ResourceProfile.ANY, s -> s == s5);
+		List<AllocatedSlot> allocatedSlots = new ArrayList<>();
+		Optional<AllocatedSlot> optionalAllocatedSlot = roundRobinAvailableSlots.getNextAvailableSlot(ResourceProfile.ANY, ignore -> false);
+		assertFalse(optionalAllocatedSlot.isPresent());
+
+		optionalAllocatedSlot = roundRobinAvailableSlots.getByTaskManagerLocation(ResourceProfile.ANY, taskManagerLocation, ignore -> false);
+		assertFalse(optionalAllocatedSlot.isPresent());
+
+		optionalAllocatedSlot = roundRobinAvailableSlots.getByHost(ResourceProfile.ANY, "not_exist_host", ignore -> false);
+		assertFalse(optionalAllocatedSlot.isPresent());
+
+		optionalAllocatedSlot = roundRobinAvailableSlots.getByHost(ResourceProfile.ANY, tm1.getFQDNHostname(), ignore -> false);
+		assertFalse(optionalAllocatedSlot.isPresent());
+
+		optionalAllocatedSlot = roundRobinAvailableSlots.getNextAvailableSlot(ResourceProfile.ANY, s -> s == s5);
 		assertTrue(optionalAllocatedSlot.isPresent());
 		roundRobinAvailableSlots.tryRemove(optionalAllocatedSlot.get().getAllocationId());
+		allocatedSlots.add(optionalAllocatedSlot.get());
 
 		optionalAllocatedSlot = roundRobinAvailableSlots.getByTaskManagerLocation(ResourceProfile.ANY, tm3, s -> s == s6);
 		assertTrue(optionalAllocatedSlot.isPresent());
 		roundRobinAvailableSlots.tryRemove(optionalAllocatedSlot.get().getAllocationId());
+		allocatedSlots.add(optionalAllocatedSlot.get());
 		assertEquals(4, roundRobinAvailableSlots.allSlots.get(ResourceProfile.ANY).slots.size());
+
+		while (true) {
+			optionalAllocatedSlot = roundRobinAvailableSlots.getNextAvailableSlot(ResourceProfile.ANY, alwaysTure);
+			if (!optionalAllocatedSlot.isPresent()) {
+				break;
+			} else {
+				allocatedSlots.add(optionalAllocatedSlot.get());
+				roundRobinAvailableSlots.tryRemove(optionalAllocatedSlot.get().getAllocationId());
+			}
+		}
+		assertThat(allocatedSlots, contains(s5, s6, s1, s3, s2, s4));
+		assertTrue(roundRobinAvailableSlots.allSlots.get(ResourceProfile.ANY).slots.isEmpty());
+		assertTrue(roundRobinAvailableSlots.allSlots.get(ResourceProfile.ANY).slotsByTaskManager.isEmpty());
+		assertTrue(roundRobinAvailableSlots.allSlots.get(ResourceProfile.ANY).taskManagersByHost.isEmpty());
+		assertFalse(roundRobinAvailableSlots.allSlots.get(ResourceProfile.ANY).taskManagers.hasNext());
 	}
 
 	@Test
