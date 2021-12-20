@@ -49,6 +49,7 @@ import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.CONNEC
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.CONSUL;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.CONSUL_UPDATE_INTERVAL;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_ASYNC_CONCURRENCY;
+import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_ASYNC_ENABLED;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_FAILURE_HANDLE_STRATEGY;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_INFER_SCHEMA;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.PSM;
@@ -107,6 +108,7 @@ public class RPCDynamicTableFactory implements DynamicTableSourceFactory, TableS
 		optionalOptions.add(LOOKUP_CACHE_MAX_ROWS);
 		optionalOptions.add(LOOKUP_CACHE_TTL);
 		optionalOptions.add(LOOKUP_MAX_RETRIES);
+		optionalOptions.add(LOOKUP_ASYNC_ENABLED);
 		optionalOptions.add(LOOKUP_ASYNC_CONCURRENCY);
 		optionalOptions.add(LOOKUP_FAILURE_HANDLE_STRATEGY);
 		optionalOptions.add(LOOKUP_INFER_SCHEMA);
@@ -137,6 +139,7 @@ public class RPCDynamicTableFactory implements DynamicTableSourceFactory, TableS
 
 	private static RPCLookupOptions getRPCLookupOptions(ReadableConfig configs) {
 		RPCLookupOptions.Builder optionsBuilder = RPCLookupOptions.builder();
+		optionsBuilder.setAsync(configs.get(LOOKUP_ASYNC_ENABLED));
 		optionsBuilder.setAsyncConcurrency(configs.get(LOOKUP_ASYNC_CONCURRENCY));
 		optionsBuilder.setFailureHandleStrategy(configs.get(LOOKUP_FAILURE_HANDLE_STRATEGY));
 		optionsBuilder.setMaxRetryTimes(configs.get(LOOKUP_MAX_RETRIES));

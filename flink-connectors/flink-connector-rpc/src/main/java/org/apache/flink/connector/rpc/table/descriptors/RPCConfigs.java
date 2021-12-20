@@ -98,6 +98,12 @@ public class RPCConfigs {
 	//  Lookup Options
 	// ------------------------------------------------------------------------
 
+	public static final ConfigOption<Boolean> LOOKUP_ASYNC_ENABLED = ConfigOptions
+		.key("lookup.async.enabled")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional. Flag indicates whether enable async mode.");
+
 	public static final ConfigOption<Integer> LOOKUP_ASYNC_CONCURRENCY = ConfigOptions
 		.key("lookup.async.concurrency")
 		.intType()

@@ -70,9 +70,9 @@ import java.util.concurrent.TimeUnit;
  * Which means if the request class has n fields, the table will have n + 1 fields
  * with the response object as the last field.
  */
-public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
+public class RPCAsyncLookupFunction extends AsyncTableFunction<RowData> {
 	private static final long serialVersionUID = 1L;
-	private static final Logger LOG = LoggerFactory.getLogger(RPCRowDataLookupFunction.class);
+	private static final Logger LOG = LoggerFactory.getLogger(RPCAsyncLookupFunction.class);
 
 	private final RPCLookupOptions rpcLookupOptions;
 	private final RPCOptions rpcOptions;
@@ -95,7 +95,7 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 	private transient Meter lookupFailurePerSecond;
 	private transient Histogram requestDelayMs;
 
-	public RPCRowDataLookupFunction(
+	public RPCAsyncLookupFunction(
 			RPCLookupOptions rpcLookupOptions,
 			RPCOptions rpcOptions,
 			int[] keyIndices,
@@ -137,8 +137,8 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 		serviceClient.open();
 		requestConverter = RowJavaBeanConverter.create(requestClass, getRequestDataType(dataType));
 		responseConverter = RowJavaBeanConverter.create(responseClass, getResponseDataType(dataType));
-		requestConverter.open(RPCRowDataLookupFunction.class.getClassLoader());
-		responseConverter.open(RPCRowDataLookupFunction.class.getClassLoader());
+		requestConverter.open(RPCAsyncLookupFunction.class.getClassLoader());
+		responseConverter.open(RPCAsyncLookupFunction.class.getClassLoader());
 		initPsmInfo();
 	}
 

@@ -42,6 +42,7 @@ public class RPCLookupOptions implements Serializable {
 	private final long cacheExpireMs;
 	private final int maxRetryTimes;
 	private final FailureHandleStrategy failureHandleStrategy;
+	private final boolean isAsync;
 	private final int asyncConcurrency;
 	@Nullable
 	private final Boolean isInputKeyByEnabled;
@@ -51,12 +52,14 @@ public class RPCLookupOptions implements Serializable {
 			long cacheExpireMs,
 			int maxRetryTimes,
 			FailureHandleStrategy failureHandleStrategy,
+			boolean isAsync,
 			int asyncConcurrency,
 			@Nullable Boolean isInputKeyByEnabled) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
 		this.failureHandleStrategy = failureHandleStrategy;
+		this.isAsync = isAsync;
 		this.asyncConcurrency = asyncConcurrency;
 		this.isInputKeyByEnabled = isInputKeyByEnabled;
 	}
@@ -75,6 +78,10 @@ public class RPCLookupOptions implements Serializable {
 
 	public FailureHandleStrategy getFailureHandleStrategy() {
 		return failureHandleStrategy;
+	}
+
+	public boolean isAsync() {
+		return isAsync;
 	}
 
 	public int getAsyncConcurrency() {
@@ -103,6 +110,7 @@ public class RPCLookupOptions implements Serializable {
 			cacheExpireMs == that.cacheExpireMs &&
 			maxRetryTimes == that.maxRetryTimes &&
 			failureHandleStrategy == that.failureHandleStrategy &&
+			isAsync == that.isAsync &&
 			asyncConcurrency == that.asyncConcurrency &&
 			isInputKeyByEnabled == that.isInputKeyByEnabled;
 	}
@@ -110,7 +118,7 @@ public class RPCLookupOptions implements Serializable {
 	@Override
 	public int hashCode() {
 		return Objects.hash(cacheMaxSize, cacheExpireMs, maxRetryTimes, failureHandleStrategy,
-			asyncConcurrency, isInputKeyByEnabled);
+			isAsync, asyncConcurrency, isInputKeyByEnabled);
 	}
 
 	/**
@@ -121,6 +129,7 @@ public class RPCLookupOptions implements Serializable {
 		private long cacheExpireMs = -1L;
 		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
 		private FailureHandleStrategy failureHandleStrategy = LOOKUP_FAILURE_HANDLE_STRATEGY.defaultValue();
+		private boolean isAsync;
 		private int asyncConcurrency = LOOKUP_ASYNC_CONCURRENCY.defaultValue();
 		// The null default value means this flag is not set by user.
 		private Boolean isInputKeyByEnabled = null;
@@ -157,6 +166,11 @@ public class RPCLookupOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setAsync(boolean async) {
+			isAsync = async;
+			return this;
+		}
+
 		public Builder setAsyncConcurrency(int asyncConcurrency) {
 			this.asyncConcurrency = asyncConcurrency;
 			return this;
@@ -173,6 +187,7 @@ public class RPCLookupOptions implements Serializable {
 				cacheExpireMs,
 				maxRetryTimes,
 				failureHandleStrategy,
+				isAsync,
 				asyncConcurrency,
 				isInputKeyByEnabled);
 		}

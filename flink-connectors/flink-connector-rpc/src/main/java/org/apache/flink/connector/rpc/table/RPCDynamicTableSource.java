@@ -24,6 +24,7 @@ import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.source.AsyncTableFunctionProvider;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.LookupTableSource;
+import org.apache.flink.table.connector.source.TableFunctionProvider;
 import org.apache.flink.util.Preconditions;
 
 import java.util.Optional;
@@ -54,12 +55,21 @@ public class RPCDynamicTableSource implements LookupTableSource {
 				"RPC only support non-nested look up keys");
 			keyIndices[i] = innerKeyArr[0];
 		}
-		return AsyncTableFunctionProvider.of(new RPCRowDataLookupFunction(
-			lookupOptions,
-			options,
-			keyIndices,
-			schema.toRowDataType(),
-			schema.getFieldNames()));
+		if (lookupOptions.isAsync()) {
+			return AsyncTableFunctionProvider.of(new RPCAsyncLookupFunction(
+				lookupOptions,
+				options,
+				keyIndices,
+				schema.toRowDataType(),
+				schema.getFieldNames()));
+		} else {
+			return TableFunctionProvider.of(new RPCLookupFunction(
+				lookupOptions,
+				options,
+				keyIndices,
+				schema.toRowDataType(),
+				schema.getFieldNames()));
+		}
 	}
 
 	@Override
