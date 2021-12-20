@@ -265,7 +265,7 @@ public class StateUtil {
 					try {
 						if (isExclusiveStateDir(toDiscardCheckpointPath)) {
 							Path renamedPath = new Path(expiredCheckpointPath, toDiscardCheckpointPath.getName());
-							if (!fs.exists(toDiscardCheckpointPath) || fs.rename(toDiscardCheckpointPath, renamedPath)) {
+							if (fs.exists(toDiscardCheckpointPath) && fs.rename(toDiscardCheckpointPath, renamedPath)) {
 								LOG.info("On discarding historical state, exclusive dir at {}, move to expired folder: {}", toDiscardCheckpointPath, renamedPath);
 								if (statsTracker != null) {
 									statsTracker.reportDiscardedCheckpoint();
@@ -273,7 +273,7 @@ public class StateUtil {
 							}
 						}
 					} catch (Exception e) {
-						LOG.warn("Discard historical resource failed on: {}", toDiscardCheckpointPath);
+						LOG.warn("Discard historical resource failed on: {}", toDiscardCheckpointPath, e);
 					}
 				}
 			});
