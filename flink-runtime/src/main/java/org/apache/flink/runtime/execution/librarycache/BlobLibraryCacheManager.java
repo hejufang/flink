@@ -71,20 +71,35 @@ public class BlobLibraryCacheManager implements LibraryCacheManager {
 
 	private final ClassLoaderFactory classLoaderFactory;
 
+	/**
+	 * Whether use system class loader when both requiredJarFiles
+	 * and requiredClasspaths are empty.
+	 */
+	private final boolean useSystemClassLoaderWhenLibIsEmpty;
+
 	// --------------------------------------------------------------------------------------------
 
 	public BlobLibraryCacheManager(
 			PermanentBlobService blobService,
 			ClassLoaderFactory classLoaderFactory) {
+		this(blobService, classLoaderFactory, false);
+	}
+
+	public BlobLibraryCacheManager(
+			PermanentBlobService blobService,
+			ClassLoaderFactory classLoaderFactory,
+			boolean useSystemClassLoaderWhenLibIsEmpty) {
 		this.blobService = checkNotNull(blobService);
 		this.classLoaderFactory = checkNotNull(classLoaderFactory);
+		this.useSystemClassLoaderWhenLibIsEmpty = useSystemClassLoaderWhenLibIsEmpty;
 	}
 
 	@Override
 	public ClassLoaderLease registerClassLoaderLease(JobID jobId) {
 		synchronized (lockObject) {
 			return cacheEntries
-				.computeIfAbsent(jobId, jobID -> new LibraryCacheEntry(jobId))
+				.computeIfAbsent(jobId, jobID ->
+					new LibraryCacheEntry(jobId, useSystemClassLoaderWhenLibIsEmpty))
 				.obtainLease();
 		}
 	}
@@ -203,14 +218,20 @@ public class BlobLibraryCacheManager implements LibraryCacheManager {
 		@GuardedBy("lockObject")
 		private boolean isReleased;
 
-		private LibraryCacheEntry(JobID jobId) {
+		private final boolean useSystemClassLoaderWhenLibIsEmpty;
+
+		private LibraryCacheEntry(JobID jobId, boolean useSystemClassLoaderWhenLibIsEmpty) {
 			this.jobId = jobId;
 			referenceCount = 0;
 			this.resolvedClassLoader = null;
 			this.isReleased = false;
+			this.useSystemClassLoaderWhenLibIsEmpty = useSystemClassLoaderWhenLibIsEmpty;
 		}
 
 		private ClassLoader getOrResolveClassLoader(Collection<PermanentBlobKey> libraries, Collection<URL> classPaths) throws IOException {
+			if (useSystemClassLoaderWhenLibIsEmpty && libraries.isEmpty() && classPaths.isEmpty()) {
+				return ClassLoader.getSystemClassLoader();
+			}
 			synchronized (lockObject) {
 				verifyIsNotReleased();
 

@@ -119,6 +119,14 @@ public class CoreOptions {
 		.withDescription("Fail Flink JVM processes if 'OutOfMemoryError: Metaspace' is " +
 			"thrown while trying to load a user code class.");
 
+	@Documentation.Section(Documentation.Sections.EXPERT_CLASS_LOADING)
+	public static final ConfigOption<Boolean> USE_SYSTEM_CLASS_LOADER_WHEN_LIBS_OF_USER_CLASS_LOADER_ENABLED =
+		ConfigOptions
+			.key("classloader.use-system-class-loader-when-libs-of-user-class-loader-is-empty.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether to use system class loader when libs of user class loader is empty.");
+
 	public static String[] getParentFirstLoaderPatterns(Configuration config) {
 		String base = config.getString(ALWAYS_PARENT_FIRST_LOADER_PATTERNS);
 		String append = config.getString(ALWAYS_PARENT_FIRST_LOADER_PATTERNS_ADDITIONAL);

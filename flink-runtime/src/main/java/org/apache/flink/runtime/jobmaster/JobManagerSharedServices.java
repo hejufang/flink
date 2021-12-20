@@ -161,13 +161,16 @@ public class JobManagerSharedServices {
 		final String[] alwaysParentFirstLoaderPatterns = CoreOptions.getParentFirstLoaderPatterns(config);
 
 		final boolean failOnJvmMetaspaceOomError = config.getBoolean(CoreOptions.FAIL_ON_USER_CLASS_LOADING_METASPACE_OOM);
+		final boolean useSystemClassLoaderWhenLibIsEmpty =
+			config.get(CoreOptions.USE_SYSTEM_CLASS_LOADER_WHEN_LIBS_OF_USER_CLASS_LOADER_ENABLED);
 		final BlobLibraryCacheManager libraryCacheManager =
 			new BlobLibraryCacheManager(
 				blobServer,
 				BlobLibraryCacheManager.defaultClassLoaderFactory(
 					FlinkUserCodeClassLoaders.ResolveOrder.fromString(classLoaderResolveOrder),
 					alwaysParentFirstLoaderPatterns,
-					failOnJvmMetaspaceOomError ? fatalErrorHandler : null));
+					failOnJvmMetaspaceOomError ? fatalErrorHandler : null),
+				useSystemClassLoaderWhenLibIsEmpty);
 
 		final Duration akkaTimeout;
 		try {
