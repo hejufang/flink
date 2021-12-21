@@ -694,6 +694,40 @@ public class TableColumnVisitorTest {
 			newTableColumnSet(new TableColumn("room_products_abase", "product_ids")));
 	}
 
+	@Test
+	public void testWithUnion() {
+		String[] sqlList = {
+			"create table row_table1(s1 Row<r1a int, r1b Row<r1b1 int>>, s2 Row<r2a int>, s3 int)",
+			"create table row_table2(s1 Row<r1a int, r1b Row<r1b1 int>>, s2 Row<r2a int>, s3 int)",
+			"create view union_view as " +
+				"select * from row_table1 union all select * from row_table2",
+			"create table sink_table4(sk1 int, sk2 int, sk3 int, sk4 int)",
+			"insert into sink_table4 " +
+				"select r1a, r1b1, r2a, s3 from union_view"
+		};
+
+		Map<TableColumn, Set<TableColumn>> expects = new HashMap<>();
+		expects.put(new TableColumn("sink_table4", "sk1"),
+			newTableColumnSet(
+				new TableColumn("row_table1", "s1"),
+				new TableColumn("row_table2", "s1")));
+
+		expects.put(new TableColumn("sink_table4", "sk2"),
+			newTableColumnSet(
+				new TableColumn("row_table1", "s1"),
+				new TableColumn("row_table2", "s1")));
+
+		expects.put(new TableColumn("sink_table4", "sk3"),
+			newTableColumnSet(
+				new TableColumn("row_table1", "s2"),
+				new TableColumn("row_table2", "s2")));
+		expects.put(new TableColumn("sink_table4", "sk4"),
+			newTableColumnSet(
+				new TableColumn("row_table1", "s3"),
+				new TableColumn("row_table2", "s3")));
+		analyseSql(sqlList, expects);
+	}
+
 	private void analyseSql(String[] sqlList, Map<TableColumn, Set<TableColumn>> tableColumnListMap) {
 		analyseSql(sqlList, tableColumnListMap, null);
 	}

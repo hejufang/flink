@@ -25,6 +25,7 @@ import org.apache.calcite.sql.SqlDataTypeSpec;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -95,7 +96,19 @@ public abstract class RefWithDependency {
 			List<TableColumn> tableColumnList = new ArrayList<>();
 			tableColumnList.addAll(dep1.getColumnDependencies().getTableColumnList());
 			tableColumnList.addAll(dep2.getColumnDependencies().getTableColumnList());
-			return new ColumnRefWithDep(name, new ColumnDependencies(tableColumnList));
+			if (dep1 instanceof RowRefWithDep && dep2 instanceof RowRefWithDep) {
+				RowRefWithDep rowDep1 = (RowRefWithDep) dep1;
+				RowRefWithDep rowDep2 = (RowRefWithDep) dep2;
+				List<ColumnRefWithDep> columnRefList = new ArrayList<>(rowDep1.columnRefWithDeps.size());
+				Iterator<ColumnRefWithDep> iter1 = rowDep1.columnRefWithDeps.listIterator();
+				Iterator<ColumnRefWithDep> iter2 = rowDep2.columnRefWithDeps.listIterator();
+				while (iter1.hasNext()) {
+					columnRefList.add(merge(iter1.next(), iter2.next()));
+				}
+				return new RowRefWithDep(name, columnRefList, new ColumnDependencies(tableColumnList));
+			} else {
+				return new ColumnRefWithDep(name, new ColumnDependencies(tableColumnList));
+			}
 		}
 	}
 
