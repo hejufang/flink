@@ -417,6 +417,16 @@ class IntervalJoinTest extends TableTestBase {
       ">($2, $6)")
   }
 
+  @Test
+  def testIntervalJoinWithEventTime(): Unit = {
+    val query =
+      """
+        |SELECT t1.a, t2.b, t1.rowtime FROM MyTable t1 LEFT JOIN MyTable2 t2 ON
+        |     t1.rowtime = t2.rowtime
+        |""".stripMargin
+    util.verifyPlan(query)
+  }
+
   private def verifyTimeBoundary(
       timeConditionSql: String,
       expLeftSize: Long,
