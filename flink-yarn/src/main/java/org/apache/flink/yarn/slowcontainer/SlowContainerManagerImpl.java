@@ -62,8 +62,6 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 
 	private SlowContainerActions slowContainerActions;
 
-	private boolean running = true;
-
 	public SlowContainerManagerImpl(long slowContainerTimeoutMs, double slowContainersQuantile, double slowContainerThresholdFactor) {
 		containers = new ConcurrentHashMap<>();
 		pendingRedundantContainers = new WorkerResourceSpecCounter();
@@ -80,18 +78,13 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	}
 
 	@Override
-	public void setRunning(boolean running) {
-		this.running = running;
-	}
-
-	@Override
 	public void setSlowContainerActions(SlowContainerActions slowContainerActions) {
 		this.slowContainerActions = slowContainerActions;
 	}
 
 	public void notifyWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID) {
 		long ts = System.currentTimeMillis();
-		boolean isRedundant = false;
+		containers.put(resourceID, new StartingResource(resourceID, workerResourceSpec, ts));
 
 		// RedundantContainers has the lowest priority.
 		// Only when there are no other pending requests, the allocated container can be marked as redundant
@@ -99,10 +92,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 			log.info("mark container {} as redundant container.", resourceID);
 			startingRedundantContainers.add(workerResourceSpec, resourceID);
 			pendingRedundantContainers.decreaseAndGet(workerResourceSpec);
-			isRedundant = true;
 		}
-
-		containers.put(resourceID, new StartingResource(resourceID, workerResourceSpec, ts, isRedundant));
 	}
 
 	public void notifyWorkerStarted(ResourceID resourceID) {
@@ -123,27 +113,20 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 				log.info("Only totalRedundantContainersNum({}) containers not start, this means all needed container are started. " +
 								"release all starting containers {} and {} pending requests",
 						allRedundantContainers.getNum(workerResourceSpec), startingResourceList, slowContainerActions.getNumRequestedNotAllocatedWorkersFor(workerResourceSpec));
-				// release all starting redundant containers.
 				for (StartingResource resource: startingResourceList) {
 					releaseContainer(resource.getResourceID());
 				}
 				if (slowContainers.getNum(workerResourceSpec) != 0) {
-					log.error("slow containers not empty after release all starting containers, {}. it is a bug, clear it forced",
-							slowContainers.get(workerResourceSpec));
+					log.error("slow containers not empty after release all starting containers, {}. clear it forced", slowContainers.get(workerResourceSpec));
 					slowContainers.clear(workerResourceSpec);
 				}
 				if (startingRedundantContainers.getNum(workerResourceSpec) != 0) {
-					log.error("redundant containers not empty after release all starting containers, {}. it is a bug, clear it forced",
-							startingRedundantContainers.get(workerResourceSpec));
+					log.error("redundant containers not empty after release all starting containers, {}. clear it forced", startingRedundantContainers.get(workerResourceSpec));
 					startingRedundantContainers.clear(workerResourceSpec);
 				}
-
-				// clear all state.
-				pendingRedundantContainers.setNum(workerResourceSpec, 0);
-				allRedundantContainers.setNum(workerResourceSpec, 0);
-
-				// release all pending requests.
 				slowContainerActions.releasePendingRequests(workerResourceSpec, slowContainerActions.getNumRequestedNotAllocatedWorkersFor(workerResourceSpec));
+				allRedundantContainers.setNum(workerResourceSpec, 0);
+				pendingRedundantContainers.setNum(workerResourceSpec, 0);
 			}
 		}
 	}
@@ -154,19 +137,9 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 		if (startingResource != null) {
 			WorkerResourceSpec workerResourceSpec = startingResource.getWorkerResourceSpec();
 			slowContainers.remove(workerResourceSpec, resourceID);
-			startingRedundantContainers.remove(workerResourceSpec, resourceID);
-			if (startingResource.isRedundant()) {
+			if (startingRedundantContainers.remove(workerResourceSpec, resourceID)) {
 				allRedundantContainers.decreaseAndGet(workerResourceSpec);
 			}
-		}
-	}
-
-	@Override
-	public void notifyPendingWorkerFailed(WorkerResourceSpec workerResourceSpec) {
-		if (pendingRedundantContainers.getNum(workerResourceSpec) > 0) {
-			pendingRedundantContainers.decreaseAndGet(workerResourceSpec);
-			allRedundantContainers.decreaseAndGet(workerResourceSpec);
-			log.debug("Remove pending redundant workers because pending request failed.");
 		}
 	}
 
@@ -186,10 +159,6 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 
 	@Override
 	public void checkSlowContainer() {
-		if (!running) {
-			return;
-		}
-
 		List<StartingResource> startingResources =  containers.values().stream()
 				.filter(startingResource -> !startingResource.isRegistered())
 				.collect(Collectors.toList());
@@ -233,6 +202,16 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	}
 
 	@Override
+	public long getContainerStartDuration(ResourceID resourceID) {
+		StartingResource startingResource = containers.get(resourceID);
+		if (startingResource != null) {
+			return startingResource.getStartDuration();
+		} else {
+			return CONTAINER_NOT_START_TIME_MS;
+		}
+	}
+
+	@Override
 	public long getSpeculativeSlowContainerTimeoutMs() {
 		return speculativeSlowContainerTimeoutMs;
 	}
@@ -273,6 +252,11 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	}
 
 	@Override
+	public int getSlowContainerNum(WorkerResourceSpec workerResourceSpec) {
+		return slowContainers.getNum(workerResourceSpec);
+	}
+
+	@Override
 	public int getStartingContainerTotalNum() {
 		return (int) containers.values().stream()
 				.filter(startingResource -> !startingResource.isRegistered())
@@ -284,6 +268,13 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 		return containers.values().stream()
 				.filter(startingResource -> !startingResource.isRegistered())
 				.collect(Collectors.toMap(StartingResource::getResourceID, StartingResource::getStartTimestamp));
+	}
+
+	@Override
+	public int getStartingContainerNum(WorkerResourceSpec workerResourceSpec) {
+		return (int) containers.values().stream()
+				.filter(startingResource -> !startingResource.isRegistered() && startingResource.getWorkerResourceSpec().equals(workerResourceSpec))
+				.count();
 	}
 
 	private void startNewContainer(ResourceID oldResourceId, WorkerResourceSpec workerResourceSpec) {
@@ -307,14 +298,12 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 		final ResourceID resourceID;
 		final WorkerResourceSpec workerResourceSpec;
 		final long startTimestamp;
-		final boolean isRedundant;
 		long registerTimestamp = CONTAINER_NOT_START_TIME_MS;
 
-		public StartingResource(ResourceID resourceID, WorkerResourceSpec workerResourceSpec, long startTimestamp, boolean isRedundant) {
+		public StartingResource(ResourceID resourceID, WorkerResourceSpec workerResourceSpec, long startTimestamp) {
 			this.resourceID = resourceID;
 			this.workerResourceSpec = workerResourceSpec;
 			this.startTimestamp = startTimestamp;
-			this.isRedundant = isRedundant;
 		}
 
 		void registered(long ts) {
@@ -331,10 +320,6 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 
 		public WorkerResourceSpec getWorkerResourceSpec() {
 			return workerResourceSpec;
-		}
-
-		public boolean isRedundant() {
-			return isRedundant;
 		}
 
 		public long getStartDuration() {
@@ -355,11 +340,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 		}
 	}
 
-	/**
-	 * WorkerResourceSpecMap save resources with WorkerResourceSpec.
-	 * @param <T>
-	 */
-	public static class WorkerResourceSpecMap<T> {
+	static class WorkerResourceSpecMap<T> {
 		Map<WorkerResourceSpec, Set<T>> workerResourceSpecSetMap;
 
 		public WorkerResourceSpecMap() {

@@ -64,11 +64,12 @@ public class NoOpSlowContainerManager implements SlowContainerManager {
 	}
 
 	@Override
-	public void notifyPendingWorkerFailed(WorkerResourceSpec workerResourceSpec) {
-	}
+	public void checkSlowContainer() {}
 
 	@Override
-	public void checkSlowContainer() {}
+	public long getContainerStartDuration(ResourceID resourceID) {
+		return allContainers.getOrDefault(resourceID, CONTAINER_NOT_START_TIME_MS);
+	}
 
 	@Override
 	public int getRedundantContainerTotalNum() {
@@ -116,8 +117,17 @@ public class NoOpSlowContainerManager implements SlowContainerManager {
 	}
 
 	@Override
+	public int getSlowContainerNum(WorkerResourceSpec workerResourceSpec) {
+		return 0;
+	}
+
+	@Override
 	public int getStartingContainerTotalNum() {
 		return startingContainers.size();
 	}
 
+	@Override
+	public int getStartingContainerNum(WorkerResourceSpec workerResourceSpec) {
+		return startingContainers.size();
+	}
 }

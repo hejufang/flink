@@ -58,17 +58,13 @@ public class MockResourceManagerRuntimeServices {
 	}
 
 	public MockResourceManagerRuntimeServices(RpcService rpcService, Time timeout, SlotManager slotManager) {
-		this(rpcService, timeout, slotManager, 1000, 10000);
-	}
-
-	public MockResourceManagerRuntimeServices(RpcService rpcService, Time timeout, SlotManager slotManager, long heartbeatInterval, long heartbeatTimeout) {
 		this.rpcService = checkNotNull(rpcService);
 		this.timeout = checkNotNull(timeout);
 		this.slotManager = slotManager;
 		highAvailabilityServices = new TestingHighAvailabilityServices();
 		rmLeaderElectionService = new TestingLeaderElectionService();
 		highAvailabilityServices.setResourceManagerLeaderElectionService(rmLeaderElectionService);
-		heartbeatServices = new TestingHeartbeatServices(heartbeatInterval, heartbeatTimeout);
+		heartbeatServices = new TestingHeartbeatServices();
 		jobLeaderIdService = new JobLeaderIdService(
 			highAvailabilityServices,
 			rpcService.getScheduledExecutor(),

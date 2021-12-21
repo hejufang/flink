@@ -1030,12 +1030,10 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		for (Map.Entry<WorkerResourceSpec, Integer> requiredWorkersPerResourceSpec : getRequiredResources().entrySet()) {
 			final WorkerResourceSpec workerResourceSpec = requiredWorkersPerResourceSpec.getKey();
 			log.info("requestYarnContainerIfRequired, resourceSpec: {}, requiredWorkersNum: {}, " +
-					"requestedNotRegisteredWorkersNum: {}, totalRedundantContainerNum: {}, " +
-					"pendingRedundantContainersNum: {}, startingRedundantContainerNum: {}.",
+					"requestedNotRegisteredWorkersNum: {}, pendingWorksNum: {}, startingWorksNum: {}.",
 				workerResourceSpec.toString(),
 				requiredWorkersPerResourceSpec.getValue(),
 				getNumRequestedNotRegisteredWorkersFor(workerResourceSpec),
-				slowContainerManager.getRedundantContainerNum(workerResourceSpec),
 				slowContainerManager.getPendingRedundantContainersNum(workerResourceSpec),
 				slowContainerManager.getStartingRedundantContainerNum(workerResourceSpec));
 			// exclude redundant container requests for slow container.
@@ -1320,12 +1318,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		} finally {
 			scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
 		}
-	}
-
-	@Override
-	protected PendingWorkerNums notifyNewWorkerRequestReleased(WorkerResourceSpec workerResourceSpec) {
-		slowContainerManager.notifyPendingWorkerFailed(workerResourceSpec);
-		return super.notifyNewWorkerRequestReleased(workerResourceSpec);
 	}
 
 	@Override

@@ -18,7 +18,6 @@
 
 package org.apache.flink.yarn.slowcontainer;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 
@@ -43,15 +42,15 @@ public interface SlowContainerManager {
 
 	void notifyWorkerStopped(ResourceID resourceID);
 
-	void notifyPendingWorkerFailed(WorkerResourceSpec workerResourceSpec);
-
-	@VisibleForTesting
-	default void setRunning(boolean running) {}
-
 	// ------------------------------------------------------------------------
 	//	internal check
 	// ------------------------------------------------------------------------
 	void checkSlowContainer();
+
+	// ------------------------------------------------------------------------
+	//	common getter
+	// ------------------------------------------------------------------------
+	long getContainerStartDuration(ResourceID resourceID);
 
 	long getSpeculativeSlowContainerTimeoutMs();
 
@@ -69,7 +68,11 @@ public interface SlowContainerManager {
 
 	int getSlowContainerTotalNum();
 
+	int getSlowContainerNum(WorkerResourceSpec workerResourceSpec);
+
 	int getStartingContainerTotalNum();
 
 	Map<ResourceID, Long> getStartingContainerWithTimestamp();
+
+	int getStartingContainerNum(WorkerResourceSpec workerResourceSpec);
 }
