@@ -363,6 +363,7 @@ leser:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   yarn.provided.lib.dirs.enabled: true
+  bytedance.streaming.yarn.check.application.name.unique.region: true
 
 lupin:
   dc: cn
@@ -450,6 +451,7 @@ hyrax:
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  bytedance.streaming.yarn.check.application.name.unique.region: true
 
 horse:
   dc: cn
@@ -676,6 +678,7 @@ quoka:
   state.backend.rocksdb.restore-with-sstWriter: true
   state.backend.rocksdb.max-disk-size-in-progress: 30gb
   stat.backend.rocksdb.max-sst-size-for-sstWriter: 64mb
+  bytedance.streaming.yarn.check.application.name.unique.region: true
 
 quaga:
   dc: cn
