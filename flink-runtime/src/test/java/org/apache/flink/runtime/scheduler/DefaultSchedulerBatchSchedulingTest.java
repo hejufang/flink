@@ -131,7 +131,7 @@ public class DefaultSchedulerBatchSchedulingTest extends TestLogger {
 				slotPool,
 				mainThreadExecutor,
 				Collections.singletonList(ResourceProfile.ANY),
-				new RpcTaskManagerGateway(testingTaskExecutorGateway, JobMasterId.generate()));
+				new RpcTaskManagerGateway(testingTaskExecutorGateway, JobMasterId.generate(), false, null));
 
 			final SlotProvider slotProvider = createSlotProvider(slotPool, mainThreadExecutor);
 			final SchedulerNG scheduler = createScheduler(jobGraph, slotProvider, batchSlotTimeout);

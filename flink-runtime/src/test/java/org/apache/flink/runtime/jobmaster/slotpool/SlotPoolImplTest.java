@@ -574,7 +574,8 @@ public class SlotPoolImplTest extends TestLogger {
 			TestingUtils.infiniteTime(),
 			timeout,
 			TestingUtils.infiniteTime(),
-			batchRequestEnable);
+			batchRequestEnable,
+			false);
 	}
 
 	/**

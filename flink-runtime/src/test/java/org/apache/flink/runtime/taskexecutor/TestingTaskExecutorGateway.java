@@ -95,6 +95,8 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 
 	private final Supplier<CompletableFuture<ThreadDumpInfo>> requestThreadDumpSupplier;
 
+	private final Consumer<Collection<TaskDeploymentDescriptor>> submitTaskListConsumer;
+
 	TestingTaskExecutorGateway(
 			String address,
 			String hostname,
@@ -110,7 +112,8 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 			TriConsumer<JobID, Set<ResultPartitionID>, Set<ResultPartitionID>> releaseOrPromotePartitionsConsumer,
 			Consumer<Collection<IntermediateDataSetID>> releaseClusterPartitionsConsumer,
 			TriFunction<ExecutionAttemptID, OperatorID, SerializedValue<OperatorEvent>, CompletableFuture<Acknowledge>> operatorEventHandler,
-			Supplier<CompletableFuture<ThreadDumpInfo>> requestThreadDumpSupplier) {
+			Supplier<CompletableFuture<ThreadDumpInfo>> requestThreadDumpSupplier,
+			Consumer<Collection<TaskDeploymentDescriptor>> submitTaskListConsumer) {
 
 		this.address = Preconditions.checkNotNull(address);
 		this.hostname = Preconditions.checkNotNull(hostname);
@@ -127,6 +130,7 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 		this.releaseClusterPartitionsConsumer = releaseClusterPartitionsConsumer;
 		this.operatorEventHandler = operatorEventHandler;
 		this.requestThreadDumpSupplier = requestThreadDumpSupplier;
+		this.submitTaskListConsumer = submitTaskListConsumer;
 	}
 
 	@Override
@@ -152,6 +156,12 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 	@Override
 	public CompletableFuture<Acknowledge> submitTask(TaskDeploymentDescriptor tdd, JobMasterId jobMasterId, Time timeout) {
 		return submitTaskConsumer.apply(tdd, jobMasterId);
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> submitTaskList(String jobMasterAddress, Collection<TaskDeploymentDescriptor> tdds, JobMasterId jobMasterId, Time timeout) {
+		submitTaskListConsumer.accept(tdds);
+		return CompletableFuture.completedFuture(Acknowledge.get());
 	}
 
 	@Override

@@ -65,6 +65,7 @@ public class TestingTaskExecutorGatewayBuilder {
 	private static final TriConsumer<JobID, Set<ResultPartitionID>, Set<ResultPartitionID>> NOOP_RELEASE_PARTITIONS_CONSUMER = (ignoredA, ignoredB, ignoredC) -> {};
 	private static final TriFunction<ExecutionAttemptID, OperatorID, SerializedValue<OperatorEvent>, CompletableFuture<Acknowledge>> DEFAULT_OPERATOR_EVENT_HANDLER = (a, b, c) -> CompletableFuture.completedFuture(Acknowledge.get());
 	private static final Supplier<CompletableFuture<ThreadDumpInfo>> DEFAULT_THREAD_DUMP_SUPPLIER = () -> FutureUtils.completedExceptionally(new UnsupportedOperationException());
+	private static final Consumer<Collection<TaskDeploymentDescriptor>> NOOP_SUBMIT_TASK_LIST_CONSUMER = ignored -> {};
 
 	private String address = "foobar:1234";
 	private String hostname = "foobar";
@@ -81,6 +82,7 @@ public class TestingTaskExecutorGatewayBuilder {
 	private Consumer<Collection<IntermediateDataSetID>> releaseClusterPartitionsConsumer = ignored -> {};
 	private TriFunction<ExecutionAttemptID, OperatorID, SerializedValue<OperatorEvent>, CompletableFuture<Acknowledge>> operatorEventHandler = DEFAULT_OPERATOR_EVENT_HANDLER;
 	private Supplier<CompletableFuture<ThreadDumpInfo>> requestThreadDumpSupplier = DEFAULT_THREAD_DUMP_SUPPLIER;
+	private Consumer<Collection<TaskDeploymentDescriptor>> submitTaskListConsumer = NOOP_SUBMIT_TASK_LIST_CONSUMER;
 
 	public TestingTaskExecutorGatewayBuilder setAddress(String address) {
 		this.address = address;
@@ -156,6 +158,11 @@ public class TestingTaskExecutorGatewayBuilder {
 		this.requestThreadDumpSupplier = requestThreadDumpSupplier;
 	}
 
+	public TestingTaskExecutorGatewayBuilder setSubmitTaskListConsumer(Consumer<Collection<TaskDeploymentDescriptor>> submitTaskListConsumer) {
+		this.submitTaskListConsumer = submitTaskListConsumer;
+		return this;
+	}
+
 	public TestingTaskExecutorGateway createTestingTaskExecutorGateway() {
 		return new TestingTaskExecutorGateway(
 			address,
@@ -172,6 +179,7 @@ public class TestingTaskExecutorGatewayBuilder {
 			releaseOrPromotePartitionsConsumer,
 			releaseClusterPartitionsConsumer,
 			operatorEventHandler,
-			requestThreadDumpSupplier);
+			requestThreadDumpSupplier,
+			submitTaskListConsumer);
 	}
 }

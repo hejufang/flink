@@ -683,7 +683,7 @@ public class ExecutionGraphDeploymentTest extends TestLogger {
 		});
 
 		final TestingTaskExecutorGateway taskExecutorGateway = testingTaskExecutorGatewayBuilder.createTestingTaskExecutorGateway();
-		final RpcTaskManagerGateway taskManagerGateway = new RpcTaskManagerGateway(taskExecutorGateway, JobMasterId.generate());
+		final RpcTaskManagerGateway taskManagerGateway = new RpcTaskManagerGateway(taskExecutorGateway, JobMasterId.generate(), false, null);
 
 		final Collection<CompletableFuture<LogicalSlot>> slotFutures = new ArrayList<>(numberTasks);
 		for (int i = 0; i < numberTasks; i++) {

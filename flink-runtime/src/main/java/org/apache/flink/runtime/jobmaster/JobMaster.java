@@ -25,6 +25,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.ConfigMessage;
 import org.apache.flink.metrics.Counter;
@@ -93,6 +94,7 @@ import org.apache.flink.runtime.registration.RetryingRegistration;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
+import org.apache.flink.runtime.resourcemanager.slotmanager.TaskManagerOfferSlots;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
@@ -124,6 +126,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -244,6 +247,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final boolean useAddressAsHostNameEnable;
 
+	private final boolean requestSlotFromResourceManagerDirectEnable;
+
 	// ------------------------------------------------------------------------
 
 	public JobMaster(
@@ -281,6 +286,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.heartbeatServices = checkNotNull(heartbeatServices);
 		this.jobMetricGroupFactory = checkNotNull(jobMetricGroupFactory);
 		this.useAddressAsHostNameEnable = jobMasterConfiguration.getConfiguration().getBoolean(CoreOptions.USE_ADDRESS_AS_HOSTNAME_ENABLE);
+		this.requestSlotFromResourceManagerDirectEnable = jobMasterConfiguration.getConfiguration().getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE);
 
 		final String jobName = jobGraph.getName();
 		final JobID jid = jobGraph.getJobID();
@@ -684,13 +690,53 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		final TaskManagerLocation taskManagerLocation = taskManager.f0;
 		final TaskExecutorGateway taskExecutorGateway = taskManager.f1;
 
-		final RpcTaskManagerGateway rpcTaskManagerGateway = new RpcTaskManagerGateway(taskExecutorGateway, getFencingToken());
+		final RpcTaskManagerGateway rpcTaskManagerGateway = new RpcTaskManagerGateway(taskExecutorGateway, getFencingToken(), requestSlotFromResourceManagerDirectEnable, getAddress());
 
 		return CompletableFuture.completedFuture(
 			slotPool.offerSlots(
 				taskManagerLocation,
 				rpcTaskManagerGateway,
 				slots));
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> offerOptimizeSlots(Collection<TaskManagerOfferSlots> slots, Time timeout) {
+		CompletableFuture<Acknowledge> future = new CompletableFuture<>();
+
+		List<CompletableFuture<?>> futureList = new ArrayList<>(slots.size());
+		for (TaskManagerOfferSlots taskManagerOfferSlots : slots) {
+			futureList.add(
+				registerTaskManager(taskManagerOfferSlots.getTaskManagerRpcAddress(), taskManagerOfferSlots.getUnresolvedTaskManagerLocation(), timeout)
+					.whenComplete((registration, throwable) -> {
+						if (registration instanceof RegistrationResponse.Success) {
+							Collection<SlotOffer> offerCollection = taskManagerOfferSlots.getSlotOffers();
+							offerSlots(
+									taskManagerOfferSlots.getUnresolvedTaskManagerLocation().getResourceID(),
+									offerCollection,
+									timeout)
+								.whenComplete((offerResults, offerException) -> {
+									if (offerResults == null || offerResults.size() != taskManagerOfferSlots.getSlotOffers().size() || offerException != null) {
+										String errorMessage = "Offer slots failed for slotOffers " + offerCollection + " accept offers " + offerResults;
+										throw new RuntimeException(errorMessage, offerException);
+									}
+								});
+						} else {
+							String errorMessage = "Register taskmanager " + taskManagerOfferSlots.getTaskManagerRpcAddress() +
+								" with response " + registration;
+							log.error(errorMessage, throwable);
+							throw new RuntimeException(errorMessage, throwable);
+						}
+					}));
+		}
+		FutureUtils.completeAll(futureList).whenComplete((v, t) -> {
+			if (t != null) {
+				future.completeExceptionally(t);
+			} else {
+				future.complete(Acknowledge.get());
+			}
+		});
+
+		return future;
 	}
 
 	@Override

@@ -670,6 +670,12 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		return CompletableFuture.completedFuture(Acknowledge.get());
 	}
 
+	@Override
+	public CompletableFuture<Acknowledge> submitTaskList(String jobMasterAddress, Collection<TaskDeploymentDescriptor> tdds, JobMasterId jobMasterId, Time timeout) {
+		//TODO should be implemented later.
+		throw new UnsupportedOperationException();
+	}
+
 	private void submitTaskInternal(
 			JobTable.Connection jobManagerConnection,
 			TaskDeploymentDescriptor tdd,

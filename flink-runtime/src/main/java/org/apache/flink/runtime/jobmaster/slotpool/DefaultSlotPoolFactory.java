@@ -50,19 +50,23 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 
 	private final boolean batchRequestSlotsEnable;
 
+	private final boolean requestSlotFromResourceManagerDirectEnable;
+
 	public DefaultSlotPoolFactory(
 			@Nonnull Clock clock,
 			@Nonnull Time rpcTimeout,
 			@Nonnull Time slotIdleTimeout,
 			@Nonnull Time batchSlotTimeout,
 			boolean jobLogDetailDisable,
-			boolean batchRequestSlotsEnable) {
+			boolean batchRequestSlotsEnable,
+			boolean requestSlotFromResourceManagerDirectEnable) {
 		this.clock = clock;
 		this.rpcTimeout = rpcTimeout;
 		this.slotIdleTimeout = slotIdleTimeout;
 		this.batchSlotTimeout = batchSlotTimeout;
 		this.jobLogDetailDisable = jobLogDetailDisable;
 		this.batchRequestSlotsEnable = batchRequestSlotsEnable;
+		this.requestSlotFromResourceManagerDirectEnable = requestSlotFromResourceManagerDirectEnable;
 	}
 
 	@Override
@@ -75,7 +79,8 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 			slotIdleTimeout,
 			batchSlotTimeout,
 			jobLogDetailDisable,
-			batchRequestSlotsEnable);
+			batchRequestSlotsEnable,
+			requestSlotFromResourceManagerDirectEnable);
 	}
 
 	public static DefaultSlotPoolFactory fromConfiguration(@Nonnull Configuration configuration) {
@@ -85,6 +90,10 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 		final Time batchSlotTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT));
 		final boolean jobLogDetailDisable = configuration.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 		final boolean batchRequestSlotsEnable = configuration.getBoolean(JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE);
+		final boolean requestSlotFromResourceManagerDirectEnable = configuration.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE);
+		if (requestSlotFromResourceManagerDirectEnable && !batchRequestSlotsEnable) {
+			throw new IllegalArgumentException("JobMaster can request slots from resource manager directly only when batch request is open.");
+		}
 
 		return new DefaultSlotPoolFactory(
 			SystemClock.getInstance(),
@@ -92,6 +101,7 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 			slotIdleTimeout,
 			batchSlotTimeout,
 			jobLogDetailDisable,
-			batchRequestSlotsEnable);
+			batchRequestSlotsEnable,
+			requestSlotFromResourceManagerDirectEnable);
 	}
 }

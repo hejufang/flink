@@ -46,7 +46,8 @@ public class TestingSlotPoolImpl extends SlotPoolImpl {
 			AkkaUtils.getDefaultTimeout(),
 			AkkaUtils.getDefaultTimeout(),
 			Time.milliseconds(JobManagerOptions.SLOT_IDLE_TIMEOUT.defaultValue()),
-			batchRequestSlotsEnable);
+			batchRequestSlotsEnable,
+			false);
 	}
 
 	public TestingSlotPoolImpl(
@@ -55,8 +56,9 @@ public class TestingSlotPoolImpl extends SlotPoolImpl {
 			Time rpcTimeout,
 			Time idleSlotTimeout,
 			Time batchSlotTimeout,
-			boolean batchRequestSlotsEnable) {
-		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, false, batchRequestSlotsEnable);
+			boolean batchRequestSlotsEnable,
+			boolean requestSlotFromResourceDirectEnable) {
+		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, false, batchRequestSlotsEnable, requestSlotFromResourceDirectEnable);
 	}
 
 	void triggerCheckIdleSlot() {

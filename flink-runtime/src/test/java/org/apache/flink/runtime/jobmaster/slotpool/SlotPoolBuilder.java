@@ -39,7 +39,8 @@ public class SlotPoolBuilder {
 	private ResourceManagerGateway resourceManagerGateway = new TestingResourceManagerGateway();
 	private Time batchSlotTimeout = Time.milliseconds(2L);
 	private Clock clock = SystemClock.getInstance();
-	private final boolean batchRequestSlotsEnable;
+	private boolean batchRequestSlotsEnable;
+	private boolean requestSlotFromResourceDirectEnable = false;
 
 	public SlotPoolBuilder(ComponentMainThreadExecutor componentMainThreadExecutor) {
 		this(componentMainThreadExecutor, false);
@@ -65,6 +66,11 @@ public class SlotPoolBuilder {
 		return this;
 	}
 
+	public SlotPoolBuilder setRequestSlotFromResourceDirectEnable(boolean requestSlotFromResourceDirectEnable) {
+		this.requestSlotFromResourceDirectEnable = requestSlotFromResourceDirectEnable;
+		return this;
+	}
+
 	public TestingSlotPoolImpl build() throws Exception {
 		final TestingSlotPoolImpl slotPool = new TestingSlotPoolImpl(
 			new JobID(),
@@ -72,7 +78,8 @@ public class SlotPoolBuilder {
 			TestingUtils.infiniteTime(),
 			TestingUtils.infiniteTime(),
 			batchSlotTimeout,
-			batchRequestSlotsEnable);
+			batchRequestSlotsEnable,
+			requestSlotFromResourceDirectEnable);
 
 		CompletableFuture.runAsync(
 				() -> {

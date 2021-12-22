@@ -623,6 +623,12 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 	}
 
+	@Override
+	public void notifyAllocateSlotsAvailable(Collection<AllocateSlotID> allocateSlotIds) {
+		//// TODO Should be implemented later.
+		throw new UnsupportedOperationException();
+	}
+
 	/**
 	 * Cleanup application and shut down cluster.
 	 *

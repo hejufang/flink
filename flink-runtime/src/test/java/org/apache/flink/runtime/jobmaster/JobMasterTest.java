@@ -79,6 +79,7 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
+import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.jobgraph.tasks.JobCheckpointingSettings;
@@ -104,6 +105,7 @@ import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
+import org.apache.flink.runtime.resourcemanager.slotmanager.TaskManagerOfferSlots;
 import org.apache.flink.runtime.resourcemanager.utils.TestingResourceManagerGateway;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcUtils;
@@ -1910,6 +1912,62 @@ public class JobMasterTest extends TestLogger {
 				jobMasterGateway.heartbeatFromTaskManager(taskManagerResourceId, new AccumulatorReport(Collections.emptyList()));
 			}
 		);
+	}
+
+	@Test
+	public void testJobMasterOfferOptimizeSlots() throws Exception {
+		final JobGraph restartingJobGraph = createSingleVertexJobWithRestartStrategy();
+		restartingJobGraph.setScheduleMode(ScheduleMode.EAGER);
+
+		final long slotRequestTimeout = 10L;
+		configuration.setLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT, slotRequestTimeout);
+		configuration.setBoolean(JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE, true);
+		configuration.setBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE, true);
+
+		final JobMaster jobMaster = createJobMaster(
+			configuration,
+			restartingJobGraph,
+			haServices,
+			new TestingJobManagerSharedServicesBuilder().build(),
+			heartbeatServices);
+
+		try {
+			final AllocationIdsResourceManagerGateway allocationIdsResourceManagerGateway = new AllocationIdsResourceManagerGateway();
+			rpcService.registerGateway(allocationIdsResourceManagerGateway.getAddress(), allocationIdsResourceManagerGateway);
+			notifyResourceManagerLeaderListeners(allocationIdsResourceManagerGateway);
+
+			final JobMasterGateway jobMasterGateway = jobMaster.getSelfGateway(JobMasterGateway.class);
+
+			jobMaster.start(JobMasterId.generate()).get();
+
+			final CompletableFuture<ExecutionAttemptID> taskDeploymentFuture = new CompletableFuture<>();
+			CompletableFuture<Acknowledge> submitTaskListFuture = new CompletableFuture<>();
+			final TestingTaskExecutorGateway taskExecutor = new TestingTaskExecutorGatewayBuilder()
+				.setSubmitTaskConsumer((taskDeploymentDescriptor, jobMasterId) -> {
+					taskDeploymentFuture.complete(taskDeploymentDescriptor.getExecutionAttemptId());
+					return CompletableFuture.completedFuture(Acknowledge.get());
+				})
+				.setAddress("localhost")
+				.setSubmitTaskListConsumer(taskList -> {
+					submitTaskListFuture.complete(Acknowledge.get());
+				})
+				.createTestingTaskExecutorGateway();
+
+			rpcService.registerGateway(taskExecutor.getAddress(), taskExecutor);
+
+			AllocationID allocationId = allocationIdsResourceManagerGateway.takeAllocationId();
+			Collection<TaskManagerOfferSlots> offerSlotsCollection = new ArrayList<>();
+			TaskManagerOfferSlots taskExecutorOfferSlots = new TaskManagerOfferSlots(
+				taskExecutor.getAddress(),
+				new UnresolvedTaskManagerLocation(ResourceID.generate(), taskExecutor.getAddress(), -1));
+			taskExecutorOfferSlots.addSlotOffer(new SlotOffer(allocationId, 0, ResourceProfile.ANY));
+			offerSlotsCollection.add(taskExecutorOfferSlots);
+
+			jobMasterGateway.offerOptimizeSlots(offerSlotsCollection, testingTimeout).get();
+			submitTaskListFuture.get(20, TimeUnit.SECONDS);
+		}  finally {
+			RpcUtils.terminateRpcEndpoint(jobMaster, testingTimeout);
+		}
 	}
 
 	private void runJobFailureWhenTaskExecutorTerminatesTest(

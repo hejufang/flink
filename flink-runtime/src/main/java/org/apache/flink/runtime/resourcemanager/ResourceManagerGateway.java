@@ -140,6 +140,13 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 		AllocationID oldAllocationId);
 
 	/**
+	 * Sent by JobMaster to notify the ResourceManager that a slot has become available.
+	 *
+	 * @param allocateSlotIds The SlotID and AllocationID of the freed slot.
+	 */
+	void notifyAllocateSlotsAvailable(Collection<AllocateSlotID> allocateSlotIds);
+
+	/**
 	 * Deregister Flink from the underlying resource management system.
 	 *
 	 * @param finalStatus final status with which to deregister the Flink application

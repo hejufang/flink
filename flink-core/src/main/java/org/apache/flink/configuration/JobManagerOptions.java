@@ -455,6 +455,15 @@ public class JobManagerOptions {
 			.defaultValue(10)
 			.withDescription("The count of job master batch submit task to task executor.");
 
+	/**
+	 * JobMaster can request slots from ResourceManager without offer slots from TaskManager.
+	 */
+	public static final ConfigOption<Boolean> JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE =
+		key("jobmanager.request-slot-from-resourcemanager.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("JobMaster request slots from resource manager directly when true.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

@@ -32,13 +32,16 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
-import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
+
+import javax.annotation.Nullable;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * Implementation of the {@link TaskManagerGateway} for Flink's RPC system.
@@ -49,9 +52,20 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
 
 	private final JobMasterId jobMasterId;
 
-	public RpcTaskManagerGateway(TaskExecutorGateway taskExecutorGateway, JobMasterId jobMasterId) {
-		this.taskExecutorGateway = Preconditions.checkNotNull(taskExecutorGateway);
-		this.jobMasterId = Preconditions.checkNotNull(jobMasterId);
+	private final boolean requestSlotFromResourceManagerDirectEnable;
+
+	@Nullable
+	private final String jobMasterAddress;
+
+	public RpcTaskManagerGateway(
+			TaskExecutorGateway taskExecutorGateway,
+			JobMasterId jobMasterId,
+			boolean requestSlotFromResourceManagerDirectEnable,
+			String jobMasterAddress) {
+		this.taskExecutorGateway = checkNotNull(taskExecutorGateway);
+		this.jobMasterId = checkNotNull(jobMasterId);
+		this.requestSlotFromResourceManagerDirectEnable = requestSlotFromResourceManagerDirectEnable;
+		this.jobMasterAddress = jobMasterAddress;
 	}
 
 	@Override
@@ -75,7 +89,12 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
 
 	@Override
 	public CompletableFuture<Acknowledge> submitTaskList(List<TaskDeploymentDescriptor> tdds, Time timeout) {
-		return taskExecutorGateway.submitTaskList(tdds, jobMasterId, timeout);
+		if (requestSlotFromResourceManagerDirectEnable) {
+			checkNotNull(jobMasterAddress);
+			return taskExecutorGateway.submitTaskList(jobMasterAddress, tdds, jobMasterId, timeout);
+		} else {
+			return taskExecutorGateway.submitTaskList(tdds, jobMasterId, timeout);
+		}
 	}
 
 	@Override
@@ -115,6 +134,11 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
 
 	@Override
 	public CompletableFuture<Acknowledge> freeSlot(AllocationID allocationId, Throwable cause, Time timeout) {
+		if (requestSlotFromResourceManagerDirectEnable) {
+			CompletableFuture<Acknowledge> future = new CompletableFuture<>();
+			future.completeExceptionally(new Exception("Request slot from resource manager can't reach here."));
+			return future;
+		}
 		return taskExecutorGateway.freeSlot(
 			allocationId,
 			cause,

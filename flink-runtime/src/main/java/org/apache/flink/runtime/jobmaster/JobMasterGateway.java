@@ -40,6 +40,7 @@ import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
 import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
+import org.apache.flink.runtime.resourcemanager.slotmanager.TaskManagerOfferSlots;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
 import org.apache.flink.runtime.rpc.FencedRpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
@@ -155,6 +156,17 @@ public interface JobMasterGateway extends
 	CompletableFuture<Collection<SlotOffer>> offerSlots(
 			final ResourceID taskManagerId,
 			final Collection<SlotOffer> slots,
+			@RpcTimeout final Time timeout);
+
+	/**
+	 * ResourceManager offer slots to JobMaster directly.
+	 *
+	 * @param slots the slots for the job
+	 * @param timeout rpc timeout
+	 * @return Future result of offer slots
+	 */
+	CompletableFuture<Acknowledge> offerOptimizeSlots(
+			final Collection<TaskManagerOfferSlots> slots,
 			@RpcTimeout final Time timeout);
 
 	/**

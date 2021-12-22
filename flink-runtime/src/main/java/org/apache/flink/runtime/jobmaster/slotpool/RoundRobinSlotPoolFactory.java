@@ -50,19 +50,23 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 
 	private final boolean batchRequestSlotsEnable;
 
+	private final boolean requestSlotFromResourceDirectEnable;
+
 	public RoundRobinSlotPoolFactory(
 			@Nonnull Clock clock,
 			@Nonnull Time rpcTimeout,
 			@Nonnull Time slotIdleTimeout,
 			@Nonnull Time batchSlotTimeout,
 			boolean jobLogDetailDisable,
-			boolean batchRequestSlotsEnable) {
+			boolean batchRequestSlotsEnable,
+			boolean requestSlotFromResourceDirectEnable) {
 		this.clock = clock;
 		this.rpcTimeout = rpcTimeout;
 		this.slotIdleTimeout = slotIdleTimeout;
 		this.batchSlotTimeout = batchSlotTimeout;
 		this.jobLogDetailDisable = jobLogDetailDisable;
 		this.batchRequestSlotsEnable = batchRequestSlotsEnable;
+		this.requestSlotFromResourceDirectEnable = requestSlotFromResourceDirectEnable;
 	}
 
 	@Override
@@ -75,7 +79,8 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 			slotIdleTimeout,
 			batchSlotTimeout,
 			jobLogDetailDisable,
-			batchRequestSlotsEnable);
+			batchRequestSlotsEnable,
+			requestSlotFromResourceDirectEnable);
 	}
 
 	public static RoundRobinSlotPoolFactory fromConfiguration(@Nonnull Configuration configuration) {
@@ -85,6 +90,7 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 		final Time batchSlotTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT));
 		final boolean jobLogDetailDisable = configuration.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 		final boolean batchRequestSlotsEnable = configuration.getBoolean(JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE);
+		final boolean requestSlotFromResourceDirectEnable = configuration.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE);
 
 		return new RoundRobinSlotPoolFactory(
 			SystemClock.getInstance(),
@@ -92,6 +98,7 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 			slotIdleTimeout,
 			batchSlotTimeout,
 			jobLogDetailDisable,
-			batchRequestSlotsEnable);
+			batchRequestSlotsEnable,
+			requestSlotFromResourceDirectEnable);
 	}
 }

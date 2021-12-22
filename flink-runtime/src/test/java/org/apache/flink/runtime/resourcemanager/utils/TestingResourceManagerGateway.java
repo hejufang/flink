@@ -40,6 +40,7 @@ import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.jobmaster.JobMasterRegistrationSuccess;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.registration.RegistrationResponse;
+import org.apache.flink.runtime.resourcemanager.AllocateSlotID;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.ResourceOverview;
@@ -295,6 +296,11 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 		if (currentNotifySlotAvailableConsumer != null) {
 			currentNotifySlotAvailableConsumer.accept(Tuple3.of(instanceId, slotID, oldAllocationId));
 		}
+	}
+
+	@Override
+	public void notifyAllocateSlotsAvailable(Collection<AllocateSlotID> allocateSlotIds) {
+
 	}
 
 	@Override

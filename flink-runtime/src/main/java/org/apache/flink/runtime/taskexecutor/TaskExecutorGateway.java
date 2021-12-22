@@ -112,6 +112,19 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
 	}
 
 	/**
+	 * Submit tasks with job master address.
+	 *
+	 * @param jobMasterAddress job master address
+	 * @param tdds task descriptor list
+	 * @param jobMasterId job master id
+	 * @param timeout rpc timeout
+	 * @return Future acknowledge of the successful operation
+	 */
+	default CompletableFuture<Acknowledge> submitTaskList(String jobMasterAddress, Collection<TaskDeploymentDescriptor> tdds, JobMasterId jobMasterId, Time timeout) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
 	 * Update the task where the given partitions can be found.
 	 *
 	 * @param executionAttemptID identifying the task

@@ -38,6 +38,7 @@ import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.jobmaster.SlotInfo;
 import org.apache.flink.runtime.jobmaster.SlotRequestId;
 import org.apache.flink.runtime.messages.Acknowledge;
+import org.apache.flink.runtime.resourcemanager.AllocateSlotID;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnfulfillableSlotRequestException;
@@ -130,6 +131,8 @@ public class SlotPoolImpl implements SlotPool {
 
 	private final boolean batchRequestSlotsEnable;
 
+	private final boolean requestSlotFromResourceDirectEnable;
+
 	/** the fencing token of the job manager. */
 	private JobMasterId jobMasterId;
 
@@ -153,7 +156,7 @@ public class SlotPoolImpl implements SlotPool {
 			Time idleSlotTimeout,
 			Time batchSlotTimeout,
 			boolean jobLogDetailDisable) {
-		this(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable, false);
+		this(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable, false, false);
 	}
 
 
@@ -164,7 +167,8 @@ public class SlotPoolImpl implements SlotPool {
 		Time idleSlotTimeout,
 		Time batchSlotTimeout,
 		boolean jobLogDetailDisable,
-		boolean batchRequestSlotsEnable) {
+		boolean batchRequestSlotsEnable,
+		boolean requestSlotFromResourceDirectEnable) {
 
 		this.jobId = checkNotNull(jobId);
 		this.clock = checkNotNull(clock);
@@ -172,6 +176,7 @@ public class SlotPoolImpl implements SlotPool {
 		this.idleSlotTimeout = checkNotNull(idleSlotTimeout);
 		this.batchSlotTimeout = checkNotNull(batchSlotTimeout);
 		this.batchRequestSlotsEnable = batchRequestSlotsEnable;
+		this.requestSlotFromResourceDirectEnable = requestSlotFromResourceDirectEnable;
 
 		this.registeredTaskManagers = new HashSet<>(16);
 		this.allocatedSlots = new AllocatedSlots();
@@ -853,6 +858,9 @@ public class SlotPoolImpl implements SlotPool {
 			log.debug("Failed allocated slot [{}]: {}", allocationID, cause.getMessage());
 
 			// notify TaskExecutor about the failure
+			if (requestSlotFromResourceDirectEnable) {
+				throw new UnsupportedOperationException("Not support yet.");
+			}
 			allocatedSlot.getTaskManagerGateway().freeSlot(allocationID, cause, rpcTimeout);
 			// release the slot.
 			// since it is not in 'allocatedSlots' any more, it will be dropped o return'
@@ -952,9 +960,17 @@ public class SlotPoolImpl implements SlotPool {
 			tryRemoveAllocatedSlot(removedSlot);
 		}
 
-		for (AllocatedSlot removedSlot : removedSlots) {
-			TaskManagerGateway taskManagerGateway = removedSlot.getTaskManagerGateway();
-			taskManagerGateway.freeSlot(removedSlot.getAllocationId(), cause, rpcTimeout);
+		if (requestSlotFromResourceDirectEnable) {
+			checkNotNull(resourceManagerGateway);
+			Collection<AllocateSlotID> allocateSlotIDS = removedSlots.stream()
+				.map(v -> new AllocateSlotID(v.getAllocationId(), v.getSlotId()))
+				.collect(Collectors.toList());
+			resourceManagerGateway.notifyAllocateSlotsAvailable(allocateSlotIDS);
+		} else {
+			for (AllocatedSlot removedSlot : removedSlots) {
+				TaskManagerGateway taskManagerGateway = removedSlot.getTaskManagerGateway();
+				taskManagerGateway.freeSlot(removedSlot.getAllocationId(), cause, rpcTimeout);
+			}
 		}
 	}
 
@@ -988,6 +1004,9 @@ public class SlotPoolImpl implements SlotPool {
 			if (availableSlots.tryRemove(allocationID) != null) {
 
 				log.info("Releasing idle slot [{}].", allocationID);
+				if (requestSlotFromResourceDirectEnable) {
+					throw new UnsupportedOperationException("Not support yet.");
+				}
 				final CompletableFuture<Acknowledge> freeSlotFuture = expiredSlot.getTaskManagerGateway().freeSlot(
 					allocationID,
 					cause,
