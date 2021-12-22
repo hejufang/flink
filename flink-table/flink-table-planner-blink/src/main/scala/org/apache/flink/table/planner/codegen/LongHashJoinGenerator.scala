@@ -169,12 +169,13 @@ object LongHashJoinGenerator {
          |});
        """.stripMargin)
 
+    val jobConf = "getContainingTask().getEnvironment().getTaskManagerInfo().getConfiguration()"
     val tableCode =
       s"""
          |public class $tableTerm extends ${classOf[LongHybridHashTable].getCanonicalName} {
          |
          |  public $tableTerm() {
-         |    super(getContainingTask().getJobConfiguration(), getContainingTask(),
+         |    super($jobConf, getContainingTask(),
          |      $buildSerTerm, $probeSerTerm,
          |      getContainingTask().getEnvironment().getMemoryManager(),
          |      computeMemorySize(),

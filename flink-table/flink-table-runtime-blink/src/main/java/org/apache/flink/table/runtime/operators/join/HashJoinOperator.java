@@ -91,8 +91,10 @@ public abstract class HashJoinOperator extends TableStreamOperator<RowData>
 		final AbstractRowDataSerializer probeSerializer = (AbstractRowDataSerializer) getOperatorConfig()
 			.getTypeSerializerIn2(getUserCodeClassloader());
 
-		boolean hashJoinUseBitMaps = getContainingTask().getEnvironment().getTaskConfiguration()
-				.getBoolean(AlgorithmOptions.HASH_JOIN_BLOOM_FILTERS);
+		Configuration configuration =
+			getContainingTask().getEnvironment().getTaskManagerInfo().getConfiguration();
+		boolean hashJoinUseBitMaps =
+			configuration.getBoolean(AlgorithmOptions.HASH_JOIN_BLOOM_FILTERS);
 
 		int parallel = getRuntimeContext().getNumberOfParallelSubtasks();
 
@@ -101,7 +103,7 @@ public abstract class HashJoinOperator extends TableStreamOperator<RowData>
 		condition.open(new Configuration());
 
 		this.table = new BinaryHashTable(
-				getContainingTask().getJobConfiguration(),
+				configuration,
 				getContainingTask(),
 				buildSerializer, probeSerializer,
 				parameter.buildProjectionCode.newInstance(cl),

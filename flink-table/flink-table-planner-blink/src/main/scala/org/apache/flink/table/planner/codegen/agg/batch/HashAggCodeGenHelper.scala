@@ -687,7 +687,7 @@ object HashAggCodeGenHelper {
        |    new $binaryRowSerializerTypeTerm($aggBufferTypesTerm.length),
        |    $keyComputerTerm, $recordComparatorTerm,
        |    getContainingTask().getEnvironment().getMemoryManager().getPageSize(),
-       |    getContainingTask().getJobConfiguration()
+       |    getContainingTask().getEnvironment().getTaskManagerInfo().getConfiguration()
        |  );
        """.stripMargin
   }

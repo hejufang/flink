@@ -79,7 +79,8 @@ public class SortOperator extends TableStreamOperator<BinaryRowData>
 		this.sorter = new BinaryExternalSorter(this.getContainingTask(),
 				memManager, computeMemorySize(),
 				this.getContainingTask().getEnvironment().getIOManager(), inputSerializer,
-				binarySerializer, computer, comparator, getContainingTask().getJobConfiguration());
+				binarySerializer, computer, comparator,
+				getContainingTask().getEnvironment().getTaskManagerInfo().getConfiguration());
 		this.sorter.startThreads();
 
 		collector = new StreamRecordCollector<>(output);

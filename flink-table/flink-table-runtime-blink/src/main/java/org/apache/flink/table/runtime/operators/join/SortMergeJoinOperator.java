@@ -122,7 +122,8 @@ public class SortMergeJoinOperator extends TableStreamOperator<RowData>
 	public void open() throws Exception {
 		super.open();
 
-		Configuration conf = getContainingTask().getJobConfiguration();
+		Configuration conf =
+			getContainingTask().getEnvironment().getTaskManagerInfo().getConfiguration();
 
 		isFinished = new boolean[] {false, false};
 

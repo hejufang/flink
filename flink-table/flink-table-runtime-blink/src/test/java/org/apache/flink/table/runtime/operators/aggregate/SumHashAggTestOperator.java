@@ -250,7 +250,7 @@ public class SumHashAggTestOperator extends AbstractStreamOperator<RowData>
 	}
 
 	Configuration getConf() {
-		return getContainingTask().getJobConfiguration();
+		return getContainingTask().getEnvironment().getTaskManagerInfo().getConfiguration();
 	}
 
 	public IOManager getIOManager() {
