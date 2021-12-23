@@ -28,6 +28,7 @@ import org.apache.flink.metrics.Histogram;
 import org.apache.flink.metrics.HistogramStatistics;
 import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.Metric;
+import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -162,6 +163,10 @@ public class MetricDumpSerialization {
 			gaugesBuffer.clear();
 			int numGauges = 0;
 			for (Map.Entry<Gauge<?>, Tuple2<QueryScopeInfo, String>> entry : gauges.entrySet()) {
+				// Tag gauge is useless for ui, skip it to reduce jm memory usage.
+				if (entry.getKey() instanceof TagGauge) {
+					continue;
+				}
 				try {
 					serializeGauge(gaugesBuffer, entry.getValue().f0, entry.getValue().f1, entry.getKey());
 					numGauges++;
