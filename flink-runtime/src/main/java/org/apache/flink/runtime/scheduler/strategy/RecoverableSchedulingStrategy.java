@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.scheduler.strategy;
 
+import org.apache.flink.runtime.jobgraph.topology.DefaultLogicalTopology;
 import org.apache.flink.runtime.scheduler.DeploymentOption;
 import org.apache.flink.runtime.scheduler.ExecutionVertexDeploymentOption;
 import org.apache.flink.runtime.scheduler.SchedulerOperations;
@@ -53,7 +54,8 @@ public class RecoverableSchedulingStrategy extends EagerSchedulingStrategy {
 		@Override
 		public SchedulingStrategy createInstance(
 				final SchedulerOperations schedulerOperations,
-				final SchedulingTopology schedulingTopology) {
+				final SchedulingTopology schedulingTopology,
+				DefaultLogicalTopology defaultLogicalTopology) {
 			return new RecoverableSchedulingStrategy(schedulerOperations, schedulingTopology);
 		}
 	}

@@ -40,6 +40,7 @@ import org.apache.flink.runtime.jobmaster.slotpool.SlotSelectionStrategy;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
 import org.apache.flink.runtime.scheduler.strategy.EagerSchedulingStrategy;
+import org.apache.flink.runtime.scheduler.strategy.EagerWithBlockEdgeSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.LazyFromSourcesSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.RecoverableSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategyFactory;
@@ -126,6 +127,8 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
 				} else {
 					return new EagerSchedulingStrategy.Factory();
 				}
+			case EAGER_WITH_BLOCK:
+				return new EagerWithBlockEdgeSchedulingStrategy.Factory();
 			case LAZY_FROM_SOURCES_WITH_BATCH_SLOT_REQUEST:
 			case LAZY_FROM_SOURCES:
 				return new LazyFromSourcesSchedulingStrategy.Factory();

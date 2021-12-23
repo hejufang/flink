@@ -43,6 +43,7 @@ import org.apache.flink.runtime.executiongraph.PartitionInfo;
 import org.apache.flink.runtime.executiongraph.failover.flip1.ExecutionFailureHandler;
 import org.apache.flink.runtime.executiongraph.failover.flip1.FailoverStrategy;
 import org.apache.flink.runtime.executiongraph.failover.flip1.FailureHandlingResult;
+import org.apache.flink.runtime.executiongraph.failover.flip1.NoRestartBackoffTimeStrategy;
 import org.apache.flink.runtime.executiongraph.failover.flip1.RestartBackoffTimeStrategy;
 import org.apache.flink.runtime.executiongraph.restart.ThrowingRestartStrategy;
 import org.apache.flink.runtime.executiongraph.speculation.SpeculationStrategy;
@@ -56,6 +57,7 @@ import org.apache.flink.runtime.jobmaster.slotpool.ThrowingSlotProvider;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
+import org.apache.flink.runtime.scheduler.strategy.EagerWithBlockEdgeSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.scheduler.strategy.LazyFromSourcesSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategy;
@@ -194,7 +196,12 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			getSchedulingTopology(),
 			failoverStrategy,
 			restartBackoffTimeStrategy);
-		this.schedulingStrategy = schedulingStrategyFactory.createInstance(this, getSchedulingTopology());
+		this.schedulingStrategy = schedulingStrategyFactory.createInstance(this, getSchedulingTopology(), executionGraph.getLogicalTopology());
+		if (schedulingStrategy instanceof EagerWithBlockEdgeSchedulingStrategy &&
+				!(restartBackoffTimeStrategy instanceof NoRestartBackoffTimeStrategy)) {
+			throw new UnsupportedOperationException("EagerWithBlockEdgeSchedulingStrategy can only work with NoRestartBackoffTimeStrategy.");
+		}
+
 		this.jobLogDetailDisable = jobMasterConfiguration.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 		if (schedulingStrategy instanceof LazyFromSourcesSchedulingStrategy &&
 				jobMasterConfiguration.getBoolean(JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE)) {

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.scheduler.strategy;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
+import org.apache.flink.runtime.jobgraph.topology.DefaultLogicalTopology;
 import org.apache.flink.runtime.scheduler.DeploymentOption;
 import org.apache.flink.runtime.scheduler.ExecutionVertexDeploymentOption;
 import org.apache.flink.runtime.scheduler.SchedulerOperations;
@@ -190,7 +191,8 @@ public class PipelinedRegionSchedulingStrategy implements SchedulingStrategy {
 		@Override
 		public SchedulingStrategy createInstance(
 				final SchedulerOperations schedulerOperations,
-				final SchedulingTopology schedulingTopology) {
+				final SchedulingTopology schedulingTopology,
+				DefaultLogicalTopology defaultLogicalTopology) {
 			return new PipelinedRegionSchedulingStrategy(schedulerOperations, schedulingTopology);
 		}
 	}

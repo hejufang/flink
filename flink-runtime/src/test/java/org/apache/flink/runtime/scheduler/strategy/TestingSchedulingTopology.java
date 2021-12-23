@@ -300,6 +300,8 @@ public class TestingSchedulingTopology implements SchedulingTopology {
 
 		protected ResultPartitionState resultPartitionState = ResultPartitionState.CONSUMABLE;
 
+		protected IntermediateDataSetID intermediateDataSetID = new IntermediateDataSetID();
+
 		protected ProducerConsumerConnectionBuilder(
 			final List<TestingSchedulingExecutionVertex> producers,
 			final List<TestingSchedulingExecutionVertex> consumers) {
@@ -317,8 +319,13 @@ public class TestingSchedulingTopology implements SchedulingTopology {
 			return this;
 		}
 
+		public ProducerConsumerConnectionBuilder withIntermediateDataSetID(final IntermediateDataSetID intermediateDataSetID) {
+			this.intermediateDataSetID = intermediateDataSetID;
+			return this;
+		}
+
 		public List<TestingSchedulingResultPartition> finish() {
-			final List<TestingSchedulingResultPartition> resultPartitions = connect();
+			final List<TestingSchedulingResultPartition> resultPartitions = connect(intermediateDataSetID);
 
 			producers.stream().forEach(TestingSchedulingTopology.this::updateVertexResultPartitions);
 			consumers.stream().forEach(TestingSchedulingTopology.this::updateVertexResultPartitions);
@@ -331,7 +338,7 @@ public class TestingSchedulingTopology implements SchedulingTopology {
 				.withResultPartitionType(resultPartitionType);
 		}
 
-		protected abstract List<TestingSchedulingResultPartition> connect();
+		protected abstract List<TestingSchedulingResultPartition> connect(IntermediateDataSetID intermediateDataSetID);
 
 	}
 
@@ -349,16 +356,15 @@ public class TestingSchedulingTopology implements SchedulingTopology {
 		}
 
 		@Override
-		protected List<TestingSchedulingResultPartition> connect() {
+		protected List<TestingSchedulingResultPartition> connect(IntermediateDataSetID intermediateDataSetID) {
 			final List<TestingSchedulingResultPartition> resultPartitions = new ArrayList<>();
-			final IntermediateDataSetID intermediateDataSetId = new IntermediateDataSetID();
 
 			for (int idx = 0; idx < producers.size(); idx++) {
 				final TestingSchedulingExecutionVertex producer = producers.get(idx);
 				final TestingSchedulingExecutionVertex consumer = consumers.get(idx);
 
 				final TestingSchedulingResultPartition resultPartition = initTestingSchedulingResultPartitionBuilder()
-					.withIntermediateDataSetID(intermediateDataSetId)
+					.withIntermediateDataSetID(intermediateDataSetID)
 					.withResultPartitionState(resultPartitionState)
 					.withPartitionNum(idx)
 					.build();
@@ -387,9 +393,8 @@ public class TestingSchedulingTopology implements SchedulingTopology {
 		}
 
 		@Override
-		protected List<TestingSchedulingResultPartition> connect() {
+		protected List<TestingSchedulingResultPartition> connect(IntermediateDataSetID intermediateDataSetID) {
 			final List<TestingSchedulingResultPartition> resultPartitions = new ArrayList<>();
-			final IntermediateDataSetID intermediateDataSetId = new IntermediateDataSetID();
 
 			int idx = 0;
 			JobVertexID producerVertexId = producers.get(0).getId().getJobVertexId();
@@ -399,7 +404,7 @@ public class TestingSchedulingTopology implements SchedulingTopology {
 					throw new IllegalArgumentException("JobVertexId of producers not same.");
 				}
 				final TestingSchedulingResultPartition resultPartition = initTestingSchedulingResultPartitionBuilder()
-					.withIntermediateDataSetID(intermediateDataSetId)
+					.withIntermediateDataSetID(intermediateDataSetID)
 					.withResultPartitionState(resultPartitionState)
 					.withPartitionNum(idx)
 					.build();
@@ -432,11 +437,16 @@ public class TestingSchedulingTopology implements SchedulingTopology {
 	 */
 	public class SchedulingExecutionVerticesBuilder {
 
-		private final JobVertexID jobVertexId = new JobVertexID();
+		private JobVertexID jobVertexId = new JobVertexID();
 
 		private int parallelism = 1;
 
 		private InputDependencyConstraint inputDependencyConstraint = InputDependencyConstraint.ANY;
+
+		public SchedulingExecutionVerticesBuilder withJobVertexID(final JobVertexID jobVertexId) {
+			this.jobVertexId = jobVertexId;
+			return this;
+		}
 
 		public SchedulingExecutionVerticesBuilder withParallelism(final int parallelism) {
 			this.parallelism = parallelism;

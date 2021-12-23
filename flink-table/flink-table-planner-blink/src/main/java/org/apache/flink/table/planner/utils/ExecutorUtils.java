@@ -99,14 +99,7 @@ public class ExecutorUtils {
 			boolean useTheSameSlotSharingGroup =
 				tableConfig.getConfiguration().get(ALL_VERTICES_IN_SAME_SLOT_SHARING_GROUP_BY_DEFAULT);
 			streamGraph.setAllVerticesInSameSlotSharingGroupByDefault(useTheSameSlotSharingGroup);
-			// We want to use EAGER here for olap mode, but there may exist BATCH shuffle mode even
-			// when table.exec.shuffle-mode=ALL_EDGES_PIPELINED (see DeadlockBreakupProcessor),
-			// which will lead to an IllegalStateException in
-			// TaskDeploymentDescriptorFactory#handleConsumedPartitionShuffleDescriptorErrors.
-			// The reason why we do not use LAZY_FROM_SOURCES_WITH_BATCH_SLOT_REQUEST is
-			// we want to get timeout Exception when the slot request cannot be satisfied.
-			// TODO should be fix to EAGER_WITH_BLOCK strategy by @huweihua later.
-			streamGraph.setScheduleMode(ScheduleMode.EAGER);
+			streamGraph.setScheduleMode(ScheduleMode.EAGER_WITH_BLOCK);
 			streamGraph.setGlobalDataExchangeMode(GlobalDataExchangeMode.ALL_EDGES_PIPELINED);
 		} else {
 			streamGraph.setChaining(true);
