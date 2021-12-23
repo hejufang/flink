@@ -58,6 +58,7 @@ import org.apache.flink.runtime.shuffle.PartitionDescriptor;
 import org.apache.flink.runtime.shuffle.PartitionDescriptorBuilder;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
+import org.apache.flink.runtime.taskexecutor.exceptions.TaskSubmissionException;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotTable;
 import org.apache.flink.runtime.taskmanager.Task;
 import org.apache.flink.runtime.testtasks.BlockingNoOpInvokable;
@@ -83,11 +84,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import static org.apache.flink.runtime.util.NettyShuffleDescriptorBuilder.createRemoteWithIdAndLocation;
 import static org.apache.flink.runtime.util.NettyShuffleDescriptorBuilder.newBuilder;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.startsWith;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
@@ -142,6 +145,86 @@ public class TaskExecutorSubmissionTest extends TestLogger {
 			tmGateway.submitTask(tdd, env.getJobMasterId(), timeout).get();
 
 			taskRunningFuture.get();
+		}
+	}
+
+	/**
+	 * Tests that we can submit task list to the TaskManager given that we've allocated a slot there.
+	 */
+	@Test(timeout = TEST_TIMEOUT)
+	public void testTaskListSubmission() throws Exception {
+		final ExecutionAttemptID eid = new ExecutionAttemptID();
+
+		final TaskDeploymentDescriptor tdd = createTestTaskDeploymentDescriptor("test task", eid, FutureCompletingInvokable.class);
+
+		final CompletableFuture<Void> taskRunningFuture = new CompletableFuture<>();
+
+		try (TaskSubmissionTestEnvironment env =
+				 new TaskSubmissionTestEnvironment.Builder(jobId)
+					 .setSlotSize(1)
+					 .addTaskManagerActionListener(eid, ExecutionState.RUNNING, taskRunningFuture)
+					 .build()) {
+			TaskExecutorGateway tmGateway = env.getTaskExecutorGateway();
+			TaskSlotTable taskSlotTable = env.getTaskSlotTable();
+
+			taskSlotTable.allocateSlot(0, jobId, tdd.getAllocationId(), Time.seconds(60));
+			tmGateway.submitTaskList(Collections.singletonList(tdd), env.getJobMasterId(), timeout).get();
+
+			taskRunningFuture.get();
+		}
+	}
+
+	/**
+	 * Tests that we can submit a task to the TaskManager with offloaded.
+	 */
+	@Test(timeout = TEST_TIMEOUT)
+	public void testTaskSubmissionWithOffloaded() throws Exception {
+		final ExecutionAttemptID eid = new ExecutionAttemptID();
+
+		final TaskDeploymentDescriptor tdd = createTaskDeployDescriptorWithOffloaded(eid);
+
+		final CompletableFuture<Void> taskRunningFuture = new CompletableFuture<>();
+
+		try (TaskSubmissionTestEnvironment env =
+				 new TaskSubmissionTestEnvironment.Builder(jobId)
+					 .setSlotSize(1)
+					 .addTaskManagerActionListener(eid, ExecutionState.RUNNING, taskRunningFuture)
+					 .build()) {
+			TaskExecutorGateway tmGateway = env.getTaskExecutorGateway();
+			TaskSlotTable taskSlotTable = env.getTaskSlotTable();
+
+			taskSlotTable.allocateSlot(0, jobId, tdd.getAllocationId(), Time.seconds(60));
+			tmGateway.submitTask(tdd, env.getJobMasterId(), timeout).get();
+		} catch (ExecutionException e) {
+			assertThat(e.getCause(), instanceOf(TaskSubmissionException.class));
+			assertThat(e.getCause().getMessage(), containsString("Could not re-integrate offloaded TaskDeploymentDescriptor data"));
+		}
+	}
+
+	/**
+	 * Tests that we can submit task list to the TaskManager with offloaded.
+	 */
+	@Test(timeout = TEST_TIMEOUT)
+	public void testTaskListSubmissionWithOffloaded() throws Exception {
+		final ExecutionAttemptID eid = new ExecutionAttemptID();
+
+		final TaskDeploymentDescriptor tdd = createTaskDeployDescriptorWithOffloaded(eid);
+
+		final CompletableFuture<Void> taskRunningFuture = new CompletableFuture<>();
+
+		try (TaskSubmissionTestEnvironment env =
+				 new TaskSubmissionTestEnvironment.Builder(jobId)
+					 .setSlotSize(1)
+					 .addTaskManagerActionListener(eid, ExecutionState.RUNNING, taskRunningFuture)
+					 .build()) {
+			TaskExecutorGateway tmGateway = env.getTaskExecutorGateway();
+			TaskSlotTable taskSlotTable = env.getTaskSlotTable();
+
+			taskSlotTable.allocateSlot(0, jobId, tdd.getAllocationId(), Time.seconds(60));
+			tmGateway.submitTaskList(Collections.singletonList(tdd), env.getJobMasterId(), timeout).get();
+		} catch (ExecutionException e) {
+			assertThat(e.getCause(), instanceOf(TaskSubmissionException.class));
+			assertThat(e.getCause().getMessage(), containsString("Could not re-integrate offloaded TaskDeploymentDescriptor data"));
 		}
 	}
 
@@ -738,6 +821,32 @@ public class TaskExecutorSubmissionTest extends TestLogger {
 			Collections.emptyList(),
 			Collections.emptyList(),
 			0);
+	}
+
+	private TaskDeploymentDescriptor createTaskDeployDescriptorWithOffloaded(ExecutionAttemptID eid) throws Exception {
+		TaskDeploymentDescriptor.MaybeOffloaded<JobInformation> jobInformation = new TaskDeploymentDescriptor.NonOffloaded<>(
+			new SerializedValue<>(
+				new JobInformation(
+					jobId,
+					testName.getMethodName(),
+					new SerializedValue<>(new ExecutionConfig()),
+					new Configuration(),
+					Collections.emptyList(),
+					Collections.emptyList())));
+		TaskDeploymentDescriptor.MaybeOffloaded<TaskInformation> taskInformation = new TaskDeploymentDescriptor.Offloaded<>(new PermanentBlobKey());
+
+		return new TaskDeploymentDescriptor(
+				jobId,
+				jobInformation,
+				taskInformation,
+				eid,
+				new AllocationID(),
+				new ExecutionVertexID(new JobVertexID(), 0),
+				0,
+				0,
+				null,
+				Collections.emptyList(),
+				Collections.emptyList());
 	}
 
 	static TaskDeploymentDescriptor createTaskDeploymentDescriptor(

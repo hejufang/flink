@@ -595,6 +595,20 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				throw new TaskSubmissionException(message);
 			}
 
+			if (!taskSlotTable.tryMarkSlotActive(jobId, tdd.getAllocationId())) {
+				final String message = "No task slot allocated for job ID " + jobId +
+					" and allocation ID " + tdd.getAllocationId() + '.';
+				log.debug(message);
+				throw new TaskSubmissionException(message);
+			}
+
+			// re-integrate offloaded data:
+			try {
+				tdd.loadBigData(blobCacheService.getPermanentBlobService());
+			} catch (IOException | ClassNotFoundException e) {
+				throw new TaskSubmissionException("Could not re-integrate offloaded TaskDeploymentDescriptor data.", e);
+			}
+
 			// deserialize the pre-serialized information
 			final JobInformation jobInformation;
 			final TaskInformation taskInformation;
@@ -622,8 +636,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	@Override
 	public CompletableFuture<Acknowledge> submitTaskList(List<TaskDeploymentDescriptor> tdds, JobMasterId jobMasterId, Time timeout) {
 		long start = System.currentTimeMillis();
-		TaskDeploymentDescriptor tdd = tdds.get(0);
-		final JobID jobId = tdd.getJobId();
+		TaskDeploymentDescriptor taskDescriptor = tdds.get(0);
+		final JobID jobId = taskDescriptor.getJobId();
 		try {
 			final JobTable.Connection jobManagerConnection = jobTable.getConnection(jobId).orElseThrow(() -> {
 				final String message = "Could not submit task because there is no JobManager " +
@@ -641,25 +655,50 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				log.debug(message);
 				throw new TaskSubmissionException(message);
 			}
-			final JobInformation jobInformation = tdd.getSerializedJobInformation().deserializeValue(getClass().getClassLoader());
-			if (!jobId.equals(jobInformation.getJobId())) {
-				throw new TaskSubmissionException(
-					"Inconsistent job ID information inside TaskDeploymentDescriptor (" +
-						tdd.getJobId() + " vs. " + jobInformation.getJobId() + ")");
-			}
+			JobInformation jobInformation = null;
 
 			final Map<JobVertexID, TaskInformation> vertexTaskInformationMap = new HashMap<>();
-			for (TaskDeploymentDescriptor deploymentDescriptor : tdds) {
-				final TaskInformation taskInformation = vertexTaskInformationMap.computeIfAbsent(
-					deploymentDescriptor.getExecutionVertexId().getJobVertexId(),
-					key -> {
-						try {
-							return deploymentDescriptor.getSerializedTaskInformation().deserializeValue(getClass().getClassLoader());
-						} catch (Exception e) {
-							throw new IllegalArgumentException("Deserialize task information failed", e);
-						}
-					});
-				submitTaskInternal(jobManagerConnection, deploymentDescriptor, jobInformation, taskInformation);
+			for (TaskDeploymentDescriptor tdd : tdds) {
+				if (!taskSlotTable.tryMarkSlotActive(jobId, tdd.getAllocationId())) {
+					final String message = "No task slot allocated for job ID " + jobId +
+						" and allocation ID " + tdd.getAllocationId() + '.';
+					log.debug(message);
+					throw new TaskSubmissionException(message);
+				}
+
+				// re-integrate offloaded data:
+				try {
+					tdd.loadBigData(blobCacheService.getPermanentBlobService());
+				} catch (IOException | ClassNotFoundException e) {
+					throw new TaskSubmissionException("Could not re-integrate offloaded TaskDeploymentDescriptor data.", e);
+				}
+
+				// deserialize the pre-serialized information
+				final TaskInformation taskInformation;
+				try {
+					if (jobInformation == null) {
+						jobInformation = tdd.getSerializedJobInformation().deserializeValue(getClass().getClassLoader());
+					}
+					taskInformation = vertexTaskInformationMap.computeIfAbsent(
+						tdd.getExecutionVertexId().getJobVertexId(),
+						key -> {
+							try {
+								return tdd.getSerializedTaskInformation().deserializeValue(getClass().getClassLoader());
+							} catch (Exception e) {
+								throw new IllegalArgumentException("Deserialize task information failed", e);
+							}
+						});
+				} catch (IOException | ClassNotFoundException e) {
+					throw new TaskSubmissionException("Could not deserialize the job or task information.", e);
+				}
+
+				if (!jobId.equals(jobInformation.getJobId())) {
+					throw new TaskSubmissionException(
+						"Inconsistent job ID information inside TaskDeploymentDescriptor (" +
+							tdd.getJobId() + " vs. " + jobInformation.getJobId() + ")");
+				}
+
+				submitTaskInternal(jobManagerConnection, tdd, jobInformation, taskInformation);
 			}
 		} catch (Exception e) {
 			log.error("Submit task list failed", e);
@@ -683,19 +722,6 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			TaskInformation taskInformation) throws TaskSubmissionException {
 		final JobID jobId = jobManagerConnection.getJobId();
 		final ExecutionAttemptID executionAttemptID = tdd.getExecutionAttemptId();
-		if (!taskSlotTable.tryMarkSlotActive(jobId, tdd.getAllocationId())) {
-			final String message = "No task slot allocated for job ID " + jobId +
-				" and allocation ID " + tdd.getAllocationId() + '.';
-			log.debug(message);
-			throw new TaskSubmissionException(message);
-		}
-
-		// re-integrate offloaded data:
-		try {
-			tdd.loadBigData(blobCacheService.getPermanentBlobService());
-		} catch (IOException | ClassNotFoundException e) {
-			throw new TaskSubmissionException("Could not re-integrate offloaded TaskDeploymentDescriptor data.", e);
-		}
 
 		TaskMetricGroup taskMetricGroup = taskManagerMetricGroup.addTaskForJob(
 			jobInformation.getJobId(),
