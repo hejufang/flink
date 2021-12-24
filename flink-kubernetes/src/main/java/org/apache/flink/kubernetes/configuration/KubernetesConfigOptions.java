@@ -233,6 +233,13 @@ public class KubernetesConfigOptions {
 			.noDefaultValue()
 			.withDescription("The user-specified host that are set to the Ingress. "
 				+ "e.g. lf-cloudnative.byted.org");
+
+	public static final ConfigOption<Boolean> KUBERNETES_PODGROUP_ENABLE =
+		key("kubernetes.podgroup.enable")
+			.booleanType()
+			.defaultValue(Boolean.FALSE)
+			.withDescription("Whether to enable pod group in kubernetes. This option should only be enabled in application mode");
+
 	/**
 	 * The following config options need to be set according to the image.
 	 */

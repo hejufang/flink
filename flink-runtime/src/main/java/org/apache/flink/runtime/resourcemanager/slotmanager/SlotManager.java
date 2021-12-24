@@ -58,6 +58,8 @@ public interface SlotManager extends AutoCloseable {
 
 	int getNumSlotsPerWorker();
 
+	int numTaskManagersNeedRequest();
+
 	/**
 	 * Get number of workers SlotManager requested from {@link ResourceActions} that are not yet fulfilled.
 	 * @return a map whose key set is all the unique resource specs of the pending workers,
@@ -167,4 +169,5 @@ public interface SlotManager extends AutoCloseable {
 
 	@VisibleForTesting
 	void unregisterTaskManagersAndReleaseResources();
+
 }

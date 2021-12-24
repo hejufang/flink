@@ -96,6 +96,7 @@ public class KubernetesTaskManagerTestBase extends KubernetesTestBase {
 				POD_NAME,
 				DYNAMIC_PROPERTIES,
 				containeredTaskManagerParameters,
+				0,
 				ExternalResourceUtils.getExternalResources(flinkConfig, KubernetesConfigOptions.EXTERNAL_RESOURCE_KUBERNETES_CONFIG_KEY_SUFFIX));
 	}
 }

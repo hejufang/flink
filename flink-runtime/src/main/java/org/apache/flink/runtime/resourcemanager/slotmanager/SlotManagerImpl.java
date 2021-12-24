@@ -1690,7 +1690,7 @@ public class SlotManagerImpl implements SlotManager {
 		Preconditions.checkState(started, "The slot manager has not been started.");
 	}
 
-	private int numTaskManagersNeedRequest() {
+	public int numTaskManagersNeedRequest() {
 		return numInitialTaskManagers + numInitialExtraTaskManagers;
 	}
 

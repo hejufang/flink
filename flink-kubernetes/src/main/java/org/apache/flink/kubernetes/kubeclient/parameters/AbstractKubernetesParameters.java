@@ -22,6 +22,8 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptionsInternal;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptionsInternal;
+import org.apache.flink.kubernetes.entrypoint.KubernetesApplicationClusterEntrypoint;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 
@@ -221,5 +223,15 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 	@Override
 	public List<Map<String, String>> getEnvironmentsFromSecrets() {
 		return flinkConfig.getOptional(KubernetesConfigOptions.KUBERNETES_ENV_SECRET_KEY_REF).orElse(Collections.emptyList());
+	}
+
+	public boolean isPodGroupEffective() {
+		boolean podGroupEnable = flinkConfig.getBoolean(KubernetesConfigOptions.KUBERNETES_PODGROUP_ENABLE);
+		if (!podGroupEnable) {
+			return false;
+		}
+		// Pod group is only supported in application mode.
+		final String entrypointClass = flinkConfig.getString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS);
+		return KubernetesApplicationClusterEntrypoint.class.getName().equals(entrypointClass);
 	}
 }

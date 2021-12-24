@@ -21,6 +21,7 @@ package org.apache.flink.kubernetes.kubeclient.parameters;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
+import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 
@@ -47,6 +48,12 @@ public class KubernetesTaskManagerParameters extends AbstractKubernetesParameter
 
 	private final ContaineredTaskManagerParameters containeredTaskManagerParameters;
 
+	/**
+	 * The minimum number of task manager. This field will only be used in application mode to help to
+	 * initialize th pod group. Otherwise this will be set to 1.
+	 * */
+	private final int minNumTaskManager;
+
 	private final Map<String, Long> taskManagerExternalResources;
 
 	public KubernetesTaskManagerParameters(
@@ -54,11 +61,13 @@ public class KubernetesTaskManagerParameters extends AbstractKubernetesParameter
 			String podName,
 			String dynamicProperties,
 			ContaineredTaskManagerParameters containeredTaskManagerParameters,
+			int minNumTaskManager,
 			Map<String, Long> taskManagerExternalResources) {
 		super(flinkConfig);
 		this.podName = checkNotNull(podName);
 		this.dynamicProperties = checkNotNull(dynamicProperties);
 		this.containeredTaskManagerParameters = checkNotNull(containeredTaskManagerParameters);
+		this.minNumTaskManager = minNumTaskManager;
 		this.taskManagerExternalResources = checkNotNull(taskManagerExternalResources);
 	}
 
@@ -83,7 +92,12 @@ public class KubernetesTaskManagerParameters extends AbstractKubernetesParameter
 
 	@Override
 	public Map<String, String> getAnnotations() {
-		return KubernetesUtils.getAnnotations(flinkConfig, KubernetesConfigOptions.TASK_MANAGER_ANNOTATIONS);
+		Map<String, String> taskManagerAnnotations =  KubernetesUtils.getAnnotations(flinkConfig, KubernetesConfigOptions.TASK_MANAGER_ANNOTATIONS);
+		if (isPodGroupEffective() && minNumTaskManager > 0) {
+			// only add pod group annotation when minNumTaskManager > 0
+			taskManagerAnnotations.put(Constants.POD_GROUP_MINMEMBER_ANNOTATION_KEY, String.valueOf(minNumTaskManager));
+		}
+		return taskManagerAnnotations;
 	}
 
 	@Override

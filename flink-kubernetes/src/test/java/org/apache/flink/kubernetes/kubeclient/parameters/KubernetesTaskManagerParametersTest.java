@@ -86,6 +86,7 @@ public class KubernetesTaskManagerParametersTest extends KubernetesTestBase {
 			POD_NAME,
 			DYNAMIC_PROPERTIES,
 			containeredTaskManagerParameters,
+			0,
 			Collections.emptyMap());
 	}
 

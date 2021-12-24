@@ -19,6 +19,9 @@
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptionsInternal;
+import org.apache.flink.kubernetes.entrypoint.KubernetesApplicationClusterEntrypoint;
+import org.apache.flink.kubernetes.entrypoint.KubernetesSessionClusterEntrypoint;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.KubernetesJobManagerTestBase;
 import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesJobManagerParameters;
@@ -46,6 +49,7 @@ import java.util.stream.Collectors;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
@@ -178,6 +182,30 @@ public class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
 		final Map<String, String> wantedAnnotations = new HashMap<>(ANNOTATIONS);
 		wantedAnnotations.putAll(ADDITIONAL_ANNOTATIONS);
 		assertThat(resultAnnotations, is(equalTo(wantedAnnotations)));
+	}
+
+	@Test
+	public void testAnnotationsForPodGroupEnable() {
+		flinkConfig.setString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS, KubernetesApplicationClusterEntrypoint.class.getName());
+		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_PODGROUP_ENABLE, true);
+		final Map<String, String> resultAnnotations = kubernetesJobManagerParameters.getAnnotations();
+		assertEquals("1", resultAnnotations.get(Constants.POD_GROUP_MINMEMBER_ANNOTATION_KEY));
+	}
+
+	@Test
+	public void testAnnotationsForPodGroupDisable() {
+		flinkConfig.setString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS, KubernetesApplicationClusterEntrypoint.class.getName());
+		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_PODGROUP_ENABLE, false);
+		final Map<String, String> resultAnnotations = kubernetesJobManagerParameters.getAnnotations();
+		assertNull(resultAnnotations.get(Constants.POD_GROUP_MINMEMBER_ANNOTATION_KEY));
+	}
+
+	@Test
+	public void testAnnotationsForPodGroupNotInApplicationMode() {
+		flinkConfig.setString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS, KubernetesSessionClusterEntrypoint.class.getName());
+		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_PODGROUP_ENABLE, true);
+		final Map<String, String> resultAnnotations = kubernetesJobManagerParameters.getAnnotations();
+		assertNull(resultAnnotations.get(Constants.POD_GROUP_MINMEMBER_ANNOTATION_KEY));
 	}
 
 	@Test

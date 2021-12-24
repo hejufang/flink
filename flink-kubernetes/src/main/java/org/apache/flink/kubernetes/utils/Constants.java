@@ -119,4 +119,5 @@ public class Constants {
 	// Empty string (default) is for backward compatibility, which means that no checks will be performed before
 	// mounting the hostPath volume. We set empty string as default because we do not know which type that user will mount.
 	public static final String DEFAULT_HOST_PATH_TYPE = "";
+	public static final String POD_GROUP_MINMEMBER_ANNOTATION_KEY = "godel.bytedance.com/pod-group-minmember";
 }

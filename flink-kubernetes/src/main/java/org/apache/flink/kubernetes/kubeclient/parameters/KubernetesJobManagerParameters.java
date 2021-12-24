@@ -79,7 +79,12 @@ public class KubernetesJobManagerParameters extends AbstractKubernetesParameters
 
 	@Override
 	public Map<String, String> getAnnotations() {
-		return KubernetesUtils.getAnnotations(flinkConfig, KubernetesConfigOptions.JOB_MANAGER_ANNOTATIONS);
+		Map<String, String> jobManagerAnnotations = KubernetesUtils.getAnnotations(flinkConfig, KubernetesConfigOptions.JOB_MANAGER_ANNOTATIONS);
+		if (isPodGroupEffective()) {
+			// we need one job manager, todo, what if multiple Job Manager when enabling HA.
+			jobManagerAnnotations.put(Constants.POD_GROUP_MINMEMBER_ANNOTATION_KEY, "1");
+		}
+		return jobManagerAnnotations;
 	}
 
 	@Override

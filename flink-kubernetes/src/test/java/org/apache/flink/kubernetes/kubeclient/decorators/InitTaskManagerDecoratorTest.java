@@ -20,8 +20,12 @@ package org.apache.flink.kubernetes.kubeclient.decorators;
 
 import org.apache.flink.configuration.ExternalResourceOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptionsInternal;
+import org.apache.flink.kubernetes.entrypoint.KubernetesApplicationClusterEntrypoint;
+import org.apache.flink.kubernetes.entrypoint.KubernetesSessionClusterEntrypoint;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.KubernetesTaskManagerTestBase;
+import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesTaskManagerParameters;
 import org.apache.flink.kubernetes.utils.Constants;
 
 import io.fabric8.kubernetes.api.model.Container;
@@ -46,6 +50,7 @@ import java.util.stream.Collectors;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 
 /**
@@ -188,6 +193,66 @@ public class InitTaskManagerDecoratorTest extends KubernetesTaskManagerTestBase 
 	public void testPodAnnotations() {
 		final Map<String, String> resultAnnotations = kubernetesTaskManagerParameters.getAnnotations();
 		assertThat(resultAnnotations, is(equalTo(ANNOTATIONS)));
+	}
+
+	@Test
+	public void testAnnotationsForPodGroupEnable() {
+		kubernetesTaskManagerParameters = new KubernetesTaskManagerParameters(
+			flinkConfig,
+			POD_NAME,
+			"",
+			containeredTaskManagerParameters,
+			5,
+			kubernetesTaskManagerParameters.getTaskManagerExternalResources());
+		flinkConfig.setString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS, KubernetesApplicationClusterEntrypoint.class.getName());
+		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_PODGROUP_ENABLE, true);
+		final Map<String, String> resultAnnotations = kubernetesTaskManagerParameters.getAnnotations();
+		assertEquals("5", resultAnnotations.get(Constants.POD_GROUP_MINMEMBER_ANNOTATION_KEY));
+	}
+
+	@Test
+	public void testAnnotationsForPodGroupEnableWithZeroTaskManager() {
+		kubernetesTaskManagerParameters = new KubernetesTaskManagerParameters(
+			flinkConfig,
+			POD_NAME,
+			"",
+			containeredTaskManagerParameters,
+			0,
+			kubernetesTaskManagerParameters.getTaskManagerExternalResources());
+		flinkConfig.setString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS, KubernetesApplicationClusterEntrypoint.class.getName());
+		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_PODGROUP_ENABLE, true);
+		final Map<String, String> resultAnnotations = kubernetesTaskManagerParameters.getAnnotations();
+		assertNull(resultAnnotations.get(Constants.POD_GROUP_MINMEMBER_ANNOTATION_KEY));
+	}
+
+	@Test
+	public void testAnnotationsForPodGroupDisable() {
+		kubernetesTaskManagerParameters = new KubernetesTaskManagerParameters(
+			flinkConfig,
+			POD_NAME,
+			"",
+			containeredTaskManagerParameters,
+			5,
+			kubernetesTaskManagerParameters.getTaskManagerExternalResources());
+		flinkConfig.setString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS, KubernetesApplicationClusterEntrypoint.class.getName());
+		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_PODGROUP_ENABLE, false);
+		final Map<String, String> resultAnnotations = kubernetesTaskManagerParameters.getAnnotations();
+		assertNull(resultAnnotations.get(Constants.POD_GROUP_MINMEMBER_ANNOTATION_KEY));
+	}
+
+	@Test
+	public void testAnnotationsForPodGroupNotInApplicationMode() {
+		kubernetesTaskManagerParameters = new KubernetesTaskManagerParameters(
+			flinkConfig,
+			POD_NAME,
+			"",
+			containeredTaskManagerParameters,
+			5,
+			kubernetesTaskManagerParameters.getTaskManagerExternalResources());
+		flinkConfig.setString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS, KubernetesSessionClusterEntrypoint.class.getName());
+		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_PODGROUP_ENABLE, true);
+		final Map<String, String> resultAnnotations = kubernetesTaskManagerParameters.getAnnotations();
+		assertNull(resultAnnotations.get(Constants.POD_GROUP_MINMEMBER_ANNOTATION_KEY));
 	}
 
 	@Test

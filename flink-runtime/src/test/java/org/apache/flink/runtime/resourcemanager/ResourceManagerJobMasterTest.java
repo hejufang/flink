@@ -59,6 +59,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -202,6 +203,30 @@ public class ResourceManagerJobMasterTest extends TestLogger {
 			TIMEOUT);
 		RegistrationResponse response = successfulFuture.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
 		assertTrue(response instanceof JobMasterRegistrationSuccess);
+	}
+
+	/**
+	 * Test get min number of task manager from resource manager.
+	 */
+	@Test
+	public void testGetMinNumberWorker() throws Exception {
+		// test response successful
+		JobInfo jobInfo = new JobInfo(5, 5, 1);
+		CompletableFuture<RegistrationResponse> successfulFuture = resourceManagerGateway.registerJobManager(
+			jobMasterGateway.getFencingToken(),
+			jobMasterResourceId,
+			jobMasterGateway.getAddress(),
+			jobId,
+			jobInfo,
+			TIMEOUT);
+		RegistrationResponse response = successfulFuture.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
+		assertTrue(response instanceof JobMasterRegistrationSuccess);
+		assertEquals(6, resourceManager.getMinNumberOfTaskManagerForPodGroup());
+	}
+
+	@Test
+	public void testGetMinNumberWorkerWhenEmptyJobs() throws Exception {
+		assertEquals(0, resourceManager.getMinNumberOfTaskManagerForPodGroup());
 	}
 
 	/**

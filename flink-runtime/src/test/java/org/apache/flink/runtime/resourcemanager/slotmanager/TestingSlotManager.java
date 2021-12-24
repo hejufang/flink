@@ -76,6 +76,11 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
+	public int numTaskManagersNeedRequest() {
+		return 0;
+	}
+
+	@Override
 	public void initializeJobResources(JobID jobID, JobInfo jobInfo) {
 
 	}

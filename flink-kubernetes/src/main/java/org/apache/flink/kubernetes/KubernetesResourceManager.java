@@ -439,6 +439,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			podName,
 			dynamicProperties,
 			taskManagerParameters,
+			getMinNumberOfTaskManagerForPodGroup(),
 			ExternalResourceUtils.getExternalResources(flinkConfig, KubernetesConfigOptions.EXTERNAL_RESOURCE_KUBERNETES_CONFIG_KEY_SUFFIX));
 	}
 

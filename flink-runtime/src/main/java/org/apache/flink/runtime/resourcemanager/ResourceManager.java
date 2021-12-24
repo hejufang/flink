@@ -954,10 +954,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				jobManagerResourceId,
 				jobMasterGateway,
 				jobInfo);
-			slotManager.initializeJobResources(jobId, jobManagerRegistration.getJobInfo());
-			failureRater.onRequiredSlotNumChanged(jobInfo.getMinSlotsNum());
 			jobManagerRegistrations.put(jobId, jobManagerRegistration);
 			jmResourceIdRegistrations.put(jobManagerResourceId, jobManagerRegistration);
+			slotManager.initializeJobResources(jobId, jobManagerRegistration.getJobInfo());
+			failureRater.onRequiredSlotNumChanged(jobInfo.getMinSlotsNum());
 		}
 
 		log.info("Registered job manager {}@{} for job {}.", jobMasterGateway.getFencingToken(), jobManagerAddress, jobId);
@@ -1136,6 +1136,15 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		} else {
 			log.debug("There was no registered job manager for job {}.", jobId);
 		}
+	}
+
+	protected int getMinNumberOfTaskManagerForPodGroup(){
+		if (jobManagerRegistrations.size() != 1) {
+			log.error("Multiple job master found! This method might not be invoked in application mode");
+			// return 0 as default minimum number of task manager pod in pod group annotation
+			return 0;
+		}
+		return slotManager.numTaskManagersNeedRequest()	;
 	}
 
 	/**
