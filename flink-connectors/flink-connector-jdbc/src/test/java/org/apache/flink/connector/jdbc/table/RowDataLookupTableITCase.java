@@ -65,6 +65,7 @@ public class RowDataLookupTableITCase extends JdbcLookupTestBase {
 		expected.add("2,3,null,23-c2,true,12,12345,12345678,123.456,123.456789,123456789.9876543210,654.3209838867188,135.0000000000,ccccc,2021-12-06,20:12:35,2021-12-06T20:12:35");
 		expected.add("2,5,25-c1,25-c2,true,12,12345,12345678,123.456,123.456789,123456789.9876543210,654.3209838867188,135.0000000000,ddddd,2021-12-06,20:12:35,2021-12-06T20:12:35");
 		expected.add("3,8,38-c1,38-c2,true,12,12345,12345678,123.456,123.456789,123456789.9876543210,654.3209838867188,135.0000000000,eeeee,2021-12-06,20:12:35,2021-12-06T20:12:35");
+		expected.add("4,8,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null");
 		Collections.sort(expected);
 
 		assertEquals(expected, result);
@@ -90,7 +91,8 @@ public class RowDataLookupTableITCase extends JdbcLookupTestBase {
 			new Tuple2<>(2, "3"),
 			new Tuple2<>(2, "5"),
 			new Tuple2<>(3, "5"),
-			new Tuple2<>(3, "8")
+			new Tuple2<>(3, "8"),
+			new Tuple2<>(4, "8")
 		)), $("id1"), $("id2"), $("proctime").proctime());
 
 		tEnv.createTemporaryView("T", t);

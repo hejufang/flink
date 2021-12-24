@@ -28,9 +28,13 @@ import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Timestamp;
 
 /**
  * Utils for jdbc connectors.
@@ -246,7 +250,7 @@ public class JdbcUtils {
 			int type,
 			ResultSet set,
 			LogicalType logicalType) throws SQLException {
-		Object ret;
+		Object ret = null;
 		switch (type) {
 			case java.sql.Types.NULL:
 				ret = null;
@@ -260,7 +264,10 @@ public class JdbcUtils {
 			case java.sql.Types.VARCHAR:
 			case java.sql.Types.LONGVARCHAR:
 			case java.sql.Types.LONGNVARCHAR:
-				ret = StringData.fromString(set.getString(index + 1));
+				String str = set.getString(index + 1);
+				if (str != null) {
+					ret = StringData.fromString(str);
+				}
 				break;
 			case java.sql.Types.TINYINT:
 				ret = set.getByte(index + 1);
@@ -284,19 +291,31 @@ public class JdbcUtils {
 			case java.sql.Types.DECIMAL:
 			case java.sql.Types.NUMERIC:
 				DecimalType decimalType = (DecimalType) logicalType;
-				ret = DecimalData.fromBigDecimal(
-					set.getBigDecimal(index + 1),
-					decimalType.getPrecision(),
-					decimalType.getScale());
+				BigDecimal bigDecimal = set.getBigDecimal(index + 1);
+				if (bigDecimal != null) {
+					ret = DecimalData.fromBigDecimal(
+						bigDecimal,
+						decimalType.getPrecision(),
+						decimalType.getScale());
+				}
 				break;
 			case java.sql.Types.DATE:
-				ret = (int) set.getDate(index + 1).toLocalDate().toEpochDay();
+				Date date = set.getDate(index + 1);
+				if (date != null) {
+					ret = (int) date.toLocalDate().toEpochDay();
+				}
 				break;
 			case java.sql.Types.TIME:
-				ret = (int) (set.getTime(index + 1).toLocalTime().toNanoOfDay() / 1_000_000L);
+				Time time = set.getTime(index + 1);
+				if (time != null) {
+					ret = (int) (time.toLocalTime().toNanoOfDay() / 1_000_000L);
+				}
 				break;
 			case java.sql.Types.TIMESTAMP:
-				ret = TimestampData.fromTimestamp(set.getTimestamp(index + 1));
+				Timestamp timestamp = set.getTimestamp(index + 1);
+				if (timestamp != null) {
+					ret = TimestampData.fromTimestamp(timestamp);
+				}
 				break;
 			case java.sql.Types.BINARY:
 			case java.sql.Types.VARBINARY:
