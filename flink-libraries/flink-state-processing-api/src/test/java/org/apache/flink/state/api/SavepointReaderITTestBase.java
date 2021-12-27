@@ -174,6 +174,8 @@ public abstract class SavepointReaderITTestBase extends AbstractTestBase {
 		try {
 			JobSubmissionResult result = ClientUtils.submitJob(client, jobGraph);
 
+			client.waitAllTaskRunningOrClusterFailed(jobId, 60000).get(10, TimeUnit.SECONDS);
+
 			boolean finished = false;
 			while (deadline.hasTimeLeft()) {
 				if (SavepointSource.isFinished()) {

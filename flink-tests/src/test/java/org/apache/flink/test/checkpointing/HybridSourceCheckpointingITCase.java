@@ -55,6 +55,7 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -118,9 +119,8 @@ public class HybridSourceCheckpointingITCase extends AbstractTestBase {
 		ClusterClient<?> client = cluster.getClusterClient();
 		try {
 			ClientUtils.submitJob(client, jobGraph);
-
 			// wait task deploy
-			Thread.sleep(1000);
+			client.waitAllTaskRunningOrClusterFailed(jobId, 60000).get(10, TimeUnit.SECONDS);
 			// trigger savepoint before bounded task finish.
 			// will return CheckpointException with Not all required tasks are in right state.
 			try {
@@ -253,7 +253,7 @@ public class HybridSourceCheckpointingITCase extends AbstractTestBase {
 				index = getRuntimeContext().getIndexOfThisSubtask();
 			}
 
-			while (isRunning && index < numElements) {
+			while (isRunning) {
 				char first = (char) ((index % 40) + 40);
 
 				stringBuilder.setLength(0);

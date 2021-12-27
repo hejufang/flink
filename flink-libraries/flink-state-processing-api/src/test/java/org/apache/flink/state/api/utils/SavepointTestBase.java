@@ -63,15 +63,8 @@ public abstract class SavepointTestBase extends AbstractTestBase {
 		try {
 			JobSubmissionResult result = ClientUtils.submitJob(client, jobGraph);
 
-			return CompletableFuture
-				.runAsync(waitingSource::awaitSource)
-				.thenRunAsync(() -> {
-					try {
-						Thread.sleep(100L);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-				})
+			return client.waitAllTaskRunningOrClusterFailed(result.getJobID(), 60000)
+				.thenRunAsync(waitingSource::awaitSource)
 				.thenCompose(ignore -> triggerSavepoint(client, result.getJobID()))
 				.get(5, TimeUnit.MINUTES);
 		} catch (Exception e) {
