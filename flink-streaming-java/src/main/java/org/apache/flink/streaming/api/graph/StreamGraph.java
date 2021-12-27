@@ -627,24 +627,30 @@ public class StreamGraph implements Pipeline {
 	}
 
 	/**
-	 * Set parallelism of the node and also update all in and out edges, as the {@link StreamPartitioner}
+	 * Called after update parallelism of stream nodes to update all in and out edges, as the {@link StreamPartitioner}
 	 * of edges may change as well.
 	 */
-	public void setParallelismAndUpdateEdges(Integer vertexID, int parallelism) {
-		StreamNode node = getStreamNode(vertexID);
-		if (node != null) {
-			node.setParallelism(parallelism);
-			for (StreamEdge inEdge: node.getInEdges()) {
-				updatePartitionerOfEdge(inEdge);
-			}
-			for (StreamEdge outEdge: node.getOutEdges()) {
-				updatePartitionerOfEdge(outEdge);
+	private void updateEdgesForStreamNodes(Collection<Integer> nodeIndices) {
+		for (Integer vertexID: nodeIndices) {
+			StreamNode node = getStreamNode(vertexID);
+			if (node != null) {
+				for (StreamEdge inEdge: node.getInEdges()) {
+					updatePartitionerOfEdge(inEdge);
+				}
+				for (StreamEdge outEdge: node.getOutEdges()) {
+					updatePartitionerOfEdge(outEdge);
+				}
 			}
 		}
 	}
 
+	/**
+	 * Update the partitioner of edge.
+	 * Currently, only {@link ForwardPartitioner}, {@link RebalancePartitioner} and
+	 * {@link RescalePartitioner} should be updated after changing the parallelism of
+	 * {@link StreamNode}.
+	 */
 	private void updatePartitionerOfEdge(StreamEdge edge) {
-		// Only FORWARD edge should be update after the parallelism being reset.
 		if (edge.getPartitioner() instanceof ForwardPartitioner) {
 			StreamNode upstreamNode = getStreamNode(edge.getSourceId());
 			StreamNode downstreamNode = getStreamNode(edge.getTargetId());
@@ -659,6 +665,13 @@ public class StreamGraph implements Pipeline {
 			// As the up and down stream node use the same edge object. See details in #addEdgeInternal
 			// We can just update the edge from one side.
 			edge.setPartitioner(newPartitioner);
+		} else if (edge.getPartitioner() instanceof RebalancePartitioner
+				|| edge.getPartitioner() instanceof RescalePartitioner) {
+			StreamNode upstreamNode = getStreamNode(edge.getSourceId());
+			StreamNode downstreamNode = getStreamNode(edge.getTargetId());
+			if (upstreamNode.getParallelism() == downstreamNode.getParallelism()) {
+				edge.setPartitioner(new ForwardPartitioner<>());
+			}
 		}
 	}
 
@@ -1096,6 +1109,7 @@ public class StreamGraph implements Pipeline {
 				visited.add(sourceNodeId);
 			}
 
+			Set<Integer> parallelismChangedNodes = new HashSet<>();
 			StreamNode currentNode;
 			while ((currentNode = remaining.poll()) != null) {
 				String operatorID = StringUtils.byteToHexString(hashes.get(currentNode.getId()));
@@ -1105,7 +1119,8 @@ public class StreamGraph implements Pipeline {
 						+ currentNode.toString());
 				}
 				if (currentNode.getParallelism() != jsonGraphNode.getParallelism()) {
-					streamGraph.setParallelismAndUpdateEdges(currentNode.getId(), jsonGraphNode.getParallelism());
+					streamGraph.setParallelism(currentNode.getId(), jsonGraphNode.getParallelism());
+					parallelismChangedNodes.add(currentNode.getId());
 				}
 				String userProvidedHash = jsonGraphNode.getUserProvidedHash();
 				if (null != userProvidedHash) {
@@ -1120,6 +1135,7 @@ public class StreamGraph implements Pipeline {
 					}
 				}
 			}
+			streamGraph.updateEdgesForStreamNodes(parallelismChangedNodes);
 		}
 
 		/**
@@ -1157,12 +1173,13 @@ public class StreamGraph implements Pipeline {
 			ObjectMapper mapper = new ObjectMapper();
 			mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
 			Set<Integer> editedNodes = new HashSet<>();
+			Set<Integer> parallelismChangedNodes = new HashSet<>();
 			if (isIsomorphic) {
 				// When two graphs are isomorphic, nodes will be matched according to nodeDescs.
 				for (StreamNode newNode: streamGraph.getStreamNodes()) {
 					String generatedHash = StringUtils.byteToHexString(generatedHashes.get(newNode.getId()));
 					PlanGraph.StreamGraphVertex oldNode = oldStreamNodeMap.get(generatedHash);
-					applyPropertiesToStreamNode(streamGraph, newNode, oldNode, editedNodes);
+					applyPropertiesToStreamNode(streamGraph, newNode, oldNode, editedNodes, parallelismChangedNodes);
 				}
 			} else {
 				// When two graphs aren't isomorphic, nodes will be matched according to algorithm below
@@ -1172,7 +1189,8 @@ public class StreamGraph implements Pipeline {
 					List<PlanGraph.StreamGraphVertex> oldList = oldNameNodeMap.get(entry.getKey());
 					if (oldList != null) {
 						if (entry.getValue().size() == 1 && oldList.size() == 1) {
-							applyPropertiesToStreamNode(streamGraph, entry.getValue().get(0), oldList.get(0), editedNodes);
+							applyPropertiesToStreamNode(
+								streamGraph, entry.getValue().get(0), oldList.get(0), editedNodes, parallelismChangedNodes);
 						} else {
 							Set<String> matchedOldHashes = new HashSet<>();
 							Set<Integer> matchedNewIDs = new HashSet<>();
@@ -1191,7 +1209,8 @@ public class StreamGraph implements Pipeline {
 								PlanGraph.StreamGraphVertex oldNode = candidatePair.f2;
 								if (!matchedNewIDs.contains(newNode.getId()) &&
 										!matchedOldHashes.contains(oldNode.getNodeDesc())) {
-									applyPropertiesToStreamNode(streamGraph, newNode, oldNode, editedNodes);
+									applyPropertiesToStreamNode(
+										streamGraph, newNode, oldNode, editedNodes, parallelismChangedNodes);
 									matchedNewIDs.add(newNode.getId());
 									matchedOldHashes.add(oldNode.getNodeDesc());
 								}
@@ -1200,6 +1219,7 @@ public class StreamGraph implements Pipeline {
 					}
 				}
 			}
+			streamGraph.updateEdgesForStreamNodes(parallelismChangedNodes);
 			streamGraph.setUserProvidedHashInvolved(true);
 			JobGraph jobGraph = streamGraph.getJobGraph();
 			PlanJSONGenerator planJSONGenerator = new PlanJSONGenerator(streamGraph, jobGraph, editedNodes, generatedHashes);
@@ -1222,7 +1242,8 @@ public class StreamGraph implements Pipeline {
 				StreamGraph newStreamGraph,
 				StreamNode newNode,
 				PlanGraph.StreamGraphVertex oldNode,
-				Set<Integer> editedNodes) {
+				Set<Integer> editedNodes,
+				Set<Integer> parallelismChangedNodes) {
 			boolean edited = false;
 			if (oldNode.getUserProvidedHash() != null) {
 				newNode.setUserHash(oldNode.getUserProvidedHash());
@@ -1235,7 +1256,8 @@ public class StreamGraph implements Pipeline {
 				edited = true;
 			}
 			if (newNode.getParallelism() != oldNode.getParallelism()) {
-				newStreamGraph.setParallelismAndUpdateEdges(newNode.getId(), oldNode.getParallelism());
+				newStreamGraph.setParallelism(newNode.getId(), oldNode.getParallelism());
+				parallelismChangedNodes.add(newNode.getId());
 				edited = true;
 			}
 			if (edited) {
