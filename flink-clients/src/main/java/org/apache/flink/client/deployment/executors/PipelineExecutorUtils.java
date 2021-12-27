@@ -74,8 +74,8 @@ public class PipelineExecutorUtils {
 		jobGraph.addJars(executionConfigAccessor.getJars());
 		jobGraph.setClasspaths(executionConfigAccessor.getClasspaths());
 		jobGraph.setSavepointRestoreSettings(executionConfigAccessor.getSavepointRestoreSettings());
-		// reconfigure savepoint restore settings
-		CheckpointConfig.reconfigureLatestSnapshot(jobGraph, configuration);
+		// reconfigure snapshot restore settings
+		CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
 
 		return jobGraph;
 	}

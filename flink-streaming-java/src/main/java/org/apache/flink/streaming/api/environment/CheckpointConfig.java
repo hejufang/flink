@@ -636,18 +636,54 @@ public class CheckpointConfig implements java.io.Serializable {
 			.ifPresent(this::enableUnalignedCheckpoints);
 	}
 
-	public static void reconfigureLatestSnapshot(JobGraph jobGraph, final Configuration configuration) throws IOException {
-		if (RESTORE_FROM_LATEST.equals(jobGraph.getSavepointRestoreSettings().getRestorePath()) && jobGraph.getCheckpointingSettings() != null) {
-			Tuple2<String, Boolean> latestSnapshotPathAndNamespaceEmpty = findLatestSnapshotCrossNamespaces(configuration, jobGraph.getJobUID());
-			boolean needResetSavepointSettings = latestSnapshotPathAndNamespaceEmpty.f1;
-			String latestSnapshotPath = latestSnapshotPathAndNamespaceEmpty.f0;
-			if (needResetSavepointSettings && latestSnapshotPath != null) {
-				SavepointRestoreSettings savepointRestoreSettings = SavepointRestoreSettings.forPath(latestSnapshotPath, jobGraph.getSavepointRestoreSettings().allowNonRestoredState());
+	public static void reconfigureRestoreFromSnapshot(JobGraph jobGraph, final Configuration configuration) throws IOException {
+		setUpNewSnapshotFeature(configuration);
+
+		final String savepointPath = configuration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
+		if (jobGraph.getCheckpointingSettings() != null) {
+			if (RESTORE_FROM_LATEST.equals(savepointPath)) {
+				Tuple2<String, Boolean> latestSnapshotPathAndNamespaceEmpty = findLatestSnapshotCrossNamespaces(configuration, jobGraph.getJobUID());
+				boolean needResetSavepointSettings = latestSnapshotPathAndNamespaceEmpty.f1;
+				String latestSnapshotPath = latestSnapshotPathAndNamespaceEmpty.f0;
+				if (needResetSavepointSettings && latestSnapshotPath != null) {
+					SavepointRestoreSettings savepointRestoreSettings = SavepointRestoreSettings.forPath(latestSnapshotPath, configuration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE));
+					jobGraph.setSavepointRestoreSettings(savepointRestoreSettings);
+				} else {
+					// clean the 'latest' savepoint path settings
+					jobGraph.setSavepointRestoreSettings(SavepointRestoreSettings.none());
+				}
+			} else if (savepointPath != null && !RESTORE_FROM_LATEST.equals(savepointPath)) {
+				SavepointRestoreSettings savepointRestoreSettings = SavepointRestoreSettings.forPath(savepointPath, configuration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE));
 				jobGraph.setSavepointRestoreSettings(savepointRestoreSettings);
 			} else {
-				// clean the 'latest' savepoint path settings
-				jobGraph.setSavepointRestoreSettings(SavepointRestoreSettings.none());
+				LOG.info("checkpoint.restore-savepoint-path is not set.");
 			}
+		}
+	}
+
+	private static void setUpNewSnapshotFeature(Configuration configuration) {
+		if (configuration.contains(CheckpointingOptions.CHECKPOINTS_NAMESPACE)) {
+			if (configuration.contains(CheckpointingOptions.SNAPSHOT_NAMESPACE)) {
+				// disable new feature if user sets state.checkpoints.namespace
+				configuration.removeConfig(CheckpointingOptions.SNAPSHOT_NAMESPACE);
+				if (RESTORE_FROM_LATEST.equals(configuration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH))) {
+					configuration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
+				}
+			}
+			return;
+		}
+
+		if (configuration.contains(CheckpointingOptions.RESTORE_SAVEPOINT_PATH)) {
+			final String savepointPath = configuration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
+			if (savepointPath.equals(RESTORE_FROM_LATEST) && !configuration.contains(CheckpointingOptions.SNAPSHOT_NAMESPACE)) {
+				// not illegal if restore from latest but snapshot.namespace is null
+				throw new IllegalStateException("Dorado should set snapshot.namespace when restoring from latest snapshot.");
+			}
+		}
+
+		final String snapshotNamespace = configuration.getString(CheckpointingOptions.SNAPSHOT_NAMESPACE);
+		if (snapshotNamespace != null) {
+			configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, snapshotNamespace);
 		}
 	}
 
@@ -655,9 +691,6 @@ public class CheckpointConfig implements java.io.Serializable {
 		Configuration configuration,
 		String jobUID) throws IOException {
 
-		if (configuration.get(CheckpointingOptions.SNAPSHOT_NAMESPACE) == null) {
-			throw new IllegalStateException(String.format("Illegal dynamic parameters: snapshot.namespace is null and restore path is 'latest'"));
-		}
 		JobID jobID = JobID.generate();
 		final String namespace = configuration.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
 

@@ -33,6 +33,7 @@ import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointStorage;
 
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -41,9 +42,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
 
-import static org.apache.flink.streaming.api.environment.CheckpointConfig.RESTORE_FROM_LATEST;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 
 /**
  * Tests for finding latest snapshot {@link CheckpointConfig}.
@@ -53,18 +52,135 @@ public class CheckpointConfigFindLatestSnapshotTest {
 	public final TemporaryFolder tmp = new TemporaryFolder();
 
 	@Test
-	public void testReconfigureLatestSnapshot() throws IOException {
-		String jobName = "jname";
-		String jobUID = jobName;
-		long checkpointInterval = 30000L;
-		String namespace = "ns";
-		String statebackend = "filesystem";
-		String emptyNamespace = "emptyns";
+	public void testUserDefinedCheckpointsNamespace() throws IOException {
+		JobGraph jobGraph = new JobGraph("test-job");
+		Configuration configuration = new Configuration();
+		configuration.set(CheckpointingOptions.CHECKPOINTS_NAMESPACE, "ns");
+		configuration.set(CheckpointingOptions.SNAPSHOT_NAMESPACE, "sn");
+		configuration.set(CheckpointingOptions.RESTORE_SAVEPOINT_PATH, "latest");
+		CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
+
+		Assert.assertEquals("ns", configuration.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE));
+		Assert.assertTrue(!configuration.contains(CheckpointingOptions.SNAPSHOT_NAMESPACE) && !configuration.contains(CheckpointingOptions.RESTORE_SAVEPOINT_PATH));
+	}
+
+	@Test
+	public void testSetUpNewSnapshotFeature() throws IOException {
+		JobGraph jobGraph = new JobGraph("test-job");
+		Configuration configuration = new Configuration();
+		configuration.set(CheckpointingOptions.SNAPSHOT_NAMESPACE, "snapshot_namespace");
+		configuration.set(CheckpointingOptions.RESTORE_SAVEPOINT_PATH, "latest");
+		CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
+
+		Assert.assertEquals("snapshot_namespace", configuration.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE));
+	}
+
+	@Test
+	public void testReconfigureRestorFromSnapshotOnSameNamespace() throws IOException {
+		String jobUID = "jname";
 		boolean allowNonRestoredState = false;
 		URI checkpointURI = tmp.newFolder().toURI();
 
+		final JobGraph jobGraph = buildJobGraph(jobUID);
+		final CheckpointStorageLocation location = buildCheckpointsInDir(checkpointURI.toString(), jobUID, "checkpoint-namespace");
+
+		Configuration configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, "checkpoint-namespace");
+		configuration.setString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH, "latest");
+		configuration.set(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
+
+		assertEquals(SavepointRestoreSettings.none(), jobGraph.getSavepointRestoreSettings());
+	}
+
+	@Test
+	public void testReconfigureRestorFromSnapshotOnDifferentNamespace() throws IOException {
+		String jobUID = "jname";
+		boolean allowNonRestoredState = true;
+		URI checkpointURI = tmp.newFolder().toURI();
+
+		final JobGraph jobGraph = buildJobGraph(jobUID);
+		final CheckpointStorageLocation location = buildCheckpointsInDir(checkpointURI.toString(), jobUID, "checkpoint-namespace");
+
+		Configuration configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, "snapshot-namespace");
+		configuration.setString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH, "latest");
+		configuration.setBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE, allowNonRestoredState);
+		configuration.set(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
+
+		// 'latest' is replaced by the actual checkpoint directory path
+		assertEquals(location.getMetadataFilePath().getParent().toString(), jobGraph.getSavepointRestoreSettings().getRestorePath());
+		assertEquals(allowNonRestoredState, jobGraph.getSavepointRestoreSettings().allowNonRestoredState());
+	}
+
+	@Test
+	public void testReconfigureRestorFromSnapshotOnNullRestorePath() throws IOException {
+		String jobUID = "jname";
+		URI checkpointURI = tmp.newFolder().toURI();
+
+		final JobGraph jobGraph = buildJobGraph(jobUID);
+		final CheckpointStorageLocation location = buildCheckpointsInDir(checkpointURI.toString(), jobUID, "checkpoint-namespace");
+
+		Configuration configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, "snapshot-namespace");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, "checkpoint-namespace");
+		configuration.set(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
+
+		// no restore-path settings
+		assertEquals(SavepointRestoreSettings.none(), jobGraph.getSavepointRestoreSettings());
+	}
+
+	@Test
+	public void testReconfigureRestorFromSnapshotOnSpecifiedSnapshotPath() throws IOException {
+		String jobUID = "jname";
+		URI checkpointURI = tmp.newFolder().toURI();
+		URI savepointURI = tmp.newFolder().toURI();
+
+		final JobGraph jobGraph = buildJobGraph(jobUID);
+		final CheckpointStorageLocation location = buildCheckpointsInDir(checkpointURI.toString(), jobUID, "checkpoint-namespace");
+
+		Configuration configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, "snapshot-namespace");
+		configuration.setString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH, savepointURI.toString());
+		configuration.set(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
+
+		// specified restore-path settings
+		assertEquals(savepointURI.toString(), jobGraph.getSavepointRestoreSettings().getRestorePath());
+		assertEquals(false, jobGraph.getSavepointRestoreSettings().allowNonRestoredState());
+	}
+
+	@Test
+	public void testReconfigureRestorFromSnapshotOnDisableCheckpointing() throws IOException {
+		String jobUID = "jname";
+
+		final JobGraph jobGraph = buildJobGraphOnDisableCheckpointing(jobUID);
+
+		Configuration configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, "snapshot-namespace");
+		configuration.setString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH, "latest");
+		configuration.set(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
+
+		// disable checkpionting
+		assertEquals(SavepointRestoreSettings.none(), jobGraph.getSavepointRestoreSettings());
+	}
+
+	private JobGraph buildJobGraphOnDisableCheckpointing(String jobUID) {
+		JobGraph jobGraph = new JobGraph(jobUID);
+		jobGraph.setJobUID(jobUID);
+		return jobGraph;
+	}
+
+	private JobGraph buildJobGraph(String jobUID) {
 		final CheckpointCoordinatorConfiguration checkpointCoordinatorConfiguration = new CheckpointCoordinatorConfiguration(
-			checkpointInterval,
+			10L,
 			Long.MAX_VALUE,
 			Long.MAX_VALUE,
 			Integer.MAX_VALUE,
@@ -79,33 +195,27 @@ public class CheckpointConfigFindLatestSnapshotTest {
 			Collections.emptyList(),
 			checkpointCoordinatorConfiguration,
 			null);
-		JobGraph jobGraph = new JobGraph(jobName);
+		JobGraph jobGraph = new JobGraph(jobUID);
 		jobGraph.setJobUID(jobUID);
-		jobGraph.setSavepointRestoreSettings(SavepointRestoreSettings.forPath(RESTORE_FROM_LATEST, allowNonRestoredState));
 		jobGraph.setSnapshotSettings(settings);
+		return jobGraph;
+	}
+
+	private CheckpointStorageLocation buildCheckpointsInDir(String checkpointsDir, String jobUID, String namespace) throws IOException {
 		Configuration configuration = new Configuration();
-		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, namespace);
-		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, namespace);
-		configuration.setString(CheckpointingOptions.STATE_BACKEND, statebackend);
-		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		configuration.set(CheckpointingOptions.CHECKPOINTS_NAMESPACE, namespace);
+		configuration.set(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointsDir);
+
 		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 		StateBackend stateBackend = Checkpoints.loadStateBackend(configuration, classLoader, null);
-		FsCheckpointStorage storageOld = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
-		// create chk-1 in checkpoint dir
-		CheckpointStorageLocation location = storageOld.initializeLocationForCheckpoint(1L);
+		FsCheckpointStorage storage = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
 
+		CheckpointStorageLocation location = storage.initializeLocationForCheckpoint(1L);
 		try (CheckpointMetadataOutputStream out = location.createMetadataOutputStream()) {
 			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
 			out.closeAndFinalizeCheckpoint();
 		}
-		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, emptyNamespace);
-		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, emptyNamespace);
-
-		CheckpointConfig.reconfigureLatestSnapshot(jobGraph, configuration);
-
-		// 'latest' is replaced by the actual checkpoint directory path
-		assertFalse(RESTORE_FROM_LATEST.equals(jobGraph.getSavepointRestoreSettings().getRestorePath()));
-		assertEquals(location.getMetadataFilePath().getParent().toString(), jobGraph.getSavepointRestoreSettings().getRestorePath());
-		assertEquals(allowNonRestoredState, jobGraph.getSavepointRestoreSettings().allowNonRestoredState());
+		return location;
 	}
 }

@@ -55,10 +55,7 @@ import org.apache.flink.event.CompoundRecorder;
 import org.apache.flink.event.MetricEventRecorder;
 import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
-import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
-import org.apache.flink.runtime.checkpoint.metadata.savepoint.SavepointSimpleMetadata;
 import org.apache.flink.runtime.client.JobStatusMessage;
-import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.MetricRegistryConfiguration;
@@ -68,12 +65,8 @@ import org.apache.flink.runtime.metrics.groups.ClientMetricGroup;
 import org.apache.flink.runtime.metrics.util.MetricUtils;
 import org.apache.flink.runtime.security.SecurityConfiguration;
 import org.apache.flink.runtime.security.SecurityUtils;
-import org.apache.flink.runtime.state.CheckpointMetadataOutputStream;
 import org.apache.flink.runtime.state.CheckpointStorage;
-import org.apache.flink.runtime.state.CheckpointStorageLocation;
-import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.StateBackend;
-import org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.ZooKeeperUtils;
 import org.apache.flink.util.ExceptionUtils;
@@ -88,7 +81,6 @@ import org.apache.flink.shaded.org.apache.commons.cli.Options;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -117,7 +109,6 @@ import java.util.stream.Collectors;
 
 import static org.apache.flink.client.cli.CliFrontendParser.HELP_OPTION;
 import static org.apache.flink.configuration.DeploymentOptions.RUN_WITH_CHECKPOINT_VERIFY;
-import static org.apache.flink.streaming.api.environment.CheckpointConfig.RESTORE_FROM_LATEST;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -247,23 +238,8 @@ public class CliFrontend {
 		final Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, Collections.singletonList(uri.toString()));
 
-		replaceCheckpointNamepsaceWithSnapshotNamespace(effectiveConfiguration);
 		setEffectiveJobNameAndJobUID(effectiveConfiguration);
-		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
-		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
-			String savepointPath = effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
-			programOptions.setSavepointSettings(
-				savepointPath,
-				effectiveConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE)
-			);
-			// pass savepoint settings to jobGraph through the updated programOptions
-			SavepointRestoreSettings.toConfiguration(programOptions.getSavepointRestoreSettings(), effectiveConfiguration);
-			// remove this config in case of JM failover
-			effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
-			if (!RESTORE_FROM_LATEST.equals(savepointPath)) {
-				initializeCheckpointNamespaceDirectory(effectiveConfiguration, jobUID, savepointPath);
-			}
-		}
+
 		final ApplicationConfiguration applicationConfiguration =
 				new ApplicationConfiguration(programOptions.getProgramArgs(), programOptions.getEntryPointClassName());
 		// initialize file system again because client will pass some parameter via command arguments
@@ -307,23 +283,7 @@ public class CliFrontend {
 		final Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, jobJars);
 
-		replaceCheckpointNamepsaceWithSnapshotNamespace(effectiveConfiguration);
 		setEffectiveJobNameAndJobUID(effectiveConfiguration);
-		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
-		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
-			String savepointPath = effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
-			programOptions.setSavepointSettings(
-				effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH),
-				effectiveConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE)
-			);
-			// pass savepoint settings to jobGraph through the updated programOptions
-			SavepointRestoreSettings.toConfiguration(programOptions.getSavepointRestoreSettings(), effectiveConfiguration);
-			// remove this config in case of JM failover
-			effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
-			if (!RESTORE_FROM_LATEST.equals(savepointPath)) {
-				initializeCheckpointNamespaceDirectory(effectiveConfiguration, jobUID, savepointPath);
-			}
-		}
 
 		LOG.debug("Effective executor configuration: {}", effectiveConfiguration);
 
@@ -1004,7 +964,6 @@ public class CliFrontend {
 
 		final Configuration effectiveConfiguration = activeCommandLine.getEffectiveConfiguration(commandLine);
 
-		replaceCheckpointNamepsaceWithSnapshotNamespace(effectiveConfiguration);
 		setEffectiveJobNameAndJobUID(effectiveConfiguration);
 		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
 		if (checkpointOptions.isAnalyzation()) {
@@ -1055,57 +1014,6 @@ public class CliFrontend {
 			if (program != null) {
 				program.deleteExtractedLibraries();
 			}
-		}
-	}
-
-	private void initializeCheckpointNamespaceDirectory(
-		Configuration effectiveConfiguration,
-		String jobUID,
-		String savepointPath) throws Exception {
-
-		JobID jobID = JobID.generate();
-
-		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-		StateBackend stateBackend = Checkpoints.loadStateBackend(effectiveConfiguration, classLoader, LOG);
-		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobUID);
-
-		Integer size = checkpointStorage.findCompletedCheckpointPointerV2().size();
-		if (size > 0) {
-			if (effectiveConfiguration.get(CheckpointingOptions.SNAPSHOT_NAMESPACE) == null) {
-				final String namespace = effectiveConfiguration.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
-				throw new IllegalStateException(String.format("Namespace %s exists! Please switch to a new namespace.", namespace));
-			}
-		} else {
-			CheckpointMetadata savepointMeta = loadSavepointMetadata(savepointPath);
-
-			CheckpointStorageLocation savepointMetaInCheckpointDirLocation = checkpointStorage.initializeLocationForSavepointMetaInCheckpointDir(savepointMeta.getCheckpointId());
-
-			LOG.info("Write savepoint metadata in {} and refer to {}.",
-				savepointMetaInCheckpointDirLocation.getMetadataFilePath().getPath(), savepointPath);
-			try (CheckpointMetadataOutputStream out = savepointMetaInCheckpointDirLocation.createMetadataOutputStream()) {
-				Checkpoints.storeSavepointSimpleMetadata(new SavepointSimpleMetadata(savepointMeta.getCheckpointId(), savepointPath), out);
-				out.closeAndFinalizeCheckpoint();
-			}
-		}
-		// clear checkpoints on zookeeper.
-//		ZooKeeperUtils.clearCheckpoints(effectiveConfiguration, jobID, jobName, -1);
-//
-//		// rename namespace directory so that checkpoints will restore from savepoint
-//		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-//		StateBackend stateBackend = Checkpoints.loadStateBackend(effectiveConfiguration, classLoader, LOG);
-//		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobName);
-//
-//		final String targetNamespace = configuration.getString(CheckpointingOptions.CHECKPOINTS_NAMESPACE) + "_" + System.currentTimeMillis();
-//		LOG.info("Rename the old checkpoint namespace to {}", targetNamespace);
-//		checkpointStorage.renameNamespaceDirectory(targetNamespace);
-	}
-
-	private CheckpointMetadata loadSavepointMetadata(String savepointPath) throws IOException {
-		CompletedCheckpointStorageLocation location = AbstractFsCheckpointStorage
-			.resolveCheckpointPointer(savepointPath);
-
-		try (DataInputStream stream = new DataInputStream(location.getMetadataHandle().openInputStream())) {
-			return Checkpoints.loadCheckpointMetadata(stream, Thread.currentThread().getContextClassLoader(), savepointPath);
 		}
 	}
 
@@ -1334,17 +1242,6 @@ public class CliFrontend {
 				configuration.setString(PipelineOptions.JOB_UID, effectiveJobName);
 				LOG.info("JobUID is not set, set it to jobName for backward-compatibility, jobName: {}, jobUID: {}", effectiveJobName, configuration.getString(PipelineOptions.JOB_UID));
 			}
-		}
-	}
-
-	/**
-	 * If snapshot.namespace is set, replace state.checkpoints.namespace with snapshot.namespace for snapshot.namespace has higher priority.
-	 * @param configuration effective configuration for running commands
-	 */
-	private void replaceCheckpointNamepsaceWithSnapshotNamespace(Configuration configuration) {
-		final String snapshotNamespace = configuration.getString(CheckpointingOptions.SNAPSHOT_NAMESPACE);
-		if (snapshotNamespace != null) {
-			configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, snapshotNamespace);
 		}
 	}
 

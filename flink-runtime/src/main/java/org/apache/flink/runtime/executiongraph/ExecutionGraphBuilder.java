@@ -485,7 +485,7 @@ public class ExecutionGraphBuilder {
 			);
 			chkConfig.setDiscardHistoricalCheckpointConfiguration(discardHistoricalCheckpointConfiguration);
 
-			String namespace = jobManagerConfig.getString(CheckpointingOptions.SNAPSHOT_NAMESPACE);
+			String namespace = jobManagerConfig.getString(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
 
 			executionGraph.enableCheckpointing(
 				namespace,

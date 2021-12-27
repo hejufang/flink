@@ -1580,88 +1580,85 @@ public class CheckpointCoordinator {
 			}
 
 			CompletedCheckpoint latest;
-			if (!fromSavepoint) {
-				List<CompletedCheckpoint> oriCompletedCheckpoints = completedCheckpointStore.getAllCheckpoints();
 
-				// Recover the checkpoints, TODO this could be done only when there is a new leader, not on each recovery
-				completedCheckpointStore.recover();
+			List<CompletedCheckpoint> oriCompletedCheckpoints = completedCheckpointStore.getAllCheckpoints();
 
-				/* ---------------- DC Failure Tolerance ---------------- */
+			// Recover the checkpoints, TODO this could be done only when there is a new leader, not on each recovery
+			completedCheckpointStore.recover();
 
-				final Set<CompletedCheckpoint> checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(
-					tasks, allowNonRestoredState, fromStorage, userClassLoader);
-				LOG.info("Find {} checkpoints {} on HDFS.", checkpointsOnStorage.size(),
-						checkpointsOnStorage.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()));
-				final Set<Long> checkpointsOnStore = completedCheckpointStore.getAllCheckpoints()
-					.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet());
-				final Set<CompletedCheckpoint> extraCheckpoints = new HashSet<>();
-				for (CompletedCheckpoint checkpoint : checkpointsOnStorage) {
-					if (!checkpointsOnStore.contains(checkpoint.getCheckpointID())) {
-						extraCheckpoints.add(checkpoint);
-					}
+			/* ---------------- DC Failure Tolerance ---------------- */
+
+			final Set<CompletedCheckpoint> checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(
+				tasks, allowNonRestoredState, fromStorage, userClassLoader);
+			LOG.info("Find {} checkpoints {} on HDFS.", checkpointsOnStorage.size(),
+					checkpointsOnStorage.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()));
+			final Set<Long> checkpointsOnStore = completedCheckpointStore.getAllCheckpoints()
+				.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet());
+			final Set<CompletedCheckpoint> extraCheckpoints = new HashSet<>();
+			for (CompletedCheckpoint checkpoint : checkpointsOnStorage) {
+				if (!checkpointsOnStore.contains(checkpoint.getCheckpointID())) {
+					extraCheckpoints.add(checkpoint);
 				}
+			}
 
-				long latestCheckpointIdOnStore = checkpointsOnStore.stream().max(Long::compareTo).orElse(-1L);
-				long latestCheckpointIdOnStorage = checkpointsOnStorage.stream().map(CompletedCheckpoint::getCheckpointID).max(Long::compareTo).orElse(-1L);
+			long latestCheckpointIdOnStore = checkpointsOnStore.stream().max(Long::compareTo).orElse(-1L);
+			long latestCheckpointIdOnStorage = checkpointsOnStorage.stream().map(CompletedCheckpoint::getCheckpointID).max(Long::compareTo).orElse(-1L);
 
-				// checkpoints on HDFS but not on zookeeper!!!
-				LOG.info("There are {} checkpoints are on HDFS but not on Zookeeper.", extraCheckpoints.size());
-				if (extraCheckpoints.size() > 0) {
-					final List<CompletedCheckpoint> extraCheckpointsSortedList = new ArrayList<>(extraCheckpoints);
-					extraCheckpointsSortedList.sort((o1, o2) -> new Long(o1.getCheckpointID() - o2.getCheckpointID()).intValue());
-					for (CompletedCheckpoint checkpoint : extraCheckpointsSortedList) {
-						completedCheckpointStore.addCheckpointInOrder(checkpoint);
-					}
+			// checkpoints on HDFS but not on zookeeper!!!
+			LOG.info("There are {} checkpoints are on HDFS but not on Zookeeper.", extraCheckpoints.size());
+			if (extraCheckpoints.size() > 0) {
+				final List<CompletedCheckpoint> extraCheckpointsSortedList = new ArrayList<>(extraCheckpoints);
+				extraCheckpointsSortedList.sort((o1, o2) -> new Long(o1.getCheckpointID() - o2.getCheckpointID()).intValue());
+				for (CompletedCheckpoint checkpoint : extraCheckpointsSortedList) {
+					completedCheckpointStore.addCheckpointInOrder(checkpoint);
 				}
+			}
 
-				/* ---------------- DC Failure Tolerance --------------------- */
+			/* ---------------- DC Failure Tolerance --------------------- */
 
-				// Only re-register shared state when the CompletedCheckpointStore changes.
-				List<CompletedCheckpoint> curCompletedCheckpoints = completedCheckpointStore.getAllCheckpoints();
-				if (!ListUtils.isEqualList(oriCompletedCheckpoints, curCompletedCheckpoints)) {
-					LOG.info("The completed checkpoint store has changed, and the shared state needs to be re-registered. " +
-							"Previous checkpoints are {}, restored checkpoints are: {}.",
-						oriCompletedCheckpoints.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()),
-						curCompletedCheckpoints.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()));
-					// We create a new shared state registry object, so that all pending async disposal requests from previous
-					// runs will go against the old object (were they can do no harm).
-					// This must happen under the checkpoint lock.
-					sharedStateRegistry.close();
-					sharedStateRegistry = sharedStateRegistryFactory.create(executor);
+			// Only re-register shared state when the CompletedCheckpointStore changes.
+			List<CompletedCheckpoint> curCompletedCheckpoints = completedCheckpointStore.getAllCheckpoints();
+			if (!ListUtils.isEqualList(oriCompletedCheckpoints, curCompletedCheckpoints) || fromSavepoint) {
+				LOG.info("The completed checkpoint store has changed, and the shared state needs to be re-registered. " +
+						"Previous checkpoints are {}, restored checkpoints are: {}.",
+					oriCompletedCheckpoints.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()),
+					curCompletedCheckpoints.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()));
+				// We create a new shared state registry object, so that all pending async disposal requests from previous
+				// runs will go against the old object (were they can do no harm).
+				// This must happen under the checkpoint lock.
+				sharedStateRegistry.close();
+				sharedStateRegistry = sharedStateRegistryFactory.create(executor);
 
-					// Now, we re-register all (shared) states from the checkpoint store with the new registry
-					for (CompletedCheckpoint completedCheckpoint : completedCheckpointStore.getAllCheckpoints()) {
-						completedCheckpoint.registerSharedStatesAfterRestored(sharedStateRegistry);
-						// inject Checkpoint Storage to expire savepoint simple metadata
-						completedCheckpoint.setCheckpointStorage(checkpointStorage);
-					}
-				} else {
-					LOG.info("The completed checkpoint store has not changed, no need to re-register shared state.");
-				}
-				LOG.info("After restoring CompletedCheckpointStore, checkpoints {}, savepoints {}.",
-					completedCheckpointStore.getAllCheckpoints().stream().filter(CompletedCheckpoint::isCheckpoint).map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()),
-					completedCheckpointStore.getAllCheckpoints().stream().filter(CompletedCheckpoint::isSavepoint).map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()));
-
-				LOG.debug("Status of the shared state registry of job {} after restore: {}.", job, sharedStateRegistry);
-
-				// Restore from the latest checkpoint
-				latest = completedCheckpointStore.getLatestCheckpoint(isPreferCheckpointForRecovery);
-				if (latest != null && latestCheckpointIdOnStorage > latestCheckpointIdOnStore) {
-					checkpointIdCounter.setCount(latest.getCheckpointID() + 1);
-				}
-
-				if (latest == null) {
-					if (errorIfNoCheckpoint) {
-						throw new IllegalStateException("No completed checkpoint available");
-					} else {
-						LOG.debug("Resetting the master hooks.");
-						MasterHooks.reset(masterHooks.values(), LOG);
-
-						return false;
-					}
+				// Now, we re-register all (shared) states from the checkpoint store with the new registry
+				for (CompletedCheckpoint completedCheckpoint : completedCheckpointStore.getAllCheckpoints()) {
+					completedCheckpoint.registerSharedStatesAfterRestored(sharedStateRegistry);
+					// inject Checkpoint Storage to expire savepoint simple metadata
+					completedCheckpoint.setCheckpointStorage(checkpointStorage);
 				}
 			} else {
-				latest = completedCheckpointStore.getLatestCheckpoint(false);
+				LOG.info("The completed checkpoint store has not changed and not restoring from savepoint, no need to re-register shared state.");
+			}
+			LOG.info("After restoring CompletedCheckpointStore, checkpoints {}, savepoints {}.",
+				completedCheckpointStore.getAllCheckpoints().stream().filter(CompletedCheckpoint::isCheckpoint).map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()),
+				completedCheckpointStore.getAllCheckpoints().stream().filter(CompletedCheckpoint::isSavepoint).map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()));
+
+			LOG.debug("Status of the shared state registry of job {} after restore: {}.", job, sharedStateRegistry);
+
+			// Restore from the latest checkpoint
+			latest = completedCheckpointStore.getLatestCheckpoint(isPreferCheckpointForRecovery);
+			if (latest != null && latestCheckpointIdOnStorage > latestCheckpointIdOnStore) {
+				checkpointIdCounter.setCount(latest.getCheckpointID() + 1);
+			}
+
+			if (latest == null) {
+				if (errorIfNoCheckpoint) {
+					throw new IllegalStateException("No completed checkpoint available");
+				} else {
+					LOG.debug("Resetting the master hooks.");
+					MasterHooks.reset(masterHooks.values(), LOG);
+
+					return false;
+				}
 			}
 
 			LOG.info("Restoring job {} from latest valid checkpoint: {}.", job, latest);

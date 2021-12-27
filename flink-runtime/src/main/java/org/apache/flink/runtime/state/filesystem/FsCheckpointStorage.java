@@ -497,6 +497,7 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 
 	@Override
 	public List<Tuple2<String, Boolean>> findCompletedCheckpointPointerV2() throws IOException {
+		LOG.info("Find completed checkpoint in checkpointsDirectory: {}", checkpointsDirectory);
 		FileStatus[] statuses = fileSystem.listStatus(checkpointsDirectory);
 		if (statuses == null) {
 			return Collections.emptyList();
@@ -683,7 +684,7 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 			}
 		}
 		boolean needResetSavepointSettings = sizeCompletedSnapshotInChkDir == 0;
-		LOG.info("latest snapshot path :{}, needResetSavepointSettings: {}", latestSnapshotPath, needResetSavepointSettings);
+		LOG.info("latest snapshot path: {}, needResetSavepointSettings: {}", latestSnapshotPath, needResetSavepointSettings);
 		return new Tuple2<>(latestSnapshotPath, needResetSavepointSettings);
 	}
 
