@@ -281,6 +281,16 @@ public class JobManagerOptions {
 			.withDescription("Dictionary for JobManager to store the archives of completed jobs.");
 
 	/**
+	 * Whether to enable JobManager to store the application-mode-cluster-info before job completed to the special
+	 * path which is set by {@link JobManagerOptions#ARCHIVE_DIR}.
+	 */
+	@Documentation.Section(Documentation.Sections.ALL_JOB_MANAGER)
+	public static final ConfigOption<Boolean> APPLICATION_MODE_CLUSTER_INFO_ARCHIVE_ENABLE =
+		key("jobmanager.application-mode-cluster-info.archive.enable")
+			.defaultValue(false)
+			.withDescription("Whether to enable JobManager to store the application status while exiting for application mode.");
+
+	/**
 	 * The job store cache size in bytes which is used to keep completed
 	 * jobs in memory.
 	 */

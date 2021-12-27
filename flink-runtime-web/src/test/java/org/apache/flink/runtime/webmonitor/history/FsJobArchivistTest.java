@@ -19,14 +19,20 @@
 package org.apache.flink.runtime.webmonitor.history;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.core.fs.FSDataInputStream;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.clusterframework.ApplicationStatus;
+import org.apache.flink.runtime.history.ApplicationModeClusterInfo;
 import org.apache.flink.runtime.history.FsJobArchivist;
+import org.apache.flink.util.IOUtils;
 
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -53,5 +59,27 @@ public class FsJobArchivistTest {
 		final Collection<ArchivedJson> restored = FsJobArchivist.getArchivedJsons(archive);
 
 		Assert.assertThat(restored, containsInAnyOrder(toArchive.toArray()));
+	}
+
+	@Test
+	public void testArchiveApplicationClusterInfo() throws Exception {
+		final Path tmpPath = new Path(tmpFolder.getRoot().getAbsolutePath());
+
+		ApplicationModeClusterInfo applicationModeClusterInfo = new ApplicationModeClusterInfo();
+		applicationModeClusterInfo.setApplicationStatus(ApplicationStatus.SUCCEEDED);
+
+		final Path archive = FsJobArchivist.archiveApplicationClusterInfo(tmpPath, applicationModeClusterInfo);
+		Assert.assertTrue(archive.getName().contains("applicationInfo"));
+
+		String parseResult = getArchivedJsons(archive);
+		Assert.assertTrue(parseResult.equals("{\"json\":\"{\\\"applicationStatus\\\":\\\"SUCCEEDED\\\"}\"}"));
+	}
+
+	private static String getArchivedJsons(Path file) throws IOException {
+		try (FSDataInputStream input = file.getFileSystem().open(file);
+			ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+			IOUtils.copyBytes(input, output);
+			return output.toString();
+		}
 	}
 }

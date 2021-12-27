@@ -24,6 +24,7 @@ import org.apache.flink.api.common.operators.ResourceSpec;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.blob.BlobServer;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
@@ -37,6 +38,7 @@ import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.RunningJobsRegistry;
+import org.apache.flink.runtime.history.ApplicationModeClusterInfo;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -143,6 +145,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	protected final CompletableFuture<ApplicationStatus> shutDownFuture;
 
+	// just effective in application mode
+	protected boolean applicationModeClusterInfoArchiveEnable;
+
 	public Dispatcher(
 			RpcService rpcService,
 			DispatcherId fencingToken,
@@ -179,6 +184,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		this.jobManagerTerminationFutures = new HashMap<>(2);
 
 		this.archiveExecutionGraphFutures = new HashMap<>(1);
+
+		this.applicationModeClusterInfoArchiveEnable = this.configuration.getBoolean(JobManagerOptions.APPLICATION_MODE_CLUSTER_INFO_ARCHIVE_ENABLE);
 
 		this.shutDownFuture = new CompletableFuture<>();
 
@@ -690,7 +697,21 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	@Override
 	public CompletableFuture<Acknowledge> shutDownCluster(final ApplicationStatus applicationStatus) {
-		shutDownFuture.complete(applicationStatus);
+		log.info("Shut down cluster for applicationStatus: {}.", applicationStatus);
+		CompletableFuture<Acknowledge> archiveApplicationStatusFuture = CompletableFuture.completedFuture(Acknowledge.get());
+		if (applicationModeClusterInfoArchiveEnable) {
+			log.info("Starting to archive the applicationModeClusterInfo.");
+			ApplicationModeClusterInfo applicationModeClusterInfo = new ApplicationModeClusterInfo();
+			applicationModeClusterInfo.setApplicationStatus(applicationStatus);
+			archiveApplicationStatusFuture = historyServerArchivist.archiveApplicationStatus(applicationModeClusterInfo);
+		}
+		archiveApplicationStatusFuture.whenComplete(
+			(Acknowledge ignored, Throwable throwable) -> {
+				if (throwable != null) {
+					log.warn("Could not archive applicationModeClusterInfo to the history server.", throwable);
+				}
+				shutDownFuture.complete(applicationStatus);
+			});
 		return CompletableFuture.completedFuture(Acknowledge.get());
 	}
 

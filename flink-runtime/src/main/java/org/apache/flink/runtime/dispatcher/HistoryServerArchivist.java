@@ -22,6 +22,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.executiongraph.AccessExecutionGraph;
+import org.apache.flink.runtime.history.ApplicationModeClusterInfo;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.webmonitor.WebMonitorUtils;
 import org.apache.flink.runtime.webmonitor.history.JsonArchivist;
@@ -41,6 +42,14 @@ public interface HistoryServerArchivist {
 	 * @return Future which is completed once the archiving has been completed.
 	 */
 	CompletableFuture<Acknowledge> archiveExecutionGraph(AccessExecutionGraph executionGraph);
+
+	/**
+	 * Archives the given {@link ApplicationModeClusterInfo} on the history server.
+	 *
+	 * @param applicationModeClusterInfo to store the application cluster info on the history server
+	 * @return Future which is completed once the archiving has been completed.
+	 */
+	CompletableFuture<Acknowledge> archiveApplicationStatus(ApplicationModeClusterInfo applicationModeClusterInfo);
 
 	static HistoryServerArchivist createHistoryServerArchivist(Configuration configuration, JsonArchivist jsonArchivist, Executor ioExecutor) {
 		final String configuredArchivePath = configuration.getString(JobManagerOptions.ARCHIVE_DIR);

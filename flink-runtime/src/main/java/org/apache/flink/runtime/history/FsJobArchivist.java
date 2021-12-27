@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.core.fs.FSDataInputStream;
 import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.fs.FileSystem.WriteMode;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.executiongraph.AccessExecutionGraph;
 import org.apache.flink.runtime.webmonitor.history.ArchivedJson;
@@ -54,6 +55,8 @@ public class FsJobArchivist {
 	private static final String ARCHIVE = "archive";
 	private static final String PATH = "path";
 	private static final String JSON = "json";
+	private static final String APPLICATION_INFO = "applicationInfo";
+	private static final String FILE_SEPARATOR = "-";
 
 	private FsJobArchivist() {
 	}
@@ -88,6 +91,8 @@ public class FsJobArchivist {
 			} catch (Exception e) {
 				fs.delete(path, false);
 				throw e;
+			} finally {
+				out.close();
 			}
 			LOG.info("Job {} has been archived at {}.", jobId, path);
 			return path;
@@ -123,6 +128,40 @@ public class FsJobArchivist {
 				// occurs if the archive is empty or any of the expected fields are not present
 				throw new IOException("Job archive (" + file.getPath() + ") did not conform to expected format.");
 			}
+		}
+	}
+
+	/**
+	 * Writes the given {@link ApplicationModeClusterInfo} to the {@link FileSystem} pointed to by {@link
+	 * JobManagerOptions#ARCHIVE_DIR}.
+	 *
+	 * @param rootPath                   directory to which the archive should be written to
+	 * @param applicationModeClusterInfo the application cluster info to archive
+	 * @return path to where the archive was written, or null if no archive was created
+	 * @throws IOException
+	 */
+	public static Path archiveApplicationClusterInfo(Path rootPath,
+		ApplicationModeClusterInfo applicationModeClusterInfo) throws IOException {
+		try {
+			FileSystem fs = rootPath.getFileSystem();
+			Path path = new Path(rootPath, APPLICATION_INFO + FILE_SEPARATOR + System.currentTimeMillis());
+			OutputStream out = fs.create(path, WriteMode.NO_OVERWRITE);
+
+			try (JsonGenerator gen = jacksonFactory.createGenerator(out, JsonEncoding.UTF8)) {
+				gen.writeStartObject();
+				gen.writeStringField(JSON, applicationModeClusterInfo.toJson());
+				gen.writeEndObject();
+			} catch (Exception e) {
+				fs.delete(path, false);
+				throw e;
+			} finally {
+				out.close();
+			}
+			LOG.info("The applicationModeClusterInfo({}) has been archived at {}.", applicationModeClusterInfo.toJson(), path);
+			return path;
+		} catch (IOException e) {
+			LOG.error("Failed to archive the applicationModeClusterInfo.", e);
+			throw e;
 		}
 	}
 }

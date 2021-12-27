@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.dispatcher;
 
 import org.apache.flink.runtime.executiongraph.AccessExecutionGraph;
+import org.apache.flink.runtime.history.ApplicationModeClusterInfo;
 import org.apache.flink.runtime.messages.Acknowledge;
 
 import java.util.concurrent.CompletableFuture;
@@ -31,6 +32,11 @@ public enum VoidHistoryServerArchivist implements HistoryServerArchivist {
 
 	@Override
 	public CompletableFuture<Acknowledge> archiveExecutionGraph(AccessExecutionGraph executionGraph) {
+		return CompletableFuture.completedFuture(Acknowledge.get());
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> archiveApplicationStatus(ApplicationModeClusterInfo applicationModeClusterInfo) {
 		return CompletableFuture.completedFuture(Acknowledge.get());
 	}
 }

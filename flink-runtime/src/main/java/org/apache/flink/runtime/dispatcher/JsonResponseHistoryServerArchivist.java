@@ -20,6 +20,7 @@ package org.apache.flink.runtime.dispatcher;
 
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.executiongraph.AccessExecutionGraph;
+import org.apache.flink.runtime.history.ApplicationModeClusterInfo;
 import org.apache.flink.runtime.history.FsJobArchivist;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.webmonitor.history.JsonArchivist;
@@ -53,6 +54,16 @@ class JsonResponseHistoryServerArchivist implements HistoryServerArchivist {
 			.runAsync(
 				ThrowingRunnable.unchecked(() ->
 					FsJobArchivist.archiveJob(archivePath, executionGraph.getJobID(), jsonArchivist.archiveJsonWithPath(executionGraph))),
+				ioExecutor)
+			.thenApply(ignored -> Acknowledge.get());
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> archiveApplicationStatus(ApplicationModeClusterInfo applicationModeClusterInfo) {
+		return CompletableFuture
+			.runAsync(
+				ThrowingRunnable.unchecked(() ->
+					FsJobArchivist.archiveApplicationClusterInfo(archivePath, applicationModeClusterInfo)),
 				ioExecutor)
 			.thenApply(ignored -> Acknowledge.get());
 	}
