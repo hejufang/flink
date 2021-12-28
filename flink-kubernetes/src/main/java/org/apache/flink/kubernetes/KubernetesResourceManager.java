@@ -20,6 +20,7 @@ package org.apache.flink.kubernetes;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
@@ -72,6 +73,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
+import static org.apache.flink.kubernetes.utils.KubernetesUtils.genLogUrl;
 
 /**
  * Kubernetes specific implementation of the {@link ResourceManager}.
@@ -113,7 +115,17 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	/** Map from pod name to hostIP. */
 	private final HashMap<String, String> podNameAndHostIPMap;
 
+	private final String jobManagerPodName;
+	private final String region;
+
 	private final boolean enableWebShell;
+
+	private final boolean streamLogEnabled;
+	private final String streamLogUrlTemplate;
+	private final String streamLogDomain;
+	private final String streamLogQueryTemplate;
+	private final String streamLogSearchView;
+	private final int streamLogQueryRange;
 
 	public KubernetesResourceManager(
 			RpcService rpcService,
@@ -152,6 +164,14 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.running = false;
 		this.podNameAndHostIPMap = new HashMap<>();
 		this.enableWebShell = flinkConfig.getBoolean(KubernetesConfigOptions.KUBERNETES_WEB_SHELL_ENABLED);
+		this.jobManagerPodName = env.get(ENV_FLINK_POD_NAME);
+		this.streamLogEnabled = flinkConfig.getBoolean(KubernetesConfigOptions.STREAM_LOG_ENABLED);
+		this.streamLogUrlTemplate = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_URL_TEMPLATE);
+		this.streamLogDomain = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_DOMAIN);
+		this.streamLogQueryTemplate = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_QUERY_TEMPLATE);
+		this.streamLogSearchView = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_SEARCH_VIEW);
+		this.region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
+		this.streamLogQueryRange = flinkConfig.getInteger(KubernetesConfigOptions.STREAM_LOG_QUERY_RANGE_SECONDS);
 	}
 
 	@Override
@@ -354,10 +374,33 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	public CompletableFuture<String> requestJobManagerLogUrl(@RpcTimeout Time timeout) {
-		// todo, will return stream log url in the future
-		CompletableFuture<String> jmLog = new CompletableFuture<>();
-		jmLog.complete("");
-		return jmLog;
+		if (streamLogEnabled && !StringUtils.isNullOrWhitespaceOnly(streamLogDomain)) {
+			try {
+				CompletableFuture<String> jmLog = new CompletableFuture<>();
+				String jmLogStr = genLogUrl(streamLogUrlTemplate, streamLogDomain, streamLogQueryRange, streamLogQueryTemplate, jobManagerPodName, region, streamLogSearchView);
+				jmLog.complete(jmLogStr);
+				return jmLog;
+			} catch (Throwable t) {
+				LOG.warn("Get JobManager log url error.", t);
+				return super.requestJobManagerLogUrl(timeout);
+			}
+		} else {
+			return super.requestJobManagerLogUrl(timeout);
+		}
+	}
+
+	@Override
+	public String getTaskManagerLogUrl(ResourceID resourceId, String host) {
+		if (streamLogEnabled && !StringUtils.isNullOrWhitespaceOnly(streamLogDomain)) {
+			try {
+				return genLogUrl(streamLogUrlTemplate, streamLogDomain, streamLogQueryRange, streamLogQueryTemplate, resourceId.getResourceIdString(), region, streamLogSearchView);
+			} catch (Throwable t) {
+				LOG.warn("Get TaskManager {} log url error.", resourceId, t);
+				return super.getTaskManagerLogUrl(resourceId, host);
+			}
+		} else {
+			return super.getTaskManagerLogUrl(resourceId, host);
+		}
 	}
 
 	@VisibleForTesting

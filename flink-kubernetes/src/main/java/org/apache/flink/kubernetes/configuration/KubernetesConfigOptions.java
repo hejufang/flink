@@ -391,6 +391,44 @@ public class KubernetesConfigOptions {
 					+ "(e.g. start/stop TaskManager pods, update leader related ConfigMaps, etc.). "
 					+ "Increasing the pool size allows to run more IO operations concurrently.");
 
+	public static final String POD_NAME_KEY = "#POD_NAME#";
+
+	public static final ConfigOption<Boolean> STREAM_LOG_ENABLED =
+			key("kubernetes.stream-log.enabled")
+					.booleanType()
+					.defaultValue(true)
+					.withDescription("Whether enable redirect to stream log platform.");
+
+	public static final ConfigOption<String> STREAM_LOG_URL_TEMPLATE =
+		key("kubernetes.stream-log.url-template")
+			.stringType()
+			.defaultValue("https://%s/argos/streamlog/tenant_query?query=%s&region=%s&searchview=%s&start_time=%s&end_time=%s")
+			.withDescription("Template of stream log platform." +
+					"it must work with STREAM_LOG_DOMAIN/STREAM_LOG_QUERY_TEMPLATE/STREAM_LOG_SEARCH_VIEW");
+
+	public static final ConfigOption<String> STREAM_LOG_DOMAIN =
+		key("kubernetes.stream-log.domain")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("Domain of stream log platform.");
+
+	public static final ConfigOption<String> STREAM_LOG_QUERY_TEMPLATE =
+		key("kubernetes.stream-log.query-template")
+			.stringType()
+			.defaultValue("kubernetes_pod_name='" + POD_NAME_KEY + "'")
+			.withDescription("Template of stream log query, #POD_NAME# will be replaced with real pod name.");
+
+	public static final ConfigOption<String> STREAM_LOG_SEARCH_VIEW =
+		key("kubernetes.stream-log.search-view")
+			.stringType()
+			.defaultValue("2::godel")
+			.withDescription("Search view of stream log query.");
+
+	public static final ConfigOption<Integer> STREAM_LOG_QUERY_RANGE_SECONDS =
+		key("kubernetes.stream-log.query-range-seconds").intType()
+			.defaultValue(900)
+			.withDescription("Time range to query.");
+
 	private static String getDefaultFlinkImage() {
 		// The default container image that ties to the exact needed versions of both Flink and Scala.
 		boolean snapshot = EnvironmentInformation.getVersion().toLowerCase(Locale.ENGLISH).contains("snapshot");

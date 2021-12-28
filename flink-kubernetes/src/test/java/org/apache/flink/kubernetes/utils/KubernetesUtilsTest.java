@@ -19,6 +19,7 @@
 package org.apache.flink.kubernetes.utils;
 
 import org.apache.flink.configuration.BlobServerOptions;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
@@ -26,6 +27,7 @@ import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.kubernetes.KubernetesTestUtils;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.TestLogger;
 
@@ -41,6 +43,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 /**
@@ -159,5 +162,23 @@ public class KubernetesUtilsTest extends TestLogger {
 			HighAvailabilityOptions.HA_JOB_MANAGER_PORT_RANGE,
 			Integer.valueOf(fallbackPort));
 		assertEquals(expectedPort, cfg.get(HighAvailabilityOptions.HA_JOB_MANAGER_PORT_RANGE));
+	}
+
+	@Test
+	public void testLogUrl() {
+		Configuration flinkConfig = new Configuration();
+		flinkConfig.set(KubernetesConfigOptions.STREAM_LOG_DOMAIN, "foo.bar");
+		String streamLogUrlTemplate = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_URL_TEMPLATE);
+		String streamLogQueryTemplate = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_QUERY_TEMPLATE);
+		String streamLogSearchView = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_SEARCH_VIEW);
+		String region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
+		int streamLogQueryRange = flinkConfig.getInteger(KubernetesConfigOptions.STREAM_LOG_QUERY_RANGE_SECONDS);
+
+		String domain = "foo.bar";
+		String podName = "JobManagerPod";
+
+		String jmLog = KubernetesUtils.genLogUrl(streamLogUrlTemplate, domain, streamLogQueryRange, streamLogQueryTemplate, podName, region, streamLogSearchView);
+		String jmLogWanted = "https://foo.bar/argos/streamlog/tenant_query?query=kubernetes_pod_name%3D%27JobManagerPod%27&region=cn&searchview=2%3A%3Agodel";
+		assertTrue(jmLog.startsWith(jmLogWanted));
 	}
 }
