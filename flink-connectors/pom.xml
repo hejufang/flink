@@ -81,6 +81,7 @@ under the License.
 		<module>flink-catalog-common</module>
 		<module>flink-connector-abase</module>
 		<module>flink-connector-bytetable</module>
+		<module>flink-connector-hsap</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up
@@ -131,6 +132,7 @@ under the License.
 				<module>flink-sql-connector-hbase</module>
 				<module>flink-sql-connector-bytetable</module>
 				<module>flink-sql-connector-hudi</module>
+				<module>flink-sql-connector-hsap</module>
 			</modules>
 		</profile>
 	</profiles>
