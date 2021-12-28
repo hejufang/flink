@@ -364,10 +364,66 @@ leser:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   yarn.provided.lib.dirs.enabled: true
 
+lupin:
+  dc: cn
+  clusterName: lupin
+  high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+
 lobst:
   dc: cn
   clusterName: lobst
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+
+lizad:
+  dc: cn
+  clusterName: lizad
+  high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+
+lemur:
+  dc: cn
+  clusterName: lemur
+  high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+
+loris:
+  dc: cn
+  clusterName: loris
+  high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+
+llama:
+  dc: cn
+  clusterName: llama
+  high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+
+lionn:
+  dc: cn
+  clusterName: lionn
+  high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+
+lynxs:
+  dc: cn
+  clusterName: lynxs
+  high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+
+lambs:
+  dc: cn
+  clusterName: lambs
+  high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
 
@@ -435,7 +491,7 @@ heron:
 herry:
   dc: cn
   clusterName: herry
-  high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
+  high-availability.zookeeper.quorum: 10.226.128.110:2181,10.226.128.107:2181,10.226.107.216:2181,10.226.128.132:2181,10.226.128.118:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
 
@@ -459,6 +515,132 @@ hound:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+
+hinny:
+  dc: cn
+  clusterName: hinny
+  high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  execution.cancellation.timeout.enable: true
+
+hamst:
+  dc: cn
+  clusterName: hamst
+  high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  execution.cancellation.timeout.enable: true
+
+hermt:
+  dc: cn
+  clusterName: hermt
+  high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  execution.cancellation.timeout.enable: true
+
+husky:
+  dc: cn
+  clusterName: husky
+  high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  execution.cancellation.timeout.enable: true
+
+honet:
+  dc: cn
+  clusterName: honet
+  high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  execution.cancellation.timeout.enable: true
+
+hawks:
+  dc: cn
+  clusterName: hawks
+  high-availability.zookeeper.quorum: 10.226.107.167:2181,10.226.118.239:2181,10.226.114.179:2181,10.226.114.177:2181,10.226.124.191:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  execution.cancellation.timeout.enable: true
+
+harpy:
+  dc: cn
+  clusterName: harpy
+  high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  execution.cancellation.timeout.enable: true
+
+hares:
+  dc: cn
+  clusterName: hares
+  high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  execution.cancellation.timeout.enable: true
+
+hakes:
+  dc: cn
+  clusterName: hakes
+  high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  execution.cancellation.timeout.enable: true
+
+queen:
+  dc: cn
+  clusterName: queen
+  high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+
+quire:
+  dc: cn
+  clusterName: quire
+  high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+
+quark:
+  dc: cn
+  clusterName: quark
+  high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+
+quinc:
+  dc: cn
+  clusterName: quinc
+  high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+
+quiet:
+  dc: cn
+  clusterName: quiet
+  high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+
+quetz:
+  dc: cn
+  clusterName: quetz
+  high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
 
 quail:
   dc: cn
@@ -561,6 +743,25 @@ shark:
   yarn.provided.lib.dirs.enabled: false
   flink.cloud-shuffle-service.support: false
 
+snipe:
+  dc: sg
+  clusterName: snipe
+  high-availability.zookeeper.quorum: 10.115.61.129:2181,10.115.61.130:2181,10.115.61.131:2181,10.115.61.132:2181,10.115.61.133:2181
+  hdfs.prefix: hdfs://harunasg/flink_alisg
+  checkpoint.hdfs.prefix: hdfs://harunasg/home/byte_flink_checkpoint_alisg
+  dashboard.data_source: bytetsd_alisg
+  dtop.data_source: dtop_alisg
+  dtop.database: dtop_alisg
+  smart-resources.service-name: data.inf.sr_estimater.service.alisg
+  kafka_server_url: http://kafka-config-sg.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_sg
+  docker.server: 10.8.27.231:8002
+  docker.hub: aliyun-sin-hub.byted.org
+  docker.region: Aliyun_SG
+  jobmeta.db.name: flink_meta_sg
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
+  checkpoint.client-checkpoint-verification-enable: true
+
 marmt:
   dc: va
   clusterName: marmt
@@ -631,6 +832,52 @@ mouse:
   yarn.provided.lib.dirs.enabled: false
   flink.cloud-shuffle-service.support: false
 
+mamba:
+  dc: va
+  clusterName: mamba
+  high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_gva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  yaop_url: http://yaop-us.bytedance.net
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+  jobmeta.db.name: flink_meta_va
+  grafana.domain_url: "https://grafana-us.byted.org"
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
+
+giraf:
+  dc: va
+  clusterName: giraf
+  high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_gva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  yaop_url: http://yaop-us.bytedance.net
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+  jobmeta.db.name: flink_meta_va
+  grafana.domain_url: "https://grafana-us.byted.org"
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
+
 grila:
   dc: i18n_gcp
   clusterName: grila
@@ -679,6 +926,30 @@ gavia:
   yarn.provided.lib.dirs.enabled: false
   flink.cloud-shuffle-service.support: false
 
+gazel:
+  dc: i18n_gcp
+  clusterName: gazel
+  high-availability.zookeeper.quorum: 10.99.53.218:2181,10.99.53.219:2181,10.99.53.220:2181,10.99.53.221:2181,10.99.53.222
+  fs.defaultFS: hdfs://harunava
+  hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
+  checkpoint.hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
+  dashboard.data_source: bytetsd_useastred
+  dtop.data_source: dtop_i18n
+  dtop.database: dtop_i18n
+  smart-resources.service-name: data.inf.sr_estimater.service.useast2a
+  kafka_server_url: http://kafka-config-gcp.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  docker.server: image-manager.byted.org
+  docker.hub: useast-red-hub.byted.org
+  docker.region: US-East-Red
+  yaop_url: http://yaop-gcp.bytedance.net
+  jobmeta.db.name: flink_meta
+  grafana.domain_url: "https://grafana-i18n.byted.org"
+  register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-gcp.byted.org/api/query/gcp/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
+  flink.cloud-shuffle-service.support: false
+
 otter:
   dc: us-ttp
   clusterName: otter
@@ -705,6 +976,29 @@ otter:
 octop:
   dc: us-ttp
   clusterName: octop
+  high-availability.zookeeper.quorum: 10.113.156.88:2187,10.113.156.226:2187,10.113.156.244:2187,10.113.156.4:2187,10.113.156.42:2187
+  hdfs.prefix: hdfs://harunaoci/flink_oci
+  checkpoint.hdfs.prefix: hdfs://harunaoci/home/byte_flink_checkpoint
+  dashboard.data_source: bytetsd_us_ttp
+  dtop.data_source: inf_yarn_dtop_ttp
+  dtop.database: inf_dtop_yarn_ttp
+  smart-resources.service-name: data.inf.sr_estimater
+  kafka_server_url: https://kafka-config-tx.tiktokd.net
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  log4j.sec.mark.enabled: true
+  docker.server:  image-manager.tiktokd.org
+  docker.hub: hub.tiktokd.org
+  docker.region: US-TTP
+  yaop_url: http://yaop-tx.tiktokd.org
+  jobmeta.db.name: flink_meta_us_ttp
+  grafana.domain_url: "https://grafana-tx.tiktokd.org"
+  register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-oci.tiktokd.org/api/query/oci/verifyUsersPrivilege
+  flink.cloud-shuffle-service.support: false
+
+ostri:
+  dc: us-ttp
+  clusterName: ostri
   high-availability.zookeeper.quorum: 10.113.156.88:2187,10.113.156.226:2187,10.113.156.244:2187,10.113.156.4:2187,10.113.156.42:2187
   hdfs.prefix: hdfs://harunaoci/flink_oci
   checkpoint.hdfs.prefix: hdfs://harunaoci/home/byte_flink_checkpoint
