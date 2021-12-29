@@ -1724,9 +1724,7 @@ public class SlotManagerImpl implements SlotManager {
 				if (currentTime - slotRequest.getCreationTimestamp() >= slotRequestTimeout.toMilliseconds()) {
 					slotRequestIterator.remove();
 
-					if (slotRequest.isAssigned()) {
-						cancelPendingSlotRequest(slotRequest);
-					}
+					cancelPendingSlotRequest(slotRequest);
 
 					resourceActions.notifyAllocationFailure(
 						slotRequest.getJobId(),

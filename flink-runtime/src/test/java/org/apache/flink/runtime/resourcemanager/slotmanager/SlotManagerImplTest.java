@@ -872,7 +872,7 @@ public class SlotManagerImplTest extends TestLogger {
 
 		final Executor mainThreadExecutor = TestingUtils.defaultExecutor();
 
-		try (SlotManager slotManager = createSlotManagerBuilder()
+		try (SlotManagerImpl slotManager = createSlotManagerBuilder()
 			.setSlotRequestTimeout(Time.milliseconds(allocationTimeout))
 			.build()) {
 
@@ -889,6 +889,7 @@ public class SlotManagerImplTest extends TestLogger {
 			});
 
 			assertThat(failedAllocationFuture.get(), is(equalTo(Tuple2.of(jobId, allocationId))));
+			assertEquals(0, slotManager.getNumberAssignedPendingTaskManagerSlots());
 
 			if (atomicException.get() != null) {
 				throw atomicException.get();
