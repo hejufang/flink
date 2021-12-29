@@ -48,6 +48,7 @@ import org.apache.flink.runtime.query.KvStateLocation;
 import org.apache.flink.runtime.query.UnknownKvStateLocation;
 import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
+import org.apache.flink.runtime.resourcemanager.slotmanager.TaskManagerOfferSlots;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.taskexecutor.AccumulatorReport;
@@ -105,6 +106,7 @@ public class TestingJobMasterGatewayBuilder {
 	private TriFunction<String, Object, byte[], CompletableFuture<Object>> updateAggregateFunction = (a, b, c) -> CompletableFuture.completedFuture(new Object());
 	private TriFunction<ExecutionAttemptID, OperatorID, SerializedValue<OperatorEvent>, CompletableFuture<Acknowledge>> operatorEventSender = (a, b, c) -> CompletableFuture.completedFuture(Acknowledge.get());
 	private BiFunction<OperatorID, SerializedValue<CoordinationRequest>, CompletableFuture<CoordinationResponse>> deliverCoordinationRequestFunction = (a, b) -> FutureUtils.completedExceptionally(new UnsupportedOperationException());
+	private Function<Collection<TaskManagerOfferSlots>, CompletableFuture<Acknowledge>> optimizeOfferSlotsFunction = ignored -> CompletableFuture.completedFuture(Acknowledge.get());
 
 	public TestingJobMasterGatewayBuilder setAddress(String address) {
 		this.address = address;
@@ -251,6 +253,11 @@ public class TestingJobMasterGatewayBuilder {
 		return this;
 	}
 
+	public TestingJobMasterGatewayBuilder setOptimizeOfferSlotsFunction(Function<Collection<TaskManagerOfferSlots>, CompletableFuture<Acknowledge>> optimizeOfferSlotsFunction) {
+		this.optimizeOfferSlotsFunction = optimizeOfferSlotsFunction;
+		return this;
+	}
+
 	public TestingJobMasterGateway build() {
 		return new TestingJobMasterGateway(
 			address,
@@ -281,6 +288,7 @@ public class TestingJobMasterGatewayBuilder {
 			notifyKvStateUnregisteredFunction,
 			updateAggregateFunction,
 			operatorEventSender,
-			deliverCoordinationRequestFunction);
+			deliverCoordinationRequestFunction,
+			optimizeOfferSlotsFunction);
 	}
 }

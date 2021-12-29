@@ -859,9 +859,13 @@ public class SlotPoolImpl implements SlotPool {
 
 			// notify TaskExecutor about the failure
 			if (requestSlotFromResourceDirectEnable) {
-				throw new UnsupportedOperationException("Not support yet.");
+				checkNotNull(resourceManagerGateway);
+				resourceManagerGateway.notifyAllocateSlotsAvailable(
+					Collections.singleton(
+						new AllocateSlotID(allocatedSlot.getAllocationId(), allocatedSlot.getSlotId())));
+			} else {
+				allocatedSlot.getTaskManagerGateway().freeSlot(allocationID, cause, rpcTimeout);
 			}
-			allocatedSlot.getTaskManagerGateway().freeSlot(allocationID, cause, rpcTimeout);
 			// release the slot.
 			// since it is not in 'allocatedSlots' any more, it will be dropped o return'
 			allocatedSlot.releasePayload(cause);
@@ -1005,23 +1009,27 @@ public class SlotPoolImpl implements SlotPool {
 
 				log.info("Releasing idle slot [{}].", allocationID);
 				if (requestSlotFromResourceDirectEnable) {
-					throw new UnsupportedOperationException("Not support yet.");
-				}
-				final CompletableFuture<Acknowledge> freeSlotFuture = expiredSlot.getTaskManagerGateway().freeSlot(
-					allocationID,
-					cause,
-					rpcTimeout);
+					checkNotNull(resourceManagerGateway);
+					resourceManagerGateway.notifyAllocateSlotsAvailable(
+						Collections.singleton(
+							new AllocateSlotID(expiredSlot.getAllocationId(), expiredSlot.getSlotId())));
+				} else {
+					final CompletableFuture<Acknowledge> freeSlotFuture = expiredSlot.getTaskManagerGateway().freeSlot(
+						allocationID,
+						cause,
+						rpcTimeout);
 
-				FutureUtils.whenCompleteAsyncIfNotDone(
-					freeSlotFuture,
-					componentMainThreadExecutor,
-					(Acknowledge ignored, Throwable throwable) -> {
-						if (throwable != null) {
-							// The slot status will be synced to task manager in next heartbeat.
-							log.debug("Releasing slot [{}] of registered TaskExecutor {} failed. Discarding slot.",
-										allocationID, expiredSlot.getTaskManagerId(), throwable);
-						}
-					});
+					FutureUtils.whenCompleteAsyncIfNotDone(
+						freeSlotFuture,
+						componentMainThreadExecutor,
+						(Acknowledge ignored, Throwable throwable) -> {
+							if (throwable != null) {
+								// The slot status will be synced to task manager in next heartbeat.
+								log.debug("Releasing slot [{}] of registered TaskExecutor {} failed. Discarding slot.",
+									allocationID, expiredSlot.getTaskManagerId(), throwable);
+							}
+						});
+				}
 			}
 		}
 

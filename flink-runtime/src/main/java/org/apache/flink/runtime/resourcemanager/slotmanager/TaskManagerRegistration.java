@@ -21,10 +21,13 @@ package org.apache.flink.runtime.resourcemanager.slotmanager;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnection;
+import org.apache.flink.runtime.taskmanager.TaskManagerAddressLocation;
 import org.apache.flink.util.Preconditions;
 
 import java.util.Collection;
 import java.util.HashSet;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 public class TaskManagerRegistration {
 
@@ -32,19 +35,24 @@ public class TaskManagerRegistration {
 
 	private final HashSet<SlotID> slots;
 
+	private final TaskManagerAddressLocation taskManagerAddressLocation;
+
 	private int numberFreeSlots;
 
 	/** Timestamp when the last time becoming idle. Otherwise Long.MAX_VALUE. */
 	private long idleSince;
 
 	public TaskManagerRegistration(
-		TaskExecutorConnection taskManagerConnection,
-		Collection<SlotID> slots) {
+			TaskExecutorConnection taskManagerConnection,
+			Collection<SlotID> slots,
+			TaskManagerAddressLocation taskManagerAddressLocation) {
 
-		this.taskManagerConnection = Preconditions.checkNotNull(taskManagerConnection, "taskManagerConnection");
-		Preconditions.checkNotNull(slots, "slots");
+		this.taskManagerConnection = checkNotNull(taskManagerConnection, "taskManagerConnection");
+		checkNotNull(slots, "slots");
 
 		this.slots = new HashSet<>(slots);
+
+		this.taskManagerAddressLocation = taskManagerAddressLocation;
 
 		this.numberFreeSlots = slots.size();
 
@@ -105,5 +113,9 @@ public class TaskManagerRegistration {
 
 	public boolean containsSlot(SlotID slotId) {
 		return slots.contains(slotId);
+	}
+
+	public TaskManagerAddressLocation getTaskManagerAddressLocation() {
+		return taskManagerAddressLocation;
 	}
 }

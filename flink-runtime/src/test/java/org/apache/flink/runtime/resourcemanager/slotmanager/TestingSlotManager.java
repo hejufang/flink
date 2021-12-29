@@ -19,16 +19,20 @@
 package org.apache.flink.runtime.resourcemanager.slotmanager;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.JobSlotRequestList;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.instance.InstanceID;
+import org.apache.flink.runtime.jobmaster.JobMasterGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
+import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnection;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
+import org.apache.flink.runtime.taskmanager.TaskManagerAddressLocation;
 
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -141,6 +145,11 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
+	public boolean registerJobSlotRequests(JobMasterGateway jobMasterGateway, JobSlotRequestList jobSlotRequestList) throws ResourceManagerException {
+		return false;
+	}
+
+	@Override
 	public void cancelAllPendingSlotRequests(Exception cause) {
 
 	}
@@ -153,6 +162,11 @@ public class TestingSlotManager implements SlotManager {
 	@Override
 	public boolean registerTaskManager(TaskExecutorConnection taskExecutorConnection, SlotReport initialSlotReport) {
 		return true;
+	}
+
+	@Override
+	public boolean registerTaskManager(TaskExecutorConnection taskExecutorConnection, SlotReport initialSlotReport, TaskManagerAddressLocation taskManagerAddressLocation) {
+		return false;
 	}
 
 	@Override

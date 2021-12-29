@@ -39,6 +39,11 @@ public class TaskExecutorRegistration implements Serializable {
 	private final String taskExecutorAddress;
 
 	/**
+	 * The external address of TaskExecutor that registers.
+	 */
+	private final String externalAddress;
+
+	/**
 	 * The resource ID of the TaskExecutor that registers.
 	 */
 	private final ResourceID resourceId;
@@ -76,7 +81,28 @@ public class TaskExecutorRegistration implements Serializable {
 			final TaskExecutorMemoryConfiguration memoryConfiguration,
 			final ResourceProfile defaultSlotResourceProfile,
 			final ResourceProfile totalResourceProfile) {
+		this(
+			taskExecutorAddress,
+			taskExecutorAddress,
+			resourceId,
+			dataPort,
+			hardwareDescription,
+			memoryConfiguration,
+			defaultSlotResourceProfile,
+			totalResourceProfile);
+	}
+
+	public TaskExecutorRegistration(
+			final String taskExecutorAddress,
+			final String externalAddress,
+			final ResourceID resourceId,
+			final int dataPort,
+			final HardwareDescription hardwareDescription,
+			final TaskExecutorMemoryConfiguration memoryConfiguration,
+			final ResourceProfile defaultSlotResourceProfile,
+			final ResourceProfile totalResourceProfile) {
 		this.taskExecutorAddress = checkNotNull(taskExecutorAddress);
+		this.externalAddress = checkNotNull(externalAddress);
 		this.resourceId = checkNotNull(resourceId);
 		this.dataPort = dataPort;
 		this.hardwareDescription = checkNotNull(hardwareDescription);
@@ -87,6 +113,10 @@ public class TaskExecutorRegistration implements Serializable {
 
 	public String getTaskExecutorAddress() {
 		return taskExecutorAddress;
+	}
+
+	public String getExternalAddress() {
+		return externalAddress;
 	}
 
 	public ResourceID getResourceId() {

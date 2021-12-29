@@ -25,6 +25,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.JobSlotRequestList;
@@ -169,6 +170,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	private final boolean jobLogDetailDisable;
 
+	private final boolean requestSlotFromResourceManagerDirectEnable;
+
 	/** The service to elect a ResourceManager leader. */
 	private LeaderElectionService leaderElectionService;
 
@@ -266,6 +269,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.blacklistTracker = BlacklistUtil.createBlacklistTracker(flinkConfig, resourceManagerMetricGroup);
 		this.blacklistReporter = BlacklistUtil.createLocalBlacklistReporter(flinkConfig, blacklistTracker);
 		this.jobLogDetailDisable = flinkConfig.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
+		this.requestSlotFromResourceManagerDirectEnable = flinkConfig.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE);
 	}
 
 	// ------------------------------------------------------------------------
@@ -577,7 +581,13 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 					jobId);
 
 				try {
-					slotManager.registerJobSlotRequests(jobSlotRequestList);
+					if (requestSlotFromResourceManagerDirectEnable) {
+						slotManager.registerJobSlotRequests(
+							jobManagerRegistration.getJobManagerGateway(),
+							jobSlotRequestList);
+					} else {
+						slotManager.registerJobSlotRequests(jobSlotRequestList);
+					}
 				} catch (ResourceManagerException e) {
 					return FutureUtils.completedExceptionally(e);
 				}
@@ -625,8 +635,19 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	@Override
 	public void notifyAllocateSlotsAvailable(Collection<AllocateSlotID> allocateSlotIds) {
-		//// TODO Should be implemented later.
-		throw new UnsupportedOperationException();
+		for (AllocateSlotID allocateSlotId : allocateSlotIds) {
+			SlotID slotId = allocateSlotId.getSlotId();
+			AllocationID allocationId = allocateSlotId.getAllocationId();
+			final ResourceID resourceId = slotId.getResourceID();
+			WorkerRegistration<WorkerType> registration = taskExecutors.get(resourceId);
+
+			if (registration != null) {
+				slotManager.freeSlot(slotId, allocationId);
+			} else {
+				log.debug("Could not find registration for resource id {}. Discarding the slot available" +
+					"message {}.", resourceId, slotId);
+			}
+		}
 	}
 
 	/**

@@ -19,11 +19,13 @@
 package org.apache.flink.runtime;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.jobmaster.JobMasterGateway;
 import org.apache.flink.runtime.resourcemanager.slotmanager.PendingSlotRequest;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * List of job slot request.
@@ -43,12 +45,20 @@ public class JobPendingSlotRequestList implements Serializable {
 
 	private final List<PendingSlotRequest> slotRequests;
 
-	public JobPendingSlotRequestList(JobID jobId, String targetAddress, long startTimestamp, long resourceTimestamp) {
+	private final Optional<JobMasterGateway> jobMasterGateway;
+
+	public JobPendingSlotRequestList(
+			JobID jobId,
+			String targetAddress,
+			long startTimestamp,
+			long resourceTimestamp,
+			Optional<JobMasterGateway> jobMasterGateway) {
 		this.jobId = jobId;
 		this.targetAddress = targetAddress;
 		this.startTimestamp = startTimestamp;
 		this.resourceTimestamp = resourceTimestamp;
 		this.slotRequests = new ArrayList<>();
+		this.jobMasterGateway = jobMasterGateway;
 	}
 
 	public List<PendingSlotRequest> getSlotRequests() {
@@ -87,5 +97,13 @@ public class JobPendingSlotRequestList implements Serializable {
 
 	public void cancelAll() {
 		slotRequests.clear();
+	}
+
+	public boolean isOfferSlotsToJobMasterEnable() {
+		return jobMasterGateway.isPresent();
+	}
+
+	public JobMasterGateway getJobMasterGateway() {
+		return jobMasterGateway.orElseThrow(() -> new IllegalArgumentException("Job master is present"));
 	}
 }

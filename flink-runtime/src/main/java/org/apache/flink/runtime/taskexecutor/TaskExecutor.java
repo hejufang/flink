@@ -1364,6 +1364,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		final TaskExecutorRegistration taskExecutorRegistration = new TaskExecutorRegistration(
 			getAddress(),
+			taskManagerConfiguration.getTaskManagerExternalAddress(),
 			getResourceID(),
 			unresolvedTaskManagerLocation.getDataPort(),
 			hardwareDescription,

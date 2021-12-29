@@ -25,6 +25,7 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.instance.InstanceID;
+import org.apache.flink.runtime.jobmaster.JobMasterGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
@@ -32,6 +33,7 @@ import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerExcept
 import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnection;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
+import org.apache.flink.runtime.taskmanager.TaskManagerAddressLocation;
 
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -111,6 +113,16 @@ public interface SlotManager extends AutoCloseable {
 	}
 
 	/**
+	 * Register slot requests with job master gateway and resourcemanager will offer slots to job master directly.
+	 *
+	 * @param jobMasterGateway job master gateway
+	 * @param jobSlotRequestList slot request list
+	 * @return true if the slot request was registered; false if the request is duplicate
+	 * @throws ResourceManagerException if the slot request failed (e.g. not enough resources left)
+	 */
+	boolean registerJobSlotRequests(JobMasterGateway jobMasterGateway, JobSlotRequestList jobSlotRequestList) throws ResourceManagerException;
+
+	/**
 	 * Cancel all pending slot requests.
 	 * @param cause the exception caused the cancellation
 	 */
@@ -134,6 +146,19 @@ public interface SlotManager extends AutoCloseable {
 	 * @return True if the task manager has not been registered before and is registered successfully; otherwise false
 	 */
 	boolean registerTaskManager(TaskExecutorConnection taskExecutorConnection, SlotReport initialSlotReport);
+
+	/**
+	 * Registers a new task manager at the slot manager with task executor address.
+	 *
+	 * @param taskExecutorConnection for the new task manager
+	 * @param initialSlotReport for the new task manager
+	 * @param taskManagerAddressLocation for the new task manager address
+	 * @return True if the task manager has not been registered before and is registered successfully; otherwise false
+	 */
+	boolean registerTaskManager(
+		TaskExecutorConnection taskExecutorConnection,
+		SlotReport initialSlotReport,
+		TaskManagerAddressLocation taskManagerAddressLocation);
 
 	/**
 	 * Unregisters the task manager identified by the given instance id and its associated slots

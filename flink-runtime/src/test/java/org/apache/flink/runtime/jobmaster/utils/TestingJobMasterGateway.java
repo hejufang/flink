@@ -165,6 +165,9 @@ public class TestingJobMasterGateway implements JobMasterGateway {
 	@Nonnull
 	private final BiFunction<OperatorID, SerializedValue<CoordinationRequest>, CompletableFuture<CoordinationResponse>> deliverCoordinationRequestFunction;
 
+	@Nonnull
+	private final Function<Collection<TaskManagerOfferSlots>, CompletableFuture<Acknowledge>> optimizeOfferSlotsFunction;
+
 	public TestingJobMasterGateway(
 			@Nonnull String address,
 			@Nonnull String hostname,
@@ -194,7 +197,8 @@ public class TestingJobMasterGateway implements JobMasterGateway {
 			@Nonnull Function<Tuple4<JobID, JobVertexID, KeyGroupRange, String>, CompletableFuture<Acknowledge>> notifyKvStateUnregisteredFunction,
 			@Nonnull TriFunction<String, Object, byte[], CompletableFuture<Object>> updateAggregateFunction,
 			@Nonnull TriFunction<ExecutionAttemptID, OperatorID, SerializedValue<OperatorEvent>, CompletableFuture<Acknowledge>> operatorEventSender,
-			@Nonnull BiFunction<OperatorID, SerializedValue<CoordinationRequest>, CompletableFuture<CoordinationResponse>> deliverCoordinationRequestFunction) {
+			@Nonnull BiFunction<OperatorID, SerializedValue<CoordinationRequest>, CompletableFuture<CoordinationResponse>> deliverCoordinationRequestFunction,
+			@Nonnull Function<Collection<TaskManagerOfferSlots>, CompletableFuture<Acknowledge>> optimizeOfferSlotsFunction) {
 		this.address = address;
 		this.hostname = hostname;
 		this.cancelFunction = cancelFunction;
@@ -224,6 +228,7 @@ public class TestingJobMasterGateway implements JobMasterGateway {
 		this.updateAggregateFunction = updateAggregateFunction;
 		this.operatorEventSender = operatorEventSender;
 		this.deliverCoordinationRequestFunction = deliverCoordinationRequestFunction;
+		this.optimizeOfferSlotsFunction = optimizeOfferSlotsFunction;
 	}
 
 	@Override
@@ -268,7 +273,7 @@ public class TestingJobMasterGateway implements JobMasterGateway {
 
 	@Override
 	public CompletableFuture<Acknowledge> offerOptimizeSlots(Collection<TaskManagerOfferSlots> slots, Time timeout) {
-		return CompletableFuture.completedFuture(Acknowledge.get());
+		return optimizeOfferSlotsFunction.apply(slots);
 	}
 
 	@Override
