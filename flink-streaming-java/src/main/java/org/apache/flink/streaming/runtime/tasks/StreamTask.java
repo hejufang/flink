@@ -109,6 +109,8 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE;
+
 /**
  * Base class for all streaming tasks. A task is the unit of local processing that is deployed
  * and executed by the TaskManagers. Each task runs one or more {@link StreamOperator}s which form
@@ -1280,11 +1282,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 		final boolean cloudShuffleMode = environment.getTaskManagerInfo().getConfiguration().getBoolean(
 			ShuffleOptions.SHUFFLE_CLOUD_SHUFFLE_MODE);
+		final boolean isRecoverable = environment.getTaskManagerInfo().getConfiguration().getBoolean(FORCE_PARTITION_RECOVERABLE);
+
 		RecordWriter<SerializationDelegate<StreamRecord<OUT>>> output = new RecordWriterBuilder<SerializationDelegate<StreamRecord<OUT>>>()
 			.setChannelSelector(outputPartitioner)
 			.setTimeout(bufferTimeout)
 			.setTaskName(taskName)
 			.setCloudShuffleMode(cloudShuffleMode)
+			.setRecoverable(isRecoverable)
 			.build(bufferWriter);
 		output.setMetricGroup(environment.getMetricGroup().getIOMetricGroup());
 		return output;

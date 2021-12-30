@@ -35,7 +35,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  *
  * @param <T> the type of the record that can be emitted with this record writer
  */
-public final class ChannelSelectorRecordWriter<T extends IOReadableWritable> extends RecordWriter<T> {
+public class ChannelSelectorRecordWriter<T extends IOReadableWritable> extends RecordWriter<T> {
 
 	private final ChannelSelector<T> channelSelector;
 
@@ -73,10 +73,25 @@ public final class ChannelSelectorRecordWriter<T extends IOReadableWritable> ext
 	public void broadcastEmit(T record) throws IOException, InterruptedException {
 		checkErroneous();
 
+		for (int index = 0; index < numberOfChannels; index++) {
+			// check whether need to clean the buffer builder
+			if (targetPartition.needToCleanBufferBuilder(index)) {
+
+				// clean bufferbuilders
+				closeBufferBuilder(index);
+				targetPartition.markBufferBuilderCleaned(index);
+			}
+		}
+
 		serializer.serializeRecord(record);
 
 		boolean pruneAfterCopying = false;
 		for (int targetChannel = 0; targetChannel < numberOfChannels; targetChannel++) {
+			if (!targetPartition.isSubpartitionAvailable(targetChannel)) {
+				// abandon records if the targetChannel is not available
+				numRecordsDropped.inc();
+				continue;
+			}
 			if (copyFromSerializerToTargetChannel(targetChannel)) {
 				pruneAfterCopying = true;
 			}

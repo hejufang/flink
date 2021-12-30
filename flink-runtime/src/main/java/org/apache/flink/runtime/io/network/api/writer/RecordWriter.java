@@ -80,7 +80,7 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 
 	private Counter numBuffersOut = new SimpleCounter();
 
-	private Counter numRecordsDropped = new SimpleCounter();
+	protected Counter numRecordsDropped = new SimpleCounter();
 
 	protected Meter idleTimeMsPerSecond = new MeterView(new SimpleCounter());
 

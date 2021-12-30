@@ -33,6 +33,8 @@ public class RecordWriterBuilder<T extends IOReadableWritable> {
 
 	private boolean cloudShuffleMode = false;
 
+	private boolean isRecoverable = false;
+
 	public RecordWriterBuilder<T> setChannelSelector(ChannelSelector<T> selector) {
 		this.selector = selector;
 		return this;
@@ -53,10 +55,17 @@ public class RecordWriterBuilder<T extends IOReadableWritable> {
 		return this;
 	}
 
+	public RecordWriterBuilder<T> setRecoverable(boolean recoverable) {
+		isRecoverable = recoverable;
+		return this;
+	}
+
 	public RecordWriter<T> build(ResultPartitionWriter writer) {
 		if (selector.isBroadcast()) {
 			if (cloudShuffleMode) {
 				return new CloudShuffleBroadcastRecordWriter<>(writer, timeout, taskName);
+			} else if (isRecoverable) {
+				return new RecoverableBroadcastRecordWriter<>(writer, selector, timeout, taskName);
 			} else {
 				return new BroadcastRecordWriter<>(writer, timeout, taskName);
 			}
