@@ -19,6 +19,7 @@
 package org.apache.flink.state.table.catalog.resolver;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 
@@ -32,7 +33,7 @@ public class SavepointLocationResolver implements LocationResolver {
 
 
 	public static final int SAVEPOINT_NUM_SEARCH_DATES_VAL = 7;
-	public static final String SAVEPOINT_PATH_FORMAT = "hdfs:///home/byte_flink_checkpoint_20210220/savepoints/%s/%s/%s";
+	public static final String SAVEPOINT_JOBNAME_PATH_FORMAT = "hdfs:///home/byte_flink_checkpoint_20210220/savepoints/%s/%s";
 
 	private static final String DEFAULT_SEPARATOR = "#";
 
@@ -59,12 +60,32 @@ public class SavepointLocationResolver implements LocationResolver {
 		for (int i = 0; i < SAVEPOINT_NUM_SEARCH_DATES_VAL; i++) {
 			LocalDate date = currentDate.minusDays(i);
 			String dateStr = String.format("%04d%02d%02d", date.getYear(), date.getMonthValue(), date.getDayOfMonth());
-			Path potentialEffectiveSavepointPath = new Path(String.format(SAVEPOINT_PATH_FORMAT, dateStr, jobName, savepointId));
-
-			FileSystem fs = potentialEffectiveSavepointPath.getFileSystem();
-			if (fs.exists(potentialEffectiveSavepointPath)){
-				effectiveSavepointPath = potentialEffectiveSavepointPath;
+			Path savepointJobNamePath = new Path(String.format(SAVEPOINT_JOBNAME_PATH_FORMAT, dateStr, jobName));
+			effectiveSavepointPath = findEffectiveSavepointPath(savepointJobNamePath, savepointId);
+			if (effectiveSavepointPath != null) {
 				break;
+			}
+		}
+		return effectiveSavepointPath;
+	}
+
+	public Path findEffectiveSavepointPath(Path savepointJobNamePath, String savepointId) throws IOException {
+		Path effectiveSavepointPath = null;
+		FileSystem fs = savepointJobNamePath.getFileSystem();
+		Path potentialEffectiveSavepointPath = new Path(savepointJobNamePath, savepointId);
+		// Purely for backward compatibility
+		// Old savepoint path: SAVEPOINT_LOCATION_PREFIX/{date}/{jobName}/{UUID}/SAVEPOINT_METADATA
+		// New savepoint path: SAVEPOINT_LOCATION_PREFIX/{date}/{jobName}/{namespace}/{UUID}/SAVEPOINT_METADATA
+		if (fs.exists(potentialEffectiveSavepointPath)){
+			effectiveSavepointPath = potentialEffectiveSavepointPath;
+		} else {
+			for (FileStatus jobNameSubFileStatus : fs.listStatus(savepointJobNamePath)) {
+				Path jobNameSubPath = jobNameSubFileStatus.getPath();
+				potentialEffectiveSavepointPath = new Path(jobNameSubPath, savepointId);
+				if (fs.exists(potentialEffectiveSavepointPath)) {
+					effectiveSavepointPath = potentialEffectiveSavepointPath;
+					break;
+				}
 			}
 		}
 		return effectiveSavepointPath;
