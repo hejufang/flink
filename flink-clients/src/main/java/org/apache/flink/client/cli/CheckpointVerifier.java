@@ -21,6 +21,7 @@ package org.apache.flink.client.cli;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
+import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.PipelineOptions;
@@ -38,6 +39,7 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.jobgraph.tasks.JobCheckpointingSettings;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.state.CheckpointStorageCoordinatorView;
@@ -149,6 +151,10 @@ public class CheckpointVerifier {
 		String jobUID = configuration.getString(PipelineOptions.JOB_UID);
 		if (jobUID == null) {
 			return false;
+		}
+		if (configuration.contains(CheckpointingOptions.RESTORE_SAVEPOINT_PATH)) {
+			LOG.info("checkpoint.restore-savepoint-path is {}, starting checkpoint verification.", configuration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH));
+			return true;
 		}
 		// use a fake JobID, just for checkpoint verification
 		checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(configuration, ClassLoader.getSystemClassLoader(), new JobID(), jobUID);
@@ -278,40 +284,52 @@ public class CheckpointVerifier {
 					checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(configuration, classLoader, jobID, jobUID);
 				}
 				LOG.info("Find checkpoints {} on HDFS.", checkpointsOnStorage.keySet());
+				Map<OperatorID, OperatorState> latestOperatorStates;
+				// No checkpoint found on HDFS, check savepoint restore settings and directly set latestOperatorStates once loaded correctly
 				if (checkpointsOnStorage.size() == 0) {
-					LOG.info("No checkpoint store on HDFS, skip checkpoint verification.");
-					return CheckpointVerifyResult.SKIP;
-				}
-
-				// (2) get checkpoints on ZooKeeper.
-				final Map<Long, Map<OperatorID, OperatorState>> checkpointsOnStore =
+					LOG.info("No checkpoint store on HDFS, check savepoint settings.");
+					SavepointRestoreSettings savepointRestoreSettings = jobGraph.getSavepointRestoreSettings();
+					if (savepointRestoreSettings != null && savepointRestoreSettings.restoreSavepoint()) {
+						latestOperatorStates = getOperatorStatesFromSavepointSettings(configuration, classLoader, jobID, jobUID, savepointRestoreSettings);
+						if (latestOperatorStates.isEmpty()) {
+							LOG.info("Load from savepoint restore settings failed, skip checkpoint verification");
+							return CheckpointVerifyResult.SKIP;
+						}
+					} else {
+						LOG.info("No checkpoint store on HDFS and no savepoint settings, skip checkpoint verification");
+						return CheckpointVerifyResult.SKIP;
+					}
+				} else {
+					// (2) get checkpoints on ZooKeeper.
+					final Map<Long, Map<OperatorID, OperatorState>> checkpointsOnStore =
 						(Map<Long, Map<OperatorID, OperatorState>>) zkCompeletedCheckpointStore.getAllCheckpoints().stream()
 							.collect(Collectors.toMap(CompletedCheckpoint::getCheckpointID, CompletedCheckpoint::getOperatorStates));
-				LOG.info("Find checkpoints {} on Zookeeper.", checkpointsOnStore.keySet());
+					LOG.info("Find checkpoints {} on Zookeeper.", checkpointsOnStore.keySet());
 
-				// (3) merge checkpoints on HDFS to checkpoints on ZooKeeper.
-				Map<Long, Map<OperatorID, OperatorState>> extraCheckpoints = new HashMap<>();
-				for (Map.Entry<Long, Map<OperatorID, OperatorState>> checkpoint: checkpointsOnStorage.entrySet()) {
-					if (!checkpointsOnStore.containsKey(checkpoint.getKey())) {
-						extraCheckpoints.put(checkpoint.getKey(), checkpoint.getValue());
+					// (3) merge checkpoints on HDFS to checkpoints on ZooKeeper.
+					Map<Long, Map<OperatorID, OperatorState>> extraCheckpoints = new HashMap<>();
+					for (Map.Entry<Long, Map<OperatorID, OperatorState>> checkpoint: checkpointsOnStorage.entrySet()) {
+						if (!checkpointsOnStore.containsKey(checkpoint.getKey())) {
+							extraCheckpoints.put(checkpoint.getKey(), checkpoint.getValue());
+						}
 					}
-				}
 
-				LOG.info("There are {} checkpoints are on HDFS but not on Zookeeper.", extraCheckpoints.size());
-				if (extraCheckpoints.size() > 0) {
-					checkpointsOnStore.putAll(extraCheckpoints);
-				}
+					LOG.info("There are {} checkpoints are on HDFS but not on Zookeeper.", extraCheckpoints.size());
+					if (extraCheckpoints.size() > 0) {
+						checkpointsOnStore.putAll(extraCheckpoints);
+					}
 
-				if (checkpointsOnStore.size() == 0) {
-					LOG.info("No checkpoints on either ZooKeeper or HDFS, skip checkpoint verification.");
-					return CheckpointVerifyResult.SKIP;
-				}
+					if (checkpointsOnStore.size() == 0) {
+						LOG.info("No checkpoints on either ZooKeeper or HDFS, skip checkpoint verification.");
+						return CheckpointVerifyResult.SKIP;
+					}
 
-				// (4) find the latest checkpoint, based on checkpoint ID.
-				// Note: isPreferCheckpointForRecovery is not considered.
-				long maxCheckpointID = checkpointsOnStore.keySet().stream().max(Long::compare).get();
-				Map<OperatorID, OperatorState> latestOperatorStates = checkpointsOnStore.get(maxCheckpointID);
-				LOG.info("Latest checkpoint id {}", maxCheckpointID);
+					// (4) find the latest checkpoint, based on checkpoint ID.
+					// Note: isPreferCheckpointForRecovery is not considered.
+					long maxCheckpointID = checkpointsOnStore.keySet().stream().max(Long::compare).get();
+					latestOperatorStates = checkpointsOnStore.get(maxCheckpointID);
+					LOG.info("Latest checkpoint id {}", maxCheckpointID);
+				}
 
 				// (5) iterate verify strategies.
 				for (BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, OperatorState>, CheckpointVerifyResult> strategy: verifyStrategies) {
@@ -399,6 +417,42 @@ public class CheckpointVerifier {
 			LOG.warn("{} Could not instantiate configured state backend", jobID, e);
 		}
 		return result;
+	}
+
+	public static Map<OperatorID, OperatorState> getOperatorStatesFromSavepointSettings (
+		Configuration configuration,
+		ClassLoader classLoader,
+		JobID jobID,
+		String jobUID,
+		SavepointRestoreSettings savepointRestoreSettings
+		) {
+		Map<OperatorID, OperatorState> latestOperatorStates = new HashMap<>();
+		try {
+			CheckpointStorageCoordinatorView checkpointStorage =
+				StateBackendLoader.loadStateBackendFromConfig(configuration, classLoader, LOG)
+					.createCheckpointStorage(jobID, jobUID);
+			String restoreSavepointPath = savepointRestoreSettings.getRestorePath();
+			final CompletedCheckpointStorageLocation location = checkpointStorage.resolveCheckpoint(restoreSavepointPath);
+
+			// Load the savepoint into the system
+			final StreamStateHandle metadataHandle = location.getMetadataHandle();
+			final String checkpointPointer = location.getExternalPointer();
+
+			final CheckpointMetadata checkpointMetadata;
+			try (InputStream in = metadataHandle.openInputStream()) {
+				DataInputStream dis = new DataInputStream(in);
+				checkpointMetadata = loadCheckpointMetadata(dis, classLoader, checkpointPointer);
+			}
+			HashMap<OperatorID, OperatorState> operatorStates = new HashMap<>(checkpointMetadata.getOperatorStates().size());
+			for (OperatorState operatorState : checkpointMetadata.getOperatorStates()) {
+				operatorStates.put(operatorState.getOperatorID(), operatorState);
+			}
+			latestOperatorStates = operatorStates;
+			LOG.info("Load savepoint {} as latest operator states", checkpointMetadata.getCheckpointId());
+		} catch (IllegalConfigurationException | IOException | DynamicCodeLoadingException e) {
+			LOG.warn("{} Could not instantiate configured state backend", jobID, e);
+		}
+		return latestOperatorStates;
 	}
 
 	@VisibleForTesting

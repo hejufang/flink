@@ -18,6 +18,7 @@
 
 package org.apache.flink.client.cli;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
@@ -30,13 +31,19 @@ import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.state.CheckpointMetadataOutputStream;
+import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.KeyGroupRangeOffsets;
 import org.apache.flink.runtime.state.KeyGroupsStateHandle;
+import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointMetadataOutputStream;
+import org.apache.flink.runtime.state.filesystem.FsCheckpointStorage;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 
+import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -44,12 +51,14 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 import java.util.function.BiFunction;
 
 import static org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage.CHECKPOINT_DIR_PREFIX;
@@ -63,9 +72,25 @@ public class CheckpointVerifierTest {
 	public Map<OperatorID, OperatorState> operatorStates;
 	public Map<JobVertexID, JobVertex> tasks;
 	public Random random = new Random();
+	private Configuration configuration;
+	private String jobUID = "jobUID";
+	private String jobName = "jobName";
+	private String namespace = "ns";
+	private File checkpointFolder;
 
 	@Rule
 	public final TemporaryFolder tmp = new TemporaryFolder();
+
+	@Before
+	public void setup() throws IOException {
+		checkpointFolder = tmp.newFolder();
+		configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, new Path(checkpointFolder.toURI()).toString());
+		configuration.setString(PipelineOptions.JOB_UID, jobUID);
+		configuration.setString(PipelineOptions.NAME, jobName);
+		configuration.setString(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, namespace);
+	}
 
 	@Test
 	public void testVerifySuccess() {
@@ -121,11 +146,6 @@ public class CheckpointVerifierTest {
 
 	@Test
 	public void testBeforeVerifyInconsistentJobNameAndJobUID() throws Exception {
-		final String jobUID = "juid";
-		final String jobName = "jName";
-		final String namespace = "ns";
-
-		final File checkpointFolder = tmp.newFolder();
 		final String jUidMetadataFolder = new Path(new Path(new Path(checkpointFolder.getAbsolutePath(), jobUID), namespace), CHECKPOINT_DIR_PREFIX + "1").getPath();
 
 		// Only create _metadata file in juid folder
@@ -137,16 +157,57 @@ public class CheckpointVerifierTest {
 			out.closeAndFinalizeCheckpoint();
 		}
 
-		Configuration conf = new Configuration();
-		conf.setString(PipelineOptions.JOB_UID, jobUID);
-		conf.setString(PipelineOptions.NAME, jobName);
-		conf.setString(CheckpointingOptions.STATE_BACKEND, "filesystem");
-		conf.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, new Path(checkpointFolder.toURI()).toString());
-		conf.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, namespace);
-		boolean verifyResult = CheckpointVerifier.beforeVerify(conf);
+		boolean verifyResult = CheckpointVerifier.beforeVerify(configuration);
 
 		// Check if there exists any completed checkpoints on HDFS in advance: true
 		assertEquals(true, verifyResult);
+	}
+
+	@Test
+	public void testLoadOperatorStatesFromSavepointRestoreSettings() throws IOException {
+		buildSuccessGraph();
+		Path savepointFolder = new Path(tmp.newFolder("savepoints", jobUID, namespace, UUID.randomUUID().toString()).toURI());
+		SavepointRestoreSettings savepointRestoreSettings = SavepointRestoreSettings.forPath(savepointFolder.getPath());
+		try (CheckpointMetadataOutputStream out = new FsCheckpointMetadataOutputStream(
+			savepointFolder.getFileSystem(),
+			new Path(savepointFolder, AbstractFsCheckpointStorage.METADATA_FILE_NAME),
+			savepointFolder)) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, operatorStates.values(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+		Map<OperatorID, OperatorState> operatorStateMap = CheckpointVerifier.getOperatorStatesFromSavepointSettings(
+			configuration,
+			ClassLoader.getSystemClassLoader(),
+			new JobID(),
+			jobUID,
+			savepointRestoreSettings
+		);
+		Assert.assertEquals(operatorStateMap.size(), operatorStates.size());
+	}
+
+	@Test
+	public void testLoadOperatorStatesWithCheckpointFromSavepointRestoreSettings() throws IOException {
+		buildSuccessGraph();
+
+		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+		StateBackend stateBackend = Checkpoints.loadStateBackend(configuration, classLoader, null);
+		FsCheckpointStorage storage = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
+		CheckpointStorageLocation location = storage.initializeLocationForCheckpoint(1L);
+		SavepointRestoreSettings savepointRestoreSettings = SavepointRestoreSettings.forPath(location.getMetadataFilePath().getParent().getPath());
+
+		try (CheckpointMetadataOutputStream out = location.createMetadataOutputStream()) {
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, operatorStates.values(), Collections.emptyList()), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+
+		Map<OperatorID, OperatorState> operatorStateMap = CheckpointVerifier.getOperatorStatesFromSavepointSettings(
+			configuration,
+			ClassLoader.getSystemClassLoader(),
+			new JobID(),
+			jobUID,
+			savepointRestoreSettings
+		);
+		Assert.assertEquals(operatorStateMap.size(), operatorStates.size());
 	}
 
 	void buildSuccessGraph() {
