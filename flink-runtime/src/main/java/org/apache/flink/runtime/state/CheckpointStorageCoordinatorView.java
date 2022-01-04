@@ -19,12 +19,14 @@
 package org.apache.flink.runtime.state;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * This interface creates a {@link CheckpointStorageLocation} to which
@@ -75,7 +77,7 @@ public interface CheckpointStorageCoordinatorView {
 	 * @return list of tuple, each tuple represents (external pointer to CompletedCheckpoint,
 	 * isSavepoint).
 	 */
-	default List<Tuple2<String, Boolean>> findCompletedCheckpointPointerV2() throws IOException {
+	default List<Tuple3<Long, String, Boolean>> findCompletedCheckpointPointerV2(Set<Long> checkpointsOnStore) throws IOException {
 		return Collections.emptyList();
 	}
 

@@ -114,10 +114,10 @@ public class ZooKeeperCompletedCheckpointStoreMockitoTest extends TestLogger {
 				CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
 				new TestCompletedCheckpointStorageLocation())));
 
-		checkpointsInZooKeeper.add(Tuple2.of(retrievableStateHandle1, "/foobar1"));
-		checkpointsInZooKeeper.add(Tuple2.of(failingRetrievableStateHandle, "/failing1"));
-		checkpointsInZooKeeper.add(Tuple2.of(retrievableStateHandle2, "/foobar2"));
-		checkpointsInZooKeeper.add(Tuple2.of(failingRetrievableStateHandle, "/failing2"));
+		checkpointsInZooKeeper.add(Tuple2.of(retrievableStateHandle1, "/1"));
+		checkpointsInZooKeeper.add(Tuple2.of(failingRetrievableStateHandle, "/1"));
+		checkpointsInZooKeeper.add(Tuple2.of(retrievableStateHandle2, "/2"));
+		checkpointsInZooKeeper.add(Tuple2.of(failingRetrievableStateHandle, "/2"));
 
 		final CuratorFramework client = mock(CuratorFramework.class, Mockito.RETURNS_DEEP_STUBS);
 		final RetrievableStateStorageHelper<CompletedCheckpoint> storageHelperMock = mock(RetrievableStateStorageHelper.class);

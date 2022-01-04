@@ -101,7 +101,7 @@ public class DefaultCompletedCheckpointStoreTest extends TestLogger {
 	 */
 	@Test
 	public void testCorruptDataInStateHandleStoreShouldBeSkipped() throws Exception {
-		final long corruptCkpId = 2L;
+		final long corruptCkpId = 3L;
 		checkpointStorageHelper.setRetrieveStateFunction(state -> {
 			if (state.getCheckpointID() == corruptCkpId) {
 				throw new IOException("Failed to retrieve checkpoint " + corruptCkpId);
@@ -122,7 +122,36 @@ public class DefaultCompletedCheckpointStoreTest extends TestLogger {
 			.map(CompletedCheckpoint::getCheckpointID)
 			.collect(Collectors.toList());
 		// Checkpoint 2 should be skipped.
-		assertThat(checkpointIds, contains(1L, 3L));
+		assertThat(checkpointIds, contains(1L, 2L));
+	}
+
+	/**
+	 * We got an {@link IOException} when retrieving checkpoint 2. It should be skipped.
+	 */
+	@Test
+	public void testCorruptDataInStateHandleStoreShouldNotBeSkipped() throws Exception {
+		final long corruptCkpId = 2L;
+		checkpointStorageHelper.setRetrieveStateFunction(state -> {
+			if (state.getCheckpointID() == corruptCkpId) {
+				throw new IOException("Failed to retrieve checkpoint " + corruptCkpId);
+			}
+			return state;
+		});
+
+		final TestingStateHandleStore<CompletedCheckpoint> stateHandleStore = builder
+			.setGetAllSupplier(() -> createStateHandles(3))
+			.build();
+		final CompletedCheckpointStore completedCheckpointStore = createCompletedCheckpointStore(stateHandleStore);
+
+		completedCheckpointStore.recover();
+
+		final List<CompletedCheckpoint> recoveredCompletedCheckpoint = completedCheckpointStore.getAllCheckpoints();
+		assertThat(recoveredCompletedCheckpoint.size(), is(3));
+		final List<Long> checkpointIds = recoveredCompletedCheckpoint.stream()
+			.map(CompletedCheckpoint::getCheckpointID)
+			.collect(Collectors.toList());
+		// Checkpoint 2 should be skipped.
+		assertThat(checkpointIds, contains(1L, 2L, 3L));
 	}
 
 	/**

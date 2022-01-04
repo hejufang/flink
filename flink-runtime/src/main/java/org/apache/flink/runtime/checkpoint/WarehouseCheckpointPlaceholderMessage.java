@@ -16,36 +16,36 @@
  * limitations under the License.
  */
 
-package org.apache.flink.metrics;
+package org.apache.flink.runtime.checkpoint;
 
 /**
- * The type of {@link Message}.
+ * Warehouse message for checkpoint placeholder transform.
  */
-public enum MessageType {
+public class WarehouseCheckpointPlaceholderMessage {
+	private static final String STATUS_SUCCESS = "success";
+	private static final String STATUS_FAILED = "failed";
 
-	CHECKPOINT("checkpoint"),
+	private String transformResult;
+	private String msg;
 
-	CHECKPOINT_CONFIG("checkpoint_config"),
+	public WarehouseCheckpointPlaceholderMessage(boolean transformResult, String msg) {
+		this.transformResult = transformResult ? STATUS_SUCCESS : STATUS_FAILED;
+		this.msg = msg;
+	}
 
-	ORIGINAL_METRICS("original_metrics"),
+	public String getTransformResult() {
+		return transformResult;
+	}
 
-	BLACKLIST("blacklist"),
+	public void setTransformResult(String transformResult) {
+		this.transformResult = transformResult;
+	}
 
-	JOB_CONFIG("job_config"),
+	public String getMsg() {
+		return msg;
+	}
 
-	JOB_START_EVENT("job_start_event"),
-
-	SNAPSHOT("snapshot"),
-
-	RESTORE("restore"),
-
-	CACHE_LAYER("cache_layer"),
-
-	CHECKPOINT_PLACEHOLDER("checkpoint_placeholder");
-
-	private final String name;
-
-	MessageType(final String name) {
-		this.name = name;
+	public void setMsg(String msg) {
+		this.msg = msg;
 	}
 }

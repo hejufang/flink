@@ -346,4 +346,9 @@ public class CompletedCheckpoint implements Serializable {
 	public boolean isCheckpoint() {
 		return !props.isSavepoint();
 	}
+
+	@Nullable
+	public CheckpointStorageCoordinatorView getCheckpointStorage() {
+		return checkpointStorage;
+	}
 }

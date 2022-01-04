@@ -77,6 +77,9 @@ public interface CompletedCheckpointStore {
 			LOG.info("Did not find earlier checkpoint, using latest savepoint to recover.");
 		}
 
+		if (lastCompleted instanceof CompletedCheckpointPlaceHolder) {
+			lastCompleted = ((CompletedCheckpointPlaceHolder<?>) lastCompleted).getUnderlyingCheckpoint();
+		}
 		return lastCompleted;
 	}
 

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.state.filesystem;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -47,6 +48,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -495,52 +497,52 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 				.collect(Collectors.toList());
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
-	public List<Tuple2<String, Boolean>> findCompletedCheckpointPointerV2() throws IOException {
+	public List<Tuple3<Long, String, Boolean>> findCompletedCheckpointPointerV2(Set<Long> checkpointsOnStore) throws IOException {
 		LOG.info("Find completed checkpoint in checkpointsDirectory: {}", checkpointsDirectory);
 		FileStatus[] statuses = fileSystem.listStatus(checkpointsDirectory);
 		if (statuses == null) {
 			return Collections.emptyList();
 		}
 
+		long latestCheckpointIdOnStore = checkpointsOnStore.stream().max(Long::compareTo).orElse(-1L);
 		return Arrays.stream(statuses)
 			.filter(fileStatus -> {
 				try {
 					String dirName = fileStatus.getPath().getName();
-					if (dirName.startsWith(CHECKPOINT_DIR_PREFIX) || dirName.startsWith(SAVEPOINT_DIR_PREFIX)) {
-						return fileSystem.exists(new Path(fileStatus.getPath(), METADATA_FILE_NAME));
+					long checkpointId;
+					if (dirName.startsWith(CHECKPOINT_DIR_PREFIX)) {
+						checkpointId = Long.parseLong(dirName.substring(CHECKPOINT_DIR_PREFIX.length()));
+						return (checkpointId > latestCheckpointIdOnStore || checkpointsOnStore.contains(checkpointId)) &&
+							fileSystem.exists(new Path(fileStatus.getPath(), METADATA_FILE_NAME));
+					} else if (dirName.startsWith(SAVEPOINT_DIR_PREFIX)) {
+						checkpointId = Long.parseLong(dirName.substring(SAVEPOINT_DIR_PREFIX.length()));
+						return (checkpointId > latestCheckpointIdOnStore || checkpointsOnStore.contains(checkpointId)) &&
+							fileSystem.exists(new Path(fileStatus.getPath(), METADATA_FILE_NAME));
 					} else {
 						return false;
 					}
 				} catch (IOException e) {
 					LOG.info("Exception when checking {} is completed checkpoint.", fileStatus.getPath(), e);
 					return false;
+				} catch (NumberFormatException e) {
+					LOG.info("Exception when parsing checkpoint {} id.", fileStatus.getPath(), e);
+					return false;
 				}
-			})
-			.sorted(Comparator.comparingInt(
-				(FileStatus fileStatus) -> {
-					try {
-						int checkpointId;
-						String dirName = fileStatus.getPath().getName();
-						if (dirName.startsWith(CHECKPOINT_DIR_PREFIX)) {
-							checkpointId = Integer.parseInt(dirName.substring(CHECKPOINT_DIR_PREFIX.length()));
-						} else {
-							checkpointId = Integer.parseInt(dirName.substring(SAVEPOINT_DIR_PREFIX.length()));
-						}
-						return checkpointId;
-					} catch (Exception e) {
-						LOG.info("Exception when parsing checkpoint {} id.", fileStatus.getPath(), e);
-						return Integer.MIN_VALUE;
-					}
-				}).reversed())
-			.map(fileStatus -> {
+			}).map(fileStatus -> {
+				boolean isSavepoint = false;
+				long checkpointId;
 				String dirName = fileStatus.getPath().getName();
 				if (dirName.startsWith(CHECKPOINT_DIR_PREFIX)) {
-					return new Tuple2<>(fileStatus.getPath().toString(), false);
+					checkpointId = Long.parseLong(dirName.substring(CHECKPOINT_DIR_PREFIX.length()));
 				} else {
-					return new Tuple2<>(fileStatus.getPath().toString(), true);
+					isSavepoint = true;
+					checkpointId = Long.parseLong(dirName.substring(SAVEPOINT_DIR_PREFIX.length()));
 				}
-			})
+				return new Tuple3<>(checkpointId, fileStatus.getPath().toString(), isSavepoint);
+			}).sorted(Comparator.comparingLong(
+				(Tuple3<Long, String, Boolean> value) -> value.f0).reversed())
 			.collect(Collectors.toList());
 	}
 
@@ -636,7 +638,7 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 			.map(fileStatus -> fileStatus.getPath())
 			.collect(Collectors.toList());
 		LOG.info("Got {} existing namespace paths for job", modifySortedDirs.size());
-		int sizeCompletedSnapshotInChkDir = findCompletedCheckpointPointerV2().size();
+		int sizeCompletedSnapshotInChkDir = findCompletedCheckpointPointerV2(Collections.emptySet()).size();
 		String latestSnapshotPath = null;
 		boolean isSavepoint = false;
 		for (Path checkpointDir : modifySortedDirs) {

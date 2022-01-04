@@ -2686,7 +2686,8 @@ public class CheckpointCoordinatorTest extends TestLogger {
 			tasks.stream().map(ExecutionVertex::getJobVertex).collect(Collectors.toSet()),
 			false,
 			true,
-			Thread.currentThread().getContextClassLoader());
+			Thread.currentThread().getContextClassLoader(),
+			Collections.EMPTY_SET);
 
 		assertEquals(1, checkpointsOnStorage.size());
 		CompletedCheckpoint completedCheckpointOnStorage = checkpointsOnStorage.iterator().next();
@@ -2717,7 +2718,8 @@ public class CheckpointCoordinatorTest extends TestLogger {
 				Collections.singleton(ejv3),
 				false,
 				true,
-				Thread.currentThread().getContextClassLoader());
+				Thread.currentThread().getContextClassLoader(),
+				Collections.EMPTY_SET);
 			fail("The state should be incompatible.");
 		} catch (IllegalStateException e) {
 			// ignore

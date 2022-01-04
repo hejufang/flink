@@ -127,7 +127,7 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 		final List<Tuple2<RetrievableStateHandle<CompletedCheckpoint>, String>> initialCheckpoints =
 			checkpointStateHandleStore.getAllAndLock();
 
-		Collections.sort(initialCheckpoints, STRING_COMPARATOR);
+		Collections.sort(initialCheckpoints, STRING_COMPARATOR.reversed());
 
 		final int numberOfInitialCheckpoints = initialCheckpoints.size();
 
@@ -159,14 +159,27 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 
 			retrievedCheckpoints.clear();
 
+			boolean hasLoadLatestCheckpoint = false;
 			for (Tuple2<RetrievableStateHandle<CompletedCheckpoint>, String> checkpointStateHandle : initialCheckpoints) {
 
 				CompletedCheckpoint completedCheckpoint;
 
 				try {
-					completedCheckpoint = retrieveCompletedCheckpoint(checkpointStateHandle);
-					if (completedCheckpoint != null) {
-						retrievedCheckpoints.add(completedCheckpoint);
+					if (!hasLoadLatestCheckpoint) {
+						completedCheckpoint = retrieveCompletedCheckpoint(checkpointStateHandle);
+						if (completedCheckpoint != null) {
+							retrievedCheckpoints.add(completedCheckpoint);
+							if (completedCheckpoint.isCheckpoint()) {
+								LOG.info("We have loaded the latest checkpoint({}) from zookeeper, and the rest are loaded using placeholder.", completedCheckpoint.getCheckpointID());
+								hasLoadLatestCheckpoint = true;
+							}
+						}
+					} else {
+						LOG.info("Using placeholder to load checkpoint {} from zookeeper.", completedCheckpointStoreUtil.nameToCheckpointID(checkpointStateHandle.f1));
+						retrievedCheckpoints.add(new CompletedCheckpointPlaceHolder<>(
+							completedCheckpointStoreUtil.nameToCheckpointID(checkpointStateHandle.f1),
+							checkpointStateHandle,
+							this::retrieveCompletedCheckpoint));
 					}
 				} catch (Exception e) {
 					LOG.warn("Could not retrieve checkpoint, not adding to list of recovered checkpoints.", e);
@@ -179,6 +192,7 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 		// Clear local handles in order to prevent duplicates on recovery. The local handles should reflect
 		// the state handle store contents.
 		completedCheckpoints.clear();
+		Collections.reverse(retrievedCheckpoints);
 		completedCheckpoints.addAll(retrievedCheckpoints);
 
 		if (completedCheckpoints.isEmpty() && numberOfInitialCheckpoints > 0) {
@@ -327,13 +341,23 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 	private void tryRemoveCompletedCheckpoint(
 			CompletedCheckpoint completedCheckpoint,
 			ThrowingConsumer<CompletedCheckpoint, Exception> discardCallback) {
+
 		try {
+			if (completedCheckpoint instanceof CompletedCheckpointPlaceHolder) {
+				completedCheckpoint = ((CompletedCheckpointPlaceHolder<?>) completedCheckpoint).getUnderlyingCheckpoint();
+			}
+		} catch (Exception e) {
+			// ignore
+		}
+
+		try {
+			final CompletedCheckpoint toDiscardCheckpoint = completedCheckpoint;
 			if (tryRemove(completedCheckpoint.getCheckpointID())) {
 				executor.execute(() -> {
 					try {
-						discardCallback.accept(completedCheckpoint);
+						discardCallback.accept(toDiscardCheckpoint);
 					} catch (Exception e) {
-						LOG.warn("Could not discard completed checkpoint {}.", completedCheckpoint.getCheckpointID(), e);
+						LOG.warn("Could not discard completed checkpoint {}.", toDiscardCheckpoint.getCheckpointID(), e);
 					}
 				});
 

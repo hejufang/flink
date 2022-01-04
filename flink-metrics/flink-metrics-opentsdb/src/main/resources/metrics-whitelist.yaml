@@ -76,7 +76,8 @@ global:
         numberOfDiscardExpiredCheckpointFolder,
         numJobRequiredWorkers,
         numberOfRecoverSuccess,
-        numberOfRecoverFailed
+        numberOfRecoverFailed,
+        numberOfCheckpointPlaceholderTransformed
     ]
 
 non-global:

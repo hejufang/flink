@@ -21,7 +21,7 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
-import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -1585,19 +1585,49 @@ public class CheckpointCoordinator {
 
 			// Recover the checkpoints, TODO this could be done only when there is a new leader, not on each recovery
 			completedCheckpointStore.recover();
+			final Set<Long> checkpointsOnStore = completedCheckpointStore.getAllCheckpoints()
+				.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet());
 
 			/* ---------------- DC Failure Tolerance ---------------- */
 
 			final Set<CompletedCheckpoint> checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(
-				tasks, allowNonRestoredState, fromStorage, userClassLoader);
+				tasks, allowNonRestoredState, fromStorage, userClassLoader, checkpointsOnStore);
 			LOG.info("Find {} checkpoints {} on HDFS.", checkpointsOnStorage.size(),
 					checkpointsOnStorage.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()));
-			final Set<Long> checkpointsOnStore = completedCheckpointStore.getAllCheckpoints()
-				.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet());
+
+			final Map<JobVertexID, ExecutionJobVertex> mappings = new HashMap<>();
+			tasks.forEach(ejv -> mappings.put(ejv.getJobVertexId(), ejv));
+			Map<Long, CompletedCheckpoint> checkpointsOnStorageMap =
+				checkpointsOnStorage.stream().collect(Collectors.toMap(CompletedCheckpoint::getCheckpointID, Function.identity()));
+			for (CompletedCheckpoint completedCheckpoint : completedCheckpointStore.getAllCheckpoints()) {
+				if (completedCheckpoint instanceof CompletedCheckpointPlaceHolder) {
+					CompletedCheckpointPlaceHolder<?> placeHolder = ((CompletedCheckpointPlaceHolder<?>) completedCheckpoint);
+					placeHolder.appendTransformer(
+						v -> Checkpoints.loadAndValidateCheckpoint(
+							job, mappings, v.getStorageLocation(), userClassLoader, allowNonRestoredState, v.isSavepoint()));
+
+					CompletedCheckpoint cp = checkpointsOnStorageMap.get(completedCheckpoint.getCheckpointID());
+					if (cp != null) {
+						((CompletedCheckpointPlaceHolder<?>) completedCheckpoint).setIsSavepoint(cp.isSavepoint());
+					} else {
+						LOG.info("We didn't find checkpoint {} in hdfs, this may indicate that the dc has been changed.", completedCheckpoint.getCheckpointID());
+					}
+
+					if (statsTracker != null) {
+						// set callback for zookeeper cp
+						placeHolder.setTransformCallback(statsTracker::reportPlaceHolderTransformResult);
+					}
+				}
+			}
+
 			final Set<CompletedCheckpoint> extraCheckpoints = new HashSet<>();
 			for (CompletedCheckpoint checkpoint : checkpointsOnStorage) {
 				if (!checkpointsOnStore.contains(checkpoint.getCheckpointID())) {
 					extraCheckpoints.add(checkpoint);
+					if (checkpoint instanceof CompletedCheckpointPlaceHolder && statsTracker != null) {
+						// set callback for hdfs cp
+						((CompletedCheckpointPlaceHolder<?>) checkpoint).setTransformCallback(statsTracker::reportPlaceHolderTransformResult);
+					}
 				}
 			}
 
@@ -1638,9 +1668,11 @@ public class CheckpointCoordinator {
 			} else {
 				LOG.info("The completed checkpoint store has not changed and not restoring from savepoint, no need to re-register shared state.");
 			}
-			LOG.info("After restoring CompletedCheckpointStore, checkpoints {}, savepoints {}.",
+
+			LOG.info("After restoring CompletedCheckpointStore, checkpoints {}, savepoints {}, unknown placeHolder {}.",
 				completedCheckpointStore.getAllCheckpoints().stream().filter(CompletedCheckpoint::isCheckpoint).map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()),
-				completedCheckpointStore.getAllCheckpoints().stream().filter(CompletedCheckpoint::isSavepoint).map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()));
+				completedCheckpointStore.getAllCheckpoints().stream().filter(CompletedCheckpoint::isSavepoint).map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()),
+				completedCheckpointStore.getAllCheckpoints().stream().filter(cp -> !cp.isCheckpoint() && !cp.isSavepoint()).map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()));
 
 			LOG.debug("Status of the shared state registry of job {} after restore: {}.", job, sharedStateRegistry);
 
@@ -1710,7 +1742,8 @@ public class CheckpointCoordinator {
 			Set<ExecutionJobVertex> tasks,
 			boolean allowNonRestoredState,
 			boolean findCheckpointInCheckpointStore,
-			@Nullable ClassLoader userClassLoader) throws IOException {
+			@Nullable ClassLoader userClassLoader,
+			Set<Long> checkpointsOnStore) throws IOException {
 		final Set<CompletedCheckpoint> result = new HashSet<>();
 		final Map<JobVertexID, ExecutionJobVertex> mappings = new HashMap<>();
 		tasks.forEach(ejv -> mappings.put(ejv.getJobVertexId(), ejv));
@@ -1718,9 +1751,10 @@ public class CheckpointCoordinator {
 		int onRetrievingCheckpointsIdx = 0;
 		if (findCheckpointInCheckpointStore && userClassLoader != null) {
 			// tuple.f0: external pointer, tuple.f1: if completeCheckpoint is savepoint?
-			List<Tuple2<String, Boolean>> completedCheckpointPointersOnStorage;
-			completedCheckpointPointersOnStorage = checkpointStorage.findCompletedCheckpointPointerV2();
-			for (Tuple2<String, Boolean> completedCheckpointPointer : completedCheckpointPointersOnStorage) {
+			List<Tuple3<Long, String, Boolean>> completedCheckpointPointersOnStorage;
+			completedCheckpointPointersOnStorage = checkpointStorage.findCompletedCheckpointPointerV2(checkpointsOnStore);
+			boolean hasLoadLatestCheckpoint = false;
+			for (Tuple3<Long, String, Boolean> completedCheckpointPointer : completedCheckpointPointersOnStorage) {
 				try {
 					if (result.size() >= completedCheckpointStore.getMaxNumberOfRetainedCheckpoints()) {
 						int numCheckpointsOnStorage = completedCheckpointPointersOnStorage.size();
@@ -1731,13 +1765,29 @@ public class CheckpointCoordinator {
 						onRetrievingCheckpointsIdx++;
 					}
 					final CompletedCheckpointStorageLocation checkpointStorageLocation;
-					if (completedCheckpointPointer.f1) {
-						checkpointStorageLocation = checkpointStorage.resolveSavepoint(completedCheckpointPointer.f0);
+					if (completedCheckpointPointer.f2) {
+						checkpointStorageLocation = checkpointStorage.resolveSavepoint(completedCheckpointPointer.f1);
 					} else {
-						checkpointStorageLocation = checkpointStorage.resolveCheckpoint(completedCheckpointPointer.f0);
+						checkpointStorageLocation = checkpointStorage.resolveCheckpoint(completedCheckpointPointer.f1);
 					}
-					final CompletedCheckpoint completedCheckpoint = Checkpoints.loadAndValidateCheckpoint(
-							job, mappings, checkpointStorageLocation, userClassLoader, allowNonRestoredState, completedCheckpointPointer.f1);
+					final CompletedCheckpoint completedCheckpoint;
+					if (!hasLoadLatestCheckpoint && !checkpointsOnStore.contains(completedCheckpointPointer.f0)) {
+						completedCheckpoint = Checkpoints.loadAndValidateCheckpoint(
+							job, mappings, checkpointStorageLocation, userClassLoader, allowNonRestoredState, completedCheckpointPointer.f2);
+						if (!completedCheckpointPointer.f2 || !isPreferCheckpointForRecovery) {
+							LOG.info("We have loaded the latest checkpoint[{}] from hdfs, and the rest are loaded using placeholder.", completedCheckpoint.getCheckpointID());
+							hasLoadLatestCheckpoint = true;
+						}
+					} else {
+						LOG.info("Using placeholder to load checkpoint {} from hdfs.", completedCheckpointPointer.f0);
+						completedCheckpoint = new CompletedCheckpointPlaceHolder<>(
+							completedCheckpointPointer.f0,
+							checkpointStorageLocation,
+							completedCheckpointPointer.f2,
+							completedCheckpointPointer,
+							v -> Checkpoints.loadAndValidateCheckpoint(
+								job, mappings, checkpointStorageLocation, userClassLoader, allowNonRestoredState, completedCheckpointPointer.f2));
+					}
 					result.add(completedCheckpoint);
 				} catch (IllegalStateException e) {
 					LOG.error("Failed to rollback to checkpoint/savepoint from {}", completedCheckpointPointer.f0, e);

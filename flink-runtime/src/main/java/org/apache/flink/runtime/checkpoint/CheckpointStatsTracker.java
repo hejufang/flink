@@ -317,6 +317,21 @@ public class CheckpointStatsTracker {
 		}
 	}
 
+	public void reportPlaceHolderTransformResult(boolean success, String msg) {
+		statsReadWriteLock.lock();
+		try {
+			final String transformMsg = msg.replaceAll(" ", "-");
+			checkpointPlaceholderTagGauge.addMetric(1, new TagGaugeStoreImpl.TagValuesBuilder()
+				.addTagValue("success", String.valueOf(success))
+				.addTagValue("msg", transformMsg)
+				.build());
+
+			CHECKPOINT_PLACEHOLDER_MESSAGE_SET.addMessage(new Message<>(new WarehouseCheckpointPlaceholderMessage(success, transformMsg)));
+		} finally {
+			statsReadWriteLock.unlock();
+		}
+	}
+
 	/**
 	 * Creates an empty map with a {@link TaskStateStats} instance per task
 	 * that is involved in the checkpoint.
@@ -403,6 +418,15 @@ public class CheckpointStatsTracker {
 	static final String POST_JOB_RAW_TOTAL_STATE_SIZE = "postJobRawTotalStateSize";
 
 	static final String NUMBER_OF_FS_DISCARD_EXPIRED_CHECKPOINT_FOLDER = "numberOfDiscardExpiredCheckpointFolder";
+
+	static final String NUMBER_OF_CHECKPOINT_PLACEHOLDER_TRANSFORMED = "numberOfCheckpointPlaceholderTransformed";
+
+	final TagGauge checkpointPlaceholderTagGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).setClearWhenFull(true).build();
+
+	static final String WAREHOUSE_CHECKPOINT_PLACEHOLDER = "warehouseCheckpointPlaceholder";
+
+	static final MessageSet<WarehouseCheckpointPlaceholderMessage> CHECKPOINT_PLACEHOLDER_MESSAGE_SET = new MessageSet<>(MessageType.CHECKPOINT_PLACEHOLDER);
+
 	/**
 	 * Register the exposed metrics.
 	 *
@@ -424,6 +448,8 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(PRE_JOB_RAW_TOTAL_STATE_SIZE, new LatestCompletedCheckpointPreJobBatchTotalStateSize());
 		metricGroup.gauge(POST_JOB_RAW_TOTAL_STATE_SIZE, new LatestCompletedCheckpointPostJobBatchTotalStateSize());
 		metricGroup.gauge(NUMBER_OF_FS_DISCARD_EXPIRED_CHECKPOINT_FOLDER, new DiscardedHistoricalCheckpointsCounter());
+		metricGroup.gauge(NUMBER_OF_CHECKPOINT_PLACEHOLDER_TRANSFORMED, checkpointPlaceholderTagGauge);
+		metricGroup.gauge(WAREHOUSE_CHECKPOINT_PLACEHOLDER, CHECKPOINT_PLACEHOLDER_MESSAGE_SET);
 	}
 
 	private class CheckpointsCounter implements Gauge<Long> {
