@@ -143,6 +143,8 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private transient volatile boolean hasSuccessfulCheckpoint;
 	private transient boolean enableCheckpoint;
 
+	private transient boolean hasRun;
+
 	private transient int parallelism;
 	private transient int retryTimes;
 	private transient int subTaskId;
@@ -312,6 +314,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 			}
 		}
 		runningChecker.setRunning(isTaskRunning);
+		hasRun = true;
 		awaitTermination();
 	}
 
@@ -448,7 +451,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	public void snapshotState(FunctionSnapshotContext context) throws Exception {
 		// called when a snapshot for a checkpoint is requested
 
-		if (!runningChecker.isRunning()) {
+		if (hasRun && !runningChecker.isRunning()) {
 			LOG.debug("snapshotState() called on closed source; returning null.");
 			return;
 		}
