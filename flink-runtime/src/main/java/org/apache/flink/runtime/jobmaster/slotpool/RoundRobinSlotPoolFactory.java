@@ -41,6 +41,9 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 	private final Time rpcTimeout;
 
 	@Nonnull
+	private final Time slotRequestTimeout;
+
+	@Nonnull
 	private final Time slotIdleTimeout;
 
 	@Nonnull
@@ -55,6 +58,7 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 	public RoundRobinSlotPoolFactory(
 			@Nonnull Clock clock,
 			@Nonnull Time rpcTimeout,
+			@Nonnull Time slotRequestTimeout,
 			@Nonnull Time slotIdleTimeout,
 			@Nonnull Time batchSlotTimeout,
 			boolean jobLogDetailDisable,
@@ -62,6 +66,7 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 			boolean requestSlotFromResourceDirectEnable) {
 		this.clock = clock;
 		this.rpcTimeout = rpcTimeout;
+		this.slotRequestTimeout = slotRequestTimeout;
 		this.slotIdleTimeout = slotIdleTimeout;
 		this.batchSlotTimeout = batchSlotTimeout;
 		this.jobLogDetailDisable = jobLogDetailDisable;
@@ -76,6 +81,7 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 			jobId,
 			clock,
 			rpcTimeout,
+			slotRequestTimeout,
 			slotIdleTimeout,
 			batchSlotTimeout,
 			jobLogDetailDisable,
@@ -88,6 +94,7 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 		final Time rpcTimeout = AkkaUtils.getTimeoutAsTime(configuration);
 		final Time slotIdleTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_IDLE_TIMEOUT));
 		final Time batchSlotTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT));
+		final Time slotRequestTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT));
 		final boolean jobLogDetailDisable = configuration.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 		final boolean batchRequestSlotsEnable = configuration.getBoolean(JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE);
 		final boolean requestSlotFromResourceDirectEnable = configuration.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE);
@@ -95,6 +102,7 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 		return new RoundRobinSlotPoolFactory(
 			SystemClock.getInstance(),
 			rpcTimeout,
+			slotRequestTimeout,
 			slotIdleTimeout,
 			batchSlotTimeout,
 			jobLogDetailDisable,

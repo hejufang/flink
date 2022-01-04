@@ -25,6 +25,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
+import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.executiongraph.utils.SimpleAckingTaskManagerGateway;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.jobmaster.SlotRequestId;
@@ -37,7 +38,9 @@ import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.testingUtils.TestingUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.TestLogger;
+import org.apache.flink.util.clock.Clock;
 import org.apache.flink.util.clock.ManualClock;
+import org.apache.flink.util.clock.SystemClock;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -57,6 +60,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -105,11 +109,17 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 	}
 
 	@Nonnull
-	private TestingRoundRobinSlotPoolImpl createRoundRobinSlotPoolImpl(ManualClock clock) {
+	private TestingRoundRobinSlotPoolImpl createRoundRobinSlotPoolImpl(Clock clock) {
+		return createRoundRobinSlotPoolImpl(clock, Time.milliseconds(Integer.MAX_VALUE));
+	}
+
+	@Nonnull
+	private TestingRoundRobinSlotPoolImpl createRoundRobinSlotPoolImpl(Clock clock, Time slotRequestTimeout) {
 		return new TestingRoundRobinSlotPoolImpl(
 				jobId,
 				clock,
 				TestingUtils.infiniteTime(),
+				slotRequestTimeout,
 				timeout,
 				TestingUtils.infiniteTime(),
 				false);
@@ -207,6 +217,55 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 		assertEquals(11, slotPool.getAvailableSlotsInformation().size());
 		assertEquals(0, slotPool.getPendingRequests().size());
 		assertEquals(0, slotPool.getAllocatedSlots().size());
+	}
+
+	@Test
+	public void testSlotRequestTimeout() throws Exception {
+		Time slotRequestTimeout = Time.milliseconds(1000);
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(SystemClock.getInstance(), slotRequestTimeout);
+		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
+		requiredResource.put(ResourceProfile.UNKNOWN, 10);
+		slotPool.setRequiredResourceNumber(requiredResource);
+		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
+
+		final List<CompletableFuture<AllocationID>> allocationIds = new ArrayList<>(100);
+		for (int i = 0; i < 30; i++) {
+			allocationIds.add(new CompletableFuture<>());
+		}
+		final AtomicInteger allocatedNum = new AtomicInteger(0);
+
+		resourceManagerGateway.setRequestSlotConsumer(
+				slotRequest -> allocationIds.get(allocatedNum.getAndIncrement()).complete(slotRequest.getAllocationId()));
+
+		final ScheduledExecutorService singleThreadExecutor = Executors.newSingleThreadScheduledExecutor();
+		final ComponentMainThreadExecutor componentMainThreadExecutor = ComponentMainThreadExecutorServiceAdapter.forSingleThreadExecutor(singleThreadExecutor);
+		componentMainThreadExecutor.execute(
+				() -> {
+					try {
+						setupSlotPool(slotPool, resourceManagerGateway, componentMainThreadExecutor);
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
+				}
+		);
+		// verify SlotPool init 10 slots.
+		FutureUtils.waitForAll(allocationIds.subList(0, 10)).get();
+		assertEquals(10, allocatedNum.get());
+
+		// verify SlotRequest will time out.
+		for (SlotPoolImpl.PendingRequest request : new ArrayList<>(slotPool.getPendingRequests().values())) {
+			try {
+				request.getAllocatedSlotFuture().get();
+			} catch (Exception e) {
+				if (!ExceptionUtils.findThrowable(e, TimeoutException.class).isPresent()) {
+					throw e;
+				}
+			}
+		}
+
+		// verify request 10 new slots.
+		FutureUtils.waitForAll(allocationIds.subList(0, 20)).get();
+		assertEquals(20, allocatedNum.get());
 	}
 
 	@Test

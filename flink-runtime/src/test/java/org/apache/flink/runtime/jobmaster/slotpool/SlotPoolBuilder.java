@@ -38,6 +38,7 @@ public class SlotPoolBuilder {
 	private final ComponentMainThreadExecutor componentMainThreadExecutor;
 	private ResourceManagerGateway resourceManagerGateway = new TestingResourceManagerGateway();
 	private Time batchSlotTimeout = Time.milliseconds(2L);
+	private Time slotRequestTimeout = TestingUtils.infiniteTime();
 	private Clock clock = SystemClock.getInstance();
 	private boolean batchRequestSlotsEnable;
 	private boolean requestSlotFromResourceDirectEnable = false;
@@ -63,6 +64,11 @@ public class SlotPoolBuilder {
 
 	public SlotPoolBuilder setClock(Clock clock) {
 		this.clock = clock;
+		return this;
+	}
+
+	public SlotPoolBuilder setSlotRequestTimeout(Time slotRequestTimeout) {
+		this.slotRequestTimeout = slotRequestTimeout;
 		return this;
 	}
 
@@ -100,6 +106,7 @@ public class SlotPoolBuilder {
 				new JobID(),
 				clock,
 				TestingUtils.infiniteTime(),
+				slotRequestTimeout,
 				TestingUtils.infiniteTime(),
 				batchSlotTimeout,
 				batchRequestSlotsEnable);

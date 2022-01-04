@@ -59,18 +59,22 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 	private final Map<ResourceProfile, CompletableFuture<Collection<Acknowledge>>> requiredResourceSatisfiedFutureByResourceProfile = new HashMap<>();
 	private CompletableFuture<Acknowledge> requiredResourceSatisfiedFuture = CompletableFuture.completedFuture(Acknowledge.get());
 
+	private final Time slotRequestTimeout;
+
 	private boolean running = false;
 
 	public MinResourceSlotPoolImpl(
 			JobID jobId,
 			Clock clock,
 			Time rpcTimeout,
+			Time slotRequestTimeout,
 			Time idleSlotTimeout,
 			Time batchSlotTimeout,
 			boolean jobLogDetailDisable,
 			boolean batchRequestSlotsEnable,
 			boolean requestSlotFromResourceDirectEnable) {
 		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable, batchRequestSlotsEnable, requestSlotFromResourceDirectEnable);
+		this.slotRequestTimeout = slotRequestTimeout;
 	}
 
 	@Override
@@ -190,13 +194,14 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 	private void requestNewAllocatedSlotForRequiredResource(ResourceProfile resourceProfile) {
 		SlotRequestId slotRequestId = new SlotRequestId();
 		PendingRequest pendingRequest = new PendingRequest(slotRequestId, resourceProfile, false, Collections.emptyList());
-		requestNewAllocatedSlotInternal(pendingRequest);
+		requestNewAllocatedSlot(pendingRequest, slotRequestTimeout);
 		log.debug("Request new slot request {} for required resources.", pendingRequest);
 
 		pendingRequiredResources.computeIfAbsent(resourceProfile, r -> new HashSet<>()).add(pendingRequest);
 		pendingRequest.getAllocatedSlotFuture().whenComplete((allocatedSlot, throwable) -> {
 			pendingRequiredResources.get(resourceProfile).remove(pendingRequest);
 			if (throwable != null) {
+				log.debug("PendingRequest {} failed, try allocate new slots.", pendingRequest, throwable);
 				requestNewAllocatedSlotForRequiredResourceAndUpdateFutures(resourceProfile);
 			} else {
 				log.debug("PendingRequest {} for required resource fulfilled by {}", pendingRequest, allocatedSlot);
@@ -250,6 +255,8 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 			log.info("Remove allocatedSlot {} from allocatedRequiredResources.", allocatedSlot);
 			ResourceProfile requestedResourceProfile = allocatedSlotRequestedProfile.remove(allocatedSlot);
 			requestNewAllocatedSlotForRequiredResourceAndUpdateFutures(requestedResourceProfile);
+		} else {
+			log.debug("Remove allocatedSlot {} which is not allocatedRequiredResources", allocatedSlot);
 		}
 	}
 

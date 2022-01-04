@@ -159,7 +159,6 @@ public class SlotPoolImpl implements SlotPool {
 		this(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable, false, false);
 	}
 
-
 	public SlotPoolImpl(
 		JobID jobId,
 		Clock clock,
@@ -511,9 +510,14 @@ public class SlotPoolImpl implements SlotPool {
 			@Nonnull Collection<TaskManagerLocation> bannedLocations,
 			Time timeout) {
 
-		componentMainThreadExecutor.assertRunningInMainThread();
-
 		final PendingRequest pendingRequest = PendingRequest.createStreamingRequest(slotRequestId, resourceProfile, bannedLocations);
+		return requestNewAllocatedSlot(pendingRequest, timeout);
+	}
+
+	public CompletableFuture<PhysicalSlot> requestNewAllocatedSlot(
+			@Nonnull PendingRequest pendingRequest,
+			Time timeout) {
+		componentMainThreadExecutor.assertRunningInMainThread();
 
 		// register request timeout
 		FutureUtils
@@ -525,7 +529,7 @@ public class SlotPoolImpl implements SlotPool {
 			.whenComplete(
 				(AllocatedSlot ignored, Throwable throwable) -> {
 					if (throwable instanceof TimeoutException) {
-						timeoutPendingSlotRequest(slotRequestId);
+						timeoutPendingSlotRequest(pendingRequest.getSlotRequestId());
 					}
 				});
 
