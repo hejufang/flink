@@ -1068,7 +1068,7 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 			cancelOrFailAndCancelInvokableInternal(targetState, cause);
 		} catch (Throwable t) {
 			LOG.error("Fail to cancel task {} ({}).", taskNameWithSubtask, executionId, t);
-			if (ExceptionUtils.isJvmFatalOrOutOfMemoryError(t)) {
+			if (ExceptionUtils.isJvmFatalOrOutOfMemoryError(t) || t instanceof TaskCancelerWatchDogException) {
 				String message = String.format("FATAL - exception in cancelling task %s (%s).", taskNameWithSubtask, executionId);
 				notifyFatalError(message, t);
 			} else {
@@ -1110,6 +1110,32 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 
 						LOG.info("Triggering cancellation of task code {} ({}).", taskNameWithSubtask, executionId);
 
+						// if a cancellation timeout is set, the watchdog thread kills the process
+						// if graceful cancellation does not succeed
+						if (taskCancellationTimeout > 0) {
+							try {
+								LOG.info("Task {} starts watchdog thread.", taskNameWithSubtask);
+								Runnable cancelWatchdog = new TaskCancelerWatchDog(
+									executingThread,
+									taskManagerActions,
+									taskCancellationTimeout,
+									LOG,
+									this);
+
+								Thread watchDogThread = new Thread(
+									executingThread.getThreadGroup(),
+									cancelWatchdog,
+									String.format("Cancellation Watchdog for %s (%s).",
+										taskNameWithSubtask, executionId));
+								watchDogThread.setDaemon(true);
+								watchDogThread.setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE);
+								watchDogThread.start();
+							} catch (Exception e) {
+								LOG.error("Task {} starts watchdog thread failed.", taskNameWithSubtask, e);
+								throw new TaskCancelerWatchDogException(e);
+							}
+						}
+
 						// because the canceling may block on user code, we cancel from a separate thread
 						// we do not reuse the async call handler, because that one may be blocked, in which
 						// case the canceling could not continue
@@ -1144,27 +1170,6 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 							interruptingThread.setDaemon(true);
 							interruptingThread.setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE);
 							interruptingThread.start();
-						}
-
-						// if a cancellation timeout is set, the watchdog thread kills the process
-						// if graceful cancellation does not succeed
-						if (taskCancellationTimeout > 0) {
-							LOG.info("Task {} starts watchdog thread.", taskNameWithSubtask);
-							Runnable cancelWatchdog = new TaskCancelerWatchDog(
-									executingThread,
-									taskManagerActions,
-									taskCancellationTimeout,
-									LOG,
-									this);
-
-							Thread watchDogThread = new Thread(
-									executingThread.getThreadGroup(),
-									cancelWatchdog,
-									String.format("Cancellation Watchdog for %s (%s).",
-											taskNameWithSubtask, executionId));
-							watchDogThread.setDaemon(true);
-							watchDogThread.setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE);
-							watchDogThread.start();
 						}
 					}
 					return;
@@ -1678,5 +1683,16 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 
 	private boolean needCancelMainExecutor() {
 		return !isMainLoopFinished || progressHolder == null || !isProgressHolder();
+	}
+
+	/**
+	 * Exception for {@link org.apache.flink.runtime.taskmanager.Task.TaskCancelerWatchDog} when it identified that the TaskCancelerWatchDog
+	 * thread create failed.
+	 */
+	private class TaskCancelerWatchDogException extends RuntimeException {
+
+		public TaskCancelerWatchDogException(Throwable cause) {
+			super(cause);
+		}
 	}
 }

@@ -106,7 +106,7 @@ public final class ExceptionUtils {
 	 * @return True, if the exception is fatal to the JVM or and OutOfMemoryError, false otherwise.
 	 */
 	public static boolean isJvmFatalOrOutOfMemoryError(Throwable t) {
-		return isJvmFatalError(t) || t instanceof OutOfMemoryError;
+		return isJvmFatalError(t) || findThrowable(t, OutOfMemoryError.class).isPresent();
 	}
 
 	/**
