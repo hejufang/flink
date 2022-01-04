@@ -1118,7 +1118,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 					LOG.info("{} ({}) switched from {} to {}.", LoggerHelper.secMark("taskMetricNameWithSubtask", taskMetricNameWithSubtask), LoggerHelper.secMark("executionId", executionId), LoggerHelper.secMark("executionState", currentState), LoggerHelper.secMark("executionState", newState));
 				}
 			} else {
-				LOG.warn("{} ({}) switched from {} to {}.", LoggerHelper.secMark("taskMetricNameWithSubtask", taskMetricNameWithSubtask), LoggerHelper.secMark("executionId", executionId), LoggerHelper.secMark("executionState", currentState), LoggerHelper.secMark("executionState", newState), LoggerHelper.secMark("errMsg", cause));
+				LOG.warn("{} ({}) switched from {} to {} {}.", LoggerHelper.secMark("taskMetricNameWithSubtask", taskMetricNameWithSubtask), LoggerHelper.secMark("executionId", executionId), LoggerHelper.secMark("executionState", currentState), LoggerHelper.secMark("executionState", newState), LoggerHelper.secMark("errMsg", cause));
 			}
 
 			try {

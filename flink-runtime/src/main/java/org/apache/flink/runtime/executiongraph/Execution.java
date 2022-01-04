@@ -1829,7 +1829,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 					final String locationInformation = getAssignedResourceLocation() != null ? getAssignedResourceLocation().toString() : "not deployed";
 
 					LOG.info(
-						"{} ({}) switched from {} to {} on {}.",
+						"{} ({}) switched from {} to {} on {} {}.",
 						LoggerHelper.secMark("vertexWithAttempt", getVertexWithAttempt()),
 						LoggerHelper.secMark("attemptId", getAttemptId()),
 						LoggerHelper.secMark("executionState", currentState),

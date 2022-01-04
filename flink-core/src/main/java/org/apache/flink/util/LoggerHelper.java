@@ -18,6 +18,8 @@
 
 package org.apache.flink.util;
 
+import org.apache.flink.shaded.guava18.com.google.common.base.Throwables;
+
 /**
  * LoggerHelper.
  */
@@ -39,6 +41,10 @@ public class LoggerHelper {
 	}
 
 	public static String secMark(Object key, Object value) {
-		return secMarksEnabled ? "{{" + key + "=" + value + "}}" : value.toString();
+		return secMarksEnabled ? "{{" + key + "=" + value + "}}" : formatMessage(value);
+	}
+
+	private static String formatMessage(Object value) {
+		return value instanceof Throwable ? Throwables.getStackTraceAsString((Throwable) value) : value.toString();
 	}
 }
