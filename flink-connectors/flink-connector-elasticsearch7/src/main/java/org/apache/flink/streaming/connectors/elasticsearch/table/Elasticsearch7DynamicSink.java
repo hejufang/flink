@@ -79,6 +79,7 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 
 	private static final Logger LOG = LoggerFactory.getLogger(Elasticsearch7DynamicSink.class);
 	private static final String BYTEES_GDPR_HEADER_KEY = "Gdpr-Token";
+	private static final String DATA_PALACE_GDPR_HEADER_KEY = "authorization";
 
 	@VisibleForTesting
 	static final Elasticsearch7RequestFactory REQUEST_FACTORY = new Elasticsearch7DynamicSink.Elasticsearch7RequestFactory();
@@ -251,7 +252,11 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 					config.getConnectTimeout(),
 					config.getSocketTimeout()));
 			} else {
-				builder.setRestClientFactory(new DefaultRestClientFactory(config.getPathPrefix().orElse(null)));
+				String prefix = config.config.get(CONNECTION_PATH_PREFIX);
+				builder.setRestClientFactory(new DefaultRestClientFactory(
+					prefix,
+					config.getConnectTimeout(),
+					config.getSocketTimeout()));
 			}
 
 			final ElasticsearchSink<RowData> sink = builder.build();
@@ -281,9 +286,20 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 	static class DefaultRestClientFactory implements RestClientFactory {
 
 		private final String pathPrefix;
+		private final int connectTimeoutMs;
+		private final int socketTimeoutMs;
+
+		public DefaultRestClientFactory(
+				@Nullable String pathPrefix,
+				int connectTimeoutMs,
+				int socketTimeoutMs) {
+			this.pathPrefix = pathPrefix;
+			this.connectTimeoutMs = connectTimeoutMs;
+			this.socketTimeoutMs = socketTimeoutMs;
+		}
 
 		public DefaultRestClientFactory(@Nullable String pathPrefix) {
-			this.pathPrefix = pathPrefix;
+			this(pathPrefix, -1, -1);
 		}
 
 		@Override
@@ -291,6 +307,15 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 			if (pathPrefix != null) {
 				restClientBuilder.setPathPrefix(pathPrefix);
 			}
+			// add dynamic GDPR header
+			restClientBuilder.setHttpClientConfigCallback(httpClientBuilder ->
+				httpClientBuilder.addInterceptorLast((HttpRequestInterceptor) (httpRequest, httpContext) -> {
+					final String gdprToken = getGdprToken();
+					httpRequest.addHeader(BYTEES_GDPR_HEADER_KEY, gdprToken);
+					httpRequest.addHeader(DATA_PALACE_GDPR_HEADER_KEY, gdprToken);
+				}));
+			restClientBuilder.setRequestConfigCallback(requestConfigBuilder ->
+				requestConfigBuilder.setConnectTimeout(connectTimeoutMs).setSocketTimeout(socketTimeoutMs));
 		}
 
 		@Override
@@ -391,22 +416,12 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 			// add dynamic GDPR header
 			restClientBuilder.setHttpClientConfigCallback(httpClientBuilder ->
 				httpClientBuilder.addInterceptorLast((HttpRequestInterceptor) (httpRequest, httpContext) -> {
-				httpRequest.addHeader(BYTEES_GDPR_HEADER_KEY, getGdprToken());
+					final String gdprToken = getGdprToken();
+					httpRequest.addHeader(BYTEES_GDPR_HEADER_KEY, gdprToken);
+					httpRequest.addHeader(DATA_PALACE_GDPR_HEADER_KEY, gdprToken);
 			}));
 			restClientBuilder.setRequestConfigCallback(requestConfigBuilder ->
 				requestConfigBuilder.setConnectTimeout(connectTimeoutMs).setSocketTimeout(socketTimeoutMs));
-		}
-
-		private String getGdprToken() {
-			try {
-				String token = SecTokenC.getToken(false);
-				if (token != null && !token.isEmpty()) {
-					return token;
-				}
-			} catch (InfSecException e) {
-				throw new FlinkRuntimeException(e);
-			}
-			return null;
 		}
 
 		@Override
@@ -425,6 +440,18 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 		public int hashCode() {
 			return Objects.hash(pathPrefix);
 		}
+	}
+
+	private static String getGdprToken() {
+		try {
+			String token = SecTokenC.getToken(false);
+			if (token != null && !token.isEmpty()) {
+				return token;
+			}
+		} catch (InfSecException e) {
+			throw new FlinkRuntimeException(e);
+		}
+		return null;
 	}
 
 	/**
