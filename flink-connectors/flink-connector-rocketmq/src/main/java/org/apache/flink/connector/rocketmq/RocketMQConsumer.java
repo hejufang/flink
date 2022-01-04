@@ -126,6 +126,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private transient ListState<Tuple2<MessageQueue, Long>> unionOffsetStates;
 	private transient volatile boolean running;
 	private transient boolean isRestored;
+	private transient boolean hasRun;
 	private transient Map<MessageQueue, Long> offsetTable;
 	private transient Map<MessageQueue, Long> restoredOffsets;
 	private transient int subTaskId;
@@ -192,7 +193,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 	@Override
 	public void snapshotState(FunctionSnapshotContext context) throws Exception {
-		if (!running) {
+		if (hasRun && !running) {
 			LOG.info("snapshotState() called on closed source");
 		} else {
 			unionOffsetStates.clear();
@@ -227,9 +228,10 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				new TypeHint<Tuple2<org.apache.rocketmq.common.message.MessageQueue, Long>>() {
 				})));
 
+		List<Tuple2<MessageQueue, Long>> tuple2List = new ArrayList<>();
 		for (Tuple2<org.apache.rocketmq.common.message.MessageQueue, Long> legacyState : legacyUnionOffsetStates.get()) {
 			org.apache.rocketmq.common.message.MessageQueue legacyQueue = legacyState.f0;
-			this.unionOffsetStates.add(Tuple2.of(
+			tuple2List.add(Tuple2.of(
 				new MessageQueue(legacyQueue.getTopic(), legacyQueue.getBrokerName(), legacyQueue.getQueueId()),
 				legacyState.f1));
 		}
@@ -241,7 +243,8 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		offsetTable = new ConcurrentHashMap<>();
 		restoredOffsets = new HashMap<>();
 		isRestored = context.isRestored();
-		unionOffsetStates.get().forEach(
+		unionOffsetStates.get().forEach(tuple2List::add);
+		tuple2List.forEach(
 			queueAndOffset -> restoredOffsets.compute(queueAndOffset.f0, (queue, offset) -> {
 				if (offset != null) {
 					return Math.max(queueAndOffset.f1, offset);
@@ -259,6 +262,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	@Override
 	public void run(SourceContext<T> ctx) throws Exception {
 		running = true;
+		hasRun = true;
 		if (tag != null) {
 			consumer.setSubExpr(tag);
 		}
