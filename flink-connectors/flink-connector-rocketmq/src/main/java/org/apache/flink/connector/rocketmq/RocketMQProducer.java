@@ -37,6 +37,7 @@ import org.apache.flink.util.Preconditions;
 import com.bytedance.mqproxy.proto.MessageType;
 import com.bytedance.rocketmq.clientv2.message.Message;
 import com.bytedance.rocketmq.clientv2.producer.DefaultMQProducer;
+import com.bytedance.rocketmq.clientv2.producer.SendResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -174,14 +175,16 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 				}
 			}
 		} else {
-			producer.send(message);
+			SendResult sendResult = producer.send(message);
+			LOG.debug("Send message id: {}", sendResult.getMsgId());
 		}
 	}
 
 	private void flushMessages() {
 		if (messageList.size() > 0) {
 			try {
-				producer.send(messageList);
+				SendResult sendResult = producer.send(messageList);
+				LOG.debug("Send Message Ids: {}", sendResult.getMsgId());
 			} catch (Exception e) {
 				LOG.error("Flush exception", e);
 				throw new FlinkRuntimeException("Rocketmq flush exception", e);

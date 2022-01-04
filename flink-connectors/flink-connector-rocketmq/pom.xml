@@ -33,7 +33,7 @@ under the License.
 		<dependency>
 			<groupId>com.bytedance</groupId>
 			<artifactId>java-rocketmq-client2</artifactId>
-			<version>1.0.18-TEST1-FLINK</version>
+			<version>1.0.26</version>
 			<exclusions>
 				<exclusion>
 					<artifactId>logback-classic</artifactId>
