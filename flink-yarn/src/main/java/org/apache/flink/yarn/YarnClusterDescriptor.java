@@ -746,9 +746,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		// Add user files to work dir, and also to CLASSPATH.
 		String userFiles = configuration.getString(ConfigConstants.FILES, null);
-		LOG.info("userFiles = {}", userFiles);
 		if (userFiles != null) {
-			String [] userFileArray = userFiles.split(";");
+			LOG.info("before filter by provided jar userFile is {}", userFiles);
+			String[] userFileArray = fileUploader.filterUserFilesByProvidedJar(userFiles.split(";"));
+			LOG.info("after filter by provided jar userFile is {}", String.join(";", userFileArray));
 			for (String userFile: userFileArray) {
 				addFileToListWhileNotExistSet(systemShipFiles, systemShipFileList, new File(userFile));
 			}
@@ -845,11 +846,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		// Register all files in provided lib dirs as local resources with public visibility
 		// and upload the remaining dependencies as local resources with APPLICATION visibility.
-		final List<String> systemClassPaths = fileUploader.registerProvidedLocalResources();
+		final List<String> systemClassPaths = new ArrayList<>();
 		final List<String> uploadedDependencies = fileUploader.registerMultipleLocalResources(
 			systemShipFileList.stream().map(e -> new Path(e.toURI())).collect(Collectors.toList()),
 			Path.CUR_DIR);
 		systemClassPaths.addAll(uploadedDependencies);
+		systemClassPaths.addAll(fileUploader.registerProvidedLocalResources());
 
 		// upload and register ship-only files
 		// Plugin files only need to be shipped and should not be added to classpath.
@@ -875,7 +877,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			systemClassPaths.addAll(userClassPaths);
 		}
 		LOG.debug("systemClassPaths: {}", systemClassPaths);
-
+		LOG.debug("userClassPaths: {}", userClassPaths);
 		// normalize classpath by sorting
 		//Collections.sort(systemClassPaths);
 		// just sort user jars.

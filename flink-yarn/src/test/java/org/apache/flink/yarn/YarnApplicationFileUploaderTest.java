@@ -22,7 +22,9 @@ import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.TestLogger;
 
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
@@ -41,6 +43,7 @@ import java.util.Set;
 
 import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
 import static org.apache.flink.yarn.YarnTestUtils.generateFilesInDirectory;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertThat;
 
 /**
@@ -96,6 +99,33 @@ public class YarnApplicationFileUploaderTest extends TestLogger {
 						DFSConfigKeys.DFS_REPLICATION_DEFAULT));
 		} finally {
 			IOUtils.closeQuietly(fileSystem);
+		}
+	}
+
+	@Test
+	public void testFilterUserFilesByProvidedJar() throws IOException {
+		final File flinkLibDir = temporaryFolder.newFolder();
+		final Map<String, String> libJars = getLibJars();
+		final String testFlinkFile = "file:/var/folders/zb/2g8d9p2x3jx0dx53mgfg8p2h0000gn/T/junit1828520427911362415/junit5424893445622358499/connectors/flink-connector-abase-1.11-byted-SNAPSHOT.jar";
+		generateFilesInDirectory(flinkLibDir, libJars);
+		FileSystem fileSystem = FileSystem.get(new YarnConfiguration());
+		RemoteIterator<LocatedFileStatus> iterable = fileSystem.listFiles(new Path(flinkLibDir.toURI()), true);
+		String userFile = testFlinkFile;
+		while (iterable.hasNext()) {
+			final LocatedFileStatus locatedFileStatus = iterable.next();
+			userFile = String.join(";", userFile, locatedFileStatus.getPath().toString());
+		}
+		try (final YarnApplicationFileUploader yarnApplicationFileUploader = YarnApplicationFileUploader.from(
+				FileSystem.get(new YarnConfiguration()),
+				new Path(temporaryFolder.getRoot().toURI()),
+				Collections.singletonList(new Path(flinkLibDir.toURI())),
+				Collections.emptyList(),
+				ApplicationId.newInstance(0, 0),
+				DFSConfigKeys.DFS_REPLICATION_DEFAULT)) {
+
+			String[] userFileArray = yarnApplicationFileUploader.filterUserFilesByProvidedJar(userFile.split(";"));
+
+			assertThat(userFileArray, equalTo(new String[]{testFlinkFile}));
 		}
 	}
 

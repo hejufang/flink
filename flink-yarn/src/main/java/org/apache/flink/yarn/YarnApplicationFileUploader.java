@@ -47,6 +47,7 @@ import java.nio.file.Files;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -393,6 +394,15 @@ class YarnApplicationFileUploader implements AutoCloseable {
 		return classPaths;
 	}
 
+	public String[] filterUserFilesByProvidedJar(String[] userFileArray) {
+		List<String> userFileList = Arrays.asList(userFileArray);
+		for (Map.Entry<String, FileStatus> entry : providedSharedLibs.entrySet()) {
+			String providedJar = entry.getKey().startsWith("/") ? entry.getKey() : "/" + entry.getKey();
+			userFileList = userFileList.stream().filter(userFile -> !userFile.endsWith(providedJar)).collect(Collectors.toList());
+		}
+		return userFileList.toArray(new String[userFileList.size()]);
+	}
+
 	static YarnApplicationFileUploader from(
 			final FileSystem fileSystem,
 			final Path homeDirectory,
@@ -471,10 +481,14 @@ class YarnApplicationFileUploader implements AutoCloseable {
 	}
 
 	private Map<String, FileStatus> getAllFilesInProvidedLibDirs(final List<Path> providedLibDirs) {
+		//LinkedHashMap can ensure that the order of the elements is unchanged but cannot be sorted
 		final Map<String, FileStatus> allFiles = new LinkedHashMap<>();
+
 		checkNotNull(providedLibDirs).forEach(
 			FunctionUtils.uncheckedConsumer(
 				path -> {
+					//use TreeMap to sort provided files
+					Map<String, FileStatus> tmpFiles = new TreeMap<>();
 					if (!fileSystem.exists(path) || !fileSystem.isDirectory(path)) {
 						LOG.warn("Provided lib dir {} does not exist or is not a directory. Ignoring.", path);
 					} else {
@@ -485,12 +499,22 @@ class YarnApplicationFileUploader implements AutoCloseable {
 							final String name = path.getParent().toUri()
 									.relativize(locatedFileStatus.getPath().toUri())
 									.toString();
-
-							final FileStatus prevMapping = allFiles.put(name, locatedFileStatus);
+							final FileStatus prevMapping = tmpFiles.put(name, locatedFileStatus);
 							if (prevMapping != null) {
 								throw new IOException(
 									"Two files with the same filename exist in the shared libs: " +
 										prevMapping.getPath() + " - " + locatedFileStatus.getPath() +
+										". Please deduplicate.");
+							}
+						}
+						for (Map.Entry<String, FileStatus> entry : tmpFiles.entrySet()) {
+							String fileName = entry.getKey();
+							FileStatus fileStatus = entry.getValue();
+							final FileStatus prevMapping = allFiles.put(fileName, fileStatus);
+							if (prevMapping != null) {
+								throw new IOException(
+									"Two files with the same filename exist in the shared libs: " +
+										prevMapping.getPath() + " - " + fileStatus.getPath() +
 										". Please deduplicate.");
 							}
 						}
