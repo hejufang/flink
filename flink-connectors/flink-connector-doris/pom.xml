@@ -30,7 +30,7 @@ under the License.
 	<artifactId>flink-connector-doris</artifactId>
 
 	<properties>
-		<doris.version>1.0.18</doris.version>
+		<doris.version>1.0.22</doris.version>
 		<shading.prefix>org.apache.flink.doris.shaded</shading.prefix>
 	</properties>
 
