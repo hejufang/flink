@@ -146,12 +146,13 @@ public class MiniClusterClient implements ClusterClient<MiniClusterClient.MiniCl
 				while (iterator.hasNext()) {
 					if (!iterator.next().getExecutionState().equals(ExecutionState.RUNNING)) {
 						break;
+					} else {
+						if (!iterator.hasNext()){
+							allRunning = true;
+						}
 					}
 				}
 
-				if (!iterator.hasNext()) {
-					allRunning = true;
-				}
 			} catch (Exception ignored) {}
 		}
 
