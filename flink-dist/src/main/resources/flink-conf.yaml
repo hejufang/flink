@@ -119,7 +119,7 @@ common:
 
   # Grafana
   save-meta.enabled: true
-  register-dashboard.enabled: true
+  register-dashboard.enabled: false
   grafana.domain_url: "https://grafana.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiYjZMS0hPSXZybVpOOWJMS3pLRHkwaXRoWWI2RW1UT2oiLCJuIjoianN0b3JtIiwiaWQiOjF9"
 
@@ -261,6 +261,7 @@ common:
   bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
   bytedance.streaming.slot-pool.round-robin: true
   bytedance.streaming.yarn.res-lake.enabled: false
+  bytedance.streaming.register-dashboard.enabled: true
 
   # hdfs conf for checkpoint
   flink.checkpoint.hdfs.dfs.datanode.socket.write.timeout: 30000
