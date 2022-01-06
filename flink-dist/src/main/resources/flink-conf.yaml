@@ -379,6 +379,8 @@ lobst:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
 
 lizad:
   dc: cn
@@ -428,6 +430,8 @@ lambs:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
 
 wj:
   dc: cn
@@ -511,6 +515,8 @@ hyena:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
 
 hound:
   dc: cn
@@ -590,6 +596,8 @@ hakes:
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   execution.cancellation.timeout.enable: true
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
 
 queen:
   dc: cn
@@ -617,6 +625,8 @@ quark:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
 
 quinc:
   dc: cn
