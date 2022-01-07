@@ -1,0 +1,90 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Set root logger level to OFF to not flood build logs
+# set manually to INFO for debugging purposes
+
+global:
+  name:
+    [
+    ]
+
+non-global:
+  substring:
+    [
+    ]
+  name:
+    [
+      # Flink job info
+        numSubmittedJobs,
+        numRunningJobs,
+        numFailedJobs,
+        numCanceledJobs,
+        numFinishedJobs,
+      # Flink job run duration
+        jobDuration,
+      # TaskManager / Slot
+        numRegisteredTaskManagers,
+        numPendingTaskManagerSlots,
+        numPendingSlotRequests,
+        taskSlotsTotal,
+        taskSlotsAvailable,
+      # CPU
+        Total,
+        Cores,
+      # Memory
+        Used,
+        Committed,
+        Max,
+        TotalCapacity,
+        MemoryUsed,
+      # Managed Memory
+        Total,
+      # GC
+        Count,
+        Time,
+      # Network Memory
+        TotalMemorySegments,
+        AllocatedMemorySegments,
+        UsedMemorySegments,
+        AvailableMemorySegments,
+        TotalMemory,
+        AllocatedMemory,
+        UsedMemory,
+        AvailableMemory,
+      # sql gateway, use above latency
+        gateway_throughput,
+        session_count,
+        job_count,
+        result_count,
+        instance_count,
+        query_phase_latency,
+        latency,
+      # jm threadPool usage
+        numPendingIOTask,
+        numRunningIOTask,
+        ioThreadPoolUsage,
+        numPendingFutureTask,
+        numRunningFutureTask,
+        futureThreadPoolUsage,
+    ]
+
+report-during-unregister:
+  name:
+    [
+    ]

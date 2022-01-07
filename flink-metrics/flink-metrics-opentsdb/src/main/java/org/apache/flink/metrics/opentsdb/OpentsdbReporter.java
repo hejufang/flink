@@ -35,12 +35,14 @@ import org.apache.flink.metrics.MetricsConstants;
 import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
+import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.YarnConfigKeys;
 
 import org.apache.flink.shaded.byted.org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -89,6 +91,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private String region;
 	private String cluster;
 	private String queue;
+	private static final String DEFAULT_METRICS_WHITELIST_FILE = "metrics-whitelist.yaml";
+	private String whitelistFile;
+	private final List<TagKv> fixedTags = new ArrayList<>();
 
 	// *************************************************************************
 	//     Global Aggregated Metric (add metric name below if needed)
@@ -116,7 +121,10 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		this.prefix = config.getString("prefix", "flink");
 		this.client = new RateLimitedMetricsClient(this.prefix, config);
 		this.jobName = config.getString("jobname", "flink");
-		log.info("prefix = {} jobName = {}", this.prefix, this.jobName);
+		this.whitelistFile = config.getString("whitelist_file", DEFAULT_METRICS_WHITELIST_FILE);
+		String tagString = config.getString("fixed_tags", DEFAULT_METRICS_WHITELIST_FILE);
+		loadFixedTags(tagString);
+		log.info("prefix = {} jobName = {} whitelistFile = {} fixedTags = {}", this.prefix, this.jobName, this.whitelistFile, this.fixedTags);
 		loadAllMetrics();
 
 		if (config.getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false)) {
@@ -131,10 +139,34 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	}
 
 	@VisibleForTesting
+	public void loadFixedTags(String tagString) {
+		if (!StringUtils.isNullOrWhitespaceOnly(tagString)) {
+			Arrays.stream(tagString.split(",")).forEach(s -> {
+				String[] tagKV = s.split("=");
+				if (tagKV.length != 2) {
+					log.error("Tag {} format is not 'Key=Value', this tag will be ignore.", s);
+				} else {
+					fixedTags.add(new TagKv(tagKV[0], tagKV[1]));
+				}
+			});
+		}
+	}
+
+	@VisibleForTesting
 	@SuppressWarnings("unchecked")
 	public void loadAllMetrics() {
 		Yaml yaml = new Yaml();
-		Map<String, Object> metrics = yaml.load(getClass().getClassLoader().getResourceAsStream("metrics-whitelist.yaml"));
+		Map<String, Object> metrics;
+		try {
+			metrics = yaml.load(getClass().getClassLoader().getResourceAsStream(whitelistFile));
+		} catch (Exception e) {
+			if (!DEFAULT_METRICS_WHITELIST_FILE.equals(whitelistFile)) {
+				log.error("load metrics whitelist from {} failed, fallback to {}.", whitelistFile, DEFAULT_METRICS_WHITELIST_FILE, e);
+				metrics = yaml.load(getClass().getClassLoader().getResourceAsStream(DEFAULT_METRICS_WHITELIST_FILE));
+			} else {
+				throw e;
+			}
+		}
 
 		// load global metrics
 		Map<String, Object> global = (Map<String, Object>) metrics.get("global");
@@ -394,7 +426,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		* output: metric=jobmanager.Status.JVM.Memory.Direct.TotalCapacity
 		*         tags="host=n8-159-232.byted.org|jobname=StreamHelloWorld"
 		* */
-		List<TagKv> tags = new ArrayList<>();
+		List<TagKv> tags = new ArrayList<>(fixedTags);
 		tags.add(new TagKv("jobname", this.jobName));
 		tags.add(new TagKv("region", this.region));
 		tags.add(new TagKv("cluster", this.cluster));
@@ -599,6 +631,10 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		return region;
 	}
 
+	public String getQueue() {
+		return queue;
+	}
+
 	public String getCluster() {
 		return cluster;
 	}
@@ -617,5 +653,14 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 	public Set<String> getNonGlobalContainsNeededMetrics() {
 		return nonGlobalContainsNeededMetrics;
+	}
+
+	public List<TagKv> getFixedTags() {
+		return fixedTags;
+	}
+
+	@VisibleForTesting
+	public void setWhitelistFile(String whitelistFile) {
+		this.whitelistFile = whitelistFile;
 	}
 }

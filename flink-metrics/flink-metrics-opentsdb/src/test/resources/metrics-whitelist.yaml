@@ -146,3 +146,11 @@ non-global:
         stateMaxKeySize,
         stateMaxValueSize
     ]
+
+report-during-unregister:
+  name:
+    [
+        numberOfHdfsRetries,
+        numberOfRecoverSuccess,
+        numberOfRecoverFailed
+    ]

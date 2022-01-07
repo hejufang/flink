@@ -25,7 +25,11 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.Histogram;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.SimpleCounter;
+import org.apache.flink.metrics.SimpleHistogram;
 import org.apache.flink.runtime.blob.BlobServer;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.client.DuplicateJobSubmissionException;
@@ -147,6 +151,14 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	// just effective in application mode
 	protected boolean applicationModeClusterInfoArchiveEnable;
+
+	private final Counter submittedJobCounter = new SimpleCounter();
+	private final Counter failedJobCounter = new SimpleCounter();
+	private final Counter canceledJobCounter = new SimpleCounter();
+	private final Counter finishedJobCounter = new SimpleCounter();
+
+	// Only record the duration from ExecutionGraph Create to job Finished.
+	private final Histogram jobDurationHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
 
 	public Dispatcher(
 			RpcService rpcService,
@@ -353,6 +365,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private CompletableFuture<Acknowledge> internalSubmitJob(JobGraph jobGraph) {
 		log.info("Submitting job {} ({}).", jobGraph.getJobID(), jobGraph.getName());
+		submittedJobCounter.inc();
 
 		final CompletableFuture<Acknowledge> persistAndRunFuture = waitForTerminatingJobManager(jobGraph.getJobID(), jobGraph, this::persistAndRunJob)
 			.thenApply(ignored -> Acknowledge.get());
@@ -838,6 +851,18 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			"Job %s is in state %s which is not globally terminal.",
 			archivedExecutionGraph.getJobID(),
 			archivedExecutionGraph.getState());
+		switch (archivedExecutionGraph.getState()) {
+			case FINISHED:
+				finishedJobCounter.inc();
+				jobDurationHistogram.update(archivedExecutionGraph.getStatusTimestamp(JobStatus.FINISHED) - archivedExecutionGraph.getStatusTimestamp(JobStatus.CREATED));
+				break;
+			case FAILED:
+				failedJobCounter.inc();
+				break;
+			case CANCELED:
+				canceledJobCounter.inc();
+				break;
+		}
 
 		log.info("Job {} reached globally terminal state {}.", archivedExecutionGraph.getJobID(), archivedExecutionGraph.getState());
 
@@ -969,6 +994,13 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private void registerDispatcherMetrics(MetricGroup jobManagerMetricGroup) {
 		jobManagerMetricGroup.gauge(MetricNames.NUM_RUNNING_JOBS,
 			() -> (long) jobManagerRunnerFutures.size());
+
+		jobManagerMetricGroup.counter(MetricNames.NUM_SUBMITTED_JOBS, submittedJobCounter);
+		jobManagerMetricGroup.counter(MetricNames.NUM_FINISHED_JOBS, finishedJobCounter);
+		jobManagerMetricGroup.counter(MetricNames.NUM_FAILED_JOBS, failedJobCounter);
+		jobManagerMetricGroup.counter(MetricNames.NUM_CANCELED_JOBS, canceledJobCounter);
+
+		jobManagerMetricGroup.histogram(MetricNames.JOB_DURATION, jobDurationHistogram);
 
 		ExecutorService ioExecutor = jobManagerSharedServices.getIOExecutorService();
 		if (ioExecutor instanceof ThreadPoolExecutor) {

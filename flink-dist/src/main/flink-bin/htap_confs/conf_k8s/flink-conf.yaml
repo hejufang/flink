@@ -60,6 +60,8 @@ common:
   metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
   metrics.reporter.opentsdb_reporter.interval: 20 SECONDS
   metrics.reporter.opentsdb_reporter.prefix: flink_k8s
+  metrics.reporter.opentsdb_reporter.whitelist_file: metrics-whitelist-htap.yaml
+  metrics.reporter.opentsdb_reporter.fixed_tags: htap_cluster=flink_k8s
 
   # The failover strategy, i.e., how the job computation recovers from task failures.
   # Only restart tasks that may have been affected by the task failure, which typically includes

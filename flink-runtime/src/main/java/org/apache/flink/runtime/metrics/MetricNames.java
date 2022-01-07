@@ -56,6 +56,13 @@ public class MetricNames {
 	public static final String IO_CURRENT_OUTPUT_WATERMARK = "currentOutputWatermark";
 
 	public static final String NUM_RUNNING_JOBS = "numRunningJobs";
+	public static final String NUM_SUBMITTED_JOBS = "numSubmittedJobs";
+	public static final String NUM_FAILED_JOBS = "numFailedJobs";
+	public static final String NUM_CANCELED_JOBS = "numCanceledJobs";
+	public static final String NUM_FINISHED_JOBS = "numFinishedJobs";
+
+	public static final String JOB_DURATION = "jobDuration";
+
 	public static final String TASK_SLOTS_AVAILABLE = "taskSlotsAvailable";
 	public static final String TASK_SLOTS_TOTAL = "taskSlotsTotal";
 	public static final String NUM_REGISTERED_TASK_MANAGERS = "numRegisteredTaskManagers";
