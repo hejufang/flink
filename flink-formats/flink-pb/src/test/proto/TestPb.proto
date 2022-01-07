@@ -55,6 +55,7 @@ message Container {
   repeated int32 intArrayTest = 13;
   string underline_name_test = 14;
   repeated string stringArrayTest = 15;
+  repeated EnumCase enumTests = 16;
 }
 
 message InnerMessage {

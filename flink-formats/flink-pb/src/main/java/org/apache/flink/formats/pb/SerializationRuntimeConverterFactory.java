@@ -64,7 +64,17 @@ public class SerializationRuntimeConverterFactory {
 		Preconditions.checkNotNull(type, "type cannot be null!");
 		switch (type.getTypeRoot()) {
 			case VARCHAR:
-				return createEnumOrStringConverter((Descriptors.FieldDescriptor) genericDescriptor);
+				if (genericDescriptor instanceof Descriptors.EnumDescriptor) {
+					return createEnumConverter((Descriptors.EnumDescriptor) genericDescriptor);
+				} else if (genericDescriptor instanceof Descriptors.FieldDescriptor) {
+					Descriptors.FieldDescriptor fieldDescriptor = (Descriptors.FieldDescriptor) genericDescriptor;
+					if (fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.ENUM) {
+						return createEnumConverter(fieldDescriptor.getEnumType());
+					}
+					return Object::toString;
+				} else {
+					return Object::toString;
+				}
 			case BIGINT:
 			case BOOLEAN:
 			case INTEGER:
@@ -83,23 +93,17 @@ public class SerializationRuntimeConverterFactory {
 		}
 	}
 
-	private static SerializationRuntimeConverter createEnumOrStringConverter(
-			Descriptors.FieldDescriptor fieldDescriptor) {
-		if (fieldDescriptor != null && Descriptors.FieldDescriptor.JavaType.ENUM.equals(fieldDescriptor.getJavaType())) {
-			Descriptors.EnumDescriptor enumDescriptor = fieldDescriptor.getEnumType();
+	private static SerializationRuntimeConverter createEnumConverter(
+			Descriptors.EnumDescriptor enumDescriptor) {
+		return (value) -> {
+			Descriptors.EnumValueDescriptor enumValue = enumDescriptor.findValueByName(value.toString());
 
-			return (value) -> {
-				Descriptors.EnumValueDescriptor enumValue = enumDescriptor.findValueByName(value.toString());
-
-				if (enumValue == null) {
-					throw new FlinkRuntimeException(String.format("Cannot find enum value '%s' in '%s'.",
-						value, enumDescriptor.getFullName()));
-				}
-				return enumValue;
-			};
-		} else {
-			return Object::toString;
-		}
+			if (enumValue == null) {
+				throw new FlinkRuntimeException(String.format("Cannot find enum value '%s' in '%s'.",
+					value, enumDescriptor.getFullName()));
+			}
+			return enumValue;
+		};
 	}
 
 	private static SerializationRuntimeConverter createRowConverter(
@@ -172,9 +176,11 @@ public class SerializationRuntimeConverterFactory {
 			ArrayType arrayType,
 			Descriptors.FieldDescriptor fieldDescriptor) {
 
-		Descriptors.Descriptor elementDescriptor = null;
+		Descriptors.GenericDescriptor elementDescriptor = null;
 		if (fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
 			elementDescriptor = fieldDescriptor.getMessageType();
+		} else if (fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.ENUM) {
+			elementDescriptor = fieldDescriptor.getEnumType();
 		}
 
 		LogicalType elementType = arrayType.getElementType();

@@ -92,6 +92,7 @@ public class PbSchemaTestUtil {
 			.setUnderlineNameTest(STRING_VALUE)
 			.addStringArrayTest(STRING_VALUE)
 			.addStringArrayTest(STRING_VALUE)
+			.addEnumTests(TestPb.EnumCase.FIVE)
 			.build();
 
 		return container.toByteArray();
@@ -124,7 +125,8 @@ public class PbSchemaTestUtil {
 			GenericRowData.of(LONG_VALUE, BOOL_VALUE),
 			new GenericArrayData(new Integer[]{INT_VALUE, INT_VALUE}),
 			binaryStringData,
-			new GenericArrayData(new StringData[]{stringData, stringData})
+			new GenericArrayData(new StringData[]{stringData, stringData}),
+			new GenericArrayData(new StringData[]{BinaryStringData.fromString(TestPb.EnumCase.FIVE.toString())})
 		);
 	}
 
@@ -155,7 +157,8 @@ public class PbSchemaTestUtil {
 			GenericRowData.of(LONG_VALUE, BOOL_VALUE),
 			new GenericArrayData(new Integer[]{INT_VALUE, INT_VALUE}),
 			binaryStringData,
-			new GenericArrayData(new StringData[]{stringData, stringData})
+			new GenericArrayData(new StringData[]{stringData, stringData}),
+			new GenericArrayData(new StringData[]{BinaryStringData.fromString(TestPb.EnumCase.FIVE.toString())})
 		);
 	}
 

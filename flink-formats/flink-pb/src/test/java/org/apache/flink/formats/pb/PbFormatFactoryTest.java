@@ -63,6 +63,7 @@ public class PbFormatFactoryTest {
 			.field("intArrayTest", DataTypes.ARRAY(DataTypes.INT()))
 			.field("underline_name_test", DataTypes.STRING())
 			.field("stringArrayTest", DataTypes.ARRAY(DataTypes.STRING()))
+			.field("enumTests", DataTypes.ARRAY(DataTypes.STRING()))
 			.build();
 
 		TableSchema tableSchema = pbFormatFactory.getTableSchema(formatOptions);
