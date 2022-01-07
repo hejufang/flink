@@ -297,7 +297,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					rateLimiter.acquire(1);
 				}
 				MessageQueue messageQueue = createMessageQueue(messageExt.getMessageQueue());
-				offsetTable.put(messageQueue, messageExt.getMaxOffset());
+				offsetTable.put(messageQueue, messageExt.getQueueOffset());
 				T rowData = schema.deserialize(messageQueue, messageExt);
 				if (rowData == null) {
 					skipDirtyCounter.inc();
