@@ -84,7 +84,8 @@ public final class StandaloneResourceManagerFactory extends ResourceManagerFacto
 			resourceManagerMetricGroup,
 			standaloneClusterStartupPeriodTime,
 			AkkaUtils.getTimeoutAsTime(configuration),
-			failureRater);
+			failureRater,
+			configuration);
 	}
 
 	@Override

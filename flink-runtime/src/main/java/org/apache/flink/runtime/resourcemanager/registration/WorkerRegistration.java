@@ -22,6 +22,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceIDRetrievable;
 import org.apache.flink.runtime.instance.HardwareDescription;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorMemoryConfiguration;
+import org.apache.flink.runtime.taskmanager.TaskManagerAddressLocation;
 import org.apache.flink.util.Preconditions;
 
 /**
@@ -37,12 +38,15 @@ public class WorkerRegistration<WorkerType extends ResourceIDRetrievable> extend
 
 	private final TaskExecutorMemoryConfiguration memoryConfiguration;
 
+	private final TaskManagerAddressLocation taskManagerAddressLocation;
+
 	public WorkerRegistration(
 			TaskExecutorGateway taskExecutorGateway,
 			WorkerType worker,
 			int dataPort,
 			HardwareDescription hardwareDescription,
-			TaskExecutorMemoryConfiguration memoryConfiguration) {
+			TaskExecutorMemoryConfiguration memoryConfiguration,
+			TaskManagerAddressLocation taskManagerAddressLocation) {
 
 		super(worker.getResourceID(), taskExecutorGateway);
 
@@ -50,6 +54,7 @@ public class WorkerRegistration<WorkerType extends ResourceIDRetrievable> extend
 		this.dataPort = dataPort;
 		this.hardwareDescription = Preconditions.checkNotNull(hardwareDescription);
 		this.memoryConfiguration = Preconditions.checkNotNull(memoryConfiguration);
+		this.taskManagerAddressLocation = taskManagerAddressLocation;
 	}
 
 	public WorkerType getWorker() {
@@ -66,5 +71,9 @@ public class WorkerRegistration<WorkerType extends ResourceIDRetrievable> extend
 
 	public TaskExecutorMemoryConfiguration getMemoryConfiguration() {
 		return memoryConfiguration;
+	}
+
+	public TaskManagerAddressLocation getTaskManagerAddressLocation() {
+		return taskManagerAddressLocation;
 	}
 }

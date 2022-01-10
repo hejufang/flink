@@ -233,6 +233,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	private final LeaderRetrievalService resourceManagerLeaderRetriever;
 
+	// --------- job deploys tasks manager -----------
+
+	private final Map<JobID, JobDeploymentManager> jobDeploymentManagers;
+
 	// ------------------------------------------------------------------------
 
 	private final HardwareDescription hardwareDescription;
@@ -256,6 +260,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	private final BackPressureSampleService backPressureSampleService;
 
 	private final boolean taskSubmitRunning;
+
+	private final boolean requestSlotFromResourceManagerDirectEnable;
 
 	// --------- resource manager --------
 
@@ -313,6 +319,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		this.ioExecutor = taskExecutorServices.getIOExecutor();
 		this.taskSubmitRunning = taskExecutorServices.isTaskSubmitRunning();
 		this.resourceManagerLeaderRetriever = haServices.getResourceManagerLeaderRetriever();
+		this.requestSlotFromResourceManagerDirectEnable = taskManagerConfiguration.isRequestSlotFromResourceManagerDirectEnable();
 
 		this.hardwareDescription = HardwareDescription.extractFromSystem(taskExecutorServices.getManagedMemorySize());
 		this.memoryConfiguration = TaskExecutorMemoryConfiguration.create(taskManagerConfiguration.getConfiguration());
@@ -324,6 +331,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		final ResourceID resourceId = taskExecutorServices.getUnresolvedTaskManagerLocation().getResourceID();
 		this.jobManagerHeartbeatManager = createJobManagerHeartbeatManager(heartbeatServices, resourceId);
 		this.resourceManagerHeartbeatManager = createResourceManagerHeartbeatManager(heartbeatServices, resourceId);
+		this.jobDeploymentManagers = new HashMap<>(100);
 	}
 
 	private HeartbeatManager<Void, TaskExecutorHeartbeatPayload> createResourceManagerHeartbeatManager(HeartbeatServices heartbeatServices, ResourceID resourceId) {
@@ -711,11 +719,81 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	@Override
 	public CompletableFuture<Acknowledge> submitTaskList(String jobMasterAddress, Collection<TaskDeploymentDescriptor> tdds, JobMasterId jobMasterId, Time timeout) {
-		//TODO should be implemented later.
-		throw new UnsupportedOperationException();
+		if (tdds.isEmpty()) {
+			return CompletableFuture.completedFuture(Acknowledge.get());
+		}
+
+		TaskDeploymentDescriptor taskDeploymentDescriptor = tdds.iterator().next();
+		JobID jobId = taskDeploymentDescriptor.getJobId();
+		JobDeploymentManager jobDeploymentManager = jobDeploymentManagers.computeIfAbsent(jobId, key -> new JobDeploymentManager(jobMasterId));
+		jobDeploymentManager.getTdds().addAll(tdds);
+
+		return connectAndDeployJob(jobId, jobMasterAddress);
 	}
 
-	private void submitTaskInternal(
+	private CompletableFuture<Acknowledge> connectAndDeployJob(JobID jobId, String jobMasterAddress) {
+		final JobTable.Job job;
+		try {
+			job = jobTable.getOrCreateJob(jobId, () -> registerNewJobAndCreateServices(jobId, jobMasterAddress));
+			if (job.isConnected()) {
+				JobTable.Connection jobConnection = job.asConnection().orElseThrow(() -> new TaskSubmissionException("Can't get connection for job " + jobId));
+				deployJobTasks(jobId, jobConnection);
+			}
+		} catch (Exception e) {
+			jobDeploymentManagers.remove(jobId);
+			return FutureUtils.completedExceptionally(new SlotAllocationException("Could not create new job.", e));
+		}
+
+		return CompletableFuture.completedFuture(Acknowledge.get());
+	}
+
+	private void deployJobTasks(JobID jobId, JobTable.Connection jobManagerConnection) {
+		JobDeploymentManager jobDeploymentManager = jobDeploymentManagers.get(jobId);
+		if (jobDeploymentManager == null) {
+			return;
+		}
+
+		jobDeploymentManager.setStartDeployTime(System.currentTimeMillis());
+		Collection<TaskDeploymentDescriptor> tdds = jobDeploymentManager.getTdds();
+		TaskDeploymentDescriptor tdd = tdds.iterator().next();
+
+		try {
+			JobInformation jobInformation = null;
+
+			final Map<JobVertexID, TaskInformation> vertexTaskInformationMap = new HashMap<>();
+			for (TaskDeploymentDescriptor deploymentDescriptor : tdds) {
+				deploymentDescriptor.loadBigData(blobCacheService.getPermanentBlobService());
+				if (jobInformation == null) {
+					jobInformation = tdd.getSerializedJobInformation().deserializeValue(getClass().getClassLoader());
+					if (!jobId.equals(jobInformation.getJobId())) {
+						throw new TaskSubmissionException(
+							"Inconsistent job ID information inside TaskDeploymentDescriptor (" +
+								tdd.getJobId() + " vs. " + jobInformation.getJobId() + ")");
+					}
+				}
+				final TaskInformation taskInformation = vertexTaskInformationMap.computeIfAbsent(
+					deploymentDescriptor.getExecutionVertexId().getJobVertexId(),
+					key -> {
+						try {
+							return deploymentDescriptor.getSerializedTaskInformation().deserializeValue(getClass().getClassLoader());
+						} catch (Exception e) {
+							throw new IllegalArgumentException("Deserialize task information failed", e);
+						}
+					});
+				submitTaskInternal(jobManagerConnection, deploymentDescriptor, jobInformation, taskInformation);
+			}
+		} catch (Exception e) {
+			// TODO should kill all the tasks and update failed state to jobmaster here later.
+			throw new RuntimeException("Launch tasks for job " + jobId + " fail", e);
+		}
+		log.info("Finish to deploy tasks {} for job {} connect {} deploy {}",
+				tdds.size(),
+				jobId,
+				jobDeploymentManager.getStartDeployTime() - jobDeploymentManager.getReceiveTime(),
+				System.currentTimeMillis() - jobDeploymentManager.getStartDeployTime());
+	}
+
+	protected void submitTaskInternal(
 			JobTable.Connection jobManagerConnection,
 			TaskDeploymentDescriptor tdd,
 			JobInformation jobInformation,
@@ -768,7 +846,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		MemoryManager memoryManager;
 		try {
-			memoryManager = taskSlotTable.getTaskMemoryManager(tdd.getAllocationId());
+			memoryManager = taskSlotTable.getTaskMemoryManager(tdd.getAllocationId(), tdd.getTargetSlotNumber());
 		} catch (SlotNotFoundException e) {
 			throw new TaskSubmissionException("Could not submit task.", e);
 		}
@@ -1638,7 +1716,13 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			}
 		});
 
-		internalOfferSlotsToJobManager(establishedConnection);
+		// JobMaster request slots from resourcemanager directly and taskmanager should not offer slots to it. Taskmanager try
+		// to deploy tasks of given job when connect to jobmaster.
+		if (requestSlotFromResourceManagerDirectEnable) {
+			deployJobTasks(jobId, establishedConnection);
+		} else {
+			internalOfferSlotsToJobManager(establishedConnection);
+		}
 	}
 
 	private void closeJob(JobTable.Job job, Exception cause) {

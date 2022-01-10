@@ -574,6 +574,12 @@ public class TaskManagerOptions {
 			.withDeprecatedKeys("prune.buffer.threshold")
 			.withDescription("The threshold of DataOutputSerializer buffer to prune.");
 
+	public static final ConfigOption<Boolean> MEMORY_MANAGER_SLOT_BASED_ENABLE = ConfigOptions
+			.key("memory.manager.slot-based-enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("The tasks in different jobs share the memory manager base slots.");
+
 	// ------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */

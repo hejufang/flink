@@ -51,6 +51,8 @@ class ExecutionSlotAllocationContext {
 
 	private final boolean jobLogDetailDisable;
 
+	private final boolean batchRequestSlotEnable;
+
 	ExecutionSlotAllocationContext(
 			final StateLocationRetriever stateLocationRetriever,
 			final InputsLocationsRetriever inputsLocationsRetriever,
@@ -59,7 +61,8 @@ class ExecutionSlotAllocationContext {
 			final SchedulingTopology schedulingTopology,
 			final Supplier<Set<SlotSharingGroup>> logicalSlotSharingGroupSupplier,
 			final Supplier<Set<CoLocationGroupDesc>> coLocationGroupSupplier,
-			final boolean jobLogDetailDisable) {
+			final boolean jobLogDetailDisable,
+			final boolean batchRequestSlotEnable) {
 
 		this.stateLocationRetriever = stateLocationRetriever;
 		this.inputsLocationsRetriever = inputsLocationsRetriever;
@@ -69,6 +72,7 @@ class ExecutionSlotAllocationContext {
 		this.logicalSlotSharingGroupSupplier = logicalSlotSharingGroupSupplier;
 		this.coLocationGroupSupplier = coLocationGroupSupplier;
 		this.jobLogDetailDisable = jobLogDetailDisable;
+		this.batchRequestSlotEnable = batchRequestSlotEnable;
 	}
 
 	public StateLocationRetriever getStateLocationRetriever() {
@@ -101,5 +105,9 @@ class ExecutionSlotAllocationContext {
 
 	boolean isJobLogDetailDisable() {
 		return jobLogDetailDisable;
+	}
+
+	boolean isBatchRequestSlotEnable() {
+		return batchRequestSlotEnable;
 	}
 }

@@ -105,6 +105,8 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 
 	private volatile Consumer<Tuple3<InstanceID, SlotID, AllocationID>> notifySlotAvailableConsumer;
 
+	private volatile Consumer<Collection<AllocateSlotID>> notifySlotsAvailableConsumer;
+
 	private volatile Function<ResourceID, CompletableFuture<Collection<LogInfo>>> requestTaskManagerLogListFunction;
 
 	private volatile Function<ResourceID, CompletableFuture<TaskManagerInfo>> requestTaskManagerInfoFunction;
@@ -191,6 +193,10 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 
 	public void setNotifySlotAvailableConsumer(Consumer<Tuple3<InstanceID, SlotID, AllocationID>> notifySlotAvailableConsumer) {
 		this.notifySlotAvailableConsumer = notifySlotAvailableConsumer;
+	}
+
+	public void setNotifySlotsAvailableConsumer(Consumer<Collection<AllocateSlotID>> notifySlotsAvailableConsumer) {
+		this.notifySlotsAvailableConsumer = notifySlotsAvailableConsumer;
 	}
 
 	public void setRequestThreadDumpFunction(Function<ResourceID, CompletableFuture<ThreadDumpInfo>> requestThreadDumpFunction) {
@@ -300,7 +306,9 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 
 	@Override
 	public void notifyAllocateSlotsAvailable(Collection<AllocateSlotID> allocateSlotIds) {
-
+		if (notifySlotsAvailableConsumer != null) {
+			notifySlotsAvailableConsumer.accept(allocateSlotIds);
+		}
 	}
 
 	@Override

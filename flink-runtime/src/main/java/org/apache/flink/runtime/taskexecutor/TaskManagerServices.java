@@ -30,6 +30,8 @@ import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.disk.iomanager.IOManagerAsync;
 import org.apache.flink.runtime.io.network.TaskEventDispatcher;
 import org.apache.flink.runtime.memory.MemoryManager;
+import org.apache.flink.runtime.memory.TaskMemoryManager;
+import org.apache.flink.runtime.memory.TaskMemoryManagerFactory;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironmentContext;
@@ -84,72 +86,7 @@ public class TaskManagerServices {
 	private final LibraryCacheManager libraryCacheManager;
 	private final CacheManager cacheManager;
 	private final boolean taskSubmitRunning;
-
-	TaskManagerServices(
-		UnresolvedTaskManagerLocation unresolvedTaskManagerLocation,
-		long managedMemorySize,
-		IOManager ioManager,
-		ShuffleEnvironment<?, ?> shuffleEnvironment,
-		KvStateService kvStateService,
-		BroadcastVariableManager broadcastVariableManager,
-		TaskSlotTable<Task> taskSlotTable,
-		JobTable jobTable,
-		JobLeaderService jobLeaderService,
-		TaskExecutorLocalStateStoresManager taskManagerStateStore,
-		TaskEventDispatcher taskEventDispatcher,
-		ExecutorService ioExecutor,
-		LibraryCacheManager libraryCacheManager) {
-
-		this(
-			unresolvedTaskManagerLocation,
-			managedMemorySize,
-			ioManager,
-			shuffleEnvironment,
-			kvStateService,
-			broadcastVariableManager,
-			taskSlotTable,
-			jobTable,
-			jobLeaderService,
-			taskManagerStateStore,
-			taskEventDispatcher,
-			ioExecutor,
-			libraryCacheManager,
-			new NonCacheManager());
-	}
-
-	TaskManagerServices(
-		UnresolvedTaskManagerLocation unresolvedTaskManagerLocation,
-		long managedMemorySize,
-		IOManager ioManager,
-		ShuffleEnvironment<?, ?> shuffleEnvironment,
-		KvStateService kvStateService,
-		BroadcastVariableManager broadcastVariableManager,
-		TaskSlotTable<Task> taskSlotTable,
-		JobTable jobTable,
-		JobLeaderService jobLeaderService,
-		TaskExecutorLocalStateStoresManager taskManagerStateStore,
-		TaskEventDispatcher taskEventDispatcher,
-		ExecutorService ioExecutor,
-		LibraryCacheManager libraryCacheManager,
-		CacheManager cacheManager) {
-
-		this(
-			unresolvedTaskManagerLocation,
-			managedMemorySize,
-			ioManager,
-			shuffleEnvironment,
-			kvStateService,
-			broadcastVariableManager,
-			taskSlotTable,
-			jobTable,
-			jobLeaderService,
-			taskManagerStateStore,
-			taskEventDispatcher,
-			ioExecutor,
-			libraryCacheManager,
-			cacheManager,
-			false);
-	}
+	private final TaskMemoryManager taskMemoryManager;
 
 	TaskManagerServices(
 			UnresolvedTaskManagerLocation unresolvedTaskManagerLocation,
@@ -166,7 +103,8 @@ public class TaskManagerServices {
 			ExecutorService ioExecutor,
 			LibraryCacheManager libraryCacheManager,
 			CacheManager cacheManager,
-			boolean taskSubmitRunning) {
+			boolean taskSubmitRunning,
+			TaskMemoryManager taskMemoryManager) {
 
 		this.unresolvedTaskManagerLocation = Preconditions.checkNotNull(unresolvedTaskManagerLocation);
 		this.managedMemorySize = managedMemorySize;
@@ -183,6 +121,7 @@ public class TaskManagerServices {
 		this.libraryCacheManager = Preconditions.checkNotNull(libraryCacheManager);
 		this.cacheManager = cacheManager;
 		this.taskSubmitRunning = taskSubmitRunning;
+		this.taskMemoryManager = taskMemoryManager;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -247,6 +186,10 @@ public class TaskManagerServices {
 
 	public boolean isTaskSubmitRunning() {
 		return taskSubmitRunning;
+	}
+
+	public TaskMemoryManager getTaskMemoryManager() {
+		return taskMemoryManager;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -416,6 +359,12 @@ public class TaskManagerServices {
 		CacheManager cacheManager = cacheConfiguration.isEnableCache() ? new DefaultCacheManager(cacheConfiguration) : new NonCacheManager();
 		boolean taskSubmitRunning = taskManagerServicesConfiguration.getConfiguration().getBoolean(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY);
 
+		TaskMemoryManager taskMemoryManager = TaskMemoryManagerFactory.fromConfiguration(
+					taskManagerServicesConfiguration.getConfiguration(),
+					taskManagerServicesConfiguration.getManagedMemorySize().getBytes(),
+					taskManagerServicesConfiguration.getPageSize())
+				.buildTaskMemoryManager();
+
 		return new TaskManagerServices(
 			unresolvedTaskManagerLocation,
 			taskManagerServicesConfiguration.getManagedMemorySize().getBytes(),
@@ -431,7 +380,8 @@ public class TaskManagerServices {
 			ioExecutor,
 			libraryCacheManager,
 			cacheManager,
-			taskSubmitRunning);
+			taskSubmitRunning,
+			taskMemoryManager);
 	}
 
 	private static TaskSlotTable<Task> createTaskSlotTable(

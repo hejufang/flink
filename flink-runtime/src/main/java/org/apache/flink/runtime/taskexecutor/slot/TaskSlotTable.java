@@ -272,4 +272,16 @@ public interface TaskSlotTable<T extends TaskSlotPayload> extends TimeoutListene
 	 * @return the memory manager of the slot allocated for the task
 	 */
 	MemoryManager getTaskMemoryManager(AllocationID allocationID) throws SlotNotFoundException;
+
+	/**
+	 * Get the memory manager of the slot allocated and slot index for the task.
+	 *
+	 * @param allocationID allocation id of the slot allocated for the task
+	 * @param slotIndex slot index for the task
+	 * @return the memory mnager of the slot allocated for the task
+	 * @throws SlotNotFoundException slot not found exception
+	 */
+	default MemoryManager getTaskMemoryManager(AllocationID allocationID, int slotIndex) throws SlotNotFoundException {
+		return getTaskMemoryManager(allocationID);
+	}
 }

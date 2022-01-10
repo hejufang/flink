@@ -36,6 +36,6 @@ public class DefaultExecutionSlotAllocatorFactory implements ExecutionSlotAlloca
 
 	@Override
 	public ExecutionSlotAllocator createInstance(final InputsLocationsRetriever inputsLocationsRetriever, final ExecutionSlotAllocationContext context) {
-		return new DefaultExecutionSlotAllocator(slotProvider, inputsLocationsRetriever, context.isJobLogDetailDisable());
+		return new DefaultExecutionSlotAllocator(slotProvider, inputsLocationsRetriever, context.isJobLogDetailDisable(), context.isBatchRequestSlotEnable());
 	}
 }

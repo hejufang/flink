@@ -85,6 +85,8 @@ import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorHeartbeatPayload;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
+import org.apache.flink.runtime.taskmanager.TaskManagerAddressLocation;
+import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.LoggerHelper;
@@ -484,7 +486,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		final WorkerRegistration<WorkerType> workerTypeWorkerRegistration = taskExecutors.get(taskManagerResourceId);
 
 		if (workerTypeWorkerRegistration.getInstanceID().equals(taskManagerRegistrationId)) {
-			if (slotManager.registerTaskManager(workerTypeWorkerRegistration, slotReport)) {
+			TaskManagerAddressLocation taskManagerAddressLocation = workerTypeWorkerRegistration.getTaskManagerAddressLocation();
+			if (slotManager.registerTaskManager(workerTypeWorkerRegistration, slotReport, taskManagerAddressLocation)) {
 				onTaskManagerRegistration(workerTypeWorkerRegistration);
 			}
 			return CompletableFuture.completedFuture(Acknowledge.get());
@@ -1029,12 +1032,20 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				"not recognize it", taskExecutorResourceId, taskExecutorAddress);
 			return new RegistrationResponse.Decline("unrecognized TaskExecutor");
 		} else {
+			UnresolvedTaskManagerLocation unresolvedTaskManagerLocation = new UnresolvedTaskManagerLocation(
+					taskExecutorResourceId,
+					taskExecutorRegistration.getExternalAddress(),
+					taskExecutorRegistration.getDataPort());
+			TaskManagerAddressLocation taskManagerAddressLocation = new TaskManagerAddressLocation(
+					taskExecutorRegistration.getTaskExecutorAddress(),
+					unresolvedTaskManagerLocation);
 			WorkerRegistration<WorkerType> registration = new WorkerRegistration<>(
 				taskExecutorGateway,
 				newWorker,
 				taskExecutorRegistration.getDataPort(),
 				taskExecutorRegistration.getHardwareDescription(),
-				taskExecutorRegistration.getMemoryConfiguration());
+				taskExecutorRegistration.getMemoryConfiguration(),
+				taskManagerAddressLocation);
 
 			log.info("Registering TaskManager with ResourceID {} ({}) at ResourceManager", taskExecutorResourceId, taskExecutorAddress);
 			taskExecutors.put(taskExecutorResourceId, registration);

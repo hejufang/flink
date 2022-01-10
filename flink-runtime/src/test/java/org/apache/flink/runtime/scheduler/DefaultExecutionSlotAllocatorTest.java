@@ -268,6 +268,7 @@ public class DefaultExecutionSlotAllocatorTest extends TestLogger {
 				slotProvider,
 				Time.seconds(10)),
 			inputsLocationsRetriever,
+			false,
 			false);
 	}
 

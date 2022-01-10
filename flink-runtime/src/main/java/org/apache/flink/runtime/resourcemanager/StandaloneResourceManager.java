@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.resourcemanager;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
@@ -62,6 +63,38 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 			Time startupPeriodTime,
 			Time rpcTimeout,
 			FailureRater failureReater) {
+		this(
+			rpcService,
+			resourceId,
+			highAvailabilityServices,
+			heartbeatServices,
+			slotManager,
+			clusterPartitionTrackerFactory,
+			jobLeaderIdService,
+			clusterInformation,
+			fatalErrorHandler,
+			resourceManagerMetricGroup,
+			startupPeriodTime,
+			rpcTimeout,
+			failureReater,
+			new Configuration());
+	}
+
+	public StandaloneResourceManager(
+			RpcService rpcService,
+			ResourceID resourceId,
+			HighAvailabilityServices highAvailabilityServices,
+			HeartbeatServices heartbeatServices,
+			SlotManager slotManager,
+			ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
+			JobLeaderIdService jobLeaderIdService,
+			ClusterInformation clusterInformation,
+			FatalErrorHandler fatalErrorHandler,
+			ResourceManagerMetricGroup resourceManagerMetricGroup,
+			Time startupPeriodTime,
+			Time rpcTimeout,
+			FailureRater failureReater,
+			Configuration configuration) {
 		super(
 			rpcService,
 			resourceId,
@@ -74,7 +107,8 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 			fatalErrorHandler,
 			resourceManagerMetricGroup,
 			rpcTimeout,
-			failureReater);
+			failureReater,
+			configuration);
 		this.startupPeriodTime = Preconditions.checkNotNull(startupPeriodTime);
 	}
 

@@ -283,20 +283,30 @@ public class TaskExecutorSubmissionTest extends TestLogger {
 
 			taskSlotTable.allocateSlot(0, jobId, tdd1.getAllocationId(), Time.seconds(60));
 			tmGateway.submitTask(tdd1, env.getJobMasterId(), timeout).get();
+			if (submitNotifyRunningEnable) {
+				task1RunningFuture.complete(null);
+			}
 			task1RunningFuture.get();
 
 			taskSlotTable.allocateSlot(1, jobId, tdd2.getAllocationId(), Time.seconds(60));
 			tmGateway.submitTask(tdd2, env.getJobMasterId(), timeout).get();
+			if (submitNotifyRunningEnable) {
+				task2RunningFuture.complete(null);
+			}
 			task2RunningFuture.get();
 
-			assertSame(taskSlotTable.getTask(eid1).getExecutionState(), ExecutionState.RUNNING);
-			assertSame(taskSlotTable.getTask(eid2).getExecutionState(), ExecutionState.RUNNING);
+			if (!submitNotifyRunningEnable) {
+				assertSame(taskSlotTable.getTask(eid1).getExecutionState(), ExecutionState.RUNNING);
+				assertSame(taskSlotTable.getTask(eid2).getExecutionState(), ExecutionState.RUNNING);
+			}
 
 			tmGateway.cancelTask(eid1, timeout);
 			task1CanceledFuture.get();
 
 			assertSame(taskSlotTable.getTask(eid1).getExecutionState(), ExecutionState.CANCELED);
-			assertSame(taskSlotTable.getTask(eid2).getExecutionState(), ExecutionState.RUNNING);
+			if (!submitNotifyRunningEnable) {
+				assertSame(taskSlotTable.getTask(eid2).getExecutionState(), ExecutionState.RUNNING);
+			}
 		}
 	}
 

@@ -71,13 +71,17 @@ public class DefaultExecutionSlotAllocator implements ExecutionSlotAllocator {
 
 	private final boolean jobLogDetailDisable;
 
+	private final boolean batchRequestSlotEnable;
+
 	public DefaultExecutionSlotAllocator(
 			SlotProviderStrategy slotProviderStrategy,
 			InputsLocationsRetriever inputsLocationsRetriever,
-			boolean jobLogDetailDisable) {
+			boolean jobLogDetailDisable,
+			boolean batchRequestSlotEnable) {
 		this.slotProviderStrategy = checkNotNull(slotProviderStrategy);
 		this.inputsLocationsRetriever = checkNotNull(inputsLocationsRetriever);
 		this.jobLogDetailDisable = jobLogDetailDisable;
+		this.batchRequestSlotEnable = batchRequestSlotEnable;
 
 		pendingSlotAssignments = new HashMap<>();
 	}
@@ -105,7 +109,21 @@ public class DefaultExecutionSlotAllocator implements ExecutionSlotAllocator {
 				LOG.info("Allocate slot with id {} for execution {}", slotRequestId, executionVertexId);
 			}
 
-			CompletableFuture<LogicalSlot> slotFuture = calculatePreferredLocations(
+			CompletableFuture<LogicalSlot> slotFuture = batchRequestSlotEnable ?
+				slotProviderStrategy.allocateSlot(
+					slotRequestId,
+					new ScheduledUnit(
+						executionVertexId,
+						slotSharingGroupId,
+						schedulingRequirements.getCoLocationConstraint()),
+					SlotProfile.priorAllocation(
+						schedulingRequirements.getTaskResourceProfile(),
+						schedulingRequirements.getPhysicalSlotResourceProfile(),
+						Collections.emptyList(),
+						schedulingRequirements.getBannedLocations(),
+						Collections.singletonList(schedulingRequirements.getPreviousAllocationId()),
+						allPreviousAllocationIds)) :
+				calculatePreferredLocations(
 					executionVertexId,
 					schedulingRequirements.getPreferredLocations(),
 					inputsLocationsRetriever).thenCompose(

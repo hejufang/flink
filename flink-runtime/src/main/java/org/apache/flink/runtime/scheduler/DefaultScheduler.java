@@ -221,7 +221,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			getSchedulingTopology(),
 			() -> getJobGraph().getSlotSharingGroups(),
 			() -> getJobGraph().getCoLocationGroupDescriptors(),
-			jobLogDetailDisable);
+			jobLogDetailDisable,
+			batchRequestSlotsEnable);
 		this.executionSlotAllocator = checkNotNull(executionSlotAllocatorFactory).createInstance(getInputsLocationsRetriever(), slotAllocationContext);
 
 		this.verticesWaitingForRestart = new HashSet<>();
