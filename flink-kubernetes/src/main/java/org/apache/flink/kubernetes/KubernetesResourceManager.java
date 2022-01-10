@@ -278,7 +278,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 				final WorkerResourceSpec workerResourceSpec = Preconditions.checkNotNull(
 					podWorkerResources.get(podName),
-					"Unrecognized pod {}. Pods from previous attempt should have already been added.", podName);
+					"Unrecognized pod " + podName + ". Pods from previous attempt should have already been added.");
 
 				final int pendingNum = getNumRequestedNotAllocatedWorkersFor(workerResourceSpec);
 				Preconditions.checkState(pendingNum > 0, "Should not receive more workers than requested.");
