@@ -133,6 +133,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -1493,7 +1494,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			final JobMasterGateway jobMasterGateway,
 			final TaskExecutionState taskExecutionState) {
 		final ExecutionAttemptID executionAttemptID = taskExecutionState.getID();
-
+		final JobID jobID = taskExecutionState.getJobID();
 		try {
 			CompletableFuture<Acknowledge> futureAcknowledge = jobMasterGateway.updateTaskExecutionState(taskExecutionState);
 
@@ -1503,11 +1504,17 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 							if (ExceptionUtils.findThrowable(throwable, ExecutionGraphException.class).isPresent()) {
 								failTask(executionAttemptID, throwable);
 							} else {
-								// we should always let JM know tasks' state, otherwise there might occur some serious problem.
-								// For example, a task fails but JM didn't receive the notification so that the task will never be
-								// redeployed.
-								log.error("Catch exception when send update task execution state message to job master, ", throwable);
-								onFatalError(throwable);
+								final JobMasterGateway currentJobMasterGateway = Optional.ofNullable(jobManagerTable.get(jobID)).map(JobManagerConnection::getJobManagerGateway).orElse(null);
+								if (currentJobMasterGateway != null && currentJobMasterGateway == jobMasterGateway) {
+									// we should always let JM know tasks' state, otherwise there might occur some serious problem.
+									// For example, a task fails but JM didn't receive the notification so that the task will never be
+									// redeployed.
+									log.error("Catch exception when send update task execution state message to job master, ", throwable);
+									onFatalError(throwable);
+								} else {
+									log.info("Update task state for {} failed, but JobMaster has changed, ignore this.", executionAttemptID);
+									failTask(executionAttemptID, throwable);
+								}
 							}
 						}
 					},
