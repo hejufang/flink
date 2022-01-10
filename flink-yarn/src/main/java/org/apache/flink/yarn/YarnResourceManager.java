@@ -2071,8 +2071,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					.build()));
 			return tagGaugeMetrics;
 		});
-		jobManagerMetricGroup.gauge("allocatedCPU", () -> defaultCpus * workerNodeMap.size());
-		jobManagerMetricGroup.gauge("allocatedMemory", () -> defaultTaskManagerMemoryMB * workerNodeMap.size());
+		jobManagerMetricGroup.gauge("allocatedCPU", () -> getAllocateCpu());
+		jobManagerMetricGroup.gauge("allocatedMemory", () -> getAllocateMemory());
 		jobManagerMetricGroup.gauge("pendingCPU", () -> defaultCpus * numPendingContainerRequests);
 		jobManagerMetricGroup.gauge("pendingMemory", () -> defaultTaskManagerMemoryMB * numPendingContainerRequests);
 		jobManagerMetricGroup.gauge("pendingRequestedContainerNum", () -> numPendingContainerRequests);
@@ -2108,6 +2108,22 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		int numberRequestedNotStartedRedundantWorkers = slowContainerManager.getStartingRedundantContainerSize() + slowContainerManager.getPendingRedundantContainersNum();
 		int numberRequiredWorkers = (int) Math.ceil(getNumberRequiredTaskManagerSlots() / (double) numberOfTaskSlots) + slowContainerManager.getTotalRedundantContainersNum() - numberRequestedNotStartedRedundantWorkers;
 		return numberRequiredWorkers - (numberRequestedNotStartedWorkers - numberRequestedNotStartedRedundantWorkers);
+	}
+
+	private double getAllocateCpu() {
+		double allocatedCpu = 0.0;
+		for (Map.Entry<ResourceID, YarnWorkerNode> entry : workerNodeMap.entrySet()){
+			allocatedCpu += entry.getValue().getContainer().getResource().getVirtualCoresMilli() / 1000.0;
+		}
+		return allocatedCpu;
+	}
+
+	private long getAllocateMemory() {
+		long allocatedMemory = 0;
+		for (Map.Entry<ResourceID, YarnWorkerNode> entry : workerNodeMap.entrySet()){
+			allocatedMemory += entry.getValue().getContainer().getResource().getMemorySize();
+		}
+		return allocatedMemory;
 	}
 
 	public static String getContainerHost(YarnWorkerNode yarnWorkerNode) {
