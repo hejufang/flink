@@ -44,6 +44,8 @@ import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptorBuilder;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.execution.Environment;
+import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.execution.librarycache.TestingClassLoaderLease;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.JobInformation;
@@ -149,6 +151,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -166,6 +169,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
@@ -1031,6 +1035,18 @@ public class TaskExecutorTest extends TestLogger {
 		}
 	}
 
+	private void submitTask(
+			AllocationID allocationId,
+			TestingJobMasterGateway jobMasterGateway,
+			TaskExecutorGateway tmGateway,
+			Class<?> invokableClass) throws IOException {
+		final TaskDeploymentDescriptor tdd = TaskDeploymentDescriptorBuilder
+				.newBuilder(jobId, invokableClass)
+				.setAllocationId(allocationId)
+				.build();
+		tmGateway.submitTask(tdd, jobMasterGateway.getFencingToken(), timeout).join();
+	}
+
 	private void submitNoOpInvokableTask(
 			AllocationID allocationId,
 			TestingJobMasterGateway jobMasterGateway,
@@ -1520,8 +1536,9 @@ public class TaskExecutorTest extends TestLogger {
 	 */
 	@Test
 	public void testDisconnectFromJobMasterWhenNewLeader() throws Exception {
+		final TaskSlotTableImpl<Task> taskSlotTable = TaskSlotUtils.createTaskSlotTable(1);
 		final TaskManagerServices taskManagerServices = new TaskManagerServicesBuilder()
-			.setTaskSlotTable(TaskSlotUtils.createTaskSlotTable(1))
+			.setTaskSlotTable(taskSlotTable)
 			.build();
 		final TaskExecutor taskExecutor = createTaskExecutor(taskManagerServices);
 
@@ -1561,10 +1578,11 @@ public class TaskExecutorTest extends TestLogger {
 			initialSlotReportFuture.get();
 
 			ResourceID resourceID = taskManagerServices.getUnresolvedTaskManagerLocation().getResourceID();
+			AllocationID allocationID = new AllocationID();
 			taskExecutorGateway.requestSlot(
 				new SlotID(resourceID, 0),
 				jobId,
-				new AllocationID(),
+				allocationID,
 				ResourceProfile.ZERO,
 				"foobar",
 				resourceManagerGateway.getFencingToken(),
@@ -1578,6 +1596,293 @@ public class TaskExecutorTest extends TestLogger {
 			jobManagerLeaderRetriever.notifyListener(null, null);
 
 			assertThat(disconnectFuture.get(), is(resourceID));
+
+			// assert slot is not freed.
+			assertTrue(taskSlotTable.isAllocated(-1, jobId, allocationID));
+			assertTrue(taskSlotTable.isAllocated(0, jobId, allocationID));
+		} finally {
+			RpcUtils.terminateRpcEndpoint(taskExecutor, timeout);
+		}
+	}
+
+	/**
+	 * Test Slot will be freed while JobMaster lost leadership if RELEASE_SLOT_WHEN_JOB_MASTER_DISCONNECTED is enabled.
+	 */
+	@Test
+	public void testReleaseSlotAfterJobMasterDisconnect() throws Exception {
+		configuration.setBoolean(TaskManagerOptions.RELEASE_SLOT_WHEN_JOB_MASTER_DISCONNECTED, true);
+		final TaskSlotTableImpl<Task> taskSlotTable = TaskSlotUtils.createTaskSlotTable(1);
+
+		final TaskManagerServices taskManagerServices = new TaskManagerServicesBuilder()
+				.setTaskSlotTable(taskSlotTable)
+				.build();
+		final TaskExecutor taskExecutor = createTaskExecutor(taskManagerServices);
+
+		final CompletableFuture<Integer> offeredSlotsFuture = new CompletableFuture<>();
+		final CompletableFuture<ResourceID> disconnectFuture = new CompletableFuture<>();
+		final TestingJobMasterGateway jobMasterGateway = new TestingJobMasterGatewayBuilder()
+				.setOfferSlotsFunction((resourceID, slotOffers) -> {
+					offeredSlotsFuture.complete(slotOffers.size());
+					return CompletableFuture.completedFuture(slotOffers);
+				})
+				.setDisconnectTaskManagerFunction(
+						resourceID -> {
+							disconnectFuture.complete(resourceID);
+							return CompletableFuture.completedFuture(Acknowledge.get());
+						}
+				)
+				.build();
+		final TestingResourceManagerGateway resourceManagerGateway = new TestingResourceManagerGateway();
+
+		final CompletableFuture<Void> initialSlotReportFuture = new CompletableFuture<>();
+		resourceManagerGateway.setSendSlotReportFunction(resourceIDInstanceIDSlotReportTuple3 -> {
+			initialSlotReportFuture.complete(null);
+			return CompletableFuture.completedFuture(Acknowledge.get());
+
+		});
+
+		rpc.registerGateway(resourceManagerGateway.getAddress(), resourceManagerGateway);
+		rpc.registerGateway(jobMasterGateway.getAddress(), jobMasterGateway);
+
+		try {
+			taskExecutor.start();
+
+			TaskExecutorGateway taskExecutorGateway = taskExecutor.getSelfGateway(TaskExecutorGateway.class);
+
+			resourceManagerLeaderRetriever.notifyListener(resourceManagerGateway.getAddress(), resourceManagerGateway.getFencingToken().toUUID());
+
+			initialSlotReportFuture.get();
+
+			ResourceID resourceID = taskManagerServices.getUnresolvedTaskManagerLocation().getResourceID();
+			AllocationID allocationID = new AllocationID();
+			taskExecutorGateway.requestSlot(
+					new SlotID(resourceID, 0),
+					jobId,
+					allocationID,
+					ResourceProfile.ZERO,
+					"foobar",
+					resourceManagerGateway.getFencingToken(),
+					timeout).get();
+
+			jobManagerLeaderRetriever.notifyListener(jobMasterGateway.getAddress(), UUID.randomUUID());
+
+			assertThat(offeredSlotsFuture.get(), is(1));
+
+			// notify loss of leadership
+			jobManagerLeaderRetriever.notifyListener(null, null);
+
+			assertThat(disconnectFuture.get(), is(resourceID));
+			// assert slot is freed.
+			assertEquals(0, taskSlotTable.getActiveTaskSlotAllocationIds().size());
+			assertFalse(taskSlotTable.isAllocated(-1, jobId, allocationID));
+			assertFalse(taskSlotTable.isAllocated(0, jobId, allocationID));
+		} finally {
+			RpcUtils.terminateRpcEndpoint(taskExecutor, timeout);
+		}
+	}
+
+	/**
+	 * Test timeout exception if slot release take more than timeout.
+	 */
+	@Test
+	public void testWaitSlotReleaseTimeoutBeforeSlotReport() throws Exception {
+		configuration.setBoolean(TaskManagerOptions.RELEASE_SLOT_WHEN_JOB_MASTER_DISCONNECTED, true);
+		configuration.setLong(TaskManagerOptions.WAIT_SLOT_RELEASE_BEFORE_SEND_SLOT_REPORTER_TIMEOUT, 10L);
+		final TaskSlotTableImpl<Task> taskSlotTable = TaskSlotUtils.createTaskSlotTable(1);
+
+		final TaskManagerServices taskManagerServices = new TaskManagerServicesBuilder()
+				.setTaskSlotTable(taskSlotTable)
+				.build();
+		final TaskExecutor taskExecutor = createTaskExecutor(taskManagerServices, new HeartbeatServices(10000L, 100000L));
+
+		final CompletableFuture<Integer> offeredSlotsFuture = new CompletableFuture<>();
+		final CompletableFuture<ResourceID> disconnectFuture = new CompletableFuture<>();
+		final CompletableFuture<Void> taskRunningFuture = new CompletableFuture<>();
+		final TestingJobMasterGateway jobMasterGateway = new TestingJobMasterGatewayBuilder()
+				.setOfferSlotsFunction((resourceID, slotOffers) -> {
+					offeredSlotsFuture.complete(slotOffers.size());
+					return CompletableFuture.completedFuture(slotOffers);
+				})
+				.setDisconnectTaskManagerFunction(
+						resourceID -> {
+							disconnectFuture.complete(resourceID);
+							return CompletableFuture.completedFuture(Acknowledge.get());
+						}
+				)
+				.setUpdateTaskExecutionStateFunction(
+						taskExecutionState -> {
+							if (taskExecutionState.getExecutionState().equals(ExecutionState.RUNNING)) {
+								taskRunningFuture.complete(null);
+							}
+							return CompletableFuture.completedFuture(Acknowledge.get());
+						}
+				)
+				.build();
+		final TestingResourceManagerGateway resourceManagerGateway = new TestingResourceManagerGateway();
+
+		final CompletableFuture<Void> initialSlotReportFuture = new CompletableFuture<>();
+		resourceManagerGateway.setSendSlotReportFunction(resourceIDInstanceIDSlotReportTuple3 -> {
+			initialSlotReportFuture.complete(null);
+			return CompletableFuture.completedFuture(Acknowledge.get());
+
+		});
+
+		final List<CompletableFuture<Throwable>> disconnectToResourceManagerFutures = new ArrayList<>();
+		for (int i = 0; i < 5; i++) {
+			disconnectToResourceManagerFutures.add(new CompletableFuture<>());
+		}
+		final AtomicInteger disconnectToResourceManagerNumber = new AtomicInteger(0);
+		resourceManagerGateway.setDisconnectTaskExecutorConsumer(
+				resourceIDThrowableTuple2 -> disconnectToResourceManagerFutures
+						.get(disconnectToResourceManagerNumber.getAndIncrement())
+						.complete(resourceIDThrowableTuple2.f1));
+
+		rpc.registerGateway(resourceManagerGateway.getAddress(), resourceManagerGateway);
+		rpc.registerGateway(jobMasterGateway.getAddress(), jobMasterGateway);
+
+		try {
+			taskExecutor.start();
+
+			TaskExecutorGateway taskExecutorGateway = taskExecutor.getSelfGateway(TaskExecutorGateway.class);
+
+			resourceManagerLeaderRetriever.notifyListener(resourceManagerGateway.getAddress(), resourceManagerGateway.getFencingToken().toUUID());
+
+			initialSlotReportFuture.get();
+
+			ResourceID resourceID = taskManagerServices.getUnresolvedTaskManagerLocation().getResourceID();
+			AllocationID allocationID = new AllocationID();
+			taskExecutorGateway.requestSlot(
+					new SlotID(resourceID, 0),
+					jobId,
+					allocationID,
+					ResourceProfile.ZERO,
+					"foobar",
+					resourceManagerGateway.getFencingToken(),
+					timeout).get();
+
+			jobManagerLeaderRetriever.notifyListener(jobMasterGateway.getAddress(), UUID.randomUUID());
+
+			assertThat(offeredSlotsFuture.get(), is(1));
+
+			// submit task.
+			submitTask(allocationID, jobMasterGateway, taskExecutorGateway, BlockingNoOpCancelableInvokable.class);
+			taskRunningFuture.get();
+
+			// notify loss of leadership
+			jobManagerLeaderRetriever.notifyListener(null, null);
+
+			assertThat(disconnectFuture.get(), is(resourceID));
+			// assert slot start to free, keep in releasing.
+			assertFalse(taskSlotTable.getTaskSlotReleasingFutures().isEmpty());
+			assertEquals(0, taskSlotTable.getActiveTaskSlotAllocationIds().size());
+			assertTrue(taskSlotTable.isAllocated(-1, jobId, allocationID));
+			assertFalse(taskSlotTable.isAllocated(0, jobId, allocationID));
+
+			resourceManagerLeaderRetriever.notifyListener(null, null);
+			// verify task manager disconnected with resource manager.
+			assertTrue(disconnectToResourceManagerFutures.get(0).get().getMessage().startsWith("ResourceManager leader changed to new address"));
+
+			resourceManagerLeaderRetriever.notifyListener(resourceManagerGateway.getAddress(), resourceManagerGateway.getFencingToken().toUUID());
+			// verify report slot to resource manager timed out.
+			assertTrue(getFutureResult(disconnectToResourceManagerFutures.get(1), 10, 1000).getMessage()
+					.startsWith("Failed to send initial slot report to ResourceManager"));
+			assertEquals(2, disconnectToResourceManagerNumber.get());
+		} finally {
+			RpcUtils.terminateRpcEndpoint(taskExecutor, timeout);
+		}
+	}
+
+	/**
+	 * Test TaskExecutor can report slot to ResourceManager when slot release finished.
+	 */
+	@Test
+	public void testWaitSlotReleaseFinishBeforeSlotReport() throws Exception {
+		configuration.setBoolean(TaskManagerOptions.RELEASE_SLOT_WHEN_JOB_MASTER_DISCONNECTED, true);
+		configuration.setLong(TaskManagerOptions.WAIT_SLOT_RELEASE_BEFORE_SEND_SLOT_REPORTER_TIMEOUT, 100L);
+		final TaskSlotTableImpl<Task> taskSlotTable = TaskSlotUtils.createTaskSlotTable(1);
+
+		final TaskManagerServices taskManagerServices = new TaskManagerServicesBuilder()
+				.setTaskSlotTable(taskSlotTable)
+				.build();
+		final TaskExecutor taskExecutor = createTaskExecutor(taskManagerServices, new HeartbeatServices(10000L, 100000L));
+
+		final CompletableFuture<Integer> offeredSlotsFuture = new CompletableFuture<>();
+		final CompletableFuture<ResourceID> disconnectFuture = new CompletableFuture<>();
+		final TestingJobMasterGateway jobMasterGateway = new TestingJobMasterGatewayBuilder()
+				.setOfferSlotsFunction((resourceID, slotOffers) -> {
+					offeredSlotsFuture.complete(slotOffers.size());
+					return CompletableFuture.completedFuture(slotOffers);
+				})
+				.setDisconnectTaskManagerFunction(
+						resourceID -> {
+							disconnectFuture.complete(resourceID);
+							return CompletableFuture.completedFuture(Acknowledge.get());
+						}
+				)
+				.build();
+		final TestingResourceManagerGateway resourceManagerGateway = new TestingResourceManagerGateway();
+
+		final List<CompletableFuture<Void>> initialSlotReportFutures = new ArrayList<>();
+		for (int i = 0; i < 5; i++) {
+			initialSlotReportFutures.add(new CompletableFuture<>());
+		}
+		final AtomicInteger initialSlotReportFutureNumber = new AtomicInteger(0);
+		resourceManagerGateway.setSendSlotReportFunction(resourceIDInstanceIDSlotReportTuple3 -> {
+			initialSlotReportFutures.get(initialSlotReportFutureNumber.getAndIncrement()).complete(null);
+			return CompletableFuture.completedFuture(Acknowledge.get());
+
+		});
+
+		final CompletableFuture<Throwable> disconnectToResourceManagerFuture = new CompletableFuture<>();
+		resourceManagerGateway.setDisconnectTaskExecutorConsumer(
+				resourceIDThrowableTuple2 -> disconnectToResourceManagerFuture.complete(resourceIDThrowableTuple2.f1));
+
+		rpc.registerGateway(resourceManagerGateway.getAddress(), resourceManagerGateway);
+		rpc.registerGateway(jobMasterGateway.getAddress(), jobMasterGateway);
+
+		try {
+			taskExecutor.start();
+
+			TaskExecutorGateway taskExecutorGateway = taskExecutor.getSelfGateway(TaskExecutorGateway.class);
+
+			resourceManagerLeaderRetriever.notifyListener(resourceManagerGateway.getAddress(), resourceManagerGateway.getFencingToken().toUUID());
+
+			initialSlotReportFutures.get(0).get();
+
+			ResourceID resourceID = taskManagerServices.getUnresolvedTaskManagerLocation().getResourceID();
+			AllocationID allocationID = new AllocationID();
+			taskExecutorGateway.requestSlot(
+					new SlotID(resourceID, 0),
+					jobId,
+					allocationID,
+					ResourceProfile.ZERO,
+					"foobar",
+					resourceManagerGateway.getFencingToken(),
+					timeout).get();
+
+			jobManagerLeaderRetriever.notifyListener(jobMasterGateway.getAddress(), UUID.randomUUID());
+
+			assertThat(offeredSlotsFuture.get(), is(1));
+
+			// submit task.
+			submitNoOpInvokableTask(allocationID, jobMasterGateway, taskExecutorGateway);
+
+			// notify loss of leadership
+			jobManagerLeaderRetriever.notifyListener(null, null);
+
+			assertThat(disconnectFuture.get(), is(resourceID));
+			// assert slot start to free, keep in releasing.
+			assertFalse(taskSlotTable.getTaskSlotReleasingFutures().isEmpty());
+			assertEquals(0, taskSlotTable.getActiveTaskSlotAllocationIds().size());
+			assertTrue(taskSlotTable.isAllocated(-1, jobId, allocationID));
+			assertFalse(taskSlotTable.isAllocated(0, jobId, allocationID));
+
+			resourceManagerLeaderRetriever.notifyListener(null, null);
+			assertTrue(disconnectToResourceManagerFuture.get().getMessage().startsWith("ResourceManager leader changed to new address"));
+
+			resourceManagerLeaderRetriever.notifyListener(resourceManagerGateway.getAddress(), resourceManagerGateway.getFencingToken().toUUID());
+			initialSlotReportFutures.get(1).get();
+			assertEquals(2, initialSlotReportFutureNumber.get());
 		} finally {
 			RpcUtils.terminateRpcEndpoint(taskExecutor, timeout);
 		}
@@ -2213,6 +2518,47 @@ public class TaskExecutorTest extends TestLogger {
 			}
 
 			return result;
+		}
+	}
+
+	private static <T> T getFutureResult(CompletableFuture<T> future, long waitTimeTs, int retryTimes) throws Exception {
+		Exception e = new Exception("exception while get future result.");
+		for (int i = 0; i < retryTimes; i++) {
+			try {
+				return future.get(waitTimeTs, TimeUnit.MILLISECONDS);
+			} catch (TimeoutException te) {
+				e = te;
+			}
+		}
+		throw e;
+	}
+
+	/**
+	 * Task that block running until task canceled 1 seconds.
+	 */
+	public static class BlockingNoOpCancelableInvokable extends AbstractInvokable {
+		private boolean isCanceled = false;
+		public BlockingNoOpCancelableInvokable(Environment environment) {
+			super(environment);
+		}
+
+		@Override
+		public void invoke() throws Exception {
+			final Object o = new Object();
+			synchronized (o) {
+				while (!isCanceled) {
+					o.wait();
+				}
+			}
+		}
+
+		@Override
+		public void cancel() throws Exception {
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException ie) {
+			}
+			isCanceled = true;
 		}
 	}
 }

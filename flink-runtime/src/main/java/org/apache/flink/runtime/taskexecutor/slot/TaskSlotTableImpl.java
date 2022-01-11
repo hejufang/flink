@@ -32,6 +32,7 @@ import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor.DummyComp
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.memory.MemoryManager;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.SlotStatus;
 import org.apache.flink.util.FlinkException;
@@ -116,6 +117,8 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
 
 	private final boolean jobLogDetailDisable;
 
+	private Map<Integer, CompletableFuture<Acknowledge>> taskSlotReleasingFutures;
+
 	public TaskSlotTableImpl(
 			final int numberSlots,
 			final ResourceProfile totalAvailableResourceProfile,
@@ -139,6 +142,8 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
 		allocatedSlots = new HashMap<>(numberSlots);
 
 		taskSlotMappings = new HashMap<>(4 * numberSlots);
+
+		this.taskSlotReleasingFutures = new HashMap<>(4);
 
 		slotsPerJob = new HashMap<>(4);
 
@@ -222,6 +227,10 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
 		}
 
 		return allocationIds;
+	}
+
+	public Collection<CompletableFuture<Acknowledge>> getTaskSlotReleasingFutures() {
+		return taskSlotReleasingFutures.values();
 	}
 
 	// ---------------------------------------------------------------------
@@ -441,6 +450,15 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
 
 			taskSlots.remove(taskSlot.getIndex());
 			budgetManager.release(taskSlot.getResourceProfile());
+
+			CompletableFuture<Acknowledge> taskSlotReleasingFuture = taskSlotReleasingFutures.remove(taskSlot.getIndex());
+			if (taskSlotReleasingFuture != null) {
+				LOG.info("Releasing taskSlot {} complete.", taskSlot.getIndex());
+				taskSlotReleasingFuture.complete(Acknowledge.get());
+			}
+		} else {
+			LOG.info("Could not free slot {} now, releasing in future.", taskSlot.getIndex());
+			taskSlotReleasingFutures.putIfAbsent(taskSlot.getIndex(), new CompletableFuture<>());
 		}
 		return taskSlot.closeAsync(cause);
 	}

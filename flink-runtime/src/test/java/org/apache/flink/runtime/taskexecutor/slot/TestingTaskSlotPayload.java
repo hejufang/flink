@@ -25,7 +25,10 @@ import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 
 import java.util.concurrent.CompletableFuture;
 
-class TestingTaskSlotPayload implements TaskSlotPayload {
+/**
+ * TaskSotPayload for Testing.
+ */
+public class TestingTaskSlotPayload implements TaskSlotPayload {
 	private final JobID jobId;
 	private final ExecutionAttemptID executionAttemptID;
 	private final AllocationID allocationID;
@@ -36,7 +39,7 @@ class TestingTaskSlotPayload implements TaskSlotPayload {
 		this(new JobID(), new ExecutionAttemptID(), new AllocationID());
 	}
 
-	TestingTaskSlotPayload(JobID jobId, ExecutionAttemptID executionAttemptID, AllocationID allocationID) {
+	public TestingTaskSlotPayload(JobID jobId, ExecutionAttemptID executionAttemptID, AllocationID allocationID) {
 		this.jobId = jobId;
 		this.executionAttemptID = executionAttemptID;
 		this.allocationID = allocationID;

@@ -83,6 +83,10 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	private final boolean requestSlotFromResourceManagerDirectEnable;
 
+	private final boolean releaseSlotWhenJobMasterDisconnected;
+
+	private final long waitSlotReleaseBeforeSendSlotReporterTimeoutMs;
+
 	public TaskManagerConfiguration(
 			int numberSlots,
 			ResourceProfile defaultSlotResourceProfile,
@@ -98,7 +102,9 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			String taskManagerExternalAddress,
 			RetryingRegistrationConfiguration retryingRegistrationConfiguration,
 			boolean jobLogDetailDisable,
-			boolean requestSlotFromResourceManagerDirectEnable) {
+			boolean requestSlotFromResourceManagerDirectEnable,
+			boolean releaseSlotWhenJobMasterDisconnected,
+			long waitSlotReleaseBeforeSendSlotReporterTimeoutMs) {
 
 		this.numberSlots = numberSlots;
 		this.defaultSlotResourceProfile = defaultSlotResourceProfile;
@@ -115,6 +121,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		this.retryingRegistrationConfiguration = retryingRegistrationConfiguration;
 		this.jobLogDetailDisable = jobLogDetailDisable;
 		this.requestSlotFromResourceManagerDirectEnable = requestSlotFromResourceManagerDirectEnable;
+		this.releaseSlotWhenJobMasterDisconnected = releaseSlotWhenJobMasterDisconnected;
+		this.waitSlotReleaseBeforeSendSlotReporterTimeoutMs = waitSlotReleaseBeforeSendSlotReporterTimeoutMs;
 	}
 
 	public int getNumberSlots() {
@@ -184,7 +192,16 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 	public boolean isRequestSlotFromResourceManagerDirectEnable() {
 		return requestSlotFromResourceManagerDirectEnable;
 	}
-// --------------------------------------------------------------------------------------------
+
+	public boolean isReleaseSlotWhenJobMasterDisconnected() {
+		return releaseSlotWhenJobMasterDisconnected;
+	}
+
+	public long getWaitSlotReleaseBeforeSendSlotReporterTimeoutMs() {
+		return waitSlotReleaseBeforeSendSlotReporterTimeoutMs;
+	}
+
+	// --------------------------------------------------------------------------------------------
 	//  Static factory methods
 	// --------------------------------------------------------------------------------------------
 
@@ -245,6 +262,9 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		final boolean jobLogDetailDisable = configuration.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 		final boolean requestSlotFromResourceManagerDirectEnable = configuration.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE);
 
+		final boolean releaseSlotWhenJobMasterDisconnected = configuration.getBoolean(TaskManagerOptions.RELEASE_SLOT_WHEN_JOB_MASTER_DISCONNECTED);
+		final long waitSlotReleaseBeforeSendSlotReporterTimeout = configuration.get(TaskManagerOptions.WAIT_SLOT_RELEASE_BEFORE_SEND_SLOT_REPORTER_TIMEOUT);
+
 		return new TaskManagerConfiguration(
 			numberSlots,
 			TaskExecutorResourceUtils.generateDefaultSlotResourceProfile(taskExecutorResourceSpec, numberSlots),
@@ -260,6 +280,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			externalAddress,
 			retryingRegistrationConfiguration,
 			jobLogDetailDisable,
-			requestSlotFromResourceManagerDirectEnable);
+			requestSlotFromResourceManagerDirectEnable,
+			releaseSlotWhenJobMasterDisconnected,
+			waitSlotReleaseBeforeSendSlotReporterTimeout);
 	}
 }

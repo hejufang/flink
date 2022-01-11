@@ -167,6 +167,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -1470,11 +1471,34 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			InstanceID taskExecutorRegistrationId,
 			ClusterInformation clusterInformation) {
 
-		final CompletableFuture<Acknowledge> slotReportResponseFuture = resourceManagerGateway.sendSlotReport(
-			getResourceID(),
-			taskExecutorRegistrationId,
-			taskSlotTable.createSlotReport(getResourceID()),
-			taskManagerConfiguration.getTimeout());
+		final CompletableFuture<Acknowledge> slotReportResponseFuture;
+		if (taskManagerConfiguration.isReleaseSlotWhenJobMasterDisconnected()) {
+			// Slots will be freed when enabled releaseSlotWhenJobMasterDisconnected, these slot may be in releasing.
+			// Wait the releasing slot to be free, otherwise these slot cannot report to SlotManager as free slot.
+			slotReportResponseFuture = FutureUtils.combineAll(taskSlotTable.getTaskSlotReleasingFutures())
+					.thenComposeAsync(
+							ack -> resourceManagerGateway.sendSlotReport(
+									getResourceID(),
+									taskExecutorRegistrationId,
+									taskSlotTable.createSlotReport(getResourceID()),
+									taskManagerConfiguration.getTimeout()
+							),
+							getMainThreadExecutor()
+					);
+
+			// register timeout in case of slot hung in releasing.
+			FutureUtils.orTimeout(
+					slotReportResponseFuture,
+					taskManagerConfiguration.getWaitSlotReleaseBeforeSendSlotReporterTimeoutMs(),
+					TimeUnit.MILLISECONDS,
+					getMainThreadExecutor());
+		} else {
+			slotReportResponseFuture = resourceManagerGateway.sendSlotReport(
+					getResourceID(),
+					taskExecutorRegistrationId,
+					taskSlotTable.createSlotReport(getResourceID()),
+					taskManagerConfiguration.getTimeout());
+		}
 
 		slotReportResponseFuture.whenCompleteAsync(
 			(acknowledge, throwable) -> {
@@ -1757,7 +1781,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		for (AllocationID activeSlotAllocationID : activeSlotAllocationIDs) {
 			try {
-				if (!taskSlotTable.markSlotInactive(activeSlotAllocationID, taskManagerConfiguration.getTimeout())) {
+				if (taskManagerConfiguration.isReleaseSlotWhenJobMasterDisconnected() ||
+						!taskSlotTable.markSlotInactive(activeSlotAllocationID, taskManagerConfiguration.getTimeout())) {
 					freeSlotInternal(activeSlotAllocationID, freeingCause);
 				}
 			} catch (SlotNotFoundException e) {
@@ -1765,16 +1790,19 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			}
 		}
 
-		// 3. Disassociate from the JobManager
-		try {
-			jobManagerHeartbeatManager.unmonitorTarget(jobManagerConnection.getResourceId());
-			disassociateFromJobManager(jobManagerConnection, cause);
-		} catch (IOException e) {
-			log.warn("Could not properly disassociate from JobManager {}.",
-				jobManagerConnection.getJobManagerGateway().getAddress(), e);
-		}
+		// Job may be removed in freeSlotInternal.
+		if (jobTable.getJob(jobId).isPresent()) {
+			// 3. Disassociate from the JobManager
+			try {
+				jobManagerHeartbeatManager.unmonitorTarget(jobManagerConnection.getResourceId());
+				disassociateFromJobManager(jobManagerConnection, cause);
+			} catch (IOException e) {
+				log.warn("Could not properly disassociate from JobManager {}.",
+						jobManagerConnection.getJobManagerGateway().getAddress(), e);
+			}
 
-		jobManagerConnection.disconnect();
+			jobManagerConnection.disconnect();
+		}
 	}
 
 	private JobTable.Connection associateWithJobManager(

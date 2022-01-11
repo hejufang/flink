@@ -27,14 +27,18 @@ import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.memory.MemoryManager;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.util.AutoCloseableAsync;
 
 import javax.annotation.Nullable;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Container for multiple {@link TaskSlot} instances. Additionally, it maintains multiple indices
@@ -201,6 +205,10 @@ public interface TaskSlotTable<T extends TaskSlotPayload> extends TimeoutListene
 	 * @return True if there are allocated slots for the given job id.
 	 */
 	boolean hasAllocatedSlots(JobID jobId);
+
+	default Collection<CompletableFuture<Acknowledge>> getTaskSlotReleasingFutures() {
+		return Collections.singleton(CompletableFuture.completedFuture(Acknowledge.get()));
+	}
 
 	/**
 	 * Return an iterator of allocated slots for the given job id.

@@ -25,7 +25,9 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
+import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.SlotStatus;
 import org.apache.flink.util.TestLogger;
@@ -37,6 +39,7 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -47,7 +50,10 @@ import java.util.concurrent.TimeoutException;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 /**
@@ -145,13 +151,66 @@ public class TaskSlotTableImplTest extends TestLogger {
 			assertThat(taskSlotTable.allocateSlot(0, jobId, allocationId1, SLOT_TIMEOUT), is(true));
 			assertThat(taskSlotTable.allocateSlot(1, jobId, allocationId2, SLOT_TIMEOUT), is(true));
 
+			CompletableFuture<Void> slotReleaseFuture = FutureUtils.waitForAll(taskSlotTable.getTaskSlotReleasingFutures());
 			assertThat(taskSlotTable.freeSlot(allocationId2), is(1));
-
+			assertEquals(0, taskSlotTable.getTaskSlotReleasingFutures().size());
+			assertTrue(slotReleaseFuture.isDone());
 			Iterator<TaskSlot<TaskSlotPayload>> allocatedSlots = taskSlotTable.getAllocatedSlots(jobId);
 			assertThat(allocatedSlots.next().getIndex(), is(0));
 			assertThat(allocatedSlots.hasNext(), is(false));
 			assertThat(taskSlotTable.isAllocated(1, jobId, allocationId1), is(false));
 			assertThat(taskSlotTable.isAllocated(1, jobId, allocationId2), is(false));
+			assertThat(taskSlotTable.isSlotFree(1), is(true));
+		}
+	}
+
+	/**
+	 * Test free slot with task Payload.
+	 * Slot can not be freed if it has task payload. it will call task.failExternally, and then the task will call freeSlot again.
+	 * Then the slot is freed.
+	 */
+	@Test
+	public void testFreeSlotWithTask() throws Exception {
+		try (final TaskSlotTable<TaskSlotPayload> taskSlotTable = createTaskSlotTableAndStart(2)) {
+			final JobID jobId = new JobID();
+			final AllocationID allocationId1 = new AllocationID();
+			final AllocationID allocationId2 = new AllocationID();
+			final ExecutionAttemptID executionAttemptId1 = new ExecutionAttemptID();
+			TestingTaskSlotPayload task1 = new TestingTaskSlotPayload(jobId, executionAttemptId1, allocationId1);
+
+			assertThat(taskSlotTable.allocateSlot(0, jobId, allocationId1, SLOT_TIMEOUT), is(true));
+			assertThat(taskSlotTable.allocateSlot(1, jobId, allocationId2, SLOT_TIMEOUT), is(true));
+			taskSlotTable.markSlotActive(allocationId1);
+			taskSlotTable.markSlotActive(allocationId2);
+			taskSlotTable.addTask(task1);
+
+			assertThat(taskSlotTable.freeSlot(allocationId1), is(-1));
+
+			Collection<CompletableFuture<Acknowledge>> slotReleasingFutures = taskSlotTable.getTaskSlotReleasingFutures();
+			CompletableFuture<Void> slotsReleasingFuture = FutureUtils.waitForAll(slotReleasingFutures);
+			assertEquals(1, slotReleasingFutures.size());
+			assertFalse(slotsReleasingFuture.isDone());
+
+			// terminate task when task.failExternally called.
+			task1.waitForFailure();
+			task1.terminate();
+			taskSlotTable.removeTask(task1.getExecutionId());
+
+			// trigger freeSlot again. release future should be finished.
+			assertThat(taskSlotTable.freeSlot(allocationId1), is(0));
+			assertTrue(slotsReleasingFuture.isDone());
+			assertEquals(0, taskSlotTable.getTaskSlotReleasingFutures().size());
+
+			Iterator<TaskSlot<TaskSlotPayload>> allocatedSlots = taskSlotTable.getAllocatedSlots(jobId);
+			assertThat(allocatedSlots.hasNext(), is(false));
+			assertThat(taskSlotTable.isAllocated(1, jobId, allocationId1), is(false));
+			assertThat(taskSlotTable.isAllocated(1, jobId, allocationId2), is(true));
+			assertThat(taskSlotTable.isSlotFree(0), is(true));
+
+			// freeSlot which is not assigned task, will success directly.
+			assertThat(taskSlotTable.freeSlot(allocationId2), is(1));
+			assertEquals(0, taskSlotTable.getTaskSlotReleasingFutures().size());
+			assertThat(taskSlotTable.isSlotFree(0), is(true));
 			assertThat(taskSlotTable.isSlotFree(1), is(true));
 		}
 	}

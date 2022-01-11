@@ -580,6 +580,19 @@ public class TaskManagerOptions {
 			.defaultValue(false)
 			.withDescription("The tasks in different jobs share the memory manager base slots.");
 
+	public static final ConfigOption<Boolean> RELEASE_SLOT_WHEN_JOB_MASTER_DISCONNECTED = ConfigOptions
+			.key("taskmanager.release-slot-when-job-master-disconnected.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether release all slots when job master is disconnected.");
+
+	public static final ConfigOption<Long> WAIT_SLOT_RELEASE_BEFORE_SEND_SLOT_REPORTER_TIMEOUT = ConfigOptions
+			.key("taskmanager.wait-slot-release-before-send-slot-reporter.timeout-ms")
+			.longType()
+			.defaultValue(180000L)
+			.withDescription("Timeout to wait all slot finish releasing, " +
+					"only works when RELEASE_SLOT_WHEN_JOB_MASTER_DISCONNECTED is enabled.");
+
 	// ------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */
