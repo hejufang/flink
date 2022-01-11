@@ -70,7 +70,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
 import static org.apache.flink.kubernetes.utils.KubernetesUtils.genLogUrl;
@@ -87,9 +86,6 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	private static final String TASK_MANAGER_POD_FORMAT = "%s-taskmanager-%d-%d";
 
 	private final Map<ResourceID, KubernetesWorkerNode> workerNodes = new ConcurrentHashMap<>();
-
-	/** Running taskmanager pods number which is not stopping. Only work when enable minimal taskmanager pods.*/
-	private final AtomicInteger runningNodesNum = new AtomicInteger(0);
 
 	/** When ResourceManager failover, the max attempt should recover. */
 	private long currentMaxAttemptId = 0;
@@ -254,7 +250,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		// the minimal worker number, the worker will not be stopped.
 		if (minimalNodesNum > 0 && !canStopWorker()) {
 			LOG.debug("Skip stopping worker {} with remaining worker number[{}] and "
-					+ "minimal worker number[{}]", resourceId, runningNodesNum.get(), minimalNodesNum);
+					+ "minimal worker number[{}]", resourceId, getTaskExecutors().size(), minimalNodesNum);
 			return false;
 		}
 		LOG.info("Stopping Worker {}.", resourceId);
@@ -286,9 +282,6 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 				notifyNewWorkerAllocated(workerResourceSpec, resourceID);
 				final KubernetesWorkerNode worker = new KubernetesWorkerNode(resourceID);
 				workerNodes.put(resourceID, worker);
-				if (minimalNodesNum > 0) {
-					runningNodesNum.incrementAndGet();
-				}
 
 				log.info("Received new TaskManager pod: {}", podName);
 			}
@@ -413,9 +406,6 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		for (KubernetesPod pod : podList) {
 			final KubernetesWorkerNode worker = new KubernetesWorkerNode(new ResourceID(pod.getName()));
 			workerNodes.put(worker.getResourceID(), worker);
-			if (minimalNodesNum > 0) {
-				runningNodesNum.incrementAndGet();
-			}
 			final long attempt = worker.getAttempt();
 			if (attempt > currentMaxAttemptId) {
 				currentMaxAttemptId = attempt;
@@ -547,19 +537,11 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	/**
 	 * Check whether a worker could be stopped. A worker could be stopped if the remaining
-	 * task managers are more than the required minimal number. If a worker is judged to
-	 * be stoppable, the runningNodesNum will be decreased in advance and the worker will
-	 * be stopped later.
+	 * task managers are more than the required minimal number.
 	 *
 	 * @return true if the worker could be stopped, or false if the worker could not be stopped.
 	 */
 	private synchronized boolean canStopWorker() {
-		if (runningNodesNum.get() > minimalNodesNum) {
-			runningNodesNum.decrementAndGet();
-			return true;
-		}
-		// runningNodesNum may greater than minimalNodesNum here as Pod watching is asynchronous,
-		// but it is okay as we can stop it at the next turn.
-		return false;
+		return getTaskExecutors().size() > minimalNodesNum;
 	}
 }
