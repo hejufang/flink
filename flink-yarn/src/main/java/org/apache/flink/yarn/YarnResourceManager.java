@@ -1266,8 +1266,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 					.build()));
 			return tagGaugeMetrics;
 		});
-		resourceManagerMetricGroup.gauge("allocatedCPU", () -> defaultCpus * workerNodeMap.size());
-		resourceManagerMetricGroup.gauge("allocatedMemory", () -> defaultTaskManagerMemoryMB * workerNodeMap.size());
+		resourceManagerMetricGroup.gauge("allocatedCPU", () -> getAllocateCpu());
+		resourceManagerMetricGroup.gauge("allocatedMemory", () -> getAllocateMemory());
 		resourceManagerMetricGroup.gauge("pendingCPU", () -> defaultCpus * getNumRequestedNotAllocatedWorkers());
 		resourceManagerMetricGroup.gauge("pendingMemory", () -> defaultTaskManagerMemoryMB * getNumRequestedNotAllocatedWorkers());
 		resourceManagerMetricGroup.gauge("pendingRequestedContainerNum", this::getNumRequestedNotAllocatedWorkers);
@@ -1305,6 +1305,22 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 					slowContainerManager.getPendingRedundantContainersNum(workerResourceSpec));
 		}
 		return 0;
+	}
+
+	private double getAllocateCpu() {
+		double allocatedCpu = 0.0;
+		for (Map.Entry<ResourceID, YarnWorkerNode> entry : workerNodeMap.entrySet()){
+			allocatedCpu += entry.getValue().getContainer().getResource().getVirtualCoresMilli() / 1000.0;
+		}
+		return allocatedCpu;
+	}
+
+	private long getAllocateMemory() {
+		long allocatedMemory = 0;
+		for (Map.Entry<ResourceID, YarnWorkerNode> entry : workerNodeMap.entrySet()){
+			allocatedMemory += entry.getValue().getContainer().getResource().getMemorySize();
+		}
+		return allocatedMemory;
 	}
 
 	// ------------------------------------------------------------------------
