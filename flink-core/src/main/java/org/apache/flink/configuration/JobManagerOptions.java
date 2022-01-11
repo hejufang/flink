@@ -290,6 +290,12 @@ public class JobManagerOptions {
 			.defaultValue(false)
 			.withDescription("Whether to enable JobManager to store the application status while exiting for application mode.");
 
+	public static final ConfigOption<String> JOB_STORE_TYPE =
+		key("jobstore.type")
+		.stringType()
+		.defaultValue("file")
+		.withDescription("The jobstore type in session cluster entrypoint.");
+
 	/**
 	 * The job store cache size in bytes which is used to keep completed
 	 * jobs in memory.
