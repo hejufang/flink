@@ -1011,6 +1011,32 @@ public class Dashboard {
 		return kafkaLatencyRow;
 	}
 
+	private String renderKafkaPollIntervalRow(List<String> sources) {
+		String kafkaPollIntervalTargetTemplate;
+		String kafkaPollIntervalTemplate;
+
+		try {
+			kafkaPollIntervalTargetTemplate = renderFromResource(DashboardTemplate.KAFKA_POLL_INTERVAL_TARGET_TEMPLATE);
+			kafkaPollIntervalTemplate = renderFromResource(DashboardTemplate.KAFKA_POLL_INTERVAL_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		List<String> kafkaPollIntervalList = new ArrayList<>();
+		for (String s : sources) {
+			Map<String, String> kafkaPollIntervalTargetValues = new HashMap<>();
+			kafkaPollIntervalTargetValues.put("kafka_source", s);
+			kafkaPollIntervalTargetValues.put("jobname", formatJobName);
+			kafkaPollIntervalList.add(renderString(kafkaPollIntervalTargetTemplate, kafkaPollIntervalTargetValues));
+		}
+		String targets = String.join(",", kafkaPollIntervalList);
+		Map<String, String> kafkaOffsetValues = new HashMap<>();
+		kafkaOffsetValues.put("targets", targets);
+		kafkaOffsetValues.put("datasource", dataSource);
+		String kafPollIntervalRow = renderString(kafkaPollIntervalTemplate, kafkaOffsetValues);
+		return kafPollIntervalRow;
+	}
+
 	public String renderDashboard() {
 		List<String> rows = new ArrayList<>();
 		List <String> operators = Utils.getSortedOperators(streamGraph);
@@ -1035,6 +1061,7 @@ public class Dashboard {
 			overViewPanels.add(kafkaLagSizeRow);
 			kafkaPanels.add(renderKafkaOffsetRow(sources));
 			kafkaPanels.add(renderKafkaLatencyRow(sources));
+			kafkaPanels.add(renderKafkaPollIntervalRow(sources));
 		}
 		if (!rocketmqConfigArray.isEmpty()) {
 			overViewPanels.add(renderRocketMQLagSizeRow(rocketmqConfigArray));

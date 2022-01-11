@@ -146,6 +146,10 @@ non-global:
       # kafka latency
         fetch-latency-avg,
         fetch-latency-max,
+        min-fetch-latency-avg,
+        min-fetch-latency-max,
+      # kafka poll interval
+        poll_interval,
       # Network Memory
         TotalMemorySegments,
         AllocatedMemorySegments,

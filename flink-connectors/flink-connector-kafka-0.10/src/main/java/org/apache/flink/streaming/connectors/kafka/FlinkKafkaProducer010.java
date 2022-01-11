@@ -37,8 +37,10 @@ import org.apache.kafka.clients.producer.internals.BatchRandomPartitioner;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 /**
  * Flink Sink to produce data into a Kafka topic. This producer is compatible with Kafka 0.10.x
@@ -324,6 +326,15 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 		if (null == partitions || currentTime - lastUpdateTimestamp > TIME_INTERVAL) {
 			lastUpdateTimestamp = currentTime;
 			partitions = getPartitionsByTopic(targetTopic, producer);
+			// register Kafka metrics to Flink accumulators
+			if (!Boolean.parseBoolean(producerConfig.getProperty(KEY_DISABLE_METRICS, "false"))) {
+				registerKafkaMetricForNewPartition(
+					targetTopic,
+					Arrays
+						.stream(partitions)
+						.boxed()
+						.collect(Collectors.toSet()));
+			}
 			topicPartitionsMap.put(targetTopic, partitions);
 		}
 		if (flinkKafkaPartitioner == null) {
