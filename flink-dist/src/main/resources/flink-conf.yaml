@@ -308,6 +308,7 @@ flink:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  bytedance.streaming.yarn.check.application.name.unique.region: true
 
 dw:
   dc: cn
@@ -316,6 +317,7 @@ dw:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  bytedance.streaming.yarn.check.application.name.unique.region: true
 
 lepad:
   dc: cn
@@ -355,6 +357,7 @@ default:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
+  bytedance.streaming.yarn.check.application.name.unique.region: true
 
 leser:
   dc: cn
