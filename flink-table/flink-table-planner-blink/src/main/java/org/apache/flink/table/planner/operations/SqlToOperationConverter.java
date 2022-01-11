@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.planner.operations;
 
+import org.apache.flink.api.connector.source.HybridSourceInfo;
 import org.apache.flink.sql.parser.ddl.SqlAddPartitions;
 import org.apache.flink.sql.parser.ddl.SqlAddReplaceColumns;
 import org.apache.flink.sql.parser.ddl.SqlAddResource;
@@ -37,6 +38,7 @@ import org.apache.flink.sql.parser.ddl.SqlChangeColumn;
 import org.apache.flink.sql.parser.ddl.SqlCreateCatalog;
 import org.apache.flink.sql.parser.ddl.SqlCreateDatabase;
 import org.apache.flink.sql.parser.ddl.SqlCreateFunction;
+import org.apache.flink.sql.parser.ddl.SqlCreateHybridSource;
 import org.apache.flink.sql.parser.ddl.SqlCreateTable;
 import org.apache.flink.sql.parser.ddl.SqlCreateTemporalTableFunction;
 import org.apache.flink.sql.parser.ddl.SqlCreateView;
@@ -82,6 +84,7 @@ import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.DescribeTableOperation;
 import org.apache.flink.table.operations.ExplainOperation;
 import org.apache.flink.table.operations.Operation;
+import org.apache.flink.table.operations.QueryOperation;
 import org.apache.flink.table.operations.SetOperation;
 import org.apache.flink.table.operations.ShowCatalogsOperation;
 import org.apache.flink.table.operations.ShowDatabasesOperation;
@@ -126,8 +129,11 @@ import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.util.StringUtils;
 
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.hint.RelHint;
+import org.apache.calcite.rel.logical.LogicalTableScan;
+import org.apache.calcite.rel.logical.LogicalUnion;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainFormat;
@@ -251,6 +257,8 @@ public class SqlToOperationConverter {
 			return Optional.of(converter.convertSqlQuery(validated));
 		} else if (validated instanceof SqlAddResource) {
 			return Optional.of(converter.convertAddResources((SqlAddResource) validated));
+		} else if (validated instanceof SqlCreateHybridSource) {
+			return Optional.of(converter.convertHybridSource((SqlCreateHybridSource) validated));
 		} else if (validated instanceof SqlAnalyzeTable) {
 			return Optional.of(converter.convertAnalyzeTable((SqlAnalyzeTable) validated));
 		} else if (validated instanceof SqlSetOption) {
@@ -802,6 +810,61 @@ public class SqlToOperationConverter {
 		Resource resource = new Resource(Resource.ResourceType.DORADO,
 			sqlAddResource.getResourceName().getSimple(), false);
 		return new AddResourcesOperation(Collections.singleton(resource));
+	}
+
+	private Operation convertHybridSource(SqlCreateHybridSource hybridSource) {
+		UnresolvedIdentifier streamIdentifier = UnresolvedIdentifier.of(
+			hybridSource.getStreamViewOrTableName().names.toArray(new String[0]));
+		Optional<CatalogManager.TableLookupResult> streamLookupResult =
+			catalogManager.getTable(catalogManager.qualifyIdentifier(streamIdentifier));
+		if (!streamLookupResult.isPresent()) {
+			throw new TableException(String.format("'%s' does not exist.", streamIdentifier));
+		}
+
+		UnresolvedIdentifier batchIdentifier = UnresolvedIdentifier.of(
+			hybridSource.getBatchViewOrTableName().names.toArray(new String[0]));
+		Optional<CatalogManager.TableLookupResult> batchLookupResult =
+			catalogManager.getTable(catalogManager.qualifyIdentifier(batchIdentifier));
+		if (!batchLookupResult.isPresent()) {
+			throw new TableException(String.format("'%s' does not exist.", streamIdentifier));
+		}
+
+		String query = String.format("SELECT * FROM `%s` UNION ALL `%s`",
+			hybridSource.getStreamViewOrTableName(),
+			hybridSource.getBatchViewOrTableName());
+
+		Map<String, String> properties = new HashMap<>();
+		hybridSource.getPropertyList().getList().forEach(p ->
+			properties.put(((SqlTableOption) p).getKeyString(), ((SqlTableOption) p).getValueString()));
+		HybridSourceInfo hybridSourceInfo = HybridSourceInfo.of(
+			hybridSource.getHybridSourceName().toString(), properties);
+
+		ObjectIdentifier hybridSourceName = catalogManager.qualifyIdentifier(UnresolvedIdentifier.of(hybridSource.getHybridSourceName().names));
+
+		TableScan streamTable = LogicalTableScan.create(
+			flinkPlanner.cluster(),
+			flinkPlanner.catalogReaderSupplier().apply(false).getTable(hybridSource.getStreamViewOrTableName().names),
+			Collections.emptyList());
+		TableScan batchTable = LogicalTableScan.create(
+			flinkPlanner.cluster(),
+			flinkPlanner.catalogReaderSupplier().apply(false).getTable(hybridSource.getBatchViewOrTableName().names),
+			Collections.emptyList());
+		LogicalUnion union = LogicalUnion.create(Arrays.asList(streamTable, batchTable), true);
+		union.getRowType(); // trigger schema checking.
+		// TODO: support column alias like view:
+		// create hybrid source my_source(col1, col2, col3) as stream_table and batch_table;
+		QueryOperation queryOperation = new PlannerQueryOperation(union);
+		CatalogView catalogView = new CatalogViewImpl(
+			query,
+			query,
+			queryOperation.getTableSchema(),
+			Collections.emptyMap(),
+			"", // no comment
+			queryOperation,
+			hybridSourceInfo);
+
+		return new CreateViewOperation(
+			hybridSourceName, catalogView, hybridSource.isIfNotExists(), true);
 	}
 
 	/** Convert ANALYZE TABLE statement. */

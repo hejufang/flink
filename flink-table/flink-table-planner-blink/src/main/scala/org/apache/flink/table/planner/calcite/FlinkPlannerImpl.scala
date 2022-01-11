@@ -51,9 +51,9 @@ import scala.collection.JavaConverters._
   */
 class FlinkPlannerImpl(
     val config: FrameworkConfig,
-    catalogReaderSupplier: JFunction[JBoolean, CalciteCatalogReader],
+    val catalogReaderSupplier: JFunction[JBoolean, CalciteCatalogReader],
     typeFactory: FlinkTypeFactory,
-    cluster: RelOptCluster) {
+    val cluster: RelOptCluster) {
 
   val operatorTable: SqlOperatorTable = config.getOperatorTable
   val parser: CalciteParser = new CalciteParser(config.getParserConfig)

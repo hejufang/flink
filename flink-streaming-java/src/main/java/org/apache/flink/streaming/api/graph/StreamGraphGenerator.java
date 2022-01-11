@@ -623,6 +623,9 @@ public class StreamGraphGenerator {
 				null,
 				source.getOutputType(),
 				"Source: " + source.getName());
+		if (source.isBoundedSource()) {
+			streamGraph.addBoundedInput(source.getId());
+		}
 		if (source.getOperatorFactory() instanceof InputFormatOperatorFactory) {
 			streamGraph.setInputFormat(source.getId(),
 					((InputFormatOperatorFactory<T>) source.getOperatorFactory()).getInputFormat());

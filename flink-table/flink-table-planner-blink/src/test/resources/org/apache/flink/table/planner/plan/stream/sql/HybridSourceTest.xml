@@ -1,0 +1,76 @@
+<?xml version="1.0" ?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to you under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<Root>
+	<TestCase name="testHybridSource">
+		<Resource name="planAfter">
+			<![CDATA[
+Union(all=[true], union=[ts, c1, c2, c3, c4])
+:- TableSourceScan(table=[[default_catalog, default_database, streamSource]], fields=[ts, c1, c2, c3, c4], hybridSource=[name=my_hybrid_source, isStreaming=true, config={}])
++- TableSourceScan(table=[[default_catalog, default_database, batchSource]], fields=[ts, c1, c2, c3, c4], hybridSource=[name=my_hybrid_source, isStreaming=false, config={}])
+
+UnionTransformation{name='Union', outputType=RowData(ts: TIMESTAMP(3), c1: INT, c2: DOUBLE, c3: STRING, c4: MAP<STRING, STRING>), parallelism=-1}
+	FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(ts: TIMESTAMP(3), c1: INT, c2: DOUBLE, c3: STRING, c4: MAP<STRING, STRING>), parallelism=-1}
+		LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, streamSource]], fields=[ts, c1, c2, c3, c4], hybridSource=[name=my_hybrid_source, isStreaming=true, config={}])', outputType=RowData(ts: TIMESTAMP(3), c1: INT, c2: DOUBLE, c3: STRING, c4: MAP<STRING, STRING>), parallelism=1}
+	FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(ts: TIMESTAMP(3), c1: INT, c2: DOUBLE, c3: STRING, c4: MAP<STRING, STRING>), parallelism=-1}
+		LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, batchSource]], fields=[ts, c1, c2, c3, c4], hybridSource=[name=my_hybrid_source, isStreaming=false, config={}])', outputType=RowData(ts: TIMESTAMP(3), c1: INT, c2: DOUBLE, c3: STRING, c4: MAP<STRING, STRING>), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testHybridSourceOnView">
+		<Resource name="planAfter">
+			<![CDATA[
+Union(all=[true], union=[ts, c1, c2, c3, c4])
+:- Calc(select=[ts, c1, c2, c3, c4], where=[>(c1, 10)])
+:  +- TableSourceScan(table=[[default_catalog, default_database, streamSource, filter=[]]], fields=[ts, c1, c2, c3, c4], hybridSource=[name=my_hybrid_source, isStreaming=true, config={}])
++- Calc(select=[ts, c1, c2, c3, c4], where=[<(c1, 10)])
+   +- TableSourceScan(table=[[default_catalog, default_database, batchSource, filter=[]]], fields=[ts, c1, c2, c3, c4], hybridSource=[name=my_hybrid_source, isStreaming=false, config={}])
+
+UnionTransformation{name='Union', outputType=RowData(ts: TIMESTAMP(3), c1: INT, c2: DOUBLE, c3: STRING, c4: MAP<STRING, STRING>), parallelism=-1}
+	OneInputTransformation{name='Calc(select=[ts, c1, c2, c3, c4], where=[(c1 > 10)])', outputType=RowData(ts: TIMESTAMP(3), c1: INT, c2: DOUBLE, c3: STRING, c4: MAP<STRING, STRING>), parallelism=-1}
+		FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(ts: TIMESTAMP(3), c1: INT, c2: DOUBLE, c3: STRING, c4: MAP<STRING, STRING>), parallelism=-1}
+			LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, streamSource, filter=[]]], fields=[ts, c1, c2, c3, c4], hybridSource=[name=my_hybrid_source, isStreaming=true, config={}])', outputType=RowData(ts: TIMESTAMP(3), c1: INT, c2: DOUBLE, c3: STRING, c4: MAP<STRING, STRING>), parallelism=1}
+	OneInputTransformation{name='Calc(select=[ts, c1, c2, c3, c4], where=[(c1 < 10)])', outputType=RowData(ts: TIMESTAMP(3), c1: INT, c2: DOUBLE, c3: STRING, c4: MAP<STRING, STRING>), parallelism=-1}
+		FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(ts: TIMESTAMP(3), c1: INT, c2: DOUBLE, c3: STRING, c4: MAP<STRING, STRING>), parallelism=-1}
+			LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, batchSource, filter=[]]], fields=[ts, c1, c2, c3, c4], hybridSource=[name=my_hybrid_source, isStreaming=false, config={}])', outputType=RowData(ts: TIMESTAMP(3), c1: INT, c2: DOUBLE, c3: STRING, c4: MAP<STRING, STRING>), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testHybridSourceOnAgg">
+		<Resource name="planAfter">
+			<![CDATA[
+Union(all=[true], union=[c2, EXPR$1])
+:- GroupAggregate(groupBy=[c2], select=[c2, COUNT(*) AS EXPR$1])
+:  +- Exchange(distribution=[hash[c2]])
+:     +- TableSourceScan(table=[[default_catalog, default_database, streamSource, project=[c2]]], fields=[c2], hybridSource=[name=my_hybrid_source, isStreaming=true, config={}])
++- GroupAggregate(groupBy=[c2], select=[c2, COUNT(*) AS EXPR$1])
+   +- Exchange(distribution=[hash[c2]])
+      +- TableSourceScan(table=[[default_catalog, default_database, batchSource, project=[c2]]], fields=[c2], hybridSource=[name=my_hybrid_source, isStreaming=false, config={}])
+
+UnionTransformation{name='Union', outputType=RowData(c2: DOUBLE, EXPR$1: BIGINT NOT NULL), parallelism=-1}
+	OneInputTransformation{name='GroupAggregate(groupBy=[c2], select=[c2, COUNT(*) AS EXPR$1])', outputType=RowData(c2: DOUBLE, EXPR$1: BIGINT NOT NULL), parallelism=-1}
+		PartitionTransformation{name='Partition', outputType=RowData(c2: DOUBLE), parallelism=-1}
+			FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(c2: DOUBLE), parallelism=-1}
+				LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, streamSource, project=[c2]]], fields=[c2], hybridSource=[name=my_hybrid_source, isStreaming=true, config={}])', outputType=RowData(c2: DOUBLE), parallelism=1}
+	OneInputTransformation{name='GroupAggregate(groupBy=[c2], select=[c2, COUNT(*) AS EXPR$1])', outputType=RowData(c2: DOUBLE, EXPR$1: BIGINT NOT NULL), parallelism=-1}
+		PartitionTransformation{name='Partition', outputType=RowData(c2: DOUBLE), parallelism=-1}
+			FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(c2: DOUBLE), parallelism=-1}
+				LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, batchSource, project=[c2]]], fields=[c2], hybridSource=[name=my_hybrid_source, isStreaming=false, config={}])', outputType=RowData(c2: DOUBLE), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
+</Root>

@@ -30,7 +30,7 @@ import org.apache.flink.table.planner.plan.nodes.physical.stream.{StreamExecData
 import org.apache.flink.table.planner.plan.optimize.program.{FlinkStreamProgram, StreamOptimizeContext}
 import org.apache.flink.table.planner.plan.schema.IntermediateRelTable
 import org.apache.flink.table.planner.plan.stats.FlinkStatistic
-import org.apache.flink.table.planner.plan.utils.{FlinkRelOptUtil, RuleStatisticsListener}
+import org.apache.flink.table.planner.plan.utils.{FlinkRelOptUtil, PropagateHybridSourceShuttle, RuleStatisticsListener}
 import org.apache.flink.table.planner.utils.TableConfigUtils
 import org.apache.flink.table.planner.utils.TableConfigUtils.getMillisecondFromConfigDuration
 import org.apache.flink.util.Preconditions
@@ -51,9 +51,12 @@ class StreamCommonSubGraphBasedOptimizer(planner: StreamPlanner)
   extends CommonSubGraphBasedOptimizer {
 
   override protected def doOptimize(roots: Seq[RelNode]): Seq[RelNodeBlock] = {
+    // propagate hybrid source info.
+    val hybridSourceShuttle = new PropagateHybridSourceShuttle
+    val newRoots = roots.map(hybridSourceShuttle.visit)
     val config = planner.getTableConfig
     // build RelNodeBlock plan
-    val sinkBlocks = RelNodeBlockPlanBuilder.buildRelNodeBlockPlan(roots, config)
+    val sinkBlocks = RelNodeBlockPlanBuilder.buildRelNodeBlockPlan(newRoots, config)
     // infer trait properties for sink block
     sinkBlocks.foreach { sinkBlock =>
       // don't require update before by default

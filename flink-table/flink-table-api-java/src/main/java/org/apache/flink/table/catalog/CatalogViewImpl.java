@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.catalog;
 
+import org.apache.flink.api.connector.source.HybridSourceInfo;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.operations.QueryOperation;
 
@@ -30,6 +31,20 @@ import java.util.Optional;
  */
 public class CatalogViewImpl extends AbstractCatalogView {
 	private final QueryOperation queryOperation;
+	private final HybridSourceInfo hybridSourceInfo;
+
+	public CatalogViewImpl(
+			String originalQuery,
+			String expandedQuery,
+			TableSchema schema,
+			Map<String, String> properties,
+			String comment,
+			QueryOperation queryOperation,
+			HybridSourceInfo hybridSourceInfo) {
+		super(originalQuery, expandedQuery, schema, properties, comment);
+		this.queryOperation = queryOperation;
+		this.hybridSourceInfo = hybridSourceInfo;
+	}
 
 	public CatalogViewImpl(
 			String originalQuery,
@@ -38,8 +53,7 @@ public class CatalogViewImpl extends AbstractCatalogView {
 			Map<String, String> properties,
 			String comment,
 			QueryOperation queryOperation) {
-		super(originalQuery, expandedQuery, schema, properties, comment);
-		this.queryOperation = queryOperation;
+		this(originalQuery, expandedQuery, schema, properties, comment, queryOperation, null);
 	}
 
 	public CatalogViewImpl(
@@ -59,7 +73,8 @@ public class CatalogViewImpl extends AbstractCatalogView {
 			getSchema().copy(),
 			new HashMap<>(getProperties()),
 			getComment(),
-			getQueryOperation()
+			getQueryOperation(),
+			hybridSourceInfo
 		);
 	}
 
@@ -75,5 +90,10 @@ public class CatalogViewImpl extends AbstractCatalogView {
 	@Override
 	public Optional<String> getDetailedDescription() {
 		return Optional.of("This is a catalog view implementation");
+	}
+
+	@Override
+	public Optional<HybridSourceInfo> getViewHybridSourceInfo() {
+		return Optional.ofNullable(hybridSourceInfo);
 	}
 }

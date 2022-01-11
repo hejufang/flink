@@ -18,8 +18,11 @@
 
 package org.apache.flink.table.catalog;
 
+import org.apache.flink.api.connector.source.HybridSourceInfo;
+
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Represents a table in a catalog.
@@ -53,4 +56,13 @@ public interface CatalogTable extends CatalogBaseTable {
 	 * partitioning, and other characteristics in a serialized form.
 	 */
 	Map<String, String> toProperties();
+
+	/**
+	 * Get the {@link HybridSourceInfo} for this table or view.
+	 *
+	 * @return an optional {@link HybridSourceInfo}
+	 */
+	default Optional<HybridSourceInfo> getTableHybridSourceInfo() {
+		return Optional.empty();
+	}
 }

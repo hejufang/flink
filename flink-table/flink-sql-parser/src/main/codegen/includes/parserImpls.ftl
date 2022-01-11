@@ -856,6 +856,32 @@ SqlCreate SqlCreateTemporalTableFunction(Span s, boolean replace) :
         );
     }
 }
+SqlCreate SqlCreateHybridSource(Span s, boolean replace) :
+{
+    final SqlParserPos startPos = s.pos();
+    SqlIdentifier hybridSourceName;
+    SqlIdentifier streamTableOrViewName;
+    SqlIdentifier batchTableOrViewName;
+    SqlNodeList propertyList = SqlNodeList.EMPTY;
+    SqlParserPos pos = startPos;
+}
+{
+    <HYBRID> <SOURCE> hybridSourceName = CompoundIdentifier()
+    <AS> streamTableOrViewName = CompoundIdentifier()
+    <AND> batchTableOrViewName = CompoundIdentifier()
+    [
+        <WITH>
+        propertyList = TableProperties()
+    ]
+    {
+        return new SqlCreateHybridSource(
+            getPos(),
+            hybridSourceName,
+            streamTableOrViewName,
+            batchTableOrViewName,
+            propertyList);
+    }
+}
 
 SqlTableLike SqlTableLike(SqlParserPos startPos):
 {
@@ -1439,6 +1465,8 @@ SqlCreate SqlCreateExtended(Span s, boolean replace) :
         create = SqlCreateFunction(s, replace, isTemporary)
         |
         create = SqlCreateTemporalTableFunction(s, replace)
+        |
+        create = SqlCreateHybridSource(s, replace)
     )
     {
         return create;

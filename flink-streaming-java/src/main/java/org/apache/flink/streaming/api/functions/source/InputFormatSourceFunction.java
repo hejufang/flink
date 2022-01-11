@@ -85,7 +85,7 @@ public class InputFormatSourceFunction<OUT> extends RichParallelSourceFunction<O
 			}
 
 			OUT nextElement = serializer.createInstance();
-			while (isRunning) {
+			while (isRunning && !ctx.skipBatchSourceForHybridSource()) {
 				format.open(splitIterator.next());
 
 				// for each element we also check if cancel

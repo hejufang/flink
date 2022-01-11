@@ -92,6 +92,20 @@ public class FlinkSqlParserImplTest extends SqlParserTest {
 	}
 
 	@Test
+	public void testCreateHybridSource() {
+		sql("create hybrid source my_hybrid_source " +
+			"as stream_source and batch_source " +
+			"with(" +
+			"'property1' = 'value1'," +
+			"'property2' = 'value2'" +
+			")")
+			.ok("CREATE HYBRID SOURCE `MY_HYBRID_SOURCE` AS `STREAM_SOURCE` AND `BATCH_SOURCE` WITH (\n" +
+				"  'property1' = 'value1',\n" +
+				"  'property2' = 'value2'\n" +
+				")");
+	}
+
+	@Test
 	public void testAddResources() {
 		sql("add resources my_resource").ok("ADD RESOURCES `MY_RESOURCE`");
 	}

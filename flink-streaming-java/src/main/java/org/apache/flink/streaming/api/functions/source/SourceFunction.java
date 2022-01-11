@@ -266,5 +266,12 @@ public interface SourceFunction<T> extends Function, Serializable {
 		 * This method is called by the system to shut down the context.
 		 */
 		void close();
+
+		/**
+		 * This method returns whether skip the batch source for hybrid source.
+		 */
+		default boolean skipBatchSourceForHybridSource() {
+			return false;
+		}
 	}
 }

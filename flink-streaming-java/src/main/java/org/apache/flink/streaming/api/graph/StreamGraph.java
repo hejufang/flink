@@ -124,6 +124,7 @@ public class StreamGraph implements Pipeline {
 
 	private Map<Integer, StreamNode> streamNodes;
 	private Set<Integer> sources;
+	private Set<Integer> boundedSources;
 	private Set<Integer> sinks;
 	private Map<Integer, Tuple2<Integer, List<String>>> virtualSelectNodes;
 	private Map<Integer, Tuple2<Integer, OutputTag>> virtualSideOutputNodes;
@@ -155,6 +156,7 @@ public class StreamGraph implements Pipeline {
 		vertexIDtoLoopTimeout  = new HashMap<>();
 		iterationSourceSinkPairs = new HashSet<>();
 		sources = new LinkedHashSet<>();
+		boundedSources = new LinkedHashSet<>();
 		sinks = new HashSet<>();
 	}
 
@@ -293,6 +295,10 @@ public class StreamGraph implements Pipeline {
 			String operatorName) {
 		addOperator(vertexID, slotSharingGroup, coLocationGroup, operatorFactory, inTypeInfo, outTypeInfo, operatorName);
 		sources.add(vertexID);
+	}
+
+	public void addBoundedInput(Integer vertexID) {
+		boundedSources.add(vertexID);
 	}
 
 	public <IN, OUT> void addSink(
@@ -820,6 +826,10 @@ public class StreamGraph implements Pipeline {
 
 	public Collection<Integer> getSourceIDs() {
 		return sources;
+	}
+
+	public Collection<Integer> getBoundedSourceIDs() {
+		return boundedSources;
 	}
 
 	public Collection<Integer> getSinkIDs() {

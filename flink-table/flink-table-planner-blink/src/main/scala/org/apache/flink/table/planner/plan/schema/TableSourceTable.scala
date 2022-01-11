@@ -123,4 +123,18 @@ class TableSourceTable(
       dynamicOptions,
       extraDigests ++ newExtraDigests)
   }
+
+  def copy(newCatalogTable: CatalogTable): TableSourceTable = {
+    new TableSourceTable(
+      relOptSchema,
+      tableIdentifier,
+      rowType,
+      statistic,
+      tableSource,
+      isStreamingMode,
+      newCatalogTable,
+      dynamicOptions,
+      extraDigests
+    )
+  }
 }

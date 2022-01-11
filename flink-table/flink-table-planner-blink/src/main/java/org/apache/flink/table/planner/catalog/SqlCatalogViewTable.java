@@ -55,6 +55,10 @@ public class SqlCatalogViewTable extends ExpandingPreparingTable {
 		this.viewPath = viewPath;
 	}
 
+	public CatalogView getCatalogView() {
+		return view;
+	}
+
 	public RelNode convertToRelReuse(RelOptTable.ToRelContext context) {
 		RelNode relNode;
 		if (view instanceof CatalogViewImpl && ((CatalogViewImpl) view).getQueryOperation() != null) {

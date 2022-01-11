@@ -17,14 +17,20 @@
  */
 package org.apache.flink.table.planner.plan.utils
 
+import org.apache.flink.api.connector.source.HybridSourceInfo
+import org.apache.flink.table.api.TableException
+import org.apache.flink.table.catalog.CatalogTableImpl
 import org.apache.flink.table.planner.catalog.{QueryOperationCatalogViewTable, SqlCatalogViewTable}
-import org.apache.flink.table.planner.plan.schema.{CatalogSourceTable, LegacyCatalogSourceTable}
+import org.apache.flink.table.planner.plan.schema.{CatalogSourceTable, LegacyCatalogSourceTable, LegacyTableSourceTable, TableSourceTable}
 import com.google.common.collect.Sets
 import org.apache.calcite.plan.ViewExpanders
 import org.apache.calcite.rel.core.{TableFunctionScan, TableScan}
 import org.apache.calcite.rel.logical._
 import org.apache.calcite.rel.{RelNode, RelShuttle, RelShuttleImpl}
 import org.apache.calcite.rex.{RexNode, RexShuttle, RexSubQuery}
+
+import java.util
+import java.util.Collections
 
 import scala.collection.JavaConversions._
 
@@ -219,6 +225,94 @@ class SameRelObjectShuttle extends DefaultRelShuttle {
       node.copy(node.getTraitSet, newInputs)
     } else {
       node
+    }
+  }
+}
+
+/**
+ * This relies on that views are not expanded, and after this shuttle, views will be expanded
+ * which is the same as {@link ExpandTableScanShuttle}.
+ */
+class PropagateHybridSourceShuttle extends RelShuttleImpl {
+
+  override def visitChild(parent: RelNode, i: Int, child: RelNode): RelNode = {
+    stack.push(parent)
+    try {
+      val child2 = child.accept(this)
+      if (child2 ne child) {
+        parent.replaceInput(i, child2)
+      }
+      parent
+    } finally {
+      stack.pop
+    }
+  }
+
+  override def visit(scan: TableScan): RelNode = {
+    scan.getTable.unwrap(classOf[SqlCatalogViewTable]) match {
+      case viewTable: SqlCatalogViewTable =>
+        val hybridSourceInfo = viewTable.getCatalogView.getViewHybridSourceInfo
+        if (hybridSourceInfo.isPresent) {
+          val union = viewTable.convertToRelReuse(
+            ViewExpanders.simpleContext(scan.getCluster, scan.getHints)).asInstanceOf[LogicalUnion]
+          val left = union.getInput(0).asInstanceOf[TableScan]
+          val right = union.getInput(1).asInstanceOf[TableScan]
+          val leftRel = new ExpandTableScanShuttle().visit(left)
+          val rightRel = new ExpandTableScanShuttle().visit(right)
+
+          val leftRes = replaceHybridSourceInfo(leftRel, hybridSourceInfo.get().copy(true))
+          val rightRes = replaceHybridSourceInfo(rightRel, hybridSourceInfo.get().copy(false))
+          LogicalUnion.create(util.Arrays.asList(leftRes, rightRes), true)
+        } else {
+          // TODO: give correct context.
+          visit(viewTable.convertToRelReuse(
+            ViewExpanders.simpleContext(scan.getCluster, scan.getHints)))
+        }
+      case _ => scan
+    }
+  }
+
+  def replaceHybridSourceInfo(relNode: RelNode, hybridSourceInfo: HybridSourceInfo): RelNode = {
+    if (relNode.isInstanceOf[TableScan]) {
+      relNode.getTable match {
+        case tableSourceTable: TableSourceTable =>
+          val catalogTable = tableSourceTable.catalogTable
+          val newCatalogTable = new CatalogTableImpl(
+            catalogTable.getSchema,
+            catalogTable.getPartitionKeys,
+            catalogTable.getOptions,
+            catalogTable.getComment,
+            hybridSourceInfo
+          )
+          val newTableSourceTable = tableSourceTable.copy(newCatalogTable)
+          LogicalTableScan.create(
+            relNode.getCluster,
+            newTableSourceTable,
+            relNode.asInstanceOf[TableScan].getHints)
+        case legacyTableSourceTable: LegacyTableSourceTable[_] =>
+          val catalogTable = legacyTableSourceTable.catalogTable
+          val newCatalogTable = new CatalogTableImpl(
+            catalogTable.getSchema,
+            catalogTable.getPartitionKeys,
+            catalogTable.getOptions,
+            catalogTable.getComment,
+            hybridSourceInfo
+          )
+          val newLegacyTableSourceTable = legacyTableSourceTable.copy(newCatalogTable)
+          LogicalTableScan.create(
+            relNode.getCluster,
+            newLegacyTableSourceTable,
+            relNode.asInstanceOf[TableScan].getHints)
+        case other => throw new TableException(
+          String.format("Unknown RelOptTable type '%s'.", other.getClass))
+      }
+    } else {
+      if (relNode.getInputs.size() != 1) {
+        throw new TableException("Currently only one input operations are supported " +
+          "in hybrid source.")
+      }
+      val result = replaceHybridSourceInfo(relNode.getInput(0), hybridSourceInfo)
+      relNode.copy(relNode.getTraitSet, Collections.singletonList(result))
     }
   }
 }

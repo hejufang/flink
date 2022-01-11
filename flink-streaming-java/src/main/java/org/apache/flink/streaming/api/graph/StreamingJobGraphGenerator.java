@@ -86,6 +86,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration.MINIMAL_CHECKPOINT_TIME;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -231,6 +232,11 @@ public class StreamingJobGraphGenerator {
 			throw new IllegalConfigurationException("Could not serialize the ExecutionConfig." +
 					"This indicates that non-serializable types (like custom serializers) were registered");
 		}
+
+		List<Tuple2<JobVertexID, Boolean>> boundedInputs = streamGraph.getBoundedSourceIDs().stream()
+			.map(id -> Tuple2.of(jobVertices.get(id).getID(), true))
+			.collect(Collectors.toList());
+		jobGraph.setJobVertexBoundedProperties(boundedInputs);
 
 		return jobGraph;
 	}

@@ -1185,7 +1185,8 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 							builder.build(),
 							oriTable.getPartitionKeys(),
 							oriTable.getOptions(),
-							oriTable.getComment());
+							oriTable.getComment(),
+							oriTable.getTableHybridSourceInfo().orElse(null));
 					catalog.alterTable(
 							addConstraintOP.getTableIdentifier().toObjectPath(),
 							newTable,
@@ -1203,7 +1204,8 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 									dropConstraintOperation.getConstraintName()),
 							oriTable.getPartitionKeys(),
 							oriTable.getOptions(),
-							oriTable.getComment());
+							oriTable.getComment(),
+							oriTable.getTableHybridSourceInfo().orElse(null));
 					catalog.alterTable(
 							dropConstraintOperation.getTableIdentifier().toObjectPath(),
 							newTable,

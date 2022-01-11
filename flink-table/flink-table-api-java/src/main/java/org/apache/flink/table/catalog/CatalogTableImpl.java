@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.catalog;
 
+import org.apache.flink.api.connector.source.HybridSourceInfo;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.catalog.config.CatalogConfig;
 import org.apache.flink.table.descriptors.DescriptorProperties;
@@ -34,6 +35,8 @@ import java.util.Optional;
  */
 public class CatalogTableImpl extends AbstractCatalogTable {
 
+	private final HybridSourceInfo hybridSourceInfo;
+
 	public CatalogTableImpl(
 			TableSchema tableSchema,
 			Map<String, String> properties,
@@ -46,7 +49,22 @@ public class CatalogTableImpl extends AbstractCatalogTable {
 			List<String> partitionKeys,
 			Map<String, String> properties,
 			String comment) {
+		this(tableSchema, partitionKeys, properties, comment, null);
+	}
+
+	public CatalogTableImpl(
+			TableSchema tableSchema,
+			List<String> partitionKeys,
+			Map<String, String> properties,
+			String comment,
+			HybridSourceInfo hybridSourceInfo) {
 		super(tableSchema, partitionKeys, properties, comment);
+		this.hybridSourceInfo = hybridSourceInfo;
+	}
+
+	@Override
+	public Optional<HybridSourceInfo> getTableHybridSourceInfo() {
+		return Optional.ofNullable(hybridSourceInfo);
 	}
 
 	@Override
@@ -55,7 +73,8 @@ public class CatalogTableImpl extends AbstractCatalogTable {
 			getSchema().copy(),
 			new ArrayList<>(getPartitionKeys()),
 			new HashMap<>(getProperties()),
-			getComment());
+			getComment(),
+			hybridSourceInfo);
 	}
 
 	@Override
@@ -85,7 +104,7 @@ public class CatalogTableImpl extends AbstractCatalogTable {
 
 	@Override
 	public CatalogTable copy(Map<String, String> options) {
-		return new CatalogTableImpl(getSchema(), getPartitionKeys(), options, getComment());
+		return new CatalogTableImpl(getSchema(), getPartitionKeys(), options, getComment(), hybridSourceInfo);
 	}
 
 	/**

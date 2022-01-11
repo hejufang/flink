@@ -21,9 +21,11 @@ package org.apache.flink.streaming.api.transformations;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.connector.source.HybridSourceInfo;
 import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.SimpleOperatorFactory;
+import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.StreamSource;
 
@@ -41,6 +43,7 @@ import java.util.List;
 public class LegacySourceTransformation<T> extends PhysicalTransformation<T> {
 
 	private final StreamOperatorFactory<T> operatorFactory;
+	private boolean boundedSource = false;
 
 	/**
 	 * Creates a new {@code LegacySourceTransformation} from the given operator.
@@ -92,5 +95,19 @@ public class LegacySourceTransformation<T> extends PhysicalTransformation<T> {
 	@Override
 	public List<Transformation<?>> getChildren() {
 		return Collections.emptyList();
+	}
+
+	public boolean isBoundedSource() {
+		return boundedSource;
+	}
+
+	public void setHybridSource(HybridSourceInfo hybridSourceInfo) {
+		if (operatorFactory instanceof SimpleOperatorFactory) {
+			StreamOperator operator = ((SimpleOperatorFactory) operatorFactory).getOperator();
+			if (operator instanceof StreamSource) {
+				((StreamSource) operator).setHybridSourceInfo(hybridSourceInfo);
+				boundedSource = !hybridSourceInfo.isStream();
+			}
+		}
 	}
 }

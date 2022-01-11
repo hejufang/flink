@@ -150,4 +150,16 @@ class LegacyTableSourceTable[T](
       catalogTable,
       dynamicOptions)
   }
+
+  def copy(newCatalogTable: CatalogTable): LegacyTableSourceTable[T] = {
+    new LegacyTableSourceTable[T](
+      relOptSchema,
+      tableIdentifier,
+      rowType,
+      statistic,
+      tableSource,
+      isStreamingMode,
+      newCatalogTable,
+      dynamicOptions)
+  }
 }

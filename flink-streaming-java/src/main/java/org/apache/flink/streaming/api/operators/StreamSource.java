@@ -18,11 +18,18 @@
 package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.state.ListState;
+import org.apache.flink.api.common.state.ListStateDescriptor;
+import org.apache.flink.api.connector.source.HybridSourceInfo;
+import org.apache.flink.api.java.typeutils.GenericTypeInfo;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.state.StateInitializationContext;
+import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
+import org.apache.flink.streaming.api.operators.source.HybridSourceAggregateFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -31,6 +38,10 @@ import org.apache.flink.streaming.runtime.tasks.OperatorChain;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.concurrent.ScheduledFuture;
 
 /**
@@ -50,10 +61,58 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>> extends Abstract
 
 	private transient volatile boolean hasSentMaxWatermark = false;
 
+	private HybridSourceInfo hybridSourceInfo = null;
+
+	/** Hybrid source state.*/
+	private transient ListState<HybridSourceState> hybridSourceState;
+
+	/** State definition for hybrid source. */
+	public static class HybridSourceState implements Serializable {
+		private static final long serialVersionUID = 1L;
+
+		public boolean isBatchSourceFinished;
+	}
+
+	private transient boolean batchFinished = false;
+	private transient HybridSourceAggregateFunction aggregateFunction;
+
 	public StreamSource(SRC sourceFunction) {
 		super(sourceFunction);
 
 		this.chainingStrategy = ChainingStrategy.HEAD;
+	}
+
+	public void setHybridSourceInfo(HybridSourceInfo hybridSourceInfo) {
+		this.hybridSourceInfo = hybridSourceInfo;
+	}
+
+	@Override
+	public void snapshotState(StateSnapshotContext context) throws Exception {
+		super.snapshotState(context);
+		if (hybridSourceInfo != null && hybridSourceInfo.isStream()) {
+			if (getRuntimeContext().getIndexOfThisSubtask() == 0) {
+				HybridSourceState newState = new HybridSourceState();
+				newState.isBatchSourceFinished = batchFinished;
+				hybridSourceState.update(Collections.singletonList(newState));
+			} else {
+				hybridSourceState.update(Collections.emptyList());
+			}
+		}
+	}
+
+	@Override
+	public void initializeState(StateInitializationContext context) throws Exception {
+		super.initializeState(context);
+		if (hybridSourceInfo != null && hybridSourceInfo.isStream()) {
+			hybridSourceState = getOperatorStateBackend().getUnionListState(new ListStateDescriptor<>(
+				"hybrid_source_state", new GenericTypeInfo<>(HybridSourceState.class)));
+			if (hybridSourceState.get() != null) {
+				Iterator<HybridSourceState> iterator = hybridSourceState.get().iterator();
+				if (iterator.hasNext()) {
+					batchFinished = iterator.next().isBatchSourceFinished;
+				}
+			}
+		}
 	}
 
 	public void run(final Object lockingObject,
@@ -96,14 +155,68 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>> extends Abstract
 			watermarkInterval,
 			-1);
 
+		if (hybridSourceInfo != null) {
+			aggregateFunction = new HybridSourceAggregateFunction();
+			if (hybridSourceInfo.isStream()) {
+				reportStreamSourceState(); // stream stage 1
+				runUntilHybridBatchSourceFinish(); // stream stage 2
+			} else {
+				waitForStreamSourceReportingState(); // batch stage 1
+			}
+		}
+
 		try {
-			userFunction.run(ctx);
+			if (batchFinished) {
+				userFunction.run(new SourceFunction.SourceContext<OUT>() {
+					@Override
+					public void collect(OUT element) {
+						ctx.collect(element);
+					}
+
+					@Override
+					public void collectWithTimestamp(OUT element, long timestamp) {
+						ctx.collectWithTimestamp(element, timestamp);
+					}
+
+					@Override
+					public void emitWatermark(Watermark mark) {
+						ctx.emitWatermark(mark);
+					}
+
+					@Override
+					public void markAsTemporarilyIdle() {
+						ctx.markAsTemporarilyIdle();
+					}
+
+					@Override
+					public Object getCheckpointLock() {
+						return ctx.getCheckpointLock();
+					}
+
+					@Override
+					public void close() {
+						ctx.close();
+					}
+
+					@Override
+					public boolean skipBatchSourceForHybridSource() {
+						return true;
+					}
+				});
+			} else {
+				userFunction.run(ctx);
+			}
 
 			// if we get here, then the user function either exited after being done (finite source)
 			// or the function was canceled or stopped. For the finite source case, we should emit
 			// a final watermark that indicates that we reached the end of event-time, and end inputs
 			// of the operator chain
 			if (!isCanceledOrStopped()) {
+				if (hybridSourceInfo != null && !hybridSourceInfo.isStream()) {
+					// batch source finished
+					reportBatchSourceFinished(); // batch stage 2
+				}
+
 				// in theory, the subclasses of StreamSource may implement the BoundedOneInput interface,
 				// so we still need the following call to end the input
 				synchronized (lockingObject) {
@@ -114,6 +227,69 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>> extends Abstract
 			if (latencyEmitter != null) {
 				latencyEmitter.close();
 			}
+		}
+	}
+
+	private void reportStreamSourceState() throws IOException {
+		// only #0 of stream source subtasks report this status
+		if (getRuntimeContext().getIndexOfThisSubtask() == 0) {
+			HybridSourceAggregateFunction.Input input = new HybridSourceAggregateFunction.Input();
+			input.batchFinished = batchFinished;
+			input.inputType = HybridSourceAggregateFunction.InputType.STREAM_REPORT;
+			getRuntimeContext().getGlobalAggregateManager().updateGlobalAggregate(
+				hybridSourceInfo.getName(),
+				input,
+				aggregateFunction
+			);
+		}
+	}
+
+	private void reportBatchSourceFinished() throws IOException {
+		HybridSourceAggregateFunction.Input input = new HybridSourceAggregateFunction.Input();
+		input.inputType = HybridSourceAggregateFunction.InputType.BATCH_REPORT;
+		input.currentBatchTaskId = getRuntimeContext().getIndexOfThisSubtask();
+		input.totalBatchTasks = getRuntimeContext().getNumberOfParallelSubtasks();
+		input.currentBatchTaskFinished = true;
+		getRuntimeContext().getGlobalAggregateManager().updateGlobalAggregate(
+			hybridSourceInfo.getName(),
+			input,
+			aggregateFunction
+		);
+	}
+
+	private void waitForStreamSourceReportingState() throws IOException, InterruptedException {
+		while (getContainingTask().isRunning()) {
+			HybridSourceAggregateFunction.Input input = new HybridSourceAggregateFunction.Input();
+			input.inputType = HybridSourceAggregateFunction.InputType.BATCH_WAITING;
+			HybridSourceAggregateFunction.Output output = getRuntimeContext().getGlobalAggregateManager().updateGlobalAggregate(
+				hybridSourceInfo.getName(),
+				input,
+				aggregateFunction
+			);
+			if (output.streamReported) {
+				batchFinished = output.batchFinished;
+				break;
+			}
+			// This ensures that the max QPS of aggregate is no more than 100
+			Thread.sleep(getRuntimeContext().getNumberOfParallelSubtasks() * 10L);
+		}
+	}
+
+	private void runUntilHybridBatchSourceFinish() throws IOException, InterruptedException {
+		while (getContainingTask().isRunning()) {
+			HybridSourceAggregateFunction.Input input = new HybridSourceAggregateFunction.Input();
+			input.inputType = HybridSourceAggregateFunction.InputType.STREAM_WAITING;
+			HybridSourceAggregateFunction.Output output = getRuntimeContext().getGlobalAggregateManager().updateGlobalAggregate(
+				hybridSourceInfo.getName(),
+				input,
+				aggregateFunction
+			);
+			if (output.batchFinished) {
+				batchFinished = true;
+				break;
+			}
+			// This ensures that the max QPS of aggregate is no more than 100
+			Thread.sleep(getRuntimeContext().getNumberOfParallelSubtasks() * 10L);
 		}
 	}
 

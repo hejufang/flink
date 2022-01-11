@@ -18,6 +18,10 @@
 
 package org.apache.flink.table.catalog;
 
+import org.apache.flink.api.connector.source.HybridSourceInfo;
+
+import java.util.Optional;
+
 /**
  * Represents a view in a catalog.
  */
@@ -44,4 +48,10 @@ public interface CatalogView extends CatalogBaseTable {
 	 */
 	String getExpandedQuery();
 
+	/**
+	 * Get optional hybrid source information from this view.
+	 */
+	default Optional<HybridSourceInfo> getViewHybridSourceInfo() {
+		return Optional.empty();
+	}
 }

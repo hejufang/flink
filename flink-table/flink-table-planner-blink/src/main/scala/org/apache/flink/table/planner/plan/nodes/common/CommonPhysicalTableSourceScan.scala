@@ -24,7 +24,8 @@ import org.apache.flink.api.dag.Transformation
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.functions.SpecificParallelism
-import org.apache.flink.table.api.TableConfig
+import org.apache.flink.streaming.api.transformations.LegacySourceTransformation
+import org.apache.flink.table.api.{TableConfig, TableException}
 import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.connector.source.{DataStreamScanProvider, InputFormatProvider, ScanTableSource, SourceFunctionProvider, SourceProvider}
 import org.apache.flink.table.data.RowData
@@ -64,8 +65,16 @@ abstract class CommonPhysicalTableSourceScan(
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = {
-    super.explainTerms(pw)
-      .item("fields", getRowType.getFieldNames.asScala.mkString(", "))
+    val optionalHybridSourceInfo = relOptTable.catalogTable.getTableHybridSourceInfo
+    val relWriter = super.explainTerms(pw)
+    relWriter.item("fields", getRowType.getFieldNames.asScala.mkString(", "))
+    if (optionalHybridSourceInfo.isPresent) {
+      val hybridSourceInfo = optionalHybridSourceInfo.get()
+      val hybridSourceString = s"name=${hybridSourceInfo.getName}, " +
+        s"isStreaming=${hybridSourceInfo.isStream}, config=${hybridSourceInfo.getConfig}"
+      relWriter.item("hybridSource", hybridSourceString)
+    }
+    relWriter
   }
 
   protected def createSourceTransformation(
@@ -73,12 +82,26 @@ abstract class CommonPhysicalTableSourceScan(
       name: String,
       tableConfig: TableConfig): Transformation[RowData] = {
     val runtimeProvider = tableSource.getScanRuntimeProvider(ScanRuntimeProviderContext.INSTANCE)
+
+    val optionalHybridSourceInfo = relOptTable.catalogTable.getTableHybridSourceInfo
+    if (optionalHybridSourceInfo.isPresent) {
+      if (optionalHybridSourceInfo.get().isStream) {
+        if (runtimeProvider.isBounded) {
+          throw new TableException("The first table of hybrid source should be streaming table.")
+        }
+      } else {
+        if (!runtimeProvider.isBounded) {
+          throw new TableException("The second table of hybrid source should be batch table.")
+        }
+      }
+    }
+
     val outRowType = FlinkTypeFactory.toLogicalRowType(tableSourceTable.getRowType)
     val outTypeInfo = new RowDataTypeInfo(outRowType)
     val sourceChainEnable =
       tableConfig.getConfiguration.getBoolean(ExecutionConfigOptions.TABLE_EXEC_SOURCE_CHAIN_ENABLE)
 
-    runtimeProvider match {
+    val result = runtimeProvider match {
       case provider: SourceFunctionProvider =>
         val sourceFunction = provider.createSourceFunction()
         val operator = env
@@ -116,6 +139,22 @@ abstract class CommonPhysicalTableSourceScan(
           dataStream.getTransformation
         }
     }
+
+    if (optionalHybridSourceInfo.isPresent) {
+      var sourceTransformation: Transformation[_] = result
+      while (sourceTransformation.getChildren.size() > 0) {
+        sourceTransformation = sourceTransformation.getChildren.get(0)
+      }
+      sourceTransformation match {
+        case transformation: LegacySourceTransformation[_] =>
+          transformation.setHybridSource(optionalHybridSourceInfo.get())
+        // TODO: support flip-27 new source operator.
+        case _ => throw new TableException("Unsupported source transformation for hybrid source: " +
+          sourceTransformation.getClass)
+      }
+    }
+
+    result
   }
 
   private def setParallelism(

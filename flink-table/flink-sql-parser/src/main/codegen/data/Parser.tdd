@@ -38,6 +38,7 @@
     "org.apache.flink.sql.parser.ddl.SqlCreateCatalog"
     "org.apache.flink.sql.parser.ddl.SqlCreateDatabase"
     "org.apache.flink.sql.parser.ddl.SqlCreateFunction"
+    "org.apache.flink.sql.parser.ddl.SqlCreateHybridSource"
     "org.apache.flink.sql.parser.ddl.SqlCreateTable"
     "org.apache.flink.sql.parser.ddl.SqlCreateTable.TableCreationContext"
     "org.apache.flink.sql.parser.ddl.SqlCreateTemporalTableFunction",
@@ -94,6 +95,7 @@
     "ENFORCED"
     "EXTENDED"
     "FUNCTIONS"
+    "HYBRID"
     "IF"
     "LEGACY"
     "NOSCAN"
@@ -443,6 +445,7 @@
     "COMPUTE"
     "ENFORCED"
     "IF"
+    "HYBRID"
     "NOSCAN"
     "OVERWRITE"
     "OVERWRITING"
