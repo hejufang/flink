@@ -29,6 +29,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.execution.ExecutionState;
+import org.apache.flink.runtime.execution.NoOpExecutionCancelChecker;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.JobStatusListener;
 import org.apache.flink.runtime.executiongraph.restart.NoRestartStrategy;
@@ -211,7 +212,8 @@ public class LegacySchedulerBatchSchedulingTest extends TestLogger {
 			slotRequestTimeout,
 			NettyShuffleMaster.INSTANCE,
 			NoOpPartitionTracker.INSTANCE,
-			remoteBlacklistReporter);
+			remoteBlacklistReporter,
+			NoOpExecutionCancelChecker.INSTANCE);
 
 		legacyScheduler.setMainThreadExecutor(mainThreadExecutor);
 

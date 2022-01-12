@@ -16,19 +16,24 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.resourcemanager;
+package org.apache.flink.configuration;
+
+import org.apache.flink.annotation.PublicEvolving;
 
 /**
- * Exit code of worker.
+ * {@link ConfigOption}s specific for a single execution of a user program.
  */
-public class WorkerExitCode {
-	// Flink on YARN exit code should like -8xxxx
-	public static final int UNKNOWN = -80000;
-	public static final int SLOW_CONTAINER = -80001;
-	public static final int START_CONTAINER_ERROR = -80002;
-	public static final int HEARTBEAT_TIMEOUT = -80003;
-	public static final int IN_BLACKLIST = -80004;
-	public static final int IDLE_TIMEOUT = -80005;
-	public static final int EXIT_BY_TASK_MANAGER = -80006;
-	public static final int EXIT_BY_JOB_MANAGER = -80009;
+@PublicEvolving
+public class ExecutionOptions {
+
+	public static final ConfigOption<Long> EXECUTION_CANCELLATION_TIMEOUT =
+		ConfigOptions.key("execution.cancellation.timeout.ms")
+			.defaultValue(300000L)
+			.withDescription("Timeout in milliseconds after which a execution cancellation times out and" +
+				" close the TaskManager.");
+
+	public static final ConfigOption<Boolean> EXECUTION_CANCELLATION_TIMEOUT_ENABLE =
+		ConfigOptions.key("execution.cancellation.timeout.enable")
+			.defaultValue(false)
+			.withDescription("enable TaskManager cancellation timeout.");
 }

@@ -16,19 +16,27 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.resourcemanager;
+package org.apache.flink.runtime.execution;
+
+import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
+import org.apache.flink.runtime.executiongraph.Execution;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
+
+import javax.annotation.Nonnull;
 
 /**
- * Exit code of worker.
+ * Check execution cancel timeout.
  */
-public class WorkerExitCode {
-	// Flink on YARN exit code should like -8xxxx
-	public static final int UNKNOWN = -80000;
-	public static final int SLOW_CONTAINER = -80001;
-	public static final int START_CONTAINER_ERROR = -80002;
-	public static final int HEARTBEAT_TIMEOUT = -80003;
-	public static final int IN_BLACKLIST = -80004;
-	public static final int IDLE_TIMEOUT = -80005;
-	public static final int EXIT_BY_TASK_MANAGER = -80006;
-	public static final int EXIT_BY_JOB_MANAGER = -80009;
+public interface ExecutionCancelChecker {
+
+	void reportTaskCancel(Execution execution);
+
+	void start(@Nonnull ComponentMainThreadExecutor componentMainThreadExecutor) throws Exception;
+
+	// ------------------------------------------------------------------------
+	//  Resource Manager Connection
+	// ------------------------------------------------------------------------
+	void connectToResourceManager(ResourceManagerGateway resourceManagerGateway);
+
+	void disconnectResourceManager();
 }

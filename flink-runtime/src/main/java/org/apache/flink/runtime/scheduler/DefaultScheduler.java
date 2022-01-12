@@ -24,6 +24,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
+import org.apache.flink.runtime.execution.ExecutionCancelChecker;
 import org.apache.flink.runtime.executiongraph.restart.ThrowingRestartStrategy;
 import org.apache.flink.runtime.io.network.partition.PartitionTracker;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -43,22 +44,23 @@ import java.util.concurrent.ScheduledExecutorService;
 public class DefaultScheduler extends LegacyScheduler {
 
 	public DefaultScheduler(
-			final Logger log,
-			final JobGraph jobGraph,
-			final BackPressureStatsTracker backPressureStatsTracker,
-			final Executor ioExecutor,
-			final Configuration jobMasterConfiguration,
-			final SlotProvider slotProvider,
-			final ScheduledExecutorService futureExecutor,
-			final ClassLoader userCodeLoader,
-			final CheckpointRecoveryFactory checkpointRecoveryFactory,
-			final Time rpcTimeout,
-			final BlobWriter blobWriter,
-			final JobManagerJobMetricGroup jobManagerJobMetricGroup,
-			final Time slotRequestTimeout,
-			final ShuffleMaster<?> shuffleMaster,
-			final PartitionTracker partitionTracker,
-			final RemoteBlacklistReporter remoteBlacklistReporter) throws Exception {
+		final Logger log,
+		final JobGraph jobGraph,
+		final BackPressureStatsTracker backPressureStatsTracker,
+		final Executor ioExecutor,
+		final Configuration jobMasterConfiguration,
+		final SlotProvider slotProvider,
+		final ScheduledExecutorService futureExecutor,
+		final ClassLoader userCodeLoader,
+		final CheckpointRecoveryFactory checkpointRecoveryFactory,
+		final Time rpcTimeout,
+		final BlobWriter blobWriter,
+		final JobManagerJobMetricGroup jobManagerJobMetricGroup,
+		final Time slotRequestTimeout,
+		final ShuffleMaster<?> shuffleMaster,
+		final PartitionTracker partitionTracker,
+		final RemoteBlacklistReporter remoteBlacklistReporter,
+		final ExecutionCancelChecker executionCancelChecker) throws Exception {
 
 		super(
 			log,
@@ -77,7 +79,8 @@ public class DefaultScheduler extends LegacyScheduler {
 			slotRequestTimeout,
 			shuffleMaster,
 			partitionTracker,
-			remoteBlacklistReporter);
+			remoteBlacklistReporter,
+			executionCancelChecker);
 	}
 
 	@Override

@@ -35,6 +35,7 @@ import org.apache.flink.runtime.checkpoint.StandaloneCheckpointRecoveryFactory;
 import org.apache.flink.runtime.client.JobExecutionException;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.execution.ExecutionState;
+import org.apache.flink.runtime.execution.NoOpExecutionCancelChecker;
 import org.apache.flink.runtime.executiongraph.failover.FailoverRegion;
 import org.apache.flink.runtime.executiongraph.failover.FailoverStrategy;
 import org.apache.flink.runtime.executiongraph.failover.RestartAllStrategy;
@@ -690,7 +691,8 @@ public class ExecutionGraphTestUtils {
 				shuffleMaster,
 				partitionTracker,
 				failoverStrategyFactory,
-				remoteBlacklistReporter);
+				remoteBlacklistReporter,
+				NoOpExecutionCancelChecker.INSTANCE);
 		}
 	}
 }

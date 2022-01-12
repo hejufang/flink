@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.ConfigMessage;
@@ -38,6 +39,8 @@ import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
+import org.apache.flink.runtime.execution.ExecutionCancelChecker;
+import org.apache.flink.runtime.execution.ExecutionCancelCheckerImpl;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
@@ -218,6 +221,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final RemoteBlacklistReporter remoteBlacklistReporter;
 
+	private final ExecutionCancelChecker executionCancelChecker;
+
 	// ------------------------------------------------------------------------
 
 	public JobMaster(
@@ -289,6 +294,9 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 				rpcTimeout);
 		this.remoteBlacklistReporter.addIgnoreExceptionClass(RemoteTransportException.class);
 		this.remoteBlacklistReporter.addIgnoreExceptionClass(PartitionException.class);
+		this.executionCancelChecker = new ExecutionCancelCheckerImpl(
+			jobMasterConfiguration.getConfiguration().getLong(ExecutionOptions.EXECUTION_CANCELLATION_TIMEOUT),
+			jobMasterConfiguration.getConfiguration().getBoolean(ExecutionOptions.EXECUTION_CANCELLATION_TIMEOUT_ENABLE));
 
 		this.jobManagerJobMetricGroup = jobMetricGroupFactory.create(jobGraph);
 		this.schedulerNG = createScheduler(jobManagerJobMetricGroup);
@@ -333,7 +341,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			jobMasterConfiguration.getSlotRequestTimeout(),
 			shuffleMaster,
 			partitionTracker,
-			remoteBlacklistReporter);
+			remoteBlacklistReporter,
+			executionCancelChecker);
 	}
 
 	//----------------------------------------------------------------------------------------------
@@ -778,6 +787,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		slotPool.start(getFencingToken(), getAddress(), getMainThreadExecutor());
 		scheduler.start(getMainThreadExecutor());
 		remoteBlacklistReporter.start(getFencingToken(), getMainThreadExecutor());
+		executionCancelChecker.start(getMainThreadExecutor());
 
 		//TODO: Remove once the ZooKeeperLeaderRetrieval returns the stored address upon start
 		// try to reconnect to previously known leader
@@ -1034,6 +1044,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 			remoteBlacklistReporter.connectToResourceManager(resourceManagerGateway);
 
+			executionCancelChecker.connectToResourceManager(resourceManagerGateway);
+
 			resourceManagerHeartbeatManager.monitorTarget(resourceManagerResourceId, new HeartbeatTarget<Void>() {
 				@Override
 				public void receiveHeartbeat(ResourceID resourceID, Void payload) {
@@ -1079,6 +1091,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		resourceManagerGateway.disconnectJobManager(jobGraph.getJobID(), cause);
 		slotPool.disconnectResourceManager();
 		remoteBlacklistReporter.disconnectResourceManager();
+		executionCancelChecker.disconnectResourceManager();
 	}
 
 	//----------------------------------------------------------------------------------------------

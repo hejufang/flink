@@ -48,6 +48,8 @@ import org.apache.flink.runtime.checkpoint.hooks.MasterHooks;
 import org.apache.flink.runtime.checkpoint.trigger.CheckpointTriggerConfiguration;
 import org.apache.flink.runtime.client.JobExecutionException;
 import org.apache.flink.runtime.client.JobSubmissionException;
+import org.apache.flink.runtime.execution.ExecutionCancelChecker;
+import org.apache.flink.runtime.execution.NoOpExecutionCancelChecker;
 import org.apache.flink.runtime.executiongraph.failover.FailoverStrategy;
 import org.apache.flink.runtime.executiongraph.failover.FailoverStrategyLoader;
 import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.PartitionReleaseStrategy;
@@ -141,7 +143,9 @@ public class ExecutionGraphBuilder {
 				log,
 				shuffleMaster,
 				partitionTracker,
-				remoteBlacklistReporter);
+				remoteBlacklistReporter,
+				NoOpExecutionCancelChecker.INSTANCE
+			);
 	}
 
 	public static ExecutionGraph buildGraph(
@@ -161,7 +165,8 @@ public class ExecutionGraphBuilder {
 			Logger log,
 			ShuffleMaster<?> shuffleMaster,
 			PartitionTracker partitionTracker,
-			RemoteBlacklistReporter remoteBlacklistReporter) throws JobExecutionException, JobException {
+			RemoteBlacklistReporter remoteBlacklistReporter,
+			ExecutionCancelChecker executionCancelChecker) throws JobExecutionException, JobException {
 
 		final FailoverStrategy.Factory failoverStrategy =
 			FailoverStrategyLoader.loadFailoverStrategy(jobManagerConfig, log);
@@ -184,7 +189,8 @@ public class ExecutionGraphBuilder {
 			shuffleMaster,
 			partitionTracker,
 			failoverStrategy,
-			remoteBlacklistReporter);
+			remoteBlacklistReporter,
+			executionCancelChecker);
 	}
 
 	public static ExecutionGraph buildGraph(
@@ -205,7 +211,8 @@ public class ExecutionGraphBuilder {
 			ShuffleMaster<?> shuffleMaster,
 			PartitionTracker partitionTracker,
 			FailoverStrategy.Factory failoverStrategyFactory,
-			RemoteBlacklistReporter remoteBlacklistReporter) throws JobExecutionException, JobException {
+			RemoteBlacklistReporter remoteBlacklistReporter,
+			ExecutionCancelChecker executionCancelChecker) throws JobExecutionException, JobException {
 
 		checkNotNull(jobGraph, "job graph cannot be null");
 
@@ -262,7 +269,8 @@ public class ExecutionGraphBuilder {
 					scheduleTaskFairly,
 					isRecoverable,
 					remoteBlacklistReporter,
-					jobStartEventMessageSet);
+					jobStartEventMessageSet,
+					executionCancelChecker);
 			executionGraph.setExecutionStatusDuration(jobManagerConfig.getInteger(JobManagerOptions.EXECUTION_STATUS_DURATION_MS));
 		} catch (IOException e) {
 			throw new JobException("Could not create the ExecutionGraph.", e);
@@ -484,7 +492,6 @@ public class ExecutionGraphBuilder {
 					CheckpointSchedulingStrategies.resolveSavepointCliConfig(savepointSchedulingStrategy, jobManagerConfig);
 				log.info("Savepoint-scheduler-related options found. CLI configuration will take priority, " +
 					"savepoint scheduler strategy {}", overrideSavepointSchedulingConfig);
-
 
 				final CheckpointCoordinatorConfiguration origin = chkConfig;
 

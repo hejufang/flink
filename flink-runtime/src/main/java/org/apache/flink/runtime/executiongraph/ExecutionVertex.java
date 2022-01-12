@@ -794,7 +794,9 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		for (Execution exec : copyExecutions) {
 			exec.cancel();
 			cancelFutures.add(exec.getReleaseFuture());
+			getExecutionGraph().getExecutionCancelChecker().reportTaskCancel(exec);
 		}
+		getExecutionGraph().getExecutionCancelChecker().reportTaskCancel(mainExecution);
 		return FutureUtils.combineAll(cancelFutures);
 	}
 

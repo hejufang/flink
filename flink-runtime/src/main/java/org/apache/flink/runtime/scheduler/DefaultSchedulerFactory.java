@@ -24,6 +24,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
+import org.apache.flink.runtime.execution.ExecutionCancelChecker;
 import org.apache.flink.runtime.io.network.partition.PartitionTracker;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
@@ -58,7 +59,8 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
 			final Time slotRequestTimeout,
 			final ShuffleMaster<?> shuffleMaster,
 			final PartitionTracker partitionTracker,
-			final RemoteBlacklistReporter remoteBlacklistReporter) throws Exception {
+			final RemoteBlacklistReporter remoteBlacklistReporter,
+			final ExecutionCancelChecker executionCancelChecker) throws Exception {
 
 		return new DefaultScheduler(
 			log,
@@ -76,7 +78,8 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
 			slotRequestTimeout,
 			shuffleMaster,
 			partitionTracker,
-			remoteBlacklistReporter);
+			remoteBlacklistReporter,
+			executionCancelChecker);
 	}
 
 }

@@ -58,7 +58,9 @@ import org.apache.flink.runtime.checkpoint.trigger.PendingTriggerFactory;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.FutureUtils.ConjunctFuture;
+import org.apache.flink.runtime.execution.ExecutionCancelChecker;
 import org.apache.flink.runtime.execution.ExecutionState;
+import org.apache.flink.runtime.execution.NoOpExecutionCancelChecker;
 import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.runtime.executiongraph.failover.AdaptedRestartPipelinedRegionStrategyNG;
 import org.apache.flink.runtime.executiongraph.failover.FailoverStrategy;
@@ -376,6 +378,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	private final RemoteBlacklistReporter remoteBlacklistReporter;
 
+	private final ExecutionCancelChecker executionCancelChecker;
+
 	private final MessageSet<WarehouseJobStartEventMessage> eventMessageSet;
 
 	private int executionStatusDuration = 30000;
@@ -577,7 +581,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			false,
 			false,
 			BlacklistUtil.createNoOpRemoteBlacklistReporter(),
-			new MessageSet<>(MessageType.JOB_START_EVENT));
+			new MessageSet<>(MessageType.JOB_START_EVENT),
+			NoOpExecutionCancelChecker.INSTANCE);
 	}
 
 	public ExecutionGraph(
@@ -601,7 +606,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			boolean scheduleTaskFairly,
 			boolean isRecoverable,
 			RemoteBlacklistReporter remoteBlacklistReporter,
-			MessageSet<WarehouseJobStartEventMessage> eventMessageSet) throws IOException {
+			MessageSet<WarehouseJobStartEventMessage> eventMessageSet,
+			ExecutionCancelChecker executionCancelChecker) throws IOException {
 
 		checkNotNull(futureExecutor);
 
@@ -673,6 +679,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 		this.remoteBlacklistReporter = remoteBlacklistReporter;
 		this.remoteBlacklistReporter.setExecutionGraph(this);
+
+		this.executionCancelChecker = executionCancelChecker;
 
 		this.eventMessageSet = eventMessageSet;
 
@@ -1146,6 +1154,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	 */
 	public Executor getFutureExecutor() {
 		return futureExecutor;
+	}
+
+	public ExecutionCancelChecker getExecutionCancelChecker() {
+		return executionCancelChecker;
 	}
 
 	/**
