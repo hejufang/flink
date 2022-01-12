@@ -51,7 +51,7 @@ under the License.
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
-				<version>2.4.1</version>
+				<version>3.1.1</version>
 				<executions>
 					<execution>
 						<phase>package</phase>
@@ -59,12 +59,133 @@ under the License.
 							<goal>shade</goal>
 						</goals>
 						<configuration>
+							<artifactSet>
+								<excludes>
+									<exclude>org.slf4j:*</exclude>
+									<exclude>log4j:*</exclude>
+									<exclude>log4j2:*</exclude>
+								</excludes>
+							</artifactSet>
 							<transformers>
 								<transformer
 									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
 									<mainClass>com.xxg.Main</mainClass>
 								</transformer>
 							</transformers>
+							<relocations>
+								<relocation>
+									<pattern>com.fasterxml.jackson</pattern>
+									<shadedPattern>pyjstorm.shaded.com.fasterxml.jackson</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.thrift</pattern>
+									<shadedPattern>pyjstorm.shaded.org.apache.thrift</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.bytedance.commons</pattern>
+									<shadedPattern>pyjstorm.shaded.com.bytedance.commons</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.bytedance.metrics</pattern>
+									<shadedPattern>pyjstorm.shaded.com.bytedance.metrics</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.codahale.metrics</pattern>
+									<shadedPattern>pyjstorm.shaded.com.codahale.metrics</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.github.benmanes.caffeine</pattern>
+									<shadedPattern>pyjstorm.shaded.com.github.benmanes.caffeine</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.google.common</pattern>
+									<shadedPattern>pyjstorm.shaded.com.google.common</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.json.simple</pattern>
+									<shadedPattern>pyjstorm.shaded.org.json.simple</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>okhttp3</pattern>
+									<shadedPattern>pyjstorm.shaded.okhttp3</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>okio</pattern>
+									<shadedPattern>pyjstorm.shaded.okio</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.commons.codec</pattern>
+									<shadedPattern>pyjstorm.shaded.org.apache.commons.codec</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.commons.io</pattern>
+									<shadedPattern>pyjstorm.shaded.org.apache.commons.io</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.commons.lang</pattern>
+									<shadedPattern>pyjstorm.shaded.org.apache.commons.lang</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.commons.lang3</pattern>
+									<shadedPattern>pyjstorm.shaded.org.apache.commons.lang3</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.commons.pool2</pattern>
+									<shadedPattern>pyjstorm.shaded.org.apache.commons.pool2</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.commons.logging</pattern>
+									<shadedPattern>pyjstorm.shaded.org.apache.commons.logging</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>javax.annotation</pattern>
+									<shadedPattern>pyjstorm.shaded.javax.annotation</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>net.jpountz</pattern>
+									<shadedPattern>pyjstorm.shaded.net.jpountz</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.byted.infsec</pattern>
+									<shadedPattern>pyjstorm.shaded.org.byted.infsec</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.byted.security</pattern>
+									<shadedPattern>pyjstorm.shaded.org.byted.security</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.wealoha.thrift</pattern>
+									<shadedPattern>pyjstorm.shaded.com.wealoha.thrift</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>javassist</pattern>
+									<shadedPattern>pyjstorm.shaded.javassist</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.msgpack</pattern>
+									<shadedPattern>pyjstorm.shaded.org.msgpack</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.xerial.snappy</pattern>
+									<shadedPattern>pyjstorm.shaded.org.xerial.snappy</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.yaml.snakeyaml</pattern>
+									<shadedPattern>pyjstorm.shaded.org.yaml.snakeyaml</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.hadoop</pattern>
+									<shadedPattern>pyjstorm.shaded.org.apache.hadoop</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.http</pattern>
+									<shadedPattern>pyjstorm.shaded.org.apache.http</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.auth0.jwt</pattern>
+									<shadedPattern>pyjstorm.shaded.org.auth0.jwt</shadedPattern>
+								</relocation>
+							</relocations>
 						</configuration>
 					</execution>
 				</executions>
@@ -77,12 +198,6 @@ under the License.
 			<artifactId>flink-streaming-java_2.11</artifactId>
 			<version>${project.version}</version>
 			<scope>provided</scope>
-			<exclusions>
-				<exclusion>
-					<artifactId>guava</artifactId>
-					<groupId>com.google.guava</groupId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 
 		<dependency>
@@ -108,18 +223,6 @@ under the License.
 					<groupId>ch.qos.logback</groupId>
 				</exclusion>
 				<exclusion>
-					<artifactId>libthrift</artifactId>
-					<groupId>org.apache.thrift</groupId>
-				</exclusion>
-				<exclusion>
-					<artifactId>jackson-databind</artifactId>
-					<groupId>com.fasterxml.jackson.core</groupId>
-				</exclusion>
-				<exclusion>
-					<artifactId>jackson-core</artifactId>
-					<groupId>com.fasterxml.jackson.core</groupId>
-				</exclusion>
-				<exclusion>
 					<artifactId>log4j</artifactId>
 					<groupId>log4j</groupId>
 				</exclusion>
@@ -128,26 +231,11 @@ under the License.
 					<groupId>org.slf4j</groupId>
 				</exclusion>
 				<exclusion>
-					<artifactId>jackson-annotations</artifactId>
-					<groupId>com.fasterxml.jackson.core</groupId>
+					<artifactId>slf4j-api</artifactId>
+					<groupId>org.slf4j</groupId>
 				</exclusion>
 			</exclusions>
 		</dependency>
-
-<!--		<dependency>-->
-<!--			<groupId>org.slf4j</groupId>-->
-<!--			<artifactId>slf4j-log4j12</artifactId>-->
-<!--			<version>${slf4j.version}</version>-->
-<!--			<scope>provided</scope>-->
-<!--		</dependency>-->
-
-<!--		<dependency>-->
-<!--			<groupId>log4j</groupId>-->
-<!--			<artifactId>log4j</artifactId>-->
-<!--			<version>1.2.17</version>-->
-<!--			<scope>provided</scope>-->
-<!--		</dependency>-->
-
 		<dependency>
 			<groupId>org.msgpack</groupId>
 			<artifactId>msgpack</artifactId>
