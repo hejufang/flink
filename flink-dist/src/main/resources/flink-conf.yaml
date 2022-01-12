@@ -43,8 +43,11 @@ common:
   execution.checkpointing.ignore-checkpoints-on-checkpoint-disabled: true
   state.savepoint.location-prefix: ${checkpoint.hdfs.prefix}/savepoints
   state.checkpoints.expired.location-prefix: ${checkpoint.hdfs.prefix}/expire
-  checkpoint.discard.historical.num: 0
-  checkpoint.discard.delay.time: 0
+  checkpoint.discard.historical.num: 3
+  checkpoint.discard.delay.time: 1800000
+  state.backend.rocksdb.restore-with-sstWriter: true
+  state.backend.rocksdb.max-disk-size-in-progress: 30gb
+  state.backend.rocksdb.max-sst-size-for-sstWriter: 64mb
 
   savepoint.scheduler.default.interval: 21600000
   state.backend.rocksdb.memory.managed: false
@@ -691,11 +694,6 @@ quoka:
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   restart-strategy.recoverable-failure-rate.fallback-global-restart: true
   restart-strategy.recoverable-failure-rate.enable: true
-  checkpoint.discard.historical.num: 3
-  checkpoint.discard.delay.time: 1800000
-  state.backend.rocksdb.restore-with-sstWriter: true
-  state.backend.rocksdb.max-disk-size-in-progress: 30gb
-  state.backend.rocksdb.max-sst-size-for-sstWriter: 64mb
   bytedance.streaming.yarn.check.application.name.unique.region: true
   yarn.previous-container.as-pending-container: true
   taskmanager.release-slot-when-job-master-disconnected.enabled: true
