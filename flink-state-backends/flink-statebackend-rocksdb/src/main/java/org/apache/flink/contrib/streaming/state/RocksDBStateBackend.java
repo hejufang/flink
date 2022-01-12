@@ -396,10 +396,10 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 				CompressionType.SNAPPY_COMPRESSION;
 			this.restoreOptions = new RestoreOptions.Builder()
 				.setUseSstFileWriter(config.get(RocksDBOptions.ROCKSDB_RESTORE_WITH_SST_FILE_WRITER))
-				.setNumberOfAsyncExecutor((int) Math.ceil(config.get(RocksDBOptions.VCORES) * 2 / config.get(TaskManagerOptions.NUM_TASK_SLOTS)))
 				.setMaxDiskSizeInProgress(config.get(RocksDBOptions.MAX_DISK_SIZE_IN_PROGRESS).getBytes())
 				.setMaxSstFileSize(config.get(RocksDBOptions.MAX_SST_SIZE_FOR_SST_FILE_WRITER).getBytes())
 				.setCompressionType(compressionType)
+				.setNumberOfVCoresPerSlot((int) Math.ceil(config.get(RocksDBOptions.VCORES) / config.get(TaskManagerOptions.NUM_TASK_SLOTS)))
 				.build();
 		}
 

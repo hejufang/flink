@@ -82,7 +82,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -103,6 +102,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static org.apache.flink.contrib.streaming.state.RocksDBOperationUtils.checkError;
+import static org.apache.flink.contrib.streaming.state.RocksDBOperationUtils.cleanUpPathQuietly;
 import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.SST_FILE_SUFFIX;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -345,14 +346,6 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			restoreStateHandle.getKeyGroupRange(),
 			restoreStateHandle.getMetaStateHandle(),
 			restoreStateHandle.getSharedState());
-	}
-
-	private void cleanUpPathQuietly(@Nonnull Path path) {
-		try {
-			FileUtils.deleteDirectory(path.toFile());
-		} catch (IOException ex) {
-			LOG.warn("Failed to clean up path " + path, ex);
-		}
 	}
 
 	private void registerColumnFamilyHandles(List<StateMetaInfoSnapshot> metaInfoSnapshots) {
@@ -880,7 +873,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			Files.createDirectories(tmpSstDir);
 			List<ColumnFamilyDescriptor> tmpColumnFamilyDescriptors = tmpRestoreDBInfo.columnFamilyDescriptors;
 			List<ColumnFamilyHandle> tmpColumnFamilyHandles = tmpRestoreDBInfo.columnFamilyHandles;
-			KeyGroupRange[] keyGroupRanges = splitKeyGroupRange(
+			KeyGroupRange[] keyGroupRanges = RocksDBOperationUtils.splitKeyGroupRange(
 				rawStateHandle,
 				rawStateHandle.getKeyGroupRange().getIntersection(keyGroupRange),
 				restoreOptions.getNumberOfAsyncExecutor());
@@ -961,37 +954,6 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		} catch (Exception e) {
 			error.compareAndSet(null, e);
 			throw e;
-		}
-	}
-
-	/** Split the KeyGroupRange into multiple KeyGroupRange for multi-threaded recovery. */
-	private KeyGroupRange[] splitKeyGroupRange(KeyedStateHandle keyedStateHandle, KeyGroupRange keyGroupRange, int numberOfSplit) {
-		int maxSplit = Math.min(keyGroupRange.getNumberOfKeyGroups(), numberOfSplit);
-		if (keyedStateHandle.getTotalStateSize() > 0 && keyedStateHandle.getKeyGroupRange().getNumberOfKeyGroups() > 0) {
-			long avgKeyGroupSize = Math.max(keyedStateHandle.getTotalStateSize() / keyedStateHandle.getKeyGroupRange().getNumberOfKeyGroups(), 1L);
-			int minKeyGroups = (int) Math.ceil((double) RestoreOptions.MIN_STATE_SIZE_OF_KEY_GROUP_RANGE / avgKeyGroupSize);
-			maxSplit = Math.min(maxSplit, (int) Math.ceil((double) keyGroupRange.getNumberOfKeyGroups() / minKeyGroups));
-		}
-		KeyGroupRange[] keyGroupRanges = new KeyGroupRange[maxSplit];
-		int factor = keyGroupRange.getNumberOfKeyGroups() / maxSplit;
-		int remained = keyGroupRange.getNumberOfKeyGroups() % maxSplit;
-		int lastEndKeyGroup = keyGroupRange.getStartKeyGroup() - 1;
-		for (int i = 0; i < keyGroupRanges.length; i++) {
-			int startKeyGroup = lastEndKeyGroup + 1;
-			lastEndKeyGroup = startKeyGroup + factor - 1;
-			if (remained > 0) {
-				lastEndKeyGroup++;
-				remained--;
-			}
-			keyGroupRanges[i] = KeyGroupRange.of(startKeyGroup, lastEndKeyGroup);
-		}
-		LOG.info("splitKeyGroupRange {} to {}", keyGroupRange, Arrays.toString(keyGroupRanges));
-		return keyGroupRanges;
-	}
-
-	private void checkError(AtomicReference<Exception> error) throws Exception {
-		if (error.get() != null) {
-			throw error.get();
 		}
 	}
 }

@@ -36,6 +36,7 @@ import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
+import org.apache.flink.runtime.state.KeyGroupsStateHandle;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.apache.flink.runtime.state.SnapshotResult;
@@ -124,8 +125,9 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 	public static Collection<Object[]> parameters() {
 		return Arrays.asList(
 			new Object[]{RocksDBStateBackendEnum.FULL, false},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, false},
+			new Object[]{RocksDBStateBackendEnum.FULL, true},
 			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, true},
+			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, false},
 			new Object[]{RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ, false},
 			new Object[]{RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ, true});
 	}
@@ -949,8 +951,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 
 	@Test
 	public void testSstFileWriterRecoverMode() throws Exception {
-		if (restoreWithSstFileWriter && (rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL ||
-			rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ)) {
+		if (restoreWithSstFileWriter) {
 			CheckpointStreamFactory streamFactory = createStreamFactory();
 
 			SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
@@ -975,14 +976,25 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 					update(i, backend2, valueState2, mapState2);
 				}
 			}
-
-			// draw a snapshot
-			IncrementalRemoteKeyedStateHandle backend1Snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
-				backend1.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
-				sharedStateRegistry);
-			IncrementalRemoteKeyedStateHandle backend2Snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
-				backend2.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
-				sharedStateRegistry);
+			KeyedStateHandle backend1Snapshot1, backend2Snapshot1;
+			if (rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL ||
+				rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ) {
+				// draw a incremental snapshot
+				backend1Snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
+					backend1.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					sharedStateRegistry);
+				backend2Snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
+					backend2.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					sharedStateRegistry);
+			} else {
+				// draw a full snapshot
+				backend1Snapshot1 = (KeyGroupsStateHandle) runSnapshot(
+					backend1.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					null);
+				backend2Snapshot1 = (KeyGroupsStateHandle) runSnapshot(
+					backend2.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					null);
+			}
 
 			backend1.dispose();
 			backend2.dispose();
@@ -1056,8 +1068,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 
 	@Test
 	public void testSstFileWriterRecoverModeWithError() throws Exception {
-		if (restoreWithSstFileWriter && (rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL ||
-			rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ)) {
+		if (restoreWithSstFileWriter) {
 			CheckpointStreamFactory streamFactory = createStreamFactory();
 
 			SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
@@ -1083,14 +1094,19 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 				}
 			}
 
-			// draw a snapshot
-			IncrementalRemoteKeyedStateHandle backend1Snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
-				backend1.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
-				sharedStateRegistry);
-			IncrementalRemoteKeyedStateHandle backend2Snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
-				backend2.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
-				sharedStateRegistry);
-
+			KeyedStateHandle backend1Snapshot1;
+			if (rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL ||
+				rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ) {
+				// draw a incremental snapshot
+				backend1Snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
+					backend1.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					sharedStateRegistry);
+			} else {
+				// draw a full snapshot
+				backend1Snapshot1 = (KeyGroupsStateHandle) runSnapshot(
+					backend1.snapshot(1L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					null);
+			}
 			backend1.dispose();
 			backend2.dispose();
 			backend1 = null;

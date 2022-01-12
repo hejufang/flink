@@ -47,12 +47,16 @@ public class RestoreOptions implements Serializable {
 	/** Compression type for sst file. */
 	private final CompressionType compressionType;
 
-	private RestoreOptions(boolean useSstFileWriter, int numberOfAsyncExecutor, long maxDiskSizeInProgress, long maxSstFileSize, CompressionType compressionType) {
+	/** VCores per slot. */
+	private final int numberOfVCoresPerSlot;
+
+	private RestoreOptions(boolean useSstFileWriter, int numberOfAsyncExecutor, long maxDiskSizeInProgress, long maxSstFileSize, CompressionType compressionType, int numberOfVCoresPerSlot) {
 		this.useSstFileWriter = useSstFileWriter;
 		this.numberOfAsyncExecutor = numberOfAsyncExecutor;
 		this.maxDiskSizeInProgress = maxDiskSizeInProgress;
 		this.maxSstFileSize = maxSstFileSize;
 		this.compressionType = compressionType;
+		this.numberOfVCoresPerSlot = numberOfVCoresPerSlot;
 	}
 
 	public boolean isUseSstFileWriter() {
@@ -73,6 +77,10 @@ public class RestoreOptions implements Serializable {
 
 	public EnvOptions getEnvOptions() {
 		return new EnvOptions();
+	}
+
+	public int getNumberOfVCoresPerSlot() {
+		return numberOfVCoresPerSlot;
 	}
 
 	public Options getOptions() {
@@ -101,6 +109,7 @@ public class RestoreOptions implements Serializable {
 		private long maxDiskSizeInProgress;
 		private long maxSstFileSize;
 		private CompressionType compressionType;
+		private int numberOfVCoresPerSlot;
 
 		public Builder() {
 			this.useSstFileWriter = false;
@@ -108,15 +117,11 @@ public class RestoreOptions implements Serializable {
 			this.maxDiskSizeInProgress = 20 * 1024 * 1024 * 1024L; // 20GB
 			this.maxSstFileSize = 64 * 1024 * 1024L; // 64MB
 			this.compressionType = CompressionType.SNAPPY_COMPRESSION;
+			this.numberOfVCoresPerSlot = 1;
 		}
 
 		public Builder setUseSstFileWriter(boolean useSstFileWriter) {
 			this.useSstFileWriter = useSstFileWriter;
-			return this;
-		}
-
-		public Builder setNumberOfAsyncExecutor(int numberOfAsyncExecutor) {
-			this.numberOfAsyncExecutor = Math.max(numberOfAsyncExecutor, MIN_ASYNC_EXECUTOR);
 			return this;
 		}
 
@@ -135,6 +140,12 @@ public class RestoreOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setNumberOfVCoresPerSlot(int numberOfVCoresPerSlot) {
+			this.numberOfVCoresPerSlot = Math.max(numberOfVCoresPerSlot, 1);
+			this.numberOfAsyncExecutor = Math.max(numberOfVCoresPerSlot * 2, MIN_ASYNC_EXECUTOR);
+			return this;
+		}
+
 		public RestoreOptions build() {
 			if (compressionType != CompressionType.NO_COMPRESSION) {
 				maxSstFileSize *= 2;
@@ -145,7 +156,8 @@ public class RestoreOptions implements Serializable {
 				numberOfAsyncExecutor,
 				maxDiskSizeInProgress,
 				maxSstFileSize,
-				compressionType);
+				compressionType,
+				numberOfVCoresPerSlot);
 		}
 	}
 }

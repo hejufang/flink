@@ -18,10 +18,14 @@
 package org.apache.flink.contrib.streaming.state;
 
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.contrib.streaming.state.restore.RestoreOptions;
 import org.apache.flink.contrib.streaming.state.ttl.RocksDbTtlCompactFiltersManager;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.memory.OpaqueMemoryResource;
+import org.apache.flink.runtime.state.KeyGroupRange;
+import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.RegisteredStateMetaInfoBase;
+import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.OperatingSystem;
@@ -38,6 +42,7 @@ import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.File;
@@ -49,6 +54,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -306,6 +312,46 @@ public class RocksDBOperationUtils {
 			throw new IOException(String.format(
 				"The directory path length (%d) is longer than the directory path length limit for Windows (%d): %s",
 				path.length(), maxWinDirPathLen, path), cause);
+		}
+	}
+
+
+	/** Split the KeyGroupRange into multiple KeyGroupRange for multi-threaded recovery. */
+	public static KeyGroupRange[] splitKeyGroupRange(KeyedStateHandle keyedStateHandle, KeyGroupRange keyGroupRange, int numberOfSplit) {
+		int maxSplit = Math.min(keyGroupRange.getNumberOfKeyGroups(), numberOfSplit);
+		if (keyedStateHandle.getTotalStateSize() > 0 && keyedStateHandle.getKeyGroupRange().getNumberOfKeyGroups() > 0) {
+			long avgKeyGroupSize = Math.max(keyedStateHandle.getTotalStateSize() / keyedStateHandle.getKeyGroupRange().getNumberOfKeyGroups(), 1L);
+			int minKeyGroups = (int) Math.ceil((double) RestoreOptions.MIN_STATE_SIZE_OF_KEY_GROUP_RANGE / avgKeyGroupSize);
+			maxSplit = Math.min(maxSplit, (int) Math.ceil((double) keyGroupRange.getNumberOfKeyGroups() / minKeyGroups));
+		}
+		KeyGroupRange[] keyGroupRanges = new KeyGroupRange[maxSplit];
+		int factor = keyGroupRange.getNumberOfKeyGroups() / maxSplit;
+		int remained = keyGroupRange.getNumberOfKeyGroups() % maxSplit;
+		int lastEndKeyGroup = keyGroupRange.getStartKeyGroup() - 1;
+		for (int i = 0; i < keyGroupRanges.length; i++) {
+			int startKeyGroup = lastEndKeyGroup + 1;
+			lastEndKeyGroup = startKeyGroup + factor - 1;
+			if (remained > 0) {
+				lastEndKeyGroup++;
+				remained--;
+			}
+			keyGroupRanges[i] = KeyGroupRange.of(startKeyGroup, lastEndKeyGroup);
+		}
+		LOG.info("splitKeyGroupRange {} to {}", keyGroupRange, Arrays.toString(keyGroupRanges));
+		return keyGroupRanges;
+	}
+
+	public static void checkError(AtomicReference<Exception> error) throws Exception {
+		if (error.get() != null) {
+			throw error.get();
+		}
+	}
+
+	public static void cleanUpPathQuietly(@Nonnull Path path) {
+		try {
+			FileUtils.deleteDirectory(path.toFile());
+		} catch (IOException ex) {
+			LOG.warn("Failed to clean up path " + path, ex);
 		}
 	}
 }

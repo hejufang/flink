@@ -29,7 +29,9 @@ import org.rocksdb.SstFileWriter;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -62,6 +64,10 @@ public class RocksDBSSTFileWriter implements AutoCloseable {
 	/** Record whether there is an exception. */
 	private final AtomicReference<Exception> error;
 
+	private final Map<StateMetaInfoSnapshot, SstFileWriter> sstFileWriterMap;
+
+	private final Map<StateMetaInfoSnapshot, Long> writeBytesMap;
+
 	public RocksDBSSTFileWriter(
 		Path tmpSstDir,
 		KeyGroupDataIterator<byte[], byte[]> iterator,
@@ -79,6 +85,8 @@ public class RocksDBSSTFileWriter implements AutoCloseable {
 		this.options = options;
 		this.sstIdCounter = sstIdCounter;
 		this.error = error;
+		this.sstFileWriterMap = new HashMap<>();
+		this.writeBytesMap = new HashMap<>();
 	}
 
 	public Tuple2<StateMetaInfoSnapshot, List<String>> buildSstFiles() throws Exception {
@@ -144,6 +152,52 @@ public class RocksDBSSTFileWriter implements AutoCloseable {
 
 	@Override
 	public void close() throws Exception {
-		iterator.close();
+		if (iterator != null) {
+			iterator.close();
+		}
+		for (SstFileWriter sstFileWriter : sstFileWriterMap.values()) {
+			try {
+				closeSstFileWriter(sstFileWriter);
+			} catch (Exception ignore) {
+				// ignore
+			}
+		}
+	}
+
+	public Tuple2<StateMetaInfoSnapshot, List<String>> buildSstFilesAppendly(KeyGroupDataIterator<byte[], byte[]> iterator, StateMetaInfoSnapshot stateMetaInfoSnapshot) throws Exception {
+		List<String> sstFiles = new ArrayList<>();
+		long writeBytes = writeBytesMap.getOrDefault(stateMetaInfoSnapshot, 0L);
+		SstFileWriter sstFileWriter = sstFileWriterMap.get(stateMetaInfoSnapshot);
+		try {
+			checkError(); // fail-fast
+			while (iterator.hasNext()) {
+				if (sstFileWriter == null || writeBytes >= maxSstSize) {
+					sstFileWriter = closeAndCreateSstFileWriter(sstFileWriter, sstFiles);
+					sstFileWriterMap.put(stateMetaInfoSnapshot, sstFileWriter);
+					writeBytes = 0L;
+				}
+				sstFileWriter.put(iterator.key(), iterator.value());
+				writeBytes += iterator.key().length;
+				writeBytes += iterator.value().length;
+				iterator.next();
+				checkError(); // fail-fast
+			}
+			writeBytesMap.put(stateMetaInfoSnapshot, writeBytes);
+			return Tuple2.of(stateMetaInfoSnapshot, sstFiles);
+		} catch (RestoreFutureException ignore) {
+			resetSstFileWriter(sstFileWriter, stateMetaInfoSnapshot);
+			// There is no need to throw an exception again, it has already been thrown elsewhere.
+			return Tuple2.of(stateMetaInfoSnapshot, Collections.emptyList());
+		} catch (Exception e) {
+			error.compareAndSet(null, e);
+			resetSstFileWriter(sstFileWriter, stateMetaInfoSnapshot);
+			throw e;
+		}
+	}
+
+	private void resetSstFileWriter(SstFileWriter sstFileWriter, StateMetaInfoSnapshot stateMetaInfoSnapshot) throws RocksDBException {
+		sstFileWriterMap.remove(stateMetaInfoSnapshot);
+		writeBytesMap.remove(stateMetaInfoSnapshot);
+		closeSstFileWriter(sstFileWriter);
 	}
 }

@@ -695,7 +695,7 @@ quoka:
   checkpoint.discard.delay.time: 1800000
   state.backend.rocksdb.restore-with-sstWriter: true
   state.backend.rocksdb.max-disk-size-in-progress: 30gb
-  stat.backend.rocksdb.max-sst-size-for-sstWriter: 64mb
+  state.backend.rocksdb.max-sst-size-for-sstWriter: 64mb
   bytedance.streaming.yarn.check.application.name.unique.region: true
   yarn.previous-container.as-pending-container: true
   taskmanager.release-slot-when-job-master-disconnected.enabled: true
