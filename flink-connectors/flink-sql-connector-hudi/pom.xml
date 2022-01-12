@@ -99,6 +99,7 @@
 									<include>org.apache.parquet:parquet-avro</include>
 									<include>org.apache.parquet:parquet-hadoop</include>
 									<include>org.apache.parquet:parquet-column</include>
+									<include>org.apache.parquet:parquet-columnfamily</include>
 									<include>org.apache.parquet:parquet-common</include>
 									<include>org.apache.parquet:parquet-format-structures</include>
 									<include>org.apache.parquet:parquet-encoding</include>
