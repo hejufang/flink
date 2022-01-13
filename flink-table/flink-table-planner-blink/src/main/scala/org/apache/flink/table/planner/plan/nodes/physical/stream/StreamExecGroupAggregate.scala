@@ -29,7 +29,7 @@ import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.PartialFinalType
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.utils.{AggregateInfoList, AggregateUtil, ChangelogPlanUtils, KeySelectorUtil, PhysicalPlanUtil, RelExplainUtil}
-import org.apache.flink.table.runtime.operators.aggregate.{GroupAggFunction, MiniBatchGroupAggFunction}
+import org.apache.flink.table.runtime.operators.aggregate.{GroupAggFunction, InMemoryGroupAggFunction, MiniBatchGroupAggFunction}
 import org.apache.flink.table.runtime.operators.bundle.KeyedMapBundleOperator
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
@@ -150,6 +150,9 @@ class StreamExecGroupAggregate(
     val isMiniBatchEnabled = tableConfig.getConfiguration.getBoolean(
       ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED)
 
+    val isStateless = tableConfig.getConfiguration.getBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_STATELESS_AGG_ENABLED)
+
     val operator = if (isMiniBatchEnabled) {
       val aggFunction = new MiniBatchGroupAggFunction(
         aggsHandler,
@@ -163,6 +166,10 @@ class StreamExecGroupAggregate(
       new KeyedMapBundleOperator(
         aggFunction,
         AggregateUtil.createMiniBatchTrigger(tableConfig))
+    } else if (isStateless) {
+      val aggFunction = new InMemoryGroupAggFunction(aggsHandler, inputCountIndex)
+      val operator = new KeyedProcessOperator[RowData, RowData, RowData](aggFunction)
+      operator
     } else {
       val aggFunction = new GroupAggFunction(
         aggsHandler,

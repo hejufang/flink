@@ -161,4 +161,6 @@ public interface CheckpointedFunction {
 	 * @throws Exception Thrown, if state could not be created ot restored.
 	 */
 	void initializeState(FunctionInitializationContext context) throws Exception;
+
+	default void prepareSnapshotPreBarrier(long checkpointId) throws Exception {}
 }

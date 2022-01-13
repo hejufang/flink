@@ -351,6 +351,14 @@ public class ExecutionConfigOptions {
 			.defaultValue(true)
 			.withDescription("Specifies whether to enable sink chain.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_STATELESS_AGG_ENABLED =
+		key("table.exec.enable-stateless-agg")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Specifies whether to use stateless agg, only working" +
+				"when mini-batch is turned off.");
+
 	// ------------------------------------------------------------------------------------------
 	// Enum option types
 	// ------------------------------------------------------------------------------------------

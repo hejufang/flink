@@ -67,6 +67,7 @@ public class KeyedProcessOperator<K, IN, OUT>
 		TimerService timerService = new SimpleTimerService(internalTimerService);
 
 		context = new ContextImpl(userFunction, timerService);
+		userFunction.setContext(context);
 		onTimerContext = new OnTimerContextImpl(userFunction, timerService);
 	}
 
@@ -141,6 +142,11 @@ public class KeyedProcessOperator<K, IN, OUT>
 		public K getCurrentKey() {
 			return (K) KeyedProcessOperator.this.getCurrentKey();
 		}
+
+		@Override
+		public Output<OUT> getOutput() {
+			return collector;
+		}
 	}
 
 	private class OnTimerContextImpl extends KeyedProcessFunction<K, IN, OUT>.OnTimerContext {
@@ -199,6 +205,11 @@ public class KeyedProcessOperator<K, IN, OUT>
 				return payload;
 			}
 			return null;
+		}
+
+		@Override
+		public Output<OUT> getOutput() {
+			return collector;
 		}
 	}
 }

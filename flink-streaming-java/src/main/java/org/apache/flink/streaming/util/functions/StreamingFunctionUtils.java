@@ -218,6 +218,40 @@ public final class StreamingFunctionUtils {
 		return false;
 	}
 
+	public static void prepareFunctionSnapshotPreBarrier(
+			long checkpointId,
+			Function userFunction) throws Exception {
+		while (true) {
+
+			if (tryPrepareFunctionSnapshotPreBarrier(checkpointId, userFunction)) {
+				break;
+			}
+
+			// inspect if the user function is wrapped, then unwrap and try again if we can prepare snapshot for
+			// the inner function
+			if (userFunction instanceof WrappingFunction) {
+				userFunction = ((WrappingFunction<?>) userFunction).getWrappedFunction();
+			} else {
+				break;
+			}
+		}
+	}
+
+	private static boolean tryPrepareFunctionSnapshotPreBarrier(
+			long checkpointId,
+			Function userFunction) throws Exception {
+		if (userFunction instanceof CheckpointedFunction) {
+			((CheckpointedFunction) userFunction).prepareSnapshotPreBarrier(checkpointId);
+			return true;
+		}
+
+		if (userFunction instanceof ListCheckpointed) {
+			throw new Exception("ListCheckpointed function has not implemented prepareSnapshotPreBarrier yet.");
+		}
+
+		return false;
+	}
+
 	/**
 	 * Private constructor to prevent instantiation.
 	 */

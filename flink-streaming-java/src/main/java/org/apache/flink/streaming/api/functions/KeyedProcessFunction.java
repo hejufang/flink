@@ -23,6 +23,7 @@ import org.apache.flink.api.common.functions.AbstractRichFunction;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.streaming.api.TimeDomain;
 import org.apache.flink.streaming.api.TimerService;
+import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
 
@@ -55,6 +56,7 @@ import java.io.IOException;
 public abstract class KeyedProcessFunction<K, I, O> extends AbstractRichFunction {
 
 	private static final long serialVersionUID = 1L;
+	private Context context;
 
 	/**
 	 * Process one element from the input stream.
@@ -87,6 +89,14 @@ public abstract class KeyedProcessFunction<K, I, O> extends AbstractRichFunction
 	 */
 	public void onTimer(long timestamp, OnTimerContext ctx, Collector<O> out) throws Exception {}
 
+	public void setContext(Context c) {
+		this.context = c;
+	}
+
+	public Context getContext() {
+		return context;
+	}
+
 	/**
 	 * Information available in an invocation of {@link #processElement(Object, Context, Collector)}
 	 * or {@link #onTimer(long, OnTimerContext, Collector)}.
@@ -118,6 +128,8 @@ public abstract class KeyedProcessFunction<K, I, O> extends AbstractRichFunction
 		 * Get key of the element being processed.
 		 */
 		public abstract K getCurrentKey();
+
+		public abstract Output<O> getOutput();
 	}
 
 	/**

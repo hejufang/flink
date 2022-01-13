@@ -97,6 +97,12 @@ public abstract class AbstractUdfStreamOperator<OUT, F extends Function>
 	}
 
 	@Override
+	public void prepareSnapshotPreBarrier(long checkpointId) throws Exception {
+		super.prepareSnapshotPreBarrier(checkpointId);
+		StreamingFunctionUtils.prepareFunctionSnapshotPreBarrier(checkpointId, userFunction);
+	}
+
+	@Override
 	public void open() throws Exception {
 		super.open();
 		FunctionUtils.openFunction(userFunction, new Configuration());
