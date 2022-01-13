@@ -151,6 +151,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -1544,6 +1545,7 @@ public class TaskExecutorTest extends TestLogger {
 
 		final CompletableFuture<Integer> offeredSlotsFuture = new CompletableFuture<>();
 		final CompletableFuture<ResourceID> disconnectFuture = new CompletableFuture<>();
+		final AtomicBoolean jobManagerDisconnected = new AtomicBoolean(false);
 		final TestingJobMasterGateway jobMasterGateway = new TestingJobMasterGatewayBuilder()
 			.setOfferSlotsFunction((resourceID, slotOffers) -> {
 				offeredSlotsFuture.complete(slotOffers.size());
@@ -1553,6 +1555,17 @@ public class TaskExecutorTest extends TestLogger {
 				resourceID -> {
 					disconnectFuture.complete(resourceID);
 					return CompletableFuture.completedFuture(Acknowledge.get());
+				}
+			)
+			.setUpdateTaskExecutionStateFunction(
+				ignored -> {
+					if (jobManagerDisconnected.get()) {
+						CompletableFuture<Acknowledge> result = new CompletableFuture<>();
+						result.completeExceptionally(new TimeoutException("timeout"));
+						return result;
+					} else {
+						return CompletableFuture.completedFuture(Acknowledge.get());
+					}
 				}
 			)
 			.build();
@@ -1591,8 +1604,10 @@ public class TaskExecutorTest extends TestLogger {
 			jobManagerLeaderRetriever.notifyListener(jobMasterGateway.getAddress(), UUID.randomUUID());
 
 			assertThat(offeredSlotsFuture.get(), is(1));
+			submitNoOpInvokableTask(allocationID, jobMasterGateway, taskExecutorGateway);
 
 			// notify loss of leadership
+			jobManagerDisconnected.set(true);
 			jobManagerLeaderRetriever.notifyListener(null, null);
 
 			assertThat(disconnectFuture.get(), is(resourceID));
@@ -1600,6 +1615,11 @@ public class TaskExecutorTest extends TestLogger {
 			// assert slot is not freed.
 			assertTrue(taskSlotTable.isAllocated(-1, jobId, allocationID));
 			assertTrue(taskSlotTable.isAllocated(0, jobId, allocationID));
+
+			Thread.sleep(1000);
+			// verify not fatal error.
+			assertFalse(testingFatalErrorHandler.hasExceptionOccurred());
+			testingFatalErrorHandler.clearError();
 		} finally {
 			RpcUtils.terminateRpcEndpoint(taskExecutor, timeout);
 		}

@@ -1911,6 +1911,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			final JobMasterGateway jobMasterGateway,
 			final TaskExecutionState taskExecutionState) {
 		final ExecutionAttemptID executionAttemptID = taskExecutionState.getID();
+		final JobID jobID = taskExecutionState.getJobID();
 
 		try {
 			CompletableFuture<Acknowledge> futureAcknowledge = jobMasterGateway.updateTaskExecutionState(taskExecutionState);
@@ -1921,11 +1922,17 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 						if (ExceptionUtils.findThrowable(throwable, ExecutionGraphException.class).isPresent()) {
 							failTask(executionAttemptID, throwable);
 						} else {
-							// we should always let JM know tasks' state, otherwise there might occur some serious problem.
-							// For example, a task fails but JM didn't receive the notification so that the task will never be
-							// redeployed.
-							log.error("Catch exception when send update task execution state message to job master, ", throwable);
-							onFatalError(throwable, WorkerExitCode.TASKMANAGER_UPDATE_STATE_ERROR);
+							final JobMasterGateway currentJobMasterGateway = jobTable.getConnection(jobID).map(JobTable.Connection::getJobManagerGateway).orElse(null);
+							if (currentJobMasterGateway != null && currentJobMasterGateway == jobMasterGateway) {
+								// we should always let JM know tasks' state, otherwise there might occur some serious problem.
+								// For example, a task fails but JM didn't receive the notification so that the task will never be
+								// redeployed.
+								log.error("Catch exception when send update task execution state message to job master, ", throwable);
+								onFatalError(throwable, WorkerExitCode.TASKMANAGER_UPDATE_STATE_ERROR);
+							} else {
+								log.info("Update task state for {} failed, but JobMaster has changed, ignore this.", executionAttemptID);
+								failTask(executionAttemptID, throwable);
+							}
 						}
 					}
 				},
