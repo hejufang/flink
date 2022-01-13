@@ -176,6 +176,12 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	}
 
 	@Override
+	public void notifyRecoveredWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID) {
+		long ts = System.currentTimeMillis();
+		containers.put(resourceID, new StartingResource(resourceID, workerResourceSpec, ts, false));
+	}
+
+	@Override
 	public void notifyPendingWorkerFailed(WorkerResourceSpec workerResourceSpec) {
 		if (pendingRedundantContainers.getNum(workerResourceSpec) > 0) {
 			pendingRedundantContainers.decreaseAndGet(workerResourceSpec);

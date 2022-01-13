@@ -132,6 +132,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				this::checkFailureExceedTimeout,
 				checkInterval.toMilliseconds(),
 				TimeUnit.MILLISECONDS);
+		tryUpdateBlacklist();
 	}
 
 	@Override
@@ -167,7 +168,9 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		for (HostFailures hostFailures : allFailures.values()) {
 			hostFailures.clear();
 		}
-		blacklistActions.notifyBlacklistUpdated();
+		if (blacklistActions != null) {
+			blacklistActions.notifyBlacklistUpdated();
+		}
 		LOG.info("All blacklist cleared");
 	}
 
@@ -195,6 +198,10 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 	}
 
 	public void tryUpdateBlacklist() {
+		if (blacklistActions == null) {
+			LOG.info("Blacklist Tracker is not started, ignore update blacklist.");
+			return;
+		}
 		Map<String, HostFailure> tempBlackedHost = new HashMap<>();
 		for (Map.Entry<BlacklistUtil.FailureType, HostFailures> allFailuresEntry : allFailures.entrySet()) {
 			for (Map.Entry<String, HostFailure> blackedHost : allFailuresEntry.getValue().getBlackedHosts().entrySet()) {

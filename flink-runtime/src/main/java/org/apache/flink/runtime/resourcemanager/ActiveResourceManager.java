@@ -213,6 +213,16 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	}
 
 	/**
+	 * Notify that a recovered worker with the given resource spec has been allocated.
+	 * @param resourceID id of the allocated worker resource
+	 * @param workerResourceSpec resource spec of the requested worker
+	 */
+	protected void notifyRecoveredWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID) {
+		allocatedNotRegisteredWorkerResourceSpecs.put(resourceID, workerResourceSpec);
+		requestedNotRegisteredWorkerCounter.increaseAndGet(workerResourceSpec);
+	}
+
+	/**
 	 * Number of workers pending for allocation/registration.
 	 */
 	protected static class PendingWorkerNums {

@@ -20,6 +20,7 @@ package org.apache.flink.yarn;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.BlacklistOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
@@ -64,12 +65,14 @@ import org.apache.flink.runtime.util.TestingFatalErrorHandler;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.function.RunnableWithException;
+import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.entrypoint.YarnWorkerResourceSpecFactory;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableList;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
+import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -98,6 +101,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -107,6 +111,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.configuration.GlobalConfiguration.FLINK_CONF_FILENAME;
 import static org.apache.flink.yarn.YarnConfigKeys.ENV_APP_ID;
@@ -232,12 +237,19 @@ public class YarnResourceManagerTest extends TestLogger {
 				YarnConfiguration yarnConfiguration,
 				int yarnHeartbeatIntervalMillis,
 				@Nullable String webInterfaceUrl) {
+			final RegisterApplicationMasterResponse registerApplicationMasterResponse =
+					testingYarnAMRMClientAsync.registerApplicationMaster("localhost", 0, webInterfaceUrl);
+			getContainersFromPreviousAttempts(registerApplicationMasterResponse);
 			return testingYarnAMRMClientAsync;
 		}
 
 		@Override
 		protected NMClientAsync createAndStartNodeManagerClient(YarnConfiguration yarnConfiguration) {
 			return testingYarnNMClientAsync;
+		}
+
+		int getNumRequestedNotRegisteredWorkersForTesting() {
+			return getNumRequestedNotRegisteredWorkers();
 		}
 	}
 
@@ -359,13 +371,17 @@ public class YarnResourceManagerTest extends TestLogger {
 		}
 
 		Container createTestingContainerWithResource(Resource resource) {
+			return createTestingContainerWithHost(resource, "container" + containerIdx);
+		}
+
+		Container createTestingContainerWithHost(Resource resource, String host) {
 			final ContainerId containerId = ContainerId.newInstance(
-				ApplicationAttemptId.newInstance(
-					ApplicationId.newInstance(System.currentTimeMillis(), 1),
-					1),
-				containerIdx);
-			final NodeId nodeId = NodeId.newInstance("container" + containerIdx, 1234 + containerIdx);
+					ApplicationAttemptId.newInstance(
+							ApplicationId.newInstance(System.currentTimeMillis(), 1),
+							1),
+					containerIdx);
 			containerIdx++;
+			final NodeId nodeId = NodeId.newInstance(host, 1234 + containerIdx);
 			return new TestingContainer(containerId, nodeId, resource, Priority.UNDEFINED);
 		}
 
@@ -558,6 +574,677 @@ public class YarnResourceManagerTest extends TestLogger {
 		configuration.setString("applicationName", "test-job_matt");
 		new Context(configuration, null) {{
 			assertEquals(true, resourceManager.getSmartResourceManager().getSmartResourcesEnable());
+		}};
+	}
+
+	/**
+	 * Test Previous container registered after used.
+	 * 1. get 2 previous container.
+	 * 2. request 2 container, all use previous.
+	 * 3. will not request new container.
+	 * 4. previous container registered, will work normally.
+	 */
+	@Test
+	public void testPreviousContainerRegisteredAfterUsed() throws Exception {
+		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		new Context() {{
+			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			testingYarnAMRMClientAsync.setAddContainerRequestConsumer(
+					(request, ignore) -> {
+						addContainerRequestFuturesNumCompleted.incrementAndGet();
+					});
+
+			// prepare 2 previous container.
+			List<Container> previousContainers = Arrays.asList(createTestingContainer(), createTestingContainer());
+			RegisterApplicationMasterResponse registerApplicationMasterResponse = RegisterApplicationMasterResponse.newInstance(
+					Resource.newInstance(0, 0),
+					Resource.newInstance(Integer.MAX_VALUE, Integer.MAX_VALUE),
+					Collections.emptyMap(),
+					null,
+					previousContainers,
+					null,
+					Collections.emptyList());
+			testingYarnAMRMClientAsync.setRegisterApplicationMasterFunction(
+					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
+
+			runTest(() -> {
+				// verify get 2 previous containers
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
+
+				// request 2 containers.
+				for (int i = 0; i < 2; i++) {
+					registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+				}
+
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+
+				// verify no requests been sent
+				assertEquals(0, addContainerRequestFuturesNumCompleted.get());
+
+				// register 2 container, 000000~000001.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+				for (int i = 0; i < 2; i++) {
+					Container container = previousContainers.get(i);
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				}
+				Thread.sleep(100);
+				assertEquals(2, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+			});
+		}};
+	}
+
+	/**
+	 * Test Previous container registered before used.
+	 * 1. get 2 previous container.
+	 * 2. register 1 previous container.
+	 * 3. request 2 container, all use previous.
+	 * 4. will not request new container.
+	 * 5. previous container registered, will work normally.
+	 */
+	@Test
+	public void testPreviousContainerRegisteredBeforeUsed() throws Exception {
+		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		new Context() {{
+			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			testingYarnAMRMClientAsync.setAddContainerRequestConsumer(
+					(request, ignore) -> {
+						addContainerRequestFuturesNumCompleted.incrementAndGet();
+					});
+
+			// prepare 2 previous container.
+			List<Container> previousContainers = Arrays.asList(createTestingContainer(), createTestingContainer());
+			RegisterApplicationMasterResponse registerApplicationMasterResponse = RegisterApplicationMasterResponse.newInstance(
+					Resource.newInstance(0, 0),
+					Resource.newInstance(Integer.MAX_VALUE, Integer.MAX_VALUE),
+					Collections.emptyMap(),
+					null,
+					previousContainers,
+					null,
+					Collections.emptyList());
+			testingYarnAMRMClientAsync.setRegisterApplicationMasterFunction(
+					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
+
+			runTest(() -> {
+				// verify get 2 previous containers
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
+
+				// register 1 container, 000000.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+				Container container = previousContainers.get(0);
+				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				Thread.sleep(100);
+				// verify 1 recovered container is started.
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(1, resourceManager.getRecoveredWorkerNodeSet().size());
+
+				// request 2 containers.
+				for (int i = 0; i < 2; i++) {
+					registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+				}
+				// verify no requests been sent
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(0, addContainerRequestFuturesNumCompleted.get());
+
+				// register 000001.
+				container = previousContainers.get(1);
+				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				Thread.sleep(100);
+
+				assertEquals(2, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+			});
+		}};
+	}
+
+	/**
+	 * Test Previous container completed before used.
+	 * 1. get 2 previous container.
+	 * 2. 1 previous container completed.
+	 * 3. request 2 container, will request 1 new container.
+	 * 4. previous and new container registered, work normally.
+	 */
+	@Test
+	public void testPreviousContainerCompletedBeforeUsed() throws Exception {
+		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		new Context() {{
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				addContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			final List<CompletableFuture<Acknowledge>> removeContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				removeContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger removeContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			testingYarnAMRMClientAsync.setAddContainerRequestConsumer(
+					(request, ignore) -> {
+						pendingRequests.add(request);
+						addContainerRequestFutures.get(addContainerRequestFuturesNumCompleted.getAndIncrement()).complete(request.getCapability());
+					});
+
+			testingYarnAMRMClientAsync.setRemoveContainerRequestConsumer(
+					(r, ignore) -> {
+						pendingRequests.remove(r);
+						removeContainerRequestFutures.get(removeContainerRequestFuturesNumCompleted.getAndIncrement()).complete(Acknowledge.get());
+					});
+
+			testingYarnAMRMClientAsync.setGetMatchingRequestsFunction(
+					tuple -> Collections.singletonList(
+							pendingRequests.stream()
+									.filter(r -> r.getCapability().equals(tuple.f2))
+									.collect(Collectors.toList())));
+
+			// prepare 2 previous container.
+			List<Container> previousContainers = Arrays.asList(createTestingContainer(), createTestingContainer());
+			RegisterApplicationMasterResponse registerApplicationMasterResponse = RegisterApplicationMasterResponse.newInstance(
+					Resource.newInstance(0, 0),
+					Resource.newInstance(Integer.MAX_VALUE, Integer.MAX_VALUE),
+					Collections.emptyMap(),
+					null,
+					previousContainers,
+					null,
+					Collections.emptyList());
+			testingYarnAMRMClientAsync.setRegisterApplicationMasterFunction(
+					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
+
+			runTest(() -> {
+				// verify get 2 previous containers
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
+
+				// container 000000 completed.
+				ContainerStatus testingContainerStatus = createTestingContainerStatus(previousContainers.get(0).getId());
+				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
+				Thread.sleep(100);
+				assertEquals(1, resourceManager.getWorkerNodeMap().size());
+				assertEquals(1, resourceManager.getRecoveredWorkerNodeSet().size());
+
+				// request 2 containers.
+				for (int i = 0; i < 2; i++) {
+					registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+				}
+
+				// verify no requests been sent
+				verifyFutureCompleted(addContainerRequestFutures.get(0));
+				assertEquals(1, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(1, addContainerRequestFuturesNumCompleted.get());
+				assertEquals(1, pendingRequests.size());
+				assertEquals(0, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(2, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(2, rmServices.slotManager.getRequiredResources().get(workerResourceSpec).intValue());
+				assertEquals(2, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// new container allocated.
+				Container testingContainer = createTestingContainer();
+				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
+				verifyFutureCompleted(removeContainerRequestFutures.get(0));
+				assertEquals(1, removeContainerRequestFuturesNumCompleted.get());
+				assertEquals(0, pendingRequests.size());
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+
+				// register 000001, 000002.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+				Container container = previousContainers.get(1);
+				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				registerTaskExecutor(testingContainer, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				Thread.sleep(100);
+
+				assertEquals(2, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+			});
+		}};
+	}
+
+	/**
+	 * Test Previous container completed after used.
+	 * 1. get 2 previous container.
+	 * 2. request 2 container, will not request new container.
+	 * 3. 1 previous container completed, will request 1 new container.
+	 * 4. previous and new container registered, work normally.
+	 */
+	@Test
+	public void testPreviousContainerCompletedAfterUsed() throws Exception {
+		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		new Context() {{
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				addContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			final List<CompletableFuture<Acknowledge>> removeContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				removeContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger removeContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			testingYarnAMRMClientAsync.setAddContainerRequestConsumer(
+					(request, ignore) -> {
+						pendingRequests.add(request);
+						addContainerRequestFutures.get(addContainerRequestFuturesNumCompleted.getAndIncrement()).complete(request.getCapability());
+					});
+
+			testingYarnAMRMClientAsync.setRemoveContainerRequestConsumer(
+					(r, ignore) -> {
+						pendingRequests.remove(r);
+						removeContainerRequestFutures.get(removeContainerRequestFuturesNumCompleted.getAndIncrement()).complete(Acknowledge.get());
+					});
+
+			testingYarnAMRMClientAsync.setGetMatchingRequestsFunction(
+					tuple -> Collections.singletonList(
+							pendingRequests.stream()
+									.filter(r -> r.getCapability().equals(tuple.f2))
+									.collect(Collectors.toList())));
+
+			// prepare 2 previous container.
+			List<Container> previousContainers = Arrays.asList(createTestingContainer(), createTestingContainer());
+			RegisterApplicationMasterResponse registerApplicationMasterResponse = RegisterApplicationMasterResponse.newInstance(
+					Resource.newInstance(0, 0),
+					Resource.newInstance(Integer.MAX_VALUE, Integer.MAX_VALUE),
+					Collections.emptyMap(),
+					null,
+					previousContainers,
+					null,
+					Collections.emptyList());
+			testingYarnAMRMClientAsync.setRegisterApplicationMasterFunction(
+					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
+
+			runTest(() -> {
+				// verify get 2 previous containers
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// request 2 containers.
+				for (int i = 0; i < 2; i++) {
+					registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+				}
+
+				// verify no requests been sent
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(0, addContainerRequestFuturesNumCompleted.get());
+				assertEquals(0, pendingRequests.size());
+				assertEquals(2, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(2, rmServices.slotManager.getRequiredResources().get(workerResourceSpec).intValue());
+				assertEquals(2, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// container 000000 completed.
+				ContainerStatus testingContainerStatus = createTestingContainerStatus(previousContainers.get(0).getId());
+				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
+				verifyFutureCompleted(addContainerRequestFutures.get(0));
+				// wait to notify new work requested.
+				Thread.sleep(10);
+				assertEquals(1, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(1, addContainerRequestFuturesNumCompleted.get());
+				assertEquals(1, pendingRequests.size());
+				assertEquals(0, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(2, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(2, rmServices.slotManager.getRequiredResources().get(workerResourceSpec).intValue());
+				assertEquals(2, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// new container allocated.
+				Container testingContainer = createTestingContainer();
+				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
+				verifyFutureCompleted(removeContainerRequestFutures.get(0));
+				assertEquals(1, removeContainerRequestFuturesNumCompleted.get());
+				assertEquals(0, pendingRequests.size());
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+
+				// register 000001, 000002.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+				Container container = previousContainers.get(1);
+				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				registerTaskExecutor(testingContainer, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				// wait registered slot offer to slotRequest.
+				Thread.sleep(100);
+
+				assertEquals(2, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+			});
+		}};
+	}
+
+	/**
+	 * Test Previous container completed after registered.
+	 * 1. get 2 previous container.
+	 * 2. request 2 container, will not request new container.
+	 * 3. 2 container registered, and then 1 container completed, will not request new containers.
+	 */
+	@Test
+	public void testPreviousContainerCompletedAfterRegistered() throws Exception {
+		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		new Context() {{
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				addContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			final List<CompletableFuture<Acknowledge>> removeContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				removeContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger removeContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			testingYarnAMRMClientAsync.setAddContainerRequestConsumer(
+					(request, ignore) -> {
+						pendingRequests.add(request);
+						addContainerRequestFutures.get(addContainerRequestFuturesNumCompleted.getAndIncrement()).complete(request.getCapability());
+					});
+
+			testingYarnAMRMClientAsync.setRemoveContainerRequestConsumer(
+					(r, ignore) -> {
+						pendingRequests.remove(r);
+						removeContainerRequestFutures.get(removeContainerRequestFuturesNumCompleted.getAndIncrement()).complete(Acknowledge.get());
+					});
+
+			testingYarnAMRMClientAsync.setGetMatchingRequestsFunction(
+					tuple -> Collections.singletonList(
+							pendingRequests.stream()
+									.filter(r -> r.getCapability().equals(tuple.f2))
+									.collect(Collectors.toList())));
+
+			// prepare 2 previous container.
+			List<Container> previousContainers = Arrays.asList(createTestingContainer(), createTestingContainer());
+			RegisterApplicationMasterResponse registerApplicationMasterResponse = RegisterApplicationMasterResponse.newInstance(
+					Resource.newInstance(0, 0),
+					Resource.newInstance(Integer.MAX_VALUE, Integer.MAX_VALUE),
+					Collections.emptyMap(),
+					null,
+					previousContainers,
+					null,
+					Collections.emptyList());
+			testingYarnAMRMClientAsync.setRegisterApplicationMasterFunction(
+					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
+
+			runTest(() -> {
+				// verify get 2 previous containers
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// request 2 containers.
+				for (int i = 0; i < 2; i++) {
+					registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+				}
+
+				// verify no requests been sent
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(0, addContainerRequestFuturesNumCompleted.get());
+				assertEquals(0, pendingRequests.size());
+				assertEquals(2, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(2, rmServices.slotManager.getRequiredResources().get(workerResourceSpec).intValue());
+				assertEquals(2, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// register 000000, 000001.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+				Container container = previousContainers.get(0);
+				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				container = previousContainers.get(1);
+				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				Thread.sleep(100);
+				assertEquals(2, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+
+				// container 000000 completed.
+				ContainerStatus testingContainerStatus = createTestingContainerStatus(previousContainers.get(0).getId());
+				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
+				// wait container completed finish.
+				Thread.sleep(100);
+				// verify not request new container.
+				assertEquals(1, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(0, addContainerRequestFuturesNumCompleted.get());
+				assertEquals(0, pendingRequests.size());
+				assertEquals(1, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+			});
+		}};
+	}
+
+	/**
+	 * Test Previous container timeout before registered.
+	 * 1. get 2 previous container.
+	 * 2. request 2 container, will use previous container.
+	 * 3. previous container timeout, will request 2 new container.
+	 */
+	@Test
+	public void testPreviousContainerTimeoutBeforeRegistered() throws Exception {
+		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		flinkConfig.setLong(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_TIMEOUT_MS, 100L);
+		new Context() {{
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				addContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			final List<CompletableFuture<Acknowledge>> removeContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				removeContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger removeContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			testingYarnAMRMClientAsync.setAddContainerRequestConsumer(
+					(request, ignore) -> {
+						pendingRequests.add(request);
+						addContainerRequestFutures.get(addContainerRequestFuturesNumCompleted.getAndIncrement()).complete(request.getCapability());
+					});
+
+			testingYarnAMRMClientAsync.setRemoveContainerRequestConsumer(
+					(r, ignore) -> {
+						pendingRequests.remove(r);
+						removeContainerRequestFutures.get(removeContainerRequestFuturesNumCompleted.getAndIncrement()).complete(Acknowledge.get());
+					});
+
+			testingYarnAMRMClientAsync.setGetMatchingRequestsFunction(
+					tuple -> Collections.singletonList(
+							pendingRequests.stream()
+									.filter(r -> r.getCapability().equals(tuple.f2))
+									.collect(Collectors.toList())));
+
+			// prepare 2 previous container.
+			List<Container> previousContainers = Arrays.asList(createTestingContainer(), createTestingContainer());
+			RegisterApplicationMasterResponse registerApplicationMasterResponse = RegisterApplicationMasterResponse.newInstance(
+					Resource.newInstance(0, 0),
+					Resource.newInstance(Integer.MAX_VALUE, Integer.MAX_VALUE),
+					Collections.emptyMap(),
+					null,
+					previousContainers,
+					null,
+					Collections.emptyList());
+			testingYarnAMRMClientAsync.setRegisterApplicationMasterFunction(
+					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
+
+			runTest(() -> {
+				// verify get 2 previous containers
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// request 1 containers.
+				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+
+				// verify no requests been sent
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(1, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(0, addContainerRequestFuturesNumCompleted.get());
+				assertEquals(0, pendingRequests.size());
+				assertEquals(1, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(1, rmServices.slotManager.getRequiredResources().get(workerResourceSpec).intValue());
+				assertEquals(1, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// wait previous container timeout.
+				verifyFutureCompleted(addContainerRequestFutures.get(0));
+				Thread.sleep(10);
+
+				// verify 2 recovered container released and request 1 new containers.
+				assertEquals(0, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(1, addContainerRequestFuturesNumCompleted.get());
+				assertEquals(1, pendingRequests.size());
+				assertEquals(1, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(1, rmServices.slotManager.getRequiredResources().get(workerResourceSpec).intValue());
+				assertEquals(1, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+			});
+		}};
+	}
+
+	/**
+	 * Test Previous container in blacklist.
+	 * 1. get 4 previous container in same host.
+	 * 2. 2 container completed, this host is in blacklist.
+	 * 3. request 4 container, will release another 2 previous container and request 4 new container.
+	 */
+	@Test
+	public void testPreviousContainerInBlacklist() throws Exception {
+		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		flinkConfig.setBoolean(BlacklistOptions.TASKMANAGER_BLACKLIST_ENABLED, true);
+		new Context() {{
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				addContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			final List<CompletableFuture<Acknowledge>> removeContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				removeContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger removeContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			testingYarnAMRMClientAsync.setAddContainerRequestConsumer(
+					(request, ignore) -> {
+						pendingRequests.add(request);
+						addContainerRequestFutures.get(addContainerRequestFuturesNumCompleted.getAndIncrement()).complete(request.getCapability());
+					});
+
+			testingYarnAMRMClientAsync.setRemoveContainerRequestConsumer(
+					(r, ignore) -> {
+						pendingRequests.remove(r);
+						removeContainerRequestFutures.get(removeContainerRequestFuturesNumCompleted.getAndIncrement()).complete(Acknowledge.get());
+					});
+
+			testingYarnAMRMClientAsync.setGetMatchingRequestsFunction(
+					tuple -> Collections.singletonList(
+							pendingRequests.stream()
+									.filter(r -> r.getCapability().equals(tuple.f2))
+									.collect(Collectors.toList())));
+
+			// prepare 4 previous container.
+			List<Container> previousContainers = Arrays.asList(
+					createTestingContainerWithHost(resourceManager.getContainerResource(workerResourceSpec).get(), "host1"),
+					createTestingContainerWithHost(resourceManager.getContainerResource(workerResourceSpec).get(), "host1"),
+					createTestingContainerWithHost(resourceManager.getContainerResource(workerResourceSpec).get(), "host1"),
+					createTestingContainerWithHost(resourceManager.getContainerResource(workerResourceSpec).get(), "host1"));
+			RegisterApplicationMasterResponse registerApplicationMasterResponse = RegisterApplicationMasterResponse.newInstance(
+					Resource.newInstance(0, 0),
+					Resource.newInstance(Integer.MAX_VALUE, Integer.MAX_VALUE),
+					Collections.emptyMap(),
+					null,
+					previousContainers,
+					null,
+					Collections.emptyList());
+			testingYarnAMRMClientAsync.setRegisterApplicationMasterFunction(
+					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
+
+			runTest(() -> {
+				// verify get 2 previous containers
+				assertEquals(4, resourceManager.getWorkerNodeMap().size());
+				assertEquals(4, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// register 000000, 000001.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+				registerTaskExecutor(previousContainers.get(0), rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				registerTaskExecutor(previousContainers.get(1), rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				Thread.sleep(100);
+				assertEquals(4, resourceManager.getWorkerNodeMap().size());
+				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(0, resourceManager.getYarnBlackedHosts().size());
+				assertEquals(0, addContainerRequestFuturesNumCompleted.get());
+				assertEquals(0, pendingRequests.size());
+				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// container 000000,000001 completed. this host will be blacked.
+				ContainerStatus testingContainerStatus = createTestingContainerStatus(previousContainers.get(0).getId());
+				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
+				testingContainerStatus = createTestingContainerStatus(previousContainers.get(1).getId());
+				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
+				// wait container completed finish.
+				Thread.sleep(200);
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(1, resourceManager.getYarnBlackedHosts().size());
+				assertEquals(0, addContainerRequestFuturesNumCompleted.get());
+				assertEquals(0, pendingRequests.size());
+				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// request 2 containers.
+				for (int i = 0; i < 4; i++) {
+					registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+				}
+				// verify 2 previous container in blacklist will be release and start 2 new containers.
+				verifyFutureCompleted(addContainerRequestFutures.get(0));
+				verifyFutureCompleted(addContainerRequestFutures.get(1));
+				Thread.sleep(10);
+
+				// verify no requests been sent
+				assertEquals(0, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(4, addContainerRequestFuturesNumCompleted.get());
+				assertEquals(4, pendingRequests.size());
+				assertEquals(4, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(4, rmServices.slotManager.getRequiredResources().get(workerResourceSpec).intValue());
+				assertEquals(4, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+			});
 		}};
 	}
 
@@ -815,8 +1502,180 @@ public class YarnResourceManagerTest extends TestLogger {
 		}};
 	}
 
+	@Test
+	public void testGetContainersFromPreviousAttempts() throws Exception {
+		long defaultSlowContainerTimeout = 120000;
+		flinkConfig.setBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED, true);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, defaultSlowContainerTimeout);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
+		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		flinkConfig.setLong(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_TIMEOUT_MS, 120000L);
+		new Context() {{
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				addContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			final List<CompletableFuture<Acknowledge>> removeContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				removeContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger removeContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			testingYarnAMRMClientAsync.setAddContainerRequestConsumer(
+					(request, ignore) -> {
+						pendingRequests.add(request);
+						addContainerRequestFutures.get(addContainerRequestFuturesNumCompleted.getAndIncrement()).complete(request.getCapability());
+					});
+
+			testingYarnAMRMClientAsync.setRemoveContainerRequestConsumer(
+					(r, ignore) -> {
+						pendingRequests.remove(r);
+						removeContainerRequestFutures.get(removeContainerRequestFuturesNumCompleted.getAndIncrement()).complete(Acknowledge.get());
+					});
+
+			testingYarnAMRMClientAsync.setGetMatchingRequestsFunction(
+					tuple -> Collections.singletonList(
+							pendingRequests.stream()
+									.filter(r -> r.getCapability().equals(tuple.f2))
+									.collect(Collectors.toList())));
+
+			List<Container> previousContainers = new ArrayList<>();
+			for (int i = 0; i < 10; i++) {
+				previousContainers.add(createTestingContainer());
+			}
+
+			RegisterApplicationMasterResponse registerApplicationMasterResponse = RegisterApplicationMasterResponse.newInstance(
+					Resource.newInstance(0, 0),
+					Resource.newInstance(Integer.MAX_VALUE, Integer.MAX_VALUE),
+					Collections.emptyMap(),
+					null,
+					previousContainers,
+					null,
+					Collections.emptyList());
+			testingYarnAMRMClientAsync.setRegisterApplicationMasterFunction(
+					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
+
+			runTest(() -> {
+				// get 10 previous containers
+				resourceManager.getContainersFromPreviousAttempts(registerApplicationMasterResponse);
+
+				// register 3 container, 000000~000002.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+				for (int i = 0; i < 3; i++) {
+					Container container = previousContainers.get(i);
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				}
+				assertEquals(3, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(3, rmServices.slotManager.getNumberFreeSlots());
+
+				// request 20 containers.
+				for (int i = 0; i < 20; i++) {
+					registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+				}
+
+				// verify actually 10 requests been sent
+				for (int i = 0; i < 10; i++) {
+					verifyFutureCompleted(addContainerRequestFutures.get(i));
+				}
+
+				assertEquals(10, pendingRequests.size());
+				assertEquals(17, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(17, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// register 7 previous container, 000003~000009.
+				for (int i = 3; i < 10; i++) {
+					Container container = previousContainers.get(i);
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				}
+
+				Thread.sleep(1000);
+				assertEquals(10, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(10, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(10, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// allocated 10 container.
+				List<Container> testContainers = new ArrayList<>();
+				for (int i = 0; i < 10; i++) {
+					testContainers.add(createTestingContainer());
+				}
+				// Mock that containers is allocated
+				resourceManager.onContainersAllocated(testContainers.subList(0, 10));
+
+				// Verify 10 pending requests has removed.
+				for (int i = 0; i < 10; i++) {
+					verifyFutureCompleted(removeContainerRequestFutures.get(i));
+				}
+				assertEquals(0, pendingRequests.size());
+
+				// 10 new TaskExecutor start
+				for (int i = 0; i < 10; i++) {
+					Container container = testContainers.get(i);
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				}
+				Thread.sleep(1000);
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(20, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+			});
+		}};
+	}
+
 	private boolean containsStartCommand(ContainerLaunchContext containerLaunchContext, String command) {
 		return containerLaunchContext.getCommands().stream().anyMatch(str -> str.contains(command));
+	}
+
+	protected void registerTaskExecutor(
+			Container container,
+			ResourceManagerGateway rmGateway,
+			TestingRpcService rpcService,
+			HardwareDescription hardwareDescription,
+			ResourceProfile resourceProfile) throws ExecutionException, InterruptedException {
+
+		String address = container.getNodeId().getHost() + ":" + container.getNodeId().getPort();
+
+		rpcService.registerGateway(
+				address,
+				new TestingTaskExecutorGatewayBuilder()
+						.setAddress(address)
+						.setHostname(container.getNodeId().getHost())
+						.createTestingTaskExecutorGateway());
+
+		ResourceID taskManagerResourceId = new ResourceID(container.getId().toString());
+		SlotReport slotReport = new SlotReport(
+				new SlotStatus(
+						new SlotID(taskManagerResourceId, 1),
+						resourceProfile));
+
+		TaskExecutorRegistration taskExecutorRegistration = new TaskExecutorRegistration(
+				address,
+				taskManagerResourceId,
+				container.getNodeId().getPort(),
+				hardwareDescription,
+				new TaskExecutorMemoryConfiguration(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L),
+				ResourceProfile.ZERO,
+				ResourceProfile.ZERO);
+
+		CompletableFuture<Acknowledge> registerTaskExecutorFuture = rmGateway
+				.registerTaskExecutor(
+						taskExecutorRegistration,
+						Time.seconds(10L))
+				.thenCompose(
+						(RegistrationResponse response) -> {
+							assertThat(response, instanceOf(TaskExecutorRegistrationSuccess.class));
+							final TaskExecutorRegistrationSuccess success = (TaskExecutorRegistrationSuccess) response;
+							return rmGateway.sendSlotReport(
+									taskManagerResourceId,
+									success.getRegistrationId(),
+									slotReport,
+									Time.seconds(10L));
+						});
+		registerTaskExecutorFuture.get();
 	}
 
 	protected void registerSlotRequest(

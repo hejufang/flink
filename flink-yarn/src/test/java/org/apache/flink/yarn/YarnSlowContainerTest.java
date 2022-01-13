@@ -18,27 +18,15 @@
 
 package org.apache.flink.yarn;
 
-import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
-import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
-import org.apache.flink.runtime.clusterframework.types.SlotID;
-import org.apache.flink.runtime.instance.HardwareDescription;
 import org.apache.flink.runtime.messages.Acknowledge;
-import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
-import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
-import org.apache.flink.runtime.rpc.TestingRpcService;
-import org.apache.flink.runtime.taskexecutor.SlotReport;
-import org.apache.flink.runtime.taskexecutor.SlotStatus;
-import org.apache.flink.runtime.taskexecutor.TaskExecutorMemoryConfiguration;
-import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
-import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGatewayBuilder;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.slowcontainer.SlowContainerManagerImpl;
 
@@ -56,15 +44,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -885,52 +870,6 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				assertNotEquals(defaultSlowContainerTimeout, slowContainerManager.getSpeculativeSlowContainerTimeoutMs());
 			});
 		}};
-	}
-
-	private void registerTaskExecutor(
-			Container container,
-			ResourceManagerGateway rmGateway,
-			TestingRpcService rpcService,
-			HardwareDescription hardwareDescription,
-			ResourceProfile resourceProfile) throws ExecutionException, InterruptedException {
-
-		rpcService.registerGateway(
-				container.getNodeId().getHost(),
-				new TestingTaskExecutorGatewayBuilder()
-						.setAddress(container.getNodeId().getHost() + ":" + container.getNodeId().getPort())
-						.setHostname(container.getNodeId().getHost())
-						.createTestingTaskExecutorGateway());
-
-		ResourceID taskManagerResourceId = new ResourceID(container.getId().toString());
-		SlotReport slotReport = new SlotReport(
-				new SlotStatus(
-						new SlotID(taskManagerResourceId, 1),
-						resourceProfile));
-
-		TaskExecutorRegistration taskExecutorRegistration = new TaskExecutorRegistration(
-				container.getNodeId().getHost(),
-				taskManagerResourceId,
-				container.getNodeId().getPort(),
-				hardwareDescription,
-				new TaskExecutorMemoryConfiguration(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L),
-				ResourceProfile.ZERO,
-				ResourceProfile.ZERO);
-
-		CompletableFuture<Acknowledge> registerTaskExecutorFuture = rmGateway
-				.registerTaskExecutor(
-						taskExecutorRegistration,
-						Time.seconds(10L))
-				.thenCompose(
-						(RegistrationResponse response) -> {
-							assertThat(response, instanceOf(TaskExecutorRegistrationSuccess.class));
-							final TaskExecutorRegistrationSuccess success = (TaskExecutorRegistrationSuccess) response;
-							return rmGateway.sendSlotReport(
-									taskManagerResourceId,
-									success.getRegistrationId(),
-									slotReport,
-									Time.seconds(10L));
-						});
-		registerTaskExecutorFuture.get();
 	}
 
 	// --------------------------------
