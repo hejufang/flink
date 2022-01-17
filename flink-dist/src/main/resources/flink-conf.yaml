@@ -1086,6 +1086,27 @@ sloth:
   bytedance.streaming.yarn.check.application.name.unique.region: true
   flink.cloud-shuffle-service.support: false
 
+snail:
+  dc: sg
+  clusterName: snail
+  high-availability.zookeeper.quorum: 10.245.24.23:2181,10.245.30.27:2181,10.245.30.47:2181,10.245.9.27:2181,10.245.9.34:2181
+  hdfs.prefix: hdfs://harunasg/flink_sg_sg1
+  checkpoint.hdfs.prefix: hdfs://harunasg/home/byte_flink_checkpoint_alisg
+  dashboard.data_source: bytetsd_alisg
+  dtop.data_source: dtop_alisg
+  dtop.database: dtop_alisg
+  smart-resources.service-name: data.inf.sr_estimater.service.sg1
+  kafka_server_url: http://kafka-config-sg.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_sg
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-sin-hub.byted.org
+  docker.region: Aliyun_SG
+  jobmeta.db.name: flink_meta_sg
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
+  bytedance.streaming.yarn.check.application.name.unique.region: true
+  flink.cloud-shuffle-service.support: false
+
 snake:
   dc: sg
   clusterName: snake
