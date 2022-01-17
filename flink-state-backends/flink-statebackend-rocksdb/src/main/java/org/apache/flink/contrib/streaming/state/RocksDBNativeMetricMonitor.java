@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -91,6 +92,8 @@ public class RocksDBNativeMetricMonitor implements Closeable {
 	private final TagGauge stateSizeTagGauge;
 	private final TagGauge stateNumberCompactionGauge;
 
+	private final Consumer<Long> taskLocalStateSizeListener;
+
 	static final String COLUMN_FAMILY_KEY = "column_family";
 
 	@GuardedBy("lock")
@@ -127,6 +130,12 @@ public class RocksDBNativeMetricMonitor implements Closeable {
 			this.stateInformation = null;
 			this.stateSizeTagGauge = null;
 			this.stateNumberCompactionGauge = null;
+		}
+
+		if (options.getLocalStateSizeConsumer() == null) {
+			this.taskLocalStateSizeListener = size -> {};
+		} else {
+			this.taskLocalStateSizeListener = options.getLocalStateSizeConsumer();
 		}
 	}
 
@@ -179,6 +188,7 @@ public class RocksDBNativeMetricMonitor implements Closeable {
 	 * property information of rocksdb.
 	 */
 	private TagGaugeStore calculateStateSize() {
+		long taskLocalStateSize = 0L;
 		for (Map.Entry<String, ColumnFamilyHandle> state : stateInformation.entrySet()) {
 			try {
 				// memory usage
@@ -196,6 +206,7 @@ public class RocksDBNativeMetricMonitor implements Closeable {
 					.addTagValue(STATE_SIZE_TYPE_KEY, STATE_DISK_SIZE_TYPE)
 					.build();
 				stateSizeTagGauge.addMetric(sstTotalSize, tagValues);
+				taskLocalStateSize += sstTotalSize.longValue();
 
 				// state total size
 				BigInteger totalSize = memTableUsage.add(sstTotalSize);
@@ -212,6 +223,7 @@ public class RocksDBNativeMetricMonitor implements Closeable {
 				break;
 			}
 		}
+		taskLocalStateSizeListener.accept(taskLocalStateSize);
 		return stateSizeTagGauge.getValue();
 	}
 

@@ -30,6 +30,7 @@ import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.execution.librarycache.FlinkUserCodeClassLoaders;
 import org.apache.flink.runtime.registration.RetryingRegistrationConfiguration;
+import org.apache.flink.runtime.state.LocalStateManageConfig;
 import org.apache.flink.runtime.util.ClusterEntrypointUtils;
 import org.apache.flink.runtime.util.ConfigurationParserUtils;
 import org.apache.flink.util.NetUtils;
@@ -87,6 +88,8 @@ public class TaskManagerServicesConfiguration {
 
 	private final int numIoThreads;
 
+	private final LocalStateManageConfig localStateManageConfig;
+
 	private TaskManagerServicesConfiguration(
 			Configuration configuration,
 			ResourceID resourceID,
@@ -106,7 +109,8 @@ public class TaskManagerServicesConfiguration {
 			Optional<Time> systemResourceMetricsProbingInterval,
 			FlinkUserCodeClassLoaders.ResolveOrder classLoaderResolveOrder,
 			String[] alwaysParentFirstLoaderPatterns,
-			int numIoThreads) {
+			int numIoThreads,
+			LocalStateManageConfig localStateManageConfig) {
 		this.configuration = checkNotNull(configuration);
 		this.resourceID = checkNotNull(resourceID);
 
@@ -133,6 +137,7 @@ public class TaskManagerServicesConfiguration {
 		this.retryingRegistrationConfiguration = checkNotNull(retryingRegistrationConfiguration);
 
 		this.systemResourceMetricsProbingInterval = checkNotNull(systemResourceMetricsProbingInterval);
+		this.localStateManageConfig = localStateManageConfig;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -224,6 +229,10 @@ public class TaskManagerServicesConfiguration {
 		return numIoThreads;
 	}
 
+	public LocalStateManageConfig getLocalStateManageConfig() {
+		return localStateManageConfig;
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Parsing of Flink configuration
 	// --------------------------------------------------------------------------------------------
@@ -273,6 +282,9 @@ public class TaskManagerServicesConfiguration {
 
 		final int numIoThreads = ClusterEntrypointUtils.getPoolSize(configuration);
 
+		final long expectedMaxLocalStateSize = configuration.get(CheckpointingOptions.EXPECTED_LOCAL_STATE_MAX_SIZE).getBytes();
+		final long actualMaxLocalStateSize = configuration.get(CheckpointingOptions.ACTUAL_LOCAL_STATE_MAX_SIZE).getBytes();
+		final boolean failExceedQuotaTask = configuration.get(CheckpointingOptions.ENABLE_FAIL_EXCEED_QUOTA_TASK);
 		return new TaskManagerServicesConfiguration(
 			configuration,
 			resourceID,
@@ -292,6 +304,7 @@ public class TaskManagerServicesConfiguration {
 			ConfigurationUtils.getSystemResourceMetricsProbingInterval(configuration),
 			FlinkUserCodeClassLoaders.ResolveOrder.fromString(classLoaderResolveOrder),
 			alwaysParentFirstLoaderPatterns,
-			numIoThreads);
+			numIoThreads,
+			new LocalStateManageConfig(expectedMaxLocalStateSize, actualMaxLocalStateSize, failExceedQuotaTask));
 	}
 }

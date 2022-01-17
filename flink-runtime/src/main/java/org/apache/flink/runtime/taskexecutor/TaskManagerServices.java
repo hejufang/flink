@@ -343,7 +343,9 @@ public class TaskManagerServices {
 
 		final TaskExecutorLocalStateStoresManager taskStateManager = new TaskExecutorLocalStateStoresManager(
 			taskManagerServicesConfiguration.isLocalRecoveryEnabled(),
+			taskManagerMetricGroup,
 			stateRootDirectoryFiles,
+			taskManagerServicesConfiguration.getLocalStateManageConfig(),
 			ioExecutor);
 
 		final boolean failOnJvmMetaspaceOomError =

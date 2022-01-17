@@ -72,4 +72,9 @@ public interface TaskStateManager extends CheckpointListener, AutoCloseable {
 	LocalRecoveryConfig createLocalRecoveryConfig();
 
 	ChannelStateReader getChannelStateReader();
+
+	/** Reports the size of the local state. */
+	default void reportTaskLocalStateSize(long taskLocalStateSize) {
+		// do nothing
+	}
 }

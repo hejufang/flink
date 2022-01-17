@@ -693,6 +693,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 
 		ExecutionConfig executionConfig = env.getExecutionConfig();
 		StreamCompressionDecorator keyGroupCompressionDecorator = getCompressionDecorator(executionConfig);
+		RocksDBNativeMetricOptions rocksDBNativeMetricOptions = resourceContainer.getMemoryWatcherOptions(defaultMetricOptions)
+			.setLocalStateSizeConsumer(env.getTaskStateManager()::reportTaskLocalStateSize);
 		RocksDBKeyedStateBackendBuilder<K> builder = new RocksDBKeyedStateBackendBuilder<>(
 			operatorIdentifier,
 			env.getUserClassLoader(),
@@ -716,7 +718,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			.setEnableIncrementalCheckpointing(isIncrementalCheckpointsEnabled())
 			.setNumberOfTransferingThreads(getNumberOfTransferThreads())
 			.setDataTransferMaxRetryTimes(getDataTransferMaxRetryTimes())
-			.setNativeMetricOptions(resourceContainer.getMemoryWatcherOptions(defaultMetricOptions))
+			.setNativeMetricOptions(rocksDBNativeMetricOptions)
 			.setWriteBatchSize(getWriteBatchSize())
 			.setDiscardStatesIfRocksdbRecoverFail(getDiscardStatesIfRocksdbRecoverFail())
 			.setIsDiskValid(isDiskValid)

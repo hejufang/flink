@@ -307,6 +307,11 @@ common:
   state.backend.cache.maxGcTimeThreshold: 10000
   state.backend.cache.lowHeapThreshold: 0.4
 
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 2048g
+  state.backend.fail-exceed-quota-task.enable: false
+
 # yarn clusters
 flink:
   dc: cn

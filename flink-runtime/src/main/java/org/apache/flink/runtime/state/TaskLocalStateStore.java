@@ -78,4 +78,12 @@ public interface TaskLocalStateStore {
 	 * @param matcher the predicate that selects the checkpoints for pruning.
 	 */
 	void pruneMatchingCheckpoints(LongPredicate matcher);
+
+	/**
+	 * Notify the local state size of the task.
+	 * @param taskLocalStateSize the size of the local state of the task.
+	 */
+	default void reportLocalStateSize(long taskLocalStateSize) {
+		// do nothing
+	}
 }

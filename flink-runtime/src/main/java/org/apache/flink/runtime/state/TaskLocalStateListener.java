@@ -16,38 +16,27 @@
  * limitations under the License.
  */
 
-package org.apache.flink.metrics;
+package org.apache.flink.runtime.state;
+
+import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.clusterframework.types.AllocationID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 
 /**
- * The type of {@link Message}.
+ * The listener of the task's local state, which is used to monitor the total state size of the task.
  */
-public enum MessageType {
+public interface TaskLocalStateListener {
 
-	CHECKPOINT("checkpoint"),
+	/** Notify the size of the local state. */
+	void notifyTaskLocalStateSize(AllocationID allocationID, JobID jobID, JobVertexID jobVertexID, int subtaskIndex, long localStateSize);
 
-	CHECKPOINT_CONFIG("checkpoint_config"),
-
-	ORIGINAL_METRICS("original_metrics"),
-
-	BLACKLIST("blacklist"),
-
-	JOB_CONFIG("job_config"),
-
-	JOB_START_EVENT("job_start_event"),
-
-	SNAPSHOT("snapshot"),
-
-	RESTORE("restore"),
-
-	CACHE_LAYER("cache_layer"),
-
-	CHECKPOINT_PLACEHOLDER("checkpoint_placeholder"),
-
-	LOCAL_STATE("local_state");
-
-	private final String name;
-
-	MessageType(final String name) {
-		this.name = name;
+	/**
+	 * A listener with no action.
+	 */
+	class NonTaskLocalStateListener implements TaskLocalStateListener {
+		@Override
+		public void notifyTaskLocalStateSize(AllocationID allocationID, JobID jobID, JobVertexID jobVertexID, int subtaskIndex, long localStateSize) {
+			// do nothing
+		}
 	}
 }

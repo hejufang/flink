@@ -348,4 +348,19 @@ public class CheckpointingOptions {
 		.stringType()
 		.noDefaultValue()
 		.withDeprecatedKeys("HDFS path prefix for expired checkpoint");
+
+	public static final ConfigOption<MemorySize> EXPECTED_LOCAL_STATE_MAX_SIZE = ConfigOptions
+		.key("state.backend.local-state.expected-max-size")
+		.defaultValue(MemorySize.MAX_VALUE)
+		.withDescription("The maximum size of the local state in the TaskManager.");
+
+	public static final ConfigOption<MemorySize> ACTUAL_LOCAL_STATE_MAX_SIZE = ConfigOptions
+		.key("state.backend.local-state.actual-max-size")
+		.defaultValue(MemorySize.MAX_VALUE)
+		.withDescription("The maximum size of the local state in the TaskManager.");
+
+	public static final ConfigOption<Boolean> ENABLE_FAIL_EXCEED_QUOTA_TASK = ConfigOptions
+		.key("state.backend.fail-exceed-quota-task.enable")
+		.defaultValue(false)
+		.withDescription("Whether to fail the task whose quota exceeds the limit.");
 }

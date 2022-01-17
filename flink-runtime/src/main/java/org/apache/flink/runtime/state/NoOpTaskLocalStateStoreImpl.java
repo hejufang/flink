@@ -18,8 +18,15 @@
 
 package org.apache.flink.runtime.state;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
+import org.apache.flink.runtime.clusterframework.types.AllocationID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -32,12 +39,44 @@ import java.util.function.LongPredicate;
  */
 public final class NoOpTaskLocalStateStoreImpl implements OwnedTaskLocalStateStore {
 
+	/** Logger for this class. */
+	private static final Logger LOG = LoggerFactory.getLogger(NoOpTaskLocalStateStoreImpl.class);
+
+	/** JobID from the owning subtask. */
+	@Nonnull
+	private final JobID jobID;
+
+	/** AllocationID of the owning slot. */
+	@Nonnull
+	private final AllocationID allocationID;
+
+	/** JobVertexID of the owning subtask. */
+	@Nonnull
+	private final JobVertexID jobVertexID;
+
+	/** Subtask index of the owning subtask. */
+	@Nonnegative
+	private final int subtaskIndex;
+
 	/** The configuration for local recovery. */
 	@Nonnull
 	private final LocalRecoveryConfig localRecoveryConfig;
 
-	NoOpTaskLocalStateStoreImpl(@Nonnull LocalRecoveryConfig localRecoveryConfig) {
+	private final TaskLocalStateListener localStateListener;
+
+	public NoOpTaskLocalStateStoreImpl(
+			@Nonnull JobID jobID,
+			@Nonnull AllocationID allocationID,
+			@Nonnull JobVertexID jobVertexID,
+			int subtaskIndex,
+			@Nonnull LocalRecoveryConfig localRecoveryConfig,
+			TaskLocalStateListener localStateListener) {
+		this.jobID = jobID;
+		this.allocationID = allocationID;
+		this.jobVertexID = jobVertexID;
+		this.subtaskIndex = subtaskIndex;
 		this.localRecoveryConfig = localRecoveryConfig;
+		this.localStateListener = localStateListener;
 	}
 
 	@Nonnull
@@ -71,5 +110,14 @@ public final class NoOpTaskLocalStateStoreImpl implements OwnedTaskLocalStateSto
 
 	@Override
 	public void pruneMatchingCheckpoints(LongPredicate matcher) {
+	}
+
+	@Override
+	public void reportLocalStateSize(long taskLocalStateSize) {
+		try {
+			localStateListener.notifyTaskLocalStateSize(allocationID, jobID, jobVertexID, subtaskIndex, taskLocalStateSize);
+		} catch (Exception e) {
+			LOG.warn("Update metrics failed, ignore", e);
+		}
 	}
 }

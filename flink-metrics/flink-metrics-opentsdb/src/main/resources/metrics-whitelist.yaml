@@ -77,7 +77,8 @@ global:
         numJobRequiredWorkers,
         numberOfRecoverSuccess,
         numberOfRecoverFailed,
-        numberOfCheckpointPlaceholderTransformed
+        numberOfCheckpointPlaceholderTransformed,
+        numberOfTmExceedQuota
     ]
 
 non-global:
@@ -266,6 +267,7 @@ non-global:
         stateAverageOpRate,
         stateTotalSize,
         stateMetricsOfCompactionFlush,
+        localStateSize,
       # cep
         numLateRecordsDropped,
         numLateRecordsOutput,

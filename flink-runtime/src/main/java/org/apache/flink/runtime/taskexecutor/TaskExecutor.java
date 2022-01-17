@@ -834,7 +834,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			jobId,
 			tdd.getAllocationId(),
 			taskInformation.getJobVertexId(),
-			tdd.getSubtaskIndex());
+			tdd.getSubtaskIndex(),
+			tdd.getExecutionAttemptId(),
+			taskManagerActions);
 
 		final JobManagerTaskRestore taskRestore = tdd.getTaskRestore();
 

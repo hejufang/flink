@@ -74,7 +74,8 @@ public class TaskLocalStateStoreImplTest {
 			localRecoveryConfig,
 			Executors.directExecutor(),
 			internalSnapshotMap,
-			internalLock);
+			internalLock,
+			new TaskLocalStateListener.NonTaskLocalStateListener());
 	}
 
 	@After

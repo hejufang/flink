@@ -99,6 +99,9 @@ public class TaskLocalStateStoreImpl implements OwnedTaskLocalStateStore {
 	@GuardedBy("lock")
 	private final SortedMap<Long, TaskStateSnapshot> storedTaskStateByCheckpointID;
 
+	/** The task's local state listener. */
+	private final TaskLocalStateListener localStateListener;
+
 	public TaskLocalStateStoreImpl(
 		@Nonnull JobID jobID,
 		@Nonnull AllocationID allocationID,
@@ -114,8 +117,28 @@ public class TaskLocalStateStoreImpl implements OwnedTaskLocalStateStore {
 			subtaskIndex,
 			localRecoveryConfig,
 			discardExecutor,
+			new TaskLocalStateListener.NonTaskLocalStateListener());
+	}
+
+	public TaskLocalStateStoreImpl(
+		@Nonnull JobID jobID,
+		@Nonnull AllocationID allocationID,
+		@Nonnull JobVertexID jobVertexID,
+		@Nonnegative int subtaskIndex,
+		@Nonnull LocalRecoveryConfig localRecoveryConfig,
+		@Nonnull Executor discardExecutor,
+		@Nonnull TaskLocalStateListener localStateListener) {
+
+		this(
+			jobID,
+			allocationID,
+			jobVertexID,
+			subtaskIndex,
+			localRecoveryConfig,
+			discardExecutor,
 			new TreeMap<>(),
-			new Object());
+			new Object(),
+			localStateListener);
 	}
 
 	@VisibleForTesting
@@ -127,7 +150,8 @@ public class TaskLocalStateStoreImpl implements OwnedTaskLocalStateStore {
 		@Nonnull LocalRecoveryConfig localRecoveryConfig,
 		@Nonnull Executor discardExecutor,
 		@Nonnull SortedMap<Long, TaskStateSnapshot> storedTaskStateByCheckpointID,
-		@Nonnull Object lock) {
+		@Nonnull Object lock,
+		@Nonnull TaskLocalStateListener localStateListener) {
 
 		this.jobID = jobID;
 		this.allocationID = allocationID;
@@ -138,6 +162,7 @@ public class TaskLocalStateStoreImpl implements OwnedTaskLocalStateStore {
 		this.storedTaskStateByCheckpointID = storedTaskStateByCheckpointID;
 		this.lock = lock;
 		this.disposed = false;
+		this.localStateListener = localStateListener;
 	}
 
 	@Override
@@ -359,6 +384,15 @@ public class TaskLocalStateStoreImpl implements OwnedTaskLocalStateStore {
 		}
 
 		asyncDiscardLocalStateForCollection(toRemove);
+	}
+
+	@Override
+	public void reportLocalStateSize(long taskLocalStateSize) {
+		try {
+			localStateListener.notifyTaskLocalStateSize(allocationID, jobID, jobVertexID, subtaskIndex, taskLocalStateSize);
+		} catch (Exception e) {
+			LOG.warn("Update metrics failed, ignore", e);
+		}
 	}
 
 	@Override

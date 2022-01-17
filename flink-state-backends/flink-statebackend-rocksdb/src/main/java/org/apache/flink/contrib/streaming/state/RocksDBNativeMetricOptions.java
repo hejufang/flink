@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Enable which RocksDB metrics to forward to Flink's metrics reporter.
@@ -309,6 +310,7 @@ public class RocksDBNativeMetricOptions implements Serializable {
 	private boolean columnFamilyAsVariable = COLUMN_FAMILY_AS_VARIABLE.defaultValue();
 	private boolean analyzeRocksdbMetrics;
 	private long cfstatsDumpInterval;
+	private transient Consumer<Long> localStateSizeConsumer;
 
 	public RocksDBNativeMetricOptions() {
 		this.properties = new HashSet<>();
@@ -551,5 +553,14 @@ public class RocksDBNativeMetricOptions implements Serializable {
 
 	public void setCfstatsDumpInterval(long cfstatsDumpInterval) {
 		this.cfstatsDumpInterval = cfstatsDumpInterval;
+	}
+
+	public Consumer<Long> getLocalStateSizeConsumer() {
+		return localStateSizeConsumer;
+	}
+
+	public RocksDBNativeMetricOptions setLocalStateSizeConsumer(Consumer<Long> localStateSizeConsumer) {
+		this.localStateSizeConsumer = localStateSizeConsumer;
+		return this;
 	}
 }

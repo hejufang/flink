@@ -25,11 +25,14 @@ import org.apache.flink.runtime.blob.VoidPermanentBlobService;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.Executors;
+import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorResourceUtils;
 import org.apache.flink.runtime.taskexecutor.TaskManagerServices;
 import org.apache.flink.runtime.taskexecutor.TaskManagerServicesConfiguration;
+import org.apache.flink.runtime.taskmanager.NoOpTaskManagerActions;
+import org.apache.flink.runtime.taskmanager.TaskManagerActions;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.TestLogger;
 
@@ -143,8 +146,11 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 			rootDirs,
 			Executors.directExecutor());
 
+		TaskManagerActions taskManagerActions = new NoOpTaskManagerActions();
+		ExecutionAttemptID executionAttemptID = new ExecutionAttemptID();
+
 		TaskLocalStateStore taskLocalStateStore =
-			storesManager.localStateStoreForSubtask(jobID, allocationID, jobVertexID, subtaskIdx);
+			storesManager.localStateStoreForSubtask(jobID, allocationID, jobVertexID, subtaskIdx, executionAttemptID, taskManagerActions);
 
 		LocalRecoveryDirectoryProvider directoryProvider =
 			taskLocalStateStore.getLocalRecoveryConfig().getLocalStateDirectoryProvider();
@@ -188,7 +194,7 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 		AllocationID otherAllocationID = new AllocationID();
 
 		taskLocalStateStore =
-			storesManager.localStateStoreForSubtask(jobID, otherAllocationID, jobVertexID, subtaskIdx);
+			storesManager.localStateStoreForSubtask(jobID, otherAllocationID, jobVertexID, subtaskIdx, executionAttemptID, taskManagerActions);
 
 		directoryProvider = taskLocalStateStore.getLocalRecoveryConfig().getLocalStateDirectoryProvider();
 

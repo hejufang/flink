@@ -199,4 +199,9 @@ public class TaskStateManagerImpl implements TaskStateManager {
 	public void close() throws Exception {
 		channelStateReader.close();
 	}
+
+	@Override
+	public void reportTaskLocalStateSize(long taskLocalStateSize) {
+		localStateStore.reportLocalStateSize(taskLocalStateSize);
+	}
 }

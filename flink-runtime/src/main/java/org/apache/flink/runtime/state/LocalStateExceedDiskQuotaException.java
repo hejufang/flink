@@ -7,7 +7,7 @@
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,38 +16,17 @@
  * limitations under the License.
  */
 
-package org.apache.flink.metrics;
+package org.apache.flink.runtime.state;
+
+import org.apache.flink.runtime.throwable.ThrowableAnnotation;
+import org.apache.flink.runtime.throwable.ThrowableType;
 
 /**
- * The type of {@link Message}.
+ * Exception thrown when the local state size exceeds the disk quota limit.
  */
-public enum MessageType {
-
-	CHECKPOINT("checkpoint"),
-
-	CHECKPOINT_CONFIG("checkpoint_config"),
-
-	ORIGINAL_METRICS("original_metrics"),
-
-	BLACKLIST("blacklist"),
-
-	JOB_CONFIG("job_config"),
-
-	JOB_START_EVENT("job_start_event"),
-
-	SNAPSHOT("snapshot"),
-
-	RESTORE("restore"),
-
-	CACHE_LAYER("cache_layer"),
-
-	CHECKPOINT_PLACEHOLDER("checkpoint_placeholder"),
-
-	LOCAL_STATE("local_state");
-
-	private final String name;
-
-	MessageType(final String name) {
-		this.name = name;
+@ThrowableAnnotation(ThrowableType.NonRecoverableError)
+public class LocalStateExceedDiskQuotaException extends Exception {
+	public LocalStateExceedDiskQuotaException(String message) {
+		super(message);
 	}
 }
