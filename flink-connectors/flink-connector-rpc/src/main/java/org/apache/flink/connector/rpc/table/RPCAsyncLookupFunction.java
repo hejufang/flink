@@ -54,6 +54,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -64,6 +65,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.flink.connector.rpc.util.ObjectUtil.generateSetMethodName;
+
 /**
  * An async lookup function for reading from RPC server.
  * A dimension RPC table consists of a breakup request and a row type response.
@@ -73,6 +76,7 @@ import java.util.concurrent.TimeUnit;
 public class RPCAsyncLookupFunction extends AsyncTableFunction<RowData> {
 	private static final long serialVersionUID = 1L;
 	private static final Logger LOG = LoggerFactory.getLogger(RPCAsyncLookupFunction.class);
+	private static final long UPDATE_INTERVAL = 3_600_000L;
 
 	private final RPCLookupOptions rpcLookupOptions;
 	private final RPCOptions rpcOptions;
@@ -85,12 +89,15 @@ public class RPCAsyncLookupFunction extends AsyncTableFunction<RowData> {
 	private final FlinkConnectorRateLimiter rateLimiter;
 	private final Map<String, String> reusedExtraMap;
 	private String psm;
+	private transient String extraInfoJson;
+	private transient long lastUpdateTime;
 	private transient RowJavaBeanConverter requestConverter;
 	private transient RowJavaBeanConverter responseConverter;
 	private transient Cache<RowData, RowData> cache;
 	private transient ExecutorService executor;
 	private transient Field baseField;
 	private transient Field extraField;
+	private transient Method extraFieldSetMethod;
 	private transient Meter lookupRequestPerSecond;
 	private transient Meter lookupFailurePerSecond;
 	private transient Histogram requestDelayMs;
@@ -139,13 +146,28 @@ public class RPCAsyncLookupFunction extends AsyncTableFunction<RowData> {
 		responseConverter = RowJavaBeanConverter.create(responseClass, getResponseDataType(dataType));
 		requestConverter.open(RPCAsyncLookupFunction.class.getClassLoader());
 		responseConverter.open(RPCAsyncLookupFunction.class.getClassLoader());
-		initPsmInfo();
+		initBaseInfo();
 	}
 
+
 	/**
-	 * Init some information for setting psm into the request object.
+	 * Init some information for setting base information for the request object.
+	 * the common base idl is:
+	 * struct TrafficEnv {
+	 *     1: bool Open = false,
+	 *     2: string Env = "",
+	 * }
+	 * struct Base {
+	 *     1: string LogID = "",
+	 *     2: string Caller = "",
+	 *     3: string Addr = "",
+	 *     4: string Client = "",
+	 *     5: optional TrafficEnv TrafficEnv,
+	 *     6: optional map&lt;string, string&gt; Extra
+	 * }
+	 * base will always be a required root field for any kind of request.
 	 */
-	private void initPsmInfo() {
+	private void initBaseInfo() {
 		if (psm == null) {
 			psm = SecUtil.getIdentityFromToken().PSM;
 		}
@@ -161,12 +183,15 @@ public class RPCAsyncLookupFunction extends AsyncTableFunction<RowData> {
 			}
 		}
 		if (baseField != null) {
-			Class<?> extraClass = baseField.getType();
+			Class<?> baseClass = baseField.getType();
 			try {
-				extraField = extraClass.getField("Extra");
+				extraField = baseClass.getField("Extra");
+				extraFieldSetMethod = baseClass.getMethod(generateSetMethodName("Extra"), extraField.getType());
 			} catch (Exception e) {
 				try {
-					extraField = extraClass.getField("extra");
+					extraField = baseClass.getField("extra");
+					extraFieldSetMethod = baseClass
+						.getMethod(generateSetMethodName("Extra"), extraField.getType());
 				} catch (Exception e2) {
 					LOG.info("There is no Extra or extra field in request class, cannot set extra.");
 				}
@@ -178,26 +203,31 @@ public class RPCAsyncLookupFunction extends AsyncTableFunction<RowData> {
 		Map<String, String> extraMap = new HashMap<>();
 		Discovery discovery = new Discovery();
 		extraMap.put("idc", discovery.dc);
-		final StringWriter writer = new StringWriter(1024);
-
-		final JsonFactory factory = new JsonFactory();
-		final JsonGenerator gen;
-		String userExtra;
-		try {
-			gen = factory.createGenerator(writer);
-			gen.writeStartObject();
-			gen.writeStringField("gdpr-token", SecUtil.getGDPRToken());
-			gen.writeStringField("dest_service", rpcOptions.getConsul());
-			gen.writeStringField("dest_cluster", rpcOptions.getCluster() == null ? "default" : rpcOptions.getCluster());
-			gen.writeStringField("dest_method", rpcOptions.getThriftMethod());
-			gen.writeEndObject();
-			gen.close();
-			userExtra =  writer.toString();
-		} catch (IOException e) {
-			throw new RuntimeException("Failed to generate plan", e);
-		}
-		extraMap.put("user_extra", userExtra);
 		return extraMap;
+	}
+
+	private String generateUserExtraJson() {
+		long now = System.currentTimeMillis();
+		if (extraInfoJson == null || now - lastUpdateTime > UPDATE_INTERVAL) {
+			final StringWriter writer = new StringWriter(1024);
+			final JsonFactory factory = new JsonFactory();
+			final JsonGenerator gen;
+			try {
+				gen = factory.createGenerator(writer);
+				gen.writeStartObject();
+				gen.writeStringField("RPC_TRANSIT_gdpr-token", SecUtil.getGDPRToken(true));
+				gen.writeStringField("dest_service", rpcOptions.getConsul());
+				gen.writeStringField("dest_cluster", rpcOptions.getCluster() == null ? "default" : rpcOptions.getCluster());
+				gen.writeStringField("dest_method", rpcOptions.getThriftMethod());
+				gen.writeEndObject();
+				gen.close();
+				extraInfoJson = writer.toString();
+				lastUpdateTime = now;
+			} catch (IOException e) {
+				throw new RuntimeException("Failed to generate plan", e);
+			}
+		}
+		return extraInfoJson;
 	}
 
 	/**
@@ -315,9 +345,12 @@ public class RPCAsyncLookupFunction extends AsyncTableFunction<RowData> {
 	protected void addBaseInfoToRequest(Object thriftRequestObj, String logID) {
 		if (baseField != null) {
 			try {
-				ObjectUtil.setPsm(thriftRequestObj, baseField, psm);
-				ObjectUtil.setLogID(thriftRequestObj, baseField, logID);
-				ObjectUtil.setUserExtra(thriftRequestObj, baseField, extraField, reusedExtraMap);
+				if (extraField != null) {
+					//Update the gdpr token.
+					reusedExtraMap.put("user_extra", generateUserExtraJson());
+				}
+				ObjectUtil.updateOrCreateBase(thriftRequestObj, baseField, extraField, extraFieldSetMethod,
+					psm, logID, reusedExtraMap);
 			} catch (Exception ex) {
 				throw new FlinkRuntimeException(ex);
 			}

@@ -20,50 +20,38 @@ package org.apache.flink.connector.rpc.util;
 import org.apache.flink.api.java.tuple.Tuple2;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Map;
 
 /** Util for manipulating objects.*/
 public class ObjectUtil {
-	public static void setPsm(Object requestObject, Field baseField, String psm) throws IllegalAccessException,
-			InstantiationException, NoSuchFieldException {
+	public static void updateOrCreateBase(
+			Object requestObject,
+			Field baseField,
+			Field extraField,
+			Method extraFieldSetMethod,
+			String psm,
+			String logID,
+			Map<String, String> extraMap) throws Exception {
 		Object oriBase = baseField.get(requestObject);
 		Class<?> baseClass = baseField.getType();
 		if (oriBase == null) {
 			oriBase = baseClass.newInstance();
 		}
 		baseClass.getField("Caller").set(oriBase, psm);
-		baseField.set(requestObject, oriBase);
-	}
-
-	public static void setLogID(Object requestObject, Field baseField, String logID) throws IllegalAccessException,
-			InstantiationException, NoSuchFieldException {
-		Object oriBase = baseField.get(requestObject);
-		Class<?> baseClass = baseField.getType();
-		if (oriBase == null) {
-			oriBase = baseClass.newInstance();
-		}
 		baseClass.getField("LogID").set(oriBase, logID);
-		baseField.set(requestObject, oriBase);
-	}
-
-	public static void setUserExtra(
-			Object requestObject,
-			Field baseField,
-			Field extraField,
-			Map<String, String> extraMap) throws IllegalAccessException, InstantiationException {
-		Object oriBase = baseField.get(requestObject);
-		Class<?> baseClass = baseField.getType();
-		if (oriBase == null) {
-			oriBase = baseClass.newInstance();
+		if (extraField != null) {
+			Map<String, String> extra = (Map<String, String>) extraField.get(oriBase);
+			if (extra != null) {
+				extraMap.forEach((key, value) ->
+					extra.merge(key, value, (v1, v2) -> v1));
+				extraFieldSetMethod.invoke(oriBase, extra);
+			} else {
+				extraFieldSetMethod.invoke(oriBase, extraMap);
+			}
 		}
-		Map<String, String> extra = (Map<String, String>) extraField.get(oriBase);
-		if (extra != null) {
-			extraMap.forEach((key, value) ->
-				extra.merge(key, value, (v1, v2) -> v1));
-		}
-		extraField.set(oriBase, extra);
 		baseField.set(requestObject, oriBase);
 	}
 
