@@ -25,8 +25,10 @@ import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.types.logical.RowType;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -80,7 +82,9 @@ public class MySQLDialect extends AbstractDialect {
 	 */
 	@Override
 	public Optional<String> getUpsertStatement(String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+		final Set<String> uniqueKeyFieldsSet = new HashSet<>(Arrays.asList(uniqueKeyFields));
 		String updateClause = Arrays.stream(fieldNames)
+			.filter(f -> !uniqueKeyFieldsSet.contains(f))
 			.map(f -> quoteIdentifier(f) + "=VALUES(" + quoteIdentifier(f) + ")")
 			.collect(Collectors.joining(", "));
 		return Optional.of(getInsertIntoStatement(tableName, fieldNames) +
