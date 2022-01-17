@@ -30,7 +30,7 @@ common:
   state.backend: rocksdb
   state.checkpoints.dir: ${checkpoint.hdfs.prefix}/1.11/flink/fs_checkpoint_dir
   state.backend.incremental: true
-  state.checkpoints.num-retained: 10
+  state.checkpoints.num-retained: 3
   state.backend.rocksdb.checkpoint.transfer.thread.num: 4
   state.backend.rocksdb.use-fsync: true
   state.backend.rocksdb.log.level: info_level
