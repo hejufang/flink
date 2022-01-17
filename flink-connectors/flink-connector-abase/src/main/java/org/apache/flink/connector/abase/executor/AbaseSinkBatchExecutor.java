@@ -28,6 +28,7 @@ import java.util.List;
  * Executes commands in batch for incoming records.
  */
 public abstract class AbaseSinkBatchExecutor<T> implements Serializable {
+	private static final long serialVersionUID = 1L;
 
 	protected ExecuteFunction<T> execution;
 

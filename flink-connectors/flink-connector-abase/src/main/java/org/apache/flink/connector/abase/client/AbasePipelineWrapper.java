@@ -108,6 +108,11 @@ public class AbasePipelineWrapper implements ClientPipeline {
 	}
 
 	@Override
+	public Response<Long> hexpires(byte[] key, int seconds) {
+		return abasePipeline.Hsetexpires(key, seconds);
+	}
+
+	@Override
 	public Response<Long> lexpires(String key, int seconds) {
 		return abasePipeline.Lsetexpires(key, seconds);
 	}

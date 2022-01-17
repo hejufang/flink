@@ -59,6 +59,8 @@ public interface ClientPipeline extends AutoCloseable, Serializable {
 
 	Response<Long> hexpires(String key, int seconds);
 
+	Response<Long> hexpires(byte[] key, int seconds);
+
 	Response<Long> lexpires(String key, int seconds);
 
 	Response<Long> sexpires(String key, int seconds);

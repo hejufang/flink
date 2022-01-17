@@ -16,13 +16,10 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.abase.utils;
+package org.apache.flink.connector.abase;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
-import org.apache.flink.connector.abase.AbaseTableFactory;
-import org.apache.flink.connector.abase.AbaseTableSink;
-import org.apache.flink.connector.abase.AbaseTableSource;
 import org.apache.flink.connector.abase.options.AbaseLookupOptions;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;

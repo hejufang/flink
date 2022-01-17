@@ -26,6 +26,7 @@ import org.apache.flink.connector.abase.executor.AbaseSinkBatchExecutor;
 import org.apache.flink.connector.abase.executor.AbaseSinkBatchExecutor.ExecuteFunction;
 import org.apache.flink.connector.abase.executor.AbaseSinkBufferReduceExecutor;
 import org.apache.flink.connector.abase.executor.AbaseSinkGenericExecutor;
+import org.apache.flink.connector.abase.executor.AbaseSinkHashBufferReduceExecutor;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.AbaseClientTableUtils;
@@ -38,7 +39,6 @@ import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
-import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -150,7 +150,8 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	 * easily deserialized in this code design mode (lamda function).
 	 */
 	private void initBatchExecutor() {
-		// Check if commands can be reduced.
+		// The data of general string type kv with format or in insert mode should be buffered and reduced
+		// for that execution of pipeline is out of order.
 		if (serializationSchema != null || sinkOptions.getMode().equals(AbaseSinkMode.INSERT)
 			&& normalOptions.getAbaseValueType().equals(AbaseValueType.GENERAL)) {
 			AbaseSinkBufferReduceExecutor.ValueExtractor keyExtractor =
@@ -163,10 +164,20 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 			}
 			batchExecutor = new AbaseSinkBufferReduceExecutor((pipeline, record) ->
 				writeStringValue(pipeline, record.f0, record.f1), keyExtractor, valueExtractor);
+
+		// The data of hash type in insert mode should also be reduced or merged
+		// because of disorder of pipeline execution.
+		} else if (sinkOptions.getMode() == AbaseSinkMode.INSERT
+			&& normalOptions.getAbaseValueType().equals(AbaseValueType.HASH)) {
+			batchExecutor = new AbaseSinkHashBufferReduceExecutor(fieldGetters, converter, sinkOptions);
+
 		} else {
+			// The data of general or hash data type can be reduced but not compulsive.
 			if (sinkOptions.getMode() == AbaseSinkMode.INCR) {
 				ExecuteFunction<RowData> incrFunction = getIncrFunction();
 				batchExecutor = new AbaseSinkGenericExecutor(incrFunction);
+
+			// The data of list, set or zset couldn't be reduced.
 			} else {
 				ExecuteFunction<RowData> insertFunction = getInsertFunction();
 				batchExecutor = new AbaseSinkGenericExecutor(insertFunction);
@@ -326,8 +337,6 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 				return this::writeList;
 			case SET:
 				return this::writeSet;
-			case HASH:
-				return this::writeHash;
 			case ZSET:
 				return this::writeZSet;
 			default:
@@ -361,41 +370,6 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		}
 		if (sinkOptions.getTtlSeconds() > 0) {
 			pipeline.sexpires(key.toString(), sinkOptions.getTtlSeconds());
-		}
-	}
-
-	private void writeHash(ClientPipeline pipeline, RowData record) {
-		Object key;
-		if (record.getArity() == 2) {
-			Row res = (Row) converter.toExternal(record);
-			key = res.getField(0);
-			Object hashMap = res.getField(1);
-			if (hashMap == null) {
-				throw new FlinkRuntimeException(String.format("The hashmap of %s should not be null.", key));
-			}
-			Map<byte[], byte[]> byteMap = convertHashMap((Map<String, String>) hashMap);
-			if (record.getRowKind() == RowKind.DELETE) {
-				pipeline.hdel(key.toString().getBytes(), byteMap.keySet().toArray(new byte[][]{}));
-				return;
-			}
-			pipeline.hmset(key.toString().getBytes(), byteMap);
-		} else {
-			key = fieldGetters[0].getFieldOrNull(record);
-			Object hashKey = fieldGetters[1].getFieldOrNull(record);
-			Object hashValue = fieldGetters[2].getFieldOrNull(record);
-			if (hashKey == null || hashValue == null) {
-				throw new FlinkRuntimeException(
-					String.format("Neither hash key nor hash value of %s should not be " +
-						"null, the hash key: %s, the hash value: %s", key, hashKey, hashValue));
-			}
-			if (record.getRowKind() == RowKind.DELETE) {
-				pipeline.hdel(key.toString().getBytes(), hashKey.toString().getBytes());
-				return;
-			}
-			pipeline.hset(key.toString().getBytes(), hashKey.toString().getBytes(), hashValue.toString().getBytes());
-		}
-		if (sinkOptions.getTtlSeconds() > 0) {
-			pipeline.hexpires(key.toString(), sinkOptions.getTtlSeconds());
 		}
 	}
 
