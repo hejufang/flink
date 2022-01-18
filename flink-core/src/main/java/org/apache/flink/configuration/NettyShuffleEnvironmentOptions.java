@@ -338,6 +338,18 @@ public class NettyShuffleEnvironmentOptions {
 			.defaultValue(0L)
 			.withDescription("Request network segment from local buffer timeout, 0 for waiting until some other segments are available.");
 
+	public static final ConfigOption<Boolean> NETWORK_CHANNEL_REUSE_ENABLE =
+		key("taskmanager.network.channel-reuse.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("TaskManager will reuse netty channel between job execution.");
+
+	public static final ConfigOption<Long> NETWORK_CHANNEL_IDLE_TOLERANT_TIME_MS =
+		key("taskmanager.network.channel-idle-tolerant-time-ms")
+			.longType()
+			.defaultValue(300_000L)
+			.withDescription("The time (in ms) to keep the netty channel which isn't assign to any task.");
+
 	/** Not intended to be instantiated. */
 	private NettyShuffleEnvironmentOptions() {}
 }

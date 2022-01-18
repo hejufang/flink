@@ -46,7 +46,12 @@ public class ExternalBlockShuffleService {
 		NettyConfig nettyConfig = shuffleServiceConfiguration.getNettyConfig();
 		bufferPool = new NettyBufferPool(nettyConfig.getNumberOfArenas());
 		TaskEventDispatcher taskEventDispatcher = new TaskEventDispatcher();
-		nettyConnectionManager = new NettyConnectionManager(partitionProvider, taskEventDispatcher, nettyConfig);
+		nettyConnectionManager = new NettyConnectionManager(
+			partitionProvider,
+			taskEventDispatcher,
+			nettyConfig,
+			shuffleServiceConfiguration.getChannelReuseEnable(),
+			shuffleServiceConfiguration.getChannelIdleReleaseTimeMs());
 	}
 
 	public void start() throws IOException {

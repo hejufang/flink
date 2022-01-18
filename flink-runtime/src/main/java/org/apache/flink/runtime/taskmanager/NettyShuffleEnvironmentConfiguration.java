@@ -85,6 +85,10 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final Duration requestNetworkSegmentTimeout;
 
+	private final boolean channelReuseEnable;
+
+	private final long channelIdleReleaseTimeMs;
+
 	public NettyShuffleEnvironmentConfiguration(
 			int numNetworkBuffers,
 			int networkBufferSize,
@@ -104,7 +108,9 @@ public class NettyShuffleEnvironmentConfiguration {
 			long maxDelayTimeMs,
 			boolean isRecoverable,
 			boolean lazyAllocate,
-			Duration requestNetworkSegmentTimeout) {
+			Duration requestNetworkSegmentTimeout,
+			boolean channelReuseEnable,
+			long channelIdleReleaseTimeMs) {
 
 		this.numNetworkBuffers = numNetworkBuffers;
 		this.networkBufferSize = networkBufferSize;
@@ -125,6 +131,8 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.isRecoverable = isRecoverable;
 		this.lazyAllocate = lazyAllocate;
 		this.requestNetworkSegmentTimeout = requestNetworkSegmentTimeout;
+		this.channelReuseEnable = channelReuseEnable;
+		this.channelIdleReleaseTimeMs = channelIdleReleaseTimeMs;
 	}
 
 	// ------------------------------------------------------------------------
@@ -205,6 +213,13 @@ public class NettyShuffleEnvironmentConfiguration {
 		return requestNetworkSegmentTimeout;
 	}
 
+	public boolean isChannelReuseEnable() {
+		return channelReuseEnable;
+	}
+
+	public long getChannelIdleReleaseTimeMs() {
+		return channelIdleReleaseTimeMs;
+	}
 	// ------------------------------------------------------------------------
 
 	/**
@@ -264,6 +279,8 @@ public class NettyShuffleEnvironmentConfiguration {
 		boolean lazyAllocate = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BUFFERS_MEMORY_LAZY_ALLOCATE);
 		Duration requestNetworkSegmentTimeout = Duration.ofMillis(configuration.getLong(
 				NettyShuffleEnvironmentOptions.NETWORK_BUFFER_MEMORY_REQUEST_TIMEOUT_MILLS));
+		boolean channelReuseEnable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_CHANNEL_REUSE_ENABLE);
+		long channelIdleReleaseTimeMs = configuration.getLong(NettyShuffleEnvironmentOptions.NETWORK_CHANNEL_IDLE_TOLERANT_TIME_MS);
 
 		return new NettyShuffleEnvironmentConfiguration(
 			numberOfNetworkBuffers,
@@ -284,7 +301,9 @@ public class NettyShuffleEnvironmentConfiguration {
 			maxDelayTimeMs,
 			isRecoverable,
 			lazyAllocate,
-			requestNetworkSegmentTimeout);
+			requestNetworkSegmentTimeout,
+			channelReuseEnable,
+			channelIdleReleaseTimeMs);
 	}
 
 	/**
@@ -455,6 +474,8 @@ public class NettyShuffleEnvironmentConfiguration {
 				", blockingShuffleCompressionEnabled=" + blockingShuffleCompressionEnabled +
 				", compressionCodec=" + compressionCodec +
 				", maxBuffersPerChannel=" + maxBuffersPerChannel +
+				", channelReuseEnable=" + channelReuseEnable +
+				", channelIdleReleaseTimeMs=" + channelIdleReleaseTimeMs +
 				'}';
 	}
 }

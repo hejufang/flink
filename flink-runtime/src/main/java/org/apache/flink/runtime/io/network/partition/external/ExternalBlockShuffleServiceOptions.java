@@ -151,6 +151,18 @@ public class ExternalBlockShuffleServiceOptions {
 				"min(configured value, 4M * flink.shuffle-service.server-thread-number), otherwise the netty memory size will be " +
 				"min(1/2 * flink.shuffle-service.direct-memory-limit-in-mb, 4M * flink.shuffle-service.server-thread-number).");
 
+	public static final ConfigOption<Boolean> NETTY_CHANNEL_REUSE_ENABLE =
+		key("flink.shuffle-service.channel-reuse.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("ExternalBlockShuffleService will reuse netty channel between job execution.");
+
+	public static final ConfigOption<Long> NETTY_CHANNEL_IDLE_TOLERANT_TIME_MS =
+		key("flink.shuffle-service.channel-idle-tolerant-time-ms")
+			.longType()
+			.defaultValue(300_000L)
+			.withDescription("The time (in ms) to keep the netty channel which isn't assign to any task.");
+
 	/**
 	 * The memory size of one buffer, in bytes.
 	 */

@@ -29,6 +29,9 @@ import java.io.IOException;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
+/**
+ * Connection manager manages netty channels.
+ */
 public class NettyConnectionManager implements ConnectionManager {
 
 	private final NettyServer server;
@@ -41,28 +44,52 @@ public class NettyConnectionManager implements ConnectionManager {
 
 	private final NettyProtocol nettyProtocol;
 
+	private final boolean channelReuseEnable;
+
 	public NettyConnectionManager(
 		ResultPartitionProvider partitionProvider,
 		TaskEventPublisher taskEventPublisher,
 		NettyConfig nettyConfig) {
+		this(partitionProvider, taskEventPublisher, nettyConfig, false, 0L);
+	}
+
+	public NettyConnectionManager(
+			ResultPartitionProvider partitionProvider,
+			TaskEventPublisher taskEventPublisher,
+			NettyConfig nettyConfig,
+			boolean channelReuseEnable,
+			long channelIdleReleaseTimeMs) {
 
 		this.server = new NettyServer(nettyConfig);
 		this.client = new NettyClient(nettyConfig);
 		this.bufferPool = new NettyBufferPool(nettyConfig.getNumberOfArenas());
 
-		this.partitionRequestClientFactory = new PartitionRequestClientFactory(client);
+		this.partitionRequestClientFactory = new PartitionRequestClientFactory(
+			client,
+			channelReuseEnable,
+			channelIdleReleaseTimeMs);
 
-		this.nettyProtocol = new NettyProtocol(checkNotNull(partitionProvider), checkNotNull(taskEventPublisher));
+		this.nettyProtocol = new NettyProtocol(checkNotNull(partitionProvider), checkNotNull(taskEventPublisher), channelReuseEnable);
+		this.channelReuseEnable = channelReuseEnable;
 	}
-
 
 	public NettyConnectionManager(
 		ResultPartitionProvider partitionProvider,
 		TaskEventPublisher taskEventPublisher,
 		NettyConfig nettyConfig,
 		MetricGroup metricGroup) {
+		this(partitionProvider, taskEventPublisher, nettyConfig, metricGroup, false, 0L);
+	}
 
-		this(partitionProvider, taskEventPublisher, nettyConfig);
+	public NettyConnectionManager(
+			ResultPartitionProvider partitionProvider,
+			TaskEventPublisher taskEventPublisher,
+			NettyConfig nettyConfig,
+			MetricGroup metricGroup,
+			boolean channelReuseEnable,
+			long channelIdleReleaseTimeMs) {
+
+		this(partitionProvider, taskEventPublisher, nettyConfig, channelReuseEnable, channelIdleReleaseTimeMs);
 		this.client.registerConnectRetryTimesMetrics(metricGroup);
 	}
 
@@ -91,6 +118,9 @@ public class NettyConnectionManager implements ConnectionManager {
 
 	@Override
 	public void shutdown() {
+		if (channelReuseEnable) {
+			partitionRequestClientFactory.shutdownChannelManager();
+		}
 		client.shutdown();
 		server.shutdown();
 	}

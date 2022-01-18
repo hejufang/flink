@@ -60,19 +60,37 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 
 	private final PartitionRequestClientFactory clientFactory;
 
+	private final boolean channelReuseEnable;
+
 	/** If zero, the underlying TCP channel can be safely closed. */
 	private final AtomicDisposableReferenceCounter closeReferenceCounter = new AtomicDisposableReferenceCounter();
+
+	NettyPartitionRequestClient(
+		Channel tcpChannel,
+		NetworkClientHandler clientHandler,
+		ConnectionID connectionId,
+		PartitionRequestClientFactory clientFactory
+	) {
+		this(
+			tcpChannel,
+			clientHandler,
+			connectionId,
+			clientFactory,
+			false);
+	}
 
 	NettyPartitionRequestClient(
 			Channel tcpChannel,
 			NetworkClientHandler clientHandler,
 			ConnectionID connectionId,
-			PartitionRequestClientFactory clientFactory) {
+			PartitionRequestClientFactory clientFactory,
+			boolean channelReuseEnable) {
 
 		this.tcpChannel = checkNotNull(tcpChannel);
 		this.clientHandler = checkNotNull(clientHandler);
 		this.connectionId = checkNotNull(connectionId);
 		this.clientFactory = checkNotNull(clientFactory);
+		this.channelReuseEnable = channelReuseEnable;
 	}
 
 	boolean disposeIfNotUsed() {
@@ -188,10 +206,14 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 		clientHandler.removeInputChannel(inputChannel);
 
 		if (closeReferenceCounter.decrement()) {
-			// Close the TCP connection. Send a close request msg to ensure
-			// that outstanding backwards task events are not discarded.
-			tcpChannel.writeAndFlush(new NettyMessage.CloseRequest())
+			if (channelReuseEnable) {
+				clientHandler.cancelRequestFor(inputChannel.getInputChannelId());
+			} else {
+				// Close the TCP connection. Send a close request msg to ensure
+				// that outstanding backwards task events are not discarded.
+				tcpChannel.writeAndFlush(new NettyMessage.CloseRequest())
 					.addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+			}
 
 			// Make sure to remove the client from the factory
 			clientFactory.destroyPartitionRequestClient(connectionId, this);

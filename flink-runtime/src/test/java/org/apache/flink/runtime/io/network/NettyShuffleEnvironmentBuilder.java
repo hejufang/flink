@@ -72,6 +72,10 @@ public class NettyShuffleEnvironmentBuilder {
 
 	private Duration requestNetworkSegmentTimeout = Duration.ofMillis(0L);
 
+	private boolean channelReuseEnable = false;
+
+	private long channelIdleReleaseTimeMs = 0L;
+
 	public NettyShuffleEnvironmentBuilder setTaskManagerLocation(ResourceID taskManagerLocation) {
 		this.taskManagerLocation = taskManagerLocation;
 		return this;
@@ -147,6 +151,16 @@ public class NettyShuffleEnvironmentBuilder {
 		return this;
 	}
 
+	public NettyShuffleEnvironmentBuilder setChannelReuseEnable(boolean channelReuseEnable) {
+		this.channelReuseEnable = channelReuseEnable;
+		return this;
+	}
+
+	public NettyShuffleEnvironmentBuilder setChannelIdleReleaseTimeMs(long channelIdleReleaseTimeMs) {
+		this.channelIdleReleaseTimeMs = channelIdleReleaseTimeMs;
+		return this;
+	}
+
 	public NettyShuffleEnvironment build() {
 		return NettyShuffleServiceFactory.createNettyShuffleEnvironment(
 			new NettyShuffleEnvironmentConfiguration(
@@ -168,7 +182,9 @@ public class NettyShuffleEnvironmentBuilder {
 				5,
 				false,
 				false,
-				requestNetworkSegmentTimeout),
+				requestNetworkSegmentTimeout,
+				channelReuseEnable,
+				channelIdleReleaseTimeMs),
 			taskManagerLocation,
 			new TaskEventDispatcher(),
 			resultPartitionManager,

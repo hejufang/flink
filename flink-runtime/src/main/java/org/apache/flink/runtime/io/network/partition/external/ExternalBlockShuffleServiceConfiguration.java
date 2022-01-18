@@ -104,6 +104,10 @@ public class ExternalBlockShuffleServiceConfiguration {
 
 	private final Long heapMemoryThresholdInBytes;
 
+	private final Boolean channelReuseEnable;
+
+	private final Long channelIdleReleaseTimeMs;
+
 	private ExternalBlockShuffleServiceConfiguration(
 		Configuration configuration,
 		NettyConfig nettyConfig,
@@ -122,7 +126,9 @@ public class ExternalBlockShuffleServiceConfiguration {
 		Long selfCheckIntervalInMS,
 		Long memoryShrinkageIntervalInMS,
 		Long objectMinIdleIntervalToShrinkInMS,
-		Long heapMemoryThresholdInBytes) {
+		Long heapMemoryThresholdInBytes,
+		Boolean channelReuseEnable,
+		Long channelIdleReleaseTimeMs) {
 
 		this.configuration = Preconditions.checkNotNull(configuration);
 		this.nettyConfig = Preconditions.checkNotNull(nettyConfig);
@@ -142,6 +148,8 @@ public class ExternalBlockShuffleServiceConfiguration {
 		this.memoryShrinkageIntervalInMS = memoryShrinkageIntervalInMS;
 		this.objectMinIdleIntervalToShrinkInMS = objectMinIdleIntervalToShrinkInMS;
 		this.heapMemoryThresholdInBytes = heapMemoryThresholdInBytes;
+		this.channelReuseEnable = channelReuseEnable;
+		this.channelIdleReleaseTimeMs = channelIdleReleaseTimeMs;
 	}
 
 	// ---------------------------------- Getters -----------------------------------------------------
@@ -226,6 +234,14 @@ public class ExternalBlockShuffleServiceConfiguration {
 
 	Long getHeapMemoryThresholdInBytes() {
 		return heapMemoryThresholdInBytes;
+	}
+
+	Boolean getChannelReuseEnable() {
+		return channelReuseEnable;
+	}
+
+	Long getChannelIdleReleaseTimeMs() {
+		return channelIdleReleaseTimeMs;
 	}
 
 	private static NettyConfig createNettyConfig(Configuration configuration) {
@@ -379,6 +395,12 @@ public class ExternalBlockShuffleServiceConfiguration {
 		}
 		Long heapMemoryThresholdInBytes = heapMemoryLimitInBytes * heapMemoryToStartShrinkingInPercentage / 100;
 
+		Boolean channelReuseEnable = configuration.getBoolean(
+			ExternalBlockShuffleServiceOptions.NETTY_CHANNEL_REUSE_ENABLE);
+
+		Long channelIdleReleaseTimeMs = configuration.getLong(
+			ExternalBlockShuffleServiceOptions.NETTY_CHANNEL_IDLE_TOLERANT_TIME_MS);
+
 		return new ExternalBlockShuffleServiceConfiguration(
 			configuration,
 			nettyConfig,
@@ -397,7 +419,9 @@ public class ExternalBlockShuffleServiceConfiguration {
 			selfCheckIntervalInMS,
 			memoryShrinkageIntervalInMS,
 			objectMinIdleIntervalToShrinkInMS,
-			heapMemoryThresholdInBytes);
+			heapMemoryThresholdInBytes,
+			channelReuseEnable,
+			channelIdleReleaseTimeMs);
 	}
 
 	@Override

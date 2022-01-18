@@ -65,6 +65,17 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 
 	private ChannelHandlerContext ctx;
 
+	private final boolean channelReuseEnable;
+
+	public PartitionRequestQueue() {
+		this(false);
+	}
+
+	public PartitionRequestQueue(boolean channelReuseEnable) {
+		super();
+		this.channelReuseEnable = channelReuseEnable;
+	}
+
 	@Override
 	public void channelRegistered(final ChannelHandlerContext ctx) throws Exception {
 		if (this.ctx == null) {

@@ -51,8 +51,25 @@ class PartitionRequestClientFactory {
 
 	private final ConcurrentMap<ConnectionID, Object> clients = new ConcurrentHashMap<ConnectionID, Object>();
 
+	private final NettyChannelManager nettyChannelManager;
+
+	private final boolean channelReuseEnable;
+
 	PartitionRequestClientFactory(NettyClient nettyClient) {
+		this(nettyClient, false, 0L);
+	}
+
+	PartitionRequestClientFactory(
+			NettyClient nettyClient,
+			boolean channelReuseEnable,
+			long channelIdleReleaseTimeMs) {
 		this.nettyClient = nettyClient;
+		this.channelReuseEnable = channelReuseEnable;
+		if (channelReuseEnable) {
+			this.nettyChannelManager = new NettyChannelManager(channelIdleReleaseTimeMs);
+		} else {
+			this.nettyChannelManager = null;
+		}
 	}
 
 	/**
@@ -62,6 +79,11 @@ class PartitionRequestClientFactory {
 	NettyPartitionRequestClient createPartitionRequestClient(ConnectionID connectionId) throws IOException, InterruptedException {
 		Object entry;
 		NettyPartitionRequestClient client = null;
+
+		if (channelReuseEnable) {
+			assert nettyChannelManager != null;
+			nettyChannelManager.addReference(connectionId);
+		}
 
 		while (client == null) {
 			entry = clients.get(connectionId);
@@ -79,11 +101,33 @@ class PartitionRequestClientFactory {
 				}
 			}
 			else {
+				if (channelReuseEnable) {
+					// Multiple subtasks might request idle channel at the same time.
+					// If there is no available channel can be used, it will go to original
+					// channel construction flow.
+					NettyChannelManager.ChannelInfo channelInfo = nettyChannelManager.getChannel(connectionId);
+					if (channelInfo.isAvailable() && clients.get(connectionId) == null) {
+						NettyPartitionRequestClient reuseClient = new NettyPartitionRequestClient(
+							channelInfo.getChannel(),
+							channelInfo.getClientHandler(),
+							connectionId,
+							this,
+							true);
+						// 1. update request client bookkeeping table with reused channel
+						// 2. go back to beginning and follow original workflow
+						// Note: It will not go back to this branch again because bookkeeping has this
+						//       connectionID record now.
+						clients.putIfAbsent(connectionId, reuseClient);
+						continue;
+					}
+				}
+
 				// No channel yet. Create one, but watch out for a race.
 				// We create a "connecting future" and atomically add it to the map.
 				// Only the thread that really added it establishes the channel.
 				// The others need to wait on that original establisher's future.
-				ConnectingChannel connectingChannel = new ConnectingChannel(nettyClient, connectionId, this);
+				ConnectingChannel connectingChannel = new ConnectingChannel(
+						nettyClient, connectionId, this, channelReuseEnable, nettyChannelManager);
 				Object old = clients.putIfAbsent(connectionId, connectingChannel);
 
 				if (old == null) {
@@ -135,7 +179,16 @@ class PartitionRequestClientFactory {
 	 * Removes the client for the given {@link ConnectionID}.
 	 */
 	void destroyPartitionRequestClient(ConnectionID connectionId, PartitionRequestClient client) {
+		if (channelReuseEnable) {
+			nettyChannelManager.releaseChannel(connectionId);
+		}
 		clients.remove(connectionId, client);
+	}
+
+	void shutdownChannelManager() {
+		if (channelReuseEnable) {
+			nettyChannelManager.shutdown();
+		}
 	}
 
 	static final class ConnectingChannel implements ChannelFutureListener {
@@ -150,12 +203,23 @@ class PartitionRequestClientFactory {
 
 		private NettyClient nettyClient;
 
+		private boolean channelReuseEnable;
+
+		private NettyChannelManager nettyChannelManager;
+
 		private int retryTimes = 0;
 
-		public ConnectingChannel(NettyClient nettyClient, ConnectionID connectionId, PartitionRequestClientFactory clientFactory) {
+		public ConnectingChannel(
+				NettyClient nettyClient,
+				ConnectionID connectionId,
+				PartitionRequestClientFactory clientFactory,
+				boolean channelReuseEnable,
+				NettyChannelManager nettyChannelManager) {
 			this.nettyClient = nettyClient;
 			this.connectionId = connectionId;
 			this.clientFactory = clientFactory;
+			this.channelReuseEnable = channelReuseEnable;
+			this.nettyChannelManager = nettyChannelManager;
 		}
 
 		private boolean dispose() {
@@ -180,12 +244,15 @@ class PartitionRequestClientFactory {
 				try {
 					NetworkClientHandler clientHandler = channel.pipeline().get(NetworkClientHandler.class);
 					partitionRequestClient = new NettyPartitionRequestClient(
-						channel, clientHandler, connectionId, clientFactory);
+						channel, clientHandler, connectionId, clientFactory, channelReuseEnable);
 
 					if (disposeRequestClient) {
 						partitionRequestClient.disposeIfNotUsed();
 					}
 
+					if (channelReuseEnable) {
+						nettyChannelManager.addChannel(connectionId, channel, clientHandler);
+					}
 					connectLock.notifyAll();
 				}
 				catch (Throwable t) {

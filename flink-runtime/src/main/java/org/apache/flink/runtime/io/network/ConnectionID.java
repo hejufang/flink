@@ -68,6 +68,10 @@ public class ConnectionID implements Serializable {
 
 	@Override
 	public boolean equals(Object other) {
+		if (other == null) {
+			return false;
+		}
+
 		if (other.getClass() != ConnectionID.class) {
 			return false;
 		}

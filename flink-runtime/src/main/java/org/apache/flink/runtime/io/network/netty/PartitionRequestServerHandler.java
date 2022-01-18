@@ -117,17 +117,14 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 				}
 			} else if (msgClazz == CancelPartitionRequest.class) {
 				CancelPartitionRequest request = (CancelPartitionRequest) msg;
-
 				outboundQueue.cancel(request.receiverId);
 			} else if (msgClazz == CloseRequest.class) {
 				outboundQueue.close();
 			} else if (msgClazz == AddCredit.class) {
 				AddCredit request = (AddCredit) msg;
-
 				outboundQueue.addCreditOrResumeConsumption(request.receiverId, reader -> reader.addCredit(request.credit));
 			} else if (msgClazz == ResumeConsumption.class) {
 				ResumeConsumption request = (ResumeConsumption) msg;
-
 				outboundQueue.addCreditOrResumeConsumption(request.receiverId, NetworkSequenceViewReader::resumeConsumption);
 			} else {
 				LOG.warn("Received unexpected client request: {}", msg);
