@@ -26,6 +26,7 @@ import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.FSDataInputStream;
 import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.core.testutils.OneShotLatch;
@@ -477,6 +478,76 @@ public class StreamTaskTest extends TestLogger {
 				canceled = true;
 				interrupt();
 			}
+		}
+	}
+
+	@Test(timeout = 10000)
+	public void testTaskStuckInFailing() throws Exception {
+		syncLatch = new OneShotLatch();
+
+		Configuration taskManagerConfig = new Configuration();
+		taskManagerConfig.set(TaskManagerOptions.TASK_CANCELLATION_TIMEOUT, 1L);
+		StreamConfig cfg = new StreamConfig(taskManagerConfig);
+		FailingTaskManagerActions failingTaskManagerActions = new FailingTaskManagerActions();
+		try (NettyShuffleEnvironment shuffleEnvironment = new NettyShuffleEnvironmentBuilder().build()) {
+
+			Task task = new TestTaskBuilder(shuffleEnvironment)
+				.setTaskManagerConfig(taskManagerConfig)
+				.setInvokable(FailingTask.class)
+				.setTaskConfig(cfg.getConfiguration())
+				.setTaskManagerActions(failingTaskManagerActions)
+				.build();
+
+			task.startTaskThread();
+			while (!failingTaskManagerActions.fataError) {
+				Thread.sleep(100L);
+			}
+		}
+	}
+
+	/**
+	 * TaskManagerActions for test cancelWatchdog.
+	 */
+	public static class FailingTaskManagerActions implements TaskManagerActions{
+
+		private boolean fataError;
+
+		@Override
+		public void notifyFatalError(String message, Throwable cause) {
+			fataError = true;
+		}
+
+		@Override
+		public void failTask(ExecutionAttemptID executionAttemptID, Throwable cause) {
+
+		}
+
+		@Override
+		public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
+
+		}
+	}
+
+	/**
+	 * A task that get stuck in cleanup. It can be only shut down by watchdog.
+	 */
+	public static class FailingTask extends StreamTask<String, AbstractStreamOperator<String>> {
+
+		public FailingTask(Environment env) throws Exception {
+			super(env);
+		}
+
+		@Override
+		protected void init() {}
+
+		@Override
+		protected void processInput(MailboxDefaultAction.Controller controller) throws Exception {
+			throw new Exception("test exception");
+		}
+
+		@Override
+		protected void cleanUpInvoke() throws InterruptedException {
+			Thread.sleep(10000000L);
 		}
 	}
 

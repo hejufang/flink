@@ -252,6 +252,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	/** The thread that executes the task. */
 	private final Thread executingThread;
 
+	/** The thread that executes the task. */
+	private final Thread cancelWatchDogThread;
+
 	/** Parent group for all metrics of this task. */
 	private final TaskMetricGroup metrics;
 
@@ -512,6 +515,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 		// finally, create the executing thread, but do not start it
 		executingThread = new Thread(TASK_THREADS_GROUP, this, taskMetricNameWithSubtask);
+		cancelWatchDogThread = getWatchdogThread();
 
 		this.jobLogDetailDisable = jobLogDetailDisable;
 	}
@@ -845,6 +849,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			// we must make strictly sure that the invokable is accessible to the cancel() call
 			// by the time we switched to running.
 			this.invokable = invokable;
+			if (taskCancellationTimeout > 0) {
+				invokable.setCancelWatchDogThread(cancelWatchDogThread);
+			}
 
 			// switch to the RUNNING state, if that fails, we have been canceled/failed in the meantime
 			if (!transitionState(ExecutionState.DEPLOYING, ExecutionState.RUNNING)) {
@@ -1216,19 +1223,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 						if (taskCancellationTimeout > 0) {
 							LOG.info("Task {} starts watchdog thread.", taskMetricNameWithSubtask);
 							try {
-								Runnable cancelWatchdog = new TaskCancelerWatchDog(
-									executingThread,
-									taskManagerActions,
-									taskCancellationTimeout);
-
-								Thread watchDogThread = new Thread(
-									executingThread.getThreadGroup(),
-									cancelWatchdog,
-									String.format("Cancellation Watchdog for %s (%s).",
-										taskMetricNameWithSubtask, executionId));
-								watchDogThread.setDaemon(true);
-								watchDogThread.setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE);
-								watchDogThread.start();
+								cancelWatchDogThread.start();
 							} catch (Exception e) {
 								LOG.error("Task {} starts watchdog thread failed.", taskMetricNameWithSubtask, e);
 								throw new TaskCancelerWatchDogException(e);
@@ -1278,6 +1273,22 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 					current, taskMetricNameWithSubtask, executionId));
 			}
 		}
+	}
+
+	private Thread getWatchdogThread() {
+		Runnable cancelWatchdog = new TaskCancelerWatchDog(
+				executingThread,
+				taskManagerActions,
+				taskCancellationTimeout);
+
+		Thread watchDogThread = new Thread(
+				executingThread.getThreadGroup(),
+				cancelWatchdog,
+				String.format("Cancellation Watchdog for %s (%s).",
+						taskMetricNameWithSubtask, executionId));
+		watchDogThread.setDaemon(true);
+		watchDogThread.setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE);
+		return watchDogThread;
 	}
 
 	// ------------------------------------------------------------------------

@@ -29,6 +29,8 @@ import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.function.ThrowingRunnable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.Future;
@@ -64,11 +66,15 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public abstract class AbstractInvokable {
 
+	protected static final Logger LOG = LoggerFactory.getLogger(AbstractInvokable.class);
+
 	/** The environment assigned to this invokable. */
 	private final Environment environment;
 
 	/** Flag whether cancellation should interrupt the executing thread. */
 	private volatile boolean shouldInterruptOnCancel = true;
+
+	private Thread cancelWatchDogThread = null;
 
 	/**
 	 * Create an Invokable task and set its environment.
@@ -118,6 +124,10 @@ public abstract class AbstractInvokable {
 	 */
 	public void setShouldInterruptOnCancel(boolean shouldInterruptOnCancel) {
 		this.shouldInterruptOnCancel = shouldInterruptOnCancel;
+	}
+
+	public void setCancelWatchDogThread(Thread cancelWatchDogThread){
+		this.cancelWatchDogThread = cancelWatchDogThread;
 	}
 
 	/**
@@ -292,5 +302,15 @@ public abstract class AbstractInvokable {
 
 	public void dispatchOperatorEvent(OperatorID operator, SerializedValue<OperatorEvent> event) throws FlinkException {
 		throw new UnsupportedOperationException("dispatchOperatorEvent not supported by " + getClass().getName());
+	}
+
+	/**
+	 * Trigger triggerCancelWatchDog thread to check cancel timeout.
+	 */
+	protected void triggerCancelWatchDog() {
+		if (cancelWatchDogThread != null && !cancelWatchDogThread.isAlive()) {
+			LOG.info("task: {} start cancel watch dog", this.toString());
+			cancelWatchDogThread.start();
+		}
 	}
 }

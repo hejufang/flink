@@ -30,6 +30,7 @@ global:
         uptime,
         restartingTime,
         executionStateTime,
+        taskFailingTime,
         executionFailNum,
         executionFailNumRate,
         executionStatus,
@@ -285,6 +286,7 @@ non-global:
       # tm
         taskExecutorExecutionStateTime,
         numberOfTasks,
+        taskFailingTime,
       # heartbeat
         RMHeartbeatTimeoutFromJM,
         RMHeartbeatTimeoutFromTM,

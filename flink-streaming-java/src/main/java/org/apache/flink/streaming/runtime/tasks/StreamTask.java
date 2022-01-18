@@ -47,6 +47,7 @@ import org.apache.flink.runtime.io.network.api.writer.SingleRecordWriter;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
+import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
@@ -247,6 +248,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	private long latestAsyncCheckpointStartDelayNanos;
 
+	private volatile long startFailTime = 0;
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -355,6 +358,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	// ------------------------------------------------------------------------
 
 	protected abstract void init() throws Exception;
+
+	protected void registerMetric(){
+		getEnvironment().getMetricGroup().gauge(MetricNames.TASK_FAILING_TIME, this::getFailingTime);
+	}
 
 	protected void cancelTask() throws Exception {
 	}
@@ -504,6 +511,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 		// task specific initialization
 		init();
+		registerMetric();
 
 		// save the work of reloading state, etc, if the task is already canceled
 		if (canceled) {
@@ -590,6 +598,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			failing = !canceled;
 			try {
 				if (!canceled) {
+					startFailTime = System.currentTimeMillis();
+					triggerCancelWatchDog();
 					cancelTask();
 				}
 
@@ -601,6 +611,13 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			throw invokeException;
 		}
 		cleanUpInvoke();
+	}
+
+	private long getFailingTime() {
+		if (failing) {
+			return System.currentTimeMillis() - startFailTime;
+		}
+		return 0;
 	}
 
 	@VisibleForTesting
