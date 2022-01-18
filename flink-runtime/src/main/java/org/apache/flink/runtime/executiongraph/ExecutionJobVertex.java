@@ -306,9 +306,9 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 		}
 
 		Preconditions.checkArgument(maxParallelism > 0
-						&& maxParallelism <= KeyGroupRangeAssignment.UPPER_BOUND_MAX_PARALLELISM,
+						&& maxParallelism <= KeyGroupRangeAssignment.UPPER_BOUND_MAX_PARALLELISM_FORCE_CHECK,
 				"Overriding max parallelism is not in valid bounds (1..%s), found: %s",
-				KeyGroupRangeAssignment.UPPER_BOUND_MAX_PARALLELISM, maxParallelism);
+				KeyGroupRangeAssignment.UPPER_BOUND_MAX_PARALLELISM_FORCE_CHECK, maxParallelism);
 
 		this.maxParallelism = maxParallelism;
 	}

@@ -102,6 +102,8 @@ public abstract class Transformation<T> {
 	// Has to be equal to StreamGraphGenerator.UPPER_BOUND_MAX_PARALLELISM
 	public static final int UPPER_BOUND_MAX_PARALLELISM = 1 << 15;
 
+	public static final int UPPER_BOUND_MAX_PARALLELISM_FORCE_CHECK = 1 << 16;
+
 	public static final int DEFAULT_MANAGED_MEMORY_WEIGHT = 1;
 
 	// This is used to assign a unique ID to every Transformation
@@ -243,7 +245,7 @@ public abstract class Transformation<T> {
 	 * @param maxParallelism Maximum parallelism for this stream transformation.
 	 */
 	public void setMaxParallelism(int maxParallelism) {
-		OperatorValidationUtils.validateMaxParallelism(maxParallelism, UPPER_BOUND_MAX_PARALLELISM);
+		OperatorValidationUtils.validateMaxParallelism(maxParallelism, UPPER_BOUND_MAX_PARALLELISM_FORCE_CHECK);
 		this.maxParallelism = maxParallelism;
 	}
 

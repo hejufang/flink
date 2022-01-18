@@ -30,8 +30,11 @@ public final class KeyGroupRangeAssignment {
 	 */
 	public static final int DEFAULT_LOWER_BOUND_MAX_PARALLELISM = 1 << 10;
 
-	/** The (inclusive) upper bound for max parallelism. */
+	/** The auto computed upper bound for max parallelism. */
 	public static final int UPPER_BOUND_MAX_PARALLELISM = Transformation.UPPER_BOUND_MAX_PARALLELISM;
+
+	/** The enforced (inclusive) upper bound for max parallelism. */
+	public static final int UPPER_BOUND_MAX_PARALLELISM_FORCE_CHECK = Transformation.UPPER_BOUND_MAX_PARALLELISM_FORCE_CHECK;
 
 	private KeyGroupRangeAssignment() {
 		throw new AssertionError();
@@ -153,7 +156,7 @@ public final class KeyGroupRangeAssignment {
 
 	public static void checkParallelismPreconditions(int parallelism) {
 		Preconditions.checkArgument(parallelism > 0
-						&& parallelism <= UPPER_BOUND_MAX_PARALLELISM,
+						&& parallelism <= UPPER_BOUND_MAX_PARALLELISM_FORCE_CHECK,
 				"Operator parallelism not within bounds: " + parallelism);
 	}
 }

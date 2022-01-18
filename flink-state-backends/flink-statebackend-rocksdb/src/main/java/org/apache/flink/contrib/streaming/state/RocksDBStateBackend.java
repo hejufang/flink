@@ -42,6 +42,7 @@ import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.ConfigurableStateBackend;
 import org.apache.flink.runtime.state.DefaultOperatorStateBackendBuilder;
 import org.apache.flink.runtime.state.KeyGroupRange;
+import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.LocalRecoveryConfig;
 import org.apache.flink.runtime.state.OperatorStateBackend;
@@ -666,6 +667,11 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry,
 		StateStatsTracker statsTracker) throws IOException {
+
+		Preconditions.checkArgument(numberOfKeyGroups > 0 &&
+						numberOfKeyGroups <= KeyGroupRangeAssignment.UPPER_BOUND_MAX_PARALLELISM,
+				"numberOfKeyGroups is out of bounds 0 < numberOfKeyGroups <= " +
+						KeyGroupRangeAssignment.UPPER_BOUND_MAX_PARALLELISM + ". Found: " + numberOfKeyGroups);
 
 		// first, make sure that the RocksDB JNI library is loaded
 		// we do this explicitly here to have better error handling
