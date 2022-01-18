@@ -70,6 +70,14 @@ public abstract class RestartStrategyFactory implements Serializable {
 					config.getFailureInterval(),
 					config.getDelayBetweenAttemptsInterval()
 			);
+		} else if (restartStrategyConfiguration instanceof RestartStrategies.AggregatedFailureRateRestartStrategyConfiguration) {
+			RestartStrategies.AggregatedFailureRateRestartStrategyConfiguration config =
+					(RestartStrategies.AggregatedFailureRateRestartStrategyConfiguration) restartStrategyConfiguration;
+			return new FailureRateRestartStrategy(
+					config.getMaxFailureRate(),
+					config.getFailureInterval(),
+					config.getDelayBetweenAttemptsInterval()
+			);
 		} else if (restartStrategyConfiguration instanceof RestartStrategies.FallbackRestartStrategyConfiguration) {
 			return null;
 		} else {

@@ -241,8 +241,23 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	}
 
 	@Override
+	protected long getNumberOfFailFilteredByAggregatedStrategy() {
+		return executionFailureHandler.getNumberOfFailFilteredByAggregatedStrategy();
+	}
+
+	@Override
+	protected long getNumberOfRestartsAggrByBackoffTime() {
+		return executionFailureHandler.getNumberOfRestartsAggrByBackoffTime();
+	}
+
+	@Override
 	protected String getFailoverStrategyName() {
 		return executionFailureHandler.getFailoverStrategy().getClass().getSimpleName();
+	}
+
+	@Override
+	protected String getRestartStrategyName() {
+		return executionFailureHandler.getRestartStrategy().getClass().getSimpleName();
 	}
 
 	@Override

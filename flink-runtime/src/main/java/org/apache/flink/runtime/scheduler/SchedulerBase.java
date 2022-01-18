@@ -494,7 +494,13 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	protected abstract long getNumberOfRestarts();
 
+	protected abstract long getNumberOfFailFilteredByAggregatedStrategy();
+
+	protected abstract long getNumberOfRestartsAggrByBackoffTime();
+
 	protected abstract String getFailoverStrategyName();
+
+	protected abstract String getRestartStrategyName();
 
 	protected abstract Long getNumberOfFallbackToFullRestarts();
 
@@ -551,6 +557,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 		jobManagerJobMetricGroup.gauge(MetricNames.FULL_RESTARTS, this::getNumberOfRestarts);
 		jobManagerJobMetricGroup.meter(MetricNames.FULL_RESTARTS_RATE, new MeterView(executionGraph.getNumberOfRestartsCounter(), 60));
 		jobManagerJobMetricGroup.gauge(MetricNames.NO_RESOURCE_AVAILABLE_EXCEPTION, this::getNumberOfNoResourceAvailableExceptions);
+		jobManagerJobMetricGroup.gauge(MetricNames.NUM_FAIL_FILTERED_BY_AGGREGATED_STRATEGY_NAME, this::getNumberOfFailFilteredByAggregatedStrategy);
+		jobManagerJobMetricGroup.gauge(MetricNames.NUM_RESTARTS_AGGR_BY_BACKOFF_TIME, this::getNumberOfRestartsAggrByBackoffTime);
 
 		jobManagerJobMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
 
@@ -570,12 +578,14 @@ public abstract class SchedulerBase implements SchedulerNG {
 			tagGaugeMetrics.add(new TagGaugeStore.TagGaugeMetric(
 				getNumberOfRestarts() - getNumberOfFallbackToFullRestarts(),
 				new TagGaugeStore.TagValuesBuilder()
-					.addTagValue(MetricNames.FULL_RESTARTS_TAG_STRATEGY_NAME, getFailoverStrategyName())
+					.addTagValue(MetricNames.NUM_RESTARTS_TAG_FAILOVER_STRATEGY_NAME, getFailoverStrategyName())
+					.addTagValue(MetricNames.NUM_RESTARTS_TAG_RESTART_STRATEGY_NAME, getRestartStrategyName())
 					.build()));
 			tagGaugeMetrics.add(new TagGaugeStore.TagGaugeMetric(
 				getNumberOfFallbackToFullRestarts(),
 				new TagGaugeStore.TagValuesBuilder()
-					.addTagValue(MetricNames.FULL_RESTARTS_TAG_STRATEGY_NAME, METRIC_FALLBACK_TO_RESTART_NAME)
+					.addTagValue(MetricNames.NUM_RESTARTS_TAG_FAILOVER_STRATEGY_NAME, METRIC_FALLBACK_TO_RESTART_NAME)
+					.addTagValue(MetricNames.NUM_RESTARTS_TAG_RESTART_STRATEGY_NAME, getRestartStrategyName())
 					.build()));
 			return tagGaugeMetrics;
 		});

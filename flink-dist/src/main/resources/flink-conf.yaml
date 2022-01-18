@@ -23,6 +23,11 @@ common:
   restart-strategy.failure-rate.max-failures-per-interval: 100
   restart-strategy.failure-rate.failure-rate-interval: 40 min
   restart-strategy.failure-rate.delay: 20 s
+
+  restart-strategy.aggregated-failure-rate.max-failures-per-interval: 100
+  restart-strategy.aggregated-failure-rate.failure-rate-interval: 40 min
+  restart-strategy.aggregated-failure-rate.delay: 20 s
+
   jobmanager.execution.failover-strategy: region
   jobmanager.execution.status-dutation-ms: 30000
 
@@ -701,6 +706,7 @@ quoka:
   bytedance.streaming.yarn.check.application.name.unique.region: true
   yarn.previous-container.as-pending-container: true
   taskmanager.release-slot-when-job-master-disconnected.enabled: true
+  restart-strategy: aggregated-failure-rate
 
 quaga:
   dc: cn

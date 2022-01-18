@@ -74,7 +74,10 @@ public class MetricNames {
 
 	@Deprecated
 	public static final String FULL_RESTARTS = "fullRestarts";
-	public static final String FULL_RESTARTS_TAG_STRATEGY_NAME = "failoverStrategy";
+	public static final String NUM_RESTARTS_TAG_FAILOVER_STRATEGY_NAME = "failoverStrategy";
+	public static final String NUM_RESTARTS_TAG_RESTART_STRATEGY_NAME = "restartStrategy";
+	public static final String NUM_FAIL_FILTERED_BY_AGGREGATED_STRATEGY_NAME = "numOfFailFilteredByAggregatedStrategy";
+	public static final String NUM_RESTARTS_AGGR_BY_BACKOFF_TIME = "numOfRestartsAggrByBackoffTime";
 	public static final String FULL_RESTARTS_RATE = "fullRestartsRate";
 
 	public static final String NO_RESOURCE_AVAILABLE_EXCEPTION = "noResourceAvailableException";

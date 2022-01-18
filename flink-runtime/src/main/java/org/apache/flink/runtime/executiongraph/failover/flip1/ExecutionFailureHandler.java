@@ -48,13 +48,26 @@ public class ExecutionFailureHandler {
 	/** Strategy to judge whether and when a restarting should be done. */
 	private final RestartBackoffTimeStrategy restartBackoffTimeStrategy;
 
-	/** Number of all restarts happened since this job is submitted. */
+	/**
+	 * Number of all restarts happened since this job is submitted.
+	 */
 	private long numberOfRestarts;
 
-	/** Number of fallback to all restarts happened since this job is submitted. */
+	/**
+	 * Number of restarts aggregated by backoff time.
+	 */
+	private long numberOfRestartsAggrByBackoffTime;
+
+	private long lastFailoverTime;
+
+	/**
+	 * Number of fallback to all restarts happened since this job is submitted.
+	 */
 	private long numberOfFallbackToFullRestarts;
 
 	private long numberOfNoResourceAvailableExceptions;
+
+	private final long backoffTime;
 
 	/**
 	 * Creates the handler to deal with task failures.
@@ -71,6 +84,7 @@ public class ExecutionFailureHandler {
 		this.schedulingTopology = checkNotNull(schedulingTopology);
 		this.failoverStrategy = checkNotNull(failoverStrategy);
 		this.restartBackoffTimeStrategy = checkNotNull(restartBackoffTimeStrategy);
+		this.backoffTime = restartBackoffTimeStrategy.getBackoffTime();
 	}
 
 	/**
@@ -105,7 +119,7 @@ public class ExecutionFailureHandler {
 			final Throwable cause,
 			final Set<ExecutionVertexID> verticesToRestart,
 			final boolean globalFailure) {
-
+		updateNumberOfRestartsAggrByBackoffTime();
 		if (ExceptionUtils.findThrowable(cause, NoResourceAvailableException.class).isPresent()) {
 			numberOfNoResourceAvailableExceptions++;
 		}
@@ -133,6 +147,14 @@ public class ExecutionFailureHandler {
 		}
 	}
 
+	private void updateNumberOfRestartsAggrByBackoffTime() {
+		long now = System.currentTimeMillis();
+		if ((now - lastFailoverTime) > backoffTime) {
+			lastFailoverTime = now;
+			numberOfRestartsAggrByBackoffTime++;
+		}
+	}
+
 	@VisibleForTesting
 	static boolean isUnrecoverableError(Throwable cause) {
 		Optional<Throwable> unrecoverableError = ThrowableClassifier.findThrowableOfThrowableType(
@@ -142,6 +164,17 @@ public class ExecutionFailureHandler {
 
 	public long getNumberOfRestarts() {
 		return numberOfRestarts;
+	}
+
+	public long getNumberOfFailFilteredByAggregatedStrategy() {
+		if (restartBackoffTimeStrategy instanceof AggregatedFailureRateRestartBackoffTimeStrategy) {
+			return ((AggregatedFailureRateRestartBackoffTimeStrategy) restartBackoffTimeStrategy).getSkipFailNum();
+		}
+		return 0;
+	}
+
+	public long getNumberOfRestartsAggrByBackoffTime() {
+		return numberOfRestartsAggrByBackoffTime;
 	}
 
 	public long getNumberOfFallbackToFullRestarts() {
@@ -154,5 +187,9 @@ public class ExecutionFailureHandler {
 
 	public FailoverStrategy getFailoverStrategy() {
 		return failoverStrategy;
+	}
+
+	public RestartBackoffTimeStrategy getRestartStrategy() {
+		return restartBackoffTimeStrategy;
 	}
 }

@@ -23,6 +23,8 @@ global:
   name:
     [
         numRestarts,
+        numOfRestartsAggrByBackoffTime,
+        numOfFailFilteredByAggregatedStrategy,
         fullRestarts,
         fullRestartsRate,
         downtime,
@@ -95,6 +97,7 @@ non-global:
         uptime,
         numRestarts,
         fullRestarts,
+        numOfRestartsAggrByBackoffTime,
         executionFailNum,
         executionStatus,
         restartingTime,
