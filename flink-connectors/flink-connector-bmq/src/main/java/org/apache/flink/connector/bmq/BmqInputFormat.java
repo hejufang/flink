@@ -51,6 +51,11 @@ import java.util.Properties;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.connector.bmq.BmqOptions.DEFAULT_GROUP_ID;
+import static org.apache.flink.connector.bmq.BmqOptions.DEFAULT_OWNER;
+import static org.apache.flink.connector.bmq.BmqOptions.DEFAULT_PSM;
+import static org.apache.flink.connector.bmq.BmqOptions.DEFAULT_TEAM;
+
 /**
  * BMQ InputFormat for batch reading.
  */
@@ -58,13 +63,6 @@ public class BmqInputFormat extends RichInputFormat<RowData, BmqInputSplit> {
 
 	private static final long serialVersionUID = 1L;
 	private static final Logger LOG = LoggerFactory.getLogger(BmqInputFormat.class);
-
-	// Currently KafkaConsumer requires these properties, however, we only use KafkaConsumer
-	// to fetch metadata. Hence these settings will not be exposed to users.
-	private static final String DEFAULT_GROUP_ID = "flink.bmq.batch-source";
-	private static final String DEFAULT_PSM = "flink.bmq.batch-source";
-	private static final String DEFAULT_OWNER = "flink.bmq";
-	private static final String DEFAULT_TEAM = "flink.bmq";
 
 	private final String cluster;
 	private final String topic;

@@ -21,13 +21,15 @@ package org.apache.flink.connector.bmq;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
-import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
-import org.apache.flink.table.api.ValidationException;
+import org.apache.flink.connector.bmq.config.BmqSourceConfig;
+import org.apache.flink.connector.bmq.config.Metadata;
+import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DeserializationFormatFactory;
+import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.DataType;
@@ -35,46 +37,24 @@ import org.apache.flink.table.types.DataType;
 import java.util.HashSet;
 import java.util.Set;
 
+import static org.apache.flink.connector.bmq.BmqOptions.CLUSTER;
+import static org.apache.flink.connector.bmq.BmqOptions.END_TIME_MS;
+import static org.apache.flink.connector.bmq.BmqOptions.IGNORE_UNHEALTHY_SEGMENT;
+import static org.apache.flink.connector.bmq.BmqOptions.PROPERTIES_PREFIX;
+import static org.apache.flink.connector.bmq.BmqOptions.SCAN_END_TIME;
+import static org.apache.flink.connector.bmq.BmqOptions.SCAN_START_TIME;
+import static org.apache.flink.connector.bmq.BmqOptions.START_TIME_MS;
+import static org.apache.flink.connector.bmq.BmqOptions.TOPIC;
+import static org.apache.flink.connector.bmq.BmqOptions.VERSION;
+import static org.apache.flink.connector.bmq.BmqOptions.convertStringToTimestamp;
+import static org.apache.flink.connector.bmq.BmqOptions.validateTableOptions;
+
 /**
  * Factory for BMQ batch table source.
  */
 public class BmqDynamicTableFactory implements DynamicTableSourceFactory {
 
 	private static final String IDENTIFIER = "bmq";
-	// in case of using second unit timestamp, we limit min value of timestamp to MIN_TIMESTAMP
-	// which is 2001/9/9 9:46:40 in Beijing time zone.
-	private static final long MIN_TIMESTAMP = 1_000_000_000_000L;
-
-	private static final ConfigOption<String> CLUSTER = ConfigOptions
-		.key("cluster")
-		.stringType()
-		.noDefaultValue()
-		.withDescription("Required. It defines BMQ cluster name.");
-
-	private static final ConfigOption<String> TOPIC = ConfigOptions
-		.key("topic")
-		.stringType()
-		.noDefaultValue()
-		.withDescription("Required. It defines BMQ topic name.");
-
-	private static final ConfigOption<Long> START_TIME_MS = ConfigOptions
-		.key("start-time-ms")
-		.longType()
-		.noDefaultValue()
-		.withDescription("Required. It defines the start time for scanning.");
-
-	private static final ConfigOption<Long> END_TIME_MS = ConfigOptions
-		.key("end-time-ms")
-		.longType()
-		.noDefaultValue()
-		.withDescription("Required. It defines the end time for scanning.");
-
-	private static final ConfigOption<Boolean> IGNORE_UNHEALTHY_SEGMENT = ConfigOptions
-		.key("ignore-unhealthy-segment")
-		.booleanType()
-		.defaultValue(false)
-		.withDescription("Optional. If enabled, bmq connector will ignore unhealthy segments, which may lead to " +
-			"data loss. Will throw an Exception by default.");
 
 	@Override
 	public String factoryIdentifier() {
@@ -86,17 +66,21 @@ public class BmqDynamicTableFactory implements DynamicTableSourceFactory {
 		Set<ConfigOption<?>> set = new HashSet<>();
 		set.add(CLUSTER);
 		set.add(TOPIC);
-		set.add(START_TIME_MS);
-		set.add(END_TIME_MS);
-
-		set.add(FactoryUtil.FORMAT);
 		return set;
 	}
 
 	@Override
 	public Set<ConfigOption<?>> optionalOptions() {
 		Set<ConfigOption<?>> set = new HashSet<>();
+		set.add(VERSION);
+		set.add(START_TIME_MS);
+		set.add(END_TIME_MS);
+		set.add(SCAN_START_TIME);
+		set.add(SCAN_END_TIME);
+		set.add(FactoryUtil.SOURCE_METADATA_COLUMNS);
 		set.add(IGNORE_UNHEALTHY_SEGMENT);
+
+		set.add(FactoryUtil.FORMAT);
 		return set;
 	}
 
@@ -104,43 +88,74 @@ public class BmqDynamicTableFactory implements DynamicTableSourceFactory {
 	public DynamicTableSource createDynamicTableSource(Context context) {
 		FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
 
-		DecodingFormat<DeserializationSchema<RowData>> decodingFormat = helper.discoverDecodingFormat(
-			DeserializationFormatFactory.class,
-			FactoryUtil.FORMAT);
+		DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
 
-		ReadableConfig config = helper.getOptions();
+		ReadableConfig tableOptions = helper.getOptions();
 
-		String cluster = config.get(CLUSTER);
-		String topic = config.get(TOPIC);
-		long startMs = config.get(START_TIME_MS);
-		long endMs = config.get(END_TIME_MS);
-		boolean ignoreUnhealthySegment = config.get(IGNORE_UNHEALTHY_SEGMENT);
+		helper.validateExcept(PROPERTIES_PREFIX);
+		validateTableOptions(tableOptions);
 
-		if (startMs > endMs) {
-			throw new ValidationException(String.format("%s should be larger than %s, but current setting is " +
-					"%s=%d, %s=%d.",
-				END_TIME_MS.key(),
-				START_TIME_MS.key(),
-				END_TIME_MS.key(), endMs,
-				START_TIME_MS.key(), startMs));
-		}
-		if (startMs < MIN_TIMESTAMP) {
-			throw new ValidationException(String.format("Your %s=%d is too small, %s and %s should be used as " +
-					"milliseconds, are you setting them as seconds?",
-				START_TIME_MS.key(), startMs,
-				START_TIME_MS.key(),
-				END_TIME_MS.key()));
+		BmqSourceConfig bmqSourceConfig = getBmqSourceConfig(
+			context.getCatalogTable().getSchema(),
+			tableOptions);
+
+		if (bmqSourceConfig.getVersion().equals("1")) {
+			decodingFormat = helper.discoverDecodingFormat(
+				DeserializationFormatFactory.class,
+				FactoryUtil.FORMAT);
+		} else {
+			decodingFormat = null;
 		}
 
 		DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
 
 		return new BmqDynamicTableSource(
-			cluster,
-			topic,
-			startMs,
-			endMs,
+			context,
+			bmqSourceConfig,
 			decodingFormat,
-			producedDataType,
-			ignoreUnhealthySegment);
+			producedDataType);
+	}
+
+	private BmqSourceConfig getBmqSourceConfig(TableSchema tableSchema, ReadableConfig readableConfig) {
+		BmqSourceConfig bmqSourceConfig = new BmqSourceConfig();
+
+		readableConfig.getOptional(TOPIC).ifPresent(bmqSourceConfig::setTopic);
+		readableConfig.getOptional(CLUSTER).ifPresent(bmqSourceConfig::setCluster);
+		readableConfig.getOptional(VERSION).ifPresent(bmqSourceConfig::setVersion);
+		readableConfig.getOptional(IGNORE_UNHEALTHY_SEGMENT).ifPresent(bmqSourceConfig::setIgnoreUnhealthySegment);
+
+		if (readableConfig.getOptional(START_TIME_MS).isPresent()) {
+			bmqSourceConfig.setScanStartTimeMs(readableConfig.get(START_TIME_MS));
+		} else {
+			bmqSourceConfig.setScanStartTimeMs(convertStringToTimestamp(readableConfig.get(SCAN_START_TIME)));
+		}
+
+		if (readableConfig.getOptional(END_TIME_MS).isPresent()) {
+			bmqSourceConfig.setScanEndTimeMs(readableConfig.get(END_TIME_MS));
+		} else {
+			bmqSourceConfig.setScanEndTimeMs(convertStringToTimestamp(readableConfig.get(SCAN_END_TIME)));
+		}
+
+		readableConfig.getOptional(FactoryUtil.SOURCE_METADATA_COLUMNS).ifPresent(
+			metaDataInfo -> validateAndSetMetaInfo(metaDataInfo, tableSchema, bmqSourceConfig)
+		);
+
+		return bmqSourceConfig;
+	}
+
+	private void validateAndSetMetaInfo(String metaInfo, TableSchema tableSchema, BmqSourceConfig sourceConfig) {
+		DynamicSourceMetadataFactory factory = new DynamicSourceMetadataFactory() {
+			@Override
+			protected DynamicSourceMetadata findMetadata(String name) {
+				return Metadata.findByName(name);
+			}
+
+			@Override
+			protected String getMetadataValues() {
+				return Metadata.getValuesString();
+			}
+		};
+		sourceConfig.setMetadataMap(factory.parseWithSchema(metaInfo, tableSchema));
+		sourceConfig.setWithoutMetaDataType(factory.getWithoutMetaDataTypes(tableSchema, sourceConfig.getMetadataMap().keySet()));
 	}
 }

@@ -1,0 +1,14 @@
+{
+  "name": "MetaRecord",
+  "namespace": "org.apache.flink.connector.bmq.generated",
+  "type": "record",
+  "fields": [
+    { "default": null, "name": "__offset", "type": [ "null", "long" ]},
+    { "default": null, "name": "__partition_id", "type": [ "null", "int" ]},
+    { "default": null, "name": "__timestamp", "type": [ "null", "long" ]},
+    { "default": null, "name": "name", "type": [ "null", "string" ]},
+    { "default": null, "name": "count", "type": [ "null", "double"]}
+  ],
+  "schema_id": 1,
+  "type": "record"
+}
