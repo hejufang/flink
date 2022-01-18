@@ -246,7 +246,9 @@ public final class StreamingFunctionUtils {
 		}
 
 		if (userFunction instanceof ListCheckpointed) {
-			throw new Exception("ListCheckpointed function has not implemented prepareSnapshotPreBarrier yet.");
+			// Temporarily skip this kind of function, as it's deprecated and doesn't have
+			// prepareSnapshotPreBarrier api.
+			return true;
 		}
 
 		return false;
