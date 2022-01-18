@@ -196,7 +196,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 		log.debug("Register Metric={}", name);
 		if (globalNeededMetrics.contains(metricName)) {
-			log.info("Register global metric: {}.", name);
+			log.debug("Register global metric: {}.", name);
 			globalMetricNames.put(name, Tuple2.of(metricName, registerIdCounter.getAndIncrement()));
 		}
 
@@ -207,7 +207,6 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			}
 
 			client.addMetric();
-			log.info("Register Metric={}", name);
 
 			if (metric instanceof Counter) {
 				counters.put((Counter) metric, name);

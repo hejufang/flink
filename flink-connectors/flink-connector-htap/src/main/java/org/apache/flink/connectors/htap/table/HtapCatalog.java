@@ -251,7 +251,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		try {
 			HtapTableStatistics htapTableStatistics =
 				metaClient.getTableStatistics(htapTableName);
-			LOG.info("Table stats of table '{}' get from meta service is {}", htapTableName,
+			LOG.debug("Table stats of table '{}' get from meta service is {}", htapTableName,
 				htapTableStatistics);
 			// no stats available
 			if (htapTableStatistics == null) {
