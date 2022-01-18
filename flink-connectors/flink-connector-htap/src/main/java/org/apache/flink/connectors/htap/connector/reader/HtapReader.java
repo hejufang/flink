@@ -115,10 +115,12 @@ public class HtapReader implements AutoCloseable {
 	public HtapReaderIterator scanner(
 			byte[] token,
 			int partitionId,
-			String subTaskFullName) throws IOException {
+			String subTaskFullName,
+			boolean compatibleWithMySQL) throws IOException {
 		try {
 			return new HtapReaderIterator(
-				HtapScanToken.deserializeIntoScanner(token, partitionId, client, table, htapClusterName),
+				HtapScanToken.deserializeIntoScanner(token, partitionId, client, table,
+					htapClusterName, compatibleWithMySQL),
 				aggregateFunctions, outputDataType, groupByColumns.size(), subTaskFullName);
 		} catch (Exception e) {
 			throw new IOException(subTaskFullName + " build HtapReaderIterator error", e);
@@ -135,13 +137,15 @@ public class HtapReader implements AutoCloseable {
 		HtapScanToken.HtapScanTokenBuilder tokenBuilder =
 			new HtapScanToken.HtapScanTokenBuilder(table);
 
+		boolean compatibleWithMySQL = readerConfig.isCompatibleWithMySQL();
+
 		if (CollectionUtils.isNotEmpty(tableProjections)) {
 			tokenBuilder.projectedColumnNames(tableProjections);
 		}
 
 		if (CollectionUtils.isNotEmpty(tableFilters)) {
 			tableFilters.stream()
-				.map(filter -> filter.toPredicate(table.getSchema()))
+				.map(filter -> filter.toPredicate(table.getSchema(), compatibleWithMySQL))
 				.forEach(tokenBuilder::predicate);
 		}
 

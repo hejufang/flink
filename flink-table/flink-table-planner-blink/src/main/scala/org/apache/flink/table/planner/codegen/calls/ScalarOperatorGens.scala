@@ -19,6 +19,7 @@
 package org.apache.flink.table.planner.codegen.calls
 
 import org.apache.flink.table.api.ValidationException
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.data.binary.BinaryArrayData
 import org.apache.flink.table.data.util.{DataFormatConverters, MapDataUtil}
 import org.apache.flink.table.data.writer.{BinaryArrayWriter, BinaryRowWriter}
@@ -1060,13 +1061,18 @@ object ScalarOperatorGens {
 
     // String -> Date
     case (VARCHAR | CHAR, DATE) =>
+      val compatibleWithMySQL = ctx.tableConfig.getConfiguration
+        .get(ExecutionConfigOptions.TABLE_EXEC_COMPATIBLE_WITH_MYSQL)
       generateUnaryOperatorIfNotNull(
         ctx,
         targetType,
         operand,
         resultNullable = true) {
         operandTerm =>
-          s"${qualifyMethod(BuiltInMethods.STRING_TO_DATE)}($operandTerm.toString())"
+          s"""
+             |${qualifyMethod(BuiltInMethods.STRING_TO_DATE)}(
+             |  $operandTerm.toString(), $compatibleWithMySQL)
+          """.stripMargin
       }
 
     // String -> Time
@@ -1082,15 +1088,20 @@ object ScalarOperatorGens {
 
     // String -> Timestamp
     case (VARCHAR | CHAR, TIMESTAMP_WITHOUT_TIME_ZONE) =>
-      generateUnaryOperatorIfNotNull(
-        ctx,
-        targetType,
-        operand,
-        resultNullable = true) {
-        operandTerm =>
-          s"""
-             |${qualifyMethod(BuiltInMethods.STRING_TO_TIMESTAMP)}($operandTerm.toString())
+      {
+        val compatibleWithMySQL = ctx.tableConfig.getConfiguration
+          .get(ExecutionConfigOptions.TABLE_EXEC_COMPATIBLE_WITH_MYSQL)
+        generateUnaryOperatorIfNotNull(
+          ctx,
+          targetType,
+          operand,
+          resultNullable = true) {
+          operandTerm =>
+            s"""
+               |${qualifyMethod(BuiltInMethods.STRING_TO_TIMESTAMP)}(
+               |  $operandTerm.toString(), $compatibleWithMySQL)
            """.stripMargin
+        }
       }
 
     case (VARCHAR | CHAR, TIMESTAMP_WITH_LOCAL_TIME_ZONE) =>
@@ -1915,7 +1926,7 @@ object ScalarOperatorGens {
     val typeTerm = primitiveTypeTermForType(expectType)
     val defaultTerm = primitiveDefaultValue(expectType)
     val term = newName("stringToTime")
-    val code = stringToLocalTimeCode(expectType, rightTerm)
+    val code = stringToLocalTimeCode(expectType, rightTerm, ctx)
     val stmt = s"$typeTerm $term = ${stringLiteral.nullTerm} ? $defaultTerm : $code;"
     ctx.addReusableMember(stmt)
     stringLiteral.copy(resultType = expectType, resultTerm = term)
@@ -2430,18 +2441,26 @@ object ScalarOperatorGens {
 
   private def stringToLocalTimeCode(
       targetType: LogicalType,
-      operandTerm: String): String =
+      operandTerm: String,
+      ctx: CodeGeneratorContext): String = {
+    val compatibleWithMySQL = ctx.tableConfig.getConfiguration
+      .get(ExecutionConfigOptions.TABLE_EXEC_COMPATIBLE_WITH_MYSQL)
     targetType.getTypeRoot match {
       case DATE =>
-        s"${qualifyMethod(BuiltInMethods.STRING_TO_DATE)}($operandTerm.toString())"
+        s"""
+            |${qualifyMethod(BuiltInMethods.STRING_TO_DATE)}(
+            |  $operandTerm.toString(), $compatibleWithMySQL)
+        """.stripMargin
       case TIME_WITHOUT_TIME_ZONE =>
         s"${qualifyMethod(BuiltInMethods.STRING_TO_TIME)}($operandTerm.toString())"
       case TIMESTAMP_WITHOUT_TIME_ZONE =>
         s"""
-           |${qualifyMethod(BuiltInMethods.STRING_TO_TIMESTAMP)}($operandTerm.toString())
+           |${qualifyMethod(BuiltInMethods.STRING_TO_TIMESTAMP)}(
+           |  $operandTerm.toString(), $compatibleWithMySQL)
            |""".stripMargin
       case _ => throw new UnsupportedOperationException
     }
+  }
 
   private def localTimeToStringCode(
       ctx: CodeGeneratorContext,

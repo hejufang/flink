@@ -43,11 +43,11 @@ public class HtapFilterInfo implements Serializable {
 	private HtapFilterInfo() {
 	}
 
-	public HtapPredicate toPredicate(final Schema schema) {
-		return toPredicate(schema.getColumn(this.column));
+	public HtapPredicate toPredicate(final Schema schema, final boolean compatibleWithMySQL) {
+		return toPredicate(schema.getColumn(this.column), compatibleWithMySQL);
 	}
 
-	public HtapPredicate toPredicate(final ColumnSchema column) {
+	public HtapPredicate toPredicate(final ColumnSchema column, final boolean compatibleWithMySQL) {
 		HtapPredicate predicate;
 		switch (this.type) {
 			case IS_IN:
@@ -60,13 +60,13 @@ public class HtapFilterInfo implements Serializable {
 				predicate = HtapPredicate.newIsNotNullPredicate(column);
 				break;
 			default:
-				predicate = predicateComparator(column);
+				predicate = predicateComparator(column, compatibleWithMySQL);
 				break;
 		}
 		return predicate;
 	}
 
-	private HtapPredicate predicateComparator(final ColumnSchema column) {
+	private HtapPredicate predicateComparator(final ColumnSchema column, final boolean compatibleWithMySQL) {
 		final HtapPredicate.ComparisonOp comparison = this.type.comparator;
 
 		HtapPredicate predicate;
@@ -86,11 +86,11 @@ public class HtapFilterInfo implements Serializable {
 				break;
 			case INT32:
 			case DATE:
-				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (int) this.value);
+				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (int) this.value, compatibleWithMySQL);
 				break;
 			case INT64:
 			case UNIXTIME_MICROS:
-				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (long) this.value);
+				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (long) this.value, compatibleWithMySQL);
 				break;
 			case DOUBLE:
 				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (double) this.value);

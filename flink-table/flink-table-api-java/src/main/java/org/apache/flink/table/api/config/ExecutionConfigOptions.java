@@ -359,6 +359,13 @@ public class ExecutionConfigOptions {
 			.withDescription("Specifies whether to use stateless agg, only working" +
 				"when mini-batch is turned off.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
+	public static final ConfigOption<Boolean> TABLE_EXEC_COMPATIBLE_WITH_MYSQL =
+		key("table.exec.compatible-with-mysql")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Specifies whether compatible with mysql.");
+
 	// ------------------------------------------------------------------------------------------
 	// Enum option types
 	// ------------------------------------------------------------------------------------------

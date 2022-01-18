@@ -121,7 +121,9 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 		}
 		endReached = false;
 		createHtapReader();
-		resultIterator = htapReader.scanner(split.getScanToken(), split.getSplitNumber(), subTaskFullName);
+		boolean compatibleWithMySQL = readerConfig.isCompatibleWithMySQL();
+		resultIterator = htapReader.scanner(split.getScanToken(), split.getSplitNumber(),
+			subTaskFullName, compatibleWithMySQL);
 		currentPartition = split.getSplitNumber();
 
 		openTime = System.currentTimeMillis() - splitStartTime;

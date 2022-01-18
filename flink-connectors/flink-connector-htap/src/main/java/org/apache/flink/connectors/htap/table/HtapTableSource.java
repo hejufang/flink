@@ -177,6 +177,9 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			metaClient.getTable(tableInfo.getName()) :
 			metaClient.getTable(tableInfo.getName(), readerConfig.getCheckPointLSN());
 		boolean inDryRunMode = flinkConf.get(TABLE_EXEC_HTAP_IN_DRY_RUN_MODE);
+		boolean compatibleWithMySQL =
+			flinkConf.get(ExecutionConfigOptions.TABLE_EXEC_COMPATIBLE_WITH_MYSQL);
+		readerConfig.setCompatibleWithMySQL(compatibleWithMySQL);
 		HtapRowInputFormat inputFormat = new HtapRowInputFormat(
 			readerConfig,
 			flinkConf.get(HtapOptions.HTAP_CLUSTER_NAME),

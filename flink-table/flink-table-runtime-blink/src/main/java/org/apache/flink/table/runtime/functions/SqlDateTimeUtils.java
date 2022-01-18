@@ -103,6 +103,11 @@ public class SqlDateTimeUtils {
 	private static final String TIMESTAMP_FORMAT_STRING =
 		DATE_FORMAT_STRING + " " + TIME_FORMAT_STRING;
 
+	private static final String ZERO_DATETIME_STR = "0000-00-00 00:00:00";
+	private static final String REPLACED_DATETIME_STR = "0001-01-01 00:00:00";
+	private static final String ZERO_DATE_STR = "0000-00-00";
+	private static final String REPLACED_DATE_STR = "0001-01-01";
+
 	/** The UTC time zone. */
 	public static final TimeZone UTC_ZONE = TimeZone.getTimeZone("UTC");
 
@@ -237,7 +242,15 @@ public class SqlDateTimeUtils {
 	// --------------------------------------------------------------------------------------------
 	// String --> Timestamp conversion
 	// --------------------------------------------------------------------------------------------
-	public static TimestampData toTimestampData(String dateStr) {
+	public static TimestampData toTimestampData(String dateStr, boolean compatibleWithMySQL) {
+		if (compatibleWithMySQL && ZERO_DATETIME_STR.equals(dateStr)) {
+			// Cautions: This is a trick logic, we will replace `ZERO_DATETIME_STR` with
+			// `REPLACED_DATETIME_STR` if compatibleWithMySQL is true. We do this because
+			// `ZERO_DATETIME_STR` is an illegal datetime string(month and day can not be zero in
+			// LocalDateTime), but is a legal value in MySQL. So we use `REPLACED_DATETIME_STR`
+			// to represent it temporarily.
+			dateStr = REPLACED_DATETIME_STR;
+		}
 		int length = dateStr.length();
 		String format;
 		if (length == 10) {
@@ -249,6 +262,10 @@ public class SqlDateTimeUtils {
 			format = DEFAULT_DATETIME_FORMATS[0];
 		}
 		return toTimestampData(dateStr, format);
+	}
+
+	public static TimestampData toTimestampData(String dateStr) {
+		return toTimestampData(dateStr, false);
 	}
 
 	public static TimestampData toTimestampData(String dateStr, String format) {
@@ -1253,6 +1270,18 @@ public class SqlDateTimeUtils {
 	}
 
 	public static Integer dateStringToUnixDate(String s) {
+		return dateStringToUnixDate(s, false);
+	}
+
+	public static Integer dateStringToUnixDate(String s, boolean compatibleWithMySQL) {
+		if (compatibleWithMySQL && ZERO_DATE_STR.equals(s)) {
+			// Cautions: This is a trick logic, we will replace `ZERO_DATE_STR` with
+			// `REPLACED_DATE_STR` if compatibleWithMySQL is true. We do this because `ZERO_DATE_STR`
+			// is an illegal date string, but is a legal value in MySQL. So we use
+			// `REPLACED_DATE_STR` to represent it temporarily.
+			s = REPLACED_DATE_STR;
+		}
+
 		// allow timestamp str to date, e.g. 2017-12-12 09:30:00.0
 		int ws1 = s.indexOf(" ");
 		if (ws1 > 0) {

@@ -45,6 +45,7 @@ public class HtapReaderConfig implements Serializable {
 	private final int batchSizeBytes;
 
 	private final long checkPointLSN;
+	private boolean compatibleWithMySQL = false;
 
 	public HtapReaderConfig(
 			String metaSvcRegion,
@@ -103,6 +104,14 @@ public class HtapReaderConfig implements Serializable {
 		return checkPointLSN;
 	}
 
+	public boolean isCompatibleWithMySQL() {
+		return compatibleWithMySQL;
+	}
+
+	public void setCompatibleWithMySQL(boolean compatibleWithMySQL) {
+		this.compatibleWithMySQL = compatibleWithMySQL;
+	}
+
 	@Override
 	public String toString() {
 		return new ToStringBuilder(this)
@@ -115,6 +124,7 @@ public class HtapReaderConfig implements Serializable {
 				.append("pageStoreLogDir", pageStoreLogDir)
 				.append("batchSizeBytes", batchSizeBytes)
 				.append("checkPointLSN", checkPointLSN)
+				.append("compatibleWithMySQL", compatibleWithMySQL)
 				.toString();
 	}
 }
