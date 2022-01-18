@@ -136,6 +136,16 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 		return availableReaders;
 	}
 
+	/**
+	 * Accesses ChannelHandlerContext in the unit tests.
+	 *
+	 * <p><strong>Do not use anywhere else!</strong>
+	 */
+	@VisibleForTesting
+	public ChannelHandlerContext getCtx() {
+		return ctx;
+	}
+
 	// this is called from netty thread
 	public void removeReader(final NetworkSequenceViewReader reader) {
 		availableReaders.remove(reader);
@@ -334,6 +344,9 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 		LOG.error("Encountered error while consuming partitions", cause);
 
 		fatalError = true;
+		for (NetworkSequenceViewReader reader : allReaders.values()) {
+			reader.onError(new IOException("Encountered error while consuming partitions", cause));
+		}
 		releaseAllResources();
 
 		if (channel.isActive()) {

@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.metrics.groups;
 
 import org.apache.flink.metrics.CharacterFilter;
-import org.apache.flink.metrics.MetricGroup;
 
 import java.util.Map;
 
@@ -61,9 +60,5 @@ public class FrontMetricGroup<P extends AbstractMetricGroup<?>> extends ProxyMet
 
 	public String getLogicalScope(CharacterFilter filter, char delimiter) {
 		return parentMetricGroup.getLogicalScope(filter, delimiter, this.settings.getReporterIndex());
-	}
-
-	public MetricGroup getParentMetricGroup() {
-		return parentMetricGroup;
 	}
 }

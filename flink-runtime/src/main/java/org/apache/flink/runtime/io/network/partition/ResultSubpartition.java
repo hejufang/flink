@@ -21,11 +21,13 @@ package org.apache.flink.runtime.io.network.partition;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateReader;
 import org.apache.flink.runtime.checkpoint.channel.ResultSubpartitionInfo;
+import org.apache.flink.runtime.execution.CancelTaskException;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -45,6 +47,8 @@ public abstract class ResultSubpartition {
 
 	/** The parent partition this subpartition belongs to. */
 	protected final ResultPartition parent;
+
+	private final AtomicReference<Throwable> cause = new AtomicReference<Throwable>();
 
 	// - Statistics ----------------------------------------------------------
 
@@ -155,6 +159,28 @@ public abstract class ResultSubpartition {
 	abstract int releaseMemory() throws IOException;
 
 	public abstract boolean isReleased();
+
+	public void onError(Throwable throwable){}
+
+	protected void setError(Throwable cause) {
+		this.cause.compareAndSet(null, checkNotNull(cause));
+	}
+
+	public void checkError() throws IOException {
+		final Throwable t = cause.get();
+
+		if (t != null) {
+			if (t instanceof CancelTaskException) {
+				throw (CancelTaskException) t;
+			}
+			if (t instanceof IOException) {
+				throw (IOException) t;
+			}
+			else {
+				throw new IOException(t);
+			}
+		}
+	}
 
 	/**
 	 * Gets the number of non-event buffers in this subpartition.

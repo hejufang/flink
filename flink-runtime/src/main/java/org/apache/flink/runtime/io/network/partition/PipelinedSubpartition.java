@@ -318,6 +318,10 @@ public class PipelinedSubpartition extends ResultSubpartition {
 		return isReleased;
 	}
 
+	public void onError(Throwable throwable){
+		setError(throwable);
+	}
+
 	@Override
 	public PipelinedSubpartitionView createReadView(BufferAvailabilityListener availabilityListener) throws IOException {
 		final boolean notifyDataAvailable;

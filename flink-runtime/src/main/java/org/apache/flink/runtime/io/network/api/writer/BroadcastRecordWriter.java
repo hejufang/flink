@@ -61,6 +61,11 @@ public final class BroadcastRecordWriter<T extends IOReadableWritable> extends R
 
 	@Override
 	public void emit(T record) throws IOException, InterruptedException {
+		for (int targetChannel = 0; targetChannel < numberOfChannels; targetChannel++) {
+			// check targetSubPartition error
+			targetPartition.checkError(targetChannel);
+		}
+
 		broadcastEmit(record);
 	}
 

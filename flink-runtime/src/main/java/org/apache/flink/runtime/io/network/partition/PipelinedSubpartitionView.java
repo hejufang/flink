@@ -93,6 +93,11 @@ public class PipelinedSubpartitionView implements ResultSubpartitionView {
 	}
 
 	@Override
+	public void onError(Throwable throwable) {
+		parent.onError(throwable);
+	}
+
+	@Override
 	public String toString() {
 		return String.format("PipelinedSubpartitionView(index: %d) of ResultPartition %s",
 				parent.getSubPartitionIndex(),
