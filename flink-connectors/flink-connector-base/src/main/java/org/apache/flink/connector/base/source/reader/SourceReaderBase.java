@@ -185,7 +185,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 
 	@Override
 	public void addSplits(List<SplitT> splits) {
-		LOG.trace("Adding splits {}", splits);
+		LOG.info("Adding splits {}", splits);
 		// Initialize the state for each split.
 		splits.forEach(s -> splitStates.put(s.splitId(), new SplitContext<>(s.splitId(), initializedState(s))));
 		// Hand over the splits to the split fetcher to start fetch.
@@ -238,7 +238,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 		if (noMoreSplitsAssignment && allFetchersHaveShutdown && allElementsEmitted) {
 			return InputStatus.END_OF_INPUT;
 		} else {
-			return InputStatus.NOTHING_AVAILABLE;
+			return InputStatus.MORE_AVAILABLE;
 		}
 	}
 

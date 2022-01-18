@@ -25,6 +25,7 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
+import org.apache.flink.connector.rocketmq.RocketMQConsumerFactory;
 import org.apache.flink.connector.rocketmq.RocketMQMetadata;
 import org.apache.flink.connector.rocketmq.RocketMQOptions;
 import org.apache.flink.connector.rocketmq.RocketMQUtils;
@@ -76,6 +77,11 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_ASSIGN_QU
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_BROKER_QUEUE_LIST;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_FROM_TIMESTAMP_MILLIS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_RESET_TO;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_DISCOVER_INTERVAL;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_END_OFFSET;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_END_TIMESTAMP;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_FACTORY_CLASS;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_FLIP27_SOURCE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_FORCE_AUTO_COMMIT;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
@@ -176,10 +182,15 @@ public class RocketMQDynamicTableFactory implements
 		options.add(FactoryUtil.SINK_PARTITIONER_FIELD);
 		options.add(SOURCE_METADATA_COLUMNS);
 		options.add(SCAN_BROKER_QUEUE_LIST);
+		options.add(SCAN_FLIP27_SOURCE);
+		options.add(SCAN_FACTORY_CLASS);
+		options.add(SCAN_DISCOVER_INTERVAL);
 		options.add(SINK_BATCH_FLUSH_ENABLE);
 		options.add(SINK_ASYNC_MODE_ENABLED);
 		options.add(SCAN_CONSUMER_OFFSET_RESET_TO);
 		options.add(SCAN_CONSUMER_OFFSET_FROM_TIMESTAMP_MILLIS);
+		options.add(SCAN_END_TIMESTAMP);
+		options.add(SCAN_END_OFFSET);
 		options.add(FactoryUtil.PARALLELISM);
 		options.add(FactoryUtil.RATE_LIMIT_NUM);
 		options.add(FactoryUtil.SOURCE_KEY_BY_FIELD);
@@ -345,6 +356,16 @@ public class RocketMQDynamicTableFactory implements
 				idle ->
 					rocketMQConfig.setIdleTimeOut(config.get(SCAN_SOURCE_IDLE_TIMEOUT).toMillis())
 			);
+			config.getOptional(SCAN_FLIP27_SOURCE).ifPresent(rocketMQConfig::setUseFlip27Source);
+			config.getOptional(SCAN_FACTORY_CLASS).ifPresent(
+				factoryClass ->
+					rocketMQConfig.setConsumerFactory(RocketMQConsumerFactory.getFactoryByClassName(factoryClass)));
+			config.getOptional(SCAN_DISCOVER_INTERVAL).ifPresent(
+				interval ->
+					rocketMQConfig.setDiscoverIntervalMs(interval.toMillis())
+			);
+			config.getOptional(SCAN_END_OFFSET).ifPresent(rocketMQConfig::setEndOffset);
+			config.getOptional(SCAN_END_TIMESTAMP).ifPresent(rocketMQConfig::setEndTimestamp);
 		}
 
 		return rocketMQConfig;

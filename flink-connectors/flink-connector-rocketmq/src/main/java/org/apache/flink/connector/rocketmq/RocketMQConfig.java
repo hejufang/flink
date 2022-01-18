@@ -29,14 +29,20 @@ import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.functions.RowKindSinkFilter;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import java.io.Serializable;
 import java.util.Map;
 
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.MSG_DELAY_LEVEL_DEFAULT;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_DISCOVER_INTERVAL;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_END_OFFSET;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_END_TIMESTAMP;
 
 /**
  * RocketMQConfig.
  */
-public class RocketMQConfig<T> {
+public class RocketMQConfig<T> implements Serializable {
+	private static final long serialVersionUID = 1L;
+
 	private MsgDelayLevelSelector<T> msgDelayLevelSelector;
 	private TopicSelector<T> topicSelector;
 	private String cluster;
@@ -58,6 +64,11 @@ public class RocketMQConfig<T> {
 	private boolean batchFlushEnable = true;
 	private long flushIntervalMs = FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis();
 	private RowKindSinkFilter<T> rowKindSinkFilter;
+	private boolean useFlip27Source = false;
+	private RocketMQConsumerFactory consumerFactory = new DefaultMQConsumerFactory();
+	private long discoverIntervalMs = SCAN_DISCOVER_INTERVAL.defaultValue().toMillis();
+	private long endOffset = SCAN_END_OFFSET.defaultValue();
+	private long endTimestamp = SCAN_END_TIMESTAMP.defaultValue();
 
 	public MsgDelayLevelSelector<T> getMsgDelayLevelSelector() {
 		return msgDelayLevelSelector;
@@ -150,6 +161,14 @@ public class RocketMQConfig<T> {
 		this.metadataMap = metadataMap;
 	}
 
+	public boolean isUseFlip27Source() {
+		return useFlip27Source;
+	}
+
+	public void setUseFlip27Source(boolean useFlip27Source) {
+		this.useFlip27Source = useFlip27Source;
+	}
+
 	public int getParallelism() {
 		return parallelism;
 	}
@@ -200,6 +219,38 @@ public class RocketMQConfig<T> {
 
 	public DeferMillisSelector<T> getDeferMillisSelector() {
 		return deferMillisSelector;
+	}
+
+	public RocketMQConsumerFactory getConsumerFactory() {
+		return consumerFactory;
+	}
+
+	public void setConsumerFactory(RocketMQConsumerFactory consumerFactory) {
+		this.consumerFactory = consumerFactory;
+	}
+
+	public long getEndOffset() {
+		return endOffset;
+	}
+
+	public void setEndOffset(long endOffset) {
+		this.endOffset = endOffset;
+	}
+
+	public long getEndTimestamp() {
+		return endTimestamp;
+	}
+
+	public void setEndTimestamp(long endTimestamp) {
+		this.endTimestamp = endTimestamp;
+	}
+
+	public long getDiscoverIntervalMs() {
+		return discoverIntervalMs;
+	}
+
+	public void setDiscoverIntervalMs(long discoverIntervalMs) {
+		this.discoverIntervalMs = discoverIntervalMs;
 	}
 
 	public RocketMQConfig<T> setDeferMillisSelector(DeferMillisSelector<T> deferMillisSelector) {

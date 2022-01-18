@@ -38,4 +38,7 @@ public interface SplitFetcherTask {
 	 * Wake up the running thread.
 	 */
 	void wakeUp();
+
+	default void close() {
+	}
 }

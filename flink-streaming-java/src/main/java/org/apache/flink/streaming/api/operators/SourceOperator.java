@@ -123,18 +123,6 @@ public class SourceOperator<OUT, SplitT extends SourceSplit>
 	public void open() throws Exception {
 		final MetricGroup metricGroup = getMetricGroup();
 
-		final SourceReaderContext context = new SourceReaderContext() {
-			@Override
-			public MetricGroup metricGroup() {
-				return metricGroup;
-			}
-
-			@Override
-			public void sendSourceEventToCoordinator(SourceEvent event) {
-				operatorEventGateway.sendEventToCoordinator(new SourceEventWrapper(event));
-			}
-		};
-
 		// in the future when we support both batch and streaming modes for the source operator,
 		// and when this one is migrated to the "eager initialization" operator (StreamOperatorV2),
 		// then we should evaluate this during operator construction.
@@ -143,8 +131,6 @@ public class SourceOperator<OUT, SplitT extends SourceSplit>
 				metricGroup,
 				getProcessingTimeService(),
 				getExecutionConfig().getAutoWatermarkInterval());
-
-		sourceReader = readerFactory.apply(context);
 
 		// restore the state if necessary.
 		final List<SplitT> splits = CollectionUtil.iterableToList(readerState.get());
@@ -199,10 +185,33 @@ public class SourceOperator<OUT, SplitT extends SourceSplit>
 		super.initializeState(context);
 		final ListState<byte[]> rawState = context.getOperatorStateStore().getListState(SPLITS_STATE_DESC);
 		readerState = new SimpleVersionedListState<>(rawState, splitSerializer);
+
+		final int subTaskId = getRuntimeContext().getIndexOfThisSubtask();
+		final MetricGroup metricGroup = getMetricGroup();
+		final SourceReaderContext sourceReaderContext = new SourceReaderContext() {
+			@Override
+			public MetricGroup metricGroup() {
+				return metricGroup;
+			}
+
+			@Override
+			public void sendSourceEventToCoordinator(SourceEvent event) {
+				operatorEventGateway.sendEventToCoordinator(new SourceEventWrapper(event));
+			}
+
+			@Override
+			public int getSubTaskId() {
+				return subTaskId;
+			}
+		};
+
+		sourceReader = readerFactory.apply(sourceReaderContext);
+		sourceReader.initializeState(context.isRestored(), context.getOperatorStateStore());
 	}
 
 	@SuppressWarnings("unchecked")
 	public void handleOperatorEvent(OperatorEvent event) {
+		LOG.info("Receive operator event " + event.getClass().getName());
 		if (event instanceof AddSplitEvent) {
 			try {
 				sourceReader.addSplits(((AddSplitEvent<SplitT>) event).splits(splitSerializer));

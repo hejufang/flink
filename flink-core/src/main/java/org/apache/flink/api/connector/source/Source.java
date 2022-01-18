@@ -91,4 +91,8 @@ public interface Source<T, SplitT extends SourceSplit, EnumChkT> extends Seriali
 	 * @return The serializer for the SplitEnumerator checkpoint.
 	 */
 	SimpleVersionedSerializer<EnumChkT> getEnumeratorCheckpointSerializer();
+
+	default int getParallelism() {
+		return -1;
+	}
 }

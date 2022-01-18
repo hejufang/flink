@@ -96,6 +96,13 @@ class FetchTask<E, SplitT extends SourceSplit> implements SplitFetcherTask {
 		}
 	}
 
+	@Override
+	public void close() {
+		if (splitReader != null) {
+			splitReader.close();
+		}
+	}
+
 	private boolean isWakenUp() {
 		return wakeup || runningThread.isInterrupted();
 	}

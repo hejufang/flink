@@ -22,6 +22,8 @@ import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.api.ValidationException;
 
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
@@ -33,6 +35,9 @@ import java.util.Set;
  */
 public abstract class RocketMQOptions {
 	public static final String DEFAULT_TOPIC_SELECTOR = "DefaultTopicSelector";
+	public static final String OFFSETS_STATE_NAME = "rmq-topic-offset-states";
+	public static final String LEGACY_OFFSETS_STATE_NAME = "topic-partition-offset-states";
+	public static final String ROCKETMQ_READER_STATE_NAME = "rmq_flip27_topic_offset";
 
 	// Start up offset.
 	public static final String SCAN_STARTUP_MODE_VALUE_EARLIEST = "earliest";
@@ -140,6 +145,36 @@ public abstract class RocketMQOptions {
 		.noDefaultValue()
 		.withDescription("Optional consumer offset reset from timestamp");
 
+	public static final ConfigOption<Boolean> SCAN_FLIP27_SOURCE = ConfigOptions
+		.key("scan.use-flip27-source")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Whether use flip 27 source");
+
+	public static final ConfigOption<String> SCAN_FACTORY_CLASS = ConfigOptions
+		.key("scan.consumer-factory-class")
+		.stringType()
+		.defaultValue(DefaultMQConsumerFactory.class.getName())
+		.withDescription("Factory class used to build rocketMq consumer");
+
+	public static final ConfigOption<Duration> SCAN_DISCOVER_INTERVAL = ConfigOptions
+		.key("scan.discover-queue-interval")
+		.durationType()
+		.defaultValue(Duration.of(5, ChronoUnit.MINUTES))
+		.withDescription("Interval for discovering latest topic queue");
+
+	public static final ConfigOption<Long> SCAN_END_TIMESTAMP = ConfigOptions
+		.key("scan.end-timestamp")
+		.longType()
+		.defaultValue(Long.MAX_VALUE)
+		.withDescription("End timestamp for bounded source, and not include message with end timestamp");
+
+	public static final ConfigOption<Long> SCAN_END_OFFSET = ConfigOptions
+		.key("scan.end-offset")
+		.longType()
+		.defaultValue(Long.MAX_VALUE)
+		.withDescription("End offset for bounded source, and not include message with end offset");
+
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------
@@ -231,7 +266,7 @@ public abstract class RocketMQOptions {
 	public static Properties getRocketMQProperties(Map<String, String> tableOptions) {
 		final Properties rocketProperties = new Properties();
 
-		if (hasKafkaClientProperties(tableOptions)) {
+		if (hasRocketMQClientProperties(tableOptions)) {
 			tableOptions.keySet().stream()
 				.filter(key -> key.startsWith(PROPERTIES_PREFIX))
 				.forEach(key -> {
@@ -244,7 +279,7 @@ public abstract class RocketMQOptions {
 	}
 
 	/** Decides if the table options contains Kafka client properties that start with prefix 'properties'. */
-	private static boolean hasKafkaClientProperties(Map<String, String> tableOptions) {
+	private static boolean hasRocketMQClientProperties(Map<String, String> tableOptions) {
 		return tableOptions.keySet().stream().anyMatch(k -> k.startsWith(PROPERTIES_PREFIX));
 	}
 

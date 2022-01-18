@@ -79,7 +79,7 @@ public class DataStreamSource<T> extends SingleOutputStreamOperator<T> {
 						sourceName,
 						new SourceOperatorFactory<>(source, timestampsAndWatermarks),
 						outTypeInfo,
-						environment.getParallelism())
+						source.getParallelism() > 0 ? source.getParallelism() : environment.getParallelism())
 					.setUseDefaultParallelism(true));
 	}
 

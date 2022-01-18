@@ -57,4 +57,8 @@ public interface SplitReader<E, SplitT extends SourceSplit> {
 	 * {@link #fetch()}.
 	 */
 	void wakeUp();
+
+	default void close() {
+
+	}
 }

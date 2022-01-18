@@ -176,6 +176,10 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
 		if (closed.compareAndSet(false, true)) {
 			LOG.info("Shutting down split fetcher {}", id);
 			wakeUp(false);
+
+			if (fetchTask != null) {
+				fetchTask.close();
+			}
 		}
 	}
 

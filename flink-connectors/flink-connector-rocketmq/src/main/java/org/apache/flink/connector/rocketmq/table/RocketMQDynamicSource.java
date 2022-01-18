@@ -18,11 +18,15 @@
 package org.apache.flink.connector.rocketmq.table;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
 import org.apache.flink.connector.rocketmq.RocketMQConsumer;
 import org.apache.flink.connector.rocketmq.RocketMQMetadata;
 import org.apache.flink.connector.rocketmq.RocketMQOptions;
+import org.apache.flink.connector.rocketmq.serialization.RocketMQBoundedDeserializationSchema;
+import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserializationSchema;
 import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserializationSchemaWrapper;
+import org.apache.flink.rocketmq.source.RocketMQSource;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -31,6 +35,7 @@ import org.apache.flink.table.connector.source.DataStreamScanProvider;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceFunctionProvider;
+import org.apache.flink.table.connector.source.SourceProvider;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
@@ -44,6 +49,9 @@ import com.bytedance.mqproxy.proto.MessageExt;
 import com.bytedance.rocketmq.clientv2.message.MessageQueue;
 
 import java.util.Map;
+
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_END_OFFSET;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_END_TIMESTAMP;
 
 /**
  * RocketMQDynamicSource.
@@ -73,8 +81,13 @@ public class RocketMQDynamicSource implements ScanTableSource {
 	@Override
 	public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
 		DeserializationSchema<RowData> schema = decodingFormat.createRuntimeDecoder(runtimeProviderContext, outputDataType);
+		RocketMQDeserializationSchema<RowData> rocketMQDeserializationSchema = createDeserializationSchema(schema);
+		if (rocketMQConfig.isUseFlip27Source()) {
+			return SourceProvider.of(getRocketMQSource(rocketMQDeserializationSchema, rocketMQConfig, props));
+		}
+
 		RocketMQConsumer<RowData> consumer =
-			new RocketMQConsumer<>(createDeserializationSchema(schema), props, rocketMQConfig);
+			new RocketMQConsumer<>(rocketMQDeserializationSchema, props, rocketMQConfig);
 		if (rocketMQConfig.getKeySelector() != null) {
 			DataStreamScanProvider dataStreamScanProvider = new DataStreamScanProvider() {
 				@Override
@@ -107,23 +120,40 @@ public class RocketMQDynamicSource implements ScanTableSource {
 	private RocketMQDeserializationSchemaWrapper<RowData> createDeserializationSchema(
 			DeserializationSchema<RowData> schema) {
 		if (rocketMQConfig.getMetadataMap() != null) {
-			return new RocketMQWithMetadataDeserializationSchema(
-				outputDataType.getChildren().size(), schema, rocketMQConfig.getMetadataMap());
+			return new RocketMQWithMetadataDeserializationSchema(outputDataType.getChildren().size(), schema,
+				rocketMQConfig.getMetadataMap(), rocketMQConfig.getEndTimestamp(), rocketMQConfig.getEndOffset());
+		} else if (rocketMQConfig.getEndOffset() != SCAN_END_OFFSET.defaultValue() ||
+				rocketMQConfig.getEndTimestamp() != SCAN_END_TIMESTAMP.defaultValue()) {
+			return new RocketMQBoundedDeserializationSchema<>(
+				schema, rocketMQConfig.getEndTimestamp(), rocketMQConfig.getEndOffset());
 		} else {
 			return new RocketMQDeserializationSchemaWrapper<>(schema);
 		}
 	}
 
+	private RocketMQSource<RowData> getRocketMQSource(
+			RocketMQDeserializationSchema<RowData> schema,
+			RocketMQConfig<RowData> rocketMQConfig,
+			Map<String, String> props) {
+		return new RocketMQSource<>(
+			schema.isStreamingMode() ? Boundedness.CONTINUOUS_UNBOUNDED : Boundedness.BOUNDED,
+			schema,
+			props,
+			rocketMQConfig);
+	}
+
 	private static final class RocketMQWithMetadataDeserializationSchema
-			extends RocketMQDeserializationSchemaWrapper<RowData> {
+			extends RocketMQBoundedDeserializationSchema<RowData> {
 		private final int outFieldNum;
 		private final Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
 
 		public RocketMQWithMetadataDeserializationSchema(
 				int outFieldNum,
 				DeserializationSchema<RowData> deserializationSchema,
-				Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap) {
-			super(deserializationSchema);
+				Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap,
+				long endTimestamp,
+				long endOffset) {
+			super(deserializationSchema, endTimestamp, endOffset);
 			assert deserializationSchema.getProducedType().getArity() + metadataMap.size() == outFieldNum;
 			this.metadataMap = metadataMap;
 			this.outFieldNum = outFieldNum;

@@ -20,6 +20,11 @@ package org.apache.flink.connector.rocketmq;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import com.bytedance.mqproxy.proto.MessageQueuePb;
+import com.bytedance.mqproxy.proto.ResponseCode;
+import com.bytedance.rocketmq.clientv2.consumer.DefaultMQPullConsumer;
+import com.bytedance.rocketmq.clientv2.consumer.QueryOffsetResult;
+import com.bytedance.rocketmq.clientv2.consumer.ResetOffsetResult;
 import com.bytedance.rocketmq.clientv2.message.MessageQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +37,17 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_FROM_TIMESTAMP_MILLIS;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_EARLIEST;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_LATEST;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_TIMESTAMP;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE_VALUE_EARLIEST;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE_VALUE_LATEST;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE_VALUE_TIMESTAMP;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
 
 /**
  * RocketMQUtils.
@@ -120,5 +136,100 @@ public final class RocketMQUtils {
 					return queueIds.stream();
 				}
 			);
+	}
+
+	public static void validateResponse(int errorCode, String errMsg) {
+		if (errorCode == ResponseCode.OK_VALUE) {
+			return;
+		}
+		throw new FlinkRuntimeException(errMsg);
+	}
+
+	public static Long resetAndGetOffset(
+			String topic,
+			String group,
+			MessageQueuePb messageQueuePb,
+			Map<String, String> props,
+			DefaultMQPullConsumer consumer) throws InterruptedException {
+		List<MessageQueuePb> queuePbList = Arrays.asList(messageQueuePb);
+		ResetOffsetResult resetOffsetResult;
+		String startupMode = props.getOrDefault(SCAN_STARTUP_MODE.key(), SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS);
+
+		QueryOffsetResult queryOffsetResult;
+		synchronized (consumer) {
+			switch (startupMode) {
+				case SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS:
+					queryOffsetResult = consumer.queryCommitOffset(topic, queuePbList);
+					validateResponse(queryOffsetResult.getErrorCode(), queryOffsetResult.getErrorMsg());
+					if (getOnlyOffset(queryOffsetResult.getOffsetMap()) < 0) {
+						// We cannot get normal offset from RMQ.
+						// Default setting is earliest, in case of data loss.
+						String initialOffset =
+							props.getOrDefault(RocketMQOptions.SCAN_CONSUMER_OFFSET_RESET_TO.key(), SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_EARLIEST);
+						switch (initialOffset) {
+							case SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_EARLIEST:
+								resetOffsetResult = consumer.resetOffsetToEarliest(topic, group, queuePbList, false);
+								LOG.info("Group offset not find, reset {} offset to earliest offset: {}",
+									formatQueue(messageQueuePb), getOnlyOffset(resetOffsetResult.getResetOffsetMap()));
+								break;
+							case SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_LATEST:
+								resetOffsetResult = consumer.resetOffsetToLatest(topic, group, queuePbList, false);
+								LOG.info("Group offset not find, reset {} offset to latest offset: {}",
+									formatQueue(messageQueuePb), getOnlyOffset(resetOffsetResult.getResetOffsetMap()));
+								break;
+							case SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_TIMESTAMP:
+								long timestamp = RocketMQUtils.getLong(props,
+									SCAN_CONSUMER_OFFSET_FROM_TIMESTAMP_MILLIS.key(), System.currentTimeMillis());
+								resetOffsetResult = consumer.resetOffsetByTimestamp(topic, group, queuePbList, timestamp, false);
+								LOG.info("Group offset not find, reset {} offset to timestamp offset: {}",
+									formatQueue(messageQueuePb), getOnlyOffset(resetOffsetResult.getResetOffsetMap()));
+								break;
+							default:
+								throw new IllegalArgumentException("Unknown value for CONSUMER_OFFSET_RESET_TO.");
+						}
+						validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
+					} else {
+						LOG.info("Get {} group offset {}", formatQueue(messageQueuePb),
+							getOnlyOffset(queryOffsetResult.getOffsetMap()));
+						return queryOffsetResult.getOffsetMap().get(messageQueuePb);
+					}
+					break;
+				case SCAN_STARTUP_MODE_VALUE_EARLIEST:
+					resetOffsetResult = consumer.resetOffsetToEarliest(
+						topic, group, queuePbList, false);
+					validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
+					LOG.info("Group offset not find, reset {} offset to earliest offset: {}",
+						formatQueue(messageQueuePb), getOnlyOffset(resetOffsetResult.getResetOffsetMap()));
+					break;
+				case SCAN_STARTUP_MODE_VALUE_LATEST:
+					resetOffsetResult = consumer.resetOffsetToLatest(topic, group, queuePbList, false);
+					validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
+					LOG.info("Reset {} offset to latest offset: {}",
+						formatQueue(messageQueuePb), getOnlyOffset(resetOffsetResult.getResetOffsetMap()));
+					break;
+				case SCAN_STARTUP_MODE_VALUE_TIMESTAMP:
+					long timestamp = RocketMQUtils.getLong(props,
+						SCAN_STARTUP_TIMESTAMP_MILLIS.key(), System.currentTimeMillis());
+					resetOffsetResult = consumer.resetOffsetByTimestamp(
+						topic, group, queuePbList, timestamp, false);
+					validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
+					LOG.info("Reset {} offset to timestamp offset: {}",
+						formatQueue(messageQueuePb), getOnlyOffset(resetOffsetResult.getResetOffsetMap()));
+					break;
+				default:
+					throw new IllegalArgumentException("Unknown value for startup-mode: " + startupMode);
+			}
+		}
+
+		return resetOffsetResult.getResetOffsetMap().get(messageQueuePb);
+	}
+
+	public static String formatQueue(MessageQueuePb messageQueuePb) {
+		return String.format("Queue[topic: %s, broker: %s, queue: %s]",
+			messageQueuePb.getTopic(), messageQueuePb.getBrokerName(), messageQueuePb.getQueueId());
+	}
+
+	public static long getOnlyOffset(Map<MessageQueuePb, Long> offsetMap) {
+		return offsetMap.entrySet().iterator().next().getValue();
 	}
 }

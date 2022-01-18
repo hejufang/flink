@@ -19,6 +19,7 @@
 package org.apache.flink.api.connector.source;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.state.OperatorStateStore;
 import org.apache.flink.core.io.InputStatus;
 
 import java.util.List;
@@ -78,4 +79,9 @@ public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseab
 	 * @param sourceEvent the event sent by the {@link SplitEnumerator}.
 	 */
 	void handleSourceEvents(SourceEvent sourceEvent);
+
+	default void initializeState(
+		boolean isStored,
+		OperatorStateStore operatorStateStore) throws Exception {
+	}
 }

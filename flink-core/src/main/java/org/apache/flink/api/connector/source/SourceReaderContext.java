@@ -38,4 +38,8 @@ public interface SourceReaderContext {
 	 * @param sourceEvent the source event to coordinator.
 	 */
 	void sendSourceEventToCoordinator(SourceEvent sourceEvent);
+
+	default int getSubTaskId() {
+		throw new UnsupportedOperationException();
+	}
 }
