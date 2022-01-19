@@ -472,7 +472,6 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 					tags.add(new TagKv("taskid", taskId));
 					tags.add(new TagKv("topic", topic));
 					tags.add(new TagKv("partition", partition));
-					tags.add(new TagKv("taskName", jobAndSource));
 
 					Matcher taskAndKafkaMatcher2 = TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN_2.matcher(taskManagerMetricName);
 					if (taskAndKafkaMatcher2.find()) {
@@ -491,10 +490,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				} else {
 					Matcher taskMatcher = TASK_MANAGER_PATTERN_2.matcher(taskManagerMetricName);
 					if (taskMatcher.find()) {
-						String taskName = taskMatcher.group(1);
 						String taskId = taskMatcher.group(2);
 						tags.add(new TagKv("taskid", taskId));
-						tags.add(new TagKv("taskName", taskName));
 						String metricName = "taskmanager." + taskMatcher.group(1) + "." + taskMatcher.group(3);
 						Tuple<String, String> kafkaConsumerMetrics =
 							getKafkaConsumerMetrics(metricName, tags);

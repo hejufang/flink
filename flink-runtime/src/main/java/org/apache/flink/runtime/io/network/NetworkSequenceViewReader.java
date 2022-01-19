@@ -75,6 +75,4 @@ public interface NetworkSequenceViewReader {
 	InputChannelID getReceiverId();
 
 	int getSequenceNumber();
-
-	default void onError(Throwable throwable){}
 }

@@ -163,10 +163,4 @@ public interface ResultPartitionWriter extends AutoCloseable, AvailabilityProvid
 	default void broadcastRecord(ByteBuffer rawBuffer) throws IOException {
 		throw new UnsupportedOperationException();
 	}
-
-	default void checkError(int subpartitionIndex) throws IOException{}
-
-	default long getErrorNum() {
-		return 0;
-	}
 }

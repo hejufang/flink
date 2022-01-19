@@ -31,7 +31,6 @@ import org.apache.flink.runtime.io.network.api.serialization.RecordSerializer;
 import org.apache.flink.runtime.io.network.api.serialization.SpanningRecordSerializer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
-import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.XORShiftRandom;
 
@@ -116,8 +115,6 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 
 	protected void emit(T record, int targetChannel) throws IOException, InterruptedException {
 		checkErroneous();
-		// check targetSubPartition error
-		targetPartition.checkError(targetChannel);
 
 		// check whether need to clean the buffer builder
 		if (targetPartition.needToCleanBufferBuilder(targetChannel)) {
@@ -183,9 +180,6 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 	public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent) throws IOException {
 		try (BufferConsumer eventBufferConsumer = EventSerializer.toBufferConsumer(event)) {
 			for (int targetChannel = 0; targetChannel < numberOfChannels; targetChannel++) {
-				// check targetSubPartition error
-				targetPartition.checkError(targetChannel);
-
 				tryFinishCurrentBufferBuilder(targetChannel);
 
 				// Retain the buffer so that it can be recycled by each channel of targetPartition
@@ -214,7 +208,6 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 		numBuffersOut = metrics.getNumBuffersOutCounter();
 		idleTimeMsPerSecond = metrics.getIdleTimeMsPerSecond();
 		numRecordsDropped = metrics.getNumRecordsDropped();
-		metrics.getParentMetricGroup().gauge(MetricNames.UPSTREAM_TASK_ERROR_NUM, targetPartition::getErrorNum);
 	}
 
 	protected void finishBufferBuilder(BufferBuilder bufferBuilder) {

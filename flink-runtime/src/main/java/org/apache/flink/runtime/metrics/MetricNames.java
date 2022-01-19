@@ -86,7 +86,6 @@ public class MetricNames {
 	public static final String EXECUTION_STATE_TAG_VERTEX_INDEX_NAME = "vertexIndex";
 	public static final String EXECUTION_STATE_TAG_SUBTASK_ID_NAME = "subtaskId";
 	public static final String EXECUTION_STATE_TIME = "executionStateTime";
-	public static final String UPSTREAM_TASK_ERROR_NUM = "upstreamTaskErrorNum";
 	public static final String TASK_EXECUTOR_EXECUTION_STATE_TIME = "taskExecutorExecutionStateTime";
 	public static final String TASK_FAILING_TIME = "taskFailingTime";
 	public static final String NUMBER_TASK_PER_TASK_EXECUTOR = "numberOfTasks";
