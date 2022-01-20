@@ -323,9 +323,9 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 				@Override
 				public void onCompletion(RecordMetadata metadata, Exception e) {
 					if (e != null) {
+						writeFailedCounter.inc();
 						LOG.error("Error while sending record to Kafka: " + e.getMessage(), e);
 					}
-					writeFailedCounter.inc();
 					acknowledgeMessage(metadata);
 				}
 			};
