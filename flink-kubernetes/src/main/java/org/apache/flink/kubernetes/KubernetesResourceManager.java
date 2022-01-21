@@ -316,7 +316,9 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 				if (!StringUtils.isNullOrWhitespaceOnly(hostIP)){
 					LOG.info("deleted event: a taskManager pod, it's podName: {}, hostIP: {}", pod.getName(), hostIP);
 				}
-				removePodAndTryRestartIfRequired(pod);
+				recordWorkerFailure();
+				internalStopPod(pod.getName());
+				requestKubernetesPodIfRequired();
 			}
 		});
 	}
@@ -492,6 +494,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			final int requiredTaskManagers = entry.getValue();
 
 			while (requiredTaskManagers > getNumRequestedNotRegisteredWorkersFor(workerResourceSpec)) {
+				log.info("Need to require new task manager pod, NumRequestedNotRegisteredWorkersFor: {}",
+					getNumRequestedNotRegisteredWorkersFor(workerResourceSpec));
 				tryStartNewWorker(workerResourceSpec);
 			}
 		}

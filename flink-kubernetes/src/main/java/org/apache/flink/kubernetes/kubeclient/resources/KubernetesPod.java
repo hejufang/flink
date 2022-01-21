@@ -35,12 +35,23 @@ public class KubernetesPod extends KubernetesResource<Pod> {
 
 	public boolean isTerminated() {
 		if (getInternalResource().getStatus() != null) {
-			return getInternalResource()
-				.getStatus()
+			final boolean podFailed =
+				PodPhase.Failed.name().equals(getInternalResource().getStatus().getPhase());
+			final boolean containersFailed = getInternalResource().getStatus()
 				.getContainerStatuses()
 				.stream()
 				.anyMatch(e -> e.getState() != null && e.getState().getTerminated() != null);
+			return containersFailed || podFailed;
 		}
 		return false;
+	}
+
+	/** The phase of a Pod, high-level summary of where the Pod is in its lifecycle. */
+	enum PodPhase {
+		Pending,
+		Running,
+		Succeeded,
+		Failed,
+		Unknown
 	}
 }
