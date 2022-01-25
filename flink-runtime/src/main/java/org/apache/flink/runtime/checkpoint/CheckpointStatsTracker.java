@@ -403,7 +403,7 @@ public class CheckpointStatsTracker {
 	@VisibleForTesting
 	static final String LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC = "lastCheckpointExternalPath";
 
-	static final TagGauge FAILED_CHECKPOINTS_TAG_GAUGE = new TagGauge.TagGaugeBuilder().setClearWhenFull(true).build();
+	static final TagGauge FAILED_CHECKPOINTS_TAG_GAUGE = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).setClearWhenFull(true).build();
 
 	static final String NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD = "numberOfActualDeletedStateFiles";
 
