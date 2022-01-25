@@ -414,7 +414,7 @@ public class CheckpointStatsTracker {
 
 	static final String NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD = "numberOfTotalDeletedStateFiles";
 
-	static final TagGauge failedCheckpointsTagGauge = new TagGauge.TagGaugeBuilder().setClearWhenFull(true).build();
+	static final TagGauge failedCheckpointsTagGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).setClearWhenFull(true).build();
 
 	static final MessageSet<WarehouseCheckpointMessage> messageSet = new MessageSet<>(MessageType.CHECKPOINT);
 
