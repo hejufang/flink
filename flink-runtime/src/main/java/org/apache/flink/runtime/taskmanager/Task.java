@@ -252,9 +252,6 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	/** The thread that executes the task. */
 	private final Thread executingThread;
 
-	/** The thread that executes the task. */
-	private final Thread cancelWatchDogThread;
-
 	/** Parent group for all metrics of this task. */
 	private final TaskMetricGroup metrics;
 
@@ -515,7 +512,6 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 		// finally, create the executing thread, but do not start it
 		executingThread = new Thread(TASK_THREADS_GROUP, this, taskMetricNameWithSubtask);
-		cancelWatchDogThread = getWatchdogThread();
 
 		this.jobLogDetailDisable = jobLogDetailDisable;
 	}
@@ -850,7 +846,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			// by the time we switched to running.
 			this.invokable = invokable;
 			if (taskCancellationTimeout > 0) {
-				invokable.setCancelWatchDogThread(cancelWatchDogThread);
+				invokable.setCancelWatchDogThread(getWatchdogThread());
 			}
 
 			// switch to the RUNNING state, if that fails, we have been canceled/failed in the meantime
@@ -1223,7 +1219,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 						if (taskCancellationTimeout > 0) {
 							LOG.info("Task {} starts watchdog thread.", taskMetricNameWithSubtask);
 							try {
-								cancelWatchDogThread.start();
+								getWatchdogThread().start();
 							} catch (Exception e) {
 								LOG.error("Task {} starts watchdog thread failed.", taskMetricNameWithSubtask, e);
 								throw new TaskCancelerWatchDogException(e);
