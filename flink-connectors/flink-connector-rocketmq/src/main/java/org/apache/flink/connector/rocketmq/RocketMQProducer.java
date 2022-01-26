@@ -50,6 +50,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.DEFER_MILLIS_MAX;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.DEFER_MILLIS_MIN;
@@ -80,6 +81,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	private final long flushIntervalMs;
 	private final RowKindSinkFilter<T> rowKindSinkFilter;
 	private boolean batchFlushEnable;
+	private final boolean hasPartitionKey;
 
 	private transient DefaultMQProducer producer;
 	private transient ScheduledExecutorService scheduler;
@@ -106,6 +108,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		this.batchFlushEnable = rocketMQConfig.isBatchFlushEnable();
 		this.flushIntervalMs = rocketMQConfig.getFlushIntervalMs();
 		this.rowKindSinkFilter = rocketMQConfig.getRowKindSinkFilter();
+		this.hasPartitionKey = rocketMQConfig.getSinkKeyByFields() != null;
 	}
 
 	@Override
@@ -183,8 +186,16 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	private void flushMessages() {
 		if (messageList.size() > 0) {
 			try {
-				SendResult sendResult = producer.send(messageList);
-				LOG.debug("Send Message Ids: {}", sendResult.getMsgId());
+				if (hasPartitionKey) {
+					List<SendResult> sendResults = producer.sendMessages(messageList, null);
+					if (LOG.isDebugEnabled()) {
+						LOG.debug("Send Message Ids: {}",
+							sendResults.stream().map(SendResult::getMsgId).collect(Collectors.joining(",")));
+					}
+				} else {
+					SendResult sendResult = producer.send(messageList);
+					LOG.debug("Send Message Ids: {}", sendResult.getMsgId());
+				}
 			} catch (Exception e) {
 				LOG.error("Flush exception", e);
 				throw new FlinkRuntimeException("Rocketmq flush exception", e);
