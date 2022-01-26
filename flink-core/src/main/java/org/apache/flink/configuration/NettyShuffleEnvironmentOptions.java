@@ -350,6 +350,13 @@ public class NettyShuffleEnvironmentOptions {
 			.defaultValue(300_000L)
 			.withDescription("The time (in ms) to keep the netty channel which isn't assign to any task.");
 
+	public static final ConfigOption<Boolean> NETWORK_BUFFER_POOL_REDISTRIBUTE_DISABLE =
+		key("taskmanager.network-buffer-pool-redistribute.disable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Network buffer pool will redistribute all the local buffer pool, " +
+				"and if this flag is true, the network buffer pool won't do that.");
+
 	/** Not intended to be instantiated. */
 	private NettyShuffleEnvironmentOptions() {}
 }

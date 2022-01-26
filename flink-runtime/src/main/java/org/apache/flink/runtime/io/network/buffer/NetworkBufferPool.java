@@ -86,6 +86,8 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 	private final long requestNetworkSegmentTimeoutMills;
 
+	private final boolean redistributeDisable;
+
 	// Track the number of segments that have been allocated.
 	private AtomicInteger numberOfAllocatedMemorySegments = new AtomicInteger(0);
 
@@ -122,7 +124,8 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 			numberOfSegmentsToRequest,
 			requestSegmentsTimeout,
 			lazyAllocate,
-			Duration.ofMillis(0L)
+			Duration.ofMillis(0L),
+			false
 		);
 	}
 
@@ -132,9 +135,11 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 			int numberOfSegmentsToRequest,
 			Duration requestSegmentsTimeout,
 			boolean lazyAllocate,
-			Duration requestNetworkSegmentTimeout) {
+			Duration requestNetworkSegmentTimeout,
+			boolean redistributeDisable) {
 		this.totalNumberOfMemorySegments = numberOfSegmentsToAllocate;
 		this.memorySegmentSize = segmentSize;
+		this.redistributeDisable = redistributeDisable;
 
 		checkArgument(numberOfSegmentsToRequest > 0, "The number of required buffers should be larger than 0.");
 		this.numberOfSegmentsToRequest = numberOfSegmentsToRequest;
@@ -250,12 +255,14 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 	@Override
 	public List<MemorySegment> requestMemorySegments() throws IOException {
-		synchronized (factoryLock) {
-			if (isDestroyed) {
-				throw new IllegalStateException("Network buffer pool has already been destroyed.");
-			}
+		if (!redistributeDisable) {
+			synchronized (factoryLock) {
+				if (isDestroyed) {
+					throw new IllegalStateException("Network buffer pool has already been destroyed.");
+				}
 
-			tryRedistributeBuffers();
+				tryRedistributeBuffers();
+			}
 		}
 
 		final List<MemorySegment> segments = new ArrayList<>(numberOfSegmentsToRequest);
@@ -328,13 +335,14 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 	private void recycleMemorySegments(Collection<MemorySegment> segments, int size) throws IOException {
 		internalRecycleMemorySegments(segments);
+			synchronized (factoryLock) {
+				numTotalRequiredBuffers -= size;
 
-		synchronized (factoryLock) {
-			numTotalRequiredBuffers -= size;
-
-			// note: if this fails, we're fine for the buffer pool since we already recycled the segments
-			redistributeBuffers();
-		}
+				// note: if this fails, we're fine for the buffer pool since we already recycled the segments
+				if (!redistributeDisable) {
+					redistributeBuffers();
+				}
+			}
 	}
 
 	private void internalRecycleMemorySegments(Collection<MemorySegment> segments) {
@@ -505,7 +513,9 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 			allBufferPools.add(localBufferPool);
 
 			try {
-				redistributeBuffers();
+				if (!redistributeDisable) {
+					redistributeBuffers();
+				}
 			} catch (IOException e) {
 				try {
 					destroyBufferPool(localBufferPool);
@@ -528,8 +538,9 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 		synchronized (factoryLock) {
 			if (allBufferPools.remove(bufferPool)) {
 				numTotalRequiredBuffers -= bufferPool.getNumberOfRequiredMemorySegments();
-
-				redistributeBuffers();
+				if (!redistributeDisable) {
+					redistributeBuffers();
+				}
 			}
 		}
 	}

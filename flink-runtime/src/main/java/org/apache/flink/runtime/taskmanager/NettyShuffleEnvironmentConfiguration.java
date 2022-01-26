@@ -89,6 +89,8 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final long channelIdleReleaseTimeMs;
 
+	private final boolean redistributeDisable;
+
 	public NettyShuffleEnvironmentConfiguration(
 			int numNetworkBuffers,
 			int networkBufferSize,
@@ -110,7 +112,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			boolean lazyAllocate,
 			Duration requestNetworkSegmentTimeout,
 			boolean channelReuseEnable,
-			long channelIdleReleaseTimeMs) {
+			long channelIdleReleaseTimeMs,
+			boolean redistributeDisable) {
 
 		this.numNetworkBuffers = numNetworkBuffers;
 		this.networkBufferSize = networkBufferSize;
@@ -133,6 +136,7 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.requestNetworkSegmentTimeout = requestNetworkSegmentTimeout;
 		this.channelReuseEnable = channelReuseEnable;
 		this.channelIdleReleaseTimeMs = channelIdleReleaseTimeMs;
+		this.redistributeDisable = redistributeDisable;
 	}
 
 	// ------------------------------------------------------------------------
@@ -220,7 +224,11 @@ public class NettyShuffleEnvironmentConfiguration {
 	public long getChannelIdleReleaseTimeMs() {
 		return channelIdleReleaseTimeMs;
 	}
-	// ------------------------------------------------------------------------
+
+	public boolean isRedistributeDisable() {
+		return redistributeDisable;
+	}
+// ------------------------------------------------------------------------
 
 	/**
 	 * Utility method to extract network related parameters from the configuration and to
@@ -281,6 +289,7 @@ public class NettyShuffleEnvironmentConfiguration {
 				NettyShuffleEnvironmentOptions.NETWORK_BUFFER_MEMORY_REQUEST_TIMEOUT_MILLS));
 		boolean channelReuseEnable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_CHANNEL_REUSE_ENABLE);
 		long channelIdleReleaseTimeMs = configuration.getLong(NettyShuffleEnvironmentOptions.NETWORK_CHANNEL_IDLE_TOLERANT_TIME_MS);
+		boolean redistributeDisable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BUFFER_POOL_REDISTRIBUTE_DISABLE);
 
 		return new NettyShuffleEnvironmentConfiguration(
 			numberOfNetworkBuffers,
@@ -303,7 +312,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			lazyAllocate,
 			requestNetworkSegmentTimeout,
 			channelReuseEnable,
-			channelIdleReleaseTimeMs);
+			channelIdleReleaseTimeMs,
+			redistributeDisable);
 	}
 
 	/**
