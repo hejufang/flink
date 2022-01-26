@@ -48,7 +48,7 @@ public class PrioritizedOperatorSubtaskState {
 
 	/** Singleton instance for an empty, non-restored operator state. */
 	private static final PrioritizedOperatorSubtaskState EMPTY_NON_RESTORED_INSTANCE =
-		new PrioritizedOperatorSubtaskState.Builder(new OperatorSubtaskState(), Collections.emptyList(), false)
+		new PrioritizedOperatorSubtaskState.Builder(new OperatorSubtaskState(), Collections.emptyList(), false, false)
 			.build();
 
 	/** List of prioritized snapshot alternatives for managed operator state. */
@@ -70,6 +70,9 @@ public class PrioritizedOperatorSubtaskState {
 	/** Signal flag if this represents state for a restored operator. */
 	private final boolean restored;
 
+	/** Whether the state used by this task to restore is under another namespace. */
+	private final boolean crossNamespace;
+
 	PrioritizedOperatorSubtaskState(
 			@Nonnull List<StateObjectCollection<KeyedStateHandle>> prioritizedManagedKeyedState,
 			@Nonnull List<StateObjectCollection<KeyedStateHandle>> prioritizedRawKeyedState,
@@ -77,7 +80,8 @@ public class PrioritizedOperatorSubtaskState {
 			@Nonnull List<StateObjectCollection<OperatorStateHandle>> prioritizedRawOperatorState,
 			@Nonnull List<StateObjectCollection<InputChannelStateHandle>> prioritizedInputChannelState,
 			@Nonnull List<StateObjectCollection<ResultSubpartitionStateHandle>> prioritizedResultSubpartitionState,
-			boolean restored) {
+			boolean restored,
+			boolean crossNamespace) {
 
 		this.prioritizedManagedOperatorState = prioritizedManagedOperatorState;
 		this.prioritizedRawOperatorState = prioritizedRawOperatorState;
@@ -86,6 +90,7 @@ public class PrioritizedOperatorSubtaskState {
 		this.prioritizedInputChannelState = prioritizedInputChannelState;
 		this.prioritizedResultSubpartitionState = prioritizedResultSubpartitionState;
 		this.restored = restored;
+		this.crossNamespace = crossNamespace;
 	}
 
 	// -----------------------------------------------------------------------------------------------------------------
@@ -184,6 +189,13 @@ public class PrioritizedOperatorSubtaskState {
 		return restored;
 	}
 
+	/**
+	 * Returns whether the state used by this task to restore is under another namespace.
+	 */
+	public boolean isCrossNamespace() {
+		return crossNamespace;
+	}
+
 	private static <T extends StateObject> StateObjectCollection<T> lastElement(List<StateObjectCollection<T>> list) {
 		return list.get(list.size() - 1);
 	}
@@ -212,20 +224,25 @@ public class PrioritizedOperatorSubtaskState {
 		/** Flag if the states have been restored. */
 		private final boolean restored;
 
+		/** Whether the state used by this task to restore is under another namespace. */
+		private final boolean crossNamespace;
+
 		public Builder(
 			@Nonnull OperatorSubtaskState jobManagerState,
 			@Nonnull List<OperatorSubtaskState> alternativesByPriority) {
-			this(jobManagerState, alternativesByPriority, true);
+			this(jobManagerState, alternativesByPriority, true, false);
 		}
 
 		public Builder(
 			@Nonnull OperatorSubtaskState jobManagerState,
 			@Nonnull List<OperatorSubtaskState> alternativesByPriority,
-			boolean restored) {
+			boolean restored,
+			boolean crossNamespace) {
 
 			this.jobManagerState = jobManagerState;
 			this.alternativesByPriority = alternativesByPriority;
 			this.restored = restored;
+			this.crossNamespace = crossNamespace;
 		}
 
 		public PrioritizedOperatorSubtaskState build() {
@@ -274,7 +291,8 @@ public class PrioritizedOperatorSubtaskState {
 					jobManagerState.getResultSubpartitionState(),
 					resultSubpartitionStateAlternatives,
 					eqStateApprover(ResultSubpartitionStateHandle::getInfo)),
-				restored);
+				restored,
+				crossNamespace);
 		}
 
 		/**

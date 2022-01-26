@@ -525,4 +525,9 @@ public abstract class AbstractFsCheckpointStorage implements CheckpointStorage {
 			throw new IllegalArgumentException("Reference too short.");
 		}
 	}
+
+	/**
+	 * Returns the base directory used to trigger checkpoint.
+	 */
+	public abstract Path getCheckpointsDirectory();
 }

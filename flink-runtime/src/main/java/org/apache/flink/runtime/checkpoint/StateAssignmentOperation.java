@@ -70,6 +70,8 @@ public class StateAssignmentOperation {
 
 	private final UnionStateAggregator unionStateAggregator;
 
+	private final boolean crossNamespace;
+
 	public StateAssignmentOperation(
 		long restoreCheckpointId,
 		Set<ExecutionJobVertex> tasks,
@@ -84,17 +86,34 @@ public class StateAssignmentOperation {
 	}
 
 	public StateAssignmentOperation(
-		long restoreCheckpointId,
-		Set<ExecutionJobVertex> tasks,
-		Map<OperatorID, OperatorState> operatorStates,
-		boolean allowNonRestoredState,
-		UnionStateAggregator unionStateAggregator) {
+			long restoreCheckpointId,
+			Set<ExecutionJobVertex> tasks,
+			Map<OperatorID, OperatorState> operatorStates,
+			boolean allowNonRestoredState,
+			UnionStateAggregator unionStateAggregator) {
+
+		this(restoreCheckpointId,
+			tasks,
+			operatorStates,
+			allowNonRestoredState,
+			unionStateAggregator,
+			false);
+	}
+
+	public StateAssignmentOperation(
+			long restoreCheckpointId,
+			Set<ExecutionJobVertex> tasks,
+			Map<OperatorID, OperatorState> operatorStates,
+			boolean allowNonRestoredState,
+			UnionStateAggregator unionStateAggregator,
+			boolean crossNamespace) {
 
 		this.restoreCheckpointId = restoreCheckpointId;
 		this.tasks = Preconditions.checkNotNull(tasks);
 		this.operatorStates = Preconditions.checkNotNull(operatorStates);
 		this.allowNonRestoredState = allowNonRestoredState;
 		this.unionStateAggregator = unionStateAggregator;
+		this.crossNamespace = crossNamespace;
 	}
 
 	public void assignStates() {
@@ -264,7 +283,7 @@ public class StateAssignmentOperation {
 			}
 
 			if (!statelessTask) {
-				JobManagerTaskRestore taskRestore = new JobManagerTaskRestore(restoreCheckpointId, taskState);
+				JobManagerTaskRestore taskRestore = new JobManagerTaskRestore(restoreCheckpointId, taskState, crossNamespace);
 				currentExecutionAttempt.setInitialState(taskRestore);
 			}
 		}

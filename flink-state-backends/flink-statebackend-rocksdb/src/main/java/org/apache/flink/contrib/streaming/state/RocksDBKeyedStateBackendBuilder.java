@@ -129,6 +129,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	private long dbNativeCheckpointTimeout;
 	private long disposeTimeout;
 	private RestoreOptions restoreOptions; // for restore
+	private boolean crossNamespace = false;
 
 	private RocksDB injectedTestDB; // for testing
 	private ColumnFamilyHandle injectedDefaultColumnFamilyHandle; // for testing
@@ -293,6 +294,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		return this;
 	}
 
+	public RocksDBKeyedStateBackendBuilder<K> setCrossNamespace(boolean crossNamespace) {
+		this.crossNamespace = crossNamespace;
+		return this;
+	}
+
 	private static void checkAndCreateDirectory(File directory) throws IOException {
 		if (directory.exists()) {
 			if (!directory.isDirectory()) {
@@ -340,9 +346,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				defaultColumnFamilyHandle = restoreResult.getDefaultColumnFamilyHandle();
 				nativeMetricMonitor = restoreResult.getNativeMetricMonitor();
 				if (restoreOperation instanceof RocksDBIncrementalRestoreOperation) {
-					backendUID = restoreResult.getBackendUID();
-					materializedSstFiles = restoreResult.getRestoredSstFiles();
-					lastCompletedCheckpointId = restoreResult.getLastCompletedCheckpointId();
+					if (!crossNamespace) { // If cross namespaces, use a random backendUID.
+						backendUID = restoreResult.getBackendUID();
+						materializedSstFiles = restoreResult.getRestoredSstFiles();
+						lastCompletedCheckpointId = restoreResult.getLastCompletedCheckpointId();
+					}
 
 					LOG.info("RocksDB state file batching, restore from batch: {}, current using batch: {}",
 						restoreResult.isRestoreFromBatch(), batchConfig.isEnableStateFileBatching());

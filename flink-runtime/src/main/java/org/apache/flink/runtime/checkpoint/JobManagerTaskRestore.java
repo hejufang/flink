@@ -36,9 +36,17 @@ public class JobManagerTaskRestore implements Serializable {
 	/** The state for this task to restore. */
 	private final TaskStateSnapshot taskStateSnapshot;
 
+	/** Whether the state used by this task to restore is under another namespace. */
+	private final boolean crossNamespace;
+
 	public JobManagerTaskRestore(@Nonnegative long restoreCheckpointId, @Nonnull TaskStateSnapshot taskStateSnapshot) {
+		this(restoreCheckpointId, taskStateSnapshot, false);
+	}
+
+	public JobManagerTaskRestore(@Nonnegative long restoreCheckpointId, @Nonnull TaskStateSnapshot taskStateSnapshot, boolean crossNamespace) {
 		this.restoreCheckpointId = restoreCheckpointId;
 		this.taskStateSnapshot = taskStateSnapshot;
+		this.crossNamespace = crossNamespace;
 	}
 
 	public long getRestoreCheckpointId() {
@@ -50,11 +58,16 @@ public class JobManagerTaskRestore implements Serializable {
 		return taskStateSnapshot;
 	}
 
+	public boolean isCrossNamespace() {
+		return crossNamespace;
+	}
+
 	@Override
 	public String toString() {
 		return "JobManagerTaskRestore{" +
 			"restoreCheckpointId=" + restoreCheckpointId +
 			", taskStateSnapshot=" + taskStateSnapshot +
+			", crossNamespace=" + crossNamespace +
 			'}';
 	}
 }

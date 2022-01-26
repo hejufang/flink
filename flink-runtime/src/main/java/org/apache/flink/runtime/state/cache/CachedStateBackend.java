@@ -130,7 +130,8 @@ public class CachedStateBackend extends AbstractStateBackend {
 				metricGroup,
 				stateHandles,
 				cancelStreamRegistry,
-				new NonStateStatsTracker());
+				new NonStateStatsTracker(),
+				false);
 	}
 
 	@Override
@@ -146,7 +147,8 @@ public class CachedStateBackend extends AbstractStateBackend {
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry,
-		StateStatsTracker statsTracker) throws IOException {
+		StateStatsTracker statsTracker,
+		boolean crossNamespace) throws IOException {
 		//TODO use builder to complete restore
 		try {
 			AbstractKeyedStateBackend<K> keyedStateBackend = delegateStateBackend.createKeyedStateBackend(
@@ -161,7 +163,8 @@ public class CachedStateBackend extends AbstractStateBackend {
 				metricGroup,
 				stateHandles,
 				cancelStreamRegistry,
-				statsTracker);
+				statsTracker,
+				crossNamespace);
 			// TODO restore cache
 			return new CachedKeyedStateBackend<>(
 				kvStateRegistry,

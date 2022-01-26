@@ -581,7 +581,8 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 			metricGroup,
 			stateHandles,
 			cancelStreamRegistry,
-			new NonStateStatsTracker()
+			new NonStateStatsTracker(),
+			false
 		);
 	}
 
@@ -598,7 +599,8 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry,
-		StateStatsTracker statsTracker) throws BackendBuildingException {
+		StateStatsTracker statsTracker,
+		boolean crossNamespace) throws BackendBuildingException {
 
 		TaskStateManager taskStateManager = env.getTaskStateManager();
 		LocalRecoveryConfig localRecoveryConfig = taskStateManager.createLocalRecoveryConfig();

@@ -171,8 +171,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 
 	// ------------------------------------------------------------------------
 
-	@VisibleForTesting
-	Path getCheckpointsDirectory() {
+	@Override
+	public Path getCheckpointsDirectory() {
 		return checkpointsDirectory;
 	}
 

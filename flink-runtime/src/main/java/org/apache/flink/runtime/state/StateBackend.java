@@ -206,7 +206,8 @@ public interface StateBackend extends java.io.Serializable {
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry,
-		StateStatsTracker statsTracker) throws Exception {
+		StateStatsTracker statsTracker,
+		boolean crossNamespace) throws Exception {
 		return createKeyedStateBackend(
 			env,
 			jobID,

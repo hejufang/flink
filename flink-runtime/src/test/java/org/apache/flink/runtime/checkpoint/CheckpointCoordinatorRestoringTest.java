@@ -38,6 +38,7 @@ import org.apache.flink.runtime.state.KeyGroupsStateHandle;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.SharedStateRegistry;
+import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.runtime.state.testutils.TestCompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.testutils.CommonTestUtils;
 import org.apache.flink.runtime.testutils.RecoverableCompletedCheckpointStore;
@@ -932,5 +933,120 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
 
 		comparePartitionableState(expectedManagedOperatorStates.get(0), actualManagedOperatorStates);
 		comparePartitionableState(expectedRawOperatorStates.get(0), actualRawOperatorStates);
+	}
+
+	@Test
+	public void testRestoreLatestCheckpointedStateWithCrossNamespace() throws Exception {
+		final JobID jid = new JobID();
+
+		final JobVertexID jobVertexID1 = new JobVertexID();
+		final JobVertexID jobVertexID2 = new JobVertexID();
+		int parallelism1 = 3;
+		int parallelism2 = 2;
+		int maxParallelism1 = 42;
+		int maxParallelism2 = 13;
+
+		final ExecutionJobVertex jobVertex1 = mockExecutionJobVertex(
+			jobVertexID1,
+			parallelism1,
+			maxParallelism1);
+		final ExecutionJobVertex jobVertex2 = mockExecutionJobVertex(
+			jobVertexID2,
+			parallelism2,
+			maxParallelism2);
+
+		List<ExecutionVertex> allExecutionVertices = new ArrayList<>(parallelism1 + parallelism2);
+
+		allExecutionVertices.addAll(Arrays.asList(jobVertex1.getTaskVertices()));
+		allExecutionVertices.addAll(Arrays.asList(jobVertex2.getTaskVertices()));
+
+		ExecutionVertex[] arrayExecutionVertices =
+			allExecutionVertices.toArray(new ExecutionVertex[allExecutionVertices.size()]);
+
+		CompletedCheckpointStore store = new RecoverableCompletedCheckpointStore();
+
+		// set up the coordinator and validate the initial state
+		CheckpointCoordinator coord =
+			new CheckpointCoordinatorBuilder()
+				.setJobId(jid)
+				.setTasks(arrayExecutionVertices)
+				.setCompletedCheckpointStore(store)
+				.setCheckpointStateBackend(new MemoryStateBackend(tmpFolder.newFolder().toURI().toString(), null))
+				.setTimer(manuallyTriggeredScheduledExecutor)
+				.build();
+
+		// trigger the checkpoint
+		coord.triggerCheckpoint(false);
+		manuallyTriggeredScheduledExecutor.triggerAll();
+
+		assertEquals(1, coord.getPendingCheckpoints().size());
+		long checkpointId = Iterables.getOnlyElement(coord.getPendingCheckpoints().keySet());
+
+		List<KeyGroupRange> keyGroupPartitions1 = StateAssignmentOperation.createKeyGroupPartitions(maxParallelism1, parallelism1);
+		List<KeyGroupRange> keyGroupPartitions2 = StateAssignmentOperation.createKeyGroupPartitions(maxParallelism2, parallelism2);
+
+		for (int index = 0; index < jobVertex1.getParallelism(); index++) {
+			TaskStateSnapshot subtaskState = mockSubtaskState(jobVertexID1, index, keyGroupPartitions1.get(index));
+
+			AcknowledgeCheckpoint acknowledgeCheckpoint = new AcknowledgeCheckpoint(
+				jid,
+				jobVertex1.getTaskVertices()[index].getCurrentExecutionAttempt().getAttemptId(),
+				checkpointId,
+				new CheckpointMetrics(),
+				subtaskState);
+
+			coord.receiveAcknowledgeMessage(acknowledgeCheckpoint, TASK_MANAGER_LOCATION_INFO);
+		}
+
+		for (int index = 0; index < jobVertex2.getParallelism(); index++) {
+			TaskStateSnapshot subtaskState = mockSubtaskState(jobVertexID2, index, keyGroupPartitions2.get(index));
+
+			AcknowledgeCheckpoint acknowledgeCheckpoint = new AcknowledgeCheckpoint(
+				jid,
+				jobVertex2.getTaskVertices()[index].getCurrentExecutionAttempt().getAttemptId(),
+				checkpointId,
+				new CheckpointMetrics(),
+				subtaskState);
+
+			coord.receiveAcknowledgeMessage(acknowledgeCheckpoint, TASK_MANAGER_LOCATION_INFO);
+		}
+
+		List<CompletedCheckpoint> completedCheckpoints = coord.getSuccessfulCheckpoints();
+
+		assertEquals(1, completedCheckpoints.size());
+
+		// shutdown the store
+		coord.shutdown(JobStatus.SUSPENDED);
+
+		// restore the store
+		Set<ExecutionJobVertex> tasks = new HashSet<>();
+
+		tasks.add(jobVertex1);
+		tasks.add(jobVertex2);
+
+		// set up the coordinator and validate the initial state
+		CheckpointCoordinator coord2 =
+			new CheckpointCoordinatorBuilder()
+				.setJobId(jid)
+				.setTasks(arrayExecutionVertices)
+				.setCompletedCheckpointStore(store)
+				.setCheckpointStateBackend(new MemoryStateBackend(tmpFolder.newFolder().toURI().toString(), null))
+				.setTimer(manuallyTriggeredScheduledExecutor)
+				.build();
+
+		assertTrue(coord2.restoreLatestCheckpointedStateToAll(tasks, false));
+
+		// validate that all shared states are registered again after the recovery.
+		for (CompletedCheckpoint completedCheckpoint : completedCheckpoints) {
+			for (OperatorState taskState : completedCheckpoint.getOperatorStates().values()) {
+				for (OperatorSubtaskState subtaskState : taskState.getStates()) {
+					verify(subtaskState, times(2)).registerSharedStates(any(SharedStateRegistry.class));
+				}
+			}
+		}
+
+		// verify the restored state
+		verifyStateRestore(jobVertexID1, jobVertex1, keyGroupPartitions1, true);
+		verifyStateRestore(jobVertexID2, jobVertex2, keyGroupPartitions2, true);
 	}
 }

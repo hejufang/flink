@@ -79,6 +79,7 @@ import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.internal.InternalListState;
 import org.apache.flink.runtime.state.internal.InternalReducingState;
 import org.apache.flink.runtime.state.internal.InternalValueState;
+import org.apache.flink.runtime.state.tracker.NonStateStatsTracker;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.runtime.util.BlockerCheckpointStreamFactory;
 import org.apache.flink.shaded.guava18.com.google.common.base.Joiner;
@@ -218,6 +219,16 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 		return restoreKeyedBackend(keySerializer, state, env);
 	}
 
+	protected <K> AbstractKeyedStateBackend<K> restoreKeyedBackend(TypeSerializer<K> keySerializer, KeyedStateHandle state, boolean crossNamespace) throws Exception {
+		return restoreKeyedBackend(
+				keySerializer,
+				10,
+				new KeyGroupRange(0, 9),
+				Collections.singletonList(state),
+				env,
+				crossNamespace);
+	}
+
 	protected <K> AbstractKeyedStateBackend<K> restoreKeyedBackend(
 			TypeSerializer<K> keySerializer,
 			KeyedStateHandle state,
@@ -236,6 +247,22 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 			KeyGroupRange keyGroupRange,
 			List<KeyedStateHandle> state,
 			Environment env) throws Exception {
+		return restoreKeyedBackend(
+				keySerializer,
+				numberOfKeyGroups,
+				keyGroupRange,
+				state,
+				env,
+				false);
+	}
+
+	protected <K> AbstractKeyedStateBackend<K> restoreKeyedBackend(
+			TypeSerializer<K> keySerializer,
+			int numberOfKeyGroups,
+			KeyGroupRange keyGroupRange,
+			List<KeyedStateHandle> state,
+			Environment env,
+			boolean crossNamespace) throws Exception {
 
 		AbstractKeyedStateBackend<K> backend = getStateBackend().createKeyedStateBackend(
 			env,
@@ -248,7 +275,9 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 			TtlTimeProvider.DEFAULT,
 			new UnregisteredMetricsGroup(),
 			state,
-			new CloseableRegistry());
+			new CloseableRegistry(),
+			new NonStateStatsTracker(),
+			crossNamespace);
 
 		return backend;
 	}

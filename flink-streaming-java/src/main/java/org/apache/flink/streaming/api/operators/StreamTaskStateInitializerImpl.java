@@ -332,7 +332,8 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 					metricGroup,
 					stateHandles,
 					cancelStreamRegistryForRestore,
-					statsTracker),
+					statsTracker,
+					prioritizedOperatorSubtaskStates.isCrossNamespace()),
 				backendCloseableRegistry,
 				logDescription);
 

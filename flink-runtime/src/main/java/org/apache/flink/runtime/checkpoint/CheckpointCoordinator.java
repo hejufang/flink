@@ -54,6 +54,7 @@ import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.apache.flink.runtime.state.SharedStateRegistryFactory;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateUtil;
+import org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointStorageLocation;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 import org.apache.flink.util.ExceptionUtils;
@@ -1701,8 +1702,11 @@ public class CheckpointCoordinator {
 
 			UnionStateAggregator unionStateAggregator = aggregateUnionState ?
 				new FileUnionStateAggregator(latest.getExternalPointer()) : new NonUnionStateAggregator();
+
+			boolean crossNamespace = checkIfCrossNamespace(latest.getExternalPointer());
+			LOG.info("The restored checkpoint cross namespace: {}.", crossNamespace);
 			StateAssignmentOperation stateAssignmentOperation =
-					new StateAssignmentOperation(latest.getCheckpointID(), tasks, operatorStates, allowNonRestoredState, unionStateAggregator);
+					new StateAssignmentOperation(latest.getCheckpointID(), tasks, operatorStates, allowNonRestoredState, unionStateAggregator, crossNamespace);
 
 			stateAssignmentOperation.assignStates();
 
@@ -2462,5 +2466,19 @@ public class CheckpointCoordinator {
 			&& maxNumDiscardHistorical > 0
 			&& fixedDelayTimeDiscardHistorical > 0
 			&& expiredCheckpointDirectoryPrefix != null;
+	}
+
+	/**
+	 * Check whether the path of the checkpoint used for recovery and the path of
+	 * the current checkpoint are under the same namespace.
+	 */
+	private boolean checkIfCrossNamespace(String oldCheckpointPath) throws Exception {
+		if (completedCheckpointStore.getAllCheckpoints().size() <= 1 && checkpointStorage instanceof AbstractFsCheckpointStorage) {
+			Path curCheckpointPath = ((AbstractFsCheckpointStorage) checkpointStorage).getCheckpointsDirectory();
+			return oldCheckpointPath != null
+				&& curCheckpointPath != null
+				&& !curCheckpointPath.equals(new Path(oldCheckpointPath).getParent());
+		}
+		return false;
 	}
 }

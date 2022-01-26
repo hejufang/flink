@@ -163,7 +163,8 @@ public class TaskStateManagerImpl implements TaskStateManager {
 		PrioritizedOperatorSubtaskState.Builder builder = new PrioritizedOperatorSubtaskState.Builder(
 			jobManagerSubtaskState,
 			alternativesByPriority,
-			true);
+			true,
+			jobManagerTaskRestore.isCrossNamespace());
 
 		return builder.build();
 	}

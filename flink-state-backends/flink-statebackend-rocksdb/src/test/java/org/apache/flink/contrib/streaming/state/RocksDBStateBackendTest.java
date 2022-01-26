@@ -39,6 +39,7 @@ import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.runtime.state.KeyGroupsStateHandle;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.SharedStateRegistry;
+import org.apache.flink.runtime.state.SharedStateRegistryKey;
 import org.apache.flink.runtime.state.SnapshotResult;
 import org.apache.flink.runtime.state.StateBackendTestBase;
 import org.apache.flink.runtime.state.StateHandleID;
@@ -89,6 +90,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1122,6 +1124,105 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 				if (backend1 != null) {
 					backend1.dispose();
 				}
+			}
+		}
+	}
+
+	@Test
+	public void testIncrementalRecoverWithCrossNamespace() throws Exception {
+		if (rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL ||
+			rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ) {
+			try {
+				CheckpointStreamFactory streamFactory = createStreamFactory();
+
+				SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
+
+				// use an IntSerializer at first
+				AbstractKeyedStateBackend<Integer> backend = createKeyedBackend(IntSerializer.INSTANCE);
+
+				ValueStateDescriptor<String> kvId = new ValueStateDescriptor<>("id", String.class);
+
+				ValueState<String> state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+				// write some state
+				backend.setCurrentKey(1);
+				state.update("1");
+				backend.setCurrentKey(2);
+				state.update("2");
+
+				// draw a snapshot
+				IncrementalRemoteKeyedStateHandle snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
+					backend.snapshot(1, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					sharedStateRegistry);
+
+				backend.dispose();
+
+				assertEquals(1, snapshot1.getSharedState().size());
+				Map.Entry<StateHandleID, StreamStateHandle> entry = snapshot1.getSharedState().entrySet().stream().findFirst().orElse(null);
+				SharedStateRegistryKey registryKey = snapshot1.createSharedStateRegistryKeyFromFileName(entry.getKey());
+				StreamStateHandle stateHandle = entry.getValue();
+				SharedStateRegistry.Result result = sharedStateRegistry.unregisterReference(registryKey);
+				assertEquals(null, result.getReference());
+				assertEquals(0, result.getReferenceCount());
+
+				sharedStateRegistry.registerReference(registryKey, stateHandle);
+				UUID oldBackendIdentifier = snapshot1.getBackendIdentifier();
+
+				//verify recover success with out cross namespace.
+				backend = restoreKeyedBackend(IntSerializer.INSTANCE, snapshot1);
+				state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+				backend.setCurrentKey(1);
+				assertEquals("1", state.value());
+				backend.setCurrentKey(2);
+				assertEquals("2", state.value());
+				assertEquals(2, backend.numKeyValueStateEntries());
+
+				IncrementalRemoteKeyedStateHandle snapshot2 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
+					backend.snapshot(2, 4, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					sharedStateRegistry);
+				backend.dispose();
+
+				// make sure backendIdentifier is equal
+				Assert.assertEquals(oldBackendIdentifier, snapshot2.getBackendIdentifier());
+
+				// make sure shared state can be register success
+				assertEquals(1, snapshot2.getSharedState().size());
+				result = sharedStateRegistry.unregisterReference(registryKey);
+				assertEquals(stateHandle, result.getReference());
+				assertEquals(1, result.getReferenceCount());
+
+				//verify recover success with cross namespace.
+				backend = restoreKeyedBackend(IntSerializer.INSTANCE, snapshot1, true);
+				state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+				backend.setCurrentKey(1);
+				assertEquals("1", state.value());
+				backend.setCurrentKey(2);
+				assertEquals("2", state.value());
+				assertEquals(2, backend.numKeyValueStateEntries());
+
+				IncrementalRemoteKeyedStateHandle snapshot3 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
+					backend.snapshot(3L, 6, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					sharedStateRegistry);
+				backend.dispose();
+
+				// make sure backendIdentifier is not equal
+				Assert.assertNotEquals(oldBackendIdentifier, snapshot3.getBackendIdentifier());
+
+				// make sure we have different shared state
+				assertEquals(1, snapshot3.getSharedState().size());
+				result = sharedStateRegistry.unregisterReference(registryKey);
+				assertNull(result.getReference());
+				assertEquals(0, result.getReferenceCount());
+
+				entry = snapshot3.getSharedState().entrySet().stream().findFirst().orElse(null);
+				registryKey = snapshot3.createSharedStateRegistryKeyFromFileName(entry.getKey());
+				result = sharedStateRegistry.unregisterReference(registryKey);
+				assertNull(result.getReference());
+				assertEquals(0, result.getReferenceCount());
+			} finally {
+				discardStatesIfRocksdbRecoverFail = false;
 			}
 		}
 	}

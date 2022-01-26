@@ -214,11 +214,19 @@ public class CheckpointCoordinatorTestingUtils {
 	public static void verifyStateRestore(
 		JobVertexID jobVertexID, ExecutionJobVertex executionJobVertex,
 		List<KeyGroupRange> keyGroupPartitions) throws Exception {
+		verifyStateRestore(jobVertexID, executionJobVertex, keyGroupPartitions, false);
+	}
+
+	public static void verifyStateRestore(
+		JobVertexID jobVertexID, ExecutionJobVertex executionJobVertex,
+		List<KeyGroupRange> keyGroupPartitions,
+		boolean crossNamespace) throws Exception {
 
 		for (int i = 0; i < executionJobVertex.getParallelism(); i++) {
 
 			JobManagerTaskRestore taskRestore = executionJobVertex.getTaskVertices()[i].getCurrentExecutionAttempt().getTaskRestore();
 			Assert.assertEquals(1L, taskRestore.getRestoreCheckpointId());
+			Assert.assertEquals(crossNamespace, taskRestore.isCrossNamespace());
 			TaskStateSnapshot stateSnapshot = taskRestore.getTaskStateSnapshot();
 
 			OperatorSubtaskState operatorState = stateSnapshot.getSubtaskStateByOperatorID(OperatorID.fromJobVertexID(jobVertexID));

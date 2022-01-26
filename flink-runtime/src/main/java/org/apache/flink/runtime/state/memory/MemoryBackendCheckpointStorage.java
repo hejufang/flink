@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.state.memory;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -98,8 +97,8 @@ public class MemoryBackendCheckpointStorage extends AbstractFsCheckpointStorage 
 		return maxStateSize;
 	}
 
-	@VisibleForTesting
-	Path getCheckpointsDirectory() {
+	@Override
+	public Path getCheckpointsDirectory() {
 		return checkpointsDirectory;
 	}
 

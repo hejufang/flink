@@ -652,7 +652,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			metricGroup,
 			stateHandles,
 			cancelStreamRegistry,
-			new NonStateStatsTracker());
+			new NonStateStatsTracker(),
+			false);
 	}
 
 	@Override
@@ -668,7 +669,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry,
-		StateStatsTracker statsTracker) throws IOException {
+		StateStatsTracker statsTracker,
+		boolean crossNamespace) throws IOException {
 
 		Preconditions.checkArgument(numberOfKeyGroups > 0 &&
 						numberOfKeyGroups <= KeyGroupRangeAssignment.UPPER_BOUND_MAX_PARALLELISM,
@@ -733,6 +735,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			.setDBNativeCheckpointTimeout(getDBNativeCheckpointTimeout())
 			.setDisposeTimeout(getDisposeTimeout())
 			.setRestoreOptions(restoreOptions)
+			.setCrossNamespace(crossNamespace)
 			.setStatsTracker(statsTracker);
 		return builder.build();
 	}
