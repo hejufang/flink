@@ -122,7 +122,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		this.client = new RateLimitedMetricsClient(this.prefix, config);
 		this.jobName = config.getString("jobname", "flink");
 		this.whitelistFile = config.getString("whitelist_file", DEFAULT_METRICS_WHITELIST_FILE);
-		String tagString = config.getString("fixed_tags", DEFAULT_METRICS_WHITELIST_FILE);
+		String tagString = config.getString("fixed_tags", null);
 		loadFixedTags(tagString);
 		log.info("prefix = {} jobName = {} whitelistFile = {} fixedTags = {}", this.prefix, this.jobName, this.whitelistFile, this.fixedTags);
 		loadAllMetrics();
