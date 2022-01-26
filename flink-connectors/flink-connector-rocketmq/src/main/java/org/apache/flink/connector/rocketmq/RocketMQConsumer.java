@@ -282,7 +282,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					rateLimiter.acquire(1);
 				}
 				MessageQueue messageQueue = createMessageQueue(messageExt.getMessageQueue());
-				offsetTable.put(messageQueue, messageExt.getQueueOffset());
+				offsetTable.put(messageQueue, messageExt.getQueueOffset() + 1);
 				T rowData = schema.deserialize(messageQueue, messageExt);
 				if (rowData == null) {
 					skipDirtyCounter.inc();
@@ -328,6 +328,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			SupplierWithException<List<MessageQueuePb>, InterruptedException> supplier) throws InterruptedException {
 		synchronized (RocketMQConsumer.this) {
 			List<MessageQueuePb> currentMessageQueues = supplier.get();
+			LOG.info("Fetch message queue size is {}", currentMessageQueues.size());
 			Set<MessageQueue> newQueues =
 				currentMessageQueues.stream().map(pb -> createMessageQueue(pb)).collect(Collectors.toSet());
 			if (assignedMessageQueueSet == null || !assignedMessageQueueSet.equals(newQueues)) {
