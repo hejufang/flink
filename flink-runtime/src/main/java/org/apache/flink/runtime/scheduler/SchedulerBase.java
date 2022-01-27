@@ -513,8 +513,15 @@ public abstract class SchedulerBase implements SchedulerNG {
 				.collect(Collectors.toSet()));
 	}
 
-	protected void transitionExecutionGraphState(final JobStatus current, final JobStatus newState) {
+	public void transitionExecutionGraphState(final JobStatus current, final JobStatus newState) {
 		executionGraph.transitionState(current, newState);
+	}
+
+	public void transitionAllExecutionState(final ExecutionState newState) {
+		for (ExecutionVertex vertex : executionGraph.getAllExecutionVertices()) {
+			Execution currentExecutionAttempt = vertex.getCurrentExecutionAttempt();
+			currentExecutionAttempt.transitionState(newState);
+		}
 	}
 
 	@VisibleForTesting

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.executiongraph;
 
 import org.apache.flink.api.common.ArchivedExecutionConfig;
+import org.apache.flink.api.common.ExecutionMode;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.runtime.accumulators.StringifiedAccumulatorResult;
@@ -350,5 +351,40 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
 			executionGraph.getCheckpointCoordinatorConfiguration(),
 			executionGraph.getCheckpointStatsSnapshot(),
 			executionGraph.getStateBackendName().orElse(null));
+	}
+
+	/**
+	 * Build empty ArchivedExecutionGraph just for benchmark.
+	 * @param jobID JobId from jobGraph
+	 * @param jobName jobName from jobGraph
+	 * @return Empty ArchivedExecutionGraph
+	 */
+	public static ArchivedExecutionGraph buildEmptyArchivedExecutionGraph(JobID jobID, String jobName) {
+		ArchivedExecutionConfig archivedExecutionConfig = new ArchivedExecutionConfig(
+			ExecutionMode.PIPELINED.name(),
+			"default",
+			1,
+			false,
+			Collections.<String, String>emptyMap(),
+			Collections.emptyMap()
+		);
+		long[] stateTimestamps = new long[JobStatus.values().length];
+		return new ArchivedExecutionGraph(
+			jobID,
+			jobName,
+			Collections.emptyMap(),
+			new ArrayList<>(),
+			stateTimestamps,
+			JobStatus.FINISHED,
+			null,
+			"{\"jobid\":\"" + jobID + "\", \"name\":\"" + jobName + "\", \"nodes\":[]}",
+			new StringifiedAccumulatorResult[0],
+			Collections.emptyMap(),
+			archivedExecutionConfig,
+			true,
+			null,
+			null,
+			"stateBackendName"
+		);
 	}
 }

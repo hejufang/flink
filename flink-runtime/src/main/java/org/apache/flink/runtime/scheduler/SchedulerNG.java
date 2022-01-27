@@ -137,6 +137,10 @@ public interface SchedulerNG {
 
 	void performCheckpoint(PerformCheckpoint performCheckpoint);
 
+	void transitionExecutionGraphState(final JobStatus current, final JobStatus newState);
+
+	void transitionAllExecutionState(final ExecutionState newState);
+
 	// ------------------------------------------------------------------------
 	//  Operator Coordinator related methods
 	//

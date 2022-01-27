@@ -27,6 +27,7 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.configuration.BenchmarkOption;
 import org.apache.flink.metrics.ConfigMessage;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Message;
@@ -120,11 +121,9 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.StringUtils;
-
 import org.slf4j.Logger;
 
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -976,6 +975,15 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		startJobMasterServices();
 
 		log.info("Starting execution of job {} ({}) under job master id {}.", jobGraph.getName(), jobGraph.getJobID(), newJobMasterId);
+
+		if (jobMasterConfiguration.getConfiguration().get(BenchmarkOption.JOB_ANALYZED_THEN_FINISH_ENABLE)) {
+			// Job finish before schedule
+			schedulerNG.setMainThreadExecutor(getMainThreadExecutor());
+			schedulerNG.transitionExecutionGraphState(JobStatus.CREATED, JobStatus.FINISHED);
+			schedulerNG.transitionAllExecutionState(ExecutionState.FINISHED);
+			scheduledExecutorService.execute(() -> jobCompletionActions.jobReachedGloballyTerminalState(schedulerNG.requestJob()));
+			return Acknowledge.get();
+		}
 
 		resetAndStartScheduler();
 
