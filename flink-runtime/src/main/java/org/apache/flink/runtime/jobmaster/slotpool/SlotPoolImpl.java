@@ -133,6 +133,8 @@ public class SlotPoolImpl implements SlotPool {
 
 	private final boolean requestSlotFromResourceDirectEnable;
 
+	private final boolean useMainScheduledExecutorEnable;
+
 	/** the mainly total task count of the job. */
 	private final int taskCount;
 
@@ -161,7 +163,7 @@ public class SlotPoolImpl implements SlotPool {
 			Time idleSlotTimeout,
 			Time batchSlotTimeout,
 			boolean jobLogDetailDisable) {
-		this(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable, false, false, 0);
+		this(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable, false, false, false, 0);
 	}
 
 	public SlotPoolImpl(
@@ -173,6 +175,7 @@ public class SlotPoolImpl implements SlotPool {
 			boolean jobLogDetailDisable,
 			boolean batchRequestSlotsEnable,
 			boolean requestSlotFromResourceDirectEnable,
+			boolean useMainScheduledExecutorEnable,
 			int taskCount) {
 
 		this.jobId = checkNotNull(jobId);
@@ -182,6 +185,7 @@ public class SlotPoolImpl implements SlotPool {
 		this.batchSlotTimeout = checkNotNull(batchSlotTimeout);
 		this.batchRequestSlotsEnable = batchRequestSlotsEnable;
 		this.requestSlotFromResourceDirectEnable = requestSlotFromResourceDirectEnable;
+		this.useMainScheduledExecutorEnable = useMainScheduledExecutorEnable;
 
 		this.registeredTaskManagers = new HashSet<>(16);
 		this.allocatedSlots = new AllocatedSlots();
@@ -1194,7 +1198,11 @@ public class SlotPoolImpl implements SlotPool {
 	 * @param delay    The delay after which the runnable will be executed
 	 */
 	protected void scheduleRunAsync(Runnable runnable, long delay, TimeUnit unit) {
-		componentMainThreadExecutor.schedule(runnable, delay, unit);
+		if (useMainScheduledExecutorEnable) {
+			componentMainThreadExecutor.getMainScheduledExecutor().schedule(runnable, delay, unit);
+		} else {
+			componentMainThreadExecutor.schedule(runnable, delay, unit);
+		}
 	}
 
 	// ------------------------------------------------------------------------

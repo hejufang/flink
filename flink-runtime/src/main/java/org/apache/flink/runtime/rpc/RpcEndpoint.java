@@ -18,8 +18,12 @@
 
 package org.apache.flink.runtime.rpc;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
+import org.apache.flink.runtime.concurrent.MainScheduledExecutorService;
+import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.concurrent.ScheduledFutureAdapter;
 import org.apache.flink.util.AutoCloseableAsync;
 import org.apache.flink.util.Preconditions;
@@ -29,6 +33,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -109,6 +115,12 @@ public abstract class RpcEndpoint implements RpcGateway, AutoCloseableAsync {
 	 * of the executing rpc server. */
 	private final MainThreadExecutor mainThreadExecutor;
 
+	/** The main scheduled executor manager and execute the scheduled tasks. */
+	private final MainScheduledExecutorService mainScheduledExecutorService;
+
+	/** The closeable resource registry. */
+	private final CloseableRegistry resourceRegistry;
+
 	/**
 	 * Indicates whether the RPC endpoint is started and not stopped or being stopped.
 	 *
@@ -128,7 +140,11 @@ public abstract class RpcEndpoint implements RpcGateway, AutoCloseableAsync {
 
 		this.rpcServer = rpcService.startServer(this);
 
-		this.mainThreadExecutor = new MainThreadExecutor(rpcServer, this::validateRunsInMainThread);
+		this.resourceRegistry = new CloseableRegistry();
+		this.mainScheduledExecutorService = new MainScheduledExecutorService(rpcServer);
+		registerResource(mainScheduledExecutorService);
+
+		this.mainThreadExecutor = new MainThreadExecutor(rpcServer, this::validateRunsInMainThread, mainScheduledExecutorService);
 	}
 
 	/**
@@ -213,9 +229,43 @@ public abstract class RpcEndpoint implements RpcGateway, AutoCloseableAsync {
 	 */
 	public final CompletableFuture<Void> internalCallOnStop() {
 		validateRunsInMainThread();
+		try {
+			resourceRegistry.close();
+		} catch (IOException e) {
+			throw new RuntimeException("Close resource registry fail", e);
+		}
 		CompletableFuture<Void> stopFuture = onStop();
 		isRunning = false;
 		return stopFuture;
+	}
+
+	/**
+	 * Register the given closeable resource to {@link CloseableRegistry}.
+	 *
+	 * @param closeableResource the given closeable resource
+	 */
+	protected void registerResource(Closeable closeableResource) {
+		try {
+			resourceRegistry.registerCloseable(closeableResource);
+		} catch (IOException e) {
+			throw new RuntimeException(
+				"Registry closeable resource " + closeableResource + " fail", e);
+		}
+	}
+
+	/**
+	 * Unregister the given closeable resource from {@link CloseableRegistry}.
+	 *
+	 * @param closeableResource the given closeable resource
+	 * @return true if the given resource register successful, otherwise false
+	 */
+	protected boolean unregisterResource(Closeable closeableResource) {
+		return resourceRegistry.unregisterCloseable(closeableResource);
+	}
+
+	@VisibleForTesting
+	CloseableRegistry getResourceRegistry() {
+		return resourceRegistry;
 	}
 
 	/**
@@ -404,10 +454,12 @@ public abstract class RpcEndpoint implements RpcGateway, AutoCloseableAsync {
 
 		private final MainThreadExecutable gateway;
 		private final Runnable mainThreadCheck;
+		private final MainScheduledExecutorService mainScheduledExecutorService;
 
-		MainThreadExecutor(MainThreadExecutable gateway, Runnable mainThreadCheck) {
+		MainThreadExecutor(MainThreadExecutable gateway, Runnable mainThreadCheck, MainScheduledExecutorService mainScheduledExecutorService) {
 			this.gateway = Preconditions.checkNotNull(gateway);
 			this.mainThreadCheck = Preconditions.checkNotNull(mainThreadCheck);
+			this.mainScheduledExecutorService = mainScheduledExecutorService;
 		}
 
 		public void runAsync(Runnable runnable) {
@@ -420,6 +472,11 @@ public abstract class RpcEndpoint implements RpcGateway, AutoCloseableAsync {
 
 		public void execute(@Nonnull Runnable command) {
 			runAsync(command);
+		}
+
+		@Override
+		public ScheduledExecutor getMainScheduledExecutor() {
+			return mainScheduledExecutorService;
 		}
 
 		@Override

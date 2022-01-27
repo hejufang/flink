@@ -52,6 +52,8 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 
 	private final boolean requestSlotFromResourceManagerDirectEnable;
 
+	private final boolean useMainScheduledExecutorEnable;
+
 	public DefaultSlotPoolFactory(
 			@Nonnull Clock clock,
 			@Nonnull Time rpcTimeout,
@@ -59,7 +61,8 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 			@Nonnull Time batchSlotTimeout,
 			boolean jobLogDetailDisable,
 			boolean batchRequestSlotsEnable,
-			boolean requestSlotFromResourceManagerDirectEnable) {
+			boolean requestSlotFromResourceManagerDirectEnable,
+			boolean useMainScheduledExecutorEnable) {
 		this.clock = clock;
 		this.rpcTimeout = rpcTimeout;
 		this.slotIdleTimeout = slotIdleTimeout;
@@ -67,6 +70,7 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 		this.jobLogDetailDisable = jobLogDetailDisable;
 		this.batchRequestSlotsEnable = batchRequestSlotsEnable;
 		this.requestSlotFromResourceManagerDirectEnable = requestSlotFromResourceManagerDirectEnable;
+		this.useMainScheduledExecutorEnable = useMainScheduledExecutorEnable;
 	}
 
 	@Override
@@ -87,6 +91,7 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 			jobLogDetailDisable,
 			batchRequestSlotsEnable,
 			requestSlotFromResourceManagerDirectEnable,
+			useMainScheduledExecutorEnable,
 			taskCount);
 	}
 
@@ -101,6 +106,7 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 		if (requestSlotFromResourceManagerDirectEnable && !batchRequestSlotsEnable) {
 			throw new IllegalArgumentException("JobMaster can request slots from resource manager directly only when batch request is open.");
 		}
+		final boolean useMainScheduledExecutorEnable = configuration.getBoolean(CoreOptions.ENDPOINT_USE_MAIN_SCHEDULED_EXECUTOR_ENABLE);
 
 		return new DefaultSlotPoolFactory(
 			SystemClock.getInstance(),
@@ -109,6 +115,7 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 			batchSlotTimeout,
 			jobLogDetailDisable,
 			batchRequestSlotsEnable,
-			requestSlotFromResourceManagerDirectEnable);
+			requestSlotFromResourceManagerDirectEnable,
+			useMainScheduledExecutorEnable);
 	}
 }

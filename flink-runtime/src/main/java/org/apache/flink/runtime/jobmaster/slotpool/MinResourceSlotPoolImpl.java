@@ -73,6 +73,7 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 			boolean jobLogDetailDisable,
 			boolean batchRequestSlotsEnable,
 			boolean requestSlotFromResourceDirectEnable,
+			boolean useMainScheduledExecutorEnable,
 			int taskCount) {
 		super(
 			jobId,
@@ -83,6 +84,7 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 			jobLogDetailDisable,
 			batchRequestSlotsEnable,
 			requestSlotFromResourceDirectEnable,
+			useMainScheduledExecutorEnable,
 			taskCount);
 		this.slotRequestTimeout = slotRequestTimeout;
 	}

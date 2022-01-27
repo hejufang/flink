@@ -35,6 +35,15 @@ public interface ComponentMainThreadExecutor extends ScheduledExecutor {
 	void assertRunningInMainThread();
 
 	/**
+	 * Returns the main scheduled executor.
+	 *
+	 * @return the main scheduled executor.
+	 */
+	default ScheduledExecutor getMainScheduledExecutor() {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
 	 * Dummy implementation of ComponentMainThreadExecutor.
 	 */
 	final class DummyComponentMainThreadExecutor implements ComponentMainThreadExecutor {

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.rpc;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.runtime.concurrent.MainScheduledExecutorService;
 import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nonnull;
@@ -42,6 +43,7 @@ public abstract class FencedRpcEndpoint<F extends Serializable> extends RpcEndpo
 
 	private final UnfencedMainThreadExecutor unfencedMainThreadExecutor;
 	private volatile F fencingToken;
+	private volatile MainScheduledExecutorService mainScheduledExecutorService;
 	private volatile MainThreadExecutor fencedMainThreadExecutor;
 
 	protected FencedRpcEndpoint(RpcService rpcService, String endpointId, @Nullable F fencingToken) {
@@ -55,11 +57,12 @@ public abstract class FencedRpcEndpoint<F extends Serializable> extends RpcEndpo
 		// no fencing token == no leadership
 		this.fencingToken = fencingToken;
 		this.unfencedMainThreadExecutor = new UnfencedMainThreadExecutor((FencedMainThreadExecutable) rpcServer);
-		this.fencedMainThreadExecutor = new MainThreadExecutor(
-			getRpcService().fenceRpcServer(
-				rpcServer,
-				fencingToken),
-			this::validateRunsInMainThread);
+		MainThreadExecutable mainThreadExecutable = getRpcService().fenceRpcServer(
+			rpcServer,
+			fencingToken);
+		this.mainScheduledExecutorService = new MainScheduledExecutorService(rpcServer);
+		this.fencedMainThreadExecutor = new MainThreadExecutor(mainThreadExecutable, this::validateRunsInMainThread, this.mainScheduledExecutorService);
+		registerResource(this.mainScheduledExecutorService);
 	}
 
 	protected FencedRpcEndpoint(RpcService rpcService, @Nullable F fencingToken) {
@@ -81,8 +84,18 @@ public abstract class FencedRpcEndpoint<F extends Serializable> extends RpcEndpo
 		MainThreadExecutable mainThreadExecutable = getRpcService().fenceRpcServer(
 			rpcServer,
 			newFencingToken);
-
-		this.fencedMainThreadExecutor = new MainThreadExecutor(mainThreadExecutable, this::validateRunsInMainThread);
+		if (this.mainScheduledExecutorService != null) {
+			unregisterResource(this.mainScheduledExecutorService);
+			this.mainScheduledExecutorService.close();
+		}
+		if (newFencingToken == null) {
+			this.mainScheduledExecutorService = null;
+			this.fencedMainThreadExecutor = null;
+		} else {
+			this.mainScheduledExecutorService = new MainScheduledExecutorService(mainThreadExecutable);
+			registerResource(this.mainScheduledExecutorService);
+			this.fencedMainThreadExecutor = new MainThreadExecutor(mainThreadExecutable, this::validateRunsInMainThread, this.mainScheduledExecutorService);
+		}
 	}
 
 	/**

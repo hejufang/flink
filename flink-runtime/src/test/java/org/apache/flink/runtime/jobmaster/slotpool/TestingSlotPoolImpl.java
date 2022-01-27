@@ -58,7 +58,7 @@ public class TestingSlotPoolImpl extends SlotPoolImpl {
 			Time batchSlotTimeout,
 			boolean batchRequestSlotsEnable,
 			boolean requestSlotFromResourceDirectEnable) {
-		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, false, batchRequestSlotsEnable, requestSlotFromResourceDirectEnable, 0);
+		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, false, batchRequestSlotsEnable, requestSlotFromResourceDirectEnable, false, 0);
 	}
 
 	void triggerCheckIdleSlot() {

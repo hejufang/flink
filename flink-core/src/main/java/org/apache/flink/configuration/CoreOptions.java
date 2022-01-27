@@ -455,6 +455,12 @@ public class CoreOptions {
 		.defaultValue(false)
 		.withDescription("Use taskmanager address as hostname, will not lookup hostname by dns.");
 
+	public static final ConfigOption<Boolean> ENDPOINT_USE_MAIN_SCHEDULED_EXECUTOR_ENABLE =
+		key("endpoint.use-main-scheduled-executor.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Use main scheduled executor in rpc endpoint to manager the scheduled tasks.");
+
 	/**
 	 * There're too many logs about job, disable some detail log when the flag is true.
 	 */

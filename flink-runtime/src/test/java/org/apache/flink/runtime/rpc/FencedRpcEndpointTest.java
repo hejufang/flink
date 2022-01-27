@@ -25,7 +25,6 @@ import org.apache.flink.runtime.rpc.exceptions.FencingTokenException;
 import org.apache.flink.runtime.rpc.exceptions.RpcRuntimeException;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
-import org.apache.flink.util.TestLogger;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -45,7 +44,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-public class FencedRpcEndpointTest extends TestLogger {
+public class FencedRpcEndpointTest extends RpcEndpointExecutorTest {
 
 	private static final Time timeout = Time.seconds(10L);
 	private static RpcService rpcService;
@@ -75,6 +74,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 
 		try {
 			fencedTestingEndpoint.start();
+			assertResourceCount(2, fencedTestingEndpoint.getResourceRegistry());
 
 			assertNull(fencedGateway.getFencingToken());
 			assertNull(fencedTestingEndpoint.getFencingToken());
@@ -85,6 +85,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 			try {
 				fencedTestingEndpoint.setFencingToken(newFencingToken);
 				failed = true;
+				assertResourceCount(2, fencedTestingEndpoint.getResourceRegistry());
 			} catch (AssertionError ignored) {
 				// expected to fail
 			}
@@ -96,12 +97,14 @@ public class FencedRpcEndpointTest extends TestLogger {
 
 			// wait for the completion of the set fencing token operation
 			setFencingFuture.get(timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
+			assertResourceCount(2, fencedTestingEndpoint.getResourceRegistry());
 
 			// self gateway should adapt its fencing token
 			assertEquals(newFencingToken, fencedGateway.getFencingToken());
 			assertEquals(newFencingToken, fencedTestingEndpoint.getFencingToken());
 		} finally {
 			RpcUtils.terminateRpcEndpoint(fencedTestingEndpoint, timeout);
+			assertResourceClosed(fencedTestingEndpoint.getResourceRegistry());
 		}
 	}
 
@@ -117,6 +120,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 
 		try {
 			fencedTestingEndpoint.start();
+			assertResourceCount(2, fencedTestingEndpoint.getResourceRegistry());
 
 			final FencedTestingGateway properFencedGateway = rpcService.connect(fencedTestingEndpoint.getAddress(), fencingToken, FencedTestingGateway.class)
 				.get(timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
@@ -138,6 +142,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 
 			// wait for the new fencing token to be set
 			newFencingTokenFuture.get(timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
+			assertResourceCount(2, fencedTestingEndpoint.getResourceRegistry());
 
 			// this should no longer work because of the new fencing token
 			try {
@@ -150,6 +155,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 
 		} finally {
 			RpcUtils.terminateRpcEndpoint(fencedTestingEndpoint, timeout);
+			assertResourceClosed(fencedTestingEndpoint.getResourceRegistry());
 		}
 	}
 
@@ -167,6 +173,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 
 		try {
 			fencedTestingEndpoint.start();
+			assertResourceCount(2, fencedTestingEndpoint.getResourceRegistry());
 
 			FencedTestingGateway selfGateway = fencedTestingEndpoint.getSelfGateway(FencedTestingGateway.class);
 			FencedTestingGateway remoteGateway = rpcService.connect(fencedTestingEndpoint.getAddress(), initialFencingToken, FencedTestingGateway.class)
@@ -182,6 +189,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 
 			// wait for the new fencing token to be set
 			newFencingTokenFuture.get(timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
+			assertResourceCount(2, fencedTestingEndpoint.getResourceRegistry());
 
 			assertEquals(newFencingToken, selfGateway.getFencingToken());
 			assertNotEquals(newFencingToken, remoteGateway.getFencingToken());
@@ -196,6 +204,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 			}
 		} finally {
 			RpcUtils.terminateRpcEndpoint(fencedTestingEndpoint, timeout);
+			assertResourceClosed(fencedTestingEndpoint.getResourceRegistry());
 		}
 	}
 
@@ -211,6 +220,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 
 		try {
 			fencedTestingEndpoint.start();
+			assertResourceCount(2, fencedTestingEndpoint.getResourceRegistry());
 
 			FencedTestingGateway selfGateway = fencedTestingEndpoint.getSelfGateway(FencedTestingGateway.class);
 
@@ -223,6 +233,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 			CompletableFuture<Acknowledge> newFencingTokenFuture = fencedTestingEndpoint.setFencingTokenInMainThread(newFencingToken, timeout);
 
 			newFencingTokenFuture.get(timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
+			assertResourceCount(2, fencedTestingEndpoint.getResourceRegistry());
 
 			// trigger the computation
 			CompletableFuture<Acknowledge> triggerFuture = selfGateway.triggerComputationLatch(timeout);
@@ -239,6 +250,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 
 		} finally {
 			RpcUtils.terminateRpcEndpoint(fencedTestingEndpoint, timeout);
+			assertResourceClosed(fencedTestingEndpoint.getResourceRegistry());
 		}
 	}
 
@@ -255,6 +267,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 
 		try {
 			fencedTestingEndpoint.start();
+			assertResourceCount(2, fencedTestingEndpoint.getResourceRegistry());
 
 			FencedTestingGateway unfencedGateway = rpcService.connect(fencedTestingEndpoint.getAddress(), FencedTestingGateway.class)
 				.get(timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
@@ -274,6 +287,7 @@ public class FencedRpcEndpointTest extends TestLogger {
 			}
 		} finally {
 			RpcUtils.terminateRpcEndpoint(fencedTestingEndpoint, timeout);
+			assertResourceClosed(fencedTestingEndpoint.getResourceRegistry());
 		}
 	}
 

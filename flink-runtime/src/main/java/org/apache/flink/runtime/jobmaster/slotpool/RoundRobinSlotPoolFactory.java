@@ -55,6 +55,8 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 
 	private final boolean requestSlotFromResourceDirectEnable;
 
+	private final boolean useMainScheduledExecutorEnable;
+
 	public RoundRobinSlotPoolFactory(
 			@Nonnull Clock clock,
 			@Nonnull Time rpcTimeout,
@@ -63,7 +65,8 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 			@Nonnull Time batchSlotTimeout,
 			boolean jobLogDetailDisable,
 			boolean batchRequestSlotsEnable,
-			boolean requestSlotFromResourceDirectEnable) {
+			boolean requestSlotFromResourceDirectEnable,
+			boolean useMainScheduledExecutorEnable) {
 		this.clock = clock;
 		this.rpcTimeout = rpcTimeout;
 		this.slotRequestTimeout = slotRequestTimeout;
@@ -72,6 +75,7 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 		this.jobLogDetailDisable = jobLogDetailDisable;
 		this.batchRequestSlotsEnable = batchRequestSlotsEnable;
 		this.requestSlotFromResourceDirectEnable = requestSlotFromResourceDirectEnable;
+		this.useMainScheduledExecutorEnable = useMainScheduledExecutorEnable;
 	}
 
 	@Override
@@ -93,6 +97,7 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 			jobLogDetailDisable,
 			batchRequestSlotsEnable,
 			requestSlotFromResourceDirectEnable,
+			useMainScheduledExecutorEnable,
 			taskCount);
 	}
 
@@ -105,6 +110,7 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 		final boolean jobLogDetailDisable = configuration.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 		final boolean batchRequestSlotsEnable = configuration.getBoolean(JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE);
 		final boolean requestSlotFromResourceDirectEnable = configuration.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE);
+		final boolean useMainScheduledExecutorEnable = configuration.getBoolean(CoreOptions.ENDPOINT_USE_MAIN_SCHEDULED_EXECUTOR_ENABLE);
 
 		return new RoundRobinSlotPoolFactory(
 			SystemClock.getInstance(),
@@ -114,6 +120,7 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 			batchSlotTimeout,
 			jobLogDetailDisable,
 			batchRequestSlotsEnable,
-			requestSlotFromResourceDirectEnable);
+			requestSlotFromResourceDirectEnable,
+			useMainScheduledExecutorEnable);
 	}
 }

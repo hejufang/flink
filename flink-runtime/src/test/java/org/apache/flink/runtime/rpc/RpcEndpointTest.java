@@ -23,7 +23,6 @@ import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcService;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceConfiguration;
-import org.apache.flink.util.TestLogger;
 
 import akka.actor.ActorSystem;
 import akka.actor.Terminated;
@@ -46,7 +45,7 @@ import static org.junit.Assert.fail;
 /**
  * Tests for the RpcEndpoint and its self gateways.
  */
-public class RpcEndpointTest extends TestLogger {
+public class RpcEndpointTest extends RpcEndpointExecutorTest {
 
 	private static final Time TIMEOUT = Time.seconds(10L);
 	private static ActorSystem actorSystem = null;
@@ -80,6 +79,7 @@ public class RpcEndpointTest extends TestLogger {
 
 		try {
 			baseEndpoint.start();
+			assertResourceCount(1, baseEndpoint.getResourceRegistry());
 
 			BaseGateway baseGateway = baseEndpoint.getSelfGateway(BaseGateway.class);
 
@@ -88,6 +88,7 @@ public class RpcEndpointTest extends TestLogger {
 			assertEquals(Integer.valueOf(expectedValue), foobar.get());
 		} finally {
 			RpcUtils.terminateRpcEndpoint(baseEndpoint, TIMEOUT);
+			assertResourceClosed(baseEndpoint.getResourceRegistry());
 		}
 	}
 
@@ -102,12 +103,14 @@ public class RpcEndpointTest extends TestLogger {
 
 		try {
 			baseEndpoint.start();
+			assertResourceCount(1, baseEndpoint.getResourceRegistry());
 
 			DifferentGateway differentGateway = baseEndpoint.getSelfGateway(DifferentGateway.class);
 
 			fail("Expected to fail with a RuntimeException since we requested the wrong gateway type.");
 		} finally {
 			RpcUtils.terminateRpcEndpoint(baseEndpoint, TIMEOUT);
+			assertResourceClosed(baseEndpoint.getResourceRegistry());
 		}
 	}
 
@@ -125,6 +128,7 @@ public class RpcEndpointTest extends TestLogger {
 
 		try {
 			endpoint.start();
+			assertResourceCount(1, endpoint.getResourceRegistry());
 
 			BaseGateway baseGateway = endpoint.getSelfGateway(BaseGateway.class);
 			ExtendedGateway extendedGateway = endpoint.getSelfGateway(ExtendedGateway.class);
@@ -137,6 +141,7 @@ public class RpcEndpointTest extends TestLogger {
 			assertEquals(foo, differentGateway.foo().get());
 		} finally {
 			RpcUtils.terminateRpcEndpoint(endpoint, TIMEOUT);
+			assertResourceClosed(endpoint.getResourceRegistry());
 		}
 	}
 
@@ -152,9 +157,11 @@ public class RpcEndpointTest extends TestLogger {
 
 		try {
 			endpoint.start();
+			assertResourceCount(1, endpoint.getResourceRegistry());
 			assertThat(gateway.queryIsRunningFlag().get(), is(true));
 		} finally {
 			RpcUtils.terminateRpcEndpoint(endpoint, TIMEOUT);
+			assertResourceClosed(endpoint.getResourceRegistry());
 		}
 	}
 
@@ -168,12 +175,14 @@ public class RpcEndpointTest extends TestLogger {
 		RunningStateTestingEndpointGateway gateway = endpoint.getSelfGateway(RunningStateTestingEndpointGateway.class);
 
 		endpoint.start();
+		assertResourceCount(1, endpoint.getResourceRegistry());
 		CompletableFuture<Void> terminationFuture = endpoint.closeAndWaitUntilOnStopCalled();
 
 		assertThat(gateway.queryIsRunningFlag().get(), is(false));
 
 		stopFuture.complete(null);
 		terminationFuture.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
+		assertResourceClosed(endpoint.getResourceRegistry());
 	}
 
 	public interface BaseGateway extends RpcGateway {

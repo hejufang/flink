@@ -250,6 +250,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final boolean requestSlotFromResourceManagerDirectEnable;
 
+	private final boolean useMainScheduledExecutorEnable;
+
 	// ------------------------------------------------------------------------
 
 	public JobMaster(
@@ -288,6 +290,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.jobMetricGroupFactory = checkNotNull(jobMetricGroupFactory);
 		this.useAddressAsHostNameEnable = jobMasterConfiguration.getConfiguration().getBoolean(CoreOptions.USE_ADDRESS_AS_HOSTNAME_ENABLE);
 		this.requestSlotFromResourceManagerDirectEnable = jobMasterConfiguration.getConfiguration().getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE);
+		this.useMainScheduledExecutorEnable = jobMasterConfiguration.getConfiguration().getBoolean(CoreOptions.ENDPOINT_USE_MAIN_SCHEDULED_EXECUTOR_ENABLE);
 
 		final String jobName = jobGraph.getName();
 		final JobID jid = jobGraph.getJobID();
@@ -1062,13 +1065,13 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		taskManagerHeartbeatManager = heartbeatServices.createHeartbeatManagerSender(
 			resourceId,
 			new TaskManagerHeartbeatListener(),
-			getMainThreadExecutor(),
+			useMainScheduledExecutorEnable ? getMainThreadExecutor().getMainScheduledExecutor() : getMainThreadExecutor(),
 			log);
 
 		resourceManagerHeartbeatManager = heartbeatServices.createHeartbeatManager(
 			resourceId,
 			new ResourceManagerHeartbeatListener(),
-			getMainThreadExecutor(),
+			useMainScheduledExecutorEnable ? getMainThreadExecutor().getMainScheduledExecutor() : getMainThreadExecutor(),
 			log);
 	}
 
