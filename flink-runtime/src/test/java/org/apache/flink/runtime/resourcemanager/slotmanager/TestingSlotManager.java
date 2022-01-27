@@ -150,6 +150,14 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
+	public boolean registerJobSlotRequests(
+			JobMasterGateway jobMasterGateway,
+			JobSlotRequestList jobSlotRequestList,
+			int jobWorkerCount) throws ResourceManagerException {
+		return false;
+	}
+
+	@Override
 	public void cancelAllPendingSlotRequests(Exception cause) {
 
 	}

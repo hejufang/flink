@@ -174,6 +174,12 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	private final boolean requestSlotFromResourceManagerDirectEnable;
 
+	private final boolean requestWorkerDirectlyEnable;
+
+	private final int maxTasksPerWorker;
+
+	private final int minWorkersPerJob;
+
 	/** The service to elect a ResourceManager leader. */
 	private LeaderElectionService leaderElectionService;
 
@@ -224,19 +230,19 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	}
 
 	public ResourceManager(
-		RpcService rpcService,
-		ResourceID resourceId,
-		HighAvailabilityServices highAvailabilityServices,
-		HeartbeatServices heartbeatServices,
-		SlotManager slotManager,
-		ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
-		JobLeaderIdService jobLeaderIdService,
-		ClusterInformation clusterInformation,
-		FatalErrorHandler fatalErrorHandler,
-		ResourceManagerMetricGroup resourceManagerMetricGroup,
-		Time rpcTimeout,
-		FailureRater failureRater,
-		Configuration flinkConfig) {
+			RpcService rpcService,
+			ResourceID resourceId,
+			HighAvailabilityServices highAvailabilityServices,
+			HeartbeatServices heartbeatServices,
+			SlotManager slotManager,
+			ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
+			JobLeaderIdService jobLeaderIdService,
+			ClusterInformation clusterInformation,
+			FatalErrorHandler fatalErrorHandler,
+			ResourceManagerMetricGroup resourceManagerMetricGroup,
+			Time rpcTimeout,
+			FailureRater failureRater,
+			Configuration flinkConfig) {
 
 		super(rpcService, AkkaRpcServiceUtils.createRandomName(RESOURCE_MANAGER_NAME), null);
 
@@ -272,6 +278,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.blacklistReporter = BlacklistUtil.createLocalBlacklistReporter(flinkConfig, blacklistTracker);
 		this.jobLogDetailDisable = flinkConfig.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 		this.requestSlotFromResourceManagerDirectEnable = flinkConfig.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE);
+		this.requestWorkerDirectlyEnable = flinkConfig.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_WORKER_DIRECTLY_ENABLE);
+		this.maxTasksPerWorker = flinkConfig.getInteger(JobManagerOptions.JOBMANAGER_MAX_TASKS_PER_JOB);
+		this.minWorkersPerJob = flinkConfig.getInteger(JobManagerOptions.JOBMANAGER_MIN_WORKERS_PER_JOB);
 	}
 
 	// ------------------------------------------------------------------------
@@ -585,9 +594,21 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 				try {
 					if (requestSlotFromResourceManagerDirectEnable) {
-						slotManager.registerJobSlotRequests(
-							jobManagerRegistration.getJobManagerGateway(),
-							jobSlotRequestList);
+						if (requestWorkerDirectlyEnable) {
+							slotManager.registerJobSlotRequests(
+								jobManagerRegistration.getJobManagerGateway(),
+								jobSlotRequestList,
+								computeJobWorkerCount(
+									jobSlotRequestList.getSlotRequests().size(),
+									jobSlotRequestList.getTaskCount(),
+									maxTasksPerWorker,
+									minWorkersPerJob,
+									taskExecutors.size()));
+						} else {
+							slotManager.registerJobSlotRequests(
+								jobManagerRegistration.getJobManagerGateway(),
+								jobSlotRequestList);
+						}
 					} else {
 						slotManager.registerJobSlotRequests(jobSlotRequestList);
 					}
@@ -645,7 +666,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			WorkerRegistration<WorkerType> registration = taskExecutors.get(resourceId);
 
 			if (registration != null) {
-				slotManager.freeSlot(slotId, allocationId);
+				if (!requestWorkerDirectlyEnable) {
+					slotManager.freeSlot(slotId, allocationId);
+				}
 			} else {
 				log.debug("Could not find registration for resource id {}. Discarding the slot available" +
 					"message {}.", resourceId, slotId);
@@ -1639,6 +1662,29 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	protected WorkerResourceSpec getDefaultWorkerResourceSpec() {
 		return slotManager.getDefaultWorkerResourceSpec();
+	}
+
+	/**
+	 * Compute the least worker count for job.
+	 * @param requestSlotCount job request slot count
+	 * @param taskCount job task count
+	 * @param maxTasksPerWorker max tasks per worker
+	 * @param minWorkersPerJob min workers per job
+	 * @param totalWorkerCount total worker count
+	 * @return the least worker count for job
+	 */
+	@VisibleForTesting
+	public static int computeJobWorkerCount(
+			int requestSlotCount,
+			int taskCount,
+			int maxTasksPerWorker,
+			int minWorkersPerJob,
+			int totalWorkerCount) {
+		return Math.min(
+					Math.min(
+						Math.max(taskCount / maxTasksPerWorker, minWorkersPerJob),
+						requestSlotCount),
+					totalWorkerCount);
 	}
 }
 

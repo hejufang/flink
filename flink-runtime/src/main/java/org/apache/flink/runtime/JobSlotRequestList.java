@@ -33,6 +33,9 @@ public class JobSlotRequestList implements Serializable {
 	/** The JobID of the slot requested for. */
 	private final JobID jobId;
 
+	/** The task count in the job. */
+	private final int taskCount;
+
 	/** Address of the emitting job manager. */
 	private final String targetAddress;
 
@@ -41,7 +44,12 @@ public class JobSlotRequestList implements Serializable {
 	private final Collection<JobSlotRequest> slotRequests;
 
 	public JobSlotRequestList(JobID jobId, String targetAddress) {
+		this(jobId, 0, targetAddress);
+	}
+
+	public JobSlotRequestList(JobID jobId, int taskCount, String targetAddress) {
 		this.jobId = jobId;
+		this.taskCount = taskCount;
 		this.targetAddress = targetAddress;
 		this.startTimestamp = System.currentTimeMillis();
 		this.slotRequests = new ArrayList<>();
@@ -57,6 +65,10 @@ public class JobSlotRequestList implements Serializable {
 
 	public JobID getJobId() {
 		return jobId;
+	}
+
+	public int getTaskCount() {
+		return taskCount;
 	}
 
 	public String getTargetAddress() {

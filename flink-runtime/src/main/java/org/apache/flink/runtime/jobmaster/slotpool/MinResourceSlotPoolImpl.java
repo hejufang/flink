@@ -72,8 +72,18 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 			Time batchSlotTimeout,
 			boolean jobLogDetailDisable,
 			boolean batchRequestSlotsEnable,
-			boolean requestSlotFromResourceDirectEnable) {
-		super(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable, batchRequestSlotsEnable, requestSlotFromResourceDirectEnable);
+			boolean requestSlotFromResourceDirectEnable,
+			int taskCount) {
+		super(
+			jobId,
+			clock,
+			rpcTimeout,
+			idleSlotTimeout,
+			batchSlotTimeout,
+			jobLogDetailDisable,
+			batchRequestSlotsEnable,
+			requestSlotFromResourceDirectEnable,
+			taskCount);
 		this.slotRequestTimeout = slotRequestTimeout;
 	}
 

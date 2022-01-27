@@ -62,6 +62,7 @@ import org.apache.flink.runtime.io.network.partition.PartitionTrackerFactory;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
@@ -295,7 +296,11 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 		resourceManagerLeaderRetriever = highAvailabilityServices.getResourceManagerLeaderRetriever();
 
-		this.slotPool = checkNotNull(slotPoolFactory).createSlotPool(jobGraph.getJobID());
+		int taskCount = 0;
+		for (JobVertex vertex : jobGraph.getVertices()) {
+			taskCount += vertex.getParallelism();
+		}
+		this.slotPool = checkNotNull(slotPoolFactory).createSlotPool(jobGraph.getJobID(), taskCount);
 
 		this.slotSelectionStrategy = schedulerFactory.getSlotSelectionStrategy();
 

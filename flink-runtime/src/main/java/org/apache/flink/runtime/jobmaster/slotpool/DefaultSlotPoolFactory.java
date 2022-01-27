@@ -72,6 +72,12 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 	@Override
 	@Nonnull
 	public SlotPool createSlotPool(@Nonnull JobID jobId) {
+		return createSlotPool(jobId, 0);
+	}
+
+	@Nonnull
+	@Override
+	public SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount) {
 		return new SlotPoolImpl(
 			jobId,
 			clock,
@@ -80,7 +86,8 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 			batchSlotTimeout,
 			jobLogDetailDisable,
 			batchRequestSlotsEnable,
-			requestSlotFromResourceManagerDirectEnable);
+			requestSlotFromResourceManagerDirectEnable,
+			taskCount);
 	}
 
 	public static DefaultSlotPoolFactory fromConfiguration(@Nonnull Configuration configuration) {

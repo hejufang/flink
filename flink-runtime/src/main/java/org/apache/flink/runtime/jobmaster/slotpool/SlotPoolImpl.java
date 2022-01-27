@@ -133,6 +133,9 @@ public class SlotPoolImpl implements SlotPool {
 
 	private final boolean requestSlotFromResourceDirectEnable;
 
+	/** the mainly total task count of the job. */
+	private final int taskCount;
+
 	/** the fencing token of the job manager. */
 	private JobMasterId jobMasterId;
 
@@ -158,18 +161,19 @@ public class SlotPoolImpl implements SlotPool {
 			Time idleSlotTimeout,
 			Time batchSlotTimeout,
 			boolean jobLogDetailDisable) {
-		this(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable, false, false);
+		this(jobId, clock, rpcTimeout, idleSlotTimeout, batchSlotTimeout, jobLogDetailDisable, false, false, 0);
 	}
 
 	public SlotPoolImpl(
-		JobID jobId,
-		Clock clock,
-		Time rpcTimeout,
-		Time idleSlotTimeout,
-		Time batchSlotTimeout,
-		boolean jobLogDetailDisable,
-		boolean batchRequestSlotsEnable,
-		boolean requestSlotFromResourceDirectEnable) {
+			JobID jobId,
+			Clock clock,
+			Time rpcTimeout,
+			Time idleSlotTimeout,
+			Time batchSlotTimeout,
+			boolean jobLogDetailDisable,
+			boolean batchRequestSlotsEnable,
+			boolean requestSlotFromResourceDirectEnable,
+			int taskCount) {
 
 		this.jobId = checkNotNull(jobId);
 		this.clock = checkNotNull(clock);
@@ -193,6 +197,7 @@ public class SlotPoolImpl implements SlotPool {
 		this.componentMainThreadExecutor = null;
 
 		this.batchSlotRequestTimeoutCheckEnabled = true;
+		this.taskCount = taskCount;
 	}
 
 	// ------------------------------------------------------------------------
@@ -411,7 +416,7 @@ public class SlotPoolImpl implements SlotPool {
 		log.info("Requesting new slot [{}] from resource manager for job {}.", pendingRequestList.size(), jobId);
 
 		final List<PendingRequest> currentRequestList = new ArrayList<>(pendingRequestList);
-		JobSlotRequestList jobSlotRequestList = new JobSlotRequestList(jobId, jobManagerAddress);
+		JobSlotRequestList jobSlotRequestList = new JobSlotRequestList(jobId, taskCount, jobManagerAddress);
 		for (PendingRequest pendingRequest : currentRequestList) {
 			final AllocationID allocationId = new AllocationID();
 			jobSlotRequestList.addJobSlotRequest(

@@ -480,6 +480,33 @@ public class JobManagerOptions {
 			.defaultValue(false)
 			.withDescription("JobMaster request slots from resource manager directly when true.");
 
+	/**
+	 * JobMaster request workers from ResourceManager directly.
+	 */
+	public static final ConfigOption<Boolean> JOBMANAGER_REQUEST_WORKER_DIRECTLY_ENABLE =
+		key("jobmanager.request-worker-directly.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("JobMaster request workers directly when jobmanager.request-slot-from-resourcemanager.enable is true.");
+
+	/**
+	 * Maximum tasks per worker when job request slots in ResourceManager.
+	 */
+	public static final ConfigOption<Integer> JOBMANAGER_MAX_TASKS_PER_JOB =
+		key("jobmanager.max-tasks-per-worker")
+			.intType()
+			.defaultValue(30)
+			.withDescription("Maximum tasks per worker for each job if there are enough workers.");
+
+	/**
+	 * Minimum workers for each job.
+	 */
+	public static final ConfigOption<Integer> JOBMANAGER_MIN_WORKERS_PER_JOB =
+		key("jobmanager.min-workers-per-job")
+			.intType()
+			.defaultValue(10)
+			.withDescription("Minimum workers for each job if it request slots > the minimum workers.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

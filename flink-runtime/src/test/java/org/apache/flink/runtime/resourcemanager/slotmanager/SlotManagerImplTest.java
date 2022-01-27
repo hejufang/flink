@@ -18,9 +18,6 @@
 
 package org.apache.flink.runtime.resourcemanager.slotmanager;
 
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -62,6 +59,9 @@ import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.function.FunctionUtils;
 import org.apache.flink.util.function.ThrowingRunnable;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.RandomUtils;
 import org.junit.Test;
 
 import javax.annotation.Nonnull;
@@ -90,6 +90,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+
+import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
@@ -1865,7 +1867,7 @@ public class SlotManagerImplTest extends TestLogger {
 	 * Tests of request batch slots when there are enough resources.
 	 */
 	@Test
-	public void testBathRequestSlotsWithEnoughResources() throws Exception {
+	public void testBatchRequestSlotsWithEnoughResources() throws Exception {
 		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
 		final ResourceActions resourceManagerActions = new TestingResourceActionsBuilder().build();
 		final JobID jobId = new JobID();
@@ -1920,7 +1922,7 @@ public class SlotManagerImplTest extends TestLogger {
 	 * Tests of request batch slots for no enough resources and free new slot.
 	 */
 	@Test
-	public void testBathRequestSlotsWithNoEnoughResourcesAndFree() throws Exception {
+	public void testBatchRequestSlotsWithNoEnoughResourcesAndFree() throws Exception {
 		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
 		final ResourceActions resourceManagerActions = new TestingResourceActionsBuilder().build();
 		final JobID jobId = new JobID();
@@ -1977,7 +1979,7 @@ public class SlotManagerImplTest extends TestLogger {
 	 * Tests of request batch slots for no enough resources and register new slots with TaskManager.
 	 */
 	@Test
-	public void testBathRequestSlotsWithNoEnoughResourcesAndRegisterTaskManager() throws Exception {
+	public void testBatchRequestSlotsWithNoEnoughResourcesAndRegisterTaskManager() throws Exception {
 		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
 		final ResourceActions resourceManagerActions = new TestingResourceActionsBuilder().build();
 		final JobID jobId = new JobID();
@@ -2041,7 +2043,7 @@ public class SlotManagerImplTest extends TestLogger {
 	 * Tests of cancel all the requests in batch when one in it is canceled.
 	 */
 	@Test
-	public void testCancelAllRequestsInBathWhenOneCancel() throws Exception {
+	public void testCancelAllRequestsInBatchWhenOneCancel() throws Exception {
 		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
 		final ResourceActions resourceManagerActions = new TestingResourceActionsBuilder().build();
 		final JobID jobId = new JobID();
@@ -2122,7 +2124,7 @@ public class SlotManagerImplTest extends TestLogger {
 	 * Tests of optimize request batch slots when there are enough resources.
 	 */
 	@Test
-	public void testOptimizeBathRequestSlotsWithEnoughResources() throws Exception {
+	public void testOptimizeBatchRequestSlotsWithEnoughResources() throws Exception {
 		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
 		final ResourceActions resourceManagerActions = new TestingResourceActionsBuilder().build();
 		final JobID jobId = new JobID();
@@ -2189,7 +2191,7 @@ public class SlotManagerImplTest extends TestLogger {
 	 * Tests of request batch slots for no enough resources and free new slot.
 	 */
 	@Test
-	public void testOptimizeBathRequestSlotsWithNoEnoughResourcesAndFree() throws Exception {
+	public void testOptimizeBatchRequestSlotsWithNoEnoughResourcesAndFree() throws Exception {
 		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
 		final ResourceActions resourceManagerActions = new TestingResourceActionsBuilder().build();
 		final JobID jobId = new JobID();
@@ -2259,7 +2261,7 @@ public class SlotManagerImplTest extends TestLogger {
 	 * Tests of request batch slots for no enough resources and register new slots with TaskManager.
 	 */
 	@Test
-	public void testOptimizeBathRequestSlotsWithNoEnoughResourcesAndRegisterTaskManager() throws Exception {
+	public void testOptimizeBatchRequestSlotsWithNoEnoughResourcesAndRegisterTaskManager() throws Exception {
 		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
 		final ResourceActions resourceManagerActions = new TestingResourceActionsBuilder().build();
 		final JobID jobId = new JobID();
@@ -2341,7 +2343,7 @@ public class SlotManagerImplTest extends TestLogger {
 	 * Tests of cancel all the requests in batch when one in it is canceled.
 	 */
 	@Test
-	public void testOptimizeCancelAllRequestsInBathWhenOneCancel() throws Exception {
+	public void testOptimizeCancelAllRequestsInBatchWhenOneCancel() throws Exception {
 		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
 		final ResourceActions resourceManagerActions = new TestingResourceActionsBuilder().build();
 		final JobID jobId = new JobID();
@@ -2404,5 +2406,159 @@ public class SlotManagerImplTest extends TestLogger {
 			assertSame(slot1.getState(), TaskManagerSlot.State.ALLOCATED);
 			assertSame(slot2.getState(), TaskManagerSlot.State.FREE);
 		}
+	}
+
+	/**
+	 * Test check slots enough method.
+	 */
+	@Test
+	public void testCheckSlotsEnough() {
+		Map<InstanceID, TaskManagerRegistration> taskManagerRegistrationMap = generateTaskManagerRegistrations(3, 10);
+		List<InstanceID> instanceIdList = new ArrayList<>(taskManagerRegistrationMap.keySet());
+		List<InstanceID> resultInstanceIdList = new ArrayList<>();
+		assertFalse(SlotManagerImpl.checkSlotsEnough(resultInstanceIdList, 20, taskManagerRegistrationMap));
+
+		resultInstanceIdList.add(instanceIdList.get(0));
+		assertFalse(SlotManagerImpl.checkSlotsEnough(resultInstanceIdList, 20, taskManagerRegistrationMap));
+
+		resultInstanceIdList.add(instanceIdList.get(1));
+		assertTrue(SlotManagerImpl.checkSlotsEnough(resultInstanceIdList, 20, taskManagerRegistrationMap));
+		assertFalse(SlotManagerImpl.checkSlotsEnough(resultInstanceIdList, 25, taskManagerRegistrationMap));
+
+		resultInstanceIdList.add(instanceIdList.get(2));
+		assertTrue(SlotManagerImpl.checkSlotsEnough(resultInstanceIdList, 25, taskManagerRegistrationMap));
+	}
+
+	/**
+	 * Test case for request instance id list from given task manager registration map and assign slots in these instances.
+	 */
+	@Test
+	public void testRequestAndAssignInstanceList() {
+		Map<InstanceID, TaskManagerRegistration> taskManagerRegistrationMap = generateTaskManagerRegistrations(50, 10);
+		List<InstanceID> requestInstanceIdList1 = SlotManagerImpl.requestInstanceIdList(10, 50, taskManagerRegistrationMap);
+		List<InstanceID> requestInstanceIdList2 = SlotManagerImpl.requestInstanceIdList(10, 50, taskManagerRegistrationMap);
+		assertEquals(10, requestInstanceIdList1.size());
+		assertEquals(10, requestInstanceIdList2.size());
+		assertEquals(10, new HashSet<>(requestInstanceIdList1).size());
+		assertNotEquals(requestInstanceIdList1, requestInstanceIdList2);
+		List<TaskManagerSlot> taskManagerSlotList1 = SlotManagerImpl.assignJobInstanceSlots(50, requestInstanceIdList1, taskManagerRegistrationMap);
+		List<TaskManagerSlot> taskManagerSlotList2 = SlotManagerImpl.assignJobInstanceSlots(50, requestInstanceIdList2, taskManagerRegistrationMap);
+		assertEquals(50, taskManagerSlotList1.size());
+		assertEquals(50, taskManagerSlotList2.size());
+		assertEquals(50, taskManagerSlotList1.stream().map(TaskManagerSlot::getSlotId).collect(Collectors.toSet()).size());
+		assertEquals(50, taskManagerSlotList2.stream().map(TaskManagerSlot::getSlotId).collect(Collectors.toSet()).size());
+		assertEquals(10, taskManagerSlotList1.stream().map(TaskManagerSlot::getInstanceId).collect(Collectors.toSet()).size());
+		assertEquals(10, taskManagerSlotList2.stream().map(TaskManagerSlot::getInstanceId).collect(Collectors.toSet()).size());
+
+		List<InstanceID> requestInstanceIdList3 = SlotManagerImpl.requestInstanceIdList(10, 100, taskManagerRegistrationMap);
+		assertEquals(10, requestInstanceIdList3.size());
+		assertEquals(10, new HashSet<>(requestInstanceIdList3).size());
+		List<TaskManagerSlot> taskManagerSlotList3 = SlotManagerImpl.assignJobInstanceSlots(100, requestInstanceIdList3, taskManagerRegistrationMap);
+		assertEquals(100, taskManagerSlotList3.size());
+		assertEquals(100, taskManagerSlotList3.stream().map(TaskManagerSlot::getSlotId).collect(Collectors.toSet()).size());
+		assertEquals(10, taskManagerSlotList3.stream().map(TaskManagerSlot::getInstanceId).collect(Collectors.toSet()).size());
+
+		List<InstanceID> requestInstanceIdList4 = SlotManagerImpl.requestInstanceIdList(10, 135, taskManagerRegistrationMap);
+		assertEquals(14, requestInstanceIdList4.size());
+		assertEquals(14, new HashSet<>(requestInstanceIdList4).size());
+		List<TaskManagerSlot> taskManagerSlotList4 = SlotManagerImpl.assignJobInstanceSlots(135, requestInstanceIdList4, taskManagerRegistrationMap);
+		assertEquals(135, taskManagerSlotList4.size());
+		assertEquals(135, taskManagerSlotList4.stream().map(TaskManagerSlot::getSlotId).collect(Collectors.toSet()).size());
+		assertEquals(14, taskManagerSlotList4.stream().map(TaskManagerSlot::getInstanceId).collect(Collectors.toSet()).size());
+
+		assertThrows(
+			"Not enough slots when get all the task managers",
+			IllegalArgumentException.class,
+			() -> SlotManagerImpl.requestInstanceIdList(10, 535, taskManagerRegistrationMap));
+	}
+
+	@Test
+	public void testBatchRequestResourceWithWorkers() throws Exception {
+		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
+		final ResourceActions resourceManagerActions = new TestingResourceActionsBuilder().build();
+
+
+		final int taskManagerCount = 25;
+		final int slotsPerTaskManager = 10;
+		try (SlotManagerImpl slotManager = createSlotManager(resourceManagerId, resourceManagerActions)) {
+			for (int i = 0; i < taskManagerCount; i++) {
+				registerTaskManager(slotManager, slotsPerTaskManager, resourceManagerId);
+			}
+
+			assertEquals("The number registered slots does not equal the expected number.", taskManagerCount * slotsPerTaskManager, slotManager.getNumberRegisteredSlots());
+
+			Collection<TaskManagerOfferSlots> taskManagerOfferSlots1 = requestJobSlotsFromWorker(slotManager, 100);
+			assertEquals(10, taskManagerOfferSlots1.size());
+			assertEquals(100, taskManagerOfferSlots1.stream().mapToLong(v -> v.getSlotOffers().size()).sum());
+			Collection<TaskManagerOfferSlots> taskManagerOfferSlots2 = requestJobSlotsFromWorker(slotManager, 100);
+			assertEquals(10, taskManagerOfferSlots2.size());
+			assertEquals(100, taskManagerOfferSlots2.stream().mapToLong(v -> v.getSlotOffers().size()).sum());
+			Collection<TaskManagerOfferSlots> taskManagerOfferSlots3 = requestJobSlotsFromWorker(slotManager, 133);
+			assertEquals(14, taskManagerOfferSlots3.size());
+			assertEquals(133, taskManagerOfferSlots3.stream().mapToLong(v -> v.getSlotOffers().size()).sum());
+		}
+	}
+
+	private Collection<TaskManagerOfferSlots> requestJobSlotsFromWorker(SlotManager slotManager, int requestCount) throws Exception {
+		CompletableFuture<Collection<TaskManagerOfferSlots>> masterFuture = new CompletableFuture<>();
+		JobMasterGateway jobMasterGateway = new TestingJobMasterGatewayBuilder()
+			.setOptimizeOfferSlotsFunction(slots -> {
+				masterFuture.complete(slots);
+				return CompletableFuture.completedFuture(Acknowledge.get());
+			})
+			.build();
+		JobSlotRequestList jobSlotRequestList = buildJobSlotRequestList(new JobID(), jobMasterGateway.getAddress(), requestCount);
+		slotManager.registerJobSlotRequests(jobMasterGateway, jobSlotRequestList, 10);
+		return masterFuture.get(10, TimeUnit.SECONDS);
+	}
+
+	private JobSlotRequestList buildJobSlotRequestList(JobID jobId, String jobMasterAddress, int requestCount) {
+		JobSlotRequestList jobSlotRequestList = new JobSlotRequestList(jobId, jobMasterAddress);
+		for (int i = 0; i < requestCount; i++) {
+			jobSlotRequestList.addJobSlotRequest(new JobSlotRequest(new AllocationID(), ResourceProfile.ANY, new ArrayList<>()));
+		}
+
+		return jobSlotRequestList;
+	}
+
+	private void registerTaskManager(SlotManager slotManager, int slotCount, ResourceManagerId resourceManagerId) {
+		final TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder()
+			.setRequestSlotFunction(tuple6 -> {
+				assertThat(tuple6.f5, is(equalTo(resourceManagerId)));
+				return new CompletableFuture<>();
+			})
+			.createTestingTaskExecutorGateway();
+		final ResourceID resourceId = ResourceID.generate();
+		final TaskExecutorConnection taskManagerConnection = new TaskExecutorConnection(resourceId, taskExecutorGateway);
+		final TaskManagerAddressLocation taskManagerAddressLocation = createTestingAddressLocation(resourceId);
+
+		List<SlotStatus> slotStatusList = new ArrayList<>(slotCount);
+		for (int i = 0; i < slotCount; i++) {
+			SlotID slotId = new SlotID(resourceId, i);
+			ResourceProfile resourceProfile = ResourceProfile.fromResources(42.0, 1337);
+			SlotStatus slotStatus = new SlotStatus(slotId, resourceProfile);
+			slotStatusList.add(slotStatus);
+		}
+		final SlotReport slotReport = new SlotReport(slotStatusList);
+		slotManager.registerTaskManager(taskManagerConnection, slotReport, taskManagerAddressLocation);
+	}
+
+	private Map<InstanceID, TaskManagerRegistration> generateTaskManagerRegistrations(int instanceCount, int slotsPerInstance) {
+		Map<InstanceID, TaskManagerRegistration> taskManagerRegistrationMap = new HashMap<>();
+		for (int i = 0; i < instanceCount; i++) {
+			InstanceID instanceID = new InstanceID();
+			ResourceID resourceID = ResourceID.generate();
+			List<SlotID> slotIdList = new ArrayList<>(slotsPerInstance);
+			for (int j = 0; j < slotsPerInstance; j++) {
+				slotIdList.add(new SlotID(resourceID, j));
+			}
+			taskManagerRegistrationMap.put(instanceID,
+				new TaskManagerRegistration(
+					new TaskExecutorConnection(resourceID, new ThrownTaskExecutorGateway()),
+					slotIdList,
+					null));
+		}
+
+		return taskManagerRegistrationMap;
 	}
 }

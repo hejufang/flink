@@ -29,4 +29,14 @@ public interface SlotPoolFactory {
 
 	@Nonnull
 	SlotPool createSlotPool(@Nonnull JobID jobId);
+
+	/**
+	 * Create slot pool with JobID and vertex count in graph.
+	 *
+	 * @param jobId the job id
+	 * @param taskCount the task count of job
+	 * @return the result slot pool
+	 */
+	@Nonnull
+	SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount);
 }

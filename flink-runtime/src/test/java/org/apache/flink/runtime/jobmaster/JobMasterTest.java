@@ -496,6 +496,12 @@ public class JobMasterTest extends TestLogger {
 		public SlotPool createSlotPool(@Nonnull JobID jobId) {
 			return new TestingSlotPool(jobId, hasReceivedSlotOffers);
 		}
+
+		@Nonnull
+		@Override
+		public SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount) {
+			return createSlotPool(jobId);
+		}
 	}
 
 	private static final class TestingSlotPool implements SlotPool {

@@ -275,6 +275,22 @@ public class ResourceManagerTest extends TestLogger {
 		testDisconnectJobManager(JobStatus.FAILING);
 	}
 
+	@Test
+	public void testComputeJobWorkerCount() {
+		assertEquals(
+			10,
+			ResourceManager.computeJobWorkerCount(128, 129, 30, 10, 100));
+		assertEquals(
+			10,
+			ResourceManager.computeJobWorkerCount(128, 257, 30, 10, 100));
+		assertEquals(
+			25,
+			ResourceManager.computeJobWorkerCount(128, 768, 30, 10, 100));
+		assertEquals(
+			100,
+			ResourceManager.computeJobWorkerCount(128, 10000, 30, 10, 100));
+	}
+
 	private void testDisconnectJobManager(JobStatus jobStatus) throws Exception {
 		final Configuration configuration = new Configuration();
 		final TestingJobMasterGateway jobMasterGateway =

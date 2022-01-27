@@ -108,6 +108,13 @@ public interface SlotManager extends AutoCloseable {
 	 */
 	boolean registerSlotRequest(SlotRequest slotRequest) throws ResourceManagerException;
 
+	/**
+	 * Request job slots with the respective resource profile.
+	 *
+	 * @param jobSlotRequestList the job slot list
+	 * @return true if the slot request was registered; false if the request is a duplicate
+	 * @throws ResourceManagerException if the slot request failed (e.g. not enough resources left)
+	 */
 	default boolean registerJobSlotRequests(JobSlotRequestList jobSlotRequestList) throws ResourceManagerException {
 		throw new UnsupportedOperationException();
 	}
@@ -121,6 +128,20 @@ public interface SlotManager extends AutoCloseable {
 	 * @throws ResourceManagerException if the slot request failed (e.g. not enough resources left)
 	 */
 	boolean registerJobSlotRequests(JobMasterGateway jobMasterGateway, JobSlotRequestList jobSlotRequestList) throws ResourceManagerException;
+
+	/**
+	 * Register slot requests with job master gateway and resourcemanager will offer slots to job master directly.
+	 *
+	 * @param jobMasterGateway job master gateway
+	 * @param jobSlotRequestList slot request list
+	 * @param jobWorkerCount the worker count for job
+	 * @return true if the slot request was registered; false if the request is duplicate
+	 * @throws ResourceManagerException if the slot request failed (e.g. not enough resources left)
+	 */
+	boolean registerJobSlotRequests(
+		JobMasterGateway jobMasterGateway,
+		JobSlotRequestList jobSlotRequestList,
+		int jobWorkerCount) throws ResourceManagerException;
 
 	/**
 	 * Cancel all pending slot requests.
