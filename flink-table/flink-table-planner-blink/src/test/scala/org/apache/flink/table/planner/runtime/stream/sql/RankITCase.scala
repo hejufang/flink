@@ -23,6 +23,7 @@ import org.apache.flink.api.java.typeutils.RowTypeInfo
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api._
 import org.apache.flink.table.api.bridge.scala._
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.internal.TableEnvironmentInternal
 import org.apache.flink.table.planner.runtime.utils.StreamingWithStateTestBase.StateBackendMode
 import org.apache.flink.table.planner.runtime.utils._
@@ -34,8 +35,20 @@ import org.junit._
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 
+import java.util
+import scala.collection.JavaConversions._
+
 @RunWith(classOf[Parameterized])
-class RankITCase(mode: StateBackendMode) extends StreamingWithStateTestBase(mode) {
+class RankITCase(
+    mode: StateBackendMode,
+    isEnableTop1: java.lang.Boolean)
+  extends StreamingWithStateTestBase(mode) {
+
+  override def before(): Unit = {
+    super.before();
+    tEnv.getConfig.getConfiguration.setBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_TOP1_ENABLE, isEnableTop1)
+  }
 
   @Test
   def testTopN(): Unit = {
@@ -73,6 +86,21 @@ class RankITCase(mode: StateBackendMode) extends StreamingWithStateTestBase(mode
 
   @Test
   def testTopNth(): Unit = {
+    val expected = List(
+      "book,1,12,2",
+      "fruit,4,33,2")
+    testTopNthBase(2, expected)
+  }
+
+  @Test
+  def testTop1(): Unit = {
+    val expected = List(
+      "book,2,19,1",
+      "fruit,3,44,1")
+    testTopNthBase(1, expected)
+  }
+
+  def testTopNthBase(rowNum: Int, expected: List[String]): Unit = {
     val data = List(
       ("book", 1, 12),
       ("book", 2, 19),
@@ -85,22 +113,19 @@ class RankITCase(mode: StateBackendMode) extends StreamingWithStateTestBase(mode
     tEnv.registerTable("T", ds)
 
     val sql =
-      """
+      s"""
         |SELECT *
         |FROM (
         |  SELECT category, shopId, num,
         |      ROW_NUMBER() OVER (PARTITION BY category ORDER BY num DESC) as rank_num
         |  FROM T)
-        |WHERE rank_num = 2
+        |WHERE rank_num = $rowNum
       """.stripMargin
 
     val sink = new TestingRetractSink
     tEnv.sqlQuery(sql).toRetractStream[Row].addSink(sink).setParallelism(1)
     env.execute()
 
-    val expected = List(
-      "book,1,12,2",
-      "fruit,4,33,2")
     assertEquals(expected.sorted, sink.getRetractResults.sorted)
   }
 
@@ -547,7 +572,22 @@ class RankITCase(mode: StateBackendMode) extends StreamingWithStateTestBase(mode
   }
 
   @Test
+  def testTop1WithGroupByCount(): Unit = {
+    val expected = List(
+      "book,1,5,4",
+      "fruit,1,3,5")
+    testTopNthWithGroupByCountBase(1, expected)
+  }
+
+  @Test
   def testTopNthWithGroupByCount(): Unit = {
+    val expected = List(
+      "book,3,2,2",
+      "fruit,3,1,3")
+    testTopNthWithGroupByCountBase(3, expected)
+  }
+
+  def testTopNthWithGroupByCountBase(rowNum: Int, expected: List[String]): Unit = {
     val data = List(
       ("book", 1, 1001),
       ("book", 2, 1002),
@@ -572,7 +612,7 @@ class RankITCase(mode: StateBackendMode) extends StreamingWithStateTestBase(mode
     tEnv.registerTable("T", ds)
 
     val sql =
-      """
+      s"""
         |SELECT category, rank_num, sells, shopId
         |FROM (
         |  SELECT category, shopId, sells,
@@ -582,7 +622,7 @@ class RankITCase(mode: StateBackendMode) extends StreamingWithStateTestBase(mode
         |     FROM T
         |     GROUP BY category, shopId
         |  ))
-        |WHERE rank_num = 3
+        |WHERE rank_num = $rowNum
       """.stripMargin
 
     val table = tEnv.sqlQuery(sql)
@@ -593,9 +633,6 @@ class RankITCase(mode: StateBackendMode) extends StreamingWithStateTestBase(mode
     tEnv.asInstanceOf[TableEnvironmentInternal].registerTableSinkInternal("MySink", sink)
     execInsertTableAndWaitResult(table, "MySink")
 
-    val expected = List(
-      "book,3,2,2",
-      "fruit,3,1,3")
     assertEquals(expected.sorted, sink.getUpsertResults.sorted)
   }
 
@@ -1305,4 +1342,15 @@ class RankITCase(mode: StateBackendMode) extends StreamingWithStateTestBase(mode
     assertEquals(expected2.sorted, sink2.getRetractResults.sorted)
   }
 
+}
+
+object RankITCase {
+  @Parameterized.Parameters(name = "StateBackend={0}, enableTop1={1}")
+  def parameters(): util.Collection[Array[java.lang.Object]] = {
+    Seq[Array[AnyRef]](
+      Array(StreamingWithStateTestBase.HEAP_BACKEND, java.lang.Boolean.TRUE),
+      Array(StreamingWithStateTestBase.ROCKSDB_BACKEND, java.lang.Boolean.TRUE),
+      Array(StreamingWithStateTestBase.HEAP_BACKEND, java.lang.Boolean.FALSE),
+      Array(StreamingWithStateTestBase.ROCKSDB_BACKEND, java.lang.Boolean.FALSE))
+  }
 }

@@ -843,4 +843,32 @@ Sink(table=[default_catalog.default_database.sink], fields=[name, eat, cnt])
 ]]>
     </Resource>
   </TestCase>
+  <TestCase name="testRankTop1">
+    <Resource name="sql">
+      <![CDATA[
+SELECT *
+FROM (
+  SELECT a, b, c,
+      ROW_NUMBER() OVER (PARTITION BY a ORDER BY b DESC) as row_num
+  FROM MyTable)
+WHERE row_num = 1
+      ]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[a, b, c, 1:BIGINT AS $3])
++- Rank(strategy=[AppendFastStrategy], rankType=[ROW_NUMBER], rankRange=[rankStart=1, rankEnd=1], partitionBy=[a], orderBy=[b DESC], select=[a, b, c])
+   +- Exchange(distribution=[hash[a]])
+      +- Calc(select=[a, b, c])
+         +- DataStreamScan(table=[[default_catalog, default_database, MyTable]], fields=[a, b, c, proctime, rowtime])
+
+OneInputTransformation{name='Calc(select=[a, b, c, 1:BIGINT AS $3])', outputType=RowData(a: INT, b: STRING, c: BIGINT, $3: BIGINT NOT NULL), parallelism=-1}
+	OneInputTransformation{name='Rank(strategy=[AppendFastStrategy], rankType=[ROW_NUMBER], rankRange=[rankStart=1, rankEnd=1], partitionBy=[a], orderBy=[b DESC], select=[a, b, c], function=[FastTop1Function])', outputType=RowData(a: INT, b: STRING, c: BIGINT), parallelism=-1}
+		PartitionTransformation{name='Partition', outputType=RowData(a: INT, b: STRING, c: BIGINT), parallelism=-1}
+			OneInputTransformation{name='Calc(select=[a, b, c])', outputType=RowData(a: INT, b: STRING, c: BIGINT), parallelism=1}
+				OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.MyTable], fields=[a, b, c, proctime, rowtime])', outputType=RowData(a: INT, b: STRING, c: BIGINT, proctime: TIMESTAMP(3) *PROCTIME*, rowtime: TIMESTAMP(3) *ROWTIME*), parallelism=1}
+					LegacySourceTransformation{name='Collection Source', outputType=scala.Tuple3(_1: Integer, _2: String, _3: Long), parallelism=1}
+]]>
+    </Resource>
+  </TestCase>
 </Root>

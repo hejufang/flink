@@ -366,6 +366,13 @@ public class ExecutionConfigOptions {
 			.defaultValue(false)
 			.withDescription("Specifies whether compatible with mysql.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_TOP1_ENABLE =
+		key("table.exec.enable-top1")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Specifies whether to enable top1 optimization.");
+
 	// ------------------------------------------------------------------------------------------
 	// Enum option types
 	// ------------------------------------------------------------------------------------------

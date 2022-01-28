@@ -19,8 +19,8 @@ package org.apache.flink.table.planner.plan.stream.sql
 
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api._
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.planner.utils.TableTestBase
-
 import org.junit.Test
 
 class RankTest extends TableTestBase {
@@ -672,5 +672,20 @@ class RankTest extends TableTestBase {
       + "from view2 where row_num <= 3")
   }
 
+  @Test
+  def testRankTop1(): Unit = {
+    val sql =
+      """
+        |SELECT *
+        |FROM (
+        |  SELECT a, b, c,
+        |      ROW_NUMBER() OVER (PARTITION BY a ORDER BY b DESC) as row_num
+        |  FROM MyTable)
+        |WHERE row_num = 1
+      """.stripMargin
+    util.tableConfig.getConfiguration.setBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_TOP1_ENABLE, true)
+    util.verifyTransformation(sql)
+  }
   // TODO add tests about multi-sinks and udf
 }
