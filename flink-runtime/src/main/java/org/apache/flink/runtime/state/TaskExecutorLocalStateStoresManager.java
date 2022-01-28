@@ -465,6 +465,6 @@ public class TaskExecutorLocalStateStoresManager implements TaskLocalStateListen
 	private void registerMetrics(MetricGroup metricGroup) {
 		metricGroup.gauge(LOCAL_STATE_SIZE, () -> totalLocalStateSize);
 		metricGroup.gauge(NUMBER_OF_TM_EXCEED_QUOTA, () -> totalLocalStateSize > localStateManageConfig.getExpectedMaxLocalStateSize() ? 1 : 0);
-		metricGroup.gauge(WAREHOUSE_LOCAL_STATE_MESSAGE, () -> localStateMessage);
+		metricGroup.gauge(WAREHOUSE_LOCAL_STATE_MESSAGE, localStateMessage);
 	}
 }
