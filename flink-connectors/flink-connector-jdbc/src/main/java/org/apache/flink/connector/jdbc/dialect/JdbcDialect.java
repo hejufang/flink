@@ -104,6 +104,23 @@ public interface JdbcDialect extends Serializable {
 	}
 
 	/**
+	 * Get dialect update statement, default implementation is `UPDATE tbl SET col1=value1,... WHERE coln=valuen,...`.
+	 * Different dialect could have different update syntax.
+	 *
+	 * @return None if dialect does not support update statement.
+	 */
+	default Optional<String> getUpdateByConditionStatement(
+			String tableName,
+			String[] fieldNames,
+			String[] updateConditionFieldNames) {
+		return Optional.of(String.format("UPDATE %s SET %s WHERE %s",
+			tableName,
+			Arrays.stream(fieldNames).map(f -> f + " = ?").collect(Collectors.joining(", ")),
+			Arrays.stream(updateConditionFieldNames).map(f -> f + " = ?").collect(Collectors.joining(", "))
+		));
+	}
+
+	/**
 	 * Get row exists statement by condition fields. Default use SELECT.
 	 */
 	default String getRowExistsStatement(String tableName, String[] conditionFields) {

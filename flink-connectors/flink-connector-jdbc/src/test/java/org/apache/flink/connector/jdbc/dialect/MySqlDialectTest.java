@@ -39,4 +39,18 @@ public class MySqlDialectTest {
 			"`col1`=VALUES(`col1`), `col3`=VALUES(`col3`), `col5`=VALUES(`col5`)";
 		Assert.assertEquals(expected, upsertStatement);
 	}
+
+	@Test
+	public void testUpdateByColumnStatement() {
+		MySQLDialect mySQLDialect = new MySQLDialect();
+		String upsertStatement = mySQLDialect.getUpdateByConditionStatement(
+			"my_table",
+			new String[]{"col1", "col2", "col3", "col4", "col5"},
+			new String[]{"col2", "col4"}
+		).get();
+		String expected = "UPDATE my_table " +
+			"SET col1 = ?, col2 = ?, col3 = ?, col4 = ?, col5 = ? " +
+			"WHERE col2 = ?, col4 = ?";
+		Assert.assertEquals(expected, upsertStatement);
+	}
 }

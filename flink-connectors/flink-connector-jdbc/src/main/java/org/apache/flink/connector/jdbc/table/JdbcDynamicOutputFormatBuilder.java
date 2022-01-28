@@ -34,14 +34,23 @@ import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecu
 import org.apache.flink.connector.jdbc.internal.options.JdbcDmlOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.connector.jdbc.utils.JdbcUtils;
+import org.apache.flink.table.api.TableException;
+import org.apache.flink.table.data.ArrayData;
+import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericRowData;
+import org.apache.flink.table.data.MapData;
+import org.apache.flink.table.data.RawValueData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.StringData;
+import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.types.RowKind;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static org.apache.flink.table.data.RowData.createFieldGetter;
@@ -122,7 +131,8 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 			return new JdbcBatchingOutputFormat<>(
 				new SimpleJdbcConnectionProvider(jdbcOptions),
 				executionOptions,
-				ctx -> createSimpleRowDataExecutor(dmlOptions.getDialect(), sql, logicalTypes, ctx, rowDataTypeInformation),
+				ctx -> createSimpleRowDataExecutor(
+					dmlOptions.getDialect(), sql, logicalTypes, ctx, rowDataTypeInformation, dmlOptions),
 				JdbcBatchingOutputFormat.RecordExtractor.identity(),
 				jdbcOptions.getRateLimiter());
 		}
@@ -176,7 +186,7 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 		JdbcDialect dialect = opt.getDialect();
 		return opt.getDialect()
 			.getUpsertStatement(opt.getTableName(), opt.getFieldNames(), opt.getKeyFields().get())
-			.map(sql -> createSimpleRowDataExecutor(dialect, sql, fieldTypes, ctx, rowDataTypeInfo))
+			.map(sql -> createSimpleRowDataExecutor(dialect, sql, fieldTypes, ctx, rowDataTypeInfo, opt))
 			.orElseGet(() ->
 				new InsertOrUpdateJdbcExecutor<>(
 					opt.getDialect().getRowExistsStatement(opt.getTableName(), opt.getKeyFields().get()),
@@ -208,12 +218,173 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 		return row -> getPrimaryKey(row, fieldGetters);
 	}
 
-	private static JdbcBatchStatementExecutor<RowData> createSimpleRowDataExecutor(JdbcDialect dialect, String sql, LogicalType[] fieldTypes, RuntimeContext ctx, TypeInformation<RowData> rowDataTypeInfo) {
+	private static JdbcBatchStatementExecutor<RowData> createSimpleRowDataExecutor(
+			JdbcDialect dialect,
+			String sql,
+			LogicalType[] fieldTypes,
+			RuntimeContext ctx,
+			TypeInformation<RowData> rowDataTypeInfo,
+			JdbcDmlOptions dmlOptions) {
 		final TypeSerializer<RowData> typeSerializer = rowDataTypeInfo.createSerializer(ctx.getExecutionConfig());
+		final Function<RowData, RowData> baseTransformer = ctx.getExecutionConfig().isObjectReuseEnabled() ?
+			typeSerializer::copy : Function.identity();
+		final int[] updateConditionIndices = dmlOptions.getUpdateConditionIndices();
+
+		final LogicalType[] realTypes;
+		final Function<RowData, RowData> realValueTransformer;
+		if (updateConditionIndices == null) {
+			realTypes = fieldTypes;
+			realValueTransformer = baseTransformer;
+		} else {
+			// adjust types, add update condition columns types.
+			realTypes = new LogicalType[fieldTypes.length + updateConditionIndices.length];
+			System.arraycopy(fieldTypes, 0, realTypes, 0, fieldTypes.length);
+			for (int i = 0; i < updateConditionIndices.length; ++i) {
+				realTypes[fieldTypes.length + i] = fieldTypes[updateConditionIndices[i]];
+			}
+
+			// wrap RowData, to mock update columns.
+			Function<RowData, RowData> wrapperTransformer = createRowDataWrapperForUpdateByCondition(updateConditionIndices);
+			realValueTransformer = rowData -> {
+				RowData newRowData = baseTransformer.apply(rowData);
+				return wrapperTransformer.apply(newRowData);
+			};
+
+			// get update statement: `UPDATE tbl SET all columns WHERE condition columns`
+			Optional<String> optionalUpdateStatement = dialect.getUpdateByConditionStatement(
+				dmlOptions.getTableName(),
+				dmlOptions.getFieldNames(),
+				dmlOptions.getUpdateConditionFields());
+			if (optionalUpdateStatement.isPresent()) {
+				sql = optionalUpdateStatement.get();
+			} else {
+				throw new TableException(String.format("Dialect '%s' does not support update by condition.",
+					dialect.dialectName()));
+			}
+		}
+
 		return JdbcBatchStatementExecutor.simple(
 			sql,
-			createRowDataJdbcStatementBuilder(dialect, fieldTypes),
-			ctx.getExecutionConfig().isObjectReuseEnabled() ? typeSerializer::copy : Function.identity());
+			createRowDataJdbcStatementBuilder(dialect, realTypes),
+			realValueTransformer);
+	}
+
+	private static class RowDataWrapper implements RowData {
+
+		private final RowData rowData;
+		private final int[] updateColumns;
+
+		public RowDataWrapper(RowData rowData, int[] updateColumns) {
+			this.rowData = rowData;
+			this.updateColumns = updateColumns;
+		}
+
+		private int mapToRealIndex(int idx) {
+			if (idx < rowData.getArity()) {
+				return idx;
+			} else {
+				return updateColumns[idx - rowData.getArity()];
+			}
+		}
+
+		@Override
+		public int getArity() {
+			return rowData.getArity() + updateColumns.length;
+		}
+
+		@Override
+		public RowKind getRowKind() {
+			return rowData.getRowKind();
+		}
+
+		@Override
+		public void setRowKind(RowKind kind) {
+			rowData.setRowKind(kind);
+		}
+
+		@Override
+		public boolean isNullAt(int pos) {
+			return rowData.isNullAt(mapToRealIndex(pos));
+		}
+
+		@Override
+		public boolean getBoolean(int pos) {
+			return rowData.getBoolean(mapToRealIndex(pos));
+		}
+
+		@Override
+		public byte getByte(int pos) {
+			return rowData.getByte(mapToRealIndex(pos));
+		}
+
+		@Override
+		public short getShort(int pos) {
+			return rowData.getShort(mapToRealIndex(pos));
+		}
+
+		@Override
+		public int getInt(int pos) {
+			return rowData.getInt(mapToRealIndex(pos));
+		}
+
+		@Override
+		public long getLong(int pos) {
+			return rowData.getLong(mapToRealIndex(pos));
+		}
+
+		@Override
+		public float getFloat(int pos) {
+			return rowData.getFloat(mapToRealIndex(pos));
+		}
+
+		@Override
+		public double getDouble(int pos) {
+			return rowData.getDouble(mapToRealIndex(pos));
+		}
+
+		@Override
+		public StringData getString(int pos) {
+			return rowData.getString(mapToRealIndex(pos));
+		}
+
+		@Override
+		public DecimalData getDecimal(int pos, int precision, int scale) {
+			return rowData.getDecimal(mapToRealIndex(pos), precision, scale);
+		}
+
+		@Override
+		public TimestampData getTimestamp(int pos, int precision) {
+			return rowData.getTimestamp(mapToRealIndex(pos), precision);
+		}
+
+		@Override
+		public <T> RawValueData<T> getRawValue(int pos) {
+			return rowData.getRawValue(mapToRealIndex(pos));
+		}
+
+		@Override
+		public byte[] getBinary(int pos) {
+			return rowData.getBinary(mapToRealIndex(pos));
+		}
+
+		@Override
+		public ArrayData getArray(int pos) {
+			return rowData.getArray(mapToRealIndex(pos));
+		}
+
+		@Override
+		public MapData getMap(int pos) {
+			return rowData.getMap(mapToRealIndex(pos));
+		}
+
+		@Override
+		public RowData getRow(int pos, int numFields) {
+			return rowData.getRow(mapToRealIndex(pos), numFields);
+		}
+	}
+
+	private static Function<RowData, RowData> createRowDataWrapperForUpdateByCondition(int[] updateColumns) {
+		return rowData -> new RowDataWrapper(rowData, updateColumns);
 	}
 
 	/**

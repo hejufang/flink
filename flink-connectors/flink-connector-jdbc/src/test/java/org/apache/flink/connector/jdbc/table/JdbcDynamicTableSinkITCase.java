@@ -48,6 +48,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 import static org.apache.flink.connector.jdbc.JdbcTestFixture.DERBY_EBOOKSHOP_DB;
 import static org.apache.flink.connector.jdbc.internal.JdbcTableOutputFormatTest.check;
@@ -332,5 +333,66 @@ public class JdbcDynamicTableSinkITCase extends AbstractTestBase {
 			Row.of("user3", "Bailey", "bailey@qq.com", new BigDecimal("9.99"), new BigDecimal("19.98")),
 			Row.of("user4", "Tina", "tina@gmail.com", new BigDecimal("11.30"), new BigDecimal("22.60"))
 		}, DB_URL, USER_TABLE, new String[]{"user_id", "user_name", "email", "balance", "balance2"});
+	}
+
+	@Test
+	public void testUpdateUsingCondition() throws SQLException, ExecutionException, InterruptedException {
+		EnvironmentSettings bsSettings = EnvironmentSettings.newInstance()
+			.useBlinkPlanner().inBatchMode().build();
+		TableEnvironment tEnv = TableEnvironment.create(bsSettings);
+
+		// insert some base data.
+		tEnv.executeSql(
+			"CREATE TABLE USER_RESULT(" +
+				"NAME VARCHAR," +
+				"SCORE BIGINT" +
+				") WITH ( " +
+				"'connector' = 'jdbc'," +
+				"'url'='" + DB_URL + "'," +
+				"'use-bytedance-mysql' = 'false'," +
+				"'table-name' = '" + OUTPUT_TABLE3 + "'," +
+				"'sink.buffer-flush.max-rows' = '2'," +
+				"'sink.buffer-flush.interval' = '300ms'," +
+				"'sink.max-retries' = '4'" +
+				")");
+
+		TableResult tableResult  = tEnv.executeSql("INSERT INTO USER_RESULT\n" +
+			"SELECT user_name, score " +
+			"FROM (VALUES (1, 'Bob'), (22, 'Tom'), (42, 'Kim'), " +
+			"(42, 'Kim'), (1, 'Bob')) " +
+			"AS UserCountTable(score, user_name)");
+		// wait to finish
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// update by condition
+		tEnv.executeSql(
+			"CREATE TABLE USER_RESULT2(" +
+				"NAME VARCHAR," +
+				"SCORE BIGINT" +
+				") WITH ( " +
+				"'connector' = 'jdbc'," +
+				"'url'='" + DB_URL + "'," +
+				"'use-bytedance-mysql' = 'false'," +
+				"'table-name' = '" + OUTPUT_TABLE3 + "'," +
+				"'sink.buffer-flush.max-rows' = '2'," +
+				"'sink.buffer-flush.interval' = '300ms'," +
+				"'sink.update-condition-columns' = 'SCORE'," +
+				"'sink.max-retries' = '4'" +
+				")");
+
+		TableResult tableResult2  = tEnv.executeSql("INSERT INTO USER_RESULT2\n" +
+			"SELECT user_name, score " +
+			"FROM (VALUES (1, 'Hello'), (42, 'World')) " +
+			"AS UserCountTable(score, user_name)");
+		// wait to finish
+		tableResult2.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		check(new Row[] {
+			Row.of("Hello", 1),
+			Row.of("Tom", 22),
+			Row.of("World", 42),
+			Row.of("World", 42),
+			Row.of("Hello", 1)
+		}, DB_URL, OUTPUT_TABLE3, new String[]{"NAME", "SCORE"});
 	}
 }

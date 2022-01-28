@@ -43,6 +43,7 @@ import org.apache.flink.util.Preconditions;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -189,6 +190,15 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		.intType()
 		.defaultValue(3)
 		.withDescription("the max retry times if writing records to database failed.");
+	public static final ConfigOption<List<String>> UPDATE_CONDITION_COLUMNS = ConfigOptions
+		.key("sink.update-condition-columns")
+		.stringType()
+		.asList()
+		.noDefaultValue()
+		.withDescription("Those columns will be used as condition columns in `UPDATE tbl SET ... " +
+			"WHERE update_condition_columns`. If this option is not specified, update statement for " +
+			"mysql will be `INSERT INTO tbl(...) ON DUPLICATE KEY UPDATE ...`, which can only update " +
+			"by primary/unique key.");
 
 	@Override
 	public DynamicTableSink createDynamicTableSink(Context context) {
@@ -196,14 +206,14 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		final ReadableConfig config = helper.getOptions();
 
 		helper.validate();
-		validateConfigOptions(config);
 		JdbcOptions jdbcOptions = getJdbcOptions(config);
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
+		validateConfigOptions(config, physicalSchema);
 
 		return new JdbcDynamicTableSink(
 			jdbcOptions,
 			getJdbcExecutionOptions(config),
-			getJdbcDmlOptions(jdbcOptions, physicalSchema),
+			getJdbcDmlOptions(jdbcOptions, physicalSchema, config),
 			physicalSchema);
 	}
 
@@ -213,8 +223,8 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		final ReadableConfig config = helper.getOptions();
 
 		helper.validate();
-		validateConfigOptions(config);
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
+		validateConfigOptions(config, physicalSchema);
 		return new JdbcDynamicTableSource(
 			getJdbcOptions(helper.getOptions()),
 			getJdbcReadOptions(helper.getOptions()),
@@ -285,7 +295,7 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		return builder.build();
 	}
 
-	private JdbcDmlOptions getJdbcDmlOptions(JdbcOptions jdbcOptions, TableSchema schema) {
+	private JdbcDmlOptions getJdbcDmlOptions(JdbcOptions jdbcOptions, TableSchema schema, ReadableConfig config) {
 		String[] keyFields = schema.getPrimaryKey()
 			.map(pk -> pk.getColumns().toArray(new String[0]))
 			.orElse(null);
@@ -295,6 +305,9 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 			.withDialect(jdbcOptions.getDialect())
 			.withFieldNames(schema.getFieldNames())
 			.withKeyFields(keyFields)
+			.withUpdateConditionFields(config.getOptional(UPDATE_CONDITION_COLUMNS)
+				.map(columns -> columns.toArray(new String[0]))
+				.orElse(null))
 			.build();
 	}
 
@@ -340,10 +353,11 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
 		optionalOptions.add(RATE_LIMIT_NUM);
 		optionalOptions.add(COMPATIBLE_MODE);
+		optionalOptions.add(UPDATE_CONDITION_COLUMNS);
 		return optionalOptions;
 	}
 
-	private void validateConfigOptions(ReadableConfig config) {
+	private void validateConfigOptions(ReadableConfig config, TableSchema schema) {
 		final Optional<String> jdbcUrl = config.getOptional(URL);
 		final Boolean useBytedanceMySQL = config.get(USE_BYTEDANCE_MYSQL);
 		config.getOptional(TABLE_NAME).orElseThrow(() -> new IllegalArgumentException(
@@ -390,6 +404,16 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 			LOOKUP_CACHE_MAX_ROWS,
 			LOOKUP_CACHE_TTL
 		});
+
+		Optional<List<String>> updateConditionColumns = config.getOptional(UPDATE_CONDITION_COLUMNS);
+		if (updateConditionColumns.isPresent()) {
+			for (String column : updateConditionColumns.get()) {
+				if (!schema.getFieldNameIndex(column).isPresent()) {
+					throw new IllegalArgumentException(String.format(
+						"Configured update condition column '%s' is not found in table schema.", column));
+				}
+			}
+		}
 	}
 
 	private void checkAllOrNone(ReadableConfig config, ConfigOption<?>[] configOptions) {

@@ -20,6 +20,8 @@ package org.apache.flink.connector.jdbc.internal.options;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.commons.lang3.ArrayUtils;
+
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
@@ -39,17 +41,26 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 	private final String[] keyFields;
 	private final String tableName;
 	private final JdbcDialect dialect;
+	@Nullable
+	private final String[] updateConditionFields;
 
 	public static JdbcDmlOptionsBuilder builder() {
 		return new JdbcDmlOptionsBuilder();
 	}
 
-	private JdbcDmlOptions(String tableName, JdbcDialect dialect, String[] fieldNames, int[] fieldTypes, String[] keyFields) {
+	private JdbcDmlOptions(
+			String tableName,
+			JdbcDialect dialect,
+			String[] fieldNames,
+			int[] fieldTypes,
+			String[] keyFields,
+			String[] updateConditionFields) {
 		super(fieldTypes);
 		this.tableName = Preconditions.checkNotNull(tableName, "table is empty");
 		this.dialect = Preconditions.checkNotNull(dialect, "dialect name is empty");
 		this.fieldNames = Preconditions.checkNotNull(fieldNames, "field names is empty");
 		this.keyFields = keyFields;
+		this.updateConditionFields = updateConditionFields;
 	}
 
 	public String getTableName() {
@@ -66,6 +77,21 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 
 	public Optional<String[]> getKeyFields() {
 		return Optional.ofNullable(keyFields);
+	}
+
+	public String[] getUpdateConditionFields() {
+		return updateConditionFields;
+	}
+
+	public int[] getUpdateConditionIndices() {
+		if (updateConditionFields == null) {
+			return null;
+		}
+		int[] indices = new int[updateConditionFields.length];
+		for (int i = 0; i < updateConditionFields.length; ++i) {
+			indices[i] = ArrayUtils.indexOf(fieldNames, updateConditionFields[i]);
+		}
+		return indices;
 	}
 
 	@Override
@@ -99,6 +125,7 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 		private String[] fieldNames;
 		private String[] keyFields;
 		private JdbcDialect dialect;
+		private String[] updateConditionFields;
 
 		@Override
 		protected JdbcDmlOptionsBuilder self() {
@@ -135,8 +162,13 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 			return self();
 		}
 
+		public JdbcDmlOptionsBuilder withUpdateConditionFields(String[] fields) {
+			this.updateConditionFields = fields;
+			return this;
+		}
+
 		public JdbcDmlOptions build() {
-			return new JdbcDmlOptions(tableName, dialect, fieldNames, fieldTypes, keyFields);
+			return new JdbcDmlOptions(tableName, dialect, fieldNames, fieldTypes, keyFields, updateConditionFields);
 		}
 
 		static String[] concat(String first, String... next) {
