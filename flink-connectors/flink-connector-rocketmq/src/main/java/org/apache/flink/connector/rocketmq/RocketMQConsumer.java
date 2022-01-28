@@ -119,6 +119,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private transient Map<MessageQueue, Long> restoredOffsets;
 	private transient int subTaskId;
 	private transient Counter skipDirtyCounter;
+	private transient int runtimeParallelism;
 
 	public RocketMQConsumer(
 			RocketMQDeserializationSchema<T> schema,
@@ -149,11 +150,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		String instanceName = String.format(INSTANCE_ID_TEMPLATE, jobName, topic, subTaskId, UUID.randomUUID());
 		LOG.info("Current rocketmq instance name is {}", instanceName);
 		this.consumer = consumerFactory.createRocketMqConsumer(cluster, topic, group, instanceName, properties);
-		if (this.parallelism > 0) {
-			assert this.parallelism == getRuntimeContext().getNumberOfParallelSubtasks();
-		} else {
-			this.parallelism = getRuntimeContext().getNumberOfParallelSubtasks();
-		}
+		this.runtimeParallelism = getRuntimeContext().getNumberOfParallelSubtasks();
 
 		MetricGroup metricGroup = getRuntimeContext().getMetricGroup().addGroup(ROCKET_MQ_CONSUMER_METRICS_GROUP)
 			.addGroup(RocketMQOptions.TOPIC_METRICS_GROUP, this.topic)
@@ -402,8 +399,8 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 	// keep same logic with flink-connector-rocketmq-legacy #AllocateMessageQueueStrategyParallelism#allocate()
 	private boolean belongToThisTask(MessageQueue messageQueue) {
-		int startIndex = ((messageQueue.toString().hashCode() * 31) & 0x7FFFFFFF) % parallelism;
-		int assignedSubTaskId = (startIndex + messageQueue.getQueueId()) % parallelism;
+		int startIndex = ((messageQueue.toString().hashCode() * 31) & 0x7FFFFFFF) % runtimeParallelism;
+		int assignedSubTaskId = (startIndex + messageQueue.getQueueId()) % runtimeParallelism;
 		return (assignedSubTaskId == subTaskId) && (specificMessageQueueSet == null || specificMessageQueueSet.contains(messageQueue));
 	}
 
