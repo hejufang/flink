@@ -22,8 +22,8 @@ import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.connector.rpc.FailureHandleStrategy;
 import org.apache.flink.connector.rpc.table.descriptors.RPCLookupOptions;
 import org.apache.flink.connector.rpc.table.descriptors.RPCOptions;
-import org.apache.flink.connector.rpc.thrift.RPCServiceClient;
 import org.apache.flink.connector.rpc.thrift.ThriftUtil;
+import org.apache.flink.connector.rpc.thrift.client.RPCServiceClientWrapper;
 import org.apache.flink.connector.rpc.thrift.conversion.RowJavaBeanConverter;
 import org.apache.flink.connector.rpc.util.ObjectUtil;
 import org.apache.flink.connector.rpc.util.RequestIDUtil;
@@ -80,7 +80,7 @@ public class RPCAsyncLookupFunction extends AsyncTableFunction<RowData> {
 
 	private final RPCLookupOptions rpcLookupOptions;
 	private final RPCOptions rpcOptions;
-	private final RPCServiceClient serviceClient;
+	private final RPCServiceClientWrapper serviceClient;
 	private final Class<?> requestClass;
 	private final Class<?> responseClass;
 	private final String[] fieldNames;
@@ -116,7 +116,7 @@ public class RPCAsyncLookupFunction extends AsyncTableFunction<RowData> {
 		Class<? extends TServiceClient> clientClass = ThriftUtil.getThriftClientClass(rpcOptions.getThriftServiceClass());
 		this.requestClass = ThriftUtil.getParameterClassOfMethod(clientClass, rpcOptions.getThriftMethod());
 		this.responseClass = ThriftUtil.getReturnClassOfMethod(clientClass, rpcOptions.getThriftMethod());
-		this.serviceClient = new RPCServiceClient(rpcOptions, clientClass, requestClass);
+		this.serviceClient = RPCServiceClientWrapper.getInstance(rpcOptions, clientClass, requestClass);
 		this.psm = rpcOptions.getPsm();
 		this.rateLimiter = rpcOptions.getRateLimiter();
 		this.reusedExtraMap = generateExtraInfoForReq();

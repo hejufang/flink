@@ -23,8 +23,13 @@ import org.apache.flink.shaded.byted.org.byted.infsec.client.Identity;
 import org.apache.flink.shaded.byted.org.byted.infsec.client.InfSecException;
 import org.apache.flink.shaded.byted.org.byted.infsec.client.SecTokenC;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /** Utils for handling security.*/
 public class SecUtil {
+	private static final Logger LOG = LoggerFactory.getLogger(SecUtil.class);
+
 	public static Identity getIdentityFromToken() {
 		try {
 			String token = getGDPRToken(false);
@@ -38,7 +43,8 @@ public class SecUtil {
 		try {
 			return SecTokenC.getToken(forceUpdate);
 		} catch (InfSecException e) {
-			throw new FlinkRuntimeException("Failed to get the gdpr token!", e);
+			LOG.warn("Failed to get the gdpr token!", e);
+			return null;
 		}
 	}
 }

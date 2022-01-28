@@ -21,6 +21,7 @@ package org.apache.flink.connector.rpc.table.descriptors;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.connector.rpc.FailureHandleStrategy;
+import org.apache.flink.connector.rpc.thrift.client.RPCServiceClientWrapper;
 
 import com.bytedance.arch.transport.TransportType;
 
@@ -93,6 +94,12 @@ public class RPCConfigs {
 		.durationType()
 		.defaultValue(Duration.of(1, ChronoUnit.MINUTES))
 		.withDescription("Optional. Interval for update the consul.");
+
+	public static final ConfigOption<String> SERVICE_CLIENT_IMPL_CLASS = ConfigOptions
+		.key("service-client-impl.class")
+		.stringType()
+		.defaultValue(RPCServiceClientWrapper.class.getName())
+		.withDescription("the class name of implementation of service client base.");
 
 	// ------------------------------------------------------------------------
 	//  Lookup Options

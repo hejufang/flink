@@ -17,6 +17,20 @@
 
 namespace java org.apache.flink.connector.rpc.thrift.generated
 
+struct TrafficEnv {
+    1: bool Open = false,
+    2: string Env = "",
+}
+
+struct Base {
+    1: string LogID = "",
+    2: string Caller = "",
+    3: string Addr = "",
+    4: string Client = "",
+    5: optional TrafficEnv TrafficEnv,
+    6: optional map<string, string> Extra,
+}
+
 enum TestType {
     TYPE1 = 0
     TYPE2 = 1
@@ -35,12 +49,19 @@ struct SimpleStruct {
 }
 
 struct TestStruct {
-    1: string strVal = "",
-    2: optional InnerTestStruct innerTestStruct,
+    1: Base base,
+    2: string strVal = "",
     3: optional map<string, SimpleStruct> mapWithStruct,
     4: optional list<SimpleStruct> listWithStruct,
     5: optional map<string, list<i64>> mapWithList,
     6: optional list<map<string, i32>> listWithMap,
     7: optional map<string, list<SimpleStruct>> nested,
-    8: optional list<TestType> enumList
+    8: optional list<TestType> enumList,
+    9: optional InnerTestStruct innerTestStruct,
 }
+
+service TestService {
+    TestStruct testFunc(1: TestStruct req)
+    InnerTestStruct simpleTestFunc(1: InnerTestStruct req)
+}
+

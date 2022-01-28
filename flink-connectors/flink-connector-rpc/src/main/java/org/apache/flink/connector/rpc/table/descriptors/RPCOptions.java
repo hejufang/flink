@@ -24,6 +24,8 @@ import com.bytedance.arch.transport.TransportType;
 
 import java.io.Serializable;
 
+import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.SERVICE_CLIENT_IMPL_CLASS;
+
 /**
  * All options are put here.
  */
@@ -40,6 +42,7 @@ public class RPCOptions implements Serializable {
 	private final String thriftServiceClass;
 	private final String thriftMethod;
 	private final TransportType transportType;
+	private final String serviceClientImplClass;
 	// connect
 	private final int connectTimeoutMs;
 	private final int socketTimeoutMs;
@@ -55,6 +58,7 @@ public class RPCOptions implements Serializable {
 			String thriftServiceClass,
 			String thriftMethod,
 			TransportType transportType,
+			String serviceClientImplClass,
 			int connectTimeoutMs,
 			int socketTimeoutMs,
 			int connectionPoolSize,
@@ -66,6 +70,7 @@ public class RPCOptions implements Serializable {
 		this.thriftServiceClass = thriftServiceClass;
 		this.thriftMethod = thriftMethod;
 		this.transportType = transportType;
+		this.serviceClientImplClass = serviceClientImplClass;
 		this.connectTimeoutMs = connectTimeoutMs;
 		this.socketTimeoutMs = socketTimeoutMs;
 		this.connectionPoolSize = connectionPoolSize;
@@ -98,6 +103,10 @@ public class RPCOptions implements Serializable {
 
 	public TransportType getTransportType() {
 		return transportType;
+	}
+
+	public String getServiceClientImplClass() {
+		return serviceClientImplClass;
 	}
 
 	public int getConnectTimeoutMs() {
@@ -133,6 +142,7 @@ public class RPCOptions implements Serializable {
 		private String thriftServiceClass;
 		private String thriftMethod;
 		private TransportType transportType = TransportType.Framed;
+		private String serviceClientImplClass = SERVICE_CLIENT_IMPL_CLASS.defaultValue();
 		// connect
 		private int connectTimeoutMs;
 		private int socketTimeoutMs;
@@ -178,6 +188,11 @@ public class RPCOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setServiceClientImplClass(String serviceClientImplClass) {
+			this.serviceClientImplClass = serviceClientImplClass;
+			return this;
+		}
+
 		public Builder setConnectTimeoutMs(int connectTimeoutMs) {
 			this.connectTimeoutMs = connectTimeoutMs;
 			return this;
@@ -210,6 +225,7 @@ public class RPCOptions implements Serializable {
 				thriftServiceClass,
 				thriftMethod,
 				transportType,
+				serviceClientImplClass,
 				connectTimeoutMs,
 				socketTimeoutMs,
 				connectionPoolSize,

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.rpc.thrift;
+package org.apache.flink.connector.rpc.thrift.client;
 
 import org.apache.flink.connector.rpc.table.descriptors.RPCOptions;
 
@@ -34,7 +34,7 @@ import java.lang.reflect.InvocationTargetException;
 /**
  * A client connect with RPC service.
  */
-public class RPCServiceClient implements Serializable {
+public class RPCServiceClientWrapper implements Serializable, RPCServiceClientBase {
 	private static final long serialVersionUID = 1L;
 	private final Class<? extends TServiceClient> clientClass;
 	private final Class<?> requestClass;
@@ -42,7 +42,18 @@ public class RPCServiceClient implements Serializable {
 	private transient ClientOptions clientOptions;
 	private transient ServiceClient<?> socketPool;
 
-	public RPCServiceClient(
+	public static RPCServiceClientWrapper getInstance(
+			RPCOptions options,
+			Class<? extends TServiceClient> clientClass,
+			Class<?> requestClass) {
+		return new RPCServiceClientWrapper(
+			options,
+			clientClass,
+			requestClass
+		);
+	}
+
+	private RPCServiceClientWrapper(
 			RPCOptions options,
 			Class<? extends TServiceClient> clientClass,
 			Class<?> requestClass) {
@@ -51,6 +62,7 @@ public class RPCServiceClient implements Serializable {
 		this.requestClass = requestClass;
 	}
 
+	@Override
 	public void open() {
 		ServiceMeta serviceMeta = new ServiceMeta(
 			options.getConsul(),
@@ -76,6 +88,7 @@ public class RPCServiceClient implements Serializable {
 			new SocketPoolOptions());
 	}
 
+	@Override
 	@SuppressWarnings("unchecked")
 	public Object sendRequest(Object request) throws TException {
 		return socketPool.call(
@@ -89,6 +102,7 @@ public class RPCServiceClient implements Serializable {
 			clientOptions);
 	}
 
+	@Override
 	public void close() {
 		if (socketPool != null) {
 			socketPool.close();

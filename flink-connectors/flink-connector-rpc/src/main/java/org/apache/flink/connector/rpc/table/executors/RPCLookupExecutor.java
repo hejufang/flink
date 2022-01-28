@@ -24,8 +24,8 @@ import org.apache.flink.connector.rpc.FailureHandleStrategy;
 import org.apache.flink.connector.rpc.table.RPCAsyncLookupFunction;
 import org.apache.flink.connector.rpc.table.descriptors.RPCLookupOptions;
 import org.apache.flink.connector.rpc.table.descriptors.RPCOptions;
-import org.apache.flink.connector.rpc.thrift.RPCServiceClient;
 import org.apache.flink.connector.rpc.thrift.ThriftUtil;
+import org.apache.flink.connector.rpc.thrift.client.RPCServiceClientBase;
 import org.apache.flink.connector.rpc.thrift.conversion.RowJavaBeanConverter;
 import org.apache.flink.connector.rpc.util.ObjectUtil;
 import org.apache.flink.connector.rpc.util.RequestIDUtil;
@@ -52,6 +52,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
@@ -73,9 +74,9 @@ public class RPCLookupExecutor implements Serializable {
 
 	private final RPCLookupOptions rpcLookupOptions;
 	private final RPCOptions rpcOptions;
-	private final RPCServiceClient serviceClient;
 	private final Class<?> requestClass;
 	private final Class<?> responseClass;
+	private final Class<?> clientClass;
 	private final String[] fieldNames;
 	private final int[] keyIndices;
 	private final DataType dataType;
@@ -84,6 +85,7 @@ public class RPCLookupExecutor implements Serializable {
 	private String psm;
 	private transient String extraInfoJson;
 	private transient long lastUpdateTime;
+	private transient RPCServiceClientBase serviceClient;
 	private transient RowJavaBeanConverter requestConverter;
 	private transient RowJavaBeanConverter responseConverter;
 	private transient Field baseField;
@@ -107,7 +109,7 @@ public class RPCLookupExecutor implements Serializable {
 		Class<? extends TServiceClient> clientClass = ThriftUtil.getThriftClientClass(rpcOptions.getThriftServiceClass());
 		this.requestClass = ThriftUtil.getParameterClassOfMethod(clientClass, rpcOptions.getThriftMethod());
 		this.responseClass = ThriftUtil.getReturnClassOfMethod(clientClass, rpcOptions.getThriftMethod());
-		this.serviceClient = new RPCServiceClient(rpcOptions, clientClass, requestClass);
+		this.clientClass = clientClass;
 		this.psm = rpcOptions.getPsm();
 		this.rateLimiter = rpcOptions.getRateLimiter();
 		this.reusedExtraMap = generateExtraInfoForReq();
@@ -120,11 +122,19 @@ public class RPCLookupExecutor implements Serializable {
 		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
 		lookupFailurePerSecond = LookupMetricUtils.registerFailurePerSecond(context.getMetricGroup());
 		requestDelayMs = LookupMetricUtils.registerRequestDelayMs(context.getMetricGroup());
-		serviceClient.open();
 		requestConverter = RowJavaBeanConverter.create(requestClass, getRequestDataType(dataType));
 		responseConverter = RowJavaBeanConverter.create(responseClass, getResponseDataType(dataType));
 		requestConverter.open(RPCAsyncLookupFunction.class.getClassLoader());
 		responseConverter.open(RPCAsyncLookupFunction.class.getClassLoader());
+		try {
+			serviceClient = (RPCServiceClientBase) Class.forName(rpcOptions.getServiceClientImplClass())
+				.getMethod("getInstance", RPCOptions.class, Class.class, Class.class)
+				.invoke(null, rpcOptions, clientClass, requestClass);
+		} catch (IllegalAccessException | ClassNotFoundException |
+			NoSuchMethodException | InvocationTargetException e) {
+			throw new IllegalStateException("Something wrong happened in initiate a ServiceClient", e);
+		}
+		serviceClient.open();
 		initBaseInfo();
 	}
 
