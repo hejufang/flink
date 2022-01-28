@@ -76,6 +76,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -98,6 +99,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.checkpoint.scheduler.CheckpointSchedulerUtils.createCheckpointScheduler;
 import static org.apache.flink.runtime.checkpoint.scheduler.CheckpointSchedulerUtils.setupSavepointScheduler;
+import static org.apache.flink.runtime.state.StateUtil.getCheckpointIDFromFileStatus;
 import static org.apache.flink.util.ExceptionUtils.findThrowable;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -761,7 +763,6 @@ public class CheckpointCoordinator {
 							Preconditions.checkState(
 								checkpoint != null || throwable != null,
 								"Either the pending checkpoint needs to be created or an error must have been occurred.");
-
 							if (throwable != null) {
 								// the initialization might not be finished yet
 								if (checkpoint == null) {
@@ -1333,15 +1334,10 @@ public class CheckpointCoordinator {
 			// discard historical invalid folders after complete
 			if (completedCheckpoint.isCheckpoint()) {
 				Path checkpointParentPath = new Path(completedCheckpoint.getStorageLocation().getExternalPointer()).getParent();
-				if (discardHistoricalCheckpointConfiguration != null
-					&& maxNumDiscardHistorical > 0
-					&& fixedDelayTimeDiscardHistorical > 0
-					&& expiredCheckpointDirectoryPrefix != null
-					&& checkBackupExpiredDirectoryCreated(checkpointParentPath)) {
+				if (needToDiscardHistoricalCheckpoint() && checkBackupExpiredDirectoryCreated(checkpointParentPath)) {
 					try {
 						StateUtil.discardHistoricalInvalidCheckpoint(
 							checkpointParentPath,
-							completedCheckpointStore,
 							abortedPendingCheckpoints,
 							maxNumDiscardHistorical,
 							fixedDelayTimeDiscardHistorical,
@@ -1694,6 +1690,11 @@ public class CheckpointCoordinator {
 			}
 
 			LOG.info("Restoring job {} from latest valid checkpoint: {}.", job, latest);
+
+			// check historical expired chk- folders and add them to to-discard cache list
+			if (fromStorage) {
+				addHistoricalCheckpointToDiscardList();
+			}
 
 			// re-assign the task states
 			final Map<OperatorID, OperatorState> operatorStates = latest.getOperatorStates();
@@ -2126,15 +2127,10 @@ public class CheckpointCoordinator {
 				// delete historical directories here
 				if (!pendingCheckpoint.getProps().isSavepoint() && pendingCheckpoint.getTargetLocation() instanceof FsCheckpointStorageLocation) {
 					Path checkpointParentPath = ((FsCheckpointStorageLocation) pendingCheckpoint.getTargetLocation()).getCheckpointDirectory().getParent();
-					if (discardHistoricalCheckpointConfiguration != null
-						&& maxNumDiscardHistorical > 0
-						&& fixedDelayTimeDiscardHistorical > 0
-						&& expiredCheckpointDirectoryPrefix != null
-						&& checkBackupExpiredDirectoryCreated(checkpointParentPath)) {
+					if (needToDiscardHistoricalCheckpoint() && checkBackupExpiredDirectoryCreated(checkpointParentPath)) {
 						try {
 							StateUtil.discardHistoricalInvalidCheckpoint(
 								checkpointParentPath,
-								completedCheckpointStore,
 								abortedPendingCheckpoints,
 								maxNumDiscardHistorical,
 								fixedDelayTimeDiscardHistorical,
@@ -2429,5 +2425,42 @@ public class CheckpointCoordinator {
 			LOG.info("Create backup expired directory failed.");
 			return false;
 		}
+	}
+
+	private void addHistoricalCheckpointToDiscardList() throws Exception {
+		if (needToDiscardHistoricalCheckpoint()) {
+			// discard historical invalid folders after complete
+			final Set<Long> completedCheckpointStoreIDs = completedCheckpointStore.getAllCheckpoints()
+				.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet());
+			if (completedCheckpointStoreIDs.size() > 0) {
+				List<FileStatus> fileStatuses = checkpointStorage.listCheckpointPointers();
+				for (FileStatus fileStatus : fileStatuses) {
+					long checkpointID = getCheckpointIDFromFileStatus(fileStatus);
+					if (checkpointID > 0 && !completedCheckpointStoreIDs.contains(checkpointID)) {
+						cachedToDiscardList.add(fileStatus);
+					}
+				}
+			}
+			if (cachedToDiscardList.size() > 0) {
+				Collections.sort(cachedToDiscardList, new Comparator<FileStatus>() {
+					@Override
+					public int compare(FileStatus f1, FileStatus f2) {
+						return Long.compare(getCheckpointIDFromFileStatus(f1), getCheckpointIDFromFileStatus(f2)); // sort checkpointID asc
+					}
+				});
+				LOG.info("After completedCheckpointStore recovered, add checkpoint {} to cached toDiscard file list, waiting to be discarded",
+					cachedToDiscardList.stream().map(fileStatus -> getCheckpointIDFromFileStatus(fileStatus)).collect(Collectors.toList()));
+			}
+		} else {
+			LOG.info("Discarding historical expired checkpoint directories is disabled or failed to create backup expired directory, " +
+				"would not discard historical expired checkpoints.");
+		}
+	}
+
+	private boolean needToDiscardHistoricalCheckpoint() {
+		return discardHistoricalCheckpointConfiguration != null
+			&& maxNumDiscardHistorical > 0
+			&& fixedDelayTimeDiscardHistorical > 0
+			&& expiredCheckpointDirectoryPrefix != null;
 	}
 }

@@ -317,6 +317,18 @@ public class CheckpointStatsTracker {
 		}
 	}
 
+	/**
+	 * Callback when a checkpoint is discarded.
+	 */
+	public void reportFailedDiscardedCheckpoint() {
+		statsReadWriteLock.lock();
+		try {
+			counts.incrementFailedDiscardedHistoricalCheckpoints();
+		} finally {
+			statsReadWriteLock.unlock();
+		}
+	}
+
 	public void reportPlaceHolderTransformResult(boolean success, String msg) {
 		statsReadWriteLock.lock();
 		try {
@@ -419,6 +431,8 @@ public class CheckpointStatsTracker {
 
 	static final String NUMBER_OF_FS_DISCARD_EXPIRED_CHECKPOINT_FOLDER = "numberOfDiscardExpiredCheckpointFolder";
 
+	static final String NUMBER_OF_FS_FAILED_DISCARD_EXPIRED_CHECKPOINT_FOLDER = "numberOfFailedDiscardExpiredCheckpointFolder";
+
 	static final String NUMBER_OF_CHECKPOINT_PLACEHOLDER_TRANSFORMED = "numberOfCheckpointPlaceholderTransformed";
 
 	final TagGauge checkpointPlaceholderTagGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).setClearWhenFull(true).build();
@@ -448,6 +462,7 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(PRE_JOB_RAW_TOTAL_STATE_SIZE, new LatestCompletedCheckpointPreJobBatchTotalStateSize());
 		metricGroup.gauge(POST_JOB_RAW_TOTAL_STATE_SIZE, new LatestCompletedCheckpointPostJobBatchTotalStateSize());
 		metricGroup.gauge(NUMBER_OF_FS_DISCARD_EXPIRED_CHECKPOINT_FOLDER, new DiscardedHistoricalCheckpointsCounter());
+		metricGroup.gauge(NUMBER_OF_FS_FAILED_DISCARD_EXPIRED_CHECKPOINT_FOLDER, new FailedDiscardedHistoricalCheckpointsCounter());
 		metricGroup.gauge(NUMBER_OF_CHECKPOINT_PLACEHOLDER_TRANSFORMED, checkpointPlaceholderTagGauge);
 		metricGroup.gauge(WAREHOUSE_CHECKPOINT_PLACEHOLDER, CHECKPOINT_PLACEHOLDER_MESSAGE_SET);
 	}
@@ -568,6 +583,13 @@ public class CheckpointStatsTracker {
 		@Override
 		public Long getValue() {
 			return counts.getNumberOfDiscardedHistoricalCheckpoints();
+		}
+	}
+
+	private class FailedDiscardedHistoricalCheckpointsCounter implements Gauge<Long> {
+		@Override
+		public Long getValue() {
+			return counts.getNumberOfFailedDiscardedHistoricalCheckpoints();
 		}
 	}
 }

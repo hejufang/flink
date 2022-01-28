@@ -81,7 +81,8 @@ global:
         numberOfRecoverSuccess,
         numberOfRecoverFailed,
         numberOfCheckpointPlaceholderTransformed,
-        numberOfTmExceedQuota
+        numberOfTmExceedQuota,
+        numberOfFailedDiscardExpiredCheckpointFolder
     ]
 
 non-global:

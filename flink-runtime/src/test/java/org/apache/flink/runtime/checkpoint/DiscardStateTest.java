@@ -93,7 +93,6 @@ public class DiscardStateTest {
 
 		StateUtil.discardHistoricalInvalidCheckpoint(
 			checkpointParentPath,
-			store,
 			abortedPendingCheckpoints,
 			3,
 			300000,

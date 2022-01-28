@@ -20,6 +20,7 @@ package org.apache.flink.runtime.state;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.core.fs.FileStatus;
 
 import javax.annotation.Nullable;
 
@@ -153,5 +154,9 @@ public interface CheckpointStorageCoordinatorView {
 
 	default Tuple2<String, Boolean> findLatestSnapshotCrossNamespaces(int maxLatestNamespaceTracing, String namespace) throws IOException {
 		return new Tuple2<>();
+	}
+
+	default List<FileStatus> listCheckpointPointers() throws IOException {
+		return Collections.emptyList();
 	}
 }
