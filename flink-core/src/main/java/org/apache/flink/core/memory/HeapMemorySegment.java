@@ -82,6 +82,11 @@ public final class HeapMemorySegment extends MemorySegment {
 	}
 
 	@Override
+	public void clear() {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
 	public ByteBuffer wrap(int offset, int length) {
 		try {
 			return ByteBuffer.wrap(this.memory, offset, length);

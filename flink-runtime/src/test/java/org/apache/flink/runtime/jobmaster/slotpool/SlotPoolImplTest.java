@@ -752,6 +752,30 @@ public class SlotPoolImplTest extends TestLogger {
 		}
 	}
 
+	@Test
+	public void testBatchRequestFromConnectedResourceManager() throws Exception {
+		try (SlotPoolImpl slotPool = new TestingSlotPoolImpl(new JobID(), batchRequestEnable, true)) {
+			TestingResourceManagerGateway resourceManagerGateway = new TestingResourceManagerGateway();
+			CompletableFuture<Integer> requestFuture = new CompletableFuture<>();
+			if (batchRequestEnable) {
+				resourceManagerGateway.setRequestSlotListFunction(request -> {
+					requestFuture.complete(request.getSlotRequests().size());
+					return CompletableFuture.completedFuture(Acknowledge.get());
+				});
+			}
+			setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
+			slotPool.requestNewAllocatedSlot(
+					new SlotRequestId(),
+					ResourceProfile.ANY,
+					new ArrayList<>(),
+					timeout);
+			if (!batchRequestEnable) {
+				requestFuture.complete(1);
+			}
+			assertEquals(1, (int) requestFuture.get());
+		}
+	}
+
 	private List<AllocationID> registerAndOfferSlots(TaskManagerLocation taskManagerLocation, SlotPoolImpl slotPool, int numberOfSlotsToRegister) {
 		slotPool.registerTaskManager(taskManagerLocation.getResourceID());
 		final List<AllocationID> allocationIds = IntStream.range(0, numberOfSlotsToRegister)

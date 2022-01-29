@@ -63,7 +63,7 @@ import java.util.stream.Collectors;
  */
 public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTable<T> {
 
-	private static final Logger LOG = LoggerFactory.getLogger(TaskSlotTableImpl.class);
+	protected static final Logger LOG = LoggerFactory.getLogger(TaskSlotTableImpl.class);
 
 	/**
 	 * Number of slots in static slot allocation.
@@ -213,6 +213,15 @@ public class TaskSlotTableImpl<T extends TaskSlotPayload> implements TaskSlotTab
 	@Override
 	public Set<AllocationID> getActiveTaskSlotAllocationIds() {
 		return createAllocationIdSet(new TaskSlotIterator(TaskSlotState.ACTIVE));
+	}
+
+	@Override
+	public Collection<MemoryManager> getMemoryManagers() throws SlotNotFoundException {
+		List<MemoryManager> memoryManagerList = new ArrayList<>();
+		for (AllocationID allocationID : getActiveTaskSlotAllocationIds()) {
+			memoryManagerList.add(getTaskMemoryManager(allocationID));
+		}
+		return memoryManagerList;
 	}
 
 	@Override

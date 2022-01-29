@@ -18,12 +18,54 @@
 
 package org.apache.flink.runtime.memory;
 
+import java.time.Duration;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
 /**
- * All tasks from different in with the same slot index share the memory manager.
+ * All tasks from different jobs with the same slot index share the same memory manager.
  */
 public class TaskSlotMemoryManager implements TaskMemoryManager {
+	private final Map<Integer, MemoryManager> slotMemoryManagers = new HashMap<>();
+
+	public TaskSlotMemoryManager(
+			long memorySize,
+			int pageSize,
+			int slotCount,
+			Duration requestMemorySegmentsTimeout,
+			boolean lazyAllocate,
+			boolean cacheEnable) {
+		long slotMemorySize = memorySize / slotCount;
+		for (int i = 0; i < slotCount; i++) {
+			slotMemoryManagers.put(
+				i,
+				cacheEnable ? new CacheMemoryManager(
+					slotMemorySize,
+					pageSize,
+					requestMemorySegmentsTimeout,
+					lazyAllocate,
+					1) : MemoryManager.create(slotMemorySize, pageSize));
+		}
+	}
+
 	@Override
 	public MemoryManager getMemoryManager(int slotIndex) {
-		throw new UnsupportedOperationException();
+		return checkNotNull(slotMemoryManagers.get(slotIndex));
+	}
+
+	@Override
+	public Collection<MemoryManager> getMemoryManagers() {
+		return slotMemoryManagers.values();
+	}
+
+	@Override
+	public void close() {
+		for (MemoryManager memoryManager : slotMemoryManagers.values()) {
+			memoryManager.shutdown();
+		}
+		slotMemoryManagers.clear();
 	}
 }

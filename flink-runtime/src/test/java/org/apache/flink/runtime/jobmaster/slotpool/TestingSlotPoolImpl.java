@@ -42,12 +42,19 @@ public class TestingSlotPoolImpl extends SlotPoolImpl {
 	public TestingSlotPoolImpl(JobID jobId, boolean batchRequestSlotsEnable) {
 		this(
 			jobId,
+			batchRequestSlotsEnable,
+			false);
+	}
+
+	public TestingSlotPoolImpl(JobID jobId, boolean batchRequestSlotsEnable, boolean requestSlotFromResourceDirectEnable) {
+		this(
+			jobId,
 			SystemClock.getInstance(),
 			AkkaUtils.getDefaultTimeout(),
 			AkkaUtils.getDefaultTimeout(),
 			Time.milliseconds(JobManagerOptions.SLOT_IDLE_TIMEOUT.defaultValue()),
 			batchRequestSlotsEnable,
-			false);
+			requestSlotFromResourceDirectEnable);
 	}
 
 	public TestingSlotPoolImpl(

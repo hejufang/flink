@@ -749,7 +749,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	}
 
 	private void deployJobTasks(JobID jobId, JobTable.Connection jobManagerConnection) {
-		JobDeploymentManager jobDeploymentManager = jobDeploymentManagers.get(jobId);
+		JobDeploymentManager jobDeploymentManager = jobDeploymentManagers.remove(jobId);
 		if (jobDeploymentManager == null) {
 			return;
 		}
@@ -784,7 +784,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				submitTaskInternal(jobManagerConnection, deploymentDescriptor, jobInformation, taskInformation);
 			}
 		} catch (Exception e) {
-			// TODO should kill all the tasks and update failed state to jobmaster here later.
+			log.error("Submit task list failed", e);
 			throw new RuntimeException("Launch tasks for job " + jobId + " fail", e);
 		}
 		log.info("Finish to deploy tasks {} for job {} connect {} deploy {}",
@@ -1030,7 +1030,11 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			partitionTracker.stopTrackingAndReleaseJobPartitions(partitionToRelease);
 			partitionTracker.promoteJobPartitions(partitionsToPromote);
 
-			closeJobManagerConnectionIfNoAllocatedResources(jobId);
+			if (requestSlotFromResourceManagerDirectEnable) {
+				closeJobManagerConnectionIfNoTasks(jobId);
+			} else {
+				closeJobManagerConnectionIfNoAllocatedResources(jobId);
+			}
 		} catch (Throwable t) {
 			// TODO: Do we still need this catch branch?
 			onFatalError(t, WorkerExitCode.TASKMANAGER_RELEASE_PARTIITION_ERROR);
@@ -1768,27 +1772,38 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		// 1. fail tasks running under this JobID
 		Iterator<Task> tasks = taskSlotTable.getTasks(jobId);
+		boolean existTasks = tasks.hasNext();
 
 		final FlinkException failureCause = new FlinkException("JobManager responsible for " + jobId +
 			" lost the leadership.", cause);
 
 		while (tasks.hasNext()) {
-			tasks.next().failExternally(failureCause);
+			Task task = tasks.next();
+			task.failExternally(failureCause);
+			if (requestSlotFromResourceManagerDirectEnable) {
+				taskSlotTable.removeTask(task.getExecutionId());
+			}
 		}
 
 		// 2. Move the active slots to state allocated (possible to time out again)
-		Set<AllocationID> activeSlotAllocationIDs = taskSlotTable.getActiveTaskSlotAllocationIdsPerJob(jobId);
+		if (requestSlotFromResourceManagerDirectEnable) {
+			if (existTasks) {
+				closeJobManagerConnectionIfNoTasks(jobId);
+			}
+		} else {
+			Set<AllocationID> activeSlotAllocationIDs = taskSlotTable.getActiveTaskSlotAllocationIdsPerJob(jobId);
 
-		final FlinkException freeingCause = new FlinkException("Slot could not be marked inactive.");
+			final FlinkException freeingCause = new FlinkException("Slot could not be marked inactive.");
 
-		for (AllocationID activeSlotAllocationID : activeSlotAllocationIDs) {
-			try {
-				if (taskManagerConfiguration.isReleaseSlotWhenJobMasterDisconnected() ||
-						!taskSlotTable.markSlotInactive(activeSlotAllocationID, taskManagerConfiguration.getTimeout())) {
-					freeSlotInternal(activeSlotAllocationID, freeingCause);
+			for (AllocationID activeSlotAllocationID : activeSlotAllocationIDs) {
+				try {
+					if (taskManagerConfiguration.isReleaseSlotWhenJobMasterDisconnected() ||
+							!taskSlotTable.markSlotInactive(activeSlotAllocationID, taskManagerConfiguration.getTimeout())) {
+						freeSlotInternal(activeSlotAllocationID, freeingCause);
+					}
+				} catch (SlotNotFoundException e) {
+					log.debug("Could not mark the slot {} inactive.", jobId, e);
 				}
-			} catch (SlotNotFoundException e) {
-				log.debug("Could not mark the slot {} inactive.", jobId, e);
 			}
 		}
 
@@ -1981,6 +1996,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 						task.getFailureCause(),
 						accumulatorSnapshot,
 						task.getMetricGroup().getIOMetricGroup().createSnapshot()));
+
+			if (requestSlotFromResourceManagerDirectEnable) {
+				CompletableFuture.runAsync(() -> closeJobManagerConnectionIfNoTasks(task.getJobID()), getMainThreadExecutor());
+			}
 		} else {
 			log.error("Cannot find task with ID {} to unregister.", executionAttemptID);
 		}
@@ -2022,14 +2041,24 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	private void closeJobManagerConnectionIfNoAllocatedResources(JobID jobId) {
 		// check whether we still have allocated slots for the same job
 		if (taskSlotTable.getAllocationIdsPerJob(jobId).isEmpty() && !partitionTracker.isTrackingPartitionsFor(jobId)) {
-			// we can remove the job from the job leader service
-			jobLeaderService.removeJob(jobId);
-
-			jobTable.getJob(jobId).ifPresent(
-				job -> closeJob(
-					job,
-					new FlinkException("TaskExecutor " + getAddress() + " has no more allocated slots for job " + jobId + '.')));
+			closeJobManagerConnection(jobId);
 		}
+	}
+
+	private void closeJobManagerConnectionIfNoTasks(JobID jobId) {
+		if (!taskSlotTable.getTasks(jobId).hasNext() && !partitionTracker.isTrackingPartitionsFor(jobId)) {
+			closeJobManagerConnection(jobId);
+		}
+	}
+
+	private void closeJobManagerConnection(JobID jobId) {
+		// we can remove the job from the job leader service
+		jobLeaderService.removeJob(jobId);
+
+		jobTable.getJob(jobId).ifPresent(
+			job -> closeJob(
+				job,
+				new FlinkException("TaskExecutor " + getAddress() + " has no more allocated slots for job " + jobId + '.')));
 	}
 
 	private void timeoutSlot(AllocationID allocationId, UUID ticket) {
@@ -2053,8 +2082,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	 * @param allocatedSlotReport represents the JobMaster's view on the current slot allocation state
 	 */
 	private void syncSlotsWithSnapshotFromJobMaster(JobMasterGateway jobMasterGateway, AllocatedSlotReport allocatedSlotReport) {
-		failNoLongerAllocatedSlots(allocatedSlotReport, jobMasterGateway);
-		freeNoLongerUsedSlots(allocatedSlotReport);
+		if (!requestSlotFromResourceManagerDirectEnable) {
+			failNoLongerAllocatedSlots(allocatedSlotReport, jobMasterGateway);
+			freeNoLongerUsedSlots(allocatedSlotReport);
+		}
 	}
 
 	private void failNoLongerAllocatedSlots(AllocatedSlotReport allocatedSlotReport, JobMasterGateway jobMasterGateway) {

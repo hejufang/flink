@@ -70,7 +70,15 @@ public interface TaskSlotTable<T extends TaskSlotPayload> extends TimeoutListene
 	 * Returns the {@link AllocationID} of any active task listed in this {@code TaskSlotTable}.
 	 * @return The {@code AllocationID} of any active task.
 	 */
+	@Deprecated
 	Set<AllocationID> getActiveTaskSlotAllocationIds();
+
+	/**
+	 * Return the {@link MemoryManager} used in this {@code TaskSlotTable}.
+	 *
+	 * @return The {@link MemoryManager} collection of this {@link TaskSlotTable}
+	 */
+	Collection<MemoryManager> getMemoryManagers() throws SlotNotFoundException;
 
 	/**
 	 * Returns the {@link AllocationID} of active {@link TaskSlot}s attached to the job with the given {@link JobID}.

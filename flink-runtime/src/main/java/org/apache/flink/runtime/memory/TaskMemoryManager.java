@@ -18,9 +18,30 @@
 
 package org.apache.flink.runtime.memory;
 
+import java.util.Collection;
+
 /**
  * MemoryManager for task.
  */
-public interface TaskMemoryManager {
+public interface TaskMemoryManager extends AutoCloseable {
+	/**
+	 * Get the memory manager with given slot index.
+	 *
+	 * @param slotIndex the given slot index
+	 * @return the result memory manager
+	 */
 	MemoryManager getMemoryManager(int slotIndex);
+
+	/**
+	 * Get the memory managers in the {@link TaskMemoryManager}.
+	 *
+	 * @return the memory managers
+	 */
+	Collection<MemoryManager> getMemoryManagers();
+
+	/**
+	 * Close the task memory manager.
+	 */
+	@Override
+	void close();
 }

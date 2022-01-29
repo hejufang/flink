@@ -391,10 +391,21 @@ public class SlotPoolImpl implements SlotPool {
 				}
 			});
 
-		CompletableFuture<Acknowledge> rmResponse = resourceManagerGateway.requestSlot(
-			jobMasterId,
-			new SlotRequest(jobId, allocationId, pendingRequest.getResourceProfile(), jobManagerAddress, pendingRequest.getBannedLocations()),
-			rpcTimeout);
+		CompletableFuture<Acknowledge> rmResponse;
+		if (batchRequestSlotsEnable) {
+			JobSlotRequestList jobSlotRequestList = new JobSlotRequestList(jobId, jobManagerAddress);
+			jobSlotRequestList.addJobSlotRequest(
+					new JobSlotRequest(
+						allocationId,
+						pendingRequest.getResourceProfile(),
+						pendingRequest.getBannedLocations()));
+			rmResponse = resourceManagerGateway.requestJobSlots(jobMasterId, jobSlotRequestList, rpcTimeout);
+		} else {
+			rmResponse = resourceManagerGateway.requestSlot(
+				jobMasterId,
+				new SlotRequest(jobId, allocationId, pendingRequest.getResourceProfile(), jobManagerAddress, pendingRequest.getBannedLocations()),
+				rpcTimeout);
+		}
 
 		FutureUtils.whenCompleteAsyncIfNotDone(
 			rmResponse,

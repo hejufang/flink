@@ -20,6 +20,7 @@ package org.apache.flink.runtime.taskexecutor;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.blob.PermanentBlobService;
 import org.apache.flink.runtime.broadcast.BroadcastVariableManager;
@@ -41,6 +42,7 @@ import org.apache.flink.runtime.state.cache.CacheConfiguration;
 import org.apache.flink.runtime.state.cache.CacheManager;
 import org.apache.flink.runtime.state.cache.DefaultCacheManager;
 import org.apache.flink.runtime.state.cache.NonCacheManager;
+import org.apache.flink.runtime.taskexecutor.slot.JobTaskWithoutSlotTable;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotTable;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotTableImpl;
 import org.apache.flink.runtime.taskexecutor.slot.TimerService;
@@ -86,7 +88,6 @@ public class TaskManagerServices {
 	private final LibraryCacheManager libraryCacheManager;
 	private final CacheManager cacheManager;
 	private final boolean taskSubmitRunning;
-	private final TaskMemoryManager taskMemoryManager;
 
 	TaskManagerServices(
 			UnresolvedTaskManagerLocation unresolvedTaskManagerLocation,
@@ -103,8 +104,7 @@ public class TaskManagerServices {
 			ExecutorService ioExecutor,
 			LibraryCacheManager libraryCacheManager,
 			CacheManager cacheManager,
-			boolean taskSubmitRunning,
-			TaskMemoryManager taskMemoryManager) {
+			boolean taskSubmitRunning) {
 
 		this.unresolvedTaskManagerLocation = Preconditions.checkNotNull(unresolvedTaskManagerLocation);
 		this.managedMemorySize = managedMemorySize;
@@ -121,7 +121,6 @@ public class TaskManagerServices {
 		this.libraryCacheManager = Preconditions.checkNotNull(libraryCacheManager);
 		this.cacheManager = cacheManager;
 		this.taskSubmitRunning = taskSubmitRunning;
-		this.taskMemoryManager = taskMemoryManager;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -186,10 +185,6 @@ public class TaskManagerServices {
 
 	public boolean isTaskSubmitRunning() {
 		return taskSubmitRunning;
-	}
-
-	public TaskMemoryManager getTaskMemoryManager() {
-		return taskMemoryManager;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -327,7 +322,8 @@ public class TaskManagerServices {
 			taskManagerServicesConfiguration.getTimerServiceShutdownTimeout(),
 			taskManagerServicesConfiguration.getPageSize(),
 			ioExecutor,
-			taskManagerServicesConfiguration.getConfiguration().getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE));
+			taskManagerServicesConfiguration.getConfiguration().getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE),
+			taskManagerServicesConfiguration);
 
 		final JobTable jobTable = DefaultJobTable.create();
 
@@ -361,12 +357,6 @@ public class TaskManagerServices {
 		CacheManager cacheManager = cacheConfiguration.isEnableCache() ? new DefaultCacheManager(cacheConfiguration) : new NonCacheManager();
 		boolean taskSubmitRunning = taskManagerServicesConfiguration.getConfiguration().getBoolean(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY);
 
-		TaskMemoryManager taskMemoryManager = TaskMemoryManagerFactory.fromConfiguration(
-					taskManagerServicesConfiguration.getConfiguration(),
-					taskManagerServicesConfiguration.getManagedMemorySize().getBytes(),
-					taskManagerServicesConfiguration.getPageSize())
-				.buildTaskMemoryManager();
-
 		return new TaskManagerServices(
 			unresolvedTaskManagerLocation,
 			taskManagerServicesConfiguration.getManagedMemorySize().getBytes(),
@@ -382,8 +372,7 @@ public class TaskManagerServices {
 			ioExecutor,
 			libraryCacheManager,
 			cacheManager,
-			taskSubmitRunning,
-			taskMemoryManager);
+			taskSubmitRunning);
 	}
 
 	private static TaskSlotTable<Task> createTaskSlotTable(
@@ -392,18 +381,38 @@ public class TaskManagerServices {
 			final long timerServiceShutdownTimeout,
 			final int pageSize,
 			final Executor memoryVerificationExecutor,
-			final boolean jobLogDetailDisable) {
+			final boolean jobLogDetailDisable,
+			final TaskManagerServicesConfiguration taskManagerServicesConfiguration) {
 		final TimerService<AllocationID> timerService = new TimerService<>(
 			new ScheduledThreadPoolExecutor(1),
 			timerServiceShutdownTimeout);
-		return new TaskSlotTableImpl<>(
-			numberOfSlots,
-			TaskExecutorResourceUtils.generateTotalAvailableResourceProfile(taskExecutorResourceSpec),
-			TaskExecutorResourceUtils.generateDefaultSlotResourceProfile(taskExecutorResourceSpec, numberOfSlots),
-			pageSize,
-			timerService,
-			memoryVerificationExecutor,
-			jobLogDetailDisable);
+		if (taskManagerServicesConfiguration
+				.getConfiguration()
+				.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE)) {
+			TaskMemoryManager taskMemoryManager = TaskMemoryManagerFactory.fromConfiguration(
+				taskManagerServicesConfiguration.getConfiguration(),
+				taskManagerServicesConfiguration.getManagedMemorySize().getBytes(),
+				taskManagerServicesConfiguration.getPageSize())
+				.buildTaskMemoryManager();
+			return new JobTaskWithoutSlotTable<>(
+				numberOfSlots,
+				TaskExecutorResourceUtils.generateTotalAvailableResourceProfile(taskExecutorResourceSpec),
+				TaskExecutorResourceUtils.generateDefaultSlotResourceProfile(taskExecutorResourceSpec, numberOfSlots),
+				pageSize,
+				timerService,
+				memoryVerificationExecutor,
+				jobLogDetailDisable,
+				taskMemoryManager);
+		} else {
+			return new TaskSlotTableImpl<>(
+				numberOfSlots,
+				TaskExecutorResourceUtils.generateTotalAvailableResourceProfile(taskExecutorResourceSpec),
+				TaskExecutorResourceUtils.generateDefaultSlotResourceProfile(taskExecutorResourceSpec, numberOfSlots),
+				pageSize,
+				timerService,
+				memoryVerificationExecutor,
+				jobLogDetailDisable);
+		}
 	}
 
 	private static ShuffleEnvironment<?, ?> createShuffleEnvironment(

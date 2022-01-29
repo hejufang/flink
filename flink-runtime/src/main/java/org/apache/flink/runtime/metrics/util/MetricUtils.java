@@ -26,7 +26,6 @@ import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
-import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.metrics.MetricNames;
@@ -63,7 +62,6 @@ import java.lang.management.ThreadMXBean;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -200,16 +198,13 @@ public class MetricUtils {
 	}
 
 	private static long getUsedManagedMemory(TaskSlotTable<?> taskSlotTable) {
-		Set<AllocationID> activeTaskAllocationIds = taskSlotTable.getActiveTaskSlotAllocationIds();
-
 		long usedMemory = 0L;
-		for (AllocationID allocationID : activeTaskAllocationIds) {
-			try {
-				MemoryManager taskSlotMemoryManager = taskSlotTable.getTaskMemoryManager(allocationID);
-				usedMemory += taskSlotMemoryManager.getMemorySize() - taskSlotMemoryManager.availableMemory();
-			} catch (SlotNotFoundException e) {
-				LOG.debug("The task slot {} is not present anymore and will be ignored in calculating the amount of used memory.", allocationID);
+		try {
+			for (MemoryManager memoryManager : taskSlotTable.getMemoryManagers()) {
+				usedMemory += memoryManager.getMemorySize() - memoryManager.availableMemory();
 			}
+		} catch (SlotNotFoundException e) {
+			LOG.debug("The task slot is not present anymore and will be ignored in calculating the amount of used memory.", e);
 		}
 
 		return usedMemory;

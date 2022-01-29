@@ -80,6 +80,11 @@ public class MemorySegmentChecksTest {
 		}
 
 		@Override
+		public void clear() {
+
+		}
+
+		@Override
 		public ByteBuffer wrap(int offset, int length) {
 			return null;
 		}

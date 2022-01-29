@@ -87,6 +87,8 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 
 	private volatile Consumer<SlotRequest> requestSlotConsumer;
 
+	private volatile Function<JobSlotRequestList, CompletableFuture<Acknowledge>> requestSlotListFunction;
+
 	private volatile QuadFunction<JobMasterId, ResourceID, String, JobID, CompletableFuture<RegistrationResponse>> registerJobManagerFunction;
 
 	private volatile Consumer<Tuple3<JobID, JobStatus, Throwable>> disconnectJobManagerConsumer;
@@ -133,6 +135,7 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 		this.slotFutureReference = new AtomicReference<>();
 		this.cancelSlotConsumer = null;
 		this.requestSlotConsumer = null;
+		this.requestSlotListFunction = null;
 	}
 
 	public ResourceID getOwnResourceId() {
@@ -149,6 +152,10 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 
 	public void setRequestSlotConsumer(Consumer<SlotRequest> slotRequestConsumer) {
 		this.requestSlotConsumer = slotRequestConsumer;
+	}
+
+	public void setRequestSlotListFunction(Function<JobSlotRequestList, CompletableFuture<Acknowledge>> requestSlotListFunction) {
+		this.requestSlotListFunction = requestSlotListFunction;
 	}
 
 	public void setRegisterJobManagerFunction(QuadFunction<JobMasterId, ResourceID, String, JobID, CompletableFuture<RegistrationResponse>> registerJobManagerFunction) {
@@ -239,6 +246,9 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 
 	@Override
 	public CompletableFuture<Acknowledge> requestJobSlots(JobMasterId jobMasterId, JobSlotRequestList jobSlotRequestList, Time timeout) {
+		if (requestSlotListFunction != null) {
+			return requestSlotListFunction.apply(jobSlotRequestList);
+		}
 		Consumer<SlotRequest> currentRequestSlotConsumer = requestSlotConsumer;
 
 		if (currentRequestSlotConsumer != null) {

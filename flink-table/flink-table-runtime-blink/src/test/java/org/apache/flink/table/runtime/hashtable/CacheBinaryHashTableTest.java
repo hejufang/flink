@@ -24,9 +24,9 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.disk.iomanager.IOManagerAsync;
+import org.apache.flink.runtime.memory.CacheMemoryManager;
 import org.apache.flink.runtime.memory.MemoryAllocationException;
 import org.apache.flink.runtime.memory.MemoryManager;
-import org.apache.flink.runtime.memory.MemoryManagerBuilder;
 import org.apache.flink.runtime.operators.testutils.UnionIterator;
 import org.apache.flink.table.api.config.ExecutionConfigOptions;
 import org.apache.flink.table.data.RowData;
@@ -41,13 +41,16 @@ import org.apache.flink.types.IntValue;
 import org.apache.flink.util.MutableObjectIterator;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -58,12 +61,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 /**
- * Hash table it case for binary row.
+ * Hash table it case for binary row with {@link CacheBinaryHashTableTest}.
  */
 @RunWith(Parameterized.class)
-public class BinaryHashTableTest {
+public class CacheBinaryHashTableTest {
 
 	private static final int PAGE_SIZE = 32 * 1024;
+	private static MemoryManager memManager;
+
 	private IOManager ioManager;
 	private BinaryRowDataSerializer buildSideSerializer;
 	private BinaryRowDataSerializer probeSideSerializer;
@@ -71,13 +76,28 @@ public class BinaryHashTableTest {
 	private boolean useCompress;
 	private Configuration conf;
 
-	public BinaryHashTableTest(boolean useCompress) {
+	public CacheBinaryHashTableTest(boolean useCompress) {
 		this.useCompress = useCompress;
 	}
 
 	@Parameterized.Parameters(name = "useCompress-{0}")
 	public static List<Boolean> getVarSeg() {
 		return Arrays.asList(true, false);
+	}
+
+	@BeforeClass
+	public static void beforeClass() {
+		memManager = new CacheMemoryManager(
+							896 * PAGE_SIZE,
+							PAGE_SIZE,
+							Duration.ofSeconds(10),
+							true,
+							1);
+	}
+
+	@AfterClass
+	public static void afterClass() {
+		memManager.shutdown();
 	}
 
 	@Before
@@ -132,12 +152,11 @@ public class BinaryHashTableTest {
 
 		// create a probe input that gives 10 million pairs with 10 values sharing a key
 		MutableObjectIterator<BinaryRowData> probeInput = new UniformBinaryRowGenerator(numKeys, probeValsPerKey, true);
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(896 * PAGE_SIZE).build();
 		// ----------------------------------------------------------------------------------------
 		final BinaryHashTable table = newBinaryHashTable(
-				this.buildSideSerializer, this.probeSideSerializer,
-				new MyProjection(), new MyProjection(), memManager,
-				100 * PAGE_SIZE, ioManager);
+			this.buildSideSerializer, this.probeSideSerializer,
+			new MyProjection(), new MyProjection(), memManager,
+			100 * PAGE_SIZE, ioManager);
 
 		int numRecordsInJoinResult = join(table, buildInput, probeInput);
 		Assert.assertEquals("Wrong number of records in join result.", numKeys * buildValsPerKey * probeValsPerKey, numRecordsInJoinResult);
@@ -148,17 +167,17 @@ public class BinaryHashTableTest {
 	}
 
 	private int join(
-			BinaryHashTable table,
-			MutableObjectIterator<BinaryRowData> buildInput,
-			MutableObjectIterator<BinaryRowData> probeInput) throws IOException {
+		BinaryHashTable table,
+		MutableObjectIterator<BinaryRowData> buildInput,
+		MutableObjectIterator<BinaryRowData> probeInput) throws IOException {
 		return join(table, buildInput, probeInput, false);
 	}
 
 	private int join(
-			BinaryHashTable table,
-			MutableObjectIterator<BinaryRowData> buildInput,
-			MutableObjectIterator<BinaryRowData> probeInput,
-			boolean buildOuterJoin) throws IOException {
+		BinaryHashTable table,
+		MutableObjectIterator<BinaryRowData> buildInput,
+		MutableObjectIterator<BinaryRowData> probeInput,
+		boolean buildOuterJoin) throws IOException {
 		int count = 0;
 
 		BinaryRowData reuseBuildSizeRow = buildSideSerializer.createInstance();
@@ -217,20 +236,14 @@ public class BinaryHashTableTest {
 		// create a probe input that gives 10 million pairs with 10 values sharing a key
 		MutableObjectIterator<BinaryRowData> probeInput = new UniformBinaryRowGenerator(numKeys, probeValsPerKey, true);
 
-		// allocate the memory for the HashTable
-		MemoryManager memManager = MemoryManagerBuilder
-			.newBuilder()
-			.setMemorySize(200 * PAGE_SIZE)
-			.setPageSize(PAGE_SIZE)
-			.build();
 		final BinaryHashTable table = newBinaryHashTable(
-				this.buildSideSerializer,
-				this.probeSideSerializer,
-				new MyProjection(),
-				new MyProjection(),
-				memManager,
-				100 * PAGE_SIZE,
-				ioManager);
+			this.buildSideSerializer,
+			this.probeSideSerializer,
+			new MyProjection(),
+			new MyProjection(),
+			memManager,
+			100 * PAGE_SIZE,
+			ioManager);
 
 		// ----------------------------------------------------------------------------------------
 
@@ -261,11 +274,10 @@ public class BinaryHashTableTest {
 		HashMap<Integer, Long> map = new HashMap<>(numKeys);
 
 		// ----------------------------------------------------------------------------------------
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(896 * PAGE_SIZE).build();
 		final BinaryHashTable table = newBinaryHashTable(
-				this.buildSideSerializer, this.probeSideSerializer,
-				new MyProjection(), new MyProjection(), memManager,
-				100 * PAGE_SIZE, ioManager);
+			this.buildSideSerializer, this.probeSideSerializer,
+			new MyProjection(), new MyProjection(), memManager,
+			100 * PAGE_SIZE, ioManager);
 		final BinaryRowData recordReuse = new BinaryRowData(2);
 
 		BinaryRowData buildRow = buildSideSerializer.createInstance();
@@ -293,7 +305,7 @@ public class BinaryHashTableTest {
 			int key = entry.getKey();
 
 			Assert.assertEquals("Wrong number of values in per-key cross product for key " + key,
-					probeValsPerKey * buildValsPerKey, val);
+				probeValsPerKey * buildValsPerKey, val);
 		}
 
 		// ----------------------------------------------------------------------------------------
@@ -336,13 +348,12 @@ public class BinaryHashTableTest {
 
 		// create the map for validating the results
 		HashMap<Integer, Long> map = new HashMap<>(numKeys);
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(896 * PAGE_SIZE).build();
 		// ----------------------------------------------------------------------------------------
 
 		final BinaryHashTable table = newBinaryHashTable(
-				this.buildSideSerializer, this.probeSideSerializer,
-				new MyProjection(), new MyProjection(), memManager,
-				896 * PAGE_SIZE, ioManager);
+			this.buildSideSerializer, this.probeSideSerializer,
+			new MyProjection(), new MyProjection(), memManager,
+			896 * PAGE_SIZE, ioManager);
 
 		final BinaryRowData recordReuse = new BinaryRowData(2);
 
@@ -371,9 +382,9 @@ public class BinaryHashTableTest {
 			int key = entry.getKey();
 
 			Assert.assertEquals("Wrong number of values in per-key cross product for key " + key,
-					(key == repeatedValue1 || key == repeatedValue2) ?
-							(probeValsPerKey + repeatedValueCountProbe) * (buildValsPerKey + repeatedValueCountBuild) :
-							probeValsPerKey * buildValsPerKey, val);
+				(key == repeatedValue1 || key == repeatedValue2) ?
+					(probeValsPerKey + repeatedValueCountProbe) * (buildValsPerKey + repeatedValueCountBuild) :
+					probeValsPerKey * buildValsPerKey, val);
 		}
 
 		// ----------------------------------------------------------------------------------------
@@ -454,11 +465,10 @@ public class BinaryHashTableTest {
 		HashMap<Integer, Long> map = new HashMap<>(numKeys);
 
 		// ----------------------------------------------------------------------------------------
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(896 * PAGE_SIZE).build();
 		final BinaryHashTable table = newBinaryHashTable(
-				this.buildSideSerializer, this.probeSideSerializer,
-				new MyProjection(), new MyProjection(), memManager,
-				896 * PAGE_SIZE, ioManager);
+			this.buildSideSerializer, this.probeSideSerializer,
+			new MyProjection(), new MyProjection(), memManager,
+			896 * PAGE_SIZE, ioManager);
 		final BinaryRowData recordReuse = new BinaryRowData(2);
 
 		BinaryRowData buildRow = buildSideSerializer.createInstance();
@@ -486,9 +496,9 @@ public class BinaryHashTableTest {
 			int key = entry.getKey();
 
 			Assert.assertEquals("Wrong number of values in per-key cross product for key " + key,
-					(key == repeatedValue1 || key == repeatedValue2) ?
-							(probeValsPerKey + repeatedValueCountProbe) * (buildValsPerKey + repeatedValueCountBuild) :
-							probeValsPerKey * buildValsPerKey, val);
+				(key == repeatedValue1 || key == repeatedValue2) ?
+					(probeValsPerKey + repeatedValueCountProbe) * (buildValsPerKey + repeatedValueCountBuild) :
+					probeValsPerKey * buildValsPerKey, val);
 		}
 
 		// ----------------------------------------------------------------------------------------
@@ -533,11 +543,10 @@ public class BinaryHashTableTest {
 		probes.add(probe3);
 		MutableObjectIterator<BinaryRowData> probeInput = new UnionIterator<>(probes);
 		// ----------------------------------------------------------------------------------------
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(896 * PAGE_SIZE).build();
 		final BinaryHashTable table = newBinaryHashTable(
-				this.buildSideSerializer, this.probeSideSerializer,
-				new MyProjection(), new MyProjection(), memManager,
-				896 * PAGE_SIZE, ioManager);
+			this.buildSideSerializer, this.probeSideSerializer,
+			new MyProjection(), new MyProjection(), memManager,
+			896 * PAGE_SIZE, ioManager);
 
 		try {
 			join(table, buildInput, probeInput);
@@ -565,15 +574,14 @@ public class BinaryHashTableTest {
 		final int numProbeVals = 1;
 
 		MutableObjectIterator<BinaryRowData> buildInput = new UniformBinaryRowGenerator(
-				numBuildKeys, numBuildVals, false);
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(128 * PAGE_SIZE).build();
+			numBuildKeys, numBuildVals, false);
 		final BinaryHashTable table = newBinaryHashTable(
-				this.buildSideSerializer, this.probeSideSerializer,
-				new MyProjection(), new MyProjection(), memManager,
-				100 * PAGE_SIZE, ioManager);
+			this.buildSideSerializer, this.probeSideSerializer,
+			new MyProjection(), new MyProjection(), memManager,
+			100 * PAGE_SIZE, ioManager);
 
 		int expectedNumResults = (Math.min(numProbeKeys, numBuildKeys) * numBuildVals)
-				* numProbeVals;
+			* numProbeVals;
 
 		int numRecordsInJoinResult = join(table, buildInput, new UniformBinaryRowGenerator(numProbeKeys, numProbeVals, true));
 
@@ -596,15 +604,14 @@ public class BinaryHashTableTest {
 		final int numProbeVals = 1;
 
 		MutableObjectIterator<BinaryRowData> buildInput = new UniformBinaryRowGenerator(
-				numBuildKeys, numBuildVals, false);
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(96 * PAGE_SIZE).build();
+			numBuildKeys, numBuildVals, false);
 		final BinaryHashTable table = new BinaryHashTable(conf, new Object(),
-				this.buildSideSerializer, this.probeSideSerializer,
-				new MyProjection(), new MyProjection(), memManager, 96 * PAGE_SIZE,
-				ioManager, 24, 200000, true, HashJoinType.BUILD_OUTER, null, true, new boolean[] {true}, false);
+			this.buildSideSerializer, this.probeSideSerializer,
+			new MyProjection(), new MyProjection(), memManager, 96 * PAGE_SIZE,
+			ioManager, 24, 200000, true, HashJoinType.BUILD_OUTER, null, true, new boolean[] {true}, false);
 
 		int expectedNumResults =
-				(Math.max(numProbeKeys, numBuildKeys) * numBuildVals) * numProbeVals;
+			(Math.max(numProbeKeys, numBuildKeys) * numBuildVals) * numProbeVals;
 
 		int numRecordsInJoinResult = join(table, buildInput, new UniformBinaryRowGenerator(numProbeKeys, numProbeVals, true), true);
 
@@ -626,14 +633,13 @@ public class BinaryHashTableTest {
 		final int numProbeVals = 1;
 
 		MutableObjectIterator<BinaryRowData> buildInput = new UniformBinaryRowGenerator(numBuildKeys, numBuildVals, false);
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(85 * PAGE_SIZE).build();
 		final BinaryHashTable table = newBinaryHashTable(
-				this.buildSideSerializer, this.probeSideSerializer,
-				new MyProjection(), new MyProjection(), memManager,
-				85 * PAGE_SIZE, ioManager);
+			this.buildSideSerializer, this.probeSideSerializer,
+			new MyProjection(), new MyProjection(), memManager,
+			85 * PAGE_SIZE, ioManager);
 
 		int expectedNumResults = (Math.min(numProbeKeys, numBuildKeys) * numBuildVals)
-				* numProbeVals;
+			* numProbeVals;
 
 		int numRecordsInJoinResult = join(table, buildInput, new UniformBinaryRowGenerator(numProbeKeys, numProbeVals, true));
 
@@ -656,15 +662,13 @@ public class BinaryHashTableTest {
 		// create a probe input that gives 100000 pairs with 10 values sharing a key
 		MutableObjectIterator<BinaryRowData> probeInput = new UniformBinaryRowGenerator(numKeys, probeValsPerKey, true);
 
-		// allocate the memory for the HashTable
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(35 * PAGE_SIZE).build();
 		// ----------------------------------------------------------------------------------------
 
 		final BinaryHashTable table = new BinaryHashTable(conf, new Object(),
-				this.buildSideSerializer, this.probeSideSerializer,
-				new MyProjection(), new MyProjection(),
-				memManager, 35 * PAGE_SIZE, ioManager, 24, 200000,
-				true, HashJoinType.INNER, null, false, new boolean[]{true}, false);
+			this.buildSideSerializer, this.probeSideSerializer,
+			new MyProjection(), new MyProjection(),
+			memManager, 35 * PAGE_SIZE, ioManager, 24, 200000,
+			true, HashJoinType.INNER, null, false, new boolean[]{true}, false);
 
 		// For FLINK-2545, the buckets data may not fulfill it's buffer, for example, the buffer may contains 256 buckets,
 		// while hash table only assign 250 bucket on it. The unused buffer bytes may contains arbitrary data, which may
@@ -701,14 +705,13 @@ public class BinaryHashTableTest {
 
 		// create a probe input that gives 20000 pairs with 1 values sharing a key
 		MutableObjectIterator<BinaryRowData> probeInput = new UniformBinaryRowGenerator(numKeys, probeValsPerKey, true);
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(35 * PAGE_SIZE).build();
 		// allocate the memory for the HashTable
 		final BinaryHashTable table = new BinaryHashTable(conf, new Object(),
-				this.buildSideSerializer, this.probeSideSerializer,
-				new MyProjection(), new MyProjection(),
-				memManager, 35 * PAGE_SIZE, ioManager, 24, 200000, true,
-				HashJoinType.BUILD_OUTER, null, true,
-				new boolean[]{true}, false);
+			this.buildSideSerializer, this.probeSideSerializer,
+			new MyProjection(), new MyProjection(),
+			memManager, 35 * PAGE_SIZE, ioManager, 24, 200000, true,
+			HashJoinType.BUILD_OUTER, null, true,
+			new boolean[]{true}, false);
 
 		int numRecordsInJoinResult = join(table, buildInput, probeInput, true);
 
@@ -734,11 +737,10 @@ public class BinaryHashTableTest {
 		MutableObjectIterator<BinaryRowData> probeInput = new UniformBinaryRowGenerator(numKeys, probeValsPerKey, true);
 
 		// allocate the memory for the HashTable
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(35 * PAGE_SIZE).build();
 		final BinaryHashTable table = newBinaryHashTable(
-				this.buildSideSerializer, this.probeSideSerializer,
-				new MyProjection(), new MyProjection(), memManager,
-				33 * PAGE_SIZE, ioManager);
+			this.buildSideSerializer, this.probeSideSerializer,
+			new MyProjection(), new MyProjection(), memManager,
+			33 * PAGE_SIZE, ioManager);
 
 		// ----------------------------------------------------------------------------------------
 
@@ -753,7 +755,6 @@ public class BinaryHashTableTest {
 	public void testRepeatBuildJoin() throws Exception {
 		final int numKeys = 500;
 		final int probeValsPerKey = 1;
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(40 * PAGE_SIZE).build();
 		MutableObjectIterator<BinaryRowData> buildInput = new MutableObjectIterator<BinaryRowData>() {
 
 			int cnt = 0;
@@ -780,13 +781,13 @@ public class BinaryHashTableTest {
 		MutableObjectIterator<BinaryRowData> probeInput = new UniformBinaryRowGenerator(numKeys, probeValsPerKey, true);
 
 		final BinaryHashTable table = new BinaryHashTable(conf, new Object(),
-				buildSideSerializer, probeSideSerializer, new MyProjection(), new MyProjection(), memManager,
-				40 * PAGE_SIZE, ioManager, 24, 200000,
-				true, HashJoinType.INNER, null, false, new boolean[] {true}, true);
+			buildSideSerializer, probeSideSerializer, new MyProjection(), new MyProjection(), memManager,
+			40 * PAGE_SIZE, ioManager, 24, 200000,
+			true, HashJoinType.INNER, null, false, new boolean[] {true}, true);
 
 		int numRecordsInJoinResult = join(table, buildInput, probeInput, true);
 		Assert.assertEquals("Wrong number of records in join result.",
-				1, numRecordsInJoinResult);
+			1, numRecordsInJoinResult);
 
 		table.close();
 		table.free();
@@ -822,30 +823,29 @@ public class BinaryHashTableTest {
 				return row;
 			}
 		};
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(35 * PAGE_SIZE).build();
 		MutableObjectIterator<BinaryRowData> probeInput = new UniformBinaryRowGenerator(numKeys, probeValsPerKey, true);
 
 		final BinaryHashTable table = new BinaryHashTable(
-				conf,
-				new Object(),
-				buildSideSerializer,
-				probeSideSerializer,
-				new MyProjection(),
-				new MyProjection(),
-				memManager,
-				35 * PAGE_SIZE,
-				ioManager,
-				24,
-				200000,
-				true,
-				HashJoinType.INNER,
-				null,
-				false,
-				new boolean[] {true}, true);
+			conf,
+			new Object(),
+			buildSideSerializer,
+			probeSideSerializer,
+			new MyProjection(),
+			new MyProjection(),
+			memManager,
+			35 * PAGE_SIZE,
+			ioManager,
+			24,
+			200000,
+			true,
+			HashJoinType.INNER,
+			null,
+			false,
+			new boolean[] {true}, true);
 
 		int numRecordsInJoinResult = join(table, buildInput, probeInput, true);
 		Assert.assertTrue("Wrong number of records in join result.",
-				numRecordsInJoinResult < numRows);
+			numRecordsInJoinResult < numRows);
 
 		table.close();
 		table.free();
@@ -853,11 +853,10 @@ public class BinaryHashTableTest {
 
 	@Test
 	public void testBinaryHashBucketAreaNotEnoughMem() throws IOException {
-		MemoryManager memManager = MemoryManagerBuilder.newBuilder().setMemorySize(35 * PAGE_SIZE).build();
 		BinaryHashTable table = newBinaryHashTable(
-				this.buildSideSerializer, this.probeSideSerializer,
-				new MyProjection(), new MyProjection(), memManager,
-				35 * PAGE_SIZE, ioManager);
+			this.buildSideSerializer, this.probeSideSerializer,
+			new MyProjection(), new MyProjection(), memManager,
+			35 * PAGE_SIZE, ioManager);
 		BinaryHashBucketArea area = new BinaryHashBucketArea(table, 100, 1, false);
 		for (int i = 0; i < 100000; i++) {
 			area.insertToBucket(i, i, true);
@@ -908,30 +907,30 @@ public class BinaryHashTableTest {
 	}
 
 	private BinaryHashTable newBinaryHashTable(
-			BinaryRowDataSerializer buildSideSerializer,
-			BinaryRowDataSerializer probeSideSerializer,
-			Projection<RowData, BinaryRowData> buildSideProjection,
-			Projection<RowData, BinaryRowData> probeSideProjection,
-			MemoryManager memoryManager,
-			long memory,
-			IOManager ioManager) {
+		BinaryRowDataSerializer buildSideSerializer,
+		BinaryRowDataSerializer probeSideSerializer,
+		Projection<RowData, BinaryRowData> buildSideProjection,
+		Projection<RowData, BinaryRowData> probeSideProjection,
+		MemoryManager memoryManager,
+		long memory,
+		IOManager ioManager) {
 		return new BinaryHashTable(
-				conf,
-				new Object(),
-				buildSideSerializer,
-				probeSideSerializer,
-				buildSideProjection,
-				probeSideProjection,
-				memoryManager,
-				memory,
-				ioManager,
-				24,
-				200000,
-				true,
-				HashJoinType.INNER,
-				null,
-				false,
-				new boolean[]{true}, false);
+			conf,
+			new Object(),
+			buildSideSerializer,
+			probeSideSerializer,
+			buildSideProjection,
+			probeSideProjection,
+			memoryManager,
+			memory,
+			ioManager,
+			24,
+			200000,
+			true,
+			HashJoinType.INNER,
+			null,
+			false,
+			new boolean[]{true}, false);
 	}
 
 	private static final class MyProjection implements Projection<RowData, BinaryRowData> {

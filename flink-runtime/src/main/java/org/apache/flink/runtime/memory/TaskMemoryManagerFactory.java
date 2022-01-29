@@ -21,6 +21,8 @@ package org.apache.flink.runtime.memory;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.TaskManagerOptions;
 
+import java.time.Duration;
+
 /**
  * Factory of TaskMemoryManager.
  */
@@ -28,18 +30,33 @@ public class TaskMemoryManagerFactory {
 	private final boolean slotBasedEnable;
 	private final long managedMemorySize;
 	private final int pageSize;
+	private final int slotCount;
+	private final Duration requestMemorySegmentsTimeout;
+	private final boolean lazyAllocate;
+	private final boolean cacheEnable;
 
-	private TaskMemoryManagerFactory(boolean slotBasedEnable, long managedMemorySize, int pageSize) {
+	private TaskMemoryManagerFactory(
+			boolean slotBasedEnable,
+			long managedMemorySize,
+			int pageSize,
+			int slotCount,
+			Duration requestMemorySegmentsTimeout,
+			boolean lazyAllocate,
+			boolean cacheEnable) {
 		this.slotBasedEnable = slotBasedEnable;
 		this.managedMemorySize = managedMemorySize;
 		this.pageSize = pageSize;
+		this.slotCount = slotCount;
+		this.requestMemorySegmentsTimeout = requestMemorySegmentsTimeout;
+		this.lazyAllocate = lazyAllocate;
+		this.cacheEnable = cacheEnable;
 	}
 
 	public TaskMemoryManager buildTaskMemoryManager() {
 		if (slotBasedEnable) {
-			return new TaskSlotMemoryManager();
+			return new TaskSlotMemoryManager(managedMemorySize, pageSize, slotCount, requestMemorySegmentsTimeout, lazyAllocate, cacheEnable);
 		} else {
-			return new TaskGlobalMemoryManager(managedMemorySize, pageSize);
+			return new TaskGlobalMemoryManager(managedMemorySize, pageSize, requestMemorySegmentsTimeout, lazyAllocate, slotCount, cacheEnable);
 		}
 	}
 
@@ -47,6 +64,10 @@ public class TaskMemoryManagerFactory {
 		return new TaskMemoryManagerFactory(
 			configuration.getBoolean(TaskManagerOptions.MEMORY_MANAGER_SLOT_BASED_ENABLE),
 			managedMemorySize,
-			pageSize);
+			pageSize,
+			configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS),
+			configuration.get(TaskManagerOptions.ALLOCATE_MEMORY_SEGMENTS_TIMEOUT),
+			configuration.getBoolean(TaskManagerOptions.CACHE_MEMORY_MANAGER_SEGMENT_ALLOCATE_LAZY_ENABLE),
+			configuration.getBoolean(TaskManagerOptions.CACHE_MEMORY_MANAGER_ENABLE));
 	}
 }

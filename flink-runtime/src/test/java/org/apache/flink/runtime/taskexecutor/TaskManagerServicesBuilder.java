@@ -24,7 +24,6 @@ import org.apache.flink.runtime.execution.librarycache.TestingLibraryCacheManage
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.network.TaskEventDispatcher;
 import org.apache.flink.runtime.memory.MemoryManager;
-import org.apache.flink.runtime.memory.TaskMemoryManager;
 import org.apache.flink.runtime.query.KvStateRegistry;
 import org.apache.flink.runtime.registration.RetryingRegistrationConfiguration;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
@@ -62,7 +61,6 @@ public class TaskManagerServicesBuilder {
 	private LibraryCacheManager libraryCacheManager;
 	private long managedMemorySize;
 	private boolean submitNotifyRunningEnable;
-	private TaskMemoryManager taskMemoryManager;
 
 	public TaskManagerServicesBuilder() {
 		unresolvedTaskManagerLocation = new LocalUnresolvedTaskManagerLocation();
@@ -146,11 +144,6 @@ public class TaskManagerServicesBuilder {
 		return this;
 	}
 
-	public TaskManagerServicesBuilder setTaskMemoryManager(TaskMemoryManager taskMemoryManager) {
-		this.taskMemoryManager = taskMemoryManager;
-		return this;
-	}
-
 	public TaskManagerServices build() {
 		return new TaskManagerServices(
 			unresolvedTaskManagerLocation,
@@ -167,7 +160,6 @@ public class TaskManagerServicesBuilder {
 			ioExecutor,
 			libraryCacheManager,
 			new NonCacheManager(),
-			submitNotifyRunningEnable,
-			taskMemoryManager);
+			submitNotifyRunningEnable);
 	}
 }

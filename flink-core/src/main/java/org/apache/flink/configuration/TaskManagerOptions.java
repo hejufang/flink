@@ -593,6 +593,23 @@ public class TaskManagerOptions {
 			.withDescription("Timeout to wait all slot finish releasing, " +
 					"only works when RELEASE_SLOT_WHEN_JOB_MASTER_DISCONNECTED is enabled.");
 
+	public static final ConfigOption<Duration> ALLOCATE_MEMORY_SEGMENTS_TIMEOUT = ConfigOptions
+			.key("taskmanager.allocate-memory-segments.timeout")
+				.durationType()
+				.defaultValue(TimeUtils.parseDuration("10 s"))
+				.withDescription("Timeout for allocate memory segments from CacheMemoryManager.");
+
+	public static final ConfigOption<Boolean> CACHE_MEMORY_MANAGER_SEGMENT_ALLOCATE_LAZY_ENABLE = ConfigOptions
+			.key("taskmanager.cache-memory-mananager.allocate-lazy.enable")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("Lazy allocate segments in cache memory manager.");
+
+	public static final ConfigOption<Boolean> CACHE_MEMORY_MANAGER_ENABLE = ConfigOptions
+			.key("taskmanager.cache-memory-manager.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("If true, use the cache memory manager.");
 	// ------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */

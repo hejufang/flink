@@ -139,6 +139,13 @@ public final class HybridMemorySegment extends MemorySegment {
 	}
 
 	@Override
+	public void clear() {
+		if (offHeapBuffer != null) {
+			offHeapBuffer.clear();
+		}
+	}
+
+	@Override
 	public ByteBuffer wrap(int offset, int length) {
 		if (!allowWrap) {
 			throw new UnsupportedOperationException(

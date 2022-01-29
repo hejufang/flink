@@ -32,6 +32,7 @@ import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
@@ -83,6 +84,11 @@ public class ThreadSafeTaskSlotTable<T extends TaskSlotPayload> implements TaskS
 	@Override
 	public Set<AllocationID> getActiveTaskSlotAllocationIds() {
 		return callAsync(taskSlotTable::getActiveTaskSlotAllocationIds);
+	}
+
+	@Override
+	public Collection<MemoryManager> getMemoryManagers() throws SlotNotFoundException {
+		return callAsync(taskSlotTable::getMemoryManagers);
 	}
 
 	@Override

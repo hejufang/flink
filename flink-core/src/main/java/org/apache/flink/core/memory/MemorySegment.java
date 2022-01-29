@@ -230,6 +230,11 @@ public abstract class MemorySegment {
 	}
 
 	/**
+	 * Clear the data in the segment.
+	 */
+	public abstract void clear();
+
+	/**
 	 * Checks whether this memory segment is backed by off-heap memory.
 	 *
 	 * @return <tt>true</tt>, if the memory segment is backed by off-heap memory, <tt>false</tt> if

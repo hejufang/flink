@@ -18,18 +18,43 @@
 
 package org.apache.flink.runtime.memory;
 
+import java.time.Duration;
+import java.util.Collection;
+import java.util.Collections;
+
 /**
  * All tasks from different jobs share the memory manager.
  */
 public class TaskGlobalMemoryManager implements TaskMemoryManager {
 	private final MemoryManager memoryManager;
 
-	public TaskGlobalMemoryManager(long memorySize, int pageSize) {
-		memoryManager = MemoryManager.create(memorySize, pageSize);
+	public TaskGlobalMemoryManager(
+			long memorySize,
+			int pageSize,
+			Duration requestMemorySegmentsTimeout,
+			boolean lazyAllocate,
+			int slotCount,
+			boolean cacheEnable) {
+		memoryManager = cacheEnable ? new CacheMemoryManager(
+							memorySize,
+							pageSize,
+							requestMemorySegmentsTimeout,
+							lazyAllocate,
+							slotCount) : MemoryManager.create(memorySize, pageSize);
 	}
 
 	@Override
 	public MemoryManager getMemoryManager(int slotIndex) {
 		return memoryManager;
+	}
+
+	@Override
+	public Collection<MemoryManager> getMemoryManagers() {
+		return Collections.singleton(memoryManager);
+	}
+
+	@Override
+	public void close() {
+		memoryManager.shutdown();
 	}
 }

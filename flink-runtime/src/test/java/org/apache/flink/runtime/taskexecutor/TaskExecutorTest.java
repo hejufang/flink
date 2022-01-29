@@ -26,6 +26,7 @@ import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple4;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
@@ -80,6 +81,8 @@ import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.leaderretrieval.SettableLeaderRetrievalService;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.memory.TaskGlobalMemoryManager;
+import org.apache.flink.runtime.memory.TaskMemoryManager;
+import org.apache.flink.runtime.memory.TaskSlotMemoryManager;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.query.KvStateRegistry;
@@ -104,10 +107,13 @@ import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotTable;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotTableImpl;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotUtils;
+import org.apache.flink.runtime.taskexecutor.slot.TestingJobTaskWithoutSlotTable;
 import org.apache.flink.runtime.taskexecutor.slot.TestingTaskSlotTable;
 import org.apache.flink.runtime.taskmanager.LocalUnresolvedTaskManagerLocation;
 import org.apache.flink.runtime.taskmanager.Task;
+import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
+import org.apache.flink.runtime.testtasks.BlockingNoOpInvokable;
 import org.apache.flink.runtime.testtasks.NoOpInvokable;
 import org.apache.flink.runtime.util.TestingFatalErrorHandler;
 import org.apache.flink.util.ExceptionUtils;
@@ -134,6 +140,7 @@ import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -2175,7 +2182,6 @@ public class TaskExecutorTest extends TestLogger {
 		final TestingJobMasterGateway jobMasterGateway = new TestingJobMasterGatewayBuilder().build();
 		final TaskManagerServices taskManagerServices = new TaskManagerServicesBuilder()
 				.setUnresolvedTaskManagerLocation(unresolvedTaskManagerLocation)
-				.setTaskMemoryManager(new TaskGlobalMemoryManager(100 * 1024 * 1024, 8 * 1024))
 				.build();
 		CompletableFuture<Acknowledge> submitInternalFuture = new CompletableFuture<>();
 		Configuration configuration = new Configuration();
@@ -2202,6 +2208,266 @@ public class TaskExecutorTest extends TestLogger {
 		}
 	}
 
+	@Test
+	public void testSubmitOptimizeTaskListGlobalMemoryManager() throws Exception {
+		executeSubmitOptimizeTaskList(
+			new TaskGlobalMemoryManager(
+					MemoryManager.MIN_PAGE_SIZE * 1024 * 32,
+					MemoryManager.MIN_PAGE_SIZE,
+					Duration.ofSeconds(10),
+					true,
+					1,
+					false));
+	}
+
+	@Test
+	public void testSubmitOptimizeTaskListSlotMemoryManager() throws Exception {
+		executeSubmitOptimizeTaskList(
+			new TaskSlotMemoryManager(
+					MemoryManager.MIN_PAGE_SIZE * 1024 * 32,
+					MemoryManager.MIN_PAGE_SIZE,
+					1,
+					Duration.ofSeconds(10),
+					true,
+					false));
+	}
+
+	@Test
+	public void testSubmitOptimizeCancelTaskListGlobalMemoryManager() throws Exception {
+		executeCancelSubmitOptimizeTaskList(
+			new TaskGlobalMemoryManager(
+					MemoryManager.MIN_PAGE_SIZE * 1024 * 32,
+					MemoryManager.MIN_PAGE_SIZE,
+					Duration.ofSeconds(10),
+					true,
+					1,
+					false));
+	}
+
+	@Test
+	public void testSubmitOptimizeCancelTaskListSlotMemoryManager() throws Exception {
+		executeCancelSubmitOptimizeTaskList(
+			new TaskSlotMemoryManager(
+					MemoryManager.MIN_PAGE_SIZE * 1024 * 32,
+					MemoryManager.MIN_PAGE_SIZE,
+					1,
+					Duration.ofSeconds(10),
+					true,
+					false));
+	}
+
+	@Test
+	public void testSubmitOptimizeTaskListGlobalMemoryManagerCache() throws Exception {
+		executeSubmitOptimizeTaskList(
+			new TaskGlobalMemoryManager(
+					MemoryManager.MIN_PAGE_SIZE * 1024 * 32,
+					MemoryManager.MIN_PAGE_SIZE,
+					Duration.ofSeconds(10),
+					true,
+					1,
+					true));
+	}
+
+	@Test
+	public void testSubmitOptimizeTaskListSlotMemoryManagerCache() throws Exception {
+		executeSubmitOptimizeTaskList(
+			new TaskSlotMemoryManager(
+					MemoryManager.MIN_PAGE_SIZE * 1024 * 32,
+					MemoryManager.MIN_PAGE_SIZE,
+					1,
+					Duration.ofSeconds(10),
+					true,
+					true));
+	}
+
+	@Test
+	public void testSubmitOptimizeCancelTaskListGlobalMemoryManagerCache() throws Exception {
+		executeCancelSubmitOptimizeTaskList(
+			new TaskGlobalMemoryManager(
+					MemoryManager.MIN_PAGE_SIZE * 1024 * 32,
+					MemoryManager.MIN_PAGE_SIZE,
+					Duration.ofSeconds(10),
+					true,
+					1,
+					true));
+	}
+
+	@Test
+	public void testSubmitOptimizeCancelTaskListSlotMemoryManagerCache() throws Exception {
+		executeCancelSubmitOptimizeTaskList(
+			new TaskSlotMemoryManager(MemoryManager.MIN_PAGE_SIZE * 1024 * 32, MemoryManager.MIN_PAGE_SIZE, 1, Duration.ofSeconds(10), true, true));
+	}
+
+	private void executeSubmitOptimizeTaskList(TaskMemoryManager taskMemoryManager) throws Exception {
+		final CompletableFuture<TaskExecutionState> stateFuture = new CompletableFuture<>();
+		final TestingJobMasterGateway jobMasterGateway = new TestingJobMasterGatewayBuilder()
+			.setUpdateTaskExecutionStateFunction(state -> {
+				if (state.getExecutionState().isTerminal()) {
+					stateFuture.complete(state);
+				}
+				return CompletableFuture.completedFuture(Acknowledge.get());
+			}).build();
+
+		CompletableFuture<Acknowledge> closeFuture = new CompletableFuture<>();
+		CompletableFuture<Acknowledge> addTaskFuture = new CompletableFuture<>();
+		CompletableFuture<Acknowledge> removeTaskFuture = new CompletableFuture<>();
+		TestingJobTaskWithoutSlotTable<Task> jobTaskSlotTable = new TestingJobTaskWithoutSlotTable<>(
+			taskMemoryManager,
+			timeout,
+			() -> closeFuture.complete(Acknowledge.get()),
+			task -> addTaskFuture.complete(Acknowledge.get()),
+			task -> removeTaskFuture.complete(Acknowledge.get()));
+
+		final JobLeaderService jobLeaderService = new DefaultJobLeaderService(unresolvedTaskManagerLocation, RetryingRegistrationConfiguration.defaultConfiguration());
+		CompletableFuture<Acknowledge> addJobFuture = new CompletableFuture<>();
+		CompletableFuture<Acknowledge> removeJobFuture = new CompletableFuture<>();
+		final TestingJobLeaderService testingJobLeaderService = TestingJobLeaderService.newBuilder()
+			.setAddJobConsumer((jobId, address) -> {
+				addJobFuture.complete(Acknowledge.get());
+				jobLeaderService.addJob(jobId, address);
+			})
+			.setContainsJobFunction(jobLeaderService::containsJob)
+			.setReconnectConsumer(jobLeaderService::reconnect)
+			.setRemoveJobConsumer(jobId -> {
+				removeJobFuture.complete(Acknowledge.get());
+				jobLeaderService.removeJob(jobId);
+			})
+			.setStartConsumer(jobLeaderService::start)
+			.setStopRunnable(jobLeaderService::stop)
+			.build();
+
+		final JobTable jobTable = DefaultJobTable.create();
+		final TaskManagerServices taskManagerServices = new TaskManagerServicesBuilder()
+			.setUnresolvedTaskManagerLocation(unresolvedTaskManagerLocation)
+			.setTaskSlotTable(jobTaskSlotTable)
+			.setJobLeaderService(testingJobLeaderService)
+			.setJobTable(jobTable)
+			.build();
+		Configuration configuration = new Configuration();
+		configuration.setBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE, true);
+		configuration.setBoolean(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY, true);
+		final TestingTaskExecutor taskManager = createTestingTaskExecutor(taskManagerServices, null, configuration);
+
+		final TestingResourceManagerGateway testingResourceManagerGateway = new TestingResourceManagerGateway();
+		rpc.registerGateway(jobMasterGateway.getAddress(), jobMasterGateway);
+		rpc.registerGateway(testingResourceManagerGateway.getAddress(), testingResourceManagerGateway);
+
+		jobManagerLeaderRetriever.notifyListener(jobMasterGateway.getAddress(), jobMasterGateway.getFencingToken().toUUID());
+		try {
+			taskManager.start();
+			taskManager.waitUntilStarted();
+
+			JobMasterId jobMasterId = JobMasterId.generate();
+			TaskExecutorGateway taskExecutorGateway = taskManager.getSelfGateway(TaskExecutorGateway.class);
+			TaskDeploymentDescriptor tdd = createTaskDeploymentDescriptor(jobId, TaskExecutorSubmissionTest.FutureCompletingInvokable.class, new ExecutionAttemptID());
+			CompletableFuture<Acknowledge> submitFuture = taskExecutorGateway.submitTaskList(jobMasterGateway.getAddress(), Collections.singletonList(tdd), jobMasterId, timeout);
+
+			submitFuture.get(10, TimeUnit.SECONDS);
+			TaskExecutionState taskExecutionState = stateFuture.get(10, TimeUnit.SECONDS);
+			assertTrue(taskExecutionState.getExecutionState().isTerminal());
+
+			removeJobFuture.get(10, TimeUnit.SECONDS);
+			assertFalse(jobTaskSlotTable.getTasks(jobId).hasNext());
+			assertFalse(jobLeaderService.containsJob(jobId));
+
+			assertTrue(addJobFuture.isDone());
+			assertTrue(removeJobFuture.isDone());
+			assertTrue(addTaskFuture.isDone());
+			assertTrue(removeTaskFuture.isDone());
+		} finally {
+			RpcUtils.terminateRpcEndpoint(taskManager, timeout);
+		}
+		assertTrue(closeFuture.isDone());
+	}
+
+	private void executeCancelSubmitOptimizeTaskList(TaskMemoryManager taskMemoryManager) throws Exception {
+		final CountDownLatch stateLatch = new CountDownLatch(2);
+		final TestingJobMasterGateway jobMasterGateway = new TestingJobMasterGatewayBuilder()
+			.setUpdateTaskExecutionStateFunction(state -> {
+				if (state.getExecutionState().isTerminal()) {
+					stateLatch.countDown();
+				}
+				return CompletableFuture.completedFuture(Acknowledge.get());
+			}).build();
+
+		CompletableFuture<Acknowledge> closeFuture = new CompletableFuture<>();
+		CountDownLatch addTaskLatch = new CountDownLatch(2);
+		CountDownLatch removeTaskLatch = new CountDownLatch(2);
+		TestingJobTaskWithoutSlotTable<Task> jobTaskSlotTable = new TestingJobTaskWithoutSlotTable<>(
+			taskMemoryManager,
+			timeout,
+			() -> closeFuture.complete(Acknowledge.get()),
+			task -> addTaskLatch.countDown(),
+			task -> removeTaskLatch.countDown());
+
+		final JobLeaderService jobLeaderService = new DefaultJobLeaderService(unresolvedTaskManagerLocation, RetryingRegistrationConfiguration.defaultConfiguration());
+		CompletableFuture<Acknowledge> addJobFuture = new CompletableFuture<>();
+		CompletableFuture<Acknowledge> removeJobFuture = new CompletableFuture<>();
+		final TestingJobLeaderService testingJobLeaderService = TestingJobLeaderService.newBuilder()
+			.setAddJobConsumer((jobId, address) -> {
+				addJobFuture.complete(Acknowledge.get());
+				jobLeaderService.addJob(jobId, address);
+			})
+			.setContainsJobFunction(jobLeaderService::containsJob)
+			.setReconnectConsumer(jobLeaderService::reconnect)
+			.setRemoveJobConsumer(jobId -> {
+				removeJobFuture.complete(Acknowledge.get());
+				jobLeaderService.removeJob(jobId);
+			})
+			.setStartConsumer(jobLeaderService::start)
+			.setStopRunnable(jobLeaderService::stop)
+			.build();
+
+		final JobTable jobTable = DefaultJobTable.create();
+		final TaskManagerServices taskManagerServices = new TaskManagerServicesBuilder()
+			.setUnresolvedTaskManagerLocation(unresolvedTaskManagerLocation)
+			.setTaskSlotTable(jobTaskSlotTable)
+			.setJobLeaderService(testingJobLeaderService)
+			.setJobTable(jobTable)
+			.build();
+		Configuration configuration = new Configuration();
+		configuration.setBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE, true);
+		configuration.setBoolean(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY, true);
+		final TestingTaskExecutor taskManager = createTestingTaskExecutor(taskManagerServices, null, configuration);
+
+		final TestingResourceManagerGateway testingResourceManagerGateway = new TestingResourceManagerGateway();
+		rpc.registerGateway(jobMasterGateway.getAddress(), jobMasterGateway);
+		rpc.registerGateway(testingResourceManagerGateway.getAddress(), testingResourceManagerGateway);
+
+		jobManagerLeaderRetriever.notifyListener(jobMasterGateway.getAddress(), jobMasterGateway.getFencingToken().toUUID());
+		try {
+			taskManager.start();
+			taskManager.waitUntilStarted();
+
+			JobMasterId jobMasterId = JobMasterId.generate();
+			TaskExecutorGateway taskExecutorGateway = taskManager.getSelfGateway(TaskExecutorGateway.class);
+			ExecutionAttemptID execution1 = new ExecutionAttemptID();
+			TaskDeploymentDescriptor tdd1 = createTaskDeploymentDescriptor(jobId, TaskExecutorSubmissionTest.FutureCompletingInvokable.class, execution1);
+			ExecutionAttemptID execution2 = new ExecutionAttemptID();
+			TaskDeploymentDescriptor tdd2 = createTaskDeploymentDescriptor(jobId, BlockingNoOpInvokable.class, execution2);
+			CompletableFuture<Acknowledge> submitFuture = taskExecutorGateway.submitTaskList(
+					jobMasterGateway.getAddress(),
+					Arrays.asList(tdd1, tdd2),
+					jobMasterId, timeout);
+
+			submitFuture.get(10, TimeUnit.SECONDS);
+			addJobFuture.get(10, TimeUnit.SECONDS);
+			addTaskLatch.await(10, TimeUnit.SECONDS);
+
+			assertTrue(jobTaskSlotTable.getTasks(jobId).hasNext());
+			assertTrue(jobLeaderService.containsJob(jobId));
+
+			taskExecutorGateway.cancelTask(execution2, timeout).join();
+
+			stateLatch.await(10, TimeUnit.SECONDS);
+			removeTaskLatch.await(10, TimeUnit.SECONDS);
+			removeJobFuture.get(10, TimeUnit.SECONDS);
+		} finally {
+			RpcUtils.terminateRpcEndpoint(taskManager, timeout);
+		}
+		assertTrue(closeFuture.isDone());
+	}
+
 	private TaskDeploymentDescriptor createTaskDeploymentDescriptor(
 			JobID jobId,
 			Class<? extends AbstractInvokable> invokableClass,
@@ -2216,7 +2482,7 @@ public class TaskExecutorTest extends TestLogger {
 		TaskInformation taskInformation = new TaskInformation(
 				jobVertexID,
 				jobVertexID.toHexString(),
-				0,
+				1,
 				1,
 				invokableClass.getName(),
 				new Configuration());

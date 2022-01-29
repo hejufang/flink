@@ -302,6 +302,11 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 	private final boolean jobLogDetailDisable;
 
+	private final long createTimestamp = System.currentTimeMillis();
+	private long initializeFinishTimestamp;
+	private long invokeFinishTimestamp;
+	private long executeFinishTimestamp;
+
 	/**
 	 * <p><b>IMPORTANT:</b> This constructor may not start any work that would need to
 	 * be undone in the case of a failing task deployment.</p>
@@ -680,6 +685,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	}
 
 	private void doRun() {
+		long startRunTimestamp = System.currentTimeMillis();
 		// ----------------------------
 		//  Initial State transition
 		// ----------------------------
@@ -862,9 +868,11 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 			// make sure the user code classloader is accessible thread-locally
 			executingThread.setContextClassLoader(userCodeClassLoader);
+			initializeFinishTimestamp = System.currentTimeMillis();
 
 			// run the invokable
 			invokable.invoke();
+			invokeFinishTimestamp = System.currentTimeMillis();
 
 			// make sure, we enter the catch block if the task leaves the invoke() method due
 			// to the fact that it has been canceled
@@ -964,6 +972,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			}
 		}
 		finally {
+			executeFinishTimestamp = System.currentTimeMillis();
 			try {
 				if (jobLogDetailDisable) {
 					LOG.debug("Freeing task resources for {} ({}).", taskMetricNameWithSubtask, executionId);
@@ -991,6 +1000,16 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				FileSystemSafetyNet.closeSafetyNetAndGuardedResourcesForThread();
 
 				notifyFinalState();
+
+				LOG.info("Finish execute task for {} ({}) for job {} with threadStart {} initialize {} invoke {} finish {} cleanUp {} (ms).",
+					taskMetricNameWithSubtask,
+					executionId,
+					jobId,
+					startRunTimestamp - createTimestamp,
+					initializeFinishTimestamp - startRunTimestamp,
+					invokeFinishTimestamp - initializeFinishTimestamp,
+					executeFinishTimestamp - invokeFinishTimestamp,
+					System.currentTimeMillis() - executeFinishTimestamp);
 			}
 			catch (Throwable t) {
 				// an error in the resource cleanup is fatal

@@ -21,39 +21,58 @@ package org.apache.flink.runtime.taskexecutor.slot;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
-import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
-import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.memory.TaskMemoryManager;
-import org.apache.flink.runtime.taskexecutor.SlotReport;
 
 import javax.annotation.Nullable;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
- * Tasks for job without slots.
+ * Tasks table for job without slots.
  */
-public class JobTaskWithoutSlotTable<T extends TaskSlotPayload> implements TaskSlotTable<T> {
+public class JobTaskWithoutSlotTable<T extends TaskSlotPayload> extends TaskSlotTableImpl<T> {
 	private final TaskMemoryManager taskMemoryManager;
 
-	public JobTaskWithoutSlotTable(TaskMemoryManager taskMemoryManager) {
+	private final Map<JobID, Map<ExecutionAttemptID, T>> jobTasksMap = new HashMap<>();
+	private final Map<ExecutionAttemptID, T> taskMap = new HashMap<>();
+
+	public JobTaskWithoutSlotTable(
+			final int numberSlots,
+			final ResourceProfile totalAvailableResourceProfile,
+			final ResourceProfile defaultSlotResourceProfile,
+			final int memoryPageSize,
+			final TimerService<AllocationID> timerService,
+			final Executor memoryVerificationExecutor,
+			final boolean jobLogDetailDisable,
+			final TaskMemoryManager taskMemoryManager) {
+		super(
+			numberSlots,
+			totalAvailableResourceProfile,
+			defaultSlotResourceProfile,
+			memoryPageSize,
+			timerService,
+			memoryVerificationExecutor,
+			jobLogDetailDisable);
 		this.taskMemoryManager = taskMemoryManager;
 	}
 
 	@Override
 	public CompletableFuture<Void> closeAsync() {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public void start(SlotActions initialSlotActions, ComponentMainThreadExecutor mainThreadExecutor) {
-		throw new UnsupportedOperationException();
+		taskMemoryManager.close();
+		return super.closeAsync();
 	}
 
 	@Override
@@ -67,12 +86,12 @@ public class JobTaskWithoutSlotTable<T extends TaskSlotPayload> implements TaskS
 	}
 
 	@Override
-	public Set<AllocationID> getActiveTaskSlotAllocationIdsPerJob(JobID jobId) {
-		throw new UnsupportedOperationException();
+	public Collection<MemoryManager> getMemoryManagers() throws SlotNotFoundException {
+		return taskMemoryManager.getMemoryManagers();
 	}
 
 	@Override
-	public SlotReport createSlotReport(ResourceID resourceId) {
+	public Set<AllocationID> getActiveTaskSlotAllocationIdsPerJob(JobID jobId) {
 		throw new UnsupportedOperationException();
 	}
 
@@ -139,22 +158,49 @@ public class JobTaskWithoutSlotTable<T extends TaskSlotPayload> implements TaskS
 
 	@Override
 	public boolean addTask(T task) throws SlotNotFoundException, SlotNotActiveException {
-		throw new UnsupportedOperationException();
+		if (!taskMap.containsKey(task.getExecutionId())) {
+			Map<ExecutionAttemptID, T> jobTasks = jobTasksMap.computeIfAbsent(task.getJobID(), key -> new HashMap<>());
+			jobTasks.put(task.getExecutionId(), task);
+			taskMap.put(task.getExecutionId(), task);
+
+			return true;
+		} else {
+			LOG.error("There are multiple tasks with {} for job {}", task.getExecutionId(), task.getJobID());
+			return false;
+		}
 	}
 
 	@Override
 	public T removeTask(ExecutionAttemptID executionAttemptID) {
-		throw new UnsupportedOperationException();
+		T task = taskMap.remove(executionAttemptID);
+		if (task != null) {
+			Map<ExecutionAttemptID, T> tasks = jobTasksMap.get(task.getJobID());
+			if (tasks != null) {
+				tasks.remove(executionAttemptID);
+				if (tasks.isEmpty()) {
+					jobTasksMap.remove(task.getJobID());
+				}
+			}
+
+			return task;
+		} else {
+			return null;
+		}
 	}
 
 	@Override
 	public T getTask(ExecutionAttemptID executionAttemptID) {
-		throw new UnsupportedOperationException();
+		return checkNotNull(taskMap.get(executionAttemptID));
 	}
 
 	@Override
 	public Iterator<T> getTasks(JobID jobId) {
-		throw new UnsupportedOperationException();
+		Map<ExecutionAttemptID, T> tasks = jobTasksMap.get(jobId);
+		if (tasks == null) {
+			return Collections.emptyIterator();
+		} else {
+			return tasks.values().iterator();
+		}
 	}
 
 	@Override

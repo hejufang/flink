@@ -31,6 +31,8 @@ import org.apache.flink.runtime.taskexecutor.SlotReport;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
@@ -88,6 +90,15 @@ public class TestingTaskSlotTable<T extends TaskSlotPayload> implements TaskSlot
 	@Override
 	public Set<AllocationID> getActiveTaskSlotAllocationIds() {
 		return allActiveSlotAllocationIdsSupplier.get();
+	}
+
+	@Override
+	public Collection<MemoryManager> getMemoryManagers() throws SlotNotFoundException {
+		Collection<MemoryManager> memoryManagers = new ArrayList<>();
+		for (AllocationID allocationID : getActiveTaskSlotAllocationIds()) {
+			memoryManagers.add(getTaskMemoryManager(allocationID));
+		}
+		return memoryManagers;
 	}
 
 	@Override
