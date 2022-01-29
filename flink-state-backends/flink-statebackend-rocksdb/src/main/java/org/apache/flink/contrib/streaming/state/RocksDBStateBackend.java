@@ -426,7 +426,9 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			// use local dir otherwise nodemanager cannot clean the files
 			String rocksdbLocalPaths = null;
 			final String localDirs = ((Configuration) config).getString(ConfigConstants.CONTAINER_LOCAL_DIRS, null);
-			if (localDirs != null) {
+			LOG.info("Currently the localDirs passed by yarn is: {}", localDirs);
+			// Remove unnecessary logic after all cluster released
+			if (localDirs != null && !config.get(RocksDBOptions.ROCKSDB_SSD_GUARANTEED_BY_YARN)) {
 				// parse config flink.rocksdb.ssd
 				final String containerId = ((Configuration) config).getString(ConfigConstants.CONTAINER_ID, null);
 				final String[] localDirsArray = localDirs.split(",|" + File.pathSeparator);

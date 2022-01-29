@@ -220,4 +220,10 @@ public class RocksDBOptions {
 					" the %s.",
 				code("org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.FairScheduler"))
 				.build());
+
+	public static final ConfigOption<Boolean> ROCKSDB_SSD_GUARANTEED_BY_YARN = ConfigOptions
+		.key("rocksdb.ssd.guaranteed.by-yarn")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Whether the ssd disk is guaranteed by yarn.");
 }
