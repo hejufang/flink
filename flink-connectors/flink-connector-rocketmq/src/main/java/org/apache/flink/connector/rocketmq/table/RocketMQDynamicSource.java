@@ -28,6 +28,7 @@ import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserialization
 import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserializationSchemaWrapper;
 import org.apache.flink.rocketmq.source.RocketMQSource;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
@@ -93,7 +94,12 @@ public class RocketMQDynamicSource implements ScanTableSource {
 				@Override
 				public DataStream<RowData> produceDataStream(StreamExecutionEnvironment execEnv) {
 					RowDataTypeInfo typeInfo = (RowDataTypeInfo) consumer.getProducedType();
-					return execEnv.addSource(consumer, typeInfo)
+					DataStreamSource<RowData> dataStreamSource = execEnv.addSource(consumer, typeInfo);
+					if (rocketMQConfig.getParallelism() > 0) {
+						dataStreamSource =
+							dataStreamSource.setParallelism(rocketMQConfig.getParallelism());
+					}
+					return dataStreamSource
 						.keyBy(rocketMQConfig.getKeySelector());
 				}
 

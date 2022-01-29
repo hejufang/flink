@@ -23,6 +23,7 @@ import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase;
 import org.apache.flink.streaming.connectors.kafka.config.KafkaSourceConfig;
@@ -186,8 +187,11 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 				@Override
 				public DataStream<RowData> produceDataStream(StreamExecutionEnvironment execEnv) {
 					RowDataTypeInfo typeInfo = (RowDataTypeInfo) kafkaConsumer.getProducedType();
-					return execEnv.addSource(kafkaConsumer, typeInfo)
-							.keyBy(kafkaSourceConfig.getKeySelector());
+					DataStreamSource<RowData> dataStreamSource = execEnv.addSource(kafkaConsumer, typeInfo);
+					if (kafkaSourceConfig.getParallelism() != null) {
+						dataStreamSource = dataStreamSource.setParallelism(kafkaSourceConfig.getParallelism());
+					}
+					return dataStreamSource.keyBy(kafkaSourceConfig.getKeySelector());
 				}
 
 				@Override
