@@ -33,7 +33,7 @@ under the License.
 		<dependency>
 			<groupId>com.bytedance.arch</groupId>
 			<artifactId>utils</artifactId>
-			<version>1.0.0.70</version>
+			<version>1.0.0.118</version>
 			<exclusions>
 				<exclusion>
 					<groupId>log4j</groupId>
@@ -48,6 +48,12 @@ under the License.
 					<groupId>org.scala-lang</groupId>
 				</exclusion>
 			</exclusions>
+		</dependency>
+
+		<dependency>
+			<groupId>com.squareup.okhttp3</groupId>
+			<artifactId>okhttp</artifactId>
+			<version>3.9.1</version>
 		</dependency>
 
 		<dependency>
@@ -148,6 +154,10 @@ under the License.
 										<relocation>
 											<pattern>org.apache.http</pattern>
 											<shadedPattern>org.apache.flink.connector.rpc.shaded.org.apache.http</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.bytedance.bytedtrace</pattern>
+											<shadedPattern>org.apache.flink.connector.rpc.shaded.com.bytedance.bytedtrace</shadedPattern>
 										</relocation>
 									</relocations>
 								</configuration>
