@@ -150,7 +150,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		String instanceName = String.format(INSTANCE_ID_TEMPLATE, jobName, topic, subTaskId, UUID.randomUUID());
 		LOG.info("Current rocketmq instance name is {}", instanceName);
 		this.consumer = consumerFactory.createRocketMqConsumer(cluster, topic, group, instanceName, properties);
-		this.runtimeParallelism = getRuntimeContext().getNumberOfParallelSubtasks();
 
 		MetricGroup metricGroup = getRuntimeContext().getMetricGroup().addGroup(ROCKET_MQ_CONSUMER_METRICS_GROUP)
 			.addGroup(RocketMQOptions.TOPIC_METRICS_GROUP, this.topic)
@@ -202,6 +201,8 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 	@Override
 	public void initializeState(FunctionInitializationContext context) throws Exception {
+		this.runtimeParallelism = getRuntimeContext().getNumberOfParallelSubtasks();
+
 		this.unionOffsetStates = context.getOperatorStateStore().getUnionListState(new ListStateDescriptor<>(
 			OFFSETS_STATE_NAME, TypeInformation.of(new TypeHint<Tuple2<MessageQueue, Long>>() {})
 		));
