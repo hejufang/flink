@@ -29,6 +29,7 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.util.DataFormatConverters;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.Row;
+import org.apache.flink.types.RowKind;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.inf.compute.hsap.doris.DorisClient;
@@ -97,6 +98,10 @@ public class DorisSinkFunction
 
 	@Override
 	public void invoke(RowData element, Context context) throws Exception {
+		if (RowKind.DELETE.equals(element.getRowKind()) ||
+				RowKind.UPDATE_BEFORE.equals(element.getRowKind())) {
+			return;
+		}
 		if (rateLimiter != null) {
 			rateLimiter.acquire(1);
 		}

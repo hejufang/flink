@@ -38,6 +38,7 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.SmallIntType;
 import org.apache.flink.table.types.logical.TinyIntType;
 import org.apache.flink.table.types.logical.VarCharType;
+import org.apache.flink.types.RowKind;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.hsap.client.HsapAsyncClient;
@@ -98,6 +99,11 @@ public class HsapSinkFunction
 
 	@Override
 	public void invoke(RowData element, Context context) throws Exception {
+		if (RowKind.DELETE.equals(element.getRowKind()) ||
+				RowKind.UPDATE_BEFORE.equals(element.getRowKind())) {
+			return;
+		}
+
 		if (rateLimiter != null) {
 			rateLimiter.acquire(1);
 		}
