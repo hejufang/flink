@@ -33,7 +33,9 @@ import org.apache.flink.runtime.operators.coordination.TaskNotRunningException;
 import org.apache.flink.runtime.source.event.AddSplitEvent;
 import org.apache.flink.runtime.source.event.SourceEventWrapper;
 import org.apache.flink.util.FlinkRuntimeException;
-import org.apache.flink.util.Preconditions;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -81,6 +83,8 @@ import static org.apache.flink.runtime.source.coordinator.SourceCoordinatorSerde
 @Internal
 public class SourceCoordinatorContext<SplitT extends SourceSplit>
 		implements SplitEnumeratorContext<SplitT>, AutoCloseable {
+	private static final Logger LOG = LoggerFactory.getLogger(SourceCoordinatorContext.class);
+
 	private final ExecutorService coordinatorExecutor;
 	private final ExecutorNotifier notifier;
 	private final OperatorCoordinator.Context operatorCoordinatorContext;
@@ -261,8 +265,11 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
 	 * @param subtaskId the subtask id of the source reader.
 	 */
 	void unregisterSourceReader(int subtaskId) {
-		Preconditions.checkNotNull(registeredReaders.remove(subtaskId), String.format(
-				"Failed to unregister source reader of id %s because it is not registered.", subtaskId));
+		// old version checkpoint has no readers information
+		ReaderInfo readerInfo = registeredReaders.remove(subtaskId);
+		if (readerInfo == null) {
+			LOG.warn("Source read of id {} is not registered.", subtaskId);
+		}
 	}
 
 	/**
