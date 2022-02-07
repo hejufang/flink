@@ -343,6 +343,8 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
+  yarn.previous-container.as-pending-container: true
+  taskmanager.release-slot-when-job-master-disconnected.enabled: true
 
 larva:
   dc: cn
@@ -476,6 +478,8 @@ hyrax:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
+  yarn.previous-container.as-pending-container: true
+  taskmanager.release-slot-when-job-master-disconnected.enabled: true
 
 horse:
   dc: cn
