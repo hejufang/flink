@@ -1289,7 +1289,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 *
 	 * @param t The exception describing the fatal error
 	 */
-	protected void onFatalError(Throwable t) {
+	@Override
+	public void onFatalError(Throwable t) {
 		try {
 			log.error("Fatal error occurred in ResourceManager.", t);
 		} catch (Throwable ignored) {}

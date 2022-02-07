@@ -1221,6 +1221,11 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		}
 	}
 
+	@Override
+	public void onFatalError(Throwable cause){
+		fatalErrorHandler.onFatalError(cause);
+	}
+
 	private void jobStatusChanged(
 			final JobStatus newJobStatus,
 			long timestamp,

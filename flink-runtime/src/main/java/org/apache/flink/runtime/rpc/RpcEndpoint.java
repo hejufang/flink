@@ -295,6 +295,14 @@ public abstract class RpcEndpoint implements RpcGateway, AutoCloseableAsync {
 		return getTerminationFuture();
 	}
 
+	/**
+	 * Being called when a fatal error occurs.
+	 *
+	 * @param cause Fata error.
+	 */
+	public void onFatalError(Throwable cause){
+	}
+
 	// ------------------------------------------------------------------------
 	//  Basic RPC endpoint properties
 	// ------------------------------------------------------------------------

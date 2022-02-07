@@ -847,7 +847,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		return FutureUtils.completeAll(values);
 	}
 
-	protected void onFatalError(Throwable throwable) {
+	public void onFatalError(Throwable throwable) {
 		fatalErrorHandler.onFatalError(throwable);
 	}
 

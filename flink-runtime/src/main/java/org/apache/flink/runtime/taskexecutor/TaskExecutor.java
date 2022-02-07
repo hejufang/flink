@@ -458,6 +458,11 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			});
 	}
 
+	@Override
+	public void onFatalError(Throwable cause) {
+		fatalErrorHandler.onFatalError(cause);
+	}
+
 	private void handleOnStopException(Throwable throwableBeforeTasksCompletion, Throwable throwableAfterTasksCompletion) {
 		final Throwable throwable;
 
