@@ -19,6 +19,7 @@ package org.apache.flink.runtime.executiongraph.failover.flip1;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.JobException;
+import org.apache.flink.runtime.io.network.partition.consumer.PartitionConnectionException;
 import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingExecutionVertex;
@@ -66,6 +67,8 @@ public class ExecutionFailureHandler {
 	private long numberOfFallbackToFullRestarts;
 
 	private long numberOfNoResourceAvailableExceptions;
+
+	private long numberOfPartitionExceptions;
 
 	private final long backoffTime;
 
@@ -124,6 +127,10 @@ public class ExecutionFailureHandler {
 			numberOfNoResourceAvailableExceptions++;
 		}
 
+		if (ExceptionUtils.findThrowable(cause, PartitionConnectionException.class).isPresent()) {
+			numberOfPartitionExceptions++;
+		}
+
 		if (isUnrecoverableError(cause)) {
 			return FailureHandlingResult.unrecoverable(
 				new JobException("The failure is not recoverable", cause), globalFailure);
@@ -164,6 +171,10 @@ public class ExecutionFailureHandler {
 
 	public long getNumberOfRestarts() {
 		return numberOfRestarts;
+	}
+
+	public long getNumberOfPartitionExceptions() {
+		return numberOfPartitionExceptions;
 	}
 
 	public long getNumberOfFailFilteredByAggregatedStrategy() {

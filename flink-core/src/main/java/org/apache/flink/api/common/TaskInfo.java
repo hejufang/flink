@@ -181,4 +181,19 @@ public class TaskInfo {
 	public String getAllocationIDAsString() {
 		return allocationIDAsString;
 	}
+
+	@Override
+	public String toString() {
+		return "TaskInfo{" +
+			"taskName='" + taskName + '\'' +
+			", taskMetricName='" + taskMetricName + '\'' +
+			", taskNameWithSubtasks='" + taskNameWithSubtasks + '\'' +
+			", taskMetricNameWithSubtasks='" + taskMetricNameWithSubtasks + '\'' +
+			", allocationIDAsString='" + allocationIDAsString + '\'' +
+			", maxNumberOfParallelSubtasks=" + maxNumberOfParallelSubtasks +
+			", indexOfSubtask=" + indexOfSubtask +
+			", numberOfParallelSubtasks=" + numberOfParallelSubtasks +
+			", attemptNumber=" + attemptNumber +
+			'}';
+	}
 }

@@ -27,6 +27,9 @@ import org.apache.flink.configuration.ConfigOptions;
 @SuppressWarnings("WeakerAccess")
 public class ShuffleServiceOptions {
 
+	public static final String CLOUD_SHUFFLE = "cloudShuffle";
+	public static final String NETTY_SHUFFLE = "nettyShuffle";
+
 	private ShuffleServiceOptions() {
 	}
 
@@ -39,4 +42,12 @@ public class ShuffleServiceOptions {
 		.withDescription("The full class name of the shuffle service factory implementation to be used by the cluster. " +
 			"The default implementation uses Netty for network communication and local memory as well disk space " +
 			"to store results on a TaskExecutor.");
+
+	/**
+	 * Whether css is enabled.
+	 */
+	public static final ConfigOption<Boolean> CLOUD_SHUFFLE_SERVICE_ENABLED = ConfigOptions
+		.key("cloud-shuffle-service.enabled")
+		.defaultValue(false)
+		.withDescription("Whether css is enabled.");
 }

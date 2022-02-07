@@ -23,10 +23,16 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.cache.DistributedCache;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.FileSystemSafetyNet;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.event.shuffle.WarehouseTaskShuffleInfoMessage;
+import org.apache.flink.metrics.Message;
+import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.metrics.MessageType;
 import org.apache.flink.runtime.accumulators.AccumulatorRegistry;
 import org.apache.flink.runtime.blob.PermanentBlobKey;
 import org.apache.flink.runtime.broadcast.BroadcastVariableManager;
@@ -70,6 +76,7 @@ import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
+import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.runtime.state.cache.CacheManager;
@@ -307,6 +314,10 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	private long invokeFinishTimestamp;
 	private long executeFinishTimestamp;
 
+	private static final String FLINK_TASK_SHUFFLE_INFO_METRICS = "task_shuffle_info";
+	private WarehouseTaskShuffleInfoMessage warehouseTaskShuffleInfoMessage;
+	private MessageSet<WarehouseTaskShuffleInfoMessage> taskShuffleInfoMessageMessageSet;
+
 	/**
 	 * <p><b>IMPORTANT:</b> This constructor may not start any work that would need to
 	 * be undone in the case of a failing task deployment.</p>
@@ -511,6 +522,17 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			//noinspection deprecation
 			((NettyShuffleEnvironment) shuffleEnvironment)
 				.registerLegacyNetworkMetrics(metrics.getIOMetricGroup(), resultPartitionWriters, gates);
+		}
+
+		// init the warehouse messageSet.
+		if (tmConfig.getString(ExecutionOptions.EXECUTION_APPLICATION_TYPE).equals(ConfigConstants.FLINK_BATCH_APPLICATION_TYPE)) {
+			this.taskShuffleInfoMessageMessageSet = new MessageSet<>(MessageType.TASK_SHUFFLE_INFO);
+			this.metrics.getIOMetricGroup().gauge(FLINK_TASK_SHUFFLE_INFO_METRICS, () -> this.taskShuffleInfoMessageMessageSet);
+			this.warehouseTaskShuffleInfoMessage = new WarehouseTaskShuffleInfoMessage(taskInfo);
+			// set the shuffle service type
+			String shuffleServiceType = tmConfig.getBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_ENABLED) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
+			this.warehouseTaskShuffleInfoMessage.setShuffleServiceType(shuffleServiceType);
+			LOG.info("Init the task info warehouseTaskShuffleInfoMessage({}).", warehouseTaskShuffleInfoMessage);
 		}
 
 		invokableHasBeenCanceled = new AtomicBoolean(false);
@@ -978,6 +1000,20 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 					LOG.debug("Freeing task resources for {} ({}).", taskMetricNameWithSubtask, executionId);
 				} else {
 					LOG.info("Freeing task resources for {} ({}).", taskMetricNameWithSubtask, executionId);
+				}
+
+				// report the task shuffle info to warehouse
+				if (this.warehouseTaskShuffleInfoMessage != null && this.taskShuffleInfoMessageMessageSet != null) {
+					if (this.executionState.isTerminal()) {
+						if (metrics != null) {
+							this.warehouseTaskShuffleInfoMessage.setInputShuffleDataBytes(metrics.getIOMetricGroup().getNumBytesInCounter().getCount());
+						} else {
+							LOG.warn("The metrics has already closed, so could not get the inputShuffleDataBytes from metrics.");
+						}
+						this.warehouseTaskShuffleInfoMessage.setTaskState(executionState.name());
+						this.taskShuffleInfoMessageMessageSet.addMessage(new Message<>(this.warehouseTaskShuffleInfoMessage));
+						LOG.info("The finished warehouseTaskShuffleInfoMessage is {}.", warehouseTaskShuffleInfoMessage.toString());
+					}
 				}
 
 				// clear the reference to the invokable. this helps guard against holding references

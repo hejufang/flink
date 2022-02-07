@@ -18,12 +18,14 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 import java.util.Objects;
 
 /**
  * More details about this message: https://bytedance.feishu.cn/docs/doccnEqmOoZ8pgtJ3ScYw6KGzKf.
  */
-public class WarehouseCheckpointMessage {
+public class WarehouseCheckpointMessage extends WarehouseMessage {
 
 	private static final String STATUS_FAILED = "failed";
 	private static final String STATUS_SUCCESS = "success";

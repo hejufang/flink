@@ -235,7 +235,7 @@ public class YarnConfigOptions {
 	public static final ConfigOption<String> APPLICATION_TYPE =
 			key("yarn.application.type")
 				.stringType()
-				.defaultValue(ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT)
+				.defaultValue(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE)
 				.withDescription("A custom type for your YARN application..");
 
 	public static final ConfigOption<String> NODE_LABEL =

@@ -18,10 +18,12 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 /**
  * Warehouse message for checkpoint placeholder transform.
  */
-public class WarehouseCheckpointPlaceholderMessage {
+public class WarehouseCheckpointPlaceholderMessage extends WarehouseMessage {
 	private static final String STATUS_SUCCESS = "success";
 	private static final String STATUS_FAILED = "failed";
 

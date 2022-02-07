@@ -18,10 +18,12 @@
 
 package org.apache.flink.runtime.state.cache.scale;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 /**
  * Warehouse message for statebackend cache layer.
  */
-public class WarehouseCacheLayerMessage {
+public class WarehouseCacheLayerMessage extends WarehouseMessage {
 
 	private final int taskId;
 	private final String cacheName;

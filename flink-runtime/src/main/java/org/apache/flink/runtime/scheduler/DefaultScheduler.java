@@ -236,7 +236,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	// ------------------------------------------------------------------------
 
 	@Override
-	protected long getNumberOfRestarts() {
+	public long getNumberOfRestarts() {
 		return executionFailureHandler.getNumberOfRestarts();
 	}
 
@@ -268,6 +268,11 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	@Override
 	protected long getNumberOfNoResourceAvailableExceptions() {
 		return executionFailureHandler.getNumberOfNoResourceAvailableExceptions();
+	}
+
+	@Override
+	public long getNumberOfPartitionExceptions() {
+		return executionFailureHandler.getNumberOfPartitionExceptions();
 	}
 
 	@Override

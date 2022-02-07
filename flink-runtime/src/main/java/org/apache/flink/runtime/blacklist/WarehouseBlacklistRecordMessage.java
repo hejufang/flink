@@ -18,12 +18,14 @@
 
 package org.apache.flink.runtime.blacklist;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 import java.util.Objects;
 
 /**
  *
  */
-public class WarehouseBlacklistRecordMessage {
+public class WarehouseBlacklistRecordMessage extends WarehouseMessage {
 	private String hostname;
 	private BlacklistUtil.FailureType failureType;
 	private long timestamp;

@@ -43,6 +43,7 @@ import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.PipelineOptions;
@@ -460,6 +461,13 @@ public class CliFrontend {
 
 		executionParameters.applyToConfiguration(effectiveConfiguration);
 		LOG.debug("Effective executor configuration: {}", effectiveConfiguration);
+
+		// set the value of APPLICATION_TYPE to EXECUTION_APPLICATION_TYPE
+		if (effectiveConfiguration.containsKey(ConfigConstants.APPLICATION_TYPE) && !effectiveConfiguration.containsKey(ExecutionOptions.EXECUTION_APPLICATION_TYPE.key())) {
+			String applicationType = effectiveConfiguration.getString(ConfigConstants.APPLICATION_TYPE, ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE);
+			effectiveConfiguration.setString(ExecutionOptions.EXECUTION_APPLICATION_TYPE, applicationType);
+			LOG.info("Set the value of {} to {}.", ExecutionOptions.EXECUTION_APPLICATION_TYPE.key(), applicationType);
+		}
 		return effectiveConfiguration;
 	}
 

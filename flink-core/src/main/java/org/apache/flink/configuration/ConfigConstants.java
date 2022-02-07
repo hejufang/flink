@@ -2047,7 +2047,10 @@ public final class ConfigConstants {
 
 	public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
-	public static final String YARN_STREAMING_APPLICATION_TYPE_DEFAULT = "Apache Flink";
+	/** Same with {@link ConfigConstants#APPLICATION_TYPE}, it will be applied in yarn and k8s. */
+	public static final String FLINK_APPLICATION_TYPE = "execution.application.type";
+	public static final String FLINK_STREAMING_APPLICATION_TYPE = "Apache Flink";
+	public static final String FLINK_BATCH_APPLICATION_TYPE = "Apache Flink Batch";
 
 	public static final String APPLICATION_NAME_KEY = "applicationName";
 	public static final String APPLICATION_NAME_DEFAULT = "NoAppName";

@@ -1113,7 +1113,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		capability.setVirtualCoresMilli(Utils.vCoresToMilliVcores(flinkConfiguration.getDouble(YarnConfigOptions.APP_MASTER_VCORES)));
 
 		appContext.setApplicationName(customApplicationName);
-		appContext.setApplicationType(applicationType != null ? applicationType : ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT);
+		appContext.setApplicationType(applicationType != null ? applicationType : ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE);
 		appContext.setAMContainerSpec(amContainer);
 
 		// Set priority for application

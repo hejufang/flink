@@ -18,12 +18,14 @@
 
 package org.apache.flink.metrics;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 import java.util.Objects;
 
 /**
  * A Message instance indicates a behaviour from Flink.
  */
-public class Message<T> {
+public class Message<T extends WarehouseMessage> {
 
 	private T data;
 	private MessageMeta meta;

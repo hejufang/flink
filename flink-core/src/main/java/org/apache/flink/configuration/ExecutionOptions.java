@@ -105,4 +105,11 @@ public class ExecutionOptions {
 			.booleanType()
 			.defaultValue(false)
 			.withDescription("enable TaskManager cancellation timeout.");
+
+	/** Same with {@link ConfigConstants#APPLICATION_TYPE}, it will be applied in yarn and k8s. */
+	public static final ConfigOption<String> EXECUTION_APPLICATION_TYPE =
+		ConfigOptions.key("execution.application.type")
+			.stringType()
+			.defaultValue(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE)
+			.withDescription("A custom type for your flink application.");
 }

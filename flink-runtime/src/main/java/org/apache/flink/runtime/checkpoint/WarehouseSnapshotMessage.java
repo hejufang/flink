@@ -18,10 +18,12 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 /**
  * Warehouse message for snapshot.
  */
-public class WarehouseSnapshotMessage {
+public class WarehouseSnapshotMessage extends WarehouseMessage {
 	private final String backendType;
 	private final long checkpointID;
 	private final int numberOfTransferringThreads;

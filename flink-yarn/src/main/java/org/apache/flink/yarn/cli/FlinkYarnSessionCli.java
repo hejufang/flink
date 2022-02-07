@@ -385,7 +385,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 		String appType = properties.getProperty(
 			YarnConfigOptions.APPLICATION_TYPE.key(),
 			effectiveConfiguration.getString(YarnConfigOptions.APPLICATION_TYPE));
-		if (appType.equals(ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT)) {
+		if (appType.equals(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE)) {
 			reloadConfigWithSpecificProperties(effectiveConfiguration, ConfigConstants.STREAMING_JOB_KEY_PREFIX);
 		}
 

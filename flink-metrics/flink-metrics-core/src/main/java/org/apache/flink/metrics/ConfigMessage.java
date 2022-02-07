@@ -18,12 +18,14 @@
 
 package org.apache.flink.metrics;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 import java.util.Objects;
 
 /**
  * Config message for flink data warehouse.
  */
-public class ConfigMessage {
+public class ConfigMessage extends WarehouseMessage {
 
 	private String key;
 	private String value;

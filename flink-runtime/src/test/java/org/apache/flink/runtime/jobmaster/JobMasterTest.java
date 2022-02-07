@@ -30,7 +30,9 @@ import org.apache.flink.api.java.ClosureCleaner;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.BlobServerOptions;
 import org.apache.flink.configuration.CheckpointingOptions;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.RestartStrategyOptions;
 import org.apache.flink.core.io.InputSplit;
@@ -114,6 +116,7 @@ import org.apache.flink.runtime.rpc.akka.AkkaRpcService;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceConfiguration;
 import org.apache.flink.runtime.scheduler.SchedulerNGFactory;
 import org.apache.flink.runtime.shuffle.NettyShuffleMaster;
+import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.OperatorStreamStateHandle;
@@ -974,6 +977,31 @@ public class JobMasterTest extends TestLogger {
 			secondJobManagerRegistration.await();
 		} finally {
 			RpcUtils.terminateRpcEndpoint(jobMaster, testingTimeout);
+		}
+	}
+
+	/**
+	 * Tests that the flink batch job state.
+	 */
+	@Test
+	public void testWarehouseBatchJobInfoMessage() throws Exception {
+		configuration.setString(ExecutionOptions.EXECUTION_APPLICATION_TYPE, ConfigConstants.FLINK_BATCH_APPLICATION_TYPE);
+		configuration.setBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_ENABLED, true);
+		final JobMaster jobMaster = createJobMaster(
+			configuration,
+			jobGraph,
+			haServices,
+			new TestingJobManagerSharedServicesBuilder().build());
+
+		try {
+			jobMaster.start(JobMasterId.generate()).get();
+		} finally {
+			RpcUtils.terminateRpcEndpoint(jobMaster, testingTimeout);
+
+			// wait job end
+			jobMaster.getTerminationFuture().get();
+			assertTrue(jobMaster.getWarehouseBatchJobInfoMessage().getJobStatus().equals(JobStatus.SUSPENDED.name()));
+			assertTrue(jobMaster.getWarehouseBatchJobInfoMessage().getShuffleServiceType().equals(ShuffleServiceOptions.CLOUD_SHUFFLE));
 		}
 	}
 

@@ -492,7 +492,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		return jobGraph;
 	}
 
-	protected abstract long getNumberOfRestarts();
+	public abstract long getNumberOfRestarts();
 
 	protected abstract long getNumberOfFailFilteredByAggregatedStrategy();
 
@@ -505,6 +505,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 	protected abstract Long getNumberOfFallbackToFullRestarts();
 
 	protected abstract long getNumberOfNoResourceAvailableExceptions();
+
+	public abstract long getNumberOfPartitionExceptions();
 
 	private Map<ExecutionVertexID, ExecutionVertexVersion> incrementVersionsOfAllVertices() {
 		return executionVertexVersioner.recordVertexModifications(

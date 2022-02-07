@@ -24,6 +24,7 @@ import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -77,7 +78,7 @@ public class DatabusReporterTest {
 		public void flush() throws IOException {}
 	}
 
-	static class MessageBody {
+	static class MessageBody extends WarehouseMessage {
 
 		String className;
 		String packageName;

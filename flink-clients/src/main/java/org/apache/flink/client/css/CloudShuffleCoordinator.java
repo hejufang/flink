@@ -24,6 +24,7 @@ import org.apache.flink.client.util.HttpUtil;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSet;
 import org.apache.flink.runtime.jobgraph.JobEdge;
@@ -31,6 +32,7 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.shuffle.CloudShuffleOptions;
 import org.apache.flink.runtime.shuffle.ShuffleOptions;
+import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
@@ -69,20 +71,13 @@ public class CloudShuffleCoordinator {
 			.noDefaultValue()
 			.withDescription("User may share jars between jobs such as client jar for CSS.");
 
-	/** copy from YarnConfigOptions. */
-	public static final ConfigOption<String> APPLICATION_TYPE =
-		key("yarn.application.type")
-			.stringType()
-			.defaultValue(ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT)
-			.withDescription("A custom type for your YARN application..");
-
 	public static boolean reconfigureConfig(JobGraph jobGraph, ClusterSpecification clusterSpecification, Configuration configuration) {
 		// whether user enables css or not
-		if (!configuration.getBoolean(ShuffleOptions.CLOUD_SHUFFLE_SERVICE_ENABLED)) {
+		if (!configuration.getBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_ENABLED)) {
 			return false;
 		}
 		// whether this is a batch job or not
-		if (!configuration.getString(APPLICATION_TYPE).equals("Apache Flink Batch")) {
+		if (!configuration.getString(ExecutionOptions.EXECUTION_APPLICATION_TYPE).equals(ConfigConstants.FLINK_BATCH_APPLICATION_TYPE)) {
 			return false;
 		}
 		// whether this is a valid graph or not

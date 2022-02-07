@@ -20,6 +20,7 @@ package org.apache.flink.runtime.jobgraph.tasks;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.CheckpointRetentionPolicy;
 import org.apache.flink.runtime.checkpoint.DiscardHistoricalCheckpointConfiguration;
@@ -36,7 +37,7 @@ import java.util.Objects;
  * interval, the checkpoint timeout, the pause between checkpoints, the maximum number of
  * concurrent checkpoints and settings for externalized checkpoints.
  */
-public class CheckpointCoordinatorConfiguration implements Serializable {
+public class CheckpointCoordinatorConfiguration extends WarehouseMessage implements Serializable {
 
 	public static final long MINIMAL_CHECKPOINT_TIME = 10;
 

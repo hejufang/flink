@@ -18,6 +18,8 @@
 
 package org.apache.flink.metrics;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -26,7 +28,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 /**
  * User registers a MessageSet instance to report data to Flink data warehouse.
  */
-public class MessageSet<T> implements Gauge<MessageSet<T>> {
+public class MessageSet<T extends WarehouseMessage> implements Gauge<MessageSet<T>> {
 
 	private static final int CAPACITY = 1 << 20;
 

@@ -18,12 +18,14 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 import javax.annotation.Nullable;
 
 /**
  * Warehouse message for restore.
  */
-public class WarehouseRestoreMessage {
+public class WarehouseRestoreMessage extends WarehouseMessage {
 	private final String backendType;
 	private final String restoreMode;
 	private final long checkpointID;

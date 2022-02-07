@@ -18,10 +18,12 @@
 
 package org.apache.flink.runtime.state;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 /**
  * The warehouse message of the local state of the taskManager.
  */
-public class WarehouseLocalStateMessage {
+public class WarehouseLocalStateMessage extends WarehouseMessage {
 	private final long localStateSize;
 	private final long expectedLocalStateSizeQuota;
 	private final long actualLocalStateSizeQuota;

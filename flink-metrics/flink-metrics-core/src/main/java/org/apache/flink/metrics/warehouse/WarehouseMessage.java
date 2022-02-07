@@ -16,18 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.shuffle;
-
-import org.apache.flink.configuration.ConfigOption;
-import org.apache.flink.configuration.ConfigOptions;
+package org.apache.flink.metrics.warehouse;
 
 /**
- * ShuffleOptions. Currently only used for Cloud Shuffle Service.
+ * Generic basic class which realized object will be reported to the warehouse.
  */
-public class ShuffleOptions {
+public class WarehouseMessage {
 
-	public static final ConfigOption<Boolean> SHUFFLE_CLOUD_SHUFFLE_MODE = ConfigOptions
-		.key("shuffle.cloud-shuffle-mode")
-		.defaultValue(false)
-		.withDescription("True if CSS is enabled, it will affect partition availability and shuffle data format.");
 }

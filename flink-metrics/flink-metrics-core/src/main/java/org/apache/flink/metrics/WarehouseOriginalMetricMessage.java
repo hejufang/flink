@@ -18,12 +18,14 @@
 
 package org.apache.flink.metrics;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 import java.util.Objects;
 
 /**
  * Used for reporting Flink's metrics to Flink data warehouse.
  */
-public class WarehouseOriginalMetricMessage {
+public class WarehouseOriginalMetricMessage extends WarehouseMessage {
 
 	private String metricName;
 	private double metricValue;

@@ -18,16 +18,19 @@
 
 package org.apache.flink.runtime.jobmaster;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.BenchmarkOption;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
-import org.apache.flink.configuration.BenchmarkOption;
+import org.apache.flink.event.batch.WarehouseBatchJobInfoMessage;
 import org.apache.flink.metrics.ConfigMessage;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Message;
@@ -47,6 +50,7 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.ExecutionState;
+import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.JobStatusListener;
@@ -105,9 +109,11 @@ import org.apache.flink.runtime.rpc.FencedRpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcUtils;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
+import org.apache.flink.runtime.scheduler.SchedulerBase;
 import org.apache.flink.runtime.scheduler.SchedulerNG;
 import org.apache.flink.runtime.scheduler.SchedulerNGFactory;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
+import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.taskexecutor.AccumulatorReport;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
@@ -121,9 +127,11 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.StringUtils;
+
 import org.slf4j.Logger;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -249,6 +257,10 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final boolean requestSlotFromResourceManagerDirectEnable;
 
+	// for batch warehouse
+	private static final String FLINK_BATCH_JOB_INFO_METRICS = "flink_batch_info";
+	private WarehouseBatchJobInfoMessage warehouseBatchJobInfoMessage;
+	private MessageSet<WarehouseBatchJobInfoMessage> batchJobInfoMessageSet;
 	private final boolean useMainScheduledExecutorEnable;
 
 	// ------------------------------------------------------------------------
@@ -366,13 +378,25 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 				checkpointConfigMessageSet.addMessage(new Message<>(checkpointCoordinatorConfiguration));
 			}
 
-		}
-
-		if (jobManagerJobMetricGroup != null) {
+			// job version metrics
 			TagGauge jobVersionTagGauge = new TagGauge.TagGaugeBuilder().build();
 			jobVersionTagGauge.addMetric(1, createVersionTagValues());
 			jobManagerJobMetricGroup.gauge("jobVersion", jobVersionTagGauge);
 			jobManagerJobMetricGroup.gauge(MetricNames.NUM_JOB_REQUIRED_WORKERS, () -> jobInfo.getInitialTaskManagers() + jobInfo.getInitialExtraTaskManagers());
+
+			// send flink batch info message to warehouse
+			if (jobMasterConfiguration.getConfiguration().getString(ExecutionOptions.EXECUTION_APPLICATION_TYPE).equals(ConfigConstants.FLINK_BATCH_APPLICATION_TYPE)) {
+				this.warehouseBatchJobInfoMessage = new WarehouseBatchJobInfoMessage();
+				log.info("Init the warehouseBatchJobInfoMessage.");
+				this.warehouseBatchJobInfoMessage.setJobStartTimestamp(System.currentTimeMillis());
+				// set the shuffle service type
+				String shuffleServiceType = jobMasterConfiguration.getConfiguration()
+					.getBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_ENABLED) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
+				this.warehouseBatchJobInfoMessage.setShuffleServiceType(shuffleServiceType);
+				// init message set
+				batchJobInfoMessageSet = new MessageSet<>(MessageType.FLINK_BATCH);
+				jobManagerJobMetricGroup.gauge(FLINK_BATCH_JOB_INFO_METRICS, () -> this.batchJobInfoMessageSet);
+			}
 		}
 	}
 
@@ -392,6 +416,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		String dockerImage = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.DOCKER_IMAGE, null);
 		String flinkApi = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
 		String appType = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.APPLICATION_TYPE, null);
+		boolean isKubernetes = this.jobMasterConfiguration.getConfiguration().getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false);
+		String shuffleServiceType = jobMasterConfiguration.getConfiguration().getBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_ENABLED) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
 		String appName = System.getenv().get(ConfigConstants.ENV_FLINK_YARN_JOB);
 		String owner = null;
 		if (!StringUtils.isNullOrWhitespaceOnly(appName)) {
@@ -407,7 +433,9 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			.addTagValue("version", version)
 			.addTagValue("commitId", commitId)
 			.addTagValue("commitDate", commitDate)
-			.addTagValue("isInDockerMode", String.valueOf(isInDockerMode));
+			.addTagValue("isInDockerMode", String.valueOf(isInDockerMode))
+			.addTagValue("shuffleServiceType", shuffleServiceType)
+			.addTagValue(ConfigConstants.IS_KUBERNETES_KEY, String.valueOf(isKubernetes));
 
 		if (!StringUtils.isNullOrWhitespaceOnly(flinkJobType)) {
 			tagValuesBuilder.addTagValue("flinkJobType", flinkJobType);
@@ -1131,6 +1159,27 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		schedulerNG.registerJobStatusListener(jobStatusListener);
 
 		schedulerNG.startScheduling();
+
+		if (this.warehouseBatchJobInfoMessage != null) {
+			schedulerNG.getTerminationFuture().whenComplete(
+				(result, throwable) -> {
+					this.warehouseBatchJobInfoMessage
+						.setJobStatus(schedulerNG.requestJobStatus().name())
+						.setTaskNums(schedulerNG.requestJob().getAllVertices().values().stream().mapToLong(AccessExecutionJobVertex::getParallelism).sum())
+						.setJobEndTimestamp(System.currentTimeMillis()).calculateProcessLatencyMs();
+
+					if (this.schedulerNG instanceof SchedulerBase) {
+						this.warehouseBatchJobInfoMessage.setFailoverTimes(((SchedulerBase) this.schedulerNG).getNumberOfRestarts());
+						this.warehouseBatchJobInfoMessage.setJobFailedForPartitionUnavailableTimes(((SchedulerBase) this.schedulerNG).getNumberOfPartitionExceptions());
+					}
+					if (throwable != null) {
+						log.warn("There are some errors for this job({}).", jobGraph.getName(), throwable);
+					}
+					this.batchJobInfoMessageSet.addMessage(new Message<>(this.warehouseBatchJobInfoMessage));
+					log.info("The warehouseBatchJobInfoMessage of this job is {}.", warehouseBatchJobInfoMessage.toString());
+				}
+			);
+		}
 	}
 
 	private void suspendAndClearSchedulerFields(Exception cause) {
@@ -1148,6 +1197,11 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		if (jobStatusListener != null) {
 			jobStatusListener.stop();
 		}
+	}
+
+	@VisibleForTesting
+	WarehouseBatchJobInfoMessage getWarehouseBatchJobInfoMessage() {
+		return this.warehouseBatchJobInfoMessage;
 	}
 
 	private void clearSchedulerFields() {

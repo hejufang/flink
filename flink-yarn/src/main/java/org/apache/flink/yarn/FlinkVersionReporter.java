@@ -20,6 +20,7 @@ package org.apache.flink.yarn;
 
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
@@ -59,6 +60,7 @@ public class FlinkVersionReporter implements Runnable {
 		String flinkApi = this.flinkConfig.getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
 		String applicationType = this.flinkConfig.getString(YarnConfigOptions.APPLICATION_TYPE);
 		String cluster = this.flinkConfig.getString(ConfigConstants.CLUSTER_NAME_KEY, null);
+		String shuffleServiceType = this.flinkConfig.getBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_ENABLED) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
 
 		EnvironmentInformation.RevisionInformation rev =
 			EnvironmentInformation.getRevisionInformation();
@@ -95,6 +97,9 @@ public class FlinkVersionReporter implements Runnable {
 		tags = tags + "|isInDockerMode=" + isInDockerMode;
 		if (dockerImage != null && !dockerImage.isEmpty()) {
 			tags = tags + "|dockerImage=" + dockerImage;
+		}
+		if (shuffleServiceType != null && !shuffleServiceType.isEmpty()) {
+			tags = tags + "|shuffleServiceType=" + shuffleServiceType;
 		}
 		if (dc != null && !dc.isEmpty()) {
 			tags = tags + "|region=" + dc;

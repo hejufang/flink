@@ -43,7 +43,11 @@ public enum MessageType {
 
 	CHECKPOINT_PLACEHOLDER("checkpoint_placeholder"),
 
-	LOCAL_STATE("local_state");
+	LOCAL_STATE("local_state"),
+
+	TASK_SHUFFLE_INFO("task_shuffle_info"),
+
+	FLINK_BATCH("flink_batch");
 
 	private final String name;
 

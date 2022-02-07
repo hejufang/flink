@@ -18,12 +18,14 @@
 
 package org.apache.flink.event;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 import java.util.Objects;
 
 /**
  * Ware house event message.
  */
-public class WarehouseJobStartEventMessage {
+public class WarehouseJobStartEventMessage extends WarehouseMessage {
 	private final String project = "flink";
 	private String module;
 	private String resourceId;

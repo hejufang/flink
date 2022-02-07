@@ -18,10 +18,12 @@
 
 package org.apache.flink.runtime.state.tracker;
 
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
+
 /**
  * Metrics for state file batching.
  */
-public class WarehouseStateFileBatchingMessage {
+public class WarehouseStateFileBatchingMessage extends WarehouseMessage {
 	// preRawTotalStateSize is equal to totalStateSize
 	private final long preRawTotalStateSize;
 	private final long postRawTotalStateSize;
