@@ -429,6 +429,8 @@ public class TableColumnVisitor implements SqlVisitor<DepRefSet> {
 				return InferFormatUtils.addBinlogColumn(tableRefWithDep);
 			} else if ("pb_binlog_drc".equals(formatName)) {
 				return InferFormatUtils.addDrcBinlogColumn(tableRefWithDep);
+			} else if ("pb_binlog".equals(formatName)) {
+				return InferFormatUtils.addKafkaBinlogColumn(tableRefWithDep);
 			} else if ("rpc".equals(formatName)) {
 				throw new ColumnAnalyseException("Rpc dim table can't be created.");
 			}

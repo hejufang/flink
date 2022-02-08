@@ -169,7 +169,7 @@ public class DepRefSet {
 				return tableReference.findColumnsByName(subName);
 			}
 
-			return findByColumnName(firstLevelName);
+			return findByColumnName(firstLevelName);  // return first level ref, caller must search iteratively.
 		}
 		return Collections.emptyList();
 	}
@@ -182,6 +182,20 @@ public class DepRefSet {
 					formatErrorString("Can't reach here, env %s, column name is %s", columnName));
 			}
 			return columnReferences;
+		}
+
+		// search iteratively if it's a row column,
+		// because for query row column like 'r.c', inner query will return the whole row column definition.
+		for (List<ColumnRefWithDep> columnRefWithDeps : columnReferenceMap.values()) {
+			for (ColumnRefWithDep columnRefWithDep : columnRefWithDeps) {
+				if (columnRefWithDep instanceof RefWithDependency.RowRefWithDep) {
+					RefWithDependency.RowRefWithDep rowRefWithDep = (RefWithDependency.RowRefWithDep) columnRefWithDep;
+					ColumnRefWithDep ref = rowRefWithDep.getColumnByName(columnName);
+					if (ref != null) {
+						return Collections.singletonList(ref);
+					}
+				}
+			}
 		}
 
 		for (TableRefWithDep tableReference: tableReferenceMap.values()) {

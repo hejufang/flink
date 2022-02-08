@@ -321,6 +321,59 @@ public class TableColumnVisitorTest {
 	}
 
 	@Test
+	public void testWithKafkaBinlog() {
+		String[] sqlList = {
+			"CREATE TABLE binlog_table WITH (\n" +
+				"'connector.type' = 'kafka',\n" +
+				"'connector.version' = '0.10',\n" +
+				"'format.type' = 'pb_binlog')",
+			"CREATE TABLE `sink` (\n" +
+				"`time` BIGINT,\n" +
+				"`dbName` VARCHAR,\n" +
+				"`tableName` VARCHAR,\n" +
+				"`sql` VARCHAR,\n" +
+				"`name` VARCHAR,\n" +
+				"`val` VARCHAR)",
+			"INSERT INTO `sink`\n" +
+				"SELECT\n" +
+				"	`header`.`executeTime`,\n" +
+				"	`schemaName`,\n" +
+				"	`tableName`,\n" +
+				"	`sql`,\n" +
+				"	`rowDatas`.`afterColumns`.`name`,\n" +
+				"	`rowDatas`.`afterColumns`.`value`\n" +
+				"FROM `binlog_table`"
+		};
+
+		Map<TableColumn, Set<TableColumn>> expects = new HashMap<>();
+		expects.put(new TableColumn("sink", "time"),
+			newTableColumnSet(
+				new TableColumn("binlog_table", "header")));
+
+		expects.put(new TableColumn("sink", "dbName"),
+			newTableColumnSet(
+				new TableColumn("binlog_table", "header")));
+
+		expects.put(new TableColumn("sink", "tableName"),
+			newTableColumnSet(
+				new TableColumn("binlog_table", "header")));
+
+		expects.put(new TableColumn("sink", "sql"),
+			newTableColumnSet(
+				new TableColumn("binlog_table", "RowChange")));
+
+		expects.put(new TableColumn("sink", "name"),
+			newTableColumnSet(
+				new TableColumn("binlog_table", "RowChange")));
+
+		expects.put(new TableColumn("sink", "val"),
+			newTableColumnSet(
+				new TableColumn("binlog_table", "RowChange")));
+
+		analyseSql(sqlList, expects, TableColumnVisitor.FlinkPropertyVersion.FLINK_1_9);
+	}
+
+	@Test
 	public void testWithPb() {
 		final String pbTable = "test_pb";
 		final TableRefWithDep tableRefWithDep = new TableRefWithDep(pbTable);
@@ -728,25 +781,66 @@ public class TableColumnVisitorTest {
 		analyseSql(sqlList, expects);
 	}
 
+	@Test
+	public void testNestedQueryWithRow() {
+		String[] sqlList = {
+			"CREATE TABLE row_table(r1 ROW<i1 INT, r11 ROW<i11 INT>>, r2 ROW<i21 INT>, i INT)",
+			"CREATE TABLE sink_table(i1 INT, i2 INT, i3 INT, i4 INT)",
+			"CREATE VIEW v AS " +
+				"SELECT i1, i11, i21, i FROM (" +
+					"SELECT r1.i1, r1.r11, r2.i21, i FROM row_table" +
+				")",
+			"INSERT INTO sink_table " +
+				"SELECT i1, i11, i21, i FROM v"
+		};
+
+		Map<TableColumn, Set<TableColumn>> expects = new HashMap<>();
+		expects.put(new TableColumn("sink_table", "i1"),
+			newTableColumnSet(new TableColumn("row_table", "r1")));
+		expects.put(new TableColumn("sink_table", "i2"),
+			newTableColumnSet(new TableColumn("row_table", "r1")));
+		expects.put(new TableColumn("sink_table", "i3"),
+			newTableColumnSet(new TableColumn("row_table", "r2")));
+		expects.put(new TableColumn("sink_table", "i4"),
+			newTableColumnSet(new TableColumn("row_table", "i")));
+		analyseSql(sqlList, expects);
+	}
+
 	private void analyseSql(String[] sqlList, Map<TableColumn, Set<TableColumn>> tableColumnListMap) {
-		analyseSql(sqlList, tableColumnListMap, null);
+		analyseSql(sqlList, tableColumnListMap, null, TableColumnVisitor.FlinkPropertyVersion.FLINK_1_11);
+	}
+
+	private void analyseSql(
+			String[] sqlList,
+			Map<TableColumn, Set<TableColumn>> tableColumnListMap,
+			TableColumnVisitor.FlinkPropertyVersion version) {
+		analyseSql(sqlList, tableColumnListMap, null, version);
 	}
 
 	private void analyseSql(
 			String[] sqlList,
 			Map<TableColumn, Set<TableColumn>> tableColumnListMap,
 			SimpleCatalog simpleCatalog) {
-		analyseSql(String.join(";", sqlList), tableColumnListMap, simpleCatalog);
+		analyseSql(sqlList, tableColumnListMap, simpleCatalog, TableColumnVisitor.FlinkPropertyVersion.FLINK_1_11);
+	}
+
+	private void analyseSql(
+			String[] sqlList,
+			Map<TableColumn, Set<TableColumn>> tableColumnListMap,
+			SimpleCatalog simpleCatalog,
+			TableColumnVisitor.FlinkPropertyVersion propertyVersion) {
+		analyseSql(String.join(";", sqlList), tableColumnListMap, simpleCatalog, propertyVersion);
 	}
 
 	private void analyseSql(
 			String sql,
 			Map<TableColumn, Set<TableColumn>> tableColumnListMap,
-			SimpleCatalog simpleCatalog) {
+			SimpleCatalog simpleCatalog,
+			TableColumnVisitor.FlinkPropertyVersion propertyVersion) {
 		try {
 			List<SqlNode> sqlNodes = createFlinkParser(sql).parseStmtList().getList();
 			Map<TableColumn, Set<TableColumn>> result =
-				TableColumnVisitor.analyseTableColumnDependency(sqlNodes, simpleCatalog);
+				TableColumnVisitor.analyseTableColumnDependency(sqlNodes, simpleCatalog, propertyVersion);
 			Assert.assertEquals(tableColumnListMap, result);
 		} catch (SqlParseException e) {
 			throw new RuntimeException(e);
