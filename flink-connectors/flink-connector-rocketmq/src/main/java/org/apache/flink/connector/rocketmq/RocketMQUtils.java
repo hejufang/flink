@@ -235,6 +235,12 @@ public final class RocketMQUtils {
 			messageQueuePb.getTopic(), messageQueuePb.getBrokerName(), messageQueuePb.getQueueId());
 	}
 
+	// keep same logic with flink-connector-rocketmq-legacy #AllocateMessageQueueStrategyParallelism#allocate()
+	public static int hashCodeOfMessageQueue(MessageQueue messageQueue, int runtimeParallelism) {
+		int startIndex = ((messageQueue.toString().hashCode() * 31) & 0x7FFFFFFF) % runtimeParallelism;
+		return  (startIndex + messageQueue.getQueueId()) % runtimeParallelism;
+	}
+
 	public static long getOnlyOffset(Map<MessageQueuePb, Long> offsetMap) {
 		return offsetMap.entrySet().iterator().next().getValue();
 	}

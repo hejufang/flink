@@ -42,4 +42,8 @@ public interface SourceReaderContext {
 	default int getSubTaskId() {
 		throw new UnsupportedOperationException();
 	}
+
+	default int getReaderParallelism() {
+		throw new UnsupportedOperationException();
+	}
 }

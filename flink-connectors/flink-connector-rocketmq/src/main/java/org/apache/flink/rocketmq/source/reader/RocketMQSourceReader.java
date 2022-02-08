@@ -54,6 +54,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.OFFSETS_STATE_NAME;
+import static org.apache.flink.connector.rocketmq.RocketMQUtils.hashCodeOfMessageQueue;
 
 /**
  * The source reader for RocketMQ queues.
@@ -105,6 +106,7 @@ public class RocketMQSourceReader<OUT>
 		List<RocketMQSplit> rocketMQSplits = super.snapshotState();
 
 		Map<MessageQueue, Long> lastTuple2offsetMap = lastSnapshotTupleList.stream()
+			.filter(x -> hashCodeOfMessageQueue(x.f0, context.getReaderParallelism()) == context.getSubTaskId())
 			.collect(Collectors.toMap(t -> t.f0, t -> t.f1));
 		for (RocketMQSplit rocketMQSplit: rocketMQSplits) {
 			RocketMQSplitBase splitBase = rocketMQSplit.getRocketMQBaseSplit();

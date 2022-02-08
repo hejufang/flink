@@ -187,6 +187,7 @@ public class SourceOperator<OUT, SplitT extends SourceSplit>
 		readerState = new SimpleVersionedListState<>(rawState, splitSerializer);
 
 		final int subTaskId = getRuntimeContext().getIndexOfThisSubtask();
+		final int taskParallelism = getRuntimeContext().getNumberOfParallelSubtasks();
 		final MetricGroup metricGroup = getMetricGroup();
 		final SourceReaderContext sourceReaderContext = new SourceReaderContext() {
 			@Override
@@ -202,6 +203,11 @@ public class SourceOperator<OUT, SplitT extends SourceSplit>
 			@Override
 			public int getSubTaskId() {
 				return subTaskId;
+			}
+
+			@Override
+			public int getReaderParallelism() {
+				return taskParallelism;
 			}
 		};
 

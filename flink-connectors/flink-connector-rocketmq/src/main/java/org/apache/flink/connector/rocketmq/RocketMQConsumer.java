@@ -378,8 +378,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 	// keep same logic with flink-connector-rocketmq-legacy #AllocateMessageQueueStrategyParallelism#allocate()
 	private boolean belongToThisTask(MessageQueue messageQueue) {
-		int startIndex = ((messageQueue.toString().hashCode() * 31) & 0x7FFFFFFF) % runtimeParallelism;
-		int assignedSubTaskId = (startIndex + messageQueue.getQueueId()) % runtimeParallelism;
+		int assignedSubTaskId = RocketMQUtils.hashCodeOfMessageQueue(messageQueue, runtimeParallelism);
 		return (assignedSubTaskId == subTaskId) && (specificMessageQueueSet == null || specificMessageQueueSet.contains(messageQueue));
 	}
 
