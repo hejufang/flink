@@ -345,6 +345,8 @@ lepad:
   bytedance.streaming.yarn.check.application.name.unique.region: true
   yarn.previous-container.as-pending-container: true
   taskmanager.release-slot-when-job-master-disconnected.enabled: true
+  restart-strategy.recoverable-failure-rate.fallback-global-restart: true
+  restart-strategy.recoverable-failure-rate.enable: true
 
 larva:
   dc: cn
@@ -480,6 +482,8 @@ hyrax:
   bytedance.streaming.yarn.check.application.name.unique.region: true
   yarn.previous-container.as-pending-container: true
   taskmanager.release-slot-when-job-master-disconnected.enabled: true
+  restart-strategy.recoverable-failure-rate.fallback-global-restart: true
+  restart-strategy.recoverable-failure-rate.enable: true
 
 horse:
   dc: cn
