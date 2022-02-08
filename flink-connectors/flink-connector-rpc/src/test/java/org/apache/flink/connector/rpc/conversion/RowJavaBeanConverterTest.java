@@ -34,6 +34,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -87,7 +88,7 @@ public class RowJavaBeanConverterTest {
 
 	@Test
 	public void testConversions() {
-		DataType dataType = DataTypeUtil.generateFieldsDataType(TestStruct.class);
+		DataType dataType = DataTypeUtil.generateFieldsDataType(TestStruct.class, new HashSet<>());
 		DataStructureConverter<RowData, Object> converter = RowJavaBeanConverter.create(TestStruct.class, dataType);
 		converter.open(RowJavaBeanConverterTest.class.getClassLoader());
 		TestStruct test = getTestStructInstance();
@@ -95,5 +96,4 @@ public class RowJavaBeanConverterTest {
 		Object real = converter.toExternal(row);
 		assertEquals(test, real);
 	}
-
 }

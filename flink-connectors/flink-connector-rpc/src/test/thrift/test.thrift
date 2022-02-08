@@ -60,6 +60,10 @@ struct TestStruct {
     9: optional InnerTestStruct innerTestStruct,
 }
 
+struct SelfContainedStruct {
+    1: list<SelfContainedStruct> relatedList;
+}
+
 service TestService {
     TestStruct testFunc(1: TestStruct req)
     InnerTestStruct simpleTestFunc(1: InnerTestStruct req)

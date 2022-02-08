@@ -25,6 +25,7 @@ import org.apache.flink.table.types.FieldsDataType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,10 +57,10 @@ public class DataTypeUtil {
 		DataTypes.Field[] rowFields = new DataTypes.Field[size];
 		for (int i = 0; i < size - 1; i++) {
 			Field field = fields[i];
-			DataType dataType = generateFieldDataType(field.getGenericType());
+			DataType dataType = generateFieldDataType(field.getGenericType(), new HashSet<>());
 			rowFields[i] = DataTypes.FIELD(field.getName(), dataType);
 		}
-		DataType responseDataType = generateFieldsDataType(responseClass);
+		DataType responseDataType = generateFieldsDataType(responseClass, new HashSet<>());
 		rowFields[size - 1] = DataTypes.FIELD(responseClass.getSimpleName(), responseDataType);
 		return (FieldsDataType) DataTypes.ROW(rowFields);
 	}
@@ -71,7 +72,8 @@ public class DataTypeUtil {
 	 * @param clz the thrift generated java class
 	 * @return RowTypeInfo construct by class corresponding fields.
 	 */
-	public static FieldsDataType generateFieldsDataType(Class<?> clz) {
+	public static FieldsDataType generateFieldsDataType(Class<?> clz, Set<String> processedTypes) {
+		processedTypes.add(clz.getTypeName());
 		Field[] fields = clz.getFields();
 		/* The last field generate by thrift is metaDataMap which contains the thrift fields information.
 		 * Thrift version 0.13.0 is suitable for this implementation. Because we use reflect to get fields
@@ -80,28 +82,33 @@ public class DataTypeUtil {
 		DataTypes.Field[] rowFields = new DataTypes.Field[size];
 		for (int i = 0; i < size; i++) {
 			Field field = fields[i];
-			DataType dataType = generateFieldDataType(field.getGenericType());
+			DataType dataType = generateFieldDataType(field.getGenericType(), processedTypes);
 			rowFields[i] = DataTypes.FIELD(field.getName(), dataType);
 		}
+		processedTypes.remove(clz.getTypeName());
 		return (FieldsDataType) DataTypes.ROW(rowFields);
 	}
 
-	private static DataType generateFieldDataType(Type type) {
+	private static DataType generateFieldDataType(Type type, Set<String> processedTypes) {
 		DataType dataType;
 		Tuple2<Class<?>, Type[]> infos = getClzAndGenericTypes(type);
 		Class<?> clz = infos.f0;
 		Type[] innerTypes = infos.f1;
+		if (processedTypes.contains(clz.getTypeName())) {
+				throw new IllegalArgumentException(String.format("Struct %s is self-contained, please turn off auto " +
+					"schema inferring.", clz.getTypeName()));
+			}
 		if (clz.isPrimitive() || isPrimitivePackageClass(clz)) {
 			dataType = generatePrimitiveDataType(clz);
 		} else if (clz.equals(List.class) || clz.equals(Set.class)) {
-			dataType = DataTypes.ARRAY(generateFieldDataType(innerTypes[0]));
+			dataType = DataTypes.ARRAY(generateFieldDataType(innerTypes[0], processedTypes));
 		} else if (clz.equals(Map.class)) {
-			dataType = DataTypes.MAP(generateFieldDataType(innerTypes[0]),
-				generateFieldDataType(innerTypes[1]));
+			dataType = DataTypes.MAP(generateFieldDataType(innerTypes[0], processedTypes),
+				generateFieldDataType(innerTypes[1], processedTypes));
 		} else if (clz.isEnum()) {
 			dataType = DataTypes.STRING();
 		} else {
-			dataType = generateFieldsDataType(clz);
+			dataType = generateFieldsDataType(clz, processedTypes);
 		}
 		return dataType;
 	}
