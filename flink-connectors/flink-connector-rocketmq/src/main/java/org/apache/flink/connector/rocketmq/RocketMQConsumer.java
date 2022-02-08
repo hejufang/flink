@@ -135,7 +135,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.consumerFactory = config.getConsumerFactory();
 		this.jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
 		RocketMQUtils.saveConfigurationToSystemProperties(config);
-		this.runtimeParallelism = getRuntimeContext().getNumberOfParallelSubtasks();
 	}
 
 	@Override
