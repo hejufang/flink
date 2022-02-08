@@ -90,7 +90,7 @@ public class SourceMetadataHandler extends AbstractRestHandler<RestfulGateway, E
 				}
 				final String cluster = info.getCluster();
 				final String group = info.getConsumerGroup();
-				final Set<String> topics = info.getTopicAndPartitions().keySet();
+				final Set<String> topics = info.getTopics();
 				final String key = String.join("-", cluster, group);
 				if (!m.containsKey(key)) {
 					m.put(key, new SourceMetaMetricsInfo(cluster, group, new ArrayList<>()));

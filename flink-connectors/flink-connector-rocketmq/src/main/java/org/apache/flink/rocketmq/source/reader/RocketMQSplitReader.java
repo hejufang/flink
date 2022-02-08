@@ -28,6 +28,7 @@ import org.apache.flink.connector.rocketmq.RocketMQConfig;
 import org.apache.flink.connector.rocketmq.RocketMQConsumerFactory;
 import org.apache.flink.connector.rocketmq.RocketMQOptions;
 import org.apache.flink.connector.rocketmq.RocketMQUtils;
+import org.apache.flink.connector.rocketmq.TopicAndQueuesGauge;
 import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserializationSchema;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
@@ -72,6 +73,7 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQSplitReader.class);
 	private static final long CONSUMER_DEFAULT_POLL_LATENCY_MS = 10000;
 	private static final int DEFAULT_SLEEP_MILLISECONDS = 1;
+	private static final String CONSUMER_TOPIC_QUEUES = "sourceTopicPartitions";
 
 	private final RocketMQDeserializationSchema<OUT> schema;
 	private final RocketMQConsumerFactory consumerFactory;
@@ -93,6 +95,7 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 	private transient Counter skipDirtyCounter;
 	private transient Counter emptyPollCounter;
 	private transient Map<MessageQueuePb, Tuple1<Double>> fetchLatencyMap;
+	private transient TopicAndQueuesGauge topicAndQueuesGauge;
 
 	public RocketMQSplitReader(
 			RocketMQDeserializationSchema<OUT> schema,
@@ -234,6 +237,9 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 			}
 
 			initMetrics(newMessageQueues);
+			newMessageQueues.forEach(queue -> topicAndQueuesGauge.addTopicAndQueue(
+				queue.getTopic(),
+				String.format("%s:%d", queue.getBrokerName(), queue.getQueueId())));
 		}
 	}
 
@@ -316,6 +322,10 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 				return value;
 			});
 		});
+
+		this.topicAndQueuesGauge = sourceReaderContext.metricGroup()
+			.addGroup("task", String.valueOf(sourceReaderContext.getSubTaskId()))
+			.gauge(CONSUMER_TOPIC_QUEUES, new TopicAndQueuesGauge(cluster, group));
 	}
 
 	private void initialRocketMQSplitReader() {

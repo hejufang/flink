@@ -81,6 +81,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private static final int DEFAULT_SLEEP_MILLISECONDS = 1;
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQConsumer.class);
 	private static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
+	private static final String CONSUMER_TOPIC_QUEUES = "sourceTopicPartitions";
 	private static final String INSTANCE_ID_TEMPLATE = "flink_%s_rmq_%s_%s_%s";
 	public static final String ROCKET_MQ_CONSUMER_METRICS_GROUP = "RocketMQConsumer";
 
@@ -99,6 +100,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private int parallelism;
 
 	private transient MeterView recordsNumMeterView;
+	private transient TopicAndQueuesGauge topicAndQueuesGauge;
 	private transient DefaultMQPullConsumer consumer;
 	private transient volatile List<MessageQueuePb> assignedMessageQueuePbs;
 	private transient volatile Set<MessageQueue> assignedMessageQueueSet;
@@ -133,13 +135,13 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.consumerFactory = config.getConsumerFactory();
 		this.jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
 		RocketMQUtils.saveConfigurationToSystemProperties(config);
+		this.runtimeParallelism = getRuntimeContext().getNumberOfParallelSubtasks();
 	}
 
 	@Override
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
 		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
-
 		Properties properties = getRocketMQProperties(props);
 		String instanceName = String.format(INSTANCE_ID_TEMPLATE, jobName, topic, subTaskId, UUID.randomUUID());
 		LOG.info("Current rocketmq instance name is {}", instanceName);
@@ -152,6 +154,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			.addGroup(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE);
 
 		this.recordsNumMeterView = metricGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
+		this.topicAndQueuesGauge = metricGroup.gauge(CONSUMER_TOPIC_QUEUES, new TopicAndQueuesGauge(cluster, group));
 		schema.open(() -> getRuntimeContext().getMetricGroup());
 		this.skipDirtyCounter = getRuntimeContext().getMetricGroup().counter(FactoryUtil.SOURCE_SKIP_DIRTY);
 		specificMessageQueueSet = parseMessageQueueSet();
@@ -340,6 +343,11 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				}
 				resetAllOffset();
 				consumer.assign(assignedMessageQueuePbs);
+				for (MessageQueuePb messageQueuePb: assignedMessageQueuePbs) {
+					topicAndQueuesGauge.addTopicAndQueue(
+						messageQueuePb.getTopic(),
+						String.format("%s:%d", messageQueuePb.getBrokerName(), messageQueuePb.getQueueId()));
+				}
 			}
 		}
 	}
