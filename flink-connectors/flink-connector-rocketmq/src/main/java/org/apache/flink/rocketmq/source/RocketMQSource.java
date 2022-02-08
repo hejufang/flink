@@ -31,6 +31,7 @@ import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureNotifier;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
+import org.apache.flink.connector.rocketmq.RocketMQUtils;
 import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserializationSchema;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.rocketmq.source.enumerator.RocketMQEnumState;
@@ -77,6 +78,7 @@ public class RocketMQSource<OUT> implements
 		this.config = config;
 		this.jobName = System.getProperty(
 			ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
+		RocketMQUtils.saveConfigurationToSystemProperties(config);
 	}
 
 	@Override

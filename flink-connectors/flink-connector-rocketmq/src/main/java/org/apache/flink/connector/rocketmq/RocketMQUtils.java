@@ -20,6 +20,11 @@ package org.apache.flink.connector.rocketmq;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
+
 import com.bytedance.mqproxy.proto.MessageQueuePb;
 import com.bytedance.mqproxy.proto.ResponseCode;
 import com.bytedance.rocketmq.clientv2.consumer.DefaultMQPullConsumer;
@@ -54,6 +59,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_T
  */
 public final class RocketMQUtils {
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQUtils.class);
+	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
 
 	public static int getInteger(Properties props, String key, int defaultValue) {
 		return Integer.parseInt(props.getProperty(key, String.valueOf(defaultValue)));
@@ -231,5 +237,29 @@ public final class RocketMQUtils {
 
 	public static long getOnlyOffset(Map<MessageQueuePb, Long> offsetMap) {
 		return offsetMap.entrySet().iterator().next().getValue();
+	}
+
+	/**
+	 * Save rocketmq config to system properties, so we can use it when register the dashboard.
+	 * See {@link org.apache.flink.monitor.Dashboard}.
+	 */
+	public static <T> void saveConfigurationToSystemProperties(RocketMQConfig<T> rocketMQConfig) {
+		try {
+			String cluster = rocketMQConfig.getCluster();
+			String topic = rocketMQConfig.getTopic();
+			String consumerGroup = rocketMQConfig.getGroup();
+			String rocketMQMetricsStr = System.getProperty(FLINK_ROCKETMQ_METRICS, "[]");
+			ObjectMapper objectMapper = new ObjectMapper();
+			ArrayNode arrayNode = (ArrayNode) objectMapper.readTree(rocketMQMetricsStr);
+			ObjectNode objectNode = JsonNodeFactory.instance.objectNode();
+			objectNode.put("cluster", cluster);
+			objectNode.put("topic", topic);
+			objectNode.put("consumer_group", consumerGroup);
+			arrayNode.add(objectNode);
+			System.setProperty(FLINK_ROCKETMQ_METRICS, arrayNode.toString());
+		} catch (Throwable t) {
+			// We catch all Throwable as it is not critical path.
+			LOG.warn("Parse rocketmq metrics failed.", t);
+		}
 	}
 }

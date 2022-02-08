@@ -42,11 +42,6 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.RetryManager;
 import org.apache.flink.util.function.SupplierWithException;
 
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
-
 import com.bytedance.mqproxy.proto.MessageExt;
 import com.bytedance.mqproxy.proto.MessageQueuePb;
 import com.bytedance.mqproxy.proto.ResponseCode;
@@ -85,7 +80,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private static final long CONSUMER_DEFAULT_POLL_LATENCY_MS = 10000;
 	private static final int DEFAULT_SLEEP_MILLISECONDS = 1;
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQConsumer.class);
-	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
 	private static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
 	private static final String INSTANCE_ID_TEMPLATE = "flink_%s_rmq_%s_%s_%s";
 	public static final String ROCKET_MQ_CONSUMER_METRICS_GROUP = "RocketMQConsumer";
@@ -138,7 +132,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.sourceIdleTimeMs = config.getIdleTimeOut();
 		this.consumerFactory = config.getConsumerFactory();
 		this.jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
-		saveConfigurationToSystemProperties(config);
+		RocketMQUtils.saveConfigurationToSystemProperties(config);
 	}
 
 	@Override
@@ -347,30 +341,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				resetAllOffset();
 				consumer.assign(assignedMessageQueuePbs);
 			}
-		}
-	}
-
-	/**
-	 * Save rocketmq config to system properties, so we can use it when register the dashboard.
-	 * See {@link org.apache.flink.monitor.Dashboard}.
-	 */
-	private void saveConfigurationToSystemProperties(RocketMQConfig<T> rocketMQConfig) {
-		try {
-			String cluster = rocketMQConfig.getCluster();
-			String topic = rocketMQConfig.getTopic();
-			String consumerGroup = rocketMQConfig.getGroup();
-			String rocketMQMetricsStr = System.getProperty(FLINK_ROCKETMQ_METRICS, "[]");
-			ObjectMapper objectMapper = new ObjectMapper();
-			ArrayNode arrayNode = (ArrayNode) objectMapper.readTree(rocketMQMetricsStr);
-			ObjectNode objectNode = JsonNodeFactory.instance.objectNode();
-			objectNode.put("cluster", cluster);
-			objectNode.put("topic", topic);
-			objectNode.put("consumer_group", consumerGroup);
-			arrayNode.add(objectNode);
-			System.setProperty(FLINK_ROCKETMQ_METRICS, arrayNode.toString());
-		} catch (Throwable t) {
-			// We catch all Throwable as it is not critical path.
-			LOG.warn("Parse rocketmq metrics failed.", t);
 		}
 	}
 
