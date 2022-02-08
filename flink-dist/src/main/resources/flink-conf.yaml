@@ -603,6 +603,7 @@ quoka:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
 
 quaga:
   dc: cn
