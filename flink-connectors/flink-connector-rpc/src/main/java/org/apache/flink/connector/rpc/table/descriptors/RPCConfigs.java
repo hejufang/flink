@@ -128,4 +128,32 @@ public class RPCConfigs {
 		.booleanType()
 		.defaultValue(true)
 		.withDescription("Optional. Flag of whether to infer table schema from thrift.");
+
+	// ------------------------------------------------------------------------
+	//  Batch Lookup Options
+	// ------------------------------------------------------------------------
+
+	public static final ConfigOption<Boolean> LOOKUP_BATCH_MODE_ENABLED = ConfigOptions
+		.key("lookup.batch-mode.enabled")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional. Flag indicates whether enable batch mode.");
+
+	public static final ConfigOption<Integer> LOOKUP_BATCH_SIZE = ConfigOptions
+		.key("lookup.batch-size")
+		.intType()
+		.defaultValue(10)
+		.withDescription("Optional. The batch size of lookup.");
+
+	public static final ConfigOption<String> LOOKUP_BATCH_REQUEST_FIELD_NAME = ConfigOptions
+		.key("lookup.batch-request-field-name")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Field name of the batch request.");
+
+	public static final ConfigOption<String> LOOKUP_BATCH_RESPONSE_FIELD_NAME = ConfigOptions
+		.key("lookup.batch-response-field-name")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Field name of the batch response.");
 }

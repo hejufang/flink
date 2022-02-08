@@ -22,6 +22,7 @@ import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.connector.rpc.table.descriptors.RPCConfigs;
 import org.apache.flink.connector.rpc.table.descriptors.RPCLookupOptions;
 import org.apache.flink.connector.rpc.table.descriptors.RPCOptions;
 import org.apache.flink.connector.rpc.thrift.ThriftUtil;
@@ -35,6 +36,7 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.FieldsDataType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.utils.TableSchemaUtils;
+import org.apache.flink.util.Preconditions;
 
 import org.apache.thrift.TServiceClient;
 
@@ -50,6 +52,10 @@ import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.CONSUL
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.CONSUL_UPDATE_INTERVAL;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_ASYNC_CONCURRENCY;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_ASYNC_ENABLED;
+import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_BATCH_MODE_ENABLED;
+import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_BATCH_REQUEST_FIELD_NAME;
+import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_BATCH_RESPONSE_FIELD_NAME;
+import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_BATCH_SIZE;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_FAILURE_HANDLE_STRATEGY;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_INFER_SCHEMA;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.PSM;
@@ -75,10 +81,10 @@ public class RPCDynamicTableFactory implements DynamicTableSourceFactory, TableS
 		final ReadableConfig config = helper.getOptions();
 
 		helper.validate();
+		validateBatchConfigs(config);
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
 		RPCOptions options = getRPCOptions(config);
 		RPCLookupOptions lookupOptions = getRPCLookupOptions(config);
-
 		return new RPCDynamicTableSource(options, lookupOptions, physicalSchema);
 	}
 
@@ -115,6 +121,10 @@ public class RPCDynamicTableFactory implements DynamicTableSourceFactory, TableS
 		optionalOptions.add(LOOKUP_FAILURE_HANDLE_STRATEGY);
 		optionalOptions.add(LOOKUP_INFER_SCHEMA);
 		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
+		optionalOptions.add(LOOKUP_BATCH_MODE_ENABLED);
+		optionalOptions.add(LOOKUP_BATCH_SIZE);
+		optionalOptions.add(LOOKUP_BATCH_REQUEST_FIELD_NAME);
+		optionalOptions.add(LOOKUP_BATCH_RESPONSE_FIELD_NAME);
 		optionalOptions.add(RATE_LIMIT_NUM);
 		return optionalOptions;
 	}
@@ -148,29 +158,92 @@ public class RPCDynamicTableFactory implements DynamicTableSourceFactory, TableS
 		optionsBuilder.setMaxRetryTimes(configs.get(LOOKUP_MAX_RETRIES));
 		optionsBuilder.setCacheExpireMs(configs.get(LOOKUP_CACHE_TTL).toMillis());
 		optionsBuilder.setCacheMaxSize(configs.get(LOOKUP_CACHE_MAX_ROWS));
+		optionsBuilder.setBatchModeEnabled(configs.get(LOOKUP_BATCH_MODE_ENABLED));
+		optionsBuilder.setBatchSize(configs.get(LOOKUP_BATCH_SIZE));
+		configs.getOptional(LOOKUP_BATCH_REQUEST_FIELD_NAME).ifPresent(optionsBuilder::setBatchRequestFieldName);
+		configs.getOptional(LOOKUP_BATCH_RESPONSE_FIELD_NAME).ifPresent(optionsBuilder::setBatchResponseFieldName);
 		configs.getOptional(LOOKUP_ENABLE_INPUT_KEYBY).ifPresent(optionsBuilder::setIsInputKeyByEnabled);
 		return optionsBuilder.build();
 	}
 
+	private void validateBatchConfigs(ReadableConfig configs) {
+		if (configs.get(LOOKUP_BATCH_MODE_ENABLED)) {
+			Preconditions.checkArgument(!configs.get(LOOKUP_ASYNC_ENABLED), "Batch mode can't" +
+				" work with async mode, please use sync mode.");
+			Preconditions.checkArgument(!configs.get(LOOKUP_BATCH_REQUEST_FIELD_NAME).isEmpty(),
+				LOOKUP_BATCH_REQUEST_FIELD_NAME.key() + " must be set.");
+			Preconditions.checkArgument(!configs.get(LOOKUP_BATCH_RESPONSE_FIELD_NAME).isEmpty(),
+				LOOKUP_BATCH_RESPONSE_FIELD_NAME.key() + " must be set.");
+			Preconditions.checkArgument(configs.get(LOOKUP_BATCH_SIZE) > 0,
+				LOOKUP_BATCH_SIZE.key() + " must be greater than zero.");
+		}
+	}
+
+	/**
+	 * For normal mode, the schema consists of a breakup request and a row type response.
+	 * For example, if the request struct is:
+	 * struct single_request {
+	 *     1: string req_f1,
+	 *     2: int32 req_f2
+	 * },
+	 * and the response struct is
+	 * struct single_response {
+	 *     1: string resp_f1,
+	 *     2: int32 resp_f2
+	 * },
+	 * then the schema of the table is:
+	 * 	  (req_f1 varchar,
+	 * 	  req_f2 integer,
+	 * 	  single_response row &lt; resp_f1 varchar, resp_f2 integer &gt;)
+	 * For batch mode, the schema consists of a breakup request and a row type response too.
+	 * The difference is that the request is element of an inner list field of the outer request,
+	 * which is set by {@link RPCConfigs#LOOKUP_BATCH_REQUEST_FIELD_NAME}, also the response is
+	 * element of an inner list field of the outer response which is set by {@link
+	 * RPCConfigs#LOOKUP_BATCH_RESPONSE_FIELD_NAME}.
+	 * For example, if the request struct is:
+	 * struct batch_request {
+	 *     1: list&lt; single_request &gt;
+	 * },
+	 * and the response struct is
+	 * struct batch_response {
+	 *     1: list&lt; single_response &gt;
+	 * }.
+	 * Note the single_request and single_response here have been defined in previous example.
+	 * then the schema of the table is:
+	 * 	  (req_f1 varchar,
+	 * 	  req_f2 integer,
+	 * 	  response row &lt; resp_f1 varchar, resp_f2 integer &gt;)
+	 */
 	@Override
-	public Optional<TableSchema> getOptionalTableSchema(Map<String, String> formatOptions) {
-		String inferSchemaBool = formatOptions.get(LOOKUP_INFER_SCHEMA.key());
+	public Optional<TableSchema> getOptionalTableSchema(Map<String, String> options) {
+		String inferSchemaBool = options.get(LOOKUP_INFER_SCHEMA.key());
+		String batchModeBool = options.get(LOOKUP_BATCH_MODE_ENABLED.key());
 		if ((inferSchemaBool == null && LOOKUP_INFER_SCHEMA.defaultValue()) ||
 				Boolean.parseBoolean(inferSchemaBool)) {
 			Class<? extends TServiceClient> clientClass = ThriftUtil
-				.getThriftClientClass(formatOptions.get(THRIFT_SERVICE_CLASS.key()));
+				.getThriftClientClass(options.get(THRIFT_SERVICE_CLASS.key()));
 			Class<?> requestClass = ThriftUtil
-				.getParameterClassOfMethod(clientClass, formatOptions.get(THRIFT_METHOD.key()));
+				.getParameterClassOfMethod(clientClass, options.get(THRIFT_METHOD.key()));
 			Class<?> responseClass = ThriftUtil
-				.getReturnClassOfMethod(clientClass, formatOptions.get(THRIFT_METHOD.key()));
-			FieldsDataType fieldsDataType = DataTypeUtil.generateFieldsDataType(requestClass, responseClass);
-			RowType rowType = (RowType) fieldsDataType.getLogicalType();
-			TableSchema inferredSchema = TableSchema.builder()
-				.fields(rowType.getFieldNames().toArray(new String[0]),
-					fieldsDataType.getChildren().toArray(new DataType[0]))
-				.build();
-			return Optional.of(inferredSchema);
+				.getReturnClassOfMethod(clientClass, options.get(THRIFT_METHOD.key()));
+			if (batchModeBool == null && LOOKUP_BATCH_MODE_ENABLED.defaultValue() ||
+					Boolean.parseBoolean(batchModeBool)) {
+				requestClass = ThriftUtil.getComponentClassOfListField(requestClass,
+					options.get(LOOKUP_BATCH_REQUEST_FIELD_NAME.key()));
+				responseClass = ThriftUtil.getComponentClassOfListField(responseClass,
+					options.get(LOOKUP_BATCH_RESPONSE_FIELD_NAME.key()));
+			}
+			return Optional.of(getTableSchema(requestClass, responseClass));
 		}
 		return Optional.empty();
+	}
+
+	private TableSchema getTableSchema(Class<?> requestClass, Class<?> responseClass) {
+		FieldsDataType fieldsDataType = DataTypeUtil.generateFieldsDataType(requestClass, responseClass);
+		RowType rowType = (RowType) fieldsDataType.getLogicalType();
+		return TableSchema.builder()
+			.fields(rowType.getFieldNames().toArray(new String[0]),
+				fieldsDataType.getChildren().toArray(new DataType[0]))
+			.build();
 	}
 }

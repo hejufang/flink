@@ -382,10 +382,6 @@ abstract class CommonLookupJoin(
       checkUdtfReturnType(
         udtfResultType,
         extractedResultTypeInfo)
-      checkEvalMethodSignature(
-        syncLookupFunction,
-        lookupFieldTypesInOrder,
-        extractedResultTypeInfo)
 
       val (laterJoinMs, laterRetryTimes) = temporalTable match {
         case t: TableSourceTable =>
@@ -398,6 +394,10 @@ abstract class CommonLookupJoin(
       val miniBatchEnabled = CommonLookupJoin.isMiniBatchEnabled(config, syncLookupFunction)
       val ctx = CodeGeneratorContext(config)
       if (!miniBatchEnabled) {
+        checkEvalMethodSignature(
+          syncLookupFunction,
+          lookupFieldTypesInOrder,
+          extractedResultTypeInfo)
         val generatedFetcher = LookupJoinCodeGenerator.generateLookupFunction(
           config,
           relBuilder.getTypeFactory.asInstanceOf[FlinkTypeFactory],

@@ -62,6 +62,14 @@ public class RPCDynamicTableSource implements LookupTableSource {
 				keyIndices,
 				schema.toRowDataType(),
 				schema.getFieldNames()));
+		} else if (lookupOptions.isBatchModeEnabled()) {
+			return TableFunctionProvider.of(new RPCBatchedLookupFunction(
+				lookupOptions,
+				options,
+				keyIndices,
+				schema.toRowDataType(),
+				schema.getFieldNames()
+			));
 		} else {
 			return TableFunctionProvider.of(new RPCLookupFunction(
 				lookupOptions,

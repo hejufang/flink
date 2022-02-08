@@ -44,16 +44,24 @@ public class RPCLookupOptions implements Serializable {
 	private final FailureHandleStrategy failureHandleStrategy;
 	private final boolean isAsync;
 	private final int asyncConcurrency;
+	private final boolean isBatchModeEnabled;
+	private final int batchSize;
+	private final String batchRequestFieldName;
+	private final String batchResponseFieldName;
 	@Nullable
 	private final Boolean isInputKeyByEnabled;
 
-	private RPCLookupOptions(
+	public RPCLookupOptions(
 			long cacheMaxSize,
 			long cacheExpireMs,
 			int maxRetryTimes,
 			FailureHandleStrategy failureHandleStrategy,
 			boolean isAsync,
 			int asyncConcurrency,
+			boolean isBatchModeEnabled,
+			int batchSize,
+			String batchRequestFieldName,
+			String batchResponseFieldName,
 			@Nullable Boolean isInputKeyByEnabled) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
@@ -61,6 +69,10 @@ public class RPCLookupOptions implements Serializable {
 		this.failureHandleStrategy = failureHandleStrategy;
 		this.isAsync = isAsync;
 		this.asyncConcurrency = asyncConcurrency;
+		this.isBatchModeEnabled = isBatchModeEnabled;
+		this.batchSize = batchSize;
+		this.batchRequestFieldName = batchRequestFieldName;
+		this.batchResponseFieldName = batchResponseFieldName;
 		this.isInputKeyByEnabled = isInputKeyByEnabled;
 	}
 
@@ -88,6 +100,22 @@ public class RPCLookupOptions implements Serializable {
 		return asyncConcurrency;
 	}
 
+	public boolean isBatchModeEnabled() {
+		return isBatchModeEnabled;
+	}
+
+	public int getBatchSize() {
+		return batchSize;
+	}
+
+	public String getBatchRequestFieldName() {
+		return batchRequestFieldName;
+	}
+
+	public String getBatchResponseFieldName() {
+		return batchResponseFieldName;
+	}
+
 	@Nullable
 	public Boolean isInputKeyByEnabled() {
 		return isInputKeyByEnabled;
@@ -112,13 +140,18 @@ public class RPCLookupOptions implements Serializable {
 			failureHandleStrategy == that.failureHandleStrategy &&
 			isAsync == that.isAsync &&
 			asyncConcurrency == that.asyncConcurrency &&
+			isBatchModeEnabled == that.isBatchModeEnabled &&
+			batchSize == that.batchSize &&
+			batchRequestFieldName.equals(that.batchRequestFieldName) &&
+			batchResponseFieldName.equals(that.batchResponseFieldName) &&
 			isInputKeyByEnabled == that.isInputKeyByEnabled;
 	}
 
 	@Override
 	public int hashCode() {
 		return Objects.hash(cacheMaxSize, cacheExpireMs, maxRetryTimes, failureHandleStrategy,
-			isAsync, asyncConcurrency, isInputKeyByEnabled);
+			isAsync, asyncConcurrency, isBatchModeEnabled, batchSize, batchRequestFieldName,
+			batchResponseFieldName, isInputKeyByEnabled);
 	}
 
 	/**
@@ -131,6 +164,10 @@ public class RPCLookupOptions implements Serializable {
 		private FailureHandleStrategy failureHandleStrategy = LOOKUP_FAILURE_HANDLE_STRATEGY.defaultValue();
 		private boolean isAsync;
 		private int asyncConcurrency = LOOKUP_ASYNC_CONCURRENCY.defaultValue();
+		private boolean isBatchModeEnabled;
+		private int batchSize;
+		private String batchRequestFieldName;
+		private String batchResponseFieldName;
 		// The null default value means this flag is not set by user.
 		private Boolean isInputKeyByEnabled = null;
 
@@ -176,6 +213,26 @@ public class RPCLookupOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setBatchModeEnabled(boolean batchModeEnabled) {
+			isBatchModeEnabled = batchModeEnabled;
+			return this;
+		}
+
+		public Builder setBatchSize(int batchSize) {
+			this.batchSize = batchSize;
+			return this;
+		}
+
+		public Builder setBatchRequestFieldName(String batchRequestFieldName) {
+			this.batchRequestFieldName = batchRequestFieldName;
+			return this;
+		}
+
+		public Builder setBatchResponseFieldName(String batchResponseFieldName) {
+			this.batchResponseFieldName = batchResponseFieldName;
+			return this;
+		}
+
 		public Builder setIsInputKeyByEnabled(Boolean isInputKeyByEnabled) {
 			this.isInputKeyByEnabled = isInputKeyByEnabled;
 			return this;
@@ -189,6 +246,10 @@ public class RPCLookupOptions implements Serializable {
 				failureHandleStrategy,
 				isAsync,
 				asyncConcurrency,
+				isBatchModeEnabled,
+				batchSize,
+				batchRequestFieldName,
+				batchResponseFieldName,
 				isInputKeyByEnabled);
 		}
 	}

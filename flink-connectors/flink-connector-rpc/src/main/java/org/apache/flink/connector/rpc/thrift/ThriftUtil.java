@@ -21,9 +21,13 @@ import org.apache.flink.util.FlinkRuntimeException;
 
 import org.apache.thrift.TServiceClient;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * The utils of the thrift.
@@ -80,6 +84,21 @@ public class ThriftUtil {
 			return (Class<? extends TServiceClient>) Class.forName(thriftServiceClassName + CLIENT_CLASS_SUFFIX);
 		} catch (ClassNotFoundException e) {
 			throw new FlinkRuntimeException(e);
+		}
+	}
+
+	public static Class<?> getComponentClassOfListField(Class<?> outerClass, String fieldName) {
+		try {
+			Field field = outerClass.getField(fieldName);
+			if (field.getType().equals(List.class)) {
+				ParameterizedType listInnerType = (ParameterizedType) field.getGenericType();
+				Type[] listActualTypeArguments = listInnerType.getActualTypeArguments();
+				return Class.forName(listActualTypeArguments[0].getTypeName());
+			} else {
+				throw new IllegalArgumentException("The field " + fieldName + " must be of List type.");
+			}
+		} catch (Exception ex) {
+			throw new FlinkRuntimeException(ex);
 		}
 	}
 

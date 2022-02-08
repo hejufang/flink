@@ -23,6 +23,7 @@ import org.apache.flink.api.java.tuple.Tuple4;
 import org.apache.flink.connector.rpc.thrift.client.RPCServiceClientMock;
 import org.apache.flink.connector.rpc.thrift.generated.Base;
 import org.apache.flink.connector.rpc.thrift.generated.InnerTestStruct;
+import org.apache.flink.connector.rpc.thrift.generated.SimpleStruct;
 import org.apache.flink.connector.rpc.thrift.generated.TestStruct;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -38,6 +39,7 @@ import org.junit.ComparisonFailure;
 import org.junit.Test;
 
 import java.lang.reflect.Field;
+import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -259,6 +261,190 @@ public class RPCDynamicTableSourceITCase {
 		assertEquals(expectedOutput, TestValuesTableFactory.getResults("print_sink"));
 	}
 
+	@Test
+	public void testBatchLookup() throws Exception {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		EnvironmentSettings envSettings = EnvironmentSettings.newInstance()
+			.useBlinkPlanner()
+			.inStreamingMode()
+			.build();
+		env.getConfig().setParallelism(1);
+		StreamTableEnvironment tEnv = StreamTableEnvironment.create(env, envSettings);
+		tEnv.getConfig().getConfiguration()
+			.setString("table.exec.resource.default-parallelism", "1");
+		tEnv.getConfig().getConfiguration()
+			.setString("table.exec.mini-batch.enabled", "true");
+		tEnv.getConfig().getConfiguration()
+			.setString("table.exec.mini-batch.allow-latency", "300s");
+		tEnv.getConfig().getConfiguration()
+			.setString("table.exec.mini-batch.size", "2");
+		Table t = tEnv.fromDataStream(get4TupleDataStream(env), $("id"), $("num"), $("text"), $("ts"));
+
+		tEnv.createTemporaryView("source", t);
+		tEnv.sql("CREATE TABLE rpc_table\n" +
+			"        WITH(\n" +
+			"            'connector' = 'rpc',\n" +
+			"            'psm' = 'test',\n" +
+			"            'cluster' = 'default',\n" +
+			"            'consul' = 'test',\n" +
+			"            'service-client-impl.class' = 'org.apache.flink.connector.rpc.thrift.client.RPCServiceClientMock',\n" +
+			"            'thrift.service-class' = 'org.apache.flink.connector.rpc.thrift.generated.TestService',\n" +
+			"            'thrift.method' = 'testFunc',\n" +
+			"            'lookup.batch-mode.enabled' = 'true',\n" +
+			"            'lookup.batch-size' = '2',\n" +
+			"            'lookup.batch-request-field-name' = 'listWithStruct',\n" +
+			"            'lookup.batch-response-field-name' = 'listWithStruct'\n" +
+			"        );\n" +
+			"CREATE  TABLE print_sink (\n" +
+			"            longVal BIGINT,\n" +
+			"            biVal VARBINARY\n" +
+			"        )\n" +
+			"        WITH (\n" +
+			"			 'connector' = 'values',\n" +
+			"   		 'sink-insert-only' = 'false'\n" +
+			"		 );\n" +
+			"CREATE  VIEW join_view AS\n" +
+			"SELECT" +
+			"       D.longVal,\n" +
+			"       D.biVal\n" +
+			"FROM    (\n" +
+			"            SELECT\n" +
+			"				 num,\n" +
+			"				 text,\n" +
+			"				 proctime() as proc\n" +
+			"            FROM source\n" +
+			"        ) T\n" +
+			"LEFT JOIN rpc_table FOR SYSTEM_TIME AS OF proc AS D\n" +
+			"ON      D.longVal = T.num\n" +
+			"AND     D.biVal = ENCODE(T.text, 'US-ASCII');\n"
+		);
+
+		TableResult tableResult = tEnv.executeSql(
+			"INSERT INTO print_sink\n" +
+				"SELECT  *\n" +
+				"FROM    join_view");
+		// wait to finish
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+		List<TestStruct> expectedRequests = new ArrayList<>();
+		TestStruct first = new TestStruct();
+		first.setBase(commonBase);
+		List<SimpleStruct> firstInnerList = new ArrayList<SimpleStruct>(){{
+			add(new SimpleStruct(1, ByteBuffer.wrap(new byte[]{72, 105})));
+			add(new SimpleStruct(2, ByteBuffer.wrap(new byte[]{72, 101, 108, 108, 111})));
+		}};
+		first.setListWithStruct(firstInnerList);
+		expectedRequests.add(first);
+		List<TestStruct> actualRequests = (List<TestStruct>) RPCServiceClientMock
+			.getInstance(null, null, null)
+			.getRequests(1);
+		verifyRequests(expectedRequests, actualRequests, baseField, logIDField);
+		List<String> expectedOutput = new ArrayList<String>(){{
+			add("1,[72, 105]");
+			add("2,[72, 101, 108, 108, 111]");
+		}};
+		assertEquals(expectedOutput, TestValuesTableFactory.getResults("print_sink"));
+	}
+
+	@Test
+	public void testBatchLookupWithCache() throws Exception {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		EnvironmentSettings envSettings = EnvironmentSettings.newInstance()
+			.useBlinkPlanner()
+			.inStreamingMode()
+			.build();
+		env.getConfig().setParallelism(1);
+		StreamTableEnvironment tEnv = StreamTableEnvironment.create(env, envSettings);
+		tEnv.getConfig().getConfiguration()
+			.setString("table.exec.resource.default-parallelism", "1");
+		tEnv.getConfig().getConfiguration()
+			.setString("table.exec.mini-batch.enabled", "true");
+		tEnv.getConfig().getConfiguration()
+			.setString("table.exec.mini-batch.allow-latency", "300s");
+		tEnv.getConfig().getConfiguration()
+			.setString("table.exec.mini-batch.size", "2");
+		Table t = tEnv.fromDataStream(get4TupleDataStream(env), $("id"), $("num"), $("text"), $("ts"));
+
+		tEnv.createTemporaryView("source", t);
+		tEnv.sql("CREATE TABLE rpc_table\n" +
+			"        WITH(\n" +
+			"            'connector' = 'rpc',\n" +
+			"            'psm' = 'test',\n" +
+			"            'cluster' = 'default',\n" +
+			"            'consul' = 'test',\n" +
+			"            'service-client-impl.class' = 'org.apache.flink.connector.rpc.thrift.client.RPCServiceClientMock',\n" +
+			"            'thrift.service-class' = 'org.apache.flink.connector.rpc.thrift.generated.TestService',\n" +
+			"            'thrift.method' = 'testFunc',\n" +
+			"    		 'lookup.cache.max-rows' = '5000000',\n" +
+			"    		 'lookup.cache.ttl' = '3600000',\n" +
+			"            'lookup.batch-mode.enabled' = 'true',\n" +
+			"            'lookup.batch-size' = '2',\n" +
+			"            'lookup.batch-request-field-name' = 'listWithStruct',\n" +
+			"            'lookup.batch-response-field-name' = 'listWithStruct'\n" +
+			"        );\n" +
+			"CREATE  TABLE print_sink (\n" +
+			"            longVal BIGINT,\n" +
+			"            biVal VARBINARY\n" +
+			"        )\n" +
+			"        WITH (\n" +
+			"			 'connector' = 'values',\n" +
+			"   		 'sink-insert-only' = 'false'\n" +
+			"		 );\n" +
+			"CREATE VIEW nest_view AS\n" +
+			"SELECT\n" +
+			"		ARRAY[ROW(12, ENCODE('Hi', 'US-ASCII')), ROW(num, ENCODE(text, 'US-ASCII'))] as key_array,\n" +
+			"		proctime() as proc\n" +
+			"FROM source;\n" +
+			"CREATE VIEW join_view AS\n" +
+			"SELECT\n" +
+			"       D.longVal,\n" +
+			"       D.biVal\n" +
+			"FROM    (\n" +
+			"            SELECT *\n" +
+			"            FROM nest_view CROSS JOIN UNNEST(key_array) as t(longVal, biVal)\n" +
+			"        ) T\n" +
+			"LEFT JOIN rpc_table FOR SYSTEM_TIME AS OF proc AS D\n" +
+			"ON      D.longVal = T.longVal\n" +
+			"AND     D.biVal = T.biVal;\n"
+		);
+
+		TableResult tableResult = tEnv.executeSql(
+			"INSERT INTO print_sink\n" +
+				"SELECT  *\n" +
+				"FROM    join_view");
+		// wait to finish
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+		List<TestStruct> expectedRequests = new ArrayList<>();
+		TestStruct first = new TestStruct();
+		first.setBase(commonBase);
+		List<SimpleStruct> firstInnerList = new ArrayList<SimpleStruct>(){{
+			add(new SimpleStruct(12, ByteBuffer.wrap(new byte[]{72, 105})));
+			add(new SimpleStruct(1, ByteBuffer.wrap(new byte[]{72, 105})));
+		}};
+		first.setListWithStruct(firstInnerList);
+		expectedRequests.add(first);
+		TestStruct second = new TestStruct();
+		second.setBase(commonBase);
+		List<SimpleStruct> secondInnerList = new ArrayList<SimpleStruct>(){{
+			add(new SimpleStruct(2, ByteBuffer.wrap(new byte[]{72, 101, 108, 108, 111})));
+		}};
+		second.setListWithStruct(secondInnerList);
+		expectedRequests.add(second);
+		List<TestStruct> actualRequests = (List<TestStruct>) RPCServiceClientMock
+			.getInstance(null, null, null)
+			.getRequests(2);
+		verifyRequests(expectedRequests, actualRequests, baseField, logIDField);
+		List<String> expectedOutput = new ArrayList<String>(){{
+			add("12,[72, 105]");
+			add("1,[72, 105]");
+			add("12,[72, 105]");
+			add("2,[72, 101, 108, 108, 111]");
+		}};
+		assertEquals(expectedOutput, TestValuesTableFactory.getResults("print_sink"));
+	}
+
+
 	/**
 	 * Used to compare requests. Note that non-deterministic fields like generated logID will be ignored.
 	 */
@@ -267,6 +453,10 @@ public class RPCDynamicTableSourceITCase {
 			List<T> actualList,
 			Field baseField,
 			Field logIDField) throws Exception {
+		if (expectedList.size() != actualList.size()) {
+			throw new ComparisonFailure(String.format("The size of the expected list was %d, but actual one was %d.",
+				expectedList.size(), actualList.size()), expectedList.toString(), actualList.toString());
+		}
 		for (int i = 0; i < expectedList.size(); i++) {
 			T expected = expectedList.get(i);
 			T actual = actualList.get(i);
