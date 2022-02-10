@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -30,6 +31,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class TaskSlotMemoryManager implements TaskMemoryManager {
 	private final Map<Integer, MemoryManager> slotMemoryManagers = new HashMap<>();
+	private final int slotCount;
 
 	public TaskSlotMemoryManager(
 			long memorySize,
@@ -38,11 +40,12 @@ public class TaskSlotMemoryManager implements TaskMemoryManager {
 			Duration requestMemorySegmentsTimeout,
 			boolean lazyAllocate,
 			boolean cacheEnable) {
+		this.slotCount = slotCount;
 		long slotMemorySize = memorySize / slotCount;
 		for (int i = 0; i < slotCount; i++) {
 			slotMemoryManagers.put(
 				i,
-				cacheEnable ? new CacheMemoryManager(
+				cacheEnable ? new MemoryPoolManager(
 					slotMemorySize,
 					pageSize,
 					requestMemorySegmentsTimeout,
@@ -53,7 +56,7 @@ public class TaskSlotMemoryManager implements TaskMemoryManager {
 
 	@Override
 	public MemoryManager getMemoryManager(int slotIndex) {
-		return checkNotNull(slotMemoryManagers.get(slotIndex));
+		return checkNotNull(slotMemoryManagers.get(ThreadLocalRandom.current().nextInt(0, slotCount)));
 	}
 
 	@Override

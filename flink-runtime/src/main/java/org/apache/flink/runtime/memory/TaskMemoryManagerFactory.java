@@ -67,7 +67,7 @@ public class TaskMemoryManagerFactory {
 			pageSize,
 			configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS),
 			configuration.get(TaskManagerOptions.ALLOCATE_MEMORY_SEGMENTS_TIMEOUT),
-			configuration.getBoolean(TaskManagerOptions.CACHE_MEMORY_MANAGER_SEGMENT_ALLOCATE_LAZY_ENABLE),
-			configuration.getBoolean(TaskManagerOptions.CACHE_MEMORY_MANAGER_ENABLE));
+			configuration.getBoolean(TaskManagerOptions.MEMORY_POOL_MANAGER_SEGMENT_ALLOCATE_LAZY_ENABLE),
+			configuration.getBoolean(TaskManagerOptions.MEMORY_POOL_MANAGER_ENABLE));
 	}
 }

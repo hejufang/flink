@@ -597,19 +597,19 @@ public class TaskManagerOptions {
 			.key("taskmanager.allocate-memory-segments.timeout")
 				.durationType()
 				.defaultValue(TimeUtils.parseDuration("10 s"))
-				.withDescription("Timeout for allocate memory segments from CacheMemoryManager.");
+				.withDescription("Timeout for allocate memory segments from MemoryPoolManager.");
 
-	public static final ConfigOption<Boolean> CACHE_MEMORY_MANAGER_SEGMENT_ALLOCATE_LAZY_ENABLE = ConfigOptions
-			.key("taskmanager.cache-memory-mananager.allocate-lazy.enable")
+	public static final ConfigOption<Boolean> MEMORY_POOL_MANAGER_SEGMENT_ALLOCATE_LAZY_ENABLE = ConfigOptions
+			.key("taskmanager.memory-pool-mananager.allocate-lazy.enable")
 			.booleanType()
 			.defaultValue(true)
-			.withDescription("Lazy allocate segments in cache memory manager.");
+			.withDescription("Lazy allocate segments in memory pool manager.");
 
-	public static final ConfigOption<Boolean> CACHE_MEMORY_MANAGER_ENABLE = ConfigOptions
-			.key("taskmanager.cache-memory-manager.enable")
+	public static final ConfigOption<Boolean> MEMORY_POOL_MANAGER_ENABLE = ConfigOptions
+			.key("taskmanager.memory-pool-manager.enable")
 			.booleanType()
 			.defaultValue(false)
-			.withDescription("If true, use the cache memory manager.");
+			.withDescription("If true, use the memory pool manager.");
 	// ------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */

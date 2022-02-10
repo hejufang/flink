@@ -37,7 +37,7 @@ import static org.junit.Assert.fail;
 /**
  * Tests for the cache memory manager.
  */
-public class CacheMemoryManagerTest {
+public class MemoryPoolManagerTest {
 
 	private static final long RANDOM_SEED = 643196033469871L;
 
@@ -53,7 +53,7 @@ public class CacheMemoryManagerTest {
 
 	@Before
 	public void setUp() {
-		this.memoryManager = new CacheMemoryManager(MEMORY_SIZE, PAGE_SIZE, Duration.ofSeconds(10), true, 1);
+		this.memoryManager = new MemoryPoolManager(MEMORY_SIZE, PAGE_SIZE, Duration.ofSeconds(10), true, 1);
 		this.random = new Random(RANDOM_SEED);
 	}
 

@@ -23,9 +23,9 @@ import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.disk.iomanager.IOManagerAsync;
-import org.apache.flink.runtime.memory.CacheMemoryManager;
 import org.apache.flink.runtime.memory.MemoryAllocationException;
 import org.apache.flink.runtime.memory.MemoryManager;
+import org.apache.flink.runtime.memory.MemoryPoolManager;
 import org.apache.flink.runtime.operators.testutils.UnionIterator;
 import org.apache.flink.table.api.config.ExecutionConfigOptions;
 import org.apache.flink.table.data.RowData;
@@ -55,10 +55,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 /**
- * Test for {@link LongHashPartition} with {@link CacheMemoryManager}.
+ * Test for {@link LongHashPartition} with {@link MemoryPoolManager}.
  */
 @RunWith(Parameterized.class)
-public class CacheLongHashTableTest {
+public class PoolLongHashTableTest {
 
 	private static final int PAGE_SIZE = 32 * 1024;
 	private static MemoryManager memManager;
@@ -70,7 +70,7 @@ public class CacheLongHashTableTest {
 	private boolean useCompress;
 	private Configuration conf;
 
-	public CacheLongHashTableTest(boolean useCompress) {
+	public PoolLongHashTableTest(boolean useCompress) {
 		this.useCompress = useCompress;
 	}
 
@@ -81,7 +81,7 @@ public class CacheLongHashTableTest {
 
 	@BeforeClass
 	public static void beforeClass() {
-		memManager = new CacheMemoryManager(
+		memManager = new MemoryPoolManager(
 							896 * PAGE_SIZE,
 							PAGE_SIZE,
 							Duration.ofSeconds(10),
@@ -108,8 +108,8 @@ public class CacheLongHashTableTest {
 	private class MyHashTable extends LongHybridHashTable {
 
 		public MyHashTable(long memorySize) {
-			super(conf, CacheLongHashTableTest.this, buildSideSerializer, probeSideSerializer, memManager,
-				memorySize, CacheLongHashTableTest.this.ioManager, 24, 200000);
+			super(conf, PoolLongHashTableTest.this, buildSideSerializer, probeSideSerializer, memManager,
+				memorySize, PoolLongHashTableTest.this.ioManager, 24, 200000);
 		}
 
 		@Override
@@ -140,7 +140,7 @@ public class CacheLongHashTableTest {
 		// create a probe input that gives 10 million pairs with 10 values sharing a key
 		MutableObjectIterator<BinaryRowData> probeInput = new UniformBinaryRowGenerator(numKeys, probeValsPerKey, true);
 
-		final CacheLongHashTableTest.MyHashTable table = new CacheLongHashTableTest.MyHashTable(500 * PAGE_SIZE);
+		final PoolLongHashTableTest.MyHashTable table = new PoolLongHashTableTest.MyHashTable(500 * PAGE_SIZE);
 
 		int numRecordsInJoinResult = join(table, buildInput, probeInput);
 		Assert.assertEquals("Wrong number of records in join result.", numKeys * buildValsPerKey * probeValsPerKey, numRecordsInJoinResult);
@@ -162,7 +162,7 @@ public class CacheLongHashTableTest {
 		// create a probe input that gives 10 million pairs with 10 values sharing a key
 		MutableObjectIterator<BinaryRowData> probeInput = new UniformBinaryRowGenerator(numKeys, probeValsPerKey, true);
 
-		final CacheLongHashTableTest.MyHashTable table = new CacheLongHashTableTest.MyHashTable(300 * PAGE_SIZE);
+		final PoolLongHashTableTest.MyHashTable table = new PoolLongHashTableTest.MyHashTable(300 * PAGE_SIZE);
 
 		int numRecordsInJoinResult = join(table, buildInput, probeInput);
 
@@ -190,7 +190,7 @@ public class CacheLongHashTableTest {
 		// create a probe input that gives 10 million pairs with 10 values sharing a key
 		MutableObjectIterator<BinaryRowData> probeInput = new UniformBinaryRowGenerator(numKeys, probeValsPerKey, true);
 
-		final CacheLongHashTableTest.MyHashTable table = new CacheLongHashTableTest.MyHashTable(100 * PAGE_SIZE);
+		final PoolLongHashTableTest.MyHashTable table = new PoolLongHashTableTest.MyHashTable(100 * PAGE_SIZE);
 
 		int numRecordsInJoinResult = join(table, buildInput, probeInput);
 
@@ -219,7 +219,7 @@ public class CacheLongHashTableTest {
 		HashMap<Integer, Long> map = new HashMap<>(numKeys);
 
 		// ----------------------------------------------------------------------------------------
-		final CacheLongHashTableTest.MyHashTable table = new CacheLongHashTableTest.MyHashTable(100 * PAGE_SIZE);
+		final PoolLongHashTableTest.MyHashTable table = new PoolLongHashTableTest.MyHashTable(100 * PAGE_SIZE);
 
 		BinaryRowData buildRow = buildSideSerializer.createInstance();
 		while ((buildRow = buildInput.next(buildRow)) != null) {
@@ -290,7 +290,7 @@ public class CacheLongHashTableTest {
 		// create the map for validating the results
 		HashMap<Integer, Long> map = new HashMap<>(numKeys);
 
-		final CacheLongHashTableTest.MyHashTable table = new CacheLongHashTableTest.MyHashTable(896 * PAGE_SIZE);
+		final PoolLongHashTableTest.MyHashTable table = new PoolLongHashTableTest.MyHashTable(896 * PAGE_SIZE);
 
 		BinaryRowData buildRow = buildSideSerializer.createInstance();
 		while ((buildRow = buildInput.next(buildRow)) != null) {
@@ -363,7 +363,7 @@ public class CacheLongHashTableTest {
 		// create the map for validating the results
 		HashMap<Integer, Long> map = new HashMap<>(numKeys);
 
-		final CacheLongHashTableTest.MyHashTable table = new CacheLongHashTableTest.MyHashTable(896 * PAGE_SIZE);
+		final PoolLongHashTableTest.MyHashTable table = new PoolLongHashTableTest.MyHashTable(896 * PAGE_SIZE);
 
 		BinaryRowData buildRow = buildSideSerializer.createInstance();
 		while ((buildRow = buildInput.next(buildRow)) != null) {
@@ -436,7 +436,7 @@ public class CacheLongHashTableTest {
 		probes.add(probe2);
 		probes.add(probe3);
 		MutableObjectIterator<BinaryRowData> probeInput = new UnionIterator<>(probes);
-		final CacheLongHashTableTest.MyHashTable table = new CacheLongHashTableTest.MyHashTable(896 * PAGE_SIZE);
+		final PoolLongHashTableTest.MyHashTable table = new PoolLongHashTableTest.MyHashTable(896 * PAGE_SIZE);
 
 		try {
 			join(table, buildInput, probeInput);
@@ -461,7 +461,7 @@ public class CacheLongHashTableTest {
 
 		MutableObjectIterator<BinaryRowData> buildInput = new UniformBinaryRowGenerator(
 			numBuildKeys, numBuildVals, false);
-		final CacheLongHashTableTest.MyHashTable table = new CacheLongHashTableTest.MyHashTable(100 * PAGE_SIZE);
+		final PoolLongHashTableTest.MyHashTable table = new PoolLongHashTableTest.MyHashTable(100 * PAGE_SIZE);
 
 		int expectedNumResults = (Math.min(numProbeKeys, numBuildKeys) * numBuildVals)
 			* numProbeVals;
@@ -483,7 +483,7 @@ public class CacheLongHashTableTest {
 		final int numProbeVals = 1;
 
 		MutableObjectIterator<BinaryRowData> buildInput = new UniformBinaryRowGenerator(numBuildKeys, numBuildVals, false);
-		final CacheLongHashTableTest.MyHashTable table = new CacheLongHashTableTest.MyHashTable(85 * PAGE_SIZE);
+		final PoolLongHashTableTest.MyHashTable table = new PoolLongHashTableTest.MyHashTable(85 * PAGE_SIZE);
 
 		int expectedNumResults = (Math.min(numProbeKeys, numBuildKeys) * numBuildVals)
 			* numProbeVals;
@@ -511,7 +511,7 @@ public class CacheLongHashTableTest {
 
 		// ----------------------------------------------------------------------------------------
 
-		final CacheLongHashTableTest.MyHashTable table = new CacheLongHashTableTest.MyHashTable(35 * PAGE_SIZE);
+		final PoolLongHashTableTest.MyHashTable table = new PoolLongHashTableTest.MyHashTable(35 * PAGE_SIZE);
 
 		int numRecordsInJoinResult = join(table, buildInput, probeInput);
 
@@ -521,7 +521,7 @@ public class CacheLongHashTableTest {
 		table.free();
 	}
 
-	private void testJoin(CacheLongHashTableTest.MyHashTable table, HashMap<Integer, Long> map) throws IOException {
+	private void testJoin(PoolLongHashTableTest.MyHashTable table, HashMap<Integer, Long> map) throws IOException {
 		BinaryRowData record;
 		int numBuildValues = 0;
 
@@ -553,7 +553,7 @@ public class CacheLongHashTableTest {
 	}
 
 	private int join(
-		CacheLongHashTableTest.MyHashTable table,
+		PoolLongHashTableTest.MyHashTable table,
 		MutableObjectIterator<BinaryRowData> buildInput,
 		MutableObjectIterator<BinaryRowData> probeInput) throws IOException {
 		int count = 0;
@@ -578,7 +578,7 @@ public class CacheLongHashTableTest {
 		return count;
 	}
 
-	private int joinWithNextKey(CacheLongHashTableTest.MyHashTable table) throws IOException {
+	private int joinWithNextKey(PoolLongHashTableTest.MyHashTable table) throws IOException {
 		int count = 0;
 		final RowIterator<BinaryRowData> buildIterator = table.getBuildSideIterator();
 		final RowData probeRow = table.getCurrentProbeRow();

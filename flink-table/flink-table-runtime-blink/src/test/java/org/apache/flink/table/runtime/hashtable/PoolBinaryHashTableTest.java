@@ -24,9 +24,9 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.disk.iomanager.IOManagerAsync;
-import org.apache.flink.runtime.memory.CacheMemoryManager;
 import org.apache.flink.runtime.memory.MemoryAllocationException;
 import org.apache.flink.runtime.memory.MemoryManager;
+import org.apache.flink.runtime.memory.MemoryPoolManager;
 import org.apache.flink.runtime.operators.testutils.UnionIterator;
 import org.apache.flink.table.api.config.ExecutionConfigOptions;
 import org.apache.flink.table.data.RowData;
@@ -61,10 +61,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 /**
- * Hash table it case for binary row with {@link CacheBinaryHashTableTest}.
+ * Hash table it case for binary row with {@link PoolBinaryHashTableTest}.
  */
 @RunWith(Parameterized.class)
-public class CacheBinaryHashTableTest {
+public class PoolBinaryHashTableTest {
 
 	private static final int PAGE_SIZE = 32 * 1024;
 	private static MemoryManager memManager;
@@ -76,7 +76,7 @@ public class CacheBinaryHashTableTest {
 	private boolean useCompress;
 	private Configuration conf;
 
-	public CacheBinaryHashTableTest(boolean useCompress) {
+	public PoolBinaryHashTableTest(boolean useCompress) {
 		this.useCompress = useCompress;
 	}
 
@@ -87,7 +87,7 @@ public class CacheBinaryHashTableTest {
 
 	@BeforeClass
 	public static void beforeClass() {
-		memManager = new CacheMemoryManager(
+		memManager = new MemoryPoolManager(
 							896 * PAGE_SIZE,
 							PAGE_SIZE,
 							Duration.ofSeconds(10),

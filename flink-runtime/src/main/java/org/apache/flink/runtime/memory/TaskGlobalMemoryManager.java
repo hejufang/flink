@@ -35,7 +35,7 @@ public class TaskGlobalMemoryManager implements TaskMemoryManager {
 			boolean lazyAllocate,
 			int slotCount,
 			boolean cacheEnable) {
-		memoryManager = cacheEnable ? new CacheMemoryManager(
+		memoryManager = cacheEnable ? new MemoryPoolManager(
 							memorySize,
 							pageSize,
 							requestMemorySegmentsTimeout,

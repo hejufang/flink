@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Cache memory manager for heap and off heap.
  */
-public class CacheMemoryManager extends MemoryManager {
+public class MemoryPoolManager extends MemoryManager {
 	private static final Logger LOG = LoggerFactory.getLogger(MemoryManager.class);
 
 	/** If the segment can be lazy allocated. */
@@ -82,7 +82,7 @@ public class CacheMemoryManager extends MemoryManager {
 	 * @param pageSize                   The size of the pages handed out by the memory manager.
 	 * @param lazyAllocate               The memory manager allocate segments by lazy.
 	 */
-	public CacheMemoryManager(
+	public MemoryPoolManager(
 			long memorySize,
 			int pageSize,
 			Duration requestMemorySegmentsTimeout,
