@@ -176,21 +176,21 @@ public class StateBackendBenchmarkUtils {
 		return target;
 	}
 
-	public static <T> ValueState<T> getValueState(KeyedStateBackend<T> backend, ValueStateDescriptor<T> stateDescriptor)
+	public static <K, T> ValueState<T> getValueState(KeyedStateBackend<K> backend, ValueStateDescriptor<T> stateDescriptor)
 		throws Exception {
 
 		return backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, stateDescriptor);
 	}
 
-	public static <T> ListState<T> getListState(KeyedStateBackend<T> backend, ListStateDescriptor<T> stateDescriptor)
+	public static <K, T> ListState<T> getListState(KeyedStateBackend<K> backend, ListStateDescriptor<T> stateDescriptor)
 		throws Exception {
 
 		return backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, stateDescriptor);
 	}
 
-	public static <K, V> MapState<K, V> getMapState(
+	public static <K, UK, UV> MapState<UK, UV> getMapState(
 		KeyedStateBackend<K> backend,
-		MapStateDescriptor<K, V> stateDescriptor) throws Exception {
+		MapStateDescriptor<UK, UV> stateDescriptor) throws Exception {
 
 		return backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, stateDescriptor);
 	}
