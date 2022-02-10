@@ -38,8 +38,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-import static org.apache.flink.util.Preconditions.checkNotNull;
-
 /**
  * Tasks table for job without slots.
  */
@@ -190,7 +188,7 @@ public class JobTaskWithoutSlotTable<T extends TaskSlotPayload> extends TaskSlot
 
 	@Override
 	public T getTask(ExecutionAttemptID executionAttemptID) {
-		return checkNotNull(taskMap.get(executionAttemptID));
+		return taskMap.get(executionAttemptID);
 	}
 
 	@Override

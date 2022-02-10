@@ -2329,8 +2329,8 @@ public class TaskExecutorTest extends TestLogger {
 			.setContainsJobFunction(jobLeaderService::containsJob)
 			.setReconnectConsumer(jobLeaderService::reconnect)
 			.setRemoveJobConsumer(jobId -> {
-				removeJobFuture.complete(Acknowledge.get());
 				jobLeaderService.removeJob(jobId);
+				removeJobFuture.complete(Acknowledge.get());
 			})
 			.setStartConsumer(jobLeaderService::start)
 			.setStopRunnable(jobLeaderService::stop)
