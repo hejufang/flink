@@ -19,6 +19,8 @@
 package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.metrics.Counter;
+import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
+import org.apache.flink.runtime.metrics.groups.OperatorTimeMetricGroup;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -31,9 +33,21 @@ public class CountingOutput<OUT> implements Output<StreamRecord<OUT>> {
 	private final Output<StreamRecord<OUT>> output;
 	private final Counter numRecordsOut;
 
+	private final OperatorTimeMetricGroup operatorTimeMetricGroup;
+	private final boolean operatorPerfMetricEnable;
+
 	public CountingOutput(Output<StreamRecord<OUT>> output, Counter counter) {
 		this.output = output;
 		this.numRecordsOut = counter;
+		this.operatorTimeMetricGroup = null;
+		this.operatorPerfMetricEnable = false;
+	}
+
+	public CountingOutput(Output<StreamRecord<OUT>> output, OperatorMetricGroup operatorMetricGroup, Boolean operatorPerfMetricEnable) {
+		this.output = output;
+		this.numRecordsOut = operatorMetricGroup.getIOMetricGroup().getNumRecordsOutCounter();
+		this.operatorTimeMetricGroup = operatorMetricGroup.getTimeMetricGroup();
+		this.operatorPerfMetricEnable = operatorPerfMetricEnable;
 	}
 
 	@Override
@@ -49,13 +63,25 @@ public class CountingOutput<OUT> implements Output<StreamRecord<OUT>> {
 	@Override
 	public void collect(StreamRecord<OUT> record) {
 		numRecordsOut.inc();
-		output.collect(record);
+		if (operatorPerfMetricEnable && operatorTimeMetricGroup != null) {
+			long startTime = System.nanoTime();
+			output.collect(record);
+			operatorTimeMetricGroup.accumulateCollectCost(System.nanoTime() - startTime);
+		} else {
+			output.collect(record);
+		}
 	}
 
 	@Override
 	public <X> void collect(OutputTag<X> outputTag, StreamRecord<X> record) {
 		numRecordsOut.inc();
-		output.collect(outputTag, record);
+		if (operatorPerfMetricEnable && operatorTimeMetricGroup != null) {
+			long startTime = System.nanoTime();
+			output.collect(outputTag, record);
+			operatorTimeMetricGroup.accumulateCollectCost(System.nanoTime() - startTime);
+		} else {
+			output.collect(outputTag, record);
+		}
 	}
 
 	@Override

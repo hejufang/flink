@@ -19,7 +19,9 @@
 package org.apache.flink.table.planner.codegen
 
 import org.apache.flink.configuration.Configuration
+import org.apache.flink.configuration.MetricOptions
 import org.apache.flink.metrics.Gauge
+import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup
 import org.apache.flink.table.api.TableConfig
 import org.apache.flink.table.data.{JoinedRowData, RowData, TimestampData}
 import org.apache.flink.table.planner.codegen.CodeGenUtils._
@@ -316,6 +318,19 @@ object LongHashJoinGenerator {
     val buildEnd = newName("buildEnd")
     ctx.addReusableMember(s"private transient boolean $buildEnd = false;")
 
+    var operatorPerfMetricCode = ""
+    if (ctx.tableConfig.getConfiguration
+      .getBoolean(MetricOptions.OPERATOR_PERFORMANCE_METRIC_ENABLED)) {
+      val operatorMetricGroup = classOf[OperatorMetricGroup].getName
+      operatorPerfMetricCode =
+        s"""
+           |(($operatorMetricGroup) getMetricGroup())
+           |.getResourceMetricGroup().setPeekMemoryUsageInBytes(table.getPeekMemoryUsage());
+           |(($operatorMetricGroup) getMetricGroup())
+           |.getResourceMetricGroup().setSpillInBytes(table.getSpillInBytes());
+           |""".stripMargin
+    }
+
     val genOp = OperatorCodeGenerator.generateTwoInputStreamOperator[RowData, RowData, RowData](
       ctx,
       "LongHashJoinOperator",
@@ -360,7 +375,8 @@ object LongHashJoinGenerator {
            |  joinWithNextKey();
            |}
            |LOG.info("Finish rebuild phase.");
-         """.stripMargin))
+         """.stripMargin),
+      operatorPerfMetricCode = operatorPerfMetricCode)
 
     new CodeGenOperatorFactory[RowData](genOp)
   }

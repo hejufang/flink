@@ -47,6 +47,7 @@ import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.CheckpointedStreamOperator;
+import org.apache.flink.streaming.api.operators.util.OperatorPerfMetricUtil;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -139,6 +140,9 @@ public abstract class AbstractStreamOperator<OUT>
 
 	protected transient LatencyStats latencyStats;
 
+	/** Operator performance metric enable. */
+	private boolean operatorPerfMetricEnable;
+
 	// ---------------- time handler ------------------
 
 	protected transient ProcessingTimeService processingTimeService;
@@ -168,8 +172,9 @@ public abstract class AbstractStreamOperator<OUT>
 		this.config = config;
 		try {
 			OperatorMetricGroup operatorMetricGroup = environment.getMetricGroup().getOrAddOperator(config.getOperatorID(), config.getOperatorMetricName());
+			this.operatorPerfMetricEnable = environment.getExecutionConfig().getOperatorPerfMetricEnable();
 			final String operatorName = config.getOperatorMetricName();
-			this.output = new CountingOutput<>(output, operatorMetricGroup.getIOMetricGroup().getNumRecordsOutCounter());
+			this.output = new CountingOutput<>(output, operatorMetricGroup, this.operatorPerfMetricEnable);
 			if (converter != null) {
 				this.output = new DebugLoggingOutput<>(
 					operatorName,
@@ -186,6 +191,7 @@ public abstract class AbstractStreamOperator<OUT>
 			}
 			this.metrics = operatorMetricGroup;
 			this.operatorLatency = operatorMetricGroup.getOperatorLatency();
+			this.metrics.getResourceMetricGroup().setTotalMemoryInBytes(getOperatorMemorySize());
 		} catch (Exception e) {
 			LOG.warn("An error occurred while instantiating task metrics.", e);
 			this.metrics = UnregisteredMetricGroups.createUnregisteredOperatorMetricGroup();
@@ -277,6 +283,19 @@ public abstract class AbstractStreamOperator<OUT>
 		return operatorLatency;
 	}
 
+	public boolean getOperatorPerfMetricEnable(){
+		return operatorPerfMetricEnable;
+	}
+
+	private long getOperatorMemorySize(){
+		double fraction = getOperatorConfig().getManagedMemoryFraction();
+		if (fraction > 0 && fraction <= 1) {
+			return getContainingTask().getEnvironment().getMemoryManager().computeMemorySize(fraction);
+		} else {
+			return 0;
+		}
+	}
+
 	@Override
 	public final void initializeState(StreamTaskStateInitializer streamTaskStateManager) throws Exception {
 
@@ -339,6 +358,9 @@ public abstract class AbstractStreamOperator<OUT>
 	 */
 	@Override
 	public void dispose() throws Exception {
+		if (operatorPerfMetricEnable) {
+			OperatorPerfMetricUtil.logOperatorPerfMetric(getOperatorFullName(), metrics);
+		}
 		if (stateHandler != null) {
 			stateHandler.dispose();
 		}
@@ -433,6 +455,14 @@ public abstract class AbstractStreamOperator<OUT>
 		} else {
 			return getClass().getSimpleName();
 		}
+	}
+
+	private String getOperatorFullName() {
+		int subtaskId = runtimeContext.getIndexOfThisSubtask() + 1;
+		int parallel = runtimeContext.getNumberOfParallelSubtasks();
+		String jobId = runtimeContext.getJobId().toString();
+		String operatorName = config.getOperatorMetricName();
+		return String.format("%s_%s(%s/%s)", jobId, operatorName, subtaskId, parallel);
 	}
 
 	/**

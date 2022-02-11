@@ -338,6 +338,10 @@ public class BytesHashMap {
 		return (bucketSegments.size() + recordArea.segments.size()) * ((long) segmentSize);
 	}
 
+	public long getPeekMemoryUsage(){
+		return memoryPool.getMaxPageUsageInBytes();
+	}
+
 	public long getSpillInBytes() {
 		return spillInBytes;
 	}

@@ -288,7 +288,15 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 		for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators(true)) {
 			StreamOperator<?> operator = operatorWrapper.getStreamOperator();
 			operator.initializeState(streamTaskStateInitializer);
-			operator.open();
+			if (operator.getOperatorPerfMetricEnable()) {
+				((OperatorMetricGroup) operator.getMetricGroup()).getTimeMetricGroup()
+					.setOpenStartTimestampMs(System.currentTimeMillis());
+				operator.open();
+				((OperatorMetricGroup) operator.getMetricGroup()).getTimeMetricGroup()
+					.reportOpenEnd();
+			} else {
+				operator.open();
+			}
 		}
 	}
 
@@ -299,7 +307,15 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 	 */
 	protected void closeOperators(StreamTaskActionExecutor actionExecutor) throws Exception {
 		if (headOperatorWrapper != null) {
-			headOperatorWrapper.close(actionExecutor);
+			if (headOperatorWrapper.getStreamOperator().getOperatorPerfMetricEnable()) {
+				((OperatorMetricGroup) headOperatorWrapper.getStreamOperator().getMetricGroup())
+					.getTimeMetricGroup().setCloseStartTimestampMs(System.currentTimeMillis());
+				headOperatorWrapper.close(actionExecutor);
+				((OperatorMetricGroup) headOperatorWrapper.getStreamOperator().getMetricGroup())
+					.getTimeMetricGroup().reportCloseEnd();
+			} else {
+				headOperatorWrapper.close(actionExecutor);
+			}
 		}
 	}
 
@@ -567,6 +583,7 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 		protected final WatermarkGauge watermarkGauge = new WatermarkGauge();
 
 		protected final StreamStatusProvider streamStatusProvider;
+		protected final boolean operatorPerfMetricEnable;
 
 		@Nullable
 		protected final OutputTag<T> outputTag;
@@ -587,6 +604,7 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 					tmpNumRecordsIn = new SimpleCounter();
 				}
 				numRecordsIn = tmpNumRecordsIn;
+				this.operatorPerfMetricEnable = operator.getOperatorPerfMetricEnable();
 			}
 
 			this.streamStatusProvider = streamStatusProvider;
@@ -623,7 +641,13 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 
 				numRecordsIn.inc();
 				operator.setKeyContextElement1(castRecord);
-				operator.processElement(castRecord);
+				if (operatorPerfMetricEnable) {
+					long startTime = System.nanoTime();
+					operator.processElement(castRecord);
+					((OperatorMetricGroup) operator.getMetricGroup()).getTimeMetricGroup().accumulateProcessCost(System.nanoTime() - startTime);
+				} else {
+					operator.processElement(castRecord);
+				}
 			}
 			catch (Exception e) {
 				throw new ExceptionInChainedOperatorException(e);
@@ -714,7 +738,13 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 				numRecordsIn.inc();
 				StreamRecord<T> copy = castRecord.copy(serializer.copy(castRecord.getValue()));
 				operator.setKeyContextElement1(copy);
-				operator.processElement(copy);
+				if (operatorPerfMetricEnable) {
+					long startTime = System.nanoTime();
+					operator.processElement(copy);
+					((OperatorMetricGroup) operator.getMetricGroup()).getTimeMetricGroup().accumulateProcessCost(System.nanoTime() - startTime);
+				} else {
+					operator.processElement(copy);
+				}
 			} catch (ClassCastException e) {
 				if (outputTag != null) {
 					// Enrich error message

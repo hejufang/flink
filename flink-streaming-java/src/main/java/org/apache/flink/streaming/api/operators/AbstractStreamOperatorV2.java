@@ -45,6 +45,7 @@ import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.CheckpointedStreamOperator;
+import org.apache.flink.streaming.api.operators.util.OperatorPerfMetricUtil;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -89,6 +90,11 @@ public abstract class AbstractStreamOperatorV2<OUT> implements StreamOperator<OU
 	protected final OperatorMetricGroup metrics;
 	protected final LatencyStats latencyStats;
 	protected final ProcessingTimeService processingTimeService;
+	/** Operator performance metric enable. */
+	private final boolean operatorPerfMetricEnable;
+
+	/** The task that contains this operator (and other operators in the same chain). */
+	private transient StreamTask<?, ?> container;
 
 	private StreamOperatorStateHandler stateHandler;
 	private InternalTimeServiceManager<?> timeServiceManager;
@@ -104,15 +110,18 @@ public abstract class AbstractStreamOperatorV2<OUT> implements StreamOperator<OU
 		config = parameters.getStreamConfig();
 		CountingOutput<OUT> countingOutput;
 		OperatorMetricGroup operatorMetricGroup;
+		this.container = parameters.getContainingTask();
+		this.operatorPerfMetricEnable = environment.getExecutionConfig().getOperatorPerfMetricEnable();
 		try {
 			operatorMetricGroup = environment.getMetricGroup().getOrAddOperator(config.getOperatorID(), config.getOperatorMetricName());
-			countingOutput = new CountingOutput(parameters.getOutput(), operatorMetricGroup.getIOMetricGroup().getNumRecordsOutCounter());
+			countingOutput = new CountingOutput(parameters.getOutput(), operatorMetricGroup, this.operatorPerfMetricEnable);
 			if (config.isChainStart()) {
 				operatorMetricGroup.getIOMetricGroup().reuseInputMetricsForTask();
 			}
 			if (config.isChainEnd()) {
 				operatorMetricGroup.getIOMetricGroup().reuseOutputMetricsForTask();
 			}
+			operatorMetricGroup.getResourceMetricGroup().setTotalMemoryInBytes(getOperatorMemorySize());
 		} catch (Exception e) {
 			LOG.warn("An error occurred while instantiating task metrics.", e);
 			countingOutput = null;
@@ -190,6 +199,19 @@ public abstract class AbstractStreamOperatorV2<OUT> implements StreamOperator<OU
 		return metrics;
 	}
 
+	public boolean getOperatorPerfMetricEnable(){
+		return operatorPerfMetricEnable;
+	}
+
+	private long getOperatorMemorySize(){
+		double fraction = getOperatorConfig().getManagedMemoryFraction();
+		if (fraction > 0 && fraction <= 1) {
+			return container.getEnvironment().getMemoryManager().computeMemorySize(fraction);
+		} else {
+			return 0;
+		}
+	}
+
 	@Override
 	public final void initializeState(StreamTaskStateInitializer streamTaskStateManager) throws Exception {
 		final TypeSerializer<?> keySerializer = config.getStateKeySerializer(getUserCodeClassloader());
@@ -244,6 +266,9 @@ public abstract class AbstractStreamOperatorV2<OUT> implements StreamOperator<OU
 	 */
 	@Override
 	public void dispose() throws Exception {
+		if (operatorPerfMetricEnable) {
+			OperatorPerfMetricUtil.logOperatorPerfMetric(getOperatorFullName(), metrics);
+		}
 		if (stateHandler != null) {
 			stateHandler.dispose();
 		}
@@ -331,6 +356,14 @@ public abstract class AbstractStreamOperatorV2<OUT> implements StreamOperator<OU
 		} else {
 			return getClass().getSimpleName();
 		}
+	}
+
+	private String getOperatorFullName() {
+		int subtaskId = runtimeContext.getIndexOfThisSubtask() + 1;
+		int parallel = runtimeContext.getNumberOfParallelSubtasks();
+		String jobId = runtimeContext.getJobId().toString();
+		String operatorName = config.getOperatorMetricName();
+		return String.format("%s_%s(%s/%s)", jobId, operatorName, subtaskId, parallel);
 	}
 
 	/**

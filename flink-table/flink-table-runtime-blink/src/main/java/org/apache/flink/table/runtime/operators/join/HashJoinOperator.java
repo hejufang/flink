@@ -20,6 +20,7 @@ package org.apache.flink.table.runtime.operators.join;
 
 import org.apache.flink.configuration.AlgorithmOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.streaming.api.operators.BoundedMultiInput;
 import org.apache.flink.streaming.api.operators.InputSelectable;
 import org.apache.flink.streaming.api.operators.InputSelection;
@@ -206,6 +207,12 @@ public abstract class HashJoinOperator extends TableStreamOperator<RowData>
 
 	@Override
 	public void close() throws Exception {
+		if (getOperatorPerfMetricEnable()) {
+			((OperatorMetricGroup) getMetricGroup()).getResourceMetricGroup()
+				.setPeekMemoryUsageInBytes(table.getPeekMemoryUsage());
+			((OperatorMetricGroup) getMetricGroup()).getResourceMetricGroup()
+				.setSpillInBytes(table.getSpillInBytes());
+		}
 		super.close();
 		if (this.table != null) {
 			this.table.close();

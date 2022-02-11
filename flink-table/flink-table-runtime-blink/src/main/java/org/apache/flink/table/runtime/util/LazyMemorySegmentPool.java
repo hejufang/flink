@@ -41,6 +41,7 @@ public class LazyMemorySegmentPool implements MemorySegmentPool, Closeable {
 	private final int perRequestPages;
 
 	private int pageUsage;
+	private int maxPageUsage;
 
 	public LazyMemorySegmentPool(Object owner, MemoryManager memoryManager, int maxPages) {
 		this.owner = owner;
@@ -85,6 +86,7 @@ public class LazyMemorySegmentPool implements MemorySegmentPool, Closeable {
 			}
 		}
 		this.pageUsage++;
+		this.maxPageUsage = Math.max(this.pageUsage, this.maxPageUsage);
 		return this.cachePages.remove(this.cachePages.size() - 1);
 	}
 
@@ -104,5 +106,9 @@ public class LazyMemorySegmentPool implements MemorySegmentPool, Closeable {
 
 	public void cleanCache() {
 		this.memoryManager.release(this.cachePages);
+	}
+
+	public long getMaxPageUsageInBytes(){
+		return (long) this.maxPageUsage * pageSize();
 	}
 }

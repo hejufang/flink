@@ -24,6 +24,8 @@ import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
+import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.InputSelection;
 import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
@@ -345,6 +347,8 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 		/** The input index to indicate how to process elements by two input operator. */
 		private final int inputIndex;
 
+		private final boolean operatorPerfMetricEnable;
+
 		private StreamTaskNetworkOutput(
 				TwoInputStreamOperator<IN1, IN2, ?> operator,
 				ThrowingConsumer<StreamRecord<T>, Exception> recordConsumer,
@@ -354,6 +358,7 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 			super(streamStatusMaintainer);
 
 			this.operator = checkNotNull(operator);
+			this.operatorPerfMetricEnable = this.operator.getOperatorPerfMetricEnable();
 			this.recordConsumer = checkNotNull(recordConsumer);
 			this.inputWatermarkGauge = checkNotNull(inputWatermarkGauge);
 			this.inputIndex = inputIndex;
@@ -361,7 +366,17 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 
 		@Override
 		public void emitRecord(StreamRecord<T> record) throws Exception {
-			recordConsumer.accept(record);
+			if (operatorPerfMetricEnable) {
+				long startTime = System.nanoTime();
+				recordConsumer.accept(record);
+				if (inputIndex == 0) {
+					((OperatorMetricGroup) ((AbstractStreamOperator) operator).getMetricGroup()).getTimeMetricGroup().accumulateProcessCost1(System.nanoTime() - startTime);
+				} else {
+					((OperatorMetricGroup) ((AbstractStreamOperator) operator).getMetricGroup()).getTimeMetricGroup().accumulateProcessCost2(System.nanoTime() - startTime);
+				}
+			} else {
+				recordConsumer.accept(record);
+			}
 		}
 
 		@Override

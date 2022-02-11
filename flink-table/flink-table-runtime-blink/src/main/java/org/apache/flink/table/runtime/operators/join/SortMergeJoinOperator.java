@@ -21,6 +21,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.memory.MemoryManager;
+import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.streaming.api.operators.BoundedMultiInput;
 import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -452,6 +453,10 @@ public class SortMergeJoinOperator extends TableStreamOperator<RowData>
 
 	@Override
 	public void close() throws Exception {
+		if (getOperatorPerfMetricEnable()) {
+			((OperatorMetricGroup) getMetricGroup()).getResourceMetricGroup().setPeekMemoryUsageInBytes(sorter1.getPeekMemoryUsage() + sorter2.getPeekMemoryUsage());
+			((OperatorMetricGroup) getMetricGroup()).getResourceMetricGroup().setSpillInBytes(sorter1.getSpillInBytes() + sorter2.getSpillInBytes());
+		}
 		super.close();
 		if (this.sorter1 != null) {
 			this.sorter1.close();

@@ -42,6 +42,8 @@ public class OperatorMetricGroup extends ComponentMetricGroup<TaskMetricGroup> {
 	private final OperatorID operatorID;
 
 	private final OperatorIOMetricGroup ioMetrics;
+	private final OperatorResourceMetricGroup resourceMetrics;
+	private final OperatorTimeMetricGroup timeMetrics;
 
 	private final Histogram operatorLatency;
 
@@ -53,6 +55,8 @@ public class OperatorMetricGroup extends ComponentMetricGroup<TaskMetricGroup> {
 		ioMetrics = new OperatorIOMetricGroup(this);
 		operatorLatency = this.histogram(MetricNames.OPERATOR_PROCESS_LATENCY,
 			new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram()));
+		resourceMetrics = new OperatorResourceMetricGroup();
+		timeMetrics = new OperatorTimeMetricGroup();
 	}
 
 	// ------------------------------------------------------------------------
@@ -77,6 +81,24 @@ public class OperatorMetricGroup extends ComponentMetricGroup<TaskMetricGroup> {
 	 */
 	public OperatorIOMetricGroup getIOMetricGroup() {
 		return ioMetrics;
+	}
+
+	/**
+	 * Returns the OperatorResourceMetricGroup for this operator.
+	 *
+	 * @return OperatorResourceMetricGroup for this operator.
+	 */
+	public OperatorResourceMetricGroup getResourceMetricGroup() {
+		return resourceMetrics;
+	}
+
+	/**
+	 * Returns the OperatorTimeMetricGroup for this operator.
+	 *
+	 * @return OperatorTimeMetricGroup for this operator.
+	 */
+	public OperatorTimeMetricGroup getTimeMetricGroup() {
+		return timeMetrics;
 	}
 
 	/**

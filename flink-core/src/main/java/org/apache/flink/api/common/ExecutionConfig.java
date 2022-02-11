@@ -139,6 +139,11 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 	 */
 	private long latencyTrackingInterval = MetricOptions.LATENCY_INTERVAL.defaultValue();
 
+	/**
+	 * Control whether to calculate the operator performance metrics.
+	 */
+	private boolean operatorPerfMetricEnable = MetricOptions.OPERATOR_PERFORMANCE_METRIC_ENABLED.defaultValue();
+
 	private boolean isLatencyTrackingConfigured = false;
 
 	/**
@@ -282,6 +287,21 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 		this.latencyTrackingInterval = interval;
 		this.isLatencyTrackingConfigured = true;
 		return this;
+	}
+
+	/**
+	 * Set whether operator performance metrics enabled.
+	 *
+	 * @param value whether operator performance metrics enabled.
+	 */
+	@PublicEvolving
+	public ExecutionConfig setOperatorPerfMetricEnable(boolean value) {
+		this.operatorPerfMetricEnable = value;
+		return this;
+	}
+
+	public boolean getOperatorPerfMetricEnable() {
+		return operatorPerfMetricEnable;
 	}
 
 	/**
@@ -1248,6 +1268,9 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 
 		configuration.getOptional(MetricOptions.LATENCY_INTERVAL)
 			.ifPresent(this::setLatencyTrackingInterval);
+
+		configuration.getOptional(MetricOptions.OPERATOR_PERFORMANCE_METRIC_ENABLED)
+			.ifPresent(this::setOperatorPerfMetricEnable);
 
 		configuration.getOptional(PipelineOptions.MAX_PARALLELISM)
 			.ifPresent(this::setMaxParallelism);

@@ -691,7 +691,9 @@ object AggCodeGenHelper {
       operatorBaseClass: String,
       processCode: String,
       endInputCode: String,
-      inputType: RowType): GeneratedOperator[OneInputStreamOperator[RowData, RowData]] = {
+      inputType: RowType,
+      operatorPerfMetricCode: String = ""):
+      GeneratedOperator[OneInputStreamOperator[RowData, RowData]] = {
     ctx.addReusableMember("private boolean hasInput = false;")
     ctx.addReusableMember(s"$STREAM_RECORD element = new $STREAM_RECORD((Object)null);")
     OperatorCodeGenerator.generateOneInputStreamOperator(
@@ -700,6 +702,7 @@ object AggCodeGenHelper {
       processCode,
       inputType,
       endInputCode = Some(endInputCode),
-      lazyInputUnboxingCode = true)
+      lazyInputUnboxingCode = true,
+      operatorPerfMetricCode = operatorPerfMetricCode)
   }
 }

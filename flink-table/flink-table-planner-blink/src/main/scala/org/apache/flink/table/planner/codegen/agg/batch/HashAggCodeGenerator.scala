@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.planner.codegen.agg.batch
 
+import org.apache.flink.configuration.MetricOptions
+import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator
 import org.apache.flink.table.data.binary.BinaryRowData
 import org.apache.flink.table.data.{GenericRowData, JoinedRowData, RowData}
@@ -218,12 +220,26 @@ class HashAggCodeGenerator(
       s"$outputResultFromMap"
     }
 
+    var operatorPerfMetricCode = ""
+    if (ctx.tableConfig.getConfiguration
+      .getBoolean(MetricOptions.OPERATOR_PERFORMANCE_METRIC_ENABLED)) {
+      val operatorMetricGroup = classOf[OperatorMetricGroup].getName
+      operatorPerfMetricCode =
+        s"""
+           |(($operatorMetricGroup) getMetricGroup()).getResourceMetricGroup()
+           |.setPeekMemoryUsageInBytes($aggregateMapTerm.getPeekMemoryUsage());
+           |(($operatorMetricGroup) getMetricGroup())
+           |.getResourceMetricGroup().setSpillInBytes($aggregateMapTerm.getSpillInBytes());
+           |""".stripMargin
+    }
+
     AggCodeGenHelper.generateOperator(
       ctx,
       className,
       classOf[TableStreamOperator[RowData]].getCanonicalName,
       processCode,
       endInputCode,
-      inputType)
+      inputType,
+      operatorPerfMetricCode = operatorPerfMetricCode)
   }
 }

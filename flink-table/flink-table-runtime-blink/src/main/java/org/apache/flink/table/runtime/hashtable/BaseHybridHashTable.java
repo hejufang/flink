@@ -447,6 +447,10 @@ public abstract class BaseHybridHashTable implements MemorySegmentPool {
 		return (totalNumBuffers - internalPool.freePages()) * ((long) internalPool.pageSize());
 	}
 
+	public long getPeekMemoryUsage(){
+		return internalPool.getMaxPageUsageInBytes();
+	}
+
 	public long getNumSpillFiles() {
 		return numSpillFiles;
 	}

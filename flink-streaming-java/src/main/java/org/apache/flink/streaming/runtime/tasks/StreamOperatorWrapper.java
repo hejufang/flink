@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.streaming.api.operators.BoundedMultiInput;
 import org.apache.flink.streaming.api.operators.BoundedOneInput;
 import org.apache.flink.streaming.api.operators.MailboxExecutor;
@@ -58,6 +59,8 @@ public class StreamOperatorWrapper<OUT, OP extends StreamOperator<OUT>> {
 
 	private boolean closed;
 
+	private final boolean operatorPerfMetricEnable;
+
 	StreamOperatorWrapper(
 		OP wrapped,
 		Optional<ProcessingTimeService> processingTimeService,
@@ -66,6 +69,8 @@ public class StreamOperatorWrapper<OUT, OP extends StreamOperator<OUT>> {
 		this.wrapped = checkNotNull(wrapped);
 		this.processingTimeService = checkNotNull(processingTimeService);
 		this.mailboxExecutor = checkNotNull(mailboxExecutor);
+
+		this.operatorPerfMetricEnable = wrapped.getOperatorPerfMetricEnable();
 	}
 
 	/**
@@ -95,10 +100,17 @@ public class StreamOperatorWrapper<OUT, OP extends StreamOperator<OUT>> {
 	 * @param inputId the input ID starts from 1 which indicates the first input.
 	 */
 	public void endOperatorInput(int inputId) throws Exception {
+		if (operatorPerfMetricEnable) {
+			((OperatorMetricGroup) wrapped.getMetricGroup()).getTimeMetricGroup()
+				.setEndInputStartTimestampMs(System.currentTimeMillis());
+		}
 		if (wrapped instanceof BoundedOneInput) {
 			((BoundedOneInput) wrapped).endInput();
 		} else if (wrapped instanceof BoundedMultiInput) {
 			((BoundedMultiInput) wrapped).endInput(inputId);
+		}
+		if (operatorPerfMetricEnable) {
+			((OperatorMetricGroup) wrapped.getMetricGroup()).getTimeMetricGroup().reportEndInputEnd();
 		}
 	}
 
@@ -131,7 +143,15 @@ public class StreamOperatorWrapper<OUT, OP extends StreamOperator<OUT>> {
 
 		// propagate the close operation to the next wrapper
 		if (next != null) {
-			next.close(actionExecutor, true);
+			if (next.getStreamOperator().getOperatorPerfMetricEnable()) {
+				((OperatorMetricGroup) next.getStreamOperator().getMetricGroup())
+					.getTimeMetricGroup().setCloseStartTimestampMs(System.currentTimeMillis());
+				next.close(actionExecutor, true);
+				((OperatorMetricGroup) next.getStreamOperator().getMetricGroup())
+					.getTimeMetricGroup().reportCloseEnd();
+			} else {
+				next.close(actionExecutor, true);
+			}
 		}
 	}
 

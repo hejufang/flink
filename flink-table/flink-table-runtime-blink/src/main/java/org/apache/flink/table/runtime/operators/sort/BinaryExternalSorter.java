@@ -1123,6 +1123,14 @@ public class BinaryExternalSorter implements Sorter<BinaryRowData> {
 		return usedSizeInBytes;
 	}
 
+	public long getPeekMemoryUsage(){
+		long maxUsedSizeInBytes = 0;
+		for (BinaryInMemorySortBuffer sortBuffer : sortBuffers) {
+			maxUsedSizeInBytes += ((LazyMemorySegmentPool) (sortBuffer.memorySegmentPool)).getMaxPageUsageInBytes();
+		}
+		return maxUsedSizeInBytes;
+	}
+
 	public long getNumSpillFiles() {
 		return numSpillFiles;
 	}

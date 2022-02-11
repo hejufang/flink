@@ -50,7 +50,8 @@ object OperatorCodeGenerator extends Logging {
       inputTerm: String = CodeGenUtils.DEFAULT_INPUT1_TERM,
       endInputCode: Option[String] = None,
       lazyInputUnboxingCode: Boolean = false,
-      converter: String => String = a => a): GeneratedOperator[OneInputStreamOperator[IN, OUT]] = {
+      converter: String => String = a => a,
+      operatorPerfMetricCode: String = ""): GeneratedOperator[OneInputStreamOperator[IN, OUT]] = {
     addReuseOutElement(ctx)
     val operatorName = newName(name)
     val abstractBaseClass = ctx.getOperatorBaseClass
@@ -115,6 +116,7 @@ object OperatorCodeGenerator extends Logging {
 
         @Override
         public void close() throws Exception {
+           $operatorPerfMetricCode
            super.close();
           ${ctx.reuseCloseCode()}
         }
@@ -139,7 +141,8 @@ object OperatorCodeGenerator extends Logging {
       nextSelectionCode: Option[String] = None,
       endInputCode1: Option[String] = None,
       endInputCode2: Option[String] = None,
-      useTimeCollect: Boolean = false)
+      useTimeCollect: Boolean = false,
+      operatorPerfMetricCode: String = "")
     : GeneratedOperator[TwoInputStreamOperator[IN1, IN2, OUT]] = {
     addReuseOutElement(ctx)
     val operatorName = newName(name)
@@ -246,6 +249,7 @@ object OperatorCodeGenerator extends Logging {
 
         @Override
         public void close() throws Exception {
+          $operatorPerfMetricCode
           super.close();
           ${ctx.reuseCloseCode()}
         }

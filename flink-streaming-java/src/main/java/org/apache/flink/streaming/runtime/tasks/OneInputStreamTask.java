@@ -25,7 +25,9 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.metrics.MetricNames;
+import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.streaming.api.graph.StreamConfig;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.io.AbstractDataOutput;
@@ -139,6 +141,8 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
 
 		private final OneInputStreamOperator<IN, ?> operator;
 
+		private final boolean operatorPerfMetricEnable;
+
 		private final WatermarkGauge watermarkGauge;
 		private final Counter numRecordsIn;
 
@@ -150,6 +154,7 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
 			super(streamStatusMaintainer);
 
 			this.operator = checkNotNull(operator);
+			this.operatorPerfMetricEnable = this.operator.getOperatorPerfMetricEnable();
 			this.watermarkGauge = checkNotNull(watermarkGauge);
 			this.numRecordsIn = checkNotNull(numRecordsIn);
 		}
@@ -157,8 +162,15 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
 		@Override
 		public void emitRecord(StreamRecord<IN> record) throws Exception {
 			numRecordsIn.inc();
-			operator.setKeyContextElement1(record);
-			operator.processElement(record);
+			if (operatorPerfMetricEnable) {
+				long startTime = System.nanoTime();
+				operator.setKeyContextElement1(record);
+				operator.processElement(record);
+				((OperatorMetricGroup) ((AbstractStreamOperator) operator).getMetricGroup()).getTimeMetricGroup().accumulateProcessCost(System.nanoTime() - startTime);
+			} else {
+				operator.setKeyContextElement1(record);
+				operator.processElement(record);
+			}
 		}
 
 		@Override

@@ -144,4 +144,8 @@ public interface StreamOperator<OUT> extends CheckpointListener, KeyContext, Dis
 	default void setDebugLoggingConverter(DebugLoggingConverter converter) {}
 
 	default void setDebugLoggingLocation(DebugLoggingLocation location) {}
+
+	default boolean getOperatorPerfMetricEnable(){
+		return false;
+	}
 }

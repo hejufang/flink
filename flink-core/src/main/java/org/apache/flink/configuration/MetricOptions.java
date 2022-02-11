@@ -208,6 +208,14 @@ public class MetricOptions {
 				"faster updating metrics. Increase this value if the metric fetcher causes too much load. Setting this value to 0 " +
 				"disables the metric fetching completely.");
 
+	/**
+	 * This configuration parameter defining whether to enable the operator performance metrics, mainly includes time consumption metrics.
+	 */
+	public static final ConfigOption<Boolean> OPERATOR_PERFORMANCE_METRIC_ENABLED =
+		key("metrics.operator-performance-metric.enabled")
+			.defaultValue(false)
+			.withDescription("Flag indicating whether Flink should calculate the time consumption of each operator, including open, process element," +
+				"endinput and collect method. If true, the performance of Flink may be affected because each records would trigger the calculation.");
 	private MetricOptions() {
 	}
 }

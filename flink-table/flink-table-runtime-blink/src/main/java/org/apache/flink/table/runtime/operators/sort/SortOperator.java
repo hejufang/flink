@@ -20,6 +20,7 @@ package org.apache.flink.table.runtime.operators.sort;
 
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.runtime.memory.MemoryManager;
+import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.streaming.api.operators.BoundedOneInput;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -107,6 +108,10 @@ public class SortOperator extends TableStreamOperator<BinaryRowData>
 
 	@Override
 	public void close() throws Exception {
+		if (getOperatorPerfMetricEnable()) {
+			((OperatorMetricGroup) getMetricGroup()).getResourceMetricGroup().setPeekMemoryUsageInBytes(sorter.getPeekMemoryUsage());
+			((OperatorMetricGroup) getMetricGroup()).getResourceMetricGroup().setSpillInBytes(sorter.getSpillInBytes());
+		}
 		LOG.info("Closing SortOperator");
 		super.close();
 		if (sorter != null) {
