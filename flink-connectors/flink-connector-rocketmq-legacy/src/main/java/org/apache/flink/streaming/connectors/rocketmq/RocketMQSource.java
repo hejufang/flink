@@ -590,7 +590,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 					try {
 						queueSetList.add(consumer.fetchSubscribeMessageQueues(topic));
 					} catch (Exception e) {
-						throw new FlinkRuntimeException(String.format("Failed to fetch topic %s offset", topic));
+						throw new FlinkRuntimeException(String.format("Failed to fetch topic %s offset", topic), e);
 					}
 				}
 			}, retryStrategy.copy());
