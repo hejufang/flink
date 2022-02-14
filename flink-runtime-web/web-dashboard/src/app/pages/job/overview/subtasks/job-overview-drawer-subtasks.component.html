@@ -75,9 +75,9 @@
       </td>
       <td>{{ task.attempt + 1 }}</td>
       <td>{{ task.host }}</td>
-      <td>{{ task["start_time"] | humanizeDate: 'yyyy-MM-dd HH:mm:ss' }}</td>
+      <td>{{ task["start_time"] | humanizeDate: 'yyyy-MM-dd HH:mm:ss.SSS' }}</td>
       <td>{{ task.duration | humanizeDuration }}</td>
-      <td>{{ task["end-time"] | humanizeDate: 'yyyy-MM-dd HH:mm:ss' }}</td>
+      <td>{{ task["end-time"] | humanizeDate: 'yyyy-MM-dd HH:mm:ss.SSS' }}</td>
       <td>
         <span *ngIf="task['input_subtasks'];else unknownTemplate">
           {{ task['input_subtasks'] }}

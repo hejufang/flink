@@ -40,13 +40,13 @@
         <nz-form-item>
           <nz-form-label [nzSpan]="9">Start Time</nz-form-label>
           <nz-form-control [nzSpan]="15">
-            <nz-form-text>{{ node.detail['start-time'] | humanizeDate: 'yyyy-MM-dd HH:mm:ss' }}</nz-form-text>
+            <nz-form-text>{{ node.detail['start-time'] | humanizeDate: 'yyyy-MM-dd HH:mm:ss.SSS' }}</nz-form-text>
           </nz-form-control>
         </nz-form-item>
         <nz-form-item>
           <nz-form-label [nzSpan]="9">End Time</nz-form-label>
           <nz-form-control [nzSpan]="15">
-            <nz-form-text>{{ node.detail['end-time'] | humanizeDate: 'yyyy-MM-dd HH:mm:ss' }}</nz-form-text>
+            <nz-form-text>{{ node.detail['end-time'] | humanizeDate: 'yyyy-MM-dd HH:mm:ss.SSS' }}</nz-form-text>
           </nz-form-control>
         </nz-form-item>
         <nz-form-item>

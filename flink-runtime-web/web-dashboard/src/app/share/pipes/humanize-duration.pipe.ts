@@ -44,23 +44,23 @@ export class HumanizeDurationPipe implements PipeTransform {
             if (seconds === 0) {
               return `${ms}ms`;
             } else {
-              return `${seconds}s`;
+              return `${seconds}s ${ms}ms`;
             }
           } else {
-            return `${minutes}m ${seconds}s`;
+            return `${minutes}m ${seconds}s ${ms}ms`;
           }
         } else {
           if (short) {
             return `${hours}h ${minutes}m`;
           } else {
-            return `${hours}h ${minutes}m ${seconds}s`;
+            return `${hours}h ${minutes}m ${seconds}s ${ms}ms`;
           }
         }
       } else {
         if (short) {
           return `${days}d ${hours}h`;
         } else {
-          return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+          return `${days}d ${hours}h ${minutes}m ${seconds}s ${ms}ms`;
         }
       }
     }

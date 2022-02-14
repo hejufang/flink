@@ -32,13 +32,13 @@
     <nz-divider [nzType]="'vertical'"></nz-divider>
     <div class="field">
       <span>Start Time:</span>
-      <span>{{ jobDetail['start-time'] | date:'yyyy-MM-dd HH:mm:ss' }}</span>
+      <span>{{ jobDetail['start-time'] | date:'yyyy-MM-dd HH:mm:ss.SSS' }}</span>
     </div>
     <nz-divider [nzType]="'vertical'"></nz-divider>
     <ng-container *ngIf="jobDetail['end-time']>-1">
       <div class="field">
         <span>End Time:</span>
-        <span>{{ jobDetail['end-time'] | date:'yyyy-MM-dd HH:mm:ss' }}</span>
+        <span>{{ jobDetail['end-time'] | date:'yyyy-MM-dd HH:mm:ss.SSS' }}</span>
       </div>
       <nz-divider [nzType]="'vertical'"></nz-divider>
     </ng-container>
