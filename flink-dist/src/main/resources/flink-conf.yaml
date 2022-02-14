@@ -213,8 +213,8 @@ common:
   blacklist.check-interval: "1 min"
 
   # am failover recovery
-  yarn.previous-container.as-pending-container: false
-  taskmanager.release-slot-when-job-master-disconnected.enabled: false
+  yarn.previous-container.as-pending-container: true
+  taskmanager.release-slot-when-job-master-disconnected.enabled: true
 
   # Table & SQL configurations.
   # validate before execute, e.g. hive permission check.
@@ -343,8 +343,6 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  yarn.previous-container.as-pending-container: true
-  taskmanager.release-slot-when-job-master-disconnected.enabled: true
   restart-strategy.recoverable-failure-rate.fallback-global-restart: true
   restart-strategy.recoverable-failure-rate.enable: true
 
@@ -480,8 +478,6 @@ hyrax:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  yarn.previous-container.as-pending-container: true
-  taskmanager.release-slot-when-job-master-disconnected.enabled: true
   restart-strategy.recoverable-failure-rate.fallback-global-restart: true
   restart-strategy.recoverable-failure-rate.enable: true
 
@@ -712,8 +708,6 @@ quoka:
   restart-strategy.recoverable-failure-rate.fallback-global-restart: true
   restart-strategy.recoverable-failure-rate.enable: true
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  yarn.previous-container.as-pending-container: true
-  taskmanager.release-slot-when-job-master-disconnected.enabled: true
   restart-strategy: aggregated-failure-rate
 
 quaga:
@@ -725,8 +719,6 @@ quaga:
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  yarn.previous-container.as-pending-container: true
-  taskmanager.release-slot-when-job-master-disconnected.enabled: true
 
 quele:
   dc: cn
