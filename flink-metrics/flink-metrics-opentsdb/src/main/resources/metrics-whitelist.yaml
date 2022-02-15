@@ -206,6 +206,7 @@ non-global:
         processingTimerLatencyMin,
       # Blacklist
         numTaskManagersInBlacklist,
+        criticalErrorNum,
       # number of skipped records in source
         skipDirty,
       # number of write failed in sink

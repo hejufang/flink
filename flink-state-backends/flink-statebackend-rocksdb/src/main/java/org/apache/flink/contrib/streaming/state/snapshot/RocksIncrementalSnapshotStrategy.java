@@ -206,6 +206,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 			} catch (Exception e) {
 				throw new CompletionException(e);
 			}
+
 		}), dbNativeCheckpointTimeout, TimeUnit.MILLISECONDS).get();
 
 		final RocksDBIncrementalSnapshotOperation snapshotOperation =

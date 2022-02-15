@@ -43,5 +43,10 @@ public enum ThrowableType {
 	/**
 	 * This indicates a problem that is recoverable.
 	 * */
-	RecoverableError
+	RecoverableError,
+
+	/**
+	 * This indicates a critical problem which needs to release all tms at same machine.
+	 * */
+	CriticalError
 }

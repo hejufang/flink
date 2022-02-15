@@ -38,6 +38,13 @@ public class BlacklistOptions {
 			.defaultValue(false)
 			.withDescription("Enable blacklist mechanism if set to true.");
 
+	public static final ConfigOption<Boolean> TASKMANAGER_BLACKLIST_CRITICAL_ERROR_ENABLED = ConfigOptions
+		.key("blacklist.taskmanager.critical.error.enabled")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Enable blacklist critical error mechanism if set to true.");
+
+
 	public static final ConfigOption<Integer> MAX_TASK_FAILURE_NUM_PER_HOST = ConfigOptions
 			.key("blacklist.max-task-failure-num-per-host")
 			.intType()

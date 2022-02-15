@@ -35,6 +35,7 @@ public class WorkerExitCode {
 	public static final int EXCESS_CONTAINER = -80008;
 	public static final int EXIT_BY_JOB_MANAGER = -80009;
 	public static final int PREVIOUS_TM_TIMEOUT = -80010;
+	public static final int IN_BLACKLIST_BECAUSE_CRITICAL_ERROR = -80011;
 	public static final int TASKMANAGER_STSRT_ERROR = 200;
 	public static final int TASKMANAGER_RELEASE_PARTIITION_ERROR = 201;
 	public static final int TASKMANAGER_RELEASESLOT_ERROR = 202;

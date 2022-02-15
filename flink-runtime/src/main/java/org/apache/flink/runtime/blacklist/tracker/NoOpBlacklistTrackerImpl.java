@@ -47,6 +47,11 @@ public class NoOpBlacklistTrackerImpl implements BlacklistTracker {
 	}
 
 	@Override
+	public Map<String, HostFailure> getBlackedCriticalErrorHosts() {
+		return Collections.emptyMap();
+	}
+
+	@Override
 	public Set<ResourceID> getBlackedResources(BlacklistUtil.FailureType failureType, String hostname) {
 		return Collections.emptySet();
 	}

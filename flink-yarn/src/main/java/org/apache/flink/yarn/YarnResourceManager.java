@@ -637,7 +637,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	@Override
 	public void onBlacklistUpdated() {
 		Map<String, HostFailure> newBlackedHosts = blacklistTracker.getBlackedHosts();
-
+		Map<String, HostFailure> blackedCriticalHosts = blacklistTracker.getBlackedCriticalErrorHosts();
+		log.info("newBlackedHosts size is {}, blackedCriticalHosts size is {}", newBlackedHosts.size(), blackedCriticalHosts.size());
 		Set<String> blacklistAddition = new HashSet<>(newBlackedHosts.keySet());
 		blacklistAddition.removeAll(yarnBlackedHosts);
 
@@ -655,16 +656,27 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			Set<ResourceID> resourceIDS = blacklistTracker.getBlackedResources(BlacklistUtil.FailureType.TASK, hostname);
 			resourceIDS.forEach(resourceID -> {
 				if (workerNodeMap.containsKey(resourceID)) {
-					WorkerRegistration<YarnWorkerNode> registration = getTaskExecutors().get(resourceID);
-					if (registration != null) {
-						releaseResource(
-								registration.getInstanceID(),
-								new Exception("worker " + resourceID + " in blacklist."),
-								WorkerExitCode.IN_BLACKLIST);
-					}
+					releaseBlackedResource(resourceID, WorkerExitCode.IN_BLACKLIST);
 				}
 			});
 		});
+
+		for (Map.Entry<ResourceID, YarnWorkerNode> entry : workerNodeMap.entrySet()){
+			if (blackedCriticalHosts.containsKey(entry.getValue().getContainer().getNodeId().getHost())) {
+				log.info("release resource {} ,host {}, because of critical error", entry.getKey(), entry.getValue().getContainer().getNodeId().getHost());
+				releaseBlackedResource(entry.getKey(), WorkerExitCode.IN_BLACKLIST_BECAUSE_CRITICAL_ERROR);
+			}
+		}
+	}
+
+	private void releaseBlackedResource(ResourceID resourceID, int exitCode) {
+		WorkerRegistration<YarnWorkerNode> registration = getTaskExecutors().get(resourceID);
+		if (registration != null) {
+			releaseResource(
+				registration.getInstanceID(),
+				new Exception("worker " + resourceID + " in blacklist."),
+				exitCode);
+		}
 	}
 
 	// ------------------------------------------------------------------------

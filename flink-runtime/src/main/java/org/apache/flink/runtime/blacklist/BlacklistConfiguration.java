@@ -30,6 +30,7 @@ import scala.concurrent.duration.Duration;
 public class BlacklistConfiguration {
 	private final boolean taskManagerBlacklistEnabled;
 	private final boolean taskBlacklistEnabled;
+	private final boolean blacklistCriticalEnable;
 	private final int maxTaskFailureNumPerHost;
 	private final int maxTaskManagerFailureNumPerHost;
 	private final int taskBlacklistMaxLength;
@@ -40,6 +41,7 @@ public class BlacklistConfiguration {
 	public BlacklistConfiguration(
 			boolean taskManagerBlacklistEnabled,
 			boolean taskBlacklistEnabled,
+			boolean blacklistCriticalEnable,
 			int maxTaskFailureNumPerHost,
 			int maxTaskManagerFailureNumPerHost,
 			int taskBlacklistMaxLength,
@@ -48,6 +50,7 @@ public class BlacklistConfiguration {
 			Time checkInterval) {
 		this.taskManagerBlacklistEnabled = taskManagerBlacklistEnabled;
 		this.taskBlacklistEnabled = taskBlacklistEnabled;
+		this.blacklistCriticalEnable = blacklistCriticalEnable;
 		this.maxTaskFailureNumPerHost = maxTaskFailureNumPerHost;
 		this.maxTaskManagerFailureNumPerHost = maxTaskManagerFailureNumPerHost;
 		this.taskBlacklistMaxLength = taskBlacklistMaxLength;
@@ -62,6 +65,10 @@ public class BlacklistConfiguration {
 
 	public boolean isTaskBlacklistEnabled() {
 		return taskBlacklistEnabled;
+	}
+
+	public boolean getCriticalErrorEnabled() {
+		return blacklistCriticalEnable;
 	}
 
 	public int getMaxTaskFailureNumPerHost() {
@@ -93,6 +100,7 @@ public class BlacklistConfiguration {
 		return "BlacklistConfiguration { " +
 				"taskManagerBlacklistEnabled: " + taskManagerBlacklistEnabled +
 				", taskBlacklistEnabled: " + taskBlacklistEnabled +
+				", criticalErrorEnabled: " + blacklistCriticalEnable +
 				", maxTaskFailureNumPerHost: " + maxTaskFailureNumPerHost +
 				", maxTaskManagerFailureNumPerHost: " + maxTaskManagerFailureNumPerHost +
 				", taskBlacklistMaxLength: " + taskBlacklistMaxLength +
@@ -107,6 +115,8 @@ public class BlacklistConfiguration {
 				BlacklistOptions.TASKMANAGER_BLACKLIST_ENABLED);
 		boolean taskBlacklistEnabled = configuration.getBoolean(
 				BlacklistOptions.TASK_BLACKLIST_ENABLED);
+		boolean blacklistCriticalEnable = configuration.getBoolean(
+				BlacklistOptions.TASKMANAGER_BLACKLIST_CRITICAL_ERROR_ENABLED);
 		int maxTaskFailureNumPerHost = configuration.getInteger(
 				BlacklistOptions.MAX_TASK_FAILURE_NUM_PER_HOST);
 		int maxTaskManagerFailureNumPerHost = configuration.getInteger(
@@ -122,6 +132,7 @@ public class BlacklistConfiguration {
 		return new BlacklistConfiguration(
 				taskManagerBlacklistEnabled,
 				taskBlacklistEnabled,
+				blacklistCriticalEnable,
 				maxTaskFailureNumPerHost,
 				maxTaskManagerFailureNumPerHost,
 				taskBlacklistMaxLength,

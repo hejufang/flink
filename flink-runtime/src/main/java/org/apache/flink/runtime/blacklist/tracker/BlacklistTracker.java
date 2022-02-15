@@ -40,6 +40,8 @@ public interface BlacklistTracker extends AutoCloseable {
 
 	Map<String, HostFailure> getBlackedHosts();
 
+	Map<String, HostFailure> getBlackedCriticalErrorHosts();
+
 	Set<ResourceID> getBlackedResources(BlacklistUtil.FailureType failureType, String hostname);
 
 	void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass);

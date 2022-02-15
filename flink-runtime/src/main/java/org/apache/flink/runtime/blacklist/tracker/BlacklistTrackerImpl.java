@@ -22,6 +22,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.blacklist.BlacklistActions;
@@ -64,12 +65,14 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 	private static final String BLACKLIST_METRIC_NAME = "blackedHost";
 	private static final String WAREHOUSE_BLACKLIST_FAILURES = "warehouseBlacklistFailures";
 	private static final String WAREHOUSE_BLACKLIST_RECORDS = "warehouseBlacklistRecords";
+	private static final String CRITICAL_ERROR_NUM = "criticalErrorNum";
 
 	private final TagGauge blacklistGauge = new TagGauge.TagGaugeBuilder().build();
 	private final MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet =
 			new MessageSet<>(MessageType.BLACKLIST);
 	private final MessageSet<WarehouseBlacklistRecordMessage> blacklistRecordMessageSet =
 			new MessageSet<>(MessageType.BLACKLIST);
+	private static SimpleCounter criticalErrorCounter = new SimpleCounter();
 
 	private final ResourceManagerMetricGroup jobManagerMetricGroup;
 	/**
@@ -86,6 +89,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 	private final Time checkInterval;
 
 	private final Set<Class<? extends Throwable>> ignoreExceptionClasses;
+	private boolean isCriticalErrorEnable;
 
 	public BlacklistTrackerImpl(
 			BlacklistConfiguration blacklistConfiguration,
@@ -97,6 +101,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				blacklistConfiguration.getTaskManagerBlacklistMaxLength(),
 				blacklistConfiguration.getFailureTimeout(),
 				blacklistConfiguration.getCheckInterval(),
+				blacklistConfiguration.getCriticalErrorEnabled(),
 				jobManagerMetricGroup);
 	}
 
@@ -107,6 +112,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 			int taskManagerBlacklistMaxLength,
 			Time failureTimeout,
 			Time checkInterval,
+			boolean isCriticalErrorEnable,
 			ResourceManagerMetricGroup jobManagerMetricGroup) {
 
 		this.blackedHosts = new HashMap<>();
@@ -118,6 +124,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				new HostFailures(maxTaskManagerFailureNumPerHost, failureTimeout, taskManagerBlacklistMaxLength, blacklistFailureMessageSet));
 		this.allFailures.put(BlacklistUtil.FailureType.TASK,
 				new HostFailures(maxTaskFailureNumPerHost, failureTimeout, taskBlacklistMaxLength, blacklistFailureMessageSet));
+		this.isCriticalErrorEnable = isCriticalErrorEnable;
 
 		this.ignoreExceptionClasses = new HashSet<>();
 
@@ -150,6 +157,20 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 	@Override
 	public Map<String, HostFailure> getBlackedHosts() {
 		return blackedHosts;
+	}
+
+	@Override
+	public Map<String, HostFailure> getBlackedCriticalErrorHosts() {
+		Map<String, HostFailure> criticalErrorHosts = new HashMap<>();
+		if (!isCriticalErrorEnable) {
+			return criticalErrorHosts;
+		}
+		for (Map.Entry<String, HostFailure> entry : blackedHosts.entrySet()) {
+			if (entry.getValue().isCrtialError()) {
+				criticalErrorHosts.put(entry.getKey(), entry.getValue());
+			}
+		}
+		return criticalErrorHosts;
 	}
 
 	@Override
@@ -195,6 +216,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		jobManagerMetricGroup.gauge(BLACKLIST_METRIC_NAME, blacklistGauge);
 		jobManagerMetricGroup.gauge(WAREHOUSE_BLACKLIST_FAILURES, blacklistFailureMessageSet);
 		jobManagerMetricGroup.gauge(WAREHOUSE_BLACKLIST_RECORDS, blacklistRecordMessageSet);
+		jobManagerMetricGroup.counter(CRITICAL_ERROR_NUM, criticalErrorCounter);
 	}
 
 	public void tryUpdateBlacklist() {
@@ -360,7 +382,12 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 			for (Map.Entry<String, LinkedList<HostFailure>> hostFailuresEntry : hostFailures.entrySet()) {
 				String host = hostFailuresEntry.getKey();
 				LinkedList<HostFailure> failures = hostFailuresEntry.getValue();
-				if (failures.size() >= maxFailureNumPerHost) {
+				HostFailure criticalFailure = checkCriticalError(failures);
+				if (criticalFailure != null) {
+					LOG.info("add a CriticalError host {}", host);
+					blackedHosts.put(host, criticalFailure);
+					criticalErrorCounter.inc();
+				} else if (failures.size() >= maxFailureNumPerHost) {
 					blackedHosts.put(host, failures.getLast());
 				}
 			}
@@ -377,6 +404,15 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 			}
 
 			return blackedHosts;
+		}
+
+		private HostFailure checkCriticalError(LinkedList<HostFailure> failures) {
+			for (HostFailure failure : failures) {
+				if (failure.isCrtialError()) {
+					return failure;
+				}
+			}
+			return null;
 		}
 
 		public void clear() {
