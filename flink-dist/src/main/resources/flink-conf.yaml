@@ -278,6 +278,7 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  execution.cancellation.timeout.enable: true
 
 larva:
   dc: cn
@@ -400,6 +401,7 @@ hyrax:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  execution.cancellation.timeout.enable: true
 
 horse:
   dc: cn
