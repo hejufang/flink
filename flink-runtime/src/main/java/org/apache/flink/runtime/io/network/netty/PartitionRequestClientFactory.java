@@ -117,8 +117,10 @@ class PartitionRequestClientFactory {
 						// 2. go back to beginning and follow original workflow
 						// Note: It will not go back to this branch again because bookkeeping has this
 						//       connectionID record now.
-						clients.putIfAbsent(connectionId, reuseClient);
-						continue;
+						if (channelInfo.getConnectionID() == connectionId) {
+							clients.putIfAbsent(connectionId, reuseClient);
+							continue;
+						}
 					}
 				}
 
@@ -189,6 +191,10 @@ class PartitionRequestClientFactory {
 		if (channelReuseEnable) {
 			nettyChannelManager.shutdown();
 		}
+	}
+
+	public void decreaseRequestCount(ConnectionID connectionId) {
+		nettyChannelManager.decreaseRequestCount(connectionId);
 	}
 
 	static final class ConnectingChannel implements ChannelFutureListener {

@@ -108,16 +108,16 @@ class NettyChannelManager {
 			Object old = requests.get(connectionID);
 			if (old instanceof ChannelInfo) {
 				ChannelInfo releasedChannel = (ChannelInfo) old;
-				if (!releasedChannel.isIdle()) {
-					AtomicInteger refCount = requestsRefCount.get(connectionID);
-					if (refCount.decrementAndGet() == 0) {
-						LOG.debug("[netty-reuse-debug] connection id: {} remove from requests map", connectionID);
-						requests.remove(connectionID);
-						requestsRefCount.remove(connectionID);
-					}
+				AtomicInteger refCount = requestsRefCount.get(connectionID);
+				if (refCount.get() == 0) {
+					LOG.debug("[netty-reuse-debug] connection id: {} remove from requests map", connectionID);
+					requests.remove(connectionID);
+					requestsRefCount.remove(connectionID);
 				}
-				releasedChannel.setIdle();
-				channelPool.get(connectionID.getAddress()).add(releasedChannel);
+				if (!releasedChannel.isIdle()) {
+					releasedChannel.setIdle();
+					channelPool.get(connectionID.getAddress()).add(releasedChannel);
+				}
 			}
 		}
 	}
@@ -152,14 +152,28 @@ class NettyChannelManager {
 		}
 	}
 
+	public void decreaseRequestCount(ConnectionID connectionID) {
+		Preconditions.checkNotNull(connectionID);
+
+		synchronized (NettyChannelManager.class) {
+			AtomicInteger refCount = requestsRefCount.get(connectionID);
+			refCount.decrementAndGet();
+		}
+	}
+
 	private void destroyInactiveChannel() {
 		synchronized (NettyChannelManager.class) {
 			for (Map.Entry<SocketAddress, Queue<ChannelInfo>> entry : channelPool.entrySet()) {
 				for (ChannelInfo channel : entry.getValue()) {
 					if (channel.idleTooLong()) {
+						LOG.debug("[netty-reuse-debug] destroy channel: {}", channel);
 						channel.destroy();
-						channel.channel.writeAndFlush(new NettyMessage.CloseRequest())
-							.addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+						if (channel.channel.isActive()) {
+							channel.channel.writeAndFlush(new NettyMessage.CloseRequest())
+								.addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+						} else {
+							LOG.warn("[netty-reuse-debug] channel: {} already inactive", channel);
+						}
 					}
 				}
 			}
@@ -218,8 +232,16 @@ class NettyChannelManager {
 					synchronized (NettyChannelManager.class) {
 						if (!queue.isEmpty()) {
 							ChannelInfo channelInfo = queue.remove();
-							channelInfo.setConnectionID(connectionID);
-							result = channelInfo;
+							if (channelInfo.isIdle() && !channelInfo.canDestroy()) {
+								channelInfo.setConnectionID(connectionID);
+								result = channelInfo;
+							} else {
+								LOG.warn("[netty-reuse-debug] connection id: {} get unsuitable channelInfo {}, isActive {}, ",
+									connectionID,
+									channelInfo,
+									channelInfo.channel.isActive());
+								result = new ChannelInfo();
+							}
 						} else {
 							result = new ChannelInfo();
 						}
@@ -275,6 +297,7 @@ class NettyChannelManager {
 		private void setConnectionID(ConnectionID connectionID) {
 			this.connectionID = connectionID;
 			this.lastUsedTimestamp = System.currentTimeMillis();
+			this.canDestroy = false;
 		}
 
 		public Channel getChannel() {
@@ -283,6 +306,10 @@ class NettyChannelManager {
 
 		public NetworkClientHandler getClientHandler() {
 			return this.clientHandler;
+		}
+
+		public ConnectionID getConnectionID() {
+			return this.connectionID;
 		}
 
 		public boolean isAvailable() {

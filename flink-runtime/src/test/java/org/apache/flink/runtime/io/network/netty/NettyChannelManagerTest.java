@@ -227,6 +227,7 @@ public class NettyChannelManagerTest extends TestLogger {
 			nettyChannelManager.addReference(connectionID);
 			nettyChannelManager.getChannel(connectionID);
 			nettyChannelManager.addChannel(connectionID, channel, clientHandler);
+			nettyChannelManager.decreaseRequestCount(connectionID);
 			nettyChannelManager.releaseChannel(connectionID);
 
 			assertEquals(1, nettyChannelManager.getTotalPoolSize());
@@ -260,6 +261,7 @@ public class NettyChannelManagerTest extends TestLogger {
 			nettyChannelManager.addReference(connectionID);
 			nettyChannelManager.getChannel(connectionID);
 			nettyChannelManager.addChannel(connectionID, channel, clientHandler);
+			nettyChannelManager.decreaseRequestCount(connectionID);
 			nettyChannelManager.releaseChannel(connectionID);
 
 			nettyChannelManager.shutdown();
@@ -297,6 +299,7 @@ public class NettyChannelManagerTest extends TestLogger {
 				nettyChannelManager.addReference(connectionID);
 				nettyChannelManager.getChannel(connectionID);
 				nettyChannelManager.addChannel(connectionID, channel, clientHandler);
+				nettyChannelManager.decreaseRequestCount(connectionID);
 				nettyChannelManager.releaseChannel(connectionID);
 
 				assertEquals(1, nettyChannelManager.getTotalPoolSize());
@@ -346,6 +349,7 @@ public class NettyChannelManagerTest extends TestLogger {
 				nettyChannelManager.addReference(connectionID);
 				nettyChannelManager.getChannel(connectionID);
 				nettyChannelManager.addChannel(connectionID, channel, clientHandler);
+				nettyChannelManager.decreaseRequestCount(connectionID);
 				nettyChannelManager.releaseChannel(connectionID);
 
 				nettyChannelManager.shutdown();
@@ -409,6 +413,7 @@ public class NettyChannelManagerTest extends TestLogger {
 				nettyChannelManager.addReference(anotherConnectionID);
 				nettyChannelManager.getChannel(anotherConnectionID);
 				nettyChannelManager.addChannel(anotherConnectionID, channel, clientHandler);
+				nettyChannelManager.decreaseRequestCount(connectionID);
 				nettyChannelManager.releaseChannel(connectionID);
 
 				assertEquals(1, nettyChannelManager.getNumIdleChannels(anotherConnectionID));
@@ -416,6 +421,7 @@ public class NettyChannelManagerTest extends TestLogger {
 
 			// Sleep for a while until first netty channel idle too long and try to release channel
 			Thread.sleep(IDLE_CHANNEL_RELEASE_TIME_MS / 2);
+			nettyChannelManager.decreaseRequestCount(anotherConnectionID);
 			nettyChannelManager.releaseChannel(anotherConnectionID);
 
 			assertTrue(1 <= nettyChannelManager.getTotalPoolSize());
@@ -602,6 +608,7 @@ public class NettyChannelManagerTest extends TestLogger {
 								int id = number.getAndIncrement();
 								ConnectionID connectionID = createConnectionID(id);
 								if (id % 2 == 0) {
+									nettyChannelManager.decreaseRequestCount(connectionID);
 									nettyChannelManager.releaseChannel(connectionID);
 								} else {
 									nettyChannelManager.addReference(connectionID);

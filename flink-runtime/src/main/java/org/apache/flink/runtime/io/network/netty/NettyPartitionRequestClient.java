@@ -205,6 +205,10 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 
 		clientHandler.removeInputChannel(inputChannel);
 
+		if (channelReuseEnable) {
+			clientFactory.decreaseRequestCount(connectionId);
+		}
+
 		if (closeReferenceCounter.decrement()) {
 			if (channelReuseEnable) {
 				clientHandler.cancelRequestFor(inputChannel.getInputChannelId());
