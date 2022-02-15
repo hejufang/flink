@@ -2094,6 +2094,7 @@ public final class ConfigConstants {
 
 	/** Configuration key of yarn cluster name. */
 	public static final String YARN_CLUSTER_NAME_KEY = "yarn.cluster.name";
+	public static final String YARN_APPLICATION_QUEUE = "yarn.application.queue";
 
 	/** Configuration for owner. */
 	public static final String FLINK_OWNER_KEY = "owner";

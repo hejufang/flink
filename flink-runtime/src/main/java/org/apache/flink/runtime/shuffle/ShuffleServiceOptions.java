@@ -46,8 +46,8 @@ public class ShuffleServiceOptions {
 	/**
 	 * Whether css is enabled.
 	 */
-	public static final ConfigOption<Boolean> CLOUD_SHUFFLE_SERVICE_ENABLED = ConfigOptions
-		.key("cloud-shuffle-service.enabled")
+	public static final ConfigOption<Boolean> SHUFFLE_CLOUD_SHUFFLE_MODE = ConfigOptions
+		.key("shuffle.cloud-shuffle-mode")
 		.defaultValue(false)
-		.withDescription("Whether css is enabled.");
+		.withDescription("True if CSS is enabled, it will affect partition availability and shuffle data format.");
 }

@@ -527,10 +527,10 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		// init the warehouse messageSet.
 		if (tmConfig.getString(ExecutionOptions.EXECUTION_APPLICATION_TYPE).equals(ConfigConstants.FLINK_BATCH_APPLICATION_TYPE)) {
 			this.taskShuffleInfoMessageMessageSet = new MessageSet<>(MessageType.TASK_SHUFFLE_INFO);
-			this.metrics.getIOMetricGroup().gauge(FLINK_TASK_SHUFFLE_INFO_METRICS, () -> this.taskShuffleInfoMessageMessageSet);
+			this.metrics.getIOMetricGroup().gauge(FLINK_TASK_SHUFFLE_INFO_METRICS, this.taskShuffleInfoMessageMessageSet);
 			this.warehouseTaskShuffleInfoMessage = new WarehouseTaskShuffleInfoMessage(taskInfo);
 			// set the shuffle service type
-			String shuffleServiceType = tmConfig.getBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_ENABLED) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
+			String shuffleServiceType = tmConfig.getBoolean(ShuffleServiceOptions.SHUFFLE_CLOUD_SHUFFLE_MODE) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
 			this.warehouseTaskShuffleInfoMessage.setShuffleServiceType(shuffleServiceType);
 			LOG.info("Init the task info warehouseTaskShuffleInfoMessage({}).", warehouseTaskShuffleInfoMessage);
 		}

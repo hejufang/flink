@@ -71,7 +71,7 @@ import org.apache.flink.runtime.jobgraph.tasks.JobCheckpointingSettings;
 import org.apache.flink.runtime.jobgraph.topology.DefaultLogicalTopology;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
-import org.apache.flink.runtime.shuffle.ShuffleOptions;
+import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendLoader;
 import org.apache.flink.util.DynamicCodeLoadingException;
@@ -193,7 +193,7 @@ public class ExecutionGraphBuilder {
 				jobManagerConfig.getInteger(JobManagerOptions.MAX_ATTEMPTS_HISTORY_SIZE);
 
 		final boolean isRecoverable = jobManagerConfig.getBoolean(FORCE_PARTITION_RECOVERABLE);
-		final boolean cloudShuffleMode = jobManagerConfig.getBoolean(ShuffleOptions.SHUFFLE_CLOUD_SHUFFLE_MODE);
+		final boolean cloudShuffleMode = jobManagerConfig.getBoolean(ShuffleServiceOptions.SHUFFLE_CLOUD_SHUFFLE_MODE);
 		final boolean jobLogDetailDisable = jobManagerConfig.getBoolean(CoreOptions.FLINK_JOB_LOG_DETAIL_DISABLE);
 
 		final PartitionReleaseStrategy.Factory partitionReleaseStrategyFactory =

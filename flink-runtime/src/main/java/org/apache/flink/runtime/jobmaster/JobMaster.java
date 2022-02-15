@@ -391,11 +391,11 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 				this.warehouseBatchJobInfoMessage.setJobStartTimestamp(System.currentTimeMillis());
 				// set the shuffle service type
 				String shuffleServiceType = jobMasterConfiguration.getConfiguration()
-					.getBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_ENABLED) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
+					.getBoolean(ShuffleServiceOptions.SHUFFLE_CLOUD_SHUFFLE_MODE) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
 				this.warehouseBatchJobInfoMessage.setShuffleServiceType(shuffleServiceType);
 				// init message set
 				batchJobInfoMessageSet = new MessageSet<>(MessageType.FLINK_BATCH);
-				jobManagerJobMetricGroup.gauge(FLINK_BATCH_JOB_INFO_METRICS, () -> this.batchJobInfoMessageSet);
+				jobManagerJobMetricGroup.gauge(FLINK_BATCH_JOB_INFO_METRICS, this.batchJobInfoMessageSet);
 			}
 		}
 	}
@@ -415,9 +415,9 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		String flinkJobType = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.FLINK_JOB_TYPE_KEY, ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
 		String dockerImage = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.DOCKER_IMAGE, null);
 		String flinkApi = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
-		String appType = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.APPLICATION_TYPE, null);
+		String appType = this.jobMasterConfiguration.getConfiguration().getString(ExecutionOptions.EXECUTION_APPLICATION_TYPE);
 		boolean isKubernetes = this.jobMasterConfiguration.getConfiguration().getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false);
-		String shuffleServiceType = jobMasterConfiguration.getConfiguration().getBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_ENABLED) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
+		String shuffleServiceType = jobMasterConfiguration.getConfiguration().getBoolean(ShuffleServiceOptions.SHUFFLE_CLOUD_SHUFFLE_MODE) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
 		String appName = System.getenv().get(ConfigConstants.ENV_FLINK_YARN_JOB);
 		String owner = null;
 		if (!StringUtils.isNullOrWhitespaceOnly(appName)) {
@@ -1170,7 +1170,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 					if (this.schedulerNG instanceof SchedulerBase) {
 						this.warehouseBatchJobInfoMessage.setFailoverTimes(((SchedulerBase) this.schedulerNG).getNumberOfRestarts());
-						this.warehouseBatchJobInfoMessage.setJobFailedForPartitionUnavailableTimes(((SchedulerBase) this.schedulerNG).getNumberOfPartitionExceptions());
+						this.warehouseBatchJobInfoMessage.setJobFailoverForPartitionUnavailableTimes(((SchedulerBase) this.schedulerNG).getNumberOfPartitionExceptions());
 					}
 					if (throwable != null) {
 						log.warn("There are some errors for this job({}).", jobGraph.getName(), throwable);

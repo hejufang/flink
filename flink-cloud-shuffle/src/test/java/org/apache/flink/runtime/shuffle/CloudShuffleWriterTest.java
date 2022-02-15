@@ -195,7 +195,7 @@ public class CloudShuffleWriterTest {
 		byte[] data = received[0];
 		InputStream inputStream = new ByteArrayInputStream(data);
 		for (int i = 0; i < 11; i++) {
-			CloudShuffleBuffer csb = CloudShuffleReadWriterUtil.readFromCloudShuffleSerivice(
+			CloudShuffleBuffer csb = CloudShuffleReadWriterUtil.readFromCloudShuffleService(
 				inputStream,
 				MemorySegmentFactory.wrap(new byte[4 * 1024]),
 				MemorySegment::free);

@@ -22,7 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.dag.Pipeline;
 import org.apache.flink.client.cli.CheckpointVerifier;
 import org.apache.flink.client.cli.ExecutionConfigAccessor;
-import org.apache.flink.client.css.CloudShuffleCoordinator;
+import org.apache.flink.client.css.CloudShuffleConfiguration;
 import org.apache.flink.client.deployment.ClusterClientFactory;
 import org.apache.flink.client.deployment.ClusterClientJobClientAdapter;
 import org.apache.flink.client.deployment.ClusterDescriptor;
@@ -33,6 +33,7 @@ import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.core.execution.PipelineExecutor;
 import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.shuffle.CloudShuffleOptions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,8 +98,10 @@ public class AbstractJobClusterExecutor<ClusterID, ClientFactory extends Cluster
 
 			recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::submitJobStart);
 
-			// reconfigure with CSS Coordinator
-			CloudShuffleCoordinator.reconfigureConfig(jobGraph, clusterSpecification, configuration);
+			// whether enable cloud shuffle service
+			if (configuration.getBoolean(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_SUPPORT)) {
+				CloudShuffleConfiguration.reconfigureConfig(jobGraph, clusterSpecification, configuration);
+			}
 
 			final ClusterClientProvider<ClusterID> clusterClientProvider = clusterDescriptor
 					.deployJobCluster(clusterSpecification, jobGraph, configAccessor.getDetachedMode());

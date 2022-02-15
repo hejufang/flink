@@ -60,7 +60,7 @@ public class FlinkVersionReporter implements Runnable {
 		String flinkApi = this.flinkConfig.getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
 		String applicationType = this.flinkConfig.getString(YarnConfigOptions.APPLICATION_TYPE);
 		String cluster = this.flinkConfig.getString(ConfigConstants.CLUSTER_NAME_KEY, null);
-		String shuffleServiceType = this.flinkConfig.getBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_ENABLED) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
+		String shuffleServiceType = this.flinkConfig.getBoolean(ShuffleServiceOptions.SHUFFLE_CLOUD_SHUFFLE_MODE) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
 
 		EnvironmentInformation.RevisionInformation rev =
 			EnvironmentInformation.getRevisionInformation();

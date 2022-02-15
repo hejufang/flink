@@ -18,21 +18,12 @@
 
 package org.apache.flink.client.css;
 
-import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.client.deployment.ClusterSpecification;
-import org.apache.flink.client.util.HttpUtil;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.ExecutionOptions;
-import org.apache.flink.runtime.jobgraph.DistributionPattern;
-import org.apache.flink.runtime.jobgraph.IntermediateDataSet;
-import org.apache.flink.runtime.jobgraph.JobEdge;
-import org.apache.flink.runtime.jobgraph.JobGraph;
-import org.apache.flink.runtime.jobgraph.JobVertex;
+import org.apache.flink.monitor.utils.HttpUtil;
 import org.apache.flink.runtime.shuffle.CloudShuffleOptions;
-import org.apache.flink.runtime.shuffle.ShuffleOptions;
-import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
+import org.apache.flink.util.StringUtils;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,7 +31,6 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMap
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -48,10 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static org.apache.flink.configuration.ConfigConstants.CLUSTER_NAME_KEY;
-import static org.apache.flink.configuration.ConfigConstants.DC_KEY;
 import static org.apache.flink.configuration.ConfigOptions.key;
-import static org.apache.flink.runtime.shuffle.ShuffleServiceOptions.SHUFFLE_SERVICE_FACTORY_CLASS;
 
 /**
  * Connect to CSS Coordinator.
@@ -64,42 +51,29 @@ public class CloudShuffleCoordinator {
 	public static final String PREFIX = "flink.cloud-shuffle-service.";
 
 	/** copy from YarnConfigOptions. */
-	private static final ConfigOption<List<String>> PROVIDED_USER_SHARED_LIB_DIRS =
+	public static final ConfigOption<List<String>> PROVIDED_USER_SHARED_LIB_DIRS =
 		key("yarn.provided.user.shared.libs")
 			.stringType()
 			.asList()
 			.noDefaultValue()
 			.withDescription("User may share jars between jobs such as client jar for CSS.");
 
-	public static boolean reconfigureConfig(JobGraph jobGraph, ClusterSpecification clusterSpecification, Configuration configuration) {
-		// whether user enables css or not
-		if (!configuration.getBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_ENABLED)) {
-			return false;
-		}
-		// whether this is a batch job or not
-		if (!configuration.getString(ExecutionOptions.EXECUTION_APPLICATION_TYPE).equals(ConfigConstants.FLINK_BATCH_APPLICATION_TYPE)) {
-			return false;
-		}
-		// whether this is a valid graph or not
-		if (!isValidJobGraph(jobGraph)) {
-			return false;
-		}
-
-		if (!configuration.getBoolean(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_SUPPORT)) {
-			return false;
-		}
-
+	/**
+	 * Get the css configuration through css Coordinator, now just support yarn env.
+	 */
+	public static boolean getConfFromCSSCoordinator(Configuration configuration) {
 		try {
 			final ObjectMapper objectMapper = new ObjectMapper();
 
+			// TODO: 2022/1/24 Now css coordinator support yarn mode.
 			// construct CoordinatorQuery
-			final String region = configuration.getString(DC_KEY, null);
-			final String cluster = configuration.getString(CLUSTER_NAME_KEY, null);
+			final String region = configuration.getString(ConfigConstants.DC_KEY, null);
+			final String cluster = configuration.getString(ConfigConstants.CLUSTER_NAME_KEY, null);
 			// only support yarn for now
-			final String queue = configuration.getString("yarn.application.queue", null);
+			final String queue = configuration.getString(ConfigConstants.YARN_APPLICATION_QUEUE, null);
 
-			if (region == null || cluster == null || queue == null) {
-				final String message = String.format("region=%s,cluster=%s,queue=%s cannot contain any null value.", region, cluster, queue);
+			if (StringUtils.isNullOrWhitespaceOnly(region) || StringUtils.isNullOrWhitespaceOnly(cluster) || StringUtils.isNullOrWhitespaceOnly(queue)) {
+				final String message = String.format("region=%s, cluster=%s, queue=%s cannot contain any null value.", region, cluster, queue);
 				throw new IllegalStateException(message);
 			}
 
@@ -113,26 +87,26 @@ public class CloudShuffleCoordinator {
 
 			Map<String, String> header = new HashMap<>();
 			header.put("Content-Type", "application/json");
-			org.apache.flink.monitor.utils.HttpUtil.HttpResponsePojo response = HttpUtil.sendPost(targetUrl, objectMapper.writeValueAsString(query), header);
+			HttpUtil.HttpResponsePojo response = HttpUtil.sendPost(targetUrl, objectMapper.writeValueAsString(query), header);
 			int code = response.getStatusCode();
 			if (code >= 200 && code < 300) {
 				final String jsonBody = response.getContent();
 				final JsonNode node = objectMapper.readTree(jsonBody);
 				if (node.has("code") && node.get("code").intValue() == 200) {
 					if (node.has("data")) {
-						reconfigureWithData(jobGraph, node.get("data"), configuration, clusterSpecification);
+						reconfigureWithData(node.get("data"), configuration);
 					} else {
 						LOG.warn("CloudShuffleCoordinator response does not contain data in json body.");
 						return false;
 					}
 				} else {
 					final String errMessage = response.getContent();
-					LOG.warn("CloudShuffleCoordinator request rejected because of " + errMessage);
+					LOG.warn("CloudShuffleCoordinator request rejected because of {}.", errMessage);
 					return false;
 				}
 			} else {
 				final String errMessage = response.getContent();
-				LOG.warn("CloudShuffleCoordinator receives invalid code : " + code + ", message: " + errMessage);
+				LOG.warn("CloudShuffleCoordinator receives invalid code : {}, message: {}.", code, errMessage);
 				return false;
 			}
 		} catch (Throwable t) {
@@ -142,36 +116,7 @@ public class CloudShuffleCoordinator {
 		return true;
 	}
 
-	@VisibleForTesting
-	public static boolean isValidJobGraph(JobGraph graph) {
-		try {
-			// make sure there is no pipeline
-			final JobVertex[] jobVertices = graph.getVerticesAsArray();
-			for (JobVertex jobVertex : jobVertices) {
-				final List<IntermediateDataSet> dataSets = jobVertex.getProducedDataSets();
-				for (IntermediateDataSet dataSet : dataSets) {
-					if (dataSet.getResultType().isPipelined()) {
-						LOG.info("JobGraph has pipelined edge, cannot use Cloud Shuffle Service.");
-						// not support pipelined edges
-						return false;
-					}
-					for (JobEdge edge : dataSet.getConsumers()) {
-						final DistributionPattern distributionPattern = edge.getDistributionPattern();
-						if (!distributionPattern.equals(DistributionPattern.ALL_TO_ALL)) {
-							LOG.info("JobGraph has POINTWISE distribution, use Cloud Shuffle Service.");
-							return true;
-						}
-					}
-				}
-			}
-		} catch (Throwable t) {
-			LOG.error("Fail to parse JobGraph, cannot use Cloud Shuffle Service.", t);
-			return false;
-		}
-		return true;
-	}
-
-	private static void reconfigureWithData(JobGraph jobGraph, JsonNode node, Configuration configuration, ClusterSpecification clusterSpecification) {
+	private static void reconfigureWithData(JsonNode node, Configuration configuration) {
 		final String namespace = node.get("namespace").asText();
 		final String clusterName = node.get("clusterName").asText();
 		final String zkAddr = node.get("zkAddr").asText();
@@ -186,43 +131,36 @@ public class CloudShuffleCoordinator {
 			"commonConf: " + commonConf + "\n"
 		);
 
-		final String cssjar = commonConf.get("css.client.jar.path").asText();
+		final boolean getCssJarFromCoordinator = configuration.getBoolean(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_GET_CSS_JAR_FROM_COORDINATOR);
 
 		// reconfigure configuration
-		setIfAbsent(configuration, SHUFFLE_SERVICE_FACTORY_CLASS, "org.apache.flink.runtime.shuffle.CloudShuffleServiceFactory");
-		setIfAbsent(configuration, ShuffleOptions.SHUFFLE_CLOUD_SHUFFLE_MODE, true);
-		setIfAbsent(configuration, CloudShuffleOptions.CLOUD_SHUFFLE_REGISTRY_TYPE, "zookeeper");
 		setIfAbsent(configuration, CloudShuffleOptions.CLOUD_SHUFFLE_CLUSTER, clusterName);
 		setIfAbsent(configuration, CloudShuffleOptions.CLOUD_SHUFFLE_ZK_ADDRESS, zkAddr);
 
-		// add css client jar
-		List<String> jars = configuration.get(PROVIDED_USER_SHARED_LIB_DIRS);
-		if (jars == null) {
-			configuration.set(PROVIDED_USER_SHARED_LIB_DIRS, Collections.singletonList(cssjar));
-		} else {
-			jars.add(cssjar);
-			configuration.set(PROVIDED_USER_SHARED_LIB_DIRS, jars);
+		if (getCssJarFromCoordinator) {
+			// this function just support yarn mode now
+			final String cssjar = commonConf.get("css.client.jar.path").asText();
+			List<String> jars = configuration.get(PROVIDED_USER_SHARED_LIB_DIRS);
+			if (jars == null) {
+				configuration.set(PROVIDED_USER_SHARED_LIB_DIRS, Collections.singletonList(cssjar));
+			} else {
+				jars.add(cssjar);
+				configuration.set(PROVIDED_USER_SHARED_LIB_DIRS, jars);
+			}
 		}
 
-		// set number of css workers
-		final int slotsPerTm = clusterSpecification.getSlotsPerTaskManager();
-		final Integer maxParallelism = Arrays.stream(jobGraph.getVerticesAsArray()).map(JobVertex::getParallelism).max(Integer::compareTo).get();
-		final int numberOfWorkers = Math.max(maxParallelism * 2 / slotsPerTm, 1);
-		LOG.info("set css numberOfWorkers={}", numberOfWorkers);
-		setIfAbsent(configuration, CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_NUMBER_OF_WORKERS, numberOfWorkers);
-
-		// set other confs
+		// set other configuration
 		Iterator<String> iter = commonConf.fieldNames();
 		while (iter.hasNext()) {
 			String key = iter.next();
 			String value = commonConf.get(key).asText();
 			if (setIfAbsent(configuration, PREFIX + key, value)) {
-				LOG.info("CloudShuffleCoordinator inject config(key={},value={}).", key, value);
+				LOG.info("CloudShuffleCoordinator inject configuration(key={}, value={}).", key, value);
 			}
 		}
 	}
 
-	private static boolean setIfAbsent(Configuration configuration, String key, String value) {
+	static boolean setIfAbsent(Configuration configuration, String key, String value) {
 		if (!configuration.containsKey(key)) {
 			configuration.setString(key, value);
 			return true;
@@ -230,7 +168,7 @@ public class CloudShuffleCoordinator {
 		return false;
 	}
 
-	private static <T> boolean setIfAbsent(Configuration configuration, ConfigOption<T> option, T value) {
+	static <T> boolean setIfAbsent(Configuration configuration, ConfigOption<T> option, T value) {
 		if (!configuration.contains(option)) {
 			configuration.set(option, value);
 			return true;

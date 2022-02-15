@@ -57,6 +57,42 @@ public class WarehouseTaskShuffleInfoMessage extends WarehouseMessage {
 		this.attemptNumber = taskInfo.getAttemptNumber();
 	}
 
+	public String getTaskName() {
+		return taskName;
+	}
+
+	public String getTaskMetricName() {
+		return taskMetricName;
+	}
+
+	public String getTaskNameWithSubtasks() {
+		return taskNameWithSubtasks;
+	}
+
+	public String getTaskMetricNameWithSubtasks() {
+		return taskMetricNameWithSubtasks;
+	}
+
+	public String getAllocationIDAsString() {
+		return allocationIDAsString;
+	}
+
+	public int getMaxNumberOfParallelSubtasks() {
+		return maxNumberOfParallelSubtasks;
+	}
+
+	public int getIndexOfSubtask() {
+		return indexOfSubtask;
+	}
+
+	public int getNumberOfParallelSubtasks() {
+		return numberOfParallelSubtasks;
+	}
+
+	public int getAttemptNumber() {
+		return attemptNumber;
+	}
+
 	public long getInputShuffleDataBytes() {
 		return inputShuffleDataBytes;
 	}

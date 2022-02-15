@@ -986,7 +986,7 @@ public class JobMasterTest extends TestLogger {
 	@Test
 	public void testWarehouseBatchJobInfoMessage() throws Exception {
 		configuration.setString(ExecutionOptions.EXECUTION_APPLICATION_TYPE, ConfigConstants.FLINK_BATCH_APPLICATION_TYPE);
-		configuration.setBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_ENABLED, true);
+		configuration.setBoolean(ShuffleServiceOptions.SHUFFLE_CLOUD_SHUFFLE_MODE, true);
 		final JobMaster jobMaster = createJobMaster(
 			configuration,
 			jobGraph,

@@ -80,7 +80,7 @@ public class CloudShuffleReader implements BufferRecycler {
 			return null;
 		}
 
-		final CloudShuffleBuffer next = CloudShuffleReadWriterUtil.readFromCloudShuffleSerivice(inputStream, memory, this);
+		final CloudShuffleBuffer next = CloudShuffleReadWriterUtil.readFromCloudShuffleService(inputStream, memory, this);
 		if (next == null) {
 			reachEnd = true;
 			recycle(memory);

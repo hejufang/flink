@@ -95,7 +95,7 @@ public class CloudShuffleReadWriterUtil {
 	}
 
 	@Nullable
-	public static CloudShuffleBuffer readFromCloudShuffleSerivice(
+	public static CloudShuffleBuffer readFromCloudShuffleService(
 			InputStream inputStream,
 			MemorySegment memorySegment,
 			BufferRecycler bufferRecycler) throws IOException {

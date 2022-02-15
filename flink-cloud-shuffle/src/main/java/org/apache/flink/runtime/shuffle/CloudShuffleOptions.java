@@ -34,31 +34,43 @@ import java.util.Map;
 public class CloudShuffleOptions {
 
 	public static final String PREFIX = "flink.cloud-shuffle-service.";
+	public static final String CSS_MASTER_ADDRESS = "css.master.address";
 
+	/**  Whether the css is enabled. */
 	public static final ConfigOption<Boolean> CLOUD_SHUFFLE_SERVICE_SUPPORT = ConfigOptions
 		.key("flink.cloud-shuffle-service.support")
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Whether the cluster supports CSS or not.");
 
+	/** Flink client use css coordinator get the css configurations, but it has a lower priority than the configuration alone. */
 	public static final ConfigOption<String> CLOUD_SHUFFLE_SERVICE_COORDINATOR_URL = ConfigOptions
 		.key("flink.cloud-shuffle-service.coordinator.url")
 		.stringType()
 		.noDefaultValue()
 		.withDescription("CSS Coordinator URL");
 
+	/** Whether flink use css jar which get the remote path from css coordinator. */
+	public static final ConfigOption<Boolean> CLOUD_SHUFFLE_SERVICE_GET_CSS_JAR_FROM_COORDINATOR = ConfigOptions
+		.key("flink.cloud-shuffle-service.get-css-jar-from-coordinator")
+		.booleanType()
+		.defaultValue(true)
+		.withDescription("CSS dependency gets from coordinator if true, if false css jar need to set to the classpath.");
+
+	/** The css master information(address and port), it will be set in JobMaster. */
 	public static final ConfigOption<String> CLOUD_SHUFFLE_SERVICE_ADDRESS = ConfigOptions
-			.key("flink.cloud-shuffle-service.address")
-			.stringType()
-			.noDefaultValue()
-			.withDescription("CSS address");
+		.key("flink.cloud-shuffle-service.address")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("CSS master address, it's the address of jobMaster.");
 
 	public static final ConfigOption<String> CLOUD_SHUFFLE_SERVICE_PORT = ConfigOptions
-			.key("flink.cloud-shuffle-service.port")
-			.stringType()
-			.noDefaultValue()
-			.withDescription("CSS port");
+		.key("flink.cloud-shuffle-service.port")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("CSS master port, css master is running in jobMaster.");
 
+	/** The css configurations. */
 	public static final ConfigOption<String> CLOUD_SHUFFLE_CLUSTER = ConfigOptions
 		.key("flink.cloud-shuffle-service.css.cluster.name")
 		.stringType()
@@ -72,22 +84,23 @@ public class CloudShuffleOptions {
 		.withDescription("css zookeeper address");
 
 	public static final ConfigOption<String> CLOUD_SHUFFLE_REGISTRY_TYPE = ConfigOptions
-			.key("flink.cloud-shuffle-service.css.worker.registry.type")
-			.stringType()
-			.defaultValue("zookeeper")
-			.withDescription("css worker registry type");
+		.key("flink.cloud-shuffle-service.css.worker.registry.type")
+		.stringType()
+		.defaultValue("zookeeper")
+		.withDescription("css worker registry type");
 
 	public static final ConfigOption<Integer> CLOUD_SHUFFLE_SERVICE_NUMBER_OF_WORKERS = ConfigOptions
-			.key("flink.cloud-shuffle-service.number-of-workers")
-			.intType()
-			.noDefaultValue()
-			.withDescription("CSS number of workers");
+		.key("flink.cloud-shuffle-service.number-of-workers")
+		.intType()
+		.noDefaultValue()
+		.withDescription("CSS number of workers");
 
+	/** The write configuration for batch putting data to css. */
 	public static final ConfigOption<MemorySize> CLOUD_SHUFFLE_SERVICE_BUFFER_SIZE = ConfigOptions
-			.key("flink.cloud-shuffle-service.buffer-size")
-			.memoryType()
-			.defaultValue(MemorySize.parse("4mb"))
-			.withDescription("Max size for a single buffer.");
+		.key("flink.cloud-shuffle-service.buffer-size")
+		.memoryType()
+		.defaultValue(MemorySize.parse("4mb"))
+		.withDescription("Max size for a single buffer.");
 
 	public static final ConfigOption<MemorySize> CLOUD_SHUFFLE_SERVICE_MAX_BATCH_SIZE = ConfigOptions
 		.key("flink.cloud-shuffle-service.max-batch-size")
@@ -112,7 +125,7 @@ public class CloudShuffleOptions {
 		CssConf cssConf = new CssConf();
 		final String address = configuration.get(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_ADDRESS);
 		final String port = configuration.get(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_PORT);
-		cssConf.set("css.master.address", "css://" + address + ":" + port);
+		cssConf.set(CSS_MASTER_ADDRESS, "css://" + address + ":" + port);
 
 		Map<String, String> cssProperties = propertiesFromConfiguration(configuration);
 

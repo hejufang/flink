@@ -97,6 +97,10 @@ common:
   web.submit.enable: false
   resourcemanager.shuffle-pending-slots: false
 
+  # shuffle service
+  flink.cloud-shuffle-service.get-css-jar-from-coordinator: false
+  flink.cloud-shuffle-service.support: false
+
   # The Netty send and receive buffer size.
   taskmanager.network.netty.sendReceiveBufferSize: 4194304
 

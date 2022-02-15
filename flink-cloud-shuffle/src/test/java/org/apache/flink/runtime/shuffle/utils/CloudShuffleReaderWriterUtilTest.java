@@ -44,7 +44,7 @@ public class CloudShuffleReaderWriterUtilTest {
 
 		final MemorySegment readBuffer = MemorySegmentFactory.allocateUnpooledOffHeapMemory(32 * 1024, null);
 		final InputStream inputStream = new ByteArrayInputStream(cloudShuffleData);
-		CloudShuffleReadWriterUtil.readFromCloudShuffleSerivice(inputStream, readBuffer, MemorySegment::free);
+		CloudShuffleReadWriterUtil.readFromCloudShuffleService(inputStream, readBuffer, MemorySegment::free);
 	}
 
 	private static Buffer createTestBuffer() {

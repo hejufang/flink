@@ -111,11 +111,11 @@ public class WarehouseBatchJobInfoMessage extends WarehouseMessage {
 		return this;
 	}
 
-	public long getJobFailedForPartitionUnavailableTimes() {
+	public long getJobFailoverForPartitionUnavailableTimes() {
 		return jobFailoverForPartitionUnavailableTimes;
 	}
 
-	public WarehouseBatchJobInfoMessage setJobFailedForPartitionUnavailableTimes(
+	public WarehouseBatchJobInfoMessage setJobFailoverForPartitionUnavailableTimes(
 		long jobFailoverForPartitionUnavailableTimes) {
 		this.jobFailoverForPartitionUnavailableTimes = jobFailoverForPartitionUnavailableTimes;
 		return this;
