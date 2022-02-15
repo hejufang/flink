@@ -345,6 +345,7 @@ lepad:
   bytedance.streaming.yarn.check.application.name.unique.region: true
   restart-strategy.recoverable-failure-rate.fallback-global-restart: true
   restart-strategy.recoverable-failure-rate.enable: true
+  restart-strategy: aggregated-failure-rate
 
 larva:
   dc: cn
@@ -480,6 +481,7 @@ hyrax:
   bytedance.streaming.yarn.check.application.name.unique.region: true
   restart-strategy.recoverable-failure-rate.fallback-global-restart: true
   restart-strategy.recoverable-failure-rate.enable: true
+  restart-strategy: aggregated-failure-rate
 
 horse:
   dc: cn
