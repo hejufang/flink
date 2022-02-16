@@ -238,6 +238,10 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private final boolean gangSchedulerEnabled;
 	private final String nodeAttributesExpression;
 
+	// sr metrics
+	private Counter srContainerUpdateFailedCounter;
+	private Counter srContainerUpdateSuccessCounter;
+
 	public YarnResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -321,6 +325,9 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		this.smartResourceManager = new SmartResourceManager(flinkConfig, yarnRuntimeConf, env);
 		this.smartResourceManager.setYarnResourceManager(this);
 		if (smartResourceManager.getSmartResourcesEnable()) {
+			this.srContainerUpdateFailedCounter = new SimpleCounter();
+			this.srContainerUpdateSuccessCounter = new SimpleCounter();
+
 			this.containerResourcesUpdater = new Thread(this::containerResourcesUpdaterProc);
 			this.containerResourcesUpdater.start();
 			log.info("SmartResource started.");
@@ -980,6 +987,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	@Override
 	public void onContainersUpdated(List<UpdatedContainer> containers) {
+		srContainerUpdateSuccessCounter.inc(containers.size());
+
 		runAsync(() -> {
 			log.info("Received ContainersUpdate {}", containers);
 			smartResourceManager.containersUpdated(containers);
@@ -988,6 +997,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	@Override
 	public void onContainersUpdateError(List<UpdateContainerError> updateContainerErrors) {
+		srContainerUpdateFailedCounter.inc(updateContainerErrors.size());
+
 		runAsync(() -> {
 			log.error("Received ContainersUpdateError {}", updateContainerErrors);
 			smartResourceManager.containersUpdateError(updateContainerErrors);
@@ -1390,6 +1401,15 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		resourceManagerMetricGroup.gauge(
 			MetricNames.NUM_LACK_WORKERS,
 			() -> (long) getNumLackWorks());
+		// register sr metrics
+		if (smartResourceManager.getSmartResourcesEnable()) {
+			Counter smartResourcesEnableCount = new SimpleCounter();
+			smartResourcesEnableCount.inc();
+			resourceManagerMetricGroup.counter("smartResourcesEnable", smartResourcesEnableCount);
+
+			resourceManagerMetricGroup.counter("srContainerUpdateSuccessCounter", srContainerUpdateSuccessCounter);
+			resourceManagerMetricGroup.counter("srContainerUpdateFailedCounter", srContainerUpdateFailedCounter);
+		}
 	}
 
 	private int getNumLackWorks(){

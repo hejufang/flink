@@ -300,7 +300,12 @@ non-global:
         TMHeartbeatTimeoutFromRM,
         TMHeartbeatTimeoutFromJM,
       # am
-        timeOfAMStart
+        timeOfAMStart,
+
+      # smart resource
+        smartResourcesEnable,
+        srContainerUpdateSuccessCounter,
+        srContainerUpdateFailedCounter
     ]
 
 report-during-unregister:

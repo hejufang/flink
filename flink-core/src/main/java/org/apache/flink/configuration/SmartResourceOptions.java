@@ -60,7 +60,7 @@ public class SmartResourceOptions {
 	public static final ConfigOption<Boolean> SMART_RESOURCES_DISABLE_MEM_ADJUST = ConfigOptions
 		.key("smart-resources.disable-mem-adjust")
 		.booleanType()
-		.defaultValue(false)
+		.defaultValue(true)
 		.withDescription("Option whether enable SmartResource to adjust TM memory.");
 
 	/**

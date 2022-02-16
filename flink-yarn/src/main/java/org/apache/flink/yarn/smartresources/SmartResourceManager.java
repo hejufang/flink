@@ -441,7 +441,7 @@ public class SmartResourceManager {
 				// increase | decrease memory
 				request = UpdateContainerRequest.newInstance(container.getVersion(), containerId,
 					targetResources.getMemoryMB() > currentResource.getMemorySize() ? ContainerUpdateType.INCREASE_RESOURCE : ContainerUpdateType.DECREASE_RESOURCE,
-					Resource.newInstance(targetResources.getMemoryMB(), currentResource.getVirtualCores()));
+					Resource.newInstance(targetResources.getMemoryMB(), 0, currentResource.getVirtualCoresMilli()));
 			} else if (targetVCoresMilli != currentResource.getVirtualCoresMilli()) {
 				// increase | decrease vcores
 				request = UpdateContainerRequest.newInstance(container.getVersion(), containerId, targetVCoresMilli > currentResource.getVirtualCoresMilli() ? ContainerUpdateType.INCREASE_RESOURCE : ContainerUpdateType.DECREASE_RESOURCE, Resource.newInstance(currentResource.getMemorySize(), 0, targetVCoresMilli));
@@ -449,9 +449,9 @@ public class SmartResourceManager {
 			try {
 				yarnResourceManager.requestContainerUpdate(container, request);
 				pendingUpdating.put(containerId, System.currentTimeMillis() + resourcesUpdateTimeoutMS);
-				log.info("request update {} resources from ({} MB, {} vcores) to ({} MB, {} vcores)",
+				log.info("request update {} resources from ({} MB, {} vcores) to ({} MB, {} vcores), request: {}.",
 					containerId, currentResource.getMemorySize(), currentResource.getVirtualCoresDecimal(),
-					targetResources.getMemoryMB(), targetResources.getVcores());
+					targetResources.getMemoryMB(), targetResources.getVcores(), request);
 			} catch (Throwable t) {
 				log.error("update container resources error", t);
 			}
