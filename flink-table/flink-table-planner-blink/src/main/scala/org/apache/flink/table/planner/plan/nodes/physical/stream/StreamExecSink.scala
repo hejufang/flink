@@ -106,7 +106,8 @@ class StreamExecSink(
       inputTransformation,
       planner.getTableConfig,
       rowtimeFieldIndex,
-      isBounded = false)
+      isBounded = false,
+      inputChangelogMode)
   }
 
   /**

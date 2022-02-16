@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.plan.batch.sql
 
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api._
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.planner.plan.optimize.RelNodeBlockPlanBuilder
 import org.apache.flink.table.planner.utils.TableTestBase
 import org.apache.flink.table.types.logical.{BigIntType, IntType}
@@ -33,6 +34,30 @@ class TableSinkTest extends TableTestBase {
 
   private val util = batchTestUtil()
   util.addDataStream[(Int, Long, String)]("MyTable", 'a, 'b, 'c)
+
+  util.tableEnv.executeSql(
+    """
+      |CREATE TABLE src (person String, votes BIGINT) WITH(
+      |  'connector' = 'values',
+      |  'bounded' = 'true'
+      |)
+      |""".stripMargin)
+
+  util.tableEnv.executeSql(
+    """
+      |CREATE TABLE award (votes BIGINT, prize DOUBLE, PRIMARY KEY(votes) NOT ENFORCED) WITH(
+      |  'connector' = 'values',
+      |  'bounded' = 'true'
+      |)
+      |""".stripMargin)
+
+  util.tableEnv.executeSql(
+    """
+      |CREATE TABLE people (person STRING, age INT, PRIMARY KEY(person) NOT ENFORCED) WITH(
+      |  'connector' = 'values',
+      |  'bounded' = 'true'
+      |)
+      |""".stripMargin)
 
   @Test
   def testSingleSink(): Unit = {
@@ -77,5 +102,28 @@ class TableSinkTest extends TableTestBase {
     stmtSet.addInsertSql("INSERT INTO sink2 SELECT MIN(sum_a) AS total_min FROM table1")
 
     util.verifyPlan(stmtSet)
+  }
+
+  @Test
+  def testSinkDisorderChangeLogWithJoin(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_SINK_UPSERT_MATERIALIZE.key(), "FORCE")
+    util.tableEnv.executeSql(
+      """
+        |CREATE TABLE SinkJoinChangeLog (
+        |  person STRING, votes BIGINT, prize DOUBLE,
+        |  PRIMARY KEY(person) NOT ENFORCED) WITH(
+        |  'connector' = 'values',
+        |  'sink-insert-only' = 'false'
+        |)
+        |""".stripMargin)
+
+    util.verifyTransformationInsert(
+      """
+        |INSERT INTO SinkJoinChangeLog
+        |SELECT T.person, T.sum_votes, award.prize FROM
+        |   (SELECT person, SUM(votes) AS sum_votes FROM src GROUP BY person) T, award
+        |   WHERE T.sum_votes = award.votes
+        |""".stripMargin)
   }
 }

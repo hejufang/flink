@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.plan.stream.sql
 
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api._
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.planner.utils.TableTestBase
 import org.apache.flink.table.types.logical.LogicalType
 
@@ -33,6 +34,27 @@ class TableSinkTest extends TableTestBase {
   val STRING: LogicalType = DataTypes.STRING().getLogicalType
   val LONG: LogicalType = DataTypes.BIGINT().getLogicalType
   val INT: LogicalType = DataTypes.INT().getLogicalType
+
+  util.tableEnv.executeSql(
+    """
+      |CREATE TABLE src (person String, votes BIGINT) WITH(
+      |  'connector' = 'values'
+      |)
+      |""".stripMargin)
+
+  util.tableEnv.executeSql(
+    """
+      |CREATE TABLE award (votes BIGINT, prize DOUBLE, PRIMARY KEY(votes) NOT ENFORCED) WITH(
+      |  'connector' = 'values'
+      |)
+      |""".stripMargin)
+
+  util.tableEnv.executeSql(
+    """
+      |CREATE TABLE people (person STRING, age INT, PRIMARY KEY(person) NOT ENFORCED) WITH(
+      |  'connector' = 'values'
+      |)
+      |""".stripMargin)
 
   @Test
   def testExceptionForAppendSink(): Unit = {
@@ -285,6 +307,55 @@ class TableSinkTest extends TableTestBase {
       "INSERT INTO upsertSink SELECT a, MIN(b) AS total_min FROM TempTable1 GROUP BY a")
 
     util.verifyPlan(stmtSet, ExplainDetail.CHANGELOG_MODE)
+  }
+
+  @Test
+  def testSinkDisorderChangeLogWithJoin(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_SINK_UPSERT_MATERIALIZE.key(), "FORCE")
+    util.tableEnv.executeSql(
+      """
+        |CREATE TABLE SinkJoinChangeLog (
+        |  person STRING, votes BIGINT, prize DOUBLE,
+        |  PRIMARY KEY(person) NOT ENFORCED) WITH(
+        |  'connector' = 'values',
+        |  'sink-insert-only' = 'false'
+        |)
+        |""".stripMargin)
+
+    util.verifyTransformationInsert(
+      """
+        |INSERT INTO SinkJoinChangeLog
+        |SELECT T.person, T.sum_votes, award.prize FROM
+        |   (SELECT person, SUM(votes) AS sum_votes FROM src GROUP BY person) T, award
+        |   WHERE T.sum_votes = award.votes
+        |""".stripMargin)
+  }
+
+  @Test
+  def testSinkDisorderChangeLogWithRank(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_SINK_UPSERT_MATERIALIZE.key(), "FORCE")
+    util.tableEnv.executeSql(
+      """
+        |CREATE TABLE SinkRankChangeLog (
+        |  person STRING, votes BIGINT,
+        |  PRIMARY KEY(person) NOT ENFORCED) WITH(
+        |  'connector' = 'values',
+        |  'sink-insert-only' = 'false'
+        |)
+        |""".stripMargin)
+
+    util.verifyTransformationInsert(
+      """
+        |INSERT INTO SinkRankChangeLog
+        |SELECT person, sum_votes FROM
+        | (SELECT person, sum_votes,
+        |   ROW_NUMBER() OVER (PARTITION BY vote_section ORDER BY sum_votes DESC) AS rank_number
+        |   FROM (SELECT person, SUM(votes) AS sum_votes, SUM(votes) / 2 AS vote_section FROM src
+        |      GROUP BY person))
+        |   WHERE rank_number < 10
+        |""".stripMargin)
   }
 
 }

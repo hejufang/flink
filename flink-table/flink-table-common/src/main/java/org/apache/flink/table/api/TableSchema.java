@@ -316,6 +316,14 @@ public class TableSchema {
 		return Optional.ofNullable(primaryKey);
 	}
 
+	@Nullable
+	public int[] getPrimaryKeyIndices() {
+		if (primaryKey != null) {
+			return getIndexListFromFieldNames(primaryKey.getColumns().toArray(new String[0]));
+		}
+		return null;
+	}
+
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder();

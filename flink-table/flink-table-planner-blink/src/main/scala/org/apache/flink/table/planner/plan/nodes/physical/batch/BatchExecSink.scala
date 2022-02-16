@@ -92,7 +92,8 @@ class BatchExecSink(
       inputTransformation,
       planner.getTableConfig,
       -1 /* not rowtime field */,
-      isBounded = true)
+      isBounded = true,
+      null)
   }
 
   /**

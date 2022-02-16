@@ -634,8 +634,15 @@ abstract class TableTestUtil(
     verifyPlan(stmtSet, extraDetails: _*)
   }
 
+  def verifyTransformationInsert(sql: String): Unit = {
+    val statement = tableEnv.createStatementSet().addInsertSql(sql)
+    doVerifyPlan(statement, Array.empty[ExplainDetail], withRowType = false, printPlanBefore = true,
+      withTransformation = true)
+  }
+
   def verifyPlan(stmtSet: StatementSet, extraDetails: ExplainDetail*): Unit = {
-    doVerifyPlan(stmtSet, extraDetails.toArray, withRowType = false, printPlanBefore = true)
+    doVerifyPlan(stmtSet, extraDetails.toArray, withRowType = false, printPlanBefore = true,
+      withTransformation = false)
   }
 
   def doVerifyPlanInsert(
@@ -646,14 +653,15 @@ abstract class TableTestUtil(
     assertEqualsOrExpand("sql", sql)
     val stmtSet = tableEnv.createStatementSet()
     stmtSet.addInsertSql(sql)
-    doVerifyPlan(stmtSet, extraDetails, withRowType, printPlanBefore)
+    doVerifyPlan(stmtSet, extraDetails, withRowType, printPlanBefore, withTransformation = false)
   }
 
   def doVerifyPlan(
       stmtSet: StatementSet,
       extraDetails: Array[ExplainDetail],
       withRowType: Boolean,
-      printPlanBefore: Boolean): Unit = {
+      printPlanBefore: Boolean,
+      withTransformation: Boolean): Unit = {
     val testStmtSet = stmtSet.asInstanceOf[TestingStatementSet]
 
     val relNodes = testStmtSet.getOperations.map(getPlanner.translateToRel)
@@ -666,7 +674,8 @@ abstract class TableTestUtil(
     val optimizedPlan = getOptimizedPlan(
       relNodes.toArray,
       extraDetails,
-      withRowType = withRowType)
+      withRowType = withRowType,
+      withTransformation = withTransformation)
 
     if (printPlanBefore) {
       val planBefore = new StringBuilder

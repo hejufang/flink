@@ -21,7 +21,7 @@ package org.apache.flink.table.planner.plan.rules.physical.stream
 import org.apache.flink.api.common.time.Time
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api.{ExplainDetail, _}
-import org.apache.flink.table.api.config.OptimizerConfigOptions
+import org.apache.flink.table.api.config.{ExecutionConfigOptions, OptimizerConfigOptions}
 import org.apache.flink.table.planner.runtime.utils.StreamingWithAggTestBase.{AggMode, LocalGlobalOff, LocalGlobalOn}
 import org.apache.flink.table.planner.utils.{AggregatePhaseStrategy, TableTestBase}
 
@@ -86,6 +86,34 @@ class ChangelogModeInferenceTest(aggMode: AggMode) extends TableTestBase {
         |) GROUP BY cnt
       """.stripMargin
     util.verifyPlan(sql, ExplainDetail.CHANGELOG_MODE)
+  }
+
+  @Test
+  def testSinkUpsertMaterializationRequireUpdateBefore(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_SINK_UPSERT_MATERIALIZE.key(), "FORCE")
+    util.tableEnv.executeSql(
+      """
+        |CREATE TABLE upsertSink (
+        |  word VARCHAR,
+        |  cnt BIGINT,
+        |  -- primary key will make values connector only require update_after
+        |  PRIMARY KEY(word) NOT ENFORCED
+        |) WITH (
+        |  'connector' = 'values',
+        |  'sink-insert-only' = 'false'
+        |)
+        |""".stripMargin)
+    val sql =
+      """
+        |INSERT INTO upsertSink
+        |SELECT word, COUNT(number) as cnt
+        |FROM MyTable
+        |GROUP BY word
+        |""".stripMargin
+    val statementSet = util.tableEnv.createStatementSet()
+    statementSet.addInsertSql(sql)
+    util.verifyPlan(statementSet, ExplainDetail.CHANGELOG_MODE)
   }
 
 }
