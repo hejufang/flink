@@ -92,6 +92,11 @@ class UnknownInputChannel extends InputChannel {
 	}
 
 	@Override
+	void registerSubpartitionRequest(int subpartitionIndex) throws IOException, InterruptedException {
+		// Nothing to do here
+	}
+
+	@Override
 	public Optional<BufferAndAvailability> getNextBuffer() throws IOException {
 		// Nothing to do here
 		throw new UnsupportedOperationException("Cannot retrieve a buffer from an UnknownInputChannel");

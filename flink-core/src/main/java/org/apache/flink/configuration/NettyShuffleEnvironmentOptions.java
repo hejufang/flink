@@ -316,6 +316,31 @@ public class NettyShuffleEnvironmentOptions {
 			.withDeprecatedKeys("taskmanager.net.request-backoff.max")
 			.withDescription("Maximum backoff in milliseconds for partition requests of input channels.");
 
+	public static final ConfigOption<Boolean> NETWORK_BATCH_PARTITION_REQUET_ENABLE =
+		key("taskmanager.network.batch-partition-request.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("When true downstream task package and send PartitionRequest data of the same connection");
+
+	public static final ConfigOption<Boolean> NETWORK_PARTITION_REQUEST_NOTIFY_ENABLE =
+		key("taskmanager.partition-request-notify.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("When true, the server will hold and listen the partition request from client until the partition is registered and notify the request, " +
+				"otherwise the server will return PartitionNotFoundException to client and it will send partition request to server again.");
+
+	public static final ConfigOption<Long> NETWORK_PARTITION_REQUEST_NOTIFY_TIMEOUT =
+		key("taskmanager.partition-request-notify.timeout-ms")
+			.longType()
+			.defaultValue(30000L)
+			.withDescription("The server will return PartitionNotFoundException if partition is still not setup after timeout time.");
+
+	public static final ConfigOption<Long> NETWORK_PARTITION_REQUEST_NOTIFY_TIMEOUT_INTERVAL =
+		key("taskmanager.partition-request-notify.timeoutInterval-ms")
+			.longType()
+			.defaultValue(10000L)
+			.withDescription("Partition request notify check interval.");
+
 	// ------------------------------------------------------------------------
 
 	@Documentation.ExcludeFromDocumentation("dev use only; likely temporary")

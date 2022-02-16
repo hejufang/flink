@@ -45,4 +45,11 @@ public interface BufferAvailabilityListener {
 	default void notifyDataUnavailable() {}
 
 	default void notifyListenerReleased() {}
+
+	/**
+	 * Allows the listener to react to PartitionRequestNotify timeout event.
+	 *
+	 * @param partitionRequestNotifierTimeout
+	 */
+	default void notifyPartitionRequestNotifyTimeout(PartitionRequestNotifierTimeout partitionRequestNotifierTimeout){}
 }

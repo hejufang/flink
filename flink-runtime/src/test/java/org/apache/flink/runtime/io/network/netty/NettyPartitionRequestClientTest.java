@@ -29,6 +29,7 @@ import org.apache.flink.runtime.io.network.netty.NettyMessage.ResumeConsumption;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelBuilder;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
+import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateBuilder;
 import org.apache.flink.util.NetUtils;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
@@ -137,6 +138,46 @@ public class NettyPartitionRequestClientTest {
 			assertThat(readFromOutbound, instanceOf(PartitionRequest.class));
 			assertEquals(inputChannel.getInputChannelId(), ((PartitionRequest) readFromOutbound).receiverId);
 			assertEquals(numExclusiveBuffers, ((PartitionRequest) readFromOutbound).credit);
+
+			assertNull(channel.readOutbound());
+		} finally {
+			// Release all the buffer resources
+			inputGate.close();
+
+			networkBufferPool.destroyAllBufferPools();
+			networkBufferPool.destroy();
+		}
+	}
+
+	@Test
+	public void testPartitionRequestList() throws Exception {
+		final CreditBasedPartitionRequestClientHandler handler = new CreditBasedPartitionRequestClientHandler();
+		final EmbeddedChannel channel = new EmbeddedChannel(handler);
+		final PartitionRequestClient client = createPartitionRequestClient(channel, handler);
+
+		final int numExclusiveBuffers = 2;
+		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(10, 32, numExclusiveBuffers);
+		final SingleInputGate inputGate = new SingleInputGateBuilder()
+			.setNumberOfChannels(1)
+			.setSegmentProvider(networkBufferPool)
+			.setBatchRequestPartitionEnable(true)
+			.build();
+		final RemoteInputChannel inputChannel = createRemoteInputChannel(inputGate, client);
+
+		try {
+			inputGate.setInputChannels(inputChannel);
+			final BufferPool bufferPool = networkBufferPool.createBufferPool(6, 6);
+			inputGate.setBufferPool(bufferPool);
+			inputGate.assignExclusiveSegments();
+			inputGate.requestPartitions();
+
+			// The input channel should only send one request
+			assertTrue(channel.isWritable());
+			Object readFromOutbound = channel.readOutbound();
+			assertThat(readFromOutbound, instanceOf(NettyMessage.PartitionRequestList.class));
+			PartitionRequest partitionRequest = ((NettyMessage.PartitionRequestList) readFromOutbound).partitionRequests.get(0);
+			assertEquals(inputChannel.getInputChannelId(), partitionRequest.receiverId);
+			assertEquals(numExclusiveBuffers, partitionRequest.credit);
 
 			assertNull(channel.readOutbound());
 		} finally {

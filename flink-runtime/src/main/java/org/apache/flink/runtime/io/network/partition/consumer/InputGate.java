@@ -22,7 +22,9 @@ import org.apache.flink.runtime.checkpoint.channel.ChannelStateReader;
 import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.io.PullingAsyncDataInput;
+import org.apache.flink.runtime.io.network.PartitionRequestClient;
 import org.apache.flink.runtime.io.network.buffer.BufferReceivedListener;
+import org.apache.flink.runtime.io.network.netty.PartitionRequestChannel;
 
 import java.io.IOException;
 import java.util.List;
@@ -124,6 +126,21 @@ public abstract class InputGate implements PullingAsyncDataInput<BufferOrEvent>,
 	public abstract InputChannelInfo getChannelInfo(int channelIndex);
 
 	public abstract String getChannelType(int channelIndex);
+
+	/**
+	 * Register partitionRequests.
+	 *
+	 * @param partitionRequestClient Use to trigger partition request.
+	 * @param partitionRequestChannel Partition Request body and channel info.
+	 */
+	public void registerPartitionRequestClient(PartitionRequestClient partitionRequestClient, PartitionRequestChannel partitionRequestChannel) {
+	}
+
+	/**
+	 * Make batch partition requests.
+	 */
+	public void flushBatchPartitionRequest() {
+	}
 
 	/**
 	 * Returns the channel infos of this gate.

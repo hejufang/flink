@@ -94,7 +94,9 @@ public class NettyShuffleServiceFactory implements ShuffleServiceFactory<NettySh
 			config,
 			taskExecutorResourceId,
 			taskEventPublisher,
-			new ResultPartitionManager(),
+			new ResultPartitionManager(config.isNotifyPartitionRequestEnable(),
+				config.getNotifyPartitionRequestTimeout(),
+				config.getNotifyPartitionRequestTimeoutInterval()),
 			metricGroup,
 			ioExecutor);
 	}

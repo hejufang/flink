@@ -19,10 +19,12 @@
 package org.apache.flink.runtime.io.network;
 
 import org.apache.flink.runtime.event.TaskEvent;
+import org.apache.flink.runtime.io.network.netty.PartitionRequestChannel;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Client to send messages or task events via network for {@link RemoteInputChannel}.
@@ -42,6 +44,33 @@ public interface PartitionRequestClient {
 		int subpartitionIndex,
 		RemoteInputChannel inputChannel,
 		int delayMs) throws IOException;
+
+	/**
+	 * Build a remote sub partition request.
+	 *
+	 * @param partitionId The identifier of result partition to be requested.
+	 * @param subpartitionIndex The sub partition index in the requested result partition.
+	 * @param inputChannel The remote input channel for requesting the sub partition.
+	 *
+	 * @return Partition request and inputChannel info.
+	 * @throws IOException
+	 */
+	default PartitionRequestChannel buildRequestSubpartitionRequest(
+			ResultPartitionID partitionId,
+			int subpartitionIndex,
+			RemoteInputChannel inputChannel) throws IOException {
+		throw new UnsupportedOperationException();
+	}
+
+
+	/**
+	 * Send remote partition requests.
+	 *
+	 * @param partitionRequestChannels List of partitionRequestChannel
+	 */
+	default void flushBatchPartitionRequest(List<PartitionRequestChannel> partitionRequestChannels) {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * Notifies available credits from one remote input channel.

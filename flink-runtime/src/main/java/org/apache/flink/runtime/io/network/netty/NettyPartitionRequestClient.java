@@ -36,6 +36,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.SocketAddress;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.runtime.io.network.netty.NettyMessage.PartitionRequest;
@@ -49,7 +53,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * from the same {@link ConnectionID}.
  */
 public class NettyPartitionRequestClient implements PartitionRequestClient {
-
 	private static final Logger LOG = LoggerFactory.getLogger(NettyPartitionRequestClient.class);
 
 	private final Channel tcpChannel;
@@ -162,6 +165,52 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 		}
 	}
 
+	public PartitionRequestChannel buildRequestSubpartitionRequest(
+			ResultPartitionID partitionId,
+			int subpartitionIndex,
+			RemoteInputChannel inputChannel) throws IOException {
+
+		checkNotClosed();
+
+		clientHandler.addInputChannel(inputChannel);
+
+		final PartitionRequest request = new PartitionRequest(
+			partitionId, subpartitionIndex, inputChannel.getInputChannelId(), inputChannel.getInitialCredit());
+		return new PartitionRequestChannel(request, inputChannel);
+	}
+
+	@Override
+	public void flushBatchPartitionRequest(List<PartitionRequestChannel> partitionRequestChannels) {
+		List<PartitionRequest> partitionRequestList = new ArrayList<>(partitionRequestChannels.size());
+		Set<RemoteInputChannel> inputChannelSet = new HashSet<>(partitionRequestChannels.size());
+		for (PartitionRequestChannel partitionRequestChannel : partitionRequestChannels) {
+			partitionRequestList.add(partitionRequestChannel.getPartitionRequest());
+			inputChannelSet.add(partitionRequestChannel.getInputChannel());
+		}
+		if (!partitionRequestList.isEmpty()) {
+			final ChannelFutureListener listener = new ChannelFutureListener() {
+				@Override
+				public void operationComplete(ChannelFuture future) throws Exception {
+					if (!future.isSuccess()) {
+						for (RemoteInputChannel inputChannel : inputChannelSet) {
+							clientHandler.removeInputChannel(inputChannel);
+							SocketAddress remoteAddr = future.channel().remoteAddress();
+							inputChannel.onError(
+								new LocalTransportException(
+									String.format("Sending the partition request to '%s' failed.", remoteAddr),
+									future.channel().localAddress(), future.cause()
+								));
+						}
+					}
+				}
+			};
+
+			NettyMessage.PartitionRequestList partitionRequests = new NettyMessage.PartitionRequestList(partitionRequestList);
+			ChannelFuture f = tcpChannel.writeAndFlush(partitionRequests);
+			f.addListener(listener);
+		}
+	}
+
 	/**
 	 * Sends a task event backwards to an intermediate result partition producer.
 	 *
@@ -202,7 +251,6 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 
 	@Override
 	public void close(RemoteInputChannel inputChannel) throws IOException {
-
 		clientHandler.removeInputChannel(inputChannel);
 
 		if (channelReuseEnable) {

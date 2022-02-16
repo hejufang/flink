@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.netty;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
 import org.apache.flink.runtime.io.network.TaskEventPublisher;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.AddCredit;
@@ -35,6 +36,8 @@ import org.apache.flink.shaded.netty4.io.netty.channel.SimpleChannelInboundHandl
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+
 import static org.apache.flink.runtime.io.network.netty.NettyMessage.PartitionRequest;
 import static org.apache.flink.runtime.io.network.netty.NettyMessage.TaskEventRequest;
 
@@ -51,14 +54,26 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 
 	private final PartitionRequestQueue outboundQueue;
 
+	private final boolean notifyPartitionRequestEnable;
+
+	@VisibleForTesting
 	PartitionRequestServerHandler(
 		ResultPartitionProvider partitionProvider,
 		TaskEventPublisher taskEventPublisher,
 		PartitionRequestQueue outboundQueue) {
+		this(partitionProvider, taskEventPublisher, outboundQueue, false);
+	}
+
+	PartitionRequestServerHandler(
+		ResultPartitionProvider partitionProvider,
+		TaskEventPublisher taskEventPublisher,
+		PartitionRequestQueue outboundQueue,
+		boolean notifyPartitionRequestEnable) {
 
 		this.partitionProvider = partitionProvider;
 		this.taskEventPublisher = taskEventPublisher;
 		this.outboundQueue = outboundQueue;
+		this.notifyPartitionRequestEnable = notifyPartitionRequestEnable;
 	}
 
 	@Override
@@ -81,29 +96,12 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 			// ----------------------------------------------------------------
 			if (msgClazz == PartitionRequest.class) {
 				PartitionRequest request = (PartitionRequest) msg;
+				processPartitionRequest(ctx, request);
+			} else if (msgClazz == NettyMessage.PartitionRequestList.class) {
+				NettyMessage.PartitionRequestList requestList = (NettyMessage.PartitionRequestList) msg;
 
-				LOG.debug("Read channel on {}: {}.", ctx.channel().localAddress(), request);
-
-				try {
-					NetworkSequenceViewReader reader;
-					reader = new CreditBasedSequenceNumberingViewReader(
-						request.receiverId,
-						request.credit,
-						outboundQueue);
-
-					reader.requestSubpartitionView(
-						partitionProvider,
-						request.partitionId,
-						request.queueIndex);
-
-					outboundQueue.notifyReaderCreated(reader);
-				} catch (TcpConnectionLostException tcpLost) {
-					// release the reader and view
-					outboundQueue.cancel(request.receiverId);
-					// respond with error and let receiver request again
-					respondWithError(ctx, tcpLost, request.receiverId);
-				} catch (PartitionNotFoundException notFound) {
-					respondWithError(ctx, notFound, request.receiverId);
+				for (PartitionRequest request : requestList.partitionRequests) {
+					processPartitionRequest(ctx, request);
 				}
 			}
 			// ----------------------------------------------------------------
@@ -131,6 +129,43 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 			}
 		} catch (Throwable t) {
 			respondWithError(ctx, t);
+		}
+	}
+
+	private void processPartitionRequest(ChannelHandlerContext ctx, PartitionRequest request) throws IOException {
+		LOG.debug("Read channel on {}: {}.", ctx.channel().localAddress(), request);
+		if (notifyPartitionRequestEnable) {
+			NetworkSequenceViewReader reader = new CreditBasedSequenceNumberingViewReader(
+				request.receiverId,
+				request.credit,
+				outboundQueue,
+				request.partitionId,
+				partitionProvider,
+				true);
+			reader.requestSubpartitionViewOrNotify(request.queueIndex);
+			outboundQueue.notifyReaderCreated(reader);
+		} else {
+			try {
+				NetworkSequenceViewReader reader;
+				reader = new CreditBasedSequenceNumberingViewReader(
+					request.receiverId,
+					request.credit,
+					outboundQueue,
+					request.partitionId,
+					partitionProvider,
+					false);
+
+				reader.requestSubpartitionView(request.queueIndex);
+
+				outboundQueue.notifyReaderCreated(reader);
+			} catch (TcpConnectionLostException tcpLost) {
+				// release the reader and view
+				outboundQueue.cancel(request.receiverId);
+				// respond with error and let receiver request again
+				respondWithError(ctx, tcpLost, request.receiverId);
+			} catch (PartitionNotFoundException notFound) {
+				respondWithError(ctx, notFound, request.receiverId);
+			}
 		}
 	}
 

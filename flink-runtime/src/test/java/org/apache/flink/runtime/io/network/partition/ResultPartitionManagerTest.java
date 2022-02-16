@@ -18,12 +18,16 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
+import org.apache.flink.runtime.io.network.netty.NettyPartitionRequestNotifier;
+import org.apache.flink.runtime.io.network.netty.PartitionRequestServerHandlerTest;
+import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.Test;
 
 import static org.apache.flink.runtime.io.network.partition.PartitionTestUtils.createPartition;
 import static org.apache.flink.runtime.io.network.partition.PartitionTestUtils.verifyCreateSubpartitionViewThrowsException;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests for {@link ResultPartitionManager}.
@@ -68,5 +72,15 @@ public class ResultPartitionManagerTest extends TestLogger {
 		partitionManager.releasePartition(partition.getPartitionId(), null);
 
 		verifyCreateSubpartitionViewThrowsException(partitionManager, partition.getPartitionId());
+	}
+
+	@Test
+	public void testCheckRequestPartitionNotifiers() throws Exception {
+		final ResultPartitionManager partitionManager = new ResultPartitionManager(true, 1, 1);
+		ResultPartitionID resultPartitionID = new ResultPartitionID();
+		NettyPartitionRequestNotifier nettyPartitionRequestNotifier = new NettyPartitionRequestNotifier(new PartitionRequestServerHandlerTest.TestViewReader(new InputChannelID(), 0, null), 0, resultPartitionID);
+		partitionManager.createSubpartitionViewOrNotify(resultPartitionID, 0, null, nettyPartitionRequestNotifier);
+		Thread.sleep(100L);
+		assertTrue(partitionManager.getRequestPartitionNotifiers().size() == 0);
 	}
 }

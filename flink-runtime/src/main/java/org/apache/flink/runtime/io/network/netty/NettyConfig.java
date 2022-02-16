@@ -168,6 +168,10 @@ public class NettyConfig {
 			&& SSLUtils.isInternalSSLEnabled(config);
 	}
 
+	public boolean isNotifyPartitionRequestEnable() {
+		return config.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_PARTITION_REQUEST_NOTIFY_ENABLE);
+	}
+
 	public Configuration getConfig() {
 		return config;
 	}
@@ -184,6 +188,7 @@ public class NettyConfig {
 				"number of client threads: %d (%s), " +
 				"server connect backlog: %d (%s), " +
 				"client connect timeout (sec): %d, " +
+				"notify partition request enabled: %s, " +
 				"send/receive buffer size (bytes): %d (%s)]";
 
 		String def = "use Netty's default";
@@ -194,7 +199,7 @@ public class NettyConfig {
 				getServerNumThreads() == 0 ? def : man,
 				getClientNumThreads(), getClientNumThreads() == 0 ? def : man,
 				getServerConnectBacklog(), getServerConnectBacklog() == 0 ? def : man,
-				getClientConnectTimeoutSeconds(), getSendAndReceiveBufferSize(),
-				getSendAndReceiveBufferSize() == 0 ? def : man);
+				getClientConnectTimeoutSeconds(), isNotifyPartitionRequestEnable() ? "true" : "false",
+				getSendAndReceiveBufferSize(), getSendAndReceiveBufferSize() == 0 ? def : man);
 	}
 }

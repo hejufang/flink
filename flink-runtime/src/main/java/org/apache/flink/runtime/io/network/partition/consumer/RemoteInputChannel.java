@@ -32,6 +32,7 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferProvider;
 import org.apache.flink.runtime.io.network.buffer.BufferReceivedListener;
+import org.apache.flink.runtime.io.network.netty.PartitionRequestChannel;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.util.CloseableIterator;
@@ -163,6 +164,21 @@ public class RemoteInputChannel extends InputChannel {
 			}
 
 			partitionRequestClient.requestSubpartition(partitionId, subpartitionIndex, this, 0);
+		}
+	}
+
+	@Override
+	void registerSubpartitionRequest(int subpartitionIndex) throws IOException, InterruptedException {
+		if (partitionRequestClient == null) {
+			// Create a client and request the partition
+			try {
+				partitionRequestClient = connectionManager.createPartitionRequestClient(connectionId);
+			} catch (IOException e) {
+				// IOExceptions indicate that we could not open a connection to the remote TaskExecutor
+				throw new PartitionConnectionException(partitionId, e);
+			}
+			PartitionRequestChannel partitionRequestChannel = partitionRequestClient.buildRequestSubpartitionRequest(partitionId, subpartitionIndex, this);
+			inputGate.registerPartitionRequestClient(partitionRequestClient, partitionRequestChannel);
 		}
 	}
 

@@ -91,6 +91,14 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final boolean redistributeDisable;
 
+	private final boolean batchPartitionRequestEnable;
+
+	private final boolean notifyPartitionRequestEnable;
+
+	private final long notifyPartitionRequestTimeout;
+
+	private final long notifyPartitionRequestTimeoutInterval;
+
 	public NettyShuffleEnvironmentConfiguration(
 			int numNetworkBuffers,
 			int networkBufferSize,
@@ -113,7 +121,11 @@ public class NettyShuffleEnvironmentConfiguration {
 			Duration requestNetworkSegmentTimeout,
 			boolean channelReuseEnable,
 			long channelIdleReleaseTimeMs,
-			boolean redistributeDisable) {
+			boolean redistributeDisable,
+			boolean batchPartitionRequestEnable,
+			boolean notifyPartitionRequestEnable,
+			long notifyPartitionRequestTimeout,
+			long notifyPartitionRequestTimeoutInterval) {
 
 		this.numNetworkBuffers = numNetworkBuffers;
 		this.networkBufferSize = networkBufferSize;
@@ -137,6 +149,10 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.channelReuseEnable = channelReuseEnable;
 		this.channelIdleReleaseTimeMs = channelIdleReleaseTimeMs;
 		this.redistributeDisable = redistributeDisable;
+		this.batchPartitionRequestEnable = batchPartitionRequestEnable;
+		this.notifyPartitionRequestEnable = notifyPartitionRequestEnable;
+		this.notifyPartitionRequestTimeout = notifyPartitionRequestTimeout;
+		this.notifyPartitionRequestTimeoutInterval = notifyPartitionRequestTimeoutInterval;
 	}
 
 	// ------------------------------------------------------------------------
@@ -229,6 +245,23 @@ public class NettyShuffleEnvironmentConfiguration {
 		return redistributeDisable;
 	}
 // ------------------------------------------------------------------------
+	public boolean isBatchPartitionRequestEnable() {
+		return batchPartitionRequestEnable;
+	}
+
+	public boolean isNotifyPartitionRequestEnable() {
+		return notifyPartitionRequestEnable;
+	}
+
+	public long getNotifyPartitionRequestTimeout() {
+		return notifyPartitionRequestTimeout;
+	}
+
+	public long getNotifyPartitionRequestTimeoutInterval() {
+		return notifyPartitionRequestTimeoutInterval;
+	}
+
+	// ------------------------------------------------------------------------
 
 	/**
 	 * Utility method to extract network related parameters from the configuration and to
@@ -290,6 +323,10 @@ public class NettyShuffleEnvironmentConfiguration {
 		boolean channelReuseEnable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_CHANNEL_REUSE_ENABLE);
 		long channelIdleReleaseTimeMs = configuration.getLong(NettyShuffleEnvironmentOptions.NETWORK_CHANNEL_IDLE_TOLERANT_TIME_MS);
 		boolean redistributeDisable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BUFFER_POOL_REDISTRIBUTE_DISABLE);
+		boolean batchPartitionRequestEnable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BATCH_PARTITION_REQUET_ENABLE);
+		boolean notifyPartitionRequestEnable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_PARTITION_REQUEST_NOTIFY_ENABLE);
+		long notifyPartitionRequestTimeout = configuration.getLong(NettyShuffleEnvironmentOptions.NETWORK_PARTITION_REQUEST_NOTIFY_TIMEOUT);
+		long notifyPartitionRequestTimeoutInterval = configuration.getLong(NettyShuffleEnvironmentOptions.NETWORK_PARTITION_REQUEST_NOTIFY_TIMEOUT_INTERVAL);
 
 		return new NettyShuffleEnvironmentConfiguration(
 			numberOfNetworkBuffers,
@@ -313,7 +350,11 @@ public class NettyShuffleEnvironmentConfiguration {
 			requestNetworkSegmentTimeout,
 			channelReuseEnable,
 			channelIdleReleaseTimeMs,
-			redistributeDisable);
+			redistributeDisable,
+			batchPartitionRequestEnable,
+			notifyPartitionRequestEnable,
+			notifyPartitionRequestTimeout,
+			notifyPartitionRequestTimeoutInterval);
 	}
 
 	/**
@@ -486,6 +527,10 @@ public class NettyShuffleEnvironmentConfiguration {
 				", maxBuffersPerChannel=" + maxBuffersPerChannel +
 				", channelReuseEnable=" + channelReuseEnable +
 				", channelIdleReleaseTimeMs=" + channelIdleReleaseTimeMs +
+				", batchPartitionRequestEnable=" + batchPartitionRequestEnable +
+				", notifyPartitionRequestEnable=" + notifyPartitionRequestEnable +
+				", notifyPartitionRequestTimeout=" + notifyPartitionRequestTimeout +
+				", notifyPartitionRequestTimeoutInterval=" + notifyPartitionRequestTimeoutInterval +
 				'}';
 	}
 }

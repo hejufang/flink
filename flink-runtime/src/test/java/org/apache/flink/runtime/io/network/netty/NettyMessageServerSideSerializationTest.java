@@ -27,6 +27,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 import static org.apache.flink.runtime.io.network.netty.NettyTestUtil.encodeAndDecode;
@@ -65,6 +67,29 @@ public class NettyMessageServerSideSerializationTest extends TestLogger {
 			random.nextInt());
 
 		NettyMessage.PartitionRequest actual = encodeAndDecode(expected, channel);
+
+		assertEquals(expected.partitionId, actual.partitionId);
+		assertEquals(expected.queueIndex, actual.queueIndex);
+		assertEquals(expected.receiverId, actual.receiverId);
+		assertEquals(expected.credit, actual.credit);
+	}
+
+	@Test
+	public void testPartitionRequestList() {
+		NettyMessage.PartitionRequest expected = new NettyMessage.PartitionRequest(
+			new ResultPartitionID(),
+			random.nextInt(),
+			new InputChannelID(),
+			random.nextInt());
+
+		List<NettyMessage.PartitionRequest> partitionRequestList = new ArrayList<>();
+		partitionRequestList.add(expected);
+
+		NettyMessage.PartitionRequestList expectedList = new NettyMessage.PartitionRequestList(
+			partitionRequestList);
+
+		NettyMessage.PartitionRequestList actualList = encodeAndDecode(expectedList, channel);
+		NettyMessage.PartitionRequest actual = actualList.partitionRequests.get(0);
 
 		assertEquals(expected.partitionId, actual.partitionId);
 		assertEquals(expected.queueIndex, actual.queueIndex);

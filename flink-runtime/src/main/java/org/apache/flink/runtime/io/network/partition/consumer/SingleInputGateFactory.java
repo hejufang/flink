@@ -95,6 +95,8 @@ public class SingleInputGateFactory {
 
 	private final long maxDelayTimeMs;
 
+	private final boolean batchPartitionRequestEnable;
+
 	public SingleInputGateFactory(
 			@Nonnull ResourceID taskExecutorResourceId,
 			@Nonnull NettyShuffleEnvironmentConfiguration networkConfig,
@@ -113,6 +115,7 @@ public class SingleInputGateFactory {
 		this.compressionCodec = networkConfig.getCompressionCodec();
 		this.networkBufferSize = networkConfig.networkBufferSize();
 		this.blockingSubpartitionType = networkConfig.getBlockingSubpartitionType();
+		this.batchPartitionRequestEnable = networkConfig.isBatchPartitionRequestEnable();
 		this.connectionManager = connectionManager;
 		this.partitionManager = partitionManager;
 		this.taskEventPublisher = taskEventPublisher;
@@ -169,7 +172,8 @@ public class SingleInputGateFactory {
 			networkBufferPool,
 			metrics,
 			channelProvider,
-			executor);
+			executor,
+			batchPartitionRequestEnable);
 
 		createInputChannels(owningTaskName, igdd, inputGate, metrics);
 		return inputGate;

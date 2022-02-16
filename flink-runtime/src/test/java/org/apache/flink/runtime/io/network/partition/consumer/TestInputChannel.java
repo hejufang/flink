@@ -137,6 +137,10 @@ public class TestInputChannel extends InputChannel {
 	}
 
 	@Override
+	void registerSubpartitionRequest(int subpartitionIndex) throws IOException, InterruptedException {
+	}
+
+	@Override
 	Optional<BufferAndAvailability> getNextBuffer() throws IOException, InterruptedException {
 		BufferAndAvailabilityProvider provider = buffers.poll();
 

@@ -61,6 +61,8 @@ public class SingleInputGateBuilder {
 
 	private ChannelProvider channelProvider = new TestChannelProvider();
 
+	private boolean batchRequestPartitionEnable;
+
 	@Nullable
 	private BiFunction<InputChannelBuilder, SingleInputGate, InputChannel> channelFactory = null;
 
@@ -136,6 +138,11 @@ public class SingleInputGateBuilder {
 		return this;
 	}
 
+	public SingleInputGateBuilder setBatchRequestPartitionEnable(boolean batchRequestPartitionEnable) {
+		this.batchRequestPartitionEnable = batchRequestPartitionEnable;
+		return this;
+	}
+
 	public SingleInputGate build() {
 		SingleInputGate gate = new SingleInputGate(
 			"Single Input Gate",
@@ -150,7 +157,8 @@ public class SingleInputGateBuilder {
 			segmentProvider,
 			InputChannelTestUtils.newUnregisteredInputChannelMetrics(),
 			channelProvider,
-			null);
+			null,
+			batchRequestPartitionEnable);
 		if (channelFactory != null) {
 			gate.setInputChannels(IntStream.range(0, numberOfChannels)
 				.mapToObj(index -> channelFactory.apply(InputChannelBuilder.newBuilder().setChannelIndex(index), gate))

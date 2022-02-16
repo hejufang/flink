@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
+import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
+
 import java.io.IOException;
 
 /**
@@ -33,4 +35,23 @@ public interface ResultPartitionProvider {
 			int index,
 			BufferAvailabilityListener availabilityListener) throws IOException;
 
+	/**
+	 * Returns the requested intermediate result partition input view
+	 * or register partitionRequestNotifier if partition not setup yet.
+	 */
+	default ResultSubpartitionView createSubpartitionViewOrNotify(
+			ResultPartitionID partitionId,
+			int index,
+			BufferAvailabilityListener availabilityListener,
+			PartitionRequestNotifier notifier) throws IOException {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Remove subpartitionRequestNotify created by networkSequenceViewReader.
+	 * @param networkSequenceViewReader which already released.
+	 */
+	default void cancelSubpartitionRequestNotify(NetworkSequenceViewReader networkSequenceViewReader){
+
+	}
 }

@@ -185,6 +185,11 @@ public abstract class RecoveredInputChannel extends InputChannel {
 	}
 
 	@Override
+	void registerSubpartitionRequest(int subpartitionIndex) {
+		throw new UnsupportedOperationException("RecoveredInputChannel should never request partition or batched");
+	}
+
+	@Override
 	void sendTaskEvent(TaskEvent event) {
 		throw new UnsupportedOperationException("RecoveredInputChannel should never send any task events.");
 	}

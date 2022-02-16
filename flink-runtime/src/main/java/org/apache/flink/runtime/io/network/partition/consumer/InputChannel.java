@@ -211,6 +211,14 @@ public abstract class InputChannel {
 	abstract void requestSubpartition(int subpartitionIndex) throws IOException, InterruptedException;
 
 	/**
+	 * Register subpartitionRequests in inputGate.
+	 *
+	 * @param subpartitionIndex The queue index to request depends on which sub task the channel belongs
+	 *                             to and is specified by the consumer of this channel.
+	 */
+	abstract void registerSubpartitionRequest(int subpartitionIndex) throws IOException, InterruptedException;
+
+	/**
 	 * Returns the next buffer from the consumed subpartition or {@code Optional.empty()} if there is no data to return.
 	 */
 	abstract Optional<BufferAndAvailability> getNextBuffer() throws IOException, InterruptedException;

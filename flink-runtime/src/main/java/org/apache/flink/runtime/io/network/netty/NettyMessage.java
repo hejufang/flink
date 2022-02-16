@@ -46,6 +46,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ProtocolException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -245,6 +247,9 @@ public abstract class NettyMessage {
 						break;
 					case ResumeConsumption.ID:
 						decodedMsg = ResumeConsumption.readFrom(msg);
+						break;
+					case PartitionRequestList.ID:
+						decodedMsg = PartitionRequestList.readFrom(msg);
 						break;
 					default:
 						throw new ProtocolException(
@@ -762,6 +767,71 @@ public abstract class NettyMessage {
 		@Override
 		public String toString() {
 			return String.format("ResumeConsumption(%s)", receiverId);
+		}
+	}
+
+	/**
+	 * Message to request batch partitions.
+	 */
+	static class PartitionRequestList extends NettyMessage {
+
+		private static final byte ID = 8;
+
+		final List<PartitionRequest> partitionRequests;
+
+		PartitionRequestList(List<PartitionRequest> partitionRequests) {
+			this.partitionRequests = checkNotNull(partitionRequests);
+		}
+
+		@Override
+		ByteBuf write(ByteBufAllocator allocator) throws IOException {
+			ByteBuf result = null;
+
+			try {
+				int partitionRequestBufferSize = 20 + 16 + 4 + 16 + 4;
+				int requestCount = partitionRequests.size();
+				int totalSize = 4 + (requestCount * partitionRequestBufferSize);
+				result = allocateBuffer(allocator, ID, totalSize);
+				result.writeInt(requestCount);
+				for (PartitionRequest partitionRequest : partitionRequests) {
+					partitionRequest.partitionId.getPartitionId().writeTo(result);
+					partitionRequest.partitionId.getProducerId().writeTo(result);
+					result.writeInt(partitionRequest.queueIndex);
+					partitionRequest.receiverId.writeTo(result);
+					result.writeInt(partitionRequest.credit);
+				}
+				return result;
+			}
+			catch (Throwable t) {
+				if (result != null) {
+					result.release();
+				}
+
+				throw new IOException(t);
+			}
+		}
+
+		static PartitionRequestList readFrom(ByteBuf buffer) {
+			int requestCount = buffer.readInt();
+			List<PartitionRequest> requestList = new ArrayList<>(requestCount);
+			for (int i = 0; i < requestCount; i++) {
+				ResultPartitionID partitionId =
+					new ResultPartitionID(
+						IntermediateResultPartitionID.fromByteBuf(buffer),
+						ExecutionAttemptID.fromByteBuf(buffer));
+				int queueIndex = buffer.readInt();
+				InputChannelID receiverId = InputChannelID.fromByteBuf(buffer);
+				int credit = buffer.readInt();
+				PartitionRequest partitionRequest = new PartitionRequest(partitionId, queueIndex, receiverId, credit);
+				requestList.add(partitionRequest);
+			}
+
+			return new PartitionRequestList(requestList);
+		}
+
+		@Override
+		public String toString() {
+			return String.format("PartitionRequestList(%s)", partitionRequests);
 		}
 	}
 }

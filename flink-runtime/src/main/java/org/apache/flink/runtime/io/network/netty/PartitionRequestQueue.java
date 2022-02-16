@@ -22,6 +22,9 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.ErrorResponse;
+import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
+import org.apache.flink.runtime.io.network.partition.PartitionRequestNotifier;
+import org.apache.flink.runtime.io.network.partition.PartitionRequestNotifierTimeout;
 import org.apache.flink.runtime.io.network.partition.ProducerFailedException;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
@@ -102,6 +105,10 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 		ctx.executor().execute(() -> ctx.pipeline().fireUserEventTriggered(reader));
 	}
 
+	void notifyPartitionRequestNotifyTimeout(final PartitionRequestNotifierTimeout partitionRequestNotifierTimeout) {
+		ctx.executor().execute(() -> ctx.pipeline().fireUserEventTriggered(partitionRequestNotifierTimeout));
+	}
+
 	/**
 	 * Try to enqueue the reader once receiving credit notification from the consumer or receiving
 	 * non-empty reader notification from the producer.
@@ -138,6 +145,11 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 
 	// this is called from netty thread
 	public void removeReader(final NetworkSequenceViewReader reader) {
+		availableReaders.remove(reader);
+		allReaders.remove(reader.getReceiverId());
+	}
+
+	public void removeFromAllReader(final NetworkSequenceViewReader reader) {
 		availableReaders.remove(reader);
 		allReaders.remove(reader.getReceiverId());
 	}
@@ -231,6 +243,16 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 			} else {
 				LOG.info("The server does not find the reader for InputChannel({}).", toCancel);
 			}
+		} else if (msg instanceof PartitionRequestNotifierTimeout) {
+			// Notify downstream task partition not setup.
+			PartitionRequestNotifierTimeout partitionRequestNotifierTimeout = (PartitionRequestNotifierTimeout) msg;
+			PartitionRequestNotifier partitionRequestNotifier = partitionRequestNotifierTimeout.getPartitionRequestNotifier();
+			NetworkSequenceViewReader reader = partitionRequestNotifier.getNetworkSequenceViewReader();
+			availableReaders.remove(reader);
+			allReaders.remove(reader.getReceiverId());
+			ctx.writeAndFlush(new NettyMessage.ErrorResponse(
+				new PartitionNotFoundException(partitionRequestNotifier.getResultPartitionID()),
+				partitionRequestNotifier.getReceiverId()));
 		} else {
 			ctx.fireUserEventTriggered(msg);
 		}

@@ -18,8 +18,8 @@
 
 package org.apache.flink.runtime.io.network;
 
+import org.apache.flink.runtime.io.network.partition.ResultPartition;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionProvider;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 
@@ -31,10 +31,27 @@ import java.io.IOException;
  */
 public interface NetworkSequenceViewReader {
 
-	void requestSubpartitionView(
-		ResultPartitionProvider partitionProvider,
-		ResultPartitionID resultPartitionId,
-		int subPartitionIndex) throws IOException;
+	void requestSubpartitionView(int subPartitionIndex) throws IOException;
+
+	/**
+	 * Create subpartitionView if not exist.
+	 *
+	 * @param partition Result partition to be requested.
+	 * @param subPartitionIndex The sub partition index in the requested result partition.
+	 */
+	default void requestSubpartitionView(ResultPartition partition, int subPartitionIndex) throws IOException {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Request subpartitionView, create SubpartitionViewNotify if resultPartition not setup already.
+	 *
+	 * @param subPartitionIndex The sub partition index in the requested result partition.
+	 */
+	default void requestSubpartitionViewOrNotify(
+			int subPartitionIndex) throws IOException {
+			throw new UnsupportedOperationException();
+	}
 
 	BufferAndAvailability getNextBuffer() throws IOException;
 
@@ -75,4 +92,11 @@ public interface NetworkSequenceViewReader {
 	InputChannelID getReceiverId();
 
 	int getSequenceNumber();
+
+	/**
+	 * Return ResultPartitionID of subPartition in partition request.
+	 *
+	 * @return ResultPartitionID of subPartition.
+	 */
+	ResultPartitionID getResultPartitionID();
 }

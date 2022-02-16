@@ -89,11 +89,14 @@ public class PartitionRequestServerHandlerTest extends TestLogger {
 		assertTrue(testViewReader.consumptionResumed);
 	}
 
-	private static class TestViewReader extends CreditBasedSequenceNumberingViewReader {
+	/**
+	 * ViewReader for test.
+	 */
+	public static class TestViewReader extends CreditBasedSequenceNumberingViewReader {
 		private boolean consumptionResumed = false;
 
-		TestViewReader(InputChannelID receiverId, int initialCredit, PartitionRequestQueue requestQueue) {
-			super(receiverId, initialCredit, requestQueue);
+		public TestViewReader(InputChannelID receiverId, int initialCredit, PartitionRequestQueue requestQueue) {
+			super(receiverId, initialCredit, requestQueue, null, null, false);
 		}
 
 		@Override

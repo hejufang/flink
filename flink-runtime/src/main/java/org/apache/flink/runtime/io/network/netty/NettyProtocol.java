@@ -35,15 +35,17 @@ public class NettyProtocol {
 	private final ResultPartitionProvider partitionProvider;
 	private final TaskEventPublisher taskEventPublisher;
 	private final boolean channelReuseEnable;
+	private final boolean notifyPartitionRequestEnable;
 
 	NettyProtocol(ResultPartitionProvider partitionProvider, TaskEventPublisher taskEventPublisher) {
-		this(partitionProvider, taskEventPublisher, false);
+		this(partitionProvider, taskEventPublisher, false, false);
 	}
 
-	NettyProtocol(ResultPartitionProvider partitionProvider, TaskEventPublisher taskEventPublisher, boolean channelReuseEnable) {
+	NettyProtocol(ResultPartitionProvider partitionProvider, TaskEventPublisher taskEventPublisher, boolean channelReuseEnable, boolean notifyPartitionRequestEnable) {
 		this.partitionProvider = partitionProvider;
 		this.taskEventPublisher = taskEventPublisher;
 		this.channelReuseEnable = channelReuseEnable;
+		this.notifyPartitionRequestEnable = notifyPartitionRequestEnable;
 	}
 
 	/**
@@ -84,7 +86,8 @@ public class NettyProtocol {
 		PartitionRequestServerHandler serverHandler = new PartitionRequestServerHandler(
 			partitionProvider,
 			taskEventPublisher,
-			queueOfPartitionQueues);
+			queueOfPartitionQueues,
+			notifyPartitionRequestEnable);
 
 		return new ChannelHandler[] {
 			messageEncoder,

@@ -149,6 +149,11 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 		}
 	}
 
+	@Override
+	protected void registerSubpartitionRequest(int subpartitionIndex) throws IOException, InterruptedException {
+		requestSubpartition(subpartitionIndex);
+	}
+
 	/**
 	 * Retriggers a subpartition request.
 	 */

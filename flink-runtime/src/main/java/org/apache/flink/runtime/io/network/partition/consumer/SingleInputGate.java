@@ -27,6 +27,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.execution.CancelTaskException;
+import org.apache.flink.runtime.io.network.PartitionRequestClient;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -35,6 +36,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferProvider;
 import org.apache.flink.runtime.io.network.buffer.BufferReceivedListener;
 import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
+import org.apache.flink.runtime.io.network.netty.PartitionRequestChannel;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
@@ -203,6 +205,11 @@ public class SingleInputGate extends IndexedInputGate {
 	private final Counter numChannelsUpdatedByTask;
 
 	@VisibleForTesting
+	private final boolean batchRequestPartitionEnable;
+
+	private final HashMap<PartitionRequestClient, List<PartitionRequestChannel>> requestClients = new HashMap<>();
+
+	@VisibleForTesting
 	public SingleInputGate(
 		String owningTaskName,
 		int gateIndex,
@@ -217,6 +224,38 @@ public class SingleInputGate extends IndexedInputGate {
 		InputChannelMetrics metrics,
 		@Nullable ChannelProvider channelProvider,
 		@Nullable ScheduledExecutorService executor) {
+		this(
+			owningTaskName,
+			gateIndex,
+			consumedResultId,
+			consumedPartitionType,
+			consumedSubpartitionIndex,
+			numberOfInputChannels,
+			partitionProducerStateProvider,
+			bufferPoolFactory,
+			bufferDecompressor,
+			memorySegmentProvider,
+			metrics,
+			channelProvider,
+			executor,
+			false);
+	}
+
+	public SingleInputGate(
+			String owningTaskName,
+			int gateIndex,
+			IntermediateDataSetID consumedResultId,
+			final ResultPartitionType consumedPartitionType,
+			int consumedSubpartitionIndex,
+			int numberOfInputChannels,
+			PartitionProducerStateProvider partitionProducerStateProvider,
+			SupplierWithException<BufferPool, IOException> bufferPoolFactory,
+			@Nullable BufferDecompressor bufferDecompressor,
+			MemorySegmentProvider memorySegmentProvider,
+			InputChannelMetrics metrics,
+			@Nullable ChannelProvider channelProvider,
+			@Nullable ScheduledExecutorService executor,
+			boolean batchRequestPartitionEnable) {
 
 		this.owningTaskName = checkNotNull(owningTaskName);
 		Preconditions.checkArgument(0 <= gateIndex, "The gate index must be positive.");
@@ -249,6 +288,7 @@ public class SingleInputGate extends IndexedInputGate {
 
 		this.numChannelsUpdatedByJM = metrics.getNumChannelsUpdatedByJM();
 		this.numChannelsUpdatedByTask = metrics.getNumChannelsUpdatedByTask();
+		this.batchRequestPartitionEnable = batchRequestPartitionEnable;
 	}
 
 	@Override
@@ -346,12 +386,24 @@ public class SingleInputGate extends IndexedInputGate {
 	}
 
 	private void internalRequestPartitions() {
-		for (InputChannel inputChannel : inputChannels.values()) {
-			try {
-				inputChannel.requestSubpartition(consumedSubpartitionIndex);
-			} catch (Throwable t) {
-				inputChannel.setError(t);
-				return;
+		if (batchRequestPartitionEnable) {
+			for (InputChannel inputChannel : inputChannels.values()) {
+				try {
+					inputChannel.registerSubpartitionRequest(consumedSubpartitionIndex);
+				} catch (Exception e) {
+					inputChannel.setError(e);
+					return;
+				}
+			}
+			flushBatchPartitionRequest();
+		} else {
+			for (InputChannel inputChannel : inputChannels.values()) {
+				try {
+					inputChannel.requestSubpartition(consumedSubpartitionIndex);
+				} catch (Throwable t) {
+					inputChannel.setError(t);
+					return;
+				}
 			}
 		}
 	}
@@ -441,6 +493,18 @@ public class SingleInputGate extends IndexedInputGate {
 	@Override
 	public String getChannelType(int channelIndex) {
 		return channels[channelIndex].getClass().getSimpleName();
+	}
+
+	@Override
+	public void registerPartitionRequestClient(PartitionRequestClient partitionRequestClient, PartitionRequestChannel partitionRequestChannel) {
+		requestClients.computeIfAbsent(partitionRequestClient, key -> new ArrayList<>()).add(partitionRequestChannel);
+	}
+
+	@Override
+	public void flushBatchPartitionRequest() {
+		for (Map.Entry<PartitionRequestClient, List<PartitionRequestChannel>> entry : requestClients.entrySet()) {
+			entry.getKey().flushBatchPartitionRequest(entry.getValue());
+		}
 	}
 
 	// ------------------------------------------------------------------------
@@ -648,6 +712,7 @@ public class SingleInputGate extends IndexedInputGate {
 					if (bufferPool != null) {
 						bufferPool.lazyDestroy();
 					}
+					requestClients.clear();
 				}
 				finally {
 					released = true;
