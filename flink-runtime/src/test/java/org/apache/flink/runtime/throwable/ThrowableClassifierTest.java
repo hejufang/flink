@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.throwable;
 
+import org.apache.flink.runtime.checkpoint.CheckpointException;
+import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
 import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.util.TestLogger;
 
@@ -90,6 +92,10 @@ public class ThrowableClassifierTest extends TestLogger {
 		assertTrue(ThrowableClassifier.findThrowableOfThrowableType(
 			new TestRecoverableFailureSubException(),
 			ThrowableType.RecoverableError).isPresent());
+
+		assertTrue(ThrowableClassifier.findThrowableOfThrowableType(
+			new CheckpointException("test", CheckpointFailureReason.NOT_ALL_REQUIRED_TASKS_IN_RIGHT_STATE, new TestCriticalErrorException()),
+			ThrowableType.CriticalError).isPresent());
 	}
 
 	@ThrowableAnnotation(ThrowableType.PartitionDataMissingError)
@@ -109,4 +115,7 @@ public class ThrowableClassifierTest extends TestLogger {
 
 	private class TestRecoverableFailureSubException extends TestRecoverableErrorException {
 	}
+
+	@ThrowableAnnotation(ThrowableType.CriticalError)
+	private static class TestCriticalErrorException extends Exception {}
 }

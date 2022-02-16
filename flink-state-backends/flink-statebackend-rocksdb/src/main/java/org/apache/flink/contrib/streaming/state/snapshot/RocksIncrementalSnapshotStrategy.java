@@ -21,6 +21,7 @@ package org.apache.flink.contrib.streaming.state.snapshot;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.contrib.streaming.state.RocksDBKeyedStateBackend.RocksDbKvStateInfo;
+import org.apache.flink.contrib.streaming.state.RocksDBNativeCheckpointException;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBatchConfig;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBatchStrategyFactory;
 import org.apache.flink.contrib.streaming.state.RocksDBStateUploader;
@@ -59,6 +60,7 @@ import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ResourceGuard;
+import org.apache.flink.util.function.ThrowingRunnable;
 
 import org.rocksdb.Checkpoint;
 import org.rocksdb.RocksDB;
@@ -83,9 +85,9 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
@@ -200,14 +202,19 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		final List<StateMetaInfoSnapshot> stateMetaInfoSnapshots = new ArrayList<>(kvStateInformation.size());
 		final Map<StateHandleID, StreamStateHandle> baseSstFiles = snapshotMetaData(checkpointId, stateMetaInfoSnapshots);
 
-		FutureUtils.orTimeout(CompletableFuture.runAsync(() -> {
-			try {
-				takeDBNativeCheckpoint(snapshotDirectory);
-			} catch (Exception e) {
-				throw new CompletionException(e);
+		try {
+			FutureUtils.orTimeout(
+				CompletableFuture.runAsync(
+					ThrowingRunnable.unchecked(() -> takeDBNativeCheckpoint(snapshotDirectory))),
+				dbNativeCheckpointTimeout,
+				TimeUnit.MILLISECONDS).get();
+		} catch (Exception e) {
+			if (e.getCause() instanceof TimeoutException) {
+				throw new RocksDBNativeCheckpointException(e);
+			} else {
+				throw e;
 			}
-
-		}), dbNativeCheckpointTimeout, TimeUnit.MILLISECONDS).get();
+		}
 
 		final RocksDBIncrementalSnapshotOperation snapshotOperation =
 			new RocksDBIncrementalSnapshotOperation(

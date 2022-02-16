@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.throwable;
 
+import org.apache.flink.util.SerializedThrowable;
+
 import java.util.Optional;
 
 /**
@@ -54,7 +56,11 @@ public class ThrowableClassifier {
 			if (annotation != null && annotation.value() == throwableType) {
 				return Optional.of(t);
 			} else {
-				t = t.getCause();
+				if (t instanceof SerializedThrowable){
+					t = ((SerializedThrowable) t).deserializeError(Thread.currentThread().getContextClassLoader());
+				} else {
+					t = t.getCause();
+				}
 			}
 		}
 
