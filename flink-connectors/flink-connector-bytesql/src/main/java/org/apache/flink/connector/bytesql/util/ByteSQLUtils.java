@@ -31,7 +31,7 @@ import com.bytedance.infra.bytesql4j.exception.DuplicatedEntryException;
 import com.bytedance.infra.bytesql4j.exception.UnSupportedException;
 import com.bytedance.infra.bytesql4j.proto.ByteSQLErrno;
 import com.bytedance.infra.bytesql4j.proto.QueryResponse;
-import com.bytedance.infra.bytesql4j.proto.QueryResponse.ResultSet;
+import com.bytedance.infra.bytesql4j.proto.ResultSet;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;

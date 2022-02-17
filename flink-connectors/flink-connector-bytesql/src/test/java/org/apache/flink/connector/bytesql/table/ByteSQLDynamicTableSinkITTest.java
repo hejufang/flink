@@ -35,7 +35,7 @@ import static org.apache.flink.table.api.Expressions.$;
 /**
  * IT Tests for {@link ByteSQLDynamicTableSink}.
  */
-public class ByteSQLDynamicTableSinkITCase extends ByteSQLTableTestBase {
+public class ByteSQLDynamicTableSinkITTest extends ByteSQLTableTestBase {
 
 	@Test
 	public void testUpsert() throws Exception {

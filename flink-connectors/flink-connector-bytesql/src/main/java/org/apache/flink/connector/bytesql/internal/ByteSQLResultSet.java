@@ -22,10 +22,10 @@ import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
 
+import com.bytedance.infra.bytesql4j.proto.ColumnDef;
 import com.bytedance.infra.bytesql4j.proto.ColumnType;
-import com.bytedance.infra.bytesql4j.proto.QueryResponse.ColumnDef;
-import com.bytedance.infra.bytesql4j.proto.QueryResponse.ResultRow;
-import com.bytedance.infra.bytesql4j.proto.QueryResponse.ResultSet;
+import com.bytedance.infra.bytesql4j.proto.ResultRow;
+import com.bytedance.infra.bytesql4j.proto.ResultSet;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
