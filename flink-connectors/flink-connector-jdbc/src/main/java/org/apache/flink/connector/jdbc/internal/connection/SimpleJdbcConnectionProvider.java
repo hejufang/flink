@@ -57,7 +57,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
 								connection = MysqlDriverManager.getConnection(jdbcOptions.getDbURL(),
 									jdbcOptions.getUsername().get(), jdbcOptions.getPassword().get());
 							} else {
-								connection = MysqlDriverManager.getConnection(jdbcOptions.getDbURL());
+								connection = ByteDanceMysqlConnectionProvider.getConnection(jdbcOptions.getDbURL());
 							}
 						} else {
 							if (jdbcOptions.getUsername().isPresent()) {
