@@ -610,6 +610,13 @@ public class TaskManagerOptions {
 			.booleanType()
 			.defaultValue(false)
 			.withDescription("If true, use the memory pool manager.");
+
+	public static final ConfigOption<Boolean> TASK_DEPLOY_THEN_FINISH_ENABLE = ConfigOptions
+			.key("taskmanager.task-deploy-then-finish.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Task reaches termination immediately when TaskManager receive and deploy it.");
+
 	// ------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */

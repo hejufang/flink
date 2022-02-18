@@ -87,6 +87,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	private final long waitSlotReleaseBeforeSendSlotReporterTimeoutMs;
 
+	private final boolean taskDeployFinishEnable;
+
 	public TaskManagerConfiguration(
 			int numberSlots,
 			ResourceProfile defaultSlotResourceProfile,
@@ -104,7 +106,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			boolean jobLogDetailDisable,
 			boolean requestSlotFromResourceManagerDirectEnable,
 			boolean releaseSlotWhenJobMasterDisconnected,
-			long waitSlotReleaseBeforeSendSlotReporterTimeoutMs) {
+			long waitSlotReleaseBeforeSendSlotReporterTimeoutMs,
+			boolean taskDeployFinishEnable) {
 
 		this.numberSlots = numberSlots;
 		this.defaultSlotResourceProfile = defaultSlotResourceProfile;
@@ -123,6 +126,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		this.requestSlotFromResourceManagerDirectEnable = requestSlotFromResourceManagerDirectEnable;
 		this.releaseSlotWhenJobMasterDisconnected = releaseSlotWhenJobMasterDisconnected;
 		this.waitSlotReleaseBeforeSendSlotReporterTimeoutMs = waitSlotReleaseBeforeSendSlotReporterTimeoutMs;
+		this.taskDeployFinishEnable = taskDeployFinishEnable;
 	}
 
 	public int getNumberSlots() {
@@ -201,6 +205,10 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		return waitSlotReleaseBeforeSendSlotReporterTimeoutMs;
 	}
 
+	public boolean isTaskDeployFinishEnable() {
+		return taskDeployFinishEnable;
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Static factory methods
 	// --------------------------------------------------------------------------------------------
@@ -265,6 +273,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		final boolean releaseSlotWhenJobMasterDisconnected = configuration.getBoolean(TaskManagerOptions.RELEASE_SLOT_WHEN_JOB_MASTER_DISCONNECTED);
 		final long waitSlotReleaseBeforeSendSlotReporterTimeout = configuration.get(TaskManagerOptions.WAIT_SLOT_RELEASE_BEFORE_SEND_SLOT_REPORTER_TIMEOUT);
 
+		final boolean taskDeployFinishEnable = configuration.getBoolean(TaskManagerOptions.TASK_DEPLOY_THEN_FINISH_ENABLE);
+
 		return new TaskManagerConfiguration(
 			numberSlots,
 			TaskExecutorResourceUtils.generateDefaultSlotResourceProfile(taskExecutorResourceSpec, numberSlots),
@@ -282,6 +292,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			jobLogDetailDisable,
 			requestSlotFromResourceManagerDirectEnable,
 			releaseSlotWhenJobMasterDisconnected,
-			waitSlotReleaseBeforeSendSlotReporterTimeout);
+			waitSlotReleaseBeforeSendSlotReporterTimeout,
+			taskDeployFinishEnable);
 	}
 }

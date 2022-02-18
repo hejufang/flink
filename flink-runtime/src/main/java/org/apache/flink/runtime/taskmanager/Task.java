@@ -120,6 +120,9 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.execution.ExecutionState.CREATED;
+import static org.apache.flink.runtime.execution.ExecutionState.DEPLOYING;
+import static org.apache.flink.runtime.execution.ExecutionState.FINISHED;
+import static org.apache.flink.runtime.execution.ExecutionState.RUNNING;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -1157,6 +1160,12 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	 */
 	private boolean transitionState(ExecutionState currentState, ExecutionState newState) {
 		return transitionState(currentState, newState, null);
+	}
+
+	public void transitionFinalState() {
+		transitionState(CREATED, DEPLOYING);
+		transitionState(DEPLOYING, RUNNING);
+		transitionState(RUNNING, FINISHED);
 	}
 
 	/**

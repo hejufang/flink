@@ -238,6 +238,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	private final Map<JobID, JobDeploymentManager> jobDeploymentManagers;
 
+	private final boolean taskDeployFinishEnable;
+
 	// ------------------------------------------------------------------------
 
 	private final HardwareDescription hardwareDescription;
@@ -333,6 +335,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		this.jobManagerHeartbeatManager = createJobManagerHeartbeatManager(heartbeatServices, resourceId);
 		this.resourceManagerHeartbeatManager = createResourceManagerHeartbeatManager(heartbeatServices, resourceId);
 		this.jobDeploymentManagers = new HashMap<>(100);
+		this.taskDeployFinishEnable = taskManagerConfiguration.isTaskDeployFinishEnable();
 	}
 
 	private HeartbeatManager<Void, TaskExecutorHeartbeatPayload> createResourceManagerHeartbeatManager(HeartbeatServices heartbeatServices, ResourceID resourceId) {
@@ -910,7 +913,12 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		}
 
 		if (taskAdded) {
-			task.startTaskThread();
+			if (taskDeployFinishEnable) {
+				task.transitionFinalState();
+				taskManagerActions.updateTaskExecutionState(new TaskExecutionState(jobId, executionAttemptID, ExecutionState.FINISHED));
+			} else {
+				task.startTaskThread();
+			}
 
 			setupResultPartitionBookkeeping(
 				tdd.getJobId(),
