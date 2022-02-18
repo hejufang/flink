@@ -19,9 +19,11 @@
 package org.apache.flink.table.planner.runtime.stream.sql
 
 import org.apache.flink.api.scala._
+import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.table.api._
 import org.apache.flink.table.api.bridge.scala._
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.planner.expressions.utils.FuncWithOpen
 import org.apache.flink.table.planner.factories.TestValuesTableFactory
 import org.apache.flink.table.planner.runtime.utils.StreamingWithStateTestBase.StateBackendMode
@@ -1182,6 +1184,61 @@ class JoinITCase(state: StateBackendMode) extends StreamingWithStateTestBase(sta
     val expected = Seq(
       "Euro,2,119,238", "Euro,3,119,357",
       "US Dollar,1,102,102", "US Dollar,5,102,510")
+    assertEquals(expected.sorted, sink.getRetractResults.sorted)
+  }
+
+  @Test
+  def testJoinWithMiniBatch(): Unit = {
+    val orderDataId = TestValuesTableFactory.registerData(TestData.ordersData)
+    val ratesDataId = TestValuesTableFactory.registerData(TestData.ratesHistoryData)
+
+    val miniBatchConfig = new Configuration
+    miniBatchConfig.setBoolean(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLE_REGULAR_JOIN,true)
+    miniBatchConfig.setBoolean(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED,true)
+    miniBatchConfig.setLong(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE,10000)
+    miniBatchConfig.setString(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ALLOW_LATENCY,"600 s")
+    tEnv.getConfig.addConfiguration(miniBatchConfig) // add config for mini-batch join
+
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE orders (
+         |  amount BIGINT,
+         |  currency STRING
+         |) WITH (
+         | 'connector' = 'values',
+         | 'data-id' = '$orderDataId',
+         | 'changelog-mode' = 'I'
+         |)
+         |""".stripMargin)
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE rates_history (
+         |  currency STRING,
+         |  rate BIGINT
+         |) WITH (
+         |  'connector' = 'values',
+         |  'data-id' = '$ratesDataId',
+         |  'changelog-mode' = 'I,UB,UA'
+         |)
+      """.stripMargin)
+
+    val sql =
+      """
+        |SELECT o.currency, o.amount, r.rate, o.amount * r.rate
+        |FROM orders AS o LEFT JOIN rates_history AS r
+        |ON o.currency = r.currency
+        |""".stripMargin
+
+    val sink = new TestingRetractSink
+
+    tEnv.sqlQuery(sql).toRetractStream[Row].addSink(sink).setParallelism(1)
+    env.setParallelism(1) //simply avoid out-of-order caused by
+    // rescaling between Source and MiniBatchAssigner
+    env.execute()
+
+    val expected = Seq(
+      "Euro,2,119,238", "Euro,3,119,357",
+      "US Dollar,1,102,102", "US Dollar,5,102,510","Yen,50,null,null")
     assertEquals(expected.sorted, sink.getRetractResults.sorted)
   }
 }

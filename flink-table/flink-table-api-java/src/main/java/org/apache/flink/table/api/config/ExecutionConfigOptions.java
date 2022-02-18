@@ -286,6 +286,14 @@ public class ExecutionConfigOptions {
 				"because mini-batch bundle trigger conflicts with session window merging. This config " +
 				"is a protection for unexpected behavior changes.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_MINIBATCH_ENABLE_REGULAR_JOIN =
+		key("table.exec.mini-batch.enable-regular-join")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Specifies whether to enable mini-batch optimization for regular join, " +
+				"false by default.");
+
 	// ------------------------------------------------------------------------
 	//  Other Exec Options
 	// ------------------------------------------------------------------------

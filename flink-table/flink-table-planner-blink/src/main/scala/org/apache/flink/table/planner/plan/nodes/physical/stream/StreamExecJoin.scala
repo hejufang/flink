@@ -28,16 +28,17 @@ import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalJoin
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.utils.{JoinUtil, KeySelectorUtil, PhysicalPlanUtil}
 import org.apache.flink.table.runtime.operators.join.stream.state.JoinInputSideSpec
-import org.apache.flink.table.runtime.operators.join.stream.{StreamingJoinOperator, StreamingSemiAntiJoinOperator}
+import org.apache.flink.table.runtime.operators.join.stream.{MiniBatchStreamingJoinOperator, StreamingJoinOperator, StreamingSemiAntiJoinOperator}
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
-
 import org.apache.calcite.plan._
 import org.apache.calcite.rel.core.{Join, JoinRelType}
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.{RelNode, RelWriter}
 import org.apache.calcite.rex.RexNode
-
 import java.util
+
+import org.apache.flink.table.api.config.ExecutionConfigOptions
+import org.apache.flink.table.api.config.ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE
 
 import scala.collection.JavaConversions._
 
@@ -147,6 +148,17 @@ class StreamExecJoin(
 
     val minRetentionTime = tableConfig.getMinIdleStateRetentionTime
 
+    val isMiniBatchJoinEnabled = tableConfig.getConfiguration.getBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED) &&
+      tableConfig.getConfiguration.getBoolean(
+        ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLE_REGULAR_JOIN)
+
+    val miniBatchSize = tableConfig.getConfiguration.getLong(TABLE_EXEC_MINIBATCH_SIZE)
+    if (isMiniBatchJoinEnabled && miniBatchSize <= 0) {
+      throw new IllegalArgumentException(
+        TABLE_EXEC_MINIBATCH_SIZE.key() + " must be greater than zero when mini batch is enabled")
+    }
+
     val operator = if (joinType == JoinRelType.ANTI || joinType == JoinRelType.SEMI) {
       new StreamingSemiAntiJoinOperator(
         joinType == JoinRelType.ANTI,
@@ -160,16 +172,31 @@ class StreamExecJoin(
     } else {
       val leftIsOuter = joinType == JoinRelType.LEFT || joinType == JoinRelType.FULL
       val rightIsOuter = joinType == JoinRelType.RIGHT || joinType == JoinRelType.FULL
-      new StreamingJoinOperator(
-        leftType,
-        rightType,
-        generatedCondition,
-        leftInputSpec,
-        rightInputSpec,
-        leftIsOuter,
-        rightIsOuter,
-        filterNulls,
-        minRetentionTime)
+      if (isMiniBatchJoinEnabled){
+        new MiniBatchStreamingJoinOperator(
+          leftType,
+          rightType,
+          generatedCondition,
+          leftInputSpec,
+          rightInputSpec,
+          leftIsOuter,
+          rightIsOuter,
+          filterNulls,
+          minRetentionTime,
+          miniBatchSize
+        )
+      } else {
+        new StreamingJoinOperator(
+          leftType,
+          rightType,
+          generatedCondition,
+          leftInputSpec,
+          rightInputSpec,
+          leftIsOuter,
+          rightIsOuter,
+          filterNulls,
+          minRetentionTime)
+      }
     }
 
     val ret = new TwoInputTransformation[RowData, RowData, RowData](
