@@ -29,6 +29,8 @@ import org.apache.flink.runtime.rpc.FencedRpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.webmonitor.RestfulGateway;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
+
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
@@ -46,6 +48,18 @@ public interface DispatcherGateway extends FencedRpcGateway<DispatcherId>, Restf
 	 */
 	CompletableFuture<Acknowledge> submitJob(
 		JobGraph jobGraph,
+		@RpcTimeout Time timeout);
+
+	/**
+	 * Submit a job to the dispatcher with channel context.
+	 *
+	 * @param jobGraph JobGraph to submit
+	 * @param ctx channel context the job be submitted
+	 * @param timeout RPC timeout
+	 */
+	void submitJob(
+		JobGraph jobGraph,
+		ChannelHandlerContext ctx,
 		@RpcTimeout Time timeout);
 
 	/**

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.entrypoint.component;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.RestOptions;
@@ -28,6 +29,7 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.dispatcher.ArchivedExecutionGraphStore;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.dispatcher.DispatcherId;
+import org.apache.flink.runtime.dispatcher.DispatcherSocketEndpoint;
 import org.apache.flink.runtime.dispatcher.HistoryServerArchivist;
 import org.apache.flink.runtime.dispatcher.PartialDispatcherServices;
 import org.apache.flink.runtime.dispatcher.SessionDispatcherFactory;
@@ -113,6 +115,7 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 		LeaderRetrievalService dispatcherLeaderRetrievalService = null;
 		LeaderRetrievalService resourceManagerRetrievalService = null;
 		WebMonitorEndpoint<?> webMonitorEndpoint = null;
+		DispatcherSocketEndpoint dispatcherSocketEndpoint = null;
 		ResourceManager<?> resourceManager = null;
 		DispatcherRunner dispatcherRunner = null;
 
@@ -162,6 +165,13 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 			log.debug("Starting Dispatcher REST endpoint.");
 			webMonitorEndpoint.start();
 
+			boolean socketEndpointEnable = configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
+			if (socketEndpointEnable) {
+				dispatcherSocketEndpoint = new DispatcherSocketEndpoint(dispatcherGatewayRetriever, configuration);
+				log.info("Starting Dispatcher Socket endpoint.");
+				dispatcherSocketEndpoint.start();
+			}
+
 			final String hostname = RpcUtils.getHostname(rpcService);
 
 			resourceManager = resourceManagerFactory.createResourceManager(
@@ -210,7 +220,8 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 				resourceManager,
 				dispatcherLeaderRetrievalService,
 				resourceManagerRetrievalService,
-				webMonitorEndpoint);
+				webMonitorEndpoint,
+				dispatcherSocketEndpoint);
 
 		} catch (Exception exception) {
 			// clean up all started components
@@ -234,6 +245,10 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 
 			if (webMonitorEndpoint != null) {
 				terminationFutures.add(webMonitorEndpoint.closeAsync());
+			}
+
+			if (dispatcherSocketEndpoint != null) {
+				terminationFutures.add(dispatcherSocketEndpoint.closeAsync());
 			}
 
 			if (resourceManager != null) {

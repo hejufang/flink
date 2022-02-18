@@ -78,4 +78,10 @@ public class ClusterOptions {
 				.text("Enable the slot spread out allocation strategy. This strategy tries to spread out " +
 					"the slots evenly across all available %s.", code("TaskExecutors"))
 				.build());
+
+	public static final ConfigOption<Boolean> CLUSTER_SOCKET_ENDPOINT_ENABLE = ConfigOptions
+		.key("cluster.socket-endpoint.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Setup socket endpoint in the cluster.");
 }

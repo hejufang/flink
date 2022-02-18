@@ -57,6 +57,21 @@ public class RestOptions {
 				" (“50100-50200”) or a combination of both. It is recommended to set a range of ports to avoid" +
 				" collisions when multiple Rest servers are running on the same machine.");
 
+	/**
+	 * The port range that the socket server could bind itself to.
+	 */
+	public static final ConfigOption<String> BIND_SOCKET_PORT =
+		key("socket.bind-port")
+			.defaultValue("8091")
+			.withDescription("The port that the socket server binds itself. Accepts a list of ports (“50100,50101”), ranges" +
+				" (“50100-50200”) or a combination of both. It is recommended to set a range of ports to avoid" +
+				" collisions when multiple Socket servers are running on the same machine.");
+
+	public static final ConfigOption<Integer> DISPATCHER_CONNECT_BACKLOG =
+		key("dispatcher.network.netty.server.backlog")
+			.defaultValue(0) // default: 0 => Netty's default
+			.withDeprecatedKeys("taskmanager.net.server.backlog")
+			.withDescription("The netty server connection backlog.");
 
 	/**
 	 * The address that should be used by clients to connect to the server.

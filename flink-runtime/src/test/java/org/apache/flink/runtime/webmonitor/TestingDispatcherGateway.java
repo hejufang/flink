@@ -41,9 +41,12 @@ import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.function.TriFunction;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -61,6 +64,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	static final Function<ApplicationStatus, CompletableFuture<Acknowledge>> DEFAULT_SHUTDOWN_WITH_STATUS_FUNCTION = status -> CompletableFuture.completedFuture(Acknowledge.get());
 
 	private Function<JobGraph, CompletableFuture<Acknowledge>> submitFunction;
+	private BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer;
 	private Supplier<CompletableFuture<Collection<JobID>>> listFunction;
 	private int blobServerPort;
 	private DispatcherId fencingToken;
@@ -92,6 +96,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 			BiFunction<JobID, String, CompletableFuture<String>> triggerSavepointFunction,
 			BiFunction<JobID, String, CompletableFuture<String>> stopWithSavepointFunction,
 			Function<JobGraph, CompletableFuture<Acknowledge>> submitFunction,
+			BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer,
 			Supplier<CompletableFuture<Collection<JobID>>> listFunction,
 			int blobServerPort,
 			DispatcherId fencingToken,
@@ -116,6 +121,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 			clusterShutdownSupplier,
 			deliverCoordinationRequestToCoordinatorFunction);
 		this.submitFunction = submitFunction;
+		this.submitConsumer = submitConsumer;
 		this.listFunction = listFunction;
 		this.blobServerPort = blobServerPort;
 		this.fencingToken = fencingToken;
@@ -126,6 +132,11 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	@Override
 	public CompletableFuture<Acknowledge> submitJob(JobGraph jobGraph, Time timeout) {
 		return submitFunction.apply(jobGraph);
+	}
+
+	@Override
+	public void submitJob(JobGraph jobGraph, ChannelHandlerContext ctx, Time timeout) {
+		submitConsumer.accept(jobGraph, ctx);
 	}
 
 	@Override
@@ -158,6 +169,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	public static final class Builder extends TestingRestfulGateway.AbstractBuilder<Builder> {
 
 		private Function<JobGraph, CompletableFuture<Acknowledge>> submitFunction;
+		private BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer;
 		private Supplier<CompletableFuture<Collection<JobID>>> listFunction;
 		private int blobServerPort;
 		private DispatcherId fencingToken;
@@ -166,6 +178,11 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 
 		public Builder setSubmitFunction(Function<JobGraph, CompletableFuture<Acknowledge>> submitFunction) {
 			this.submitFunction = submitFunction;
+			return this;
+		}
+
+		public Builder setSubmitConsumer(BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer) {
+			this.submitConsumer = submitConsumer;
 			return this;
 		}
 
@@ -221,6 +238,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 				triggerSavepointFunction,
 				stopWithSavepointFunction,
 				submitFunction,
+				submitConsumer,
 				listFunction,
 				blobServerPort,
 				fencingToken,

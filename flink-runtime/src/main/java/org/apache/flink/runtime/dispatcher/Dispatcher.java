@@ -84,6 +84,8 @@ import org.apache.flink.util.function.BiConsumerWithException;
 import org.apache.flink.util.function.FunctionUtils;
 import org.apache.flink.util.function.FunctionWithException;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -324,6 +326,11 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		} catch (FlinkException e) {
 			return FutureUtils.completedExceptionally(e);
 		}
+	}
+
+	@Override
+	public void submitJob(JobGraph jobGraph, ChannelHandlerContext ctx, Time timeout) {
+		throw new UnsupportedOperationException();
 	}
 
 	/**
