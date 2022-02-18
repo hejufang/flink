@@ -34,6 +34,7 @@ import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.List;
 
+import static org.apache.flink.configuration.ExecutionOptions.BUFFER_TIMEOUT;
 import static org.apache.flink.configuration.PipelineOptions.ALL_VERTICES_IN_SAME_SLOT_SHARING_GROUP_BY_DEFAULT;
 import static org.apache.flink.configuration.PipelineOptions.OBJECT_REUSE;
 import static org.apache.flink.table.api.config.ExecutionConfigOptions.TABLE_EXEC_USE_OLAP_MODE;
@@ -72,7 +73,9 @@ public class ExecutorUtils {
 		}
 		executionConfig.setLatencyTrackingInterval(-1);
 		execEnv.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
-		execEnv.setBufferTimeout(-1);
+		if (!tableConfig.getConfiguration().toMap().containsKey(BUFFER_TIMEOUT.key())) {
+			execEnv.setBufferTimeout(-1);
+		}
 		if (isShuffleModeAllBlocking(tableConfig)) {
 			executionConfig.setDefaultInputDependencyConstraint(InputDependencyConstraint.ALL);
 		}
