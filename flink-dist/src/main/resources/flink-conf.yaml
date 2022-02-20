@@ -862,7 +862,7 @@ otter:
   docker.region: US-TTP
   yaop_url: http://yaop-tx.tiktokd.org
   jobmeta.db.name: flink_meta_us_ttp
-  grafana.domain_url: "https://grafana-tx.tiktokd.org"
+  grafana.domain_url: "https://grafana.tiktok-usts.org"
   register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
 
 ostri:
@@ -882,7 +882,7 @@ ostri:
   docker.region: US-TTP
   yaop_url: http://yaop-tx.tiktokd.org
   jobmeta.db.name: flink_meta_us_ttp
-  grafana.domain_url: "https://grafana-tx.tiktokd.org"
+  grafana.domain_url: "https://grafana.tiktok-usts.org"
   register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
 
 octop:
@@ -902,7 +902,7 @@ octop:
   docker.region: US-TTP
   yaop_url: http://yaop-tx.tiktokd.org
   jobmeta.db.name: flink_meta_us_ttp
-  grafana.domain_url: "https://grafana-tx.tiktokd.org"
+  grafana.domain_url: "https://grafana.tiktok-usts.org"
   register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
 
 alisg:
