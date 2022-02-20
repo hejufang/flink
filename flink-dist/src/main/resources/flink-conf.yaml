@@ -997,7 +997,7 @@ otter:
   docker.region: US-TTP
   yaop_url: http://yaop-tx.tiktokd.org
   jobmeta.db.name: flink_meta_us_ttp
-  grafana.domain_url: "https://grafana-tx.tiktokd.org"
+  grafana.domain_url: "https://grafana.tiktok-usts.org"
   register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
   table.exec.hive.permission-check.gemini-server-url: http://gemini-oci.tiktokd.org/api/query/oci/verifyUsersPrivilege
 
@@ -1019,7 +1019,7 @@ octop:
   docker.region: US-TTP
   yaop_url: http://yaop-tx.tiktokd.org
   jobmeta.db.name: flink_meta_us_ttp
-  grafana.domain_url: "https://grafana-tx.tiktokd.org"
+  grafana.domain_url: "https://grafana.tiktok-usts.org"
   register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
   table.exec.hive.permission-check.gemini-server-url: http://gemini-oci.tiktokd.org/api/query/oci/verifyUsersPrivilege
 
@@ -1041,7 +1041,7 @@ ostri:
   docker.region: US-TTP
   yaop_url: http://yaop-tx.tiktokd.org
   jobmeta.db.name: flink_meta_us_ttp
-  grafana.domain_url: "https://grafana-tx.tiktokd.org"
+  grafana.domain_url: "https://grafana.tiktok-usts.org"
   register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
   table.exec.hive.permission-check.gemini-server-url: http://gemini-oci.tiktokd.org/api/query/oci/verifyUsersPrivilege
 
