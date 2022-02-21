@@ -495,6 +495,56 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 		assertEquals(10, freeAllocations.size());
 	}
 
+	/**
+	 * Test allocatedSlot released and fulFill new PendingRequest with failed Task.t
+	 */
+	@Test
+	public void testSlotReleasedAfterFailed() throws Exception {
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
+
+		final ArrayBlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(10);
+		resourceManagerGateway.setRequestSlotConsumer(
+				slotRequest -> allocationIds.offer(slotRequest.getAllocationId()));
+		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
+		assertEquals(0, allocationIds.size());
+
+		SlotRequestId slotRequestId1 = new SlotRequestId();
+		SlotRequestId slotRequestId2 = new SlotRequestId();
+		CompletableFuture<PhysicalSlot> physicalSlotCompletableFuture1 = slotPool.requestNewAllocatedSlot(
+				slotRequestId1,
+				ResourceProfile.UNKNOWN,
+				Collections.emptyList(),
+				timeout);
+
+		CompletableFuture<PhysicalSlot> physicalSlotCompletableFuture2 = slotPool.requestNewAllocatedSlot(
+				slotRequestId2,
+				ResourceProfile.UNKNOWN,
+				Collections.emptyList(),
+				timeout);
+		physicalSlotCompletableFuture2.whenComplete(
+				(physicalSlot, throwable) -> {
+					slotPool.releaseSlot(slotRequestId2, new Exception("expected"));
+				});
+
+		final List<SlotOffer> slotOffers = new ArrayList<>(1);
+
+		slotOffers.add(new SlotOffer(allocationIds.take(), 0, ResourceProfile.ANY));
+
+		slotPool.registerTaskManager(taskManagerLocation.getResourceID());
+		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
+
+		assertEquals(1, slotPool.getPendingRequests().size());
+		assertEquals(0, slotPool.getAvailableSlotsInformation().size());
+		assertEquals(1, slotPool.getAllocatedSlots().size());
+		assertTrue(physicalSlotCompletableFuture1.isDone());
+		slotPool.releaseSlot(slotRequestId1, new Exception("excepted"));
+		assertTrue(physicalSlotCompletableFuture2.isDone());
+		assertEquals(0, slotPool.getPendingRequests().size());
+		assertEquals(1, slotPool.getAvailableSlotsInformation().size());
+		assertEquals(0, slotPool.getAllocatedSlots().size());
+	}
+
 	@Test
 	public void testSlotPoolMinResourceFutureTimeout() throws Exception {
 		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();

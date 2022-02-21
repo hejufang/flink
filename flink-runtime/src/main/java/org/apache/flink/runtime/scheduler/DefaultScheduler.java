@@ -342,6 +342,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
 		addVerticesToRestartPending(verticesToRestart);
 
+		// Only cancel pending slot, allocated slot will be released in execution.finishCancellation.
+		cancelSlotRequests(verticesToRestart);
 		final CompletableFuture<?> cancelFuture = cancelTasksAsync(verticesToRestart);
 
 		delayExecutor.schedule(
@@ -382,6 +384,10 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		};
 	}
 
+	private void cancelSlotRequests(final Set<ExecutionVertexID> verticesToRestart) {
+		verticesToRestart.forEach(executionSlotAllocator::cancel);
+	}
+
 	private CompletableFuture<?> cancelTasksAsync(final Set<ExecutionVertexID> verticesToRestart) {
 		final List<CompletableFuture<?>> cancelFutures = verticesToRestart.stream()
 			.map(this::cancelExecutionVertex)
@@ -395,7 +401,6 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
 		notifyCoordinatorOfCancellation(vertex);
 
-		executionSlotAllocator.cancel(executionVertexId);
 		CompletableFuture<?> cancel = executionVertexOperations.cancel(vertex);
 		Execution execution = vertex.getCurrentExecutionAttempt();
 		if (executionCancellationTimeoutEnable) {

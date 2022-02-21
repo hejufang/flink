@@ -127,6 +127,8 @@ public class RoundRobinLocationPreferenceSlotSelectionStrategy extends DefaultLo
 				&& !bannedLocations.contains(slot.getTaskManagerLocation())
 				&& !bannedHostnames.contains(slot.getTaskManagerLocation().getFQDNHostname()));
 
+		optionalSlot.ifPresent(allocatedSlot -> LOG.debug("allocate {} by round robin", allocatedSlot.getAllocationId()));
+
 		return optionalSlot.map(allocatedSlot -> SlotInfoAndLocality.of(allocatedSlot, noMatchLocality));
 	}
 }
