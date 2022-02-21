@@ -277,6 +277,45 @@ public class SlotSharingExecutionSlotAllocatorTest {
 		assertThat(payloads.stream().allMatch(payload -> payload.getTerminalStateFuture().isDone()), is(true));
 	}
 
+	@Test
+	public void testPhysicalSlotReleaseWithTaskFailover() throws ExecutionException, InterruptedException {
+		AllocationContext context = AllocationContext.newBuilder().addGroup(EV1, EV2).build();
+		List<SlotExecutionVertexAssignment> assignments = context.allocateSlotsFor(EV1, EV2);
+		Map<TestingPayload, LogicalSlot> payloadSlotRequestIdMap = new HashMap<>();
+		List<TestingPayload> payloads = assignments
+				.stream()
+				.map(assignment -> {
+					TestingPayload payload = new TestingPayload();
+					assignment.getLogicalSlotFuture().thenAccept(
+							logicalSlot -> {
+								logicalSlot.tryAssignPayload(payload);
+								payloadSlotRequestIdMap.put(payload, logicalSlot);
+							}
+					);
+					return payload;
+				})
+				.collect(Collectors.toList());
+		TestingPhysicalSlot physicalSlot = context.getSlotProvider().getFirstResponseOrFail().get();
+
+		// Mock region failover release all tasks and slots.
+		payloads.forEach(
+				p -> p.getTerminalStateFuture().whenComplete(
+						(ignore, t) -> {
+							for (TestingPayload payload : payloads) {
+								if (!p.equals(payload)) {
+									payloadSlotRequestIdMap.get(payload).releaseSlot(null);
+								}
+							}
+						}
+				)
+		);
+
+		assertThat(payloads.stream().allMatch(payload -> payload.getTerminalStateFuture().isDone()), is(false));
+		assertThat(physicalSlot.getPayload(), notNullValue());
+		physicalSlot.getPayload().release(new Throwable());
+		assertThat(payloads.stream().allMatch(payload -> payload.getTerminalStateFuture().isDone()), is(true));
+	}
+
 	private static ExecutionVertexID createRandomExecutionVertexId() {
 		return new ExecutionVertexID(new JobVertexID(), 0);
 	}

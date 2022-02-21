@@ -44,6 +44,7 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -223,11 +224,17 @@ class SlotSharingExecutionSlotAllocator implements ExecutionSlotAllocator {
 			// If the physical slot request fails (slotContextFuture), it will also fail the logicalSlotFuture.
 			// Therefore, the next `exceptionally` callback will cancelLogicalSlotRequest and do the cleanup
 			// in requestedLogicalSlots and eventually in sharedSlots
-			logicalSlotFuture.exceptionally(cause -> {
-				LOG.debug("Failed {}, ", logMessageBase, cause);
-				cancelLogicalSlotRequest(logicalSlotRequestId, false);
-				return null;
-			});
+			logicalSlotFuture.whenComplete(
+					(ignore, cause) -> {
+						if (cause != null) {
+							if (!(cause instanceof CancellationException)) {
+								LOG.debug("Failed {}, ", logMessageBase, cause);
+							} else {
+								LOG.debug("Canceled {}", logMessageBase);
+							}
+							cancelLogicalSlotRequest(logicalSlotRequestId, false);
+						}
+					});
 			return logicalSlotFuture;
 		}
 
@@ -278,16 +285,24 @@ class SlotSharingExecutionSlotAllocator implements ExecutionSlotAllocator {
 				"Releasing of the shared slot is expected only from its successfully allocated physical slot ({})",
 				physicalSlotRequestId);
 			for (ExecutionVertexID executionVertexId : new HashSet<>(requestedLogicalSlots.keySetA())) {
-				LOG.debug("Release {}", getLogicalSlotString(executionVertexId));
 				CompletableFuture<SingleLogicalSlot> logicalSlotFuture =
 					requestedLogicalSlots.getValueByKeyA(executionVertexId);
-				Preconditions.checkNotNull(logicalSlotFuture);
-				Preconditions.checkState(
-					logicalSlotFuture.isDone(),
-					"Logical slot future must already done when release call comes from the successfully allocated physical slot ({})",
-					physicalSlotRequestId);
-				logicalSlotFuture.thenAccept(logicalSlot -> logicalSlot.release(cause));
-				requestedLogicalSlots.removeKeyA(executionVertexId);
+				if (logicalSlotFuture != null) {
+					LOG.debug("Release {}", getLogicalSlotString(executionVertexId));
+					Preconditions.checkState(
+							logicalSlotFuture.isDone(),
+							"Logical slot future must already done when release call comes from the successfully allocated physical slot ({})",
+							physicalSlotRequestId);
+					logicalSlotFuture.thenAccept(logicalSlot -> logicalSlot.release(cause));
+					requestedLogicalSlots.removeKeyA(executionVertexId);
+				} else {
+					LOG.debug("Slot for {} not found, it must be removed by returnLogicalSlot, skip release.", executionVertexId);
+				}
+			}
+			if (!requestedLogicalSlots.values().isEmpty()) {
+				String errorMsg = String.format("LogicalSlot %s not released after physical slot %s released",
+						requestedLogicalSlots.keySetA(), physicalSlotRequestId);
+				throw new IllegalStateException(errorMsg);
 			}
 			removeSharedSlotIfAllLogicalDone();
 		}
