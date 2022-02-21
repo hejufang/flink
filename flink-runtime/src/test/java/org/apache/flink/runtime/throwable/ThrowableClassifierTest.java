@@ -21,9 +21,13 @@ package org.apache.flink.runtime.throwable;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
 import org.apache.flink.runtime.execution.SuppressRestartsException;
+import org.apache.flink.util.SerializedThrowable;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.Test;
+
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -96,6 +100,11 @@ public class ThrowableClassifierTest extends TestLogger {
 		assertTrue(ThrowableClassifier.findThrowableOfThrowableType(
 			new CheckpointException("test", CheckpointFailureReason.NOT_ALL_REQUIRED_TASKS_IN_RIGHT_STATE, new TestCriticalErrorException()),
 			ThrowableType.CriticalError).isPresent());
+
+		// test the dead loop case
+		assertFalse(ThrowableClassifier.findThrowableOfThrowableType(
+			new SerializedThrowable(new UnSerializedException()),
+			ThrowableType.RecoverableError).isPresent());
 	}
 
 	@ThrowableAnnotation(ThrowableType.PartitionDataMissingError)
@@ -118,4 +127,10 @@ public class ThrowableClassifierTest extends TestLogger {
 
 	@ThrowableAnnotation(ThrowableType.CriticalError)
 	private static class TestCriticalErrorException extends Exception {}
+
+	private static class UnSerializedException extends Exception {
+		private void writeObject(ObjectOutputStream oos) throws IOException {
+			throw new IOException();
+		}
+	}
 }

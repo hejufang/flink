@@ -57,7 +57,8 @@ public class ThrowableClassifier {
 				return Optional.of(t);
 			} else {
 				if (t instanceof SerializedThrowable){
-					t = ((SerializedThrowable) t).deserializeError(Thread.currentThread().getContextClassLoader());
+					Throwable next = ((SerializedThrowable) t).deserializeError(Thread.currentThread().getContextClassLoader());
+					t = (next == t) ? null : next;
 				} else {
 					t = t.getCause();
 				}
