@@ -211,14 +211,10 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 
 		pendingRequiredResources.computeIfAbsent(resourceProfile, r -> new HashSet<>()).add(pendingRequest);
 		pendingRequest.getAllocatedSlotFuture().whenComplete((allocatedSlot, throwable) -> {
-			pendingRequiredResources.get(resourceProfile).remove(pendingRequest);
 			if (throwable != null) {
 				log.debug("PendingRequest {} failed, try allocate new slots.", pendingRequest, throwable);
+				pendingRequiredResources.get(resourceProfile).remove(pendingRequest);
 				requestNewAllocatedSlotForRequiredResourceAndUpdateFutures(resourceProfile);
-			} else {
-				log.debug("PendingRequest {} for required resource fulfilled by {}", pendingRequest, allocatedSlot);
-				allocatedRequiredResources.computeIfAbsent(allocatedSlot.getResourceProfile(), r -> new HashSet<>()).add(allocatedSlot);
-				allocatedSlotRequestedProfile.put(allocatedSlot, resourceProfile);
 			}
 		});
 	}
@@ -228,8 +224,12 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 		componentMainThreadExecutor.assertRunningInMainThread();
 		ResourceProfile resourceProfile = pendingRequest.getResourceProfile();
 		if (pendingRequiredResources.getOrDefault(resourceProfile, Collections.emptySet()).contains(pendingRequest)) {
+			log.debug("PendingRequest {} for required resource fulfilled by {}", pendingRequest, allocatedSlot);
 			removePendingRequest(pendingRequest.getSlotRequestId());
 			markSlotAvailable(allocatedSlot);
+			pendingRequiredResources.get(resourceProfile).remove(pendingRequest);
+			allocatedRequiredResources.computeIfAbsent(allocatedSlot.getResourceProfile(), r -> new HashSet<>()).add(allocatedSlot);
+			allocatedSlotRequestedProfile.put(allocatedSlot, resourceProfile);
 			pendingRequest.getAllocatedSlotFuture().complete(allocatedSlot);
 			return true;
 		}
@@ -239,6 +239,14 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 	@Override
 	protected boolean tryFulFillPendingRequiredResources(AllocatedSlot allocatedSlot) {
 		componentMainThreadExecutor.assertRunningInMainThread();
+		// check whether allocated slot returned.
+		if (allocatedSlotRequestedProfile.containsKey(allocatedSlot)) {
+			log.debug("returned allocated slot {} is already in min required allocated., just put it to available",
+					allocatedSlot.getAllocationId());
+			markSlotAvailable(allocatedSlot);
+			return true;
+		}
+
 		ResourceProfile resourceProfile = allocatedSlot.getResourceProfile();
 		for (Map.Entry<ResourceProfile, Set<PendingRequest>> entry : pendingRequiredResources.entrySet()) {
 			if (resourceProfile.isMatching(entry.getKey()) && !entry.getValue().isEmpty()) {

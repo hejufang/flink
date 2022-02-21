@@ -576,6 +576,44 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 		}
 	}
 
+	@Test
+	public void testKeepMinResourceWhenAllocatedSlotReleased() throws Exception {
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
+		requiredResource.put(ResourceProfile.UNKNOWN, 2);
+		slotPool.setRequiredResourceNumber(requiredResource);
+		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
+
+		final ArrayBlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(4);
+		resourceManagerGateway.setRequestSlotConsumer(
+				slotRequest -> allocationIds.offer(slotRequest.getAllocationId()));
+		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
+		assertEquals(2, allocationIds.size());
+
+		final List<SlotOffer> slotOffers = new ArrayList<>(10);
+		slotOffers.add(new SlotOffer(allocationIds.take(), 0, ResourceProfile.ANY));
+
+		slotPool.registerTaskManager(taskManagerLocation.getResourceID());
+		slotPool.offerSlots(taskManagerLocation, taskManagerGateway, slotOffers);
+
+		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
+		assertEquals(1, slotPool.getPendingRequests().size());
+		assertEquals(1, slotPool.getAvailableSlotsInformation().size());
+		assertEquals(0, slotPool.getAllocatedSlots().size());
+
+		SlotRequestId slotRequestId = new SlotRequestId();
+		Optional<PhysicalSlot> optionalPhysicalSlot = slotPool.allocateAvailableSlot(slotRequestId, slotOffers.get(0).getAllocationId());
+		assertTrue(optionalPhysicalSlot.isPresent());
+		assertEquals(1, slotPool.getPendingRequests().size());
+		assertEquals(0, slotPool.getAvailableSlotsInformation().size());
+		assertEquals(1, slotPool.getAllocatedSlots().size());
+
+		slotPool.releaseSlot(slotRequestId, new Exception("foo_bar"));
+		assertEquals(1, slotPool.getPendingRequests().size());
+		assertEquals(1, slotPool.getAvailableSlotsInformation().size());
+		assertEquals(0, slotPool.getAllocatedSlots().size());
+	}
+
 	// ------------------------------------
 	// Test RoundRobinSlotPool slot selection
 	// ------------------------------------
