@@ -85,6 +85,7 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 	private final String group;
 	private final String tag;
 	private final Strategy strategy;
+	private final int offsetFlushInterval;
 
 	private DefaultMQPullConsumer consumer;
 	private volatile boolean wakeup = false;
@@ -109,6 +110,7 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 		this.topic = config.getTopic();
 		this.group = config.getGroup();
 		this.tag = config.getTag();
+		this.offsetFlushInterval = config.getOffsetFlushInterval();
 		this.strategy =
 			RetryManager.createStrategy(RetryManager.StrategyType.EXPONENTIAL_BACKOFF.name(),
 				RocketMQOptions.CONSUMER_RETRY_TIMES_DEFAULT,
@@ -173,6 +175,10 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 						rowData,
 						messageExt.getQueueOffset(),
 						messageExt.getBornTimestamp()));
+				// need ack every msg
+				synchronized (consumer) {
+					RetryManager.retry(() -> consumer.ack(messageExt), strategy);
+				}
 			} catch (Exception e) {
 				throw new FlinkRuntimeException(String.format("Failed to deserialize consumer record %s, offset %s",
 					RocketMQUtils.formatQueue(messageExt.getMessageQueue()), messageExt.getQueueOffset()), e);
@@ -182,10 +188,6 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 		final List<MessageExt> ackExts = messageExtListsRef.get();
 		if (ackExts.size() == 0) {
 			Thread.sleep(DEFAULT_SLEEP_MILLISECONDS);
-		} else {
-			synchronized (consumer) {
-				RetryManager.retry(() -> consumer.ack(ackExts.get(ackExts.size() - 1)), strategy);
-			}
 		}
 		return recordsBySplits;
 	}
@@ -288,7 +290,14 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 
 	public void close() {
 		if (consumer != null) {
-			consumer.shutdown();
+			try {
+				consumer.commitSync();
+			} catch (Exception e) {
+				LOG.warn("Receive interrupted exception.");
+			} finally {
+				consumer.shutdown();
+				consumer = null;
+			}
 		}
 	}
 
@@ -338,6 +347,8 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 			if (tag != null) {
 				consumer.setSubExpr(tag);
 			}
+			// offset sync to server interval
+			consumer.setFlushOffsetInterval(offsetFlushInterval);
 			consumer.start();
 			schema.open(() -> sourceReaderContext.metricGroup());
 		} catch (Exception e) {

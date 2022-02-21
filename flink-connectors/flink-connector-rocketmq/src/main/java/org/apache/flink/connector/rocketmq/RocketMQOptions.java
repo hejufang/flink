@@ -175,6 +175,12 @@ public abstract class RocketMQOptions {
 		.defaultValue(Long.MAX_VALUE)
 		.withDescription("End offset for bounded source, and not include message with end offset");
 
+	public static final ConfigOption<Integer> SCAN_OFFSET_FLUSH_INTERVAL_MS = ConfigOptions
+		.key("scan.offset-flush-interval-ms")
+		.intType()
+		.defaultValue(5_000)
+		.withDescription("Interval for sync offset server");
+
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------

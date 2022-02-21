@@ -17,7 +17,7 @@
  */
 
 org.apache.flink:flink-connector-rocketmq:jar:1.11-byted-SNAPSHOT
-+- com.bytedance:java-rocketmq-client2:jar:1.0.26:compile
++- com.bytedance:java-rocketmq-client2:jar:2.0.1:compile
 |  +- javax.annotation:javax.annotation-api:jar:1.2:compile
 |  +- com.google.guava:guava:jar:28.1-android:compile
 |  |  +- com.google.guava:failureaccess:jar:1.0.1:compile
@@ -78,12 +78,12 @@ org.apache.flink:flink-connector-rocketmq:jar:1.11-byted-SNAPSHOT
 |  |     +- com.github.jnr:jnr-enxio:jar:0.32.3:compile
 |  |     \- com.github.jnr:jnr-posix:jar:3.1.4:compile
 |  +- io.dropwizard.metrics:metrics-core:jar:4.0.1:compile
-|  \- org.byted.security:zti-jwt-helper-java:jar:1.0.10:compile
+|  +- org.byted.security:zti-jwt-helper-java:jar:1.0.10:compile
+|  \- org.apache.commons:commons-lang3:jar:3.3.2:compile
 +- org.apache.flink:flink-core:jar:1.11-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-annotations:jar:1.11-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-metrics-core:jar:1.11-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-shaded-asm-7:jar:7.1-11.0-byted-SNAPSHOT:provided
-|  +- org.apache.commons:commons-lang3:jar:3.3.2:compile
 |  +- com.esotericsoftware.kryo:kryo:jar:2.24.0:provided
 |  |  \- com.esotericsoftware.minlog:minlog:jar:1.2:provided
 |  +- commons-collections:commons-collections:jar:3.2.2:compile

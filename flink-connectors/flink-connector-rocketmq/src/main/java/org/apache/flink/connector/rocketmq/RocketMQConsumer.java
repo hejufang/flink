@@ -98,6 +98,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private final String jobName;
 	private final RocketMQConsumerFactory consumerFactory;
 	private int parallelism;
+	private final int offsetFlushInterval;
 
 	private transient MeterView recordsNumMeterView;
 	private transient TopicAndQueuesGauge topicAndQueuesGauge;
@@ -134,6 +135,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.sourceIdleTimeMs = config.getIdleTimeOut();
 		this.consumerFactory = config.getConsumerFactory();
 		this.jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
+		this.offsetFlushInterval = config.getOffsetFlushInterval();
 		RocketMQUtils.saveConfigurationToSystemProperties(config);
 	}
 
@@ -248,6 +250,8 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		if (tag != null) {
 			consumer.setSubExpr(tag);
 		}
+		// offset sync to server interval
+		consumer.setFlushOffsetInterval(offsetFlushInterval);
 		consumer.start();
 
 		if (assignQueueStrategy == RocketMQOptions.AssignQueueStrategy.FIXED) {
@@ -290,6 +294,10 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				}
 				lastTimestamp = System.currentTimeMillis();
 				ctx.collect(rowData);
+				// need ack every msg
+				synchronized (RocketMQConsumer.this) {
+					RetryManager.retry(() -> consumer.ack(messageExt), strategy);
+				}
 				this.recordsNumMeterView.markEvent();
 			}
 
@@ -300,10 +308,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 			if (messageExts.size() == 0) {
 				Thread.sleep(DEFAULT_SLEEP_MILLISECONDS);
-			} else {
-				synchronized (RocketMQConsumer.this) {
-					RetryManager.retry(() -> consumer.ack(messageExts.get(messageExts.size() - 1)), strategy);
-				}
 			}
 		}
 	}
@@ -316,8 +320,14 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			updateThread = null;
 		}
 		if (consumer != null) {
-			consumer.shutdown();
-			consumer = null;
+			try {
+				consumer.commitSync();
+			} catch (Exception e) {
+				LOG.warn("Receive interrupted exception.");
+			} finally {
+				consumer.shutdown();
+				consumer = null;
+			}
 		}
 	}
 

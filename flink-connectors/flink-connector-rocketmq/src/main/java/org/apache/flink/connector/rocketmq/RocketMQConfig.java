@@ -36,6 +36,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.MSG_DELAY_LEVE
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_DISCOVER_INTERVAL;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_END_OFFSET;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_END_TIMESTAMP;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_OFFSET_FLUSH_INTERVAL_MS;
 
 /**
  * RocketMQConfig.
@@ -69,6 +70,7 @@ public class RocketMQConfig<T> implements Serializable {
 	private long discoverIntervalMs = SCAN_DISCOVER_INTERVAL.defaultValue().toMillis();
 	private long endOffset = SCAN_END_OFFSET.defaultValue();
 	private long endTimestamp = SCAN_END_TIMESTAMP.defaultValue();
+	private int offsetFlushInterval = SCAN_OFFSET_FLUSH_INTERVAL_MS.defaultValue();
 
 	public MsgDelayLevelSelector<T> getMsgDelayLevelSelector() {
 		return msgDelayLevelSelector;
@@ -243,6 +245,14 @@ public class RocketMQConfig<T> implements Serializable {
 
 	public void setEndTimestamp(long endTimestamp) {
 		this.endTimestamp = endTimestamp;
+	}
+
+	public int getOffsetFlushInterval() {
+		return offsetFlushInterval;
+	}
+
+	public void setOffsetFlushInterval(int offsetFlushInterval) {
+		this.offsetFlushInterval = offsetFlushInterval;
 	}
 
 	public long getDiscoverIntervalMs() {
