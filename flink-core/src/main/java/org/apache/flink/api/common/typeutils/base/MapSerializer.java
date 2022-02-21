@@ -26,8 +26,8 @@ import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * A serializer for {@link Map}. The serializer relies on a key serializer and a value serializer
@@ -44,7 +44,7 @@ import java.util.HashMap;
 public final class MapSerializer<K, V> extends TypeSerializer<Map<K, V>> {
 
 	private static final long serialVersionUID = -6885593032367050078L;
-	
+
 	/** The serializer for the keys in the map */
 	private final TypeSerializer<K> keySerializer;
 
@@ -168,10 +168,10 @@ public final class MapSerializer<K, V> extends TypeSerializer<Map<K, V>> {
 
 		for (int i = 0; i < size; ++i) {
 			keySerializer.copy(source, target);
-			
+
 			boolean isNull = source.readBoolean();
 			target.writeBoolean(isNull);
-			
+
 			if (!isNull) {
 				valueSerializer.copy(source, target);
 			}
@@ -198,5 +198,12 @@ public final class MapSerializer<K, V> extends TypeSerializer<Map<K, V>> {
 	@Override
 	public TypeSerializerSnapshot<Map<K, V>> snapshotConfiguration() {
 		return new MapSerializerSnapshot<>(this);
+	}
+
+	@Override
+	public void setPriorSerializer(TypeSerializer priorSerializer) {
+		MapSerializer priorMapSerializer = (MapSerializer) priorSerializer;
+		keySerializer.setPriorSerializer(priorMapSerializer.keySerializer);
+		valueSerializer.setPriorSerializer(priorMapSerializer.valueSerializer);
 	}
 }

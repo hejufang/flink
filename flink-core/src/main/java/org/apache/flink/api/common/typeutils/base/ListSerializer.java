@@ -172,4 +172,10 @@ public final class ListSerializer<T> extends TypeSerializer<List<T>> {
 	public TypeSerializerSnapshot<List<T>> snapshotConfiguration() {
 		return new ListSerializerSnapshot<>(this);
 	}
+
+	@Override
+	public void setPriorSerializer(TypeSerializer priorSerializer) {
+		ListSerializer priorListSerializer = (ListSerializer) priorSerializer;
+		elementSerializer.setPriorSerializer(priorListSerializer.getElementSerializer());
+	}
 }
