@@ -339,6 +339,9 @@ public class TaskManagerServices {
 
 		final TaskExecutorLocalStateStoresManager taskStateManager = new TaskExecutorLocalStateStoresManager(
 			taskManagerServicesConfiguration.isLocalRecoveryEnabled(),
+			taskManagerServicesConfiguration
+				.getConfiguration()
+				.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE),
 			taskManagerMetricGroup,
 			stateRootDirectoryFiles,
 			taskManagerServicesConfiguration.getLocalStateManageConfig(),

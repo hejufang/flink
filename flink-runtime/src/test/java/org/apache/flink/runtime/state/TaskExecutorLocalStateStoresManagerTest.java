@@ -44,6 +44,9 @@ import org.junit.rules.TemporaryFolder;
 import java.io.File;
 import java.net.InetAddress;
 
+import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
+import static org.junit.Assert.assertTrue;
+
 public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 
 	@ClassRule
@@ -85,7 +88,7 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 			}
 
 			// verify local recovery mode
-			Assert.assertTrue(taskStateManager.isLocalRecoveryEnabled());
+			assertTrue(taskStateManager.isLocalRecoveryEnabled());
 
 			Assert.assertEquals("localState", TaskManagerServices.LOCAL_STATE_SUB_DIRECTORY_ROOT);
 			for (File rootDirectory : rootDirectories) {
@@ -175,17 +178,17 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 					"chk_" + chkId),
 			subtaskSpecificCheckpointDirectory);
 
-		Assert.assertTrue(subtaskSpecificCheckpointDirectory.mkdirs());
+		assertTrue(subtaskSpecificCheckpointDirectory.mkdirs());
 
 		File testFile = new File(subtaskSpecificCheckpointDirectory, "test");
-		Assert.assertTrue(testFile.createNewFile());
+		assertTrue(testFile.createNewFile());
 
 		// test that local recovery mode is forwarded to the created store
 		Assert.assertEquals(
 			storesManager.isLocalRecoveryEnabled(),
 			taskLocalStateStore.getLocalRecoveryConfig().isLocalRecoveryEnabled());
 
-		Assert.assertTrue(testFile.exists());
+		assertTrue(testFile.exists());
 
 		// check cleanup after releasing allocation id
 		storesManager.releaseLocalStateForAllocationId(allocationID);
@@ -199,13 +202,46 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 		directoryProvider = taskLocalStateStore.getLocalRecoveryConfig().getLocalStateDirectoryProvider();
 
 		File chkDir = directoryProvider.subtaskSpecificCheckpointDirectory(23L);
-		Assert.assertTrue(chkDir.mkdirs());
+		assertTrue(chkDir.mkdirs());
 		testFile = new File(chkDir, "test");
-		Assert.assertTrue(testFile.createNewFile());
+		assertTrue(testFile.createNewFile());
 
 		// check cleanup after shutdown
 		storesManager.shutdown();
 		checkRootDirsClean(rootDirs);
+	}
+
+	@Test
+	public void testCreateNoOpStoreWithThrowingProvider() throws Exception {
+		JobID jobID = new JobID();
+		JobVertexID jobVertexID = new JobVertexID();
+		AllocationID allocationID = new AllocationID();
+		int subtaskIdx = 23;
+
+		File[] rootDirs = {temporaryFolder.newFolder(), temporaryFolder.newFolder(), temporaryFolder.newFolder()};
+		TaskExecutorLocalStateStoresManager storesManager = new TaskExecutorLocalStateStoresManager(
+			false,
+			true,
+			rootDirs,
+			Executors.directExecutor());
+		TaskLocalStateStore taskLocalStateStore = storesManager.localStateStoreForSubtask(
+				jobID,
+				allocationID,
+				jobVertexID,
+				subtaskIdx,
+				new ExecutionAttemptID(),
+				null);
+		assertTrue(taskLocalStateStore instanceof NoOpTaskLocalStateStoreImpl);
+		assertTrue(taskLocalStateStore.getLocalRecoveryConfig().getLocalStateDirectoryProvider() instanceof ThrowingRecoveryDirectoryProvider);
+
+		assertThrows(
+			"Can't use local recovery mode when jm request from rm directly",
+			IllegalArgumentException.class,
+			() -> new TaskExecutorLocalStateStoresManager(
+				true,
+				true,
+				rootDirs,
+				Executors.directExecutor()));
 	}
 
 	private void checkRootDirsClean(File[] rootDirs) {

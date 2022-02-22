@@ -50,6 +50,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
+
 /**
  * This class holds the all {@link TaskLocalStateStoreImpl} objects for a task executor (manager).
  */
@@ -78,6 +80,9 @@ public class TaskExecutorLocalStateStoresManager implements TaskLocalStateListen
 
 	/** The configured mode for local recovery on this task manager. */
 	private final boolean localRecoveryEnabled;
+
+	/** The configured slot request mode. */
+	private final boolean requestSlotFromResourceManagerDirectEnable;
 
 	/** This is the root directory for all local state of this task manager / executor. */
 	private final File[] localStateRootDirectories;
@@ -115,6 +120,22 @@ public class TaskExecutorLocalStateStoresManager implements TaskLocalStateListen
 		@Nonnull Executor discardExecutor) throws IOException {
 		this(
 			localRecoveryEnabled,
+			false,
+			UnregisteredMetricGroups.createUnregisteredTaskManagerMetricGroup(),
+			localStateRootDirectories,
+			new LocalStateManageConfig(Long.MAX_VALUE, Long.MAX_VALUE, false),
+			discardExecutor);
+	}
+
+	@VisibleForTesting
+	public TaskExecutorLocalStateStoresManager(
+			boolean localRecoveryEnabled,
+			boolean requestSlotFromResourceManagerDirectEnable,
+			@Nonnull File[] localStateRootDirectories,
+			@Nonnull Executor discardExecutor) throws IOException {
+		this(
+			localRecoveryEnabled,
+			requestSlotFromResourceManagerDirectEnable,
 			UnregisteredMetricGroups.createUnregisteredTaskManagerMetricGroup(),
 			localStateRootDirectories,
 			new LocalStateManageConfig(Long.MAX_VALUE, Long.MAX_VALUE, false),
@@ -122,16 +143,20 @@ public class TaskExecutorLocalStateStoresManager implements TaskLocalStateListen
 	}
 
 	public TaskExecutorLocalStateStoresManager(
-		boolean localRecoveryEnabled,
-		MetricGroup taskManagerMetricGroup,
-		@Nonnull File[] localStateRootDirectories,
-		LocalStateManageConfig localStateManageConfig,
-		@Nonnull Executor discardExecutor) throws IOException {
+			boolean localRecoveryEnabled,
+			boolean requestSlotFromResourceManagerDirectEnable,
+			MetricGroup taskManagerMetricGroup,
+			@Nonnull File[] localStateRootDirectories,
+			LocalStateManageConfig localStateManageConfig,
+			@Nonnull Executor discardExecutor) throws IOException {
 
 		this.taskStateStoresByAllocationID = new HashMap<>();
 		this.taskLocalStateSize = new HashMap<>();
 		this.jobIdToAllocationId = new HashMap<>();
 		this.localRecoveryEnabled = localRecoveryEnabled;
+		this.requestSlotFromResourceManagerDirectEnable = requestSlotFromResourceManagerDirectEnable;
+		checkArgument(!(this.requestSlotFromResourceManagerDirectEnable && this.localRecoveryEnabled),
+			"Can't use local recovery mode when jm request from rm directly");
 		this.localStateRootDirectories = localStateRootDirectories;
 		this.discardExecutor = discardExecutor;
 		this.lock = new Object();
@@ -163,6 +188,20 @@ public class TaskExecutorLocalStateStoresManager implements TaskLocalStateListen
 		@Nonnull ExecutionAttemptID executionAttemptID,
 		@Nonnull TaskManagerActions taskManagerActions) {
 
+		/* If use request slot from resource manager mode and the local recovery is disable,
+		 it won't create local file store. */
+		if (requestSlotFromResourceManagerDirectEnable) {
+			LocalRecoveryConfig localRecoveryConfig = new LocalRecoveryConfig(
+				localRecoveryEnabled,
+				ThrowingRecoveryDirectoryProvider.getInstance());
+			return new NoOpTaskLocalStateStoreImpl(
+				jobId,
+				allocationID,
+				jobVertexID,
+				subtaskIndex,
+				localRecoveryConfig,
+				this);
+		}
 		synchronized (lock) {
 
 			if (closed) {
