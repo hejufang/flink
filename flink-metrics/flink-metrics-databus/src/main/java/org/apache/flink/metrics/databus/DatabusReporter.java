@@ -24,6 +24,8 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.GlobalGauge;
 import org.apache.flink.metrics.GrafanaGauge;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.HistogramStatistics;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
@@ -51,6 +53,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 /**
@@ -58,6 +61,12 @@ import java.util.Set;
  */
 public class DatabusReporter extends AbstractReporter implements Scheduled {
 	private static final Logger LOG = LoggerFactory.getLogger(DatabusReporter.class);
+
+	/**
+	 * latency marker's metric name.
+	 */
+	private static final String LATENCY_MARKER_REGEX = "(\\S+)\\.taskmanager\\.(\\w+)\\.(\\w+)\\.latency\\.(\\S+)\\.latency";
+
 
 	/** ban some fine-grained metrics to avoid too much traffic in Kafka. */
 	private static final Set<Class> bannedMetricGroups = new HashSet<>(Arrays.asList(
@@ -92,6 +101,11 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 
 	private ObjectMapper objectMapper = new ObjectMapper();
 
+	/**
+	 * used for latency marker's metrics.
+	 */
+	protected final Map<Histogram, String> latencyHistograms = new HashMap<>();
+
 	@Override
 	public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
 		final String name = group.getMetricIdentifier(metricName, this);
@@ -104,6 +118,13 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 				counters.put((Counter) metric, name);
 			} else if (metric instanceof Gauge && !(metric instanceof GrafanaGauge) && !isMetricGroupBanned(group)) {
 				gauges.put((Gauge<?>) metric, name);
+			} else if (metric instanceof Histogram) {
+				/*
+				 * filter latency marker's metrics by name.
+				 */
+				if (name.matches(LATENCY_MARKER_REGEX)) {
+					latencyHistograms.put((Histogram) metric, name);
+				}
 			}
 		}
 	}
@@ -198,6 +219,21 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 				}
 			}
 
+			/*
+			 * report latency metrics,
+			 * and message type will be set as JOB_LATENCY.
+			 */
+			for (Entry<Histogram, String> histogramStringEntry : latencyHistograms.entrySet()) {
+				String name = histogramStringEntry.getValue();
+				Histogram histogram = histogramStringEntry.getKey();
+				HistogramStatistics statistics = histogram.getStatistics();
+				sendMessageToDatabusClient(name + "." + "mean", statistics.getMean(), MessageType.JOB_LATENCY);
+				sendMessageToDatabusClient(name + "." + "p50", statistics.getQuantile(0.5), MessageType.JOB_LATENCY);
+				sendMessageToDatabusClient(name + "." + "p90", statistics.getQuantile(0.9), MessageType.JOB_LATENCY);
+				sendMessageToDatabusClient(name + "." + "p95", statistics.getQuantile(0.95), MessageType.JOB_LATENCY);
+				sendMessageToDatabusClient(name + "." + "p99", statistics.getQuantile(0.99), MessageType.JOB_LATENCY);
+			}
+
 			try {
 				clientWrapper.flush();
 			} catch (IOException e) {
@@ -211,6 +247,14 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		fillMessageMeta(message);
 		message.getMeta().setMetricName(metricName);
 		message.getMeta().setMessageType(MessageType.ORIGINAL_METRICS);
+		sendToDatabusClient(message);
+	}
+
+	private void sendMessageToDatabusClient(String metricName, double metricValue, MessageType messageType) {
+		final Message<WarehouseOriginalMetricMessage> message = new Message<>(new WarehouseOriginalMetricMessage(metricName, metricValue));
+		fillMessageMeta(message);
+		message.getMeta().setMetricName(metricName);
+		message.getMeta().setMessageType(messageType);
 		sendToDatabusClient(message);
 	}
 

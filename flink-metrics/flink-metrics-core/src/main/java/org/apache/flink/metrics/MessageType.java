@@ -47,7 +47,9 @@ public enum MessageType {
 
 	TASK_SHUFFLE_INFO("task_shuffle_info"),
 
-	FLINK_BATCH("flink_batch");
+	FLINK_BATCH("flink_batch"),
+
+	JOB_LATENCY("job_latency");
 
 	private final String name;
 

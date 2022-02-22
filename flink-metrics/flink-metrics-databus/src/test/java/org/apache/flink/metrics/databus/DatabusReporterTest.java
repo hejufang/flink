@@ -25,6 +25,7 @@ import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.metrics.warehouse.WarehouseMessage;
+import org.apache.flink.runtime.metrics.DescriptiveStatisticsHistogram;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -50,6 +51,13 @@ public class DatabusReporterTest {
 		reporter.notifyOfAddedMetric(new SimpleCounter(), "test_metrics_counter", new UnregisteredMetricsGroup());
 		reporter.notifyOfAddedMetric((Gauge<Integer>) () -> 1234, "test_metrics_gauge", new UnregisteredMetricsGroup());
 
+		//test for latency marker's metrics
+		String latencyMarkerMetricName = "node.taskmanager.container.jobname.latency.operator_id.id.operator_subtask_index.0.latency";
+		reporter.notifyOfAddedMetric(new DescriptiveStatisticsHistogram(128), latencyMarkerMetricName,
+			new UnregisteredMetricsGroup());
+		reporter.notifyOfAddedMetric(new DescriptiveStatisticsHistogram(128), "other.metrics.",
+			new UnregisteredMetricsGroup());
+
 		// add mesasge
 		messageSet.addMessage(new Message<>(new MessageBody(String.class.getName(), String.class.getPackage().getName())));
 		messageSet.addMessage(new Message<>(new MessageBody(Integer.class.getName(), Integer.class.getPackage().getName())));
@@ -57,9 +65,10 @@ public class DatabusReporterTest {
 		// report
 		reporter.report();
 
-		Assert.assertEquals(4, wrapper.getIndex());
-		Assert.assertTrue(wrapper.getKeys()[3].length > 0 && wrapper.getKeys()[4] == null);
-		Assert.assertTrue(wrapper.getValues()[3].length > 0 && wrapper.getValues()[4] == null);
+		Assert.assertEquals(9, wrapper.getIndex());
+		Assert.assertTrue(wrapper.getKeys()[8].length > 0 && wrapper.getKeys()[9] == null);
+		Assert.assertTrue(wrapper.getValues()[8].length > 0 && wrapper.getValues()[9] == null);
+
 	}
 
 	static class TestDatabusClientWrapper extends DatabusClientWrapper {
