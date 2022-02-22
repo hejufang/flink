@@ -455,6 +455,20 @@ lambs:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
 
+brain-lf:
+  dc: cn
+  clusterName: brain-lf
+  high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+
+brain-hl:
+  dc: cn
+  clusterName: brain-hl
+  high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+
 wj:
   dc: cn
   clusterName: wj
