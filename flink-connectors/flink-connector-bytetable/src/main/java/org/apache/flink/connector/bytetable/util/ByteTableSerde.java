@@ -181,13 +181,6 @@ public class ByteTableSerde {
 			return null;
 		}
 
-		// Bytable use timestamp to control version. The unit of cellVersion is us.
-		long cellVersion = 0;
-		if (cellVersionIndex != -1) {
-			Timestamp timestamp = row.getTimestamp(cellVersionIndex, BConstants.MAX_TIMESTAMP_PRECISION).toTimestamp();
-			cellVersion = timestamp.getTime() * 1000;
-		}
-
 		// delete
 		RowMutation delete = new RowMutation(rowkey);
 		for (int i = 0; i < fieldLength; i++) {
@@ -198,7 +191,7 @@ public class ByteTableSerde {
 				for (int q = 0; q < this.qualifiers[f].length; q++) {
 					// get quantifier key
 					byte[] qualifier = qualifiers[f][q];
-					delete.deleteColumnWithTimestamp(familyKey, qualifier, cellVersion);
+					delete.deleteColumnWithLatestTimestamp(familyKey, qualifier);  // delete latest version
 				}
 			}
 		}

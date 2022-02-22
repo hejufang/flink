@@ -32,6 +32,7 @@ import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.types.RowKind;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.bytetable.Client;
@@ -80,6 +81,7 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 	private final long bufferFlushMaxSizeInBytes;
 	private final long bufferFlushMaxMutations;
 	private final long bufferFlushIntervalMillis;
+	private final boolean ignoreDelete;
 	private final ByteTableMutationConverter<T> mutationConverter;
 	private final FlinkConnectorRateLimiter rateLimiter;
 	private final int cellVersionIndex;
@@ -119,6 +121,7 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 			bufferFlushMaxSizeInBytes,
 			bufferFlushMaxMutations,
 			bufferFlushIntervalMillis,
+			true,
 			null,
 			-1
 		);
@@ -132,6 +135,7 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 			long bufferFlushMaxSizeInBytes,
 			long bufferFlushMaxMutations,
 			long bufferFlushIntervalMillis,
+			boolean ignoreDelete,
 			FlinkConnectorRateLimiter rateLimiter,
 			int cellVersionIndex) {
 		this.byteTableName = byteTableName;
@@ -142,6 +146,7 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 		this.bufferFlushMaxSizeInBytes = bufferFlushMaxSizeInBytes;
 		this.bufferFlushMaxMutations = bufferFlushMaxMutations;
 		this.bufferFlushIntervalMillis = bufferFlushIntervalMillis;
+		this.ignoreDelete = ignoreDelete;
 		this.rateLimiter = rateLimiter;
 		this.cellVersionIndex = cellVersionIndex;
 		this.mutatorFun = getMutateFunction(byteTableOptions);
@@ -152,7 +157,6 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 		LOG.info("start open ...");
 		try {
 			this.mutationConverter.open();
-			this.numInvokeRequests = new AtomicLong(0);
 			// create a parameter instance, set the table name and custom listener reference.
 			BufferedMutatorParams params = new BufferedMutatorParams(TableName.valueOf(
 				byteTableName))
@@ -181,7 +185,6 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 			if (rateLimiter != null) {
 				rateLimiter.open(getRuntimeContext());
 			}
-			this.rowReduceMap = new HashMap<>();
 			initBytetable();
 		} catch (TableNotFoundException tnfe) {
 			LOG.error("The table " + byteTableName + " not found ", tnfe);
@@ -204,6 +207,13 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 	@Override
 	public synchronized void invoke(T value, Context context) throws Exception {
 		checkErrorAndRethrow();
+		if (value instanceof RowData) {
+			RowData record = (RowData) value;
+			if (record.getRowKind() == RowKind.DELETE && ignoreDelete
+				|| record.getRowKind() == RowKind.UPDATE_BEFORE) {
+				return;
+			}
+		}
 
 		if (rateLimiter != null) {
 			rateLimiter.acquire(1);
@@ -264,7 +274,8 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 
 	@Override
 	public void initializeState(FunctionInitializationContext context) throws Exception {
-		// nothing to do.
+		this.numInvokeRequests = new AtomicLong(0);
+		this.rowReduceMap = new HashMap<>();
 	}
 
 	@Override

@@ -75,6 +75,7 @@ public class ByteTableDynamicTableSink implements DynamicTableSink {
 			writeOptions.getBufferFlushMaxSizeInBytes(),
 			writeOptions.getBufferFlushMaxRows(),
 			writeOptions.getBufferFlushIntervalMillis(),
+			writeOptions.isIgnoreDelete(),
 			byteTableOptions.getRateLimiter(),
 			byteTableSchema.getCellVersionIndex());
 		return SinkFunctionProvider.of(sinkFunction);

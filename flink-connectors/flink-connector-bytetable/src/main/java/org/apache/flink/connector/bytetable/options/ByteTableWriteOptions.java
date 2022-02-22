@@ -39,15 +39,19 @@ public class ByteTableWriteOptions implements Serializable {
 
 	private final long cellTTLMicroSeconds;
 
+	private final boolean ignoreDelete;
+
 	private ByteTableWriteOptions(
 			long bufferFlushMaxSizeInBytes,
 			long bufferFlushMaxMutations,
 			long bufferFlushIntervalMillis,
-			long ttlMicroSeconds) {
+			long ttlMicroSeconds,
+			boolean ignoreDelete) {
 		this.bufferFlushMaxSizeInBytes = bufferFlushMaxSizeInBytes;
 		this.bufferFlushMaxRows = bufferFlushMaxMutations;
 		this.bufferFlushIntervalMillis = bufferFlushIntervalMillis;
 		this.cellTTLMicroSeconds = ttlMicroSeconds;
+		this.ignoreDelete = ignoreDelete;
 	}
 
 	public long getBufferFlushMaxSizeInBytes() {
@@ -64,6 +68,10 @@ public class ByteTableWriteOptions implements Serializable {
 
 	public long getCellTTLMicroSeconds() {
 		return cellTTLMicroSeconds;
+	}
+
+	public boolean isIgnoreDelete() {
+		return ignoreDelete;
 	}
 
 	@Override
@@ -112,6 +120,7 @@ public class ByteTableWriteOptions implements Serializable {
 		private long bufferFlushMaxRows = 0L;
 		private long bufferFlushIntervalMillis = 0L;
 		private long cellTTLMicroSeconds = 0L;
+		private boolean ignoreDelete = false;
 
 		/**
 		 * Optional. Sets when to flush a buffered request based on the memory size of rows currently added.
@@ -145,6 +154,15 @@ public class ByteTableWriteOptions implements Serializable {
 		}
 
 		/**
+		 * Optional. Whether ignore retract record.
+		 * Defaults to true, i.e. ignore retract.
+		 */
+		public Builder setIgnoreDelete(boolean ignoreDelete) {
+			this.ignoreDelete = ignoreDelete;
+			return this;
+		}
+
+		/**
 		 * Creates a new instance of {@link ByteTableWriteOptions}.
 		 */
 		public ByteTableWriteOptions build() {
@@ -152,7 +170,8 @@ public class ByteTableWriteOptions implements Serializable {
 				bufferFlushMaxSizeInBytes,
 				bufferFlushMaxRows,
 				bufferFlushIntervalMillis,
-				cellTTLMicroSeconds);
+				cellTTLMicroSeconds,
+				ignoreDelete);
 		}
 	}
 }

@@ -51,6 +51,7 @@ import java.util.Set;
 
 import static org.apache.flink.configuration.PipelineOptions.JOB_PSM_PREFIX;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_IGNORE_DELETE;
 import static org.apache.flink.table.factories.FactoryUtil.createTableFactoryHelper;
 
 /**
@@ -222,6 +223,7 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 		writeBuilder.setBufferFlushIntervalMillis(helper.getOptions().get(SINK_BUFFER_FLUSH_INTERVAL).toMillis());
 		writeBuilder.setBufferFlushMaxRows(helper.getOptions().get(SINK_BUFFER_FLUSH_MAX_ROWS));
 		writeBuilder.setCellTTLMicroSeconds(helper.getOptions().get(SINK_RECORD_TTL).toMillis() * 1000);
+		writeBuilder.setIgnoreDelete(helper.getOptions().get(SINK_IGNORE_DELETE));
 		String nullStringLiteral = helper.getOptions().get(NULL_STRING_LITERAL);
 		ByteTableSchema byteTableSchema = ByteTableSchema.fromTableSchema(tableSchema);
 
@@ -260,6 +262,7 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 		set.add(BYTETABLE_CHAN_TIMEOUT);
 		set.add(BYTETABLE_REQ_TIMEOUT);
 		set.add(BYTETABLE_MUTATE_TYPE);
+		set.add(SINK_IGNORE_DELETE);
 		set.add(PSM);
 		return set;
 	}

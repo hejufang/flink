@@ -23,6 +23,7 @@ import org.apache.flink.connector.bytetable.util.ByteTableSchema;
 import org.apache.flink.connector.bytetable.util.ByteTableSerde;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.types.RowKind;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.bytetable.RowMutation;
 import org.apache.hadoop.hbase.client.Mutation;
@@ -56,9 +57,10 @@ public class RowDataToMutationConverter implements ByteTableMutationConverter<Ro
 		RowKind kind = record.getRowKind();
 		if (kind == RowKind.INSERT || kind == RowKind.UPDATE_AFTER) {
 			return serde.createPutMutation(record);
-		} else {
+		} else if (kind == RowKind.DELETE) {
 			return serde.createDeleteMutation(record);
 		}
+		throw new FlinkRuntimeException("Unsupported row kind: " + record.getRowKind());
 	}
 
 	@Override
