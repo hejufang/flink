@@ -95,7 +95,7 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 
 	private static final long FATAL_ERROR_SHUTDOWN_TIMEOUT_MS = 10000L;
 
-	private static final int STARTUP_FAILURE_RETURN_CODE = 1;
+	public static final int STARTUP_FAILURE_RETURN_CODE = 1;
 
 	public static final int RUNTIME_FAILURE_RETURN_CODE = 2;
 
@@ -320,7 +320,6 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 	public static void runTaskManagerSecurely(String[] args, ResourceID resourceID) {
 		try {
 			final Configuration configuration = loadConfiguration(args);
-
 			final PluginManager pluginManager = PluginUtils.createPluginManagerFromRootFolder(configuration);
 			FileSystem.initialize(configuration, pluginManager);
 

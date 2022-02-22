@@ -93,6 +93,7 @@ public class KubernetesResourceManagerFactory extends ActiveResourceManagerFacto
 			resourceManagerMetricGroup,
 			KubeClientFactory.fromConfiguration(configuration),
 			kubernetesResourceManagerConfiguration,
+			webInterfaceUrl,
 			failureRater);
 	}
 

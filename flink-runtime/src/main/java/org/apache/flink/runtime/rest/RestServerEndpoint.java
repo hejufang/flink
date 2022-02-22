@@ -287,6 +287,14 @@ public abstract class RestServerEndpoint implements AutoCloseableAsync {
 		}
 	}
 
+	public int getRestBindPort() {
+		synchronized (lock) {
+			Preconditions.checkState(state != State.CREATED, "The RestServerEndpoint has not been started yet.");
+			final InetSocketAddress bindAddress = (InetSocketAddress) serverChannel.localAddress();
+			return bindAddress.getPort();
+		}
+	}
+
 	@Override
 	public CompletableFuture<Void> closeAsync() {
 		synchronized (lock) {

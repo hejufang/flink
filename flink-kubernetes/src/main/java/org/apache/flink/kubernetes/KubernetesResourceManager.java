@@ -20,17 +20,22 @@ package org.apache.flink.kubernetes;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.BlobServerOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesResourceManagerConfiguration;
 import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
+import org.apache.flink.kubernetes.kubeclient.decorators.ExternalServiceDecorator;
+import org.apache.flink.kubernetes.kubeclient.decorators.InternalServiceDecorator;
 import org.apache.flink.kubernetes.kubeclient.factory.KubernetesTaskManagerFactory;
 import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesTaskManagerParameters;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesTooOldResourceVersionException;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesWatch;
+import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
@@ -45,6 +50,7 @@ import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
+import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ActiveResourceManager;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
@@ -55,6 +61,7 @@ import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcTimeout;
+import org.apache.flink.runtime.util.ResourceManagerUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
@@ -70,6 +77,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
 import static org.apache.flink.kubernetes.utils.KubernetesUtils.genLogUrl;
@@ -111,6 +119,9 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	/** Map from pod name to hostIP. */
 	private final HashMap<String, String> podNameAndHostIPMap;
 
+	@Nullable
+	private String webInterfaceUrl;
+
 	private final String jobManagerPodName;
 	private final String region;
 
@@ -137,6 +148,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			ResourceManagerMetricGroup resourceManagerMetricGroup,
 			FlinkKubeClient kubeClient,
 			KubernetesResourceManagerConfiguration configuration,
+			String webInterfaceUrl,
 			FailureRater failureRater) {
 		super(
 			flinkConfig,
@@ -159,6 +171,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.podWorkerResources = new HashMap<>();
 		this.running = false;
 		this.podNameAndHostIPMap = new HashMap<>();
+		this.webInterfaceUrl = webInterfaceUrl;
 		this.enableWebShell = flinkConfig.getBoolean(KubernetesConfigOptions.KUBERNETES_WEB_SHELL_ENABLED);
 		this.jobManagerPodName = env.get(ENV_FLINK_POD_NAME);
 		this.streamLogEnabled = flinkConfig.getBoolean(KubernetesConfigOptions.STREAM_LOG_ENABLED);
@@ -177,10 +190,52 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	@Override
 	protected void initialize() throws ResourceManagerException {
+		updateServiceTargetPortIfNecessary();
 		recoverWorkerNodesFromPreviousAttempts();
 
 		podsWatchOpt = watchTaskManagerPods();
 		this.running = true;
+	}
+
+	private void updateServiceTargetPortIfNecessary() throws ResourceManagerException {
+		if (!KubernetesUtils.isHostNetworkEnabled(flinkConfig)) {
+			return;
+		}
+		if (isPortPreAllocated()) {
+			// we write the name of port as target port in k8s service. If the ports are allocated by Kubernetes,
+			// then the service could automatically update their target port to the allocated port.
+			return;
+		}
+		int restPort = ResourceManagerUtils.parseRestBindPortFromWebInterfaceUrl(webInterfaceUrl);
+		CompletableFuture<Void> updateFuture = kubeClient
+			.updateServiceTargetPort(
+				ExternalServiceDecorator.getExternalServiceName(clusterId),
+				Constants.REST_PORT_NAME,
+				restPort);
+		if (!HighAvailabilityMode.isHighAvailabilityModeActivated(flinkConfig)) {
+			updateFuture.thenCompose(o -> kubeClient
+				.updateServiceTargetPort(
+					InternalServiceDecorator.getInternalServiceName(clusterId),
+					Constants.BLOB_SERVER_PORT_NAME,
+					Integer.parseInt(flinkConfig.getString(BlobServerOptions.PORT)))
+			).thenCompose(o -> kubeClient
+				.updateServiceTargetPort(
+					InternalServiceDecorator.getInternalServiceName(clusterId),
+					Constants.JOB_MANAGER_RPC_PORT_NAME,
+					flinkConfig.getInteger(JobManagerOptions.PORT))
+			);
+		}
+		try {
+			updateFuture.get();
+		} catch (InterruptedException | ExecutionException e) {
+			throw new ResourceManagerException("Can not update target port of service", e);
+		}
+	}
+
+	private static boolean isPortPreAllocated() {
+		// check whether the rpc, blob server, and rest port are pre-allocated by kubernetes
+		// if so, there will be environment variables like "PORT", "PORT0", "PORT1"
+		return !StringUtils.isNullOrWhitespaceOnly(System.getenv(Constants.PORT0_ENV));
 	}
 
 	@Override

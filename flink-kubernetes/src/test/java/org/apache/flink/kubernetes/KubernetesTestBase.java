@@ -155,4 +155,9 @@ public class KubernetesTestBase extends TestLogger {
 		Serialization.yamlMapper().writeValue(kubeConfigFile, kubeConfig);
 		return kubeConfigFile.getAbsolutePath();
 	}
+
+	protected void enableHostNetwork() throws Exception {
+		this.flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_HOST_NETWORK_ENABLED, true);
+		this.onSetup();
+	}
 }

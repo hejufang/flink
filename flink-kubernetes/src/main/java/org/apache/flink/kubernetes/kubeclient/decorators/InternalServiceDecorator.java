@@ -66,10 +66,12 @@ public class InternalServiceDecorator extends AbstractKubernetesStepDecorator {
 				.addNewPort()
 					.withName(Constants.JOB_MANAGER_RPC_PORT_NAME)
 					.withPort(kubernetesJobManagerParameters.getRPCPort())
+					.withNewTargetPort(Constants.JOB_MANAGER_RPC_PORT_NAME)
 					.endPort()
 				.addNewPort()
 					.withName(Constants.BLOB_SERVER_PORT_NAME)
 					.withPort(kubernetesJobManagerParameters.getBlobServerPort())
+					.withNewTargetPort(Constants.BLOB_SERVER_PORT_NAME)
 					.endPort()
 				.endSpec()
 			.build();

@@ -155,6 +155,43 @@ public class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
 	}
 
 	@Test
+	public void testMainContainerPortsForHostNetworkEnabled() throws Exception {
+		enableHostNetwork();
+
+		final List<ContainerPort> expectedContainerPorts = Arrays.asList(
+			new ContainerPortBuilder()
+				.withName(Constants.FLINK_METRICS_PORT_NAME)
+				.withContainerPort(0)
+				.build(),
+			new ContainerPortBuilder()
+				.withName(Constants.REST_PORT_NAME)
+				.withContainerPort(0)
+				.build(),
+			new ContainerPortBuilder()
+				.withName(Constants.JOB_MANAGER_RPC_PORT_NAME)
+				.withContainerPort(0)
+				.build(),
+			new ContainerPortBuilder()
+				.withName(Constants.BLOB_SERVER_PORT_NAME)
+				.withContainerPort(0)
+				.build());
+		assertEquals(expectedContainerPorts, this.resultMainContainer.getPorts());
+	}
+
+	@Test
+	public void testPodSpecForHostNetworkEnabled() throws Exception {
+		enableHostNetwork();
+		assertEquals(true, this.resultPod.getSpec().getHostNetwork());
+		assertEquals(Constants.DNS_POLICY_HOSTNETWORK, this.resultPod.getSpec().getDnsPolicy());
+	}
+
+	@Test
+	public void testPodSpecForHostNetworkDisabled() {
+		assertEquals(false, this.resultPod.getSpec().getHostNetwork());
+		assertEquals(Constants.DNS_POLICY_DEFAULT, this.resultPod.getSpec().getDnsPolicy());
+	}
+
+	@Test
 	public void testMainContainerEnv() {
 		final List<EnvVar> envVars = this.resultMainContainer.getEnv();
 

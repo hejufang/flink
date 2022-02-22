@@ -425,9 +425,16 @@ public class KubernetesConfigOptions {
 			.withDescription("Search view of stream log query.");
 
 	public static final ConfigOption<Integer> STREAM_LOG_QUERY_RANGE_SECONDS =
-		key("kubernetes.stream-log.query-range-seconds").intType()
+		key("kubernetes.stream-log.query-range-seconds")
+			.intType()
 			.defaultValue(900)
 			.withDescription("Time range to query.");
+
+	public static final ConfigOption<Boolean> KUBERNETES_HOST_NETWORK_ENABLED =
+		key("kubernetes.hostnetwork.enabled")
+			.booleanType()
+			.defaultValue(Boolean.FALSE)
+			.withDescription("whether to enable using host network for clusters in Kubernetes.");
 
 	private static String getDefaultFlinkImage() {
 		// The default container image that ties to the exact needed versions of both Flink and Scala.

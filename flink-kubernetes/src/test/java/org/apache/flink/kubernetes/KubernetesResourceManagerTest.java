@@ -167,6 +167,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				resourceManagerMetricGroup,
 				flinkKubeClient,
 				configuration,
+				"localhost:8081",
 				failureRater
 			);
 		}

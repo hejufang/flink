@@ -18,13 +18,17 @@
 
 package org.apache.flink.kubernetes.entrypoint;
 
+import org.apache.flink.configuration.BlobServerOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.kubernetes.KubernetesClusterDescriptor;
 import org.apache.flink.kubernetes.utils.Constants;
+import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.util.Preconditions;
 
@@ -50,6 +54,19 @@ class KubernetesEntrypointUtils {
 			ConfigConstants.ENV_FLINK_CONF_DIR);
 
 		final Configuration configuration = GlobalConfiguration.loadConfiguration(configDir);
+
+		if (KubernetesUtils.isHostNetworkEnabled(configuration)) {
+			String restPort = KubernetesUtils.getHostPortNumberFromEnv(Constants.REST_PORT_NAME);
+			String rpcPort = KubernetesUtils.getHostPortNumberFromEnv(Constants.JOB_MANAGER_RPC_PORT_NAME);
+			String blobPort = KubernetesUtils.getHostPortNumberFromEnv(Constants.BLOB_SERVER_PORT_NAME);
+			String metricsPort = KubernetesUtils.getHostPortNumberFromEnv(Constants.FLINK_METRICS_PORT_NAME);
+
+			configuration.setString(RestOptions.BIND_PORT, restPort);
+			configuration.setInteger(JobManagerOptions.PORT, Integer.parseInt(rpcPort));
+			configuration.setString(BlobServerOptions.PORT, blobPort);
+			configuration.setString(HighAvailabilityOptions.HA_JOB_MANAGER_PORT_RANGE, rpcPort);
+			configuration.setString(MetricOptions.QUERY_SERVICE_PORT, metricsPort);
+		}
 
 		if (HighAvailabilityMode.isHighAvailabilityModeActivated(configuration)) {
 			final String ipAddress = System.getenv().get(Constants.ENV_FLINK_POD_IP_ADDRESS);

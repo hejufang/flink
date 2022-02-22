@@ -18,6 +18,11 @@
 
 package org.apache.flink.kubernetes.utils;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * Constants for kubernetes.
  */
@@ -65,6 +70,11 @@ public class Constants {
 	public static final String BLOB_SERVER_PORT_NAME = "blobserver";
 	public static final String REST_PORT_NAME = "rest";
 	public static final String TASK_MANAGER_RPC_PORT_NAME = "taskmanager-rpc";
+	public static final String TASK_MANAGER_NETTY_SERVER_NAME = "netty-server";
+	public static final String FLINK_METRICS_PORT_NAME = "flink-metrics";
+
+	public static final String DNS_POLICY_DEFAULT = "ClusterFirst";
+	public static final String DNS_POLICY_HOSTNETWORK = "ClusterFirstWithHostNet";
 
 	public static final String RESOURCE_NAME_MEMORY = "memory";
 
@@ -122,4 +132,37 @@ public class Constants {
 	// mounting the hostPath volume. We set empty string as default because we do not know which type that user will mount.
 	public static final String DEFAULT_HOST_PATH_TYPE = "";
 	public static final String POD_GROUP_MINMEMBER_ANNOTATION_KEY = "godel.bytedance.com/pod-group-minmember";
+
+	public static final String PORT0_ENV = "PORT0";
+	public static final String PORT1_ENV = "PORT1";
+	public static final String PORT2_ENV = "PORT2";
+	public static final String PORT3_ENV = "PORT3";
+	// We use these two lists to ensure the order of container port definition for jobmanager and taskmanager
+	public static final List<String> JOB_MANAGER_CONTAINER_PORT_LIST = Arrays.asList(
+		Constants.FLINK_METRICS_PORT_NAME,
+		Constants.REST_PORT_NAME,
+		Constants.JOB_MANAGER_RPC_PORT_NAME,
+		Constants.BLOB_SERVER_PORT_NAME
+	);
+	public static final List<String> TASK_MANAGER_CONTAINER_PORT_LIST = Arrays.asList(
+		Constants.FLINK_METRICS_PORT_NAME,
+		Constants.TASK_MANAGER_RPC_PORT_NAME,
+		Constants.TASK_MANAGER_NETTY_SERVER_NAME
+	);
+	// We use this map to know the generated environment variables of the allocated ports in container.
+	// This map is shared by jobmananger and taskmanagers. The common container port should be defined
+	// first (for example, flink-metrics) and then followed by other ports.
+	static final Map<String, String> FLINK_PORT_NAME_TO_ENV_NAME = new HashMap<>();
+	static {
+		// common ports in job manager and task manager
+		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.FLINK_METRICS_PORT_NAME, PORT0_ENV);
+		// job manager specific ports
+		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.REST_PORT_NAME, PORT1_ENV);
+		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.JOB_MANAGER_RPC_PORT_NAME, PORT2_ENV);
+		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.BLOB_SERVER_PORT_NAME, PORT3_ENV);
+		// task manager specific ports
+		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.TASK_MANAGER_RPC_PORT_NAME, PORT1_ENV);
+		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.TASK_MANAGER_NETTY_SERVER_NAME, PORT2_ENV);
+	}
+
 }

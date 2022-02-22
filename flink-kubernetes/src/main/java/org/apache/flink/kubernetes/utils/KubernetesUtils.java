@@ -48,6 +48,7 @@ import org.apache.flink.runtime.persistence.RetrievableStateStorageHelper;
 import org.apache.flink.runtime.persistence.filesystem.FileSystemStateStorageHelper;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.function.FunctionUtils;
 
 import io.fabric8.kubernetes.api.model.Quantity;
@@ -630,6 +631,26 @@ public class KubernetesUtils {
 		newArgs.add(domain);
 		args.stream().map(URLEncoder::encode).forEach(newArgs::add);
 		return String.format(template, newArgs.toArray());
+	}
+
+	public static boolean isHostNetworkEnabled(Configuration flinkConfig){
+		return flinkConfig.getBoolean(KubernetesConfigOptions.KUBERNETES_HOST_NETWORK_ENABLED);
+	}
+
+	/**
+	 * Get the allocated host port number in environment variables if the Kubernetes cluster provide port allocation.
+	 * The env name is in formula: "PORT0", "PORT1", etc.
+	 * The order of each container port number is ensured by field
+	 * {@link Constants#FLINK_PORT_NAME_TO_ENV_NAME}, {@link Constants#JOB_MANAGER_CONTAINER_PORT_LIST},
+	 * and {@link Constants#TASK_MANAGER_CONTAINER_PORT_LIST}.
+	 * If the env var does not exist, return 0.
+	 *
+	 * @param portName the name of the container port
+	 * @return the allocated host port number
+	 */
+	public static String getHostPortNumberFromEnv(String portName){
+		String envVal = System.getenv(Constants.FLINK_PORT_NAME_TO_ENV_NAME.get(portName));
+		return StringUtils.isNullOrWhitespaceOnly(envVal) ? "0" : envVal;
 	}
 
 	/**

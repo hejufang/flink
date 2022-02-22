@@ -27,6 +27,7 @@ import org.apache.flink.kubernetes.utils.KubernetesUtils;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
+import io.fabric8.kubernetes.api.model.ContainerPort;
 import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -38,10 +39,13 @@ import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_DEFAULT;
+import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_HOSTNETWORK;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -80,6 +84,11 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 				.withRestartPolicy(Constants.RESTART_POLICY_OF_NEVER)
 				.withImagePullSecrets(kubernetesTaskManagerParameters.getImagePullSecrets())
 				.withNodeSelector(kubernetesTaskManagerParameters.getNodeSelector())
+				.withHostNetwork(kubernetesTaskManagerParameters.isHostNetworkEnabled())
+				.withDnsPolicy(
+					kubernetesTaskManagerParameters.isHostNetworkEnabled()
+						? DNS_POLICY_HOSTNETWORK
+						: DNS_POLICY_DEFAULT)
 				.withTolerations(kubernetesTaskManagerParameters.getTolerations().stream()
 					.map(e -> KubernetesToleration.fromMap(e).getInternalResource())
 					.collect(Collectors.toList()))
@@ -116,16 +125,30 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 				.withWorkingDir(kubernetesTaskManagerParameters.getWorkingDir())
 				.withResources(resourceRequirements)
 				.addAllToVolumeMounts(volumeMountList)
-				.withPorts(new ContainerPortBuilder()
-					.withName(Constants.TASK_MANAGER_RPC_PORT_NAME)
-					.withContainerPort(kubernetesTaskManagerParameters.getRPCPort())
-					.build())
+				.withPorts(getContainerPorts())
 				.withEnv(getCustomizedEnvs())
 				.addNewEnv()
 					.withName(ENV_FLINK_POD_NAME)
 					.withValue(kubernetesTaskManagerParameters.getPodName())
 					.endEnv()
 				.build();
+	}
+
+	private List<ContainerPort> getContainerPorts() {
+		if (kubernetesTaskManagerParameters.isHostNetworkEnabled()) {
+			// set container port to zero so k8s will allocate one
+			// the order is guaranteed as defined in {@link Constants#Task_MANAGER_CONTAINER_PORT_LIST}
+			return Constants.TASK_MANAGER_CONTAINER_PORT_LIST.stream().map(
+				portName -> new ContainerPortBuilder()
+					.withName(portName)
+					.withContainerPort(0)
+					.build()
+			).collect(Collectors.toList());
+		}
+		return Collections.singletonList(new ContainerPortBuilder()
+			.withName(Constants.TASK_MANAGER_RPC_PORT_NAME)
+			.withContainerPort(kubernetesTaskManagerParameters.getRPCPort())
+			.build());
 	}
 
 	private List<EnvVar> getCustomizedEnvs() {

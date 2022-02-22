@@ -164,6 +164,38 @@ public class InitTaskManagerDecoratorTest extends KubernetesTaskManagerTestBase 
 	}
 
 	@Test
+	public void testMainContainerPortsForHostNetworkEnabled() throws Exception {
+		enableHostNetwork();
+		final List<ContainerPort> expectedContainerPorts = Arrays.asList(
+			new ContainerPortBuilder()
+				.withName(Constants.FLINK_METRICS_PORT_NAME)
+				.withContainerPort(0)
+				.build(),
+			new ContainerPortBuilder()
+				.withName(Constants.TASK_MANAGER_RPC_PORT_NAME)
+				.withContainerPort(0)
+				.build(),
+			new ContainerPortBuilder()
+				.withName(Constants.TASK_MANAGER_NETTY_SERVER_NAME)
+				.withContainerPort(0)
+				.build());
+		assertEquals(expectedContainerPorts, this.resultMainContainer.getPorts());
+	}
+
+	@Test
+	public void testPodSpecForHostNetworkEnabled() throws Exception {
+		enableHostNetwork();
+		assertEquals(true, this.resultPod.getSpec().getHostNetwork());
+		assertEquals(Constants.DNS_POLICY_HOSTNETWORK, this.resultPod.getSpec().getDnsPolicy());
+	}
+
+	@Test
+	public void testPodSpecForHostNetworkDisabled() {
+		assertEquals(false, this.resultPod.getSpec().getHostNetwork());
+		assertEquals(Constants.DNS_POLICY_DEFAULT, this.resultPod.getSpec().getDnsPolicy());
+	}
+
+	@Test
 	public void testMainContainerEnv() {
 		final Map<String, String> expectedEnvVars = new HashMap<>(customizedEnvs);
 		expectedEnvVars.put(Constants.ENV_FLINK_POD_NAME, POD_NAME);

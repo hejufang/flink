@@ -38,11 +38,13 @@ import org.apache.flink.util.ExecutorUtils;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.LoadBalancerStatus;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.Service;
+import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.extensions.Ingress;
@@ -219,6 +221,10 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 	public Optional<KubernetesService> getRestService(String clusterId) {
 		final String serviceName = ExternalServiceDecorator.getExternalServiceName(clusterId);
 
+		return getServiceByName(serviceName);
+	}
+
+	private Optional<KubernetesService> getServiceByName(String serviceName) {
 		final Service service = this.internalClient
 			.services()
 			.withName(serviceName)
@@ -341,6 +347,41 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 	public CompletableFuture<Void> deleteConfigMap(String configMapName) {
 		return CompletableFuture.runAsync(
 			() -> this.internalClient.configMaps().withName(configMapName).delete(),
+			kubeClientExecutorService);
+	}
+
+	@Override
+	public CompletableFuture<Void> updateServiceTargetPort(
+		String serviceName,
+		String portName,
+		int targetPort) {
+		LOG.info("Update {} target port to {} for service {}", portName, targetPort, serviceName);
+		return CompletableFuture.runAsync(
+			() ->
+				getServiceByName(serviceName)
+					.ifPresent(
+						service -> {
+							final Service updatedService =
+								new ServiceBuilder(
+									service.getInternalResource())
+									.editSpec()
+									.editMatchingPort(
+										servicePortBuilder ->
+											servicePortBuilder
+												.build()
+												.getName()
+												.equals(
+													portName))
+									.withTargetPort(
+										new IntOrString(targetPort))
+									.endPort()
+									.endSpec()
+									.build();
+							this.internalClient
+								.services()
+								.withName(serviceName)
+								.replace(updatedService);
+						}),
 			kubeClientExecutorService);
 	}
 

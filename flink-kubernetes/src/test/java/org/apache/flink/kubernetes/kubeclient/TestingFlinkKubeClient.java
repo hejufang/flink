@@ -179,6 +179,11 @@ public class TestingFlinkKubeClient implements FlinkKubeClient {
 	}
 
 	@Override
+	public CompletableFuture<Void> updateServiceTargetPort(String serviceName, String portName, int targetPort) {
+		return CompletableFuture.completedFuture(null);
+	}
+
+	@Override
 	public void close() {
 		closeConsumer.accept(null);
 	}

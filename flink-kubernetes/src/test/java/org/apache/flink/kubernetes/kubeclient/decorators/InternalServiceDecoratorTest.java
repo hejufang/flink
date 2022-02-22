@@ -77,10 +77,12 @@ public class InternalServiceDecoratorTest extends KubernetesJobManagerTestBase {
 			new ServicePortBuilder()
 				.withName(Constants.JOB_MANAGER_RPC_PORT_NAME)
 				.withPort(RPC_PORT)
+				.withNewTargetPort(Constants.JOB_MANAGER_RPC_PORT_NAME)
 				.build(),
 			new ServicePortBuilder()
 				.withName(Constants.BLOB_SERVER_PORT_NAME)
 				.withPort(BLOB_SERVER_PORT)
+				.withNewTargetPort(Constants.BLOB_SERVER_PORT_NAME)
 				.build());
 		assertEquals(expectedServicePorts, internalService.getSpec().getPorts());
 

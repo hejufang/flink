@@ -197,6 +197,19 @@ public interface FlinkKubeClient extends AutoCloseable {
 	CompletableFuture<Void> deleteConfigMap(String configMapName);
 
 	/**
+	 * Update the target ports of the given Kubernetes service.
+	 *
+	 * @param serviceName The service name which needs to be updated
+	 * @param portName The port name which needs to be updated
+	 * @param targetPort The updated target port
+	 * @return Return the update service target port future
+	 */
+	CompletableFuture<Void> updateServiceTargetPort(
+		String serviceName,
+		String portName,
+		int targetPort);
+
+	/**
 	 * Close the Kubernetes client with no exception.
 	 */
 	void close();

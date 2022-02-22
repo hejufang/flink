@@ -29,11 +29,13 @@ import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptionsInternal;
 import org.apache.flink.kubernetes.entrypoint.KubernetesSessionClusterEntrypoint;
 import org.apache.flink.kubernetes.kubeclient.decorators.ExternalServiceDecorator;
+import org.apache.flink.kubernetes.kubeclient.decorators.InternalServiceDecorator;
 import org.apache.flink.kubernetes.kubeclient.factory.KubernetesJobManagerFactory;
 import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesJobManagerParameters;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.flink.kubernetes.kubeclient.resources.NoOpWatchCallbackHandler;
+import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.runtime.rest.HttpMethodWrapper;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
@@ -55,6 +57,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOG4J_NAME;
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOGBACK_NAME;
@@ -410,6 +413,58 @@ public class Fabric8FlinkKubeClientTest extends KubernetesClientTestBase {
 		final RecordedRequest watchRequest = server.takeRequest(TIMEOUT, TimeUnit.MILLISECONDS);
 		assertThat(watchRequest.getPath(), is(path));
 		assertThat(watchRequest.getMethod(), is(HttpMethodWrapper.GET.toString()));
+	}
+
+	@Test
+	public void testUpdateRestTargetPort() throws Exception {
+		flinkKubeClient.createJobManagerComponent(this.kubernetesJobManagerSpecification);
+		// update target port.
+		int expectedTargetPort = 32677;
+		flinkKubeClient.updateServiceTargetPort(
+			ExternalServiceDecorator.getExternalServiceName(CLUSTER_ID),
+			Constants.REST_PORT_NAME,
+			expectedTargetPort
+		).get();
+		int servicePort = getServiceTargetPort(ExternalServiceDecorator.getExternalServiceName(CLUSTER_ID), Constants.REST_PORT_NAME);
+		assertThat(servicePort, is(expectedTargetPort));
+	}
+
+	@Test
+	public void testUpdateJmRpcTargetPort() throws Exception {
+		flinkKubeClient.createJobManagerComponent(this.kubernetesJobManagerSpecification);
+		// update target port.
+		int expectedTargetPort = 32678;
+		flinkKubeClient.updateServiceTargetPort(
+			InternalServiceDecorator.getInternalServiceName(CLUSTER_ID),
+			Constants.JOB_MANAGER_RPC_PORT_NAME,
+			expectedTargetPort
+		).get();
+		int servicePort = getServiceTargetPort(InternalServiceDecorator.getInternalServiceName(CLUSTER_ID), Constants.JOB_MANAGER_RPC_PORT_NAME);
+		assertThat(servicePort, is(expectedTargetPort));
+	}
+
+	@Test
+	public void testUpdateBlobServerTargetPort() throws Exception {
+		flinkKubeClient.createJobManagerComponent(this.kubernetesJobManagerSpecification);
+		// update target port.
+		int expectedTargetPort = 32679;
+		flinkKubeClient.updateServiceTargetPort(
+			InternalServiceDecorator.getInternalServiceName(CLUSTER_ID),
+			Constants.BLOB_SERVER_PORT_NAME,
+			expectedTargetPort
+		).get();
+		int servicePort = getServiceTargetPort(InternalServiceDecorator.getInternalServiceName(CLUSTER_ID), Constants.BLOB_SERVER_PORT_NAME);
+		assertThat(servicePort, is(expectedTargetPort));
+	}
+
+	private int getServiceTargetPort(String serviceName, String portName) {
+		final List<Integer> ports =
+			kubeClient.services().withName(serviceName).get().getSpec().getPorts().stream()
+				.filter(servicePort -> servicePort.getName().equalsIgnoreCase(portName))
+				.map(servicePort -> servicePort.getTargetPort().getIntVal())
+				.collect(Collectors.toList());
+		assertThat(ports.size(), is(1));
+		return ports.get(0);
 	}
 
 	private KubernetesConfigMap buildTestingConfigMap() {
