@@ -172,6 +172,7 @@ common:
 
   # subpartition type
   taskmanager.network.bounded-blocking-subpartition-type: file
+  execution.cancellation.timeout.enable: true
 
   # blacklist
   blacklist.taskmanager.enabled: true
@@ -278,7 +279,6 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  execution.cancellation.timeout.enable: true
 
 larva:
   dc: cn
@@ -401,7 +401,6 @@ hyrax:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  execution.cancellation.timeout.enable: true
 
 horse:
   dc: cn
@@ -605,7 +604,6 @@ quoka:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  execution.cancellation.timeout.enable: true
 
 quaga:
   dc: cn
