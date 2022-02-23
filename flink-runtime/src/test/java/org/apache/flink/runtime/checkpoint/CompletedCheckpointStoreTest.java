@@ -28,7 +28,6 @@ import org.apache.flink.util.TestLogger;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -68,7 +67,7 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
 	public void testAddAndGetLatestCheckpoint() throws Exception {
 		SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
 		CompletedCheckpointStore checkpoints = createCompletedCheckpoints(4);
-		
+
 		// Empty state
 		assertEquals(0, checkpoints.getNumberOfRetainedCheckpoints());
 		assertEquals(0, checkpoints.getAllCheckpoints().size());
@@ -217,7 +216,7 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
 	protected void verifyCheckpointRegistered(Collection<OperatorState> operatorStates, SharedStateRegistry registry) {
 		for (OperatorState operatorState : operatorStates) {
 			for (OperatorSubtaskState subtaskState : operatorState.getStates()) {
-				Assert.assertTrue(((TestOperatorSubtaskState)subtaskState).registered);
+				Assert.assertTrue(((TestOperatorSubtaskState) subtaskState).registered);
 			}
 		}
 	}
@@ -230,7 +229,7 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
 	protected static void verifyCheckpointDiscarded(Collection<OperatorState> operatorStates) {
 		for (OperatorState operatorState : operatorStates) {
 			for (OperatorSubtaskState subtaskState : operatorState.getStates()) {
-				Assert.assertTrue(((TestOperatorSubtaskState)subtaskState).discarded);
+				Assert.assertTrue(((TestOperatorSubtaskState) subtaskState).discarded);
 			}
 		}
 	}
@@ -251,7 +250,7 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
 		private boolean isDiscarded;
 
 		// Latch for test variants which discard asynchronously
-		private transient final CountDownLatch discardLatch = new CountDownLatch(1);
+		private final transient CountDownLatch discardLatch = new CountDownLatch(1);
 
 		public TestCompletedCheckpoint(
 				JobID jobId,
@@ -260,8 +259,16 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
 				Map<OperatorID, OperatorState> operatorGroupState,
 				CheckpointProperties props) {
 
-			super(jobId, checkpointId, timestamp, Long.MAX_VALUE, operatorGroupState, null, props,
-					new TestCompletedCheckpointStorageLocation());
+			super(
+					jobId,
+					checkpointId,
+					timestamp,
+					Long.MAX_VALUE,
+					operatorGroupState,
+					null,
+					props,
+					new TestCompletedCheckpointStorageLocation(),
+					null);
 		}
 
 		@Override
@@ -314,8 +321,12 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
 
 		@Override
 		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (o == null || getClass() != o.getClass()) return false;
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
 
 			TestCompletedCheckpoint that = (TestCompletedCheckpoint) o;
 

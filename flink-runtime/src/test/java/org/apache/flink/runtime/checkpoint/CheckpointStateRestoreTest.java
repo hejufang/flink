@@ -240,7 +240,8 @@ public class CheckpointStateRestoreTest {
 			new HashMap<>(checkpointTaskStates),
 			Collections.<MasterState>emptyList(),
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
-			new TestCompletedCheckpointStorageLocation());
+			new TestCompletedCheckpointStorageLocation(),
+			null);
 
 		coord.getCheckpointStore().addCheckpoint(checkpoint);
 
@@ -275,7 +276,8 @@ public class CheckpointStateRestoreTest {
 			new HashMap<>(checkpointTaskStates),
 			Collections.<MasterState>emptyList(),
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
-			new TestCompletedCheckpointStorageLocation());
+			new TestCompletedCheckpointStorageLocation(),
+			null);
 
 		coord.getCheckpointStore().addCheckpoint(checkpoint);
 
@@ -329,7 +331,8 @@ public class CheckpointStateRestoreTest {
 			new HashMap<>(checkpointTaskStates),
 			Collections.<MasterState>emptyList(),
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
-			new TestCompletedCheckpointStorageLocation());
+			new TestCompletedCheckpointStorageLocation(),
+			null);
 
 		coord.getCheckpointStore().addCheckpoint(checkpoint);
 

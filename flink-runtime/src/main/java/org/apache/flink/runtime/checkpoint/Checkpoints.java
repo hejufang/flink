@@ -230,7 +230,8 @@ public class Checkpoints {
 				operatorStates,
 				checkpointMetadata.getMasterStates(),
 				props,
-				location);
+				location,
+				null);
 	}
 
 	public static boolean isEmptyState(OperatorState operatorState) {

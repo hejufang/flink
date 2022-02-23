@@ -804,7 +804,8 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
 			operatorStates,
 			Collections.<MasterState>emptyList(),
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
-			new TestCompletedCheckpointStorageLocation());
+			new TestCompletedCheckpointStorageLocation(),
+			null);
 
 		// set up the coordinator and validate the initial state
 		CheckpointCoordinator coord =

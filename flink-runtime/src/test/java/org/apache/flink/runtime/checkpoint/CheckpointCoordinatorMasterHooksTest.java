@@ -269,7 +269,8 @@ public class CheckpointCoordinatorMasterHooksTest {
 				Collections.<OperatorID, OperatorState>emptyMap(),
 				masterHookStates,
 				CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
-				new TestCompletedCheckpointStorageLocation());
+				new TestCompletedCheckpointStorageLocation(),
+				null);
 		final ExecutionAttemptID execId = new ExecutionAttemptID();
 		final ExecutionVertex ackVertex = mockExecutionVertex(execId);
 		final CheckpointCoordinator cc = instantiateCheckpointCoordinator(jid, ackVertex);
@@ -320,7 +321,8 @@ public class CheckpointCoordinatorMasterHooksTest {
 				Collections.<OperatorID, OperatorState>emptyMap(),
 				masterHookStates,
 				CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
-				new TestCompletedCheckpointStorageLocation());
+				new TestCompletedCheckpointStorageLocation(),
+				null);
 
 		final ExecutionAttemptID execId = new ExecutionAttemptID();
 		final ExecutionVertex ackVertex = mockExecutionVertex(execId);

@@ -104,13 +104,12 @@ public class CompletedCheckpoint implements Serializable {
 	/** External pointer to the completed checkpoint (for example file path). */
 	private final String externalPointer;
 
-	/** Optional stats tracker callback for discard. */
-	@Nullable
-	private transient volatile CompletedCheckpointStats.DiscardCallback discardCallback;
-
 	/** Target storage location to persist the savepoint simple metadata in checkpoint dir to. */
 	@Nullable
 	private transient CheckpointStorageCoordinatorView checkpointStorage;
+
+    /** Completed statistic for managing discard marker. */
+	@Nullable private final transient CompletedCheckpointStats completedCheckpointStats;
 
 	// ------------------------------------------------------------------------
 
@@ -122,7 +121,8 @@ public class CompletedCheckpoint implements Serializable {
 			Map<OperatorID, OperatorState> operatorStates,
 			@Nullable Collection<MasterState> masterHookStates,
 			CheckpointProperties props,
-			CompletedCheckpointStorageLocation storageLocation) {
+			CompletedCheckpointStorageLocation storageLocation,
+			@Nullable CompletedCheckpointStats completedCheckpointStats) {
 
 		checkArgument(checkpointID >= 0);
 		checkArgument(timestamp >= 0);
@@ -144,6 +144,7 @@ public class CompletedCheckpoint implements Serializable {
 		this.storageLocation = checkNotNull(storageLocation);
 		this.metadataHandle = storageLocation.getMetadataHandle();
 		this.externalPointer = storageLocation.getExternalPointer();
+		this.completedCheckpointStats = completedCheckpointStats;
 	}
 
 	// ------------------------------------------------------------------------
@@ -289,11 +290,16 @@ public class CompletedCheckpoint implements Serializable {
 		} finally {
 			operatorStates.clear();
 
-			// to be null-pointer safe, copy reference to stack
-			CompletedCheckpointStats.DiscardCallback discardCallback = this.discardCallback;
-			if (discardCallback != null) {
-				discardCallback.notifyDiscardedCheckpoint();
+			if (completedCheckpointStats != null) {
+				completedCheckpointStats.discard();
 			}
+		}
+	}
+
+	/** NOT Thread safe. This method can be called only from CheckpointCoordinator thread. */
+	public void markAsDiscarded() {
+		if (completedCheckpointStats != null) {
+			completedCheckpointStats.discard();
 		}
 	}
 
@@ -325,13 +331,9 @@ public class CompletedCheckpoint implements Serializable {
 		return firstInterestingFields.equals(secondInterestingFields);
 	}
 
-	/**
-	 * Sets the callback for tracking when this checkpoint is discarded.
-	 *
-	 * @param discardCallback Callback to call when the checkpoint is discarded.
-	 */
-	void setDiscardCallback(@Nullable CompletedCheckpointStats.DiscardCallback discardCallback) {
-		this.discardCallback = discardCallback;
+	@Nullable
+	public CompletedCheckpointStats getStatistic() {
+		return completedCheckpointStats;
 	}
 
 	@Override

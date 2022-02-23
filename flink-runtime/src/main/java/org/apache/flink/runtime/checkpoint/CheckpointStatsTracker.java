@@ -218,8 +218,7 @@ public class CheckpointStatsTracker {
 				triggerTimestamp,
 				props,
 				numNeedAcknowledgedSubtasks,
-				taskStateStats,
-				new PendingCheckpointStatsCallback());
+				taskStateStats);
 
 		statsReadWriteLock.lock();
 		try {
@@ -267,7 +266,7 @@ public class CheckpointStatsTracker {
 	 *
 	 * @param completed The completed checkpoint stats.
 	 */
-	private void reportCompletedCheckpoint(CompletedCheckpointStats completed) {
+	void reportCompletedCheckpoint(CompletedCheckpointStats completed) {
 		statsReadWriteLock.lock();
 		try {
 			latestCompletedCheckpoint = completed;
@@ -292,7 +291,7 @@ public class CheckpointStatsTracker {
 	 *
 	 * @param failed The failed checkpoint stats.
 	 */
-	private void reportFailedCheckpoint(FailedCheckpointStats failed, @Nullable CheckpointFailureReason reason) {
+	void reportFailedCheckpoint(FailedCheckpointStats failed, @Nullable CheckpointFailureReason reason) {
 		statsReadWriteLock.lock();
 		try {
 			counts.incrementFailedCheckpoints();
@@ -366,31 +365,6 @@ public class CheckpointStatsTracker {
 			taskStatsMap.put(vertex.getJobVertexId(), taskStats);
 		}
 		return taskStatsMap;
-	}
-
-	/**
-	 * Callback for finalization of a pending checkpoint.
-	 */
-	class PendingCheckpointStatsCallback {
-
-		/**
-		 * Report a completed checkpoint.
-		 *
-		 * @param completed The completed checkpoint.
-		 */
-		void reportCompletedCheckpoint(CompletedCheckpointStats completed) {
-			CheckpointStatsTracker.this.reportCompletedCheckpoint(completed);
-		}
-
-		/**
-		 * Report a failed checkpoint.
-		 *
-		 * @param failed The failed checkpoint.
-		 */
-		void reportFailedCheckpoint(FailedCheckpointStats failed, @Nullable CheckpointFailureReason reason) {
-			CheckpointStatsTracker.this.reportFailedCheckpoint(failed, reason);
-		}
-
 	}
 
 	// ------------------------------------------------------------------------

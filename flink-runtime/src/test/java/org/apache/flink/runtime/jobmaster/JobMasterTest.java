@@ -860,7 +860,8 @@ public class JobMasterTest extends TestLogger {
 			Collections.emptyMap(),
 			null,
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
-			new DummyCheckpointStorageLocation());
+			new DummyCheckpointStorageLocation(),
+			null);
 
 		final StandaloneCompletedCheckpointStore completedCheckpointStore = new StandaloneCompletedCheckpointStore(1);
 		completedCheckpointStore.addCheckpoint(completedCheckpoint);

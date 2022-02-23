@@ -25,8 +25,6 @@ import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.apache.flink.util.Preconditions.checkNotNull;
-
 /**
  * Statistics for a pending checkpoint that is still in progress.
  *
@@ -45,9 +43,6 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 
 	private static final long serialVersionUID = -973959257699390327L;
 
-	/** Tracker callback when the pending checkpoint is finalized or aborted. */
-	private final transient CheckpointStatsTracker.PendingCheckpointStatsCallback trackerCallback;
-
 	/** The current number of acknowledged subtasks. */
 	private volatile int currentNumAcknowledgedSubtasks;
 
@@ -65,18 +60,15 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 	 * @param props Checkpoint properties of the checkpoint.
 	 * @param totalSubtaskCount Total number of subtasks for the checkpoint.
 	 * @param taskStats Task stats for each involved operator.
-	 * @param trackerCallback Callback for the {@link CheckpointStatsTracker}.
 	 */
 	PendingCheckpointStats(
 			long checkpointId,
 			long triggerTimestamp,
 			CheckpointProperties props,
 			int totalSubtaskCount,
-			Map<JobVertexID, TaskStateStats> taskStats,
-			CheckpointStatsTracker.PendingCheckpointStatsCallback trackerCallback) {
+			Map<JobVertexID, TaskStateStats> taskStats) {
 
 		super(checkpointId, triggerTimestamp, props, totalSubtaskCount, taskStats);
-		this.trackerCallback = checkNotNull(trackerCallback);
 	}
 
 	@Override
@@ -162,17 +154,17 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 	 * @return Callback for the {@link CompletedCheckpoint} instance to notify about disposal.
 	 */
 	@Deprecated
-	CompletedCheckpointStats.DiscardCallback reportCompletedCheckpoint(String externalPointer) {
-		return reportCompletedCheckpoint(externalPointer, currentStateSize, currentStateSize, numberOfSubtasks);
+	CompletedCheckpointStats toCompletedCheckpointStats(String externalPointer) {
+		return toCompletedCheckpointStats(externalPointer, currentStateSize, currentStateSize, numberOfSubtasks);
 	}
 
-	CompletedCheckpointStats.DiscardCallback reportCompletedCheckpoint(
+	CompletedCheckpointStats toCompletedCheckpointStats(
 			String externalPointer,
 			long totalStateSize,
 			long rawTotalStateSize,
 			int numNeedAcknowledgedSubtasks) {
 
-		CompletedCheckpointStats completed = new CompletedCheckpointStats(
+		return new CompletedCheckpointStats(
 			checkpointId,
 			triggerTimestamp,
 			props,
@@ -184,10 +176,6 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 			rawTotalStateSize,
 			latestAcknowledgedSubtask,
 			externalPointer);
-
-		trackerCallback.reportCompletedCheckpoint(completed);
-
-		return completed.getDiscardCallback();
 	}
 
 	/**
@@ -196,8 +184,8 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 	 * @param failureTimestamp Timestamp of the failure.
 	 * @param cause Optional cause of the failure.
 	 */
-	void reportFailedCheckpoint(long failureTimestamp, @Nullable Throwable cause, @Nullable CheckpointFailureReason reason) {
-		FailedCheckpointStats failed = new FailedCheckpointStats(
+	FailedCheckpointStats toFailedCheckpoint(long failureTimestamp, @Nullable Throwable cause) {
+		return new FailedCheckpointStats(
 			checkpointId,
 			triggerTimestamp,
 			props,
@@ -208,8 +196,6 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 			failureTimestamp,
 			latestAcknowledgedSubtask,
 			cause);
-
-		trackerCallback.reportFailedCheckpoint(failed, reason);
 	}
 
 	@Override

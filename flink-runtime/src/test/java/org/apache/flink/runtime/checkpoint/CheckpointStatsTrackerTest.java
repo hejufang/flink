@@ -111,7 +111,7 @@ public class CheckpointStatsTrackerTest {
 		pending.reportSubtaskStats(jobVertex.getJobVertexId(), createSubtaskStats(1));
 		pending.reportSubtaskStats(jobVertex.getJobVertexId(), createSubtaskStats(2));
 
-		pending.reportCompletedCheckpoint(null);
+		tracker.reportCompletedCheckpoint(pending.toCompletedCheckpointStats(null));
 
 		CheckpointStatsSnapshot snapshot = tracker.createSnapshot();
 		// History should be empty
@@ -159,7 +159,7 @@ public class CheckpointStatsTrackerTest {
 		completed1.reportSubtaskStats(jobVertex.getJobVertexId(), createSubtaskStats(1));
 		completed1.reportSubtaskStats(jobVertex.getJobVertexId(), createSubtaskStats(2));
 
-		completed1.reportCompletedCheckpoint(null);
+		tracker.reportCompletedCheckpoint(completed1.toCompletedCheckpointStats(null));
 
 		// Failed checkpoint
 		PendingCheckpointStats failed = tracker.reportPendingCheckpoint(
@@ -167,7 +167,7 @@ public class CheckpointStatsTrackerTest {
 			1,
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION));
 
-		failed.reportFailedCheckpoint(12, null, null);
+		tracker.reportFailedCheckpoint(failed.toFailedCheckpoint(12, null), null);
 
 		// Completed savepoint
 		PendingCheckpointStats savepoint = tracker.reportPendingCheckpoint(
@@ -179,7 +179,7 @@ public class CheckpointStatsTrackerTest {
 		savepoint.reportSubtaskStats(jobVertex.getJobVertexId(), createSubtaskStats(1));
 		savepoint.reportSubtaskStats(jobVertex.getJobVertexId(), createSubtaskStats(2));
 
-		savepoint.reportCompletedCheckpoint(null);
+		tracker.reportCompletedCheckpoint(savepoint.toCompletedCheckpointStats(null));
 
 		// In Progress
 		PendingCheckpointStats inProgress = tracker.reportPendingCheckpoint(
@@ -269,7 +269,7 @@ public class CheckpointStatsTrackerTest {
 		assertEquals(snapshot2, tracker.createSnapshot());
 
 		// Complete checkpoint => new snapshot
-		pending.reportCompletedCheckpoint(null);
+		tracker.reportCompletedCheckpoint(pending.toCompletedCheckpointStats(null));
 
 		CheckpointStatsSnapshot snapshot3 = tracker.createSnapshot();
 		assertNotEquals(snapshot2, snapshot3);
@@ -408,7 +408,7 @@ public class CheckpointStatsTrackerTest {
 
 		assertTrue(pending.reportSubtaskStats(jobVertex.getJobVertexId(), subtaskStats));
 
-		pending.reportCompletedCheckpoint(externalPath);
+		stats.reportCompletedCheckpoint(pending.toCompletedCheckpointStats(externalPath));
 
 		// Verify completed checkpoint updated
 		assertEquals(Long.valueOf(1), numCheckpoints.getValue());
@@ -426,7 +426,7 @@ public class CheckpointStatsTrackerTest {
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION));
 
 		long failureTimestamp = 1230123L;
-		nextPending.reportFailedCheckpoint(failureTimestamp, null, null);
+		stats.reportFailedCheckpoint(nextPending.toFailedCheckpoint(failureTimestamp, null), null);
 
 		// Verify updated
 		assertEquals(Long.valueOf(2), numCheckpoints.getValue());
@@ -455,7 +455,7 @@ public class CheckpointStatsTrackerTest {
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION));
 
 		thirdPending.reportSubtaskStats(jobVertex.getJobVertexId(), subtaskStats);
-		thirdPending.reportCompletedCheckpoint(null);
+		stats.reportCompletedCheckpoint(thirdPending.toCompletedCheckpointStats(null));
 
 		// Verify external path is "n/a", because internal checkpoint won't generate external path.
 		assertEquals("n/a", latestCompletedExternalPath.getValue());

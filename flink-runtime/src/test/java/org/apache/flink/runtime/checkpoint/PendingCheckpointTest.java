@@ -31,7 +31,6 @@ import org.apache.flink.runtime.concurrent.Executors;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
-import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.OperatorInfo;
 import org.apache.flink.runtime.operators.coordination.TestingOperatorInfo;
@@ -84,8 +83,6 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -191,7 +188,7 @@ public class PendingCheckpointTest {
 		assertFalse(future.isDone());
 		pending.acknowledgeTask(ATTEMPT_ID, null, new CheckpointMetrics());
 		assertTrue(pending.areTasksFullyAcknowledged());
-		pending.finalizeCheckpoint();
+		pending.finalizeCheckpoint(null);
 		assertTrue(future.isDone());
 
 		// Finalize (missing ACKs)
@@ -200,7 +197,7 @@ public class PendingCheckpointTest {
 
 		assertFalse(future.isDone());
 		try {
-			pending.finalizeCheckpoint();
+			pending.finalizeCheckpoint(null);
 			fail("Did not throw expected Exception");
 		} catch (IllegalStateException ignored) {
 			// Expected
@@ -233,7 +230,7 @@ public class PendingCheckpointTest {
 		pending = createPendingCheckpoint(props, executor);
 		setTaskState(pending, state);
 
-		pending.abort(CheckpointFailureReason.CHECKPOINT_DECLINED, new Exception("Expected Test Exception"));
+		pending.abort(CheckpointFailureReason.CHECKPOINT_DECLINED, new Exception("Expected Test Exception"), null);
 		// execute asynchronous discard operation
 		executor.runQueuedCommands();
 		verify(state, times(1)).discardState();
@@ -259,70 +256,6 @@ public class PendingCheckpointTest {
 		// execute asynchronous discard operation
 		executor.runQueuedCommands();
 		verify(state, times(1)).discardState();
-	}
-
-	/**
-	 * Tests that the stats callbacks happen if the callback is registered.
-	 */
-	@Test
-	public void testPendingCheckpointStatsCallbacks() throws Exception {
-		{
-			// Complete successfully
-			PendingCheckpointStats callback = mock(PendingCheckpointStats.class);
-			PendingCheckpoint pending = createPendingCheckpoint(
-					CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION));
-			pending.setStatsCallback(callback);
-
-			pending.acknowledgeTask(ATTEMPT_ID, null, new CheckpointMetrics());
-			verify(callback, times(1)).reportSubtaskStats(nullable(JobVertexID.class), any(SubtaskStateStats.class));
-
-			pending.finalizeCheckpoint();
-			verify(callback, times(1)).reportCompletedCheckpoint(any(String.class), anyLong(), anyLong(), any(Integer.class));
-		}
-
-		{
-			// Fail subsumed
-			PendingCheckpointStats callback = mock(PendingCheckpointStats.class);
-			PendingCheckpoint pending = createPendingCheckpoint(
-					CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION));
-			pending.setStatsCallback(callback);
-
-			pending.abort(CheckpointFailureReason.CHECKPOINT_SUBSUMED);
-			verify(callback, times(1)).reportFailedCheckpoint(anyLong(), any(Exception.class), any(CheckpointFailureReason.class));
-		}
-
-		{
-			// Fail subsumed
-			PendingCheckpointStats callback = mock(PendingCheckpointStats.class);
-			PendingCheckpoint pending = createPendingCheckpoint(
-					CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION));
-			pending.setStatsCallback(callback);
-
-			pending.abort(CheckpointFailureReason.CHECKPOINT_DECLINED);
-			verify(callback, times(1)).reportFailedCheckpoint(anyLong(), any(Exception.class), any(CheckpointFailureReason.class));
-		}
-
-		{
-			// Fail subsumed
-			PendingCheckpointStats callback = mock(PendingCheckpointStats.class);
-			PendingCheckpoint pending = createPendingCheckpoint(
-					CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION));
-			pending.setStatsCallback(callback);
-
-			pending.abort(CheckpointFailureReason.CHECKPOINT_SUBSUMED, new Exception("Expected test error"));
-			verify(callback, times(1)).reportFailedCheckpoint(anyLong(), any(Exception.class), any(CheckpointFailureReason.class));
-		}
-
-		{
-			// Fail subsumed
-			PendingCheckpointStats callback = mock(PendingCheckpointStats.class);
-			PendingCheckpoint pending = createPendingCheckpoint(
-					CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION));
-			pending.setStatsCallback(callback);
-
-			pending.abort(CheckpointFailureReason.CHECKPOINT_EXPIRED);
-			verify(callback, times(1)).reportFailedCheckpoint(anyLong(), any(Exception.class), any(CheckpointFailureReason.class));
-		}
 	}
 
 	/**
@@ -551,7 +484,7 @@ public class PendingCheckpointTest {
 			2L);
 		pendingCheckpoint.acknowledgeTask(ATTEMPT_ID, stateSnapshot, new CheckpointMetrics());
 		sharedStateRegistry.registerAll(pendingCheckpoint.getOperatorStates().values());
-		CompletedCheckpoint completedCheckpoint = pendingCheckpoint.finalizeCheckpoint();
+		CompletedCheckpoint completedCheckpoint = pendingCheckpoint.finalizeCheckpoint(null);
 
 		final PendingCheckpoint failedPendingCheckpoint = createPendingCheckpoint(
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
@@ -575,7 +508,7 @@ public class PendingCheckpointTest {
 			4L);
 		successPendingCheckpoint.overrideTaskStates(ATTEMPT_ID, stateSnapshot, 2L, false);
 		sharedStateRegistry.registerAll(successPendingCheckpoint.getOperatorStates().values());
-		CompletedCheckpoint completedCheckpoint1 = successPendingCheckpoint.finalizeCheckpoint();
+		CompletedCheckpoint completedCheckpoint1 = successPendingCheckpoint.finalizeCheckpoint(null);
 		completedCheckpoint1.discardOnSubsume();
 
 		checkArgument(!operatorStateHandle.isDiscarded());
@@ -645,7 +578,7 @@ public class PendingCheckpointTest {
 			2L);
 		pendingCheckpoint.acknowledgeTask(ATTEMPT_ID, stateSnapshot, new CheckpointMetrics());
 		sharedStateRegistry.registerAll(pendingCheckpoint.getOperatorStates().values());
-		CompletedCheckpoint completedCheckpoint = pendingCheckpoint.finalizeCheckpoint();
+		CompletedCheckpoint completedCheckpoint = pendingCheckpoint.finalizeCheckpoint(null);
 
 		final PendingCheckpoint failedPendingCheckpoint = createPendingCheckpoint(
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
@@ -669,7 +602,7 @@ public class PendingCheckpointTest {
 			4L);
 		successPendingCheckpoint.overrideTaskStates(ATTEMPT_ID, stateSnapshot, 2L, false);
 		sharedStateRegistry.registerAll(successPendingCheckpoint.getOperatorStates().values());
-		CompletedCheckpoint completedCheckpoint1 = successPendingCheckpoint.finalizeCheckpoint();
+		CompletedCheckpoint completedCheckpoint1 = successPendingCheckpoint.finalizeCheckpoint(null);
 		completedCheckpoint1.discardOnSubsume();
 
 		checkArgument(!operatorStateHandle.isDiscarded());
@@ -765,7 +698,8 @@ public class PendingCheckpointTest {
 			props,
 			location,
 			executor,
-			new CompletableFuture<>());
+			new CompletableFuture<>(),
+			null);
 	}
 
 	@SuppressWarnings("unchecked")

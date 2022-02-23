@@ -315,7 +315,8 @@ public class ZooKeeperCompletedCheckpointStoreTest extends TestLogger {
 				operatorStates,
 				masterHookStates,
 				props,
-				storageLocation);
+				storageLocation,
+				null);
 			this.countDownLatch = countDownLatch;
 		}
 

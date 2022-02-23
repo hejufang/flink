@@ -133,16 +133,14 @@ public class PendingCheckpoint {
 	/** The promise to fulfill once the checkpoint has been completed. */
 	private final CompletableFuture<CompletedCheckpoint> onCompletionPromise;
 
+	@Nullable private final PendingCheckpointStats pendingCheckpointStats;
+
 	/** The executor for potentially blocking I/O operations, like state disposal. */
 	private final Executor executor;
 
 	private int numAcknowledgedTasks;
 
 	private boolean discarded;
-
-	/** Optional stats tracker callback. */
-	@Nullable
-	private PendingCheckpointStats statsCallback;
 
 	private volatile ScheduledFuture<?> cancellerHandle;
 
@@ -210,6 +208,7 @@ public class PendingCheckpoint {
 			null,
 			1,
 			false,
+			null,
 			null);
 	}
 
@@ -228,7 +227,8 @@ public class PendingCheckpoint {
 		@Nullable CheckpointStorageCoordinatorView checkpointStorage,
 		int transferMaxRetryAttempts,
 		boolean allowPersistStateMeta,
-		Map<OperatorID, OperatorStateMeta> operatorStateMetasFromJobGraph) {
+		Map<OperatorID, OperatorStateMeta> operatorStateMetasFromJobGraph,
+		@Nullable PendingCheckpointStats pendingCheckpointStats) {
 
 		checkArgument(verticesToConfirm.size() > 0,
 			"Checkpoint needs at least one vertex that commits the checkpoint");
@@ -258,6 +258,7 @@ public class PendingCheckpoint {
 		this.transferMaxRetryAttempts = transferMaxRetryAttempts;
 		this.allowPersistStateMeta = allowPersistStateMeta;
 		this.operatorStateMetasFromJobGraph = operatorStateMetasFromJobGraph;
+		this.pendingCheckpointStats = pendingCheckpointStats;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -356,15 +357,6 @@ public class PendingCheckpoint {
 	}
 
 	/**
-	 * Sets the callback for tracking this pending checkpoint.
-	 *
-	 * @param trackerCallback Callback for collecting subtask stats.
-	 */
-	void setStatsCallback(@Nullable PendingCheckpointStats trackerCallback) {
-		this.statsCallback = trackerCallback;
-	}
-
-	/**
 	 * Sets the handle for the canceller to this pending checkpoint. This method fails
 	 * with an exception if a handle has already been set.
 	 *
@@ -407,7 +399,7 @@ public class PendingCheckpoint {
 		return onCompletionPromise;
 	}
 
-	public CompletedCheckpoint finalizeCheckpoint() throws IOException {
+	public CompletedCheckpoint finalizeCheckpoint(CheckpointStatsTracker statsTracker) throws IOException {
 		synchronized (lock) {
 			checkState(!isDiscarded(), "checkpoint is discarded");
 			checkState(isFullyAcknowledged(), "Pending checkpoint has not been fully acknowledged yet");
@@ -454,24 +446,24 @@ public class PendingCheckpoint {
 						operatorStates,
 						masterStates,
 						props,
-						finalizedLocation);
+						finalizedLocation,
+						toCompletedCheckpointStats(finalizedLocation));
 				completed.setCheckpointStorage(checkpointStorage);
 
-				onCompletionPromise.complete(completed);
+				CompletedCheckpointStats completedCheckpointStats = completed.getStatistic();
+				if (completedCheckpointStats != null) {
+					LOG.trace(
+						"Checkpoint {} size: {}Kb, duration: {}ms",
+						checkpointId,
+						completedCheckpointStats.getStateSize() == 0
+							? 0
+							: completedCheckpointStats.getStateSize() / 1024,
+						completedCheckpointStats.getEndToEndDuration());
 
-				// to prevent null-pointers from concurrent modification, copy reference onto stack
-				PendingCheckpointStats statsCallback = this.statsCallback;
-				if (statsCallback != null) {
-					// Finalize the statsCallback and give the completed checkpoint a
-					// callback for discards.
-					CompletedCheckpointStats.DiscardCallback discardCallback =
-							statsCallback.reportCompletedCheckpoint(
-								finalizedLocation.getExternalPointer(),
-								completed.getTotalStateSize(),
-								completed.getRawTotalStateSize(),
-								numNeedAcknowledgedSubtasks);
-					completed.setDiscardCallback(discardCallback);
+					statsTracker.reportCompletedCheckpoint(completedCheckpointStats);
 				}
+
+				onCompletionPromise.complete(completed);
 
 				// mark this pending checkpoint as disposed, but do NOT drop the state
 				dispose(false);
@@ -541,9 +533,7 @@ public class PendingCheckpoint {
 			}
 
 			// publish the checkpoint statistics
-			// to prevent null-pointers from concurrent modification, copy reference onto stack
-			final PendingCheckpointStats statsCallback = this.statsCallback;
-			if (statsCallback != null) {
+			if (pendingCheckpointStats != null) {
 				SubtaskStateStats subtaskStateStats = new SubtaskStateStats(
 						subtaskIndex,
 						ackTimestamp,
@@ -554,7 +544,7 @@ public class PendingCheckpoint {
 						0L,
 						overrideCheckpointId);
 
-				statsCallback.reportSubtaskStats(vertex.getJobvertexId(), subtaskStateStats, true);
+				pendingCheckpointStats.reportSubtaskStats(vertex.getJobvertexId(), subtaskStateStats, true);
 			}
 
 			LOG.info("Checkpoint {} replaces states of Task {} with snapshot from checkpoint {}.",
@@ -602,6 +592,15 @@ public class PendingCheckpoint {
 
 	public PendingTriggerFactory.PendingTrigger getPendingTrigger() {
 		return pendingTrigger;
+	}
+
+	@Nullable
+	private CompletedCheckpointStats toCompletedCheckpointStats(
+		CompletedCheckpointStorageLocation finalizedLocation) {
+		return pendingCheckpointStats != null
+			? pendingCheckpointStats.toCompletedCheckpointStats(
+			finalizedLocation.getExternalPointer())
+			: null;
 	}
 
 	/**
@@ -695,9 +694,7 @@ public class PendingCheckpoint {
 			++numAcknowledgedTasks;
 
 			// publish the checkpoint statistics
-			// to prevent null-pointers from concurrent modification, copy reference onto stack
-			final PendingCheckpointStats statsCallback = this.statsCallback;
-			if (statsCallback != null) {
+			if (pendingCheckpointStats != null) {
 				// Do this in millis because the web frontend works with them
 				long alignmentDurationMillis = metrics.getAlignmentDurationNanos() / 1_000_000;
 				long checkpointStartDelayMillis = metrics.getCheckpointStartDelayNanos() / 1_000_000;
@@ -712,7 +709,7 @@ public class PendingCheckpoint {
 					checkpointStartDelayMillis,
 					checkpointId);
 
-				statsCallback.reportSubtaskStats(vertex.getJobvertexId(), subtaskStateStats);
+				pendingCheckpointStats.reportSubtaskStats(vertex.getJobvertexId(), subtaskStateStats);
 			}
 
 			return TaskAcknowledgeResult.SUCCESS;
@@ -776,12 +773,15 @@ public class PendingCheckpoint {
 	/**
 	 * Aborts a checkpoint with reason and cause.
 	 */
-	public void abort(CheckpointFailureReason reason, @Nullable Throwable cause) {
+	public void abort(
+		CheckpointFailureReason reason,
+		@Nullable Throwable cause,
+		CheckpointStatsTracker statsTracker) {
 		try {
 			LOG.warn("Abort checkpoint " + checkpointId, cause);
 			failureCause = wrapWithCheckpointException(reason, cause);
 			onCompletionPromise.completeExceptionally(failureCause);
-			reportFailedCheckpoint(failureCause, reason);
+			reportFailedCheckpoint(statsTracker, failureCause, reason);
 			assertAbortSubsumedForced(reason);
 		} finally {
 			dispose(true);
@@ -792,7 +792,7 @@ public class PendingCheckpoint {
 	 * Aborts a checkpoint with reason and cause.
 	 */
 	public void abort(CheckpointFailureReason reason) {
-		abort(reason, null);
+		abort(reason, null, null);
 	}
 
 	private CheckpointException wrapWithCheckpointException(CheckpointFailureReason reason, Throwable cause) {
@@ -861,12 +861,14 @@ public class PendingCheckpoint {
 	 *
 	 * @param cause The failure cause or <code>null</code>.
 	 */
-	private void reportFailedCheckpoint(Exception cause, CheckpointFailureReason reason) {
-		// to prevent null-pointers from concurrent modification, copy reference onto stack
-		final PendingCheckpointStats statsCallback = this.statsCallback;
-		if (statsCallback != null) {
-			long failureTimestamp = System.currentTimeMillis();
-			statsCallback.reportFailedCheckpoint(failureTimestamp, cause, reason);
+	private void reportFailedCheckpoint(
+		CheckpointStatsTracker statsTracker,
+		Exception cause,
+		CheckpointFailureReason reason) {
+		if (pendingCheckpointStats != null) {
+			statsTracker.reportFailedCheckpoint(
+				pendingCheckpointStats.toFailedCheckpoint(System.currentTimeMillis(), cause),
+				reason);
 		}
 	}
 

@@ -906,6 +906,15 @@ public class CheckpointCoordinator {
 			}
 		}
 
+		PendingCheckpointStats pendingCheckpointStats = null;
+		if (statsTracker != null) {
+			pendingCheckpointStats = statsTracker.reportPendingCheckpoint(
+				checkpointID,
+				timestamp,
+				props,
+				pendingTrigger.getCommitToTasks().length);
+		}
+
 		final PendingCheckpoint checkpoint = new PendingCheckpoint(
 			job,
 			checkpointID,
@@ -921,17 +930,8 @@ public class CheckpointCoordinator {
 			checkpointStorage,
 			transferMaxRetryAttempts,
 			allowPersistStateMeta,
-			stateMetaFromJobGraph);
-
-		if (statsTracker != null) {
-			PendingCheckpointStats callback = statsTracker.reportPendingCheckpoint(
-				checkpointID,
-				timestamp,
-				props,
-				pendingTrigger.getCommitToTasks().length);
-
-			checkpoint.setStatsCallback(callback);
-		}
+			stateMetaFromJobGraph,
+			pendingCheckpointStats);
 
 		synchronized (lock) {
 			pendingCheckpoints.put(checkpointID, checkpoint);
@@ -1343,7 +1343,7 @@ public class CheckpointCoordinator {
 			try {
 				// As a first step to complete the checkpoint, we register its state with the registry
 				sharedStateRegistry.registerAll(operatorStates.values());
-				completedCheckpoint = pendingCheckpoint.finalizeCheckpoint();
+				completedCheckpoint = pendingCheckpoint.finalizeCheckpoint(statsTracker);
 				failureManager.handleCheckpointSuccess(pendingCheckpoint.getCheckpointId());
 			}
 			catch (Exception e1) {
@@ -2177,7 +2177,9 @@ public class CheckpointCoordinator {
 			try {
 				// release resource here
 				pendingCheckpoint.abort(
-					exception.getCheckpointFailureReason(), exception.getCause());
+					exception.getCheckpointFailureReason(),
+					exception.getCause(),
+					statsTracker);
 
 				if (pendingCheckpoint.getProps().isSavepoint() &&
 					pendingCheckpoint.getProps().isSynchronous()) {
