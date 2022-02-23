@@ -132,7 +132,7 @@ public class WebOptions {
 	 */
 	public static final ConfigOption<Boolean> SUBMIT_ENABLE =
 		key("web.submit.enable")
-			.defaultValue(true)
+			.defaultValue(false)
 			.withDeprecatedKeys("jobmanager.web.submit.enable")
 			.withDescription("Flag indicating whether jobs can be uploaded and run from the web-frontend.");
 
