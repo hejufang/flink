@@ -188,7 +188,7 @@ public class PendingCheckpointTest {
 		assertFalse(future.isDone());
 		pending.acknowledgeTask(ATTEMPT_ID, null, new CheckpointMetrics());
 		assertTrue(pending.areTasksFullyAcknowledged());
-		pending.finalizeCheckpoint(null);
+		pending.finalizeCheckpoint();
 		assertTrue(future.isDone());
 
 		// Finalize (missing ACKs)
@@ -197,7 +197,7 @@ public class PendingCheckpointTest {
 
 		assertFalse(future.isDone());
 		try {
-			pending.finalizeCheckpoint(null);
+			pending.finalizeCheckpoint();
 			fail("Did not throw expected Exception");
 		} catch (IllegalStateException ignored) {
 			// Expected
@@ -484,7 +484,7 @@ public class PendingCheckpointTest {
 			2L);
 		pendingCheckpoint.acknowledgeTask(ATTEMPT_ID, stateSnapshot, new CheckpointMetrics());
 		sharedStateRegistry.registerAll(pendingCheckpoint.getOperatorStates().values());
-		CompletedCheckpoint completedCheckpoint = pendingCheckpoint.finalizeCheckpoint(null);
+		CompletedCheckpoint completedCheckpoint = pendingCheckpoint.finalizeCheckpoint();
 
 		final PendingCheckpoint failedPendingCheckpoint = createPendingCheckpoint(
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
@@ -508,7 +508,7 @@ public class PendingCheckpointTest {
 			4L);
 		successPendingCheckpoint.overrideTaskStates(ATTEMPT_ID, stateSnapshot, 2L, false);
 		sharedStateRegistry.registerAll(successPendingCheckpoint.getOperatorStates().values());
-		CompletedCheckpoint completedCheckpoint1 = successPendingCheckpoint.finalizeCheckpoint(null);
+		CompletedCheckpoint completedCheckpoint1 = successPendingCheckpoint.finalizeCheckpoint();
 		completedCheckpoint1.discardOnSubsume();
 
 		checkArgument(!operatorStateHandle.isDiscarded());
@@ -578,7 +578,7 @@ public class PendingCheckpointTest {
 			2L);
 		pendingCheckpoint.acknowledgeTask(ATTEMPT_ID, stateSnapshot, new CheckpointMetrics());
 		sharedStateRegistry.registerAll(pendingCheckpoint.getOperatorStates().values());
-		CompletedCheckpoint completedCheckpoint = pendingCheckpoint.finalizeCheckpoint(null);
+		CompletedCheckpoint completedCheckpoint = pendingCheckpoint.finalizeCheckpoint();
 
 		final PendingCheckpoint failedPendingCheckpoint = createPendingCheckpoint(
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
@@ -602,7 +602,7 @@ public class PendingCheckpointTest {
 			4L);
 		successPendingCheckpoint.overrideTaskStates(ATTEMPT_ID, stateSnapshot, 2L, false);
 		sharedStateRegistry.registerAll(successPendingCheckpoint.getOperatorStates().values());
-		CompletedCheckpoint completedCheckpoint1 = successPendingCheckpoint.finalizeCheckpoint(null);
+		CompletedCheckpoint completedCheckpoint1 = successPendingCheckpoint.finalizeCheckpoint();
 		completedCheckpoint1.discardOnSubsume();
 
 		checkArgument(!operatorStateHandle.isDiscarded());

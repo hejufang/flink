@@ -1343,7 +1343,7 @@ public class CheckpointCoordinator {
 			try {
 				// As a first step to complete the checkpoint, we register its state with the registry
 				sharedStateRegistry.registerAll(operatorStates.values());
-				completedCheckpoint = pendingCheckpoint.finalizeCheckpoint(statsTracker);
+				completedCheckpoint = pendingCheckpoint.finalizeCheckpoint();
 				failureManager.handleCheckpointSuccess(pendingCheckpoint.getCheckpointId());
 			}
 			catch (Exception e1) {
@@ -1406,6 +1406,7 @@ public class CheckpointCoordinator {
 				}
 			}
 			checkpointHandler.onCheckpointComplete(completedCheckpoint);
+			reportCompletedCheckpoint(completedCheckpoint);
 		} finally {
 			pendingCheckpoints.remove(checkpointId);
 			pendingSavepointsUnsafe.remove(checkpointId);
@@ -1440,6 +1441,20 @@ public class CheckpointCoordinator {
 		// send the "notify complete" call to all vertices, coordinators, etc.
 		ExecutionVertex[] tasksToCommitTo = pendingCheckpoint.getPendingTrigger().getCommitToTasks();
 		sendAcknowledgeMessages(tasksToCommitTo, checkpointId, completedCheckpoint.getTimestamp());
+	}
+
+	private void reportCompletedCheckpoint(CompletedCheckpoint completedCheckpoint) {
+		CompletedCheckpointStats completedCheckpointStats = completedCheckpoint.getStatistic();
+		if (completedCheckpointStats != null) {
+			LOG.trace(
+				"Checkpoint {} size: {}Kb, duration: {}ms",
+				completedCheckpoint.getCheckpointID(),
+				completedCheckpointStats.getStateSize() == 0
+					? 0
+					: completedCheckpointStats.getStateSize() / 1024,
+				completedCheckpointStats.getEndToEndDuration());
+			statsTracker.reportCompletedCheckpoint(completedCheckpointStats);
+		}
 	}
 
 	private void sendAcknowledgeMessages(ExecutionVertex[] tasksToCommitTo, long checkpointId, long timestamp) {

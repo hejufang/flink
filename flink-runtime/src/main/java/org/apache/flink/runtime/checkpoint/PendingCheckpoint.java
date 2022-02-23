@@ -399,7 +399,7 @@ public class PendingCheckpoint {
 		return onCompletionPromise;
 	}
 
-	public CompletedCheckpoint finalizeCheckpoint(CheckpointStatsTracker statsTracker) throws IOException {
+	public CompletedCheckpoint finalizeCheckpoint() throws IOException {
 		synchronized (lock) {
 			checkState(!isDiscarded(), "checkpoint is discarded");
 			checkState(isFullyAcknowledged(), "Pending checkpoint has not been fully acknowledged yet");
@@ -449,19 +449,6 @@ public class PendingCheckpoint {
 						finalizedLocation,
 						toCompletedCheckpointStats(finalizedLocation));
 				completed.setCheckpointStorage(checkpointStorage);
-
-				CompletedCheckpointStats completedCheckpointStats = completed.getStatistic();
-				if (completedCheckpointStats != null) {
-					LOG.trace(
-						"Checkpoint {} size: {}Kb, duration: {}ms",
-						checkpointId,
-						completedCheckpointStats.getStateSize() == 0
-							? 0
-							: completedCheckpointStats.getStateSize() / 1024,
-						completedCheckpointStats.getEndToEndDuration());
-
-					statsTracker.reportCompletedCheckpoint(completedCheckpointStats);
-				}
 
 				onCompletionPromise.complete(completed);
 
