@@ -313,6 +313,16 @@ public class CheckpointStatsTracker {
 		}
 	}
 
+	public PendingCheckpointStats getPendingCheckpointStats(long checkpointId) {
+		statsReadWriteLock.lock();
+		try {
+			AbstractCheckpointStats stats = history.getCheckpointById(checkpointId);
+			return stats instanceof PendingCheckpointStats ? (PendingCheckpointStats) stats : null;
+		} finally {
+			statsReadWriteLock.unlock();
+		}
+	}
+
 	/**
 	 * Callback when a checkpoint is discarded.
 	 */

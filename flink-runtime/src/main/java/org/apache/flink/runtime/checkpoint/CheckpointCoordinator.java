@@ -1377,6 +1377,7 @@ public class CheckpointCoordinator {
 					}
 				});
 
+				reportFailedCheckpoint(checkpointId, new CheckpointException(CheckpointFailureReason.FINALIZE_CHECKPOINT_FAILURE, exception));
 				sendAbortedMessages(checkpointId, pendingCheckpoint.getCheckpointTimestamp());
 				throw new CheckpointException("Could not complete the pending checkpoint " + checkpointId + '.',
 					CheckpointFailureReason.FINALIZE_CHECKPOINT_FAILURE, exception);
@@ -1454,6 +1455,18 @@ public class CheckpointCoordinator {
 					: completedCheckpointStats.getStateSize() / 1024,
 				completedCheckpointStats.getEndToEndDuration());
 			statsTracker.reportCompletedCheckpoint(completedCheckpointStats);
+		}
+	}
+
+	private void reportFailedCheckpoint(long checkpointId, CheckpointException exception) {
+		PendingCheckpointStats pendingCheckpointStats =
+			statsTracker.getPendingCheckpointStats(checkpointId);
+		if (pendingCheckpointStats != null) {
+			statsTracker.reportFailedCheckpoint(
+				pendingCheckpointStats.toFailedCheckpoint(
+					System.currentTimeMillis(),
+					exception),
+				exception.getCheckpointFailureReason());
 		}
 	}
 
