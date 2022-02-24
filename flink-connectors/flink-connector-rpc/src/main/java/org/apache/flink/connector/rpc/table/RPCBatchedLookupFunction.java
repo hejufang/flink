@@ -99,7 +99,7 @@ public class RPCBatchedLookupFunction extends MiniBatchTableFunction<RowData> {
 			List<RowData> lookupResult = rpcLookupExecutor.doLookup(lookupKeysList);
 			if (lookupResult == null) {
 				//failure occurs and is set to be ignored.
-				return Collections.nCopies(lookupKeysList.size(), null);
+				return Collections.nCopies(keySequenceList.size(), null);
 			}
 			for (int i = 0; i < lookupKeysList.size(); i++) {
 				result[insertIndices.get(i)] = Collections.singleton(lookupResult.get(i));
