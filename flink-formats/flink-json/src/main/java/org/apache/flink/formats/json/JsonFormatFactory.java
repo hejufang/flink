@@ -84,7 +84,14 @@ public class JsonFormatFactory implements
 		Map<Feature, Boolean> parserFeature = getParserFeatureMap(context.getCatalogTable().getOptions());
 		TimestampFormat timestampOption = formatOptions.get(TIMESTAMP_FORMAT);
 
-		return new JsonDeserializationSchemaDecodingFormat(failOnMissingField, defaultOnMissingField, ignoreParseErrors, byteAsJsonNode, timestampOption, logParseErrorsInterval, parserFeature);
+		return new JsonDeserializationSchemaDecodingFormat(
+				failOnMissingField,
+				defaultOnMissingField,
+				ignoreParseErrors,
+				byteAsJsonNode,
+				timestampOption,
+				logParseErrorsInterval,
+				parserFeature);
 	}
 
 	@Override
@@ -192,7 +199,14 @@ public class JsonFormatFactory implements
 		private final long logParseErrorsInterval;
 		private final Map<Feature, Boolean> parserFeature;
 
-		public JsonDeserializationSchemaDecodingFormat(boolean failOnMissingField, boolean defaultOnMissingField, boolean ignoreParseErrors, boolean byteAsJsonNode, TimestampFormat timestampOption, long logParseErrorsInterval, Map<Feature, Boolean> parserFeature) {
+		public JsonDeserializationSchemaDecodingFormat(
+				boolean failOnMissingField,
+				boolean defaultOnMissingField,
+				boolean ignoreParseErrors,
+				boolean byteAsJsonNode,
+				TimestampFormat timestampOption,
+				long logParseErrorsInterval,
+				Map<Feature, Boolean> parserFeature) {
 			this.failOnMissingField = failOnMissingField;
 			this.defaultOnMissingField = defaultOnMissingField;
 			this.ignoreParseErrors = ignoreParseErrors;
@@ -204,8 +218,8 @@ public class JsonFormatFactory implements
 
 		@Override
 		public DeserializationSchema<RowData> createRuntimeDecoder(
-			DynamicTableSource.Context context,
-			DataType producedDataType) {
+				DynamicTableSource.Context context,
+				DataType producedDataType) {
 			final RowType rowType = (RowType) producedDataType.getLogicalType();
 			final TypeInformation<RowData> rowDataTypeInfo =
 				(TypeInformation<RowData>) context.createTypeInformation(producedDataType);

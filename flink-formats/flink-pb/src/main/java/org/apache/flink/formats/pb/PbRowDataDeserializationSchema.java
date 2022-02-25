@@ -19,9 +19,11 @@
 package org.apache.flink.formats.pb;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.formats.pb.DeserializationRuntimeConverterFactory.DeserializationRuntimeConverter;
+import org.apache.flink.formats.pb.proto.ProtoCutUtil;
 import org.apache.flink.formats.pb.proto.ProtoFile;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
@@ -58,6 +60,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 	private final boolean withWrapper;
 	private final boolean isAdInstanceFormat;
 	private final RowType pbTypeInfo;
+	private final boolean runtimeCutPb;
 	private transient DeserializationRuntimeConverter runtimeConverter;
 	private transient Descriptors.Descriptor pbDescriptor;
 
@@ -72,7 +75,8 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 			int skipBytes,
 			boolean withWrapper,
 			boolean isAdInstanceFormat,
-			boolean ignoreParseErrors) {
+			boolean ignoreParseErrors,
+			boolean runtimeCutPb) {
 
 		this.resultTypeInfo = resultTypeInfo;
 		this.pbDescriptorClass = pbDescriptorClass;
@@ -87,11 +91,19 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 		} else {
 			pbTypeInfo = rowType;
 		}
+		this.runtimeCutPb = runtimeCutPb;
 	}
 
 	@Override
 	public void open(InitializationContext context) {
 		pbDescriptor = PbUtils.validateAndGetDescriptor(pbDescriptorClass, protoFile);
+		if (runtimeCutPb) {
+			try {
+				pbDescriptor = ProtoCutUtil.cutPbDescriptor(pbDescriptor, pbTypeInfo);
+			} catch (Exception e) {
+				throw new FlinkRuntimeException("cut pb descriptor failed", e);
+			}
+		}
 		runtimeConverter = DeserializationRuntimeConverterFactory.createConverter(pbTypeInfo, pbDescriptor);
 	}
 
@@ -128,6 +140,11 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 			}
 			throw new IOException("Failed to deserialize PB object.", t);
 		}
+	}
+
+	@VisibleForTesting
+	public Descriptors.Descriptor getPbDescriptor() {
+		return pbDescriptor;
 	}
 
 	/**
@@ -171,6 +188,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 		private boolean withWrapper = false;
 		private boolean isAdInstanceFormat = false;
 		private boolean ignoreParseErrors = false;
+		private boolean runtimeCutPb = false;
 
 		private Builder() {
 		}
@@ -215,6 +233,11 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 			return this;
 		}
 
+		public Builder setRuntimeCutPb(boolean runtimeCutPb) {
+			this.runtimeCutPb = runtimeCutPb;
+			return this;
+		}
+
 		public PbRowDataDeserializationSchema build() {
 			checkState(pbDescriptorClass != null || protoFile != null,
 				"'pbDescriptorClass' and 'protoFile' can not be null at the same time.");
@@ -229,7 +252,8 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 				this.skipBytes,
 				this.withWrapper,
 				this.isAdInstanceFormat,
-				this.ignoreParseErrors);
+				this.ignoreParseErrors,
+				this.runtimeCutPb);
 		}
 	}
 }

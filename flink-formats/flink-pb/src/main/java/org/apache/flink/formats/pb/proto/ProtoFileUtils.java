@@ -53,8 +53,8 @@ public class ProtoFileUtils {
 	private static final Location DEFAULT_LOCATION = Location.get("");
 
 	private static final String MAP_ENTRY_SUFFIX = "Entry";
-	private static final String KEY_FIELD = "key";
-	private static final String VALUE_FIELD = "value";
+	static final String KEY_FIELD = "key";
+	static final String VALUE_FIELD = "value";
 
 	public static Descriptors.Descriptor parseDescriptorFromProtoFile(ProtoFile protoFile) {
 		ProtoFileElement protoFileElement =

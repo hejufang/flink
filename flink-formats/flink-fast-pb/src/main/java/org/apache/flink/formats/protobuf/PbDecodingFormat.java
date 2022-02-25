@@ -23,6 +23,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.formats.protobuf.deserialize.PbRowDataDeserializationSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
+import org.apache.flink.table.connector.format.ProjectionPushDownableDecodingFormat;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
@@ -31,7 +32,7 @@ import org.apache.flink.table.types.logical.RowType;
 /**
  * {@link DecodingFormat} for protobuf decoding.
  */
-public class PbDecodingFormat implements DecodingFormat<DeserializationSchema<RowData>> {
+public class PbDecodingFormat implements DecodingFormat<DeserializationSchema<RowData>>, ProjectionPushDownableDecodingFormat {
 
 	private final PbFormatConfig formatConfig;
 

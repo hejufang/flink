@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.apache.flink.formats.pb.PbFormatUtils.createDataType;
+import static org.apache.flink.formats.pb.PbOptions.ENABLE_RUNTIME_PB_CUT;
 import static org.apache.flink.formats.pb.PbOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.pb.PbOptions.IS_AD_INSTANCE_FORMAT;
 import static org.apache.flink.formats.pb.PbOptions.PB_CLASS;
@@ -81,6 +82,7 @@ public class PbFormatFactory implements
 		final boolean withWrapper = formatOptions.get(WITH_WRAPPER);
 		final boolean ignoreParseErrors = formatOptions.get(IGNORE_PARSE_ERRORS);
 		final boolean isAdInstanceFormat = formatOptions.get(IS_AD_INSTANCE_FORMAT);
+		final boolean enableRuntimePbCut = formatOptions.get(ENABLE_RUNTIME_PB_CUT);
 		final ProtoFile protoFile = new ProtoFile(pbEntryClassName, pbContent);
 
 		return new DecodingFormat<DeserializationSchema<RowData>>() {
@@ -103,6 +105,7 @@ public class PbFormatFactory implements
 					.setWithWrapper(withWrapper)
 					.setAdInstanceFormat(isAdInstanceFormat)
 					.setIgnoreParseErrors(ignoreParseErrors)
+					.setRuntimeCutPb(enableRuntimePbCut)
 					.build();
 			}
 
@@ -193,6 +196,7 @@ public class PbFormatFactory implements
 		options.add(IGNORE_PARSE_ERRORS);
 		options.add(SINK_WITH_SIZE_HEADER);
 		options.add(IS_AD_INSTANCE_FORMAT);
+		options.add(ENABLE_RUNTIME_PB_CUT);
 		options.add(SIZE_HEADER_WITH_LITTLE_ENDIAN);
 		return options;
 	}

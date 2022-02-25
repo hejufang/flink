@@ -33,6 +33,7 @@ import java.io.IOException;
 
 import static org.apache.flink.formats.pb.PbSchemaTestUtil.TEST_PB_CLASS_NAME;
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Tests for {@link PbRowDataDeserializationSchema}.
@@ -64,6 +65,20 @@ public class PbRowDataDeserializationSchemaTest {
 		testDeserialization(getDeserializationSchema(false, false, rowType), pbBytes, rowData);
 	}
 
+	@Test
+	public void testDeserializeSelectedFieldWithRuntimePbCut() throws IOException {
+		byte[] pbBytes = PbSchemaTestUtil.generatePbBytes();
+		RowData rowData = PbSchemaTestUtil.generateSelectedRowData();
+		RowType rowType = PbSchemaTestUtil.generateSelectedRowType();
+
+		PbRowDataDeserializationSchema derByClass = getDeserializationSchema(false, true, true, rowType);
+		testDeserialization(derByClass, pbBytes, rowData);
+		assertEquals(rowType.getFieldCount(), derByClass.getPbDescriptor().getFields().size());
+		PbRowDataDeserializationSchema derByFile = getDeserializationSchema(false, false, true, rowType);
+		testDeserialization(derByFile, pbBytes, rowData);
+		assertEquals(rowType.getFieldCount(), derByClass.getPbDescriptor().getFields().size());
+	}
+
 	private static void testDeserialization(
 			PbRowDataDeserializationSchema deserializationSchema,
 			byte[] originBytes,
@@ -76,6 +91,14 @@ public class PbRowDataDeserializationSchemaTest {
 	private static PbRowDataDeserializationSchema getDeserializationSchema(
 			boolean withWrapper,
 			boolean withPbClassFullName,
+			@Nullable RowType selectedRowType) throws IOException {
+		return getDeserializationSchema(withWrapper, withPbClassFullName, false, selectedRowType);
+	}
+
+	private static PbRowDataDeserializationSchema getDeserializationSchema(
+			boolean withWrapper,
+			boolean withPbClassFullName,
+			boolean runtimePbCut,
 			@Nullable RowType selectedRowType) throws IOException {
 		Descriptors.Descriptor descriptor;
 		String pbClassName = null;
@@ -97,6 +120,7 @@ public class PbRowDataDeserializationSchemaTest {
 			.setPbDescriptorClass(pbClassName)
 			.setProtoFile(protoFile)
 			.setWithWrapper(withWrapper)
+			.setRuntimeCutPb(runtimePbCut)
 			.build();
 	}
 }

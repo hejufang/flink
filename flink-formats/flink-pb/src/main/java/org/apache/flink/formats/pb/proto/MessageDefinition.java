@@ -17,12 +17,13 @@
 
 package org.apache.flink.formats.pb.proto;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
+
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.OneofDescriptorProto;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -208,33 +209,47 @@ public class MessageDefinition {
 		private int mIdx;
 	}
 
-	private static Map<String, FieldDescriptorProto.Type> sTypeMap;
-	private static Map<String, FieldDescriptorProto.Label> sLabelMap;
+	//Note: modified, add final modifier.
+	private static final Map<String, FieldDescriptorProto.Type> sTypeMap;
+	//Note: modified, add final modifier.
+	private static final Map<String, FieldDescriptorProto.Label> sLabelMap;
+
+	static Map<String, FieldDescriptorProto.Type> getsTypeMap() {
+		return sTypeMap;
+	}
+
+	static Map<String, FieldDescriptorProto.Label> getSLabelMap() {
+		return sLabelMap;
+	}
 
 	static {
-		sTypeMap = new HashMap<>();
-		sTypeMap.put("double", FieldDescriptorProto.Type.TYPE_DOUBLE);
-		sTypeMap.put("float", FieldDescriptorProto.Type.TYPE_FLOAT);
-		sTypeMap.put("int32", FieldDescriptorProto.Type.TYPE_INT32);
-		sTypeMap.put("int64", FieldDescriptorProto.Type.TYPE_INT64);
-		sTypeMap.put("uint32", FieldDescriptorProto.Type.TYPE_UINT32);
-		sTypeMap.put("uint64", FieldDescriptorProto.Type.TYPE_UINT64);
-		sTypeMap.put("sint32", FieldDescriptorProto.Type.TYPE_SINT32);
-		sTypeMap.put("sint64", FieldDescriptorProto.Type.TYPE_SINT64);
-		sTypeMap.put("fixed32", FieldDescriptorProto.Type.TYPE_FIXED32);
-		sTypeMap.put("fixed64", FieldDescriptorProto.Type.TYPE_FIXED64);
-		sTypeMap.put("sfixed32", FieldDescriptorProto.Type.TYPE_SFIXED32);
-		sTypeMap.put("sfixed64", FieldDescriptorProto.Type.TYPE_SFIXED64);
-		sTypeMap.put("bool", FieldDescriptorProto.Type.TYPE_BOOL);
-		sTypeMap.put("string", FieldDescriptorProto.Type.TYPE_STRING);
-		sTypeMap.put("bytes", FieldDescriptorProto.Type.TYPE_BYTES);
+		//Note: modified, use immutable map.
+		ImmutableMap.Builder<String, FieldDescriptorProto.Type> sTypeMapBuilder = ImmutableMap.builder();
+		sTypeMapBuilder.put("double", FieldDescriptorProto.Type.TYPE_DOUBLE);
+		sTypeMapBuilder.put("float", FieldDescriptorProto.Type.TYPE_FLOAT);
+		sTypeMapBuilder.put("int32", FieldDescriptorProto.Type.TYPE_INT32);
+		sTypeMapBuilder.put("int64", FieldDescriptorProto.Type.TYPE_INT64);
+		sTypeMapBuilder.put("uint32", FieldDescriptorProto.Type.TYPE_UINT32);
+		sTypeMapBuilder.put("uint64", FieldDescriptorProto.Type.TYPE_UINT64);
+		sTypeMapBuilder.put("sint32", FieldDescriptorProto.Type.TYPE_SINT32);
+		sTypeMapBuilder.put("sint64", FieldDescriptorProto.Type.TYPE_SINT64);
+		sTypeMapBuilder.put("fixed32", FieldDescriptorProto.Type.TYPE_FIXED32);
+		sTypeMapBuilder.put("fixed64", FieldDescriptorProto.Type.TYPE_FIXED64);
+		sTypeMapBuilder.put("sfixed32", FieldDescriptorProto.Type.TYPE_SFIXED32);
+		sTypeMapBuilder.put("sfixed64", FieldDescriptorProto.Type.TYPE_SFIXED64);
+		sTypeMapBuilder.put("bool", FieldDescriptorProto.Type.TYPE_BOOL);
+		sTypeMapBuilder.put("string", FieldDescriptorProto.Type.TYPE_STRING);
+		sTypeMapBuilder.put("bytes", FieldDescriptorProto.Type.TYPE_BYTES);
 		//sTypeMap.put("enum", FieldDescriptorProto.Type.TYPE_ENUM);
 		//sTypeMap.put("message", FieldDescriptorProto.Type.TYPE_MESSAGE);
 		//sTypeMap.put("group", FieldDescriptorProto.Type.TYPE_GROUP);
+		sTypeMap = sTypeMapBuilder.build();
 
-		sLabelMap = new HashMap<>();
-		sLabelMap.put("optional", FieldDescriptorProto.Label.LABEL_OPTIONAL);
-		sLabelMap.put("required", FieldDescriptorProto.Label.LABEL_REQUIRED);
-		sLabelMap.put("repeated", FieldDescriptorProto.Label.LABEL_REPEATED);
+		//Note: modified, use immutable map.
+		ImmutableMap.Builder<String, FieldDescriptorProto.Label> sLabelMapBuilder = ImmutableMap.builder();
+		sLabelMapBuilder.put("optional", FieldDescriptorProto.Label.LABEL_OPTIONAL);
+		sLabelMapBuilder.put("required", FieldDescriptorProto.Label.LABEL_REQUIRED);
+		sLabelMapBuilder.put("repeated", FieldDescriptorProto.Label.LABEL_REPEATED);
+		sLabelMap = sLabelMapBuilder.build();
 	}
 }

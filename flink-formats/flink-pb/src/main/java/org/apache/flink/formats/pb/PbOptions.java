@@ -78,4 +78,10 @@ public class PbOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Optional flag whether the size header is little endian.");
+
+	public static final ConfigOption<Boolean> ENABLE_RUNTIME_PB_CUT = ConfigOptions
+		.key("enable-runtime-pb-cut")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional flag whether cut proto file according to runtime rowType.");
 }

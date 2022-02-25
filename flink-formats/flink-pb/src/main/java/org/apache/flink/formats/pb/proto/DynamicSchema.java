@@ -27,6 +27,8 @@ import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.Descriptors.FileDescriptor;
 import com.google.protobuf.DynamicMessage;
 
+import javax.annotation.Nullable;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -399,6 +401,12 @@ public class DynamicSchema {
 			optionsBuilder.setJavaPackage(javaPackage);
 			mFileDescProtoBuilder.mergeOptions(optionsBuilder.build());
 			return this;
+		}
+
+		// Note: added
+		public @Nullable
+		String getJavaPackage() {
+			return mFileDescProtoBuilder.getOptions().getJavaPackage();
 		}
 
 		// Note: added
