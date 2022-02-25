@@ -266,6 +266,14 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		.asList()
 		.defaultValues();
 
+	/**
+	 * whether projection pushdown is applicable or not.
+	 */
+	private static final ConfigOption<Boolean> IS_APPLICABLE_TO_PUSHDOWN_PROJECTION = ConfigOptions
+		.key("applicable-to-pushdown-projection")
+		.booleanType()
+		.defaultValue(true);
+
 	@Override
 	public String factoryIdentifier() {
 		return IDENTIFIER;
@@ -289,6 +297,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		Boolean isInputKeyByEnable = helper.getOptions().getOptional(LOOKUP_ENABLE_INPUT_KEYBY).orElse(null);
 		DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
 		boolean isBooleanKeySupported = helper.getOptions().get(BOOLEAN_LOOKUP_KEY_SUPPORTED);
+		boolean isApplicableToPushDownProjection = helper.getOptions().get(IS_APPLICABLE_TO_PUSHDOWN_PROJECTION);
 
 		if (sourceClass.equals("DEFAULT")) {
 			Collection<Row> data = registeredData.getOrDefault(dataId, Collections.emptyList());
@@ -321,7 +330,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				partitions,
 				isInputKeyByEnable,
 				producedDataType,
-				isBooleanKeySupported);
+				isBooleanKeySupported,
+				isApplicableToPushDownProjection);
 		} else {
 			try {
 				return InstantiationUtil.instantiate(
@@ -373,7 +383,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 			FILTERABLE_FIELDS,
 			PARTITION_LIST,
 			LOOKUP_ENABLE_INPUT_KEYBY,
-			BOOLEAN_LOOKUP_KEY_SUPPORTED));
+			BOOLEAN_LOOKUP_KEY_SUPPORTED,
+			IS_APPLICABLE_TO_PUSHDOWN_PROJECTION));
 	}
 
 	private static List<Map<String, String>> parsePartitionList(List<String> stringPartitions) {
@@ -481,6 +492,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		private final Boolean isInputKeyByEnable;
 		private DataType producedDataType;
 		private final Boolean isBooleanKeySupported;
+		private final boolean isApplicableToPushDownProjection;
 
 		private TestValuesTableSource(
 			TableSchema physicalSchema,
@@ -498,7 +510,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 			List<Map<String, String>> allPartitions,
 			Boolean isInputKeyByEnable,
 			DataType producedDataType,
-			boolean isBooleanKeySupported) {
+			boolean isBooleanKeySupported,
+			boolean isApplicableToPushDownProjection) {
 			this.physicalSchema = physicalSchema;
 			this.changelogMode = changelogMode;
 			this.bounded = bounded;
@@ -515,6 +528,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 			this.isInputKeyByEnable = isInputKeyByEnable;
 			this.producedDataType = producedDataType;
 			this.isBooleanKeySupported = isBooleanKeySupported;
+			this.isApplicableToPushDownProjection = isApplicableToPushDownProjection;
 		}
 
 		@Override
@@ -623,6 +637,11 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		}
 
 		@Override
+		public boolean isApplicableToPushDownProjection() {
+			return isApplicableToPushDownProjection;
+		}
+
+		@Override
 		public void applyProjection(int[][] projectedFields) {
 			this.producedDataType = DataTypeUtils.projectRow(producedDataType, projectedFields);
 			this.projectedFields = Arrays.stream(projectedFields).mapToInt(f -> f[0]).toArray();
@@ -678,7 +697,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				allPartitions,
 				isInputKeyByEnable,
 				producedDataType,
-				isBooleanKeySupported);
+				isBooleanKeySupported,
+				isApplicableToPushDownProjection);
 		}
 
 		@Override

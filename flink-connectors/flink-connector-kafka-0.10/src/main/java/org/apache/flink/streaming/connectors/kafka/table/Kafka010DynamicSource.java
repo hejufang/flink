@@ -36,11 +36,17 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.utils.DataTypeUtils;
 import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.Preconditions;
+
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -85,15 +91,47 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 	}
 
 	@Override
+	public void applyProjection(int[][] projectedFields) {
+		//datatype project
+		setOutputDataType(DataTypeUtils.projectRow(getOutputDataType(), projectedFields));
+
+		if (hasMetaDataColumn()) {
+			ImmutableMap.Builder<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMapBuilder = ImmutableMap.builder();
+			List<int[]> projectedFieldsExceptMetaData = new ArrayList<>();
+			for (int i = 0; i < projectedFields.length; i++) {
+				int index = projectedFields[i][0];
+				DynamicSourceMetadataFactory.DynamicSourceMetadata metadata = kafkaSourceConfig.getMetadataMap().get(index);
+				if (metadata != null) {
+					metadataMapBuilder.put(i, metadata);
+				} else {
+					projectedFieldsExceptMetaData.add(projectedFields[i]);
+				}
+			}
+			ImmutableMap<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> newMetadataMap = metadataMapBuilder.build();
+			if (newMetadataMap.isEmpty()) {
+				//indicates that all the metadata column has been pruned, we must clear the following fields
+				kafkaSourceConfig.setMetadataMap(null);
+				kafkaSourceConfig.setWithoutMetaDataType(null);
+				Preconditions.checkArgument(!hasMetaDataColumn());
+			} else {
+				int[][] projectsFieldsWithoutMd = projectedFieldsExceptMetaData.stream().toArray(int[][]::new);
+				DataType dataType = DataTypeUtils.projectRow(getOutputDataType(), projectsFieldsWithoutMd);
+				kafkaSourceConfig.setWithoutMetaDataType(dataType);
+				kafkaSourceConfig.setMetadataMap(newMetadataMap);
+			}
+		}
+	}
+
+	@Override
 	protected FlinkKafkaConsumerBase<RowData> createKafkaConsumer(
 			String topic,
 			Properties properties,
 			DeserializationSchema<RowData> deserializationSchema) {
 		FlinkKafkaConsumerBase<RowData> consumerBase;
-		if (kafkaSourceConfig.getWithoutMetaDataType() == null) {
+		if (!hasMetaDataColumn()) {
 			consumerBase = new FlinkKafkaConsumer010<>(topic, deserializationSchema, properties);
 		} else {
-			TypeInformation<RowData> typeInformation = (TypeInformation<RowData>) TypeConversions.fromDataTypeToLegacyInfo(outputDataType);
+			TypeInformation<RowData> typeInformation = (TypeInformation<RowData>) TypeConversions.fromDataTypeToLegacyInfo(getOutputDataType());
 			final Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap = kafkaSourceConfig.getMetadataMap();
 			KafkaDeserializationSchema<RowData> kafkaDeserializationSchema =
 				new KafkaDeserializationSchemaRowDataWithMetadata(

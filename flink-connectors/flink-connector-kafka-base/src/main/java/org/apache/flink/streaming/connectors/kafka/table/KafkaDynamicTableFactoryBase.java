@@ -57,6 +57,7 @@ import java.util.Set;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPS_CLUSTER;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPS_GROUP_ID;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_CONSUMER_FACTORY_CLASS;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_ENABLE_PROJECTION_PUSHDOWN;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_FORCE_MANUAL_COMMIT_OFFSETS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_MANUALLY_COMMIT_OFFSET_INTERVAL;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_PARTITION_RANGE;
@@ -213,6 +214,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SCAN_FORCE_MANUAL_COMMIT_OFFSETS);
 		options.add(SCAN_RELATIVE_OFFSET);
 		options.add(SCAN_START_IGNORE_STATE_OFFSETS);
+		options.add(SCAN_ENABLE_PROJECTION_PUSHDOWN);
 
 		options.add(SINK_LOG_FAILURE_ONLY);
 		options.add(SINK_PARTITIONER);
@@ -267,6 +269,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 					KeySelectorUtil.getRowDataSelector(fields, new RowDataTypeInfo(rowType), configuration));
 			}
 		);
+		readableConfig.getOptional(SCAN_ENABLE_PROJECTION_PUSHDOWN).
+			ifPresent(sourceConfig::setProjectionPushDownIsApplicable);
 		return sourceConfig;
 	}
 

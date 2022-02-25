@@ -80,6 +80,24 @@ public class PushProjectIntoTableSourceScanRuleTest extends PushProjectIntoLegac
 	}
 
 	@Test
+	public void testDoNotProjectIfNotApplicable() {
+		String ddl =
+			"CREATE TABLE table_not_applicable (\n" +
+				"  a int,\n" +
+				"  b bigint,\n" +
+				"  c string\n" +
+				") WITH (\n" +
+				" 'connector' = 'values',\n" +
+				" 'bounded' = 'true',\n" +
+				" 'applicable-to-pushdown-projection' = 'false'\n" +
+				")";
+		util().tableEnv().executeSql(ddl);
+
+		String sqlQuery = "SELECT a, c FROM table_not_applicable";
+		util().verifyPlan(sqlQuery);
+	}
+
+	@Test
 	public void testNestedProjectDisabled() {
 		testNestedProject(false);
 	}

@@ -153,6 +153,12 @@ public class KafkaOptions {
 		.defaultValue(false)
 		.withDescription("Optional ignore whether the checkpoint is successful, and force commit offset");
 
+	public static final ConfigOption<Boolean> SCAN_ENABLE_PROJECTION_PUSHDOWN = ConfigOptions
+		.key("scan.enable-projection-pushdown")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional decide whether table scan is applicable to pushdown projection.");
+
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------

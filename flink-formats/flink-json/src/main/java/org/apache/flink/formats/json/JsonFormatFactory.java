@@ -27,6 +27,7 @@ import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.format.EncodingFormat;
+import org.apache.flink.table.connector.format.ProjectionPushDownableDecodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
@@ -83,32 +84,7 @@ public class JsonFormatFactory implements
 		Map<Feature, Boolean> parserFeature = getParserFeatureMap(context.getCatalogTable().getOptions());
 		TimestampFormat timestampOption = formatOptions.get(TIMESTAMP_FORMAT);
 
-		return new DecodingFormat<DeserializationSchema<RowData>>() {
-			@Override
-			public DeserializationSchema<RowData> createRuntimeDecoder(
-					DynamicTableSource.Context context,
-					DataType producedDataType) {
-				final RowType rowType = (RowType) producedDataType.getLogicalType();
-				final TypeInformation<RowData> rowDataTypeInfo =
-						(TypeInformation<RowData>) context.createTypeInformation(producedDataType);
-				return new JsonRowDataDeserializationSchema(
-					rowType,
-					rowDataTypeInfo,
-					failOnMissingField,
-					defaultOnMissingField,
-					ignoreParseErrors,
-					byteAsJsonNode,
-					timestampOption,
-					logParseErrorsInterval,
-					parserFeature
-					);
-			}
-
-			@Override
-			public ChangelogMode getChangelogMode() {
-				return ChangelogMode.insertOnly();
-			}
-		};
+		return new JsonDeserializationSchemaDecodingFormat(failOnMissingField, defaultOnMissingField, ignoreParseErrors, byteAsJsonNode, timestampOption, logParseErrorsInterval, parserFeature);
 	}
 
 	@Override
@@ -205,5 +181,50 @@ public class JsonFormatFactory implements
 			});
 
 		return res;
+	}
+
+	private static class JsonDeserializationSchemaDecodingFormat implements DecodingFormat<DeserializationSchema<RowData>>, ProjectionPushDownableDecodingFormat {
+		private final boolean failOnMissingField;
+		private final boolean defaultOnMissingField;
+		private final boolean ignoreParseErrors;
+		private final boolean byteAsJsonNode;
+		private final TimestampFormat timestampOption;
+		private final long logParseErrorsInterval;
+		private final Map<Feature, Boolean> parserFeature;
+
+		public JsonDeserializationSchemaDecodingFormat(boolean failOnMissingField, boolean defaultOnMissingField, boolean ignoreParseErrors, boolean byteAsJsonNode, TimestampFormat timestampOption, long logParseErrorsInterval, Map<Feature, Boolean> parserFeature) {
+			this.failOnMissingField = failOnMissingField;
+			this.defaultOnMissingField = defaultOnMissingField;
+			this.ignoreParseErrors = ignoreParseErrors;
+			this.byteAsJsonNode = byteAsJsonNode;
+			this.timestampOption = timestampOption;
+			this.logParseErrorsInterval = logParseErrorsInterval;
+			this.parserFeature = parserFeature;
+		}
+
+		@Override
+		public DeserializationSchema<RowData> createRuntimeDecoder(
+			DynamicTableSource.Context context,
+			DataType producedDataType) {
+			final RowType rowType = (RowType) producedDataType.getLogicalType();
+			final TypeInformation<RowData> rowDataTypeInfo =
+				(TypeInformation<RowData>) context.createTypeInformation(producedDataType);
+			return new JsonRowDataDeserializationSchema(
+				rowType,
+				rowDataTypeInfo,
+				failOnMissingField,
+				defaultOnMissingField,
+				ignoreParseErrors,
+				byteAsJsonNode,
+				timestampOption,
+				logParseErrorsInterval,
+				parserFeature
+			);
+		}
+
+		@Override
+		public ChangelogMode getChangelogMode() {
+			return ChangelogMode.insertOnly();
+		}
 	}
 }

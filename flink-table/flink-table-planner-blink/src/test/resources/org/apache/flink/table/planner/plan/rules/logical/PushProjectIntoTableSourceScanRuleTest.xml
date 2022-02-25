@@ -164,4 +164,21 @@ LogicalTableScan(table=[[default_catalog, default_database, MyTable, project=[a,
 ]]>
     </Resource>
   </TestCase>
+  <TestCase name="testDoNotProjectIfNotApplicable">
+		<Resource name="sql">
+			<![CDATA[SELECT a, c FROM table_not_applicable]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalProject(a=[$0], c=[$2])
++- LogicalTableScan(table=[[default_catalog, default_database, table_not_applicable]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+LogicalProject(a=[$0], c=[$2])
++- LogicalTableScan(table=[[default_catalog, default_database, table_not_applicable]])
+]]>
+		</Resource>
+	</TestCase>
 </Root>

@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.connectors.kafka.table;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
@@ -31,9 +32,11 @@ import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
+import org.apache.flink.table.connector.format.ProjectionPushDownableDecodingFormat;
 import org.apache.flink.table.connector.source.DataStreamScanProvider;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceFunctionProvider;
+import org.apache.flink.table.connector.source.abilities.extension.SupportsProjectionPushIntoDecodingFormat;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.table.sources.StreamTableSource;
@@ -42,6 +45,7 @@ import org.apache.flink.util.Preconditions;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Properties;
 
 /**
@@ -51,12 +55,12 @@ import java.util.Properties;
  * override {@link #createKafkaConsumer(String, Properties, DeserializationSchema)}}.
  */
 @Internal
-public abstract class KafkaDynamicSourceBase implements ScanTableSource {
+public abstract class KafkaDynamicSourceBase implements ScanTableSource, SupportsProjectionPushIntoDecodingFormat {
 
 	// --------------------------------------------------------------------------------------------
 	// Common attributes
 	// --------------------------------------------------------------------------------------------
-	protected final DataType outputDataType;
+	protected DataType outputDataType;
 
 	// --------------------------------------------------------------------------------------------
 	// Scan format attributes
@@ -136,23 +140,46 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 	}
 
 	@Override
+	public boolean isTableSourceApplicable() {
+		//shall disable projection pushdown by default.
+		return Optional.ofNullable(kafkaSourceConfig)
+			.map(KafkaSourceConfig::isProjectionPushDownIsApplicable)
+			.orElse(Boolean.valueOf(false));
+	}
+
+	@Override
+	public boolean isDecodingFormatApplicable() {
+		if (!(decodingFormat instanceof ProjectionPushDownableDecodingFormat)) {
+			return false;
+		}
+		ProjectionPushDownableDecodingFormat projectionPushDownableDecodingFormat = (ProjectionPushDownableDecodingFormat) this.decodingFormat;
+		return projectionPushDownableDecodingFormat.isApplicableToPushDownProjection();
+	}
+
+	@Override
+	public boolean supportsNestedProjection() {
+		return false;
+	}
+
+	@Override
+	public void applyProjection(int[][] projectedFields) {
+		throw new UnsupportedOperationException("currently, " + this.getClass().getName() +
+			"does not support projection pushdown.");
+	}
+
+	@Override
 	public ChangelogMode getChangelogMode() {
 		return this.decodingFormat.getChangelogMode();
 	}
 
 	@Override
 	public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
-		DataType dataType;
-		if (kafkaSourceConfig.getWithoutMetaDataType() != null) {
-			dataType = kafkaSourceConfig.getWithoutMetaDataType();
-		} else {
-			dataType = outputDataType;
-		}
+		final DataType dataType = getDataTypeWithoutMetadataColumn();
 		DeserializationSchema<RowData> deserializationSchema =
-				this.decodingFormat.createRuntimeDecoder(runtimeProviderContext, dataType);
+			this.decodingFormat.createRuntimeDecoder(runtimeProviderContext, dataType);
 		// Version-specific Kafka consumer
 		FlinkKafkaConsumerBase<RowData> kafkaConsumer =
-				getKafkaConsumer(topic, properties, deserializationSchema);
+			getKafkaConsumer(topic, properties, deserializationSchema);
 		kafkaConsumer.setWhiteTopicPartitionList(kafkaSourceConfig.getPartitionTopicList());
 		if (kafkaSourceConfig.getRateLimitNumber() > 0) {
 			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
@@ -206,6 +233,34 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 		}
 
 		return SourceFunctionProvider.of(kafkaConsumer, false);
+	}
+
+	/**
+	 * get datatype without metadata columns.
+	 */
+	@VisibleForTesting
+	public DataType getDataTypeWithoutMetadataColumn() {
+		DataType dataType;
+		if (hasMetaDataColumn()) {
+			dataType = kafkaSourceConfig.getWithoutMetaDataType();
+		} else {
+			dataType = outputDataType;
+		}
+		return dataType;
+	}
+
+	@VisibleForTesting
+	public boolean hasMetaDataColumn() {
+		return kafkaSourceConfig != null && kafkaSourceConfig.getWithoutMetaDataType() != null;
+	}
+
+	@VisibleForTesting
+	public DataType getOutputDataType() {
+		return outputDataType;
+	}
+
+	protected void setOutputDataType(DataType outputDataType) {
+		this.outputDataType = outputDataType;
 	}
 
 	@Override

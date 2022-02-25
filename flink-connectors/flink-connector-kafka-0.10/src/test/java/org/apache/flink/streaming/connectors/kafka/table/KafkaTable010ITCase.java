@@ -59,11 +59,16 @@ public class KafkaTable010ITCase {
 	@Parameterized.Parameter(1)
 	public String format;
 
-	@Parameterized.Parameters(name = "hasMetadataColumn = {0}, format = {1}")
+	@Parameterized.Parameter(2)
+	public boolean supportsProjectionPushDown;
+
+	@Parameterized.Parameters(name = "hasMetadataColumn = {0}, format = {1}, supportsProjectionPushDown = {2}")
 	public static Object[] parameters() {
 		return new Object[][]{
-			new Object[]{false, JSON_FORMAT},
-			new Object[]{true, JSON_FORMAT}
+			new Object[]{false, JSON_FORMAT, false},
+			new Object[]{true, JSON_FORMAT, false},
+			new Object[]{false, JSON_FORMAT, true},
+			new Object[]{true, JSON_FORMAT, true}
 		};
 	}
 
@@ -100,7 +105,8 @@ public class KafkaTable010ITCase {
 					formatOptions,
 					MockKafkaProducerConsumerContext.KafkaStaticConsumerFactoryForMock.class.getName(),
 					MockKafkaProducerConsumerContext.KafkaStaticProducerFactoryForMock.class.getName(),
-					hasMetadataColumn
+					hasMetadataColumn,
+					supportsProjectionPushDown
 				);
 
 				tEnv.executeSql(createTableSql);
@@ -193,7 +199,8 @@ public class KafkaTable010ITCase {
 		String formatOptions,
 		String consumerFactoryClassName,
 		String producerFactoryClassName,
-		boolean hasMetadataColumn
+		boolean hasMetadataColumn,
+		boolean supportsProjectionPushDown
 	) {
 		final String metadataColumnOption;
 		if (hasMetadataColumn) {
@@ -219,6 +226,7 @@ public class KafkaTable010ITCase {
 				"  'properties.unit.test' = 'true',\n" +
 				"  'connector' = '%s',\n" +
 				"  'topic' = '%s',\n" +
+				"  'scan.enable-projection-pushdown' = '%s',\n" +
 				metadataColumnOption + "\n" +
 				"  'properties.cluster' = '%s',\n" +
 				"  'properties.group.id' = '%s',\n" +
@@ -228,6 +236,7 @@ public class KafkaTable010ITCase {
 				")",
 			Kafka010DynamicTableFactory.IDENTIFIER,
 			topic,
+			supportsProjectionPushDown,
 			cluster,
 			groupId,
 			consumerFactoryClassName,

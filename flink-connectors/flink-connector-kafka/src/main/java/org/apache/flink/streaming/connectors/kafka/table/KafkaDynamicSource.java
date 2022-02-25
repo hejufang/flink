@@ -77,6 +77,11 @@ public class KafkaDynamicSource extends KafkaDynamicSourceBase {
 	}
 
 	@Override
+	public boolean isApplicableToPushDownProjection() {
+		return false;
+	}
+
+	@Override
 	public DynamicTableSource copy() {
 		return new KafkaDynamicSource(
 				this.outputDataType,

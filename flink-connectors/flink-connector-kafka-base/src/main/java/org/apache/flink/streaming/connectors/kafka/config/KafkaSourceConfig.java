@@ -43,6 +43,7 @@ public class KafkaSourceConfig implements Serializable {
 	private Integer parallelism;
 	private boolean startIgnoreStateOffsets;
 	private boolean forceManuallyCommitOffsets;
+	private boolean  projectionPushDownIsApplicable;
 	private KeySelector<RowData, RowData> keySelector;
 	private KafkaConsumerFactory kafkaConsumerFactory = KafkaConsumerFactory.DefaultKafkaConsumerFactory.getInstance();
 
@@ -158,6 +159,14 @@ public class KafkaSourceConfig implements Serializable {
 		this.keySelector = keySelector;
 	}
 
+	public boolean isProjectionPushDownIsApplicable() {
+		return projectionPushDownIsApplicable;
+	}
+
+	public void setProjectionPushDownIsApplicable(boolean projectionPushDownIsApplicable) {
+		this.projectionPushDownIsApplicable = projectionPushDownIsApplicable;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -179,13 +188,14 @@ public class KafkaSourceConfig implements Serializable {
 			Objects.equals(parallelism, that.parallelism) &&
 			Objects.equals(startIgnoreStateOffsets, that.startIgnoreStateOffsets) &&
 			Objects.equals(forceManuallyCommitOffsets, that.forceManuallyCommitOffsets) &&
-			Objects.equals(keySelector, that.keySelector);
+			Objects.equals(keySelector, that.keySelector) &&
+			Objects.equals(projectionPushDownIsApplicable, that.projectionPushDownIsApplicable);
 	}
 
 	@Override
 	public int hashCode() {
 		return Objects.hash(rateLimitNumber, scanSampleInterval, scanSampleNum, partitionTopicList,
 			kafkaResetNewPartition, withoutMetaDataType, metadataMap, manualCommitInterval, relativeOffset,
-			parallelism, keySelector, startIgnoreStateOffsets, forceManuallyCommitOffsets);
+			parallelism, keySelector, startIgnoreStateOffsets, forceManuallyCommitOffsets, projectionPushDownIsApplicable);
 	}
 }

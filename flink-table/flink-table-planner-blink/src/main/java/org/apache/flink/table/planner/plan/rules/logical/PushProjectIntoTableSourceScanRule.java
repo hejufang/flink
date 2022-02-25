@@ -61,6 +61,9 @@ public class PushProjectIntoTableSourceScanRule extends RelOptRule {
 			return false;
 		}
 		SupportsProjectionPushDown pushDownSource = (SupportsProjectionPushDown) tableSourceTable.tableSource();
+		if (!pushDownSource.isApplicableToPushDownProjection()) {
+			return false;
+		}
 		if (pushDownSource.supportsNestedProjection()) {
 			throw new TableException("Nested projection push down is unsupported now. \n" +
 					"Please disable nested projection (SupportsProjectionPushDown#supportsNestedProjection returns false), " +

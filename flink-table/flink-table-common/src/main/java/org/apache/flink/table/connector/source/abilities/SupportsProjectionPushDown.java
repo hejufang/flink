@@ -49,6 +49,13 @@ import org.apache.flink.table.connector.source.ScanTableSource;
 public interface SupportsProjectionPushDown {
 
 	/**
+	 * Returns whether to apply current projection or not.
+	 */
+	default boolean isApplicableToPushDownProjection() {
+		return true;
+	}
+
+	/**
 	 * Returns whether this source supports nested projection.
 	 */
 	boolean supportsNestedProjection();

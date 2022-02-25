@@ -26,6 +26,7 @@ import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.format.EncodingFormat;
+import org.apache.flink.table.connector.format.ProjectionPushDownableDecodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
@@ -52,12 +53,17 @@ public class TestFormatFactory implements DeserializationFormatFactory, Serializ
 		.booleanType()
 		.defaultValue(false);
 
+	public static final ConfigOption<Boolean> CAN_PROJECTION_PUSHDOWN = ConfigOptions
+		.key("can-projection-pushdown")
+		.booleanType()
+		.defaultValue(true);
+
 	@Override
 	public DecodingFormat<DeserializationSchema<RowData>> createDecodingFormat(
 			DynamicTableFactory.Context context,
 			ReadableConfig formatConfig) {
 		FactoryUtil.validateFactoryOptions(this, formatConfig);
-		return new DecodingFormatMock(formatConfig.get(DELIMITER), formatConfig.get(FAIL_ON_MISSING));
+		return new DecodingFormatMock(formatConfig.get(DELIMITER), formatConfig.get(FAIL_ON_MISSING), formatConfig.get(CAN_PROJECTION_PUSHDOWN));
 	}
 
 	@Override
@@ -84,6 +90,7 @@ public class TestFormatFactory implements DeserializationFormatFactory, Serializ
 	public Set<ConfigOption<?>> optionalOptions() {
 		final Set<ConfigOption<?>> options = new HashSet<>();
 		options.add(FAIL_ON_MISSING);
+		options.add(CAN_PROJECTION_PUSHDOWN);
 		return options;
 	}
 
@@ -94,14 +101,20 @@ public class TestFormatFactory implements DeserializationFormatFactory, Serializ
 	/**
 	 * {@link DecodingFormat} for testing.
 	 */
-	public static class DecodingFormatMock implements DecodingFormat<DeserializationSchema<RowData>> {
+	public static class DecodingFormatMock implements DecodingFormat<DeserializationSchema<RowData>>, ProjectionPushDownableDecodingFormat {
 
 		public final String delimiter;
 		public final Boolean failOnMissing;
+		public final Boolean canProjectionPushDown;
 
 		public DecodingFormatMock(String delimiter, Boolean failOnMissing) {
+			this(delimiter, failOnMissing, true);
+		}
+
+		public DecodingFormatMock(String delimiter, Boolean failOnMissing, Boolean canProjectionPushDown) {
 			this.delimiter = delimiter;
 			this.failOnMissing = failOnMissing;
+			this.canProjectionPushDown = canProjectionPushDown;
 		}
 
 		@Override
@@ -117,6 +130,11 @@ public class TestFormatFactory implements DeserializationFormatFactory, Serializ
 		}
 
 		@Override
+		public boolean isApplicableToPushDownProjection() {
+			return canProjectionPushDown;
+		}
+
+		@Override
 		public boolean equals(Object o) {
 			if (this == o) {
 				return true;
@@ -125,7 +143,7 @@ public class TestFormatFactory implements DeserializationFormatFactory, Serializ
 				return false;
 			}
 			DecodingFormatMock that = (DecodingFormatMock) o;
-			return delimiter.equals(that.delimiter) && failOnMissing.equals(that.failOnMissing);
+			return delimiter.equals(that.delimiter) && failOnMissing.equals(that.failOnMissing) && canProjectionPushDown.equals(that.canProjectionPushDown);
 		}
 
 		@Override

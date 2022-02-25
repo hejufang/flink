@@ -128,11 +128,13 @@ public class FactoryUtilTest {
 			"connector\n" +
 			"format\n" +
 			"key.format\n" +
+			"key.test-format.can-projection-pushdown\n" +
 			"key.test-format.delimiter\n" +
 			"key.test-format.fail-on-missing\n" +
 			"property-version\n" +
 			"target\n" +
 			"value.format\n" +
+			"value.test-format.can-projection-pushdown\n" +
 			"value.test-format.delimiter\n" +
 			"value.test-format.fail-on-missing");
 		testError(options -> {
