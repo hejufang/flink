@@ -220,6 +220,7 @@ public class MemoryPoolManager extends MemoryManager {
 				}
 
 				if (segment != null) {
+					segment.assignOwner(owner);
 					target.add(segment);
 				}
 
@@ -272,6 +273,7 @@ public class MemoryPoolManager extends MemoryManager {
 			}
 		}
 
+		segment.freeOwner();
 		segment.clear();
 		availableMemorySegments.add(segment);
 		numberOfAvailableMemorySegments.incrementAndGet();
@@ -303,6 +305,7 @@ public class MemoryPoolManager extends MemoryManager {
 		Set<MemorySegment> segments = allocatedSegments.remove(owner);
 		if (segments != null) {
 			for (MemorySegment segment : segments) {
+				segment.freeOwner();
 				segment.clear();
 			}
 			availableMemorySegments.addAll(segments);

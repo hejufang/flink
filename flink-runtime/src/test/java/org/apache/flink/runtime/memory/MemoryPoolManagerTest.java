@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 /**
@@ -123,20 +124,43 @@ public class MemoryPoolManagerTest {
 
 			for (int i = 0; i < numOwners; i++) {
 				owners[i] = new DummyInvokable();
-				mems[i] = new ArrayList<MemorySegment>(64);
+				mems[i] = new ArrayList<>(64);
 			}
 
 			// allocate all memory to the different owners
 			for (int i = 0; i < NUM_PAGES; i++) {
 				final int owner = this.random.nextInt(numOwners);
 				mems[owner].addAll(this.memoryManager.allocatePages(owners[owner], 1));
+				for (MemorySegment segment : mems[owner]) {
+					assertEquals(owners[owner], segment.getOwner());
+				}
 			}
 
 			// free one owner at a time
 			for (int i = 0; i < numOwners; i++) {
 				this.memoryManager.releaseAll(owners[i]);
 				owners[i] = null;
-				mems[i] = null;
+				mems[i].clear();
+			}
+
+			for (int i = 0; i < numOwners; i++) {
+				owners[i] = new DummyInvokable();
+				mems[i] = new ArrayList<>(64);
+			}
+			// allocate all memory to the different owners again
+			for (int i = 0; i < NUM_PAGES; i++) {
+				final int owner = this.random.nextInt(numOwners);
+				mems[owner].addAll(this.memoryManager.allocatePages(owners[owner], 1));
+				for (MemorySegment segment : mems[owner]) {
+					assertEquals(owners[owner], segment.getOwner());
+				}
+			}
+
+			// free one owner at a time
+			for (int i = 0; i < numOwners; i++) {
+				this.memoryManager.releaseAll(owners[i]);
+				owners[i] = null;
+				mems[i].clear();
 			}
 		}
 		catch (Exception e) {

@@ -29,6 +29,9 @@ import java.nio.ReadOnlyBufferException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
 /**
  * This class represents a piece of memory managed by Flink.
  * The segment may be backed by heap memory (byte array) or by off-heap memory.
@@ -148,7 +151,7 @@ public abstract class MemorySegment {
 	/**
 	 * Optional owner of the memory segment.
 	 */
-	private final Object owner;
+	private Object owner;
 
 	/**
 	 * Creates a new memory segment that represents the memory of the byte array.
@@ -299,6 +302,25 @@ public abstract class MemorySegment {
 		return owner;
 	}
 
+	/**
+	 * Assign this segment to given owner.
+	 *
+	 * @param owner the given owner
+	 */
+	public void assignOwner(Object owner) {
+		checkNotNull(owner);
+		checkArgument(this.owner == null, "The segment is used by " + this.owner +
+			" now, can't be assigned to " + owner);
+		this.owner = owner;
+	}
+
+	/**
+	 * Set the owner of the segment to null, it means nobody is using the segment.
+	 */
+	public void freeOwner() {
+		checkNotNull(owner);
+		owner = null;
+	}
 
 	// ------------------------------------------------------------------------
 	//                    Random Access get() and put() methods
