@@ -300,6 +300,7 @@ public class TaskExecutorLocalStateStoresManager implements TaskLocalStateListen
 					if (jobStateSize != null) {
 						jobStateSize.f0.remove(allocationID);
 						jobStateSize.f1 -= entry.getValue().f2;
+						totalLocalStateSize -= entry.getValue().f2;
 						if (jobStateSize.f0.isEmpty()) {
 							jobIdToAllocationId.remove(entry.getKey().jobID);
 						}
@@ -315,6 +316,28 @@ public class TaskExecutorLocalStateStoresManager implements TaskLocalStateListen
 		}
 
 		cleanupAllocationBaseDirs(allocationID);
+	}
+
+	public void updateLocalStateSizeAfterTaskInFinalState(AllocationID allocationID, JobID jobID, JobVertexID jobVertexID, int subIndex) {
+		synchronized (lock) {
+			if (closed) {
+				return;
+			}
+
+			Map<JobVertexSubtaskKey, Tuple3<ExecutionAttemptID, TaskManagerActions, Long>> subtaskLocalStateSize = taskLocalStateSize.get(allocationID);
+			if (subtaskLocalStateSize != null) {
+				JobVertexSubtaskKey jobVertexSubtaskKey = new JobVertexSubtaskKey(jobID, jobVertexID, subIndex);
+				// Don't remove it. Because the task always reuses the same AllocationID when it fails over,
+				// we keep it consistent with taskStateStoresByAllocationID to simplify management costs.
+				Tuple3<ExecutionAttemptID, TaskManagerActions, Long> subtaskStateSize = subtaskLocalStateSize.get(jobVertexSubtaskKey);
+				Tuple2<Set<AllocationID>, Long> jobStateSize = jobIdToAllocationId.get(jobID);
+				if (subtaskStateSize != null && jobStateSize != null) {
+					jobStateSize.f1 -= subtaskStateSize.f2;
+					totalLocalStateSize -= subtaskStateSize.f2;
+					subtaskStateSize.f2 = 0L;
+				}
+			}
+		}
 	}
 
 	public void shutdown() {

@@ -21,18 +21,28 @@ package org.apache.flink.streaming.api.environment;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointRetentionPolicy;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
+import org.apache.flink.runtime.checkpoint.OperatorState;
+import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.jobgraph.tasks.JobCheckpointingSettings;
 import org.apache.flink.runtime.state.CheckpointMetadataOutputStream;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
+import org.apache.flink.runtime.state.KeyGroupRange;
+import org.apache.flink.runtime.state.KeyGroupRangeOffsets;
+import org.apache.flink.runtime.state.KeyGroupsStateHandle;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointStorage;
+import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 
+import org.apache.commons.lang3.RandomUtils;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -40,9 +50,11 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Collection;
 import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 /**
  * Tests for finding latest snapshot {@link CheckpointConfig}.
@@ -172,6 +184,62 @@ public class CheckpointConfigFindLatestSnapshotTest {
 		assertEquals(SavepointRestoreSettings.none(), jobGraph.getSavepointRestoreSettings());
 	}
 
+	@Test
+	public void testReconfigureRestoreFromSnapshotWithExceedQuota() throws IOException {
+		String jobUID = "jname";
+		URI checkpointURI = tmp.newFolder().toURI();
+
+		final JobGraph jobGraph = buildJobGraph(jobUID);
+
+		buildCheckpointsInDir(checkpointURI.toString(), jobUID, "checkpoint-namespace", Collections.singleton(buildOperatorState(new OperatorID())));
+
+		// find by snapshot.namespace
+		Configuration configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, "snapshot-namespace");
+		configuration.setString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH, "latest");
+		configuration.set(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		configuration.set(TaskManagerOptions.NUM_TASK_SLOTS, 2);
+		configuration.set(CheckpointingOptions.ACTUAL_LOCAL_STATE_MAX_SIZE, MemorySize.parse("128b"));
+		try {
+			CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
+			fail("Should fail");
+		} catch (Exception ignore) {
+			// ignore
+		}
+
+		// find by state.checkpoints.namespace
+		configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, "checkpoint-namespace");
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, "snapshot-namespace");
+		configuration.setString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH, "latest");
+		configuration.set(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		configuration.set(TaskManagerOptions.NUM_TASK_SLOTS, 2);
+		configuration.set(CheckpointingOptions.ACTUAL_LOCAL_STATE_MAX_SIZE, MemorySize.parse("128b"));
+		try {
+			CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
+			fail("Should fail");
+		} catch (Exception ignore) {
+			// ignore
+		}
+
+		// find by state.checkpoints.namespace without checkpoint
+		configuration = new Configuration();
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, "checkpoint-namespace1");
+		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, "snapshot-namespace");
+		configuration.setString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH, "latest");
+		configuration.set(CheckpointingOptions.STATE_BACKEND, "filesystem");
+		configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointURI.toString());
+		configuration.set(TaskManagerOptions.NUM_TASK_SLOTS, 2);
+		configuration.set(CheckpointingOptions.ACTUAL_LOCAL_STATE_MAX_SIZE, MemorySize.parse("128b"));
+		try {
+			CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
+		} catch (Exception ignore) {
+			fail("Should no exceptions.");
+		}
+	}
+
 	private JobGraph buildJobGraphOnDisableCheckpointing(String jobUID) {
 		JobGraph jobGraph = new JobGraph(jobUID);
 		jobGraph.setJobUID(jobUID);
@@ -202,6 +270,10 @@ public class CheckpointConfigFindLatestSnapshotTest {
 	}
 
 	private CheckpointStorageLocation buildCheckpointsInDir(String checkpointsDir, String jobUID, String namespace) throws IOException {
+		return buildCheckpointsInDir(checkpointsDir, jobUID, namespace, Collections.emptyList());
+	}
+
+	private CheckpointStorageLocation buildCheckpointsInDir(String checkpointsDir, String jobUID, String namespace, Collection<OperatorState> operatorStates) throws IOException {
 		Configuration configuration = new Configuration();
 		configuration.set(CheckpointingOptions.CHECKPOINTS_NAMESPACE, namespace);
 		configuration.set(CheckpointingOptions.STATE_BACKEND, "filesystem");
@@ -213,9 +285,18 @@ public class CheckpointConfigFindLatestSnapshotTest {
 
 		CheckpointStorageLocation location = storage.initializeLocationForCheckpoint(1L);
 		try (CheckpointMetadataOutputStream out = location.createMetadataOutputStream()) {
-			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, Collections.emptyList(), Collections.emptyList()), out);
+			Checkpoints.storeCheckpointMetadata(new CheckpointMetadata(1L, operatorStates, Collections.emptyList()), out);
 			out.closeAndFinalizeCheckpoint();
 		}
 		return location;
+	}
+
+	private OperatorState buildOperatorState(OperatorID operatorID) {
+		OperatorState operatorState = new OperatorState(operatorID, 1, 2);
+		KeyGroupRangeOffsets keyGroupRangeOffsets = new KeyGroupRangeOffsets(KeyGroupRange.of(0, 1), new long[]{0, 10});
+		KeyGroupsStateHandle keyGroupsStateHandle = new KeyGroupsStateHandle(keyGroupRangeOffsets, new ByteStreamStateHandle("bytestream", RandomUtils.nextBytes(128)));
+		OperatorSubtaskState subtaskState = new OperatorSubtaskState(null, null, keyGroupsStateHandle, null, null, null);
+		operatorState.putState(0, subtaskState);
+		return operatorState;
 	}
 }

@@ -23,26 +23,35 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
-import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
+import org.apache.flink.runtime.checkpoint.OperatorState;
+import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.state.CheckpointStorage;
+import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.StateBackend;
+import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.flink.runtime.checkpoint.CheckpointFailureManager.UNLIMITED_TOLERABLE_FAILURE_NUMBER;
+import static org.apache.flink.runtime.checkpoint.Checkpoints.loadCheckpointMetadata;
 import static org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration.MINIMAL_CHECKPOINT_TIME;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -642,7 +651,8 @@ public class CheckpointConfig implements java.io.Serializable {
 		final String savepointPath = configuration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
 		if (jobGraph.getCheckpointingSettings() != null) {
 			if (RESTORE_FROM_LATEST.equals(savepointPath)) {
-				Tuple2<String, Boolean> latestSnapshotPathAndNamespaceEmpty = findLatestSnapshotCrossNamespaces(configuration, jobGraph.getJobUID());
+				Tuple3<String, Boolean, CheckpointMetadata> latestSnapshotPathAndNamespaceEmpty = findLatestSnapshotCrossNamespaces(configuration, jobGraph.getJobUID());
+				checkStateSizeExceedQuota(jobGraph, configuration, latestSnapshotPathAndNamespaceEmpty.f2);
 				boolean needResetSavepointSettings = latestSnapshotPathAndNamespaceEmpty.f1;
 				String latestSnapshotPath = latestSnapshotPathAndNamespaceEmpty.f0;
 				if (needResetSavepointSettings && latestSnapshotPath != null) {
@@ -657,6 +667,13 @@ public class CheckpointConfig implements java.io.Serializable {
 				jobGraph.setSavepointRestoreSettings(savepointRestoreSettings);
 			} else {
 				LOG.info("checkpoint.restore-savepoint-path is not set.");
+				CheckpointMetadata checkpointMetadata = null;
+				try {
+					checkpointMetadata = findLatestSnapshotWithSameNamespaces(configuration, jobGraph.getJobUID());
+				} catch (Exception e) {
+					LOG.warn("Find latest snapshot failed, skip check.", e);
+				}
+				checkStateSizeExceedQuota(jobGraph, configuration, checkpointMetadata);
 			}
 		}
 	}
@@ -687,7 +704,7 @@ public class CheckpointConfig implements java.io.Serializable {
 		}
 	}
 
-	private static Tuple2<String, Boolean> findLatestSnapshotCrossNamespaces (
+	private static Tuple3<String, Boolean, CheckpointMetadata> findLatestSnapshotCrossNamespaces (
 		Configuration configuration,
 		String jobUID) throws IOException {
 
@@ -699,5 +716,57 @@ public class CheckpointConfig implements java.io.Serializable {
 		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobUID);
 
 		return checkpointStorage.findLatestSnapshotCrossNamespaces(configuration.get(CheckpointingOptions.MAX_TRACING_NAMESPACES), namespace);
+	}
+
+	private static CheckpointMetadata findLatestSnapshotWithSameNamespaces (
+			Configuration configuration,
+			String jobUID) throws IOException {
+
+		JobID jobID = JobID.generate();
+		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+		StateBackend stateBackend = Checkpoints.loadStateBackend(configuration, classLoader, LOG);
+		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobUID);
+		List<String> completedCheckpointPointers = checkpointStorage.findCompletedCheckpointPointer();
+		if (completedCheckpointPointers.size() > 0) {
+			String latestCompletedCheckpoint = completedCheckpointPointers.get(0);
+			final CompletedCheckpointStorageLocation location = checkpointStorage.resolveCheckpoint(latestCompletedCheckpoint);
+			Preconditions.checkNotNull(location, "location");
+
+			final StreamStateHandle metadataHandle = location.getMetadataHandle();
+			try (InputStream in = metadataHandle.openInputStream()) {
+				DataInputStream dis = new DataInputStream(in);
+				return loadCheckpointMetadata(dis, classLoader, latestCompletedCheckpoint);
+			}
+		}
+		return null;
+	}
+
+	private static void checkStateSizeExceedQuota(
+			JobGraph jobGraph,
+			final Configuration configuration,
+			CheckpointMetadata checkpointMetadata) throws IOException {
+
+		if (checkpointMetadata != null
+			&& configuration.get(CheckpointingOptions.ENABLE_FAIL_EXCEED_QUOTA_TASK)
+			&& "rocksdb".equalsIgnoreCase(configuration.get(CheckpointingOptions.STATE_BACKEND))) {
+			long totalStateSize = 0L;
+			for (OperatorState operatorState : checkpointMetadata.getOperatorStates()) {
+				totalStateSize += operatorState.getKeyStateTotalSize();
+			}
+			final int slotsPerTaskManager = configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
+			final int numTaskManagers = Math.max((jobGraph.calcMinRequiredSlotsNum() + slotsPerTaskManager - 1) / slotsPerTaskManager, 1);
+			long avgTaskManagerStateSize = totalStateSize / numTaskManagers;
+			long quota = (long) Math.ceil(configuration.get(CheckpointingOptions.ACTUAL_LOCAL_STATE_MAX_SIZE).getBytes() * 0.9);
+			LOG.info("The current total KeyedState size is: {} GB, the average taskManager state size is: {} GB, " +
+				"the quota limit is {} GB, and the total number of taskManagers is: {}.",
+				totalStateSize >> 30, avgTaskManagerStateSize >> 30, quota >> 30, numTaskManagers);
+			if (avgTaskManagerStateSize > quota) {
+				throw new IOException("After the submission, the average state size in each TM " +
+					"exceeds 90% of the quota limit. Please refer to the documentation(https://bytedance.feishu.cn/docx/doxcnBKTwwnLy71jFN2hO6FluLf) to adjust the configuration.");
+			}
+		} else {
+			LOG.info("No valid CompletedCheckpoint was found, which means this job has no latest CompletedCheckpoint or " +
+				"was restored from a Savepoint, skipping the quota check.");
+		}
 	}
 }

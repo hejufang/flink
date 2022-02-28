@@ -38,7 +38,7 @@ public class IncrementalRemoteBatchKeyedStateHandle extends IncrementalRemoteKey
 	 * Actual state size of the state handle, summation of single files. This field is not serialized
 	 * to metadata, during restore it is invalid.
 	 */
-	private final long totalStateSize;
+	private long totalStateSize;
 
 	public IncrementalRemoteBatchKeyedStateHandle(
 		UUID backendIdentifier,
@@ -114,6 +114,28 @@ public class IncrementalRemoteBatchKeyedStateHandle extends IncrementalRemoteKey
 
 	@Override
 	public long getTotalStateSize() {
+		if (totalStateSize == -1) {
+			long totalSize = StateUtil.getStateSize(getMetaStateHandle()); // metadata size
+
+			for (StreamStateHandle privateStateHandle : getPrivateState().values()) { // private state size
+				totalSize += privateStateHandle.getStateSize();
+			}
+
+			Map<StateHandleID, StreamStateHandle> batchIdToBatchHandle = getSharedState(); // shared state size
+			for (Map.Entry<StateHandleID, List<StateHandleID>> batchIdToContainedFiles : usedFiles.entrySet()) {
+				StateHandleID batchId = batchIdToContainedFiles.getKey();
+				StreamStateHandle batchStateHandle = batchIdToBatchHandle.get(batchId);
+				Preconditions.checkState(batchStateHandle != null);
+				if (batchStateHandle instanceof BatchStateHandle) {
+					for (StateHandleID stateHandleID : batchIdToContainedFiles.getValue()) {
+						totalSize += ((BatchStateHandle) batchStateHandle).getOffsetAndSize(stateHandleID).f1;
+					}
+				} else {
+					totalSize += batchStateHandle.getTotalStateSize();
+				}
+			}
+			totalStateSize = totalSize;
+		}
 		return totalStateSize;
 	}
 

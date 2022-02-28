@@ -30,6 +30,7 @@ import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.View;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
+import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
@@ -48,6 +49,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -628,7 +630,7 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 
 	@SuppressWarnings("checkstyle:EmptyStatement")
 	@Override
-	public Tuple2<String, Boolean> findLatestSnapshotCrossNamespaces(int maxLatestNamespaceTracing, String namespace) throws IOException {
+	public Tuple3<String, Boolean, CheckpointMetadata> findLatestSnapshotCrossNamespaces(int maxLatestNamespaceTracing, String namespace) throws IOException {
 		List<Path> modifySortedDirs;
 		FileStatus[] namespaceStatuses = fileSystem.listStatus(checkpointsDirectory.getParent());
 		modifySortedDirs = Arrays.stream(namespaceStatuses)
@@ -641,6 +643,7 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 		int sizeCompletedSnapshotInChkDir = findCompletedCheckpointPointerV2(Collections.emptySet()).size();
 		String latestSnapshotPath = null;
 		boolean isSavepoint = false;
+		CheckpointMetadata checkpointMetadata = null;
 		for (Path checkpointDir : modifySortedDirs) {
 			FileStatus[] checkpointStatuses = fileSystem.listStatus(checkpointDir);
 			if (checkpointStatuses == null || checkpointStatuses.length == 0) {
@@ -664,11 +667,15 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 						latestSnapshotPath = dirPath.toString();
 						isSavepoint = true;
 						break;
-					} else if (dirName.startsWith(CHECKPOINT_DIR_PREFIX) && checkValidCheckpointMetadata(dirPath.toString())) {
-						foundLatest = true;
-						latestSnapshotPath = dirPath.toString();
-						isSavepoint = false;
-						break;
+					} else if (dirName.startsWith(CHECKPOINT_DIR_PREFIX)) {
+						Optional<CheckpointMetadata> optionalCheckpointMetadata = checkValidCheckpointMetadata(dirPath.toString());
+						if (optionalCheckpointMetadata.isPresent()) {
+							foundLatest = true;
+							latestSnapshotPath = dirPath.toString();
+							isSavepoint = false;
+							checkpointMetadata = optionalCheckpointMetadata.get();
+							break;
+						}
 					}
 				}
 			}
@@ -687,19 +694,18 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 		}
 		boolean needResetSavepointSettings = sizeCompletedSnapshotInChkDir == 0;
 		LOG.info("latest snapshot path: {}, needResetSavepointSettings: {}", latestSnapshotPath, needResetSavepointSettings);
-		return new Tuple2<>(latestSnapshotPath, needResetSavepointSettings);
+		return new Tuple3<>(latestSnapshotPath, needResetSavepointSettings, checkpointMetadata);
 	}
 
-	private boolean checkValidCheckpointMetadata(String path) {
+	private Optional<CheckpointMetadata> checkValidCheckpointMetadata(String path) {
 		try {
 			CompletedCheckpointStorageLocation location = resolveCheckpoint(path);
 			try (DataInputStream stream = new DataInputStream(location.getMetadataHandle().openInputStream())) {
-				Checkpoints.loadCheckpointMetadata(stream, Thread.currentThread().getContextClassLoader(), location.getExternalPointer());
+				return Optional.of(Checkpoints.loadCheckpointMetadata(stream, Thread.currentThread().getContextClassLoader(), location.getExternalPointer()));
 			}
-			return true;
 		} catch (Exception e) {
 			LOG.info("Invalid checkpoint {}, skip it", path);
-			return false;
+			return Optional.empty();
 		}
 	}
 
@@ -718,10 +724,11 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 
 	private void verifyRestoringFromLatest(String latestSnapshotPath, String namespace, int sizeCompletedSnapshotInChkDir) throws IllegalStateException {
 		if (latestSnapshotPath == null) {
-			throw new IllegalStateException("Can't find any completed snapshot. " +
-				"Maybe the job has never succeeded making a completed snapshot, or the latest completed snapshot is too far from now. " +
-				"Please switch to 'restoring without states' manually.");
+			LOG.warn("Can't find any completed snapshot. " +
+				"Maybe the job has never succeeded making a completed snapshot, or the latest completed snapshot is too far from now. ");
+			return;
 		}
+
 		if (sizeCompletedSnapshotInChkDir > 0 && !latestSnapshotPath.contains(namespace)) {
 			throw new IllegalStateException(String.format("There is completed snapshot in namespace %s, but got latest completed snapshot at %s.", namespace, latestSnapshotPath));
 		}

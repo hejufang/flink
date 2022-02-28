@@ -21,6 +21,7 @@ package org.apache.flink.runtime.state;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.FileStatus;
+import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
 
 import javax.annotation.Nullable;
 
@@ -152,8 +153,8 @@ public interface CheckpointStorageCoordinatorView {
 
 	default void removeSavepointSimpleMetadataPathInCheckpointDir(long checkpointId) throws IOException {}
 
-	default Tuple2<String, Boolean> findLatestSnapshotCrossNamespaces(int maxLatestNamespaceTracing, String namespace) throws IOException {
-		return new Tuple2<>();
+	default Tuple3<String, Boolean, CheckpointMetadata> findLatestSnapshotCrossNamespaces(int maxLatestNamespaceTracing, String namespace) throws IOException {
+		return new Tuple3<>();
 	}
 
 	default List<FileStatus> listCheckpointPointers() throws IOException {

@@ -2010,6 +2010,12 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 						accumulatorSnapshot,
 						task.getMetricGroup().getIOMetricGroup().createSnapshot()));
 
+			localStateStoresManager.updateLocalStateSizeAfterTaskInFinalState(
+				task.getAllocationId(),
+				task.getJobID(),
+				task.getJobVertexId(),
+				task.getTaskInfo().getIndexOfThisSubtask());
+
 			if (requestSlotFromResourceManagerDirectEnable) {
 				CompletableFuture.runAsync(() -> closeJobManagerConnectionIfNoTasks(task.getJobID()), getMainThreadExecutor());
 			}

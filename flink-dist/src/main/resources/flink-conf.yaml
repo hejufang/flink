@@ -313,8 +313,8 @@ common:
 
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
-  state.backend.local-state.actual-max-size: 2048g
-  state.backend.fail-exceed-quota-task.enable: false
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: true
 
 # yarn clusters
 flink:
@@ -774,6 +774,10 @@ stork:
   save-meta.enabled: false
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 shark:
   dc: sg
@@ -793,6 +797,10 @@ shark:
   save-meta.enabled: false
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 snipe:
   dc: sg
@@ -812,6 +820,10 @@ snipe:
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   checkpoint.client-checkpoint-verification-enable: true
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 marmt:
   dc: va
@@ -835,6 +847,10 @@ marmt:
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
   bytedance.streaming.yarn.check.application.name.unique.region: true
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 macaw:
   dc: va
@@ -857,6 +873,10 @@ macaw:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 mouse:
   dc: va
@@ -879,6 +899,10 @@ mouse:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 mamba:
   dc: va
@@ -901,6 +925,10 @@ mamba:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 giraf:
   dc: va
@@ -923,6 +951,10 @@ giraf:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 grila:
   dc: i18n_gcp
@@ -946,6 +978,10 @@ grila:
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.gemini-server-url: http://gemini-gcp.byted.org/api/query/gcp/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 gavia:
   dc: i18n_gcp
@@ -969,6 +1005,10 @@ gavia:
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.gemini-server-url: http://gemini-gcp.byted.org/api/query/gcp/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 gazel:
   dc: i18n_gcp
@@ -992,6 +1032,10 @@ gazel:
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.gemini-server-url: http://gemini-gcp.byted.org/api/query/gcp/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 otter:
   dc: us-ttp
@@ -1014,6 +1058,10 @@ otter:
   grafana.domain_url: "https://grafana.tiktok-usts.org"
   register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
   table.exec.hive.permission-check.gemini-server-url: http://gemini-oci.tiktokd.org/api/query/oci/verifyUsersPrivilege
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 octop:
   dc: us-ttp
@@ -1036,6 +1084,10 @@ octop:
   grafana.domain_url: "https://grafana.tiktok-usts.org"
   register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
   table.exec.hive.permission-check.gemini-server-url: http://gemini-oci.tiktokd.org/api/query/oci/verifyUsersPrivilege
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 ostri:
   dc: us-ttp
@@ -1058,6 +1110,10 @@ ostri:
   grafana.domain_url: "https://grafana.tiktok-usts.org"
   register-dashboard.token: "Bearer eyJrIjoibzBLV1VrdkRIVkt6eW9UQlN1UmNNRXQ2MjZuOTlJTFMiLCJuIjoiYmVhcmVyIiwiaWQiOjF9"
   table.exec.hive.permission-check.gemini-server-url: http://gemini-oci.tiktokd.org/api/query/oci/verifyUsersPrivilege
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 alisg:
   dc: sg
@@ -1076,6 +1132,10 @@ alisg:
   docker.region: Aliyun_SG
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 sloth:
   dc: sg
@@ -1096,6 +1156,10 @@ sloth:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
   bytedance.streaming.yarn.check.application.name.unique.region: true
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 snail:
   dc: sg
@@ -1116,6 +1180,10 @@ snail:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
   bytedance.streaming.yarn.check.application.name.unique.region: true
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 snake:
   dc: sg
@@ -1135,6 +1203,10 @@ snake:
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 boe:
   dc: vm
@@ -1178,6 +1250,10 @@ swan:
   checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 koala:
   dc: ka2
@@ -1187,6 +1263,10 @@ koala:
   checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 boei18n:
   dc: vm
@@ -1206,6 +1286,10 @@ boei18n:
   register-dashboard.token: "Bearer eyJrIjoicndEUGRnNHpUZE9Gcm04VE5QSDdDV3JzbG8wWFZYa3IiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
 
 # kubernetes clusters
 Gaura-HL:

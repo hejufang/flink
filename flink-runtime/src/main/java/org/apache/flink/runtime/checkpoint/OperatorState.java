@@ -172,6 +172,20 @@ public class OperatorState implements CompositeStateHandle {
 		return result;
 	}
 
+	public long getKeyStateTotalSize() {
+		long result = 0L;
+
+		for (int i = 0; i < parallelism; i++) {
+			OperatorSubtaskState operatorSubtaskState = operatorSubtaskStates.get(i);
+			if (operatorSubtaskState != null) {
+				result += operatorSubtaskState.getManagedKeyedState().getTotalStateSize();
+				result += operatorSubtaskState.getRawKeyedState().getTotalStateSize();
+			}
+		}
+
+		return result;
+	}
+
 	@Override
 	public long getRawTotalStateSize() {
 		long result = 0L;

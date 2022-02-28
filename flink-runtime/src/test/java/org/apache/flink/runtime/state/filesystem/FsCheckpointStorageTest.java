@@ -19,7 +19,7 @@
 package org.apache.flink.runtime.state.filesystem;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.FileSystem;
@@ -55,7 +55,10 @@ import java.util.UUID;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -303,10 +306,11 @@ public class FsCheckpointStorageTest extends AbstractFileCheckpointStorageTestBa
 			out.closeAndFinalizeCheckpoint();
 		}
 
-		Tuple2<String, Boolean> latestSnapshot = storage.findLatestSnapshotCrossNamespaces(100, namespace);
+		Tuple3<String, Boolean, CheckpointMetadata> latestSnapshot = storage.findLatestSnapshotCrossNamespaces(100, namespace);
 		// Found latest snapshot chk-1, because sp-2 is invalid
 		assertEquals(location.getMetadataFilePath().getParent().toString(), latestSnapshot.f0);
 		assertFalse(latestSnapshot.f1);
+		assertNotNull(latestSnapshot.f2);
 	}
 
 	@Test
@@ -347,10 +351,11 @@ public class FsCheckpointStorageTest extends AbstractFileCheckpointStorageTestBa
 			out.closeAndFinalizeCheckpoint();
 		}
 
-		Tuple2<String, Boolean> latestSnapshot = storage.findLatestSnapshotCrossNamespaces(100, namespace);
+		Tuple3<String, Boolean, CheckpointMetadata> latestSnapshot = storage.findLatestSnapshotCrossNamespaces(100, namespace);
 		// Found latest snapshot sp-2's actual savepoint path
 		assertEquals(savepointPath, new URI(latestSnapshot.f0).getPath());
 		assertFalse(latestSnapshot.f1);
+		assertNull(latestSnapshot.f2);
 	}
 
 	@Test
@@ -382,10 +387,11 @@ public class FsCheckpointStorageTest extends AbstractFileCheckpointStorageTestBa
 		Thread.sleep(1000);
 		storageNew.initializeLocationForCheckpoint(1L);
 
-		Tuple2<String, Boolean> latestSnapshot = storageNew.findLatestSnapshotCrossNamespaces(100, emptyNamespace);
+		Tuple3<String, Boolean, CheckpointMetadata> latestSnapshot = storageNew.findLatestSnapshotCrossNamespaces(100, emptyNamespace);
 		// Found latest snapshot chk-1
 		assertEquals(location.getMetadataFilePath().getParent().toString(), latestSnapshot.f0);
 		assertTrue(latestSnapshot.f1);
+		assertNotNull(latestSnapshot.f2);
 	}
 
 	@Test
@@ -420,15 +426,16 @@ public class FsCheckpointStorageTest extends AbstractFileCheckpointStorageTestBa
 		Thread.sleep(1000);
 		storageNew.initializeLocationForCheckpoint(1L);
 
-		Tuple2<String, Boolean> latestSnapshot = null;
+		Tuple3<String, Boolean, CheckpointMetadata> latestSnapshot = null;
 		try {
 			latestSnapshot = storageNew.findLatestSnapshotCrossNamespaces(100, emptyNamespace);
 		} catch (Exception e) {
 			//expected
-			assertTrue(e instanceof IllegalStateException);
+			fail("There should be no exceptions.");
 		}
 		// Can't find any completed snapshot because the _metadata is crashed
-		assertEquals(null, latestSnapshot);
+		assertNull(null, latestSnapshot.f0);
+		assertNull(latestSnapshot.f2);
 	}
 
 	// ------------------------------------------------------------------------
