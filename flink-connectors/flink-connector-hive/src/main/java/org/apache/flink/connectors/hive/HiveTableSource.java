@@ -75,14 +75,13 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.TimeUtils;
 
-import org.apache.flink.shaded.byted.org.byted.infsec.client.Identity;
-
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.thrift.TException;
+import org.byted.security.ztijwthelper.LegacyIdentity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -717,7 +716,7 @@ public class HiveTableSource implements
 			return;
 		}
 
-		Identity identity = HivePermissionUtils.getIdentityFromToken();
+		LegacyIdentity identity = HivePermissionUtils.getIdentityFromToken();
 		String user = identity.User;
 		String psm = identity.PSM;
 		validateWithUserOrPsm(user, psm);

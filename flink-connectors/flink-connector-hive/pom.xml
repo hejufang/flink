@@ -40,6 +40,7 @@ under the License.
 		<reflections.version>0.9.8</reflections.version>
 		<derby.version>10.10.2.0</derby.version>
 		<jetty.version>7.6.0.v20120127</jetty.version>
+		<zti.sdk.version>1.0.10</zti.sdk.version>
 	</properties>
 
 	<!-- Overwrite hadoop dependency management from flink-parent to use locally defined Hadoop version -->
@@ -526,6 +527,13 @@ under the License.
 			<artifactId>flink-shaded-jackson</artifactId>
 			<version>${jackson.version}-${flink.shaded.version}</version>
 		</dependency>
+
+		<dependency>
+			<groupId>org.byted.security</groupId>
+			<artifactId>zti-jwt-helper-java</artifactId>
+			<version>${zti.sdk.version}</version>
+		</dependency>
+
 		<!-- test dependencies -->
 
 		<dependency>

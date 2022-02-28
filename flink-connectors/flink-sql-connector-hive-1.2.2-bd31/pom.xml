@@ -148,6 +148,7 @@ under the License.
 									<include>org.apache.orc:orc-core</include>
 									<include>io.airlift:aircompressor</include>
 									<include>com.bytedance.data:mario-java-collector</include>
+									<include>org.byted.security:zti-jwt-helper-java</include>
 								</includes>
 							</artifactSet>
 							<relocations>
@@ -162,6 +163,14 @@ under the License.
 								<relocation>
 									<pattern>com.google.common</pattern>
 									<shadedPattern>org.apache.flink.connectors.hive.shaded.com.google.common</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.byted.security</pattern>
+									<shadedPattern>org.apache.flink.hive.shaded.org.byted.security</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>META-INF/native/liborg_byted_security_shaded</pattern>
+									<shadedPattern>META-INF/native/liborg_apache_flink_hive_shaded_org_byted_security_shaded</shadedPattern>
 								</relocation>
 							</relocations>
 						</configuration>

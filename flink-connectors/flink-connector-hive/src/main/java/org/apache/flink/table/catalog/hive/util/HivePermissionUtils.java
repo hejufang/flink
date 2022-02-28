@@ -26,13 +26,13 @@ import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.byted.com.bytedance.commons.consul.Discovery;
 import org.apache.flink.shaded.byted.com.bytedance.commons.consul.ServiceNode;
-import org.apache.flink.shaded.byted.org.byted.infsec.client.Identity;
-import org.apache.flink.shaded.byted.org.byted.infsec.client.InfSecException;
-import org.apache.flink.shaded.byted.org.byted.infsec.client.SecTokenC;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.byted.security.ztijwthelper.LegacyIdentity;
+import org.byted.security.ztijwthelper.ZTIJwtHelper;
+import org.byted.security.ztijwthelper.ZtiJwtException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -233,11 +233,11 @@ public class HivePermissionUtils {
 		}
 	}
 
-	public static Identity getIdentityFromToken() {
+	public static LegacyIdentity getIdentityFromToken() {
 		try {
-			String token = SecTokenC.getToken(false);
-			return SecTokenC.parseToken(token);
-		} catch (InfSecException e) {
+			String token = ZTIJwtHelper.getJwtSVID();
+			return ZTIJwtHelper.decodeGDPRorJwtSVID(token);
+		} catch (ZtiJwtException e) {
 			throw new FlinkRuntimeException("Failed to get token!", e);
 		}
 	}

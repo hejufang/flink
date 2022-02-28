@@ -143,6 +143,7 @@ org.apache.flink:flink-connector-hive_2.11:jar:1.11-byted-SNAPSHOT
 +- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-11.0-byted-SNAPSHOT:compile
 +- org.apache.flink:flink-shaded-bytedance:jar:11.0-byted-SNAPSHOT:compile
 +- org.apache.flink:flink-shaded-jackson:jar:2.10.1-11.0-byted-SNAPSHOT:compile
++- org.byted.security:zti-jwt-helper-java:jar:1.0.10:compile
 +- org.apache.flink:flink-table-common:test-jar:tests:1.11-byted-SNAPSHOT:test
 +- org.eclipse.jetty.aggregate:jetty-all:jar:7.6.0.v20120127:test
 |  +- org.apache.geronimo.specs:geronimo-jta_1.1_spec:jar:1.1.1:test
