@@ -101,7 +101,7 @@ public class AbaseLookupFunction extends TableFunction<RowData> {
 	 * @throws Exception
 	 */
 	public void eval(Object... keys) throws Exception {
-		RowData keyRow = GenericRowData.of(keys[0]);
+		RowData keyRow = GenericRowData.of(keys);
 		if (cache != null) {
 			RowData cacheRow = cache.getIfPresent(keyRow);
 			if (cacheRow != null) {
@@ -121,8 +121,7 @@ public class AbaseLookupFunction extends TableFunction<RowData> {
 				long startRequest = System.currentTimeMillis();
 
 				// do lookup in executor.
-				Object key = keys[0];
-				row = abaseLookupExecutor.doLookup(key);
+				row = abaseLookupExecutor.doLookup(keys);
 
 				long requestDelay = System.currentTimeMillis() - startRequest;
 				requestDelayMs.update(requestDelay);
@@ -139,7 +138,7 @@ public class AbaseLookupFunction extends TableFunction<RowData> {
 					throw new RuntimeException("Execution of Abase read failed.", e);
 				}
 				try {
-					Thread.sleep(1000 * retry);
+					Thread.sleep(1000L * retry);
 				} catch (InterruptedException ie) {
 					throw new RuntimeException(ie);
 				}

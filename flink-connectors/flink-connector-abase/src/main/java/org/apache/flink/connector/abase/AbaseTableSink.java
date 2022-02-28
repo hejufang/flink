@@ -34,6 +34,7 @@ import org.apache.flink.types.RowKind;
 
 import javax.annotation.Nullable;
 
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 
@@ -86,13 +87,17 @@ public class AbaseTableSink implements DynamicTableSink{
 		if (encodingFormat != null && sinkOptions.isSkipFormatKey()) {
 			TableSchema.Builder builder = new TableSchema.Builder();
 			List<TableColumn> columns = schema.getTableColumns();
-			if (normalOptions.getKeyIndex() > 0) {
-				columns.remove(normalOptions.getKeyIndex());
-			} else {
-				// default primary key row.
-				columns.remove(0);
+			int[] indices = normalOptions.getKeyIndices();
+			List<TableColumn> valueCols = new LinkedList<>();
+			int pkIdx = 0;
+			for (int i = 0; i < columns.size(); i++) {
+				if (pkIdx < indices.length && i == indices[pkIdx]) {
+					pkIdx++;
+					continue;
+				}
+				valueCols.add(columns.get(i));
 			}
-			columns.forEach(column -> builder.field(column.getName(), column.getType()));
+			valueCols.forEach(column -> builder.field(column.getName(), column.getType()));
 			realSchema = builder.build();
 		}
 		DataType originalDataType = schema.toRowDataType();

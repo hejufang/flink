@@ -32,6 +32,7 @@ import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.AbaseClientTableUtils;
 import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.connector.abase.utils.AbaseValueType;
+import org.apache.flink.connector.abase.utils.KeyFormatterHelper;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.table.connector.RuntimeConverter;
@@ -50,8 +51,7 @@ import redis.clients.jedis.exceptions.JedisException;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -59,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_MODE;
+import static org.apache.flink.connector.abase.utils.KeyFormatterHelper.getSingleValueIndex;
 
 /**
  * OutputFormat for {@link AbaseTableSink}.
@@ -76,7 +77,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	private final DynamicTableSink.DataStructureConverter converter;
 	private AbaseSinkBatchExecutor batchExecutor;
 	private transient Counter writeFailed;
-	// Client only needs to be initialized once thoughout the life cycle.
+	// Client only needs to be initialized once throughout the life cycle.
 	private transient BaseClient client;
 	private transient int batchCount = 0;
 	private transient ScheduledExecutorService scheduler;
@@ -154,13 +155,13 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		// for that execution of pipeline is out of order.
 		if (serializationSchema != null || sinkOptions.getMode().equals(AbaseSinkMode.INSERT)
 			&& normalOptions.getAbaseValueType().equals(AbaseValueType.GENERAL)) {
-			AbaseSinkBufferReduceExecutor.ValueExtractor keyExtractor =
-				row -> fieldGetters[0].getFieldOrNull(row).toString().getBytes();
+			AbaseSinkBufferReduceExecutor.ValueExtractor keyExtractor = getKeyExtractor();
 			AbaseSinkBufferReduceExecutor.ValueExtractor valueExtractor;
 			if (serializationSchema != null) {
 				valueExtractor = this::serializeValue;
 			} else {
-				valueExtractor = row -> fieldGetters[1].getFieldOrNull(row).toString().getBytes();
+				int valueIndex = getSingleValueIndex(normalOptions.getKeyIndices());
+				valueExtractor = row -> Objects.requireNonNull(fieldGetters[valueIndex].getFieldOrNull(row)).toString().getBytes();
 			}
 			batchExecutor = new AbaseSinkBufferReduceExecutor((pipeline, record) ->
 				writeStringValue(pipeline, record.f0, record.f1), keyExtractor, valueExtractor);
@@ -169,7 +170,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		// because of disorder of pipeline execution.
 		} else if (sinkOptions.getMode() == AbaseSinkMode.INSERT
 			&& normalOptions.getAbaseValueType().equals(AbaseValueType.HASH)) {
-			batchExecutor = new AbaseSinkHashBufferReduceExecutor(fieldGetters, converter, sinkOptions);
+			batchExecutor = new AbaseSinkHashBufferReduceExecutor(normalOptions, sinkOptions, converter);
 
 		} else {
 			// The data of general or hash data type can be reduced but not compulsive.
@@ -179,8 +180,23 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 
 			// The data of list, set or zset couldn't be reduced.
 			} else {
-				ExecuteFunction<RowData> insertFunction = getInsertFunction();
-				batchExecutor = new AbaseSinkGenericExecutor(insertFunction);
+				ExecuteFunction<RowData> execution;
+				switch (normalOptions.getAbaseValueType()) {
+					case LIST:
+						execution = new ListTypeExecution(KeyFormatterHelper.getSingleValueIndex(normalOptions.getKeyIndices()));
+						break;
+					case SET:
+						execution = new SetTypeExecution(KeyFormatterHelper.getSingleValueIndex(normalOptions.getKeyIndices()));
+						break;
+					case ZSET:
+						int[] indices = KeyFormatterHelper.getTwoValueIndices(normalOptions.getKeyIndices());
+						execution = new ZSetTypeExecution(indices[0], indices[1]);
+						break;
+					default:
+						throw new FlinkRuntimeException(String.format("Unsupported data type, " +
+							"currently supported type: %s", AbaseValueType.getCollectionStr()));
+				}
+				batchExecutor = new AbaseSinkGenericExecutor(execution);
 			}
 		}
 	}
@@ -259,11 +275,18 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 
 	private byte[] serializeValue(RowData record) {
 		if (sinkOptions.isSkipFormatKey()) {
-			GenericRowData newRow = new GenericRowData(record.getArity() - 1);
-			for (int i = 0; i < record.getArity() - 1; i++) {
-				newRow.setField(i, fieldGetters[i + 1].getFieldOrNull(record));
+			int[] indices = normalOptions.getKeyIndices();
+			GenericRowData rowData = new GenericRowData(record.getArity() - indices.length);
+			int pkIdx = 0;
+			int i = 0;
+			for (int j = 0; j < record.getArity(); j++) {
+				if (pkIdx < indices.length && j == indices[pkIdx]) {
+					pkIdx++;
+					continue;
+				}
+				rowData.setField(i++, fieldGetters[j].getFieldOrNull(record));
 			}
-			return serializationSchema.serialize(newRow);
+			return serializationSchema.serialize(rowData);
 		} else {
 			return serializationSchema.serialize(record);
 		}
@@ -284,9 +307,11 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	private ExecuteFunction<RowData> getIncrFunction() {
 		switch (normalOptions.getAbaseValueType()) {
 			case HASH:
-				return this::incrHashValue;
+				int[] indices = KeyFormatterHelper.getTwoValueIndices(normalOptions.getKeyIndices());
+				return new HashTypeIncrExecution(indices[0], indices[1]);
 			case GENERAL:
-				return this::incrValue;
+				int valueIndex = KeyFormatterHelper.getSingleValueIndex(normalOptions.getKeyIndices());
+				return new GeneralTypeIncrExecution(valueIndex);
 			default:
 				throw new RuntimeException(
 					String.format("%s should be %s or %s, when sink mode is INCR.",
@@ -294,102 +319,157 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		}
 	}
 
-	private void incrValue(ClientPipeline pipeline, RowData row) {
-		Object key = fieldGetters[0].getFieldOrNull(row);
-		Object incrementValue = fieldGetters[1].getFieldOrNull(row);
-		if (incrementValue == null) {
-			throw new FlinkRuntimeException(
-				String.format("Incr mode: Abase value can't be null. Key: %s ", key));
+	private AbaseSinkBufferReduceExecutor.ValueExtractor getKeyExtractor() {
+		return row -> {
+			int[] indices = normalOptions.getKeyIndices();
+			Object[] keys = new Object[indices.length];
+			for (int i = 0; i < keys.length; i++) {
+				keys[i] = Objects.requireNonNull(fieldGetters[indices[i]].getFieldOrNull(row)).toString();
+			}
+			return KeyFormatterHelper.formatKey(normalOptions.getKeyFormatter(), keys).getBytes();
+		};
+	}
+
+	private String getKey(RowData row) {
+		int[] indices = normalOptions.getKeyIndices();
+		Object[] keys = new Object[indices.length];
+		for (int i = 0; i < indices.length; i++) {
+			keys[i] = Objects.requireNonNull(fieldGetters[indices[i]].getFieldOrNull(row));
 		}
-		if (incrementValue instanceof Long || incrementValue instanceof Integer) {
-			pipeline.incrBy(key.toString(), ((Number) incrementValue).longValue());
-		} else if (incrementValue instanceof Double || incrementValue instanceof Float) {
-			pipeline.incrByFloat(key.toString(), ((Number) incrementValue).floatValue());
-		} else {
-			throw new RuntimeException("Unsupported type for increment value in INCR mode, " +
-				"supported types: Long, Integer, Double, Float.");
+		return KeyFormatterHelper.formatKey(normalOptions.getKeyFormatter(), keys);
+	}
+
+	private class HashTypeIncrExecution implements ExecuteFunction<RowData> {
+		private final int hashKeyIndex;
+		private final int hashValueIndex;
+
+		HashTypeIncrExecution(int hashKeyIndex, int hashValueIndex) {
+			this.hashKeyIndex = hashKeyIndex;
+			this.hashValueIndex = hashValueIndex;
+		}
+
+		@Override
+		public void execute(ClientPipeline pipeline, RowData record) {
+			String key = getKey(record);
+			Object hashKey = fieldGetters[hashKeyIndex].getFieldOrNull(record);
+			Object incrementValue = fieldGetters[hashValueIndex].getFieldOrNull(record);
+			if (hashKey == null || incrementValue == null) {
+				throw new FlinkRuntimeException(
+					String.format("Neither hash key nor increment value of %s should not be " +
+						"null, the hash key: %s, the hash value: %s", key, hashKey, incrementValue));
+			}
+			if (incrementValue instanceof Long || incrementValue instanceof Integer) {
+				pipeline
+					.hincrBy(key.getBytes(), hashKey.toString().getBytes(), ((Number) incrementValue).longValue());
+			} else if (incrementValue instanceof Double || incrementValue instanceof Float) {
+				pipeline.hincrByFloat(key, hashKey.toString(), ((Number) incrementValue).floatValue());
+			} else {
+				throw new RuntimeException("Unsupported type for increment value in INCR mode, " +
+					"supported types: Long, Integer, Double, Float.");
+			}
 		}
 	}
 
-	private void incrHashValue(ClientPipeline pipeline, RowData row) {
-		Object key = fieldGetters[0].getFieldOrNull(row);
-		Object hashKey = fieldGetters[1].getFieldOrNull(row);
-		Object incrementValue = fieldGetters[2].getFieldOrNull(row);
-		if (hashKey == null || incrementValue == null) {
-			throw new FlinkRuntimeException(
-				String.format("Neither hash key nor increment value of %s should not be " +
-					"null, the hash key: %s, the hash value: %s", key, hashKey, incrementValue));
+	private class GeneralTypeIncrExecution implements ExecuteFunction<RowData> {
+		private final int valueIndex;
+
+		GeneralTypeIncrExecution(int valueIndex) {
+			this.valueIndex = valueIndex;
 		}
-		if (incrementValue instanceof Long || incrementValue instanceof Integer) {
-			pipeline
-				.hincrBy(key.toString().getBytes(), hashKey.toString().getBytes(), ((Number) incrementValue).longValue());
-		} else if (incrementValue instanceof Double || incrementValue instanceof Float) {
-			pipeline.hincrByFloat(key.toString(), hashKey.toString(), ((Number) incrementValue).floatValue());
-		} else {
-			throw new RuntimeException("Unsupported type for increment value in INCR mode, " +
-				"supported types: Long, Integer, Double, Float.");
+
+		@Override
+		public void execute(ClientPipeline pipeline, RowData record) {
+			String key = getKey(record);
+			Object incrementValue = fieldGetters[valueIndex].getFieldOrNull(record);
+			if (incrementValue == null) {
+				throw new FlinkRuntimeException(
+					String.format("Incr mode: Abase value can't be null. Key: %s ", key));
+			}
+			if (incrementValue instanceof Long || incrementValue instanceof Integer) {
+				pipeline.incrBy(key, ((Number) incrementValue).longValue());
+			} else if (incrementValue instanceof Double || incrementValue instanceof Float) {
+				pipeline.incrByFloat(key, ((Number) incrementValue).floatValue());
+			} else {
+				throw new RuntimeException("Unsupported type for increment value in INCR mode, " +
+					"supported types: Long, Integer, Double, Float.");
+			}
 		}
 	}
 
-	private ExecuteFunction<RowData> getInsertFunction() {
-		switch (normalOptions.getAbaseValueType()) {
-			case LIST:
-				return this::writeList;
-			case SET:
-				return this::writeSet;
-			case ZSET:
-				return this::writeZSet;
-			default:
-				throw new FlinkRuntimeException(String.format("Unsupported data type, " +
-					"currently supported type: %s", AbaseValueType.getCollectionStr()));
+	private class ListTypeExecution implements ExecuteFunction<RowData> {
+		private final int valueIndex;
+
+		ListTypeExecution(int valueIndex) {
+			this.valueIndex = valueIndex;
+		}
+
+		@Override
+		public void execute(ClientPipeline pipeline, RowData record) {
+			String key = getKey(record);
+			Object value = fieldGetters[valueIndex].getFieldOrNull(record);
+			if (value == null) {
+				throw new FlinkRuntimeException(
+					String.format("The value of %s should not be null.", key));
+			} else {
+				pipeline.lpush(key.getBytes(), value.toString().getBytes());
+			}
+			if (sinkOptions.getTtlSeconds() > 0) {
+				pipeline.lexpires(key, sinkOptions.getTtlSeconds());
+			}
 		}
 	}
 
-	private void writeList(ClientPipeline pipeline, RowData record) {
-		Object key = fieldGetters[0].getFieldOrNull(record);
-		Object value = fieldGetters[1].getFieldOrNull(record);
-		if (value == null) {
-			throw new FlinkRuntimeException(
-				String.format("The value of %s should not be null.", key));
-		} else {
-			pipeline.lpush(key.toString().getBytes(), value.toString().getBytes());
+	private class SetTypeExecution implements ExecuteFunction<RowData> {
+		private final int valueIndex;
+
+		SetTypeExecution(int valueIndex) {
+			this.valueIndex = valueIndex;
 		}
-		if (sinkOptions.getTtlSeconds() > 0) {
-			pipeline.lexpires(key.toString(), sinkOptions.getTtlSeconds());
+
+		@Override
+		public void execute(ClientPipeline pipeline, RowData record) {
+			String key = getKey(record);
+			Object value = fieldGetters[valueIndex].getFieldOrNull(record);
+			if (value == null) {
+				throw new FlinkRuntimeException(
+					String.format("The value of %s should not be null.", key));
+			} else {
+				pipeline.sadd(key.getBytes(), value.toString().getBytes());
+			}
+			if (sinkOptions.getTtlSeconds() > 0) {
+				pipeline.sexpires(key, sinkOptions.getTtlSeconds());
+			}
 		}
 	}
 
-	private void writeSet(ClientPipeline pipeline, RowData record) {
-		Object key = fieldGetters[0].getFieldOrNull(record);
-		Object value = fieldGetters[1].getFieldOrNull(record);
-		if (value == null) {
-			throw new FlinkRuntimeException(
-				String.format("The value of %s should not be null.", key));
-		} else {
-			pipeline.sadd(key.toString().getBytes(), value.toString().getBytes());
-		}
-		if (sinkOptions.getTtlSeconds() > 0) {
-			pipeline.sexpires(key.toString(), sinkOptions.getTtlSeconds());
-		}
-	}
+	private class ZSetTypeExecution implements ExecuteFunction<RowData> {
+		private final int scoreIndex;
+		private final int valueIndex;
 
-	private void writeZSet(ClientPipeline pipeline, RowData record) {
-		Object key = fieldGetters[0].getFieldOrNull(record);
-		Object score = fieldGetters[1].getFieldOrNull(record);
-		Object value = fieldGetters[2].getFieldOrNull(record);
-		if (value == null || score == null) {
-			throw new FlinkRuntimeException(
-				String.format("The score or value of %s should not be null, " +
-					"the score: %s, the value: %s.", key, score, value));
+		ZSetTypeExecution(int scoreIndex, int valueIndex) {
+			this.scoreIndex = scoreIndex;
+			this.valueIndex = valueIndex;
 		}
-		if (!(score instanceof Number)) {
-			throw new FlinkRuntimeException(
-				String.format("WRONG TYPE: %s, type of second column should " +
-					"be subclass of Number.", score.getClass().getName()));
-		}
-		pipeline.zadd(key.toString().getBytes(), ((Number) score).doubleValue(), value.toString().getBytes());
-		if (sinkOptions.getTtlSeconds() > 0) {
-			pipeline.zexpires(key.toString(), sinkOptions.getTtlSeconds());
+
+		@Override
+		public void execute(ClientPipeline pipeline, RowData record) {
+			String key = getKey(record);
+			Object score = fieldGetters[scoreIndex].getFieldOrNull(record);
+			Object value = fieldGetters[valueIndex].getFieldOrNull(record);
+			if (value == null || score == null) {
+				throw new FlinkRuntimeException(
+					String.format("The score or value of %s should not be null, " +
+						"the score: %s, the value: %s.", key, score, value));
+			}
+			if (!(score instanceof Number)) {
+				throw new FlinkRuntimeException(
+					String.format("WRONG TYPE: %s, type of second column should " +
+						"be subclass of Number.", score.getClass().getName()));
+			}
+			pipeline.zadd(key.getBytes(), ((Number) score).doubleValue(), value.toString().getBytes());
+			if (sinkOptions.getTtlSeconds() > 0) {
+				pipeline.zexpires(key, sinkOptions.getTtlSeconds());
+			}
 		}
 	}
 
@@ -423,17 +503,6 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	private void initClient() {
 		this.client = AbaseClientTableUtils.getClientWrapper(normalOptions);
 		this.client.open();
-	}
-
-	/**
-	 * Convert key value to (byte[], byte[]).
-	 */
-	private Map<byte[], byte[]> convertHashMap(Map<String, String> originMap) {
-		Map<byte[], byte[]> byteMap = new HashMap<>();
-		for (Map.Entry<String, String> entry : originMap.entrySet()) {
-			byteMap.put(entry.getKey().getBytes(), entry.getValue().getBytes());
-		}
-		return byteMap;
 	}
 }
 

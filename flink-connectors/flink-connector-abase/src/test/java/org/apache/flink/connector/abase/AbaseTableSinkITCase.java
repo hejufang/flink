@@ -18,89 +18,230 @@
 
 package org.apache.flink.connector.abase;
 
-import org.apache.flink.api.java.tuple.Tuple4;
-import org.apache.flink.connector.abase.client.AbaseClientWrapper;
-import org.apache.flink.connector.abase.client.ClientPipeline;
-import org.apache.flink.connector.abase.utils.AbaseClientTableUtils;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.table.api.EnvironmentSettings;
-import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableResult;
-import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.BDDMockito;
-import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
-import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.apache.flink.table.api.Expressions.$;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.notNull;
 
 /**
  * The ITCase for {@link AbaseTableSink}.
  */
-@RunWith(PowerMockRunner.class)
-@PrepareForTest(AbaseClientTableUtils.class)
-public class AbaseTableSinkITCase {
+public class AbaseTableSinkITCase extends AbaseTestBase {
 
 	// final result of source data stream
 	private static final Map<String, Map<String, String>> results;
+	private static final Map<String, Map<String, String>> results2;
+	private static final Map<String, Map<String, String>> multiPKsResults;
 	private static final Map<String, Map<String, String>> insertions;
 
 	static {
 		results = initResults();
+		results2 = initResults2();
+		multiPKsResults = initMulPKResults();
 		insertions = initInsertions();
 	}
 
-	@Mock
-	private AbaseClientWrapper abaseClientWrapper;
+	/**
+	 * Test of general type SETEX command.
+	 * @throws Exception
+	 */
+	@Test
+	public void testSETEX() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  name  VARCHAR,\n" +
+				"  score BIGINT\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'sink.record.ttl' = '10 min',\n" +
+				"  'sink.buffer-flush.max-rows' = '4',\n" +
+				"  'sink.buffer-flush.interval' = '10 min'\n" +
+				")");
 
-	@Mock
-	private ClientPipeline clientPipeline;
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT name, score\n" +
+			"FROM T4");
 
-	private StreamTableEnvironment tEnv;
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
 
-	@Before
-	public void setUp() {
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		env.getConfig().setParallelism(1);
-		EnvironmentSettings envSettings = EnvironmentSettings.newInstance()
-			.useBlinkPlanner()
-			.inStreamingMode()
-			.build();
-		tEnv = StreamTableEnvironment.create(env, envSettings);
+		// verify pipeline method calls
+		verifySETEX(600, results2);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
 
-		Table t1 = tEnv.fromDataStream(get4TupleDataStream1(env),
-			$("name"), $("score"), $("bonus"), $("time"));
-		tEnv.createTemporaryView("T1", t1);
+	/**
+	 * Test of general type SETEX command with multiple primary keys.
+	 * @throws Exception
+	 */
+	@Test
+	public void testSETEXWithMultiplePKs() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  name  VARCHAR,\n" +
+				"  score BIGINT,\n" +
+				"  bonus INT,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '2 min',\n" +
+				"  'sink.buffer-flush.max-rows' = '5',\n" +
+				"  'sink.buffer-flush.interval' = '20 min'\n" +
+				")");
 
-		Table t2 = tEnv.fromDataStream(get4TupleDataStream2(env),
-			$("name"), $("score"), $("bonus"), $("time"));
-		tEnv.createTemporaryView("T2", t2);
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT name, score, bonus\n" +
+			"FROM T3");
 
-		PowerMockito.mockStatic(AbaseClientTableUtils.class);
-		BDDMockito.given(AbaseClientTableUtils.getClientWrapper(notNull())).willReturn(abaseClientWrapper);
-		Mockito.when(abaseClientWrapper.pipelined()).thenReturn(clientPipeline);
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifySETEX(120, multiPKsResults);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	/**
+	 * Test of general type SET command with serialization of primary key skipped.
+	 * @throws Exception
+	 */
+	@Test
+	public void testSETWithSerSkipPKs() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  name  VARCHAR,\n" +
+				"  score BIGINT,\n" +
+				"  bonus INT\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'format' = 'json',\n" +
+				"  'sink.record.ttl' = '1 min',\n" +
+				"  'sink.buffer-flush.max-rows' = '4',\n" +
+				"  'sink.buffer-flush.interval' = '20 min'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT name, score, bonus\n" +
+			"FROM T4");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifySETEXWithJsonFormat(60, results);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	/**
+	 * Test of general type SET command with serialization of primary key remained.
+	 * @throws Exception
+	 */
+	@Test
+	public void testSETWithSer() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  name  VARCHAR,\n" +
+				"  score BIGINT,\n" +
+				"  bonus INT\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'format' = 'json',\n" +
+				"  'value.format.skip-key' = 'false',\n" +
+				"  'sink.record.ttl' = '2 min',\n" +
+				"  'sink.buffer-flush.max-rows' = '4',\n" +
+				"  'sink.buffer-flush.interval' = '20 min'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT name, score, bonus\n" +
+			"FROM T4");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		Map<String, Map<String, String>> res = initResults();
+		for (String key : res.keySet()) {
+			Map<String, String> val = res.get(key);
+			val.put("name", key);
+		}
+		verifySETEXWithJsonFormat(120, res);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	/**
+	 * Test of general type SET command with serialization of primary keys skipped.
+	 * @throws Exception
+	 */
+	@Test
+	public void testSETWithSerSkipPKsAndMultiplePKs() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `score` BIGINT,\n" +
+				"  `bonus` INT,\n" +
+				"  `rank`  INT,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'format' = 'json',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '1 min',\n" +
+				"  'sink.buffer-flush.max-rows' = '16',\n" +
+				"  'sink.buffer-flush.interval' = '20 min'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `score`, `bonus`, `rank`\n" +
+			"FROM T3");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifySETEXWithJsonFormat(60, multiPKsResults);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
 	}
 
 	/**
@@ -110,7 +251,7 @@ public class AbaseTableSinkITCase {
 	@Test
 	public void testHSET() throws Exception {
 		tEnv.executeSql(
-			"CREATE TABLE abase_hset (\n" +
+			"CREATE TABLE sink (\n" +
 				"  key   VARCHAR,\n" +
 				"  name  VARCHAR,\n" +
 				"  score BIGINT\n" +
@@ -124,7 +265,7 @@ public class AbaseTableSinkITCase {
 				"  'value-type' = 'hash'\n" +
 				")");
 
-		TableResult tableResult = tEnv.executeSql("INSERT INTO abase_hset\n" +
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
 			"SELECT name, 'score', score\n" +
 			"FROM T1");
 
@@ -133,8 +274,8 @@ public class AbaseTableSinkITCase {
 		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
 
 		// verify pipeline method calls
-		verifyHSET();
-		verifyTTL(results.keySet(), 600);
+		verifyHSET(results);
+		verifyHashTTL(results.keySet(), 600);
 		Mockito.verify(clientPipeline, Mockito.times(2)).syncAndReturnAll();
 		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
 		Mockito.verifyNoMoreInteractions(clientPipeline);
@@ -147,7 +288,7 @@ public class AbaseTableSinkITCase {
 	@Test
 	public void testHMSET() throws Exception {
 		tEnv.executeSql(
-			"CREATE TABLE abase_hmset (\n" +
+			"CREATE TABLE sink (\n" +
 				"  key VARCHAR,\n" +
 				"  map Map<VARCHAR, VARCHAR>\n" +
 				") WITH (\n" +
@@ -160,7 +301,7 @@ public class AbaseTableSinkITCase {
 				"  'value-type' = 'hash'\n" +
 				")");
 
-		TableResult tableResult = tEnv.executeSql("INSERT INTO abase_hmset\n" +
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
 			"SELECT name, MAP['score', CAST(score AS VARCHAR), 'bonus', CAST(bonus AS VARCHAR)]\n" +
 			"FROM T1");
 
@@ -169,8 +310,8 @@ public class AbaseTableSinkITCase {
 		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
 
 		// verify pipeline method calls
-		verifyHMSET();
-		verifyTTL(results.keySet(), 60);
+		verifyHMSET(results);
+		verifyHashTTL(results.keySet(), 60);
 		Mockito.verify(clientPipeline, Mockito.times(2)).syncAndReturnAll();
 		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
 		Mockito.verifyNoMoreInteractions(clientPipeline);
@@ -183,7 +324,7 @@ public class AbaseTableSinkITCase {
 	@Test
 	public void testHSETWithRetract() throws Exception {
 		tEnv.executeSql(
-			"CREATE TABLE abase_hset (\n" +
+			"CREATE TABLE sink (\n" +
 				"  key   VARCHAR,\n" +
 				"  name  VARCHAR,\n" +
 				"  score BIGINT\n" +
@@ -197,7 +338,7 @@ public class AbaseTableSinkITCase {
 				"  'value-type' = 'hash'\n" +
 				")");
 
-		TableResult tableResult = tEnv.executeSql("INSERT INTO abase_hset\n" +
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
 				"SELECT\n" +
 				"    `name`,\n" +
 				"    'score',\n" +
@@ -234,7 +375,7 @@ public class AbaseTableSinkITCase {
 	@Test
 	public void testHMSETWithRetract() throws Exception {
 		tEnv.executeSql(
-			"CREATE TABLE abase_hmset (\n" +
+			"CREATE TABLE sink (\n" +
 				"  key VARCHAR,\n" +
 				"  map Map<VARCHAR, VARCHAR>\n" +
 				") WITH (\n" +
@@ -248,7 +389,7 @@ public class AbaseTableSinkITCase {
 				"  'value-type' = 'hash'\n" +
 				")");
 
-		TableResult tableResult = tEnv.executeSql("INSERT INTO abase_hmset\n" +
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
 				"SELECT\n" +
 				"    `name`,\n" +
 				"    CASE WHEN `score` < 20\n" +
@@ -277,13 +418,357 @@ public class AbaseTableSinkITCase {
 
 		// verify pipeline method calls
 		verifyHMSETWithRetract();
-		verifyTTL(new HashSet<>(Arrays.asList("Bob", "Tom")), 60);
+		verifyHashTTL(new HashSet<>(Arrays.asList("Bob", "Tom")), 60);
 		Mockito.verify(clientPipeline, Mockito.times(4)).syncAndReturnAll();
 		Mockito.verify(clientPipeline, Mockito.times(2)).close(); // check if close as expected.
 		Mockito.verifyNoMoreInteractions(clientPipeline);
 	}
 
-	private void verifyHSET() {
+	/**
+	 * Test of hash type HSET command with multiple primary keys.
+	 * @throws Exception
+	 */
+	@Test
+	public void testHSETWithMultiplePKs() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `key`   VARCHAR,\n" +
+				"  `score` BIGINT,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '1 min',\n" +
+				"  'sink.buffer-flush.max-rows' = '5',\n" +
+				"  'sink.buffer-flush.interval' = '10 min',\n" +
+				"  'value-type' = 'hash'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `bonus`, 'score', `score`\n" +
+			"FROM T3");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifyHSET(multiPKsResults);
+		verifyHashTTL(multiPKsResults.keySet(), 60);
+		Mockito.verify(clientPipeline, Mockito.times(2)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	/**
+	 * Test of hash type HMSET command with multiple primary keys.
+	 * @throws Exception
+	 */
+	@Test
+	public void testHMSETWithMultiplePKs() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `val`   Map<VARCHAR, VARCHAR>,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '60 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '5',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'hash'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `bonus`, MAP['score', CAST(`score` AS VARCHAR), 'rank', CAST(`rank` AS VARCHAR)]\n" +
+			"FROM T3");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifyHMSET(multiPKsResults);
+		verifyHashTTL(multiPKsResults.keySet(), 60);
+		Mockito.verify(clientPipeline, Mockito.times(2)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	/**
+	 * Test of list type LPUSH command.
+	 * @throws Exception
+	 */
+	@Test
+	public void testLPUSH() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `score` BIGINT\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'sink.record.ttl' = '10 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '5',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'list'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `score`\n" +
+			"FROM T4");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifyLPUSH(results);
+		verifyListTTL(results.keySet(), 10);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	/**
+	 * Test of list type LPUSH command with multiple primary keys.
+	 * @throws Exception
+	 */
+	@Test
+	public void testLPUSHWithMultiplePKs() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `score` BIGINT,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '30 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '3',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'list'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `bonus`, `score`\n" +
+			"FROM T5");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifyLPUSH(multiPKsResults);
+		verifyListTTL(multiPKsResults.keySet(), 30);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	/**
+	 * Test of set type SADD command.
+	 * @throws Exception
+	 */
+	@Test
+	public void testSADD() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `score` BIGINT\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'sink.record.ttl' = '10 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '4',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'set'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `score`\n" +
+			"FROM T4");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifySADD(results);
+		verifySetTTL(results.keySet(), 10);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	/**
+	 * Test of set type SADD command with multiple primary keys.
+	 * @throws Exception
+	 */
+	@Test
+	public void testSADDWithMultiplePKs() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `score` BIGINT,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '5 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '3',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'set'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `bonus`, `score`\n" +
+			"FROM T5");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifySADD(multiPKsResults);
+		verifySetTTL(multiPKsResults.keySet(), 5);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	/**
+	 * Test of zset type ZADD command.
+	 * @throws Exception
+	 */
+	@Test
+	public void testZADD() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `rank` INT,\n" +
+				"  `score` BIGINT\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'sink.record.ttl' = '10 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '4',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'zset'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `rank`, `score`\n" +
+			"FROM T4");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifyZADD(results2);
+		verifyZSetTTL(results2.keySet(), 10);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	/**
+	 * Test of zset type ZADD command with multiple primary keys.
+	 * @throws Exception
+	 */
+	@Test
+	public void testZADDWithMultiplePKs() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `rank`  INT,\n" +
+				"  `score` BIGINT,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '4 min',\n" +
+				"  'sink.buffer-flush.max-rows' = '3',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'zset'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `bonus`, `rank`, `score`\n" +
+			"FROM T5");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifyZADD(multiPKsResults);
+		verifyZSetTTL(multiPKsResults.keySet(), 240);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	private void verifySETEX(int ttl, Map<String, Map<String, String>> results) {
+		ArgumentCaptor<byte[]> keyArg = ArgumentCaptor.forClass(byte[].class);
+		ArgumentCaptor<Integer> ttlArg = ArgumentCaptor.forClass(Integer.class);
+		ArgumentCaptor<byte[]> valArg = ArgumentCaptor.forClass(byte[].class);
+		Mockito.verify(clientPipeline, Mockito.times(results.size()))
+			.setex(keyArg.capture(), ttlArg.capture(), valArg.capture());
+		Iterator<byte[]> keyIterator = keyArg.getAllValues().listIterator();
+		Iterator<Integer> ttlIterator = ttlArg.getAllValues().listIterator();
+		Iterator<byte[]> valIterator = valArg.getAllValues().listIterator();
+		while (keyIterator.hasNext()) {
+			String k = new String(keyIterator.next());
+			String v = new String(valIterator.next());
+			Assert.assertTrue(results.containsKey(k));
+			Assert.assertEquals(ttl, (int) ttlIterator.next());
+			Assert.assertEquals(results.get(k).get("score"), v);
+		}
+	}
+
+	private void verifySETEXWithJsonFormat(int ttl, Map<String, Map<String, String>> results) throws Exception {
+		ObjectMapper objectMapper = new ObjectMapper();
+		ArgumentCaptor<byte[]> keyArg = ArgumentCaptor.forClass(byte[].class);
+		ArgumentCaptor<Integer> ttlArg = ArgumentCaptor.forClass(Integer.class);
+		ArgumentCaptor<byte[]> valArg = ArgumentCaptor.forClass(byte[].class);
+		Mockito.verify(clientPipeline, Mockito.times(results.size()))
+			.setex(keyArg.capture(), ttlArg.capture(), valArg.capture());
+		Iterator<byte[]> keyIterator = keyArg.getAllValues().listIterator();
+		Iterator<Integer> ttlIterator = ttlArg.getAllValues().listIterator();
+		Iterator<byte[]> valIterator = valArg.getAllValues().listIterator();
+		while (keyIterator.hasNext()) {
+			Assert.assertEquals(ttl, (int) ttlIterator.next());
+			String k = new String(keyIterator.next());
+			Assert.assertTrue(results.containsKey(k));
+			Map<String, String> val = objectMapper.readValue(valIterator.next(),
+				new TypeReference<Map<String, String>>() {});
+			Assert.assertEquals(results.get(k), val);
+		}
+	}
+
+	private void verifyHSET(Map<String, Map<String, String>> results) {
 		ArgumentCaptor<byte[]> keyArg = ArgumentCaptor.forClass(byte[].class);
 		ArgumentCaptor<byte[]> fieldArg = ArgumentCaptor.forClass(byte[].class);
 		ArgumentCaptor<byte[]> valArg = ArgumentCaptor.forClass(byte[].class);
@@ -302,7 +787,7 @@ public class AbaseTableSinkITCase {
 		}
 	}
 
-	private void verifyHMSET() {
+	private void verifyHMSET(Map<String, Map<String, String>> results) {
 		ArgumentCaptor<byte[]> keyArg = ArgumentCaptor.forClass(byte[].class);
 		ArgumentCaptor<Map<byte[], byte[]>> valArg = ArgumentCaptor.forClass(Map.class);
 		Mockito.verify(clientPipeline, Mockito.times(results.size()))
@@ -421,7 +906,7 @@ public class AbaseTableSinkITCase {
 		}
 	}
 
-	private void verifyTTL(Set<String> keys, int ttl) {
+	private void verifyHashTTL(Set<String> keys, int ttl) {
 		ArgumentCaptor<byte[]> ttlKeyArg = ArgumentCaptor.forClass(byte[].class);
 		ArgumentCaptor<Integer> ttlValArg = ArgumentCaptor.forClass(Integer.class);
 		Mockito.verify(clientPipeline, Mockito.times(keys.size()))
@@ -434,35 +919,92 @@ public class AbaseTableSinkITCase {
 		}
 	}
 
-	private static DataStream<Tuple4<String, Long, Integer, Timestamp>> get4TupleDataStream1(StreamExecutionEnvironment env) {
-		List<Tuple4<String, Long, Integer, Timestamp>> data = new ArrayList<>();
-		data.add(new Tuple4<>("Bob", 10L, 0, Timestamp.valueOf("2022-01-10 00:01:00.000")));
-		data.add(new Tuple4<>("Tom", 22L, 10, Timestamp.valueOf("2022-01-10 00:02:00.000")));
-		data.add(new Tuple4<>("Kim", 15L, 5, Timestamp.valueOf("2022-01-10 00:03:00.000")));
-		data.add(new Tuple4<>("Kim", 47L, 10, Timestamp.valueOf("2022-01-10 00:04:00.000")));
-		data.add(new Tuple4<>("Lucy", 19L, 20, Timestamp.valueOf("2022-01-10 00:05:00.000")));
-		data.add(new Tuple4<>("Tom", 34L, 15, Timestamp.valueOf("2022-01-10 00:06:00.000")));
-		data.add(new Tuple4<>("Lucy", 76L, 30, Timestamp.valueOf("2022-01-10 00:07:00.000")));
-		data.add(new Tuple4<>("Kim", 54L, 10, Timestamp.valueOf("2022-01-10 00:08:00.000")));
-		data.add(new Tuple4<>("Lucy", 78L, 30, Timestamp.valueOf("2022-01-10 00:09:00.000")));
-		data.add(new Tuple4<>("Bob", 25L, 5, Timestamp.valueOf("2022-01-10 00:10:00.000")));
-		data.add(new Tuple4<>("Bob", 37L, 10, Timestamp.valueOf("2022-01-10 00:11:00.000")));
-		data.add(new Tuple4<>("Bob", 68L, 20, Timestamp.valueOf("2022-01-10 00:12:00.000")));
-		data.add(new Tuple4<>("Tom", 72L, 30, Timestamp.valueOf("2022-01-10 00:13:00.000")));
-		data.add(new Tuple4<>("Lucy", 79L, 35, Timestamp.valueOf("2022-01-10 00:14:00.000")));
-		data.add(new Tuple4<>("Kim", 60L, 15, Timestamp.valueOf("2022-01-10 00:15:00.000")));
-		data.add(new Tuple4<>("Kim", 63L, 15, Timestamp.valueOf("2022-01-10 00:16:00.000")));
-		return env.fromCollection(data);
+	private void verifyLPUSH(Map<String, Map<String, String>> results) {
+		ArgumentCaptor<byte[]> keyArg = ArgumentCaptor.forClass(byte[].class);
+		ArgumentCaptor<byte[]> valArg = ArgumentCaptor.forClass(byte[].class);
+		Mockito.verify(clientPipeline, Mockito.times(results.size()))
+			.lpush(keyArg.capture(), valArg.capture());
+		Iterator<byte[]> keyIterator = keyArg.getAllValues().listIterator();
+		Iterator<byte[]> valIterator = valArg.getAllValues().listIterator();
+		while (keyIterator.hasNext()) {
+			String k = new String(keyIterator.next());
+			String v = new String(valIterator.next());
+			Assert.assertTrue(results.containsKey(k));
+			Assert.assertEquals(results.get(k).get("score"), v);
+		}
 	}
 
-	private static DataStream<Tuple4<String, Long, Integer, Timestamp>> get4TupleDataStream2(StreamExecutionEnvironment env) {
-		List<Tuple4<String, Long, Integer, Timestamp>> data = new ArrayList<>();
-		data.add(new Tuple4<>("Bob", 10L, 0, Timestamp.valueOf("2022-01-10 00:01:00.000")));
-		data.add(new Tuple4<>("Bob", 25L, 5, Timestamp.valueOf("2022-01-10 00:10:00.000")));
-		data.add(new Tuple4<>("Bob", 68L, 20, Timestamp.valueOf("2022-01-10 00:12:00.000")));
-		data.add(new Tuple4<>("Tom", 15L, 10, Timestamp.valueOf("2022-01-10 00:02:00.000")));
-		data.add(new Tuple4<>("Tom", 72L, 30, Timestamp.valueOf("2022-01-10 00:13:00.000")));
-		return env.fromCollection(data);
+	private void verifyListTTL(Set<String> keys, int ttl) {
+		ArgumentCaptor<String> ttlKeyArg = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<Integer> ttlValArg = ArgumentCaptor.forClass(Integer.class);
+		Mockito.verify(clientPipeline, Mockito.times(keys.size()))
+			.lexpires(ttlKeyArg.capture(), ttlValArg.capture());
+		for (String key : ttlKeyArg.getAllValues()) {
+			Assert.assertTrue(keys.contains(key));
+		}
+		for (int t : ttlValArg.getAllValues()) {
+			Assert.assertEquals(ttl, t);
+		}
+	}
+
+	private void verifySADD(Map<String, Map<String, String>> results) {
+		ArgumentCaptor<byte[]> keyArg = ArgumentCaptor.forClass(byte[].class);
+		ArgumentCaptor<byte[]> valArg = ArgumentCaptor.forClass(byte[].class);
+		Mockito.verify(clientPipeline, Mockito.times(results.size()))
+			.sadd(keyArg.capture(), valArg.capture());
+		Iterator<byte[]> keyIterator = keyArg.getAllValues().listIterator();
+		Iterator<byte[]> valIterator = valArg.getAllValues().listIterator();
+		while (keyIterator.hasNext()) {
+			String k = new String(keyIterator.next());
+			String v = new String(valIterator.next());
+			Assert.assertTrue(results.containsKey(k));
+			Assert.assertEquals(results.get(k).get("score"), v);
+		}
+	}
+
+	private void verifySetTTL(Set<String> keys, int ttl) {
+		ArgumentCaptor<String> ttlKeyArg = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<Integer> ttlValArg = ArgumentCaptor.forClass(Integer.class);
+		Mockito.verify(clientPipeline, Mockito.times(keys.size()))
+			.sexpires(ttlKeyArg.capture(), ttlValArg.capture());
+		for (String key : ttlKeyArg.getAllValues()) {
+			Assert.assertTrue(keys.contains(key));
+		}
+		for (int t : ttlValArg.getAllValues()) {
+			Assert.assertEquals(ttl, t);
+		}
+	}
+
+	private void verifyZADD(Map<String, Map<String, String>> results) {
+		ArgumentCaptor<byte[]> keyArg = ArgumentCaptor.forClass(byte[].class);
+		ArgumentCaptor<Double> rankArg = ArgumentCaptor.forClass(Double.class);
+		ArgumentCaptor<byte[]> valArg = ArgumentCaptor.forClass(byte[].class);
+		Mockito.verify(clientPipeline, Mockito.times(results.size()))
+			.zadd(keyArg.capture(), rankArg.capture(), valArg.capture());
+		Iterator<byte[]> keyIterator = keyArg.getAllValues().listIterator();
+		Iterator<Double> rankIterator = rankArg.getAllValues().listIterator();
+		Iterator<byte[]> valIterator = valArg.getAllValues().listIterator();
+		while (keyIterator.hasNext()) {
+			String k = new String(keyIterator.next());
+			double rank = rankIterator.next();
+			String v = new String(valIterator.next());
+			Assert.assertTrue(results.containsKey(k));
+			Assert.assertEquals(Integer.parseInt(results.get(k).get("rank")), (int) rank);
+			Assert.assertEquals(results.get(k).get("score"), v);
+		}
+	}
+
+	private void verifyZSetTTL(Set<String> keys, int ttl) {
+		ArgumentCaptor<String> ttlKeyArg = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<Integer> ttlValArg = ArgumentCaptor.forClass(Integer.class);
+		Mockito.verify(clientPipeline, Mockito.times(keys.size()))
+			.zexpires(ttlKeyArg.capture(), ttlValArg.capture());
+		for (String key : ttlKeyArg.getAllValues()) {
+			Assert.assertTrue(keys.contains(key));
+		}
+		for (int t : ttlValArg.getAllValues()) {
+			Assert.assertEquals(ttl, t);
+		}
 	}
 
 	private static Map<String, Map<String, String>> initResults() {
@@ -500,6 +1042,53 @@ public class AbaseTableSinkITCase {
 		props1.put("time", "2022-01-10 00:13:00");
 		props1.put("bonus", "30");
 		res.put("Tom", props1);
+		return res;
+	}
+
+	private static Map<String, Map<String, String>> initResults2() {
+		Map<String, Map<String, String>> res = new HashMap<>();
+		Map<String, String> props = new HashMap<>();
+		props.put("score", "68");
+		props.put("bonus", "20");
+		props.put("rank", "8");
+		res.put("Bob", props);
+
+		Map<String, String> props1 = new HashMap<>();
+		props1.put("score", "72");
+		props1.put("bonus", "30");
+		props1.put("rank", "6");
+		res.put("Tom", props1);
+
+		Map<String, String> props2 = new HashMap<>();
+		props2.put("score", "79");
+		props2.put("bonus", "35");
+		props2.put("rank", "4");
+		res.put("Lucy", props2);
+
+		Map<String, String> props3 = new HashMap<>();
+		props3.put("score", "63");
+		props3.put("bonus", "15");
+		props3.put("rank", "10");
+		res.put("Kim", props3);
+		return res;
+	}
+
+	private static Map<String, Map<String, String>> initMulPKResults() {
+		Map<String, Map<String, String>> res = new HashMap<>();
+		Map<String, String> props = new HashMap<>();
+		props.put("score", "20");
+		props.put("rank", "6");
+		res.put("race_game:Bob:5", props);
+
+		Map<String, String> props1 = new HashMap<>();
+		props1.put("score", "35");
+		props1.put("rank", "3");
+		res.put("race_game:Bob:10", props1);
+
+		Map<String, String> props2 = new HashMap<>();
+		props2.put("score", "45");
+		props2.put("rank", "2");
+		res.put("race_game:Tom:10", props2);
 		return res;
 	}
 

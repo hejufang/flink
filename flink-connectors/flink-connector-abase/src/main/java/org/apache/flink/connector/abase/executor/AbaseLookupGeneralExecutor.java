@@ -19,6 +19,7 @@
 package org.apache.flink.connector.abase.executor;
 
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
+import org.apache.flink.connector.abase.utils.KeyFormatterHelper;
 import org.apache.flink.connector.abase.utils.StringValueConverters;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
@@ -36,36 +37,45 @@ public class AbaseLookupGeneralExecutor extends AbaseLookupExecutor {
 
 	private static final long serialVersionUID = 1L;
 
+	private final int[] indices;
 	private final StringValueConverters.StringValueConverter[] stringValueConverters;
 
 	public AbaseLookupGeneralExecutor(
 			AbaseNormalOptions normalOptions,
 			DataType[] fieldTypes) {
 		super(normalOptions);
+		this.indices = normalOptions.getKeyIndices();
 		this.stringValueConverters = Arrays.stream(fieldTypes)
 			.map(StringValueConverters::getConverter).toArray(StringValueConverters.StringValueConverter[]::new);
 	}
 
 	@Override
-	public RowData doLookup(Object key) {
+	public RowData doLookup(Object[] keys) {
+		String key = KeyFormatterHelper.formatKey(normalOptions.getKeyFormatter(), keys);
 		Object value;
 		try {
-			value = client.get(key.toString());
+			value = client.get(key);
 		} catch (JedisDataException e) {
 			throw new FlinkRuntimeException(String.format("General Get value failed. Key : %s, " +
-				"Related command: 'get key'.", key), e);
+				"Related command: 'get key'.", Arrays.toString(keys)), e);
 		}
 		if (value != null) {
-			return convertToRow(key, value);
+			return convertToRow(keys, value);
 		} else {
 			return null;
 		}
 	}
 
-	private RowData convertToRow(Object key, Object value) {
-		GenericRowData row = new GenericRowData(2);
-		row.setField(0, stringValueConverters[0].toInternal(key.toString()));
-		row.setField(1, stringValueConverters[1].toInternal(value.toString()));
+	private RowData convertToRow(Object[] keys, Object value) {
+		GenericRowData row = new GenericRowData(stringValueConverters.length);
+		int i = 0;
+		for (int j = 0; j < stringValueConverters.length; j++) {
+			if (i != keys.length && indices[i] == j) {
+				row.setField(j, keys[i++]);
+			} else {
+				row.setField(j, stringValueConverters[j].toInternal(value.toString()));
+			}
+		}
 		return row;
 	}
 }

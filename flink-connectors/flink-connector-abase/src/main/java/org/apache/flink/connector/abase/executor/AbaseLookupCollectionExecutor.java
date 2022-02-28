@@ -20,10 +20,11 @@ package org.apache.flink.connector.abase.executor;
 
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
 import org.apache.flink.connector.abase.utils.AbaseValueType;
+import org.apache.flink.connector.abase.utils.KeyFormatterHelper;
 import org.apache.flink.table.connector.RuntimeConverter;
 import org.apache.flink.table.connector.source.DynamicTableSource.DataStructureConverter;
+import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import redis.clients.jedis.exceptions.JedisDataException;
@@ -49,13 +50,24 @@ public class AbaseLookupCollectionExecutor extends AbaseLookupExecutor {
 	}
 
 	@Override
-	public RowData doLookup(Object key) {
-		Object value = getValueFromExternal(key.toString());
-		if (value != null) {
-			return convertToRow(key, value);
-		} else {
+	public RowData doLookup(Object[] keys) {
+		String key = KeyFormatterHelper.formatKey(normalOptions.getKeyFormatter(), keys);
+		Object value = getValueFromExternal(key);
+		if (value == null) {
 			return null;
 		}
+		int size = keys.length + 1;
+		Object[] internalValues = new Object[size];
+		int[] keyIndices = normalOptions.getKeyIndices();
+		int i = 0;  // index of keyIndices array
+		for (int j = 0; j < internalValues.length; j++) {
+			if (i < keyIndices.length && keyIndices[i] == j) {
+				internalValues[j] = keys[i++];
+			} else {
+				internalValues[j] = converter.toInternal(value);
+			}
+		}
+		return GenericRowData.of(internalValues);
 	}
 
 	@Override
@@ -116,12 +128,5 @@ public class AbaseLookupCollectionExecutor extends AbaseLookupExecutor {
 							AbaseValueType.getCollectionStr()));
 			}
 		}
-	}
-
-	private RowData convertToRow(Object key, Object value) {
-		Row row = new Row(2);
-		row.setField(0, key.toString());
-		row.setField(1, value);
-		return (RowData) converter.toInternal(row);
 	}
 }
