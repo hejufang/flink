@@ -42,6 +42,8 @@ public class DashboardConfigHandler extends AbstractRestHandler<RestfulGateway, 
 	private DashboardConfiguration dashboardConfiguration;
 	private CompletableFuture<String> jobManagerWebShellFuture;
 	private CompletableFuture<String> jobManagerLogFuture;
+	private boolean hasJmWebShell;
+	private boolean hasJmLog;
 
 	public DashboardConfigHandler(
 			GatewayRetriever<? extends RestfulGateway> leaderRetriever,
@@ -51,24 +53,45 @@ public class DashboardConfigHandler extends AbstractRestHandler<RestfulGateway, 
 			long refreshInterval,
 			boolean webSubmitEnabled) {
 		super(leaderRetriever, timeout, responseHeaders, messageHeaders);
-
+		hasJmWebShell = false;
+		hasJmLog = false;
 		dashboardConfiguration = DashboardConfiguration.from(refreshInterval, ZonedDateTime.now(), webSubmitEnabled);
 	}
 
 	@Override
 	public CompletableFuture<DashboardConfiguration> handleRequest(@Nonnull HandlerRequest<EmptyRequestBody, EmptyMessageParameters> request, @Nonnull RestfulGateway gateway) {
-		if (jobManagerWebShellFuture == null || jobManagerLogFuture == null) {
-			jobManagerLogFuture = gateway.requestJobManagerLogUrl(timeout);
-			jobManagerWebShellFuture = gateway.requestJMWebShell(timeout);
-			return jobManagerLogFuture
-				.thenCombineAsync(jobManagerWebShellFuture, (jmLog, jmWebShell) -> dashboardConfiguration = DashboardConfiguration.fromDashboardConfiguration(dashboardConfiguration, jmLog, jmWebShell))
-				.exceptionally(e -> {
-					jobManagerWebShellFuture = null;
-					jobManagerLogFuture = null;
-					return dashboardConfiguration;
-				});
-		} else {
+		if (hasJmLog && hasJmWebShell) {
 			return CompletableFuture.completedFuture(dashboardConfiguration);
 		}
+		if (!hasJmLog) {
+			jobManagerLogFuture = gateway.requestJobManagerLogUrl(timeout)
+				.thenApply(o -> {
+					hasJmLog = true;
+					return o;
+				})
+				.exceptionally(e -> {
+					hasJmLog = false;
+					return "";
+				});
+		}
+		if (!hasJmWebShell) {
+			jobManagerWebShellFuture = gateway.requestJMWebShell(timeout)
+				.thenApply(o -> {
+					hasJmWebShell = true;
+					return o;
+				})
+				.exceptionally(e -> {
+					hasJmWebShell = false;
+					return "";
+				});
+		}
+		return jobManagerLogFuture
+			.thenCombineAsync(jobManagerWebShellFuture,
+				(jmLog, jmWebShell) -> dashboardConfiguration = DashboardConfiguration.fromDashboardConfiguration(dashboardConfiguration, jmLog, jmWebShell))
+			.exceptionally(e -> {
+				hasJmLog = false;
+				hasJmWebShell = false;
+				return dashboardConfiguration;
+			});
 	}
 }
