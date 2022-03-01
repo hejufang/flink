@@ -18,9 +18,11 @@
 
 package org.apache.flink.runtime.memory;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Deadline;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.core.memory.MemorySegmentDelegate;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.LongFunctionWithException;
@@ -60,6 +62,9 @@ public class MemoryPoolManager extends MemoryManager {
 	/** The memory pool should be split to buckets for operator, the bucket count is slot count for global memory pool. */
 	private final int memoryPoolBucketCount;
 
+	/** Whether check owner in segment. */
+	private final boolean checkOwnerInSegment;
+
 	/** Track the number of segments that have been allocated. */
 	private final AtomicInteger numberOfAllocatedMemorySegments = new AtomicInteger(0);
 
@@ -75,6 +80,16 @@ public class MemoryPoolManager extends MemoryManager {
 	/** The timeout for request memory segments. */
 	private final Duration requestMemorySegmentsTimeout;
 
+	@VisibleForTesting
+	public MemoryPoolManager(
+			long memorySize,
+			int pageSize,
+			Duration requestMemorySegmentsTimeout,
+			boolean lazyAllocate,
+			int memoryPoolBucketCount) {
+		this(memorySize, pageSize, requestMemorySegmentsTimeout, lazyAllocate, memoryPoolBucketCount, true);
+	}
+
 	/**
 	 * Creates a memory manager with the given capacity and given page size.
 	 *
@@ -87,11 +102,13 @@ public class MemoryPoolManager extends MemoryManager {
 			int pageSize,
 			Duration requestMemorySegmentsTimeout,
 			boolean lazyAllocate,
-			int memoryPoolBucketCount) {
+			int memoryPoolBucketCount,
+			boolean checkOwnerInSegment) {
 		super(memorySize, pageSize, UnsafeMemoryBudget.MAX_SLEEPS_VERIFY_EMPTY);
 		this.requestMemorySegmentsTimeout = requestMemorySegmentsTimeout;
 		this.lazyAllocate = lazyAllocate;
 		this.memoryPoolBucketCount = memoryPoolBucketCount;
+		this.checkOwnerInSegment = checkOwnerInSegment;
 
 		this.memorySize = memorySize;
 		this.totalNumberOfMemorySegments = (int) (memorySize / pageSize);
@@ -210,18 +227,16 @@ public class MemoryPoolManager extends MemoryManager {
 					if (lazyAllocate) {
 						segment = allocateSegmentLazy();
 						if (segment == null) {
-							LOG.warn("Allocate pages wait with request {} available {} for {}", numberOfPages, numberOfAllocatedMemorySegments.get(), owner);
 							Thread.sleep(10);
 						}
 					} else {
-						LOG.warn("Allocate pages wait with request {} available {} without lazy for {}", numberOfPages, numberOfAllocatedMemorySegments.get(), owner);
 						Thread.sleep(10);
 					}
 				}
 
 				if (segment != null) {
 					segment.assignOwner(owner);
-					target.add(segment);
+					target.add(checkOwnerInSegment ? new MemorySegmentDelegate(owner, segment) : segment);
 				}
 
 				if (target.size() >= numberOfPages) {
@@ -264,19 +279,44 @@ public class MemoryPoolManager extends MemoryManager {
 	 */
 	@Override
 	public void release(MemorySegment segment) {
-		for (Map.Entry<Object, Set<MemorySegment>> entry : allocatedSegments.entrySet()) {
-			if (entry.getValue().remove(segment)) {
-				if (entry.getValue().isEmpty()) {
-					allocatedSegments.remove(entry.getKey());
+		allocatedSegments.computeIfPresent(segment.getOwner(), (o, segsForOwner) -> {
+				if (segsForOwner.remove(segment)) {
+					cleanupSegment(segment);
 				}
-				break;
-			}
-		}
+				return segsForOwner.isEmpty() ? null : segsForOwner;
+			});
+	}
 
-		segment.freeOwner();
-		segment.clear();
-		availableMemorySegments.add(segment);
+	private void cleanupSegment(MemorySegment segment) {
+		if (checkOwnerInSegment) {
+			MemorySegmentDelegate delegate = (MemorySegmentDelegate) segment;
+			MemorySegment realSegment = delegate.getSegment();
+			delegate.clear();
+			delegate.freeOwner();
+			availableMemorySegments.add(realSegment);
+		} else {
+			segment.clear();
+			segment.freeOwner();
+			availableMemorySegments.add(segment);
+		}
 		numberOfAvailableMemorySegments.incrementAndGet();
+	}
+
+	/**
+	 * Free the given segment with owner.
+	 *
+	 * @param owner the given owner
+	 * @param segment the release segment
+	 */
+	@Override
+	public void release(Object owner, MemorySegment segment) {
+		allocatedSegments.computeIfPresent(owner, (o, segsForOwner) -> {
+			if (segsForOwner.remove(segment)) {
+				cleanupSegment(segment);
+			}
+
+			return segsForOwner.isEmpty() ? null : segsForOwner;
+		});
 	}
 
 	/**
@@ -296,6 +336,20 @@ public class MemoryPoolManager extends MemoryManager {
 	}
 
 	/**
+	 * Release segments with given owner, the owner will be used to check whether the segment is free multiple times.
+	 *
+	 * @param owner the given owner
+	 * @param segments the segments to release
+	 */
+	@Override
+	public void release(Object owner, Collection<MemorySegment> segments) {
+		for (MemorySegment segment : segments) {
+			release(owner, segment);
+		}
+		segments.clear();
+	}
+
+	/**
 	 * Releases all memory segments for the given owner.
 	 *
 	 * @param owner The owner memory segments are to be released.
@@ -305,11 +359,8 @@ public class MemoryPoolManager extends MemoryManager {
 		Set<MemorySegment> segments = allocatedSegments.remove(owner);
 		if (segments != null) {
 			for (MemorySegment segment : segments) {
-				segment.freeOwner();
-				segment.clear();
+				cleanupSegment(segment);
 			}
-			availableMemorySegments.addAll(segments);
-			numberOfAvailableMemorySegments.addAndGet(segments.size());
 		}
 	}
 

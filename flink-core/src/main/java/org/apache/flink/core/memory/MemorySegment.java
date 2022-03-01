@@ -449,7 +449,7 @@ public abstract class MemorySegment {
 	 *                                   size minus 2.
 	 */
 	@SuppressWarnings("restriction")
-	public final char getChar(int index) {
+	public char getChar(int index) {
 		final long pos = address + index;
 		if (index >= 0 && pos <= addressLimit - 2) {
 			return UNSAFE.getChar(heapMemory, pos);
@@ -476,7 +476,7 @@ public abstract class MemorySegment {
 	 *
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment size minus 2.
 	 */
-	public final char getCharLittleEndian(int index) {
+	public char getCharLittleEndian(int index) {
 		if (LITTLE_ENDIAN) {
 			return getChar(index);
 		} else {
@@ -497,7 +497,7 @@ public abstract class MemorySegment {
 	 *
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment size minus 2.
 	 */
-	public final char getCharBigEndian(int index) {
+	public char getCharBigEndian(int index) {
 		if (LITTLE_ENDIAN) {
 			return Character.reverseBytes(getChar(index));
 		} else {
@@ -515,7 +515,7 @@ public abstract class MemorySegment {
 	 *                                   size minus 2.
 	 */
 	@SuppressWarnings("restriction")
-	public final void putChar(int index, char value) {
+	public void putChar(int index, char value) {
 		final long pos = address + index;
 		if (index >= 0 && pos <= addressLimit - 2) {
 			UNSAFE.putChar(heapMemory, pos, value);
@@ -542,7 +542,7 @@ public abstract class MemorySegment {
 	 *
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment size minus 2.
 	 */
-	public final void putCharLittleEndian(int index, char value) {
+	public void putCharLittleEndian(int index, char value) {
 		if (LITTLE_ENDIAN) {
 			putChar(index, value);
 		} else {
@@ -563,7 +563,7 @@ public abstract class MemorySegment {
 	 *
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment size minus 2.
 	 */
-	public final void putCharBigEndian(int index, char value) {
+	public void putCharBigEndian(int index, char value) {
 		if (LITTLE_ENDIAN) {
 			putChar(index, Character.reverseBytes(value));
 		} else {
@@ -581,7 +581,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 2.
 	 */
-	public final short getShort(int index) {
+	public short getShort(int index) {
 		final long pos = address + index;
 		if (index >= 0 && pos <= addressLimit - 2) {
 			return UNSAFE.getShort(heapMemory, pos);
@@ -608,7 +608,7 @@ public abstract class MemorySegment {
 	 *
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment size minus 2.
 	 */
-	public final short getShortLittleEndian(int index) {
+	public short getShortLittleEndian(int index) {
 		if (LITTLE_ENDIAN) {
 			return getShort(index);
 		} else {
@@ -629,7 +629,7 @@ public abstract class MemorySegment {
 	 *
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment size minus 2.
 	 */
-	public final short getShortBigEndian(int index) {
+	public short getShortBigEndian(int index) {
 		if (LITTLE_ENDIAN) {
 			return Short.reverseBytes(getShort(index));
 		} else {
@@ -647,7 +647,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 2.
 	 */
-	public final void putShort(int index, short value) {
+	public void putShort(int index, short value) {
 		final long pos = address + index;
 		if (index >= 0 && pos <= addressLimit - 2) {
 			UNSAFE.putShort(heapMemory, pos, value);
@@ -674,7 +674,7 @@ public abstract class MemorySegment {
 	 *
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment size minus 2.
 	 */
-	public final void putShortLittleEndian(int index, short value) {
+	public void putShortLittleEndian(int index, short value) {
 		if (LITTLE_ENDIAN) {
 			putShort(index, value);
 		} else {
@@ -695,7 +695,7 @@ public abstract class MemorySegment {
 	 *
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment size minus 2.
 	 */
-	public final void putShortBigEndian(int index, short value) {
+	public void putShortBigEndian(int index, short value) {
 		if (LITTLE_ENDIAN) {
 			putShort(index, Short.reverseBytes(value));
 		} else {
@@ -717,7 +717,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 4.
 	 */
-	public final int getInt(int index) {
+	public int getInt(int index) {
 		final long pos = address + index;
 		if (index >= 0 && pos <= addressLimit - 4) {
 			return UNSAFE.getInt(heapMemory, pos);
@@ -745,7 +745,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 4.
 	 */
-	public final int getIntLittleEndian(int index) {
+	public int getIntLittleEndian(int index) {
 		if (LITTLE_ENDIAN) {
 			return getInt(index);
 		} else {
@@ -767,7 +767,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 4.
 	 */
-	public final int getIntBigEndian(int index) {
+	public int getIntBigEndian(int index) {
 		if (LITTLE_ENDIAN) {
 			return Integer.reverseBytes(getInt(index));
 		} else {
@@ -789,7 +789,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 4.
 	 */
-	public final void putInt(int index, int value) {
+	public void putInt(int index, int value) {
 		final long pos = address + index;
 		if (index >= 0 && pos <= addressLimit - 4) {
 			UNSAFE.putInt(heapMemory, pos, value);
@@ -817,7 +817,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 4.
 	 */
-	public final void putIntLittleEndian(int index, int value) {
+	public void putIntLittleEndian(int index, int value) {
 		if (LITTLE_ENDIAN) {
 			putInt(index, value);
 		} else {
@@ -839,7 +839,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 4.
 	 */
-	public final void putIntBigEndian(int index, int value) {
+	public void putIntBigEndian(int index, int value) {
 		if (LITTLE_ENDIAN) {
 			putInt(index, Integer.reverseBytes(value));
 		} else {
@@ -861,7 +861,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 8.
 	 */
-	public final long getLong(int index) {
+	public long getLong(int index) {
 		final long pos = address + index;
 		if (index >= 0 && pos <= addressLimit - 8) {
 			return UNSAFE.getLong(heapMemory, pos);
@@ -889,7 +889,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 8.
 	 */
-	public final long getLongLittleEndian(int index) {
+	public long getLongLittleEndian(int index) {
 		if (LITTLE_ENDIAN) {
 			return getLong(index);
 		} else {
@@ -911,7 +911,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 8.
 	 */
-	public final long getLongBigEndian(int index) {
+	public long getLongBigEndian(int index) {
 		if (LITTLE_ENDIAN) {
 			return Long.reverseBytes(getLong(index));
 		} else {
@@ -933,7 +933,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 8.
 	 */
-	public final void putLong(int index, long value) {
+	public void putLong(int index, long value) {
 		final long pos = address + index;
 		if (index >= 0 && pos <= addressLimit - 8) {
 			UNSAFE.putLong(heapMemory, pos, value);
@@ -961,7 +961,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 8.
 	 */
-	public final void putLongLittleEndian(int index, long value) {
+	public void putLongLittleEndian(int index, long value) {
 		if (LITTLE_ENDIAN) {
 			putLong(index, value);
 		} else {
@@ -983,7 +983,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 8.
 	 */
-	public final void putLongBigEndian(int index, long value) {
+	public void putLongBigEndian(int index, long value) {
 		if (LITTLE_ENDIAN) {
 			putLong(index, Long.reverseBytes(value));
 		} else {
@@ -1005,7 +1005,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 4.
 	 */
-	public final float getFloat(int index) {
+	public float getFloat(int index) {
 		return Float.intBitsToFloat(getInt(index));
 	}
 
@@ -1023,7 +1023,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 4.
 	 */
-	public final float getFloatLittleEndian(int index) {
+	public float getFloatLittleEndian(int index) {
 		return Float.intBitsToFloat(getIntLittleEndian(index));
 	}
 
@@ -1041,7 +1041,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 4.
 	 */
-	public final float getFloatBigEndian(int index) {
+	public float getFloatBigEndian(int index) {
 		return Float.intBitsToFloat(getIntBigEndian(index));
 	}
 
@@ -1059,7 +1059,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 4.
 	 */
-	public final void putFloat(int index, float value) {
+	public void putFloat(int index, float value) {
 		putInt(index, Float.floatToRawIntBits(value));
 	}
 
@@ -1077,7 +1077,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 4.
 	 */
-	public final void putFloatLittleEndian(int index, float value) {
+	public void putFloatLittleEndian(int index, float value) {
 		putIntLittleEndian(index, Float.floatToRawIntBits(value));
 	}
 
@@ -1095,7 +1095,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 4.
 	 */
-	public final void putFloatBigEndian(int index, float value) {
+	public void putFloatBigEndian(int index, float value) {
 		putIntBigEndian(index, Float.floatToRawIntBits(value));
 	}
 
@@ -1113,7 +1113,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 8.
 	 */
-	public final double getDouble(int index) {
+	public double getDouble(int index) {
 		return Double.longBitsToDouble(getLong(index));
 	}
 
@@ -1131,7 +1131,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 8.
 	 */
-	public final double getDoubleLittleEndian(int index) {
+	public double getDoubleLittleEndian(int index) {
 		return Double.longBitsToDouble(getLongLittleEndian(index));
 	}
 
@@ -1149,7 +1149,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 8.
 	 */
-	public final double getDoubleBigEndian(int index) {
+	public double getDoubleBigEndian(int index) {
 		return Double.longBitsToDouble(getLongBigEndian(index));
 	}
 
@@ -1167,7 +1167,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 8.
 	 */
-	public final void putDouble(int index, double value) {
+	public void putDouble(int index, double value) {
 		putLong(index, Double.doubleToRawLongBits(value));
 	}
 
@@ -1185,7 +1185,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 8.
 	 */
-	public final void putDoubleLittleEndian(int index, double value) {
+	public void putDoubleLittleEndian(int index, double value) {
 		putLongLittleEndian(index, Double.doubleToRawLongBits(value));
 	}
 
@@ -1203,7 +1203,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the segment
 	 *                                   size minus 8.
 	 */
-	public final void putDoubleBigEndian(int index, double value) {
+	public void putDoubleBigEndian(int index, double value) {
 		putLongBigEndian(index, Double.doubleToRawLongBits(value));
 	}
 
@@ -1277,7 +1277,7 @@ public abstract class MemorySegment {
 	 *           contain the given number of bytes (starting from offset), or the target segment does
 	 *           not have enough space for the bytes (counting from targetOffset).
 	 */
-	public final void copyTo(int offset, MemorySegment target, int targetOffset, int numBytes) {
+	public void copyTo(int offset, MemorySegment target, int targetOffset, int numBytes) {
 		final byte[] thisHeapRef = this.heapMemory;
 		final byte[] otherHeapRef = target.heapMemory;
 		final long thisPointer = this.address + offset;
@@ -1312,7 +1312,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException If the source segment does not contain the given number
 	 *           of bytes (starting from offset).
 	 */
-	public final void copyToUnsafe(int offset, Object target, int targetPointer, int numBytes) {
+	public void copyToUnsafe(int offset, Object target, int targetPointer, int numBytes) {
 		final long thisPointer = this.address + offset;
 		if (thisPointer + numBytes > addressLimit) {
 			throw new IndexOutOfBoundsException(
@@ -1334,7 +1334,7 @@ public abstract class MemorySegment {
 	 * @throws IndexOutOfBoundsException If this segment can not contain the given number
 	 *           of bytes (starting from offset).
 	 */
-	public final void copyFromUnsafe(int offset, Object source, int sourcePointer, int numBytes) {
+	public void copyFromUnsafe(int offset, Object source, int sourcePointer, int numBytes) {
 		final long thisPointer = this.address + offset;
 		if (thisPointer + numBytes > addressLimit) {
 			throw new IndexOutOfBoundsException(
@@ -1358,7 +1358,7 @@ public abstract class MemorySegment {
 	 *
 	 * @return 0 if equal, -1 if seg1 &lt; seg2, 1 otherwise
 	 */
-	public final int compare(MemorySegment seg2, int offset1, int offset2, int len) {
+	public int compare(MemorySegment seg2, int offset1, int offset2, int len) {
 		while (len >= 8) {
 			long l1 = this.getLongBigEndian(offset1);
 			long l2 = seg2.getLongBigEndian(offset2);
@@ -1396,7 +1396,7 @@ public abstract class MemorySegment {
 	 *
 	 * @return 0 if equal, -1 if seg1 &lt; seg2, 1 otherwise
 	 */
-	public final int compare(MemorySegment seg2, int offset1, int offset2, int len1, int len2) {
+	public int compare(MemorySegment seg2, int offset1, int offset2, int len1, int len2) {
 		final int minLength = Math.min(len1, len2);
 		int c = compare(seg2, offset1, offset2, minLength);
 		return c == 0 ? (len1 - len2) : c;
@@ -1411,7 +1411,7 @@ public abstract class MemorySegment {
 	 * @param offset2 Offset of seg2 to start swapping
 	 * @param len Length of the swapped memory region
 	 */
-	public final void swapBytes(byte[] tempBuffer, MemorySegment seg2, int offset1, int offset2, int len) {
+	public void swapBytes(byte[] tempBuffer, MemorySegment seg2, int offset1, int offset2, int len) {
 		if ((offset1 | offset2 | len | (tempBuffer.length - len)) >= 0) {
 			final long thisPos = this.address + offset1;
 			final long otherPos = seg2.address + offset2;
@@ -1451,7 +1451,7 @@ public abstract class MemorySegment {
 	 *
 	 * @return true if equal, false otherwise
 	 */
-	public final boolean equalTo(MemorySegment seg2, int offset1, int offset2, int length) {
+	public boolean equalTo(MemorySegment seg2, int offset1, int offset2, int length) {
 		int i = 0;
 
 		// we assume unaligned accesses are supported.

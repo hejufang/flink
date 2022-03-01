@@ -611,6 +611,13 @@ public class TaskManagerOptions {
 			.defaultValue(false)
 			.withDescription("If true, use the memory pool manager.");
 
+	public static final ConfigOption<Boolean> MEMORY_POOL_SEGMENT_OWNER_CHECKER_ENABLE = ConfigOptions
+			.key("taskmanager.memory-pool-segment-owner-checker.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("If true, it will check the owner of segment in any get/put operation" +
+				" which is allocated from pool memory manager.");
+
 	public static final ConfigOption<Boolean> TASK_DEPLOY_THEN_FINISH_ENABLE = ConfigOptions
 			.key("taskmanager.task-deploy-then-finish.enable")
 			.booleanType()

@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.memory;
 
+import org.apache.flink.annotation.VisibleForTesting;
+
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
@@ -28,6 +30,7 @@ import java.util.Collections;
 public class TaskGlobalMemoryManager implements TaskMemoryManager {
 	private final MemoryManager memoryManager;
 
+	@VisibleForTesting
 	public TaskGlobalMemoryManager(
 			long memorySize,
 			int pageSize,
@@ -35,12 +38,24 @@ public class TaskGlobalMemoryManager implements TaskMemoryManager {
 			boolean lazyAllocate,
 			int slotCount,
 			boolean cacheEnable) {
+		this(memorySize, pageSize, requestMemorySegmentsTimeout, lazyAllocate, slotCount, cacheEnable, false);
+	}
+
+	public TaskGlobalMemoryManager(
+			long memorySize,
+			int pageSize,
+			Duration requestMemorySegmentsTimeout,
+			boolean lazyAllocate,
+			int slotCount,
+			boolean cacheEnable,
+			boolean checkSegmentOwnerEnable) {
 		memoryManager = cacheEnable ? new MemoryPoolManager(
 							memorySize,
 							pageSize,
 							requestMemorySegmentsTimeout,
 							lazyAllocate,
-							slotCount) : MemoryManager.create(memorySize, pageSize);
+							slotCount,
+							checkSegmentOwnerEnable) : MemoryManager.create(memorySize, pageSize);
 	}
 
 	@Override

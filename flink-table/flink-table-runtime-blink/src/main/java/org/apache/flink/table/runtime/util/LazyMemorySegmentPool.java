@@ -105,7 +105,7 @@ public class LazyMemorySegmentPool implements MemorySegmentPool, Closeable {
 	}
 
 	public void cleanCache() {
-		this.memoryManager.release(this.cachePages);
+		this.memoryManager.release(owner, this.cachePages);
 	}
 
 	public long getMaxPageUsageInBytes(){

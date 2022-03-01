@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.memory;
 
+import org.apache.flink.annotation.VisibleForTesting;
+
 import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
@@ -33,6 +35,7 @@ public class TaskSlotMemoryManager implements TaskMemoryManager {
 	private final Map<Integer, MemoryManager> slotMemoryManagers = new HashMap<>();
 	private final int slotCount;
 
+	@VisibleForTesting
 	public TaskSlotMemoryManager(
 			long memorySize,
 			int pageSize,
@@ -40,6 +43,17 @@ public class TaskSlotMemoryManager implements TaskMemoryManager {
 			Duration requestMemorySegmentsTimeout,
 			boolean lazyAllocate,
 			boolean cacheEnable) {
+		this(memorySize, pageSize, slotCount, requestMemorySegmentsTimeout, lazyAllocate, cacheEnable, false);
+	}
+
+	public TaskSlotMemoryManager(
+			long memorySize,
+			int pageSize,
+			int slotCount,
+			Duration requestMemorySegmentsTimeout,
+			boolean lazyAllocate,
+			boolean cacheEnable,
+			boolean checkSegmentOwnerEnable) {
 		this.slotCount = slotCount;
 		long slotMemorySize = memorySize / slotCount;
 		for (int i = 0; i < slotCount; i++) {
@@ -50,7 +64,8 @@ public class TaskSlotMemoryManager implements TaskMemoryManager {
 					pageSize,
 					requestMemorySegmentsTimeout,
 					lazyAllocate,
-					1) : MemoryManager.create(slotMemorySize, pageSize));
+					1,
+					checkSegmentOwnerEnable) : MemoryManager.create(slotMemorySize, pageSize));
 		}
 	}
 

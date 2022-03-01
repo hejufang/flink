@@ -386,7 +386,7 @@ public class BinaryHashTable extends BaseHybridHashTable {
 
 		// there are pending partitions
 		final BinaryHashPartition p = this.partitionsPending.get(0);
-		LOG.info(String.format("Begin to process spilled partition [%d]", p.getPartitionNumber()));
+		LOG.info(String.format("Task {} begin to process spilled partition [%d]", p.getPartitionNumber()));
 
 		if (p.probeSideRecordCounter == 0) {
 			// unprobed spilled partitions are only re-processed for a build-side outer join;

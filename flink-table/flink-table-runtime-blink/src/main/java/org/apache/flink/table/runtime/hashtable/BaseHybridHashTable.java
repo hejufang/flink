@@ -194,8 +194,8 @@ public abstract class BaseHybridHashTable implements MemorySegmentPool {
 
 		this.closed.set(false);
 
-		LOG.info(String.format("Initialize hash table with %d memory segments, each size [%d], the memory %d MB.",
-				totalNumBuffers, segmentSize, (long) totalNumBuffers * segmentSize / 1024 / 1024));
+		LOG.info(String.format("Initialize hash table with %d memory segments, each size [%d], the memory %d MB owner %s.",
+				totalNumBuffers, segmentSize, (long) totalNumBuffers * segmentSize / 1024 / 1024, owner));
 	}
 
 	/**

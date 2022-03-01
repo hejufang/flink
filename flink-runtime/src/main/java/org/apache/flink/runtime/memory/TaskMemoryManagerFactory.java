@@ -34,6 +34,7 @@ public class TaskMemoryManagerFactory {
 	private final Duration requestMemorySegmentsTimeout;
 	private final boolean lazyAllocate;
 	private final boolean cacheEnable;
+	private final boolean checkSegmentOwnerEnable;
 
 	private TaskMemoryManagerFactory(
 			boolean slotBasedEnable,
@@ -42,7 +43,8 @@ public class TaskMemoryManagerFactory {
 			int slotCount,
 			Duration requestMemorySegmentsTimeout,
 			boolean lazyAllocate,
-			boolean cacheEnable) {
+			boolean cacheEnable,
+			boolean checkSegmentOwnerEnable) {
 		this.slotBasedEnable = slotBasedEnable;
 		this.managedMemorySize = managedMemorySize;
 		this.pageSize = pageSize;
@@ -50,13 +52,14 @@ public class TaskMemoryManagerFactory {
 		this.requestMemorySegmentsTimeout = requestMemorySegmentsTimeout;
 		this.lazyAllocate = lazyAllocate;
 		this.cacheEnable = cacheEnable;
+		this.checkSegmentOwnerEnable = checkSegmentOwnerEnable;
 	}
 
 	public TaskMemoryManager buildTaskMemoryManager() {
 		if (slotBasedEnable) {
-			return new TaskSlotMemoryManager(managedMemorySize, pageSize, slotCount, requestMemorySegmentsTimeout, lazyAllocate, cacheEnable);
+			return new TaskSlotMemoryManager(managedMemorySize, pageSize, slotCount, requestMemorySegmentsTimeout, lazyAllocate, cacheEnable, checkSegmentOwnerEnable);
 		} else {
-			return new TaskGlobalMemoryManager(managedMemorySize, pageSize, requestMemorySegmentsTimeout, lazyAllocate, slotCount, cacheEnable);
+			return new TaskGlobalMemoryManager(managedMemorySize, pageSize, requestMemorySegmentsTimeout, lazyAllocate, slotCount, cacheEnable, checkSegmentOwnerEnable);
 		}
 	}
 
@@ -68,6 +71,7 @@ public class TaskMemoryManagerFactory {
 			configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS),
 			configuration.get(TaskManagerOptions.ALLOCATE_MEMORY_SEGMENTS_TIMEOUT),
 			configuration.getBoolean(TaskManagerOptions.MEMORY_POOL_MANAGER_SEGMENT_ALLOCATE_LAZY_ENABLE),
-			configuration.getBoolean(TaskManagerOptions.MEMORY_POOL_MANAGER_ENABLE));
+			configuration.getBoolean(TaskManagerOptions.MEMORY_POOL_MANAGER_ENABLE),
+			configuration.getBoolean(TaskManagerOptions.MEMORY_POOL_SEGMENT_OWNER_CHECKER_ENABLE));
 	}
 }

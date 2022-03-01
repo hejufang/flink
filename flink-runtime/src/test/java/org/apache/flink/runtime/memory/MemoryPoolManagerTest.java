@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -167,5 +168,76 @@ public class MemoryPoolManagerTest {
 			e.printStackTrace();
 			fail(e.getMessage());
 		}
+	}
+
+	/**
+	 * Free the same segment list multiple times.
+	 */
+	@Test
+	public void testMultipleFreeSameSegmentList() throws Exception {
+		final AbstractInvokable mockInvoke = new DummyInvokable();
+		List<MemorySegment> segments1 = memoryManager.allocatePages(mockInvoke, 10);
+		List<MemorySegment> segments2 = new ArrayList<>(segments1);
+
+		memoryManager.release(mockInvoke, segments1);
+		long availableSize1 = memoryManager.availableMemory();
+
+		memoryManager.release(mockInvoke, segments2);
+		long availableSize2 = memoryManager.availableMemory();
+		assertEquals(availableSize1, availableSize2);
+	}
+
+	/**
+	 * Free the same segment multiple times.
+	 */
+	@Test
+	public void testMultipleFreeSameSegment() throws Exception {
+		final AbstractInvokable mockInvoke = new DummyInvokable();
+		MemorySegment segment = memoryManager.allocatePages(mockInvoke, 1).iterator().next();
+
+		memoryManager.release(mockInvoke, segment);
+		long availableSize1 = memoryManager.availableMemory();
+
+		memoryManager.release(mockInvoke, segment);
+		long availableSize2 = memoryManager.availableMemory();
+		assertEquals(availableSize1, availableSize2);
+	}
+
+	/**
+	 * Free the same owner multiple times.
+	 */
+	@Test
+	public void testMultipleFreeSameOwner() throws Exception {
+		final AbstractInvokable mockInvoke = new DummyInvokable();
+		memoryManager.allocatePages(mockInvoke, 1).iterator().next();
+
+		memoryManager.releaseAll(mockInvoke);
+		long availableSize1 = memoryManager.availableMemory();
+
+		memoryManager.releaseAll(mockInvoke);
+		long availableSize2 = memoryManager.availableMemory();
+		assertEquals(availableSize1, availableSize2);
+	}
+
+	/**
+	 * The owner modify free segment.
+	 *
+	 * @throws Exception the thrown exception
+	 */
+	@Test
+	public void testMultipleOwnerModifySegment() throws Exception {
+		final AbstractInvokable mockInvoke1 = new DummyInvokable();
+		final AbstractInvokable mockInvoke2 = new DummyInvokable();
+
+		List<MemorySegment> segmentList1 = memoryManager.allocatePages(mockInvoke1, NUM_PAGES);
+		MemorySegment segment = segmentList1.iterator().next();
+		memoryManager.release(segmentList1);
+
+		List<MemorySegment> segmentList2 = memoryManager.allocatePages(mockInvoke2, NUM_PAGES);
+		assertThrows("try to modify segment", RuntimeException.class, () -> {
+			segment.putLong(0, 1L);
+			return null;
+		});
+		memoryManager.release(segmentList2);
 	}
 }

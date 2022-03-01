@@ -161,17 +161,17 @@ public abstract class HashJoinOperator extends TableStreamOperator<RowData>
 		switch (inputId) {
 			case 1:
 				checkState(!buildEnd, "Should not build ended.");
-				LOG.info("Finish build phase.");
+				LOG.info("Task {} finish build phase.", this.getContainingTask());
 				buildEnd = true;
 				this.table.endBuild();
 				break;
 			case 2:
 				checkState(buildEnd, "Should build ended.");
-				LOG.info("Finish probe phase.");
+				LOG.info("Task {} finish probe phase.", this.getContainingTask());
 				while (this.table.nextMatching()) {
 					joinWithNextKey();
 				}
-				LOG.info("Finish rebuild phase.");
+				LOG.info("Task {} finish rebuild phase.", this.getContainingTask());
 				break;
 		}
 	}

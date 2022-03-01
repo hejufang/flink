@@ -281,6 +281,16 @@ public class MemoryManager {
 	}
 
 	/**
+	 * Release the segment with given owner.
+	 *
+	 * @param owner the given owner
+	 * @param segment the release segment
+	 */
+	public void release(Object owner, MemorySegment segment) {
+		release(segment);
+	}
+
+	/**
 	 * Tries to release many memory segments together.
 	 *
 	 * <p>The segment is only freed and made eligible for reclamation by the GC. Each segment will be returned to
@@ -322,6 +332,16 @@ public class MemoryManager {
 				// call releases the memory. fall through the loop and try again
 			}
 		} while (!successfullyReleased);
+	}
+
+	/**
+	 * Release the segments with given owner.
+	 *
+	 * @param owner the given owner
+	 * @param segments the segments to release
+	 */
+	public void release(Object owner, Collection<MemorySegment> segments) {
+		release(segments);
 	}
 
 	private MemorySegment releaseSegmentsForOwnerUntilNextOwner(
