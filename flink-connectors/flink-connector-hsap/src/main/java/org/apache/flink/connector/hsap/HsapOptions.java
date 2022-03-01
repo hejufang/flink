@@ -56,6 +56,19 @@ public class HsapOptions implements Serializable {
 		.noDefaultValue()
 		.withDescription("Required. It defines table name which we want to access.");
 
+	public static final ConfigOption<String> PSM = ConfigOptions
+		.key("hsap-psm")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional. It defines hsap server psm, " +
+			"if you set a conflict hsap-addr at same time, it will prefer to use hsap-psm.");
+
+	public static final ConfigOption<String> DATA_CENTER = ConfigOptions
+		.key("data-center")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional. It defines hsap server data-center.");
+
 	public static final ConfigOption<Integer> CONNECTION_PER_SERVER = ConfigOptions
 		.key("sink.connection-per-server")
 		.intType()
@@ -78,6 +91,10 @@ public class HsapOptions implements Serializable {
 
 	private final long flushIntervalMs;
 
+	private final String hsapPsm;
+
+	private final String dataCenter;
+
 	public HsapOptions(
 			String addr,
 			int batchRowNum,
@@ -86,7 +103,9 @@ public class HsapOptions implements Serializable {
 			int connectionPerServer,
 			int parallelism,
 			FlinkConnectorRateLimiter rateLimiter,
-			long flushIntervalMs) {
+			long flushIntervalMs,
+			String hsapPsm,
+			String dataCenter) {
 		this.addr = addr;
 		this.batchRowNum = batchRowNum;
 		this.database = database;
@@ -95,6 +114,8 @@ public class HsapOptions implements Serializable {
 		this.parallelism = parallelism;
 		this.rateLimiter = rateLimiter;
 		this.flushIntervalMs = flushIntervalMs;
+		this.hsapPsm = hsapPsm;
+		this.dataCenter = dataCenter;
 	}
 
 	public String getAddr() {
@@ -129,6 +150,14 @@ public class HsapOptions implements Serializable {
 		return flushIntervalMs;
 	}
 
+	public String getHsapPsm() {
+		return hsapPsm;
+	}
+
+	public String getDataCenter() {
+		return dataCenter;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -152,6 +181,10 @@ public class HsapOptions implements Serializable {
 		private FlinkConnectorRateLimiter rateLimiter;
 
 		private long flushIntervalMs = SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis();
+
+		private String hsapPsm;
+
+		private String dataCenter;
 
 		public Builder setAddr(String addr) {
 			this.addr = addr;
@@ -193,10 +226,23 @@ public class HsapOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setHsapPsm(String hsapPsm) {
+			this.hsapPsm = hsapPsm;
+			return this;
+		}
+
+		public Builder setDataCenter(String dataCenter) {
+			this.dataCenter = dataCenter;
+			return this;
+		}
+
 		public HsapOptions build() {
-			Preconditions.checkNotNull(addr, "Address can not be null");
-			return new HsapOptions(addr, batchRowNum, database,
-				table, connectionPerServer, parallelism, rateLimiter, flushIntervalMs);
+			Preconditions.checkState(addr != null || (hsapPsm != null && dataCenter != null),
+				String.format("Address and psm can not be null at same time " +
+					"and if you set %s you have to set %s", PSM.key(), DATA_CENTER.key()));
+
+			return new HsapOptions(addr, batchRowNum, database, table, connectionPerServer, parallelism,
+				rateLimiter, flushIntervalMs, hsapPsm, dataCenter);
 		}
 	}
 }

@@ -66,6 +66,8 @@ under the License.
 									<artifact>*:*</artifact>
 									<excludes>
 										<exclude>org/slf4j/**</exclude>
+										<exclude>META-INF/services/javax.annotation.*</exclude>
+										<exclude>META-INF/services/javax.servlet.*</exclude>
 									</excludes>
 								</filter>
 							</filters>
@@ -149,6 +151,22 @@ under the License.
 								<relocation>
 									<pattern>org.aopalliance</pattern>
 									<shadedPattern>org.apache.flink.hsap.shaded.org.aopalliance</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.fasterxml.jackson</pattern>
+									<shadedPattern>org.apache.flink.hsap.shaded.com.fasterxml.jackson</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>okhttp3</pattern>
+									<shadedPattern>org.apache.flink.hsap.shaded.okhttp3</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.bytedance.commons</pattern>
+									<shadedPattern>org.apache.flink.hsap.shaded.com.bytedance.commons</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>okio</pattern>
+									<shadedPattern>org.apache.flink.hsap.shaded.okio</shadedPattern>
 								</relocation>
 							</relocations>
 						</configuration>

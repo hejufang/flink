@@ -31,7 +31,9 @@ import java.util.Set;
 
 import static org.apache.flink.connector.hsap.HsapOptions.ADDR_LIST;
 import static org.apache.flink.connector.hsap.HsapOptions.CONNECTION_PER_SERVER;
+import static org.apache.flink.connector.hsap.HsapOptions.DATA_CENTER;
 import static org.apache.flink.connector.hsap.HsapOptions.DB_NAME;
+import static org.apache.flink.connector.hsap.HsapOptions.PSM;
 import static org.apache.flink.connector.hsap.HsapOptions.TABLE_NAME;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
@@ -61,7 +63,6 @@ public class HsapDynamicTableFactory implements DynamicTableSinkFactory {
 	@Override
 	public Set<ConfigOption<?>> requiredOptions() {
 		Set<ConfigOption<?>> set = new HashSet<>();
-		set.add(ADDR_LIST);
 		set.add(DB_NAME);
 		set.add(TABLE_NAME);
 		return set;
@@ -70,6 +71,9 @@ public class HsapDynamicTableFactory implements DynamicTableSinkFactory {
 	@Override
 	public Set<ConfigOption<?>> optionalOptions() {
 		Set<ConfigOption<?>> set = new HashSet<>();
+		set.add(ADDR_LIST);
+		set.add(PSM);
+		set.add(DATA_CENTER);
 		set.add(PARALLELISM);
 		set.add(RATE_LIMIT_NUM);
 		set.add(CONNECTION_PER_SERVER);
@@ -85,6 +89,10 @@ public class HsapDynamicTableFactory implements DynamicTableSinkFactory {
 		hsapOptions.setAddr(readableConfig.get(ADDR_LIST));
 		hsapOptions.setTable(readableConfig.get(TABLE_NAME));
 		hsapOptions.setDatabase(readableConfig.get(DB_NAME));
+
+		readableConfig.getOptional(ADDR_LIST).ifPresent(hsapOptions::setAddr);
+		readableConfig.getOptional(PSM).ifPresent(hsapOptions::setHsapPsm);
+		readableConfig.getOptional(DATA_CENTER).ifPresent(hsapOptions::setDataCenter);
 
 		readableConfig.getOptional(SINK_BUFFER_FLUSH_MAX_ROWS).ifPresent(hsapOptions::setBatchRowNum);
 		readableConfig.getOptional(CONNECTION_PER_SERVER).ifPresent(hsapOptions::setConnectionPerServer);

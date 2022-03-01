@@ -89,6 +89,8 @@ public class HsapSinkFunction
 		hsapParams.setBatchRowNum(hsapOptions.getBatchRowNum());
 		hsapParams.setConnectionsPerServer(hsapOptions.getConnectionPerServer());
 		hsapParams.setFlushTimeInterval(hsapOptions.getFlushIntervalMs(), TimeUnit.MILLISECONDS);
+		hsapParams.setIgsPsm(hsapOptions.getHsapPsm());
+		hsapParams.setDataCenter(hsapOptions.getDataCenter());
 		hsapAsyncClient = new HsapAsyncClient(hsapParams);
 		hsapAsyncClient.open();
 
