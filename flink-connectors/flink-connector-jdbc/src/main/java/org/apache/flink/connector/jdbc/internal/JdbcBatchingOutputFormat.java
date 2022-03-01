@@ -33,6 +33,7 @@ import org.apache.flink.connector.jdbc.utils.JdbcUtils;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -246,7 +247,7 @@ public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStat
 				try {
 					flush();
 				} catch (Exception e) {
-					LOG.warn("Writing records to JDBC failed.", e);
+					throw new FlinkRuntimeException("Writing records to JDBC failed.", e);
 				}
 			}
 
