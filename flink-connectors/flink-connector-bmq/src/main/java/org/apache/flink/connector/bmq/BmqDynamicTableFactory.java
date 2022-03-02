@@ -121,8 +121,8 @@ public class BmqDynamicTableFactory implements DynamicTableSourceFactory {
 
 		readableConfig.getOptional(TOPIC).ifPresent(bmqSourceConfig::setTopic);
 		readableConfig.getOptional(CLUSTER).ifPresent(bmqSourceConfig::setCluster);
-		readableConfig.getOptional(VERSION).ifPresent(bmqSourceConfig::setVersion);
-		readableConfig.getOptional(IGNORE_UNHEALTHY_SEGMENT).ifPresent(bmqSourceConfig::setIgnoreUnhealthySegment);
+		bmqSourceConfig.setVersion(readableConfig.get(VERSION));
+		bmqSourceConfig.setIgnoreUnhealthySegment(readableConfig.get(IGNORE_UNHEALTHY_SEGMENT));
 
 		if (readableConfig.getOptional(START_TIME_MS).isPresent()) {
 			bmqSourceConfig.setScanStartTimeMs(readableConfig.get(START_TIME_MS));
