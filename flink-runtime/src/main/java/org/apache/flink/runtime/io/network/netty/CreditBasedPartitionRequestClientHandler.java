@@ -410,4 +410,9 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 			return new ResumeConsumption(inputChannel.getInputChannelId());
 		}
 	}
+
+	@Override
+	public void cleanResource() {
+		cancelled.clear();
+	}
 }

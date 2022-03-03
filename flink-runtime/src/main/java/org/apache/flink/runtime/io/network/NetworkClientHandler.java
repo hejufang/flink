@@ -56,4 +56,11 @@ public interface NetworkClientHandler extends ChannelHandler {
 	 * @param inputChannel The input channel to resume data consumption.
 	 */
 	void resumeConsumption(RemoteInputChannel inputChannel);
+
+	/**
+	 * It will be used when connection reuse is enabled.
+	 * Clean resource when putting channel back to connection pool to prevent memory leak.
+	 */
+	default void cleanResource() {
+	}
 }

@@ -331,6 +331,7 @@ class NettyChannelManager {
 
 		private void setIdle() {
 			this.connectionID = null;
+			this.clientHandler.cleanResource();
 		}
 
 		private boolean isIdle() {
