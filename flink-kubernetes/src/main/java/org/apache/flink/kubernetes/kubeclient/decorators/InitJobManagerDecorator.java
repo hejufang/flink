@@ -48,8 +48,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.kubernetes.utils.Constants.API_VERSION;
-import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_DEFAULT;
-import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_HOSTNETWORK;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_IP_ADDRESS;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
 import static org.apache.flink.kubernetes.utils.Constants.POD_IP_FIELD_PATH;
@@ -90,10 +88,7 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
 				.withImagePullSecrets(kubernetesJobManagerParameters.getImagePullSecrets())
 				.withNodeSelector(kubernetesJobManagerParameters.getNodeSelector())
 				.withHostNetwork(kubernetesJobManagerParameters.isHostNetworkEnabled())
-				.withDnsPolicy(
-					kubernetesJobManagerParameters.isHostNetworkEnabled()
-					? DNS_POLICY_HOSTNETWORK
-					: DNS_POLICY_DEFAULT)
+				.withDnsPolicy(kubernetesJobManagerParameters.getDnsPolicy())
 				.addAllToVolumes(volumeList)
 				.withTolerations(kubernetesJobManagerParameters.getTolerations().stream()
 					.map(e -> KubernetesToleration.fromMap(e).getInternalResource())

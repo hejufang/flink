@@ -26,6 +26,7 @@ import org.apache.flink.kubernetes.configuration.KubernetesConfigOptionsInternal
 import org.apache.flink.kubernetes.entrypoint.KubernetesApplicationClusterEntrypoint;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
+import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 
 import io.fabric8.kubernetes.api.model.LocalObjectReference;
 import org.apache.commons.lang3.StringUtils;
@@ -40,6 +41,8 @@ import java.util.Optional;
 import static org.apache.flink.kubernetes.configuration.KubernetesConfigOptions.CONTAINER_IMAGE_PULL_SECRETS;
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOG4J_NAME;
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOGBACK_NAME;
+import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_DEFAULT;
+import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_HOSTNETWORK;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -227,6 +230,20 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 
 	public boolean isHostNetworkEnabled() {
 		return flinkConfig.get(KubernetesConfigOptions.KUBERNETES_HOST_NETWORK_ENABLED);
+	}
+
+	public String getDnsPolicy() {
+		// only set to DNS_POLICY_HOSTNETWORK when its necessary because the coreDNS may be unavailable
+		if (flinkConfig.get(KubernetesConfigOptions.KUBERNETES_HOST_NETWORK_ENABLED)) {
+			if (HighAvailabilityMode.isHighAvailabilityModeActivated(flinkConfig)) {
+				return DNS_POLICY_DEFAULT;
+			}
+			// When in Non-HA mode, the TM connect to JM via address svc.namespace.
+			// This address can only be resolved with DNS policy: ClusterFirstWithHostNet after host network enabled
+			return DNS_POLICY_HOSTNETWORK;
+		} else {
+			return DNS_POLICY_DEFAULT;
+		}
 	}
 
 	@Override

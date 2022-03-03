@@ -21,8 +21,10 @@ package org.apache.flink.kubernetes.kubeclient.parameters;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptionsInternal;
+import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.utils.Constants;
+import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.TestLogger;
 
@@ -121,6 +123,34 @@ public class AbstractKubernetesParametersTest extends TestLogger {
 	public void getConfigDirectoryFallbackToPodConfDir() {
 		final String confDirInPod = flinkConfig.get(KubernetesConfigOptions.FLINK_CONF_DIR);
 		assertThat(testingKubernetesParameters.getConfigDirectory(), is(confDirInPod));
+	}
+
+	@Test
+	public void getDnsPolicyWhenHaModeAndHostNetworkDisabled() {
+		flinkConfig.setString(HighAvailabilityOptions.HA_MODE, HighAvailabilityMode.ZOOKEEPER.name());
+		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_HOST_NETWORK_ENABLED, Boolean.FALSE);
+		assertThat(testingKubernetesParameters.getDnsPolicy(), is(Constants.DNS_POLICY_DEFAULT));
+	}
+
+	@Test
+	public void getDnsPolicyWhenHaModeAndHostNetworkEnabled() {
+		flinkConfig.setString(HighAvailabilityOptions.HA_MODE, HighAvailabilityMode.ZOOKEEPER.name());
+		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_HOST_NETWORK_ENABLED, Boolean.TRUE);
+		assertThat(testingKubernetesParameters.getDnsPolicy(), is(Constants.DNS_POLICY_DEFAULT));
+	}
+
+	@Test
+	public void getDnsPolicyWhenNonHaModeAndHostNetworkDisabled() {
+		flinkConfig.setString(HighAvailabilityOptions.HA_MODE, HighAvailabilityMode.NONE.name());
+		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_HOST_NETWORK_ENABLED, Boolean.FALSE);
+		assertThat(testingKubernetesParameters.getDnsPolicy(), is(Constants.DNS_POLICY_DEFAULT));
+	}
+
+	@Test
+	public void getDnsPolicyWhenNonHaModeAndHostNetworkEnabled() {
+		flinkConfig.setString(HighAvailabilityOptions.HA_MODE, HighAvailabilityMode.NONE.name());
+		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_HOST_NETWORK_ENABLED, Boolean.TRUE);
+		assertThat(testingKubernetesParameters.getDnsPolicy(), is(Constants.DNS_POLICY_HOSTNETWORK));
 	}
 
 	private class TestingKubernetesParameters extends AbstractKubernetesParameters {

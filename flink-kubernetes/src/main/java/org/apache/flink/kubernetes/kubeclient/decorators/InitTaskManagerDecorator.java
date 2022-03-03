@@ -44,8 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_DEFAULT;
-import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_HOSTNETWORK;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -85,10 +83,7 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 				.withImagePullSecrets(kubernetesTaskManagerParameters.getImagePullSecrets())
 				.withNodeSelector(kubernetesTaskManagerParameters.getNodeSelector())
 				.withHostNetwork(kubernetesTaskManagerParameters.isHostNetworkEnabled())
-				.withDnsPolicy(
-					kubernetesTaskManagerParameters.isHostNetworkEnabled()
-						? DNS_POLICY_HOSTNETWORK
-						: DNS_POLICY_DEFAULT)
+				.withDnsPolicy(kubernetesTaskManagerParameters.getDnsPolicy())
 				.withTolerations(kubernetesTaskManagerParameters.getTolerations().stream()
 					.map(e -> KubernetesToleration.fromMap(e).getInternalResource())
 					.collect(Collectors.toList()))

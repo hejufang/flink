@@ -1297,31 +1297,7 @@ Gaura-HL:
   clusterName: Gaura-HL
   is_kubernetes: true
   high-availability: none
-  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
-  hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
-  containerized.taskmanager.env.METRICS_USE_SOCK: true
-  # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
-  containerized.master.env.MALLOC_ARENA_MAX: 4
-  containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
-  metrics.reporter.opentsdb_reporter.use_domain_sock: true
-  taskmanager.number-initial-percentage: 1.0
-  # service & ingress related
-  kubernetes.rest-service.exposed.type: ClusterIP
-  kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
-  kubernetes.ingress.enable: true
-  kubernetes.ingress.host: "hl-gaura.byted.org"
-  kubernetes.podgroup.enable: true
-  # External jars we needed, use ',' to separator different jars.
-  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
-  register-dashboard.enabled: true
-
-gaura-hl:
-  dc: cn
-  clusterName: gaura-hl
-  is_kubernetes: true
-  high-availability: none
-  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  high-availability.zookeeper.quorum: 10.226.110.167:2181,10.226.110.162:2181,10.226.119.168:2181,10.226.126.143:2181,10.226.122.156:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   containerized.taskmanager.env.METRICS_USE_SOCK: true
@@ -1344,8 +1320,8 @@ Gaura-LQ:
   dc: cn
   clusterName: Gaura-LQ
   is_kubernetes: true
-  high-availability: none
-  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  high-availability: zookeeper
+  high-availability.zookeeper.quorum: 10.248.236.172:2181,10.248.248.176:2181,10.248.234.180:2181,10.248.243.170:2181,10.248.243.148:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   containerized.taskmanager.env.METRICS_USE_SOCK: true
@@ -1360,6 +1336,7 @@ Gaura-LQ:
   kubernetes.ingress.enable: true
   kubernetes.ingress.host: "lq-gaura.byted.org"
   kubernetes.podgroup.enable: true
+  kubernetes.hostnetwork.enabled: true
   # External jars we needed, use ',' to separator different jars.
   flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
   register-dashboard.enabled: true
