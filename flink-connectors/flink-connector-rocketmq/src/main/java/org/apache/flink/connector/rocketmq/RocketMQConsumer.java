@@ -142,7 +142,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	@Override
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
-		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
 		Properties properties = getRocketMQProperties(props);
 		String instanceName = String.format(INSTANCE_ID_TEMPLATE, jobName, topic, subTaskId, UUID.randomUUID());
 		LOG.info("Current rocketmq instance name is {}", instanceName);
@@ -199,6 +198,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 	@Override
 	public void initializeState(FunctionInitializationContext context) throws Exception {
+		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
 		this.runtimeParallelism = getRuntimeContext().getNumberOfParallelSubtasks();
 
 		this.unionOffsetStates = context.getOperatorStateStore().getUnionListState(new ListStateDescriptor<>(
