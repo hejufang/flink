@@ -38,7 +38,7 @@ under the License.
 		<dependency>
 			<groupId>com.bytedance</groupId>
 			<artifactId>bmq-client</artifactId>
-			<version>1.0.4</version>
+			<version>1.0.6</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
@@ -223,6 +223,14 @@ under the License.
 										<relocation>
 											<pattern>org.byted.infsec</pattern>
 											<shadedPattern>org.apache.flink.connector.bmq.shaded.org.byted.infsec</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.byted.security</pattern>
+											<shadedPattern>org.apache.flink.connector.bmq.shaded.org.byted.security</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>META-INF/native/liborg_byted_security_shaded</pattern>
+											<shadedPattern>META-INF/native/liborg_apache_flink_connector_bmq_shaded_org_byted_security_shaded</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>com.google.common</pattern>

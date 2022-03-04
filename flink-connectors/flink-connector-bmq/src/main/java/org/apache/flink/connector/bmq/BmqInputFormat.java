@@ -30,6 +30,7 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import com.bytedance.bmq.client.SmartConsumer;
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -285,6 +286,7 @@ public class BmqInputFormat extends RichInputFormat<RowData, BmqInputSplit> {
 		props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
 		props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
 		props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "");
+		props.put(CommonClientConfigs.ENABLE_ZTI_TOKEN, "true");
 		return new KafkaConsumer<>(props);
 	}
 

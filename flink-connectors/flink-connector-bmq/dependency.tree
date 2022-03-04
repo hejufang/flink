@@ -17,12 +17,12 @@
  */
 
 org.apache.flink:flink-connector-bmq:jar:1.11-byted-SNAPSHOT
-+- com.bytedance:bmq-client:jar:1.0.4:compile
-|  +- com.bytedance:bmq-common:jar:1.0.4:compile
++- com.bytedance:bmq-client:jar:1.0.6:compile
+|  +- com.bytedance:bmq-common:jar:1.0.6:compile
 |  |  +- com.github.luben:zstd-jni:jar:1.1.0:compile
 |  |  +- net.jpountz.lz4:lz4:jar:1.3.0:compile
 |  |  \- org.xerial.snappy:snappy-java:jar:1.1.4:compile
-|  \- org.apache.kafka:kafka-clients:jar:0.10.1.2-bd1.7.1:compile
+|  \- org.apache.kafka:kafka-clients:jar:0.10.1.2-bd1.7.10:compile
 |     +- com.bytedance:commons:jar:0.0.14:compile
 |     |  \- com.squareup.okhttp3:okhttp:jar:3.8.0:compile
 |     |     \- com.squareup.okio:okio:jar:1.13.0:compile
@@ -62,7 +62,7 @@ org.apache.flink:flink-connector-bmq:jar:1.11-byted-SNAPSHOT
 |  |  \- org.byted.infsec:thrift-client-pool-java:jar:1.3.1:compile
 |  |     \- org.apache.commons:commons-pool2:jar:2.2:compile
 |  +- org.byted.infsec:infsecclient:jar:1.4.1:compile
-|  +- org.byted.security:zti-jwt-helper-java:jar:1.0.10:provided
+|  +- org.byted.security:zti-jwt-helper-java:jar:1.0.10:compile
 |  +- org.byted.security:zti-jwt-java:jar:1.0.18:provided
 |  +- org.byted.security:zti-issuer-helper-java:jar:1.0.7:provided
 |  +- javax.servlet:servlet-api:jar:2.5:provided
