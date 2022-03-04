@@ -47,6 +47,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.getRocketMQProperties;
 
@@ -76,6 +77,7 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 	 * Set of assigned MessageQueue. We should convert MessageQueuePb to MessageQueue here.
 	 */
 	private final Set<RocketMQSplitBase> assignedSplitBase;
+	private final Set<RocketMQSplitBase> userSpecificSplitSet;
 
 	// key: subtaskId(ReaderId), value: the RocketMQSplit that should be assigned to Reader.
 	private final Map<Integer, Set<RocketMQSplit>> pendingRocketMQSplitAssignment;
@@ -105,6 +107,8 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 		this.pendingRocketMQSplitAssignment = new HashMap<>();
 		this.assignedSplitBase = new HashSet<>();
 		this.batchMode = boundedness == Boundedness.BOUNDED;
+		userSpecificSplitSet = RocketMQUtils.getClusterSplitBaseSet(
+			config.getCluster(), config.getRocketMqBrokerQueueList());
 	}
 
 	@Override
@@ -247,9 +251,15 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 
 	private RocketmqSplitBaseChange getMessageQueueChange(List<MessageQueuePb> fetchedMessageQueue) {
 		// Convert MessageQueuePbs to MessageQueues.
-		Set<RocketMQSplitBase> currentSplitBaseSet = fetchedMessageQueue.stream()
-					.map(pb -> new RocketMQSplitBase(pb.getTopic(), pb.getBrokerName(), pb.getQueueId()))
-					.collect(Collectors.toSet());
+		Stream<RocketMQSplitBase> splitBaseStream = fetchedMessageQueue.stream()
+			.map(pb -> new RocketMQSplitBase(pb.getTopic(), pb.getBrokerName(), pb.getQueueId()));
+		if (!userSpecificSplitSet.isEmpty()) {
+			splitBaseStream = splitBaseStream.filter(userSpecificSplitSet::contains);
+		}
+		Set<RocketMQSplitBase> currentSplitBaseSet = splitBaseStream.collect(Collectors.toSet());
+		LOG.info("Before split filter size {}, after size {}",
+			fetchedMessageQueue.size(), currentSplitBaseSet.size());
+
 		final Set<RocketMQSplitBase> removedSplitBaseSet = new HashSet<>();
 		final Set<RocketMQSplitBase> addedSplitBaseSet = new HashSet<>();
 		// Remove the same queues between fetchedMessageQueue and assignedMessageQueue.

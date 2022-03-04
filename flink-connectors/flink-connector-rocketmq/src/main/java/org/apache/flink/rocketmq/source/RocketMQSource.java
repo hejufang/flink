@@ -79,6 +79,7 @@ public class RocketMQSource<OUT> implements
 		this.jobName = System.getProperty(
 			ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
 		RocketMQUtils.saveConfigurationToSystemProperties(config);
+		RocketMQUtils.validateBrokerQueueList(config);
 	}
 
 	@Override

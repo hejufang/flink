@@ -18,6 +18,7 @@
 package org.apache.flink.connector.rocketmq;
 
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.rocketmq.source.split.RocketMQSplitBase;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,10 +37,12 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -71,6 +74,22 @@ public final class RocketMQUtils {
 
 	public static boolean getBoolean(Properties props, String key, boolean defaultValue) {
 		return Boolean.parseBoolean(props.getProperty(key, String.valueOf(defaultValue)));
+	}
+
+	public static Set<RocketMQSplitBase> getClusterSplitBaseSet(String cluster, String brokerQueueList) {
+		Map<String, List<MessageQueue>> map = parseMessageQueues(brokerQueueList);
+		if (map.isEmpty()) {
+			return Collections.emptySet();
+		}
+		List<MessageQueue> queues = map.get(cluster);
+		if (queues == null) {
+			throw new FlinkRuntimeException(String.format(
+				"Cluster: %s not in specific cluster set %s", cluster, map.keySet()));
+		}
+
+		return queues.stream()
+				.map(q -> new RocketMQSplitBase(q.getTopic(), q.getBrokerName(), q.getQueueId()))
+				.collect(Collectors.toSet());
 	}
 
 	public static Map<String, List<MessageQueue>> parseCluster2QueueList(String brokerQueueList) {
@@ -266,6 +285,15 @@ public final class RocketMQUtils {
 		} catch (Throwable t) {
 			// We catch all Throwable as it is not critical path.
 			LOG.warn("Parse rocketmq metrics failed.", t);
+		}
+	}
+
+	public static void validateBrokerQueueList(RocketMQConfig<?> rocketMQConfig) {
+		Map<String, List<MessageQueue>> messageQueueMap =
+			RocketMQUtils.parseCluster2QueueList(rocketMQConfig.getRocketMqBrokerQueueList());
+		if (!messageQueueMap.isEmpty() && messageQueueMap.get(rocketMQConfig.getCluster()) == null) {
+			throw new FlinkRuntimeException(
+				String.format("Cluster %s not found in broker queue config", rocketMQConfig.getCluster()));
 		}
 	}
 }

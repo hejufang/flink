@@ -137,6 +137,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
 		this.offsetFlushInterval = config.getOffsetFlushInterval();
 		RocketMQUtils.saveConfigurationToSystemProperties(config);
+		RocketMQUtils.validateBrokerQueueList(config);
 	}
 
 	@Override

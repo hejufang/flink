@@ -343,7 +343,6 @@ public class RocketMQDynamicTableFactory implements
 				rocketMQConfig.setTag(config.get(BINLOG_TARGET_TABLE));
 			}
 			config.getOptional(SCAN_BROKER_QUEUE_LIST).ifPresent(rocketMQConfig::setRocketMqBrokerQueueList);
-			validateBrokerQueueList(rocketMQConfig);
 			if (StringUtils.isNullOrWhitespaceOnly(rocketMQConfig.getGroup())) {
 				throw new FlinkRuntimeException("You have to specific group when use rocketmq consumer.");
 			}
