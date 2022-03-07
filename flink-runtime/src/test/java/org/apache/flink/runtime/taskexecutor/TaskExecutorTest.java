@@ -1835,6 +1835,7 @@ public class TaskExecutorTest extends TestLogger {
 
 		final CompletableFuture<Integer> offeredSlotsFuture = new CompletableFuture<>();
 		final CompletableFuture<ResourceID> disconnectFuture = new CompletableFuture<>();
+		final CompletableFuture<Void> taskRunningFuture = new CompletableFuture<>();
 		final TestingJobMasterGateway jobMasterGateway = new TestingJobMasterGatewayBuilder()
 				.setOfferSlotsFunction((resourceID, slotOffers) -> {
 					offeredSlotsFuture.complete(slotOffers.size());
@@ -1843,6 +1844,14 @@ public class TaskExecutorTest extends TestLogger {
 				.setDisconnectTaskManagerFunction(
 						resourceID -> {
 							disconnectFuture.complete(resourceID);
+							return CompletableFuture.completedFuture(Acknowledge.get());
+						}
+				)
+				.setUpdateTaskExecutionStateFunction(
+						taskExecutionState -> {
+							if (taskExecutionState.getExecutionState().equals(ExecutionState.RUNNING)) {
+								taskRunningFuture.complete(null);
+							}
 							return CompletableFuture.completedFuture(Acknowledge.get());
 						}
 				)
@@ -1892,7 +1901,8 @@ public class TaskExecutorTest extends TestLogger {
 			assertThat(offeredSlotsFuture.get(), is(1));
 
 			// submit task.
-			submitNoOpInvokableTask(allocationID, jobMasterGateway, taskExecutorGateway);
+			submitTask(allocationID, jobMasterGateway, taskExecutorGateway, BlockingNoOpCancelableInvokable.class);
+			taskRunningFuture.get();
 
 			// notify loss of leadership
 			jobManagerLeaderRetriever.notifyListener(null, null);
