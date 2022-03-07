@@ -1186,8 +1186,8 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 	@Test
 	public void testCheckSlowContainers() throws Exception {
 		flinkConfig.setBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED, true);
-		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
-		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 1000);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, 1000);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 10);
 		flinkConfig.setLong(ResourceManagerOptions.TASK_MANAGER_TIMEOUT, 5000000);
 		new Context(500000) {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
@@ -1262,7 +1262,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(8, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(5100);
+				Thread.sleep(2000);
 
 				// requests 3 container (000011 ~ 000013) for slow container(000008 ~ 000010).
 				for (int i = 11; i < 14; i++) {
@@ -1274,7 +1274,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				assertEquals(0, resourceManager.getSlowContainerManager().getStartingRedundantContainerTotalNum());
 				assertEquals(3, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
-				Thread.sleep(1500);
+				Thread.sleep(2000);
 				// verify not request redundant container for slow container.
 				assertEquals(3, pendingRequests.size());
 				assertEquals(3, resourceManager.getSlowContainerManager().getSlowContainerTotalNum());
@@ -1282,7 +1282,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				assertEquals(0, resourceManager.getSlowContainerManager().getStartingRedundantContainerTotalNum());
 				assertEquals(3, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
-				// Mock that 3 redundant containers is allocated
+				// Mock that 3 redundant containers are allocated
 				resourceManager.onContainersAllocated(testContainers.subList(11, 14));
 				// Verify pending requests has removed.
 				for (int i = 11; i < 14; i++) {
@@ -1294,7 +1294,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				assertEquals(3, resourceManager.getSlowContainerManager().getStartingRedundantContainerTotalNum());
 				assertEquals(3, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
-				Thread.sleep(5100);
+				Thread.sleep(2000);
 				// verify not request redundant container for redundant container.
 				assertEquals(0, pendingRequests.size());
 				assertEquals(3, resourceManager.getSlowContainerManager().getSlowContainerTotalNum());
@@ -1315,15 +1315,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				ContainerStatus testingContainerStatus = createTestingContainerStatus(testContainers.get(11).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
 				// wait container completed.
-				Thread.sleep(300);
-				// verify not request new container for completed redundant container.
-				assertEquals(0, pendingRequests.size());
-				assertEquals(3, resourceManager.getSlowContainerManager().getSlowContainerTotalNum());
-				assertEquals(0, resourceManager.getSlowContainerManager().getPendingRedundantContainersTotalNum());
-				assertEquals(2, resourceManager.getSlowContainerManager().getStartingRedundantContainerTotalNum());
-				assertEquals(2, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
-
-				Thread.sleep(1500);
+				Thread.sleep(100);
 				// verify request new redundant container for slow container.
 				assertEquals(1, pendingRequests.size());
 				assertEquals(3, resourceManager.getSlowContainerManager().getSlowContainerTotalNum());
