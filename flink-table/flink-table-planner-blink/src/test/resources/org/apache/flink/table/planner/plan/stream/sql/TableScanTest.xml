@@ -279,7 +279,7 @@ LogicalProject(a=[$0], b=[$1], time=[$2], mytime=[$3], current_time=[$4], json_r
     <Resource name="planAfter">
       <![CDATA[
 WatermarkAssigner(rowtime=[timestamp], watermark=[timestamp])
-+- Calc(select=[a, b, time, time AS mytime, CURRENT_TIME() AS current_time, json_row, json_row.timestamp AS timestamp])
++- Calc(select=[a, b, time, time AS mytime, CURRENT_TIME AS current_time, json_row, json_row.timestamp AS timestamp])
    +- TableSourceScan(table=[[default_catalog, default_database, t1]], fields=[a, b, time, json_row])
 ]]>
     </Resource>

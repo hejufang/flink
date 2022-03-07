@@ -38,6 +38,11 @@ class CalcTest extends TableTestBase {
   }
 
   @Test
+  def testInfixFunctionDescription(): Unit = {
+    util.verifyTransformation("SELECT a, c, LOCALTIMESTAMP as ts, NOW() AS ns FROM MyTable")
+  }
+
+  @Test
   def testProjectWithNaming(): Unit = {
     util.verifyPlan("SELECT `1-_./Ü`, b, c FROM (SELECT a as `1-_./Ü`, b, c FROM MyTable)")
   }

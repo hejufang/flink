@@ -302,6 +302,22 @@ Calc(select=[a, c])
 ]]>
     </Resource>
   </TestCase>
+	<TestCase name="testInfixFunctionDescription">
+		<Resource name="sql">
+			<![CDATA[SELECT a, c, LOCALTIMESTAMP as ts, NOW() AS ns FROM MyTable]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[a, c, LOCALTIMESTAMP AS ts, NOW() AS ns])
++- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]], fields=[a, b, c])
+
+OneInputTransformation{name='Calc(select=[a, c, LOCALTIMESTAMP AS ts, NOW() AS ns])', outputType=RowData(a: BIGINT, c: STRING, ts: TIMESTAMP(0) NOT NULL, ns: TIMESTAMP(0) NOT NULL), parallelism=-1}
+	OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.MyTable, source: [TestTableSource(a, b, c)]], fields=[a, b, c])', outputType=RowData(a: BIGINT, b: INT, c: STRING), parallelism=-1}
+		FakeTransformation{name='ChangeToDefaultParallel', outputType=Row(a: Long, b: Integer, c: String), parallelism=-1}
+			LegacySourceTransformation{name='Collection Source', outputType=Row(a: Long, b: Integer, c: String), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
   <TestCase name="testPojoType">
     <Resource name="sql">
       <![CDATA[SELECT a FROM MyTable4]]>

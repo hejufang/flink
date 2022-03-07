@@ -23,7 +23,7 @@ import org.apache.flink.table.planner.plan.utils.RelDescriptionWriterImpl
 
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rex._
-import org.apache.calcite.sql.SqlAsOperator
+import org.apache.calcite.sql.{SqlAsOperator, SqlSyntax}
 import org.apache.calcite.sql.SqlKind._
 
 import java.io.{PrintWriter, StringWriter}
@@ -86,6 +86,7 @@ trait FlinkRelNode extends RelNode {
 
       case c: RexCall =>
         val op = c.getOperator.toString
+        val isFunctionID = c.getOperator.getSyntax == SqlSyntax.FUNCTION_ID
         val ops = c.getOperands.map(
           getExpressionString(_, inFields, localExprsTable, expressionFormat))
         c.getOperator match {
@@ -98,6 +99,12 @@ trait FlinkRelNode extends RelNode {
                   case IS_FALSE | IS_NOT_FALSE | IS_TRUE | IS_NOT_TRUE | IS_UNKNOWN | IS_NULL |
                        IS_NOT_NULL => s"$operand $op"
                   case _ => s"$op($operand)"
+                }
+              case _ if ops.size() == 0 =>
+                if (isFunctionID) {
+                  s"$op"
+                } else {
+                  s"$op()"
                 }
               case ExpressionFormat.Infix => s"(${ops.mkString(s" $op ")})"
               case ExpressionFormat.PostFix => s"(${ops.mkString(", ")})$op"
