@@ -29,7 +29,7 @@ public class MetricUtilsTest {
 
 	@Test
 	public void testFormatJobMetricName() {
-		assertEquals("_123_", MetricUtils.formatJobMetricName("(123)))"));
+		assertEquals("_123_", MetricUtils.formatJobMetricName("(123)"));
 	}
 
 	@Test

@@ -69,9 +69,11 @@
                      "currentTagValue": "",
                      "downsampleAggregator": "avg",
                      "downsampleFillPolicy": "none",
-                     "metric": "flink.jobmanager.${jobname}.uptime",
+                     "metric": "flink.job.uptime",
                      "refId": "A",
-                     "tags": {}
+                     "tags": {
+                        "jobname": "${jobname}"
+                     }
                    }
                  ],
                  "timeFrom": null,
@@ -135,9 +137,11 @@
                      "currentTagValue": "",
                      "downsampleAggregator": "avg",
                      "downsampleFillPolicy": "none",
-                     "metric": "flink.jobmanager.${jobname}.fullRestarts",
+                     "metric": "flink.job.fullRestarts",
                      "refId": "A",
-                     "tags": {}
+                     "tags": {
+                        "jobname": "${jobname}"
+                     }
                    }
                  ],
                  "timeFrom": null,

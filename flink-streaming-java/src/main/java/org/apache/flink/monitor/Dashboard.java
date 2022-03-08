@@ -65,7 +65,7 @@ public class Dashboard {
 		this.streamGraph = streamGraph;
 		this.jobGraph = jobGraph;
 		this.jobName = jobGraph.getName();
-		this.formatJobName = MetricUtils.formatJobMetricName(jobGraph.getName());
+		this.formatJobName = MetricUtils.formatJobMetricNameOrigin(jobGraph.getName());
 		this.dataSource = dataSource;
 	}
 
@@ -108,7 +108,7 @@ public class Dashboard {
 			return "";
 		}
 		Map<String, String> values = new HashMap<>();
-		values.put("jobname", formatJobName);
+		values.put("jobname", jobName);
 		values.put("datasource", dataSource);
 		String row = renderString(template, values);
 		return row;

@@ -58,6 +58,8 @@ global:
         checkpointWriteFileRate,
         checkpointWriteFileLatency,
         checkpointCloseFileLatency,
+        numberOfContinuousCheckpointFailure,
+        lastCheckpointDuration,
         preJobRawTotalStateSize,
         postJobRawTotalStateSize,
         numPatternsAdded,

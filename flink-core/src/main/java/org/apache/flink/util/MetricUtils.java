@@ -43,6 +43,14 @@ public class MetricUtils {
 		if (jobName == null) {
 			return null;
 		}
+		return jobName
+			.replaceAll("[^\\w-]", "_");
+	}
+
+	public static String formatJobMetricNameOrigin(String jobName) {
+		if (jobName == null) {
+			return null;
+		}
 		return replaceSpecialCharacters(jobName);
 	}
 

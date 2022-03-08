@@ -19,6 +19,7 @@
 package org.apache.flink.metrics.opentsdb;
 
 import org.apache.flink.metrics.MetricConfig;
+import org.apache.flink.metrics.opentsdb.utils.Utils;
 
 import org.apache.flink.shaded.byted.com.bytedance.metrics.UdpMetricsClient;
 import org.apache.flink.shaded.guava18.com.google.common.annotations.VisibleForTesting;
@@ -105,6 +106,13 @@ public class RateLimitedMetricsClient {
 	public void emitStoreWithTag(String name, double value, String tags) throws IOException {
 //		aquirePermit();
 		udpMetricsClient.emitStoreWithTag(name, value, tags);
+		// In order to be compatible with historical dashboard,
+		// two kinds of Metircs are reported
+		// todo Keep this logic for 1 month, same as the retention time of metric historical data.
+		String originMetricNameFormat = Utils.formatMetricsNameOrigin(name);
+		if (!name.equals(originMetricNameFormat)) {
+			udpMetricsClient.emitStoreWithTag(originMetricNameFormat, value, tags);
+		}
 	}
 
 	public void addMetric() {

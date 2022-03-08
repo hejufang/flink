@@ -25,13 +25,24 @@ public class Utils {
 
 	/**
 	 *  Parse input to write metric. Replace the charset which didn't
-	 *  in [A-Za-z0-9_] to '_'. Because some characters metrics doesn't support.
+	 *  in [A-Za-z0-9-_] to '_'. Because some characters metrics doesn't support.
 	 *  Example "flink-test$job" to "flink_test_job".
 	 */
 	public static String formatMetricsName(String input) {
+		String result = input.replaceAll("[^\\w.-]", "_")
+				.replaceAll("\\.+", ".");
+		return result;
+	}
+
+	/**
+	 *  Parse input to write metric. Replace the charset which didn't
+	 *  in [A-Za-z0-9_] to '_'. Because some characters metrics doesn't support.
+	 *  Example "flink-test$job" to "flink_test_job".
+	 */
+	public static String formatMetricsNameOrigin(String input) {
 		String result = input.replaceAll("[^\\w.]", "_")
-				.replaceAll("\\.+", ".")
-				.replaceAll("_+", "_");
+			.replaceAll("\\.+", ".")
+			.replaceAll("_+", "_");
 		return result;
 	}
 }
