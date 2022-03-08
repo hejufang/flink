@@ -31,7 +31,6 @@ import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.connector.abase.utils.AbaseValueType;
 import org.apache.flink.connector.abase.utils.Constants;
-import org.apache.flink.connector.abase.utils.KeyFormatterHelper;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
@@ -45,16 +44,17 @@ import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
-import org.apache.flink.table.types.DataType;
-import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -65,7 +65,6 @@ import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTI
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTION_MAX_TOTAL_NUM;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTION_MIN_IDLE_NUM;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTION_TIMEOUT;
-import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.KEY_FORMATTER;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.LOOKUP_LATER_JOIN_REQUESTED_HASH_KEYS;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.LOOKUP_SPECIFY_HASH_KEYS;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.PSM;
@@ -111,8 +110,21 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
 		AbaseNormalOptions normalOptions = getAbaseNormalOptions(config, physicalSchema, getJobPSM(context.getConfiguration()));
-		AbaseLookupOptions lookupOptions = getAbaseLookupOptions(config, physicalSchema);
-		return new AbaseTableSource(normalOptions, lookupOptions, physicalSchema, decodingFormat);
+		AbaseLookupOptions lookupOptions = getAbaseLookupOptions(config);
+		validateSchema(normalOptions, lookupOptions, physicalSchema);
+		return createAbaseTableSource(
+			normalOptions,
+			lookupOptions,
+			physicalSchema,
+			decodingFormat);
+	}
+
+	protected AbaseTableSource createAbaseTableSource(
+			AbaseNormalOptions normalOptions,
+			AbaseLookupOptions lookupOptions,
+			TableSchema schema,
+			@Nullable DecodingFormat<DeserializationSchema<RowData>> decodingFormat) {
+		return new AbaseTableSource(normalOptions, lookupOptions, schema, decodingFormat);
 	}
 
 	@Override
@@ -126,13 +138,27 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		validateConfigOptions(config);
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
 		AbaseNormalOptions normalOptions = getAbaseNormalOptions(config, physicalSchema, getJobPSM(context.getConfiguration()));
-		return new AbaseTableSink(
+		validateSchema(normalOptions, null, physicalSchema);
+		return createAbaseTableSink(
 			normalOptions,
 			getAbaseSinkOptions(config),
 			physicalSchema,
 			encodingFormat
 		);
 
+	}
+
+	protected AbaseTableSink createAbaseTableSink(
+			AbaseNormalOptions options,
+			AbaseSinkOptions insertOptions,
+			TableSchema schema,
+			@Nullable EncodingFormat<SerializationSchema<RowData>> encodingFormat) {
+		return new AbaseTableSink(
+			options,
+			insertOptions,
+			schema,
+			encodingFormat
+		);
 	}
 
 	@Override
@@ -152,7 +178,6 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 	public Set<ConfigOption<?>> optionalOptions() {
 		Set<ConfigOption<?>> optionalOptions = new HashSet<>();
 		optionalOptions.add(FORMAT);
-		optionalOptions.add(KEY_FORMATTER);
 		optionalOptions.add(VALUE_TYPE);
 		optionalOptions.add(CONNECTION_TIMEOUT);
 		optionalOptions.add(CONNECTION_MAX_RETRIES);
@@ -182,34 +207,20 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		return optionalOptions;
 	}
 
-	private AbaseNormalOptions getAbaseNormalOptions(ReadableConfig config, TableSchema schema, String jobPSM) {
-		AbaseValueType valueType = config.get(VALUE_TYPE);
-		boolean isHashType = false;
-		if (valueType.equals(AbaseValueType.HASH)) {
-			for (DataType dataType : schema.getFieldDataTypes()) {
-				if (dataType.getLogicalType().getTypeRoot() == LogicalTypeRoot.MAP) {
-					checkState(dataType.equals(DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
-						"Unsupported data type for hash value, should be map<varchar, varchar>");
-					isHashType = true;
-				}
-			}
-		}
-		int[] indices = KeyFormatterHelper.getKeyIndex(schema);
-		String keyFormatter = KeyFormatterHelper.getKeyIndexFormatter(config.get(KEY_FORMATTER), schema, indices);
+	private AbaseNormalOptions getAbaseNormalOptions(ReadableConfig config, TableSchema physicalSchema, String jobPSM) {
+		Optional<Integer> keyIndex = validateAndGetKeyIndex(config, physicalSchema);
 		AbaseNormalOptions.AbaseOptionsBuilder builder = AbaseNormalOptions.builder()
 			.setCluster(transformClusterName(config.get(CLUSTER)))
 			.setTable(config.getOptional(TABLE).orElse(null))
 			.setStorage(config.get(CONNECTOR))
 			.setPsm(jobPSM)
-			.setKeyFormatter(keyFormatter)
-			.setKeyIndices(indices)
 			.setTimeout((int) config.get(CONNECTION_TIMEOUT).toMillis())
 			.setMinIdleConnections(config.get(CONNECTION_MIN_IDLE_NUM))
 			.setMaxIdleConnections(config.get(CONNECTION_MAX_IDLE_NUM))
 			.setMaxTotalConnections(config.get(CONNECTION_MAX_TOTAL_NUM))
 			.setGetResourceMaxRetries(config.get(CONNECTION_MAX_RETRIES))
-			.setAbaseValueType(config.get(VALUE_TYPE))
-			.setHashMap(isHashType);
+			.setAbaseValueType(config.get(VALUE_TYPE));
+		keyIndex.ifPresent(builder::setKeyIndex);
 		config.getOptional(RATE_LIMIT_NUM).ifPresent(rate -> {
 			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
 			rateLimiter.setRate(rate);
@@ -217,8 +228,8 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		return builder.build();
 	}
 
-	private AbaseLookupOptions getAbaseLookupOptions(ReadableConfig config, TableSchema schema) {
-		AbaseLookupOptions lookupOptions = new AbaseLookupOptions(
+	private AbaseLookupOptions getAbaseLookupOptions(ReadableConfig config) {
+		return new AbaseLookupOptions(
 			config.get(LOOKUP_CACHE_MAX_ROWS),
 			config.get(LOOKUP_CACHE_TTL).toMillis(),
 			config.get(LOOKUP_MAX_RETRIES),
@@ -228,14 +239,6 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			config.getOptional(LOOKUP_ENABLE_INPUT_KEYBY).orElse(null),
 			config.get(LOOKUP_SPECIFY_HASH_KEYS),
 			config.getOptional(LOOKUP_LATER_JOIN_REQUESTED_HASH_KEYS).orElse(null));
-
-		// check whether lookup later join requested hash keys are in the schema
-		if (lookupOptions.isSpecifyHashKeys() && lookupOptions.getRequestedHashKeys() != null && !lookupOptions.getRequestedHashKeys().isEmpty()) {
-			Set<String> columns = Arrays.stream(schema.getFieldNames()).collect(Collectors.toSet());
-			boolean valid = columns.containsAll(lookupOptions.getRequestedHashKeys());
-			checkState(valid, "Requested hash keys are not in the schema!");
-		}
-		return lookupOptions;
 	}
 
 	private AbaseSinkOptions getAbaseSinkOptions(ReadableConfig config) {
@@ -269,6 +272,28 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		});
 	}
 
+	private void validateSchema(
+			AbaseNormalOptions options,
+			@Nullable AbaseLookupOptions lookupOptions,
+			TableSchema schema) {
+		if (options.getAbaseValueType().equals(AbaseValueType.HASH) && schema.getFieldCount() == 2) {
+			// Both sink and lookup should be checked.
+			if (lookupOptions == null || !lookupOptions.isSpecifyHashKeys()) {
+				checkState(schema.getFieldDataTypes()[1]
+						.equals(DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
+					"Unsupported type for hash value, should be map<varchar, varchar>");
+			}
+		}
+
+		// check whether lookup later join requested hash keys are in the schema
+		if (lookupOptions != null && lookupOptions.isSpecifyHashKeys() &&
+			lookupOptions.getRequestedHashKeys() != null && !lookupOptions.getRequestedHashKeys().isEmpty()) {
+			Set<String> columns = Arrays.stream(schema.getFieldNames()).collect(Collectors.toSet());
+			boolean valid = columns.containsAll(lookupOptions.getRequestedHashKeys());
+			checkState(valid, "Requested hash keys are not in the schema!");
+		}
+	}
+
 	private void checkAllOrNone(ReadableConfig config, ConfigOption<?>[] configOptions) {
 		int presentCount = 0;
 		for (ConfigOption<?> configOption : configOptions) {
@@ -280,6 +305,23 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		Preconditions.checkArgument(configOptions.length == presentCount || presentCount == 0,
 			"Either all or none of the following options should be provided:\n" +
 				String.join("\n", propertyNames));
+	}
+
+	private Optional<Integer> validateAndGetKeyIndex(
+			ReadableConfig config,
+			TableSchema physicalSchema) {
+		String[] keyFields = physicalSchema.getPrimaryKey()
+			.map(pk -> pk.getColumns().toArray(new String[0]))
+			.orElse(null);
+		if (keyFields != null) {
+			checkState(keyFields.length == 1,
+				"Abase can only accept one primary key.");
+			// TODO: when format is not set, primary should be supported too.
+			checkState(config.getOptional(FORMAT).isPresent(),
+				"Currently, primary key can only be set when format is set.");
+			return physicalSchema.getFieldNameIndex(keyFields[0]);
+		}
+		return Optional.empty();
 	}
 
 	/**

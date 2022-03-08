@@ -38,7 +38,7 @@ public abstract class AbaseLookupExecutor implements Serializable {
 		this.normalOptions = normalOptions;
 	}
 
-	public abstract RowData doLookup(Object[] keys) throws IOException;
+	public abstract RowData doLookup(Object key) throws IOException;
 
 	public void open() throws Exception {
 		this.client = AbaseClientTableUtils.getClientWrapper(normalOptions);

@@ -19,10 +19,8 @@
 package org.apache.flink.connector.abase.executor;
 
 import org.apache.flink.connector.abase.client.ClientPipeline;
-import org.apache.flink.connector.abase.options.AbaseNormalOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.ByteArrayWrapper;
-import org.apache.flink.connector.abase.utils.KeyFormatterHelper;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.types.Row;
@@ -48,27 +46,18 @@ public class AbaseSinkHashBufferReduceExecutor extends AbaseSinkBatchExecutor<Ro
 	private final transient Map<ByteArrayWrapper, Map<ByteArrayWrapper, byte[]>> insertBuffer;
 	private final transient Map<ByteArrayWrapper, Set<ByteArrayWrapper>> retractBuffer;
 
+	private final RowData.FieldGetter[] fieldGetters;
 	private final DynamicTableSink.DataStructureConverter converter;
-	private final AbaseNormalOptions normalOptions;
 	private final AbaseSinkOptions sinkOptions;
-	private final int singleValueIndex;
-	private final int[] valueIndices;
 
 	public AbaseSinkHashBufferReduceExecutor(
-			AbaseNormalOptions normalOptions,
-			AbaseSinkOptions sinkOptions,
-			DynamicTableSink.DataStructureConverter converter) {
+			RowData.FieldGetter[] fieldGetters,
+			DynamicTableSink.DataStructureConverter converter,
+			AbaseSinkOptions sinkOptions) {
 		super(null);
+		this.fieldGetters = fieldGetters;
 		this.converter = converter;
-		this.normalOptions = normalOptions;
 		this.sinkOptions = sinkOptions;
-		if (normalOptions.isHashMap()) {
-			singleValueIndex = KeyFormatterHelper.getSingleValueIndex(normalOptions.getKeyIndices());
-			valueIndices = null;
-		} else {
-			valueIndices = KeyFormatterHelper.getTwoValueIndices(normalOptions.getKeyIndices());
-			singleValueIndex = -1;
-		}
 		this.insertBuffer = new HashMap<>();
 		this.retractBuffer = new HashMap<>();
 	}
@@ -76,14 +65,14 @@ public class AbaseSinkHashBufferReduceExecutor extends AbaseSinkBatchExecutor<Ro
 	@Override
 	public void addToBatch(RowData record) {
 		ByteArrayWrapper key;
-		Row row = (Row) converter.toExternal(record);
-		if (row == null) {
-			throw new FlinkRuntimeException("Get null when convert to row: " + record);
-		}
-		String keyStr = getKey(row);
-		if (normalOptions.isHashMap()) {
-			key = new ByteArrayWrapper(keyStr.getBytes());
-			Object hashMap = row.getField(singleValueIndex);
+		if (record.getArity() == 2) {
+			Row res = (Row) converter.toExternal(record);
+			if (res == null) {
+				throw new FlinkRuntimeException("Get null when convert to row: " + record);
+			}
+			Object keyObj = Objects.requireNonNull(res.getField(0), "Get null key with row: " + res);
+			key = new ByteArrayWrapper(keyObj.toString().getBytes());
+			Object hashMap = res.getField(1);
 			if (hashMap == null) {
 				throw new FlinkRuntimeException(String.format("The hashmap of %s should not be null.", key));
 			}
@@ -115,13 +104,15 @@ public class AbaseSinkHashBufferReduceExecutor extends AbaseSinkBatchExecutor<Ro
 				});
 			}
 		} else {
-			key = new ByteArrayWrapper(keyStr.getBytes());
-			Object hashKey = row.getField(valueIndices[0]);
-			Object hashValue = row.getField(valueIndices[1]);
+			Object keyObj = Objects.requireNonNull(fieldGetters[0].getFieldOrNull(record),
+				"Get null key from record: " + record);
+			key = new ByteArrayWrapper(keyObj.toString().getBytes());
+			Object hashKey = fieldGetters[1].getFieldOrNull(record);
+			Object hashValue = fieldGetters[2].getFieldOrNull(record);
 			if (hashKey == null || hashValue == null) {
 				throw new FlinkRuntimeException(
 					String.format("Neither hash key nor hash value of %s should not be " +
-						"null, the hash key: %s, the hash value: %s", keyStr, hashKey, hashValue));
+						"null, the hash key: %s, the hash value: %s", keyObj, hashKey, hashValue));
 			}
 			if (record.getRowKind() == RowKind.DELETE) {
 				retractBuffer.compute(key, (k, v) -> {
@@ -162,7 +153,7 @@ public class AbaseSinkHashBufferReduceExecutor extends AbaseSinkBatchExecutor<Ro
 
 	@Override
 	public List<Object> executeBatch(ClientPipeline pipeline) {
-		// write inserted records
+		// write insert records
 		// prefer 'hmset' than 'hset' since the time complexity of both of them is O(1)
 		insertBuffer.forEach((key, valmap) -> {
 			if (valmap.size() >= 2) {
@@ -203,16 +194,6 @@ public class AbaseSinkHashBufferReduceExecutor extends AbaseSinkBatchExecutor<Ro
 	@Override
 	public boolean isBufferEmpty() {
 		return insertBuffer.isEmpty() && retractBuffer.isEmpty();
-	}
-
-	private String getKey(Row row) {
-		int[] indices = normalOptions.getKeyIndices();
-		Object[] keys = new Object[indices.length];
-		for (int i = 0; i < indices.length; i++) {
-			keys[i] = Objects.requireNonNull(row.getField(indices[i]),
-				"Get null key at index " + indices[i] + " with row: " + row);
-		}
-		return KeyFormatterHelper.formatKey(normalOptions.getKeyFormatter(), keys);
 	}
 
 	private static Map<ByteArrayWrapper, byte[]> convertToReducedMap(Map<String, String> originMap) {

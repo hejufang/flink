@@ -23,7 +23,6 @@ import org.apache.flink.connector.abase.utils.AbaseValueType;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -40,10 +39,8 @@ public class AbaseNormalOptions implements Serializable {
 	private final int maxIdleConnections;
 	private final int minIdleConnections;
 	private final int maxRetries;
-	private final String keyFormatter;   // key formatter, $num stands for column value, such "eco:$0:$1:$2"
-	private final int[] keyIndices;
+	private final int keyIndex;
 	private final AbaseValueType abaseValueType;
-	private final boolean isHashMap;
 	private final FlinkConnectorRateLimiter rateLimiter;
 
 	public String getCluster() {
@@ -82,20 +79,12 @@ public class AbaseNormalOptions implements Serializable {
 		return maxRetries;
 	}
 
-	public String getKeyFormatter() {
-		return keyFormatter;
-	}
-
-	public int[] getKeyIndices() {
-		return keyIndices;
+	public int getKeyIndex() {
+		return keyIndex;
 	}
 
 	public AbaseValueType getAbaseValueType() {
 		return abaseValueType;
-	}
-
-	public boolean isHashMap() {
-		return isHashMap;
 	}
 
 	public FlinkConnectorRateLimiter getRateLimiter() {
@@ -112,10 +101,8 @@ public class AbaseNormalOptions implements Serializable {
 			int maxIdleConnections,
 			int minIdleConnections,
 			int maxRetries,
-			String keyFormatter,
-			int[] keyIndices,
+			int keyIndex,
 			AbaseValueType abaseValueType,
-			boolean isHashMap,
 			FlinkConnectorRateLimiter rateLimiter) {
 		this.cluster = cluster;
 		this.table = table;
@@ -126,10 +113,8 @@ public class AbaseNormalOptions implements Serializable {
 		this.maxIdleConnections = maxIdleConnections;
 		this.minIdleConnections = minIdleConnections;
 		this.maxRetries = maxRetries;
-		this.keyFormatter = keyFormatter;
-		this.keyIndices = keyIndices;
+		this.keyIndex = keyIndex;
 		this.abaseValueType = abaseValueType;
-		this.isHashMap = isHashMap;
 		this.rateLimiter = rateLimiter;
 	}
 
@@ -150,11 +135,9 @@ public class AbaseNormalOptions implements Serializable {
 		private int maxTotalConnections;
 		private int maxIdleConnections;
 		private int minIdleConnections;
-		private int getResourceMaxRetries;
-		private String keyFormatter;
-		private int[] keyIndices;
+		private int getResourceMaxRetries = 5;
+		private int keyIndex = -1;
 		private AbaseValueType abaseValueType = AbaseValueType.GENERAL;
-		private boolean isHashMap = false;
 		private FlinkConnectorRateLimiter rateLimiter;
 
 		private AbaseOptionsBuilder() {
@@ -205,23 +188,13 @@ public class AbaseNormalOptions implements Serializable {
 			return this;
 		}
 
-		public AbaseOptionsBuilder setKeyFormatter(String keyFormatter) {
-			this.keyFormatter = keyFormatter;
-			return this;
-		}
-
-		public AbaseOptionsBuilder setKeyIndices(int[] keyIndices) {
-			this.keyIndices = keyIndices;
+		public AbaseOptionsBuilder setKeyIndex(int keyIndex) {
+			this.keyIndex = keyIndex;
 			return this;
 		}
 
 		public AbaseOptionsBuilder setAbaseValueType(AbaseValueType abaseValueType) {
 			this.abaseValueType = abaseValueType;
-			return this;
-		}
-
-		public AbaseOptionsBuilder setHashMap(boolean hashMap) {
-			isHashMap = hashMap;
 			return this;
 		}
 
@@ -231,22 +204,11 @@ public class AbaseNormalOptions implements Serializable {
 		}
 
 		public AbaseNormalOptions build() {
-			Preconditions.checkNotNull(cluster, "cluster is not supplied.");
-			Preconditions.checkNotNull(storage, "storage type is not supplied.");
-			Preconditions.checkNotNull(psm, "psm is not supplied.");
-			Preconditions.checkArgument(timeout > 0, "timeout must be greater than 0");
-			Preconditions.checkArgument(maxTotalConnections > 0,
-				"maxTotalConnections must be greater than 0");
-			Preconditions.checkArgument(maxIdleConnections >= 0,
-				"maxIdleConnections can't be less than 0");
-			Preconditions.checkArgument(minIdleConnections >= 0,
-				"minIdleConnections can't be less than 0");
+			Preconditions.checkNotNull(cluster, "cluster was not supplied.");
+			Preconditions.checkNotNull(psm, "psm was not supplied.");
+			Preconditions.checkNotNull(abaseValueType, "AbaseValueType can not be null.");
 			Preconditions.checkArgument(getResourceMaxRetries > 0,
 				"getResourceMaxRetries must be greater than 0");
-			Preconditions.checkArgument(keyIndices != null && keyIndices.length > 0,
-				"keyIndices can't be empty");
-			Preconditions.checkNotNull(abaseValueType, "AbaseValueType can not be null.");
-
 			return new AbaseNormalOptions(
 				cluster,
 				table,
@@ -257,10 +219,8 @@ public class AbaseNormalOptions implements Serializable {
 				maxIdleConnections,
 				minIdleConnections,
 				getResourceMaxRetries,
-				keyFormatter,
-				keyIndices,
+				keyIndex,
 				abaseValueType,
-				isHashMap,
 				rateLimiter);
 		}
 
@@ -276,11 +236,8 @@ public class AbaseNormalOptions implements Serializable {
 				", maxIdleConnections=" + maxIdleConnections +
 				", minIdleConnections=" + minIdleConnections +
 				", getResourceMaxRetries=" + getResourceMaxRetries +
-				", keyFormatter" + keyFormatter +
-				", keySeparator=" + Arrays.toString(keyIndices) +
+				", keyIndex=" + keyIndex +
 				", abaseValueType=" + abaseValueType +
-				", isHashMap=" + isHashMap +
-				", rateLimited=" + (rateLimiter == null ? 0 : rateLimiter.getRate()) +
 				'}';
 		}
 	}
@@ -299,14 +256,12 @@ public class AbaseNormalOptions implements Serializable {
 			maxIdleConnections == that.maxIdleConnections &&
 			minIdleConnections == that.minIdleConnections &&
 			maxRetries == that.maxRetries &&
-			Objects.equals(keyFormatter, that.keyFormatter) &&
-			Arrays.equals(keyIndices, that.keyIndices) &&
+			keyIndex == that.keyIndex &&
 			Objects.equals(cluster, that.cluster) &&
 			Objects.equals(table, that.table) &&
 			Objects.equals(storage, that.storage) &&
 			Objects.equals(psm, that.psm) &&
 			abaseValueType == that.abaseValueType &&
-			isHashMap == that.isHashMap &&
 			Objects.equals(rateLimiter, that.rateLimiter);
 	}
 
@@ -322,10 +277,8 @@ public class AbaseNormalOptions implements Serializable {
 			maxIdleConnections,
 			minIdleConnections,
 			maxRetries,
-			keyFormatter,
-			Arrays.hashCode(keyIndices),
+			keyIndex,
 			abaseValueType,
-			isHashMap,
 			rateLimiter);
 	}
 }
