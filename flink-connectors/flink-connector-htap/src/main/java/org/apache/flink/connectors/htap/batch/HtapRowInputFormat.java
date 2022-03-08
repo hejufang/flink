@@ -78,6 +78,9 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private transient int currentPartition = -1;
 	private transient long openTime = -1;
 	private transient long totalNextRecordTime = 0;
+	// Total processed record number of this input format.
+	// Caution: This field may be reset to 0 when task failover.
+	private transient long totalReadCount = 0L;
 
 	public HtapRowInputFormat(
 			HtapReaderConfig readerConfig,
@@ -192,7 +195,12 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 
 	@Override
 	public boolean reachedEnd() {
-		return inDryRunMode || endReached;
+		return inDryRunMode || endReached || (limit > 0 && totalReadCount >= limit);
+	}
+
+	@Override
+	public boolean reachedAllSplitsEnd() {
+		return limit > 0 && totalReadCount >= limit;
 	}
 
 	@Override
@@ -205,6 +213,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 			result = null;
 		} else {
 			result = resultIterator.next();
+			totalReadCount++;
 		}
 		totalNextRecordTime += (System.currentTimeMillis() - startTime);
 		return result;
