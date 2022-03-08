@@ -19,7 +19,6 @@ package org.apache.flink.connector.catalog;
 
 import org.apache.flink.table.factories.FactoryUtil;
 
-import com.bytedance.schema.registry.common.request.SchemaType;
 import com.bytedance.schema.registry.common.response.QuerySchemaResponse;
 
 import java.util.HashMap;
@@ -38,16 +37,13 @@ public class Utils {
 	public static void addCommonProperty(
 			Map<String, String> defaultProperties,
 			QuerySchemaResponse response) {
-		String format = response.getSchemaType();
-		defaultProperties.putIfAbsent(FactoryUtil.FORMAT.key(), format);
-
-		if (PB_FORMAT.equalsIgnoreCase(format)) {
+		String schemaType = response.getSchemaType();
+		if (schemaType.equals(PB_FORMAT)) {
+			defaultProperties.put(FactoryUtil.FORMAT.key(), PB_FORMAT);
 			defaultProperties.put(PB_CONTENT_KEY, response.getSchemaContent());
 			defaultProperties.put(PB_ENTRY_CLASS_NAME, response.getProtobufRootClassName());
-		} else if (JSON_FORMAT.equalsIgnoreCase(format)) {
-			// No properties to add for json format.
 		} else {
-			throw new IllegalArgumentException(String.format("Unsupported schema type, supported types: %s, %s.", SchemaType.pb, SchemaType.json));
+			defaultProperties.putIfAbsent(FactoryUtil.FORMAT.key(), JSON_FORMAT);
 		}
 	}
 

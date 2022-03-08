@@ -19,11 +19,14 @@
 
 package org.apache.flink.connector.catalog;
 
+import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.catalog.AbstractReadOnlyCatalog;
 import org.apache.flink.table.catalog.CatalogBaseTable;
 import org.apache.flink.table.catalog.CatalogDatabase;
+import org.apache.flink.table.catalog.CatalogDatabaseImpl;
 import org.apache.flink.table.catalog.CatalogFunction;
 import org.apache.flink.table.catalog.CatalogPartitionSpec;
+import org.apache.flink.table.catalog.CatalogTableImpl;
 import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.table.catalog.exceptions.CatalogException;
 import org.apache.flink.table.catalog.exceptions.DatabaseNotExistException;
@@ -35,10 +38,17 @@ import org.apache.flink.table.catalog.stats.CatalogColumnStatistics;
 import org.apache.flink.table.catalog.stats.CatalogTableStatistics;
 import org.apache.flink.table.expressions.Expression;
 
+import com.bytedance.schema.registry.client.SchemaClients;
 import com.bytedance.schema.registry.client.SimpleSchemaClient;
+import com.bytedance.schema.registry.client.error.SchemaClientException;
+import com.bytedance.schema.registry.client.support.SchemaClientConfig;
+import com.bytedance.schema.registry.common.response.BaseResponse;
+import com.bytedance.schema.registry.common.response.QueryGeneralSchemaResponse;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * catalog for all flink streaming storage.
@@ -46,6 +56,7 @@ import java.util.List;
 public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	private static final String FLINK_PSM = "inf.compute.flink";
 	private static final String NO_COMMENT = "";
+	private static final String SUCCESSFUL_STATUS = "ok";
 
 	private final String storageType;
 	private SimpleSchemaClient schemaClient;
@@ -62,7 +73,8 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	 */
 	@Override
 	public void open() throws CatalogException {
-
+		SchemaClientConfig schemaClientConfig = SchemaClientConfig.of().setPsm(FLINK_PSM);
+		schemaClient = SchemaClients.simpleCachedSchemaClient(schemaClientConfig);
 	}
 
 	/**
@@ -83,7 +95,16 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	 */
 	@Override
 	public List<String> listDatabases() throws CatalogException {
-		throw new UnsupportedOperationException();
+		try {
+			BaseResponse<List<String>> response = schemaClient.listDatabases(storageType);
+			if (response.getSchemaStatus().equals(SUCCESSFUL_STATUS)) {
+				return response.getData();
+			}
+			throw new CatalogException("Failed to list database of " + storageType + ", response status is "
+				+ response.getSchemaStatus() + " and response message is " + response.getMessage());
+		} catch (SchemaClientException e) {
+			throw new CatalogException("Failed to list database of " + storageType, e);
+		}
 	}
 
 	/**
@@ -96,7 +117,10 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	 */
 	@Override
 	public CatalogDatabase getDatabase(String databaseName) throws DatabaseNotExistException, CatalogException {
-		throw new UnsupportedOperationException();
+		if (databaseExists(databaseName)) {
+			return new CatalogDatabaseImpl(new HashMap<>(), NO_COMMENT);
+		}
+		throw new DatabaseNotExistException(getName(), databaseName);
 	}
 
 	/**
@@ -109,7 +133,16 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	 */
 	@Override
 	public boolean databaseExists(String databaseName) throws CatalogException {
-		throw new UnsupportedOperationException();
+		try {
+			BaseResponse<Boolean> response = schemaClient.databaseExists(storageType, databaseName);
+			if (response.getSchemaStatus().equals(SUCCESSFUL_STATUS)) {
+				return response.getData();
+			}
+			throw new CatalogException("Failed check if database " + databaseName + " exist in " + storageType +
+				", response status is " + response.getSchemaStatus() + " and response message is " + response.getMessage());
+		} catch (SchemaClientException e) {
+			throw new CatalogException("Failed check if database " + databaseName + " exist in " + storageType, e);
+		}
 	}
 
 	/**
@@ -122,7 +155,19 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	 */
 	@Override
 	public List<String> listTables(String databaseName) throws DatabaseNotExistException, CatalogException {
-		throw new UnsupportedOperationException();
+		if (!databaseExists(databaseName)) {
+			throw new DatabaseNotExistException(getName(), databaseName);
+		}
+		try {
+			BaseResponse<List<String>> response = schemaClient.listTables(storageType, databaseName);
+			if (response.getSchemaStatus().equals(SUCCESSFUL_STATUS)) {
+				return response.getData();
+			}
+			throw new CatalogException("Failed to list tables of " + databaseName + " in " + storageType +
+				", response status is " + response.getSchemaStatus() + " and response message is " + response.getMessage());
+		} catch (SchemaClientException e) {
+			throw new CatalogException("Failed to list tables of " + databaseName + " in " + storageType, e);
+		}
 	}
 
 	/**
@@ -135,7 +180,10 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	 */
 	@Override
 	public List<String> listViews(String databaseName) throws DatabaseNotExistException, CatalogException {
-		throw new UnsupportedOperationException();
+		if (!databaseExists(databaseName)) {
+			throw new DatabaseNotExistException(getName(), databaseName);
+		}
+		return Collections.emptyList();
 	}
 
 	/**
@@ -148,7 +196,26 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	 */
 	@Override
 	public CatalogBaseTable getTable(ObjectPath tablePath) throws TableNotExistException, CatalogException {
-		throw new UnsupportedOperationException();
+		try {
+			BaseResponse<QueryGeneralSchemaResponse> response = schemaClient.queryLatestSchema(
+				storageType,
+				tablePath.getDatabaseName(),
+				tablePath.getObjectName(),
+				"");
+			if (!response.getSchemaStatus().equals(SUCCESSFUL_STATUS)) {
+				throw new CatalogException("Failed to get table/view " + tablePath + " from " + storageType +
+					", response status is " + response.getSchemaStatus() + " and response message is " + response.getMessage());
+			}
+			if (response.getData() == null || response.getData().getByteSchemaTable() != null) {
+				throw new TableNotExistException(getName(), tablePath);
+			}
+			QueryGeneralSchemaResponse schemaResponse = response.getData();
+			TableSchema tableSchema = SchemaConverter.convertToTableSchema(schemaResponse.getByteSchemaTable().getFields());
+			Map<String, String> properties = Utils.filterFlinkProperties(schemaResponse.getExtraContent());
+			return new CatalogTableImpl(tableSchema, properties, NO_COMMENT);
+		} catch (SchemaClientException e) {
+			throw new TableNotExistException(getName(), tablePath, e);
+		}
 	}
 
 	/**
@@ -161,7 +228,12 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	 */
 	@Override
 	public boolean tableExists(ObjectPath tablePath) throws CatalogException {
-		throw new UnsupportedOperationException();
+		try {
+			schemaClient.queryLatestSchema(storageType, tablePath.getDatabaseName(), tablePath.getObjectName(), "");
+			return true;
+		} catch (SchemaClientException e) {
+			return false;
+		}
 	}
 
 	/**
@@ -175,7 +247,7 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	 */
 	@Override
 	public List<CatalogPartitionSpec> listPartitions(ObjectPath tablePath) throws TableNotExistException, TableNotPartitionedException, CatalogException {
-		throw new UnsupportedOperationException();
+		return Collections.emptyList();
 	}
 
 	/**
@@ -190,7 +262,7 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	 */
 	@Override
 	public List<CatalogPartitionSpec> listPartitions(ObjectPath tablePath, CatalogPartitionSpec partitionSpec) throws TableNotExistException, TableNotPartitionedException, CatalogException {
-		throw new UnsupportedOperationException();
+		return Collections.emptyList();
 	}
 
 	/**
@@ -214,7 +286,7 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 	 */
 	@Override
 	public List<CatalogPartitionSpec> listPartitionsByFilter(ObjectPath tablePath, List<Expression> filters) throws TableNotExistException, TableNotPartitionedException, CatalogException {
-		throw new UnsupportedOperationException();
+		return Collections.emptyList();
 	}
 
 	/**

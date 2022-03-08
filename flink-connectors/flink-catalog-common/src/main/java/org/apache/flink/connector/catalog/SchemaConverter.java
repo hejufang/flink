@@ -27,11 +27,16 @@ import com.bytedance.schema.registry.common.table.ByteSchemaField;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Kafka schema converter, which helps converting ByteSchemaTable to flink TableSchema.
  */
 public class SchemaConverter {
+
+	private static final Pattern TYPE_PRECISION_PATTERN = Pattern.compile("^([A-Z]+)\\((\\d+)\\)$");
+	private static final Pattern TYPE_PRECISION_SCALE_PATTERN = Pattern.compile("^([A-Z]+)\\((\\d+),\\s*(\\d+)\\)$");
 
 	public static TableSchema convertToTableSchema(List<ByteSchemaField> byteSchemaFields) {
 		TableSchema.Builder tableSchemaBuilder = TableSchema.builder();
@@ -49,21 +54,74 @@ public class SchemaConverter {
 
 	private static DataType parseDataType(ByteSchemaField byteSchemaField) {
 		String typeName = byteSchemaField.getType();
+		Matcher matcher = TYPE_PRECISION_SCALE_PATTERN.matcher(typeName);
+		if (matcher.matches()) {
+			String typeRoot = matcher.group(1);
+			int precision = Integer.parseInt(matcher.group(2));
+			int scale = Integer.parseInt(matcher.group(3));
+			switch (typeRoot) {
+				case "DECIMAL":
+				case "NUMERIC":
+					return DataTypes.DECIMAL(precision, scale);
+			}
+		}
+		matcher = TYPE_PRECISION_PATTERN.matcher(typeName);
+		if (matcher.matches()) {
+			String typeRoot = matcher.group(1);
+			int precision = Integer.parseInt(matcher.group(2));
+			switch (typeRoot) {
+				case "CHAR":
+					return DataTypes.CHAR(precision);
+				case "VARCHAR":
+					return DataTypes.VARCHAR(precision);
+				case "BINARY":
+					return DataTypes.BINARY(precision);
+				case "VARBINARY":
+					return DataTypes.VARBINARY(precision);
+				case "DECIMAL":
+				case "NUMERIC":
+					return DataTypes.DECIMAL(precision, 0);
+				case "TIME":
+					return DataTypes.TIME(precision);
+				case "TIMESTAMP":
+				case "TIMESTAMP WITHOUT TIME ZONE":
+					return DataTypes.TIMESTAMP(precision);
+			}
+		}
 		switch (typeName) {
+			case "CHAR":
+			case "VARCHAR":
+			case "STRING":
+				return DataTypes.STRING();
+			case "BINARY":
+				return DataTypes.BINARY(1);
+			case "VARBINARY":
+			case "BYTES":
+				return DataTypes.BYTES();
+			case "DECIMAL":
+			case "NUMERIC":
+				return DataTypes.DECIMAL(10, 0);
+			case "TINYINT":
+				return DataTypes.TINYINT();
+			case "SMALLINT":
+				return DataTypes.SMALLINT();
 			case "INT":
 				return DataTypes.INT();
 			case "BIGINT":
 				return DataTypes.BIGINT();
-			case "BOOLEAN":
-				return DataTypes.BOOLEAN();
 			case "FLOAT":
 				return DataTypes.FLOAT();
 			case "DOUBLE":
 				return DataTypes.DOUBLE();
-			case "VARCHAR":
-				return DataTypes.STRING();
-			case "VARBINARY":
-				return DataTypes.BYTES();
+			case "DATE":
+				return DataTypes.DATE();
+			case "TIME":
+				return DataTypes.TIME();
+			case "TIMESTAMP":
+			case "TIMESTAMP WITHOUT TIME ZONE":
+				return DataTypes.TIMESTAMP();
+			case "BOOLEAN":
+				return DataTypes.BOOLEAN();
 			case "ROW":
 				return parseRowType(byteSchemaField);
 			case "MAP":
