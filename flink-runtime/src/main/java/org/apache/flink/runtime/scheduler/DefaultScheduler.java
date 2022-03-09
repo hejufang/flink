@@ -21,6 +21,7 @@ package org.apache.flink.runtime.scheduler;
 
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.BenchmarkOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
@@ -127,6 +128,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
 	private final boolean taskSubmitToRunningStatus;
 
+	private final boolean taskScheduledFinishEnable;
+
 	public DefaultScheduler(
 		final Logger log,
 		final JobGraph jobGraph,
@@ -228,6 +231,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		this.verticesWaitingForRestart = new HashSet<>();
 		this.taskCancelingCheckExecutor = new ScheduledExecutorServiceAdapter(Executors.newSingleThreadScheduledExecutor(
 			new ExecutorThreadFactory("Task canceling check")));
+		this.taskScheduledFinishEnable = jobMasterConfiguration.get(BenchmarkOption.JOB_SCHEDULED_THEN_FINISH_ENABLE);
 		warehouseJobStartEventMessageRecorder.createSchedulerFinish();
 	}
 
@@ -554,6 +558,14 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			long startDeployTaskTime = System.currentTimeMillis();
 			warehouseJobStartEventMessageRecorder.scheduleTaskFinish(executionGraph.getGlobalModVersion());
 			warehouseJobStartEventMessageRecorder.deployTaskStart(executionGraph.getGlobalModVersion());
+
+			if (taskScheduledFinishEnable) {
+				transitionExecutionGraphState(JobStatus.RUNNING, JobStatus.FINISHED);
+				transitionAllExecutionState(ExecutionState.FINISHED);
+				warehouseJobStartEventMessageRecorder.deployTaskFinish(executionGraph.getGlobalModVersion());
+				return null;
+			}
+
 			if (batchRequestSlotsEnable) {
 				GatewayDeploymentManager gatewayDeploymentManager = new GatewayDeploymentManager();
 				for (final DeploymentHandle deploymentHandle : deploymentHandles) {

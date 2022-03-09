@@ -37,4 +37,10 @@ public class BenchmarkOption {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Job reaches termination immediately before job schedule start");
+
+	public static final ConfigOption<Boolean> JOB_SCHEDULED_THEN_FINISH_ENABLE = ConfigOptions
+		.key("benchmark.job-scheduled-then-finish.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Job reaches termination immediately before job deploy start.");
 }
