@@ -1166,6 +1166,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		transitionState(CREATED, DEPLOYING);
 		transitionState(DEPLOYING, RUNNING);
 		transitionState(RUNNING, FINISHED);
+		releaseResources();
 		metrics.close();
 	}
 
