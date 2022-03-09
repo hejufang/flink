@@ -976,6 +976,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 					if (current == ExecutionState.RUNNING || current == ExecutionState.DEPLOYING) {
 						if (t instanceof CancelTaskException) {
 							if (transitionState(current, ExecutionState.CANCELED)) {
+								LOG.error("Task run encountered canceled exception", t);
 								cancelInvokable(invokable);
 								break;
 							}
