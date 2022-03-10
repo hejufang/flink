@@ -16,11 +16,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ################################################################################
+set -eo pipefail
 
 rm -rf output
 
 # compile current branch
-mvn clean package -U -DskipTests -Pinclude-hadoop -Psql-jars -Pdocs-and-source
+if [ "$CUSTOM_USE_CUSTOM_DEPENDENCY_VERSION" == 'true' ] && [ ! -z "$CUSTOM_HTAP_CLIENT_VERSION" ]; then
+  mvn clean package -U -DskipTests -Pinclude-hadoop -Psql-jars -Pdocs-and-source -Dhtap.jclient.version=$CUSTOM_HTAP_CLIENT_VERSION
+else
+  mvn clean package -U -DskipTests -Pinclude-hadoop -Psql-jars -Pdocs-and-source
+fi
 
 # copy flink-1.11 to output
 mkdir -p output
