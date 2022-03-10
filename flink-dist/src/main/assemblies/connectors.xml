@@ -51,6 +51,13 @@ under the License.
 		</file>
 
 		<file>
+			<source>../flink-connectors/flink-connector-preview/target/flink-connector-preview-${project.version}.jar</source>
+			<outputDirectory>connectors/</outputDirectory>
+			<destName>flink-connector-preview-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
 			<source>../flink-connectors/flink-connector-redis/target/flink-connector-redis-${project.version}.jar</source>
 			<outputDirectory>connectors/</outputDirectory>
 			<destName>flink-connector-redis-${project.version}.jar</destName>

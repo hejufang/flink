@@ -82,6 +82,7 @@ under the License.
 		<module>flink-connector-abase</module>
 		<module>flink-connector-bytetable</module>
 		<module>flink-connector-hsap</module>
+		<module>flink-connector-preview</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up
