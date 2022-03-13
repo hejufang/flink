@@ -301,7 +301,7 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 				new TaskExecutorRegistrationSuccess(
 					new InstanceID(),
 					ownResourceId,
-					new ClusterInformation("localhost", 1234)));
+					new ClusterInformation("localhost", 1234, 8081, 8091)));
 		}
 	}
 

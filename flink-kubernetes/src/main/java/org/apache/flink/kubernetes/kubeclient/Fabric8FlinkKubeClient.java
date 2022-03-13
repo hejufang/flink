@@ -37,6 +37,9 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.EndpointPort;
+import io.fabric8.kubernetes.api.model.EndpointSubset;
+import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.LoadBalancerStatus;
@@ -186,6 +189,37 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 		}
 
 		return getRestEndPointFromService(service, restPort);
+	}
+
+	@Override
+	public Optional<Endpoint> getSocketEndpoint(String clusterId, boolean enableIngress) {
+		final String endpointName = ExternalServiceDecorator.getExternalServiceName(clusterId);
+		final Endpoints endpoints = this.internalClient
+			.endpoints()
+			.withName(endpointName)
+			.fromServer()
+			.get();
+		if (endpoints == null || endpoints.getSubsets().isEmpty()) {
+			LOG.warn("Get endpoints empty for cluster {}", endpointName);
+			return Optional.empty();
+		}
+		EndpointSubset endpointSubset = endpoints.getSubsets().get(0);
+		if (endpointSubset.getAddresses().isEmpty()) {
+			LOG.error("Get address empty from endpoint for cluster {}", endpointName);
+			return Optional.empty();
+		}
+		String address = endpointSubset.getAddresses().get(0).getIp();
+
+		final List<EndpointPort> socketPorts = endpointSubset.getPorts()
+			.stream()
+			.filter(x -> x.getName().equals(Constants.SOCKET_PORT_NAME))
+			.collect(Collectors.toList());
+		if (socketPorts.isEmpty()) {
+			LOG.error("Get socket port empty from endpoint for cluster {}", endpointName);
+			return Optional.empty();
+		}
+
+		return Optional.of(new Endpoint(address, socketPorts.get(0).getPort()));
 	}
 
 	@Override

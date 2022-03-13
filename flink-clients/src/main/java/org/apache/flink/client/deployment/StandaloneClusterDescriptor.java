@@ -21,6 +21,8 @@ package org.apache.flink.client.deployment;
 import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.client.program.ClusterClientProvider;
 import org.apache.flink.client.program.rest.RestClusterClient;
+import org.apache.flink.client.program.socket.SocketRestClusterClient;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -33,9 +35,11 @@ import org.apache.flink.util.Preconditions;
 public class StandaloneClusterDescriptor implements ClusterDescriptor<StandaloneClusterId> {
 
 	private final Configuration config;
+	private final boolean socketEndpointEnable;
 
 	public StandaloneClusterDescriptor(Configuration config) {
 		this.config = Preconditions.checkNotNull(config);
+		this.socketEndpointEnable = config.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
 	}
 
 	@Override
@@ -49,7 +53,9 @@ public class StandaloneClusterDescriptor implements ClusterDescriptor<Standalone
 	public ClusterClientProvider<StandaloneClusterId> retrieve(StandaloneClusterId standaloneClusterId) throws ClusterRetrieveException {
 		return () -> {
 			try {
-				return new RestClusterClient<>(config, standaloneClusterId);
+				return socketEndpointEnable ?
+						new SocketRestClusterClient<>(config, standaloneClusterId) :
+						new RestClusterClient<>(config, standaloneClusterId);
 			} catch (Exception e) {
 				throw new RuntimeException("Couldn't retrieve standalone cluster", e);
 			}

@@ -23,11 +23,19 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.WebOptions;
+import org.apache.flink.runtime.blob.TransientBlobService;
 import org.apache.flink.runtime.concurrent.FutureUtils;
+import org.apache.flink.runtime.leaderelection.LeaderElectionService;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
+import org.apache.flink.runtime.rest.RestServerEndpointConfiguration;
+import org.apache.flink.runtime.rest.handler.RestHandlerConfiguration;
+import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
+import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher;
+import org.apache.flink.runtime.rpc.FatalErrorHandler;
+import org.apache.flink.runtime.socket.SocketRestLeaderAddress;
 import org.apache.flink.runtime.socket.handler.SocketJobSubmitHandler;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
-import org.apache.flink.util.AutoCloseableAsync;
 import org.apache.flink.util.NetUtils;
 
 import org.apache.flink.shaded.netty4.io.netty.bootstrap.ServerBootstrap;
@@ -48,42 +56,66 @@ import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.Objec
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Socket endpoint for the {@link Dispatcher} component.
  */
-public class DispatcherSocketEndpoint implements AutoCloseableAsync {
-	private static final Logger LOG = LoggerFactory.getLogger(DispatcherSocketEndpoint.class);
+public class DispatcherSocketRestEndpoint extends DispatcherRestEndpoint {
+	private static final Logger LOG = LoggerFactory.getLogger(DispatcherSocketRestEndpoint.class);
 
 	private final GatewayRetriever<DispatcherGateway> leaderRetriever;
 	private final Time timeout;
 	private final Configuration configuration;
-	private final String address;
 	private final String socketPortRange;
 	private final int connectBacklog;
 	private int socketPort;
+	private String address;
 
 	private ServerBootstrap bootstrap;
 	private Channel serverChannel;
 
-	public DispatcherSocketEndpoint(
+	public DispatcherSocketRestEndpoint(
+			RestServerEndpointConfiguration endpointConfiguration,
 			GatewayRetriever<DispatcherGateway> leaderRetriever,
-			Configuration configuration) {
+			Configuration clusterConfiguration,
+			RestHandlerConfiguration restConfiguration,
+			GatewayRetriever<ResourceManagerGateway> resourceManagerRetriever,
+			TransientBlobService transientBlobService,
+			ScheduledExecutorService executor,
+			MetricFetcher metricFetcher,
+			LeaderElectionService leaderElectionService,
+			ExecutionGraphCache executionGraphCache,
+			FatalErrorHandler fatalErrorHandler) throws IOException {
+		super(
+			endpointConfiguration,
+			leaderRetriever,
+			clusterConfiguration,
+			restConfiguration,
+			resourceManagerRetriever,
+			transientBlobService,
+			executor,
+			metricFetcher,
+			leaderElectionService,
+			executionGraphCache,
+			fatalErrorHandler);
 		this.leaderRetriever = leaderRetriever;
-		this.configuration = configuration;
-		this.address = configuration.getString(RestOptions.BIND_ADDRESS);
+		this.configuration = clusterConfiguration;
 		this.socketPortRange = configuration.getString(RestOptions.BIND_SOCKET_PORT);
 		this.connectBacklog = configuration.getInteger(RestOptions.DISPATCHER_CONNECT_BACKLOG);
+		this.address = configuration.getString(RestOptions.SOCKET_ADDRESS);
 		this.timeout = Time.milliseconds(configuration.getLong(WebOptions.TIMEOUT));
 	}
 
-	public final void start() throws Exception {
+	@Override
+	public void startInternal() throws Exception {
 		NioEventLoopGroup bossGroup = new NioEventLoopGroup(1, new ExecutorThreadFactory("flink-socket-server-netty-boss"));
 		NioEventLoopGroup workerGroup = new NioEventLoopGroup(0, new ExecutorThreadFactory("flink-socket-server-netty-worker"));
 
@@ -146,9 +178,22 @@ public class DispatcherSocketEndpoint implements AutoCloseableAsync {
 		} else {
 			advertisedAddress = bindAddress.getAddress().getHostAddress();
 		}
+		address = advertisedAddress;
 		socketPort = bindAddress.getPort();
 
-		LOG.info("Socket endpoint listening at {}:{}", advertisedAddress, socketPort);
+		log.info("Socket endpoint listening at {}:{}", address, socketPort);
+		super.startInternal();
+	}
+
+	@Override
+	public String getLeaderAddress() {
+		SocketRestLeaderAddress socketRestLeaderAddress = new SocketRestLeaderAddress(super.getLeaderAddress(), getAddress(), getSocketPort());
+		try {
+			return socketRestLeaderAddress.toJson();
+		} catch (IOException e) {
+			log.error("Generate leader address failed", e);
+			throw new RuntimeException(e);
+		}
 	}
 
 	public String getAddress() {
@@ -161,6 +206,7 @@ public class DispatcherSocketEndpoint implements AutoCloseableAsync {
 
 	@Override
 	public CompletableFuture<Void> closeAsync() {
+		CompletableFuture<Void> closeFuture = super.closeAsync();
 		CompletableFuture<?> channelFuture = new CompletableFuture<>();
 		if (serverChannel != null) {
 			serverChannel.close().addListener(finished -> {
@@ -229,6 +275,6 @@ public class DispatcherSocketEndpoint implements AutoCloseableAsync {
 				});
 		});
 
-		return channelTerminationFuture;
+		return FutureUtils.completeAll(Arrays.asList(closeFuture, channelTerminationFuture));
 	}
 }

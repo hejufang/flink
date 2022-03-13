@@ -24,12 +24,14 @@ import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.client.program.ClusterClientProvider;
 import org.apache.flink.client.program.ProgramInvocationException;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequestGateway;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
+import org.apache.flink.util.CloseableIterator;
 
 import org.apache.commons.io.IOUtils;
 
@@ -132,6 +134,12 @@ public class ClusterClientJobClientAdapter<ClusterID> implements JobClient, Coor
 									new ProgramInvocationException("Job failed", jobID, t));
 						}
 					})));
+	}
+
+	@Override
+	public <T> CloseableIterator<T> getJobResultIterator(ClassLoader userClassLoader) {
+		throw new UnsupportedOperationException("Unsupported operation, maybe you should set " +
+			ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE + " to true first.");
 	}
 
 	@Override

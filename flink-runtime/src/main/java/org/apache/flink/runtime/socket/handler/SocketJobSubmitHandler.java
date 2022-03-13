@@ -22,7 +22,7 @@ import org.apache.flink.api.common.socket.JobSocketResult;
 import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
-import org.apache.flink.runtime.dispatcher.DispatcherSocketEndpoint;
+import org.apache.flink.runtime.dispatcher.DispatcherSocketRestEndpoint;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.OptionalConsumer;
@@ -32,7 +32,7 @@ import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdapter;
 
 /**
- * This handler can be used to submit jobs to a Flink cluster by {@link DispatcherSocketEndpoint}.
+ * This handler can be used to submit jobs to a Flink cluster by {@link DispatcherSocketRestEndpoint}.
  */
 public class SocketJobSubmitHandler extends ChannelInboundHandlerAdapter {
 	private final GatewayRetriever<DispatcherGateway> leaderRetriever;

@@ -21,6 +21,7 @@ package org.apache.flink.client.program;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
@@ -36,6 +37,7 @@ import org.apache.flink.runtime.minicluster.RpcServiceSharing;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequestGateway;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
+import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.MathUtils;
 import org.apache.flink.util.SerializedValue;
 
@@ -86,16 +88,24 @@ public final class PerJobMiniClusterFactory {
 		MiniCluster miniCluster = miniClusterFactory.apply(miniClusterConfig);
 		miniCluster.start();
 
-		return miniCluster
-			.submitJob(jobGraph)
-			.thenApply(result -> new PerJobMiniClusterJobClient(result.getJobID(), miniCluster))
-			.whenComplete((ignored, throwable) -> {
-				if (throwable != null) {
-					// We failed to create the JobClient and must shutdown to ensure cleanup.
-					shutDownCluster(miniCluster);
-				}
-			})
-			.thenApply(Function.identity());
+		if (configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE)) {
+			return CompletableFuture.completedFuture(
+					new PerJobMiniClusterJobClient(
+						jobGraph.getJobID(),
+						miniCluster,
+						miniCluster.submitJobSync(jobGraph)));
+		} else {
+			return miniCluster
+				.submitJob(jobGraph)
+				.thenApply(result -> new PerJobMiniClusterJobClient(result.getJobID(), miniCluster, null))
+				.whenComplete((ignored, throwable) -> {
+					if (throwable != null) {
+						// We failed to create the JobClient and must shutdown to ensure cleanup.
+						shutDownCluster(miniCluster);
+					}
+				})
+				.thenApply(Function.identity());
+		}
 	}
 
 	private MiniClusterConfiguration getMiniClusterConfig(int maximumParallelism) {
@@ -139,14 +149,20 @@ public final class PerJobMiniClusterFactory {
 		private final JobID jobID;
 		private final MiniCluster miniCluster;
 		private final CompletableFuture<JobResult> jobResultFuture;
+		private final CloseableIterator<?> resultIterator;
 
-		private PerJobMiniClusterJobClient(JobID jobID, MiniCluster miniCluster) {
+		private PerJobMiniClusterJobClient(JobID jobID, MiniCluster miniCluster, CloseableIterator<?> resultIterator) {
 			this.jobID = jobID;
 			this.miniCluster = miniCluster;
-			this.jobResultFuture = miniCluster
-				.requestJobResult(jobID)
-				// Make sure to shutdown the cluster when the job completes.
-				.whenComplete((result, throwable) -> shutDownCluster(miniCluster));
+			if (resultIterator == null) {
+				this.jobResultFuture = miniCluster
+					.requestJobResult(jobID)
+					// Make sure to shutdown the cluster when the job completes.
+					.whenComplete((result, throwable) -> shutDownCluster(miniCluster));
+			} else {
+				this.jobResultFuture = null;
+			}
+			this.resultIterator = resultIterator;
 		}
 
 		@Override
@@ -188,6 +204,11 @@ public final class PerJobMiniClusterFactory {
 					throw new CompletionException("Failed to convert JobResult to JobExecutionResult.", e);
 				}
 			});
+		}
+
+		@Override
+		public <T> CloseableIterator<T> getJobResultIterator(ClassLoader userClassLoader) {
+			return (CloseableIterator<T>) resultIterator;
 		}
 
 		@Override

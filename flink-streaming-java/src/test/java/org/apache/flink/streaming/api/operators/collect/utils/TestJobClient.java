@@ -27,6 +27,7 @@ import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequestGateway;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequestHandler;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
+import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.OptionalFailure;
 
 import org.junit.Assert;
@@ -97,6 +98,11 @@ public class TestJobClient implements JobClient, CoordinationRequestGateway {
 	@Override
 	public CompletableFuture<JobExecutionResult> getJobExecutionResult(ClassLoader userClassloader) {
 		return CompletableFuture.completedFuture(jobExecutionResult);
+	}
+
+	@Override
+	public <T> CloseableIterator<T> getJobResultIterator(ClassLoader userClassLoader) {
+		throw new UnsupportedOperationException();
 	}
 
 	@Override

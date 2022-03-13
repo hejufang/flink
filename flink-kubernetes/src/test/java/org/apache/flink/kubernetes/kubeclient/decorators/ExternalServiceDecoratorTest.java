@@ -30,7 +30,7 @@ import io.fabric8.kubernetes.api.model.extensions.Ingress;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,11 +78,16 @@ public class ExternalServiceDecoratorTest extends KubernetesJobManagerTestBase {
 
 		assertEquals(KubernetesConfigOptions.ServiceExposedType.LoadBalancer.name(), restService.getSpec().getType());
 
-		final List<ServicePort> expectedServicePorts = Collections.singletonList(
+		final List<ServicePort> expectedServicePorts = Arrays.asList(
 			new ServicePortBuilder()
 				.withName(Constants.REST_PORT_NAME)
 				.withPort(REST_PORT)
 				.withNewTargetPort(Constants.REST_PORT_NAME)
+				.build(),
+			new ServicePortBuilder()
+				.withName(Constants.SOCKET_PORT_NAME)
+				.withPort(SOCKET_PORT)
+				.withNewTargetPort(Constants.SOCKET_PORT_NAME)
 				.build());
 		assertEquals(expectedServicePorts, restService.getSpec().getPorts());
 

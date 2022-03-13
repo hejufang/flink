@@ -182,6 +182,9 @@ public class MiniClusterConfiguration {
 			modifiedConfiguration.setString(
 				RestOptions.ADDRESS,
 				modifiedConfiguration.getString(RestOptions.ADDRESS, "localhost"));
+			modifiedConfiguration.setString(
+				RestOptions.SOCKET_ADDRESS,
+				modifiedConfiguration.getString(RestOptions.SOCKET_ADDRESS, "localhost"));
 
 			return new MiniClusterConfiguration(
 				modifiedConfiguration,

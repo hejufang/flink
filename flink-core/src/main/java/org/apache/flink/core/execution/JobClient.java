@@ -22,6 +22,7 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
+import org.apache.flink.util.CloseableIterator;
 
 import javax.annotation.Nullable;
 
@@ -87,6 +88,17 @@ public interface JobClient {
 	 * @param userClassloader the classloader used to de-serialize the accumulators of the job.
 	 */
 	CompletableFuture<JobExecutionResult> getJobExecutionResult(final ClassLoader userClassloader);
+
+	/**
+	 * Returns result iterator of the submitted job.
+	 *
+	 * @param userClassLoader the classloader used to de-serialize the accumulators of the job.
+	 * @param <T> the result type
+	 * @return the result iterator
+	 */
+	default <T> CloseableIterator<T> getJobResultIterator(final ClassLoader userClassLoader) {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * Shut down the cluster that this client communicate with.

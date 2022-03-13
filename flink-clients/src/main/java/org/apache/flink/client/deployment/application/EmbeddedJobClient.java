@@ -33,6 +33,7 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequestGateway;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
+import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.SerializedValue;
 
 import javax.annotation.Nullable;
@@ -125,6 +126,11 @@ public class EmbeddedJobClient implements JobClient, CoordinationRequestGateway 
 						throw new CompletionException(new Exception("Job " + jobId + " failed", t));
 					}
 				});
+	}
+
+	@Override
+	public <T> CloseableIterator<T> getJobResultIterator(ClassLoader userClassLoader) {
+		throw new UnsupportedOperationException();
 	}
 
 	@Override

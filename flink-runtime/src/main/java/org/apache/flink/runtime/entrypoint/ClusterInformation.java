@@ -33,12 +33,28 @@ public class ClusterInformation implements Serializable {
 
 	private final int blobServerPort;
 
-	public ClusterInformation(String blobServerHostname, int blobServerPort) {
+	private final int restServerPort;
+
+	private final int socketServerPort;
+
+	public ClusterInformation(String blobServerHostname, int blobServerPort, int restServerPort) {
+		this(blobServerHostname, blobServerPort, restServerPort, 0);
+	}
+
+	public ClusterInformation(String blobServerHostname, int blobServerPort, int restServerPort, int socketServerPort) {
 		this.blobServerHostname = Preconditions.checkNotNull(blobServerHostname);
 		Preconditions.checkArgument(
 			0 < blobServerPort && blobServerPort < 65_536,
 			"The blob port must between 0 and 65_536. However, it was " + blobServerPort + '.');
+		Preconditions.checkArgument(
+			0 < restServerPort && restServerPort < 65_536,
+			"The rest server port must between 0 and 65_536. However, it was " + restServerPort + '.');
+		Preconditions.checkArgument(
+			0 <= socketServerPort && socketServerPort < 65_536,
+			"The socket server port must between 0 and 65_536. However, it was " + socketServerPort + '.');
 		this.blobServerPort = blobServerPort;
+		this.restServerPort = restServerPort;
+		this.socketServerPort = socketServerPort;
 	}
 
 	public String getBlobServerHostname() {
@@ -49,11 +65,21 @@ public class ClusterInformation implements Serializable {
 		return blobServerPort;
 	}
 
+	public int getRestServerPort() {
+		return restServerPort;
+	}
+
+	public int getSocketServerPort() {
+		return socketServerPort;
+	}
+
 	@Override
 	public String toString() {
 		return "ClusterInformation{" +
 			"blobServerHostname='" + blobServerHostname + '\'' +
 			", blobServerPort=" + blobServerPort +
+			", restServerPort=" + restServerPort +
+			", socketServerPort=" + socketServerPort +
 			'}';
 	}
 }

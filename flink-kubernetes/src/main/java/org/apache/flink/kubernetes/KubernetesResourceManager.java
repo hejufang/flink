@@ -61,7 +61,6 @@ import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcTimeout;
-import org.apache.flink.runtime.util.ResourceManagerUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
@@ -122,6 +121,10 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	@Nullable
 	private String webInterfaceUrl;
 
+	private final int restServerPort;
+
+	private final int socketServerPort;
+
 	private final String jobManagerPodName;
 	private final String region;
 
@@ -172,6 +175,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.running = false;
 		this.podNameAndHostIPMap = new HashMap<>();
 		this.webInterfaceUrl = webInterfaceUrl;
+		this.restServerPort = clusterInformation.getRestServerPort();
+		this.socketServerPort = clusterInformation.getSocketServerPort();
 		this.enableWebShell = flinkConfig.getBoolean(KubernetesConfigOptions.KUBERNETES_WEB_SHELL_ENABLED);
 		this.jobManagerPodName = env.get(ENV_FLINK_POD_NAME);
 		this.streamLogEnabled = flinkConfig.getBoolean(KubernetesConfigOptions.STREAM_LOG_ENABLED);
@@ -206,12 +211,18 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			// then the service could automatically update their target port to the allocated port.
 			return;
 		}
-		int restPort = ResourceManagerUtils.parseRestBindPortFromWebInterfaceUrl(webInterfaceUrl);
 		CompletableFuture<Void> updateFuture = kubeClient
 			.updateServiceTargetPort(
 				ExternalServiceDecorator.getExternalServiceName(clusterId),
 				Constants.REST_PORT_NAME,
-				restPort);
+				restServerPort);
+		if (socketServerPort > 0) {
+			updateFuture.thenCompose(o ->
+				kubeClient.updateServiceTargetPort(
+					ExternalServiceDecorator.getExternalServiceName(clusterId),
+					Constants.SOCKET_PORT_NAME,
+					socketServerPort));
+		}
 		if (!HighAvailabilityMode.isHighAvailabilityModeActivated(flinkConfig)) {
 			updateFuture.thenCompose(o -> kubeClient
 				.updateServiceTargetPort(

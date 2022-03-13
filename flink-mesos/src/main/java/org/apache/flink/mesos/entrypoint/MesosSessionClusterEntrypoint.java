@@ -18,6 +18,7 @@
 
 package org.apache.flink.mesos.entrypoint;
 
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.core.plugin.PluginManager;
@@ -95,10 +96,16 @@ public class MesosSessionClusterEntrypoint extends SessionClusterEntrypoint {
 
 	@Override
 	protected DefaultDispatcherResourceManagerComponentFactory createDispatcherResourceManagerComponentFactory(Configuration configuration) {
-		return DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(
-			new MesosResourceManagerFactory(
-				mesosServices,
-				mesosConfig));
+		boolean socketEndpointEnable = configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
+		return socketEndpointEnable ?
+			DefaultDispatcherResourceManagerComponentFactory.createSessionSocketComponentFactory(
+				new MesosResourceManagerFactory(
+					mesosServices,
+					mesosConfig)) :
+			DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(
+				new MesosResourceManagerFactory(
+					mesosServices,
+					mesosConfig));
 	}
 
 	public static void main(String[] args) {

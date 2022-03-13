@@ -295,6 +295,16 @@ public abstract class RestServerEndpoint implements AutoCloseableAsync {
 		}
 	}
 
+	/**
+	 * Returns the address of the server endpoint. In rest server it's the rest url, while in socket rest server
+	 * it's a json format string with socket port.
+	 *
+	 * @return leader address of the server endpoint
+	 */
+	public String getLeaderAddress() {
+		return getRestBaseUrl();
+	}
+
 	@Override
 	public CompletableFuture<Void> closeAsync() {
 		synchronized (lock) {

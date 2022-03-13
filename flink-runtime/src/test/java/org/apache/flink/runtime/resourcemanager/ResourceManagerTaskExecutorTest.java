@@ -163,7 +163,7 @@ public class ResourceManagerTaskExecutorTest extends TestLogger {
 				slotManager,
 				NoOpResourceManagerPartitionTracker::get,
 				jobLeaderIdService,
-				new ClusterInformation("localhost", 1234),
+				new ClusterInformation("localhost", 1234, 8081, 8091),
 				fatalErrorHandler,
 				UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
 				Time.minutes(5L),

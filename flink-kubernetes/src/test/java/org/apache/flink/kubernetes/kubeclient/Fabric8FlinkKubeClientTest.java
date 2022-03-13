@@ -210,13 +210,20 @@ public class Fabric8FlinkKubeClientTest extends KubernetesClientTestBase {
 	@Test
 	public void testServiceLoadBalancerWithNoIP() {
 		final String hostName = "test-host-name";
-		mockExpectedServiceFromServerSide(buildExternalServiceWithLoadBalancer(hostName, ""));
+		final String ip = "test-host-name";
+		mockExpectedServiceFromServerSide(buildExternalServiceWithLoadBalancer(hostName, ip));
+		mockExpectedEndpointFromServerSide(buildExternalEndpoints(hostName, ip));
 
 		final Optional<Endpoint> resultEndpoint = flinkKubeClient.getRestEndpoint(CLUSTER_ID);
 
 		assertThat(resultEndpoint.isPresent(), is(true));
 		assertThat(resultEndpoint.get().getAddress(), is(hostName));
 		assertThat(resultEndpoint.get().getPort(), is(REST_PORT));
+
+		final Optional<Endpoint> socketEndpoint = flinkKubeClient.getSocketEndpoint(CLUSTER_ID);
+		assertThat(socketEndpoint.isPresent(), is(true));
+		assertThat(socketEndpoint.get().getAddress(), is(ip));
+		assertThat(socketEndpoint.get().getPort(), is(SOCKET_PORT));
 	}
 
 	@Test
@@ -419,14 +426,21 @@ public class Fabric8FlinkKubeClientTest extends KubernetesClientTestBase {
 	public void testUpdateRestTargetPort() throws Exception {
 		flinkKubeClient.createJobManagerComponent(this.kubernetesJobManagerSpecification);
 		// update target port.
-		int expectedTargetPort = 32677;
+		int expectedRestTargetPort = 32677;
+		int expectedSocketTargetPort = 32678;
 		flinkKubeClient.updateServiceTargetPort(
 			ExternalServiceDecorator.getExternalServiceName(CLUSTER_ID),
 			Constants.REST_PORT_NAME,
-			expectedTargetPort
-		).get();
-		int servicePort = getServiceTargetPort(ExternalServiceDecorator.getExternalServiceName(CLUSTER_ID), Constants.REST_PORT_NAME);
-		assertThat(servicePort, is(expectedTargetPort));
+			expectedRestTargetPort
+		).thenCompose(o -> flinkKubeClient.updateServiceTargetPort(
+			ExternalServiceDecorator.getExternalServiceName(CLUSTER_ID),
+			Constants.SOCKET_PORT_NAME,
+			expectedSocketTargetPort
+		)).get();
+		int serviceRestPort = getServiceTargetPort(ExternalServiceDecorator.getExternalServiceName(CLUSTER_ID), Constants.REST_PORT_NAME);
+		assertThat(serviceRestPort, is(expectedRestTargetPort));
+		int serviceSocketPort = getServiceTargetPort(ExternalServiceDecorator.getExternalServiceName(CLUSTER_ID), Constants.SOCKET_PORT_NAME);
+		assertThat(serviceSocketPort, is(expectedSocketTargetPort));
 	}
 
 	@Test

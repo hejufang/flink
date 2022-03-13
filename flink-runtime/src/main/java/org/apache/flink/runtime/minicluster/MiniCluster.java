@@ -71,6 +71,8 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcUtils;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
+import org.apache.flink.runtime.socket.SocketClient;
+import org.apache.flink.runtime.socket.SocketRestLeaderAddress;
 import org.apache.flink.runtime.taskexecutor.TaskExecutor;
 import org.apache.flink.runtime.taskexecutor.TaskManagerRunner;
 import org.apache.flink.runtime.util.ClusterEntrypointUtils;
@@ -80,6 +82,7 @@ import org.apache.flink.runtime.webmonitor.retriever.MetricQueryServiceRetriever
 import org.apache.flink.runtime.webmonitor.retriever.impl.RpcGatewayRetriever;
 import org.apache.flink.runtime.webmonitor.retriever.impl.RpcMetricQueryServiceRetriever;
 import org.apache.flink.util.AutoCloseableAsync;
+import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
 import org.apache.flink.util.FlinkException;
@@ -187,6 +190,9 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 	@GuardedBy("lock")
 	private RpcServiceFactory taskManagerRpcServiceFactory;
 
+	@GuardedBy("lock")
+	private SocketClient socketClient;
+
 	/** Flag marking the mini cluster as started/running. */
 	private volatile boolean running;
 
@@ -219,7 +225,7 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 	public ClusterInformation getClusterInformation() {
 		synchronized (lock) {
 			checkState(running, "MiniCluster is not yet running or has already been shut down.");
-			return new ClusterInformation("localhost", blobServer.getPort());
+			return new ClusterInformation("localhost", blobServer.getPort(), 1234, 1235);
 		}
 	}
 
@@ -453,6 +459,10 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 					final long shutdownTimeoutMillis = miniClusterConfiguration.getConfiguration().getLong(ClusterOptions.CLUSTER_SERVICES_SHUTDOWN_TIMEOUT);
 					final int numComponents = 2 + miniClusterConfiguration.getNumTaskManagers();
 					final Collection<CompletableFuture<Void>> componentTerminationFutures = new ArrayList<>(numComponents);
+
+					if (socketClient != null) {
+						socketClient.closeAsync();
+					}
 
 					componentTerminationFutures.addAll(terminateTaskExecutors());
 
@@ -691,6 +701,22 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 			.thenCompose(Function.identity());
 		return acknowledgeCompletableFuture.thenApply(
 			(Acknowledge ignored) -> new JobSubmissionResult(jobGraph.getJobID()));
+	}
+
+	public <T> CloseableIterator<T> submitJobSync(JobGraph jobGraph) {
+		try {
+			if (socketClient == null) {
+				SocketRestLeaderAddress socketRestLeaderAddress = SocketRestLeaderAddress.fromJson(webMonitorLeaderRetriever.getLeaderNow().get().f0);
+				socketClient = new SocketClient(
+					socketRestLeaderAddress.getSocketAddress(),
+					socketRestLeaderAddress.getSocketPort(),
+					0);
+				socketClient.start();
+			}
+			return socketClient.submitJob(jobGraph);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	public CompletableFuture<JobResult> requestJobResult(JobID jobId) {

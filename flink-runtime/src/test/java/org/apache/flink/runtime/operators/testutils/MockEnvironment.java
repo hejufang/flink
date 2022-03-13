@@ -44,6 +44,7 @@ import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.query.KvStateRegistry;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
+import org.apache.flink.runtime.socket.TaskJobResultGateway;
 import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 import org.apache.flink.runtime.taskmanager.NoOpTaskOperatorEventGateway;
@@ -328,6 +329,11 @@ public class MockEnvironment implements Environment, AutoCloseable {
 	@Override
 	public AccumulatorRegistry getAccumulatorRegistry() {
 		return this.accumulatorRegistry;
+	}
+
+	@Override
+	public TaskJobResultGateway getTaskResultGateway() {
+		throw new UnsupportedOperationException();
 	}
 
 	@Override

@@ -52,4 +52,14 @@ public interface TaskManagerActions {
 	 * @param taskExecutionState Task execution state update
 	 */
 	void updateTaskExecutionState(TaskExecutionState taskExecutionState);
+
+	/**
+	 * Notifies the task manager about the tas execution state update in the task execution thread.
+	 *
+	 * @param task the given task
+	 * @param taskExecutionState task execution state update
+	 */
+	default void updateTaskExecutionState(Task task, TaskExecutionState taskExecutionState) {
+		updateTaskExecutionState(taskExecutionState);
+	}
 }

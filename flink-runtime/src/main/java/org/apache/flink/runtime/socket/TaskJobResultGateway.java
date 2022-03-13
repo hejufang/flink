@@ -14,35 +14,23 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
-package org.apache.flink.runtime.util;
+package org.apache.flink.runtime.socket;
 
-/** Common utils for ResourceManager. */
-public class ResourceManagerUtils {
+import org.apache.flink.api.common.JobID;
 
+import javax.annotation.Nonnull;
+
+/**
+ * Interface used to return job results by task.
+ */
+public interface TaskJobResultGateway {
 	/**
-	 * Parse the port from the webInterfaceUrl.
+	 * Send the data of given job to job manager.
 	 *
-	 * @param webInterfaceUrl The web interface url to be parsed
-	 * @return the parsed rest port or -1 if failed
+	 * @param jobId the given job id
+	 * @param data the data of given job
 	 */
-	public static Integer parseRestBindPortFromWebInterfaceUrl(String webInterfaceUrl) {
-		if (webInterfaceUrl != null) {
-			final int lastColon = webInterfaceUrl.lastIndexOf(':');
-
-			if (lastColon == -1) {
-				return -1;
-			} else {
-				try {
-					return Integer.parseInt(webInterfaceUrl.substring(lastColon + 1));
-				} catch (NumberFormatException e) {
-					return -1;
-				}
-			}
-		} else {
-			return -1;
-		}
-	}
+	void sendResult(JobID jobId, @Nonnull byte[] data);
 }

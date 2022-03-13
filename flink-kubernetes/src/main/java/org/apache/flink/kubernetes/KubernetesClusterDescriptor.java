@@ -26,7 +26,9 @@ import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.client.program.ClusterClientProvider;
 import org.apache.flink.client.program.rest.RestClusterClient;
+import org.apache.flink.client.program.socket.SocketRestClusterClient;
 import org.apache.flink.configuration.BlobServerOptions;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
@@ -110,14 +112,33 @@ public class KubernetesClusterDescriptor implements ClusterDescriptor<String> {
 								"Could not get the rest endpoint of " + clusterId));
 			}
 
+			final boolean socketEndpointEnable = configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
+			boolean setupSocketFinish = false;
+			if (socketEndpointEnable) {
+				Optional<Endpoint> socketEndpoint = client.getSocketEndpoint(
+					clusterId,
+					flinkConfig.get(KubernetesConfigOptions.KUBERNETES_INGRESS_ENABLE));
+				// Socket won't start up when the job is deployed.
+				if (socketEndpoint.isPresent()) {
+					configuration.set(RestOptions.SOCKET_PORT, socketEndpoint.get().getPort());
+					configuration.set(RestOptions.SOCKET_ADDRESS, socketEndpoint.get().getAddress());
+					setupSocketFinish = true;
+				}
+			}
 			try {
 				// Flink client will always use Kubernetes service to contact with jobmanager. So we have a pre-configured web
 				// monitor address. Using StandaloneClientHAServices to create RestClusterClient is reasonable.
-				return new RestClusterClient<>(
-					configuration,
-					clusterId,
-					new StandaloneClientHAServices(HighAvailabilityServicesUtils.getWebMonitorAddress(
-						configuration, HighAvailabilityServicesUtils.AddressResolution.TRY_ADDRESS_RESOLUTION)));
+				return socketEndpointEnable && setupSocketFinish ?
+					new SocketRestClusterClient<>(
+							configuration,
+							clusterId,
+							new StandaloneClientHAServices(HighAvailabilityServicesUtils.getLeaderAddress(
+								configuration, HighAvailabilityServicesUtils.AddressResolution.TRY_ADDRESS_RESOLUTION))) :
+					new RestClusterClient<>(
+							configuration,
+							clusterId,
+							new StandaloneClientHAServices(HighAvailabilityServicesUtils.getWebMonitorAddress(
+								configuration, HighAvailabilityServicesUtils.AddressResolution.TRY_ADDRESS_RESOLUTION)));
 			} catch (Exception e) {
 				client.handleException(e);
 				throw new RuntimeException(new ClusterRetrieveException("Could not create the RestClusterClient.", e));
@@ -223,6 +244,7 @@ public class KubernetesClusterDescriptor implements ClusterDescriptor<String> {
 		KubernetesUtils.checkAndUpdatePortConfigOption(flinkConfig, BlobServerOptions.PORT, Constants.BLOB_SERVER_PORT);
 		KubernetesUtils.checkAndUpdatePortConfigOption(flinkConfig, TaskManagerOptions.RPC_PORT, Constants.TASK_MANAGER_RPC_PORT);
 		KubernetesUtils.checkAndUpdatePortConfigOption(flinkConfig, RestOptions.BIND_PORT, Constants.REST_PORT);
+		KubernetesUtils.checkAndUpdatePortConfigOption(flinkConfig, RestOptions.BIND_SOCKET_PORT, Constants.SOCKET_PORT);
 
 		if (HighAvailabilityMode.isHighAvailabilityModeActivated(flinkConfig)) {
 			flinkConfig.setString(HighAvailabilityOptions.HA_CLUSTER_ID, clusterId);

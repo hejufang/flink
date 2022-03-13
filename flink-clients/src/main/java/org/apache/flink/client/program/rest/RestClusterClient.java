@@ -110,7 +110,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.channels.UnresolvedAddressException;
 import java.nio.file.Files;
@@ -120,6 +119,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -198,7 +198,7 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 			HighAvailabilityServicesUtils.createClientHAService(configuration));
 	}
 
-	private RestClusterClient(
+	protected RestClusterClient(
 		Configuration configuration,
 		@Nullable RestClient restClient,
 		T clusterId,
@@ -786,17 +786,25 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 
 	@VisibleForTesting
 	CompletableFuture<URL> getWebMonitorBaseUrl() {
+		return retrieveLeaderAddress()
+			.thenApplyAsync(leaderAddressSessionId -> {
+				try {
+					final String url = parseRestUrl(leaderAddressSessionId.f0);
+					return new URL(url);
+				} catch (Exception e) {
+					throw new IllegalArgumentException("Could not parse URL from " + leaderAddressSessionId.f0, e);
+				}
+			}, executorService);
+	}
+
+	protected CompletableFuture<Tuple2<String, UUID>> retrieveLeaderAddress() {
 		return FutureUtils.orTimeout(
 				webMonitorLeaderRetriever.getLeaderFuture(),
 				restClusterClientConfiguration.getAwaitLeaderTimeout(),
-				TimeUnit.MILLISECONDS)
-			.thenApplyAsync(leaderAddressSessionId -> {
-				final String url = leaderAddressSessionId.f0;
-				try {
-					return new URL(url);
-				} catch (MalformedURLException e) {
-					throw new IllegalArgumentException("Could not parse URL from " + url, e);
-				}
-			}, executorService);
+				TimeUnit.MILLISECONDS);
+	}
+
+	protected String parseRestUrl(String leaderAddress) throws Exception {
+		return leaderAddress;
 	}
 }

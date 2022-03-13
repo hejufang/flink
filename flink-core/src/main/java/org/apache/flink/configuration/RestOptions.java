@@ -97,6 +97,21 @@ public class RestOptions {
 					.text("The port that the client connects to. If %s has not been specified, then the REST server will bind to this port.", text(BIND_PORT.key()))
 					.build());
 
+	public static final ConfigOption<String> SOCKET_ADDRESS =
+		key("socket.address")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("The address that should be used by clients to connect to the socket server.");
+
+	public static final ConfigOption<Integer> SOCKET_PORT =
+		key("socket.port")
+			.intType()
+			.defaultValue(8091)
+			.withDescription(
+				Description.builder()
+					.text("The port that the client connects to the socket. If %s has not been specified, then the socket server will bind to this port", text(BIND_SOCKET_PORT.key()))
+					.build());
+
 	/**
 	 * The time in ms that the client waits for the leader address, e.g., Dispatcher or
 	 * WebMonitorEndpoint.

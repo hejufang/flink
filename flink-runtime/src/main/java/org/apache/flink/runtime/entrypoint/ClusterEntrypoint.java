@@ -68,6 +68,7 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.InstantiationUtil;
+import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ShutdownHookUtil;
 
@@ -276,6 +277,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 			// update the configuration used to create the high availability services
 			configuration.setString(JobManagerOptions.ADDRESS, commonRpcService.getAddress());
 			configuration.setInteger(JobManagerOptions.PORT, commonRpcService.getPort());
+			configuration.setString(RestOptions.SOCKET_ADDRESS, NetUtils.getLocalHostLANAddress().getHostAddress());
 
 			ioExecutor = Executors.newFixedThreadPool(
 				ClusterEntrypointUtils.getPoolSize(configuration),

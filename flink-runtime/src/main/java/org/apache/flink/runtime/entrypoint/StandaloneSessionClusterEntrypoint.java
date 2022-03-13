@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.entrypoint;
 
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.entrypoint.component.DefaultDispatcherResourceManagerComponentFactory;
 import org.apache.flink.runtime.entrypoint.parser.CommandLineParser;
@@ -37,7 +38,10 @@ public class StandaloneSessionClusterEntrypoint extends SessionClusterEntrypoint
 
 	@Override
 	protected DefaultDispatcherResourceManagerComponentFactory createDispatcherResourceManagerComponentFactory(Configuration configuration) {
-		return DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(StandaloneResourceManagerFactory.getInstance());
+		boolean socketEndpointEnable = configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
+		return socketEndpointEnable ?
+			DefaultDispatcherResourceManagerComponentFactory.createSessionSocketComponentFactory(StandaloneResourceManagerFactory.getInstance()) :
+			DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(StandaloneResourceManagerFactory.getInstance());
 	}
 
 	public static void main(String[] args) {

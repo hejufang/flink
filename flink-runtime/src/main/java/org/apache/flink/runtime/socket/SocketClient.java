@@ -22,7 +22,7 @@ import org.apache.flink.api.common.socket.JobSocketResult;
 import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.socket.SocketResultIterator;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.runtime.dispatcher.DispatcherSocketEndpoint;
+import org.apache.flink.runtime.dispatcher.DispatcherSocketRestEndpoint;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.socket.handler.SocketJobResultHandler;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
@@ -55,7 +55,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
- * This client is the counter-part to the {@link DispatcherSocketEndpoint}.
+ * This client is the counter-part to the {@link DispatcherSocketRestEndpoint}.
  * NOTICE: This socket client is not thread safe.
  */
 @NotThreadSafe

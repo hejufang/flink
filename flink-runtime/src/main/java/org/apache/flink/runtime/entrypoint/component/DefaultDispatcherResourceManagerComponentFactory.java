@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.entrypoint.component;
 
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.RestOptions;
@@ -29,7 +28,7 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.dispatcher.ArchivedExecutionGraphStore;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.dispatcher.DispatcherId;
-import org.apache.flink.runtime.dispatcher.DispatcherSocketEndpoint;
+import org.apache.flink.runtime.dispatcher.DispatcherSocketRestEndpoint;
 import org.apache.flink.runtime.dispatcher.HistoryServerArchivist;
 import org.apache.flink.runtime.dispatcher.PartialDispatcherServices;
 import org.apache.flink.runtime.dispatcher.SessionDispatcherFactory;
@@ -56,6 +55,7 @@ import org.apache.flink.runtime.rest.handler.legacy.metrics.VoidMetricFetcher;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcUtils;
+import org.apache.flink.runtime.socket.SessionSocketRestEndpointFactory;
 import org.apache.flink.runtime.webmonitor.WebMonitorEndpoint;
 import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
 import org.apache.flink.runtime.webmonitor.retriever.MetricQueryServiceRetriever;
@@ -115,7 +115,6 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 		LeaderRetrievalService dispatcherLeaderRetrievalService = null;
 		LeaderRetrievalService resourceManagerRetrievalService = null;
 		WebMonitorEndpoint<?> webMonitorEndpoint = null;
-		DispatcherSocketEndpoint dispatcherSocketEndpoint = null;
 		ResourceManager<?> resourceManager = null;
 		DispatcherRunner dispatcherRunner = null;
 
@@ -165,13 +164,6 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 			log.debug("Starting Dispatcher REST endpoint.");
 			webMonitorEndpoint.start();
 
-			boolean socketEndpointEnable = configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
-			if (socketEndpointEnable) {
-				dispatcherSocketEndpoint = new DispatcherSocketEndpoint(dispatcherGatewayRetriever, configuration);
-				log.info("Starting Dispatcher Socket endpoint.");
-				dispatcherSocketEndpoint.start();
-			}
-
 			final String hostname = RpcUtils.getHostname(rpcService);
 
 			resourceManager = resourceManagerFactory.createResourceManager(
@@ -181,7 +173,9 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 				highAvailabilityServices,
 				heartbeatServices,
 				fatalErrorHandler,
-				new ClusterInformation(hostname, blobServer.getPort()),
+				webMonitorEndpoint instanceof DispatcherSocketRestEndpoint ?
+					new ClusterInformation(hostname, blobServer.getPort(), webMonitorEndpoint.getRestBindPort(), ((DispatcherSocketRestEndpoint) webMonitorEndpoint).getSocketPort()) :
+					new ClusterInformation(hostname, blobServer.getPort(), webMonitorEndpoint.getRestBindPort()),
 				webMonitorEndpoint.getRestBaseUrl(),
 				metricRegistry,
 				hostname);
@@ -220,8 +214,7 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 				resourceManager,
 				dispatcherLeaderRetrievalService,
 				resourceManagerRetrievalService,
-				webMonitorEndpoint,
-				dispatcherSocketEndpoint);
+				webMonitorEndpoint);
 
 		} catch (Exception exception) {
 			// clean up all started components
@@ -245,10 +238,6 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 
 			if (webMonitorEndpoint != null) {
 				terminationFutures.add(webMonitorEndpoint.closeAsync());
-			}
-
-			if (dispatcherSocketEndpoint != null) {
-				terminationFutures.add(dispatcherSocketEndpoint.closeAsync());
 			}
 
 			if (resourceManager != null) {
@@ -277,6 +266,14 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 			DefaultDispatcherRunnerFactory.createSessionRunner(SessionDispatcherFactory.INSTANCE),
 			resourceManagerFactory,
 			SessionRestEndpointFactory.INSTANCE);
+	}
+
+	public static DefaultDispatcherResourceManagerComponentFactory createSessionSocketComponentFactory(
+			ResourceManagerFactory<?> resourceManagerFactory) {
+		return new DefaultDispatcherResourceManagerComponentFactory(
+			DefaultDispatcherRunnerFactory.createSessionRunner(SessionDispatcherFactory.INSTANCE),
+			resourceManagerFactory,
+			SessionSocketRestEndpointFactory.INSTANCE);
 	}
 
 	public static DefaultDispatcherResourceManagerComponentFactory createJobComponentFactory(

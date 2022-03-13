@@ -71,6 +71,11 @@ public class ExternalServiceDecorator extends AbstractKubernetesStepDecorator {
 					.withPort(kubernetesJobManagerParameters.getRestPort())
 					.withNewTargetPort(Constants.REST_PORT_NAME)
 					.endPort()
+				.addNewPort()
+					.withName(Constants.SOCKET_PORT_NAME)
+					.withPort(kubernetesJobManagerParameters.getSocketPort())
+					.withNewTargetPort(Constants.SOCKET_PORT_NAME)
+					.endPort()
 				.endSpec()
 			.build();
 		if (!kubernetesJobManagerParameters.enableIngress()) {

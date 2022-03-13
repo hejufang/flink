@@ -22,9 +22,11 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.SerializedThrowable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.concurrent.BlockingQueue;
 
-import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -32,6 +34,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * @param <T> The result data.
  */
 public class SocketResultIterator<T> implements CloseableIterator<T> {
+	private static final Logger LOG = LoggerFactory.getLogger(SocketResultIterator.class);
+
 	private final JobID jobId;
 	private final BlockingQueue<JobSocketResult> resultList;
 	private boolean hasMore;
@@ -56,6 +60,18 @@ public class SocketResultIterator<T> implements CloseableIterator<T> {
 		if (result == null) {
 			if (hasMore) {
 				fetchNextResult();
+				if (result == null) {
+					return false;
+				} else {
+					if (result.isFailed()) {
+						SerializedThrowable serializedThrowable = result.getSerializedThrowable();
+						checkNotNull(serializedThrowable);
+						throw new RuntimeException(serializedThrowable.getFullStringifiedStackTrace());
+					} else if (result.isFinish() && result.getResult() == null) {
+						result = null;
+						return false;
+					}
+				}
 			} else {
 				return false;
 			}
@@ -87,10 +103,17 @@ public class SocketResultIterator<T> implements CloseableIterator<T> {
 
 	private void fetchNextResult() {
 		try {
-			result = resultList.take();
-			checkArgument(result.getJobId().equals(jobId), "Fetch job(" + result.getJobId() + ") results while current job is " + jobId);
-			if (result.isFinish()) {
-				hasMore = false;
+			while (true) {
+				JobSocketResult jobSocketResult = resultList.take();
+				if (!jobSocketResult.getJobId().equals(jobId)) {
+					LOG.warn("Receive result for {} while current job is {}", jobSocketResult.getJobId(), jobId);
+					continue;
+				}
+				result = jobSocketResult;
+				if (result.isFinish()) {
+					hasMore = false;
+				}
+				break;
 			}
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);

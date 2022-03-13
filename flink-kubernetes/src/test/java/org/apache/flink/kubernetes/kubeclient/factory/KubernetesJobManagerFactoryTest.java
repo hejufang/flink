@@ -138,7 +138,7 @@ public class KubernetesJobManagerFactoryTest extends KubernetesJobManagerTestBas
 				.stream()
 				.anyMatch(envVar -> envVar.getName().equals("key1")));
 
-		assertEquals(3, resultedMainContainer.getPorts().size());
+		assertEquals(4, resultedMainContainer.getPorts().size());
 
 		final Map<String, Quantity> requests = resultedMainContainer.getResources().getRequests();
 		assertEquals(Double.toString(JOB_MANAGER_CPU), requests.get("cpu").getAmount());
@@ -201,7 +201,7 @@ public class KubernetesJobManagerFactoryTest extends KubernetesJobManagerTestBas
 		assertEquals(2, resultRestService.getMetadata().getLabels().size());
 
 		assertEquals(resultRestService.getSpec().getType(), "LoadBalancer");
-		assertEquals(1, resultRestService.getSpec().getPorts().size());
+		assertEquals(2, resultRestService.getSpec().getPorts().size());
 		assertEquals(5, resultRestService.getSpec().getSelector().size());
 	}
 

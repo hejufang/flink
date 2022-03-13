@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.entrypoint;
 
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
@@ -39,8 +40,12 @@ public class KubernetesSessionClusterEntrypoint extends SessionClusterEntrypoint
 
 	@Override
 	protected DispatcherResourceManagerComponentFactory createDispatcherResourceManagerComponentFactory(Configuration configuration) {
-		return DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(
-			KubernetesResourceManagerFactory.getInstance());
+		boolean socketEndpointEnable = configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
+		return socketEndpointEnable ?
+			DefaultDispatcherResourceManagerComponentFactory.createSessionSocketComponentFactory(
+				KubernetesResourceManagerFactory.getInstance()) :
+			DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(
+				KubernetesResourceManagerFactory.getInstance());
 	}
 
 	public static void main(String[] args) {

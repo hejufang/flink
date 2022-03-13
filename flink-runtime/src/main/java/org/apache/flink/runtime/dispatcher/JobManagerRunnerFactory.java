@@ -28,6 +28,12 @@ import org.apache.flink.runtime.jobmaster.factories.JobManagerJobMetricGroupFact
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
+
+import javax.annotation.Nullable;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+
 /**
  * Factory for a {@link JobManagerRunner}.
  */
@@ -43,4 +49,26 @@ public interface JobManagerRunnerFactory {
 		JobManagerSharedServices jobManagerServices,
 		JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory,
 		FatalErrorHandler fatalErrorHandler) throws Exception;
+
+	default JobManagerRunner createJobManagerRunner(
+			JobGraph jobGraph,
+			Configuration configuration,
+			RpcService rpcService,
+			HighAvailabilityServices highAvailabilityServices,
+			HeartbeatServices heartbeatServices,
+			JobManagerSharedServices jobManagerServices,
+			JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory,
+			FatalErrorHandler fatalErrorHandler,
+			@Nullable ChannelHandlerContext channelContext) throws Exception {
+		checkArgument(channelContext == null);
+		return createJobManagerRunner(
+			jobGraph,
+			configuration,
+			rpcService,
+			highAvailabilityServices,
+			heartbeatServices,
+			jobManagerServices,
+			jobManagerJobMetricGroupFactory,
+			fatalErrorHandler);
+	}
 }

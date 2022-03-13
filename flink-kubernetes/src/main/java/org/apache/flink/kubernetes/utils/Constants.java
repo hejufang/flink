@@ -63,12 +63,14 @@ public class Constants {
 
 	// Use fixed port in kubernetes, it needs to be exposed.
 	public static final int REST_PORT = 8081;
+	public static final int SOCKET_PORT = 8091;
 	public static final int BLOB_SERVER_PORT = 6124;
 	public static final int TASK_MANAGER_RPC_PORT = 6122;
 
 	public static final String JOB_MANAGER_RPC_PORT_NAME = "jobmanager-rpc";
 	public static final String BLOB_SERVER_PORT_NAME = "blobserver";
 	public static final String REST_PORT_NAME = "rest";
+	public static final String SOCKET_PORT_NAME = "socket";
 	public static final String TASK_MANAGER_RPC_PORT_NAME = "taskmanager-rpc";
 	public static final String TASK_MANAGER_NETTY_SERVER_NAME = "netty-server";
 	public static final String FLINK_METRICS_PORT_NAME = "flink-metrics";
@@ -137,12 +139,14 @@ public class Constants {
 	public static final String PORT1_ENV = "PORT1";
 	public static final String PORT2_ENV = "PORT2";
 	public static final String PORT3_ENV = "PORT3";
+	public static final String PORT4_ENV = "PORT4";
 	// We use these two lists to ensure the order of container port definition for jobmanager and taskmanager
 	public static final List<String> JOB_MANAGER_CONTAINER_PORT_LIST = Arrays.asList(
 		Constants.FLINK_METRICS_PORT_NAME,
 		Constants.REST_PORT_NAME,
 		Constants.JOB_MANAGER_RPC_PORT_NAME,
-		Constants.BLOB_SERVER_PORT_NAME
+		Constants.BLOB_SERVER_PORT_NAME,
+		Constants.SOCKET_PORT_NAME
 	);
 	public static final List<String> TASK_MANAGER_CONTAINER_PORT_LIST = Arrays.asList(
 		Constants.FLINK_METRICS_PORT_NAME,
@@ -160,6 +164,7 @@ public class Constants {
 		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.REST_PORT_NAME, PORT1_ENV);
 		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.JOB_MANAGER_RPC_PORT_NAME, PORT2_ENV);
 		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.BLOB_SERVER_PORT_NAME, PORT3_ENV);
+		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.SOCKET_PORT_NAME, PORT4_ENV);
 		// task manager specific ports
 		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.TASK_MANAGER_RPC_PORT_NAME, PORT1_ENV);
 		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.TASK_MANAGER_NETTY_SERVER_NAME, PORT2_ENV);

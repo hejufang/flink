@@ -611,7 +611,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				rmServices.heartbeatServices,
 				rmServices.slotManager,
 				rmServices.jobLeaderIdService,
-				new ClusterInformation("localhost", 1234),
+				new ClusterInformation("localhost", 1234, 8081, 8091),
 				testingFatalErrorHandlerResource.getFatalErrorHandler(),
 				UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
 				flinkKubeClient,

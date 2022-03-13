@@ -122,6 +122,11 @@ public class TestingFlinkKubeClient implements FlinkKubeClient {
 	}
 
 	@Override
+	public Optional<Endpoint> getSocketEndpoint(String clusterId, boolean enableIngress) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
 	public Optional<Endpoint> getRestEndpoint(String clusterId) {
 		throw new UnsupportedOperationException();
 	}

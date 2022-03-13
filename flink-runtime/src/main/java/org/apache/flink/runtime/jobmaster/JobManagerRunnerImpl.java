@@ -37,10 +37,13 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.function.FunctionUtils;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -87,6 +90,9 @@ public class JobManagerRunnerImpl implements LeaderContender, OnCompletionAction
 
 	private final CompletableFuture<Void> jobMasterCreationFuture;
 
+	@Nullable
+	private final ChannelHandlerContext channelContext;
+
 	private CompletableFuture<Void> leadershipOperation;
 
 	/** flag marking the runner as shut down. */
@@ -110,6 +116,17 @@ public class JobManagerRunnerImpl implements LeaderContender, OnCompletionAction
 			final LibraryCacheManager.ClassLoaderLease classLoaderLease,
 			final Executor executor,
 			final FatalErrorHandler fatalErrorHandler) throws Exception {
+		this(jobGraph, jobMasterFactory, haServices, classLoaderLease, executor, fatalErrorHandler, null);
+	}
+
+	public JobManagerRunnerImpl(
+			final JobGraph jobGraph,
+			final JobMasterServiceFactory jobMasterFactory,
+			final HighAvailabilityServices haServices,
+			final LibraryCacheManager.ClassLoaderLease classLoaderLease,
+			final Executor executor,
+			final FatalErrorHandler fatalErrorHandler,
+			@Nullable final ChannelHandlerContext channelContext) throws Exception {
 
 		this.resultFuture = new CompletableFuture<>();
 		this.terminationFuture = new CompletableFuture<>();
@@ -151,6 +168,8 @@ public class JobManagerRunnerImpl implements LeaderContender, OnCompletionAction
 				jobGraph, this, userCodeLoader);
 			jobMasterCreationFuture.complete(null);
 		}
+
+		this.channelContext = channelContext;
 	}
 
 	//----------------------------------------------------------------------------------------------
@@ -170,6 +189,11 @@ public class JobManagerRunnerImpl implements LeaderContender, OnCompletionAction
 	@Override
 	public JobID getJobID() {
 		return jobGraph.getJobID();
+	}
+
+	@Override
+	public ChannelHandlerContext getChannelContext() {
+		return channelContext;
 	}
 
 	//----------------------------------------------------------------------------------------------

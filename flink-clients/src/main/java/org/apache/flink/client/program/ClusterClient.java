@@ -28,6 +28,7 @@ import org.apache.flink.runtime.jobmaster.JobResult;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
+import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.FlinkException;
 
 import javax.annotation.Nullable;
@@ -93,6 +94,17 @@ public interface ClusterClient<T> extends AutoCloseable {
 	 * @return {@link JobID} of the submitted job
 	 */
 	CompletableFuture<JobID> submitJob(JobGraph jobGraph);
+
+	/**
+	 * Submit the given {@link JobGraph} to the cluster and return the result iterator.
+	 *
+	 * @param jobGraph to submit
+	 * @param <R> result to return
+	 * @return result iterator of the submitted job
+	 */
+	default <R> CloseableIterator<R> submitJobSync(JobGraph jobGraph) {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * Requests the {@link JobStatus} of the job with the given {@link JobID}.

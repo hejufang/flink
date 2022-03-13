@@ -40,7 +40,9 @@ public class KubernetesJobManagerTestBase extends KubernetesTestBase {
 	protected static final int JOB_MANAGER_MEMORY = 768;
 
 	protected static final int REST_PORT = 9081;
+	protected static final int SOCKET_PORT = 9981;
 	protected static final String REST_BIND_PORT = "9082";
+	protected static final String SOCKET_BIND_PORT = "9982";
 	protected static final int RPC_PORT = 7123;
 	protected static final int BLOB_SERVER_PORT = 8346;
 
@@ -75,6 +77,8 @@ public class KubernetesJobManagerTestBase extends KubernetesTestBase {
 
 		this.flinkConfig.set(RestOptions.PORT, REST_PORT);
 		this.flinkConfig.set(RestOptions.BIND_PORT, REST_BIND_PORT);
+		this.flinkConfig.set(RestOptions.SOCKET_PORT, SOCKET_PORT);
+		this.flinkConfig.set(RestOptions.BIND_SOCKET_PORT, SOCKET_BIND_PORT);
 		this.flinkConfig.set(JobManagerOptions.PORT, RPC_PORT);
 		this.flinkConfig.set(BlobServerOptions.PORT, Integer.toString(BLOB_SERVER_PORT));
 		this.flinkConfig.set(KubernetesConfigOptions.JOB_MANAGER_CPU, JOB_MANAGER_CPU);

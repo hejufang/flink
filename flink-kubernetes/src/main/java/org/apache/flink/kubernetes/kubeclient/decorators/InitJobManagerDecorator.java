@@ -165,6 +165,10 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
 			new ContainerPortBuilder()
 				.withName(Constants.BLOB_SERVER_PORT_NAME)
 				.withContainerPort(kubernetesJobManagerParameters.getBlobServerPort())
+				.build(),
+			new ContainerPortBuilder()
+				.withName(Constants.SOCKET_PORT_NAME)
+				.withContainerPort(kubernetesJobManagerParameters.getSocketPort())
 				.build());
 	}
 

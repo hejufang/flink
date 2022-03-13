@@ -28,6 +28,7 @@ import org.apache.flink.api.dag.Pipeline;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.core.execution.PipelineExecutor;
+import org.apache.flink.util.CloseableIterator;
 
 import javax.annotation.Nullable;
 
@@ -87,6 +88,11 @@ public class CollectionPipelineExecutor implements PipelineExecutor {
 			@Override
 			public CompletableFuture<JobExecutionResult> getJobExecutionResult(ClassLoader userClassloader) {
 				return CompletableFuture.completedFuture(result);
+			}
+
+			@Override
+			public <T> CloseableIterator<T> getJobResultIterator(ClassLoader userClassLoader) {
+				throw new UnsupportedOperationException();
 			}
 		});
 	}

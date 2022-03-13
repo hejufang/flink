@@ -31,6 +31,8 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.FlinkException;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -117,6 +119,19 @@ public class MiniDispatcher extends Dispatcher {
 	@Override
 	protected void jobReachedGloballyTerminalState(ArchivedExecutionGraph archivedExecutionGraph) {
 		super.jobReachedGloballyTerminalState(archivedExecutionGraph);
+
+		if (executionMode == ClusterEntrypoint.ExecutionMode.DETACHED) {
+			// shut down since we don't have to wait for the execution result retrieval
+			shutDownFuture.complete(ApplicationStatus.fromJobStatus(archivedExecutionGraph.getState()));
+		}
+	}
+
+	@Override
+	protected void jobReachedGloballyTerminalState(
+			ChannelHandlerContext channelContext,
+			Throwable throwable,
+			ArchivedExecutionGraph archivedExecutionGraph) {
+		super.jobReachedGloballyTerminalState(channelContext, throwable, archivedExecutionGraph);
 
 		if (executionMode == ClusterEntrypoint.ExecutionMode.DETACHED) {
 			// shut down since we don't have to wait for the execution result retrieval

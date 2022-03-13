@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.highavailability;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
@@ -37,6 +38,7 @@ import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.net.SSLUtils;
 import org.apache.flink.runtime.resourcemanager.ResourceManager;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
+import org.apache.flink.runtime.socket.SocketRestLeaderAddress;
 import org.apache.flink.runtime.util.ZooKeeperUtils;
 import org.apache.flink.util.ConfigurationException;
 import org.apache.flink.util.FlinkException;
@@ -44,6 +46,7 @@ import org.apache.flink.util.InstantiationUtil;
 
 import org.apache.flink.shaded.curator4.org.apache.curator.framework.CuratorFramework;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.concurrent.Executor;
@@ -105,7 +108,7 @@ public class HighAvailabilityServicesUtils {
 					AkkaRpcServiceUtils.createWildcardName(Dispatcher.DISPATCHER_NAME),
 					addressResolution,
 					configuration);
-				final String webMonitorAddress = getWebMonitorAddress(
+				final String webMonitorAddress = getLeaderAddress(
 					configuration,
 					addressResolution);
 
@@ -135,7 +138,7 @@ public class HighAvailabilityServicesUtils {
 
 		switch (highAvailabilityMode) {
 			case NONE:
-				final String webMonitorAddress = getWebMonitorAddress(configuration, AddressResolution.TRY_ADDRESS_RESOLUTION);
+				final String webMonitorAddress = getLeaderAddress(configuration, AddressResolution.TRY_ADDRESS_RESOLUTION);
 				return new StandaloneClientHAServices(webMonitorAddress);
 			case ZOOKEEPER:
 				final CuratorFramework client = ZooKeeperUtils.startCuratorFramework(configuration);
@@ -198,6 +201,27 @@ public class HighAvailabilityServicesUtils {
 		final String protocol = enableSSL ? "https://" : "http://";
 
 		return String.format("%s%s:%s", protocol, address, port);
+	}
+
+	public static String getLeaderAddress(
+			Configuration configuration,
+			HighAvailabilityServicesUtils.AddressResolution resolution) throws UnknownHostException {
+		String webRestAddress = getWebMonitorAddress(configuration, resolution);
+		if (configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE)) {
+			String socketAddress = configuration.contains(RestOptions.SOCKET_ADDRESS) ?
+				configuration.getString(RestOptions.SOCKET_ADDRESS) : configuration.getString(RestOptions.ADDRESS);
+			SocketRestLeaderAddress socketRestLeaderAddress = new SocketRestLeaderAddress(
+				webRestAddress,
+				socketAddress,
+				configuration.getInteger(RestOptions.SOCKET_PORT));
+			try {
+				return socketRestLeaderAddress.toJson();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		} else {
+			return webRestAddress;
+		}
 	}
 
 	/**

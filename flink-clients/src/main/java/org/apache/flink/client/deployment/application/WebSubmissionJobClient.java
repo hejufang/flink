@@ -23,6 +23,7 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.core.execution.JobClient;
+import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import javax.annotation.Nullable;
@@ -80,5 +81,10 @@ public class WebSubmissionJobClient implements JobClient {
 	@Override
 	public CompletableFuture<JobExecutionResult> getJobExecutionResult(ClassLoader userClassloader) {
 		throw new FlinkRuntimeException("The Job Result cannot be fetched through the Job Client when in Web Submission.");
+	}
+
+	@Override
+	public <T> CloseableIterator<T> getJobResultIterator(ClassLoader userClassLoader) {
+		throw new FlinkRuntimeException("Not support yet.");
 	}
 }

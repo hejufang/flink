@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.core.execution.JobClient;
+import org.apache.flink.util.CloseableIterator;
 
 import javax.annotation.Nullable;
 
@@ -47,6 +48,11 @@ public class TestingJobClient implements JobClient {
 	@Override
 	public CompletableFuture<JobExecutionResult> getJobExecutionResult(ClassLoader userClassloader) {
 		return CompletableFuture.completedFuture(new JobExecutionResult(new JobID(), 0L, Collections.emptyMap()));
+	}
+
+	@Override
+	public <T> CloseableIterator<T> getJobResultIterator(ClassLoader userClassLoader) {
+		throw new UnsupportedOperationException();
 	}
 
 	@Override

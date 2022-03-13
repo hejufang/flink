@@ -50,6 +50,7 @@ import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.query.KvStateRegistry;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
+import org.apache.flink.runtime.socket.PrintTaskJobResultGateway;
 import org.apache.flink.runtime.state.TestTaskStateManager;
 import org.apache.flink.runtime.state.cache.NonCacheManager;
 import org.apache.flink.runtime.taskexecutor.KvStateService;
@@ -229,7 +230,9 @@ public class TaskAsyncCallTest extends TestLogger {
 			executor,
 			new NonCacheManager(),
 			false,
-			submitNotifyRunningEnable);
+			submitNotifyRunningEnable,
+			false,
+			new PrintTaskJobResultGateway());
 	}
 
 	/**

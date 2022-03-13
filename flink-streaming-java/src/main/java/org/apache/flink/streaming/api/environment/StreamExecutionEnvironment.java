@@ -47,6 +47,7 @@ import org.apache.flink.api.java.typeutils.MissingTypeInfo;
 import org.apache.flink.api.java.typeutils.PojoTypeInfo;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.ExecutionOptions;
@@ -181,6 +182,9 @@ public class StreamExecutionEnvironment {
 	private final List<JobListener> jobListeners = new ArrayList<>();
 
 	private boolean isBatchJob = false;
+
+	@Nullable
+	private PipelineExecutor pipelineExecutor;
 
 	@Nullable
 	protected final AbstractEventRecorder abstractEventRecorder;
@@ -1836,9 +1840,20 @@ public class StreamExecutionEnvironment {
 			configuration.get(DeploymentOptions.TARGET));
 
 		registerDashboard(streamGraph, configuration);
-		CompletableFuture<JobClient> jobClientFuture = executorFactory
-			.getExecutor(configuration, abstractEventRecorder)
-			.execute(streamGraph, configuration);
+
+		PipelineExecutor pipelineExecutor;
+		// For socket endpoint, it should manage the pipeline executor and share it between jobs.
+		if (configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE)) {
+			if (this.pipelineExecutor == null) {
+				this.pipelineExecutor = executorFactory
+					.getExecutor(configuration, abstractEventRecorder);
+			}
+			pipelineExecutor = this.pipelineExecutor;
+		} else {
+			pipelineExecutor = executorFactory
+				.getExecutor(configuration, abstractEventRecorder);
+		}
+		CompletableFuture<JobClient> jobClientFuture = pipelineExecutor.execute(streamGraph, configuration);
 
 		try {
 			JobClient jobClient = jobClientFuture.get();

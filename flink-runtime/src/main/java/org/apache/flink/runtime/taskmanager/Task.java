@@ -77,6 +77,8 @@ import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
 import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
+import org.apache.flink.runtime.socket.PrintTaskJobResultGateway;
+import org.apache.flink.runtime.socket.TaskJobResultGateway;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.runtime.state.cache.CacheManager;
@@ -277,6 +279,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	/** The cacheManager responsible for managing all caches. */
 	private final CacheManager cacheManager;
 
+	/** Gateway for push result task. */
+	private final TaskJobResultGateway taskJobResultGateway;
+
 	// ------------------------------------------------------------------------
 	//  Fields that control the task execution. All these fields are volatile
 	//  (which means that they introduce memory barriers), to establish
@@ -311,6 +316,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	private ClassLoader userCodeClassLoader;
 
 	private final boolean jobLogDetailDisable;
+
+	/** If true, the task will notify its final status in its execution thread. */
+	private final boolean notifyFinalStateInTaskThreadEnable;
 
 	private final long createTimestamp = System.currentTimeMillis();
 	private long initializeFinishTimestamp;
@@ -387,42 +395,46 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			executor,
 			new NonCacheManager(),
 			false,
-			false);
+			false,
+			false,
+			new PrintTaskJobResultGateway());
 	}
 
 	public Task(
-		JobInformation jobInformation,
-		TaskInformation taskInformation,
-		ExecutionAttemptID executionAttemptID,
-		AllocationID slotAllocationId,
-		int subtaskIndex,
-		int attemptNumber,
-		List<ResultPartitionDeploymentDescriptor> resultPartitionDeploymentDescriptors,
-		List<InputGateDeploymentDescriptor> inputGateDeploymentDescriptors,
-		int targetSlotNumber,
-		MemoryManager memManager,
-		IOManager ioManager,
-		ShuffleEnvironment<?, ?> shuffleEnvironment,
-		KvStateService kvStateService,
-		BroadcastVariableManager bcVarManager,
-		TaskEventDispatcher taskEventDispatcher,
-		ExternalResourceInfoProvider externalResourceInfoProvider,
-		TaskStateManager taskStateManager,
-		TaskManagerActions taskManagerActions,
-		InputSplitProvider inputSplitProvider,
-		CheckpointResponder checkpointResponder,
-		TaskOperatorEventGateway operatorCoordinatorEventGateway,
-		GlobalAggregateManager aggregateManager,
-		LibraryCacheManager.ClassLoaderHandle classLoaderHandle,
-		FileCache fileCache,
-		TaskManagerRuntimeInfo taskManagerConfig,
-		@Nonnull TaskMetricGroup metricGroup,
-		ResultPartitionConsumableNotifier resultPartitionConsumableNotifier,
-		PartitionProducerStateChecker partitionProducerStateChecker,
-		Executor executor,
-		CacheManager cacheManager,
-		boolean jobLogDetailDisable,
-		boolean taskSubmitRunning) {
+			JobInformation jobInformation,
+			TaskInformation taskInformation,
+			ExecutionAttemptID executionAttemptID,
+			AllocationID slotAllocationId,
+			int subtaskIndex,
+			int attemptNumber,
+			List<ResultPartitionDeploymentDescriptor> resultPartitionDeploymentDescriptors,
+			List<InputGateDeploymentDescriptor> inputGateDeploymentDescriptors,
+			int targetSlotNumber,
+			MemoryManager memManager,
+			IOManager ioManager,
+			ShuffleEnvironment<?, ?> shuffleEnvironment,
+			KvStateService kvStateService,
+			BroadcastVariableManager bcVarManager,
+			TaskEventDispatcher taskEventDispatcher,
+			ExternalResourceInfoProvider externalResourceInfoProvider,
+			TaskStateManager taskStateManager,
+			TaskManagerActions taskManagerActions,
+			InputSplitProvider inputSplitProvider,
+			CheckpointResponder checkpointResponder,
+			TaskOperatorEventGateway operatorCoordinatorEventGateway,
+			GlobalAggregateManager aggregateManager,
+			LibraryCacheManager.ClassLoaderHandle classLoaderHandle,
+			FileCache fileCache,
+			TaskManagerRuntimeInfo taskManagerConfig,
+			@Nonnull TaskMetricGroup metricGroup,
+			ResultPartitionConsumableNotifier resultPartitionConsumableNotifier,
+			PartitionProducerStateChecker partitionProducerStateChecker,
+			Executor executor,
+			CacheManager cacheManager,
+			boolean jobLogDetailDisable,
+			boolean taskSubmitRunning,
+			boolean notifyFinalStateInTaskThreadEnable,
+			TaskJobResultGateway taskJobResultGateway) {
 
 		Preconditions.checkNotNull(jobInformation);
 		Preconditions.checkNotNull(taskInformation);
@@ -485,6 +497,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		this.executor = Preconditions.checkNotNull(executor);
 		this.cacheManager = cacheManager;
 		this.taskSubmitRunning = taskSubmitRunning;
+		this.notifyFinalStateInTaskThreadEnable = notifyFinalStateInTaskThreadEnable;
 
 		this.stateTimestamps = new long[ExecutionState.values().length];
 		markTimestamp(CREATED, System.currentTimeMillis());
@@ -544,6 +557,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		executingThread = new Thread(TASK_THREADS_GROUP, this, taskMetricNameWithSubtask);
 
 		this.jobLogDetailDisable = jobLogDetailDisable;
+		this.taskJobResultGateway = taskJobResultGateway;
 	}
 
 	// ------------------------------------------------------------------------
@@ -859,7 +873,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				metrics,
 				this,
 				externalResourceInfoProvider,
-				cacheManager);
+				cacheManager,
+				taskJobResultGateway);
 
 			// Make sure the user code classloader is accessible thread-locally.
 			// We are setting the correct context class loader before instantiating the invokable
@@ -1144,7 +1159,11 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 	private void notifyFinalState() {
 		checkState(executionState.isTerminal());
-		taskManagerActions.updateTaskExecutionState(new TaskExecutionState(jobId, executionId, executionState, failureCause));
+		if (notifyFinalStateInTaskThreadEnable) {
+			taskManagerActions.updateTaskExecutionState(this, new TaskExecutionState(jobId, executionId, executionState, failureCause));
+		} else {
+			taskManagerActions.updateTaskExecutionState(new TaskExecutionState(jobId, executionId, executionState, failureCause));
+		}
 	}
 
 	private void notifyFatalError(String message, Throwable cause, int exitCode) {

@@ -101,6 +101,8 @@ import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
+import org.apache.flink.runtime.socket.PrintTaskJobResultGateway;
+import org.apache.flink.runtime.socket.TaskJobResultGateway;
 import org.apache.flink.runtime.state.TaskExecutorLocalStateStoresManager;
 import org.apache.flink.runtime.state.TaskLocalStateStore;
 import org.apache.flink.runtime.state.TaskStateManager;
@@ -266,6 +268,11 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	private final boolean requestSlotFromResourceManagerDirectEnable;
 
+	private final boolean notifyFinalStateInTaskThreadEnable;
+
+	// TODO this should be replaced by dispatcher gateway after @huweihua's feature is ready.
+	private final TaskJobResultGateway taskJobResultGateway = new PrintTaskJobResultGateway();
+
 	// --------- resource manager --------
 
 	@Nullable
@@ -323,6 +330,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		this.taskSubmitRunning = taskExecutorServices.isTaskSubmitRunning();
 		this.resourceManagerLeaderRetriever = haServices.getResourceManagerLeaderRetriever();
 		this.requestSlotFromResourceManagerDirectEnable = taskManagerConfiguration.isRequestSlotFromResourceManagerDirectEnable();
+		this.notifyFinalStateInTaskThreadEnable = taskManagerConfiguration.isNotifyFinalStateInTaskThreadEnable();
 
 		this.hardwareDescription = HardwareDescription.extractFromSystem(taskExecutorServices.getManagedMemorySize());
 		this.memoryConfiguration = TaskExecutorMemoryConfiguration.create(taskManagerConfiguration.getConfiguration());
@@ -894,7 +902,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				getRpcService().getExecutor(),
 				taskExecutorServices.getCacheManager(),
 				taskManagerConfiguration.isJobLogDetailDisable(),
-				taskSubmitRunning);
+				taskSubmitRunning,
+				notifyFinalStateInTaskThreadEnable,
+				taskJobResultGateway);
 
 		taskMetricGroup.gauge(MetricNames.IS_BACKPRESSURED, task::isBackPressured);
 
@@ -1976,6 +1986,23 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		}
 	}
 
+	private void updateTaskExecutionState(
+			final Task task,
+			final JobMasterGateway jobMasterGateway,
+			final TaskExecutionState taskExecutionState) {
+		AccumulatorSnapshot accumulatorSnapshot = task.getAccumulatorRegistry().getSnapshot();
+
+		updateTaskExecutionState(
+			jobMasterGateway,
+			new TaskExecutionState(
+				task.getJobID(),
+				task.getExecutionId(),
+				task.getExecutionState(),
+				task.getFailureCause(),
+				accumulatorSnapshot,
+				task.getMetricGroup().getIOMetricGroup().createSnapshot()));
+	}
+
 	private void unregisterTaskAndNotifyFinalState(
 			final JobMasterGateway jobMasterGateway,
 			final ExecutionAttemptID executionAttemptID) {
@@ -2015,6 +2042,36 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				task.getJobID(),
 				task.getJobVertexId(),
 				task.getTaskInfo().getIndexOfThisSubtask());
+
+			if (requestSlotFromResourceManagerDirectEnable) {
+				CompletableFuture.runAsync(() -> closeJobManagerConnectionIfNoTasks(task.getJobID()), getMainThreadExecutor());
+			}
+		} else {
+			log.error("Cannot find task with ID {} to unregister.", executionAttemptID);
+		}
+	}
+
+	private void unregisterTask(
+			final JobMasterGateway jobMasterGateway,
+			final ExecutionAttemptID executionAttemptID) {
+
+		Task task = taskSlotTable.removeTask(executionAttemptID);
+		if (task != null) {
+			if (!task.getExecutionState().isTerminal()) {
+				try {
+					task.failExternally(new IllegalStateException("Task is being remove from TaskManager."));
+				} catch (Exception e) {
+					log.error("Could not properly fail task.", e);
+				}
+			}
+
+			if (taskManagerConfiguration.isJobLogDetailDisable()) {
+				log.debug("Un-registering task and sending final execution state {} to JobManager for task {} {}.",
+					task.getExecutionState(), task.getTaskInfo().getTaskNameWithSubtasks(), task.getExecutionId());
+			} else {
+				log.info("Un-registering task and sending final execution state {} to JobManager for task {} {}.",
+					task.getExecutionState(), task.getTaskInfo().getTaskNameWithSubtasks(), task.getExecutionId());
+			}
 
 			if (requestSlotFromResourceManagerDirectEnable) {
 				CompletableFuture.runAsync(() -> closeJobManagerConnectionIfNoTasks(task.getJobID()), getMainThreadExecutor());
@@ -2360,6 +2417,16 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		public void updateTaskExecutionState(final TaskExecutionState taskExecutionState) {
 			if (taskExecutionState.getExecutionState().isTerminal()) {
 				runAsync(() -> unregisterTaskAndNotifyFinalState(jobMasterGateway, taskExecutionState.getID()));
+			} else {
+				TaskExecutor.this.updateTaskExecutionState(jobMasterGateway, taskExecutionState);
+			}
+		}
+
+		@Override
+		public void updateTaskExecutionState(Task task, TaskExecutionState taskExecutionState) {
+			if (taskExecutionState.getExecutionState().isTerminal()) {
+				updateTaskExecutionState(task, taskExecutionState);
+				runAsync(() -> unregisterTask(jobMasterGateway, taskExecutionState.getID()));
 			} else {
 				TaskExecutor.this.updateTaskExecutionState(jobMasterGateway, taskExecutionState);
 			}

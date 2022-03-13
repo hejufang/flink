@@ -38,6 +38,10 @@ import org.apache.flink.runtime.scheduler.SchedulerNGFactory;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
 import org.apache.flink.runtime.shuffle.ShuffleServiceLoader;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
+
+import javax.annotation.Nullable;
+
 /**
  * Singleton default factory for {@link JobManagerRunnerImpl}.
  */
@@ -54,6 +58,29 @@ public enum DefaultJobManagerRunnerFactory implements JobManagerRunnerFactory {
 			JobManagerSharedServices jobManagerServices,
 			JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory,
 			FatalErrorHandler fatalErrorHandler) throws Exception {
+		return createJobManagerRunner(
+				jobGraph,
+				configuration,
+				rpcService,
+				highAvailabilityServices,
+				heartbeatServices,
+				jobManagerServices,
+				jobManagerJobMetricGroupFactory,
+				fatalErrorHandler,
+				null);
+	}
+
+	@Override
+	public JobManagerRunner createJobManagerRunner(
+			JobGraph jobGraph,
+			Configuration configuration,
+			RpcService rpcService,
+			HighAvailabilityServices highAvailabilityServices,
+			HeartbeatServices heartbeatServices,
+			JobManagerSharedServices jobManagerServices,
+			JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory,
+			FatalErrorHandler fatalErrorHandler,
+			@Nullable ChannelHandlerContext channelContext) throws Exception {
 
 		final JobMasterConfiguration jobMasterConfiguration = JobMasterConfiguration.fromConfiguration(configuration);
 
@@ -80,6 +107,7 @@ public enum DefaultJobManagerRunnerFactory implements JobManagerRunnerFactory {
 			highAvailabilityServices,
 			jobManagerServices.getLibraryCacheManager().registerClassLoaderLease(jobGraph.getJobID()),
 			jobManagerServices.getScheduledExecutorService(),
-			fatalErrorHandler);
+			fatalErrorHandler,
+			channelContext);
 	}
 }

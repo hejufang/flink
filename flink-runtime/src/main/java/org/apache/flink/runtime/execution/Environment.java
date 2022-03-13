@@ -39,6 +39,7 @@ import org.apache.flink.runtime.jobgraph.tasks.TaskOperatorEventGateway;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
+import org.apache.flink.runtime.socket.TaskJobResultGateway;
 import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.runtime.state.cache.CacheManager;
 import org.apache.flink.runtime.state.cache.NonCacheManager;
@@ -190,6 +191,14 @@ public interface Environment {
 	 * @return the registry
 	 */
 	AccumulatorRegistry getAccumulatorRegistry();
+
+	/**
+	 * Return the task result gateway which will send result to job manager.
+	 * @return the task result gateway
+	 */
+	default TaskJobResultGateway getTaskResultGateway() {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * Returns the registry for {@link InternalKvState} instances.

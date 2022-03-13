@@ -57,11 +57,13 @@ class KubernetesEntrypointUtils {
 
 		if (KubernetesUtils.isHostNetworkEnabled(configuration)) {
 			String restPort = KubernetesUtils.getHostPortNumberFromEnv(Constants.REST_PORT_NAME);
+			String socketPort = KubernetesUtils.getHostPortNumberFromEnv(Constants.SOCKET_PORT_NAME);
 			String rpcPort = KubernetesUtils.getHostPortNumberFromEnv(Constants.JOB_MANAGER_RPC_PORT_NAME);
 			String blobPort = KubernetesUtils.getHostPortNumberFromEnv(Constants.BLOB_SERVER_PORT_NAME);
 			String metricsPort = KubernetesUtils.getHostPortNumberFromEnv(Constants.FLINK_METRICS_PORT_NAME);
 
 			configuration.setString(RestOptions.BIND_PORT, restPort);
+			configuration.setString(RestOptions.BIND_SOCKET_PORT, socketPort);
 			configuration.setInteger(JobManagerOptions.PORT, Integer.parseInt(rpcPort));
 			configuration.setString(BlobServerOptions.PORT, blobPort);
 			configuration.setString(HighAvailabilityOptions.HA_JOB_MANAGER_PORT_RANGE, rpcPort);

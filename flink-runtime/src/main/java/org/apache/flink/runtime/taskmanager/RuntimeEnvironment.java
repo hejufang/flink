@@ -40,6 +40,8 @@ import org.apache.flink.runtime.jobgraph.tasks.TaskOperatorEventGateway;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
+import org.apache.flink.runtime.socket.PrintTaskJobResultGateway;
+import org.apache.flink.runtime.socket.TaskJobResultGateway;
 import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.runtime.state.cache.CacheManager;
 import org.apache.flink.runtime.state.cache.NonCacheManager;
@@ -97,6 +99,8 @@ public class RuntimeEnvironment implements Environment {
 	private final Task containingTask;
 
 	private final CacheManager cacheManager;
+
+	private final TaskJobResultGateway taskJobResultGateway;
 
 	// ------------------------------------------------------------------------
 
@@ -159,7 +163,8 @@ public class RuntimeEnvironment implements Environment {
 			metrics,
 			containingTask,
 			externalResourceInfoProvider,
-			new NonCacheManager());
+			new NonCacheManager(),
+			new PrintTaskJobResultGateway());
 	}
 
 	public RuntimeEnvironment(
@@ -191,7 +196,8 @@ public class RuntimeEnvironment implements Environment {
 			TaskMetricGroup metrics,
 			Task containingTask,
 			ExternalResourceInfoProvider externalResourceInfoProvider,
-			CacheManager cacheManager) {
+			CacheManager cacheManager,
+			TaskJobResultGateway taskJobResultGateway) {
 
 		this.jobId = checkNotNull(jobId);
 		this.jobName = jobName;
@@ -222,6 +228,7 @@ public class RuntimeEnvironment implements Environment {
 		this.metrics = metrics;
 		this.externalResourceInfoProvider = checkNotNull(externalResourceInfoProvider);
 		this.cacheManager = cacheManager;
+		this.taskJobResultGateway = taskJobResultGateway;
 	}
 
 	// ------------------------------------------------------------------------
@@ -314,6 +321,11 @@ public class RuntimeEnvironment implements Environment {
 	@Override
 	public AccumulatorRegistry getAccumulatorRegistry() {
 		return accumulatorRegistry;
+	}
+
+	@Override
+	public TaskJobResultGateway getTaskResultGateway() {
+		return taskJobResultGateway;
 	}
 
 	@Override

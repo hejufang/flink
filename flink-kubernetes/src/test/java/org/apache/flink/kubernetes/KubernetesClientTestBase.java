@@ -23,8 +23,14 @@ import org.apache.flink.kubernetes.kubeclient.decorators.ExternalServiceDecorato
 import org.apache.flink.kubernetes.utils.Constants;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.EndpointAddress;
+import io.fabric8.kubernetes.api.model.EndpointPort;
+import io.fabric8.kubernetes.api.model.EndpointSubset;
+import io.fabric8.kubernetes.api.model.Endpoints;
+import io.fabric8.kubernetes.api.model.EndpointsBuilder;
 import io.fabric8.kubernetes.api.model.LoadBalancerIngress;
 import io.fabric8.kubernetes.api.model.LoadBalancerStatus;
+import io.fabric8.kubernetes.api.model.ObjectReference;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.ServicePort;
@@ -34,6 +40,8 @@ import io.fabric8.kubernetes.api.model.ServiceStatusBuilder;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 
 /**
@@ -43,6 +51,7 @@ import java.util.Collections;
 public class KubernetesClientTestBase extends KubernetesTestBase {
 
 	protected static final int REST_PORT = 9021;
+	protected static final int SOCKET_PORT = 9921;
 	protected static final int NODE_PORT = 31234;
 
 	protected void mockExpectedServiceFromServerSide(Service expectedService) {
@@ -52,6 +61,16 @@ public class KubernetesClientTestBase extends KubernetesTestBase {
 			.get()
 			.withPath(path)
 			.andReturn(200, expectedService)
+			.always();
+	}
+
+	protected void mockExpectedEndpointFromServerSide(Endpoints expectedEndpoints) {
+		final String endpointName = expectedEndpoints.getMetadata().getName();
+		final String path = String.format("/api/v1/namespaces/%s/endpoints/%s", NAMESPACE, endpointName);
+		server.expect()
+			.get()
+			.withPath(path)
+			.andReturn(200, expectedEndpoints)
 			.always();
 	}
 
@@ -75,10 +94,15 @@ public class KubernetesClientTestBase extends KubernetesTestBase {
 	}
 
 	protected Service buildExternalServiceWithLoadBalancer(@Nullable String hostname, @Nullable String ip) {
-		final ServicePort servicePort = new ServicePortBuilder()
+		final ServicePort serviceRestPort = new ServicePortBuilder()
 			.withName(Constants.REST_PORT_NAME)
 			.withPort(REST_PORT)
 			.withNewTargetPort(REST_PORT)
+			.build();
+		final ServicePort serviceSocketPort = new ServicePortBuilder()
+			.withName(Constants.SOCKET_PORT_NAME)
+			.withPort(SOCKET_PORT)
+			.withNewTargetPort(SOCKET_PORT)
 			.build();
 		final ServiceStatus serviceStatus = new ServiceStatusBuilder()
 			.withLoadBalancer(new LoadBalancerStatus(Collections.singletonList(new LoadBalancerIngress(hostname, ip))))
@@ -86,16 +110,41 @@ public class KubernetesClientTestBase extends KubernetesTestBase {
 
 		return buildExternalService(
 			KubernetesConfigOptions.ServiceExposedType.LoadBalancer,
-			servicePort,
+			serviceRestPort,
+			serviceSocketPort,
 			serviceStatus);
 	}
 
+	protected Endpoints buildExternalEndpoints(String hostname, String ip) {
+		return new EndpointsBuilder()
+			.withNewMetadata()
+			.withName(ExternalServiceDecorator.getExternalServiceName(CLUSTER_ID))
+			.endMetadata()
+			.withSubsets(
+				new EndpointSubset(
+					Arrays.asList(
+						new EndpointAddress(hostname, ip, Constants.REST_PORT_NAME, new ObjectReference()),
+						new EndpointAddress(hostname, ip, Constants.SOCKET_PORT_NAME, new ObjectReference())),
+					new ArrayList<>(),
+					Arrays.asList(
+						new EndpointPort("HTTP", Constants.REST_PORT_NAME, REST_PORT, "HTTP"),
+						new EndpointPort("TCP", Constants.SOCKET_PORT_NAME, SOCKET_PORT, "TCP"))
+				))
+			.build();
+	}
+
 	protected Service buildExternalServiceWithNodePort() {
-		final ServicePort servicePort = new ServicePortBuilder()
+		final ServicePort serviceRestPort = new ServicePortBuilder()
 			.withName(Constants.REST_PORT_NAME)
 			.withPort(REST_PORT)
 			.withNodePort(NODE_PORT)
 			.withNewTargetPort(REST_PORT)
+			.build();
+		final ServicePort serviceSocketPort = new ServicePortBuilder()
+			.withName(Constants.SOCKET_PORT_NAME)
+			.withPort(SOCKET_PORT)
+			.withNodePort(SOCKET_PORT)
+			.withNewTargetPort(SOCKET_PORT)
 			.build();
 
 		final ServiceStatus serviceStatus = new ServiceStatusBuilder()
@@ -104,26 +153,34 @@ public class KubernetesClientTestBase extends KubernetesTestBase {
 
 		return buildExternalService(
 			KubernetesConfigOptions.ServiceExposedType.NodePort,
-			servicePort,
+			serviceRestPort,
+			serviceSocketPort,
 			serviceStatus);
 	}
 
 	protected Service buildExternalServiceWithClusterIP() {
-		final ServicePort servicePort = new ServicePortBuilder()
+		final ServicePort serviceRestPort = new ServicePortBuilder()
 			.withName(Constants.REST_PORT_NAME)
 			.withPort(REST_PORT)
 			.withNewTargetPort(REST_PORT)
 			.build();
+		final ServicePort serviceSocketPort = new ServicePortBuilder()
+			.withName(Constants.SOCKET_PORT_NAME)
+			.withPort(SOCKET_PORT)
+			.withNewTargetPort(SOCKET_PORT)
+			.build();
 
 		return buildExternalService(
 			KubernetesConfigOptions.ServiceExposedType.ClusterIP,
-			servicePort,
+			serviceRestPort,
+			serviceSocketPort,
 			null);
 	}
 
 	private Service buildExternalService(
 			KubernetesConfigOptions.ServiceExposedType serviceExposedType,
-			ServicePort servicePort,
+			ServicePort serviceRestPort,
+			ServicePort serviceSocketPort,
 			@Nullable ServiceStatus serviceStatus) {
 		final ServiceBuilder serviceBuilder = new ServiceBuilder()
 			.editOrNewMetadata()
@@ -131,7 +188,9 @@ public class KubernetesClientTestBase extends KubernetesTestBase {
 				.endMetadata()
 			.editOrNewSpec()
 				.withType(serviceExposedType.name())
-				.addNewPortLike(servicePort)
+				.addNewPortLike(serviceRestPort)
+					.endPort()
+				.addNewPortLike(serviceSocketPort)
 					.endPort()
 				.endSpec();
 

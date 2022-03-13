@@ -624,6 +624,14 @@ public class TaskManagerOptions {
 			.defaultValue(false)
 			.withDescription("Task reaches termination immediately when TaskManager receive and deploy it.");
 
+	public static final ConfigOption<Boolean> NOTIFY_FINAL_STATE_IN_TASK_THREAD_ENABLE = ConfigOptions
+		.key("taskmanager.notify-final-state-in-task-thread.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("If true, the task will notify the final state in the task thread, " +
+			"otherwise it will be done in task executor akka thread. If the task pushes results to " +
+			"job manager, this flag must be true to make sure the task sends final status after its results.");
+
 	// ------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */

@@ -149,6 +149,10 @@ public class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
 			new ContainerPortBuilder()
 				.withName(Constants.BLOB_SERVER_PORT_NAME)
 				.withContainerPort(BLOB_SERVER_PORT)
+			.build(),
+			new ContainerPortBuilder()
+				.withName(Constants.SOCKET_PORT_NAME)
+				.withContainerPort(SOCKET_PORT)
 			.build());
 
 		assertEquals(expectedContainerPorts, this.resultMainContainer.getPorts());
@@ -173,6 +177,10 @@ public class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
 				.build(),
 			new ContainerPortBuilder()
 				.withName(Constants.BLOB_SERVER_PORT_NAME)
+				.withContainerPort(0)
+				.build(),
+			new ContainerPortBuilder()
+				.withName(Constants.SOCKET_PORT_NAME)
 				.withContainerPort(0)
 				.build());
 		assertEquals(expectedContainerPorts, this.resultMainContainer.getPorts());

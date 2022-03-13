@@ -89,6 +89,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	private final boolean taskDeployFinishEnable;
 
+	private final boolean notifyFinalStateInTaskThreadEnable;
+
 	public TaskManagerConfiguration(
 			int numberSlots,
 			ResourceProfile defaultSlotResourceProfile,
@@ -107,7 +109,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			boolean requestSlotFromResourceManagerDirectEnable,
 			boolean releaseSlotWhenJobMasterDisconnected,
 			long waitSlotReleaseBeforeSendSlotReporterTimeoutMs,
-			boolean taskDeployFinishEnable) {
+			boolean taskDeployFinishEnable,
+			boolean notifyFinalStateInTaskThreadEnable) {
 
 		this.numberSlots = numberSlots;
 		this.defaultSlotResourceProfile = defaultSlotResourceProfile;
@@ -127,6 +130,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		this.releaseSlotWhenJobMasterDisconnected = releaseSlotWhenJobMasterDisconnected;
 		this.waitSlotReleaseBeforeSendSlotReporterTimeoutMs = waitSlotReleaseBeforeSendSlotReporterTimeoutMs;
 		this.taskDeployFinishEnable = taskDeployFinishEnable;
+		this.notifyFinalStateInTaskThreadEnable = notifyFinalStateInTaskThreadEnable;
 	}
 
 	public int getNumberSlots() {
@@ -209,6 +213,10 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		return taskDeployFinishEnable;
 	}
 
+	public boolean isNotifyFinalStateInTaskThreadEnable() {
+		return notifyFinalStateInTaskThreadEnable;
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Static factory methods
 	// --------------------------------------------------------------------------------------------
@@ -275,6 +283,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 		final boolean taskDeployFinishEnable = configuration.getBoolean(TaskManagerOptions.TASK_DEPLOY_THEN_FINISH_ENABLE);
 
+		final boolean notifyFinalStateInTaskThreadEnable = configuration.getBoolean(TaskManagerOptions.NOTIFY_FINAL_STATE_IN_TASK_THREAD_ENABLE);
+
 		return new TaskManagerConfiguration(
 			numberSlots,
 			TaskExecutorResourceUtils.generateDefaultSlotResourceProfile(taskExecutorResourceSpec, numberSlots),
@@ -293,6 +303,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			requestSlotFromResourceManagerDirectEnable,
 			releaseSlotWhenJobMasterDisconnected,
 			waitSlotReleaseBeforeSendSlotReporterTimeout,
-			taskDeployFinishEnable);
+			taskDeployFinishEnable,
+			notifyFinalStateInTaskThreadEnable);
 	}
 }

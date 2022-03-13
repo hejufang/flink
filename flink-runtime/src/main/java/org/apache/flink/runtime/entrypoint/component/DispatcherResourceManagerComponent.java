@@ -21,7 +21,6 @@ package org.apache.flink.runtime.entrypoint.component;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.dispatcher.Dispatcher;
-import org.apache.flink.runtime.dispatcher.DispatcherSocketEndpoint;
 import org.apache.flink.runtime.dispatcher.runner.DispatcherRunner;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.resourcemanager.ResourceManager;
@@ -64,9 +63,6 @@ public class DispatcherResourceManagerComponent implements AutoCloseableAsync {
 	@Nonnull
 	private final WebMonitorEndpoint<?> webMonitorEndpoint;
 
-	@Nullable
-	private final DispatcherSocketEndpoint dispatcherSocketEndpoint;
-
 	private final CompletableFuture<Void> terminationFuture;
 
 	private final CompletableFuture<ApplicationStatus> shutDownFuture;
@@ -78,14 +74,12 @@ public class DispatcherResourceManagerComponent implements AutoCloseableAsync {
 			@Nonnull ResourceManager<?> resourceManager,
 			@Nonnull LeaderRetrievalService dispatcherLeaderRetrievalService,
 			@Nonnull LeaderRetrievalService resourceManagerRetrievalService,
-			@Nonnull WebMonitorEndpoint<?> webMonitorEndpoint,
-			@Nullable DispatcherSocketEndpoint dispatcherSocketEndpoint) {
+			@Nonnull WebMonitorEndpoint<?> webMonitorEndpoint) {
 		this.dispatcherRunner = dispatcherRunner;
 		this.resourceManager = resourceManager;
 		this.dispatcherLeaderRetrievalService = dispatcherLeaderRetrievalService;
 		this.resourceManagerRetrievalService = resourceManagerRetrievalService;
 		this.webMonitorEndpoint = webMonitorEndpoint;
-		this.dispatcherSocketEndpoint = dispatcherSocketEndpoint;
 
 		this.terminationFuture = new CompletableFuture<>();
 		this.shutDownFuture = new CompletableFuture<>();
@@ -116,10 +110,7 @@ public class DispatcherResourceManagerComponent implements AutoCloseableAsync {
 		if (isRunning.compareAndSet(true, false)) {
 			final CompletableFuture<Void> closeWebMonitorAndDeregisterAppFuture =
 				FutureUtils.composeAfterwards(webMonitorEndpoint.closeAsync(), () -> deregisterApplication(applicationStatus, diagnostics));
-			final CompletableFuture<Void> closeDispatcherSocketFuture = dispatcherSocketEndpoint == null ?
-				closeWebMonitorAndDeregisterAppFuture :
-				FutureUtils.composeAfterwards(closeWebMonitorAndDeregisterAppFuture, dispatcherSocketEndpoint::closeAsync);
-			return FutureUtils.composeAfterwards(closeDispatcherSocketFuture, this::closeAsyncInternal);
+			return FutureUtils.composeAfterwards(closeWebMonitorAndDeregisterAppFuture, this::closeAsyncInternal);
 		} else {
 			return terminationFuture;
 		}

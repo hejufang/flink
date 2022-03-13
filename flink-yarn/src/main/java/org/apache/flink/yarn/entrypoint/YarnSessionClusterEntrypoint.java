@@ -18,6 +18,7 @@
 
 package org.apache.flink.yarn.entrypoint;
 
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
 import org.apache.flink.runtime.entrypoint.SessionClusterEntrypoint;
@@ -50,7 +51,10 @@ public class YarnSessionClusterEntrypoint extends SessionClusterEntrypoint {
 
 	@Override
 	protected DispatcherResourceManagerComponentFactory createDispatcherResourceManagerComponentFactory(Configuration configuration) {
-		return DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(YarnResourceManagerFactory.getInstance());
+		boolean socketEndpointEnable = configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
+		return socketEndpointEnable ?
+			DefaultDispatcherResourceManagerComponentFactory.createSessionSocketComponentFactory(YarnResourceManagerFactory.getInstance()) :
+			DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(YarnResourceManagerFactory.getInstance());
 	}
 
 	public static void main(String[] args) {

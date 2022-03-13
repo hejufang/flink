@@ -27,6 +27,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.rpc.FencedRpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
+import org.apache.flink.runtime.socket.TaskJobResultGateway;
 import org.apache.flink.runtime.webmonitor.RestfulGateway;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
@@ -37,7 +38,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Gateway for the Dispatcher component.
  */
-public interface DispatcherGateway extends FencedRpcGateway<DispatcherId>, RestfulGateway {
+public interface DispatcherGateway extends FencedRpcGateway<DispatcherId>, RestfulGateway, TaskJobResultGateway {
 
 	/**
 	 * Submit a job to the dispatcher.
