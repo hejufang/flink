@@ -32,6 +32,7 @@ import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.PartitionInfo;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
@@ -41,6 +42,7 @@ import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceRequestSlot;
 import org.apache.flink.runtime.rest.messages.LogInfo;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.RpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
@@ -263,6 +265,15 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
 	 * @return Future which is completed with the {@link TransientBlobKey} of the uploaded file.
 	 */
 	CompletableFuture<TransientBlobKey> requestFileUploadByName(String fileName, @RpcTimeout Time timeout);
+
+	/**
+	 * Request preview data of job.
+	 * @param jobId on cluster need to get preview.
+	 * @param jobVertexId in job.
+	 * @param timeout for the asynchronous operation
+	 * @return Future which is completed with the {@link PreviewDataResponse} of the preview data.
+	 */
+	CompletableFuture<PreviewDataResponse> requestTaskManagerPreviewData(JobID jobId, JobVertexID jobVertexId, @RpcTimeout Time timeout);
 
 	/**
 	 * Returns the gateway of Metric Query Service on the TaskManager.

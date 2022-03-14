@@ -18,8 +18,8 @@
 package org.apache.flink.streaming.api.functions.sink;
 
 import org.apache.flink.annotation.Public;
-import org.apache.flink.runtime.rest.messages.preview.PreviewDataRequest;
-import org.apache.flink.runtime.rest.messages.preview.PreviewDataResponse;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataRequest;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 
 /**
  * Preview Sink Function.

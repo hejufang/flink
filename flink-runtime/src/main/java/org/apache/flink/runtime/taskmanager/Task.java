@@ -74,6 +74,8 @@ import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.TaskNotRunningException;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataRequest;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
 import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
@@ -1235,6 +1237,20 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	public void cancelExecution() {
 		LOG.info("Attempting to cancel task {} ({}).", taskMetricNameWithSubtask, executionId);
 		cancelOrFailAndCancelInvokable(ExecutionState.CANCELING, null);
+	}
+
+	/**
+	 * Get preview data of task.
+	 */
+	public PreviewDataResponse getPreviewData(PreviewDataRequest previewDataRequest) {
+		return invokable.getPreviewData(previewDataRequest);
+	}
+
+	/**
+	 * Whether this task support preview, means is running preview connector.
+	 */
+	public boolean supportPreview() {
+		return invokable.supportPreview();
 	}
 
 	/**

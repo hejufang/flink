@@ -93,6 +93,8 @@ import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
 import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceRequestSlot;
 import org.apache.flink.runtime.rest.messages.LogInfo;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataRequest;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcEndpoint;
@@ -1364,6 +1366,39 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			filePath = new File(logDir, new File(fileName).getName()).getPath();
 		}
 		return requestFileUploadByFilePath(filePath, fileName);
+	}
+
+	@Override
+	public CompletableFuture<PreviewDataResponse> requestTaskManagerPreviewData(JobID jobId, JobVertexID jobVertexId, Time timeout) {
+		log.info("request preview data, jobId: {}, jobVertexId: {}", jobId.toHexString(), jobVertexId.toHexString());
+		Task task = null;
+		Iterator<Task> taskIterator =  taskSlotTable.getTasks(jobId);
+		while (taskIterator.hasNext()){
+			Task taskTemp = taskIterator.next();
+			if (taskTemp.getJobVertexId().equals(jobVertexId)){
+				task = taskTemp;
+				break;
+			}
+		}
+
+		if (task != null) {
+			try {
+				if (!task.supportPreview()) {
+					String message = "task is not support preview, job: " + jobId + " , jobVertexId: " + jobVertexId + ", task: " + task.getTaskInfo().getTaskName();
+					log.warn(message);
+					return FutureUtils.completedExceptionally(new TaskException(message));
+				}
+				PreviewDataResponse previewDataResponse = task.getPreviewData(new PreviewDataRequest());
+				return CompletableFuture.completedFuture(previewDataResponse);
+			} catch (Throwable t) {
+				return FutureUtils.completedExceptionally(
+					new TaskException("Cannot get preview data for execution " + task.getTaskInfo().getTaskName() + '.', t));
+			}
+		} else {
+			final String message = "Cannot find task to get preview for job " + jobId + ", jobVertexId " + jobVertexId.toHexString();
+			log.error(message);
+			return FutureUtils.completedExceptionally(new TaskException(message));
+		}
 	}
 
 	@Override

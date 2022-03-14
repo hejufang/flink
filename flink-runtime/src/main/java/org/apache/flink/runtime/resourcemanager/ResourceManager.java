@@ -54,6 +54,7 @@ import org.apache.flink.runtime.io.network.partition.DataSetMetaInfo;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTracker;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmaster.JobMaster;
 import org.apache.flink.runtime.jobmaster.JobMasterGateway;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
@@ -73,6 +74,7 @@ import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rest.messages.LogInfo;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -836,6 +838,18 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			return FutureUtils.completedExceptionally(new UnknownTaskExecutorException(taskManagerId));
 		} else {
 			return taskExecutor.getTaskExecutorGateway().requestFileUploadByType(fileType, timeout);
+		}
+	}
+
+	@Override
+	public CompletableFuture<PreviewDataResponse> requestTaskManagerPreviewData(ResourceID taskManagerId, JobID jobId, JobVertexID jobVertexId, Time timeout) {
+		log.debug("Request preview data of job {} , jobVertexId {} , from TaskExecutor {}", jobId, jobVertexId, taskManagerId);
+		final WorkerRegistration<WorkerType> taskExecutor = taskExecutors.get(taskManagerId);
+		if (taskExecutor == null) {
+			log.warn("Request preview data of job {} from unregistered TaskExecutor {}.", jobId, taskManagerId);
+			return FutureUtils.completedExceptionally(new UnknownTaskExecutorException(taskManagerId));
+		} else {
+			return taskExecutor.getTaskExecutorGateway().requestTaskManagerPreviewData(jobId, jobVertexId, timeout);
 		}
 	}
 

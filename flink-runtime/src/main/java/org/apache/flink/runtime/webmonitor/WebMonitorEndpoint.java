@@ -136,6 +136,8 @@ import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerLogsHeaders
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerStdoutFileHeaders;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerThreadDumpHeaders;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagersHeaders;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataHandler;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataHeaders;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.webmonitor.history.ArchivedJson;
@@ -772,11 +774,19 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 			TaskManagerThreadDumpHeaders.getInstance(),
 			resourceManagerRetriever);
 
+		final PreviewDataHandler previewDataHandler = new PreviewDataHandler(
+			leaderRetriever,
+			timeout,
+			responseHeaders,
+			PreviewDataHeaders.getInstance(),
+			resourceManagerRetriever);
+
 		handlers.add(Tuple2.of(TaskManagerLogFileHeaders.getInstance(), taskManagerLogFileHandler));
 		handlers.add(Tuple2.of(TaskManagerStdoutFileHeaders.getInstance(), taskManagerStdoutFileHandler));
 		handlers.add(Tuple2.of(TaskManagerCustomLogHeaders.getInstance(), taskManagerCustomLogHandler));
 		handlers.add(Tuple2.of(TaskManagerLogsHeaders.getInstance(), taskManagerLogListHandler));
 		handlers.add(Tuple2.of(TaskManagerThreadDumpHeaders.getInstance(), taskManagerThreadDumpFileHandler));
+		handlers.add(Tuple2.of(PreviewDataHeaders.getInstance(), previewDataHandler));
 
 		handlers.stream()
 			.map(tuple -> tuple.f1)

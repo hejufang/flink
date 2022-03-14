@@ -26,6 +26,8 @@ import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataRequest;
+import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.function.ThrowingRunnable;
@@ -302,6 +304,20 @@ public abstract class AbstractInvokable {
 
 	public void dispatchOperatorEvent(OperatorID operator, SerializedValue<OperatorEvent> event) throws FlinkException {
 		throw new UnsupportedOperationException("dispatchOperatorEvent not supported by " + getClass().getName());
+	}
+
+	/**
+	 * Whether this task support preview, means is running preview connector.
+	 */
+	public boolean supportPreview() {
+		return false;
+	}
+
+	/**
+	 * Get preview data from task.
+	 */
+	public PreviewDataResponse getPreviewData(PreviewDataRequest previewDataRequest) {
+		throw new UnsupportedOperationException("getData not supported by " + getClass().getName());
 	}
 
 	/**

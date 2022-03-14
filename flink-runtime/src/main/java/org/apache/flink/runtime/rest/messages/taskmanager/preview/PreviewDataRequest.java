@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.rest.messages.preview;
+package org.apache.flink.runtime.rest.messages.taskmanager.preview;
 
 /**
  * Preview data base request.
