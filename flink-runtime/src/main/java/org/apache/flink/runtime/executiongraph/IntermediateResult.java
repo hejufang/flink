@@ -27,6 +27,7 @@ import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -85,7 +86,7 @@ public class IntermediateResult {
 		// The runtime type for this produced result
 		this.resultType = checkNotNull(resultType);
 
-		this.shuffleDescriptorsCache = new HashMap<>();
+		this.shuffleDescriptorsCache = new ConcurrentHashMap<>();
 	}
 
 	public void setPartition(int partitionNumber, IntermediateResultPartition partition) {
