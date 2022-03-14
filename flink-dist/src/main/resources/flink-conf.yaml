@@ -19,7 +19,7 @@
 common:
   # Common Setup Options
   ## Fault Tolerance
-  restart-strategy: failure-rate
+  restart-strategy: aggregated-failure-rate
   restart-strategy.failure-rate.max-failures-per-interval: 100
   restart-strategy.failure-rate.failure-rate-interval: 40 min
   restart-strategy.failure-rate.delay: 20 s
@@ -350,7 +350,6 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  restart-strategy: aggregated-failure-rate
 
 larva:
   dc: cn
@@ -504,7 +503,6 @@ hyrax:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  restart-strategy: aggregated-failure-rate
   blacklist.taskmanager.critical.error.enabled: true
 
 horse:
@@ -743,7 +741,6 @@ quoka:
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  restart-strategy: aggregated-failure-rate
   blacklist.taskmanager.critical.error.enabled: true
 
 quaga:
