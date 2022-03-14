@@ -156,7 +156,7 @@ public class RecoverableRestartBackoffTimeStrategy implements RestartBackoffTime
 
 		@Override
 		public RestartBackoffTimeStrategy create() {
-			return new RecoverableRestartBackoffTimeStrategy(SystemClock.getInstance(), maxFailuresPerInterval, failuresInterval, fallbackToGlobalRestart, enableFailureRateStrategy);
+			return new RecoverableRestartBackoffTimeStrategy(SystemClock.getInstance(), maxFailuresPerInterval, failuresInterval, enableFailureRateStrategy, fallbackToGlobalRestart);
 		}
 	}
 }

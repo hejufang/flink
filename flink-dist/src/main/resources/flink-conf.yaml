@@ -31,6 +31,9 @@ common:
   jobmanager.execution.failover-strategy: region
   jobmanager.execution.status-dutation-ms: 30000
 
+  restart-strategy.recoverable-failure-rate.fallback-global-restart: true
+  restart-strategy.recoverable-failure-rate.enable: true
+
   ## Checkpoints and State Backends
   state.backend: rocksdb
   state.checkpoints.dir: ${checkpoint.hdfs.prefix}/1.11/flink/fs_checkpoint_dir
@@ -343,8 +346,6 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  restart-strategy.recoverable-failure-rate.fallback-global-restart: true
-  restart-strategy.recoverable-failure-rate.enable: true
   restart-strategy: aggregated-failure-rate
 
 larva:
@@ -499,8 +500,6 @@ hyrax:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  restart-strategy.recoverable-failure-rate.fallback-global-restart: true
-  restart-strategy.recoverable-failure-rate.enable: true
   restart-strategy: aggregated-failure-rate
   blacklist.taskmanager.critical.error.enabled: true
 
@@ -739,8 +738,6 @@ quoka:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  restart-strategy.recoverable-failure-rate.fallback-global-restart: true
-  restart-strategy.recoverable-failure-rate.enable: true
   bytedance.streaming.yarn.check.application.name.unique.region: true
   restart-strategy: aggregated-failure-rate
   blacklist.taskmanager.critical.error.enabled: true
