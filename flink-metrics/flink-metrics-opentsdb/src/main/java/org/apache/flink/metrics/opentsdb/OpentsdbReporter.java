@@ -66,7 +66,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		"taskmanager\\.(\\S+)\\.(\\d+)\\.KafkaConsumer\\.topic\\.(\\S+)\\.partition\\.(\\d+)\\.(\\S+)");
 
 	private static final Pattern TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN_2 = Pattern.compile(
-		"taskmanager\\.(\\S+)\\.(\\d+)\\.KafkaConsumer\\.topic\\.(\\S+)\\.partition\\.(\\d+)\\.(\\w+)\\.(\\w+)\\.(\\w+)\\.(\\S+)");
+		"taskmanager\\.(\\S+)\\.(\\d+)\\.KafkaConsumer\\.topic\\.(\\S+)\\.partition\\.(\\d+)\\.([\\w-]+)\\.([\\w-]+)\\.([\\w-]+)\\.(\\S+)");
 
 	private static final Pattern KAFKA_CONSUMER_PATTERN = Pattern.compile("taskmanager\\." +
 			"(.+)\\.KafkaConsumer\\.(.+)\\.([^-]+)_(\\d+)");
@@ -75,7 +75,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private static final Pattern CLIENT_PATTERN = Pattern.compile(
 			"(\\S+)\\.(client\\.\\S+)");
 	private static final Pattern TASK_MANAGER_PATTERN_1 = Pattern.compile(
-			"(\\S+)\\.taskmanager\\.(\\w+)\\.(\\S+)");
+			"(\\S+)\\.taskmanager\\.([\\w-]+)\\.(\\S+)");
 	private static final Pattern TASK_MANAGER_PATTERN_2 = Pattern.compile(
 			"taskmanager\\.(\\S+)\\.(\\d+)\\.(\\S+)");
 	private static final Pattern SQL_GATEWAY_PATTERN = Pattern.compile(

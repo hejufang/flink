@@ -26,7 +26,7 @@ import org.junit.Test;
 /**
  * Testing.
  */
-public class TestRateLimitedMetricsClient {
+public class RateLimitedMetricsClientTest {
 
 	@Test
 	public void testParseIntervalToSeconds() {

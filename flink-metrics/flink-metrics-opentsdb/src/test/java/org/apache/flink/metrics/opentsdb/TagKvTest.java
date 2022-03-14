@@ -27,7 +27,7 @@ import java.util.List;
 /**
  * UT for TagKv.
  */
-public class TestTagKv {
+public class TagKvTest {
 	@Test
 	public void testCompositeTags1() {
 		List<TagKv> tags = new ArrayList<>();
