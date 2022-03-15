@@ -74,6 +74,7 @@ under the License.
 		<module>flink-streaming-java</module>
 		<module>flink-streaming-scala</module>
 		<!--<module>flink-connectors</module>-->
+		<module>flink-connectors/flink-connector-preview</module>
 		<module>flink-formats</module>
 		<module>flink-examples</module>
 		<module>flink-clients</module>
