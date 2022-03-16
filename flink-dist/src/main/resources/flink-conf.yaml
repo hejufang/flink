@@ -319,6 +319,10 @@ common:
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: true
 
+  #coredump
+  containerized.master.env.COREDUMP_CTL_NEED_CORE: "false"
+  containerized.taskmanager.env.COREDUMP_CTL_NEED_CORE: "false"
+
 # yarn clusters
 flink:
   dc: cn
