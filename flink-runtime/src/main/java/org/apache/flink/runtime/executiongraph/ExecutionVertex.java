@@ -151,10 +151,10 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		this.jobVertex = jobVertex;
 		this.subTaskIndex = subTaskIndex;
 		this.executionVertexId = new ExecutionVertexID(jobVertex.getJobVertexId(), subTaskIndex);
-		this.taskNameWithSubtask = String.format("%s (%d/%d)",
-				jobVertex.getJobVertex().getName(), subTaskIndex + 1, jobVertex.getParallelism());
-		this.taskMetricNameWithSubtask = String.format("%s (%d/%d)",
-				jobVertex.getJobVertex().getMetricName(), subTaskIndex + 1, jobVertex.getParallelism());
+		this.taskNameWithSubtask =
+			jobVertex.getJobVertex().getName() + " (" + (subTaskIndex + 1) + "/" + jobVertex.getParallelism() + ")";
+		this.taskMetricNameWithSubtask =
+			jobVertex.getJobVertex().getMetricName() + "(" + (subTaskIndex + 1) + "/" + jobVertex.getParallelism() + ")";
 
 		this.resultPartitions = new LinkedHashMap<>(producedDataSets.length, 1);
 
