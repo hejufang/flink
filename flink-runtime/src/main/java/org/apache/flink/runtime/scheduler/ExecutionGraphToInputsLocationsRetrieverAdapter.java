@@ -87,7 +87,10 @@ public class ExecutionGraphToInputsLocationsRetrieverAdapter implements InputsLo
 	public Optional<CompletableFuture<TaskManagerLocation>> getTaskManagerLocation(ExecutionVertexID executionVertexId) {
 		ExecutionVertex ev = getExecutionVertex(executionVertexId);
 
-		if (ev.getExecutionState() != ExecutionState.CREATED) {
+		if (ev.getExecutionState() == ExecutionState.SCHEDULED ||
+				ev.getExecutionState() == ExecutionState.DEPLOYING ||
+				ev.getExecutionState() == ExecutionState.RUNNING ||
+				ev.getExecutionState() == ExecutionState.FINISHED) {
 			return Optional.of(ev.getCurrentTaskManagerLocationFuture());
 		} else {
 			return Optional.empty();

@@ -104,6 +104,67 @@ public class ExecutionGraphToInputsLocationsRetrieverAdapterTest extends TestLog
 	}
 
 	/**
+	 * Tests that it will get empty task manager location if vertex is Canceling/Canceled.
+	 */
+	@Test
+	public void testGetEmptyTaskManagerLocationIfVertexCancel() throws Exception {
+		final JobVertex jobVertex = ExecutionGraphTestUtils.createNoOpVertex(1);
+
+		final TestingLogicalSlot testingLogicalSlot = new TestingLogicalSlotBuilder().createTestingLogicalSlot();
+		final ExecutionGraph eg = ExecutionGraphTestUtils.createSimpleTestGraph(jobVertex);
+		final ExecutionGraphToInputsLocationsRetrieverAdapter inputsLocationsRetriever =
+				new ExecutionGraphToInputsLocationsRetrieverAdapter(eg);
+
+		final ExecutionVertex onlyExecutionVertex = eg.getAllExecutionVertices().iterator().next();
+
+		ExecutionVertexID executionVertexId = new ExecutionVertexID(jobVertex.getID(), 0);
+		// not scheduled.
+		Optional<CompletableFuture<TaskManagerLocation>> taskManagerLocation =
+				inputsLocationsRetriever.getTaskManagerLocation(executionVertexId);
+		assertFalse(taskManagerLocation.isPresent());
+
+		onlyExecutionVertex.deployToSlot(testingLogicalSlot);
+
+		// canceling
+		onlyExecutionVertex.cancel();
+		taskManagerLocation =
+				inputsLocationsRetriever.getTaskManagerLocation(executionVertexId);
+		assertFalse(taskManagerLocation.isPresent());
+
+		// canceled
+		onlyExecutionVertex.fail(new Exception());
+		taskManagerLocation =
+				inputsLocationsRetriever.getTaskManagerLocation(executionVertexId);
+		assertFalse(taskManagerLocation.isPresent());
+	}
+
+	/**
+	 * Tests that it will get empty task manager location if vertex is Failed.
+	 */
+	@Test
+	public void testGetEmptyTaskManagerLocationIfVertexFailed() throws Exception {
+		final JobVertex jobVertex = ExecutionGraphTestUtils.createNoOpVertex(1);
+
+		final ExecutionGraph eg = ExecutionGraphTestUtils.createSimpleTestGraph(jobVertex);
+		final ExecutionGraphToInputsLocationsRetrieverAdapter inputsLocationsRetriever =
+				new ExecutionGraphToInputsLocationsRetrieverAdapter(eg);
+
+		final ExecutionVertex onlyExecutionVertex = eg.getAllExecutionVertices().iterator().next();
+
+		ExecutionVertexID executionVertexId = new ExecutionVertexID(jobVertex.getID(), 0);
+		// not scheduled.
+		Optional<CompletableFuture<TaskManagerLocation>> taskManagerLocation =
+				inputsLocationsRetriever.getTaskManagerLocation(executionVertexId);
+		assertFalse(taskManagerLocation.isPresent());
+
+		// failed.
+		onlyExecutionVertex.fail(new Exception());
+		taskManagerLocation =
+				inputsLocationsRetriever.getTaskManagerLocation(executionVertexId);
+		assertFalse(taskManagerLocation.isPresent());
+	}
+
+	/**
 	 * Tests that it can get the task manager location in an Execution.
 	 */
 	@Test
