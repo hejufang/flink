@@ -34,7 +34,7 @@ under the License.
 	<version>1.11-byted-SNAPSHOT</version>
 
 	<properties>
-		<kafka.client.version>0.10.1.2-bd1.4-SNAPSHOT</kafka.client.version>
+		<kafka.client.version>0.10.1.2-bd1.7.20</kafka.client.version>
 		<msgpack.version>0.6.12</msgpack.version>
 		<process.tree.version>0.9.6</process.tree.version>
 	</properties>
@@ -186,6 +186,18 @@ under the License.
 									<shadedPattern>pyjstorm.shaded.org.auth0.jwt</shadedPattern>
 								</relocation>
 							</relocations>
+							<filters>
+								<filter>
+									<!-- Do not copy the signatures in the META-INF folder.
+									Otherwise, this might cause SecurityExceptions when using the JAR. -->
+									<artifact>*:*</artifact>
+									<excludes>
+										<exclude>META-INF/*.SF</exclude>
+										<exclude>META-INF/*.DSA</exclude>
+										<exclude>META-INF/*.RSA</exclude>
+									</excludes>
+								</filter>
+							</filters>
 						</configuration>
 					</execution>
 				</executions>
