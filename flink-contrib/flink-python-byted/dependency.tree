@@ -1,0 +1,124 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+com.bytedance.flink:flink-python-byted:jar:1.9.1-byted-SNAPSHOT
++- org.apache.flink:flink-streaming-java_2.11:jar:1.9.1-byted-SNAPSHOT:provided
+|  +- org.apache.flink:flink-runtime_2.11:jar:1.9.1-byted-SNAPSHOT:provided
+|  |  +- org.apache.flink:flink-java:jar:1.9.1-byted-SNAPSHOT:provided
+|  |  +- org.apache.flink:flink-queryable-state-client-java:jar:1.9.1-byted-SNAPSHOT:provided
+|  |  +- org.apache.flink:flink-hadoop-fs:jar:1.9.1-byted-SNAPSHOT:provided
+|  |  +- org.apache.flink:flink-shaded-netty:jar:4.1.32.Final-8.0-byted-SNAPSHOT:provided
+|  |  +- org.apache.flink:flink-shaded-zookeeper-3:jar:3.4.10-8.0-byted-SNAPSHOT:provided
+|  |  +- commons-cli:commons-cli:jar:1.3.1:provided
+|  |  +- org.apache.curator:curator-recipes:jar:2.12.0:provided
+|  |  |  \- org.apache.curator:curator-framework:jar:2.12.0:provided
+|  |  |     \- org.apache.curator:curator-client:jar:2.12.0:provided
+|  |  |        \- org.apache.zookeeper:zookeeper:jar:3.4.10:provided
+|  |  +- org.scala-lang:scala-library:jar:2.11.12:compile
+|  |  +- com.typesafe.akka:akka-actor_2.11:jar:2.5.21:provided
+|  |  |  \- org.scala-lang.modules:scala-java8-compat_2.11:jar:0.7.0:provided
+|  |  +- com.typesafe.akka:akka-stream_2.11:jar:2.5.21:provided
+|  |  |  +- org.reactivestreams:reactive-streams:jar:1.0.2:provided
+|  |  |  \- com.typesafe:ssl-config-core_2.11:jar:0.3.7:provided
+|  |  |     \- org.scala-lang.modules:scala-parser-combinators_2.11:jar:1.1.1:provided
+|  |  +- com.typesafe.akka:akka-protobuf_2.11:jar:2.5.21:provided
+|  |  +- com.typesafe.akka:akka-slf4j_2.11:jar:2.5.21:provided
+|  |  +- org.clapper:grizzled-slf4j_2.11:jar:1.3.2:provided
+|  |  +- com.github.scopt:scopt_2.11:jar:3.5.0:provided
+|  |  +- com.twitter:chill_2.11:jar:0.7.6:provided
+|  |  |  \- com.twitter:chill-java:jar:0.7.6:provided
+|  |  \- com.data-artisans:frocksdbjni:jar:5.17.2-artisans-1.0:provided
+|  +- org.apache.flink:flink-clients_2.11:jar:1.9.1-byted-SNAPSHOT:provided
+|  |  \- org.apache.flink:flink-optimizer_2.11:jar:1.9.1-byted-SNAPSHOT:provided
+|  +- org.apache.flink:flink-shaded-guava:jar:18.0-8.0-byted-SNAPSHOT:provided
+|  +- org.apache.commons:commons-math3:jar:3.5:provided
+|  +- org.apache.sling:org.apache.sling.commons.json:jar:2.0.6:provided
+|  +- org.apache.httpcomponents:httpclient:jar:4.5.3:provided
+|  |  +- org.apache.httpcomponents:httpcore:jar:4.4.6:provided
+|  |  \- commons-codec:commons-codec:jar:1.10:compile
+|  +- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-8.0-byted-SNAPSHOT:provided
+|  +- com.googlecode.json-simple:json-simple:jar:1.1.1:compile
+|  +- mysql:mysql-connector-java:jar:5.1.45:provided
+|  +- com.bytedance:commons:jar:0.0.14:compile
+|  |  \- com.squareup.okhttp3:okhttp:jar:3.8.0:compile
+|  |     \- com.squareup.okio:okio:jar:1.13.0:compile
+|  +- org.apache.flink:flink-shaded-bytedance-commons:jar:8.0-byted-SNAPSHOT:provided
+|  \- com.typesafe:config:jar:1.3.0:provided
++- org.apache.flink:flink-core:jar:1.9.1-byted-SNAPSHOT:provided
+|  +- org.apache.flink:flink-annotations:jar:1.9.1-byted-SNAPSHOT:provided
+|  +- org.apache.flink:flink-metrics-core:jar:1.9.1-byted-SNAPSHOT:provided
+|  +- org.apache.flink:flink-shaded-asm-6:jar:6.2.1-8.0-byted-SNAPSHOT:provided
+|  +- org.apache.commons:commons-lang3:jar:3.3.2:compile
+|  +- com.esotericsoftware.kryo:kryo:jar:2.24.0:provided
+|  |  \- com.esotericsoftware.minlog:minlog:jar:1.2:provided
+|  +- commons-collections:commons-collections:jar:3.2.2:provided
+|  \- org.apache.commons:commons-compress:jar:1.18:provided
++- org.yaml:snakeyaml:jar:1.19:compile
++- org.apache.kafka:kafka-clients:jar:0.10.1.2-bd1.7.20:compile
+|  +- net.jpountz.lz4:lz4:jar:1.3.0:compile
+|  +- org.xerial.snappy:snappy-java:jar:1.1.4:compile
+|  +- com.github.luben:zstd-jni:jar:1.4.4-12-bd:compile
+|  +- org.byted.security:zti-jwt-helper-java:jar:1.0.10:compile
+|  +- org.byted.infsec:infsecclient:jar:1.4.0:compile
+|  +- org.byted.infsec:dps:jar:2.0.0-SNAPSHOT:compile
+|  |  +- org.bouncycastle:bcprov-jdk16:jar:1.46:compile
+|  |  +- org.byted.infsec:jwt:jar:1.0.0:compile
+|  |  +- javax.annotation:javax.annotation-api:jar:1.3:compile
+|  |  +- com.github.ben-manes.caffeine:caffeine:jar:2.6.2:compile
+|  |  \- org.byted.infsec:thrift-client-pool-java:jar:1.3.1:compile
+|  |     \- org.apache.commons:commons-pool2:jar:2.2:compile
+|  +- com.bytedance:metrics4j:jar:1.0.25:compile
+|  |  \- com.sun.xml.bind:jaxb-impl:jar:2.2.3-1:compile
+|  |     \- javax.xml.bind:jaxb-api:jar:2.2.2:compile
+|  |        +- javax.xml.stream:stax-api:jar:1.0-2:compile
+|  |        \- javax.activation:activation:jar:1.1:compile
+|  +- io.dropwizard.metrics:metrics-core:jar:4.0.1:compile
+|  +- org.apache.parquet:parquet-column:jar:1.8.3-bd2:compile
+|  |  +- org.apache.parquet:parquet-common:jar:1.8.3-bd2:compile
+|  |  \- org.apache.parquet:parquet-encoding:jar:1.8.3-bd2:compile
+|  \- org.apache.parquet:parquet-hadoop:jar:1.8.3-bd2:compile
+|     +- org.apache.parquet:parquet-format:jar:2.3.1-bd1:compile
+|     +- org.apache.parquet:parquet-jackson:jar:1.8.3-bd2:compile
+|     +- org.codehaus.jackson:jackson-mapper-asl:jar:1.9.11:compile
+|     \- org.codehaus.jackson:jackson-core-asl:jar:1.9.11:compile
++- org.slf4j:slf4j-log4j12:jar:1.7.15:provided
++- log4j:log4j:jar:1.2.17:provided
++- org.msgpack:msgpack:jar:0.6.12:compile
+|  \- org.javassist:javassist:jar:3.19.0-GA:compile
++- org.apache.storm:process-tree:jar:0.9.6:compile
+|  +- commons-logging:commons-logging:jar:1.1.3:compile
+|  +- commons-lang:commons-lang:jar:2.5:compile
+|  \- commons-io:commons-io:jar:2.4:compile
++- org.apache.flink:flink-shaded-jackson:jar:2.9.8-8.0-byted-SNAPSHOT:compile
++- org.apache.flink:flink-test-utils-junit:jar:1.9.1-byted-SNAPSHOT:test
++- org.apache.flink:force-shading:jar:1.9.1-byted-SNAPSHOT:compile
++- org.slf4j:slf4j-api:jar:1.7.15:compile
++- org.apache.flink:flink-shaded-databus4j:jar:8.0-byted-SNAPSHOT:compile
++- com.google.code.findbugs:jsr305:jar:1.3.9:compile
++- junit:junit:jar:4.12:test
+|  \- org.hamcrest:hamcrest-core:jar:1.3:test
++- org.mockito:mockito-core:jar:2.21.0:test
+|  +- net.bytebuddy:byte-buddy:jar:1.8.15:test
+|  +- net.bytebuddy:byte-buddy-agent:jar:1.8.15:test
+|  \- org.objenesis:objenesis:jar:2.1:provided
++- org.powermock:powermock-module-junit4:jar:2.0.0-RC.4:test
+|  \- org.powermock:powermock-module-junit4-common:jar:2.0.0-RC.4:test
+|     +- org.powermock:powermock-reflect:jar:2.0.0-RC.4:test
+|     \- org.powermock:powermock-core:jar:2.0.0-RC.4:test
++- org.powermock:powermock-api-mockito2:jar:2.0.0-RC.4:test
+|  \- org.powermock:powermock-api-support:jar:2.0.0-RC.4:test
+\- org.hamcrest:hamcrest-all:jar:1.3:test
