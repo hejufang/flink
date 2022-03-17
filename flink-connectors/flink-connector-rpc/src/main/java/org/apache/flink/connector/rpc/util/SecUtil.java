@@ -19,10 +19,9 @@ package org.apache.flink.connector.rpc.util;
 
 import org.apache.flink.util.FlinkRuntimeException;
 
-import org.apache.flink.shaded.byted.org.byted.infsec.client.Identity;
-import org.apache.flink.shaded.byted.org.byted.infsec.client.InfSecException;
-import org.apache.flink.shaded.byted.org.byted.infsec.client.SecTokenC;
-
+import org.byted.security.ztijwthelper.LegacyIdentity;
+import org.byted.security.ztijwthelper.ZTIJwtHelper;
+import org.byted.security.ztijwthelper.ZtiJwtException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,21 +29,25 @@ import org.slf4j.LoggerFactory;
 public class SecUtil {
 	private static final Logger LOG = LoggerFactory.getLogger(SecUtil.class);
 
-	public static Identity getIdentityFromToken() {
+	public static LegacyIdentity getIdentityFromToken() {
 		try {
-			String token = getGDPRToken(false);
-			return SecTokenC.parseToken(token);
-		} catch (InfSecException e) {
+			String token = getGDPROrJWTToken();
+			// decode the claims in the token string to get formatted zero trust identity
+			LegacyIdentity zti = ZTIJwtHelper.decodeGDPRorJwtSVID(token);
+			return zti;
+		} catch (ZtiJwtException e) {
 			throw new FlinkRuntimeException("Failed to parse the gdpr token!", e);
 		}
 	}
 
-	public static String getGDPRToken(boolean forceUpdate) {
+	public static String getGDPROrJWTToken() {
 		try {
-			return SecTokenC.getToken(forceUpdate);
-		} catch (InfSecException e) {
-			LOG.warn("Failed to get the gdpr token!", e);
-			return null;
+			// fetch a JWT-SVID token string
+			String tokenString = ZTIJwtHelper.getJwtSVID();
+			return tokenString;
+		} catch (ZtiJwtException e) {
+			LOG.warn("Failed to get the GDPR/JWT-SVID token!", e);
 		}
+		return null;
 	}
 }

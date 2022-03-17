@@ -52,7 +52,7 @@ import static org.junit.Assert.assertEquals;
  * IT Tests for {@link RPCDynamicTableSource}.
  * Only sync mode is tested here.
  */
-public class RPCDynamicTableSourceITCase {
+public class RPCDynamicTableSourceITTest {
 	private final Base commonBase = new Base("", "test", "", "");
 	private Field baseField;
 	private Field logIDField;

@@ -84,6 +84,7 @@
  |  +- org.jetbrains:annotations:jar:17.0.0:compile
  |  +- com.github.luben:zstd-jni:jar:1.4.4-12-bd:compile
  |  \- org.lz4:lz4-java:jar:1.7.1:compile
+ +- org.byted.security:zti-jwt-helper-java:jar:1.0.10:compile
  +- com.squareup.okhttp3:okhttp:jar:3.9.1:compile
  |  \- com.squareup.okio:okio:jar:1.13.0:compile
  +- org.apache.flink:flink-table-api-java-bridge_2.11:jar:1.11-byted-SNAPSHOT:provided

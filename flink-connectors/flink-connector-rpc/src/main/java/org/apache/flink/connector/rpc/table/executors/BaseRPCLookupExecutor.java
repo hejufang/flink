@@ -198,7 +198,7 @@ public abstract class BaseRPCLookupExecutor<T> implements Serializable {
 			try {
 				gen = factory.createGenerator(writer);
 				gen.writeStartObject();
-				gen.writeStringField("RPC_TRANSIT_gdpr-token", SecUtil.getGDPRToken(true));
+				gen.writeStringField("RPC_TRANSIT_gdpr-token", SecUtil.getGDPROrJWTToken());
 				gen.writeStringField("dest_service", rpcOptions.getConsul());
 				gen.writeStringField("dest_cluster", rpcOptions.getCluster() == null ? "default" : rpcOptions.getCluster());
 				gen.writeStringField("dest_method", rpcOptions.getThriftMethod());
