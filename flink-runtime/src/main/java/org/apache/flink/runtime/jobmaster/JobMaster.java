@@ -844,6 +844,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 							return new RegistrationResponse.Decline(throwable.getMessage());
 						}
 
+						log.debug("Register TaskExecutor: {}", taskManagerId);
 						slotPool.registerTaskManager(taskManagerId);
 						registeredTaskManagers.put(taskManagerId, Tuple2.of(taskManagerLocation, taskExecutorGateway));
 

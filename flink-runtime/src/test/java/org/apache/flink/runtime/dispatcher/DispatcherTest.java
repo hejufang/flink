@@ -22,7 +22,9 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.operators.ResourceSpec;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.BlobServerOptions;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.blob.BlobServer;
@@ -31,6 +33,7 @@ import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.checkpoint.StandaloneCheckpointRecoveryFactory;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
 import org.apache.flink.runtime.client.JobSubmissionException;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ErrorInfo;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
@@ -50,6 +53,7 @@ import org.apache.flink.runtime.leaderretrieval.SettableLeaderRetrievalService;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.utils.TestingResourceManagerGateway;
 import org.apache.flink.runtime.rest.handler.legacy.utils.ArchivedExecutionGraphBuilder;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -70,6 +74,7 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.function.ThrowingRunnable;
 
+import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -94,6 +99,7 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -115,7 +121,7 @@ import static org.junit.Assert.fail;
  */
 public class DispatcherTest extends TestLogger {
 
-	private static RpcService rpcService;
+	private static TestingRpcService rpcService;
 
 	private static final Time TIMEOUT = Time.seconds(10L);
 
@@ -147,6 +153,8 @@ public class DispatcherTest extends TestLogger {
 
 	private HeartbeatServices heartbeatServices;
 
+	private SettableLeaderRetrievalService rmLeaderRetrievalService;
+
 	@BeforeClass
 	public static void setupClass() {
 		rpcService = new TestingRpcService();
@@ -174,7 +182,10 @@ public class DispatcherTest extends TestLogger {
 		haServices = new TestingHighAvailabilityServices();
 		haServices.setJobMasterLeaderElectionService(TEST_JOB_ID, jobMasterLeaderElectionService);
 		haServices.setCheckpointRecoveryFactory(new StandaloneCheckpointRecoveryFactory());
-		haServices.setResourceManagerLeaderRetriever(new SettableLeaderRetrievalService());
+		rmLeaderRetrievalService = new SettableLeaderRetrievalService(
+			null,
+			null);
+		haServices.setResourceManagerLeaderRetriever(rmLeaderRetrievalService);
 
 		configuration = new Configuration();
 
@@ -213,6 +224,8 @@ public class DispatcherTest extends TestLogger {
 
 		private JobGraphWriter jobGraphWriter = NoOpJobGraphWriter.INSTANCE;
 
+		private DispatcherId dispatcherId = DispatcherId.generate();
+
 		TestingDispatcherBuilder setHeartbeatServices(HeartbeatServices heartbeatServices) {
 			this.heartbeatServices = heartbeatServices;
 			return this;
@@ -238,6 +251,11 @@ public class DispatcherTest extends TestLogger {
 			return this;
 		}
 
+		TestingDispatcherBuilder setDispatcherId(DispatcherId dispatcherId) {
+			this.dispatcherId = dispatcherId;
+			return this;
+		}
+
 		TestingDispatcher build() throws Exception {
 			TestingResourceManagerGateway resourceManagerGateway = new TestingResourceManagerGateway();
 
@@ -245,7 +263,7 @@ public class DispatcherTest extends TestLogger {
 
 			return new TestingDispatcher(
 				rpcService,
-				DispatcherId.generate(),
+				dispatcherId,
 				dispatcherBootstrap,
 				new DispatcherServices(
 					configuration,
@@ -611,6 +629,161 @@ public class DispatcherTest extends TestLogger {
 			removeJobGraphFuture.get(10L, TimeUnit.MILLISECONDS);
 			fail("onRemovedJobGraph should not remove the job from the JobGraphStore.");
 		} catch (TimeoutException expected) {}
+	}
+
+	@Test
+	public void testHeartbeatTimeoutWithResourceManager() throws Exception {
+		final String resourceManagerAddress = "rm";
+		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
+		final ResourceID rmResourceId = new ResourceID(resourceManagerAddress);
+
+		final TestingResourceManagerGateway resourceManagerGateway = new TestingResourceManagerGateway(
+			resourceManagerId,
+			rmResourceId,
+			resourceManagerAddress,
+			"localhost");
+
+		final CompletableFuture<Tuple2<ResourceID, String>> dispatcherRegistrationFuture = new CompletableFuture<>();
+		final CompletableFuture<ResourceID> disconnectDispatcherFuture = new CompletableFuture<>();
+		final CountDownLatch registrationAttempts = new CountDownLatch(2);
+
+		resourceManagerGateway.setRegisterDispatcherFunction((dispatcherId, dispatcherAddress) -> {
+			dispatcherRegistrationFuture.complete(Tuple2.of(dispatcherId, dispatcherAddress));
+			registrationAttempts.countDown();
+			return CompletableFuture.completedFuture(resourceManagerGateway.getDispatcherRegistrationSuccess());
+		});
+
+		resourceManagerGateway.setDisconnectDispatcherConsumer(tuple -> disconnectDispatcherFuture.complete(tuple.f0));
+
+		rpcService.registerGateway(resourceManagerAddress, resourceManagerGateway);
+
+		DispatcherId dispatcherId = DispatcherId.generate();
+		ResourceID mockResourceId = ResourceID.generate();
+		configuration.setBoolean(
+			ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED,
+			true);
+		dispatcher = new TestingDispatcherBuilder()
+			.setDispatcherId(dispatcherId)
+			.setHaServices(haServices)
+			.setHeartbeatServices(new HeartbeatServices(1L, 10L))
+			.build();
+		dispatcher.setResourceId(mockResourceId);
+
+		dispatcher.start();
+		// define a leader and see that a registration happens
+		rmLeaderRetrievalService.notifyListener(resourceManagerAddress, resourceManagerId.toUUID());
+
+		final Tuple2<ResourceID, String> registrationInformation = dispatcherRegistrationFuture.get(
+			TIMEOUT.toMilliseconds(),
+			TimeUnit.MILLISECONDS);
+
+		MatcherAssert.assertThat(registrationInformation.f0, Matchers.equalTo(mockResourceId));
+
+		final ResourceID disconnectedDispatcher = disconnectDispatcherFuture.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
+
+		// heartbeat timeout should trigger disconnect Dispatcher from ResourceManager
+		MatcherAssert.assertThat(disconnectedDispatcher, Matchers.equalTo(mockResourceId));
+
+		// the Dispatcher should try to reconnect to the RM
+		registrationAttempts.await();
+	}
+
+	/**
+	 * Tests that we can close an unestablished ResourceManager connection.
+	 */
+	@Test
+	public void testCloseUnestablishedResourceManagerConnection() throws Exception {
+		DispatcherId mockDispatcherId = DispatcherId.generate();
+		configuration.setBoolean(
+			ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED,
+			true);
+		dispatcher = new TestingDispatcherBuilder()
+			.setDispatcherId(mockDispatcherId)
+			.setHaServices(haServices)
+			.setHeartbeatServices(heartbeatServices)
+			.build();
+
+		dispatcher.start();
+
+		final TestingResourceManagerGateway firstResourceManagerGateway = createAndRegisterTestingResourceManagerGateway();
+		final TestingResourceManagerGateway secondResourceManagerGateway = createAndRegisterTestingResourceManagerGateway();
+
+		final OneShotLatch firstDispatcherRegistration = new OneShotLatch();
+		final OneShotLatch secondDispatcherRegistration = new OneShotLatch();
+
+		firstResourceManagerGateway.setRegisterDispatcherFunction((dispatcherId, dispatcherAddress) -> {
+			firstDispatcherRegistration.trigger();
+			return CompletableFuture.completedFuture(firstResourceManagerGateway.getDispatcherRegistrationSuccess());
+		});
+
+		secondResourceManagerGateway.setRegisterDispatcherFunction((dispatcherId, dispatcherAddress) -> {
+			secondDispatcherRegistration.trigger();
+			return CompletableFuture.completedFuture(secondResourceManagerGateway.getDispatcherRegistrationSuccess());
+		});
+
+		notifyResourceManagerLeaderListeners(firstResourceManagerGateway);
+
+		// wait until we have seen the first registration attempt
+		firstDispatcherRegistration.await();
+
+		// this should stop the connection attempts towards the first RM
+		notifyResourceManagerLeaderListeners(secondResourceManagerGateway);
+
+		// check that we start registering at the second RM
+		secondDispatcherRegistration.await();
+	}
+
+	/**
+	 * Tests that we continue reconnecting to the latest known RM after a disconnection message.
+	 */
+	@Test
+	public void testReconnectionAfterDisconnect() throws Exception {
+		DispatcherId mockDispatcherId = DispatcherId.generate();
+		ResourceID mockResourceID = ResourceID.generate();
+		configuration.setBoolean(
+			ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED,
+			true);
+		dispatcher = new TestingDispatcherBuilder()
+			.setDispatcherId(mockDispatcherId)
+			.setHaServices(haServices)
+			.setHeartbeatServices(heartbeatServices)
+			.build();
+		dispatcher.setResourceId(mockResourceID);
+
+		final DispatcherGateway dispatcherGateway = dispatcher.getSelfGateway(DispatcherGateway.class);
+
+		dispatcher.start();
+
+		final TestingResourceManagerGateway testingResourceManagerGateway = createAndRegisterTestingResourceManagerGateway();
+		final BlockingQueue<ResourceID> registrationsQueue = new ArrayBlockingQueue<>(1);
+		testingResourceManagerGateway.setRegisterDispatcherFunction((dispatcherId, s) -> {
+			registrationsQueue.offer(dispatcherId);
+			return CompletableFuture.completedFuture(testingResourceManagerGateway.getDispatcherRegistrationSuccess());
+		});
+
+		final ResourceManagerId resourceManagerId = testingResourceManagerGateway.getFencingToken();
+		notifyResourceManagerLeaderListeners(testingResourceManagerGateway);
+
+		// wait for first registration attempt
+		final ResourceID firstRegistrationAttempt = registrationsQueue.take();
+
+		MatcherAssert.assertThat(firstRegistrationAttempt, equalTo(mockResourceID));
+		MatcherAssert.assertThat(registrationsQueue.isEmpty(), Matchers.is(true));
+
+		dispatcherGateway.disconnectResourceManager(resourceManagerId, new FlinkException("Test exception"));
+
+		MatcherAssert.assertThat(registrationsQueue.take(), equalTo(mockResourceID));
+	}
+
+	private void notifyResourceManagerLeaderListeners(TestingResourceManagerGateway testingResourceManagerGateway) {
+		rmLeaderRetrievalService.notifyListener(testingResourceManagerGateway.getAddress(), testingResourceManagerGateway.getFencingToken().toUUID());
+	}
+
+	@Nonnull
+	private TestingResourceManagerGateway createAndRegisterTestingResourceManagerGateway() {
+		final TestingResourceManagerGateway testingResourceManagerGateway = new TestingResourceManagerGateway();
+		rpcService.registerGateway(testingResourceManagerGateway.getAddress(), testingResourceManagerGateway);
+		return testingResourceManagerGateway;
 	}
 
 	private static final class BlockingJobManagerRunnerFactory extends TestingJobManagerRunnerFactory {

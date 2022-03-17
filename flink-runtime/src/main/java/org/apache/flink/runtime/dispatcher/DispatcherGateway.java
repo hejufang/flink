@@ -21,10 +21,12 @@ package org.apache.flink.runtime.dispatcher;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rpc.FencedRpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.socket.TaskJobResultGateway;
@@ -97,4 +99,43 @@ public interface DispatcherGateway extends FencedRpcGateway<DispatcherId>, Restf
 	default CompletableFuture<Acknowledge> shutDownCluster(ApplicationStatus applicationStatus) {
 		return shutDownCluster();
 	}
+
+	/**
+	 * Disconnects the resource manager from the dispatcher because of the given cause.
+	 *
+	 * @param resourceManagerId identifying the resource manager leader id
+	 * @param cause of the disconnect
+	 */
+	void disconnectResourceManager(final ResourceManagerId resourceManagerId, final Exception cause);
+
+	/**
+	 * Offer TaskManagers topology to the dispatcher.
+	 *
+	 * @param taskManagerTopologies provided by ResourceManager
+	 * @param timeout RPC timeout
+	 * @return A future acknowledge if the receiving succeeded
+	 */
+	CompletableFuture<Acknowledge> offerTaskManagers(
+		Collection<TaskManagerTopology> taskManagerTopologies,
+		@RpcTimeout Time timeout);
+
+	/**
+	 * Sends heartbeat request from the resource manager.
+	 *
+	 * @param resourceID unique id of the resource manager
+	 */
+	void heartbeatFromResourceManager(final ResourceID resourceID);
+
+	/**
+	 * Report usage of TaskManagers from JobMaster.
+	 *
+	 * @param jobID identifying the job to update resource bookkeeping
+	 * @param usedTaskManagers current used TaskManagers by the job
+	 * @param timeout RPC timeout
+	 * @return
+	 */
+	CompletableFuture<Acknowledge> reportTaskManagerUsage(
+		JobID jobID,
+		Collection<ResourceID> usedTaskManagers,
+		@RpcTimeout Time timeout);
 }

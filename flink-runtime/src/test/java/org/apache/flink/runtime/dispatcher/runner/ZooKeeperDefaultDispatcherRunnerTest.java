@@ -43,6 +43,7 @@ import org.apache.flink.runtime.jobmanager.JobGraphStore;
 import org.apache.flink.runtime.jobmanager.JobGraphStoreFactory;
 import org.apache.flink.runtime.jobmaster.JobResult;
 import org.apache.flink.runtime.leaderelection.TestingLeaderElectionService;
+import org.apache.flink.runtime.leaderretrieval.SettableLeaderRetrievalService;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.rpc.TestingRpcService;
 import org.apache.flink.runtime.rpc.TestingRpcServiceResource;
@@ -140,6 +141,7 @@ public class ZooKeeperDefaultDispatcherRunnerTest extends TestLogger {
 				.setRunningJobsRegistry(new ZooKeeperRunningJobsRegistry(client, configuration))
 				.setDispatcherLeaderElectionService(dispatcherLeaderElectionService)
 				.setJobMasterLeaderRetrieverFunction(jobId -> ZooKeeperUtils.createLeaderRetrievalService(client, configuration))
+				.setResourceManagerLeaderRetriever(new SettableLeaderRetrievalService(null, null))
 				.build()) {
 
 			final PartialDispatcherServices partialDispatcherServices = new PartialDispatcherServices(

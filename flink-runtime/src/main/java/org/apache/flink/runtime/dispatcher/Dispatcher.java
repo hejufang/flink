@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.dispatcher;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.operators.ResourceSpec;
@@ -26,8 +27,10 @@ import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.BenchmarkOption;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Histogram;
 import org.apache.flink.metrics.MetricGroup;
@@ -42,7 +45,11 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
+import org.apache.flink.runtime.heartbeat.HeartbeatListener;
+import org.apache.flink.runtime.heartbeat.HeartbeatManager;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
+import org.apache.flink.runtime.heartbeat.HeartbeatTarget;
+import org.apache.flink.runtime.heartbeat.NoOpHeartbeatManager;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.RunningJobsRegistry;
 import org.apache.flink.runtime.history.ApplicationModeClusterInfo;
@@ -57,7 +64,10 @@ import org.apache.flink.runtime.jobmaster.JobManagerSharedServices;
 import org.apache.flink.runtime.jobmaster.JobMasterGateway;
 import org.apache.flink.runtime.jobmaster.JobNotFinishedException;
 import org.apache.flink.runtime.jobmaster.JobResult;
+import org.apache.flink.runtime.jobmaster.ResourceManagerAddress;
 import org.apache.flink.runtime.jobmaster.factories.DefaultJobManagerJobMetricGroupFactory;
+import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalListener;
+import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.messages.webmonitor.ClusterOverview;
@@ -70,7 +80,12 @@ import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
+import org.apache.flink.runtime.registration.RegisteredRpcConnection;
+import org.apache.flink.runtime.registration.RegistrationResponse;
+import org.apache.flink.runtime.registration.RetryingRegistration;
+import org.apache.flink.runtime.registration.RetryingRegistrationConfiguration;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.ResourceOverview;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -90,10 +105,13 @@ import org.apache.flink.util.function.FunctionWithException;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 
+import org.slf4j.Logger;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -101,9 +119,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.BiFunction;
@@ -124,6 +147,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private final Configuration configuration;
 
+	private ResourceID resourceId;
+
 	private final JobGraphWriter jobGraphWriter;
 	private final RunningJobsRegistry runningJobsRegistry;
 
@@ -136,6 +161,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private final FatalErrorHandler fatalErrorHandler;
 
 	private final Map<JobID, CompletableFuture<JobManagerRunner>> jobManagerRunnerFutures;
+
+	private final Map<JobID, CompletableFuture<Acknowledge>> pendingJobFutures;
 
 	private final DispatcherBootstrap dispatcherBootstrap;
 
@@ -166,6 +193,38 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	// Only record the duration from ExecutionGraph Create to job Finished.
 	private final Histogram jobDurationHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
+
+	// --------- ResourceManager --------
+	private final LeaderRetrievalService resourceManagerLeaderRetriever;
+
+	@Nullable
+	private ResourceManagerAddress resourceManagerAddress;
+
+	@Nullable
+	private DispatcherToResourceManagerConnection resourceManagerConnection;
+
+	@Nullable
+	private EstablishedResourceManagerConnection establishedResourceManagerConnection;
+
+	private final Boolean jmResourceAllocationEnabled;
+
+	private final Map<ResourceID, TaskManagerTopology> registeredTaskManagers;
+
+	private final Map<ResourceID, Set<JobID>> taskManagerByJob;
+
+	private final Map<JobID, Set<ResourceID>> jobUsedTaskManagers;
+
+	private final int minRequiredTaskManager;
+
+	private final int maxRunningTasks;
+
+	private int totalRunningTasks;
+
+	private final Queue<JobGraph> pendingJobs;
+
+	private final Queue<Tuple2<JobGraph, ChannelHandlerContext>> pendingJobsWithContext;
+
+	private HeartbeatManager<Void, Void> resourceManagerHeartbeatManager;
 
 	public Dispatcher(
 			RpcService rpcService,
@@ -202,6 +261,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		this.jobManagerTerminationFutures = new HashMap<>(2);
 
+		this.pendingJobFutures = new HashMap<>(16);
+
 		this.archiveExecutionGraphFutures = new HashMap<>(1);
 
 		this.applicationModeClusterInfoArchiveEnable = this.configuration.getBoolean(JobManagerOptions.APPLICATION_MODE_CLUSTER_INFO_ARCHIVE_ENABLE);
@@ -209,6 +270,36 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		this.shutDownFuture = new CompletableFuture<>();
 
 		this.dispatcherBootstrap = checkNotNull(dispatcherBootstrap);
+
+		this.resourceManagerLeaderRetriever = highAvailabilityServices.getResourceManagerLeaderRetriever();
+
+		this.resourceManagerAddress = null;
+
+		this.resourceManagerConnection = null;
+
+		this.establishedResourceManagerConnection = null;
+
+		this.jmResourceAllocationEnabled = configuration.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED);
+
+		this.minRequiredTaskManager = configuration.getInteger(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS);
+
+		this.maxRunningTasks = configuration.getInteger(JobManagerOptions.JOBMANAGER_MAX_RUNNING_TASKS_NUM);
+
+		this.registeredTaskManagers = new HashMap<>();
+
+		this.jobUsedTaskManagers = new HashMap<>();
+
+		this.taskManagerByJob = new HashMap<>();
+
+		this.totalRunningTasks = 0;
+
+		this.pendingJobs = new ArrayDeque<>();
+
+		this.pendingJobsWithContext = new ArrayDeque<>();
+
+		this.resourceManagerHeartbeatManager = NoOpHeartbeatManager.getInstance();
+
+		this.resourceId = ResourceID.generate();
 	}
 
 	//------------------------------------------------------
@@ -217,6 +308,15 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	public CompletableFuture<ApplicationStatus> getShutDownFuture() {
 		return shutDownFuture;
+	}
+
+	//------------------------------------------------------
+	// Setters
+	//------------------------------------------------------
+
+	@VisibleForTesting
+	protected void setResourceId(ResourceID resourceId) {
+		this.resourceId = resourceId;
 	}
 
 	//------------------------------------------------------
@@ -238,6 +338,16 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private void startDispatcherServices() throws Exception {
 		try {
+			if (jmResourceAllocationEnabled) {
+				resourceManagerHeartbeatManager = heartbeatServices.createHeartbeatManager(
+					resourceId,
+					new ResourceManagerHeartbeatListener(),
+					getMainThreadExecutor(),
+					log);
+
+				// start by connecting to the ResourceManager
+				resourceManagerLeaderRetriever.start(new ResourceManagerLeaderListener());
+			}
 			registerDispatcherMetrics(jobManagerMetricGroup);
 		} catch (Exception e) {
 			handleStartDispatcherServicesException(e);
@@ -284,6 +394,16 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		terminationFutures.add(allArchiveExecutionGraphAndGetResultFuture);
 		terminationFutures.add(allJobManagerRunnersTerminationFuture);
 
+		if (jmResourceAllocationEnabled) {
+			try {
+				resourceManagerLeaderRetriever.stop();
+			} catch (Exception e) {
+				log.warn("Failed to stop resource manager leader retriever when stopping.", e);
+			}
+
+			resourceManagerHeartbeatManager.stop();
+		}
+
 		return FutureUtils.runAfterwards(
 			FutureUtils.completeAll(terminationFutures),
 			() -> {
@@ -320,12 +440,32 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			if (isDuplicateJob(jobGraph.getJobID())) {
 				return FutureUtils.completedExceptionally(
 					new DuplicateJobSubmissionException(jobGraph.getJobID()));
-			} else if (isPartialResourceConfigured(jobGraph)) {
-				return FutureUtils.completedExceptionally(
-					new JobSubmissionException(jobGraph.getJobID(), "Currently jobs is not supported if parts of the vertices have " +
-							"resources configured. The limitation will be removed in future versions."));
 			} else {
-				return internalSubmitJob(jobGraph);
+				if (jmResourceAllocationEnabled) {
+					if (canSubmitJob()) {
+						return internalSubmitJob(jobGraph);
+					} else {
+						pendingJobs.add(jobGraph);
+						pendingJobFutures.put(jobGraph.getJobID(), new CompletableFuture<>());
+						log.info("Available taskmanagers: {} is less then {} or running tasks: {} is greater then {}." +
+								"Put job {} ({}) to pending queue.",
+							registeredTaskManagers.size(),
+							minRequiredTaskManager,
+							totalRunningTasks,
+							maxRunningTasks,
+							jobGraph.getJobID(),
+							jobGraph.getName());
+						return CompletableFuture.completedFuture(Acknowledge.get());
+					}
+				} else {
+					if (isPartialResourceConfigured(jobGraph)) {
+						return FutureUtils.completedExceptionally(
+							new JobSubmissionException(jobGraph.getJobID(), "Currently jobs is not supported if parts of the vertices have " +
+								"resources configured. The limitation will be removed in future versions."));
+					} else {
+						return internalSubmitJob(jobGraph);
+					}
+				}
 			}
 		} catch (FlinkException e) {
 			return FutureUtils.completedExceptionally(e);
@@ -347,11 +487,32 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 					new JobSubmissionException(jobGraph.getJobID(), "Currently jobs is not supported if parts of the vertices have " +
 						"resources configured. The limitation will be removed in future versions."));
 			} else {
-				internalSubmitJob(jobGraph, ctx);
+				if (jmResourceAllocationEnabled) {
+					if (canSubmitJob()) {
+						internalSubmitJob(jobGraph, ctx);
+					} else {
+						pendingJobsWithContext.add(Tuple2.of(jobGraph, ctx));
+						pendingJobFutures.put(jobGraph.getJobID(), new CompletableFuture<>());
+						log.info("Available taskmanagers: {} is less then {} or running tasks: {} is greater then {}." +
+								"Put job {} ({}) to pending queue.",
+							registeredTaskManagers.size(),
+							minRequiredTaskManager,
+							totalRunningTasks,
+							maxRunningTasks,
+							jobGraph.getJobID(),
+							jobGraph.getName());
+					}
+				} else {
+					internalSubmitJob(jobGraph, ctx);
+				}
 			}
 		} catch (FlinkException e) {
 			writeFailJobToContext(jobGraph.getJobID(), ctx, e);
 		}
+	}
+
+	private boolean canSubmitJob() {
+		return registeredTaskManagers.size() >= minRequiredTaskManager && totalRunningTasks <= maxRunningTasks;
 	}
 
 	/**
@@ -470,6 +631,14 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		jobManagerRunnerFutures.put(jobGraph.getJobID(), jobManagerRunnerFuture);
 
+		if (jmResourceAllocationEnabled) {
+			CompletableFuture<Acknowledge> pendingJobFuture = pendingJobFutures.get(jobGraph.getJobID());
+			if (pendingJobFuture != null) {
+				pendingJobFutures.remove(jobGraph.getJobID());
+				pendingJobFuture.complete(Acknowledge.get());
+			}
+		}
+
 		return jobManagerRunnerFuture
 			.thenApply(FunctionUtils.uncheckedFunction(this::startJobManagerRunner))
 			.thenApply(FunctionUtils.nullFn())
@@ -477,6 +646,14 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				(ignored, throwable) -> {
 					if (throwable != null) {
 						jobManagerRunnerFutures.remove(jobGraph.getJobID());
+					}
+					if (jmResourceAllocationEnabled) {
+						totalRunningTasks -= jobGraph.calcMinRequiredSlotsNum();
+
+						while (canSubmitJob() && !pendingJobs.isEmpty()) {
+							JobGraph pendingJob = pendingJobs.poll();
+							internalSubmitJob(pendingJob);
+						}
 					}
 				},
 				getMainThreadExecutor());
@@ -499,6 +676,14 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		jobManagerRunnerFutures.put(jobGraph.getJobID(), jobManagerRunnerFuture);
 
+		if (jmResourceAllocationEnabled) {
+			CompletableFuture<Acknowledge> pendingJobFuture = pendingJobFutures.get(jobGraph.getJobID());
+			if (pendingJobFuture != null) {
+				pendingJobFutures.remove(jobGraph.getJobID());
+				pendingJobFuture.complete(Acknowledge.get());
+			}
+		}
+
 		return jobManagerRunnerFuture
 			.thenApply(FunctionUtils.uncheckedFunction(this::startJobManagerRunner))
 			.thenApply(FunctionUtils.nullFn())
@@ -506,6 +691,14 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				(ignored, throwable) -> {
 					if (throwable != null) {
 						jobManagerRunnerFutures.remove(jobGraph.getJobID());
+					}
+					if (jmResourceAllocationEnabled) {
+						totalRunningTasks -= jobGraph.calcMinRequiredSlotsNum();
+
+						while (canSubmitJob() && !pendingJobsWithContext.isEmpty()) {
+							Tuple2<JobGraph, ChannelHandlerContext> pendingJobAndContext = pendingJobsWithContext.poll();
+							internalSubmitJob(pendingJobAndContext.f0, pendingJobAndContext.f1);
+						}
 					}
 				},
 				getMainThreadExecutor());
@@ -517,6 +710,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		return CompletableFuture.supplyAsync(
 			() -> {
 				try {
+					totalRunningTasks += jobGraph.calcMinRequiredSlotsNum();
+
+					// TODO: pass TM to JobMaster
 					return jobManagerRunnerFactory.createJobManagerRunner(
 						jobGraph,
 						configuration,
@@ -539,6 +735,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		return CompletableFuture.supplyAsync(
 			() -> {
 				try {
+					totalRunningTasks += jobGraph.calcMinRequiredSlotsNum();
+
 					return jobManagerRunnerFactory.createJobManagerRunner(
 						jobGraph,
 						configuration,
@@ -730,7 +928,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	@Override
 	public CompletableFuture<JobStatus> requestJobStatus(JobID jobId, Time timeout) {
+		return internalRequestJobStatus(jobId, timeout);
+	}
 
+	public CompletableFuture<JobStatus> internalRequestJobStatus(JobID jobId, Time timeout) {
 		final CompletableFuture<JobMasterGateway> jobMasterGatewayFuture = getJobMasterGatewayFuture(jobId);
 
 		final CompletableFuture<JobStatus> jobStatusFuture = jobMasterGatewayFuture.thenCompose(
@@ -780,6 +981,23 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	@Override
 	public CompletableFuture<JobResult> requestJobResult(JobID jobId, Time timeout) {
+		if (jmResourceAllocationEnabled) {
+			final CompletableFuture<Acknowledge> pendingJobFuture = pendingJobFutures.get(jobId);
+			if (pendingJobFuture == null) {
+				return internalRequestJobResult(jobId, timeout);
+			} else {
+				log.debug("Request Job: {} result, but is pending for submitting", jobId);
+				return pendingJobFuture.thenCompose(ack -> {
+					pendingJobFutures.remove(jobId);
+					return internalRequestJobResult(jobId, timeout);
+				});
+			}
+		} else {
+			return internalRequestJobResult(jobId, timeout);
+		}
+	}
+
+	public CompletableFuture<JobResult> internalRequestJobResult(JobID jobId, Time timeout) {
 		final CompletableFuture<JobManagerRunner> jobManagerRunnerFuture = jobManagerRunnerFutures.get(jobId);
 
 		if (jobManagerRunnerFuture == null) {
@@ -885,6 +1103,104 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				shutDownFuture.complete(applicationStatus);
 			});
 		return CompletableFuture.completedFuture(Acknowledge.get());
+	}
+
+	@Override
+	public void disconnectResourceManager(
+			final ResourceManagerId resourceManagerId,
+			final Exception cause) {
+		if (isConnectingToResourceManager(resourceManagerId)) {
+			reconnectToResourceManager(cause);
+		}
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> offerTaskManagers(
+			Collection<TaskManagerTopology> taskManagerTopologies,
+			Time timeout) {
+
+		Map<ResourceID, TaskManagerTopology> updatedRegisteredTM = new HashMap<>();
+		for (TaskManagerTopology taskManagerTopology: taskManagerTopologies) {
+			updatedRegisteredTM.put(
+				taskManagerTopology.getTaskExecutorRegistration().getResourceId(),
+				taskManagerTopology);
+		}
+
+		Set<ResourceID> added = new HashSet<>(updatedRegisteredTM.keySet());
+		Set<ResourceID> removed = new HashSet<>(registeredTaskManagers.keySet());
+
+		added.removeAll(registeredTaskManagers.keySet());
+		removed.removeAll(updatedRegisteredTM.keySet());
+
+		for (ResourceID resourceID: added) {
+			registeredTaskManagers.put(resourceID, updatedRegisteredTM.get(resourceID));
+		}
+
+		for (ResourceID resourceID: removed) {
+			registeredTaskManagers.remove(resourceID);
+
+			if (taskManagerByJob.containsKey(resourceID)) {
+				for (JobID jobID: taskManagerByJob.get(resourceID)) {
+					// TODO: notify JobMaster to fail-over job
+					Set<ResourceID> usedTM = jobUsedTaskManagers.remove(jobID);
+					for (ResourceID resourceID1: usedTM) {
+						taskManagerByJob.get(resourceID1).remove(jobID);
+					}
+				}
+			}
+		}
+
+		while (canSubmitJob() && (!pendingJobs.isEmpty() || !pendingJobsWithContext.isEmpty())) {
+			if (!pendingJobsWithContext.isEmpty()) {
+				Tuple2<JobGraph, ChannelHandlerContext> jobGraphAndContext = pendingJobsWithContext.poll();
+				internalSubmitJob(jobGraphAndContext.f0, jobGraphAndContext.f1);
+			}
+
+			if (canSubmitJob() && !pendingJobs.isEmpty()) {
+				JobGraph jobGraph = pendingJobs.poll();
+				internalSubmitJob(jobGraph);
+			}
+		}
+
+		return CompletableFuture.completedFuture(Acknowledge.get());
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> reportTaskManagerUsage(
+			JobID jobID,
+			Collection<ResourceID> usedTaskManagers,
+			Time timeout) {
+		jobUsedTaskManagers.putIfAbsent(jobID, new HashSet<>());
+
+		Set<ResourceID> added = new HashSet<>(usedTaskManagers);
+		Set<ResourceID> removed = new HashSet<>(jobUsedTaskManagers.get(jobID));
+
+		added.removeAll(jobUsedTaskManagers.get(jobID));
+		removed.removeAll(usedTaskManagers);
+
+		for (ResourceID resourceID: added) {
+			taskManagerByJob.putIfAbsent(resourceID, new HashSet<>());
+
+			jobUsedTaskManagers.get(jobID).add(resourceID);
+			taskManagerByJob.get(resourceID).add(jobID);
+		}
+
+		for (ResourceID resourceID: removed) {
+			taskManagerByJob.get(resourceID).remove(jobID);
+		}
+		jobUsedTaskManagers.get(jobID).removeAll(removed);
+
+		return CompletableFuture.completedFuture(Acknowledge.get());
+	}
+
+	private boolean isConnectingToResourceManager(ResourceManagerId resourceManagerId) {
+		return resourceManagerAddress != null
+			&& resourceManagerAddress.getResourceManagerId().equals(resourceManagerId);
+	}
+
+	@Override
+	public void heartbeatFromResourceManager(final ResourceID resourceID) {
+		resourceManagerHeartbeatManager.requestHeartbeat(resourceID, null);
 	}
 
 	@Override
@@ -1084,7 +1400,21 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	}
 
 	private CompletableFuture<JobMasterGateway> getJobMasterGatewayFuture(JobID jobId) {
-		final CompletableFuture<JobManagerRunner> jobManagerRunnerFuture = jobManagerRunnerFutures.get(jobId);
+		final CompletableFuture<JobManagerRunner> jobManagerRunnerFuture;
+		if (jmResourceAllocationEnabled) {
+			CompletableFuture<Acknowledge> pendingJobFuture = pendingJobFutures.get(jobId);
+			if (pendingJobFuture != null) {
+				log.debug("Get JobMaster for Job: {}, but is pending for submitting", jobId);
+				jobManagerRunnerFuture = pendingJobFuture.thenCompose(ack -> {
+					pendingJobFutures.remove(jobId);
+					return jobManagerRunnerFutures.get(jobId);
+				});
+			} else {
+				jobManagerRunnerFuture = jobManagerRunnerFutures.get(jobId);
+			}
+		} else {
+			jobManagerRunnerFuture = jobManagerRunnerFutures.get(jobId);
+		}
 
 		if (jobManagerRunnerFuture == null) {
 			return FutureUtils.completedExceptionally(new FlinkJobNotFoundException(jobId));
@@ -1234,6 +1564,221 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
+		}
+	}
+
+	/**
+	 * The listener for leader changes of the resource manager.
+	 */
+	private final class ResourceManagerLeaderListener implements LeaderRetrievalListener {
+
+		@Override
+		public void notifyLeaderAddress(final String leaderAddress, final UUID leaderSessionID) {
+			runAsync(
+				() -> notifyOfNewResourceManagerLeader(
+					leaderAddress,
+					ResourceManagerId.fromUuidOrNull(leaderSessionID)));
+		}
+
+		@Override
+		public void handleError(Exception exception) {
+			onFatalError(exception);
+		}
+	}
+
+	private void notifyOfNewResourceManagerLeader(final String newResourceManagerAddress, final ResourceManagerId resourceManagerId) {
+		resourceManagerAddress = createResourceManagerAddress(newResourceManagerAddress, resourceManagerId);
+		reconnectToResourceManager(new FlinkException(String.format("ResourceManager leader changed to new address %s", resourceManagerAddress)));
+	}
+
+	@Nullable
+	private ResourceManagerAddress createResourceManagerAddress(@Nullable String newResourceManagerAddress, @Nullable ResourceManagerId resourceManagerId) {
+		if (newResourceManagerAddress != null) {
+			// the contract is: address == null <=> id == null
+			checkNotNull(resourceManagerId);
+			return new ResourceManagerAddress(newResourceManagerAddress, resourceManagerId);
+		} else {
+			return null;
+		}
+	}
+
+	private void reconnectToResourceManager(Exception cause) {
+		closeResourceManagerConnection(cause);
+		tryConnectToResourceManager();
+	}
+
+	private void closeResourceManagerConnection(Exception cause) {
+		if (establishedResourceManagerConnection != null) {
+			final ResourceID resourceManagerResourceId = establishedResourceManagerConnection.getResourceManagerResourceID();
+
+			if (log.isDebugEnabled()) {
+				log.debug("Close ResourceManager connection {}.",
+					resourceManagerResourceId, cause);
+			} else {
+				log.info("Close ResourceManager connection {}.",
+					resourceManagerResourceId);
+			}
+
+			ResourceManagerGateway resourceManagerGateway = establishedResourceManagerConnection.getResourceManagerGateway();
+			resourceManagerGateway.disconnectDispatcher(resourceId, cause);
+
+			final ResourceID resourceManagerResourceID = establishedResourceManagerConnection.getResourceManagerResourceID();
+			resourceManagerHeartbeatManager.unmonitorTarget(resourceManagerResourceID);
+
+			establishedResourceManagerConnection = null;
+		}
+
+		if (resourceManagerConnection != null) {
+			// stop a potentially ongoing registration process
+			resourceManagerConnection.close();
+			resourceManagerConnection = null;
+		}
+	}
+
+	private void tryConnectToResourceManager() {
+		if (resourceManagerAddress != null) {
+			connectToResourceManager();
+		}
+	}
+
+	private void connectToResourceManager() {
+		Preconditions.checkNotNull(resourceManagerAddress);
+		Preconditions.checkArgument(resourceManagerConnection == null);
+		Preconditions.checkArgument(establishedResourceManagerConnection == null);
+
+		log.info("Connecting to ResourceManager {}", resourceManagerAddress);
+
+		resourceManagerConnection = new DispatcherToResourceManagerConnection(
+			log,
+			getAddress(),
+			getFencingToken(),
+			resourceManagerAddress.getAddress(),
+			resourceManagerAddress.getResourceManagerId(),
+			getMainThreadExecutor());
+
+		resourceManagerConnection.start();
+	}
+
+	private void establishResourceManagerConnection(final DispatcherRegistrationSuccess success) {
+		final ResourceManagerId resourceManagerId = success.getResourceManagerId();
+
+		// verify the response with current connection
+		if (resourceManagerConnection != null
+			&& Objects.equals(resourceManagerConnection.getTargetLeaderId(), resourceManagerId)) {
+
+			log.info("Dispatcher successfully registered at ResourceManager, leader id: {}.", resourceManagerId);
+
+			final ResourceManagerGateway resourceManagerGateway = resourceManagerConnection.getTargetGateway();
+
+			final ResourceID resourceManagerResourceId = success.getResourceManagerResourceId();
+
+			establishedResourceManagerConnection = new EstablishedResourceManagerConnection(
+				resourceManagerGateway,
+				resourceManagerResourceId);
+
+			resourceManagerHeartbeatManager.monitorTarget(resourceManagerResourceId, new HeartbeatTarget<Void>() {
+				@Override
+				public void receiveHeartbeat(ResourceID resourceID, Void payload) {
+					resourceManagerGateway.heartbeatFromJobManager(resourceID);
+				}
+
+				@Override
+				public void requestHeartbeat(ResourceID resourceID, Void payload) {
+					// request heartbeat will never be called on the job manager side
+				}
+			});
+		} else {
+			log.debug("Ignoring resource manager connection to {} because it's duplicated or outdated.", resourceManagerId);
+		}
+	}
+
+	//----------------------------------------------------------------------------------------------
+	private class DispatcherToResourceManagerConnection
+			extends RegisteredRpcConnection<ResourceManagerId, ResourceManagerGateway, DispatcherRegistrationSuccess> {
+
+		private final String dispatcherRpcAddress;
+
+		private final DispatcherId dispatcherId;
+
+		public DispatcherToResourceManagerConnection(
+			final Logger log,
+			final String dispatcherRpcAddress,
+			final DispatcherId dispatcherId,
+			final String resourceManagerAddress,
+			final ResourceManagerId resourceManagerId,
+			final Executor executor) {
+
+			super(log, resourceManagerAddress, resourceManagerId, executor);
+			this.dispatcherRpcAddress = dispatcherRpcAddress;
+			this.dispatcherId = dispatcherId;
+		}
+
+		@Override
+		protected RetryingRegistration<ResourceManagerId, ResourceManagerGateway, DispatcherRegistrationSuccess> generateRegistration() {
+			return new RetryingRegistration<ResourceManagerId, ResourceManagerGateway, DispatcherRegistrationSuccess>(
+				log,
+				getRpcService(),
+				"ResourceManager",
+				ResourceManagerGateway.class,
+				getTargetAddress(),
+				getTargetLeaderId(),
+				RetryingRegistrationConfiguration.fromConfiguration(configuration)) {
+
+				@Override
+				protected CompletableFuture<RegistrationResponse> invokeRegistration(
+					ResourceManagerGateway gateway, ResourceManagerId fencingToken, long timeoutMillis) {
+					Time timeout = Time.milliseconds(timeoutMillis);
+
+					return gateway.registerDispatcher(
+						dispatcherId,
+						resourceId,
+						dispatcherRpcAddress,
+						timeout);
+				}
+			};
+		}
+
+		@Override
+		protected void onRegistrationSuccess(final DispatcherRegistrationSuccess success) {
+			runAsync(() -> {
+				// filter out outdated connections
+				//noinspection ObjectEquality
+				if (this == resourceManagerConnection) {
+					establishResourceManagerConnection(success);
+				}
+			});
+		}
+
+		@Override
+		protected void onRegistrationFailure(final Throwable failure) {
+			onFatalError(failure);
+		}
+	}
+
+	//----------------------------------------------------------------------------------------------
+
+	private class ResourceManagerHeartbeatListener implements HeartbeatListener<Void, Void> {
+
+		@Override
+		public void notifyHeartbeatTimeout(final ResourceID resourceId) {
+			validateRunsInMainThread();
+			log.info("The heartbeat of ResourceManager with id {} timed out.", resourceId);
+			if (establishedResourceManagerConnection != null
+				&& establishedResourceManagerConnection.getResourceManagerResourceID().equals(resourceId)) {
+				reconnectToResourceManager(
+					new DispatcherException(
+						String.format("The heartbeat of ResourceManager with id %s timed out.", resourceId)));
+			}
+		}
+
+		@Override
+		public void reportPayload(ResourceID resourceID, Void payload) {
+			// nothing to do since the payload is of type Void
+		}
+
+		@Override
+		public Void retrievePayload(ResourceID resourceID) {
+			return null;
 		}
 	}
 }

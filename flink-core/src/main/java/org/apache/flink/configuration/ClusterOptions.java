@@ -84,4 +84,10 @@ public class ClusterOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Setup socket endpoint in the cluster.");
+
+	public static final ConfigOption<Boolean> JM_RESOURCE_ALLOCATION_ENABLED = ConfigOptions
+		.key("cluster.jm-resource-allocation.enabled")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Enable resource allocation in JM side.");
 }

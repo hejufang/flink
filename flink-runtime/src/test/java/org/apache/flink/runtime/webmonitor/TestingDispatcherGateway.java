@@ -26,6 +26,7 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.dispatcher.DispatcherId;
+import org.apache.flink.runtime.dispatcher.TaskManagerTopology;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -36,6 +37,7 @@ import org.apache.flink.runtime.messages.webmonitor.ClusterOverview;
 import org.apache.flink.runtime.messages.webmonitor.MultipleJobsDetails;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.util.SerializedValue;
@@ -50,6 +52,7 @@ import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -64,6 +67,10 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	static final DispatcherId DEFAULT_FENCING_TOKEN = DispatcherId.generate();
 	static final Function<JobID, CompletableFuture<ArchivedExecutionGraph>> DEFAULT_REQUEST_ARCHIVED_JOB_FUNCTION = jobID -> CompletableFuture.completedFuture(null);
 	static final Function<ApplicationStatus, CompletableFuture<Acknowledge>> DEFAULT_SHUTDOWN_WITH_STATUS_FUNCTION = status -> CompletableFuture.completedFuture(Acknowledge.get());
+	static final Consumer<ResourceManagerId> DEFAULT_DISCONNECT_RESOURCE_MANAGER_CONSUMER = ignore -> {};
+	static final Consumer<ResourceID> DEFAULT_RESOURCE_MANAGER_HEARTBEAT_CONSUMER = ignore -> {};
+	static final Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> DEFAULT_OFFER_TASKMANAGERS_FUNCTION = taskManagerTopologies -> CompletableFuture.completedFuture(Acknowledge.get());
+	static final BiFunction<JobID, Collection<ResourceID>, CompletableFuture<Acknowledge>> DEFAULT_REPORT_TASKMANAGER_USAGE_FUNCTION = (jobID, taskManagers) -> CompletableFuture.completedFuture(Acknowledge.get());
 
 	private Function<JobGraph, CompletableFuture<Acknowledge>> submitFunction;
 	private BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer;
@@ -72,6 +79,10 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	private DispatcherId fencingToken;
 	private Function<JobID, CompletableFuture<ArchivedExecutionGraph>> requestArchivedJobFunction;
 	private Function<ApplicationStatus, CompletableFuture<Acknowledge>> clusterShutdownWithStatusFunction;
+	private Consumer<ResourceManagerId> disconnectResourceManagerConsumer;
+	private Consumer<ResourceID> resourceManagerHeartbeatConsumer;
+	private Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction;
+	private BiFunction<JobID, Collection<ResourceID>, CompletableFuture<Acknowledge>> reportTaskManagerUsageFunction;
 
 	public TestingDispatcherGateway() {
 		super();
@@ -81,6 +92,10 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		fencingToken = DEFAULT_FENCING_TOKEN;
 		requestArchivedJobFunction = DEFAULT_REQUEST_ARCHIVED_JOB_FUNCTION;
 		clusterShutdownWithStatusFunction = DEFAULT_SHUTDOWN_WITH_STATUS_FUNCTION;
+		disconnectResourceManagerConsumer = DEFAULT_DISCONNECT_RESOURCE_MANAGER_CONSUMER;
+		resourceManagerHeartbeatConsumer = DEFAULT_RESOURCE_MANAGER_HEARTBEAT_CONSUMER;
+		offerTaskManagersFunction = DEFAULT_OFFER_TASKMANAGERS_FUNCTION;
+		reportTaskManagerUsageFunction = DEFAULT_REPORT_TASKMANAGER_USAGE_FUNCTION;
 	}
 
 	public TestingDispatcherGateway(
@@ -105,7 +120,11 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 			Function<JobID, CompletableFuture<ArchivedExecutionGraph>> requestArchivedJobFunction,
 			Supplier<CompletableFuture<Acknowledge>> clusterShutdownSupplier,
 			Function<ApplicationStatus, CompletableFuture<Acknowledge>> clusterShutdownWithStatusFunction,
-			TriFunction<JobID, OperatorID, SerializedValue<CoordinationRequest>, CompletableFuture<CoordinationResponse>> deliverCoordinationRequestToCoordinatorFunction) {
+			TriFunction<JobID, OperatorID, SerializedValue<CoordinationRequest>, CompletableFuture<CoordinationResponse>> deliverCoordinationRequestToCoordinatorFunction,
+			Consumer<ResourceManagerId> disconnectResourceManagerConsumer,
+			Consumer<ResourceID> resourceManagerHeartbeatConsumer,
+			Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction,
+			BiFunction<JobID, Collection<ResourceID>, CompletableFuture<Acknowledge>> reportTaskManagerUsageFunction) {
 		super(
 			address,
 			hostname,
@@ -129,6 +148,10 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		this.fencingToken = fencingToken;
 		this.requestArchivedJobFunction = requestArchivedJobFunction;
 		this.clusterShutdownWithStatusFunction = clusterShutdownWithStatusFunction;
+		this.disconnectResourceManagerConsumer = disconnectResourceManagerConsumer;
+		this.resourceManagerHeartbeatConsumer = resourceManagerHeartbeatConsumer;
+		this.offerTaskManagersFunction = offerTaskManagersFunction;
+		this.reportTaskManagerUsageFunction = reportTaskManagerUsageFunction;
 	}
 
 	@Override
@@ -170,6 +193,26 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		throw new UnsupportedOperationException();
 	}
 
+	@Override
+	public void disconnectResourceManager(final ResourceManagerId resourceManagerId, final Exception cause) {
+		disconnectResourceManagerConsumer.accept(resourceManagerId);
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> offerTaskManagers(Collection<TaskManagerTopology> taskManagerTopologies, Time timeout) {
+		return offerTaskManagersFunction.apply(taskManagerTopologies);
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> reportTaskManagerUsage(JobID jobId, Collection<ResourceID> usedTaskManagers, Time timeout) {
+		return reportTaskManagerUsageFunction.apply(jobId, usedTaskManagers);
+	}
+
+	@Override
+	public void heartbeatFromResourceManager(ResourceID resourceID) {
+		resourceManagerHeartbeatConsumer.accept(resourceID);
+	}
+
 	/**
 	 * Builder for the {@link TestingDispatcherGateway}.
 	 */
@@ -182,6 +225,10 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		private DispatcherId fencingToken;
 		private Function<JobID, CompletableFuture<ArchivedExecutionGraph>> requestArchivedJobFunction;
 		private Function<ApplicationStatus, CompletableFuture<Acknowledge>> clusterShutdownWithStatusFunction = DEFAULT_SHUTDOWN_WITH_STATUS_FUNCTION;
+		private Consumer<ResourceManagerId> disconnectResourceManagerConsumer = DEFAULT_DISCONNECT_RESOURCE_MANAGER_CONSUMER;
+		private Consumer<ResourceID> resourceManagerHeartbeatConsumer = DEFAULT_RESOURCE_MANAGER_HEARTBEAT_CONSUMER;
+		private Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction = DEFAULT_OFFER_TASKMANAGERS_FUNCTION;
+		private BiFunction<JobID, Collection<ResourceID>, CompletableFuture<Acknowledge>> reportTaskManagerUsageFunction = DEFAULT_REPORT_TASKMANAGER_USAGE_FUNCTION;
 
 		public Builder setSubmitFunction(Function<JobGraph, CompletableFuture<Acknowledge>> submitFunction) {
 			this.submitFunction = submitFunction;
@@ -212,6 +259,28 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		public Builder setRequestJobFunction(Function<JobID, CompletableFuture<ArchivedExecutionGraph>> requestJobFunction) {
 			// signature clash
 			throw new UnsupportedOperationException("Use setRequestArchivedJobFunction() instead.");
+		}
+
+		public Builder setDisconnectResourceManagerConsumer(Consumer<ResourceManagerId> disconnectResourceManagerConsumer) {
+			this.disconnectResourceManagerConsumer = disconnectResourceManagerConsumer;
+			return this;
+		}
+
+		public Builder setResourceManagerHeartbeatConsumer(Consumer<ResourceID> resourceManagerHeartbeatConsumer) {
+			this.resourceManagerHeartbeatConsumer = resourceManagerHeartbeatConsumer;
+			return this;
+		}
+
+		public Builder setOfferTaskManagersFunction(
+				Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction) {
+			this.offerTaskManagersFunction = offerTaskManagersFunction;
+			return this;
+		}
+
+		public Builder setReportTaskManagerUsageFunction(
+				BiFunction<JobID, Collection<ResourceID>, CompletableFuture<Acknowledge>> reportTaskManagerUsageFunction) {
+			this.reportTaskManagerUsageFunction = reportTaskManagerUsageFunction;
+			return this;
 		}
 
 		@Override
@@ -252,7 +321,11 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 				requestArchivedJobFunction,
 				clusterShutdownSupplier,
 				clusterShutdownWithStatusFunction,
-				deliverCoordinationRequestToCoordinatorFunction);
+				deliverCoordinationRequestToCoordinatorFunction,
+				disconnectResourceManagerConsumer,
+				resourceManagerHeartbeatConsumer,
+				offerTaskManagersFunction,
+				reportTaskManagerUsageFunction);
 		}
 	}
 }

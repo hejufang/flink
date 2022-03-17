@@ -32,6 +32,8 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
+import org.apache.flink.runtime.dispatcher.DispatcherId;
+import org.apache.flink.runtime.dispatcher.DispatcherRegistrationSuccess;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.runtime.io.network.partition.DataSetMetaInfo;
@@ -67,6 +69,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -104,6 +107,10 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 	private volatile Function<Tuple3<ResourceID, JobID, JobVertexID>, CompletableFuture<PreviewDataResponse>> requestTaskManagerPreviewFunction;
 
 	private volatile Consumer<Tuple2<ResourceID, Throwable>> disconnectTaskExecutorConsumer;
+
+	private volatile BiFunction<ResourceID, String, CompletableFuture<RegistrationResponse>> registerDispatcherFunction;
+
+	private volatile Consumer<Tuple2<ResourceID, Throwable>> disconnectDispatcherConsumer;
 
 	private volatile Function<Tuple3<ResourceID, InstanceID, SlotReport>, CompletableFuture<Acknowledge>> sendSlotReportFunction;
 
@@ -218,6 +225,14 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 		this.requestTaskManagerPreviewFunction = requestTaskManagerPreviewFunction;
 	}
 
+	public void setRegisterDispatcherFunction(BiFunction<ResourceID, String, CompletableFuture<RegistrationResponse>> registerDispatcherFunction) {
+		this.registerDispatcherFunction = registerDispatcherFunction;
+	}
+
+	public void setDisconnectDispatcherConsumer(Consumer<Tuple2<ResourceID, Throwable>> disconnectDispatcherConsumer) {
+		this.disconnectDispatcherConsumer = disconnectDispatcherConsumer;
+	}
+
 	@Override
 	public CompletableFuture<RegistrationResponse> registerJobManager(JobMasterId jobMasterId, ResourceID jobMasterResourceId, String jobMasterAddress, JobID jobId, JobInfo jobInfo, Time timeout) {
 		final QuadFunction<JobMasterId, ResourceID, String, JobID, CompletableFuture<RegistrationResponse>> currentConsumer = registerJobManagerFunction;
@@ -231,6 +246,26 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 
 	public JobMasterRegistrationSuccess getJobMasterRegistrationSuccess() {
 		return new JobMasterRegistrationSuccess(
+			resourceManagerId,
+			ownResourceId);
+	}
+
+	@Override
+	public CompletableFuture<RegistrationResponse> registerDispatcher(
+			DispatcherId dispatcherId,
+			ResourceID dispatcherResourceId,
+			String dispatcherAddress,
+			Time timeout) {
+		final BiFunction<ResourceID, String, CompletableFuture<RegistrationResponse>> currentConsumer = registerDispatcherFunction;
+		if (currentConsumer != null) {
+			return currentConsumer.apply(dispatcherResourceId, dispatcherAddress);
+		}
+
+		return CompletableFuture.completedFuture(getDispatcherRegistrationSuccess());
+	}
+
+	public DispatcherRegistrationSuccess getDispatcherRegistrationSuccess() {
+		return new DispatcherRegistrationSuccess(
 			resourceManagerId,
 			ownResourceId);
 	}
@@ -354,6 +389,10 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 	}
 
 	@Override
+	public void heartbeatFromDispatcher(ResourceID heartbeatOrigin) {
+	}
+
+	@Override
 	public void disconnectTaskManager(ResourceID resourceID, Exception cause) {
 		final Consumer<Tuple2<ResourceID, Throwable>> currentConsumer = disconnectTaskExecutorConsumer;
 
@@ -373,6 +412,15 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 
 		if (currentConsumer != null) {
 			currentConsumer.accept(Tuple3.of(jobId, jobStatus, cause));
+		}
+	}
+
+	@Override
+	public void disconnectDispatcher(ResourceID dispatcherId, Exception cause) {
+		final Consumer<Tuple2<ResourceID, Throwable>> currentConsumer = disconnectDispatcherConsumer;
+
+		if (currentConsumer != null) {
+			currentConsumer.accept(Tuple2.of(dispatcherId, cause));
 		}
 	}
 
