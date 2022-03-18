@@ -87,11 +87,15 @@ public class HtapTableUtils {
 
 	public static TableSchema htapToFlinkSchema(Schema schema) {
 		TableSchema.Builder builder = TableSchema.builder();
+		List<ColumnSchema> primaryKeys = schema.getPrimaryKeyColumns();
 
 		for (ColumnSchema column : schema.getColumns()) {
 			DataType flinkType =
 				HtapTypeUtils.toFlinkType(column.getType(), column.getMysqlType(),
 					column.getTypeAttributes()).nullable();
+			if (primaryKeys.contains(column)) {
+				flinkType = flinkType.notNull();
+			}
 			builder.field(column.getName(), flinkType);
 		}
 
