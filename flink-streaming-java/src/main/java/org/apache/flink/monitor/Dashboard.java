@@ -959,6 +959,58 @@ public class Dashboard {
 		return rows;
 	}
 
+	private String renderRocketMQConsumeRateRow(List<String> sources) {
+		String rocketMQConsumeRateTargetTemplate;
+		String rocketMQConsumeRateTemplate;
+
+		try {
+			rocketMQConsumeRateTargetTemplate = renderFromResource(DashboardTemplate.ROCKETMQ_CONSUME_RATE_TARGET_TEMPLATE);
+			rocketMQConsumeRateTemplate = renderFromResource(DashboardTemplate.ROCKETMQ_CONSUME_RATE_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+
+		List<String> rocketMQConsumeList = new ArrayList<>();
+		for (String s : sources) {
+			Map<String, String> rocketMQConsumeRateTargetValues = new HashMap<>();
+			rocketMQConsumeRateTargetValues.put("rmq_source", s);
+			rocketMQConsumeRateTargetValues.put("jobname", formatJobName);
+			rocketMQConsumeList.add(renderString(rocketMQConsumeRateTargetTemplate, rocketMQConsumeRateTargetValues));
+		}
+		String targets = String.join(",", rocketMQConsumeList);
+		Map<String, String> rocketMQConsumeRateValues = new HashMap<>();
+		rocketMQConsumeRateValues.put("targets", targets);
+		rocketMQConsumeRateValues.put("datasource", dataSource);
+		return renderString(rocketMQConsumeRateTemplate, rocketMQConsumeRateValues);
+	}
+
+	private String renderKafkaConsumeRateRow(List<String> sources) {
+		String kafkaConsumeRateTargetTemplate;
+		String kafkaConsumeRateTemplate;
+
+		try {
+			kafkaConsumeRateTargetTemplate = renderFromResource(DashboardTemplate.KAFKA_CONSUME_RATE_TARGET_TEMPLATE);
+			kafkaConsumeRateTemplate = renderFromResource(DashboardTemplate.KAFKA_CONSUME_RATE_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+
+		List<String> kafkaConsumeList = new ArrayList<>();
+		for (String s : sources) {
+			Map<String, String> kafkaConsumeRateTargetValues = new HashMap<>();
+			kafkaConsumeRateTargetValues.put("kafka_source", s);
+			kafkaConsumeRateTargetValues.put("jobname", formatJobName);
+			kafkaConsumeList.add(renderString(kafkaConsumeRateTargetTemplate, kafkaConsumeRateTargetValues));
+		}
+		String targets = String.join(",", kafkaConsumeList);
+		Map<String, String> kafkaConsumeRateValues = new HashMap<>();
+		kafkaConsumeRateValues.put("targets", targets);
+		kafkaConsumeRateValues.put("datasource", dataSource);
+		return renderString(kafkaConsumeRateTemplate, kafkaConsumeRateValues);
+	}
+
 	private String renderKafkaOffsetRow(List<String> sources) {
 		String kafkaOffsetTargetTemplate;
 		String kafkaOffsetTemplate;
@@ -1059,12 +1111,15 @@ public class Dashboard {
 		if (!kafkaMetricsList.isEmpty()) {
 			String kafkaLagSizeRow = renderKafkaLagSizeRow(kafkaMetricsList, kafkaConsumerUrls);
 			overViewPanels.add(kafkaLagSizeRow);
+			kafkaPanels.add(renderKafkaConsumeRateRow(sources));
 			kafkaPanels.add(renderKafkaOffsetRow(sources));
 			kafkaPanels.add(renderKafkaLatencyRow(sources));
 			kafkaPanels.add(renderKafkaPollIntervalRow(sources));
 		}
+		List<String> rocketMQPanels = Lists.newArrayList();
 		if (!rocketmqConfigArray.isEmpty()) {
 			overViewPanels.add(renderRocketMQLagSizeRow(rocketmqConfigArray));
+			rocketMQPanels.add(renderRocketMQConsumeRateRow(sources));
 		}
 		overViewPanels.add(renderOperatorLatencyRow(operatorsButSources));
 		overViewPanels.add(renderPoolUsageRow(tasks));
@@ -1076,6 +1131,11 @@ public class Dashboard {
 		// add kafka row
 		if (CollectionUtils.isNotEmpty(kafkaPanels)) {
 			rows.add(renderRowTemplate(DashboardTemplate.KAFKA_ROW_TEMPLATE, kafkaPanels, false));
+		}
+
+		// add rmq row
+		if (CollectionUtils.isNotEmpty(rocketMQPanels)) {
+			rows.add(renderRowTemplate(DashboardTemplate.ROCKETMQ_ROW_TEMPLATE, rocketMQPanels, false));
 		}
 
 		// add network row

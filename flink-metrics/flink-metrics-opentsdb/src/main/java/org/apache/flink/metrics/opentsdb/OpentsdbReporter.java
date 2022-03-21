@@ -68,6 +68,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private static final Pattern TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN_2 = Pattern.compile(
 		"taskmanager\\.(\\S+)\\.(\\d+)\\.KafkaConsumer\\.topic\\.(\\S+)\\.partition\\.(\\d+)\\.([\\w-]+)\\.([\\w-]+)\\.([\\w-]+)\\.(\\S+)");
 
+	private static final Pattern TASK_MANAGER_AND_RMQ_CONSUMER_PATTERN = Pattern.compile(
+		"taskmanager\\.(\\S+)\\.(\\d+)\\.RocketMQConsumer\\.topic\\.(\\S+)\\.group\\.(\\w+)\\.(\\w+)\\.(\\w+)\\.(\\w+)\\.(\\S+)");
+
 	private static final Pattern KAFKA_CONSUMER_PATTERN = Pattern.compile("taskmanager\\." +
 			"(.+)\\.KafkaConsumer\\.(.+)\\.([^-]+)_(\\d+)");
 	private static final Pattern JOB_MANAGER_PATTERN = Pattern.compile(
@@ -462,6 +465,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 			if (!taskManagerMetricName.equals("")) {
 				Matcher taskAndKafkaMatcher = TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN.matcher(taskManagerMetricName);
+				Matcher taskAndRMQMatcher = TASK_MANAGER_AND_RMQ_CONSUMER_PATTERN.matcher(taskManagerMetricName);
 				if (taskAndKafkaMatcher.find()) {
 					String jobAndSource = taskAndKafkaMatcher.group(1);
 					String taskId = taskAndKafkaMatcher.group(2);
@@ -485,6 +489,23 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 					String metricName =
 						"taskmanager." + jobAndSource + ".KafkaConsumer." + quota;
+					metricName = metricName.replace("..", ".");
+					return new Tuple<>(metricName, TagKv.compositeTags(tags));
+				} else if (taskAndRMQMatcher.find()) {
+					String jobAndSource = taskAndRMQMatcher.group(1);
+					String taskId = taskAndRMQMatcher.group(2);
+					String topic = taskAndRMQMatcher.group(3);
+					String connectorType = taskAndRMQMatcher.group(6);
+					String flinkVersionAndQuota = taskAndRMQMatcher.group(8);
+					String[] flinkVersionAndQuotaArray = flinkVersionAndQuota.split("\\.");
+					String quota = flinkVersionAndQuotaArray[flinkVersionAndQuotaArray.length - 1];
+
+					tags.add(new TagKv("taskid", taskId));
+					tags.add(new TagKv("topic", topic));
+					tags.add(new TagKv(MetricsConstants.METRICS_CONNECTOR_TYPE, connectorType));
+
+					String metricName =
+						"taskmanager." + jobAndSource + ".RocketMQConsumer." + quota;
 					metricName = metricName.replace("..", ".");
 					return new Tuple<>(metricName, TagKv.compositeTags(tags));
 				} else {

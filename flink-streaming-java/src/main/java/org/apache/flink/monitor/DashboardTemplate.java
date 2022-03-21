@@ -83,6 +83,8 @@ public class DashboardTemplate {
 	public static final String KAFKA_ROW_TEMPLATE = "kafka/kafka_row_template.txt";
 	public static final String KAFKA_POLL_INTERVAL_TARGET_TEMPLATE = "kafka/kafka_poll_target_template.txt";
 	public static final String KAFKA_POLL_INTERVAL_TEMPLATE = "kafka/kafka_poll_template.txt";
+	public static final String KAFKA_CONSUME_RATE_TARGET_TEMPLATE = "kafka/kafka_consume_rate_target_template.txt";
+	public static final String KAFKA_CONSUME_RATE_TEMPLATE = "kafka/kafka_consume_rate_template.txt";
 
 	/**
 	 * Templates for network metrics.
@@ -106,6 +108,9 @@ public class DashboardTemplate {
 	public static final String ROCKETMQ_LAG_SIZE_TARGET_TEMPLATE = "rocketmq/rocketmq_lag_size_target_template.txt";
 	public static final String ROCKETMQ_LAG_SIZE_TEMPLATE = "rocketmq/rocketmq_lag_size_template.txt";
 	public static final String ROCKETMQ_LAG_LINK_TEMPLATE = "rocketmq/rocketmq_lag_link_template.txt";
+	public static final String ROCKETMQ_ROW_TEMPLATE = "rocketmq/rocketmq_row_template.txt";
+	public static final String ROCKETMQ_CONSUME_RATE_TARGET_TEMPLATE = "rocketmq/rocketmq_consume_rate_target_template.txt";
+	public static final String ROCKETMQ_CONSUME_RATE_TEMPLATE = "rocketmq/rocketmq_consume_rate_template.txt";
 
 	/**
 	 *  Templates for schedule related metrics.
