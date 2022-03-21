@@ -310,6 +310,8 @@ class StreamCommonSubGraphBasedOptimizer(planner: StreamPlanner)
       relNode: RelNode,
       modifyKindSet: ModifyKindSet,
       isUpdateBeforeRequired: Boolean): IntermediateRelTable = {
+    val fmq = FlinkRelMetadataQuery
+      .reuseOrCreate(planner.getRelBuilder.getCluster.getMetadataQuery)
     val uniqueKeys = getUniqueKeys(relNode)
     val monotonicity = FlinkRelMetadataQuery
       .reuseOrCreate(planner.getRelBuilder.getCluster.getMetadataQuery)
@@ -323,6 +325,7 @@ class StreamCommonSubGraphBasedOptimizer(planner: StreamPlanner)
       relNode,
       modifyKindSet,
       isUpdateBeforeRequired,
+      fmq.getUpsertKeys(relNode),
       statistic)
   }
 

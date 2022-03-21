@@ -27,7 +27,7 @@ import org.apache.flink.table.functions.{FunctionIdentifier, UserDefinedFunction
 import org.apache.flink.table.module.ModuleManager
 import org.apache.flink.table.operations.TableSourceQueryOperation
 import org.apache.flink.table.planner.calcite.FlinkRelBuilder.PlannerNamedWindowProperty
-import org.apache.flink.table.planner.calcite.{FlinkRelBuilder, FlinkTypeFactory}
+import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkRelBuilder, FlinkTypeFactory}
 import org.apache.flink.table.planner.delegation.PlannerContext
 import org.apache.flink.table.planner.expressions.{PlannerProctimeAttribute, PlannerRowtimeAttribute, PlannerWindowReference, PlannerWindowStart}
 import org.apache.flink.table.planner.functions.aggfunctions.SumAggFunction.DoubleSumAggFunction
@@ -42,7 +42,7 @@ import org.apache.flink.table.planner.plan.nodes.calcite._
 import org.apache.flink.table.planner.plan.nodes.logical._
 import org.apache.flink.table.planner.plan.nodes.physical.batch._
 import org.apache.flink.table.planner.plan.nodes.physical.stream._
-import org.apache.flink.table.planner.plan.schema.FlinkPreparingTableBase
+import org.apache.flink.table.planner.plan.schema.{FlinkPreparingTableBase, IntermediateRelTable}
 import org.apache.flink.table.planner.plan.stream.sql.join.TestTemporalTable
 import org.apache.flink.table.planner.plan.utils.AggregateUtil.transformToStreamAggregateInfoList
 import org.apache.flink.table.planner.plan.utils._
@@ -112,6 +112,48 @@ class FlinkRelMdHandlerTestBase {
   var flinkLogicalTraits: RelTraitSet = _
   var batchPhysicalTraits: RelTraitSet = _
   var streamPhysicalTraits: RelTraitSet = _
+
+//  protected lazy val (batchExchange, streamExchange) = createExchange(6)
+
+  protected lazy val (batchExchangeById, streamExchangeById) = createExchange(0)
+
+  protected lazy val intermediateTable = new IntermediateRelTable(
+    Seq(""), streamExchangeById, null, false, Set(ImmutableBitSet.of(0)))
+
+  protected lazy val intermediateScan = new FlinkLogicalIntermediateTableScan(
+    cluster, streamExchangeById.getTraitSet, intermediateTable)
+
+  protected def createExchange(hash: Int): (RelNode, RelNode) = {
+    val hash6 = FlinkRelDistribution.hash(Array(hash), requireStrict = true)
+    val batchExchange = new BatchExecExchange(
+      cluster,
+      batchPhysicalTraits.replace(hash6),
+      studentBatchScan,
+      hash6
+    )
+    val streamExchange = new StreamExecExchange(
+      cluster,
+      streamPhysicalTraits.replace(hash6),
+      studentStreamScan,
+      hash6
+    )
+    (batchExchange, streamExchange)
+  }
+
+  protected lazy val logicalWatermarkAssigner: RelNode = {
+    val scan = relBuilder.scan("TemporalTable2").build()
+    val flinkContext = cluster
+      .getPlanner
+      .getContext
+      .unwrap(classOf[FlinkContext])
+    val watermarkRexNode = flinkContext
+      .getSqlExprToRexConverterFactory
+      .create(scan.getTable.getRowType)
+      .convertToRexNode("rowtime - INTERVAL '10' SECOND")
+
+    relBuilder.push(scan)
+    relBuilder.watermark(4, watermarkRexNode).build()
+  }
 
   @Before
   def setUp(): Unit = {

@@ -28,6 +28,8 @@ import org.apache.calcite.rel.metadata.JaninoRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.util.ImmutableBitSet;
 
+import java.util.Set;
+
 /**
  * A RelMetadataQuery that defines extended metadata handler in Flink,
  * e.g ColumnInterval, ColumnNullCount.
@@ -43,6 +45,7 @@ public class FlinkRelMetadataQuery extends RelMetadataQuery {
 	private FlinkMetadata.UniqueGroups.Handler uniqueGroupsHandler;
 	private FlinkMetadata.FlinkDistribution.Handler distributionHandler;
 	private FlinkMetadata.ModifiedMonotonicity.Handler modifiedMonotonicityHandler;
+	private FlinkMetadata.UpsertKeys.Handler upsertKeysHandler;
 
 	/**
 	 * Returns an instance of FlinkRelMetadataQuery. It ensures that cycles do not
@@ -78,6 +81,7 @@ public class FlinkRelMetadataQuery extends RelMetadataQuery {
 		this.uniqueGroupsHandler = HANDLERS.uniqueGroupsHandler;
 		this.distributionHandler = HANDLERS.distributionHandler;
 		this.modifiedMonotonicityHandler = HANDLERS.modifiedMonotonicityHandler;
+		this.upsertKeysHandler = HANDLERS.upsertKeysHandler;
 	}
 
 	/** Extended handlers. */
@@ -96,6 +100,8 @@ public class FlinkRelMetadataQuery extends RelMetadataQuery {
 				initialHandler(FlinkMetadata.FlinkDistribution.Handler.class);
 		private FlinkMetadata.ModifiedMonotonicity.Handler modifiedMonotonicityHandler =
 				initialHandler(FlinkMetadata.ModifiedMonotonicity.Handler.class);
+		private FlinkMetadata.UpsertKeys.Handler upsertKeysHandler =
+			initialHandler(FlinkMetadata.UpsertKeys.Handler.class);
 	}
 
 	/**
@@ -235,6 +241,30 @@ public class FlinkRelMetadataQuery extends RelMetadataQuery {
 			} catch (JaninoRelMetadataProvider.NoHandler e) {
 				modifiedMonotonicityHandler =
 						revise(e.relClass, FlinkMetadata.ModifiedMonotonicity.DEF);
+			}
+		}
+	}
+
+	/**
+	 * Determines the set of upsert minimal keys for this expression. A key is represented as an
+	 * {@link org.apache.calcite.util.ImmutableBitSet}, where each bit position represents a 0-based
+	 * output column ordinal.
+	 *
+	 * <p>Different from the unique keys: In distributed streaming computing, one record may be
+	 * divided into RowKind.UPDATE_BEFORE and RowKind.UPDATE_AFTER. If a key changing join is
+	 * connected downstream, the two records will be divided into different tasks, resulting in
+	 * disorder. In this case, the downstream cannot rely on the order of the original key. So in
+	 * this case, it has unique keys in the traditional sense, but it doesn't have upsert keys.
+	 *
+	 * @return set of keys, or null if this information cannot be determined (whereas empty set
+	 *     indicates definitely no keys at all)
+	 */
+	public Set<ImmutableBitSet> getUpsertKeys(RelNode rel) {
+		for (; ; ) {
+			try {
+				return upsertKeysHandler.getUpsertKeys(rel, this);
+			} catch (JaninoRelMetadataProvider.NoHandler e) {
+				upsertKeysHandler = revise(e.relClass, FlinkMetadata.UpsertKeys.DEF);
 			}
 		}
 	}

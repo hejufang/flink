@@ -63,7 +63,8 @@ class CommonPhysicalSink (
     inputRel: RelNode,
     tableIdentifier: ObjectIdentifier,
     catalogTable: CatalogTable,
-    tableSink: DynamicTableSink)
+    tableSink: DynamicTableSink,
+    needMaterialize: Boolean = false)
   extends Sink(cluster, traitSet, inputRel, tableIdentifier, catalogTable, tableSink)
   with FlinkPhysicalRel {
 
@@ -93,12 +94,6 @@ class CommonPhysicalSink (
       .getFieldNames
       .toList.toArray
     val enforcer = new SinkNotNullEnforcer(notNullEnforcer, notNullFieldIndices, fieldNames)
-
-    val upsertMaterialize = tableConfig.getConfiguration.get(TABLE_EXEC_SINK_UPSERT_MATERIALIZE)
-    if (upsertMaterialize == UpsertMaterialize.AUTO) {
-      throw new TableException(String.format("'AUTO' is not supported for '%s' yet.",
-        TABLE_EXEC_SINK_UPSERT_MATERIALIZE.key()))
-    }
 
     runtimeProvider match {
       case provider: DataStreamSinkProvider =>
@@ -136,10 +131,7 @@ class CommonPhysicalSink (
         }
 
         val primaryKeyIndices = catalogTable.getSchema.getPrimaryKeyIndices
-        val newInputTransformation = if (upsertMaterialize == UpsertMaterialize.FORCE &&
-            changelogMode != null &&
-            !changelogMode.containsOnly(RowKind.INSERT) &&
-            primaryKeyIndices != null) {
+        val newInputTransformation = if (needMaterialize) {
           val keybyTransform = applyKeyBy(
             tableConfig,
             inputTransformation,

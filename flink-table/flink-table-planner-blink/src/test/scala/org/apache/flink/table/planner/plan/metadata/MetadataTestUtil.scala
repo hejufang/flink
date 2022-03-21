@@ -19,21 +19,26 @@
 package org.apache.flink.table.planner.plan.metadata
 
 import org.apache.flink.api.common.typeinfo.{BasicTypeInfo, SqlTimeTypeInfo}
-import org.apache.flink.table.api.TableSchema
+import org.apache.flink.table.api.{DataTypes, TableSchema}
+import org.apache.flink.table.catalog.{CatalogTable, ObjectIdentifier}
+import org.apache.flink.table.connector.source.DynamicTableSource
 import org.apache.flink.table.plan.stats.{ColumnStats, TableStats}
+import org.apache.flink.table.planner.JMap
 import org.apache.flink.table.planner.calcite.{FlinkTypeFactory, FlinkTypeSystem}
-import org.apache.flink.table.planner.plan.schema.FlinkPreparingTableBase
+import org.apache.flink.table.planner.plan.schema.{FlinkPreparingTableBase, TableSourceTable}
 import org.apache.flink.table.planner.plan.stats.FlinkStatistic
 import org.apache.flink.table.runtime.types.TypeInfoLogicalTypeConverter.fromTypeInfoToLogicalType
 import org.apache.flink.table.types.logical.{BigIntType, IntType, LogicalType, TimestampKind, TimestampType, VarCharType}
 
 import org.apache.calcite.config.CalciteConnectionConfig
 import org.apache.calcite.jdbc.CalciteSchema
+import org.apache.calcite.plan.RelOptSchema
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory}
 import org.apache.calcite.schema.Schema.TableType
 import org.apache.calcite.schema.{Schema, SchemaPlus, Table}
 import org.apache.calcite.sql.{SqlCall, SqlNode}
 
+import java.util
 import java.util.Collections
 
 import scala.collection.JavaConversions._
@@ -52,7 +57,38 @@ object MetadataTestUtil {
     rootSchema.add("TemporalTable1", createTemporalTable1())
     rootSchema.add("TemporalTable2", createTemporalTable2())
     rootSchema.add("TemporalTable3", createTemporalTable3())
+    rootSchema.add("projected_table_source_table", createProjectedTableSourceTable())
     rootSchema
+  }
+
+  private def createProjectedTableSourceTable(): Table = {
+    val schema = TableSchema.builder()
+      .field("a", DataTypes.BIGINT().notNull())
+      .field("b", DataTypes.INT())
+      .field("c", DataTypes.VARCHAR(2147483647))
+      .field("d", DataTypes.BIGINT().notNull())
+      .primaryKey("a", "d")
+      .build()
+
+    val key = new util.HashSet[String]()
+    key.add("a")
+    key.add("d")
+    val keys = new util.HashSet[util.HashSet[String]]()
+    keys.add(key)
+    val statistic = FlinkStatistic.builder().uniqueKeys(keys).build()
+
+    val metaTable = getMetadataTable(schema, statistic)
+    new MockTableSourceTable(
+      null,
+      ObjectIdentifier.of("default_catalog", "default_database",
+        "projected_table_source_table"),
+      metaTable.getRowType(new FlinkTypeFactory(new FlinkTypeSystem)),
+      statistic,
+      null,
+      true,
+      null,
+      Collections.emptyMap()
+    )
   }
 
   private def createStudentTable(): Table = {
@@ -259,6 +295,37 @@ class MockMetaTable(rowType: RelDataType, statistic: FlinkStatistic)
   extends FlinkPreparingTableBase(null, rowType,
     Collections.singletonList("MockMetaTable"), statistic)
   with Table {
+  override def getRowType(typeFactory: RelDataTypeFactory): RelDataType = rowType
+
+  override def getJdbcTableType: Schema.TableType = TableType.TABLE
+
+  override def isRolledUp(column: String): Boolean = false
+
+  override def rolledUpColumnValidInsideAgg(column: String,
+    call: SqlCall, parent: SqlNode, config: CalciteConnectionConfig): Boolean = false
+}
+
+class MockTableSourceTable(
+    relOptSchema: RelOptSchema,
+    tableIdentifier: ObjectIdentifier,
+    rowType: RelDataType,
+    statistic: FlinkStatistic,
+    tableSource: DynamicTableSource,
+    isStreamingMode: Boolean,
+    catalogTable: CatalogTable,
+    dynamicOptions: JMap[String, String],
+    extraDigests: Array[String] = Array.empty)
+  extends TableSourceTable(
+    relOptSchema,
+    tableIdentifier,
+    rowType,
+    statistic,
+    tableSource,
+    isStreamingMode,
+    catalogTable,
+    dynamicOptions,
+    extraDigests)
+    with Table {
   override def getRowType(typeFactory: RelDataTypeFactory): RelDataType = rowType
 
   override def getJdbcTableType: Schema.TableType = TableType.TABLE

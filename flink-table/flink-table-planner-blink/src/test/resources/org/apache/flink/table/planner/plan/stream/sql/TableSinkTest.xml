@@ -307,4 +307,129 @@ SinkTransformation{name='Sink(table=[default_catalog.default_database.SinkRankCh
 ]]>
 		</Resource>
 	</TestCase>
+	<TestCase name="testSinkDisorderChangeLogWithJoinAndAutoInferUpsert">
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalSink(table=[default_catalog.default_database.SinkJoinChangeLog], fields=[person, votes, prize])
++- LogicalProject(person=[$0], sum_votes=[$1], prize=[$3])
+   +- LogicalFilter(condition=[=($1, $2)])
+      +- LogicalJoin(condition=[true], joinType=[inner])
+         :- LogicalAggregate(group=[{0}], sum_votes=[SUM($1)])
+         :  +- LogicalTableScan(table=[[default_catalog, default_database, src]])
+         +- LogicalTableScan(table=[[default_catalog, default_database, award]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+Sink(table=[default_catalog.default_database.SinkJoinChangeLog], fields=[person, votes, prize])
++- Calc(select=[person, sum_votes, prize])
+   +- Join(joinType=[InnerJoin], where=[=(sum_votes, votes)], select=[person, sum_votes, votes, prize], leftInputSpec=[HasUniqueKey], rightInputSpec=[JoinKeyContainsUniqueKey])
+      :- Exchange(distribution=[hash[sum_votes]])
+      :  +- GroupAggregate(groupBy=[person], select=[person, SUM(votes) AS sum_votes])
+      :     +- Exchange(distribution=[hash[person]])
+      :        +- TableSourceScan(table=[[default_catalog, default_database, src]], fields=[person, votes])
+      +- Exchange(distribution=[hash[votes]])
+         +- TableSourceScan(table=[[default_catalog, default_database, award]], fields=[votes, prize])
+
+SinkTransformation{name='Sink(table=[default_catalog.default_database.SinkJoinChangeLog], fields=[person, votes, prize])', outputType=GenericType<java.lang.Object>, parallelism=-1}
+	OneInputTransformation{name='SinkMaterializer(pk=[person]', outputType=RowData(person: STRING, sum_votes: BIGINT, prize: DOUBLE), parallelism=-1}
+		PartitionTransformation{name='Partition', outputType=RowData(person: STRING, sum_votes: BIGINT, prize: DOUBLE), parallelism=-1}
+			OneInputTransformation{name='Calc(select=[person, sum_votes, prize])', outputType=RowData(person: STRING, sum_votes: BIGINT, prize: DOUBLE), parallelism=-1}
+				TwoInputTransformation{name='Join(joinType=[InnerJoin], where=[(sum_votes = votes)], select=[person, sum_votes, votes, prize], leftInputSpec=[HasUniqueKey], rightInputSpec=[JoinKeyContainsUniqueKey])', outputType=RowData(person: STRING, sum_votes: BIGINT, votes: BIGINT NOT NULL, prize: DOUBLE), parallelism=-1}
+					PartitionTransformation{name='Partition', outputType=RowData(person: STRING, sum_votes: BIGINT), parallelism=-1}
+						OneInputTransformation{name='GroupAggregate(groupBy=[person], select=[person, SUM(votes) AS sum_votes])', outputType=RowData(person: STRING, sum_votes: BIGINT), parallelism=-1}
+							PartitionTransformation{name='Partition', outputType=RowData(person: STRING, votes: BIGINT), parallelism=-1}
+								FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(person: STRING, votes: BIGINT), parallelism=-1}
+									LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, src]], fields=[person, votes])', outputType=RowData(person: STRING, votes: BIGINT), parallelism=1}
+					PartitionTransformation{name='Partition', outputType=RowData(votes: BIGINT NOT NULL, prize: DOUBLE), parallelism=-1}
+						FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(votes: BIGINT NOT NULL, prize: DOUBLE), parallelism=-1}
+							LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, award]], fields=[votes, prize])', outputType=RowData(votes: BIGINT NOT NULL, prize: DOUBLE), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testSinkDisorderChangeLogWithRankAndAutoInferUpsert">
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalSink(table=[default_catalog.default_database.SinkRankChangeLog], fields=[person, votes])
++- LogicalProject(person=[$0], sum_votes=[$1])
+   +- LogicalFilter(condition=[<($2, 10)])
+      +- LogicalProject(person=[$0], sum_votes=[$1], rank_number=[ROW_NUMBER() OVER (PARTITION BY /($1, 2) ORDER BY $1 DESC NULLS LAST ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)])
+         +- LogicalAggregate(group=[{0}], sum_votes=[SUM($1)])
+            +- LogicalTableScan(table=[[default_catalog, default_database, src]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+Sink(table=[default_catalog.default_database.SinkRankChangeLog], fields=[person, votes])
++- Calc(select=[person, sum_votes])
+   +- Rank(strategy=[RetractStrategy], rankType=[ROW_NUMBER], rankRange=[rankStart=1, rankEnd=9], partitionBy=[$2], orderBy=[sum_votes DESC], select=[person, sum_votes, $2])
+      +- Exchange(distribution=[hash[$2]])
+         +- Calc(select=[person, sum_votes, /(sum_votes, 2) AS $2])
+            +- GroupAggregate(groupBy=[person], select=[person, SUM(votes) AS sum_votes])
+               +- Exchange(distribution=[hash[person]])
+                  +- TableSourceScan(table=[[default_catalog, default_database, src]], fields=[person, votes])
+
+SinkTransformation{name='Sink(table=[default_catalog.default_database.SinkRankChangeLog], fields=[person, votes])', outputType=GenericType<java.lang.Object>, parallelism=-1}
+	OneInputTransformation{name='SinkMaterializer(pk=[person]', outputType=RowData(person: STRING, sum_votes: BIGINT), parallelism=-1}
+		PartitionTransformation{name='Partition', outputType=RowData(person: STRING, sum_votes: BIGINT), parallelism=-1}
+			OneInputTransformation{name='Calc(select=[person, sum_votes])', outputType=RowData(person: STRING, sum_votes: BIGINT), parallelism=-1}
+				OneInputTransformation{name='Rank(strategy=[RetractStrategy], rankType=[ROW_NUMBER], rankRange=[rankStart=1, rankEnd=9], partitionBy=[$2], orderBy=[sum_votes DESC], select=[person, sum_votes, $2], function=[RetractableTopNFunction])', outputType=RowData(person: STRING, sum_votes: BIGINT, $2: BIGINT), parallelism=-1}
+					PartitionTransformation{name='Partition', outputType=RowData(person: STRING, sum_votes: BIGINT, $2: BIGINT), parallelism=-1}
+						OneInputTransformation{name='Calc(select=[person, sum_votes, (sum_votes / 2) AS $2])', outputType=RowData(person: STRING, sum_votes: BIGINT, $2: BIGINT), parallelism=-1}
+							OneInputTransformation{name='GroupAggregate(groupBy=[person], select=[person, SUM(votes) AS sum_votes])', outputType=RowData(person: STRING, sum_votes: BIGINT), parallelism=-1}
+								PartitionTransformation{name='Partition', outputType=RowData(person: STRING, votes: BIGINT), parallelism=-1}
+									FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(person: STRING, votes: BIGINT), parallelism=-1}
+										LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, src]], fields=[person, votes])', outputType=RowData(person: STRING, votes: BIGINT), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testUpsertKeyEqualsPrimaryKeyAndAutoInferUpsert">
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalSink(table=[default_catalog.default_database.SinkSumChangeLog], fields=[person, votes])
++- LogicalAggregate(group=[{0}], EXPR$1=[SUM($1)])
+   +- LogicalTableScan(table=[[default_catalog, default_database, src]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+Sink(table=[default_catalog.default_database.SinkSumChangeLog], fields=[person, votes])
++- GroupAggregate(groupBy=[person], select=[person, SUM(votes) AS EXPR$1])
+   +- Exchange(distribution=[hash[person]])
+      +- TableSourceScan(table=[[default_catalog, default_database, src]], fields=[person, votes])
+
+SinkTransformation{name='Sink(table=[default_catalog.default_database.SinkSumChangeLog], fields=[person, votes])', outputType=GenericType<java.lang.Object>, parallelism=-1}
+	OneInputTransformation{name='GroupAggregate(groupBy=[person], select=[person, SUM(votes) AS EXPR$1])', outputType=RowData(person: STRING, EXPR$1: BIGINT), parallelism=-1}
+		PartitionTransformation{name='Partition', outputType=RowData(person: STRING, votes: BIGINT), parallelism=-1}
+			FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(person: STRING, votes: BIGINT), parallelism=-1}
+				LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, src]], fields=[person, votes])', outputType=RowData(person: STRING, votes: BIGINT), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testUpsertKeyInPrimaryKeyAndAutoInferUpsert">
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalSink(table=[default_catalog.default_database.SinkSumChangeLog], fields=[person, idx, votes])
++- LogicalProject(person=[$0], idx=[$0], EXPR$2=[$1])
+   +- LogicalAggregate(group=[{0}], EXPR$2=[SUM($1)])
+      +- LogicalTableScan(table=[[default_catalog, default_database, src]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+Sink(table=[default_catalog.default_database.SinkSumChangeLog], fields=[person, idx, votes])
++- Calc(select=[person, person AS idx, EXPR$2])
+   +- GroupAggregate(groupBy=[person], select=[person, SUM(votes) AS EXPR$2])
+      +- Exchange(distribution=[hash[person]])
+         +- TableSourceScan(table=[[default_catalog, default_database, src]], fields=[person, votes])
+
+SinkTransformation{name='Sink(table=[default_catalog.default_database.SinkSumChangeLog], fields=[person, idx, votes])', outputType=GenericType<java.lang.Object>, parallelism=-1}
+	OneInputTransformation{name='Calc(select=[person, person AS idx, EXPR$2])', outputType=RowData(person: STRING, idx: STRING, EXPR$2: BIGINT), parallelism=-1}
+		OneInputTransformation{name='GroupAggregate(groupBy=[person], select=[person, SUM(votes) AS EXPR$2])', outputType=RowData(person: STRING, EXPR$2: BIGINT), parallelism=-1}
+			PartitionTransformation{name='Partition', outputType=RowData(person: STRING, votes: BIGINT), parallelism=-1}
+				FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(person: STRING, votes: BIGINT), parallelism=-1}
+					LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, src]], fields=[person, votes])', outputType=RowData(person: STRING, votes: BIGINT), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
 </Root>

@@ -36,10 +36,10 @@ class StreamExecGroupWindowAggregate(
     inputRel: RelNode,
     outputRowType: RelDataType,
     inputRowType: RelDataType,
-    grouping: Array[Int],
+    val grouping: Array[Int],
     aggCalls: Seq[AggregateCall],
     window: LogicalWindow,
-    namedProperties: Seq[PlannerNamedWindowProperty],
+    val namedProperties: Seq[PlannerNamedWindowProperty],
     inputTimeFieldIndex: Int,
     emitStrategy: WindowEmitStrategy)
   extends StreamExecGroupWindowAggregateBase(

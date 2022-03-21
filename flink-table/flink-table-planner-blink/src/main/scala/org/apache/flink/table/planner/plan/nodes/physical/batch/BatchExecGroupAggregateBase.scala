@@ -52,7 +52,7 @@ abstract class BatchExecGroupAggregateBase(
     inputRel: RelNode,
     outputRowType: RelDataType,
     inputRowType: RelDataType,
-    grouping: Array[Int],
+    val grouping: Array[Int],
     auxGrouping: Array[Int],
     aggCallToAggFunction: Seq[(AggregateCall, UserDefinedFunction)],
     val isMerge: Boolean,

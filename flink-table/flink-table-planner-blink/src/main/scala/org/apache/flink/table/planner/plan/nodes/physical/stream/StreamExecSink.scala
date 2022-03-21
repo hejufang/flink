@@ -47,15 +47,23 @@ class StreamExecSink(
     inputRel: RelNode,
     tableIdentifier: ObjectIdentifier,
     catalogTable: CatalogTable,
-    tableSink: DynamicTableSink)
-  extends CommonPhysicalSink(cluster, traitSet, inputRel, tableIdentifier, catalogTable, tableSink)
+    tableSink: DynamicTableSink,
+    needMaterialize: Boolean = false)
+  extends CommonPhysicalSink(
+    cluster, traitSet, inputRel, tableIdentifier, catalogTable, tableSink, needMaterialize)
   with StreamPhysicalRel
   with StreamExecNode[Any] {
 
   override def requireWatermark: Boolean = false
 
   override def copy(traitSet: RelTraitSet, inputs: util.List[RelNode]): RelNode = {
-    new StreamExecSink(cluster, traitSet, inputs.get(0), tableIdentifier, catalogTable, tableSink)
+    new StreamExecSink(
+      cluster, traitSet, inputs.get(0), tableIdentifier, catalogTable, tableSink, needMaterialize)
+  }
+
+  def copy(newNeedMaterialize: Boolean): StreamExecSink = {
+    new StreamExecSink(
+      cluster, traitSet, inputRel, tableIdentifier, catalogTable, tableSink, newNeedMaterialize)
   }
 
   //~ ExecNode methods -----------------------------------------------------------

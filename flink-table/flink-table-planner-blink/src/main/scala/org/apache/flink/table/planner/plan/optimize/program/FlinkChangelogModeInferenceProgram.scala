@@ -20,10 +20,12 @@ package org.apache.flink.table.planner.plan.optimize.program
 
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.api.config.{ExecutionConfigOptions, TableConfigOptions}
+import org.apache.flink.table.api.config.ExecutionConfigOptions.UpsertMaterialize
 import org.apache.flink.table.connector.ChangelogMode
 import org.apache.flink.table.planner.calcite.FlinkContext
 import org.apache.flink.table.planner.plan.`trait`.UpdateKindTrait.{BEFORE_AND_AFTER, ONLY_UPDATE_AFTER, beforeAfterOrNone, onlyAfterOrNone}
 import org.apache.flink.table.planner.plan.`trait`._
+import org.apache.flink.table.planner.plan.metadata.FlinkRelMetadataQuery
 import org.apache.flink.table.planner.plan.nodes.physical.stream._
 import org.apache.flink.table.planner.plan.utils._
 import org.apache.flink.table.planner.sinks.DataStreamTableSink
@@ -410,16 +412,30 @@ class FlinkChangelogModeInferenceProgram extends FlinkOptimizeProgram[StreamOpti
         var sinkTrait = UpdateKindTrait.fromChangelogMode(
           sink.tableSink.getChangelogMode(childModifyKindSet.toChangelogMode))
 
-        // sink upsert materializing needs update_before
+        val fmq = FlinkRelMetadataQuery.reuseOrCreate(sink.getCluster.getMetadataQuery)
         val primaryKeyIndices = sink.catalogTable.getSchema.getPrimaryKeyIndices
         val childInsertOnly = childModifyKindSet.isInsertOnly
         val config = rel.getCluster.getPlanner.getContext.
           asInstanceOf[FlinkContext].getTableConfig
-        val upsertMaterialize = config.getConfiguration
-          .get(ExecutionConfigOptions.TABLE_EXEC_SINK_UPSERT_MATERIALIZE)
-        if (primaryKeyIndices != null &&
-            !childInsertOnly &&
-            upsertMaterialize == ExecutionConfigOptions.UpsertMaterialize.FORCE) {
+
+        val needMaterialize = config.getConfiguration.get(
+            ExecutionConfigOptions.TABLE_EXEC_SINK_UPSERT_MATERIALIZE) match {
+          case UpsertMaterialize.FORCE =>
+            primaryKeyIndices != null && primaryKeyIndices.nonEmpty && !childInsertOnly
+          case UpsertMaterialize.NONE => false
+          case UpsertMaterialize.AUTO =>
+            val upsertKeys = fmq.getUpsertKeys(rel.getInput(0))
+            if (upsertKeys == null ||
+                (primaryKeyIndices != null &&
+                !upsertKeys.exists(ImmutableBitSet.of(primaryKeyIndices: _*).contains))) {
+              !childInsertOnly
+            } else {
+              false
+            }
+        }
+
+        // sink upsert materializing needs update_before
+        if (needMaterialize) {
           if (sinkTrait.updateKind == UpdateKind.ONLY_UPDATE_AFTER) {
             sinkTrait = UpdateKindTrait.BEFORE_AND_AFTER
           }
@@ -432,7 +448,7 @@ class FlinkChangelogModeInferenceProgram extends FlinkOptimizeProgram[StreamOpti
         } else {
           Seq(UpdateKindTrait.NONE)
         }
-        visitSink(sink, sinkRequiredTraits)
+        visitSink(sink.copy(needMaterialize), sinkRequiredTraits)
 
       case sink: StreamExecLegacySink[_] =>
         val childModifyKindSet = getModifyKindSet(sink.getInput)

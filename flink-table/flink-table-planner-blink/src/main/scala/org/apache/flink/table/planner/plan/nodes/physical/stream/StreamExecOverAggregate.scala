@@ -60,7 +60,7 @@ class StreamExecOverAggregate(
     inputRel: RelNode,
     outputRowType: RelDataType,
     inputRowType: RelDataType,
-    logicWindow: Window)
+    val logicWindow: Window)
   extends SingleRel(cluster, traitSet, inputRel)
   with StreamPhysicalRel
   with StreamExecNode[RowData] {

@@ -35,11 +35,11 @@ abstract class BatchExecWindowAggregateBase(
     inputRel: RelNode,
     outputRowType: RelDataType,
     inputRowType: RelDataType,
-    grouping: Array[Int],
+    val grouping: Array[Int],
     auxGrouping: Array[Int],
     aggCallToAggFunction: Seq[(AggregateCall, UserDefinedFunction)],
     window: LogicalWindow,
-    namedProperties: Seq[PlannerNamedWindowProperty],
+    val namedProperties: Seq[PlannerNamedWindowProperty],
     enableAssignPane: Boolean = true,
     val isMerge: Boolean,
     val isFinal: Boolean)

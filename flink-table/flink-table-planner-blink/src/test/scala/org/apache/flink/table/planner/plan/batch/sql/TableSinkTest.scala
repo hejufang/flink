@@ -126,4 +126,104 @@ class TableSinkTest extends TableTestBase {
         |   WHERE T.sum_votes = award.votes
         |""".stripMargin)
   }
+
+  @Test
+  def testSinkDisorderChangeLogWithJoinAndAutoInferUpsert(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_SINK_UPSERT_MATERIALIZE.key(), "AUTO")
+    util.tableEnv.executeSql(
+      """
+        |CREATE TABLE SinkJoinChangeLog (
+        |  person STRING, votes BIGINT, prize DOUBLE,
+        |  PRIMARY KEY(person) NOT ENFORCED) WITH(
+        |  'connector' = 'values',
+        |  'sink-insert-only' = 'false'
+        |)
+        |""".stripMargin)
+
+    util.verifyTransformationInsert(
+      """
+        |INSERT INTO SinkJoinChangeLog
+        |SELECT T.person, T.sum_votes, award.prize FROM
+        |   (SELECT person, SUM(votes) AS sum_votes FROM src GROUP BY person) T, award
+        |   WHERE T.sum_votes = award.votes
+        |""".stripMargin)
+  }
+
+  @Test
+  def testSinkDisorderChangeLogWithRankAndAutoInferUpsert(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_SINK_UPSERT_MATERIALIZE.key(), "AUTO")
+    util.tableEnv.executeSql(
+      """
+        |CREATE TABLE SinkRankChangeLog (
+        |  person STRING, votes BIGINT,
+        |  PRIMARY KEY(person) NOT ENFORCED) WITH(
+        |  'connector' = 'values',
+        |  'sink-insert-only' = 'false'
+        |)
+        |""".stripMargin)
+
+    util.verifyTransformationInsert(
+      """
+        |INSERT INTO SinkRankChangeLog
+        |SELECT person, sum_votes FROM
+        | (SELECT person, sum_votes,
+        |   ROW_NUMBER() OVER (PARTITION BY vote_section ORDER BY sum_votes DESC) AS rank_number
+        |   FROM (SELECT person, SUM(votes) AS sum_votes, SUM(votes) / 2 AS vote_section FROM src
+        |      GROUP BY person))
+        |   WHERE rank_number < 10
+        |""".stripMargin)
+  }
+
+  @Test
+  def testUpsertKeyEqualsPrimaryKeyAndAutoInferUpsert(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_SINK_UPSERT_MATERIALIZE.key(), "AUTO")
+    util.tableEnv.executeSql(
+      """
+        |CREATE TABLE SinkSumChangeLog (
+        |  person STRING, votes BIGINT,
+        |  PRIMARY KEY(person) NOT ENFORCED) WITH(
+        |  'connector' = 'values',
+        |  'sink-insert-only' = 'false'
+        |)
+        |""".stripMargin)
+
+    util.verifyTransformationInsert(
+      """
+        |INSERT INTO SinkSumChangeLog
+        |SELECT
+        |  person,
+        |  SUM(votes)
+        |FROM src
+        |GROUP BY person
+        |""".stripMargin)
+  }
+
+  @Test
+  def testUpsertKeyInPrimaryKeyAndAutoInferUpsert(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_SINK_UPSERT_MATERIALIZE.key(), "AUTO")
+    util.tableEnv.executeSql(
+      """
+        |CREATE TABLE SinkSumChangeLog (
+        |  person STRING, idx STRING, votes BIGINT,
+        |  PRIMARY KEY(person, idx) NOT ENFORCED) WITH(
+        |  'connector' = 'values',
+        |  'sink-insert-only' = 'false'
+        |)
+        |""".stripMargin)
+
+    util.verifyTransformationInsert(
+      """
+        |INSERT INTO SinkSumChangeLog
+        |SELECT
+        |  person as person,
+        |  person AS idx,
+        |  SUM(votes)
+        |FROM src
+        |GROUP BY person
+        |""".stripMargin)
+  }
 }
