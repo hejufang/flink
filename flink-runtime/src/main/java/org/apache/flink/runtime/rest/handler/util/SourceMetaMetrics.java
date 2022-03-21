@@ -90,6 +90,9 @@ public class SourceMetaMetrics {
 	public static class ConsumerMetaInfo {
 
 		public static final ConsumerMetaInfo EMPTY_INSTANCE = new ConsumerMetaInfo("", "");
+		public static final String SOURCE_TYPE_KAFKA = "kafka";
+		public static final String SOURCE_TYPE_ROCKETMQ = "rocketmq";
+		public static final String SOURCE_TYPE_UNKNOWN = "unknown";
 
 		private String cluster;
 		private String consumerGroup;
@@ -145,6 +148,16 @@ public class SourceMetaMetrics {
 				return topicAndQueues.keySet();
 			} else {
 				return Collections.emptySet();
+			}
+		}
+
+		public String getSourceType() {
+			if (topicAndPartitions != null) {
+				return SOURCE_TYPE_KAFKA;
+			} else if (topicAndQueues != null) {
+				return SOURCE_TYPE_ROCKETMQ;
+			} else {
+				return SOURCE_TYPE_UNKNOWN;
 			}
 		}
 

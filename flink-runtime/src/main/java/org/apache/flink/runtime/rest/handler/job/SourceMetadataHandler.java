@@ -84,6 +84,7 @@ public class SourceMetadataHandler extends AbstractRestHandler<RestfulGateway, E
 
 			// Merge all consumerMetaInfos
 			final Map<String, SourceMetaMetricsInfo> m = new HashMap<>();
+			final Map<String, SourceMetaMetricsInfo> rmqMeta = new HashMap<>();
 			for (SourceMetaMetrics.ConsumerMetaInfo info : list) {
 				if (info.equals(SourceMetaMetrics.ConsumerMetaInfo.EMPTY_INSTANCE)) {
 					continue;
@@ -92,17 +93,32 @@ public class SourceMetadataHandler extends AbstractRestHandler<RestfulGateway, E
 				final String group = info.getConsumerGroup();
 				final Set<String> topics = info.getTopics();
 				final String key = String.join("-", cluster, group);
-				if (!m.containsKey(key)) {
-					m.put(key, new SourceMetaMetricsInfo(cluster, group, new ArrayList<>()));
-				}
-				for (String topic : topics) {
-					if (!m.get(key).getTopics().contains(topic)) {
-						m.get(key).getTopics().add(topic);
+				final String sourceType = info.getSourceType();
+				if (sourceType.equals(SourceMetaMetrics.ConsumerMetaInfo.SOURCE_TYPE_KAFKA)) {
+					if (!m.containsKey(key)) {
+						m.put(key, new SourceMetaMetricsInfo(cluster, group, new ArrayList<>()));
 					}
+					for (String topic : topics) {
+						if (!m.get(key).getTopics().contains(topic)) {
+							m.get(key).getTopics().add(topic);
+						}
+					}
+				} else if (sourceType.equals(SourceMetaMetrics.ConsumerMetaInfo.SOURCE_TYPE_ROCKETMQ)){
+					if (!rmqMeta.containsKey(key)) {
+						rmqMeta.put(key, new SourceMetaMetricsInfo(cluster, group, new ArrayList<>()));
+					}
+					for (String topic : topics) {
+						if (!rmqMeta.get(key).getTopics().contains(topic)) {
+							rmqMeta.get(key).getTopics().add(topic);
+						}
+					}
+				} else {
+					log.warn("Ignore unsupported ConsumerMetaInfo {}", info);
 				}
 			}
 
-			return CompletableFuture.completedFuture(new JobSourceMetaMetricsInfo(new ArrayList<>(m.values())));
+			return CompletableFuture.completedFuture(
+				new JobSourceMetaMetricsInfo(new ArrayList<>(m.values()), new ArrayList<>(rmqMeta.values())));
 		} else {
 			return CompletableFuture.completedFuture(null);
 		}
