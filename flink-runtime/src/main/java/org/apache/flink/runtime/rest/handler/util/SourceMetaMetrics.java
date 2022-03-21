@@ -31,9 +31,12 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Source meta metrics.
@@ -87,10 +90,14 @@ public class SourceMetaMetrics {
 	public static class ConsumerMetaInfo {
 
 		public static final ConsumerMetaInfo EMPTY_INSTANCE = new ConsumerMetaInfo("", "");
+		public static final String SOURCE_TYPE_KAFKA = "kafka";
+		public static final String SOURCE_TYPE_ROCKETMQ = "rocketmq";
+		public static final String SOURCE_TYPE_UNKNOWN = "unknown";
 
 		private String cluster;
 		private String consumerGroup;
 		private Map<String, List<Integer>> topicAndPartitions;
+		private Map<String, List<String>> topicAndQueues;
 
 		// used for jackson's ObjectMapper
 		public ConsumerMetaInfo() {}
@@ -99,6 +106,7 @@ public class SourceMetaMetrics {
 			this.cluster = cluster;
 			this.consumerGroup = consumerGroup;
 			this.topicAndPartitions = new HashMap<>();
+			this.topicAndQueues = new HashMap<>();
 		}
 
 		public void setCluster(String cluster) {
@@ -113,6 +121,10 @@ public class SourceMetaMetrics {
 			this.topicAndPartitions = topicAndPartitions;
 		}
 
+		public void setTopicAndQueues(Map<String, List<String>> topicAndQueues) {
+			this.topicAndQueues = topicAndQueues;
+		}
+
 		public String getCluster() {
 			return cluster;
 		}
@@ -125,11 +137,60 @@ public class SourceMetaMetrics {
 			return topicAndPartitions;
 		}
 
+		public Map<String, List<String>> getTopicAndQueues() {
+			return topicAndQueues;
+		}
+
+		public Set<String> getTopics() {
+			if (topicAndPartitions != null) {
+				return topicAndPartitions.keySet();
+			} else if (topicAndQueues != null) {
+				return topicAndQueues.keySet();
+			} else {
+				return Collections.emptySet();
+			}
+		}
+
+		public String getSourceType() {
+			if (topicAndPartitions != null) {
+				return SOURCE_TYPE_KAFKA;
+			} else if (topicAndQueues != null) {
+				return SOURCE_TYPE_ROCKETMQ;
+			} else {
+				return SOURCE_TYPE_UNKNOWN;
+			}
+		}
+
 		public String calculatePartitions() {
 			final List<String> partitions = new ArrayList<>();
-			for (List<Integer> list : topicAndPartitions.values()) {
-				for (int element : list) {
-					partitions.add(String.valueOf(element));
+			if (topicAndPartitions != null) {
+				for (List<Integer> list : topicAndPartitions.values()) {
+					for (int element : list) {
+						partitions.add(String.valueOf(element));
+					}
+				}
+			} else if (topicAndQueues != null) {
+				for (Map.Entry<String, List<String>> entry: topicAndQueues.entrySet()) {
+					Map<String, List<Integer>> brokerQueueIdMap = new HashMap<>();
+					for (String brokerQueueIdPair: entry.getValue()) {
+						String broker = brokerQueueIdPair.split(":")[0];
+						Integer queueId = Integer.parseInt(brokerQueueIdPair.split(":")[1]);
+						brokerQueueIdMap.putIfAbsent(broker, new ArrayList<>());
+						brokerQueueIdMap.get(broker).add(queueId);
+					}
+
+					StringBuilder sb = new StringBuilder("{");
+					sb.append(String.format("topic: %s", entry.getKey()));
+					for (Map.Entry<String, List<Integer>> entry1: brokerQueueIdMap.entrySet()) {
+						String broker = entry1.getKey();
+						String queueList = entry1.getValue()
+							.stream()
+							.map(Object::toString)
+							.collect(Collectors.joining(","));
+						sb.append(String.format(", [broker: %s, queues: %s]", broker, queueList));
+					}
+					sb.append("}");
+					partitions.add(sb.toString());
 				}
 			}
 

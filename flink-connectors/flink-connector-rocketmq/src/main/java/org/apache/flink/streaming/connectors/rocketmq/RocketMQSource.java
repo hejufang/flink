@@ -106,6 +106,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private static final String OFFSETS_STATE_NAME = "topic-partition-offset-states";
 	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
 	private static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
+	private static final String CONSUMER_TOPIC_QUEUES = "sourceTopicPartitions";
 	private transient Counter skipDirty;
 	private transient MeterView recordsNumMeterView;
 	private transient MQPullConsumerScheduleService pullConsumerScheduleService;
@@ -148,6 +149,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private transient int parallelism;
 	private transient int retryTimes;
 	private transient int subTaskId;
+	private transient TopicAndQueuesGauge topicAndQueuesGauge;
 	/**
 	 * Errors encountered in the async consumer are stored here.
 	 */
@@ -201,6 +203,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 		this.skipDirty = metricGroup.counter("skipDirty");
 		this.recordsNumMeterView = metricGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
+		this.topicAndQueuesGauge = metricGroup.gauge(CONSUMER_TOPIC_QUEUES, new TopicAndQueuesGauge(cluster, group));
 	}
 
 	@Override
@@ -220,6 +223,13 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 		int pullBatchSize = getInteger(props, RocketMQConfig.CONSUMER_BATCH_SIZE,
 			RocketMQConfig.CONSUMER_BATCH_SIZE_DEFAULT);
+
+		// only assign queue at the beginning in 1.9
+		for (MessageQueue messageQueue: assignMessageQueues) {
+			topicAndQueuesGauge.addTopicAndQueue(
+				topic,
+				String.format("%s:%d", messageQueue.getBrokerName(), messageQueue.getQueueId()));
+		}
 
 		pullConsumerScheduleService.setPullThreadNums(pullPoolSize);
 		pullConsumerScheduleService.registerPullTaskCallback(topic, new PullTaskCallback() {

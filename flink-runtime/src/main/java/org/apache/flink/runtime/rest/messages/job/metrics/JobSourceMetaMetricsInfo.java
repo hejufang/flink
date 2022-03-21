@@ -32,17 +32,28 @@ import java.util.Objects;
 public class JobSourceMetaMetricsInfo implements ResponseBody {
 
 	private static final String FIELD_NAME_METAS = "metas";
+	private static final String FIELD_NAME_RMQ_METAS = "rmqMetas";
 
 	@JsonProperty(FIELD_NAME_METAS)
 	private final List<SourceMetaMetricsInfo> metas;
 
+	@JsonProperty(FIELD_NAME_RMQ_METAS)
+	private final List<SourceMetaMetricsInfo> rmqMetas;
+
 	@JsonCreator
-	public JobSourceMetaMetricsInfo(@JsonProperty(FIELD_NAME_METAS) List<SourceMetaMetricsInfo> metas) {
+	public JobSourceMetaMetricsInfo(
+		@JsonProperty(FIELD_NAME_METAS) List<SourceMetaMetricsInfo> metas,
+		@JsonProperty(FIELD_NAME_RMQ_METAS) List<SourceMetaMetricsInfo> rmqMetas) {
 		this.metas = metas;
+		this.rmqMetas = rmqMetas;
 	}
 
 	public List<SourceMetaMetricsInfo> getMetas() {
 		return metas;
+	}
+
+	public List<SourceMetaMetricsInfo> getRmqMetas() {
+		return rmqMetas;
 	}
 
 	@Override
@@ -54,11 +65,11 @@ public class JobSourceMetaMetricsInfo implements ResponseBody {
 			return false;
 		}
 		JobSourceMetaMetricsInfo that = (JobSourceMetaMetricsInfo) o;
-		return metas.equals(that.metas);
+		return metas.equals(that.metas) && rmqMetas.equals(that.rmqMetas);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(metas);
+		return Objects.hash(metas, rmqMetas);
 	}
 }
