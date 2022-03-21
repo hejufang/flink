@@ -1222,6 +1222,24 @@ snake:
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
 
+icing:
+  dc: i18n_gcp
+  clusterName: icing
+  high-availability.zookeeper.quorum: 10.117.202.69:2181,10.117.202.31:2181,10.117.202.52:2181,10.117.202.63:2181,10.117.202.81:2181
+  hdfs.prefix: hdfs://harunaind/home/byte_flink_ind
+  checkpoint.hdfs.prefix: hdfs://harunaind/home/byte_flink_checkpoint
+  grafana.domain_url: "https://grafana-i18n.byted.org"
+  register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  dashboard.data_source: Bytetsd-Asia-South
+  dtop.data_source: dtop_alisg
+  dtop.database: dtop_alisg
+  kafka_server_url: http://kafka-config-sg.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_sg
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-sin-hub.byted.org
+  docker.region: Aliyun_SG
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-ind.byted.org/api/query/ind/verifyUsersPrivilege
+
 boe:
   dc: vm
   clusterName: boe
