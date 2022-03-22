@@ -29,11 +29,14 @@ public class TaskManagerTopology {
 
 	private final TaskExecutorRegistration taskExecutorRegistration;
 
+	private final long registrationTime;
+
 	public TaskManagerTopology(
 			TaskExecutorGateway taskExecutorGateway,
 			TaskExecutorRegistration taskExecutorRegistration) {
 		this.taskExecutorGateway = taskExecutorGateway;
 		this.taskExecutorRegistration = taskExecutorRegistration;
+		this.registrationTime = System.currentTimeMillis();
 	}
 
 	public TaskExecutorGateway getTaskExecutorGateway() {
@@ -42,5 +45,9 @@ public class TaskManagerTopology {
 
 	public TaskExecutorRegistration getTaskExecutorRegistration() {
 		return taskExecutorRegistration;
+	}
+
+	public long getRegistrationTime() {
+		return registrationTime;
 	}
 }

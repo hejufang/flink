@@ -508,14 +508,24 @@ public class JobManagerOptions {
 			.withDescription("Minimum workers for each job if it request slots > the minimum workers.");
 
 	/**
-	 * The maximal number tasks that dispatcher can run.
+	 * The minimal number of taskmanagers that dispatcher required to submit job.
 	 */
-	public static final ConfigOption<Integer> JOBMANAGER_MAX_RUNNING_TASKS_NUM =
-		key("jobmanager.max-running-tasks.num")
+	public static final ConfigOption<Integer> JOBMANAGER_MIN_REQUIRED_TASKMANAGER_NUM =
+		key("jobmanager.min-required-taskmanager.num")
 			.intType()
-			.defaultValue(30_000)
-			.withDescription("The maximal number of running tasks that dispatcher can run." +
-				"If number of running tasks exceed this number, jobs will be put in pending queue.");
+			.defaultValue(10)
+			.withDescription("The minimal number of taskmanagers required for submitting jobs in dispatcher." +
+					"If number of available taskmanagers is less than this number, jobs will be put in pending queue.");
+
+	/**
+	 * The maximal number tasks can be run per TaskManager.
+	 */
+	public static final ConfigOption<Integer> JOBMANAGER_MAX_RUNNING_TASKS_PER_TASKMANAGER =
+		key("jobmanager.max-running-tasks-per-taskmanager")
+			.intType()
+			.defaultValue(100)
+			.withDescription("The maximal number of running tasks per TaskManager can run." +
+				"If number of running tasks exceed this number time registered TaskManagers, jobs will be put in pending queue.");
 
 	// ---------------------------------------------------------------------------------------------
 

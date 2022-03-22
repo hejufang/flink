@@ -30,7 +30,6 @@ import org.apache.flink.configuration.BenchmarkOption;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
-import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Histogram;
 import org.apache.flink.metrics.MetricGroup;
@@ -210,11 +209,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private final Map<ResourceID, TaskManagerTopology> registeredTaskManagers;
 
-	private final Map<ResourceID, Set<JobID>> taskManagerByJob;
+	private int minRequiredTaskManager;
 
-	private final Map<JobID, Set<ResourceID>> jobUsedTaskManagers;
-
-	private final int minRequiredTaskManager;
+	private final int maxRegisteredTaskManager;
 
 	private final int maxRunningTasks;
 
@@ -281,15 +278,13 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		this.jmResourceAllocationEnabled = configuration.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED);
 
-		this.minRequiredTaskManager = configuration.getInteger(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS);
+		this.minRequiredTaskManager = configuration.getInteger(ClusterOptions.RM_MIN_WORKER_NUM);
 
-		this.maxRunningTasks = configuration.getInteger(JobManagerOptions.JOBMANAGER_MAX_RUNNING_TASKS_NUM);
+		this.maxRegisteredTaskManager = configuration.getInteger(ClusterOptions.RM_MAX_WORKER_NUM);
+
+		this.maxRunningTasks = configuration.getInteger(JobManagerOptions.JOBMANAGER_MAX_RUNNING_TASKS_PER_TASKMANAGER);
 
 		this.registeredTaskManagers = new HashMap<>();
-
-		this.jobUsedTaskManagers = new HashMap<>();
-
-		this.taskManagerByJob = new HashMap<>();
 
 		this.totalRunningTasks = 0;
 
@@ -317,6 +312,11 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	@VisibleForTesting
 	protected void setResourceId(ResourceID resourceId) {
 		this.resourceId = resourceId;
+	}
+
+	@VisibleForTesting
+	protected void setMinRequiredTaskManager(int minRequiredTaskManager) {
+		this.minRequiredTaskManager = minRequiredTaskManager;
 	}
 
 	//------------------------------------------------------
@@ -455,6 +455,14 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 							maxRunningTasks,
 							jobGraph.getJobID(),
 							jobGraph.getName());
+
+						if (registeredTaskManagers.size() < maxRegisteredTaskManager) {
+							int extraTaskManagers = (int) Math.ceil((double) minRequiredTaskManager * 0.1);
+							Objects.requireNonNull(establishedResourceManagerConnection)
+								.getResourceManagerGateway()
+								.requestTaskManager(extraTaskManagers, timeout);
+						}
+
 						return CompletableFuture.completedFuture(Acknowledge.get());
 					}
 				} else {
@@ -512,7 +520,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	}
 
 	private boolean canSubmitJob() {
-		return registeredTaskManagers.size() >= minRequiredTaskManager && totalRunningTasks <= maxRunningTasks;
+		return registeredTaskManagers.size() >= minRequiredTaskManager
+			&& totalRunningTasks <= maxRunningTasks * registeredTaskManagers.size();
 	}
 
 	/**
@@ -1138,16 +1147,6 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		for (ResourceID resourceID: removed) {
 			registeredTaskManagers.remove(resourceID);
-
-			if (taskManagerByJob.containsKey(resourceID)) {
-				for (JobID jobID: taskManagerByJob.get(resourceID)) {
-					// TODO: notify JobMaster to fail-over job
-					Set<ResourceID> usedTM = jobUsedTaskManagers.remove(jobID);
-					for (ResourceID resourceID1: usedTM) {
-						taskManagerByJob.get(resourceID1).remove(jobID);
-					}
-				}
-			}
 		}
 
 		while (canSubmitJob() && (!pendingJobs.isEmpty() || !pendingJobsWithContext.isEmpty())) {
@@ -1161,34 +1160,6 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				internalSubmitJob(jobGraph);
 			}
 		}
-
-		return CompletableFuture.completedFuture(Acknowledge.get());
-	}
-
-	@Override
-	public CompletableFuture<Acknowledge> reportTaskManagerUsage(
-			JobID jobID,
-			Collection<ResourceID> usedTaskManagers,
-			Time timeout) {
-		jobUsedTaskManagers.putIfAbsent(jobID, new HashSet<>());
-
-		Set<ResourceID> added = new HashSet<>(usedTaskManagers);
-		Set<ResourceID> removed = new HashSet<>(jobUsedTaskManagers.get(jobID));
-
-		added.removeAll(jobUsedTaskManagers.get(jobID));
-		removed.removeAll(usedTaskManagers);
-
-		for (ResourceID resourceID: added) {
-			taskManagerByJob.putIfAbsent(resourceID, new HashSet<>());
-
-			jobUsedTaskManagers.get(jobID).add(resourceID);
-			taskManagerByJob.get(resourceID).add(jobID);
-		}
-
-		for (ResourceID resourceID: removed) {
-			taskManagerByJob.get(resourceID).remove(jobID);
-		}
-		jobUsedTaskManagers.get(jobID).removeAll(removed);
 
 		return CompletableFuture.completedFuture(Acknowledge.get());
 	}

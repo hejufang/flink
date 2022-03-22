@@ -125,17 +125,4 @@ public interface DispatcherGateway extends FencedRpcGateway<DispatcherId>, Restf
 	 * @param resourceID unique id of the resource manager
 	 */
 	void heartbeatFromResourceManager(final ResourceID resourceID);
-
-	/**
-	 * Report usage of TaskManagers from JobMaster.
-	 *
-	 * @param jobID identifying the job to update resource bookkeeping
-	 * @param usedTaskManagers current used TaskManagers by the job
-	 * @param timeout RPC timeout
-	 * @return
-	 */
-	CompletableFuture<Acknowledge> reportTaskManagerUsage(
-		JobID jobID,
-		Collection<ResourceID> usedTaskManagers,
-		@RpcTimeout Time timeout);
 }

@@ -55,6 +55,7 @@ import org.apache.flink.runtime.rest.messages.LogInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
+import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.taskexecutor.FileType;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorHeartbeatPayload;
@@ -311,6 +312,11 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 		} else {
 			return CompletableFuture.completedFuture(Acknowledge.get());
 		}
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> requestTaskManager(int numNewTaskManagerRequests, @RpcTimeout Time timeout) {
+		return CompletableFuture.completedFuture(Acknowledge.get());
 	}
 
 	@Override

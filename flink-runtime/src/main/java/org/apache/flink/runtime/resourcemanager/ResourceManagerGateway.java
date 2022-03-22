@@ -114,6 +114,16 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 		@RpcTimeout Time timeout);
 
 	/**
+	 * Request several task managers from the dispatcher.
+	 * @param numNewTaskManagerRequests
+	 * @param timeout
+	 * @return The confirmation that request received
+	 */
+	CompletableFuture<Acknowledge> requestTaskManager(
+		int numNewTaskManagerRequests,
+		@RpcTimeout Time timeout);
+
+	/**
 	 * Cancel the slot allocation requests from the resource manager.
 	 *
 	 * @param allocationID The slot to request

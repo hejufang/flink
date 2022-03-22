@@ -82,7 +82,6 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	private Consumer<ResourceManagerId> disconnectResourceManagerConsumer;
 	private Consumer<ResourceID> resourceManagerHeartbeatConsumer;
 	private Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction;
-	private BiFunction<JobID, Collection<ResourceID>, CompletableFuture<Acknowledge>> reportTaskManagerUsageFunction;
 
 	public TestingDispatcherGateway() {
 		super();
@@ -95,7 +94,6 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		disconnectResourceManagerConsumer = DEFAULT_DISCONNECT_RESOURCE_MANAGER_CONSUMER;
 		resourceManagerHeartbeatConsumer = DEFAULT_RESOURCE_MANAGER_HEARTBEAT_CONSUMER;
 		offerTaskManagersFunction = DEFAULT_OFFER_TASKMANAGERS_FUNCTION;
-		reportTaskManagerUsageFunction = DEFAULT_REPORT_TASKMANAGER_USAGE_FUNCTION;
 	}
 
 	public TestingDispatcherGateway(
@@ -123,8 +121,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 			TriFunction<JobID, OperatorID, SerializedValue<CoordinationRequest>, CompletableFuture<CoordinationResponse>> deliverCoordinationRequestToCoordinatorFunction,
 			Consumer<ResourceManagerId> disconnectResourceManagerConsumer,
 			Consumer<ResourceID> resourceManagerHeartbeatConsumer,
-			Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction,
-			BiFunction<JobID, Collection<ResourceID>, CompletableFuture<Acknowledge>> reportTaskManagerUsageFunction) {
+			Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction) {
 		super(
 			address,
 			hostname,
@@ -151,7 +148,6 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		this.disconnectResourceManagerConsumer = disconnectResourceManagerConsumer;
 		this.resourceManagerHeartbeatConsumer = resourceManagerHeartbeatConsumer;
 		this.offerTaskManagersFunction = offerTaskManagersFunction;
-		this.reportTaskManagerUsageFunction = reportTaskManagerUsageFunction;
 	}
 
 	@Override
@@ -204,11 +200,6 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	}
 
 	@Override
-	public CompletableFuture<Acknowledge> reportTaskManagerUsage(JobID jobId, Collection<ResourceID> usedTaskManagers, Time timeout) {
-		return reportTaskManagerUsageFunction.apply(jobId, usedTaskManagers);
-	}
-
-	@Override
 	public void heartbeatFromResourceManager(ResourceID resourceID) {
 		resourceManagerHeartbeatConsumer.accept(resourceID);
 	}
@@ -228,7 +219,6 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		private Consumer<ResourceManagerId> disconnectResourceManagerConsumer = DEFAULT_DISCONNECT_RESOURCE_MANAGER_CONSUMER;
 		private Consumer<ResourceID> resourceManagerHeartbeatConsumer = DEFAULT_RESOURCE_MANAGER_HEARTBEAT_CONSUMER;
 		private Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction = DEFAULT_OFFER_TASKMANAGERS_FUNCTION;
-		private BiFunction<JobID, Collection<ResourceID>, CompletableFuture<Acknowledge>> reportTaskManagerUsageFunction = DEFAULT_REPORT_TASKMANAGER_USAGE_FUNCTION;
 
 		public Builder setSubmitFunction(Function<JobGraph, CompletableFuture<Acknowledge>> submitFunction) {
 			this.submitFunction = submitFunction;
@@ -277,12 +267,6 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 			return this;
 		}
 
-		public Builder setReportTaskManagerUsageFunction(
-				BiFunction<JobID, Collection<ResourceID>, CompletableFuture<Acknowledge>> reportTaskManagerUsageFunction) {
-			this.reportTaskManagerUsageFunction = reportTaskManagerUsageFunction;
-			return this;
-		}
-
 		@Override
 		protected Builder self() {
 			return this;
@@ -324,8 +308,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 				deliverCoordinationRequestToCoordinatorFunction,
 				disconnectResourceManagerConsumer,
 				resourceManagerHeartbeatConsumer,
-				offerTaskManagersFunction,
-				reportTaskManagerUsageFunction);
+				offerTaskManagersFunction);
 		}
 	}
 }

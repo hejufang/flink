@@ -90,4 +90,22 @@ public class ClusterOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Enable resource allocation in JM side.");
+
+	/**
+	 * The minimum number of workers required for resource manager.
+	 */
+	public static final ConfigOption<Integer> RM_MIN_WORKER_NUM = ConfigOptions
+		.key("cluster.resourcemanager-min-worker-num")
+		.intType()
+		.defaultValue(20)
+		.withDescription("The min required workers in resource manager");
+
+	/**
+	 * The maximum number of workers can be hold in resource manager.
+	 */
+	public static final ConfigOption<Integer> RM_MAX_WORKER_NUM = ConfigOptions
+		.key("cluster.resourcemanager-max-worker-num")
+		.intType()
+		.defaultValue(100)
+		.withDescription("The max workers can be registered in resource manager");
 }

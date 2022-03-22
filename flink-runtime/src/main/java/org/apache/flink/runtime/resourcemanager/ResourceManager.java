@@ -77,6 +77,7 @@ import org.apache.flink.runtime.resourcemanager.registration.DispatcherRegistrat
 import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.registration.JobManagerRegistration;
 import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
+import org.apache.flink.runtime.resourcemanager.slotmanager.NoSlotWorkerManagerImpl;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rest.messages.LogInfo;
@@ -115,6 +116,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -691,6 +693,26 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	}
 
 	@Override
+	public CompletableFuture<Acknowledge> requestTaskManager(int numNewTaskManagerRequests, @RpcTimeout Time timeout) {
+		checkArgument(slotManager instanceof NoSlotWorkerManagerImpl);
+
+		((NoSlotWorkerManagerImpl) slotManager).requestNewTaskManagers(numNewTaskManagerRequests);
+
+		if (log.isDebugEnabled()) {
+			log.debug("Notify Dispatchers [{}] for latest TM topology",
+				dispatcherRegistrations.keySet().stream().map(Objects::toString).collect(Collectors.joining(",")));
+		}
+
+		dispatcherRegistrations.values().forEach(
+			dispatcherRegistration -> dispatcherRegistration
+				.getDispatcherGateway()
+				.offerTaskManagers(taskExecutorTopology.values(), rpcTimeout)
+		);
+
+		return CompletableFuture.completedFuture(Acknowledge.get());
+	}
+
+	@Override
 	public void cancelSlotRequest(AllocationID allocationID) {
 		// As the slot allocations are async, it can not avoid all redundant slots, but should best effort.
 		slotManager.unregisterSlotRequest(allocationID);
@@ -828,6 +850,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			String webShell = getTaskManagerWebShell(resourceId, host);
 			String tmLog = getTaskManagerLogUrl(resourceId, host);
 			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
+
 			final TaskManagerInfo taskManagerInfo = new TaskManagerInfo(
 				resourceId,
 				taskExecutor.getTaskExecutorGateway().getAddress(),
@@ -1906,6 +1929,15 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 						Math.max(taskCount / maxTasksPerWorker, minWorkersPerJob),
 						requestSlotCount),
 					totalWorkerCount);
+	}
+
+	// ------------------------------------------------------------------------
+	//  Testing methods
+	// ------------------------------------------------------------------------
+
+	@VisibleForTesting
+	protected void setJmResourceAllocationEnabled(boolean jmResourceAllocationEnabled) {
+		this.jmResourceAllocationEnabled = jmResourceAllocationEnabled;
 	}
 }
 
