@@ -1,0 +1,149 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+org.apache.flink:flink-metrics-databus:jar:1.11-byted-SNAPSHOT
++- org.apache.flink:flink-metrics-core:jar:1.11-byted-SNAPSHOT:provided
+|  \- io.dropwizard.metrics:metrics-core:jar:3.2.6:provided
++- org.apache.flink:flink-shaded-databus4j:jar:11.0-byted-SNAPSHOT:compile
++- org.apache.flink:flink-shaded-jackson:jar:2.10.1-11.0-byted-SNAPSHOT:provided
++- org.apache.flink:flink-annotations:jar:1.11-byted-SNAPSHOT:provided
++- org.apache.flink:flink-core:jar:1.11-byted-SNAPSHOT:provided
+|  +- org.apache.flink:flink-shaded-asm-7:jar:7.1-11.0-byted-SNAPSHOT:provided
+|  +- org.apache.commons:commons-lang3:jar:3.3.2:compile
+|  +- com.esotericsoftware.kryo:kryo:jar:2.24.0:provided
+|  |  \- com.esotericsoftware.minlog:minlog:jar:1.2:provided
+|  +- commons-collections:commons-collections:jar:3.2.2:runtime
+|  +- org.apache.commons:commons-compress:jar:1.20:provided
+|  \- org.yaml:snakeyaml:jar:1.24:provided
++- org.apache.flink:flink-yarn_2.11:jar:1.11-byted-SNAPSHOT:provided
+|  +- org.apache.flink:flink-runtime_2.11:jar:1.11-byted-SNAPSHOT:provided
+|  |  +- org.apache.flink:flink-java:jar:1.11-byted-SNAPSHOT:provided
+|  |  |  \- org.apache.commons:commons-math3:jar:3.5:provided
+|  |  +- org.apache.flink:flink-queryable-state-client-java:jar:1.11-byted-SNAPSHOT:provided
+|  |  +- org.apache.flink:flink-hadoop-fs:jar:1.11-byted-SNAPSHOT:provided
+|  |  +- commons-io:commons-io:jar:2.4:runtime
+|  |  +- org.apache.flink:flink-shaded-netty:jar:4.1.39.Final-11.0-byted-SNAPSHOT:provided
+|  |  +- org.apache.flink:flink-shaded-zookeeper-3:jar:3.4.14-11.0-byted-SNAPSHOT:provided
+|  |  +- org.apache.flink:flink-shaded-commons-cli:jar:1.3.1-11.0-byted-SNAPSHOT:provided
+|  |  +- org.apache.curator:curator-recipes:jar:2.12.0:provided
+|  |  |  \- org.apache.curator:curator-framework:jar:2.12.0:provided
+|  |  |     \- org.apache.curator:curator-client:jar:2.12.0:provided
+|  |  |        \- org.apache.zookeeper:zookeeper:jar:3.4.14:provided
+|  |  |           +- com.github.spotbugs:spotbugs-annotations:jar:3.1.9:provided
+|  |  |           \- org.apache.yetus:audience-annotations:jar:0.5.0:provided
+|  |  +- org.javassist:javassist:jar:3.24.0-GA:provided
+|  |  +- org.scala-lang:scala-library:jar:2.11.12:provided
+|  |  +- com.typesafe.akka:akka-actor_2.11:jar:2.5.21:provided
+|  |  |  +- com.typesafe:config:jar:1.3.0:provided
+|  |  |  \- org.scala-lang.modules:scala-java8-compat_2.11:jar:0.7.0:provided
+|  |  +- com.typesafe.akka:akka-stream_2.11:jar:2.5.21:provided
+|  |  |  +- org.reactivestreams:reactive-streams:jar:1.0.2:provided
+|  |  |  \- com.typesafe:ssl-config-core_2.11:jar:0.3.7:provided
+|  |  |     \- org.scala-lang.modules:scala-parser-combinators_2.11:jar:1.1.1:provided
+|  |  +- com.typesafe.akka:akka-protobuf_2.11:jar:2.5.21:provided
+|  |  +- com.typesafe.akka:akka-slf4j_2.11:jar:2.5.21:provided
+|  |  +- org.clapper:grizzled-slf4j_2.11:jar:1.3.2:provided
+|  |  +- com.github.scopt:scopt_2.11:jar:3.5.0:provided
+|  |  +- org.xerial.snappy:snappy-java:jar:1.1.4:provided
+|  |  +- com.twitter:chill_2.11:jar:0.7.6:provided
+|  |  |  \- com.twitter:chill-java:jar:0.7.6:provided
+|  |  +- org.lz4:lz4-java:jar:1.6.0:provided
+|  |  \- org.apache.flink:flink-shaded-caffeine:jar:11.0-byted-SNAPSHOT:provided
+|  +- org.apache.flink:flink-clients_2.11:jar:1.11-byted-SNAPSHOT:provided
+|  |  +- org.apache.flink:flink-optimizer_2.11:jar:1.11-byted-SNAPSHOT:provided
+|  |  \- org.apache.flink:flink-streaming-java_2.11:jar:1.11-byted-SNAPSHOT:provided
+|  |     \- com.googlecode.json-simple:json-simple:jar:1.1.1:provided
+|  +- org.apache.hadoop:hadoop-yarn-client:jar:2.6.0-cdh5.4.4-bd203:provided
+|  |  +- commons-logging:commons-logging:jar:1.1.3:runtime
+|  |  +- commons-lang:commons-lang:jar:2.6:provided
+|  |  +- commons-cli:commons-cli:jar:1.2:provided
+|  |  \- org.apache.hadoop:hadoop-annotations:jar:2.6.0-cdh5.4.4-bd203:provided
+|  +- com.bytedance.sr:sr-estimater-client:jar:1.0-SNAPSHOT:provided
+|  +- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-11.0-byted-SNAPSHOT:provided
+|  \- org.apache.flink:flink-shaded-bytedance:jar:11.0-byted-SNAPSHOT:provided
++- org.apache.logging.log4j:log4j-core:jar:2.15.0:provided
++- org.apache.logging.log4j:log4j-api:jar:2.15.0:provided
++- org.apache.flink:flink-shaded-guava:jar:18.0-11.0-byted-SNAPSHOT:provided
++- com.bytedance:log4j2-lang-nonspring:jar:1.0.1-5-SNAPSHOT:compile
+|  +- com.bytedance:logging-agent-nonspring:jar:1.0.1-5-SNAPSHOT:compile
+|  |  +- com.googlecode.protobuf-java-format:protobuf-java-format:jar:1.4:compile
+|  |  +- com.bytedance:unixsocket-lang:jar:2.1.0-rc.2:compile
+|  |  |  +- org.apache.commons:commons-pool2:jar:2.4.3:compile
+|  |  |  \- com.github.jnr:jnr-unixsocket:jar:0.18:compile
+|  |  |     +- com.github.jnr:jnr-ffi:jar:2.1.4:compile
+|  |  |     |  +- com.github.jnr:jffi:jar:1.2.15:compile
+|  |  |     |  +- com.github.jnr:jffi:jar:native:1.2.15:runtime
+|  |  |     |  +- org.ow2.asm:asm:jar:5.0.3:compile
+|  |  |     |  +- org.ow2.asm:asm-commons:jar:5.0.3:compile
+|  |  |     |  +- org.ow2.asm:asm-analysis:jar:5.0.3:compile
+|  |  |     |  +- org.ow2.asm:asm-tree:jar:5.0.3:compile
+|  |  |     |  +- org.ow2.asm:asm-util:jar:5.0.3:compile
+|  |  |     |  \- com.github.jnr:jnr-x86asm:jar:1.0.2:compile
+|  |  |     +- com.github.jnr:jnr-constants:jar:0.9.8:compile
+|  |  |     +- com.github.jnr:jnr-enxio:jar:0.16:compile
+|  |  |     \- com.github.jnr:jnr-posix:jar:3.0.35:compile
+|  |  +- com.google.protobuf:protobuf-java:jar:3.8.0:compile
+|  |  +- com.google.guava:guava:jar:23.6-jre:compile
+|  |  |  +- org.checkerframework:checker-compat-qual:jar:2.0.0:compile
+|  |  |  +- com.google.errorprone:error_prone_annotations:jar:2.1.3:compile
+|  |  |  +- com.google.j2objc:j2objc-annotations:jar:1.1:compile
+|  |  |  \- org.codehaus.mojo:animal-sniffer-annotations:jar:1.14:compile
+|  |  +- io.github.resilience4j:resilience4j-core:jar:0.11.0:compile
+|  |  |  \- io.vavr:vavr:jar:0.9.1:compile
+|  |  |     \- io.vavr:vavr-match:jar:0.9.1:compile
+|  |  +- io.github.resilience4j:resilience4j-ratelimiter:jar:0.11.0:compile
+|  |  \- io.github.resilience4j:resilience4j-circuitbreaker:jar:0.11.0:compile
+|  +- com.bytedance:base-lang:jar:2.1.0-rc.2:compile
+|  |  \- org.apache.commons:commons-collections4:jar:4.1:compile
+|  +- com.lmax:disruptor:jar:3.4.2:runtime
+|  \- com.bytedance:env-conf-core:jar:2.0.12-rc.2:runtime
+|     +- commons-net:commons-net:jar:3.6:runtime
+|     +- com.bytedance:consul-lang-core:jar:2.0.12-rc.1:runtime
+|     |  \- com.orbitz.consul:consul-client:jar:1.0.2-bd-SNAPSHOT:runtime
+|     |     +- com.squareup.retrofit2:retrofit:jar:2.3.0:runtime
+|     |     +- com.squareup.retrofit2:converter-jackson:jar:2.3.0:runtime
+|     |     +- com.squareup.okhttp3:okhttp:jar:3.9.0:runtime
+|     |     |  \- com.squareup.okio:okio:jar:1.13.0:runtime
+|     |     +- com.fasterxml.jackson.core:jackson-annotations:jar:2.10.1:runtime
+|     |     +- com.fasterxml.jackson.core:jackson-core:jar:2.10.1:runtime
+|     |     +- com.fasterxml.jackson.core:jackson-databind:jar:2.10.1:runtime
+|     |     +- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:jar:2.10.1:runtime
+|     |     \- com.fasterxml.jackson.datatype:jackson-datatype-guava:jar:2.10.1:runtime
+|     +- org.zeroturnaround:zt-exec:jar:1.10:runtime
+|     +- commons-validator:commons-validator:jar:1.6:runtime
+|     |  +- commons-beanutils:commons-beanutils:jar:1.9.2:runtime
+|     |  \- commons-digester:commons-digester:jar:1.8.1:runtime
+|     \- com.googlecode.java-ipv6:java-ipv6:jar:0.17:runtime
++- org.slf4j:slf4j-api:jar:1.7.15:provided
++- com.google.code.findbugs:jsr305:jar:1.3.9:provided
++- org.apache.flink:force-shading:jar:1.11-byted-SNAPSHOT:compile
++- junit:junit:jar:4.12:test
+|  \- org.hamcrest:hamcrest-core:jar:1.3:test
++- org.mockito:mockito-core:jar:2.21.0:test
+|  +- net.bytebuddy:byte-buddy:jar:1.8.15:test
+|  +- net.bytebuddy:byte-buddy-agent:jar:1.8.15:test
+|  \- org.objenesis:objenesis:jar:2.1:provided
++- org.powermock:powermock-module-junit4:jar:2.0.4:test
+|  \- org.powermock:powermock-module-junit4-common:jar:2.0.4:test
+|     +- org.powermock:powermock-reflect:jar:2.0.4:test
+|     \- org.powermock:powermock-core:jar:2.0.4:test
++- org.powermock:powermock-api-mockito2:jar:2.0.4:test
+|  \- org.powermock:powermock-api-support:jar:2.0.4:test
++- org.hamcrest:hamcrest-all:jar:1.3:test
++- org.apache.logging.log4j:log4j-slf4j-impl:jar:2.15.0:test
+\- org.apache.logging.log4j:log4j-1.2-api:jar:2.15.0:test
