@@ -53,6 +53,7 @@ import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.AbstractFetcher;
 import org.apache.flink.streaming.connectors.kafka.internals.AbstractPartitionDiscoverer;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaCommitCallback;
+import org.apache.flink.streaming.connectors.kafka.internals.KafkaConsumerFactory;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionAssigner;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionStateSentinel;
@@ -245,6 +246,9 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	protected long manualCommitInterval = -1;
 
 	protected boolean forceManuallyCommitOffsets = false;
+
+	/** kafka consumer factory. */
+	protected KafkaConsumerFactory kafkaConsumerFactory = KafkaConsumerFactory.DefaultKafkaConsumerFactory.getInstance();
 
 	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
 	// ------------------------------------------------------------------------
@@ -848,7 +852,12 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				offsetCommitMode,
 				getRuntimeContext().getMetricGroup().addGroup(KAFKA_CONSUMER_METRICS_GROUP),
 				useMetrics,
-				new BytedKafkaConfig(sampleInterval, sampleNum, manualCommitInterval, forceManuallyCommitOffsets));
+				new BytedKafkaConfig(
+					sampleInterval,
+					sampleNum,
+					manualCommitInterval,
+					forceManuallyCommitOffsets,
+					kafkaConsumerFactory));
 
 		if (restoredState != null) {
 			LOG.info("Consumer subtask {} has already recovered from a successful checkpoint.",
@@ -1300,6 +1309,14 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	public void setForceManuallyCommitOffsets(boolean forceManuallyCommitOffsets) {
 		this.forceManuallyCommitOffsets = forceManuallyCommitOffsets;
+	}
+
+	public KafkaConsumerFactory getKafkaConsumerFactory() {
+		return kafkaConsumerFactory;
+	}
+
+	public void setKafkaConsumerFactory(KafkaConsumerFactory kafkaConsumerFactory) {
+		this.kafkaConsumerFactory = kafkaConsumerFactory;
 	}
 
 	/**

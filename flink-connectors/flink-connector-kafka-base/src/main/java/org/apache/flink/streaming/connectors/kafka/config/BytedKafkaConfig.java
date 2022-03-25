@@ -17,6 +17,10 @@
 
 package org.apache.flink.streaming.connectors.kafka.config;
 
+import org.apache.flink.streaming.connectors.kafka.internals.KafkaConsumerFactory;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
 /**
  * New config added in bytedance.
  */
@@ -25,16 +29,19 @@ public class BytedKafkaConfig {
 	private final long sampleNum;
 	private final long manualCommitInterval;
 	private final boolean forceManuallyCommitOffsets;
+	private final KafkaConsumerFactory kafkaConsumerFactory;
 
 	public BytedKafkaConfig(
 			long sampleInterval,
 			long sampleNum,
 			long manualCommitInterval,
-			boolean isForceManuallyCommitOffsets) {
+			boolean isForceManuallyCommitOffsets,
+			KafkaConsumerFactory kafkaConsumerFactory) {
 		this.sampleInterval = sampleInterval;
 		this.sampleNum = sampleNum;
 		this.manualCommitInterval = manualCommitInterval;
 		this.forceManuallyCommitOffsets = isForceManuallyCommitOffsets;
+		this.kafkaConsumerFactory = checkNotNull(kafkaConsumerFactory);
 	}
 
 	public long getSampleInterval() {
@@ -51,5 +58,9 @@ public class BytedKafkaConfig {
 
 	public boolean isForceManuallyCommitOffsets() {
 		return forceManuallyCommitOffsets;
+	}
+
+	public KafkaConsumerFactory getKafkaConsumerFactory() {
+		return kafkaConsumerFactory;
 	}
 }

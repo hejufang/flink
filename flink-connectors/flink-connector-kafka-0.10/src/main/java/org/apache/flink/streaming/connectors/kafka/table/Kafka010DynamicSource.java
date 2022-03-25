@@ -42,6 +42,7 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 /**
@@ -108,6 +109,11 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 				consumerBase.disableResetToEarliestForNewPartition();
 			}
 		}
+
+		Optional
+			.ofNullable(kafkaSourceConfig.getKafkaConsumerFactory())
+			.ifPresent(consumerBase::setKafkaConsumerFactory);
+
 		if (kafkaSourceConfig.getParallelism() != null) {
 			consumerBase.setParallelism(kafkaSourceConfig.getParallelism());
 		}

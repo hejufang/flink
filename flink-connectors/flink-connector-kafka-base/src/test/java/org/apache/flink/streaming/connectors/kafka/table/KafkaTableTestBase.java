@@ -231,14 +231,14 @@ public abstract class KafkaTableTestBase extends KafkaTestBaseWithFlink {
 		}
 	}
 
-	private static final class TestingSinkFunction implements SinkFunction<RowData> {
+	static final class TestingSinkFunction implements SinkFunction<RowData> {
 
 		private static final long serialVersionUID = 455430015321124493L;
-		private static List<String> rows = new ArrayList<>();
+		static List<String> rows = new ArrayList<>();
 
 		private final int expectedSize;
 
-		private TestingSinkFunction(int expectedSize) {
+		TestingSinkFunction(int expectedSize) {
 			this.expectedSize = expectedSize;
 			rows.clear();
 		}

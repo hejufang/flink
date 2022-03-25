@@ -169,6 +169,10 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 			kafkaConsumer.setSampleNum(kafkaSourceConfig.getScanSampleNum());
 		}
 
+		if (kafkaSourceConfig.getKafkaConsumerFactory() != null) {
+			kafkaConsumer.setKafkaConsumerFactory(kafkaConsumer.getKafkaConsumerFactory());
+		}
+
 		if (kafkaSourceConfig.getManualCommitInterval() > 0) {
 			kafkaConsumer.setManualCommitInterval(kafkaSourceConfig.getManualCommitInterval());
 		}

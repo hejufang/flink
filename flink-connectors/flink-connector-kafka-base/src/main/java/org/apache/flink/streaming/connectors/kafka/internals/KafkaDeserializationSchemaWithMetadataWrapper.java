@@ -45,6 +45,12 @@ public abstract class KafkaDeserializationSchemaWithMetadataWrapper<T> implement
 	}
 
 	@Override
+	public void open(DeserializationSchema.InitializationContext context) throws Exception {
+		KafkaDeserializationSchema.super.open(context);
+		this.deserializationSchema.open(context);
+	}
+
+	@Override
 	public T deserialize(ConsumerRecord<byte[], byte[]> record) throws Exception {
 		T t = deserializationSchema.deserialize(record.value());
 		if (t == null) {

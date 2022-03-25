@@ -27,6 +27,7 @@ import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.functions.sink.SinkContextUtil;
 import org.apache.flink.streaming.api.operators.StreamSink;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+import org.apache.flink.streaming.connectors.kafka.internals.KafkaProducerFactory;
 import org.apache.flink.streaming.connectors.kafka.internals.KeyedSerializationSchemaWrapper;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.streaming.connectors.kafka.testutils.FakeStandardProducerConfig;
@@ -49,6 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
@@ -63,23 +65,14 @@ import static org.mockito.Mockito.when;
 public class FlinkKafkaProducerBaseTest {
 
 	/**
-	 * Tests that the constructor eagerly checks bootstrap servers are set in config.
-	 */
-	@Test(expected = IllegalArgumentException.class)
-	public void testInstantiationFailsWhenBootstrapServersMissing() throws Exception {
-		// no bootstrap servers set in props
-		Properties props = new Properties();
-		// should throw IllegalArgumentException
-		new DummyFlinkKafkaProducer<>(props, new KeyedSerializationSchemaWrapper<>(new SimpleStringSchema()), null);
-	}
-
-	/**
 	 * Tests that constructor defaults to key value serializers in config to byte array deserializers if not set.
 	 */
 	@Test
 	public void testKeyValueDeserializersSetIfMissing() throws Exception {
 		Properties props = new Properties();
 		props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:12345");
+		// add batch size for the fear of npe.
+		props.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, "10000");
 		// should set missing key value deserializers
 		new DummyFlinkKafkaProducer<>(props, new KeyedSerializationSchemaWrapper<>(new SimpleStringSchema()), null);
 
@@ -87,6 +80,20 @@ public class FlinkKafkaProducerBaseTest {
 		assertTrue(props.containsKey(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG));
 		assertTrue(props.getProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG).equals(ByteArraySerializer.class.getName()));
 		assertTrue(props.getProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG).equals(ByteArraySerializer.class.getName()));
+	}
+
+	@Test
+	public void testCustomKafkaProducer() {
+		Properties props = new Properties();
+		// add batch size for the fear of npe.
+		props.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, "10000");
+		// should set missing key value deserializers
+		final KeyedSerializationSchemaWrapper<String> ser = new KeyedSerializationSchemaWrapper<>(new SimpleStringSchema());
+		final TestCustomProducerFlinkKafkaProducer<String> producer = new TestCustomProducerFlinkKafkaProducer<>(ser, props);
+		final KafkaProducer mockProducer = mock(KafkaProducer.class);
+		final KafkaProducerFactory factory = p -> mockProducer;
+		producer.setProducerFactory(factory);
+		assertEquals(mockProducer, producer.getKafkaProducer(null));
 	}
 
 	/**
@@ -332,6 +339,21 @@ public class FlinkKafkaProducerBaseTest {
 	}
 
 	// ------------------------------------------------------------------------
+
+	private static class TestCustomProducerFlinkKafkaProducer<T> extends FlinkKafkaProducerBase<T> {
+
+		public TestCustomProducerFlinkKafkaProducer(KeyedSerializationSchema<T> serializationSchema, Properties producerConfig) {
+			super("test", serializationSchema, producerConfig, null);
+		}
+
+		@Override
+		protected void flush() {}
+
+		@Override
+		public void prepareSnapshotPreBarrier(long checkpointId) throws Exception {
+			super.prepareSnapshotPreBarrier(checkpointId);
+		}
+	}
 
 	private static class DummyFlinkKafkaProducer<T> extends FlinkKafkaProducerBase<T> {
 		private static final long serialVersionUID = 1L;

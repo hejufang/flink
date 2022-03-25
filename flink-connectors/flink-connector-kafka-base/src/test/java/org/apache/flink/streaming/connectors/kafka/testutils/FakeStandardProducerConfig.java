@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.connectors.kafka.testutils;
 
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import java.util.Properties;
@@ -32,6 +33,8 @@ public class FakeStandardProducerConfig {
 		p.setProperty("bootstrap.servers", "localhost:12345");
 		p.setProperty("key.serializer", ByteArraySerializer.class.getName());
 		p.setProperty("value.serializer", ByteArraySerializer.class.getName());
+		// add batch size for the fear of npe.
+		p.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, "10000");
 		return p;
 	}
 

@@ -317,7 +317,7 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumerBase<T> {
 			int indexOfThisSubtask,
 			int numParallelSubtasks) {
 		properties.put(ConsumerConfig.TOPIC_NAME_CONFIG, topicsDescriptor.getFixedTopics());
-		return new Kafka010PartitionDiscoverer(topicsDescriptor, indexOfThisSubtask, numParallelSubtasks, properties);
+		return new Kafka010PartitionDiscoverer(topicsDescriptor, indexOfThisSubtask, numParallelSubtasks, properties, kafkaConsumerFactory);
 	}
 
 	@Override

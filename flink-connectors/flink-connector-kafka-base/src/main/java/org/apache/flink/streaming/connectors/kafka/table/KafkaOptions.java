@@ -23,6 +23,8 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
+import org.apache.flink.streaming.connectors.kafka.internals.KafkaConsumerFactory;
+import org.apache.flink.streaming.connectors.kafka.internals.KafkaProducerFactory;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkFixedPartitioner;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
@@ -109,6 +111,12 @@ public class KafkaOptions {
 			.noDefaultValue()
 			.withDescription("Optional source sample interval.");
 
+	public static final ConfigOption<String> SCAN_CONSUMER_FACTORY_CLASS = ConfigOptions
+		.key("scan.consumer-factory-class")
+		.stringType()
+		.defaultValue(KafkaConsumerFactory.DefaultKafkaConsumerFactory.class.getName())
+		.withDescription("Factory class used to build kafka consumer");
+
 	public static final ConfigOption<Long> SCAN_SOURCE_SAMPLE_NUM = ConfigOptions
 			.key("scan.source-sample-num")
 			.longType()
@@ -184,6 +192,12 @@ public class KafkaOptions {
 		.intType()
 		.defaultValue(0)
 		.withDescription("Optional number of in-flight records.");
+
+	public static final ConfigOption<String> SINK_PRODUCER_FACTORY_CLASS = ConfigOptions
+		.key("sink.producer-factory-class")
+		.stringType()
+		.defaultValue(KafkaProducerFactory.DefaultKafkaProducerFactory.class.getName())
+		.withDescription("Factory class used to build kafka producer.");
 
 
 	// --------------------------------------------------------------------------------------------

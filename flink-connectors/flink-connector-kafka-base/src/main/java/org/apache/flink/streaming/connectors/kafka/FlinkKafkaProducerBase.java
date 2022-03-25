@@ -34,6 +34,7 @@ import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+import org.apache.flink.streaming.connectors.kafka.internals.KafkaProducerFactory;
 import org.apache.flink.streaming.connectors.kafka.internals.KeyedSerializationSchemaWrapper;
 import org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaMetricWrapper;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
@@ -165,6 +166,8 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	/** Total max in-flight size of in-flight data. Set default value*/
 	protected long maxInFlightSize = Long.MAX_VALUE;
 
+	protected KafkaProducerFactory producerFactory = KafkaProducerFactory.DefaultKafkaProducerFactory.getInstance();
+
 	/** The in-flight dataSize factor. */
 	protected int inFlightFactor;
 
@@ -263,7 +266,7 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	 */
 	@VisibleForTesting
 	protected <K, V> KafkaProducer<K, V> getKafkaProducer(Properties props) {
-		return new KafkaProducer<>(props);
+		return (KafkaProducer<K, V>) producerFactory.getProducer(props);
 	}
 
 	// ----------------------------------- Utilities --------------------------
@@ -529,6 +532,10 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 	boolean filter(IN in) {
 		return rowKindSinkFilter == null || rowKindSinkFilter.filter(in);
+	}
+
+	public void setProducerFactory(KafkaProducerFactory producerFactory) {
+		this.producerFactory = producerFactory;
 	}
 
 	public void setParallelism(int parallelism) {

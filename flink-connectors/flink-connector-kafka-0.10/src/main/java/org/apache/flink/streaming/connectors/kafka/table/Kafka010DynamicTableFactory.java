@@ -20,6 +20,7 @@ package org.apache.flink.streaming.connectors.kafka.table;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
+import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.streaming.connectors.kafka.config.KafkaSourceConfig;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
@@ -29,9 +30,11 @@ import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
 
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * Factory for creating configured instances of {@link Kafka010DynamicSource}.
@@ -77,6 +80,13 @@ public class Kafka010DynamicTableFactory extends KafkaDynamicTableFactoryBase {
 			partitioner,
 			encodingFormat,
 			otherProperties);
+	}
+
+	@Override
+	public Set<ConfigOption<?>> optionalOptions() {
+		final Set<ConfigOption<?>> configOptions = new HashSet<>(super.optionalOptions());
+		configOptions.add(KafkaOptions.SINK_PRODUCER_FACTORY_CLASS);
+		return configOptions;
 	}
 
 	@Override

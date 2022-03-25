@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.connectors.kafka.config;
 
 import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.streaming.connectors.kafka.internals.KafkaConsumerFactory;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.types.DataType;
@@ -43,6 +44,7 @@ public class KafkaSourceConfig implements Serializable {
 	private boolean startIgnoreStateOffsets;
 	private boolean forceManuallyCommitOffsets;
 	private KeySelector<RowData, RowData> keySelector;
+	private KafkaConsumerFactory kafkaConsumerFactory = KafkaConsumerFactory.DefaultKafkaConsumerFactory.getInstance();
 
 	public long getRateLimitNumber() {
 		return rateLimitNumber;
@@ -54,6 +56,14 @@ public class KafkaSourceConfig implements Serializable {
 
 	public Long getScanSampleInterval() {
 		return scanSampleInterval;
+	}
+
+	public KafkaConsumerFactory getKafkaConsumerFactory() {
+		return kafkaConsumerFactory;
+	}
+
+	public void setKafkaConsumerFactory(KafkaConsumerFactory kafkaConsumerFactory) {
+		this.kafkaConsumerFactory = kafkaConsumerFactory;
 	}
 
 	public void setScanSampleInterval(Long scanSampleInterval) {

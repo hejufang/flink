@@ -24,6 +24,7 @@ import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimite
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer010;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducerBase;
+import org.apache.flink.streaming.connectors.kafka.internals.KafkaProducerFactory;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
@@ -38,6 +39,7 @@ import java.util.Properties;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_IN_FLIGHT_BATCH_SIZE_FACTOR;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_IN_FLIGHT_MAX_NUM;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_LOG_FAILURE_ONLY;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PRODUCER_FACTORY_CLASS;
 
 /**
  * Kafka 0.10 table sink for writing data into Kafka.
@@ -90,6 +92,12 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 			rateLimiter.setRate(rate);
 			flinkKafkaProducerBase.setRateLimiter(rateLimiter);
 		}
+
+		//custom kafka producer factory.
+		Optional
+			.ofNullable(otherProperties.getProperty(SINK_PRODUCER_FACTORY_CLASS.key()))
+			.map(KafkaProducerFactory::getFactoryByClassName)
+			.ifPresent(flinkKafkaProducerBase::setProducerFactory);
 		return flinkKafkaProducerBase;
 	}
 

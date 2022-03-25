@@ -568,7 +568,7 @@ public class KafkaConsumerThread<T> extends Thread {
 
 	@VisibleForTesting
 	Consumer<byte[], byte[]> getConsumer(Properties kafkaProperties) {
-		return new KafkaConsumer<>(kafkaProperties);
+		return bytedKafkaConfig.getKafkaConsumerFactory().getConsumer(kafkaProperties);
 	}
 
 	@VisibleForTesting

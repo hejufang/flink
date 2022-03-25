@@ -19,6 +19,7 @@ package org.apache.flink.streaming.connectors.kafka.internal;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.connectors.kafka.internals.AbstractPartitionDiscoverer;
+import org.apache.flink.streaming.connectors.kafka.internals.KafkaConsumerFactory;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicsDescriptor;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -43,6 +44,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class Kafka010PartitionDiscoverer extends AbstractPartitionDiscoverer {
 
 	private final Properties kafkaProperties;
+	private final KafkaConsumerFactory kafkaConsumerFactory;
 
 	private KafkaConsumer<?, ?> kafkaConsumer;
 
@@ -50,16 +52,18 @@ public class Kafka010PartitionDiscoverer extends AbstractPartitionDiscoverer {
 		KafkaTopicsDescriptor topicsDescriptor,
 		int indexOfThisSubtask,
 		int numParallelSubtasks,
-		Properties kafkaProperties) {
+		Properties kafkaProperties,
+		KafkaConsumerFactory kafkaConsumerFactory) {
 
 		super(topicsDescriptor, indexOfThisSubtask, numParallelSubtasks);
 		this.kafkaProperties = checkNotNull(kafkaProperties);
+		this.kafkaConsumerFactory = kafkaConsumerFactory;
 	}
 
 	@Override
 	protected void initializeConnections() {
 		try {
-			this.kafkaConsumer = new KafkaConsumer<>(kafkaProperties);
+			this.kafkaConsumer = (KafkaConsumer<?, ?>) kafkaConsumerFactory.getConsumer(kafkaProperties);
 		} catch (KafkaException e) {
 			String propertiesMessage = kafkaProperties.entrySet().stream()
 				.map(entry -> String.format("[key=%s,value=%s]", entry.getKey(), entry.getValue()))
