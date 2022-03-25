@@ -31,11 +31,13 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.BooleanType;
 import org.apache.flink.table.types.logical.CharType;
+import org.apache.flink.table.types.logical.DateType;
 import org.apache.flink.table.types.logical.DoubleType;
 import org.apache.flink.table.types.logical.FloatType;
 import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.SmallIntType;
+import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.table.types.logical.TinyIntType;
 import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.types.RowKind;
@@ -45,6 +47,9 @@ import com.bytedance.hsap.client.HsapAsyncClient;
 import com.bytedance.hsap.client.HsapParams;
 import com.bytedance.hsap.type.HSAPValue;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -59,6 +64,12 @@ public class HsapSinkFunction
 	private final String[] fields;
 	private final DataType[] fieldTypes;
 	private final FlinkConnectorRateLimiter rateLimiter;
+
+	private static final DateTimeFormatter DATETIME_FORMATTER =
+		DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+	private static final DateTimeFormatter DATE_FORMATTER =
+		DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
 	private transient HsapAsyncClient hsapAsyncClient;
 	private transient FieldConverter[] convertFields;
@@ -166,7 +177,21 @@ public class HsapSinkFunction
 			} else if (logicalType instanceof VarCharType) {
 				return (c, row) -> c.buildValue(fieldName, HSAPValue.fromVarchar(row.getString(fieldIndex).toBytes()));
 			} else if (logicalType instanceof CharType) {
-				return (c, row) -> c.buildValue(fieldName, HSAPValue.fromVarchar(row.getString(fieldIndex).toBytes()));
+				return (c, row) -> c.buildValue(fieldName, HSAPValue.fromChar(row.getString(fieldIndex).toBytes()));
+			} else if (logicalType instanceof TimestampType) {
+				return (c, row) -> {
+					// hsap only supports precision level at seconds
+					LocalDateTime localDateTime = row.getTimestamp(fieldIndex, 0).toLocalDateTime();
+					String literal = localDateTime.format(DATETIME_FORMATTER);
+					c.buildValue(fieldName, HSAPValue.fromDateTimeLiteral(literal));
+				};
+			} else if (logicalType instanceof DateType) {
+				return (c, row) -> {
+					int daysSinceEpoch = row.getInt(fieldIndex);
+					LocalDate localDate = LocalDate.ofEpochDay(daysSinceEpoch);
+					String literal = localDate.format(DATE_FORMATTER);
+					c.buildValue(fieldName, HSAPValue.fromDateLiteral(literal));
+				};
 			}
 		}
 		throw new FlinkRuntimeException(String.format(
