@@ -325,4 +325,21 @@ public class PipelineOptions {
 				.linebreak()
 				.add(TextElement.code("name:file1,path:`file:///tmp/file1`;name:file2,path:`hdfs:///tmp/file2`"))
 				.build());
+
+	public static final ConfigOption<String> SCHEDULE_MODE =
+		key("pipeline.schedule-mode")
+			.stringType()
+			.noDefaultValue()
+			.withDescription(Description.builder()
+				.text("Set schedule mode.")
+				.linebreak()
+				.text("Accepted values are:")
+				.list(
+					text("LAZY_FROM_SOURCES"),
+					text("LAZY_FROM_SOURCES_WITH_BATCH_SLOT_REQUEST"),
+					text("EAGER"),
+					text("EAGER_WITH_BLOCK")
+				)
+				.text("Note: This is only effective in batch mode and when table.exec.use-olap-mode is true")
+				.build());
 }

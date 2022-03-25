@@ -30,13 +30,13 @@ import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamGraphGenerator;
 import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.api.config.ExecutionConfigOptions;
-import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.List;
 
 import static org.apache.flink.configuration.ExecutionOptions.BUFFER_TIMEOUT;
 import static org.apache.flink.configuration.PipelineOptions.ALL_VERTICES_IN_SAME_SLOT_SHARING_GROUP_BY_DEFAULT;
 import static org.apache.flink.configuration.PipelineOptions.OBJECT_REUSE;
+import static org.apache.flink.configuration.PipelineOptions.SCHEDULE_MODE;
 import static org.apache.flink.table.api.config.ExecutionConfigOptions.TABLE_EXEC_USE_OLAP_MODE;
 
 /**
@@ -89,21 +89,17 @@ public class ExecutorUtils {
 				sn -> sn.setResources(ResourceSpec.UNKNOWN, ResourceSpec.UNKNOWN));
 		boolean useOlapMode = tableConfig.getConfiguration().get(TABLE_EXEC_USE_OLAP_MODE);
 		if (useOlapMode) {
-			if (isShuffleModeAllBlocking(tableConfig)) {
-				throw new FlinkRuntimeException(String.format("Cannot use %s when %s is true, " +
-					"please set %s = %s when you want to use olap mode.",
-					GlobalDataExchangeMode.ALL_EDGES_BLOCKING,
-					TABLE_EXEC_USE_OLAP_MODE.key(),
-					ExecutionConfigOptions.TABLE_EXEC_SHUFFLE_MODE.key(),
-					GlobalDataExchangeMode.ALL_EDGES_PIPELINED));
-			}
 			// We do not overwrite vertices chaining here, so it will depend on the value of
 			// PipelineOptions.OPERATOR_CHAINING in dynamic configurations.
 			boolean useTheSameSlotSharingGroup =
 				tableConfig.getConfiguration().get(ALL_VERTICES_IN_SAME_SLOT_SHARING_GROUP_BY_DEFAULT);
 			streamGraph.setAllVerticesInSameSlotSharingGroupByDefault(useTheSameSlotSharingGroup);
-			streamGraph.setScheduleMode(ScheduleMode.EAGER_WITH_BLOCK);
-			streamGraph.setGlobalDataExchangeMode(GlobalDataExchangeMode.ALL_EDGES_PIPELINED);
+			streamGraph.setScheduleMode(
+				getScheduleModeWithSpecificDefaultValue(tableConfig, ScheduleMode.EAGER_WITH_BLOCK));
+			streamGraph.setGlobalDataExchangeMode(
+				getGlobalDataExchangeModeWithSpecificDefaultValue(
+					tableConfig,
+					GlobalDataExchangeMode.ALL_EDGES_PIPELINED));
 		} else {
 			streamGraph.setChaining(true);
 			streamGraph.setAllVerticesInSameSlotSharingGroupByDefault(false);
@@ -122,5 +118,29 @@ public class ExecutorUtils {
 
 	private static GlobalDataExchangeMode getGlobalDataExchangeMode(TableConfig tableConfig) {
 		return ShuffleModeUtils.getShuffleModeAsGlobalDataExchangeMode(tableConfig.getConfiguration());
+	}
+
+	private static GlobalDataExchangeMode getGlobalDataExchangeModeWithSpecificDefaultValue(
+		TableConfig tableConfig, GlobalDataExchangeMode defaultValue) {
+
+		String configuredShuffleMode = tableConfig.getConfiguration().toMap()
+			.get(ExecutionConfigOptions.TABLE_EXEC_SHUFFLE_MODE.key());
+		if (configuredShuffleMode != null) {
+			return getGlobalDataExchangeMode(tableConfig);
+		} else {
+			return defaultValue;
+		}
+	}
+
+	private static ScheduleMode getScheduleModeWithSpecificDefaultValue(
+		TableConfig tableConfig, ScheduleMode defaultValue) {
+
+		String configuredScheduleMode = tableConfig.getConfiguration().toMap()
+			.get(SCHEDULE_MODE.key());
+		if (configuredScheduleMode != null) {
+			return ScheduleMode.valueOf(tableConfig.getConfiguration().get(SCHEDULE_MODE));
+		} else {
+			return defaultValue;
+		}
 	}
 }
