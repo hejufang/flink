@@ -92,6 +92,7 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.PermanentlyFencedRpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
+import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
@@ -129,6 +130,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -227,6 +229,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private final boolean useAddressAsHostname;
 
+	private final boolean dispatcherFetchResultThreadPoolEnabled;
+
+	private final ExecutorService fetchResultExecutor;
+
 	public Dispatcher(
 			RpcService rpcService,
 			DispatcherId fencingToken,
@@ -301,6 +307,14 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		this.resourceId = ResourceID.generate();
 
 		this.useAddressAsHostname = configuration.getBoolean(CoreOptions.USE_ADDRESS_AS_HOSTNAME_ENABLE);
+
+		this.dispatcherFetchResultThreadPoolEnabled =
+			configuration.getBoolean(JobManagerOptions.DISPATCHER_FETCH_RESULT_THREAD_POOL_ENABLED);
+
+		this.fetchResultExecutor =
+			this.dispatcherFetchResultThreadPoolEnabled ? Executors.newFixedThreadPool(
+				configuration.getInteger(JobManagerOptions.DISPATCHER_FETCH_RESULT_THREADS_NUM),
+				new ExecutorThreadFactory("dispatcher-fetch-result")) : null;
 	}
 
 	//------------------------------------------------------
@@ -1234,9 +1248,16 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			Time timeout) {
 		final CompletableFuture<JobMasterGateway> jobMasterGatewayFuture = getJobMasterGatewayFuture(jobId);
 
-		return jobMasterGatewayFuture.thenCompose(
-			(JobMasterGateway jobMasterGateway) ->
-				jobMasterGateway.deliverCoordinationRequestToCoordinator(operatorId, serializedRequest, timeout));
+		if (dispatcherFetchResultThreadPoolEnabled) {
+			return jobMasterGatewayFuture.thenComposeAsync(
+				(JobMasterGateway jobMasterGateway) ->
+					jobMasterGateway.deliverCoordinationRequestToCoordinator(operatorId, serializedRequest, timeout),
+				fetchResultExecutor);
+		} else {
+			return jobMasterGatewayFuture.thenCompose(
+				(JobMasterGateway jobMasterGateway) ->
+					jobMasterGateway.deliverCoordinationRequestToCoordinator(operatorId, serializedRequest, timeout));
+		}
 	}
 
 	/**

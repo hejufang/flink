@@ -527,6 +527,18 @@ public class JobManagerOptions {
 			.withDescription("The maximal number of running tasks per TaskManager can run." +
 				"If number of running tasks exceed this number time registered TaskManagers, jobs will be put in pending queue.");
 
+	public static final ConfigOption<Integer> DISPATCHER_FETCH_RESULT_THREADS_NUM =
+		key("jobmanager.dispatcher-fetch-result.threads.num")
+			.intType()
+			.defaultValue(Runtime.getRuntime().availableProcessors() * 2)
+			.withDescription("Number of threads used to fetch job result.");
+
+	public static final ConfigOption<Boolean> DISPATCHER_FETCH_RESULT_THREAD_POOL_ENABLED =
+		key("jobmanager.dispatcher-fetch-result.thread-pool-enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether to create thread pool in Dispatcher to fetch job result");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {
