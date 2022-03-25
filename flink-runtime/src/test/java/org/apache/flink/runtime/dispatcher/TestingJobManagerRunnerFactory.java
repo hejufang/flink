@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.dispatcher;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -30,6 +31,7 @@ import org.apache.flink.runtime.rpc.RpcService;
 
 import javax.annotation.Nonnull;
 
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
@@ -59,7 +61,8 @@ public class TestingJobManagerRunnerFactory implements JobManagerRunnerFactory {
 			HeartbeatServices heartbeatServices,
 			JobManagerSharedServices jobManagerServices,
 			JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory,
-			FatalErrorHandler fatalErrorHandler) throws Exception {
+			FatalErrorHandler fatalErrorHandler,
+			Map<ResourceID, ResolvedTaskManagerTopology> taskManagers) throws Exception {
 		final TestingJobManagerRunner testingJobManagerRunner = createTestingJobManagerRunner(jobGraph);
 		createdJobManagerRunner.offer(testingJobManagerRunner);
 

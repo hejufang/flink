@@ -18,15 +18,32 @@
 
 package org.apache.flink.runtime.jobmaster.slotpool;
 
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.dispatcher.ResolvedTaskManagerTopology;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Loader for {@link SlotPoolFactory}.
  */
 public class SlotPoolFactoryLoader {
 	public static SlotPoolFactory createSlotPoolFactory(Configuration configuration, ScheduleMode scheduleMode) {
+		if (configuration.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED)) {
+			throw new IllegalArgumentException("Must provide TaskManagers when enable " + ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED.key());
+		}
+		return createSlotPoolFactory(configuration, scheduleMode, new HashMap<>());
+	}
+
+	public static SlotPoolFactory createSlotPoolFactory(Configuration configuration, ScheduleMode scheduleMode, Map<ResourceID, ResolvedTaskManagerTopology> taskManagers) {
+		if (configuration.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED)) {
+			return new VirtualTaskManagerSlotPool.VirtualTaskManagerSlotPoolFactory(
+					taskManagers, configuration.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE));
+		}
 
 		if (scheduleMode.equals(ScheduleMode.EAGER)) {
 			if (configuration.getBoolean(JobManagerOptions.SLOT_POOL_ROUND_ROBIN)) {

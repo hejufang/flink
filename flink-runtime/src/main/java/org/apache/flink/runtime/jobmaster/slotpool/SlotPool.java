@@ -23,6 +23,7 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
+import org.apache.flink.runtime.dispatcher.ResolvedTaskManagerTopology;
 import org.apache.flink.runtime.jobmanager.slots.TaskManagerGateway;
 import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
@@ -37,6 +38,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 
@@ -92,6 +94,18 @@ public interface SlotPool extends AllocatedSlotActions, AutoCloseable {
 	 * @return true iff a new resource id was registered
 	 */
 	boolean registerTaskManager(ResourceID resourceID);
+
+	default boolean registerTaskManager(ResourceID resourceID, ResolvedTaskManagerTopology resolvedTaskManagerTopology) {
+		throw new UnsupportedOperationException();
+	}
+
+	default Set<ResourceID> getTaskManagers() {
+		throw new UnsupportedOperationException();
+	}
+
+	default Set<ResourceID> getUsedTaskManagers() {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * Releases a TaskExecutor with the given {@link ResourceID} from the {@link SlotPool}.

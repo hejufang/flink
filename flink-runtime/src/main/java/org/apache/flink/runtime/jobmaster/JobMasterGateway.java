@@ -24,6 +24,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinatorGateway;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.dispatcher.ResolvedTaskManagerTopology;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
@@ -54,6 +55,8 @@ import javax.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -293,6 +296,10 @@ public interface JobMasterGateway extends
 	 * @param cause the reason that the allocation failed
 	 */
 	void notifyAllocationFailure(AllocationID allocationID, Exception cause);
+
+	default void notifyWorkerRemoved(Set<ResourceID> workers) {}
+
+	default void notifyWorkerAdded(Map<ResourceID, ResolvedTaskManagerTopology> workers) {}
 
 	/**
 	 * Update the aggregate and return the new value.

@@ -242,6 +242,8 @@ public class JobMasterTest extends TestLogger {
 
 	private SettableLeaderRetrievalService rmLeaderRetrievalService;
 
+	private SettableLeaderRetrievalService dispatcherLeaderRetrievalService;
+
 	private TestingFatalErrorHandler testingFatalErrorHandler;
 
 	@BeforeClass
@@ -266,7 +268,11 @@ public class JobMasterTest extends TestLogger {
 		rmLeaderRetrievalService = new SettableLeaderRetrievalService(
 			null,
 			null);
+		dispatcherLeaderRetrievalService = new SettableLeaderRetrievalService(
+			null,
+			null);
 		haServices.setResourceManagerLeaderRetriever(rmLeaderRetrievalService);
+		haServices.setDispatcherLeaderRetriever(dispatcherLeaderRetrievalService);
 
 		configuration.setString(BlobServerOptions.STORAGE_DIRECTORY, temporaryFolder.newFolder().getAbsolutePath());
 		configuration.setBoolean(CheckpointingOptions.UNION_STATE_AGGREGATION_ENABLED, false);
@@ -451,6 +457,7 @@ public class JobMasterTest extends TestLogger {
 		final JobMaster jobMaster = new JobMasterBuilder(JobGraphTestUtils.createSingleVertexJobGraph(), rpcService)
 			.withHeartbeatServices(new HeartbeatServices(5L, 1000L))
 			.withSlotPoolFactory(new TestingSlotPoolFactory(hasReceivedSlotOffers))
+			.withHighAvailabilityServices(haServices)
 			.createJobMaster();
 
 		CompletableFuture<Acknowledge> startFuture = jobMaster.start(jobMasterId);

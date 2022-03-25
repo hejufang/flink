@@ -26,7 +26,7 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.dispatcher.DispatcherId;
-import org.apache.flink.runtime.dispatcher.TaskManagerTopology;
+import org.apache.flink.runtime.dispatcher.UnresolvedTaskManagerTopology;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -69,7 +69,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	static final Function<ApplicationStatus, CompletableFuture<Acknowledge>> DEFAULT_SHUTDOWN_WITH_STATUS_FUNCTION = status -> CompletableFuture.completedFuture(Acknowledge.get());
 	static final Consumer<ResourceManagerId> DEFAULT_DISCONNECT_RESOURCE_MANAGER_CONSUMER = ignore -> {};
 	static final Consumer<ResourceID> DEFAULT_RESOURCE_MANAGER_HEARTBEAT_CONSUMER = ignore -> {};
-	static final Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> DEFAULT_OFFER_TASKMANAGERS_FUNCTION = taskManagerTopologies -> CompletableFuture.completedFuture(Acknowledge.get());
+	static final Function<Collection<UnresolvedTaskManagerTopology>, CompletableFuture<Acknowledge>> DEFAULT_OFFER_TASKMANAGERS_FUNCTION = taskManagerTopologies -> CompletableFuture.completedFuture(Acknowledge.get());
 	static final BiFunction<JobID, Collection<ResourceID>, CompletableFuture<Acknowledge>> DEFAULT_REPORT_TASKMANAGER_USAGE_FUNCTION = (jobID, taskManagers) -> CompletableFuture.completedFuture(Acknowledge.get());
 
 	private Function<JobGraph, CompletableFuture<Acknowledge>> submitFunction;
@@ -81,7 +81,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	private Function<ApplicationStatus, CompletableFuture<Acknowledge>> clusterShutdownWithStatusFunction;
 	private Consumer<ResourceManagerId> disconnectResourceManagerConsumer;
 	private Consumer<ResourceID> resourceManagerHeartbeatConsumer;
-	private Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction;
+	private Function<Collection<UnresolvedTaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction;
 
 	public TestingDispatcherGateway() {
 		super();
@@ -121,7 +121,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 			TriFunction<JobID, OperatorID, SerializedValue<CoordinationRequest>, CompletableFuture<CoordinationResponse>> deliverCoordinationRequestToCoordinatorFunction,
 			Consumer<ResourceManagerId> disconnectResourceManagerConsumer,
 			Consumer<ResourceID> resourceManagerHeartbeatConsumer,
-			Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction) {
+			Function<Collection<UnresolvedTaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction) {
 		super(
 			address,
 			hostname,
@@ -195,7 +195,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	}
 
 	@Override
-	public CompletableFuture<Acknowledge> offerTaskManagers(Collection<TaskManagerTopology> taskManagerTopologies, Time timeout) {
+	public CompletableFuture<Acknowledge> offerTaskManagers(Collection<UnresolvedTaskManagerTopology> taskManagerTopologies, Time timeout) {
 		return offerTaskManagersFunction.apply(taskManagerTopologies);
 	}
 
@@ -218,7 +218,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		private Function<ApplicationStatus, CompletableFuture<Acknowledge>> clusterShutdownWithStatusFunction = DEFAULT_SHUTDOWN_WITH_STATUS_FUNCTION;
 		private Consumer<ResourceManagerId> disconnectResourceManagerConsumer = DEFAULT_DISCONNECT_RESOURCE_MANAGER_CONSUMER;
 		private Consumer<ResourceID> resourceManagerHeartbeatConsumer = DEFAULT_RESOURCE_MANAGER_HEARTBEAT_CONSUMER;
-		private Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction = DEFAULT_OFFER_TASKMANAGERS_FUNCTION;
+		private Function<Collection<UnresolvedTaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction = DEFAULT_OFFER_TASKMANAGERS_FUNCTION;
 
 		public Builder setSubmitFunction(Function<JobGraph, CompletableFuture<Acknowledge>> submitFunction) {
 			this.submitFunction = submitFunction;
@@ -262,7 +262,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		}
 
 		public Builder setOfferTaskManagersFunction(
-				Function<Collection<TaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction) {
+				Function<Collection<UnresolvedTaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction) {
 			this.offerTaskManagersFunction = offerTaskManagersFunction;
 			return this;
 		}

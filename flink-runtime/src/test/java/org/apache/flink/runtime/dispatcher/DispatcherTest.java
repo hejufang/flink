@@ -100,6 +100,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -159,6 +160,8 @@ public class DispatcherTest extends TestLogger {
 
 	private SettableLeaderRetrievalService rmLeaderRetrievalService;
 
+	private SettableLeaderRetrievalService dispatcherLeaderRetrievalService;
+
 	@BeforeClass
 	public static void setupClass() {
 		rpcService = new TestingRpcService();
@@ -189,7 +192,11 @@ public class DispatcherTest extends TestLogger {
 		rmLeaderRetrievalService = new SettableLeaderRetrievalService(
 			null,
 			null);
+		dispatcherLeaderRetrievalService = new SettableLeaderRetrievalService(
+			null,
+			null);
 		haServices.setResourceManagerLeaderRetriever(rmLeaderRetrievalService);
+		haServices.setDispatcherLeaderRetriever(dispatcherLeaderRetrievalService);
 
 		configuration = new Configuration();
 
@@ -811,10 +818,10 @@ public class DispatcherTest extends TestLogger {
 		}
 
 		@Override
-		public TestingJobManagerRunner createJobManagerRunner(JobGraph jobGraph, Configuration configuration, RpcService rpcService, HighAvailabilityServices highAvailabilityServices, HeartbeatServices heartbeatServices, JobManagerSharedServices jobManagerSharedServices, JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory, FatalErrorHandler fatalErrorHandler) throws Exception {
+		public TestingJobManagerRunner createJobManagerRunner(JobGraph jobGraph, Configuration configuration, RpcService rpcService, HighAvailabilityServices highAvailabilityServices, HeartbeatServices heartbeatServices, JobManagerSharedServices jobManagerSharedServices, JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory, FatalErrorHandler fatalErrorHandler, Map<ResourceID, ResolvedTaskManagerTopology> taskManagers) throws Exception {
 			jobManagerRunnerCreationLatch.run();
 
-			return super.createJobManagerRunner(jobGraph, configuration, rpcService, highAvailabilityServices, heartbeatServices, jobManagerSharedServices, jobManagerJobMetricGroupFactory, fatalErrorHandler);
+			return super.createJobManagerRunner(jobGraph, configuration, rpcService, highAvailabilityServices, heartbeatServices, jobManagerSharedServices, jobManagerJobMetricGroupFactory, fatalErrorHandler, taskManagers);
 		}
 	}
 
@@ -861,7 +868,8 @@ public class DispatcherTest extends TestLogger {
 				HeartbeatServices heartbeatServices,
 				JobManagerSharedServices jobManagerSharedServices,
 				JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory,
-				FatalErrorHandler fatalErrorHandler) throws Exception {
+				FatalErrorHandler fatalErrorHandler,
+				Map<ResourceID, ResolvedTaskManagerTopology> taskManagers) throws Exception {
 			assertEquals(expectedJobId, jobGraph.getJobID());
 
 			createdJobManagerRunnerLatch.countDown();
@@ -874,7 +882,8 @@ public class DispatcherTest extends TestLogger {
 				heartbeatServices,
 				jobManagerSharedServices,
 				jobManagerJobMetricGroupFactory,
-				fatalErrorHandler);
+				fatalErrorHandler,
+				taskManagers);
 		}
 	}
 

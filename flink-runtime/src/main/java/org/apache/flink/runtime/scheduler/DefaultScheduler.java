@@ -216,6 +216,9 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			LoggerHelper.secMark("jobName", jobGraph.getName()),
 			LoggerHelper.secMark("jobID", jobGraph.getJobID()));
 
+		int maxTasksPerWorker = jobMasterConfiguration.getInteger(JobManagerOptions.JOBMANAGER_MAX_TASKS_PER_JOB);
+		int minWorkersPerJob = jobMasterConfiguration.getInteger(JobManagerOptions.JOBMANAGER_MIN_WORKERS_PER_JOB);
+
 		final ExecutionSlotAllocationContext slotAllocationContext = new ExecutionSlotAllocationContext(
 			getStateLocationRetriever(),
 			getInputsLocationsRetriever(),
@@ -225,7 +228,9 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			() -> getJobGraph().getSlotSharingGroups(),
 			() -> getJobGraph().getCoLocationGroupDescriptors(),
 			jobLogDetailDisable,
-			batchRequestSlotsEnable);
+			batchRequestSlotsEnable,
+			maxTasksPerWorker,
+			minWorkersPerJob);
 		this.executionSlotAllocator = checkNotNull(executionSlotAllocatorFactory).createInstance(getInputsLocationsRetriever(), slotAllocationContext);
 
 		this.verticesWaitingForRestart = new HashSet<>();

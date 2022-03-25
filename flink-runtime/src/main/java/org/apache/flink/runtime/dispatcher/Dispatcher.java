@@ -29,6 +29,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.BenchmarkOption;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Histogram;
@@ -125,6 +126,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -207,7 +209,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private final Boolean jmResourceAllocationEnabled;
 
-	private final Map<ResourceID, TaskManagerTopology> registeredTaskManagers;
+	private final Map<ResourceID, ResolvedTaskManagerTopology> registeredTaskManagers;
 
 	private int minRequiredTaskManager;
 
@@ -222,6 +224,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private final Queue<Tuple2<JobGraph, ChannelHandlerContext>> pendingJobsWithContext;
 
 	private HeartbeatManager<Void, Void> resourceManagerHeartbeatManager;
+
+	private final boolean useAddressAsHostname;
 
 	public Dispatcher(
 			RpcService rpcService,
@@ -295,6 +299,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		this.resourceManagerHeartbeatManager = NoOpHeartbeatManager.getInstance();
 
 		this.resourceId = ResourceID.generate();
+
+		this.useAddressAsHostname = configuration.getBoolean(CoreOptions.USE_ADDRESS_AS_HOSTNAME_ENABLE);
 	}
 
 	//------------------------------------------------------
@@ -303,6 +309,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	public CompletableFuture<ApplicationStatus> getShutDownFuture() {
 		return shutDownFuture;
+	}
+
+	private DispatcherId getDispatcherId() {
+		return getFencingToken();
 	}
 
 	//------------------------------------------------------
@@ -721,7 +731,6 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				try {
 					totalRunningTasks += jobGraph.calcMinRequiredSlotsNum();
 
-					// TODO: pass TM to JobMaster
 					return jobManagerRunnerFactory.createJobManagerRunner(
 						jobGraph,
 						configuration,
@@ -730,7 +739,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 						heartbeatServices,
 						jobManagerSharedServices,
 						new DefaultJobManagerJobMetricGroupFactory(jobManagerMetricGroup),
-						fatalErrorHandler);
+						fatalErrorHandler,
+						registeredTaskManagers);
 				} catch (Exception e) {
 					throw new CompletionException(new JobExecutionException(jobGraph.getJobID(), "Could not instantiate JobManager.", e));
 				}
@@ -755,6 +765,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 						jobManagerSharedServices,
 						new DefaultJobManagerJobMetricGroupFactory(jobManagerMetricGroup),
 						fatalErrorHandler,
+						registeredTaskManagers,
 						chx);
 				} catch (Exception e) {
 					throw new CompletionException(new JobExecutionException(jobGraph.getJobID(), "Could not instantiate JobManager.", e));
@@ -1013,6 +1024,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			final ArchivedExecutionGraph archivedExecutionGraph = archivedExecutionGraphStore.get(jobId);
 
 			if (archivedExecutionGraph == null) {
+				// create wait JobMater in queue
 				return FutureUtils.completedExceptionally(new FlinkJobNotFoundException(jobId));
 			} else {
 				return CompletableFuture.completedFuture(JobResult.createFrom(archivedExecutionGraph));
@@ -1125,14 +1137,19 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	@Override
 	public CompletableFuture<Acknowledge> offerTaskManagers(
-			Collection<TaskManagerTopology> taskManagerTopologies,
+			Collection<UnresolvedTaskManagerTopology> taskManagerTopologies,
 			Time timeout) {
 
-		Map<ResourceID, TaskManagerTopology> updatedRegisteredTM = new HashMap<>();
-		for (TaskManagerTopology taskManagerTopology: taskManagerTopologies) {
+		if (log.isDebugEnabled()) {
+			log.debug("Registered TM: [{}]",
+				registeredTaskManagers.keySet().stream().map(Objects::toString).collect(Collectors.joining(",")));
+		}
+
+		Map<ResourceID, UnresolvedTaskManagerTopology> updatedRegisteredTM = new HashMap<>();
+		for (UnresolvedTaskManagerTopology unresolvedTaskManagerTopology : taskManagerTopologies) {
 			updatedRegisteredTM.put(
-				taskManagerTopology.getTaskExecutorRegistration().getResourceId(),
-				taskManagerTopology);
+				unresolvedTaskManagerTopology.getUnresolvedTaskManagerLocation().getResourceID(),
+					unresolvedTaskManagerTopology);
 		}
 
 		Set<ResourceID> added = new HashSet<>(updatedRegisteredTM.keySet());
@@ -1141,12 +1158,47 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		added.removeAll(registeredTaskManagers.keySet());
 		removed.removeAll(updatedRegisteredTM.keySet());
 
+		Map<ResourceID, ResolvedTaskManagerTopology> addedTaskManagerTopology = new HashMap<>();
+
 		for (ResourceID resourceID: added) {
-			registeredTaskManagers.put(resourceID, updatedRegisteredTM.get(resourceID));
+			final ResolvedTaskManagerTopology resolvedTaskManagerTopology;
+			try {
+				resolvedTaskManagerTopology = ResolvedTaskManagerTopology.fromUnresolvedTaskManagerTopology(
+						updatedRegisteredTM.get(resourceID),
+						useAddressAsHostname);
+				registeredTaskManagers.put(resourceID, resolvedTaskManagerTopology);
+				addedTaskManagerTopology.put(resourceID, resolvedTaskManagerTopology);
+			} catch (Exception e) {
+				log.error("Resource {} can not added to registeredTaskManagers, ignore it.", resourceID, e);
+			}
 		}
 
 		for (ResourceID resourceID: removed) {
 			registeredTaskManagers.remove(resourceID);
+		}
+
+		if (log.isDebugEnabled()) {
+			log.debug("Added TM: [{}], Removed TM: [{}]",
+				added.stream().map(Objects::toString).collect(Collectors.joining(",")),
+				removed.stream().map(Objects::toString).collect(Collectors.joining(",")));
+		}
+
+		// update taskmanager change to JobMaster
+		for (JobID jobID : jobManagerRunnerFutures.keySet()) {
+			getJobMasterGatewayFuture(jobID).whenComplete(
+				(jobMasterGateway, throwable) -> {
+					if (throwable != null) {
+						log.error("Get JobMasterGateway for job {} failed and can't notify TM change, because {}",
+							jobID,
+							throwable);
+					} else {
+						jobMasterGateway.notifyWorkerAdded(addedTaskManagerTopology);
+						// this may cause Job never failed if miss some JobMasterGateway.
+						// Maybe we need a sync loop.
+						jobMasterGateway.notifyWorkerRemoved(removed);
+					}
+				}
+			);
 		}
 
 		while (canSubmitJob() && (!pendingJobs.isEmpty() || !pendingJobsWithContext.isEmpty())) {
@@ -1404,6 +1456,29 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		}
 	}
 
+	/**
+	 * Get JobMasterGateway, return null if JobMasterGateway is not created.
+	 */
+	private JobMasterGateway getJobMasterGateway(JobID jobId){
+		final CompletableFuture<JobManagerRunner> jobManagerRunnerFuture = jobManagerRunnerFutures.get(jobId);
+
+		if (jobManagerRunnerFuture == null) {
+			return null;
+		} else {
+			if (jobManagerRunnerFuture.isDone()) {
+				try {
+					CompletableFuture<JobMasterGateway> jobMasterGatewayCompletableFuture = jobManagerRunnerFuture.get().getJobMasterGateway();
+					if (jobMasterGatewayCompletableFuture.isDone()) {
+						return jobMasterGatewayCompletableFuture.get();
+					}
+				} catch (ExecutionException | InterruptedException e) {
+					log.error("Get JobMasterGateway for {} failed.", jobId, e);
+				}
+			}
+		}
+		return null;
+	}
+
 	private CompletableFuture<ResourceManagerGateway> getResourceManagerGateway() {
 		return resourceManagerGatewayRetriever.getFuture();
 	}
@@ -1622,7 +1697,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		resourceManagerConnection = new DispatcherToResourceManagerConnection(
 			log,
 			getAddress(),
-			getFencingToken(),
+			getDispatcherId(),
 			resourceManagerAddress.getAddress(),
 			resourceManagerAddress.getResourceManagerId(),
 			getMainThreadExecutor());

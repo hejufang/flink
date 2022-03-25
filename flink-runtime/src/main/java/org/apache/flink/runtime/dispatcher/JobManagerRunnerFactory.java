@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.dispatcher;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -31,6 +32,8 @@ import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 
 import javax.annotation.Nullable;
+
+import java.util.Map;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -48,7 +51,8 @@ public interface JobManagerRunnerFactory {
 		HeartbeatServices heartbeatServices,
 		JobManagerSharedServices jobManagerServices,
 		JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory,
-		FatalErrorHandler fatalErrorHandler) throws Exception;
+		FatalErrorHandler fatalErrorHandler,
+		Map<ResourceID, ResolvedTaskManagerTopology> taskManagers) throws Exception;
 
 	default JobManagerRunner createJobManagerRunner(
 			JobGraph jobGraph,
@@ -59,6 +63,7 @@ public interface JobManagerRunnerFactory {
 			JobManagerSharedServices jobManagerServices,
 			JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory,
 			FatalErrorHandler fatalErrorHandler,
+			Map<ResourceID, ResolvedTaskManagerTopology> taskManagers,
 			@Nullable ChannelHandlerContext channelContext) throws Exception {
 		checkArgument(channelContext == null);
 		return createJobManagerRunner(
@@ -69,6 +74,7 @@ public interface JobManagerRunnerFactory {
 			heartbeatServices,
 			jobManagerServices,
 			jobManagerJobMetricGroupFactory,
-			fatalErrorHandler);
+			fatalErrorHandler,
+			taskManagers);
 	}
 }

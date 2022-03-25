@@ -20,6 +20,7 @@
 package org.apache.flink.runtime.scheduler;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.executiongraph.SlotProviderStrategy;
@@ -29,6 +30,7 @@ import org.apache.flink.runtime.jobmaster.slotpool.PhysicalSlotProviderImpl;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotPool;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotSelectionStrategy;
+import org.apache.flink.runtime.jobmaster.slotpool.VirtualTaskManagerSlotPool;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 
 import org.slf4j.Logger;
@@ -42,8 +44,18 @@ public class ExecutionSlotAllocatorFactoryLoader {
 
 	public static ExecutionSlotAllocatorFactory loadExecutionSlotAllocatorFactory(
 			Configuration config, SlotProvider slotProvider, ScheduleMode scheduleMode, Time slotRequestTimeout, SlotSelectionStrategy slotSelectionStrategy, SlotPool slotPool, JobManagerJobMetricGroup jobManagerJobMetricGroup) {
-		final boolean enabled = config.getBoolean(JobManagerOptions.SLOT_SHARING_EXECUTION_SLOT_ALLOCATOR_ENABLED);
-		if (enabled) {
+		final boolean slotSharingExecutionSlotAllocatorEnabled = config.getBoolean(JobManagerOptions.SLOT_SHARING_EXECUTION_SLOT_ALLOCATOR_ENABLED);
+		final boolean jobMasterResourceAllocationDirectEnabled = config.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED);
+		if (jobMasterResourceAllocationDirectEnabled) {
+			if (slotPool instanceof VirtualTaskManagerSlotPool) {
+				LOG.info("Using {} as ExecutionSlotAllocatorFactory.", RandomTaskManagerExecutionSlotAllocator.RandomTaskManagerExecutionSlotAllocatorFactory.class.getName());
+				return new RandomTaskManagerExecutionSlotAllocator.RandomTaskManagerExecutionSlotAllocatorFactory((VirtualTaskManagerSlotPool) slotPool);
+			} else {
+				LOG.info("Using {} as ExecutionSlotAllocatorFactory Failed, SlotPool is not VirtualTaskManagerSlotPool",
+						RandomTaskManagerExecutionSlotAllocator.RandomTaskManagerExecutionSlotAllocatorFactory.class.getName());
+				throw new IllegalArgumentException("RandomTaskManagerExecutionSlotAllocator must use VirtualTaskManagerSlotPool.");
+			}
+		} else if (slotSharingExecutionSlotAllocatorEnabled) {
 			LOG.info("Using {} as ExecutionSlotAllocatorFactory.", SlotSharingExecutionSlotAllocatorFactory.class.getName());
 			final PhysicalSlotProvider physicalSlotProvider = new PhysicalSlotProviderImpl(slotSelectionStrategy, slotPool, jobManagerJobMetricGroup);
 			boolean slotWillBeOccupiedIndefinitely;

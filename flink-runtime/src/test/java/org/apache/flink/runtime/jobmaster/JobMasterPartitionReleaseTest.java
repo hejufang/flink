@@ -204,7 +204,11 @@ public class JobMasterPartitionReleaseTest extends TestLogger {
 			SettableLeaderRetrievalService rmLeaderRetrievalService = new SettableLeaderRetrievalService(
 				null,
 				null);
+			SettableLeaderRetrievalService dispatcherLeaderRetrievalService = new SettableLeaderRetrievalService(
+				null,
+				null);
 			haServices.setResourceManagerLeaderRetriever(rmLeaderRetrievalService);
+			haServices.setDispatcherLeaderRetriever(dispatcherLeaderRetrievalService);
 
 			final TestingJobMasterPartitionTracker partitionTracker = new TestingJobMasterPartitionTracker();
 

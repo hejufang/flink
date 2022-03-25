@@ -20,6 +20,8 @@ package org.apache.flink.runtime.dispatcher;
 
 import org.apache.flink.util.AbstractID;
 
+import javax.annotation.Nullable;
+
 import java.util.UUID;
 
 /**
@@ -51,5 +53,9 @@ public class DispatcherId extends AbstractID {
 	 */
 	public static DispatcherId fromUuid(UUID uuid) {
 		return new DispatcherId(uuid);
+	}
+
+	public static DispatcherId fromUuidOrNull(@Nullable UUID uuid) {
+		return  uuid == null ? null : new DispatcherId(uuid);
 	}
 }

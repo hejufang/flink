@@ -45,7 +45,7 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.dispatcher.DispatcherId;
 import org.apache.flink.runtime.dispatcher.DispatcherRegistrationSuccess;
-import org.apache.flink.runtime.dispatcher.TaskManagerTopology;
+import org.apache.flink.runtime.dispatcher.UnresolvedTaskManagerTopology;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatListener;
@@ -157,7 +157,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	private final Map<ResourceID, DispatcherRegistration> dispatcherRegistrations;
 
-	private final Map<ResourceID, TaskManagerTopology> taskExecutorTopology;
+	private final Map<ResourceID, UnresolvedTaskManagerTopology> taskExecutorTopology;
 
 	/** High availability services for leader retrieval and election. */
 	private final HighAvailabilityServices highAvailabilityServices;
@@ -1185,11 +1185,17 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			});
 
 			if (jmResourceAllocationEnabled) {
-				TaskManagerTopology oldTaskManagerTopology = taskExecutorTopology.get(taskExecutorResourceId);
-				if (oldTaskManagerTopology == null) {
+				UnresolvedTaskManagerTopology oldUnresolvedTaskManagerTopology = taskExecutorTopology.get(taskExecutorResourceId);
+				if (oldUnresolvedTaskManagerTopology == null) {
 					taskExecutorTopology.put(
 						taskExecutorResourceId,
-						new TaskManagerTopology(taskExecutorGateway, taskExecutorRegistration));
+						new UnresolvedTaskManagerTopology(taskExecutorGateway, unresolvedTaskManagerLocation));
+
+					if (log.isDebugEnabled()) {
+						log.debug("Notify Dispatchers [{}] for latest TM topology because {} added",
+							dispatcherRegistrations.keySet().stream().map(Objects::toString).collect(Collectors.joining(",")),
+							taskExecutorResourceId);
+					}
 
 					dispatcherRegistrations.values().forEach(
 						dispatcherRegistration -> dispatcherRegistration
@@ -1243,6 +1249,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			dispatcherRegistrations.put(dispatcherResourceId, dispatcherRegistration);
 		}
 		log.info("Registered dispatcher {}@{} at ResourceManager.", dispatcherGateway.getFencingToken(), dispatcherAddress);
+
+		if (log.isDebugEnabled()) {
+			log.debug("Notify Dispatcher {} for latest TM topology", dispatcherResourceId);
+		}
 
 		dispatcherGateway.offerTaskManagers(taskExecutorTopology.values(), rpcTimeout);
 
@@ -1417,6 +1427,12 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 			if (jmResourceAllocationEnabled) {
 				taskExecutorTopology.remove(resourceID);
+
+				if (log.isDebugEnabled()) {
+					log.debug("Notify Dispatchers [{}] for latest TM topology because {} closed",
+						dispatcherRegistrations.keySet().stream().map(Objects::toString).collect(Collectors.joining(",")),
+						resourceID);
+				}
 
 				dispatcherRegistrations.values().forEach(
 					dispatcherRegistration -> dispatcherRegistration

@@ -116,7 +116,7 @@ public interface DispatcherGateway extends FencedRpcGateway<DispatcherId>, Restf
 	 * @return A future acknowledge if the receiving succeeded
 	 */
 	CompletableFuture<Acknowledge> offerTaskManagers(
-		Collection<TaskManagerTopology> taskManagerTopologies,
+		Collection<UnresolvedTaskManagerTopology> taskManagerTopologies,
 		@RpcTimeout Time timeout);
 
 	/**

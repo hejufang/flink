@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.dispatcher;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -42,6 +43,8 @@ import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 
 import javax.annotation.Nullable;
 
+import java.util.Map;
+
 /**
  * Singleton default factory for {@link JobManagerRunnerImpl}.
  */
@@ -57,7 +60,8 @@ public enum DefaultJobManagerRunnerFactory implements JobManagerRunnerFactory {
 			HeartbeatServices heartbeatServices,
 			JobManagerSharedServices jobManagerServices,
 			JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory,
-			FatalErrorHandler fatalErrorHandler) throws Exception {
+			FatalErrorHandler fatalErrorHandler,
+			Map<ResourceID, ResolvedTaskManagerTopology> taskManagers) throws Exception {
 		return createJobManagerRunner(
 				jobGraph,
 				configuration,
@@ -67,6 +71,7 @@ public enum DefaultJobManagerRunnerFactory implements JobManagerRunnerFactory {
 				jobManagerServices,
 				jobManagerJobMetricGroupFactory,
 				fatalErrorHandler,
+				taskManagers,
 				null);
 	}
 
@@ -80,6 +85,7 @@ public enum DefaultJobManagerRunnerFactory implements JobManagerRunnerFactory {
 			JobManagerSharedServices jobManagerServices,
 			JobManagerJobMetricGroupFactory jobManagerJobMetricGroupFactory,
 			FatalErrorHandler fatalErrorHandler,
+			Map<ResourceID, ResolvedTaskManagerTopology> taskManagers,
 			@Nullable ChannelHandlerContext channelContext) throws Exception {
 
 		final JobMasterConfiguration jobMasterConfiguration = JobMasterConfiguration.fromConfiguration(configuration);
@@ -90,7 +96,7 @@ public enum DefaultJobManagerRunnerFactory implements JobManagerRunnerFactory {
 
 		final JobMasterServiceFactory jobMasterFactory = new DefaultJobMasterServiceFactory(
 			jobMasterConfiguration,
-			SlotPoolFactoryLoader.createSlotPoolFactory(configuration, jobGraph.getScheduleMode()),
+			SlotPoolFactoryLoader.createSlotPoolFactory(configuration, jobGraph.getScheduleMode(), taskManagers),
 			schedulerFactory,
 			rpcService,
 			highAvailabilityServices,

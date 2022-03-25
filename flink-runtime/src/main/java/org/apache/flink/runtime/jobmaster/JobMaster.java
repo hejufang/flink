@@ -25,6 +25,7 @@ import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.BenchmarkOption;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.ExecutionOptions;
@@ -49,6 +50,9 @@ import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
+import org.apache.flink.runtime.dispatcher.DispatcherGateway;
+import org.apache.flink.runtime.dispatcher.DispatcherId;
+import org.apache.flink.runtime.dispatcher.ResolvedTaskManagerTopology;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
@@ -80,6 +84,7 @@ import org.apache.flink.runtime.jobmaster.slotpool.SchedulerFactory;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotPool;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotPoolFactory;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotSelectionStrategy;
+import org.apache.flink.runtime.jobmaster.slotpool.VirtualTaskManagerSlotPool;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalListener;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -125,6 +130,7 @@ import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.StringUtils;
 
@@ -218,6 +224,14 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final LeaderRetrievalService resourceManagerLeaderRetriever;
 
+	// --------- Dispatcher --------
+
+	private final LeaderRetrievalService dispatcherLeaderRetriever;
+
+	private DispatcherId dispatcherId;
+
+	private DispatcherGateway dispatcherGateway;
+
 	// --------- TaskManagers --------
 
 	private final Map<ResourceID, Tuple2<TaskManagerLocation, TaskExecutorGateway>> registeredTaskManagers;
@@ -256,6 +270,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	private final boolean useAddressAsHostNameEnable;
 
 	private final boolean requestSlotFromResourceManagerDirectEnable;
+
+	private final boolean jobMasterResourceAllocationDirectEnabled;
 
 	// for batch warehouse
 	private static final String FLINK_BATCH_JOB_INFO_METRICS = "flink_batch_info";
@@ -301,6 +317,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.jobMetricGroupFactory = checkNotNull(jobMetricGroupFactory);
 		this.useAddressAsHostNameEnable = jobMasterConfiguration.getConfiguration().getBoolean(CoreOptions.USE_ADDRESS_AS_HOSTNAME_ENABLE);
 		this.requestSlotFromResourceManagerDirectEnable = jobMasterConfiguration.getConfiguration().getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE);
+		this.jobMasterResourceAllocationDirectEnabled = jobMasterConfiguration.getConfiguration().getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED);
 		this.useMainScheduledExecutorEnable = jobMasterConfiguration.getConfiguration().getBoolean(CoreOptions.ENDPOINT_USE_MAIN_SCHEDULED_EXECUTOR_ENABLE);
 
 		final String jobName = jobGraph.getName();
@@ -310,11 +327,17 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 		resourceManagerLeaderRetriever = highAvailabilityServices.getResourceManagerLeaderRetriever();
 
+		dispatcherLeaderRetriever = highAvailabilityServices.getDispatcherLeaderRetriever();
+
 		int taskCount = 0;
 		for (JobVertex vertex : jobGraph.getVertices()) {
 			taskCount += vertex.getParallelism();
 		}
 		this.slotPool = checkNotNull(slotPoolFactory).createSlotPool(jobGraph.getJobID(), taskCount);
+		if (jobMasterResourceAllocationDirectEnabled) {
+			Preconditions.checkState(this.slotPool instanceof VirtualTaskManagerSlotPool,
+					"must use VirtualTaskManagerSlotPool when jobMasterResourceAllocationDirectEnabled");
+		}
 
 		this.slotSelectionStrategy = schedulerFactory.getSlotSelectionStrategy();
 
@@ -628,7 +651,9 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		log.debug("Disconnect TaskExecutor {} because: {}", resourceID, cause.getMessage());
 
 		taskManagerHeartbeatManager.unmonitorTarget(resourceID);
-		slotPool.releaseTaskManager(resourceID, cause);
+		if (!jobMasterResourceAllocationDirectEnabled) {
+			slotPool.releaseTaskManager(resourceID, cause);
+		}
 		partitionTracker.stopTrackingPartitionsFor(resourceID);
 
 		Tuple2<TaskManagerLocation, TaskExecutorGateway> taskManagerConnection = registeredTaskManagers.remove(resourceID);
@@ -726,6 +751,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			final ResourceID taskManagerId,
 			final Collection<SlotOffer> slots,
 			final Time timeout) {
+		validateNotInResourceAllocationDirectMode();
 
 		Tuple2<TaskManagerLocation, TaskExecutorGateway> taskManager = registeredTaskManagers.get(taskManagerId);
 
@@ -747,6 +773,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	@Override
 	public CompletableFuture<Acknowledge> offerOptimizeSlots(Collection<TaskManagerOfferSlots> slots, Time timeout) {
+		validateNotInResourceAllocationDirectMode();
 		CompletableFuture<Acknowledge> future = new CompletableFuture<>();
 
 		List<CompletableFuture<?>> futureList = new ArrayList<>(slots.size());
@@ -790,6 +817,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			final ResourceID taskManagerId,
 			final AllocationID allocationId,
 			final Exception cause) {
+		validateNotInResourceAllocationDirectMode();
 
 		if (registeredTaskManagers.containsKey(taskManagerId)) {
 			internalFailAllocation(allocationId, cause);
@@ -956,7 +984,21 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	@Override
 	public void notifyAllocationFailure(AllocationID allocationID, Exception cause) {
+		validateNotInResourceAllocationDirectMode();
 		internalFailAllocation(allocationID, cause);
+	}
+
+	@Override
+	public void notifyWorkerRemoved(Set<ResourceID> workers) {
+		Exception cause = new FlinkException("Worker released.");
+		for (ResourceID resourceID : workers) {
+			slotPool.releaseTaskManager(resourceID, cause);
+		}
+	}
+
+	@Override
+	public void notifyWorkerAdded(Map<ResourceID, ResolvedTaskManagerTopology> workers) {
+		workers.forEach(slotPool::registerTaskManager);
 	}
 
 	@Override
@@ -1047,6 +1089,10 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		//   - on notification of the leader, the connection will be established and
 		//     the slot pool will start requesting slots
 		resourceManagerLeaderRetriever.start(new ResourceManagerLeaderListener());
+
+		// Retrieve Dispatcher Address and Gateway.
+		// TODO need to register to Dispatcher and create heartbeat.
+		dispatcherLeaderRetriever.start(new DispatcherLeaderListener());
 	}
 
 	private void setNewFencingToken(JobMasterId newJobMasterId) {
@@ -1087,6 +1133,13 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			resourceManagerAddress = null;
 		} catch (Throwable t) {
 			log.warn("Failed to stop resource manager leader retriever when suspending.", t);
+		}
+
+		try {
+			dispatcherLeaderRetriever.stop();
+			dispatcherGateway = null;
+		} catch (Throwable t) {
+			log.warn("Failed to stop dispatcher leader retriever when suspending.", t);
 		}
 
 		suspendAndClearSchedulerFields(cause);
@@ -1261,6 +1314,17 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		reconnectToResourceManager(new FlinkException(String.format("ResourceManager leader changed to new address %s", resourceManagerAddress)));
 	}
 
+	private void notifyOfNewDispatcherLeader(final String newDispatcherAddress, final DispatcherId newDispatcherId) {
+		if (newDispatcherAddress ==  null) {
+			log.info("Job {}: Dispatcher leader changed to null", jobGraph.getJobID());
+			dispatcherGateway = null;
+		} else if (this.dispatcherId == null || !this.dispatcherId.equals(newDispatcherId)) {
+			getRpcService()
+					.connect(newDispatcherAddress, newDispatcherId, DispatcherGateway.class)
+					.thenApply(gateway -> dispatcherGateway = gateway);
+		}
+	}
+
 	@Nullable
 	private ResourceManagerAddress createResourceManagerAddress(@Nullable String newResourceManagerAddress, @Nullable ResourceManagerId resourceManagerId) {
 		if (newResourceManagerAddress != null) {
@@ -1373,6 +1437,11 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		remoteBlacklistReporter.disconnectResourceManager();
 	}
 
+	private void validateNotInResourceAllocationDirectMode() {
+		Preconditions.checkState(
+				!this.jobMasterResourceAllocationDirectEnabled, "Not support in resource allocation direct mode");
+	}
+
 	//----------------------------------------------------------------------------------------------
 	// Service methods
 	//----------------------------------------------------------------------------------------------
@@ -1399,6 +1468,22 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		@Override
 		public void handleError(final Exception exception) {
 			handleJobMasterError(new Exception("Fatal error in the ResourceManager leader service", exception));
+		}
+	}
+
+	private class DispatcherLeaderListener implements LeaderRetrievalListener {
+
+		@Override
+		public void notifyLeaderAddress(@Nullable String leaderAddress, @Nullable UUID leaderSessionID) {
+			runAsync(
+					() -> notifyOfNewDispatcherLeader(
+							leaderAddress,
+							DispatcherId.fromUuidOrNull(leaderSessionID)));
+		}
+
+		@Override
+		public void handleError(Exception exception) {
+			handleJobMasterError(new Exception("Fatal error in the Dispatcher leader service", exception));
 		}
 	}
 

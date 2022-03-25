@@ -53,6 +53,9 @@ class ExecutionSlotAllocationContext {
 
 	private final boolean batchRequestSlotEnable;
 
+	private final int maxTasksPerWorker;
+	private final int minWorkersPerJob;
+
 	ExecutionSlotAllocationContext(
 			final StateLocationRetriever stateLocationRetriever,
 			final InputsLocationsRetriever inputsLocationsRetriever,
@@ -62,7 +65,9 @@ class ExecutionSlotAllocationContext {
 			final Supplier<Set<SlotSharingGroup>> logicalSlotSharingGroupSupplier,
 			final Supplier<Set<CoLocationGroupDesc>> coLocationGroupSupplier,
 			final boolean jobLogDetailDisable,
-			final boolean batchRequestSlotEnable) {
+			final boolean batchRequestSlotEnable,
+			final int maxTasksPerWorker,
+			final int minWorkersPerJob) {
 
 		this.stateLocationRetriever = stateLocationRetriever;
 		this.inputsLocationsRetriever = inputsLocationsRetriever;
@@ -73,6 +78,8 @@ class ExecutionSlotAllocationContext {
 		this.coLocationGroupSupplier = coLocationGroupSupplier;
 		this.jobLogDetailDisable = jobLogDetailDisable;
 		this.batchRequestSlotEnable = batchRequestSlotEnable;
+		this.maxTasksPerWorker = maxTasksPerWorker;
+		this.minWorkersPerJob = minWorkersPerJob;
 	}
 
 	public StateLocationRetriever getStateLocationRetriever() {
@@ -109,5 +116,13 @@ class ExecutionSlotAllocationContext {
 
 	boolean isBatchRequestSlotEnable() {
 		return batchRequestSlotEnable;
+	}
+
+	public int getMaxTasksPerWorker() {
+		return maxTasksPerWorker;
+	}
+
+	public int getMinWorkersPerJob() {
+		return minWorkersPerJob;
 	}
 }
