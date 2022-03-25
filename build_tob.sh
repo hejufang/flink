@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ################################################################################
+set -e
+bash tob_config_check.sh
 
 rm -rf output
 rm -rf flink-dist

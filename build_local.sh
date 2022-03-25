@@ -16,8 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ################################################################################
-
 set -eo pipefail
+
+bash tob_config_check.sh
 
 . /etc/profile
 

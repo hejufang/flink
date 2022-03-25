@@ -1,0 +1,183 @@
+################################################################################
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+################################################################################
+## Checkpoints and State Backends
+state.savepoint.location-prefix
+state.checkpoints.expired.location-prefix
+savepoint.scheduler.default.interval
+
+## High Availability
+high-availability
+high-availability.storageDir
+high-availability.complete-checkpoint.storageDir
+high-availability.zookeeper.path.root
+high-availability.zookeeper.client.max-retry-attempts
+high-availability.zookeeper.client.connection-timeout
+high-availability.zookeeper.client.retry-wait
+high-availability.zookeeper.client.session-timeout
+## Auth with External Systems
+zookeeper.sasl.disable
+
+## Yarn
+yarn.application-attempts
+yarn.application-attempt-failures-validity-interval
+yarn.per-job-cluster.include-user-jar
+yarn.taskmanager.set_token
+yarn.conf.cluster_queue_name.enable
+yarn.check.application.name.unique
+yarn.check.application.name.unique.region
+yarn.runtime-conf.qos-level
+yarn.res-lake.enabled
+flink.jobmanager.yarn.config.yarn.client.failover-max-attempts
+flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms
+flink.jobmanager.yarn.config.yarn.resourcemanager.connect.retry-interval.ms
+flink.jobmanager.yarn.config.yarn.resourcemanager.connect.max-wait.ms
+flink.client.yarn.config.yarn.client.failover-max-attempts
+flink.client.yarn.config.yarn.resourcemanager.connect.retry-interval.ms
+flink.client.yarn.config.yarn.resourcemanager.connect.max-wait.ms
+yarn.provided.lib.dirs.enabled
+
+# kubernetes configuration
+kubernetes.jobmanager.service-account
+kubernetes.deployment.annotations
+kubernetes.web-shell.enabled
+kubernetes.stream-log.enabled
+kubernetes.stream-log.domain
+
+# Metrics
+metrics.reporter.opentsdb_reporter.class
+metrics.reporter.opentsdb_reporter.interval
+metrics.reporter.databus_reporter.class
+metrics.reporter.databus_reporter.interval
+
+# Grafana
+save-meta.enabled
+register-dashboard.enabled
+grafana.domain_url
+register-dashboard.token
+
+# JVM and Logging Options
+containerized.master.env.LD_LIBRARY_PATH
+containerized.taskmanager.env.LD_LIBRARY_PATH
+
+# Env
+dc
+
+# Doctor
+dashboard.data_source
+dtop.data_source
+dtop.database
+log4j.appender.databus.channel
+
+# Configurations for docker mode
+runtime.lib.dir
+runtime.conf.dir
+docker.default_image
+docker.image.include_lib
+docker.authorization
+docker.version_template_url
+docker.server
+docker.hub
+docker.region
+
+# Gang scheduler
+yarn.gang-scheduler.enable
+yarn.gang-scheduler.jobmanager.enable
+yarn.gang-scheduler.node-skip-high-load
+yarn.gang-scheduler.container-decentralized-average-weight
+yarn.gang-scheduler.node-quota-usage-average-weight
+yarn.gang-scheduler.wait-time-before-fatal-ms
+yarn.gang-scheduler.wait-time-before-retry-ms
+yarn.gang-scheduler.max-retry-times
+yarn.gang-scheduler.downgrade-timeout-ms
+
+# configurations for hive permission check.
+table.exec.hive.permission-check.enabled
+table.exec.hive.permission-check.gemini-server-url
+
+# Configurations for smart resources
+smart-resources.service-name
+
+# yarn slow container detection
+yarn.slow-container.enabled
+yarn.slow-container.timeout-ms
+yarn.slow-container.check-interval-ms
+yarn.slow-container.quantile
+yarn.slow-container.threshold-factor
+
+# Miscellaneous Options
+job.work.dir
+
+# ipv6
+ipv6.enabled
+ipv6.supported.cluster
+
+# bytedance streaming default config
+bytedance.streaming.yarn.check.application.name.unique
+bytedance.streaming.yarn.check.application.name.unique.region
+bytedance.streaming.yarn.gang-scheduler.enable
+bytedance.streaming.yarn.gang-scheduler.jobmanager.enable
+bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable
+bytedance.streaming.yarn.gang-scheduler.container-descheduler.disk-type-enable
+bytedance.streaming.yarn.res-lake.enabled
+
+# hdfs conf for checkpoint
+flink.checkpoint.hdfs.dfs.datanode.socket.write.timeout
+flink.checkpoint.hdfs.dfs.client.socket-timeout
+flink.checkpoint.hdfs.ipc.client.ping
+flink.checkpoint.hdfs.ipc.ping.interval
+flink.checkpoint.hdfs.ipc.client.connect.max.retries.on.timeouts
+flink.checkpoint.hdfs.ipc.client.connect.timeout
+flink.checkpoint.hdfs.ipc.client.connect.retry.interval
+flink.checkpoint.hdfs.io.file.buffer.size
+flink.checkpoint.hdfs.dfs.pipeline.fast-failover.bytes.threshold
+flink.checkpoint.hdfs.dfs.pipeline.fast-failover.max.failover.times
+
+# cloud shuffle service
+flink.cloud-shuffle-service.coordinator.url
+
+# local state quota limit
+state.backend.local-state.expected-max-size
+state.backend.local-state.actual-max-size
+state.backend.fail-exceed-quota-task.enable
+
+#coredump
+containerized.master.env.COREDUMP_CTL_NEED_CORE
+containerized.taskmanager.env.COREDUMP_CTL_NEED_CORE
+
+
+#####################################
+#### may be added in the future #####
+#####################################
+# PyFlink on Bytedance
+base_jar
+bin
+vcores
+ms_url
+ms_zone
+HADOOP_CONF_DIR
+kafka_server_url
+
+# blacklist
+blacklist.taskmanager.enabled
+blacklist.task.enabled
+blacklist.max-task-failure-num-per-host
+blacklist.max-taskmanager-failure-num-per-host
+blacklist.task-blacklist-max-length
+blacklist.taskmanager-blacklist-max-length
+blacklist.failure-timeout
+blacklist.check-interval

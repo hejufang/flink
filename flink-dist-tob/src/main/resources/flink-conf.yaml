@@ -19,94 +19,175 @@
 # shell configurations which must be set at top level.
 
 common:
-  parallelism.default: 1
-  stream-partitioner.default: rescale
-  #  io.tmp.dirs: /opt/tmp/flink
-  #  taskmanager.tmp.dirs: /opt/tmp/flink
-  state.backend: rocksdb
-  state.checkpoints.dir: file:///tmp
-  state.backend.incremental: true
-  state.checkpoints.num-retained: 10
-  state.backend.rocksdb.checkpoint.transfer.thread.num: 4
-  state.backend.rocksdb.use-fsync: true
-  execution.checkpointing.mode: EXACTLY_ONCE
-  execution.checkpointing.timeout: 10 min
-  #  state.backend.rocksdb.localdir: /opt/tmp/flink-dev/flink-rocksdb-local
-  taskmanager.memory.network.fraction: 0.3
 
-  # kubernetes configuration
-  kubernetes.flink.log.dir: /opt/tiger/flink_deploy/log
-  kubernetes.flink.conf.dir: /opt/tiger/flink_deploy/conf
-  kubernetes.entry.path: /opt/tiger/flink_deploy/bin/kubernetes-entry.sh
-  kubernetes.container-start-command-template: "%java% %classpath% %jvmmem% %jvmopts% %logging% %class% %args%"
-  kubernetes.namespace: gts
-  kubernetes.taskmanager.cpu: 2.0
-  kubernetes.jobmanager.cpu: 1.0
-  kubernetes.jobmanager.service-account: gts
-  kubernetes.rest-service.exposed.type: ClusterIP
-
-  prune.buffer.threshold: 262144
-
-  historyserver.web.tmpdir: /opt/tmp/flink/historyserver/tmpdir
-
-  akka.ask.timeout: 60 s
-
-  flink.lib.path: lib_new_conf
-
+  ## Fault Tolerance
   restart-strategy: failure-rate
   restart-strategy.failure-rate.max-failures-per-interval: 5
   restart-strategy.failure-rate.failure-rate-interval: 30 min
   restart-strategy.failure-rate.delay: 20 s
 
-  flink.partition-discovery.interval-millis: 600000 # default 10min for kafka partition auto discovery interval.
-
-  # restart-strategy: fixed-delay
-  # restart-strategy.fixed-delay.attempts: 100
-  # restart-strategy.fixed-delay.delay: 20 s
-  # The failover strategy, i.e., how the job computation recovers from task failures.
-  # Only restart tasks that may have been affected by the task failure, which typically includes
-  # downstream tasks and potentially upstream tasks if their produced data is no longer available for consumption.
-
+  restart-strategy.aggregated-failure-rate.max-failures-per-interval: 100
+  restart-strategy.aggregated-failure-rate.failure-rate-interval: 40 min
+  restart-strategy.aggregated-failure-rate.delay: 20 s
   # TODO(zoudan):add region restart monitor
   jobmanager.execution.failover-strategy: region
+  jobmanager.execution.status-dutation-ms: 30000
+
+  restart-strategy.recoverable-failure-rate.fallback-global-restart: true
+  restart-strategy.recoverable-failure-rate.enable: true
+
+  ## Checkpoints and State Backends
+  #  io.tmp.dirs: /opt/tmp/flink
+  #  taskmanager.tmp.dirs: /opt/tmp/flink
+  state.backend: rocksdb
+  state.checkpoints.dir: file:///tmp
+  state.backend.incremental: true
+  state.checkpoints.num-retained: 3
+  state.backend.rocksdb.checkpoint.transfer.thread.num: 4
+  state.backend.rocksdb.use-fsync: true
+  state.backend.rocksdb.log.level: info_level
+  state.backend.rocksdb.stats.dump.period.seconds: 600
+  state.backend.rocksdb.monit.running.status: true
+  state.backend.rocksdb.force-ssd: false
+  state.backend.state-file-batch.enable: true
+  execution.checkpointing.mode: EXACTLY_ONCE
+  execution.checkpointing.timeout: 10 min
+  execution.checkpointing.ignore-checkpoints-on-checkpoint-disabled: true
+  checkpoint.discard.historical.num: 3
+  checkpoint.discard.delay.time: 1800000
+  state.backend.rocksdb.restore-with-sstWriter: true
+  state.backend.rocksdb.max-disk-size-in-progress: 30gb
+  state.backend.rocksdb.max-sst-size-for-sstWriter: 64mb
+  state.backend.rocksdb.memory.managed: false
+
+  ## Heartbeat Services
+  heartbeat.interval: 40000 # default 10000 ms
+  heartbeat.timeout: 180000 # default 50000 ms
+
+  ## Memory Configuration
+  taskmanager.memory.managed.fraction: 0.25
+  taskmanager.memory.network.fraction: 0.3
+  taskmanager.memory.network.max: 2147483648
+
+  ## StreamPipelineOptions
+  pipeline.time-characteristic: EventTime
+
+  # kubernetes configuration
+  kubernetes.flink.log.dir: /opt/tiger/flink_deploy/log
+  kubernetes.flink.conf.dir: /opt/tiger/flink_deploy/conf
+  kubernetes.entry.path: /opt/tiger/flink_deploy/bin/kubernetes-entry.sh
+  kubernetes.namespace: gts
+  kubernetes.container.work.dir: /opt/tiger/workdir
+  pipeline.file-mounted-path: /opt/tiger/workdir
+  kubernetes.taskmanager.cpu: 2.0
+  kubernetes.jobmanager.cpu: 1.0
+  kubernetes.service-account: gts
+  kubernetes.rest-service.exposed.type: ClusterIP
+
+
+  # REST endpoint and Client
+  rest.await-leader-timeout: 300000
+  rest.retry.max-attempts: 30
+  rest.retry.delay: 10000
+
+  # Web UI
+  web.submit.enable: false
+
+  # Full JobManager Options
+  resourcemanager.taskmanager-timeout: 600000
+  slot.request.timeout: 300000
+  execution.cancellation.timeout.ms: 300000
+  execution.cancellation.timeout.enable: true
+
+  # Full TaskManagerOptions
+  # The Netty send and receive buffer size.
+  taskmanager.network.netty.sendReceiveBufferSize: 4194304
+  taskmanager.serializer.prune.buffer.threshold: 262144
+  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
+
+  # RPC / Akka
+  akka.ask.timeout: 180 s # default 10 s
+  akka.lookup.timeout: 60 s
+  akka.tcp.timeout: 80 s
+
+  # JVM and Logging Options
+  env.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
+  env.jvm.error.file: true
+  flink.gc.g1: false
+  flink.parallel.gc.thread.use.cores: true
+
+  # am failover recovery
+  yarn.previous-container.as-pending-container: true
+  taskmanager.release-slot-when-job-master-disconnected.enabled: true
 
   # Table & SQL configurations.
   # validate before execute, e.g. hive permission check.
   table.exec.validate-before-execute: true
 
-  #==============================================================================
-  # Rest & web frontend
-  #==============================================================================
+  # enable dynamic table options by default.
+  table.dynamic-table-options.enabled: true
 
+  # Load-balance scheduler
   nmclientasync.enabled: true
   taskmanager.initial-on-start: false
-  resourcemanager.taskmanager-timeout: 600000
-  slot.request.timeout: 300000
-
-  # client configs
-  rest.await-leader-timeout: 300000
-  rest.retry.max-attempts: 30
-  rest.retry.delay: 10000
-
-  # GC log options
-  flink.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
-  flink.gc.g1: false
-
   jobmanager.upload-user-jar: false
-
-  web.submit.enable: false
-  resourcemanager.shuffle-pending-slots: false
-
-  # shuffle service
-  flink.cloud-shuffle-service.get-css-jar-from-coordinator: false
-  flink.cloud-shuffle-service.support: false
-
-  # The Netty send and receive buffer size.
-  taskmanager.network.netty.sendReceiveBufferSize: 4194304
-
   taskmanager.number-extra-initial: 0
   taskmanager.extra-initial-fraction: 0
 
+  # Miscellaneous Options
+  stream-partitioner.default: rescale
+  ####job.work.dir: ${hdfs.prefix}/${clusterName}/1.11/
+  flink.partition-discovery.interval-millis: 600000 # default 10min for kafka partition auto discovery interval.
+
+  taskmanager.network.memory.lazy-allocate: true
+
+  # bytedance streaming default config
+  bytedance.streaming.taskmanager.initial-on-start: true
+  bytedance.streaming.taskmanager.number-initial-percentage: 1.0
+  bytedance.streaming.flink.job_api: DataStream
+  bytedance.streaming.jobmanager.partition.release-during-job-execution: false
+  bytedance.streaming.execution.wait-running-on-detached: true
+  bytedance.streaming.cluster.evenly-spread-out-slots: false
+  bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
+  bytedance.streaming.slot-pool.round-robin: true
+  bytedance.streaming.register-dashboard.enabled: true
+
+  # hdfs conf for slow node
+  flink.hdfs.dfs.datanode.socket.write.timeout: 30000
+  flink.hdfs.dfs.client.socket-timeout: 30000
+  flink.hdfs.ipc.client.ping: false
+  flink.hdfs.ipc.ping.interval: 10000
+  flink.hdfs.ipc.client.connect.max.retries.on.timeouts: 5
+  flink.hdfs.ipc.client.connect.timeout: 2000
+  flink.hdfs.ipc.client.connect.retry.interval: 500
+
+  # cloud shuffle service
+  flink.cloud-shuffle-service.support: false
+  flink.cloud-shuffle-service.get-css-jar-from-coordinator: false
+
+  # stateBackend cache layer
+  state.backend.cache.enable: true
+  state.backend.cache.maxHeapSize: 1g
+  state.backend.cache.blockSize: 4m
+  state.backend.cache.initial.size: 4m
+  state.backend.cache.maxSize: 64m
+  state.backend.cache.scale.enable: true
+  state.backend.cache.gcCountThreshold: 40
+  state.backend.cache.avgGcTimeThreshold: 3000
+  state.backend.cache.maxGcTimeThreshold: 10000
+  state.backend.cache.lowHeapThreshold: 0.4
+
+
+  #==============================================================================
+  #
+  # Other Configuration
+  #
+  #==============================================================================
+  parallelism.default: 1
+  prune.buffer.threshold: 262144
+  historyserver.web.tmpdir: /opt/tmp/flink/historyserver/tmpdir
+  flink.lib.path: lib_new_conf
+  resourcemanager.shuffle-pending-slots: false
   jobmanager.execution.schedule-task-fairly: false
 
   #Metrics
@@ -114,14 +195,8 @@ common:
   metrics.reporter.promgateway.class: org.apache.flink.metrics.prometheus.PrometheusPushGatewayReporter
   metrics.reporter.promgateway.host: prometheus-pushgateway.monitor.svc
   metrics.reporter.promgateway.port: 9091
-  metrics.reporter.promgateway.jobName: mzyJob
+  metrics.reporter.promgateway.jobName: serverlessFlinkPromgatewayJobs
   metrics.reporter.promgateway.randomJobNameSuffix: true
   metrics.reporter.promgateway.deleteOnShutdown: false
   metrics.reporter.promgateway.groupingKey: k1=v1;k2=v2
-  metrics.reporter.promgateway.interval: 60 SECONDS
-
-edge:
-  dc: cn
-  clusterName: edge
-  state.checkpoints.dir: "file:///opt/tiger/flink_deploy/logs/"
-
+  metrics.reporter.promgateway.interval: 30 SECONDS
