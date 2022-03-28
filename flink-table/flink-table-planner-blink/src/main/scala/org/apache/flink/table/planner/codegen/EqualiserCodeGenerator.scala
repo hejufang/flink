@@ -57,6 +57,6 @@ class EqualiserCodeGenerator(fieldTypes: Array[LogicalType]) {
          |}
       """.stripMargin
 
-    new GeneratedRecordEqualiser(className, functionCode, ctx.references.toArray)
+    new GeneratedRecordEqualiser(className, functionCode, ctx.references.toArray, ctx.tableConfig)
   }
 }

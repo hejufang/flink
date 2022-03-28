@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.runtime.generated;
 
+import org.apache.flink.table.api.TableConfig;
+
 /**
  * Describes a generated {@link RecordEqualiser}.
  */
@@ -33,6 +35,10 @@ public class GeneratedRecordEqualiser extends GeneratedClass<RecordEqualiser> {
 	 * @param references referenced objects of the generated class.
 	 */
 	public GeneratedRecordEqualiser(String className, String code, Object[] references) {
-		super(className, code, references);
+		super(className, code, references, new TableConfig());
+	}
+
+	public GeneratedRecordEqualiser(String className, String code, Object[] references, TableConfig config) {
+		super(className, code, references, config);
 	}
 }

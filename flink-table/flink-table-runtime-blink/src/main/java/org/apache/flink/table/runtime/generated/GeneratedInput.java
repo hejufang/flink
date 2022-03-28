@@ -19,6 +19,7 @@
 package org.apache.flink.table.runtime.generated;
 
 import org.apache.flink.api.common.io.InputFormat;
+import org.apache.flink.table.api.TableConfig;
 
 /**
  * Describes a generated {@link InputFormat}.
@@ -37,6 +38,10 @@ public class GeneratedInput<F extends InputFormat<?, ?>> extends GeneratedClass<
 	 * @param references referenced objects of the generated Function.
 	 */
 	public GeneratedInput(String className, String code, Object[] references) {
-		super(className, code, references);
+		super(className, code, references, new TableConfig());
+	}
+
+	public GeneratedInput(String className, String code, Object[] references, TableConfig config) {
+		super(className, code, references, config);
 	}
 }

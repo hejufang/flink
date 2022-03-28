@@ -1486,6 +1486,9 @@ under the License.
 						<exclude>flink-runtime-web/web-dashboard/node_modules/**</exclude>
 						<exclude>flink-runtime-web/web-dashboard/node/**</exclude>
 
+						<!-- antlr grammar files -->
+						<exclude>flink-table/flink-table-code-splitter/src/main/antlr4/**</exclude>
+
 						<!-- Test Data. -->
 						<exclude>**/src/test/resources/*-data</exclude>
 						<exclude>flink-tests/src/test/resources/testdata/terainput.txt</exclude>
@@ -1494,6 +1497,7 @@ under the License.
 						<exclude>flink-core/src/test/resources/kryo-serializer-config-snapshot-v1</exclude>
 						<exclude>flink-formats/flink-avro/src/test/resources/avro/*.avsc</exclude>
 						<exclude>out/test/flink-avro/avro/user.avsc</exclude>
+						<exclude>flink-table/flink-table-code-splitter/src/test/resources/**</exclude>
 						<exclude>flink-table/flink-table-planner/src/test/scala/resources/*.out</exclude>
 						<exclude>flink-table/flink-table-planner-blink/src/test/resources/digest/*.out</exclude>
 						<exclude>flink-table/flink-table-planner-blink/src/test/resources/explain/*.out</exclude>

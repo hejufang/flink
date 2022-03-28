@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.runtime.generated;
 
+import org.apache.flink.table.api.TableConfig;
+
 /**
  * Describes a generated {@link JoinCondition}.
  */
@@ -33,6 +35,10 @@ public class GeneratedJoinCondition extends GeneratedClass<JoinCondition> {
 	 * @param references referenced objects of the generated JoinCondition.
 	 */
 	public GeneratedJoinCondition(String className, String code, Object[] references) {
-		super(className, code, references);
+		super(className, code, references, new TableConfig());
+	}
+
+	public GeneratedJoinCondition(String className, String code, Object[] references, TableConfig config) {
+		super(className, code, references, config);
 	}
 }

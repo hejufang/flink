@@ -74,6 +74,22 @@ public class TableConfigOptions {
 					"Java has a maximum method length of 64 KB. This setting allows for finer granularity if necessary.");
 
 	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
+	public static final ConfigOption<Boolean> SPLIT_GENERATED_CODE_ENABLED =
+		key("table.generated-code.split-enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription(
+				"Whether enables the code splitter.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
+	public static final ConfigOption<Integer> MAX_MEMBERS_GENERATED_CODE =
+		key("table.generated-code.max-members")
+			.intType()
+			.defaultValue(10000)
+			.withDescription(
+				"Specifies a threshold where class members of generated code will be grouped into arrays by types.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
 	public static final ConfigOption<Boolean> TABLE_REUSE_EXPRESSION_ENABLED =
 		key("table.reuse-expression.enabled")
 			.booleanType()

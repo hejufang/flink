@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.runtime.generated;
 
+import org.apache.flink.table.api.TableConfig;
+
 /**
  * Describes a generated {@link NormalizedKeyComputer}.
  */
@@ -32,6 +34,10 @@ public class GeneratedNormalizedKeyComputer extends GeneratedClass<NormalizedKey
 	 * @param code code of the generated class.
 	 */
 	public GeneratedNormalizedKeyComputer(String className, String code) {
-		super(className, code, new Object[0]);
+		super(className, code, new Object[0], new TableConfig());
+	}
+
+	public GeneratedNormalizedKeyComputer(String className, String code, TableConfig config) {
+		super(className, code, new Object[0], config);
 	}
 }

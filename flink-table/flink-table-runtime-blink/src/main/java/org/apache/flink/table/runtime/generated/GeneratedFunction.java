@@ -19,6 +19,7 @@
 package org.apache.flink.table.runtime.generated;
 
 import org.apache.flink.api.common.functions.Function;
+import org.apache.flink.table.api.TableConfig;
 
 /**
  * Describes a generated {@link Function}.
@@ -37,6 +38,10 @@ public class GeneratedFunction<F extends Function> extends GeneratedClass<F> {
 	 * @param references referenced objects of the generated Function.
 	 */
 	public GeneratedFunction(String className, String code, Object[] references) {
-		super(className, code, references);
+		super(className, code, references, new TableConfig());
+	}
+
+	public GeneratedFunction(String className, String code, Object[] references, TableConfig config) {
+		super(className, code, references, config);
 	}
 }

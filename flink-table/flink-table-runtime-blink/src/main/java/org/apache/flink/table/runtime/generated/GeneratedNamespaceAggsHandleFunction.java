@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.runtime.generated;
 
+import org.apache.flink.table.api.TableConfig;
+
 /**
  * Describes a generated {@link NamespaceAggsHandleFunction}.
  */
@@ -27,6 +29,14 @@ public class GeneratedNamespaceAggsHandleFunction<N>
 	private static final long serialVersionUID = 1L;
 
 	public GeneratedNamespaceAggsHandleFunction(String className, String code, Object[] references) {
-		super(className, code, references);
+		super(className, code, references, new TableConfig());
+	}
+
+	public GeneratedNamespaceAggsHandleFunction(
+			String className,
+			String code,
+			Object[] references,
+			TableConfig config) {
+		super(className, code, references, config);
 	}
 }

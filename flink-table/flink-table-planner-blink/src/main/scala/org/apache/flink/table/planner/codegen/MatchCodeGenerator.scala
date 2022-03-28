@@ -293,7 +293,7 @@ class MatchCodeGenerator(
         }
       """.stripMargin
 
-    new GeneratedFunction[F](funcName, funcCode, ctx.references.toArray)
+    new GeneratedFunction[F](funcName, funcCode, ctx.references.toArray, ctx.tableConfig)
   }
 
   private def generateOneRowPerMatchExpression(

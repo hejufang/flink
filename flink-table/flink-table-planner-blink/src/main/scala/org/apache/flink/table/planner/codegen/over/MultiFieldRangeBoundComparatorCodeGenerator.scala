@@ -78,7 +78,7 @@ class MultiFieldRangeBoundComparatorCodeGenerator(
 
       }
       """.stripMargin
-    new GeneratedRecordComparator(className, code, ctx.references.toArray)
+    new GeneratedRecordComparator(className, code, ctx.references.toArray, ctx.tableConfig)
   }
 }
 

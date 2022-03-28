@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.runtime.generated;
 
+import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.util.Collector;
 
 /**
@@ -37,6 +38,10 @@ public class GeneratedCollector<C extends Collector<?>> extends GeneratedClass<C
 	 * @param references referenced objects of the generated Collector.
 	 */
 	public GeneratedCollector(String className, String code, Object[] references) {
-		super(className, code, references);
+		super(className, code, references, new TableConfig());
+	}
+
+	public GeneratedCollector(String className, String code, Object[] references, TableConfig config) {
+		super(className, code, references, config);
 	}
 }

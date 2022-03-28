@@ -18,6 +18,10 @@
 
 package org.apache.flink.table.runtime.generated;
 
+import org.apache.flink.table.api.TableConfig;
+import org.apache.flink.table.api.config.TableConfigOptions;
+import org.apache.flink.table.codesplit.JavaCodeSplitter;
+
 import java.io.Serializable;
 import java.util.Arrays;
 
@@ -32,6 +36,7 @@ public abstract class GeneratedClass<T> implements Serializable {
 
 	private final String className;
 	private final String code;
+	private final String splitCode;
 	private final Object[] references;
 	/**
 	 * Source terms for generating this class.
@@ -43,11 +48,16 @@ public abstract class GeneratedClass<T> implements Serializable {
 
 	private transient Class<T> compiledClass;
 
-	protected GeneratedClass(String className, String code, Object[] references) {
-		this(className, code, references, null);
+	protected GeneratedClass(String className, String code, Object[] references, TableConfig config) {
+		this(className, code, references, null, config);
 	}
 
-	public GeneratedClass(String className, String code, Object[] references, Object[] sourcesForGenerating) {
+	public GeneratedClass(
+			String className,
+			String code,
+			Object[] references,
+			Object[] sourcesForGenerating,
+			TableConfig config) {
 		checkNotNull(className, "name must not be null");
 		checkNotNull(code, "code must not be null");
 		checkNotNull(references, "references must not be null");
@@ -55,6 +65,13 @@ public abstract class GeneratedClass<T> implements Serializable {
 		this.code = code;
 		this.references = references;
 		this.sourcesForGenerating = sourcesForGenerating;
+		this.splitCode =
+			code.isEmpty() || !config.getConfiguration().get(TableConfigOptions.SPLIT_GENERATED_CODE_ENABLED)
+				? null
+				: JavaCodeSplitter.split(
+				code,
+				config.getConfiguration().get(TableConfigOptions.MAX_LENGTH_GENERATED_CODE),
+				config.getConfiguration().get(TableConfigOptions.MAX_MEMBERS_GENERATED_CODE));
 	}
 
 	/**
@@ -89,7 +106,8 @@ public abstract class GeneratedClass<T> implements Serializable {
 	public Class<T> compile(ClassLoader classLoader) {
 		if (compiledClass == null) {
 			// cache the compiled class
-			compiledClass = CompileUtils.compile(classLoader, className, code);
+			compiledClass = CompileUtils.compile(classLoader, className,
+				splitCode == null ? code : splitCode);
 		}
 		return compiledClass;
 	}

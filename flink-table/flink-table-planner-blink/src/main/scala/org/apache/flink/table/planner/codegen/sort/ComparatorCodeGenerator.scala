@@ -80,7 +80,8 @@ object ComparatorCodeGenerator {
       }
       """.stripMargin
 
-    new GeneratedRecordComparator(className, code, ctx.references.toArray, inputsForGen)
+    new GeneratedRecordComparator(
+      className, code, ctx.references.toArray, inputsForGen, ctx.tableConfig)
   }
 
 }

@@ -19,6 +19,7 @@
 package org.apache.flink.table.runtime.generated;
 
 import org.apache.flink.streaming.api.functions.async.ResultFuture;
+import org.apache.flink.table.api.TableConfig;
 
 /**
  * Describes a generated {@link ResultFuture}.
@@ -37,6 +38,10 @@ public class GeneratedResultFuture<T extends ResultFuture<?>> extends GeneratedC
 	 * @param references referenced objects of the generated ResultFuture.
 	 */
 	public GeneratedResultFuture(String className, String code, Object[] references) {
-		super(className, code, references);
+		super(className, code, references, new TableConfig());
+	}
+
+	public GeneratedResultFuture(String className, String code, Object[] references, TableConfig config) {
+		super(className, code, references, config);
 	}
 }

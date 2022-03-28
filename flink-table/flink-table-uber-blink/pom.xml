@@ -113,6 +113,7 @@ under the License.
 									<include>org.apache.flink:flink-table-api-scala_${scala.binary.version}</include>
 									<include>org.apache.flink:flink-table-api-java-bridge_${scala.binary.version}</include>
 									<include>org.apache.flink:flink-table-api-scala-bridge_${scala.binary.version}</include>
+									<include>org.apache.flink:flink-table-code-splitter</include>
 									<include>org.apache.flink:flink-table-planner-blink_${scala.binary.version}</include>
 									<include>org.apache.flink:flink-table-runtime-blink_${scala.binary.version}</include>
 									<include>org.apache.flink:flink-cep_${scala.binary.version}</include>

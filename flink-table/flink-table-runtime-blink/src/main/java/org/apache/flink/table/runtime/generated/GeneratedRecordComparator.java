@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.runtime.generated;
 
+import org.apache.flink.table.api.TableConfig;
+
 /**
  * Describes a generated {@link RecordComparator}.
  */
@@ -33,10 +35,23 @@ public class GeneratedRecordComparator extends GeneratedClass<RecordComparator> 
 	 * @param references referenced objects of the generated class.
 	 */
 	public GeneratedRecordComparator(String className, String code, Object[] references) {
-		super(className, code, references);
+		super(className, code, references, new TableConfig());
+	}
+
+	public GeneratedRecordComparator(String className, String code, Object[] references, TableConfig config) {
+		super(className, code, references, config);
 	}
 
 	public GeneratedRecordComparator(String className, String code, Object[] references, Object[] inputs) {
-		super(className, code, references, inputs);
+		super(className, code, references, inputs, new TableConfig());
+	}
+
+	public GeneratedRecordComparator(
+			String className,
+			String code,
+			Object[] references,
+			Object[] inputs,
+			TableConfig config) {
+		super(className, code, references, inputs, config);
 	}
 }
