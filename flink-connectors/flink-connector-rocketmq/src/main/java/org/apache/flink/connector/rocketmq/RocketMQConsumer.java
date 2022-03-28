@@ -48,6 +48,7 @@ import com.bytedance.mqproxy.proto.ResponseCode;
 import com.bytedance.rocketmq.clientv2.consumer.DefaultMQPullConsumer;
 import com.bytedance.rocketmq.clientv2.consumer.QueryTopicQueuesResult;
 import com.bytedance.rocketmq.clientv2.consumer.ResetOffsetResult;
+import com.bytedance.rocketmq.clientv2.exception.RMQClientException;
 import com.bytedance.rocketmq.clientv2.message.MessageQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -270,6 +271,10 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 		long lastTimestamp = System.currentTimeMillis();
 		while (running) {
+			if (!updateThread.isAlive()) {
+				throw new FlinkRuntimeException("Subtask " + subTaskId + " RocketMQ partition discovery thread is not alive");
+			}
+
 			List<List<MessageExt>> messageExtsList = new ArrayList<>();
 			synchronized (RocketMQConsumer.this) {
 				if (assignedMessageQueuePbs == null || assignedMessageQueuePbs.size() == 0) {
@@ -431,19 +436,33 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		Thread thread = new Thread() {
 			@Override
 			public void run() {
-				while (running) {
+				RetryManager.Strategy fixRetryStrategy =
+					RetryManager.createStrategy(RetryManager.StrategyType.FIXED_DELAY.name(),
+						RocketMQOptions.CONSUMER_RETRY_TIMES_DEFAULT,
+						RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
+				while (running && fixRetryStrategy.shouldRetry()) {
 					try {
 						Thread.sleep(5 * 60 * 1000);
 						assignMessageQueues(() -> allocFixedMessageQueue());
+						fixRetryStrategy.clear();
 					} catch (InterruptedException e) {
 						LOG.warn("Receive interrupted exception.");
+					} catch (RMQClientException e) {
+						LOG.warn("Receive RocketMQ client exception in RocketMQ partition discovery thread.", e);
 					}
 				}
 			}
 		};
 		thread.setDaemon(true);
 		thread.setName("RocketMQ_partition_discovery_thread: " + subTaskId);
+		thread.setUncaughtExceptionHandler(new ExceptionHandler());
 		return thread;
+	}
+
+	static class ExceptionHandler implements Thread.UncaughtExceptionHandler {
+		public void uncaughtException(Thread t, Throwable e) {
+			LOG.error("Receive uncaught exception in RocketMQ partition discovery thread.", e);
+		}
 	}
 
 	@Override
