@@ -36,9 +36,8 @@
 		<javax.servlet.version>3.1.0</javax.servlet.version>
 		<!-- override to be same with flink 1.12.2 -->
 		<parquet.version>1.11.1</parquet.version>
-		<hive.version>1.2.2-bd83</hive.version>
-		<!-- hotfix: olap/hudi/merge_requests/468 -->
-		<hudi.version>0.7.0-bd19-hotfix1</hudi.version>
+		<hive.version>1.2.2-bd93</hive.version>
+		<hudi.version>0.7.0-bd25</hudi.version>
 		<hbase.version>1.2.3</hbase.version>
 	</properties>
 
