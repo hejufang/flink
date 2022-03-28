@@ -21,6 +21,7 @@ package org.apache.flink.client.cli;
 import org.apache.flink.client.deployment.ClusterClientServiceLoader;
 import org.apache.flink.client.deployment.DefaultClusterClientServiceLoader;
 import org.apache.flink.client.program.PackagedProgram;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.metrics.MetricRegistryImpl;
@@ -202,6 +203,16 @@ public class CliFrontendRunTest extends CliFrontendTestBase {
 				Collections.singletonList(cli));
 			this.expectedParallelism = expectedParallelism;
 			this.isDetached = isDetached;
+		}
+
+		@Override
+		protected void run(String[] args) throws Exception {
+			/*
+			 * As we set clusterName in CliFrontend#main,
+			 * clusterName should not be null for function run().
+			 */
+			System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT);
+			super.run(args);
 		}
 
 		@Override

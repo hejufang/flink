@@ -297,6 +297,16 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 		}
 
 		@Override
+		protected void run(String[] args) throws Exception {
+			/*
+			 * As we set clusterName in CliFrontend#main,
+			 * clusterName should not be null for function run().
+			 */
+			System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT);
+			super.run(args);
+		}
+
+		@Override
 		protected void executeProgram(Configuration configuration, PackagedProgram program) {
 			assertEquals(TEST_JAR_MAIN_CLASS, program.getMainClassName());
 			assertEquals(expectedResolveOrder, configuration.get(CoreOptions.CLASSLOADER_RESOLVE_ORDER));

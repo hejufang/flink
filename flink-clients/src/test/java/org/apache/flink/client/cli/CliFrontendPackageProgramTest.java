@@ -23,6 +23,7 @@ import org.apache.flink.client.FlinkPipelineTranslationUtil;
 import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.client.program.PackagedProgramUtils;
 import org.apache.flink.client.program.ProgramInvocationException;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.optimizer.DataStatistics;
 import org.apache.flink.optimizer.Optimizer;
@@ -179,6 +180,11 @@ public class CliFrontendPackageProgramTest extends TestLogger {
 
 	@Test(expected = CliArgsException.class)
 	public void testNoJarNoArgumentsAtAll() throws Exception {
+		/*
+		 * As we set clusterName in CliFrontend#main,
+		 * clusterName should not be null for function run().
+		 */
+		System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT);
 		frontend.run(new String[0]);
 	}
 

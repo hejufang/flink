@@ -74,6 +74,7 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.ShutdownHookUtil;
+import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.function.FunctionUtils;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
@@ -256,7 +257,6 @@ public class CliFrontend {
 	 */
 	protected void run(String[] args) throws Exception {
 		LOG.info("Running 'run' command.");
-		args = setJobName(args);
 
 		final Options commandOptions = CliFrontendParser.getRunCommandOptions();
 		final CommandLine commandLine = getCommandLine(commandOptions, args, true);
@@ -283,6 +283,8 @@ public class CliFrontend {
 
 		final Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, jobJars);
+
+		setJobNameAndClusterName(effectiveConfiguration);
 
 		setEffectiveJobNameAndJobUID(effectiveConfiguration);
 
@@ -372,6 +374,36 @@ public class CliFrontend {
 			clientMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
 			clientMetricGroup.gauge(MetricNames.TIME_AM_START, () -> metricEventRecorder.getJMStartDuration());
 		}
+	}
+
+	/**
+	 * set system property {@link ConfigConstants#CLUSTER_NAME_KEY} and {@link ConfigConstants#JOB_NAME_KEY}.
+	 * set metricJobName and clusterName if not exist.
+	 */
+	public void setJobNameAndClusterName(Configuration effectiveConfiguration) throws CliArgsException {
+		/*
+		 * {ConfigConstants.APPLICATION_NAME_KEY} is set
+		 * in function {FlinkYarnSessionCli.applyCommandLineOptionsToConfiguration}
+		 * according to the parameter -ynm.
+		 * It is better to use pipeline.name. For compatibility, these codes need to be preserved.
+		 */
+		@Deprecated
+		final String applicationName = effectiveConfiguration.getString(ConfigConstants.APPLICATION_NAME_KEY, "");
+		if (!StringUtils.isNullOrWhitespaceOnly(applicationName)){
+			int i = applicationName.lastIndexOf('_');
+			final String jobName = i > 0 ? applicationName.substring(0, i) : applicationName;
+			System.setProperty(ConfigConstants.JOB_NAME_KEY, jobName);
+			LOG.info("Job name is set to: " + jobName);
+		}
+
+		/*
+		 * CliFrontend.main calls GlobalConfiguration.loadConfiguration to load flink-conf.yaml,
+		 * and set unique config of the cluster by clusterName which is got from system.properties.
+		 * Therefore, we don't need to set clusterName here.
+		 * But there is a premise that clusterName must exist in flink-conf.
+		 */
+		final String clusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY);
+		effectiveConfiguration.setString(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
 	}
 
 	/**
