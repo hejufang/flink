@@ -165,6 +165,14 @@ under the License.
 											<pattern>com.bytedance.bytedtrace</pattern>
 											<shadedPattern>org.apache.flink.connector.rpc.shaded.com.bytedance.bytedtrace</shadedPattern>
 										</relocation>
+										<relocation>
+											<pattern>org.byted.security</pattern>
+											<shadedPattern>org.apache.flink.connector.rpc.shaded.org.byted.security</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>META-INF/native/liborg_byted_security_shaded</pattern>
+											<shadedPattern>META-INF/native/liborg_apache_flink_connector_rpc_shaded_org_byted_security</shadedPattern>
+										</relocation>
 									</relocations>
 								</configuration>
 							</execution>
