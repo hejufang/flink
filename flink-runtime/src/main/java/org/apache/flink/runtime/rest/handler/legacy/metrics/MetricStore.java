@@ -19,8 +19,11 @@
 package org.apache.flink.runtime.rest.handler.legacy.metrics;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.dump.MetricDump;
 import org.apache.flink.runtime.metrics.dump.QueryScopeInfo;
+
+import org.apache.flink.shaded.guava18.com.google.common.collect.Sets;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +59,17 @@ public class MetricStore {
 	private final ComponentMetricStore jobManager = new ComponentMetricStore();
 	private final Map<String, TaskManagerMetricStore> taskManagers = new ConcurrentHashMap<>();
 	private final Map<String, JobMetricStore> jobs = new ConcurrentHashMap<>();
+	private static final Set<String> IO_METRIC_NAMES = Sets.newHashSet(MetricNames.IO_NUM_BYTES_IN, MetricNames.IO_NUM_BYTES_OUT, MetricNames.IO_NUM_BUFFERS_IN, MetricNames.IO_NUM_BUFFERS_OUT);
+
+	private final boolean filterTaskOperatorMetric;
+
+	public MetricStore() {
+		this.filterTaskOperatorMetric = false;
+	}
+
+	public MetricStore(boolean filterTaskOperatorMetric){
+		this.filterTaskOperatorMetric = filterTaskOperatorMetric;
+	}
 
 	/**
 	 * Remove inactive task managers.
@@ -215,6 +229,9 @@ public class MetricStore {
 					addMetric(job.metrics, name, metric);
 					break;
 				case INFO_CATEGORY_TASK:
+					if (filterTaskOperatorMetric && !IO_METRIC_NAMES.contains(name)) {
+						break;
+					}
 					QueryScopeInfo.TaskQueryScopeInfo taskInfo = (QueryScopeInfo.TaskQueryScopeInfo) info;
 					job = jobs.computeIfAbsent(taskInfo.jobID, k -> new JobMetricStore());
 					task = job.tasks.computeIfAbsent(taskInfo.vertexID, k -> new TaskMetricStore());
@@ -232,6 +249,9 @@ public class MetricStore {
 					addMetric(task.metrics, taskInfo.subtaskIndex + "." + name, metric);
 					break;
 				case INFO_CATEGORY_OPERATOR:
+					if (filterTaskOperatorMetric && !IO_METRIC_NAMES.contains(name)) {
+						break;
+					}
 					QueryScopeInfo.OperatorQueryScopeInfo operatorInfo = (QueryScopeInfo.OperatorQueryScopeInfo) info;
 					job = jobs.computeIfAbsent(operatorInfo.jobID, k -> new JobMetricStore());
 					task = job.tasks.computeIfAbsent(operatorInfo.vertexID, k -> new TaskMetricStore());

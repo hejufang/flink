@@ -95,7 +95,8 @@ public abstract class AggregatingMetricsHandlerTestBase<
 			mock(MetricQueryServiceRetriever.class),
 			Executors.directExecutor(),
 			TestingUtils.TIMEOUT(),
-			MetricOptions.METRIC_FETCHER_UPDATE_INTERVAL.defaultValue());
+			MetricOptions.METRIC_FETCHER_UPDATE_INTERVAL.defaultValue(),
+			false);
 		store = fetcher.getMetricStore();
 
 		Collection<MetricDump> metricDumps = getMetricDumps();

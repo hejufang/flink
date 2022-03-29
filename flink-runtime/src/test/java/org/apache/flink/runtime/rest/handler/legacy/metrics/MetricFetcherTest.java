@@ -94,7 +94,8 @@ public class MetricFetcherTest extends TestLogger {
 			address -> CompletableFuture.completedFuture(tmQueryService),
 			Executors.directExecutor(),
 			timeout,
-			MetricOptions.METRIC_FETCHER_UPDATE_INTERVAL.defaultValue());
+			MetricOptions.METRIC_FETCHER_UPDATE_INTERVAL.defaultValue(),
+			false);
 
 		// verify that update fetches metrics and updates the store
 		fetcher.update();
@@ -211,7 +212,7 @@ public class MetricFetcherTest extends TestLogger {
 			address -> null,
 			Executors.directExecutor(),
 			Time.seconds(10L),
-			updateInterval);
+			updateInterval, false);
 	}
 
 	private RestfulGateway createRestfulGateway(AtomicInteger requestMetricQueryServiceGatewaysCounter) {
