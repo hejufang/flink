@@ -1725,12 +1725,12 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			resourceManagerHeartbeatManager.monitorTarget(resourceManagerResourceId, new HeartbeatTarget<Void>() {
 				@Override
 				public void receiveHeartbeat(ResourceID resourceID, Void payload) {
-					resourceManagerGateway.heartbeatFromJobManager(resourceID);
+					resourceManagerGateway.heartbeatFromDispatcher(resourceID);
 				}
 
 				@Override
 				public void requestHeartbeat(ResourceID resourceID, Void payload) {
-					// request heartbeat will never be called on the job manager side
+					// request heartbeat will never be called on the dispatcher side
 				}
 			});
 		} else {
