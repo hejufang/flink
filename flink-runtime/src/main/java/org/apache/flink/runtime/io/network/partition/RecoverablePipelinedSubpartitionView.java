@@ -28,6 +28,11 @@ public class RecoverablePipelinedSubpartitionView extends PipelinedSubpartitionV
 	}
 
 	@Override
+	public void onError(Throwable throwable) {
+		// Do nothing.
+	}
+
+	@Override
 	public void releaseAllResources() {
 		if (isReleased.compareAndSet(false, true)) {
 			// The view doesn't hold any resources and the parent cannot be restarted. Therefore,

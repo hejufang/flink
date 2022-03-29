@@ -57,4 +57,6 @@ public interface ResultSubpartitionView {
 	boolean isAvailable(int numCreditsAvailable);
 
 	int unsynchronizedGetNumberOfQueuedBuffers();
+
+	default void onError(Throwable throwable){}
 }

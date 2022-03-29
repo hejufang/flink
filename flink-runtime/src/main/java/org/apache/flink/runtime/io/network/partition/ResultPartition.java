@@ -104,6 +104,8 @@ public class ResultPartition implements ResultPartitionWriter, BufferPoolOwner {
 
 	private final FunctionWithException<BufferPoolOwner, BufferPool, IOException> bufferPoolFactory;
 
+	private long errorNum = 0;
+
 	/** Used to compress buffer to reduce IO. */
 	@Nullable
 	protected final BufferCompressor bufferCompressor;
@@ -235,7 +237,6 @@ public class ResultPartition implements ResultPartitionWriter, BufferPoolOwner {
 			bufferConsumer.close();
 			throw ex;
 		}
-
 		return subpartition.add(bufferConsumer, isPriorityEvent);
 	}
 
@@ -379,6 +380,21 @@ public class ResultPartition implements ResultPartitionWriter, BufferPoolOwner {
 				break;
 			}
 		}
+	}
+
+	@Override
+	public void checkError(int subpartitionIndex) throws IOException {
+		try {
+			subpartitions[subpartitionIndex].checkError();
+		} catch (Throwable e) {
+			errorNum++;
+			throw e;
+		}
+	}
+
+	@Override
+	public long getErrorNum(){
+		return errorNum;
 	}
 
 	/**

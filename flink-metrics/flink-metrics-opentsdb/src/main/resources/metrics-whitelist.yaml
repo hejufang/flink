@@ -84,7 +84,8 @@ global:
         numberOfRecoverFailed,
         numberOfCheckpointPlaceholderTransformed,
         numberOfTmExceedQuota,
-        numberOfFailedDiscardExpiredCheckpointFolder
+        numberOfFailedDiscardExpiredCheckpointFolder,
+        upstreamTaskErrorNum
     ]
 
 non-global:
@@ -130,6 +131,8 @@ non-global:
         outPoolUsage,
       # Task InputChannels number
         numberOfInputChannels,
+      # Task error info
+        upstreamTaskErrorNum,
       # In/Out Record Number
         numRecordsInPerSecond,
         numRecordsOutPerSecond,

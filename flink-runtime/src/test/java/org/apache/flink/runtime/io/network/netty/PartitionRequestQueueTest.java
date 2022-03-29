@@ -70,6 +70,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Tests for {@link PartitionRequestQueue}.
@@ -515,6 +516,36 @@ public class PartitionRequestQueueTest {
 
 		// cleanup
 		channel.close();
+	}
+
+	@Test
+	public void testExceptionCaught() throws Exception {
+
+		PartitionRequestQueue queue = new PartitionRequestQueue();
+
+		final ResultPartitionManager manager = new ResultPartitionManager();
+		ResultPartitionID resultPartitionId = new ResultPartitionID();
+		final ResultPartition partition = new ResultPartitionBuilder()
+			.setResultPartitionManager(manager)
+			.setResultPartitionId(resultPartitionId)
+			.build();
+
+		manager.registerResultPartition(partition);
+		EmbeddedChannel channel = new EmbeddedChannel(queue);
+
+		CreditBasedSequenceNumberingViewReader seqView = new CreditBasedSequenceNumberingViewReader(new InputChannelID(), 2, queue, resultPartitionId, manager, false);
+		seqView.requestSubpartitionView(0);
+		queue.notifyReaderCreated(seqView);
+		queue.exceptionCaught(queue.getCtx(), new Exception("For test"));
+		try {
+			assertTrue(seqView.isReleased());
+			partition.checkError(0);
+			fail("Should throw a IOException.");
+		} catch (Exception e) {
+			assertTrue(e instanceof IOException);
+		} finally {
+			channel.close();
+		}
 	}
 
 	private static ResultPartition createFinishedPartitionWithFilledData(ResultPartitionManager partitionManager) throws Exception {

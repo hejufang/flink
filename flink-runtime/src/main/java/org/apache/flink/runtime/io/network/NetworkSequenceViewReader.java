@@ -99,4 +99,6 @@ public interface NetworkSequenceViewReader {
 	 * @return ResultPartitionID of subPartition.
 	 */
 	ResultPartitionID getResultPartitionID();
+
+	default void onError(Throwable throwable){}
 }

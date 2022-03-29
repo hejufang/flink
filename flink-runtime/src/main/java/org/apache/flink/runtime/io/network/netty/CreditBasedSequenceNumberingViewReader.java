@@ -324,6 +324,11 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 	}
 
 	@Override
+	public void onError(Throwable throwable){
+		subpartitionView.onError(throwable);
+	}
+
+	@Override
 	public String toString() {
 		return "CreditBasedSequenceNumberingViewReader{" +
 			"requestLock=" + requestLock +
