@@ -34,12 +34,14 @@ import org.apache.flink.runtime.metrics.scope.ScopeFormat;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Iterators;
 
+import org.apache.hadoop.security.UserGroupInformation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -197,6 +199,9 @@ public final class ReporterSetup {
 				ConfigConstants.CLUSTER_NAME_KEY, configuration.getString(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT));
 			delegatingConfiguration.setString(
 				ConfigConstants.QUEUE_KEY, configuration.getString(ConfigConstants.QUEUE_KEY, ConfigConstants.QUEUE_DEFAULT));
+			setOwner(delegatingConfiguration, configuration);
+			delegatingConfiguration.setString(
+				ConfigConstants.KUBERNETES_CLUSTER_ID, configuration.getString(ConfigConstants.KUBERNETES_CLUSTER_ID, ConfigConstants.KUBERNETES_CLUSTER_ID_DEFAULT));
 			// on yarn, this parameter should already be set.
 			if (!delegatingConfiguration.containsKey("jobname")) {
 				delegatingConfiguration.setString("jobname", configuration.getOptional(PipelineOptions.NAME).orElse("flink"));
@@ -204,6 +209,20 @@ public final class ReporterSetup {
 			reporterConfigurations.add(Tuple2.of(namedReporter, delegatingConfiguration));
 		}
 		return reporterConfigurations;
+	}
+
+	private static void setOwner(DelegatingConfiguration delegatingConfiguration, Configuration configuration) {
+		String owner = configuration.getString(ConfigConstants.OWNER_KEY, ConfigConstants.OWNER_DEFAULT);
+		if (owner != null) {
+			delegatingConfiguration.setString(ConfigConstants.OWNER_KEY, owner);
+		} else {
+			try {
+				delegatingConfiguration.setString(
+					ConfigConstants.OWNER_KEY, UserGroupInformation.getCurrentUser().getUserName());
+			} catch (IOException e) {
+				LOG.error("get owner fail {}", e.getMessage());
+			}
+		}
 	}
 
 	private static Map<String, MetricReporterFactory> loadAvailableReporterFactories(@Nullable PluginManager pluginManager) {

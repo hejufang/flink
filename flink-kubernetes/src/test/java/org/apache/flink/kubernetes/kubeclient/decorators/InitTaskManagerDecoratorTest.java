@@ -52,6 +52,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 /**
  * General tests for the {@link InitJobManagerDecorator}.
@@ -200,11 +201,18 @@ public class InitTaskManagerDecoratorTest extends KubernetesTaskManagerTestBase 
 		final Map<String, String> expectedEnvVars = new HashMap<>(customizedEnvs);
 		expectedEnvVars.put(Constants.ENV_FLINK_POD_NAME, POD_NAME);
 
-		final Map<String, String> resultEnvVars = this.resultMainContainer.getEnv()
-			.stream()
-			.collect(Collectors.toMap(EnvVar::getName, EnvVar::getValue));
+		final List<EnvVar> envVars = this.resultMainContainer.getEnv();
 
-		assertEquals(expectedEnvVars, resultEnvVars);
+		final Map<String, String> envs = new HashMap<>();
+		envVars.forEach(env -> envs.put(env.getName(), env.getValue()));
+		this.customizedEnvs.forEach((k, v) -> assertEquals(envs.get(k), v));
+
+		assertTrue(envVars.stream().anyMatch(env -> env.getName().equals(Constants.ENV_FLINK_POD_IP_ADDRESS)
+			&& env.getValueFrom().getFieldRef().getApiVersion().equals(Constants.API_VERSION)
+			&& env.getValueFrom().getFieldRef().getFieldPath().equals(Constants.POD_IP_FIELD_PATH)));
+		envs.remove(Constants.ENV_FLINK_POD_IP_ADDRESS);
+
+		assertEquals(expectedEnvVars, envs);
 	}
 
 	@Test

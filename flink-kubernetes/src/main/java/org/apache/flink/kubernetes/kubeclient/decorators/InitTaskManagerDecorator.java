@@ -30,6 +30,7 @@ import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.ContainerPort;
 import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
 import io.fabric8.kubernetes.api.model.EnvVar;
+import io.fabric8.kubernetes.api.model.EnvVarSourceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
@@ -44,7 +45,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.kubernetes.utils.Constants.API_VERSION;
+import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_IP_ADDRESS;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
+import static org.apache.flink.kubernetes.utils.Constants.POD_IP_FIELD_PATH;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -125,6 +129,12 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 				.addNewEnv()
 					.withName(ENV_FLINK_POD_NAME)
 					.withValue(kubernetesTaskManagerParameters.getPodName())
+					.endEnv()
+				.addNewEnv()
+					.withName(ENV_FLINK_POD_IP_ADDRESS)
+					.withValueFrom(new EnvVarSourceBuilder()
+						.withNewFieldRef(API_VERSION, POD_IP_FIELD_PATH)
+						.build())
 					.endEnv()
 				.build();
 	}

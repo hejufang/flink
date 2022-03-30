@@ -77,6 +77,7 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerStateBuilder;
 import io.fabric8.kubernetes.api.model.ContainerStatusBuilder;
 import io.fabric8.kubernetes.api.model.EnvVarBuilder;
+import io.fabric8.kubernetes.api.model.EnvVarSourceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.PodList;
@@ -98,6 +99,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static junit.framework.TestCase.assertEquals;
+import static org.apache.flink.kubernetes.utils.Constants.API_VERSION;
+import static org.apache.flink.kubernetes.utils.Constants.POD_IP_FIELD_PATH;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.core.Is.is;
@@ -216,8 +219,11 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				assertEquals(podName, pod.getMetadata().getName());
 
 				// Check environments
-				assertThat(tmContainer.getEnv(), Matchers.contains(
-					new EnvVarBuilder().withName(Constants.ENV_FLINK_POD_NAME).withValue(podName).build()));
+				assertThat(tmContainer.getEnv(), Matchers.contains(new EnvVarBuilder().withName(Constants.ENV_FLINK_POD_NAME).withValue(podName).build(),
+					new EnvVarBuilder().withName(Constants.ENV_FLINK_POD_IP_ADDRESS).
+					withValueFrom(new EnvVarSourceBuilder().withNewFieldRef(API_VERSION, POD_IP_FIELD_PATH).build()).
+					build()
+				));
 
 				// Check task manager main class args.
 				assertEquals(3, tmContainer.getArgs().size());

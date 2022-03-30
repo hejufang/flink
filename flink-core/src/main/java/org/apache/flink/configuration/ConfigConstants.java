@@ -2063,7 +2063,13 @@ public final class ConfigConstants {
 	public static final String CLUSTER_NAME_KEY = "clusterName";
 	public static final String CLUSTER_NAME_DEFAULT = "flink";
 	public static final String QUEUE_KEY = "queue";
-	public static final String QUEUE_DEFAULT = "flink";
+	public static final String QUEUE_DEFAULT = "unknown";
+	public static final String OWNER_KEY = "owner";
+	public static final String OWNER_DEFAULT = "unknown";
+
+	//Shadow configuration of KubernetesConfigOptions.CLUSTER_ID to avoid circle dependencies
+	public static final String KUBERNETES_CLUSTER_ID = "kubernetes.cluster-id";
+	public static final String KUBERNETES_CLUSTER_ID_DEFAULT = "unknown";
 
 	public static final String JOB_NAME_KEY = "jobName";
 	public static final String JOB_NAME_DEFAULT = "unknown";

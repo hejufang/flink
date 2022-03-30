@@ -40,10 +40,13 @@ public class MetricConfig extends Properties {
 	 * @return the value in this property list with the specified key value parsed as an int.
 	 */
 	public int getInteger(String key, int defaultValue) {
-		String argument = getProperty(key, null);
-		return argument == null
-			? defaultValue
-			: Integer.parseInt(argument);
+		Object oval = super.get(key);
+		if (oval instanceof Integer) {
+			return (Integer) oval;
+		} else if (oval instanceof String){
+			return Integer.parseInt((String) oval);
+		}
+		return defaultValue;
 	}
 
 	/**
@@ -57,10 +60,13 @@ public class MetricConfig extends Properties {
 	 * @return the value in this property list with the specified key value parsed as a long.
 	 */
 	public long getLong(String key, long defaultValue) {
-		String argument = getProperty(key, null);
-		return argument == null
-			? defaultValue
-			: Long.parseLong(argument);
+		Object oval = super.get(key);
+		if (oval instanceof Long) {
+			return (Long) oval;
+		} else if (oval instanceof String){
+			return Long.parseLong((String) oval);
+		}
+		return defaultValue;
 	}
 
 	/**
@@ -74,10 +80,13 @@ public class MetricConfig extends Properties {
 	 * @return the value in this property list with the specified key value parsed as a float.
 	 */
 	public float getFloat(String key, float defaultValue) {
-		String argument = getProperty(key, null);
-		return argument == null
-			? defaultValue
-			: Float.parseFloat(argument);
+		Object oval = super.get(key);
+		if (oval instanceof Float) {
+			return (Float) oval;
+		} else if (oval instanceof String){
+			return Float.parseFloat((String) oval);
+		}
+		return defaultValue;
 	}
 
 	/**
@@ -91,10 +100,13 @@ public class MetricConfig extends Properties {
 	 * @return the value in this property list with the specified key value parsed as a double.
 	 */
 	public double getDouble(String key, double defaultValue) {
-		String argument = getProperty(key, null);
-		return argument == null
-			? defaultValue
-			: Double.parseDouble(argument);
+		Object oval = super.get(key);
+		if (oval instanceof Double) {
+			return (Double) oval;
+		} else if (oval instanceof String){
+			return Double.parseDouble((String) oval);
+		}
+		return defaultValue;
 	}
 
 	/**
@@ -108,9 +120,12 @@ public class MetricConfig extends Properties {
 	 * @return the value in this property list with the specified key value parsed as a boolean.
 	 */
 	public boolean getBoolean(String key, boolean defaultValue) {
-		String argument = getProperty(key, null);
-		return argument == null
-			? defaultValue
-			: Boolean.parseBoolean(argument);
+		Object oval = super.get(key);
+		if (oval instanceof Boolean) {
+			return (Boolean) oval;
+		} else if (oval instanceof String){
+			return Boolean.parseBoolean((String) oval);
+		}
+		return defaultValue;
 	}
 }

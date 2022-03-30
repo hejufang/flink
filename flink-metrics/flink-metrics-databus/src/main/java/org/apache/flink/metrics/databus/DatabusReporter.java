@@ -20,6 +20,7 @@ package org.apache.flink.metrics.databus;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.GlobalGauge;
@@ -99,6 +100,10 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 
 	private String version;
 
+	private String resourceType;
+
+	private String flinkClusterId;
+
 	private ObjectMapper objectMapper = new ObjectMapper();
 
 	/**
@@ -142,16 +147,24 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 			this.region = config.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
 			this.cluster = config.getString(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT);
 			this.queue = config.getString(ConfigConstants.QUEUE_KEY, ConfigConstants.QUEUE_DEFAULT);
+			this.user = config.getString(ConfigConstants.OWNER_KEY, ConfigConstants.OWNER_DEFAULT);
+			this.host = System.getenv(Constants.ENV_FLINK_POD_IP_ADDRESS);
+			this.tmId = System.getenv(Constants.ENV_POD_NAME);
+			this.resourceType = "KUBERNETES";
+			this.flinkClusterId = config.getString(ConfigConstants.KUBERNETES_CLUSTER_ID, ConfigConstants.KUBERNETES_CLUSTER_ID_DEFAULT);
+			this.applicationId = flinkClusterId;
 		} else {
 			this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
 			this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
 			this.queue = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_QUEUE);
+			this.user = System.getenv(YarnConfigKeys.ENV_HADOOP_USER_NAME);
+			this.host = System.getenv(YarnConfigKeys.ENV_FLINK_NODE_ID);
+			this.tmId = System.getenv(YarnConfigKeys.ENV_FLINK_CONTAINER_ID);
+			this.resourceType = "YARN";
+			this.applicationId = System.getenv(YarnConfigKeys.ENV_APP_ID);
+			this.flinkClusterId = applicationId;
 		}
 		// todo, how to deal with these env var in k8s?
-		this.user = System.getenv(YarnConfigKeys.ENV_HADOOP_USER_NAME);
-		this.applicationId = System.getenv(YarnConfigKeys.ENV_APP_ID);
-		this.host = System.getenv(YarnConfigKeys.ENV_FLINK_NODE_ID);
-		this.tmId = System.getenv(YarnConfigKeys.ENV_FLINK_CONTAINER_ID);
 		this.commitId = EnvironmentInformation.getRevisionInformation().commitId;
 		this.commitDate = EnvironmentInformation.getRevisionInformation().commitDate;
 		this.version = EnvironmentInformation.getVersion();
@@ -270,6 +283,8 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		message.getMeta().setCommitId(commitId);
 		message.getMeta().setCommitDate(commitDate);
 		message.getMeta().setVersion(version);
+		message.getMeta().setResourceType(resourceType);
+		message.getMeta().setFlinkClusterId(flinkClusterId);
 	}
 
 	private void sendToDatabusClient(Message message) {

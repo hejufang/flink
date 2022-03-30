@@ -53,6 +53,10 @@ public class MessageMeta {
 
 	private String version;
 
+	private String resourceType;
+
+	private String flinkClusterId;
+
 	public MessageMeta() {}
 
 	public void setTimestamp(long timestamp) {
@@ -167,6 +171,22 @@ public class MessageMeta {
 		this.version = version;
 	}
 
+	public String getResourceType() {
+		return this.resourceType;
+	}
+
+	public void setResourceType(String resourceType) {
+		this.resourceType = resourceType;
+	}
+
+	public String getFlinkClusterId() {
+		return this.flinkClusterId;
+	}
+
+	public void setFlinkClusterId(String flinkClusterId) {
+		this.flinkClusterId = flinkClusterId;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -189,12 +209,14 @@ public class MessageMeta {
 			Objects.equals(tmId, that.tmId) &&
 			Objects.equals(commitId, that.commitId) &&
 			Objects.equals(commitDate, that.commitDate) &&
-			Objects.equals(version, that.version);
+			Objects.equals(version, that.version) &&
+			Objects.equals(resourceType, that.resourceType) &&
+			Objects.equals(flinkClusterId, that.flinkClusterId);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(timestamp, jobName, messageType, region, cluster, queue, metricName, user, host, applicationId, tmId, commitId, commitDate, version);
+		return Objects.hash(timestamp, jobName, messageType, region, cluster, queue, metricName, user, host, applicationId, tmId, commitId, commitDate, version, resourceType, flinkClusterId);
 	}
 
 	@Override
@@ -214,6 +236,8 @@ public class MessageMeta {
 			", commitId='" + commitId + '\'' +
 			", commitDate='" + commitDate + '\'' +
 			", version='" + version + '\'' +
+			", resourceType='" + resourceType + '\'' +
+			", flinkClusterId='" + flinkClusterId + '\'' +
 			'}';
 	}
 }

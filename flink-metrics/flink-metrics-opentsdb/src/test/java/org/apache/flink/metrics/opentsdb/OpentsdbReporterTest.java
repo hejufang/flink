@@ -18,6 +18,8 @@
 
 package org.apache.flink.metrics.opentsdb;
 
+import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.MetricsConstants;
 
@@ -164,5 +166,27 @@ public class OpentsdbReporterTest {
 		System.out.println(actual.y);
 		Assert.assertEquals(expect.x, actual.x);
 		Assert.assertEquals(expect.y, actual.y);
+	}
+
+	@Test
+	public void testOpenInKubernetes() {
+		OpentsdbReporter reporter = new OpentsdbReporter();
+		MetricConfig config = new MetricConfig();
+		Configuration configuration = new Configuration();
+		configuration.setBoolean(ConfigConstants.IS_KUBERNETES_KEY, true);
+		config.put("jobname", "HelloWorld");
+		config.put("prefix", "flink");
+		config.put("intParam", 1);
+		config.put("floatParam", 1.0f);
+		config.put("doubleParam", 1.0);
+		Assert.assertEquals(1, config.getInteger("intParam", 2));
+		Assert.assertEquals(1.0f, config.getFloat("floatParam", 2.0f), 0.0f);
+		Assert.assertEquals(1.0, config.getDouble("doubleParam", 2.0), 0.0);
+		config.put(ConfigConstants.CLUSTER_NAME_KEY, "mycluster");
+		config.put(ConfigConstants.IS_KUBERNETES_KEY, configuration.getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false));
+		reporter.open(config);
+		Assert.assertEquals("HelloWorld", reporter.getJobName());
+		Assert.assertEquals("flink", reporter.getPrefix());
+		Assert.assertEquals("mycluster", reporter.getCluster());
 	}
 }
