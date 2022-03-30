@@ -1694,6 +1694,15 @@ public class TaskExecutorTest extends TestLogger {
 			jobManagerLeaderRetriever.notifyListener(jobMasterGateway.getAddress(), UUID.randomUUID());
 
 			assertThat(offeredSlotsFuture.get(), is(1));
+			// wait slot be active. Otherwise, it will not release this slot immediately when lost job manager leader.
+			for (int i = 0; i < 1000; i++) {
+				if (taskSlotTable.getActiveTaskSlotAllocationIds().size() != 0) {
+					break;
+				}
+				Thread.sleep(1);
+			}
+
+			assertEquals(1, taskSlotTable.getActiveTaskSlotAllocationIds().size());
 
 			// notify loss of leadership
 			jobManagerLeaderRetriever.notifyListener(null, null);
