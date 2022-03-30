@@ -51,6 +51,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -406,11 +407,14 @@ public class HtapTypeUtils {
 			} else {
 				extracted = defaultMethod(timestampType);
 			}
-			// We should transform `java.time.LocalTime` and `java.sql.Timestamp` to `microseconds
-			// since unix epoch` in order to push it down to the HtapStore.
+
 			if (extracted instanceof LocalDateTime) {
-				return Timestamp.valueOf((LocalDateTime) extracted).getTime() * 1000;
+				// we convert LocalDateTime to microseconds based on UTC timezone
+				// as HtapStore required.
+				return ((LocalDateTime) extracted).toInstant(ZoneOffset.UTC).toEpochMilli() * 1000;
 			} else if (extracted instanceof Timestamp) {
+				// We should transform `java.sql.Timestamp` to `microseconds
+				// since unix epoch` in order to push it down to the HtapStore.
 				return ((Timestamp) extracted).getTime() * 1000;
 			} else {
 				return extracted;
