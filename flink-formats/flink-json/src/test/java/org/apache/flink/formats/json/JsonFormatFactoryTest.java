@@ -97,7 +97,8 @@ public class JsonFormatFactoryTest extends TestLogger {
 			options -> options.put("json.timestamp-format.standard", "test"));
 
 		thrown.expect(ValidationException.class);
-		thrown.expect(containsCause(new ValidationException("Unsupported value 'test' for timestamp-format.standard. Supported values are [SQL, ISO-8601].")));
+		thrown.expect(containsCause(new IllegalArgumentException("Could not parse value for " +
+			"enum class org.apache.flink.formats.json.TimestampFormat. Expected one of: [[SQL, ISO_8601, RFC_3339]]")));
 		testSchemaDeserializationSchema(tableOptions);
 	}
 
@@ -107,7 +108,8 @@ public class JsonFormatFactoryTest extends TestLogger {
 			options -> options.put("json.timestamp-format.standard", "iso-8601"));
 
 		thrown.expect(ValidationException.class);
-		thrown.expect(containsCause(new ValidationException("Unsupported value 'iso-8601' for timestamp-format.standard. Supported values are [SQL, ISO-8601].")));
+		thrown.expect(containsCause(new IllegalArgumentException("Could not parse value for " +
+			"enum class org.apache.flink.formats.json.TimestampFormat. Expected one of: [[SQL, ISO_8601, RFC_3339]]")));
 		testSchemaDeserializationSchema(tableOptions);
 	}
 	// ------------------------------------------------------------------------
@@ -174,7 +176,7 @@ public class JsonFormatFactoryTest extends TestLogger {
 		options.put("format", JsonFormatFactory.IDENTIFIER);
 		options.put("json.fail-on-missing-field", "false");
 		options.put("json.ignore-parse-errors", "true");
-		options.put("json.timestamp-format.standard", "ISO-8601");
+		options.put("json.timestamp-format.standard", "ISO_8601");
 		return options;
 	}
 

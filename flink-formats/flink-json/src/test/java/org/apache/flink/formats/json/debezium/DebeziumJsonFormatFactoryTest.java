@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import static org.apache.flink.core.testutils.FlinkMatchers.containsCause;
+import static org.apache.flink.core.testutils.FlinkMatchers.containsMessage;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -84,8 +85,14 @@ public class DebeziumJsonFormatFactoryTest extends TestLogger {
 
 		assertEquals(expectedDeser, actualDeser);
 
-		thrown.expect(containsCause(new UnsupportedOperationException(
-			"Debezium format doesn't support as a sink format yet.")));
+		options.remove("debezium-json.schema-include");
+		createTableSink(options);
+	}
+
+	@Test
+	public void testInvalidSchemaIncludeInSer() {
+		thrown.expect(containsMessage("schema-include cannot be used in serialization"));
+		final Map<String, String> options = getAllOptions();
 		createTableSink(options);
 	}
 
@@ -124,7 +131,7 @@ public class DebeziumJsonFormatFactoryTest extends TestLogger {
 		options.put("format", "debezium-json");
 		options.put("debezium-json.ignore-parse-errors", "true");
 		options.put("debezium-json.schema-include", "true");
-		options.put("debezium-json.timestamp-format.standard", "ISO-8601");
+		options.put("debezium-json.timestamp-format.standard", "ISO_8601");
 		return options;
 	}
 

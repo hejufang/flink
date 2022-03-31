@@ -19,6 +19,7 @@
 package org.apache.flink.formats.json.debezium;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.functions.util.ListCollector;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.formats.json.JsonRowDataDeserializationSchema;
@@ -30,8 +31,11 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.Collector;
+import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import static java.lang.String.format;
@@ -79,6 +83,9 @@ public final class DebeziumJsonDeserializationSchema implements DeserializationS
 	/** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
 	private final boolean ignoreParseErrors;
 
+	private transient List<RowData> buffer;
+	private transient Collector<RowData> internalCollector;
+
 	public DebeziumJsonDeserializationSchema(
 			RowType rowType,
 			TypeInformation<RowData> resultTypeInfo,
@@ -101,12 +108,22 @@ public final class DebeziumJsonDeserializationSchema implements DeserializationS
 	@Override
 	public void open(InitializationContext context) throws Exception {
 		this.jsonDeserializer.open(() -> context.getMetricGroup().addGroup("deserializer"));
+		buffer = new ArrayList<>(1);
+		internalCollector = new ListCollector<>(buffer);
 	}
 
 	@Override
 	public RowData deserialize(byte[] message) throws IOException {
-		throw new RuntimeException(
-			"Please invoke DeserializationSchema#deserialize(byte[], Collector<RowData>) instead.");
+		// This should not be used for general debezium records.
+		// However, internally, we only use it as exchange format between flink jobs, and
+		// we know that the record only contains one RowData.
+		// TODO: refactor rocketmq deserialization schema to allow decode multiple RowData from one message.
+		deserialize(message, internalCollector);
+		Preconditions.checkArgument(buffer.size() == 1, "Currently debezium only support " +
+			"one message per record for the connector you are using.");
+		RowData result = buffer.get(0);
+		buffer.clear();
+		return result;
 	}
 
 	@Override

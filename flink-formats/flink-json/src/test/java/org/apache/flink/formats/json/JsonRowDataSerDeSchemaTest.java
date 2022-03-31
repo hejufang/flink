@@ -300,14 +300,14 @@ public class JsonRowDataSerDeSchemaTest {
 	@Test
 	public void testSerDeMultiRowsWithNullValues() throws Exception {
 		String[] jsons = new String[] {
-			"{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"metrics\":{\"k1\":10.01,\"k2\":\"invalid\"}}",
+			"{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"metrics\":{\"k1\":10.01,\"k2\":\"0.001\"}}",
 			"{\"svt\":\"2020-02-24T12:58:09.209+0800\", \"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\"}, " +
 				"\"ids\":[1, 2, 3]}",
 			"{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"metrics\":{}}",
 		};
 
 		String[] expected = new String[] {
-			"{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":null,\"ids\":null,\"metrics\":{\"k1\":10.01,\"k2\":null}}",
+			"{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":null,\"ids\":null,\"metrics\":{\"k1\":10.01,\"k2\":0.001}}",
 			"{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\"}," +
 				"\"ids\":[1,2,3],\"metrics\":null}",
 			"{\"svt\":\"2020-02-24T12:58:09.209+0800\",\"ops\":null,\"ids\":null,\"metrics\":{}}",
@@ -664,16 +664,10 @@ public class JsonRowDataSerDeSchemaTest {
 		JsonRowDataDeserializationSchema ignoreErrorsSchema = new JsonRowDataDeserializationSchema(
 			spec.rowType,  new RowDataTypeInfo(spec.rowType), false, false, true,
 			TimestampFormat.ISO_8601);
-		Row expected;
-		if (spec.expected != null) {
-			expected = spec.expected;
-		} else {
-			expected = new Row(1);
-		}
 		RowData rowData = ignoreErrorsSchema.deserialize(spec.json.getBytes());
 		Row actual = convertToExternal(rowData, fromLogicalToDataType(spec.rowType));
 		assertEquals("Test Ignore Parse Error: " + spec.json,
-			expected,
+			spec.expected,
 			actual);
 	}
 

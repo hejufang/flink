@@ -26,9 +26,11 @@ import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.formats.json.JsonOptions;
 import org.apache.flink.formats.json.TimestampFormat;
+import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.format.EncodingFormat;
+import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DeserializationFormatFactory;
@@ -41,6 +43,7 @@ import org.apache.flink.types.RowKind;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -103,7 +106,35 @@ public class DebeziumJsonFormatFactory implements DeserializationFormatFactory, 
 	public EncodingFormat<SerializationSchema<RowData>> createEncodingFormat(
 			DynamicTableFactory.Context context,
 			ReadableConfig formatOptions) {
-		throw new UnsupportedOperationException("Debezium format doesn't support as a sink format yet.");
+		FactoryUtil.validateFactoryOptions(this, formatOptions);
+		Optional<Boolean> schemaInclude = formatOptions.getOptional(SCHEMA_INCLUDE);
+		if (schemaInclude.isPresent()) {
+			throw new TableException(String.format("%s cannot be used in serialization.", SCHEMA_INCLUDE.key()));
+		}
+
+		TimestampFormat timestampFormat = formatOptions.get(TIMESTAMP_FORMAT);
+
+		return new EncodingFormat<SerializationSchema<RowData>>() {
+
+			@Override
+			public ChangelogMode getChangelogMode() {
+				return ChangelogMode.newBuilder()
+					.addContainedKind(RowKind.INSERT)
+					.addContainedKind(RowKind.UPDATE_BEFORE)
+					.addContainedKind(RowKind.UPDATE_AFTER)
+					.addContainedKind(RowKind.DELETE)
+					.build();
+			}
+
+			@Override
+			public SerializationSchema<RowData> createRuntimeEncoder(
+				DynamicTableSink.Context context, DataType consumedDataType) {
+				final RowType rowType = (RowType) consumedDataType.getLogicalType();
+				return new DebeziumJsonSerializationSchema(
+					rowType,
+					timestampFormat);
+			}
+		};
 	}
 
 	@Override

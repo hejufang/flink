@@ -19,6 +19,7 @@
 package org.apache.flink.formats.json.debezium;
 
 import org.apache.flink.formats.json.TimestampFormat;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.table.types.logical.RowType;
@@ -38,6 +39,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.table.api.DataTypes.FIELD;
 import static org.apache.flink.table.api.DataTypes.FLOAT;
@@ -50,7 +52,7 @@ import static org.junit.Assert.assertTrue;
 /**
  * Tests for {@link DebeziumJsonDeserializationSchema}.
  */
-public class DebeziumJsonDeserializationSchemaTest {
+public class DebeziumJsonSerDeserializationSchemaTest {
 
 	@Rule
 	public ExpectedException thrown = ExpectedException.none();
@@ -64,28 +66,28 @@ public class DebeziumJsonDeserializationSchemaTest {
 
 	@Test
 	public void testSchemaIncludeDeserialization() throws Exception {
-		testDeserialization("debezium-data-schema-include.txt", true);
+		testSerDeserialization("debezium-data-schema-include.txt", true);
 	}
 
 	@Test
 	public void testSchemaExcludeDeserialization() throws Exception {
-		testDeserialization("debezium-data-schema-exclude.txt", false);
+		testSerDeserialization("debezium-data-schema-exclude.txt", false);
 	}
 
 	@Test
 	public void testPostgresSchemaIncludeDeserialization() throws Exception {
-		testDeserialization("debezium-postgres-data-schema-include.txt", true);
+		testSerDeserialization("debezium-postgres-data-schema-include.txt", true);
 	}
 
 	@Test
 	public void testPostgresSchemaExcludeDeserialization() throws Exception {
-		testDeserialization("debezium-postgres-data-schema-exclude.txt", false);
+		testSerDeserialization("debezium-postgres-data-schema-exclude.txt", false);
 	}
 
 	@Test
 	public void testPostgresDefaultReplicaIdentify() throws Exception {
 		try {
-			testDeserialization("debezium-postgres-data-replica-identity.txt", false);
+			testSerDeserialization("debezium-postgres-data-replica-identity.txt", false);
 		} catch (Exception e) {
 			assertTrue(ExceptionUtils.findThrowableWithMessage(e,
 				"The \"before\" field of UPDATE message is null, if you are using Debezium Postgres Connector, " +
@@ -107,7 +109,7 @@ public class DebeziumJsonDeserializationSchemaTest {
 		assertTrue(collector.list.isEmpty());
 	}
 
-	private void testDeserialization(String resourceFile, boolean schemaInclude) throws Exception {
+	private void testSerDeserialization(String resourceFile, boolean schemaInclude) throws Exception {
 		List<String> lines = readLines(resourceFile);
 		DebeziumJsonDeserializationSchema deserializationSchema = new DebeziumJsonDeserializationSchema(
 			SCHEMA,
@@ -170,7 +172,40 @@ public class DebeziumJsonDeserializationSchemaTest {
 			"+U(111,scooter,Big 2-wheel scooter ,5.17)",
 			"-D(111,scooter,Big 2-wheel scooter ,5.17)"
 		);
-		assertEquals(expected, collector.list);
+		assertEquals(expected, collector.list.stream()
+			.map(Object::toString)
+			.collect(Collectors.toList()));
+
+		DebeziumJsonSerializationSchema serializationSchema = new DebeziumJsonSerializationSchema(
+			SCHEMA, TimestampFormat.ISO_8601);
+		serializationSchema.open(UnregisteredMetricsGroup::new);
+		List<String> serializedResults = new ArrayList<>();
+		for (RowData rowData : collector.list) {
+			serializedResults.add(new String(serializationSchema.serialize(rowData)));
+		}
+		expected =
+			Arrays.asList(
+				"{\"before\":null,\"after\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":3.14},\"op\":\"c\"}",
+				"{\"before\":null,\"after\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":8.1},\"op\":\"c\"}",
+				"{\"before\":null,\"after\":{\"id\":103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":0.8},\"op\":\"c\"}",
+				"{\"before\":null,\"after\":{\"id\":104,\"name\":\"hammer\",\"description\":\"12oz carpenter's hammer\",\"weight\":0.75},\"op\":\"c\"}",
+				"{\"before\":null,\"after\":{\"id\":105,\"name\":\"hammer\",\"description\":\"14oz carpenter's hammer\",\"weight\":0.875},\"op\":\"c\"}",
+				"{\"before\":null,\"after\":{\"id\":106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":1.0},\"op\":\"c\"}",
+				"{\"before\":null,\"after\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":5.3},\"op\":\"c\"}",
+				"{\"before\":null,\"after\":{\"id\":108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":0.1},\"op\":\"c\"}",
+				"{\"before\":null,\"after\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":22.2},\"op\":\"c\"}",
+				"{\"before\":{\"id\":106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":1.0},\"after\":null,\"op\":\"d\"}",
+				"{\"before\":null,\"after\":{\"id\":106,\"name\":\"hammer\",\"description\":\"18oz carpenter hammer\",\"weight\":1.0},\"op\":\"c\"}",
+				"{\"before\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":5.3},\"after\":null,\"op\":\"d\"}",
+				"{\"before\":null,\"after\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":5.1},\"op\":\"c\"}",
+				"{\"before\":null,\"after\":{\"id\":110,\"name\":\"jacket\",\"description\":\"water resistent white wind breaker\",\"weight\":0.2},\"op\":\"c\"}",
+				"{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.18},\"op\":\"c\"}",
+				"{\"before\":{\"id\":110,\"name\":\"jacket\",\"description\":\"water resistent white wind breaker\",\"weight\":0.2},\"after\":null,\"op\":\"d\"}",
+				"{\"before\":null,\"after\":{\"id\":110,\"name\":\"jacket\",\"description\":\"new water resistent white wind breaker\",\"weight\":0.5},\"op\":\"c\"}",
+				"{\"before\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.18},\"after\":null,\"op\":\"d\"}",
+				"{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"op\":\"c\"}",
+				"{\"before\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"after\":null,\"op\":\"d\"}");
+		assertEquals(expected, serializedResults);
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -178,7 +213,7 @@ public class DebeziumJsonDeserializationSchemaTest {
 	// --------------------------------------------------------------------------------------------
 
 	private static List<String> readLines(String resource) throws IOException {
-		final URL url = DebeziumJsonDeserializationSchemaTest.class.getClassLoader().getResource(resource);
+		final URL url = DebeziumJsonSerDeserializationSchemaTest.class.getClassLoader().getResource(resource);
 		assert url != null;
 		Path path = new File(url.getFile()).toPath();
 		return Files.readAllLines(path);
@@ -186,11 +221,11 @@ public class DebeziumJsonDeserializationSchemaTest {
 
 	private static class SimpleCollector implements Collector<RowData> {
 
-		private List<String> list = new ArrayList<>();
+		private final List<RowData> list = new ArrayList<>();
 
 		@Override
 		public void collect(RowData record) {
-			list.add(record.toString());
+			list.add(record);
 		}
 
 		@Override

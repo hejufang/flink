@@ -32,6 +32,7 @@ import org.apache.flink.table.factories.TableFactoryService;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.TestLogger;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Map;
@@ -68,6 +69,7 @@ public class JsonRowFormatFactoryTest extends TestLogger {
 		new TypeInformation[]{Types.BOOLEAN(), Types.INT()});
 
 	@Test
+	@Ignore("We don't need json-schema functionality.")
 	public void testSchema() {
 		final Map<String, String> properties = toMap(
 			new Json()
@@ -80,6 +82,7 @@ public class JsonRowFormatFactoryTest extends TestLogger {
 	}
 
 	@Test
+	@Ignore("We don't need json-schema functionality.")
 	public void testJsonSchema() {
 		final Map<String, String> properties = toMap(
 			new Json()
@@ -92,6 +95,7 @@ public class JsonRowFormatFactoryTest extends TestLogger {
 	}
 
 	@Test
+	@Ignore("We don't need json-schema functionality.")
 	public void testSchemaDerivation() {
 		final Map<String, String> properties = toMap(
 			new Schema()
@@ -107,6 +111,7 @@ public class JsonRowFormatFactoryTest extends TestLogger {
 	}
 
 	@Test
+	@Ignore("We don't need json-schema functionality.")
 	public void testSchemaDerivationByDefault() {
 		final Map<String, String> properties = toMap(
 			new Schema()

@@ -33,6 +33,7 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.functions.RowDataSinkFilter;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.types.RowKind;
 
 import java.util.Optional;
 import java.util.Properties;
@@ -86,8 +87,11 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 		flinkKafkaProducerBase.setLogFailuresOnly(logFailureOnly);
 		flinkKafkaProducerBase.setInFlightFactor(inFlightIndex);
 		flinkKafkaProducerBase.setMaxInFlightNum(maxInFlightNum);
-		flinkKafkaProducerBase.setRowKindSinkFilter(RowDataSinkFilter.createIncludeInsertAndUpdateAfterFilter());
 		flinkKafkaProducerBase.setDeleteNormalizer(sinkConfig.getDeleteNormalizer());
+		if (encodingFormat.getChangelogMode().containsOnly(RowKind.INSERT)) {
+			flinkKafkaProducerBase.setRowKindSinkFilter(
+					RowDataSinkFilter.createIncludeInsertAndUpdateAfterFilter());
+		}
 		if (otherProperties.containsKey(FactoryUtil.PARALLELISM.key())) {
 			flinkKafkaProducerBase.setParallelism(
 				Integer.parseInt(otherProperties.getProperty(FactoryUtil.PARALLELISM.key())));

@@ -56,15 +56,22 @@ public class RocketMQDynamicSink implements DynamicTableSink {
 
 	@Override
 	public ChangelogMode getChangelogMode(ChangelogMode requestedMode) {
-		return ChangelogMode.newBuilder()
-			.addContainedKind(RowKind.INSERT)
-			.addContainedKind(RowKind.DELETE)
-			.addContainedKind(RowKind.UPDATE_AFTER)
-			.build();
+		if (encodingFormat.getChangelogMode().containsOnly(RowKind.INSERT)) {
+			return ChangelogMode.newBuilder()
+				.addContainedKind(RowKind.INSERT)
+				.addContainedKind(RowKind.DELETE)
+				.addContainedKind(RowKind.UPDATE_AFTER)
+				.build();
+		} else {
+			return encodingFormat.getChangelogMode();
+		}
 	}
 
 	@Override
 	public SinkRuntimeProvider getSinkRuntimeProvider(Context context) {
+		if (!encodingFormat.getChangelogMode().containsOnly(RowKind.INSERT)) {
+			rocketMQConfig.setRowKindSinkFilter(null);
+		}
 		KeyValueSerializationSchemaWrapper<RowData> keyValueSerializationSchemaWrapper =
 			getSchemaByConfig(encodingFormat.createRuntimeEncoder(context, consumedDataType), rocketMQConfig);
 		final RocketMQProducer<RowData> rocketMQProducer =

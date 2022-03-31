@@ -79,11 +79,15 @@ public abstract class KafkaDynamicSinkBase implements DynamicTableSink {
 
 	@Override
 	public ChangelogMode getChangelogMode(ChangelogMode requestedMode) {
-		return ChangelogMode.newBuilder()
-			.addContainedKind(RowKind.INSERT)
-			.addContainedKind(RowKind.DELETE)
-			.addContainedKind(RowKind.UPDATE_AFTER)
-			.build();
+		if (encodingFormat.getChangelogMode().containsOnly(RowKind.INSERT)) {
+			return ChangelogMode.newBuilder()
+				.addContainedKind(RowKind.INSERT)
+				.addContainedKind(RowKind.DELETE)
+				.addContainedKind(RowKind.UPDATE_AFTER)
+				.build();
+		} else {
+			return encodingFormat.getChangelogMode();
+		}
 	}
 
 	@Override
