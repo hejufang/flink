@@ -561,6 +561,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		return (ignored, throwable) -> {
 			propagateIfNonNull(throwable);
 			long startDeployTaskTime = System.currentTimeMillis();
+			executionGraph.setScheduledTimestamp();
 			warehouseJobStartEventMessageRecorder.scheduleTaskFinish(executionGraph.getGlobalModVersion());
 			warehouseJobStartEventMessageRecorder.deployTaskStart(executionGraph.getGlobalModVersion());
 

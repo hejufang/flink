@@ -197,6 +197,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	// Only record the duration from ExecutionGraph Create to job Finished.
 	private final Histogram jobDurationHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
 
+	private final Histogram jobToScheduleLatencyHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
+
 	// --------- ResourceManager --------
 	private final LeaderRetrievalService resourceManagerLeaderRetriever;
 
@@ -1374,6 +1376,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			case FINISHED:
 				finishedJobCounter.inc();
 				jobDurationHistogram.update(archivedExecutionGraph.getStatusTimestamp(JobStatus.FINISHED) - archivedExecutionGraph.getStatusTimestamp(JobStatus.CREATED));
+				jobToScheduleLatencyHistogram.update(
+					archivedExecutionGraph.getScheduledTimestamp() - archivedExecutionGraph.getStatusTimestamp(JobStatus.CREATED));
 				break;
 			case FAILED:
 				failedJobCounter.inc();
@@ -1586,6 +1590,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		jobManagerMetricGroup.counter(MetricNames.NUM_CANCELED_JOBS, canceledJobCounter);
 
 		jobManagerMetricGroup.histogram(MetricNames.JOB_DURATION, jobDurationHistogram);
+		jobManagerMetricGroup.histogram(MetricNames.JOB_LATENCY_UNTIL_SCHEDULED, jobToScheduleLatencyHistogram);
 
 		ExecutorService ioExecutor = jobManagerSharedServices.getIOExecutorService();
 		if (ioExecutor instanceof ThreadPoolExecutor) {

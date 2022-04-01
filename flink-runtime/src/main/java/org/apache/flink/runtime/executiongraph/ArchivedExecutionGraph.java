@@ -100,6 +100,8 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
 	@Nullable
 	private final String stateBackendName;
 
+	private long scheduledTimestamp;
+
 	public ArchivedExecutionGraph(
 			JobID jobID,
 			String jobName,
@@ -117,6 +119,43 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
 			@Nullable CheckpointStatsSnapshot checkpointStatsSnapshot,
 			@Nullable String stateBackendName) {
 
+		this(
+			jobID,
+			jobName,
+			tasks,
+			verticesInCreationOrder,
+			stateTimestamps,
+			state,
+			failureCause,
+			jsonPlan,
+			archivedUserAccumulators,
+			serializedUserAccumulators,
+			executionConfig,
+			isStoppable,
+			jobCheckpointingConfiguration,
+			checkpointStatsSnapshot,
+			stateBackendName,
+			stateTimestamps[JobStatus.CREATED.ordinal()]);
+	}
+
+	public ArchivedExecutionGraph(
+		JobID jobID,
+		String jobName,
+		Map<JobVertexID, ArchivedExecutionJobVertex> tasks,
+		List<ArchivedExecutionJobVertex> verticesInCreationOrder,
+		long[] stateTimestamps,
+		JobStatus state,
+		@Nullable ErrorInfo failureCause,
+		String jsonPlan,
+		StringifiedAccumulatorResult[] archivedUserAccumulators,
+		Map<String, SerializedValue<OptionalFailure<Object>>> serializedUserAccumulators,
+		ArchivedExecutionConfig executionConfig,
+		boolean isStoppable,
+		@Nullable CheckpointCoordinatorConfiguration jobCheckpointingConfiguration,
+		@Nullable CheckpointStatsSnapshot checkpointStatsSnapshot,
+		@Nullable String stateBackendName,
+		long scheduledTimestamp) {
+
 		this.jobID = Preconditions.checkNotNull(jobID);
 		this.jobName = Preconditions.checkNotNull(jobName);
 		this.tasks = Preconditions.checkNotNull(tasks);
@@ -132,6 +171,7 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
 		this.jobCheckpointingConfiguration = jobCheckpointingConfiguration;
 		this.checkpointStatsSnapshot = checkpointStatsSnapshot;
 		this.stateBackendName = stateBackendName;
+		this.scheduledTimestamp = scheduledTimestamp;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -262,6 +302,10 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
 		return Optional.ofNullable(stateBackendName);
 	}
 
+	public long getScheduledTimestamp() {
+		return scheduledTimestamp;
+	}
+
 	class AllVerticesIterator implements Iterator<ArchivedExecutionVertex> {
 
 		private final Iterator<ArchivedExecutionJobVertex> jobVertices;
@@ -350,7 +394,8 @@ public class ArchivedExecutionGraph implements AccessExecutionGraph, Serializabl
 			executionGraph.isStoppable(),
 			executionGraph.getCheckpointCoordinatorConfiguration(),
 			executionGraph.getCheckpointStatsSnapshot(),
-			executionGraph.getStateBackendName().orElse(null));
+			executionGraph.getStateBackendName().orElse(null),
+			executionGraph.getScheduledTimestamp());
 	}
 
 	/**

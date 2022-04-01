@@ -38,6 +38,8 @@ non-global:
         numFinishedJobs,
       # Flink job run duration
         jobDuration,
+      # Flink job latency until scheduled
+        jobLatencyUntilScheduled,
       # TaskManager / Slot
         numRegisteredTaskManagers,
         numPendingTaskManagerSlots,

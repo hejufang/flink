@@ -357,6 +357,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	private final boolean jobLogDetailDisable;
 
+	private long scheduledTimestamp;
+
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
 	// --------------------------------------------------------------------------------------------
@@ -959,6 +961,14 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	@Override
 	public long getStatusTimestamp(JobStatus status) {
 		return this.stateTimestamps[status.ordinal()];
+	}
+
+	public long getScheduledTimestamp() {
+		return scheduledTimestamp;
+	}
+
+	public void setScheduledTimestamp() {
+		this.scheduledTimestamp = System.currentTimeMillis();
 	}
 
 	public final BlobWriter getBlobWriter() {

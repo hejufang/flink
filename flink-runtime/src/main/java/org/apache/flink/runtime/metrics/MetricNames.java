@@ -62,6 +62,7 @@ public class MetricNames {
 	public static final String NUM_FINISHED_JOBS = "numFinishedJobs";
 
 	public static final String JOB_DURATION = "jobDuration";
+	public static final String JOB_LATENCY_UNTIL_SCHEDULED = "jobLatencyUntilScheduled";
 
 	public static final String TASK_SLOTS_AVAILABLE = "taskSlotsAvailable";
 	public static final String TASK_SLOTS_TOTAL = "taskSlotsTotal";
