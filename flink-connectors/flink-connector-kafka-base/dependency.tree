@@ -67,7 +67,7 @@ org.apache.flink:flink-connector-kafka-base_2.11:jar:1.11-byted-SNAPSHOT
 |  |  +- org.codehaus.janino:janino:jar:3.0.9:provided
 |  |  \- org.apache.calcite.avatica:avatica-core:jar:1.16.0:provided
 |  \- org.reflections:reflections:jar:0.9.10:test
-+- org.apache.kafka:kafka-clients:jar:0.10.1.2-bd1.7.12:compile
++- org.apache.kafka:kafka-clients:jar:0.10.1.2-bd1.7.20:compile
 |  +- com.bytedance:commons:jar:0.0.14:compile
 |  |  +- com.squareup.okhttp3:okhttp:jar:3.8.0:compile
 |  |  |  \- com.squareup.okio:okio:jar:1.13.0:compile
