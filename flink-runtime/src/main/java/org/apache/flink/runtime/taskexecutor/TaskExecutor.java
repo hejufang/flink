@@ -2025,7 +2025,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			final Task task,
 			final JobMasterGateway jobMasterGateway,
 			final TaskExecutionState taskExecutionState) {
-		AccumulatorSnapshot accumulatorSnapshot = task.getAccumulatorRegistry().getSnapshot();
+		AccumulatorSnapshot accumulatorSnapshot = task.getAccumulatorRegistry().getSnapshotOrNull();
 
 		updateTaskExecutionState(
 			jobMasterGateway,
@@ -2060,7 +2060,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 					task.getExecutionState(), task.getTaskInfo().getTaskNameWithSubtasks(), task.getExecutionId());
 			}
 
-			AccumulatorSnapshot accumulatorSnapshot = task.getAccumulatorRegistry().getSnapshot();
+			AccumulatorSnapshot accumulatorSnapshot = task.getAccumulatorRegistry().getSnapshotOrNull();
 
 			updateTaskExecutionState(
 					jobMasterGateway,

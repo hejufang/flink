@@ -62,6 +62,17 @@ public class AccumulatorRegistry {
 	}
 
 	/**
+	 * Return null when user accumulators are empty.
+	 * @return a serialized accumulator map
+	 */
+	public AccumulatorSnapshot getSnapshotOrNull() {
+		if (userAccumulators.isEmpty()) {
+			return null;
+		}
+		return getSnapshot();
+	}
+
+	/**
 	 * Gets the map for user-defined accumulators.
 	 */
 	public Map<String, Accumulator<?, ?>> getUserMap() {
