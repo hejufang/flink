@@ -29,6 +29,7 @@ import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.format.EncodingFormat;
+import org.apache.flink.table.connector.format.ProjectionPushDownableDecodingFormat;
 import org.apache.flink.table.connector.format.TableSchemaInferrable;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
@@ -85,35 +86,14 @@ public class PbFormatFactory implements
 		final boolean enableRuntimePbCut = formatOptions.get(ENABLE_RUNTIME_PB_CUT);
 		final ProtoFile protoFile = new ProtoFile(pbEntryClassName, pbContent);
 
-		return new DecodingFormat<DeserializationSchema<RowData>>() {
-			@Override
-			public DeserializationSchema<RowData> createRuntimeDecoder(
-					DynamicTableSource.Context context,
-					DataType producedDataType) {
-				final RowType rowType = (RowType) producedDataType.getLogicalType();
-
-				//noinspection unchecked
-				TypeInformation<RowData> rowDataTypeInfo =
-					(TypeInformation<RowData>) context.createTypeInformation(producedDataType);
-
-				return PbRowDataDeserializationSchema.builder()
-					.setPbDescriptorClass(pbClass)
-					.setProtoFile(protoFile)
-					.setRowType(rowType)
-					.setResultTypeInfo(rowDataTypeInfo)
-					.setSkipBytes(skipBytes)
-					.setWithWrapper(withWrapper)
-					.setAdInstanceFormat(isAdInstanceFormat)
-					.setIgnoreParseErrors(ignoreParseErrors)
-					.setRuntimeCutPb(enableRuntimePbCut)
-					.build();
-			}
-
-			@Override
-			public ChangelogMode getChangelogMode() {
-				return ChangelogMode.insertOnly();
-			}
-		};
+		return new PbDecodingFormat(
+				pbClass,
+				protoFile,
+				skipBytes,
+				withWrapper,
+				isAdInstanceFormat,
+				ignoreParseErrors,
+				enableRuntimePbCut);
 	}
 
 	@Override
@@ -199,5 +179,60 @@ public class PbFormatFactory implements
 		options.add(ENABLE_RUNTIME_PB_CUT);
 		options.add(SIZE_HEADER_WITH_LITTLE_ENDIAN);
 		return options;
+	}
+
+	private static class PbDecodingFormat implements DecodingFormat<DeserializationSchema<RowData>>, ProjectionPushDownableDecodingFormat {
+		private final String pbClass;
+		private final ProtoFile protoFile;
+		private final int skipBytes;
+		private final boolean withWrapper;
+		private final boolean isAdInstanceFormat;
+		private final boolean ignoreParseErrors;
+		private final boolean enableRuntimePbCut;
+
+		public PbDecodingFormat(
+				String pbClass,
+				ProtoFile protoFile,
+				int skipBytes,
+				boolean withWrapper,
+				boolean isAdInstanceFormat,
+				boolean ignoreParseErrors,
+				boolean enableRuntimePbCut) {
+			this.pbClass = pbClass;
+			this.protoFile = protoFile;
+			this.skipBytes = skipBytes;
+			this.withWrapper = withWrapper;
+			this.isAdInstanceFormat = isAdInstanceFormat;
+			this.ignoreParseErrors = ignoreParseErrors;
+			this.enableRuntimePbCut = enableRuntimePbCut;
+		}
+
+		@Override
+		public DeserializationSchema<RowData> createRuntimeDecoder(
+				DynamicTableSource.Context context,
+				DataType producedDataType) {
+			final RowType rowType = (RowType) producedDataType.getLogicalType();
+
+			//noinspection unchecked
+			TypeInformation<RowData> rowDataTypeInfo =
+				(TypeInformation<RowData>) context.createTypeInformation(producedDataType);
+
+			return PbRowDataDeserializationSchema.builder()
+				.setPbDescriptorClass(pbClass)
+				.setProtoFile(protoFile)
+				.setRowType(rowType)
+				.setResultTypeInfo(rowDataTypeInfo)
+				.setSkipBytes(skipBytes)
+				.setWithWrapper(withWrapper)
+				.setAdInstanceFormat(isAdInstanceFormat)
+				.setIgnoreParseErrors(ignoreParseErrors)
+				.setRuntimeCutPb(enableRuntimePbCut)
+				.build();
+		}
+
+		@Override
+		public ChangelogMode getChangelogMode() {
+			return ChangelogMode.insertOnly();
+		}
 	}
 }
