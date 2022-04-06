@@ -33,7 +33,7 @@ public class CollectSinkOperatorFactory<IN> extends SimpleUdfStreamOperatorFacto
 
 	private static final long serialVersionUID = 1L;
 
-	private static final int DEFAULT_MAX_RESULTS_PER_BATCH = 4096;
+	public static final int DEFAULT_MAX_RESULTS_PER_BATCH = 4096;
 	private static final int DEFAULT_SOCKET_TIMEOUT_MILLIS = 10000;
 
 	private final CollectSinkOperator<IN> operator;
@@ -41,6 +41,10 @@ public class CollectSinkOperatorFactory<IN> extends SimpleUdfStreamOperatorFacto
 
 	public CollectSinkOperatorFactory(TypeSerializer<IN> serializer, String accumulatorName) {
 		this(serializer, accumulatorName, DEFAULT_MAX_RESULTS_PER_BATCH, DEFAULT_SOCKET_TIMEOUT_MILLIS);
+	}
+
+	public CollectSinkOperatorFactory(TypeSerializer<IN> serializer, String accumulatorName, int maxResultsBuffered) {
+		this(serializer, accumulatorName, maxResultsBuffered / 2, DEFAULT_SOCKET_TIMEOUT_MILLIS);
 	}
 
 	public CollectSinkOperatorFactory(

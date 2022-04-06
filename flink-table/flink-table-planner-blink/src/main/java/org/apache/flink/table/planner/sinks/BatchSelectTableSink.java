@@ -37,6 +37,10 @@ public class BatchSelectTableSink extends SelectTableSinkBase implements StreamT
 		super(tableSchema);
 	}
 
+	public BatchSelectTableSink(TableSchema tableSchema, int maxResultsBuffered) {
+		super(tableSchema, maxResultsBuffered);
+	}
+
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Row> dataStream) {
 		return super.consumeDataStream(dataStream);

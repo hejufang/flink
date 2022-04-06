@@ -19,7 +19,7 @@
 package org.apache.flink.table.planner.delegation
 
 import org.apache.flink.api.dag.Transformation
-import org.apache.flink.table.api.config.ExecutionConfigOptions
+import org.apache.flink.table.api.config.{ExecutionConfigOptions, TableConfigOptions}
 import org.apache.flink.table.api.internal.SelectTableSink
 import org.apache.flink.table.api.{ExplainDetail, TableConfig, TableEnvironment, TableException, TableSchema}
 import org.apache.flink.table.catalog.{Catalog, CatalogManager, FunctionCatalog, ObjectIdentifier}
@@ -83,7 +83,9 @@ class BatchPlanner(
   }
 
   override def createSelectTableSink(tableSchema: TableSchema): SelectTableSink = {
-    new BatchSelectTableSink(tableSchema)
+    val maxResultsBuffered = getTableConfig.getConfiguration.getInteger(
+      TableConfigOptions.COLLECT_SINK_MAX_BUFFER_SIZE)
+    new BatchSelectTableSink(tableSchema, maxResultsBuffered)
   }
 
   override def explain(operations: util.List[Operation], extraDetails: ExplainDetail*): String = {

@@ -143,4 +143,12 @@ public class TableConfigOptions {
 			.withDescription("This option controls whether ProjectionCodeGenerator will produce\n" +
 				"a deterministic order between different generation for same fields.");
 
+	public static final ConfigOption<Integer> COLLECT_SINK_MAX_BUFFER_SIZE =
+		key("table.exec.collect-sink.max-buffer-size")
+			.intType()
+			.defaultValue(4096)
+			.withDescription("Specifies the max buffer size in collect sink operator. " +
+				"When the size of buffered element exceeds max buffer size, it will wait the buffer available, " +
+				"and backpressure the upstream operator.");
+
 }

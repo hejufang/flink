@@ -45,8 +45,12 @@ public class SelectTableSinkBase implements SelectTableSink {
 	private final CollectSinkOperatorFactory<Row> factory;
 	private final CollectResultIterator<Row> iterator;
 
-	@SuppressWarnings("unchecked")
 	public SelectTableSinkBase(TableSchema tableSchema) {
+		this(tableSchema, CollectSinkOperatorFactory.DEFAULT_MAX_RESULTS_PER_BATCH);
+	}
+
+	@SuppressWarnings("unchecked")
+	public SelectTableSinkBase(TableSchema tableSchema, int maxResultsBuffered) {
 		this.tableSchema = SelectTableSinkSchemaConverter.convertTimeAttributeToRegularTimestamp(
 			SelectTableSinkSchemaConverter.changeDefaultConversionClass(tableSchema));
 
@@ -55,7 +59,7 @@ public class SelectTableSinkBase implements SelectTableSink {
 			.createSerializer(new ExecutionConfig());
 		String accumulatorName = "tableResultCollect_" + UUID.randomUUID();
 
-		this.factory = new CollectSinkOperatorFactory<>(typeSerializer, accumulatorName);
+		this.factory = new CollectSinkOperatorFactory<>(typeSerializer, accumulatorName, maxResultsBuffered);
 		CollectSinkOperator<Row> operator = (CollectSinkOperator<Row>) factory.getOperator();
 		this.iterator = new CollectResultIterator<>(operator.getOperatorIdFuture(), typeSerializer, accumulatorName);
 	}
