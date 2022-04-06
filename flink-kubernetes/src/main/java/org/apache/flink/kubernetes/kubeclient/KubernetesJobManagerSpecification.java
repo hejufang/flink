@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.kubeclient;
 
+import com.bytedance.openplatform.arcee.resources.v1alpha1.ArceeApplication;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 
@@ -30,15 +31,23 @@ public class KubernetesJobManagerSpecification {
 
 	private Deployment deployment;
 
+	private ArceeApplication application;
+
 	private List<HasMetadata> accompanyingResources;
 
-	public KubernetesJobManagerSpecification(Deployment deployment, List<HasMetadata> accompanyingResources) {
+	public KubernetesJobManagerSpecification(Deployment deployment, ArceeApplication application,
+		List<HasMetadata> accompanyingResources) {
 		this.deployment = deployment;
+		this.application = application;
 		this.accompanyingResources = accompanyingResources;
 	}
 
 	public Deployment getDeployment() {
 		return deployment;
+	}
+
+	public ArceeApplication getApplication() {
+		return application;
 	}
 
 	public List<HasMetadata> getAccompanyingResources() {
