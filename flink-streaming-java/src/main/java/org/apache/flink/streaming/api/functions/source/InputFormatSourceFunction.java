@@ -62,17 +62,7 @@ public class InputFormatSourceFunction<OUT> extends RichParallelSourceFunction<O
 	@Override
 	@SuppressWarnings("unchecked")
 	public void open(Configuration parameters) throws Exception {
-		StreamingRuntimeContext context = (StreamingRuntimeContext) getRuntimeContext();
-
-		if (format instanceof RichInputFormat) {
-			((RichInputFormat) format).setRuntimeContext(context);
-		}
-		format.configure(parameters);
-
-		provider = context.getInputSplitProvider();
-		serializer = typeInfo.createSerializer(getRuntimeContext().getExecutionConfig());
-		splitIterator = getInputSplits();
-		isRunning = splitIterator.hasNext();
+		initFormat(parameters);
 	}
 
 	@Override
@@ -140,6 +130,19 @@ public class InputFormatSourceFunction<OUT> extends RichParallelSourceFunction<O
 	 */
 	public InputFormat<OUT, InputSplit> getFormat() {
 		return format;
+	}
+
+	protected void initFormat(Configuration parameters) {
+		StreamingRuntimeContext context = (StreamingRuntimeContext) getRuntimeContext();
+
+		if (format instanceof RichInputFormat) {
+			((RichInputFormat) format).setRuntimeContext(context);
+		}
+		format.configure(parameters);
+		provider = context.getInputSplitProvider();
+		serializer = typeInfo.createSerializer(getRuntimeContext().getExecutionConfig());
+		splitIterator = getInputSplits();
+		isRunning = splitIterator.hasNext();
 	}
 
 	private Iterator<InputSplit> getInputSplits() {

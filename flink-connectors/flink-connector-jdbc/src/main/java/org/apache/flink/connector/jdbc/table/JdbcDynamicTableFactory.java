@@ -53,6 +53,8 @@ import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LAT
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
+import static org.apache.flink.table.factories.FactoryUtil.SOURCE_SCAN_COUNT_OF_SCAN_TIMES;
+import static org.apache.flink.table.factories.FactoryUtil.SOURCE_SCAN_INTERVAL;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -271,6 +273,10 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 			builder.setNumPartitions(readableConfig.get(SCAN_PARTITION_NUM));
 		}
 		readableConfig.getOptional(SCAN_FETCH_SIZE).ifPresent(builder::setFetchSize);
+		readableConfig.getOptional(SOURCE_SCAN_INTERVAL).ifPresent(
+			interval -> builder.setScanIntervalMs(interval.toMillis())
+		);
+		readableConfig.getOptional(SOURCE_SCAN_COUNT_OF_SCAN_TIMES).ifPresent(builder::setCountOfScanTimes);
 		return builder.build();
 	}
 
@@ -354,6 +360,8 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		optionalOptions.add(RATE_LIMIT_NUM);
 		optionalOptions.add(COMPATIBLE_MODE);
 		optionalOptions.add(UPDATE_CONDITION_COLUMNS);
+		optionalOptions.add(SOURCE_SCAN_INTERVAL);
+		optionalOptions.add(SOURCE_SCAN_COUNT_OF_SCAN_TIMES);
 		return optionalOptions;
 	}
 

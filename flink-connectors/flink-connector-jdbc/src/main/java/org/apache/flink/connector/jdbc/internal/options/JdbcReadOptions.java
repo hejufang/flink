@@ -32,6 +32,8 @@ public class JdbcReadOptions implements Serializable {
 	private final Long partitionLowerBound;
 	private final Long partitionUpperBound;
 	private final Integer numPartitions;
+	private final Long scanIntervalMs;
+	private final Integer countOfScanTimes;
 
 	private final int fetchSize;
 
@@ -41,12 +43,16 @@ public class JdbcReadOptions implements Serializable {
 			Long partitionLowerBound,
 			Long partitionUpperBound,
 			Integer numPartitions,
-			int fetchSize) {
+			int fetchSize,
+			Long scanIntervalMs,
+			Integer countOfScanTimes) {
 		this.query = query;
 		this.partitionColumnName = partitionColumnName;
 		this.partitionLowerBound = partitionLowerBound;
 		this.partitionUpperBound = partitionUpperBound;
 		this.numPartitions = numPartitions;
+		this.scanIntervalMs = scanIntervalMs;
+		this.countOfScanTimes = countOfScanTimes;
 
 		this.fetchSize = fetchSize;
 	}
@@ -69,6 +75,14 @@ public class JdbcReadOptions implements Serializable {
 
 	public Optional<Integer> getNumPartitions() {
 		return Optional.ofNullable(numPartitions);
+	}
+
+	public Optional<Long> getScanIntervalMs() {
+		return Optional.ofNullable(scanIntervalMs);
+	}
+
+	public Optional<Integer> getCountOfScanTimes() {
+		return Optional.ofNullable(countOfScanTimes);
 	}
 
 	public int getFetchSize() {
@@ -103,6 +117,8 @@ public class JdbcReadOptions implements Serializable {
 		protected Long partitionLowerBound;
 		protected Long partitionUpperBound;
 		protected Integer numPartitions;
+		protected Long scanIntervalMs;
+		private Integer countOfScanTimes;
 
 		protected int fetchSize = 0;
 
@@ -155,9 +171,19 @@ public class JdbcReadOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setScanIntervalMs(Long scanIntervalMs) {
+			this.scanIntervalMs = scanIntervalMs;
+			return this;
+		}
+
+		public Builder setCountOfScanTimes(Integer countOfScanTimes) {
+			this.countOfScanTimes = countOfScanTimes;
+			return this;
+		}
+
 		public JdbcReadOptions build() {
-			return new JdbcReadOptions(
-				query, partitionColumnName, partitionLowerBound, partitionUpperBound, numPartitions, fetchSize);
+			return new JdbcReadOptions(query, partitionColumnName, partitionLowerBound,
+				partitionUpperBound, numPartitions, fetchSize, scanIntervalMs, countOfScanTimes);
 		}
 	}
 }

@@ -157,6 +157,18 @@ public final class FactoryUtil {
 		.withDeprecatedKeys(SOURCE_SINK_KEY_BY_FLINK_1_9)
 		.withDescription("Optional specific source key fields.");
 
+	public static final ConfigOption<Duration> SOURCE_SCAN_INTERVAL = ConfigOptions
+		.key("scan.input-format-read-interval")
+		.durationType()
+		.noDefaultValue()
+		.withDescription("Input format scan interval, transfer input format to streaming source.");
+
+	public static final ConfigOption<Integer> SOURCE_SCAN_COUNT_OF_SCAN_TIMES = ConfigOptions
+		.key("scan.count-of-scan-times")
+		.intType()
+		.noDefaultValue()
+		.withDescription("Count of scan input format.");
+
 	public static final ConfigOption<Integer> LOOKUP_LATER_JOIN_RETRY_TIMES = ConfigOptions
 		.key("lookup.later-join-retry-times")
 		.intType()

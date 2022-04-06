@@ -32,6 +32,13 @@ public interface InputFormatProvider extends ScanTableSource.ScanRuntimeProvider
 	 * Helper method for creating a static provider.
 	 */
 	static InputFormatProvider of(InputFormat<RowData, ?> inputFormat) {
+		return of(inputFormat, true);
+	}
+
+	/**
+	 * Helper method for creating a static provider.
+	 */
+	static InputFormatProvider of(InputFormat<RowData, ?> inputFormat, boolean isBounded) {
 		return new InputFormatProvider() {
 			@Override
 			public InputFormat<RowData, ?> createInputFormat() {
@@ -40,7 +47,7 @@ public interface InputFormatProvider extends ScanTableSource.ScanRuntimeProvider
 
 			@Override
 			public boolean isBounded() {
-				return true;
+				return isBounded;
 			}
 		};
 	}

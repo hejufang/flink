@@ -32,6 +32,7 @@ import org.apache.flink.api.common.functions.InvalidTypesException;
 import org.apache.flink.api.common.io.FileInputFormat;
 import org.apache.flink.api.common.io.FilePathFilter;
 import org.apache.flink.api.common.io.InputFormat;
+import org.apache.flink.api.common.io.PeriodScanInputFormat;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
@@ -83,6 +84,7 @@ import org.apache.flink.streaming.api.functions.source.FromIteratorFunction;
 import org.apache.flink.streaming.api.functions.source.FromSplittableIteratorFunction;
 import org.apache.flink.streaming.api.functions.source.InputFormatSourceFunction;
 import org.apache.flink.streaming.api.functions.source.ParallelSourceFunction;
+import org.apache.flink.streaming.api.functions.source.PeriodInputFormatSourceFunction;
 import org.apache.flink.streaming.api.functions.source.SocketTextStreamFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.source.StatefulSequenceSource;
@@ -1533,8 +1535,16 @@ public class StreamExecutionEnvironment {
 	private <OUT> DataStreamSource<OUT> createInput(InputFormat<OUT, ?> inputFormat,
 													TypeInformation<OUT> typeInfo,
 													String sourceName) {
+		InputFormatSourceFunction<OUT> function;
+		if (inputFormat instanceof PeriodScanInputFormat &&
+				((PeriodScanInputFormat) inputFormat).getScanIntervalMs() > 0) {
+			PeriodScanInputFormat periodFormat = (PeriodScanInputFormat) inputFormat;
+			function = new PeriodInputFormatSourceFunction<>(
+				inputFormat, typeInfo, periodFormat.getScanIntervalMs(), periodFormat.getCountOfLoop());
+		} else {
+			function = new InputFormatSourceFunction<>(inputFormat, typeInfo);
+		}
 
-		InputFormatSourceFunction<OUT> function = new InputFormatSourceFunction<>(inputFormat, typeInfo);
 		return addSource(function, sourceName, typeInfo);
 	}
 

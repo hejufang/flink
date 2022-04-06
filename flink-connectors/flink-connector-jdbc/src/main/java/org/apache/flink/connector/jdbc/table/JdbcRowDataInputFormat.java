@@ -21,6 +21,8 @@ package org.apache.flink.connector.jdbc.table;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.io.DefaultInputSplitAssigner;
 import org.apache.flink.api.common.io.InputFormat;
+import org.apache.flink.api.common.io.LoopInputSplitAssigner;
+import org.apache.flink.api.common.io.PeriodScanInputFormat;
 import org.apache.flink.api.common.io.RichInputFormat;
 import org.apache.flink.api.common.io.statistics.BaseStatistics;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -55,7 +57,8 @@ import java.util.Arrays;
  * InputFormat for {@link JdbcDynamicTableSource}.
  */
 @Internal
-public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit> implements ResultTypeQueryable<RowData> {
+public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
+	implements ResultTypeQueryable<RowData>, PeriodScanInputFormat {
 
 	private static final long serialVersionUID = 1L;
 	private static final Logger LOG = LoggerFactory.getLogger(JdbcRowDataInputFormat.class);
@@ -69,6 +72,8 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 	private int resultSetConcurrency;
 	private JdbcRowConverter rowConverter;
 	private TypeInformation<RowData> rowDataTypeInfo;
+	private final long scanIntervalMs;
+	private final int countOfReadTimes;
 
 	private transient Connection dbConn;
 	private transient PreparedStatement statement;
@@ -84,7 +89,9 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 			int resultSetType,
 			int resultSetConcurrency,
 			JdbcRowConverter rowConverter,
-			TypeInformation<RowData> rowDataTypeInfo) {
+			TypeInformation<RowData> rowDataTypeInfo,
+			long scanIntervalMs,
+			int countOfReadTimes) {
 		this.connectionOptions = connectionOptions;
 		this.fetchSize = fetchSize;
 		this.autoCommit = autoCommit;
@@ -94,6 +101,8 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 		this.resultSetConcurrency = resultSetConcurrency;
 		this.rowConverter = rowConverter;
 		this.rowDataTypeInfo = rowDataTypeInfo;
+		this.scanIntervalMs = scanIntervalMs;
+		this.countOfReadTimes = countOfReadTimes;
 	}
 
 	@Override
@@ -286,6 +295,9 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 
 	@Override
 	public InputSplitAssigner getInputSplitAssigner(InputSplit[] inputSplits) {
+		if (scanIntervalMs > 0) {
+			return new LoopInputSplitAssigner(inputSplits);
+		}
 		return new DefaultInputSplitAssigner(inputSplits);
 	}
 
@@ -311,6 +323,8 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 		private TypeInformation<RowData> rowDataTypeInfo;
 		private int resultSetType = ResultSet.TYPE_FORWARD_ONLY;
 		private int resultSetConcurrency = ResultSet.CONCUR_READ_ONLY;
+		private long formatScanIntervalMs = -1L;
+		private int countOfReadTimes = -1;
 
 		public Builder() {
 			this.connOptionsBuilder = new JdbcConnectionOptions.JdbcConnectionOptionsBuilder();
@@ -388,6 +402,16 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 			return this;
 		}
 
+		public Builder setFormatScanIntervalMs(long formatScanIntervalMs) {
+			this.formatScanIntervalMs = formatScanIntervalMs;
+			return this;
+		}
+
+		public Builder setCountOfReadTimes(int countOfReadTimes) {
+			this.countOfReadTimes = countOfReadTimes;
+			return this;
+		}
+
 		public JdbcRowDataInputFormat build() {
 			if (this.queryTemplate == null) {
 				throw new IllegalArgumentException("No query supplied");
@@ -407,7 +431,19 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 				this.resultSetType,
 				this.resultSetConcurrency,
 				this.rowConverter,
-				this.rowDataTypeInfo);
+				this.rowDataTypeInfo,
+				this.formatScanIntervalMs,
+				this.countOfReadTimes);
 		}
+	}
+
+	@Override
+	public long getScanIntervalMs() {
+		return scanIntervalMs;
+	}
+
+	@Override
+	public int getCountOfLoop() {
+		return countOfReadTimes;
 	}
 }

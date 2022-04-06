@@ -26,6 +26,7 @@ import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.accumulators.AccumulatorHelper;
+import org.apache.flink.api.common.io.LoopInputSplitAssigner;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.JobManagerOptions;
@@ -264,6 +265,9 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 
 					if (inputSplits != null) {
 						splitAssigner = splitSource.getInputSplitAssigner(inputSplits);
+						if (splitAssigner instanceof LoopInputSplitAssigner) {
+							((LoopInputSplitAssigner) splitAssigner).setTaskParallelism(getParallelism());
+						}
 					}
 				} finally {
 					currentThread.setContextClassLoader(oldContextClassLoader);
@@ -558,6 +562,9 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 					@SuppressWarnings("unchecked")
 					InputSplitSource<InputSplit> splitSource = (InputSplitSource<InputSplit>) jobVertex.getInputSplitSource();
 					this.splitAssigner = splitSource.getInputSplitAssigner(this.inputSplits);
+					if (splitAssigner instanceof LoopInputSplitAssigner) {
+						((LoopInputSplitAssigner) splitAssigner).setTaskParallelism(parallelism);
+					}
 				}
 			}
 			catch (Throwable t) {

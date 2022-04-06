@@ -128,6 +128,49 @@ public class JdbcDynamicTableSourceITCase extends AbstractTestBase {
 	}
 
 	@Test
+	public void testJdbcSourceWithReadInterval() throws Exception {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		EnvironmentSettings envSettings = EnvironmentSettings.newInstance()
+			.useBlinkPlanner()
+			.inStreamingMode()
+			.build();
+		StreamTableEnvironment tEnv = StreamTableEnvironment.create(env, envSettings);
+
+		tEnv.executeSql(
+			"CREATE TABLE " + INPUT_TABLE + "(" +
+				"id BIGINT," +
+				"timestamp6_col TIMESTAMP(6)," +
+				"timestamp9_col TIMESTAMP(9)," +
+				"time_col TIME," +
+				"real_col FLOAT," +
+				"double_col DOUBLE," +
+				"decimal_col DECIMAL(10, 4)" +
+				") WITH (" +
+				"  'connector'='jdbc'," +
+				"  'url'='" + DB_URL + "'," +
+				"  'use-bytedance-mysql'='false'," +
+				" 'scan.input-format-read-interval' = '10 s'," +
+				" 'scan.count-of-scan-times' = '2'," +
+				"  'table-name'='" + INPUT_TABLE + "'" +
+				")"
+		);
+
+		Iterator<Row> collected = tEnv.executeSql("SELECT * FROM " + INPUT_TABLE).collect();
+		List<String> result = Lists.newArrayList(collected).stream()
+			.map(Row::toString)
+			.sorted()
+			.collect(Collectors.toList());
+		List<String> expected =
+			Stream.of(
+				"1,2020-01-01T15:35:00.123456,2020-01-01T15:35:00.123456789,15:35,1.175E-37,1.79769E308,100.1234",
+				"2,2020-01-01T15:36:01.123456,2020-01-01T15:36:01.123456789,15:36:01,-1.175E-37,-1.79769E308,101.1234",
+				"1,2020-01-01T15:35:00.123456,2020-01-01T15:35:00.123456789,15:35,1.175E-37,1.79769E308,100.1234",
+				"2,2020-01-01T15:36:01.123456,2020-01-01T15:36:01.123456789,15:36:01,-1.175E-37,-1.79769E308,101.1234")
+				.sorted().collect(Collectors.toList());
+		assertEquals(expected, result);
+	}
+
+	@Test
 	public void testProject() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		EnvironmentSettings envSettings = EnvironmentSettings.newInstance()

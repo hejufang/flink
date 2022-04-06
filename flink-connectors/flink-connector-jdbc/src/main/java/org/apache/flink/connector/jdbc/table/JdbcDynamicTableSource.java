@@ -89,13 +89,17 @@ public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSourc
 	@Override
 	@SuppressWarnings("unchecked")
 	public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
+		long scanIntervalMs = readOptions.getScanIntervalMs().orElse(-1L);
+		int countOfReadTimes = readOptions.getCountOfScanTimes().orElse(-1);
 		final JdbcRowDataInputFormat.Builder builder = JdbcRowDataInputFormat.builder()
 			.setDrivername(options.getDriverName())
 			.setDBUrl(options.getDbURL())
 			.setUseBytedanceMysql(options.getUseBytedanceMysql())
 			.setInitsql(options.getInitSql())
 			.setUsername(options.getUsername().orElse(null))
-			.setPassword(options.getPassword().orElse(null));
+			.setPassword(options.getPassword().orElse(null))
+			.setFormatScanIntervalMs(scanIntervalMs)
+			.setCountOfReadTimes(countOfReadTimes);
 
 		if (readOptions.getFetchSize() != 0) {
 			builder.setFetchSize(readOptions.getFetchSize());
@@ -119,7 +123,7 @@ public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSourc
 		builder.setRowDataTypeInfo((TypeInformation<RowData>) runtimeProviderContext
 			.createTypeInformation(physicalSchema.toRowDataType()));
 
-		return InputFormatProvider.of(builder.build());
+		return InputFormatProvider.of(builder.build(), scanIntervalMs < 0 || countOfReadTimes > 0);
 	}
 
 	@Override
