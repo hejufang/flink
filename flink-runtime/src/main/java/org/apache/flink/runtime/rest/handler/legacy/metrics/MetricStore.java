@@ -59,7 +59,7 @@ public class MetricStore {
 	private final ComponentMetricStore jobManager = new ComponentMetricStore();
 	private final Map<String, TaskManagerMetricStore> taskManagers = new ConcurrentHashMap<>();
 	private final Map<String, JobMetricStore> jobs = new ConcurrentHashMap<>();
-	private static final Set<String> IO_METRIC_NAMES = Sets.newHashSet(MetricNames.IO_NUM_BYTES_IN, MetricNames.IO_NUM_BYTES_OUT, MetricNames.IO_NUM_BUFFERS_IN, MetricNames.IO_NUM_BUFFERS_OUT);
+	private static final Set<String> IO_METRIC_NAMES = Sets.newHashSet(MetricNames.IO_NUM_BYTES_IN, MetricNames.IO_NUM_BYTES_OUT, MetricNames.IO_NUM_BUFFERS_IN, MetricNames.IO_NUM_BUFFERS_OUT, MetricNames.IO_NUM_RECORDS_IN, MetricNames.IO_NUM_RECORDS_OUT);
 
 	private final boolean filterTaskOperatorMetric;
 

@@ -210,7 +210,7 @@ public class MetricOptions {
 
 	public static final ConfigOption<Boolean> METRIC_FETCHER_FILTER_TASK_OPERATOR_ENABLED =
 		key("metrics.fetcher.task-operator-filter.enabled")
-			.defaultValue(true)
+			.defaultValue(false)
 			.withDescription("Flag indicating whether Metric store should maintain task/operator level metric which not use in UI." +
 				"Main some useful metric, such like ioMetric");
 
