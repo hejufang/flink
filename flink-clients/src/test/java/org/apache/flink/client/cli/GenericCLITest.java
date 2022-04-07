@@ -18,10 +18,12 @@
 
 package org.apache.flink.client.cli;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.DeploymentOptions;
+import org.apache.flink.configuration.ExecutionOptions;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 import org.apache.flink.shaded.org.apache.commons.cli.Options;
@@ -108,6 +110,46 @@ public class GenericCLITest {
 		assertEquals(5, configuration.getInteger(CoreOptions.DEFAULT_PARALLELISM));
 		assertFalse(configuration.getBoolean(DeploymentOptions.ATTACHED));
 		assertEquals(listValue, configuration.get(listOption));
+	}
+
+	@Test
+	public void testBytedanceStreamingParamsWithStreamType() throws CliArgsException {
+		final String[] args = {
+			"-e", "test-executor",
+			"-D" + ExecutionOptions.EXECUTION_APPLICATION_TYPE.key() + "="
+				+ ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE,
+			"-D" + ConfigConstants.STREAMING_JOB_KEY_PREFIX + "test-config.test-sub-config=test"
+		};
+
+		final GenericCLI cliUnderTest = new GenericCLI(
+			new Configuration(),
+			tmp.getRoot().getAbsolutePath());
+		final CommandLine commandLine = CliFrontendParser.parse(testOptions, args, true);
+
+		final Configuration configuration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
+		assertEquals("test-executor", configuration.getString(DeploymentOptions.TARGET));
+		assertEquals(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE, configuration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE));
+		assertEquals("test", configuration.getString("test-config.test-sub-config", ""));
+	}
+
+	@Test
+	public void testBytedanceStreamingParamsWithBatchType() throws CliArgsException {
+		final String[] args = {
+			"-e", "test-executor",
+			"-D" + ExecutionOptions.EXECUTION_APPLICATION_TYPE.key() + "="
+				+ ConfigConstants.FLINK_BATCH_APPLICATION_TYPE,
+			"-D" + ConfigConstants.STREAMING_JOB_KEY_PREFIX + "test-config.test-sub-config=test"
+		};
+
+		final GenericCLI cliUnderTest = new GenericCLI(
+			new Configuration(),
+			tmp.getRoot().getAbsolutePath());
+		final CommandLine commandLine = CliFrontendParser.parse(testOptions, args, true);
+
+		final Configuration configuration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
+		assertEquals("test-executor", configuration.getString(DeploymentOptions.TARGET));
+		assertEquals(ConfigConstants.FLINK_BATCH_APPLICATION_TYPE, configuration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE));
+		assertEquals("", configuration.getString("test-config.test-sub-config", ""));
 	}
 
 	@Test

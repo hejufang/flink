@@ -19,9 +19,11 @@
 package org.apache.flink.client.cli;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.DeploymentOptionsInternal;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.UnmodifiableConfiguration;
 import org.apache.flink.core.execution.DefaultExecutorServiceLoader;
 import org.apache.flink.core.execution.PipelineExecutor;
@@ -37,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.configuration.GlobalConfiguration.reloadConfigWithSpecificProperties;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -130,6 +133,15 @@ public class GenericCLI implements CustomCommandLine {
 		}
 
 		encodeDynamicProperties(commandLine, effectiveConfiguration);
+
+		/*
+		 * set special config for streaming job
+		 */
+		String appType = effectiveConfiguration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE);
+		if (appType.equals(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE)) {
+			reloadConfigWithSpecificProperties(effectiveConfiguration, ConfigConstants.STREAMING_JOB_KEY_PREFIX);
+		}
+
 		effectiveConfiguration.set(DeploymentOptionsInternal.CONF_DIR, configurationDir);
 
 		if (LOG.isDebugEnabled()) {
