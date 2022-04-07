@@ -22,6 +22,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
+import org.apache.flink.streaming.api.LazyTimerService;
 import org.apache.flink.streaming.api.SimpleTimerService;
 import org.apache.flink.streaming.api.TimeDomain;
 import org.apache.flink.streaming.api.TimerService;
@@ -30,6 +31,7 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.util.OutputTag;
 
 import java.io.IOException;
+import java.util.function.Supplier;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -44,6 +46,8 @@ public class KeyedProcessOperator<K, IN, OUT>
 
 	private static final long serialVersionUID = 1L;
 
+	private final boolean useLazyTimeService;
+
 	private transient TimestampedCollector<OUT> collector;
 
 	private transient ContextImpl context;
@@ -51,8 +55,12 @@ public class KeyedProcessOperator<K, IN, OUT>
 	private transient OnTimerContextImpl onTimerContext;
 
 	public KeyedProcessOperator(KeyedProcessFunction<K, IN, OUT> function) {
-		super(function);
+		this(function, false);
+	}
 
+	public KeyedProcessOperator(KeyedProcessFunction<K, IN, OUT> function, boolean useLazyTimeService) {
+		super(function);
+		this.useLazyTimeService = useLazyTimeService;
 		chainingStrategy = ChainingStrategy.ALWAYS;
 	}
 
@@ -60,12 +68,16 @@ public class KeyedProcessOperator<K, IN, OUT>
 	public void open() throws Exception {
 		super.open();
 		collector = new TimestampedCollector<>(output);
-
-		InternalTimerService<VoidNamespace> internalTimerService =
-				getInternalTimerService("user-timers", VoidNamespaceSerializer.INSTANCE, this);
-
-		TimerService timerService = new SimpleTimerService(internalTimerService);
-
+		Supplier<InternalTimerService<VoidNamespace>> internalTimerService = () -> getInternalTimerService(
+			"user-timers",
+			VoidNamespaceSerializer.INSTANCE,
+			this);
+		TimerService timerService;
+		if (useLazyTimeService) {
+			timerService = new LazyTimerService(internalTimerService, getProcessingTimeService());
+		} else {
+			timerService = new SimpleTimerService(internalTimerService.get());
+		}
 		context = new ContextImpl(userFunction, timerService);
 		userFunction.setContext(context);
 		onTimerContext = new OnTimerContextImpl(userFunction, timerService);

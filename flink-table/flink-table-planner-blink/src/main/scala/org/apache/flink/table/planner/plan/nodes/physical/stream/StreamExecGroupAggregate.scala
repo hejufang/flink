@@ -168,7 +168,7 @@ class StreamExecGroupAggregate(
         AggregateUtil.createMiniBatchTrigger(tableConfig))
     } else if (isStateless) {
       val aggFunction = new InMemoryGroupAggFunction(aggsHandler, inputCountIndex)
-      val operator = new KeyedProcessOperator[RowData, RowData, RowData](aggFunction)
+      val operator = new KeyedProcessOperator[RowData, RowData, RowData](aggFunction, true)
       operator
     } else {
       val aggFunction = new GroupAggFunction(

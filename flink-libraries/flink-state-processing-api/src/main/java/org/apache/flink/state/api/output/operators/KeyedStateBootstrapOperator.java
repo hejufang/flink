@@ -26,6 +26,7 @@ import org.apache.flink.state.api.functions.KeyedStateBootstrapFunction;
 import org.apache.flink.state.api.output.SnapshotUtils;
 import org.apache.flink.state.api.output.TaggedOperatorSubtaskState;
 import org.apache.flink.state.api.runtime.VoidTriggerable;
+import org.apache.flink.streaming.api.LazyTimerService;
 import org.apache.flink.streaming.api.TimerService;
 import org.apache.flink.streaming.api.operators.AbstractUdfStreamOperator;
 import org.apache.flink.streaming.api.operators.BoundedOneInput;

@@ -21,6 +21,7 @@ package org.apache.flink.table.planner.runtime.stream.sql
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.NoRestartStrategyConfiguration
 import org.apache.flink.api.scala._
 import org.apache.flink.client.ClientUtils
+import org.apache.flink.configuration.Configuration
 import org.apache.flink.runtime.jobgraph.{JobGraph, SavepointRestoreSettings}
 import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
@@ -98,7 +99,7 @@ class CheckpointRecoveryITCase(stateBackend: String)
       "(false,Hello world,10.0,2,1)",
       "(true,Hello world,14.0,2,2)"
     )
-    testWithSQL(beforeSQL, afterSQL, beforeExpectedOutput, afterExpectedOutput)
+    testWithSQL(beforeSQL, afterSQL, beforeExpectedOutput, afterExpectedOutput, new Configuration)
   }
 
   @Test
@@ -156,7 +157,7 @@ class CheckpointRecoveryITCase(stateBackend: String)
       "(false,4,4.0,null)",
       "(true,4,8.0,Hello world)"
     )
-    testWithSQL(beforeSQL, afterSQL, beforeExpectedOutput, afterExpectedOutput)
+    testWithSQL(beforeSQL, afterSQL, beforeExpectedOutput, afterExpectedOutput, new Configuration)
   }
 
   @Test
@@ -219,14 +220,53 @@ class CheckpointRecoveryITCase(stateBackend: String)
       "(true,Hello world,14.0,2,2)"
     )
 
-    testWithSQL(beforeSQL, afterSQL, beforeExpectedOutput, afterExpectedOutput)
+    testWithSQL(beforeSQL, afterSQL, beforeExpectedOutput, afterExpectedOutput, new Configuration)
+  }
+
+  @Test
+  def testInMemoryAgg(): Unit = {
+    val beforeSQL =
+      """
+        |select
+        |    `int`,
+        |    sum(`double`)
+        |from
+        |    T1
+        |group by
+        |    `int`
+        |""".stripMargin
+    val afterSQL =
+      """
+        |select
+        |    `int`,
+        |    LAST_VALUE_IGNORE_RETRACT(`string`, cast(`int` as bigint)),
+        |    sum(`double`)
+        |from
+        |    T1
+        |group by
+        |    `int`, `float`
+        |""".stripMargin
+
+    val beforeExpectedOutput = List(
+      "(true,1,1.0)",
+      "(true,2,4.0)",
+      "(true,5,10.0)",
+      "(true,3,6.0)",
+      "(true,4,4.0)"
+    )
+    // As second job won't trigger checkpoint/savepoint, there won't be any output.
+    val afterExpectedOutput = List()
+    val config = new Configuration
+    config.setBoolean("table.exec.enable-stateless-agg", true)
+    testWithSQL(beforeSQL, afterSQL, beforeExpectedOutput, afterExpectedOutput, config)
   }
 
   def testWithSQL(
       beforeSQL: String,
       afterSQL: String,
       firstExpected: List[String],
-      secondExpected: List[String]): Unit = {
+      secondExpected: List[String],
+      tableConfigs: Configuration): Unit = {
     val client = cluster.getClusterClient
 
     def hasRunningJobs: Boolean = {
@@ -238,7 +278,7 @@ class CheckpointRecoveryITCase(stateBackend: String)
     val sink1 = new TestSink[(Boolean, Row)]()
     TestSink.reset()
 
-    val jobGraph1 = build1stJob(beforeSQL, sink1)
+    val jobGraph1 = build1stJob(beforeSQL, sink1, tableConfigs)
     val jobId = jobGraph1.getJobID
     Latch.init(8)
     client.submitJob(jobGraph1)
@@ -257,13 +297,16 @@ class CheckpointRecoveryITCase(stateBackend: String)
     log.warn("===================== Start a new job ====================", savepointPath)
     val sink2 = new TestSink[(Boolean, Row)]
     TestSink.reset()
-    val jobGraph2 = build2ndJob(afterSQL, savepointPath, sink2)
+    val jobGraph2 = build2ndJob(afterSQL, savepointPath, sink2, tableConfigs)
     ClientUtils.submitJobAndWaitForResult(client, jobGraph2,
       classOf[CheckpointRecoveryITCase].getClassLoader)
     assertEquals(secondExpected.sorted, TestSink.results.sorted)
   }
 
-  def build1stJob(beforeSQL: String, sink: TestSink[(Boolean, Row)]): JobGraph = {
+  def build1stJob(
+      beforeSQL: String,
+      sink: TestSink[(Boolean, Row)],
+      tableConfigs: Configuration): JobGraph = {
     val env = StreamExecutionEnvironment.getExecutionEnvironment
     env.setParallelism(1)
     env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
@@ -272,7 +315,7 @@ class CheckpointRecoveryITCase(stateBackend: String)
     val setting = EnvironmentSettings.newInstance().useBlinkPlanner().inStreamingMode().build()
     val tEnv = StreamTableEnvironment.create(env, setting)
     tEnv.getConfig.getConfiguration.setString("table.exec.state.ttl", "10min")
-
+    tEnv.getConfig.addConfiguration(tableConfigs)
     val mapper = new LatchMapper[(Long, Int, Double, Float, BigDecimal, String, String)]()
     val stream = env.addSource(new TestSource(false)).map(mapper)
       .assignTimestampsAndWatermarks(
@@ -291,7 +334,8 @@ class CheckpointRecoveryITCase(stateBackend: String)
   def build2ndJob(
       afterSQL: String,
       savepointPath: String,
-      sink: TestSink[(Boolean, Row)]): JobGraph = {
+      sink: TestSink[(Boolean, Row)],
+      tableConfigs: Configuration): JobGraph = {
     val env = StreamExecutionEnvironment.getExecutionEnvironment
     env.setParallelism(1)
     env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
@@ -301,7 +345,7 @@ class CheckpointRecoveryITCase(stateBackend: String)
     val setting = EnvironmentSettings.newInstance().useBlinkPlanner().inStreamingMode().build()
     val tEnv = StreamTableEnvironment.create(env, setting)
     tEnv.getConfig.getConfiguration.setString("table.exec.state.ttl", "10min")
-
+    tEnv.getConfig.addConfiguration(tableConfigs)
     val mapper = new LatchMapper[(Long, Int, Double, Float, BigDecimal, String, String)]()
     val stream = env.addSource(new TestSource(true)).map(mapper)
       .assignTimestampsAndWatermarks(

@@ -16,11 +16,10 @@
  * limitations under the License.
  */
 
-package org.apache.flink.state.api.output.operators;
+package org.apache.flink.streaming.api;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.state.VoidNamespace;
-import org.apache.flink.streaming.api.TimerService;
 import org.apache.flink.streaming.api.operators.InternalTimerService;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 
@@ -39,7 +38,7 @@ public class LazyTimerService implements TimerService {
 
 	private InternalTimerService<VoidNamespace> internalTimerService;
 
-	LazyTimerService(Supplier<InternalTimerService<VoidNamespace>> supplier, ProcessingTimeService processingTimeService) {
+	public LazyTimerService(Supplier<InternalTimerService<VoidNamespace>> supplier, ProcessingTimeService processingTimeService) {
 		this.supplier = supplier;
 		this.processingTimeService = processingTimeService;
 	}
