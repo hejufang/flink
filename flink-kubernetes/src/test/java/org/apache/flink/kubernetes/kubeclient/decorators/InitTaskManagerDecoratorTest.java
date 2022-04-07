@@ -47,6 +47,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_COMPONENT;
+import static org.apache.flink.kubernetes.utils.Constants.LABEL_COMPONENT_TASK_MANAGER;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
@@ -199,6 +201,7 @@ public class InitTaskManagerDecoratorTest extends KubernetesTaskManagerTestBase 
 	@Test
 	public void testMainContainerEnv() {
 		final Map<String, String> expectedEnvVars = new HashMap<>(customizedEnvs);
+		expectedEnvVars.put(ENV_FLINK_COMPONENT, LABEL_COMPONENT_TASK_MANAGER);
 		expectedEnvVars.put(Constants.ENV_FLINK_POD_NAME, POD_NAME);
 
 		final List<EnvVar> envVars = this.resultMainContainer.getEnv();

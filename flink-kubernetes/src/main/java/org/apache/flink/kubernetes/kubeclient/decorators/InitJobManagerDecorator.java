@@ -48,8 +48,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.kubernetes.utils.Constants.API_VERSION;
+import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_COMPONENT;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_IP_ADDRESS;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
+import static org.apache.flink.kubernetes.utils.Constants.LABEL_COMPONENT_JOB_MANAGER;
 import static org.apache.flink.kubernetes.utils.Constants.POD_IP_FIELD_PATH;
 import static org.apache.flink.kubernetes.utils.Constants.POD_NAME_FIELD_PATH;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -132,6 +134,10 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
 					.withValueFrom(new EnvVarSourceBuilder()
 						.withNewFieldRef(API_VERSION, POD_IP_FIELD_PATH)
 						.build())
+					.endEnv()
+				.addNewEnv()
+					.withName(ENV_FLINK_COMPONENT)
+					.withValue(LABEL_COMPONENT_JOB_MANAGER)
 					.endEnv()
 				.addNewEnv()
 					.withName(ENV_FLINK_POD_NAME)

@@ -100,6 +100,7 @@ import java.util.stream.Collectors;
 
 import static junit.framework.TestCase.assertEquals;
 import static org.apache.flink.kubernetes.utils.Constants.API_VERSION;
+import static org.apache.flink.kubernetes.utils.Constants.LABEL_COMPONENT_TASK_MANAGER;
 import static org.apache.flink.kubernetes.utils.Constants.POD_IP_FIELD_PATH;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
@@ -220,8 +221,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 				// Check environments
 				assertThat(tmContainer.getEnv(), Matchers.contains(new EnvVarBuilder().withName(Constants.ENV_FLINK_POD_NAME).withValue(podName).build(),
-					new EnvVarBuilder().withName(Constants.ENV_FLINK_POD_IP_ADDRESS).
-					withValueFrom(new EnvVarSourceBuilder().withNewFieldRef(API_VERSION, POD_IP_FIELD_PATH).build()).
+					new EnvVarBuilder().withName(Constants.ENV_FLINK_COMPONENT).withValue(LABEL_COMPONENT_TASK_MANAGER).build(),
+					new EnvVarBuilder().withName(Constants.ENV_FLINK_POD_IP_ADDRESS).withValueFrom(new EnvVarSourceBuilder().withNewFieldRef(API_VERSION, POD_IP_FIELD_PATH).build()).
 					build()
 				));
 

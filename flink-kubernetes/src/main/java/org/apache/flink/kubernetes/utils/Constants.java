@@ -92,6 +92,8 @@ public class Constants {
 
 	public static final String POD_IP_FIELD_PATH = "status.podIP";
 
+	public static final String ENV_FLINK_COMPONENT = "_FLINK_COMPONENT";
+
 	public static final String POD_NAME_FIELD_PATH = "metadata.name";
 
 	public static final String HEADLESS_SERVICE_CLUSTER_IP = "None";

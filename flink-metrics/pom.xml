@@ -50,6 +50,7 @@ under the License.
 		<module>flink-metrics-opentsdb</module>
         <module>flink-metrics-databus</module>
 		<module>flink-metrics-gcs-log</module>
+		<module>flink-metrics-gas-log</module>
     </modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up
