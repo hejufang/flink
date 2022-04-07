@@ -24,6 +24,7 @@ import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimite
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer010;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducerBase;
+import org.apache.flink.streaming.connectors.kafka.config.KafkaSinkConfig;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaProducerFactory;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.table.connector.format.EncodingFormat;
@@ -47,13 +48,16 @@ import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SIN
 @Internal
 public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 
+	private final KafkaSinkConfig sinkConfig;
+
 	public Kafka010DynamicSink(
 			DataType consumedDataType,
 			String topic,
 			Properties properties,
 			Optional<FlinkKafkaPartitioner<RowData>> partitioner,
 			EncodingFormat<SerializationSchema<RowData>> encodingFormat,
-			Properties otherProperties) {
+			Properties otherProperties,
+			KafkaSinkConfig sinkConfig) {
 		super(
 			consumedDataType,
 			topic,
@@ -61,6 +65,7 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 			partitioner,
 			encodingFormat,
 			otherProperties);
+		this.sinkConfig = sinkConfig;
 	}
 
 	@Override
@@ -82,6 +87,7 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 		flinkKafkaProducerBase.setInFlightFactor(inFlightIndex);
 		flinkKafkaProducerBase.setMaxInFlightNum(maxInFlightNum);
 		flinkKafkaProducerBase.setRowKindSinkFilter(RowDataSinkFilter.createIncludeInsertAndUpdateAfterFilter());
+		flinkKafkaProducerBase.setDeleteNormalizer(sinkConfig.getDeleteNormalizer());
 		if (otherProperties.containsKey(FactoryUtil.PARALLELISM.key())) {
 			flinkKafkaProducerBase.setParallelism(
 				Integer.parseInt(otherProperties.getProperty(FactoryUtil.PARALLELISM.key())));
@@ -109,7 +115,8 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 				this.properties,
 				this.partitioner,
 				this.encodingFormat,
-				this.otherProperties);
+				this.otherProperties,
+				this.sinkConfig);
 	}
 
 	@Override

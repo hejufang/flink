@@ -45,6 +45,7 @@ import java.util.Properties;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.apache.kafka.clients.consumer.ConsumerRecord.NULL_CHECKSUM;
 import static org.apache.kafka.clients.consumer.ConsumerRecord.NULL_SIZE;
@@ -123,6 +124,12 @@ public class MockKafkaProducerConsumerContext {
 
 	public int getDataCount() {
 		return this.producerRecords.size();
+	}
+
+	public List<String> getResults() {
+		return producerRecords.stream()
+			.map(record -> new String(record.value()))
+			.collect(Collectors.toList());
 	}
 
 	private ConsumerRecords<byte[], byte[]> consumerPollMockAction(InvocationOnMock invocationOnMock) {

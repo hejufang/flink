@@ -34,6 +34,7 @@ import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
+import org.apache.flink.table.functions.DeleteNormalizer;
 import org.apache.flink.table.utils.EncodingUtils;
 import org.apache.flink.util.Preconditions;
 
@@ -111,6 +112,13 @@ public final class FactoryUtil {
 		.longType()
 		.noDefaultValue()
 		.withDescription("Defines the rate limit number for connector.");
+
+	public static final ConfigOption<DeleteNormalizer.NormalizeType> SINK_DELETE_NORMALIZE = ConfigOptions
+		.key("sink.delete-normalizer")
+		.enumType(DeleteNormalizer.NormalizeType.class)
+		.defaultValue(DeleteNormalizer.NormalizeType.NONE)
+		.withDescription("How to normalize the delete message for sink, especially for mq sinks which cannot " +
+			"delete records.");
 
 	public static final ConfigOption<String> SOURCE_METADATA_COLUMNS = ConfigOptions.key("scan.metadata-fields-mapping")
 		.stringType()

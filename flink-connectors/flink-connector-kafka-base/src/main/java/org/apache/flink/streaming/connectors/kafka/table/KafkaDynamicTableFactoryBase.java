@@ -23,6 +23,7 @@ import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.streaming.connectors.kafka.config.KafkaSinkConfig;
 import org.apache.flink.streaming.connectors.kafka.config.KafkaSourceConfig;
 import org.apache.flink.streaming.connectors.kafka.config.Metadata;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
@@ -41,6 +42,7 @@ import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
+import org.apache.flink.table.functions.ChangeNonPrimaryFieldsNullNormalizer;
 import org.apache.flink.table.planner.plan.utils.KeySelectorUtil;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.table.types.DataType;
@@ -81,6 +83,7 @@ import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.get
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.getStartupOptions;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.validateTableOptions;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_DELETE_NORMALIZE;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_PARTITIONER_FIELD;
 
 /**
@@ -139,6 +142,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		// Validate the option values.
 		validateTableOptions(tableOptions);
 
+		KafkaSinkConfig sinkConfig = getSinkConfig(tableOptions, context.getCatalogTable().getSchema());
+
 		DataType consumedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
 		return createKafkaTableSink(
 				consumedDataType,
@@ -146,7 +151,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 				getKafkaProperties(context.getCatalogTable().getOptions()),
 				getFlinkKafkaPartitioner(tableOptions, context.getClassLoader(), context.getCatalogTable().getSchema()),
 				encodingFormat,
-				getSinkOtherProperties(context.getCatalogTable().getOptions()));
+				getSinkOtherProperties(context.getCatalogTable().getOptions()),
+				sinkConfig);
 	}
 
 	/**
@@ -185,7 +191,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 			Properties properties,
 			Optional<FlinkKafkaPartitioner<RowData>> partitioner,
 			EncodingFormat<SerializationSchema<RowData>> encodingFormat,
-			Properties otherProperties);
+			Properties otherProperties,
+			KafkaSinkConfig sinkConfig);
 
 	@Override
 	public Set<ConfigOption<?>> requiredOptions() {
@@ -222,6 +229,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SINK_PARTITIONER_CLASS);
 		options.add(SINK_IN_FLIGHT_BATCH_SIZE_FACTOR);
 		options.add(SINK_IN_FLIGHT_MAX_NUM);
+		options.add(SINK_DELETE_NORMALIZE);
 		options.add(FactoryUtil.SOURCE_METADATA_COLUMNS);
 		options.add(FactoryUtil.PARALLELISM);
 		options.add(FactoryUtil.SOURCE_KEY_BY_FIELD);
@@ -272,6 +280,18 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		readableConfig.getOptional(SCAN_ENABLE_PROJECTION_PUSHDOWN).
 			ifPresent(sourceConfig::setProjectionPushDownIsApplicable);
 		return sourceConfig;
+	}
+
+	private KafkaSinkConfig getSinkConfig(ReadableConfig readableConfig, TableSchema tableSchema) {
+		KafkaSinkConfig.Builder builder = KafkaSinkConfig.builder();
+		switch (readableConfig.get(SINK_DELETE_NORMALIZE)) {
+			case NULL_FOR_NON_PRIMARY_FIELDS:
+				builder.withDeleteNormalizer(ChangeNonPrimaryFieldsNullNormalizer.of(tableSchema));
+				break;
+			default:
+				// do not set, leave it as null
+		}
+		return builder.build();
 	}
 
 	private Properties getSinkOtherProperties(Map<String, String> properties) {

@@ -29,7 +29,9 @@ import org.apache.flink.table.planner.runtime.utils.TableEnvUtil;
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.contrib.java.lang.system.EnvironmentVariables;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -52,7 +54,6 @@ public class KafkaTable010ITCase {
 	protected StreamExecutionEnvironment env;
 	protected StreamTableEnvironment tEnv;
 
-
 	@Parameterized.Parameter
 	public boolean hasMetadataColumn;
 
@@ -72,8 +73,12 @@ public class KafkaTable010ITCase {
 		};
 	}
 
+	@Rule
+	public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
+
 	@Before
 	public void setup() {
+		environmentVariables.set("RUNTIME_IDC_NAME", "BOE");
 		env = StreamExecutionEnvironment.getExecutionEnvironment();
 		tEnv = StreamTableEnvironment.create(
 			env,

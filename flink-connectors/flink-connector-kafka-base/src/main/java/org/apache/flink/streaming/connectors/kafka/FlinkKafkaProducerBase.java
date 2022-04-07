@@ -40,6 +40,7 @@ import org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaMetric
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
 import org.apache.flink.table.factories.FactoryUtil;
+import org.apache.flink.table.functions.DeleteNormalizer;
 import org.apache.flink.table.functions.RowKindSinkFilter;
 import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.SerializableObject;
@@ -175,6 +176,8 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	protected int maxInFlightNum = 0;
 
 	protected RowKindSinkFilter<IN> rowKindSinkFilter;
+
+	protected DeleteNormalizer<IN> deleteNormalizer;
 
 	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
 
@@ -527,6 +530,11 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 	public FlinkKafkaProducerBase<IN> setRowKindSinkFilter(RowKindSinkFilter<IN> rowKindSinkFilter) {
 		this.rowKindSinkFilter = rowKindSinkFilter;
+		return this;
+	}
+
+	public FlinkKafkaProducerBase<IN> setDeleteNormalizer(DeleteNormalizer<IN> normalizer) {
+		this.deleteNormalizer = normalizer;
 		return this;
 	}
 

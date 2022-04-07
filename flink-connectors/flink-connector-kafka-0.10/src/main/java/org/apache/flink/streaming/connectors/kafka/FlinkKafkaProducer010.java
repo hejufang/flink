@@ -302,6 +302,9 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 	public void invoke(T value, Context context) throws Exception {
 
 		checkErroneous();
+		if (deleteNormalizer != null) {
+			value = deleteNormalizer.apply(value);
+		}
 
 		if (!filter(value)) {
 			return;

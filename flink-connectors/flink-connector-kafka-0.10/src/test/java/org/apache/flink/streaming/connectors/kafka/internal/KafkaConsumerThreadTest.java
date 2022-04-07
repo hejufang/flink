@@ -46,7 +46,10 @@ import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.contrib.java.lang.system.EnvironmentVariables;
 import org.junit.runner.RunWith;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
@@ -83,6 +86,14 @@ import static org.powermock.api.mockito.PowerMockito.whenNew;
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(Handover.class)
 public class KafkaConsumerThreadTest {
+
+	@Rule
+	public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
+
+	@Before
+	public void setup() {
+		environmentVariables.set("RUNTIME_IDC_NAME", "BOE");
+	}
 
 	@Test
 	public void testCustomKafkaConsumer() throws Exception {
