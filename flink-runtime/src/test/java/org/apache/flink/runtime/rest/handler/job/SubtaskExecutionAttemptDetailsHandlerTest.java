@@ -118,8 +118,7 @@ public class SubtaskExecutionAttemptDetailsHandlerTest extends TestLogger {
 			address -> null,
 			TestingUtils.defaultExecutor(),
 			Time.milliseconds(1000L),
-			MetricOptions.METRIC_FETCHER_UPDATE_INTERVAL.defaultValue(),
-			false);
+			MetricOptions.METRIC_FETCHER_UPDATE_INTERVAL.defaultValue());
 
 		// Instance the handler.
 		final RestHandlerConfiguration restHandlerConfiguration = RestHandlerConfiguration.fromConfiguration(new Configuration());

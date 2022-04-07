@@ -118,8 +118,7 @@ public class SubtaskCurrentAttemptDetailsHandlerTest extends TestLogger {
 			address -> null,
 			TestingUtils.defaultExecutor(),
 			Time.milliseconds(1000L),
-			MetricOptions.METRIC_FETCHER_UPDATE_INTERVAL.defaultValue(),
-			false);
+			MetricOptions.METRIC_FETCHER_UPDATE_INTERVAL.defaultValue());
 
 		final SubtaskCurrentAttemptDetailsHandler handler = new SubtaskCurrentAttemptDetailsHandler(
 			() -> null,

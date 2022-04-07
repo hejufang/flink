@@ -62,7 +62,7 @@ public class MetricFetcherImpl<T extends RestfulGateway> implements MetricFetche
 	private final Executor executor;
 	private final Time timeout;
 
-	private final MetricStore metrics;
+	private final MetricStore metrics = new MetricStore();
 	private final MetricDumpDeserializer deserializer = new MetricDumpDeserializer();
 	private final long updateInterval;
 
@@ -73,8 +73,7 @@ public class MetricFetcherImpl<T extends RestfulGateway> implements MetricFetche
 			MetricQueryServiceRetriever queryServiceRetriever,
 			Executor executor,
 			Time timeout,
-			long updateInterval,
-			boolean filterTaskOperatorMetric) {
+			long updateInterval) {
 		this.retriever = Preconditions.checkNotNull(retriever);
 		this.queryServiceRetriever = Preconditions.checkNotNull(queryServiceRetriever);
 		this.executor = Preconditions.checkNotNull(executor);
@@ -82,7 +81,6 @@ public class MetricFetcherImpl<T extends RestfulGateway> implements MetricFetche
 
 		Preconditions.checkArgument(updateInterval > 0, "The update interval must be larger than 0.");
 		this.updateInterval = updateInterval;
-		this.metrics = new MetricStore(filterTaskOperatorMetric);
 	}
 
 	/**
@@ -230,14 +228,12 @@ public class MetricFetcherImpl<T extends RestfulGateway> implements MetricFetche
 			final ExecutorService executor) {
 		final Time timeout = Time.milliseconds(configuration.getLong(WebOptions.TIMEOUT));
 		final long updateInterval = configuration.getLong(MetricOptions.METRIC_FETCHER_UPDATE_INTERVAL);
-		final boolean filterTaskOperatorMetric = configuration.getBoolean(MetricOptions.METRIC_FETCHER_FILTER_TASK_OPERATOR_ENABLED);
 
 		return new MetricFetcherImpl<>(
 			dispatcherGatewayRetriever,
 			metricQueryServiceGatewayRetriever,
 			executor,
 			timeout,
-			updateInterval,
-			filterTaskOperatorMetric);
+			updateInterval);
 	}
 }
