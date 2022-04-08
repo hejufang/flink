@@ -2164,10 +2164,16 @@ public final class ConfigConstants {
 
 	// ---------------------------- Log4j Configurations --------------------------
 	public static final String FLINK_LOG_DATABUS_CHANNEL_KEY = "log4j.appender.databus.channel";
-	public static final String FLINK_LOG_DATABUS_CHANNEL_DEFAULT = "yarn_container_level_log";
+	public static final String FLINK_LOG_DATABUS_CHANNEL_DEFAULT = "flink_error_log";
 
 	public static final String FLINK_LOG_DATABUS_LEVEL_KEY = "log4j.appender.databus.level";
 	public static final String FLINK_LOG_DATABUS_LEVEL_DEFAULT = "WARN";
+
+	public static final String FLINK_JOBMANAGER_LOG_DATABUS_LEVEL_KEY = "jobmanager.log4j.appender.databus.level";
+	public static final String FLINK_JOBMANAGER_LOG_DATABUS_LEVEL_DEFAULT = "WARN";
+
+	public static final String FLINK_TASKMANAGER_LOG_DATABUS_LEVEL_KEY = "taskmanager.log4j.appender.databus.level";
+	public static final String FLINK_TASKMANAGER_LOG_DATABUS_LEVEL_DEFAULT = "FATAL";
 
 	public static final String FLINK_LOG_DATABUS_PERMITS_PER_SECOND_KEY = "log4j.appender.databus.permitsPerSecond";
 	public static final long FLINK_LOG_DATABUS_PERMITS_PER_SECOND_DEFAULT = 1000;

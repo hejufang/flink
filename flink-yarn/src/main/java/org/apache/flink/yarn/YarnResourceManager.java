@@ -751,7 +751,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 					notifyAllocatedWorkerStopped(resourceId);
 
 					if (yarnWorkerNode != null) {
-						log.warn("Container {} on {} completed with exit code {}, {}",
+						log.error("Container {} on {} completed with exit code {}, {}",
 								LoggerHelper.secMark("containerId", containerStatus.getContainerId()),
 								LoggerHelper.secMark("host", yarnWorkerNode.getContainer().getNodeId().getHost()),
 								LoggerHelper.secMark("exitStatus", containerStatus.getExitStatus()),

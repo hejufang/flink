@@ -228,7 +228,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 		final String redirects =
 			"1>> " + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.out " +
 			"2>> " + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.err";
-		final String logging = "-Dlog.databus.channel=yarn_container_level_log" +
+		final String logging = "-Dlog.databus.channel=flink_error_log" +
 			" " + "-Dlog.databus.level=WARN" +
 			" " + "-Dlog.databus.permitsPerSecond=1000" +
 			" " + "-Dlog.streamlog.level=OFF";

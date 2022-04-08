@@ -181,7 +181,7 @@ common:
   dashboard.data_source: bytetsd
   dtop.data_source: dtop_cn
   dtop.database: dtop
-  log4j.appender.databus.channel: yarn_container_level_log
+  log4j.appender.databus.channel: flink_error_log
 
   # Configurations for docker mode
   runtime.lib.dir: /opt/tiger/flink_deploy/deploy/flink-1.11/lib

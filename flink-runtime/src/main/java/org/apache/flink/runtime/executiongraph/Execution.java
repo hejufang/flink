@@ -1808,6 +1808,10 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		return transitionState(currentState, targetState, null);
 	}
 
+	private boolean isLogErrorTaskStateChangeToFailed(ExecutionState targetState) {
+		return targetState == FAILED;
+	}
+
 	private boolean transitionState(ExecutionState currentState, ExecutionState targetState, Throwable error) {
 		// sanity check
 		if (currentState.isTerminal()) {
@@ -1822,21 +1826,23 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 				if (vertex.getExecutionGraph().isJobLogDetailDisable()) {
 					LOG.debug("{} ({}) switched from {} to {}.", getVertexWithAttempt(), getAttemptId(), currentState, targetState);
 				} else {
-					LOG.info("{} ({}) switched from {} to {}.", LoggerHelper.secMark("vertexWithAttempt", getVertexWithAttempt()), LoggerHelper.secMark("attemptId", getAttemptId()), LoggerHelper.secMark("executionState", currentState), LoggerHelper.secMark("executionState", targetState));
+					if (isLogErrorTaskStateChangeToFailed(targetState)) {
+						LOG.error("{} ({}) switched from {} to {}.", LoggerHelper.secMark("vertexWithAttempt", getVertexWithAttempt()), LoggerHelper.secMark("attemptId", getAttemptId()), LoggerHelper.secMark("executionState", currentState), LoggerHelper.secMark("executionState", targetState));
+					} else {
+						LOG.info("{} ({}) switched from {} to {}.", LoggerHelper.secMark("vertexWithAttempt", getVertexWithAttempt()), LoggerHelper.secMark("attemptId", getAttemptId()), LoggerHelper.secMark("executionState", currentState), LoggerHelper.secMark("executionState", targetState));
+					}
 				}
 			} else {
-				if (LOG.isInfoEnabled()) {
-					final String locationInformation = getAssignedResourceLocation() != null ? getAssignedResourceLocation().toString() : "not deployed";
+				final String locationInformation = getAssignedResourceLocation() != null ? getAssignedResourceLocation().toString() : "not deployed";
 
-					LOG.info(
-						"{} ({}) switched from {} to {} on {} {}.",
-						LoggerHelper.secMark("vertexWithAttempt", getVertexWithAttempt()),
-						LoggerHelper.secMark("attemptId", getAttemptId()),
-						LoggerHelper.secMark("executionState", currentState),
-						LoggerHelper.secMark("executionState", targetState),
-						LoggerHelper.secMark("locationInformation", locationInformation),
-						LoggerHelper.secMark("errMsg", error));
-				}
+				LOG.error(
+					"{} ({}) switched from {} to {} on {} {}.",
+					LoggerHelper.secMark("vertexWithAttempt", getVertexWithAttempt()),
+					LoggerHelper.secMark("attemptId", getAttemptId()),
+					LoggerHelper.secMark("executionState", currentState),
+					LoggerHelper.secMark("executionState", targetState),
+					LoggerHelper.secMark("locationInformation", locationInformation),
+					LoggerHelper.secMark("errMsg", error));
 			}
 
 			if (targetState.isTerminal()) {

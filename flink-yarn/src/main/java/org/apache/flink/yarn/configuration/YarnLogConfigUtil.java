@@ -97,8 +97,8 @@ public class YarnLogConfigUtil {
 		// databus channel configuration for log collection.
 		String databusChannel = configuration.getString(ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_KEY,
 			ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_DEFAULT);
-		String databusLevel = configuration.getString(ConfigConstants.FLINK_LOG_DATABUS_LEVEL_KEY,
-			ConfigConstants.FLINK_LOG_DATABUS_LEVEL_DEFAULT);
+		String databusLevel = configuration.getString(ConfigConstants.FLINK_JOBMANAGER_LOG_DATABUS_LEVEL_KEY,
+			ConfigConstants.FLINK_JOBMANAGER_LOG_DATABUS_LEVEL_DEFAULT);
 		Long permitsPerSecond = configuration.getLong(ConfigConstants.FLINK_LOG_DATABUS_PERMITS_PER_SECOND_KEY,
 			ConfigConstants.FLINK_LOG_DATABUS_PERMITS_PER_SECOND_DEFAULT);
 
@@ -119,7 +119,7 @@ public class YarnLogConfigUtil {
 		}
 
 		if (configuration.getBoolean(ConfigConstants.FLINK_LOG_SEC_MARK_ENABLED_KEY,
-				ConfigConstants.FLINK_LOG_SEC_MARK_ENABLED_DEFAULT)) {
+			ConfigConstants.FLINK_LOG_SEC_MARK_ENABLED_DEFAULT)) {
 			logCommand += " -Dlog.sec.mark.enabled=true";
 		}
 
@@ -144,9 +144,9 @@ public class YarnLogConfigUtil {
 		}
 
 		return new StringBuilder("-Dlog.file=\"" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.log\"")
-				.append(" -Dlog4j.configuration=file:" + CONFIG_FILE_LOG4J_NAME)
-				.append(" -Dlog4j.configurationFile=file:" + CONFIG_FILE_LOG4J_NAME)
-				.append(" -Dlog4j2.isThreadContextMapInheritable=true")
-				.toString();
+			.append(" -Dlog4j.configuration=file:" + CONFIG_FILE_LOG4J_NAME)
+			.append(" -Dlog4j.configurationFile=file:" + CONFIG_FILE_LOG4J_NAME)
+			.append(" -Dlog4j2.isThreadContextMapInheritable=true")
+			.toString();
 	}
 }

@@ -200,8 +200,8 @@ public class BootstrapToolsTest extends TestLogger {
 		final String args = dynamicConfigs + " " + basicArgs + " " + mainArgs;
 		final String redirects =
 			"1>> ./logs/taskmanager.out 2>> ./logs/taskmanager.err";
-		final String logging = "-Dlog.databus.channel=yarn_container_level_log" +
-			" " + "-Dlog.databus.level=WARN" +
+		final String logging = "-Dlog.databus.channel=flink_error_log" +
+			" " + "-Dlog.databus.level=FATAL" +
 			" " + "-Dlog.databus.permitsPerSecond=1000" +
 			" " + "-Dlog.streamlog.level=OFF";
 

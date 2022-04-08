@@ -483,8 +483,8 @@ public class BootstrapTools {
 		// databus channel configuration for log collection.
 		String databusChannel = flinkConfig.getString(ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_KEY,
 			ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_DEFAULT);
-		String databusLevel = flinkConfig.getString(ConfigConstants.FLINK_LOG_DATABUS_LEVEL_KEY,
-			ConfigConstants.FLINK_LOG_DATABUS_LEVEL_DEFAULT);
+		String databusLevel = flinkConfig.getString(ConfigConstants.FLINK_TASKMANAGER_LOG_DATABUS_LEVEL_KEY,
+			ConfigConstants.FLINK_TASKMANAGER_LOG_DATABUS_LEVEL_DEFAULT);
 		Long permitsPerSecond = flinkConfig.getLong(ConfigConstants.FLINK_LOG_DATABUS_PERMITS_PER_SECOND_KEY,
 			ConfigConstants.FLINK_LOG_DATABUS_PERMITS_PER_SECOND_DEFAULT);
 
@@ -530,7 +530,6 @@ public class BootstrapTools {
 
 		return startCommand;
 	}
-
 
 	// ------------------------------------------------------------------------
 
