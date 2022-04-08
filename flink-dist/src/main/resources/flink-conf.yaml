@@ -666,19 +666,20 @@ stork:
 shark:
   dc: sg
   clusterName: shark
-  high-availability.zookeeper.quorum: 10.126.35.119:2181,10.126.35.162:2181,10.126.35.163:2181,10.126.35.186:2181,10.126.35.189:2181
-  hdfs.prefix: hdfs://harunasglark/flink_sglark
-  checkpoint.hdfs.prefix:  hdfs://harunasglark/flink_sglark
-  dashboard.data_source: bytetsd_sgsaas1lark
+  high-availability.zookeeper.quorum: 10.126.42.79:2181,10.126.42.186:2181,10.126.42.106:2181,10.126.42.225:2181,10.126.42.47:2181
+  hdfs.prefix: hdfs://harunasglark/home/byte_flink_sglark
+  checkpoint.hdfs.prefix:  hdfs://harunasglark/home/byte_flink_sglark_checkpoint
+  dashboard.data_source: Bytetsd-Singapore-SaaS
   dtop.data_source: dtop_alisg
   dtop.database: dtop_alisg
   smart-resources.service-name: data.inf.sr_estimater.service.alisg
   kafka_server_url: http://kafka-config-sg.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_sg
+  log4j.appender.databus.channel: yarn_container_level_log_sg_lark
   docker.server: image-manager.byted.org
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
   save-meta.enabled: false
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
 
 marmt:
