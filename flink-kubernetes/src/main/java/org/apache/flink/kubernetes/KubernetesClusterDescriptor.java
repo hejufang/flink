@@ -37,6 +37,8 @@ import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.event.AbstractEventRecorder;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptionsInternal;
 import org.apache.flink.kubernetes.configuration.KubernetesDeploymentTarget;
@@ -61,10 +63,13 @@ import org.apache.flink.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.io.File;
 import java.util.List;
 import java.util.Optional;
 
+import static org.apache.flink.event.AbstractEventRecorder.recordAbstractEvent;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -178,7 +183,8 @@ public class KubernetesClusterDescriptor implements ClusterDescriptor<String> {
 	@Override
 	public ClusterClientProvider<String> deployApplicationCluster(
 			final ClusterSpecification clusterSpecification,
-			final ApplicationConfiguration applicationConfiguration) throws ClusterDeploymentException {
+			final ApplicationConfiguration applicationConfiguration,
+			@Nullable WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) throws ClusterDeploymentException {
 		if (client.getRestService(clusterId).isPresent()) {
 			throw new ClusterDeploymentException("The Flink cluster " + clusterId + " already exists.");
 		}
@@ -203,10 +209,15 @@ public class KubernetesClusterDescriptor implements ClusterDescriptor<String> {
 				String.format(".flink/%s/%d/", clusterId, System.currentTimeMillis())).toString();
 			flinkConfig.set(PipelineOptions.UPLOAD_REMOTE_DIR, uploadPath);
 		}
+
+		recordAbstractEvent(warehouseJobStartEventMessageRecorder, AbstractEventRecorder::uploadLocalFilesStart);
 		KubernetesUtils.uploadLocalDiskFilesToRemote(flinkConfig, new Path(uploadPath));
+		recordAbstractEvent(warehouseJobStartEventMessageRecorder, AbstractEventRecorder::uploadLocalFilesFinish);
+
 		final List<File> pipelineJars = KubernetesUtils.checkJarFileForApplicationMode(flinkConfig);
 		Preconditions.checkArgument(pipelineJars.size() == 1, "Should only have one jar");
 
+		recordAbstractEvent(warehouseJobStartEventMessageRecorder, AbstractEventRecorder::deployApplicationClusterStart);
 		final ClusterClientProvider<String> clusterClientProvider = deployClusterInternal(
 			KubernetesApplicationClusterEntrypoint.class.getName(),
 			clusterSpecification,
@@ -218,6 +229,7 @@ public class KubernetesClusterDescriptor implements ClusterDescriptor<String> {
 				clusterId,
 				clusterClient.getWebInterfaceURL());
 		}
+		recordAbstractEvent(warehouseJobStartEventMessageRecorder, AbstractEventRecorder::deployApplicationClusterFinish);
 		return clusterClientProvider;
 	}
 

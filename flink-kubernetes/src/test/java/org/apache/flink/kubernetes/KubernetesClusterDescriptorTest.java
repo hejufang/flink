@@ -127,7 +127,7 @@ public class KubernetesClusterDescriptorTest extends KubernetesClientTestBase {
 		flinkConfig.set(PipelineOptions.JARS, Collections.singletonList("local:///path/of/user.jar"));
 		flinkConfig.set(DeploymentOptions.TARGET, KubernetesDeploymentTarget.APPLICATION.getName());
 		try {
-			descriptor.deployApplicationCluster(clusterSpecification, appConfig);
+			descriptor.deployApplicationCluster(clusterSpecification, appConfig, null);
 		} catch (Exception ignored) {}
 
 		mockExpectedServiceFromServerSide(loadBalancerSvc);
@@ -147,7 +147,7 @@ public class KubernetesClusterDescriptorTest extends KubernetesClientTestBase {
 		assertThrows(
 			"Only \"local\" is supported as schema for application mode.",
 			IllegalArgumentException.class,
-			() -> descriptor.deployApplicationCluster(clusterSpecification, appConfig));
+			() -> descriptor.deployApplicationCluster(clusterSpecification, appConfig, null));
 	}
 
 	/**
@@ -161,7 +161,7 @@ public class KubernetesClusterDescriptorTest extends KubernetesClientTestBase {
 		assertThrows(
 			"Only \"local\" is supported as schema for application mode.",
 			IllegalArgumentException.class,
-			() -> descriptor.deployApplicationCluster(clusterSpecification, appConfig));
+			() -> descriptor.deployApplicationCluster(clusterSpecification, appConfig, null));
 	}
 
 	@Test
@@ -172,7 +172,7 @@ public class KubernetesClusterDescriptorTest extends KubernetesClientTestBase {
 		assertThrows(
 			"The Flink cluster " + CLUSTER_ID + " already exists.",
 			ClusterDeploymentException.class,
-			() -> descriptor.deployApplicationCluster(clusterSpecification, appConfig));
+			() -> descriptor.deployApplicationCluster(clusterSpecification, appConfig, null));
 	}
 
 	@Test
@@ -182,7 +182,7 @@ public class KubernetesClusterDescriptorTest extends KubernetesClientTestBase {
 		assertThrows(
 			"Expected deployment.target=kubernetes-application",
 			ClusterDeploymentException.class,
-			() -> descriptor.deployApplicationCluster(clusterSpecification, appConfig));
+			() -> descriptor.deployApplicationCluster(clusterSpecification, appConfig, null));
 	}
 
 	@Test
@@ -192,7 +192,7 @@ public class KubernetesClusterDescriptorTest extends KubernetesClientTestBase {
 		assertThrows(
 			"Should only have one jar",
 			IllegalArgumentException.class,
-			() -> descriptor.deployApplicationCluster(clusterSpecification, appConfig));
+			() -> descriptor.deployApplicationCluster(clusterSpecification, appConfig, null));
 	}
 
 	private ClusterClientProvider<String> deploySessionCluster() throws ClusterDeploymentException {

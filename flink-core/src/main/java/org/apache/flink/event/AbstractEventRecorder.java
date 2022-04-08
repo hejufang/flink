@@ -56,6 +56,25 @@ public interface AbstractEventRecorder {
 	void checkSlotEnoughFinish();
 
 	//---------------------
+	// K8s Client events
+	//---------------------
+	void buildDeployerStart();
+
+	void buildDeployerFinish();
+
+	void uploadLocalFilesStart();
+
+	void uploadLocalFilesFinish();
+
+	void deployApplicationClusterStart();
+
+	void deployApplicationClusterFinish();
+
+	void downloadRemoteFilesStart();
+
+	void downloadRemoteFilesFinish();
+
+	//---------------------
 	// JobManager events
 	//---------------------
 	void createSchedulerStart();

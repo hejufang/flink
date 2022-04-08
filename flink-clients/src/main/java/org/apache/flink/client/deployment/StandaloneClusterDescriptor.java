@@ -25,9 +25,12 @@ import org.apache.flink.client.program.socket.SocketRestClusterClient;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
+
+import javax.annotation.Nullable;
 
 /**
  * A deployment descriptor for an existing cluster.
@@ -70,7 +73,8 @@ public class StandaloneClusterDescriptor implements ClusterDescriptor<Standalone
 	@Override
 	public ClusterClientProvider<StandaloneClusterId> deployApplicationCluster(
 			final ClusterSpecification clusterSpecification,
-			final ApplicationConfiguration applicationConfiguration) {
+			final ApplicationConfiguration applicationConfiguration,
+			@Nullable WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorde) {
 		throw new UnsupportedOperationException("Application Mode not supported by standalone deployments.");
 	}
 

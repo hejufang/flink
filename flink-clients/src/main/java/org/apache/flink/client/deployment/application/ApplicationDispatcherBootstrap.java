@@ -30,6 +30,7 @@ import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptionsInternal;
 import org.apache.flink.core.execution.PipelineExecutorServiceLoader;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.runtime.client.JobCancellationException;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.concurrent.FutureUtils;
@@ -47,6 +48,8 @@ import org.apache.flink.util.SerializedThrowable;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -89,6 +92,8 @@ public class ApplicationDispatcherBootstrap extends AbstractDispatcherBootstrap 
 
 	private ScheduledFuture<?> applicationExecutionTask;
 
+	@Nullable private WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
+
 	public ApplicationDispatcherBootstrap(
 			final PackagedProgram application,
 			final Collection<JobGraph> recoveredJobs,
@@ -96,13 +101,14 @@ public class ApplicationDispatcherBootstrap extends AbstractDispatcherBootstrap 
 		this.configuration = checkNotNull(configuration);
 		this.recoveredJobs = checkNotNull(recoveredJobs);
 		this.application = checkNotNull(application);
+		this.warehouseJobStartEventMessageRecorder = null;
 	}
 
 	@Override
 	public void initialize(final Dispatcher dispatcher, ScheduledExecutor scheduledExecutor) {
 		checkNotNull(dispatcher);
 		launchRecoveredJobGraphs(dispatcher, recoveredJobs);
-
+		warehouseJobStartEventMessageRecorder = dispatcher.getWarehouseJobStartEventMessageRecorder();
 		runApplicationAndShutdownClusterAsync(
 				dispatcher,
 				scheduledExecutor);
@@ -232,7 +238,8 @@ public class ApplicationDispatcherBootstrap extends AbstractDispatcherBootstrap 
 					configuration,
 					application,
 					enforceSingleJobExecution,
-					true /* suppress sysout */);
+					true, /* suppress sysout */
+					warehouseJobStartEventMessageRecorder);
 
 			if (applicationJobIds.isEmpty()) {
 				jobIdsFuture.completeExceptionally(

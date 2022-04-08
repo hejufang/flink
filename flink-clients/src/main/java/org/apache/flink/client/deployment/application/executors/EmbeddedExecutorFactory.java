@@ -26,6 +26,7 @@ import org.apache.flink.client.deployment.application.EmbeddedJobClient;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.execution.PipelineExecutor;
 import org.apache.flink.core.execution.PipelineExecutorFactory;
+import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 
@@ -75,13 +76,19 @@ public class EmbeddedExecutorFactory implements PipelineExecutorFactory {
 
 	@Override
 	public PipelineExecutor getExecutor(final Configuration configuration) {
+		return getExecutor(configuration, null);
+	}
+
+	@Override
+	public PipelineExecutor getExecutor(final Configuration configuration, final AbstractEventRecorder abstractEventRecorder) {
 		checkNotNull(configuration);
 		return new EmbeddedExecutor(
-				submittedJobIds,
-				dispatcherGateway,
-				jobId -> {
-					final Time timeout = Time.milliseconds(configuration.get(ClientOptions.CLIENT_TIMEOUT).toMillis());
-					return new EmbeddedJobClient(jobId, dispatcherGateway, retryExecutor, timeout);
-				});
+			submittedJobIds,
+			dispatcherGateway,
+			jobId -> {
+				final Time timeout = Time.milliseconds(configuration.get(ClientOptions.CLIENT_TIMEOUT).toMillis());
+				return new EmbeddedJobClient(jobId, dispatcherGateway, retryExecutor, timeout);
+			},
+			abstractEventRecorder);
 	}
 }

@@ -111,6 +111,46 @@ public class MetricEventRecorder implements AbstractEventRecorder {
 	}
 
 	@Override
+	public void buildDeployerStart() {
+
+	}
+
+	@Override
+	public void buildDeployerFinish() {
+
+	}
+
+	@Override
+	public void uploadLocalFilesStart() {
+
+	}
+
+	@Override
+	public void uploadLocalFilesFinish() {
+
+	}
+
+	@Override
+	public void deployApplicationClusterStart() {
+
+	}
+
+	@Override
+	public void deployApplicationClusterFinish() {
+
+	}
+
+	@Override
+	public void downloadRemoteFilesStart() {
+
+	}
+
+	@Override
+	public void downloadRemoteFilesFinish() {
+
+	}
+
+	@Override
 	public void createSchedulerStart() {
 
 	}

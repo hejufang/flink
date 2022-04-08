@@ -23,9 +23,11 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.core.execution.PipelineExecutor;
 import org.apache.flink.core.execution.PipelineExecutorFactory;
+import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.yarn.configuration.YarnDeploymentTarget;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * An {@link PipelineExecutorFactory} for executing jobs on an existing (session) cluster.
@@ -45,8 +47,13 @@ public class YarnSessionClusterExecutorFactory implements PipelineExecutorFactor
 
 	@Override
 	public PipelineExecutor getExecutor(@Nonnull final Configuration configuration) {
+		return getExecutor(configuration, null);
+	}
+
+	@Override
+	public PipelineExecutor getExecutor(@Nonnull final Configuration configuration, @Nullable AbstractEventRecorder abstractEventRecorder) {
 		try {
-			return new YarnSessionClusterExecutor();
+			return new YarnSessionClusterExecutor(abstractEventRecorder);
 		} catch (NoClassDefFoundError e) {
 			throw new IllegalStateException(YarnDeploymentTarget.ERROR_MESSAGE);
 		}

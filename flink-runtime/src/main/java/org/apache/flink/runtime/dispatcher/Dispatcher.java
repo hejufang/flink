@@ -31,6 +31,7 @@ import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Histogram;
 import org.apache.flink.metrics.MetricGroup;
@@ -147,6 +148,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<DispatcherId> implements DispatcherGateway {
 
 	public static final String DISPATCHER_NAME = "dispatcher";
+	private static final String EVENT_METRIC_NAME = "jobmanagerEvent";
 
 	private final Configuration configuration;
 
@@ -235,6 +237,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private final ExecutorService fetchResultExecutor;
 
+	private final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
+
 	public Dispatcher(
 			RpcService rpcService,
 			DispatcherId fencingToken,
@@ -317,6 +321,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			this.dispatcherFetchResultThreadPoolEnabled ? Executors.newFixedThreadPool(
 				configuration.getInteger(JobManagerOptions.DISPATCHER_FETCH_RESULT_THREADS_NUM),
 				new ExecutorThreadFactory("dispatcher-fetch-result")) : null;
+		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(true);
 	}
 
 	//------------------------------------------------------
@@ -1583,6 +1588,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private void registerDispatcherMetrics(MetricGroup jobManagerMetricGroup) {
 		jobManagerMetricGroup.gauge(MetricNames.NUM_RUNNING_JOBS,
 			() -> (long) jobManagerRunnerFutures.size());
+		jobManagerMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
 
 		jobManagerMetricGroup.counter(MetricNames.NUM_SUBMITTED_JOBS, submittedJobCounter);
 		jobManagerMetricGroup.counter(MetricNames.NUM_FINISHED_JOBS, finishedJobCounter);
@@ -1617,6 +1623,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	Configuration getConfiguration() {
 		return this.configuration;
+	}
+
+	public WarehouseJobStartEventMessageRecorder getWarehouseJobStartEventMessageRecorder() {
+		return warehouseJobStartEventMessageRecorder;
 	}
 
 	@Override

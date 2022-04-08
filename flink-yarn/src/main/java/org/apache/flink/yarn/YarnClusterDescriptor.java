@@ -43,6 +43,7 @@ import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.plugin.PluginConfig;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.event.AbstractEventRecorder;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.configuration.HdfsConfigOptions;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
@@ -383,7 +384,8 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 	@Override
 	public ClusterClientProvider<ApplicationId> deployApplicationCluster(
 			final ClusterSpecification clusterSpecification,
-			final ApplicationConfiguration applicationConfiguration) throws ClusterDeploymentException {
+			final ApplicationConfiguration applicationConfiguration,
+			@Nullable WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorde) throws ClusterDeploymentException {
 		checkNotNull(clusterSpecification);
 		checkNotNull(applicationConfiguration);
 

@@ -31,14 +31,17 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.core.execution.PipelineExecutor;
 import org.apache.flink.core.execution.SocketCloseablePipelineExecutor;
+import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.util.CloseableIterator;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
+import static org.apache.flink.event.AbstractEventRecorder.recordAbstractEvent;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -55,14 +58,27 @@ public class AbstractSessionClusterExecutor<ClusterID, ClientFactory extends Clu
 
 	private ClusterClientProvider<ClusterID> socketClientProvider;
 	private ClusterClient<ClusterID> socketClusterClient;
+	@Nullable
+	private AbstractEventRecorder abstractEventRecorder;
 
 	public AbstractSessionClusterExecutor(@Nonnull final ClientFactory clusterClientFactory) {
+		this(clusterClientFactory, null);
+	}
+
+	public AbstractSessionClusterExecutor(@Nonnull final ClientFactory clusterClientFactory, @Nullable AbstractEventRecorder abstractEventRecorder) {
 		this.clusterClientFactory = checkNotNull(clusterClientFactory);
+		this.abstractEventRecorder = abstractEventRecorder;
 	}
 
 	@Override
 	public CompletableFuture<JobClient> execute(@Nonnull final Pipeline pipeline, @Nonnull final Configuration configuration) throws Exception {
+		recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::buildJobGraphStart);
 		final JobGraph jobGraph = PipelineExecutorUtils.getJobGraph(pipeline, configuration);
+		recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::buildJobGraphFinish);
+
+		if (abstractEventRecorder != null) {
+			abstractEventRecorder.setJobId(jobGraph.getJobID().toString());
+		}
 
 		if (configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE)) {
 			synchronized (this) {

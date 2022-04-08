@@ -28,6 +28,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptionsInternal;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.core.execution.PipelineExecutor;
+import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.runtime.blob.BlobClient;
 import org.apache.flink.runtime.client.ClientUtils;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
@@ -37,6 +38,8 @@ import org.apache.flink.util.FlinkException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Collection;
@@ -44,6 +47,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
+import static org.apache.flink.event.AbstractEventRecorder.recordAbstractEvent;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -64,6 +68,9 @@ public class EmbeddedExecutor implements PipelineExecutor {
 
 	private final EmbeddedJobClientCreator jobClientCreator;
 
+	@Nullable
+	private final AbstractEventRecorder abstractEventRecorder;
+
 	/**
 	 * Creates a {@link EmbeddedExecutor}.
 	 *
@@ -76,9 +83,26 @@ public class EmbeddedExecutor implements PipelineExecutor {
 			final Collection<JobID> submittedJobIds,
 			final DispatcherGateway dispatcherGateway,
 			final EmbeddedJobClientCreator jobClientCreator) {
+		this(submittedJobIds, dispatcherGateway, jobClientCreator, null);
+	}
+
+	/**
+	 * Creates a {@link EmbeddedExecutor}.
+	 *
+	 * @param submittedJobIds   a list that is going to be filled with the job ids of the
+	 *                          new jobs that will be submitted. This is essentially used to return the submitted job ids
+	 *                          to the caller.
+	 * @param dispatcherGateway the dispatcher of the cluster which is going to be used to submit jobs.
+	 */
+	public EmbeddedExecutor(
+		final Collection<JobID> submittedJobIds,
+		final DispatcherGateway dispatcherGateway,
+		final EmbeddedJobClientCreator jobClientCreator,
+		@Nullable final AbstractEventRecorder abstractEventRecorde) {
 		this.submittedJobIds = checkNotNull(submittedJobIds);
 		this.dispatcherGateway = checkNotNull(dispatcherGateway);
 		this.jobClientCreator = checkNotNull(jobClientCreator);
+		this.abstractEventRecorder = abstractEventRecorde;
 	}
 
 	@Override
@@ -104,8 +128,14 @@ public class EmbeddedExecutor implements PipelineExecutor {
 
 	private CompletableFuture<JobClient> submitAndGetJobClientFuture(final Pipeline pipeline, final Configuration configuration) throws IOException {
 		final Time timeout = Time.milliseconds(configuration.get(ClientOptions.CLIENT_TIMEOUT).toMillis());
-
+		recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::buildJobGraphStart);
 		final JobGraph jobGraph = PipelineExecutorUtils.getJobGraph(pipeline, configuration);
+		recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::buildJobGraphFinish);
+
+		if (abstractEventRecorder != null) {
+			abstractEventRecorder.setJobId(jobGraph.getJobID().toString());
+		}
+
 		final JobID actualJobId = jobGraph.getJobID();
 
 		this.submittedJobIds.add(actualJobId);

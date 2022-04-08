@@ -21,8 +21,11 @@ package org.apache.flink.kubernetes.executors;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.client.deployment.executors.AbstractSessionClusterExecutor;
 import org.apache.flink.core.execution.PipelineExecutor;
+import org.apache.flink.event.AbstractEventRecorder;
 import org.apache.flink.kubernetes.KubernetesClusterClientFactory;
 import org.apache.flink.kubernetes.configuration.KubernetesDeploymentTarget;
+
+import javax.annotation.Nullable;
 
 /**
  * The {@link PipelineExecutor} to be used when executing a job on an already running cluster.
@@ -32,7 +35,7 @@ public class KubernetesSessionClusterExecutor extends AbstractSessionClusterExec
 
 	public static final String NAME = KubernetesDeploymentTarget.SESSION.getName();
 
-	public KubernetesSessionClusterExecutor() {
-		super(new KubernetesClusterClientFactory());
+	public KubernetesSessionClusterExecutor(@Nullable AbstractEventRecorder abstractEventRecorder) {
+		super(new KubernetesClusterClientFactory(), abstractEventRecorder);
 	}
 }

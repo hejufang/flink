@@ -631,7 +631,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertThrows(
 				"Expected deployment.target=yarn-application",
 				ClusterDeploymentException.class,
-				() -> yarnClusterDescriptor.deployApplicationCluster(clusterSpecification, appConfig));
+				() -> yarnClusterDescriptor.deployApplicationCluster(clusterSpecification, appConfig, null));
 		}
 	}
 
@@ -644,7 +644,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertThrows(
 				"Should only have one jar",
 				IllegalArgumentException.class,
-				() -> yarnClusterDescriptor.deployApplicationCluster(clusterSpecification, appConfig));
+				() -> yarnClusterDescriptor.deployApplicationCluster(clusterSpecification, appConfig, null));
 		}
 	}
 

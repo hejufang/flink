@@ -232,22 +232,30 @@ public class CliFrontend {
 
 		final ProgramOptions programOptions = new ProgramOptions(commandLine);
 
-		final ApplicationDeployer deployer =
-				new ApplicationClusterDeployer(clusterClientServiceLoader);
-
 		programOptions.validate();
 		final URI uri = PackagedProgramUtils.resolveURI(programOptions.getJarFilePath());
 		final Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, Collections.singletonList(uri.toString()));
 
 		setEffectiveJobNameAndJobUID(effectiveConfiguration);
+		warehouseJobStartEventMessageRecorder.setWaitJobIdBeforeSendMessage(false);
+		metricRegistry = createMetricRegistry(effectiveConfiguration);
+		if (metricRegistry != null) {
+			clientMetricGroup = createClientMetricGroup(metricRegistry);
+			registerMetrics();
+		}
 
+		warehouseJobStartEventMessageRecorder.buildDeployerStart();
+
+		final ApplicationDeployer deployer =
+			new ApplicationClusterDeployer(clusterClientServiceLoader);
 		final ApplicationConfiguration applicationConfiguration =
 				new ApplicationConfiguration(programOptions.getProgramArgs(), programOptions.getEntryPointClassName());
 		// initialize file system again because client will pass some parameter via command arguments
 		configuration.addAll(effectiveConfiguration);
 		FileSystem.initialize(configuration, PluginUtils.createPluginManagerFromRootFolder(configuration));
-		deployer.run(effectiveConfiguration, applicationConfiguration);
+		warehouseJobStartEventMessageRecorder.buildDeployerFinish();
+		deployer.run(effectiveConfiguration, applicationConfiguration, warehouseJobStartEventMessageRecorder);
 	}
 
 	/**

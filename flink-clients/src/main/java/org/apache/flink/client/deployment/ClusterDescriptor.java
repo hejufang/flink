@@ -21,8 +21,11 @@ package org.apache.flink.client.deployment;
 import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.client.program.ClusterClientProvider;
 import org.apache.flink.event.AbstractEventRecorder;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.util.FlinkException;
+
+import javax.annotation.Nullable;
 
 /**
  * A descriptor to deploy a cluster (e.g. Yarn or Mesos) and return a Client for Cluster communication.
@@ -64,8 +67,9 @@ public interface ClusterDescriptor<T> extends AutoCloseable {
 	 * @throws ClusterDeploymentException if the cluster could not be deployed
 	 */
 	ClusterClientProvider<T> deployApplicationCluster(
-			final ClusterSpecification clusterSpecification,
-			final ApplicationConfiguration applicationConfiguration) throws ClusterDeploymentException;
+		final ClusterSpecification clusterSpecification,
+		final ApplicationConfiguration applicationConfiguration,
+		@Nullable WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) throws ClusterDeploymentException;
 
 	/**
 	 * Deploys a per-job cluster with the given job on the cluster.

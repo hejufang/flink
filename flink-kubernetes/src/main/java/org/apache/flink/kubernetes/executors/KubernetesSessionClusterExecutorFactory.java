@@ -23,8 +23,10 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.core.execution.PipelineExecutor;
 import org.apache.flink.core.execution.PipelineExecutorFactory;
+import org.apache.flink.event.AbstractEventRecorder;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * An {@link PipelineExecutorFactory} for executing jobs on an existing (session) cluster.
@@ -45,6 +47,11 @@ public class KubernetesSessionClusterExecutorFactory implements PipelineExecutor
 
 	@Override
 	public PipelineExecutor getExecutor(@Nonnull final Configuration configuration) {
-		return new KubernetesSessionClusterExecutor();
+		return getExecutor(configuration, null);
+	}
+
+	@Override
+	public PipelineExecutor getExecutor(@Nonnull final Configuration configuration, @Nullable final AbstractEventRecorder abstractEventRecorder) {
+		return new KubernetesSessionClusterExecutor(abstractEventRecorder);
 	}
 }

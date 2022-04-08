@@ -23,8 +23,11 @@ import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.client.program.ClusterClientProvider;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.util.Preconditions;
+
+import javax.annotation.Nullable;
 
 /**
  * Dummy {@link ClusterDescriptor} implementation for testing purposes.
@@ -55,7 +58,8 @@ public class DummyClusterDescriptor<T> implements ClusterDescriptor<T> {
 	@Override
 	public ClusterClientProvider<T> deployApplicationCluster(
 			final ClusterSpecification clusterSpecification,
-			final ApplicationConfiguration applicationConfiguration) {
+			final ApplicationConfiguration applicationConfiguration,
+			@Nullable WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorde) {
 		throw new UnsupportedOperationException("Application Mode not supported.");
 	}
 

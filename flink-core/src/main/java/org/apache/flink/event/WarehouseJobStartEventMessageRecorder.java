@@ -47,6 +47,12 @@ public class WarehouseJobStartEventMessageRecorder implements AbstractEventRecor
 	public static final String EVENT_TYPE_SUBMIT_JOB = "submit_job";
 	public static final String EVENT_TYPE_CHECK_SLOT_ENOUGH = "check_slot_enough";
 
+	// event type for K8s client
+	public static final String EVENT_TYPE_BUILD_DEPLOYER = "build_deployer";
+	public static final String EVENT_TYPE_UPLOAD_LOCAL_FILES = "upload_local_files";
+	public static final String EVENT_TYPE_DEPLOY_APPLICATION_CLUSTER = "deploy_application_cluster";
+	public static final String EVENT_TYPE_DOWN_REMOTE_FILES = "download_remote_files";
+
 	// event type for job master
 	public static final String EVENT_TYPE_CREATE_SCHEDULER = "create_scheduler";
 	public static final String EVENT_TYPE_BUILD_EXECUTION_GRAPH = "build_execution_graph";
@@ -89,6 +95,10 @@ public class WarehouseJobStartEventMessageRecorder implements AbstractEventRecor
 	public void setJobId(String jobId) {
 		this.jobId = jobId;
 		recordMessageWithJobId();
+	}
+
+	public void setWaitJobIdBeforeSendMessage (Boolean waitJobIdBeforeSendMessage) {
+		this.waitJobIdBeforeSendMessage = waitJobIdBeforeSendMessage;
 	}
 
 	public MessageSet<WarehouseJobStartEventMessage> getJobStartEventMessageSet() {
@@ -245,6 +255,81 @@ public class WarehouseJobStartEventMessageRecorder implements AbstractEventRecor
 				jobId,
 				EVENT_TYPE_CHECK_SLOT_ENOUGH,
 				EVENT_ACTION_FINISH);
+		doRecord(message);
+	}
+
+	//---------------------
+	// K8s Client events
+	//---------------------
+	public void buildDeployerStart() {
+		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_CLIENT,
+			resourceId,
+			jobId,
+			EVENT_TYPE_BUILD_DEPLOYER,
+			EVENT_ACTION_START);
+		doRecord(message);
+	}
+
+	public void buildDeployerFinish() {
+		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_CLIENT,
+			resourceId,
+			jobId,
+			EVENT_TYPE_BUILD_DEPLOYER,
+			EVENT_ACTION_FINISH);
+		doRecord(message);
+	}
+
+	public void uploadLocalFilesStart() {
+		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_CLIENT,
+			resourceId,
+			jobId,
+			EVENT_TYPE_UPLOAD_LOCAL_FILES,
+			EVENT_ACTION_START);
+		doRecord(message);
+	}
+
+	public void uploadLocalFilesFinish() {
+		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_CLIENT,
+			resourceId,
+			jobId,
+			EVENT_TYPE_UPLOAD_LOCAL_FILES,
+			EVENT_ACTION_FINISH);
+		doRecord(message);
+	}
+
+	public void deployApplicationClusterStart() {
+		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_CLIENT,
+			resourceId,
+			jobId,
+			EVENT_TYPE_DEPLOY_APPLICATION_CLUSTER,
+			EVENT_ACTION_START);
+		doRecord(message);
+	}
+
+	public void deployApplicationClusterFinish() {
+		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_CLIENT,
+			resourceId,
+			jobId,
+			EVENT_TYPE_DEPLOY_APPLICATION_CLUSTER,
+			EVENT_ACTION_FINISH);
+		doRecord(message);
+	}
+
+	public void downloadRemoteFilesStart() {
+		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_CLIENT,
+			resourceId,
+			jobId,
+			EVENT_TYPE_DOWN_REMOTE_FILES,
+			EVENT_ACTION_START);
+		doRecord(message);
+	}
+
+	public void downloadRemoteFilesFinish() {
+		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_CLIENT,
+			resourceId,
+			jobId,
+			EVENT_TYPE_DOWN_REMOTE_FILES,
+			EVENT_ACTION_FINISH);
 		doRecord(message);
 	}
 

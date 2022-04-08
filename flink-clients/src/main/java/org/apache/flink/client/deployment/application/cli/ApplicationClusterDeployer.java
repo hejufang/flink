@@ -26,6 +26,7 @@ import org.apache.flink.client.deployment.ClusterDescriptor;
 import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +52,8 @@ public class ApplicationClusterDeployer implements ApplicationDeployer {
 
 	public <ClusterID> void run(
 			final Configuration configuration,
-			final ApplicationConfiguration applicationConfiguration) throws Exception {
+			final ApplicationConfiguration applicationConfiguration,
+			WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) throws Exception {
 		checkNotNull(configuration);
 		checkNotNull(applicationConfiguration);
 
@@ -60,8 +62,7 @@ public class ApplicationClusterDeployer implements ApplicationDeployer {
 		final ClusterClientFactory<ClusterID> clientFactory = clientServiceLoader.getClusterClientFactory(configuration);
 		try (final ClusterDescriptor<ClusterID> clusterDescriptor = clientFactory.createClusterDescriptor(configuration)) {
 			final ClusterSpecification clusterSpecification = clientFactory.getClusterSpecification(configuration);
-
-			clusterDescriptor.deployApplicationCluster(clusterSpecification, applicationConfiguration);
+			clusterDescriptor.deployApplicationCluster(clusterSpecification, applicationConfiguration, warehouseJobStartEventMessageRecorder);
 		}
 	}
 }

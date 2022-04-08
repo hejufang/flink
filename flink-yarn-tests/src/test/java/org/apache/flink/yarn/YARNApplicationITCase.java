@@ -94,7 +94,7 @@ public class YARNApplicationITCase extends YarnTestBase {
 			try (ClusterClient<ApplicationId> clusterClient = yarnClusterDescriptor
 					.deployApplicationCluster(
 							clusterSpecification,
-							ApplicationConfiguration.fromConfiguration(configuration))
+							ApplicationConfiguration.fromConfiguration(configuration), null)
 					.getClusterClient()) {
 
 				ApplicationId applicationId = clusterClient.getClusterId();

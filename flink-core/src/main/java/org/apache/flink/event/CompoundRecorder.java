@@ -98,6 +98,49 @@ public class CompoundRecorder implements AbstractEventRecorder{
 	}
 
 	//---------------------
+	// K8s Client events
+	//---------------------
+	@Override
+	public void buildDeployerStart() {
+		recordCompoundRecorderEvent(r -> buildDeployerStart());
+	}
+
+	@Override
+	public void buildDeployerFinish() {
+		recordCompoundRecorderEvent(r -> buildDeployerFinish());
+	}
+
+	@Override
+	public void uploadLocalFilesStart() {
+		recordCompoundRecorderEvent(r -> uploadLocalFilesStart());
+	}
+
+	@Override
+	public void uploadLocalFilesFinish() {
+		recordCompoundRecorderEvent(r -> uploadLocalFilesFinish());
+	}
+
+	@Override
+	public void deployApplicationClusterStart() {
+		recordCompoundRecorderEvent(r -> deployApplicationClusterStart());
+	}
+
+	@Override
+	public void deployApplicationClusterFinish() {
+		recordCompoundRecorderEvent(r -> deployApplicationClusterFinish());
+	}
+
+	@Override
+	public void downloadRemoteFilesStart() {
+		recordCompoundRecorderEvent(r -> downloadRemoteFilesStart());
+	}
+
+	@Override
+	public void downloadRemoteFilesFinish() {
+		recordCompoundRecorderEvent(r -> downloadRemoteFilesFinish());
+	}
+
+	//---------------------
 	// JobManager events
 	//---------------------
 	public void createSchedulerStart(){

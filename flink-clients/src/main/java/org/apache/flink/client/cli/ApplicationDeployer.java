@@ -21,6 +21,7 @@ package org.apache.flink.client.cli;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 
 /**
  * An interface to be used by the {@link CliFrontend}
@@ -39,5 +40,6 @@ public interface ApplicationDeployer {
 	 */
 	<ClusterID> void run(
 			final Configuration configuration,
-			final ApplicationConfiguration applicationConfiguration) throws Exception;
+			final ApplicationConfiguration applicationConfiguration,
+			WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) throws Exception;
 }
