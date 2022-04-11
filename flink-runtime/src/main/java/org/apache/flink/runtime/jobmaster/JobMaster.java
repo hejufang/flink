@@ -278,6 +278,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	private WarehouseBatchJobInfoMessage warehouseBatchJobInfoMessage;
 	private MessageSet<WarehouseBatchJobInfoMessage> batchJobInfoMessageSet;
 	private final boolean useMainScheduledExecutorEnable;
+	private final boolean minResourceSlotPoolSimplifyEnabled;
 
 	// ------------------------------------------------------------------------
 
@@ -319,6 +320,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.requestSlotFromResourceManagerDirectEnable = jobMasterConfiguration.getConfiguration().getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE);
 		this.jobMasterResourceAllocationDirectEnabled = jobMasterConfiguration.getConfiguration().getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED);
 		this.useMainScheduledExecutorEnable = jobMasterConfiguration.getConfiguration().getBoolean(CoreOptions.ENDPOINT_USE_MAIN_SCHEDULED_EXECUTOR_ENABLE);
+		this.minResourceSlotPoolSimplifyEnabled = jobMasterConfiguration.getConfiguration().getBoolean(JobManagerOptions.MIN_RESOURCE_SLOT_POOL_SIMPLIFY_ENABLED);
 
 		final String jobName = jobGraph.getName();
 		final JobID jid = jobGraph.getJobID();
@@ -333,7 +335,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		for (JobVertex vertex : jobGraph.getVertices()) {
 			taskCount += vertex.getParallelism();
 		}
-		this.slotPool = checkNotNull(slotPoolFactory).createSlotPool(jobGraph.getJobID(), taskCount);
+		this.slotPool = checkNotNull(slotPoolFactory).createSlotPool(jobGraph.getJobID(), taskCount, minResourceSlotPoolSimplifyEnabled);
 		if (jobMasterResourceAllocationDirectEnabled) {
 			Preconditions.checkState(this.slotPool instanceof VirtualTaskManagerSlotPool,
 					"must use VirtualTaskManagerSlotPool when jobMasterResourceAllocationDirectEnabled");

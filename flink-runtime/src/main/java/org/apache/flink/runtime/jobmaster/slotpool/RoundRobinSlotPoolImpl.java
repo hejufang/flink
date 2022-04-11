@@ -56,7 +56,8 @@ public class RoundRobinSlotPoolImpl extends MinResourceSlotPoolImpl {
 			boolean batchRequestSlotsEnable,
 			boolean requestSlotFromResourceDirectEnable,
 			boolean useMainScheduledExecutorEnable,
-			int taskCount) {
+			int taskCount,
+			boolean satisfyCheckerSimplifyEnabled) {
 		super(
 			jobId,
 			clock,
@@ -68,7 +69,8 @@ public class RoundRobinSlotPoolImpl extends MinResourceSlotPoolImpl {
 			batchRequestSlotsEnable,
 			requestSlotFromResourceDirectEnable,
 			useMainScheduledExecutorEnable,
-			taskCount);
+			taskCount,
+			satisfyCheckerSimplifyEnabled);
 	}
 
 	@Override

@@ -35,8 +35,9 @@ public interface SlotPoolFactory {
 	 *
 	 * @param jobId the job id
 	 * @param taskCount the task count of job
+	 * @param minResourceSlotPoolSimplifyEnabled whether simplify the logic of min resource check
 	 * @return the result slot pool
 	 */
 	@Nonnull
-	SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount);
+	SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount, boolean minResourceSlotPoolSimplifyEnabled);
 }

@@ -109,7 +109,8 @@ public class SlotPoolBuilder {
 				slotRequestTimeout,
 				TestingUtils.infiniteTime(),
 				batchSlotTimeout,
-				batchRequestSlotsEnable);
+				batchRequestSlotsEnable,
+				false);
 	}
 
 	public void setupSlotPool(SlotPoolImpl slotPool) {

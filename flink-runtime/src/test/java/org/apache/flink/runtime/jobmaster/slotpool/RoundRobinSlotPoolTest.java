@@ -44,11 +44,15 @@ import org.apache.flink.util.clock.SystemClock;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import javax.annotation.Nonnull;
 
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -78,6 +82,7 @@ import static org.junit.Assert.fail;
 /**
  * Tests for the {@link RoundRobinSlotPoolImpl}.
  */
+@RunWith(Parameterized.class)
 public class RoundRobinSlotPoolTest extends TestLogger {
 	private final Time timeout = Time.seconds(10L);
 
@@ -94,6 +99,14 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 
 	Predicate<AllocatedSlot> alwaysTure = slot -> true;
 
+	@Parameterized.Parameter
+	public boolean satisfyCheckerSimplifyEnabled;
+
+	@Parameterized.Parameters(name = "satisfyCheckerSimplifyEnabled = {0}")
+	public static Collection<Boolean> satisfyCheckerSimplifyEnabled() {
+		return Arrays.asList(true, false);
+	}
+
 	@Before
 	public void setUp() throws Exception {
 		this.jobId = new JobID();
@@ -104,17 +117,17 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 	}
 
 	@Nonnull
-	private TestingRoundRobinSlotPoolImpl createRoundRobinSlotPoolImpl() {
-		return new TestingRoundRobinSlotPoolImpl(jobId, false);
+	private TestingRoundRobinSlotPoolImpl createRoundRobinSlotPoolImpl(boolean satisfyCheckerSimplifyEnabled) {
+		return createRoundRobinSlotPoolImpl(SystemClock.getInstance(), satisfyCheckerSimplifyEnabled);
 	}
 
 	@Nonnull
-	private TestingRoundRobinSlotPoolImpl createRoundRobinSlotPoolImpl(Clock clock) {
-		return createRoundRobinSlotPoolImpl(clock, Time.milliseconds(Integer.MAX_VALUE));
+	private TestingRoundRobinSlotPoolImpl createRoundRobinSlotPoolImpl(Clock clock, boolean satisfyCheckerSimplifyEnabled) {
+		return createRoundRobinSlotPoolImpl(clock, Time.milliseconds(Integer.MAX_VALUE), satisfyCheckerSimplifyEnabled);
 	}
 
 	@Nonnull
-	private TestingRoundRobinSlotPoolImpl createRoundRobinSlotPoolImpl(Clock clock, Time slotRequestTimeout) {
+	private TestingRoundRobinSlotPoolImpl createRoundRobinSlotPoolImpl(Clock clock, Time slotRequestTimeout, boolean satisfyCheckerSimplifyEnabled) {
 		return new TestingRoundRobinSlotPoolImpl(
 				jobId,
 				clock,
@@ -122,7 +135,8 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 				slotRequestTimeout,
 				timeout,
 				TestingUtils.infiniteTime(),
-				false);
+				false,
+				satisfyCheckerSimplifyEnabled);
 	}
 
 	private static void setupSlotPool(
@@ -142,7 +156,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 
 	@Test
 	public void testNoRequiredResource() throws Exception {
-		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(satisfyCheckerSimplifyEnabled);
 		final ArrayBlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(10);
 		resourceManagerGateway.setRequestSlotConsumer(
 				slotRequest -> allocationIds.offer(slotRequest.getAllocationId()));
@@ -156,7 +170,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 
 	@Test
 	public void testRequiredResource() throws Exception {
-		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(satisfyCheckerSimplifyEnabled);
 		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
 		requiredResource.put(ResourceProfile.UNKNOWN, 10);
 		slotPool.setRequiredResourceNumber(requiredResource);
@@ -183,7 +197,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 
 	@Test
 	public void testRequiredResourceFulFilledByUnknownSlots() throws Exception {
-		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(satisfyCheckerSimplifyEnabled);
 		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
 		requiredResource.put(ResourceProfile.UNKNOWN, 10);
 		slotPool.setRequiredResourceNumber(requiredResource);
@@ -222,7 +236,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 	@Test
 	public void testSlotRequestTimeout() throws Exception {
 		Time slotRequestTimeout = Time.milliseconds(1000);
-		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(SystemClock.getInstance(), slotRequestTimeout);
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(SystemClock.getInstance(), slotRequestTimeout, satisfyCheckerSimplifyEnabled);
 		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
 		requiredResource.put(ResourceProfile.UNKNOWN, 10);
 		slotPool.setRequiredResourceNumber(requiredResource);
@@ -251,10 +265,18 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 		// verify SlotPool init 10 slots.
 		FutureUtils.waitForAll(allocationIds.subList(0, 10)).get();
 		assertEquals(10, allocatedNum.get());
+		List<SlotPoolImpl.PendingRequest> requests = new ArrayList<>(slotPool.getPendingRequests().values());
+		assertEquals(10, requests.size());
 
 		// verify SlotRequest will time out.
-		for (SlotPoolImpl.PendingRequest request : new ArrayList<>(slotPool.getPendingRequests().values())) {
+		for (SlotPoolImpl.PendingRequest request : requests) {
 			try {
+				// the allocatedSlotFuture is in slotPool.mainThread,
+				// we can not direct deal with future.get, otherwise it will tigger timeoutException in UnitTest thread,
+				// and this will not pass MinResourceSlotPoolImpl componentMainThreadExecutor.assertRunningInMainThread();
+				while (!request.getAllocatedSlotFuture().isDone()) {
+					Thread.sleep(1);
+				}
 				request.getAllocatedSlotFuture().get();
 			} catch (Exception e) {
 				if (!ExceptionUtils.findThrowable(e, TimeoutException.class).isPresent()) {
@@ -268,9 +290,72 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 		assertEquals(20, allocatedNum.get());
 	}
 
+	@Test(timeout = 5000)
+	public void testManySlotRequestTimeout() throws Exception {
+		if (!satisfyCheckerSimplifyEnabled) {
+			// This test could not pass if not enable satisfyCheckerSimplifyEnabled
+			return;
+		}
+		Time slotRequestTimeout = Time.milliseconds(2000);
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(SystemClock.getInstance(), slotRequestTimeout, satisfyCheckerSimplifyEnabled);
+		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
+		requiredResource.put(ResourceProfile.UNKNOWN, 10000);
+		slotPool.setRequiredResourceNumber(requiredResource);
+		assertFalse(slotPool.getRequiredResourceSatisfiedFuture().isDone());
+
+		final List<CompletableFuture<AllocationID>> allocationIds = new ArrayList<>(30000);
+		for (int i = 0; i < 30000; i++) {
+			allocationIds.add(new CompletableFuture<>());
+		}
+		final AtomicInteger allocatedNum = new AtomicInteger(0);
+
+		resourceManagerGateway.setRequestSlotConsumer(
+				slotRequest -> allocationIds.get(allocatedNum.getAndIncrement()).complete(slotRequest.getAllocationId()));
+
+		final ScheduledExecutorService singleThreadExecutor = Executors.newSingleThreadScheduledExecutor();
+		final ComponentMainThreadExecutor componentMainThreadExecutor = ComponentMainThreadExecutorServiceAdapter.forSingleThreadExecutor(singleThreadExecutor);
+		componentMainThreadExecutor.execute(
+				() -> {
+					try {
+						setupSlotPool(slotPool, resourceManagerGateway, componentMainThreadExecutor);
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
+				}
+		);
+
+		// verify SlotPool init 10000 slots.
+		FutureUtils.waitForAll(allocationIds.subList(0, 10000)).get();
+		assertEquals(10000, allocatedNum.get());
+		List<SlotPoolImpl.PendingRequest> requests = new ArrayList<>(slotPool.getPendingRequests().values());
+		assertEquals(10000, requests.size());
+
+		// verify SlotRequest will time out.
+		for (SlotPoolImpl.PendingRequest request : requests) {
+			try {
+				// the allocatedSlotFuture is in slotPool.mainThread,
+				// we can not direct deal with future.get, otherwise it will tigger timeoutException in UnitTest thread,
+				// and this will not pass MinResourceSlotPoolImpl componentMainThreadExecutor.assertRunningInMainThread();
+				while (!request.getAllocatedSlotFuture().isDone()) {
+					Thread.sleep(1);
+				}
+				request.getAllocatedSlotFuture().get();
+			} catch (Exception e) {
+				if (!ExceptionUtils.findThrowable(e, TimeoutException.class).isPresent()) {
+					throw e;
+				}
+			}
+		}
+
+		// request 10000 for timeout.
+		FutureUtils.waitForAll(allocationIds.subList(0, 20000)).get();
+		assertEquals(10000, slotPool.getPendingRequests().size());
+		assertEquals(20000, allocatedNum.get());
+	}
+
 	@Test
 	public void testRequiredResourceWithOtherRequest() throws Exception {
-		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(satisfyCheckerSimplifyEnabled);
 		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
 		requiredResource.put(ResourceProfile.UNKNOWN, 10);
 		slotPool.setRequiredResourceNumber(requiredResource);
@@ -316,7 +401,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 
 	@Test
 	public void testRequestRequiredResourceWhenFailAllocation() throws Exception {
-		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(satisfyCheckerSimplifyEnabled);
 		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
 		requiredResource.put(ResourceProfile.UNKNOWN, 10);
 		slotPool.setRequiredResourceNumber(requiredResource);
@@ -372,7 +457,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 	@Test
 	public void testRequiredResourceSlotPoolIdleCheck() throws Exception {
 		ManualClock clock = new ManualClock();
-		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(clock);
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(clock, satisfyCheckerSimplifyEnabled);
 		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
 		requiredResource.put(ResourceProfile.UNKNOWN, 10);
 		slotPool.setRequiredResourceNumber(requiredResource);
@@ -408,7 +493,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 
 	@Test
 	public void testRequireResourceSlotPoolSuspendAndClose() throws Exception {
-		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(satisfyCheckerSimplifyEnabled);
 		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
 		requiredResource.put(ResourceProfile.UNKNOWN, 10);
 		slotPool.setRequiredResourceNumber(requiredResource);
@@ -496,11 +581,11 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 	}
 
 	/**
-	 * Test allocatedSlot released and fulFill new PendingRequest with failed Task.t
+	 * Test allocatedSlot released and fulFill new PendingRequest with failed Task.
 	 */
 	@Test
 	public void testSlotReleasedAfterFailed() throws Exception {
-		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(satisfyCheckerSimplifyEnabled);
 		assertTrue(slotPool.getRequiredResourceSatisfiedFuture().isDone());
 
 		final ArrayBlockingQueue<AllocationID> allocationIds = new ArrayBlockingQueue<>(10);
@@ -547,7 +632,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 
 	@Test
 	public void testSlotPoolMinResourceFutureTimeout() throws Exception {
-		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(satisfyCheckerSimplifyEnabled);
 		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
 		requiredResource.put(ResourceProfile.UNKNOWN, 10);
 		slotPool.setRequiredResourceNumber(requiredResource);
@@ -578,7 +663,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 
 	@Test
 	public void testKeepMinResourceWhenAllocatedSlotReleased() throws Exception {
-		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(satisfyCheckerSimplifyEnabled);
 		Map<ResourceProfile, Integer> requiredResource = new HashMap<>();
 		requiredResource.put(ResourceProfile.UNKNOWN, 2);
 		slotPool.setRequiredResourceNumber(requiredResource);
@@ -620,7 +705,7 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 
 	@Test
 	public void testGetByAllocationId() throws Exception {
-		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl();
+		TestingRoundRobinSlotPoolImpl slotPool = createRoundRobinSlotPoolImpl(satisfyCheckerSimplifyEnabled);
 		setupSlotPool(slotPool, resourceManagerGateway, mainThreadExecutor);
 
 		InetAddress host1 = InetAddress.getByAddress(new byte[]{127, 0, 0, 1});

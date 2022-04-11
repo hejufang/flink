@@ -81,12 +81,12 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 	@Override
 	@Nonnull
 	public SlotPool createSlotPool(@Nonnull JobID jobId) {
-		return createSlotPool(jobId, 0);
+		return createSlotPool(jobId, 0, false);
 	}
 
 	@Nonnull
 	@Override
-	public SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount) {
+	public SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount, boolean minResourceSlotPoolSimplifyEnabled) {
 		return new RoundRobinSlotPoolImpl(
 			jobId,
 			clock,
@@ -98,7 +98,8 @@ public class RoundRobinSlotPoolFactory implements SlotPoolFactory {
 			batchRequestSlotsEnable,
 			requestSlotFromResourceDirectEnable,
 			useMainScheduledExecutorEnable,
-			taskCount);
+			taskCount,
+			minResourceSlotPoolSimplifyEnabled);
 	}
 
 	public static RoundRobinSlotPoolFactory fromConfiguration(@Nonnull Configuration configuration) {

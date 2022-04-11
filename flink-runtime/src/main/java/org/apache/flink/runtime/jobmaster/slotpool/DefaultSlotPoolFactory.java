@@ -76,12 +76,12 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 	@Override
 	@Nonnull
 	public SlotPool createSlotPool(@Nonnull JobID jobId) {
-		return createSlotPool(jobId, 0);
+		return createSlotPool(jobId, 0, false);
 	}
 
 	@Nonnull
 	@Override
-	public SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount) {
+	public SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount, boolean minResourceSlotPoolSimplifyEnabled) {
 		return new SlotPoolImpl(
 			jobId,
 			clock,

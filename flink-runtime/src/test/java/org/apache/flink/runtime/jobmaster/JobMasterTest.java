@@ -509,7 +509,7 @@ public class JobMasterTest extends TestLogger {
 
 		@Nonnull
 		@Override
-		public SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount) {
+		public SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount, boolean minResourceSlotPoolSimplifyEnabled) {
 			return createSlotPool(jobId);
 		}
 	}

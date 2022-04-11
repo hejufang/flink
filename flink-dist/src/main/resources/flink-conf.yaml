@@ -350,6 +350,7 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
+  slot-pool.min-resource.simplify-enabled: true
 
 larva:
   dc: cn
@@ -758,6 +759,7 @@ quoka:
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   bytedance.streaming.yarn.check.application.name.unique.region: true
   blacklist.taskmanager.critical.error.enabled: true
+  slot-pool.min-resource.simplify-enabled: true
 
 quaga:
   dc: cn
@@ -768,6 +770,7 @@ quaga:
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  slot-pool.min-resource.simplify-enabled: true
 
 quele:
   dc: cn

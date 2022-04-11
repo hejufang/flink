@@ -47,7 +47,8 @@ public class TestingRoundRobinSlotPoolImpl extends RoundRobinSlotPoolImpl {
 			AkkaUtils.getDefaultTimeout(),
 			AkkaUtils.getDefaultTimeout(),
 			Time.milliseconds(JobManagerOptions.SLOT_IDLE_TIMEOUT.defaultValue()),
-			batchRequestEnable);
+			batchRequestEnable,
+			false);
 	}
 
 	public TestingRoundRobinSlotPoolImpl(
@@ -57,8 +58,9 @@ public class TestingRoundRobinSlotPoolImpl extends RoundRobinSlotPoolImpl {
 			Time slotRequestTimeout,
 			Time idleSlotTimeout,
 			Time batchSlotTimeout,
-			boolean batchRequestEnable) {
-		super(jobId, clock, rpcTimeout, slotRequestTimeout, idleSlotTimeout, batchSlotTimeout, false, batchRequestEnable, false, false, 0);
+			boolean batchRequestEnable,
+			boolean satisfyCheckerSimplifyEnabled) {
+		super(jobId, clock, rpcTimeout, slotRequestTimeout, idleSlotTimeout, batchSlotTimeout, false, batchRequestEnable, false, false, 0, satisfyCheckerSimplifyEnabled);
 	}
 
 	void triggerCheckIdleSlot() {

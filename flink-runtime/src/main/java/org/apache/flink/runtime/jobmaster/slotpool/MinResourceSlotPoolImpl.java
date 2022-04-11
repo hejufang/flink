@@ -61,6 +61,8 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 
 	private final Time slotRequestTimeout;
 
+	private final boolean satisfyCheckerSimplifyEnabled;
+
 	private boolean running = false;
 
 	public MinResourceSlotPoolImpl(
@@ -74,7 +76,8 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 			boolean batchRequestSlotsEnable,
 			boolean requestSlotFromResourceDirectEnable,
 			boolean useMainScheduledExecutorEnable,
-			int taskCount) {
+			int taskCount,
+			boolean satisfyCheckerSimplifyEnabled) {
 		super(
 			jobId,
 			clock,
@@ -87,6 +90,7 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 			useMainScheduledExecutorEnable,
 			taskCount);
 		this.slotRequestTimeout = slotRequestTimeout;
+		this.satisfyCheckerSimplifyEnabled = satisfyCheckerSimplifyEnabled;
 	}
 
 	@Override
@@ -165,33 +169,66 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 	}
 
 	private void updateRequiredResourceFutures(ResourceProfile resourceProfile) {
-		if (requiredResourceSatisfiedFutureByResourceProfile.containsKey(resourceProfile)) {
-			requiredResourceSatisfiedFutureByResourceProfile.get(resourceProfile).cancel(true);
+		if (satisfyCheckerSimplifyEnabled) {
+			if (requiredResourceSatisfiedFuture.isDone()) {
+				log.info("requiredResourceSatisfiedFuture already done, renew it.");
+				requiredResourceSatisfiedFuture = new CompletableFuture<>();
+			}
+		} else {
+			if (requiredResourceSatisfiedFutureByResourceProfile.containsKey(resourceProfile)) {
+				requiredResourceSatisfiedFutureByResourceProfile.get(resourceProfile).cancel(true);
+			}
+
+			CompletableFuture<Collection<Acknowledge>> slotFutures = FutureUtils.combineAll(
+					pendingRequiredResources.get(resourceProfile).stream()
+							.map(pendingRequest -> pendingRequest.getAllocatedSlotFuture().thenApply(allocatedSlot -> Acknowledge.get()))
+							.collect(Collectors.toSet()));
+
+			requiredResourceSatisfiedFutureByResourceProfile.put(resourceProfile, slotFutures);
+
+			if (requiredResourceSatisfiedFuture.isDone()) {
+				requiredResourceSatisfiedFuture = new CompletableFuture<>();
+			}
+
+			slotFutures.whenComplete((acknowledges, throwable) -> {
+				if (throwable == null) {
+					for (CompletableFuture<Collection<Acknowledge>> f : requiredResourceSatisfiedFutureByResourceProfile.values()) {
+						if (!f.isDone() || f.isCancelled() || f.isCompletedExceptionally()) {
+							return;
+						}
+					}
+					log.info("Required resources satisfied.");
+					requiredResourceSatisfiedFutureByResourceProfile.clear();
+					requiredResourceSatisfiedFuture.complete(Acknowledge.get());
+				}
+			});
 		}
+	}
 
-		CompletableFuture<Collection<Acknowledge>> slotFutures = FutureUtils.combineAll(
-				pendingRequiredResources.get(resourceProfile).stream()
-						.map(pendingRequest -> pendingRequest.getAllocatedSlotFuture().thenApply(allocatedSlot -> Acknowledge.get()))
-						.collect(Collectors.toSet()));
-
-		requiredResourceSatisfiedFutureByResourceProfile.put(resourceProfile, slotFutures);
+	public void checkRequiredResourceSatisfied() {
+		if (!satisfyCheckerSimplifyEnabled) {
+			// simplify checker not enabled, the future will be completed when all PendingRequest finished.
+			return;
+		}
 
 		if (requiredResourceSatisfiedFuture.isDone()) {
-			requiredResourceSatisfiedFuture = new CompletableFuture<>();
+			return;
+		}
+		if (pendingRequiredResources.isEmpty()) {
+			requiredResourceSatisfiedFuture.complete(Acknowledge.get());
+			return;
+		}
+		boolean finished = true;
+		for (Set<PendingRequest> pendingRequests : pendingRequiredResources.values()) {
+			if (!pendingRequests.isEmpty()) {
+				finished = false;
+				break;
+			}
 		}
 
-		slotFutures.whenComplete((acknowledges, throwable) -> {
-			if (throwable == null) {
-				for (CompletableFuture<Collection<Acknowledge>> f : requiredResourceSatisfiedFutureByResourceProfile.values()) {
-					if (!f.isDone() || f.isCancelled() || f.isCompletedExceptionally()) {
-						return;
-					}
-				}
-				log.info("Required resources satisfied.");
-				requiredResourceSatisfiedFutureByResourceProfile.clear();
-				requiredResourceSatisfiedFuture.complete(Acknowledge.get());
-			}
-		});
+		if (finished) {
+			requiredResourceSatisfiedFuture.complete(Acknowledge.get());
+		}
 	}
 
 	private void requestNewAllocatedSlotForRequiredResourceAndUpdateFutures(ResourceProfile resourceProfile) {
@@ -208,9 +245,9 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 		PendingRequest pendingRequest = new PendingRequest(slotRequestId, resourceProfile, false, Collections.emptyList());
 		requestNewAllocatedSlot(pendingRequest, slotRequestTimeout);
 		log.debug("Request new slot request {} for required resources.", pendingRequest);
-
 		pendingRequiredResources.computeIfAbsent(resourceProfile, r -> new HashSet<>()).add(pendingRequest);
 		pendingRequest.getAllocatedSlotFuture().whenComplete((allocatedSlot, throwable) -> {
+			componentMainThreadExecutor.assertRunningInMainThread();
 			if (throwable != null) {
 				log.debug("PendingRequest {} failed, try allocate new slots.", pendingRequest, throwable);
 				pendingRequiredResources.get(resourceProfile).remove(pendingRequest);
@@ -231,6 +268,7 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 			allocatedRequiredResources.computeIfAbsent(allocatedSlot.getResourceProfile(), r -> new HashSet<>()).add(allocatedSlot);
 			allocatedSlotRequestedProfile.put(allocatedSlot, resourceProfile);
 			pendingRequest.getAllocatedSlotFuture().complete(allocatedSlot);
+			checkRequiredResourceSatisfied();
 			return true;
 		}
 		return false;

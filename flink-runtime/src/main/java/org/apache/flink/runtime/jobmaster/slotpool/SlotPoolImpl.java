@@ -373,9 +373,9 @@ public class SlotPoolImpl implements SlotPool {
 		checkNotNull(pendingRequest);
 
 		if (jobLogDetailDisable) {
-			log.debug("Requesting new slot [{}] and profile {} from resource manager.", pendingRequest.getSlotRequestId(), pendingRequest.getResourceProfile());
+			log.debug("Requesting new slot [{}] and profile {} for job {} from resource manager.", pendingRequest.getSlotRequestId(), pendingRequest.getResourceProfile(), jobId);
 		} else {
-			log.info("Requesting new slot [{}] and profile {} from resource manager.", pendingRequest.getSlotRequestId(), pendingRequest.getResourceProfile());
+			log.info("Requesting new slot [{}] and profile {} for job {} from resource manager.", pendingRequest.getSlotRequestId(), pendingRequest.getResourceProfile(), jobId);
 		}
 
 		final AllocationID allocationId = new AllocationID();
@@ -970,7 +970,7 @@ public class SlotPoolImpl implements SlotPool {
 
 	@VisibleForTesting
 	protected void timeoutPendingSlotRequest(SlotRequestId slotRequestId) {
-		log.info("Pending slot request [{}] timed out.", slotRequestId);
+		log.info("Pending slot request [{}] for job {} timed out.", slotRequestId, jobId);
 		final PendingRequest pendingRequest = removePendingRequest(slotRequestId);
 
 		if (pendingRequest != null) {

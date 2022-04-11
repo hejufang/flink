@@ -387,6 +387,12 @@ public class JobManagerOptions {
 					.defaultValue(false)
 					.withDescription("Whether allocation slots with round robin slot pool.");
 
+	public static final ConfigOption<Boolean> MIN_RESOURCE_SLOT_POOL_SIMPLIFY_ENABLED =
+			key("slot-pool.min-resource.simplify-enabled")
+					.booleanType()
+					.defaultValue(false)
+					.withDescription("Whether simplify the check of min slot number in MinResourceSlotPool.");
+
 	/**
 	 * Config parameter determining the scheduler implementation.
 	 */
