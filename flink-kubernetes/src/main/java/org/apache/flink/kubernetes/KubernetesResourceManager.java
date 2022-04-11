@@ -20,11 +20,13 @@ package org.apache.flink.kubernetes;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.BlobServerOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesResourceManagerConfiguration;
 import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
@@ -37,6 +39,9 @@ import org.apache.flink.kubernetes.kubeclient.resources.KubernetesTooOldResource
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesWatch;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
+import org.apache.flink.metrics.TagGauge;
+import org.apache.flink.metrics.TagGaugeStore;
+import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
@@ -55,6 +60,7 @@ import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ActiveResourceManager;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.ResourceManager;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
@@ -64,6 +70,7 @@ import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
+import io.fabric8.kubernetes.api.model.ContainerStateTerminated;
 import io.fabric8.kubernetes.api.model.PodStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,6 +84,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
 import static org.apache.flink.kubernetes.utils.KubernetesUtils.genLogUrl;
@@ -109,6 +117,9 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	/** Map from pod name to worker resource. */
 	private final Map<String, WorkerResourceSpec> podWorkerResources;
 
+	// All pods in Kubernetes Pending phase.
+	private final Map<String, Long> pendingPhasePods;
+
 	private final int minimalNodesNum;
 
 	private Optional<KubernetesWatch> podsWatchOpt;
@@ -117,6 +128,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	/** Map from pod name to hostIP. */
 	private final HashMap<String, String> podNameAndHostIPMap;
+
+	private final Map<WorkerResourceSpec, Tuple2<Double, Integer>> realResourceToWorkerResourceSpec;
 
 	@Nullable
 	private String webInterfaceUrl;
@@ -136,6 +149,11 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	private final String streamLogQueryTemplate;
 	private final String streamLogSearchView;
 	private final int streamLogQueryRange;
+
+	private final TagGauge completedContainerGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).build();
+
+	private static final String EVENT_METRIC_NAME = "resourceManagerEvent";
+	private final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
 
 	public KubernetesResourceManager(
 			RpcService rpcService,
@@ -172,8 +190,10 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.kubeClient = kubeClient;
 		this.configuration = configuration;
 		this.podWorkerResources = new HashMap<>();
+		this.pendingPhasePods = new HashMap<>();
 		this.running = false;
 		this.podNameAndHostIPMap = new HashMap<>();
+		this.realResourceToWorkerResourceSpec = new HashMap<>(4);
 		this.webInterfaceUrl = webInterfaceUrl;
 		this.restServerPort = clusterInformation.getRestServerPort();
 		this.socketServerPort = clusterInformation.getSocketServerPort();
@@ -186,6 +206,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.streamLogSearchView = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_SEARCH_VIEW);
 		this.region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
 		this.streamLogQueryRange = flinkConfig.getInteger(KubernetesConfigOptions.STREAM_LOG_QUERY_RANGE_SECONDS);
+
+		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(jobManagerPodName, false);
 	}
 
 	@Override
@@ -250,6 +272,12 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	@Override
+	public void onStart() throws Exception {
+		super.onStart();
+		registerMetrics();
+	}
+
+	@Override
 	public CompletableFuture<Void> onStop() {
 		LOG.info("stopping");
 		if (!running) {
@@ -305,11 +333,20 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	@Override
 	protected KubernetesWorkerNode workerStarted(ResourceID resourceID) {
-		return workerNodes.get(resourceID);
+		KubernetesWorkerNode node = workerNodes.get(resourceID);
+		if (node != null) {
+			warehouseJobStartEventMessageRecorder.registerTaskManagerFinish(resourceID.getResourceIdString());
+		}
+		return node;
 	}
 
 	@Override
 	public boolean stopWorker(final KubernetesWorkerNode worker) {
+		return stopWorker(worker, WorkerExitCode.UNKNOWN);
+	}
+
+	@Override
+	public boolean stopWorker(final KubernetesWorkerNode worker, int exitCode) {
 		final ResourceID resourceId = worker.getResourceID();
 		// In Kubernetes, there is a minimal number of workers which are reserved to avoid
 		// allocating resources frequently. If the remaining worker number is less than
@@ -318,6 +355,16 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			LOG.debug("Skip stopping worker {} with remaining worker number[{}] and "
 					+ "minimal worker number[{}]", resourceId, getTaskExecutors().size(), minimalNodesNum);
 			return false;
+		}
+
+		if (workerNodes.containsKey(resourceId)) {
+			completedContainerGauge.addMetric(
+					1,
+					new TagGaugeStoreImpl.TagValuesBuilder()
+							.addTagValue("pod_host", getPodHost(resourceId))
+							.addTagValue("pod_name", prunePodName(resourceId.getResourceIdString()))
+							.addTagValue("exit_code", String.valueOf(exitCode))
+							.build());
 		}
 		LOG.info("Stopping Worker {}.", resourceId);
 		internalStopPod(resourceId.toString());
@@ -348,6 +395,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 				notifyNewWorkerAllocated(workerResourceSpec, resourceID);
 				final KubernetesWorkerNode worker = new KubernetesWorkerNode(resourceID);
 				workerNodes.put(resourceID, worker);
+				warehouseJobStartEventMessageRecorder.startContainerStart(podName);
 
 				log.info("Received new TaskManager pod: {}", podName);
 			}
@@ -369,6 +417,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 						LOG.info("modified event: a taskManager pod, it's podName: {}, hostIP: {}", podName, hostIP);
 					}
 				}
+				handlePendingPodToRunning(pod);
 				removePodAndTryRestartIfRequired(pod);
 			}
 		});
@@ -378,13 +427,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	public void onDeleted(List<KubernetesPod> pods) {
 		runAsync(() -> {
 			for (KubernetesPod pod : pods) {
-				String hostIP = podNameAndHostIPMap.remove(pod.getName());
-				if (!StringUtils.isNullOrWhitespaceOnly(hostIP)){
-					LOG.info("deleted event: a taskManager pod, it's podName: {}, hostIP: {}", pod.getName(), hostIP);
-				}
-				recordWorkerFailure();
-				internalStopPod(pod.getName());
-				requestKubernetesPodIfRequired();
+				recordWorkerFailureAndStop(pod, WorkerExitCode.POD_DELETED);
 			}
 		});
 	}
@@ -409,6 +452,121 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		} else {
 			onFatalError(throwable);
 		}
+	}
+
+	private Tuple2<Double, Integer> getRealResourceByWorkerSpec(WorkerResourceSpec workerResourceSpec) {
+		if (realResourceToWorkerResourceSpec.containsKey(workerResourceSpec)) {
+			return realResourceToWorkerResourceSpec.get(workerResourceSpec);
+		} else {
+			log.warn("Get real resource by worker spec {} failed.", workerResourceSpec);
+			return new Tuple2<>(-1.0, -1);
+		}
+	}
+
+	/**
+	 * Only keep {attemptId}-{podIndex}.
+	 */
+	private String prunePodName(String podName) {
+		if (!StringUtils.isNullOrWhitespaceOnly(podName)) {
+			String[] podNameParts = podName.split("-");
+			int length = podNameParts.length;
+			if (length > 2) {
+				return podNameParts[length - 2] + "-" + podNameParts[length - 1];
+			}
+			return podName;
+		}
+		return podName;
+	}
+
+	private String getPodHost(ResourceID resourceID) {
+		return getPodHost(resourceID.getResourceIdString());
+	}
+
+	private String getPodHost(String podName) {
+		return podNameAndHostIPMap.getOrDefault(podName, "unKnown");
+	}
+
+	private void registerMetrics() {
+		resourceManagerMetricGroup.gauge("allocatedContainerNum", () -> (TagGaugeStore) () ->
+				getNumAllocatedWorkersDetail().entrySet().stream()
+						.map(workerNumberEntry -> {
+							Tuple2<Double, Integer> realResource = getRealResourceByWorkerSpec(workerNumberEntry.getKey());
+							return new TagGaugeStore.TagGaugeMetric(
+									workerNumberEntry.getValue(),
+									new TagGaugeStore.TagValuesBuilder()
+											.addTagValue("cores", String.valueOf(realResource.f0))
+											.addTagValue("memory", String.valueOf(realResource.f1))
+											.build());
+						})
+						.collect(Collectors.toList()));
+
+		resourceManagerMetricGroup.gauge("pendingRequestedContainerNum", () -> (TagGaugeStore) () ->
+				getNumRequestedNotAllocatedWorkersDetail().entrySet().stream()
+						.map(workerNumberEntry -> {
+							Tuple2<Double, Integer> realResource = getRealResourceByWorkerSpec(workerNumberEntry.getKey());
+							return new TagGaugeStore.TagGaugeMetric(
+									workerNumberEntry.getValue(),
+									new TagGaugeStore.TagValuesBuilder()
+											.addTagValue("cores", String.valueOf(realResource.f0))
+											.addTagValue("memory", String.valueOf(realResource.f1))
+											.build());
+						})
+						.collect(Collectors.toList()));
+
+		resourceManagerMetricGroup.gauge("startingContainers", () -> (TagGaugeStore) () -> {
+			long ts = System.currentTimeMillis();
+			return getWorkerAllocatedTime().entrySet().stream()
+					.map(resourceIDLongEntry -> new TagGaugeStore.TagGaugeMetric(
+							ts - resourceIDLongEntry.getValue(),
+							new TagGaugeStore.TagValuesBuilder()
+									.addTagValue("pod_name", prunePodName(resourceIDLongEntry.getKey().getResourceIdString()))
+									.addTagValue("pod_host", getPodHost(resourceIDLongEntry.getKey()))
+									.build()))
+					.collect(Collectors.toList()); });
+
+		resourceManagerMetricGroup.gauge("allocatedCPU", () -> getNumAllocatedWorkersDetail().entrySet().stream()
+				.mapToDouble(value -> {
+					Tuple2<Double, Integer> realResource = getRealResourceByWorkerSpec(value.getKey());
+					double cpu = realResource.f0;
+					return cpu * value.getValue();
+				})
+				.sum());
+		resourceManagerMetricGroup.gauge("allocatedMemory", () -> getNumAllocatedWorkersDetail().entrySet().stream()
+				.mapToDouble(value -> {
+					Tuple2<Double, Integer> realResource = getRealResourceByWorkerSpec(value.getKey());
+					double mem = realResource.f1;
+					return mem * value.getValue();
+				})
+				.sum());
+		resourceManagerMetricGroup.gauge("pendingCPU", () -> getNumRequestedNotAllocatedWorkersDetail().entrySet().stream()
+				.mapToDouble(value -> {
+					Tuple2<Double, Integer> realResource = getRealResourceByWorkerSpec(value.getKey());
+					double cpu = realResource.f0;
+					return cpu * value.getValue();
+				})
+				.sum());
+		resourceManagerMetricGroup.gauge("pendingMemory", () -> getNumRequestedNotAllocatedWorkersDetail().entrySet().stream()
+				.mapToDouble(value -> {
+					Tuple2<Double, Integer> realResource = getRealResourceByWorkerSpec(value.getKey());
+					double mem = realResource.f1;
+					return mem * value.getValue();
+				})
+				.sum());
+
+		resourceManagerMetricGroup.gauge("pendingPhasePods", () -> (TagGaugeStore) () -> {
+			long ts = System.currentTimeMillis();
+			return pendingPhasePods.entrySet().stream()
+					.map(podNameWithInitTs -> new TagGaugeStore.TagGaugeMetric(
+							ts - podNameWithInitTs.getValue(),
+							new TagGaugeStore.TagValuesBuilder()
+									.addTagValue("pod_name", prunePodName(podNameWithInitTs.getKey()))
+									.addTagValue("pod_host", getPodHost(podNameWithInitTs.getKey()))
+									.build()))
+					.collect(Collectors.toList()); });
+
+		resourceManagerMetricGroup.gauge("completedContainer", completedContainerGauge);
+
+		resourceManagerMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
 	}
 
 	public CompletableFuture<String> requestJMWebShell(@RpcTimeout Time timeout) {
@@ -486,19 +644,29 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	private void requestKubernetesPod(WorkerResourceSpec workerResourceSpec, int podNumber) {
+		long ts = System.currentTimeMillis();
 		for (int i = 0; i < podNumber; i++) {
 			final KubernetesTaskManagerParameters parameters =
 				createKubernetesTaskManagerParameters(workerResourceSpec);
+			warehouseJobStartEventMessageRecorder.createTaskManagerContextStart(parameters.getPodName());
 
 			podWorkerResources.put(parameters.getPodName(), workerResourceSpec);
+			pendingPhasePods.put(parameters.getPodName(), ts);
 			int pendingWorkerNum = notifyNewWorkerRequested(workerResourceSpec).getNumNotAllocated();
 			log.info("Requesting new TaskManager pod with <{},{}>. Number pending requests {}.",
 				parameters.getTaskManagerMemoryMB(),
 				parameters.getTaskManagerCPU(),
 				pendingWorkerNum);
 
+			realResourceToWorkerResourceSpec.putIfAbsent(
+					workerResourceSpec,
+					new Tuple2<>(parameters.getTaskManagerCPU(), parameters.getTaskManagerMemoryMB()));
+
 			final KubernetesPod taskManagerPod =
 				KubernetesTaskManagerFactory.buildTaskManagerKubernetesPod(parameters);
+
+			warehouseJobStartEventMessageRecorder.createTaskManagerContextFinish(parameters.getPodName());
+			warehouseJobStartEventMessageRecorder.createPodRpcStart(parameters.getPodName());
 			kubeClient.createTaskManagerPod(taskManagerPod)
 				.whenCompleteAsync(
 					(ignore, throwable) -> {
@@ -507,13 +675,23 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 							log.warn("Could not start TaskManager in pod {}, retry in {}. ",
 								taskManagerPod.getName(), retryInterval, throwable);
 							podWorkerResources.remove(parameters.getPodName());
+							pendingPhasePods.remove(parameters.getPodName());
 							notifyNewWorkerAllocationFailed(workerResourceSpec);
 							scheduleRunAsync(
 								this::requestKubernetesPodIfRequired,
 								retryInterval);
+
+							completedContainerGauge.addMetric(
+									1,
+									new TagGaugeStoreImpl.TagValuesBuilder()
+											.addTagValue("pod_host", getPodHost(parameters.getPodName()))
+											.addTagValue("pod_name", prunePodName(parameters.getPodName()))
+											.addTagValue("exit_code", String.valueOf(WorkerExitCode.START_CONTAINER_ERROR))
+											.build());
 						} else {
 							log.info("TaskManager {} will be started with {}.", parameters.getPodName(), workerResourceSpec);
 						}
+						warehouseJobStartEventMessageRecorder.createPodRpcFinish(parameters.getPodName());
 					},
 					getMainThreadExecutor());
 		}
@@ -567,15 +745,50 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		}
 	}
 
-	private void removePodAndTryRestartIfRequired(KubernetesPod pod) {
-		if (pod.isTerminated()) {
-			recordWorkerFailure();
-			internalStopPod(pod.getName());
-			requestKubernetesPodIfRequired();
+	private void handlePendingPodToRunning(KubernetesPod pod) {
+		if (pendingPhasePods.containsKey(pod.getName()) && pod.isRunning()) {
+			log.debug("Pod {} phase switch from Pending to Running.", pod.getName());
+			pendingPhasePods.remove(pod.getName());
+			warehouseJobStartEventMessageRecorder.startContainerFinish(pod.getName());
+			warehouseJobStartEventMessageRecorder.registerTaskManagerStart(pod.getName());
 		}
 	}
 
+	private void removePodAndTryRestartIfRequired(KubernetesPod pod) {
+		if (pod.isTerminated()) {
+			recordWorkerFailureAndStop(pod, WorkerExitCode.POD_TERMINATED);
+		}
+	}
+
+	private void recordWorkerFailureAndStop(KubernetesPod pod, int exitCode) {
+		recordWorkerFailure();
+		if (podWorkerResources.containsKey(pod.getName())) {
+			Optional<ContainerStateTerminated> containerStateTerminatedOptional = pod.getContainerStateTerminated();
+			int containerExitCode = exitCode;
+			if (containerStateTerminatedOptional.isPresent()) {
+				if (containerStateTerminatedOptional.get().getExitCode() != null) {
+					containerExitCode = containerStateTerminatedOptional.get().getExitCode();
+				}
+				log.error("Pod {} failed with container terminated: {}", pod.getName(), containerStateTerminatedOptional.get());
+			}
+			completedContainerGauge.addMetric(
+					1,
+					new TagGaugeStoreImpl.TagValuesBuilder()
+							.addTagValue("pod_host", getPodHost(pod.getName()))
+							.addTagValue("pod_name", prunePodName(pod.getName()))
+							.addTagValue("exit_code", String.valueOf(containerExitCode))
+							.build());
+		}
+		internalStopPod(pod.getName());
+		requestKubernetesPodIfRequired();
+	}
+
 	private void internalStopPod(String podName) {
+		String hostIP = podNameAndHostIPMap.remove(podName);
+		if (!StringUtils.isNullOrWhitespaceOnly(hostIP)){
+			LOG.info("deleted event: a taskManager pod, it's podName: {}, hostIP: {}", podName, hostIP);
+		}
+
 		final ResourceID resourceId = new ResourceID(podName);
 		final boolean isPendingWorkerOfCurrentAttempt = isPendingWorkerOfCurrentAttempt(podName);
 
@@ -589,6 +802,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			);
 
 		final WorkerResourceSpec workerResourceSpec = podWorkerResources.remove(podName);
+		pendingPhasePods.remove(podName);
 		workerNodes.remove(resourceId);
 
 		if (isPendingWorkerOfCurrentAttempt) {

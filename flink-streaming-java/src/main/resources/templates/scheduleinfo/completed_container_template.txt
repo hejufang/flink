@@ -207,6 +207,198 @@
       {
         "matcher": {
           "id": "byName",
+          "options": "-80012"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80012 (K8S POD 被 DELETED, 请进一步排查原因)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80013"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80013 (K8S POD 处于 Terminated 状态，请进一步排查原因)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "200"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "200 (无法启动TM)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "201"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "201 (释放或恢复partition失败)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "202"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "202 (申请slot出现异常之后无法释放slot)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "203"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "203 (申请slot出现异常之后释放slot，slot无法找到)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "204"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "204 (注册到RM超时)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "205"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "205 (发送更新状态信息到JM时发生RPC异常)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "206"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "206 (发送更新状态信息到JM时发生错误)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "207"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "207 (监听RM leadership出错)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "208"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "208 (监听JM leadership出错)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "209"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "209 (注册到RM失败)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "210"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "210 (TASK 退出超时)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "211"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "211 (TASK 结束流程出现异常)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "212"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "212 (TASK 故障清理资源时出现异常)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "213"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "213 (cancel Task 超时异常)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
           "options": "-103"
         },
         "properties": [

@@ -61,7 +61,9 @@ public class WarehouseJobStartEventMessageRecorder implements AbstractEventRecor
 
 	// event type for resource manager
 	public static final String EVENT_TYPE_CREATE_TASK_MANAGER_CONTEXT = "create_task_manager_context";
+	public static final String EVENT_TYPE_CREATE_POD_RPC = "create_pod_rpc";
 	public static final String EVENT_TYPE_START_CONTAINER = "start_container";
+	public static final String EVENT_TYPE_REGISTER_TASK_MANAGER = "register_task_manager";
 
 	// event action for job master build execution graph
 	public static final String EVENT_ACTION_INITIALIZATION = "initialization";
@@ -472,6 +474,26 @@ public class WarehouseJobStartEventMessageRecorder implements AbstractEventRecor
 		doRecord(message);
 	}
 
+	public void createPodRpcStart(String taskManagerId) {
+		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_RESOURCE_MANAGER,
+				resourceId,
+				taskManagerId,
+				jobId,
+				EVENT_TYPE_CREATE_POD_RPC,
+				EVENT_ACTION_START);
+		doRecord(message);
+	}
+
+	public void createPodRpcFinish(String taskManagerId) {
+		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_RESOURCE_MANAGER,
+				resourceId,
+				taskManagerId,
+				jobId,
+				EVENT_TYPE_CREATE_POD_RPC,
+				EVENT_ACTION_FINISH);
+		doRecord(message);
+	}
+
 	public void startContainerStart(String taskManagerId) {
 		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_RESOURCE_MANAGER,
 				resourceId,
@@ -488,6 +510,26 @@ public class WarehouseJobStartEventMessageRecorder implements AbstractEventRecor
 				taskManagerId,
 				jobId,
 				EVENT_TYPE_START_CONTAINER,
+				EVENT_ACTION_FINISH);
+		doRecord(message);
+	}
+
+	public void registerTaskManagerStart(String taskManagerId) {
+		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_RESOURCE_MANAGER,
+				resourceId,
+				taskManagerId,
+				jobId,
+				EVENT_TYPE_REGISTER_TASK_MANAGER,
+				EVENT_ACTION_START);
+		doRecord(message);
+	}
+
+	public void registerTaskManagerFinish(String taskManagerId) {
+		WarehouseJobStartEventMessage message = new WarehouseJobStartEventMessage(EVENT_MODULE_RESOURCE_MANAGER,
+				resourceId,
+				taskManagerId,
+				jobId,
+				EVENT_TYPE_REGISTER_TASK_MANAGER,
 				EVENT_ACTION_FINISH);
 		doRecord(message);
 	}

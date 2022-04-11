@@ -41,6 +41,10 @@ public class WorkerResourceSpecCounter {
 		return workerNums.getOrDefault(Preconditions.checkNotNull(workerResourceSpec), 0);
 	}
 
+	public Map<WorkerResourceSpec, Integer> getWorkerNums() {
+		return workerNums;
+	}
+
 	public void setNum(final WorkerResourceSpec workerResourceSpec, int num) {
 		workerNums.put(Preconditions.checkNotNull(workerResourceSpec), num);
 	}

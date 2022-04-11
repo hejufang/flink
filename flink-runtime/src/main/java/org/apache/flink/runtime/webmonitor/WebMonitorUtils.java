@@ -351,9 +351,9 @@ public final class WebMonitorUtils {
 			if (configuration.getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false)) {
 				String grafanaDomainUrl = configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
 					ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
-				String psm = System.getenv(ConfigConstants.PSM_ENV_KEY);
+				String jobName = configuration.getString(PipelineOptions.NAME);
 				String physicalCluster = System.getenv(ConfigConstants.PHYSICAL_CLUSTER_ENV_KEY);
-				return String.format(ConfigConstants.DTOP_TEMPLATE_KUBERNETES, grafanaDomainUrl, psm, physicalCluster);
+				return String.format(ConfigConstants.DTOP_TEMPLATE_KUBERNETES, grafanaDomainUrl, jobName, physicalCluster);
 			} else {
 				String grafanaDomainUrl = configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
 					ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);

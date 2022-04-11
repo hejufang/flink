@@ -94,6 +94,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private String region;
 	private String cluster;
 	private String queue;
+	private String resourceManagerType = "YARN";
 	private static final String DEFAULT_METRICS_WHITELIST_FILE = "metrics-whitelist.yaml";
 	private String whitelistFile;
 	private final List<TagKv> fixedTags = new ArrayList<>();
@@ -134,6 +135,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			this.region = config.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
 			this.cluster = config.getString(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT);
 			this.queue = config.getString(ConfigConstants.QUEUE_KEY, ConfigConstants.QUEUE_DEFAULT);
+			this.resourceManagerType = "kubernetes";
 		} else {
 			this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
 			this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
@@ -433,6 +435,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		tags.add(new TagKv("region", this.region));
 		tags.add(new TagKv("cluster", this.cluster));
 		tags.add(new TagKv("queue", this.queue));
+		tags.add(new TagKv("resourceManagerType", this.resourceManagerType));
 		tags.add(new TagKv(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE));
 		if (key.contains("jobmanager")) {
 			Matcher m = JOB_MANAGER_PATTERN.matcher(key);
@@ -594,13 +597,23 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	}
 
 	/*
-	 * container_e496_1572589496647_25097_01_000006 = container_{epoch}_{applicationId}_{applicationAttempId}_{containerId}
-	 * 为了防止这些值不能枚举，只取最后的 000006
+	 * Simplify TaskManager ID.
+	 * For YARN: container_e496_1572589496647_25097_01_000006 = container_{epoch}_{applicationId}_{applicationAttempId}_{containerId}
+	 * Only use the last part.
+	 *
+	 * For Kubernetes: {deployment name}-taskmanager-{job manager attemptId}-{task manager index}
+	 * Only use the last two parts.
 	 */
 	private String pruneTmId(String tmId) {
 		String[] tmIdParts = tmId.split("_");
 		if (tmIdParts.length == 6) {
 			return tmIdParts[5];
+		} else {
+			String[] podNameParts = tmId.split("-");
+			int length = podNameParts.length;
+			if (length > 2) {
+				return podNameParts[length - 2] + "-" + podNameParts[length - 1];
+			}
 		}
 		return tmId;
 	}

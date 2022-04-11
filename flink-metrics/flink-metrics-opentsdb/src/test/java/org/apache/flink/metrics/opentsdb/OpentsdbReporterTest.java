@@ -100,6 +100,7 @@ public class OpentsdbReporterTest {
 		Tuple<String, String> expect = new Tuple<>("jobmanager.Status.JVM.Memory.Direct.TotalCapacity",
 			"jobname=" + reporter.getJobName() + "|region=" + reporter.getRegion() + "|cluster=" + reporter.getCluster() +
 				"|queue=" + reporter.getQueue() +
+				"|resourceManagerType=YARN" +
 				"|flinkVersion=" + MetricsConstants.FLINK_VERSION_VALUE + "|hostname=n8-159-232.byted.org");
 		Tuple<String, String> actual = reporter.getMetricNameAndTags(key);
 		Assert.assertEquals(expect.x, actual.x);
@@ -115,6 +116,7 @@ public class OpentsdbReporterTest {
 		Tuple<String, String> expect = new Tuple<>("taskmanager.Streaming_WordCount.Keyed_Aggregation.latency",
 			"jobname=" + reporter.getJobName() + "|region=" + reporter.getRegion() + "|cluster=" + reporter.getCluster() +
 				"|queue=" + reporter.getQueue() +
+				"|resourceManagerType=YARN" +
 				"|flinkVersion=" + MetricsConstants.FLINK_VERSION_VALUE + "|hostname=n8-159-070|tmid=554a025ffcd1bb5845bc58152d3e4355|taskid=1");
 		Tuple<String, String> actual = reporter.getMetricNameAndTags(key);
 		Assert.assertEquals(expect.x, actual.x);
@@ -129,7 +131,7 @@ public class OpentsdbReporterTest {
 		Tuple<String, String> expect = new Tuple<>(
 			"sqlgateway.throughput",
 			"jobname=" + reporter.getJobName() + "|region=" + reporter.getRegion() + "|cluster=" + reporter.getCluster() +
-					"|queue=" + reporter.getQueue() + "|flinkVersion=" + MetricsConstants.FLINK_VERSION_VALUE + "|hostname=n8-159-070");
+					"|queue=" + reporter.getQueue() + "|resourceManagerType=YARN" + "|flinkVersion=" + MetricsConstants.FLINK_VERSION_VALUE + "|hostname=n8-159-070");
 		Tuple<String, String> actual = reporter.getMetricNameAndTags(key);
 		Assert.assertEquals(expect.x, actual.x);
 		Assert.assertEquals(expect.y, actual.y);
@@ -143,6 +145,7 @@ public class OpentsdbReporterTest {
 		Tuple<String, String> expect = new Tuple<>("taskmanager.user.Source_mySource.KafkaConsumer.currentOffsetsRate",
 			"jobname=" + reporter.getJobName() + "|region=" + reporter.getRegion() + "|cluster=" + reporter.getCluster() +
 				"|queue=" + reporter.getQueue() +
+				"|resourceManagerType=YARN" +
 				"|flinkVersion=" + MetricsConstants.FLINK_VERSION_VALUE + "|hostname=n8-132-204" +
 				"|tmid=000002|taskid=2|topic=data_flink_test|partition=6");
 		Tuple<String, String> actual = reporter.getMetricNameAndTags(key);
@@ -160,6 +163,7 @@ public class OpentsdbReporterTest {
 		Tuple<String, String> expect = new Tuple<>("taskmanager.user.Source_mySource.KafkaConsumer.consumerRecordsRate",
 			"jobname=" + reporter.getJobName() + "|region=" + reporter.getRegion() + "|cluster=" + reporter.getCluster() +
 				"|queue=" + reporter.getQueue() +
+				"|resourceManagerType=YARN" +
 				"|flinkVersion=" + MetricsConstants.FLINK_VERSION_VALUE + "|hostname=n8-132-204" +
 				"|tmid=000002|taskid=2|topic=data_flink_test|partition=6|connectorType=kafka");
 		Tuple<String, String> actual = reporter.getMetricNameAndTags(key);

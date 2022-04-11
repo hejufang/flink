@@ -18,7 +18,11 @@
 
 package org.apache.flink.kubernetes.kubeclient.resources;
 
+import io.fabric8.kubernetes.api.model.ContainerStateTerminated;
 import io.fabric8.kubernetes.api.model.Pod;
+
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Represent KubernetesPod resource in kubernetes.
@@ -31,6 +35,28 @@ public class KubernetesPod extends KubernetesResource<Pod> {
 
 	public String getName() {
 		return this.getInternalResource().getMetadata().getName();
+	}
+
+	public Optional<ContainerStateTerminated> getContainerStateTerminated() {
+		try {
+			return getInternalResource().getStatus().getContainerStatuses().stream().map(cs -> cs.getState().getTerminated()).filter(Objects::nonNull).findFirst();
+		} catch (Exception e) {
+			return Optional.empty();
+		}
+	}
+
+	public boolean isRunning() {
+		if (getInternalResource().getStatus() != null) {
+			return PodPhase.Running.name().equals(getInternalResource().getStatus().getPhase());
+		}
+		return false;
+	}
+
+	public boolean isPending() {
+		if (getInternalResource().getStatus() != null) {
+			return PodPhase.Pending.name().equals(getInternalResource().getStatus().getPhase());
+		}
+		return false;
 	}
 
 	public boolean isTerminated() {

@@ -63,8 +63,16 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	private final WorkerResourceSpecCounter requestedNotAllocatedWorkerCounter;
 	private final WorkerResourceSpecCounter requestedNotRegisteredWorkerCounter;
 
-	/** Maps from worker's resource id to its resource spec. */
+	/** Counter for all allocated worker. This includes allocated not registered workers and registered workers. */
+	private final WorkerResourceSpecCounter allocatedWorkerCounter;
+
+	/** Maps from worker's resource id to its resource spec. Only record allocated but not registered. */
 	private final Map<ResourceID, WorkerResourceSpec> allocatedNotRegisteredWorkerResourceSpecs;
+	/** Maps from worker's resource id to its resource spec. Only record registered. */
+	private final Map<ResourceID, WorkerResourceSpec> registeredWorkerResourceSpecs;
+
+	/** The allocated timestamp of worker. Only record allocated but not registred. */
+	private final Map<ResourceID, Long> workerAllocatedTime;
 
 	public ActiveResourceManager(
 			Configuration flinkConfig,
@@ -103,7 +111,10 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 
 		requestedNotAllocatedWorkerCounter = new WorkerResourceSpecCounter();
 		requestedNotRegisteredWorkerCounter = new WorkerResourceSpecCounter();
+		allocatedWorkerCounter = new WorkerResourceSpecCounter();
 		allocatedNotRegisteredWorkerResourceSpecs = new HashMap<>();
+		registeredWorkerResourceSpecs = new HashMap<>();
+		workerAllocatedTime = new HashMap<>();
 	}
 
 	protected CompletableFuture<Void> getStopTerminationFutureOrCompletedExceptionally(@Nullable Throwable exception) {
@@ -132,12 +143,32 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 		return requestedNotAllocatedWorkerCounter.getNum(workerResourceSpec);
 	}
 
+	protected Map<WorkerResourceSpec, Integer> getNumRequestedNotAllocatedWorkersDetail() {
+		return requestedNotAllocatedWorkerCounter.getWorkerNums();
+	}
+
 	protected int getNumRequestedNotRegisteredWorkers() {
 		return requestedNotRegisteredWorkerCounter.getTotalNum();
 	}
 
 	protected int getNumRequestedNotRegisteredWorkersFor(WorkerResourceSpec workerResourceSpec) {
 		return requestedNotRegisteredWorkerCounter.getNum(workerResourceSpec);
+	}
+
+	protected Map<ResourceID, Long> getWorkerAllocatedTime() {
+		return workerAllocatedTime;
+	}
+
+	protected int getNumAllocatedWorkersFor(WorkerResourceSpec workerResourceSpec) {
+		return allocatedWorkerCounter.getNum(workerResourceSpec);
+	}
+
+	protected int getNumAllocatedWorkers() {
+		return allocatedWorkerCounter.getTotalNum();
+	}
+
+	protected Map<WorkerResourceSpec, Integer> getNumAllocatedWorkersDetail() {
+		return allocatedWorkerCounter.getWorkerNums();
 	}
 
 	/**
@@ -170,6 +201,8 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	 */
 	protected PendingWorkerNums notifyNewWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID) {
 		allocatedNotRegisteredWorkerResourceSpecs.put(resourceID, workerResourceSpec);
+		workerAllocatedTime.put(resourceID, System.currentTimeMillis());
+		allocatedWorkerCounter.increaseAndGet(workerResourceSpec);
 		return new PendingWorkerNums(
 			requestedNotAllocatedWorkerCounter.decreaseAndGet(workerResourceSpec),
 			requestedNotRegisteredWorkerCounter.getNum(workerResourceSpec));
@@ -192,10 +225,12 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	 */
 	protected void notifyAllocatedWorkerRegistered(ResourceID resourceID) {
 		WorkerResourceSpec workerResourceSpec = allocatedNotRegisteredWorkerResourceSpecs.remove(resourceID);
+		workerAllocatedTime.remove(resourceID);
 		if (workerResourceSpec == null) {
 			// ignore workers from previous attempt
 			return;
 		}
+		registeredWorkerResourceSpecs.put(resourceID, workerResourceSpec);
 		requestedNotRegisteredWorkerCounter.decreaseAndGet(workerResourceSpec);
 	}
 
@@ -205,8 +240,12 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	 */
 	protected void notifyAllocatedWorkerStopped(ResourceID resourceID) {
 		WorkerResourceSpec workerResourceSpec = allocatedNotRegisteredWorkerResourceSpecs.remove(resourceID);
+		workerAllocatedTime.remove(resourceID);
 		if (workerResourceSpec == null) {
-			// ignore already registered workers
+			workerResourceSpec = registeredWorkerResourceSpecs.remove(resourceID);
+			if (workerResourceSpec != null) {
+				allocatedWorkerCounter.decreaseAndGet(workerResourceSpec);
+			}
 			return;
 		}
 		requestedNotRegisteredWorkerCounter.decreaseAndGet(workerResourceSpec);
@@ -219,6 +258,8 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	 */
 	protected void notifyRecoveredWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID) {
 		allocatedNotRegisteredWorkerResourceSpecs.put(resourceID, workerResourceSpec);
+		workerAllocatedTime.put(resourceID, System.currentTimeMillis());
+		allocatedWorkerCounter.increaseAndGet(workerResourceSpec);
 		requestedNotRegisteredWorkerCounter.increaseAndGet(workerResourceSpec);
 	}
 

@@ -2088,7 +2088,7 @@ public final class ConfigConstants {
 	public static final String PSM_ENV_KEY = "TCE_PSM";
 	public static final String PHYSICAL_CLUSTER_ENV_KEY = "CLOUDNATIVE_CLUSTER";
 	public static final String DTOP_TEMPLATE_KUBERNETES =
-		"%s/dashboard/db/flink-on-k8s-resource?orgId=1&refresh=1m&var-psm=%s&var-physicalCluster=%s";
+		"%s/dashboard/db/flink-on-k8s-resource-v2?orgId=1&refresh=1m&var-jobName=%s&var-physicalCluster=%s";
 
 	public static final String METRIC_TEMPLATE = "%s/dashboard/db/flink-%s-%s?orgId=1";
 
