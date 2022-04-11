@@ -17,7 +17,7 @@
  */
 
 org.apache.flink:flink-connector-abase:jar:1.11-byted-SNAPSHOT
-+- com.bytedance:java-abase-client:jar:2.4.3-POOLFIX:compile
++- com.bytedance:java-abase-client:jar:2.4.3-POOLFIX-2:compile
 |  +- com.google.guava:guava:jar:18.0:compile
 |  +- io.dropwizard.metrics:metrics-core:jar:4.0.1:compile
 |  +- com.bytedance:commons:jar:0.0.14:compile
@@ -96,6 +96,7 @@ org.apache.flink:flink-connector-abase:jar:1.11-byted-SNAPSHOT
 |  |  \- org.apache.flink:flink-streaming-scala_2.11:jar:1.11-byted-SNAPSHOT:test
 |  +- org.apache.flink:flink-table-runtime-blink_2.11:jar:1.11-byted-SNAPSHOT:test
 |  |  +- org.codehaus.janino:janino:jar:3.0.9:provided
+|  |  +- org.apache.flink:flink-table-code-splitter:jar:1.11-byted-SNAPSHOT:test
 |  |  \- org.apache.calcite.avatica:avatica-core:jar:1.16.0:provided
 |  \- org.reflections:reflections:jar:0.9.10:test
 |     \- org.javassist:javassist:jar:3.24.0-GA:provided
