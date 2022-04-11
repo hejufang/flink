@@ -89,9 +89,7 @@ public class AbaseLookupSpecifyHashKeyExecutor extends AbaseLookupExecutor {
 			throw new FlinkRuntimeException(String.format("Specify-Hash-Key Get value failed. Key : %s, " +
 				"Related command: 'hmget key'.", key), e);
 		}
-		// For key which not exists, an empty list will be returned.
-		// And in case other unexpected return value, check if it is null, too.
-		if (values == null || values.isEmpty()) {
+		if (isEmpty(values)) {
 			return null;
 		}
 		if (checkRequestedHashKeys) {
@@ -108,5 +106,17 @@ public class AbaseLookupSpecifyHashKeyExecutor extends AbaseLookupExecutor {
 			internalValues[i] = stringValueConverters[i].toInternal(values.get(i - 1));
 		}
 		return GenericRowData.of(internalValues);
+	}
+
+	private static boolean isEmpty(List<String> values) {
+		if (values == null || values.isEmpty()) {
+			return true;
+		}
+		for (String val : values) {
+			if (val != null) {
+				return false;
+			}
+		}
+		return true;
 	}
 }
