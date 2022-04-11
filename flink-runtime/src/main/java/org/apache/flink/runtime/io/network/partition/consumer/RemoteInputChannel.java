@@ -219,6 +219,12 @@ public class RemoteInputChannel extends InputChannel {
 			}
 		}
 
+		if (!isChannelAvailable()) {
+			LOG.info("{} : This channel is unavailable, will return unavailable channelEvent.", this);
+			return Optional.of(new BufferAndAvailability(
+				EventSerializer.toBuffer(UnavailableChannelEvent.INSTANCE), false, 0));
+		}
+
 		if (next == null) {
 			if (isReleased.get()) {
 				throw new CancelTaskException("Queried for a buffer after channel has been released.");
@@ -229,12 +235,6 @@ public class RemoteInputChannel extends InputChannel {
 
 		numBytesIn.inc(next.getSize());
 		numBuffersIn.inc();
-
-		if (!isChannelAvailable()) {
-			LOG.info("{} : This channel is unavailable, will return unavailable channelEvent.", this);
-			return Optional.of(new BufferAndAvailability(
-				EventSerializer.toBuffer(UnavailableChannelEvent.INSTANCE), false, 0));
-		}
 
 		return Optional.of(new BufferAndAvailability(next, moreAvailable, 0));
 	}

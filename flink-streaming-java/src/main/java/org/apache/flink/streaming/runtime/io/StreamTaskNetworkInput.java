@@ -265,6 +265,9 @@ public final class StreamTaskNetworkInput<T> implements StreamTaskInput<T> {
 	public void cleanChannel(int channelIndex) {
 		LOG.info("Receive UnavailableChannelEvent, clean channel {}.", channelIndex);
 		RecordDeserializer<?> deserializer = recordDeserializers[channelIndex];
+		if (null == deserializer) {
+			LOG.warn("Clean channel {}, deserializer is already null.", channelIndex);
+		}
 		Buffer buffer = deserializer.getCurrentBuffer();
 		if (buffer != null && !buffer.isRecycled()) {
 			buffer.recycleBuffer();
