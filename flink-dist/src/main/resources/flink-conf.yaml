@@ -126,7 +126,7 @@ common:
 
   # Configurations for smart resources
   smart-resources.service-name: data.inf.sr_estimater.service.lf
-  log4j.appender.databus.channel: yarn_container_level_log
+  log4j.appender.databus.channel: flink_error_log
 
   # Configurations for docker mode
   runtime.lib.dir: /opt/tiger/flink_deploy/deploy/flink-1.9/lib

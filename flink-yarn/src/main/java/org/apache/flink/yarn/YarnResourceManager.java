@@ -922,7 +922,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					final YarnWorkerNode yarnWorkerNode = removeContainer(resourceId);
 
 					if (yarnWorkerNode != null) {
-						log.warn("Container {} on {} completed with exit code {}, {}",
+						log.error("Container {} on {} completed with exit code {}, {}",
 								containerStatus.getContainerId(),
 								yarnWorkerNode.getContainer().getNodeId().getHost(),
 								containerStatus.getExitStatus(),

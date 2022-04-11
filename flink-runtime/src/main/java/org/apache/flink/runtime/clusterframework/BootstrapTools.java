@@ -550,6 +550,10 @@ public class BootstrapTools {
 			ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_DEFAULT);
 		logging += " -Dlog.databus.channel=" + databusChannel;
 
+		String databusLevel = flinkConfig.getString(ConfigConstants.FLINK_TASKMANAGER_LOG_DATABUS_LEVEL_KEY,
+			ConfigConstants.FLINK_TASKMANAGER_LOG_DATABUS_LEVEL_DEFAULT);
+		logging += " -Dlog.databus.level=" + databusLevel;
+
 		startCommandValues.put("logging", logging);
 		startCommandValues.put("class", mainClass.getName());
 		startCommandValues.put("redirects",

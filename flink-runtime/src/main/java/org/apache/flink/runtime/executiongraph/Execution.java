@@ -1609,6 +1609,10 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		return transitionState(currentState, targetState, null);
 	}
 
+	private boolean isLogErrorTaskStateChangeToFailed(ExecutionState targetState) {
+		return targetState == FAILED;
+	}
+
 	private boolean transitionState(ExecutionState currentState, ExecutionState targetState, Throwable error) {
 		// sanity check
 		if (currentState.isTerminal()) {
@@ -1629,10 +1633,15 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			}
 
 			if (error == null) {
-				LOG.info("{} ({}) switched from {} to {}, host {} resource id {}.", getVertexWithAttempt(),
-					getAttemptId(), currentState, targetState, hostname, resourceId);
+				if (isLogErrorTaskStateChangeToFailed(targetState)) {
+					LOG.error("{} ({}) switched from {} to {}, host {} resource id {}.", getVertexWithAttempt(),
+						getAttemptId(), currentState, targetState, hostname, resourceId);
+				} else {
+					LOG.info("{} ({}) switched from {} to {}, host {} resource id {}.", getVertexWithAttempt(),
+						getAttemptId(), currentState, targetState, hostname, resourceId);
+				}
 			} else {
-				LOG.warn("{} ({}) switched from {} to {}, host {} resource id {}.",
+				LOG.error("{} ({}) switched from {} to {}, host {} resource id {}.",
 					getVertexWithAttempt(), getAttemptId(), currentState, targetState,
 					hostname, resourceId, error);
 			}

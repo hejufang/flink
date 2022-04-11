@@ -2188,7 +2188,13 @@ public final class ConfigConstants {
 
 	// ---------------------------- Log4j Configurations --------------------------
 	public static final String FLINK_LOG_DATABUS_CHANNEL_KEY = "log4j.appender.databus.channel";
-	public static final String FLINK_LOG_DATABUS_CHANNEL_DEFAULT = "yarn_container_level_log";
+	public static final String FLINK_LOG_DATABUS_CHANNEL_DEFAULT = "flink_error_log";
+
+	public static final String FLINK_JOBMANAGER_LOG_DATABUS_LEVEL_KEY = "jobmanager.log4j.appender.databus.level";
+	public static final String FLINK_JOBMANAGER_LOG_DATABUS_LEVEL_DEFAULT = "WARN";
+
+	public static final String FLINK_TASKMANAGER_LOG_DATABUS_LEVEL_KEY = "taskmanager.log4j.appender.databus.level";
+	public static final String FLINK_TASKMANAGER_LOG_DATABUS_LEVEL_DEFAULT = "FATAL";
 
 	// ---------------------------- Config For SmartResources ---------------------------
 	public static final String SMART_RESOURCES_ADJUST_CHECK_API_KEY = "smart-resources.adjust-check-api";

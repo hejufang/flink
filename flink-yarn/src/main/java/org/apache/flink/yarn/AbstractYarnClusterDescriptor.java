@@ -1966,6 +1966,10 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_DEFAULT);
 		javaOpts += " -Dlog.databus.channel=" + databusChannel;
 
+		String databusLevel = flinkConfiguration.getString(ConfigConstants.FLINK_JOBMANAGER_LOG_DATABUS_LEVEL_KEY,
+			ConfigConstants.FLINK_JOBMANAGER_LOG_DATABUS_LEVEL_DEFAULT);
+		javaOpts += " -Dlog.databus.level=" + databusLevel;
+
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {
