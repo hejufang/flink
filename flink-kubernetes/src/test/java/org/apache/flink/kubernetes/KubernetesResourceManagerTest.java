@@ -301,7 +301,11 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 				// Terminate the pod. Should not request a new pod.
 				terminatePod(pod);
-				resourceManager.onModified(Collections.singletonList(new KubernetesPod(pod)));
+				CompletableFuture<?> podModifyFuture = resourceManager.runInMainThread(() -> {
+					resourceManager.onModified(Collections.singletonList(new KubernetesPod(pod)));
+					return null;
+				});
+				podModifyFuture.get();
 				assertEquals(0, kubeClient.pods().list().getItems().size());
 			});
 		}};
@@ -318,7 +322,11 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 				// Error happens in the pod. Should not request a new pod.
 				terminatePod(pod);
-				resourceManager.onError(Collections.singletonList(new KubernetesPod(pod)));
+				CompletableFuture<?> podErrorFuture = resourceManager.runInMainThread(() -> {
+					resourceManager.onError(Collections.singletonList(new KubernetesPod(pod)));
+					return null;
+				});
+				podErrorFuture.get();
 				assertEquals(0, kubeClient.pods().list().getItems().size());
 			});
 		}};
@@ -335,7 +343,11 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 				// Delete the pod. Should not request a new pod.
 				terminatePod(pod);
-				resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(pod)));
+				CompletableFuture<?> podDeleteFuture = resourceManager.runInMainThread(() -> {
+					resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(pod)));
+					return null;
+				});
+				podDeleteFuture.get();
 				assertEquals(0, kubeClient.pods().list().getItems().size());
 			});
 		}};

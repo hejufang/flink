@@ -67,6 +67,7 @@ import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcTimeout;
+import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
@@ -372,6 +373,15 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	@Override
+	protected void closeTaskManagerConnection(ResourceID resourceID, Exception cause, int exitCode) {
+		KubernetesWorkerNode workerNode = workerNodes.get(resourceID);
+		if (workerNode != null) {
+			stopWorker(workerNode, exitCode);
+		}
+		super.closeTaskManagerConnection(resourceID, cause, exitCode);
+	}
+
+	@Override
 	public void onAdded(List<KubernetesPod> pods) {
 		runAsync(() -> {
 			int duplicatePodNum = 0;
@@ -427,7 +437,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	public void onDeleted(List<KubernetesPod> pods) {
 		runAsync(() -> {
 			for (KubernetesPod pod : pods) {
-				recordWorkerFailureAndStop(pod, WorkerExitCode.POD_DELETED);
+				recordWorkerFailureAndStop(pod, new FlinkException("Pod Deleted."), WorkerExitCode.POD_DELETED);
 			}
 		});
 	}
@@ -756,11 +766,11 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	private void removePodAndTryRestartIfRequired(KubernetesPod pod) {
 		if (pod.isTerminated()) {
-			recordWorkerFailureAndStop(pod, WorkerExitCode.POD_TERMINATED);
+			recordWorkerFailureAndStop(pod, new FlinkException("Pod Terminated."), WorkerExitCode.POD_TERMINATED);
 		}
 	}
 
-	private void recordWorkerFailureAndStop(KubernetesPod pod, int exitCode) {
+	private void recordWorkerFailureAndStop(KubernetesPod pod, Exception cause, int exitCode) {
 		recordWorkerFailure();
 		if (podWorkerResources.containsKey(pod.getName())) {
 			Optional<ContainerStateTerminated> containerStateTerminatedOptional = pod.getContainerStateTerminated();
@@ -781,6 +791,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		}
 		internalStopPod(pod.getName());
 		requestKubernetesPodIfRequired();
+		closeTaskManagerConnection(new ResourceID(pod.getName()), cause, exitCode);
 	}
 
 	private void internalStopPod(String podName) {
