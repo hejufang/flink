@@ -181,4 +181,41 @@ public class KubernetesUtilsTest extends TestLogger {
 		String jmLogWanted = "https://foo.bar/argos/streamlog/tenant_query?query=kubernetes_pod_name%3D%27JobManagerPod%27&region=cn&searchview=2%3A%3Agodel";
 		assertTrue(jmLog.startsWith(jmLogWanted));
 	}
+
+	@Test
+	public void testStartCommandWithoutPrePostfix(){
+		Configuration flinkConfig = new Configuration();
+		String startCommand = KubernetesUtils.addPrePostfixToStartCommand(flinkConfig, "echo 'hello world'");
+		String expectedCommand = "echo 'hello world'";
+		assertEquals(expectedCommand, startCommand);
+	}
+
+	@Test
+	public void testAddPrefixForStartCommand(){
+		Configuration flinkConfig = new Configuration();
+		flinkConfig.setString(KubernetesConfigOptions.CONTAINER_START_COMMAND_PREFIX, "unset 1;unset 2");
+		String startCommand = KubernetesUtils.addPrePostfixToStartCommand(flinkConfig, "echo 'hello world'");
+		String expectedCommand = "unset 1;unset 2;echo 'hello world'";
+		assertEquals(expectedCommand, startCommand);
+	}
+
+	@Test
+	public void testAddPostfixForStartCommand(){
+		Configuration flinkConfig = new Configuration();
+		flinkConfig.setString(KubernetesConfigOptions.CONTAINER_START_COMMAND_POSTFIX, "echo done");
+		String startCommand = KubernetesUtils.addPrePostfixToStartCommand(flinkConfig, "echo 'hello world'");
+		String expectedCommand = "echo 'hello world';echo done";
+		assertEquals(expectedCommand, startCommand);
+	}
+
+	@Test
+	public void testAddBothPreAndPostfixForStartCommand(){
+		Configuration flinkConfig = new Configuration();
+		flinkConfig.setString(KubernetesConfigOptions.CONTAINER_START_COMMAND_PREFIX, "unset 1;unset 2");
+		flinkConfig.setString(KubernetesConfigOptions.CONTAINER_START_COMMAND_POSTFIX, "echo done");
+		String startCommand = KubernetesUtils.addPrePostfixToStartCommand(flinkConfig, "echo 'hello world'");
+		String expectedCommand = "unset 1;unset 2;echo 'hello world';echo done";
+		assertEquals(expectedCommand, startCommand);
+	}
+
 }

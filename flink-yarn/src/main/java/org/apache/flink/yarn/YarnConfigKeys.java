@@ -58,9 +58,6 @@ public class YarnConfigKeys {
 	public static final String ENV_FLINK_CONTAINER_ID = "_FLINK_CONTAINER_ID";
 	public static final String ENV_FLINK_NODE_ID = "_FLINK_NODE_ID";
 
-	public static final String ENV_RUNTIME_UNSET = "YARN_CONTAINER_RUNTIME_UNSET_ENV";
-	public static final String ENV_IPV6_SUPPORT = "BYTED_HOST_IPV6;MY_HOST_IPV6";
-
 	// ------------------------------------------------------------------------
 
 	// ---------------------------- Config for docker ---------------------------

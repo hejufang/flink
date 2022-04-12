@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.kubernetes.KubernetesTestUtils;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
@@ -230,7 +231,7 @@ public class JavaCmdJobManagerDecoratorTest extends KubernetesJobManagerTestBase
 				" " + ENTRY_POINT_CLASS + " " + jmLogRedirects;
 
 		final List<String> expectedArgs = Arrays.asList("/bin/bash", "-c", expectedCommand);
-		assertEquals(resultMainContainer.getArgs(), expectedArgs);
+		assertEquals(expectedArgs, resultMainContainer.getArgs());
 	}
 
 	@Test
@@ -258,7 +259,25 @@ public class JavaCmdJobManagerDecoratorTest extends KubernetesJobManagerTestBase
 				" " + ENTRY_POINT_CLASS + " " + jmLogRedirects;
 
 		final List<String> expectedArgs = Arrays.asList("/bin/bash", "-c", expectedCommand);
-		assertEquals(resultMainContainer.getArgs(), expectedArgs);
+		assertEquals(expectedArgs, resultMainContainer.getArgs());
+	}
+
+	@Test
+	public void testStartCommandWithIpv6Enabled() {
+		// enabled ipv6 and marked default cluster:flink was ipv6 supported
+		flinkConfig.setBoolean(CoreOptions.IPV6_ENABLED, true);
+		flinkConfig.setString(ConfigConstants.IPV6_SUPPORTED_CLUSTER_KEY, "flink");
+		final Container resultMainContainer =
+				javaCmdJobManagerDecorator.decorateFlinkPod(baseFlinkPod).getMainContainer();
+
+		assertEquals(Collections.singletonList(KUBERNETES_ENTRY_PATH), resultMainContainer.getCommand());
+
+		final String expectedCommand = java + " " + classpath + " " + jmJvmMem +
+				" -Djava.net.preferIPv6Addresses=true" +
+				" " + ENTRY_POINT_CLASS + " " + jmLogRedirects;
+		final List<String> expectedArgs = Arrays.asList("/bin/bash", "-c", expectedCommand);
+
+		assertEquals(expectedArgs, resultMainContainer.getArgs());
 	}
 
 	private String getJobManagerExpectedCommand(String jvmAllOpts, String logging) {

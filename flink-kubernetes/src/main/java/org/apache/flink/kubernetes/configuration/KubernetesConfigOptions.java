@@ -128,6 +128,21 @@ public class KubernetesConfigOptions {
 		.defaultValue("%java% %classpath% %jvmmem% %jvmopts% %logging% %class% %args% %redirects%")
 		.withDescription("Template for the kubernetes jobmanager and taskmanager container start invocation.");
 
+	public static final ConfigOption<String> CONTAINER_START_COMMAND_PREFIX =
+			key("kubernetes.container-start-command-prefix")
+					.stringType()
+					.noDefaultValue()
+					.withDescription("The prefix of container start command. This prefix will be added in the beginning " +
+							"of start command connected by semicolon (${prefix};${start-command}). For example, User can " +
+							"use this prefix to unset some environment variables");
+
+	public static final ConfigOption<String> CONTAINER_START_COMMAND_POSTFIX =
+			key("kubernetes.container-start-command-postfix")
+					.stringType()
+					.noDefaultValue()
+					.withDescription("The postfix of container start command. This postfix will be added at the end " +
+							"of start command connected by semicolon (${start-command};{postfix}).");
+
 	public static final ConfigOption<Map<String, String>> JOB_MANAGER_LABELS =
 		key("kubernetes.jobmanager.labels")
 		.mapType()

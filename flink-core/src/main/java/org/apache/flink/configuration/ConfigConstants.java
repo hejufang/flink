@@ -2137,8 +2137,6 @@ public final class ConfigConstants {
 	public static final String REGISTER_DASHBOARD_TOKEN = "register-dashboard.token";
 	public static final String METRIC_REGISTER_URL_TEMPLATE = "%s/api/dashboards/db";
 
-	public static final String IPV6_ENABLED_KEY = "ipv6.enabled";
-	public static final boolean IPV6_ENABLED_VALUE = false;
 	public static final String IPV6_SUPPORTED_CLUSTER_KEY = "ipv6.supported.cluster";
 
 	public static final String KAFKA_SERVER_URL_KEY = "kafka_server_url";
@@ -2199,6 +2197,10 @@ public final class ConfigConstants {
 	// ---------------------------- Config For Credit Partitioner ---------------------------
 	public static final String PARTITIONER_MAXIMUM_BACKLOG_PER_CHANNEL = "partitioner.max-backlog-per-channel";
 	public static final int PARTITIONER_MAXIMUM_BACKLOG_PER_CHANNEL_DEFAULT = 2;
+
+	public static final String ENV_RUNTIME_UNSET_YARN = "YARN_CONTAINER_RUNTIME_UNSET_ENV";
+	public static final String ENV_BYTED_IPV6_SUPPORT = "BYTED_HOST_IPV6";
+	public static final String ENV_MY_IPV6_SUPPORT = "MY_HOST_IPV6";
 
 	/**
 	 * Not instantiable.

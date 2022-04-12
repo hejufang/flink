@@ -478,4 +478,11 @@ public class CoreOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("The task will be switch to running when it is submitted to task executor, this will reduce the message between jm and tm.");
+
+	public static final ConfigOption<Boolean> IPV6_ENABLED = ConfigOptions
+			.key("ipv6.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether to enable ipv6 in job manager and task manager.");
+
 }

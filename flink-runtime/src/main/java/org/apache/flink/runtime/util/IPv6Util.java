@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.util;
 
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.CoreOptions;
 
 import java.util.Arrays;
 import java.util.List;
@@ -45,7 +46,7 @@ public class IPv6Util {
 			ConfigConstants.IPV6_SUPPORTED_CLUSTER_KEY, "");
 		List<String> ipv6SupportedClusters = Arrays.asList(ipv6SupportedClusterStr.split(","));
 
-		return flinkConfiguration.getBoolean(ConfigConstants.IPV6_ENABLED_KEY, ConfigConstants.IPV6_ENABLED_VALUE)
+		return flinkConfiguration.getBoolean(CoreOptions.IPV6_ENABLED)
 			&& ipv6SupportedClusters.contains(cluster);
 	}
 }

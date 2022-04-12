@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.kubernetes.KubernetesTestUtils;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
@@ -259,10 +260,29 @@ public class JavaCmdTaskManagerDecoratorTest extends KubernetesTaskManagerTestBa
 		assertEquals(resultMainContainer.getArgs(), expectedArgs);
 	}
 
+	@Test
+	public void testStartCommandWithIpv6Enabled() {
+		// enabled ipv6 and marked cluster:flink was ipv6 supported
+		flinkConfig.setBoolean(CoreOptions.IPV6_ENABLED, true);
+		flinkConfig.setString(ConfigConstants.IPV6_SUPPORTED_CLUSTER_KEY, "flink");
+		final Container resultMainContainer =
+				javaCmdTaskManagerDecorator.decorateFlinkPod(baseFlinkPod).getMainContainer();
+
+		assertEquals(Collections.singletonList(KUBERNETES_ENTRY_PATH), resultMainContainer.getCommand());
+
+		final String expectedCommand = java + " " + classpath + " " + tmJvmMem +
+				" -Djava.net.preferIPv6Addresses=true" +
+				" " + mainClass + " " +  mainClassArgs + " " + tmLogRedirects;
+		final List<String> expectedArgs = Arrays.asList("/bin/bash", "-c", expectedCommand);
+
+		assertEquals(expectedArgs, resultMainContainer.getArgs());
+	}
+
 	private String getTaskManagerExpectedCommand(String jvmAllOpts, String logging) {
 		return java + " " + classpath + " " + tmJvmMem +
 				(jvmAllOpts.isEmpty() ? "" : " " + jvmAllOpts) +
 				(logging.isEmpty() ? "" : " " + tmLogfile + " " + logLevel + " " + logging + " " + defaultLogSetting) +
-				" " + mainClass + " " +  mainClassArgs + " " + tmLogRedirects;
+					" " + mainClass + " " +  mainClassArgs + " " + tmLogRedirects;
 	}
+
 }

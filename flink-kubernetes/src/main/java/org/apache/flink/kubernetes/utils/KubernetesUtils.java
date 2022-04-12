@@ -46,6 +46,7 @@ import org.apache.flink.runtime.jobmanager.NoOpJobGraphStoreWatcher;
 import org.apache.flink.runtime.leaderelection.LeaderInformation;
 import org.apache.flink.runtime.persistence.RetrievableStateStorageHelper;
 import org.apache.flink.runtime.persistence.filesystem.FileSystemStateStorageHelper;
+import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.StringUtils;
@@ -372,7 +373,21 @@ public class KubernetesUtils {
 			"2> " + logDirectory + "/" + logFileName + ".err");
 
 		final String commandTemplate = flinkConfig.getString(KubernetesConfigOptions.CONTAINER_START_COMMAND_TEMPLATE);
-		return BootstrapTools.getStartCommand(commandTemplate, startCommandValues);
+		String startCommand = BootstrapTools.getStartCommand(commandTemplate, startCommandValues);
+		// add prefix and post fix command to start command
+		return addPrePostfixToStartCommand(flinkConfig, startCommand);
+	}
+
+	public static String addPrePostfixToStartCommand(Configuration flinkConfig, String startCommand) {
+		String prefix = flinkConfig.getString(KubernetesConfigOptions.CONTAINER_START_COMMAND_PREFIX);
+		String postfix = flinkConfig.getString(KubernetesConfigOptions.CONTAINER_START_COMMAND_POSTFIX);
+		if (!StringUtils.isNullOrWhitespaceOnly(prefix)){
+			startCommand = prefix + ";" + startCommand;
+		}
+		if (!StringUtils.isNullOrWhitespaceOnly(postfix)){
+			startCommand = startCommand + ";" + postfix;
+		}
+		return startCommand;
 	}
 
 	public static List<File> checkJarFileForApplicationMode(Configuration configuration) {
@@ -518,6 +533,11 @@ public class KubernetesUtils {
 		if (flinkConfig.getBoolean(CoreOptions.FLINK_JVM_ERROR_FILE_ENABLED)) {
 			/* Because the default PID number under K8S is 1, it is distinguished by time stamp */
 			baseJavaOpts += " -XX:ErrorFile=" + JVM_HS_ERROR_PATH + "hs_err_ts_" + System.currentTimeMillis() + ".log";
+		}
+
+		String ipv6JavaOpt = IPv6Util.getIpv6JavaOpt(flinkConfig, baseJavaOpts);
+		if (!StringUtils.isNullOrWhitespaceOnly(ipv6JavaOpt)) {
+			baseJavaOpts += " " + ipv6JavaOpt;
 		}
 
 		if (flinkConfig.getString(configOption).length() > 0) {

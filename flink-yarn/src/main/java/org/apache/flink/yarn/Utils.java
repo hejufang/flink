@@ -600,14 +600,14 @@ public final class Utils {
 			Map<String, String> env) {
 		if (!IPv6Util.ipv6Enabled(flinkConfiguration)) {
 			// unset the ipv6 environments when disable ipv6.
-			String oldUnsetEnvs = env.get(YarnConfigKeys.ENV_RUNTIME_UNSET);
+			String oldUnsetEnvs = env.get(ConfigConstants.ENV_RUNTIME_UNSET_YARN);
 			String newUnsetEnvs;
 			if (!StringUtils.isNullOrWhitespaceOnly(oldUnsetEnvs)) {
-				newUnsetEnvs = oldUnsetEnvs + ";" + YarnConfigKeys.ENV_IPV6_SUPPORT;
+				newUnsetEnvs = oldUnsetEnvs + ";" + ConfigConstants.ENV_BYTED_IPV6_SUPPORT + ";" + ConfigConstants.ENV_MY_IPV6_SUPPORT;
 			} else {
-				newUnsetEnvs = YarnConfigKeys.ENV_IPV6_SUPPORT;
+				newUnsetEnvs = ConfigConstants.ENV_BYTED_IPV6_SUPPORT + ";" + ConfigConstants.ENV_MY_IPV6_SUPPORT;
 			}
-			env.put(YarnConfigKeys.ENV_RUNTIME_UNSET, newUnsetEnvs);
+			env.put(ConfigConstants.ENV_RUNTIME_UNSET_YARN, newUnsetEnvs);
 		}
 	}
 
