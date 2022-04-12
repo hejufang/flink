@@ -75,6 +75,7 @@ non-global:
         job_count,
         result_count,
         instance_count,
+        query_count,
         query_phase_latency,
         latency,
       # jm threadPool usage
