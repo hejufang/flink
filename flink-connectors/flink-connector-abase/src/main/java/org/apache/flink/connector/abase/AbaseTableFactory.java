@@ -27,6 +27,7 @@ import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.abase.options.AbaseLookupOptions;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
+import org.apache.flink.connector.abase.options.AbaseSinkMetricsOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.connector.abase.utils.AbaseValueType;
@@ -44,6 +45,8 @@ import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
+import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.util.Preconditions;
 
@@ -52,8 +55,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -89,6 +94,15 @@ import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_MAX_ROWS;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONLY;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_NUMBER;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_SERIES;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_SIZE;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_EVENT_TS_NAME;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_EVENT_TS_WRITEABLE;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_PROPS;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_QUANTILES;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_TAGS_NAMES;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_TAGS_WRITEABLE;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -111,7 +125,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
 		AbaseNormalOptions normalOptions = getAbaseNormalOptions(config, physicalSchema, getJobPSM(context.getConfiguration()));
 		AbaseLookupOptions lookupOptions = getAbaseLookupOptions(config);
-		validateSchema(normalOptions, lookupOptions, physicalSchema);
+		validateSchema(lookupOptions, physicalSchema);
 		return createAbaseTableSource(
 			normalOptions,
 			lookupOptions,
@@ -138,27 +152,17 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		validateConfigOptions(config);
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
 		AbaseNormalOptions normalOptions = getAbaseNormalOptions(config, physicalSchema, getJobPSM(context.getConfiguration()));
-		validateSchema(normalOptions, null, physicalSchema);
-		return createAbaseTableSink(
+		AbaseSinkMetricsOptions metricsOptions = getAbaseSinkMetricsOptions(config, physicalSchema);
+		AbaseSinkOptions sinkOptions = getAbaseSinkOptions(config, normalOptions, metricsOptions);
+		LOG.info(metricsOptions.toString());
+		return new AbaseTableSink(
 			normalOptions,
-			getAbaseSinkOptions(config),
+			sinkOptions,
+			metricsOptions,
 			physicalSchema,
 			encodingFormat
 		);
 
-	}
-
-	protected AbaseTableSink createAbaseTableSink(
-			AbaseNormalOptions options,
-			AbaseSinkOptions insertOptions,
-			TableSchema schema,
-			@Nullable EncodingFormat<SerializationSchema<RowData>> encodingFormat) {
-		return new AbaseTableSink(
-			options,
-			insertOptions,
-			schema,
-			encodingFormat
-		);
 	}
 
 	@Override
@@ -204,10 +208,30 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		optionalOptions.add(LOOKUP_SPECIFY_HASH_KEYS);
 		optionalOptions.add(LOOKUP_LATER_JOIN_REQUESTED_HASH_KEYS);
 		optionalOptions.add(RATE_LIMIT_NUM);
+		optionalOptions.add(SINK_METRICS_QUANTILES);
+		optionalOptions.add(SINK_METRICS_EVENT_TS_NAME);
+		optionalOptions.add(SINK_METRICS_EVENT_TS_WRITEABLE);
+		optionalOptions.add(SINK_METRICS_TAGS_NAMES);
+		optionalOptions.add(SINK_METRICS_TAGS_WRITEABLE);
+		optionalOptions.add(SINK_METRICS_PROPS);
+		optionalOptions.add(SINK_METRICS_BUCKET_SIZE);
+		optionalOptions.add(SINK_METRICS_BUCKET_NUMBER);
+		optionalOptions.add(SINK_METRICS_BUCKET_SERIES);
 		return optionalOptions;
 	}
 
 	private AbaseNormalOptions getAbaseNormalOptions(ReadableConfig config, TableSchema physicalSchema, String jobPSM) {
+		AbaseValueType valueType = config.get(VALUE_TYPE);
+		boolean isHashType = false;
+		if (valueType.equals(AbaseValueType.HASH)) {
+			for (DataType dataType : physicalSchema.getFieldDataTypes()) {
+				if (dataType.getLogicalType().getTypeRoot() == LogicalTypeRoot.MAP) {
+					checkState(dataType.equals(DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
+						"Unsupported data type for hash value, should be map<varchar, varchar>");
+					isHashType = true;
+				}
+			}
+		}
 		Optional<Integer> keyIndex = validateAndGetKeyIndex(config, physicalSchema);
 		AbaseNormalOptions.AbaseOptionsBuilder builder = AbaseNormalOptions.builder()
 			.setCluster(transformClusterName(config.get(CLUSTER)))
@@ -219,7 +243,8 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			.setMaxIdleConnections(config.get(CONNECTION_MAX_IDLE_NUM))
 			.setMaxTotalConnections(config.get(CONNECTION_MAX_TOTAL_NUM))
 			.setGetResourceMaxRetries(config.get(CONNECTION_MAX_RETRIES))
-			.setAbaseValueType(config.get(VALUE_TYPE));
+			.setAbaseValueType(valueType)
+			.setHashMap(isHashType);
 		keyIndex.ifPresent(builder::setKeyIndex);
 		config.getOptional(RATE_LIMIT_NUM).ifPresent(rate -> {
 			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
@@ -241,17 +266,69 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			config.getOptional(LOOKUP_LATER_JOIN_REQUESTED_HASH_KEYS).orElse(null));
 	}
 
-	private AbaseSinkOptions getAbaseSinkOptions(ReadableConfig config) {
+	private AbaseSinkOptions getAbaseSinkOptions(
+			ReadableConfig config,
+			AbaseNormalOptions normalOptions,
+			AbaseSinkMetricsOptions metricsOptions) {
+		List<Integer> skipIdx = new ArrayList<>();
+		if (config.get(VALUE_FORMAT_SKIP_KEY)) {
+			skipIdx.add(Math.max(normalOptions.getKeyIndex(), 0));
+		}
+		if (metricsOptions.getEventTsColIndex() >= 0 && !metricsOptions.isEventTsWriteable()) {
+			skipIdx.add(metricsOptions.getEventTsColIndex());
+		}
+		if (metricsOptions.getEventTsColIndex() >= 0 && !metricsOptions.isTagWriteable()) {
+			List<Integer> tagNameIndices = metricsOptions.getTagNameIndices();
+			if (tagNameIndices != null && !tagNameIndices.isEmpty()) {
+				skipIdx.addAll(metricsOptions.getTagNameIndices());
+			}
+		}
 		AbaseSinkOptions.AbaseInsertOptionsBuilder builder = AbaseSinkOptions.builder()
 			.setFlushMaxRetries(config.get(SINK_MAX_RETRIES))
 			.setMode(config.get(SINK_MODE))
 			.setBufferMaxRows(config.get(SINK_BUFFER_FLUSH_MAX_ROWS))
 			.setBufferFlushInterval(config.get(SINK_BUFFER_FLUSH_INTERVAL).toMillis())
 			.setLogFailuresOnly(config.get(SINK_LOG_FAILURES_ONLY))
-			.setSkipFormatKey(config.get(VALUE_FORMAT_SKIP_KEY))
+			.setSkipIdx(skipIdx)
 			.setIgnoreDelete(config.get(SINK_IGNORE_DELETE))
 			.setParallelism(config.get(PARALLELISM))
 			.setTtlSeconds((int) config.get(SINK_RECORD_TTL).getSeconds());
+		return builder.build();
+	}
+
+	private AbaseSinkMetricsOptions getAbaseSinkMetricsOptions(ReadableConfig config, TableSchema schema) {
+		AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder builder = AbaseSinkMetricsOptions.builder();
+		config.getOptional(SINK_METRICS_QUANTILES).ifPresent(builder::setPercentiles);
+		builder.setEventTsWriteable(config.get(SINK_METRICS_EVENT_TS_WRITEABLE));
+		builder.setTagWriteable(config.get(SINK_METRICS_TAGS_WRITEABLE));
+		config.getOptional(SINK_METRICS_PROPS).ifPresent(builder::setProps);
+		config.getOptional(SINK_METRICS_BUCKET_SIZE).ifPresent(duration -> builder.setBucketsSize(duration.getSeconds()));
+		config.getOptional(SINK_METRICS_BUCKET_NUMBER).ifPresent(builder::setBucketsNum);
+		config.getOptional(SINK_METRICS_BUCKET_SERIES).ifPresent(builder::setBuckets);
+
+		// get and check if event-ts column name is in the schema if it's configured
+		if (config.getOptional(SINK_METRICS_EVENT_TS_NAME).isPresent()) {
+			String colName = config.getOptional(SINK_METRICS_EVENT_TS_NAME).get();
+			Optional<Integer> optionalIndex = schema.getFieldNameIndex(colName);
+			checkState(optionalIndex.isPresent(), "The specified event-ts column name " +
+				colName + " is not in the table!");
+			builder.setEventTsColName(colName);
+			builder.setEventTsColIndex(optionalIndex.get());
+		}
+
+		// check tag column names are in the schema if they are configured
+		if (config.getOptional(SINK_METRICS_TAGS_NAMES).isPresent()) {
+			List<String> tagNames = new ArrayList<>(new HashSet<>(config.getOptional(SINK_METRICS_TAGS_NAMES).get()));
+			List<Integer> tagNameIndices = new ArrayList<>(tagNames.size());
+			for (int i = 0; i < tagNames.size(); i++) {
+				String tagName = tagNames.get(i);
+				Optional<Integer> optionalIndex = schema.getFieldNameIndex(tagName);
+				checkState(optionalIndex.isPresent(), "The tag name " + tagName + " is not in the table!");
+				tagNameIndices.add(optionalIndex.get());
+			}
+			builder.setTagNames(tagNames);
+			builder.setTagNameIndices(tagNameIndices);
+		}
 		return builder.build();
 	}
 
@@ -272,22 +349,10 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		});
 	}
 
-	private void validateSchema(
-			AbaseNormalOptions options,
-			@Nullable AbaseLookupOptions lookupOptions,
-			TableSchema schema) {
-		if (options.getAbaseValueType().equals(AbaseValueType.HASH) && schema.getFieldCount() == 2) {
-			// Both sink and lookup should be checked.
-			if (lookupOptions == null || !lookupOptions.isSpecifyHashKeys()) {
-				checkState(schema.getFieldDataTypes()[1]
-						.equals(DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
-					"Unsupported type for hash value, should be map<varchar, varchar>");
-			}
-		}
-
+	private void validateSchema(AbaseLookupOptions lookupOptions, TableSchema schema) {
 		// check whether lookup later join requested hash keys are in the schema
-		if (lookupOptions != null && lookupOptions.isSpecifyHashKeys() &&
-			lookupOptions.getRequestedHashKeys() != null && !lookupOptions.getRequestedHashKeys().isEmpty()) {
+		if (lookupOptions.isSpecifyHashKeys() && lookupOptions.getRequestedHashKeys() != null
+			&& !lookupOptions.getRequestedHashKeys().isEmpty()) {
 			Set<String> columns = Arrays.stream(schema.getFieldNames()).collect(Collectors.toSet());
 			boolean valid = columns.containsAll(lookupOptions.getRequestedHashKeys());
 			checkState(valid, "Requested hash keys are not in the schema!");

@@ -277,6 +277,79 @@ public final class FactoryUtil {
 		.defaultValue(true)
 		.withDescription("Optional. The flag decides if delete messages should be ignored or not.");
 
+	// ------------------------------------------------------------------------
+	//  Sink metrics Options
+	// ------------------------------------------------------------------------
+
+	public static final ConfigOption<List<Double>> SINK_METRICS_QUANTILES = ConfigOptions
+		.key("sink.metrics.quantiles")
+		.doubleType()
+		.asList()
+		.defaultValues(0.5, 0.9, 0.95, 0.99)
+		.withDescription("Optional. The list of quantiles to be calculated of sink connector." +
+			"The default values are 0.5/0.9/0.95/0.99, which are TP50/TP90/TP95/TP99 percentiles of data. " +
+			"Note that 'sink.metrics.event-ts.name' should be explicitly configured in order to enable " +
+			"metrics collection and report.");
+
+	public static final ConfigOption<String> SINK_METRICS_EVENT_TS_NAME = ConfigOptions
+		.key("sink.metrics.event-ts.name")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional. Mark the column which is the timestamp(13-digits) of data. It is also the flag " +
+			"that enable metrics collection and report.");
+
+	public static final ConfigOption<Boolean> SINK_METRICS_EVENT_TS_WRITEABLE = ConfigOptions
+		.key("sink.metrics.event-ts.writeable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional. Indicate whether the marked column specified by 'sink.metrics.event-ts.name' " +
+			"is written by the connector. The default value is false so that the column is not written by default.");
+
+	public static final ConfigOption<List<String>> SINK_METRICS_TAGS_NAMES = ConfigOptions
+		.key("sink.metrics.tag.names")
+		.stringType()
+		.asList()
+		.defaultValues()
+		.withDescription("Optional. Mark columns which are the tags of metrics. Metrics with different tags are " +
+			"collected independently. The default value is a empty column, so that only one series of metrics " +
+			"of data is collected and reported.");
+
+	public static final ConfigOption<Boolean> SINK_METRICS_TAGS_WRITEABLE = ConfigOptions
+		.key("sink.metrics.tags.writeable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional. Signify whether the columns marked by 'sink.metrics.tag.names' are written to " +
+			"the target storage. The columns are not written by default.");
+
+	public static final ConfigOption<Map<String, String>> SINK_METRICS_PROPS = ConfigOptions
+		.key("sink.metrics.props")
+		.mapType()
+		.noDefaultValue()
+		.withDescription("Optional. The extra properties to be reported with metrics");
+
+	public static final ConfigOption<Duration> SINK_METRICS_BUCKET_SIZE = ConfigOptions
+		.key("sink.metrics.bucket.size")
+		.durationType()
+		.noDefaultValue()
+		.withDescription("Optional. The bucket size of histogram. Each bucket is of the same size. " +
+			"'sink.metrics.buckets.number' should be configured at the same time.");
+
+	public static final ConfigOption<Integer> SINK_METRICS_BUCKET_NUMBER = ConfigOptions
+		.key("sink.metrics.bucket.number")
+		.intType()
+		.noDefaultValue()
+		.withDescription("Optional. The number of buckets. 'sink.metrics.buckets.size' should be configured " +
+			"at the same time.");
+
+	public static final ConfigOption<List<Long>> SINK_METRICS_BUCKET_SERIES = ConfigOptions
+		.key("sink.metrics.bucket.series")
+		.longType()
+		.asList()
+		.defaultValues()
+		.withDescription("Optional. Manually configured a series of bucket division points. Note that the unit of " +
+			"series is seconds. For example, if the series is 30;60;120;300, then the buckets are " +
+			"[0, 30s), [30s, 60s), [60s, 120s), [120s, 300s) and [300s, +infinity).");
+
 	private static final String FORMAT_KEY = "format";
 
 	private static final String FORMAT_SUFFIX = ".format";

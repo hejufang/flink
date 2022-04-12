@@ -21,6 +21,7 @@ package org.apache.flink.metrics.databus;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.kubernetes.utils.Constants;
+import org.apache.flink.metrics.BucketHistogramStatistic;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.GlobalGauge;
@@ -33,9 +34,12 @@ import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.TagBucketHistogram;
 import org.apache.flink.metrics.WarehouseOriginalMetricMessage;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
+import org.apache.flink.metrics.warehouse.ConnectorSinkMetricMessage;
+import org.apache.flink.metrics.warehouse.WarehouseMessage;
 import org.apache.flink.runtime.metrics.groups.FrontMetricGroup;
 import org.apache.flink.runtime.metrics.groups.GenericMetricGroup;
 import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
@@ -68,6 +72,11 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 	 */
 	private static final String LATENCY_MARKER_REGEX = "(\\S+)\\.taskmanager\\.(\\w+)\\.(\\w+)\\.latency\\.(\\S+)\\.latency";
 
+	/**
+	 * connector sink latency, should be equals to the value of
+	 * org.apache.flink.table.metric.SinkMetricUtils#SINK_EVENT_TIME_LATENCY.
+	 */
+	private static final String SINK_EVENT_TIME_LATENCY = "sinkConnectorLatency";
 
 	/** ban some fine-grained metrics to avoid too much traffic in Kafka. */
 	private static final Set<Class> bannedMetricGroups = new HashSet<>(Arrays.asList(
@@ -111,6 +120,8 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 	 */
 	protected final Map<Histogram, String> latencyHistograms = new HashMap<>();
 
+	protected final Map<TagBucketHistogram, String> connectorLatencyHistogram = new HashMap<>();
+
 	@Override
 	public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
 		final String name = group.getMetricIdentifier(metricName, this);
@@ -129,6 +140,11 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 				 */
 				if (name.matches(LATENCY_MARKER_REGEX)) {
 					latencyHistograms.put((Histogram) metric, name);
+				}
+
+				// filter sink latency metrics
+				if (metricName.equals(SINK_EVENT_TIME_LATENCY)) {
+					connectorLatencyHistogram.put((TagBucketHistogram) metric, name);
 				}
 			}
 		}
@@ -247,6 +263,23 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 				sendMessageToDatabusClient(name + "." + "p99", statistics.getQuantile(0.99), MessageType.JOB_LATENCY);
 			}
 
+			// report connector sink latency
+			for (Map.Entry<TagBucketHistogram, String> latencyEntry : connectorLatencyHistogram.entrySet()) {
+				String name = latencyEntry.getValue();
+				TagBucketHistogram histogram = latencyEntry.getKey();
+				Map<Map<String, String>, BucketHistogramStatistic> statisticMap = histogram.getStatisticsOfAllTags();
+				for (Map.Entry<Map<String, String>, BucketHistogramStatistic> statisticEntry : statisticMap.entrySet()) {
+					Map<String, String> tags = statisticEntry.getKey();
+					BucketHistogramStatistic statistic = statisticEntry.getValue();
+					ConnectorSinkMetricMessage message = new ConnectorSinkMetricMessage(
+							tags,
+							statistic.getQuantiles(),
+							statistic.size(),
+							histogram.getProps());
+					sendDataToDatabusClient(name, message, MessageType.CONNECTOR_SINK_LATENCY);
+				}
+			}
+
 			try {
 				clientWrapper.flush();
 			} catch (IOException e) {
@@ -265,6 +298,14 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 
 	private void sendMessageToDatabusClient(String metricName, double metricValue, MessageType messageType) {
 		final Message<WarehouseOriginalMetricMessage> message = new Message<>(new WarehouseOriginalMetricMessage(metricName, metricValue));
+		fillMessageMeta(message);
+		message.getMeta().setMetricName(metricName);
+		message.getMeta().setMessageType(messageType);
+		sendToDatabusClient(message);
+	}
+
+	private <T extends WarehouseMessage> void sendDataToDatabusClient(String metricName, T data, MessageType messageType) {
+		Message<T> message = new Message<>(data);
 		fillMessageMeta(message);
 		message.getMeta().setMetricName(metricName);
 		message.getMeta().setMessageType(messageType);

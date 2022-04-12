@@ -18,10 +18,13 @@
 
 package org.apache.flink.connector.abase.utils;
 
+import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.connector.abase.client.AbaseClientWrapper;
 import org.apache.flink.connector.abase.client.BaseClient;
 import org.apache.flink.connector.abase.client.RedisClientWrapper;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
+import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.abase.AbaseClient;
@@ -77,5 +80,12 @@ public class AbaseClientTableUtils {
 		}
 		LOG.info("RedisClient Connection established");
 		return client;
+	}
+
+	public static ProcessingTimeService getTimeService(RuntimeContext context) {
+		if (context instanceof StreamingRuntimeContext) {
+			return ((StreamingRuntimeContext) context).getProcessingTimeService();
+		}
+		throw new IllegalArgumentException("Failed to get processing time service of context.");
 	}
 }

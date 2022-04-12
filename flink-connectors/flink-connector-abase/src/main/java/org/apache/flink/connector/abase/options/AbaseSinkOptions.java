@@ -22,6 +22,9 @@ import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -40,10 +43,11 @@ public class AbaseSinkOptions implements Serializable {
 	 * Flag indicating whether to ignore failures (and log them), or to fail on failures.
 	 */
 	private final boolean logFailuresOnly;
+
 	/**
-	 * Flag indicating whether to only serialization without key.
+	 * Indices of columns that are not written to abase.
 	 */
-	private final boolean skipFormatKey;
+	private final List<Integer> skipIdx;
 
 	private final boolean ignoreDelete;
 
@@ -71,8 +75,8 @@ public class AbaseSinkOptions implements Serializable {
 		return parallelism;
 	}
 
-	public boolean isSkipFormatKey() {
-		return skipFormatKey;
+	public List<Integer> getSkipIdx() {
+		return skipIdx;
 	}
 
 	public boolean isIgnoreDelete() {
@@ -90,7 +94,7 @@ public class AbaseSinkOptions implements Serializable {
 			long bufferFlushInterval,
 			int ttlSeconds,
 			boolean logFailuresOnly,
-			boolean skipFormatKey,
+			List<Integer> skipIdx,
 			boolean ignoreDelete,
 			int parallelism) {
 		this.flushMaxRetries = flushMaxRetries;
@@ -99,7 +103,7 @@ public class AbaseSinkOptions implements Serializable {
 		this.bufferFlushInterval = bufferFlushInterval;
 		this.ttlSeconds = ttlSeconds;
 		this.logFailuresOnly = logFailuresOnly;
-		this.skipFormatKey = skipFormatKey;
+		this.skipIdx = skipIdx;
 		this.ignoreDelete = ignoreDelete;
 		this.parallelism = parallelism;
 	}
@@ -118,7 +122,7 @@ public class AbaseSinkOptions implements Serializable {
 		private long bufferFlushInterval = 2000;
 		private int ttlSeconds = -1;
 		private boolean logFailuresOnly;
-		private boolean skipFormatKey;
+		private List<Integer> skipIdx = new ArrayList<>();
 		private boolean ignoreDelete = true;
 		private int parallelism;
 
@@ -150,8 +154,8 @@ public class AbaseSinkOptions implements Serializable {
 			return this;
 		}
 
-		public AbaseInsertOptionsBuilder setSkipFormatKey(boolean skipFormatKey) {
-			this.skipFormatKey = skipFormatKey;
+		public AbaseInsertOptionsBuilder setSkipIdx(List<Integer> skipIdx) {
+			this.skipIdx = skipIdx;
 			return this;
 		}
 
@@ -175,6 +179,7 @@ public class AbaseSinkOptions implements Serializable {
 				"flushMaxRetries must be greater than 0");
 			Preconditions.checkArgument(bufferMaxRows > 0,
 				"batchSize must be greater than 0");
+			Collections.sort(skipIdx);
 			return new AbaseSinkOptions(
 				flushMaxRetries,
 				mode,
@@ -182,7 +187,7 @@ public class AbaseSinkOptions implements Serializable {
 				bufferFlushInterval,
 				ttlSeconds,
 				logFailuresOnly,
-				skipFormatKey,
+				skipIdx,
 				ignoreDelete,
 				parallelism);
 		}
@@ -191,12 +196,12 @@ public class AbaseSinkOptions implements Serializable {
 		public String toString() {
 			return "AbaseInsertOptionsBuilder{" +
 				"flushMaxRetries=" + flushMaxRetries +
-				", mode='" + mode + '\'' +
+				", mode=" + mode +
 				", bufferMaxRows=" + bufferMaxRows +
 				", bufferFlushInterval=" + bufferFlushInterval +
 				", ttlSeconds=" + ttlSeconds +
 				", logFailuresOnly=" + logFailuresOnly +
-				", skipFormatKey=" + skipFormatKey +
+				", skipIdx=" + skipIdx +
 				", ignoreDelete=" + ignoreDelete +
 				", parallelism=" + parallelism +
 				'}';
@@ -218,7 +223,7 @@ public class AbaseSinkOptions implements Serializable {
 			ttlSeconds == that.ttlSeconds &&
 			parallelism == that.parallelism &&
 			logFailuresOnly == that.logFailuresOnly &&
-			skipFormatKey == that.skipFormatKey &&
+			Objects.equals(skipIdx, that.skipIdx) &&
 			ignoreDelete == that.ignoreDelete &&
 			mode == that.mode;
 	}
@@ -233,7 +238,7 @@ public class AbaseSinkOptions implements Serializable {
 			ttlSeconds,
 			parallelism,
 			logFailuresOnly,
-			skipFormatKey,
+			skipIdx,
 			ignoreDelete);
 	}
 }

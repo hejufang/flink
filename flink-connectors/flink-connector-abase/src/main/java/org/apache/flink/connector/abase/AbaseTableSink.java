@@ -19,6 +19,7 @@ package org.apache.flink.connector.abase;
 
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
+import org.apache.flink.connector.abase.options.AbaseSinkMetricsOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.table.api.TableColumn;
@@ -34,6 +35,7 @@ import org.apache.flink.types.RowKind;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -45,6 +47,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class AbaseTableSink implements DynamicTableSink{
 	private final AbaseNormalOptions normalOptions;
 	private final AbaseSinkOptions sinkOptions;
+	private final AbaseSinkMetricsOptions sinkMetricsOptions;
 	private final TableSchema schema;
 	@Nullable
 	protected final EncodingFormat<SerializationSchema<RowData>> encodingFormat;
@@ -52,10 +55,12 @@ public class AbaseTableSink implements DynamicTableSink{
 	public AbaseTableSink(
 			AbaseNormalOptions normalOptions,
 			AbaseSinkOptions sinkOptions,
+			AbaseSinkMetricsOptions sinkMetricsOptions,
 			TableSchema schema,
 			@Nullable EncodingFormat<SerializationSchema<RowData>> encodingFormat) {
 		this.normalOptions = normalOptions;
 		this.sinkOptions = sinkOptions;
+		this.sinkMetricsOptions = sinkMetricsOptions;
 		this.schema = schema;
 		this.encodingFormat = encodingFormat;
 	}
@@ -83,14 +88,16 @@ public class AbaseTableSink implements DynamicTableSink{
 	@Override
 	public SinkRuntimeProvider getSinkRuntimeProvider(Context context) {
 		TableSchema realSchema = schema;
-		if (encodingFormat != null && sinkOptions.isSkipFormatKey()) {
+		if (encodingFormat != null && !sinkOptions.getSkipIdx().isEmpty()) {
 			TableSchema.Builder builder = new TableSchema.Builder();
-			List<TableColumn> columns = schema.getTableColumns();
-			if (normalOptions.getKeyIndex() > 0) {
-				columns.remove(normalOptions.getKeyIndex());
-			} else {
-				// default primary key row.
-				columns.remove(0);
+			int size = schema.getTableColumns().size() - sinkOptions.getSkipIdx().size();
+			List<TableColumn> columns = new ArrayList<>(size);
+			for (int i = 0, j = 0; i < schema.getTableColumns().size(); i++) {
+				if (j < sinkOptions.getSkipIdx().size() && sinkOptions.getSkipIdx().get(j) == i) {
+					j++;
+					continue;
+				}
+				columns.add(schema.getTableColumns().get(i));
 			}
 			columns.forEach(column -> builder.field(column.getName(), column.getType()));
 			realSchema = builder.build();
@@ -101,6 +108,7 @@ public class AbaseTableSink implements DynamicTableSink{
 		AbaseOutputFormat outputFormat = new AbaseOutputFormat(
 			normalOptions,
 			sinkOptions,
+			sinkMetricsOptions,
 			rowType,
 			encodingFormat == null ? null : encodingFormat.createRuntimeEncoder(context, realSchema.toRowDataType()),
 			converter
@@ -117,6 +125,7 @@ public class AbaseTableSink implements DynamicTableSink{
 		return new AbaseTableSink(
 			normalOptions,
 			sinkOptions,
+			sinkMetricsOptions,
 			schema,
 			encodingFormat
 		);

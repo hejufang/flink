@@ -19,6 +19,7 @@
 package org.apache.flink.connector.abase.executor;
 
 import org.apache.flink.connector.abase.client.ClientPipeline;
+import org.apache.flink.connector.abase.options.AbaseNormalOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.ByteArrayWrapper;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
@@ -48,15 +49,18 @@ public class AbaseSinkHashBufferReduceExecutor extends AbaseSinkBatchExecutor<Ro
 
 	private final RowData.FieldGetter[] fieldGetters;
 	private final DynamicTableSink.DataStructureConverter converter;
+	private final AbaseNormalOptions normalOptions;
 	private final AbaseSinkOptions sinkOptions;
 
 	public AbaseSinkHashBufferReduceExecutor(
 			RowData.FieldGetter[] fieldGetters,
 			DynamicTableSink.DataStructureConverter converter,
+			AbaseNormalOptions normalOptions,
 			AbaseSinkOptions sinkOptions) {
 		super(null);
 		this.fieldGetters = fieldGetters;
 		this.converter = converter;
+		this.normalOptions = normalOptions;
 		this.sinkOptions = sinkOptions;
 		this.insertBuffer = new HashMap<>();
 		this.retractBuffer = new HashMap<>();
@@ -65,7 +69,7 @@ public class AbaseSinkHashBufferReduceExecutor extends AbaseSinkBatchExecutor<Ro
 	@Override
 	public void addToBatch(RowData record) {
 		ByteArrayWrapper key;
-		if (record.getArity() == 2) {
+		if (normalOptions.isHashMap()) {
 			Row res = (Row) converter.toExternal(record);
 			if (res == null) {
 				throw new FlinkRuntimeException("Get null when convert to row: " + record);

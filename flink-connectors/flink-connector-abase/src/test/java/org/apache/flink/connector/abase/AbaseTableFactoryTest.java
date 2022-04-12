@@ -22,6 +22,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.connector.abase.options.AbaseLookupOptions;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
+import org.apache.flink.connector.abase.options.AbaseSinkMetricsOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
@@ -33,7 +34,9 @@ import org.apache.flink.table.factories.FactoryUtil;
 
 import org.junit.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.apache.flink.configuration.PipelineOptions.JOB_PSM_PREFIX;
@@ -47,7 +50,6 @@ import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_IGN
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_MAX_RETRIES;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_MODE;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_RECORD_TTL;
-import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.VALUE_FORMAT_SKIP_KEY;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.VALUE_TYPE;
 import static org.apache.flink.connector.abase.utils.Constants.ABASE_IDENTIFIER;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_MAX_ROWS;
@@ -120,13 +122,14 @@ public class AbaseTableFactoryTest {
 		// validation for sink
 		DynamicTableSink actualSink = createTableSink(properties);
 		// default sink configurations
+		List<Integer> skipIdx = Collections.singletonList(0);
 		AbaseSinkOptions sinkOptions = AbaseSinkOptions.builder()
 				.setFlushMaxRetries(SINK_MAX_RETRIES.defaultValue())
 				.setMode(SINK_MODE.defaultValue())
 				.setBufferMaxRows(SINK_BUFFER_FLUSH_MAX_ROWS.defaultValue())
 				.setBufferFlushInterval(SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis())
 				.setLogFailuresOnly(SINK_LOG_FAILURES_ONLY.defaultValue())
-				.setSkipFormatKey(VALUE_FORMAT_SKIP_KEY.defaultValue())
+				.setSkipIdx(skipIdx)
 				.setIgnoreDelete(SINK_IGNORE_DELETE.defaultValue())
 				.setParallelism(PARALLELISM.defaultValue())
 				.setTtlSeconds((int) SINK_RECORD_TTL.defaultValue().getSeconds())
@@ -134,6 +137,7 @@ public class AbaseTableFactoryTest {
 		AbaseTableSink expectedSink = new AbaseTableSink(
 				options,
 				sinkOptions,
+				new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
 				schema,
 				null
 		);

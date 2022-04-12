@@ -28,16 +28,20 @@ import org.apache.flink.connector.abase.executor.AbaseSinkBufferReduceExecutor;
 import org.apache.flink.connector.abase.executor.AbaseSinkGenericExecutor;
 import org.apache.flink.connector.abase.executor.AbaseSinkHashBufferReduceExecutor;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
+import org.apache.flink.connector.abase.options.AbaseSinkMetricsOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.AbaseClientTableUtils;
 import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.connector.abase.utils.AbaseValueType;
 import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.TagBucketHistogram;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
+import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.table.connector.RuntimeConverter;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.metric.SinkMetricUtils;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -50,8 +54,12 @@ import redis.clients.jedis.exceptions.JedisException;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -71,6 +79,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	private static final Logger LOG = LoggerFactory.getLogger(AbaseOutputFormat.class);
 	private final AbaseNormalOptions normalOptions;
 	private final AbaseSinkOptions sinkOptions;
+	private final AbaseSinkMetricsOptions sinkMetricsOptions;
 	private final SerializationSchema<RowData> serializationSchema;
 	private final RowData.FieldGetter[] fieldGetters;
 	private final DynamicTableSink.DataStructureConverter converter;
@@ -84,17 +93,23 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	private transient volatile Exception flushException;
 	private transient volatile boolean closed = false;
 
+	// metrics
+	protected transient ProcessingTimeService timeService;
+	protected transient TagBucketHistogram latencyHistogram;
+
 	public static final String WRITE_FAILED_METRIC_NAME = "writeFailed";
 	public static final String THREAD_POOL_NAME = "abase-sink-function";
 
 	public AbaseOutputFormat(
 			AbaseNormalOptions normalOptions,
 			AbaseSinkOptions sinkOptions,
+			AbaseSinkMetricsOptions sinkMetricsOptions,
 			RowType rowType,
 			@Nullable SerializationSchema<RowData> serializationSchema,
 			DynamicTableSink.DataStructureConverter converter) {
 		this.normalOptions = normalOptions;
 		this.sinkOptions = sinkOptions;
+		this.sinkMetricsOptions = sinkMetricsOptions;
 		this.serializationSchema = serializationSchema;
 		this.fieldGetters = IntStream
 			.range(0, rowType.getFieldCount())
@@ -124,6 +139,8 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		converter.open(RuntimeConverter.Context.create(AbaseOutputFormat.class.getClassLoader()));
 		scheduler = Executors.newScheduledThreadPool(
 			1, new ExecutorThreadFactory(THREAD_POOL_NAME));
+		initLatencyMetrics();
+		initBatchExecutor();
 		if (sinkOptions.getBufferFlushInterval() > 0) {
 			scheduledFuture = scheduler.scheduleWithFixedDelay(() -> {
 					synchronized (AbaseOutputFormat.class) {
@@ -141,7 +158,6 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 				}, sinkOptions.getBufferFlushInterval(), sinkOptions.getBufferFlushInterval(),
 				TimeUnit.MILLISECONDS);
 		}
-		initBatchExecutor();
 	}
 
 	/**
@@ -169,7 +185,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		// because of disorder of pipeline execution.
 		} else if (sinkOptions.getMode() == AbaseSinkMode.INSERT
 			&& normalOptions.getAbaseValueType().equals(AbaseValueType.HASH)) {
-			batchExecutor = new AbaseSinkHashBufferReduceExecutor(fieldGetters, converter, sinkOptions);
+			batchExecutor = new AbaseSinkHashBufferReduceExecutor(fieldGetters, converter, normalOptions, sinkOptions);
 
 		} else {
 			// The data of general or hash data type can be reduced but not compulsive.
@@ -183,6 +199,37 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 				batchExecutor = new AbaseSinkGenericExecutor(insertFunction);
 			}
 		}
+	}
+
+	private void initLatencyMetrics() {
+		if (!sinkMetricsOptions.isCollected()) {
+			return;
+		}
+		TagBucketHistogram.TagBucketHistogramBuilder builder = TagBucketHistogram.builder();
+		List<Double> quantiles = sinkMetricsOptions.getPercentiles();
+		if (quantiles != null && !quantiles.isEmpty()) {
+			builder.setQuantiles(quantiles);
+		}
+		if (sinkMetricsOptions.getBucketsSize() > 0 && sinkMetricsOptions.getBucketsNum() > 0) {
+			List<Long> buckets = new ArrayList<>(sinkMetricsOptions.getBucketsNum());
+			long sum = 0L;
+			for (int i = 0; i < sinkMetricsOptions.getBucketsNum(); i++) {
+				buckets.add(sum);
+				sum += sinkMetricsOptions.getBucketsSize();
+			}
+			builder.setBuckets(buckets);
+		}
+		List<Long> buckets = sinkMetricsOptions.getBuckets();
+		if (buckets != null && !buckets.isEmpty()) {
+			builder.setBuckets(buckets);
+		}
+		Map<String, String> props = sinkMetricsOptions.getProps();
+		if (props != null && !props.isEmpty()) {
+			builder.setProps(props);
+		}
+		TagBucketHistogram histogram = builder.build();
+		latencyHistogram = SinkMetricUtils.registerSinkLatency(getRuntimeContext().getMetricGroup(), histogram);
+		timeService = AbaseClientTableUtils.getTimeService(getRuntimeContext());
 	}
 
 	private void checkFlushException() {
@@ -204,8 +251,40 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		}
 		batchExecutor.addToBatch(record);
 		batchCount++;
+		if (latencyHistogram != null) {
+			updateLatency(record);
+		}
 		if (batchCount >= sinkOptions.getBufferMaxRows()) {
 			flush();
+		}
+	}
+
+	private void updateLatency(RowData record) {
+		try {
+			int eventTsIdx = sinkMetricsOptions.getEventTsColIndex();
+			long eventTs = (long) Objects.requireNonNull(fieldGetters[eventTsIdx].getFieldOrNull(record),
+				"Get null of event ts column of index " + eventTsIdx);
+			long latency = (timeService.getCurrentProcessingTime() - eventTs) / 1000;
+			if (latency < 0) {
+				LOG.warn("Got negative latency, invalid event ts: " + eventTs);
+				return;
+			}
+			List<Integer> tagIndices = sinkMetricsOptions.getTagNameIndices();
+			if (tagIndices != null && !tagIndices.isEmpty()) {
+				Map<String, String> tags = new HashMap<>();
+				Iterator<Integer> tagIdxIter = sinkMetricsOptions.getTagNameIndices().iterator();
+				for (String tagName : sinkMetricsOptions.getTagNames()) {
+					int idx = tagIdxIter.next();
+					String tagValue = Objects.requireNonNull(fieldGetters[idx].getFieldOrNull(record),
+						"get null of tag name " + tagName).toString();
+					tags.put(tagName, tagValue);
+				}
+				latencyHistogram.update(latency, tags);
+			} else {
+				latencyHistogram.update(latency);
+			}
+		} catch (Throwable throwable) {
+			LOG.error("Failed to update sink latency", throwable);
 		}
 	}
 
@@ -258,14 +337,19 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	}
 
 	private byte[] serializeValue(RowData record) {
-		if (sinkOptions.isSkipFormatKey()) {
-			GenericRowData newRow = new GenericRowData(record.getArity() - 1);
-			for (int i = 0; i < record.getArity() - 1; i++) {
-				newRow.setField(i, fieldGetters[i + 1].getFieldOrNull(record));
-			}
-			return serializationSchema.serialize(newRow);
-		} else {
+		if (sinkOptions.getSkipIdx().isEmpty()) {
 			return serializationSchema.serialize(record);
+		} else {
+			Object[] fields = new Object[record.getArity() - sinkOptions.getSkipIdx().size()];
+			int idx = 0;
+			for (int i = 0, j = 0; i < record.getArity(); i++) {
+				if (j < sinkOptions.getSkipIdx().size() && sinkOptions.getSkipIdx().get(j) == i) {
+					j++;
+					continue;
+				}
+				fields[idx++] = (fieldGetters[i].getFieldOrNull(record));
+			}
+			return serializationSchema.serialize(GenericRowData.of(fields));
 		}
 	}
 
@@ -423,17 +507,6 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	private void initClient() {
 		this.client = AbaseClientTableUtils.getClientWrapper(normalOptions);
 		this.client.open();
-	}
-
-	/**
-	 * Convert key value to (byte[], byte[]).
-	 */
-	private Map<byte[], byte[]> convertHashMap(Map<String, String> originMap) {
-		Map<byte[], byte[]> byteMap = new HashMap<>();
-		for (Map.Entry<String, String> entry : originMap.entrySet()) {
-			byteMap.put(entry.getKey().getBytes(), entry.getValue().getBytes());
-		}
-		return byteMap;
 	}
 }
 

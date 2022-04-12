@@ -41,6 +41,7 @@ public class AbaseNormalOptions implements Serializable {
 	private final int maxRetries;
 	private final int keyIndex;
 	private final AbaseValueType abaseValueType;
+	private final boolean isHashMap;
 	private final FlinkConnectorRateLimiter rateLimiter;
 
 	public String getCluster() {
@@ -87,6 +88,10 @@ public class AbaseNormalOptions implements Serializable {
 		return abaseValueType;
 	}
 
+	public boolean isHashMap() {
+		return isHashMap;
+	}
+
 	public FlinkConnectorRateLimiter getRateLimiter() {
 		return rateLimiter;
 	}
@@ -103,6 +108,7 @@ public class AbaseNormalOptions implements Serializable {
 			int maxRetries,
 			int keyIndex,
 			AbaseValueType abaseValueType,
+			boolean isHashMap,
 			FlinkConnectorRateLimiter rateLimiter) {
 		this.cluster = cluster;
 		this.table = table;
@@ -115,6 +121,7 @@ public class AbaseNormalOptions implements Serializable {
 		this.maxRetries = maxRetries;
 		this.keyIndex = keyIndex;
 		this.abaseValueType = abaseValueType;
+		this.isHashMap = isHashMap;
 		this.rateLimiter = rateLimiter;
 	}
 
@@ -138,6 +145,7 @@ public class AbaseNormalOptions implements Serializable {
 		private int getResourceMaxRetries = 5;
 		private int keyIndex = -1;
 		private AbaseValueType abaseValueType = AbaseValueType.GENERAL;
+		private boolean isHashMap = false;
 		private FlinkConnectorRateLimiter rateLimiter;
 
 		private AbaseOptionsBuilder() {
@@ -198,6 +206,11 @@ public class AbaseNormalOptions implements Serializable {
 			return this;
 		}
 
+		public AbaseOptionsBuilder setHashMap(boolean isHashMap) {
+			this.isHashMap = isHashMap;
+			return this;
+		}
+
 		public AbaseOptionsBuilder setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
 			this.rateLimiter = rateLimiter;
 			return this;
@@ -221,6 +234,7 @@ public class AbaseNormalOptions implements Serializable {
 				getResourceMaxRetries,
 				keyIndex,
 				abaseValueType,
+				isHashMap,
 				rateLimiter);
 		}
 
@@ -238,6 +252,7 @@ public class AbaseNormalOptions implements Serializable {
 				", getResourceMaxRetries=" + getResourceMaxRetries +
 				", keyIndex=" + keyIndex +
 				", abaseValueType=" + abaseValueType +
+				", isHashMap=" + isHashMap +
 				'}';
 		}
 	}
@@ -262,6 +277,7 @@ public class AbaseNormalOptions implements Serializable {
 			Objects.equals(storage, that.storage) &&
 			Objects.equals(psm, that.psm) &&
 			abaseValueType == that.abaseValueType &&
+			isHashMap == that.isHashMap &&
 			Objects.equals(rateLimiter, that.rateLimiter);
 	}
 
@@ -279,6 +295,7 @@ public class AbaseNormalOptions implements Serializable {
 			maxRetries,
 			keyIndex,
 			abaseValueType,
+			isHashMap,
 			rateLimiter);
 	}
 }

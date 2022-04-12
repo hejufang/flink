@@ -16,46 +16,21 @@
  * limitations under the License.
  */
 
-package org.apache.flink.metrics;
+package org.apache.flink.table.metric;
+
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.TagBucketHistogram;
 
 /**
- * The type of {@link Message}.
+ * Utils for sink table metrics.
  */
-public enum MessageType {
+public class SinkMetricUtils {
 
-	CHECKPOINT("checkpoint"),
+	public static final String SINK_EVENT_TIME_LATENCY = "sinkConnectorLatency";
 
-	CHECKPOINT_CONFIG("checkpoint_config"),
-
-	ORIGINAL_METRICS("original_metrics"),
-
-	BLACKLIST("blacklist"),
-
-	JOB_CONFIG("job_config"),
-
-	JOB_START_EVENT("job_start_event"),
-
-	SNAPSHOT("snapshot"),
-
-	RESTORE("restore"),
-
-	CACHE_LAYER("cache_layer"),
-
-	CHECKPOINT_PLACEHOLDER("checkpoint_placeholder"),
-
-	LOCAL_STATE("local_state"),
-
-	TASK_SHUFFLE_INFO("task_shuffle_info"),
-
-	FLINK_BATCH("flink_batch"),
-
-	JOB_LATENCY("job_latency"),
-
-	CONNECTOR_SINK_LATENCY("connector_sink_latency");
-
-	private final String name;
-
-	MessageType(final String name) {
-		this.name = name;
+	public static TagBucketHistogram registerSinkLatency(MetricGroup group, TagBucketHistogram histogram) {
+		return group.histogram(SINK_EVENT_TIME_LATENCY, histogram);
 	}
+
+	private SinkMetricUtils() {}
 }
