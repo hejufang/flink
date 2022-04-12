@@ -486,6 +486,12 @@ public class JobManagerOptions {
 			.defaultValue(false)
 			.withDescription("JobMaster request slots from resource manager directly when true.");
 
+	public static final ConfigOption<Boolean> JOBMANAGER_REQUEST_TASK_MANAGER_JOB_SPREAD_ENABLE =
+		key("jobmanager.request-task-manager-job-spread.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("JobMaster request task managers with job spread when true.");
+
 	/**
 	 * JobMaster request workers from ResourceManager directly.
 	 */

@@ -48,11 +48,11 @@ public class ExecutionSlotAllocatorFactoryLoader {
 		final boolean jobMasterResourceAllocationDirectEnabled = config.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED);
 		if (jobMasterResourceAllocationDirectEnabled) {
 			if (slotPool instanceof VirtualTaskManagerSlotPool) {
-				LOG.info("Using {} as ExecutionSlotAllocatorFactory.", RandomTaskManagerExecutionSlotAllocator.RandomTaskManagerExecutionSlotAllocatorFactory.class.getName());
-				return new RandomTaskManagerExecutionSlotAllocator.RandomTaskManagerExecutionSlotAllocatorFactory((VirtualTaskManagerSlotPool) slotPool);
+				LOG.info("Using {} as ExecutionSlotAllocatorFactory.", TaskManagerExecutionSlotAllocator.RandomTaskManagerExecutionSlotAllocatorFactory.class.getName());
+				return new TaskManagerExecutionSlotAllocator.RandomTaskManagerExecutionSlotAllocatorFactory((VirtualTaskManagerSlotPool) slotPool);
 			} else {
 				LOG.info("Using {} as ExecutionSlotAllocatorFactory Failed, SlotPool is not VirtualTaskManagerSlotPool",
-						RandomTaskManagerExecutionSlotAllocator.RandomTaskManagerExecutionSlotAllocatorFactory.class.getName());
+						TaskManagerExecutionSlotAllocator.RandomTaskManagerExecutionSlotAllocatorFactory.class.getName());
 				throw new IllegalArgumentException("RandomTaskManagerExecutionSlotAllocator must use VirtualTaskManagerSlotPool.");
 			}
 		} else if (slotSharingExecutionSlotAllocatorEnabled) {

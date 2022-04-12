@@ -30,8 +30,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -42,14 +40,14 @@ import java.util.stream.Collectors;
 /**
  * This allocator random pick TaskManagers for Execution.
  */
-class RandomTaskManagerExecutionSlotAllocator extends AbstractTaskManagerExecutionSlotAllocator {
+class TaskManagerExecutionSlotAllocator extends AbstractTaskManagerExecutionSlotAllocator {
 	protected final Logger log = LoggerFactory.getLogger(getClass());
 	private final JobID jobID;
 	private final int maxTasksPerWorker;
 	private final int minWorkersPerJob;
 	private final int totalTaskCount;
 
-	public RandomTaskManagerExecutionSlotAllocator(VirtualTaskManagerSlotPool virtualTaskManagerSlotPool, int maxTasksPerWorker, int minWorkersPerJob) {
+	public TaskManagerExecutionSlotAllocator(VirtualTaskManagerSlotPool virtualTaskManagerSlotPool, int maxTasksPerWorker, int minWorkersPerJob) {
 		super(virtualTaskManagerSlotPool);
 		this.maxTasksPerWorker = maxTasksPerWorker;
 		this.minWorkersPerJob = minWorkersPerJob;
@@ -59,19 +57,11 @@ class RandomTaskManagerExecutionSlotAllocator extends AbstractTaskManagerExecuti
 
 	@Override
 	public List<SlotExecutionVertexAssignment> allocateSlotsFor(List<ExecutionVertexSchedulingRequirements> executionVertexSchedulingRequirements) {
-		List<ResourceID> instanceIdList =  new ArrayList<>(virtualTaskManagerSlotPool.getTaskManagers());
-		Set<ResourceID> taskManagers = new HashSet<>();
+		int totalTaskManagerCount =  virtualTaskManagerSlotPool.getTotalTaskManagerCount();
 		int numberOfTask = executionVertexSchedulingRequirements.size();
-		int numberOfTaskManager = computeJobWorkerCount(numberOfTask, totalTaskCount, maxTasksPerWorker, minWorkersPerJob, instanceIdList.size());
-		if (numberOfTaskManager > 0) {
-			Collections.shuffle(instanceIdList);
-			for (int i = 0; i < numberOfTaskManager; i++) {
-				taskManagers.add(instanceIdList.get(i));
-			}
-		} else {
-			taskManagers.addAll(instanceIdList);
-			numberOfTaskManager = instanceIdList.size();
-		}
+		int numberOfTaskManager = computeJobWorkerCount(numberOfTask, totalTaskCount, maxTasksPerWorker, minWorkersPerJob, totalTaskManagerCount);
+		Set<ResourceID> taskManagers = virtualTaskManagerSlotPool.allocateTaskManagers(numberOfTaskManager);
+		numberOfTaskManager = taskManagers.size();
 
 		if (numberOfTaskManager == 0) {
 			return handleError(
@@ -145,7 +135,7 @@ class RandomTaskManagerExecutionSlotAllocator extends AbstractTaskManagerExecuti
 	}
 
 	/**
-	 * Factory for {@link RandomTaskManagerExecutionSlotAllocator}.
+	 * Factory for {@link TaskManagerExecutionSlotAllocator}.
 	 */
 	public static class RandomTaskManagerExecutionSlotAllocatorFactory implements ExecutionSlotAllocatorFactory {
 		private final VirtualTaskManagerSlotPool slotPool;
@@ -156,7 +146,7 @@ class RandomTaskManagerExecutionSlotAllocator extends AbstractTaskManagerExecuti
 
 		@Override
 		public ExecutionSlotAllocator createInstance(final InputsLocationsRetriever inputsLocationsRetriever, final ExecutionSlotAllocationContext context) {
-			return new RandomTaskManagerExecutionSlotAllocator(slotPool, context.getMaxTasksPerWorker(), context.getMinWorkersPerJob());
+			return new TaskManagerExecutionSlotAllocator(slotPool, context.getMaxTasksPerWorker(), context.getMinWorkersPerJob());
 		}
 	}
 

@@ -24,6 +24,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.dispatcher.ResolvedTaskManagerTopology;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
+import org.apache.flink.runtime.jobmaster.slotpool.strategy.JobSpreadTaskManagerStrategy;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGatewayBuilder;
 import org.apache.flink.runtime.taskmanager.LocalTaskManagerLocation;
@@ -31,11 +32,16 @@ import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
 import org.junit.Test;
 
+import java.net.InetAddress;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -69,9 +75,7 @@ public class VirtualTaskManagerSlotPoolTest {
 		assertEquals(1, usedResources.size());
 		assertTrue(usedResources.contains(resourceID));
 
-		Set<ResourceID> allResources = slotPool.getTaskManagers();
-		assertEquals(1, allResources.size());
-		assertTrue(allResources.contains(resourceID));
+		assertEquals(1, slotPool.getTotalTaskManagerCount());
 	}
 
 	@Test
@@ -93,6 +97,61 @@ public class VirtualTaskManagerSlotPoolTest {
 		slotPool.releaseTaskManager(resourceID, exception);
 		assertTrue(releaseFuture.isDone());
 		assertEquals(exception, releaseFuture.get());
+	}
+
+	@Test
+	public void testRandomAllocateTaskManagersFromPool() {
+		Map<ResourceID, ResolvedTaskManagerTopology> taskManagers = new HashMap<>();
+		for (int i = 0; i < 100; i ++) {
+			taskManagers.put(ResourceID.generate(), new ResolvedTaskManagerTopology(null, null));
+		}
+		VirtualTaskManagerSlotPool slotPool = new VirtualTaskManagerSlotPool(new JobID(), true, taskManagers, 0);
+		Set<ResourceID> allocateResourceIds1 = slotPool.allocateTaskManagers(10);
+		Set<ResourceID> allocateResourceIds2 = slotPool.allocateTaskManagers(10);
+		assertNotEquals(allocateResourceIds1, allocateResourceIds2);
+
+		Set<ResourceID> allResourceIds1 = slotPool.allocateTaskManagers(200);
+		assertEquals(taskManagers.keySet(), allResourceIds1);
+
+		Set<ResourceID> allResourceIds2 = slotPool.allocateTaskManagers(0);
+		assertEquals(taskManagers.keySet(), allResourceIds2);
+	}
+
+	@Test
+	public void testJobSpreadAllocateTaskManagersFromPool() throws Exception {
+		Map<ResourceID, ResolvedTaskManagerTopology> taskManagers = new HashMap<>();
+		InetAddress local = InetAddress.getLocalHost();
+		for (int i = 0; i < 100; i ++) {
+			ResourceID resourceId = ResourceID.generate();
+			taskManagers.put(resourceId, new ResolvedTaskManagerTopology(
+				null,
+				new TaskManagerLocation(resourceId, local, -1)));
+		}
+		VirtualTaskManagerSlotPool slotPool = new VirtualTaskManagerSlotPool(
+				new JobID(),
+				true,
+				taskManagers,
+				0,
+				JobSpreadTaskManagerStrategy.getInstance());
+
+		for (ResolvedTaskManagerTopology taskManagerTopology : taskManagers.values()) {
+			assertEquals(0, taskManagerTopology.getRunningJobCount());
+		}
+		Set<ResourceID> allAllocatedResourceIds = new HashSet<>();
+		for (int i = 0; i < 10; i++) {
+			Set<ResourceID> resourceIds = slotPool.allocateTaskManagers(10);
+			assertEquals(10, resourceIds.size());
+			allAllocatedResourceIds.addAll(resourceIds);
+		}
+		assertEquals(allAllocatedResourceIds, taskManagers.keySet());
+		for (ResolvedTaskManagerTopology taskManagerTopology : taskManagers.values()) {
+			assertEquals(1, taskManagerTopology.getRunningJobCount());
+		}
+
+		slotPool.close();
+		for (ResolvedTaskManagerTopology taskManagerTopology : taskManagers.values()) {
+			assertEquals(0, taskManagerTopology.getRunningJobCount());
+		}
 	}
 
 	private static void checkExceptionAndMsg(Throwable t, Class<?> exceptionClass, String msg) {

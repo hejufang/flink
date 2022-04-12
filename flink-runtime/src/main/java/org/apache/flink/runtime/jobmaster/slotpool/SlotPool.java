@@ -99,7 +99,13 @@ public interface SlotPool extends AllocatedSlotActions, AutoCloseable {
 		throw new UnsupportedOperationException();
 	}
 
-	default Set<ResourceID> getTaskManagers() {
+	/**
+	 * Allocate a given number of task executors.
+	 *
+	 * @param taskManagerCount the given number of task executors
+	 * @return the resource id set of allocated task managers
+	 */
+	default Set<ResourceID> allocateTaskManagers(int taskManagerCount) {
 		throw new UnsupportedOperationException();
 	}
 

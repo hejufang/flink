@@ -36,11 +36,14 @@ public class ResolvedTaskManagerTopology {
 
 	private final long registrationTime;
 
+	private int runningJobCount;
+
 	public ResolvedTaskManagerTopology(
 			TaskExecutorGateway taskExecutorGateway,
 			TaskManagerLocation taskManagerLocation) {
 		this.taskExecutorGateway = taskExecutorGateway;
 		this.taskManagerLocation = taskManagerLocation;
+		this.runningJobCount = 0;
 		this.registrationTime = System.currentTimeMillis();
 	}
 
@@ -54,6 +57,18 @@ public class ResolvedTaskManagerTopology {
 
 	public long getRegistrationTime() {
 		return registrationTime;
+	}
+
+	public void incrementRunningJob() {
+		this.runningJobCount++;
+	}
+
+	public void decrementRunningJob() {
+		this.runningJobCount--;
+	}
+
+	public int getRunningJobCount() {
+		return runningJobCount;
 	}
 
 	public static ResolvedTaskManagerTopology fromUnresolvedTaskManagerTopology(

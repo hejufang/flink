@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.jobmaster.slotpool;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
@@ -30,6 +31,8 @@ import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.jobmaster.RpcTaskManagerGateway;
 import org.apache.flink.runtime.jobmaster.SlotRequestId;
+import org.apache.flink.runtime.jobmaster.slotpool.strategy.AllocateTaskManagerStrategy;
+import org.apache.flink.runtime.jobmaster.slotpool.strategy.RandomTaskManagerStrategy;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
@@ -42,10 +45,12 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -64,15 +69,29 @@ public final class VirtualTaskManagerSlotPool implements SlotPool {
 	private final boolean requestSlotFromResourceManagerDirectEnable;
 	private final JobID jobID;
 	private final int totalTaskCount;
+	private final List<ResourceID> allocatedTaskManagers;
+	private final AllocateTaskManagerStrategy allocateTaskManagerStrategy;
 
 	private JobMasterId jobMasterId;
 	private String jobMasterAddress;
 
+	@VisibleForTesting
 	public VirtualTaskManagerSlotPool(JobID jobId, boolean requestSlotFromResourceManagerDirectEnable, Map<ResourceID, ResolvedTaskManagerTopology> taskManagers, int totalTaskCount) {
+		this(jobId, requestSlotFromResourceManagerDirectEnable, taskManagers, totalTaskCount, RandomTaskManagerStrategy.getInstance());
+	}
+
+	public VirtualTaskManagerSlotPool(
+			JobID jobId,
+			boolean requestSlotFromResourceManagerDirectEnable,
+			Map<ResourceID, ResolvedTaskManagerTopology> taskManagers,
+			int totalTaskCount,
+			AllocateTaskManagerStrategy allocateTaskManagerStrategy) {
 		this.jobID = jobId;
 		this.requestSlotFromResourceManagerDirectEnable = requestSlotFromResourceManagerDirectEnable;
 		this.taskManagers = new HashMap<>(taskManagers);
 		this.totalTaskCount = totalTaskCount;
+		this.allocatedTaskManagers = new ArrayList<>();
+		this.allocateTaskManagerStrategy = allocateTaskManagerStrategy;
 	}
 
 	public AllocatedSlot allocatedSlot(AllocationID allocationID, ResourceID resourceID) {
@@ -120,6 +139,7 @@ public final class VirtualTaskManagerSlotPool implements SlotPool {
 
 	@Override
 	public void close() {
+		allocateTaskManagerStrategy.releaseTaskManagers(allocatedTaskManagers, taskManagers);
 		this.jobMasterId = null;
 	}
 
@@ -167,8 +187,10 @@ public final class VirtualTaskManagerSlotPool implements SlotPool {
 	}
 
 	@Override
-	public Set<ResourceID> getTaskManagers() {
-		return taskManagers.keySet();
+	public Set<ResourceID> allocateTaskManagers(int taskManagerCount) {
+		Set<ResourceID> resourceIds = allocateTaskManagerStrategy.allocateTaskManagers(taskManagers, taskManagerCount);
+		allocatedTaskManagers.addAll(resourceIds);
+		return resourceIds;
 	}
 
 	@Override
@@ -226,16 +248,25 @@ public final class VirtualTaskManagerSlotPool implements SlotPool {
 		throw new UnsupportedOperationException();
 	}
 
+	public int getTotalTaskManagerCount() {
+		return taskManagers.size();
+	}
+
 	/**
 	 * Factory for {@link VirtualTaskManagerSlotPool}.
 	 */
 	public static class VirtualTaskManagerSlotPoolFactory implements SlotPoolFactory {
 		private final Map<ResourceID, ResolvedTaskManagerTopology> taskManagers;
 		private final boolean requestSlotFromResourceManagerDirectEnable;
+		private final AllocateTaskManagerStrategy allocateTaskManagerStrategy;
 
-		public VirtualTaskManagerSlotPoolFactory(Map<ResourceID, ResolvedTaskManagerTopology> taskManagers, boolean requestSlotFromResourceManagerDirectEnable) {
+		public VirtualTaskManagerSlotPoolFactory(
+				Map<ResourceID, ResolvedTaskManagerTopology> taskManagers,
+				boolean requestSlotFromResourceManagerDirectEnable,
+				AllocateTaskManagerStrategy allocateTaskManagerStrategy) {
 			this.taskManagers = taskManagers;
 			this.requestSlotFromResourceManagerDirectEnable = requestSlotFromResourceManagerDirectEnable;
+			this.allocateTaskManagerStrategy = allocateTaskManagerStrategy;
 		}
 
 		@Override
@@ -247,7 +278,7 @@ public final class VirtualTaskManagerSlotPool implements SlotPool {
 		@Nonnull
 		@Override
 		public SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount, boolean minResourceSlotPoolSimplifyEnabled) {
-			return new VirtualTaskManagerSlotPool(jobId, requestSlotFromResourceManagerDirectEnable, this.taskManagers, taskCount);
+			return new VirtualTaskManagerSlotPool(jobId, requestSlotFromResourceManagerDirectEnable, this.taskManagers, taskCount, allocateTaskManagerStrategy);
 		}
 	}
 }

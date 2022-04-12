@@ -24,6 +24,8 @@ import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.dispatcher.ResolvedTaskManagerTopology;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
+import org.apache.flink.runtime.jobmaster.slotpool.strategy.JobSpreadTaskManagerStrategy;
+import org.apache.flink.runtime.jobmaster.slotpool.strategy.RandomTaskManagerStrategy;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,7 +44,10 @@ public class SlotPoolFactoryLoader {
 	public static SlotPoolFactory createSlotPoolFactory(Configuration configuration, ScheduleMode scheduleMode, Map<ResourceID, ResolvedTaskManagerTopology> taskManagers) {
 		if (configuration.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED)) {
 			return new VirtualTaskManagerSlotPool.VirtualTaskManagerSlotPoolFactory(
-					taskManagers, configuration.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE));
+					taskManagers,
+					configuration.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE),
+					configuration.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_TASK_MANAGER_JOB_SPREAD_ENABLE) ?
+						JobSpreadTaskManagerStrategy.getInstance() : RandomTaskManagerStrategy.getInstance());
 		}
 
 		if (scheduleMode.equals(ScheduleMode.EAGER)) {

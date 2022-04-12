@@ -53,15 +53,15 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Test for {@link RandomTaskManagerExecutionSlotAllocator}.
+ * Test for {@link TaskManagerExecutionSlotAllocator}.
  */
-public class RandomTaskManagerExecutionSlotAllocatorTest {
+public class TaskManagerExecutionSlotAllocatorTest {
 
 	@Test
 	public void testGetShuffledTaskManager() {
 		Set<ResourceID> resources = new HashSet<>();
 		try {
-			RandomTaskManagerExecutionSlotAllocator.getShuffledTaskManager(resources, 1);
+			TaskManagerExecutionSlotAllocator.getShuffledTaskManager(resources, 1);
 		} catch (IllegalArgumentException e) {
 			assertEquals("Excepted task manager number need less than task managers size.", e.getMessage());
 		}
@@ -70,9 +70,9 @@ public class RandomTaskManagerExecutionSlotAllocatorTest {
 			resources.add(ResourceID.generate());
 		}
 
-		List<ResourceID> shuffledResource = RandomTaskManagerExecutionSlotAllocator.getShuffledTaskManager(resources, 5);
+		List<ResourceID> shuffledResource = TaskManagerExecutionSlotAllocator.getShuffledTaskManager(resources, 5);
 		assertEquals(5, shuffledResource.size());
-		List<ResourceID> shuffledResource2 = RandomTaskManagerExecutionSlotAllocator.getShuffledTaskManager(resources, 5);
+		List<ResourceID> shuffledResource2 = TaskManagerExecutionSlotAllocator.getShuffledTaskManager(resources, 5);
 		assertEquals(5, shuffledResource2.size());
 		assertNotEquals(shuffledResource, shuffledResource2);
 	}
@@ -81,7 +81,7 @@ public class RandomTaskManagerExecutionSlotAllocatorTest {
 	public void testAllocateSlotsForWithNoTaskManager() throws Exception {
 		JobID jobID = new JobID();
 		VirtualTaskManagerSlotPool slotPool = new VirtualTaskManagerSlotPool(jobID, true, Collections.emptyMap(), 0);
-		RandomTaskManagerExecutionSlotAllocator randomTaskManagerExecutionSlotAllocator = new RandomTaskManagerExecutionSlotAllocator(slotPool, 0, 0);
+		TaskManagerExecutionSlotAllocator taskManagerExecutionSlotAllocator = new TaskManagerExecutionSlotAllocator(slotPool, 0, 0);
 
 		slotPool.start(JobMasterId.generate(), "foo_bar", new ComponentMainThreadExecutor.DummyComponentMainThreadExecutor("can not use"));
 
@@ -92,7 +92,7 @@ public class RandomTaskManagerExecutionSlotAllocatorTest {
 					.withExecutionVertexId(new ExecutionVertexID(new JobVertexID(), 0)).build());
 		}
 
-		result = randomTaskManagerExecutionSlotAllocator.allocateSlotsFor(requests);
+		result = taskManagerExecutionSlotAllocator.allocateSlotsFor(requests);
 		assertEquals(10, result.size());
 		result.stream().map(SlotExecutionVertexAssignment::getLogicalSlotFuture).forEach(
 				logicalSlotFuture -> assertTrue(logicalSlotFuture.isCompletedExceptionally()));
@@ -102,7 +102,7 @@ public class RandomTaskManagerExecutionSlotAllocatorTest {
 	public void testAllocateSlotsFor() throws Exception {
 		JobID jobID = new JobID();
 		VirtualTaskManagerSlotPool slotPool = new VirtualTaskManagerSlotPool(jobID, true, Collections.emptyMap(), 0);
-		RandomTaskManagerExecutionSlotAllocator randomTaskManagerExecutionSlotAllocator = new RandomTaskManagerExecutionSlotAllocator(slotPool, 0, 0);
+		TaskManagerExecutionSlotAllocator taskManagerExecutionSlotAllocator = new TaskManagerExecutionSlotAllocator(slotPool, 0, 0);
 
 		TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder().setAddress("127.0.0.1").createTestingTaskExecutorGateway();
 
@@ -120,7 +120,7 @@ public class RandomTaskManagerExecutionSlotAllocatorTest {
 					.withExecutionVertexId(new ExecutionVertexID(new JobVertexID(), 0)).build());
 		}
 
-		result = randomTaskManagerExecutionSlotAllocator.allocateSlotsFor(requests);
+		result = taskManagerExecutionSlotAllocator.allocateSlotsFor(requests);
 		assertEquals(10, result.size());
 		List<LogicalSlot> slots = checkAllFutureDoneAndGetResult(result.stream().map(SlotExecutionVertexAssignment::getLogicalSlotFuture).collect(Collectors.toList()));
 		Map<ResourceID, Long> resourceCount = slots.stream().collect(
@@ -136,7 +136,7 @@ public class RandomTaskManagerExecutionSlotAllocatorTest {
 			requests.add(new ExecutionVertexSchedulingRequirements.Builder()
 					.withExecutionVertexId(new ExecutionVertexID(new JobVertexID(), 0)).build());
 		}
-		result = randomTaskManagerExecutionSlotAllocator.allocateSlotsFor(requests);
+		result = taskManagerExecutionSlotAllocator.allocateSlotsFor(requests);
 		assertEquals(5, result.size());
 		slots = checkAllFutureDoneAndGetResult(result.stream().map(SlotExecutionVertexAssignment::getLogicalSlotFuture).collect(Collectors.toList()));
 		resourceCount = slots.stream().collect(
@@ -153,7 +153,7 @@ public class RandomTaskManagerExecutionSlotAllocatorTest {
 			requests.add(new ExecutionVertexSchedulingRequirements.Builder()
 					.withExecutionVertexId(new ExecutionVertexID(new JobVertexID(), 0)).build());
 		}
-		result = randomTaskManagerExecutionSlotAllocator.allocateSlotsFor(requests);
+		result = taskManagerExecutionSlotAllocator.allocateSlotsFor(requests);
 		assertEquals(25, result.size());
 		slots = checkAllFutureDoneAndGetResult(result.stream().map(SlotExecutionVertexAssignment::getLogicalSlotFuture).collect(Collectors.toList()));
 		resourceCount = slots.stream().collect(
@@ -170,7 +170,7 @@ public class RandomTaskManagerExecutionSlotAllocatorTest {
 	public void testAllocatedSlotReleased() throws Exception {
 		JobID jobID = new JobID();
 		VirtualTaskManagerSlotPool slotPool = new VirtualTaskManagerSlotPool(jobID, true, Collections.emptyMap(), 0);
-		RandomTaskManagerExecutionSlotAllocator randomTaskManagerExecutionSlotAllocator = new RandomTaskManagerExecutionSlotAllocator(slotPool, 0, 0);
+		TaskManagerExecutionSlotAllocator taskManagerExecutionSlotAllocator = new TaskManagerExecutionSlotAllocator(slotPool, 0, 0);
 
 		TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder().setAddress("127.0.0.1").createTestingTaskExecutorGateway();
 
@@ -187,7 +187,7 @@ public class RandomTaskManagerExecutionSlotAllocatorTest {
 			requests.add(new ExecutionVertexSchedulingRequirements.Builder()
 					.withExecutionVertexId(new ExecutionVertexID(new JobVertexID(), 0)).build());
 		}
-		result = randomTaskManagerExecutionSlotAllocator.allocateSlotsFor(requests);
+		result = taskManagerExecutionSlotAllocator.allocateSlotsFor(requests);
 		assertEquals(5, result.size());
 		List<LogicalSlot> slots = checkAllFutureDoneAndGetResult(result.stream().map(SlotExecutionVertexAssignment::getLogicalSlotFuture).collect(Collectors.toList()));
 		for (LogicalSlot slot : slots) {
@@ -200,16 +200,16 @@ public class RandomTaskManagerExecutionSlotAllocatorTest {
 	public void testComputeJobWorkerCount() {
 		assertEquals(
 				10,
-				RandomTaskManagerExecutionSlotAllocator.computeJobWorkerCount(128, 129, 30, 10, 100));
+				TaskManagerExecutionSlotAllocator.computeJobWorkerCount(128, 129, 30, 10, 100));
 		assertEquals(
 				10,
-				RandomTaskManagerExecutionSlotAllocator.computeJobWorkerCount(128, 257, 30, 10, 100));
+				TaskManagerExecutionSlotAllocator.computeJobWorkerCount(128, 257, 30, 10, 100));
 		assertEquals(
 				25,
-				RandomTaskManagerExecutionSlotAllocator.computeJobWorkerCount(128, 768, 30, 10, 100));
+				TaskManagerExecutionSlotAllocator.computeJobWorkerCount(128, 768, 30, 10, 100));
 		assertEquals(
 				100,
-				RandomTaskManagerExecutionSlotAllocator.computeJobWorkerCount(128, 10000, 30, 10, 100));
+				TaskManagerExecutionSlotAllocator.computeJobWorkerCount(128, 10000, 30, 10, 100));
 	}
 
 	private static <C> List<C> checkAllFutureDoneAndGetResult(List<CompletableFuture<C>> futures) throws ExecutionException, InterruptedException {
