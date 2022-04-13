@@ -21,6 +21,9 @@ package org.apache.flink.configuration;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.docs.Documentation;
 import org.apache.flink.configuration.description.Description;
+import org.apache.flink.util.TimeUtils;
+
+import java.time.Duration;
 
 import static org.apache.flink.configuration.ConfigOptions.key;
 import static org.apache.flink.configuration.description.LinkElement.link;
@@ -550,6 +553,27 @@ public class JobManagerOptions {
 			.booleanType()
 			.defaultValue(false)
 			.withDescription("Whether to create thread pool in Dispatcher to fetch job result");
+
+	/**
+	 * Whether to record slow query or not.
+	 */
+	public static final ConfigOption<Boolean> JOBMANAGER_RECORD_SLOW_QUERY_ENABLED =
+		key("jobmanager.record-slow-query.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether to record slow query or not. The slow query latency threshold" +
+				"is specified in jobmanager.slow-query-latency-threshold");
+
+	/**
+	 * The latency threshold to define a slow query.
+	 */
+	public static final ConfigOption<Duration> JOBMANAGER_SLOW_QUERY_LATENCY_THRESHOLD =
+		key("jobmanager.slow-query-latency-threshold")
+		.durationType()
+		.defaultValue(TimeUtils.parseDuration("1 min"))
+		.withDescription("The latency threshold to define a slow query." +
+				"If query latency > this threshold, it's a slow query." +
+				"The threshold has to contain a time-unit specifier (ms/s/min/h/d).");
 
 	// ---------------------------------------------------------------------------------------------
 

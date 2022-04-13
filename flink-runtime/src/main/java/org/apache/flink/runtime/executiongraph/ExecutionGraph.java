@@ -98,6 +98,8 @@ import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.clock.SystemClock;
 
+import org.apache.flink.shaded.guava18.com.google.common.base.Throwables;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -1522,6 +1524,12 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				LOG.debug("Job {} ({}) switched from state {} to {}.", getJobName(), getJobID(), current, newState, error);
 			} else {
 				LOG.info("Job {} ({}) switched from state {} to {}.", getJobName(), getJobID(), current, newState, error);
+			}
+
+			if (newState == JobStatus.FAILED) {
+				String formattedJobName = getJobName().replace("\n", "\\n").replace("\r", "\\r");
+				String errorMsg = Throwables.getStackTraceAsString(error).replace("\n", "\\n").replace("\r", "\\r");
+				LOG.info("[failed query] jobID: {}, query: {}, errorMsg: {}.", getJobID(), formattedJobName, errorMsg);
 			}
 
 			stateTimestamps[newState.ordinal()] = System.currentTimeMillis();

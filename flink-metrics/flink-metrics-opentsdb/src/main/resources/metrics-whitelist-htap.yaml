@@ -36,8 +36,11 @@ non-global:
         numFailedJobs,
         numCanceledJobs,
         numFinishedJobs,
+        numSlowJobs,
       # Flink job run duration
         jobDuration,
+      # Flink failed job duration
+        failedJobDuration,
       # Flink job latency until scheduled
         jobLatencyUntilScheduled,
       # TaskManager / Slot

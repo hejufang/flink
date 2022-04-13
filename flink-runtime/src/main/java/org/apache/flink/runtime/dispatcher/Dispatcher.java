@@ -195,9 +195,13 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private final Counter failedJobCounter = new SimpleCounter();
 	private final Counter canceledJobCounter = new SimpleCounter();
 	private final Counter finishedJobCounter = new SimpleCounter();
+	private final Counter slowJobsCounter = new SimpleCounter();
 
 	// Only record the duration from ExecutionGraph Create to job Finished.
 	private final Histogram jobDurationHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
+
+	// Record the failed job's latency.
+	private final Histogram failedJobDurationHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
 
 	private final Histogram jobToScheduleLatencyHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
 
@@ -238,6 +242,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private final ExecutorService fetchResultExecutor;
 
 	private final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
+
+	private final boolean recordSlowQuery;
+
+	private final long slowQueryLatencyThreshold;
 
 	public Dispatcher(
 			RpcService rpcService,
@@ -322,6 +330,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				configuration.getInteger(JobManagerOptions.DISPATCHER_FETCH_RESULT_THREADS_NUM),
 				new ExecutorThreadFactory("dispatcher-fetch-result")) : null;
 		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(true);
+
+		this.recordSlowQuery = this.configuration.getBoolean(JobManagerOptions.JOBMANAGER_RECORD_SLOW_QUERY_ENABLED);
+		this.slowQueryLatencyThreshold = this.configuration.get(JobManagerOptions.JOBMANAGER_SLOW_QUERY_LATENCY_THRESHOLD).toMillis();
 	}
 
 	//------------------------------------------------------
@@ -1380,12 +1391,25 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		switch (archivedExecutionGraph.getState()) {
 			case FINISHED:
 				finishedJobCounter.inc();
-				jobDurationHistogram.update(archivedExecutionGraph.getStatusTimestamp(JobStatus.FINISHED) - archivedExecutionGraph.getStatusTimestamp(JobStatus.CREATED));
+				long jobDuration = archivedExecutionGraph.getStatusTimestamp(JobStatus.FINISHED) - archivedExecutionGraph.getStatusTimestamp(JobStatus.CREATED);
+				jobDurationHistogram.update(jobDuration);
+				String formattedJobName = archivedExecutionGraph.getJobName().replace("\n", "\\n").replace("\r", "\\r");
+				if (this.recordSlowQuery && jobDuration > this.slowQueryLatencyThreshold) {
+					slowJobsCounter.inc();
+					log.info("[slow query] jobId: {}, query: {}, latency: {}.",
+							archivedExecutionGraph.getJobID(), formattedJobName, jobDuration);
+				} else {
+					log.info("[query] jobId: {}, query: {}, latency: {}.",
+							archivedExecutionGraph.getJobID(), formattedJobName, jobDuration);
+				}
+
 				jobToScheduleLatencyHistogram.update(
 					archivedExecutionGraph.getScheduledTimestamp() - archivedExecutionGraph.getStatusTimestamp(JobStatus.CREATED));
 				break;
 			case FAILED:
 				failedJobCounter.inc();
+				failedJobDurationHistogram.update(
+						archivedExecutionGraph.getStatusTimestamp(JobStatus.FAILED) - archivedExecutionGraph.getStatusTimestamp(JobStatus.CREATED));
 				break;
 			case CANCELED:
 				canceledJobCounter.inc();
@@ -1594,8 +1618,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		jobManagerMetricGroup.counter(MetricNames.NUM_FINISHED_JOBS, finishedJobCounter);
 		jobManagerMetricGroup.counter(MetricNames.NUM_FAILED_JOBS, failedJobCounter);
 		jobManagerMetricGroup.counter(MetricNames.NUM_CANCELED_JOBS, canceledJobCounter);
+		jobManagerMetricGroup.counter(MetricNames.NUM_SLOW_JOBS, slowJobsCounter);
 
 		jobManagerMetricGroup.histogram(MetricNames.JOB_DURATION, jobDurationHistogram);
+		jobManagerMetricGroup.histogram(MetricNames.FAILED_JOB_DURATION, failedJobDurationHistogram);
 		jobManagerMetricGroup.histogram(MetricNames.JOB_LATENCY_UNTIL_SCHEDULED, jobToScheduleLatencyHistogram);
 
 		ExecutorService ioExecutor = jobManagerSharedServices.getIOExecutorService();
