@@ -666,6 +666,15 @@ public final class Utils {
 		}
 	}
 
+	public static String getEnvOrUnknown(String key) {
+		String value = System.getenv(key);
+		if (value == null) {
+			LOG.warn("get {} from env failed, fallback to unknown.", key);
+			value = "unknown";
+		}
+		return value;
+	}
+
 	public static String getYarnHostname() {
 		String hostname =  System.getenv(ApplicationConstants.Environment.NM_HOST.key());
 		if (hostname == null) {

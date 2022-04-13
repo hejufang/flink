@@ -88,6 +88,7 @@ import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.util.megatron.MegatronUtil;
 import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Before;
@@ -1624,6 +1625,16 @@ public class YarnResourceManagerTest extends TestLogger {
 
 			});
 		}};
+	}
+
+	/**
+	 * Test not throw any exception.
+	 */
+	@Test
+	public void testWebshell() {
+		MegatronUtil.getMegatronWebshellUrl(null, "unknown", "unknown", "unknown", "unknown", "unknown");
+		MegatronUtil.getMegatronWebshellUrl("cn", "unknown", "unknown", "unknown", "unknown", "unknown");
+		MegatronUtil.getMegatronWebshellUrl("unknown", "unknown", "unknown", "unknown", "unknown", "unknown");
 	}
 
 	private boolean containsStartCommand(ContainerLaunchContext containerLaunchContext, String command) {

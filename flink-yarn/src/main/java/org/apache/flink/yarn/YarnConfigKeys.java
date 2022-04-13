@@ -58,6 +58,9 @@ public class YarnConfigKeys {
 	public static final String ENV_FLINK_CONTAINER_ID = "_FLINK_CONTAINER_ID";
 	public static final String ENV_FLINK_NODE_ID = "_FLINK_NODE_ID";
 
+	/** IDC, This environment depends on the underlying environment. it should only be used for webshell. */
+	public static final String ENV_YARN_RUNTIME_IDC = "RUNTIME_IDC_NAME";
+
 	// ------------------------------------------------------------------------
 
 	// ---------------------------- Config for docker ---------------------------

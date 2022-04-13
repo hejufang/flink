@@ -110,7 +110,6 @@ import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.util.megatron.MegatronUtil;
-import org.apache.hadoop.yarn.util.webshell.NMWebshellUtil;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -242,6 +241,15 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private Counter srContainerUpdateFailedCounter;
 	private Counter srContainerUpdateSuccessCounter;
 
+	// webshell
+	@Nullable
+	private final String region;
+	private final String idc;
+	private final String appId;
+	private final String user;
+	private final String yarnHostname;
+	private final String containerId;
+
 	public YarnResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -320,6 +328,14 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		this.yarnRuntimeConf = createRuntimeConfigurationWithQosLevel(
 			flinkConfig.getOptional(YarnConfigOptions.YARN_RUNTIME_CONF_QOS_LEVEL).orElse(YarnConfigOptions.RtQoSLevelEnum.SHARE));
+
+		// webshell
+		this.region = flinkConfig.getString(ConfigConstants.DC_KEY, null);
+		this.idc = Utils.getEnvOrUnknown(YarnConfigKeys.ENV_YARN_RUNTIME_IDC);
+		this.user = EnvironmentInformation.getHadoopUser();
+		this.appId = Utils.getEnvOrUnknown(YarnConfigKeys.ENV_APP_ID);
+		this.yarnHostname = Utils.getYarnHostname();
+		this.containerId = Utils.getCurrentContainerID();
 
 		// init the SmartResource
 		this.smartResourceManager = new SmartResourceManager(flinkConfig, yarnRuntimeConf, env);
@@ -1305,11 +1321,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		CompletableFuture<String> jmWebShell = new CompletableFuture<>();
 		try {
 			jmWebShell.complete(
-				NMWebshellUtil.getWeshellRelayFullUrl(
-					Utils.getYarnHostname(),
-					Utils.getCurrentContainerID(),
-					EnvironmentInformation.getHadoopUser())
-			);
+					MegatronUtil.getMegatronWebshellUrl(region, idc, yarnHostname, appId, containerId, user));
 		} catch (Exception e) {
 			jmWebShell.completeExceptionally(e);
 		}
@@ -1320,10 +1332,9 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	public CompletableFuture<String> requestJobManagerLogUrl(Time timeout) {
 		CompletableFuture<String> jmLog = new CompletableFuture<>();
 		try {
-			String region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
-			String jmHost = Utils.getYarnHostname() + ":" + System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.name());
+			String jmHost = yarnHostname + ":" + System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.name());
 			jmLog.complete(
-				MegatronUtil.getMegatronLogUrl(region, jmHost, Utils.getCurrentContainerID(), EnvironmentInformation.getHadoopUser(), ""));
+				MegatronUtil.getMegatronLogUrl(region, jmHost, containerId, user, ""));
 		} catch (Exception e) {
 			log.error("Error while get relay log.", e);
 			jmLog.completeExceptionally(e);
@@ -1334,7 +1345,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	@Override
 	public String getTaskManagerWebShell(ResourceID resourceID, String host) {
 		try {
-			return NMWebshellUtil.getWeshellRelayFullUrl(host, resourceID.getResourceIdString(), EnvironmentInformation.getHadoopUser());
+			return MegatronUtil.getMegatronWebshellUrl(region, idc, host, appId, resourceID.getResourceIdString(), user);
 		} catch (Exception e) {
 			log.error("Error while get relay webshell, fallback to default webshell.", e);
 			return super.getTaskManagerWebShell(resourceID, host);
@@ -1346,8 +1357,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		try {
 			String nmPort = System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.name());
 			String nmHostWithPort = host + ":" + nmPort;
-			String region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
-			return MegatronUtil.getMegatronLogUrl(region, nmHostWithPort, resourceID.getResourceIdString(), EnvironmentInformation.getHadoopUser(), "");
+			return MegatronUtil.getMegatronLogUrl(region, nmHostWithPort, resourceID.getResourceIdString(), user, "");
 		} catch (Exception e) {
 			log.error("Error while get relay log, fallback to default log.", e);
 			return super.getTaskManagerLogUrl(resourceID, host);
