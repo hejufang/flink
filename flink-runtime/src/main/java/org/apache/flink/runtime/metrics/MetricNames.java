@@ -61,6 +61,7 @@ public class MetricNames {
 	public static final String NUM_CANCELED_JOBS = "numCanceledJobs";
 	public static final String NUM_FINISHED_JOBS = "numFinishedJobs";
 	public static final String NUM_SLOW_JOBS = "numSlowJobs";
+	public static final String NUM_REJECTED_JOBS = "numRejectedJobs";
 
 	public static final String JOB_DURATION = "jobDuration";
 	public static final String FAILED_JOB_DURATION = "failedJobDuration";

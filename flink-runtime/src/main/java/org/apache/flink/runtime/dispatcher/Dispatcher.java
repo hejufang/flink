@@ -133,6 +133,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -196,6 +197,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private final Counter canceledJobCounter = new SimpleCounter();
 	private final Counter finishedJobCounter = new SimpleCounter();
 	private final Counter slowJobsCounter = new SimpleCounter();
+	private final Counter rejectedJobCounter = new SimpleCounter();
 
 	// Only record the duration from ExecutionGraph Create to job Finished.
 	private final Histogram jobDurationHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
@@ -246,6 +248,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private final boolean recordSlowQuery;
 
 	private final long slowQueryLatencyThreshold;
+
+	private final int maxRunningJobs;
+
+	private final AtomicInteger totalRunningJobs = new AtomicInteger(0);
 
 	public Dispatcher(
 			RpcService rpcService,
@@ -333,6 +339,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		this.recordSlowQuery = this.configuration.getBoolean(JobManagerOptions.JOBMANAGER_RECORD_SLOW_QUERY_ENABLED);
 		this.slowQueryLatencyThreshold = this.configuration.get(JobManagerOptions.JOBMANAGER_SLOW_QUERY_LATENCY_THRESHOLD).toMillis();
+		this.maxRunningJobs = configuration.getInteger(JobManagerOptions.JOBMANAGER_MAX_RUNNING_JOBS);
 	}
 
 	//------------------------------------------------------
@@ -483,37 +490,43 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				return FutureUtils.completedExceptionally(
 					new DuplicateJobSubmissionException(jobGraph.getJobID()));
 			} else {
-				if (jmResourceAllocationEnabled) {
-					if (canSubmitJob()) {
-						return internalSubmitJob(jobGraph);
-					} else {
-						pendingJobs.add(jobGraph);
-						pendingJobFutures.put(jobGraph.getJobID(), new CompletableFuture<>());
-						log.info("Available taskmanagers: {} is less then {} or running tasks: {} is greater then {}." +
-								"Put job {} ({}) to pending queue.",
-							registeredTaskManagers.size(),
-							minRequiredTaskManager,
-							totalRunningTasks,
-							maxRunningTasks,
-							jobGraph.getJobID(),
-							jobGraph.getName());
-
-						if (registeredTaskManagers.size() < maxRegisteredTaskManager) {
-							int extraTaskManagers = (int) Math.ceil((double) minRequiredTaskManager * 0.1);
-							Objects.requireNonNull(establishedResourceManagerConnection)
-								.getResourceManagerGateway()
-								.requestTaskManager(extraTaskManagers, timeout);
-						}
-
-						return CompletableFuture.completedFuture(Acknowledge.get());
-					}
+				if (isClusterOverloaded(jobGraph.getJobID())) {
+					return FutureUtils.completedExceptionally(
+						new JobSubmissionException(jobGraph.getJobID(),
+							String.format("Too many job submit requests to cluster. Maximum capacity: %d", maxRunningJobs)));
 				} else {
-					if (isPartialResourceConfigured(jobGraph)) {
-						return FutureUtils.completedExceptionally(
-							new JobSubmissionException(jobGraph.getJobID(), "Currently jobs is not supported if parts of the vertices have " +
-								"resources configured. The limitation will be removed in future versions."));
+					if (jmResourceAllocationEnabled) {
+						if (canSubmitJob()) {
+							return internalSubmitJob(jobGraph);
+						} else {
+							pendingJobs.add(jobGraph);
+							pendingJobFutures.put(jobGraph.getJobID(), new CompletableFuture<>());
+							log.info("Available taskmanagers: {} is less then {} or running tasks: {} is greater then {}." +
+									"Put job {} ({}) to pending queue.",
+								registeredTaskManagers.size(),
+								minRequiredTaskManager,
+								totalRunningTasks,
+								maxRunningTasks,
+								jobGraph.getJobID(),
+								jobGraph.getName());
+
+							if (registeredTaskManagers.size() < maxRegisteredTaskManager) {
+								int extraTaskManagers = (int) Math.ceil((double) minRequiredTaskManager * 0.1);
+								Objects.requireNonNull(establishedResourceManagerConnection)
+									.getResourceManagerGateway()
+									.requestTaskManager(extraTaskManagers, timeout);
+							}
+
+							return CompletableFuture.completedFuture(Acknowledge.get());
+						}
 					} else {
-						return internalSubmitJob(jobGraph);
+						if (isPartialResourceConfigured(jobGraph)) {
+							return FutureUtils.completedExceptionally(
+								new JobSubmissionException(jobGraph.getJobID(), "Currently jobs is not supported if parts of the vertices have " +
+									"resources configured. The limitation will be removed in future versions."));
+						} else {
+							return internalSubmitJob(jobGraph);
+						}
 					}
 				}
 			}
@@ -537,27 +550,50 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 					new JobSubmissionException(jobGraph.getJobID(), "Currently jobs is not supported if parts of the vertices have " +
 						"resources configured. The limitation will be removed in future versions."));
 			} else {
-				if (jmResourceAllocationEnabled) {
-					if (canSubmitJob()) {
-						internalSubmitJob(jobGraph, ctx);
-					} else {
-						pendingJobsWithContext.add(Tuple2.of(jobGraph, ctx));
-						pendingJobFutures.put(jobGraph.getJobID(), new CompletableFuture<>());
-						log.info("Available taskmanagers: {} is less then {} or running tasks: {} is greater then {}." +
-								"Put job {} ({}) to pending queue.",
-							registeredTaskManagers.size(),
-							minRequiredTaskManager,
-							totalRunningTasks,
-							maxRunningTasks,
-							jobGraph.getJobID(),
-							jobGraph.getName());
-					}
+				if (isClusterOverloaded(jobGraph.getJobID())) {
+					writeFailJobToContext(
+						jobGraph.getJobID(),
+						ctx,
+						new JobSubmissionException(jobGraph.getJobID(),
+							String.format("Too many job submit requests to cluster. Maximum capacity: %d", maxRunningJobs)));
 				} else {
-					internalSubmitJob(jobGraph, ctx);
+					if (jmResourceAllocationEnabled) {
+						if (canSubmitJob()) {
+							internalSubmitJob(jobGraph, ctx);
+						} else {
+							pendingJobsWithContext.add(Tuple2.of(jobGraph, ctx));
+							pendingJobFutures.put(jobGraph.getJobID(), new CompletableFuture<>());
+							log.info("Available taskmanagers: {} is less then {} or running tasks: {} is greater then {}." +
+									"Put job {} ({}) to pending queue.",
+								registeredTaskManagers.size(),
+								minRequiredTaskManager,
+								totalRunningTasks,
+								maxRunningTasks,
+								jobGraph.getJobID(),
+								jobGraph.getName());
+						}
+					} else {
+						internalSubmitJob(jobGraph, ctx);
+					}
 				}
 			}
 		} catch (FlinkException e) {
 			writeFailJobToContext(jobGraph.getJobID(), ctx, e);
+		}
+	}
+
+	private boolean isClusterOverloaded(JobID jobID) {
+		int runningJobs = totalRunningJobs.get();
+		if (maxRunningJobs > 0 && runningJobs >= maxRunningJobs) {
+			log.info("[reject query] jobId: {}, current running jobs: {}, capacity: {}",
+				jobID,
+				runningJobs,
+				maxRunningJobs);
+			rejectedJobCounter.inc();
+
+			return true;
+		} else {
+			return false;
 		}
 	}
 
@@ -681,6 +717,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		final CompletableFuture<JobManagerRunner> jobManagerRunnerFuture = createJobManagerRunner(jobGraph);
 
 		jobManagerRunnerFutures.put(jobGraph.getJobID(), jobManagerRunnerFuture);
+		totalRunningJobs.incrementAndGet();
 
 		if (jmResourceAllocationEnabled) {
 			CompletableFuture<Acknowledge> pendingJobFuture = pendingJobFutures.get(jobGraph.getJobID());
@@ -697,6 +734,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				(ignored, throwable) -> {
 					if (throwable != null) {
 						jobManagerRunnerFutures.remove(jobGraph.getJobID());
+						totalRunningJobs.decrementAndGet();
 					}
 					if (jmResourceAllocationEnabled) {
 						totalRunningTasks -= jobGraph.calcMinRequiredSlotsNum();
@@ -726,6 +764,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		final CompletableFuture<JobManagerRunner> jobManagerRunnerFuture = createJobManagerRunner(jobGraph, chx);
 
 		jobManagerRunnerFutures.put(jobGraph.getJobID(), jobManagerRunnerFuture);
+		totalRunningJobs.incrementAndGet();
 
 		if (jmResourceAllocationEnabled) {
 			CompletableFuture<Acknowledge> pendingJobFuture = pendingJobFutures.get(jobGraph.getJobID());
@@ -742,6 +781,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				(ignored, throwable) -> {
 					if (throwable != null) {
 						jobManagerRunnerFutures.remove(jobGraph.getJobID());
+						totalRunningJobs.decrementAndGet();
 					}
 					if (jmResourceAllocationEnabled) {
 						totalRunningTasks -= jobGraph.calcMinRequiredSlotsNum();
@@ -1311,6 +1351,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private CompletableFuture<Void> removeJob(JobID jobId, boolean cleanupHA) {
 		CompletableFuture<JobManagerRunner> jobManagerRunnerFuture = jobManagerRunnerFutures.remove(jobId);
+		totalRunningJobs.decrementAndGet();
 
 		final CompletableFuture<Void> jobManagerRunnerTerminationFuture;
 		if (jobManagerRunnerFuture != null) {
@@ -1619,6 +1660,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		jobManagerMetricGroup.counter(MetricNames.NUM_FAILED_JOBS, failedJobCounter);
 		jobManagerMetricGroup.counter(MetricNames.NUM_CANCELED_JOBS, canceledJobCounter);
 		jobManagerMetricGroup.counter(MetricNames.NUM_SLOW_JOBS, slowJobsCounter);
+		jobManagerMetricGroup.counter(MetricNames.NUM_REJECTED_JOBS, rejectedJobCounter);
 
 		jobManagerMetricGroup.histogram(MetricNames.JOB_DURATION, jobDurationHistogram);
 		jobManagerMetricGroup.histogram(MetricNames.FAILED_JOB_DURATION, failedJobDurationHistogram);

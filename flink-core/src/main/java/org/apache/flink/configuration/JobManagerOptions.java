@@ -575,6 +575,14 @@ public class JobManagerOptions {
 				"If query latency > this threshold, it's a slow query." +
 				"The threshold has to contain a time-unit specifier (ms/s/min/h/d).");
 
+	public static final ConfigOption<Integer> JOBMANAGER_MAX_RUNNING_JOBS =
+		key("jobmanager.max-running-jobs")
+			.intType()
+			.defaultValue(-1)
+			.withDescription("The maximal number of running jobs can run in cluster." +
+				"If the number of running jobs exceed this number, job requests will be rejected." +
+				"Set to -1 to disable workload control");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

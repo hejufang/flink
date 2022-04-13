@@ -37,6 +37,7 @@ non-global:
         numCanceledJobs,
         numFinishedJobs,
         numSlowJobs,
+        numRejectedJobs,
       # Flink job run duration
         jobDuration,
       # Flink failed job duration
