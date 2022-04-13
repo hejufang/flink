@@ -208,6 +208,12 @@ public class MetricOptions {
 				"faster updating metrics. Increase this value if the metric fetcher causes too much load. Setting this value to 0 " +
 				"disables the metric fetching completely.");
 
+	public static final ConfigOption<Boolean> METRIC_FETCHER_FILTER_TASK_OPERATOR_ENABLED =
+		key("metrics.fetcher.task-operator-filter.enabled")
+			.defaultValue(false)
+			.withDescription("Flag indicating whether Metric store should maintain task/operator level metric which not use in UI." +
+				"Main some useful metric, such like ioMetric");
+
 	/**
 	 * This configuration parameter defining whether to enable the operator performance metrics, mainly includes time consumption metrics.
 	 */
