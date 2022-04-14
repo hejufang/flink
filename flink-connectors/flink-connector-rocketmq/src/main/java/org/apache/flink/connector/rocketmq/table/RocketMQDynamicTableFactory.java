@@ -258,8 +258,10 @@ public class RocketMQDynamicTableFactory implements
 			}
 
 			config.getOptional(FactoryUtil.SINK_PARTITIONER_FIELD).ifPresent(
-				keyByFields ->
-					rocketMQConfig.setSinkKeyByFields(tableSchema.getIndexListFromFieldNames(keyByFields))
+				keyByFields -> {
+					rocketMQConfig.setSinkKeyByFields(tableSchema.getIndexListFromFieldNames(keyByFields));
+					rocketMQConfig.setTableSchema(tableSchema);
+				}
 			);
 
 			validateConflictConf(config, SINK_DEFER_MILLIS, SINK_DEFER_MILLIS_FIELD);

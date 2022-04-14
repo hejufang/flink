@@ -24,6 +24,7 @@ import org.apache.flink.connector.rocketmq.selector.DeferLoopSelector;
 import org.apache.flink.connector.rocketmq.selector.DeferMillisSelector;
 import org.apache.flink.connector.rocketmq.selector.MsgDelayLevelSelector;
 import org.apache.flink.connector.rocketmq.selector.TopicSelector;
+import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.functions.RowKindSinkFilter;
@@ -56,6 +57,7 @@ public class RocketMQConfig<T> implements Serializable {
 	private int sendBatchSize;
 	private AssignQueueStrategy assignQueueStrategy = AssignQueueStrategy.FIXED;
 	private int[] sinkKeyByFields;
+	private TableSchema tableSchema;
 	private Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
 	private KeySelector<T, T> keySelector;
 	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
@@ -189,6 +191,14 @@ public class RocketMQConfig<T> implements Serializable {
 
 	public void setSinkKeyByFields(int[] sinkKeyByFields) {
 		this.sinkKeyByFields = sinkKeyByFields;
+	}
+
+	public TableSchema getTableSchema() {
+		return tableSchema;
+	}
+
+	public void setTableSchema(TableSchema tableSchema) {
+		this.tableSchema = tableSchema;
 	}
 
 	public void setRocketMqBrokerQueueList(String rocketMqBrokerQueueList) {

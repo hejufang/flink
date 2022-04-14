@@ -29,6 +29,7 @@ import org.apache.flink.table.connector.sink.SinkFunctionProvider;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.RowKind;
+import org.apache.flink.util.Preconditions;
 
 import java.util.Map;
 
@@ -93,7 +94,10 @@ public class RocketMQDynamicSink implements DynamicTableSink {
 			SerializationSchema<RowData> serializationSchema,
 			RocketMQConfig<RowData> rocketMQConfig) {
 		if (rocketMQConfig.getSinkKeyByFields() != null) {
-			return new KeyByPartitionSerializationSchema(serializationSchema, rocketMQConfig.getSinkKeyByFields());
+			return new KeyByPartitionSerializationSchema(
+				serializationSchema,
+				rocketMQConfig.getSinkKeyByFields(),
+				Preconditions.checkNotNull(rocketMQConfig.getTableSchema()));
 		} else {
 			return new KeyValueSerializationSchemaWrapper<>(serializationSchema);
 		}
