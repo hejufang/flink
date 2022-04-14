@@ -96,7 +96,7 @@ public class SinkUpsertMaterializerTest {
 		testHarness.processElement(insertRecord(1, "a4"));
 		shouldEmit(testHarness, insertRecord(1, "a4"));
 
-		testHarness.prepareSnapshotPreBarrier(1);
+		testHarness.snapshot(1, 1);
 		testHarness.setStateTtlProcessingTime(1002);
 
 		testHarness.processElement(deleteRecord(1, "a4"));

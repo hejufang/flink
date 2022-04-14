@@ -23,6 +23,7 @@ import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.ListSerializer;
+import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -91,11 +92,17 @@ public class SinkUpsertMaterializer extends TableStreamOperator<RowData>
 	}
 
 	@Override
-	public void prepareSnapshotPreBarrier(long checkpointId) throws Exception {
-		super.prepareSnapshotPreBarrier(checkpointId);
-		for (RowData k : cache.keySet()) {
+	public void snapshotState(StateSnapshotContext context) throws Exception {
+		super.snapshotState(context);
+		Iterator<Map.Entry<RowData, List<RowData>>> iter = cache.entrySet().iterator();
+		// caution: DO NOT use cache.get in the loop, because it will change the internal
+		// frequency data structure, which will lead to ConcurrentModificationException.
+		while (iter.hasNext()) {
+			Map.Entry<RowData, List<RowData>> next = iter.next();
+			RowData k = next.getKey();
+			List<RowData> v = next.getValue();
 			setCurrentKey(k);
-			state.update(cache.get(k));
+			state.update(v);
 		}
 		cache.clear();
 	}
