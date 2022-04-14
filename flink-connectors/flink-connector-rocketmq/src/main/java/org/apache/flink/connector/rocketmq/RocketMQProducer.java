@@ -33,6 +33,7 @@ import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.table.functions.RowKindSinkFilter;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.RetryManager;
 
 import com.bytedance.mqproxy.proto.MessageType;
 import com.bytedance.rocketmq.clientv2.message.Message;
@@ -87,6 +88,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	private transient ScheduledExecutorService scheduler;
 	private transient ScheduledFuture<?> scheduledFuture;
 	private transient volatile Exception flushException;
+	private transient RetryManager.Strategy retryStrategy;
 
 	// TODO: support async write rocketmq
 	public RocketMQProducer(
@@ -115,6 +117,9 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
 		messageList = new ArrayList<>();
+		this.retryStrategy = RetryManager.createStrategy(RetryManager.StrategyType.EXPONENTIAL_BACKOFF.name(),
+			RocketMQOptions.CONSUMER_RETRY_TIMES_DEFAULT,
+			RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 		// TODO: use props construct producer.
 		producer = new DefaultMQProducer(cluster, group, null, getRocketMQProperties(props));
 		producer.start();
@@ -178,7 +183,9 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 				}
 			}
 		} else {
-			SendResult sendResult = producer.send(message);
+			List<SendResult> sendResultList = new ArrayList<>();
+			RetryManager.retry(() -> sendResultList.add(producer.send(message)), retryStrategy);
+			SendResult sendResult = sendResultList.get(0);
 			LOG.debug("Send message id: {}", sendResult.getMsgId());
 		}
 	}
@@ -187,13 +194,17 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		if (messageList.size() > 0) {
 			try {
 				if (hasPartitionKey) {
-					List<SendResult> sendResults = producer.sendMessages(messageList, null);
+					List<List<SendResult>> sendResultsList = new ArrayList<>();
+					RetryManager.retry(() -> sendResultsList.add(producer.sendMessages(messageList, null)), retryStrategy);
+					List<SendResult> sendResults = sendResultsList.get(0);
 					if (LOG.isDebugEnabled()) {
 						LOG.debug("Send Message Ids: {}",
 							sendResults.stream().map(SendResult::getMsgId).collect(Collectors.joining(",")));
 					}
 				} else {
-					SendResult sendResult = producer.send(messageList);
+					List<SendResult> sendResultList = new ArrayList<>();
+					RetryManager.retry(() -> sendResultList.add(producer.send(messageList)), retryStrategy);
+					SendResult sendResult = sendResultList.get(0);
 					LOG.debug("Send Message Ids: {}", sendResult.getMsgId());
 				}
 			} catch (Exception e) {

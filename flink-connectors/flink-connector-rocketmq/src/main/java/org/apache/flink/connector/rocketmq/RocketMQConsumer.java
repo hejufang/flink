@@ -118,6 +118,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private transient int subTaskId;
 	private transient Counter skipDirtyCounter;
 	private transient int runtimeParallelism;
+	private transient RetryManager.Strategy retryStrategy;
 
 	public RocketMQConsumer(
 			RocketMQDeserializationSchema<T> schema,
@@ -163,6 +164,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		if (rateLimiter != null) {
 			rateLimiter.open(getRuntimeContext());
 		}
+		this.retryStrategy = RetryManager.createStrategy(RetryManager.StrategyType.EXPONENTIAL_BACKOFF.name(),
+			RocketMQOptions.CONSUMER_RETRY_TIMES_DEFAULT,
+			RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 	}
 
 	@Override
@@ -265,10 +269,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			updateThread.start();
 		}
 
-		RetryManager.Strategy strategy =
-			RetryManager.createStrategy(RetryManager.StrategyType.EXPONENTIAL_BACKOFF.name(),
-				RocketMQOptions.CONSUMER_RETRY_TIMES_DEFAULT,
-				RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 		long lastTimestamp = System.currentTimeMillis();
 		while (running) {
 			if (!updateThread.isAlive()) {
@@ -281,7 +281,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					ctx.markAsTemporarilyIdle();
 					this.wait();
 				}
-				RetryManager.retry(() -> messageExtsList.add(consumer.poll(CONSUMER_DEFAULT_POLL_LATENCY_MS)), strategy);
+				RetryManager.retry(() -> messageExtsList.add(consumer.poll(CONSUMER_DEFAULT_POLL_LATENCY_MS)), retryStrategy);
 			}
 			List<MessageExt> messageExts = messageExtsList.get(0);
 			for (MessageExt messageExt: messageExts) {
@@ -302,7 +302,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				ctx.collect(rowData);
 				// need ack every msg
 				synchronized (RocketMQConsumer.this) {
-					RetryManager.retry(() -> consumer.ack(messageExt), strategy);
+					RetryManager.retry(() -> consumer.ack(messageExt), retryStrategy);
 				}
 				this.recordsNumMeterView.markEvent();
 			}
@@ -327,7 +327,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		}
 		if (consumer != null) {
 			try {
-				consumer.commitSync();
+				RetryManager.retry(() -> consumer.commitSync(), retryStrategy);
 			} catch (Exception e) {
 				LOG.warn("Receive interrupted exception.");
 			} finally {
@@ -357,7 +357,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					this.notifyAll();
 				}
 				resetAllOffset();
-				consumer.assign(assignedMessageQueuePbs);
+				RetryManager.retry(() -> consumer.assign(assignedMessageQueuePbs), retryStrategy);
 				for (MessageQueuePb messageQueuePb: assignedMessageQueuePbs) {
 					topicAndQueuesGauge.addTopicAndQueue(
 						messageQueuePb.getTopic(),
@@ -368,8 +368,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	}
 
 	private List<MessageQueuePb> allocFixedMessageQueue() throws InterruptedException {
-		QueryTopicQueuesResult queryTopicQueuesResult;
-		queryTopicQueuesResult = consumer.queryTopicQueues(topic);
+		List<QueryTopicQueuesResult> queryTopicQueuesResultList = new ArrayList<>();
+		RetryManager.retry(() -> queryTopicQueuesResultList.add(consumer.queryTopicQueues(topic)), retryStrategy);
+		QueryTopicQueuesResult queryTopicQueuesResult = queryTopicQueuesResultList.get(0);
 		validateResponse(queryTopicQueuesResult.getErrorCode(), queryTopicQueuesResult.getErrorMsg());
 		List<MessageQueuePb> messageQueuePbList = new ArrayList<>();
 		for (MessageQueuePb queuePb: queryTopicQueuesResult.getMessageQueues()) {
@@ -412,7 +413,12 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		if (isRestored) {
 			offset = restoredOffsets.get(messageQueue);
 			if (offset != null) {
-				resetOffsetResult = consumer.resetOffsetToSpecified(topic, group, queuePbList, offset, false);
+				List<ResetOffsetResult> resetOffsetResultList = new ArrayList<>();
+				Long finalOffset = offset;
+				RetryManager.retry(
+					() -> resetOffsetResultList.add(consumer.resetOffsetToSpecified(topic, group, queuePbList, finalOffset, false)),
+					retryStrategy);
+				resetOffsetResult = resetOffsetResultList.get(0);
 				validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
 				Long newOffset = resetOffsetResult.getResetOffsetMap().get(messageQueuePb);
 				offsetTable.put(messageQueue, offset);
