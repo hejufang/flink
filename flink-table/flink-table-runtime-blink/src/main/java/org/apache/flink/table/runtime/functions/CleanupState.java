@@ -42,7 +42,8 @@ public interface CleanupState {
 		// that the current cleanup timer won't delete state we need to keep
 		if (curCleanupTime == null || (currentTime + minRetentionTime) > curCleanupTime) {
 			// we need to register a new (later) timer
-			long cleanupTime = currentTime + maxRetentionTime;
+			// use minRetentionTime to make sure that all operator's state ttl is the same one.
+			long cleanupTime = currentTime + minRetentionTime;
 			// register timer and remember clean-up time
 			timerService.registerProcessingTimeTimer(cleanupTime);
 			// delete expired timer

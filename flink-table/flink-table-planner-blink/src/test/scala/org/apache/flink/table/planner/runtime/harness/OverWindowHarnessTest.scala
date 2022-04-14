@@ -68,7 +68,7 @@ class OverWindowHarnessTest(mode: StateBackendMode) extends HarnessTestBase(mode
       """.stripMargin
     val t1 = tEnv.sqlQuery(sql)
 
-    tEnv.getConfig.setIdleStateRetentionTime(Time.seconds(2), Time.seconds(4))
+    tEnv.getConfig.setIdleStateRetentionTime(Time.seconds(4), Time.seconds(4))
     val testHarness = createHarnessTester(t1.toAppendStream[Row], "OverAggregate")
     val assertor = new RowDataHarnessAssertor(
       Array(Types.LONG, Types.STRING, Types.LONG, Types.LONG, Types.LONG, Types.LONG, Types.LONG))
