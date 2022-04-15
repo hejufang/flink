@@ -29,7 +29,7 @@ import java.util.stream.IntStream;
  * KeyByPartitionSerializationSchema.
  */
 public class KeyByPartitionSerializationSchema extends KeyValueSerializationSchemaWrapper<RowData> {
-	private final int[] keyByFields;
+	private final int[] partitionKeyByFields;
 	private final RowData.FieldGetter[] keyFieldGetters;
 
 	public KeyByPartitionSerializationSchema(
@@ -37,24 +37,32 @@ public class KeyByPartitionSerializationSchema extends KeyValueSerializationSche
 			int[] keyByFields,
 			TableSchema tableSchema) {
 		super(serializationSchema);
-		this.keyByFields = keyByFields;
+		this.partitionKeyByFields = keyByFields;
 
-		keyFieldGetters = new RowData.FieldGetter[keyByFields.length];
-		for (int i = 0; i < keyByFields.length; i++) {
-			LogicalType type = tableSchema.getFieldDataType(keyByFields[i]).get().getLogicalType();
-			if (!isSupportKeyType(type)) {
-				throw new UnsupportedOperationException(String.format("%s is not supported as partition key", type));
+		if (keyByFields != null) {
+			keyFieldGetters = new RowData.FieldGetter[keyByFields.length];
+			for (int i = 0; i < keyByFields.length; i++) {
+				LogicalType type = tableSchema.getFieldDataType(keyByFields[i]).get().getLogicalType();
+				if (!isSupportKeyType(type)) {
+					throw new UnsupportedOperationException(String.format("%s is not supported as partition key", type));
+				}
+
+				keyFieldGetters[i] = RowData.createFieldGetter(
+					type,
+					keyByFields[i]);
 			}
-
-			keyFieldGetters[i] = RowData.createFieldGetter(
-				type,
-				keyByFields[i]);
+		} else {
+			keyFieldGetters = null;
 		}
 	}
 
 	@Override
 	public String getPartitionKey(RowData tuple) {
-		return IntStream.range(0, keyByFields.length)
+		if (partitionKeyByFields == null) {
+			return null;
+		}
+
+		return IntStream.range(0, partitionKeyByFields.length)
 			.mapToObj(idx -> format(keyFieldGetters[idx].getFieldOrNull(tuple)))
 			.collect(Collectors.joining());
 	}

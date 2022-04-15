@@ -217,7 +217,7 @@ public final class FactoryUtil {
 		.stringType()
 		.noDefaultValue()
 		.withDeprecatedKeys(SOURCE_SINK_KEY_BY_FLINK_1_9)
-		.withDescription("Optional specific key fields.");
+		.withDescription("Optional specific partition key fields.");
 
 	public static final ConfigOption<Integer> SINK_BUFFER_FLUSH_MAX_ROWS = ConfigOptions
 		.key("sink.buffer-flush.max-rows")

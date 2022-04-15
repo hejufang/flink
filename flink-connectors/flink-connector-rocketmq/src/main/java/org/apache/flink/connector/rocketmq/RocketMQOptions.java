@@ -245,6 +245,12 @@ public abstract class RocketMQOptions {
 			.noDefaultValue()
 			.withDescription("Whether sink use batch flush, currently it has not been implemented");
 
+	public static final ConfigOption<String> SINK_MESSAGE_KEY_FIELD = ConfigOptions
+		.key("sink.message-key-fields")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional specific key fields for message.");
+
 	// We don't want to depend on binlog format, so we add this constant value.
 	public static final ConfigOption<String> BINLOG_TARGET_TABLE = ConfigOptions
 		.key("binlog.target-table")

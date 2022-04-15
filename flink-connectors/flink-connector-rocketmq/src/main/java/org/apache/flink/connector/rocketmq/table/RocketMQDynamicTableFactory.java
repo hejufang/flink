@@ -95,6 +95,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_DEFER_MIL
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_DEFER_MILLIS_FIELD;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_DELAY_LEVEL_FIELD;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_MESSAGE_DELAY_LEVEL;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_MESSAGE_KEY_FIELD;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_TOPIC_SELECTOR;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.TAG;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.TOPIC;
@@ -181,6 +182,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SINK_MESSAGE_DELAY_LEVEL);
 		options.add(SINK_TOPIC_SELECTOR);
 		options.add(FactoryUtil.SINK_PARTITIONER_FIELD);
+		options.add(SINK_MESSAGE_KEY_FIELD);
 		options.add(SOURCE_METADATA_COLUMNS);
 		options.add(SCAN_BROKER_QUEUE_LIST);
 		options.add(SCAN_FLIP27_SOURCE);
@@ -260,6 +262,13 @@ public class RocketMQDynamicTableFactory implements
 			config.getOptional(FactoryUtil.SINK_PARTITIONER_FIELD).ifPresent(
 				keyByFields -> {
 					rocketMQConfig.setSinkKeyByFields(tableSchema.getIndexListFromFieldNames(keyByFields));
+					rocketMQConfig.setTableSchema(tableSchema);
+				}
+			);
+
+			config.getOptional(SINK_MESSAGE_KEY_FIELD).ifPresent(
+				msgKeyByFields -> {
+					rocketMQConfig.setSinkMsgKeyByFields(tableSchema.getIndexListFromFieldNames(msgKeyByFields));
 					rocketMQConfig.setTableSchema(tableSchema);
 				}
 			);
@@ -350,6 +359,9 @@ public class RocketMQDynamicTableFactory implements
 			}
 			if (config.getOptional(FactoryUtil.SINK_PARTITIONER_FIELD).isPresent()) {
 				throw new FlinkRuntimeException("Source don't support partition-fields.");
+			}
+			if (config.getOptional(SINK_MESSAGE_KEY_FIELD).isPresent()) {
+				throw new FlinkRuntimeException("Source doesn't support message key fields.");
 			}
 
 			config.getOptional(SOURCE_METADATA_COLUMNS).ifPresent(

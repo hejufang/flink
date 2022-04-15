@@ -57,6 +57,7 @@ public class RocketMQConfig<T> implements Serializable {
 	private int sendBatchSize;
 	private AssignQueueStrategy assignQueueStrategy = AssignQueueStrategy.FIXED;
 	private int[] sinkKeyByFields;
+	private int[] sinkMsgKeyByFields;
 	private TableSchema tableSchema;
 	private Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
 	private KeySelector<T, T> keySelector;
@@ -199,6 +200,14 @@ public class RocketMQConfig<T> implements Serializable {
 
 	public void setTableSchema(TableSchema tableSchema) {
 		this.tableSchema = tableSchema;
+	}
+
+	public int[] getSinkMsgKeyByFields() {
+		return sinkMsgKeyByFields;
+	}
+
+	public void setSinkMsgKeyByFields(int[] sinkMsgKeyByFields) {
+		this.sinkMsgKeyByFields = sinkMsgKeyByFields;
 	}
 
 	public void setRocketMqBrokerQueueList(String rocketMqBrokerQueueList) {

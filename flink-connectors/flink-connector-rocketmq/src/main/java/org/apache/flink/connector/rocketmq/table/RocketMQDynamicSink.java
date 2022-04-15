@@ -20,6 +20,7 @@ package org.apache.flink.connector.rocketmq.table;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
 import org.apache.flink.connector.rocketmq.RocketMQProducer;
+import org.apache.flink.connector.rocketmq.serialization.KeyByFieldSerializationSchema;
 import org.apache.flink.connector.rocketmq.serialization.KeyByPartitionSerializationSchema;
 import org.apache.flink.connector.rocketmq.serialization.KeyValueSerializationSchemaWrapper;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -93,7 +94,13 @@ public class RocketMQDynamicSink implements DynamicTableSink {
 	private static KeyValueSerializationSchemaWrapper<RowData> getSchemaByConfig(
 			SerializationSchema<RowData> serializationSchema,
 			RocketMQConfig<RowData> rocketMQConfig) {
-		if (rocketMQConfig.getSinkKeyByFields() != null) {
+		if (rocketMQConfig.getSinkMsgKeyByFields() != null) {
+			return new KeyByFieldSerializationSchema(
+				serializationSchema,
+				rocketMQConfig.getSinkMsgKeyByFields(),
+				rocketMQConfig.getSinkKeyByFields(),
+				Preconditions.checkNotNull(rocketMQConfig.getTableSchema()));
+		} else if (rocketMQConfig.getSinkKeyByFields() != null) {
 			return new KeyByPartitionSerializationSchema(
 				serializationSchema,
 				rocketMQConfig.getSinkKeyByFields(),
