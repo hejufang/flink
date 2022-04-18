@@ -16,40 +16,33 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.socket;
+package org.apache.flink.runtime.socket.result;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.common.socket.ResultStatus;
+import org.apache.flink.api.common.socket.JobSocketResult;
 
-import javax.annotation.Nullable;
-
-import java.io.Closeable;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 
 /**
- * Interface used to return job results by task.
+ * Job socket result with channel context.
  */
-public interface TaskJobResultGateway extends Closeable {
-	/**
-	 * Connect to given address and port.
-	 *
-	 * @param address the server address
-	 * @param port the server port
-	 * @throws Exception the thrown exception
-	 */
-	void connect(String address, int port) throws Exception;
+public class JobResultContext {
+	private final ChannelHandlerContext context;
+	private final JobSocketResult jobSocketResult;
 
-	/**
-	 * Send the data of given job to job manager.
-	 *
-	 * @param jobId the given job id
-	 * @param data the data of given job
-	 * @param resultStatus status of the result
-	 */
-	void sendResult(JobID jobId, @Nullable byte[] data, ResultStatus resultStatus);
+	public JobResultContext(ChannelHandlerContext context, JobSocketResult jobSocketResult) {
+		this.context = context;
+		this.jobSocketResult = jobSocketResult;
+	}
 
-	/**
-	 * Close the result gateway.
-	 */
-	@Override
-	void close();
+	public void writeResult() {
+		context.write(jobSocketResult);
+		if (jobSocketResult.isFinish()) {
+			context.flush();
+		}
+	}
+
+	public JobID getJobId() {
+		return jobSocketResult.getJobId();
+	}
 }

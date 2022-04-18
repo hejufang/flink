@@ -29,6 +29,7 @@ import org.apache.flink.runtime.rest.handler.legacy.DefaultExecutionGraphCache;
 import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
 import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.webmonitor.RestfulGateway;
 import org.apache.flink.runtime.webmonitor.WebMonitorEndpoint;
 import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
@@ -50,7 +51,8 @@ public interface RestEndpointFactory<T extends RestfulGateway> {
 		ScheduledExecutorService executor,
 		MetricFetcher metricFetcher,
 		LeaderElectionService leaderElectionService,
-		FatalErrorHandler fatalErrorHandler) throws Exception;
+		FatalErrorHandler fatalErrorHandler,
+		JobResultClientManager jobResultClientManager) throws Exception;
 
 	static ExecutionGraphCache createExecutionGraphCache(RestHandlerConfiguration restConfiguration) {
 		return new DefaultExecutionGraphCache(

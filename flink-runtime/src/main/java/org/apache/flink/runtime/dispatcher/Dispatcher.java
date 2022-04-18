@@ -45,6 +45,7 @@ import org.apache.flink.runtime.client.JobSubmissionException;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
+import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.heartbeat.HeartbeatListener;
 import org.apache.flink.runtime.heartbeat.HeartbeatManager;
@@ -93,6 +94,7 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.PermanentlyFencedRpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.ExceptionUtils;
@@ -138,6 +140,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -239,6 +242,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private final boolean useAddressAsHostname;
 
+	private final JobResultClientManager jobResultClientManager;
+
+	private final boolean useSocketEnable;
+
 	private final boolean dispatcherFetchResultThreadPoolEnabled;
 
 	private final ExecutorService fetchResultExecutor;
@@ -270,6 +277,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		this.jobGraphWriter = dispatcherServices.getJobGraphWriter();
 		this.jobManagerMetricGroup = dispatcherServices.getJobManagerMetricGroup();
 		this.metricServiceQueryAddress = dispatcherServices.getMetricQueryServiceAddress();
+		this.jobResultClientManager = dispatcherServices.getJobResultClientManager();
 
 		this.jobManagerSharedServices = JobManagerSharedServices.fromConfiguration(
 			configuration,
@@ -327,6 +335,11 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		this.resourceId = ResourceID.generate();
 
 		this.useAddressAsHostname = configuration.getBoolean(CoreOptions.USE_ADDRESS_AS_HOSTNAME_ENABLE);
+
+		this.useSocketEnable = configuration.get(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
+		checkArgument(
+			!useSocketEnable || configuration.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED),
+			"Socket enable flag can be turned on when `cluster.jm-resource-allocation.enabled` is true");
 
 		this.dispatcherFetchResultThreadPoolEnabled =
 			configuration.getBoolean(JobManagerOptions.DISPATCHER_FETCH_RESULT_THREAD_POOL_ENABLED);
@@ -849,13 +862,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private void writeFinishJobToContext(JobID jobId, ChannelHandlerContext channelContext, JobStatus jobStatus, Throwable throwable) {
 		if (jobStatus.isGloballyTerminalState()) {
 			if (channelContext != null) {
-				if (jobStatus == JobStatus.FINISHED) {
-					channelContext.writeAndFlush(
-						new JobSocketResult.Builder()
-							.setJobId(jobId)
-							.setResultStatus(ResultStatus.COMPLETE)
-							.build());
-				} else {
+				if (jobStatus != JobStatus.FINISHED) {
 					if (throwable != null) {
 						writeFailJobToContext(jobId, channelContext, throwable);
 					} else {
@@ -867,10 +874,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	}
 
 	private void writeFailJobToContext(JobID jobId, ChannelHandlerContext channelContext, Throwable throwable) {
-		if (channelContext != null) {
+		if (channelContext != null && jobResultClientManager != null) {
 			checkNotNull(throwable);
-			channelContext.writeAndFlush(
-				new JobSocketResult.Builder()
+			jobResultClientManager
+				.writeJobResult(new JobSocketResult.Builder()
 					.setJobId(jobId)
 					.setResultStatus(ResultStatus.FAIL)
 					.setSerializedThrowable(new SerializedThrowable(throwable))
@@ -1240,6 +1247,15 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 						useAddressAsHostname);
 				registeredTaskManagers.put(resourceID, resolvedTaskManagerTopology);
 				addedTaskManagerTopology.put(resourceID, resolvedTaskManagerTopology);
+
+				if (useSocketEnable) {
+					ClusterInformation clusterInformation = jobResultClientManager.getClusterInformation();
+					resolvedTaskManagerTopology
+						.getTaskExecutorGateway()
+						.registerResultServer(
+							clusterInformation.getSocketServerAddress(),
+							clusterInformation.getSocketServerPort());
+				}
 			} catch (Exception e) {
 				log.error("Resource {} can not added to registeredTaskManagers, ignore it.", resourceID, e);
 			}
@@ -1695,26 +1711,6 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	public WarehouseJobStartEventMessageRecorder getWarehouseJobStartEventMessageRecorder() {
 		return warehouseJobStartEventMessageRecorder;
-	}
-
-	@Override
-	public void sendResult(JobID jobId, @Nonnull byte[] data) {
-		CompletableFuture<JobManagerRunner> jobManagerFuture = jobManagerRunnerFutures.get(jobId);
-		if (jobManagerFuture == null) {
-			log.warn("Receive result for job {} and it's inactive, ignore the result.", jobId);
-		} else {
-			try {
-				jobManagerFuture.get()
-					.getChannelContext()
-					.writeAndFlush(new JobSocketResult.Builder()
-						.setJobId(jobId)
-						.setResultStatus(ResultStatus.PARTIAL)
-						.setResult(data)
-						.build());
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
 	}
 
 	/**

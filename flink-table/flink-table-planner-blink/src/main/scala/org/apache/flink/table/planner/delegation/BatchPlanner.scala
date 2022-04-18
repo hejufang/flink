@@ -34,7 +34,7 @@ import org.apache.flink.table.planner.plan.optimize.{BatchCommonSubGraphBasedOpt
 import org.apache.flink.table.planner.plan.reuse.DeadlockBreakupProcessor
 import org.apache.flink.table.planner.plan.stats.StatisticGenerator
 import org.apache.flink.table.planner.plan.utils.{ExecNodePlanDumper, FlinkRelOptUtil}
-import org.apache.flink.table.planner.sinks.BatchSelectTableSink
+import org.apache.flink.table.planner.sinks.{BatchSelectTableSink, BatchSocketSelectTableSink}
 import org.apache.flink.table.planner.utils.{DummyStreamExecutionEnvironment, ExecutorUtils, JavaScalaConversionUtil, PlanUtil, TableStatsConverter}
 
 import org.apache.calcite.plan.{ConventionTraitDef, RelTrait, RelTraitDef}
@@ -86,6 +86,16 @@ class BatchPlanner(
     val maxResultsBuffered = getTableConfig.getConfiguration.getInteger(
       TableConfigOptions.COLLECT_SINK_MAX_BUFFER_SIZE)
     new BatchSelectTableSink(tableSchema, maxResultsBuffered)
+  }
+
+  override def createSelectTableSink(
+      tableSchema: TableSchema,
+      socketEnable: Boolean): SelectTableSink = {
+    if (socketEnable) {
+      new BatchSocketSelectTableSink(tableSchema)
+    } else {
+      new BatchSelectTableSink(tableSchema)
+    }
   }
 
   override def explain(operations: util.List[Operation], extraDetails: ExplainDetail*): String = {

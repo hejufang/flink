@@ -33,7 +33,9 @@ import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
 import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.socket.SocketRestLeaderAddress;
+import org.apache.flink.runtime.socket.handler.PushTaskResultHandler;
 import org.apache.flink.runtime.socket.handler.SocketJobSubmitHandler;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.NetUtils;
@@ -72,6 +74,7 @@ public class DispatcherSocketRestEndpoint extends DispatcherRestEndpoint {
 	private static final Logger LOG = LoggerFactory.getLogger(DispatcherSocketRestEndpoint.class);
 
 	private final GatewayRetriever<DispatcherGateway> leaderRetriever;
+	private final JobResultClientManager jobResultClientManager;
 	private final Time timeout;
 	private final Configuration configuration;
 	private final String socketPortRange;
@@ -85,6 +88,7 @@ public class DispatcherSocketRestEndpoint extends DispatcherRestEndpoint {
 	public DispatcherSocketRestEndpoint(
 			RestServerEndpointConfiguration endpointConfiguration,
 			GatewayRetriever<DispatcherGateway> leaderRetriever,
+			JobResultClientManager jobResultClientManager,
 			Configuration clusterConfiguration,
 			RestHandlerConfiguration restConfiguration,
 			GatewayRetriever<ResourceManagerGateway> resourceManagerRetriever,
@@ -107,6 +111,7 @@ public class DispatcherSocketRestEndpoint extends DispatcherRestEndpoint {
 			executionGraphCache,
 			fatalErrorHandler);
 		this.leaderRetriever = leaderRetriever;
+		this.jobResultClientManager = jobResultClientManager;
 		this.configuration = clusterConfiguration;
 		this.socketPortRange = configuration.getString(RestOptions.BIND_SOCKET_PORT);
 		this.connectBacklog = configuration.getInteger(RestOptions.DISPATCHER_CONNECT_BACKLOG);
@@ -133,7 +138,8 @@ public class DispatcherSocketRestEndpoint extends DispatcherRestEndpoint {
 				ChannelPipeline p = ch.pipeline();
 				p.addLast(new ObjectEncoder())
 					.addLast(new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null)))
-					.addLast(new SocketJobSubmitHandler(leaderRetriever, timeout));
+					.addLast(new SocketJobSubmitHandler(leaderRetriever, jobResultClientManager, timeout))
+					.addLast(new PushTaskResultHandler(jobResultClientManager));
 			}
 		});
 
@@ -206,6 +212,9 @@ public class DispatcherSocketRestEndpoint extends DispatcherRestEndpoint {
 
 	@Override
 	public CompletableFuture<Void> closeAsync() {
+		if (jobResultClientManager != null) {
+			jobResultClientManager.close();
+		}
 		CompletableFuture<Void> closeFuture = super.closeAsync();
 		CompletableFuture<?> channelFuture = new CompletableFuture<>();
 		if (serverChannel != null) {

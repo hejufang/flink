@@ -309,4 +309,14 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
 	 * @return the {@link ThreadDumpInfo} for this TaskManager.
 	 */
 	CompletableFuture<ThreadDumpInfo> requestThreadDump(@RpcTimeout Time timeout);
+
+	/**
+	 * Dispatcher register result server address and port to the given task executor.
+	 *
+	 * @param address the result server address
+	 * @param port the result server port
+	 */
+	default void registerResultServer(String address, int port) {
+		throw new UnsupportedOperationException();
+	}
 }

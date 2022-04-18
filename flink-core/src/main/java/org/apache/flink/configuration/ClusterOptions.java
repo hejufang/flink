@@ -108,4 +108,13 @@ public class ClusterOptions {
 		.intType()
 		.defaultValue(100)
 		.withDescription("The max workers can be registered in resource manager");
+
+	/**
+	 * The thread count for job results.
+	 */
+	public static final ConfigOption<Integer> CLUSTER_RESULT_THREAD_COUNT = ConfigOptions
+		.key("cluster.result.thread.count")
+		.intType()
+		.defaultValue(10)
+		.withDescription("The thread count for job result process");
 }

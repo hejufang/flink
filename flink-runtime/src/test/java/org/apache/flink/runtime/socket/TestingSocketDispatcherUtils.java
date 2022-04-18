@@ -21,6 +21,7 @@ package org.apache.flink.runtime.socket;
 import org.apache.flink.api.common.socket.JobSocketResult;
 import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.util.SerializedThrowable;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
@@ -38,23 +39,25 @@ public class TestingSocketDispatcherUtils {
 	 * @param valueList the result value list
 	 * @param finalStatus the final status of job
 	 * @param exception the thrown exception
+	 * @param jobResultClientManager the job result client manager
 	 * @param <T> the result value type
 	 * @return the consumer of the job submit
 	 */
 	public static <T> BiConsumer<JobGraph, ChannelHandlerContext> finishWithResultData(
 			List<T> valueList,
 			ResultStatus finalStatus,
-			Throwable exception) {
+			Throwable exception,
+			JobResultClientManager jobResultClientManager) {
 		return (graph, ctx) -> {
 			for (int i = 0; i < valueList.size() - 1; i++) {
-				ctx.channel().writeAndFlush(
+				jobResultClientManager.writeJobResult(
 					new JobSocketResult.Builder()
 						.setJobId(graph.getJobID())
 						.setResult(valueList.get(i))
 						.setResultStatus(ResultStatus.PARTIAL)
 						.build());
 			}
-			ctx.channel().writeAndFlush(
+			jobResultClientManager.writeJobResult(
 				new JobSocketResult.Builder()
 					.setJobId(graph.getJobID())
 					.setResult(valueList.get(valueList.size() - 1))
@@ -70,23 +73,25 @@ public class TestingSocketDispatcherUtils {
 	 * @param valueList the given result data list
 	 * @param finalStatus the final status of job
 	 * @param exception the thrown exception
+	 * @param jobResultClientManager the job result client manager
 	 * @param <T> the result data type
 	 * @return the consumer of job submit
 	 */
 	public static <T> BiConsumer<JobGraph, ChannelHandlerContext> finishWithEmptyData(
-		List<T> valueList,
-		ResultStatus finalStatus,
-		Throwable exception) {
+			List<T> valueList,
+			ResultStatus finalStatus,
+			Throwable exception,
+			JobResultClientManager jobResultClientManager) {
 		return (graph, ctx) -> {
 			for (T t : valueList) {
-				ctx.channel().writeAndFlush(
+				jobResultClientManager.writeJobResult(
 					new JobSocketResult.Builder()
 						.setJobId(graph.getJobID())
 						.setResult(t)
 						.setResultStatus(ResultStatus.PARTIAL)
 						.build());
 			}
-			ctx.channel().writeAndFlush(
+			jobResultClientManager.writeJobResult(
 				new JobSocketResult.Builder()
 					.setJobId(graph.getJobID())
 					.setResult(null)

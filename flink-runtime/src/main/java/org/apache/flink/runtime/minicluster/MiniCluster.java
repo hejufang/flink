@@ -41,6 +41,8 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.dispatcher.DispatcherId;
 import org.apache.flink.runtime.dispatcher.MemoryArchivedExecutionGraphStore;
+import org.apache.flink.runtime.dispatcher.SessionDispatcherFactory;
+import org.apache.flink.runtime.dispatcher.runner.DefaultDispatcherRunnerFactory;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.entrypoint.component.DefaultDispatcherResourceManagerComponentFactory;
 import org.apache.flink.runtime.entrypoint.component.DispatcherResourceManagerComponent;
@@ -71,8 +73,9 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcUtils;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
+import org.apache.flink.runtime.socket.SessionSocketRestEndpointFactory;
 import org.apache.flink.runtime.socket.SocketClient;
-import org.apache.flink.runtime.socket.SocketRestLeaderAddress;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.taskexecutor.TaskExecutor;
 import org.apache.flink.runtime.taskexecutor.TaskManagerRunner;
 import org.apache.flink.runtime.util.ClusterEntrypointUtils;
@@ -136,6 +139,8 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 	private final List<TaskExecutor> taskManagers;
 
 	private final TerminatingFatalErrorHandlerFactory taskManagerTerminatingFatalErrorHandlerFactory = new TerminatingFatalErrorHandlerFactory();
+
+	private final JobResultClientManager jobResultClientManager;
 
 	private CompletableFuture<Void> terminationFuture;
 
@@ -207,6 +212,7 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 		this.miniClusterConfiguration = checkNotNull(miniClusterConfiguration, "config may not be null");
 		this.rpcServices = new ArrayList<>(1 + 2 + miniClusterConfiguration.getNumTaskManagers()); // common + JM + RM + TMs
 		this.dispatcherResourceManagerComponents = new ArrayList<>(1);
+		this.jobResultClientManager = new JobResultClientManager(1);
 
 		this.rpcTimeout = miniClusterConfiguration.getRpcTimeout();
 		this.terminationFuture = CompletableFuture.completedFuture(null);
@@ -225,7 +231,7 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 	public ClusterInformation getClusterInformation() {
 		synchronized (lock) {
 			checkState(running, "MiniCluster is not yet running or has already been shut down.");
-			return new ClusterInformation("localhost", blobServer.getPort(), 1234, 1235);
+			return jobResultClientManager.getClusterInformation();
 		}
 	}
 
@@ -430,7 +436,13 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 
 	@Nonnull
 	DispatcherResourceManagerComponentFactory createDispatcherResourceManagerComponentFactory() {
-		return DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(StandaloneResourceManagerFactory.getInstance());
+		return miniClusterConfiguration.getConfiguration().get(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE) ?
+				new DefaultDispatcherResourceManagerComponentFactory(
+					DefaultDispatcherRunnerFactory.createSessionRunner(SessionDispatcherFactory.INSTANCE),
+					StandaloneResourceManagerFactory.getInstance(),
+					SessionSocketRestEndpointFactory.INSTANCE,
+					jobResultClientManager) :
+				DefaultDispatcherResourceManagerComponentFactory.createSessionComponentFactory(StandaloneResourceManagerFactory.getInstance());
 	}
 
 	@VisibleForTesting
@@ -706,10 +718,10 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 	public <T> CloseableIterator<T> submitJobSync(JobGraph jobGraph) {
 		try {
 			if (socketClient == null) {
-				SocketRestLeaderAddress socketRestLeaderAddress = SocketRestLeaderAddress.fromJson(webMonitorLeaderRetriever.getLeaderNow().get().f0);
+				ClusterInformation clusterInformation = getClusterInformation();
 				socketClient = new SocketClient(
-					socketRestLeaderAddress.getSocketAddress(),
-					socketRestLeaderAddress.getSocketPort(),
+					clusterInformation.getSocketServerAddress(),
+					clusterInformation.getSocketServerPort(),
 					0);
 				socketClient.start();
 			}

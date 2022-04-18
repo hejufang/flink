@@ -412,7 +412,7 @@ public class TaskExecutorPartitionLifecycleTest extends TestLogger {
 			new TaskExecutorRegistrationSuccess(
 				new InstanceID(),
 				testingResourceManagerGateway.getOwnResourceId(),
-				new ClusterInformation("blobServerHost", 55555, 8081, 8091))));
+				new ClusterInformation("blobServerHost", 55555, 8081, "localhost", 8091))));
 
 		try {
 			taskExecutor.start();

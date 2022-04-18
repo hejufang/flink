@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.entrypoint.component;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.RestOptions;
@@ -56,6 +57,7 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcUtils;
 import org.apache.flink.runtime.socket.SessionSocketRestEndpointFactory;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.webmonitor.WebMonitorEndpoint;
 import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
 import org.apache.flink.runtime.webmonitor.retriever.MetricQueryServiceRetriever;
@@ -67,6 +69,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -90,13 +93,25 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 	@Nonnull
 	private final RestEndpointFactory<?> restEndpointFactory;
 
+	@Nullable
+	private final JobResultClientManager jobResultClientManager;
+
 	public DefaultDispatcherResourceManagerComponentFactory(
 			@Nonnull DispatcherRunnerFactory dispatcherRunnerFactory,
 			@Nonnull ResourceManagerFactory<?> resourceManagerFactory,
 			@Nonnull RestEndpointFactory<?> restEndpointFactory) {
+		this(dispatcherRunnerFactory, resourceManagerFactory, restEndpointFactory, null);
+	}
+
+	public DefaultDispatcherResourceManagerComponentFactory(
+			@Nonnull DispatcherRunnerFactory dispatcherRunnerFactory,
+			@Nonnull ResourceManagerFactory<?> resourceManagerFactory,
+			@Nonnull RestEndpointFactory<?> restEndpointFactory,
+			@Nullable JobResultClientManager jobResultClientManager) {
 		this.dispatcherRunnerFactory = dispatcherRunnerFactory;
 		this.resourceManagerFactory = resourceManagerFactory;
 		this.restEndpointFactory = restEndpointFactory;
+		this.jobResultClientManager = jobResultClientManager;
 	}
 
 	@Override
@@ -151,6 +166,10 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 					dispatcherGatewayRetriever,
 					executor);
 
+			boolean useSocketEndpoint = restEndpointFactory instanceof SessionSocketRestEndpointFactory;
+			JobResultClientManager jobResultClientManager = useSocketEndpoint ?
+				(this.jobResultClientManager == null ? new JobResultClientManager(configuration.getInteger(ClusterOptions.CLUSTER_RESULT_THREAD_COUNT)) : this.jobResultClientManager) :
+				null;
 			webMonitorEndpoint = restEndpointFactory.createRestEndpoint(
 				configuration,
 				dispatcherGatewayRetriever,
@@ -159,12 +178,25 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 				executor,
 				metricFetcher,
 				highAvailabilityServices.getClusterRestEndpointLeaderElectionService(),
-				fatalErrorHandler);
+				fatalErrorHandler,
+				jobResultClientManager);
 
 			log.debug("Starting Dispatcher REST endpoint.");
 			webMonitorEndpoint.start();
 
 			final String hostname = RpcUtils.getHostname(rpcService);
+
+			ClusterInformation clusterInformation = useSocketEndpoint ?
+				new ClusterInformation(
+					hostname,
+					blobServer.getPort(),
+					webMonitorEndpoint.getRestBindPort(),
+					((DispatcherSocketRestEndpoint) webMonitorEndpoint).getAddress(),
+					((DispatcherSocketRestEndpoint) webMonitorEndpoint).getSocketPort()) :
+				new ClusterInformation(hostname, blobServer.getPort(), webMonitorEndpoint.getRestBindPort());
+			if (jobResultClientManager != null) {
+				jobResultClientManager.registerClusterInformation(clusterInformation);
+			}
 
 			resourceManager = resourceManagerFactory.createResourceManager(
 				configuration,
@@ -173,9 +205,7 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 				highAvailabilityServices,
 				heartbeatServices,
 				fatalErrorHandler,
-				webMonitorEndpoint instanceof DispatcherSocketRestEndpoint ?
-					new ClusterInformation(hostname, blobServer.getPort(), webMonitorEndpoint.getRestBindPort(), ((DispatcherSocketRestEndpoint) webMonitorEndpoint).getSocketPort()) :
-					new ClusterInformation(hostname, blobServer.getPort(), webMonitorEndpoint.getRestBindPort()),
+				clusterInformation,
 				webMonitorEndpoint.getRestBaseUrl(),
 				metricRegistry,
 				hostname);
@@ -192,7 +222,8 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 				archivedExecutionGraphStore,
 				fatalErrorHandler,
 				historyServerArchivist,
-				metricRegistry.getMetricQueryServiceGatewayRpcAddress());
+				metricRegistry.getMetricQueryServiceGatewayRpcAddress(),
+				jobResultClientManager);
 
 			log.debug("Starting Dispatcher.");
 			dispatcherRunner = dispatcherRunnerFactory.createDispatcherRunner(

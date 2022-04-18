@@ -632,6 +632,30 @@ public class TaskManagerOptions {
 			"otherwise it will be done in task executor akka thread. If the task pushes results to " +
 			"job manager, this flag must be true to make sure the task sends final status after its results.");
 
+	public static final ConfigOption<Integer> RESULT_PUSH_CLIENT_COUNT = ConfigOptions
+		.key("taskmanager.result-push-client.count")
+		.intType()
+		.defaultValue(10)
+		.withDescription("Result push client count in task manager for jobs.");
+
+	public static final ConfigOption<Integer> RESULT_PUSH_CLIENT_CONNECT_TIMEOUT_MILLS = ConfigOptions
+		.key("taskmanager.result-push-client-connect-timeout.mills")
+		.intType()
+		.defaultValue(10000)
+		.withDescription("Result push client connect timeout mills");
+
+	public static final ConfigOption<Integer> RESULT_PUSH_NETTY_LOW_WRITER_BUFFER_MARK = ConfigOptions
+		.key("taskmanager.result-push-netty-low-writer-buffer.mark")
+		.intType()
+		.defaultValue(0)
+		.withDescription("Low writer buffer mark for task push results with netty client, 0 means no mark");
+
+	public static final ConfigOption<Integer> RESULT_PUSH_NETTY_HIGH_WRITER_BUFFER_MARK = ConfigOptions
+		.key("taskmanager.result-push-netty-high-writer-buffer.mark")
+		.intType()
+		.defaultValue(0)
+		.withDescription("High writer buffer mark for task push results with netty client, 0 means no mark");
+
 	// ------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */

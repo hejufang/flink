@@ -320,7 +320,7 @@ public class YarnResourceManagerTest extends TestLogger {
 							rmServices.heartbeatServices,
 							rmServices.slotManager,
 							rmServices.jobLeaderIdService,
-							new ClusterInformation("localhost", 1234, 8081, 8091),
+							new ClusterInformation("localhost", 1234, 8081, "localhost", 8091),
 							testingFatalErrorHandler,
 							null,
 							UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),

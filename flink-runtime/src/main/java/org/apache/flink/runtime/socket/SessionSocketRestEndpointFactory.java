@@ -29,6 +29,7 @@ import org.apache.flink.runtime.rest.RestServerEndpointConfiguration;
 import org.apache.flink.runtime.rest.handler.RestHandlerConfiguration;
 import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.webmonitor.WebMonitorEndpoint;
 import org.apache.flink.runtime.webmonitor.retriever.LeaderGatewayRetriever;
 
@@ -49,12 +50,14 @@ public enum SessionSocketRestEndpointFactory implements RestEndpointFactory<Disp
 			ScheduledExecutorService executor,
 			MetricFetcher metricFetcher,
 			LeaderElectionService leaderElectionService,
-			FatalErrorHandler fatalErrorHandler) throws Exception {
+			FatalErrorHandler fatalErrorHandler,
+			JobResultClientManager jobResultClientManager) throws Exception {
 		final RestHandlerConfiguration restHandlerConfiguration = RestHandlerConfiguration.fromConfiguration(configuration);
 
 		return new DispatcherSocketRestEndpoint(
 			RestServerEndpointConfiguration.fromConfiguration(configuration),
 			dispatcherGatewayRetriever,
+			jobResultClientManager,
 			configuration,
 			restHandlerConfiguration,
 			resourceManagerGatewayRetriever,

@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.dispatcher;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.blob.BlobServer;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
@@ -26,6 +27,7 @@ import org.apache.flink.runtime.jobmanager.JobGraphWriter;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 
 import javax.annotation.Nonnull;
@@ -72,6 +74,9 @@ public class DispatcherServices {
 	@Nonnull
 	private final JobManagerRunnerFactory jobManagerRunnerFactory;
 
+	private final JobResultClientManager jobResultClientManager;
+
+	@VisibleForTesting
 	public DispatcherServices(
 			@Nonnull Configuration configuration,
 			@Nonnull HighAvailabilityServices highAvailabilityServices,
@@ -85,6 +90,36 @@ public class DispatcherServices {
 			@Nonnull JobManagerMetricGroup jobManagerMetricGroup,
 			@Nonnull JobGraphWriter jobGraphWriter,
 			@Nonnull JobManagerRunnerFactory jobManagerRunnerFactory) {
+		this(
+			configuration,
+			highAvailabilityServices,
+			resourceManagerGatewayRetriever,
+			blobServer,
+			heartbeatServices,
+			archivedExecutionGraphStore,
+			fatalErrorHandler,
+			historyServerArchivist,
+			metricQueryServiceAddress,
+			jobManagerMetricGroup,
+			jobGraphWriter,
+			null,
+			jobManagerRunnerFactory);
+	}
+
+	public DispatcherServices(
+			@Nonnull Configuration configuration,
+			@Nonnull HighAvailabilityServices highAvailabilityServices,
+			@Nonnull GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever,
+			@Nonnull BlobServer blobServer,
+			@Nonnull HeartbeatServices heartbeatServices,
+			@Nonnull ArchivedExecutionGraphStore archivedExecutionGraphStore,
+			@Nonnull FatalErrorHandler fatalErrorHandler,
+			@Nonnull HistoryServerArchivist historyServerArchivist,
+			@Nullable String metricQueryServiceAddress,
+			@Nonnull JobManagerMetricGroup jobManagerMetricGroup,
+			@Nonnull JobGraphWriter jobGraphWriter,
+			@Nullable JobResultClientManager jobResultClientManager,
+			@Nonnull JobManagerRunnerFactory jobManagerRunnerFactory) {
 		this.configuration = configuration;
 		this.highAvailabilityServices = highAvailabilityServices;
 		this.resourceManagerGatewayRetriever = resourceManagerGatewayRetriever;
@@ -97,6 +132,7 @@ public class DispatcherServices {
 		this.jobManagerMetricGroup = jobManagerMetricGroup;
 		this.jobGraphWriter = jobGraphWriter;
 		this.jobManagerRunnerFactory = jobManagerRunnerFactory;
+		this.jobResultClientManager = jobResultClientManager;
 	}
 
 	@Nonnull
@@ -159,6 +195,10 @@ public class DispatcherServices {
 		return jobManagerRunnerFactory;
 	}
 
+	public JobResultClientManager getJobResultClientManager() {
+		return jobResultClientManager;
+	}
+
 	public static DispatcherServices from(
 			@Nonnull PartialDispatcherServicesWithJobGraphStore partialDispatcherServicesWithJobGraphStore,
 			@Nonnull JobManagerRunnerFactory jobManagerRunnerFactory) {
@@ -174,6 +214,7 @@ public class DispatcherServices {
 			partialDispatcherServicesWithJobGraphStore.getMetricQueryServiceAddress(),
 			partialDispatcherServicesWithJobGraphStore.getJobManagerMetricGroupFactory().create(),
 			partialDispatcherServicesWithJobGraphStore.getJobGraphWriter(),
+			partialDispatcherServicesWithJobGraphStore.getJobResultClientManager(),
 			jobManagerRunnerFactory);
 	}
 }

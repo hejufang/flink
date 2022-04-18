@@ -18,12 +18,14 @@
 
 package org.apache.flink.runtime.dispatcher;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.blob.BlobServer;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 
 import javax.annotation.Nonnull;
@@ -65,6 +67,9 @@ public class PartialDispatcherServices {
 	@Nullable
 	private final String metricQueryServiceAddress;
 
+	private final JobResultClientManager jobResultClientManager;
+
+	@VisibleForTesting
 	public PartialDispatcherServices(
 			@Nonnull Configuration configuration,
 			@Nonnull HighAvailabilityServices highAvailabilityServices,
@@ -76,6 +81,32 @@ public class PartialDispatcherServices {
 			@Nonnull FatalErrorHandler fatalErrorHandler,
 			@Nonnull HistoryServerArchivist historyServerArchivist,
 			@Nullable String metricQueryServiceAddress) {
+		this(
+			configuration,
+			highAvailabilityServices,
+			resourceManagerGatewayRetriever,
+			blobServer,
+			heartbeatServices,
+			jobManagerMetricGroupFactory,
+			archivedExecutionGraphStore,
+			fatalErrorHandler,
+			historyServerArchivist,
+			metricQueryServiceAddress,
+			null);
+	}
+
+	public PartialDispatcherServices(
+			@Nonnull Configuration configuration,
+			@Nonnull HighAvailabilityServices highAvailabilityServices,
+			@Nonnull GatewayRetriever<ResourceManagerGateway> resourceManagerGatewayRetriever,
+			@Nonnull BlobServer blobServer,
+			@Nonnull HeartbeatServices heartbeatServices,
+			@Nonnull JobManagerMetricGroupFactory jobManagerMetricGroupFactory,
+			@Nonnull ArchivedExecutionGraphStore archivedExecutionGraphStore,
+			@Nonnull FatalErrorHandler fatalErrorHandler,
+			@Nonnull HistoryServerArchivist historyServerArchivist,
+			@Nullable String metricQueryServiceAddress,
+			@Nullable JobResultClientManager jobResultClientManager) {
 		this.configuration = configuration;
 		this.highAvailabilityServices = highAvailabilityServices;
 		this.resourceManagerGatewayRetriever = resourceManagerGatewayRetriever;
@@ -86,6 +117,7 @@ public class PartialDispatcherServices {
 		this.fatalErrorHandler = fatalErrorHandler;
 		this.historyServerArchivist = historyServerArchivist;
 		this.metricQueryServiceAddress = metricQueryServiceAddress;
+		this.jobResultClientManager = jobResultClientManager;
 	}
 
 	@Nonnull
@@ -136,5 +168,10 @@ public class PartialDispatcherServices {
 	@Nullable
 	public String getMetricQueryServiceAddress() {
 		return metricQueryServiceAddress;
+	}
+
+	@Nullable
+	public JobResultClientManager getJobResultClientManager() {
+		return jobResultClientManager;
 	}
 }

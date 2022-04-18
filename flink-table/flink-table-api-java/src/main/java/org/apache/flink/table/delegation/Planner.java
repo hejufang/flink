@@ -88,6 +88,17 @@ public interface Planner {
 	SelectTableSink createSelectTableSink(TableSchema tableSchema);
 
 	/**
+	 * Creates a {@link SelectTableSink} for a select query with socket enable flag.
+	 *
+	 * @param tableSchema the table schema of select result.
+	 * @param socketEnable the socket enable flag.
+	 * @return The {@link SelectTableSink} for the select query.
+	 */
+	default SelectTableSink createSelectTableSink(TableSchema tableSchema, boolean socketEnable) {
+		return createSelectTableSink(tableSchema);
+	}
+
+	/**
 	 * Returns the AST of the specified Table API and SQL queries and the execution plan
 	 * to compute the result of the given collection of {@link QueryOperation}s.
 	 *

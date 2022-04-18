@@ -32,13 +32,16 @@ import org.apache.flink.runtime.dispatcher.DispatcherServices;
 import org.apache.flink.runtime.dispatcher.PartialDispatcherServicesWithJobGraphStore;
 import org.apache.flink.runtime.dispatcher.runner.DefaultDispatcherRunnerFactory;
 import org.apache.flink.runtime.dispatcher.runner.SessionDispatcherLeaderProcessFactoryFactory;
+import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.entrypoint.component.DefaultDispatcherResourceManagerComponentFactory;
 import org.apache.flink.runtime.entrypoint.component.DispatcherResourceManagerComponentFactory;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.resourcemanager.StandaloneResourceManagerFactory;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.socket.SessionSocketRestEndpointFactory;
 import org.apache.flink.runtime.socket.TestingSocketDispatcherUtils;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.util.CloseableIterator;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
@@ -62,33 +65,43 @@ public class MiniClusterSocketTest {
 	@Test
 	public void testMiniClusterStringValue() throws Exception {
 		List<String> valueList = Arrays.asList("a", "b", "c", "d", "e", "f");
+		JobResultClientManager jobResultClientManager1 = new JobResultClientManager(3);
 		runJobInSocketMiniCluster(
 			valueList,
-			TestingSocketDispatcherUtils.finishWithResultData(valueList, ResultStatus.COMPLETE, null));
+			jobResultClientManager1,
+			TestingSocketDispatcherUtils.finishWithResultData(valueList, ResultStatus.COMPLETE, null, jobResultClientManager1));
+
+		JobResultClientManager jobResultClientManager2 = new JobResultClientManager(3);
 		runJobInSocketMiniCluster(
 			valueList,
-			TestingSocketDispatcherUtils.finishWithEmptyData(valueList, ResultStatus.COMPLETE, null));
+			jobResultClientManager2,
+			TestingSocketDispatcherUtils.finishWithEmptyData(valueList, ResultStatus.COMPLETE, null, jobResultClientManager2));
 	}
 
 	@Test
 	public void testMiniClusterStringValueFailed() throws Exception {
 		List<String> valueList = Arrays.asList("a", "b", "c", "d", "e", "f");
+		JobResultClientManager jobResultClientManager1 = new JobResultClientManager(3);
 		assertThrows(
 			"string value failed",
 			RuntimeException.class,
 			() -> {
 				runJobInSocketMiniCluster(
 					valueList,
-					TestingSocketDispatcherUtils.finishWithResultData(valueList, ResultStatus.FAIL, new IllegalArgumentException("string value failed")));
+					jobResultClientManager1,
+					TestingSocketDispatcherUtils.finishWithResultData(valueList, ResultStatus.FAIL, new IllegalArgumentException("string value failed"), jobResultClientManager1));
 				return null;
 			});
+
+		JobResultClientManager jobResultClientManager2 = new JobResultClientManager(3);
 		assertThrows(
 			"string value failed",
 			RuntimeException.class,
 			() -> {
 				runJobInSocketMiniCluster(
 					valueList,
-					TestingSocketDispatcherUtils.finishWithEmptyData(valueList, ResultStatus.FAIL, new IllegalArgumentException("string value failed")));
+					jobResultClientManager2,
+					TestingSocketDispatcherUtils.finishWithEmptyData(valueList, ResultStatus.FAIL, new IllegalArgumentException("string value failed"), jobResultClientManager2));
 				return null;
 			});
 	}
@@ -96,27 +109,38 @@ public class MiniClusterSocketTest {
 	@Test
 	public void testMiniClusterIntegerValue() throws Exception {
 		List<Integer> valueList = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 0);
+		JobResultClientManager jobResultClientManager1 = new JobResultClientManager(3);
 		runJobInSocketMiniCluster(
 			valueList,
-			TestingSocketDispatcherUtils.finishWithResultData(valueList, ResultStatus.COMPLETE, null));
+			jobResultClientManager1,
+			TestingSocketDispatcherUtils.finishWithResultData(valueList, ResultStatus.COMPLETE, null, jobResultClientManager1));
+
+		JobResultClientManager jobResultClientManager2 = new JobResultClientManager(3);
 		runJobInSocketMiniCluster(
 			valueList,
-			TestingSocketDispatcherUtils.finishWithEmptyData(valueList, ResultStatus.COMPLETE, null));
+			jobResultClientManager2,
+			TestingSocketDispatcherUtils.finishWithEmptyData(valueList, ResultStatus.COMPLETE, null, jobResultClientManager2));
 	}
 
 	@Test
 	public void testMiniClusterLongValue() throws Exception {
 		List<Long> valueList = Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 0L);
+		JobResultClientManager jobResultClientManager1 = new JobResultClientManager(3);
 		runJobInSocketMiniCluster(
 			valueList,
-			TestingSocketDispatcherUtils.finishWithResultData(valueList, ResultStatus.COMPLETE, null));
+			jobResultClientManager1,
+			TestingSocketDispatcherUtils.finishWithResultData(valueList, ResultStatus.COMPLETE, null, jobResultClientManager1));
+
+		JobResultClientManager jobResultClientManager2 = new JobResultClientManager(3);
 		runJobInSocketMiniCluster(
 			valueList,
-			TestingSocketDispatcherUtils.finishWithEmptyData(valueList, ResultStatus.COMPLETE, null));
+			jobResultClientManager2,
+			TestingSocketDispatcherUtils.finishWithEmptyData(valueList, ResultStatus.COMPLETE, null, jobResultClientManager2));
 	}
 
 	private <T> void runJobInSocketMiniCluster(
 			List<T> valueList,
+			JobResultClientManager jobResultClientManager,
 			BiConsumer<JobGraph, ChannelHandlerContext> consumer) throws Exception {
 		final int numOfTMs = 3;
 		final int slotsPerTM = 7;
@@ -128,9 +152,14 @@ public class MiniClusterSocketTest {
 			.setConfiguration(getSocketConfiguration())
 			.build();
 
-		try (MiniCluster miniCluster = new TestingDispatcherMiniClusterSocket(configuration, consumer)) {
+		try (MiniCluster miniCluster = new TestingDispatcherMiniClusterSocket(configuration, consumer, jobResultClientManager)) {
 			miniCluster.start();
-			CloseableIterator<T> resultIterator = miniCluster.submitJobSync(new JobGraph());
+
+			JobGraph jobGraph = new JobGraph();
+			JobVertex vertex = new JobVertex("v");
+			vertex.setParallelism(1);
+			jobGraph.addVertex(vertex);
+			CloseableIterator<T> resultIterator = miniCluster.submitJobSync(jobGraph);
 			List<T> resultList = new ArrayList<>();
 			while (resultIterator.hasNext()) {
 				resultList.add(resultIterator.next());
@@ -143,6 +172,7 @@ public class MiniClusterSocketTest {
 		final Configuration configuration = new Configuration();
 		configuration.setString(RestOptions.BIND_PORT, "0");
 		configuration.setBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE, true);
+		configuration.set(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED, true);
 
 		return configuration;
 	}
@@ -199,6 +229,7 @@ public class MiniClusterSocketTest {
 	 */
 	private static class TestingDispatcherMiniClusterSocket extends MiniCluster {
 		private final BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer;
+		private final JobResultClientManager jobResultClientManager;
 
 		/**
 		 * Creates a new Flink mini cluster based on the given configuration.
@@ -207,9 +238,11 @@ public class MiniClusterSocketTest {
 		 */
 		public TestingDispatcherMiniClusterSocket(
 				MiniClusterConfiguration miniClusterConfiguration,
-				BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer) {
+				BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer,
+				JobResultClientManager jobResultClientManager) {
 			super(miniClusterConfiguration);
 			this.submitConsumer = submitConsumer;
+			this.jobResultClientManager = jobResultClientManager;
 		}
 
 		@Override
@@ -220,7 +253,13 @@ public class MiniClusterSocketTest {
 					SessionDispatcherLeaderProcessFactoryFactory.create(
 						new TestingSocketDispatcherFactory(submitConsumer))),
 				StandaloneResourceManagerFactory.getInstance(),
-				SessionSocketRestEndpointFactory.INSTANCE);
+				SessionSocketRestEndpointFactory.INSTANCE,
+				jobResultClientManager);
+		}
+
+		@Override
+		public ClusterInformation getClusterInformation() {
+			return jobResultClientManager.getClusterInformation();
 		}
 	}
 }

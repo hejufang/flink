@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.socket;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.common.socket.ResultStatus;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +33,13 @@ public class PrintTaskJobResultGateway implements TaskJobResultGateway {
 	private static final Logger LOG = LoggerFactory.getLogger(PrintTaskJobResultGateway.class);
 
 	@Override
-	public void sendResult(JobID jobId, @Nonnull byte[] data) {
-		LOG.info("Print result for job {}", jobId);
+	public void connect(String address, int port) throws Exception { }
+
+	@Override
+	public void sendResult(JobID jobId, @Nonnull byte[] data, ResultStatus resultStatus) {
+		LOG.info("Print result for job {} with status {}", jobId, resultStatus);
 	}
+
+	@Override
+	public void close() { }
 }

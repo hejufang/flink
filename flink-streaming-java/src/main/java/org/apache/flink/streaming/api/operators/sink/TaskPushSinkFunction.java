@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.api.operators.sink;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
@@ -75,24 +76,26 @@ public class TaskPushSinkFunction<IN> extends RichSinkFunction<IN> implements Ch
 	public void invoke(IN value, Context context) throws Exception {
 		this.batchResults.add(value);
 		if (this.batchResults.size() >= this.maxResultsPerBatch) {
-			sendTaskResult();
+			sendTaskResult(ResultStatus.PARTIAL);
 		}
 	}
 
 	@Override
 	public void close() throws Exception {
-		if (!this.batchResults.isEmpty()) {
-			sendTaskResult();
-		}
+		sendTaskResult(ResultStatus.COMPLETE);
 		super.close();
 	}
 
-	private void sendTaskResult() throws java.io.IOException {
-		ListSerializer<IN> listSerializer = new ListSerializer<>(serializer);
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		DataOutputViewStreamWrapper wrapper = new DataOutputViewStreamWrapper(baos);
-		listSerializer.serialize(this.batchResults, wrapper);
-		taskJobResultGateway.sendResult(jobId, baos.toByteArray());
-		this.batchResults.clear();
+	private void sendTaskResult(ResultStatus resultStatus) throws java.io.IOException {
+		if (!this.batchResults.isEmpty()) {
+			ListSerializer<IN> listSerializer = new ListSerializer<>(serializer);
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			DataOutputViewStreamWrapper wrapper = new DataOutputViewStreamWrapper(baos);
+			listSerializer.serialize(this.batchResults, wrapper);
+			taskJobResultGateway.sendResult(jobId, baos.toByteArray(), resultStatus);
+			this.batchResults.clear();
+		} else {
+			taskJobResultGateway.sendResult(jobId, null, resultStatus);
+		}
 	}
 }

@@ -45,8 +45,6 @@ import org.apache.flink.util.function.TriFunction;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 
-import javax.annotation.Nonnull;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
@@ -182,11 +180,6 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	@Override
 	public CompletableFuture<Acknowledge> shutDownCluster(ApplicationStatus applicationStatus) {
 		return clusterShutdownWithStatusFunction.apply(applicationStatus);
-	}
-
-	@Override
-	public void sendResult(JobID jobId, @Nonnull byte[] data) {
-		throw new UnsupportedOperationException();
 	}
 
 	@Override

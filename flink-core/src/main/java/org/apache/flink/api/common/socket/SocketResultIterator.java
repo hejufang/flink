@@ -19,12 +19,16 @@
 package org.apache.flink.api.common.socket;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.base.ListSerializer;
+import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.SerializedThrowable;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -34,89 +38,98 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * @param <T> The result data.
  */
 public class SocketResultIterator<T> implements CloseableIterator<T> {
-	private static final Logger LOG = LoggerFactory.getLogger(SocketResultIterator.class);
-
 	private final JobID jobId;
 	private final BlockingQueue<JobSocketResult> resultList;
+	private final Queue<T> resultValueQueue;
 	private boolean hasMore;
-	private JobSocketResult result;
+	private ListSerializer<T> resultSerializer;
+	private SerializedThrowable serializedThrowable;
 
 	public SocketResultIterator(JobID jobId, BlockingQueue<JobSocketResult> resultList) {
 		this.jobId = jobId;
 		this.resultList = resultList;
+		this.resultValueQueue = new LinkedList<>();
 		this.hasMore = true;
-		this.result = null;
+		this.resultSerializer = null;
+		this.serializedThrowable = null;
 	}
 
 	@Override
 	public void close() throws Exception {
 		resultList.clear();
-		hasMore = false;
-		result = null;
+		resultValueQueue.clear();
 	}
 
 	@Override
 	public boolean hasNext() {
-		if (result == null) {
-			if (hasMore) {
-				fetchNextResult();
-				if (result == null) {
-					return false;
-				} else {
-					if (result.isFailed()) {
-						SerializedThrowable serializedThrowable = result.getSerializedThrowable();
-						checkNotNull(serializedThrowable);
-						throw new RuntimeException(serializedThrowable.getFullStringifiedStackTrace());
-					} else if (result.isFinish() && result.getResult() == null) {
-						result = null;
-						return false;
-					}
-				}
-			} else {
-				return false;
-			}
+		if (serializedThrowable != null) {
+			throw new RuntimeException(serializedThrowable.getFullStringifiedStackTrace());
+		}
+
+		if (resultValueQueue.isEmpty()) {
+			fetchNextResult();
+			return !resultValueQueue.isEmpty();
 		}
 		return true;
 	}
 
 	@Override
 	public T next() {
-		if (result == null) {
-			if (hasMore) {
-				fetchNextResult();
-			}
+		if (serializedThrowable != null) {
+			throw new RuntimeException(serializedThrowable.getFullStringifiedStackTrace());
 		}
-		if (result != null) {
-			if (result.isFailed()) {
-				SerializedThrowable serializedThrowable = result.getSerializedThrowable();
-				result = null;
-				checkNotNull(serializedThrowable);
-				throw new RuntimeException(serializedThrowable.getFullStringifiedStackTrace());
-			} else {
-				JobSocketResult current = result;
-				result = null;
-				return (T) current.getResult();
-			}
+
+		if (resultValueQueue.isEmpty()) {
+			throw new RuntimeException("All the data has been taken away");
 		}
-		return null;
+
+		return resultValueQueue.poll();
+	}
+
+	public void registerResultSerializer(TypeSerializer<T> serializer) {
+		checkNotNull(serializer);
+		resultSerializer = new ListSerializer<>(serializer);
 	}
 
 	private void fetchNextResult() {
 		try {
-			while (true) {
+			while (hasMore) {
 				JobSocketResult jobSocketResult = resultList.take();
 				if (!jobSocketResult.getJobId().equals(jobId)) {
-					LOG.warn("Receive result for {} while current job is {}", jobSocketResult.getJobId(), jobId);
-					continue;
-				}
-				result = jobSocketResult;
-				if (result.isFinish()) {
 					hasMore = false;
+					serializedThrowable = new SerializedThrowable(
+						new Exception("Receive result for " + jobSocketResult.getJobId() + " while current job is " + jobId));
+					return;
 				}
-				break;
+				hasMore = !jobSocketResult.isFinish();
+				if (jobSocketResult.isFailed()) {
+					serializedThrowable = checkNotNull(jobSocketResult.getSerializedThrowable());
+					throw new RuntimeException(serializedThrowable.getFullStringifiedStackTrace());
+				}
+				if (jobSocketResult.getResult() != null) {
+					if (resultSerializer != null) {
+						try {
+							resultValueQueue.addAll(
+								resultSerializer.deserialize(
+									new DataInputViewStreamWrapper(
+										new ByteArrayInputStream((byte[]) jobSocketResult.getResult()))));
+						} catch (IOException e) {
+							serializedThrowable = new SerializedThrowable(e);
+							hasMore = false;
+							return;
+						}
+						if (resultValueQueue.isEmpty()) {
+							continue;
+						}
+					} else {
+						resultValueQueue.add((T) jobSocketResult.getResult());
+					}
+					return;
+				}
 			}
 		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
+			serializedThrowable = new SerializedThrowable(e);
+			hasMore = false;
 		}
 	}
 }

@@ -91,6 +91,10 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	private final boolean notifyFinalStateInTaskThreadEnable;
 
+	private final int resultClientCount;
+
+	private final int resultConnectTimeoutMills;
+
 	public TaskManagerConfiguration(
 			int numberSlots,
 			ResourceProfile defaultSlotResourceProfile,
@@ -110,7 +114,9 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			boolean releaseSlotWhenJobMasterDisconnected,
 			long waitSlotReleaseBeforeSendSlotReporterTimeoutMs,
 			boolean taskDeployFinishEnable,
-			boolean notifyFinalStateInTaskThreadEnable) {
+			boolean notifyFinalStateInTaskThreadEnable,
+			int resultClientCount,
+			int resultConnectTimeoutMills) {
 
 		this.numberSlots = numberSlots;
 		this.defaultSlotResourceProfile = defaultSlotResourceProfile;
@@ -131,6 +137,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		this.waitSlotReleaseBeforeSendSlotReporterTimeoutMs = waitSlotReleaseBeforeSendSlotReporterTimeoutMs;
 		this.taskDeployFinishEnable = taskDeployFinishEnable;
 		this.notifyFinalStateInTaskThreadEnable = notifyFinalStateInTaskThreadEnable;
+		this.resultClientCount = resultClientCount;
+		this.resultConnectTimeoutMills = resultConnectTimeoutMills;
 	}
 
 	public int getNumberSlots() {
@@ -217,6 +225,14 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		return notifyFinalStateInTaskThreadEnable;
 	}
 
+	public int getResultClientCount() {
+		return resultClientCount;
+	}
+
+	public int getResultConnectTimeoutMills() {
+		return resultConnectTimeoutMills;
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Static factory methods
 	// --------------------------------------------------------------------------------------------
@@ -285,6 +301,9 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 		final boolean notifyFinalStateInTaskThreadEnable = configuration.getBoolean(TaskManagerOptions.NOTIFY_FINAL_STATE_IN_TASK_THREAD_ENABLE);
 
+		final int resultClientCount = configuration.get(TaskManagerOptions.RESULT_PUSH_CLIENT_COUNT);
+		final int resultClientConnectTimeoutMills = configuration.get(TaskManagerOptions.RESULT_PUSH_CLIENT_CONNECT_TIMEOUT_MILLS);
+
 		return new TaskManagerConfiguration(
 			numberSlots,
 			TaskExecutorResourceUtils.generateDefaultSlotResourceProfile(taskExecutorResourceSpec, numberSlots),
@@ -304,6 +323,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			releaseSlotWhenJobMasterDisconnected,
 			waitSlotReleaseBeforeSendSlotReporterTimeout,
 			taskDeployFinishEnable,
-			notifyFinalStateInTaskThreadEnable);
+			notifyFinalStateInTaskThreadEnable,
+			resultClientCount,
+			resultClientConnectTimeoutMills);
 	}
 }

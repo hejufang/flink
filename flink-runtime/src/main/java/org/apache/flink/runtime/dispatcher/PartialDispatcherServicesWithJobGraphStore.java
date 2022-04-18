@@ -25,6 +25,7 @@ import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.jobmanager.JobGraphWriter;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 
 import javax.annotation.Nonnull;
@@ -49,6 +50,7 @@ public class PartialDispatcherServicesWithJobGraphStore extends PartialDispatche
 			@Nonnull FatalErrorHandler fatalErrorHandler,
 			@Nonnull HistoryServerArchivist historyServerArchivist,
 			@Nullable String metricQueryServiceAddress,
+			@Nullable JobResultClientManager jobResultClientManager,
 			@Nonnull JobGraphWriter jobGraphWriter) {
 		super(
 			configuration,
@@ -60,7 +62,8 @@ public class PartialDispatcherServicesWithJobGraphStore extends PartialDispatche
 			archivedExecutionGraphStore,
 			fatalErrorHandler,
 			historyServerArchivist,
-			metricQueryServiceAddress);
+			metricQueryServiceAddress,
+			jobResultClientManager);
 		this.jobGraphWriter = jobGraphWriter;
 	}
 
@@ -81,6 +84,7 @@ public class PartialDispatcherServicesWithJobGraphStore extends PartialDispatche
 			partialDispatcherServices.getFatalErrorHandler(),
 			partialDispatcherServices.getHistoryServerArchivist(),
 			partialDispatcherServices.getMetricQueryServiceAddress(),
+			partialDispatcherServices.getJobResultClientManager(),
 			jobGraphWriter);
 	}
 }

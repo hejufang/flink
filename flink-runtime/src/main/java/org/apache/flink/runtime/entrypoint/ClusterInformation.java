@@ -35,13 +35,15 @@ public class ClusterInformation implements Serializable {
 
 	private final int restServerPort;
 
+	private final String socketServerAddress;
+
 	private final int socketServerPort;
 
 	public ClusterInformation(String blobServerHostname, int blobServerPort, int restServerPort) {
-		this(blobServerHostname, blobServerPort, restServerPort, 0);
+		this(blobServerHostname, blobServerPort, restServerPort, null, 0);
 	}
 
-	public ClusterInformation(String blobServerHostname, int blobServerPort, int restServerPort, int socketServerPort) {
+	public ClusterInformation(String blobServerHostname, int blobServerPort, int restServerPort, String socketServerAddress, int socketServerPort) {
 		this.blobServerHostname = Preconditions.checkNotNull(blobServerHostname);
 		Preconditions.checkArgument(
 			0 < blobServerPort && blobServerPort < 65_536,
@@ -54,6 +56,7 @@ public class ClusterInformation implements Serializable {
 			"The socket server port must between 0 and 65_536. However, it was " + socketServerPort + '.');
 		this.blobServerPort = blobServerPort;
 		this.restServerPort = restServerPort;
+		this.socketServerAddress = socketServerAddress;
 		this.socketServerPort = socketServerPort;
 	}
 
@@ -69,6 +72,10 @@ public class ClusterInformation implements Serializable {
 		return restServerPort;
 	}
 
+	public String getSocketServerAddress() {
+		return socketServerAddress;
+	}
+
 	public int getSocketServerPort() {
 		return socketServerPort;
 	}
@@ -79,6 +86,7 @@ public class ClusterInformation implements Serializable {
 			"blobServerHostname='" + blobServerHostname + '\'' +
 			", blobServerPort=" + blobServerPort +
 			", restServerPort=" + restServerPort +
+			", socketServerAddress=" + socketServerAddress +
 			", socketServerPort=" + socketServerPort +
 			'}';
 	}

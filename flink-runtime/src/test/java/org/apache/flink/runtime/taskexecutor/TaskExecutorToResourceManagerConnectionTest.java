@@ -136,7 +136,7 @@ public class TaskExecutorToResourceManagerConnectionTest extends TestLogger {
 		return new TaskExecutorRegistrationSuccess(
 			new InstanceID(),
 			ResourceID.generate(),
-			new ClusterInformation("blobServerHost", 55555, 8081, 8091));
+			new ClusterInformation("blobServerHost", 55555, 8081, "localhost", 8091));
 	}
 
 	@Before

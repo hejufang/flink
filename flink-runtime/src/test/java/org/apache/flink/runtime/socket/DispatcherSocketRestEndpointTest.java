@@ -26,7 +26,9 @@ import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.runtime.blob.NoOpTransientBlobService;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.dispatcher.DispatcherSocketRestEndpoint;
+import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.leaderelection.LeaderContender;
 import org.apache.flink.runtime.leaderelection.LeaderElectionService;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
@@ -35,6 +37,7 @@ import org.apache.flink.runtime.rest.handler.RestHandlerConfiguration;
 import org.apache.flink.runtime.rest.handler.legacy.metrics.VoidMetricFetcher;
 import org.apache.flink.runtime.rest.util.NoOpExecutionGraphCache;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.webmonitor.TestingDispatcherGateway;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.CloseableIterator;
@@ -55,6 +58,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
 import static org.apache.flink.runtime.socket.TestingSocketDispatcherUtils.finishWithEmptyData;
@@ -68,25 +72,31 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 	@Test
 	public void testSocketEndpointStringValue() throws Exception {
 		List<String> valueList = Arrays.asList("a", "b", "c", "d");
-		testSocketValueResult(valueList, finishWithResultData(valueList, ResultStatus.COMPLETE, null));
-		testSocketValueResult(valueList, finishWithEmptyData(valueList, ResultStatus.COMPLETE, null));
+		JobResultClientManager jobResultClientManager1 = new JobResultClientManager(3);
+		testSocketValueResult(valueList, jobResultClientManager1, finishWithResultData(valueList, ResultStatus.COMPLETE, null, jobResultClientManager1));
+
+		JobResultClientManager jobResultClientManager2 = new JobResultClientManager(3);
+		testSocketValueResult(valueList, jobResultClientManager2, finishWithEmptyData(valueList, ResultStatus.COMPLETE, null, jobResultClientManager2));
 	}
 
 	@Test
 	public void testSocketEndpointStringValueFailed() throws Exception {
 		List<String> valueList = Arrays.asList("a", "b", "c", "d");
+		JobResultClientManager jobResultClientManager1 = new JobResultClientManager(3);
 		assertThrows(
 			"string value failed",
 			RuntimeException.class,
 			() -> {
-				testSocketValueResult(valueList, finishWithResultData(valueList, ResultStatus.FAIL, new IllegalArgumentException("string value failed")));
+				testSocketValueResult(valueList, jobResultClientManager1, finishWithResultData(valueList, ResultStatus.FAIL, new IllegalArgumentException("string value failed"), jobResultClientManager1));
 				return null;
 			});
+
+		JobResultClientManager jobResultClientManager2 = new JobResultClientManager(3);
 		assertThrows(
 			"string value failed",
 			RuntimeException.class,
 			() -> {
-				testSocketValueResult(valueList, finishWithEmptyData(valueList, ResultStatus.FAIL, new IllegalArgumentException("string value failed")));
+				testSocketValueResult(valueList, jobResultClientManager2, finishWithEmptyData(valueList, ResultStatus.FAIL, new IllegalArgumentException("string value failed"), jobResultClientManager2));
 				return null;
 			});
 	}
@@ -94,25 +104,31 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 	@Test
 	public void testSocketEndpointIntegerValue() throws Exception {
 		List<Integer> valueList = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-		testSocketValueResult(valueList, finishWithResultData(valueList, ResultStatus.COMPLETE, null));
-		testSocketValueResult(valueList, finishWithEmptyData(valueList, ResultStatus.COMPLETE, null));
+		JobResultClientManager jobResultClientManager1 = new JobResultClientManager(3);
+		testSocketValueResult(valueList, jobResultClientManager1, finishWithResultData(valueList, ResultStatus.COMPLETE, null, jobResultClientManager1));
+
+		JobResultClientManager jobResultClientManager2 = new JobResultClientManager(3);
+		testSocketValueResult(valueList, jobResultClientManager2, finishWithEmptyData(valueList, ResultStatus.COMPLETE, null, jobResultClientManager2));
 	}
 
 	@Test
 	public void testSocketEndpointIntegerValueFailed() throws Exception {
 		List<Integer> valueList = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+		JobResultClientManager jobResultClientManager1 = new JobResultClientManager(3);
 		assertThrows(
 			"int value failed",
 			RuntimeException.class,
 			() -> {
-				testSocketValueResult(valueList, finishWithResultData(valueList, ResultStatus.FAIL, new IllegalArgumentException("int value failed")));
+				testSocketValueResult(valueList, jobResultClientManager1, finishWithResultData(valueList, ResultStatus.FAIL, new IllegalArgumentException("int value failed"), jobResultClientManager1));
 				return null;
 			});
+
+		JobResultClientManager jobResultClientManager2 = new JobResultClientManager(3);
 		assertThrows(
 			"int value failed",
 			RuntimeException.class,
 			() -> {
-				testSocketValueResult(valueList, finishWithEmptyData(valueList, ResultStatus.FAIL, new IllegalArgumentException("int value failed")));
+				testSocketValueResult(valueList, jobResultClientManager2, finishWithEmptyData(valueList, ResultStatus.FAIL, new IllegalArgumentException("int value failed"), jobResultClientManager2));
 				return null;
 			});
 	}
@@ -120,47 +136,125 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 	@Test
 	public void testSocketEndpointLongValue() throws Exception {
 		List<Long> valueList = Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L);
-		testSocketValueResult(valueList, finishWithResultData(valueList, ResultStatus.COMPLETE, null));
-		testSocketValueResult(valueList, finishWithEmptyData(valueList, ResultStatus.COMPLETE, null));
+		JobResultClientManager jobResultClientManager1 = new JobResultClientManager(3);
+		testSocketValueResult(valueList, jobResultClientManager1, finishWithResultData(valueList, ResultStatus.COMPLETE, null, jobResultClientManager1));
+
+		JobResultClientManager jobResultClientManager2 = new JobResultClientManager(3);
+		testSocketValueResult(valueList, jobResultClientManager2, finishWithEmptyData(valueList, ResultStatus.COMPLETE, null, jobResultClientManager2));
 	}
 
 	@Test
 	public void testSocketEndpointLongValueFailed() throws Exception {
 		List<Long> valueList = Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L);
+		JobResultClientManager jobResultClientManager1 = new JobResultClientManager(3);
 		assertThrows(
 			"long value failed",
 			RuntimeException.class,
 			() -> {
-				testSocketValueResult(valueList, finishWithResultData(valueList, ResultStatus.FAIL, new IllegalArgumentException("long value failed")));
+				testSocketValueResult(valueList, jobResultClientManager1, finishWithResultData(valueList, ResultStatus.FAIL, new IllegalArgumentException("long value failed"), jobResultClientManager1));
 				return null;
 			});
+
+		JobResultClientManager jobResultClientManager2 = new JobResultClientManager(3);
 		assertThrows(
 			"long value failed",
 			RuntimeException.class,
 			() -> {
-				testSocketValueResult(valueList, finishWithEmptyData(valueList, ResultStatus.FAIL, new IllegalArgumentException("long value failed")));
+				testSocketValueResult(valueList, jobResultClientManager2, finishWithEmptyData(valueList, ResultStatus.FAIL, new IllegalArgumentException("long value failed"), jobResultClientManager2));
 				return null;
 			});
 	}
 
-	private <T> void testSocketValueResult(List<T> valueList, BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer) throws Exception {
+	@Test
+	public void testGatewayPushCompleteResults() throws Exception {
+		List<String> valueList = Arrays.asList("a", "b", "c", "d");
+		JobResultClientManager jobResultClientManager = new JobResultClientManager(3);
+		testSocketValueResult(
+			valueList,
+			jobResultClientManager,
+			(graph, context) -> {
+				SocketTaskJobResultGateway socketTaskJobResultGateway = new SocketTaskJobResultGateway(3, 10000);
+				try {
+					socketTaskJobResultGateway.connect(
+						jobResultClientManager.getClusterInformation().getSocketServerAddress(),
+						jobResultClientManager.getClusterInformation().getSocketServerPort());
+				} catch (Exception e) {
+					throw new RuntimeException(e);
+				}
+				for (int i = 0; i < valueList.size() - 1; i++) {
+					socketTaskJobResultGateway.sendResult(graph.getJobID(), valueList.get(i).getBytes(), ResultStatus.PARTIAL);
+				}
+				socketTaskJobResultGateway.sendResult(graph.getJobID(), valueList.get(valueList.size() - 1).getBytes(), ResultStatus.COMPLETE);
+			},
+			(Function<byte[], String>) String::new);
+	}
+
+	@Test
+	public void testGatewayPushEmptyCompleteResults() throws Exception {
+		List<String> valueList = Arrays.asList("a", "b", "c", "d");
+		JobResultClientManager jobResultClientManager = new JobResultClientManager(3);
+		testSocketValueResult(
+			valueList,
+			jobResultClientManager,
+			(graph, context) -> {
+				SocketTaskJobResultGateway socketTaskJobResultGateway = new SocketTaskJobResultGateway(3, 10000);
+				try {
+					socketTaskJobResultGateway.connect(
+						jobResultClientManager.getClusterInformation().getSocketServerAddress(),
+						jobResultClientManager.getClusterInformation().getSocketServerPort());
+				} catch (Exception e) {
+					throw new RuntimeException(e);
+				}
+				for (String value : valueList) {
+					socketTaskJobResultGateway.sendResult(graph.getJobID(), value.getBytes(), ResultStatus.PARTIAL);
+				}
+				socketTaskJobResultGateway.sendResult(graph.getJobID(), null, ResultStatus.COMPLETE);
+			},
+			(Function<byte[], String>) String::new);
+	}
+
+	private <T> void testSocketValueResult(
+			List<T> valueList,
+			JobResultClientManager jobResultClientManager,
+			BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer) throws Exception {
+		testSocketValueResult(valueList, jobResultClientManager, submitConsumer, (Function<T, T>) (v) -> v);
+	}
+
+	private <V, T> void testSocketValueResult(
+			List<T> valueList,
+			JobResultClientManager jobResultClientManager,
+			BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer,
+			Function<V, T> function) throws Exception {
 		Configuration configuration = new Configuration();
 		configuration.set(RestOptions.BIND_ADDRESS, "localhost");
 		DispatcherGateway dispatcherGateway = new TestingDispatcherGateway.Builder()
 			.setSubmitConsumer(submitConsumer)
 			.build();
 		try (DispatcherSocketRestEndpoint dispatcherSocketRestEndpoint = createSocketRestEndpoint(
-				() -> CompletableFuture.completedFuture(dispatcherGateway))) {
+			() -> CompletableFuture.completedFuture(dispatcherGateway),
+			jobResultClientManager)) {
 			dispatcherSocketRestEndpoint.start();
+			jobResultClientManager.registerClusterInformation(
+				new ClusterInformation(
+					"localhost",
+					1234,
+					1234,
+					dispatcherSocketRestEndpoint.getAddress(),
+					dispatcherSocketRestEndpoint.getSocketPort()));
 			try (SocketClient socketClient = new SocketClient(
 				dispatcherSocketRestEndpoint.getAddress(),
 				dispatcherSocketRestEndpoint.getSocketPort(),
 				0)) {
 				socketClient.start();
-				CloseableIterator<T> resultIterator = socketClient.submitJob(new JobGraph(new JobID(), "jobName1"));
+
+				JobGraph jobGraph = new JobGraph(new JobID(), "jobName");
+				JobVertex jobVertex = new JobVertex("EmptyVertex");
+				jobVertex.setParallelism(1);
+				jobGraph.addVertex(jobVertex);
+				CloseableIterator<V> resultIterator = socketClient.submitJob(jobGraph);
 				List<T> resultList = new ArrayList<>();
 				while (resultIterator.hasNext()) {
-					resultList.add(resultIterator.next());
+					resultList.add(function.apply(resultIterator.next()));
 				}
 				assertEquals(valueList, resultList);
 			}
@@ -168,7 +262,8 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 	}
 
 	private DispatcherSocketRestEndpoint createSocketRestEndpoint(
-		GatewayRetriever<DispatcherGateway> dispatcherGatewayRetriever) throws IOException {
+			GatewayRetriever<DispatcherGateway> dispatcherGatewayRetriever,
+			JobResultClientManager jobResultClientManager) throws IOException {
 		final Configuration config;
 		final RestServerEndpointConfiguration restConfig;
 		final RestHandlerConfiguration handlerConfig;
@@ -190,6 +285,7 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 
 		return new DispatcherSocketRestEndpoint(restConfig,
 			dispatcherGatewayRetriever,
+			jobResultClientManager,
 			config,
 			handlerConfig,
 			resourceManagerGatewayRetriever,

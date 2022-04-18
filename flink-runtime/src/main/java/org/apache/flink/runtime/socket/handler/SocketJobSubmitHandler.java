@@ -24,6 +24,9 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.dispatcher.DispatcherSocketRestEndpoint;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.jobgraph.JobVertex;
+import org.apache.flink.runtime.socket.result.JobChannelManager;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.OptionalConsumer;
 import org.apache.flink.util.SerializedThrowable;
@@ -31,34 +34,54 @@ import org.apache.flink.util.SerializedThrowable;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdapter;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
+
 /**
  * This handler can be used to submit jobs to a Flink cluster by {@link DispatcherSocketRestEndpoint}.
  */
 public class SocketJobSubmitHandler extends ChannelInboundHandlerAdapter {
 	private final GatewayRetriever<DispatcherGateway> leaderRetriever;
+	private final JobResultClientManager jobResultClientManager;
 	private final Time timeout;
 
-	public SocketJobSubmitHandler(GatewayRetriever<DispatcherGateway> leaderRetriever, Time timeout) {
+	public SocketJobSubmitHandler(
+			GatewayRetriever<DispatcherGateway> leaderRetriever,
+			JobResultClientManager jobResultClientManager,
+			Time timeout) {
 		this.leaderRetriever = leaderRetriever;
+		this.jobResultClientManager = jobResultClientManager;
 		this.timeout = timeout;
 	}
 
 	@Override
 	public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-		JobGraph jobGraph = (JobGraph) msg;
-		OptionalConsumer<DispatcherGateway> optLeaderConsumer = OptionalConsumer.of(leaderRetriever.getNow());
-		optLeaderConsumer.ifPresent(
-			gateway -> gateway.submitJob(jobGraph, ctx, timeout)
-		).ifNotPresent(
-			() -> {
-				JobSocketResult jobSocketResult = new JobSocketResult.Builder()
-					.setJobId(jobGraph.getJobID())
-					.setResultStatus(ResultStatus.FAIL)
-					.setSerializedThrowable(new SerializedThrowable(new Exception("Get dispatcher gateway failed.")))
-					.build();
-				ctx.writeAndFlush(jobSocketResult);
-			});
+		if (msg instanceof JobGraph) {
+			JobGraph jobGraph = (JobGraph) msg;
+			jobResultClientManager.addJobChannelManager(
+				jobGraph.getJobID(),
+				new JobChannelManager(ctx, computeTaskCount(jobGraph), jobResultClientManager));
 
+			OptionalConsumer<DispatcherGateway> optLeaderConsumer = OptionalConsumer.of(leaderRetriever.getNow());
+			optLeaderConsumer.ifPresent(
+				gateway -> gateway.submitJob(jobGraph, ctx, timeout)
+			).ifNotPresent(
+				() -> {
+					JobSocketResult jobSocketResult = new JobSocketResult.Builder()
+						.setJobId(jobGraph.getJobID())
+						.setResultStatus(ResultStatus.FAIL)
+						.setSerializedThrowable(new SerializedThrowable(new Exception("Get dispatcher gateway failed.")))
+						.build();
+					ctx.writeAndFlush(jobSocketResult);
+				});
+		} else {
+			ctx.fireChannelRead(msg);
+		}
+	}
+
+	private int computeTaskCount(JobGraph jobGraph) {
+		JobVertex[] vertexArray = jobGraph.getVerticesAsArray();
+		checkArgument(vertexArray.length > 0, "There are no vertices in the job");
+		return vertexArray[vertexArray.length - 1].getParallelism();
 	}
 
 	@Override

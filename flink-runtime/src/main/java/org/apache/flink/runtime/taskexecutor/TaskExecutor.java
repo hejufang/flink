@@ -103,7 +103,7 @@ import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
-import org.apache.flink.runtime.socket.PrintTaskJobResultGateway;
+import org.apache.flink.runtime.socket.SocketTaskJobResultGateway;
 import org.apache.flink.runtime.socket.TaskJobResultGateway;
 import org.apache.flink.runtime.state.TaskExecutorLocalStateStoresManager;
 import org.apache.flink.runtime.state.TaskLocalStateStore;
@@ -272,8 +272,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	private final boolean notifyFinalStateInTaskThreadEnable;
 
-	// TODO this should be replaced by dispatcher gateway after @huweihua's feature is ready.
-	private final TaskJobResultGateway taskJobResultGateway = new PrintTaskJobResultGateway();
+	private final TaskJobResultGateway taskJobResultGateway;
 
 	// --------- resource manager --------
 
@@ -336,6 +335,11 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		this.hardwareDescription = HardwareDescription.extractFromSystem(taskExecutorServices.getManagedMemorySize());
 		this.memoryConfiguration = TaskExecutorMemoryConfiguration.create(taskManagerConfiguration.getConfiguration());
+
+		this.taskJobResultGateway = new SocketTaskJobResultGateway(
+				taskManagerConfiguration.getResultClientCount(),
+				taskManagerConfiguration.getResultConnectTimeoutMills(),
+				taskManagerConfiguration.getConfiguration());
 
 		this.resourceManagerAddress = null;
 		this.resourceManagerConnection = null;
@@ -460,6 +464,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		Preconditions.checkState(jobTable.isEmpty());
 
 		final Throwable throwableBeforeTasksCompletion = jobManagerDisconnectThrowable;
+
+		taskJobResultGateway.close();
 
 		return FutureUtils
 			.runAfterwards(
@@ -1465,6 +1471,20 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			.collect(Collectors.toList());
 
 		return CompletableFuture.completedFuture(ThreadDumpInfo.create(threadInfos));
+	}
+
+	/**
+	 * Dispatcher register result server address and port to the given task executor.
+	 *
+	 * @param address the result server address
+	 * @param port the result server port
+	 */
+	public void registerResultServer(String address, int port) {
+		try {
+			taskJobResultGateway.connect(address, port);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	// ------------------------------------------------------------------------

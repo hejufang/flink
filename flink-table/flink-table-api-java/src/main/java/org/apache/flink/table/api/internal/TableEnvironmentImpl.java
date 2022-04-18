@@ -25,6 +25,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.dag.Pipeline;
 import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -1051,7 +1052,8 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	@Override
 	public TableResult executeInternal(QueryOperation operation) {
 		TableSchema tableSchema = operation.getTableSchema();
-		SelectTableSink tableSink = planner.createSelectTableSink(tableSchema);
+		final boolean useSocketEnable = tableConfig.getConfiguration().get(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
+		SelectTableSink tableSink = planner.createSelectTableSink(tableSchema, useSocketEnable);
 		UnregisteredSinkModifyOperation<Row> sinkOperation = new UnregisteredSinkModifyOperation<>(
 				tableSink,
 				operation
