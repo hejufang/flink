@@ -24,7 +24,7 @@ import org.apache.flink.table.api.bridge.scala._
 import org.apache.flink.table.planner.factories.TestValuesTableFactory
 import org.apache.flink.table.planner.factories.TestValuesTableFactory.changelogRow
 import org.apache.flink.table.planner.runtime.utils.StreamingTestBase
-import org.apache.flink.table.planner.runtime.utils.TestData.{nullData4, smallTupleData3, tupleData3, tupleData5}
+import org.apache.flink.table.planner.runtime.utils.TestData.{nullData4, smallTupleData3, tupleData2, tupleData3, tupleData5}
 import org.apache.flink.util.ExceptionUtils
 
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue, fail}
@@ -618,6 +618,425 @@ class TableSinkITCase extends StreamingTestBase {
 
     val result = TestValuesTableFactory.getResults("not_null_sink")
     val expected = List("book,1,12", "book,4,11", "fruit,3,44")
+    assertEquals(expected.sorted, result.sorted)
+  }
+
+  @Test
+  def testPartialInsert(): Unit = {
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE testSink (
+         |  `a` INT,
+         |  `b` DOUBLE
+         |)
+         |WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'false'
+         |)
+         |""".stripMargin)
+
+    val t = env.fromCollection(tupleData2).toTable(tEnv, 'x, 'y)
+    tEnv.createTemporaryView("MyTable", t)
+
+    execInsertSqlAndWaitResult(
+      s"""
+         |INSERT INTO testSink (b)
+         |SELECT sum(y) FROM MyTable GROUP BY x
+         |""".stripMargin)
+    val expected = List(
+      "null,0.1",
+      "null,0.4",
+      "null,1.0",
+      "null,2.2",
+      "null,3.9")
+    val result = TestValuesTableFactory.getResults("testSink")
+    assertEquals(expected.sorted, result.sorted)
+  }
+
+  @Test
+  def testPartialInsertWithNotNullColumn(): Unit = {
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE testSink (
+         |  `a` INT NOT NULL,
+         |  `b` DOUBLE
+         |)
+         |WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'false'
+         |)
+         |""".stripMargin)
+
+    val t = env.fromCollection(tupleData2).toTable(tEnv, 'x, 'y)
+    tEnv.createTemporaryView("MyTable", t)
+
+    thrown.expect(classOf[ValidationException])
+    thrown.expectMessage("Column 'a' has no default value and does not allow NULLs")
+
+    execInsertSqlAndWaitResult(
+      s"""
+         |INSERT INTO testSink (b)
+         |SELECT sum(y) FROM MyTable GROUP BY x
+         |""".stripMargin)
+  }
+
+  @Test
+  def testPartialInsertWithPartitionAndComputedColumn(): Unit = {
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE testSink (
+         |  `a` INT,
+         |  `b` AS `a` + 1,
+         |  `c` STRING,
+         |  `d` INT,
+         |  `e` DOUBLE
+         |)
+         |PARTITIONED BY (`c`, `d`)
+         |WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'false'
+         |)
+         |""".stripMargin)
+
+    val t = env.fromCollection(tupleData2).toTable(tEnv, 'x, 'y)
+    tEnv.createTemporaryView("MyTable", t)
+
+    execInsertSqlAndWaitResult(
+      s"""
+         |INSERT INTO testSink PARTITION(`c`='2021', `d`=1) (e)
+         |SELECT sum(y) FROM MyTable GROUP BY x
+         |""".stripMargin)
+    val expected = List(
+      "null,2021,1,0.1",
+      "null,2021,1,0.4",
+      "null,2021,1,1.0",
+      "null,2021,1,2.2",
+      "null,2021,1,3.9")
+    val result = TestValuesTableFactory.getResults("testSink")
+    assertEquals(expected.sorted, result.sorted)
+  }
+
+  @Test
+  def testFullInsertWithPartitionAndComputedColumn(): Unit = {
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE testSink (
+         |  `a` INT,
+         |  `b` AS `a` + 1,
+         |  `c` STRING,
+         |  `d` INT,
+         |  `e` DOUBLE
+         |)
+         |PARTITIONED BY (`c`, `d`)
+         |WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'false'
+         |)
+         |""".stripMargin)
+
+    val t = env.fromCollection(tupleData2).toTable(tEnv, 'x, 'y)
+    tEnv.createTemporaryView("MyTable", t)
+
+    execInsertSqlAndWaitResult(
+      s"""
+         |INSERT INTO testSink PARTITION(`c`='2021', `d`=1) (a, e)
+         |SELECT x, sum(y) FROM MyTable GROUP BY x
+         |""".stripMargin)
+    val expected = List(
+      "1,2021,1,0.1",
+      "2,2021,1,0.4",
+      "3,2021,1,1.0",
+      "4,2021,1,2.2",
+      "5,2021,1,3.9")
+    val result = TestValuesTableFactory.getResults("testSink")
+    assertEquals(expected.sorted, result.sorted)
+  }
+
+  @Test
+  def testPartialInsertWithDynamicPartitionAndComputedColumn1(): Unit = {
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE testSink (
+         |  `a` INT,
+         |  `b` AS `a` + 1,
+         |  `c` STRING,
+         |  `d` INT,
+         |  `e` DOUBLE
+         |)
+         |PARTITIONED BY (`c`, `d`)
+         |WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'false'
+         |)
+         |""".stripMargin)
+
+    val t = env.fromCollection(tupleData2).toTable(tEnv, 'x, 'y)
+    tEnv.createTemporaryView("MyTable", t)
+
+    execInsertSqlAndWaitResult(
+      s"""
+         |INSERT INTO testSink (e)
+         |SELECT sum(y) FROM MyTable GROUP BY x
+         |""".stripMargin)
+    val expected = List(
+      "null,null,null,0.1",
+      "null,null,null,0.4",
+      "null,null,null,1.0",
+      "null,null,null,2.2",
+      "null,null,null,3.9")
+    val result = TestValuesTableFactory.getResults("testSink")
+    assertEquals(expected.sorted, result.sorted)
+  }
+
+  @Test
+  def testPartialInsertWithDynamicPartitionAndComputedColumn2(): Unit = {
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE testSink (
+         |  `a` INT,
+         |  `b` AS `a` + 1,
+         |  `c` STRING,
+         |  `d` INT,
+         |  `e` DOUBLE
+         |)
+         |PARTITIONED BY (`c`, `d`)
+         |WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'false'
+         |)
+         |""".stripMargin)
+
+    val t = env.fromCollection(tupleData2).toTable(tEnv, 'x, 'y)
+    tEnv.createTemporaryView("MyTable", t)
+
+    execInsertSqlAndWaitResult(
+      s"""
+         |INSERT INTO testSink (c, d, e)
+         |SELECT '2021', 1, sum(y) FROM MyTable GROUP BY x
+         |""".stripMargin)
+    val expected = List(
+      "null,2021,1,0.1",
+      "null,2021,1,0.4",
+      "null,2021,1,1.0",
+      "null,2021,1,2.2",
+      "null,2021,1,3.9")
+    val result = TestValuesTableFactory.getResults("testSink")
+    assertEquals(expected.sorted, result.sorted)
+  }
+
+  @Test
+  def testPartialInsertWithReorder(): Unit = {
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE testSink (
+         |  `a` INT,
+         |  `b` AS `a` + 1,
+         |  `c` STRING,
+         |  `d` INT,
+         |  `e` DOUBLE
+         |)
+         |PARTITIONED BY (`c`, `d`)
+         |WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'false'
+         |)
+         |""".stripMargin)
+
+    val t = env.fromCollection(tupleData2).toTable(tEnv, 'x, 'y)
+    tEnv.createTemporaryView("MyTable", t)
+
+    execInsertSqlAndWaitResult(
+      s"""
+         |-- the target columns is reordered (compare with the columns of sink)
+         |INSERT INTO testSink (e, d, c)
+         |SELECT sum(y), 1, '2021' FROM MyTable GROUP BY x
+         |""".stripMargin)
+    val expected = List(
+      "null,2021,1,0.1",
+      "null,2021,1,0.4",
+      "null,2021,1,1.0",
+      "null,2021,1,2.2",
+      "null,2021,1,3.9")
+    val result = TestValuesTableFactory.getResults("testSink")
+    assertEquals(expected.sorted, result.sorted)
+  }
+
+  @Test
+  def testPartialInsertWithDynamicAndStaticPartition1(): Unit = {
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE testSink (
+         |  `a` INT,
+         |  `b` AS `a` + 1,
+         |  `c` STRING,
+         |  `d` INT,
+         |  `e` DOUBLE
+         |)
+         |PARTITIONED BY (`c`, `d`)
+         |WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'false'
+         |)
+         |""".stripMargin)
+
+    val t = env.fromCollection(tupleData2).toTable(tEnv, 'x, 'y)
+    tEnv.createTemporaryView("MyTable", t)
+
+    execInsertSqlAndWaitResult(
+      s"""
+         |INSERT INTO testSink PARTITION(`c`='2021') (d, e)
+         |SELECT 1, sum(y) FROM MyTable GROUP BY x
+         |""".stripMargin)
+    val expected = List(
+      "null,2021,1,0.1",
+      "null,2021,1,0.4",
+      "null,2021,1,1.0",
+      "null,2021,1,2.2",
+      "null,2021,1,3.9")
+    val result = TestValuesTableFactory.getResults("testSink")
+    assertEquals(expected.sorted, result.sorted)
+  }
+
+  @Test
+  def testPartialInsertWithDynamicAndStaticPartition2(): Unit = {
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE testSink (
+         |  `a` INT,
+         |  `b` AS `a` + 1,
+         |  `c` STRING,
+         |  `d` INT,
+         |  `e` DOUBLE
+         |)
+         |PARTITIONED BY (`c`, `d`)
+         |WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'false'
+         |)
+         |""".stripMargin)
+
+    val t = env.fromCollection(tupleData2).toTable(tEnv, 'x, 'y)
+    tEnv.createTemporaryView("MyTable", t)
+
+    execInsertSqlAndWaitResult(
+      s"""
+         |INSERT INTO testSink PARTITION(`c`='2021') (e)
+         |SELECT sum(y) FROM MyTable GROUP BY x
+         |""".stripMargin)
+    val expected = List(
+      "null,2021,null,0.1",
+      "null,2021,null,0.4",
+      "null,2021,null,1.0",
+      "null,2021,null,2.2",
+      "null,2021,null,3.9")
+    val result = TestValuesTableFactory.getResults("testSink")
+    assertEquals(expected.sorted, result.sorted)
+  }
+
+  @Test
+  def testPartialInsertWithDynamicAndStaticPartition3(): Unit = {
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE testSink (
+         |  `a` INT,
+         |  `b` AS `a` + 1,
+         |  `c` STRING,
+         |  `d` INT,
+         |  `e` DOUBLE
+         |)
+         |PARTITIONED BY (`c`, `d`)
+         |WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'false'
+         |)
+         |""".stripMargin)
+
+    val t = env.fromCollection(tupleData2).toTable(tEnv, 'x, 'y)
+    tEnv.createTemporaryView("MyTable", t)
+
+    thrown.expect(classOf[ValidationException])
+    thrown.expectMessage("Target column 'e' is assigned more than once")
+
+    execInsertSqlAndWaitResult(
+      s"""
+         |INSERT INTO testSink PARTITION(`c`='2021') (e, e)
+         |SELECT 1, sum(y) FROM MyTable GROUP BY x
+         |""".stripMargin)
+  }
+
+  @Test
+  def testPartialInsertWithComplexReorderAndComputedColumn(): Unit = {
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE testSink (
+         |  `a` INT,
+         |  `b` AS `a` + 1,
+         |  `c` STRING,
+         |  `c1` STRING,
+         |  `c2` STRING,
+         |  `c3` BIGINT,
+         |  `d` INT,
+         |  `e` DOUBLE
+         |)
+         |PARTITIONED BY (`c`, `d`)
+         |WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'false'
+         |)
+         |""".stripMargin)
+
+    val t = env.fromCollection(tupleData2).toTable(tEnv, 'x, 'y)
+    tEnv.createTemporaryView("MyTable", t)
+
+    execInsertSqlAndWaitResult(
+      s"""
+         |INSERT INTO testSink (a,c2,e,c,c1,c3,d)
+         |SELECT 1,'c2',sum(y),'c','c1',33333,12 FROM MyTable GROUP BY x
+         |""".stripMargin)
+    val expected = List(
+      "1,c,c1,c2,33333,12,0.1",
+      "1,c,c1,c2,33333,12,0.4",
+      "1,c,c1,c2,33333,12,1.0",
+      "1,c,c1,c2,33333,12,2.2",
+      "1,c,c1,c2,33333,12,3.9")
+    val result = TestValuesTableFactory.getResults("testSink")
+    assertEquals(expected.sorted, result.sorted)
+  }
+
+  @Test
+  def testPartialInsertWithComplexReorder(): Unit = {
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE testSink (
+         |  `a` INT,
+         |  `c` STRING,
+         |  `c1` STRING,
+         |  `c2` STRING,
+         |  `c3` BIGINT,
+         |  `d` INT,
+         |  `e` DOUBLE
+         |)
+         |WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'false'
+         |)
+         |""".stripMargin)
+
+    val t = env.fromCollection(tupleData2).toTable(tEnv, 'x, 'y)
+    tEnv.createTemporaryView("MyTable", t)
+
+    execInsertSqlAndWaitResult(
+      s"""
+         |INSERT INTO testSink (a,c2,e,c,c1,c3,d)
+         |SELECT 1,'c2',sum(y),'c','c1',33333,12 FROM MyTable GROUP BY x
+         |""".stripMargin)
+    val expected = List(
+      "1,c,c1,c2,33333,12,0.1",
+      "1,c,c1,c2,33333,12,0.4",
+      "1,c,c1,c2,33333,12,1.0",
+      "1,c,c1,c2,33333,12,2.2",
+      "1,c,c1,c2,33333,12,3.9")
+    val result = TestValuesTableFactory.getResults("testSink")
     assertEquals(expected.sorted, result.sorted)
   }
 }

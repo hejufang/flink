@@ -39,6 +39,8 @@ import org.apache.flink.table.runtime.types.{LogicalTypeDataTypeConverter, Plann
 import org.apache.flink.table.types.inference.TypeInferenceUtil
 import org.apache.flink.table.types.logical._
 import org.apache.flink.table.typeutils.TimeIndicatorTypeInfo
+import org.apache.flink.table.utils.TableSchemaUtils
+
 import org.apache.flink.types.Nothing
 import org.apache.flink.util.Preconditions.checkArgument
 
@@ -198,6 +200,16 @@ class FlinkTypeFactory(typeSystem: RelDataTypeSystem)
     buildRelNodeRowType(
       tableSchema.getFieldNames,
       tableSchema.getFieldDataTypes.map(_.getLogicalType))
+  }
+
+  /**
+   * Creates a struct type with the physical columns using FlinkTypeFactory
+   *
+   * @param tableSchema schema to convert to Calcite's specific one
+   * @return a struct type with the input fieldNames, input fieldTypes.
+   */
+  def buildPhysicalRelNodeRowType(tableSchema: TableSchema): RelDataType = {
+    buildRelNodeRowType(TableSchemaUtils.getPhysicalSchema(tableSchema))
   }
 
   /**

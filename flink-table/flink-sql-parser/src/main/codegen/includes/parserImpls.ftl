@@ -1006,6 +1006,9 @@ SqlNode RichSqlInsert() :
         }
     ]
     [
+        <PARTITION> PartitionSpecCommaList(partitionList)
+    ]
+    [
         LOOKAHEAD(2)
         { final Pair<SqlNodeList, SqlNodeList> p; }
         p = ParenthesizedCompoundIdentifierList() {
@@ -1016,9 +1019,6 @@ SqlNode RichSqlInsert() :
                 columnList = p.left;
             }
         }
-    ]
-    [
-        <PARTITION> PartitionSpecCommaList(partitionList)
     ]
     source = OrderedQueryOrExpr(ExprContext.ACCEPT_QUERY) {
         return new RichSqlInsert(s.end(source), keywordList, extendedKeywordList, table, source,

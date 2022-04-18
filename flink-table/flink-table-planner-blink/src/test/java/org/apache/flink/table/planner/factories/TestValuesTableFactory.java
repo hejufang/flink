@@ -36,6 +36,7 @@ import org.apache.flink.table.connector.sink.DataStreamSinkProvider;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.OutputFormatProvider;
 import org.apache.flink.table.connector.sink.SinkFunctionProvider;
+import org.apache.flink.table.connector.sink.abilities.SupportsPartitioning;
 import org.apache.flink.table.connector.source.AsyncTableFunctionProvider;
 import org.apache.flink.table.connector.source.DataStreamScanProvider;
 import org.apache.flink.table.connector.source.DynamicTableSource;
@@ -839,7 +840,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 	/**
 	 * Values {@link DynamicTableSink} for testing.
 	 */
-	private static class TestValuesTableSink implements DynamicTableSink {
+	private static class TestValuesTableSink implements DynamicTableSink, SupportsPartitioning {
 
 		private final TableSchema schema;
 		private final String tableName;
@@ -939,6 +940,15 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		@Override
 		public String asSummaryString() {
 			return "TestValues";
+		}
+
+		@Override
+		public void applyStaticPartition(Map<String, String> partition) {
+		}
+
+		@Override
+		public boolean requiresPartitionGrouping(boolean supportsGrouping) {
+			return supportsGrouping;
 		}
 	}
 }
