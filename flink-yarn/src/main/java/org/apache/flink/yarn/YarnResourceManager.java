@@ -130,7 +130,6 @@ import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.megatron.MegatronUtil;
-import org.apache.hadoop.yarn.util.webshell.NMWebshellUtil;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -264,7 +263,6 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	private ContainerResources targetResources;
 	private long resourcesUpdateTimeoutMS = 2 * 60 * 1000;
 	private EstimaterClient estimaterClient;
-	private String region;
 	private String cluster;
 	private String applicationID;
 	private String applicationName;
@@ -332,6 +330,15 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	private final Gauge deschedulerDurationMsGuage;
 	private final TagGauge deschedulerReceivedGuage = new TagGauge.TagGaugeBuilder().setClearWhenFull(true).build();
 	private final TagGauge deschedulerHandleGuage = new TagGauge.TagGaugeBuilder().setClearWhenFull(true).build();
+
+	// webshell
+	@Nullable
+	private final String region;
+	private final String idc;
+	private final String appId;
+	private final String user;
+	private final String yarnHostname;
+	private final String containerId;
 
 	public YarnResourceManager(
 		RpcService rpcService,
@@ -466,6 +473,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			}
 		};
 
+		// webshell
+		this.region = flinkConfig.getString(ConfigConstants.DC_KEY, null);
+		this.idc = Utils.getEnvOrUnknown(YarnConfigKeys.ENV_YARN_RUNTIME_IDC);
+		this.user = EnvironmentInformation.getHadoopUser();
+		this.appId = Utils.getEnvOrUnknown(YarnConfigKeys.ENV_APP_ID);
+		this.yarnHostname = Utils.getYarnHostname();
+		this.containerId = Utils.getCurrentContainerID();
+
 		// smart resources
 		smartResourcesStats = new SmartResourcesStats();
 		boolean smartResourcesEnable = flinkConfig.getBoolean(ConfigConstants.SMART_RESOURCES_ENABLE_KEY,
@@ -496,7 +511,6 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			String smartResourcesServiceName =
 				flinkConfig.getString(ConfigConstants.SMART_RESOURCES_SERVICE_NAME_KEY, null);
 			Preconditions.checkNotNull(smartResourcesServiceName, "SmartResources enabled and service name not set");
-			this.region = flinkConfig.getString("dc", null);
 			Preconditions.checkNotNull(this.region, "SmartResources enabled and get region failed");
 			this.cluster = flinkConfig.getString("clusterName", null);
 			Preconditions.checkNotNull(this.cluster, "SmartResources enabled and get cluster failed");
@@ -2159,11 +2173,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		CompletableFuture<String> jmWebShell = new CompletableFuture<>();
 		try {
 			jmWebShell.complete(
-				NMWebshellUtil.getWeshellRelayFullUrl(
-					Utils.getYarnHostname(),
-					Utils.getCurrentContainerID(),
-					EnvironmentInformation.getHadoopUser())
-			);
+					MegatronUtil.getMegatronWebshellUrl(region, idc, yarnHostname, appId, containerId, user));
 		} catch (Exception e) {
 			jmWebShell.completeExceptionally(e);
 		}
@@ -2174,10 +2184,9 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	public CompletableFuture<String> requestJobManagerLogUrl(Time timeout) {
 		CompletableFuture<String> jmLog = new CompletableFuture<>();
 		try {
-			String region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
-			String jmHost = Utils.getYarnHostname() + ":" + System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.name());
+			String jmHost = yarnHostname + ":" + System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.name());
 			jmLog.complete(
-				MegatronUtil.getMegatronLogUrl(region, jmHost, Utils.getCurrentContainerID(), EnvironmentInformation.getHadoopUser(), ""));
+				MegatronUtil.getMegatronLogUrl(region, jmHost, containerId, user, ""));
 		} catch (Exception e) {
 			log.error("Error while get relay log.", e);
 			jmLog.completeExceptionally(e);
@@ -2188,7 +2197,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	@Override
 	public String getTaskManagerWebShell(ResourceID resourceID, String host) {
 		try {
-			return NMWebshellUtil.getWeshellRelayFullUrl(host, resourceID.getResourceIdString(), EnvironmentInformation.getHadoopUser());
+			return MegatronUtil.getMegatronWebshellUrl(region, idc, host, appId, resourceID.getResourceIdString(), user);
 		} catch (Exception e) {
 			log.error("Error while get relay webshell, fallback to default webshell.", e);
 			return super.getTaskManagerWebShell(resourceID, host);
@@ -2200,8 +2209,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		try {
 			String nmPort = System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.name());
 			String nmHostWithPort = host + ":" + nmPort;
-			String region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
-			return MegatronUtil.getMegatronLogUrl(region, nmHostWithPort, resourceID.getResourceIdString(), EnvironmentInformation.getHadoopUser(), "");
+			return MegatronUtil.getMegatronLogUrl(region, nmHostWithPort, resourceID.getResourceIdString(), user, "");
 		} catch (Exception e) {
 			log.error("Error while get relay log, fallback to default log.", e);
 			return super.getTaskManagerLogUrl(resourceID, host);

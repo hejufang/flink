@@ -58,6 +58,9 @@ public class YarnConfigKeys {
 	public static final String ENV_PSM_PREFIX = "inf.dayu";
 	public static final String ENV_SEC_KV_AUTH = "SEC_KV_AUTH";
 
+	/** IDC, This environment depends on the underlying environment. it should only be used for webshell. */
+	public static final String ENV_YARN_RUNTIME_IDC = "RUNTIME_IDC_NAME";
+
 	public static final String ENV_LD_LIBRARY_PATH = "LD_LIBRARY_PATH";
 
 	public static final String ENV_RUNTIME_UNSET = "YARN_CONTAINER_RUNTIME_UNSET_ENV";
