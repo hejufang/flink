@@ -24,13 +24,19 @@ import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.table.api.bridge.java.internal.StreamTableEnvironmentImpl;
+import org.apache.flink.table.api.config.TableConfigOptions;
 import org.apache.flink.types.Row;
 
 import org.junit.Test;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests for {@link TableEnvironment} that require a planner.
@@ -58,5 +64,42 @@ public class EnvironmentTest {
 		assertEquals(128, env.getParallelism());
 		assertEquals(800, env.getConfig().getAutoWatermarkInterval());
 		assertEquals(30000, env.getCheckpointConfig().getCheckpointInterval());
+	}
+
+	@Test
+	public void testPlanCacheInTableEnvironment() {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		Configuration configuration = new Configuration();
+		configuration.set(TableConfigOptions.TABLE_SQL_PLAN_CACHE_ENABLED, true);
+		TableConfig tableConfig = new TableConfig();
+		tableConfig.addConfiguration(configuration);
+		StreamTableEnvironmentImpl tEnv = (StreamTableEnvironmentImpl) StreamTableEnvironmentImpl.create(
+			env,
+			EnvironmentSettings.newInstance().build(),
+			tableConfig);
+
+		String ddlSql = "create table table1(val1 string) with ('connector'='COLLECTION')";
+		String selectSql1 = "select * from table1 where val1='hello'";
+		String selectSql2 = "select val1 from table1";
+
+		Map<String, Long> defaultKey = new HashMap<>();
+		defaultKey.put(EnvironmentSettings.DEFAULT_BUILTIN_CATALOG, 0L);
+
+		tEnv.executeSql(ddlSql);
+		assertFalse(tEnv.getPlanCache().getPlan(ddlSql, defaultKey, tableConfig).isPresent());
+
+		tEnv.executeSql(selectSql1).collect();
+		assertTrue(tEnv.getPlanCache().getPlan(selectSql1, defaultKey, tableConfig).isPresent());
+		Object sql1Plan = tEnv.getPlanCache().getPlan(selectSql1, defaultKey, tableConfig).get();
+		tEnv.executeSql(selectSql1).collect();
+		assertTrue(tEnv.getPlanCache().getPlan(selectSql1, defaultKey, tableConfig).isPresent());
+		assertEquals(sql1Plan, tEnv.getPlanCache().getPlan(selectSql1, defaultKey, tableConfig).get());
+
+		tEnv.executeSql(selectSql2).collect();
+		assertTrue(tEnv.getPlanCache().getPlan(selectSql2, defaultKey, tableConfig).isPresent());
+		Object sql2Plan = tEnv.getPlanCache().getPlan(selectSql2, defaultKey, tableConfig).get();
+		tEnv.executeSql(selectSql2).collect();
+		assertTrue(tEnv.getPlanCache().getPlan(selectSql2, defaultKey, tableConfig).isPresent());
+		assertEquals(sql2Plan, tEnv.getPlanCache().getPlan(selectSql2, defaultKey, tableConfig).get());
 	}
 }

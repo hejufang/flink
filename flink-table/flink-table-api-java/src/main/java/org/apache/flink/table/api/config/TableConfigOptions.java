@@ -151,4 +151,16 @@ public class TableConfigOptions {
 				"When the size of buffered element exceeds max buffer size, it will wait the buffer available, " +
 				"and backpressure the upstream operator.");
 
+	public static final ConfigOption<Boolean> TABLE_SQL_PLAN_CACHE_ENABLED =
+		key("table.sql-plan-cache.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("The option controls whether table environment cache the plan for " +
+				"given sql and lsn.");
+
+	public static final ConfigOption<Long> TABLE_SQL_PLAN_CACHE_CAPACITY =
+		key("table.sql-plan-cache.capacity")
+			.longType()
+			.defaultValue(1000L)
+			.withDescription("The cache maximum capacity for plan in table environments.");
 }

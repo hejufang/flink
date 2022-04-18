@@ -173,6 +173,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		}
 	}
 
+	@Override
 	public long getCurrentCheckPointLSN() {
 		return currentCheckPointLSN;
 	}

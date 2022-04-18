@@ -616,4 +616,12 @@ public interface Catalog {
 	void alterPartitionColumnStatistics(ObjectPath tablePath, CatalogPartitionSpec partitionSpec, CatalogColumnStatistics columnStatistics,
 		boolean ignoreIfNotExists) throws PartitionNotExistException, CatalogException;
 
+	/**
+	 * Get the current check point lsn for the sql query.
+	 *
+	 * @return the current lsn
+	 */
+	default long getCurrentCheckPointLSN() {
+		return 0;
+	}
 }

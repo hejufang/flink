@@ -1841,25 +1841,31 @@ public class StreamExecutionEnvironment {
 		checkNotNull(streamGraph, "StreamGraph cannot be null.");
 		checkNotNull(configuration.get(DeploymentOptions.TARGET), "No execution.target specified in your configuration file.");
 
-		final PipelineExecutorFactory executorFactory =
-			executorServiceLoader.getExecutorFactory(configuration);
-
-		checkNotNull(
-			executorFactory,
-			"Cannot find compatible factory for specified execution.target (=%s)",
-			configuration.get(DeploymentOptions.TARGET));
-
 		registerDashboard(streamGraph, configuration);
 
 		PipelineExecutor pipelineExecutor;
+
 		// For socket endpoint, it should manage the pipeline executor and share it between jobs.
 		if (configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE)) {
 			if (this.pipelineExecutor == null) {
+				final PipelineExecutorFactory executorFactory =
+					executorServiceLoader.getExecutorFactory(configuration);
+				checkNotNull(
+					executorFactory,
+					"Cannot find compatible factory for specified execution.target (=%s)",
+					configuration.get(DeploymentOptions.TARGET));
 				this.pipelineExecutor = executorFactory
 					.getExecutor(configuration, abstractEventRecorder);
 			}
 			pipelineExecutor = this.pipelineExecutor;
 		} else {
+			final PipelineExecutorFactory executorFactory =
+				executorServiceLoader.getExecutorFactory(configuration);
+
+			checkNotNull(
+				executorFactory,
+				"Cannot find compatible factory for specified execution.target (=%s)",
+				configuration.get(DeploymentOptions.TARGET));
 			pipelineExecutor = executorFactory
 				.getExecutor(configuration, abstractEventRecorder);
 		}

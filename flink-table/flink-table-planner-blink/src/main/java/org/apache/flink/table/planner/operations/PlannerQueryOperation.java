@@ -43,6 +43,8 @@ public class PlannerQueryOperation implements QueryOperation {
 	private final RelNode calciteTree;
 	private final TableSchema tableSchema;
 
+	private String statement;
+
 	public PlannerQueryOperation(RelNode calciteTree) {
 		this.calciteTree = calciteTree;
 
@@ -84,5 +86,15 @@ public class PlannerQueryOperation implements QueryOperation {
 	@Override
 	public <T> T accept(QueryOperationVisitor<T> visitor) {
 		return visitor.visit(this);
+	}
+
+	@Override
+	public String getStatement() {
+		return statement;
+	}
+
+	@Override
+	public void setStatement(String statement) {
+		this.statement = statement;
 	}
 }

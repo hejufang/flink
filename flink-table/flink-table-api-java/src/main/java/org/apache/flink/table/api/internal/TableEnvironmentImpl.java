@@ -49,6 +49,7 @@ import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.api.WatermarkSpec;
+import org.apache.flink.table.api.config.TableConfigOptions;
 import org.apache.flink.table.catalog.Catalog;
 import org.apache.flink.table.catalog.CatalogBaseTable;
 import org.apache.flink.table.catalog.CatalogFunction;
@@ -143,6 +144,8 @@ import org.apache.flink.table.operations.ddl.DropTableOperation;
 import org.apache.flink.table.operations.ddl.DropTempSystemFunctionOperation;
 import org.apache.flink.table.operations.ddl.DropViewOperation;
 import org.apache.flink.table.operations.utils.OperationTreeBuilder;
+import org.apache.flink.table.plan.PlanCacheManager;
+import org.apache.flink.table.plan.SqlPlanValue;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.table.sources.TableSource;
 import org.apache.flink.table.sources.TableSourceValidation;
@@ -196,6 +199,9 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	protected final Planner planner;
 	private final boolean isStreamingMode;
 	private final ClassLoader userClassLoader;
+
+	private final PlanCacheManager<SqlPlanValue> planCache;
+
 	private static final String UNSUPPORTED_QUERY_IN_SQL_UPDATE_MSG =
 			"Unsupported SQL query! sqlUpdate() only accepts a single SQL statement of type " +
 			"INSERT, CREATE TABLE, DROP TABLE, ALTER TABLE, USE CATALOG, USE [CATALOG.]DATABASE, " +
@@ -262,6 +268,11 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			},
 			isStreamingMode
 		);
+
+		boolean planCacheEnable = this.tableConfig.getConfiguration().get(TableConfigOptions.TABLE_SQL_PLAN_CACHE_ENABLED);
+		this.planCache = planCacheEnable ?
+			new PlanCacheManager<>(
+				this.tableConfig.getConfiguration().get(TableConfigOptions.TABLE_SQL_PLAN_CACHE_CAPACITY)) : null;
 	}
 
 	public static TableEnvironmentImpl create(EnvironmentSettings settings) {
@@ -803,8 +814,23 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		}
 	}
 
+	private boolean validatePlannerCache() {
+		return planCache != null;
+	}
+
 	@Override
 	public TableResult executeSql(String statement) {
+		if (validatePlannerCache()) {
+			Map<String, Long> catalogLsnMap = getCacheCatalogLsn();
+			Optional<SqlPlanValue> cacheValue = planCache.getPlan(statement, catalogLsnMap, tableConfig);
+			if (cacheValue.isPresent()) {
+				return executeTransforms(
+						cacheValue.get().getTransformations(),
+						cacheValue.get().getSelectTableSink(),
+						cacheValue.get().getTableSchema());
+			}
+		}
+
 		List<Operation> operations = getParser().parse(statement);
 
 		if (operations.isEmpty()) {
@@ -819,6 +845,35 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			}
 		}
 		throw new TableException(UNSUPPORTED_QUERY_IN_EXECUTE_SQL_MSG);
+	}
+
+	private Map<String, Long> getCacheCatalogLsn() {
+		Set<String> catalogNames = catalogManager.listCatalogs();
+		Map<String, Long> catalogLsnMap = new HashMap<>();
+		for (String catalogName : catalogNames) {
+			Optional<Catalog> catalogOptional = catalogManager.getCatalog(catalogName);
+			catalogOptional.ifPresent(catalog -> catalogLsnMap.put(catalogName, catalog.getCurrentCheckPointLSN()));
+		}
+		return catalogLsnMap;
+	}
+
+	private TableResult executeTransforms(List<Transformation<?>> transformations, SelectTableSink tableSink, TableSchema tableSchema) {
+		String jobName = getJobName("collect");
+		Pipeline pipeline = execEnv.createPipeline(transformations, tableConfig, jobName);
+		try {
+			JobClient jobClient = execEnv.executeAsync(pipeline);
+			tableSink.setJobClient(jobClient);
+			return TableResultImpl.builder()
+				.jobClient(jobClient)
+				.resultKind(ResultKind.SUCCESS_WITH_CONTENT)
+				.tableSchema(tableSchema)
+				.data(tableSink.getResultIterator())
+				.setPrintStyle(TableResultImpl.PrintStyle.tableau(
+					PrintUtils.MAX_COLUMN_WIDTH, PrintUtils.NULL_COLUMN, true))
+				.build();
+		} catch (Exception e) {
+			throw new TableException("Failed to execute sql", e);
+		}
 	}
 
 	@Override
@@ -1059,6 +1114,14 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 				operation
 		);
 		List<Transformation<?>> transformations = translate(Collections.singletonList(sinkOperation));
+		if (validatePlannerCache() && operation.getStatement() != null) {
+			planCache.putPlan(
+				operation.getStatement(),
+				getCacheCatalogLsn(),
+				tableConfig,
+				new SqlPlanValue(transformations, tableSink, tableSchema));
+		}
+
 		String jobName = getJobName("collect");
 		Pipeline pipeline = execEnv.createPipeline(transformations, tableConfig, jobName);
 		try {
@@ -1884,5 +1947,10 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			tableOperation,
 			operationTreeBuilder,
 			functionCatalog.asLookup(getParser()::parseIdentifier));
+	}
+
+	@VisibleForTesting
+	public final PlanCacheManager<SqlPlanValue> getPlanCache() {
+		return planCache;
 	}
 }

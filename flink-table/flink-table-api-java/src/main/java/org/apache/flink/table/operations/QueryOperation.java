@@ -55,4 +55,17 @@ public interface QueryOperation extends Operation {
 		return visitor.visit(this);
 	}
 
+	/**
+	 * Save the query statement of operation for planner cache.
+	 */
+	default void setStatement(String statement) {}
+
+	/**
+	 * Get the query statement for planner cache.
+	 *
+	 * @return the statement, null for default
+	 */
+	default String getStatement() {
+		return null;
+	}
 }

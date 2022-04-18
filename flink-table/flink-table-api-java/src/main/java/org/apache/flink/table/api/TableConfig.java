@@ -33,6 +33,7 @@ import java.time.Duration;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Configuration for the current {@link TableEnvironment} session to adjust Table & SQL API programs.
@@ -347,6 +348,11 @@ public class TableConfig {
 			.orElseGet(HashMap::new);
 		params.put(key, value);
 		getConfiguration().set(PipelineOptions.GLOBAL_JOB_PARAMETERS, params);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(nullCheck, plannerConfig, decimalContext, configuration);
 	}
 
 	public static TableConfig getDefault() {
