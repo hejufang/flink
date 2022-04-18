@@ -21,9 +21,9 @@
 common:
 
   ## Fault Tolerance
-  restart-strategy: failure-rate
-  restart-strategy.failure-rate.max-failures-per-interval: 5
-  restart-strategy.failure-rate.failure-rate-interval: 30 min
+  restart-strategy: aggregated-failure-rate
+  restart-strategy.failure-rate.max-failures-per-interval: 100
+  restart-strategy.failure-rate.failure-rate-interval: 40 min
   restart-strategy.failure-rate.delay: 20 s
 
   restart-strategy.aggregated-failure-rate.max-failures-per-interval: 100
@@ -177,6 +177,11 @@ common:
   state.backend.cache.maxGcTimeThreshold: 10000
   state.backend.cache.lowHeapThreshold: 0.4
 
+  # UI
+  web.log-url-enable: false
+  web.shell-enable: false
+  web.metrics-url-enable: false
+  web.dtop-url-enable: false
 
   #==============================================================================
   #

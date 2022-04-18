@@ -78,7 +78,7 @@ export class JobListComponent implements OnInit, OnDestroy {
   }
 
   constructor(
-    private statusService: StatusService,
+    public statusService: StatusService,
     private jobService: JobService,
     private activatedRoute: ActivatedRoute,
     private cdr: ChangeDetectorRef,

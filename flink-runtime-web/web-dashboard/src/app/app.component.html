@@ -55,16 +55,20 @@
       <i class="trigger" nz-icon [type]="collapsed?'menu-unfold':'menu-fold'" (click)="toggleCollapse()">
       </i>
       <div class="right">
-        <span>
-          <strong>JMLog:</strong>
-          <a href="{{ statusService.configuration['jmLog'] }}"> JMLog </a>
-        </span>
-        <nz-divider nzType="vertical"></nz-divider>
-        <span>
-          <strong>JMWebShell:</strong>
-          <a href="{{ statusService.configuration['jmWebShell'] }}"> JMWebShell </a>
-        </span>
-        <nz-divider nzType="vertical"></nz-divider>
+        <ng-container *ngIf="statusService.configuration['logUrlEnable']">
+          <span>
+            <strong>JMLog:</strong>
+            <a href="{{ statusService.configuration['jmLog'] }}"> JMLog </a>
+          </span>
+          <nz-divider nzType="vertical"></nz-divider>
+        </ng-container>
+        <ng-container *ngIf="statusService.configuration['webShellEnable']">
+          <span>
+            <strong>JMWebShell:</strong>
+            <a href="{{ statusService.configuration['jmWebShell'] }}"> JMWebShell </a>
+          </span>
+          <nz-divider nzType="vertical"></nz-divider>
+        </ng-container>
         <span>
           <strong>Version:</strong> {{ statusService.configuration['flink-version'] }}
         </span>

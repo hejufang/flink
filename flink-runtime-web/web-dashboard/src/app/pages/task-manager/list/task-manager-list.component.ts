@@ -77,7 +77,7 @@ export class TaskManagerListComponent implements OnInit, OnDestroy {
 
   constructor(
     private cdr: ChangeDetectorRef,
-    private statusService: StatusService,
+    public statusService: StatusService,
     private taskManagerService: TaskManagerService,
     private router: Router,
     private activatedRoute: ActivatedRoute

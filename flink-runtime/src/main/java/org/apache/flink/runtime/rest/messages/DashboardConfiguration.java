@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.rest.messages;
 
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.runtime.rest.handler.cluster.DashboardConfigHandler;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.util.Preconditions;
@@ -47,6 +49,10 @@ public class DashboardConfiguration implements ResponseBody {
 	public static final String FIELD_NAME_FEATURE_WEB_SUBMIT = "web-submit";
 	public static final String FIELD_NAME_JM_LOG = "jmLog";
 	public static final String FIELD_NAME_JM_WEB_SHELL = "jmWebShell";
+	public static final String FIELD_NAME_METRICS_URL_ENABLE = "metricsUrlEnable";
+	public static final String FIELD_NAME_DTOP_URL_ENABLE = "dtopUrlEnable";
+	public static final String FIELD_NAME_WEB_LOG_URL_ENABLE = "logUrlEnable";
+	public static final String FIELD_NAME_WEB_SHELL_ENABLE = "webShellEnable";
 
 	@JsonProperty(FIELD_NAME_REFRESH_INTERVAL)
 	private final long refreshInterval;
@@ -72,6 +78,18 @@ public class DashboardConfiguration implements ResponseBody {
 	@JsonProperty(FIELD_NAME_JM_WEB_SHELL)
 	private final String jmWebShell;
 
+	@JsonProperty(FIELD_NAME_METRICS_URL_ENABLE)
+	private final boolean metricsUrlEnable;
+
+	@JsonProperty(FIELD_NAME_DTOP_URL_ENABLE)
+	private final boolean dtopUrlEnable;
+
+	@JsonProperty(FIELD_NAME_WEB_LOG_URL_ENABLE)
+	private final boolean logUrlEnable;
+
+	@JsonProperty(FIELD_NAME_WEB_SHELL_ENABLE)
+	private final boolean webShellEnable;
+
 	@JsonCreator
 	public DashboardConfiguration(
 			@JsonProperty(FIELD_NAME_REFRESH_INTERVAL) long refreshInterval,
@@ -81,7 +99,11 @@ public class DashboardConfiguration implements ResponseBody {
 			@JsonProperty(FIELD_NAME_FLINK_REVISION) String flinkRevision,
 			@JsonProperty(FIELD_NAME_FLINK_FEATURES) Features features,
 			@JsonProperty(FIELD_NAME_JM_LOG) String jmLog,
-			@JsonProperty(FIELD_NAME_JM_WEB_SHELL) String jmWebShell) {
+			@JsonProperty(FIELD_NAME_JM_WEB_SHELL) String jmWebShell,
+			@JsonProperty(FIELD_NAME_METRICS_URL_ENABLE) boolean metricsUrlEnable,
+			@JsonProperty(FIELD_NAME_DTOP_URL_ENABLE) boolean dtopUrlEnable,
+			@JsonProperty(FIELD_NAME_WEB_LOG_URL_ENABLE) boolean logUrlEnable,
+			@JsonProperty(FIELD_NAME_WEB_SHELL_ENABLE) boolean webShellEnable)  {
 		this.refreshInterval = refreshInterval;
 		this.timeZoneName = Preconditions.checkNotNull(timeZoneName);
 		this.timeZoneOffset = timeZoneOffset;
@@ -90,6 +112,10 @@ public class DashboardConfiguration implements ResponseBody {
 		this.features = features;
 		this.jmLog = (jmLog == null) ? "NoJmLog" : jmLog;
 		this.jmWebShell = (jmWebShell == null) ? "NoJmWebShell" : jmWebShell;
+		this.metricsUrlEnable = metricsUrlEnable;
+		this.dtopUrlEnable = dtopUrlEnable;
+		this.logUrlEnable = logUrlEnable;
+		this.webShellEnable = webShellEnable;
 	}
 
 	@JsonIgnore
@@ -166,6 +192,22 @@ public class DashboardConfiguration implements ResponseBody {
 		return jmWebShell;
 	}
 
+	public boolean isMetricsUrlEnable() {
+		return metricsUrlEnable;
+	}
+
+	public boolean isDtopUrlEnable() {
+		return dtopUrlEnable;
+	}
+
+	public boolean isLogUrlEnable() {
+		return logUrlEnable;
+	}
+
+	public boolean isWebShellEnable() {
+		return webShellEnable;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -182,7 +224,11 @@ public class DashboardConfiguration implements ResponseBody {
 			Objects.equals(flinkRevision, that.flinkRevision) &&
 			Objects.equals(features, that.features) &&
 			Objects.equals(jmLog, that.jmLog) &&
-			Objects.equals(jmWebShell, that.jmWebShell);
+			Objects.equals(jmWebShell, that.jmWebShell) &&
+			Objects.equals(metricsUrlEnable, that.metricsUrlEnable) &&
+			Objects.equals(dtopUrlEnable, that.dtopUrlEnable) &&
+			Objects.equals(logUrlEnable, that.logUrlEnable) &&
+			Objects.equals(webShellEnable, that.webShellEnable);
 	}
 
 	@Override
@@ -190,7 +236,7 @@ public class DashboardConfiguration implements ResponseBody {
 		return Objects.hash(refreshInterval, timeZoneName, timeZoneOffset, flinkVersion, flinkRevision, features);
 	}
 
-	public static DashboardConfiguration from(long refreshInterval, ZonedDateTime zonedDateTime, boolean webSubmitEnabled) {
+	public static DashboardConfiguration from(long refreshInterval, ZonedDateTime zonedDateTime, boolean webSubmitEnabled, Configuration clusterConfiguration) {
 
 		final String flinkVersion = EnvironmentInformation.getVersion();
 
@@ -215,7 +261,11 @@ public class DashboardConfiguration implements ResponseBody {
 			flinkRevision,
 			new Features(webSubmitEnabled),
 			jmLog,
-			jmWebShell);
+			jmWebShell,
+			clusterConfiguration.getBoolean(WebOptions.WEB_METRICS_URL_ENABLE),
+			clusterConfiguration.getBoolean(WebOptions.WEB_DTOP_URL_ENABLE),
+			clusterConfiguration.getBoolean(WebOptions.WEB_LOG_URL_ENABLE),
+			clusterConfiguration.getBoolean(WebOptions.WEB_SHELL_ENABLE));
 	}
 
 	public static DashboardConfiguration fromDashboardConfiguration(DashboardConfiguration dashboardConfiguration, String jmLog, String jmWebShell) {
@@ -227,6 +277,10 @@ public class DashboardConfiguration implements ResponseBody {
 			dashboardConfiguration.getFlinkRevision(),
 			dashboardConfiguration.getFeatures(),
 			jmLog,
-			jmWebShell);
+			jmWebShell,
+			dashboardConfiguration.isMetricsUrlEnable(),
+			dashboardConfiguration.isDtopUrlEnable(),
+			dashboardConfiguration.isLogUrlEnable(),
+			dashboardConfiguration.isWebShellEnable());
 	}
 }

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.rest.handler.cluster;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.rest.handler.AbstractRestHandler;
 import org.apache.flink.runtime.rest.handler.HandlerRequest;
 import org.apache.flink.runtime.rest.messages.DashboardConfiguration;
@@ -51,11 +52,12 @@ public class DashboardConfigHandler extends AbstractRestHandler<RestfulGateway, 
 			Map<String, String> responseHeaders,
 			MessageHeaders<EmptyRequestBody, DashboardConfiguration, EmptyMessageParameters> messageHeaders,
 			long refreshInterval,
-			boolean webSubmitEnabled) {
+			boolean webSubmitEnabled,
+			Configuration clusterConfiguration) {
 		super(leaderRetriever, timeout, responseHeaders, messageHeaders);
 		hasJmWebShell = false;
 		hasJmLog = false;
-		dashboardConfiguration = DashboardConfiguration.from(refreshInterval, ZonedDateTime.now(), webSubmitEnabled);
+		dashboardConfiguration = DashboardConfiguration.from(refreshInterval, ZonedDateTime.now(), webSubmitEnabled, clusterConfiguration);
 	}
 
 	@Override

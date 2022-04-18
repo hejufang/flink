@@ -25,6 +25,10 @@ export interface ConfigurationInterface {
   features: {
     'web-submit': boolean;
   };
+  metricsUrlEnable: boolean;
+  dtopUrlEnable: boolean;
+  logUrlEnable: boolean;
+  webShellEnable: boolean;
   jmLog: string;
   jmWebShell: string;
 }

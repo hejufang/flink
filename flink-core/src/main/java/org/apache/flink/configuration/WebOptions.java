@@ -187,8 +187,40 @@ public class WebOptions {
 	 */
 	public static final ConfigOption<Long> TIMEOUT =
 		key("web.timeout")
-		.defaultValue(10L * 60L * 1000L)
-		.withDescription("Timeout for asynchronous operations by the web monitor in milliseconds.");
+			.defaultValue(10L * 60L * 1000L)
+			.withDescription("Timeout for asynchronous operations by the web monitor in milliseconds.");
+
+	/**
+	 * The switch to control the web ui show the log url.
+	 */
+	public static final ConfigOption<Boolean> WEB_LOG_URL_ENABLE =
+		key("web.log-url-enable")
+			.defaultValue(true)
+			.withDescription("Whether the web ui show the log url in tm/jm page or not.");
+
+	/**
+	 * The switch to control the web ui show the web shell.
+	 */
+	public static final ConfigOption<Boolean> WEB_SHELL_ENABLE =
+		key("web.shell-enable")
+			.defaultValue(true)
+			.withDescription("Whether the web ui show the web shell in tm/jm page or not.");
+
+	/**
+	 * The switch to control the web ui show the metrics grafana url.
+	 */
+	public static final ConfigOption<Boolean> WEB_METRICS_URL_ENABLE =
+		key("web.metrics-url-enable")
+			.defaultValue(true)
+			.withDescription("Whether the web ui show the metrics grafana url or not.");
+
+	/**
+	 * The switch to control the web ui show the dtop url.
+	 */
+	public static final ConfigOption<Boolean> WEB_DTOP_URL_ENABLE =
+		key("web.dtop-url-enable")
+			.defaultValue(true)
+			.withDescription("Whether the web ui show the dtop url or not.");
 
 	// ------------------------------------------------------------------------
 

@@ -35,8 +35,12 @@
         <th nzShowSort nzSortKey="hardware.physicalMemory" [nzWidth]="'120px'">Physical MEM</th>
         <th nzShowSort nzSortKey="hardware.freeMemory" [nzWidth]="'130px'">JVM Heap Size</th>
         <th nzShowSort nzSortKey="hardware.managedMemory" [nzWidth]="'160px'">Flink Managed MEM</th>
-        <th nzShowSort nzSortKey="tmLog" [nzWidth]="'160px'">TmLog</th>
-        <th nzRight="0px" nzShowSort nzSortKey="webShell" [nzWidth]="'160px'">WebShell</th>
+        <ng-container *ngIf="statusService.configuration['logUrlEnable']">
+          <th nzShowSort nzSortKey="tmLog" [nzWidth]="'160px'">TmLog</th>
+        </ng-container>
+        <ng-container *ngIf="statusService.configuration['webShellEnable']">
+          <th nzRight="0px" nzShowSort nzSortKey="webShell" [nzWidth]="'160px'">WebShell</th>
+        </ng-container>
       </tr>
     </thead>
     <tbody>
@@ -55,8 +59,12 @@
           <td [attr.title]="manager.hardware.physicalMemory+' bytes'">{{ manager.hardware.physicalMemory | humanizeBytes }}</td>
           <td [attr.title]="manager.hardware.freeMemory+' bytes'">{{ manager.hardware.freeMemory | humanizeBytes }}</td>
           <td [attr.title]="manager.hardware.managedMemory+' bytes'" nzRight="0px">{{ manager.hardware.managedMemory | humanizeBytes }}</td>
-          <td><a (click)="navigateToUrl(manager.tmLog, $event)">TmLog</a></td>
-          <td><a (click)="navigateToUrl(manager.webShell, $event)">WebShell</a></td>
+          <ng-container *ngIf="statusService.configuration['logUrlEnable']">
+            <td><a (click)="navigateToUrl(manager.tmLog, $event)">TmLog</a></td>
+          </ng-container>
+          <ng-container *ngIf="statusService.configuration['webShellEnable']">
+            <td><a (click)="navigateToUrl(manager.webShell, $event)">WebShell</a></td>
+          </ng-container>
         </tr>
       </ng-container>
     </tbody>

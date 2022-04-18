@@ -38,6 +38,10 @@ public class DashboardConfigurationTest extends RestResponseMarshallingTestBase<
 			"revision",
 			new DashboardConfiguration.Features(true),
 			"jmLog",
-			"jmWebShell");
+			"jmWebShell",
+			true,
+			true,
+			true,
+			true);
 	}
 }
