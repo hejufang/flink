@@ -20,18 +20,23 @@ package org.apache.flink.connector.abase.executor;
 
 import org.apache.flink.connector.abase.client.ClientPipeline;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
+import org.apache.flink.connector.abase.options.AbaseSinkMetricsOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.ByteArrayWrapper;
+import org.apache.flink.connector.abase.utils.KeyFormatterHelper;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import redis.clients.jedis.exceptions.JedisDataException;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,25 +48,26 @@ import java.util.stream.Collectors;
  */
 public class AbaseSinkHashBufferReduceExecutor extends AbaseSinkBatchExecutor<RowData> {
 	private static final long serialVersionUID = 1L;
+	private static final Logger LOG = LoggerFactory.getLogger(AbaseSinkHashBufferReduceExecutor.class);
 
 	private final transient Map<ByteArrayWrapper, Map<ByteArrayWrapper, byte[]>> insertBuffer;
 	private final transient Map<ByteArrayWrapper, Set<ByteArrayWrapper>> retractBuffer;
 
-	private final RowData.FieldGetter[] fieldGetters;
 	private final DynamicTableSink.DataStructureConverter converter;
 	private final AbaseNormalOptions normalOptions;
 	private final AbaseSinkOptions sinkOptions;
+	private final AbaseSinkMetricsOptions sinkMetricsOptions;
 
 	public AbaseSinkHashBufferReduceExecutor(
-			RowData.FieldGetter[] fieldGetters,
-			DynamicTableSink.DataStructureConverter converter,
 			AbaseNormalOptions normalOptions,
-			AbaseSinkOptions sinkOptions) {
+			AbaseSinkOptions sinkOptions,
+			AbaseSinkMetricsOptions sinkMetricsOptions,
+			DynamicTableSink.DataStructureConverter converter) {
 		super(null);
-		this.fieldGetters = fieldGetters;
 		this.converter = converter;
 		this.normalOptions = normalOptions;
 		this.sinkOptions = sinkOptions;
+		this.sinkMetricsOptions = sinkMetricsOptions;
 		this.insertBuffer = new HashMap<>();
 		this.retractBuffer = new HashMap<>();
 	}
@@ -69,95 +75,75 @@ public class AbaseSinkHashBufferReduceExecutor extends AbaseSinkBatchExecutor<Ro
 	@Override
 	public void addToBatch(RowData record) {
 		ByteArrayWrapper key;
+		Row row = (Row) converter.toExternal(record);
+		if (row == null) {
+			throw new FlinkRuntimeException("Get null when convert to row: " + record);
+		}
+		String keyStr = getKey(row);
+		key = new ByteArrayWrapper(keyStr.getBytes());
+		Map<ByteArrayWrapper, byte[]> val = new HashMap<>();
 		if (normalOptions.isHashMap()) {
-			Row res = (Row) converter.toExternal(record);
-			if (res == null) {
-				throw new FlinkRuntimeException("Get null when convert to row: " + record);
-			}
-			Object keyObj = Objects.requireNonNull(res.getField(0), "Get null key with row: " + res);
-			key = new ByteArrayWrapper(keyObj.toString().getBytes());
-			Object hashMap = res.getField(1);
+			Map<String, String> hashMap = (Map<String, String>) row.getField(sinkOptions.getValueColIndices()[0]);
 			if (hashMap == null) {
-				throw new FlinkRuntimeException(String.format("The hashmap of %s should not be null.", key));
+				throw new FlinkRuntimeException(String.format("Get null map value of key %s and record is %s.", key, row));
 			}
-			Map<ByteArrayWrapper, byte[]> vals = convertToReducedMap((Map<String, String>) hashMap);
-
-			if (record.getRowKind() == RowKind.DELETE) {
-				retractBuffer.compute(key, (k, v) -> {
-					if (v == null) {
-						v = new HashSet<>();
-					}
-					v.addAll(vals.keySet());
-					return v;
-				});
-				insertBuffer.computeIfPresent(key, (k, v) -> {
-					v.keySet().removeAll(vals.keySet());
-					return v.isEmpty() ? null : v;
-				});
-			} else {
-				retractBuffer.computeIfPresent(key, (k, v) -> {
-					v.removeAll(vals.keySet());
-					return v.isEmpty() ? null : v;
-				});
-				insertBuffer.compute(key, (k, v) -> {
-					if (v == null) {
-						return vals;
-					}
-					v.putAll(vals);
-					return v;
-				});
+			try {
+				addMetricsDataToMap(row, hashMap);
+			} catch (Throwable t) {
+				LOG.error("Failed to add metrics data to hash map", t);
+			}
+			val = new HashMap<>(hashMap.size());
+			for (Map.Entry<String, String> entry : hashMap.entrySet()) {
+				Objects.requireNonNull(entry.getKey(),
+					"Get null map key at index " + sinkOptions.getValueColIndices()[0] + " of data " + row);
+				Objects.requireNonNull(entry.getValue(),
+					"Get null map value at index " + sinkOptions.getValueColIndices()[0] + " of data " + row);
+				val.put(new ByteArrayWrapper(entry.getKey().getBytes()), entry.getValue().getBytes());
 			}
 		} else {
-			Object keyObj = Objects.requireNonNull(fieldGetters[0].getFieldOrNull(record),
-				"Get null key from record: " + record);
-			key = new ByteArrayWrapper(keyObj.toString().getBytes());
-			Object hashKey = fieldGetters[1].getFieldOrNull(record);
-			Object hashValue = fieldGetters[2].getFieldOrNull(record);
+			Object hashKey = row.getField(sinkOptions.getValueColIndices()[0]);
+			Object hashValue = row.getField(sinkOptions.getValueColIndices()[1]);
 			if (hashKey == null || hashValue == null) {
 				throw new FlinkRuntimeException(
 					String.format("Neither hash key nor hash value of %s should not be " +
-						"null, the hash key: %s, the hash value: %s", keyObj, hashKey, hashValue));
+						"null, the hash key: %s, the hash value: %s and data: %s", keyStr, hashKey, hashValue, row));
 			}
-			if (record.getRowKind() == RowKind.DELETE) {
-				retractBuffer.compute(key, (k, v) -> {
-					if (v == null) {
-						v = new HashSet<>();
-					}
-					v.add(new ByteArrayWrapper(hashKey.toString().getBytes()));
-					return v;
-				});
-				insertBuffer.computeIfPresent(key, (k, v) -> {
-					if (v.containsKey(new ByteArrayWrapper(hashKey.toString().getBytes()))) {
-						return null;    // delete it
-					} else {
-						return v;
-					}
-				});
-			} else {
-				retractBuffer.computeIfPresent(key, (k, v) -> {
-					if (v.contains(new ByteArrayWrapper(hashKey.toString().getBytes()))) {
-						return null;
-					} else {
-						return v;
-					}
-				});
-				insertBuffer.compute(key, (k, v) -> {
-					Map<ByteArrayWrapper, byte[]> val;
-					if (v == null) {
-						val = new HashMap<>();
-					} else {
-						val = v;
-					}
-					val.put(new ByteArrayWrapper(hashKey.toString().getBytes()), hashValue.toString().getBytes());
+			val.put(new ByteArrayWrapper(hashKey.toString().getBytes()), hashValue.toString().getBytes());
+		}
+		addToBuffer(key, val, record.getRowKind());
+	}
+
+	private void addToBuffer(ByteArrayWrapper key, Map<ByteArrayWrapper, byte[]> val, RowKind rowKind) {
+		if (rowKind == RowKind.DELETE) {
+			retractBuffer.compute(key, (k, v) -> {
+				if (v == null) {
+					v = new HashSet<>();
+				}
+				v.addAll(val.keySet());
+				return v;
+			});
+			insertBuffer.computeIfPresent(key, (k, v) -> {
+				v.keySet().removeAll(val.keySet());
+				return v.isEmpty() ? null : v;
+			});
+		} else {
+			retractBuffer.computeIfPresent(key, (k, v) -> {
+				v.removeAll(val.keySet());
+				return v.isEmpty() ? null : v;
+			});
+			insertBuffer.compute(key, (k, v) -> {
+				if (v == null) {
 					return val;
-				});
-			}
+				}
+				v.putAll(val);
+				return v;
+			});
 		}
 	}
 
 	@Override
 	public List<Object> executeBatch(ClientPipeline pipeline) {
-		// write insert records
+		// write records to be inserted
 		// prefer 'hmset' than 'hset' since the time complexity of both of them is O(1)
 		insertBuffer.forEach((key, valmap) -> {
 			if (valmap.size() >= 2) {
@@ -200,12 +186,35 @@ public class AbaseSinkHashBufferReduceExecutor extends AbaseSinkBatchExecutor<Ro
 		return insertBuffer.isEmpty() && retractBuffer.isEmpty();
 	}
 
-	private static Map<ByteArrayWrapper, byte[]> convertToReducedMap(Map<String, String> originMap) {
-		Map<ByteArrayWrapper, byte[]> byteMap = new HashMap<>(originMap.size());
-		for (Map.Entry<String, String> entry : originMap.entrySet()) {
-			byteMap.put(new ByteArrayWrapper(entry.getKey().getBytes()), entry.getValue().getBytes());
+	private String getKey(Row row) {
+		int[] indices = normalOptions.getKeyIndices();
+		Object[] keys = new Object[indices.length];
+		for (int i = 0; i < indices.length; i++) {
+			keys[i] = Objects.requireNonNull(row.getField(indices[i]),
+				"Get null key at index " + indices[i] + " with row: " + row);
 		}
-		return byteMap;
+		return KeyFormatterHelper.formatKey(normalOptions.getKeyFormatter(), keys);
+	}
+
+	private void addMetricsDataToMap(Row row, Map<String, String> map) {
+		if (sinkMetricsOptions.isCollected() && sinkMetricsOptions.isEventTsWriteable()) {
+			Object val = Objects.requireNonNull(row.getField(sinkMetricsOptions.getEventTsColIndex()),
+				"Get null value of event-ts column of index " + sinkMetricsOptions.getEventTsColIndex()
+					+ ", data is " + row);
+			map.putIfAbsent(sinkMetricsOptions.getEventTsColName(), val.toString());
+		}
+		if (sinkMetricsOptions.isCollected() && sinkMetricsOptions.isTagWriteable()) {
+			Iterator<String> nameIter = sinkMetricsOptions.getTagNames().iterator();
+			Iterator<Integer> idxIter = sinkMetricsOptions.getTagNameIndices().iterator();
+			while (nameIter.hasNext()) {
+				String tagName = nameIter.next();
+				int tagIdx = idxIter.next();
+				Object val = Objects.requireNonNull(row.getField(tagIdx),
+					"Get null value of tag column, column name is " + tagName + ", column index is " + tagIdx
+						+ " and data is " + row);
+				map.putIfAbsent(tagName, val.toString());
+			}
+		}
 	}
 
 	private static Map<byte[], byte[]> convertToValMap(Map<ByteArrayWrapper, byte[]> originMap) {

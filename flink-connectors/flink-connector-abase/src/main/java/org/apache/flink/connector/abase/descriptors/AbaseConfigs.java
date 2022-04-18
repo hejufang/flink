@@ -78,6 +78,12 @@ public class AbaseConfigs {
 		.defaultValue(AbaseValueType.GENERAL)
 		.withDescription("Optional. The data type written to or read from abase. Options are string, " +
 			"hash, list, set and zset. The default value is string.");
+	public static final ConfigOption<String> KEY_FORMATTER = ConfigOptions
+		.key("key_format")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional. The complete key of abase/redis. It consist of literal string and column value " +
+			"expression, such as ${col} which stands for the value of column named 'col'.");
 	public static final ConfigOption<Boolean> LOOKUP_SPECIFY_HASH_KEYS = ConfigOptions
 		.key("lookup.specify-hash-keys")
 		.booleanType()

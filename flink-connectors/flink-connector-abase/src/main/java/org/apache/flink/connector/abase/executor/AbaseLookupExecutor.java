@@ -30,6 +30,7 @@ import java.io.Serializable;
  * Abstract AbaseLookupExecutor.
  */
 public abstract class AbaseLookupExecutor implements Serializable {
+	private static final long serialVersionUID = 1L;
 
 	protected transient BaseClient client;
 	protected final AbaseNormalOptions normalOptions;
@@ -38,7 +39,7 @@ public abstract class AbaseLookupExecutor implements Serializable {
 		this.normalOptions = normalOptions;
 	}
 
-	public abstract RowData doLookup(Object key) throws IOException;
+	public abstract RowData doLookup(Object[] keys) throws IOException;
 
 	public void open() throws Exception {
 		this.client = AbaseClientTableUtils.getClientWrapper(normalOptions);

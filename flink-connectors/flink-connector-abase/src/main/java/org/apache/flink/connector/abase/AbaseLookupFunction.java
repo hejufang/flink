@@ -53,6 +53,8 @@ public class AbaseLookupFunction extends TableFunction<RowData> {
 	private transient Meter lookupFailurePerSecond;
 	private transient Histogram requestDelayMs;
 
+	private final int[] pkRuntimeIdx;
+
 	private final AbaseLookupOptions lookupOptions;
 
 	private final FlinkConnectorRateLimiter rateLimiter;
@@ -60,9 +62,11 @@ public class AbaseLookupFunction extends TableFunction<RowData> {
 	private final AbaseLookupExecutor abaseLookupExecutor;
 
 	public AbaseLookupFunction(
+			int[] pkRuntimeIdx,
 			AbaseNormalOptions normalOptions,
 			AbaseLookupOptions lookupOptions,
 			AbaseLookupExecutor abaseLookupExecutor) {
+		this.pkRuntimeIdx = pkRuntimeIdx;
 		this.lookupOptions = lookupOptions;
 		this.abaseLookupExecutor = abaseLookupExecutor;
 		this.rateLimiter = normalOptions.getRateLimiter();
@@ -101,7 +105,8 @@ public class AbaseLookupFunction extends TableFunction<RowData> {
 	 * @throws Exception
 	 */
 	public void eval(Object... keys) throws Exception {
-		RowData keyRow = GenericRowData.of(keys[0]);
+		keys = filterPrimaryKeys(keys);  // reserve lookup keys that are also primary keys and ignore others
+		RowData keyRow = GenericRowData.of(keys);
 		if (cache != null) {
 			RowData cacheRow = cache.getIfPresent(keyRow);
 			if (cacheRow != null) {
@@ -121,8 +126,7 @@ public class AbaseLookupFunction extends TableFunction<RowData> {
 				long startRequest = System.currentTimeMillis();
 
 				// do lookup in executor.
-				Object key = keys[0];
-				row = abaseLookupExecutor.doLookup(key);
+				row = abaseLookupExecutor.doLookup(keys);
 
 				long requestDelay = System.currentTimeMillis() - startRequest;
 				requestDelayMs.update(requestDelay);
@@ -139,7 +143,7 @@ public class AbaseLookupFunction extends TableFunction<RowData> {
 					throw new RuntimeException("Execution of Abase read failed.", e);
 				}
 				try {
-					Thread.sleep(1000 * retry);
+					Thread.sleep(1000L * retry);
 				} catch (InterruptedException ie) {
 					throw new RuntimeException(ie);
 				}
@@ -150,6 +154,15 @@ public class AbaseLookupFunction extends TableFunction<RowData> {
 			// else the chained downstream exception will be caught.
 			collect(row);
 		}
+	}
+
+	private Object[] filterPrimaryKeys(Object[] keys) {
+		Object[] val = new Object[pkRuntimeIdx.length];
+		int i = 0;
+		for (int pos : pkRuntimeIdx) {   // order are preserved
+			val[i++] = keys[pos];
+		}
+		return val;
 	}
 
 }

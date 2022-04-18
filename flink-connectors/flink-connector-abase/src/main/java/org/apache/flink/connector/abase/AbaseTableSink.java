@@ -88,15 +88,10 @@ public class AbaseTableSink implements DynamicTableSink{
 	@Override
 	public SinkRuntimeProvider getSinkRuntimeProvider(Context context) {
 		TableSchema realSchema = schema;
-		if (encodingFormat != null && !sinkOptions.getSkipIdx().isEmpty()) {
+		if (encodingFormat != null && sinkOptions.getSerColIndices().length != schema.getFieldCount()) {
 			TableSchema.Builder builder = new TableSchema.Builder();
-			int size = schema.getTableColumns().size() - sinkOptions.getSkipIdx().size();
-			List<TableColumn> columns = new ArrayList<>(size);
-			for (int i = 0, j = 0; i < schema.getTableColumns().size(); i++) {
-				if (j < sinkOptions.getSkipIdx().size() && sinkOptions.getSkipIdx().get(j) == i) {
-					j++;
-					continue;
-				}
+			List<TableColumn> columns = new ArrayList<>(sinkOptions.getSerColIndices().length);
+			for (int i : sinkOptions.getSerColIndices()) {
 				columns.add(schema.getTableColumns().get(i));
 			}
 			columns.forEach(column -> builder.field(column.getName(), column.getType()));

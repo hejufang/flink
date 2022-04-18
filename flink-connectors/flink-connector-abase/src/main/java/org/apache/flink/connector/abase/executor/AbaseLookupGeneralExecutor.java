@@ -19,6 +19,7 @@
 package org.apache.flink.connector.abase.executor;
 
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
+import org.apache.flink.connector.abase.utils.KeyFormatterHelper;
 import org.apache.flink.connector.abase.utils.StringValueConverters;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
@@ -47,25 +48,29 @@ public class AbaseLookupGeneralExecutor extends AbaseLookupExecutor {
 	}
 
 	@Override
-	public RowData doLookup(Object key) {
+	public RowData doLookup(Object[] keys) {
+		String key = KeyFormatterHelper.formatKey(normalOptions.getKeyFormatter(), keys);
 		Object value;
 		try {
-			value = client.get(key.toString());
+			value = client.get(key);
 		} catch (JedisDataException e) {
 			throw new FlinkRuntimeException(String.format("General Get value failed. Key : %s, " +
 				"Related command: 'get key'.", key), e);
 		}
 		if (value != null) {
-			return convertToRow(key, value);
+			return convertToRow(keys, value);
 		} else {
 			return null;
 		}
 	}
 
-	private RowData convertToRow(Object key, Object value) {
-		GenericRowData row = new GenericRowData(2);
-		row.setField(0, stringValueConverters[0].toInternal(key.toString()));
-		row.setField(1, stringValueConverters[1].toInternal(value.toString()));
+	private RowData convertToRow(Object[] keys, Object value) {
+		GenericRowData row = new GenericRowData(stringValueConverters.length);
+		for (int i = 0; i < normalOptions.getKeyIndices().length; i++) {
+			row.setField(normalOptions.getKeyIndices()[i], keys[i]);
+		}
+		int idx = normalOptions.getValueIndices()[0];
+		row.setField(idx, stringValueConverters[idx].toInternal(value.toString()));
 		return row;
 	}
 }

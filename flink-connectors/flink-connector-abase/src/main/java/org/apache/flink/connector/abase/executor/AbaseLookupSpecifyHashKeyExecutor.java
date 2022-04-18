@@ -19,6 +19,7 @@
 package org.apache.flink.connector.abase.executor;
 
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
+import org.apache.flink.connector.abase.utils.KeyFormatterHelper;
 import org.apache.flink.connector.abase.utils.StringValueConverters;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
@@ -56,7 +57,7 @@ public class AbaseLookupSpecifyHashKeyExecutor extends AbaseLookupExecutor {
 			List<String> requestedHashKeys) {
 		super(normalOptions);
 		this.fieldNames = fieldNames;
-		this.hashKeys = Arrays.copyOfRange(fieldNames, 1, fieldNames.length);
+		this.hashKeys = getHashKeys(fieldNames, normalOptions.getValueIndices());
 		this.stringValueConverters = Arrays.stream(fieldTypes)
 			.map(StringValueConverters::getConverter).toArray(StringValueConverters.StringValueConverter[]::new);
 		if (requestedHashKeys != null && !requestedHashKeys.isEmpty()) {
@@ -72,16 +73,25 @@ public class AbaseLookupSpecifyHashKeyExecutor extends AbaseLookupExecutor {
 	}
 
 	@Override
-	public RowData doLookup(Object key) {
-		return getHashValueForKeysSpecified(key.toString());
+	public RowData doLookup(Object[] keys) {
+		String key = KeyFormatterHelper.formatKey(normalOptions.getKeyFormatter(), keys);
+		String[] values = getValuesFromExternal(key);
+		if (values == null) {
+			return null;
+		}
+		GenericRowData rowData = new GenericRowData(fieldNames.length);
+		for (int i = 0; i < normalOptions.getKeyIndices().length; i++) {
+			int idx = normalOptions.getKeyIndices()[i];
+			rowData.setField(idx, keys[i]);
+		}
+		for (int i = 0; i < normalOptions.getValueIndices().length; i++) {
+			int idx = normalOptions.getValueIndices()[i];
+			rowData.setField(idx, stringValueConverters[idx].toInternal(values[i]));
+		}
+		return rowData;
 	}
 
-	/**
-	 * specified hash value get method.
-	 * @param key
-	 * @return
-	 */
-	private RowData getHashValueForKeysSpecified(String key) {
+	private String[] getValuesFromExternal(String key) {
 		List<String> values;
 		try {
 			values = client.hmget(key, hashKeys);
@@ -92,20 +102,23 @@ public class AbaseLookupSpecifyHashKeyExecutor extends AbaseLookupExecutor {
 		if (isEmpty(values)) {
 			return null;
 		}
+		String[] arr = values.toArray(new String[0]);
 		if (checkRequestedHashKeys) {
-			String[] arr = values.toArray(new String[0]);
 			for (int i : requestedHashKeysIndex) {
 				if (StringUtils.isNullOrWhitespaceOnly(arr[i])) {
 					return null;
 				}
 			}
 		}
-		Object[] internalValues = new Object[fieldNames.length];
-		internalValues[0] = stringValueConverters[0].toInternal(key);
-		for (int i = 1; i < fieldNames.length; i++) {
-			internalValues[i] = stringValueConverters[i].toInternal(values.get(i - 1));
+		return arr;
+	}
+
+	private static String[] getHashKeys(String[] fieldNames, int[] idx) {
+		String[] hashKeys = new String[idx.length];
+		for (int i = 0; i < idx.length; i++) {
+			hashKeys[i] = fieldNames[idx[i]];
 		}
-		return GenericRowData.of(internalValues);
+		return hashKeys;
 	}
 
 	private static boolean isEmpty(List<String> values) {

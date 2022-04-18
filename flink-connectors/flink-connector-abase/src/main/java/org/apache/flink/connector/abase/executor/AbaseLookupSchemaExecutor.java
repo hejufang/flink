@@ -20,6 +20,7 @@ package org.apache.flink.connector.abase.executor;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
+import org.apache.flink.connector.abase.utils.KeyFormatterHelper;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.functions.FunctionContext;
@@ -30,8 +31,7 @@ import redis.clients.jedis.exceptions.JedisDataException;
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
 /**
  * schema lookup executor supports: json/pb and other formats.
@@ -42,8 +42,6 @@ public class AbaseLookupSchemaExecutor extends AbaseLookupExecutor {
 
 	private final DeserializationSchema<RowData> deserializationSchema; //for json/pb and other formats deserialization
 
-	private final int keyFieldIndex;
-
 	private final RowData.FieldGetter[] fieldGetters;
 
 	public AbaseLookupSchemaExecutor(
@@ -52,32 +50,37 @@ public class AbaseLookupSchemaExecutor extends AbaseLookupExecutor {
 			@Nonnull DeserializationSchema<RowData> deserializationSchema) {
 		super(normalOptions);
 		this.deserializationSchema = deserializationSchema;
-		this.keyFieldIndex = normalOptions.getKeyIndex();
 		this.fieldGetters = fieldGetters;
 	}
 
 	@Override
-	public RowData doLookup(Object key) throws IOException {
+	public RowData doLookup(Object[] keys) throws IOException {
 		byte[] value;
 		try {
-			value = client.get(key.toString().getBytes());
+			String key = KeyFormatterHelper.formatKey(normalOptions.getKeyFormatter(), keys);
+			value = client.get(key.getBytes());
 		} catch (JedisDataException e) {
 			throw new FlinkRuntimeException(String.format("Schema Get value failed. Key : %s, " +
-				"Related command: 'get key'.", key), e);
+				"Related command: 'get key'.", Arrays.toString(keys)), e);
 		}
 		RowData row = null;
 		if (value != null) {
 			row = deserializationSchema.deserialize(value);
 		}
-		if (keyFieldIndex >= 0 && row != null) {
-			List<Object> valueList = new ArrayList<>();
-			for (int i = 0; i < row.getArity(); i++) {
-				valueList.add(fieldGetters[i].getFieldOrNull(row));
-			}
-			valueList.add(keyFieldIndex, key);
-			return GenericRowData.of(valueList.toArray(new Object[0]));
+		if (row == null) {
+			return null;
 		}
-		return row;
+
+		// put back lookup keys
+		GenericRowData res = new GenericRowData(keys.length + row.getArity());
+		for (int i = 0; i < keys.length; i++) {
+			res.setField(normalOptions.getKeyIndices()[i], keys[i]);
+		}
+		for (int i = 0; i < row.getArity(); i++) {
+			int idx = normalOptions.getValueIndices()[i];
+			res.setField(idx, fieldGetters[i].getFieldOrNull(row));
+		}
+		return res;
 	}
 
 	public void open(FunctionContext context) throws Exception {

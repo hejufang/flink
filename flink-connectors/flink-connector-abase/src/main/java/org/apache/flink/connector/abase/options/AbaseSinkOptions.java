@@ -22,9 +22,7 @@ import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -44,12 +42,21 @@ public class AbaseSinkOptions implements Serializable {
 	 */
 	private final boolean logFailuresOnly;
 
-	/**
-	 * Indices of columns that are not written to abase.
-	 */
-	private final List<Integer> skipIdx;
+	// sorted indices of value columns except "event-ts" and "tag" columns
+	private final int[] valueColIndices;
+
+	// sorted indices of columns that may need to be serialized
+	private final int[] serColIndices;
 
 	private final boolean ignoreDelete;
+
+	public int[] getValueColIndices() {
+		return valueColIndices;
+	}
+
+	public int[] getSerColIndices() {
+		return serColIndices;
+	}
 
 	public int getFlushMaxRetries() {
 		return flushMaxRetries;
@@ -75,10 +82,6 @@ public class AbaseSinkOptions implements Serializable {
 		return parallelism;
 	}
 
-	public List<Integer> getSkipIdx() {
-		return skipIdx;
-	}
-
 	public boolean isIgnoreDelete() {
 		return ignoreDelete;
 	}
@@ -88,22 +91,24 @@ public class AbaseSinkOptions implements Serializable {
 	}
 
 	private AbaseSinkOptions(
+			int[] valueColIndices,
+			int[] serColIndices,
 			int flushMaxRetries,
 			AbaseSinkMode mode,
 			int bufferMaxRows,
 			long bufferFlushInterval,
 			int ttlSeconds,
 			boolean logFailuresOnly,
-			List<Integer> skipIdx,
 			boolean ignoreDelete,
 			int parallelism) {
+		this.valueColIndices = valueColIndices;
+		this.serColIndices = serColIndices;
 		this.flushMaxRetries = flushMaxRetries;
 		this.mode = mode;
 		this.bufferMaxRows = bufferMaxRows;
 		this.bufferFlushInterval = bufferFlushInterval;
 		this.ttlSeconds = ttlSeconds;
 		this.logFailuresOnly = logFailuresOnly;
-		this.skipIdx = skipIdx;
 		this.ignoreDelete = ignoreDelete;
 		this.parallelism = parallelism;
 	}
@@ -116,17 +121,28 @@ public class AbaseSinkOptions implements Serializable {
 	 * Abase insert options builder.
 	 */
 	public static class AbaseInsertOptionsBuilder {
+		private int[] valueColIndices = null;
+		private int[] serColIndices = null;
 		private int flushMaxRetries = 5;
 		private AbaseSinkMode mode = AbaseSinkMode.INSERT;
 		private int bufferMaxRows = 50;
 		private long bufferFlushInterval = 2000;
 		private int ttlSeconds = -1;
 		private boolean logFailuresOnly;
-		private List<Integer> skipIdx = new ArrayList<>();
 		private boolean ignoreDelete = true;
 		private int parallelism;
 
 		private AbaseInsertOptionsBuilder() {
+		}
+
+		public AbaseInsertOptionsBuilder setValueColIndices(int[] valueColIndices) {
+			this.valueColIndices = valueColIndices;
+			return this;
+		}
+
+		public AbaseInsertOptionsBuilder setSerColIndices(int[] serColIndices) {
+			this.serColIndices = serColIndices;
+			return this;
 		}
 
 		public AbaseInsertOptionsBuilder setFlushMaxRetries(int flushMaxRetries) {
@@ -154,11 +170,6 @@ public class AbaseSinkOptions implements Serializable {
 			return this;
 		}
 
-		public AbaseInsertOptionsBuilder setSkipIdx(List<Integer> skipIdx) {
-			this.skipIdx = skipIdx;
-			return this;
-		}
-
 		public AbaseInsertOptionsBuilder setIgnoreDelete(boolean ignoreDelete) {
 			this.ignoreDelete = ignoreDelete;
 			return this;
@@ -175,19 +186,22 @@ public class AbaseSinkOptions implements Serializable {
 		}
 
 		public AbaseSinkOptions build() {
+			Preconditions.checkNotNull(valueColIndices, "valueIndices should be not null");
 			Preconditions.checkArgument(flushMaxRetries > 0,
 				"flushMaxRetries must be greater than 0");
 			Preconditions.checkArgument(bufferMaxRows > 0,
 				"batchSize must be greater than 0");
-			Collections.sort(skipIdx);
+			Arrays.sort(valueColIndices);
+			Arrays.sort(serColIndices);
 			return new AbaseSinkOptions(
+				valueColIndices,
+				serColIndices,
 				flushMaxRetries,
 				mode,
 				bufferMaxRows,
 				bufferFlushInterval,
 				ttlSeconds,
 				logFailuresOnly,
-				skipIdx,
 				ignoreDelete,
 				parallelism);
 		}
@@ -195,13 +209,14 @@ public class AbaseSinkOptions implements Serializable {
 		@Override
 		public String toString() {
 			return "AbaseInsertOptionsBuilder{" +
-				"flushMaxRetries=" + flushMaxRetries +
+				", valueIndices=" + Arrays.toString(valueColIndices) +
+				", serColIndices=" + Arrays.toString(serColIndices) +
+				", flushMaxRetries=" + flushMaxRetries +
 				", mode=" + mode +
 				", bufferMaxRows=" + bufferMaxRows +
 				", bufferFlushInterval=" + bufferFlushInterval +
 				", ttlSeconds=" + ttlSeconds +
 				", logFailuresOnly=" + logFailuresOnly +
-				", skipIdx=" + skipIdx +
 				", ignoreDelete=" + ignoreDelete +
 				", parallelism=" + parallelism +
 				'}';
@@ -217,13 +232,14 @@ public class AbaseSinkOptions implements Serializable {
 			return false;
 		}
 		AbaseSinkOptions that = (AbaseSinkOptions) o;
-		return flushMaxRetries == that.flushMaxRetries &&
+		return Arrays.equals(valueColIndices, that.valueColIndices) &&
+			Arrays.equals(serColIndices, that.serColIndices) &&
+			flushMaxRetries == that.flushMaxRetries &&
 			bufferMaxRows == that.bufferMaxRows &&
 			bufferFlushInterval == that.bufferFlushInterval &&
 			ttlSeconds == that.ttlSeconds &&
 			parallelism == that.parallelism &&
 			logFailuresOnly == that.logFailuresOnly &&
-			Objects.equals(skipIdx, that.skipIdx) &&
 			ignoreDelete == that.ignoreDelete &&
 			mode == that.mode;
 	}
@@ -231,6 +247,8 @@ public class AbaseSinkOptions implements Serializable {
 	@Override
 	public int hashCode() {
 		return Objects.hash(
+			Arrays.hashCode(valueColIndices),
+			Arrays.hashCode(serColIndices),
 			flushMaxRetries,
 			mode,
 			bufferMaxRows,
@@ -238,7 +256,6 @@ public class AbaseSinkOptions implements Serializable {
 			ttlSeconds,
 			parallelism,
 			logFailuresOnly,
-			skipIdx,
 			ignoreDelete);
 	}
 }

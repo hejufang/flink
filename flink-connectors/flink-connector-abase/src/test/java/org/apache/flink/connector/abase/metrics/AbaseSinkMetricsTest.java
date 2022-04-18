@@ -39,7 +39,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * The ITCase for abase sink metrics.
  */
-public class AbaseSinkMetricsITCase extends AbaseTestBase {
+public class AbaseSinkMetricsTest extends AbaseTestBase {
 
 	@Test
 	public void testGeneralTypeWithFormatMetrics() throws Exception {

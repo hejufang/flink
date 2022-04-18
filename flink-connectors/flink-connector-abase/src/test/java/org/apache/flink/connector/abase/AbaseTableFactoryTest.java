@@ -32,11 +32,11 @@ import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.factories.FactoryUtil;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static org.apache.flink.configuration.PipelineOptions.JOB_PSM_PREFIX;
@@ -52,6 +52,7 @@ import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_MOD
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_RECORD_TTL;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.VALUE_TYPE;
 import static org.apache.flink.connector.abase.utils.Constants.ABASE_IDENTIFIER;
+import static org.apache.flink.core.testutils.FlinkMatchers.containsCause;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_MAX_ROWS;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_NULL_VALUE;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_TTL;
@@ -74,21 +75,21 @@ public class AbaseTableFactoryTest {
 	private static final String ABASE_TABLE_NAME = "abase_mock_table";
 	private static final String ABASE_JOB_NAME = "my_job";
 
-	private static final TableSchema schema = TableSchema.builder()
-		.field("int_field", DataTypes.INT().notNull())
-		.field("string_field", DataTypes.STRING().notNull())
-		.field("double_field", DataTypes.DOUBLE())
-		.field("decimal_field", DataTypes.DECIMAL(31, 18))
-		.field("timestamp_field", DataTypes.TIMESTAMP(3))
-		.build();
+	@Rule
+	public ExpectedException thrown = ExpectedException.none();
 
 	@Test
 	public void testAbaseClusterName() {
+		TableSchema schema = TableSchema.builder()
+				.field("int_field", DataTypes.INT().notNull())
+				.field("string_field", DataTypes.STRING())
+				.primaryKey("int_field")
+				.build();
 		Map<String, String> properties = getBasicOptions();
 		properties.put("cluster", ABASE_CLUSTER_NAME + ".service");
 
 		// validation for source
-		DynamicTableSource actualSource = createTableSource(properties);
+		DynamicTableSource actualSource = createTableSource(schema, properties);
 		AbaseNormalOptions options = AbaseNormalOptions.builder()
 				.setCluster(ABASE_CLUSTER_NAME)
 				.setTable(ABASE_TABLE_NAME)
@@ -99,6 +100,8 @@ public class AbaseTableFactoryTest {
 				.setMaxIdleConnections(CONNECTION_MAX_IDLE_NUM.defaultValue())
 				.setMaxTotalConnections(CONNECTION_MAX_TOTAL_NUM.defaultValue())
 				.setGetResourceMaxRetries(CONNECTION_MAX_RETRIES.defaultValue())
+				.setKeyIndices(new int[1])
+				.setValueIndices(new int[]{1})
 				.setAbaseValueType(VALUE_TYPE.defaultValue())
 				.build();
 		// default lookup configurations
@@ -120,16 +123,16 @@ public class AbaseTableFactoryTest {
 		assertEquals(expectedSource, actualSource);
 
 		// validation for sink
-		DynamicTableSink actualSink = createTableSink(properties);
+		DynamicTableSink actualSink = createTableSink(schema, properties);
 		// default sink configurations
-		List<Integer> skipIdx = Collections.singletonList(0);
 		AbaseSinkOptions sinkOptions = AbaseSinkOptions.builder()
+				.setValueColIndices(new int[]{1})
+				.setSerColIndices(new int[]{1})
 				.setFlushMaxRetries(SINK_MAX_RETRIES.defaultValue())
 				.setMode(SINK_MODE.defaultValue())
 				.setBufferMaxRows(SINK_BUFFER_FLUSH_MAX_ROWS.defaultValue())
 				.setBufferFlushInterval(SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis())
 				.setLogFailuresOnly(SINK_LOG_FAILURES_ONLY.defaultValue())
-				.setSkipIdx(skipIdx)
 				.setIgnoreDelete(SINK_IGNORE_DELETE.defaultValue())
 				.setParallelism(PARALLELISM.defaultValue())
 				.setTtlSeconds((int) SINK_RECORD_TTL.defaultValue().getSeconds())
@@ -144,20 +147,59 @@ public class AbaseTableFactoryTest {
 		assertEquals(expectedSink, actualSink);
 	}
 
-	private static DynamicTableSource createTableSource(Map<String, String> options) {
+	@Test
+	public void testEmptyKeyFormatterException() {
+		thrown.expect(containsCause(new IllegalArgumentException("The 'key_format' must specified if multiple primary keys exist.")));
+		TableSchema schema = TableSchema.builder()
+			.field("int_field", DataTypes.INT().notNull())
+			.field("string_field", DataTypes.STRING().notNull())
+			.field("double_field", DataTypes.DOUBLE())
+			.field("decimal_field", DataTypes.DECIMAL(31, 18))
+			.field("timestamp_field", DataTypes.TIMESTAMP(3))
+			.primaryKey("int_field", "string_field")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		createTableSource(schema, properties);
+	}
+
+	@Test
+	public void testHashTypeSchema() {
+		TableSchema schema = TableSchema.builder()
+			.field("id", DataTypes.INT().notNull())
+			.field("region", DataTypes.STRING().notNull())
+			.field("community", DataTypes.STRING().notNull())
+			.field("value", DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()))
+			.primaryKey("region", "community", "id")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		properties.put("value-type", "hash");
+		properties.put("key_format", "location:${region}:${community}:${id}");
+		createTableSource(schema, properties);
+
+		thrown.expect(containsCause(new IllegalStateException("Unsupported data type for hash value, should be map<varchar, varchar>")));
+		schema = TableSchema.builder()
+				.field("id", DataTypes.INT().notNull())
+				.field("value", DataTypes.MAP(DataTypes.STRING(), DataTypes.INT()))
+				.primaryKey("id")
+				.build();
+		properties.remove("key_format");
+		createTableSource(schema, properties);
+	}
+
+	private static DynamicTableSource createTableSource(TableSchema schema, Map<String, String> options) {
 		return FactoryUtil.createTableSource(
 			null,
 			ObjectIdentifier.of("default", "default", "t1"),
-			new CatalogTableImpl(AbaseTableFactoryTest.schema, options, "mock source"),
+			new CatalogTableImpl(schema, options, "mock source"),
 			getConfiguration(),
 			AbaseTableFactoryTest.class.getClassLoader());
 	}
 
-	private static DynamicTableSink createTableSink(Map<String, String> options) {
+	private static DynamicTableSink createTableSink(TableSchema schema, Map<String, String> options) {
 		return FactoryUtil.createTableSink(
 			null,
 			ObjectIdentifier.of("default", "default", "t1"),
-			new CatalogTableImpl(AbaseTableFactoryTest.schema, options, "mock sink"),
+			new CatalogTableImpl(schema, options, "mock sink"),
 			getConfiguration(),
 			AbaseTableFactoryTest.class.getClassLoader());
 	}

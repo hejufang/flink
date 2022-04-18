@@ -170,8 +170,9 @@ public class AbaseSinkMetricsOptions implements Serializable {
 			Preconditions.checkArgument(percentiles != null && percentiles.size() > 0,
 				"The percentiles can't be configured empty.");
 			Preconditions.checkArgument(isValidPercentiles(percentiles),
-				"Invalid percentile number, should be an integer greater than 0 and less than 100");
-			this.percentiles = new ArrayList<>(new HashSet<>(percentiles));
+				"Invalid percentile number, should be an integer greater than 0 and less than 100 and "
+					+ "no duplicate number is allowed");
+			this.percentiles = new ArrayList<>(percentiles);
 			Collections.sort(this.percentiles);
 			return this;
 		}
@@ -192,6 +193,7 @@ public class AbaseSinkMetricsOptions implements Serializable {
 		}
 
 		public AbaseSinkMetricsOptionsBuilder setTagNames(List<String> tagNames) {
+			Preconditions.checkArgument(isDistinct(tagNames), "Duplicate tag names are not allowed!");
 			this.tagNames = tagNames;
 			return this;
 		}
@@ -250,9 +252,16 @@ public class AbaseSinkMetricsOptions implements Serializable {
 				buckets);
 		}
 
+		private static boolean isDistinct(List<String> list) {
+			return new HashSet<>(list).size() == list.size();
+		}
+
 		private static boolean isValidPercentiles(List<Double> percentiles) {
 			if (percentiles == null) {
 				return true;
+			}
+			if (new HashSet<>(percentiles).size() != percentiles.size()) {
+				return false;
 			}
 			for (double percentile : percentiles) {
 				if (percentile < 0 || percentile > 1) {
