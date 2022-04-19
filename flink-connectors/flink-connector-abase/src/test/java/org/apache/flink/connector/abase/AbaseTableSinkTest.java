@@ -19,6 +19,7 @@
 package org.apache.flink.connector.abase;
 
 import org.apache.flink.table.api.TableResult;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,6 +37,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.core.testutils.FlinkMatchers.containsCause;
 import static org.mockito.ArgumentMatchers.eq;
 
 /**
@@ -274,7 +276,7 @@ public class AbaseTableSinkTest extends AbaseTestBase {
 		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
 
 		// verify pipeline method calls
-		verifyHSET(results);
+		verifyHSET(results, "score");
 		verifyHashTTL(results.keySet(), 600);
 		Mockito.verify(clientPipeline, Mockito.times(2)).syncAndReturnAll();
 		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
@@ -457,7 +459,7 @@ public class AbaseTableSinkTest extends AbaseTestBase {
 		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
 
 		// verify pipeline method calls
-		verifyHSET(multiPKsResults);
+		verifyHSET(multiPKsResults, "score");
 		verifyHashTTL(multiPKsResults.keySet(), 60);
 		Mockito.verify(clientPipeline, Mockito.times(2)).syncAndReturnAll();
 		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
@@ -501,6 +503,112 @@ public class AbaseTableSinkTest extends AbaseTestBase {
 		Mockito.verify(clientPipeline, Mockito.times(2)).syncAndReturnAll();
 		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
 		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	@Test
+	public void testHMSETWithSpecifiedFieldNames() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `score` BIGINT,\n" +
+				"  `rank` INT,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '120 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '5',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'specify-hash-keys' = 'true',\n" +
+				"  'value-type' = 'hash'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `bonus`, `score`, `rank`\n" +
+			"FROM T3");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifyHMSET(multiPKsResults);
+		verifyHashTTL(multiPKsResults.keySet(), 120);
+		Mockito.verify(clientPipeline, Mockito.times(2)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	@Test
+	public void testHSETWithSpecifiedFieldNames() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `score` BIGINT,\n" +
+				"  `rank` INT,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '10 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '5',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'specify-hash-keys' = 'true',\n" +
+				"  'sink.ignore-null' = 'true',\n" +
+				"  'value-type' = 'hash'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink (`name`, `bonus`, `rank`)\n" +
+			"SELECT `name`, `bonus`, `rank`\n" +
+			"FROM T3");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifyHSET(multiPKsResults, "rank");
+		verifyHashTTL(multiPKsResults.keySet(), 10);
+		Mockito.verify(clientPipeline, Mockito.times(2)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	@Test
+	public void testHMSETWithNullValueException() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `score` BIGINT,\n" +
+				"  `rank` INT,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '120 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '5',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'specify-hash-keys' = 'true',\n" +
+				"  'value-type' = 'hash'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink (`name`, `bonus`, `rank`)\n" +
+			"SELECT `name`, `bonus`, `rank`\n" +
+			"FROM T3");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		thrown.expect(containsCause(new FlinkRuntimeException("Get null value at index of 2 in the record: Bob,5,null,7")));
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
 	}
 
 	/**
@@ -768,7 +876,7 @@ public class AbaseTableSinkTest extends AbaseTestBase {
 		}
 	}
 
-	private void verifyHSET(Map<String, Map<String, String>> results) {
+	private void verifyHSET(Map<String, Map<String, String>> results, String fieldName) {
 		ArgumentCaptor<byte[]> keyArg = ArgumentCaptor.forClass(byte[].class);
 		ArgumentCaptor<byte[]> fieldArg = ArgumentCaptor.forClass(byte[].class);
 		ArgumentCaptor<byte[]> valArg = ArgumentCaptor.forClass(byte[].class);
@@ -782,7 +890,7 @@ public class AbaseTableSinkTest extends AbaseTestBase {
 			String f = new String(fieldIterator.next());
 			String v = new String(valIterator.next());
 			Assert.assertTrue(results.containsKey(k));
-			Assert.assertEquals("score", f);
+			Assert.assertEquals(fieldName, f);
 			Assert.assertEquals(results.get(k).get(f), v);
 		}
 	}

@@ -45,7 +45,6 @@ import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTI
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTION_MAX_TOTAL_NUM;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTION_MIN_IDLE_NUM;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.CONNECTION_TIMEOUT;
-import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.LOOKUP_SPECIFY_HASH_KEYS;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_IGNORE_DELETE;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_MAX_RETRIES;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_MODE;
@@ -100,6 +99,7 @@ public class AbaseTableFactoryTest {
 				.setMaxIdleConnections(CONNECTION_MAX_IDLE_NUM.defaultValue())
 				.setMaxTotalConnections(CONNECTION_MAX_TOTAL_NUM.defaultValue())
 				.setGetResourceMaxRetries(CONNECTION_MAX_RETRIES.defaultValue())
+				.setFieldNames(schema.getFieldNames())
 				.setKeyIndices(new int[1])
 				.setValueIndices(new int[]{1})
 				.setAbaseValueType(VALUE_TYPE.defaultValue())
@@ -113,7 +113,6 @@ public class AbaseTableFactoryTest {
 				LOOKUP_LATER_JOIN_RETRY_TIMES.defaultValue(),
 				LOOKUP_CACHE_NULL_VALUE.defaultValue(),
 				null,
-				LOOKUP_SPECIFY_HASH_KEYS.defaultValue(),
 				null);
 		AbaseTableSource expectedSource = new AbaseTableSource(
 				options,

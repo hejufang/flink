@@ -95,7 +95,7 @@ public class AbaseTableSource implements LookupTableSource, SupportsProjectionPu
 			abaseLookupExecutor = new AbaseLookupGeneralExecutor(normalOptions, schema.getFieldDataTypes());
 
 		// 3. hash datatype with hash keys specified
-		} else if (lookupOptions.isSpecifyHashKeys()) {
+		} else if (normalOptions.isSpecifyHashFields()) {
 			abaseLookupExecutor = new AbaseLookupSpecifyHashKeyExecutor(
 				normalOptions,
 				schema.getFieldNames(),

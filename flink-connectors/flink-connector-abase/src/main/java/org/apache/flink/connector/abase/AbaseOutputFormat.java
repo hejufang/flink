@@ -179,7 +179,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 				valueExtractor = row -> Objects.requireNonNull(fieldGetters[valueIndex].getFieldOrNull(row)).toString().getBytes();
 			}
 			batchExecutor = new AbaseSinkBufferReduceExecutor((pipeline, record) ->
-				writeStringValue(pipeline, record.f0, record.f1), keyExtractor, valueExtractor);
+				writeStringValue(pipeline, record.f0, record.f1), keyExtractor, valueExtractor, sinkOptions);
 
 		// The data of hash type in insert mode should also be reduced or merged
 		// because of disorder of pipeline execution.
@@ -425,17 +425,20 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 			Object hashKey = fieldGetters[hashKeyIndex].getFieldOrNull(record);
 			Object incrementValue = fieldGetters[hashValueIndex].getFieldOrNull(record);
 			if (hashKey == null || incrementValue == null) {
-				throw new FlinkRuntimeException(
-					String.format("Neither hash key nor increment value of %s should not be " +
-						"null, the hash key: %s, the hash value: %s", key, hashKey, incrementValue));
-			}
-			if (incrementValue instanceof Long || incrementValue instanceof Integer) {
-				pipeline.hincrBy(key.getBytes(), hashKey.toString().getBytes(), ((Number) incrementValue).longValue());
-			} else if (incrementValue instanceof Double || incrementValue instanceof Float) {
-				pipeline.hincrByFloat(key, hashKey.toString(), ((Number) incrementValue).floatValue());
+				if (!sinkOptions.isIgnoreNull()) {
+					throw new FlinkRuntimeException(
+						String.format("Neither hash key nor increment value of %s should not be " +
+							"null, the hash key: %s, the hash value: %s", key, hashKey, incrementValue));
+				}
 			} else {
-				throw new RuntimeException("Unsupported type for increment value in INCR mode, " +
-					"supported types: Long, Integer, Double, Float.");
+				if (incrementValue instanceof Long || incrementValue instanceof Integer) {
+					pipeline.hincrBy(key.getBytes(), hashKey.toString().getBytes(), ((Number) incrementValue).longValue());
+				} else if (incrementValue instanceof Double || incrementValue instanceof Float) {
+					pipeline.hincrByFloat(key, hashKey.toString(), ((Number) incrementValue).floatValue());
+				} else {
+					throw new RuntimeException("Unsupported type for increment value in INCR mode, " +
+						"supported types: Long, Integer, Double, Float.");
+				}
 			}
 		}
 	}
@@ -452,16 +455,19 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 			String key = getKey(record);
 			Object incrementValue = fieldGetters[valueIndex].getFieldOrNull(record);
 			if (incrementValue == null) {
-				throw new FlinkRuntimeException(
-					String.format("Incr mode: Abase value can't be null. Key: %s ", key));
-			}
-			if (incrementValue instanceof Long || incrementValue instanceof Integer) {
-				pipeline.incrBy(key, ((Number) incrementValue).longValue());
-			} else if (incrementValue instanceof Double || incrementValue instanceof Float) {
-				pipeline.incrByFloat(key, ((Number) incrementValue).floatValue());
+				if (!sinkOptions.isIgnoreNull()) {
+					throw new FlinkRuntimeException(
+						String.format("Incr mode: Abase value can't be null. Key: %s ", key));
+				}
 			} else {
-				throw new RuntimeException("Unsupported type for increment value in INCR mode, " +
-					"supported types: Long, Integer, Double, Float.");
+				if (incrementValue instanceof Long || incrementValue instanceof Integer) {
+					pipeline.incrBy(key, ((Number) incrementValue).longValue());
+				} else if (incrementValue instanceof Double || incrementValue instanceof Float) {
+					pipeline.incrByFloat(key, ((Number) incrementValue).floatValue());
+				} else {
+					throw new RuntimeException("Unsupported type for increment value in INCR mode, " +
+						"supported types: Long, Integer, Double, Float.");
+				}
 			}
 		}
 	}
@@ -478,13 +484,14 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 			String key = getKey(record);
 			Object value = fieldGetters[valueIndex].getFieldOrNull(record);
 			if (value == null) {
-				throw new FlinkRuntimeException(
-					String.format("The value of %s should not be null.", key));
+				if (!sinkOptions.isIgnoreNull()) {
+					throw new FlinkRuntimeException(String.format("The value of %s should not be null.", key));
+				}
 			} else {
 				pipeline.lpush(key.getBytes(), value.toString().getBytes());
-			}
-			if (sinkOptions.getTtlSeconds() > 0) {
-				pipeline.lexpires(key, sinkOptions.getTtlSeconds());
+				if (sinkOptions.getTtlSeconds() > 0) {
+					pipeline.lexpires(key, sinkOptions.getTtlSeconds());
+				}
 			}
 		}
 	}
@@ -501,8 +508,9 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 			String key = getKey(record);
 			Object value = fieldGetters[valueIndex].getFieldOrNull(record);
 			if (value == null) {
-				throw new FlinkRuntimeException(
-					String.format("The value of %s should not be null.", key));
+				if (!sinkOptions.isIgnoreNull()) {
+					throw new FlinkRuntimeException(String.format("The value of %s should not be null.", key));
+				}
 			} else {
 				pipeline.sadd(key.getBytes(), value.toString().getBytes());
 			}
@@ -527,18 +535,20 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 			Object score = fieldGetters[scoreIndex].getFieldOrNull(record);
 			Object value = fieldGetters[valueIndex].getFieldOrNull(record);
 			if (value == null || score == null) {
-				throw new FlinkRuntimeException(
-					String.format("The score or value of %s should not be null, " +
-						"the score: %s, the value: %s.", key, score, value));
-			}
-			if (!(score instanceof Number)) {
-				throw new FlinkRuntimeException(
-					String.format("WRONG TYPE: %s, type of second column should " +
-						"be subclass of Number.", score.getClass().getName()));
-			}
-			pipeline.zadd(key.getBytes(), ((Number) score).doubleValue(), value.toString().getBytes());
-			if (sinkOptions.getTtlSeconds() > 0) {
-				pipeline.zexpires(key, sinkOptions.getTtlSeconds());
+				if (!sinkOptions.isIgnoreNull()) {
+					throw new FlinkRuntimeException(String.format("The score or value of key %s should not be null, " +
+							"the score: %s, the value: %s.", key, score, value));
+				}
+			} else {
+				if (!(score instanceof Number)) {
+					throw new FlinkRuntimeException(
+						String.format("WRONG TYPE: %s, type of second column should " +
+							"be subclass of Number.", score.getClass().getName()));
+				}
+				pipeline.zadd(key.getBytes(), ((Number) score).doubleValue(), value.toString().getBytes());
+				if (sinkOptions.getTtlSeconds() > 0) {
+					pipeline.zexpires(key, sinkOptions.getTtlSeconds());
+				}
 			}
 		}
 	}

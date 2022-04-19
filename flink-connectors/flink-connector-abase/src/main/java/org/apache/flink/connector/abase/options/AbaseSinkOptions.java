@@ -50,6 +50,8 @@ public class AbaseSinkOptions implements Serializable {
 
 	private final boolean ignoreDelete;
 
+	private final boolean ignoreNull;
+
 	public int[] getValueColIndices() {
 		return valueColIndices;
 	}
@@ -86,6 +88,10 @@ public class AbaseSinkOptions implements Serializable {
 		return ignoreDelete;
 	}
 
+	public boolean isIgnoreNull() {
+		return ignoreNull;
+	}
+
 	public long getBufferFlushInterval() {
 		return bufferFlushInterval;
 	}
@@ -100,6 +106,7 @@ public class AbaseSinkOptions implements Serializable {
 			int ttlSeconds,
 			boolean logFailuresOnly,
 			boolean ignoreDelete,
+			boolean ignoreNull,
 			int parallelism) {
 		this.valueColIndices = valueColIndices;
 		this.serColIndices = serColIndices;
@@ -110,6 +117,7 @@ public class AbaseSinkOptions implements Serializable {
 		this.ttlSeconds = ttlSeconds;
 		this.logFailuresOnly = logFailuresOnly;
 		this.ignoreDelete = ignoreDelete;
+		this.ignoreNull = ignoreNull;
 		this.parallelism = parallelism;
 	}
 
@@ -130,6 +138,7 @@ public class AbaseSinkOptions implements Serializable {
 		private int ttlSeconds = -1;
 		private boolean logFailuresOnly;
 		private boolean ignoreDelete = true;
+		private boolean ignoreNull = false;
 		private int parallelism;
 
 		private AbaseInsertOptionsBuilder() {
@@ -175,6 +184,11 @@ public class AbaseSinkOptions implements Serializable {
 			return this;
 		}
 
+		public AbaseInsertOptionsBuilder setIgnoreNull(boolean ignoreNull) {
+			this.ignoreNull = ignoreNull;
+			return this;
+		}
+
 		public AbaseInsertOptionsBuilder setLogFailuresOnly(boolean logFailuresOnly) {
 			this.logFailuresOnly = logFailuresOnly;
 			return this;
@@ -203,6 +217,7 @@ public class AbaseSinkOptions implements Serializable {
 				ttlSeconds,
 				logFailuresOnly,
 				ignoreDelete,
+				ignoreNull,
 				parallelism);
 		}
 
@@ -218,6 +233,7 @@ public class AbaseSinkOptions implements Serializable {
 				", ttlSeconds=" + ttlSeconds +
 				", logFailuresOnly=" + logFailuresOnly +
 				", ignoreDelete=" + ignoreDelete +
+				", ignoreNull=" + ignoreNull +
 				", parallelism=" + parallelism +
 				'}';
 		}
@@ -241,6 +257,7 @@ public class AbaseSinkOptions implements Serializable {
 			parallelism == that.parallelism &&
 			logFailuresOnly == that.logFailuresOnly &&
 			ignoreDelete == that.ignoreDelete &&
+			ignoreNull == that.ignoreNull &&
 			mode == that.mode;
 	}
 
@@ -256,6 +273,7 @@ public class AbaseSinkOptions implements Serializable {
 			ttlSeconds,
 			parallelism,
 			logFailuresOnly,
-			ignoreDelete);
+			ignoreDelete,
+			ignoreNull);
 	}
 }

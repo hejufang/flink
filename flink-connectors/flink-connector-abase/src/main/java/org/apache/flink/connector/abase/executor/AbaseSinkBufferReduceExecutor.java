@@ -20,9 +20,11 @@ package org.apache.flink.connector.abase.executor;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connector.abase.client.ClientPipeline;
+import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.ByteArrayWrapper;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.types.RowKind;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.HashMap;
 import java.util.List;
@@ -39,14 +41,17 @@ public class AbaseSinkBufferReduceExecutor extends AbaseSinkBatchExecutor<Tuple2
 	private final transient Map<ByteArrayWrapper, byte[]> reduceBuffer;
 	private final ValueExtractor keyExtractor;
 	private final ValueExtractor valueExtractor;
+	private final AbaseSinkOptions sinkOptions;
 
 	public AbaseSinkBufferReduceExecutor(
 			ExecuteFunction<Tuple2<byte[], byte[]>> execution,
 			ValueExtractor keyExtractor,
-			ValueExtractor valueExtractor) {
+			ValueExtractor valueExtractor,
+			AbaseSinkOptions sinkOptions) {
 		super(execution);
 		this.keyExtractor = keyExtractor;
 		this.valueExtractor = valueExtractor;
+		this.sinkOptions = sinkOptions;
 		this.reduceBuffer = new HashMap<>();
 	}
 
@@ -59,7 +64,13 @@ public class AbaseSinkBufferReduceExecutor extends AbaseSinkBatchExecutor<Tuple2
 			reduceBuffer.put(keyBytes, null);
 		} else {
 			byte[] valueBytes = valueExtractor.extract(record);
-			reduceBuffer.put(keyBytes, valueBytes);
+			if (valueBytes == null) {
+				if (!sinkOptions.isIgnoreNull()) {
+					throw new FlinkRuntimeException("Get null value of record, key is " + new String(key));
+				}
+			} else {
+				reduceBuffer.put(keyBytes, valueBytes);
+			}
 		}
 	}
 

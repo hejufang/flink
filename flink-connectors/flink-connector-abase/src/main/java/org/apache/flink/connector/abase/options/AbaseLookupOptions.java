@@ -47,8 +47,6 @@ public class AbaseLookupOptions implements Serializable {
 	@Nullable
 	private final Boolean isInputKeyByEnabled;
 
-	private final boolean specifyHashKeys;
-
 	private final List<String> requestedHashKeys;
 
 	public AbaseLookupOptions(
@@ -59,7 +57,6 @@ public class AbaseLookupOptions implements Serializable {
 			int laterRetryTimes,
 			boolean cacheNull,
 			@Nullable Boolean isInputKeyByEnabled,
-			boolean specifyHashKeys,
 			List<String> requestedHashKeys) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
@@ -68,7 +65,6 @@ public class AbaseLookupOptions implements Serializable {
 		this.laterRetryTimes = laterRetryTimes;
 		this.cacheNull = cacheNull;
 		this.isInputKeyByEnabled = isInputKeyByEnabled;
-		this.specifyHashKeys = specifyHashKeys;
 		this.requestedHashKeys = requestedHashKeys;
 	}
 
@@ -101,10 +97,6 @@ public class AbaseLookupOptions implements Serializable {
 		return isInputKeyByEnabled;
 	}
 
-	public boolean isSpecifyHashKeys() {
-		return specifyHashKeys;
-	}
-
 	public List<String> getRequestedHashKeys() {
 		return requestedHashKeys;
 	}
@@ -120,7 +112,6 @@ public class AbaseLookupOptions implements Serializable {
 				Objects.equals(laterRetryTimes, options.laterRetryTimes) &&
 				Objects.equals(cacheNull, options.cacheNull) &&
 				Objects.equals(isInputKeyByEnabled, options.isInputKeyByEnabled) &&
-				specifyHashKeys == options.specifyHashKeys &&
 				Objects.equals(requestedHashKeys, options.requestedHashKeys);
 		} else {
 			return false;

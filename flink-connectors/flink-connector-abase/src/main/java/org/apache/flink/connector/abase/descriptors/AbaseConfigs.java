@@ -84,12 +84,24 @@ public class AbaseConfigs {
 		.noDefaultValue()
 		.withDescription("Optional. The complete key of abase/redis. It consist of literal string and column value " +
 			"expression, such as ${col} which stands for the value of column named 'col'.");
+	/**
+	 * @deprecated use {@link #SPECIFY_HASH_FIELD_NAMES} instead, of which lookup and sink are supported at the same time.
+	 */
+	@Deprecated
 	public static final ConfigOption<Boolean> LOOKUP_SPECIFY_HASH_KEYS = ConfigOptions
 		.key("lookup.specify-hash-keys")
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Optional. The flag decides whether to specify hash keys when get hash values from a " +
 			"redis/abase key with a hash-type value.");
+	public static final ConfigOption<Boolean> SPECIFY_HASH_FIELD_NAMES = ConfigOptions
+		.key("specify-hash-keys")
+		.booleanType()
+		.defaultValue(false)
+		.withDeprecatedKeys(LOOKUP_SPECIFY_HASH_KEYS.key())
+		.withDescription("Optional. The flag decides whether to specify hash field names when hash data type is written to.");
+
+	// Lookup config options
 	public static final ConfigOption<List<String>> LOOKUP_LATER_JOIN_REQUESTED_HASH_KEYS = ConfigOptions
 		.key("lookup.later-join.requested-hash-keys")
 		.stringType()
@@ -126,5 +138,10 @@ public class AbaseConfigs {
 		.booleanType()
 		.defaultValue(true)
 		.withDescription("Optional. The flag decides if delete messages should be ignored or not.");
+	public static final ConfigOption<Boolean> SINK_IGNORE_NULL = ConfigOptions
+		.key("sink.ignore-null")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional. The flag decides if column with null value is ignored or not.");
 
 }

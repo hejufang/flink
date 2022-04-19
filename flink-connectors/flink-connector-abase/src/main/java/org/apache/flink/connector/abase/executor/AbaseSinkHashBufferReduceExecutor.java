@@ -96,19 +96,42 @@ public class AbaseSinkHashBufferReduceExecutor extends AbaseSinkBatchExecutor<Ro
 			for (Map.Entry<String, String> entry : hashMap.entrySet()) {
 				Objects.requireNonNull(entry.getKey(),
 					"Get null map key at index " + sinkOptions.getValueColIndices()[0] + " of data " + row);
-				Objects.requireNonNull(entry.getValue(),
-					"Get null map value at index " + sinkOptions.getValueColIndices()[0] + " of data " + row);
+				if (entry.getValue() == null) {
+					if (!sinkOptions.isIgnoreNull()) {
+						throw new FlinkRuntimeException("Get null map value at index "
+							+ sinkOptions.getValueColIndices()[0] + " of data " + row);
+					}
+					continue;
+				}
 				val.put(new ByteArrayWrapper(entry.getKey().getBytes()), entry.getValue().getBytes());
+			}
+		} else if (normalOptions.isSpecifyHashFields()) {
+			for (int i : sinkOptions.getValueColIndices()) {
+				Object fieldVal = row.getField(i);
+				if (fieldVal == null) {
+					if (!sinkOptions.isIgnoreNull()) {
+						throw new FlinkRuntimeException("Get null value at index of " + i + " in the record: " + row);
+					}
+					continue;
+				}
+				String name = normalOptions.getFieldNames()[i];
+				val.put(new ByteArrayWrapper(name.getBytes()), fieldVal.toString().getBytes());
 			}
 		} else {
 			Object hashKey = row.getField(sinkOptions.getValueColIndices()[0]);
 			Object hashValue = row.getField(sinkOptions.getValueColIndices()[1]);
-			if (hashKey == null || hashValue == null) {
-				throw new FlinkRuntimeException(
-					String.format("Neither hash key nor hash value of %s should not be " +
-						"null, the hash key: %s, the hash value: %s and data: %s", keyStr, hashKey, hashValue, row));
+			if (hashKey == null) {
+				throw new FlinkRuntimeException("Get null hash field name, hash key is " + keyStr
+					+ " and record is " + row);
 			}
-			val.put(new ByteArrayWrapper(hashKey.toString().getBytes()), hashValue.toString().getBytes());
+			if (hashValue == null) {
+				if (!sinkOptions.isIgnoreNull()) {
+					throw new FlinkRuntimeException("Get null hash field value, hash key is " + keyStr
+						+ ", field name is " + hashKey + " and  record is " + row);
+				}
+			} else {
+				val.put(new ByteArrayWrapper(hashKey.toString().getBytes()), hashValue.toString().getBytes());
+			}
 		}
 		addToBuffer(key, val, record.getRowKind());
 	}

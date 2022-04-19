@@ -416,6 +416,58 @@ public class AbaseTableLookupTest extends AbaseTestBase {
 	}
 
 	@Test
+	public void testHashTypeWithKeySpecified2() throws Exception {
+		String[] fields = {"score", "bonus", "rank"};
+		List<String> results = Arrays.asList("15", "10", "18");
+		Mockito.when(abaseClientWrapper.hmget("race_game:Kim", fields)).thenReturn(results);
+
+		results = Arrays.asList("72", "20", "6");
+		Mockito.when(abaseClientWrapper.hmget("race_game:Tom", fields)).thenReturn(results);
+
+		results = Arrays.asList("19", "5", "20");
+		List<String> results2 = Arrays.asList("79", "25", "4");
+		Mockito.when(abaseClientWrapper.hmget("race_game:Lucy", fields)).thenReturn(results).thenReturn(results2);
+
+		tEnv.executeSql(
+			"CREATE TABLE dim (\n" +
+				"    `name`  VARCHAR PRIMARY KEY NOT ENFORCED,\n" +
+				"    `score` BIGINT,\n" +
+				"    `bonus` INT,\n" +
+				"    `rank`  INT\n" +
+				") WITH (\n" +
+				"    'connector' = 'byte-abase',\n" +
+				"    'cluster' = 'test',\n" +
+				"    'table' = 'test',\n" +
+				"    'key_format' = 'race_game:${name}',\n" +
+				"	 'value-type' = 'hash',\n" +
+				"	 'specify-hash-keys' = 'true',\n" +
+				"    'lookup.cache.max-rows' = '10',\n" +
+				"    'lookup.cache.ttl' = '3 min'\n" +
+				")");
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"    `name` VARCHAR,\n" +
+				"    `score` BIGINT,\n" +
+				"    `bonus` INT,\n" +
+				"    `rank`  INT\n" +
+				") WITH(\n" +
+				"	 'connector' = 'print',\n" +
+				"	 'print-sample-ratio' = '1'\n" +
+				")");
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT T.`name`, D.`score`, D.`bonus`, D.`rank`\n" +
+			"FROM (select T1.`name`, T1.`score`, T1.`bonus`, T1.`time`, PROCTIME() as proc from T1) T\n" +
+			"LEFT JOIN dim FOR SYSTEM_TIME AS OF T.proc AS D\n" +
+			"ON D.`name`=T.`name`");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		assertEquals(ResourceUtil.readFileContent(PATH + "testHashTypeWithKeySpecified.out"), out.toString());
+	}
+
+	@Test
 	public void testHashTypeWithKeySpecifiedAndMultiplePKs() throws Exception {
 		String[] fields = {"bonus", "rank"};
 		List<String> results = Arrays.asList("10", "18");

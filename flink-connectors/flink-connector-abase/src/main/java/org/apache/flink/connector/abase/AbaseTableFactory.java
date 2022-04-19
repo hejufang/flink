@@ -75,9 +75,11 @@ import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.LOOKUP_L
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.LOOKUP_SPECIFY_HASH_KEYS;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.PSM;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_IGNORE_DELETE;
+import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_IGNORE_NULL;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_MAX_RETRIES;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_MODE;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_RECORD_TTL;
+import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SPECIFY_HASH_FIELD_NAMES;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.TABLE;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.VALUE_FORMAT_SKIP_KEY;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.VALUE_TYPE;
@@ -144,7 +146,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		AbaseNormalOptions normalOptions = getAbaseNormalOptions(config, physicalSchema, getJobPSM(context.getConfiguration()));
 		AbaseSinkMetricsOptions metricsOptions = getAbaseSinkMetricsOptions(config, physicalSchema);
 		AbaseSinkOptions sinkOptions = getAbaseSinkOptions(config, normalOptions, metricsOptions);
-		validateSinkSchema(normalOptions, encodingFormat != null);
+		validateSinkSchema(normalOptions, sinkOptions, encodingFormat != null);
 		LOG.info(metricsOptions.toString());
 		return new AbaseTableSink(
 			normalOptions,
@@ -189,6 +191,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		optionalOptions.add(SINK_MAX_RETRIES);
 		optionalOptions.add(VALUE_FORMAT_SKIP_KEY);
 		optionalOptions.add(SINK_IGNORE_DELETE);
+		optionalOptions.add(SINK_IGNORE_NULL);
 		optionalOptions.add(LOOKUP_CACHE_MAX_ROWS);
 		optionalOptions.add(LOOKUP_CACHE_TTL);
 		optionalOptions.add(LOOKUP_MAX_RETRIES);
@@ -198,6 +201,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
 		optionalOptions.add(PSM);
 		optionalOptions.add(LOOKUP_SPECIFY_HASH_KEYS);
+		optionalOptions.add(SPECIFY_HASH_FIELD_NAMES);
 		optionalOptions.add(LOOKUP_LATER_JOIN_REQUESTED_HASH_KEYS);
 		optionalOptions.add(RATE_LIMIT_NUM);
 		optionalOptions.add(SINK_METRICS_QUANTILES);
@@ -248,6 +252,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			.setTable(config.getOptional(TABLE).orElse(null))
 			.setStorage(config.get(CONNECTOR))
 			.setPsm(jobPSM)
+			.setFieldNames(schema.getFieldNames())
 			.setKeyFormatter(keyFormatter)
 			.setKeyIndices(indices)
 			.setValueIndices(KeyFormatterHelper.getValueIndex(indices, schema.getFieldCount()))
@@ -257,6 +262,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			.setMaxTotalConnections(config.get(CONNECTION_MAX_TOTAL_NUM))
 			.setGetResourceMaxRetries(config.get(CONNECTION_MAX_RETRIES))
 			.setAbaseValueType(valueType)
+			.setSpecifyHashFields(config.get(SPECIFY_HASH_FIELD_NAMES))
 			.setHashMap(isHashType);
 		config.getOptional(RATE_LIMIT_NUM).ifPresent(rate -> {
 			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
@@ -274,7 +280,6 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			config.get(LOOKUP_LATER_JOIN_RETRY_TIMES),
 			config.get(LOOKUP_CACHE_NULL_VALUE),
 			config.getOptional(LOOKUP_ENABLE_INPUT_KEYBY).orElse(null),
-			config.get(LOOKUP_SPECIFY_HASH_KEYS),
 			config.getOptional(LOOKUP_LATER_JOIN_REQUESTED_HASH_KEYS).orElse(null));
 	}
 
@@ -319,6 +324,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			.setBufferFlushInterval(config.get(SINK_BUFFER_FLUSH_INTERVAL).toMillis())
 			.setLogFailuresOnly(config.get(SINK_LOG_FAILURES_ONLY))
 			.setIgnoreDelete(config.get(SINK_IGNORE_DELETE))
+			.setIgnoreNull(config.get(SINK_IGNORE_NULL))
 			.setParallelism(config.get(PARALLELISM))
 			.setTtlSeconds((int) config.get(SINK_RECORD_TTL).getSeconds());
 		return builder.build();
@@ -404,7 +410,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		}
 
 		// check whether lookup later join requested hash keys are in the schema
-		if (lookupOptions.isSpecifyHashKeys() && lookupOptions.getRequestedHashKeys() != null
+		if (normalOptions.isSpecifyHashFields() && lookupOptions.getRequestedHashKeys() != null
 			&& !lookupOptions.getRequestedHashKeys().isEmpty()) {
 			Set<String> columns = Arrays.stream(schema.getFieldNames()).collect(Collectors.toSet());
 			boolean valid = columns.containsAll(lookupOptions.getRequestedHashKeys());
@@ -412,7 +418,10 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		}
 	}
 
-	private void validateSinkSchema(AbaseNormalOptions normalOptions, boolean isFormatted) {
+	private void validateSinkSchema(
+			AbaseNormalOptions normalOptions,
+			AbaseSinkOptions sinkOptions,
+			boolean isFormatted) {
 		switch (normalOptions.getAbaseValueType()) {
 			case GENERAL:
 				checkState(isFormatted || normalOptions.getValueIndices().length == 1,
@@ -421,10 +430,10 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			case HASH:
 				if (normalOptions.isHashMap()) {
 					checkState(normalOptions.getValueIndices().length == 1, "Only one value " +
-						"column is supported of hash datatype which read whole field values as one map in sink!");
-				} else {
+						"column is supported in hash datatype which read whole field values as one map in sink!");
+				} else if (!normalOptions.isSpecifyHashFields()){
 					checkState(normalOptions.getValueIndices().length == 2, "Only two value " +
-						"column is supported of hash datatype which read whole field values as one map in sink!");
+						"column is supported in hash datatype which specify field name and field type separately!");
 				}
 				break;
 			case LIST:
