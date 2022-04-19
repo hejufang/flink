@@ -803,7 +803,6 @@ stork:
   dtop.database: dtop_alisg
   smart-resources.service-name: data.inf.sr_estimater.service.alisg
   kafka_server_url: http://kafka-config-sg.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_sg
   docker.server: image-manager.byted.org
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
@@ -826,7 +825,6 @@ shark:
   dtop.database: dtop_alisg
   smart-resources.service-name: data.inf.sr_estimater.service.alisg
   kafka_server_url: http://kafka-config-sg.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_sg_lark
   docker.server: image-manager.byted.org
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
@@ -850,7 +848,6 @@ snipe:
   dtop.database: dtop_alisg
   smart-resources.service-name: data.inf.sr_estimater.service.alisg
   kafka_server_url: http://kafka-config-sg.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_sg
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
@@ -873,7 +870,6 @@ marmt:
   dtop.database: dtop_maliva
   smart-resources.service-name: data.inf.sr_estimater.service.maliva
   kafka_server_url: http://kafka-config-va.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   yaop_url: http://yaop-us.bytedance.net
   docker.server: image-manager.byted.org
   docker.hub: aliyun-va-hub.byted.org
@@ -900,7 +896,6 @@ macaw:
   dtop.database: dtop_maliva
   smart-resources.service-name: data.inf.sr_estimater.service.maliva
   kafka_server_url: http://kafka-config-va.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   yaop_url: http://yaop-us.bytedance.net
   docker.server: image-manager.byted.org
   docker.hub: aliyun-va-hub.byted.org
@@ -926,7 +921,6 @@ mouse:
   dtop.database: dtop_maliva
   smart-resources.service-name: data.inf.sr_estimater.service.maliva
   kafka_server_url: http://kafka-config-va.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   yaop_url: http://yaop-us.bytedance.net
   docker.server: image-manager.byted.org
   docker.hub: aliyun-va-hub.byted.org
@@ -952,7 +946,6 @@ mamba:
   dtop.database: dtop_maliva
   smart-resources.service-name: data.inf.sr_estimater.service.maliva
   kafka_server_url: http://kafka-config-va.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   yaop_url: http://yaop-us.bytedance.net
   docker.server: image-manager.byted.org
   docker.hub: aliyun-va-hub.byted.org
@@ -978,7 +971,6 @@ giraf:
   dtop.database: dtop_maliva
   smart-resources.service-name: data.inf.sr_estimater.service.maliva
   kafka_server_url: http://kafka-config-va.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   yaop_url: http://yaop-us.bytedance.net
   docker.server: image-manager.byted.org
   docker.hub: aliyun-va-hub.byted.org
@@ -1005,7 +997,6 @@ grila:
   dtop.database: dtop_i18n
   smart-resources.service-name: data.inf.sr_estimater.service.useast2a
   kafka_server_url: http://kafka-config-gcp.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   docker.server: image-manager.byted.org
   docker.hub: useast-red-hub.byted.org
   docker.region: US-East-Red
@@ -1032,7 +1023,6 @@ gavia:
   dtop.database: dtop_i18n
   smart-resources.service-name: data.inf.sr_estimater.service.useast2a
   kafka_server_url: http://kafka-config-gcp.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   docker.server: image-manager.byted.org
   docker.hub: useast-red-hub.byted.org
   docker.region: US-East-Red
@@ -1059,7 +1049,6 @@ gazel:
   dtop.database: dtop_i18n
   smart-resources.service-name: data.inf.sr_estimater.service.useast2a
   kafka_server_url: http://kafka-config-gcp.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   docker.server: image-manager.byted.org
   docker.hub: useast-red-hub.byted.org
   docker.region: US-East-Red
@@ -1085,7 +1074,6 @@ otter:
   dtop.database: inf_dtop_yarn_ttp
   smart-resources.service-name: data.inf.sr_estimater
   kafka_server_url: https://kafka-config-tx.tiktokd.net
-  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   log4j.sec.mark.enabled: true
   docker.server:  image-manager.tiktokd.org
   docker.hub: hub.tiktokd.org
@@ -1111,7 +1099,6 @@ octop:
   dtop.database: inf_dtop_yarn_ttp
   smart-resources.service-name: data.inf.sr_estimater
   kafka_server_url: https://kafka-config-tx.tiktokd.net
-  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   log4j.sec.mark.enabled: true
   docker.server:  image-manager.tiktokd.org
   docker.hub: hub.tiktokd.org
@@ -1137,7 +1124,6 @@ ostri:
   dtop.database: inf_dtop_yarn_ttp
   smart-resources.service-name: data.inf.sr_estimater
   kafka_server_url: https://kafka-config-tx.tiktokd.net
-  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   log4j.sec.mark.enabled: true
   docker.server:  image-manager.tiktokd.org
   docker.hub: hub.tiktokd.org
@@ -1163,7 +1149,6 @@ alisg:
   dtop.database: dtop_alisg
   smart-resources.service-name: data.inf.sr_estimater.service.alisg
   kafka_server_url: http://kafka-config-sg.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_sg
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
@@ -1185,7 +1170,6 @@ sloth:
   dtop.database: dtop_alisg
   smart-resources.service-name: data.inf.sr_estimater.service.sg1
   kafka_server_url: http://kafka-config-sg.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_sg
   docker.server: image-manager.byted.org
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
@@ -1209,7 +1193,6 @@ snail:
   dtop.database: dtop_alisg
   smart-resources.service-name: data.inf.sr_estimater.service.sg1
   kafka_server_url: http://kafka-config-sg.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_sg
   docker.server: image-manager.byted.org
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
@@ -1233,7 +1216,6 @@ snake:
   dtop.database: dtop_alisg
   smart-resources.service-name: data.inf.sr_estimater.service.sg1
   kafka_server_url: http://kafka-config-sg.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_sg
   docker.server: image-manager.byted.org
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
@@ -1257,7 +1239,6 @@ icing:
   dtop.data_source: dtop_alisg
   dtop.database: dtop_alisg
   kafka_server_url: http://kafka-config-sg.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_sg
   docker.server: image-manager.byted.org
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
