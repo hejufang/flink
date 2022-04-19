@@ -42,12 +42,14 @@ abstract class AbstractTaskManagerExecutionSlotAllocator implements ExecutionSlo
 	}
 
 	public LogicalSlot genLogicalSlot(PhysicalSlot physicalSlot) {
-		return new SingleLogicalSlot(
-				new SlotRequestId(),
-				physicalSlot,
-				null,
-				Locality.UNKNOWN,
-				logicalSlot -> virtualTaskManagerSlotPool.releaseAllocatedSlot(physicalSlot.getAllocationId()),
-				true);
+		SingleLogicalSlot slot = new SingleLogicalSlot(
+			new SlotRequestId(),
+			physicalSlot,
+			null,
+			Locality.UNKNOWN,
+			logicalSlot -> virtualTaskManagerSlotPool.releaseAllocatedSlot(physicalSlot.getAllocationId()),
+			true);
+		physicalSlot.tryAssignPayload(slot);
+		return slot;
 	}
 }
