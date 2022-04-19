@@ -22,11 +22,13 @@ import org.apache.flink.annotation.PublicEvolving;
 import com.bytedance.htap.HtapPredicate;
 import com.bytedance.htap.meta.ColumnSchema;
 import com.bytedance.htap.meta.Schema;
+import com.bytedance.htap.meta.Type;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * HtapFilterInfo.
@@ -56,7 +58,16 @@ public class HtapFilterInfo implements Serializable {
 
 		switch (this.type) {
 			case IS_IN:
-				predicate = HtapPredicate.newInListPredicate(column, (List<?>) this.value);
+				List<?> inValues = (List<?>) this.value;
+				if (Type.UINT64.equals(column.getType())) {
+					// We use decimal(20, 0) to represent uint64 data in Flink, when we push down
+					// a predicate, we have to convert BigDecimal value to BigInteger for
+					// uint64 as jclient expected.
+					inValues = inValues.stream()
+						.map(v -> ((BigDecimal) v).unscaledValue())
+						.collect(Collectors.toList());
+				}
+				predicate = HtapPredicate.newInListPredicate(column, inValues);
 				break;
 			case IS_NULL:
 				predicate = HtapPredicate.newIsNullPredicate(column);
