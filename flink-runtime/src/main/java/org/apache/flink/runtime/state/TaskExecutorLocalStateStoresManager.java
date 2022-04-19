@@ -295,14 +295,19 @@ public class TaskExecutorLocalStateStoresManager implements TaskLocalStateListen
 			cleanupLocalStores = taskStateStoresByAllocationID.remove(allocationID);
 			Map<JobVertexSubtaskKey, Tuple3<ExecutionAttemptID, TaskManagerActions, Long>> subtaskLocalStateSize = taskLocalStateSize.remove(allocationID);
 			if (subtaskLocalStateSize != null) {
+				Map<JobID, Long> jobIdToReleasedSize = new HashMap<>();
 				for (Map.Entry<JobVertexSubtaskKey, Tuple3<ExecutionAttemptID, TaskManagerActions, Long>> entry : subtaskLocalStateSize.entrySet()) {
-					Tuple2<Set<AllocationID>, Long> jobStateSize = jobIdToAllocationId.get(entry.getKey().jobID);
+					jobIdToReleasedSize.compute(entry.getKey().jobID, (jobId, oldSize) -> oldSize == null ? entry.getValue().f2 : oldSize + entry.getValue().f2);
+				}
+
+				for (Map.Entry<JobID, Long> entry : jobIdToReleasedSize.entrySet()) {
+					Tuple2<Set<AllocationID>, Long> jobStateSize = jobIdToAllocationId.get(entry.getKey());
 					if (jobStateSize != null) {
 						jobStateSize.f0.remove(allocationID);
-						jobStateSize.f1 -= entry.getValue().f2;
-						totalLocalStateSize -= entry.getValue().f2;
+						jobStateSize.f1 -= entry.getValue();
+						totalLocalStateSize -= entry.getValue();
 						if (jobStateSize.f0.isEmpty()) {
-							jobIdToAllocationId.remove(entry.getKey().jobID);
+							jobIdToAllocationId.remove(entry.getKey());
 						}
 					} else {
 						break;
