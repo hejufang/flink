@@ -240,4 +240,23 @@ public class MemoryPoolManagerTest {
 		});
 		memoryManager.release(segmentList2);
 	}
+
+	@Test
+	public void testAllocatePagesTimeout() throws Exception {
+		MemoryPoolManager pool = new MemoryPoolManager(MEMORY_SIZE, PAGE_SIZE, Duration.ofMillis(100), true, 1);
+
+		final AbstractInvokable mockInvoke1 = new DummyInvokable();
+		final AbstractInvokable mockInvoke2 = new DummyInvokable();
+		List<MemorySegment> segmentList = pool.allocatePages(mockInvoke1, NUM_PAGES / 2);
+
+		assertThrows(
+			"Timeout triggered when requesting memory segments",
+			MemoryAllocationException.class,
+			() -> pool.allocatePages(mockInvoke2, NUM_PAGES));
+		pool.release(segmentList);
+
+		List<MemorySegment> allSegmentList = pool.allocatePages(mockInvoke1, NUM_PAGES);
+		assertEquals(NUM_PAGES, allSegmentList.size());
+		pool.release(allSegmentList);
+	}
 }

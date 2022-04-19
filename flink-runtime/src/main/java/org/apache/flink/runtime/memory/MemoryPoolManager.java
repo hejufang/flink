@@ -219,9 +219,8 @@ public class MemoryPoolManager extends MemoryManager {
 			Collection<MemorySegment> target,
 			int numberOfPages) throws MemoryAllocationException {
 		try {
+			final Deadline deadline = Deadline.fromNow(requestMemorySegmentsTimeout);
 			while (true) {
-				final Deadline deadline = Deadline.fromNow(requestMemorySegmentsTimeout);
-
 				MemorySegment segment = null;
 				if ((segment = internalRequestMemorySegment()) == null) {
 					if (lazyAllocate) {
@@ -251,7 +250,13 @@ public class MemoryPoolManager extends MemoryManager {
 						TaskManagerOptions.ALLOCATE_MEMORY_SEGMENTS_TIMEOUT.key()));
 				}
 			}
-		} catch (Exception e) {
+		} catch (Throwable e) {
+			LOG.error("Allocate {} segments from pool manager failed", numberOfPages, e);
+			// Release the allocated pages to the pool.
+			for (MemorySegment segment : target) {
+				cleanupSegment(segment);
+			}
+			target.clear();
 			throw new MemoryAllocationException(e);
 		}
 
