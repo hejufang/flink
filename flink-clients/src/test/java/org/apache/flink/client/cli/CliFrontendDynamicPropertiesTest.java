@@ -44,7 +44,9 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 import static org.apache.flink.client.cli.CliFrontendTestUtils.TEST_JAR_MAIN_CLASS;
@@ -122,6 +124,25 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 			assertTrue(e instanceof UnsupportedOperationException);
 			assertEquals(errorMsg, e.getMessage());
 		}
+	}
+
+	@Test
+	public void testExternalResources() throws Exception {
+		final String testJarPath = getTestJarPath();
+		final String externalJars = getTestJarPath() + "_test";
+		final String[] args = {
+			"-t", "remote",
+			"-D" + PipelineOptions.EXTERNAL_RESOURCES.key() + "=file:" + externalJars,
+			testJarPath};
+
+		final List<String> expectedJars = Arrays.asList("file:" + testJarPath, "file:" + externalJars);
+		final List<String> expectedResources = Collections.singletonList("file:" + externalJars);
+
+		final Configuration configuration = verifyCliFrontend(this.configuration, args, cliUnderTest, "child-first",
+			ChildFirstClassLoader.class.getName());
+
+		Assert.assertEquals(expectedJars, configuration.get(PipelineOptions.JARS));
+		Assert.assertEquals(expectedResources, configuration.get(PipelineOptions.EXTERNAL_RESOURCES));
 	}
 
 	@Test
@@ -255,8 +276,10 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 	}
 
 	// --------------------------------------------------------------------------------------------
-
-	public static void verifyCliFrontend(
+	/**
+	 * @return configuration after execution.
+	 */
+	public static Configuration verifyCliFrontend(
 			Configuration configuration,
 			String[] parameters,
 			GenericCLI cliUnderTest,
@@ -265,6 +288,7 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 		TestingCliFrontend testFrontend =
 			new TestingCliFrontend(configuration, cliUnderTest, expectedResolveOrderOption, userCodeClassLoaderClassName);
 		testFrontend.run(parameters); // verifies the expected values (see below)
+		return testFrontend.getConfigurationAfterExecution();
 	}
 
 	public static void verifyCliFrontendWithApplicationMode(
@@ -283,6 +307,8 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 		private final String expectedResolveOrder;
 
 		private final String userCodeClassLoaderClassName;
+
+		private Configuration configurationAfterExecution;
 
 		private TestingCliFrontend(
 				Configuration configuration,
@@ -311,11 +337,16 @@ public class CliFrontendDynamicPropertiesTest extends CliFrontendTestBase {
 			assertEquals(TEST_JAR_MAIN_CLASS, program.getMainClassName());
 			assertEquals(expectedResolveOrder, configuration.get(CoreOptions.CLASSLOADER_RESOLVE_ORDER));
 			assertEquals(userCodeClassLoaderClassName, program.getUserCodeClassLoader().getClass().getName());
+			this.configurationAfterExecution = configuration;
 		}
 
 		@Override
 		public MetricRegistryImpl createMetricRegistry(Configuration config) {
 			return null;
+		}
+
+		public Configuration getConfigurationAfterExecution(){
+			return this.configurationAfterExecution;
 		}
 	}
 }

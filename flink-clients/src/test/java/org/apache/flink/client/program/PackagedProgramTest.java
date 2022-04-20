@@ -20,6 +20,8 @@ package org.apache.flink.client.program;
 
 import org.apache.flink.client.cli.CliFrontendTestUtils;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
 
 import org.junit.Assert;
 import org.junit.Rule;
@@ -28,13 +30,17 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static org.apache.flink.client.cli.CliFrontendTestUtils.TEST_JAR_MAIN_CLASS;
+import static org.apache.flink.client.cli.CliFrontendTestUtils.getTestJarPath;
 
 /**
  * Tests for the {@link PackagedProgram}.
@@ -71,5 +77,24 @@ public class PackagedProgramTest {
 	@Test(expected = IllegalArgumentException.class)
 	public void testBuilderThrowExceptionIfjarFileAndEntryPointClassNameAreBothNull() throws ProgramInvocationException {
 		PackagedProgram.newBuilder().build();
+	}
+
+	@Test
+	public void testGetJobJarAndDependencies() throws Exception {
+		final String testJarPath = getTestJarPath();
+		final String externalJars = "file:///testFile.jar";
+		final File jarFile = new File(testJarPath);
+		final List<URL> expected = Arrays.asList(jarFile.toURI().toURL(), new URI(externalJars).toURL());
+
+		final Configuration configuration = new Configuration();
+		configuration.set(PipelineOptions.JARS, Collections.singletonList(externalJars));
+
+		PackagedProgram build = PackagedProgram.newBuilder()
+			.setJarFile(jarFile)
+			.setConfiguration(configuration)
+			.build();
+		final List<URL> jobJarAndDependencies = build.getJobJarAndDependencies();
+
+		Assert.assertEquals(expected, jobJarAndDependencies);
 	}
 }

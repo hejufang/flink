@@ -41,6 +41,7 @@ import org.apache.flink.client.program.ProgramMissingJobException;
 import org.apache.flink.client.program.ProgramParametrizationException;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.ExecutionOptions;
@@ -70,6 +71,7 @@ import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.ZooKeeperUtils;
+import org.apache.flink.util.CollectionUtil;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkException;
@@ -291,6 +293,22 @@ public class CliFrontend {
 
 		final Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, jobJars);
+
+		/*
+		 * For remote:
+		 * add pipeline.external-resources into pipeline.jars.
+		 * pipeline.jars will be uploaded and added into remote server user class path.
+		 */
+		final List<URL> externalResources =
+			ConfigUtils.decodeListFromConfig(effectiveConfiguration, PipelineOptions.EXTERNAL_RESOURCES, URL::new);
+		if (!CollectionUtil.isNullOrEmpty(externalResources)){
+			final List<URL> jars =
+				ConfigUtils.decodeListFromConfig(effectiveConfiguration, PipelineOptions.JARS, URL::new);
+			jars.addAll(externalResources);
+			ConfigUtils.encodeCollectionToConfig(effectiveConfiguration, PipelineOptions.JARS, jars, Object::toString);
+		}
+		LOG.info("pipeline.jars: {}", effectiveConfiguration.get(PipelineOptions.JARS));
+		LOG.info("pipeline.external-resources: {}", effectiveConfiguration.get(PipelineOptions.EXTERNAL_RESOURCES));
 
 		setJobNameAndClusterName(effectiveConfiguration);
 

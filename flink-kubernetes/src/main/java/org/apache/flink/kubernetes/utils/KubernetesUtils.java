@@ -395,9 +395,9 @@ public class KubernetesUtils {
 			FunctionUtils.uncheckedFunction(
 				uri -> {
 					final URI jarURI = PackagedProgramUtils.resolveURI(uri);
-					if (jarURI.getScheme().equals(Constants.LOCAL_SCHEME) && jarURI.isAbsolute()) {
+					if (jarURI.getScheme().equals(ConfigConstants.LOCAL_SCHEME) && jarURI.isAbsolute()) {
 						return new File(jarURI.getPath());
-					} else if (!jarURI.getScheme().equals(Constants.FILE_SCHEME)) {
+					} else if (!jarURI.getScheme().equals(ConfigConstants.FILE_SCHEME)) {
 						// for remote file, return downloaded path
 						String jarFile = FileDownloadDecorator.getDownloadedPath(jarURI, configuration);
 						return new File(jarFile);
@@ -430,7 +430,7 @@ public class KubernetesUtils {
 				final URI jarURI;
 				try {
 					jarURI = PackagedProgramUtils.resolveURI(uri);
-					return jarURI.getScheme().equals(Constants.FILE_SCHEME);
+					return jarURI.getScheme().equals(ConfigConstants.FILE_SCHEME);
 				} catch (URISyntaxException e) {
 					LOG.warn("Can not resolve URI for path: {}", uri, e);
 					return false;
@@ -456,12 +456,12 @@ public class KubernetesUtils {
 			.map(FunctionUtils.uncheckedFunction(
 				uri -> {
 					final URI jarURI = PackagedProgramUtils.resolveURI(uri);
-					if (jarURI.getScheme().equals(Constants.FILE_SCHEME)) {
+					if (jarURI.getScheme().equals(ConfigConstants.FILE_SCHEME)) {
 						// upload to target dir
 						String uploadedPath = copyFileToTargetRemoteDir(jarURI, targetDir);
 						toBeDownloadedFiles.add(uploadedPath);
 						return uploadedPath;
-					} else if (jarURI.getScheme().equals(Constants.LOCAL_SCHEME)){
+					} else if (jarURI.getScheme().equals(ConfigConstants.LOCAL_SCHEME)){
 						// return the path directly if it is a local file path (located inside the image)
 						return jarURI.toString();
 					} else {
@@ -481,7 +481,7 @@ public class KubernetesUtils {
 			.map(FunctionUtils.uncheckedFunction(
 				uri -> {
 					final URI jarURI = PackagedProgramUtils.resolveURI(uri);
-					if (jarURI.getScheme().equals(Constants.FILE_SCHEME)) {
+					if (jarURI.getScheme().equals(ConfigConstants.FILE_SCHEME)) {
 						return copyFileToTargetRemoteDir(jarURI, targetDir);
 					} else {
 						// return directly if it is a local (located inside the image) or remote file path

@@ -95,7 +95,8 @@ public class PipelineOptions {
 			.stringType()
 			.asList()
 			.noDefaultValue()
-			.withDescription("For k8s application mode, use to store the file list that will need to download to JM/TM container");
+			.withDescription("For k8s application mode, use to store the file list that will need to download to JM/TM container."
+				+ "For session mode, files will be added into pipeline.jars");
 
 	public static final ConfigOption<String> DOWNLOAD_TEMPLATE =
 		key("pipeline.download-template")

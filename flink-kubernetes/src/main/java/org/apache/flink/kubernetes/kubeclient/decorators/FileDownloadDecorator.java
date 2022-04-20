@@ -19,6 +19,7 @@
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
 import org.apache.flink.client.program.PackagedProgramUtils;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.fs.Path;
@@ -94,7 +95,7 @@ public class FileDownloadDecorator extends AbstractKubernetesStepDecorator {
 			.map(
 				FunctionUtils.uncheckedFunction(
 					PackagedProgramUtils::resolveURI))
-			.filter(uri -> !uri.getScheme().equals(Constants.LOCAL_SCHEME) && !uri.getScheme().equals(Constants.FILE_SCHEME))
+			.filter(uri -> !uri.getScheme().equals(ConfigConstants.LOCAL_SCHEME) && !uri.getScheme().equals(ConfigConstants.FILE_SCHEME))
 			.collect(Collectors.toList());
 	}
 
