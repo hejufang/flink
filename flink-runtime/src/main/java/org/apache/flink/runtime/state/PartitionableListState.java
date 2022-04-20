@@ -19,7 +19,10 @@
 package org.apache.flink.runtime.state;
 
 import org.apache.flink.api.common.state.ListState;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.core.fs.FSDataOutputStream;
+import org.apache.flink.core.memory.DataInputDeserializer;
+import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.util.Preconditions;
@@ -48,7 +51,7 @@ public final class PartitionableListState<S> implements ListState<S> {
 	/**
 	 * A typeSerializer that allows to perform deep copies of internalList
 	 */
-	private final ArrayListSerializer<S> internalListCopySerializer;
+	private ArrayListSerializer<S> internalListCopySerializer;
 
 	PartitionableListState(RegisteredOperatorStateBackendMetaInfo<S> stateMetaInfo) {
 		this(stateMetaInfo, new ArrayList<S>());
@@ -69,6 +72,7 @@ public final class PartitionableListState<S> implements ListState<S> {
 	}
 
 	public void setStateMetaInfo(RegisteredOperatorStateBackendMetaInfo<S> stateMetaInfo) {
+		this.internalListCopySerializer = new ArrayListSerializer<>(stateMetaInfo.getPartitionStateSerializer());
 		this.stateMetaInfo = stateMetaInfo;
 	}
 
@@ -131,5 +135,16 @@ public final class PartitionableListState<S> implements ListState<S> {
 		if (values != null && !values.isEmpty()) {
 			internalList.addAll(values);
 		}
+	}
+
+	public void migrateStateValues(TypeSerializer<S> priorElementSerializer, TypeSerializer<S> newElementSerializer) throws IOException {
+		newElementSerializer.setPriorSerializer(priorElementSerializer);
+		ArrayListSerializer newArrayListSerializer = new ArrayListSerializer(newElementSerializer);
+
+		final DataOutputSerializer output = new DataOutputSerializer(512);
+		newArrayListSerializer.serialize(internalList, output);
+		ArrayList newArrayList = newArrayListSerializer.deserialize(new DataInputDeserializer(output.getSharedBuffer()));
+		internalList.clear();
+		internalList.addAll(newArrayList);
 	}
 }

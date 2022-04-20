@@ -134,6 +134,7 @@ public abstract class AbstractHeapState<K, N, SV> implements InternalKvState<K, 
 		return stateTable.getStateIncrementalVisitor(recommendedMaxNumberOfReturnedRecords);
 	}
 
+	// this method only work for RowDataSerializer
 	public SV migrateSerializedValue(
 			SV state,
 			TypeSerializer<SV> priorSerializer,

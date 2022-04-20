@@ -323,11 +323,17 @@ public class DefaultOperatorStateBackend implements OperatorStateBackend {
 
 			// check compatibility to determine if new serializers are incompatible
 			TypeSerializer<S> newPartitionStateSerializer = partitionStateSerializer.duplicate();
-
+			TypeSerializer<S> priorPartitionStateSerializer = restoredPartitionableListStateMetaInfo.getPreviousPartitionStateSerializer();
 			TypeSerializerSchemaCompatibility<S> stateCompatibility =
 				restoredPartitionableListStateMetaInfo.updatePartitionStateSerializer(newPartitionStateSerializer);
 			if (stateCompatibility.isIncompatible()) {
 				throw new StateMigrationException("The new state typeSerializer for operator state must not be incompatible, details : " + stateCompatibility.getMessage());
+			} else if (stateCompatibility.isCompatibleAfterMigration()) {
+				try {
+					partitionableListState.migrateStateValues(priorPartitionStateSerializer, newPartitionStateSerializer);
+				} catch (IOException e) {
+					throw new StateMigrationException(String.format("Fail to migrate the values for %s.", stateDescriptor));
+				}
 			}
 
 			partitionableListState.setStateMetaInfo(restoredPartitionableListStateMetaInfo);

@@ -168,4 +168,10 @@ final public class ArrayListSerializer<T> extends TypeSerializer<ArrayList<T>>
 
 		return TypeSerializerSchemaCompatibility.incompatible();
 	}
+
+	@Override
+	public void setPriorSerializer(TypeSerializer priorSerializer) {
+		ArrayListSerializer priorListSerializer = (ArrayListSerializer) priorSerializer;
+		elementSerializer.setPriorSerializer(priorListSerializer.getElementSerializer());
+	}
 }
