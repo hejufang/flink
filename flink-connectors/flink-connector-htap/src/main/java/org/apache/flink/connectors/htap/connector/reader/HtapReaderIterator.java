@@ -40,7 +40,6 @@ import com.bytedance.htap.RowResultIterator;
 import com.bytedance.htap.exception.HtapException;
 import com.bytedance.htap.meta.ColumnSchema;
 import com.bytedance.htap.meta.Schema;
-import com.bytedance.htap.meta.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +47,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -70,6 +70,7 @@ public class HtapReaderIterator {
 	private RowResultIterator currentRowIterator;
 	private final List<FlinkAggregateFunction> aggregateFunctions;
 	private final DataType outputDataType;
+	private final RowType rowType;
 	private final int groupByColumnSize;
 	private final String tableName;
 	private final String subTaskFullName;
@@ -85,6 +86,10 @@ public class HtapReaderIterator {
 	private final Queue<RowResultIterator> iteratorLinkBuffer = new ConcurrentLinkedQueue<>();
 	// As ConcurrentLinkedQueue.size() is O(n), we use this to record buffered iterator count.
 	private final AtomicInteger iteratorBufferCount;
+
+	private List<String> colNameList;
+	private List<Integer> colPosList;
+	private boolean aggregatedRow;
 
 	public HtapReaderIterator(
 			HtapScanner scanner,
@@ -102,7 +107,7 @@ public class HtapReaderIterator {
 		this.partitionId = scanner.getPartitionId();
 		this.iteratorBufferCount = new AtomicInteger(0);
 		this.storeScanThread = new StoreScanThread();
-
+		this.rowType = outputDataType != null ? (RowType) outputDataType.getLogicalType() : null;
 		try {
 			storeScanThread.start();
 			updateCurrentRowIterator();
@@ -179,22 +184,32 @@ public class HtapReaderIterator {
 			subTaskFullName, tableName, partitionId, roundCount);
 	}
 
-	private Row toFlinkRow(RowResult row) {
-		Schema schema = row.getColumnProjection();
-		RowType rowType = outputDataType != null ? (RowType) outputDataType.getLogicalType() : null;
-		int cur = 0;
-		// only when aggregate pushed down, conversion in Row works
-		boolean aggregatedRow = rowType != null &&
-			schema.getColumnCount() == rowType.getFieldCount() &&
-			schema.getColumnCount() == groupByColumnSize + aggregateFunctions.size();
-
-		Row values = new Row(schema.getColumnCount());
+	private void initNamePosListAndAgg(Schema schema) {
+		colNameList = new ArrayList<String>();
+		colPosList = new ArrayList<Integer>();
 		for (ColumnSchema column: schema.getColumns()) {
 			String name = column.getName();
-			Type type = column.getType();
 			int pos = schema.getColumnIndex(name);
-			Object value = row.getObject(name);
-			if (value instanceof Date && type.equals(Type.DATE)) {
+			colNameList.add(name);
+			colPosList.add(pos);
+		}
+		this.aggregatedRow = rowType != null &&
+			schema.getColumnCount() == rowType.getFieldCount() &&
+			schema.getColumnCount() == groupByColumnSize + aggregateFunctions.size();
+	}
+
+	private Row toFlinkRow(RowResult row) {
+		if (colNameList == null) {
+			initNamePosListAndAgg(row.getColumnProjection());
+		}
+		int cur = 0;
+
+		Row values = new Row(colNameList.size());
+		for (int i = 0; i < colNameList.size(); i++) {
+			String name = colNameList.get(i);
+			int pos = colPosList.get(i);
+			Object value = row.getObject(pos);
+			if (value instanceof Date) {
 				value = ((Date) value).toLocalDate();
 			}
 			// Scenarios to cast `value` or rewrite `value` occurs when:
