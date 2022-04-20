@@ -254,6 +254,56 @@ public class AbaseTableLookupTest extends AbaseTestBase {
 	}
 
 	@Test
+	public void testGeneralTypeWithSchemaAndMultiplePKs2() throws Exception {
+		ObjectMapper objectMapper = new ObjectMapper();
+		ObjectNode root = objectMapper.createObjectNode();
+		root.put("bonus", 10);
+		root.put("rank", 8);
+		byte[] d1 = objectMapper.writeValueAsBytes(root);
+		Mockito.when(abaseClientWrapper.get("race_game:Kim:47".getBytes())).thenReturn(d1);
+
+		tEnv.executeSql(
+			"CREATE TABLE dim (\n" +
+				"    `bonus` INT,\n" +
+				"    `name`  VARCHAR,\n" +
+				"    `score` BIGINT,\n" +
+				"    `rank`  INT,\n" +
+				"	 PRIMARY KEY (`name`, `score`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"    'connector' = 'byte-abase',\n" +
+				"    'cluster' = 'test',\n" +
+				"    'table' = 'test',\n" +
+				"    'key_format' = 'race_game:${name}:${score}',\n" +
+				"    'format' = 'json',\n" +
+				"    'lookup.cache.max-rows' = '10',\n" +
+				"    'lookup.cache.ttl' = '3 min'\n" +
+				")");
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"    `name` VARCHAR,\n" +
+				"    `score` BIGINT,\n" +
+				"    `bonus` INT,\n" +
+				"    `rank`  INT\n" +
+				") WITH(\n" +
+				"	 'connector' = 'print',\n" +
+				"	 'print-sample-ratio' = '1'\n" +
+				")");
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT T.`name`, T.`score`, D.`bonus`, D.`rank`\n" +
+			"FROM (select T1.`name`, T1.`score`, T1.`bonus`, T1.`time`, PROCTIME() as proc from T1) T\n" +
+			"LEFT JOIN dim FOR SYSTEM_TIME AS OF T.proc AS D\n" +
+			"ON D.`name`=T.`name`\n" +
+			"AND D.`score`=T.`score`\n" +
+			"AND D.`bonus` = 10");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		assertEquals(ResourceUtil.readFileContent(PATH + name.getMethodName() + ".out"), out.toString());
+	}
+
+	@Test
 	public void testHashType() throws Exception {
 		Map<String, String> val = new HashMap<>();
 		val.put("score", "47");

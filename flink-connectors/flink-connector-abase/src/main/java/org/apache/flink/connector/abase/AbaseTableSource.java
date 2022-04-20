@@ -135,8 +135,9 @@ public class AbaseTableSource implements LookupTableSource, SupportsProjectionPu
 			int[] innerKeyArr = lookKeys[i];
 			Preconditions.checkArgument(innerKeyArr.length == 1,
 				"Abase/redis only support non-nested look up keys");
-			if (innerKeyArr[0] == pks[pkIdx++]) {
+			if (innerKeyArr[0] == pks[pkIdx]) {
 				pos[posIdx++] = i;
+				pkIdx++;
 				if (pkIdx == pks.length) {
 					break;
 				}
