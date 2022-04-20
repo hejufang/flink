@@ -627,6 +627,66 @@ public class CEPPatternStreamITCase {
 		assertEquals(Arrays.asList("notFollowByPattern,3.0"), resultList);
 	}
 
+	@Test
+	public void testUnMatchPatternProcessing() throws Exception {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.getConfiguration().setString(CheckpointingOptions.STATE_BACKEND, statebackend);
+		env.getConfiguration().setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, temporaryFolder.newFolder().toURI().toString());
+		env.setParallelism(1);
+
+		Pattern<Event, Event> pattern = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("start");
+			}
+		}).followedBy("end").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("end");
+			}
+		}).within(Time.seconds(2));
+
+		pattern.setPatternMeta("followByPattern", 1);
+
+		DataStream<Pattern<Event, Event>> patternDataStream = env.addSource(new PatternDataStream());
+
+		DataStream<Event> input = env.addSource(new EventStream(
+			Tuple2.of(new Event(1, "start", 1.0), 5L),
+			// unMatched event
+			Tuple2.of(new Event(1, "followedBy", 1.0), 6L),
+			Tuple2.of(new Event(1, "end", 1.0), 7L),
+			Tuple2.of(new Event(1, "start", 2.0), 8L),
+			Tuple2.of(new Event(1, "end", 2.0), 10L),
+			// unMatched event
+			Tuple2.of(new Event(1, "end", 3.0), 11L),
+
+			new BigBarrier(
+		))).map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
+			.keyBy((KeySelector<Event, Integer>) Event::getId);
+
+		DataStream<String> result = CEP.pattern(input, patternDataStream)
+			.withInitialPatterns(Collections.singletonList(pattern))
+			.process(new MultiplePatternProcessFunction<Event, String>() {
+				@Override
+				public void processMatch(Tuple2<String, Map<String, List<Event>>> match, Context ctx, Object key, Collector<String> out) {
+				}
+
+				@Override
+				public void processUnMatch(final Event event, final Context ctx, final Object key, final Collector<String> out) {
+					out.collect(event.toString());
+				}
+
+			});
+
+		List<String> resultList = new ArrayList<>();
+
+		DataStreamUtils.collect(result).forEachRemaining(resultList::add);
+
+		resultList.sort(String::compareTo);
+
+		assertEquals(Arrays.asList("Event(1, end, 3.0)", "Event(1, followedBy, 1.0)"), resultList);
+	}
+
 	private static class EventStream implements SourceFunction<Tuple2<Event, Long>> {
 
 		static boolean sendFlag = false;

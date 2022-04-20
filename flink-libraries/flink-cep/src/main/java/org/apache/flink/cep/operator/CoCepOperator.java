@@ -673,7 +673,7 @@ public class CoCepOperator<IN, KEY, OUT>
 			}
 			nfaState.resetNewStartPartiailMatch();
 			processMatchedSequences(nfaState.getPatternId(), patterns, timestamp);
-			if (patterns.isEmpty()) {
+			if (!nfaState.isStateChanged()) {
 				this.numUnMatchedSequences.inc();
 				long processUnmatchStartTime = System.currentTimeMillis();
 				getUserFunction().processUnMatch(event, context, getCurrentKey(), collector);
