@@ -94,10 +94,10 @@ public class JobResultClientManagerTest {
 				}
 			}
 
+			assertTrue(latch.await(10, TimeUnit.SECONDS));
 			for (JobID jobId : jobResultsMap.keySet()) {
 				assertEquals(sendResultList, jobResultsMap.get(jobId));
 			}
-			assertTrue(latch.await(10, TimeUnit.SECONDS));
 		}
 	}
 
@@ -106,11 +106,12 @@ public class JobResultClientManagerTest {
 	 * and ignore its later messages.
 	 */
 	@Test
-	public void testTaskFailedMessage() {
+	public void testTaskFailedMessage() throws Exception {
 		try (JobResultClientManager jobResultClientManager = new JobResultClientManager(3)) {
 			final int jobTaskCount = 20;
 			JobID jobId = new JobID();
 			List<Object> resultList = new ArrayList<>();
+			final CountDownLatch latch = new CountDownLatch(1);
 			jobResultClientManager.addJobChannelManager(
 				jobId,
 				new JobChannelManager(
@@ -124,8 +125,7 @@ public class JobResultClientManagerTest {
 								resultList.add(result.getResult());
 							}
 						})
-						.setFlushRunner(() -> {
-						})
+						.setFlushRunner(latch::countDown)
 						.build(),
 					jobTaskCount,
 					jobResultClientManager));
@@ -159,6 +159,7 @@ public class JobResultClientManagerTest {
 						.build());
 			}
 
+			assertTrue(latch.await(10, TimeUnit.SECONDS));
 			assertEquals(sendResultList, resultList);
 		}
 	}
