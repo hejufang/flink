@@ -20,6 +20,7 @@ package org.apache.flink.table.runtime.hashtable;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.compression.BlockCompressionFactory;
 import org.apache.flink.runtime.io.disk.iomanager.AbstractChannelReaderInputView;
@@ -173,7 +174,9 @@ public abstract class BaseHybridHashTable implements MemorySegmentPool {
 		this.totalNumBuffers = (int) (reservedMemorySize / memManager.getPageSize());
 		// some sanity checks first
 		checkArgument(totalNumBuffers >= MIN_NUM_MEMORY_SEGMENTS);
-		this.internalPool = new LazyMemorySegmentPool(owner, memManager, totalNumBuffers);
+
+		long perRequestMemorySize = conf.getLong(TaskManagerOptions.LAZY_MEMORY_SEGMENT_POOL_PER_REQUEST_MEMORY_SIZE);
+		this.internalPool = new LazyMemorySegmentPool(owner, memManager, totalNumBuffers, perRequestMemorySize);
 		this.ioManager = ioManager;
 
 		this.segmentSize = memManager.getPageSize();

@@ -618,6 +618,12 @@ public class TaskManagerOptions {
 			.withDescription("If true, it will check the owner of segment in any get/put operation" +
 				" which is allocated from pool memory manager.");
 
+	public static final ConfigOption<Long> LAZY_MEMORY_SEGMENT_POOL_PER_REQUEST_MEMORY_SIZE = ConfigOptions
+		.key("taskmanager.lazy-memory-segment-pool.per-request-memory-bytes")
+		.longType()
+		.defaultValue(16 * 1024 * 1024L)
+		.withDescription("Per request memory size in LazyMemorySegmentPool");
+
 	public static final ConfigOption<Boolean> TASK_DEPLOY_THEN_FINISH_ENABLE = ConfigOptions
 			.key("taskmanager.task-deploy-then-finish.enable")
 			.booleanType()

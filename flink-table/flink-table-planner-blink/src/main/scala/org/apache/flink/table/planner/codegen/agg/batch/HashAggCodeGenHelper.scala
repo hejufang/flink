@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.codegen.agg.batch
 
 import org.apache.flink.api.java.tuple.{Tuple2 => JTuple2}
 import org.apache.flink.metrics.Gauge
+import org.apache.flink.configuration.TaskManagerOptions
 import org.apache.flink.table.data.binary.BinaryRowData
 import org.apache.flink.table.data.{GenericRowData, JoinedRowData, RowData}
 import org.apache.flink.table.expressions.{Expression, _}
@@ -68,6 +69,9 @@ object HashAggCodeGenHelper {
       aggregateMapTerm: String): Unit = {
     // create aggregate map
     val mapTypeTerm = classOf[BytesHashMap].getName
+    val perRequestMemorySize =
+      ctx.tableConfig.getConfiguration.getLong(
+        TaskManagerOptions.LAZY_MEMORY_SEGMENT_POOL_PER_REQUEST_MEMORY_SIZE)
     ctx.addReusableMember(s"private transient $mapTypeTerm $aggregateMapTerm;")
     ctx.addReusableOpenStatement(s"$aggregateMapTerm " +
         s"= new $mapTypeTerm(" +
@@ -75,7 +79,8 @@ object HashAggCodeGenHelper {
         s"this.getContainingTask().getEnvironment().getMemoryManager()," +
         s"computeMemorySize()," +
         s" $groupKeyTypesTerm," +
-        s" $aggBufferTypesTerm);")
+        s" $aggBufferTypesTerm," +
+        s" $perRequestMemorySize);")
     // close aggregate map and release memory segments
     ctx.addReusableCloseStatement(s"$aggregateMapTerm.free();")
     ctx.addReusableCloseStatement(s"")

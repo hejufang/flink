@@ -145,7 +145,17 @@ public class BytesHashMap {
 			long memorySize,
 			LogicalType[] keyTypes,
 			LogicalType[] valueTypes) {
-		this(owner, memoryManager, memorySize, keyTypes, valueTypes, false);
+		this(owner, memoryManager, memorySize, keyTypes, valueTypes, false, -1);
+	}
+
+	public BytesHashMap(
+			final Object owner,
+			MemoryManager memoryManager,
+			long memorySize,
+			LogicalType[] keyTypes,
+			LogicalType[] valueTypes,
+			long perRequestMemorySize) {
+		this(owner, memoryManager, memorySize, keyTypes, valueTypes, false, perRequestMemorySize);
 	}
 
 	public BytesHashMap(
@@ -155,9 +165,21 @@ public class BytesHashMap {
 			LogicalType[] keyTypes,
 			LogicalType[] valueTypes,
 			boolean inferBucketMemory) {
+		this(owner, memoryManager, memorySize, keyTypes, valueTypes, inferBucketMemory, -1);
+	}
+
+	public BytesHashMap(
+			final Object owner,
+			MemoryManager memoryManager,
+			long memorySize,
+			LogicalType[] keyTypes,
+			LogicalType[] valueTypes,
+			boolean inferBucketMemory,
+			long perRequestMemorySize) {
 		this.segmentSize = memoryManager.getPageSize();
 		this.reservedNumBuffers = (int) (memorySize / segmentSize);
-		this.memoryPool = new LazyMemorySegmentPool(owner, memoryManager, reservedNumBuffers);
+		this.memoryPool =
+			new LazyMemorySegmentPool(owner, memoryManager, reservedNumBuffers, perRequestMemorySize);
 		this.numBucketsPerSegment = segmentSize / BUCKET_SIZE;
 		this.numBucketsPerSegmentBits = MathUtils.log2strict(this.numBucketsPerSegment);
 		this.numBucketsPerSegmentMask = (1 << this.numBucketsPerSegmentBits) - 1;

@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.planner.codegen
 
+import org.apache.flink.configuration.TaskManagerOptions
 import org.apache.flink.table.data.{JoinedRowData, RowData}
 import org.apache.flink.table.planner.codegen.CodeGenUtils._
 import org.apache.flink.table.planner.codegen.OperatorCodeGenerator.{INPUT_SELECTION, generateCollect}
@@ -345,6 +346,8 @@ class NestedLoopJoinCodeGenerator(
       fieldTerm: String, serializer: String): Unit = {
     val memManager = "getContainingTask().getEnvironment().getMemoryManager()"
     val ioManager = "getContainingTask().getEnvironment().getIOManager()"
+    val perRequestMemorySize = ctx.tableConfig.getConfiguration.getLong(
+      TaskManagerOptions.LAZY_MEMORY_SEGMENT_POOL_PER_REQUEST_MEMORY_SIZE)
 
     val open =
       s"""
@@ -353,7 +356,8 @@ class NestedLoopJoinCodeGenerator(
          |  new ${className[LazyMemorySegmentPool]}(
          |    getContainingTask(),
          |    $memManager,
-         |    (int) (computeMemorySize() / $memManager.getPageSize())),
+         |    (int) (computeMemorySize() / $memManager.getPageSize()),
+         |    $perRequestMemorySize),
          |  $serializer,
          |  false);
          |""".stripMargin

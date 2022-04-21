@@ -44,12 +44,19 @@ public class LazyMemorySegmentPool implements MemorySegmentPool, Closeable {
 	private int maxPageUsage;
 
 	public LazyMemorySegmentPool(Object owner, MemoryManager memoryManager, int maxPages) {
+		this(owner, memoryManager, maxPages, PER_REQUEST_MEMORY_SIZE);
+	}
+
+	public LazyMemorySegmentPool(Object owner, MemoryManager memoryManager, int maxPages, long perRequestMemorySize) {
 		this.owner = owner;
 		this.memoryManager = memoryManager;
 		this.cachePages = new ArrayList<>();
 		this.maxPages = maxPages;
 		this.pageUsage = 0;
-		this.perRequestPages = Math.max(1, (int) (PER_REQUEST_MEMORY_SIZE / memoryManager.getPageSize()));
+		if (perRequestMemorySize <= 0) {
+			perRequestMemorySize = PER_REQUEST_MEMORY_SIZE;
+		}
+		this.perRequestPages = Math.max(1, (int) (perRequestMemorySize / memoryManager.getPageSize()));
 	}
 
 	@Override

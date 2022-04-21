@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.plan.nodes.physical.batch
 
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.configuration.MemorySize
+import org.apache.flink.configuration.TaskManagerOptions
 import org.apache.flink.runtime.operators.DamBehavior
 import org.apache.flink.streaming.api.operators.SimpleOperatorFactory
 import org.apache.flink.table.api.TableConfig
@@ -412,10 +413,13 @@ class BatchExecOverAggregate(
       val windowFrames = createOverWindowFrames(config)
       managedMemory = MemorySize.parse(config.getConfiguration.getString(
         ExecutionConfigOptions.TABLE_EXEC_RESOURCE_EXTERNAL_BUFFER_MEMORY)).getBytes
+      val perRequestMemorySize = config.getConfiguration.getLong(
+        TaskManagerOptions.LAZY_MEMORY_SEGMENT_POOL_PER_REQUEST_MEMORY_SIZE)
       new BufferDataOverWindowOperator(
         windowFrames,
         genComparator,
-        inputType.getChildren.forall(t => BinaryRowData.isInFixedLengthPart(t)))
+        inputType.getChildren.forall(t => BinaryRowData.isInFixedLengthPart(t)),
+        perRequestMemorySize)
     }
     val input = getTransformFromMix(inputMix)
     ExecNode.createOneInputTransformation(

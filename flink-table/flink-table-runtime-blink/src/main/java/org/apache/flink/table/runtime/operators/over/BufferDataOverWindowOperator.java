@@ -44,6 +44,7 @@ public class BufferDataOverWindowOperator extends TableStreamOperator<RowData>
 	private final OverWindowFrame[] overWindowFrames;
 	private GeneratedRecordComparator genComparator;
 	private final boolean isRowAllInFixedPart;
+	private final long perRequestMemorySize;
 
 	private RecordComparator partitionComparator;
 	private RowData lastInput;
@@ -52,6 +53,14 @@ public class BufferDataOverWindowOperator extends TableStreamOperator<RowData>
 	private AbstractRowDataSerializer<RowData> serializer;
 	private ResettableExternalBuffer currentData;
 
+	public BufferDataOverWindowOperator(
+			OverWindowFrame[] overWindowFrames,
+			GeneratedRecordComparator genComparator,
+			boolean isRowAllInFixedPart) {
+		this(overWindowFrames, genComparator, isRowAllInFixedPart, -1);
+	}
+
+
 	/**
 	 * @param overWindowFrames     the window frames belong to this operator.
 	 * @param genComparator       the generated sort which is used for generating the comparator among
@@ -59,10 +68,12 @@ public class BufferDataOverWindowOperator extends TableStreamOperator<RowData>
 	public BufferDataOverWindowOperator(
 			OverWindowFrame[] overWindowFrames,
 			GeneratedRecordComparator genComparator,
-			boolean isRowAllInFixedPart) {
+			boolean isRowAllInFixedPart,
+			long perRequestMemorySize) {
 		this.overWindowFrames = overWindowFrames;
 		this.genComparator = genComparator;
 		this.isRowAllInFixedPart = isRowAllInFixedPart;
+		this.perRequestMemorySize = perRequestMemorySize;
 	}
 
 	@Override
@@ -76,9 +87,10 @@ public class BufferDataOverWindowOperator extends TableStreamOperator<RowData>
 
 		MemoryManager memManager = getContainingTask().getEnvironment().getMemoryManager();
 		LazyMemorySegmentPool pool = new LazyMemorySegmentPool(
-				this,
-				memManager,
-				(int) (computeMemorySize() / memManager.getPageSize()));
+			this,
+			memManager,
+			(int) (computeMemorySize() / memManager.getPageSize()),
+			perRequestMemorySize);
 		this.currentData = new ResettableExternalBuffer(
 				getContainingTask().getEnvironment().getIOManager(),
 				pool,

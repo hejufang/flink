@@ -18,6 +18,7 @@
 package org.apache.flink.table.runtime.operators.join;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.memory.MemoryManager;
@@ -439,10 +440,16 @@ public class SortMergeJoinOperator extends TableStreamOperator<RowData>
 	}
 
 	private ResettableExternalBuffer newBuffer(BinaryRowDataSerializer serializer) {
+		Configuration conf =
+			getContainingTask().getEnvironment().getTaskManagerInfo().getConfiguration();
+		long perRequestMemorySize =
+			conf.getLong(TaskManagerOptions.LAZY_MEMORY_SEGMENT_POOL_PER_REQUEST_MEMORY_SIZE);
+
 		LazyMemorySegmentPool pool = new LazyMemorySegmentPool(
-				this.getContainingTask(),
-				memManager,
-				(int) (externalBufferMemory / memManager.getPageSize()));
+			this.getContainingTask(),
+			memManager,
+			(int) (externalBufferMemory / memManager.getPageSize()),
+			perRequestMemorySize);
 		return new ResettableExternalBuffer(ioManager, pool, serializer,
 				false /* we don't use newIterator(int beginRow), so don't need use this optimization*/);
 	}
