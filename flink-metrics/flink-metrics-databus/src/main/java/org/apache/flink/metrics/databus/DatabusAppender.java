@@ -75,8 +75,6 @@ public final class DatabusAppender extends AbstractAppender {
 	public volatile long sendDatabusMessageCount = 0L;
 	public volatile long sendStreamlogMessageCount = 0L;
 
-	private final Object reportLock = new Object();
-
 	DatabusAppender(final String channel, final String metricsChannel, final long metricsUpdateInterval, final int port, int permitsPerSecond, final String name, Level databusLevel,
 					final Layout<? extends Serializable> layout, final Filter filter, final boolean ignoreExceptions, final Property[] properties) {
 		super(name, filter, layout, ignoreExceptions, properties);
@@ -92,40 +90,39 @@ public final class DatabusAppender extends AbstractAppender {
 	@Override
 	public void append(final LogEvent event) {
 
-		synchronized (reportLock) {
-			totalMessageCount++;
+		totalMessageCount++;
 
-			if (!rateLimiter.tryAcquire()) {
-				droppedMessageCount++;
-				return;
-			}
-
-			final byte[] bytes = getLayout().toByteArray(event);
-			String message = new String(bytes);
-
-			try {
-				StringBuilder sb = new StringBuilder(message);
-				String[] s = Throwables.toStringList(event.getThrown()).toArray(new String[0]);
-				if (s.length != 0) {
-					for (String l : s) {
-						sb.append(LINE_SEP).append(l);
-					}
-					message = sb.toString();
-				}
-			} catch (Exception e) {
-				LOGGER.error("Count not get error stack info.", e);
-			}
-			try {
-				//only send WARN & ERROR log to databus
-				if (event.getLevel().isMoreSpecificThan(databusLevel)) {
-					databusClient.send(ThreadContext.get("ip"), message, 0);
-					sendDatabusMessageCount++;
-				}
-				sendMessageCount++;
-			} catch (IOException e) {
-				LOGGER.error("Could send message by databus client.", e);
-			}
+		if (!rateLimiter.tryAcquire()) {
+			droppedMessageCount++;
+			return;
 		}
+
+		final byte[] bytes = getLayout().toByteArray(event);
+		String message = new String(bytes);
+
+		try {
+			StringBuilder sb = new StringBuilder(message);
+			String[] s = Throwables.toStringList(event.getThrown()).toArray(new String[0]);
+			if (s.length != 0) {
+				for (String l : s) {
+					sb.append(LINE_SEP).append(l);
+				}
+				message = sb.toString();
+			}
+		} catch (Exception e) {
+			LOGGER.error("Count not get error stack info.", e);
+		}
+		try {
+			//only send WARN & ERROR log to databus
+			if (event.getLevel().isMoreSpecificThan(databusLevel)) {
+				databusClient.send(ThreadContext.get("ip"), message, 0);
+				sendDatabusMessageCount++;
+			}
+			sendMessageCount++;
+		} catch (IOException e) {
+			LOGGER.error("Could send message by databus client.", e);
+		}
+
 	}
 
 	@Override
@@ -164,22 +161,22 @@ public final class DatabusAppender extends AbstractAppender {
 		this.databusClient.close();
 	}
 
-	public Map<String, Long> getMetricsAndRefresh(){
-		synchronized (reportLock){
-			Map<String, Long> metrics = new HashMap<>();
-			metrics.put("totalMessageCount", totalMessageCount);
-			metrics.put("droppedMessageCount", droppedMessageCount);
-			metrics.put("sendMessageCount", sendMessageCount);
-			metrics.put("sendDatabusMessageCount", sendDatabusMessageCount);
-			metrics.put("sendStreamlogMessageCount", sendStreamlogMessageCount);
+	public Map<String, Long> getMetricsAndRefresh() {
 
-			totalMessageCount = 0L;
-			droppedMessageCount = 0L;
-			sendMessageCount = 0L;
-			sendDatabusMessageCount = 0L;
-			sendStreamlogMessageCount = 0L;
-			return metrics;
-		}
+		Map<String, Long> metrics = new HashMap<>();
+		metrics.put("totalMessageCount", totalMessageCount);
+		metrics.put("droppedMessageCount", droppedMessageCount);
+		metrics.put("sendMessageCount", sendMessageCount);
+		metrics.put("sendDatabusMessageCount", sendDatabusMessageCount);
+		metrics.put("sendStreamlogMessageCount", sendStreamlogMessageCount);
+
+		totalMessageCount = 0L;
+		droppedMessageCount = 0L;
+		sendMessageCount = 0L;
+		sendDatabusMessageCount = 0L;
+		sendStreamlogMessageCount = 0L;
+		return metrics;
+
 	}
 
 	private static final class DatabusAppenderMetricsReporter extends TimerTask {
