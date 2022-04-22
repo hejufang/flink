@@ -108,7 +108,7 @@ public class CheckpointVerifier {
 						". If you see this, usually it means that the job's topology is changed. And " +
 						" the state in previous checkpoint cannot be used in current job !!! \n" +
 						" You need to revert your changes or change state.checkpoints.namespace to start a new checkpoint.";
-					LOG.error(message);
+					logAndSyserr(message);
 					return CheckpointVerifyResult.FAIL_MISS_OPERATOR_ID;
 				}
 			}
@@ -130,7 +130,7 @@ public class CheckpointVerifier {
 							final String message = "Operator " + operatorState.getOperatorID() + " has " + parallelism +
 								" in new JobGraph, while the max parallelism in OperatorState is " + operatorState.getMaxParallelism() +
 								", could not match the parallelism between new JobGraph and previous state.";
-							LOG.error(message);
+							logAndSyserr(message);
 							return CheckpointVerifyResult.FAIL_MISMATCH_PARALLELISM;
 						}
 					}
@@ -458,5 +458,11 @@ public class CheckpointVerifier {
 	@VisibleForTesting
 	public static List<BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, OperatorState>, CheckpointVerifyResult>> getVerifyStrategies() {
 		return verifyStrategies;
+	}
+
+	private static void logAndSyserr(String message) {
+		LOG.error(message);
+		System.err.println("------------------------------------------------------------");
+		System.err.println(message);
 	}
 }

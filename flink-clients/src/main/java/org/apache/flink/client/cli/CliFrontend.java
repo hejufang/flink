@@ -1074,7 +1074,7 @@ public class CliFrontend {
 				// checkpoint verification do not run successfully. verifyExitCode ought to be 0,2,3.
 				CheckpointVerifier.verifyExitCode = 1;
 			}
-			LOG.error("Checkpoint verification error: " + e);
+			logAndSyserr("Checkpoint verification error: " + e);
 			return CheckpointVerifier.verifyExitCode;
 		} finally {
 			if (program != null) {
@@ -1267,6 +1267,12 @@ public class CliFrontend {
 	private static void logAndSysout(String message) {
 		LOG.info(message);
 		System.out.println(message);
+	}
+
+	private static void logAndSyserr(String message) {
+		LOG.error(message);
+		System.err.println("------------------------------------------------------------");
+		System.err.println(message);
 	}
 
 	// --------------------------------------------------------------------------------------------
