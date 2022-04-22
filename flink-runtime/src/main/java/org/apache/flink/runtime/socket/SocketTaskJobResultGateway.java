@@ -80,7 +80,15 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 			.setResultStatus(resultStatus)
 			.build();
 		NettySocketClient nettySocketClient = clientList.get(getJobNettySocketClient(jobId));
-		nettySocketClient.getChannel().write(jobSocketResult);
+		while (true) {
+			if (nettySocketClient.getChannel().isWritable()) {
+				nettySocketClient.getChannel().write(jobSocketResult);
+				break;
+			}
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException e) { }
+		}
 		if (resultStatus == ResultStatus.COMPLETE) {
 			nettySocketClient.getChannel().flush();
 		}
