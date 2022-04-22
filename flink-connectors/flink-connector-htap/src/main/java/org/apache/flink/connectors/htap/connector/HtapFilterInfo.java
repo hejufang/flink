@@ -37,6 +37,7 @@ public class HtapFilterInfo implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	private String column;
+	private String otherColumn;
 	private FilterType type;
 	private Object value;
 
@@ -49,6 +50,10 @@ public class HtapFilterInfo implements Serializable {
 
 	public HtapPredicate toPredicate(final ColumnSchema column, final boolean compatibleWithMySQL) {
 		HtapPredicate predicate;
+		if (otherColumn != null) {
+			return HtapPredicate.newColumnComparePredicate(column, otherColumn, this.type.comparator);
+		}
+
 		switch (this.type) {
 			case IS_IN:
 				predicate = HtapPredicate.newInListPredicate(column, (List<?>) this.value);
@@ -123,6 +128,7 @@ public class HtapFilterInfo implements Serializable {
 		GREATER(HtapPredicate.ComparisonOp.GREATER),
 		GREATER_EQUAL(HtapPredicate.ComparisonOp.GREATER_EQUAL),
 		EQUAL(HtapPredicate.ComparisonOp.EQUAL),
+		NOT_EQUAL(HtapPredicate.ComparisonOp.NOT_EQUAL),
 		LESS(HtapPredicate.ComparisonOp.LESS),
 		LESS_EQUAL(HtapPredicate.ComparisonOp.LESS_EQUAL),
 		IS_NOT_NULL(null),
@@ -139,6 +145,7 @@ public class HtapFilterInfo implements Serializable {
 	@Override
 	public String toString() {
 		return "HtapFilterInfo[Column=" + (column == null ? "null" : column) +
+			", otherColumn = " + (otherColumn == null ? "null" : otherColumn) +
 			", FilterType=" + (type == null ? "null" : type.toString()) +
 			", Value=" + (value == null ? "null" : value.toString()) + "]";
 	}
@@ -153,13 +160,14 @@ public class HtapFilterInfo implements Serializable {
 		}
 		HtapFilterInfo that = (HtapFilterInfo) o;
 		return Objects.equals(column, that.column) &&
+			Objects.equals(otherColumn, that.otherColumn) &&
 			type == that.type &&
 			Objects.equals(value, that.value);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(column, type, value);
+		return Objects.hash(column, otherColumn, type, value);
 	}
 
 	/**
@@ -171,10 +179,21 @@ public class HtapFilterInfo implements Serializable {
 		private Builder(final String column) {
 			this.filter = new HtapFilterInfo();
 			this.filter.column = column;
+			this.filter.otherColumn = null;
+		}
+
+		private Builder(final String column, final String otherColumn) {
+			this.filter = new HtapFilterInfo();
+			this.filter.column = column;
+			this.filter.otherColumn = otherColumn;
 		}
 
 		public static Builder create(final String column) {
 			return new Builder(column);
+		}
+
+		public static Builder create(final String column, final String otherColumn) {
+			return new Builder(column, otherColumn);
 		}
 
 		public Builder greaterThan(final Object value) {

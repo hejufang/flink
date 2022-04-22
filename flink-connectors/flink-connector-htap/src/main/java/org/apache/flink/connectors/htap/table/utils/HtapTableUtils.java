@@ -176,6 +176,34 @@ public class HtapTableUtils {
 		} else if (isValueLiteralExpression(children.get(1))) {
 			fieldReferenceExpression = getFieldReferenceExpression(children.get(0)).orElse(null);
 			valueLiteralExpression = (ValueLiteralExpression) children.get(1);
+		} else if (isFieldReferenceExpression(children.get(0)) && isFieldReferenceExpression(children.get(1))) {
+			fieldReferenceExpression = getFieldReferenceExpression(children.get(0)).orElse(null);
+			if (fieldReferenceExpression == null) {
+				return Optional.empty();
+			}
+			String columnName = fieldReferenceExpression.getName();
+			FieldReferenceExpression otherRefExp = getFieldReferenceExpression(children.get(1)).orElse(null);
+			if (otherRefExp == null) {
+				return Optional.empty();
+			}
+			String otherColumn = otherRefExp.getName();
+			LOG.debug("Two columns: {}, {}", columnName, otherColumn);
+			HtapFilterInfo.Builder builder = HtapFilterInfo.Builder.create(columnName, otherColumn);
+			if (functionDefinition.equals(BuiltInFunctionDefinitions.GREATER_THAN)) {
+				return Optional.of(builder.filter(HtapFilterInfo.FilterType.GREATER, null).build());
+			} else if (functionDefinition.equals(BuiltInFunctionDefinitions.LESS_THAN)) {
+				return Optional.of(builder.filter(HtapFilterInfo.FilterType.LESS, null).build());
+			} else if (functionDefinition.equals(BuiltInFunctionDefinitions.EQUALS)) {
+				return Optional.of(builder.filter(HtapFilterInfo.FilterType.EQUAL, null).build());
+			} else if (functionDefinition.equals(BuiltInFunctionDefinitions.NOT_EQUALS)) {
+				return Optional.of(builder.filter(HtapFilterInfo.FilterType.NOT_EQUAL, null).build());
+			} else if (functionDefinition.equals(BuiltInFunctionDefinitions.GREATER_THAN_OR_EQUAL)) {
+				return Optional.of(builder.filter(HtapFilterInfo.FilterType.GREATER_EQUAL, null).build());
+			} else if (functionDefinition.equals(BuiltInFunctionDefinitions.LESS_THAN_OR_EQUAL)) {
+				return Optional.of(builder.filter(HtapFilterInfo.FilterType.LESS_EQUAL, null).build());
+			} else {
+				return Optional.empty();
+			}
 		} else {
 			return Optional.empty();
 		}

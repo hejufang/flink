@@ -240,7 +240,7 @@ public class HtapTableUtilsTest {
 			childrenFields,
 			DataTypes.BOOLEAN()))
 			.orElse(null);
-		Assert.assertNull(info);
+		Assert.assertNotNull(info);
 
 		// >(`literal`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
@@ -272,7 +272,7 @@ public class HtapTableUtilsTest {
 			childrenFields,
 			DataTypes.BOOLEAN()))
 			.orElse(null);
-		Assert.assertNull(info);
+		Assert.assertNotNull(info);
 
 		// <(`literal`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
@@ -304,7 +304,7 @@ public class HtapTableUtilsTest {
 			childrenFields,
 			DataTypes.BOOLEAN()))
 			.orElse(null);
-		Assert.assertNull(info);
+		Assert.assertNotNull(info);
 
 		// =(`literal`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
@@ -366,7 +366,7 @@ public class HtapTableUtilsTest {
 			childrenFields,
 			DataTypes.BOOLEAN()))
 			.orElse(null);
-		Assert.assertNull(info);
+		Assert.assertNotNull(info);
 
 		// >=(`literal`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
@@ -398,7 +398,7 @@ public class HtapTableUtilsTest {
 			childrenFields,
 			DataTypes.BOOLEAN()))
 			.orElse(null);
-		Assert.assertNull(info);
+		Assert.assertNotNull(info);
 
 		// <=(`literal`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
