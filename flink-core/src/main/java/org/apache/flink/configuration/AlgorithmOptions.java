@@ -31,7 +31,8 @@ public class AlgorithmOptions {
 			.withDescription("Flag to activate/deactivate bloom filters in the hybrid hash join implementation." +
 				" In cases where the hash join needs to spill to disk (datasets larger than the reserved fraction of" +
 				" memory), these bloom filters can greatly reduce the number of spilled records, at the cost some" +
-				" CPU cycles.");
+				" CPU cycles. Notice that it's disabled in probe outer/full outer/anti join, because it will filter" +
+				" probe side records when spilled and lead to incorrect results");
 
 	public static final ConfigOption<Integer> SPILLING_MAX_FAN =
 		key("taskmanager.runtime.max-fan")

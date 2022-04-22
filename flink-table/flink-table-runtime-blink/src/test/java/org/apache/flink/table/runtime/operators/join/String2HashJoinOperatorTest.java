@@ -19,8 +19,11 @@
 package org.apache.flink.table.runtime.operators.join;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.configuration.AlgorithmOptions;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.operators.testutils.MockInputSplitProvider;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.streaming.runtime.tasks.StreamMockEnvironment;
 import org.apache.flink.streaming.runtime.tasks.TwoInputStreamTask;
 import org.apache.flink.streaming.runtime.tasks.TwoInputStreamTaskTestHarness;
 import org.apache.flink.streaming.util.TestHarnessUtil;
@@ -34,8 +37,10 @@ import org.apache.flink.table.runtime.generated.GeneratedProjection;
 import org.apache.flink.table.runtime.generated.JoinCondition;
 import org.apache.flink.table.runtime.generated.Projection;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
+import org.apache.flink.table.runtime.util.StringUniformBinaryRowGenerator;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.VarCharType;
+import org.apache.flink.util.MutableObjectIterator;
 
 import org.junit.Test;
 
@@ -43,14 +48,14 @@ import java.io.Serializable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static org.junit.Assert.assertEquals;
+
 /**
  * Test for {@link HashJoinOperator}.
  */
 public class String2HashJoinOperatorTest implements Serializable {
 
 	private RowDataTypeInfo typeInfo = new RowDataTypeInfo(new VarCharType(VarCharType.MAX_LENGTH), new VarCharType(VarCharType.MAX_LENGTH));
-	private RowDataTypeInfo joinedInfo = new RowDataTypeInfo(
-			new VarCharType(VarCharType.MAX_LENGTH), new VarCharType(VarCharType.MAX_LENGTH), new VarCharType(VarCharType.MAX_LENGTH), new VarCharType(VarCharType.MAX_LENGTH));
 	private transient TwoInputStreamTaskTestHarness<BinaryRowData, BinaryRowData, JoinedRowData> testHarness;
 	private ConcurrentLinkedQueue<Object> expectedOutput = new ConcurrentLinkedQueue<>();
 	private long initialTime = 0L;
@@ -75,18 +80,35 @@ public class String2HashJoinOperatorTest implements Serializable {
 	}
 
 	private void init(boolean leftOut, boolean rightOut, boolean buildLeft) throws Exception {
-		HashJoinType type = HashJoinType.of(buildLeft, leftOut, rightOut);
+		init(leftOut, rightOut, buildLeft, false, false, false);
+	}
+
+	private void init(boolean leftOut, boolean rightOut, boolean buildLeft, boolean isSemi, boolean isAnti, boolean useBloomFilter) throws Exception {
+		HashJoinType type = HashJoinType.of(buildLeft, leftOut, rightOut, isSemi, isAnti);
 		HashJoinOperator operator = newOperator(33 * 32 * 1024, type, !buildLeft);
+		RowDataTypeInfo joinedInfo;
+		if (isSemi || isAnti) {
+			joinedInfo = new RowDataTypeInfo(
+				new VarCharType(VarCharType.MAX_LENGTH), new VarCharType(VarCharType.MAX_LENGTH));
+		} else {
+			joinedInfo = new RowDataTypeInfo(
+				new VarCharType(VarCharType.MAX_LENGTH), new VarCharType(VarCharType.MAX_LENGTH), new VarCharType(VarCharType.MAX_LENGTH), new VarCharType(VarCharType.MAX_LENGTH));
+		}
 		testHarness = new TwoInputStreamTaskTestHarness<>(
-				TwoInputStreamTask::new, 2, 2, new int[]{1, 2}, typeInfo, (TypeInformation) typeInfo, joinedInfo);
-		testHarness.memorySize = 36 * 1024 * 1024;
+			TwoInputStreamTask::new, 2, 2, new int[]{1, 2}, typeInfo, (TypeInformation) typeInfo, joinedInfo);
+		testHarness.memorySize = 33 * 32 * 1024;
 		testHarness.getExecutionConfig().enableObjectReuse();
 		testHarness.setupOutputForSingletonOperatorChain();
 		testHarness.getStreamConfig().setStreamOperator(operator);
 		testHarness.getStreamConfig().setOperatorID(new OperatorID());
-		testHarness.getStreamConfig().setManagedMemoryFraction(0.99);
+		testHarness.getStreamConfig().setManagedMemoryFraction(1.0);
 
-		testHarness.invoke();
+		final StreamMockEnvironment env = new StreamMockEnvironment(
+			testHarness.jobConfig, testHarness.taskConfig, testHarness.getExecutionConfig(), testHarness.memorySize,
+			new MockInputSplitProvider(), testHarness.bufferSize, testHarness.getTaskStateManager());
+		env.getTaskManagerInfo().getConfiguration().setBoolean(AlgorithmOptions.HASH_JOIN_BLOOM_FILTERS, useBloomFilter);
+
+		testHarness.invoke(env);
 		testHarness.waitForTaskRunning();
 	}
 
@@ -169,6 +191,20 @@ public class String2HashJoinOperatorTest implements Serializable {
 		TestHarnessUtil.assertOutputEquals("Output was not correct.",
 				expectedOutput,
 				transformToBinary(testHarness.getOutput()));
+	}
+
+	@Test
+	public void testSpillingProbeOuterHashJoin() throws Exception {
+		init(true, false, false, false, false, true);
+		final int numBuildKeys = 300000;
+		// we set numProbeKeys > numBuildKeys, so we can reproduce the bug
+		// that bloom filter will filter probe side records when spilled in probe outer join.
+		final int numProbeKeys = 320000;
+		// we make sure numBuildKeys * buildValsPerKey is not too big,
+		// because it will free bloom filter so we cannot reproduce the bug below.
+		final int buildValsPerKey = 1;
+		final int probeValsPerKey = 1;
+		testHashJoin(numBuildKeys, numProbeKeys, buildValsPerKey, probeValsPerKey, numProbeKeys * probeValsPerKey);
 	}
 
 	@Test
@@ -256,6 +292,101 @@ public class String2HashJoinOperatorTest implements Serializable {
 		TestHarnessUtil.assertOutputEquals("Output was not correct.",
 				expectedOutput,
 				transformToBinary(testHarness.getOutput()));
+	}
+
+	@Test
+	public void testSpillingFullOuterHashJoin() throws Exception {
+		init(true, true, true, false, false, true);
+		int numBuildKeys = 300000;
+		// we set numProbeKeys > numBuildKeys, so we can reproduce the bug
+		// that bloom filter will filter probe side records when spilled in probe outer join.
+		int numProbeKeys = 320000;
+		// we make sure numBuildKeys * buildValsPerKey is not too big,
+		// because it will free bloom filter so we cannot reproduce the bug below.
+		int buildValsPerKey = 1;
+		int probeValsPerKey = 1;
+		testHashJoin(numBuildKeys, numProbeKeys, buildValsPerKey, probeValsPerKey, numProbeKeys * probeValsPerKey);
+	}
+
+	@Test
+	public void testAntiHashJoin() throws Exception {
+		init(false, false, false, false, true, true);
+		int numBuildKeys = 100;
+		int numProbeKeys = 200;
+		int buildValsPerKey = 1;
+		int probeValsPerKey = 1;
+		testHashJoin(numBuildKeys, numProbeKeys, buildValsPerKey, probeValsPerKey, numProbeKeys - numBuildKeys);
+	}
+
+	@Test
+	public void testSpillingAntiHashJoin() throws Exception {
+		init(false, false, false, false, true, true);
+		int numBuildKeys = 300000;
+		// we set numProbeKeys > numBuildKeys, so we can reproduce the bug
+		// that bloom filter will filter probe side records when spilled in probe outer join.
+		int numProbeKeys = 320000;
+		// we make sure numBuildKeys * buildValsPerKey is not too big,
+		// because it will free bloom filter so we cannot reproduce the bug below.
+		int buildValsPerKey = 1;
+		int probeValsPerKey = 1;
+		testHashJoin(numBuildKeys, numProbeKeys, buildValsPerKey, probeValsPerKey, numProbeKeys - numBuildKeys);
+	}
+
+	@Test
+	public void testSemiHashJoin() throws Exception {
+		init(false, false, false, true, false, true);
+		int numBuildKeys = 100;
+		int numProbeKeys = 200;
+		int buildValsPerKey = 1;
+		int probeValsPerKey = 1;
+		testHashJoin(numBuildKeys, numProbeKeys, buildValsPerKey, probeValsPerKey, numBuildKeys);
+	}
+
+	@Test
+	public void testSpillingSemiHashJoin() throws Exception {
+		init(false, false, false, true, false, true);
+		int numBuildKeys = 300000;
+		// we set numProbeKeys > numBuildKeys, so we can reproduce the bug
+		// that bloom filter will filter probe side records when spilled in probe outer join.
+		int numProbeKeys = 320000;
+		// we make sure numBuildKeys * buildValsPerKey is not too big,
+		// because it will free bloom filter so we cannot reproduce the bug below.
+		int buildValsPerKey = 1;
+		int probeValsPerKey = 1;
+		testHashJoin(numBuildKeys, numProbeKeys, buildValsPerKey, probeValsPerKey, numBuildKeys);
+	}
+
+	public void testHashJoin(int numBuildKeys, int numProbeKeys, int buildValsPerKey, int probeValsPerKey, long expectedOutputSize) throws Exception {
+
+		MutableObjectIterator<BinaryRowData> buildInput = new StringUniformBinaryRowGenerator(numBuildKeys, buildValsPerKey, false);
+		MutableObjectIterator<BinaryRowData> probeInput = new StringUniformBinaryRowGenerator(numProbeKeys, probeValsPerKey, false);
+
+		BinaryRowData buildRow = new BinaryRowData(2);
+		while (buildInput.next(buildRow) != null) {
+			testHarness.processElement(new StreamRecord<>(buildRow.copy(), initialTime), 0, 0);
+		}
+
+		testHarness.waitForInputProcessing();
+
+		assertEquals("Output was not correct.",
+			0, testHarness.getOutput().size());
+
+		testHarness.endInput(0, 0);
+		testHarness.endInput(0, 1);
+		testHarness.waitForInputProcessing();
+
+		BinaryRowData probeRow = new BinaryRowData(2);
+		while (probeInput.next(probeRow) != null) {
+			testHarness.processElement(new StreamRecord<>(probeRow.copy(), initialTime), 1, 0);
+		}
+
+		testHarness.waitForInputProcessing();
+
+		testHarness.endInput(1, 0);
+		testHarness.endInput(1, 1);
+		testHarness.waitForTaskCompletion();
+		assertEquals("Output was not correct.",
+			expectedOutputSize, testHarness.getOutput().size());
 	}
 
 	/**

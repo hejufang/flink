@@ -190,7 +190,8 @@ public class BinaryHashTable extends BaseHybridHashTable {
 
 		this.buildSideProjection = buildSideProjection;
 		this.probeSideProjection = probeSideProjection;
-		this.useBloomFilters = useBloomFilters;
+		// bloom filter will filter probe side records when spilled, so it cannot be used in probe outer join
+		this.useBloomFilters = type.canUseBloomFilter() && useBloomFilters;
 		this.type = type;
 		this.condFunc = condFunc;
 		this.reverseJoin = reverseJoin;

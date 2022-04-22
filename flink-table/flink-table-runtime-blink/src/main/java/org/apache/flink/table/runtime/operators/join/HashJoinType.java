@@ -44,6 +44,10 @@ public enum HashJoinType {
 		return this.equals(BUILD_LEFT_SEMI) || this.equals(BUILD_LEFT_ANTI);
 	}
 
+	public boolean canUseBloomFilter() {
+		return !(isProbeOuter() || this.equals(ANTI));
+	}
+
 	public boolean needSetProbed() {
 		return isBuildOuter() || buildLeftSemiOrAnti();
 	}
