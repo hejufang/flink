@@ -17,6 +17,7 @@
 
 package org.apache.flink.connector.rpc.thrift.client;
 
+import org.apache.flink.connector.rpc.table.descriptors.RPCLookupOptions;
 import org.apache.flink.connector.rpc.table.descriptors.RPCOptions;
 
 import com.bytedance.arch.transport.ClientOptions;
@@ -39,15 +40,17 @@ public class RPCServiceClientWrapper implements Serializable, RPCServiceClientBa
 	private final Class<? extends TServiceClient> clientClass;
 	private final Class<?> requestClass;
 	private final RPCOptions options;
-	private transient ClientOptions clientOptions;
+	private final RPCLookupOptions lookupOptions;
 	private transient ServiceClient<?> socketPool;
 
 	public static RPCServiceClientWrapper getInstance(
 			RPCOptions options,
+			RPCLookupOptions lookupOptions,
 			Class<? extends TServiceClient> clientClass,
 			Class<?> requestClass) {
 		return new RPCServiceClientWrapper(
 			options,
+			lookupOptions,
 			clientClass,
 			requestClass
 		);
@@ -55,9 +58,11 @@ public class RPCServiceClientWrapper implements Serializable, RPCServiceClientBa
 
 	private RPCServiceClientWrapper(
 			RPCOptions options,
+			RPCLookupOptions lookupOptions,
 			Class<? extends TServiceClient> clientClass,
 			Class<?> requestClass) {
 		this.options = options;
+		this.lookupOptions = lookupOptions;
 		this.clientClass = clientClass;
 		this.requestClass = requestClass;
 	}
@@ -72,12 +77,15 @@ public class RPCServiceClientWrapper implements Serializable, RPCServiceClientBa
 		if (options.getConnectionPoolSize() > 0) {
 			serviceMeta.setCorePoolSize(options.getConnectionPoolSize());
 		}
-		this.clientOptions = new ClientOptions();
+		ClientOptions clientOptions = new ClientOptions();
 		if (options.getConnectTimeoutMs() > 0) {
 			clientOptions.setConnectTimeout(options.getConnectTimeoutMs());
 		}
 		if (options.getSocketTimeoutMs() > 0) {
 			clientOptions.setSocketTimeout(options.getSocketTimeoutMs());
+		}
+		if (lookupOptions.getMaxRetryTimes() > 0) {
+			clientOptions.setMaxRetry(lookupOptions.getMaxRetryTimes());
 		}
 		this.socketPool = new ServiceClient<>(
 			serviceMeta,
@@ -85,7 +93,8 @@ public class RPCServiceClientWrapper implements Serializable, RPCServiceClientBa
 			options.getTransportType(),
 			clientClass,
 			LoadBalancerType.Random,
-			new SocketPoolOptions());
+			new SocketPoolOptions(),
+			clientOptions);
 	}
 
 	@Override
@@ -98,8 +107,7 @@ public class RPCServiceClientWrapper implements Serializable, RPCServiceClientBa
 					return clientClass.getMethod(options.getThriftMethod(), requestClass).invoke(client, request1);
 				} catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
 					throw new RuntimeException("Cannot send a request to the service.", e);
-				}},
-			clientOptions);
+				}});
 	}
 
 	@Override

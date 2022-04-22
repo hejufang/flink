@@ -19,6 +19,7 @@
 
 package org.apache.flink.connector.rpc.thrift.client;
 
+import org.apache.flink.connector.rpc.table.descriptors.RPCLookupOptions;
 import org.apache.flink.connector.rpc.table.descriptors.RPCOptions;
 
 import com.bytedance.arch.transport.ServiceClient;
@@ -56,6 +57,7 @@ public class RPCServiceClientMock implements Serializable, RPCServiceClientBase 
 
 	public static synchronized RPCServiceClientMock getInstance(
 			RPCOptions options,
+			RPCLookupOptions lookupOptions,
 			Class<? extends TServiceClient> clientClass,
 			Class<?> requestClass) {
 		if (instance == null) {

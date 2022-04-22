@@ -93,8 +93,8 @@ public class RPCBatchLookupExecutor extends BaseRPCLookupExecutor<List<RowData>>
 		}
 		try {
 			serviceClient = (RPCServiceClientBase) Class.forName(rpcOptions.getServiceClientImplClass())
-				.getMethod("getInstance", RPCOptions.class, Class.class, Class.class)
-				.invoke(null, rpcOptions, clientClass, requestClass);
+				.getMethod("getInstance", RPCOptions.class, RPCLookupOptions.class, Class.class, Class.class)
+				.invoke(null, rpcOptions, rpcLookupOptions, clientClass, requestClass);
 		} catch (IllegalAccessException | ClassNotFoundException |
 			NoSuchMethodException | InvocationTargetException e) {
 			throw new IllegalStateException("Something wrong happened in initiate a ServiceClient", e);

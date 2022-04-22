@@ -123,8 +123,8 @@ public abstract class BaseRPCLookupExecutor<T> implements Serializable {
 		responseConverter.open(RPCLookupExecutor.class.getClassLoader());
 		try {
 			serviceClient = (RPCServiceClientBase) Class.forName(rpcOptions.getServiceClientImplClass())
-				.getMethod("getInstance", RPCOptions.class, Class.class, Class.class)
-				.invoke(null, rpcOptions, clientClass, requestClass);
+				.getMethod("getInstance", RPCOptions.class, RPCLookupOptions.class, Class.class, Class.class)
+				.invoke(null, rpcOptions, rpcLookupOptions, clientClass, requestClass);
 		} catch (IllegalAccessException | ClassNotFoundException |
 			NoSuchMethodException | InvocationTargetException e) {
 			throw new IllegalStateException("Something wrong happened in initiate a ServiceClient", e);
@@ -240,8 +240,7 @@ public abstract class BaseRPCLookupExecutor<T> implements Serializable {
 		if (rateLimiter != null) {
 			rateLimiter.acquire(1);
 		}
-		for (int retry = 1; retry <= rpcLookupOptions.getMaxRetryTimes(); retry++) {
-			lookupRequestPerSecond.markEvent();
+		lookupRequestPerSecond.markEvent();
 			String logID = RequestIDUtil.generateRequestID();
 			addBaseInfoToRequest(requestObject, logID);
 			try {
@@ -258,24 +257,20 @@ public abstract class BaseRPCLookupExecutor<T> implements Serializable {
 				requestDelayMs.update(requestDelay);
 				return resolveResponse(lookupKeys, responseObject);
 			} catch (Throwable e) {
-				lookupFailurePerSecond.markEvent();
-				if (retry >= rpcLookupOptions.getMaxRetryTimes()) {
-					FailureHandleStrategy strategy = rpcLookupOptions.getFailureHandleStrategy();
-					switch (strategy) {
-						case TASK_FAILURE:
-							throw new FlinkRuntimeException(
-								String.format("Execution of RPC get response failed. The logId is : %s", logID), e);
-						case EMIT_EMPTY:
-							//failure strategy is emit-empty
-							//do not collect anything so join result will be null
-							break;
-					}
-				} else {
-					LOG.error(String.format("RPC get response error, the logId is : %s, retry times = %d",
-						logID, retry), e);
+				lookupFailurePerSecond.markEvent(rpcLookupOptions.getMaxRetryTimes());
+				FailureHandleStrategy strategy = rpcLookupOptions.getFailureHandleStrategy();
+				switch (strategy) {
+					case TASK_FAILURE:
+						throw new FlinkRuntimeException(
+							String.format("Execution of RPC get response failed after %d retries. The logId is : %s",
+								rpcLookupOptions.getMaxRetryTimes(), logID), e);
+					case EMIT_EMPTY:
+						//failure strategy is emit-empty
+						//do not collect anything so join result will be null
+						break;
 				}
 			}
-		}
+
 		return null;
 	}
 

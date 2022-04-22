@@ -33,7 +33,7 @@ under the License.
 		<dependency>
 			<groupId>com.bytedance.arch</groupId>
 			<artifactId>utils</artifactId>
-			<version>1.0.0.118</version>
+			<version>1.0.0.127</version>
 			<exclusions>
 				<exclusion>
 					<groupId>log4j</groupId>

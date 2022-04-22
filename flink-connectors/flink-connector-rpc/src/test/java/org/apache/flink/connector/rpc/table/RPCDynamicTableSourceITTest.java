@@ -155,7 +155,7 @@ public class RPCDynamicTableSourceITTest {
 		second.setInnerTestStruct(secondInnerStruct);
 		expectedRequests.add(second);
 		List<TestStruct> actualRequests = (List<TestStruct>) RPCServiceClientMock
-			.getInstance(null, null, null)
+			.getInstance(null, null, null, null)
 			.getRequests(2);
 		verifyRequests(expectedRequests, actualRequests, baseField, logIDField);
 		List<String> expectedOutput = new ArrayList<String>(){{
@@ -251,7 +251,7 @@ public class RPCDynamicTableSourceITTest {
 		}});
 		expectedRequests.add(second);
 		List<TestStruct> actualRequests = (List<TestStruct>) RPCServiceClientMock
-			.getInstance(null, null, null)
+			.getInstance(null, null, null, null)
 			.getRequests(2);
 		verifyRequests(expectedRequests, actualRequests, baseField, logIDField);
 		List<String> expectedOutput = new ArrayList<String>(){{
@@ -336,7 +336,7 @@ public class RPCDynamicTableSourceITTest {
 		first.setListWithStruct(firstInnerList);
 		expectedRequests.add(first);
 		List<TestStruct> actualRequests = (List<TestStruct>) RPCServiceClientMock
-			.getInstance(null, null, null)
+			.getInstance(null, null, null, null)
 			.getRequests(1);
 		verifyRequests(expectedRequests, actualRequests, baseField, logIDField);
 		List<String> expectedOutput = new ArrayList<String>(){{
@@ -432,7 +432,7 @@ public class RPCDynamicTableSourceITTest {
 		second.setListWithStruct(secondInnerList);
 		expectedRequests.add(second);
 		List<TestStruct> actualRequests = (List<TestStruct>) RPCServiceClientMock
-			.getInstance(null, null, null)
+			.getInstance(null, null, null, null)
 			.getRequests(2);
 		verifyRequests(expectedRequests, actualRequests, baseField, logIDField);
 		List<String> expectedOutput = new ArrayList<String>(){{

@@ -17,7 +17,7 @@
  */
  
  org.apache.flink:flink-connector-rpc:jar:1.11-byted-SNAPSHOT
- +- com.bytedance.arch:utils:jar:1.0.0.118:compile
+ +- com.bytedance.arch:utils:jar:1.0.0.127:compile
  |  +- com.bytedance.bytedtrace:bytedtrace-client-java:jar:1.0.1-rc.3:compile
  |  |  +- com.bytedance.bytedtrace:serializer-java:jar:1.0.1-rc.3:compile
  |  |  +- com.bytedance.bytedtrace:bytedtrace-common-java:jar:1.0.4-rc.1:compile
@@ -126,6 +126,7 @@
  |  |  \- org.apache.flink:flink-shaded-asm-7:jar:7.1-11.0-byted-SNAPSHOT:provided
  |  +- org.codehaus.janino:janino:jar:3.0.9:provided
  |  |  \- org.codehaus.janino:commons-compiler:jar:3.0.9:provided
+ |  +- org.apache.flink:flink-table-code-splitter:jar:1.11-byted-SNAPSHOT:provided
  |  \- org.apache.calcite.avatica:avatica-core:jar:1.16.0:provided
  +- org.apache.flink:flink-table-planner-blink_2.11:jar:1.11-byted-SNAPSHOT:test
  |  +- org.apache.flink:flink-table-api-scala_2.11:jar:1.11-byted-SNAPSHOT:test

@@ -116,7 +116,7 @@ public class RPCAsyncLookupFunction extends AsyncTableFunction<RowData> {
 		Class<? extends TServiceClient> clientClass = ThriftUtil.getThriftClientClass(rpcOptions.getThriftServiceClass());
 		this.requestClass = ThriftUtil.getParameterClassOfMethod(clientClass, rpcOptions.getThriftMethod());
 		this.responseClass = ThriftUtil.getReturnClassOfMethod(clientClass, rpcOptions.getThriftMethod());
-		this.serviceClient = RPCServiceClientWrapper.getInstance(rpcOptions, clientClass, requestClass);
+		this.serviceClient = RPCServiceClientWrapper.getInstance(rpcOptions, rpcLookupOptions, clientClass, requestClass);
 		this.psm = rpcOptions.getPsm();
 		this.rateLimiter = rpcOptions.getRateLimiter();
 		this.reusedExtraMap = generateExtraInfoForReq();
