@@ -77,4 +77,10 @@ public class HtapOptions {
 			.booleanType()
 			.defaultValue(false)
 			.withDescription("Whether run htap source in dry run mode.");
+
+	public static final ConfigOption<Boolean> TABLE_EXEC_HTAP_LIMIT_PARALLELISM_BY_TABLE_LIMIT_ROWS =
+		key("table.exec.htap.limit-parallelism-by-table-limit-rows")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether limit source parallelism by table limit rows.");
 }

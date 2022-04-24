@@ -72,6 +72,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.connectors.htap.table.HtapOptions.TABLE_EXEC_HTAP_IN_DRY_RUN_MODE;
+import static org.apache.flink.connectors.htap.table.HtapOptions.TABLE_EXEC_HTAP_LIMIT_PARALLELISM_BY_TABLE_LIMIT_ROWS;
 import static org.apache.flink.connectors.htap.table.utils.HtapTableUtils.toHtapFilterInfo;
 
 /**
@@ -177,6 +178,8 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			metaClient.getTable(tableInfo.getName()) :
 			metaClient.getTable(tableInfo.getName(), readerConfig.getCheckPointLSN());
 		boolean inDryRunMode = flinkConf.get(TABLE_EXEC_HTAP_IN_DRY_RUN_MODE);
+		boolean limitParallelismByTableLimitRows =
+			flinkConf.get(TABLE_EXEC_HTAP_LIMIT_PARALLELISM_BY_TABLE_LIMIT_ROWS);
 		boolean compatibleWithMySQL =
 			flinkConf.get(ExecutionConfigOptions.TABLE_EXEC_COMPATIBLE_WITH_MYSQL);
 		readerConfig.setCompatibleWithMySQL(compatibleWithMySQL);
@@ -224,7 +227,9 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			}
 
 			parallelism = Math.min(parallelism, max);
-			parallelism = limit > 0 ? Math.min(parallelism, (int) limit / 1000) : parallelism;
+			if (limitParallelismByTableLimitRows) {
+				parallelism = limit > 0 ? Math.min(parallelism, (int) limit / 1000) : parallelism;
+			}
 			parallelism = Math.max(1, parallelism);
 		}
 		return env.createInput(inputFormat,
