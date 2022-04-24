@@ -17,7 +17,7 @@
  */
 
 org.apache.flink:flink-connector-abase:jar:1.11-byted-SNAPSHOT
-+- com.bytedance:java-abase-client:jar:2.4.3-POOLFIX-2:compile
++- com.bytedance:java-abase-client:jar:2.4.3-POOLFIX-3:compile
 |  +- com.google.guava:guava:jar:18.0:compile
 |  +- io.dropwizard.metrics:metrics-core:jar:4.0.1:compile
 |  +- com.bytedance:commons:jar:0.0.14:compile
