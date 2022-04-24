@@ -28,21 +28,25 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Test case for {@link JobResultThreadPool}.
  */
 public class JobResultThreadPoolTest {
 	@Test
-	public void testWriteMultipleJobResults() {
+	public void testWriteMultipleJobResults() throws InterruptedException {
 		try (JobResultThreadPool threadPool = new JobResultThreadPool(3)) {
 			threadPool.start();
 
 			final Map<JobID, List<Object>> jobResultsMap = new HashMap<>();
 			final Map<JobID, TestingConsumeChannelHandlerContext> contextList = new HashMap<>();
 			final int jobCount = 100;
+			CountDownLatch latch = new CountDownLatch(jobCount);
 			for (int i = 0; i < jobCount; i++) {
 				List<Object> resultList = new ArrayList<>();
 				JobID jobId = new JobID();
@@ -53,8 +57,11 @@ public class JobResultThreadPoolTest {
 						.setWriteConsumer(o -> {
 							JobSocketResult result = (JobSocketResult) o;
 							assertEquals(jobId, result.getJobId());
-							resultList.add(result.getResult());
+							if (result.getResult() != null) {
+								resultList.add(result.getResult());
+							}
 						})
+						.setFlushRunner(latch::countDown)
 						.build());
 			}
 
@@ -73,7 +80,19 @@ public class JobResultThreadPoolTest {
 								.build()));
 				}
 			}
+			for (JobID jobId : jobResultsMap.keySet()) {
+				threadPool.addJobResultContext(
+					new JobResultContext(
+						contextList.get(jobId),
+						new JobSocketResult.Builder()
+							.setJobId(jobId)
+							.setResult(null)
+							.setResultStatus(ResultStatus.COMPLETE)
+							.build())
+				);
+			}
 
+			assertTrue(latch.await(10, TimeUnit.SECONDS));
 			for (List<Object> results : jobResultsMap.values()) {
 				assertEquals(resultList, results);
 			}
