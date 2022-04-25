@@ -363,6 +363,13 @@ under the License.
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-shaded-caffeine</artifactId>
 		</dependency>
+
+		<!-- http dependencies -->
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-shaded-httpclient</artifactId>
+			<version>${http.client.version}-${flink.shaded.version}</version>
+		</dependency>
 	</dependencies>
 
 	<!-- Dependency Management to converge transitive dependency versions -->

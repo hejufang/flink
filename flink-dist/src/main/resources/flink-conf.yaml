@@ -301,6 +301,9 @@ common:
   # cloud shuffle service
   flink.cloud-shuffle-service.support: false
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator.byted.org
+  flink.cloud-shuffle-service.get-css-jar-from-coordinator: false
+  flink.cloud-shuffle-service.report-job-status-to-coordinator: true
+  flink.cloud-shuffle-service.css.compression.codec: lz4
 
   # stateBackend cache layer
   state.backend.cache.enable: true
@@ -737,6 +740,7 @@ quail:
   blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
+  flink.cloud-shuffle-service.support: true
 
 quoll:
   dc: cn
@@ -748,6 +752,7 @@ quoll:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   blacklist.taskmanager.critical.error.enabled: true
+  flink.cloud-shuffle-service.support: true
 
 quoka:
   dc: cn
@@ -784,6 +789,7 @@ quele:
   blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
+  flink.cloud-shuffle-service.support: true
 
 camel:
   dc: cn

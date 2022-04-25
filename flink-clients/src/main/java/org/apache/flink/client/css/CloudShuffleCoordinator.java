@@ -21,8 +21,8 @@ package org.apache.flink.client.css;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.monitor.utils.HttpUtil;
 import org.apache.flink.runtime.shuffle.CloudShuffleOptions;
+import org.apache.flink.runtime.util.HttpUtil;
 import org.apache.flink.util.StringUtils;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
@@ -69,8 +69,7 @@ public class CloudShuffleCoordinator {
 			// construct CoordinatorQuery
 			final String region = configuration.getString(ConfigConstants.DC_KEY, null);
 			final String cluster = configuration.getString(ConfigConstants.CLUSTER_NAME_KEY, null);
-			// only support yarn for now
-			final String queue = configuration.getString(ConfigConstants.YARN_APPLICATION_QUEUE, null);
+			final String queue = configuration.getString(ConfigConstants.QUEUE_KEY, null);
 
 			if (StringUtils.isNullOrWhitespaceOnly(region) || StringUtils.isNullOrWhitespaceOnly(cluster) || StringUtils.isNullOrWhitespaceOnly(queue)) {
 				final String message = String.format("region=%s, cluster=%s, queue=%s cannot contain any null value.", region, cluster, queue);

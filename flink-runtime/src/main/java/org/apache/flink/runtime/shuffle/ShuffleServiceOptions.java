@@ -50,4 +50,13 @@ public class ShuffleServiceOptions {
 		.key("shuffle.cloud-shuffle-mode")
 		.defaultValue(false)
 		.withDescription("True if CSS is enabled, it will affect partition availability and shuffle data format.");
+
+	/**
+	 * Where to report the job status to css.
+	 */
+	public static final ConfigOption<Boolean> CLOUD_SHUFFLE_SERVICE_REPORT_JOB_STATUS_TO_COORDINATOR = ConfigOptions
+		.key("flink.cloud-shuffle-service.report-job-status-to-coordinator")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Report job status to css coordinator, it will be effective only using css.");
 }

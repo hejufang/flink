@@ -19,6 +19,7 @@ package org.apache.flink.monitor.utils;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.runtime.util.HttpUtil;
 
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;

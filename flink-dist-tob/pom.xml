@@ -149,6 +149,7 @@ under the License.
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-cloud-shuffle</artifactId>
 			<version>${project.version}</version>
+			<scope>provided</scope>
 		</dependency>
 
 		<!-- Default file system support. The Hadoop and MapR dependencies -->

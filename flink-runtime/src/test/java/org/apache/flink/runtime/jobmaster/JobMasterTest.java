@@ -34,6 +34,7 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.RestartStrategyOptions;
 import org.apache.flink.core.io.InputSplit;
 import org.apache.flink.core.io.InputSplitAssigner;
@@ -151,6 +152,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
@@ -491,6 +493,23 @@ public class JobMasterTest extends TestLogger {
 			RpcUtils.terminateRpcEndpoint(jobMaster, testingTimeout);
 			jobManagerSharedServices.shutdown();
 		}
+	}
+
+	@Ignore
+	@Test
+	public void testReportBatchJobStatusToCss() throws Exception {
+		final JobMaster jobMaster = new JobMasterBuilder(jobGraph, rpcService)
+			.withConfiguration(configuration)
+			.withHighAvailabilityServices(haServices)
+			.withHeartbeatServices(heartbeatServices)
+			.createJobMaster();
+
+		Configuration configurationTest = new Configuration();
+		configurationTest.setString(PipelineOptions.NAME, "test-job");
+		// send the msg to css boe env
+		configurationTest.setString(ConfigConstants.CLOUD_SHUFFLE_SERVICE_COORDINATOR_URL, "http://css-coordinator-boe.byted.org");
+		String jobStatus = JobStatus.FINISHED.name();
+		jobMaster.reportBatchJobStatusToCss(configurationTest, jobStatus);
 	}
 
 	private static final class TestingSlotPoolFactory implements SlotPoolFactory {

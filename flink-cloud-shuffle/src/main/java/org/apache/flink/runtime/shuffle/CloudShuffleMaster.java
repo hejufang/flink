@@ -19,8 +19,10 @@
 package org.apache.flink.runtime.shuffle;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.css.api.CssShuffleContext;
 import com.bytedance.css.client.ShuffleClient;
@@ -35,6 +37,7 @@ import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -77,16 +80,32 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 	public CloudShuffleMaster(Configuration configuration) {
 		// start CSS Master
 		try {
-			CssShuffleContext.get().startMaster(getLocalFQDNHostName(), 0, CloudShuffleOptions.propertiesFromConfiguration(configuration));
-			configuration.set(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_ADDRESS, CssShuffleContext.get().getMasterHost());
-			configuration.set(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_PORT, String.valueOf(CssShuffleContext.get().getMasterPort()));
+			if (configuration.getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false)) {
+				String jmAddress = configuration.getString(ConfigConstants.JOB_MANAGER_IPC_ADDRESS_KEY, ConfigConstants.JOB_MANAGER_IPC_ADDRESS_VALUE);
+				if (jmAddress.equals(ConfigConstants.JOB_MANAGER_IPC_ADDRESS_VALUE)) {
+					String msg = String.format("The value of {} is needed, but it's not set.", ConfigConstants.JOB_MANAGER_IPC_ADDRESS_KEY);
+					LOG.warn(msg);
+					throw new FlinkRuntimeException(msg);
+				} else {
+					this.masterHost = configuration.getString(ConfigConstants.JOB_MANAGER_IPC_ADDRESS_KEY, "none");
+				}
+			} else {
+				this.masterHost = getLocalFQDNHostName();
+			}
+			CssShuffleContext.get().startMaster(this.masterHost, 0, CloudShuffleOptions.propertiesFromConfiguration(configuration));
+
+			this.masterPort = String.valueOf(CssShuffleContext.get().getMasterPort());
+			configuration.set(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_ADDRESS, this.masterHost);
+			configuration.set(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_PORT, this.masterPort);
+
+			LOG.info("CLOUD_SHUFFLE_SERVICE_ADDRESS: {}, CLOUD_SHUFFLE_SERVICE_PORT: {}.", this.masterHost, this.masterPort);
 
 			final int numberOfWorkers = configuration.getInteger(CloudShuffleOptions.CLOUD_SHUFFLE_SERVICE_NUMBER_OF_WORKERS);
 			CssShuffleContext.get().allocateWorkerIfNeeded(numberOfWorkers);
 
 			this.masterHost = CssShuffleContext.get().getMasterHost();
 			this.masterPort = String.valueOf(CssShuffleContext.get().getMasterPort());
-		} catch (Exception e) {
+		} catch (Throwable e) {
 			LOG.error("Fail to start CSS Master.", e);
 			System.exit(-100);
 		}
@@ -94,8 +113,13 @@ public class CloudShuffleMaster implements ShuffleMaster<CloudShuffleDescriptor>
 		this.cssConf = CloudShuffleOptions.fromConfiguration(configuration);
 		this.cssClient = (ShuffleClientImpl) ShuffleClient.get(cssConf);
 		this.shuffleIds = new HashMap<>();
-		this.applicationId = System.getenv("_APP_ID");
-		this.applicationAttemptNumber = getApplicationAttemptNumber(System.getenv("CONTAINER_ID"));
+		if (configuration.getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false)) {
+			this.applicationId = configuration.getString(ConfigConstants.KUBERNETES_CLUSTER_ID, ConfigConstants.KUBERNETES_CLUSTER_ID_DEFAULT);
+			this.applicationAttemptNumber = (new Random()).nextInt();
+		} else {
+			this.applicationId = System.getenv(ConfigConstants.ENV_APP_ID);
+			this.applicationAttemptNumber = getApplicationAttemptNumber(System.getenv("CONTAINER_ID"));
+		}
 		this.baseShuffleId = applicationAttemptNumber << 16;
 	}
 

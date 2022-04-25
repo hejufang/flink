@@ -55,4 +55,8 @@ public class SimpleHistogram implements Histogram {
 	public static com.codahale.metrics.Histogram buildSlidingWindowReservoirHistogram() {
 		return new com.codahale.metrics.Histogram(new SlidingWindowReservoir(HISTOGRAM_SIZE));
 	}
+
+	public static com.codahale.metrics.Histogram buildSlidingWindowReservoirHistogram(int histogramSize) {
+		return new com.codahale.metrics.Histogram(new SlidingWindowReservoir(histogramSize));
+	}
 }

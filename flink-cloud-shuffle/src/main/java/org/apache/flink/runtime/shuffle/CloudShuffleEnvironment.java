@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.shuffle;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.deployment.InputGateDeploymentDescriptor;
@@ -77,7 +78,11 @@ public class CloudShuffleEnvironment implements ShuffleEnvironment<CloudShuffleR
 		this.configuration = configuration;
 		this.isClosed = false;
 
-		this.applicationId = System.getenv("_APP_ID");
+		if (configuration.getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false)) {
+			this.applicationId = configuration.getString(ConfigConstants.KUBERNETES_CLUSTER_ID, ConfigConstants.KUBERNETES_CLUSTER_ID_DEFAULT);
+		} else {
+			this.applicationId = System.getenv(ConfigConstants.ENV_APP_ID);
+		}
 
 		this.cssClient = null;
 		this.currentCSSMasterAddress = "-";

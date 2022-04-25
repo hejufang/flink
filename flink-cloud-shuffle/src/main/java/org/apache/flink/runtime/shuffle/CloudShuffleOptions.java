@@ -35,6 +35,7 @@ public class CloudShuffleOptions {
 
 	public static final String PREFIX = "flink.cloud-shuffle-service.";
 	public static final String CSS_MASTER_ADDRESS = "css.master.address";
+	public static final int CLOUD_HISTOGRAM_SIZE = 10;
 
 	/**  Whether the css is enabled. */
 	public static final ConfigOption<Boolean> CLOUD_SHUFFLE_SERVICE_SUPPORT = ConfigOptions

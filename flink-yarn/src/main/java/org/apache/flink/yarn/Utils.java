@@ -19,10 +19,10 @@
 package org.apache.flink.yarn;
 
 import org.apache.flink.configuration.ConfigConstants;
-import org.apache.flink.monitor.utils.HttpUtil;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.util.HadoopUtils;
+import org.apache.flink.runtime.util.HttpUtil;
 import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;

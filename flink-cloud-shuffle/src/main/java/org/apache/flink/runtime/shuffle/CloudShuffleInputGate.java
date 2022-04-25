@@ -291,4 +291,11 @@ public class CloudShuffleInputGate extends IndexedInputGate {
 	public long getInBytes() {
 		return inputBytes;
 	}
+
+	/**
+	 * Get the avg latency of cloudShuffleLatency.
+	 */
+	public double getCloudShuffleLatencyAvg() {
+		return cloudShuffleReader.getCloudShuffleReadLatency().getStatistics().getMean();
+	}
 }

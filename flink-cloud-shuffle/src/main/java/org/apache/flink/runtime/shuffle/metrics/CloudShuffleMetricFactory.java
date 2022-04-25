@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.shuffle.metrics;
 
+import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.RateGauge;
 import org.apache.flink.runtime.shuffle.CloudShuffleInputGate;
@@ -34,6 +35,8 @@ public class CloudShuffleMetricFactory {
 	// metrics to measure global shuffle
 	private static final String METRIC_SHUFFLE_OUTPUT_BYTES = "cloudShuffleOutputBytes";
 	private static final String METRIC_SHUFFLE_INPUT_BYTES = "cloudShuffleInputBytes";
+	private static final String METRIC_SHUFFLE_WRITE_LATENCY_AVG = "cloudShuffleWriteLatencyAvg";
+	private static final String METRIC_SHUFFLE_READ_LATENCY_AVG = "cloudShuffleReadLatencyAvg";
 
 	public static MetricGroup createShuffleIOOwnerMetricGroup(MetricGroup parentGroup) {
 		return parentGroup.addGroup(METRIC_GROUP_SHUFFLE).addGroup(METRIC_GROUP_CLOUD);
@@ -49,6 +52,18 @@ public class CloudShuffleMetricFactory {
 			}
 			return sum;
 		}));
+
+		outputGroup.gauge(METRIC_SHUFFLE_WRITE_LATENCY_AVG, (Gauge<Double>) () -> {
+			double totalPartitionLatencyAvg = 0;
+			if (resultPartitions.length > 0) {
+				for (CloudShuffleResultPartition rp : resultPartitions) {
+					totalPartitionLatencyAvg += rp.getCloudShuffleLatencyAvg();
+				}
+				return totalPartitionLatencyAvg / resultPartitions.length;
+			} else {
+				return totalPartitionLatencyAvg;
+			}
+		});
 	}
 
 	public static void registerInputMetrics(
@@ -61,5 +76,17 @@ public class CloudShuffleMetricFactory {
 			}
 			return sum;
 		}));
+
+		inputGroup.gauge(METRIC_SHUFFLE_READ_LATENCY_AVG, (Gauge<Double>) () -> {
+			double totalPartitionLatencyAvg = 0;
+			if (inputGates.length > 0) {
+				for (CloudShuffleInputGate rp : inputGates) {
+					totalPartitionLatencyAvg += rp.getCloudShuffleLatencyAvg();
+				}
+				return totalPartitionLatencyAvg / inputGates.length;
+			} else {
+				return totalPartitionLatencyAvg;
+			}
+		});
 	}
 }

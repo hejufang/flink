@@ -164,6 +164,8 @@ common:
   # cloud shuffle service
   flink.cloud-shuffle-service.support: false
   flink.cloud-shuffle-service.get-css-jar-from-coordinator: false
+  flink.cloud-shuffle-service.report-job-status-to-coordinator: false
+  flink.cloud-shuffle-service.css.compression.codec: lz4
 
   # stateBackend cache layer
   state.backend.cache.enable: true

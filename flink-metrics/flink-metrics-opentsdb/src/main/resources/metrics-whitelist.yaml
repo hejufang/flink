@@ -77,6 +77,8 @@ global:
         nettyShuffleInputBytes,
         cloudShuffleOutputBytes,
         cloudShuffleInputBytes,
+        cloudShuffleWriteLatencyAvg,
+        cloudShuffleReadLatencyAvg,
         allocateFromAvailableFailedNumber,
         numberOfDiscardExpiredCheckpointFolder,
         numJobRequiredWorkers,

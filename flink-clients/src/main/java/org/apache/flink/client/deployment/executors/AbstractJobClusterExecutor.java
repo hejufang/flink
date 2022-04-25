@@ -87,7 +87,7 @@ public class AbstractJobClusterExecutor<ClusterID, ClientFactory extends Cluster
 		if (configuration.getBoolean(RUN_WITH_CHECKPOINT_VERIFY)) {
 			CheckpointVerifier.verifyExitCode = 0;
 			// directly throw an exception, let user's code to handle it
-			throw new Exception("runWithCheckpointVerify is set true, hiject job submission");
+			throw new Exception("runWithCheckpointVerify is set true, reject job submission");
 		}
 
 		try (final ClusterDescriptor<ClusterID> clusterDescriptor = clusterClientFactory.createClusterDescriptor(configuration)) {

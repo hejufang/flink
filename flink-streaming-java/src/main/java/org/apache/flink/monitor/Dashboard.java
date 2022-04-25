@@ -19,9 +19,9 @@ package org.apache.flink.monitor;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
-import org.apache.flink.monitor.utils.HttpUtil;
 import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.util.HttpUtil;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.util.MetricUtils;
 

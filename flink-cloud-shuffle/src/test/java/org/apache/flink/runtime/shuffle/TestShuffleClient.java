@@ -95,6 +95,11 @@ public class TestShuffleClient extends ShuffleClient {
 	}
 
 	@Override
+	public boolean validShuffleStageReady(String s, int i) throws IOException {
+		return true;
+	}
+
+	@Override
 	public int[] getMapperAttempts(int i) {
 		throw new UnsupportedOperationException();
 	}

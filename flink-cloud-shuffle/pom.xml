@@ -33,7 +33,9 @@ under the License.
     <packaging>jar</packaging>
 
     <properties>
-        <css.version>1.0.0-SNAPSHOT</css.version>
+        <css.version>1.0.2</css.version>
+		<dropwizard.version>3.2.6</dropwizard.version>
+		<shaded.prefix>org.apache.flink.cloud.shaded</shaded.prefix>
     </properties>
 
     <dependencies>
@@ -47,7 +49,6 @@ under the License.
             <groupId>com.bytedance.inf</groupId>
             <artifactId>css-service_${scala.binary.version}</artifactId>
             <version>${css.version}</version>
-			<scope>provided</scope>
             <exclusions>
                 <exclusion>
                     <groupId>log4j</groupId>
@@ -74,10 +75,6 @@ under the License.
                     <artifactId>javax.servlet-api</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.google.guava</groupId>
-                    <artifactId>guava</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>org.fusesource.leveldbjni</groupId>
                     <artifactId>leveldbjni-all</artifactId>
                 </exclusion>
@@ -96,7 +93,6 @@ under the License.
             <groupId>com.bytedance.inf</groupId>
             <artifactId>css-api</artifactId>
             <version>${css.version}</version>
-			<scope>provided</scope>
             <exclusions>
                 <exclusion>
                     <groupId>log4j</groupId>
@@ -113,7 +109,6 @@ under the License.
             <groupId>com.bytedance.inf</groupId>
             <artifactId>css-client_${scala.binary.version}</artifactId>
             <version>${css.version}</version>
-			<scope>provided</scope>
             <exclusions>
                 <exclusion>
                     <groupId>log4j</groupId>
@@ -123,17 +118,12 @@ under the License.
                     <groupId>org.slf4j</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>org.lz4</groupId>
-                    <artifactId>lz4-java</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 		<dependency>
 			<groupId>commons-lang</groupId>
 			<artifactId>commons-lang</artifactId>
 			<version>2.6</version>
-			<scope>provided</scope>
 		</dependency>
     </dependencies>
 
@@ -157,16 +147,48 @@ under the License.
                             <relocations>
                                 <relocation>
                                     <pattern>com.github.luben</pattern>
-                                    <shadedPattern>org.apache.flink.cloud.shaded.com.github.luben</shadedPattern>
+                                    <shadedPattern>${shaded.prefix}.com.github.luben</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.apache.commons</pattern>
-                                    <shadedPattern>org.apache.flink.cloud.shaded.org.apache.commons</shadedPattern>
+                                    <shadedPattern>${shaded.prefix}.org.apache.commons</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>com.netflix.concurrency-limits</pattern>
-                                    <shadedPattern>org.apache.flink.cloud.shaded.com.netflix.concurrency-limits</shadedPattern>
+                                    <shadedPattern>${shaded.prefix}.com.netflix.concurrency-limits</shadedPattern>
                                 </relocation>
+								<relocation>
+                                    <pattern>net.jpountz</pattern>
+                                    <shadedPattern>${shaded.prefix}.net.jpountz</shadedPattern>
+                                </relocation>
+								<relocation>
+									<pattern>com.bytedance.commons</pattern>
+									<shadedPattern>${shaded.prefix}.com.bytedance.commons</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.google.common</pattern>
+									<shadedPattern>${shaded.prefix}.com.google.common</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.google.gson</pattern>
+									<shadedPattern>${shaded.prefix}.com.google.gson</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.springframework</pattern>
+									<shadedPattern>${shaded.prefix}.org.springframework</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>okhttp3</pattern>
+									<shadedPattern>${shaded.prefix}.okhttp3</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>okio</pattern>
+									<shadedPattern>${shaded.prefix}.okio</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.codahale.metrics</pattern>
+									<shadedPattern>org.apache.flink.dist.shaded.com.codahale.metrics</shadedPattern>
+								</relocation>
                             </relocations>
                         </configuration>
                     </execution>

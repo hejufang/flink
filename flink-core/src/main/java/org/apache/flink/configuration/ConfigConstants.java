@@ -153,6 +153,8 @@ public final class ConfigConstants {
 	@Deprecated
 	public static final String JOB_MANAGER_IPC_ADDRESS_KEY = "jobmanager.rpc.address";
 
+	public static final String JOB_MANAGER_IPC_ADDRESS_VALUE = "none";
+
 	/**
 	 * The config parameter defining the network port to connect to
 	 * for communication with the job manager.
@@ -2054,10 +2056,12 @@ public final class ConfigConstants {
 
 	public static final String APPLICATION_NAME_KEY = "applicationName";
 	public static final String APPLICATION_NAME_DEFAULT = "NoAppName";
+	public static final String ENV_APP_ID = "_APP_ID";
 
 	public static final String APPLICATION_ID_KEY = "applicationID";
 
 	public static final String IS_KUBERNETES_KEY = "is_kubernetes";
+	public static final boolean IS_KUBERNETES_DEFAULT = false;
 	public static final String DC_KEY = "dc";
 	public static final String DC_DEFAULT = "cn";
 	public static final String CLUSTER_NAME_KEY = "clusterName";
@@ -2205,6 +2209,14 @@ public final class ConfigConstants {
 
 	public static final String FILE_SCHEME = "file";
 	public static final String LOCAL_SCHEME = "local";
+
+	/**
+	 * Cloud shuffle service.
+	 */
+	public static final String CSS_COORDINATOR_REPORT = "/css/v1/api/jobMetric/report";
+	public static final String CLOUD_SHUFFLE_SERVICE_COORDINATOR_URL = "flink.cloud-shuffle-service.coordinator.url";
+	public static final String CLOUD_SHUFFLE_SERVICE_COORDINATOR_URL_DEFAULT = "unknown";
+	public static final String CLOUD_SHUFFLE_SERVICE_TYPE = "flink";
 
 	/**
 	 * Not instantiable.

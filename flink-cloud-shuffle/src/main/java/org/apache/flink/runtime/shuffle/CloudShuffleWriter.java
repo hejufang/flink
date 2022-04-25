@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.shuffle;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.metrics.SimpleHistogram;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.network.api.CloudShuffleVerifierEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
@@ -94,6 +95,9 @@ public class CloudShuffleWriter implements Closeable {
 
 	private final int initialSizePerReducer;
 
+	// css write latency metrics
+	private final SimpleHistogram cloudShuffleWriteLatency;
+
 	// performance info
 	private int numberOfFlushBySegmentSize;
 	private int numberOfFlushByBatchSizePerGroup;
@@ -148,6 +152,8 @@ public class CloudShuffleWriter implements Closeable {
 		this.numberOfFlushBySegmentSize = 0;
 		this.numberOfFlushByBatchSizePerGroup = 0;
 		this.numberOfFlushByBatchSize = 0;
+
+		this.cloudShuffleWriteLatency = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram(CloudShuffleOptions.CLOUD_HISTOGRAM_SIZE));
 	}
 
 	public void broadcastRecord(ByteBuffer record) throws IOException {
@@ -249,6 +255,7 @@ public class CloudShuffleWriter implements Closeable {
 				lengthArray[i] = eventBytes.length;
 			}
 
+			long writeStartTime = System.nanoTime();
 			shuffleClient.batchPushData(
 				applicationId,
 				shuffleId,
@@ -261,6 +268,7 @@ public class CloudShuffleWriter implements Closeable {
 				numberOfMappers,
 				numberOfReducers,
 				false);
+			this.cloudShuffleWriteLatency.update((System.nanoTime() - writeStartTime) / 1000);
 		}
 	}
 
@@ -304,6 +312,7 @@ public class CloudShuffleWriter implements Closeable {
 				lengthArray[i] = eventBytes.length;
 			}
 
+			long writeStartTime = System.nanoTime();
 			shuffleClient.batchPushData(
 				applicationId,
 				shuffleId,
@@ -316,6 +325,7 @@ public class CloudShuffleWriter implements Closeable {
 				numberOfMappers,
 				numberOfReducers,
 				false);
+			this.cloudShuffleWriteLatency.update((System.nanoTime() - writeStartTime) / 1000);
 		}
 	}
 
@@ -364,6 +374,7 @@ public class CloudShuffleWriter implements Closeable {
 		// collect metrics
 		outBytes += currentBatchWrittenBytesPerGroup[groupId];
 
+		long writeStartTime = System.nanoTime();
 		shuffleClient.batchPushData(
 			applicationId,
 			shuffleId,
@@ -376,6 +387,8 @@ public class CloudShuffleWriter implements Closeable {
 			numberOfMappers,
 			numberOfReducers,
 			false);
+		this.cloudShuffleWriteLatency.update((System.nanoTime() - writeStartTime) / 1000);
+
 		// reset
 		currentBatchWrittenBytes -= currentBatchWrittenBytesPerGroup[groupId];
 		currentBatchWrittenBytesPerGroup[groupId] = 0;
@@ -431,6 +444,10 @@ public class CloudShuffleWriter implements Closeable {
 
 	public long getOutBytes() {
 		return outBytes;
+	}
+
+	public SimpleHistogram getCloudShuffleWriteLatency() {
+		return cloudShuffleWriteLatency;
 	}
 
 	@VisibleForTesting

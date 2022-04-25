@@ -248,4 +248,11 @@ public class CloudShuffleResultPartition implements ResultPartitionWriter, Buffe
 	public long getOutBytes() {
 		return cloudShuffleWriter.getOutBytes();
 	}
+
+	/**
+	 * Get the avg latency of cloudShuffleLatency.
+	 */
+	public double getCloudShuffleLatencyAvg() {
+		return cloudShuffleWriter.getCloudShuffleWriteLatency().getStatistics().getMean();
+	}
 }

@@ -27,9 +27,11 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.BenchmarkOption;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.event.batch.WarehouseBatchJobInfoMessage;
 import org.apache.flink.metrics.ConfigMessage;
@@ -127,12 +129,16 @@ import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
 import org.apache.flink.runtime.util.EnvironmentInformation;
+import org.apache.flink.runtime.util.HttpUtil;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.StringUtils;
+
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.slf4j.Logger;
 
@@ -421,6 +427,12 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 				// init message set
 				batchJobInfoMessageSet = new MessageSet<>(MessageType.FLINK_BATCH);
 				jobManagerJobMetricGroup.gauge(FLINK_BATCH_JOB_INFO_METRICS, this.batchJobInfoMessageSet);
+
+				// send the init job status to css coordinator in batch mode if enabled
+				if (jobMasterConfiguration.getConfiguration().getBoolean(ShuffleServiceOptions.SHUFFLE_CLOUD_SHUFFLE_MODE) &&
+					jobMasterConfiguration.getConfiguration().getBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_REPORT_JOB_STATUS_TO_COORDINATOR)) {
+					reportBatchJobStatusToCss(jobMasterConfiguration.getConfiguration(), schedulerNG.requestJobStatus().name());
+				}
 			}
 		}
 	}
@@ -440,7 +452,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		String flinkJobType = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.FLINK_JOB_TYPE_KEY, ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
 		String dockerImage = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.DOCKER_IMAGE, null);
 		String flinkApi = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
-		String appType = this.jobMasterConfiguration.getConfiguration().getString(ExecutionOptions.EXECUTION_APPLICATION_TYPE);
+		String appType = this.jobMasterConfiguration.getConfiguration().getString(ExecutionOptions.EXECUTION_APPLICATION_TYPE, ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE);
 		boolean isKubernetes = this.jobMasterConfiguration.getConfiguration().getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false);
 		String shuffleServiceType = jobMasterConfiguration.getConfiguration().getBoolean(ShuffleServiceOptions.SHUFFLE_CLOUD_SHUFFLE_MODE) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
 		String appName = System.getenv().get(ConfigConstants.ENV_FLINK_YARN_JOB);
@@ -1244,8 +1256,62 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 					}
 					this.batchJobInfoMessageSet.addMessage(new Message<>(this.warehouseBatchJobInfoMessage));
 					log.info("The warehouseBatchJobInfoMessage of this job is {}.", warehouseBatchJobInfoMessage.toString());
+					if (jobMasterConfiguration.getConfiguration().getBoolean(ShuffleServiceOptions.SHUFFLE_CLOUD_SHUFFLE_MODE) &&
+						jobMasterConfiguration.getConfiguration().getBoolean(ShuffleServiceOptions.CLOUD_SHUFFLE_SERVICE_REPORT_JOB_STATUS_TO_COORDINATOR)) {
+						reportBatchJobStatusToCss(jobMasterConfiguration.getConfiguration(), schedulerNG.requestJobStatus().name());
+					}
 				}
 			);
+		}
+	}
+
+	/**
+	 * If using css, here can report the job status to css coordinator.
+	 *
+	 * @param configuration the job configuration
+	 * @param status the job status
+	 */
+	@VisibleForTesting
+	void reportBatchJobStatusToCss(Configuration configuration, String status) {
+		try {
+			ObjectMapper objectMapper = new ObjectMapper();
+
+			Map<String, String> params = new HashMap<>();
+			params.put("region", configuration.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT));
+			params.put("cluster", configuration.getString(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT));
+			params.put("queue", configuration.getString(ConfigConstants.QUEUE_KEY, ConfigConstants.QUEUE_DEFAULT));
+			if (status.equals(JobStatus.FAILED.name())) {
+				params.put("rootCause", "Flink batch job failed.");
+			}
+
+			ReportQuery query = new ReportQuery(ConfigConstants.CLOUD_SHUFFLE_SERVICE_TYPE, configuration.get(PipelineOptions.NAME), status, params, System.currentTimeMillis());
+			String coordinatorURL = configuration.getString(ConfigConstants.CLOUD_SHUFFLE_SERVICE_COORDINATOR_URL, ConfigConstants.CLOUD_SHUFFLE_SERVICE_COORDINATOR_URL_DEFAULT);
+			if (coordinatorURL.equals(ConfigConstants.CLOUD_SHUFFLE_SERVICE_COORDINATOR_URL_DEFAULT)) {
+				log.warn("The url of css coordinator not set, could not report the job status to css.");
+				return;
+			}
+			String targetUrl = coordinatorURL + ConfigConstants.CSS_COORDINATOR_REPORT;
+
+			Map<String, String> header = new HashMap<>();
+			header.put("Content-Type", "application/json");
+			HttpUtil.HttpResponsePojo response = HttpUtil.sendPost(targetUrl, objectMapper.writeValueAsString(query), header);
+			log.info("The request body is {}, and the response is {}.", objectMapper.writeValueAsString(query), response);
+			int code = response.getStatusCode();
+			if (code >= 200 && code < 300) {
+				String jsonBody = response.getContent();
+				JsonNode node = objectMapper.readTree(jsonBody);
+				if (node.has("code") && node.get("code").intValue() == 200) {
+					log.info("Report the job status({}) to css success.", query);
+				} else {
+					String errMessage = response.getContent();
+					log.warn("CloudShuffleCoordinator request rejected because of {}.", errMessage);
+				}
+			} else {
+				String errMessage = response.getContent();
+				log.warn("CloudShuffleCoordinator receives invalid code : {}, message: {}.", code, errMessage);
+			}
+		} catch (Throwable t) {
+			log.warn("Some errors occur while reporting the job status to css.", t);
 		}
 	}
 
@@ -1633,6 +1699,71 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		@Override
 		public Void retrievePayload(ResourceID resourceID) {
 			return null;
+		}
+	}
+
+	private class ReportQuery {
+
+		private String type;
+		private String appId;
+		private String status;
+		private Map<String, String> appInfo;
+		private long endTime;
+
+		public ReportQuery(String type, String appId, String status, Map<String, String> appInfo, long endTime) {
+			this.type = type;
+			this.appId = appId;
+			this.status = status;
+			this.appInfo = appInfo;
+			this.endTime = endTime;
+		}
+
+		public String getType() {
+			return type;
+		}
+
+		public String getAppId() {
+			return appId;
+		}
+
+		public String getStatus() {
+			return status;
+		}
+
+		public Map<String, String> getAppInfo() {
+			return appInfo;
+		}
+
+		public long getEndTime() {
+			return endTime;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			ReportQuery that = (ReportQuery) o;
+			return Objects.equals(type, that.type) && Objects.equals(appId, that.appId) && Objects.equals(status, that.status) && Objects.equals(appInfo, that.appInfo) && Objects.equals(endTime, that.endTime);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(type, appId, status, appInfo, endTime);
+		}
+
+		@Override
+		public String toString() {
+			return "ReportQuery{" +
+				"type='" + type + '\'' +
+				", appId='" + appId + '\'' +
+				", status='" + status + '\'' +
+				", appInfo=" + appInfo +
+				", endTime=" + endTime +
+				'}';
 		}
 	}
 }

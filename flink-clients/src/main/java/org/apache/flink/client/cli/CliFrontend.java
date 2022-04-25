@@ -526,6 +526,13 @@ public class CliFrontend {
 			effectiveConfiguration.setString(ExecutionOptions.EXECUTION_APPLICATION_TYPE, applicationType);
 			LOG.info("Set the value of {} to {}.", ExecutionOptions.EXECUTION_APPLICATION_TYPE.key(), applicationType);
 		}
+
+		// set the value of YARN_APPLICATION_QUEUE to QUEUE if QUEUE not set
+		if (effectiveConfiguration.containsKey(ConfigConstants.YARN_APPLICATION_QUEUE) && !effectiveConfiguration.containsKey(ConfigConstants.QUEUE_KEY)) {
+			String queue = effectiveConfiguration.getString(ConfigConstants.YARN_APPLICATION_QUEUE, ConfigConstants.QUEUE_DEFAULT);
+			effectiveConfiguration.setString(ConfigConstants.QUEUE_KEY, queue);
+			LOG.info("Set the value of {} to {}.", ConfigConstants.QUEUE_KEY, queue);
+		}
 		return effectiveConfiguration;
 	}
 

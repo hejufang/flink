@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.yarn;
+package org.apache.flink.runtime.util;
 
 import org.apache.flink.shaded.httpclient.org.apache.http.client.config.RequestConfig;
 import org.apache.flink.shaded.httpclient.org.apache.http.client.methods.CloseableHttpResponse;
@@ -34,7 +34,7 @@ import java.util.Map;
  * Provides http methods.
  */
 public class HttpUtil {
-	private static RequestConfig requestConfig = RequestConfig.custom()
+	private static final RequestConfig requestConfig = RequestConfig.custom()
 		.setSocketTimeout(5000)
 		.setConnectTimeout(5000)
 		.setConnectionRequestTimeout(5000)
@@ -50,6 +50,10 @@ public class HttpUtil {
 		httpPost.setEntity(entity);
 		httpPost.setConfig(RequestConfig.copy(requestConfig).build());
 		return sendRequest(httpPost);
+	}
+
+	public static HttpResponsePojo sendGet(String url) throws IOException {
+		return sendGet(url, null);
 	}
 
 	public static HttpResponsePojo sendGet(String url, Map<String, String> headers) throws IOException {
@@ -77,6 +81,7 @@ public class HttpUtil {
 	 * Http response pojo, which contains status code and data.
 	 */
 	public static class HttpResponsePojo {
+
 		private int statusCode;
 		private String content;
 
@@ -99,6 +104,14 @@ public class HttpUtil {
 
 		public void setContent(String content) {
 			this.content = content;
+		}
+
+		@Override
+		public String toString() {
+			return "HttpResponsePojo{" +
+				"statusCode=" + statusCode +
+				", content='" + content + '\'' +
+				'}';
 		}
 	}
 }

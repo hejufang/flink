@@ -550,6 +550,13 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			// set the shuffle service type
 			String shuffleServiceType = tmConfig.getBoolean(ShuffleServiceOptions.SHUFFLE_CLOUD_SHUFFLE_MODE) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
 			this.warehouseTaskShuffleInfoMessage.setShuffleServiceType(shuffleServiceType);
+
+			this.warehouseTaskShuffleInfoMessage.setInputShuffleDataBytes(0);
+			// the executionState is CREATE while in the initializing phase
+			this.warehouseTaskShuffleInfoMessage.setTaskState(executionState.name());
+			// add the init task shuffle info
+			this.taskShuffleInfoMessageMessageSet.addMessage(new Message<>(this.warehouseTaskShuffleInfoMessage));
+
 			LOG.info("Init the task info warehouseTaskShuffleInfoMessage({}).", warehouseTaskShuffleInfoMessage);
 		}
 
