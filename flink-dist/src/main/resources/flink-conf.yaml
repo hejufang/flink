@@ -229,7 +229,6 @@ common:
 
   # ipv6
   ipv6.enabled: false
-  ipv6.supported.cluster: leser,quoka,quaga,hippo,quiet
 
   # hdfs conf for checkpoint
   flink.checkpoint.hdfs.dfs.datanode.socket.write.timeout: 30000
@@ -260,7 +259,7 @@ flink:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-
+  ipv6.supported.cluster: flink
 
 dw:
   dc: cn
@@ -270,6 +269,7 @@ dw:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  ipv6.supported.cluster: dw
 
 lepad:
   dc: cn
@@ -279,6 +279,7 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  ipv6.supported.cluster: lepad
 
 larva:
   dc: cn
@@ -286,6 +287,7 @@ larva:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: larva
 
 locst:
   dc: cn
@@ -293,6 +295,7 @@ locst:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: locst
 
 oryx:
   dc: cn
@@ -300,6 +303,7 @@ oryx:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: oryx
 
 default:
   dc: cn
@@ -307,6 +311,7 @@ default:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: default
 
 leser:
   dc: cn
@@ -315,6 +320,7 @@ leser:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  ipv6.supported.cluster: leser
 
 lupin:
   dc: cn
@@ -322,6 +328,7 @@ lupin:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  ipv6.supported.cluster: lupin
 
 lobst:
   dc: cn
@@ -329,6 +336,7 @@ lobst:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: lobst
 
 lizad:
   dc: cn
@@ -336,6 +344,7 @@ lizad:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: lizad
 
 lemur:
   dc: cn
@@ -343,6 +352,7 @@ lemur:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: lemur
 
 loris:
   dc: cn
@@ -350,6 +360,7 @@ loris:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: loris
 
 llama:
   dc: cn
@@ -357,6 +368,7 @@ llama:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: llama
 
 lionn:
   dc: cn
@@ -364,6 +376,7 @@ lionn:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: lionn
 
 lynxs:
   dc: cn
@@ -371,6 +384,7 @@ lynxs:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: lynxs
 
 lambs:
   dc: cn
@@ -378,6 +392,7 @@ lambs:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: lambs
 
 brain-lf:
   dc: cn
@@ -385,6 +400,7 @@ brain-lf:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: brain-lf
 
 brain-hl:
   dc: cn
@@ -392,6 +408,7 @@ brain-hl:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: brain-hl
 
 wj:
   dc: cn
@@ -399,6 +416,7 @@ wj:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
+  ipv6.supported.cluster: wj
 
 hl:
   dc: cn
@@ -406,6 +424,7 @@ hl:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: hl
 
 hyrax:
   dc: cn
@@ -415,6 +434,7 @@ hyrax:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  ipv6.supported.cluster: hyrax
 
 horse:
   dc: cn
@@ -424,6 +444,7 @@ horse:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  ipv6.supported.cluster: horse
 
 hibis:
   dc: cn
@@ -431,6 +452,7 @@ hibis:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: hibis
 
 topi:
   dc: cn
@@ -438,6 +460,7 @@ topi:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: topi
 
 hippo:
   dc: cn
@@ -445,6 +468,7 @@ hippo:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: hippo
 
 heron:
   dc: cn
@@ -452,6 +476,7 @@ heron:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: heron
 
 herry:
   dc: cn
@@ -459,6 +484,7 @@ herry:
   high-availability.zookeeper.quorum: 10.226.128.110:2181,10.226.128.107:2181,10.226.107.216:2181,10.226.128.132:2181,10.226.128.118:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: herry
 
 hamer:
   dc: cn
@@ -466,6 +492,7 @@ hamer:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: hamer
 
 hyena:
   dc: cn
@@ -473,6 +500,7 @@ hyena:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: hyena
 
 hinny:
   dc: cn
@@ -480,6 +508,7 @@ hinny:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: hinny
 
 hamst:
   dc: cn
@@ -487,6 +516,7 @@ hamst:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: hamst
 
 hermt:
   dc: cn
@@ -494,6 +524,7 @@ hermt:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: hermt
 
 husky:
   dc: cn
@@ -501,6 +532,7 @@ husky:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: husky
 
 honet:
   dc: cn
@@ -508,6 +540,7 @@ honet:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: honet
 
 hawks:
   dc: cn
@@ -515,6 +548,7 @@ hawks:
   high-availability.zookeeper.quorum: 10.226.107.167:2181,10.226.118.239:2181,10.226.114.179:2181,10.226.114.177:2181,10.226.124.191:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: hawks
 
 harpy:
   dc: cn
@@ -522,6 +556,7 @@ harpy:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: harpy
 
 hares:
   dc: cn
@@ -529,6 +564,7 @@ hares:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: hares
 
 hakes:
   dc: cn
@@ -536,6 +572,7 @@ hakes:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: hakes
 
 hound:
   dc: cn
@@ -543,6 +580,7 @@ hound:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  ipv6.supported.cluster: hound
 
 quinc:
   dc: cn
@@ -551,6 +589,7 @@ quinc:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  ipv6.supported.cluster: quinc
 
 quiet:
   dc: cn
@@ -560,6 +599,7 @@ quiet:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   ipv6.enabled: true
+  ipv6.supported.cluster: quiet
 
 queen:
   dc: cn
@@ -568,6 +608,7 @@ queen:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  ipv6.supported.cluster: queen
 
 quire:
   dc: cn
@@ -576,6 +617,7 @@ quire:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  ipv6.supported.cluster: quire
 
 quark:
   dc: cn
@@ -584,6 +626,7 @@ quark:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  ipv6.supported.cluster: quark
 
 quetz:
   dc: cn
@@ -592,6 +635,7 @@ quetz:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  ipv6.supported.cluster: quetz
 
 quail:
   dc: cn
@@ -600,6 +644,7 @@ quail:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  ipv6.supported.cluster: quail
 
 quoll:
   dc: cn
@@ -608,6 +653,7 @@ quoll:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  ipv6.supported.cluster: quoll
 
 quoka:
   dc: cn
@@ -619,6 +665,7 @@ quoka:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  ipv6.supported.cluster: quoka
 
 quaga:
   dc: cn
@@ -629,6 +676,7 @@ quaga:
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  ipv6.supported.cluster: quaga
 
 quele:
   dc: cn
@@ -638,6 +686,7 @@ quele:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  ipv6.supported.cluster: quele
 
 camel:
   dc: cn
@@ -645,6 +694,7 @@ camel:
   high-availability.zookeeper.quorum: 10.148.16.172:2181,10.148.16.37:2181,10.148.16.90:2181,10.148.20.100:2181,10.148.20.98:2181
   hdfs.prefix: hdfs://haruna/flink_cr
   checkpoint.hdfs.prefix: hdfs://haruna/flink_cr
+  ipv6.supported.cluster: camel
 
 stork:
   dc: sg
