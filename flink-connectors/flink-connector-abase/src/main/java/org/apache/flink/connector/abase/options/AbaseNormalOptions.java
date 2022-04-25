@@ -44,6 +44,7 @@ public class AbaseNormalOptions implements Serializable {
 	private final String keyFormatter;   // key formatter, $num stands for column value, such "eco:$0:$1:$2"
 	private final int[] keyIndices;      // sorted indices of primary keys
 	private final int[] valueIndices;    // sorted indices of columns other than primary keys
+	private final int arity;
 	private final AbaseValueType abaseValueType;
 	private final boolean specifyHashFields;
 	private final boolean isHashMap;
@@ -101,6 +102,10 @@ public class AbaseNormalOptions implements Serializable {
 		return valueIndices;
 	}
 
+	public int getArity() {
+		return arity;
+	}
+
 	public AbaseValueType getAbaseValueType() {
 		return abaseValueType;
 	}
@@ -148,6 +153,7 @@ public class AbaseNormalOptions implements Serializable {
 		this.keyFormatter = keyFormatter;
 		this.keyIndices = keyIndices;
 		this.valueIndices = valueIndices;
+		this.arity = keyIndices.length + valueIndices.length;
 		this.abaseValueType = abaseValueType;
 		this.specifyHashFields = specifyHashFields;
 		this.isHashMap = isHashMap;

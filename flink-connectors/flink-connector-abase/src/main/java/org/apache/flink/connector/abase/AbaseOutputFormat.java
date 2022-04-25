@@ -481,6 +481,9 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 
 		@Override
 		public void execute(ClientPipeline pipeline, RowData record) {
+			if (sinkOptions.getValueColIndices().length > 1) {
+				validateReadOnlyField(record, new int[]{sinkOptions.getValueColIndices()[1]});
+			}
 			String key = getKey(record);
 			Object value = fieldGetters[valueIndex].getFieldOrNull(record);
 			if (value == null) {
@@ -505,6 +508,9 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 
 		@Override
 		public void execute(ClientPipeline pipeline, RowData record) {
+			if (sinkOptions.getValueColIndices().length > 1) {
+				validateReadOnlyField(record, new int[]{sinkOptions.getValueColIndices()[1]});
+			}
 			String key = getKey(record);
 			Object value = fieldGetters[valueIndex].getFieldOrNull(record);
 			if (value == null) {
@@ -531,6 +537,9 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 
 		@Override
 		public void execute(ClientPipeline pipeline, RowData record) {
+			if (sinkOptions.getValueColIndices().length > 2) {
+				validateReadOnlyField(record, new int[]{sinkOptions.getValueColIndices()[2]});
+			}
 			String key = getKey(record);
 			Object score = fieldGetters[scoreIndex].getFieldOrNull(record);
 			Object value = fieldGetters[valueIndex].getFieldOrNull(record);
@@ -549,6 +558,14 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 				if (sinkOptions.getTtlSeconds() > 0) {
 					pipeline.zexpires(key, sinkOptions.getTtlSeconds());
 				}
+			}
+		}
+	}
+
+	private void validateReadOnlyField(RowData record, int[] pos) {
+		for (int i : pos) {
+			if (!record.isNullAt(i)) {
+				throw new UnsupportedOperationException("The index at " + i + " is read-only, can't write to it!");
 			}
 		}
 	}

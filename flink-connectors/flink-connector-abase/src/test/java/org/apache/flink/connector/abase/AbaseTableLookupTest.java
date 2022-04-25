@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.flink.core.testutils.FlinkMatchers.containsCause;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -665,6 +666,102 @@ public class AbaseTableLookupTest extends AbaseTestBase {
 	}
 
 	@Test
+	public void testListTypeWithUnifiedSchema() throws Exception {
+		List<String> val = Arrays.asList("20", "5", "15", "10");
+		Mockito.when(abaseClientWrapper.lrange("race_game:Bob:5", 0, -1)).thenReturn(val);
+		val = Arrays.asList("5", "10", "15");
+		Mockito.when(abaseClientWrapper.lrange("race_game:Tom:10", 0, -1)).thenReturn(val);
+		val = Arrays.asList("20", "25", "15", "10", "5", "10");
+		Mockito.when(abaseClientWrapper.lrange("race_game:Bob:20", 0, -1)).thenReturn(val);
+
+		tEnv.executeSql(
+			"CREATE TABLE dim (\n" +
+				"    `bonus` BIGINT,\n" +
+				"    `item`  VARCHAR,\n" +
+				"    `name`  VARCHAR,\n" +
+				"    `val`   ARRAY<VARCHAR>,\n" +
+				"	 PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"    'connector' = 'byte-abase',\n" +
+				"    'cluster' = 'test',\n" +
+				"    'table' = 'test',\n" +
+				"    'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"    'value-type' = 'list',\n" +
+				"    'lookup.cache.max-rows' = '10',\n" +
+				"    'lookup.cache.ttl' = '3 min'\n" +
+				")");
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"    `name` VARCHAR,\n" +
+				"    `bonus` BIGINT,\n" +
+				"    `frist_score` VARCHAR\n" +
+				") WITH(\n" +
+				"	 'connector' = 'print',\n" +
+				"	 'print-sample-ratio' = '1'\n" +
+				")");
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT T.`name`, T.`bonus`, D.`val`[1]\n" +
+			"FROM (select T1.`name`, T1.`score`, T1.`bonus`, T1.`time`, PROCTIME() as proc from T1) T\n" +
+			"LEFT JOIN dim FOR SYSTEM_TIME AS OF T.proc AS D\n" +
+			"ON D.`name`=T.`name`\n" +
+			"AND D.`bonus`=T.`bonus`");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		assertEquals(ResourceUtil.readFileContent(PATH + name.getMethodName() + ".out"), out.toString());
+	}
+
+	@Test
+	public void readListTypeRestrictedField() throws Exception {
+		List<String> val = Arrays.asList("20", "5", "15", "10");
+		Mockito.when(abaseClientWrapper.lrange("race_game:Bob:5", 0, -1)).thenReturn(val);
+		val = Arrays.asList("5", "10", "15");
+		Mockito.when(abaseClientWrapper.lrange("race_game:Tom:10", 0, -1)).thenReturn(val);
+		val = Arrays.asList("20", "25", "15", "10", "5", "10");
+		Mockito.when(abaseClientWrapper.lrange("race_game:Bob:20", 0, -1)).thenReturn(val);
+
+		tEnv.executeSql(
+			"CREATE TABLE dim (\n" +
+				"    `bonus` BIGINT,\n" +
+				"    `item`  VARCHAR,\n" +
+				"    `name`  VARCHAR,\n" +
+				"    `val`   ARRAY<VARCHAR>,\n" +
+				"	 PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"    'connector' = 'byte-abase',\n" +
+				"    'cluster' = 'test',\n" +
+				"    'table' = 'test',\n" +
+				"    'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"    'value-type' = 'list',\n" +
+				"    'lookup.cache.max-rows' = '10',\n" +
+				"    'lookup.cache.ttl' = '3 min'\n" +
+				")");
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"    `name` VARCHAR,\n" +
+				"    `bonus` BIGINT,\n" +
+				"    `frist_score` VARCHAR\n" +
+				") WITH(\n" +
+				"	 'connector' = 'print',\n" +
+				"	 'print-sample-ratio' = '1'\n" +
+				")");
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT T.`name`, T.`bonus`, D.`item`\n" +
+			"FROM (select T1.`name`, T1.`score`, T1.`bonus`, T1.`time`, PROCTIME() as proc from T1) T\n" +
+			"LEFT JOIN dim FOR SYSTEM_TIME AS OF T.proc AS D\n" +
+			"ON D.`name`=T.`name`\n" +
+			"AND D.`bonus`=T.`bonus`");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+
+		thrown.expect(containsCause(new UnsupportedOperationException("The field at the index 1 is write-only, can't read it!")));
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+	}
+
+	@Test
 	public void testSetType() throws Exception {
 		Set<String> val = new HashSet<>(Arrays.asList("20", "5", "15", "10"));
 		Mockito.when(abaseClientWrapper.smembers("Kim")).thenReturn(val);
@@ -756,6 +853,101 @@ public class AbaseTableLookupTest extends AbaseTestBase {
 	}
 
 	@Test
+	public void testSetTypeWithUnifiedSchema() throws Exception {
+		Set<String> val = new HashSet<>(Arrays.asList("20", "5", "15", "10"));
+		Mockito.when(abaseClientWrapper.smembers("race_game:Bob:5")).thenReturn(val);
+		val = new HashSet<>(Arrays.asList("5", "10", "15"));
+		Mockito.when(abaseClientWrapper.smembers("race_game:Tom:10")).thenReturn(val);
+		val = new HashSet<>(Arrays.asList("20", "25", "15", "10", "5"));
+		Mockito.when(abaseClientWrapper.smembers("race_game:Bob:20")).thenReturn(val);
+
+		tEnv.executeSql(
+			"CREATE TABLE dim (\n" +
+				"    `bonus` BIGINT,\n" +
+				"    `name`  VARCHAR,\n" +
+				"    `item`  VARCHAR,\n" +
+				"    `val`   ARRAY<VARCHAR>,\n" +
+				"	 PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"    'connector' = 'byte-abase',\n" +
+				"    'cluster' = 'test',\n" +
+				"    'table' = 'test',\n" +
+				"    'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"    'value-type' = 'set',\n" +
+				"    'lookup.cache.max-rows' = '10',\n" +
+				"    'lookup.cache.ttl' = '3 min'\n" +
+				")");
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"    `name` VARCHAR,\n" +
+				"    `bonus` BIGINT,\n" +
+				"    `score` VARCHAR\n" +
+				") WITH(\n" +
+				"	 'connector' = 'print',\n" +
+				"	 'print-sample-ratio' = '1'\n" +
+				")");
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT T.`name`, T.`bonus`, D.`val`[1]\n" +
+			"FROM (select T1.`name`, T1.`score`, T1.`bonus`, T1.`time`, PROCTIME() as proc from T1) T\n" +
+			"LEFT JOIN dim FOR SYSTEM_TIME AS OF T.proc AS D\n" +
+			"ON D.`name`=T.`name`\n" +
+			"AND D.`bonus`=T.`bonus`");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		assertEquals(ResourceUtil.readFileContent(PATH + name.getMethodName() + ".out"), out.toString());
+	}
+
+	@Test
+	public void readSetTypeRestrictedField() throws Exception {
+		Set<String> val = new HashSet<>(Arrays.asList("20", "5", "15", "10"));
+		Mockito.when(abaseClientWrapper.smembers("race_game:Bob:5")).thenReturn(val);
+		val = new HashSet<>(Arrays.asList("5", "10", "15"));
+		Mockito.when(abaseClientWrapper.smembers("race_game:Tom:10")).thenReturn(val);
+		val = new HashSet<>(Arrays.asList("20", "25", "15", "10", "5"));
+		Mockito.when(abaseClientWrapper.smembers("race_game:Bob:20")).thenReturn(val);
+
+		tEnv.executeSql(
+			"CREATE TABLE dim (\n" +
+				"    `bonus` BIGINT,\n" +
+				"    `name`  VARCHAR,\n" +
+				"    `item`  VARCHAR,\n" +
+				"    `val`   ARRAY<VARCHAR>,\n" +
+				"	 PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"    'connector' = 'byte-abase',\n" +
+				"    'cluster' = 'test',\n" +
+				"    'table' = 'test',\n" +
+				"    'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"    'value-type' = 'set',\n" +
+				"    'lookup.cache.max-rows' = '10',\n" +
+				"    'lookup.cache.ttl' = '3 min'\n" +
+				")");
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"    `name` VARCHAR,\n" +
+				"    `bonus` BIGINT,\n" +
+				"    `score` VARCHAR\n" +
+				") WITH(\n" +
+				"	 'connector' = 'print',\n" +
+				"	 'print-sample-ratio' = '1'\n" +
+				")");
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT T.`name`, T.`bonus`, D.`item`\n" +
+			"FROM (select T1.`name`, T1.`score`, T1.`bonus`, T1.`time`, PROCTIME() as proc from T1) T\n" +
+			"LEFT JOIN dim FOR SYSTEM_TIME AS OF T.proc AS D\n" +
+			"ON D.`name`=T.`name`\n" +
+			"AND D.`bonus`=T.`bonus`");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		thrown.expect(containsCause(new UnsupportedOperationException("The field at the index 2 is write-only, can't read it!")));
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+	}
+
+	@Test
 	public void testZSetType() throws Exception {
 		Set<String> val = new HashSet<>(Arrays.asList("20", "5", "15", "10"));
 		Mockito.when(abaseClientWrapper.zrange("Kim", 0, -1)).thenReturn(val);
@@ -844,5 +1036,102 @@ public class AbaseTableLookupTest extends AbaseTestBase {
 		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
 
 		assertEquals(ResourceUtil.readFileContent(PATH + name.getMethodName() + ".out"), out.toString());
+	}
+
+	@Test
+	public void testZSetTypeWithUnifiedSchema() throws Exception {
+		Set<String> val = new HashSet<>(Arrays.asList("20", "5", "15", "10"));
+		Mockito.when(abaseClientWrapper.zrange("race_game:Bob:5", 0, -1)).thenReturn(val);
+		val = new HashSet<>(Arrays.asList("5", "10", "15"));
+		Mockito.when(abaseClientWrapper.zrange("race_game:Tom:10", 0, -1)).thenReturn(val);
+		val = new HashSet<>(Arrays.asList("20", "25", "15", "10", "5"));
+		Mockito.when(abaseClientWrapper.zrange("race_game:Bob:20", 0, -1)).thenReturn(val);
+
+		tEnv.executeSql(
+			"CREATE TABLE dim (\n" +
+				"    `score` DOUBLE,\n" +
+				"    `bonus` BIGINT,\n" +
+				"    `item`  VARCHAR,\n" +
+				"    `name`  VARCHAR,\n" +
+				"    `val`   ARRAY<VARCHAR>,\n" +
+				"	 PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"    'connector' = 'byte-abase',\n" +
+				"    'cluster' = 'test',\n" +
+				"    'table' = 'test',\n" +
+				"    'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"    'value-type' = 'zset',\n" +
+				"    'lookup.cache.max-rows' = '10',\n" +
+				"    'lookup.cache.ttl' = '3 min'\n" +
+				")");
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"    `name` VARCHAR,\n" +
+				"    `bonus` BIGINT,\n" +
+				"    `score` VARCHAR\n" +
+				") WITH(\n" +
+				"	 'connector' = 'print',\n" +
+				"	 'print-sample-ratio' = '1'\n" +
+				")");
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT T.`name`, T.`bonus`, D.`val`[1]\n" +
+			"FROM (select T1.`name`, T1.`score`, T1.`bonus`, T1.`time`, PROCTIME() as proc from T1) T\n" +
+			"LEFT JOIN dim FOR SYSTEM_TIME AS OF T.proc AS D\n" +
+			"ON D.`name`=T.`name`\n" +
+			"AND D.`bonus`=T.`bonus`");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		assertEquals(ResourceUtil.readFileContent(PATH + name.getMethodName() + ".out"), out.toString());
+	}
+
+	@Test
+	public void readZSetTypeRestrictedField() throws Exception {
+		Set<String> val = new HashSet<>(Arrays.asList("20", "5", "15", "10"));
+		Mockito.when(abaseClientWrapper.zrange("race_game:Bob:5", 0, -1)).thenReturn(val);
+		val = new HashSet<>(Arrays.asList("5", "10", "15"));
+		Mockito.when(abaseClientWrapper.zrange("race_game:Tom:10", 0, -1)).thenReturn(val);
+		val = new HashSet<>(Arrays.asList("20", "25", "15", "10", "5"));
+		Mockito.when(abaseClientWrapper.zrange("race_game:Bob:20", 0, -1)).thenReturn(val);
+
+		tEnv.executeSql(
+			"CREATE TABLE dim (\n" +
+				"    `score` DOUBLE,\n" +
+				"    `bonus` BIGINT,\n" +
+				"    `item`  VARCHAR,\n" +
+				"    `name`  VARCHAR,\n" +
+				"    `val`   ARRAY<VARCHAR>,\n" +
+				"	 PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"    'connector' = 'byte-abase',\n" +
+				"    'cluster' = 'test',\n" +
+				"    'table' = 'test',\n" +
+				"    'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"    'value-type' = 'zset',\n" +
+				"    'lookup.cache.max-rows' = '10',\n" +
+				"    'lookup.cache.ttl' = '3 min'\n" +
+				")");
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"    `name` VARCHAR,\n" +
+				"    `bonus` BIGINT,\n" +
+				"    `score` VARCHAR\n" +
+				") WITH(\n" +
+				"	 'connector' = 'print',\n" +
+				"	 'print-sample-ratio' = '1'\n" +
+				")");
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT T.`name`, T.`bonus`, D.`item`\n" +
+			"FROM (select T1.`name`, T1.`score`, T1.`bonus`, T1.`time`, PROCTIME() as proc from T1) T\n" +
+			"LEFT JOIN dim FOR SYSTEM_TIME AS OF T.proc AS D\n" +
+			"ON D.`name`=T.`name`\n" +
+			"AND D.`bonus`=T.`bonus`");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		thrown.expect(containsCause(new UnsupportedOperationException("The field at the index 2 is write-only, can't read it!")));
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
 	}
 }

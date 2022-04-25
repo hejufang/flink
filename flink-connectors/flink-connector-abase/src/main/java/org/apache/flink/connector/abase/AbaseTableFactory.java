@@ -59,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -106,6 +107,8 @@ import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_PROPS;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_QUANTILES;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_TAGS_NAMES;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_TAGS_WRITEABLE;
+import static org.apache.flink.table.types.logical.LogicalTypeFamily.NUMERIC;
+import static org.apache.flink.table.types.logical.utils.LogicalTypeChecks.hasFamily;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -146,7 +149,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		AbaseNormalOptions normalOptions = getAbaseNormalOptions(config, physicalSchema, getJobPSM(context.getConfiguration()));
 		AbaseSinkMetricsOptions metricsOptions = getAbaseSinkMetricsOptions(config, physicalSchema);
 		AbaseSinkOptions sinkOptions = getAbaseSinkOptions(config, normalOptions, metricsOptions);
-		validateSinkSchema(normalOptions, sinkOptions, encodingFormat != null);
+		validateSinkSchema(normalOptions, sinkOptions, physicalSchema, encodingFormat != null);
 		LOG.info(metricsOptions.toString());
 		return new AbaseTableSink(
 			normalOptions,
@@ -288,7 +291,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			AbaseNormalOptions normalOptions,
 			AbaseSinkMetricsOptions metricsOptions) {
 		// column indices that needs to be serialized with specified format
-		int[] serCol = new int[normalOptions.getKeyIndices().length + normalOptions.getValueIndices().length];
+		int[] serCol = new int[normalOptions.getArity()];
 		int serColIdx = 0;  // index of next element of serCol array
 
 		// value column indices except event-ts and tag columns of metrics
@@ -392,7 +395,8 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			TableSchema schema,
 			boolean isFormatted) {
 		// check value field number
-		switch (normalOptions.getAbaseValueType()) {
+		AbaseValueType valueType = normalOptions.getAbaseValueType();
+		switch (valueType) {
 			case GENERAL:
 				checkState(isFormatted || normalOptions.getValueIndices().length == 1,
 					"Only one value column is supported of general data type without format in lookup join!");
@@ -404,8 +408,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			case LIST:
 			case SET:
 			case ZSET:
-				checkState(normalOptions.getValueIndices().length == 1, "Only one value column " +
-					"is supported in list/set/zset lookup join!");
+				validateCollectionTypeSchema(schema, normalOptions.getValueIndices(), valueType);
 				break;
 		}
 
@@ -421,29 +424,63 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 	private void validateSinkSchema(
 			AbaseNormalOptions normalOptions,
 			AbaseSinkOptions sinkOptions,
+			TableSchema schema,
 			boolean isFormatted) {
-		switch (normalOptions.getAbaseValueType()) {
+		AbaseValueType valueType = normalOptions.getAbaseValueType();
+		switch (valueType) {
 			case GENERAL:
-				checkState(isFormatted || normalOptions.getValueIndices().length == 1,
+				checkState(isFormatted || sinkOptions.getValueColIndices().length == 1,
 					"Only one value column is supported of general data type without format in sink!");
 				break;
 			case HASH:
 				if (normalOptions.isHashMap()) {
-					checkState(normalOptions.getValueIndices().length == 1, "Only one value " +
+					checkState(sinkOptions.getValueColIndices().length == 1, "Only one value " +
 						"column is supported in hash datatype which read whole field values as one map in sink!");
 				} else if (!normalOptions.isSpecifyHashFields()){
-					checkState(normalOptions.getValueIndices().length == 2, "Only two value " +
+					checkState(sinkOptions.getValueColIndices().length == 2, "Only two value " +
 						"column is supported in hash datatype which specify field name and field type separately!");
 				}
 				break;
 			case LIST:
 			case SET:
-				checkState(normalOptions.getValueIndices().length == 1, "Only one value column " +
-					"is supported in list/set datatype sink!");
+			case ZSET:
+				validateCollectionTypeSchema(schema, sinkOptions.getValueColIndices(), valueType);
+				break;
+		}
+	}
+
+	private void validateCollectionTypeSchema(TableSchema schema, int[] valueIndices, AbaseValueType valueType) {
+		switch (valueType) {
+			case LIST:
+			case SET:
+				checkState(valueIndices.length <= 2, "Illegal numbers columns are found in "
+					+ valueType.name() + " sink, should be 1 or 2(except for primary key columns), " +
+					"actual value column number is " + valueIndices.length);
+				if (valueIndices.length == 2) {
+					DataType dataType = Objects.requireNonNull(schema.getFieldDataType(valueIndices[1]).orElse(null),
+						"Get null data type at index of " + valueIndices[1]);
+					checkState(dataType.getLogicalType().getTypeRoot() == LogicalTypeRoot.ARRAY,
+						"No array data is defined or it should be defined after the value column to be written to.");
+				}
 				break;
 			case ZSET:
-				checkState(normalOptions.getValueIndices().length == 2, "Only two value column " +
-					"is supported in zset datatype sink!");
+				checkState(valueIndices.length <= 3, "Illegal numbers columns are found in " +
+					"zset sink, should be less than 4(except for primary key columns), actual value column number is "
+					+ valueIndices.length);
+				if (valueIndices.length == 3) {
+					DataType dataType = Objects.requireNonNull(schema.getFieldDataType(valueIndices[2]).orElse(null),
+						"Get null data type at index of " + valueIndices[2]);
+					checkState(dataType.getLogicalType().getTypeRoot() == LogicalTypeRoot.ARRAY,
+						"No array data is defined or it should be defined after the value columns to be written to.");
+				}
+				if (valueIndices.length == 2 || valueIndices.length == 3) {   // sink or unified schema
+					DataType dataType = Objects.requireNonNull(schema.getFieldDataType(valueIndices[0]).orElse(null),
+						"Get null data type at index of " + valueIndices[0]);
+					checkState(hasFamily(dataType.getLogicalType(), NUMERIC),
+						"The score value column of zadd should be a number type, such as int or double, " +
+							"however " + dataType.getLogicalType().getTypeRoot() + " type is found at index "
+							+ valueIndices[0]);
+				}
 				break;
 		}
 	}

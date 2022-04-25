@@ -261,4 +261,20 @@ Sink(table=[default_catalog.default_database.zm_test], fields=[a, m1, m2, m3, m4
 ]]>
 		</Resource>
 	</TestCase>
+	<TestCase name="testInsertPartColumnWithArray">
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalSink(table=[default_catalog.default_database.zm_test], fields=[i, a1, a2])
++- LogicalProject(i=[CAST($0):BIGINT], a1=[null:VARCHAR(2147483647) CHARACTER SET "UTF-16LE" ARRAY], a2=[null:VARCHAR(2147483647) CHARACTER SET "UTF-16LE" ARRAY])
+   +- LogicalTableScan(table=[[default_catalog, default_database, MyTable]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+Sink(table=[default_catalog.default_database.zm_test], fields=[i, a1, a2])
++- Calc(select=[CAST(a) AS i, null:VARCHAR(2147483647) CHARACTER SET "UTF-16LE" ARRAY AS a1, null:VARCHAR(2147483647) CHARACTER SET "UTF-16LE" ARRAY AS a2])
+   +- BoundedStreamScan(table=[[default_catalog, default_database, MyTable]], fields=[a, b, c])
+]]>
+		</Resource>
+	</TestCase>
 </Root>

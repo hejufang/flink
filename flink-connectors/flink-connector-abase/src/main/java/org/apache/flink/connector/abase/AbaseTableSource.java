@@ -35,7 +35,9 @@ import org.apache.flink.table.connector.source.TableFunctionProvider;
 import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.utils.TableSchemaUtils;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
@@ -104,11 +106,21 @@ public class AbaseTableSource implements LookupTableSource, SupportsProjectionPu
 
 		// 4. get values of hash/list/set/zset datatype as a whole
 		} else {
-			assert childrenType.size() == 1;
-			DataStructureConverter converter = context.createDataStructureConverter(childrenType.get(0));
-			abaseLookupExecutor = new AbaseLookupCollectionExecutor(
-				normalOptions,
-				converter);
+			int valueIndex = -1;
+			DataStructureConverter converter = null;
+			DataType[] dataTypes = schema.getFieldDataTypes();
+			for (int i = 0; i < dataTypes.length; i++) {
+				if (dataTypes[i].getLogicalType().getTypeRoot() == LogicalTypeRoot.MAP
+					|| dataTypes[i].getLogicalType().getTypeRoot() == LogicalTypeRoot.ARRAY) {
+					valueIndex = i;
+					converter = context.createDataStructureConverter(dataTypes[i]);
+				}
+			}
+			if (converter == null) {
+				throw new FlinkRuntimeException("No map or array column is found in "
+					+ normalOptions.getAbaseValueType().name() + " data type.");
+			}
+			abaseLookupExecutor = new AbaseLookupCollectionExecutor(normalOptions, converter, valueIndex);
 		}
 
 		return TableFunctionProvider.of(new AbaseLookupFunction(

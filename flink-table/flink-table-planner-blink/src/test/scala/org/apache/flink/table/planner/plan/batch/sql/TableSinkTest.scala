@@ -247,4 +247,23 @@ class TableSinkTest extends TableTestBase {
       "INSERT INTO zm_test(`a`) SELECT `a` FROM MyTable")
     util.verifyPlan(stmtSet)
   }
+
+  @Test
+  def testInsertPartColumnWithArray(): Unit = {
+    util.addTable(
+      s"""
+         |CREATE TABLE zm_test (
+         |  `i`  BIGINT,
+         |  `a1` ARRAY<STRING>,
+         |  `a2` ARRAY<STRING NOT NULL>
+         |) WITH (
+         |  'connector' = 'values',
+         |  'sink-insert-only' = 'true'
+         |)
+         |""".stripMargin)
+    val stmtSet = util.tableEnv.createStatementSet()
+    stmtSet.addInsertSql(
+      "INSERT INTO zm_test(`i`) SELECT `a` FROM MyTable")
+    util.verifyPlan(stmtSet)
+  }
 }

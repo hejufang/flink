@@ -18,12 +18,12 @@
 
 package org.apache.flink.connector.abase.executor;
 
+import org.apache.flink.connector.abase.internal.ReadRestrictedRowData;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
 import org.apache.flink.connector.abase.utils.AbaseValueType;
 import org.apache.flink.connector.abase.utils.KeyFormatterHelper;
 import org.apache.flink.table.connector.RuntimeConverter;
 import org.apache.flink.table.connector.source.DynamicTableSource.DataStructureConverter;
-import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -40,13 +40,16 @@ public class AbaseLookupCollectionExecutor extends AbaseLookupExecutor {
 
 	private static final long serialVersionUID = 1L;
 
+	private final int valueIndex;
 	private final DataStructureConverter converter;
 
 	public AbaseLookupCollectionExecutor(
 			AbaseNormalOptions normalOptions,
-			DataStructureConverter converter) {
+			DataStructureConverter converter,
+			int valueIndex) {
 		super(normalOptions);
 		this.converter = converter;
+		this.valueIndex = valueIndex;
 	}
 
 	@Override
@@ -56,12 +59,18 @@ public class AbaseLookupCollectionExecutor extends AbaseLookupExecutor {
 		if (value == null) {
 			return null;
 		}
-		GenericRowData rowData = new GenericRowData(keys.length + 1);
+		ReadRestrictedRowData rowData = new ReadRestrictedRowData(normalOptions.getArity());
 		for (int i = 0; i < normalOptions.getKeyIndices().length; i++) {
 			int idx = normalOptions.getKeyIndices()[i];
 			rowData.setField(idx, keys[i]);
 		}
-		rowData.setField(normalOptions.getValueIndices()[0], converter.toInternal(value));
+		for (int i : normalOptions.getValueIndices()) {
+			if (i == valueIndex) {
+				rowData.setField(valueIndex, converter.toInternal(value));
+				continue;
+			}
+			rowData.addRestrictedField(i);
+		}
 		return rowData;
 	}
 

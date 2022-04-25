@@ -24,6 +24,8 @@ import org.apache.flink.connector.abase.options.AbaseLookupOptions;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkMetricsOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
+import org.apache.flink.connector.abase.utils.AbaseSinkMode;
+import org.apache.flink.connector.abase.utils.AbaseValueType;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.catalog.CatalogTableImpl;
@@ -162,7 +164,7 @@ public class AbaseTableFactoryTest {
 	}
 
 	@Test
-	public void testHashTypeSchema() {
+	public void testHashTypeMapSchema() {
 		TableSchema schema = TableSchema.builder()
 			.field("id", DataTypes.INT().notNull())
 			.field("region", DataTypes.STRING().notNull())
@@ -183,6 +185,577 @@ public class AbaseTableFactoryTest {
 				.build();
 		properties.remove("key_format");
 		createTableSource(schema, properties);
+	}
+
+	@Test
+	public void testSinkSchema() {
+		testStringValueTypeSinkSchema();
+		testHashValueTypeSinkSchema1();
+		testHashValueTypeSinkSchema2();
+		testHashValueTypeSinkSchema3();
+		testStringValueTypeInIncrModeSinkSchema();
+		testHashValueTypeInIncrModeSinkSchema();
+		testListValueTypeSinkSchema();
+		testSetValueTypeSinkSchema();
+		testZSetValueTypeSinkSchema();
+	}
+
+	@Test
+	public void validateListSchema() {
+		TableSchema schema = TableSchema.builder()
+			.field("key", DataTypes.INT().notNull())
+			.field("vals", DataTypes.ARRAY(DataTypes.STRING()))
+			.field("element", DataTypes.STRING())
+			.primaryKey("key")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		properties.put("value-type", "list");
+
+		thrown.expect(containsCause(new IllegalStateException("No array data is defined or it should be defined " +
+			"after the value column to be written to.")));
+		createTableSink(schema, properties);
+	}
+
+	@Test
+	public void validateZsetSchema1() {
+		TableSchema schema = TableSchema.builder()
+			.field("key", DataTypes.INT().notNull())
+			.field("vals", DataTypes.ARRAY(DataTypes.STRING()))
+			.field("score", DataTypes.BIGINT())
+			.field("element", DataTypes.STRING())
+			.primaryKey("key")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		properties.put("value-type", "zset");
+
+		thrown.expect(containsCause(new IllegalStateException("No array data is defined or it should be defined " +
+			"after the value columns to be written to.")));
+		createTableSink(schema, properties);
+	}
+
+	@Test
+	public void validateZsetSchema2() {
+		TableSchema schema = TableSchema.builder()
+			.field("key", DataTypes.INT().notNull())
+			.field("score", DataTypes.STRING())
+			.field("element", DataTypes.STRING())
+			.field("vals", DataTypes.ARRAY(DataTypes.STRING()))
+			.primaryKey("key")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		properties.put("value-type", "zset");
+
+		thrown.expect(containsCause(new IllegalStateException("The score value column of zadd should be a number " +
+			"type, such as int or double, however VARCHAR type is found at index 1")));
+		createTableSink(schema, properties);
+	}
+
+	private void testStringValueTypeSinkSchema() {
+		TableSchema schema = TableSchema.builder()
+			.field("tag1", DataTypes.INT())
+			.field("key1", DataTypes.INT().notNull())
+			.field("tag2", DataTypes.STRING())
+			.field("val", DataTypes.STRING())
+			.field("key2", DataTypes.STRING().notNull())
+			.field("event_ts", DataTypes.BIGINT())
+			.primaryKey("key1", "key2")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		addMetricsOpts(properties);
+		properties.put("key_format", "prefix:${key2}:${key1}");
+
+		AbaseNormalOptions options = AbaseNormalOptions.builder()
+			.setCluster(ABASE_CLUSTER_NAME)
+			.setTable(ABASE_TABLE_NAME)
+			.setStorage(ABASE_IDENTIFIER)
+			.setPsm(JOB_PSM_PREFIX + ABASE_JOB_NAME)
+			.setTimeout((int) CONNECTION_TIMEOUT.defaultValue().toMillis())
+			.setMinIdleConnections(CONNECTION_MIN_IDLE_NUM.defaultValue())
+			.setMaxIdleConnections(CONNECTION_MAX_IDLE_NUM.defaultValue())
+			.setMaxTotalConnections(CONNECTION_MAX_TOTAL_NUM.defaultValue())
+			.setGetResourceMaxRetries(CONNECTION_MAX_RETRIES.defaultValue())
+			.setFieldNames(schema.getFieldNames())
+			.setKeyFormatter("prefix:%2$s:%1$s")
+			.setKeyIndices(new int[]{1, 4})
+			.setValueIndices(new int[]{0, 2, 3, 5})
+			.setAbaseValueType(AbaseValueType.GENERAL)
+			.setSpecifyHashFields(false)
+			.setHashMap(false)
+			.build();
+		AbaseSinkOptions sinkOptions = AbaseSinkOptions.builder()
+			.setValueColIndices(new int[]{3})
+			.setSerColIndices(new int[]{3})
+			.setFlushMaxRetries(SINK_MAX_RETRIES.defaultValue())
+			.setMode(SINK_MODE.defaultValue())
+			.setBufferMaxRows(SINK_BUFFER_FLUSH_MAX_ROWS.defaultValue())
+			.setBufferFlushInterval(SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis())
+			.setLogFailuresOnly(SINK_LOG_FAILURES_ONLY.defaultValue())
+			.setIgnoreDelete(SINK_IGNORE_DELETE.defaultValue())
+			.setParallelism(PARALLELISM.defaultValue())
+			.setTtlSeconds((int) SINK_RECORD_TTL.defaultValue().getSeconds())
+			.build();
+		AbaseTableSink expectedSink = new AbaseTableSink(
+			options,
+			sinkOptions,
+			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			schema,
+			null);
+		assertEquals(expectedSink, createTableSink(schema, properties));
+	}
+
+	private void testStringValueTypeInIncrModeSinkSchema() {
+		TableSchema schema = TableSchema.builder()
+			.field("tag1", DataTypes.INT())
+			.field("key1", DataTypes.INT().notNull())
+			.field("tag2", DataTypes.STRING())
+			.field("val", DataTypes.BIGINT())
+			.field("key2", DataTypes.STRING().notNull())
+			.field("event_ts", DataTypes.BIGINT())
+			.primaryKey("key1", "key2")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		addMetricsOpts(properties);
+		properties.put("key_format", "prefix:${key2}:${key1}");
+		properties.put("sink.mode", "incr");
+
+		AbaseNormalOptions options = AbaseNormalOptions.builder()
+			.setCluster(ABASE_CLUSTER_NAME)
+			.setTable(ABASE_TABLE_NAME)
+			.setStorage(ABASE_IDENTIFIER)
+			.setPsm(JOB_PSM_PREFIX + ABASE_JOB_NAME)
+			.setTimeout((int) CONNECTION_TIMEOUT.defaultValue().toMillis())
+			.setMinIdleConnections(CONNECTION_MIN_IDLE_NUM.defaultValue())
+			.setMaxIdleConnections(CONNECTION_MAX_IDLE_NUM.defaultValue())
+			.setMaxTotalConnections(CONNECTION_MAX_TOTAL_NUM.defaultValue())
+			.setGetResourceMaxRetries(CONNECTION_MAX_RETRIES.defaultValue())
+			.setFieldNames(schema.getFieldNames())
+			.setKeyFormatter("prefix:%2$s:%1$s")
+			.setKeyIndices(new int[]{1, 4})
+			.setValueIndices(new int[]{0, 2, 3, 5})
+			.setAbaseValueType(AbaseValueType.GENERAL)
+			.setSpecifyHashFields(false)
+			.setHashMap(false)
+			.build();
+		AbaseSinkOptions sinkOptions = AbaseSinkOptions.builder()
+			.setValueColIndices(new int[]{3})
+			.setSerColIndices(new int[]{3})
+			.setFlushMaxRetries(SINK_MAX_RETRIES.defaultValue())
+			.setMode(AbaseSinkMode.INCR)
+			.setBufferMaxRows(SINK_BUFFER_FLUSH_MAX_ROWS.defaultValue())
+			.setBufferFlushInterval(SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis())
+			.setLogFailuresOnly(SINK_LOG_FAILURES_ONLY.defaultValue())
+			.setIgnoreDelete(SINK_IGNORE_DELETE.defaultValue())
+			.setParallelism(PARALLELISM.defaultValue())
+			.setTtlSeconds((int) SINK_RECORD_TTL.defaultValue().getSeconds())
+			.build();
+		AbaseTableSink expectedSink = new AbaseTableSink(
+			options,
+			sinkOptions,
+			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			schema,
+			null);
+		assertEquals(expectedSink, createTableSink(schema, properties));
+	}
+
+	private void testHashValueTypeSinkSchema1() {
+		TableSchema schema = TableSchema.builder()
+			.field("tag1", DataTypes.INT())
+			.field("key1", DataTypes.INT().notNull())
+			.field("tag2", DataTypes.STRING())
+			.field("field1", DataTypes.STRING())
+			.field("field2", DataTypes.STRING())
+			.field("key2", DataTypes.STRING().notNull())
+			.field("field3", DataTypes.STRING())
+			.field("event_ts", DataTypes.BIGINT())
+			.field("key3", DataTypes.TIMESTAMP().notNull())
+			.field("field4", DataTypes.STRING())
+			.primaryKey("key3", "key1", "key2")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		addMetricsOpts(properties);
+		properties.put("key_format", "prefix:${key2}:${key1}:${key3}");
+		properties.put("value-type", "hash");
+		properties.put("specify-hash-keys", "true");
+		properties.put("sink.ignore-null", "true");
+		properties.put("sink.metrics.tags.writeable", "true");
+
+		AbaseNormalOptions options = AbaseNormalOptions.builder()
+			.setCluster(ABASE_CLUSTER_NAME)
+			.setTable(ABASE_TABLE_NAME)
+			.setStorage(ABASE_IDENTIFIER)
+			.setPsm(JOB_PSM_PREFIX + ABASE_JOB_NAME)
+			.setTimeout((int) CONNECTION_TIMEOUT.defaultValue().toMillis())
+			.setMinIdleConnections(CONNECTION_MIN_IDLE_NUM.defaultValue())
+			.setMaxIdleConnections(CONNECTION_MAX_IDLE_NUM.defaultValue())
+			.setMaxTotalConnections(CONNECTION_MAX_TOTAL_NUM.defaultValue())
+			.setGetResourceMaxRetries(CONNECTION_MAX_RETRIES.defaultValue())
+			.setFieldNames(schema.getFieldNames())
+			.setKeyFormatter("prefix:%2$s:%1$s:%3$s")
+			.setKeyIndices(new int[]{1, 5, 8})
+			.setValueIndices(new int[]{0, 2, 3, 4, 6, 7, 9})
+			.setAbaseValueType(AbaseValueType.HASH)
+			.setSpecifyHashFields(true)
+			.setHashMap(false)
+			.build();
+		AbaseSinkOptions sinkOptions = AbaseSinkOptions.builder()
+			.setValueColIndices(new int[]{3, 4, 6, 9})
+			.setSerColIndices(new int[]{0, 2, 3, 4, 6, 9})
+			.setFlushMaxRetries(SINK_MAX_RETRIES.defaultValue())
+			.setMode(SINK_MODE.defaultValue())
+			.setBufferMaxRows(SINK_BUFFER_FLUSH_MAX_ROWS.defaultValue())
+			.setBufferFlushInterval(SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis())
+			.setLogFailuresOnly(SINK_LOG_FAILURES_ONLY.defaultValue())
+			.setIgnoreDelete(SINK_IGNORE_DELETE.defaultValue())
+			.setIgnoreNull(true)
+			.setParallelism(PARALLELISM.defaultValue())
+			.setTtlSeconds((int) SINK_RECORD_TTL.defaultValue().getSeconds())
+			.build();
+		AbaseTableSink expectedSink = new AbaseTableSink(
+			options,
+			sinkOptions,
+			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			schema,
+			null);
+		assertEquals(expectedSink, createTableSink(schema, properties));
+	}
+
+	private void testHashValueTypeSinkSchema2() {
+		TableSchema schema = TableSchema.builder()
+			.field("tag1", DataTypes.INT())
+			.field("key1", DataTypes.INT().notNull())
+			.field("tag2", DataTypes.STRING())
+			.field("field_name", DataTypes.STRING())
+			.field("key2", DataTypes.STRING().notNull())
+			.field("field_value", DataTypes.STRING())
+			.field("event_ts", DataTypes.BIGINT())
+			.field("key3", DataTypes.TIMESTAMP().notNull())
+			.primaryKey("key3", "key1", "key2")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		addMetricsOpts(properties);
+		properties.put("key_format", "prefix:${key1}:${key3}:${key2}");
+		properties.put("value-type", "hash");
+		properties.put("sink.metrics.tags.writeable", "true");
+
+		AbaseNormalOptions options = AbaseNormalOptions.builder()
+			.setCluster(ABASE_CLUSTER_NAME)
+			.setTable(ABASE_TABLE_NAME)
+			.setStorage(ABASE_IDENTIFIER)
+			.setPsm(JOB_PSM_PREFIX + ABASE_JOB_NAME)
+			.setTimeout((int) CONNECTION_TIMEOUT.defaultValue().toMillis())
+			.setMinIdleConnections(CONNECTION_MIN_IDLE_NUM.defaultValue())
+			.setMaxIdleConnections(CONNECTION_MAX_IDLE_NUM.defaultValue())
+			.setMaxTotalConnections(CONNECTION_MAX_TOTAL_NUM.defaultValue())
+			.setGetResourceMaxRetries(CONNECTION_MAX_RETRIES.defaultValue())
+			.setFieldNames(schema.getFieldNames())
+			.setKeyFormatter("prefix:%1$s:%3$s:%2$s")
+			.setKeyIndices(new int[]{1, 4, 7})
+			.setValueIndices(new int[]{0, 2, 3, 5, 6})
+			.setAbaseValueType(AbaseValueType.HASH)
+			.setSpecifyHashFields(false)
+			.setHashMap(false)
+			.build();
+		AbaseSinkOptions sinkOptions = AbaseSinkOptions.builder()
+			.setValueColIndices(new int[]{3, 5})
+			.setSerColIndices(new int[]{0, 2, 3, 5})
+			.setFlushMaxRetries(SINK_MAX_RETRIES.defaultValue())
+			.setMode(SINK_MODE.defaultValue())
+			.setBufferMaxRows(SINK_BUFFER_FLUSH_MAX_ROWS.defaultValue())
+			.setBufferFlushInterval(SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis())
+			.setLogFailuresOnly(SINK_LOG_FAILURES_ONLY.defaultValue())
+			.setIgnoreDelete(SINK_IGNORE_DELETE.defaultValue())
+			.setParallelism(PARALLELISM.defaultValue())
+			.setTtlSeconds((int) SINK_RECORD_TTL.defaultValue().getSeconds())
+			.build();
+		AbaseTableSink expectedSink = new AbaseTableSink(
+			options,
+			sinkOptions,
+			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			schema,
+			null);
+		assertEquals(expectedSink, createTableSink(schema, properties));
+	}
+
+	private void testHashValueTypeSinkSchema3() {
+		TableSchema schema = TableSchema.builder()
+			.field("tag1", DataTypes.INT())
+			.field("key1", DataTypes.INT().notNull())
+			.field("tag2", DataTypes.STRING())
+			.field("map", DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()))
+			.field("key2", DataTypes.STRING().notNull())
+			.field("event_ts", DataTypes.BIGINT())
+			.field("key3", DataTypes.TIMESTAMP().notNull())
+			.primaryKey("key3", "key1", "key2")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		addMetricsOpts(properties);
+		properties.put("key_format", "prefix:${key3}:${key2}:${key1}");
+		properties.put("value-type", "hash");
+		properties.put("sink.metrics.event-ts.writeable", "true");
+
+		AbaseNormalOptions options = AbaseNormalOptions.builder()
+			.setCluster(ABASE_CLUSTER_NAME)
+			.setTable(ABASE_TABLE_NAME)
+			.setStorage(ABASE_IDENTIFIER)
+			.setPsm(JOB_PSM_PREFIX + ABASE_JOB_NAME)
+			.setTimeout((int) CONNECTION_TIMEOUT.defaultValue().toMillis())
+			.setMinIdleConnections(CONNECTION_MIN_IDLE_NUM.defaultValue())
+			.setMaxIdleConnections(CONNECTION_MAX_IDLE_NUM.defaultValue())
+			.setMaxTotalConnections(CONNECTION_MAX_TOTAL_NUM.defaultValue())
+			.setGetResourceMaxRetries(CONNECTION_MAX_RETRIES.defaultValue())
+			.setFieldNames(schema.getFieldNames())
+			.setKeyFormatter("prefix:%3$s:%2$s:%1$s")
+			.setKeyIndices(new int[]{1, 4, 6})
+			.setValueIndices(new int[]{0, 2, 3, 5})
+			.setAbaseValueType(AbaseValueType.HASH)
+			.setSpecifyHashFields(false)
+			.setHashMap(true)
+			.build();
+		AbaseSinkOptions sinkOptions = AbaseSinkOptions.builder()
+			.setValueColIndices(new int[]{3})
+			.setSerColIndices(new int[]{3, 5})
+			.setFlushMaxRetries(SINK_MAX_RETRIES.defaultValue())
+			.setMode(SINK_MODE.defaultValue())
+			.setBufferMaxRows(SINK_BUFFER_FLUSH_MAX_ROWS.defaultValue())
+			.setBufferFlushInterval(SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis())
+			.setLogFailuresOnly(SINK_LOG_FAILURES_ONLY.defaultValue())
+			.setIgnoreDelete(SINK_IGNORE_DELETE.defaultValue())
+			.setParallelism(PARALLELISM.defaultValue())
+			.setTtlSeconds((int) SINK_RECORD_TTL.defaultValue().getSeconds())
+			.build();
+		AbaseTableSink expectedSink = new AbaseTableSink(
+			options,
+			sinkOptions,
+			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			schema,
+			null);
+		assertEquals(expectedSink, createTableSink(schema, properties));
+	}
+
+	private void testHashValueTypeInIncrModeSinkSchema() {
+		TableSchema schema = TableSchema.builder()
+			.field("tag1", DataTypes.INT())
+			.field("key1", DataTypes.INT().notNull())
+			.field("tag2", DataTypes.STRING())
+			.field("field_name", DataTypes.STRING())
+			.field("key2", DataTypes.STRING().notNull())
+			.field("value", DataTypes.BIGINT())
+			.field("event_ts", DataTypes.BIGINT())
+			.field("key3", DataTypes.TIMESTAMP().notNull())
+			.primaryKey("key3", "key1", "key2")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		addMetricsOpts(properties);
+		properties.put("key_format", "prefix:${key1}:${key3}:${key2}");
+		properties.put("value-type", "hash");
+		properties.put("sink.mode", "incr");
+
+		AbaseNormalOptions options = AbaseNormalOptions.builder()
+			.setCluster(ABASE_CLUSTER_NAME)
+			.setTable(ABASE_TABLE_NAME)
+			.setStorage(ABASE_IDENTIFIER)
+			.setPsm(JOB_PSM_PREFIX + ABASE_JOB_NAME)
+			.setTimeout((int) CONNECTION_TIMEOUT.defaultValue().toMillis())
+			.setMinIdleConnections(CONNECTION_MIN_IDLE_NUM.defaultValue())
+			.setMaxIdleConnections(CONNECTION_MAX_IDLE_NUM.defaultValue())
+			.setMaxTotalConnections(CONNECTION_MAX_TOTAL_NUM.defaultValue())
+			.setGetResourceMaxRetries(CONNECTION_MAX_RETRIES.defaultValue())
+			.setFieldNames(schema.getFieldNames())
+			.setKeyFormatter("prefix:%1$s:%3$s:%2$s")
+			.setKeyIndices(new int[]{1, 4, 7})
+			.setValueIndices(new int[]{0, 2, 3, 5, 6})
+			.setAbaseValueType(AbaseValueType.HASH)
+			.setSpecifyHashFields(false)
+			.setHashMap(false)
+			.build();
+		AbaseSinkOptions sinkOptions = AbaseSinkOptions.builder()
+			.setValueColIndices(new int[]{3, 5})
+			.setSerColIndices(new int[]{3, 5})
+			.setFlushMaxRetries(SINK_MAX_RETRIES.defaultValue())
+			.setMode(AbaseSinkMode.INCR)
+			.setBufferMaxRows(SINK_BUFFER_FLUSH_MAX_ROWS.defaultValue())
+			.setBufferFlushInterval(SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis())
+			.setLogFailuresOnly(SINK_LOG_FAILURES_ONLY.defaultValue())
+			.setIgnoreDelete(SINK_IGNORE_DELETE.defaultValue())
+			.setParallelism(PARALLELISM.defaultValue())
+			.setTtlSeconds((int) SINK_RECORD_TTL.defaultValue().getSeconds())
+			.build();
+		AbaseTableSink expectedSink = new AbaseTableSink(
+			options,
+			sinkOptions,
+			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			schema,
+			null);
+		assertEquals(expectedSink, createTableSink(schema, properties));
+	}
+
+	private void testListValueTypeSinkSchema() {
+		TableSchema schema = TableSchema.builder()
+			.field("tag1", DataTypes.INT())
+			.field("key1", DataTypes.INT().notNull())
+			.field("tag2", DataTypes.STRING())
+			.field("element", DataTypes.STRING())
+			.field("key2", DataTypes.STRING().notNull())
+			.field("vals", DataTypes.ARRAY(DataTypes.STRING()))
+			.field("event_ts", DataTypes.BIGINT())
+			.field("key3", DataTypes.TIMESTAMP().notNull())
+			.primaryKey("key3", "key1", "key2")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		addMetricsOpts(properties);
+		properties.put("key_format", "prefix:${key1}:${key3}:${key2}");
+		properties.put("value-type", "list");
+
+		AbaseNormalOptions options = AbaseNormalOptions.builder()
+			.setCluster(ABASE_CLUSTER_NAME)
+			.setTable(ABASE_TABLE_NAME)
+			.setStorage(ABASE_IDENTIFIER)
+			.setPsm(JOB_PSM_PREFIX + ABASE_JOB_NAME)
+			.setTimeout((int) CONNECTION_TIMEOUT.defaultValue().toMillis())
+			.setMinIdleConnections(CONNECTION_MIN_IDLE_NUM.defaultValue())
+			.setMaxIdleConnections(CONNECTION_MAX_IDLE_NUM.defaultValue())
+			.setMaxTotalConnections(CONNECTION_MAX_TOTAL_NUM.defaultValue())
+			.setGetResourceMaxRetries(CONNECTION_MAX_RETRIES.defaultValue())
+			.setFieldNames(schema.getFieldNames())
+			.setKeyFormatter("prefix:%1$s:%3$s:%2$s")
+			.setKeyIndices(new int[]{1, 4, 7})
+			.setValueIndices(new int[]{0, 2, 3, 5, 6})
+			.setAbaseValueType(AbaseValueType.LIST)
+			.setSpecifyHashFields(false)
+			.setHashMap(false)
+			.build();
+		AbaseSinkOptions sinkOptions = AbaseSinkOptions.builder()
+			.setValueColIndices(new int[]{3, 5})
+			.setSerColIndices(new int[]{3, 5})
+			.setFlushMaxRetries(SINK_MAX_RETRIES.defaultValue())
+			.setMode(AbaseSinkMode.INSERT)
+			.setBufferMaxRows(SINK_BUFFER_FLUSH_MAX_ROWS.defaultValue())
+			.setBufferFlushInterval(SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis())
+			.setLogFailuresOnly(SINK_LOG_FAILURES_ONLY.defaultValue())
+			.setIgnoreDelete(SINK_IGNORE_DELETE.defaultValue())
+			.setParallelism(PARALLELISM.defaultValue())
+			.setTtlSeconds((int) SINK_RECORD_TTL.defaultValue().getSeconds())
+			.build();
+		AbaseTableSink expectedSink = new AbaseTableSink(
+			options,
+			sinkOptions,
+			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			schema,
+			null);
+		assertEquals(expectedSink, createTableSink(schema, properties));
+	}
+
+	private void testSetValueTypeSinkSchema() {
+		TableSchema schema = TableSchema.builder()
+			.field("tag1", DataTypes.INT())
+			.field("key1", DataTypes.INT().notNull())
+			.field("tag2", DataTypes.STRING())
+			.field("element", DataTypes.STRING())
+			.field("key2", DataTypes.STRING().notNull())
+			.field("vals", DataTypes.ARRAY(DataTypes.STRING()))
+			.field("event_ts", DataTypes.BIGINT())
+			.field("key3", DataTypes.TIMESTAMP().notNull())
+			.primaryKey("key3", "key1", "key2")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		addMetricsOpts(properties);
+		properties.put("key_format", "prefix:${key1}:${key3}:${key2}");
+		properties.put("value-type", "set");
+
+		AbaseNormalOptions options = AbaseNormalOptions.builder()
+			.setCluster(ABASE_CLUSTER_NAME)
+			.setTable(ABASE_TABLE_NAME)
+			.setStorage(ABASE_IDENTIFIER)
+			.setPsm(JOB_PSM_PREFIX + ABASE_JOB_NAME)
+			.setTimeout((int) CONNECTION_TIMEOUT.defaultValue().toMillis())
+			.setMinIdleConnections(CONNECTION_MIN_IDLE_NUM.defaultValue())
+			.setMaxIdleConnections(CONNECTION_MAX_IDLE_NUM.defaultValue())
+			.setMaxTotalConnections(CONNECTION_MAX_TOTAL_NUM.defaultValue())
+			.setGetResourceMaxRetries(CONNECTION_MAX_RETRIES.defaultValue())
+			.setFieldNames(schema.getFieldNames())
+			.setKeyFormatter("prefix:%1$s:%3$s:%2$s")
+			.setKeyIndices(new int[]{1, 4, 7})
+			.setValueIndices(new int[]{0, 2, 3, 5, 6})
+			.setAbaseValueType(AbaseValueType.SET)
+			.setSpecifyHashFields(false)
+			.setHashMap(false)
+			.build();
+		AbaseSinkOptions sinkOptions = AbaseSinkOptions.builder()
+			.setValueColIndices(new int[]{3, 5})
+			.setSerColIndices(new int[]{3, 5})
+			.setFlushMaxRetries(SINK_MAX_RETRIES.defaultValue())
+			.setMode(AbaseSinkMode.INSERT)
+			.setBufferMaxRows(SINK_BUFFER_FLUSH_MAX_ROWS.defaultValue())
+			.setBufferFlushInterval(SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis())
+			.setLogFailuresOnly(SINK_LOG_FAILURES_ONLY.defaultValue())
+			.setIgnoreDelete(SINK_IGNORE_DELETE.defaultValue())
+			.setParallelism(PARALLELISM.defaultValue())
+			.setTtlSeconds((int) SINK_RECORD_TTL.defaultValue().getSeconds())
+			.build();
+		AbaseTableSink expectedSink = new AbaseTableSink(
+			options,
+			sinkOptions,
+			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			schema,
+			null);
+		assertEquals(expectedSink, createTableSink(schema, properties));
+	}
+
+	private void testZSetValueTypeSinkSchema() {
+		TableSchema schema = TableSchema.builder()
+			.field("tag1", DataTypes.INT())
+			.field("key1", DataTypes.INT().notNull())
+			.field("tag2", DataTypes.STRING())
+			.field("score", DataTypes.DOUBLE())
+			.field("key2", DataTypes.STRING().notNull())
+			.field("element", DataTypes.STRING())
+			.field("event_ts", DataTypes.BIGINT())
+			.field("vals", DataTypes.ARRAY(DataTypes.STRING()))
+			.field("key3", DataTypes.TIMESTAMP().notNull())
+			.primaryKey("key3", "key1", "key2")
+			.build();
+		Map<String, String> properties = getBasicOptions();
+		addMetricsOpts(properties);
+		properties.put("key_format", "prefix:${key1}:${key3}:${key2}");
+		properties.put("value-type", "zset");
+
+		AbaseNormalOptions options = AbaseNormalOptions.builder()
+			.setCluster(ABASE_CLUSTER_NAME)
+			.setTable(ABASE_TABLE_NAME)
+			.setStorage(ABASE_IDENTIFIER)
+			.setPsm(JOB_PSM_PREFIX + ABASE_JOB_NAME)
+			.setTimeout((int) CONNECTION_TIMEOUT.defaultValue().toMillis())
+			.setMinIdleConnections(CONNECTION_MIN_IDLE_NUM.defaultValue())
+			.setMaxIdleConnections(CONNECTION_MAX_IDLE_NUM.defaultValue())
+			.setMaxTotalConnections(CONNECTION_MAX_TOTAL_NUM.defaultValue())
+			.setGetResourceMaxRetries(CONNECTION_MAX_RETRIES.defaultValue())
+			.setFieldNames(schema.getFieldNames())
+			.setKeyFormatter("prefix:%1$s:%3$s:%2$s")
+			.setKeyIndices(new int[]{1, 4, 8})
+			.setValueIndices(new int[]{0, 2, 3, 5, 6, 7})
+			.setAbaseValueType(AbaseValueType.ZSET)
+			.setSpecifyHashFields(false)
+			.setHashMap(false)
+			.build();
+		AbaseSinkOptions sinkOptions = AbaseSinkOptions.builder()
+			.setValueColIndices(new int[]{3, 5, 7})
+			.setSerColIndices(new int[]{3, 5, 7})
+			.setFlushMaxRetries(SINK_MAX_RETRIES.defaultValue())
+			.setMode(AbaseSinkMode.INSERT)
+			.setBufferMaxRows(SINK_BUFFER_FLUSH_MAX_ROWS.defaultValue())
+			.setBufferFlushInterval(SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis())
+			.setLogFailuresOnly(SINK_LOG_FAILURES_ONLY.defaultValue())
+			.setIgnoreDelete(SINK_IGNORE_DELETE.defaultValue())
+			.setParallelism(PARALLELISM.defaultValue())
+			.setTtlSeconds((int) SINK_RECORD_TTL.defaultValue().getSeconds())
+			.build();
+		AbaseTableSink expectedSink = new AbaseTableSink(
+			options,
+			sinkOptions,
+			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			schema,
+			null);
+		assertEquals(expectedSink, createTableSink(schema, properties));
 	}
 
 	private static DynamicTableSource createTableSource(TableSchema schema, Map<String, String> options) {
@@ -209,6 +782,13 @@ public class AbaseTableFactoryTest {
 		options.put("cluster", ABASE_CLUSTER_NAME);
 		options.put("table", ABASE_TABLE_NAME);
 		return options;
+	}
+
+	private static void addMetricsOpts(Map<String, String> opts) {
+		opts.put("sink.metrics.quantiles", "0.5;0.9;0.95;0.99");
+		opts.put("sink.metrics.event-ts.name", "event_ts");
+		opts.put("sink.metrics.tag.names", "tag1;tag2");
+		opts.put("sink.metrics.props", "k1:v1,k2:v2,k3:v3");
 	}
 
 	private static Configuration getConfiguration() {

@@ -686,6 +686,72 @@ public class AbaseTableSinkTest extends AbaseTestBase {
 		Mockito.verifyNoMoreInteractions(clientPipeline);
 	}
 
+	@Test
+	public void testLPUSHWithUnifiedSchema() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `score` BIGINT,\n" +
+				"  `vals`  ARRAY<BIGINT>,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '3 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '3',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'list'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink (`name`, `bonus`, `score`)\n" +
+			"SELECT `name`, `bonus`, `score`\n" +
+			"FROM T5");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifyLPUSH(multiPKsResults);
+		verifyListTTL(multiPKsResults.keySet(), 3);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	@Test
+	public void testLPUSHWithReadOnlyField() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `score` BIGINT,\n" +
+				"  `vals`  ARRAY<VARCHAR>,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '3 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '3',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'list'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `bonus`, `score`, ARRAY['kevin', 'cheng']\n" +
+			"FROM T5");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		thrown.expect(containsCause(new UnsupportedOperationException("The index at 3 is read-only, can't write to it!")));
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+	}
+
 	/**
 	 * Test of set type SADD command.
 	 * @throws Exception
@@ -759,6 +825,72 @@ public class AbaseTableSinkTest extends AbaseTestBase {
 		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
 		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
 		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	@Test
+	public void testSADDWithUnifiedSchema() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `score` BIGINT,\n" +
+				"  `vals`  ARRAY<BIGINT>,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '20 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '3',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'set'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink (`name`, `bonus`, `score`)\n" +
+			"SELECT `name`, `bonus`, `score`\n" +
+			"FROM T5");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifySADD(multiPKsResults);
+		verifySetTTL(multiPKsResults.keySet(), 20);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	@Test
+	public void testSADDWithReadOnlyField() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `score` BIGINT,\n" +
+				"  `vals`  ARRAY<VARCHAR>,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '20 s',\n" +
+				"  'sink.buffer-flush.max-rows' = '3',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'set'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `bonus`, `score`, ARRAY['kevin', 'cheng']\n" +
+			"FROM T5");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		thrown.expect(containsCause(new UnsupportedOperationException("The index at 3 is read-only, can't write to it!")));
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
 	}
 
 	/**
@@ -836,6 +968,74 @@ public class AbaseTableSinkTest extends AbaseTestBase {
 		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
 		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
 		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	@Test
+	public void testZADDWithUnifiedSchema() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `rank`  INT,\n" +
+				"  `score` BIGINT,\n" +
+				"  `vals`  ARRAY<INT>,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '4 min',\n" +
+				"  'sink.buffer-flush.max-rows' = '3',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'zset'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink (`name`, `bonus`, `rank`, `score`)\n" +
+			"SELECT `name`, `bonus`, `rank`, `score`\n" +
+			"FROM T5");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+
+		// verify pipeline method calls
+		verifyZADD(multiPKsResults);
+		verifyZSetTTL(multiPKsResults.keySet(), 240);
+		Mockito.verify(clientPipeline, Mockito.times(1)).syncAndReturnAll();
+		Mockito.verify(clientPipeline, Mockito.times(1)).close(); // check if close as expected.
+		Mockito.verifyNoMoreInteractions(clientPipeline);
+	}
+
+	@Test
+	public void testZADDWithReadOnlyField() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`  VARCHAR,\n" +
+				"  `bonus` INT,\n" +
+				"  `rank`  INT,\n" +
+				"  `score` BIGINT,\n" +
+				"  `vals`  ARRAY<VARCHAR>,\n" +
+				"  PRIMARY KEY (`name`, `bonus`) NOT ENFORCED\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'key_format' = 'race_game:${name}:${bonus}',\n" +
+				"  'sink.record.ttl' = '4 min',\n" +
+				"  'sink.buffer-flush.max-rows' = '3',\n" +
+				"  'sink.buffer-flush.interval' = '20 min',\n" +
+				"  'value-type' = 'zset'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `bonus`, `rank`, `score`, ARRAY['kevin', 'cheng']\n" +
+			"FROM T5");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		thrown.expect(containsCause(new UnsupportedOperationException("The index at 4 is read-only, can't write to it!")));
+		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
 	}
 
 	private void verifySETEX(int ttl, Map<String, Map<String, String>> results) {
