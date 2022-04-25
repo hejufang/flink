@@ -48,6 +48,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -114,6 +115,8 @@ public class NoSlotWorkerManagerImpl implements SlotManager {
 		this.initialTaskManager = slotManagerConfiguration.isInitialTaskManager();
 		this.minWorkerNumber = slotManagerConfiguration.getMinWorkerNum();
 		this.maxWorkerNumber = slotManagerConfiguration.getMaxWorkerNum();
+		checkArgument(minWorkerNumber <= maxWorkerNumber,
+			"minimal workers should be small or equal to maximum workers.");
 
 		taskManagerRegistrations = new HashMap<>(4);
 
@@ -153,7 +156,7 @@ public class NoSlotWorkerManagerImpl implements SlotManager {
 	@Override
 	public int numTaskManagersNeedRequest() {
 		if (initialTaskManager) {
-			return Math.max(minWorkerNumber, numInitialTaskManagers);
+			return Math.min(Math.max(minWorkerNumber, numInitialTaskManagers), maxWorkerNumber);
 		} else {
 			return minWorkerNumber;
 		}

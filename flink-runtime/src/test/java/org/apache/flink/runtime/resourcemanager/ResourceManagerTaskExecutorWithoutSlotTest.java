@@ -160,7 +160,7 @@ public class ResourceManagerTaskExecutorWithoutSlotTest extends TestLogger {
 		SlotManager slotManager = NoSlotWorkerManagerBuilder.newBuilder()
 			.setDefaultWorkerResourceSpec(WORKER_RESOURCE_SPEC)
 			.setMinWorkerNum(MIN_WORKER_NUM)
-			.setMaxSlotNum(MAX_WORKER_NUM)
+			.setMaxWorkerNum(MAX_WORKER_NUM)
 			.build();
 
 		JobLeaderIdService jobLeaderIdService = new JobLeaderIdService(

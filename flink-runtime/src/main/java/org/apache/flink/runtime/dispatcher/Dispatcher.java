@@ -319,6 +319,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		this.minRequiredTaskManager = configuration.getInteger(ClusterOptions.RM_MIN_WORKER_NUM);
 
 		this.maxRegisteredTaskManager = configuration.getInteger(ClusterOptions.RM_MAX_WORKER_NUM);
+		checkArgument(minRequiredTaskManager <= maxRegisteredTaskManager,
+			"minimal required workers should be smaller or equal to maximum required workers.");
 
 		this.maxRunningTasks = configuration.getInteger(JobManagerOptions.JOBMANAGER_MAX_RUNNING_TASKS_PER_TASKMANAGER);
 
