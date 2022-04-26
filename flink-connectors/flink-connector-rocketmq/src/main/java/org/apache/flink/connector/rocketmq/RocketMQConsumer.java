@@ -150,7 +150,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			client.registerToToolbox(cluster, topic, group);
 		}
 		RocketMQUtils.saveConfigurationToSystemProperties(config);
-		RocketMQUtils.validateBrokerQueueList(config);
+		RocketMQUtils.validateAndSetBrokerQueueList(config);
 	}
 
 	@Override

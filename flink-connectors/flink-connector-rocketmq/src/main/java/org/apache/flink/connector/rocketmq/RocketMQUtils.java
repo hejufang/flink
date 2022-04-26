@@ -77,7 +77,7 @@ public final class RocketMQUtils {
 	}
 
 	public static Set<RocketMQSplitBase> getClusterSplitBaseSet(String cluster, String brokerQueueList) {
-		Map<String, List<MessageQueue>> map = parseMessageQueues(brokerQueueList);
+		Map<String, List<MessageQueue>> map = parseCluster2QueueList(brokerQueueList);
 		if (map.isEmpty()) {
 			return Collections.emptySet();
 		}
@@ -98,7 +98,8 @@ public final class RocketMQUtils {
 			 * It will be get from system environment in AbstractYarnClusterDescriptor#startAppMaster,
 			 * and set it to container system in org.apache.flink.yarn.Utils
 			 */
-			brokerQueueList = System.getenv(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY);
+			brokerQueueList = System.getProperty(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY);
+			LOG.info("Got broker queue list {}", brokerQueueList);
 		}
 		try {
 			return parseMessageQueues(brokerQueueList);
@@ -288,9 +289,18 @@ public final class RocketMQUtils {
 		}
 	}
 
+	public static void validateAndSetBrokerQueueList(RocketMQConfig<?> rocketMQConfig) {
+		if (rocketMQConfig.getRocketMqBrokerQueueList() == null) {
+			rocketMQConfig.setRocketMqBrokerQueueList(
+				System.getProperty(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY));
+		}
+		validateBrokerQueueList(rocketMQConfig);
+	}
+
 	public static void validateBrokerQueueList(RocketMQConfig<?> rocketMQConfig) {
 		Map<String, List<MessageQueue>> messageQueueMap =
 			RocketMQUtils.parseCluster2QueueList(rocketMQConfig.getRocketMqBrokerQueueList());
+		LOG.info("Validate broker size {}", messageQueueMap.size());
 		if (!messageQueueMap.isEmpty() && messageQueueMap.get(rocketMQConfig.getCluster()) == null) {
 			throw new FlinkRuntimeException(
 				String.format("Cluster %s not found in broker queue config", rocketMQConfig.getCluster()));

@@ -240,6 +240,7 @@ public class CliFrontend {
 				activeCommandLine, commandLine, programOptions, Collections.singletonList(uri.toString()));
 
 		setEffectiveJobNameAndJobUID(effectiveConfiguration);
+		setRmqBrokerQueueList(effectiveConfiguration);
 		warehouseJobStartEventMessageRecorder.setWaitJobIdBeforeSendMessage(false);
 		metricRegistry = createMetricRegistry(effectiveConfiguration);
 		if (metricRegistry != null) {
@@ -313,6 +314,8 @@ public class CliFrontend {
 		setJobNameAndClusterName(effectiveConfiguration);
 
 		setEffectiveJobNameAndJobUID(effectiveConfiguration);
+
+		setRmqBrokerQueueList(effectiveConfiguration);
 
 		LOG.debug("Effective executor configuration: {}", effectiveConfiguration);
 
@@ -1038,6 +1041,7 @@ public class CliFrontend {
 		final Configuration effectiveConfiguration = activeCommandLine.getEffectiveConfiguration(commandLine);
 
 		setEffectiveJobNameAndJobUID(effectiveConfiguration);
+		setRmqBrokerQueueList(effectiveConfiguration);
 		final String jobUID = effectiveConfiguration.getString(PipelineOptions.JOB_UID);
 		if (checkpointOptions.isAnalyzation()) {
 			final String path = checkpointOptions.getMetadataPath();
@@ -1298,6 +1302,17 @@ public class CliFrontend {
 			throw new CliArgsException(e.getMessage());
 		}
 		return jobId;
+	}
+
+	private void setRmqBrokerQueueList(Configuration configuration) {
+		String brokerQueueList =
+			System.getProperty(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY);
+		if (brokerQueueList == null) {
+			brokerQueueList = configuration.getString(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, null);
+			if (brokerQueueList != null) {
+				System.setProperty(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, brokerQueueList);
+			}
+		}
 	}
 
 	/**

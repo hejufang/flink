@@ -90,7 +90,7 @@ public class RocketMQSource<OUT> implements
 		}
 
 		RocketMQUtils.saveConfigurationToSystemProperties(config);
-		RocketMQUtils.validateBrokerQueueList(config);
+		RocketMQUtils.validateAndSetBrokerQueueList(config);
 	}
 
 	@Override
