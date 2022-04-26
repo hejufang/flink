@@ -1361,6 +1361,32 @@ koala:
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
 
+koala-lq:
+  dc: cn
+  clusterName: koala-lq
+  high-availability.zookeeper.quorum: fdbd:dc03:ff:f2:1::13:2181,fdbd:dc03:ff:f2:1::f:2181,fdbd:dc03:ff:f2:1::2:2181,fdbd:dc03:ff:f2:1::4:2181,fdbd:dc03:ff:f2:1::12:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: koala-lq
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
+
+koala-hl:
+  dc: cn
+  clusterName: koala-hl
+  high-availability.zookeeper.quorum: fdbd:dc02:ff:2:1:174:65:46:2181,fdbd:dc02:ff:2:1:174:65:56:2181,fdbd:dc02:ff:2:1:174:118:41:2181,fdbd:dc02:ff:2:1:174:94:65:2181,fdbd:dc02:ff:2:1:174:120:50:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: koala-hl
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
+
 boei18n:
   dc: vm
   clusterName: boei18n
