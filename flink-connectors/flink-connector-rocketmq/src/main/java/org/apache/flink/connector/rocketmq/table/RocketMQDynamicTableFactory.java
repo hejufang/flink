@@ -84,6 +84,8 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_FACTORY_C
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_FLIP27_SOURCE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_FORCE_AUTO_COMMIT;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_OFFSET_FLUSH_INTERVAL_MS;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_POLL_BATCH_SIZE;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_POLL_LATENCY_MS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_ASYNC_MODE_ENABLED;
@@ -188,6 +190,8 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SCAN_FLIP27_SOURCE);
 		options.add(SCAN_FACTORY_CLASS);
 		options.add(SCAN_DISCOVER_INTERVAL);
+		options.add(SCAN_POLL_BATCH_SIZE);
+		options.add(SCAN_POLL_LATENCY_MS);
 		options.add(SINK_BATCH_FLUSH_ENABLE);
 		options.add(SINK_ASYNC_MODE_ENABLED);
 		options.add(SCAN_CONSUMER_OFFSET_RESET_TO);
@@ -382,6 +386,8 @@ public class RocketMQDynamicTableFactory implements
 			config.getOptional(SCAN_END_OFFSET).ifPresent(rocketMQConfig::setEndOffset);
 			config.getOptional(SCAN_END_TIMESTAMP).ifPresent(rocketMQConfig::setEndTimestamp);
 			config.getOptional(SCAN_OFFSET_FLUSH_INTERVAL_MS).ifPresent(rocketMQConfig::setOffsetFlushInterval);
+			config.getOptional(SCAN_POLL_BATCH_SIZE).ifPresent(rocketMQConfig::setPollBatchSize);
+			config.getOptional(SCAN_POLL_LATENCY_MS).ifPresent(rocketMQConfig::setPollLatencyMs);
 		}
 
 		return rocketMQConfig;

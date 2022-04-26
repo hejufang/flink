@@ -78,7 +78,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		CheckpointedFunction,
 		SpecificParallelism {
 	private static final long serialVersionUID = 1L;
-	private static final long CONSUMER_DEFAULT_POLL_LATENCY_MS = 10000;
 	private static final int DEFAULT_SLEEP_MILLISECONDS = 1;
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQConsumer.class);
 	private static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
@@ -100,6 +99,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private final RocketMQConsumerFactory consumerFactory;
 	private int parallelism;
 	private final int offsetFlushInterval;
+	private final long discoveryIntervalMs;
+	private final int pollBatchSize;
+	private final long pollLatencyMs;
 
 	private transient MeterView recordsNumMeterView;
 	private transient TopicAndQueuesGauge topicAndQueuesGauge;
@@ -138,6 +140,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.consumerFactory = config.getConsumerFactory();
 		this.jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
 		this.offsetFlushInterval = config.getOffsetFlushInterval();
+		this.discoveryIntervalMs = config.getDiscoverIntervalMs();
+		this.pollBatchSize = config.getPollBatchSize();
+		this.pollLatencyMs = config.getPollLatencyMs();
 		RocketMQUtils.saveConfigurationToSystemProperties(config);
 		RocketMQUtils.validateBrokerQueueList(config);
 	}
@@ -281,7 +286,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					ctx.markAsTemporarilyIdle();
 					this.wait();
 				}
-				RetryManager.retry(() -> messageExtsList.add(consumer.poll(CONSUMER_DEFAULT_POLL_LATENCY_MS)), retryStrategy);
+				RetryManager.retry(() -> messageExtsList.add(consumer.poll(pollBatchSize, pollLatencyMs)), retryStrategy);
 			}
 			List<MessageExt> messageExts = messageExtsList.get(0);
 			for (MessageExt messageExt: messageExts) {
@@ -448,7 +453,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 						RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 				while (running && fixRetryStrategy.shouldRetry()) {
 					try {
-						Thread.sleep(5 * 60 * 1000);
+						Thread.sleep(discoveryIntervalMs);
 						assignMessageQueues(() -> allocFixedMessageQueue());
 						fixRetryStrategy.clear();
 					} catch (InterruptedException e) {

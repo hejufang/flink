@@ -181,6 +181,18 @@ public abstract class RocketMQOptions {
 		.defaultValue(5_000)
 		.withDescription("Interval for sync offset server");
 
+	public static final ConfigOption<Integer> SCAN_POLL_BATCH_SIZE = ConfigOptions
+		.key("scan.poll-batch-size")
+		.intType()
+		.defaultValue(25)
+		.withDescription("Rocket MQ poll batch size");
+
+	public static final ConfigOption<Long> SCAN_POLL_LATENCY_MS = ConfigOptions
+		.key("scan.poll-latency-ms")
+		.longType()
+		.defaultValue(10_000L)
+		.withDescription("Rocket MQ poll latency ms");
+
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------

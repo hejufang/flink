@@ -38,6 +38,8 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_DISCOVER_
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_END_OFFSET;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_END_TIMESTAMP;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_OFFSET_FLUSH_INTERVAL_MS;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_POLL_BATCH_SIZE;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_POLL_LATENCY_MS;
 
 /**
  * RocketMQConfig.
@@ -67,6 +69,8 @@ public class RocketMQConfig<T> implements Serializable {
 	private long idleTimeOut = Long.MAX_VALUE;
 	private boolean batchFlushEnable = true;
 	private long flushIntervalMs = FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL.defaultValue().toMillis();
+	private int pollBatchSize = SCAN_POLL_BATCH_SIZE.defaultValue();
+	private long pollLatencyMs = SCAN_POLL_LATENCY_MS.defaultValue();
 	private RowKindSinkFilter<T> rowKindSinkFilter;
 	private boolean useFlip27Source = false;
 	private RocketMQConsumerFactory consumerFactory = new DefaultMQConsumerFactory();
@@ -280,6 +284,22 @@ public class RocketMQConfig<T> implements Serializable {
 
 	public void setDiscoverIntervalMs(long discoverIntervalMs) {
 		this.discoverIntervalMs = discoverIntervalMs;
+	}
+
+	public int getPollBatchSize() {
+		return pollBatchSize;
+	}
+
+	public void setPollBatchSize(int pollBatchSize) {
+		this.pollBatchSize = pollBatchSize;
+	}
+
+	public long getPollLatencyMs() {
+		return pollLatencyMs;
+	}
+
+	public void setPollLatencyMs(long pollLatencyMs) {
+		this.pollLatencyMs = pollLatencyMs;
 	}
 
 	public RocketMQConfig<T> setDeferMillisSelector(DeferMillisSelector<T> deferMillisSelector) {
