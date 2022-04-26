@@ -773,6 +773,56 @@ mamba:
   checkpoint.client-checkpoint-verification-enable: true
   yarn.provided.lib.dirs.enabled: false
 
+maize:
+  dc: va
+  clusterName: maize
+  high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_gva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  yaop_url: http://yaop-us.bytedance.net
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+  jobmeta.db.name: flink_meta_va
+  grafana.domain_url: "https://grafana-us.byted.org"
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
+
+momet:
+  dc: va
+  clusterName: momet
+  high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_gva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  yaop_url: http://yaop-us.bytedance.net
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+  jobmeta.db.name: flink_meta_va
+  grafana.domain_url: "https://grafana-us.byted.org"
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
+
 giraf:
   dc: va
   clusterName: giraf
