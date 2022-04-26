@@ -556,19 +556,6 @@ public class YarnConfigOptions {
 					.defaultValue(false)
 					.withDescription("Whether use ResLake to submit job.");
 
-	public static final ConfigOption<Boolean> YARN_PREVIOUS_CONTAINER_AS_PENDING =
-			key("yarn.previous-container.as-pending-container")
-					.booleanType()
-					.defaultValue(false)
-					.withDescription("Whether make recovered WorkerNode as pending working.");
-
-	public static final ConfigOption<Long> YARN_PREVIOUS_CONTAINER_TIMEOUT_MS =
-			key("yarn.previous-container.timeout-ms")
-					.longType()
-					.defaultValue(120_000L)
-					.withDescription("Timeout to wait previous containers register to ResourceManager." +
-							"<= 0 means never timeout.");
-
 	/** This class is not meant to be instantiated. */
 	private YarnConfigOptions() {}
 

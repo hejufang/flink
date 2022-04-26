@@ -140,4 +140,14 @@ public class MetricNames {
 	public static final String NUM_CHANNELS_UPDATED_BY_TASK = "numChannelsUpdatedByTask";
 	public static final String NUM_CHANNELS_INJECTED_ERROR = "numChannelsInjectedError";
 	public static final String NUM_CHANNELS_CACHED = "numChannelsCached";
+
+	public static final String ALLOCATED_CONTAINER_NUM = "allocatedContainerNum";
+	public static final String PENDING_REQUESTED_CONTAINER_NUM = "pendingRequestedContainerNum";
+	public static final String STARTING_CONTAINERS = "startingContainers";
+	public static final String ALLOCATED_CPU = "allocatedCPU";
+	public static final String ALLOCATED_MEMORY = "allocatedMemory";
+	public static final String PENDING_CPU = "pendingCPU";
+	public static final String PENDING_MEMORY = "pendingMemory";
+	public static final String PENDING_PHASE_PODS = "pendingPhasePods";
+	public static final String COMPLETED_CONTAINER = "completedContainer";
 }

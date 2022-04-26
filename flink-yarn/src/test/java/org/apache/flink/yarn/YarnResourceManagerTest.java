@@ -24,6 +24,7 @@ import org.apache.flink.configuration.BlacklistOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.SmartResourceOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
@@ -587,7 +588,7 @@ public class YarnResourceManagerTest extends TestLogger {
 	 */
 	@Test
 	public void testPreviousContainerRegisteredAfterUsed() throws Exception {
-		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		new Context() {{
 			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
 
@@ -652,7 +653,7 @@ public class YarnResourceManagerTest extends TestLogger {
 	 */
 	@Test
 	public void testPreviousContainerRegisteredBeforeUsed() throws Exception {
-		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		new Context() {{
 			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
 
@@ -721,7 +722,7 @@ public class YarnResourceManagerTest extends TestLogger {
 	 */
 	@Test
 	public void testPreviousContainerCompletedBeforeUsed() throws Exception {
-		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		new Context() {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
@@ -831,7 +832,7 @@ public class YarnResourceManagerTest extends TestLogger {
 	 */
 	@Test
 	public void testPreviousContainerCompletedAfterUsed() throws Exception {
-		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		new Context() {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
@@ -948,7 +949,7 @@ public class YarnResourceManagerTest extends TestLogger {
 	 */
 	@Test
 	public void testPreviousContainerCompletedAfterRegistered() throws Exception {
-		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		new Context() {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
@@ -1054,8 +1055,8 @@ public class YarnResourceManagerTest extends TestLogger {
 	 */
 	@Test
 	public void testPreviousContainerTimeoutBeforeRegistered() throws Exception {
-		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
-		flinkConfig.setLong(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_TIMEOUT_MS, 100L);
+		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
+		flinkConfig.setLong(ResourceManagerOptions.PREVIOUS_CONTAINER_TIMEOUT_MS, 100L);
 		new Context() {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
@@ -1143,7 +1144,7 @@ public class YarnResourceManagerTest extends TestLogger {
 	 */
 	@Test
 	public void testPreviousContainerInBlacklist() throws Exception {
-		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
+		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		flinkConfig.setBoolean(BlacklistOptions.TASKMANAGER_BLACKLIST_ENABLED, true);
 		new Context() {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
@@ -1509,8 +1510,8 @@ public class YarnResourceManagerTest extends TestLogger {
 		flinkConfig.setBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, defaultSlowContainerTimeout);
 		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
-		flinkConfig.setBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING, true);
-		flinkConfig.setLong(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_TIMEOUT_MS, 120000L);
+		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
+		flinkConfig.setLong(ResourceManagerOptions.PREVIOUS_CONTAINER_TIMEOUT_MS, 120000L);
 		new Context() {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();

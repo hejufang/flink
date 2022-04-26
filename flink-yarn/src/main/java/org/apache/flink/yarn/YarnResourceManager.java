@@ -24,6 +24,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.event.CompoundRecorder;
 import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
@@ -295,8 +296,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		this.workerNodeMap = new ConcurrentHashMap<>();
 		this.recoveredWorkerNodeSet = new HashSet<>();
-		this.yarnPreviousContainerTimeoutMs = flinkConfig.getLong(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_TIMEOUT_MS);
-		this.yarnPreviousContainerAsPending = flinkConfig.getBoolean(YarnConfigOptions.YARN_PREVIOUS_CONTAINER_AS_PENDING);
+		this.yarnPreviousContainerTimeoutMs = flinkConfig.getLong(ResourceManagerOptions.PREVIOUS_CONTAINER_TIMEOUT_MS);
+		this.yarnPreviousContainerAsPending = flinkConfig.getBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING);
 
 		final int yarnHeartbeatIntervalMS = flinkConfig.getInteger(
 				YarnConfigOptions.HEARTBEAT_DELAY_SECONDS) * 1000;
@@ -1374,7 +1375,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	}
 
 	private void registerMetrics() {
-		resourceManagerMetricGroup.gauge("allocatedContainerNum", () -> (TagGaugeStore) () -> {
+		resourceManagerMetricGroup.gauge(MetricNames.ALLOCATED_CONTAINER_NUM, () -> (TagGaugeStore) () -> {
 			List<TagGaugeStore.TagGaugeMetric> tagGaugeMetrics = new ArrayList<>();
 			tagGaugeMetrics.add(new TagGaugeStore.TagGaugeMetric(
 				workerNodeMap.size(),
@@ -1384,12 +1385,12 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 					.build()));
 			return tagGaugeMetrics;
 		});
-		resourceManagerMetricGroup.gauge("allocatedCPU", () -> getAllocateCpu());
-		resourceManagerMetricGroup.gauge("allocatedMemory", () -> getAllocateMemory());
-		resourceManagerMetricGroup.gauge("pendingCPU", () -> defaultCpus * getNumRequestedNotAllocatedWorkers());
-		resourceManagerMetricGroup.gauge("pendingMemory", () -> defaultTaskManagerMemoryMB * getNumRequestedNotAllocatedWorkers());
-		resourceManagerMetricGroup.gauge("pendingRequestedContainerNum", this::getNumRequestedNotAllocatedWorkers);
-		resourceManagerMetricGroup.gauge("startingContainers", () -> (TagGaugeStore) () -> {
+		resourceManagerMetricGroup.gauge(MetricNames.ALLOCATED_CPU, () -> getAllocateCpu());
+		resourceManagerMetricGroup.gauge(MetricNames.ALLOCATED_MEMORY, () -> getAllocateMemory());
+		resourceManagerMetricGroup.gauge(MetricNames.PENDING_CPU, () -> defaultCpus * getNumRequestedNotAllocatedWorkers());
+		resourceManagerMetricGroup.gauge(MetricNames.PENDING_MEMORY, () -> defaultTaskManagerMemoryMB * getNumRequestedNotAllocatedWorkers());
+		resourceManagerMetricGroup.gauge(MetricNames.PENDING_REQUESTED_CONTAINER_NUM, this::getNumRequestedNotAllocatedWorkers);
+		resourceManagerMetricGroup.gauge(MetricNames.STARTING_CONTAINERS, () -> (TagGaugeStore) () -> {
 			long ts = System.currentTimeMillis();
 			return getSlowContainerManager().getStartingContainerWithTimestamp().entrySet().stream()
 					.map(resourceIDLongEntry -> new TagGaugeStore.TagGaugeMetric(
@@ -1404,7 +1405,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		resourceManagerMetricGroup.gauge("pendingRedundantContainerNum", slowContainerManager::getPendingRedundantContainersTotalNum);
 		resourceManagerMetricGroup.gauge("startingRedundantContainerNum", slowContainerManager::getStartingRedundantContainerTotalNum);
 		resourceManagerMetricGroup.gauge("speculativeSlowContainerTimeoutMs", slowContainerManager::getSpeculativeSlowContainerTimeoutMs);
-		resourceManagerMetricGroup.gauge("completedContainer", completedContainerGauge);
+		resourceManagerMetricGroup.gauge(MetricNames.COMPLETED_CONTAINER, completedContainerGauge);
 		resourceManagerMetricGroup.counter("gangFailedNum", gangFailedCounter);
 		resourceManagerMetricGroup.counter("gangDowngradeNum", gangDowngradeCounter);
 		resourceManagerMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());

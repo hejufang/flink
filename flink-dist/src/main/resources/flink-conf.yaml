@@ -217,6 +217,7 @@ common:
 
   # am failover recovery
   yarn.previous-container.as-pending-container: true
+  resourcemanager.previous-container.as-pending-container: true
   taskmanager.release-slot-when-job-master-disconnected.enabled: true
 
   # Table & SQL configurations.

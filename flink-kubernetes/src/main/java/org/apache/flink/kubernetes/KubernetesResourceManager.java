@@ -20,12 +20,12 @@ package org.apache.flink.kubernetes;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.BlobServerOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesResourceManagerConfiguration;
@@ -56,6 +56,7 @@ import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
+import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ActiveResourceManager;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
@@ -78,14 +79,22 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
 import static org.apache.flink.kubernetes.utils.KubernetesUtils.genLogUrl;
@@ -130,7 +139,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	/** Map from pod name to hostIP. */
 	private final HashMap<String, String> podNameAndHostIPMap;
 
-	private final Map<WorkerResourceSpec, Tuple2<Double, Integer>> realResourceToWorkerResourceSpec;
+	private final Map<WorkerResourceSpec, KubernetesPod.CpuMemoryResource> realResourceToWorkerResourceSpec;
 
 	@Nullable
 	private String webInterfaceUrl;
@@ -155,6 +164,15 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	private static final String EVENT_METRIC_NAME = "resourceManagerEvent";
 	private final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
+
+	/** Whether make recovered WorkerNode as pending working. */
+	private final boolean previousContainerAsPending;
+
+	/** Get recovered WorkerNode Set from Kubernetes When AM failover. */
+	private final Map<ResourceID, KubernetesPod> recoveredWorkerNodeSet;
+
+	/** Timeout to wait previous container register. */
+	private final Long previousContainerTimeoutMs;
 
 	public KubernetesResourceManager(
 			RpcService rpcService,
@@ -207,6 +225,10 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.streamLogSearchView = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_SEARCH_VIEW);
 		this.region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
 		this.streamLogQueryRange = flinkConfig.getInteger(KubernetesConfigOptions.STREAM_LOG_QUERY_RANGE_SECONDS);
+
+		this.previousContainerAsPending = flinkConfig.getBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING);
+		this.previousContainerTimeoutMs = flinkConfig.getLong(ResourceManagerOptions.PREVIOUS_CONTAINER_TIMEOUT_MS);
+		this.recoveredWorkerNodeSet = new HashMap<>();
 
 		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(jobManagerPodName, false);
 	}
@@ -309,6 +331,19 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	@Override
+	protected void startServicesOnLeadership() {
+		if (!recoveredWorkerNodeSet.isEmpty() && previousContainerTimeoutMs > 0) {
+			log.info("Will check {} previous container timeout in {} ms.", recoveredWorkerNodeSet.size(), previousContainerTimeoutMs);
+			Set<ResourceID> workersToCheckTimeout = new HashSet<>(recoveredWorkerNodeSet.keySet());
+			scheduleRunAsync(
+					() -> releasePreviousContainer(workersToCheckTimeout),
+					previousContainerTimeoutMs,
+					TimeUnit.MILLISECONDS);
+		}
+		super.startServicesOnLeadership();
+	}
+
+	@Override
 	protected void internalDeregisterApplication(ApplicationStatus finalStatus, @Nullable String diagnostics) {
 		LOG.info(
 			"Stopping kubernetes cluster, clusterId: {}, diagnostics: {}",
@@ -367,7 +402,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 							.addTagValue("exit_code", String.valueOf(exitCode))
 							.build());
 		}
-		LOG.info("Stopping Worker {}.", resourceId);
+		LOG.info("Stopping Worker {} with exit code {}", resourceId, exitCode);
 		internalStopPod(resourceId.toString());
 		return true;
 	}
@@ -379,6 +414,22 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			stopWorker(workerNode, exitCode);
 		}
 		super.closeTaskManagerConnection(resourceID, cause, exitCode);
+	}
+
+	@Override
+	protected void notifyAllocatedWorkerStopped(ResourceID resourceID) {
+		if (recoveredWorkerNodeSet.remove(resourceID) != null) {
+			log.debug("Previous pod {} stopped", resourceID.getResourceIdString());
+		}
+		super.notifyAllocatedWorkerStopped(resourceID);
+	}
+
+	@Override
+	protected void notifyAllocatedWorkerRegistered(ResourceID resourceID) {
+		if (recoveredWorkerNodeSet.remove(resourceID) != null) {
+			log.debug("Previous pod {} started", resourceID.getResourceIdString());
+		}
+		super.notifyAllocatedWorkerRegistered(resourceID);
 	}
 
 	@Override
@@ -464,12 +515,12 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		}
 	}
 
-	private Tuple2<Double, Integer> getRealResourceByWorkerSpec(WorkerResourceSpec workerResourceSpec) {
+	private KubernetesPod.CpuMemoryResource getRealResourceByWorkerSpec(WorkerResourceSpec workerResourceSpec) {
 		if (realResourceToWorkerResourceSpec.containsKey(workerResourceSpec)) {
 			return realResourceToWorkerResourceSpec.get(workerResourceSpec);
 		} else {
 			log.warn("Get real resource by worker spec {} failed.", workerResourceSpec);
-			return new Tuple2<>(-1.0, -1);
+			return new KubernetesPod.CpuMemoryResource(0, 0);
 		}
 	}
 
@@ -497,33 +548,43 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	private void registerMetrics() {
-		resourceManagerMetricGroup.gauge("allocatedContainerNum", () -> (TagGaugeStore) () ->
-				getNumAllocatedWorkersDetail().entrySet().stream()
-						.map(workerNumberEntry -> {
-							Tuple2<Double, Integer> realResource = getRealResourceByWorkerSpec(workerNumberEntry.getKey());
-							return new TagGaugeStore.TagGaugeMetric(
-									workerNumberEntry.getValue(),
-									new TagGaugeStore.TagValuesBuilder()
-											.addTagValue("cores", String.valueOf(realResource.f0))
-											.addTagValue("memory", String.valueOf(realResource.f1))
-											.build());
-						})
+		resourceManagerMetricGroup.gauge(MetricNames.ALLOCATED_CONTAINER_NUM, () -> (TagGaugeStore) () ->
+				Stream.concat(
+						getNumAllocatedWorkersDetail().entrySet().stream()
+								.map(workerNumberEntry -> {
+									KubernetesPod.CpuMemoryResource realResource = getRealResourceByWorkerSpec(workerNumberEntry.getKey());
+									return new TagGaugeStore.TagGaugeMetric(
+											workerNumberEntry.getValue(),
+											new TagGaugeStore.TagValuesBuilder()
+													.addTagValue("cores", String.valueOf(realResource.getCpu()))
+													.addTagValue("memory", String.valueOf(realResource.getMemoryInMB()))
+													.build());
+								}),
+						recoveredWorkerNodeSet.entrySet().stream()
+								.collect(Collectors.groupingBy(entry -> entry.getValue().getMainContainerResource(), Collectors.counting()))
+								.entrySet().stream().map(entry -> new TagGaugeStore.TagGaugeMetric(
+										entry.getValue(),
+										new TagGaugeStore.TagValuesBuilder()
+												.addTagValue("cores", String.valueOf(entry.getKey().getCpu()))
+												.addTagValue("memory", String.valueOf(entry.getKey().getMemoryInMB()))
+												.build()))
+						)
 						.collect(Collectors.toList()));
 
-		resourceManagerMetricGroup.gauge("pendingRequestedContainerNum", () -> (TagGaugeStore) () ->
+		resourceManagerMetricGroup.gauge(MetricNames.PENDING_REQUESTED_CONTAINER_NUM, () -> (TagGaugeStore) () ->
 				getNumRequestedNotAllocatedWorkersDetail().entrySet().stream()
 						.map(workerNumberEntry -> {
-							Tuple2<Double, Integer> realResource = getRealResourceByWorkerSpec(workerNumberEntry.getKey());
+							KubernetesPod.CpuMemoryResource realResource = getRealResourceByWorkerSpec(workerNumberEntry.getKey());
 							return new TagGaugeStore.TagGaugeMetric(
 									workerNumberEntry.getValue(),
 									new TagGaugeStore.TagValuesBuilder()
-											.addTagValue("cores", String.valueOf(realResource.f0))
-											.addTagValue("memory", String.valueOf(realResource.f1))
+											.addTagValue("cores", String.valueOf(realResource.getCpu()))
+											.addTagValue("memory", String.valueOf(realResource.getMemoryInMB()))
 											.build());
 						})
 						.collect(Collectors.toList()));
 
-		resourceManagerMetricGroup.gauge("startingContainers", () -> (TagGaugeStore) () -> {
+		resourceManagerMetricGroup.gauge(MetricNames.STARTING_CONTAINERS, () -> (TagGaugeStore) () -> {
 			long ts = System.currentTimeMillis();
 			return getWorkerAllocatedTime().entrySet().stream()
 					.map(resourceIDLongEntry -> new TagGaugeStore.TagGaugeMetric(
@@ -534,36 +595,22 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 									.build()))
 					.collect(Collectors.toList()); });
 
-		resourceManagerMetricGroup.gauge("allocatedCPU", () -> getNumAllocatedWorkersDetail().entrySet().stream()
-				.mapToDouble(value -> {
-					Tuple2<Double, Integer> realResource = getRealResourceByWorkerSpec(value.getKey());
-					double cpu = realResource.f0;
-					return cpu * value.getValue();
-				})
+		resourceManagerMetricGroup.gauge(MetricNames.ALLOCATED_CPU, () -> DoubleStream.concat(
+				getNumAllocatedWorkersDetail().entrySet().stream().mapToDouble(value -> getRealResourceByWorkerSpec(value.getKey()).getCpu() * value.getValue()),
+				recoveredWorkerNodeSet.values().stream().mapToDouble(pod -> pod.getMainContainerResource().getCpu()))
 				.sum());
-		resourceManagerMetricGroup.gauge("allocatedMemory", () -> getNumAllocatedWorkersDetail().entrySet().stream()
-				.mapToDouble(value -> {
-					Tuple2<Double, Integer> realResource = getRealResourceByWorkerSpec(value.getKey());
-					double mem = realResource.f1;
-					return mem * value.getValue();
-				})
+		resourceManagerMetricGroup.gauge(MetricNames.ALLOCATED_MEMORY, () -> LongStream.concat(
+				getNumAllocatedWorkersDetail().entrySet().stream().mapToLong(value -> (long) getRealResourceByWorkerSpec(value.getKey()).getMemoryInMB() * value.getValue()),
+				recoveredWorkerNodeSet.values().stream().mapToLong(pod -> pod.getMainContainerResource().getMemoryInMB()))
 				.sum());
-		resourceManagerMetricGroup.gauge("pendingCPU", () -> getNumRequestedNotAllocatedWorkersDetail().entrySet().stream()
-				.mapToDouble(value -> {
-					Tuple2<Double, Integer> realResource = getRealResourceByWorkerSpec(value.getKey());
-					double cpu = realResource.f0;
-					return cpu * value.getValue();
-				})
+		resourceManagerMetricGroup.gauge(MetricNames.PENDING_CPU, () -> getNumRequestedNotAllocatedWorkersDetail().entrySet().stream()
+				.mapToDouble(value -> getRealResourceByWorkerSpec(value.getKey()).getCpu() * value.getValue())
 				.sum());
-		resourceManagerMetricGroup.gauge("pendingMemory", () -> getNumRequestedNotAllocatedWorkersDetail().entrySet().stream()
-				.mapToDouble(value -> {
-					Tuple2<Double, Integer> realResource = getRealResourceByWorkerSpec(value.getKey());
-					double mem = realResource.f1;
-					return mem * value.getValue();
-				})
+		resourceManagerMetricGroup.gauge(MetricNames.PENDING_MEMORY, () -> getNumRequestedNotAllocatedWorkersDetail().entrySet().stream()
+				.mapToDouble(value -> getRealResourceByWorkerSpec(value.getKey()).getMemoryInMB() * value.getValue())
 				.sum());
 
-		resourceManagerMetricGroup.gauge("pendingPhasePods", () -> (TagGaugeStore) () -> {
+		resourceManagerMetricGroup.gauge(MetricNames.PENDING_PHASE_PODS, () -> (TagGaugeStore) () -> {
 			long ts = System.currentTimeMillis();
 			return pendingPhasePods.entrySet().stream()
 					.map(podNameWithInitTs -> new TagGaugeStore.TagGaugeMetric(
@@ -574,7 +621,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 									.build()))
 					.collect(Collectors.toList()); });
 
-		resourceManagerMetricGroup.gauge("completedContainer", completedContainerGauge);
+		resourceManagerMetricGroup.gauge(MetricNames.COMPLETED_CONTAINER, completedContainerGauge);
 
 		resourceManagerMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
 	}
@@ -637,6 +684,16 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		return workerNodes;
 	}
 
+	@VisibleForTesting
+	public Map<ResourceID, KubernetesPod> getRecoveredWorkerNodeSet() {
+		return recoveredWorkerNodeSet;
+	}
+
+	@VisibleForTesting
+	public Map<String, WorkerResourceSpec> getPodWorkerResources() {
+		return podWorkerResources;
+	}
+
 	private void recoverWorkerNodesFromPreviousAttempts() throws ResourceManagerException {
 		final List<KubernetesPod> podList = kubeClient.getPodsWithLabels(KubernetesUtils.getTaskManagerLabels(clusterId));
 		for (KubernetesPod pod : podList) {
@@ -646,6 +703,9 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			if (attempt > currentMaxAttemptId) {
 				currentMaxAttemptId = attempt;
 			}
+			if (previousContainerAsPending) {
+				recoveredWorkerNodeSet.put(worker.getResourceID(), pod);
+			}
 		}
 
 		log.info("Recovered {} pods from previous attempts, current attempt id is {}.",
@@ -654,8 +714,10 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	private void requestKubernetesPod(WorkerResourceSpec workerResourceSpec, int podNumber) {
+		int requestPodNumber = fetchFromRecoveredContainers(workerResourceSpec, podNumber);
+
 		long ts = System.currentTimeMillis();
-		for (int i = 0; i < podNumber; i++) {
+		for (int i = 0; i < requestPodNumber; i++) {
 			final KubernetesTaskManagerParameters parameters =
 				createKubernetesTaskManagerParameters(workerResourceSpec);
 			warehouseJobStartEventMessageRecorder.createTaskManagerContextStart(parameters.getPodName());
@@ -663,14 +725,15 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			podWorkerResources.put(parameters.getPodName(), workerResourceSpec);
 			pendingPhasePods.put(parameters.getPodName(), ts);
 			int pendingWorkerNum = notifyNewWorkerRequested(workerResourceSpec).getNumNotAllocated();
-			log.info("Requesting new TaskManager pod with <{},{}>. Number pending requests {}.",
+			log.info("Requesting new TaskManager pod {} with <{},{}>. Number pending requests {}.",
+				parameters.getPodName(),
 				parameters.getTaskManagerMemoryMB(),
 				parameters.getTaskManagerCPU(),
 				pendingWorkerNum);
 
 			realResourceToWorkerResourceSpec.putIfAbsent(
 					workerResourceSpec,
-					new Tuple2<>(parameters.getTaskManagerCPU(), parameters.getTaskManagerMemoryMB()));
+					new KubernetesPod.CpuMemoryResource(parameters.getTaskManagerCPU(), parameters.getTaskManagerMemoryMB()));
 
 			final KubernetesPod taskManagerPod =
 				KubernetesTaskManagerFactory.buildTaskManagerKubernetesPod(parameters);
@@ -707,15 +770,52 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		}
 	}
 
+	private int fetchFromRecoveredContainers(WorkerResourceSpec workerResourceSpec, final int workerNumber) {
+		final KubernetesTaskManagerParameters requestedKubernetesTaskManagerParameters =
+				createKubernetesTaskManagerParameters(workerResourceSpec, "Default");
+
+		int remainingRequestedWorkerNumber = workerNumber;
+
+		Iterator<Map.Entry<ResourceID, KubernetesPod>> workerIterator = recoveredWorkerNodeSet.entrySet().iterator();
+
+		while (workerIterator.hasNext()) {
+			if (remainingRequestedWorkerNumber <= 0){
+				break;
+			}
+			Map.Entry<ResourceID, KubernetesPod> worker = workerIterator.next();
+			ResourceID resourceID = worker.getKey();
+			KubernetesPod pod = worker.getValue();
+			if (workerNodes.containsKey(resourceID)) {
+				if (requestedKubernetesTaskManagerParameters.matchKubernetesPod(pod)) {
+					remainingRequestedWorkerNumber--;
+					workerIterator.remove();
+					notifyRecoveredWorkerAllocated(workerResourceSpec, resourceID);
+				}
+			} else {
+				log.error("Worker {} is previous but not in workerNodes.", resourceID);
+				workerIterator.remove();
+			}
+		}
+
+		if (workerNumber - remainingRequestedWorkerNumber > 0) {
+			log.info("Request {} worker from previous containers, remaining previous container {}", workerNumber - remainingRequestedWorkerNumber, recoveredWorkerNodeSet.size());
+		}
+
+		return remainingRequestedWorkerNumber;
+	}
+
 	private KubernetesTaskManagerParameters createKubernetesTaskManagerParameters(WorkerResourceSpec workerResourceSpec) {
+		final String podName = String.format(
+				TASK_MANAGER_POD_FORMAT,
+				clusterId,
+				currentMaxAttemptId,
+				++currentMaxPodId);
+		return createKubernetesTaskManagerParameters(workerResourceSpec, podName);
+	}
+
+	private KubernetesTaskManagerParameters createKubernetesTaskManagerParameters(WorkerResourceSpec workerResourceSpec, String podName) {
 		final TaskExecutorProcessSpec taskExecutorProcessSpec =
 			TaskExecutorProcessUtils.processSpecFromWorkerResourceSpec(flinkConfig, workerResourceSpec);
-
-		final String podName = String.format(
-			TASK_MANAGER_POD_FORMAT,
-			clusterId,
-			currentMaxAttemptId,
-			++currentMaxPodId);
 
 		final ContaineredTaskManagerParameters taskManagerParameters =
 			ContaineredTaskManagerParameters.create(flinkConfig, taskExecutorProcessSpec);
@@ -748,7 +848,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			final int requiredTaskManagers = entry.getValue();
 
 			while (requiredTaskManagers > getNumRequestedNotRegisteredWorkersFor(workerResourceSpec)) {
-				log.info("Need to require new task manager pod, NumRequestedNotRegisteredWorkersFor: {}",
+				log.info("Need to require new task manager pod, requiredTaskManagers: {}, NumRequestedNotRegisteredWorkersFor: {}",
+					requiredTaskManagers,
 					getNumRequestedNotRegisteredWorkersFor(workerResourceSpec));
 				tryStartNewWorker(workerResourceSpec);
 			}
@@ -828,6 +929,19 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	private boolean isPendingWorkerOfCurrentAttempt(String podName) {
 		return podWorkerResources.containsKey(podName) &&
 			!workerNodes.containsKey(new ResourceID(podName));
+	}
+
+	private void releasePreviousContainer(Collection<ResourceID> recoveredWorkerNodeSet) {
+		for (ResourceID resourceID : recoveredWorkerNodeSet) {
+			if (!getTaskExecutors().containsKey(resourceID)) {
+				KubernetesWorkerNode node = workerNodes.get(resourceID);
+				if (node != null) {
+					log.error("Previous container {} not registered in {} ms", resourceID, previousContainerTimeoutMs);
+					stopWorker(node, WorkerExitCode.PREVIOUS_TM_TIMEOUT);
+				}
+			}
+		}
+		requestKubernetesPodIfRequired();
 	}
 
 	/**

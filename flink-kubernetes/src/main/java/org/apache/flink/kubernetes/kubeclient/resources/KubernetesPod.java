@@ -18,9 +18,17 @@
 
 package org.apache.flink.kubernetes.kubeclient.resources;
 
+import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesTaskManagerParameters;
+import org.apache.flink.kubernetes.utils.Constants;
+
+import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerStateTerminated;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.Quantity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -28,6 +36,7 @@ import java.util.Optional;
  * Represent KubernetesPod resource in kubernetes.
  */
 public class KubernetesPod extends KubernetesResource<Pod> {
+	private final Logger log = LoggerFactory.getLogger(getClass());
 
 	public KubernetesPod(Pod pod) {
 		super(pod);
@@ -42,6 +51,32 @@ public class KubernetesPod extends KubernetesResource<Pod> {
 			return getInternalResource().getStatus().getContainerStatuses().stream().map(cs -> cs.getState().getTerminated()).filter(Objects::nonNull).findFirst();
 		} catch (Exception e) {
 			return Optional.empty();
+		}
+	}
+
+	public CpuMemoryResource getMainContainerResource() {
+		try {
+			Container mainContainer = null;
+			for (Container c : getInternalResource().getSpec().getContainers()) {
+				if (KubernetesTaskManagerParameters.TASK_MANAGER_MAIN_CONTAINER_NAME.equals(c.getName())) {
+					mainContainer = c;
+					break;
+				}
+			}
+
+			if (mainContainer == null) {
+				log.error("Main Container of {} is null, return empty resource.", getName());
+				return new CpuMemoryResource(0.0, 0);
+			}
+
+			Map<String, Quantity> resourceRequirements = mainContainer.getResources().getRequests();
+			Quantity cpu = resourceRequirements.get(Constants.RESOURCE_NAME_CPU);
+			Quantity memory = resourceRequirements.get(Constants.RESOURCE_NAME_MEMORY);
+			int memoryInMB = (int) (Quantity.getAmountInBytes(memory).longValue() / 1024 / 1024);
+			return new CpuMemoryResource(Quantity.getAmountInBytes(cpu).doubleValue(), memoryInMB);
+		} catch (Exception e) {
+			log.error("Get Main Container Resource of {} failed.", getName(), e);
+			return new CpuMemoryResource(0.0, 0);
 		}
 	}
 
@@ -79,5 +114,51 @@ public class KubernetesPod extends KubernetesResource<Pod> {
 		Succeeded,
 		Failed,
 		Unknown
+	}
+
+	/**
+	 * CPU/Memory resources for main container.
+	 */
+	public static class CpuMemoryResource {
+		double cpu;
+		int memoryInMB;
+
+		public CpuMemoryResource(double cpu, int memoryInMB) {
+			this.cpu = cpu;
+			this.memoryInMB = memoryInMB;
+		}
+
+		public double getCpu() {
+			return cpu;
+		}
+
+		public int getMemoryInMB() {
+			return memoryInMB;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			CpuMemoryResource that = (CpuMemoryResource) o;
+			return Double.compare(that.cpu, cpu) == 0 && memoryInMB == that.memoryInMB;
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(cpu, memoryInMB);
+		}
+
+		@Override
+		public String toString() {
+			return "CpuMemoryResource{" +
+					"cpu=" + cpu +
+					", memoryInMB=" + memoryInMB +
+					'}';
+		}
 	}
 }

@@ -187,6 +187,21 @@ public class ResourceManagerOptions {
 				"if end of consumption is slower than 'resourcemanager.taskmanager-timeout'.")
 			.build());
 
+	public static final ConfigOption<Boolean> PREVIOUS_CONTAINER_AS_PENDING = ConfigOptions
+			.key("resourcemanager.previous-container.as-pending-container")
+			.booleanType()
+			.defaultValue(false)
+			.withDeprecatedKeys("yarn.previous-container.as-pending-container")
+			.withDescription("Whether make recovered WorkerNode as pending working.");
+
+	public static final ConfigOption<Long> PREVIOUS_CONTAINER_TIMEOUT_MS = ConfigOptions
+			.key("resourcemanager.previous-container.timeout-ms")
+			.longType()
+			.defaultValue(120_000L)
+			.withDeprecatedKeys("yarn.previous-container.timeout-ms")
+			.withDescription("Timeout to wait previous containers register to ResourceManager." +
+					"<= 0 means never timeout.");
+
 	/**
 	 * Prefix for passing custom environment variables to Flink's master process.
 	 * For example for passing LD_LIBRARY_PATH as an env variable to the AppMaster, set:
