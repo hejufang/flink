@@ -168,6 +168,14 @@ under the License.
 									<pattern>okio</pattern>
 									<shadedPattern>org.apache.flink.hsap.shaded.okio</shadedPattern>
 								</relocation>
+								<relocation>
+									<pattern>com.bytedance.metrics</pattern>
+									<shadedPattern>org.apache.flink.hsap.shaded.com.bytedance.metrics</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.codahale.metrics</pattern>
+									<shadedPattern>org.apache.flink.hsap.shaded.com.codahale.metrics</shadedPattern>
+								</relocation>
 							</relocations>
 						</configuration>
 					</execution>
