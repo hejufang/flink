@@ -18,11 +18,14 @@
 
 package org.apache.flink.runtime.util;
 
+import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
+
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.stream.Collectors;
 
 /**
  * Utilities for {@link java.lang.management.ManagementFactory}.
@@ -34,10 +37,18 @@ public final class JvmUtils {
 	 *
 	 * @return the thread dump of current JVM
 	 */
-	public static Collection<ThreadInfo> createThreadDump() {
+	private static Collection<ThreadInfo> createThreadDump() {
 		ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
 
 		return Arrays.asList(threadMxBean.dumpAllThreads(true, true));
+	}
+
+	public static Collection<ThreadDumpInfo.ThreadInfo> createThreadDumpInfos() {
+		final Collection<ThreadInfo> threadDump = JvmUtils.createThreadDump();
+
+		return threadDump.stream()
+			.map(threadInfo -> ThreadDumpInfo.ThreadInfo.create(threadInfo.getThreadName(), threadInfo.toString()))
+			.collect(Collectors.toList());
 	}
 
 	/**

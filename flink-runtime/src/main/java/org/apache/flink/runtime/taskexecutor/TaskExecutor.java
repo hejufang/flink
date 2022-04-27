@@ -153,7 +153,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.management.ThreadInfo;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1464,11 +1463,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	@Override
 	public CompletableFuture<ThreadDumpInfo> requestThreadDump(Time timeout) {
-		final Collection<ThreadInfo> threadDump = JvmUtils.createThreadDump();
-
-		final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = threadDump.stream()
-			.map(threadInfo -> ThreadDumpInfo.ThreadInfo.create(threadInfo.getThreadName(), threadInfo.toString()))
-			.collect(Collectors.toList());
+		final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = JvmUtils.createThreadDumpInfos();
 
 		return CompletableFuture.completedFuture(ThreadDumpInfo.create(threadInfos));
 	}
