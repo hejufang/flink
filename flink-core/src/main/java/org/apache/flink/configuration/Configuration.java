@@ -776,6 +776,17 @@ public class Configuration extends ExecutionConfig.GlobalJobParameters
 		}
 	}
 
+	@Override
+	public Map<String, String> toMapWithoutQuote() {
+		synchronized (this.confData){
+			Map<String, String> ret = new HashMap<>(this.confData.size());
+			for (Map.Entry<String, Object> entry : confData.entrySet()) {
+				ret.put(entry.getKey(), convertToStringWithoutQuote(entry.getValue()));
+			}
+			return ret;
+		}
+	}
+
 	/**
 	 * Removes given config option from the configuration.
 	 *
@@ -970,6 +981,30 @@ public class Configuration extends ExecutionConfig.GlobalJobParameters
 						return escapeWithSingleQuote(escapedKey + ":" + escapedValue, ",");
 					})
 					.collect(Collectors.joining(",")) + "\"";
+		}
+
+		return o.toString();
+	}
+
+	private String convertToStringWithoutQuote(Object o) {
+		if (o.getClass() == String.class) {
+			return (String) o;
+		} else if (o.getClass() == Duration.class) {
+			Duration duration = (Duration) o;
+			return String.format("%d ns", duration.toNanos());
+		} else if (o instanceof List) {
+			return ((List<?>) o).stream()
+					.map(e -> escapeWithSingleQuote(convertToString(e), ";"))
+					.collect(Collectors.joining(";"));
+		} else if (o instanceof Map) {
+			return ((Map<?, ?>) o).entrySet().stream()
+					.map(e -> {
+						String escapedKey = escapeWithSingleQuote(e.getKey().toString(), ":");
+						String escapedValue = escapeWithSingleQuote(e.getValue().toString(), ":");
+
+						return escapeWithSingleQuote(escapedKey + ":" + escapedValue, ",");
+					})
+					.collect(Collectors.joining(","));
 		}
 
 		return o.toString();

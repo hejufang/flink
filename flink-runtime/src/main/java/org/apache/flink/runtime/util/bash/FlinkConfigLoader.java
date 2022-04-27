@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
+import static org.apache.flink.runtime.util.bash.BashJavaUtils.EXECUTION_PREFIX;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
@@ -38,7 +39,6 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  * It parses only the configuration file and dynamic properties, ignores other commandline options.
  */
 public class FlinkConfigLoader {
-
 	private static final Options CMD_OPTIONS = ClusterConfigurationParserFactory.options();
 
 	public static Configuration loadConfiguration(String[] args) throws FlinkException {
@@ -70,7 +70,7 @@ public class FlinkConfigLoader {
 	private FlinkConfigLoader() {}
 
 	public static void main(String[] args) throws FlinkException {
-		System.out.println(getValueFromConfiguration(args));
+		System.out.println(EXECUTION_PREFIX + getValueFromConfiguration(args));
 	}
 
 	@VisibleForTesting

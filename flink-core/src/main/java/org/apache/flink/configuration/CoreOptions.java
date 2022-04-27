@@ -472,4 +472,11 @@ public class CoreOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("The task will be switch to running when it is submitted to task executor, this will reduce the message between jm and tm.");
+
+	public static final ConfigOption<Boolean> DUMP_CONFIGURATION_BY_YAML =
+			key("configuration.flink-conf.dump-configuration-by-yaml")
+					.booleanType()
+					.defaultValue(false)
+					.withDescription("Whether dump flink-conf by yaml, " +
+							"If ture, it will use snakeYaml to dump the configuration directly.");
 }

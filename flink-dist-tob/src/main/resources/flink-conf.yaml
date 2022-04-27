@@ -34,6 +34,9 @@ common:
   #  state.backend.rocksdb.localdir: /opt/tmp/flink-dev/flink-rocksdb-local
   taskmanager.memory.network.fraction: 0.3
 
+  # configuration
+  configuration.flink-conf.dump-configuration-by-yaml: true
+
   # kubernetes configuration
   kubernetes.flink.log.dir: /opt/tiger/flink_deploy/log
   kubernetes.flink.conf.dir: /opt/tiger/flink_deploy/conf

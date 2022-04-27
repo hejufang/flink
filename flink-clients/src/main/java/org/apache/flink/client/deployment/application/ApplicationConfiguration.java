@@ -38,6 +38,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 @Internal
 public class ApplicationConfiguration {
+	// The base64.encode/decode in needed only when GlobalConfiguration#loadYAMLResource use snakeyaml to load flink-conf.
+	// If we use the community way to load flink-conf, these change should be remove.
 	private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
 

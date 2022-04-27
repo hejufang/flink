@@ -20,6 +20,7 @@ package org.apache.flink.client.cli;
 
 import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 
@@ -27,10 +28,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.runners.Parameterized;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -38,14 +41,23 @@ import static org.junit.Assert.assertEquals;
 /**
  * unit test for Application Configuration.
  */
-@RunWith(JUnit4.class)
+@RunWith(Parameterized.class)
 public class ApplicationConfigurationTest {
 	@Rule
 	public TemporaryFolder tempFolder = new TemporaryFolder();
 
+	@Parameterized.Parameter
+	public boolean dumpFlinkConfByYaml;
+
+	@Parameterized.Parameters(name = "dumpLoadFlinkConfByOriginal: {0}")
+	public static List<Boolean> planner() {
+		return Arrays.asList(true, false);
+	}
+
 	@Test
 	public void testGetApplicationConfiguration() throws IOException {
 		Configuration configuration = new Configuration();
+		configuration.setBoolean(CoreOptions.DUMP_CONFIGURATION_BY_YAML, dumpFlinkConfByYaml);
 		String[] originArgs = new String[]{"--foo", "bar", "--json_conf", "{\"foo\": \"bar\", \"list\": [1,2,\"3\"], \"map\": {\"inner_foo\": \"inner_bar\"}}"};
 		String className = "com.foo.bar";
 		ApplicationConfiguration applicationConfiguration = new ApplicationConfiguration(originArgs, className);
