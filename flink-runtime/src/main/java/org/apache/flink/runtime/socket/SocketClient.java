@@ -29,13 +29,15 @@ import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.SerializedThrowable;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFutureListener;
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ClassResolvers;
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectDecoder;
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectEncoder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
-import java.util.Collections;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -57,7 +59,10 @@ public class SocketClient implements AutoCloseableAsync {
 			address,
 			port,
 			connectTimeoutMills,
-			Collections.singletonList(new SocketJobResultHandler(jobResultList)));
+			channelPipeline -> channelPipeline.addLast(
+				new ObjectEncoder(),
+				new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null)),
+				new SocketJobResultHandler(jobResultList)));
 	}
 
 	public final void start() throws Exception {

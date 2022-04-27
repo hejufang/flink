@@ -1246,7 +1246,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			try {
 				resolvedTaskManagerTopology = ResolvedTaskManagerTopology.fromUnresolvedTaskManagerTopology(
 						updatedRegisteredTM.get(resourceID),
-						useAddressAsHostname);
+						useAddressAsHostname,
+						configuration);
 				registeredTaskManagers.put(resourceID, resolvedTaskManagerTopology);
 				addedTaskManagerTopology.put(resourceID, resolvedTaskManagerTopology);
 
@@ -1264,7 +1265,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		}
 
 		for (ResourceID resourceID: removed) {
-			registeredTaskManagers.remove(resourceID);
+			ResolvedTaskManagerTopology resolvedTaskManagerTopology = registeredTaskManagers.remove(resourceID);
+			if (resolvedTaskManagerTopology != null) {
+				resolvedTaskManagerTopology.getTaskExecutorNettyClient().close();
+			}
 		}
 
 		if (log.isDebugEnabled()) {

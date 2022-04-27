@@ -24,6 +24,10 @@ import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.TaskManagerOptions;
 
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ClassResolvers;
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectDecoder;
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectEncoder;
+
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -64,7 +68,9 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 				connectTimeoutMills,
 				lowWriteMark,
 				highWriteMark,
-				new ArrayList<>());
+				channelPipeline -> channelPipeline.addLast(
+					new ObjectEncoder(),
+					new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null))));
 			nettySocketClient.start();
 			newConnectionList.add(nettySocketClient);
 		}

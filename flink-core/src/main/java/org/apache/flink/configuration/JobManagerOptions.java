@@ -583,6 +583,36 @@ public class JobManagerOptions {
 				"If the number of running jobs exceed this number, job requests will be rejected." +
 				"Set to -1 to disable workload control");
 
+	public static final ConfigOption<Integer> JOB_DEPLOY_SOCKET_CHANNEL_COUNT =
+		key("jobmanager.deploy-socket-channel.count")
+			.intType()
+			.defaultValue(10)
+			.withDescription("The channel count of job manager connect to the given task executor.");
+
+	public static final ConfigOption<Integer> JOB_DEPLOY_SOCKET_CONNECT_TIMEOUT_MILLS =
+		key("jobmanager.deploy-socket-connect-timeout.mills")
+			.intType()
+			.defaultValue(10000)
+			.withDescription("The connect timeout(ms) of netty client in job master to deploy tasks.");
+
+
+	public static final ConfigOption<Integer> JOB_DEPLOY_SOCKET_LOW_WATER_MARK =
+		key("jobmanager.deploy-socket-low-water.mark")
+			.intType()
+			.defaultValue(10 * 1024 * 1024) // 10M
+			.withDescription("The low writer buffer mark of netty client in jobmaster which is used to deploy tasks to task executor." +
+				" When the writer buffer size exceeds high water mark, the channel writable is false, then it will" +
+				" be true after the buffer size is less than low water mark.");
+
+
+	public static final ConfigOption<Integer> JOB_DEPLOY_SOCKET_HIGH_WATER_MARK =
+		key("jobmanager.deploy-socket-high-water.mark")
+			.intType()
+			.defaultValue(50 * 1024 * 1024) // 50M
+			.withDescription("The high writer buffer mark of netty client in jobmaster which is used to deploy tasks to task executor." +
+				" When the writer buffer size exceeds high water mark, the channel writable flag will be false");
+
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

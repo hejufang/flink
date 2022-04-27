@@ -26,7 +26,6 @@ import org.apache.flink.shaded.netty4.io.netty.bootstrap.Bootstrap;
 import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFuture;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFutureListener;
-import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandler;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInitializer;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelOption;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelPipeline;
@@ -34,19 +33,16 @@ import org.apache.flink.shaded.netty4.io.netty.channel.WriteBufferWaterMark;
 import org.apache.flink.shaded.netty4.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.flink.shaded.netty4.io.netty.channel.socket.SocketChannel;
 import org.apache.flink.shaded.netty4.io.netty.channel.socket.nio.NioSocketChannel;
-import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ClassResolvers;
-import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectDecoder;
-import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectEncoder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
- * Netty socket client for {@link SocketClient} and {@link SocketTaskJobResultGateway}.
+ * Netty socket client which is used to connect to {@link NettySocketServer}.
  */
 public class NettySocketClient implements AutoCloseableAsync {
 	private static final Logger LOG = LoggerFactory.getLogger(SocketClient.class);
@@ -56,7 +52,7 @@ public class NettySocketClient implements AutoCloseableAsync {
 	private final int connectTimeoutMills;
 	private final int lowWaterMark;
 	private final int highWaterMark;
-	private final List<ChannelInboundHandler> handlerList;
+	private final Consumer<ChannelPipeline> channelPipelineConsumer;
 
 	private Bootstrap bootstrap;
 	private Channel channel;
@@ -65,8 +61,8 @@ public class NettySocketClient implements AutoCloseableAsync {
 			String address,
 			int port,
 			int connectTimeoutMills,
-			List<ChannelInboundHandler> handlerList) {
-		this(address, port, connectTimeoutMills, 0, 0, handlerList);
+			Consumer<ChannelPipeline> channelPipelineConsumer) {
+		this(address, port, connectTimeoutMills, 0, 0, channelPipelineConsumer);
 	}
 
 	public NettySocketClient(
@@ -75,13 +71,13 @@ public class NettySocketClient implements AutoCloseableAsync {
 			int connectTimeoutMills,
 			int lowWaterMark,
 			int highWaterMark,
-			List<ChannelInboundHandler> handlerList) {
+			Consumer<ChannelPipeline> channelPipelineConsumer) {
 		this.address = address;
 		this.port = port;
 		this.connectTimeoutMills = connectTimeoutMills;
 		this.lowWaterMark = lowWaterMark;
 		this.highWaterMark = highWaterMark;
-		this.handlerList = handlerList;
+		this.channelPipelineConsumer = channelPipelineConsumer;
 	}
 
 	public final void start() throws Exception {
@@ -96,12 +92,7 @@ public class NettySocketClient implements AutoCloseableAsync {
 			.handler(new ChannelInitializer<SocketChannel>() {
 				@Override
 				protected void initChannel(SocketChannel socketChannel) throws Exception {
-					ChannelPipeline p = socketChannel.pipeline();
-					p.addLast(new ObjectEncoder());
-					p.addLast(new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null)));
-					for (ChannelInboundHandler handler : handlerList) {
-						p.addLast(handler);
-					}
+					channelPipelineConsumer.accept(socketChannel.pipeline());
 				}
 			});
 		final ChannelFuture connectFuture = bootstrap.connect(address, port).sync();

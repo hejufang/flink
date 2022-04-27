@@ -662,6 +662,18 @@ public class TaskManagerOptions {
 		.defaultValue(0)
 		.withDescription("High writer buffer mark for task push results with netty client, 0 means no mark");
 
+	public static final ConfigOption<Integer> NETTY_SERVER_CONNECT_BACKLOG = ConfigOptions
+		.key("taskmanager.netty-server-connect.backlog")
+		.intType()
+		.defaultValue(0) // default: 0 => Netty's default
+		.withDescription("The task executor netty server connection backlog.");
+
+	public static final ConfigOption<Integer> NETTY_SERVER_WORKER_THREAD_COUNT = ConfigOptions
+		.key("taskmanager.netty-server-worker-thread.count")
+		.intType()
+		.defaultValue(0)
+		.withDescription("Worker thread count of netty server in task executor.");
+
 	// ------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */

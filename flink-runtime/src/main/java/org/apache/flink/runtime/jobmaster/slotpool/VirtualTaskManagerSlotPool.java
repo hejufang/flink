@@ -35,6 +35,7 @@ import org.apache.flink.runtime.jobmaster.slotpool.strategy.AllocateTaskManagerS
 import org.apache.flink.runtime.jobmaster.slotpool.strategy.RandomTaskManagerStrategy;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
+import org.apache.flink.runtime.taskexecutor.netty.TaskExecutorNettyClient;
 import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.Preconditions;
@@ -96,10 +97,18 @@ public final class VirtualTaskManagerSlotPool implements SlotPool {
 
 	public AllocatedSlot allocatedSlot(AllocationID allocationID, ResourceID resourceID) {
 		Preconditions.checkNotNull(jobMasterId, "JobMasterId is null, that means SlotPool worked before started.");
-		Preconditions.checkNotNull(taskManagers.get(resourceID), "Allocate " + allocationID + " from " + resourceID + " failed, task manager not found.");
-		TaskManagerLocation taskManagerLocation = taskManagers.get(resourceID).getTaskManagerLocation();
-		TaskExecutorGateway taskExecutorGateway = taskManagers.get(resourceID).getTaskExecutorGateway();
-		TaskManagerGateway taskManagerGateway = new RpcTaskManagerGateway(taskExecutorGateway, jobMasterId, requestSlotFromResourceManagerDirectEnable, jobMasterAddress);
+
+		ResolvedTaskManagerTopology resolvedTaskManagerTopology = taskManagers.get(resourceID);
+		Preconditions.checkNotNull(resolvedTaskManagerTopology, "Allocate " + allocationID + " from " + resourceID + " failed, task manager not found.");
+		TaskManagerLocation taskManagerLocation = resolvedTaskManagerTopology.getTaskManagerLocation();
+		TaskExecutorGateway taskExecutorGateway = resolvedTaskManagerTopology.getTaskExecutorGateway();
+		TaskExecutorNettyClient taskExecutorNettyClient = resolvedTaskManagerTopology.getTaskExecutorNettyClient();
+		TaskManagerGateway taskManagerGateway = new RpcTaskManagerGateway(
+			taskExecutorGateway,
+			jobMasterId,
+			requestSlotFromResourceManagerDirectEnable,
+			jobMasterAddress,
+			taskExecutorNettyClient);
 		AllocatedSlot allocatedSlot = new AllocatedSlot(allocationID, taskManagerLocation, 0, ResourceProfile.UNKNOWN, taskManagerGateway);
 
 		slotMapping.computeIfAbsent(resourceID, r -> new HashSet<>()).add(allocationID);

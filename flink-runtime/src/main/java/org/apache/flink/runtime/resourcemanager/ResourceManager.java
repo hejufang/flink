@@ -1189,7 +1189,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				if (oldUnresolvedTaskManagerTopology == null) {
 					taskExecutorTopology.put(
 						taskExecutorResourceId,
-						new UnresolvedTaskManagerTopology(taskExecutorGateway, unresolvedTaskManagerLocation));
+						new UnresolvedTaskManagerTopology(
+							taskExecutorGateway,
+							unresolvedTaskManagerLocation,
+							taskExecutorRegistration.getSocketAddress()));
 
 					if (log.isDebugEnabled()) {
 						log.debug("Notify Dispatchers [{}] for latest TM topology because {} added",

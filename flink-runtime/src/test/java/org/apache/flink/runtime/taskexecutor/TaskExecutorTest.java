@@ -24,6 +24,7 @@ import org.apache.flink.api.common.resources.CPUResource;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple4;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
@@ -101,6 +102,7 @@ import org.apache.flink.runtime.taskexecutor.TaskSubmissionTestEnvironment.Build
 import org.apache.flink.runtime.taskexecutor.exceptions.RegistrationTimeoutException;
 import org.apache.flink.runtime.taskexecutor.exceptions.TaskManagerException;
 import org.apache.flink.runtime.taskexecutor.exceptions.TaskSubmissionException;
+import org.apache.flink.runtime.taskexecutor.netty.TaskExecutorNettyClient;
 import org.apache.flink.runtime.taskexecutor.partition.ClusterPartitionReport;
 import org.apache.flink.runtime.taskexecutor.slot.SlotNotFoundException;
 import org.apache.flink.runtime.taskexecutor.slot.SlotOffer;
@@ -2315,6 +2317,52 @@ public class TaskExecutorTest extends TestLogger {
 	public void testSubmitOptimizeCancelTaskListSlotMemoryManagerCache() throws Exception {
 		executeCancelSubmitOptimizeTaskList(
 			new TaskSlotMemoryManager(MemoryManager.MIN_PAGE_SIZE * 1024 * 32, MemoryManager.MIN_PAGE_SIZE, 1, Duration.ofSeconds(10), true, true));
+	}
+
+	@Test
+	public void testSubmitTaskListWithNettyServer() throws Exception {
+		final TestingJobMasterGateway jobMasterGateway = new TestingJobMasterGatewayBuilder().build();
+		final TaskManagerServices taskManagerServices = new TaskManagerServicesBuilder()
+			.setUnresolvedTaskManagerLocation(unresolvedTaskManagerLocation)
+			.build();
+		CompletableFuture<Acknowledge> submitInternalFuture = new CompletableFuture<>();
+		Configuration configuration = new Configuration();
+		configuration.setBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE, true);
+		configuration.setBoolean(ClusterOptions.CLUSTER_DEPLOY_TASK_SOCKET_ENABLE, true);
+		final TestingTaskExecutor taskManager = createTestingTaskExecutor(taskManagerServices, tuple -> submitInternalFuture.complete(Acknowledge.get()), configuration);
+
+		final TestingResourceManagerGateway testingResourceManagerGateway = new TestingResourceManagerGateway();
+		CompletableFuture<TaskExecutorRegistration> taskExecutorRegistrationFuture = new CompletableFuture<>();
+		testingResourceManagerGateway.setRegisterTaskExecutorFunction(registration -> {
+			taskExecutorRegistrationFuture.complete(registration);
+			return CompletableFuture.completedFuture(new RegistrationResponse.Success());
+		});
+		rpc.registerGateway(jobMasterGateway.getAddress(), jobMasterGateway);
+		rpc.registerGateway(testingResourceManagerGateway.getAddress(), testingResourceManagerGateway);
+
+		jobManagerLeaderRetriever.notifyListener(jobMasterGateway.getAddress(), jobMasterGateway.getFencingToken().toUUID());
+		try {
+			taskManager.start();
+			taskManager.waitUntilStarted();
+			resourceManagerLeaderRetriever.notifyListener(testingResourceManagerGateway.getAddress(), testingResourceManagerGateway.getFencingToken().toUUID());
+
+			TaskExecutorRegistration registration = taskExecutorRegistrationFuture.get();
+			assertNotNull(registration.getSocketAddress());
+			try (TaskExecutorNettyClient taskExecutorNettyClient = new TaskExecutorNettyClient(
+					registration.getSocketAddress(),
+					1,
+					0,
+					0,
+					0)) {
+				taskExecutorNettyClient.start();
+				TaskDeploymentDescriptor tdd = createTaskDeploymentDescriptor(jobId, TaskExecutorSubmissionTest.FutureCompletingInvokable.class, new ExecutionAttemptID());
+				CompletableFuture<Acknowledge> submitFuture = taskExecutorNettyClient.submitTaskList(jobMasterGateway.getAddress(), Collections.singletonList(tdd), JobMasterId.generate());
+				submitFuture.get(10, TimeUnit.SECONDS);
+				submitInternalFuture.get(10, TimeUnit.SECONDS);
+			}
+		} finally {
+			RpcUtils.terminateRpcEndpoint(taskManager, timeout);
+		}
 	}
 
 	private void executeSubmitOptimizeTaskList(TaskMemoryManager taskMemoryManager) throws Exception {

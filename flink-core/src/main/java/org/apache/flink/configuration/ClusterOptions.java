@@ -117,4 +117,13 @@ public class ClusterOptions {
 		.intType()
 		.defaultValue(10)
 		.withDescription("The thread count for job result process");
+
+	/**
+	 * Enable job master deploy tasks to task executor by netty.
+	 */
+	public static final ConfigOption<Boolean> CLUSTER_DEPLOY_TASK_SOCKET_ENABLE = ConfigOptions
+		.key("cluster.deploy-task-socket.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("If true, jobMaster will deploy tasks to netty server in task executor.");
 }

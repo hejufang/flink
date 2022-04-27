@@ -90,6 +90,7 @@ import org.apache.flink.runtime.registration.RegistrationConnectionListener;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
+import org.apache.flink.runtime.resourcemanager.TaskExecutorSocketAddress;
 import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceRequestSlot;
 import org.apache.flink.runtime.rest.messages.LogInfo;
@@ -115,6 +116,7 @@ import org.apache.flink.runtime.taskexecutor.exceptions.SlotOccupiedException;
 import org.apache.flink.runtime.taskexecutor.exceptions.TaskException;
 import org.apache.flink.runtime.taskexecutor.exceptions.TaskManagerException;
 import org.apache.flink.runtime.taskexecutor.exceptions.TaskSubmissionException;
+import org.apache.flink.runtime.taskexecutor.netty.TaskExecutorNettyServer;
 import org.apache.flink.runtime.taskexecutor.rpc.RpcCheckpointResponder;
 import org.apache.flink.runtime.taskexecutor.rpc.RpcGlobalAggregateManager;
 import org.apache.flink.runtime.taskexecutor.rpc.RpcInputSplitProvider;
@@ -139,6 +141,7 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.IterableUtils;
 import org.apache.flink.util.MetricUtils;
+import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.OptionalConsumer;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
@@ -154,6 +157,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -243,6 +247,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	private final boolean taskDeployFinishEnable;
 
+	private final TaskExecutorNettyServer taskExecutorNettyServer;
+
 	// ------------------------------------------------------------------------
 
 	private final HardwareDescription hardwareDescription;
@@ -331,6 +337,15 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		this.resourceManagerLeaderRetriever = haServices.getResourceManagerLeaderRetriever();
 		this.requestSlotFromResourceManagerDirectEnable = taskManagerConfiguration.isRequestSlotFromResourceManagerDirectEnable();
 		this.notifyFinalStateInTaskThreadEnable = taskManagerConfiguration.isNotifyFinalStateInTaskThreadEnable();
+		try {
+			this.taskExecutorNettyServer = taskManagerConfiguration.isDeployTaskSocketEnable() ?
+				new TaskExecutorNettyServer(
+					() -> this.getSelfGateway(TaskExecutorGateway.class),
+					NetUtils.getLocalHostLANAddress().getHostAddress(),
+					taskManagerConfiguration.getConfiguration()) : null;
+		} catch (UnknownHostException e) {
+			throw new RuntimeException(e);
+		}
 
 		this.hardwareDescription = HardwareDescription.extractFromSystem(taskExecutorServices.getManagedMemorySize());
 		this.memoryConfiguration = TaskExecutorMemoryConfiguration.create(taskManagerConfiguration.getConfiguration());
@@ -424,6 +439,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 			registerMetrics();
 
+			if (taskExecutorNettyServer != null) {
+				taskExecutorNettyServer.start();
+			}
 		} catch (Exception e) {
 			handleStartTaskExecutorServicesException(e);
 		}
@@ -526,6 +544,14 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		// it will call close() recursively from the parent to children
 		taskManagerMetricGroup.close();
+
+		if (taskExecutorNettyServer != null) {
+			try {
+				taskExecutorNettyServer.close();
+			} catch (Exception e) {
+				exception = ExceptionUtils.firstOrSuppressed(e, exception);
+			}
+		}
 
 		ExceptionUtils.tryRethrowException(exception);
 	}
@@ -1528,7 +1554,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			hardwareDescription,
 			memoryConfiguration,
 			taskManagerConfiguration.getDefaultSlotResourceProfile(),
-			taskManagerConfiguration.getTotalResourceProfile()
+			taskManagerConfiguration.getTotalResourceProfile(),
+			taskExecutorNettyServer == null ?
+				null : new TaskExecutorSocketAddress(taskExecutorNettyServer.getAddress(), taskExecutorNettyServer.getPort())
 		);
 
 		resourceManagerConnection =

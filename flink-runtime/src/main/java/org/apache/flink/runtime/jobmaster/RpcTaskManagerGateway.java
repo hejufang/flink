@@ -32,6 +32,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
+import org.apache.flink.runtime.taskexecutor.netty.TaskExecutorNettyClient;
 import org.apache.flink.util.SerializedValue;
 
 import javax.annotation.Nullable;
@@ -57,15 +58,28 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
 	@Nullable
 	private final String jobMasterAddress;
 
+	@Nullable
+	private final TaskExecutorNettyClient taskExecutorNettyClient;
+
 	public RpcTaskManagerGateway(
 			TaskExecutorGateway taskExecutorGateway,
 			JobMasterId jobMasterId,
 			boolean requestSlotFromResourceManagerDirectEnable,
 			String jobMasterAddress) {
+		this(taskExecutorGateway, jobMasterId, requestSlotFromResourceManagerDirectEnable, jobMasterAddress, null);
+	}
+
+	public RpcTaskManagerGateway(
+			TaskExecutorGateway taskExecutorGateway,
+			JobMasterId jobMasterId,
+			boolean requestSlotFromResourceManagerDirectEnable,
+			String jobMasterAddress,
+			@Nullable TaskExecutorNettyClient taskExecutorNettyClient) {
 		this.taskExecutorGateway = checkNotNull(taskExecutorGateway);
 		this.jobMasterId = checkNotNull(jobMasterId);
 		this.requestSlotFromResourceManagerDirectEnable = requestSlotFromResourceManagerDirectEnable;
 		this.jobMasterAddress = jobMasterAddress;
+		this.taskExecutorNettyClient = taskExecutorNettyClient;
 	}
 
 	@Override
@@ -91,7 +105,11 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
 	public CompletableFuture<Acknowledge> submitTaskList(List<TaskDeploymentDescriptor> tdds, Time timeout) {
 		if (requestSlotFromResourceManagerDirectEnable) {
 			checkNotNull(jobMasterAddress);
-			return taskExecutorGateway.submitTaskList(jobMasterAddress, tdds, jobMasterId, timeout);
+			if (taskExecutorNettyClient == null) {
+				return taskExecutorGateway.submitTaskList(jobMasterAddress, tdds, jobMasterId, timeout);
+			} else {
+				return taskExecutorNettyClient.submitTaskList(jobMasterAddress, tdds, jobMasterId);
+			}
 		} else {
 			return taskExecutorGateway.submitTaskList(tdds, jobMasterId, timeout);
 		}

@@ -23,6 +23,8 @@ import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.instance.HardwareDescription;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorMemoryConfiguration;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -73,6 +75,12 @@ public class TaskExecutorRegistration implements Serializable {
 	 */
 	private final ResourceProfile totalResourceProfile;
 
+	/**
+	 * The netty address and port in task executor.
+	 */
+	@Nullable
+	private final TaskExecutorSocketAddress socketAddress;
+
 	public TaskExecutorRegistration(
 			final String taskExecutorAddress,
 			final ResourceID resourceId,
@@ -89,7 +97,8 @@ public class TaskExecutorRegistration implements Serializable {
 			hardwareDescription,
 			memoryConfiguration,
 			defaultSlotResourceProfile,
-			totalResourceProfile);
+			totalResourceProfile,
+			null);
 	}
 
 	public TaskExecutorRegistration(
@@ -100,7 +109,8 @@ public class TaskExecutorRegistration implements Serializable {
 			final HardwareDescription hardwareDescription,
 			final TaskExecutorMemoryConfiguration memoryConfiguration,
 			final ResourceProfile defaultSlotResourceProfile,
-			final ResourceProfile totalResourceProfile) {
+			final ResourceProfile totalResourceProfile,
+			@Nullable final TaskExecutorSocketAddress socketAddress) {
 		this.taskExecutorAddress = checkNotNull(taskExecutorAddress);
 		this.externalAddress = checkNotNull(externalAddress);
 		this.resourceId = checkNotNull(resourceId);
@@ -109,6 +119,7 @@ public class TaskExecutorRegistration implements Serializable {
 		this.memoryConfiguration = checkNotNull(memoryConfiguration);
 		this.defaultSlotResourceProfile = checkNotNull(defaultSlotResourceProfile);
 		this.totalResourceProfile = checkNotNull(totalResourceProfile);
+		this.socketAddress = socketAddress;
 	}
 
 	public String getTaskExecutorAddress() {
@@ -141,5 +152,10 @@ public class TaskExecutorRegistration implements Serializable {
 
 	public ResourceProfile getTotalResourceProfile() {
 		return totalResourceProfile;
+	}
+
+	@Nullable
+	public TaskExecutorSocketAddress getSocketAddress() {
+		return socketAddress;
 	}
 }

@@ -20,6 +20,7 @@ package org.apache.flink.runtime.taskexecutor;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.AkkaOptions;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
@@ -95,6 +96,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	private final int resultConnectTimeoutMills;
 
+	private final boolean deployTaskSocketEnable;
+
 	public TaskManagerConfiguration(
 			int numberSlots,
 			ResourceProfile defaultSlotResourceProfile,
@@ -116,7 +119,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			boolean taskDeployFinishEnable,
 			boolean notifyFinalStateInTaskThreadEnable,
 			int resultClientCount,
-			int resultConnectTimeoutMills) {
+			int resultConnectTimeoutMills,
+			boolean deployTaskSocketEnable) {
 
 		this.numberSlots = numberSlots;
 		this.defaultSlotResourceProfile = defaultSlotResourceProfile;
@@ -139,6 +143,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		this.notifyFinalStateInTaskThreadEnable = notifyFinalStateInTaskThreadEnable;
 		this.resultClientCount = resultClientCount;
 		this.resultConnectTimeoutMills = resultConnectTimeoutMills;
+		this.deployTaskSocketEnable = deployTaskSocketEnable;
 	}
 
 	public int getNumberSlots() {
@@ -233,6 +238,10 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		return resultConnectTimeoutMills;
 	}
 
+	public boolean isDeployTaskSocketEnable() {
+		return deployTaskSocketEnable;
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Static factory methods
 	// --------------------------------------------------------------------------------------------
@@ -303,6 +312,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 		final int resultClientCount = configuration.get(TaskManagerOptions.RESULT_PUSH_CLIENT_COUNT);
 		final int resultClientConnectTimeoutMills = configuration.get(TaskManagerOptions.RESULT_PUSH_CLIENT_CONNECT_TIMEOUT_MILLS);
+		final boolean deployTaskSocketEnable = configuration.get(ClusterOptions.CLUSTER_DEPLOY_TASK_SOCKET_ENABLE);
 
 		return new TaskManagerConfiguration(
 			numberSlots,
@@ -325,6 +335,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			taskDeployFinishEnable,
 			notifyFinalStateInTaskThreadEnable,
 			resultClientCount,
-			resultClientConnectTimeoutMills);
+			resultClientConnectTimeoutMills,
+			deployTaskSocketEnable);
 	}
 }
