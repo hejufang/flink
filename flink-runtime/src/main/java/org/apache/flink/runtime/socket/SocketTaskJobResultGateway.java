@@ -28,6 +28,9 @@ import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.Class
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectDecoder;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectEncoder;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -39,6 +42,8 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  * Task writes job result to netty server in cluster entry process.
  */
 public class SocketTaskJobResultGateway implements TaskJobResultGateway {
+	private static final Logger LOG = LoggerFactory.getLogger(SocketTaskJobResultGateway.class);
+
 	private final int clientCount;
 	private final int connectTimeoutMills;
 	private final int lowWriteMark;
@@ -96,6 +101,7 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 			} catch (InterruptedException e) { }
 		}
 		if (resultStatus == ResultStatus.COMPLETE) {
+			LOG.info("Send complete result for job {}", jobId);
 			nettySocketClient.getChannel().flush();
 		}
 	}

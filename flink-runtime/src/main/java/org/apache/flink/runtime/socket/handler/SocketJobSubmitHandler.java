@@ -34,6 +34,8 @@ import org.apache.flink.util.SerializedThrowable;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdapter;
 
+import java.util.List;
+
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
@@ -59,7 +61,7 @@ public class SocketJobSubmitHandler extends ChannelInboundHandlerAdapter {
 			JobGraph jobGraph = (JobGraph) msg;
 			jobResultClientManager.addJobChannelManager(
 				jobGraph.getJobID(),
-				new JobChannelManager(ctx, computeTaskCount(jobGraph), jobResultClientManager));
+				new JobChannelManager(ctx, computeFinishTaskCount(jobGraph), jobResultClientManager));
 
 			OptionalConsumer<DispatcherGateway> optLeaderConsumer = OptionalConsumer.of(leaderRetriever.getNow());
 			optLeaderConsumer.ifPresent(
@@ -78,10 +80,10 @@ public class SocketJobSubmitHandler extends ChannelInboundHandlerAdapter {
 		}
 	}
 
-	private int computeTaskCount(JobGraph jobGraph) {
-		JobVertex[] vertexArray = jobGraph.getVerticesAsArray();
-		checkArgument(vertexArray.length > 0, "There are no vertices in the job");
-		return vertexArray[vertexArray.length - 1].getParallelism();
+	public static int computeFinishTaskCount(JobGraph jobGraph) {
+		List<JobVertex> vertexList = jobGraph.getVerticesSortedTopologicallyFromSources();
+		checkArgument(!vertexList.isEmpty(), "There are no vertices in the job");
+		return vertexList.get(vertexList.size() - 1).getParallelism();
 	}
 
 	@Override

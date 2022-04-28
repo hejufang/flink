@@ -24,11 +24,16 @@ import org.apache.flink.util.SerializedThrowable;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Job channel manager will manage the thread pool for job result, check whether
  * all the tasks send their results to the server.
  */
 public class JobChannelManager {
+	private static final Logger LOG = LoggerFactory.getLogger(JobChannelManager.class);
+
 	private final ChannelHandlerContext context;
 	private final int expectTaskCount;
 	private final JobResultClientManager jobResultClientManager;
@@ -59,11 +64,16 @@ public class JobChannelManager {
 				return;
 			}
 			if (taskSocketResult.isFailed()) {
+				LOG.warn("Receive fail result for job {}", taskSocketResult.getJobId());
 				isFailed = true;
 				jobResultClientManager.finishJob(taskSocketResult.getJobId());
 				jobResultClientManager.getJobResultThreadPool().addJobResultContext(new JobResultContext(context, taskSocketResult));
 			} else if (taskSocketResult.isFinish()) {
 				finishedTaskCount++;
+				LOG.debug("Receive finish result for job {} with finished task count {} expect count {}",
+					taskSocketResult.getJobId(),
+					finishedTaskCount,
+					expectTaskCount);
 				if (finishedTaskCount == expectTaskCount) {
 					jobResultClientManager.finishJob(taskSocketResult.getJobId());
 					jobResultClientManager.getJobResultThreadPool().addJobResultContext(new JobResultContext(context, taskSocketResult));

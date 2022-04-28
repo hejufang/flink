@@ -23,10 +23,14 @@ import org.apache.flink.api.common.socket.JobSocketResult;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Job socket result with channel context.
  */
 public class JobResultContext {
+	private static final Logger LOG = LoggerFactory.getLogger(JobResultContext.class);
 	private final ChannelHandlerContext context;
 	private final JobSocketResult jobSocketResult;
 
@@ -38,6 +42,9 @@ public class JobResultContext {
 	public void writeResult() {
 		context.write(jobSocketResult);
 		if (jobSocketResult.isFinish()) {
+			LOG.debug("Write complete result to channel for job {} failed flag {}",
+				jobSocketResult.getJobId(),
+				jobSocketResult.isFailed());
 			context.flush();
 		}
 	}

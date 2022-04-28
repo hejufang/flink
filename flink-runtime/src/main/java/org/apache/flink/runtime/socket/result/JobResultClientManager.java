@@ -22,6 +22,9 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.socket.JobSocketResult;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nonnull;
 
 import java.io.Closeable;
@@ -34,6 +37,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * Manage the job id -> {@link JobChannelManager} mapping.
  */
 public class JobResultClientManager implements Closeable {
+	private static final Logger LOG = LoggerFactory.getLogger(JobResultClientManager.class);
+
 	private final JobResultThreadPool jobResultThreadPool;
 	private final Map<JobID, JobChannelManager> jobChannelManagers;
 	private ClusterInformation clusterInformation;
@@ -50,15 +55,19 @@ public class JobResultClientManager implements Closeable {
 		JobChannelManager jobChannelManager = jobChannelManagers.get(taskSocketResult.getJobId());
 		if (jobChannelManager != null) {
 			jobChannelManager.addTaskResult(taskSocketResult);
+		} else {
+			LOG.warn("Get non job result client manager for {}", taskSocketResult.getJobId());
 		}
 	}
 
 	public void finishJob(JobID jobId) {
+		LOG.debug("Finish to process result and remove channel manager for job {}", jobId);
 		jobChannelManagers.remove(jobId);
 	}
 
 	public void addJobChannelManager(JobID jobId, JobChannelManager jobChannelManager) {
 		jobChannelManagers.put(jobId, jobChannelManager);
+		LOG.debug("Add channel manager for job {} to process result", jobId);
 	}
 
 	public JobResultThreadPool getJobResultThreadPool() {
