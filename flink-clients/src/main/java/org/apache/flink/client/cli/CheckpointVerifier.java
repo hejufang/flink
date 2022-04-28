@@ -24,6 +24,7 @@ import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
@@ -179,7 +180,8 @@ public class CheckpointVerifier {
 
 		// If user disable checkpointing (i.e., checkpoint interval is -1), skip .
 		JobCheckpointingSettings checkpointingSettings = jobGraph.getCheckpointingSettings();
-		if (checkpointingSettings == null) {
+		boolean checkpointForceClose = configuration.getBoolean(JobManagerOptions.JOBMANAGER_CHECKPOINT_FORCE_CLOSE);
+		if (checkpointForceClose || checkpointingSettings == null) {
 			LOG.info("Checkpointing is disabled, skip checkpoint verification");
 			return;
 		} else {

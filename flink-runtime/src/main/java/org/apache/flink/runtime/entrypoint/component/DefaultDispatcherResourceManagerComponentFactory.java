@@ -21,6 +21,7 @@ package org.apache.flink.runtime.entrypoint.component;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.runtime.blob.BlobServer;
@@ -226,10 +227,11 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 				jobResultClientManager);
 
 			log.debug("Starting Dispatcher.");
+			boolean forceDisableJobGraphStore = configuration.getBoolean(HighAvailabilityOptions.FORCE_DISABLE_STORAGE);
 			dispatcherRunner = dispatcherRunnerFactory.createDispatcherRunner(
 				highAvailabilityServices.getDispatcherLeaderElectionService(),
 				fatalErrorHandler,
-				new HaServicesJobGraphStoreFactory(highAvailabilityServices),
+				new HaServicesJobGraphStoreFactory(highAvailabilityServices, forceDisableJobGraphStore),
 				ioExecutor,
 				rpcService,
 				partialDispatcherServices);

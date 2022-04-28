@@ -97,6 +97,15 @@ public class HighAvailabilityOptions {
 					"the high-availability services (leader election), so a random port or a port range works " +
 					"without requiring any additional means of service discovery.");
 
+	public static final ConfigOption<Boolean> FORCE_DISABLE_STORAGE =
+			key("high-availability.force-disable-storage")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether force disable job graph store." +
+					"If ture, will use StandaloneJobGraphStore in all environment." +
+					"This usually used in OLAP mode.");
+
+
 	// ------------------------------------------------------------------------
 	//  ZooKeeper Options
 	// ------------------------------------------------------------------------

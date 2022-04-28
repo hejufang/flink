@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.BlobServerOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
+import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils;
@@ -85,7 +86,8 @@ public class BlobUtils {
 	 * 		thrown if the (distributed) file storage cannot be created
 	 */
 	public static BlobStoreService createBlobStoreFromConfig(Configuration config) throws IOException {
-		if (HighAvailabilityMode.isHighAvailabilityModeActivated(config)) {
+		if (HighAvailabilityMode.isHighAvailabilityModeActivated(config) &&
+				!config.getBoolean(HighAvailabilityOptions.FORCE_DISABLE_STORAGE)) {
 			return createFileSystemBlobStore(config);
 		} else {
 			return new VoidBlobStore();

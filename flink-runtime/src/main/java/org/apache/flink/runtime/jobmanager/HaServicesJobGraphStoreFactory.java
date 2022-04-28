@@ -27,22 +27,28 @@ import org.apache.flink.util.FlinkRuntimeException;
  */
 public class HaServicesJobGraphStoreFactory implements JobGraphStoreFactory {
 	private final HighAvailabilityServices highAvailabilityServices;
+	private final boolean forceDisableJobGraphStore;
 
-	public HaServicesJobGraphStoreFactory(HighAvailabilityServices highAvailabilityServices) {
+	public HaServicesJobGraphStoreFactory(HighAvailabilityServices highAvailabilityServices, boolean forceDisableJobGraphStore) {
 		this.highAvailabilityServices = highAvailabilityServices;
+		this.forceDisableJobGraphStore = forceDisableJobGraphStore;
 	}
 
 	@Override
 	public JobGraphStore create() {
-		try {
-			return highAvailabilityServices.getJobGraphStore();
-		} catch (Exception e) {
-			throw new FlinkRuntimeException(
-				String.format(
-					"Could not create %s from %s.",
-					JobGraphStore.class.getSimpleName(),
-					highAvailabilityServices.getClass().getSimpleName()),
-				e);
+		if (forceDisableJobGraphStore) {
+			return new StandaloneJobGraphStore();
+		} else {
+			try {
+				return highAvailabilityServices.getJobGraphStore();
+			} catch (Exception e) {
+				throw new FlinkRuntimeException(
+						String.format(
+								"Could not create %s from %s.",
+								JobGraphStore.class.getSimpleName(),
+								highAvailabilityServices.getClass().getSimpleName()),
+						e);
+			}
 		}
 	}
 }
