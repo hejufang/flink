@@ -33,7 +33,7 @@ import org.apache.flink.util.CloseableIterator;
  * Simple sql example with socket api.
  */
 public class StreamSqlSocketExample {
-	public static void main(String[] args) {
+	public static void main(String[] args) throws Exception {
 		// set up execution environment
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.getConfiguration().set(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE, true);
@@ -59,5 +59,6 @@ public class StreamSqlSocketExample {
 		while (resultIterator.hasNext()) {
 			System.out.println("=====>" + resultIterator.next());
 		}
+		resultIterator.close();
 	}
 }

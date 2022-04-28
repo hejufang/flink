@@ -475,6 +475,9 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 					if (socketClient != null) {
 						socketClient.closeAsync();
 					}
+					if (jobResultClientManager != null) {
+						jobResultClientManager.close();
+					}
 
 					componentTerminationFutures.addAll(terminateTaskExecutors());
 

@@ -21,6 +21,8 @@ package org.apache.flink.client.program;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
+import org.apache.flink.api.common.socket.SocketResultIterator;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
@@ -50,6 +52,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 
 /**
@@ -159,10 +162,11 @@ public final class PerJobMiniClusterFactory {
 					.requestJobResult(jobID)
 					// Make sure to shutdown the cluster when the job completes.
 					.whenComplete((result, throwable) -> shutDownCluster(miniCluster));
+				this.resultIterator = null;
 			} else {
 				this.jobResultFuture = null;
+				this.resultIterator = new PerJobMiniClusterResultIterator(jobID, miniCluster, resultIterator);
 			}
-			this.resultIterator = resultIterator;
 		}
 
 		@Override
@@ -218,6 +222,45 @@ public final class PerJobMiniClusterFactory {
 				return miniCluster.deliverCoordinationRequestToCoordinator(jobID, operatorId, serializedRequest);
 			} catch (IOException e) {
 				return FutureUtils.completedExceptionally(e);
+			}
+		}
+	}
+
+	/**
+	 * Socket result iterator delegate for per job mini cluster.
+	 *
+	 * @param <T> the result data type
+	 */
+	private static class PerJobMiniClusterResultIterator<T> extends SocketResultIterator<T> {
+		private final MiniCluster miniCluster;
+		private final CloseableIterator<?> iterator;
+
+		public PerJobMiniClusterResultIterator(JobID jobId, MiniCluster miniCluster, CloseableIterator<?> iterator) {
+			super(jobId, new LinkedBlockingQueue<>());
+			this.miniCluster = miniCluster;
+			this.iterator = iterator;
+		}
+
+		@Override
+		public void close() throws Exception {
+			iterator.close();
+			shutDownCluster(miniCluster);
+		}
+
+		@Override
+		public boolean hasNext() {
+			return iterator.hasNext();
+		}
+
+		@Override
+		public T next() {
+			return (T) iterator.next();
+		}
+
+		@Override
+		public void registerResultSerializer(TypeSerializer<T> serializer) {
+			if (iterator instanceof SocketResultIterator) {
+				((SocketResultIterator<T>) iterator).registerResultSerializer(serializer);
 			}
 		}
 	}
