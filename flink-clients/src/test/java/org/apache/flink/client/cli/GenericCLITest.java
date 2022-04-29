@@ -24,6 +24,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.ExecutionOptions;
+import org.apache.flink.configuration.GlobalConfiguration;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 import org.apache.flink.shaded.org.apache.commons.cli.Options;
@@ -150,6 +151,25 @@ public class GenericCLITest {
 		assertEquals("test-executor", configuration.getString(DeploymentOptions.TARGET));
 		assertEquals(ConfigConstants.FLINK_BATCH_APPLICATION_TYPE, configuration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE));
 		assertEquals("", configuration.getString("test-config.test-sub-config", ""));
+	}
+
+	@Test
+	public void testApplyCommandLineOptionsToConfigurationWithReloadConfig() throws CliArgsException {
+		final String[] args = {
+			"-e", "test-executor",
+			"-D", "hdfs.prefix=/test-prefix",
+			"-D", "clusterName=flink"
+		};
+		final Configuration originConfiguration = new Configuration();
+		originConfiguration.setString("high-availability.storageDir" + GlobalConfiguration.ORIGIN_KEY_POSTFIX, "${hdfs.prefix}/${clusterName}/1.11/ha/");
+
+		final GenericCLI cliUnderTest = new GenericCLI(
+			originConfiguration,
+			tmp.getRoot().getAbsolutePath());
+		final CommandLine commandLine = CliFrontendParser.parse(testOptions, args, true);
+		final Configuration configuration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
+
+		assertEquals("/test-prefix/flink/1.11/ha/", configuration.getString("high-availability.storageDir", ""));
 	}
 
 	@Test

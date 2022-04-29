@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.configuration.GlobalConfiguration.reloadConfigWithDynamicProperties;
 import static org.apache.flink.configuration.GlobalConfiguration.reloadConfigWithSpecificProperties;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -153,6 +154,10 @@ public class GenericCLI implements CustomCommandLine {
 
 	private void encodeDynamicProperties(final CommandLine commandLine, final Configuration effectiveConfiguration) {
 		final Properties properties = commandLine.getOptionProperties(dynamicProperties.getOpt());
+
+		// reload config by dynamic properties. support config DC,hdfs.prefix... by dynamic properties.
+		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);
+
 		properties.stringPropertyNames()
 				.forEach(key -> {
 					final String value = properties.getProperty(key);

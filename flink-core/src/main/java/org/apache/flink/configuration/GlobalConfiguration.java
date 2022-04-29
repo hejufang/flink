@@ -59,7 +59,7 @@ public final class GlobalConfiguration {
 	public static final String COMMON = "common";
 
 	// the key of flexible origin value in yaml file.
-	private static final String ORIGIN_KEY_POSTFIX = "#ORIGIN#";
+	public static final String ORIGIN_KEY_POSTFIX = "#ORIGIN#";
 
 	private static final String[] DYNAMIC_PARAM_KEYS = {
 			ConfigConstants.CLUSTER_NAME_KEY,
