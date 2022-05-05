@@ -29,11 +29,14 @@ import org.apache.flink.table.planner.factories.TestValuesTableFactory
 import org.apache.flink.table.planner.runtime.utils.StreamingWithStateTestBase.StateBackendMode
 import org.apache.flink.table.planner.runtime.utils._
 import org.apache.flink.types.Row
+import org.apache.flink.util.TimeUtils
+
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 
+import java.lang.{Long => JLong}
 import scala.collection.{Seq, mutable}
 
 @RunWith(classOf[Parameterized])
@@ -1240,5 +1243,150 @@ class JoinITCase(state: StateBackendMode) extends StreamingWithStateTestBase(sta
       "Euro,2,119,238", "Euro,3,119,357",
       "US Dollar,1,102,102", "US Dollar,5,102,510","Yen,50,null,null")
     assertEquals(expected.sorted, sink.getRetractResults.sorted)
+  }
+
+  def testBroadcastJoinWithView(): Unit = {
+    val sink = new TestingRetractSink
+    val upperCaseId = TestValuesTableFactory.registerData(TestData.upperCaseData)
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE upperA (
+         |  id int,
+         |  data STRING
+         |) WITH (
+         | 'connector' = 'values',
+         | 'data-id' = '$upperCaseId',
+         | 'changelog-mode' = 'I'
+         |)
+         |""".stripMargin)
+
+    tEnv.executeSql(
+      """CREATE TABLE dataGen (
+        |    id int,
+        |    word bigint
+        |) WITH (
+        | 'connector' = 'datagen',
+        | 'rows-per-second'='5',
+        | 'fields.id.kind'='sequence',
+        | 'fields.id.start'='3',
+        | 'fields.id.end'='11',
+        | 'fields.word.kind'='sequence',
+        | 'fields.word.start'='2',
+        | 'fields.word.end'='11',
+        | 'idle-when-finish' = 'true'
+        |)""".stripMargin)
+
+    tEnv.executeSql(
+      """
+        |create view v1 as select id, word from dataGen
+        |""".stripMargin)
+
+    val sqlQuery = "SELECT /*+ use_broadcast_join('table' = 'v1') */" +
+      "data, word FROM upperA as A left join v1 on A.id = v1.id"
+
+    thrown.expect(classOf[ValidationException])
+    tEnv.sqlQuery(sqlQuery).toRetractStream[Row].addSink(sink).setParallelism(1)
+    env.execute()
+  }
+
+  @Test
+  def testBroadcastJoinWithMultiStage(): Unit = {
+    val sink = new TestingRetractSink
+    val allowLatencyStr = "10 min"
+    val allowLatency = TimeUtils.parseDuration(allowLatencyStr).toMillis
+    val t1 = System.currentTimeMillis()
+    val t2 = t1 + allowLatency + 1
+    val dataSource1 = TestData.genIdAndDataList(1, 5, "A", t1) ++
+      TestData.genIdAndDataList(1, 5, "AA", t2)
+
+    val dataSource2 =
+      List(Row.of(null, JLong.valueOf(t1))) ++
+      TestData.genIdAndDataList(2, 4, "B", t1) ++
+      List(Row.of(null, JLong.valueOf(t1 + 1))) ++
+      TestData.genIdAndDataList(1, 6, "BB", t2) ++
+      List(Row.of(null, JLong.valueOf(t2 + 1)))
+
+    val table1 = createBroadcastTable("AA", dataSource1)
+    createBroadcastTable("BB", dataSource2)
+    val hints = Map(
+      "table" -> "BB",
+      "allowLatency" -> allowLatencyStr,
+      "maxBuildLatency" -> "1 min"
+    ).toList.map(kv => s"'${kv._1}' = '${kv._2}'").mkString(",")
+
+    val sqlQuery = "SELECT " +
+      s"/*+ use_broadcast_join($hints) */" +
+      s"A.id, A.word, B.word FROM $table1 A left join BB B on A.id = B.id"
+
+    tEnv.sqlQuery(sqlQuery).toRetractStream[Row].addSink(sink).setParallelism(1)
+    env.execute()
+
+    val expected = Seq(
+      "1,A1,null", "2,A2,B2", "3,A3,B3", "4,A4,B4", "5,A5,null",
+      "1,AA1,BB1", "2,AA2,BB2", "3,AA3,BB3", "4,AA4,BB4", "5,AA5,BB5")
+    assertEquals(expected.sorted, sink.getRetractResults.sorted)
+  }
+
+  @Test
+  def testBroadcastJoinWithPrimaryKey(): Unit = {
+    val sink = new TestingRetractSink
+
+    val allowLatencyStr = "10 min"
+    val allowLatency = TimeUtils.parseDuration(allowLatencyStr).toMillis
+    val t1 = System.currentTimeMillis()
+    val t2 = t1 + allowLatency + 1
+    val dataSource1 = TestData.genIdAndDataList(1, 5, "A", t1) ++
+      TestData.genIdAndDataList(1, 5, "AA", t2)
+
+    val dataSource2 = List(Row.of(null, JLong.valueOf(t1))) ++
+      TestData.genIdAndDataList(2, 4, "B", t1) ++
+      List(Row.of(null, JLong.valueOf(t1 + 1))) ++
+      List(Row.of(null, JLong.valueOf(t2))) ++
+      TestData.genIdAndDataList(1, 6, "BB", t2) ++
+      TestData.genIdAndDataList(1, 6, "BB", t2) ++
+      List(Row.of(null, JLong.valueOf(t2 + 1)))
+
+    val table1 = createBroadcastTable("AA", dataSource1)
+    createBroadcastTable("BB", dataSource2, primaryKey = true)
+
+    val hints = Map(
+      "table" -> "BB",
+      "allowLatency" -> allowLatencyStr,
+      "maxBuildLatency" -> "1 min"
+    ).toList.map(kv => s"'${kv._1}' = '${kv._2}'").mkString(",")
+
+    val sqlQuery = "SELECT " +
+      s"/*+ use_broadcast_join($hints) */" +
+      s"A.id, A.word, B.word FROM $table1 A left join BB B on A.id = B.id"
+
+    tEnv.sqlQuery(sqlQuery).toRetractStream[Row].addSink(sink).setParallelism(1)
+    env.execute()
+
+    val expected = Seq(
+      "1,A1,null", "2,A2,B2", "3,A3,B3", "4,A4,B4", "5,A5,null",
+      "1,AA1,BB1", "2,AA2,BB2", "3,AA3,BB3", "4,AA4,BB4", "5,AA5,BB5")
+    assertEquals(expected.sorted, sink.getRetractResults.sorted)
+  }
+
+  private def createBroadcastTable(
+      name: String,
+      rows: List[Row],
+      primaryKey: Boolean = false): String = {
+    val sourceId = TestValuesTableFactory.registerData(rows)
+    val primaryString = if (primaryKey) {
+      "PRIMARY KEY NOT ENFORCED"
+    } else {
+      ""
+    }
+    tEnv.executeSql(
+      s"""CREATE TABLE $name (
+         |    id int $primaryString,
+         |    word varchar
+         |) WITH (
+         | 'connector' = 'values',
+         | 'data-id' = '$sourceId',
+         | 'table-source-class'='${classOf[TestData.ScanTableSourceWithTimestamp].getName}'
+         |)""".stripMargin)
+    name
   }
 }

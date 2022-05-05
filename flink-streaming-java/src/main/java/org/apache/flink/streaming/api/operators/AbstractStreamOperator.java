@@ -152,7 +152,7 @@ public abstract class AbstractStreamOperator<OUT>
 	// We keep track of watermarks from both inputs, the combined input is the minimum
 	// Once the minimum advances we emit a new watermark for downstream operators
 	private long combinedWatermark = Long.MIN_VALUE;
-	private long input1Watermark = Long.MIN_VALUE;
+	protected long input1Watermark = Long.MIN_VALUE;
 	private long input2Watermark = Long.MIN_VALUE;
 
 	private transient StreamStatus streamStatus1;

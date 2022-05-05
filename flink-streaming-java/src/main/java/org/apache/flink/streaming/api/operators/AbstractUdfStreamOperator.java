@@ -29,6 +29,7 @@ import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.checkpoint.ListCheckpointed;
+import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
@@ -178,5 +179,11 @@ public abstract class AbstractUdfStreamOperator<OUT, F extends Function>
 			throw new IllegalStateException("User functions are not allowed to implement " +
 				"CheckpointedFunction AND ListCheckpointed.");
 		}
+	}
+
+	@Override
+	public boolean withSameWatermarkPerBatch() {
+		return (userFunction instanceof SourceFunction &&
+			((SourceFunction<?>) userFunction).withSameWatermarkPerBatch());
 	}
 }

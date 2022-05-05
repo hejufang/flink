@@ -110,4 +110,15 @@ public class LegacySourceTransformation<T> extends PhysicalTransformation<T> {
 			}
 		}
 	}
+
+	@Override
+	public boolean withSameWatermarkPerBatch() {
+		return operatorFactory.withSameWatermarkPerBatch();
+	}
+
+	@Override
+	public String getName() {
+		String prefix = withSameWatermarkPerBatch() ? "ScanWithInterval" : "";
+		return prefix + super.getName();
+	}
 }

@@ -19,8 +19,9 @@
 package org.apache.flink.table.planner.plan.nodes.physical.stream
 
 import org.apache.flink.api.dag.Transformation
-import org.apache.flink.streaming.api.transformations.TwoInputTransformation
-import org.apache.flink.table.api.TableConfig
+import org.apache.flink.streaming.api.transformations.{PartitionTransformation, TwoInputTransformation}
+import org.apache.flink.streaming.runtime.partitioner.BroadcastPartitioner
+import org.apache.flink.table.api.{TableConfig, ValidationException}
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkTypeFactory}
 import org.apache.flink.table.planner.delegation.StreamPlanner
@@ -28,19 +29,19 @@ import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalJoin
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.utils.{JoinUtil, KeySelectorUtil, PhysicalPlanUtil}
 import org.apache.flink.table.runtime.operators.join.stream.state.JoinInputSideSpec
-import org.apache.flink.table.runtime.operators.join.stream.{MiniBatchStreamingJoinOperator, StreamingJoinOperator, StreamingSemiAntiJoinOperator}
+import org.apache.flink.table.runtime.operators.join.stream.{BroadcastJoinOperator, MiniBatchStreamingJoinOperator, StreamingJoinOperator, StreamingSemiAntiJoinOperator}
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
 import org.apache.calcite.plan._
 import org.apache.calcite.rel.core.{Join, JoinRelType}
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.{RelNode, RelWriter}
 import org.apache.calcite.rex.RexNode
-import java.util
-
 import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.config.ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE
+import org.apache.flink.table.factories.FactoryUtil
 
 import scala.collection.JavaConversions._
+import java.util
 
 /**
   * Stream physical RelNode for regular [[Join]].
@@ -54,7 +55,8 @@ class StreamExecJoin(
     leftRel: RelNode,
     rightRel: RelNode,
     condition: RexNode,
-    joinType: JoinRelType)
+    joinType: JoinRelType,
+    val joinConfOption: Option[JoinUtil.JoinConfig])
   extends CommonPhysicalJoin(cluster, traitSet, leftRel, rightRel, condition, joinType)
   with StreamPhysicalRel
   with StreamExecNode[RowData] {
@@ -87,16 +89,21 @@ class StreamExecJoin(
       right: RelNode,
       joinType: JoinRelType,
       semiJoinDone: Boolean): Join = {
-    new StreamExecJoin(cluster, traitSet, left, right, conditionExpr, joinType)
+    new StreamExecJoin(cluster, traitSet, left, right, conditionExpr, joinType, joinConfOption)
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = {
     val tableConfig = getCluster.getPlanner.getContext.
       asInstanceOf[FlinkContext].getTableConfig
-    super
+    val writer = super
       .explainTerms(pw)
       .item("leftInputSpec", analyzeJoinInput(left, tableConfig))
       .item("rightInputSpec", analyzeJoinInput(right, tableConfig))
+    if (joinConfOption.isDefined) {
+      writer.item("broadcast", joinConfOption.get.toString)
+    } else {
+      writer
+    }
   }
 
   override def computeSelfCost(planner: RelOptPlanner, metadata: RelMetadataQuery): RelOptCost = {
@@ -124,7 +131,7 @@ class StreamExecJoin(
 
     val leftTransform = getInputNodes.get(0).translateToPlan(planner)
       .asInstanceOf[Transformation[RowData]]
-    val rightTransform = getInputNodes.get(1).translateToPlan(planner)
+    var rightTransform = getInputNodes.get(1).translateToPlan(planner)
       .asInstanceOf[Transformation[RowData]]
 
     val leftType = leftTransform.getOutputType.asInstanceOf[RowDataTypeInfo]
@@ -159,7 +166,34 @@ class StreamExecJoin(
         TABLE_EXEC_MINIBATCH_SIZE.key() + " must be greater than zero when mini batch is enabled")
     }
 
-    val operator = if (joinType == JoinRelType.ANTI || joinType == JoinRelType.SEMI) {
+    var operatorPrefixName = ""
+    val operator = if (joinConfOption.isDefined) {
+      if (joinType != JoinRelType.LEFT && joinType != JoinRelType.INNER) {
+        throw new ValidationException("Broadcast join only support left and inner join")
+      }
+      if (!rightTransform.withSameWatermarkPerBatch()) {
+        throw new ValidationException(String.format("Currently, broadcast join's right side only" +
+          " accept connectors which support `%s`", FactoryUtil.SOURCE_SCAN_INTERVAL.key()));
+      }
+      rightTransform = new PartitionTransformation[RowData](
+        rightTransform, new BroadcastPartitioner[RowData]())
+      rightTransform.setName("BroadcastPartition")
+      operatorPrefixName = "Broadcast"
+      new BroadcastJoinOperator(
+        leftType,
+        rightType,
+        generatedCondition,
+        leftInputSpec,
+        rightInputSpec,
+        joinType == JoinRelType.LEFT,
+        filterNulls,
+        leftSelect,
+        rightSelect,
+        minRetentionTime,
+        joinConfOption.get.allowLatencyMs,
+        joinConfOption.get.maxBuildLatencyMs,
+        joinConfOption.get.table)
+    } else if (joinType == JoinRelType.ANTI || joinType == JoinRelType.SEMI) {
       new StreamingSemiAntiJoinOperator(
         joinType == JoinRelType.ANTI,
         leftType,
@@ -202,7 +236,7 @@ class StreamExecJoin(
     val ret = new TwoInputTransformation[RowData, RowData, RowData](
       leftTransform,
       rightTransform,
-      getRelDetailedDescription,
+      operatorPrefixName + getRelDetailedDescription,
       operator,
       returnType,
       leftTransform.getParallelism)
@@ -219,6 +253,11 @@ class StreamExecJoin(
 
     ret.setHasState(true)
     ret
+  }
+
+  def getMiniBatchInputs: Seq[RelNode] = joinConfOption match {
+    case Some(_) => Seq(left)
+    case _ => getInputs
   }
 
   private def analyzeJoinInput(input: RelNode, tableConfig: TableConfig): JoinInputSideSpec = {

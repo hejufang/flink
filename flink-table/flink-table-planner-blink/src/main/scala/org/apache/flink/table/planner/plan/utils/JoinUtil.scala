@@ -21,7 +21,9 @@ package org.apache.flink.table.planner.plan.utils
 import org.apache.flink.table.api.{TableConfig, TableException}
 import org.apache.flink.table.planner.codegen.{CodeGeneratorContext, ExprCodeGenerator, FunctionCodeGenerator}
 import org.apache.flink.table.runtime.generated.GeneratedJoinCondition
+import org.apache.flink.table.planner.hint.FlinkHints._
 import org.apache.flink.table.types.logical.LogicalType
+import org.apache.flink.util.{FlinkRuntimeException, TimeUtils}
 
 import org.apache.calcite.plan.RelOptUtil
 import org.apache.calcite.rel.RelNode
@@ -30,6 +32,7 @@ import org.apache.calcite.rex.{RexBuilder, RexNode}
 import org.apache.calcite.util.ImmutableIntList
 import org.apache.calcite.util.mapping.IntPair
 
+import java.lang.{Long => JLong}
 import java.util
 
 import scala.collection.mutable
@@ -38,6 +41,39 @@ import scala.collection.mutable
   * Util for [[Join]]s.
   */
 object JoinUtil {
+
+  case class JoinConfig(table: String, allowLatencyMs: JLong, maxBuildLatencyMs: JLong)
+
+  object JoinConfig {
+    def parse(config: util.Map[String, String]): Option[JoinConfig] = {
+      val allowLatency: JLong =
+        tryGetConfig(x => JLong.valueOf(TimeUtils.parseDuration(x).toMillis),
+          HINT_OPTION_DIM_JOIN_ALLOW_LATENCY, config).orNull(null)
+      val maxBuildLatencyMs = tryGetConfig(x => JLong.valueOf(TimeUtils.parseDuration(x).toMillis),
+          HINT_OPTION_MAX_BUILD_LATENCY, config).get
+      val tableName = tryGetConfig(x => x, HINT_OPTION_TABLE_NAME, config).get
+      Some(JoinConfig(tableName, allowLatency, maxBuildLatencyMs))
+    }
+
+    private def tryGetConfig[T](
+        func: String => T,
+        optionName: String,
+        config: util.Map[String, String]): Option[T] = {
+      val optionValue = config.get(optionName)
+      if (optionValue == null) {
+        return None
+      }
+
+      try {
+        Some(func(config.get(optionName)))
+      } catch {
+        case e =>
+          throw new FlinkRuntimeException(
+            s"Hint option $optionName parse string $optionValue failed", e)
+      }
+    }
+  }
+
 
   /**
     * Check and get join left and right keys.

@@ -20,18 +20,21 @@ package org.apache.flink.table.planner.plan.rules.physical.stream
 
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkTypeFactory}
-import org.apache.flink.table.planner.plan.`trait`.FlinkRelDistribution
+import org.apache.flink.table.planner.hint.FlinkHints
+import org.apache.flink.table.planner.hint.FlinkHints._
+import org.apache.flink.table.planner.plan.`trait`.{FlinkRelDistribution, ModifyKindSetTrait}
 import org.apache.flink.table.planner.plan.nodes.FlinkConventions
 import org.apache.flink.table.planner.plan.nodes.logical.{FlinkLogicalJoin, FlinkLogicalRel, FlinkLogicalSnapshot}
 import org.apache.flink.table.planner.plan.nodes.physical.stream.StreamExecJoin
-import org.apache.flink.table.planner.plan.utils.{TemporalJoinUtil, IntervalJoinUtil}
-
+import org.apache.flink.table.planner.plan.utils.{IntervalJoinUtil, JoinUtil, TemporalJoinUtil}
 import org.apache.calcite.plan.RelOptRule.{any, operand}
 import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall, RelTraitSet}
 import org.apache.calcite.rel.RelNode
+import org.apache.calcite.rel.hint.RelHint
+import org.apache.flink.util.{FlinkRuntimeException, TimeUtils}
 
 import java.util
-
+import java.util.function.Predicate
 import scala.collection.JavaConversions._
 
 /**
@@ -115,12 +118,27 @@ class StreamExecJoinRule
         .replace(distribution)
     }
 
-    val joinInfo = join.analyzeCondition()
-    val (leftRequiredTrait, rightRequiredTrait) = (
-      toHashTraitByColumns(joinInfo.leftKeys, left.getTraitSet),
-      toHashTraitByColumns(joinInfo.rightKeys, right.getTraitSet))
+    val joinConfigOption = join.getHints.size() match {
+      case 0 => None
+      case 1 if HINT_NAME_USE_BROADCAST_JOIN.equals(join.getHints.get(0).hintName) =>
+        JoinUtil.JoinConfig.parse(join.getHints.get(0).kvOptions)
+      case _ => throw new FlinkRuntimeException("Invalid hints for join")
+    }
 
+    val joinInfo = join.analyzeCondition()
     val providedTraitSet = join.getTraitSet.replace(FlinkConventions.STREAM_PHYSICAL)
+
+    val (leftRequiredTrait, rightRequiredTrait) = joinConfigOption match {
+      case None =>
+        (toHashTraitByColumns(joinInfo.leftKeys, left.getTraitSet),
+          toHashTraitByColumns(joinInfo.rightKeys, right.getTraitSet))
+      case Some(_) =>
+        // TODO: Support key-by mode.
+        (left.getTraitSet.replace(FlinkConventions.STREAM_PHYSICAL),
+          right.getTraitSet.replace(FlinkConventions.STREAM_PHYSICAL))
+      case _ =>
+        throw new FlinkRuntimeException("Current we only support non broadcast hash join")
+    }
 
     val newLeft: RelNode = RelOptRule.convert(left, leftRequiredTrait)
     val newRight: RelNode = RelOptRule.convert(right, rightRequiredTrait)
@@ -131,7 +149,9 @@ class StreamExecJoinRule
       newLeft,
       newRight,
       join.getCondition,
-      join.getJoinType)
+      join.getJoinType,
+      joinConfigOption)
+
     call.transformTo(newJoin)
   }
 }

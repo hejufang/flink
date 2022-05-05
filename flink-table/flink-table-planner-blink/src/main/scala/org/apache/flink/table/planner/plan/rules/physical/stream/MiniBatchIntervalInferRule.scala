@@ -20,7 +20,7 @@ package org.apache.flink.table.planner.plan.rules.physical.stream
 
 import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.planner.plan.`trait`.{MiniBatchInterval, MiniBatchIntervalTrait, MiniBatchIntervalTraitDef, MiniBatchMode}
-import org.apache.flink.table.planner.plan.nodes.physical.stream.{StreamExecDataStreamScan, StreamExecTableSourceScan, StreamExecMiniBatchAssigner, StreamExecLegacyTableSourceScan, StreamExecWatermarkAssigner, StreamPhysicalRel}
+import org.apache.flink.table.planner.plan.nodes.physical.stream.{StreamExecDataStreamScan, StreamExecJoin, StreamExecLegacyTableSourceScan, StreamExecMiniBatchAssigner, StreamExecTableSourceScan, StreamExecWatermarkAssigner, StreamPhysicalRel}
 import org.apache.flink.table.planner.plan.utils.FlinkRelOptUtil
 import org.apache.calcite.plan.RelOptRule._
 import org.apache.calcite.plan.hep.HepRelVertex
@@ -61,7 +61,14 @@ class MiniBatchIntervalInferRule extends RelOptRule(
   override def onMatch(call: RelOptRuleCall): Unit = {
     val rel: StreamPhysicalRel = call.rel(0)
     val miniBatchIntervalTrait = rel.getTraitSet.getTrait(MiniBatchIntervalTraitDef.INSTANCE)
-    val inputs = getInputs(rel)
+    val inputs = rel match {
+      case join: StreamExecJoin => join.getMiniBatchInputs.map {
+          case hep: HepRelVertex =>
+            hep.getCurrentRel
+          case x => x
+        }
+      case _ => getInputs(rel)
+    }
     val config = FlinkRelOptUtil.getTableConfigFromContext(rel)
     val miniBatchEnabled = config.getConfiguration.getBoolean(
       ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED)

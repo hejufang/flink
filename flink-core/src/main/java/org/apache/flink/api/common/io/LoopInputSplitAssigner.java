@@ -37,25 +37,43 @@ public class LoopInputSplitAssigner implements InputSplitAssigner {
 	private static final Logger LOG = LoggerFactory.getLogger(LoopInputSplitAssigner.class);
 
 	private final List<InputSplit> splits = new ArrayList<>();
-	private DefaultInputSplitAssigner inputSplitAssigner;
+	private final long loopTimeIntervalMs;
+	private final Set<Integer> registerTasks = new HashSet<>();
 	private final Set<Integer> finishedTaskIdSet = new HashSet<>();
+
+	private DefaultInputSplitAssigner inputSplitAssigner;
+	private long loopTimestamp;
 	private int parallelism = -1;
 
-	public LoopInputSplitAssigner(InputSplit[] splits) {
+	public LoopInputSplitAssigner(InputSplit[] splits, long scanIntervalMs) {
 		Collections.addAll(this.splits, splits);
 		this.inputSplitAssigner = new DefaultInputSplitAssigner(this.splits);
+		this.loopTimeIntervalMs = scanIntervalMs;
 	}
 
 	@Override
 	public InputSplit getNextInputSplit(String host, int taskId) {
+		if (registerTasks.isEmpty()) {
+			startNewLoop();
+		}
+
+		if (finishedTaskIdSet.contains(taskId)) {
+			LOG.warn("Received finished task {} request", taskId);
+			return null;
+		}
+
+		if (!registerTasks.contains(taskId)) {
+			registerTasks.add(taskId);
+			return new TimeInputSplit(loopTimestamp, loopTimestamp + loopTimeIntervalMs);
+		}
+
 		InputSplit inputSplit = inputSplitAssigner.getNextInputSplit(host, taskId);
 		if (inputSplit == null) {
 			finishedTaskIdSet.add(taskId);
 			assert parallelism > 0;
 			if (finishedTaskIdSet.size() == this.parallelism) {
 				LOG.info("All tasks received finished status");
-				finishedTaskIdSet.clear();
-				inputSplitAssigner = new DefaultInputSplitAssigner(splits);
+				registerTasks.clear();
 			}
 		}
 		return inputSplit;
@@ -63,10 +81,39 @@ public class LoopInputSplitAssigner implements InputSplitAssigner {
 
 	@Override
 	public void returnInputSplit(List<InputSplit> splits, int taskId) {
-		inputSplitAssigner.returnInputSplit(splits, taskId);
+		// Do nothing.
 	}
 
 	public void setTaskParallelism(int parallelism) {
 		this.parallelism = parallelism;
+	}
+
+	private void startNewLoop() {
+		loopTimestamp = System.currentTimeMillis();
+		finishedTaskIdSet.clear();
+		inputSplitAssigner = new DefaultInputSplitAssigner(splits);
+	}
+
+	public static final class TimeInputSplit implements InputSplit {
+		private final long timestamp;
+		private final long nextStartTimestamp;
+
+		public TimeInputSplit(long timestamp, long nextStartTimestamp) {
+			this.timestamp = timestamp;
+			this.nextStartTimestamp = nextStartTimestamp;
+		}
+
+		@Override
+		public int getSplitNumber() {
+			return 0;
+		}
+
+		public long getTimestamp() {
+			return timestamp;
+		}
+
+		public long getNextStartTimestamp() {
+			return nextStartTimestamp;
+		}
 	}
 }

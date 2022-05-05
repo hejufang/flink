@@ -20,8 +20,10 @@ package org.apache.flink.table.planner.plan.stream.sql.join
 
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api._
+import org.apache.flink.table.planner.factories.TestValuesTableFactory
+import org.apache.flink.table.planner.runtime.utils.TestData
 import org.apache.flink.table.planner.utils.{StreamTableTestUtil, TableTestBase}
-
+import org.apache.flink.util.FlinkRuntimeException
 import org.junit.Test
 
 class JoinTest extends TableTestBase {
@@ -283,5 +285,118 @@ class JoinTest extends TableTestBase {
   @Test
   def testRightOuterJoinEquiAndNonEquiPred(): Unit = {
     util.verifyPlan("SELECT b, y FROM t RIGHT OUTER JOIN s ON a = z AND b < x")
+  }
+
+  @Test
+  def testBroadcastJoinErrorWithInvalidTable(): Unit = {
+    thrown.expect(classOf[ValidationException])
+    thrown.expectMessage("Currently, broadcast join's right side only " +
+      "accept connectors which support `scan.input-format-read-interval`")
+    util.verifyTransformation(
+      s"""SELECT /*+ use_broadcast_join(${broadcastHints("B")}) */
+        |a1, b1 FROM
+        |A JOIN B ON A.a1 = B.b1""".stripMargin)
+  }
+
+  @Test
+  def testBroadcastJoinWithNonExistTableHint(): Unit = {
+    createValidBroadcastTable("BB")
+    thrown.expect(classOf[ValidationException])
+    thrown.expectMessage("Hints not resolved")
+    util.verifyTransformation(
+      s"""SELECT /*+ use_broadcast_join(${broadcastHints("not_exist")}) */
+        |a1, BB.id FROM
+        |A LEFT JOIN BB ON A.a1 = BB.id""".stripMargin)
+  }
+
+  @Test
+  def testBroadcastJoinLeftTable(): Unit = {
+    thrown.expect(classOf[ValidationException])
+    thrown.expectMessage("not support broadcast left side of table")
+    util.verifyTransformation(
+      s"""SELECT /*+ use_broadcast_join(${broadcastHints("A")}) */
+        |a1, b1 FROM
+        |A LEFT JOIN B ON A.a1 = B.b1""".stripMargin)
+  }
+
+  @Test
+  def testBroadcastWithNonInsertOnlyLeftTable(): Unit = {
+    val table1 = createValidBroadcastTable("BB")
+    util.tableEnv.executeSql(s"create view v1 as select id, word from $table1 where id > 0")
+    thrown.expect(classOf[UnsupportedOperationException])
+    thrown.expectMessage("Current broadcast join only support insert only stream")
+    util.verifyTransformation(
+      s"""SELECT /*+ use_broadcast_join(${broadcastHints("v1")}) */
+        |a1, v1.id, c FROM
+        |A LEFT JOIN t ON A.a1 = t.a
+        |  LEFT JOIN v1 on A.a1 = v1.id""".stripMargin)
+  }
+
+  @Test
+  def testBroadcastWithNonInsertOnlyRightTable(): Unit = {
+    val table1 = createValidBroadcastTable("BB")
+    util.tableEnv.executeSql(
+      s"create view v1 as select id, word, sum(cnt) from $table1 group by id,word")
+    thrown.expect(classOf[UnsupportedOperationException])
+    thrown.expectMessage("Current broadcast join only support insert only stream")
+    util.verifyTransformation(
+      s"""SELECT /*+ use_broadcast_join(${broadcastHints("v1")}) */
+        |a1, v1.id FROM
+        |A LEFT JOIN v1 on A.a1 = v1.id""".stripMargin)
+  }
+
+  @Test
+  def testBroadcastJoin(): Unit = {
+    val table1 = createValidBroadcastTable("BB")
+    util.getStreamEnv.setParallelism(12)
+    util.verifyTransformation(
+      s"""SELECT /*+ use_broadcast_join(${broadcastHints("BB")}) */
+        |a1, a2, id FROM
+        |A LEFT JOIN BB ON A.a1 = BB.id""".stripMargin)
+  }
+
+  @Test
+  def testMultiBroadcastJoinWithView(): Unit = {
+    val table1 = createValidBroadcastTable("BB")
+    val table2 = createValidBroadcastTable("CC")
+
+    util.getStreamEnv.setParallelism(12)
+    util.tableEnv.executeSql(
+      s"""create view v1 as select id, word from $table2 where id > 0""".stripMargin)
+
+    util.verifyTransformation(
+      s"""SELECT
+        | /*+ use_broadcast_join(${broadcastHints(table1)}),
+        |     use_broadcast_join(${broadcastHints("v1")}) */
+        | a1, a2, BB.word, v1.word FROM
+        | A LEFT JOIN BB ON A.a1 = BB.id
+        |   LEFT JOIN v1 ON A.a1 = v1.id""".stripMargin)
+  }
+
+  private def broadcastHints(
+      table: String,
+      latency1: String = "1 min",
+      latency2: String = "1 min"): String = {
+    Map(
+      "table" -> table,
+      "allowLatency" -> latency1,
+      "maxBuildLatency" -> latency2
+    ).toList.map(kv => s"'${kv._1}' = '${kv._2}'").mkString(",")
+  }
+
+  private def createValidBroadcastTable(name: String): String = {
+    val dataSource1 = TestData.genIdAndDataList(0, 1, name, 0)
+    val sourceId1 = TestValuesTableFactory.registerData(dataSource1)
+    util.tableEnv.executeSql(
+      s"""CREATE TABLE $name (
+         |    id int,
+         |    word varchar,
+         |    cnt bigint
+         |) WITH (
+         | 'connector' = 'values',
+         | 'data-id' = '$sourceId1',
+         | 'table-source-class'='${classOf[TestData.ScanTableSourceWithTimestamp].getName}'
+         |)""".stripMargin)
+    name
   }
 }

@@ -22,6 +22,12 @@ import org.apache.flink.api.common.typeinfo.BasicTypeInfo._
 import org.apache.flink.api.common.typeinfo.LocalTimeTypeInfo.{LOCAL_DATE, LOCAL_DATE_TIME, LOCAL_TIME}
 import org.apache.flink.api.java.tuple.{Tuple2 => JTuple2}
 import org.apache.flink.api.java.typeutils.{RowTypeInfo, TupleTypeInfo}
+import org.apache.flink.streaming.api.functions.source.{RichParallelSourceFunction, SourceFunction}
+import org.apache.flink.streaming.api.watermark.Watermark
+import org.apache.flink.table.connector.ChangelogMode
+import org.apache.flink.table.connector.source.{DynamicTableSource, ScanTableSource, SourceFunctionProvider}
+import org.apache.flink.table.data.{GenericRowData, RowData, StringData}
+import org.apache.flink.table.planner.factories.TestValuesTableFactory
 import org.apache.flink.table.planner.factories.TestValuesTableFactory.changelogRow
 import org.apache.flink.table.planner.{JHashMap, JInt, JLong}
 import org.apache.flink.table.planner.runtime.utils.BatchTestBase.row
@@ -29,11 +35,13 @@ import org.apache.flink.table.planner.utils.DateTimeTestUtil._
 import org.apache.flink.table.runtime.functions.SqlDateTimeUtils.unixTimestampToLocalDateTime
 import org.apache.flink.types.Row
 
-import java.lang.{Long => JLong}
+import java.lang.{Integer => JInt, Long => JLong}
 import java.math.{BigDecimal => JBigDecimal}
 import java.time.{Instant, LocalDate, LocalDateTime, LocalTime, ZoneId}
+import java.util
 
 import scala.collection.{Seq, mutable}
+import scala.collection.JavaConverters._
 
 object TestData {
 
@@ -623,6 +631,16 @@ object TestData {
     data
   }
 
+  def genIdAndDataListAsJava(s: Int, e: Int, prefix: String, latency: Long): util.List[Row] = {
+    genIdAndDataList(s, e, prefix, latency).asJava
+  }
+
+  def genIdAndDataList(start: Int, end: Int, prefix: String, latency: Long): List[Row] = {
+    (start to end).map(
+      i => Row.of(Row.of(JInt.valueOf(i), prefix + i), JLong.valueOf(latency))
+    ).toList
+  }
+
   private def map(keyValue: (String, JInt)*): JHashMap[String, JInt] = {
     val hashMap = new JHashMap[String, JInt]
     keyValue.foreach(kv => hashMap.put(kv._1, kv._2))
@@ -632,4 +650,84 @@ object TestData {
   private def array(longs: JLong*): Array[JLong] = {
     longs.toArray
   }
+
+  /**
+   * TwoInputSourceFunction.
+   */
+  class SourceFunctionWithTimestamp(rows: util.ArrayList[Row])
+      extends RichParallelSourceFunction[RowData] {
+    override def run(ctx: SourceFunction.SourceContext[RowData]): Unit = {
+      val taskId = getRuntimeContext.getIndexOfThisSubtask
+      val taskNum = getRuntimeContext.getNumberOfParallelSubtasks
+      var lastTimestamp: Long = -1
+      rows.asScala.zipWithIndex.foreach {
+        case (rowAndTime, idx) =>
+          val timestamp = rowAndTime.getField(1).asInstanceOf[JLong]
+          rowAndTime.getField(0) match {
+            case null =>
+              ctx.emitWatermark(new Watermark(timestamp))
+              if (lastTimestamp > 0) {
+                Thread.sleep(3000)
+              }
+              lastTimestamp = timestamp
+            case row: Row =>
+              if (idx % taskNum == taskId)  {
+                ctx.collectWithTimestamp(row2GenericRowData(row), timestamp)
+              }
+          }
+      }
+    }
+
+    private def row2GenericRowData(row: Row): RowData = {
+      val rowData = new GenericRowData(row.getArity)
+      (0 until row.getArity).foreach(i => {
+        row.getField(i) match {
+          case s: String => rowData.setField(i, StringData.fromString(s))
+          case x => rowData.setField(i, x)
+        }
+      })
+      rowData
+    }
+
+    override def cancel(): Unit = {
+    }
+
+    override def withSameWatermarkPerBatch(): Boolean = {
+      true
+    }
+  }
+
+  /**
+   * TwoInputQueueScanTableSource.
+   */
+  class ScanTableSourceWithTimestamp extends ScanTableSource
+      with TestValuesTableFactory.TableSourceWithData {
+    private var data: util.ArrayList[Row] = _
+
+    override def getChangelogMode: ChangelogMode = ChangelogMode.insertOnly()
+
+    override def getScanRuntimeProvider(
+        scanContext: ScanTableSource.ScanContext): ScanTableSource.ScanRuntimeProvider = {
+      SourceFunctionProvider.of(
+        new SourceFunctionWithTimestamp(data).asInstanceOf[SourceFunction[RowData]], true)
+    }
+
+    override def copy(): DynamicTableSource = {
+      val source = new ScanTableSourceWithTimestamp()
+      source.setTableSourceData(data)
+      source
+    }
+
+    /**
+     * Returns a string that summarizes this source for printing to a console or log.
+     */
+    override def asSummaryString(): String = {
+      "TwoInputQueueScanTableSource"
+    }
+
+    override def setTableSourceData(rows: util.Collection[Row]): Unit = {
+      data = new util.ArrayList[Row](rows)
+    }
+  }
+
 }

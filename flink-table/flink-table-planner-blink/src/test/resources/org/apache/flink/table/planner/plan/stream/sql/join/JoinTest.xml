@@ -1079,4 +1079,58 @@ Join(joinType=[LeftOuterJoin], where=[=(key, key0)], select=[key, v, key0, v0], 
 ]]>
     </Resource>
   </TestCase>
+  <TestCase name="testBroadcastJoin">
+    <Resource name="planAfter">
+      <![CDATA[
+Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(BB,60000,60000)])
+:- Calc(select=[a1, a2])
+:  +- LegacyTableSourceScan(table=[[default_catalog, default_database, A, source: [TestTableSource(a1, a2, a3)]]], fields=[a1, a2, a3])
++- Calc(select=[id])
+   +- TableSourceScan(table=[[default_catalog, default_database, BB]], fields=[id, word, cnt])
+
+TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(BB,60000,60000)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT), parallelism=-1}
+	OneInputTransformation{name='Calc(select=[a1, a2])', outputType=RowData(a1: INT, a2: BIGINT), parallelism=-1}
+		OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.A, source: [TestTableSource(a1, a2, a3)]], fields=[a1, a2, a3])', outputType=RowData(a1: INT, a2: BIGINT, a3: BIGINT), parallelism=-1}
+			FakeTransformation{name='ChangeToDefaultParallel', outputType=Row(a1: Integer, a2: Long, a3: Long), parallelism=-1}
+				LegacySourceTransformation{name='Collection Source', outputType=Row(a1: Integer, a2: Long, a3: Long), parallelism=1}
+	PartitionTransformation{name='BroadcastPartition', outputType=RowData(id: INT), parallelism=-1}
+		OneInputTransformation{name='Calc(select=[id])', outputType=RowData(id: INT), parallelism=-1}
+			FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(id: INT, word: STRING, cnt: BIGINT), parallelism=-1}
+				LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, BB]], fields=[id, word, cnt])', outputType=RowData(id: INT, word: STRING, cnt: BIGINT), parallelism=12}
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testMultiBroadcastJoinWithView">
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[a1, a2, word, word0])
++- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, word, id, word0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(v1,60000,60000)])
+   :- Calc(select=[a1, a2, word])
+   :  +- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id, word], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(BB,60000,60000)])
+   :     :- Calc(select=[a1, a2])
+   :     :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, A, source: [TestTableSource(a1, a2, a3)]]], fields=[a1, a2, a3])
+   :     +- Calc(select=[id, word])
+   :        +- TableSourceScan(table=[[default_catalog, default_database, BB]], fields=[id, word, cnt])
+   +- Calc(select=[id, word], where=[>(id, 0)])
+      +- TableSourceScan(table=[[default_catalog, default_database, CC]], fields=[id, word, cnt])
+
+OneInputTransformation{name='Calc(select=[a1, a2, word, word0])', outputType=RowData(a1: INT, a2: BIGINT, word: STRING, word0: STRING), parallelism=-1}
+	TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, word, id, word0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(v1,60000,60000)])', outputType=RowData(a1: INT, a2: BIGINT, word: STRING, id: INT, word0: STRING), parallelism=-1}
+		OneInputTransformation{name='Calc(select=[a1, a2, word])', outputType=RowData(a1: INT, a2: BIGINT, word: STRING), parallelism=-1}
+			TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id, word], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(BB,60000,60000)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT, word: STRING), parallelism=-1}
+				OneInputTransformation{name='Calc(select=[a1, a2])', outputType=RowData(a1: INT, a2: BIGINT), parallelism=-1}
+					OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.A, source: [TestTableSource(a1, a2, a3)]], fields=[a1, a2, a3])', outputType=RowData(a1: INT, a2: BIGINT, a3: BIGINT), parallelism=-1}
+						FakeTransformation{name='ChangeToDefaultParallel', outputType=Row(a1: Integer, a2: Long, a3: Long), parallelism=-1}
+							LegacySourceTransformation{name='Collection Source', outputType=Row(a1: Integer, a2: Long, a3: Long), parallelism=1}
+				PartitionTransformation{name='BroadcastPartition', outputType=RowData(id: INT, word: STRING), parallelism=-1}
+					OneInputTransformation{name='Calc(select=[id, word])', outputType=RowData(id: INT, word: STRING), parallelism=-1}
+						FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(id: INT, word: STRING, cnt: BIGINT), parallelism=-1}
+							LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, BB]], fields=[id, word, cnt])', outputType=RowData(id: INT, word: STRING, cnt: BIGINT), parallelism=12}
+		PartitionTransformation{name='BroadcastPartition', outputType=RowData(id: INT, word: STRING), parallelism=-1}
+			OneInputTransformation{name='Calc(select=[id, word], where=[(id > 0)])', outputType=RowData(id: INT, word: STRING), parallelism=-1}
+				FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(id: INT, word: STRING, cnt: BIGINT), parallelism=-1}
+					LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, CC]], fields=[id, word, cnt])', outputType=RowData(id: INT, word: STRING, cnt: BIGINT), parallelism=12}
+]]>
+    </Resource>
+  </TestCase>
 </Root>

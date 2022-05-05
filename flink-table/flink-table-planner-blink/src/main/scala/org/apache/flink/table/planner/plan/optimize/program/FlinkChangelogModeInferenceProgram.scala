@@ -247,7 +247,14 @@ class FlinkChangelogModeInferenceProgram extends FlinkOptimizeProgram[StreamOpti
         val rightKindSet = getModifyKindSet(children.last)
         val innerOrSemi = join.flinkJoinType == FlinkJoinType.INNER ||
             join.flinkJoinType == FlinkJoinType.SEMI
-        val providedTrait = if (innerOrSemi) {
+        val providedTrait = if (join.joinConfOption.isDefined) {
+          // broadcast join
+          if (!leftKindSet.isInsertOnly || !rightKindSet.isInsertOnly) {
+            throw new UnsupportedOperationException(
+              "Current broadcast join only support insert only stream")
+          }
+          ModifyKindSetTrait.INSERT_ONLY
+        } else if (innerOrSemi) {
           // forward left and right modify operations
           new ModifyKindSetTrait(leftKindSet.union(rightKindSet))
         } else {

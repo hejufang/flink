@@ -121,6 +121,7 @@ import org.apache.flink.table.operations.ddl.DropTableOperation;
 import org.apache.flink.table.operations.ddl.DropTempSystemFunctionOperation;
 import org.apache.flink.table.operations.ddl.DropViewOperation;
 import org.apache.flink.table.planner.calcite.FlinkPlannerImpl;
+import org.apache.flink.table.planner.hint.FlinkHintStrategies;
 import org.apache.flink.table.planner.hint.FlinkHints;
 import org.apache.flink.table.planner.utils.Expander;
 import org.apache.flink.table.planner.utils.OperationConverterUtils;
@@ -128,6 +129,7 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.util.StringUtils;
 
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.HintStrategyTable;
@@ -936,6 +938,7 @@ public class SqlToOperationConverter {
 	private PlannerQueryOperation toQueryOperation(FlinkPlannerImpl planner, SqlNode validated) {
 		// transform to a relational tree
 		RelRoot relational = planner.rel(validated);
-		return new PlannerQueryOperation(relational.project());
+		RelNode relNode = FlinkHintStrategies.validateAndReplaceFlinkHint(relational.project(), validated);
+		return new PlannerQueryOperation(relNode);
 	}
 }

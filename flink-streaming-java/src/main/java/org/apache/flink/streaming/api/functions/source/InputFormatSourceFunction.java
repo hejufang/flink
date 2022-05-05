@@ -49,9 +49,9 @@ public class InputFormatSourceFunction<OUT> extends RichParallelSourceFunction<O
 	private InputFormat<OUT, InputSplit> format;
 
 	private transient InputSplitProvider provider;
-	private transient Iterator<InputSplit> splitIterator;
+	protected transient Iterator<InputSplit> splitIterator;
 
-	private volatile boolean isRunning = true;
+	protected volatile boolean isRunning = true;
 
 	@SuppressWarnings("unchecked")
 	public InputFormatSourceFunction(InputFormat<OUT, ?> format, TypeInformation<OUT> typeInfo) {
@@ -62,7 +62,7 @@ public class InputFormatSourceFunction<OUT> extends RichParallelSourceFunction<O
 	@Override
 	@SuppressWarnings("unchecked")
 	public void open(Configuration parameters) throws Exception {
-		initFormat(parameters);
+		initFormat(parameters, false);
 	}
 
 	@Override
@@ -84,7 +84,7 @@ public class InputFormatSourceFunction<OUT> extends RichParallelSourceFunction<O
 				while (isRunning && !format.reachedEnd()) {
 					nextElement = format.nextRecord(nextElement);
 					if (nextElement != null) {
-						ctx.collect(nextElement);
+						collect(nextElement, ctx);
 					} else {
 						if (format.takeNullAsEndOfStream()) {
 							break;
@@ -132,7 +132,7 @@ public class InputFormatSourceFunction<OUT> extends RichParallelSourceFunction<O
 		return format;
 	}
 
-	protected void initFormat(Configuration parameters) {
+	protected void initFormat(Configuration parameters, boolean reInit) {
 		StreamingRuntimeContext context = (StreamingRuntimeContext) getRuntimeContext();
 
 		if (format instanceof RichInputFormat) {
@@ -142,10 +142,16 @@ public class InputFormatSourceFunction<OUT> extends RichParallelSourceFunction<O
 		provider = context.getInputSplitProvider();
 		serializer = typeInfo.createSerializer(getRuntimeContext().getExecutionConfig());
 		splitIterator = getInputSplits();
-		isRunning = splitIterator.hasNext();
+		if (!reInit) {
+			isRunning = splitIterator.hasNext();
+		}
 	}
 
-	private Iterator<InputSplit> getInputSplits() {
+	protected void collect(OUT out, SourceContext<OUT> ctx) {
+		ctx.collect(out);
+	}
+
+	protected Iterator<InputSplit> getInputSplits() {
 
 		return new Iterator<InputSplit>() {
 

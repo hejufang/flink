@@ -754,8 +754,8 @@ public class SubQueryDecorrelator extends RelShuttleImpl {
 					leftFrame.oldToNewOutputs,
 					rightFrame.oldToNewOutputs);
 
-			final RelNode newJoin = LogicalJoin.create(
-					leftFrame.r, rightFrame.r, newJoinCondition, rel.getVariablesSet(), rel.getJoinType());
+			final RelNode newJoin = LogicalJoin.create(leftFrame.r, rightFrame.r, newJoinCondition,
+				rel.getVariablesSet(), rel.getJoinType()).withHints(rel.getHints());
 
 			// Create the mapping between the output of the old correlation rel and the new join rel
 			final Map<Integer, Integer> mapOldToNewOutputs = new HashMap<>();

@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 public class TwoInputSelectionHandler {
 
 	@Nullable
-	private final InputSelectable inputSelectable;
+	protected final InputSelectable inputSelectable;
 
 	private InputSelection inputSelection;
 
@@ -62,7 +62,7 @@ public class TwoInputSelectionHandler {
 		availableInputsMask |= 1 << inputIndex;
 	}
 
-	void setUnavailableInput(int inputIndex) {
+	public void setUnavailableInput(int inputIndex) {
 		availableInputsMask &= ~(1 << inputIndex);
 	}
 
@@ -76,5 +76,9 @@ public class TwoInputSelectionHandler {
 
 	boolean isSecondInputSelected() {
 		return inputSelection.isInputSelected(2);
+	}
+
+	boolean isInputAvailable(int inputIndex) {
+		return (availableInputsMask & (1 << inputIndex)) > 0;
 	}
 }

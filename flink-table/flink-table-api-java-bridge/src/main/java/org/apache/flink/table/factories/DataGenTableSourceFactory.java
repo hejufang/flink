@@ -64,6 +64,11 @@ public class DataGenTableSourceFactory implements DynamicTableSourceFactory {
 			.defaultValue(ROWS_PER_SECOND_DEFAULT_VALUE)
 			.withDescription("Rows per second to control the emit rate.");
 
+	public static final ConfigOption<Boolean> SEND_IDLE_STATUS = key("idle-when-finish")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Mark source as idle when finished.");
+
 	public static final String FIELDS = "fields";
 	public static final String KIND = "kind";
 	public static final String START = "start";
@@ -89,6 +94,7 @@ public class DataGenTableSourceFactory implements DynamicTableSourceFactory {
 	public Set<ConfigOption<?>> optionalOptions() {
 		Set<ConfigOption<?>> options = new HashSet<>();
 		options.add(ROWS_PER_SECOND);
+		options.add(SEND_IDLE_STATUS);
 		return options;
 	}
 
@@ -107,7 +113,8 @@ public class DataGenTableSourceFactory implements DynamicTableSourceFactory {
 					options);
 		}
 
-		return new DataGenTableSource(fieldGenerators, tableSchema, options.get(ROWS_PER_SECOND));
+		return new DataGenTableSource(fieldGenerators, tableSchema,
+			options.get(ROWS_PER_SECOND), options.get(SEND_IDLE_STATUS));
 	}
 
 	private DataGenerator createDataGenerator(String name, DataType type, ReadableConfig options) {
@@ -239,11 +246,21 @@ public class DataGenTableSourceFactory implements DynamicTableSourceFactory {
 		private final DataGenerator[] fieldGenerators;
 		private final TableSchema schema;
 		private final long rowsPerSecond;
+		private final boolean sendIdleWhenFinished;
 
 		private DataGenTableSource(DataGenerator[] fieldGenerators, TableSchema schema, long rowsPerSecond) {
+			this(fieldGenerators, schema, rowsPerSecond, false);
+		}
+
+		private DataGenTableSource(
+				DataGenerator[] fieldGenerators,
+				TableSchema schema,
+				long rowsPerSecond,
+				boolean sendIdleStatus) {
 			this.fieldGenerators = fieldGenerators;
 			this.schema = schema;
 			this.rowsPerSecond = rowsPerSecond;
+			this.sendIdleWhenFinished = sendIdleStatus;
 		}
 
 		@Override
@@ -255,7 +272,7 @@ public class DataGenTableSourceFactory implements DynamicTableSourceFactory {
 		DataGeneratorSource<RowData> createSource() {
 			return new DataGeneratorSource<>(
 					new RowGenerator(fieldGenerators, schema.getFieldNames()),
-					rowsPerSecond);
+					rowsPerSecond, sendIdleWhenFinished);
 		}
 
 		@Override

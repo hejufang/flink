@@ -36,6 +36,7 @@ public class DataGeneratorSource<T> extends RichParallelSourceFunction<T> implem
 
 	private final DataGenerator<T> generator;
 	private final long rowsPerSecond;
+	private final boolean sendIdleWhenFinish;
 
 	transient volatile boolean isRunning;
 
@@ -55,8 +56,13 @@ public class DataGeneratorSource<T> extends RichParallelSourceFunction<T> implem
 	 * @param rowsPerSecond Control the emit rate.
 	 */
 	public DataGeneratorSource(DataGenerator<T> generator, long rowsPerSecond) {
+		this(generator, rowsPerSecond, false);
+	}
+
+	public DataGeneratorSource(DataGenerator<T> generator, long rowsPerSecond, boolean sendIdleWhenFinish) {
 		this.generator = generator;
 		this.rowsPerSecond = rowsPerSecond;
+		this.sendIdleWhenFinish = sendIdleWhenFinish;
 	}
 
 	@Override
@@ -82,6 +88,9 @@ public class DataGeneratorSource<T> extends RichParallelSourceFunction<T> implem
 						ctx.collect(this.generator.next());
 					}
 				} else {
+					if (sendIdleWhenFinish) {
+						ctx.markAsTemporarilyIdle();
+					}
 					return;
 				}
 			}

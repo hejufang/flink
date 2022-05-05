@@ -114,6 +114,13 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 	private static final Map<String, Collection<Row>> registeredData = new HashMap<>();
 
 	/**
+	 * TableSourceWithData.
+	 */
+	public interface TableSourceWithData {
+		void setTableSourceData(Collection<Row> rows);
+	}
+
+	/**
 	 * Register the given data into the data factory context and return the data id.
 	 * The data id can be used as a reference to the registered data in data connector DDL.
 	 */
@@ -335,10 +342,15 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				isApplicableToPushDownProjection);
 		} else {
 			try {
-				return InstantiationUtil.instantiate(
+				DynamicTableSource dynamicTableSource = InstantiationUtil.instantiate(
 					sourceClass,
 					DynamicTableSource.class,
 					Thread.currentThread().getContextClassLoader());
+				if (dynamicTableSource instanceof TableSourceWithData) {
+					((TableSourceWithData) dynamicTableSource).setTableSourceData(
+						registeredData.getOrDefault(dataId, Collections.emptyList()));
+				}
+				return dynamicTableSource;
 			} catch (FlinkException e) {
 				throw new TableException("Can't instantiate class " + sourceClass, e);
 			}

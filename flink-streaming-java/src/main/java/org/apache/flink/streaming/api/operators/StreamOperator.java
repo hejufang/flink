@@ -158,4 +158,11 @@ public interface StreamOperator<OUT> extends CheckpointListener, KeyContext, Dis
 	default boolean supportPreview() {
 		return false;
 	}
+
+	/**
+	 * All elements use same timestamp as watermark in one batch.
+	 */
+	default boolean withSameWatermarkPerBatch() {
+		return false;
+	}
 }

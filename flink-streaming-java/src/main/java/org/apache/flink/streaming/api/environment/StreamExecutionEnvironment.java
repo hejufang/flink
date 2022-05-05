@@ -1540,7 +1540,7 @@ public class StreamExecutionEnvironment {
 				((PeriodScanInputFormat) inputFormat).getScanIntervalMs() > 0) {
 			PeriodScanInputFormat periodFormat = (PeriodScanInputFormat) inputFormat;
 			function = new PeriodInputFormatSourceFunction<>(
-				inputFormat, typeInfo, periodFormat.getScanIntervalMs(), periodFormat.getCountOfLoop());
+				inputFormat, typeInfo, periodFormat.getCountOfLoop());
 		} else {
 			function = new InputFormatSourceFunction<>(inputFormat, typeInfo);
 		}

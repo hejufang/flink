@@ -19,10 +19,13 @@
 package org.apache.flink.connector.jdbc.table;
 
 import org.apache.flink.connector.jdbc.JdbcTestBase;
+import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.table.planner.factories.TestValuesTableFactory;
 import org.apache.flink.table.planner.runtime.utils.StreamTestSink;
+import org.apache.flink.table.planner.runtime.utils.TestData;
 import org.apache.flink.test.util.AbstractTestBase;
 import org.apache.flink.types.Row;
 
@@ -36,6 +39,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -166,6 +170,66 @@ public class JdbcDynamicTableSourceITCase extends AbstractTestBase {
 				"2,2020-01-01T15:36:01.123456,2020-01-01T15:36:01.123456789,15:36:01,-1.175E-37,-1.79769E308,101.1234",
 				"1,2020-01-01T15:35:00.123456,2020-01-01T15:35:00.123456789,15:35,1.175E-37,1.79769E308,100.1234",
 				"2,2020-01-01T15:36:01.123456,2020-01-01T15:36:01.123456789,15:36:01,-1.175E-37,-1.79769E308,101.1234")
+				.sorted().collect(Collectors.toList());
+		assertEquals(expected, result);
+	}
+
+	@Test
+	public void testBroadcastJoin() {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		EnvironmentSettings envSettings = EnvironmentSettings.newInstance()
+			.useBlinkPlanner()
+			.inStreamingMode()
+			.build();
+		StreamTableEnvironment tEnv = StreamTableEnvironment.create(env, envSettings);
+		long curTime = System.currentTimeMillis();
+		tEnv.executeSql(
+			"CREATE TABLE " + INPUT_TABLE + "(" +
+				"id BIGINT," +
+				"timestamp6_col TIMESTAMP(6)," +
+				"timestamp9_col TIMESTAMP(9)," +
+				"time_col TIME," +
+				"real_col FLOAT," +
+				"double_col DOUBLE," +
+				"decimal_col DECIMAL(10, 4)" +
+				") WITH (" +
+				"  'connector'='jdbc'," +
+				"  'url'='" + DB_URL + "'," +
+				"  'use-bytedance-mysql'='false'," +
+				" 'scan.input-format-read-interval' = '2 s'," +
+				" 'scan.count-of-scan-times' = '2'," +
+				"  'table-name'='" + INPUT_TABLE + "'" +
+				")"
+		);
+		List<Row> testDataList = new ArrayList<>();
+		testDataList.addAll(TestData.genIdAndDataListAsJava(0, 3, "A", curTime));
+		String sourceId1 = TestValuesTableFactory.registerData(testDataList);
+		tEnv.executeSql("CREATE TABLE A (\n" +
+			"    a_id int,\n" +
+			"    a_word varchar\n" +
+			") WITH (\n" +
+			" 'connector' = 'values',\n" +
+			" 'data-id' = '" + sourceId1 + "',\n" +
+			" 'table-source-class'='" + TestData.ScanTableSourceWithTimestamp.class.getName() + "'\n" +
+			")"
+		);
+
+		Iterator<Row> collected = tEnv.executeSql("select " +
+			"/*+ use_broadcast_join('table' = '" + INPUT_TABLE + "', 'allowLatency' = '1 min') */" +
+			" a_id, a_word, id, timestamp6_col from A left join " + INPUT_TABLE +
+			" on A.a_id = " + INPUT_TABLE + ".id").collect();
+		List<String> result = Lists.newArrayList(collected).stream()
+			.map(Row::toString)
+			.sorted()
+			.collect(Collectors.toList());
+
+		List<String> expected =
+			Stream.of(
+				"0,A0,null,null",
+				"1,A1,1,2020-01-01T15:35:00.123456",
+				"2,A2,2,2020-01-01T15:36:01.123456",
+				"3,A3,null,null")
 				.sorted().collect(Collectors.toList());
 		assertEquals(expected, result);
 	}

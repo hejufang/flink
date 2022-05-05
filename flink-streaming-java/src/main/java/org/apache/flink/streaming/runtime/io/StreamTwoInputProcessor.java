@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.InputSelection;
+import org.apache.flink.streaming.api.operators.InputSelectionOperator;
 import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput.DataOutput;
@@ -53,9 +54,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * @param <IN2> The type of the records that arrive on the second input
  */
 @Internal
-public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProcessor {
+public class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProcessor {
 
-	private final TwoInputSelectionHandler inputSelectionHandler;
+	protected final TwoInputSelectionHandler inputSelectionHandler;
 
 	private final StreamTaskInput<IN1> input1;
 	private final StreamTaskInput<IN2> input2;
@@ -66,8 +67,8 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 	private final DataOutput<IN2> output2;
 
 	/** Input status to keep track for determining whether the input is finished or not. */
-	private InputStatus firstInputStatus = InputStatus.MORE_AVAILABLE;
-	private InputStatus secondInputStatus = InputStatus.MORE_AVAILABLE;
+	protected InputStatus firstInputStatus = InputStatus.MORE_AVAILABLE;
+	protected InputStatus secondInputStatus = InputStatus.MORE_AVAILABLE;
 
 	/**
 	 * Stream status for the two inputs. We need to keep track for determining when
@@ -77,9 +78,9 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 	private StreamStatus secondStatus = StreamStatus.ACTIVE;
 
 	/** Always try to read from the first input. */
-	private int lastReadInputIndex = 1;
+	protected int lastReadInputIndex = 1;
 
-	private boolean isPrepared;
+	protected boolean isPrepared;
 
 	public StreamTwoInputProcessor(
 			CheckpointedInputGate[] checkpointedInputGates,
@@ -93,8 +94,12 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 			WatermarkGauge input2WatermarkGauge,
 			OperatorChain<?, ?> operatorChain,
 			Counter numRecordsIn) {
-
-		this.inputSelectionHandler = checkNotNull(inputSelectionHandler);
+		if (streamOperator instanceof InputSelectionOperator) {
+			this.inputSelectionHandler =
+				((InputSelectionOperator) streamOperator).createSelectionHandler(inputSelectionHandler);
+		} else {
+			this.inputSelectionHandler = checkNotNull(inputSelectionHandler);
+		}
 
 		this.output1 = new StreamTaskNetworkOutput<>(
 			streamOperator,
@@ -197,7 +202,7 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 			input2.prepareSnapshot(channelStateWriter, checkpointId));
 	}
 
-	private int selectFirstReadingInputIndex() throws IOException {
+	protected int selectFirstReadingInputIndex() throws IOException {
 		// Note: the first call to nextSelection () on the operator must be made after this operator
 		// is opened to ensure that any changes about the input selection in its open()
 		// method take effect.
@@ -253,7 +258,7 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 		}
 	}
 
-	private int selectNextReadingInputIndex() throws IOException {
+	protected int selectNextReadingInputIndex() throws IOException {
 		updateAvailability();
 		checkInputSelectionAgainstIsFinished();
 
@@ -335,7 +340,7 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 	 * The network data output implementation used for processing stream elements
 	 * from {@link StreamTaskNetworkInput} in two input selective processor.
 	 */
-	private class StreamTaskNetworkOutput<T> extends AbstractDataOutput<T> {
+	protected class StreamTaskNetworkOutput<T> extends AbstractDataOutput<T> {
 
 		private final TwoInputStreamOperator<IN1, IN2, ?> operator;
 
@@ -349,7 +354,7 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 
 		private final boolean operatorPerfMetricEnable;
 
-		private StreamTaskNetworkOutput(
+		protected StreamTaskNetworkOutput(
 				TwoInputStreamOperator<IN1, IN2, ?> operator,
 				ThrowingConsumer<StreamRecord<T>, Exception> recordConsumer,
 				StreamStatusMaintainer streamStatusMaintainer,

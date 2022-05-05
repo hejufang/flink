@@ -17,12 +17,15 @@
 
 package org.apache.flink.table.planner.plan.rules.logical;
 
+import org.apache.flink.table.planner.hint.FlinkHints;
+
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.rules.PushProjector;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexNode;
@@ -30,6 +33,7 @@ import org.apache.calcite.tools.RelBuilderFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * This rule is copied from Calcite's {@link org.apache.calcite.rel.rules.ProjectJoinTransposeRule}.
@@ -131,20 +135,29 @@ public class FlinkProjectJoinTransposeRule extends RelOptRule {
 
 		// create a new join with the projected children
 		Join newJoinRel =
-				join.copy(
+			tryAddJoinHint(join.copy(
 						join.getTraitSet(),
 						newJoinFilter,
 						leftProjRel,
 						rightProjRel,
 						join.getJoinType(),
-						join.isSemiJoinDone());
-
+						join.isSemiJoinDone()), join.getHints());
 		// put the original project on top of the join, converting it to
 		// reference the modified projection list
 		RelNode topProject =
 				pushProject.createNewProject(newJoinRel, adjustments);
 
 		call.transformTo(topProject);
+	}
+
+	private Join tryAddJoinHint(Join join, List<RelHint> hints) {
+		List<RelHint> relHints = hints.stream()
+			.filter(h -> FlinkHints.HINT_NAME_USE_BROADCAST_JOIN.equals(h.hintName))
+			.collect(Collectors.toList());
+		if (relHints.size() > 0) {
+			return (Join) join.withHints(relHints);
+		}
+		return join;
 	}
 }
 

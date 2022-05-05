@@ -580,4 +580,14 @@ public abstract class Transformation<T> {
 		result = 31 * result + (int) (bufferTimeout ^ (bufferTimeout >>> 32));
 		return result;
 	}
+
+	/**
+	 * @return whether only has one child and it's support batch source with scan-interval.
+	 */
+	public boolean withSameWatermarkPerBatch() {
+		if (getChildren().size() != 1) {
+			return false;
+		}
+		return getChildren().get(0).withSameWatermarkPerBatch();
+	}
 }

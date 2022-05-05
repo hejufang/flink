@@ -274,4 +274,8 @@ public interface SourceFunction<T> extends Function, Serializable {
 			return false;
 		}
 	}
+
+	default boolean withSameWatermarkPerBatch() {
+		return false;
+	}
 }

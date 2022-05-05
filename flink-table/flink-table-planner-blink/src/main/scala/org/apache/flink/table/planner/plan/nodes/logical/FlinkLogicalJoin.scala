@@ -29,6 +29,7 @@ import org.apache.calcite.rel.logical.LogicalJoin
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rex.RexNode
 
+import java.util
 import java.util.Collections
 
 import scala.collection.JavaConversions._
@@ -43,8 +44,10 @@ class FlinkLogicalJoin(
     left: RelNode,
     right: RelNode,
     condition: RexNode,
-    joinType: JoinRelType)
-  extends Join(cluster, traitSet, Collections.emptyList[RelHint](),
+    joinType: JoinRelType,
+    // TODO: support batch broadcast join.
+    hints: util.List[RelHint] = Collections.emptyList[RelHint]())
+  extends Join(cluster, traitSet, hints,
     left, right, condition, Set.empty[CorrelationId], joinType)
   with FlinkLogicalRel {
 
@@ -55,7 +58,7 @@ class FlinkLogicalJoin(
       right: RelNode,
       joinType: JoinRelType,
       semiJoinDone: Boolean): Join = {
-    new FlinkLogicalJoin(cluster, traitSet, left, right, conditionExpr, joinType)
+    new FlinkLogicalJoin(cluster, traitSet, left, right, conditionExpr, joinType, getHints)
   }
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
@@ -93,7 +96,7 @@ private class FlinkLogicalJoinConverter
     val join = rel.asInstanceOf[LogicalJoin]
     val newLeft = RelOptRule.convert(join.getLeft, FlinkConventions.LOGICAL)
     val newRight = RelOptRule.convert(join.getRight, FlinkConventions.LOGICAL)
-    FlinkLogicalJoin.create(newLeft, newRight, join.getCondition, join.getJoinType)
+    FlinkLogicalJoin.create(newLeft, newRight, join.getCondition, join.getJoinType, join.getHints)
   }
 }
 
@@ -104,9 +107,10 @@ object FlinkLogicalJoin {
       left: RelNode,
       right: RelNode,
       conditionExpr: RexNode,
-      joinType: JoinRelType): FlinkLogicalJoin = {
+      joinType: JoinRelType,
+      hints: util.List[RelHint] = Collections.emptyList[RelHint]()): FlinkLogicalJoin = {
     val cluster = left.getCluster
     val traitSet = cluster.traitSetOf(FlinkConventions.LOGICAL).simplify()
-    new FlinkLogicalJoin(cluster, traitSet, left, right, conditionExpr, joinType)
+    new FlinkLogicalJoin(cluster, traitSet, left, right, conditionExpr, joinType, hints)
   }
 }

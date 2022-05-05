@@ -31,6 +31,14 @@ public abstract class FlinkHints {
 
 	public static final String HINT_NAME_OPTIONS = "OPTIONS";
 
+	public static final String HINT_NAME_USE_BROADCAST_JOIN = "use_broadcast_join";
+
+	public static final String HINT_OPTION_TABLE_NAME = "table";
+
+	public static final String HINT_OPTION_DIM_JOIN_ALLOW_LATENCY = "allowLatency";
+
+	public static final String HINT_OPTION_MAX_BUILD_LATENCY = "maxBuildLatency";
+
 	//~ Tools ------------------------------------------------------------------
 
 	/** Returns the OPTIONS hint options from the

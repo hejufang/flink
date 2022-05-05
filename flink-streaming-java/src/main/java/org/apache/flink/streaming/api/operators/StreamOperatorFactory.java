@@ -98,4 +98,8 @@ public interface StreamOperatorFactory<OUT> extends Serializable {
 	default void setDebugLoggingConverter(DebugLoggingConverter converter) {}
 
 	default void setDebugLoggingLocation(DebugLoggingLocation location) {}
+
+	default boolean withSameWatermarkPerBatch() {
+		return false;
+	}
 }

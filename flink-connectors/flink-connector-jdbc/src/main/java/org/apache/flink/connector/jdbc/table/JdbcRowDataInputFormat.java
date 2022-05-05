@@ -296,7 +296,7 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 	@Override
 	public InputSplitAssigner getInputSplitAssigner(InputSplit[] inputSplits) {
 		if (scanIntervalMs > 0) {
-			return new LoopInputSplitAssigner(inputSplits);
+			return new LoopInputSplitAssigner(inputSplits, scanIntervalMs);
 		}
 		return new DefaultInputSplitAssigner(inputSplits);
 	}
