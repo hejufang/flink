@@ -536,6 +536,7 @@ hyrax:
   bytedance.streaming.yarn.check.application.name.unique.region: true
   blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: hyrax
+  slot-pool.min-resource.simplify-enabled: true
 
 horse:
   dc: cn
@@ -546,6 +547,7 @@ horse:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: horse
+  slot-pool.min-resource.simplify-enabled: true
 
 hibis:
   dc: cn
@@ -1488,6 +1490,7 @@ Gaura-LF:
   ipv6.enabled: true
   register-dashboard.enabled: true
   ipv6.supported.cluster: Gaura-LF
+  slot-pool.min-resource.simplify-enabled: true
 
 Gaura-HL:
   dc: cn
@@ -1515,6 +1518,7 @@ Gaura-HL:
   ipv6.enabled: true
   register-dashboard.enabled: true
   ipv6.supported.cluster: Gaura-HL
+  slot-pool.min-resource.simplify-enabled: true
 
 Gaura-LQ:
   dc: cn
