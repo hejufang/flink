@@ -49,6 +49,7 @@ common:
   state.backend.rocksdb.stats.dump.period.seconds: 600
   state.backend.rocksdb.monit.running.status: true
   state.backend.rocksdb.force-ssd: false
+  state.backend.rocksdb.compaction.level.use-dynamic-size: true
   state.backend.state-file-batch.enable: true
   execution.checkpointing.mode: EXACTLY_ONCE
   execution.checkpointing.timeout: 10 min
