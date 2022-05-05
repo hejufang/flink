@@ -165,6 +165,7 @@ common:
   containerized.taskmanager.env.LD_LIBRARY_PATH: /opt/tiger/ss_lib/so:/opt/tiger/yarn_deploy/hadoop-2.6.0-cdh5.4.4/lib/native:/usr/local/hadoop/lzo/lib
   flink.gc.g1: false
   flink.parallel.gc.thread.use.cores: true
+  flink.enable-async-logger: true
 
   # Env
   dc: cn

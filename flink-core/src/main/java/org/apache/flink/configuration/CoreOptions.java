@@ -257,6 +257,11 @@ public class CoreOptions {
 		.defaultValue(false)
 		.withDescription("The gc thread num set to the core num of JM or TM.");
 
+	public static final ConfigOption<Boolean> FLINK_ENABLE_ASYNC_LOGGER = ConfigOptions
+		.key("flink.enable-async-logger")
+		.defaultValue(false)
+		.withDescription("Whether enable use async logger for JM/TM or not.");
+
 	public static final ConfigOption<Boolean> FLINK_DUMP_OOM_ENABLED = ConfigOptions
 		.key("env.jvm.dump.oom")
 		.defaultValue(false)

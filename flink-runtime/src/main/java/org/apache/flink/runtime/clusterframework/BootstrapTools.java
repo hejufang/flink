@@ -459,6 +459,16 @@ public class BootstrapTools {
 			}
 		}
 
+		// use async-logger
+		if (flinkConfig.getBoolean(CoreOptions.FLINK_ENABLE_ASYNC_LOGGER)) {
+			if (!javaOpts.contains("-Dlog4j2.AsyncQueueFullPolicy=")) {
+				javaOpts += " -Dlog4j2.AsyncQueueFullPolicy=Discard";
+			}
+			if (!javaOpts.contains("-DLog4jContextSelector=")) {
+				javaOpts += " -DLog4jContextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector";
+			}
+		}
+
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {

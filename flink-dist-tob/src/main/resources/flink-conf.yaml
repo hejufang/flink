@@ -119,6 +119,7 @@ common:
   env.jvm.error.file: true
   flink.gc.g1: false
   flink.parallel.gc.thread.use.cores: true
+  flink.enable-async-logger: true
 
   # am failover recovery
   yarn.previous-container.as-pending-container: true
