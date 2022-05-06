@@ -274,6 +274,7 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 		config.setString(RestOptions.SOCKET_ADDRESS, "localhost");
 		// necessary for loading the web-submission extension
 		config.setString(JobManagerOptions.ADDRESS, "localhost");
+		config.set(RestOptions.BIND_SOCKET_PORT, "0");
 		try {
 			restConfig = RestServerEndpointConfiguration.fromConfiguration(config);
 		} catch (ConfigurationException e) {

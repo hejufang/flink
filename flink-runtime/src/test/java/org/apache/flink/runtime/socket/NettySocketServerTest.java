@@ -41,7 +41,7 @@ public class NettySocketServerTest {
 		try (NettySocketServer nettySocketServer = new NettySocketServer(
 			"test",
 			"localhost",
-			"8091",
+			"0",
 			channelPipeline -> channelPipeline.addLast(
 				new ObjectEncoder(),
 				new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null)),

@@ -53,7 +53,7 @@ public class SocketTaskJobResultGatewayTest {
 		try (NettySocketServer nettySocketServer = new NettySocketServer(
 			"test",
 			"localhost",
-			"8091",
+			"0",
 			channelPipeline -> channelPipeline.addLast(
 				new ObjectEncoder(),
 				new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null)),
@@ -94,7 +94,7 @@ public class SocketTaskJobResultGatewayTest {
 		NettySocketServer nettySocketServer = new NettySocketServer(
 			"test",
 			"localhost",
-			"8091",
+			"0",
 			channelPipeline -> channelPipeline.addLast(
 				new ObjectEncoder(),
 				new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null)),
