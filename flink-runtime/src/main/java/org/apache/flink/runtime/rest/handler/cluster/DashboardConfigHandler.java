@@ -20,6 +20,7 @@ package org.apache.flink.runtime.rest.handler.cluster;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.rest.handler.AbstractRestHandler;
 import org.apache.flink.runtime.rest.handler.HandlerRequest;
 import org.apache.flink.runtime.rest.messages.DashboardConfiguration;
@@ -28,6 +29,7 @@ import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.MessageHeaders;
 import org.apache.flink.runtime.webmonitor.RestfulGateway;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
+import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nonnull;
 
@@ -45,6 +47,7 @@ public class DashboardConfigHandler extends AbstractRestHandler<RestfulGateway, 
 	private CompletableFuture<String> jobManagerLogFuture;
 	private boolean hasJmWebShell;
 	private boolean hasJmLog;
+	private final CompletableFuture<String> localAddressFuture;
 
 	public DashboardConfigHandler(
 			GatewayRetriever<? extends RestfulGateway> leaderRetriever,
@@ -53,10 +56,12 @@ public class DashboardConfigHandler extends AbstractRestHandler<RestfulGateway, 
 			MessageHeaders<EmptyRequestBody, DashboardConfiguration, EmptyMessageParameters> messageHeaders,
 			long refreshInterval,
 			boolean webSubmitEnabled,
+			CompletableFuture<String> localAddressFuture,
 			Configuration clusterConfiguration) {
 		super(leaderRetriever, timeout, responseHeaders, messageHeaders);
 		hasJmWebShell = false;
 		hasJmLog = false;
+		this.localAddressFuture = localAddressFuture;
 		dashboardConfiguration = DashboardConfiguration.from(refreshInterval, ZonedDateTime.now(), webSubmitEnabled, clusterConfiguration);
 	}
 
@@ -64,6 +69,13 @@ public class DashboardConfigHandler extends AbstractRestHandler<RestfulGateway, 
 	public CompletableFuture<DashboardConfiguration> handleRequest(@Nonnull HandlerRequest<EmptyRequestBody, EmptyMessageParameters> request, @Nonnull RestfulGateway gateway) {
 		if (hasJmLog && hasJmWebShell) {
 			return CompletableFuture.completedFuture(dashboardConfiguration);
+		}
+		final String localAddress;
+		Preconditions.checkState(localAddressFuture.isDone());
+		try {
+			localAddress = localAddressFuture.get();
+		} catch (Exception e) {
+			return FutureUtils.completedExceptionally(e);
 		}
 		if (!hasJmLog) {
 			jobManagerLogFuture = gateway.requestJobManagerLogUrl(timeout)
@@ -89,7 +101,7 @@ public class DashboardConfigHandler extends AbstractRestHandler<RestfulGateway, 
 		}
 		return jobManagerLogFuture
 			.thenCombineAsync(jobManagerWebShellFuture,
-				(jmLog, jmWebShell) -> dashboardConfiguration = DashboardConfiguration.fromDashboardConfiguration(dashboardConfiguration, jmLog, jmWebShell))
+				(jmLog, jmWebShell) -> dashboardConfiguration = DashboardConfiguration.fromDashboardConfiguration(dashboardConfiguration, jmLog, jmWebShell, localAddress))
 			.exceptionally(e -> {
 				hasJmLog = false;
 				hasJmWebShell = false;

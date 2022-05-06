@@ -49,6 +49,7 @@ public class DashboardConfiguration implements ResponseBody {
 	public static final String FIELD_NAME_FEATURE_WEB_SUBMIT = "web-submit";
 	public static final String FIELD_NAME_JM_LOG = "jmLog";
 	public static final String FIELD_NAME_JM_WEB_SHELL = "jmWebShell";
+	public static final String FIELD_NAME_JM_REST_BASE_URL = "jmRestBaseUrl";
 	public static final String FIELD_NAME_METRICS_URL_ENABLE = "metricsUrlEnable";
 	public static final String FIELD_NAME_DTOP_URL_ENABLE = "dtopUrlEnable";
 	public static final String FIELD_NAME_WEB_LOG_URL_ENABLE = "logUrlEnable";
@@ -78,6 +79,9 @@ public class DashboardConfiguration implements ResponseBody {
 	@JsonProperty(FIELD_NAME_JM_WEB_SHELL)
 	private final String jmWebShell;
 
+	@JsonProperty(FIELD_NAME_JM_REST_BASE_URL)
+	private final String jmRestBaseUrl;
+
 	@JsonProperty(FIELD_NAME_METRICS_URL_ENABLE)
 	private final boolean metricsUrlEnable;
 
@@ -100,6 +104,7 @@ public class DashboardConfiguration implements ResponseBody {
 			@JsonProperty(FIELD_NAME_FLINK_FEATURES) Features features,
 			@JsonProperty(FIELD_NAME_JM_LOG) String jmLog,
 			@JsonProperty(FIELD_NAME_JM_WEB_SHELL) String jmWebShell,
+			@JsonProperty(FIELD_NAME_JM_REST_BASE_URL) String jmRestBaseUrl,
 			@JsonProperty(FIELD_NAME_METRICS_URL_ENABLE) boolean metricsUrlEnable,
 			@JsonProperty(FIELD_NAME_DTOP_URL_ENABLE) boolean dtopUrlEnable,
 			@JsonProperty(FIELD_NAME_WEB_LOG_URL_ENABLE) boolean logUrlEnable,
@@ -112,6 +117,7 @@ public class DashboardConfiguration implements ResponseBody {
 		this.features = features;
 		this.jmLog = (jmLog == null) ? "NoJmLog" : jmLog;
 		this.jmWebShell = (jmWebShell == null) ? "NoJmWebShell" : jmWebShell;
+		this.jmRestBaseUrl = jmRestBaseUrl;
 		this.metricsUrlEnable = metricsUrlEnable;
 		this.dtopUrlEnable = dtopUrlEnable;
 		this.logUrlEnable = logUrlEnable;
@@ -251,6 +257,7 @@ public class DashboardConfiguration implements ResponseBody {
 
 		final String jmLog = "";
 		final String jmWebShell = "";
+		final String restBaseUrl = "";
 
 		return new DashboardConfiguration(
 			refreshInterval,
@@ -262,13 +269,14 @@ public class DashboardConfiguration implements ResponseBody {
 			new Features(webSubmitEnabled),
 			jmLog,
 			jmWebShell,
+			restBaseUrl,
 			clusterConfiguration.getBoolean(WebOptions.WEB_METRICS_URL_ENABLE),
 			clusterConfiguration.getBoolean(WebOptions.WEB_DTOP_URL_ENABLE),
 			clusterConfiguration.getBoolean(WebOptions.WEB_LOG_URL_ENABLE),
 			clusterConfiguration.getBoolean(WebOptions.WEB_SHELL_ENABLE));
 	}
 
-	public static DashboardConfiguration fromDashboardConfiguration(DashboardConfiguration dashboardConfiguration, String jmLog, String jmWebShell) {
+	public static DashboardConfiguration fromDashboardConfiguration(DashboardConfiguration dashboardConfiguration, String jmLog, String jmWebShell, String restBaseUrl) {
 		return new DashboardConfiguration(
 			dashboardConfiguration.getRefreshInterval(),
 			dashboardConfiguration.getTimeZoneName(),
@@ -278,6 +286,7 @@ public class DashboardConfiguration implements ResponseBody {
 			dashboardConfiguration.getFeatures(),
 			jmLog,
 			jmWebShell,
+			restBaseUrl,
 			dashboardConfiguration.isMetricsUrlEnable(),
 			dashboardConfiguration.isDtopUrlEnable(),
 			dashboardConfiguration.isLogUrlEnable(),
