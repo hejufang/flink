@@ -143,6 +143,12 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.discoveryIntervalMs = config.getDiscoverIntervalMs();
 		this.pollBatchSize = config.getPollBatchSize();
 		this.pollLatencyMs = config.getPollLatencyMs();
+
+		String dc = System.getProperty(ConfigConstants.DC_KEY, "cn").toUpperCase();
+		String user = System.getProperty(ConfigConstants.OWNER_KEY, "unknown");
+		try (RocketMQRestClient client = new RocketMQRestClient(dc, user)) {
+			client.registerToToolbox(cluster, topic, group);
+		}
 		RocketMQUtils.saveConfigurationToSystemProperties(config);
 		RocketMQUtils.validateBrokerQueueList(config);
 	}

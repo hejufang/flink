@@ -327,6 +327,14 @@ common:
   containerized.master.env.COREDUMP_CTL_NEED_CORE: "false"
   containerized.taskmanager.env.COREDUMP_CTL_NEED_CORE: "false"
 
+  # rocketmq api
+  rmq.secret_key: urV6WxXdMo
+  rmq.server_url.cn: https://mq.byted.org/api
+  rmq.server_url.sg: https://mq.byted.org/api
+  rmq.server_url.va: https://mq-us.byted.org/api
+  rmq.server_url.boe: https://mq-boe.byted.org
+  rmq.server_url.boei18n: https://mq-boe.byted.org
+
 # yarn clusters
 flink:
   dc: cn

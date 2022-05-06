@@ -31,6 +31,7 @@ import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureNotifier;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
+import org.apache.flink.connector.rocketmq.RocketMQRestClient;
 import org.apache.flink.connector.rocketmq.RocketMQUtils;
 import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserializationSchema;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
@@ -78,6 +79,16 @@ public class RocketMQSource<OUT> implements
 		this.config = config;
 		this.jobName = System.getProperty(
 			ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
+
+		String cluster = config.getCluster();
+		String group = config.getGroup();
+		String topic = config.getTopic();
+		String dc = System.getProperty(ConfigConstants.DC_KEY, "cn").toUpperCase();
+		String user = System.getProperty(ConfigConstants.OWNER_KEY, "unknown");
+		try (RocketMQRestClient client = new RocketMQRestClient(dc, user)) {
+			client.registerToToolbox(cluster, topic, group);
+		}
+
 		RocketMQUtils.saveConfigurationToSystemProperties(config);
 		RocketMQUtils.validateBrokerQueueList(config);
 	}
