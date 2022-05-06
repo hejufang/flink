@@ -18,12 +18,15 @@
 
 package org.apache.flink.runtime.socket;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.socket.JobSocketResult;
 import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.TaskManagerOptions;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFutureListener;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ClassResolvers;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectDecoder;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectEncoder;
@@ -35,6 +38,7 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -49,6 +53,7 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 	private final int lowWriteMark;
 	private final int highWriteMark;
 	private List<NettySocketClient> clientList;
+	private AtomicReference<RuntimeException> exceptionHolder;
 
 	public SocketTaskJobResultGateway(int clientCount, int connectTimeoutMills) {
 		this(clientCount, connectTimeoutMills, new Configuration());
@@ -61,11 +66,13 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 		this.lowWriteMark = configuration.getInteger(TaskManagerOptions.RESULT_PUSH_NETTY_LOW_WRITER_BUFFER_MARK);
 		this.highWriteMark = configuration.getInteger(TaskManagerOptions.RESULT_PUSH_NETTY_HIGH_WRITER_BUFFER_MARK);
 		this.clientList = new ArrayList<>(clientCount);
+		this.exceptionHolder = new AtomicReference<>();
 	}
 
 	@Override
 	public void connect(String address, int port) throws Exception {
 		List<NettySocketClient> newConnectionList = new ArrayList<>(clientCount);
+		exceptionHolder.set(null);
 		for (int i = 0; i < clientCount; i++) {
 			NettySocketClient nettySocketClient = new NettySocketClient(
 				address,
@@ -83,6 +90,13 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 		this.clientList = newConnectionList;
 	}
 
+	private void validateGateway() {
+		RuntimeException exception = exceptionHolder.get();
+		if (exception != null) {
+			throw exception;
+		}
+	}
+
 	@Override
 	public void sendResult(JobID jobId, @Nullable byte[] data, ResultStatus resultStatus) {
 		JobSocketResult jobSocketResult = new JobSocketResult.Builder()
@@ -91,18 +105,23 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 			.setResultStatus(resultStatus)
 			.build();
 		NettySocketClient nettySocketClient = clientList.get(getJobNettySocketClient(jobId));
+		Channel channel = nettySocketClient.getChannel();
 		while (true) {
-			if (nettySocketClient.getChannel().isWritable()) {
-				nettySocketClient.getChannel().write(jobSocketResult);
+			nettySocketClient.validateClientStatus();
+			validateGateway();
+			if (channel.isWritable()) {
+				channel.writeAndFlush(jobSocketResult)
+					.addListener((ChannelFutureListener) channelFuture -> {
+						if (!channelFuture.isSuccess()) {
+							LOG.error("Send result for job {} failed with result status {}", jobId, resultStatus);
+							exceptionHolder.set(new RuntimeException("Job " + jobId + " result status " + resultStatus, channelFuture.cause()));
+						}
+					});
 				break;
 			}
 			try {
 				Thread.sleep(10);
 			} catch (InterruptedException e) { }
-		}
-		if (resultStatus == ResultStatus.COMPLETE) {
-			LOG.info("Send complete result for job {}", jobId);
-			nettySocketClient.getChannel().flush();
 		}
 	}
 
@@ -112,8 +131,14 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 		return Math.abs(jobId.hashCode()) % clientList.size();
 	}
 
+	@VisibleForTesting
+	List<NettySocketClient> getClientList() {
+		return clientList;
+	}
+
 	@Override
 	public void close() {
+		validateGateway();
 		for (NettySocketClient socketClient : clientList) {
 			socketClient.closeAsync();
 		}

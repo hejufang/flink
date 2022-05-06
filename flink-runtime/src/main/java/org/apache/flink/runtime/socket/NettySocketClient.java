@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
@@ -53,6 +54,7 @@ public class NettySocketClient implements AutoCloseableAsync {
 	private final int lowWaterMark;
 	private final int highWaterMark;
 	private final Consumer<ChannelPipeline> channelPipelineConsumer;
+	private final AtomicBoolean running;
 
 	private Bootstrap bootstrap;
 	private Channel channel;
@@ -78,6 +80,7 @@ public class NettySocketClient implements AutoCloseableAsync {
 		this.lowWaterMark = lowWaterMark;
 		this.highWaterMark = highWaterMark;
 		this.channelPipelineConsumer = channelPipelineConsumer;
+		this.running = new AtomicBoolean(true);
 	}
 
 	public final void start() throws Exception {
@@ -105,10 +108,21 @@ public class NettySocketClient implements AutoCloseableAsync {
 			}
 		});
 		channel = connectFuture.channel();
+		channel.closeFuture().addListener((ChannelFutureListener) channelFuture -> {
+			LOG.warn("Channel {} is closed", channelFuture.channel(), channelFuture.cause());
+			running.set(false);
+		});
 	}
 
 	public Channel getChannel() {
+		validateClientStatus();
 		return channel;
+	}
+
+	public void validateClientStatus() {
+		if (!running.get()) {
+			throw new RuntimeException("The channel is closed: " + channel);
+		}
 	}
 
 	public String getAddress() {
@@ -129,6 +143,7 @@ public class NettySocketClient implements AutoCloseableAsync {
 					.addListener(finished -> {
 						if (finished.isSuccess()) {
 							terminationFuture.complete(null);
+							running.set(false);
 						} else {
 							terminationFuture.completeExceptionally(finished.cause());
 						}

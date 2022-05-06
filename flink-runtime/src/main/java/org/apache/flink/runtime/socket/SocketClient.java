@@ -70,6 +70,7 @@ public class SocketClient implements AutoCloseableAsync {
 	}
 
 	public <T> CloseableIterator<T> submitJob(JobGraph jobGraph) {
+		nettySocketClient.validateClientStatus();
 		this.nettySocketClient.getChannel().writeAndFlush(jobGraph).addListener((ChannelFutureListener) channelFuture -> {
 			if (!channelFuture.isSuccess()) {
 				LOG.error("Submit job {} to {}:{} fail",
