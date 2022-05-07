@@ -660,6 +660,44 @@ public class NetworkBufferPoolTest extends TestLogger {
 		}
 	}
 
+	@Test
+	public void testSimpleRedistribute() throws Exception {
+		final int numBuffers = 10;
+		final int numberOfSegmentsToRequest = 2;
+		final Duration requestSegmentsTimeout = Duration.ofMillis(50L);
+
+		NetworkBufferPool globalPool = new NetworkBufferPool(
+			numBuffers,
+			128,
+			numberOfSegmentsToRequest,
+			requestSegmentsTimeout,
+			false,
+			Duration.ofMillis(0L),
+			true,
+			0.8);
+
+		for (int i = 0; i < 3; i++) {
+			globalPool.createBufferPool(1, 2);
+		}
+
+		// allocate max, 4 * 2 =6
+		assertEquals(6, globalPool.getNumTotalRequiredBuffers());
+
+		for (int i = 0; i < 4; i++) {
+			globalPool.createBufferPool(1, 2);
+		}
+
+		// allocate min when trigger watermark
+		assertEquals(10, globalPool.getNumTotalRequiredBuffers());
+
+		globalPool.createBufferPool(1, 2);
+
+		// trigger returnExcessMemorySegment
+		assertEquals(8, globalPool.getNumTotalRequiredBuffers());
+
+		globalPool.destroy();
+	}
+
 	/**
 	 * Tests {@link NetworkBufferPool#isAvailable()}, verifying that the buffer availability is correctly
 	 * maintained after memory segments are requested by {@link NetworkBufferPool#requestMemorySegment()}
