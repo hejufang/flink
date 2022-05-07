@@ -167,12 +167,13 @@ public class BroadcastJoinOperator extends AbstractStreamingJoinOperator impleme
 			return;
 		}
 		long buildCost = System.currentTimeMillis() - mark.getTimestamp();
-		if (buildCost > maxBuildLatency) {
+		// We ignore build timeout in first time.
+		if (buildCost > maxBuildLatency && stateViewAndTime.f0 != null) {
 			throw new FlinkRuntimeException(
 				String.format("%s build cost %s more than %s", logName, buildCost, maxBuildLatency));
 		}
 		curBuildLatency = buildCost;
-		LOG.info("Build cost {}, cache size {}", buildCost, cachedLeftRecords.size());
+		LOG.info("{} build cost {}, cache size {}", logName, buildCost, cachedLeftRecords.size());
 
 		stateViewAndTime = tmpStateViewAndTime;
 		tmpStateViewAndTime = createTuple2State();
