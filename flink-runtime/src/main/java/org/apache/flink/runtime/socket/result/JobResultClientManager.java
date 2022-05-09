@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 import java.io.Closeable;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -45,8 +46,12 @@ public class JobResultClientManager implements Closeable {
 
 	public JobResultClientManager(int threadCount) {
 		this.jobResultThreadPool = new JobResultThreadPool(threadCount);
-		this.jobResultThreadPool.start();
+		jobChannelManagers = new ConcurrentHashMap<>();
+		clusterInformation = null;
+	}
 
+	public JobResultClientManager(int threadCount, int maxResultQueueSizePerJob, long threadIdleTimeoutMills, ScheduledExecutorService scheduledExecutorService) {
+		this.jobResultThreadPool = new JobResultThreadPool(threadCount, maxResultQueueSizePerJob, threadIdleTimeoutMills, scheduledExecutorService);
 		jobChannelManagers = new ConcurrentHashMap<>();
 		clusterInformation = null;
 	}

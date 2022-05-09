@@ -56,7 +56,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
@@ -64,6 +67,8 @@ import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
 import static org.apache.flink.runtime.socket.TestingSocketDispatcherUtils.finishWithEmptyData;
 import static org.apache.flink.runtime.socket.TestingSocketDispatcherUtils.finishWithResultData;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Test case for {@link DispatcherSocketRestEndpoint}.
@@ -169,6 +174,7 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 	public void testGatewayPushCompleteResults() throws Exception {
 		List<String> valueList = Arrays.asList("a", "b", "c", "d");
 		JobResultClientManager jobResultClientManager = new JobResultClientManager(3);
+		SocketJobResultListener listener = new SocketPushJobResultListener();
 		testSocketValueResult(
 			valueList,
 			jobResultClientManager,
@@ -182,9 +188,9 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 					throw new RuntimeException(e);
 				}
 				for (int i = 0; i < valueList.size() - 1; i++) {
-					socketTaskJobResultGateway.sendResult(graph.getJobID(), valueList.get(i).getBytes(), ResultStatus.PARTIAL);
+					socketTaskJobResultGateway.sendResult(graph.getJobID(), valueList.get(i).getBytes(), ResultStatus.PARTIAL, listener);
 				}
-				socketTaskJobResultGateway.sendResult(graph.getJobID(), valueList.get(valueList.size() - 1).getBytes(), ResultStatus.COMPLETE);
+				socketTaskJobResultGateway.sendResult(graph.getJobID(), valueList.get(valueList.size() - 1).getBytes(), ResultStatus.COMPLETE, listener);
 			},
 			(Function<byte[], String>) String::new);
 	}
@@ -206,11 +212,241 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 					throw new RuntimeException(e);
 				}
 				for (String value : valueList) {
-					socketTaskJobResultGateway.sendResult(graph.getJobID(), value.getBytes(), ResultStatus.PARTIAL);
+					socketTaskJobResultGateway.sendResult(graph.getJobID(), value.getBytes(), ResultStatus.PARTIAL, null);
 				}
-				socketTaskJobResultGateway.sendResult(graph.getJobID(), null, ResultStatus.COMPLETE);
+				socketTaskJobResultGateway.sendResult(graph.getJobID(), null, ResultStatus.COMPLETE, null);
 			},
 			(Function<byte[], String>) String::new);
+	}
+
+	@Test
+	public void testSocketClientCloseBeforeSubmitJob() throws Exception {
+		JobResultClientManager jobResultClientManager = new JobResultClientManager(1);
+		Configuration configuration = new Configuration();
+		configuration.set(RestOptions.BIND_ADDRESS, "localhost");
+		DispatcherGateway dispatcherGateway = new TestingDispatcherGateway.Builder().build();
+		try (DispatcherSocketRestEndpoint dispatcherSocketRestEndpoint = createSocketRestEndpoint(
+				() -> CompletableFuture.completedFuture(dispatcherGateway),
+				jobResultClientManager)) {
+			dispatcherSocketRestEndpoint.start();
+			jobResultClientManager.registerClusterInformation(
+				new ClusterInformation(
+					"localhost",
+					1234,
+					1234,
+					dispatcherSocketRestEndpoint.getAddress(),
+					dispatcherSocketRestEndpoint.getSocketPort()));
+			try (SocketClient socketClient = new SocketClient(
+				dispatcherSocketRestEndpoint.getAddress(),
+				dispatcherSocketRestEndpoint.getSocketPort(),
+				0)) {
+				socketClient.start();
+				socketClient.closeAsync().get();
+
+				JobGraph jobGraph = new JobGraph(new JobID(), "jobName");
+				JobVertex jobVertex = new JobVertex("EmptyVertex");
+				jobVertex.setParallelism(1);
+				jobGraph.addVertex(jobVertex);
+
+				assertThrows("The channel is closed", RuntimeException.class, () -> {
+					CloseableIterator<Object> resultIterator = socketClient.submitJob(jobGraph);
+					List<Object> resultList = new ArrayList<>();
+					while (resultIterator.hasNext()) {
+						resultList.add(resultIterator.next());
+					}
+					return resultList;
+				});
+			}
+		}
+	}
+
+	@Test
+	public void testSocketClientCloseAfterSubmitJob() throws Exception {
+		JobResultClientManager jobResultClientManager = new JobResultClientManager(1);
+		Configuration configuration = new Configuration();
+		configuration.set(RestOptions.BIND_ADDRESS, "localhost");
+		DispatcherGateway dispatcherGateway = new TestingDispatcherGateway.Builder().build();
+		try (DispatcherSocketRestEndpoint dispatcherSocketRestEndpoint = createSocketRestEndpoint(
+				() -> CompletableFuture.completedFuture(dispatcherGateway),
+				jobResultClientManager)) {
+			dispatcherSocketRestEndpoint.start();
+			jobResultClientManager.registerClusterInformation(
+				new ClusterInformation(
+					"localhost",
+					1234,
+					1234,
+					dispatcherSocketRestEndpoint.getAddress(),
+					dispatcherSocketRestEndpoint.getSocketPort()));
+			try (SocketClient socketClient = new SocketClient(
+				dispatcherSocketRestEndpoint.getAddress(),
+				dispatcherSocketRestEndpoint.getSocketPort(),
+				0)) {
+				socketClient.start();
+
+				JobGraph jobGraph = new JobGraph(new JobID(), "jobName");
+				JobVertex jobVertex = new JobVertex("EmptyVertex");
+				jobVertex.setParallelism(1);
+				jobGraph.addVertex(jobVertex);
+
+				assertThrows("The channel is closed", RuntimeException.class, () -> {
+					CloseableIterator<Object> resultIterator = socketClient.submitJob(jobGraph);
+					socketClient.closeAsync().get();
+					List<Object> resultList = new ArrayList<>();
+					while (resultIterator.hasNext()) {
+						resultList.add(resultIterator.next());
+					}
+					return resultList;
+				});
+			}
+		}
+	}
+
+	@Test
+	public void testDispatcherSocketClosedBeforeSubmitJob() throws Exception {
+		JobResultClientManager jobResultClientManager = new JobResultClientManager(1);
+		Configuration configuration = new Configuration();
+		configuration.set(RestOptions.BIND_ADDRESS, "localhost");
+		DispatcherGateway dispatcherGateway = new TestingDispatcherGateway.Builder().build();
+		DispatcherSocketRestEndpoint dispatcherSocketRestEndpoint = createSocketRestEndpoint(
+			() -> CompletableFuture.completedFuture(dispatcherGateway),
+			jobResultClientManager);
+		dispatcherSocketRestEndpoint.start();
+		jobResultClientManager.registerClusterInformation(
+			new ClusterInformation(
+				"localhost",
+				1234,
+				1234,
+				dispatcherSocketRestEndpoint.getAddress(),
+				dispatcherSocketRestEndpoint.getSocketPort()));
+		try (SocketClient socketClient = new SocketClient(
+				dispatcherSocketRestEndpoint.getAddress(),
+				dispatcherSocketRestEndpoint.getSocketPort(),
+				0)) {
+			socketClient.start();
+
+			JobGraph jobGraph = new JobGraph(new JobID(), "jobName");
+			JobVertex jobVertex = new JobVertex("EmptyVertex");
+			jobVertex.setParallelism(1);
+			jobGraph.addVertex(jobVertex);
+
+			assertThrows("The channel is closed", RuntimeException.class, () -> {
+				dispatcherSocketRestEndpoint.closeAsync().get();
+				CloseableIterator<Object> resultIterator = socketClient.submitJob(jobGraph);
+				List<Object> resultList = new ArrayList<>();
+				while (resultIterator.hasNext()) {
+					resultList.add(resultIterator.next());
+				}
+				return resultList;
+			});
+		}
+	}
+
+	@Test
+	public void testDispatcherSocketClosedAfterSubmitJob() throws Exception {
+		JobResultClientManager jobResultClientManager = new JobResultClientManager(1);
+		Configuration configuration = new Configuration();
+		configuration.set(RestOptions.BIND_ADDRESS, "localhost");
+		DispatcherGateway dispatcherGateway = new TestingDispatcherGateway.Builder().build();
+		DispatcherSocketRestEndpoint dispatcherSocketRestEndpoint = createSocketRestEndpoint(
+			() -> CompletableFuture.completedFuture(dispatcherGateway),
+			jobResultClientManager);
+		dispatcherSocketRestEndpoint.start();
+		jobResultClientManager.registerClusterInformation(
+			new ClusterInformation(
+				"localhost",
+				1234,
+				1234,
+				dispatcherSocketRestEndpoint.getAddress(),
+				dispatcherSocketRestEndpoint.getSocketPort()));
+		try (SocketClient socketClient = new SocketClient(
+			dispatcherSocketRestEndpoint.getAddress(),
+			dispatcherSocketRestEndpoint.getSocketPort(),
+			0)) {
+			socketClient.start();
+
+			JobGraph jobGraph = new JobGraph(new JobID(), "jobName");
+			JobVertex jobVertex = new JobVertex("EmptyVertex");
+			jobVertex.setParallelism(1);
+			jobGraph.addVertex(jobVertex);
+
+			assertThrows("The channel is closed", RuntimeException.class, () -> {
+				CloseableIterator<Object> resultIterator = socketClient.submitJob(jobGraph);
+				dispatcherSocketRestEndpoint.closeAsync().get();
+				List<Object> resultList = new ArrayList<>();
+				while (resultIterator.hasNext()) {
+					resultList.add(resultIterator.next());
+				}
+				return resultList;
+			});
+		}
+	}
+
+	@Test
+	public void testDispatcherDiscardJobResultsAfterClientClosed() throws Exception {
+		JobResultClientManager jobResultClientManager = new JobResultClientManager(1);
+		Configuration configuration = new Configuration();
+		configuration.set(RestOptions.BIND_ADDRESS, "localhost");
+		CountDownLatch submitLatch = new CountDownLatch(1);
+		CompletableFuture<Void> submitFuture = new CompletableFuture<>();
+		CompletableFuture<Void> resultFuture = new CompletableFuture<>();
+		final int resultCount = 1000;
+		final CountDownLatch resultLatch = new CountDownLatch(resultCount);
+		final AtomicInteger successCount = new AtomicInteger(0);
+		final AtomicInteger discardCount = new AtomicInteger(0);
+		DispatcherGateway dispatcherGateway = new TestingDispatcherGateway.Builder()
+			.setSubmitConsumer((graph, context) -> {
+				Thread thread = new Thread(() -> {
+					submitFuture.complete(null);
+					try {
+						submitLatch.await();
+					} catch (InterruptedException ignored) { }
+					for (int i = 0; i < resultCount; i++) {
+						context.writeAndFlush("data " + i)
+							.addListener(future -> {
+								resultLatch.countDown();
+								if (future.isSuccess()) {
+									successCount.incrementAndGet();
+								} else {
+									discardCount.incrementAndGet();
+								}
+							});
+					}
+					resultFuture.complete(null);
+				});
+				thread.start();
+			})
+			.build();
+		DispatcherSocketRestEndpoint dispatcherSocketRestEndpoint = createSocketRestEndpoint(
+			() -> CompletableFuture.completedFuture(dispatcherGateway),
+			jobResultClientManager);
+		dispatcherSocketRestEndpoint.start();
+		jobResultClientManager.registerClusterInformation(
+			new ClusterInformation(
+				"localhost",
+				1234,
+				1234,
+				dispatcherSocketRestEndpoint.getAddress(),
+				dispatcherSocketRestEndpoint.getSocketPort()));
+		SocketClient socketClient = new SocketClient(
+			dispatcherSocketRestEndpoint.getAddress(),
+			dispatcherSocketRestEndpoint.getSocketPort(),
+			0);
+		socketClient.start();
+
+		JobGraph jobGraph = new JobGraph(new JobID(), "jobName");
+		JobVertex jobVertex = new JobVertex("EmptyVertex");
+		jobVertex.setParallelism(1);
+		jobGraph.addVertex(jobVertex);
+
+		CloseableIterator<Object> resultIterator = socketClient.submitJob(jobGraph);
+		assertNotNull(resultIterator);
+		submitFuture.get(10, TimeUnit.SECONDS);
+		socketClient.closeAsync().get();
+		submitLatch.countDown();
+		resultFuture.get(10, TimeUnit.SECONDS);
+		assertTrue(resultLatch.await(10, TimeUnit.SECONDS));
+		assertEquals(0, successCount.get());
+		assertEquals(resultCount, discardCount.get());
 	}
 
 	private <T> void testSocketValueResult(
@@ -271,6 +507,7 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 
 		config = new Configuration();
 		config.setString(RestOptions.ADDRESS, "localhost");
+		config.setString(RestOptions.BIND_PORT, "0");
 		config.setString(RestOptions.SOCKET_ADDRESS, "localhost");
 		// necessary for loading the web-submission extension
 		config.setString(JobManagerOptions.ADDRESS, "localhost");

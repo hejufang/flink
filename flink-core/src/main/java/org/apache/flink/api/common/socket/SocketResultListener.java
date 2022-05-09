@@ -16,30 +16,13 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.socket;
+package org.apache.flink.api.common.socket;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.common.socket.ResultStatus;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nonnull;
 
 /**
- * Just print and ignore the job results.
+ * When job is finished, {@link SocketResultIterator} will notify the listener.
  */
-public class PrintTaskJobResultGateway implements TaskJobResultGateway {
-	private static final Logger LOG = LoggerFactory.getLogger(PrintTaskJobResultGateway.class);
-
-	@Override
-	public void connect(String address, int port) throws Exception { }
-
-	@Override
-	public void sendResult(JobID jobId, @Nonnull byte[] data, ResultStatus resultStatus, SocketJobResultListener listener) {
-		LOG.info("Print result for job {} with status {}", jobId, resultStatus);
-	}
-
-	@Override
-	public void close() { }
+public interface SocketResultListener {
+	void finishJob(JobID jobId);
 }

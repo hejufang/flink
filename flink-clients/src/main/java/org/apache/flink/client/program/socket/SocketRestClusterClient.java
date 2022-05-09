@@ -21,6 +21,7 @@ package org.apache.flink.client.program.socket;
 import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.client.program.rest.retry.ExponentialWaitStrategy;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.runtime.highavailability.ClientHighAvailabilityServices;
@@ -35,6 +36,7 @@ import org.apache.flink.util.CloseableIterator;
  */
 public class SocketRestClusterClient<T> extends RestClusterClient<T> {
 	private final long connectTimeoutMills;
+	private final int queueSize;
 	private SocketClient socketClient;
 
 	public SocketRestClusterClient(Configuration config, T clusterId) throws Exception {
@@ -57,6 +59,7 @@ public class SocketRestClusterClient<T> extends RestClusterClient<T> {
 			clientHAServices);
 
 		this.connectTimeoutMills = config.getLong(RestOptions.CONNECTION_TIMEOUT);
+		this.queueSize = config.getInteger(ClusterOptions.CLUSTER_CLIENT_RESULT_QUEUE_MAX_SIZE);
 		refreshSocketClient();
 	}
 
@@ -84,8 +87,9 @@ public class SocketRestClusterClient<T> extends RestClusterClient<T> {
 			this.socketClient = new SocketClient(
 				socketRestLeaderAddress.getSocketAddress(),
 				socketRestLeaderAddress.getSocketPort(),
-				Math.toIntExact(connectTimeoutMills));
-				this.socketClient.start();
+				Math.toIntExact(connectTimeoutMills),
+				queueSize);
+			this.socketClient.start();
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}

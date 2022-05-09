@@ -641,7 +641,7 @@ public class TaskManagerOptions {
 	public static final ConfigOption<Integer> RESULT_PUSH_CLIENT_COUNT = ConfigOptions
 		.key("taskmanager.result-push-client.count")
 		.intType()
-		.defaultValue(10)
+		.defaultValue(100)
 		.withDescription("Result push client count in task manager for jobs.");
 
 	public static final ConfigOption<Integer> RESULT_PUSH_CLIENT_CONNECT_TIMEOUT_MILLS = ConfigOptions

@@ -604,7 +604,6 @@ public class JobManagerOptions {
 				" When the writer buffer size exceeds high water mark, the channel writable is false, then it will" +
 				" be true after the buffer size is less than low water mark.");
 
-
 	public static final ConfigOption<Integer> JOB_DEPLOY_SOCKET_HIGH_WATER_MARK =
 		key("jobmanager.deploy-socket-high-water.mark")
 			.intType()
@@ -612,6 +611,30 @@ public class JobManagerOptions {
 			.withDescription("The high writer buffer mark of netty client in jobmaster which is used to deploy tasks to task executor." +
 				" When the writer buffer size exceeds high water mark, the channel writable flag will be false");
 
+	public static final ConfigOption<Integer> JOB_PUSH_RESULTS_TASK_COUNT_MAXIMUM =
+		key("jobmanager.push-results-task-count.maximum")
+			.intType()
+			.defaultValue(1000)
+			.withDescription("The max task count in job manager to push job results.");
+
+	public static final ConfigOption<Integer> JOB_PUSH_RESULTS_WRITER_WATER_LOW_MARK =
+		key("jobmanager.push-results-writer-water-low.mark")
+			.intType()
+			.defaultValue(10 * 1024 * 1024) // 10m
+			.withDescription("The low water mark for netty server in job manager to push results to client");
+
+	public static final ConfigOption<Integer> JOB_PUSH_RESULTS_WRITER_WATER_HIGH_MARK =
+		key("jobmanager.push-results-writer-water-high.mark")
+			.intType()
+			.defaultValue(20 * 1024 * 1024) // 20m
+			.withDescription("The high water mark for netty server in job manager to push results to client");
+
+	public static final ConfigOption<Integer> JOB_RESULT_QUEUE_MAX_SIZE =
+		key("jobmanager.job-result-queue.max-size")
+			.intType()
+			.defaultValue(1000)
+			.withDescription("The maximum queue size for job manager to manage results for each job." +
+				" When job manager receives the job results form task, it will put them to the queue.");
 
 	// ---------------------------------------------------------------------------------------------
 

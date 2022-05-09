@@ -21,6 +21,8 @@ package org.apache.flink.runtime.socket.result;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.socket.JobSocketResult;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFuture;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 
 import org.slf4j.Logger;
@@ -33,19 +35,43 @@ public class JobResultContext {
 	private static final Logger LOG = LoggerFactory.getLogger(JobResultContext.class);
 	private final ChannelHandlerContext context;
 	private final JobSocketResult jobSocketResult;
+	private final JobResultTask resultTask;
 
-	public JobResultContext(ChannelHandlerContext context, JobSocketResult jobSocketResult) {
+	public JobResultContext(ChannelHandlerContext context, JobSocketResult jobSocketResult, JobResultTask resultTask) {
 		this.context = context;
 		this.jobSocketResult = jobSocketResult;
+		this.resultTask = resultTask;
 	}
 
 	public void writeResult() {
-		context.write(jobSocketResult);
-		if (jobSocketResult.isFinish()) {
-			LOG.debug("Write complete result to channel for job {} failed flag {}",
-				jobSocketResult.getJobId(),
-				jobSocketResult.isFailed());
-			context.flush();
+		Channel channel = context.channel();
+		while (true) {
+			if (channel.isWritable()) {
+				long start = System.currentTimeMillis();
+				ChannelFuture channelFuture = channel.writeAndFlush(jobSocketResult);
+				if (jobSocketResult.isFinish()) {
+					LOG.info("Write complete result for job {}", getJobId());
+					channelFuture.addListener(future -> {
+						if (future.isSuccess()) {
+							LOG.info("Write complete result to channel for job {} failed flag {} flush cost {}",
+								jobSocketResult.getJobId(),
+								jobSocketResult.isFailed(),
+								System.currentTimeMillis() - start);
+						} else {
+							LOG.error("Fail to write complete result to channel for job {} failed flag {} flush cost {}",
+								jobSocketResult.getJobId(),
+								jobSocketResult.isFailed(),
+								System.currentTimeMillis() - start);
+							context.close().get();
+						}
+						resultTask.recycle(jobSocketResult.getJobId());
+					});
+				}
+				break;
+			}
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException ignored) { }
 		}
 	}
 

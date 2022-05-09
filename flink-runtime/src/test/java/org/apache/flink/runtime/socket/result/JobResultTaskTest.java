@@ -28,13 +28,14 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -48,16 +49,22 @@ public class JobResultTaskTest {
 	 */
 	@Test
 	public void testWriteSingleJobResults() throws Exception {
-		JobResultTask jobResultTask = new JobResultTask(0);
-		jobResultTask.start();
+		JobResultThreadPool threadPool = new JobResultThreadPool(1);
 		JobID jobId = new JobID();
+		JobResultTask jobResultTask = threadPool.requestResultTask(jobId);
 
 		final List<Integer> resultList = new ArrayList<>();
 		final CountDownLatch flushCount = new CountDownLatch(1);
 		ChannelHandlerContext context = TestingConsumeChannelHandlerContext
 			.newBuilder()
-			.setWriteConsumer(o -> resultList.add((Integer) ((JobSocketResult) o).getResult()))
-			.setFlushRunner(flushCount::countDown)
+			.setWriteAndFlushConsumer(o -> {
+				JobSocketResult result = (JobSocketResult) o;
+				resultList.add((Integer) result.getResult());
+				if (result.isFinish()) {
+					flushCount.countDown();
+					jobResultTask.recycle(result.getJobId());
+				}
+			})
 			.build();
 		List<Integer> intValueList = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 		for (int i = 0; i < intValueList.size() - 1; i++) {
@@ -68,7 +75,8 @@ public class JobResultTaskTest {
 						.setJobId(jobId)
 						.setResult(intValueList.get(i))
 						.setResultStatus(ResultStatus.PARTIAL)
-						.build()));
+						.build(),
+					jobResultTask));
 		}
 		jobResultTask.addJobResultContext(
 			new JobResultContext(
@@ -77,12 +85,13 @@ public class JobResultTaskTest {
 					.setJobId(jobId)
 					.setResult(intValueList.get(intValueList.size() - 1))
 					.setResultStatus(ResultStatus.COMPLETE)
-					.build()));
+					.build(),
+				jobResultTask));
 
 		assertTrue(flushCount.await(10, TimeUnit.SECONDS));
 		assertEquals(intValueList, resultList);
-
-		jobResultTask.stopResultThread();
+		assertEquals(1, threadPool.getTaskCount());
+		threadPool.close();
 	}
 
 	/**
@@ -90,40 +99,53 @@ public class JobResultTaskTest {
 	 */
 	@Test
 	public void testWriteMultipleJobResults() throws Exception {
-		JobResultTask jobResultTask = new JobResultTask(0);
-		jobResultTask.start();
+		JobResultThreadPool resultThreadPool = new JobResultThreadPool(10);
+		Map<JobID, JobResultTask> jobResultTaskMap = new ConcurrentHashMap<>();
 
 		final CountDownLatch flushCount = new CountDownLatch(3);
-		Map<JobID, List<Object>> jobResultList = new HashMap<>();
+		Map<JobID, List<Object>> jobResultList = new ConcurrentHashMap<>();
 		ChannelHandlerContext context = TestingConsumeChannelHandlerContext
 			.newBuilder()
-			.setWriteConsumer(o -> {
+			.setWriteAndFlushConsumer(o -> {
 				JobSocketResult result = (JobSocketResult) o;
-				List<Object> resultList = jobResultList.computeIfAbsent(result.getJobId(), key -> new ArrayList<>());
+				List<Object> resultList = jobResultList.computeIfAbsent(result.getJobId(), k -> new ArrayList<>());
 				resultList.add(result.getResult());
+				if (result.isFinish()) {
+					flushCount.countDown();
+					jobResultTaskMap.get(result.getJobId()).recycle(result.getJobId());
+				}
 			})
-			.setFlushRunner(flushCount::countDown)
 			.build();
 
 		JobID jobId1 = new JobID();
+		jobResultTaskMap.put(jobId1, resultThreadPool.requestResultTask(jobId1));
 		List<Object> job1ValueList1 = Arrays.asList(1, 2, 3, 4, 5);
 		List<Object> job1ValueList2 = Arrays.asList(5, 6, 7, 8, 9, 10);
 
 		JobID jobId2 = new JobID();
+		jobResultTaskMap.put(jobId2, resultThreadPool.requestResultTask(jobId2));
 		List<Object> job2ValueList1 = Arrays.asList(1L, 2L, 3L, 4L, 5L);
 		List<Object> job2ValueList2 = Arrays.asList(5L, 6L, 7L, 8L, 9L, 10L);
 
 		JobID jobId3 = new JobID();
+		jobResultTaskMap.put(jobId3, resultThreadPool.requestResultTask(jobId3));
 		List<Object> job3ValueList1 = Arrays.asList("1", "2", "3", "4", "5");
 		List<Object> job3ValueList2 = Arrays.asList("5", "6", "7", "8", "9", "10");
 
-		writeJobResults(jobResultTask, context, jobId1, job1ValueList1, false);
-		writeJobResults(jobResultTask, context, jobId2, job2ValueList1, false);
-		writeJobResults(jobResultTask, context, jobId3, job3ValueList1, false);
+		JobResultTask job1Task = jobResultTaskMap.get(jobId1);
+		JobResultTask job2Task = jobResultTaskMap.get(jobId2);
+		JobResultTask job3Task = jobResultTaskMap.get(jobId3);
+		assertNotEquals(job1Task, job2Task);
+		assertNotEquals(job2Task, job3Task);
+		assertNotEquals(job3Task, job1Task);
 
-		writeJobResults(jobResultTask, context, jobId1, job1ValueList2, true);
-		writeJobResults(jobResultTask, context, jobId2, job2ValueList2, true);
-		writeJobResults(jobResultTask, context, jobId3, job3ValueList2, true);
+		writeJobResults(job1Task, context, jobId1, job1ValueList1, false);
+		writeJobResults(job2Task, context, jobId2, job2ValueList1, false);
+		writeJobResults(job3Task, context, jobId3, job3ValueList1, false);
+
+		writeJobResults(job1Task, context, jobId1, job1ValueList2, true);
+		writeJobResults(job2Task, context, jobId2, job2ValueList2, true);
+		writeJobResults(job3Task, context, jobId3, job3ValueList2, true);
 
 		assertTrue(flushCount.await(10, TimeUnit.SECONDS));
 
@@ -142,7 +164,8 @@ public class JobResultTaskTest {
 		job3ValueList.addAll(job3ValueList2);
 		assertEquals(jobResultList.get(jobId3), job3ValueList);
 
-		jobResultTask.stopResultThread();
+		assertEquals(3, resultThreadPool.getTaskCount());
+		resultThreadPool.close();
 	}
 
 	private void writeJobResults(
@@ -160,7 +183,8 @@ public class JobResultTaskTest {
 						.setJobId(jobId)
 						.setResult(valueList.get(i))
 						.setResultStatus(ResultStatus.PARTIAL)
-						.build()));
+						.build(),
+					jobResultTask));
 		}
 		if (finishFlag) {
 			jobResultTask.addJobResultContext(
@@ -170,7 +194,8 @@ public class JobResultTaskTest {
 						.setJobId(jobId)
 						.setResult(valueList.get(valueList.size() - 1))
 						.setResultStatus(ResultStatus.COMPLETE)
-						.build()));
+						.build(),
+					jobResultTask));
 		}
 	}
 }

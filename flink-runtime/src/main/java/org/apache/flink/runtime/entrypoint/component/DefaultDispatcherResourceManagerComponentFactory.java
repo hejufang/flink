@@ -22,6 +22,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.runtime.blob.BlobServer;
@@ -169,7 +170,11 @@ public class DefaultDispatcherResourceManagerComponentFactory implements Dispatc
 
 			boolean useSocketEndpoint = restEndpointFactory instanceof SessionSocketRestEndpointFactory;
 			JobResultClientManager jobResultClientManager = useSocketEndpoint ?
-				(this.jobResultClientManager == null ? new JobResultClientManager(configuration.getInteger(ClusterOptions.CLUSTER_RESULT_THREAD_COUNT)) : this.jobResultClientManager) :
+				(this.jobResultClientManager == null ?
+					new JobResultClientManager(configuration.getInteger(ClusterOptions.CLUSTER_RESULT_THREAD_COUNT),
+						configuration.getInteger(JobManagerOptions.JOB_RESULT_QUEUE_MAX_SIZE),
+						configuration.getLong(ClusterOptions.CLUSTER_RESULT_THREAD_IDLE_TIMEOUT_MILLS),
+						executor) : this.jobResultClientManager) :
 				null;
 			webMonitorEndpoint = restEndpointFactory.createRestEndpoint(
 				configuration,

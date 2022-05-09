@@ -24,7 +24,6 @@ import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.TaskManagerOptions;
 
-import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFuture;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFutureListener;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdapter;
@@ -74,15 +73,16 @@ public class SocketTaskJobResultGatewayTest {
 			Configuration configuration = new Configuration();
 			configuration.set(TaskManagerOptions.RESULT_PUSH_NETTY_LOW_WRITER_BUFFER_MARK, 10);
 			configuration.set(TaskManagerOptions.RESULT_PUSH_NETTY_HIGH_WRITER_BUFFER_MARK, 100);
+			SocketPushJobResultListener listener = new SocketPushJobResultListener();
 			try (SocketTaskJobResultGateway socketTaskJobResultGateway =
 					new SocketTaskJobResultGateway(1, 0, configuration)) {
 				socketTaskJobResultGateway.connect(nettySocketServer.getAddress(), nettySocketServer.getPort());
 				for (int i = 1; i <= totalCount - 1; i++) {
 					String value = "Hello " + i + " World";
-					socketTaskJobResultGateway.sendResult(jobId, value.getBytes(), ResultStatus.PARTIAL);
+					socketTaskJobResultGateway.sendResult(jobId, value.getBytes(), ResultStatus.PARTIAL, listener);
 				}
 				String value = "Hello " + totalCount + " World";
-				socketTaskJobResultGateway.sendResult(jobId, value.getBytes(), ResultStatus.COMPLETE);
+				socketTaskJobResultGateway.sendResult(jobId, value.getBytes(), ResultStatus.COMPLETE, listener);
 				finishFuture.get(10, TimeUnit.SECONDS);
 				assertEquals(totalCount, messageCount.get());
 			}
@@ -112,28 +112,24 @@ public class SocketTaskJobResultGatewayTest {
 		configuration.set(TaskManagerOptions.RESULT_PUSH_NETTY_HIGH_WRITER_BUFFER_MARK, 100);
 
 		CompletableFuture<Void> closeFuture = new CompletableFuture<>();
+		SocketPushJobResultListener listener = new SocketPushJobResultListener();
 		try (SocketTaskJobResultGateway socketTaskJobResultGateway =
 				new SocketTaskJobResultGateway(1, 0, configuration)) {
 			socketTaskJobResultGateway.connect(nettySocketServer.getAddress(), nettySocketServer.getPort());
 
 			NettySocketClient nettySocketClient = socketTaskJobResultGateway.getClientList().get(0);
-			nettySocketClient.getChannel().closeFuture().addListener(new ChannelFutureListener() {
-				@Override
-				public void operationComplete(ChannelFuture channelFuture) throws Exception {
-					closeFuture.complete(null);
-				}
-			});
+			nettySocketClient.getChannel().closeFuture().addListener((ChannelFutureListener) channelFuture -> closeFuture.complete(null));
 
 			for (int i = 1; i <= 10; i++) {
 				String value = "Hello " + i + " World";
-				socketTaskJobResultGateway.sendResult(jobId, value.getBytes(), ResultStatus.PARTIAL);
+				socketTaskJobResultGateway.sendResult(jobId, value.getBytes(), ResultStatus.PARTIAL, listener);
 			}
 			nettySocketServer.closeAsync();
 			closeFuture.get(10, TimeUnit.SECONDS);
 
 			assertThrows("The channel is closed", RuntimeException.class, () -> {
 				String value = "Hello  World";
-				socketTaskJobResultGateway.sendResult(jobId, value.getBytes(), ResultStatus.PARTIAL);
+				socketTaskJobResultGateway.sendResult(jobId, value.getBytes(), ResultStatus.PARTIAL, listener);
 				return null;
 			});
 		}

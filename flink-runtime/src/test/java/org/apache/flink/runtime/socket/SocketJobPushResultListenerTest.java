@@ -18,28 +18,34 @@
 
 package org.apache.flink.runtime.socket;
 
-import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.common.socket.ResultStatus;
+import org.junit.Test;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nonnull;
+import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
 
 /**
- * Just print and ignore the job results.
+ * Test case for {@link SocketJobResultListener}.
  */
-public class PrintTaskJobResultGateway implements TaskJobResultGateway {
-	private static final Logger LOG = LoggerFactory.getLogger(PrintTaskJobResultGateway.class);
-
-	@Override
-	public void connect(String address, int port) throws Exception { }
-
-	@Override
-	public void sendResult(JobID jobId, @Nonnull byte[] data, ResultStatus resultStatus, SocketJobResultListener listener) {
-		LOG.info("Print result for job {} with status {}", jobId, resultStatus);
+public class SocketJobPushResultListenerTest {
+	@Test
+	public void testMultipleSuccess() throws Exception {
+		SocketJobResultListener listener = new SocketPushJobResultListener();
+		listener.success();
+		listener.success();
+		listener.success();
+		listener.await();
 	}
 
-	@Override
-	public void close() { }
+	@Test
+	public void testMultipleFailed() throws Exception {
+		SocketJobResultListener listener = new SocketPushJobResultListener();
+		listener.fail(new Exception("first fail"));
+		listener.fail(new Exception("second fail"));
+		listener.success();
+		listener.success();
+		listener.fail(new Exception("third fail"));
+		assertThrows("first fail", Exception.class, () -> {
+			listener.await();
+			return null;
+		});
+	}
 }

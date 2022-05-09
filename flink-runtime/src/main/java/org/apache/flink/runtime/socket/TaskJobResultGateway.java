@@ -44,8 +44,9 @@ public interface TaskJobResultGateway extends Closeable {
 	 * @param jobId the given job id
 	 * @param data the data of given job
 	 * @param resultStatus status of the result
+	 * @param listener the job result listener
 	 */
-	void sendResult(JobID jobId, @Nullable byte[] data, ResultStatus resultStatus);
+	void sendResult(JobID jobId, @Nullable byte[] data, ResultStatus resultStatus, SocketJobResultListener listener);
 
 	/**
 	 * Close the result gateway.

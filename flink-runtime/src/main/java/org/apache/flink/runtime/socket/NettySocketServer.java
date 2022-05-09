@@ -33,6 +33,7 @@ import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInitializer;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelOption;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelPipeline;
 import org.apache.flink.shaded.netty4.io.netty.channel.EventLoopGroup;
+import org.apache.flink.shaded.netty4.io.netty.channel.WriteBufferWaterMark;
 import org.apache.flink.shaded.netty4.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.flink.shaded.netty4.io.netty.channel.socket.SocketChannel;
 import org.apache.flink.shaded.netty4.io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -57,6 +58,8 @@ public class NettySocketServer implements AutoCloseableAsync {
 	private final String tag;
 	private final int connectBacklog;
 	private final Consumer<ChannelPipeline> channelPipelineConsumer;
+	private final int lowWaterMark;
+	private final int highWaterMark;
 	private final int workerCount;
 	private final String portRange;
 
@@ -70,11 +73,18 @@ public class NettySocketServer implements AutoCloseableAsync {
 	}
 
 	public NettySocketServer(String tag, String address, String portRange, Consumer<ChannelPipeline> channelPipelineConsumer) {
-		this(tag, address, portRange, channelPipelineConsumer, 0);
+		this(tag, address, portRange, channelPipelineConsumer, 0, 0, 0);
 	}
 
-	public NettySocketServer(String tag, String address, String portRange, Consumer<ChannelPipeline> channelPipelineConsumer, int connectBacklog) {
-		this(tag, address, portRange, channelPipelineConsumer, connectBacklog, 0);
+	public NettySocketServer(
+			String tag,
+			String address,
+			String portRange,
+			Consumer<ChannelPipeline> channelPipelineConsumer,
+			int connectBacklog,
+			int lowWaterMark,
+			int highWaterMark) {
+		this(tag, address, portRange, channelPipelineConsumer, connectBacklog, lowWaterMark, highWaterMark, 0);
 	}
 
 	public NettySocketServer(
@@ -84,11 +94,25 @@ public class NettySocketServer implements AutoCloseableAsync {
 			Consumer<ChannelPipeline> channelPipelineConsumer,
 			int connectBacklog,
 			int workerCount) {
+		this(tag, address, portRange, channelPipelineConsumer, connectBacklog, 0, 0, workerCount);
+	}
+
+	public NettySocketServer(
+			String tag,
+			String address,
+			String portRange,
+			Consumer<ChannelPipeline> channelPipelineConsumer,
+			int connectBacklog,
+			int lowWaterMark,
+			int highWaterMark,
+			int workerCount) {
 		this.tag = tag;
 		this.address = address;
 		this.portRange = portRange;
 		this.channelPipelineConsumer = channelPipelineConsumer;
 		this.connectBacklog = connectBacklog;
+		this.lowWaterMark = lowWaterMark;
+		this.highWaterMark = highWaterMark;
 		this.workerCount = workerCount;
 	}
 
@@ -108,6 +132,9 @@ public class NettySocketServer implements AutoCloseableAsync {
 		bootstrap
 			.group(bossGroup, workerGroup)
 			.channel(NioServerSocketChannel.class);
+		if (lowWaterMark > 0 && highWaterMark > 0) {
+			bootstrap.option(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(lowWaterMark, highWaterMark));
+		}
 		if (connectBacklog > 0) {
 			bootstrap.option(ChannelOption.SO_BACKLOG, connectBacklog);
 		}

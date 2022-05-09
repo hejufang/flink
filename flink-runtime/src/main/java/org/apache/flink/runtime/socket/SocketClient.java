@@ -18,9 +18,11 @@
 
 package org.apache.flink.runtime.socket;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.socket.JobSocketResult;
 import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.socket.SocketResultIterator;
+import org.apache.flink.api.common.socket.SocketResultListener;
 import org.apache.flink.runtime.dispatcher.DispatcherSocketRestEndpoint;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.socket.handler.SocketJobResultHandler;
@@ -38,23 +40,30 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingQueue;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
  * This client is the counter-part to the {@link DispatcherSocketRestEndpoint}.
  * NOTICE: This socket client is not thread safe.
  */
 @NotThreadSafe
-public class SocketClient implements AutoCloseableAsync {
+public class SocketClient implements SocketResultListener, AutoCloseableAsync {
 	private static final Logger LOG = LoggerFactory.getLogger(SocketClient.class);
 
 	private final NettySocketClient nettySocketClient;
 	private final BlockingQueue<JobSocketResult> jobResultList;
+	private JobID jobId;
 
 	public SocketClient(String address, int port, int connectTimeoutMills) {
-		this.jobResultList = new LinkedBlockingQueue<>();
+		this(address, port, connectTimeoutMills, 1000);
+	}
+
+	public SocketClient(String address, int port, int connectTimeoutMills, int queueSize) {
+		this.jobResultList = new ArrayBlockingQueue<>(queueSize);
 		this.nettySocketClient = new NettySocketClient(
 			address,
 			port,
@@ -63,13 +72,29 @@ public class SocketClient implements AutoCloseableAsync {
 				new ObjectEncoder(),
 				new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null)),
 				new SocketJobResultHandler(jobResultList)));
+		this.jobId = null;
 	}
 
 	public final void start() throws Exception {
 		this.nettySocketClient.start();
+		this.nettySocketClient.getChannel().closeFuture().addListener(future -> {
+			final JobID currentJobId = jobId;
+			if (currentJobId != null) {
+				LOG.error("The channel is closed when the job " + currentJobId + " is using it");
+				jobResultList.add(
+					new JobSocketResult.Builder()
+						.setJobId(currentJobId)
+						.setResultStatus(ResultStatus.FAIL)
+						.setSerializedThrowable(new SerializedThrowable(new Exception("The channel is closed", future.cause())))
+						.build());
+			}
+		});
 	}
 
 	public <T> CloseableIterator<T> submitJob(JobGraph jobGraph) {
+		checkArgument(jobId == null, "The job " + jobId + " is using this client while job "
+			+ jobGraph.getJobID() + " tries to use it too.");
+		jobId = jobGraph.getJobID();
 		nettySocketClient.validateClientStatus();
 		this.nettySocketClient.getChannel().writeAndFlush(jobGraph).addListener((ChannelFutureListener) channelFuture -> {
 			if (!channelFuture.isSuccess()) {
@@ -85,6 +110,13 @@ public class SocketClient implements AutoCloseableAsync {
 			}
 		});
 		return new SocketResultIterator<>(jobGraph.getJobID(), jobResultList);
+	}
+
+	@Override
+	public void finishJob(JobID jobId) {
+		checkArgument(
+			jobId.equals(this.jobId),
+			"The job " + jobId + " can't finish the client while the job " + this.jobId + " is using it.");
 	}
 
 	@Override

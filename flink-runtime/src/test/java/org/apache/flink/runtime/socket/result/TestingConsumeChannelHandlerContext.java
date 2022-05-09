@@ -26,6 +26,8 @@ import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelPipeline;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelProgressivePromise;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelPromise;
+import org.apache.flink.shaded.netty4.io.netty.channel.DefaultChannelPromise;
+import org.apache.flink.shaded.netty4.io.netty.channel.embedded.EmbeddedChannel;
 import org.apache.flink.shaded.netty4.io.netty.util.Attribute;
 import org.apache.flink.shaded.netty4.io.netty.util.AttributeKey;
 import org.apache.flink.shaded.netty4.io.netty.util.concurrent.EventExecutor;
@@ -37,19 +39,15 @@ import java.util.function.Consumer;
  * Testing handler context.
  */
 public class TestingConsumeChannelHandlerContext implements ChannelHandlerContext {
-	private Consumer<Object> writeConsumer;
-	private Runnable flushRunner;
+	private final Consumer<Object> flushConsumer;
 
-	private TestingConsumeChannelHandlerContext(
-			Consumer<Object> writeConsumer,
-			Runnable flushRunner) {
-		this.writeConsumer = writeConsumer;
-		this.flushRunner = flushRunner;
+	private TestingConsumeChannelHandlerContext(Consumer<Object> flushConsumer) {
+		this.flushConsumer = flushConsumer;
 	}
 
 	@Override
 	public Channel channel() {
-		throw new UnsupportedOperationException();
+		return new TestingConsumeChannel(flushConsumer);
 	}
 
 	@Override
@@ -189,25 +187,23 @@ public class TestingConsumeChannelHandlerContext implements ChannelHandlerContex
 
 	@Override
 	public ChannelFuture write(Object o, ChannelPromise channelPromise) {
-		writeConsumer.accept(o);
-		return null;
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	public ChannelHandlerContext flush() {
-		flushRunner.run();
-		return null;
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	public ChannelFuture writeAndFlush(Object o, ChannelPromise channelPromise) {
-		flushRunner.run();
-		return null;
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	public ChannelFuture writeAndFlush(Object o) {
-		throw new UnsupportedOperationException();
+		flushConsumer.accept(o);
+		return new DefaultChannelPromise(new EmbeddedChannel());
 	}
 
 	@Override
@@ -263,21 +259,37 @@ public class TestingConsumeChannelHandlerContext implements ChannelHandlerContex
 	 * Builder for testing consume channel handler.
 	 */
 	public static class TestingConsumeChannelHandlerBuilder {
-		private Consumer<Object> writeConsumer;
-		private Runnable flushRunner;
+		private Consumer<Object> flushConsumer;
 
-		public TestingConsumeChannelHandlerBuilder setWriteConsumer(Consumer<Object> writeConsumer) {
-			this.writeConsumer = writeConsumer;
-			return this;
-		}
-
-		public TestingConsumeChannelHandlerBuilder setFlushRunner(Runnable flushRunner) {
-			this.flushRunner = flushRunner;
+		public TestingConsumeChannelHandlerBuilder setWriteAndFlushConsumer(Consumer<Object> flushConsumer) {
+			this.flushConsumer = flushConsumer;
 			return this;
 		}
 
 		public TestingConsumeChannelHandlerContext build() {
-			return new TestingConsumeChannelHandlerContext(writeConsumer, flushRunner);
+			return new TestingConsumeChannelHandlerContext(flushConsumer);
+		}
+	}
+
+	/**
+	 * Channel implementation for test.
+	 */
+	public static class TestingConsumeChannel extends EmbeddedChannel {
+		private final Consumer<Object> flushConsumer;
+
+		public TestingConsumeChannel(Consumer<Object> flushConsumer) {
+			this.flushConsumer = flushConsumer;
+		}
+
+		@Override
+		public ChannelFuture writeAndFlush(Object msg) {
+			flushConsumer.accept(msg);
+			return new DefaultChannelPromise(this);
+		}
+
+		@Override
+		public boolean isWritable() {
+			return true;
 		}
 	}
 }

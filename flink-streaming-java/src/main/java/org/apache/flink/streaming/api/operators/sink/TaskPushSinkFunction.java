@@ -22,6 +22,8 @@ import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.runtime.socket.SocketJobResultListener;
+import org.apache.flink.runtime.socket.SocketPushJobResultListener;
 import org.apache.flink.runtime.socket.TaskJobResultGateway;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
@@ -45,6 +47,7 @@ public class TaskPushSinkFunction<IN> extends RichSinkFunction<IN> implements Ch
 
 	private transient JobID jobId;
 	private transient TaskJobResultGateway taskJobResultGateway;
+	private transient SocketJobResultListener listener;
 
 	public TaskPushSinkFunction(TypeSerializer<IN> serializer, int maxResultsPerBatch) {
 		this.serializer = serializer;
@@ -55,6 +58,7 @@ public class TaskPushSinkFunction<IN> extends RichSinkFunction<IN> implements Ch
 	public void setup(StreamTask<?, ?> containingTask) {
 		this.jobId = containingTask.getEnvironment().getJobID();
 		this.taskJobResultGateway = containingTask.getEnvironment().getTaskResultGateway();
+		this.listener = new SocketPushJobResultListener();
 	}
 
 	@Override
@@ -80,22 +84,23 @@ public class TaskPushSinkFunction<IN> extends RichSinkFunction<IN> implements Ch
 		}
 	}
 
-	@Override
-	public void close() throws Exception {
-		sendTaskResult(ResultStatus.COMPLETE);
-		super.close();
-	}
-
 	private void sendTaskResult(ResultStatus resultStatus) throws java.io.IOException {
 		if (!this.batchResults.isEmpty()) {
 			ListSerializer<IN> listSerializer = new ListSerializer<>(serializer);
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 			DataOutputViewStreamWrapper wrapper = new DataOutputViewStreamWrapper(baos);
 			listSerializer.serialize(this.batchResults, wrapper);
-			taskJobResultGateway.sendResult(jobId, baos.toByteArray(), resultStatus);
+			taskJobResultGateway.sendResult(jobId, baos.toByteArray(), resultStatus, listener);
 			this.batchResults.clear();
 		} else {
-			taskJobResultGateway.sendResult(jobId, null, resultStatus);
+			taskJobResultGateway.sendResult(jobId, null, resultStatus, listener);
 		}
+	}
+
+	@Override
+	public void close() throws Exception {
+		sendTaskResult(ResultStatus.COMPLETE);
+		listener.await();
+		super.close();
 	}
 }

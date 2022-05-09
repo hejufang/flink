@@ -20,6 +20,7 @@ package org.apache.flink.runtime.dispatcher;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.runtime.blob.TransientBlobService;
@@ -93,7 +94,9 @@ public class DispatcherSocketRestEndpoint extends DispatcherRestEndpoint {
 					Time.milliseconds(clusterConfiguration.getLong(WebOptions.TIMEOUT))),
 				new PushTaskResultHandler(jobResultClientManager)
 			),
-			clusterConfiguration.getInteger(RestOptions.DISPATCHER_CONNECT_BACKLOG)
+			clusterConfiguration.getInteger(RestOptions.DISPATCHER_CONNECT_BACKLOG),
+			clusterConfiguration.getInteger(JobManagerOptions.JOB_PUSH_RESULTS_WRITER_WATER_LOW_MARK),
+			clusterConfiguration.getInteger(JobManagerOptions.JOB_PUSH_RESULTS_WRITER_WATER_HIGH_MARK)
 		);
 	}
 

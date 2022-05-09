@@ -46,9 +46,9 @@ public class JobResultClientManagerTest {
 	 */
 	@Test
 	public void testRemoveFinishJobManager() throws Exception {
-		try (JobResultClientManager jobResultClientManager = new JobResultClientManager(3)) {
+		final int jobCount = 100;
+		try (JobResultClientManager jobResultClientManager = new JobResultClientManager(jobCount)) {
 			final int jobTaskCount = 20;
-			final int jobCount = 100;
 			final CountDownLatch latch = new CountDownLatch(jobCount);
 			Map<JobID, List<Object>> jobResultsMap = new HashMap<>();
 			for (int i = 0; i < jobCount; i++) {
@@ -59,12 +59,14 @@ public class JobResultClientManagerTest {
 					jobId,
 					new JobChannelManager(
 						TestingConsumeChannelHandlerContext.newBuilder()
-							.setWriteConsumer(o -> {
+							.setWriteAndFlushConsumer(o -> {
 								JobSocketResult result = (JobSocketResult) o;
 								assertEquals(jobId, result.getJobId());
 								resultList.add(result.getResult());
+								if (result.isFinish()) {
+									latch.countDown();
+								}
 							})
-							.setFlushRunner(latch::countDown)
 							.build(),
 						jobTaskCount,
 						jobResultClientManager));
@@ -116,7 +118,7 @@ public class JobResultClientManagerTest {
 				jobId,
 				new JobChannelManager(
 					TestingConsumeChannelHandlerContext.newBuilder()
-						.setWriteConsumer(o -> {
+						.setWriteAndFlushConsumer(o -> {
 							JobSocketResult result = (JobSocketResult) o;
 							assertEquals(jobId, result.getJobId());
 							if (result.isFailed()) {
@@ -124,8 +126,10 @@ public class JobResultClientManagerTest {
 							} else {
 								resultList.add(result.getResult());
 							}
+							if (result.isFinish()) {
+								latch.countDown();
+							}
 						})
-						.setFlushRunner(latch::countDown)
 						.build(),
 					jobTaskCount,
 					jobResultClientManager));

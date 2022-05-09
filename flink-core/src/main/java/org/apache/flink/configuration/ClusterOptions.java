@@ -115,8 +115,17 @@ public class ClusterOptions {
 	public static final ConfigOption<Integer> CLUSTER_RESULT_THREAD_COUNT = ConfigOptions
 		.key("cluster.result.thread.count")
 		.intType()
-		.defaultValue(10)
+		.defaultValue(1000)
 		.withDescription("The thread count for job result process");
+
+	/**
+	 * The max idle time of the result time.
+	 */
+	public static final ConfigOption<Long> CLUSTER_RESULT_THREAD_IDLE_TIMEOUT_MILLS = ConfigOptions
+		.key("cluster.result.thread.idle.timeout.mills")
+		.longType()
+		.defaultValue(30 * 60 * 1000L)
+		.withDescription("When result thread idle time exceeds this value, the thread will be released");
 
 	/**
 	 * Enable job master deploy tasks to task executor by netty.
@@ -126,4 +135,13 @@ public class ClusterOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("If true, jobMaster will deploy tasks to netty server in task executor.");
+
+	/**
+	 * The max result queue size in each socket client.
+	 */
+	public static final ConfigOption<Integer> CLUSTER_CLIENT_RESULT_QUEUE_MAX_SIZE = ConfigOptions
+		.key("cluster.client-result-queue.max-size")
+		.intType()
+		.defaultValue(1000)
+		.withDescription("Each socket client has a queue to the results received, it will limit the queue max size");
 }
