@@ -41,6 +41,7 @@ import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.deployment.ResultPartitionDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
+import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.execution.librarycache.LibraryCacheManager;
@@ -279,6 +280,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	private final TaskJobResultGateway taskJobResultGateway;
 
+	private final JobDispatcherTaskGateway jobTaskGateway;
+
 	// --------- resource manager --------
 
 	@Nullable
@@ -354,6 +357,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				taskManagerConfiguration.getResultClientCount(),
 				taskManagerConfiguration.getResultConnectTimeoutMills(),
 				taskManagerConfiguration.getConfiguration());
+		this.jobTaskGateway = new JobDispatcherTaskGateway();
 
 		this.resourceManagerAddress = null;
 		this.resourceManagerConnection = null;
@@ -1494,15 +1498,23 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		return CompletableFuture.completedFuture(ThreadDumpInfo.create(threadInfos));
 	}
 
-	/**
-	 * Dispatcher register result server address and port to the given task executor.
-	 *
-	 * @param address the result server address
-	 * @param port the result server port
-	 */
-	public void registerResultServer(String address, int port) {
+	@Override
+	public void registerDispatcher(DispatcherRegistration dispatcherRegistration) {
 		try {
-			taskJobResultGateway.connect(address, port);
+			if (dispatcherRegistration.getSocketAddress() != null) {
+				taskJobResultGateway.connect(dispatcherRegistration.getSocketAddress(), dispatcherRegistration.getSocketPort());
+			}
+			if (dispatcherRegistration.getAkkaAddress() != null) {
+				getRpcService().connect(dispatcherRegistration.getAkkaAddress(), DispatcherGateway.class)
+					.whenComplete((dispatcherGateway, throwable) -> {
+						if (throwable == null) {
+							jobTaskGateway.connect(dispatcherGateway);
+						} else {
+							log.error("Failed to connect to dispatcher {}", dispatcherRegistration.getAkkaAddress(), throwable);
+							throw new RuntimeException(throwable);
+						}
+					});
+			}
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}

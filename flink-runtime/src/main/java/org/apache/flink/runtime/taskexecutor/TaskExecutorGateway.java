@@ -311,12 +311,11 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
 	CompletableFuture<ThreadDumpInfo> requestThreadDump(@RpcTimeout Time timeout);
 
 	/**
-	 * Dispatcher register result server address and port to the given task executor.
+	 * Dispatcher register its information to the given task executor.
 	 *
-	 * @param address the result server address
-	 * @param port the result server port
+	 * @param dispatcherRegistration the information of the dispatcher
 	 */
-	default void registerResultServer(String address, int port) {
+	default void registerDispatcher(DispatcherRegistration dispatcherRegistration) {
 		throw new UnsupportedOperationException();
 	}
 }

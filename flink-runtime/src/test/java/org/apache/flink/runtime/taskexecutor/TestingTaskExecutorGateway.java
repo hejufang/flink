@@ -99,6 +99,8 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 
 	private final Consumer<Collection<TaskDeploymentDescriptor>> submitTaskListConsumer;
 
+	private final Consumer<DispatcherRegistration> dispatcherRegistrationConsumer;
+
 	TestingTaskExecutorGateway(
 			String address,
 			String hostname,
@@ -115,7 +117,8 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 			Consumer<Collection<IntermediateDataSetID>> releaseClusterPartitionsConsumer,
 			TriFunction<ExecutionAttemptID, OperatorID, SerializedValue<OperatorEvent>, CompletableFuture<Acknowledge>> operatorEventHandler,
 			Supplier<CompletableFuture<ThreadDumpInfo>> requestThreadDumpSupplier,
-			Consumer<Collection<TaskDeploymentDescriptor>> submitTaskListConsumer) {
+			Consumer<Collection<TaskDeploymentDescriptor>> submitTaskListConsumer,
+			Consumer<DispatcherRegistration> dispatcherRegistrationConsumer) {
 
 		this.address = Preconditions.checkNotNull(address);
 		this.hostname = Preconditions.checkNotNull(hostname);
@@ -133,6 +136,7 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 		this.operatorEventHandler = operatorEventHandler;
 		this.requestThreadDumpSupplier = requestThreadDumpSupplier;
 		this.submitTaskListConsumer = submitTaskListConsumer;
+		this.dispatcherRegistrationConsumer = dispatcherRegistrationConsumer;
 	}
 
 	@Override
@@ -278,5 +282,10 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 	@Override
 	public CompletableFuture<Collection<LogInfo>> requestLogList(Time timeout) {
 		return FutureUtils.completedExceptionally(new UnsupportedOperationException());
+	}
+
+	@Override
+	public void registerDispatcher(DispatcherRegistration dispatcherRegistration) {
+		dispatcherRegistrationConsumer.accept(dispatcherRegistration);
 	}
 }

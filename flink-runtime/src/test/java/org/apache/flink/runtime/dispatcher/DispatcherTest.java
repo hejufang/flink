@@ -35,6 +35,7 @@ import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
 import org.apache.flink.runtime.client.JobSubmissionException;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
+import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ErrorInfo;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
@@ -57,18 +58,24 @@ import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
+import org.apache.flink.runtime.resourcemanager.TaskExecutorSocketAddress;
 import org.apache.flink.runtime.resourcemanager.utils.TestingResourceManagerGateway;
 import org.apache.flink.runtime.rest.handler.legacy.utils.ArchivedExecutionGraphBuilder;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcUtils;
 import org.apache.flink.runtime.rpc.TestingRpcService;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.state.CheckpointMetadataOutputStream;
 import org.apache.flink.runtime.state.CheckpointStorageCoordinatorView;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.StateBackend;
+import org.apache.flink.runtime.taskexecutor.DispatcherRegistration;
+import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorMemoryConfiguration;
+import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGatewayBuilder;
+import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
 import org.apache.flink.runtime.testtasks.NoOpInvokable;
 import org.apache.flink.runtime.testutils.TestingJobGraphStore;
 import org.apache.flink.runtime.util.TestingFatalErrorHandler;
@@ -237,6 +244,8 @@ public class DispatcherTest extends TestLogger {
 
 		private DispatcherId dispatcherId = DispatcherId.generate();
 
+		private JobResultClientManager jobResultClientManager;
+
 		TestingDispatcherBuilder setHeartbeatServices(HeartbeatServices heartbeatServices) {
 			this.heartbeatServices = heartbeatServices;
 			return this;
@@ -267,6 +276,11 @@ public class DispatcherTest extends TestLogger {
 			return this;
 		}
 
+		TestingDispatcherBuilder setJobResultClientManager(JobResultClientManager jobResultClientManager) {
+			this.jobResultClientManager = jobResultClientManager;
+			return this;
+		}
+
 		TestingDispatcher build() throws Exception {
 			TestingResourceManagerGateway resourceManagerGateway = new TestingResourceManagerGateway();
 
@@ -288,6 +302,7 @@ public class DispatcherTest extends TestLogger {
 					null,
 					UnregisteredMetricGroups.createUnregisteredJobManagerMetricGroup(),
 					jobGraphWriter,
+					jobResultClientManager,
 					jobManagerRunnerFactory));
 		}
 	}
@@ -795,6 +810,50 @@ public class DispatcherTest extends TestLogger {
 		dispatcherGateway.disconnectResourceManager(resourceManagerId, new FlinkException("Test exception"));
 
 		MatcherAssert.assertThat(registrationsQueue.take(), equalTo(mockResourceID));
+	}
+
+	@Test
+	public void testOfferTaskManagers() throws Exception {
+		DispatcherId mockDispatcherId = DispatcherId.generate();
+		ResourceID mockResourceID = ResourceID.generate();
+		JobResultClientManager jobResultClientManager = new JobResultClientManager(1);
+		jobResultClientManager.registerClusterInformation(
+			new ClusterInformation("localhost", 1234, 1235, "localhost", 1236));
+		configuration.setBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED, true);
+		configuration.set(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE, true);
+		configuration.set(ClusterOptions.JOB_REUSE_DISPATCHER_IN_TASKEXECUTOR_ENABLE, true);
+		dispatcher = new TestingDispatcherBuilder()
+			.setDispatcherId(mockDispatcherId)
+			.setHaServices(haServices)
+			.setHeartbeatServices(heartbeatServices)
+			.setJobResultClientManager(jobResultClientManager)
+			.build();
+		dispatcher.setResourceId(mockResourceID);
+
+		final DispatcherGateway dispatcherGateway = dispatcher.getSelfGateway(DispatcherGateway.class);
+
+		dispatcher.start();
+
+		CompletableFuture<DispatcherRegistration> registrationFuture = new CompletableFuture<>();
+		TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder()
+			.setAddress("taskexecutor_test_01")
+			.setDispatcherRegistrationConsumer(registrationFuture::complete)
+			.createTestingTaskExecutorGateway();
+		rpcService.registerGateway(taskExecutorGateway.getAddress(), taskExecutorGateway);
+
+		CompletableFuture<Acknowledge> offerFuture = dispatcherGateway.offerTaskManagers(
+			Collections.singleton(
+				new UnresolvedTaskManagerTopology(
+					taskExecutorGateway,
+					new UnresolvedTaskManagerLocation(ResourceID.generate(), "localhost", -1),
+					new TaskExecutorSocketAddress("localhost", 8091))),
+			Time.seconds(10));
+		offerFuture.get(10, TimeUnit.SECONDS);
+
+		DispatcherRegistration dispatcherRegistration = registrationFuture.get(10, TimeUnit.SECONDS);
+		assertEquals(dispatcherGateway.getAddress(), dispatcherRegistration.getAkkaAddress());
+		assertEquals(jobResultClientManager.getClusterInformation().getSocketServerAddress(), dispatcherRegistration.getSocketAddress());
+		assertEquals(jobResultClientManager.getClusterInformation().getSocketServerPort(), dispatcherRegistration.getSocketPort());
 	}
 
 	private void notifyResourceManagerLeaderListeners(TestingResourceManagerGateway testingResourceManagerGateway) {

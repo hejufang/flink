@@ -144,4 +144,13 @@ public class ClusterOptions {
 		.intType()
 		.defaultValue(1000)
 		.withDescription("Each socket client has a queue to the results received, it will limit the queue max size");
+
+	/**
+	 * If jobs in the same task executor reuse the dispatcher gateway to send event instead of their job master gateway.
+	 */
+	public static final ConfigOption<Boolean> JOB_REUSE_DISPATCHER_IN_TASKEXECUTOR_ENABLE = ConfigOptions
+		.key("cluster.job-reuse-dispatcher-in-taskexecutor.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("If true, job will reuse and send event to dispatcher in task executor instead of job master gateway.");
 }

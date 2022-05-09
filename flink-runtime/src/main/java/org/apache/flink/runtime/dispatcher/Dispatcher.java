@@ -95,6 +95,7 @@ import org.apache.flink.runtime.rpc.PermanentlyFencedRpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
 import org.apache.flink.runtime.socket.result.JobResultClientManager;
+import org.apache.flink.runtime.taskexecutor.DispatcherRegistration;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.ExceptionUtils;
@@ -246,6 +247,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private final boolean useSocketEnable;
 
+	private final boolean jobReuseDispatcherEnable;
+
 	private final boolean dispatcherFetchResultThreadPoolEnabled;
 
 	private final ExecutorService fetchResultExecutor;
@@ -342,6 +345,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		checkArgument(
 			!useSocketEnable || configuration.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED),
 			"Socket enable flag can be turned on when `cluster.jm-resource-allocation.enabled` is true");
+		this.jobReuseDispatcherEnable = configuration.get(ClusterOptions.JOB_REUSE_DISPATCHER_IN_TASKEXECUTOR_ENABLE);
+		checkArgument(
+			!useSocketEnable || configuration.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED),
+			"Job reuse dispatcher in task executor flag can be turned on when `cluster.jm-resource-allocation.enabled` is true");
 
 		this.dispatcherFetchResultThreadPoolEnabled =
 			configuration.getBoolean(JobManagerOptions.DISPATCHER_FETCH_RESULT_THREAD_POOL_ENABLED);
@@ -1251,13 +1258,12 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				registeredTaskManagers.put(resourceID, resolvedTaskManagerTopology);
 				addedTaskManagerTopology.put(resourceID, resolvedTaskManagerTopology);
 
-				if (useSocketEnable) {
+				if (useSocketEnable || jobReuseDispatcherEnable) {
 					ClusterInformation clusterInformation = jobResultClientManager.getClusterInformation();
 					resolvedTaskManagerTopology
 						.getTaskExecutorGateway()
-						.registerResultServer(
-							clusterInformation.getSocketServerAddress(),
-							clusterInformation.getSocketServerPort());
+						.registerDispatcher(
+							DispatcherRegistration.from(resourceId, clusterInformation, useSocketEnable, getAddress(), jobReuseDispatcherEnable));
 				}
 			} catch (Exception e) {
 				log.error("Resource {} can not added to registeredTaskManagers, ignore it.", resourceID, e);

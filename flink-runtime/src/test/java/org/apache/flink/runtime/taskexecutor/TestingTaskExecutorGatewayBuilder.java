@@ -66,6 +66,7 @@ public class TestingTaskExecutorGatewayBuilder {
 	private static final TriFunction<ExecutionAttemptID, OperatorID, SerializedValue<OperatorEvent>, CompletableFuture<Acknowledge>> DEFAULT_OPERATOR_EVENT_HANDLER = (a, b, c) -> CompletableFuture.completedFuture(Acknowledge.get());
 	private static final Supplier<CompletableFuture<ThreadDumpInfo>> DEFAULT_THREAD_DUMP_SUPPLIER = () -> FutureUtils.completedExceptionally(new UnsupportedOperationException());
 	private static final Consumer<Collection<TaskDeploymentDescriptor>> NOOP_SUBMIT_TASK_LIST_CONSUMER = ignored -> {};
+	private static final Consumer<DispatcherRegistration> NOOP_DISPATCHER_REGISTER_CONSUMER = ignored -> {};
 
 	private String address = "foobar:1234";
 	private String hostname = "foobar";
@@ -83,6 +84,7 @@ public class TestingTaskExecutorGatewayBuilder {
 	private TriFunction<ExecutionAttemptID, OperatorID, SerializedValue<OperatorEvent>, CompletableFuture<Acknowledge>> operatorEventHandler = DEFAULT_OPERATOR_EVENT_HANDLER;
 	private Supplier<CompletableFuture<ThreadDumpInfo>> requestThreadDumpSupplier = DEFAULT_THREAD_DUMP_SUPPLIER;
 	private Consumer<Collection<TaskDeploymentDescriptor>> submitTaskListConsumer = NOOP_SUBMIT_TASK_LIST_CONSUMER;
+	private Consumer<DispatcherRegistration> dispatcherRegistrationConsumer = NOOP_DISPATCHER_REGISTER_CONSUMER;
 
 	public TestingTaskExecutorGatewayBuilder setAddress(String address) {
 		this.address = address;
@@ -163,6 +165,11 @@ public class TestingTaskExecutorGatewayBuilder {
 		return this;
 	}
 
+	public TestingTaskExecutorGatewayBuilder setDispatcherRegistrationConsumer(Consumer<DispatcherRegistration> dispatcherRegistrationConsumer) {
+		this.dispatcherRegistrationConsumer = dispatcherRegistrationConsumer;
+		return this;
+	}
+
 	public TestingTaskExecutorGateway createTestingTaskExecutorGateway() {
 		return new TestingTaskExecutorGateway(
 			address,
@@ -180,6 +187,7 @@ public class TestingTaskExecutorGatewayBuilder {
 			releaseClusterPartitionsConsumer,
 			operatorEventHandler,
 			requestThreadDumpSupplier,
-			submitTaskListConsumer);
+			submitTaskListConsumer,
+			dispatcherRegistrationConsumer);
 	}
 }
