@@ -485,4 +485,10 @@ public class CoreOptions {
 			.defaultValue(false)
 			.withDescription("Whether to enable ipv6 in job manager and task manager.");
 
+	public static final ConfigOption<Boolean> DUMP_CONFIGURATION_BY_YAML =
+			key("configuration.flink-conf.dump-configuration-by-yaml")
+					.booleanType()
+					.defaultValue(false)
+					.withDescription("Whether dump flink-conf by yaml, " +
+							"If ture, it will use snakeYaml to dump the configuration directly.");
 }

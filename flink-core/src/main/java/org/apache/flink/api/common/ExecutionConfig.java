@@ -1201,6 +1201,10 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 			return Collections.emptyMap();
 		}
 
+		public Map<String, String> toMapWithoutQuote() {
+			return toMap();
+		}
+
 		@Override
 		public boolean equals(Object obj) {
 			if (obj == null || this.getClass() != obj.getClass()) {

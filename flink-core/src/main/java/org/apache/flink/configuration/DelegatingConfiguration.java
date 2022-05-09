@@ -319,6 +319,11 @@ public final class DelegatingConfiguration extends Configuration {
 	}
 
 	@Override
+	public Map<String, String> toMapWithoutQuote() {
+		return toMap();
+	}
+
+	@Override
 	public <T> boolean removeConfig(ConfigOption<T> configOption){
 		return backingConfig.removeConfig(configOption);
 	}

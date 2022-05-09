@@ -43,6 +43,9 @@ import com.typesafe.config.Config;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.nodes.Tag;
 
 import javax.annotation.Nullable;
 
@@ -290,10 +293,18 @@ public class BootstrapTools {
 	public static void writeConfiguration(Configuration cfg, File file) throws IOException {
 		try (FileWriter fwrt = new FileWriter(file);
 			PrintWriter out = new PrintWriter(fwrt)) {
-			for (Map.Entry<String, String> entry : cfg.toMap().entrySet()) {
-				out.print(entry.getKey());
-				out.print(": ");
-				out.println(entry.getValue());
+			final Map<String, String> configMap;
+			if (cfg.getBoolean(CoreOptions.DUMP_CONFIGURATION_BY_YAML)) {
+				configMap = cfg.toMapWithoutQuote();
+				Yaml yaml = new Yaml();
+				out.print(yaml.dumpAs(configMap, Tag.MAP, DumperOptions.FlowStyle.BLOCK));
+			} else {
+				configMap = cfg.toMap();
+				for (Map.Entry<String, String> entry : configMap.entrySet()) {
+					out.print(entry.getKey());
+					out.print(": ");
+					out.println(entry.getValue());
+				}
 			}
 		}
 	}

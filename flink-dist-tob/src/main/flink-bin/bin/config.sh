@@ -133,7 +133,12 @@ getDynamicFiles() {
 }
 
 getDynamicFilesFromFlinkConf() {
-    local dynamics_files=`${JAVA_RUN} -classpath "${FLINK_BIN_DIR}/bash-java-utils.jar:$(findFlinkDistJar)" org.apache.flink.runtime.util.bash.FlinkConfigLoader --configDir "${FLINK_CONF_DIR}" "files" 2>&1`
+    local dynamics_files_output
+    dynamics_files_output=$(${JAVA_RUN} -classpath "${FLINK_BIN_DIR}/bash-java-utils.jar:$(findFlinkDistJar)" org.apache.flink.runtime.util.bash.FlinkConfigLoader --configDir "${FLINK_CONF_DIR}" "files" 2>&1)
+    # extract result
+    local dynamics_files
+    dynamics_files=$(extractExecutionResults "${dynamics_files_output}" 1)
+
     if [ -n "$dynamics_files" ]; then
         echo "$dynamics_files"
     fi
@@ -173,18 +178,24 @@ getDynamicsExternalJarDependenciesForGeneric() {
 }
 
 getJarDependencies() {
-    local jar_dependencies_from_dynamics_parameters=`getDynamicsExternalJarDependencies $*`
+    local jar_dependencies_from_dynamics_parameters
+    jar_dependencies_from_dynamics_parameters=$(getDynamicsExternalJarDependencies "$*")
     # get jarDependencies from -D dynamic parameters
-    local jar_dependencies_from_generic_dynamics_parameters=`getDynamicsExternalJarDependenciesForGeneric $*`
+    local jar_dependencies_from_generic_dynamics_parameters
+    jar_dependencies_from_generic_dynamics_parameters=$(getDynamicsExternalJarDependenciesForGeneric "$*")
     # get jarDependencies from config file
-    local jar_dependencies_from_flink_config=`${JAVA_RUN} -classpath "${FLINK_BIN_DIR}/bash-java-utils.jar:$(findFlinkDistJar)" org.apache.flink.runtime.util.bash.FlinkConfigLoader --configDir "${FLINK_CONF_DIR}" "flink.external.jar.dependencies" 2>&1`
+    local jar_dependencies_from_flink_config_output
+    jar_dependencies_from_flink_config_output=$(${JAVA_RUN} -classpath "${FLINK_BIN_DIR}/bash-java-utils.jar:$(findFlinkDistJar)" org.apache.flink.runtime.util.bash.FlinkConfigLoader --configDir "${FLINK_CONF_DIR}" "flink.external.jar.dependencies" 2>&1)
+    # extract result
+    local jar_dependencies_from_flink_config
+    jar_dependencies_from_flink_config=$(extractExecutionResults "${jar_dependencies_from_flink_config_output}" 1)
 
     # if all exist, use jar_dependencies_from_dynamics_parameters
     local jar_dependencies="";
     if [ -n "$jar_dependencies_from_dynamics_parameters" ]; then
         jar_dependencies="$jar_dependencies_from_dynamics_parameters"
     elif [ -n "$jar_dependencies_from_generic_dynamics_parameters" ]; then
-            jar_dependencies="$jar_dependencies_from_generic_dynamics_parameters"
+        jar_dependencies="$jar_dependencies_from_generic_dynamics_parameters"
     elif [ -n "$jar_dependencies_from_flink_config" ]; then
         jar_dependencies="$jar_dependencies_from_flink_config"
     else

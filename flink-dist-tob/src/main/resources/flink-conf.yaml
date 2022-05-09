@@ -73,6 +73,9 @@ common:
   ## StreamPipelineOptions
   pipeline.time-characteristic: EventTime
 
+  # configuration
+  configuration.flink-conf.dump-configuration-by-yaml: true
+
   # kubernetes configuration
   kubernetes.flink.log.dir: /opt/tiger/flink_deploy/log
   kubernetes.flink.conf.dir: /opt/tiger/flink_deploy/conf

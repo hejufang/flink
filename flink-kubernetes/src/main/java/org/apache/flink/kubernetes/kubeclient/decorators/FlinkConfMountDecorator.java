@@ -20,6 +20,7 @@ package org.apache.flink.kubernetes.kubeclient.decorators;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.DeploymentOptionsInternal;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
@@ -39,6 +40,9 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
+import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.nodes.Tag;
 
 import java.io.File;
 import java.io.IOException;
@@ -127,8 +131,9 @@ public class FlinkConfMountDecorator extends AbstractKubernetesStepDecorator {
 			data.put(file.getName(), Files.toString(file, StandardCharsets.UTF_8));
 		}
 
-		final Map<String, String> propertiesMap = getClusterSidePropertiesMap(kubernetesComponentConf.getFlinkConfiguration());
-		data.put(FLINK_CONF_FILENAME, getFlinkConfData(propertiesMap));
+		boolean dumpConfigurationByYaml = kubernetesComponentConf.getFlinkConfiguration().getBoolean(CoreOptions.DUMP_CONFIGURATION_BY_YAML);
+		final Map<String, String> propertiesMap = getClusterSidePropertiesMap(kubernetesComponentConf.getFlinkConfiguration(), dumpConfigurationByYaml);
+		data.put(FLINK_CONF_FILENAME, getFlinkConfData(propertiesMap, dumpConfigurationByYaml));
 
 		final ConfigMap flinkConfConfigMap = new ConfigMapBuilder()
 			.withApiVersion(Constants.API_VERSION)
@@ -145,31 +150,39 @@ public class FlinkConfMountDecorator extends AbstractKubernetesStepDecorator {
 	/**
 	 * Get properties map for the cluster-side after removal of some keys.
 	 */
-	private Map<String, String> getClusterSidePropertiesMap(Configuration flinkConfig) {
+	private Map<String, String> getClusterSidePropertiesMap(Configuration flinkConfig, boolean dumpConfigurationByYaml) {
 		final Configuration clusterSideConfig = flinkConfig.clone();
 		// Remove some configuration options that should not be taken to cluster side.
 		clusterSideConfig.removeConfig(KubernetesConfigOptions.KUBE_CONFIG_FILE);
 		clusterSideConfig.removeConfig(DeploymentOptionsInternal.CONF_DIR);
-		return clusterSideConfig.toMap();
+		if (dumpConfigurationByYaml) {
+			return clusterSideConfig.toMapWithoutQuote();
+		} else {
+			return clusterSideConfig.toMap();
+		}
 	}
 
 	@VisibleForTesting
-	String getFlinkConfData(Map<String, String> propertiesMap) throws IOException {
-		try (StringWriter sw = new StringWriter();
-			PrintWriter out = new PrintWriter(sw)) {
-			propertiesMap.forEach((k, v) -> {
-				out.print(k);
-				out.print(": ");
-				// Couldn't start with '%' in value while loading configuration in snakeyaml.
-				// Using '"' to modify the value.
-				if (v.startsWith("%")) {
-					out.println("\"" + v + "\"");
-				} else {
-					out.println(v);
-				}
-			});
-
-			return sw.toString();
+	String getFlinkConfData(Map<String, String> propertiesMap, boolean dumpConfigurationByYaml) throws IOException {
+		if (dumpConfigurationByYaml) {
+			Yaml yaml = new Yaml();
+			return yaml.dumpAs(propertiesMap, Tag.MAP, DumperOptions.FlowStyle.BLOCK);
+		} else {
+			try (StringWriter sw = new StringWriter();
+				PrintWriter out = new PrintWriter(sw)) {
+				propertiesMap.forEach((k, v) -> {
+					out.print(k);
+					out.print(": ");
+					// Couldn't start with '%' in value while loading configuration in snakeyaml.
+					// Using '"' to modify the value.
+					if (v.startsWith("%")) {
+						out.println("\"" + v + "\"");
+					} else {
+						out.println(v);
+					}
+				});
+				return sw.toString();
+			}
 		}
 	}
 
