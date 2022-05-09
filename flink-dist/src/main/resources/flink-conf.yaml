@@ -774,11 +774,13 @@ quiet:
   clusterName: quiet
   high-availability.zookeeper.quorum: fdbd:dc03:ff:2:1:227:38:118:2181,fdbd:dc03:ff:2:1:227:173:112:2181,fdbd:dc03:ff:2:1:227:173:101:2181,fdbd:dc03:ff:2:1:227:186:137:2181,fdbd:dc03:ff:2:1:227:181:113:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
   ipv6.supported.cluster: quiet
+  flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
+  configuration.flink-conf.dump-configuration-by-yaml: true
 
 quetz:
   dc: cn
