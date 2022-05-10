@@ -463,6 +463,7 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 			Function<V, T> function) throws Exception {
 		Configuration configuration = new Configuration();
 		configuration.set(RestOptions.BIND_ADDRESS, "localhost");
+		configuration.set(RestOptions.BIND_SOCKET_PORT, "0");
 		DispatcherGateway dispatcherGateway = new TestingDispatcherGateway.Builder()
 			.setSubmitConsumer(submitConsumer)
 			.build();
@@ -483,16 +484,19 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 				0)) {
 				socketClient.start();
 
-				JobGraph jobGraph = new JobGraph(new JobID(), "jobName");
-				JobVertex jobVertex = new JobVertex("EmptyVertex");
-				jobVertex.setParallelism(1);
-				jobGraph.addVertex(jobVertex);
-				CloseableIterator<V> resultIterator = socketClient.submitJob(jobGraph);
-				List<T> resultList = new ArrayList<>();
-				while (resultIterator.hasNext()) {
-					resultList.add(function.apply(resultIterator.next()));
+				for (int i = 0; i < 10; i++) {
+					JobGraph jobGraph = new JobGraph(new JobID(), "jobName");
+					JobVertex jobVertex = new JobVertex("EmptyVertex");
+					jobVertex.setParallelism(1);
+					jobGraph.addVertex(jobVertex);
+					CloseableIterator<V> resultIterator = socketClient.submitJob(jobGraph);
+					List<T> resultList = new ArrayList<>();
+					while (resultIterator.hasNext()) {
+						resultList.add(function.apply(resultIterator.next()));
+					}
+					resultIterator.close();
+					assertEquals(valueList, resultList);
 				}
-				assertEquals(valueList, resultList);
 			}
 		}
 	}

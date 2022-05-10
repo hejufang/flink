@@ -18,6 +18,7 @@
 
 package org.apache.flink.api.common.socket;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.ListSerializer;
@@ -41,13 +42,20 @@ public class SocketResultIterator<T> implements CloseableIterator<T> {
 	private final JobID jobId;
 	private final BlockingQueue<JobSocketResult> resultList;
 	private final Queue<T> resultValueQueue;
+	private final SocketResultListener socketResultListener;
 	private boolean hasMore;
 	private ListSerializer<T> resultSerializer;
 	private SerializedThrowable serializedThrowable;
 
+	@VisibleForTesting
 	public SocketResultIterator(JobID jobId, BlockingQueue<JobSocketResult> resultList) {
+		this(jobId, resultList, null);
+	}
+
+	public SocketResultIterator(JobID jobId, BlockingQueue<JobSocketResult> resultList, SocketResultListener socketResultListener) {
 		this.jobId = jobId;
 		this.resultList = resultList;
+		this.socketResultListener = socketResultListener;
 		this.resultValueQueue = new LinkedList<>();
 		this.hasMore = true;
 		this.resultSerializer = null;
@@ -58,6 +66,9 @@ public class SocketResultIterator<T> implements CloseableIterator<T> {
 	public void close() throws Exception {
 		resultList.clear();
 		resultValueQueue.clear();
+		if (socketResultListener != null) {
+			socketResultListener.finishJob(jobId);
+		}
 	}
 
 	@Override

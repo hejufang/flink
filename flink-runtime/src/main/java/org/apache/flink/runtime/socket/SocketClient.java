@@ -109,7 +109,7 @@ public class SocketClient implements SocketResultListener, AutoCloseableAsync {
 						.build());
 			}
 		});
-		return new SocketResultIterator<>(jobGraph.getJobID(), jobResultList);
+		return new SocketResultIterator<>(jobGraph.getJobID(), jobResultList, this);
 	}
 
 	@Override
@@ -117,6 +117,7 @@ public class SocketClient implements SocketResultListener, AutoCloseableAsync {
 		checkArgument(
 			jobId.equals(this.jobId),
 			"The job " + jobId + " can't finish the client while the job " + this.jobId + " is using it.");
+		this.jobId = null;
 	}
 
 	@Override
