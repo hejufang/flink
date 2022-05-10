@@ -23,7 +23,9 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.MetricsConstants;
 import org.apache.flink.streaming.connectors.kafka.internals.ClosableBlockingQueue;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaCommitCallback;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionState;
@@ -46,6 +48,7 @@ import javax.annotation.Nonnull;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -160,6 +163,10 @@ public class KafkaConsumerThread extends Thread {
 	 * we cannot use last committed offsets.
 	 */
 	private final Map<TopicPartition, Long> lastProcessedMap;
+
+	private transient long pollInterval = 0L;
+
+	private transient long lastPollTime = 0L;
 
 	public KafkaConsumerThread(
 			Logger log,
@@ -296,6 +303,7 @@ public class KafkaConsumerThread extends Thread {
 						subtaskMetricGroup.gauge(metric.getKey().name(), new KafkaMetricWrapper(metric.getValue()));
 					}
 				}
+				consumerMetricGroup.gauge("poll_interval", (Gauge<Long>) () -> pollInterval);
 			}
 
 			// early exit check
@@ -346,6 +354,11 @@ public class KafkaConsumerThread extends Thread {
 						if (sampleInterval > 0){
 							initProcessedMap();
 						}
+
+						// register Kafka's very own metrics in Flink's metric reporters
+						if (useMetrics) {
+							registerKafkaMetricForNewPartition(newPartitions);
+						}
 					}
 				} catch (AbortedReassignmentException e) {
 					continue;
@@ -360,6 +373,11 @@ public class KafkaConsumerThread extends Thread {
 				if (records == null) {
 					try {
 						records = (sampleInterval > 0) ? getSampledRecordsAfterInterval() : getRecordsFromKafka();
+						long recordLastPollTime = System.currentTimeMillis();
+						if (lastPollTime > 0) {
+							pollInterval = (recordLastPollTime - lastPollTime);
+						}
+						lastPollTime = recordLastPollTime;
 					}
 					catch (WakeupException we) {
 						continue;
@@ -769,6 +787,39 @@ public class KafkaConsumerThread extends Thread {
 		return new ConsumerRecords<>(sampledRecords);
 	}
 
+	private void registerKafkaMetricForNewPartition(List<KafkaTopicPartitionState<TopicPartition>> newPartitions) {
+		// register Kafka metrics to Flink
+		Map<MetricName, ? extends Metric> metrics = consumer.metrics();
+		if (metrics == null) {
+			// MapR's Kafka implementation returns null here.
+			log.info("Consumer implementation does not support metrics");
+		} else {
+			Set<TopicPartition> newPartitionSet = new HashSet<>();
+			for (KafkaTopicPartitionState<TopicPartition> entry: newPartitions) {
+				newPartitionSet.add(entry.getKafkaPartitionHandle());
+			}
+
+			// we have Kafka metrics, register them
+			for (Map.Entry<MetricName, ? extends Metric> metric : metrics.entrySet()) {
+				Map<String, String> tags = metric.getKey().tags();
+				if (tags.containsKey("partition") && tags.containsKey("topic")) {
+					String topic = tags.get("topic");
+					String partition = tags.get("partition");
+
+					TopicPartition topicPartition = new TopicPartition(topic, Integer.parseInt(partition));
+					if (newPartitionSet.contains(topicPartition)) {
+						MetricGroup topicPartitionGroup = consumerMetricGroup
+							.addGroup("topic", topic)
+							.addGroup("partition", partition)
+							.addGroup(MetricsConstants.METRICS_CONNECTOR_TYPE, "kafka")
+							.addGroup(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE);
+
+						topicPartitionGroup.gauge(metric.getKey().name(), new KafkaMetricWrapper(metric.getValue()));
+					}
+				}
+			}
+		}
+	}
 
 	// ------------------------------------------------------------------------
 	//  Utilities

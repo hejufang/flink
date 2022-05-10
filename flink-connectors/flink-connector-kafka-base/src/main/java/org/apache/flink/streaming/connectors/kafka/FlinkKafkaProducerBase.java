@@ -25,6 +25,7 @@ import org.apache.flink.api.java.ClosureCleaner;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.MetricsConstants;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
@@ -50,12 +51,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.flink.table.metric.Constants.WRITE_FAILED;
@@ -138,6 +143,11 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 	/** Number of unacknowledged records. */
 	protected long pendingRecords;
+
+	/**
+	 * All history partitions of each topic.
+	 */
+	protected final Map<String, Set<Integer>> historyTopicPartitionMap = new HashMap<>();
 
 	/**
 	 * The main constructor for creating a FlinkKafkaProducer.
@@ -308,6 +318,15 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 		int[] partitions = this.topicPartitionsMap.get(targetTopic);
 		if (null == partitions) {
 			partitions = getPartitionsByTopic(targetTopic, producer);
+			// register Kafka metrics to Flink accumulators
+			if (!Boolean.parseBoolean(producerConfig.getProperty(KEY_DISABLE_METRICS, "false"))) {
+				registerKafkaMetricForNewPartition(
+					targetTopic,
+					Arrays
+						.stream(partitions)
+						.boxed()
+						.collect(Collectors.toSet()));
+			}
 			this.topicPartitionsMap.put(targetTopic, partitions);
 		}
 
@@ -434,5 +453,42 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 	protected Map<String, Object> getDefaultConfig() {
 		return Collections.emptyMap();
+	}
+
+	protected void registerKafkaMetricForNewPartition(String targetTopic, Set<Integer> addPartition) {
+		historyTopicPartitionMap.putIfAbsent(targetTopic, new HashSet<>());
+		addPartition.removeAll(historyTopicPartitionMap.get(targetTopic));
+
+		registerKafkaMetricForPartition(targetTopic, addPartition);
+
+		historyTopicPartitionMap.get(targetTopic).addAll(addPartition);
+	}
+
+	private void registerKafkaMetricForPartition(String targetTopic, Set<Integer> partitionIds) {
+		Map<MetricName, ? extends Metric> metrics = this.producer.metrics();
+
+		if (metrics == null) {
+			// MapR's Kafka implementation returns null here.
+			LOG.info("Producer implementation does not support metrics");
+		} else {
+			final MetricGroup producerMetricGroup = getRuntimeContext().getMetricGroup().addGroup("KafkaProducer");
+			for (Map.Entry<MetricName, ? extends Metric> metric: metrics.entrySet()) {
+				Map<String, String> tags = metric.getKey().tags();
+				if (tags.containsKey("partition") && tags.containsKey("topic")) {
+					String topic = tags.get("topic");
+					String partition = tags.get("partition");
+
+					if (topic.equalsIgnoreCase(targetTopic) && partitionIds.contains(Integer.parseInt(partition))) {
+						MetricGroup topicPartitionGroup = producerMetricGroup
+							.addGroup("topic", topic)
+							.addGroup("partition", partition)
+							.addGroup(MetricsConstants.METRICS_CONNECTOR_TYPE, "kafka")
+							.addGroup(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE);
+
+						topicPartitionGroup.gauge(metric.getKey().name(), new KafkaMetricWrapper(metric.getValue()));
+					}
+				}
+			}
+		}
 	}
 }
