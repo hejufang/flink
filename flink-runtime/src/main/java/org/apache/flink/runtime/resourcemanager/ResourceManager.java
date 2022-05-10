@@ -581,6 +581,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	@Override
 	public void disconnectTaskManager(final ResourceID resourceId, final Exception cause) {
+		log.error("Task manager {} is disconnecting with resource manager because of {}.", LoggerHelper.secMark("resourceID", resourceId), LoggerHelper.secMark("errMsg", cause.getMessage()));
 		closeTaskManagerConnection(resourceId, cause, WorkerExitCode.EXIT_BY_TASK_MANAGER);
 	}
 
@@ -1422,7 +1423,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		WorkerRegistration<WorkerType> workerRegistration = taskExecutors.remove(resourceID);
 
 		if (workerRegistration != null) {
-			log.info("Closing TaskExecutor connection {} with exit code {} because: {}", LoggerHelper.secMark("resourceID", resourceID), LoggerHelper.secMark("exitCode", exitCode), LoggerHelper.secMark("errMsg", cause.getMessage()));
+			log.warn("Closing TaskExecutor connection {} with exit code {} because: {}", LoggerHelper.secMark("resourceID", resourceID), LoggerHelper.secMark("exitCode", exitCode), LoggerHelper.secMark("errMsg", cause.getMessage()));
 
 			// TODO :: suggest failed task executor to stop itself
 			slotManager.unregisterTaskManager(workerRegistration.getInstanceID(), cause);
