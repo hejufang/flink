@@ -82,7 +82,7 @@ public class JdbcOutputFormatTest extends JdbcDataTestBase {
 	}
 
 	@Test
-	public void testInvalidURL() {
+	public void testInvalidURL() throws Exception {
 		String expectedMsg = "No suitable driver found for jdbc:der:iamanerror:mory:ebookshop";
 		try {
 			jdbcOutputFormat = JdbcOutputFormat.buildJdbcOutputFormat()

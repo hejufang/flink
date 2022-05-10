@@ -29,12 +29,14 @@ import org.apache.flink.connector.jdbc.internal.JdbcBatchingOutputFormat;
 import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.flink.connector.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.flink.connector.jdbc.internal.executor.BufferReduceStatementExecutor;
+import org.apache.flink.connector.jdbc.internal.executor.IgnoreNullBatchStatementExecutor;
 import org.apache.flink.connector.jdbc.internal.executor.InsertOrUpdateJdbcExecutor;
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.flink.connector.jdbc.internal.options.JdbcDmlOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.connector.jdbc.utils.JdbcUtils;
 import org.apache.flink.table.api.TableException;
+import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericRowData;
@@ -67,6 +69,7 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 	private JdbcDmlOptions dmlOptions;
 	private TypeInformation<RowData> rowDataTypeInformation;
 	private DataType[] fieldDataTypes;
+	private DynamicTableSink.DataStructureConverter dataStructureConverter;
 
 	public JdbcDynamicOutputFormatBuilder() {
 	}
@@ -93,6 +96,12 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 
 	public JdbcDynamicOutputFormatBuilder setFieldDataTypes(DataType[] fieldDataTypes) {
 		this.fieldDataTypes = fieldDataTypes;
+		return this;
+	}
+
+	public JdbcDynamicOutputFormatBuilder setDataStructureConverter(
+			DynamicTableSink.DataStructureConverter dataStructureConverter) {
+		this.dataStructureConverter = dataStructureConverter;
 		return this;
 	}
 
@@ -131,7 +140,7 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 			return new JdbcBatchingOutputFormat<>(
 				new SimpleJdbcConnectionProvider(jdbcOptions),
 				executionOptions,
-				ctx -> createSimpleRowDataExecutor(
+				ctx -> createSimpleOrIgnoreNullRowDataExecutor(
 					dmlOptions.getDialect(), sql, logicalTypes, ctx, rowDataTypeInformation, dmlOptions),
 				JdbcBatchingOutputFormat.RecordExtractor.identity(),
 				jdbcOptions.getRateLimiter());
@@ -153,7 +162,7 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 			(st, record) -> rowConverter.toExternal(record, st));
 	}
 
-	private static JdbcBatchStatementExecutor<RowData> createBufferReduceExecutor(
+	private JdbcBatchStatementExecutor<RowData> createBufferReduceExecutor(
 			JdbcDmlOptions opt,
 			RuntimeContext ctx,
 			TypeInformation<RowData> rowDataTypeInfo,
@@ -174,7 +183,7 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 			valueTransform);
 	}
 
-	private static JdbcBatchStatementExecutor<RowData> createUpsertRowExecutor(
+	private JdbcBatchStatementExecutor<RowData> createUpsertRowExecutor(
 			JdbcDmlOptions opt,
 			RuntimeContext ctx,
 			TypeInformation<RowData> rowDataTypeInfo,
@@ -186,7 +195,7 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 		JdbcDialect dialect = opt.getDialect();
 		return opt.getDialect()
 			.getUpsertStatement(opt.getTableName(), opt.getFieldNames(), opt.getKeyFields().get())
-			.map(sql -> createSimpleRowDataExecutor(dialect, sql, fieldTypes, ctx, rowDataTypeInfo, opt))
+			.map(sql -> createSimpleOrIgnoreNullRowDataExecutor(dialect, sql, fieldTypes, ctx, rowDataTypeInfo, opt))
 			.orElseGet(() ->
 				new InsertOrUpdateJdbcExecutor<>(
 					opt.getDialect().getRowExistsStatement(opt.getTableName(), opt.getKeyFields().get()),
@@ -199,7 +208,7 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 					valueTransform));
 	}
 
-	private static JdbcBatchStatementExecutor<RowData> createDeleteExecutor(
+	private JdbcBatchStatementExecutor<RowData> createDeleteExecutor(
 			JdbcDmlOptions dmlOptions,
 			int[] pkFields,
 			LogicalType[] pkTypes,
@@ -218,7 +227,7 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 		return row -> getPrimaryKey(row, fieldGetters);
 	}
 
-	private static JdbcBatchStatementExecutor<RowData> createSimpleRowDataExecutor(
+	private JdbcBatchStatementExecutor<RowData> createSimpleOrIgnoreNullRowDataExecutor(
 			JdbcDialect dialect,
 			String sql,
 			LogicalType[] fieldTypes,
@@ -262,11 +271,28 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 					dialect.dialectName()));
 			}
 		}
+		if (dmlOptions.isIgnoreNull()) {
+			IgnoreNullBatchStatementExecutor.Builder builder =
+				IgnoreNullBatchStatementExecutor.builder()
+					.withValueTransformer(realValueTransformer)
+					.withTableName(dmlOptions.getTableName())
+					.withDataStructureConverter(dataStructureConverter)
+					.withFieldNames(dmlOptions.getFieldNames());
 
-		return JdbcBatchStatementExecutor.simple(
-			sql,
-			createRowDataJdbcStatementBuilder(dialect, realTypes),
-			realValueTransformer);
+			if (dmlOptions.getKeyFields().isPresent()) {
+				builder.withPks(Arrays.stream(dmlOptions.getKeyFields().get())
+					.mapToInt(Arrays.asList(dmlOptions.getFieldNames())::indexOf)
+					.toArray());
+			} else {
+				builder.withPks(new int[0]);
+			}
+			return builder.build();
+		} else {
+			return JdbcBatchStatementExecutor.simple(
+				sql,
+				createRowDataJdbcStatementBuilder(dialect, realTypes),
+				realValueTransformer);
+		}
 	}
 
 	private static class RowDataWrapper implements RowData {

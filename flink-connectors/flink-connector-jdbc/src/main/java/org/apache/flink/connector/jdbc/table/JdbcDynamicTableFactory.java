@@ -201,6 +201,11 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 			"WHERE update_condition_columns`. If this option is not specified, update statement for " +
 			"mysql will be `INSERT INTO tbl(...) ON DUPLICATE KEY UPDATE ...`, which can only update " +
 			"by primary/unique key.");
+	public static final ConfigOption<Boolean> SINK_IGNORE_NULL_COLUMNS = ConfigOptions
+		.key("sink.ignore-null-columns")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional whether to insert a null column or not.");
 
 	@Override
 	public DynamicTableSink createDynamicTableSink(Context context) {
@@ -314,6 +319,7 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 			.withUpdateConditionFields(config.getOptional(UPDATE_CONDITION_COLUMNS)
 				.map(columns -> columns.toArray(new String[0]))
 				.orElse(null))
+			.withIgnoreNull(config.get(SINK_IGNORE_NULL_COLUMNS))
 			.build();
 	}
 
@@ -362,6 +368,7 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		optionalOptions.add(UPDATE_CONDITION_COLUMNS);
 		optionalOptions.add(SOURCE_SCAN_INTERVAL);
 		optionalOptions.add(SOURCE_SCAN_COUNT_OF_SCAN_TIMES);
+		optionalOptions.add(SINK_IGNORE_NULL_COLUMNS);
 		return optionalOptions;
 	}
 

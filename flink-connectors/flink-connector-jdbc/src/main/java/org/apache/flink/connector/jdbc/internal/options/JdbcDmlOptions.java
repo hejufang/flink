@@ -43,6 +43,7 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 	private final JdbcDialect dialect;
 	@Nullable
 	private final String[] updateConditionFields;
+	private final boolean ignoreNull;
 
 	public static JdbcDmlOptionsBuilder builder() {
 		return new JdbcDmlOptionsBuilder();
@@ -54,13 +55,15 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 			String[] fieldNames,
 			int[] fieldTypes,
 			String[] keyFields,
-			String[] updateConditionFields) {
+			String[] updateConditionFields,
+			boolean ignoreNull) {
 		super(fieldTypes);
 		this.tableName = Preconditions.checkNotNull(tableName, "table is empty");
 		this.dialect = Preconditions.checkNotNull(dialect, "dialect name is empty");
 		this.fieldNames = Preconditions.checkNotNull(fieldNames, "field names is empty");
 		this.keyFields = keyFields;
 		this.updateConditionFields = updateConditionFields;
+		this.ignoreNull = ignoreNull;
 	}
 
 	public String getTableName() {
@@ -81,6 +84,10 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 
 	public String[] getUpdateConditionFields() {
 		return updateConditionFields;
+	}
+
+	public boolean isIgnoreNull() {
+		return ignoreNull;
 	}
 
 	public int[] getUpdateConditionIndices() {
@@ -106,14 +113,17 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 		return Arrays.equals(fieldNames, that.fieldNames) &&
 			Arrays.equals(keyFields, that.keyFields) &&
 			Objects.equals(tableName, that.tableName) &&
-			Objects.equals(dialect, that.dialect);
+			Objects.equals(dialect, that.dialect) &&
+			Arrays.equals(updateConditionFields, that.updateConditionFields) &&
+			Objects.equals(ignoreNull, that.ignoreNull);
 	}
 
 	@Override
 	public int hashCode() {
-		int result = Objects.hash(tableName, dialect);
+		int result = Objects.hash(tableName, dialect, ignoreNull);
 		result = 31 * result + Arrays.hashCode(fieldNames);
 		result = 31 * result + Arrays.hashCode(keyFields);
+		result = 31 * result + Arrays.hashCode(updateConditionFields);
 		return result;
 	}
 
@@ -126,6 +136,7 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 		private String[] keyFields;
 		private JdbcDialect dialect;
 		private String[] updateConditionFields;
+		private boolean ignoreNull;
 
 		@Override
 		protected JdbcDmlOptionsBuilder self() {
@@ -167,8 +178,20 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 			return this;
 		}
 
+		public JdbcDmlOptionsBuilder withIgnoreNull(boolean ignoreNull) {
+			this.ignoreNull = ignoreNull;
+			return this;
+		}
+
 		public JdbcDmlOptions build() {
-			return new JdbcDmlOptions(tableName, dialect, fieldNames, fieldTypes, keyFields, updateConditionFields);
+			return new JdbcDmlOptions(
+				tableName,
+				dialect,
+				fieldNames,
+				fieldTypes,
+				keyFields,
+				updateConditionFields,
+				ignoreNull);
 		}
 
 		static String[] concat(String first, String... next) {

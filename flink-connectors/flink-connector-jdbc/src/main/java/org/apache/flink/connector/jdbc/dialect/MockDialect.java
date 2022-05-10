@@ -18,31 +18,26 @@
 
 package org.apache.flink.connector.jdbc.dialect;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 
 /**
- * Default JDBC dialects.
+ * JDBC dialect for mocking. This extends {@link MySQLDialect} because
+ * we want to test for Mysql for most of the cases.
  */
-public final class JdbcDialects {
+public class MockDialect extends MySQLDialect {
 
-	private static final List<JdbcDialect> DIALECTS = Arrays.asList(
-		new DerbyDialect(),
-		new MySQLDialect(),
-		new PostgresDialect(),
-		new MockDialect()
-	);
+	@Override
+	public boolean canHandle(String url) {
+		return url.startsWith("jdbc:mock:");
+	}
 
-	/**
-	 * Fetch the JdbcDialect class corresponding to a given database url.
-	 */
-	public static Optional<JdbcDialect> get(String url) {
-		for (JdbcDialect dialect : DIALECTS) {
-			if (dialect.canHandle(url)) {
-				return Optional.of(dialect);
-			}
-		}
+	@Override
+	public Optional<String> defaultDriverName() {
 		return Optional.empty();
+	}
+
+	@Override
+	public String dialectName() {
+		return "Mock";
 	}
 }
