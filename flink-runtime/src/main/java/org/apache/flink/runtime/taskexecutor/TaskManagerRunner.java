@@ -125,6 +125,8 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 
 	private final CompletableFuture<Void> terminationFuture;
 
+	protected boolean onFatalErrored;
+
 	private boolean shutdown;
 
 	public TaskManagerRunner(Configuration configuration, ResourceID resourceId, PluginManager pluginManager) throws Exception {
@@ -219,6 +221,17 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 			Collection<CompletableFuture<Void>> terminationFutures = new ArrayList<>(3);
 			Exception exception = null;
 
+			if (!onFatalErrored) {
+				// Only print ThreadInfo in first time.
+				onFatalErrored = true;
+				try {
+					final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = JvmUtils.createThreadDumpInfos();
+					LOG.error("TaskManager thread dump infos:\n{}", StringUtils.join(threadInfos, "\n"));
+				} catch (Exception e) {
+					LOG.error("Print TaskManager thread dump fail", e);
+				}
+			}
+
 			try {
 				blobCacheService.close();
 			} catch (Exception e) {
@@ -265,8 +278,6 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 
 	@Override
 	public void onFatalError(Throwable exception, int exitCode) {
-		final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = JvmUtils.createThreadDumpInfos();
-		LOG.error("TaskManager thread dump infos:\n{}", StringUtils.join(threadInfos, "\n"));
 
 		Throwable enrichedException = TaskManagerExceptionUtils.tryEnrichTaskManagerError(exception);
 		LOG.error("Fatal error occurred while executing the TaskManager. Shutting it down...", enrichedException);
@@ -275,6 +286,20 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 		// as it does not usually require more class loading to fail again with the Metaspace OutOfMemoryError.
 		if (ExceptionUtils.isJvmFatalOrOutOfMemoryError(enrichedException) &&
 				!ExceptionUtils.isMetaspaceOutOfMemoryError(enrichedException)) {
+			if (ExceptionUtils.isJvmFatalError(enrichedException)) {
+				// Only print ThreadInfo in first time.
+				try {
+					synchronized (lock) {
+						if (!onFatalErrored) {
+							onFatalErrored = true;
+							final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = JvmUtils.createThreadDumpInfos();
+							LOG.error("TaskManager thread dump infos:\n{}", StringUtils.join(threadInfos, "\n"));
+						}
+					}
+				} catch (Exception e) {
+					LOG.error("Print TaskManager thread dump fail", e);
+				}
+			}
 			terminateJVM(exitCode);
 		} else {
 			closeAsync();
