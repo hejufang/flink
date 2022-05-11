@@ -853,7 +853,7 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		Map<String, Long> catalogLsnMap = new HashMap<>();
 		for (String catalogName : catalogNames) {
 			Optional<Catalog> catalogOptional = catalogManager.getCatalog(catalogName);
-			catalogOptional.ifPresent(catalog -> catalogLsnMap.put(catalogName, catalog.getCurrentCheckPointLSN()));
+			catalogOptional.ifPresent(catalog -> catalogLsnMap.put(catalogName, catalog.getVersionID()));
 		}
 		return catalogLsnMap;
 	}

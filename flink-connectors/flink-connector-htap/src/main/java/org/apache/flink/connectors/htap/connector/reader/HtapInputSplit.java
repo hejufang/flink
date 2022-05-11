@@ -20,6 +20,10 @@ package org.apache.flink.connectors.htap.connector.reader;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.io.GenericInputSplit;
 
+import com.bytedance.htap.metaclient.partition.PartitionID;
+
+import java.util.Arrays;
+
 /**
  HtapInputSplit.
  */
@@ -27,6 +31,7 @@ import org.apache.flink.core.io.GenericInputSplit;
 public class HtapInputSplit extends GenericInputSplit {
 
 	private final byte[] scanToken;
+	private final PartitionID partitionID;
 
 	/**
 	 * Creates a new HtapInputSplit.
@@ -36,13 +41,29 @@ public class HtapInputSplit extends GenericInputSplit {
 	 */
 	public HtapInputSplit(
 			byte[] scanToken,
+			final PartitionID partitionID,
 			final int partitionNumber,
 			final int totalNumberOfPartitions) {
 		super(partitionNumber, totalNumberOfPartitions);
+		this.partitionID = partitionID;
 		this.scanToken = scanToken;
 	}
 
 	public byte[] getScanToken() {
 		return scanToken;
+	}
+
+	public PartitionID getPartitionID() {
+		return partitionID;
+	}
+
+	@Override
+	public String toString() {
+		return "HtapInputSplit{" +
+			"scanToken=" + Arrays.toString(scanToken) +
+			", partitionID=" + partitionID +
+			", partitionNumber=" + getSplitNumber() +
+			", totalNumberOfPartitions=" + getTotalNumberOfSplits() +
+			'}';
 	}
 }

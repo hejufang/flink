@@ -31,6 +31,7 @@ import com.bytedance.htap.client.HtapStorageClient;
 import com.bytedance.htap.exception.HtapException;
 import com.bytedance.htap.meta.ColumnSchema;
 import com.bytedance.htap.meta.HtapTable;
+import com.bytedance.htap.metaclient.partition.PartitionID;
 import org.apache.commons.collections.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,7 +62,7 @@ public class HtapReader implements AutoCloseable {
 	private final DataType outputDataType;
 	private final HtapStorageClient client;
 	private final long limit;
-	private final Set<Integer> pushedDownPartitions;
+	private final Set<PartitionID> pushedDownPartitions;
 	private final String htapClusterName;
 	private final String subTaskFullName;
 	private final TopNInfo topNInfo;
@@ -76,7 +77,7 @@ public class HtapReader implements AutoCloseable {
 			List<FlinkAggregateFunction> aggregateFunctions,
 			DataType outputDataType,
 			long limit,
-			Set<Integer> pushedDownPartitions,
+			Set<PartitionID> pushedDownPartitions,
 			String htapClusterName,
 			String subTaskFullName,
 			TopNInfo topNInfo) throws IOException {
@@ -105,7 +106,7 @@ public class HtapReader implements AutoCloseable {
 			String pageStoreLogDir = readerConfig.getPageStoreLogDir() + "/" + processId;
 			LOG.debug("{} Obtain client with log path: logStorage({}), pageStorage({})",
 				subTaskFullName, logStoreLogDir, pageStoreLogDir);
-			return new HtapStorageClient(readerConfig.getInstanceId(),
+			return new HtapStorageClient(readerConfig.getDbCluster(), table,
 				readerConfig.getByteStoreLogPath(), readerConfig.getByteStoreDataPath(),
 				logStoreLogDir, pageStoreLogDir, htapClusterName);
 		} catch (HtapException e) {
@@ -121,7 +122,7 @@ public class HtapReader implements AutoCloseable {
 
 	public HtapReaderIterator scanner(
 			byte[] token,
-			int partitionId,
+			PartitionID partitionId,
 			String subTaskFullName,
 			boolean compatibleWithMySQL) throws IOException {
 		try {
@@ -140,7 +141,7 @@ public class HtapReader implements AutoCloseable {
 			List<String> groupByColumns,
 			List<HtapAggregateInfo> tableAggregates,
 			int rowLimit,
-			Set<Integer> pushedDownPartitions,
+			Set<PartitionID> pushedDownPartitions,
 			TopNInfo topNInfo) {
 		HtapScanToken.HtapScanTokenBuilder tokenBuilder =
 			new HtapScanToken.HtapScanTokenBuilder(table);
@@ -196,6 +197,8 @@ public class HtapReader implements AutoCloseable {
 	}
 
 	public HtapInputSplit[] createInputSplits(int minNumSplits) throws IOException {
+		// We should ensure that the tokens returned here is in a stable order, as we use the
+		// index as the partition number in HtapInputSplit.
 		List<HtapScanToken> tokens = scanTokens(tableFilters, tableProjections, groupByColumns,
 			tableAggregates, (int) limit, pushedDownPartitions, topNInfo);
 		HtapInputSplit[] splits = new HtapInputSplit[tokens.size()];
@@ -204,7 +207,7 @@ public class HtapReader implements AutoCloseable {
 			HtapScanToken token = tokens.get(i);
 
 			HtapInputSplit split =
-				new HtapInputSplit(token.serialize(), token.getPartitionId(), tokens.size());
+				new HtapInputSplit(token.serialize(), token.getPartitionID(), i, tokens.size());
 			splits[i] = split;
 		}
 

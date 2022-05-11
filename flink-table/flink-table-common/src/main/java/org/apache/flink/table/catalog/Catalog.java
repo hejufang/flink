@@ -617,11 +617,11 @@ public interface Catalog {
 		boolean ignoreIfNotExists) throws PartitionNotExistException, CatalogException;
 
 	/**
-	 * Get the current check point lsn for the sql query.
+	 * Get catalog version id.
 	 *
 	 * @return the current lsn
 	 */
-	default long getCurrentCheckPointLSN() {
+	default long getVersionID() {
 		return 0;
 	}
 }

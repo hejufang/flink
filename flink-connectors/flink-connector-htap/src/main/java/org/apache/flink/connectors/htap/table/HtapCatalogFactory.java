@@ -36,10 +36,10 @@ import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BATCH
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BYTESTORE_DATAPATH;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BYTESTORE_LOGPATH;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_CLUSTER_NAME;
-import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_INSTANCE_ID;
+import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_DB_CLUSTER;
+import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_DB_NAME;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_LOGSTORE_LOGDIR;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_META_CLUSTER;
-import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_META_DB;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_META_REGION;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_PAGESTORE_LOGDIR;
 import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_CACHE_ASYNC_RELOAD;
@@ -77,8 +77,8 @@ public class HtapCatalogFactory implements CatalogFactory {
 		properties.add(HTAP_CLUSTER_NAME);
 		properties.add(HTAP_META_REGION);
 		properties.add(HTAP_META_CLUSTER);
-		properties.add(HTAP_META_DB);
-		properties.add(HTAP_INSTANCE_ID);
+		properties.add(HTAP_DB_NAME);
+		properties.add(HTAP_DB_CLUSTER);
 		properties.add(HTAP_BYTESTORE_LOGPATH);
 		properties.add(HTAP_BYTESTORE_DATAPATH);
 		properties.add(HTAP_LOGSTORE_LOGDIR);
@@ -97,7 +97,7 @@ public class HtapCatalogFactory implements CatalogFactory {
 	public Catalog createCatalog(String name, Map<String, String> properties) {
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 
-		final String defaultDatabase = descriptorProperties.getOptionalString(HTAP_META_DB)
+		final String defaultDatabase = descriptorProperties.getOptionalString(HTAP_DB_NAME)
 			.orElse(HtapCatalog.DEFAULT_DB);
 		final boolean cacheEnable = descriptorProperties.getOptionalBoolean(CATALOG_CACHE_ENABLE)
 			.orElse(DEFAULT_CATALOG_CACHE_ENABLE);
@@ -108,9 +108,7 @@ public class HtapCatalogFactory implements CatalogFactory {
 			descriptorProperties.getString(HTAP_CLUSTER_NAME),
 			descriptorProperties.getString(HTAP_META_REGION),
 			descriptorProperties.getString(HTAP_META_CLUSTER),
-			descriptorProperties.getString(HTAP_INSTANCE_ID),
-			descriptorProperties.getString(HTAP_BYTESTORE_LOGPATH),
-			descriptorProperties.getString(HTAP_BYTESTORE_DATAPATH),
+			descriptorProperties.getString(HTAP_DB_CLUSTER),
 			descriptorProperties.getString(HTAP_LOGSTORE_LOGDIR),
 			descriptorProperties.getString(HTAP_PAGESTORE_LOGDIR),
 			descriptorProperties.getOptionalInt(HTAP_BATCH_SIZE_BYTES)
@@ -140,10 +138,8 @@ public class HtapCatalogFactory implements CatalogFactory {
 		descriptorProperties.validateString(HTAP_CLUSTER_NAME, true);
 		descriptorProperties.validateString(HTAP_META_REGION, false);
 		descriptorProperties.validateString(HTAP_META_CLUSTER, false);
-		descriptorProperties.validateString(HTAP_META_DB, false);
-		descriptorProperties.validateString(HTAP_INSTANCE_ID, false);
-		descriptorProperties.validateString(HTAP_BYTESTORE_LOGPATH, false);
-		descriptorProperties.validateString(HTAP_BYTESTORE_DATAPATH, false);
+		descriptorProperties.validateString(HTAP_DB_NAME, false);
+		descriptorProperties.validateString(HTAP_DB_CLUSTER, false);
 		descriptorProperties.validateString(HTAP_LOGSTORE_LOGDIR, false);
 		descriptorProperties.validateString(HTAP_PAGESTORE_LOGDIR, false);
 		descriptorProperties.validateInt(HTAP_BATCH_SIZE_BYTES, true);

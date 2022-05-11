@@ -32,9 +32,7 @@ import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.table.catalog.exceptions.CatalogException;
 import org.apache.flink.table.catalog.exceptions.DatabaseNotExistException;
 import org.apache.flink.table.catalog.exceptions.FunctionNotExistException;
-import org.apache.flink.table.catalog.exceptions.PartitionNotExistException;
 import org.apache.flink.table.catalog.exceptions.TableNotExistException;
-import org.apache.flink.table.catalog.exceptions.TablePartitionedException;
 import org.apache.flink.table.catalog.stats.CatalogColumnStatistics;
 import org.apache.flink.table.catalog.stats.CatalogColumnStatisticsDataBase;
 import org.apache.flink.table.catalog.stats.CatalogTableStatistics;
@@ -49,7 +47,10 @@ import com.bytedance.htap.meta.HtapTable;
 import com.bytedance.htap.meta.HtapTableColumnStatistics;
 import com.bytedance.htap.meta.HtapTableStatistics;
 import com.bytedance.htap.meta.Type;
+import com.bytedance.htap.metaclient.catalog.DbClusterInfo;
+import com.bytedance.htap.metaclient.catalog.Snapshot;
 import com.bytedance.htap.metaclient.exceptions.MetadataServiceException;
+import com.bytedance.htap.metaclient.partition.PartitionID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,7 +85,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 
 	private final String metaSvcRegion;
 	private final String metaSvcCluster;
-	private final String instanceId;
+	private final String dbCluster;
 	private final HtapMetaClient metaClient;
 
 	private final String byteStoreLogPath;
@@ -96,7 +97,8 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 	// The currentCheckPointLSN binding with a single SQL statement life cycle,
 	// each HTAP SQL need to call updateCurrentCheckPointLSN explicitly prior to actutal execution.
 	// If updateCurrentCheckPointLSN is not called, just use latest checkpoint lsn which maybe inconstant.
-	private long currentCheckPointLSN = -1L;
+
+	private Snapshot snapshot;
 
 	public HtapCatalog(
 			String catalogName,
@@ -104,59 +106,35 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 			String htapClusterName,
 			String metaSvcRegion,
 			String metaSvcCluster,
-			String instanceId,
-			String byteStoreLogPath,
-			String byteStoreDataPath,
+			String dbCluster,
 			String logStoreLogDir,
 			String pageStoreLogDir,
 			int batchSizeBytes) throws CatalogException {
 		super(catalogName, db);
 		this.metaSvcRegion = metaSvcRegion;
 		this.metaSvcCluster = metaSvcCluster;
-		this.instanceId = instanceId;
-		this.byteStoreLogPath = byteStoreLogPath;
-		this.byteStoreDataPath = byteStoreDataPath;
+		this.dbCluster = dbCluster;
 		this.logStoreLogDir = logStoreLogDir;
 		this.pageStoreLogDir = pageStoreLogDir;
 		this.batchSizeBytes = batchSizeBytes;
-		this.metaClient = HtapMetaUtils.getMetaClient(htapClusterName, metaSvcRegion, metaSvcCluster, instanceId);
-	}
-
-	public HtapCatalog(
-			String db,
-			String htapClusterName,
-			String metaSvcRegion,
-			String metaSvcCluster,
-			String instanceId,
-			String byteStoreLogPath,
-			String byteStoreDataPath,
-			String logStoreLogDir,
-			String pageStoreLogDir,
-			int batchSizeBytes) {
-		this(HTAP, db, htapClusterName, metaSvcRegion, metaSvcCluster, instanceId, byteStoreLogPath,
-			logStoreLogDir, byteStoreDataPath, pageStoreLogDir, batchSizeBytes);
+		this.metaClient = HtapMetaUtils.getMetaClient(dbCluster, metaSvcRegion, metaSvcCluster, htapClusterName);
+		DbClusterInfo clusterInfo = this.metaClient.getDbClusterInfo();
+		Preconditions.checkNotNull(clusterInfo, "clusterInfo cannot be null");
+		this.byteStoreLogPath = clusterInfo.getLogPath();
+		this.byteStoreDataPath = clusterInfo.getDataPath();
 	}
 
 	public Optional<TableFactory> getTableFactory() {
-		return Optional.of(getHtapTableFactory());
-	}
-
-	public HtapTableFactory getHtapTableFactory() {
-		return new HtapTableFactory(currentCheckPointLSN);
+		return Optional.of(new HtapTableFactory(snapshot));
 	}
 
 	private HtapTable getHtapTable(ObjectPath tablePath) throws CatalogException {
-		String htapTableName = HtapTableUtils.convertToHtapTableName(tablePath);
-		return getHtapTable(htapTableName);
-	}
-
-	private HtapTable getHtapTable(String tableName) throws CatalogException {
-		HtapTable htapTable = currentCheckPointLSN == -1L ?
-			metaClient.getTable(tableName) :
-			metaClient.getTable(tableName, currentCheckPointLSN);
+		HtapTable htapTable = snapshot == null ?
+			metaClient.getTable(tablePath.getDatabaseName(), tablePath.getObjectName()) :
+			metaClient.getTable(tablePath.getDatabaseName(), tablePath.getObjectName(), snapshot);
 		if (htapTable == null) {
 			throw new CatalogException(String.format(
-				"Failed to get table %s from the HTAP Metaservice", tableName));
+				"Failed to get table %s from the HTAP Metaservice", tablePath));
 		}
 		return htapTable;
 	}
@@ -173,19 +151,19 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		}
 	}
 
+	public Snapshot getSnapshot() {
+		return snapshot;
+	}
+
+	public Snapshot updateSnapshot() {
+		// get the latest snapshot
+		snapshot = metaClient.getSnapshot();
+		return snapshot;
+	}
+
 	@Override
-	public long getCurrentCheckPointLSN() {
-		return currentCheckPointLSN;
-	}
-
-	public long updateCurrentCheckPointLSN() {
-		// get the latest checkpointLSN
-		currentCheckPointLSN = metaClient.getCheckpointLSN();
-		return currentCheckPointLSN;
-	}
-
-	public ObjectPath getObjectPath(String tableName) {
-		return new ObjectPath(getDefaultDatabase(), tableName);
+	public long getVersionID() {
+		return snapshot == null ? 0 : snapshot.hashCode();
 	}
 
 	@Override
@@ -193,19 +171,18 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 			throws CatalogException {
 		checkArgument(!StringUtils.isNullOrWhitespaceOnly(databaseName),
 			"databaseName cannot be null or empty");
-		// TODO: maybe tableNames need normalize
-		return currentCheckPointLSN == -1L ?
-			metaClient.listTables() :
-			metaClient.listTables(currentCheckPointLSN);
+		List<String> result = snapshot == null ?
+			metaClient.listTables(databaseName) :
+			metaClient.listTables(databaseName, snapshot);
+		return result;
 	}
 
 	@Override
 	public boolean tableExists(ObjectPath tablePath) {
 		checkNotNull(tablePath);
-		String htapTableName = HtapTableUtils.convertToHtapTableName(tablePath);
-		return currentCheckPointLSN == -1L ?
-			metaClient.tableExists(htapTableName) :
-			metaClient.tableExists(htapTableName, currentCheckPointLSN);
+		return snapshot == null ?
+			metaClient.tableExists(tablePath.getDatabaseName(), tablePath.getObjectName()) :
+			metaClient.tableExists(tablePath.getDatabaseName(), tablePath.getObjectName(), snapshot);
 	}
 
 	@Override
@@ -216,26 +193,26 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 			throw new TableNotExistException(getName(), tablePath);
 		}
 
-		String htapTableName = HtapTableUtils.convertToHtapTableName(tablePath);
-		HtapTable htapTable = getHtapTable(htapTableName);
+		HtapTable htapTable = getHtapTable(tablePath);
 		return new CatalogTableImpl(
 			HtapTableUtils.htapToFlinkSchema(htapTable.getSchema()),
 			htapTable.getPartitionKeys(),
-			createTableProperties(htapTableName),
-			htapTableName);
+			createTableProperties(tablePath),
+			"");
 	}
 
-	protected Map<String, String> createTableProperties(String tableName) {
+	protected Map<String, String> createTableProperties(ObjectPath tablePath) {
 		Map<String, String> props = new HashMap<>();
 		props.put(CONNECTOR_TYPE, HTAP);
 		props.put(HtapTableFactory.HTAP_META_REGION, metaSvcRegion);
 		props.put(HtapTableFactory.HTAP_META_CLUSTER, metaSvcCluster);
-		props.put(HtapTableFactory.HTAP_INSTANCE_ID, instanceId);
+		props.put(HtapTableFactory.HTAP_DB_CLUSTER, dbCluster);
 		props.put(HtapTableFactory.HTAP_BYTESTORE_LOGPATH, byteStoreLogPath);
 		props.put(HtapTableFactory.HTAP_BYTESTORE_DATAPATH, byteStoreDataPath);
 		props.put(HtapTableFactory.HTAP_LOGSTORE_LOGDIR, logStoreLogDir);
 		props.put(HtapTableFactory.HTAP_PAGESTORE_LOGDIR, pageStoreLogDir);
-		props.put(HtapTableFactory.HTAP_TABLE, tableName);
+		props.put(HtapTableFactory.HTAP_DB_NAME, tablePath.getDatabaseName());
+		props.put(HtapTableFactory.HTAP_TABLE, tablePath.getObjectName());
 		props.put(HtapTableFactory.HTAP_BATCH_SIZE_BYTES, String.valueOf(batchSizeBytes));
 		return props;
 	}
@@ -248,21 +225,16 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		if (!tableExists(tablePath)) {
 			throw new TableNotExistException(getName(), tablePath);
 		}
-		String htapTableName = HtapTableUtils.convertToHtapTableName(tablePath);
-		try {
-			HtapTableStatistics htapTableStatistics =
-				metaClient.getTableStatistics(htapTableName);
-			LOG.debug("Table stats of table '{}' get from meta service is {}", htapTableName,
-				htapTableStatistics);
-			// no stats available
-			if (htapTableStatistics == null) {
-				return CatalogTableStatistics.UNKNOWN;
-			}
-			return createCatalogTableStatistics(htapTableStatistics);
-		} catch (MetadataServiceException e) {
-			throw new CatalogException(
-				String.format("Failed to get table stats of table %s", htapTableName), e);
+//		String htapTableName = HtapTableUtils.convertToHtapTableName(tablePath);
+		HtapTableStatistics htapTableStatistics =
+			metaClient.getTableStatistics(tablePath.getDatabaseName(), tablePath.getObjectName());
+		LOG.debug("Table stats of table '{}' get from meta service is {}", tablePath,
+			htapTableStatistics);
+		// no stats available
+		if (htapTableStatistics == null) {
+			return CatalogTableStatistics.UNKNOWN;
 		}
+		return createCatalogTableStatistics(htapTableStatistics);
 	}
 
 	@Override
@@ -275,32 +247,31 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		if (!tableExists(tablePath)) {
 			throw new TableNotExistException(getName(), tablePath);
 		}
-		String htapTableName = HtapTableUtils.convertToHtapTableName(tablePath);
 		try {
 			// get htap table stats
 			HtapTableStatistics htapTableStatistics =
-				metaClient.getTableStatistics(htapTableName);
+				metaClient.getTableStatistics(tablePath.getDatabaseName(), tablePath.getObjectName());
 			if (htapTableStatistics == null) {
 				// create htap table stats if not available in metadata service
 				htapTableStatistics =
-					HtapTableStatistics.newBuilder(htapTableName)
+					HtapTableStatistics.newBuilder(tablePath.getDatabaseName(), tablePath.getObjectName())
 						.rowCount(tableStatistics.getRowCount())
 						.build();
-				LOG.info("New table stats of table {}: {}", htapTableName, htapTableStatistics);
+				LOG.info("New table stats of table {}: {}", tablePath, htapTableStatistics);
 			} else if (statsChanged(tableStatistics, htapTableStatistics)) {
 				// update htap table stats if stats changed
 				htapTableStatistics.setRowCount(tableStatistics.getRowCount());
-				LOG.info("Update table stats of table {}: {}", htapTableName, htapTableStatistics);
+				LOG.info("Update table stats of table {}: {}", tablePath, htapTableStatistics);
 			} else {
 				// otherwise do nothing
-				LOG.info("Table stats of table {} not changed", htapTableName);
+				LOG.info("Table stats of table {} not changed", tablePath);
 				return;
 			}
 			// post updated htap table stats to metadata service
 			metaClient.updateTableStatistics(htapTableStatistics);
 		} catch (MetadataServiceException e) {
 			throw new CatalogException(
-				String.format("Failed to alter table stats of table %s", htapTableName), e);
+				String.format("Failed to alter table stats of table %s", tablePath), e);
 		}
 	}
 
@@ -311,55 +282,48 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		if (!tableExists(tablePath)) {
 			throw new TableNotExistException(getName(), tablePath);
 		}
-		String htapTableName = HtapTableUtils.convertToHtapTableName(tablePath);
-		try {
-			// get htap table column's stats
-			Map<String, HtapTableColumnStatistics> htapTableColumnStatisticsMap =
-				metaClient.getTableColumnStatistics(htapTableName);
-			// no stats available
-			if (htapTableColumnStatisticsMap == null) {
-				return CatalogColumnStatistics.UNKNOWN;
-			}
-			Map<String, CatalogColumnStatisticsDataBase> catalogColumnStatisticsMap = new HashMap<>();
-			// convert htap table column's stats to GenericCatalogColumnStatisticsData
-			htapTableColumnStatisticsMap.forEach((columnName, htapTableColumnStatistics) -> {
-				catalogColumnStatisticsMap.put(
-					columnName, createCatalogColumnStats(htapTableColumnStatistics));
-			});
-			LOG.info("Column stats of table '{}' get from meta service is {}", htapTableName,
-					catalogColumnStatisticsMap);
-			return new CatalogColumnStatistics(catalogColumnStatisticsMap);
-		} catch (MetadataServiceException e) {
-			throw new CatalogException(
-				String.format("Failed to get table column stats of table %s", htapTableName), e);
+		// get htap table column's stats
+		Map<String, HtapTableColumnStatistics> htapTableColumnStatisticsMap =
+			metaClient.getTableColumnStatistics(tablePath.getDatabaseName(), tablePath.getObjectName());
+		// no stats available
+		if (htapTableColumnStatisticsMap == null) {
+			return CatalogColumnStatistics.UNKNOWN;
 		}
+		Map<String, CatalogColumnStatisticsDataBase> catalogColumnStatisticsMap = new HashMap<>();
+		// convert htap table column's stats to GenericCatalogColumnStatisticsData
+		htapTableColumnStatisticsMap.forEach((columnName, htapTableColumnStatistics) -> {
+			catalogColumnStatisticsMap.put(
+				columnName, createCatalogColumnStats(htapTableColumnStatistics));
+		});
+		LOG.info("Column stats of table '{}' get from meta service is {}", tablePath,
+				catalogColumnStatisticsMap);
+		return new CatalogColumnStatistics(catalogColumnStatisticsMap);
 	}
 
 	@Override
 	public void alterTableColumnStatistics(ObjectPath tablePath,
 			CatalogColumnStatistics columnStatistics, boolean ignoreIfNotExists)
-			throws TableNotExistException, CatalogException, TablePartitionedException {
+			throws TableNotExistException, CatalogException {
 		// check whether table exists
 		if (!tableExists(tablePath)) {
 			throw new TableNotExistException(getName(), tablePath);
 		}
-		String htapTableName = HtapTableUtils.convertToHtapTableName(tablePath);
-		HtapTable htapTable = getHtapTable(htapTableName);
+		HtapTable htapTable = getHtapTable(tablePath);
 		List<HtapTableColumnStatistics> htapColumnStatsList = createTableColumnStats(
 			htapTable, columnStatistics.getColumnStatisticsData());
 		try {
 			HtapTableStatistics htapTableStatistics =
-				metaClient.getTableStatistics(htapTableName);
+				metaClient.getTableStatistics(tablePath.getDatabaseName(), tablePath.getObjectName());
 			if (htapTableStatistics == null) {
 				// create htap column stats if not available in metadata service.
 				HtapTableStatistics.Builder builder =
-					HtapTableStatistics.newBuilder(htapTableName);
+					HtapTableStatistics.newBuilder(tablePath.getDatabaseName(), tablePath.getObjectName());
 				for (HtapTableColumnStatistics colStats : htapColumnStatsList) {
 					builder.addColumnStats(colStats);
 				}
 				htapTableStatistics = builder.build();
 				LOG.info("New table column stats of table {}: {}",
-					htapTableName, htapTableStatistics);
+					tablePath, htapTableStatistics);
 			} else {
 				// otherwise update column stats
 				for (HtapTableColumnStatistics colStats : htapColumnStatsList) {
@@ -367,20 +331,19 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 						colStats.getFieldName(), colStats);
 				}
 				LOG.info("Update table column stats of table {}: {}",
-					htapTableName, htapTableStatistics);
+					tablePath, htapTableStatistics);
 			}
 			metaClient.updateTableStatistics(htapTableStatistics);
 		} catch (MetadataServiceException e) {
 			throw new CatalogException(
-				String.format("Failed to alter table column stats of table %s", htapTableName), e);
+				String.format("Failed to alter table column stats of table %s", tablePath), e);
 		}
 	}
 
 	@Override
 	public CatalogTableStatistics getPartitionStatistics(
 			ObjectPath tablePath,
-			CatalogPartitionSpec partitionSpec)
-			throws PartitionNotExistException, CatalogException {
+			CatalogPartitionSpec partitionSpec) throws CatalogException {
 
 		// Htap dose not support partition stats for now, we divided table stats into
 		// partitionCount pieces and use it to estimate the partition stats.
@@ -413,8 +376,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 	@Override
 	public CatalogColumnStatistics getPartitionColumnStatistics(
 			ObjectPath tablePath,
-			CatalogPartitionSpec partitionSpec)
-			throws PartitionNotExistException, CatalogException {
+			CatalogPartitionSpec partitionSpec) throws CatalogException {
 		// not support yet
 		return CatalogColumnStatistics.UNKNOWN;
 	}
@@ -597,7 +559,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 	 * - Each CatalogPartitionSpec in represent one partition.
 	 * - Each map in CatalogPartitionSpec only contains single key and it is a fake key,
 	 * and the corresponding value is the partition id
-	 * (for example: [{"fake_partition_key": "1"}, {"fake_partition_key": "2"}]).
+	 * (for example: [{"fake_partition_key": "db1#spaceNo1#1"}, {"fake_partition_key": "db1#spaceNo1#2"}]).
 	 * */
 	@Override
 	public List<CatalogPartitionSpec> listPartitionsByFilter(
@@ -606,11 +568,11 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		List<Map<String, Set<String>>> partitionPredicates =
 			HtapTableUtils.extractPartitionPredicates(filters);
 
-		String htapTableName = HtapTableUtils.convertToHtapTableName(tablePath);
-		Set<Integer> partitions;
+		Set<PartitionID> partitions;
 		try {
 			partitions =
-				metaClient.listPartitionsByFilter(htapTableName, partitionPredicates, -1);
+				metaClient.listPartitionsByFilter(tablePath.getDatabaseName(),
+					tablePath.getObjectName(), partitionPredicates);
 			LOG.debug("List partitions for table: {} with filter: {}, and partitionPredicates " +
 					"is: {}. Get result: {}", tablePath, filters, partitionPredicates, partitions);
 		} catch (Exception e) {
@@ -619,9 +581,11 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 
 		List<CatalogPartitionSpec> partitionSpecs = new ArrayList<>();
 
-		for (Integer partitionId : partitions) {
+		for (PartitionID partitionId : partitions) {
+			String partitionStr = partitionId.getDbCluster() + "#" +
+				partitionId.getSpaceNo() + "#" + partitionId.getId();
 			CatalogPartitionSpec catalogPartitionSpec = new CatalogPartitionSpec(
-				Collections.singletonMap(FAKE_PARTITION_KEY, partitionId.toString()));
+				Collections.singletonMap(FAKE_PARTITION_KEY, partitionStr));
 			partitionSpecs.add(catalogPartitionSpec);
 		}
 

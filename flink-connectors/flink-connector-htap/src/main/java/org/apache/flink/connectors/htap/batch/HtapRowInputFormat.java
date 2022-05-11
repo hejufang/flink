@@ -37,6 +37,7 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.Row;
 
 import com.bytedance.htap.meta.HtapTable;
+import com.bytedance.htap.metaclient.partition.PartitionID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,7 +68,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private final List<FlinkAggregateFunction> aggregateFunctions;
 	private final DataType outputDataType;
 	private final long limit;
-	private final Set<Integer> pushedDownPartitions;
+	private final Set<PartitionID> pushedDownPartitions;
 	private final boolean inDryRunMode;
 	private final TopNInfo topNInfo;
 
@@ -95,7 +96,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 			List<FlinkAggregateFunction> aggregateFunctions,
 			DataType outputDataType,
 			long limit,
-			Set<Integer> pushedDownPartitions,
+			Set<PartitionID> pushedDownPartitions,
 			boolean inDryRunMode,
 			TopNInfo topNInfo) {
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
@@ -129,7 +130,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 		endReached = false;
 		createHtapReader();
 		boolean compatibleWithMySQL = readerConfig.isCompatibleWithMySQL();
-		resultIterator = htapReader.scanner(split.getScanToken(), split.getSplitNumber(),
+		resultIterator = htapReader.scanner(split.getScanToken(), split.getPartitionID(),
 			subTaskFullName, compatibleWithMySQL);
 		currentPartition = split.getSplitNumber();
 

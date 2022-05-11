@@ -20,6 +20,7 @@ package org.apache.flink.connectors.htap.connector.reader;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.connectors.htap.batch.HtapRowInputFormat;
 
+import com.bytedance.htap.metaclient.catalog.Snapshot;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import java.io.Serializable;
@@ -36,7 +37,7 @@ public class HtapReaderConfig implements Serializable {
 
 	private final String metaSvcRegion;
 	private final String metaSvcCluster;
-	private final String instanceId;
+	private final String dbCluster;
 
 	private final String byteStoreLogPath;
 	private final String byteStoreDataPath;
@@ -44,28 +45,28 @@ public class HtapReaderConfig implements Serializable {
 	private final String pageStoreLogDir;
 	private final int batchSizeBytes;
 
-	private final long checkPointLSN;
+	private final Snapshot snapshot;
 	private boolean compatibleWithMySQL = false;
 
 	public HtapReaderConfig(
 			String metaSvcRegion,
 			String metaSvcCluster,
-			String instanceId,
+			String dbCluster,
 			String byteStoreLogPath,
 			String byteStoreDataPath,
 			String logStoreLogDir,
 			String pageStoreLogDir,
 			int batchSizeBytes,
-			long checkPointLSN) {
+			Snapshot snapshot) {
 		this.metaSvcRegion = checkNotNull(metaSvcRegion, "Htap MetaService region cannot be null");
 		this.metaSvcCluster = checkNotNull(metaSvcCluster, "Htap MetaService cluster cannot be null");
-		this.instanceId = checkNotNull(instanceId, "Htap instanceId cannot be null");
+		this.dbCluster = checkNotNull(dbCluster, "Htap dbCluster cannot be null");
 		this.byteStoreLogPath = checkNotNull(byteStoreLogPath, "ByteStore LogPath cannot be null");
 		this.byteStoreDataPath = checkNotNull(byteStoreDataPath, "ByteStore DataPath cannot be null");
 		this.logStoreLogDir = checkNotNull(logStoreLogDir, "LogStore LogDir cannot be null");
 		this.pageStoreLogDir = checkNotNull(pageStoreLogDir, "PageStore LogDir cannot be null");
 		this.batchSizeBytes = checkNotNull(batchSizeBytes, "BatchSizeBytes cannot be null");
-		this.checkPointLSN = checkNotNull(checkPointLSN, "CheckPointLSN cannot be null");
+		this.snapshot = checkNotNull(snapshot, "snapshot cannot be null");
 	}
 
 	public String getMetaSvcRegion() {
@@ -76,8 +77,8 @@ public class HtapReaderConfig implements Serializable {
 		return metaSvcCluster;
 	}
 
-	public String getInstanceId() {
-		return instanceId;
+	public String getDbCluster() {
+		return dbCluster;
 	}
 
 	public String getByteStoreLogPath() {
@@ -100,8 +101,8 @@ public class HtapReaderConfig implements Serializable {
 		return batchSizeBytes;
 	}
 
-	public long getCheckPointLSN() {
-		return checkPointLSN;
+	public Snapshot getSnapshot() {
+		return snapshot;
 	}
 
 	public boolean isCompatibleWithMySQL() {
@@ -117,13 +118,13 @@ public class HtapReaderConfig implements Serializable {
 		return new ToStringBuilder(this)
 				.append("meta service region", metaSvcRegion)
 				.append("meta service cluster", metaSvcCluster)
-				.append("instanceId", instanceId)
+				.append("dbCluster", dbCluster)
 				.append("byteStoreLogPath", byteStoreLogPath)
 				.append("byteStoreDataPath", byteStoreDataPath)
 				.append("logStoreLogDir", logStoreLogDir)
 				.append("pageStoreLogDir", pageStoreLogDir)
 				.append("batchSizeBytes", batchSizeBytes)
-				.append("checkPointLSN", checkPointLSN)
+				.append("snapshot", snapshot)
 				.append("compatibleWithMySQL", compatibleWithMySQL)
 				.toString();
 	}

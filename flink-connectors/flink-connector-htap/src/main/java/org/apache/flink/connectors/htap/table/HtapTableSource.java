@@ -27,6 +27,7 @@ import org.apache.flink.connectors.htap.connector.reader.HtapReaderConfig;
 import org.apache.flink.connectors.htap.table.utils.HtapAggregateUtils;
 import org.apache.flink.connectors.htap.table.utils.HtapAggregateUtils.FlinkAggregateFunction;
 import org.apache.flink.connectors.htap.table.utils.HtapMetaUtils;
+import org.apache.flink.connectors.htap.table.utils.HtapTableUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.DataTypes;
@@ -57,7 +58,7 @@ import com.bytedance.bytehtap.Commons.AggregateType;
 import com.bytedance.htap.client.HtapMetaClient;
 import com.bytedance.htap.meta.HtapTable;
 import com.bytedance.htap.meta.HtapTableStatistics;
-import com.bytedance.htap.metaclient.exceptions.MetadataServiceException;
+import com.bytedance.htap.metaclient.partition.PartitionID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,7 +103,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 	private String[] groupByFields;
 	private List<HtapAggregateInfo> aggregates;
 	private List<FlinkAggregateFunction> aggregateFunctions;
-	private Set<Integer> pushedDownPartitions;
+	private Set<PartitionID> pushedDownPartitions;
 	private DataType outputDataType;
 	private boolean isAggregatePushedDown = false;
 	private String[] projectedFields;
@@ -140,7 +141,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			DataType outputDataType,
 			boolean isLimitPushedDown,
 			long limit,
-			Set<Integer> pushedDownPartitions,
+			Set<PartitionID> pushedDownPartitions,
 			boolean partitionPruned,
 			TopNInfo topNInfo) {
 		this.readerConfig = readerConfig;
@@ -176,13 +177,13 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 	public DataStream<Row> getDataStream(StreamExecutionEnvironment env) {
 		// TM should not access meta service, so we get metadata here and propagate it out.
 		HtapMetaClient metaClient = HtapMetaUtils.getMetaClient(
-			flinkConf.get(HtapOptions.HTAP_CLUSTER_NAME),
+			readerConfig.getDbCluster(),
 			readerConfig.getMetaSvcRegion(),
 			readerConfig.getMetaSvcCluster(),
-			readerConfig.getInstanceId());
-		HtapTable table = readerConfig.getCheckPointLSN() == -1L ?
-			metaClient.getTable(tableInfo.getName()) :
-			metaClient.getTable(tableInfo.getName(), readerConfig.getCheckPointLSN());
+			flinkConf.get(HtapOptions.HTAP_CLUSTER_NAME));
+		HtapTable table = readerConfig.getSnapshot() == null ?
+			metaClient.getTable(tableInfo.getDbName(), tableInfo.getTableName()) :
+			metaClient.getTable(tableInfo.getDbName(), tableInfo.getTableName(), readerConfig.getSnapshot());
 		boolean inDryRunMode = flinkConf.get(TABLE_EXEC_HTAP_IN_DRY_RUN_MODE);
 		boolean limitParallelismByTableLimitRows =
 			flinkConf.get(TABLE_EXEC_HTAP_LIMIT_PARALLELISM_BY_TABLE_LIMIT_ROWS);
@@ -265,23 +266,17 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			HtapMetaClient metaClient,
 			HtapTableInfo tableInfo,
 			ReadableConfig flinkConf) {
-		String tableName = tableInfo.getName();
-		try {
-			HtapTableStatistics tableStats = metaClient.getTableStatistics(tableName);
+		HtapTableStatistics tableStats =
+			metaClient.getTableStatistics(tableInfo.getDbName(), tableInfo.getTableName());
 
-			if (tableStats == null || tableStats.getRowCount() <= 0) {
-				// -1 means we cannot get row count of the table.
-				return -1;
-			}
-			Long rowNumber = tableStats.getRowCount();
-			int rowCountPerSubtask =
-				flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_ROW_NUMBER_PER_SUBTASK);
-			return (int) Math.ceil(((double) rowNumber) / rowCountPerSubtask);
-		} catch (MetadataServiceException e) {
-			LOG.warn("Failed to get row number for table '{}', will not infer " +
-				"parallelism by row number", tableName, e);
+		if (tableStats == null || tableStats.getRowCount() <= 0) {
+			// -1 means we cannot get row count of the table.
 			return -1;
 		}
+		Long rowNumber = tableStats.getRowCount();
+		int rowCountPerSubtask =
+			flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_ROW_NUMBER_PER_SUBTASK);
+		return (int) Math.ceil(((double) rowNumber) / rowCountPerSubtask);
 	}
 
 	@Override
@@ -325,7 +320,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			// We can not push down limit if there is already pushed agg/limit/topN down.
 			return this;
 		}
-		LOG.info("HtapTableSource[{}] apply limit: {}", tableInfo.getName(), limit);
+		LOG.info("HtapTableSource[{}] apply limit: {}", tableInfo.getFullName(), limit);
 		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, flinkConf,
 			tablePath, predicates, projectedFields, groupByFields, aggregates,
 			aggregateFunctions, outputDataType, true, limit, pushedDownPartitions, partitionPruned,
@@ -355,12 +350,12 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			Optional<HtapFilterInfo> htapPred = toHtapFilterInfo(predicate);
 			if (htapPred != null && htapPred.isPresent()) {
 				LOG.debug("Predicate [{}] converted into HtapFilterInfo and pushed into " +
-					"HtapTable [{}].", predicate, tableInfo.getName());
+					"HtapTable [{}].", predicate, tableInfo.getFullName());
 					htapPredicates.add(htapPred.get());
 				predicatesIter.remove();
 			} else {
 				LOG.debug("Predicate [{}] could not be pushed into HtapFilterInfo for HtapTable [{}].",
-					predicate, tableInfo.getName());
+					predicate, tableInfo.getFullName());
 			}
 		}
 		LOG.info("{} applied predicates: flink predicates: [{}], pushed predicates: [{}]",
@@ -425,10 +420,10 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 	 * */
 	@Override
 	public TableSource<Row> applyPartitionPruning(List<Map<String, String>> remainingPartitions) {
-		Set<Integer> partitions = remainingPartitions.stream()
+		Set<PartitionID> partitions = remainingPartitions.stream()
 			.map(Map::values)
 			.flatMap(Collection::stream)
-			.map(Integer::parseInt)
+			.map(HtapTableUtils::parsePartitionID)
 			.collect(Collectors.toSet());
 		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, flinkConf,
 			tablePath, predicates, projectedFields, groupByFields, aggregates, aggregateFunctions,

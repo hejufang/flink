@@ -21,7 +21,6 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connectors.htap.connector.HtapFilterInfo;
 import org.apache.flink.connectors.htap.connector.HtapTableInfo;
 import org.apache.flink.table.api.TableSchema;
-import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.table.expressions.CallExpression;
 import org.apache.flink.table.expressions.Expression;
 import org.apache.flink.table.expressions.FieldReferenceExpression;
@@ -29,10 +28,12 @@ import org.apache.flink.table.expressions.ValueLiteralExpression;
 import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
 import org.apache.flink.table.functions.FunctionDefinition;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import com.bytedance.htap.meta.ColumnSchema;
 import com.bytedance.htap.meta.Schema;
+import com.bytedance.htap.metaclient.partition.PartitionID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,18 +58,12 @@ public class HtapTableUtils {
 
 	// TODO: schema and props can be put into HtapTableInfo for extension
 	public static HtapTableInfo createTableInfo(
+			String dbName,
 			String tableName,
 			TableSchema schema,
 			Map<String, String> props) {
-		HtapTableInfo tableInfo = HtapTableInfo.forTable(tableName);
+		HtapTableInfo tableInfo = HtapTableInfo.forTable(dbName, tableName);
 		return tableInfo;
-	}
-
-	/**
-	 * Convert tableName to HtapTable format, which like `databaseName/tableName`.
-	 */
-	public static String convertToHtapTableName(ObjectPath tablePath) {
-		return String.format("%s/%s", tablePath.getDatabaseName(), tablePath.getObjectName());
 	}
 
 	/**
@@ -126,6 +121,27 @@ public class HtapTableUtils {
 			}
 		}
 		return Optional.empty();
+	}
+
+	public static PartitionID parsePartitionID(String partitionStr) {
+		if (partitionStr == null) {
+			throw new FlinkRuntimeException("partitionStr can not be null");
+		}
+
+		String[] items = partitionStr.trim().split("#");
+		if (items.length < 3) {
+			throw new FlinkRuntimeException("partitionStr must be in format" +
+				" '{dbCluster}#{spaceNo}#{id}', but is " + partitionStr);
+		}
+		try {
+			String dbCluster = items[0];
+			int spaceNo = Integer.parseInt(items[1]);
+			int id = Integer.parseInt(items[2]);
+			return new PartitionID(dbCluster, spaceNo, id);
+		} catch (NumberFormatException e) {
+			throw new FlinkRuntimeException("partitionStr must be in format" +
+				" '{dbCluster}#{spaceNo}#{id}', but is " + partitionStr);
+		}
 	}
 
 	private static boolean isFieldReferenceExpression(Expression exp) {

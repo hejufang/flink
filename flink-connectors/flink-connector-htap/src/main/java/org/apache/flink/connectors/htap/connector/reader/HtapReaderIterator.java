@@ -40,6 +40,7 @@ import com.bytedance.htap.RowResultIterator;
 import com.bytedance.htap.exception.HtapException;
 import com.bytedance.htap.meta.ColumnSchema;
 import com.bytedance.htap.meta.Schema;
+import com.bytedance.htap.metaclient.partition.PartitionID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,7 +75,7 @@ public class HtapReaderIterator {
 	private final int groupByColumnSize;
 	private final String tableName;
 	private final String subTaskFullName;
-	private final int partitionId;
+	private final PartitionID partitionId;
 	private long oneRoundConversionCostMs = 0L;
 	private long totalConversionCostMs = 0L;
 	private long oneRoundRowCount = 0L;
@@ -104,7 +105,7 @@ public class HtapReaderIterator {
 		this.groupByColumnSize = groupByColumnSize;
 		this.tableName = scanner.getTable().getName();
 		this.subTaskFullName = subTaskFullName;
-		this.partitionId = scanner.getPartitionId();
+		this.partitionId = scanner.getPartitionID();
 		this.iteratorBufferCount = new AtomicInteger(0);
 		this.storeScanThread = new StoreScanThread();
 		this.rowType = outputDataType != null ? (RowType) outputDataType.getLogicalType() : null;

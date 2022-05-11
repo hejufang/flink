@@ -25,28 +25,42 @@ import java.io.Serializable;
 /**
  * Describes which table should be used in sources.
  *
- * <p>For sources reading from already existing tables, simply use @{@link HtapTableInfo#forTable(String)}
+ * <p>For sources reading from already existing tables, simply use @{@link HtapTableInfo#forTable(String, String)}
  */
 @PublicEvolving
 public class HtapTableInfo implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
-	private final String name;
+	private final String dbName;
+	private final String tableName;
 
-	private HtapTableInfo(String name) {
-		this.name = Preconditions.checkNotNull(name);
+	private HtapTableInfo(String dbName, String tableName) {
+		this.dbName = Preconditions.checkNotNull(dbName);
+		this.tableName = Preconditions.checkNotNull(tableName);
 	}
 
-	public static HtapTableInfo forTable(String name) {
-		return new HtapTableInfo(name);
+	public static HtapTableInfo forTable(String dbName, String tableName) {
+		return new HtapTableInfo(dbName, tableName);
 	}
 
-	/**
-	 * @return Name of the table.
-	 */
-	public String getName() {
-		return name;
+	public String getDbName() {
+		return dbName;
 	}
 
+	public String getTableName() {
+		return tableName;
+	}
+
+	public String getFullName() {
+		return dbName + "." + tableName;
+	}
+
+	@Override
+	public String toString() {
+		return "HtapTableInfo{" +
+			"dbName='" + dbName + '\'' +
+			", tableName='" + tableName + '\'' +
+			'}';
+	}
 }

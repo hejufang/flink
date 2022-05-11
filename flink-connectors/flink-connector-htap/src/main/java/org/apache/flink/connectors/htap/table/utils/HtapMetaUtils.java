@@ -21,6 +21,7 @@ package org.apache.flink.connectors.htap.table.utils;
 import org.apache.flink.table.catalog.exceptions.CatalogException;
 
 import com.bytedance.htap.client.HtapMetaClient;
+import com.bytedance.htap.metaclient.MetaClientOptions;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,26 +31,30 @@ import java.util.Map;
  */
 public class HtapMetaUtils {
 
-	private static Map<String, HtapMetaClient> metaClients = new HashMap<>(16);
+	private static final Map<String, HtapMetaClient> META_CLIENTS = new HashMap<>(16);
 
 	/**
 	 * Get the htap meta client base on instanceId. Each instance holds a MetaClient.
 	 */
 	public static synchronized HtapMetaClient getMetaClient(
-			String htapClusterName,
-			String region,
-			String cluster,
-			String instanceId) {
-		if (!metaClients.containsKey(instanceId)) {
+			String dbCluster,
+			String msRegion,
+			String msCluster,
+			String htapClusterName) {
+
+		if (!META_CLIENTS.containsKey(dbCluster)) {
 			try {
-				metaClients.put(instanceId, new HtapMetaClient(htapClusterName, region, cluster, instanceId));
+				MetaClientOptions metaClientOptions =
+					MetaClientOptions.newBuilder(dbCluster, msRegion, msCluster, htapClusterName)
+					.build();
+				META_CLIENTS.put(dbCluster, new HtapMetaClient(metaClientOptions));
 			} catch (Exception e) {
 				throw new CatalogException(
-						String.format("failed to create htap client for instance[%s, %s, %s]",
-								instanceId, region, cluster),
-						e);
+					String.format("failed to create htap client for cluster[%s, %s, %s]",
+						dbCluster, msRegion, msCluster),
+					e);
 			}
 		}
-		return metaClients.get(instanceId);
+		return META_CLIENTS.get(dbCluster);
 	}
 }

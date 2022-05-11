@@ -24,11 +24,11 @@ import org.apache.flink.connectors.htap.table.utils.HtapTableUtils;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.ObjectPath;
-import org.apache.flink.table.descriptors.DescriptorProperties;
-import org.apache.flink.table.descriptors.SchemaValidator;
 import org.apache.flink.table.factories.TableSourceFactory;
 import org.apache.flink.table.sources.TableSource;
 import org.apache.flink.types.Row;
+
+import com.bytedance.htap.metaclient.catalog.Snapshot;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,7 +54,6 @@ import static org.apache.flink.table.descriptors.Schema.SCHEMA_FROM;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA_NAME;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA_PROCTIME;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA_TYPE;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * HtapTableFactory.
@@ -66,8 +65,8 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 	public static final String HTAP_CLUSTER_NAME = "htap.cluster-name";
 	public static final String HTAP_META_REGION = "htap.meta-region";
 	public static final String HTAP_META_CLUSTER = "htap.meta-cluster";
-	public static final String HTAP_META_DB = "htap.db-name";
-	public static final String HTAP_INSTANCE_ID = "htap.instance-id";
+	public static final String HTAP_DB_NAME = "htap.db-name";
+	public static final String HTAP_DB_CLUSTER = "htap.db-cluster";
 	public static final String HTAP_BYTESTORE_LOGPATH = "htap.bytestore-logpath";
 	public static final String HTAP_BYTESTORE_DATAPATH = "htap.bytestore-datapath";
 	public static final String HTAP_LOGSTORE_LOGDIR = "htap.logstore-logdir";
@@ -76,10 +75,10 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 
 	public static final int DEFAULT_HTAP_BATCH_SIZE_BYTES = 1 << 20;
 
-	private final long checkPointLSN;
+	private final Snapshot snapshot;
 
-	public HtapTableFactory(long checkPointLSN) {
-		this.checkPointLSN = checkPointLSN;
+	public HtapTableFactory(Snapshot snapshot) {
+		this.snapshot = snapshot;
 	}
 
 	@Override
@@ -93,10 +92,11 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 	public List<String> supportedProperties() {
 		List<String> properties = new ArrayList<>();
 		properties.add(HTAP_TABLE);
+		properties.add(HTAP_DB_NAME);
 		properties.add(HTAP_CLUSTER_NAME);
 		properties.add(HTAP_META_REGION);
 		properties.add(HTAP_META_CLUSTER);
-		properties.add(HTAP_INSTANCE_ID);
+		properties.add(HTAP_DB_CLUSTER);
 		properties.add(HTAP_BYTESTORE_LOGPATH);
 		properties.add(HTAP_BYTESTORE_DATAPATH);
 		properties.add(HTAP_LOGSTORE_LOGDIR);
@@ -125,21 +125,6 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 		return properties;
 	}
 
-	private DescriptorProperties getValidatedProps(Map<String, String> properties) {
-		checkNotNull(properties.get(HTAP_META_REGION), "Missing required property " + HTAP_META_REGION);
-		checkNotNull(properties.get(HTAP_META_CLUSTER), "Missing required property " + HTAP_META_CLUSTER);
-		checkNotNull(properties.get(HTAP_INSTANCE_ID), "Missing required property " + HTAP_INSTANCE_ID);
-		checkNotNull(properties.get(HTAP_BYTESTORE_LOGPATH), "Missing required property " + HTAP_BYTESTORE_LOGPATH);
-		checkNotNull(properties.get(HTAP_BYTESTORE_DATAPATH), "Missing required property " + HTAP_BYTESTORE_DATAPATH);
-		checkNotNull(properties.get(HTAP_LOGSTORE_LOGDIR), "Missing required property " + HTAP_LOGSTORE_LOGDIR);
-		checkNotNull(properties.get(HTAP_PAGESTORE_LOGDIR), "Missing required property " + HTAP_PAGESTORE_LOGDIR);
-		checkNotNull(properties.get(HTAP_BATCH_SIZE_BYTES), "Missing required property " + HTAP_BATCH_SIZE_BYTES);
-		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
-		descriptorProperties.putProperties(properties);
-		new SchemaValidator(true, false, false).validate(descriptorProperties);
-		return descriptorProperties;
-	}
-
 	@Override
 	public TableSource<Row> createTableSource(Context context) {
 		CatalogTable table = context.getTable();
@@ -151,17 +136,17 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 
 		String metaSvcRegion = options.get(HTAP_META_REGION);
 		String metaSvcCluster = options.get(HTAP_META_CLUSTER);
-		String instanceId = options.get(HTAP_INSTANCE_ID);
+		String dbCluster = options.get(HTAP_DB_CLUSTER);
 		String byteStoreLogPath = options.get(HTAP_BYTESTORE_LOGPATH);
 		String byteStoreDataPath = options.get(HTAP_BYTESTORE_DATAPATH);
 		String logStoreLogDir = options.get(HTAP_LOGSTORE_LOGDIR);
 		String pageStoreLogDir = options.get(HTAP_PAGESTORE_LOGDIR);
 		int batchSizeBytes = Integer.parseInt(options.get(HTAP_BATCH_SIZE_BYTES));
-		String tableName = HtapTableUtils.convertToHtapTableName(tablePath);
-		HtapTableInfo tableInfo = HtapTableUtils.createTableInfo(tableName, schema, options);
-		HtapReaderConfig readerConfig = new HtapReaderConfig(metaSvcRegion, metaSvcCluster, instanceId,
+		HtapTableInfo tableInfo = HtapTableUtils.createTableInfo(
+			tablePath.getDatabaseName(), tablePath.getObjectName(), schema, options);
+		HtapReaderConfig readerConfig = new HtapReaderConfig(metaSvcRegion, metaSvcCluster, dbCluster,
 			byteStoreLogPath, byteStoreDataPath, logStoreLogDir,
-			pageStoreLogDir, batchSizeBytes, checkPointLSN);
+			pageStoreLogDir, batchSizeBytes, snapshot);
 		return new HtapTableSource(readerConfig, tableInfo, schema, flinkConf, tablePath);
 	}
 }
