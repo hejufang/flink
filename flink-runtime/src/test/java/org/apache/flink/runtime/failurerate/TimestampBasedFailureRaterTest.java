@@ -45,16 +45,16 @@ public class TimestampBasedFailureRaterTest {
 
 	@Test
 	public void testMovingRate() throws InterruptedException {
-		FailureRater rater = new TimestampBasedFailureRater(5, Time.of(500, TimeUnit.MILLISECONDS));
+		long start = System.currentTimeMillis();
+		long current = start + (6 * 150);
+		FailureRater rater = new TimestampBasedFailureRater(5, Time.of(500, TimeUnit.MILLISECONDS), () -> current);
 
 		ManualClock manualClock = new ManualClock();
-		manualClock.advanceTime(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+		manualClock.advanceTime(start, TimeUnit.MILLISECONDS);
 		for (int i = 0; i < 6; i++) {
 			rater.markFailure(manualClock);
 			manualClock.advanceTime(150, TimeUnit.MILLISECONDS);
-			Thread.sleep(150);
 		}
-
 		Assert.assertEquals(3.0, rater.getCurrentFailureRate(), 0.01);
 		Assert.assertFalse(rater.exceedsFailureRate());
 	}

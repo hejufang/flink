@@ -22,6 +22,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.util.clock.Clock;
 
 import java.util.ArrayDeque;
+import java.util.function.Supplier;
 
 /**
  * Abstract Failure Rater implementation.
@@ -29,18 +30,25 @@ import java.util.ArrayDeque;
 public abstract class AbstractFailureRater implements FailureRater {
 	private static final int DEFAULT_TIMESTAMP_SIZE = 300;
 	private static final int MILLISECONDS_PER_SECOND = 1000;
+	private static final Supplier<Long> TIMESTAMP_SUPPLIER = System::currentTimeMillis;
 
 	protected final Time failureInterval;
 	private final ArrayDeque<Long> failureTimestamps = new ArrayDeque<>(DEFAULT_TIMESTAMP_SIZE);
+	private final Supplier<Long> timestampSupplier;
 	private long failureCounter = 0;
 
 	protected AbstractFailureRater(Time failureInterval) {
+		this(failureInterval, TIMESTAMP_SUPPLIER);
+	}
+
+	protected AbstractFailureRater(Time failureInterval, Supplier<Long> timestampSupplier) {
 		this.failureInterval = failureInterval;
+		this.timestampSupplier = timestampSupplier;
 	}
 
 	@Override
 	public double getCurrentFailureRate() {
-		Long currentTimeStamp = System.currentTimeMillis();
+		Long currentTimeStamp = timestampSupplier.get();
 		return getCurrentFailureRate(currentTimeStamp);
 	}
 

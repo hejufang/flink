@@ -18,7 +18,10 @@
 
 package org.apache.flink.runtime.failurerate;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Time;
+
+import java.util.function.Supplier;
 
 /**
  * A timestamp queue based failure rater implementation.
@@ -28,6 +31,12 @@ public class TimestampBasedFailureRater extends AbstractFailureRater {
 
 	public TimestampBasedFailureRater(int maximumFailureRate, Time failureInterval) {
 		super(failureInterval);
+		this.maximumFailureRate = maximumFailureRate;
+	}
+
+	@VisibleForTesting
+	public TimestampBasedFailureRater(int maximumFailureRate, Time failureInterval, Supplier<Long> timestampSupplier) {
+		super(failureInterval, timestampSupplier);
 		this.maximumFailureRate = maximumFailureRate;
 	}
 
