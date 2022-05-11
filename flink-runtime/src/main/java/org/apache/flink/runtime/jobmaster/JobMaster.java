@@ -452,7 +452,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		String flinkJobType = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.FLINK_JOB_TYPE_KEY, ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
 		String dockerImage = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.DOCKER_IMAGE, null);
 		String flinkApi = this.jobMasterConfiguration.getConfiguration().getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
-		String appType = this.jobMasterConfiguration.getConfiguration().getString(ExecutionOptions.EXECUTION_APPLICATION_TYPE, ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE);
+		String appType = this.jobMasterConfiguration.getConfiguration().getString(ExecutionOptions.EXECUTION_APPLICATION_TYPE, ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE).trim().replace(" ", "_");
 		boolean isKubernetes = this.jobMasterConfiguration.getConfiguration().getBoolean(ConfigConstants.IS_KUBERNETES_KEY, false);
 		String shuffleServiceType = jobMasterConfiguration.getConfiguration().getBoolean(ShuffleServiceOptions.SHUFFLE_CLOUD_SHUFFLE_MODE) ? ShuffleServiceOptions.CLOUD_SHUFFLE : ShuffleServiceOptions.NETTY_SHUFFLE;
 		String appName = System.getenv().get(ConfigConstants.ENV_FLINK_YARN_JOB);
@@ -466,14 +466,26 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 				}
 			}
 		}
-		TagGaugeStore.TagValuesBuilder tagValuesBuilder = new TagGaugeStore.TagValuesBuilder()
-			.addTagValue("version", version)
-			.addTagValue("commitId", commitId)
-			.addTagValue("commitDate", commitDate)
-			.addTagValue("isInDockerMode", String.valueOf(isInDockerMode))
-			.addTagValue("shuffleServiceType", shuffleServiceType)
-			.addTagValue(ConfigConstants.IS_KUBERNETES_KEY, String.valueOf(isKubernetes));
+		TagGaugeStore.TagValuesBuilder tagValuesBuilder = new TagGaugeStore.TagValuesBuilder();
 
+		if (!StringUtils.isNullOrWhitespaceOnly(version)) {
+			tagValuesBuilder.addTagValue("version", version);
+		}
+		if (!StringUtils.isNullOrWhitespaceOnly(commitId)) {
+			tagValuesBuilder.addTagValue("commitId", commitId);
+		}
+		if (!StringUtils.isNullOrWhitespaceOnly(commitDate)) {
+			tagValuesBuilder.addTagValue("commitDate", commitDate);
+		}
+		if (!StringUtils.isNullOrWhitespaceOnly(String.valueOf(isInDockerMode))) {
+			tagValuesBuilder.addTagValue("isInDockerMode", String.valueOf(isInDockerMode));
+		}
+		if (!StringUtils.isNullOrWhitespaceOnly(shuffleServiceType)) {
+			tagValuesBuilder.addTagValue("shuffleServiceType", shuffleServiceType);
+		}
+		if (!StringUtils.isNullOrWhitespaceOnly(String.valueOf(isKubernetes))) {
+			tagValuesBuilder.addTagValue(ConfigConstants.IS_KUBERNETES_KEY, String.valueOf(isKubernetes));
+		}
 		if (!StringUtils.isNullOrWhitespaceOnly(flinkJobType)) {
 			tagValuesBuilder.addTagValue("flinkJobType", flinkJobType);
 		}
