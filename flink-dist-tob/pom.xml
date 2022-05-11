@@ -144,6 +144,13 @@ under the License.
 			</exclusions>
 		</dependency>-->
 
+		<!-- pb -->
+		<dependency>
+			<groupId>com.google.protobuf</groupId>
+			<artifactId>protobuf-java</artifactId>
+			<version>${protoc.version}</version>
+		</dependency>
+
 		<!-- Cloud Shuffle Service support -->
 		<dependency>
 			<groupId>org.apache.flink</groupId>
@@ -188,12 +195,6 @@ under the License.
 			<groupId>com.lmax</groupId>
 			<artifactId>disruptor</artifactId>
 			<version>3.4.2</version>
-		</dependency>
-
-		<dependency>
-			<artifactId>protobuf-java</artifactId>
-			<groupId>com.google.protobuf</groupId>
-			<version>2.6.1</version>
 		</dependency>
 
 		<dependency>
@@ -810,10 +811,6 @@ under the License.
 									<pattern>com.codahale.metrics</pattern>
 									<shadedPattern>${shading.prefix}.com.codahale.metrics</shadedPattern>
 								</relocation>
-								<!--<relocation>
-									<pattern>com.google.protobuf</pattern>
-									<shadedPattern>${shading.prefix}.com.google.protobuf</shadedPattern>
-								</relocation>-->
 								<relocation>
 									<pattern>com.fasterxml.jackson</pattern>
 									<shadedPattern>${shading.prefix}.com.fasterxml.jackson</shadedPattern>
