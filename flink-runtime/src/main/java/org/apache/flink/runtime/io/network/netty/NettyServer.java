@@ -27,6 +27,7 @@ import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFuture;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInitializer;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelOption;
 import org.apache.flink.shaded.netty4.io.netty.channel.epoll.Epoll;
+import org.apache.flink.shaded.netty4.io.netty.channel.epoll.EpollChannelOption;
 import org.apache.flink.shaded.netty4.io.netty.channel.epoll.EpollEventLoopGroup;
 import org.apache.flink.shaded.netty4.io.netty.channel.epoll.EpollServerSocketChannel;
 import org.apache.flink.shaded.netty4.io.netty.channel.nio.NioEventLoopGroup;
@@ -196,6 +197,11 @@ class NettyServer {
 
 		EpollEventLoopGroup epollGroup = new EpollEventLoopGroup(config.getServerNumThreads(), getNamedThreadFactory(name));
 		bootstrap.group(epollGroup).channel(EpollServerSocketChannel.class);
+
+		// set tcpUserTimeout to quickly check socket status and fail fast
+		if (config.getConnectionTcpUserTimeoutSeconds() > 0L) {
+			bootstrap.childOption(EpollChannelOption.TCP_USER_TIMEOUT, config.getConnectionTcpUserTimeoutSeconds() * 1000);
+		}
 	}
 
 	public static ThreadFactory getNamedThreadFactory(String name) {

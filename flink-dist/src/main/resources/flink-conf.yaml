@@ -151,7 +151,7 @@ common:
   # Full TaskManagerOptions
   taskmanager.network.netty.sendReceiveBufferSize: 4194304
   taskmanager.serializer.prune.buffer.threshold: 262144
-  taskmanager.network.netty.client.tcp-user-timeout-seconds: 600
+  taskmanager.network.netty.connection.tcp-user-timeout-seconds: 600
 
   # RPC / Akka
   akka.ask.timeout: 180 s # default 10 s

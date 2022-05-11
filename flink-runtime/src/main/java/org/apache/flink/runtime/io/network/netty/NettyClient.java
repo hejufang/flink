@@ -80,20 +80,17 @@ class NettyClient {
 		// --------------------------------------------------------------------
 		// Transport-specific configuration
 		// --------------------------------------------------------------------
-		boolean epollFlag = false;
 		switch (config.getTransportType()) {
 			case NIO:
 				initNioBootstrap();
 				break;
 
 			case EPOLL:
-				epollFlag = true;
 				initEpollBootstrap();
 				break;
 
 			case AUTO:
 				if (Epoll.isAvailable()) {
-					epollFlag = true;
 					initEpollBootstrap();
 					LOG.info("Transport type 'auto': using EPOLL.");
 				}
@@ -115,12 +112,6 @@ class NettyClient {
 
 		// Pooled allocator for Netty's ByteBuf instances
 		bootstrap.option(ChannelOption.ALLOCATOR, nettyBufferPool);
-
-		// set tcpUserTimeout to quickly check socket status and fail fast
-		if (epollFlag && config.getClientTcpUserTimeoutSeconds() > 0L) {
-			bootstrap.option(EpollChannelOption.TCP_USER_TIMEOUT, config.getClientTcpUserTimeoutSeconds() * 1000);
-		}
-
 		// Receive and send buffer size
 		int receiveAndSendBufferSize = config.getSendAndReceiveBufferSize();
 		if (receiveAndSendBufferSize > 0) {
@@ -181,6 +172,11 @@ class NettyClient {
 
 		EpollEventLoopGroup epollGroup = new EpollEventLoopGroup(config.getClientNumThreads(), NettyServer.getNamedThreadFactory(name));
 		bootstrap.group(epollGroup).channel(EpollSocketChannel.class);
+
+		// set tcpUserTimeout to quickly check socket status and fail fast
+		if (config.getConnectionTcpUserTimeoutSeconds() > 0L) {
+			bootstrap.option(EpollChannelOption.TCP_USER_TIMEOUT, config.getConnectionTcpUserTimeoutSeconds() * 1000);
+		}
 	}
 
 	// ------------------------------------------------------------------------
