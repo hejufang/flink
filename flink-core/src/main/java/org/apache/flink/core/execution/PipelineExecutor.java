@@ -42,20 +42,4 @@ public interface PipelineExecutor {
 	 * @return a {@link CompletableFuture} with the {@link JobClient} corresponding to the pipeline.
 	 */
 	CompletableFuture<JobClient> execute(final Pipeline pipeline, final Configuration configuration) throws Exception;
-
-	/**
-	 * Executes a {@link Pipeline} based on the provided configuration and returns a {@link JobClient} which allows to
-	 * interact with the job being executed, e.g. cancel it or take a savepoint.
-	 *
-	 * <p><b>ATTENTION:</b> The caller is responsible for managing the lifecycle of the returned {@link JobClient}. This
-	 * means that e.g. {@code close()} should be called explicitly at the call-site.
-	 *
-	 * @param pipeline the {@link Pipeline} to execute
-	 * @param configuration the {@link Configuration} with the required execution parameters
-	 * @param pipelineSocketEnable if true, the job will submit by socket client
-	 * @return a {@link CompletableFuture} with the {@link JobClient} corresponding to the pipeline.
-	 */
-	default CompletableFuture<JobClient> execute(final Pipeline pipeline, final Configuration configuration, final boolean pipelineSocketEnable) throws Exception {
-		return execute(pipeline, configuration);
-	}
 }

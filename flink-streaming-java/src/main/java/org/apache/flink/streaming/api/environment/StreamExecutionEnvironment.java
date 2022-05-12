@@ -48,7 +48,6 @@ import org.apache.flink.api.java.typeutils.MissingTypeInfo;
 import org.apache.flink.api.java.typeutils.PojoTypeInfo;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
-import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.ExecutionOptions;
@@ -94,7 +93,7 @@ import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamGraphGenerator;
 import org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator;
 import org.apache.flink.streaming.api.operators.StreamSource;
-import org.apache.flink.streaming.api.operators.sink.TaskPushSinkOperatorFactory;
+import org.apache.flink.streaming.util.PipelineSocketUtils;
 import org.apache.flink.util.DynamicCodeLoadingException;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
@@ -1846,11 +1845,7 @@ public class StreamExecutionEnvironment {
 
 		PipelineExecutor pipelineExecutor;
 
-		Collection<Integer> sinkIds = streamGraph.getSinkIDs();
-		// For socket endpoint, it should manage the pipeline executor and share it between jobs.
-		boolean pipelineSocketEnable = sinkIds != null && sinkIds.size() == 1 &&
-			streamGraph.getStreamNode(sinkIds.iterator().next()).getOperatorFactory() instanceof TaskPushSinkOperatorFactory &&
-			configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
+		boolean pipelineSocketEnable = PipelineSocketUtils.validatePipelineSocketEnable(streamGraph, configuration);
 		if (pipelineSocketEnable) {
 			if (this.pipelineExecutor == null) {
 				final PipelineExecutorFactory executorFactory =
@@ -1874,7 +1869,7 @@ public class StreamExecutionEnvironment {
 			pipelineExecutor = executorFactory
 				.getExecutor(configuration, abstractEventRecorder);
 		}
-		CompletableFuture<JobClient> jobClientFuture = pipelineExecutor.execute(streamGraph, configuration, pipelineSocketEnable);
+		CompletableFuture<JobClient> jobClientFuture = pipelineExecutor.execute(streamGraph, configuration);
 
 		try {
 			JobClient jobClient = jobClientFuture.get();
