@@ -94,6 +94,7 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.PermanentlyFencedRpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
+import org.apache.flink.runtime.socket.result.JobChannelManager;
 import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.taskexecutor.DispatcherRegistration;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
@@ -101,7 +102,6 @@ import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
-import org.apache.flink.util.SerializedThrowable;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.function.BiConsumerWithException;
 import org.apache.flink.util.function.BiFunctionWithException;
@@ -561,21 +561,24 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	public void submitJob(JobGraph jobGraph, ChannelHandlerContext ctx, Time timeout) {
 		try {
 			if (isDuplicateJob(jobGraph.getJobID())) {
-				writeFailJobToContext(
+				writeFinishJobToContext(
 					jobGraph.getJobID(),
 					ctx,
+					JobStatus.FAILED,
 					new DuplicateJobSubmissionException(jobGraph.getJobID()));
 			} else if (isPartialResourceConfigured(jobGraph)) {
-				writeFailJobToContext(
+				writeFinishJobToContext(
 					jobGraph.getJobID(),
 					ctx,
+					JobStatus.FAILED,
 					new JobSubmissionException(jobGraph.getJobID(), "Currently jobs is not supported if parts of the vertices have " +
 						"resources configured. The limitation will be removed in future versions."));
 			} else {
 				if (isClusterOverloaded(jobGraph.getJobID())) {
-					writeFailJobToContext(
+					writeFinishJobToContext(
 						jobGraph.getJobID(),
 						ctx,
+						JobStatus.FAILED,
 						new JobSubmissionException(jobGraph.getJobID(),
 							String.format("Too many job submit requests to cluster. Maximum capacity: %d", maxRunningJobs)));
 				} else {
@@ -600,7 +603,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				}
 			}
 		} catch (FlinkException e) {
-			writeFailJobToContext(jobGraph.getJobID(), ctx, e);
+			writeFinishJobToContext(jobGraph.getJobID(), ctx, JobStatus.FAILED, e);
 		}
 	}
 
@@ -871,26 +874,17 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private void writeFinishJobToContext(JobID jobId, ChannelHandlerContext channelContext, JobStatus jobStatus, Throwable throwable) {
 		if (jobStatus.isGloballyTerminalState()) {
 			if (channelContext != null) {
-				if (jobStatus != JobStatus.FINISHED) {
-					if (throwable != null) {
-						writeFailJobToContext(jobId, channelContext, throwable);
+				JobChannelManager jobChannelManager = jobResultClientManager.getJobChannelManager(jobId);
+				if (jobChannelManager != null) {
+					if (jobStatus == JobStatus.FINISHED) {
+						jobChannelManager.finishJob();
 					} else {
-						writeFailJobToContext(jobId, channelContext, new Exception("Job execute failed with status " + jobStatus));
+						jobChannelManager.failJob(throwable == null ? new Exception("Job failed with status " + jobStatus) : throwable);
 					}
+				} else {
+					log.warn("Get job channel manager null for job {}", jobId);
 				}
 			}
-		}
-	}
-
-	private void writeFailJobToContext(JobID jobId, ChannelHandlerContext channelContext, Throwable throwable) {
-		if (channelContext != null && jobResultClientManager != null) {
-			checkNotNull(throwable);
-			jobResultClientManager
-				.writeJobResult(new JobSocketResult.Builder()
-					.setJobId(jobId)
-					.setResultStatus(ResultStatus.FAIL)
-					.setSerializedThrowable(new SerializedThrowable(throwable))
-					.build());
 		}
 	}
 
@@ -914,17 +908,19 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 							if (strippedThrowable instanceof JobNotFinishedException) {
 								jobNotFinished(jobId);
 							} else {
-								writeFailJobToContext(
+								writeFinishJobToContext(
 									jobManagerRunner.getJobID(),
 									jobManagerRunner.getChannelContext(),
+									JobStatus.FAILED,
 									throwable);
 								jobMasterFailed(jobId, strippedThrowable);
 							}
 						}
 					} else {
-						writeFailJobToContext(
+						writeFinishJobToContext(
 							jobManagerRunner.getJobID(),
 							jobManagerRunner.getChannelContext(),
+							JobStatus.FAILED,
 							new Exception("There is a newer JobManagerRunner for the job " + jobId));
 						log.debug("There is a newer JobManagerRunner for the job {}.", jobId);
 					}

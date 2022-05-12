@@ -75,6 +75,10 @@ public class JobResultClientManager implements Closeable {
 		LOG.debug("Add channel manager for job {} to process result", jobId);
 	}
 
+	public JobChannelManager getJobChannelManager(JobID jobId) {
+		return jobChannelManagers.get(jobId);
+	}
+
 	public JobResultThreadPool getJobResultThreadPool() {
 		return jobResultThreadPool;
 	}

@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.socket.result;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.socket.JobSocketResult;
 import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.util.SerializedThrowable;
@@ -34,23 +35,28 @@ import org.slf4j.LoggerFactory;
 public class JobChannelManager {
 	private static final Logger LOG = LoggerFactory.getLogger(JobChannelManager.class);
 
+	private final JobID jobId;
 	private final ChannelHandlerContext context;
 	private final int expectTaskCount;
 	private final JobResultClientManager jobResultClientManager;
 
 	private JobResultTask resultTask;
 	private int finishedTaskCount;
+	private boolean jobFinished;
 	private boolean isFailed;
 
 	public JobChannelManager(
+			JobID jobId,
 			ChannelHandlerContext context,
 			int expectTaskCount,
 			JobResultClientManager jobResultClientManager) {
+		this.jobId = jobId;
 		this.context = context;
 		this.expectTaskCount = expectTaskCount;
 		this.jobResultClientManager = jobResultClientManager;
 		this.finishedTaskCount = 0;
 		this.isFailed = false;
+		this.jobFinished = false;
 		this.resultTask = null;
 	}
 
@@ -82,8 +88,21 @@ public class JobChannelManager {
 					finishedTaskCount,
 					expectTaskCount);
 				if (finishedTaskCount == expectTaskCount) {
-					jobResultClientManager.finishJob(taskSocketResult.getJobId());
-					resultTask.addJobResultContext(new JobResultContext(context, taskSocketResult, resultTask));
+					if (jobFinished) {
+						jobResultClientManager.finishJob(taskSocketResult.getJobId());
+						resultTask.addJobResultContext(new JobResultContext(context, taskSocketResult, resultTask));
+					} else {
+						// Reset the result status to partial for job because the job is not finished.
+						resultTask.addJobResultContext(
+							new JobResultContext(
+								context,
+								new JobSocketResult.Builder()
+									.setJobId(taskSocketResult.getJobId())
+									.setResultStatus(ResultStatus.PARTIAL)
+									.setResult(taskSocketResult.getResult())
+									.build(),
+								resultTask));
+					}
 				} else if (finishedTaskCount < expectTaskCount) {
 					// Reset the result status to partial for job.
 					resultTask.addJobResultContext(
@@ -97,6 +116,7 @@ public class JobChannelManager {
 							resultTask));
 				} else {
 					isFailed = true;
+					Exception exception = new RuntimeException("finish task count " + finishedTaskCount + ">" + expectTaskCount);
 					jobResultClientManager.finishJob(taskSocketResult.getJobId());
 					resultTask.addJobResultContext(
 						new JobResultContext(
@@ -104,13 +124,49 @@ public class JobChannelManager {
 							new JobSocketResult.Builder()
 								.setJobId(taskSocketResult.getJobId())
 								.setResultStatus(ResultStatus.FAIL)
-								.setSerializedThrowable(new SerializedThrowable(new RuntimeException("finish task count " + finishedTaskCount + ">" + expectTaskCount)))
+								.setSerializedThrowable(new SerializedThrowable(exception))
 								.build(),
 							resultTask));
+					LOG.error("Finish send job {} failed results", jobId, exception);
 				}
 			} else {
 				resultTask.addJobResultContext(new JobResultContext(context, taskSocketResult, resultTask));
 			}
+		}
+	}
+
+	public void finishJob() {
+		synchronized (this) {
+			this.jobFinished = true;
+			if (finishedTaskCount == expectTaskCount) {
+				// All the tasks are finished and send complete event to client.
+				jobResultClientManager.finishJob(jobId);
+				resultTask.addJobResultContext(
+					new JobResultContext(
+						context,
+						new JobSocketResult.Builder()
+							.setJobId(jobId)
+							.setResultStatus(ResultStatus.COMPLETE)
+							.build(),
+						resultTask));
+			}
+		}
+	}
+
+	public void failJob(Throwable jobException) {
+		synchronized (this) {
+			this.isFailed = true;
+			this.jobFinished = true;
+			jobResultClientManager.finishJob(jobId);
+			resultTask.addJobResultContext(
+				new JobResultContext(
+					context,
+					new JobSocketResult.Builder()
+						.setJobId(jobId)
+						.setResultStatus(ResultStatus.FAIL)
+						.setSerializedThrowable(new SerializedThrowable(jobException))
+						.build(),
+					resultTask));
 		}
 	}
 }

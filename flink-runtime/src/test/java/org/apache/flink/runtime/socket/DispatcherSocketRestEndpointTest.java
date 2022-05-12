@@ -191,6 +191,7 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 					socketTaskJobResultGateway.sendResult(graph.getJobID(), valueList.get(i).getBytes(), ResultStatus.PARTIAL, listener);
 				}
 				socketTaskJobResultGateway.sendResult(graph.getJobID(), valueList.get(valueList.size() - 1).getBytes(), ResultStatus.COMPLETE, listener);
+				jobResultClientManager.getJobChannelManager(graph.getJobID()).finishJob();
 			},
 			(Function<byte[], String>) String::new);
 	}
@@ -215,6 +216,7 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 					socketTaskJobResultGateway.sendResult(graph.getJobID(), value.getBytes(), ResultStatus.PARTIAL, null);
 				}
 				socketTaskJobResultGateway.sendResult(graph.getJobID(), null, ResultStatus.COMPLETE, null);
+				jobResultClientManager.getJobChannelManager(graph.getJobID()).finishJob();
 			},
 			(Function<byte[], String>) String::new);
 	}

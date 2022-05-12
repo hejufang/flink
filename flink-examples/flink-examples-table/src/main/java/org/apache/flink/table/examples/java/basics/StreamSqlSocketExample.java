@@ -35,7 +35,7 @@ import org.apache.flink.util.CloseableIterator;
 public class StreamSqlSocketExample {
 	public static void main(String[] args) throws Exception {
 		// set up execution environment
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
 		env.getConfiguration().set(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE, true);
 		env.getConfiguration().set(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED, true);
 		env.getConfiguration().set(ClusterOptions.RM_MIN_WORKER_NUM, 1);
@@ -54,11 +54,11 @@ public class StreamSqlSocketExample {
 			.build();
 		tEnv = StreamTableEnvironment.create(env, settings);
 
-		TableResult tableResult = tEnv.executeSql("select * from (values ('tom', 19), ('jim', 30), ('tony', 25)) as T(name, age)");
-		CloseableIterator<Object> resultIterator = tableResult.getJobClient().get().getJobResultIterator(Thread.currentThread().getContextClassLoader());
-		while (resultIterator.hasNext()) {
-			System.out.println("=====>" + resultIterator.next());
+		TableResult tableResult = tEnv.executeSql("select * from (values ('tom', 19), ('jim', 30), ('tony', 25)) as T(name, age) where age/0=2");
+		try (CloseableIterator<Object> resultIterator = tableResult.getJobClient().get().getJobResultIterator(Thread.currentThread().getContextClassLoader())) {
+			while (resultIterator.hasNext()) {
+				System.out.println("=====>" + resultIterator.next());
+			}
 		}
-		resultIterator.close();
 	}
 }

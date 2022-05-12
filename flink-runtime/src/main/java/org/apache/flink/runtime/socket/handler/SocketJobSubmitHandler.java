@@ -61,7 +61,7 @@ public class SocketJobSubmitHandler extends ChannelInboundHandlerAdapter {
 			JobGraph jobGraph = (JobGraph) msg;
 			jobResultClientManager.addJobChannelManager(
 				jobGraph.getJobID(),
-				new JobChannelManager(ctx, computeFinishTaskCount(jobGraph), jobResultClientManager));
+				new JobChannelManager(jobGraph.getJobID(), ctx, computeFinishTaskCount(jobGraph), jobResultClientManager));
 
 			OptionalConsumer<DispatcherGateway> optLeaderConsumer = OptionalConsumer.of(leaderRetriever.getNow());
 			optLeaderConsumer.ifPresent(

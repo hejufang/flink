@@ -58,11 +58,14 @@ public class JobResultClientManagerTest {
 				jobResultClientManager.addJobChannelManager(
 					jobId,
 					new JobChannelManager(
+						jobId,
 						TestingConsumeChannelHandlerContext.newBuilder()
 							.setWriteAndFlushConsumer(o -> {
 								JobSocketResult result = (JobSocketResult) o;
 								assertEquals(jobId, result.getJobId());
-								resultList.add(result.getResult());
+								if (result.getResult() != null) {
+									resultList.add(result.getResult());
+								}
 								if (result.isFinish()) {
 									latch.countDown();
 								}
@@ -96,6 +99,10 @@ public class JobResultClientManagerTest {
 				}
 			}
 
+			for (JobID jobId : jobResultsMap.keySet()) {
+				jobResultClientManager.getJobChannelManager(jobId).finishJob();
+			}
+
 			assertTrue(latch.await(10, TimeUnit.SECONDS));
 			for (JobID jobId : jobResultsMap.keySet()) {
 				assertEquals(sendResultList, jobResultsMap.get(jobId));
@@ -117,6 +124,7 @@ public class JobResultClientManagerTest {
 			jobResultClientManager.addJobChannelManager(
 				jobId,
 				new JobChannelManager(
+					jobId,
 					TestingConsumeChannelHandlerContext.newBuilder()
 						.setWriteAndFlushConsumer(o -> {
 							JobSocketResult result = (JobSocketResult) o;

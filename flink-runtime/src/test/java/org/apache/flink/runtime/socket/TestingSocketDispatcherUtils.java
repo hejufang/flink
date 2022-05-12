@@ -64,6 +64,9 @@ public class TestingSocketDispatcherUtils {
 					.setResultStatus(finalStatus)
 					.setSerializedThrowable(exception == null ? null : new SerializedThrowable(exception))
 					.build());
+			if (finalStatus == ResultStatus.COMPLETE) {
+				jobResultClientManager.getJobChannelManager(graph.getJobID()).finishJob();
+			}
 		};
 	}
 
@@ -98,6 +101,9 @@ public class TestingSocketDispatcherUtils {
 					.setResultStatus(finalStatus)
 					.setSerializedThrowable(exception == null ? null : new SerializedThrowable(exception))
 					.build());
+			if (finalStatus == ResultStatus.COMPLETE) {
+				jobResultClientManager.getJobChannelManager(graph.getJobID()).finishJob();
+			}
 		};
 	}
 }
