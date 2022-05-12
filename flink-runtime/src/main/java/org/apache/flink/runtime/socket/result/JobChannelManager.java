@@ -73,9 +73,7 @@ public class JobChannelManager {
 				return;
 			}
 
-			if (resultTask == null) {
-				resultTask = jobResultClientManager.getJobResultThreadPool().requestResultTask(taskSocketResult.getJobId());
-			}
+			tryRequestTask();
 			if (taskSocketResult.isFailed()) {
 				LOG.warn("Receive fail result for job {}", taskSocketResult.getJobId());
 				isFailed = true;
@@ -135,9 +133,16 @@ public class JobChannelManager {
 		}
 	}
 
+	private void tryRequestTask() {
+		if (resultTask == null) {
+			resultTask = jobResultClientManager.getJobResultThreadPool().requestResultTask(jobId);
+		}
+	}
+
 	public void finishJob() {
 		synchronized (this) {
 			this.jobFinished = true;
+			tryRequestTask();
 			if (finishedTaskCount == expectTaskCount) {
 				// All the tasks are finished and send complete event to client.
 				jobResultClientManager.finishJob(jobId);
@@ -157,6 +162,7 @@ public class JobChannelManager {
 		synchronized (this) {
 			this.isFailed = true;
 			this.jobFinished = true;
+			tryRequestTask();
 			jobResultClientManager.finishJob(jobId);
 			resultTask.addJobResultContext(
 				new JobResultContext(

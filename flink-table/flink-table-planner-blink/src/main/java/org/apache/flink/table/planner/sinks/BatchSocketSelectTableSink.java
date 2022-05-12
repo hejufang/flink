@@ -83,6 +83,7 @@ public class BatchSocketSelectTableSink implements SelectTableSink, StreamTableS
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Row> dataStream) {
 		TaskPushStreamSink<Row> sink = new TaskPushStreamSink<>(dataStream, factory);
+		sink.setParallelism(1);
 		dataStream.getExecutionEnvironment().addOperator(sink.getTransformation());
 		return sink.name("Socket select table sink");
 	}

@@ -23,6 +23,7 @@ import org.apache.flink.api.dag.Pipeline;
 import org.apache.flink.client.deployment.ClusterClientFactory;
 import org.apache.flink.client.deployment.ClusterClientJobClientAdapter;
 import org.apache.flink.client.deployment.ClusterDescriptor;
+import org.apache.flink.client.deployment.ClusterRetrieveException;
 import org.apache.flink.client.deployment.SocketClusterClientJobClientAdapter;
 import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.client.program.ClusterClientProvider;
@@ -79,8 +80,20 @@ public class AbstractSessionClusterExecutor<ClusterID, ClientFactory extends Clu
 		if (abstractEventRecorder != null) {
 			abstractEventRecorder.setJobId(jobGraph.getJobID().toString());
 		}
+		return executePipeline(configuration, jobGraph);
+	}
 
-		if (configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE)) {
+	@Override
+	public CompletableFuture<JobClient> execute(@Nonnull final Pipeline pipeline, @Nonnull final Configuration configuration, final boolean pipelineSocketEnable) throws Exception {
+		recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::buildJobGraphStart);
+		final JobGraph jobGraph = PipelineExecutorUtils.getJobGraph(pipeline, configuration);
+		recordAbstractEvent(abstractEventRecorder, AbstractEventRecorder::buildJobGraphFinish);
+
+		if (abstractEventRecorder != null) {
+			abstractEventRecorder.setJobId(jobGraph.getJobID().toString());
+		}
+
+		if (configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE) && pipelineSocketEnable) {
 			synchronized (this) {
 				if (socketClientProvider == null) {
 					ClusterDescriptor<ClusterID> clusterDescriptor = clusterClientFactory.createClusterDescriptor(configuration);
@@ -91,22 +104,26 @@ public class AbstractSessionClusterExecutor<ClusterID, ClientFactory extends Clu
 				}
 				CloseableIterator<?> resultIterator = socketClusterClient.submitJobSync(jobGraph);
 				return CompletableFuture.completedFuture(
-						new SocketClusterClientJobClientAdapter<>(resultIterator, socketClientProvider, jobGraph.getJobID()));
+					new SocketClusterClientJobClientAdapter<>(resultIterator, socketClientProvider, jobGraph.getJobID()));
 			}
 		} else {
-			try (final ClusterDescriptor<ClusterID> clusterDescriptor = clusterClientFactory.createClusterDescriptor(configuration)) {
-				final ClusterID clusterID = clusterClientFactory.getClusterId(configuration);
-				checkState(clusterID != null);
+			return executePipeline(configuration, jobGraph);
+		}
+	}
 
-				final ClusterClientProvider<ClusterID> clusterClientProvider = clusterDescriptor.retrieve(clusterID);
-				ClusterClient<ClusterID> clusterClient = clusterClientProvider.getClusterClient();
-				return clusterClient
-					.submitJob(jobGraph)
-					.thenApplyAsync(jobID -> (JobClient) new ClusterClientJobClientAdapter<>(
-						clusterClientProvider,
-						jobID))
-					.whenComplete((ignored1, ignored2) -> clusterClient.close());
-			}
+	private CompletableFuture<JobClient> executePipeline(@Nonnull Configuration configuration, JobGraph jobGraph) throws ClusterRetrieveException {
+		try (final ClusterDescriptor<ClusterID> clusterDescriptor = clusterClientFactory.createClusterDescriptor(configuration)) {
+			final ClusterID clusterID = clusterClientFactory.getClusterId(configuration);
+			checkState(clusterID != null);
+
+			final ClusterClientProvider<ClusterID> clusterClientProvider = clusterDescriptor.retrieve(clusterID);
+			ClusterClient<ClusterID> clusterClient = clusterClientProvider.getClusterClient();
+			return clusterClient
+				.submitJob(jobGraph)
+				.thenApplyAsync(jobID -> (JobClient) new ClusterClientJobClientAdapter<>(
+					clusterClientProvider,
+					jobID))
+				.whenComplete((ignored1, ignored2) -> clusterClient.close());
 		}
 	}
 

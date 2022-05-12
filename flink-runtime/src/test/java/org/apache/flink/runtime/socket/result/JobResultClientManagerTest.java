@@ -175,4 +175,35 @@ public class JobResultClientManagerTest {
 			assertEquals(sendResultList, resultList);
 		}
 	}
+
+	@Test
+	public void testFailJob() throws Exception {
+		try (JobResultClientManager jobResultClientManager = new JobResultClientManager(3)) {
+			final int jobTaskCount = 20;
+			JobID jobId = new JobID();
+			List<JobSocketResult> resultList = new ArrayList<>();
+			final CountDownLatch latch = new CountDownLatch(1);
+			jobResultClientManager.addJobChannelManager(
+				jobId,
+				new JobChannelManager(
+					jobId,
+					TestingConsumeChannelHandlerContext.newBuilder()
+						.setWriteAndFlushConsumer(o -> {
+							JobSocketResult result = (JobSocketResult) o;
+							assertEquals(jobId, result.getJobId());
+							resultList.add(result);
+							if (result.isFinish()) {
+								latch.countDown();
+							}
+						})
+						.build(),
+					jobTaskCount,
+					jobResultClientManager));
+			jobResultClientManager.getJobChannelManager(jobId).failJob(new Exception("Fail job directly"));
+			assertTrue(latch.await(10, TimeUnit.SECONDS));
+			assertEquals(1, resultList.size());
+			assertNotNull(resultList.get(0).getSerializedThrowable());
+			assertTrue(resultList.get(0).getSerializedThrowable().toString().contains("Fail job directly"));
+		}
+	}
 }

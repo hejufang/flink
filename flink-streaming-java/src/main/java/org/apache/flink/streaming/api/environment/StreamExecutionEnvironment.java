@@ -94,6 +94,7 @@ import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamGraphGenerator;
 import org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator;
 import org.apache.flink.streaming.api.operators.StreamSource;
+import org.apache.flink.streaming.api.operators.sink.TaskPushSinkOperatorFactory;
 import org.apache.flink.util.DynamicCodeLoadingException;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
@@ -1845,8 +1846,12 @@ public class StreamExecutionEnvironment {
 
 		PipelineExecutor pipelineExecutor;
 
+		Collection<Integer> sinkIds = streamGraph.getSinkIDs();
 		// For socket endpoint, it should manage the pipeline executor and share it between jobs.
-		if (configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE)) {
+		boolean pipelineSocketEnable = sinkIds != null && sinkIds.size() == 1 &&
+			streamGraph.getStreamNode(sinkIds.iterator().next()).getOperatorFactory() instanceof TaskPushSinkOperatorFactory &&
+			configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE);
+		if (pipelineSocketEnable) {
 			if (this.pipelineExecutor == null) {
 				final PipelineExecutorFactory executorFactory =
 					executorServiceLoader.getExecutorFactory(configuration);
@@ -1869,7 +1874,7 @@ public class StreamExecutionEnvironment {
 			pipelineExecutor = executorFactory
 				.getExecutor(configuration, abstractEventRecorder);
 		}
-		CompletableFuture<JobClient> jobClientFuture = pipelineExecutor.execute(streamGraph, configuration);
+		CompletableFuture<JobClient> jobClientFuture = pipelineExecutor.execute(streamGraph, configuration, pipelineSocketEnable);
 
 		try {
 			JobClient jobClient = jobClientFuture.get();
