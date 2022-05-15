@@ -26,7 +26,7 @@ rm -rf flink-filesystems/pom.xml
 cp flink-filesystems/pom_tob.xml flink-filesystems/pom.xml
 
 # compile current branch
-mvn clean package -U -DskipTests -Pinclude-hadoop -Dhadoop.version=2.6.0-cdh5.4.4-cfs1.0.1-online1.0.0.77 -Psql-jars -Pdocs-and-source
+mvn clean package -U -DskipTests -Pinclude-hadoop -Dhadoop.version=2.6.0-chd-5.4.4-cfs-1.0.2-online1.0.0.131 -Psql-jars -Pdocs-and-source
 
 # copy flink-1.11 to output
 mkdir -p output
