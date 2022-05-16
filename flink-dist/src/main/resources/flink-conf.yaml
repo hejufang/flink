@@ -276,6 +276,7 @@ common:
   bytedance.streaming.cluster.evenly-spread-out-slots: false
   bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
   bytedance.streaming.slot-pool.round-robin: true
+  bytedance.streaming.slot-pool.min-resource.simplify-enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   bytedance.streaming.register-dashboard.enabled: true
 
@@ -365,7 +366,6 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  slot-pool.min-resource.simplify-enabled: true
   ipv6.supported.cluster: lepad
 
 larva:
@@ -547,7 +547,6 @@ hyrax:
   bytedance.streaming.yarn.check.application.name.unique.region: true
   blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: hyrax
-  slot-pool.min-resource.simplify-enabled: true
 
 horse:
   dc: cn
@@ -558,7 +557,6 @@ horse:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: horse
-  slot-pool.min-resource.simplify-enabled: true
 
 hibis:
   dc: cn
@@ -829,7 +827,6 @@ quoka:
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   bytedance.streaming.yarn.check.application.name.unique.region: true
   blacklist.taskmanager.critical.error.enabled: true
-  slot-pool.min-resource.simplify-enabled: true
   ipv6.supported.cluster: quoka
 
 quaga:
@@ -841,7 +838,6 @@ quaga:
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  slot-pool.min-resource.simplify-enabled: true
   ipv6.supported.cluster: quaga
 
 quele:
@@ -1517,7 +1513,6 @@ Gaura-LF:
   ipv6.enabled: true
   register-dashboard.enabled: true
   ipv6.supported.cluster: Gaura-LF
-  slot-pool.min-resource.simplify-enabled: true
 
 Gaura-HL:
   dc: cn
@@ -1545,7 +1540,6 @@ Gaura-HL:
   ipv6.enabled: true
   register-dashboard.enabled: true
   ipv6.supported.cluster: Gaura-HL
-  slot-pool.min-resource.simplify-enabled: true
 
 Gaura-LQ:
   dc: cn

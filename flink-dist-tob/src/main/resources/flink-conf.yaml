@@ -156,6 +156,7 @@ common:
   bytedance.streaming.cluster.evenly-spread-out-slots: false
   bytedance.streaming.jobmanager.slot-sharing-execution-slot-allocator.enabled: true
   bytedance.streaming.slot-pool.round-robin: true
+  bytedance.streaming.slot-pool.min-resource.simplify-enabled: true
   bytedance.streaming.register-dashboard.enabled: true
 
   # hdfs conf for slow node
