@@ -341,6 +341,11 @@ class LocalBufferPool implements BufferPool {
 	private MemorySegment requestMemorySegment(int targetChannel) throws IOException {
 		MemorySegment segment = null;
 		synchronized (availableMemorySegments) {
+
+			if (isDestroyed) {
+				throw new IllegalStateException("Buffer pool is destroyed.");
+			}
+
 			returnExcessMemorySegments();
 
 			// target channel over quota; do not return a segment
