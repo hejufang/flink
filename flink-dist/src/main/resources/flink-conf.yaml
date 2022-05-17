@@ -860,6 +860,34 @@ quele:
   ipv6.supported.cluster: quele
   flink.cloud-shuffle-service.support: true
 
+yakow:
+  dc: cn
+  clusterName: yakow
+  high-availability.zookeeper.quorum: fdbd:dc05:ff:ff:1cbe:68bc:fdd8:bfe9:2181,fdbd:dc05:ff:ff:308b:d8ef:1304:521c:2181,fdbd:dc05:ff:ff:36a0:24af:475d:541e:2181,fdbd:dc05:ff:ff:39b3:fbb8:c4d1:6778:2181,fdbd:dc05:ff:ff:6743:9943:aac5:5f98:2181
+  hdfs.prefix: hdfs://haruna/flink_yg/flink
+  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: yakow
+  flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
+  configuration.flink-conf.dump-configuration-by-yaml: true
+
+koala-yg:
+  dc: cn
+  clusterName: koala-yg
+  high-availability.zookeeper.quorum: fdbd:dc05:ff:ff:33af:43f8:4d86:5675:2181,fdbd:dc05:ff:ff:3f33:712f:2e5c:6b15:2181,fdbd:dc05:ff:ff:8662:80af:bc6d:60a8:2181,fdbd:dc05:ff:ff:8b06:d280:734b:9722:2181,fdbd:dc05:ff:ff:f9cb:be0:a73a:41ec:2181
+  hdfs.prefix: hdfs://haruna/flink_yg/flink
+  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: koala-yg
+  flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
+  configuration.flink-conf.dump-configuration-by-yaml: true
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
+
 camel:
   dc: cn
   clusterName: camel
@@ -1573,6 +1601,35 @@ Gaura-LQ:
   ipv6.enabled: true
   register-dashboard.enabled: true
   ipv6.supported.cluster: Gaura-LQ
+
+Gaura-YG:
+  dc: cn
+  clusterName: Gaura-YG
+  is_kubernetes: true
+  high-availability: zookeeper
+  high-availability.zookeeper.quorum: fdbd:dc05:ff:ff:5131:24b1:ffda:527e:2181,fdbd:dc05:ff:ff:57d7:193a:4895:d024:2181,fdbd:dc05:ff:ff:62a4:e284:54c:7e3b:2181,fdbd:dc05:ff:ff:9ada:93c8:a89c:1374:2181,fdbd:dc05:ff:ff:ff0f:26b5:8830:aec6:2181
+  hdfs.prefix: hdfs://haruna/flink_yg/flink
+  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
+  containerized.taskmanager.env.METRICS_USE_SOCK: true
+  # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
+  containerized.master.env.MALLOC_ARENA_MAX: 4
+  containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
+  metrics.reporter.opentsdb_reporter.use_domain_sock: true
+  taskmanager.number-initial-percentage: 1.0
+  # service & ingress related
+  kubernetes.rest-service.exposed.type: ClusterIP
+  kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
+  kubernetes.ingress.enable: true
+  kubernetes.ingress.host: "yg-gaura.byted.org"
+  kubernetes.podgroup.enable: true
+  kubernetes.hostnetwork.enabled: true
+  # External jars we needed, use ',' to separator different jars.
+  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
+  ipv6.enabled: true
+  register-dashboard.enabled: true
+  ipv6.supported.cluster: Gaura-YG
+  flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
+  configuration.flink-conf.dump-configuration-by-yaml: true
 
 cloudnative-lf:
   dc: cn
