@@ -1268,7 +1268,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 		for (ResourceID resourceID: removed) {
 			ResolvedTaskManagerTopology resolvedTaskManagerTopology = registeredTaskManagers.remove(resourceID);
-			if (resolvedTaskManagerTopology != null) {
+			if (resolvedTaskManagerTopology != null && resolvedTaskManagerTopology.getTaskExecutorNettyClient() != null) {
 				resolvedTaskManagerTopology.getTaskExecutorNettyClient().close();
 			}
 		}
