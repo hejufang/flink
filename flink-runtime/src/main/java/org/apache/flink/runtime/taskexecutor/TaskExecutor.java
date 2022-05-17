@@ -95,9 +95,9 @@ import org.apache.flink.runtime.resourcemanager.TaskExecutorSocketAddress;
 import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceRequestSlot;
 import org.apache.flink.runtime.rest.messages.LogInfo;
+import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataRequest;
 import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
-import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -1996,6 +1996,11 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			FutureUtils.waitForAll(taskTerminationFutures)
 				.thenRunAsync(() -> {
 					partitionTracker.stopTrackingAndReleaseJobPartitionsFor(jobId);
+					if (requestSlotFromResourceManagerDirectEnable) {
+						closeJobManagerConnectionIfNoTasks(jobId);
+					} else {
+						closeJobManagerConnectionIfNoAllocatedResources(jobId);
+					}
 				}, getMainThreadExecutor());
 		}
 	}
