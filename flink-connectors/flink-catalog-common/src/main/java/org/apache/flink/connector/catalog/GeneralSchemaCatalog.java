@@ -206,7 +206,7 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 				throw new CatalogException("Failed to get table/view " + tablePath + " from " + storageType +
 					", response status is " + response.getSchemaStatus() + " and response message is " + response.getMessage());
 			}
-			if (response.getData() == null || response.getData().getByteSchemaTable() != null) {
+			if (response.getData() == null || response.getData().getByteSchemaTable() == null) {
 				throw new TableNotExistException(getName(), tablePath);
 			}
 			QueryGeneralSchemaResponse schemaResponse = response.getData();
