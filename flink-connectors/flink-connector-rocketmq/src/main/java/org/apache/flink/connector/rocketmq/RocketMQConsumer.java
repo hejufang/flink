@@ -65,7 +65,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-import static org.apache.flink.connector.rocketmq.RocketMQOptions.LEGACY_OFFSETS_STATE_NAME;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.OFFSETS_STATE_NAME;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.getRocketMQProperties;
 
@@ -222,24 +221,8 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			OFFSETS_STATE_NAME, TypeInformation.of(new TypeHint<Tuple2<MessageQueue, Long>>() {})
 		));
 
-		// ************************* DTS State Compatibility *******************************
-		// add legacy states into current version
-		ListState<Tuple2<org.apache.rocketmq.common.message.MessageQueue, Long>> legacyUnionOffsetStates = context.getOperatorStateStore()
-			.getUnionListState(new ListStateDescriptor<>(LEGACY_OFFSETS_STATE_NAME, TypeInformation.of(
-				new TypeHint<Tuple2<org.apache.rocketmq.common.message.MessageQueue, Long>>() {
-				})));
-
-		List<Tuple2<MessageQueue, Long>> tuple2List = new ArrayList<>();
-		for (Tuple2<org.apache.rocketmq.common.message.MessageQueue, Long> legacyState : legacyUnionOffsetStates.get()) {
-			org.apache.rocketmq.common.message.MessageQueue legacyQueue = legacyState.f0;
-			tuple2List.add(Tuple2.of(
-				new MessageQueue(legacyQueue.getTopic(), legacyQueue.getBrokerName(), legacyQueue.getQueueId()),
-				legacyState.f1));
-		}
-
-		legacyUnionOffsetStates.clear();
-		// ************************* DTS State Compatibility *******************************
-
+		List<Tuple2<MessageQueue, Long>> tuple2List =
+			RocketMQUtils.getDtsState(context.getOperatorStateStore());
 		lastSnapshotQueues = new HashSet<>();
 		offsetTable = new ConcurrentHashMap<>();
 		restoredOffsets = new HashMap<>();

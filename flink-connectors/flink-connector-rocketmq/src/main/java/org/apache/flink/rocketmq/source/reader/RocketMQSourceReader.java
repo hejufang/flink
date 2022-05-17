@@ -33,6 +33,7 @@ import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureNotifier;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
+import org.apache.flink.connector.rocketmq.RocketMQUtils;
 import org.apache.flink.rocketmq.source.split.RocketMQSplit;
 import org.apache.flink.rocketmq.source.split.RocketMQSplitBase;
 import org.apache.flink.rocketmq.source.split.RocketMQSplitState;
@@ -139,7 +140,7 @@ public class RocketMQSourceReader<OUT>
 
 		splitOffsetMap = new HashMap<>();
 		if (isStored) {
-			recoverFromState();
+			recoverFromState(operatorStateStore);
 		} else {
 			lastSnapshotTupleList = new ArrayList<>();
 		}
@@ -147,29 +148,31 @@ public class RocketMQSourceReader<OUT>
 		assignedSplitsSet = new HashSet<>();
 	}
 
-	private void recoverFromState() throws Exception {
+	private void recoverFromState(OperatorStateStore operatorStateStore) throws Exception {
+		List<Tuple2<MessageQueue, Long>> tuple2List = RocketMQUtils.getDtsState(operatorStateStore);
+
 		Iterable<Tuple2<MessageQueue, Long>> oldStateIterable = oldOffsetListState.get();
 		// recover from state.
 		Map<MessageQueue, Long> messageQueue2OffsetMap = new HashMap<>();
 		if (oldStateIterable != null) {
-			oldStateIterable.forEach(
-				queueAndOffset -> {
-					RocketMQSplitBase splitBase = createRocketMQSplitBase(queueAndOffset.f0);
-					splitOffsetMap.compute(splitBase, (mqSplitBase, offset) -> {
-						if (offset != null) {
-							return Math.max(queueAndOffset.f1, offset);
-						}
-						return queueAndOffset.f1;
-					});
-					messageQueue2OffsetMap.compute(queueAndOffset.f0, (mq, offset) -> {
-						if (offset != null) {
-							return Math.max(queueAndOffset.f1, offset);
-						}
-						return queueAndOffset.f1;
-					});
-				}
-			);
+			oldStateIterable.forEach(tuple2List::add);
 		}
+		tuple2List.forEach(
+			queueAndOffset -> {
+				RocketMQSplitBase splitBase = createRocketMQSplitBase(queueAndOffset.f0);
+				splitOffsetMap.compute(splitBase, (mqSplitBase, offset) -> {
+					if (offset != null) {
+						return Math.max(queueAndOffset.f1, offset);
+					}
+					return queueAndOffset.f1;
+				});
+				messageQueue2OffsetMap.compute(queueAndOffset.f0, (mq, offset) -> {
+					if (offset != null) {
+						return Math.max(queueAndOffset.f1, offset);
+					}
+					return queueAndOffset.f1;
+				});
+			});
 		LOG.info("Reader {} recover from state, size is {}", readerUid, messageQueue2OffsetMap.size());
 		lastSnapshotTupleList =
 			messageQueue2OffsetMap.entrySet().stream()

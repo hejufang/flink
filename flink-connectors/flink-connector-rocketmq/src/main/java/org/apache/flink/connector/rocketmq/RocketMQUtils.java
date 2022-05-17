@@ -17,6 +17,12 @@
 
 package org.apache.flink.connector.rocketmq;
 
+import org.apache.flink.api.common.state.ListState;
+import org.apache.flink.api.common.state.ListStateDescriptor;
+import org.apache.flink.api.common.state.OperatorStateStore;
+import org.apache.flink.api.common.typeinfo.TypeHint;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.rocketmq.source.split.RocketMQSplitBase;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -46,6 +52,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.LEGACY_OFFSETS_STATE_NAME;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_FROM_TIMESTAMP_MILLIS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_EARLIEST;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_CONSUMER_OFFSET_RESET_TO_VALUE_LATEST;
@@ -305,5 +312,27 @@ public final class RocketMQUtils {
 			throw new FlinkRuntimeException(
 				String.format("Cluster %s not found in broker queue config", rocketMQConfig.getCluster()));
 		}
+	}
+
+	public static List<Tuple2<MessageQueue, Long>> getDtsState(OperatorStateStore stateStore) throws Exception {
+		List<Tuple2<MessageQueue, Long>> tuple2List = new ArrayList<>();
+
+		// ************************* DTS State Compatibility *******************************
+		// add legacy states into current version
+		ListState<Tuple2<org.apache.rocketmq.common.message.MessageQueue, Long>> legacyUnionOffsetStates = stateStore
+			.getUnionListState(new ListStateDescriptor<>(LEGACY_OFFSETS_STATE_NAME, TypeInformation.of(
+				new TypeHint<Tuple2<org.apache.rocketmq.common.message.MessageQueue, Long>>() {
+				})));
+
+		for (Tuple2<org.apache.rocketmq.common.message.MessageQueue, Long> legacyState : legacyUnionOffsetStates.get()) {
+			org.apache.rocketmq.common.message.MessageQueue legacyQueue = legacyState.f0;
+			tuple2List.add(Tuple2.of(
+				new MessageQueue(legacyQueue.getTopic(), legacyQueue.getBrokerName(), legacyQueue.getQueueId()),
+				legacyState.f1));
+		}
+
+		legacyUnionOffsetStates.clear();
+		// ************************* DTS State Compatibility *******************************
+		return tuple2List;
 	}
 }
