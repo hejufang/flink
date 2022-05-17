@@ -24,7 +24,7 @@ import org.apache.flink.annotation.PublicEvolving;
  * The set of configuration options for benchmark.
  */
 @PublicEvolving
-public class BenchmarkOption {
+public class BenchmarkOptions {
 
 	public static final ConfigOption<Boolean> JOB_RECEIVE_THEN_FINISH_ENABLE = ConfigOptions
 		.key("benchmark.job-receive-then-finish.enable")
@@ -43,4 +43,10 @@ public class BenchmarkOption {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Job reaches termination immediately before job deploy start.");
+
+	public static final ConfigOption<Boolean> TASK_DEPLOY_THEN_FINISH_ENABLE = ConfigOptions
+		.key("benchmark.task-deploy-then-finish.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Task reaches termination immediately when TaskManager receive and deploy it.");
 }

@@ -139,6 +139,15 @@ public class JobChannelManager {
 		}
 	}
 
+	public void completeAllTask() {
+		for (int i = 0; i < expectTaskCount; i++) {
+			addTaskResult(new JobSocketResult.Builder()
+				.setResultStatus(ResultStatus.COMPLETE)
+				.setJobId(jobId)
+				.build());
+		}
+	}
+
 	public void finishJob() {
 		synchronized (this) {
 			this.jobFinished = true;

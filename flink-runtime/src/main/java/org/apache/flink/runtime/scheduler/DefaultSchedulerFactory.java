@@ -45,6 +45,7 @@ import org.apache.flink.runtime.scheduler.strategy.LazyFromSourcesSchedulingStra
 import org.apache.flink.runtime.scheduler.strategy.RecoverableSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategyFactory;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 
 import org.slf4j.Logger;
 
@@ -75,7 +76,8 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
 			final Time slotRequestTimeout,
 			final ShuffleMaster<?> shuffleMaster,
 			final JobMasterPartitionTracker partitionTracker,
-			final RemoteBlacklistReporter remoteBlacklistReporter) throws Exception {
+			final RemoteBlacklistReporter remoteBlacklistReporter,
+			final JobResultClientManager jobResultClientManager) throws Exception {
 
 		final SchedulingStrategyFactory schedulingStrategyFactory = createSchedulingStrategyFactory(jobGraph.getScheduleMode(), jobMasterConfiguration);
 		final RestartBackoffTimeStrategy restartBackoffTimeStrategy = RestartBackoffTimeStrategyFactoryLoader
@@ -116,7 +118,8 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
 			new ExecutionVertexVersioner(),
 			executionSlotAllocatorFactory,
 			speculationStrategyFactory,
-			remoteBlacklistReporter);
+			remoteBlacklistReporter,
+			jobResultClientManager);
 	}
 
 	static SchedulingStrategyFactory createSchedulingStrategyFactory(final ScheduleMode scheduleMode, Configuration configuration) {

@@ -24,7 +24,7 @@ import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.configuration.BenchmarkOption;
+import org.apache.flink.configuration.BenchmarkOptions;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
@@ -121,6 +121,8 @@ import org.apache.flink.runtime.scheduler.SchedulerNG;
 import org.apache.flink.runtime.scheduler.SchedulerNGFactory;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
 import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
+import org.apache.flink.runtime.socket.result.JobChannelManager;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.taskexecutor.AccumulatorReport;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
@@ -222,6 +224,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final SchedulerNGFactory schedulerNGFactory;
 
+	private final JobResultClientManager jobResultClientManager;
+
 	// --------- BackPressure --------
 
 	private final BackPressureStatsTracker backPressureStatsTracker;
@@ -316,6 +320,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.blobWriter = jobManagerSharedServices.getBlobWriter();
 		this.scheduledExecutorService = jobManagerSharedServices.getScheduledExecutorService();
 		this.ioExecutorService = jobManagerSharedServices.getIOExecutorService();
+		this.jobResultClientManager = jobManagerSharedServices.getJobResultClientManager();
 		this.jobCompletionActions = checkNotNull(jobCompletionActions);
 		this.fatalErrorHandler = checkNotNull(fatalErrorHandler);
 		this.userCodeLoader = checkNotNull(userCodeLoader);
@@ -526,7 +531,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			jobMasterConfiguration.getSlotRequestTimeout(),
 			shuffleMaster,
 			partitionTracker,
-			remoteBlacklistReporter);
+			remoteBlacklistReporter,
+			jobResultClientManager);
 	}
 
 	//----------------------------------------------------------------------------------------------
@@ -1084,12 +1090,16 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 		log.info("Starting execution of job {} ({}) under job master id {}.", jobGraph.getName(), jobGraph.getJobID(), newJobMasterId);
 
-		if (jobMasterConfiguration.getConfiguration().get(BenchmarkOption.JOB_ANALYZED_THEN_FINISH_ENABLE)) {
+		if (jobMasterConfiguration.getConfiguration().get(BenchmarkOptions.JOB_ANALYZED_THEN_FINISH_ENABLE)) {
 			// Job finish before schedule
 			schedulerNG.setMainThreadExecutor(getMainThreadExecutor());
 			schedulerNG.transitionExecutionGraphState(JobStatus.CREATED, JobStatus.FINISHED);
 			schedulerNG.transitionAllExecutionState(ExecutionState.FINISHED);
 			scheduledExecutorService.execute(() -> jobCompletionActions.jobReachedGloballyTerminalState(schedulerNG.requestJob()));
+			if (jobResultClientManager != null) {
+				JobChannelManager jobChannelManager = jobResultClientManager.getJobChannelManager(jobGraph.getJobID());
+				jobChannelManager.completeAllTask();
+			}
 			return Acknowledge.get();
 		}
 

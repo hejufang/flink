@@ -20,6 +20,7 @@ package org.apache.flink.runtime.taskexecutor;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.SimpleCounter;
@@ -105,6 +106,7 @@ import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
+import org.apache.flink.runtime.socket.SocketConstants;
 import org.apache.flink.runtime.socket.SocketTaskJobResultGateway;
 import org.apache.flink.runtime.socket.TaskJobResultGateway;
 import org.apache.flink.runtime.state.TaskExecutorLocalStateStoresManager;
@@ -963,6 +965,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			if (taskDeployFinishEnable) {
 				task.transitionFinalState();
 				taskManagerActions.updateTaskExecutionState(new TaskExecutionState(jobId, executionAttemptID, ExecutionState.FINISHED));
+				if (taskInformation.getTaskName().contains(SocketConstants.SOCKET_SINK_NAME_TAG)) {
+					taskJobResultGateway.sendResult(jobId, null, ResultStatus.COMPLETE, null);
+				}
 			} else {
 				task.startTaskThread();
 			}

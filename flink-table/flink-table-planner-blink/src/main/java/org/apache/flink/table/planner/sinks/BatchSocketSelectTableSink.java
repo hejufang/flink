@@ -22,6 +22,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.socket.SocketResultIterator;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.core.execution.JobClient;
+import org.apache.flink.runtime.socket.SocketConstants;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.operators.sink.TaskPushSinkOperatorFactory;
@@ -85,7 +86,7 @@ public class BatchSocketSelectTableSink implements SelectTableSink, StreamTableS
 		TaskPushStreamSink<Row> sink = new TaskPushStreamSink<>(dataStream, factory);
 		sink.setParallelism(1);
 		dataStream.getExecutionEnvironment().addOperator(sink.getTransformation());
-		return sink.name("Socket select table sink");
+		return sink.name(SocketConstants.SOCKET_SINK_NAME_TAG);
 	}
 
 	/**

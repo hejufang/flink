@@ -33,6 +33,7 @@ import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureReq
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTrackerImpl;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -64,6 +65,8 @@ public class JobManagerSharedServices {
 	@Nonnull
 	private final BlobWriter blobWriter;
 
+	private final JobResultClientManager jobResultClientManager;
+
 	public JobManagerSharedServices(
 			ScheduledExecutorService scheduledExecutorService,
 			LibraryCacheManager libraryCacheManager,
@@ -76,16 +79,18 @@ public class JobManagerSharedServices {
 			libraryCacheManager,
 			backPressureSampleCoordinator,
 			backPressureStatsTracker,
-			blobWriter);
+			blobWriter,
+			null);
 	}
 
 	public JobManagerSharedServices(
-		ScheduledExecutorService scheduledExecutorService,
-		ScheduledExecutorService ioExecutorService,
-		LibraryCacheManager libraryCacheManager,
-		BackPressureRequestCoordinator backPressureSampleCoordinator,
-		BackPressureStatsTracker backPressureStatsTracker,
-		@Nonnull BlobWriter blobWriter) {
+			ScheduledExecutorService scheduledExecutorService,
+			ScheduledExecutorService ioExecutorService,
+			LibraryCacheManager libraryCacheManager,
+			BackPressureRequestCoordinator backPressureSampleCoordinator,
+			BackPressureStatsTracker backPressureStatsTracker,
+			@Nonnull BlobWriter blobWriter,
+			JobResultClientManager jobResultClientManager) {
 
 		this.scheduledExecutorService = checkNotNull(scheduledExecutorService);
 		this.ioExecutorService = checkNotNull(ioExecutorService);
@@ -93,6 +98,7 @@ public class JobManagerSharedServices {
 		this.backPressureSampleCoordinator = checkNotNull(backPressureSampleCoordinator);
 		this.backPressureStatsTracker = checkNotNull(backPressureStatsTracker);
 		this.blobWriter = blobWriter;
+		this.jobResultClientManager = jobResultClientManager;
 	}
 
 	public ScheduledExecutorService getScheduledExecutorService() {
@@ -114,6 +120,10 @@ public class JobManagerSharedServices {
 	@Nonnull
 	public BlobWriter getBlobWriter() {
 		return blobWriter;
+	}
+
+	public JobResultClientManager getJobResultClientManager() {
+		return jobResultClientManager;
 	}
 
 	/**
@@ -150,7 +160,8 @@ public class JobManagerSharedServices {
 	public static JobManagerSharedServices fromConfiguration(
 			Configuration config,
 			BlobServer blobServer,
-			FatalErrorHandler fatalErrorHandler) {
+			FatalErrorHandler fatalErrorHandler,
+			JobResultClientManager jobResultClientManager) {
 
 		checkNotNull(config);
 		checkNotNull(blobServer);
@@ -211,6 +222,7 @@ public class JobManagerSharedServices {
 			libraryCacheManager,
 			coordinator,
 			backPressureStatsTracker,
-			blobServer);
+			blobServer,
+			jobResultClientManager);
 	}
 }

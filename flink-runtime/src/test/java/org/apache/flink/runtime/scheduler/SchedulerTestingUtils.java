@@ -515,7 +515,8 @@ public class SchedulerTestingUtils {
 				executionVertexVersioner,
 				executionSlotAllocatorFactory,
 				new NoOpSpeculationStrategy.Factory(),
-				BlacklistUtil.createNoOpRemoteBlacklistReporter());
+				BlacklistUtil.createNoOpRemoteBlacklistReporter(),
+				null);
 		}
 	}
 }

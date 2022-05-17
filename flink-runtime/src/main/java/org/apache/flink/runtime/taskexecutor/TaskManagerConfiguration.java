@@ -20,6 +20,7 @@ package org.apache.flink.runtime.taskexecutor;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.AkkaOptions;
+import org.apache.flink.configuration.BenchmarkOptions;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
@@ -306,7 +307,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		final boolean releaseSlotWhenJobMasterDisconnected = configuration.getBoolean(TaskManagerOptions.RELEASE_SLOT_WHEN_JOB_MASTER_DISCONNECTED);
 		final long waitSlotReleaseBeforeSendSlotReporterTimeout = configuration.get(TaskManagerOptions.WAIT_SLOT_RELEASE_BEFORE_SEND_SLOT_REPORTER_TIMEOUT);
 
-		final boolean taskDeployFinishEnable = configuration.getBoolean(TaskManagerOptions.TASK_DEPLOY_THEN_FINISH_ENABLE);
+		final boolean taskDeployFinishEnable = configuration.getBoolean(BenchmarkOptions.TASK_DEPLOY_THEN_FINISH_ENABLE);
 
 		final boolean notifyFinalStateInTaskThreadEnable = configuration.getBoolean(TaskManagerOptions.NOTIFY_FINAL_STATE_IN_TASK_THREAD_ENABLE);
 

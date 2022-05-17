@@ -624,12 +624,6 @@ public class TaskManagerOptions {
 		.defaultValue(16 * 1024 * 1024L)
 		.withDescription("Per request memory size in LazyMemorySegmentPool");
 
-	public static final ConfigOption<Boolean> TASK_DEPLOY_THEN_FINISH_ENABLE = ConfigOptions
-			.key("taskmanager.task-deploy-then-finish.enable")
-			.booleanType()
-			.defaultValue(false)
-			.withDescription("Task reaches termination immediately when TaskManager receive and deploy it.");
-
 	public static final ConfigOption<Boolean> NOTIFY_FINAL_STATE_IN_TASK_THREAD_ENABLE = ConfigOptions
 		.key("taskmanager.notify-final-state-in-task-thread.enable")
 		.booleanType()

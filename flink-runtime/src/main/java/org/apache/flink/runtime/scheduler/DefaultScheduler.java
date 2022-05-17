@@ -21,7 +21,7 @@ package org.apache.flink.runtime.scheduler;
 
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.configuration.BenchmarkOption;
+import org.apache.flink.configuration.BenchmarkOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
@@ -64,6 +64,7 @@ import org.apache.flink.runtime.scheduler.strategy.LazyFromSourcesSchedulingStra
 import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategyFactory;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
@@ -130,29 +131,32 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
 	private final boolean taskScheduledFinishEnable;
 
+	private final JobResultClientManager jobResultClientManager;
+
 	public DefaultScheduler(
-		final Logger log,
-		final JobGraph jobGraph,
-		final BackPressureStatsTracker backPressureStatsTracker,
-		final Executor ioExecutor,
-		final Configuration jobMasterConfiguration,
-		final ScheduledExecutorService futureExecutor,
-		final ScheduledExecutor delayExecutor,
-		final ClassLoader userCodeLoader,
-		final CheckpointRecoveryFactory checkpointRecoveryFactory,
-		final Time rpcTimeout,
-		final BlobWriter blobWriter,
-		final JobManagerJobMetricGroup jobManagerJobMetricGroup,
-		final ShuffleMaster<?> shuffleMaster,
-		final JobMasterPartitionTracker partitionTracker,
-		final SchedulingStrategyFactory schedulingStrategyFactory,
-		final FailoverStrategy.Factory failoverStrategyFactory,
-		final RestartBackoffTimeStrategy restartBackoffTimeStrategy,
-		final ExecutionVertexOperations executionVertexOperations,
-		final ExecutionVertexVersioner executionVertexVersioner,
-		final ExecutionSlotAllocatorFactory executionSlotAllocatorFactory,
-		final SpeculationStrategy.Factory speculationStrategyFactory,
-		final RemoteBlacklistReporter remoteBlacklistReporter) throws Exception {
+			final Logger log,
+			final JobGraph jobGraph,
+			final BackPressureStatsTracker backPressureStatsTracker,
+			final Executor ioExecutor,
+			final Configuration jobMasterConfiguration,
+			final ScheduledExecutorService futureExecutor,
+			final ScheduledExecutor delayExecutor,
+			final ClassLoader userCodeLoader,
+			final CheckpointRecoveryFactory checkpointRecoveryFactory,
+			final Time rpcTimeout,
+			final BlobWriter blobWriter,
+			final JobManagerJobMetricGroup jobManagerJobMetricGroup,
+			final ShuffleMaster<?> shuffleMaster,
+			final JobMasterPartitionTracker partitionTracker,
+			final SchedulingStrategyFactory schedulingStrategyFactory,
+			final FailoverStrategy.Factory failoverStrategyFactory,
+			final RestartBackoffTimeStrategy restartBackoffTimeStrategy,
+			final ExecutionVertexOperations executionVertexOperations,
+			final ExecutionVertexVersioner executionVertexVersioner,
+			final ExecutionSlotAllocatorFactory executionSlotAllocatorFactory,
+			final SpeculationStrategy.Factory speculationStrategyFactory,
+			final RemoteBlacklistReporter remoteBlacklistReporter,
+			final JobResultClientManager jobResultClientManager) throws Exception {
 
 		super(
 			log,
@@ -190,6 +194,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			throw new IllegalArgumentException(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY.key() + " can be true only when "
 				+ JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE.key() + " is true first.");
 		}
+		this.jobResultClientManager = jobResultClientManager;
 
 		final FailoverStrategy failoverStrategy = failoverStrategyFactory.create(
 			getSchedulingTopology(),
@@ -236,7 +241,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		this.verticesWaitingForRestart = new HashSet<>();
 		this.taskCancelingCheckExecutor = new ScheduledExecutorServiceAdapter(Executors.newSingleThreadScheduledExecutor(
 			new ExecutorThreadFactory("Task canceling check")));
-		this.taskScheduledFinishEnable = jobMasterConfiguration.get(BenchmarkOption.JOB_SCHEDULED_THEN_FINISH_ENABLE);
+		this.taskScheduledFinishEnable = jobMasterConfiguration.get(BenchmarkOptions.JOB_SCHEDULED_THEN_FINISH_ENABLE);
 		warehouseJobStartEventMessageRecorder.createSchedulerFinish();
 	}
 
@@ -569,6 +574,9 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 				transitionExecutionGraphState(JobStatus.RUNNING, JobStatus.FINISHED);
 				transitionAllExecutionState(ExecutionState.FINISHED);
 				warehouseJobStartEventMessageRecorder.deployTaskFinish(executionGraph.getGlobalModVersion());
+				if (jobResultClientManager != null) {
+					jobResultClientManager.getJobChannelManager(getJobId()).completeAllTask();
+				}
 				return null;
 			}
 

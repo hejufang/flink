@@ -128,7 +128,7 @@ public class JobResultThreadPool implements Closeable {
 			resultTaskQueue.clear();
 			createdTaskCount = 0;
 		}
-		if (scheduledExecutor != null) {
+		if (scheduledExecutor != null && !scheduledExecutor.isShutdown()) {
 			scheduledExecutor.shutdown();
 		}
 	}

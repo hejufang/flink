@@ -32,6 +32,7 @@ import org.apache.flink.runtime.jobmaster.slotpool.SlotSelectionStrategy;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
+import org.apache.flink.runtime.socket.result.JobResultClientManager;
 
 import org.slf4j.Logger;
 
@@ -61,6 +62,7 @@ public interface SchedulerNGFactory {
 		Time slotRequestTimeout,
 		ShuffleMaster<?> shuffleMaster,
 		JobMasterPartitionTracker partitionTracker,
-		RemoteBlacklistReporter remoteBlacklistReporter) throws Exception;
+		RemoteBlacklistReporter remoteBlacklistReporter,
+		final JobResultClientManager jobResultClientManager) throws Exception;
 
 }

@@ -22,11 +22,9 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.operators.ResourceSpec;
-import org.apache.flink.api.common.socket.JobSocketResult;
-import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.configuration.BenchmarkOption;
+import org.apache.flink.configuration.BenchmarkOptions;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
@@ -285,7 +283,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 		this.jobManagerSharedServices = JobManagerSharedServices.fromConfiguration(
 			configuration,
 			blobServer,
-			fatalErrorHandler);
+			fatalErrorHandler,
+			jobResultClientManager);
 
 		this.runningJobsRegistry = highAvailabilityServices.getRunningJobsRegistry();
 
@@ -473,6 +472,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			}
 
 			resourceManagerHeartbeatManager.stop();
+		}
+
+		if (jobResultClientManager != null) {
+			jobResultClientManager.close();
 		}
 
 		return FutureUtils.runAfterwards(
@@ -733,7 +736,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private CompletableFuture<Void> runJob(JobGraph jobGraph) {
 
-		if (configuration.get(BenchmarkOption.JOB_RECEIVE_THEN_FINISH_ENABLE)) {
+		if (configuration.get(BenchmarkOptions.JOB_RECEIVE_THEN_FINISH_ENABLE)) {
 			archiveExecutionGraph(ArchivedExecutionGraph.buildEmptyArchivedExecutionGraph(jobGraph.getJobID(), jobGraph.getName()));
 			return CompletableFuture.completedFuture(null);
 		}
@@ -775,13 +778,11 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private CompletableFuture<Void> runJob(JobGraph jobGraph, ChannelHandlerContext chx) {
 
-		if (configuration.get(BenchmarkOption.JOB_RECEIVE_THEN_FINISH_ENABLE)) {
+		if (configuration.get(BenchmarkOptions.JOB_RECEIVE_THEN_FINISH_ENABLE)) {
 			archiveExecutionGraph(ArchivedExecutionGraph.buildEmptyArchivedExecutionGraph(jobGraph.getJobID(), jobGraph.getName()));
-			chx.writeAndFlush(
-				new JobSocketResult.Builder()
-					.setJobId(jobGraph.getJobID())
-					.setResultStatus(ResultStatus.COMPLETE)
-					.build());
+			JobChannelManager jobChannelManager = jobResultClientManager.getJobChannelManager(jobGraph.getJobID());
+			jobChannelManager.completeAllTask();
+			jobChannelManager.finishJob();
 			return CompletableFuture.completedFuture(null);
 		}
 
