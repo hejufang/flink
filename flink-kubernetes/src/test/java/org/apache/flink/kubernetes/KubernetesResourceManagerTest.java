@@ -97,6 +97,7 @@ import org.junit.Rule;
 import org.junit.Test;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -926,6 +927,23 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				return null;
 			});
 			registerSlotRequestFuture.get();
+		}
+
+		void addWorker(List<KubernetesPod> pods) throws Exception {
+			CompletableFuture<?> addPodsFuture = resourceManager.runInMainThread(() -> {
+				resourceManager.onAdded(pods);
+				return null;
+			});
+			addPodsFuture.get();
+		}
+
+		void deleteWorker(List<KubernetesPod> pods) throws Exception {
+			CompletableFuture<?> deletePodsFuture = resourceManager.runInMainThread(() -> {
+				pods.forEach(p -> terminatePod(p.getInternalResource()));
+				resourceManager.onDeleted(pods);
+				return null;
+			});
+			deletePodsFuture.get();
 		}
 
 		void registerTaskExecutor(ResourceID resourceID) throws Exception {

@@ -244,11 +244,15 @@ common:
   taskmanager.extra-initial-fraction: 0
 
   # yarn slow container detection
-  yarn.slow-container.enabled: true
-  yarn.slow-container.timeout-ms: 120000
-  yarn.slow-container.check-interval-ms: 10000
-  yarn.slow-container.quantile: 0.9
-  yarn.slow-container.threshold-factor: 1.5
+  resourcemanager.slow-container.enabled: true
+  resourcemanager.slow-container.timeout-ms: 120000
+  resourcemanager.slow-container.check-interval-ms: 10000
+  resourcemanager.slow-container.quantile: 0.9
+  resourcemanager.slow-container.threshold-factor: 1.3
+  resourcemanager.slow-container.redundant-max-factor: 0.2
+  resourcemanager.slow-container.redundant-min-number: 5
+  resourcemanager.slow-container.release-timeout-enabled: false
+  resourcemanager.slow-container.release-timeout-ms: 300000
 
   # Miscellaneous Options
   stream-partitioner.default: rescale
@@ -421,6 +425,7 @@ leser:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: leser
+  resourcemanager.slow-container.release-timeout-enabled: true
 
 lupin:
   dc: cn
@@ -1547,6 +1552,7 @@ Gaura-LF:
   ipv6.enabled: true
   register-dashboard.enabled: true
   ipv6.supported.cluster: Gaura-LF
+  resourcemanager.slow-container.release-timeout-enabled: true
 
 Gaura-HL:
   dc: cn
@@ -1574,6 +1580,7 @@ Gaura-HL:
   ipv6.enabled: true
   register-dashboard.enabled: true
   ipv6.supported.cluster: Gaura-HL
+  resourcemanager.slow-container.release-timeout-enabled: true
 
 Gaura-LQ:
   dc: cn
@@ -1601,6 +1608,7 @@ Gaura-LQ:
   ipv6.enabled: true
   register-dashboard.enabled: true
   ipv6.supported.cluster: Gaura-LQ
+  resourcemanager.slow-container.release-timeout-enabled: true
 
 Gaura-YG:
   dc: cn

@@ -1735,6 +1735,16 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	public abstract boolean stopWorker(WorkerType worker);
 
 	/**
+	 * Stop worker with ResourceID.
+	 * @return True if the worker was stopped or not exist, otherwise false
+	 */
+	public abstract boolean stopWorker(ResourceID resourceID, int exitCode);
+
+	public abstract boolean stopWorkerAndStartNewIfRequired(ResourceID resourceID, int exitCode);
+
+	public void removePendingContainerRequest(WorkerResourceSpec workerResourceSpec, int expectedNum) { }
+
+	/**
 	 * Set {@link SlotManager} whether to fail unfulfillable slot requests.
 	 * @param failUnfulfillableRequest whether to fail unfulfillable requests
 	 */

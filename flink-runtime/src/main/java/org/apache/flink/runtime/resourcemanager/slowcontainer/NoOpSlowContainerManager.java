@@ -16,8 +16,10 @@
  * limitations under the License.
  */
 
-package org.apache.flink.yarn.slowcontainer;
+package org.apache.flink.runtime.resourcemanager.slowcontainer;
 
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 
@@ -34,6 +36,8 @@ public class NoOpSlowContainerManager implements SlowContainerManager {
 	private final Map<ResourceID, Long> allContainers;
 	// Allocated timestamp of containers which not started yet.
 	private final Map<ResourceID, Long> startingContainers;
+
+	private final Counter releaseTimeoutContainerNumber = new SimpleCounter();
 
 	public NoOpSlowContainerManager() {
 		allContainers = new ConcurrentHashMap<>();
@@ -126,4 +130,8 @@ public class NoOpSlowContainerManager implements SlowContainerManager {
 		return startingContainers.size();
 	}
 
+	@Override
+	public Counter getReleaseTimeoutContainerNumber() {
+		return releaseTimeoutContainerNumber;
+	}
 }

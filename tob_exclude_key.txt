@@ -113,11 +113,15 @@ table.exec.hive.permission-check.gemini-server-url
 smart-resources.service-name
 
 # yarn slow container detection
-yarn.slow-container.enabled
-yarn.slow-container.timeout-ms
-yarn.slow-container.check-interval-ms
-yarn.slow-container.quantile
-yarn.slow-container.threshold-factor
+resourcemanager.slow-container.enabled
+resourcemanager.slow-container.timeout-ms
+resourcemanager.slow-container.check-interval-ms
+resourcemanager.slow-container.quantile
+resourcemanager.slow-container.threshold-factor
+resourcemanager.slow-container.redundant-max-factor
+resourcemanager.slow-container.redundant-min-number
+resourcemanager.slow-container.release-timeout-enabled
+resourcemanager.slow-container.release-timeout-ms
 
 # Miscellaneous Options
 job.work.dir

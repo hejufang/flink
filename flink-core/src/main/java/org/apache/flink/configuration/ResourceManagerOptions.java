@@ -202,6 +202,67 @@ public class ResourceManagerOptions {
 			.withDescription("Timeout to wait previous containers register to ResourceManager." +
 					"<= 0 means never timeout.");
 
+	public static final ConfigOption<Boolean> SLOW_CONTAINER_ENABLED = ConfigOptions
+			.key("resourcemanager.slow-container.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDeprecatedKeys("yarn.slow-container.enabled")
+			.withDescription("Whether enable slow container mechanism.");
+
+	public static final ConfigOption<Long> SLOW_CONTAINER_TIMEOUT_MS = ConfigOptions
+			.key("resourcemanager.slow-container.timeout-ms")
+			.longType()
+			.defaultValue(120000L)
+			.withDeprecatedKeys("yarn.slow-container.timeout-ms")
+			.withDescription("Timeout in milliseconds of determine if the container is slow.");
+
+	public static final ConfigOption<Long> SLOW_CONTAINER_CHECK_INTERVAL_MS = ConfigOptions
+			.key("resourcemanager.slow-container.check-interval-ms")
+			.longType()
+			.defaultValue(10000L)
+			.withDeprecatedKeys("yarn.slow-container.check-interval-ms")
+			.withDescription("Interval in milliseconds of check if the container is slow.");
+
+	public static final ConfigOption<Double> SLOW_CONTAINERS_QUANTILE = ConfigOptions
+			.key("resourcemanager.slow-container.quantile")
+			.doubleType()
+			.defaultValue(0.9)
+			.withDeprecatedKeys("yarn.slow-container.quantile")
+			.withDescription("The quantile of slow container timeout base threshold." +
+					"Means how many containers should be started before update slow container timeout threshold.");
+
+	public static final ConfigOption<Double> SLOW_CONTAINER_THRESHOLD_FACTOR = ConfigOptions
+			.key("resourcemanager.slow-container.threshold-factor")
+			.doubleType()
+			.defaultValue(1.3)
+			.withDeprecatedKeys("yarn.slow-container.threshold-factor")
+			.withDescription("The threshold factor for slow container base timeout. " +
+					"This means all containers having not been registered after threshold-factor times base-timeout should be marked as slow containers.");
+
+	public static final ConfigOption<Double> SLOW_CONTAINER_REDUNDANT_MAX_FACTOR = ConfigOptions
+			.key("resourcemanager.slow-container.redundant-max-factor")
+			.doubleType()
+			.defaultValue(0.2)
+			.withDescription("Factor of max redundant workers.");
+
+	public static final ConfigOption<Integer> SLOW_CONTAINER_REDUNDANT_MIN_NUMBER = ConfigOptions
+			.key("resourcemanager.slow-container.redundant-min-number")
+			.intType()
+			.defaultValue(5)
+			.withDescription("Number of min redundant workers.");
+
+	public static final ConfigOption<Boolean> SLOW_CONTAINER_RELEASE_TIMEOUT_ENABLED = ConfigOptions
+			.key("resourcemanager.slow-container.release-timeout-enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether enabled stop workers that start too slowly.");
+
+	public static final ConfigOption<Long> SLOW_CONTAINER_RELEASE_TIMEOUT_MS = ConfigOptions
+			.key("resourcemanager.slow-container.release-timeout-ms")
+			.longType()
+			.defaultValue(5 * 60 * 1000L)
+			.withDescription("Timeout for releasing slow workers.");
+
 	/**
 	 * Prefix for passing custom environment variables to Flink's master process.
 	 * For example for passing LD_LIBRARY_PATH as an env variable to the AppMaster, set:

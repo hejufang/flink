@@ -95,6 +95,18 @@ public class TestingResourceManager extends ResourceManager<ResourceID> {
 		return false;
 	}
 
+	@Override
+	public boolean stopWorker(ResourceID resourceID, int exitCode) {
+		// cannot stop workers
+		return false;
+	}
+
+	@Override
+	public boolean stopWorkerAndStartNewIfRequired(ResourceID resourceID, int exitCode) {
+		// cannot stop workers
+		return false;
+	}
+
 	<T> CompletableFuture<T> runInMainThread(Callable<T> callable, Time timeout) {
 		return callAsync(callable, timeout);
 	}

@@ -66,7 +66,6 @@ import org.apache.flink.runtime.util.TestingFatalErrorHandler;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.function.RunnableWithException;
-import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.entrypoint.YarnWorkerResourceSpecFactory;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableList;
@@ -1507,9 +1506,9 @@ public class YarnResourceManagerTest extends TestLogger {
 	@Test
 	public void testGetContainersFromPreviousAttempts() throws Exception {
 		long defaultSlowContainerTimeout = 120000;
-		flinkConfig.setBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED, true);
-		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, defaultSlowContainerTimeout);
-		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
+		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, defaultSlowContainerTimeout);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
 		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		flinkConfig.setLong(ResourceManagerOptions.PREVIOUS_CONTAINER_TIMEOUT_MS, 120000L);
 		new Context() {{

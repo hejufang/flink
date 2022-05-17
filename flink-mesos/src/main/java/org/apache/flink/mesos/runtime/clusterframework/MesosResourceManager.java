@@ -464,12 +464,26 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 
 	@Override
 	public boolean stopWorker(RegisteredMesosWorkerNode workerNode) {
-		LOG.info("Stopping worker {}.", workerNode.getResourceID());
+		return stopWorker(workerNode.getResourceID());
+	}
+
+	@Override
+	public boolean stopWorker(ResourceID resourceID, int exitCode) {
+		return stopWorker(resourceID);
+	}
+
+	@Override
+	public boolean stopWorkerAndStartNewIfRequired(ResourceID resourceID, int exitCode) {
+		return stopWorker(resourceID);
+	}
+
+	private boolean stopWorker(ResourceID resourceID) {
+		LOG.info("Stopping worker {}.", resourceID);
 		try {
 
-			if (workersInLaunch.containsKey(workerNode.getResourceID())) {
+			if (workersInLaunch.containsKey(resourceID)) {
 				// update persistent state of worker to Released
-				MesosWorkerStore.Worker worker = workersInLaunch.remove(workerNode.getResourceID());
+				MesosWorkerStore.Worker worker = workersInLaunch.remove(resourceID);
 				worker = worker.releaseWorker();
 				workerStore.putWorker(worker);
 				workersBeingReturned.put(extractResourceID(worker.taskID()), worker);
@@ -481,11 +495,11 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 					launchCoordinator.tell(new LaunchCoordinator.Unassign(worker.taskID(), worker.hostname().get()), selfActor);
 				}
 			}
-			else if (workersBeingReturned.containsKey(workerNode.getResourceID())) {
-				LOG.info("Ignoring request to stop worker {} because it is already being stopped.", workerNode.getResourceID());
+			else if (workersBeingReturned.containsKey(resourceID)) {
+				LOG.info("Ignoring request to stop worker {} because it is already being stopped.", resourceID);
 			}
 			else {
-				LOG.warn("Unrecognized worker {}.", workerNode.getResourceID());
+				LOG.warn("Unrecognized worker {}.", resourceID);
 			}
 		}
 		catch (Exception e) {

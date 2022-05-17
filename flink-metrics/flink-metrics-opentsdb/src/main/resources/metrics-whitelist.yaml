@@ -232,6 +232,7 @@ non-global:
         startingRedundantContainerNum,
         containerStartDurationMaxMs,
         speculativeSlowContainerTimeoutMs,
+        releaseTimeoutContainerNum,
         pendingPhasePods,
       # gang
         gangFailedNum,

@@ -84,7 +84,7 @@ public class TaskManagerRunnerTest extends TestLogger {
 		taskManagerRunner = createTaskManagerRunner(configuration);
 
 		Integer statusCode = systemExitTrackingSecurityManager.getSystemExitFuture().get();
-		assertThat(statusCode, is(equalTo(WorkerExitCode.TASKMANAGER_REGISTRATER_RM_TIMEOUT)));
+		assertThat(statusCode, is(equalTo(WorkerExitCode.TASKMANAGER_REGISTRAR_RM_TIMEOUT)));
 	}
 
 	private static Configuration createConfiguration() {

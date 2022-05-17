@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.resourcemanager;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
@@ -30,17 +31,24 @@ import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
+import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
+import org.apache.flink.runtime.resourcemanager.slowcontainer.NoOpSlowContainerManager;
+import org.apache.flink.runtime.resourcemanager.slowcontainer.SlowContainerActions;
+import org.apache.flink.runtime.resourcemanager.slowcontainer.SlowContainerManager;
+import org.apache.flink.runtime.resourcemanager.slowcontainer.SlowContainerManagerImpl;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Base class for {@link ResourceManager} implementations which contains some common variables and methods.
@@ -73,6 +81,9 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 
 	/** The allocated timestamp of worker. Only record allocated but not registred. */
 	private final Map<ResourceID, Long> workerAllocatedTime;
+
+	private final SlowContainerManager slowContainerManager;
+	private final long slowContainerCheckIntervalMs;
 
 	public ActiveResourceManager(
 			Configuration flinkConfig,
@@ -115,6 +126,33 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 		allocatedNotRegisteredWorkerResourceSpecs = new HashMap<>();
 		registeredWorkerResourceSpecs = new HashMap<>();
 		workerAllocatedTime = new HashMap<>();
+
+		if (flinkConfig.getBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED)) {
+			long slowContainerTimeoutMs = flinkConfig.getLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS);
+			double slowContainersQuantile = flinkConfig.getDouble(ResourceManagerOptions.SLOW_CONTAINERS_QUANTILE);
+			Preconditions.checkArgument(
+					slowContainersQuantile < 1.0,
+					"%s must less than 1.0", ResourceManagerOptions.SLOW_CONTAINERS_QUANTILE.key());
+			double slowContainerThresholdFactor = flinkConfig.getDouble(ResourceManagerOptions.SLOW_CONTAINER_THRESHOLD_FACTOR);
+			Preconditions.checkArgument(
+					slowContainerThresholdFactor > 1.0,
+					"%s must great than 1.0", ResourceManagerOptions.SLOW_CONTAINER_THRESHOLD_FACTOR.key());
+			double slowContainerRedundantMaxFactor = flinkConfig.getDouble(ResourceManagerOptions.SLOW_CONTAINER_REDUNDANT_MAX_FACTOR);
+			int slowContainerRedundantMinNumber = flinkConfig.getInteger(ResourceManagerOptions.SLOW_CONTAINER_REDUNDANT_MIN_NUMBER);
+			boolean slowContainerReleaseTimeoutEnabled = flinkConfig.getBoolean(ResourceManagerOptions.SLOW_CONTAINER_RELEASE_TIMEOUT_ENABLED);
+			long slowContainerReleaseTimeoutMs = flinkConfig.getLong(ResourceManagerOptions.SLOW_CONTAINER_RELEASE_TIMEOUT_MS);
+			this.slowContainerManager = new SlowContainerManagerImpl(
+					slowContainerTimeoutMs,
+					slowContainersQuantile,
+					slowContainerThresholdFactor,
+					slowContainerRedundantMaxFactor,
+					slowContainerRedundantMinNumber,
+					slowContainerReleaseTimeoutEnabled,
+					slowContainerReleaseTimeoutMs);
+		} else {
+			this.slowContainerManager = new NoOpSlowContainerManager();
+		}
+		this.slowContainerCheckIntervalMs = flinkConfig.getLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS);
 	}
 
 	protected CompletableFuture<Void> getStopTerminationFutureOrCompletedExceptionally(@Nullable Throwable exception) {
@@ -183,23 +221,13 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	}
 
 	/**
-	 * Notify that a requested worker has been released.
-	 * @param workerResourceSpec resource spec of the requested worker
-	 * @return updated number of pending workers for the given resource spec
-	 */
-	protected PendingWorkerNums notifyNewWorkerRequestReleased(WorkerResourceSpec workerResourceSpec) {
-		return new PendingWorkerNums(
-			requestedNotAllocatedWorkerCounter.decreaseAndGet(workerResourceSpec),
-			requestedNotRegisteredWorkerCounter.decreaseAndGet(workerResourceSpec));
-	}
-
-	/**
 	 * Notify that a worker with the given resource spec has been allocated.
 	 * @param workerResourceSpec resource spec of the requested worker
 	 * @param resourceID id of the allocated resource
 	 * @return updated number of pending workers for the given resource spec
 	 */
 	protected PendingWorkerNums notifyNewWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID) {
+		slowContainerManager.notifyWorkerAllocated(workerResourceSpec, resourceID);
 		allocatedNotRegisteredWorkerResourceSpecs.put(resourceID, workerResourceSpec);
 		workerAllocatedTime.put(resourceID, System.currentTimeMillis());
 		allocatedWorkerCounter.increaseAndGet(workerResourceSpec);
@@ -214,6 +242,7 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	 * @return updated number of pending workers for the given resource spec
 	 */
 	protected PendingWorkerNums notifyNewWorkerAllocationFailed(WorkerResourceSpec workerResourceSpec) {
+		slowContainerManager.notifyPendingWorkerFailed(workerResourceSpec);
 		return new PendingWorkerNums(
 			requestedNotAllocatedWorkerCounter.decreaseAndGet(workerResourceSpec),
 			requestedNotRegisteredWorkerCounter.decreaseAndGet(workerResourceSpec));
@@ -224,6 +253,7 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	 * @param resourceID id of the registered worker resource
 	 */
 	protected void notifyAllocatedWorkerRegistered(ResourceID resourceID) {
+		slowContainerManager.notifyWorkerStarted(resourceID);
 		WorkerResourceSpec workerResourceSpec = allocatedNotRegisteredWorkerResourceSpecs.remove(resourceID);
 		workerAllocatedTime.remove(resourceID);
 		if (workerResourceSpec == null) {
@@ -239,6 +269,7 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	 * @param resourceID id of the stopped worker resource
 	 */
 	protected void notifyAllocatedWorkerStopped(ResourceID resourceID) {
+		slowContainerManager.notifyWorkerStopped(resourceID);
 		WorkerResourceSpec workerResourceSpec = allocatedNotRegisteredWorkerResourceSpecs.remove(resourceID);
 		workerAllocatedTime.remove(resourceID);
 		if (workerResourceSpec == null) {
@@ -248,6 +279,7 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 			}
 			return;
 		}
+		allocatedWorkerCounter.decreaseAndGet(workerResourceSpec);
 		requestedNotRegisteredWorkerCounter.decreaseAndGet(workerResourceSpec);
 	}
 
@@ -257,6 +289,7 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	 * @param workerResourceSpec resource spec of the requested worker
 	 */
 	protected void notifyRecoveredWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID) {
+		slowContainerManager.notifyRecoveredWorkerAllocated(workerResourceSpec, resourceID);
 		allocatedNotRegisteredWorkerResourceSpecs.put(resourceID, workerResourceSpec);
 		workerAllocatedTime.put(resourceID, System.currentTimeMillis());
 		allocatedWorkerCounter.increaseAndGet(workerResourceSpec);
@@ -284,4 +317,86 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 			return numNotRegistered;
 		}
 	}
+
+	// ------------------------------------------------------------------------
+	//	Slow start container
+	// ------------------------------------------------------------------------
+
+	@Override
+	public void onStart() throws Exception {
+		super.onStart();
+		registerMetrics();
+	}
+
+	@Override
+	protected void initialize() throws ResourceManagerException {
+		slowContainerManager.setSlowContainerActions(new SlowContainerActionsImpl());
+	}
+
+	@Override
+	protected void startServicesOnLeadership() {
+		scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
+		super.startServicesOnLeadership();
+	}
+
+	public SlowContainerManager getSlowContainerManager() {
+		return slowContainerManager;
+	}
+
+	private void checkSlowContainers() {
+		validateRunsInMainThread();
+		try {
+			slowContainerManager.checkSlowContainer();
+		} catch (Exception e) {
+			log.warn("Error while checkSlowContainers.", e);
+		} finally {
+			scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
+		}
+	}
+
+	private void registerMetrics() {
+		resourceManagerMetricGroup.gauge("slowContainerNum", slowContainerManager::getSlowContainerTotalNum);
+		resourceManagerMetricGroup.gauge("totalRedundantContainerNum", slowContainerManager::getRedundantContainerTotalNum);
+		resourceManagerMetricGroup.gauge("pendingRedundantContainerNum", slowContainerManager::getPendingRedundantContainersTotalNum);
+		resourceManagerMetricGroup.gauge("startingRedundantContainerNum", slowContainerManager::getStartingRedundantContainerTotalNum);
+		resourceManagerMetricGroup.gauge("speculativeSlowContainerTimeoutMs", slowContainerManager::getSpeculativeSlowContainerTimeoutMs);
+		resourceManagerMetricGroup.counter("releaseTimeoutContainerNum", slowContainerManager.getReleaseTimeoutContainerNumber());
+	}
+
+	/**
+	 * Actions for slow container manager.
+	 */
+	private class SlowContainerActionsImpl implements SlowContainerActions {
+
+		@Override
+		public boolean startNewWorker(WorkerResourceSpec workerResourceSpec) {
+			validateRunsInMainThread();
+			return ActiveResourceManager.this.startNewWorker(workerResourceSpec);
+		}
+
+		@Override
+		public boolean stopWorker(ResourceID resourceID, int exitCode) {
+			validateRunsInMainThread();
+			return ActiveResourceManager.this.stopWorker(resourceID, exitCode);
+		}
+
+		@Override
+		public boolean stopWorkerAndStartNewIfRequired(ResourceID resourceID, int exitCode) {
+			validateRunsInMainThread();
+			return ActiveResourceManager.this.stopWorkerAndStartNewIfRequired(resourceID, exitCode);
+		}
+
+		@Override
+		public void releasePendingRequests(WorkerResourceSpec workerResourceSpec, int expectedNum) {
+			validateRunsInMainThread();
+			ActiveResourceManager.this.removePendingContainerRequest(workerResourceSpec, expectedNum);
+		}
+
+		@Override
+		public int getNumRequestedNotAllocatedWorkersFor(WorkerResourceSpec workerResourceSpec) {
+			validateRunsInMainThread();
+			return ActiveResourceManager.this.getNumRequestedNotAllocatedWorkersFor(workerResourceSpec);
+		}
+	}
+
 }

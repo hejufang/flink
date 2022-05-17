@@ -439,37 +439,6 @@ public class YarnConfigOptions {
 	public static final String CLIENT_YARN_CONFIG_KEY_PREFIX = "flink.client.yarn.config.";
 	public static final String JOBMANAGER_YARN_CONFIG_KEY_PREFIX = "flink.jobmanager.yarn.config.";
 
-	public static final ConfigOption<Boolean> SLOW_CONTAINER_ENABLED =
-			key("yarn.slow-container.enabled")
-					.defaultValue(false)
-					.withDescription("Whether enable slow container mechanism.");
-
-	public static final ConfigOption<Long> SLOW_CONTAINER_TIMEOUT_MS =
-			key("yarn.slow-container.timeout-ms")
-					.longType()
-					.defaultValue(120000L)
-					.withDescription("Timeout in milliseconds of determine if the container is slow.");
-
-	public static final ConfigOption<Long> SLOW_CONTAINER_CHECK_INTERVAL_MS =
-			key("yarn.slow-container.check-interval-ms")
-					.longType()
-					.defaultValue(10000L)
-					.withDescription("Interval in milliseconds of check if the container is slow.");
-
-	public static final ConfigOption<Double> SLOW_CONTAINERS_QUANTILE =
-			key("yarn.slow-container.quantile")
-					.doubleType()
-					.defaultValue(0.9)
-					.withDescription("The quantile of slow container timeout base threshold." +
-							"Means how many containers should be started before update slow container timeout threshold.");
-
-	public static final ConfigOption<Double> SLOW_CONTAINER_THRESHOLD_FACTOR =
-			key("yarn.slow-container.threshold-factor")
-					.doubleType()
-					.defaultValue(1.5)
-					.withDescription("Times of slow container timeout base threshold." +
-							"Means containers which 1.5 times slow than the base threshold should be marked as slow containers.");
-
 	/**
 	 * The number of threads to start yarn containers in yarn resource manager.
 	 */

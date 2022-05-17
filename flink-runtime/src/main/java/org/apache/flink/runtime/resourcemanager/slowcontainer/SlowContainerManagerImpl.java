@@ -16,8 +16,10 @@
  * limitations under the License.
  */
 
-package org.apache.flink.yarn.slowcontainer;
+package org.apache.flink.runtime.resourcemanager.slowcontainer;
 
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
@@ -27,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,12 +49,17 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	private final double slowContainersQuantile;
 	private final double slowContainerThresholdFactor;
 	private final long slowContainerTimeoutMs;
+	private final boolean slowContainerReleaseTimeoutEnabled;
+	private final long slowContainerReleaseTimeoutMs;
+	private final double slowContainerRedundantMinNumber;
+	private final double slowContainerRedundantMaxFactor;
+	private final Counter releaseTimeoutContainerNumber;
 
 	private long speculativeSlowContainerTimeoutMs;
 
-	// all containers.
+	// all containers include redundant containers.
 	private final Map<ResourceID, StartingResource> containers;
-	// slow containers.
+	// slow containers, include slow redundant containers.
 	private final WorkerResourceSpecMap<ResourceID> slowContainers;
 	// allocated not started containers for redundant.
 	private final WorkerResourceSpecMap<ResourceID> startingRedundantContainers;
@@ -64,19 +72,40 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 
 	private boolean running = true;
 
-	public SlowContainerManagerImpl(long slowContainerTimeoutMs, double slowContainersQuantile, double slowContainerThresholdFactor) {
+	public SlowContainerManagerImpl(
+			long slowContainerTimeoutMs,
+			double slowContainersQuantile,
+			double slowContainerThresholdFactor,
+			double slowContainerRedundantMaxFactor,
+			int slowContainerRedundantMinNumber,
+			boolean slowContainerReleaseTimeoutEnabled,
+			long slowContainerReleaseTimeoutMs) {
 		containers = new ConcurrentHashMap<>();
 		pendingRedundantContainers = new WorkerResourceSpecCounter();
 		allRedundantContainers = new WorkerResourceSpecCounter();
 		slowContainers = new WorkerResourceSpecMap<>();
 		startingRedundantContainers = new WorkerResourceSpecMap<>();
+		releaseTimeoutContainerNumber = new SimpleCounter();
 
+		this.slowContainerRedundantMaxFactor = slowContainerRedundantMaxFactor;
+		this.slowContainerRedundantMinNumber = slowContainerRedundantMinNumber;
 		this.slowContainerTimeoutMs = slowContainerTimeoutMs;
+		this.slowContainerReleaseTimeoutEnabled = slowContainerReleaseTimeoutEnabled;
+		this.slowContainerReleaseTimeoutMs = slowContainerReleaseTimeoutMs;
 		this.slowContainersQuantile = slowContainersQuantile;
 		this.slowContainerThresholdFactor = slowContainerThresholdFactor;
 		this.speculativeSlowContainerTimeoutMs = slowContainerTimeoutMs;
-		log.info("start checkSlowContainers with slowContainerTimeoutMs: {}, slowContainerThresholdQuantile: {}, slowContainerThresholdQuantileTimes: {}.",
-				slowContainerTimeoutMs, slowContainersQuantile, slowContainerThresholdFactor);
+		log.info("start checkSlowContainers with slowContainerTimeoutMs: {}, slowContainerThresholdQuantile: {}, " +
+						"slowContainerThresholdQuantileTimes: {}, slowContainerRedundantMinNumber: {}, " +
+						"slowContainerRedundantMaxFactor: {}, slowContainerReleaseTimeoutEnabled: {}, " +
+						"slowContainerReleaseTimeoutMs: {}.",
+				slowContainerTimeoutMs,
+				slowContainersQuantile,
+				slowContainerThresholdFactor,
+				slowContainerRedundantMinNumber,
+				slowContainerRedundantMaxFactor,
+				slowContainerReleaseTimeoutEnabled,
+				slowContainerReleaseTimeoutMs);
 	}
 
 	@Override
@@ -125,7 +154,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 						allRedundantContainers.getNum(workerResourceSpec), startingResourceList, slowContainerActions.getNumRequestedNotAllocatedWorkersFor(workerResourceSpec));
 				// release all starting redundant containers.
 				for (StartingResource resource: startingResourceList) {
-					releaseContainer(resource.getResourceID());
+					releaseRedundantContainer(resource.getResourceID());
 				}
 				if (slowContainers.getNum(workerResourceSpec) != 0) {
 					log.error("slow containers not empty after release all starting containers, {}. it is a bug, clear it forced",
@@ -227,25 +256,34 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 			}
 		}
 
+		// The newly applied container will enter the pending state.
+		// If we check whether there is pending in the loop,
+		// there will definitely be pending after request for first redundant container,
+		// and we will not be able to request redundant containers for other slow containers.
+		Map<WorkerResourceSpec, Boolean> hasPendingWorkerForSpec = new HashMap<>();
+
 		for (StartingResource startingContainer : startingResources) {
 			ResourceID resourceID = startingContainer.getResourceID();
 			WorkerResourceSpec workerResourceSpec = startingContainer.getWorkerResourceSpec();
 			long waitedTimeMillis = System.currentTimeMillis() - startingContainer.getStartTimestamp();
 			if (waitedTimeMillis > speculativeSlowContainerTimeoutMs || waitedTimeMillis > slowContainerTimeoutMs) {
-				if (startingRedundantContainers.contains(workerResourceSpec, resourceID)) {
-					log.info("{} not started in {} milliseconds, but this container if redundant, will not allocate new.",
-							resourceID, waitedTimeMillis);
-				} else if (!slowContainers.contains(workerResourceSpec, resourceID)) {
-					log.info("{} not started in {} milliseconds, try to allocate new container.", resourceID, waitedTimeMillis);
+				log.info("{} not started in {} milliseconds.", resourceID, waitedTimeMillis);
+				// check slow container.
+				if (!slowContainers.contains(workerResourceSpec, resourceID)) {
 					slowContainers.add(workerResourceSpec, resourceID);
-					startNewContainer(resourceID, startingContainer.getWorkerResourceSpec());
-				} else if (slowContainers.getNum(workerResourceSpec) > allRedundantContainers.getNum(workerResourceSpec)) {
-					log.info("{} not started in {} milliseconds and slow container number more than redundant container number, " +
-							"this may be redundant container failed. try to allocate new container.", resourceID, waitedTimeMillis);
-					startNewContainer(resourceID, startingContainer.getWorkerResourceSpec());
-				} else {
-					log.info("{} not started in {} milliseconds.", resourceID, waitedTimeMillis);
 				}
+
+				// always try to start redundant for slow container.
+				boolean hasPendingWorker = hasPendingWorkerForSpec.computeIfAbsent(workerResourceSpec, w -> slowContainerActions.getNumRequestedNotAllocatedWorkersFor(w) > 0);
+				if (!hasPendingWorker && // YARN/Kubernetes no resource to fulfill container requests.
+						slowContainers.getNum(workerResourceSpec) > allRedundantContainers.getNum(workerResourceSpec) && // some slow container has no redundant container.
+						canStartRedundantContainer(workerResourceSpec)) {
+					startNewContainer(workerResourceSpec);
+				}
+			}
+
+			if (slowContainerReleaseTimeoutEnabled && waitedTimeMillis > slowContainerReleaseTimeoutMs) {
+				releaseTimeoutContainer(resourceID);
 			}
 		}
 		log.debug("current slow containers: {}", slowContainers);
@@ -306,9 +344,36 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 				.collect(Collectors.toMap(StartingResource::getResourceID, StartingResource::getStartTimestamp));
 	}
 
-	private void startNewContainer(ResourceID oldResourceId, WorkerResourceSpec workerResourceSpec) {
+	public Counter getReleaseTimeoutContainerNumber() {
+		return releaseTimeoutContainerNumber;
+	}
+
+	/**
+	 * Check whether we can start a redundant container.
+	 * The max number of redundant is Max(slowContainerRedundantMinNumber, (allContainersExceptRedundant * slowContainerRedundantMaxFactor))
+	 */
+	private boolean canStartRedundantContainer(WorkerResourceSpec workerResourceSpec) {
+		int currentRedundantContainerNumber = getRedundantContainerNum(workerResourceSpec);
+		if (currentRedundantContainerNumber < slowContainerRedundantMinNumber) {
+			return true;
+		}
+
+		long allContainersNumber = containers.values().stream()
+				.filter(s -> s.workerResourceSpec.equals(workerResourceSpec))
+				.count();
+		long allContainersExceptRedundant = allContainersNumber - getRedundantContainerNum(workerResourceSpec);
+		if (currentRedundantContainerNumber >= allContainersExceptRedundant * slowContainerRedundantMaxFactor) {
+			log.info("can not start new redundant container, current redundant number {} already exceed the maximum(({} - {})*{}).",
+					currentRedundantContainerNumber, allContainersNumber, currentRedundantContainerNumber, slowContainerRedundantMaxFactor);
+			return false;
+		}
+
+		return true;
+	}
+
+	private void startNewContainer(WorkerResourceSpec workerResourceSpec) {
 		if (slowContainerActions != null) {
-			log.info("try to start new container for slow container {}.", oldResourceId);
+			log.info("try to start new container for slow container.");
 			if (slowContainerActions.startNewWorker(workerResourceSpec)) {
 				allRedundantContainers.increaseAndGet(workerResourceSpec);
 				pendingRedundantContainers.increaseAndGet(workerResourceSpec);
@@ -316,10 +381,18 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 		}
 	}
 
-	private void releaseContainer(ResourceID resourceID) {
+	private void releaseRedundantContainer(ResourceID resourceID) {
 		if (slowContainerActions != null) {
 			log.info("try to release container {} because of slow container.", resourceID);
 			slowContainerActions.stopWorker(resourceID, WorkerExitCode.SLOW_CONTAINER);
+		}
+	}
+
+	private void releaseTimeoutContainer(ResourceID resourceID) {
+		if (slowContainerActions != null) {
+			log.info("try to release container {} because of timed out.", resourceID);
+			releaseTimeoutContainerNumber.inc();
+			slowContainerActions.stopWorkerAndStartNewIfRequired(resourceID, WorkerExitCode.SLOW_CONTAINER_TIMEOUT);
 		}
 	}
 

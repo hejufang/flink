@@ -421,7 +421,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			startTaskExecutorServices();
 		} catch (Exception e) {
 			final TaskManagerException exception = new TaskManagerException(String.format("Could not start the TaskExecutor %s", getAddress()), e);
-			onFatalError(exception, WorkerExitCode.TASKMANAGER_STSRT_ERROR);
+			onFatalError(exception, WorkerExitCode.TASKMANAGER_START_ERROR);
 			throw exception;
 		}
 
@@ -1097,7 +1097,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			}
 		} catch (Throwable t) {
 			// TODO: Do we still need this catch branch?
-			onFatalError(t, WorkerExitCode.TASKMANAGER_RELEASE_PARTIITION_ERROR);
+			onFatalError(t, WorkerExitCode.TASKMANAGER_RELEASE_PARTITION_ERROR);
 		}
 
 		// TODO: Maybe it's better to return an Acknowledge here to notify the JM about the success/failure with an Exception
@@ -1247,7 +1247,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			} catch (SlotNotFoundException slotNotFoundException) {
 				// slot no longer existent, this should actually never happen, because we've
 				// just allocated the slot. So let's fail hard in this case!
-				onFatalError(slotNotFoundException, WorkerExitCode.TASKMANAGER_RELEASESLOT_NOTFOUND);
+				onFatalError(slotNotFoundException, WorkerExitCode.TASKMANAGER_RELEASE_SLOT_NOTFOUND);
 			}
 
 			// release local state under the allocation id.
@@ -1255,7 +1255,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 			// sanity check
 			if (!taskSlotTable.isSlotFree(slotId.getSlotNumber())) {
-				onFatalError(new Exception("Could not free slot " + slotId), WorkerExitCode.TASKMANAGER_RELEASESLOT_ERROR);
+				onFatalError(new Exception("Could not free slot " + slotId), WorkerExitCode.TASKMANAGER_RELEASE_SLOT_ERROR);
 			}
 
 			return FutureUtils.completedExceptionally(new SlotAllocationException("Could not create new job.", e));
@@ -1306,7 +1306,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				} catch (SlotNotFoundException slotNotFoundException) {
 					// slot no longer existent, this should actually never happen, because we've
 					// just allocated the slot. So let's fail hard in this case!
-					onFatalError(slotNotFoundException, WorkerExitCode.TASKMANAGER_RELEASESLOT_NOTFOUND);
+					onFatalError(slotNotFoundException, WorkerExitCode.TASKMANAGER_RELEASE_SLOT_NOTFOUND);
 				}
 
 				// release local state under the allocation id.
@@ -1314,7 +1314,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 				// sanity check
 				if (!taskSlotTable.isSlotFree(resourceSlot.getSlotId().getSlotNumber())) {
-					onFatalError(new Exception("Could not free slot " + resourceSlot.getSlotId()), WorkerExitCode.TASKMANAGER_RELEASESLOT_ERROR);
+					onFatalError(new Exception("Could not free slot " + resourceSlot.getSlotId()), WorkerExitCode.TASKMANAGER_RELEASE_SLOT_ERROR);
 				}
 			}
 
@@ -1714,7 +1714,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 					String.format("Could not register at the ResourceManager within the specified maximum " +
 						"registration duration %s. This indicates a problem with this instance. Terminating now.",
 						maxRegistrationDuration)),
-					WorkerExitCode.TASKMANAGER_REGISTRATER_RM_TIMEOUT);
+					WorkerExitCode.TASKMANAGER_REGISTRAR_RM_TIMEOUT);
 		}
 	}
 
@@ -2408,7 +2408,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		@Override
 		public void handleError(Exception exception) {
-			onFatalError(exception, WorkerExitCode.TASKMANAGER_LISTENLEADER_RM_ERROR);
+			onFatalError(exception, WorkerExitCode.TASKMANAGER_LISTEN_LEADER_RM_ERROR);
 		}
 	}
 
@@ -2444,7 +2444,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		@Override
 		public void handleError(Throwable throwable) {
-			onFatalError(throwable, WorkerExitCode.TASKMANAGER_LISTENLEADER_JM_ERROR);
+			onFatalError(throwable, WorkerExitCode.TASKMANAGER_LISTEN_LEADER_JM_ERROR);
 		}
 	}
 
@@ -2477,7 +2477,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		@Override
 		public void onRegistrationFailure(Throwable failure) {
-			onFatalError(failure, WorkerExitCode.TASKMANAGER_REGISTRATER_RM_ERROR);
+			onFatalError(failure, WorkerExitCode.TASKMANAGER_REGISTRAR_RM_ERROR);
 		}
 	}
 

@@ -16,9 +16,10 @@
  * limitations under the License.
  */
 
-package org.apache.flink.yarn.slowcontainer;
+package org.apache.flink.runtime.resourcemanager.slowcontainer;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 
@@ -74,4 +75,6 @@ public interface SlowContainerManager {
 	int getStartingContainerTotalNum();
 
 	Map<ResourceID, Long> getStartingContainerWithTimestamp();
+
+	Counter getReleaseTimeoutContainerNumber();
 }

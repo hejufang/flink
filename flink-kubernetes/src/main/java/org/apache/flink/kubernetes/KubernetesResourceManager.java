@@ -240,6 +240,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	@Override
 	protected void initialize() throws ResourceManagerException {
+		super.initialize();
 		updateServiceTargetPortIfNecessary();
 		recoverWorkerNodesFromPreviousAttempts();
 
@@ -374,6 +375,41 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			warehouseJobStartEventMessageRecorder.registerTaskManagerFinish(resourceID.getResourceIdString());
 		}
 		return node;
+	}
+
+	@Override
+	public void removePendingContainerRequest(WorkerResourceSpec workerResourceSpec, int expectedNum) {
+		List<String> pendingPods = podWorkerResources.entrySet().stream()
+				.filter(e -> !workerNodes.containsKey(new ResourceID(e.getKey())))
+				.filter(e -> e.getValue().equals(workerResourceSpec))
+				.map(Map.Entry::getKey)
+				.collect(Collectors.toList());
+		int remainingExceptedNum = expectedNum;
+		for (String podName : pendingPods) {
+			if (remainingExceptedNum <= 0) {
+				break;
+			}
+			log.info("Stopping pending worker {}", podName);
+			internalStopPod(podName);
+			remainingExceptedNum--;
+		}
+	}
+
+	@Override
+	public boolean stopWorker(ResourceID resourceID, int exitCode) {
+		KubernetesWorkerNode workerNode = workerNodes.get(resourceID);
+		if (workerNode != null) {
+			return stopWorker(workerNode, exitCode);
+		} else {
+			return true;
+		}
+	}
+
+	@Override
+	public boolean stopWorkerAndStartNewIfRequired(ResourceID resourceID, int exitCode) {
+		boolean stopResult = stopWorker(resourceID, exitCode);
+		requestKubernetesPodIfRequired();
+		return stopResult;
 	}
 
 	@Override
@@ -847,10 +883,12 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			final WorkerResourceSpec workerResourceSpec = entry.getKey();
 			final int requiredTaskManagers = entry.getValue();
 
-			while (requiredTaskManagers > getNumRequestedNotRegisteredWorkersFor(workerResourceSpec)) {
-				log.info("Need to require new task manager pod, requiredTaskManagers: {}, NumRequestedNotRegisteredWorkersFor: {}",
+			log.info("Check whether need to require new task manager pod, requiredTaskManagers: {} NumRequestedNotRegisteredWorkersFor: {}, redundantWorkerNumber: {}",
 					requiredTaskManagers,
-					getNumRequestedNotRegisteredWorkersFor(workerResourceSpec));
+					getNumRequestedNotRegisteredWorkersFor(workerResourceSpec),
+					getSlowContainerManager().getRedundantContainerNum(workerResourceSpec));
+
+			while (requiredTaskManagers > (getNumRequestedNotRegisteredWorkersFor(workerResourceSpec) - getSlowContainerManager().getRedundantContainerNum(workerResourceSpec))) {
 				tryStartNewWorker(workerResourceSpec);
 			}
 		}

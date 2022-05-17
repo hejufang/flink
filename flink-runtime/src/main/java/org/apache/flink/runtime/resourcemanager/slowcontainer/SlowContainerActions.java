@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.yarn.slowcontainer;
+package org.apache.flink.runtime.resourcemanager.slowcontainer;
 
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
@@ -29,6 +29,8 @@ public interface SlowContainerActions {
 	boolean startNewWorker(WorkerResourceSpec workerResourceSpec);
 
 	boolean stopWorker(ResourceID resourceID, int exitCode);
+
+	boolean stopWorkerAndStartNewIfRequired(ResourceID resourceID, int exitCode);
 
 	void releasePendingRequests(WorkerResourceSpec workerResourceSpec, int num);
 
