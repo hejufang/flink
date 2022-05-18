@@ -535,9 +535,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 								jobGraph.getJobID(),
 								jobGraph.getName());
 
-							if (registeredTaskManagers.size() < maxRegisteredTaskManager) {
+							if (registeredTaskManagers.size() < maxRegisteredTaskManager && establishedResourceManagerConnection != null) {
 								int extraTaskManagers = (int) Math.ceil((double) minRequiredTaskManager * 0.1);
-								Objects.requireNonNull(establishedResourceManagerConnection)
+								establishedResourceManagerConnection
 									.getResourceManagerGateway()
 									.requestTaskManager(extraTaskManagers, timeout);
 							}
@@ -599,6 +599,13 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 								maxRunningTasks,
 								jobGraph.getJobID(),
 								jobGraph.getName());
+
+							if (registeredTaskManagers.size() < maxRegisteredTaskManager && establishedResourceManagerConnection != null) {
+								int extraTaskManagers = (int) Math.ceil((double) minRequiredTaskManager * 0.1);
+								establishedResourceManagerConnection
+									.getResourceManagerGateway()
+									.requestTaskManager(extraTaskManagers, timeout);
+							}
 						}
 					} else {
 						internalSubmitJob(jobGraph, ctx);
