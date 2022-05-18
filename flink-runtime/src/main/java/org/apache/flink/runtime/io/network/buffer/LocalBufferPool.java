@@ -371,6 +371,11 @@ class LocalBufferPool implements BufferPool {
 				}
 			}
 		}
+
+		if (segment == null && numberOfRequestedMemorySegments + 1 >= currentPoolSize && numberOfRequestedMemorySegments + 1 < maxNumberOfMemorySegments) {
+			networkBufferPool.tryResizeLocalBufferPool(this, currentPoolSize, numberOfRequestedMemorySegments + 1);
+		}
+
 		return segment;
 	}
 
@@ -385,10 +390,6 @@ class LocalBufferPool implements BufferPool {
 
 		if (isDestroyed) {
 			throw new IllegalStateException("Buffer pool is destroyed.");
-		}
-
-		if (numberOfRequestedMemorySegments + 1 >= currentPoolSize && numberOfRequestedMemorySegments + 1 < maxNumberOfMemorySegments) {
-			networkBufferPool.tryResizeLocalBufferPool(this, currentPoolSize, numberOfRequestedMemorySegments + 1);
 		}
 
 		if (numberOfRequestedMemorySegments < currentPoolSize) {

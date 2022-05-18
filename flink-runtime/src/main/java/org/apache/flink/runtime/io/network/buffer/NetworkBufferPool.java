@@ -718,6 +718,13 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 		assert (numDistributedMemorySegment == memorySegmentsToDistribute);
 	}
 
+	@VisibleForTesting
+	public void tryReturnExcessMemorySegments() throws IOException {
+		synchronized (factoryLock){
+			returnExcessMemorySegments();
+		}
+	}
+
 	private void returnExcessMemorySegments() throws IOException {
 		assert Thread.holdsLock(factoryLock);
 
