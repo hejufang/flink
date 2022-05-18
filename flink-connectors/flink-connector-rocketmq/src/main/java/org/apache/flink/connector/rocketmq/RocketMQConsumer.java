@@ -55,6 +55,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -90,7 +91,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private final String tag;
 	private final Map<String, String> props;
 	private final RocketMQDeserializationSchema<T> schema;
-	private final RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
 	private final String brokerQueueList;
 	private final FlinkConnectorRateLimiter rateLimiter;
 	private final long sourceIdleTimeMs;
@@ -108,7 +108,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private transient volatile List<MessageQueuePb> assignedMessageQueuePbs;
 	private transient volatile Set<MessageQueue> assignedMessageQueueSet;
 	private transient Set<MessageQueue> lastSnapshotQueues;
-	private transient Set<MessageQueue> specificMessageQueueSet;
 	private transient Thread updateThread;
 	private transient ListState<Tuple2<MessageQueue, Long>> unionOffsetStates;
 	private transient volatile boolean running;
@@ -120,6 +119,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private transient Counter skipDirtyCounter;
 	private transient int runtimeParallelism;
 	private transient RetryManager.Strategy retryStrategy;
+	private transient List<MessageQueuePb> userSpecificQueuePbs;
 
 	public RocketMQConsumer(
 			RocketMQDeserializationSchema<T> schema,
@@ -131,9 +131,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.group = config.getGroup();
 		this.topic = config.getTopic();
 		this.tag = config.getTag();
-		this.assignQueueStrategy = config.getAssignQueueStrategy();
 		this.parallelism = config.getParallelism();
-		this.brokerQueueList = config.getRocketMqBrokerQueueList();
 		this.rateLimiter = config.getRateLimiter();
 		this.sourceIdleTimeMs = config.getIdleTimeOut();
 		this.consumerFactory = config.getConsumerFactory();
@@ -150,6 +148,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		}
 		RocketMQUtils.saveConfigurationToSystemProperties(config);
 		RocketMQUtils.validateAndSetBrokerQueueList(config);
+		this.brokerQueueList = config.getRocketMqBrokerQueueList();
 	}
 
 	@Override
@@ -170,7 +169,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.topicAndQueuesGauge = metricGroup.gauge(CONSUMER_TOPIC_QUEUES, new TopicAndQueuesGauge(cluster, group));
 		schema.open(() -> getRuntimeContext().getMetricGroup());
 		this.skipDirtyCounter = getRuntimeContext().getMetricGroup().counter(FactoryUtil.SOURCE_SKIP_DIRTY);
-		specificMessageQueueSet = parseMessageQueueSet();
 		if (rateLimiter != null) {
 			rateLimiter.open(getRuntimeContext());
 		}
@@ -228,12 +226,15 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		restoredOffsets = new HashMap<>();
 		isRestored = context.isRestored();
 		unionOffsetStates.get().forEach(tuple2List::add);
+		List<MessageQueue> thisTaskQueues = parseMessageQueueSet();
+		userSpecificQueuePbs = thisTaskQueues.stream().map(this::queue2queuePb).collect(Collectors.toList());
+		Set<MessageQueue> thisTaskQueueSet = new HashSet<>(thisTaskQueues);
 		tuple2List.forEach(
 			queueAndOffset -> restoredOffsets.compute(queueAndOffset.f0, (queue, offset) -> {
 				if (offset != null) {
 					return Math.max(queueAndOffset.f1, offset);
 				}
-				if (belongToThisTask(queueAndOffset.f0)) {
+				if (hashBelongToThisTask(queueAndOffset.f0) || thisTaskQueueSet.contains(queueAndOffset.f0)) {
 					lastSnapshotQueues.add(queueAndOffset.f0);
 				}
 				return queueAndOffset.f1;
@@ -254,18 +255,20 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		consumer.setFlushOffsetInterval(offsetFlushInterval);
 		consumer.start();
 
-		if (assignQueueStrategy == RocketMQOptions.AssignQueueStrategy.FIXED) {
+		if (userSpecificQueuePbs.isEmpty()) {
 			assignMessageQueues(this::allocFixedMessageQueue);
-		}
-
-		if (assignQueueStrategy == RocketMQOptions.AssignQueueStrategy.FIXED) {
 			updateThread = createUpdateThread();
 			updateThread.start();
+		} else {
+			assignMessageQueues(() -> userSpecificQueuePbs);
+			LOG.info("[Cluster: {}, topic: {}, group:{}, taskId: {}] user specific queue {}",
+				cluster, topic, group, subTaskId,
+				userSpecificQueuePbs.stream().map(this::formatQueue).collect(Collectors.joining(",")));
 		}
 
 		long lastTimestamp = System.currentTimeMillis();
 		while (running) {
-			if (!updateThread.isAlive()) {
+			if (userSpecificQueuePbs.isEmpty() && !updateThread.isAlive()) {
 				throw new FlinkRuntimeException("Subtask " + subTaskId + " RocketMQ partition discovery thread is not alive");
 			}
 
@@ -369,7 +372,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		List<MessageQueuePb> messageQueuePbList = new ArrayList<>();
 		for (MessageQueuePb queuePb: queryTopicQueuesResult.getMessageQueues()) {
 			// Old alloc strategy.
-			if (belongToThisTask(createMessageQueue(queuePb))) {
+			if (hashBelongToThisTask(createMessageQueue(queuePb))) {
 				messageQueuePbList.add(queuePb);
 			}
 		}
@@ -388,9 +391,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	}
 
 	// keep same logic with flink-connector-rocketmq-legacy #AllocateMessageQueueStrategyParallelism#allocate()
-	private boolean belongToThisTask(MessageQueue messageQueue) {
+	private boolean hashBelongToThisTask(MessageQueue messageQueue) {
 		int assignedSubTaskId = RocketMQUtils.hashCodeOfMessageQueue(messageQueue, runtimeParallelism);
-		return (assignedSubTaskId == subTaskId) && (specificMessageQueueSet == null || specificMessageQueueSet.contains(messageQueue));
+		return (assignedSubTaskId == subTaskId);
 	}
 
 	private void resetOffset(MessageQueuePb messageQueuePb) throws InterruptedException {
@@ -475,17 +478,38 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		cancel();
 	}
 
-	private Set<MessageQueue> parseMessageQueueSet() {
+	private List<MessageQueue> parseMessageQueueSet() {
 		Map<String, List<MessageQueue>> queueMap =
 			RocketMQUtils.parseCluster2QueueList(this.brokerQueueList);
 		List<MessageQueue> messageQueues = queueMap.get(cluster);
 		if (messageQueues == null) {
-			return null;
+			if (!queueMap.isEmpty()) {
+				String errorMsg = String.format("Job specific rocketmq queues, but [cluster: %s, topic: %s] not in %s",
+					cluster, topic, String.join(",", queueMap.keySet()));
+				LOG.error(errorMsg);
+				throw new FlinkRuntimeException(errorMsg);
+			}
+			return Collections.emptyList();
 		}
-		return new HashSet<>(messageQueues);
+
+		List<MessageQueue> sortedQueues = messageQueues.stream().sorted().collect(Collectors.toList());
+		List<MessageQueue> queueWithThisTasks = new ArrayList<>();
+		for (int i = 0; i < sortedQueues.size(); i++) {
+			if (i % getRuntimeContext().getNumberOfParallelSubtasks() == subTaskId) {
+				queueWithThisTasks.add(sortedQueues.get(i));
+			}
+		}
+		return queueWithThisTasks;
 	}
 
 	private String formatQueue(MessageQueuePb messageQueuePb) {
 		return String.format("[broker %s, queue %s]", messageQueuePb.getBrokerName(), messageQueuePb.getQueueId());
+	}
+
+	private MessageQueuePb queue2queuePb(MessageQueue messageQueue) {
+		return MessageQueuePb.newBuilder()
+			.setTopic(messageQueue.getTopic())
+			.setBrokerName(messageQueue.getBrokerName())
+			.setQueueId(messageQueue.getQueueId()).build();
 	}
 }

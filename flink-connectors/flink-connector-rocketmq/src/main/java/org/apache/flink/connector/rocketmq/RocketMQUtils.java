@@ -296,22 +296,24 @@ public final class RocketMQUtils {
 		}
 	}
 
-	public static void validateAndSetBrokerQueueList(RocketMQConfig<?> rocketMQConfig) {
+	public static List<MessageQueue> validateAndSetBrokerQueueList(RocketMQConfig<?> rocketMQConfig) {
 		if (rocketMQConfig.getRocketMqBrokerQueueList() == null) {
 			rocketMQConfig.setRocketMqBrokerQueueList(
 				System.getProperty(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY));
 		}
-		validateBrokerQueueList(rocketMQConfig);
+		return validateBrokerQueueList(rocketMQConfig);
 	}
 
-	public static void validateBrokerQueueList(RocketMQConfig<?> rocketMQConfig) {
+	public static List<MessageQueue> validateBrokerQueueList(RocketMQConfig<?> rocketMQConfig) {
 		Map<String, List<MessageQueue>> messageQueueMap =
 			RocketMQUtils.parseCluster2QueueList(rocketMQConfig.getRocketMqBrokerQueueList());
 		LOG.info("Validate broker size {}", messageQueueMap.size());
-		if (!messageQueueMap.isEmpty() && messageQueueMap.get(rocketMQConfig.getCluster()) == null) {
+		List<MessageQueue> messageQueues = messageQueueMap.get(rocketMQConfig.getCluster());
+		if (!messageQueueMap.isEmpty() && messageQueues == null) {
 			throw new FlinkRuntimeException(
 				String.format("Cluster %s not found in broker queue config", rocketMQConfig.getCluster()));
 		}
+		return messageQueues;
 	}
 
 	public static List<Tuple2<MessageQueue, Long>> getDtsState(OperatorStateStore stateStore) throws Exception {
