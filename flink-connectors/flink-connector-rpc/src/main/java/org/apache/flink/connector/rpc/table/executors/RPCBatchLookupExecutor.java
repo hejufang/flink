@@ -92,7 +92,10 @@ public class RPCBatchLookupExecutor extends BaseRPCLookupExecutor<List<RowData>>
 			LOG.warn("Cannot find BaseResp or StatusMessage field in the response class.");
 		}
 		try {
-			serviceClient = (RPCServiceClientBase) Class.forName(rpcOptions.getServiceClientImplClass())
+			serviceClient = (RPCServiceClientBase) Class.forName(
+					rpcOptions.getServiceClientImplClass(),
+					true,
+					Thread.currentThread().getContextClassLoader())
 				.getMethod("getInstance", RPCOptions.class, RPCLookupOptions.class, Class.class, Class.class)
 				.invoke(null, rpcOptions, rpcLookupOptions, clientClass, requestClass);
 		} catch (IllegalAccessException | ClassNotFoundException |

@@ -64,7 +64,8 @@ public class HiveReflectionUtils {
 
 	public static ObjectInspector createConstantObjectInspector(String className, Object value) {
 		try {
-			Constructor<?>  method = Class.forName(className).getDeclaredConstructor(value.getClass());
+			Constructor<?> method = Class.forName(className, true, Thread.currentThread().getContextClassLoader())
+				.getDeclaredConstructor(value.getClass());
 			method.setAccessible(true);
 			return (ObjectInspector) method.newInstance(value);
 		} catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException

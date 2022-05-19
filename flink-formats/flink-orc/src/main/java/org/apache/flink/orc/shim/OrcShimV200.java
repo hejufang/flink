@@ -55,10 +55,11 @@ public class OrcShimV200 implements OrcShim<VectorizedRowBatch> {
 
 	protected Reader createReader(Path path, Configuration conf) throws IOException {
 		try {
-			Class orcFileClass = Class.forName("org.apache.hadoop.hive.ql.io.orc.OrcFile");
+			final ClassLoader cl = Thread.currentThread().getContextClassLoader();
+			Class orcFileClass = Class.forName("org.apache.hadoop.hive.ql.io.orc.OrcFile", true, cl);
 			Object readerOptions = invokeStaticMethod(orcFileClass, "readerOptions", conf);
 
-			Class readerClass = Class.forName("org.apache.hadoop.hive.ql.io.orc.ReaderImpl");
+			Class readerClass = Class.forName("org.apache.hadoop.hive.ql.io.orc.ReaderImpl", true, cl);
 			//noinspection unchecked
 			return (Reader) invokeConstructor(readerClass, path, readerOptions);
 		} catch (ClassNotFoundException |
@@ -138,8 +139,11 @@ public class OrcShimV200 implements OrcShim<VectorizedRowBatch> {
 	public boolean nextBatch(RecordReader reader, VectorizedRowBatch rowBatch) throws IOException {
 		try {
 			if (hasNextMethod == null) {
-				hasNextMethod = Class.forName("org.apache.hadoop.hive.ql.io.orc.RecordReader")
-						.getMethod("hasNext");
+				hasNextMethod = Class.forName(
+						"org.apache.hadoop.hive.ql.io.orc.RecordReader",
+						true,
+						Thread.currentThread().getContextClassLoader())
+					.getMethod("hasNext");
 				hasNextMethod.setAccessible(true);
 			}
 			if (nextBatchMethod == null) {

@@ -170,7 +170,11 @@ public class HiveWriterFactory implements Serializable {
 		}
 
 		JobConf jobConf = confWrapper.conf();
-		Object serdeLib = Class.forName(serDeInfo.getSerializationLib()).newInstance();
+		Object serdeLib = Class.forName(
+				serDeInfo.getSerializationLib(),
+				true,
+				Thread.currentThread().getContextClassLoader())
+			.newInstance();
 		Preconditions.checkArgument(serdeLib instanceof Serializer && serdeLib instanceof Deserializer,
 				"Expect a SerDe lib implementing both Serializer and Deserializer, but actually got "
 						+ serdeLib.getClass().getName());

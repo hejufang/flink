@@ -81,7 +81,10 @@ public class ThriftUtil {
 	@SuppressWarnings("unchecked")
 	public static Class<? extends TServiceClient> getThriftClientClass(String thriftServiceClassName) {
 		try {
-			return (Class<? extends TServiceClient>) Class.forName(thriftServiceClassName + CLIENT_CLASS_SUFFIX);
+			return (Class<? extends TServiceClient>) Class.forName(
+				thriftServiceClassName + CLIENT_CLASS_SUFFIX,
+				true,
+				Thread.currentThread().getContextClassLoader());
 		} catch (ClassNotFoundException e) {
 			throw new FlinkRuntimeException(e);
 		}
@@ -93,7 +96,10 @@ public class ThriftUtil {
 			if (field.getType().equals(List.class)) {
 				ParameterizedType listInnerType = (ParameterizedType) field.getGenericType();
 				Type[] listActualTypeArguments = listInnerType.getActualTypeArguments();
-				return Class.forName(listActualTypeArguments[0].getTypeName());
+				return Class.forName(
+					listActualTypeArguments[0].getTypeName(),
+					true,
+					Thread.currentThread().getContextClassLoader());
 			} else {
 				throw new IllegalArgumentException("The field " + fieldName + " must be of List type.");
 			}

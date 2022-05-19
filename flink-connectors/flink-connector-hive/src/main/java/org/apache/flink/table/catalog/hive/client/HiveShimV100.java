@@ -162,7 +162,10 @@ public class HiveShimV100 implements HiveShim {
 	@Override
 	public Class<?> getMetaStoreUtilsClass() {
 		try {
-			return Class.forName("org.apache.hadoop.hive.metastore.MetaStoreUtils");
+			return Class.forName(
+				"org.apache.hadoop.hive.metastore.MetaStoreUtils",
+				true,
+				Thread.currentThread().getContextClassLoader());
 		} catch (ClassNotFoundException e) {
 			throw new CatalogException("Failed to find class MetaStoreUtils", e);
 		}

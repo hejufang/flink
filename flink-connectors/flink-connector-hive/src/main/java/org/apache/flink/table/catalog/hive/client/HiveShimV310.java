@@ -71,20 +71,21 @@ public class HiveShimV310 extends HiveShimV235 {
 			synchronized (HiveShimV310.class) {
 				if (!hiveClassesInited) {
 					try {
-						hiveTimestampClz = Class.forName("org.apache.hadoop.hive.common.type.Timestamp");
+						final ClassLoader cl = Thread.currentThread().getContextClassLoader();
+						hiveTimestampClz = Class.forName("org.apache.hadoop.hive.common.type.Timestamp", true, cl);
 						hiveTimestampConstructor = hiveTimestampClz.getDeclaredConstructor(LocalDateTime.class);
 						hiveTimestampConstructor.setAccessible(true);
 						hiveTimestampLocalDateTime = hiveTimestampClz.getDeclaredField("localDateTime");
 						hiveTimestampLocalDateTime.setAccessible(true);
-						timestampWritableConstructor = Class.forName("org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
+						timestampWritableConstructor = Class.forName("org.apache.hadoop.hive.serde2.io.TimestampWritableV2", true, cl)
 								.getDeclaredConstructor(hiveTimestampClz);
 
-						hiveDateClz = Class.forName("org.apache.hadoop.hive.common.type.Date");
+						hiveDateClz = Class.forName("org.apache.hadoop.hive.common.type.Date", true, cl);
 						hiveDateConstructor = hiveDateClz.getDeclaredConstructor(LocalDate.class);
 						hiveDateConstructor.setAccessible(true);
 						hiveDateLocalDate = hiveDateClz.getDeclaredField("localDate");
 						hiveDateLocalDate.setAccessible(true);
-						dateWritableConstructor = Class.forName("org.apache.hadoop.hive.serde2.io.DateWritableV2")
+						dateWritableConstructor = Class.forName("org.apache.hadoop.hive.serde2.io.DateWritableV2", true, cl)
 								.getDeclaredConstructor(hiveDateClz);
 					} catch (ClassNotFoundException | NoSuchMethodException | NoSuchFieldException e) {
 						throw new FlinkHiveException("Failed to get Hive timestamp class and constructor", e);
@@ -109,7 +110,10 @@ public class HiveShimV310 extends HiveShimV235 {
 	@Override
 	public Class<?> getMetaStoreUtilsClass() {
 		try {
-			return Class.forName("org.apache.hadoop.hive.metastore.utils.MetaStoreUtils");
+			return Class.forName(
+				"org.apache.hadoop.hive.metastore.utils.MetaStoreUtils",
+				true,
+				Thread.currentThread().getContextClassLoader());
 		} catch (ClassNotFoundException e) {
 			throw new CatalogException("Failed to find class MetaStoreUtils", e);
 		}
@@ -118,7 +122,10 @@ public class HiveShimV310 extends HiveShimV235 {
 	@Override
 	public Class<?> getHiveMetaStoreUtilsClass() {
 		try {
-			return Class.forName("org.apache.hadoop.hive.metastore.HiveMetaStoreUtils");
+			return Class.forName(
+				"org.apache.hadoop.hive.metastore.HiveMetaStoreUtils",
+				true,
+				Thread.currentThread().getContextClassLoader());
 		} catch (ClassNotFoundException e) {
 			throw new CatalogException("Failed to find class HiveMetaStoreUtils", e);
 		}
@@ -140,12 +147,13 @@ public class HiveShimV310 extends HiveShimV235 {
 	public Set<String> getNotNullColumns(IMetaStoreClient client, Configuration conf, String dbName, String tableName) {
 		try {
 			String hiveDefaultCatalog = getHMSDefaultCatalog(conf);
-			Class requestClz = Class.forName("org.apache.hadoop.hive.metastore.api.NotNullConstraintsRequest");
+			final ClassLoader cl = Thread.currentThread().getContextClassLoader();
+			Class requestClz = Class.forName("org.apache.hadoop.hive.metastore.api.NotNullConstraintsRequest", true, cl);
 			Object request = requestClz.getDeclaredConstructor(String.class, String.class, String.class)
 					.newInstance(hiveDefaultCatalog, dbName, tableName);
 			List<?> constraints = (List<?>) HiveReflectionUtils.invokeMethod(client.getClass(), client,
 					"getNotNullConstraints", new Class[]{requestClz}, new Object[]{request});
-			Class constraintClz = Class.forName("org.apache.hadoop.hive.metastore.api.SQLNotNullConstraint");
+			Class constraintClz = Class.forName("org.apache.hadoop.hive.metastore.api.SQLNotNullConstraint", true, cl);
 			Method colNameMethod = constraintClz.getDeclaredMethod("getColumn_name");
 			Method isRelyMethod = constraintClz.getDeclaredMethod("isRely_cstr");
 			Set<String> res = new HashSet<>();
@@ -277,7 +285,10 @@ public class HiveShimV310 extends HiveShimV235 {
 		List<Object> res = new ArrayList<>();
 		if (!nnCols.isEmpty()) {
 			Preconditions.checkArgument(nnCols.size() == traits.size(), "Number of NN columns and traits mismatch");
-			Class nnClz = Class.forName("org.apache.hadoop.hive.metastore.api.SQLNotNullConstraint");
+			Class nnClz = Class.forName(
+				"org.apache.hadoop.hive.metastore.api.SQLNotNullConstraint",
+				true,
+				Thread.currentThread().getContextClassLoader());
 			// NN constructor takes catName, dbName, tableName, colName, nnName, enable, validate, rely
 			Constructor constructor = nnClz.getConstructor(
 					String.class,

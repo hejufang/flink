@@ -35,7 +35,10 @@ public interface KafkaProducerFactory extends Serializable {
 
 	static KafkaProducerFactory getFactoryByClassName(String factoryClassName) {
 		try {
-			return ((Class<KafkaProducerFactory>) Class.forName(factoryClassName)).newInstance();
+			return ((Class<KafkaProducerFactory>) Class.forName(
+				factoryClassName,
+				true,
+				Thread.currentThread().getContextClassLoader())).newInstance();
 		} catch (Exception e) {
 			throw new FlinkRuntimeException("Invalid factory class name" + factoryClassName, e);
 		}

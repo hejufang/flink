@@ -146,8 +146,10 @@ public class HiveTableSink implements
 					jobConf, hiveVersion, dbName, tableName);
 			HadoopFileSystemFactory fsFactory = new HadoopFileSystemFactory(jobConf);
 
-			Class hiveOutputFormatClz = hiveShim.getHiveOutputFormatClass(
-					Class.forName(sd.getOutputFormat()));
+			Class hiveOutputFormatClz = hiveShim.getHiveOutputFormatClass(Class.forName(
+				sd.getOutputFormat(),
+				true,
+				Thread.currentThread().getContextClassLoader()));
 			boolean isCompressed = jobConf.getBoolean(HiveConf.ConfVars.COMPRESSRESULT.varname, false);
 			HiveWriterFactory recordWriterFactory = new HiveWriterFactory(
 					jobConf,

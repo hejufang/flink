@@ -200,7 +200,7 @@ public class JdbcLookupFunction extends TableFunction<Row> {
 	}
 
 	private void establishConnectionAndStatement() throws SQLException, ClassNotFoundException {
-		Class.forName(drivername);
+		Class.forName(drivername, true, Thread.currentThread().getContextClassLoader());
 		if (username == null) {
 			dbConn = DriverManager.getConnection(dbURL);
 		} else {

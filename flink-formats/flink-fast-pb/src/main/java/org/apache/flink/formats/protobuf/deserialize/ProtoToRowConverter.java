@@ -59,7 +59,10 @@ public class ProtoToRowConverter {
 		try {
 			Descriptors.Descriptor descriptor =
 				PbFormatUtils.getDescriptor(formatConfig.getPbDescriptorClass());
-			Class<?> messageClass = Class.forName(formatConfig.getPbDescriptorClass());
+			Class<?> messageClass = Class.forName(
+				formatConfig.getPbDescriptorClass(),
+				true,
+				Thread.currentThread().getContextClassLoader());
 			if (descriptor.getFile().getSyntax() == Syntax.PROTO3) {
 				// pb3 always read default values
 				formatConfig =

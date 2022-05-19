@@ -70,7 +70,10 @@ public class HiveShimV210 extends HiveShimV201 {
 	@Override
 	public Optional<UniqueConstraint> getPrimaryKey(IMetaStoreClient client, String dbName, String tableName, byte requiredTrait) {
 		try {
-			Class requestClz = Class.forName("org.apache.hadoop.hive.metastore.api.PrimaryKeysRequest");
+			Class requestClz = Class.forName(
+				"org.apache.hadoop.hive.metastore.api.PrimaryKeysRequest",
+				true,
+				Thread.currentThread().getContextClassLoader());
 			Object request = requestClz.getDeclaredConstructor(String.class, String.class).newInstance(dbName, tableName);
 			List<?> constraints = (List<?>) HiveReflectionUtils.invokeMethod(client.getClass(), client,
 					"getPrimaryKeys", new Class[]{requestClz}, new Object[]{request});

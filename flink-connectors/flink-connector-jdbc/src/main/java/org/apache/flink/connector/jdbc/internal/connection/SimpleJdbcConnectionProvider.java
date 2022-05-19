@@ -51,7 +51,10 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
 			synchronized (this) {
 				if (connection == null) {
 					try {
-						Class.forName(jdbcOptions.getDriverName());
+						Class.forName(
+							jdbcOptions.getDriverName(),
+							true,
+							Thread.currentThread().getContextClassLoader());
 						if (jdbcOptions.getUseBytedanceMysql()) {
 							if (jdbcOptions.getUsername().isPresent()) {
 								connection = MysqlDriverManager.getConnection(jdbcOptions.getDbURL(),

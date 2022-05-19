@@ -1888,7 +1888,7 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		String className = operation.getFunctionClass();
 
 		try {
-			Class<?> functionClass = Class.forName(className);
+			Class<?> functionClass = Class.forName(className, true, Thread.currentThread().getContextClassLoader());
 			Object function = functionClass.newInstance();
 			if (function instanceof ScalarFunction) {
 				registerFunction(name, (ScalarFunction) function);

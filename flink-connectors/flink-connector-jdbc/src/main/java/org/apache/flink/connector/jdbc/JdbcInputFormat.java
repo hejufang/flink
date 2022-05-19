@@ -141,7 +141,7 @@ public class JdbcInputFormat extends RichInputFormat<Row, InputSplit> implements
 	public void openInputFormat() {
 		//called once per inputFormat (on open)
 		try {
-			Class.forName(drivername);
+			Class.forName(drivername, true, Thread.currentThread().getContextClassLoader());
 			if (username == null) {
 				dbConn = DriverManager.getConnection(dbURL);
 			} else {

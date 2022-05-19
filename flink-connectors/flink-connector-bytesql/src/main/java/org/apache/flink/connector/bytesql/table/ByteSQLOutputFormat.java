@@ -99,7 +99,10 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 			.withRpcTimeoutMs(options.getConnectionTimeout());
 
 		try {
-			byteSQLDB = (ByteSQLDBBase) Class.forName(options.getDbClassName())
+			byteSQLDB = (ByteSQLDBBase) Class.forName(
+					options.getDbClassName(),
+					true,
+					Thread.currentThread().getContextClassLoader())
 				.getMethod("getInstance", ByteSQLOption.class)
 				.invoke(null, byteSQLOption);
 				//.getConstructor().newInstance(byteSQLOption);

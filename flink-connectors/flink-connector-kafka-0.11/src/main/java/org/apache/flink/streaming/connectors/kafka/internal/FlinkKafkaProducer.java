@@ -341,7 +341,10 @@ public class FlinkKafkaProducer<K, V> implements Producer<K, V> {
 			String enumClassName = x[0];
 			String enumName = x[1];
 			try {
-				Class<Enum> cl = (Class<Enum>) Class.forName(enumClassName);
+				Class<Enum> cl = (Class<Enum>) Class.forName(
+					enumClassName,
+					true,
+					Thread.currentThread().getContextClassLoader());
 				return Enum.valueOf(cl, enumName);
 			} catch (ClassNotFoundException e) {
 				throw new RuntimeException("Incompatible KafkaProducer version", e);
