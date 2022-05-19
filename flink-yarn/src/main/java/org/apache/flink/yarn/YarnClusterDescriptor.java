@@ -53,6 +53,7 @@ import org.apache.flink.runtime.jobmanager.JobManagerProcessSpec;
 import org.apache.flink.runtime.jobmanager.JobManagerProcessUtils;
 import org.apache.flink.runtime.util.HadoopUtils;
 import org.apache.flink.runtime.util.IPv6Util;
+import org.apache.flink.util.CollectionUtil;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ShutdownHookUtil;
@@ -857,9 +858,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		// upload and register ship-only files
 		// Plugin files only need to be shipped and should not be added to classpath.
+		// user's ship-only-files only need to be shipped and should not be added to classpath.
 		if (fileUploader.getProvidedSharedLibs().isEmpty()) {
 			Set<File> shipOnlyFiles = new HashSet<>();
 			addPluginsFoldersToShipFiles(shipOnlyFiles);
+			// add ship only files by user.
+			addUserShipOnlyFilesToShipFiles(shipOnlyFiles);
 			fileUploader.registerMultipleLocalResources(
 					shipOnlyFiles.stream().map(e -> new Path(e.toURI())).collect(Collectors.toSet()),
 					Path.CUR_DIR);
@@ -1648,6 +1652,15 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 	void addPluginsFoldersToShipFiles(Collection<File> effectiveShipFiles) {
 		final Optional<File> pluginsDir = PluginConfig.getPluginsDir();
 		pluginsDir.ifPresent(effectiveShipFiles::add);
+	}
+
+	void addUserShipOnlyFilesToShipFiles(Collection<File> effectiveShipFiles) {
+		List<String> shipOnlyFilesByUser = flinkConfiguration.get(YarnConfigOptions.SHIP_ONLY_FILES);
+		if (!CollectionUtil.isNullOrEmpty(shipOnlyFilesByUser)) {
+			for (String path : shipOnlyFilesByUser) {
+				effectiveShipFiles.add(new File(path));
+			}
+		}
 	}
 
 	ContainerLaunchContext setupApplicationMasterContainer(

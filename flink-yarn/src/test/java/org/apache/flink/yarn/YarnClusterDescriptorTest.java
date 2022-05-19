@@ -62,6 +62,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static junit.framework.TestCase.assertTrue;
 import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
@@ -578,6 +579,19 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			}
 
 			assertTrue(effectiveShipFiles.isEmpty());
+		}
+	}
+
+	@Test
+	public void testUserShipOnlyFiles() {
+		final Configuration configuration = new Configuration();
+		final List<String> shipOnly = Arrays.asList("/file1", "/file2", "/file1");
+		configuration.set(YarnConfigOptions.SHIP_ONLY_FILES, shipOnly);
+		try (YarnClusterDescriptor descriptor =  createYarnClusterDescriptor(configuration)) {
+			final Set<File> effectiveShipFiles = new HashSet<>();
+			descriptor.addUserShipOnlyFilesToShipFiles(effectiveShipFiles);
+			final Set<File> expected = shipOnly.stream().map(File::new).collect(Collectors.toSet());
+			assertEquals(expected, effectiveShipFiles);
 		}
 	}
 

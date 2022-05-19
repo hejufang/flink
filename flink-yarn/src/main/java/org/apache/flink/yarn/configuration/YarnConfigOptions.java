@@ -207,6 +207,14 @@ public class YarnConfigOptions {
 				.noDefaultValue()
 				.withDescription("A semicolon-separated list of directories to be shipped to the YARN cluster.");
 
+	public static final ConfigOption<List<String>> SHIP_ONLY_FILES =
+		key("yarn.ship-only-files")
+			.stringType()
+			.asList()
+			.noDefaultValue()
+			.withDescription("A semicolon-separated list of files or directories to be shipped-only "
+				+ "to the YARN cluster, which means will not be added to classpath");
+
 	public static final ConfigOption<String> FLINK_DIST_JAR =
 			key("yarn.flink-dist-jar")
 				.stringType()
