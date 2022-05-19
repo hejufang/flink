@@ -20,6 +20,8 @@ package org.apache.flink.metrics;
 
 import org.apache.flink.util.TestLogger;
 
+import java.util.concurrent.TimeUnit;
+
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -56,5 +58,32 @@ public class AbstractHistogramTest extends TestLogger {
 		statistics = histogram.getStatistics();
 		assertEquals(size, statistics.size());
 		assertEquals(size + (size - 1) / 2.0, statistics.getQuantile(0.5), 0.001);
+	}
+
+	protected void testTimeWindowHistogram(long timeWindow, TimeUnit timeUnit, Histogram histogram) {
+		HistogramStatistics statistics;
+		int size = 100;
+		for (int i = 0; i < size; i++) {
+			histogram.update(i);
+
+			statistics = histogram.getStatistics();
+			assertEquals(i + 1, histogram.getCount());
+			assertEquals(histogram.getCount(), statistics.size());
+			assertEquals(i, statistics.getMax());
+			assertEquals(0, statistics.getMin());
+		}
+
+		statistics = histogram.getStatistics();
+		assertEquals(size, statistics.size());
+		assertEquals((size - 1) / 2.0, statistics.getQuantile(0.5), 0.001);
+
+		try {
+			timeUnit.sleep(timeWindow);
+		} catch (Throwable e) {
+			throw new RuntimeException(e);
+		}
+
+		statistics = histogram.getStatistics();
+		assertEquals(0, statistics.size());
 	}
 }

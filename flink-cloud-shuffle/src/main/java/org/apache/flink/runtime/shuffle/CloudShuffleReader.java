@@ -80,7 +80,7 @@ public class CloudShuffleReader implements BufferRecycler {
 		}
 
 		this.reachEnd = false;
-		this.cloudShuffleReadLatency = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram(CloudShuffleOptions.CLOUD_HISTOGRAM_SIZE));
+		this.cloudShuffleReadLatency = new SimpleHistogram(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram());
 	}
 
 	public CloudShuffleBuffer pollNext() throws IOException {

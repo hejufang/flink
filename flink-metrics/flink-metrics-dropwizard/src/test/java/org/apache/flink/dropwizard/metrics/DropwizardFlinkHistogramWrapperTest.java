@@ -33,6 +33,7 @@ import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.ScheduledReporter;
+import com.codahale.metrics.SlidingTimeWindowArrayReservoir;
 import com.codahale.metrics.SlidingWindowReservoir;
 import com.codahale.metrics.Snapshot;
 import com.codahale.metrics.Timer;
@@ -67,6 +68,17 @@ public class DropwizardFlinkHistogramWrapperTest extends AbstractHistogramTest {
 		DropwizardHistogramWrapper histogramWrapper = new DropwizardHistogramWrapper(
 			new com.codahale.metrics.Histogram(new SlidingWindowReservoir(size)));
 		testHistogram(size, histogramWrapper);
+	}
+
+	/**
+	 * Tests time window histogram functionality of the DropwizardHistogramWrapper.
+	 */
+	@Test
+	public void testTimeWindowDropwizardHistogramWrapper() {
+		long timeWindow = 1;
+		DropwizardHistogramWrapper histogramWrapper = new DropwizardHistogramWrapper(
+			new com.codahale.metrics.Histogram(new SlidingTimeWindowArrayReservoir(timeWindow, TimeUnit.MINUTES)));
+		testTimeWindowHistogram(timeWindow, TimeUnit.MINUTES, histogramWrapper);
 	}
 
 	/**

@@ -54,6 +54,7 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Histogram;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.SimpleHistogram;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
@@ -72,7 +73,6 @@ import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.util.OutputTag;
 import org.apache.flink.util.Preconditions;
 
-import com.codahale.metrics.SlidingWindowReservoir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -890,15 +890,15 @@ public class CoCepOperator<IN, KEY, OUT>
 		});
 
 		advanceTimeMs = this.getMetricGroup().histogram(CepMetricConstants.ADVANCE_TIME_METRIC_NAME,
-			new DropwizardHistogramWrapper(new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500))));
+			new DropwizardHistogramWrapper(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram()));
 		processEventMs = this.getMetricGroup().histogram(CepMetricConstants.PROCESS_EVENT_METRIC_NAME,
-			new DropwizardHistogramWrapper(new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500))));
+			new DropwizardHistogramWrapper(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram()));
 		processMatchedMs = this.getMetricGroup().histogram(CepMetricConstants.PROCESS_MATCHED_METRIC_NAME,
-			new DropwizardHistogramWrapper(new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500))));
+			new DropwizardHistogramWrapper(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram()));
 		processUnMatchMs = this.getMetricGroup().histogram(CepMetricConstants.PROCESS_UNMATCHED_METRIC_NAME,
-			new DropwizardHistogramWrapper(new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500))));
+			new DropwizardHistogramWrapper(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram()));
 		processTimeoutMs = this.getMetricGroup().histogram(CepMetricConstants.PROCESS_TIMEOUT_METRIC_NAME,
-			new DropwizardHistogramWrapper(new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500))));
+			new DropwizardHistogramWrapper(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram()));
 	}
 
 	protected Counter getNumLateRecordsDropped() {

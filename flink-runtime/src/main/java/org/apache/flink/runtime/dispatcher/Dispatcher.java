@@ -202,12 +202,12 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private final Counter rejectedJobCounter = new SimpleCounter();
 
 	// Only record the duration from ExecutionGraph Create to job Finished.
-	private final Histogram jobDurationHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
+	private final Histogram jobDurationHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram());
 
 	// Record the failed job's latency.
-	private final Histogram failedJobDurationHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
+	private final Histogram failedJobDurationHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram());
 
-	private final Histogram jobToScheduleLatencyHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
+	private final Histogram jobToScheduleLatencyHistogram = new SimpleHistogram(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram());
 
 	// --------- ResourceManager --------
 	private final LeaderRetrievalService resourceManagerLeaderRetriever;

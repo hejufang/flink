@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Deadline;
 import org.apache.flink.metrics.GrafanaGauge;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.SimpleHistogram;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.concurrent.NeverCompleteFuture;
 
@@ -98,7 +99,7 @@ public class SystemProcessingTimeService implements TimerService {
 		this.timerService.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
 		this.timerService.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
 
-		this.dropwizardHistogram = new com.codahale.metrics.Histogram(new com.codahale.metrics.SlidingWindowReservoir(128));
+		this.dropwizardHistogram = SimpleHistogram.buildSlidingTimeWindowReservoirHistogram();
 		numberOfTriggerTimers = new AtomicLong(0L);
 
 		this.metricGroup = metricGroup;
