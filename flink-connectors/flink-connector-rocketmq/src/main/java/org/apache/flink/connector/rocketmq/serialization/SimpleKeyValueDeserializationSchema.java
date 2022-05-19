@@ -27,7 +27,6 @@ import com.bytedance.rocketmq.clientv2.message.MessageQueue;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * SimpleKeyValueDeserializationSchema.
@@ -53,11 +52,6 @@ public class SimpleKeyValueDeserializationSchema implements RocketMQDeserializat
 	public SimpleKeyValueDeserializationSchema(String keyField, String valueField) {
 		this.keyField = keyField;
 		this.valueField = valueField;
-	}
-
-	@Override
-	public boolean isEndOfStream(Set<MessageQueue> balanceMQSet, Map nextElement) {
-		return false;
 	}
 
 	@Override

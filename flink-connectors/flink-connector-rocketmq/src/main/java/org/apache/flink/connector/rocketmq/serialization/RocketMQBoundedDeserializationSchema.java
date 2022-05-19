@@ -22,18 +22,14 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import com.bytedance.mqproxy.proto.MessageExt;
 import com.bytedance.rocketmq.clientv2.message.MessageQueue;
 
-import java.util.Set;
-
 /**
  * RocketMQBoundedDeserializationSchema.
  */
 public class RocketMQBoundedDeserializationSchema<T> extends RocketMQDeserializationSchemaWrapper<T> {
-	private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = 2L;
 
 	private final long timestamp;
 	private final long offset;
-	private transient MessageExt lastMessageExt;
-	private transient T lastRecord;
 
 	public RocketMQBoundedDeserializationSchema(
 			DeserializationSchema<T> deserializationSchema,
@@ -46,18 +42,14 @@ public class RocketMQBoundedDeserializationSchema<T> extends RocketMQDeserializa
 
 	@Override
 	public T deserialize(MessageQueue messageQueue, MessageExt record) throws Exception {
-		lastMessageExt = record;
-		lastRecord = super.deserialize(messageQueue, record);
-		return lastRecord;
+		return super.deserialize(messageQueue, record);
 	}
 
 	@Override
-	public boolean isEndOfStream(Set<MessageQueue> balancedMQ, T nextElement) {
-		// just compare reference, don't need use Object.equals()
-		assert nextElement == lastRecord;
-		return super.isEndOfStream(balancedMQ, nextElement) ||
-			lastMessageExt.getQueueOffset() >= offset ||
-			lastMessageExt.getBornTimestamp() >= timestamp;
+	public boolean isEndOfQueue(MessageExt messageExt, T nextElement) {
+		return super.isEndOfQueue(messageExt, nextElement) ||
+			messageExt.getQueueOffset() >= offset ||
+			messageExt.getBornTimestamp() >= timestamp;
 	}
 
 	@Override

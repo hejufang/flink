@@ -59,7 +59,7 @@ public class RocketMQSplitBase implements SourceSplit, Comparable<RocketMQSplitB
 
 	@Override
 	public String splitId() {
-		return "MessageQueue [topic=" + topic + ", brokerName=" + brokerName + ", queueId=" + queueId + "]";
+		return getSplitId(topic, brokerName, queueId);
 	}
 
 	@Override
@@ -105,5 +105,9 @@ public class RocketMQSplitBase implements SourceSplit, Comparable<RocketMQSplitB
 			", brokerName='" + brokerName + '\'' +
 			", queueId=" + queueId +
 			'}';
+	}
+
+	public static String getSplitId(String topic, String broker, int queueId) {
+		return "MessageQueue [topic=" + topic + ", brokerName=" + broker + ", queueId=" + queueId + "]";
 	}
 }

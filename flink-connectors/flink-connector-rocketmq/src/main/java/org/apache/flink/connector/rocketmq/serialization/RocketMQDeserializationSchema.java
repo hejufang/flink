@@ -42,9 +42,17 @@ public interface RocketMQDeserializationSchema<T> extends Serializable, ResultTy
 	 * true is returned the element won't be emitted.
 	 *
 	 * @param nextElement The element to test for the end-of-stream signal.
-	 * @return True, if the element signals end of stream, false otherwise.
+	 * @return True, if the element signals end of queue, false otherwise.
 	 */
-	boolean isEndOfStream(Set<MessageQueue> balancedMQ, T nextElement);
+	default boolean isEndOfQueue(MessageExt record, T nextElement) {
+		return false;
+	}
+
+	@Deprecated
+	default boolean isEndOfStream(Set<MessageQueue> balancedMQ, T nextElement) {
+		// Please don't implement this interface, because it is not be used.
+		return false;
+	}
 
 	/**
 	 * Deserializes the rocketmq record.

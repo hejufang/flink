@@ -33,6 +33,7 @@ import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserialization
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.rocketmq.source.split.RocketMQSplit;
+import org.apache.flink.rocketmq.source.split.RocketMQSplitBase;
 import org.apache.flink.rocketmq.source.split.RocketMQSplitState;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -147,7 +148,8 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 		// Then we should convert MessageExt to RecordsWithSplitIds.
 		for (MessageExt messageExt: messageExtListsRef.get()) {
 			MessageQueue messageQueue = createMessageQueueFromMessageQueuePb(messageExt.getMessageQueue());
-			String splitId = messageQueue.toString();
+			String splitId = RocketMQSplitBase.getSplitId(
+				messageQueue.getTopic(), messageQueue.getBrokerName(), messageQueue.getQueueId());
 			if (finishedSplit.contains(splitId)) {
 				continue;
 			}
@@ -157,7 +159,7 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 			try {
 				// Deserialize the messageExt to RowData output.
 				OUT rowData = schema.deserialize(messageQueue, messageExt);
-				if (schema.isEndOfStream(assignedQueues, rowData)) {
+				if (schema.isEndOfQueue(messageExt, rowData)) {
 					finishedSplit.add(splitId);
 					recordsBySplits.addFinishedSplit(splitId);
 					LOG.info("Split id {} reached end of stream", splitId);

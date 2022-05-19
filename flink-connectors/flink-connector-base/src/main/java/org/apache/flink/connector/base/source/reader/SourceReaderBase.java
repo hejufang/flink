@@ -238,7 +238,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 		if (noMoreSplitsAssignment && allFetchersHaveShutdown && allElementsEmitted) {
 			return InputStatus.END_OF_INPUT;
 		} else {
-			return InputStatus.MORE_AVAILABLE;
+			return InputStatus.NOTHING_AVAILABLE;
 		}
 	}
 

@@ -67,6 +67,8 @@ public class RocketMQSourceReader<OUT>
 
 	private transient ListState<Tuple2<MessageQueue, Long>> oldOffsetListState;
 
+	private transient ListState<String> finishedSplitIdsState;
+
 	// Offset information of all queues will keep in here.
 	private transient Map<RocketMQSplitBase, Long> splitOffsetMap;
 	private transient List<Tuple2<MessageQueue, Long>> lastSnapshotTupleList;
@@ -74,6 +76,7 @@ public class RocketMQSourceReader<OUT>
 
 	// split state that assigned to this reader
 	private transient Set<RocketMQSplitBase> assignedSplitsSet;
+	private transient Set<String> finishedSplitIdsSet;
 
 	public RocketMQSourceReader(
 			FutureNotifier futureNotifier,
@@ -89,7 +92,7 @@ public class RocketMQSourceReader<OUT>
 
 	@Override
 	protected void onSplitFinished(Collection<String> finishedSplitIds) {
-		// do nothing
+		finishedSplitIdsSet.addAll(finishedSplitIds);
 	}
 
 	@Override
@@ -120,6 +123,7 @@ public class RocketMQSourceReader<OUT>
 			.map(t -> new Tuple2<>(t.getKey(), t.getValue())).collect(Collectors.toList());
 		try {
 			oldOffsetListState.update(lastSnapshotTupleList);
+			finishedSplitIdsState.update(new ArrayList<>(finishedSplitIdsSet));
 			LOG.info("Reader {} , lastSnapshotTupleList size {}", readerUid, lastSnapshotTupleList.size());
 		} catch (Exception e) {
 			throw new FlinkRuntimeException("RocketMQ source reader", e);
@@ -137,6 +141,11 @@ public class RocketMQSourceReader<OUT>
 		this.oldOffsetListState = operatorStateStore.getUnionListState(new ListStateDescriptor<>(
 			OFFSETS_STATE_NAME, TypeInformation.of(new TypeHint<Tuple2<MessageQueue, Long>>() {})
 		));
+		this.finishedSplitIdsState = operatorStateStore.getUnionListState(new ListStateDescriptor<>(
+			"flip27-finished-state", TypeInformation.of(String.class)
+		));
+		finishedSplitIdsSet = new HashSet<>();
+		finishedSplitIdsState.get().forEach(finishedSplitIdsSet::add);
 
 		splitOffsetMap = new HashMap<>();
 		if (isStored) {
@@ -184,10 +193,12 @@ public class RocketMQSourceReader<OUT>
 		List<RocketMQSplit> newSplits = new ArrayList<>();
 		for (RocketMQSplit rocketMQSplit: splits) {
 			RocketMQSplitBase splitBase = rocketMQSplit.getRocketMQBaseSplit();
+			String splitId = splitBase.splitId();
 			if (assignedSplitsSet.contains(splitBase)) {
 				assignedSplitsSet.add(splitBase);
-				LOG.warn("RocketMQ split [broker: {}, queueId: {}] already exists in {}",
-					splitBase.getBrokerName(), splitBase.getQueueId(), readerUid);
+				LOG.warn("RocketMQ split {} already exists in {}", splitId, readerUid);
+			} else if (finishedSplitIdsSet.contains(splitId)) {
+				LOG.info("RocketMQ split {} already finished, read id {}", splitId, readerUid);
 			} else {
 				newSplits.add(rocketMQSplit);
 			}

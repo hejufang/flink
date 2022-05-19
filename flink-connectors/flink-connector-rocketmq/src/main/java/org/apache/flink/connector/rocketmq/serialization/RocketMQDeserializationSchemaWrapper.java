@@ -24,8 +24,6 @@ import org.apache.flink.util.Collector;
 import com.bytedance.mqproxy.proto.MessageExt;
 import com.bytedance.rocketmq.clientv2.message.MessageQueue;
 
-import java.util.Set;
-
 /**
  * Wrap a DeserializationSchema to RocketMQDeserializationSchemaWrapper.
  */
@@ -43,7 +41,7 @@ public class RocketMQDeserializationSchemaWrapper<T> implements RocketMQDeserial
 	}
 
 	@Override
-	public boolean isEndOfStream(Set<MessageQueue> balancedMQ, T nextElement) {
+	public boolean isEndOfQueue(MessageExt record, T nextElement) {
 		return deserializationSchema.isEndOfStream(nextElement);
 	}
 
