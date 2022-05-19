@@ -207,6 +207,54 @@
       {
         "matcher": {
           "id": "byName",
+          "options": "-80008"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80008 (Flink 与 YARN 之间通过心跳来申请 container，会导致多申请 container，这里主动释放多申请的 container)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80009"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80009 (task 长期处于 Canceling 状态，无法成功退出，Flink 主动杀死 TaskManager就进行兜底)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80010"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80010 (JobManager 重启后，TaskManager 长期未注册到 JobManager，触发超时)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-80011"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-80011 (严重故障导致节点拉黑，当前只应用于 State 状态卡住)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
           "options": "-80012"
         },
         "properties": [
@@ -513,6 +561,18 @@
           {
             "id": "displayName",
             "value": "-10007 (线程数过多被 YARN 杀死，请排查线程使用)"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "-10008"
+        },
+        "properties": [
+          {
+            "id": "displayName",
+            "value": "-10008 (节点 CPU 利用率过高被 kill，请增加cpu的slot数或增加tm个数)"
           }
         ]
       },
