@@ -23,7 +23,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.socket.SocketResultIterator;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
-import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
@@ -87,16 +86,23 @@ public final class PerJobMiniClusterFactory {
 	 * Starts a {@link MiniCluster} and submits a job.
 	 */
 	public CompletableFuture<JobClient> submitJob(JobGraph jobGraph) throws Exception {
+		return submitJob(jobGraph, false);
+	}
+
+	/**
+	 * Starts a {@link MiniCluster} and submits a job with socket enable flag.
+	 */
+	public CompletableFuture<JobClient> submitJob(JobGraph jobGraph, boolean socketEnable) throws Exception {
 		MiniClusterConfiguration miniClusterConfig = getMiniClusterConfig(jobGraph.getMaximumParallelism());
 		MiniCluster miniCluster = miniClusterFactory.apply(miniClusterConfig);
 		miniCluster.start();
 
-		if (configuration.getBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE)) {
+		if (socketEnable) {
 			return CompletableFuture.completedFuture(
-					new PerJobMiniClusterJobClient(
-						jobGraph.getJobID(),
-						miniCluster,
-						miniCluster.submitJobSync(jobGraph)));
+				new PerJobMiniClusterJobClient(
+					jobGraph.getJobID(),
+					miniCluster,
+					miniCluster.submitJobSync(jobGraph)));
 		} else {
 			return miniCluster
 				.submitJob(jobGraph)

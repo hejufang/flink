@@ -31,6 +31,7 @@ import org.apache.flink.core.execution.PipelineExecutor;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
 import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
+import org.apache.flink.streaming.util.PipelineSocketUtils;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
@@ -77,8 +78,9 @@ public class LocalExecutor implements PipelineExecutor {
 		checkState(configuration.getBoolean(DeploymentOptions.ATTACHED));
 
 		final JobGraph jobGraph = getJobGraph(pipeline, effectiveConfig);
+		boolean socketEnable = PipelineSocketUtils.validatePipelineSocketEnable(pipeline, configuration);
 
-		return PerJobMiniClusterFactory.createWithFactory(effectiveConfig, miniClusterFactory).submitJob(jobGraph);
+		return PerJobMiniClusterFactory.createWithFactory(effectiveConfig, miniClusterFactory).submitJob(jobGraph, socketEnable);
 	}
 
 	private JobGraph getJobGraph(Pipeline pipeline, Configuration configuration) throws IOException {
