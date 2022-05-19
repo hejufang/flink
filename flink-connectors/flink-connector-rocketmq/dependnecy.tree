@@ -17,7 +17,7 @@
  */
 
 org.apache.flink:flink-connector-rocketmq:jar:1.11-byted-SNAPSHOT
-+- com.bytedance:java-rocketmq-client2:jar:2.0.6:compile
++- com.bytedance:java-rocketmq-client2:jar:2.0.7:compile
 |  +- javax.annotation:javax.annotation-api:jar:1.2:compile
 |  +- com.google.guava:guava:jar:28.1-android:compile
 |  |  +- com.google.guava:failureaccess:jar:1.0.1:compile
