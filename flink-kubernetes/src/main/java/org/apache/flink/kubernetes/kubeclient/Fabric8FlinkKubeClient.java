@@ -78,13 +78,14 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 
 	private static final Logger LOG = LoggerFactory.getLogger(Fabric8FlinkKubeClient.class);
 
-	protected final NamespacedKubernetesClient internalClient;
-	protected final String clusterId;
-	protected final String namespace;
-	protected final int maxRetryAttempts;
-	protected final ExecutorService kubeClientExecutorService;
+	private final NamespacedKubernetesClient internalClient;
+	private final String clusterId;
+	private final String namespace;
+	private final int maxRetryAttempts;
 
 	private Deployment masterDeployment = null;
+
+	private final ExecutorService kubeClientExecutorService;
 
 	public Fabric8FlinkKubeClient(
 			Configuration flinkConfig,
