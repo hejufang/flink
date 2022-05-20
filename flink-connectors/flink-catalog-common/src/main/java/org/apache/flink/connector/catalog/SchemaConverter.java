@@ -164,6 +164,10 @@ public class SchemaConverter {
 	private static ByteSchemaField wrapElementTypeIntoSchemaField(ByteSchemaElementType elementType) {
 		return new ByteSchemaField()
 			.setType(elementType.getType())
-			.setFields(elementType.getFields());
+			.setFields(elementType.getFields())
+			.setArrayElementType(elementType.getArrayElementType())
+			.setMapKeyType(elementType.getMapKeyType())
+			.setMapValueType(elementType.getMapValueType())
+			.setExtraMeta(elementType.getExtraMeta());
 	}
 }
