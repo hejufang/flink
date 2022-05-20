@@ -19,6 +19,7 @@ package org.apache.flink.connector.rocketmq;
 
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.connector.base.source.reader.SourceReaderOptions;
 import org.apache.flink.connector.rocketmq.RocketMQOptions.AssignQueueStrategy;
 import org.apache.flink.connector.rocketmq.selector.DeferLoopSelector;
 import org.apache.flink.connector.rocketmq.selector.DeferMillisSelector;
@@ -78,6 +79,7 @@ public class RocketMQConfig<T> implements Serializable {
 	private long endOffset = SCAN_END_OFFSET.defaultValue();
 	private long endTimestamp = SCAN_END_TIMESTAMP.defaultValue();
 	private int offsetFlushInterval = SCAN_OFFSET_FLUSH_INTERVAL_MS.defaultValue();
+	private int readerBufferSize = SourceReaderOptions.ELEMENT_QUEUE_CAPACITY.defaultValue();
 
 	public MsgDelayLevelSelector<T> getMsgDelayLevelSelector() {
 		return msgDelayLevelSelector;
@@ -331,5 +333,13 @@ public class RocketMQConfig<T> implements Serializable {
 
 	public void setRowKindSinkFilter(RowKindSinkFilter<T> rowKindSinkFilter) {
 		this.rowKindSinkFilter = rowKindSinkFilter;
+	}
+
+	public int getReaderBufferSize() {
+		return readerBufferSize;
+	}
+
+	public void setReaderBufferSize(int readerBufferSize) {
+		this.readerBufferSize = readerBufferSize;
 	}
 }

@@ -33,6 +33,8 @@ import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserialization
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.MeterView;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.MetricsConstants;
 import org.apache.flink.rocketmq.source.split.RocketMQSplit;
 import org.apache.flink.rocketmq.source.split.RocketMQSplitBase;
 import org.apache.flink.rocketmq.source.split.RocketMQSplitState;
@@ -61,6 +63,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.connector.rocketmq.RocketMQConsumer.ROCKET_MQ_CONSUMER_METRICS_GROUP;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.CONSUMER_RECORDS_METRICS_RATE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.getRocketMQProperties;
 
@@ -127,8 +130,13 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 		this.jobName = jobName;
 		this.pollLatencyMs = config.getPollLatencyMs();
 		this.pullBatchSize = config.getPollBatchSize();
-		recordsNumMeterView = readerContext.metricGroup()
-			.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
+
+		MetricGroup metricGroup = readerContext.metricGroup().addGroup(ROCKET_MQ_CONSUMER_METRICS_GROUP)
+			.addGroup(RocketMQOptions.TOPIC_METRICS_GROUP, this.topic)
+			.addGroup(RocketMQOptions.CONSUMER_GROUP_METRICS_GROUP, this.group)
+			.addGroup(MetricsConstants.METRICS_CONNECTOR_TYPE, RocketMQOptions.CONNECTOR_TYPE_VALUE_ROCKETMQ)
+			.addGroup(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE);
+		recordsNumMeterView = metricGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
 		initialRocketMQSplitReader();
 	}
 

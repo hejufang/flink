@@ -64,6 +64,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.apache.flink.connector.base.source.reader.SourceReaderOptions.ELEMENT_QUEUE_CAPACITY;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.BINLOG_TARGET_TABLE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.CLUSTER;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.DEFAULT_TOPIC_SELECTOR;
@@ -199,6 +200,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SCAN_END_TIMESTAMP);
 		options.add(SCAN_END_OFFSET);
 		options.add(SCAN_OFFSET_FLUSH_INTERVAL_MS);
+		options.add(ELEMENT_QUEUE_CAPACITY);
 		options.add(FactoryUtil.PARALLELISM);
 		options.add(FactoryUtil.RATE_LIMIT_NUM);
 		options.add(FactoryUtil.SOURCE_KEY_BY_FIELD);
@@ -376,6 +378,7 @@ public class RocketMQDynamicTableFactory implements
 					rocketMQConfig.setIdleTimeOut(config.get(SCAN_SOURCE_IDLE_TIMEOUT).toMillis())
 			);
 			config.getOptional(SCAN_FLIP27_SOURCE).ifPresent(rocketMQConfig::setUseFlip27Source);
+			config.getOptional(ELEMENT_QUEUE_CAPACITY).ifPresent(rocketMQConfig::setReaderBufferSize);
 			config.getOptional(SCAN_FACTORY_CLASS).ifPresent(
 				factoryClass ->
 					rocketMQConfig.setConsumerFactory(RocketMQConsumerFactory.getFactoryByClassName(factoryClass)));

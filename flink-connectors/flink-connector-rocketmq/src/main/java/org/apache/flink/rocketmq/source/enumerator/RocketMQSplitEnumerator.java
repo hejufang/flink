@@ -47,7 +47,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.getRocketMQProperties;
 
@@ -82,6 +81,8 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 	// key: subtaskId(ReaderId), value: the RocketMQSplit that should be assigned to Reader.
 	private final Map<Integer, Set<RocketMQSplit>> pendingRocketMQSplitAssignment;
 
+	private final Map<Integer, Set<RocketMQSplit>> alreadySplitAssignment;
+
 	// RocketMQ consumer: use for MessageQueue discovery.
 	private transient DefaultMQPullConsumer consumer;
 	private transient EnumSplitIdManager splitIdManager;
@@ -105,6 +106,7 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 		this.discoveryIntervalMs = config.getDiscoverIntervalMs();
 		this.jobName = jobName;
 		this.pendingRocketMQSplitAssignment = new HashMap<>();
+		this.alreadySplitAssignment = new HashMap<>();
 		this.assignedSplitBase = new HashSet<>();
 		this.batchMode = boundedness == Boundedness.BOUNDED;
 		userSpecificSplitSet = RocketMQUtils.getClusterSplitBaseSet(
@@ -124,12 +126,16 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 			consumer.setSubExpr(tag);
 		}
 		consumer.start();
-		if (discoveryIntervalMs > 0) {
+		if (userSpecificSplitSet.size() > 0) {
+			context.callAsync(this::getUserSpecificQueueList, this::handleQueueChanges);
+			LOG.info("This is a split job, queues {}", userSpecificSplitSet);
+		} else if (discoveryIntervalMs > 0) {
 			context.callAsync(
 				this::getSubscribedMessageQueue,
 				this::handleQueueChanges,
 				0,
 				discoveryIntervalMs);
+			LOG.info("Rocketmq discovery interval is {}", discoveryIntervalMs);
 		} else {
 			context.callAsync(this::getSubscribedMessageQueue, this::handleQueueChanges);
 		}
@@ -142,18 +148,24 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 
 	@Override
 	public synchronized void addSplitsBack(List<RocketMQSplit> splits, int subtaskId) {
+		Set<RocketMQSplit> pendingSplits =
+			pendingRocketMQSplitAssignment.computeIfAbsent(subtaskId, r -> new HashSet<>());
 		// Add these splits back to pending assign.
 		// These splits are always belong to this subtask.
-		for (RocketMQSplit split : splits) {
-			pendingRocketMQSplitAssignment
-					.computeIfAbsent(subtaskId, r -> new HashSet<>())
-					.add(split);
-		}
+		pendingSplits.addAll(splits);
+
+		// Add already assigned splits back.
+		alreadySplitAssignment.computeIfPresent(subtaskId, (k, v) -> {
+			pendingSplits.addAll(v);
+			return v;
+		});
+
 		// If the failed subtask has already restarted, we need to assign these splits to it.
 		if (context.registeredReaders().containsKey(subtaskId)) {
 			assignPendingRocketMQSplits(Collections.singleton(subtaskId));
 		}
-		LOG.info("Subtask {} add {} splits back", subtaskId, splits.size());
+		LOG.info("Subtask {} total add {} splits back, including {} backed splits",
+			subtaskId, pendingSplits.size(), splits.size());
 	}
 
 	@Override
@@ -187,11 +199,17 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 	 * I/O with RocketMQ brokers.
 	 * @return Set of subscribed {@link MessageQueuePb}
 	 */
-	private List<MessageQueuePb> getSubscribedMessageQueue() throws InterruptedException {
+	private List<RocketMQSplitBase> getSubscribedMessageQueue() throws InterruptedException {
 		QueryTopicQueuesResult queryTopicQueuesResult = consumer.queryTopicQueues(topic);
 		RocketMQUtils.validateResponse(queryTopicQueuesResult.getErrorCode(), queryTopicQueuesResult.getErrorMsg());
 		LOG.info("Topic {} get queue size: {}", topic, queryTopicQueuesResult.getMessageQueues().size());
-		return queryTopicQueuesResult.getMessageQueues();
+		return queryTopicQueuesResult.getMessageQueues().stream()
+			.map(pb -> new RocketMQSplitBase(pb.getTopic(), pb.getBrokerName(), pb.getQueueId()))
+			.collect(Collectors.toList());
+	}
+
+	private List<RocketMQSplitBase> getUserSpecificQueueList() {
+		return new ArrayList<>(userSpecificSplitSet);
 	}
 
 	/**
@@ -200,7 +218,7 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 	 * @param fetchedMessageQueue
 	 * @param t
 	 */
-	private void handleQueueChanges(List<MessageQueuePb> fetchedMessageQueue, Throwable t) {
+	private void handleQueueChanges(List<RocketMQSplitBase> fetchedMessageQueue, Throwable t) {
 		if (t != null) {
 			throw new FlinkRuntimeException(
 					"Failed to list subscribed topic messageQueue due to: ", t);
@@ -249,17 +267,7 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 		LOG.info("Assigned {} to {} readers.", newRocketMQSplits, numReader);
 	}
 
-	private RocketmqSplitBaseChange getMessageQueueChange(List<MessageQueuePb> fetchedMessageQueue) {
-		// Convert MessageQueuePbs to MessageQueues.
-		Stream<RocketMQSplitBase> splitBaseStream = fetchedMessageQueue.stream()
-			.map(pb -> new RocketMQSplitBase(pb.getTopic(), pb.getBrokerName(), pb.getQueueId()));
-		if (!userSpecificSplitSet.isEmpty()) {
-			splitBaseStream = splitBaseStream.filter(userSpecificSplitSet::contains);
-		}
-		Set<RocketMQSplitBase> currentSplitBaseSet = splitBaseStream.collect(Collectors.toSet());
-		LOG.info("Before split filter size {}, after size {}",
-			fetchedMessageQueue.size(), currentSplitBaseSet.size());
-
+	private RocketmqSplitBaseChange getMessageQueueChange(List<RocketMQSplitBase> currentSplitBaseSet) {
 		final Set<RocketMQSplitBase> removedSplitBaseSet = new HashSet<>();
 		final Set<RocketMQSplitBase> addedSplitBaseSet = new HashSet<>();
 		// Remove the same queues between fetchedMessageQueue and assignedMessageQueue.
@@ -305,7 +313,14 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 			// Add Splits' MessageQueue to assignedMessageQueue.
 			pendingAssignmentForReader.forEach(
 					split -> assignedSplitBase.add(split.getRocketMQBaseSplit()));
+			alreadySplitAssignment.compute(pendingReader, (k, v) -> {
+				if (v != null) {
+					pendingAssignmentForReader.addAll(v);
+				}
+				return pendingAssignmentForReader;
+			});
 		}
+
 		// assign pending splits to the readers.
 		if (!incrementalAssignment.isEmpty()) {
 			LOG.info("Assigning splits to readers: {},", incrementalAssignment);

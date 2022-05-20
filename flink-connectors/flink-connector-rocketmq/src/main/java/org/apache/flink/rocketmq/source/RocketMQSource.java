@@ -102,7 +102,7 @@ public class RocketMQSource<OUT> implements
 	public SourceReader<OUT, RocketMQSplit> createReader(SourceReaderContext readerContext) {
 		FutureNotifier futureNotifier = new FutureNotifier();
 		FutureCompletingBlockingQueue<RecordsWithSplitIds<Tuple3<OUT, Long, Long>>> elementsQueue =
-				new FutureCompletingBlockingQueue<>(futureNotifier);
+				new FutureCompletingBlockingQueue<>(futureNotifier, config.getReaderBufferSize());
 		Supplier<RocketMQSplitReader<OUT>> splitReaderSupplier =
 				() ->
 						new RocketMQSplitReader<>(

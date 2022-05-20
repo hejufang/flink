@@ -18,6 +18,8 @@
 
 package org.apache.flink.connector.base.source.reader.synchronization;
 
+import org.apache.flink.connector.base.source.reader.SourceReaderOptions;
+
 import java.util.Collection;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +41,11 @@ public class FutureCompletingBlockingQueue<T> extends LinkedBlockingQueue<T> {
 	private final FutureNotifier futureNotifier;
 
 	public FutureCompletingBlockingQueue(FutureNotifier futureNotifier) {
+		this(futureNotifier, SourceReaderOptions.ELEMENT_QUEUE_CAPACITY.defaultValue());
+	}
+
+	public FutureCompletingBlockingQueue(FutureNotifier futureNotifier, int capacity) {
+		super(capacity);
 		this.futureNotifier = futureNotifier;
 	}
 

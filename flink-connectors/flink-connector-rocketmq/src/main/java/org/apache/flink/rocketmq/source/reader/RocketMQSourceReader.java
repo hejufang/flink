@@ -195,11 +195,11 @@ public class RocketMQSourceReader<OUT>
 			RocketMQSplitBase splitBase = rocketMQSplit.getRocketMQBaseSplit();
 			String splitId = splitBase.splitId();
 			if (assignedSplitsSet.contains(splitBase)) {
-				assignedSplitsSet.add(splitBase);
 				LOG.warn("RocketMQ split {} already exists in {}", splitId, readerUid);
 			} else if (finishedSplitIdsSet.contains(splitId)) {
 				LOG.info("RocketMQ split {} already finished, read id {}", splitId, readerUid);
 			} else {
+				assignedSplitsSet.add(splitBase);
 				newSplits.add(rocketMQSplit);
 			}
 		}
