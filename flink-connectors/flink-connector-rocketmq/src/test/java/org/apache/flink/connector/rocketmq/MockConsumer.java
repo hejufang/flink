@@ -64,6 +64,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_M
 import static org.apache.flink.connector.rocketmq.TestSqlGenerator.SqlGeneratorConfig;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -155,6 +156,7 @@ public class MockConsumer {
 		mockQueryCommittedOffset();
 		Mockito.doAnswer(assignAnswer).when(consumer).assign(any());
 		when(consumer.poll(anyLong())).then(pollAnswer);
+		when(consumer.poll(anyInt(), anyLong())).then(pollAnswer);
 		mockResetOffsetToSpecified();
 		if (SCAN_STARTUP_MODE_VALUE_EARLIEST.equals(consumerConfig.getStartMode())) {
 			mockResetToEarliest();

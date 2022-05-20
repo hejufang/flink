@@ -32,6 +32,7 @@ import org.apache.flink.connector.rocketmq.TopicAndQueuesGauge;
 import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserializationSchema;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.MeterView;
 import org.apache.flink.rocketmq.source.split.RocketMQSplit;
 import org.apache.flink.rocketmq.source.split.RocketMQSplitBase;
 import org.apache.flink.rocketmq.source.split.RocketMQSplitState;
@@ -60,6 +61,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.CONSUMER_RECORDS_METRICS_RATE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.getRocketMQProperties;
 
 /**
@@ -87,6 +89,10 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 	private final String tag;
 	private final Strategy strategy;
 	private final int offsetFlushInterval;
+	private final int pullBatchSize;
+	private final long pollLatencyMs;
+
+	private transient MeterView recordsNumMeterView;
 
 	private DefaultMQPullConsumer consumer;
 	private volatile boolean wakeup = false;
@@ -119,6 +125,10 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 		this.sourceReaderContext = readerContext;
 		this.consumerFactory = config.getConsumerFactory();
 		this.jobName = jobName;
+		this.pollLatencyMs = config.getPollLatencyMs();
+		this.pullBatchSize = config.getPollBatchSize();
+		recordsNumMeterView = readerContext.metricGroup()
+			.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
 		initialRocketMQSplitReader();
 	}
 
@@ -134,13 +144,15 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 		AtomicReference<List<MessageExt>> messageExtListsRef = new AtomicReference<>();
 		long start = System.currentTimeMillis();
 		synchronized (consumer) {
-			RetryManager.retry(() -> messageExtListsRef.set(consumer.poll(CONSUMER_DEFAULT_POLL_LATENCY_MS)), strategy);
+			RetryManager.retry(() ->
+				messageExtListsRef.set(consumer.poll(pullBatchSize, pollLatencyMs)), strategy);
 			LOG.trace("Group {} Subtask {} pull size is {}",
 				group, sourceReaderContext.getSubTaskId(), messageExtListsRef.get().size());
 		}
 		long pollCost = System.currentTimeMillis() - start;
 		if (messageExtListsRef.get().size() > 0) {
 			fetchLatencyMap.get(messageExtListsRef.get().get(0).getMessageQueue()).f0 = (double) pollCost;
+			recordsNumMeterView.markEvent(messageExtListsRef.get().size());
 		} else {
 			emptyPollCounter.inc();
 		}

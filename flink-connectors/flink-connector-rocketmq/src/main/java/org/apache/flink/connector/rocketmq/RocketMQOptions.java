@@ -36,6 +36,7 @@ import java.util.Set;
 public abstract class RocketMQOptions {
 	public static final String DEFAULT_TOPIC_SELECTOR = "DefaultTopicSelector";
 	public static final String OFFSETS_STATE_NAME = "rmq-topic-offset-states";
+	public static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
 	public static final String LEGACY_OFFSETS_STATE_NAME = "topic-partition-offset-states";
 	public static final String ROCKETMQ_READER_STATE_NAME = "rmq_flip27_topic_offset";
 
@@ -184,7 +185,7 @@ public abstract class RocketMQOptions {
 	public static final ConfigOption<Integer> SCAN_POLL_BATCH_SIZE = ConfigOptions
 		.key("scan.poll-batch-size")
 		.intType()
-		.defaultValue(25)
+		.defaultValue(32)
 		.withDescription("Rocket MQ poll batch size");
 
 	public static final ConfigOption<Long> SCAN_POLL_LATENCY_MS = ConfigOptions

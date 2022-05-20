@@ -66,6 +66,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.CONSUMER_RECORDS_METRICS_RATE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.OFFSETS_STATE_NAME;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.getRocketMQProperties;
 
@@ -80,7 +81,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private static final long serialVersionUID = 1L;
 	private static final int DEFAULT_SLEEP_MILLISECONDS = 1;
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQConsumer.class);
-	private static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
 	private static final String CONSUMER_TOPIC_QUEUES = "sourceTopicPartitions";
 	private static final String INSTANCE_ID_TEMPLATE = "flink_%s_rmq_%s_%s_%s";
 	public static final String ROCKET_MQ_CONSUMER_METRICS_GROUP = "RocketMQConsumer";

@@ -233,9 +233,9 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 	// ------------------ private helper methods ---------------------
 
 	private InputStatus finishedOrAvailableLater() {
-		boolean allFetchersHaveShutdown = splitFetcherManager.maybeShutdownFinishedFetchers();
-		boolean allElementsEmitted = elementsQueue.isEmpty() && (splitIter == null || !splitIter.hasNext());
-		if (noMoreSplitsAssignment && allFetchersHaveShutdown && allElementsEmitted) {
+		if (noMoreSplitsAssignment &&
+				splitFetcherManager.maybeShutdownFinishedFetchers() &&
+				elementsQueue.isEmpty() && (splitIter == null || !splitIter.hasNext())) {
 			return InputStatus.END_OF_INPUT;
 		} else {
 			return InputStatus.NOTHING_AVAILABLE;
