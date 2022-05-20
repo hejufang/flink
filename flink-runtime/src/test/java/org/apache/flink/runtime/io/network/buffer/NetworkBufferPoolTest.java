@@ -729,7 +729,8 @@ public class NetworkBufferPoolTest extends TestLogger {
 		});
 		executorService.submit(() -> {
 			try {
-				for (int i = 0; i < 1000000; i++) {
+				for (int i = 0; i < 100; i++) {
+					Thread.sleep(1);
 					globalPool.tryReturnExcessMemorySegments();
 				}
 				latch.countDown();
@@ -739,7 +740,10 @@ public class NetworkBufferPoolTest extends TestLogger {
 		try {
 			assertTrue(
 				"request buffer timeout",
-				latch.await(5000, TimeUnit.MILLISECONDS));
+				latch.await(5000L, TimeUnit.MILLISECONDS));
+								globalPool.tryReturnExcessMemorySegments();
+			globalPool.destroyBufferPool(bufferPool);
+			assertEquals(globalPool.getNumTotalRequiredBuffers(), 0);
 		} finally {
 			executorService.shutdown();
 			globalPool.destroy();

@@ -340,6 +340,7 @@ class LocalBufferPool implements BufferPool {
 	@Nullable
 	private MemorySegment requestMemorySegment(int targetChannel) throws IOException {
 		MemorySegment segment = null;
+		boolean needResizePool = false;
 		synchronized (availableMemorySegments) {
 
 			if (isDestroyed) {
@@ -370,10 +371,13 @@ class LocalBufferPool implements BufferPool {
 					availabilityHelper.resetUnavailable();
 				}
 			}
+			if (segment == null && numberOfRequestedMemorySegments + 1 >= currentPoolSize && numberOfRequestedMemorySegments + 1 < maxNumberOfMemorySegments) {
+				needResizePool = true;
+			}
 		}
 
-		if (segment == null && numberOfRequestedMemorySegments + 1 >= currentPoolSize && numberOfRequestedMemorySegments + 1 < maxNumberOfMemorySegments) {
-			networkBufferPool.tryResizeLocalBufferPool(this, currentPoolSize, numberOfRequestedMemorySegments + 1);
+		if (needResizePool) {
+			networkBufferPool.tryResizeLocalBufferPool(this);
 		}
 
 		return segment;
@@ -542,6 +546,16 @@ class LocalBufferPool implements BufferPool {
 		// size, trigger a recycle via the owner.
 		if (bufferPoolOwner != null && numExcessBuffers > 0) {
 			bufferPoolOwner.releaseMemory(numExcessBuffers);
+		}
+	}
+
+	public boolean tryIncNumBuffers() throws IOException {
+		synchronized (availableMemorySegments) {
+			if (currentPoolSize >= maxNumberOfMemorySegments || currentPoolSize < numberOfRequestedMemorySegments) {
+				return false;
+			}
+			setNumBuffers(currentPoolSize + 1);
+			return true;
 		}
 	}
 

@@ -633,20 +633,20 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 		}
 	}
 
-	public void tryResizeLocalBufferPool(LocalBufferPool localBufferPool, int originSize, int size) throws IOException {
+	public void tryResizeLocalBufferPool(LocalBufferPool localBufferPool) throws IOException {
 		if (!simpleRedistributeEnable) {
 			return;
 		}
-		LOG.debug("try resize local buffer pool");
 		synchronized (factoryLock) {
-			if (1.0 * (numTotalRequiredBuffers + size - originSize) / totalNumberOfMemorySegments < simpleRedistributeHighWaterMark) {
+			LOG.debug("try resize local buffer pool, numTotalRequiredBuffers: {}, totalNumberOfMemorySegments: {}", numberOfAllocatedMemorySegments, totalNumberOfMemorySegments);
+			if (1.0 * (numTotalRequiredBuffers + 1) / totalNumberOfMemorySegments < simpleRedistributeHighWaterMark) {
 				return;
 			}
+			if (localBufferPool.tryIncNumBuffers()) {
+				numTotalRequiredBuffers++;
+				resizableBufferPools.add(localBufferPool);
+			}
 		}
-		LOG.debug("resize local buffer pool");
-		localBufferPool.setNumBuffers(size);
-		numTotalRequiredBuffers += size - originSize;
-		resizableBufferPools.add(localBufferPool);
 	}
 
 	// Must be called from synchronized block
