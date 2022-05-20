@@ -6,7 +6,7 @@
             "name":"GroupAggregate_group -> Calc_select_id_EXPR_ -> Sink_Sink_table_defa",
             "inputs":[
                 {
-                    "id":"0833ab7cfb55e0f9d51beb847a90b681",
+                    "id":"20ba6b65f97481d5570070de90e4e791",
                     "shipStrategy":"HASH"
                 }
             ],
@@ -17,38 +17,9 @@
             ]
         },
         {
-            "id":"0833ab7cfb55e0f9d51beb847a90b681",
-            "parallelism":4,
-            "name":"Calc_select_id_name__1",
-            "inputs":[
-                {
-                    "id":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
-                    "shipStrategy":"RESCALE"
-                }
-            ],
-            "containedNodes":[
-                "0833ab7cfb55e0f9d51beb847a90b681"
-            ]
-        },
-        {
-            "id":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
-            "parallelism":8,
-            "name":"Calc_select_id_name_ -> LookupJoin_table_def",
-            "inputs":[
-                {
-                    "id":"20ba6b65f97481d5570070de90e4e791",
-                    "shipStrategy":"RESCALE"
-                }
-            ],
-            "containedNodes":[
-                "b8a0447102f8cff5279761acb499c996",
-                "cdf5528fc65ae6b8b6b126cfdfcc40dd"
-            ]
-        },
-        {
             "id":"20ba6b65f97481d5570070de90e4e791",
             "parallelism":4,
-            "name":"WatermarkAssigner_ro",
+            "name":"WatermarkAssigner_ro -> Calc_select_id_name_ -> LookupJoin_table_def -> Calc_select_id_name__1",
             "inputs":[
                 {
                     "id":"bc764cd8ddf7a0cff126f51c16239658",
@@ -56,6 +27,9 @@
                 }
             ],
             "containedNodes":[
+                "0833ab7cfb55e0f9d51beb847a90b681",
+                "b8a0447102f8cff5279761acb499c996",
+                "cdf5528fc65ae6b8b6b126cfdfcc40dd",
                 "20ba6b65f97481d5570070de90e4e791"
             ]
         },
@@ -73,19 +47,18 @@
             "nodeDesc":"bc764cd8ddf7a0cff126f51c16239658",
             "name":"Source_TableSourceSc",
             "jobVertexID":"bc764cd8ddf7a0cff126f51c16239658",
-            "generatedOperatorID":"af02c5a51bf07311b21e52535bc0f992",
-            "userProvidedHash":"bc764cd8ddf7a0cff126f51c16239658",
+            "generatedOperatorID":"bc764cd8ddf7a0cff126f51c16239658",
             "description":"Source: TableSourceScan(table=[[default_catalog, default_database, source1]], fields=[id, name, num, eventtime])",
             "parallelism":1,
             "hasState":true,
-            "isChanged":true,
-            "isFromOldGraph":true
+            "isChanged":false,
+            "isFromOldGraph":false
         },
         {
             "nodeDesc":"20ba6b65f97481d5570070de90e4e791",
             "name":"WatermarkAssigner_ro",
             "jobVertexID":"20ba6b65f97481d5570070de90e4e791",
-            "generatedOperatorID":"19300dee727ffab9f268ff6a3dd10ded",
+            "generatedOperatorID":"20ba6b65f97481d5570070de90e4e791",
             "description":"WatermarkAssigner(rowtime=[eventtime], watermark=[(eventtime - 5000:INTERVAL SECOND)])",
             "parallelism":4,
             "hasState":false,
@@ -102,25 +75,25 @@
                 {
                     "nodeDesc":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
                     "nodeName":"Calc(select=[id, name, num])",
-                    "shipStrategy":"RESCALE"
+                    "shipStrategy":"FORWARD"
                 }
             ]
         },
         {
             "nodeDesc":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
             "name":"Calc_select_id_name_",
-            "jobVertexID":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
-            "generatedOperatorID":"f47f34044d519dd413d9a97b72f9aaa1",
+            "jobVertexID":"20ba6b65f97481d5570070de90e4e791",
+            "generatedOperatorID":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
             "description":"Calc(select=[id, name, num])",
-            "parallelism":8,
+            "parallelism":4,
             "hasState":false,
-            "isChanged":true,
-            "isFromOldGraph":true,
+            "isChanged":false,
+            "isFromOldGraph":false,
             "inputs":[
                 {
                     "nodeDesc":"20ba6b65f97481d5570070de90e4e791",
                     "nodeName":"WatermarkAssigner(rowtime=[eventtime], watermark=[(eventtime - 5000:INTERVAL SECOND)])",
-                    "shipStrategy":"RESCALE"
+                    "shipStrategy":"FORWARD"
                 }
             ],
             "outputs":[
@@ -134,13 +107,13 @@
         {
             "nodeDesc":"b8a0447102f8cff5279761acb499c996",
             "name":"LookupJoin_table_def",
-            "jobVertexID":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
-            "generatedOperatorID":"733a6ec31647f5bc5b3ff737eeb92b83",
+            "jobVertexID":"20ba6b65f97481d5570070de90e4e791",
+            "generatedOperatorID":"b8a0447102f8cff5279761acb499c996",
             "description":"LookupJoin(table=[default_catalog.default_database.dim], joinType=[LeftOuterJoin], async=[false], lookup=[id=id], select=[id, name, num, id0, desc])",
-            "parallelism":8,
+            "parallelism":4,
             "hasState":false,
-            "isChanged":true,
-            "isFromOldGraph":true,
+            "isChanged":false,
+            "isFromOldGraph":false,
             "inputs":[
                 {
                     "nodeDesc":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
@@ -152,15 +125,15 @@
                 {
                     "nodeDesc":"0833ab7cfb55e0f9d51beb847a90b681",
                     "nodeName":"Calc(select=[id, name, desc, num])",
-                    "shipStrategy":"RESCALE"
+                    "shipStrategy":"FORWARD"
                 }
             ]
         },
         {
             "nodeDesc":"0833ab7cfb55e0f9d51beb847a90b681",
             "name":"Calc_select_id_name__1",
-            "jobVertexID":"0833ab7cfb55e0f9d51beb847a90b681",
-            "generatedOperatorID":"c3a981ceefeadab0a9b37d1f20b05494",
+            "jobVertexID":"20ba6b65f97481d5570070de90e4e791",
+            "generatedOperatorID":"0833ab7cfb55e0f9d51beb847a90b681",
             "description":"Calc(select=[id, name, desc, num])",
             "parallelism":4,
             "hasState":false,
@@ -170,7 +143,7 @@
                 {
                     "nodeDesc":"b8a0447102f8cff5279761acb499c996",
                     "nodeName":"LookupJoin(table=[default_catalog.default_database.dim], joinType=[LeftOuterJoin], async=[false], lookup=[id=id], select=[id, name, num, id0, desc])",
-                    "shipStrategy":"RESCALE"
+                    "shipStrategy":"FORWARD"
                 }
             ],
             "outputs":[
@@ -185,13 +158,12 @@
             "nodeDesc":"44cfc1ca74b40bb44eed1f38f72b3ea9",
             "name":"GroupAggregate_group",
             "jobVertexID":"44cfc1ca74b40bb44eed1f38f72b3ea9",
-            "generatedOperatorID":"ce37b4820efdea6a0e0ccab887de1462",
-            "userProvidedHash":"44cfc1ca74b40bb44eed1f38f72b3ea9",
+            "generatedOperatorID":"44cfc1ca74b40bb44eed1f38f72b3ea9",
             "description":"GroupAggregate(groupBy=[id, name], select=[id, name, LAST_VALUE(desc) AS EXPR$1, SUM(num) AS EXPR$2])",
             "parallelism":4,
             "hasState":true,
-            "isChanged":true,
-            "isFromOldGraph":true,
+            "isChanged":false,
+            "isFromOldGraph":false,
             "inputs":[
                 {
                     "nodeDesc":"0833ab7cfb55e0f9d51beb847a90b681",
@@ -211,7 +183,7 @@
             "nodeDesc":"850f2bbd7de0f738e896c97d09909aa9",
             "name":"Calc_select_id_EXPR_",
             "jobVertexID":"44cfc1ca74b40bb44eed1f38f72b3ea9",
-            "generatedOperatorID":"0ff75ef507a916e6a8771cfd7965b062",
+            "generatedOperatorID":"850f2bbd7de0f738e896c97d09909aa9",
             "description":"Calc(select=[id, EXPR$1, EXPR$2])",
             "parallelism":4,
             "hasState":false,
@@ -236,7 +208,7 @@
             "nodeDesc":"c23e358b33cd546331b171b6457a93f3",
             "name":"Sink_Sink_table_defa",
             "jobVertexID":"44cfc1ca74b40bb44eed1f38f72b3ea9",
-            "generatedOperatorID":"48c640c34984b5bd7150a436358fb938",
+            "generatedOperatorID":"c23e358b33cd546331b171b6457a93f3",
             "description":"Sink: Sink(table=[default_catalog.default_database.sink], fields=[id, name, num])",
             "parallelism":4,
             "hasState":false,

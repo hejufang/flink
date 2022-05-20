@@ -82,6 +82,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
 
+import static org.apache.flink.streaming.api.graph.PlanGraphProperty.OPERATOR_ID;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -1150,6 +1151,7 @@ public class StreamGraph implements Pipeline {
 
 		/**
 		 * Apply configs of old {@link PlanGraph} into a new {@link PlanGraph} generated from the provided sql statements.
+		 * Parallelism will be ignored here, only userProvidedHash will be applied.
 		 */
 		public static String applyOldGraph(String oldGraphJson, StreamGraph streamGraph) {
 			PlanGraph oldGraph = PlanGraph.Utils.resolvePlanGraph(oldGraphJson);
@@ -1189,7 +1191,8 @@ public class StreamGraph implements Pipeline {
 				for (StreamNode newNode: streamGraph.getStreamNodes()) {
 					String generatedHash = StringUtils.byteToHexString(generatedHashes.get(newNode.getId()));
 					PlanGraph.StreamGraphVertex oldNode = oldStreamNodeMap.get(generatedHash);
-					applyPropertiesToStreamNode(streamGraph, newNode, oldNode, editedNodes, parallelismChangedNodes);
+					applyPropertiesToStreamNode(streamGraph, newNode, generatedHash, oldNode, editedNodes,
+						parallelismChangedNodes, OPERATOR_ID);
 				}
 			} else {
 				// When two graphs aren't isomorphic, nodes will be matched according to algorithm below
@@ -1199,8 +1202,10 @@ public class StreamGraph implements Pipeline {
 					List<PlanGraph.StreamGraphVertex> oldList = oldNameNodeMap.get(entry.getKey());
 					if (oldList != null) {
 						if (entry.getValue().size() == 1 && oldList.size() == 1) {
-							applyPropertiesToStreamNode(
-								streamGraph, entry.getValue().get(0), oldList.get(0), editedNodes, parallelismChangedNodes);
+							StreamNode node = entry.getValue().get(0);
+							String generatedHash = StringUtils.byteToHexString(generatedHashes.get(node.getId()));
+							applyPropertiesToStreamNode(streamGraph, node, generatedHash, oldList.get(0),
+								editedNodes, parallelismChangedNodes, OPERATOR_ID);
 						} else {
 							Set<String> matchedOldHashes = new HashSet<>();
 							Set<Integer> matchedNewIDs = new HashSet<>();
@@ -1219,8 +1224,9 @@ public class StreamGraph implements Pipeline {
 								PlanGraph.StreamGraphVertex oldNode = candidatePair.f2;
 								if (!matchedNewIDs.contains(newNode.getId()) &&
 										!matchedOldHashes.contains(oldNode.getNodeDesc())) {
-									applyPropertiesToStreamNode(
-										streamGraph, newNode, oldNode, editedNodes, parallelismChangedNodes);
+									String generatedHash = StringUtils.byteToHexString(generatedHashes.get(newNode.getId()));
+									applyPropertiesToStreamNode(streamGraph, newNode, generatedHash, oldNode, editedNodes,
+										parallelismChangedNodes, OPERATOR_ID);
 									matchedNewIDs.add(newNode.getId());
 									matchedOldHashes.add(oldNode.getNodeDesc());
 								}
@@ -1239,9 +1245,10 @@ public class StreamGraph implements Pipeline {
 		/**
 		 * Copy properties from {@link PlanGraph.StreamGraphVertex} to {@link StreamNode}.
 		 *
-		 * <p>Parallelism and userProvidedHash will be naturally copied. A special case is that
-		 * when the operator has states in itself, the nodeDesc should be used to set userHash
-		 * and transformationId to enable states migration.
+		 * <p>Parallelism or userProvidedHash will be copied according to propertiesToApply.
+		 *
+		 * <p>When copy the userProvidedHash, a special case is that when the operator has states in itself,
+		 * the nodeDesc should be used to set userHash and transformationId to enable states migration.
 		 *
 		 * <p>Note that only userProvidedHash rather than uid can be set in {@link PlanGraph} for design.
 		 * Therefore when userProvidedHash is provided by user, we will also set this hash to
@@ -1251,24 +1258,34 @@ public class StreamGraph implements Pipeline {
 		private static void applyPropertiesToStreamNode(
 				StreamGraph newStreamGraph,
 				StreamNode newNode,
+				String newOperatorId,
 				PlanGraph.StreamGraphVertex oldNode,
 				Set<Integer> editedNodes,
-				Set<Integer> parallelismChangedNodes) {
+				Set<Integer> parallelismChangedNodes,
+				PlanGraphProperty ... propertiesToApply) {
 			boolean edited = false;
-			if (oldNode.getUserProvidedHash() != null) {
-				newNode.setUserHash(oldNode.getUserProvidedHash());
-				newNode.setTransformationUID(oldNode.getUserProvidedHash());
-				edited = true;
-			} else if (newNode.isHasState()) {
-				// Only when operator has state, the old operator ID should be inherited.
-				newNode.setUserHash(oldNode.getNodeDesc());
-				newNode.setTransformationUID(oldNode.getNodeDesc());
-				edited = true;
-			}
-			if (newNode.getParallelism() != oldNode.getParallelism()) {
-				newStreamGraph.setParallelism(newNode.getId(), oldNode.getParallelism());
-				parallelismChangedNodes.add(newNode.getId());
-				edited = true;
+			for (PlanGraphProperty property: propertiesToApply) {
+				switch (property) {
+					case PARALLELISM:
+						if (newNode.getParallelism() != oldNode.getParallelism()) {
+							newStreamGraph.setParallelism(newNode.getId(), oldNode.getParallelism());
+							parallelismChangedNodes.add(newNode.getId());
+							edited = true;
+						}
+						break;
+					case OPERATOR_ID:
+						if (oldNode.getUserProvidedHash() != null) {
+							newNode.setUserHash(oldNode.getUserProvidedHash());
+							newNode.setTransformationUID(oldNode.getUserProvidedHash());
+							edited = true;
+						} else if (newNode.isHasState() && !newOperatorId.equals(oldNode.getGeneratedOperatorID())) {
+							// Only when operator uses state and has different id with old node, the old operator ID
+							// should be inherited.
+							newNode.setUserHash(oldNode.getGeneratedOperatorID());
+							newNode.setTransformationUID(oldNode.getGeneratedOperatorID());
+							edited = true;
+						}
+				}
 			}
 			if (edited) {
 				editedNodes.add(newNode.getId());
