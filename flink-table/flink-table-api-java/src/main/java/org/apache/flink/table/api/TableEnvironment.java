@@ -999,6 +999,23 @@ public interface TableEnvironment {
 	}
 
 	/**
+	 * Update the {@link PlanGraph} generated according to the provided statements by applying configs of the input
+	 * {@link PlanGraph} into itself.
+	 *
+	 * <p>The difference between this method and {@link #applyOldGraph} is that the input {@link PlanGraph} of this method
+	 * is matched with the one generated according to the input statements, which means except the editable properties,
+	 * those two {@link PlanGraph} are all the same. Also, this will be checked and if they are not matched, an exception
+	 * will be thrown. However the input {@link PlanGraph} of {@link #applyOldGraph} can be anything.
+	 *
+	 * @param graphJson Json string of {@link PlanGraph}.
+	 * @param stmt SQL statements to be used for generating a new {@link PlanGraph}.
+	 * @return Json string of new generated {@link PlanGraph} which configs are applied to.
+	 */
+	default String updateGraph(String graphJson, String stmt) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
 	 * Validate the provided {@link PlanGraph} is matched with {@link StreamGraph} generated from the provided sql
 	 * statements and apply configs of configs in {@link PlanGraph} into {@link StreamGraph} if they are matched.
 	 *

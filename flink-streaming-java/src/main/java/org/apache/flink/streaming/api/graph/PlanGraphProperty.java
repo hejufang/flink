@@ -21,6 +21,7 @@ package org.apache.flink.streaming.api.graph;
  * Types of property of {@link PlanGraph}.
  */
 public enum PlanGraphProperty {
-	OPERATOR_ID,
+	USER_PROVIDED_HASH,
+	OPERATOR_ID_OF_STATEFUL_OP,
 	PARALLELISM
 }

@@ -1,0 +1,258 @@
+{
+    "jobVertices":[
+        {
+            "id":"44cfc1ca74b40bb44eed1f38f72b3ea9",
+            "parallelism":4,
+            "name":"GroupAggregate_group -> Calc_select_id_EXPR_ -> Sink_Sink_table_defa",
+            "inputs":[
+                {
+                    "id":"0833ab7cfb55e0f9d51beb847a90b681",
+                    "shipStrategy":"HASH"
+                }
+            ],
+            "containedNodes":[
+                "c23e358b33cd546331b171b6457a93f3",
+                "850f2bbd7de0f738e896c97d09909aa9",
+                "44cfc1ca74b40bb44eed1f38f72b3ea9"
+            ]
+        },
+        {
+            "id":"0833ab7cfb55e0f9d51beb847a90b681",
+            "parallelism":4,
+            "name":"Calc_select_id_name__1",
+            "inputs":[
+                {
+                    "id":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
+                    "shipStrategy":"RESCALE"
+                }
+            ],
+            "containedNodes":[
+                "0833ab7cfb55e0f9d51beb847a90b681"
+            ]
+        },
+        {
+            "id":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
+            "parallelism":8,
+            "name":"Calc_select_id_name_ -> LookupJoin_table_def",
+            "inputs":[
+                {
+                    "id":"20ba6b65f97481d5570070de90e4e791",
+                    "shipStrategy":"RESCALE"
+                }
+            ],
+            "containedNodes":[
+                "b8a0447102f8cff5279761acb499c996",
+                "cdf5528fc65ae6b8b6b126cfdfcc40dd"
+            ]
+        },
+        {
+            "id":"20ba6b65f97481d5570070de90e4e791",
+            "parallelism":4,
+            "name":"WatermarkAssigner_ro",
+            "inputs":[
+                {
+                    "id":"bc764cd8ddf7a0cff126f51c16239658",
+                    "shipStrategy":"RESCALE"
+                }
+            ],
+            "containedNodes":[
+                "20ba6b65f97481d5570070de90e4e791"
+            ]
+        },
+        {
+            "id":"bc764cd8ddf7a0cff126f51c16239658",
+            "parallelism":1,
+            "name":"Source_TableSourceSc",
+            "containedNodes":[
+                "bc764cd8ddf7a0cff126f51c16239658"
+            ]
+        }
+    ],
+    "streamNodes":[
+        {
+            "nodeDesc":"bc764cd8ddf7a0cff126f51c16239658",
+            "name":"Source_TableSourceSc",
+            "jobVertexID":"bc764cd8ddf7a0cff126f51c16239658",
+            "generatedOperatorID":"bc764cd8ddf7a0cff126f51c16239658",
+            "description":"Source: TableSourceScan(table=[[default_catalog, default_database, source1]], fields=[id, name, num, eventtime])",
+            "parallelism":1,
+            "hasState":true,
+            "isChanged":false,
+            "isFromOldGraph":false
+        },
+        {
+            "nodeDesc":"20ba6b65f97481d5570070de90e4e791",
+            "name":"WatermarkAssigner_ro",
+            "jobVertexID":"20ba6b65f97481d5570070de90e4e791",
+            "generatedOperatorID":"0a448493b4782967b150582570326227",
+            "description":"WatermarkAssigner(rowtime=[eventtime], watermark=[(eventtime - 5000:INTERVAL SECOND)])",
+            "parallelism":4,
+            "hasState":false,
+            "isChanged":false,
+            "isFromOldGraph":false,
+            "inputs":[
+                {
+                    "nodeDesc":"bc764cd8ddf7a0cff126f51c16239658",
+                    "nodeName":"Source: TableSourceScan(table=[[default_catalog, default_database, source1]], fields=[id, name, num, eventtime])",
+                    "shipStrategy":"RESCALE"
+                }
+            ],
+            "outputs":[
+                {
+                    "nodeDesc":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
+                    "nodeName":"Calc(select=[id, name, num])",
+                    "shipStrategy":"RESCALE"
+                }
+            ]
+        },
+        {
+            "nodeDesc":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
+            "name":"Calc_select_id_name_",
+            "jobVertexID":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
+            "generatedOperatorID":"e70bbd798b564e0a50e10e343f1ac56b",
+            "description":"Calc(select=[id, name, num])",
+            "parallelism":8,
+            "hasState":false,
+            "isChanged":false,
+            "isFromOldGraph":false,
+            "inputs":[
+                {
+                    "nodeDesc":"20ba6b65f97481d5570070de90e4e791",
+                    "nodeName":"WatermarkAssigner(rowtime=[eventtime], watermark=[(eventtime - 5000:INTERVAL SECOND)])",
+                    "shipStrategy":"RESCALE"
+                }
+            ],
+            "outputs":[
+                {
+                    "nodeDesc":"b8a0447102f8cff5279761acb499c996",
+                    "nodeName":"LookupJoin(table=[default_catalog.default_database.dim], joinType=[LeftOuterJoin], async=[false], lookup=[id=id], select=[id, name, num, id0, desc])",
+                    "shipStrategy":"FORWARD"
+                }
+            ]
+        },
+        {
+            "nodeDesc":"b8a0447102f8cff5279761acb499c996",
+            "name":"LookupJoin_table_def",
+            "jobVertexID":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
+            "generatedOperatorID":"604ee7bed040266218075078a35a4449",
+            "description":"LookupJoin(table=[default_catalog.default_database.dim], joinType=[LeftOuterJoin], async=[false], lookup=[id=id], select=[id, name, num, id0, desc])",
+            "parallelism":8,
+            "hasState":false,
+            "isChanged":false,
+            "isFromOldGraph":false,
+            "inputs":[
+                {
+                    "nodeDesc":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
+                    "nodeName":"Calc(select=[id, name, num])",
+                    "shipStrategy":"FORWARD"
+                }
+            ],
+            "outputs":[
+                {
+                    "nodeDesc":"0833ab7cfb55e0f9d51beb847a90b681",
+                    "nodeName":"Calc(select=[id, name, desc, num])",
+                    "shipStrategy":"RESCALE"
+                }
+            ]
+        },
+        {
+            "nodeDesc":"0833ab7cfb55e0f9d51beb847a90b681",
+            "name":"Calc_select_id_name__1",
+            "jobVertexID":"0833ab7cfb55e0f9d51beb847a90b681",
+            "generatedOperatorID":"d0dd08b329ed096eea8bda506d533b5e",
+            "description":"Calc(select=[id, name, desc, num])",
+            "parallelism":4,
+            "hasState":false,
+            "isChanged":false,
+            "isFromOldGraph":false,
+            "inputs":[
+                {
+                    "nodeDesc":"b8a0447102f8cff5279761acb499c996",
+                    "nodeName":"LookupJoin(table=[default_catalog.default_database.dim], joinType=[LeftOuterJoin], async=[false], lookup=[id=id], select=[id, name, num, id0, desc])",
+                    "shipStrategy":"RESCALE"
+                }
+            ],
+            "outputs":[
+                {
+                    "nodeDesc":"44cfc1ca74b40bb44eed1f38f72b3ea9",
+                    "nodeName":"GroupAggregate(groupBy=[id, name], select=[id, name, LAST_VALUE(desc) AS EXPR$1, SUM(num) AS EXPR$2])",
+                    "shipStrategy":"HASH"
+                }
+            ]
+        },
+        {
+            "nodeDesc":"44cfc1ca74b40bb44eed1f38f72b3ea9",
+            "name":"GroupAggregate_group",
+            "jobVertexID":"44cfc1ca74b40bb44eed1f38f72b3ea9",
+            "generatedOperatorID":"9c216205a60ce223717d2eece0e8b376",
+            "description":"GroupAggregate(groupBy=[id, name], select=[id, name, LAST_VALUE(desc) AS EXPR$1, SUM(num) AS EXPR$2])",
+            "parallelism":4,
+            "hasState":true,
+            "isChanged":false,
+            "isFromOldGraph":false,
+            "inputs":[
+                {
+                    "nodeDesc":"0833ab7cfb55e0f9d51beb847a90b681",
+                    "nodeName":"Calc(select=[id, name, desc, num])",
+                    "shipStrategy":"HASH"
+                }
+            ],
+            "outputs":[
+                {
+                    "nodeDesc":"850f2bbd7de0f738e896c97d09909aa9",
+                    "nodeName":"Calc(select=[id, EXPR$1, EXPR$2])",
+                    "shipStrategy":"FORWARD"
+                }
+            ]
+        },
+        {
+            "nodeDesc":"850f2bbd7de0f738e896c97d09909aa9",
+            "name":"Calc_select_id_EXPR_",
+            "jobVertexID":"44cfc1ca74b40bb44eed1f38f72b3ea9",
+            "generatedOperatorID":"5de18872af581eafd706f8a91e531776",
+            "description":"Calc(select=[id, EXPR$1, EXPR$2])",
+            "parallelism":4,
+            "hasState":false,
+            "isChanged":false,
+            "isFromOldGraph":false,
+            "inputs":[
+                {
+                    "nodeDesc":"44cfc1ca74b40bb44eed1f38f72b3ea9",
+                    "nodeName":"GroupAggregate(groupBy=[id, name], select=[id, name, LAST_VALUE(desc) AS EXPR$1, SUM(num) AS EXPR$2])",
+                    "shipStrategy":"FORWARD"
+                }
+            ],
+            "outputs":[
+                {
+                    "nodeDesc":"c23e358b33cd546331b171b6457a93f3",
+                    "nodeName":"Sink: Sink(table=[default_catalog.default_database.sink], fields=[id, name, num])",
+                    "shipStrategy":"FORWARD"
+                }
+            ]
+        },
+        {
+            "nodeDesc":"c23e358b33cd546331b171b6457a93f3",
+            "name":"Sink_Sink_table_defa",
+            "jobVertexID":"44cfc1ca74b40bb44eed1f38f72b3ea9",
+            "generatedOperatorID":"1ad09644e175bdf40e21406252b91e2c",
+            "description":"Sink: Sink(table=[default_catalog.default_database.sink], fields=[id, name, num])",
+            "parallelism":4,
+            "hasState":false,
+            "isChanged":false,
+            "isFromOldGraph":false,
+            "inputs":[
+                {
+                    "nodeDesc":"850f2bbd7de0f738e896c97d09909aa9",
+                    "nodeName":"Calc(select=[id, EXPR$1, EXPR$2])",
+                    "shipStrategy":"FORWARD"
+                }
+            ],
+            "outputs":[
+
+            ]
+        }
+    ],
+    "sources":[
+        "bc764cd8ddf7a0cff126f51c16239658"
+    ]
+}

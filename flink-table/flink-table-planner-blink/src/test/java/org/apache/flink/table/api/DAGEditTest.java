@@ -61,6 +61,35 @@ public class DAGEditTest extends PlanJsonTestBase {
 	}
 
 	@Test
+	public void testUpdateGraphAfterEditingParallelism() {
+		String sql = "INSERT INTO sink\n" +
+			"SELECT T.id,\n" +
+			"	LAST_VALUE(desc),\n" +
+			"	SUM(num)\n" +
+			"FROM (\n" +
+			"		SELECT\n" +
+			"			*,\n" +
+			"			PROCTIME() as proc\n" +
+			"		FROM source1\n" +
+			") T\n" +
+			"LEFT JOIN dim FOR SYSTEM_TIME AS OF proc AS D\n" +
+			"ON D.id = T.id\n" +
+			"GROUP BY T.id, name";
+
+		String oldPlanGraphJson = util.tableEnv().generatePlanGraphJson(sql);
+		ObjectMapper mapper = new ObjectMapper();
+		try {
+			PlanGraph oldPlanGraph = mapper.readValue(oldPlanGraphJson, PlanGraph.class);
+			oldPlanGraph.getStreamNodes().get(2).setParallelism(8);
+			oldPlanGraph.getStreamNodes().get(3).setParallelism(8);
+			String newPlanGraphJson = mapper.writeValueAsString(oldPlanGraph);
+			verifyJsonPlan(util.tableEnv().updateGraph(newPlanGraphJson, sql));
+		} catch (JsonProcessingException e) {
+			fail(e.getMessage());
+		}
+	}
+
+	@Test
 	public void testApplyOldGraphAfterEditingHash() {
 		String sql = "INSERT INTO sink\n" +
 			"SELECT id,\n" +

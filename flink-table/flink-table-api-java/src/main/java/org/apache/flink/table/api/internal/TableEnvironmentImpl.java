@@ -170,6 +170,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -976,6 +977,20 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	public String applyOldGraph(String oldGraphJson, String stmt) {
 		StreamGraph streamGraph = generateStreamGraph(stmt);
 		return StreamGraph.Utils.applyOldGraph(oldGraphJson, streamGraph);
+	}
+
+	@Override
+	public String updateGraph(String graphJson, String stmt) {
+		PlanGraph planGraph = PlanGraph.Utils.resolvePlanGraph(graphJson);
+		StreamGraph streamGraph = generateStreamGraph(stmt);
+		StreamGraphHasher defaultStreamGraphHasher = new StreamGraphHasherV2();
+		Map<Integer, byte[]> generatedHashes = defaultStreamGraphHasher
+			.traverseStreamGraphAndGenerateHashes(streamGraph);
+		StreamGraph.Utils.validateAndApplyConfigToStreamGraph(streamGraph, planGraph, generatedHashes);
+		streamGraph.setUserProvidedHashInvolved(true);
+		JobGraph jobGraph = streamGraph.getJobGraph();
+		PlanJSONGenerator planJSONGenerator = new PlanJSONGenerator(streamGraph, jobGraph, new HashSet<>(), generatedHashes);
+		return planJSONGenerator.generatePlan();
 	}
 
 	@Override

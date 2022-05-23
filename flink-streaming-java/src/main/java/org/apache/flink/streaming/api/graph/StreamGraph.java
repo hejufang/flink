@@ -82,7 +82,9 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
 
-import static org.apache.flink.streaming.api.graph.PlanGraphProperty.OPERATOR_ID;
+import static org.apache.flink.streaming.api.graph.PlanGraphProperty.OPERATOR_ID_OF_STATEFUL_OP;
+import static org.apache.flink.streaming.api.graph.PlanGraphProperty.PARALLELISM;
+import static org.apache.flink.streaming.api.graph.PlanGraphProperty.USER_PROVIDED_HASH;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -1129,15 +1131,8 @@ public class StreamGraph implements Pipeline {
 					throw new RuntimeException("The json plan does not match with the sql. Can't not find node:"
 						+ currentNode.toString());
 				}
-				if (currentNode.getParallelism() != jsonGraphNode.getParallelism()) {
-					streamGraph.setParallelism(currentNode.getId(), jsonGraphNode.getParallelism());
-					parallelismChangedNodes.add(currentNode.getId());
-				}
-				String userProvidedHash = jsonGraphNode.getUserProvidedHash();
-				if (null != userProvidedHash) {
-					currentNode.setUserHash(userProvidedHash);
-					currentNode.setTransformationUID(userProvidedHash);
-				}
+				applyPropertiesToStreamNode(streamGraph, currentNode, operatorID, jsonGraphNode, null,
+					parallelismChangedNodes, USER_PROVIDED_HASH, PARALLELISM);
 				for (StreamEdge outEdge : currentNode.getOutEdges()) {
 					StreamNode child = streamGraph.getTargetVertex(outEdge);
 					if (!visited.contains(child.getId())) {
@@ -1192,7 +1187,7 @@ public class StreamGraph implements Pipeline {
 					String generatedHash = StringUtils.byteToHexString(generatedHashes.get(newNode.getId()));
 					PlanGraph.StreamGraphVertex oldNode = oldStreamNodeMap.get(generatedHash);
 					applyPropertiesToStreamNode(streamGraph, newNode, generatedHash, oldNode, editedNodes,
-						parallelismChangedNodes, OPERATOR_ID);
+						parallelismChangedNodes, USER_PROVIDED_HASH, OPERATOR_ID_OF_STATEFUL_OP);
 				}
 			} else {
 				// When two graphs aren't isomorphic, nodes will be matched according to algorithm below
@@ -1205,7 +1200,7 @@ public class StreamGraph implements Pipeline {
 							StreamNode node = entry.getValue().get(0);
 							String generatedHash = StringUtils.byteToHexString(generatedHashes.get(node.getId()));
 							applyPropertiesToStreamNode(streamGraph, node, generatedHash, oldList.get(0),
-								editedNodes, parallelismChangedNodes, OPERATOR_ID);
+								editedNodes, parallelismChangedNodes, USER_PROVIDED_HASH, OPERATOR_ID_OF_STATEFUL_OP);
 						} else {
 							Set<String> matchedOldHashes = new HashSet<>();
 							Set<Integer> matchedNewIDs = new HashSet<>();
@@ -1226,7 +1221,7 @@ public class StreamGraph implements Pipeline {
 										!matchedOldHashes.contains(oldNode.getNodeDesc())) {
 									String generatedHash = StringUtils.byteToHexString(generatedHashes.get(newNode.getId()));
 									applyPropertiesToStreamNode(streamGraph, newNode, generatedHash, oldNode, editedNodes,
-										parallelismChangedNodes, OPERATOR_ID);
+										parallelismChangedNodes, USER_PROVIDED_HASH, OPERATOR_ID_OF_STATEFUL_OP);
 									matchedNewIDs.add(newNode.getId());
 									matchedOldHashes.add(oldNode.getNodeDesc());
 								}
@@ -1273,21 +1268,28 @@ public class StreamGraph implements Pipeline {
 							edited = true;
 						}
 						break;
-					case OPERATOR_ID:
+					case USER_PROVIDED_HASH:
 						if (oldNode.getUserProvidedHash() != null) {
 							newNode.setUserHash(oldNode.getUserProvidedHash());
 							newNode.setTransformationUID(oldNode.getUserProvidedHash());
 							edited = true;
-						} else if (newNode.isHasState() && !newOperatorId.equals(oldNode.getGeneratedOperatorID())) {
+						}
+						break;
+					case OPERATOR_ID_OF_STATEFUL_OP:
+						if (oldNode.getUserProvidedHash() == null && newNode.isHasState()
+								&& !newOperatorId.equals(oldNode.getGeneratedOperatorID())) {
 							// Only when operator uses state and has different id with old node, the old operator ID
 							// should be inherited.
 							newNode.setUserHash(oldNode.getGeneratedOperatorID());
 							newNode.setTransformationUID(oldNode.getGeneratedOperatorID());
 							edited = true;
 						}
+						break;
+					default:
+						throw new UnsupportedOperationException(String.format("Unexpected PlanGraphProperty: %s", property));
 				}
 			}
-			if (edited) {
+			if (edited && editedNodes != null) {
 				editedNodes.add(newNode.getId());
 			}
 		}
