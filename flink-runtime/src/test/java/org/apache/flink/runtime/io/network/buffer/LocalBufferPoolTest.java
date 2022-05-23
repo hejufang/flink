@@ -409,7 +409,7 @@ public class LocalBufferPoolTest extends TestLogger {
 	@Test
 	public void testMaxBuffersPerChannelAndAvailability() throws IOException, InterruptedException {
 		localBufferPool.lazyDestroy();
-		localBufferPool = new LocalBufferPool(networkBufferPool, 1, Integer.MAX_VALUE, null, 3, 2);
+		localBufferPool = new LocalBufferPool(networkBufferPool, 1, Integer.MAX_VALUE, null, 3, 1);
 		localBufferPool.setNumBuffers(10);
 
 		assertTrue(localBufferPool.getAvailableFuture().isDone());
@@ -423,7 +423,7 @@ public class LocalBufferPoolTest extends TestLogger {
 		final BufferBuilder bufferBuilder02 = localBufferPool.requestBufferBuilderBlocking(0);
 		assertFalse(localBufferPool.getAvailableFuture().isDone());
 
-		assertNull(localBufferPool.requestBufferBuilder(0));
+		final BufferBuilder bufferBuilder03 = localBufferPool.requestBufferBuilderBlocking(0);
 		final BufferBuilder bufferBuilder21 = localBufferPool.requestBufferBuilderBlocking(2);
 		final BufferBuilder bufferBuilder22 = localBufferPool.requestBufferBuilderBlocking(2);
 		assertFalse(localBufferPool.getAvailableFuture().isDone());
@@ -434,8 +434,10 @@ public class LocalBufferPoolTest extends TestLogger {
 		bufferBuilder21.getRecycler().recycle(bufferBuilder21.getMemorySegment());
 		assertFalse(localBufferPool.getAvailableFuture().isDone());
 		bufferBuilder02.getRecycler().recycle(bufferBuilder02.getMemorySegment());
-		assertTrue(localBufferPool.getAvailableFuture().isDone());
+		assertFalse(localBufferPool.getAvailableFuture().isDone());
 		bufferBuilder01.getRecycler().recycle(bufferBuilder01.getMemorySegment());
+		assertTrue(localBufferPool.getAvailableFuture().isDone());
+		bufferBuilder03.getRecycler().recycle(bufferBuilder03.getMemorySegment());
 		assertTrue(localBufferPool.getAvailableFuture().isDone());
 		bufferBuilder22.getRecycler().recycle(bufferBuilder22.getMemorySegment());
 		assertTrue(localBufferPool.getAvailableFuture().isDone());

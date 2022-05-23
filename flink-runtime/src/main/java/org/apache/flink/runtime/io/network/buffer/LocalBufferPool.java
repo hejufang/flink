@@ -154,8 +154,6 @@ class LocalBufferPool implements BufferPool {
 	 *
 	 * @param networkBufferPool
 	 * 		global network buffer pool to get buffers from
-	 * @param poolSize
-	 * 		current pool size
 	 * @param numberOfRequiredMemorySegments
 	 * 		minimum number of network buffers
 	 * @param maxNumberOfMemorySegments
@@ -169,7 +167,6 @@ class LocalBufferPool implements BufferPool {
 	 */
 	LocalBufferPool(
 			NetworkBufferPool networkBufferPool,
-			int poolSize,
 			int numberOfRequiredMemorySegments,
 			int maxNumberOfMemorySegments,
 			@Nullable BufferPoolOwner bufferPoolOwner,
@@ -188,7 +185,7 @@ class LocalBufferPool implements BufferPool {
 
 		this.networkBufferPool = networkBufferPool;
 		this.numberOfRequiredMemorySegments = numberOfRequiredMemorySegments;
-		this.currentPoolSize = poolSize;
+		this.currentPoolSize = numberOfRequiredMemorySegments;
 		this.maxNumberOfMemorySegments = maxNumberOfMemorySegments;
 		this.bufferPoolOwner = bufferPoolOwner;
 
@@ -204,34 +201,6 @@ class LocalBufferPool implements BufferPool {
 			subpartitionBufferRecyclers[i] = new SubpartitionBufferRecycler(i, this);
 		}
 		this.maxBuffersPerChannel = maxBuffersPerChannel;
-	}
-
-	/**
-	 * Local buffer pool based on the given <tt>networkBufferPool</tt> and <tt>bufferPoolOwner</tt>
-	 * with a minimal and maximal number of network buffers being available.
-	 *
-	 * @param networkBufferPool
-	 * 		global network buffer pool to get buffers from
-	 * @param numberOfRequiredMemorySegments
-	 * 		minimum number of network buffers
-	 * @param maxNumberOfMemorySegments
-	 * 		maximum number of network buffers to allocate
-	 * @param bufferPoolOwner
-	 * 		the owner of this buffer pool to release memory when needed
-	 * @param numberOfSubpartitions
-	 * 		number of subpartitions
-	 * @param maxBuffersPerChannel
-	 * 		maximum number of buffers to use for each channel
-	 */
-	LocalBufferPool(
-		NetworkBufferPool networkBufferPool,
-		int numberOfRequiredMemorySegments,
-		int maxNumberOfMemorySegments,
-		@Nullable BufferPoolOwner bufferPoolOwner,
-		int numberOfSubpartitions,
-		int maxBuffersPerChannel) {
-		this(networkBufferPool, numberOfRequiredMemorySegments, numberOfRequiredMemorySegments,
-			maxNumberOfMemorySegments, bufferPoolOwner, numberOfSubpartitions, maxBuffersPerChannel);
 	}
 
 	// ------------------------------------------------------------------------
@@ -340,19 +309,8 @@ class LocalBufferPool implements BufferPool {
 	@Nullable
 	private MemorySegment requestMemorySegment(int targetChannel) throws IOException {
 		MemorySegment segment = null;
-		boolean needResizePool = false;
 		synchronized (availableMemorySegments) {
-
-			if (isDestroyed) {
-				throw new IllegalStateException("Buffer pool is destroyed.");
-			}
-
 			returnExcessMemorySegments();
-
-			// target channel over quota; do not return a segment
-			if (targetChannel != UNKNOWN_CHANNEL && subpartitionBuffersCount[targetChannel] >= maxBuffersPerChannel) {
-				return null;
-			}
 
 			if (availableMemorySegments.isEmpty()) {
 				segment = requestMemorySegmentFromGlobal();
@@ -366,18 +324,11 @@ class LocalBufferPool implements BufferPool {
 			}
 
 			if (segment != null && targetChannel != UNKNOWN_CHANNEL) {
-				if (++subpartitionBuffersCount[targetChannel] == maxBuffersPerChannel) {
+				if (subpartitionBuffersCount[targetChannel]++ == maxBuffersPerChannel) {
 					unavailableSubpartitionsCount++;
 					availabilityHelper.resetUnavailable();
 				}
 			}
-			if (segment == null && numberOfRequestedMemorySegments + 1 >= currentPoolSize && numberOfRequestedMemorySegments + 1 < maxNumberOfMemorySegments) {
-				needResizePool = true;
-			}
-		}
-
-		if (needResizePool) {
-			networkBufferPool.tryResizeLocalBufferPool(this);
 		}
 
 		return segment;
@@ -424,7 +375,7 @@ class LocalBufferPool implements BufferPool {
 			synchronized (availableMemorySegments) {
 				final int oldUnavailableSubpartitionsCount = unavailableSubpartitionsCount;
 				if (channel != UNKNOWN_CHANNEL) {
-					if (subpartitionBuffersCount[channel]-- == maxBuffersPerChannel) {
+					if (--subpartitionBuffersCount[channel] == maxBuffersPerChannel) {
 						unavailableSubpartitionsCount--;
 					}
 				}
@@ -546,16 +497,6 @@ class LocalBufferPool implements BufferPool {
 		// size, trigger a recycle via the owner.
 		if (bufferPoolOwner != null && numExcessBuffers > 0) {
 			bufferPoolOwner.releaseMemory(numExcessBuffers);
-		}
-	}
-
-	public boolean tryIncNumBuffers() throws IOException {
-		synchronized (availableMemorySegments) {
-			if (currentPoolSize >= maxNumberOfMemorySegments || currentPoolSize < numberOfRequestedMemorySegments) {
-				return false;
-			}
-			setNumBuffers(currentPoolSize + 1);
-			return true;
 		}
 	}
 

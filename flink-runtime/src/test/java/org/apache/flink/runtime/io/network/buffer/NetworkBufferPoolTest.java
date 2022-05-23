@@ -39,7 +39,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -657,95 +656,6 @@ public class NetworkBufferPoolTest extends TestLogger {
 		try {
 			asyncRequest.sync();
 		} finally {
-			globalPool.destroy();
-		}
-	}
-
-	@Test
-	public void testSimpleRedistribute() throws Exception {
-		final int numBuffers = 10;
-		final int numberOfSegmentsToRequest = 2;
-		final Duration requestSegmentsTimeout = Duration.ofMillis(50L);
-
-		NetworkBufferPool globalPool = new NetworkBufferPool(
-			numBuffers,
-			128,
-			numberOfSegmentsToRequest,
-			requestSegmentsTimeout,
-			false,
-			Duration.ofMillis(0L),
-			true,
-			0.8);
-
-		for (int i = 0; i < 3; i++) {
-			globalPool.createBufferPool(1, 2);
-		}
-
-		// allocate max, 4 * 2 =6
-		assertEquals(6, globalPool.getNumTotalRequiredBuffers());
-
-		for (int i = 0; i < 4; i++) {
-			globalPool.createBufferPool(1, 2);
-		}
-
-		// allocate min when trigger watermark
-		assertEquals(10, globalPool.getNumTotalRequiredBuffers());
-
-		globalPool.createBufferPool(1, 2);
-
-		// trigger returnExcessMemorySegment
-		assertEquals(8, globalPool.getNumTotalRequiredBuffers());
-
-		globalPool.destroy();
-	}
-
-	@Test(timeout = 10000L)
-	public void testSimpleRedistributeResizePool() throws Exception {
-		final int numBuffers = 1000;
-		final int numberOfSegmentsToRequest = 1;
-		final Duration requestSegmentsTimeout = Duration.ofMillis(50L);
-		NetworkBufferPool globalPool = new NetworkBufferPool(
-			numBuffers,
-			128,
-			numberOfSegmentsToRequest,
-			requestSegmentsTimeout,
-			false,
-			Duration.ofMillis(0L),
-			true,
-			0);
-
-		final ExecutorService executorService = Executors.newFixedThreadPool(2);
-		BufferPool bufferPool = globalPool.createBufferPool(1, numBuffers);
-		final CountDownLatch latch = new CountDownLatch(2);
-
-		executorService.submit(() -> {
-			try {
-				for (int i = 0; i < numBuffers; i++) {
-					bufferPool.requestBuffer();
-				}
-				latch.countDown();
-			} catch (Exception e) {
-			}
-		});
-		executorService.submit(() -> {
-			try {
-				for (int i = 0; i < 100; i++) {
-					Thread.sleep(1);
-					globalPool.tryReturnExcessMemorySegments();
-				}
-				latch.countDown();
-			} catch (Exception e) {
-			}
-		});
-		try {
-			assertTrue(
-				"request buffer timeout",
-				latch.await(5000L, TimeUnit.MILLISECONDS));
-								globalPool.tryReturnExcessMemorySegments();
-			globalPool.destroyBufferPool(bufferPool);
-			assertEquals(globalPool.getNumTotalRequiredBuffers(), 0);
-		} finally {
-			executorService.shutdown();
 			globalPool.destroy();
 		}
 	}

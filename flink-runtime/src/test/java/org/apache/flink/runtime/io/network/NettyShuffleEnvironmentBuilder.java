@@ -186,7 +186,6 @@ public class NettyShuffleEnvironmentBuilder {
 				channelReuseEnable,
 				channelIdleReleaseTimeMs,
 				false,
-				0,
 				false,
 				false,
 				-1,
