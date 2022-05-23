@@ -22,7 +22,6 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.MetricsConstants;
 import org.apache.flink.streaming.connectors.kafka.config.BytedKafkaConfig;
@@ -155,10 +154,6 @@ public class KafkaConsumerThread<T> extends Thread {
 	 */
 	private final Map<TopicPartition, Long> lastProcessedMap;
 
-	private transient long pollInterval = 0L;
-
-	private transient long lastPollTime = 0L;
-
 	public KafkaConsumerThread(
 			Logger log,
 			Handover handover,
@@ -241,7 +236,6 @@ public class KafkaConsumerThread<T> extends Thread {
 						subtaskMetricGroup.gauge(metric.getKey().name(), new KafkaMetricWrapper(metric.getValue()));
 					}
 				}
-				consumerMetricGroup.gauge("poll_interval", (Gauge<Long>) () -> pollInterval);
 			}
 
 			// early exit check
@@ -312,11 +306,6 @@ public class KafkaConsumerThread<T> extends Thread {
 				if (records == null) {
 					try {
 						records = (bytedKafkaConfig.getSampleInterval() > 0) ? getSampledRecordsAfterInterval() : getRecordsFromKafka();
-						long recordLastPollTime = System.currentTimeMillis();
-						if (lastPollTime > 0) {
-							pollInterval = (recordLastPollTime - lastPollTime);
-						}
-						lastPollTime = recordLastPollTime;
 
 						if (rateLimiter != null) {
 							rateLimiter.acquire(records.count());

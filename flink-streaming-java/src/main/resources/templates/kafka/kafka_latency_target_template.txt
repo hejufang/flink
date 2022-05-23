@@ -16,9 +16,16 @@
 # limitations under the License.
 ################################################################################
 {
-  "aggregator": "avg",
+  "aggregator": "max",
   "downsampleAggregator": "avg",
   "downsampleFillPolicy": "none",
-  "metric": "flink.taskmanager.${jobname}.${kafka_source}.KafkaConsumer.min_fetch_latency_avg",
-  "refId": "S"
+  "metric": "flink.taskmanager.${jobname}.${kafka_source}.KafkaConsumer.fetch_latency_avg",
+  "refId": "P"
+},
+{
+  "aggregator": "max",
+  "downsampleAggregator": "avg",
+  "downsampleFillPolicy": "none",
+  "metric": "flink.taskmanager.${jobname}.${kafka_source}.KafkaConsumer.fetch_latency_max",
+  "refId": "R"
 }

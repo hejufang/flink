@@ -81,8 +81,6 @@ public class DashboardTemplate {
 	public static final String KAFKA_OFFSET_TEMPLATE = "kafka/Kafka_offset_template.txt";
 	public static final String KAFKA_LAG_LINK_TEMPLATE = "kafka/kafka_lag_link_template.txt";
 	public static final String KAFKA_ROW_TEMPLATE = "kafka/kafka_row_template.txt";
-	public static final String KAFKA_POLL_INTERVAL_TARGET_TEMPLATE = "kafka/kafka_poll_target_template.txt";
-	public static final String KAFKA_POLL_INTERVAL_TEMPLATE = "kafka/kafka_poll_template.txt";
 	public static final String KAFKA_CONSUME_RATE_TARGET_TEMPLATE = "kafka/kafka_consume_rate_target_template.txt";
 	public static final String KAFKA_CONSUME_RATE_TEMPLATE = "kafka/kafka_consume_rate_template.txt";
 
