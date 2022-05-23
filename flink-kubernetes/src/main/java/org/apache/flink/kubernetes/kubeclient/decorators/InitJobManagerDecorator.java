@@ -19,6 +19,10 @@
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesJobManagerParameters;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesToleration;
@@ -120,6 +124,8 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
 				.build();
 			volumeMountList.add(volumeMount);
 		}
+		Configuration flinkConfiguration = kubernetesJobManagerParameters.getFlinkConfiguration();
+		Map<String, String> kubernetesAnnotations = KubernetesUtils.getAnnotations(flinkConfiguration, KubernetesConfigOptions.KUBERNETES_DEPLOYMENT_ANNOTATIONS);
 		return new ContainerBuilder(container)
 				.withName(kubernetesJobManagerParameters.getJobManagerMainContainerName())
 				.withImage(kubernetesJobManagerParameters.getImage())
@@ -144,6 +150,26 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
 					.withValueFrom(new EnvVarSourceBuilder()
 						.withNewFieldRef(API_VERSION, POD_NAME_FIELD_PATH)
 						.build())
+					.endEnv()
+				.addNewEnv()
+					.withName(ConfigConstants.FLINK_JOB_NAME_KEY)
+					.withValue(flinkConfiguration.getString(PipelineOptions.NAME))
+					.endEnv()
+				.addNewEnv()
+					.withName(ConfigConstants.FLINK_JOB_OWNER_KEY)
+					.withValue(flinkConfiguration.getString(PipelineOptions.FLINK_JOB_OWNER))
+					.endEnv()
+				.addNewEnv()
+					.withName(ConfigConstants.FLINK_APPLICATION_ID_KEY)
+					.withValue(flinkConfiguration.getString(KubernetesConfigOptions.CLUSTER_ID))
+					.endEnv()
+				.addNewEnv()
+					.withName(ConfigConstants.FLINK_QUEUE_KEY)
+					.withValue(kubernetesAnnotations.getOrDefault(Constants.KUBERNETES_ANNOTATION_QUEUE_KEY, ConfigConstants.FLINK_QUEUE_DEFAULT))
+					.endEnv()
+				.addNewEnv()
+					.withName(ConfigConstants.FLINK_ENV_TYPE_KEY)
+					.withValue(ConfigConstants.FLINK_ENV_TYPE_KUBERNETES)
 					.endEnv()
 				.build();
 	}

@@ -2071,6 +2071,20 @@ public final class ConfigConstants {
 	public static final String OWNER_KEY = "owner";
 	public static final String OWNER_DEFAULT = "unknown";
 
+	// Key and default value of environment variables for Databus Appender
+	public static final String FLINK_JOB_NAME_KEY = "_FLINK_JOB_NAME";
+	public static final String FLINK_JOB_NAME_DEFAULT = "unknown";
+	public static final String FLINK_QUEUE_KEY = "_FLINK_QUEUE";
+	public static final String FLINK_QUEUE_DEFAULT = "unknown";
+	public static final String FLINK_JOB_OWNER_KEY = "_FLINK_JOB_OWNER";
+	public static final String FLINK_JOB_OWNER_DEFAULT = "unknown";
+	public static final String FLINK_APPLICATION_ID_KEY = "_FLINK_APPLICATION_ID";
+	public static final String FLINK_APPLICATION_ID_DEFAULT = "unknown";
+	public static final String FLINK_ENV_TYPE_KEY = "_FLINK_ENV_TYPE";
+	public static final String FLINK_ENV_TYPE_DEFAULT = "unknown";
+	public static final String FLINK_ENV_TYPE_YARN = "Yarn";
+	public static final String FLINK_ENV_TYPE_KUBERNETES = "Kubernetes";
+
 	//Shadow configuration of KubernetesConfigOptions.CLUSTER_ID to avoid circle dependencies
 	public static final String KUBERNETES_CLUSTER_ID = "kubernetes.cluster-id";
 	public static final String KUBERNETES_CLUSTER_ID_DEFAULT = "unknown";

@@ -133,6 +133,7 @@ public class Constants {
 	// mounting the hostPath volume. We set empty string as default because we do not know which type that user will mount.
 	public static final String DEFAULT_HOST_PATH_TYPE = "";
 	public static final String POD_GROUP_MINMEMBER_ANNOTATION_KEY = "godel.bytedance.com/pod-group-minmember";
+	public static final String KUBERNETES_ANNOTATION_QUEUE_KEY = "godel.bytedance.com/queue-name";
 
 	public static final String PORT0_ENV = "PORT0";
 	public static final String PORT1_ENV = "PORT1";

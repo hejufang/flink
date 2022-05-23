@@ -20,8 +20,10 @@ package org.apache.flink.kubernetes;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.testutils.OneShotLatch;
@@ -228,10 +230,16 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				assertEquals(podName, pod.getMetadata().getName());
 
 				// Check environments
+				Map<String, String> kubernetesAnnotations = KubernetesUtils.getAnnotations(flinkConfig, KubernetesConfigOptions.KUBERNETES_DEPLOYMENT_ANNOTATIONS);
 				assertThat(tmContainer.getEnv(), Matchers.contains(new EnvVarBuilder().withName(Constants.ENV_FLINK_POD_NAME).withValue(podName).build(),
 					new EnvVarBuilder().withName(Constants.ENV_FLINK_COMPONENT).withValue(LABEL_COMPONENT_TASK_MANAGER).build(),
 					new EnvVarBuilder().withName(Constants.ENV_FLINK_POD_IP_ADDRESS).withValueFrom(new EnvVarSourceBuilder().withNewFieldRef(API_VERSION, POD_IP_FIELD_PATH).build()).
-					build()
+					build(),
+					new EnvVarBuilder().withName(ConfigConstants.FLINK_JOB_NAME_KEY).withValue(flinkConfig.getString(PipelineOptions.NAME)).build(),
+					new EnvVarBuilder().withName(ConfigConstants.FLINK_JOB_OWNER_KEY).withValue(flinkConfig.getString(PipelineOptions.FLINK_JOB_OWNER)).build(),
+					new EnvVarBuilder().withName(ConfigConstants.FLINK_APPLICATION_ID_KEY).withValue(flinkConfig.getString(KubernetesConfigOptions.CLUSTER_ID)).build(),
+					new EnvVarBuilder().withName(ConfigConstants.FLINK_QUEUE_KEY).withValue(kubernetesAnnotations.getOrDefault(Constants.KUBERNETES_ANNOTATION_QUEUE_KEY, ConfigConstants.FLINK_QUEUE_DEFAULT)).build(),
+					new EnvVarBuilder().withName(ConfigConstants.FLINK_ENV_TYPE_KEY).withValue(ConfigConstants.FLINK_ENV_TYPE_KUBERNETES).build()
 				));
 
 				// Check task manager main class args.

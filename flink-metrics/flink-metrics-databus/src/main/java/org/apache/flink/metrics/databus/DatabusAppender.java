@@ -17,14 +17,13 @@
 
 package org.apache.flink.metrics.databus;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
-import org.apache.flink.yarn.YarnConfigKeys;
 
 import org.apache.flink.shaded.guava18.com.google.common.util.concurrent.RateLimiter;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.bytedance.data.databus.DatabusClient;
-import com.bytedance.data.databus.EnvUtils;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.ThreadContext;
 import org.apache.logging.log4j.core.AbstractLifeCycle;
@@ -136,23 +135,22 @@ public final class DatabusAppender extends AbstractAppender {
 	}
 
 	private void initThreadContext() {
-		ThreadContext.put("user", EnvUtils.getUser());
-		try {
-			ThreadContext.put("ip", EnvUtils.getIp());
-		} catch (Exception e) {
-			ThreadContext.put("ip", "unknown");
-		}
-		try {
-			ThreadContext.put("pid", EnvUtils.getPid());
-		} catch (Exception e) {
-			ThreadContext.put("pid", "unknown");
-		}
-		ThreadContext.put("cid", EnvUtils.getContainerId());
-		ThreadContext.put("hadoop_user", EnvUtils.getHadoopUser());
-		ThreadContext.put("yarn_job", EnvUtils.getYarnJob());
-		ThreadContext.put("yarn_queue", EnvUtils.getYarnQueue());
-		String applicationId = System.getenv(YarnConfigKeys.ENV_APP_ID) == null ? "unkown" : System.getenv(YarnConfigKeys.ENV_APP_ID);
-		ThreadContext.put("application_id", applicationId);
+		// put some new context to thread
+		ThreadContext.put("flink_job_name", getEnv(ConfigConstants.FLINK_JOB_NAME_KEY, ConfigConstants.FLINK_JOB_NAME_DEFAULT));
+		ThreadContext.put("flink_job_owner", getEnv(ConfigConstants.FLINK_JOB_OWNER_KEY, ConfigConstants.FLINK_JOB_OWNER_DEFAULT));
+		ThreadContext.put("flink_queue", getEnv(ConfigConstants.FLINK_QUEUE_KEY, ConfigConstants.FLINK_QUEUE_DEFAULT));
+		ThreadContext.put("flink_env_type", getEnv(ConfigConstants.FLINK_ENV_TYPE_KEY, ConfigConstants.FLINK_ENV_TYPE_DEFAULT));
+		ThreadContext.put("flink_application_id", getEnv(ConfigConstants.FLINK_APPLICATION_ID_KEY, ConfigConstants.FLINK_APPLICATION_ID_DEFAULT));
+	}
+
+	/**
+	 * Get environment variable by key.
+	 * @param key			key of the environment variable
+	 * @param defaultValue	default value of the environment variable
+	 * @return environment variable
+	 */
+	private String getEnv(String key, String defaultValue) {
+		return System.getenv(key) == null ? defaultValue : System.getenv(key);
 	}
 
 	@Override

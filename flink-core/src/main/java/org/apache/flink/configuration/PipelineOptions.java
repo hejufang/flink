@@ -65,6 +65,15 @@ public class PipelineOptions {
 			.withDescription("The job name used for printing and logging.");
 
 	/**
+	 * The owner name of Flink job.
+	 */
+	public static final ConfigOption<String> FLINK_JOB_OWNER =
+		key("owner")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("The owner name of Flink job.");
+
+	/**
 	 * A list of jar files that contain the user-defined function (UDF) classes and all classes used from within the UDFs.
 	 */
 	public static final ConfigOption<List<String>> JARS =

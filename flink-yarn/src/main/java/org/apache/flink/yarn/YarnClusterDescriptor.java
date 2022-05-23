@@ -1098,6 +1098,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		} else {
 			LOG.warn("Unable to parse dc.");
 		}
+		// Add some environment variables to JobManager for Databus Appender
+		appMasterEnv.put(ConfigConstants.FLINK_JOB_NAME_KEY, getJobName());
+		appMasterEnv.put(ConfigConstants.FLINK_QUEUE_KEY, yarnQueue);
+		appMasterEnv.put(ConfigConstants.FLINK_JOB_OWNER_KEY, getOwner());
+		appMasterEnv.put(ConfigConstants.FLINK_ENV_TYPE_KEY, ConfigConstants.FLINK_ENV_TYPE_YARN);
+		appMasterEnv.put(ConfigConstants.FLINK_APPLICATION_ID_KEY, appId.toString());
 
 		String jobName = getJobName();
 		if (jobName != null && !jobName.isEmpty()) {
@@ -1222,7 +1228,18 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		} catch (Exception e) {
 			LOG.warn("Failed to get job name from jar.");
 		}
-		return null;
+		return ConfigConstants.FLINK_JOB_NAME_DEFAULT;
+	}
+
+	private String getOwner() {
+		try {
+			int index = customName.lastIndexOf("_");
+			String owner = this.customName.substring(index + 1);
+			return owner;
+		} catch (Exception e) {
+			LOG.warn("Failed to get owner name from jar.");
+		}
+		return ConfigConstants.FLINK_JOB_OWNER_DEFAULT;
 	}
 
 	/**

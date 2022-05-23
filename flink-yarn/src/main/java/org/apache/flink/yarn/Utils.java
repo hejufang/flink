@@ -496,6 +496,12 @@ public final class Utils {
 		if (env.containsKey(YarnConfigKeys.ENV_FLINK_YARN_DC)) {
 			containerEnv.put(YarnConfigKeys.ENV_FLINK_YARN_DC, env.get(YarnConfigKeys.ENV_FLINK_YARN_DC));
 		}
+		// Add some environment variables to TaskManager for Databus Appender
+		containerEnv.put(ConfigConstants.FLINK_JOB_NAME_KEY, System.getenv(ConfigConstants.FLINK_JOB_NAME_KEY));
+		containerEnv.put(ConfigConstants.FLINK_QUEUE_KEY, System.getenv(ConfigConstants.FLINK_QUEUE_KEY));
+		containerEnv.put(ConfigConstants.FLINK_JOB_OWNER_KEY, System.getenv(ConfigConstants.FLINK_JOB_OWNER_KEY));
+		containerEnv.put(ConfigConstants.FLINK_ENV_TYPE_KEY, System.getenv(ConfigConstants.FLINK_ENV_TYPE_KEY));
+		containerEnv.put(ConfigConstants.FLINK_APPLICATION_ID_KEY, System.getenv(ConfigConstants.FLINK_APPLICATION_ID_KEY));
 
 		if (remoteKeytabPath != null && localKeytabPath != null && keytabPrincipal != null) {
 			containerEnv.put(YarnConfigKeys.REMOTE_KEYTAB_PATH, remoteKeytabPath);

@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ExternalResourceOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptionsInternal;
@@ -202,7 +203,12 @@ public class InitTaskManagerDecoratorTest extends KubernetesTaskManagerTestBase 
 	public void testMainContainerEnv() {
 		final Map<String, String> expectedEnvVars = new HashMap<>(customizedEnvs);
 		expectedEnvVars.put(ENV_FLINK_COMPONENT, LABEL_COMPONENT_TASK_MANAGER);
+		expectedEnvVars.put(ConfigConstants.FLINK_JOB_NAME_KEY, null);
+		expectedEnvVars.put(ConfigConstants.FLINK_JOB_OWNER_KEY, null);
+		expectedEnvVars.put(ConfigConstants.FLINK_APPLICATION_ID_KEY, "my-flink-cluster1");
 		expectedEnvVars.put(Constants.ENV_FLINK_POD_NAME, POD_NAME);
+		expectedEnvVars.put(ConfigConstants.FLINK_ENV_TYPE_KEY, ConfigConstants.FLINK_ENV_TYPE_KUBERNETES);
+		expectedEnvVars.put(ConfigConstants.FLINK_QUEUE_KEY, "unknown");
 
 		final List<EnvVar> envVars = this.resultMainContainer.getEnv();
 
