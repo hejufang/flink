@@ -215,7 +215,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		}
 	}
 
-	private Message prepareMessage(T input) {
+	protected Message prepareMessage(T input) {
 		String topic = topicSelector.getTopic(input);
 		String tag = (tag = topicSelector.getTag(input)) != null ? tag : "";
 
