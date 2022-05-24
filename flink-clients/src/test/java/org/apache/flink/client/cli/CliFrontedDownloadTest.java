@@ -18,21 +18,31 @@
 
 package org.apache.flink.client.cli;
 
+import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.configuration.Configuration;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * test download options for CliFronted.
  */
 public class CliFrontedDownloadTest extends CliFrontendTestBase {
+
+	@Rule
+	public TemporaryFolder testFolder = new TemporaryFolder();
 
 	@BeforeClass
 	public static void init() {
@@ -46,7 +56,6 @@ public class CliFrontedDownloadTest extends CliFrontendTestBase {
 
 	@Test(expected = IOException.class)
 	public void testDownload() throws Exception {
-		// test configure parallelism with overflow integer value
 		String[] parameters = {
 			"-src",
 			"hdfs:///file1;hdfs:///file2",
@@ -67,7 +76,7 @@ public class CliFrontedDownloadTest extends CliFrontendTestBase {
 
 	@Test(expected = CliArgsException.class)
 	public void testDownloadSavepath() throws Exception {
-		// test configure parallelism with overflow integer value
+		// the destination directory should not end with "/"
 		String[] parameters = {
 			"-src",
 			"hdfs:///file1;hdfs:///file2",
@@ -83,7 +92,6 @@ public class CliFrontedDownloadTest extends CliFrontendTestBase {
 
 	@Test(expected = CliArgsException.class)
 	public void testNoSavepath() throws Exception {
-		// test configure parallelism with overflow integer value
 		String[] parameters = {
 			"-src",
 			"hdfs:///file1;hdfs:///file2",
@@ -95,4 +103,31 @@ public class CliFrontedDownloadTest extends CliFrontendTestBase {
 			Collections.singletonList(getCli(configuration)));
 		testFrontend.download(parameters);
 	}
+
+	@Test
+	public void testDownloadSameNameFiles() throws Exception {
+		File file1 = testFolder.newFile("file1");
+		File subFolder = testFolder.newFolder("sub-folder");
+		File file2 = new File(subFolder, "file1");
+		file2.createNewFile();
+		File downloadDir = testFolder.newFolder("download");
+		String[] parameters = {
+				"-src",
+				file1.getPath() + ";" + file2.getPath(),
+				"-dest",
+				downloadDir.getPath()
+		};
+		Configuration configuration = new Configuration();
+		Map<String, String> fileNameMapping = new HashMap<>();
+		fileNameMapping.put(file1.toURI().toString(), "file1");
+		fileNameMapping.put(file2.toURI().toString(), "0_file1");
+		configuration.set(ApplicationConfiguration.EXTERNAL_RESOURCES_NAME_MAPPING, fileNameMapping);
+		CliFrontend testFrontend = new CliFrontend(
+				configuration,
+				Collections.singletonList(getCli(configuration)));
+		testFrontend.download(parameters);
+		assertTrue(new File(downloadDir, "file1").exists());
+		assertTrue(new File(downloadDir, "0_file1").exists());
+	}
+
 }

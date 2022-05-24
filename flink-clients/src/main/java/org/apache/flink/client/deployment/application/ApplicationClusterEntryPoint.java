@@ -87,11 +87,14 @@ public class ApplicationClusterEntryPoint extends ClusterEntrypoint {
 	}
 
 	private static List<URL> getClasspath(final Configuration configuration, final PackagedProgram program) throws MalformedURLException {
-		final List<URL> classpath = ConfigUtils.decodeListFromConfig(
+		final List<URL> classpath = program.getClasspaths();
+		List<URL> classpathInConfig = ConfigUtils.decodeListFromConfig(
 			configuration,
 			PipelineOptions.CLASSPATHS,
 			URL::new);
-		classpath.addAll(program.getClasspaths());
+		// We need to guarantee the order, the classpath of package program contains external files.
+		// And the external files should be in front of pipeline.classpath.
+		classpath.addAll(classpathInConfig);
 		return Collections.unmodifiableList(classpath.stream().distinct().collect(Collectors.toList()));
 	}
 }

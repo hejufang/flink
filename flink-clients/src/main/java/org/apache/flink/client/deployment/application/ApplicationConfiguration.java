@@ -30,7 +30,9 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
+import static org.apache.flink.configuration.ConfigOptions.key;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -53,6 +55,15 @@ public class ApplicationConfiguration {
 			.key("$internal.application.main")
 			.stringType()
 			.noDefaultValue();
+
+	public static final ConfigOption<Map<String, String>> EXTERNAL_RESOURCES_NAME_MAPPING =
+			key("$internal.external-resources.download-name-mapping")
+					.mapType()
+					.noDefaultValue()
+					.withDescription("A map to store the downloaded file name for each remote files. The key is the " +
+							"remote file uri and the value is the file name of saving path. The downloaded file name " +
+							"will be the same as original name by default. Flink will rename file if there are multiple" +
+							" files with same name. This parameter is for internal usage only.");
 
 	private final String[] programArguments;
 

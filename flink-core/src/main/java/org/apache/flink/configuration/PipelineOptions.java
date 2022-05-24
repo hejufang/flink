@@ -104,8 +104,9 @@ public class PipelineOptions {
 			.stringType()
 			.asList()
 			.noDefaultValue()
-			.withDescription("For k8s application mode, use to store the file list that will need to download to JM/TM container."
-				+ "For session mode, files will be added into pipeline.jars");
+			.withDescription("A list of external files (hdfs, local disk, local container) separated by semicolon. " +
+					"In k8s application mode, these files will need to be downloaded to JM/TM container."
+				+ "In session mode, files will be added into pipeline.jars and then be uploaded to JM blob server");
 
 	public static final ConfigOption<String> DOWNLOAD_TEMPLATE =
 		key("pipeline.download-template")
@@ -120,6 +121,7 @@ public class PipelineOptions {
 			.stringType()
 			.defaultValue("/opt/tiger/workdir")
 			.withDescription("For k8s application mode, Flink will download remote files to this path in container");
+
 	/**
 	 * For k8s application mode, use this key to indicate the upload path of disk files.
 	 * This path should be accessible for every TM/JM pods, because they will download files from this path to their container.

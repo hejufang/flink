@@ -21,6 +21,7 @@ package org.apache.flink.kubernetes.utils;
 import org.apache.flink.client.program.PackagedProgramUtils;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.configuration.CoreOptions;
@@ -32,7 +33,7 @@ import org.apache.flink.kubernetes.highavailability.KubernetesCheckpointStoreUti
 import org.apache.flink.kubernetes.highavailability.KubernetesJobGraphStoreUtil;
 import org.apache.flink.kubernetes.highavailability.KubernetesStateHandleStore;
 import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
-import org.apache.flink.kubernetes.kubeclient.decorators.FileDownloadDecorator;
+import org.apache.flink.kubernetes.kubeclient.decorators.AbstractFileDownloadDecorator;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
@@ -64,7 +65,9 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -399,7 +402,7 @@ public class KubernetesUtils {
 						return new File(jarURI.getPath());
 					} else if (!jarURI.getScheme().equals(ConfigConstants.FILE_SCHEME)) {
 						// for remote file, return downloaded path
-						String jarFile = FileDownloadDecorator.getDownloadedPath(jarURI, configuration);
+						String jarFile = AbstractFileDownloadDecorator.getDownloadedPath(jarURI, configuration);
 						return new File(jarFile);
 					}
 					// local disk file (scheme: file) should be uploaded to external storage and save its remote URI in this key
@@ -410,6 +413,37 @@ public class KubernetesUtils {
 							" An example of remote path is: s3://test-client-log/WindowJoin.jar");
 				})
 		).collect(Collectors.toList());
+	}
+
+	public static List<URL> getExternalFiles(Configuration configuration){
+		if (configuration.contains(PipelineOptions.EXTERNAL_RESOURCES)){
+			// filter the files in pipeline.jars because user jar will be added to classpath separately.
+			List<String> userJars =
+					ConfigUtils.decodeListFromConfig(configuration, PipelineOptions.JARS,  jar -> jar);
+			return configuration.get(PipelineOptions.EXTERNAL_RESOURCES)
+					.stream()
+					.filter(resource -> !userJars.contains(resource) && FileUtils.isJarFile(Paths.get(resource)))
+					.map(FunctionUtils.uncheckedFunction(
+							uri -> {
+								final URI jarURI = PackagedProgramUtils.resolveURI(uri);
+								if (jarURI.getScheme().equals(ConfigConstants.LOCAL_SCHEME) && jarURI.isAbsolute()) {
+									return new File(jarURI.getPath()).toURI().toURL();
+								} else if (!jarURI.getScheme().equals(ConfigConstants.FILE_SCHEME)) {
+									// for remote file, return downloaded path
+									String jarFile = AbstractFileDownloadDecorator.getDownloadedPath(jarURI, configuration);
+									return new File(jarFile).toURI().toURL();
+								}
+								// local disk file (scheme: file) should be uploaded to external storage and save its remote URI in this key
+								throw new IllegalArgumentException("Only \"local\" or remote storage (hdfs/s3 etc) is supported as schema for application mode." +
+										" This assumes that the jar is located in the image, not the Flink client. Or the jar could be downloaded." +
+										" If you provide a disk file, have you specified a correct upload path on external storage so Flink could upload your disk file to that place?" +
+										" An example of such local path is: local:///opt/flink/examples/streaming/WindowJoin.jar" +
+										" An example of remote path is: s3://test-client-log/WindowJoin.jar");
+							}))
+					.collect(Collectors.toList());
+		} else {
+			return Collections.emptyList();
+		}
 	}
 
 	/**

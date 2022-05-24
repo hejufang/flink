@@ -1491,10 +1491,18 @@ public class CliFrontend {
 			.collect(Collectors.toList());
 		for (URI uri : remoteFiles) {
 			Path path = new Path(uri);
-			String targetPath = String.join("/", targetDir, path.getName());
+			String targetPath = String.join("/", targetDir, getSavedFileName(uri));
 			LOG.info("download remote file {} into local dir {}", uri.toString(), targetPath);
 			FileUtils.copy(path, new Path(targetPath), false);
 		}
+	}
+
+	private String getSavedFileName(URI uri) {
+		Map<String, String> pathToFileName = configuration.get(ApplicationConfiguration.EXTERNAL_RESOURCES_NAME_MAPPING);
+		if (pathToFileName != null && pathToFileName.containsKey(uri.toString())){
+			return pathToFileName.get(uri.toString());
+		}
+		return new File(uri.getPath()).getName();
 	}
 
 	public static void putSystemProperties(Configuration configuration) {

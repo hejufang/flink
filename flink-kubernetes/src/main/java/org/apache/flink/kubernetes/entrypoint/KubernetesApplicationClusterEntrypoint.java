@@ -37,6 +37,8 @@ import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
+import java.util.Collection;
 import java.util.List;
 
 import static org.apache.flink.runtime.util.ClusterEntrypointUtils.tryFindUserLibDirectory;
@@ -103,12 +105,14 @@ public final class KubernetesApplicationClusterEntrypoint extends ApplicationClu
 		Preconditions.checkArgument(pipelineJars.size() == 1, "Should only have one jar");
 
 		final File userLibDir = tryFindUserLibDirectory().orElse(null);
+		final Collection<URL> externalFiles = KubernetesUtils.getExternalFiles(configuration);
 
 		final ClassPathPackagedProgramRetriever.Builder retrieverBuilder =
 			ClassPathPackagedProgramRetriever
 				.newBuilder(programArguments, configuration)
 				.setUserLibDirectory(userLibDir)
 				.setJarFile(pipelineJars.get(0))
+				.setExternalFiles(externalFiles)
 				.setJobClassName(jobClassName);
 		return retrieverBuilder.build();
 	}

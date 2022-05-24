@@ -68,9 +68,11 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Tests for the {@link ClassPathPackagedProgramRetriever}.
@@ -349,6 +351,58 @@ public class ClassPathPackagedProgramRetrieverTest extends TestLogger {
 		assertThat(
 			retriever.getPackagedProgram().getUserCodeClassLoader(),
 			IsInstanceOf.instanceOf(ChildFirstClassLoader.class));
+	}
+
+	@Test
+	public void testGenerateProgramWithExternalFiles() throws FlinkException, IOException {
+		// this is a sanity check to backup testConfigurationIsConsidered
+		final Configuration configuration = new Configuration();
+		// simulate some files will be downloaded into this dir
+		File downloadedDir = temporaryFolder.newFolder("downloaded");
+		final Path file1 = downloadedDir.toPath().resolve("file1.jar");
+		final Path file2 = downloadedDir.toPath().resolve("file2.jar");
+		Files.copy(TestJobInfo.JOB_LIB_JAR_PATH, file1);
+		Files.copy(TestJobInfo.JOB_LIB_JAR_PATH, file2);
+		Collection<URL> externalFiles = Arrays.asList(file1.toUri().toURL(), file2.toUri().toURL());
+
+		final ClassPathPackagedProgramRetriever retriever =
+				ClassPathPackagedProgramRetriever.newBuilder(PROGRAM_ARGUMENTS, configuration)
+						.setJarFile(TestJobInfo.JOB_JAR_PATH.toFile())
+						.setJobClassName(TestJobInfo.JOB_CLASS)
+						.setExternalFiles(externalFiles)
+						.build();
+		final PackagedProgram program = retriever.getPackagedProgram();
+		assertArrayEquals(
+				externalFiles.toArray(),
+				program.getClasspaths().toArray());
+	}
+
+	@Test
+	public void testJobGraphClasspathWithExternalFiles() throws FlinkException, IOException {
+		// this is a sanity check to backup testConfigurationIsConsidered
+		final Configuration configuration = new Configuration();
+		// simulate some files will be downloaded into this dir
+		File downloadedDir = temporaryFolder.newFolder("downloaded");
+		final Path file1 = downloadedDir.toPath().resolve("file1.jar");
+		final Path file2 = downloadedDir.toPath().resolve("file2.jar");
+		Files.copy(TestJobInfo.JOB_LIB_JAR_PATH, file1);
+		Files.copy(TestJobInfo.JOB_LIB_JAR_PATH, file2);
+		Collection<URL> externalFiles = Arrays.asList(file1.toUri().toURL(), file2.toUri().toURL());
+
+		final ClassPathPackagedProgramRetriever retriever =
+				ClassPathPackagedProgramRetriever.newBuilder(PROGRAM_ARGUMENTS, configuration)
+						.setJarFile(TestJobInfo.JOB_JAR_PATH.toFile())
+						.setJobClassName(TestJobInfo.JOB_CLASS)
+						.setExternalFiles(externalFiles)
+						.build();
+		try {
+			final JobGraph jobGraph = retrieveJobGraph(retriever, configuration);
+			assertArrayEquals(
+					externalFiles.toArray(),
+					jobGraph.getClasspaths().toArray());
+		} catch (ProgramInvocationException e) {
+			fail("can not generate job graph" + e);
+		}
 	}
 
 	@Test

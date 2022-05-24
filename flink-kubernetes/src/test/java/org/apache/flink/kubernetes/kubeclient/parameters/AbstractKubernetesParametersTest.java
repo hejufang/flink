@@ -28,6 +28,7 @@ import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.TestLogger;
 
+import io.fabric8.kubernetes.api.model.Quantity;
 import org.junit.Test;
 
 import java.util.List;
@@ -151,6 +152,19 @@ public class AbstractKubernetesParametersTest extends TestLogger {
 		flinkConfig.setString(HighAvailabilityOptions.HA_MODE, HighAvailabilityMode.NONE.name());
 		flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_HOST_NETWORK_ENABLED, Boolean.TRUE);
 		assertThat(testingKubernetesParameters.getDnsPolicy(), is(Constants.DNS_POLICY_HOSTNETWORK));
+	}
+
+	@Test
+	public void getCsiResourceRequirement() {
+		Map<String, Quantity> resourceRequirement = testingKubernetesParameters.getCsiDiskResourceRequirement();
+		// by default, this should be empty
+		assertTrue(resourceRequirement.isEmpty());
+		// set the resource requirement value to 1 means enable using device plugin to allocate disk
+		flinkConfig.setString(KubernetesConfigOptions.CSI_DISK_RESOURCE_VALUE, "1");
+		resourceRequirement = testingKubernetesParameters.getCsiDiskResourceRequirement();
+		final String defaultResourceRequirementKey = "bytedance.com/local-disk";
+		assertTrue(resourceRequirement.size() == 1 && resourceRequirement.containsKey(defaultResourceRequirementKey));
+		assertThat(resourceRequirement.get(defaultResourceRequirementKey), is(Quantity.parse("1")));
 	}
 
 	private class TestingKubernetesParameters extends AbstractKubernetesParameters {

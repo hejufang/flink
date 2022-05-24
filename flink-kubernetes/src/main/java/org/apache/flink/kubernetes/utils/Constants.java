@@ -157,6 +157,7 @@ public class Constants {
 	// This map is shared by jobmananger and taskmanagers. The common container port should be defined
 	// first (for example, flink-metrics) and then followed by other ports.
 	static final Map<String, String> FLINK_PORT_NAME_TO_ENV_NAME = new HashMap<>();
+
 	static {
 		// common ports in job manager and task manager
 		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.FLINK_METRICS_PORT_NAME, PORT0_ENV);

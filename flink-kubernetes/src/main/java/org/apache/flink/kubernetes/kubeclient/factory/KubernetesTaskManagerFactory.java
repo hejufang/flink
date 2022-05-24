@@ -19,8 +19,8 @@
 package org.apache.flink.kubernetes.kubeclient.factory;
 
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
+import org.apache.flink.kubernetes.kubeclient.decorators.AbstractFileDownloadDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.EnvSecretsDecorator;
-import org.apache.flink.kubernetes.kubeclient.decorators.FileDownloadDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.FlinkConfMountDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.HadoopConfMountDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.InitTaskManagerDecorator;
@@ -53,7 +53,7 @@ public class KubernetesTaskManagerFactory {
 			new JavaCmdTaskManagerDecorator(kubernetesTaskManagerParameters),
 			new HadoopConfMountDecorator(kubernetesTaskManagerParameters),
 			new FlinkConfMountDecorator(kubernetesTaskManagerParameters),
-			new FileDownloadDecorator(kubernetesTaskManagerParameters)
+			AbstractFileDownloadDecorator.create(kubernetesTaskManagerParameters)
 		};
 
 		for (KubernetesStepDecorator stepDecorator: stepDecorators) {

@@ -29,6 +29,7 @@ import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 
 import io.fabric8.kubernetes.api.model.LocalObjectReference;
+import io.fabric8.kubernetes.api.model.Quantity;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
@@ -149,6 +150,11 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 		return mountedHostPathMap;
 	}
 
+	public String getSecretName(){
+		String nameTemplate = flinkConfig.getString(KubernetesConfigOptions.GDPR_SECRETE_NAME_TEMPLATE);
+		return nameTemplate.replace("%cluster-id%", this.getClusterId());
+	}
+
 	@Override
 	public String getFlinkConfDirInPod() {
 		return flinkConfig.getString(KubernetesConfigOptions.FLINK_CONF_DIR);
@@ -260,4 +266,26 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 		final String entrypointClass = flinkConfig.getString(KubernetesConfigOptionsInternal.ENTRY_POINT_CLASS);
 		return KubernetesApplicationClusterEntrypoint.class.getName().equals(entrypointClass);
 	}
+
+	public String getCsiDriverName() {
+		return this.flinkConfig.getString(KubernetesConfigOptions.CSI_DRIVER);
+	}
+
+	public Map<String, Quantity> getCsiDiskResourceRequirement() {
+		Optional<String> diskResourceValue = flinkConfig.getOptional(KubernetesConfigOptions.CSI_DISK_RESOURCE_VALUE);
+		// Only if this disk resource value parameter is set, we create the disk resource requirement map.
+
+		// Noted for AML scenarios, the kubernetes cluster haven't deployed the device plugin but the webhook allocate
+		// a disk to Flink, so AML job should not set this parameter otherwise the pod can not be scheduled.
+		// Other scenarios (bigdata) need to set this parameter to 1 means enable using device plugin to allocate disk.
+		if (diskResourceValue.isPresent()) {
+			Map<String, Quantity> diskResource = new HashMap<>();
+			String diskResourceKey = flinkConfig.getString(KubernetesConfigOptions.CSI_DISK_RESOURCE_KEY);
+			Quantity diskQuantity = Quantity.parse(diskResourceValue.get());
+			diskResource.put(diskResourceKey, diskQuantity);
+			return diskResource;
+		}
+		return Collections.emptyMap();
+	}
+
 }

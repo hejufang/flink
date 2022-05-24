@@ -24,7 +24,6 @@ import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.client.program.PackagedProgramRetriever;
 import org.apache.flink.client.program.ProgramInvocationException;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkException;
@@ -91,6 +90,7 @@ public class ClassPathPackagedProgramRetriever implements PackagedProgramRetriev
 		@Nonnull Supplier<Iterable<File>> jarsOnClassPath,
 		@Nullable File userLibDirectory,
 		@Nullable File jarFile,
+		@Nullable Collection<URL> externalFiles,
 		@Nonnull Configuration configuration) throws IOException {
 		this.userLibDirectory = userLibDirectory;
 		this.programArguments = requireNonNull(programArguments, "programArguments");
@@ -98,21 +98,18 @@ public class ClassPathPackagedProgramRetriever implements PackagedProgramRetriev
 		this.jarsOnClassPath = requireNonNull(jarsOnClassPath);
 		this.jarFile = jarFile;
 		this.configuration = configuration;
-		this.userClassPaths = getUserClassPathsFromUserLibAndFileDownloadDir();
+		this.userClassPaths = getUserClassPathsWithExternalFiles(externalFiles);
 	}
 
-	private Collection<URL> getUserClassPathsFromUserLibAndFileDownloadDir() throws IOException {
+	private Collection<URL> getUserClassPathsWithExternalFiles(Collection<URL> externalFiles) throws IOException {
 		Collection<URL> userClassPaths = discoverUserClassPaths(userLibDirectory);
-		File downloadedFileMountedDir = new File(configuration.getString(PipelineOptions.FILE_MOUNTED_PATH));
-		if (downloadedFileMountedDir.exists() && downloadedFileMountedDir.isDirectory()) {
-			Collection<URL> downloadFiles = discoverUserClassPaths(downloadedFileMountedDir);
-			List<URL> urlList = new ArrayList<>(downloadFiles.size() + userClassPaths.size());
-			urlList.addAll(userClassPaths);
-			urlList.addAll(downloadFiles);
-			return Collections.unmodifiableCollection(urlList);
-		} else {
+		if (externalFiles == null || externalFiles.isEmpty()){
 			return userClassPaths;
 		}
+		List<URL> urlList = new ArrayList<>(externalFiles.size() + userClassPaths.size());
+		urlList.addAll(externalFiles);
+		urlList.addAll(userClassPaths);
+		return Collections.unmodifiableCollection(urlList);
 	}
 
 	private Collection<URL> discoverUserClassPaths(@Nullable File jobDir) throws IOException {
@@ -263,6 +260,12 @@ public class ClassPathPackagedProgramRetriever implements PackagedProgramRetriev
 
 		private File jarFile;
 
+		/**
+		 * the external files that will be downloaded into container and need to be added to user classpath in order.
+		 */
+		@Nullable
+		private Collection<URL> externalFiles;
+
 		private final Configuration configuration;
 
 		private Builder(String[] programArguments, Configuration configuration) {
@@ -290,6 +293,11 @@ public class ClassPathPackagedProgramRetriever implements PackagedProgramRetriev
 			return this;
 		}
 
+		public Builder setExternalFiles(@Nullable Collection<URL> externalFiles) {
+			this.externalFiles = externalFiles;
+			return this;
+		}
+
 		public ClassPathPackagedProgramRetriever build() throws IOException {
 			return new ClassPathPackagedProgramRetriever(
 				programArguments,
@@ -297,6 +305,7 @@ public class ClassPathPackagedProgramRetriever implements PackagedProgramRetriev
 				jarsOnClassPath,
 				userLibDirectory,
 				jarFile,
+				externalFiles,
 				configuration);
 		}
 	}
