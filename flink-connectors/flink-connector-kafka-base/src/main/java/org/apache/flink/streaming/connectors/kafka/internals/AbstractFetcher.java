@@ -39,12 +39,15 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessin
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -76,6 +79,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 @Internal
 public abstract class AbstractFetcher<T, KPH> {
+	private static final Logger LOG = LoggerFactory.getLogger(AbstractFetcher.class);
 
 	private static final int NO_TIMESTAMPS_WATERMARKS = 0;
 	private static final int WITH_WATERMARK_GENERATOR = 1;
@@ -246,6 +250,19 @@ public abstract class AbstractFetcher<T, KPH> {
 	 * @param newPartitions discovered partitions to add
 	 */
 	public void addDiscoveredPartitions(List<KafkaTopicPartition> newPartitions) throws IOException, ClassNotFoundException {
+		HashSet<KafkaTopicPartition> discoveredTopicPartition = new HashSet<>();
+		subscribedPartitionStates.forEach(e -> discoveredTopicPartition.add(e.getKafkaTopicPartition()));
+		newPartitions
+			.removeIf(kafkaTopicPartition -> {
+				if (discoveredTopicPartition.contains(kafkaTopicPartition)) {
+					LOG.warn("Found duplicate partition in new partitions: {}", kafkaTopicPartition);
+					return true;
+				} else {
+					discoveredTopicPartition.add(kafkaTopicPartition);
+					return false;
+				}
+			});
+
 		List<KafkaTopicPartitionState<T, KPH>> newPartitionStates = createPartitionStateHolders(
 				newPartitions,
 				KafkaTopicPartitionStateSentinel.EARLIEST_OFFSET,
