@@ -31,7 +31,9 @@ import com.bytedance.flink.utils.KafkaUtils;
 import com.bytedance.flink.utils.Validation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.nodes.Tag;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -139,7 +141,7 @@ public class ConfigParser {
 		Yaml yaml = new Yaml();
 		allYamlConf = (Map<String, Object>) yaml.load(input);
 		jobConfig.setJobName((String) allYamlConf.get(Constants.TOPOLOGY_NAME));
-		jobConfig.setTopologyYaml(CommonUtils.loadFileToString(confFile));
+		jobConfig.setTopologyYaml(yaml.dumpAs(allYamlConf, Tag.MAP, DumperOptions.FlowStyle.BLOCK));
 		jobConfig.setCommonArgs(
 			(Map<String, Object>) allYamlConf.getOrDefault(Constants.COMMON_ARGS, new HashMap<>()));
 		String ownerStr = (String) allYamlConf.getOrDefault(Constants.OWNERS, "flink");

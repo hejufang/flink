@@ -159,6 +159,15 @@ public class EnvironmentInitUtils {
 		return resources;
 	}
 
+	public static List<String> getResourceFileListFromParameter(String resourceFiles) {
+		List<String> resources = new ArrayList<>();
+		String[] resourceFliesArray = resourceFiles.split(";");
+		for (String file: resourceFliesArray) {
+			resources.add(file);
+		}
+		return resources;
+	}
+
 	public static String[] buildShellCommand(String interpreter, String scriptName, Map<String, Object> args,
 		boolean dontWriteBytecode) {
 		String[] command = new String[3];
