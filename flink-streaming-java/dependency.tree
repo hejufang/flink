@@ -64,7 +64,7 @@ org.apache.flink:flink-streaming-java_2.11:jar:1.11-byted-SNAPSHOT
 +- org.apache.flink:flink-shaded-guava:jar:18.0-11.0-byted-SNAPSHOT:compile
 +- org.apache.commons:commons-math3:jar:3.5:compile
 +- com.googlecode.json-simple:json-simple:jar:1.1.1:compile
-+- org.apache.flink:flink-shaded-bytedance:jar:11.0-byted-SNAPSHOT:compile
++- org.apache.flink:flink-shaded-bytedance-commons:jar:11.0-byted-SNAPSHOT:compile
 +- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-11.0-byted-SNAPSHOT:compile
 +- org.apache.flink:flink-core:test-jar:tests:1.11-byted-SNAPSHOT:test
 +- org.apache.flink:flink-test-utils-junit:jar:1.11-byted-SNAPSHOT:test

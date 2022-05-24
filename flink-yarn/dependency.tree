@@ -189,7 +189,7 @@ org.apache.flink:flink-yarn_2.11:jar:1.11-byted-SNAPSHOT
 |  \- com.sun:tools:jar:1.8:system
 +- com.bytedance.sr:sr-estimater-client:jar:1.0-SNAPSHOT:compile
 +- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-11.0-byted-SNAPSHOT:compile
-+- org.apache.flink:flink-shaded-bytedance:jar:11.0-byted-SNAPSHOT:compile
++- org.apache.flink:flink-shaded-bytedance-commons:jar:11.0-byted-SNAPSHOT:compile
 +- org.apache.flink:force-shading:jar:1.11-byted-SNAPSHOT:compile
 +- org.slf4j:slf4j-api:jar:1.7.15:compile
 +- com.google.code.findbugs:jsr305:jar:1.3.9:compile

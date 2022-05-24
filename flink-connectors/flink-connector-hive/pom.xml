@@ -518,7 +518,7 @@ under the License.
 
 		<dependency>
 			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-shaded-bytedance</artifactId>
+			<artifactId>flink-shaded-bytedance-commons</artifactId>
 			<version>${flink.shaded.version}</version>
 		</dependency>
 
@@ -997,7 +997,7 @@ under the License.
 									<include>org.apache.flink:flink-parquet_${scala.binary.version}</include>
 									<include>org.apache.flink:flink-hadoop-bulk_${scala.binary.version}</include>
 									<include>org.apache.flink:flink-shaded-httpclient</include>
-									<include>org.apache.flink:flink-shaded-bytedance</include>
+									<include>org.apache.flink:flink-shaded-bytedance-commons</include>
 									<include>org.apache.parquet:parquet-hadoop</include>
 									<include>org.apache.parquet:parquet-format</include>
 									<include>org.apache.parquet:parquet-column</include>

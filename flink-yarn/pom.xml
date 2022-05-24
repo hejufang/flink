@@ -148,7 +148,7 @@ under the License.
 		</dependency>
 		<dependency>
 			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-shaded-bytedance</artifactId>
+			<artifactId>flink-shaded-bytedance-commons</artifactId>
 			<version>${flink.shaded.version}</version>
 		</dependency>
 	</dependencies>
