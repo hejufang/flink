@@ -61,6 +61,7 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HiveMetastoreClientWrapper.class);
 	private static final String HIVE_CLIENT_NAMESPACE = "hive.client.namespace";
+	private static final String HIVE_CLIENT_ENABLE_PREFER_IPV6 = "hive.client.enable.prefer_ipv6";
 
 	private boolean isAllowedToModifyHiveMeta;
 	private final IMetaStoreClient client;
@@ -70,6 +71,9 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 
 	public HiveMetastoreClientWrapper(HiveConf hiveConf, String hiveVersion) {
 		this.hiveConf = Preconditions.checkNotNull(hiveConf, "HiveConf cannot be null");
+		// here we just set string to HiveConf, because we use 2.3.4's hive-common, and it doesn't contain
+		// HiveConf.ConfVars.HIVE_CLIENT_ENABLE_PREFER_IPV6
+		hiveConf.set(HIVE_CLIENT_ENABLE_PREFER_IPV6, "true");
 		hiveClientNamespace = hiveConf.get(HIVE_CLIENT_NAMESPACE);
 		LOG.info("hiveClientNamespace = {}", hiveClientNamespace);
 		checkArgument(!StringUtils.isNullOrWhitespaceOnly(hiveVersion), "hiveVersion cannot be null or empty");
