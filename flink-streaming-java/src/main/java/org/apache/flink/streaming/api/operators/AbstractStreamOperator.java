@@ -195,7 +195,7 @@ public abstract class AbstractStreamOperator<OUT>
 		} catch (Exception e) {
 			LOG.warn("An error occurred while instantiating task metrics.", e);
 			this.metrics = UnregisteredMetricGroups.createUnregisteredOperatorMetricGroup();
-			this.operatorLatency = new SimpleHistogram(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram());
+			this.operatorLatency = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
 			this.output = output;
 		}
 

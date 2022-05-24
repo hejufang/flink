@@ -24,7 +24,8 @@ import org.apache.flink.metrics.Histogram;
 import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.MeterView;
 import org.apache.flink.metrics.MetricGroup;
-import org.apache.flink.metrics.SimpleHistogram;
+
+import com.codahale.metrics.SlidingWindowReservoir;
 
 /**
  * Utils for lookup table metrics.
@@ -57,7 +58,7 @@ public abstract class LookupMetricUtils {
 
 	public static Histogram registerRequestDelayMs(MetricGroup group) {
 		com.codahale.metrics.Histogram dropwizardHistogram =
-			SimpleHistogram.buildSlidingTimeWindowReservoirHistogram();
+			new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500));
 		return group.histogram(REQUEST_DELAY, new DropwizardHistogramWrapper(dropwizardHistogram));
 	}
 }

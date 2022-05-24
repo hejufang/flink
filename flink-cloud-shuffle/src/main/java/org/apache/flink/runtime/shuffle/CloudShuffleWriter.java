@@ -153,7 +153,7 @@ public class CloudShuffleWriter implements Closeable {
 		this.numberOfFlushByBatchSizePerGroup = 0;
 		this.numberOfFlushByBatchSize = 0;
 
-		this.cloudShuffleWriteLatency = new SimpleHistogram(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram());
+		this.cloudShuffleWriteLatency = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram(CloudShuffleOptions.CLOUD_HISTOGRAM_SIZE));
 	}
 
 	public void broadcastRecord(ByteBuffer record) throws IOException {

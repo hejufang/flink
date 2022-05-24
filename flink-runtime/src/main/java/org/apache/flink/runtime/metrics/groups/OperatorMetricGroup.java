@@ -54,7 +54,7 @@ public class OperatorMetricGroup extends ComponentMetricGroup<TaskMetricGroup> {
 
 		ioMetrics = new OperatorIOMetricGroup(this);
 		operatorLatency = this.histogram(MetricNames.OPERATOR_PROCESS_LATENCY,
-			new SimpleHistogram(SimpleHistogram.buildSlidingTimeWindowReservoirHistogram()));
+			new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram()));
 		resourceMetrics = new OperatorResourceMetricGroup();
 		timeMetrics = new OperatorTimeMetricGroup();
 	}
