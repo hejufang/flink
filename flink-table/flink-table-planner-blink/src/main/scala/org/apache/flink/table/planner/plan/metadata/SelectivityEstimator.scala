@@ -510,6 +510,15 @@ class SelectivityEstimator(rel: RelNode, mq: FlinkRelMetadataQuery)
     }
     val columnInterval = mq.getColumnInterval(rel, inputRef.getIndex)
     if (columnInterval == null) {
+      if (inputRef.getType.getFamily == SqlTypeFamily.CHARACTER) {
+        // Use ndv to estimate selectivity of a string column equal to a string literal
+        val bitSetOfInputRef = ImmutableBitSet.of(inputRef.getIndex)
+        val ndv = mq.getDistinctRowCount(rel, bitSetOfInputRef, null)
+        if (ndv != null) {
+          return Some(1.0 / ndv)
+        }
+      }
+
       return defaultEqualsSelectivity
     }
     val convertedInterval = convertValueInterval(columnInterval, inputRef.getType)
