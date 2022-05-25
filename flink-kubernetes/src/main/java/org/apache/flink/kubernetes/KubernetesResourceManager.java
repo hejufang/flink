@@ -72,6 +72,7 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
+import com.bytedance.openplatform.arcee.ArceeUtils;
 import io.fabric8.kubernetes.api.model.ContainerStateTerminated;
 import io.fabric8.kubernetes.api.model.PodStatus;
 import org.slf4j.Logger;
@@ -665,10 +666,20 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	public CompletableFuture<String> requestJMWebShell(@RpcTimeout Time timeout) {
 		CompletableFuture<String> jmWebShell = new CompletableFuture<>();
 		if (enableWebShell) {
-			String podName = System.getenv(ENV_FLINK_POD_NAME);
-			String namespace =  flinkConfig.getString(KubernetesConfigOptions.NAMESPACE);
-			String webShell = KubernetesUtils.getWebShell(podName, namespace);
-			jmWebShell.complete(webShell);
+			if (flinkConfig.getBoolean(KubernetesConfigOptions.ARCEE_ENABLED)) {
+				try {
+					String webShell = ArceeUtils.getJMWebShell();
+					jmWebShell.complete(webShell);
+				} catch (Throwable t) {
+					LOG.warn("Get JobManager web shell error.", t);
+					jmWebShell.complete("");
+				}
+			} else {
+				String podName = System.getenv(ENV_FLINK_POD_NAME);
+				String namespace = flinkConfig.getString(KubernetesConfigOptions.NAMESPACE);
+				String webShell = KubernetesUtils.getWebShell(podName, namespace);
+				jmWebShell.complete(webShell);
+			}
 		} else {
 			jmWebShell.complete("");
 		}
@@ -678,34 +689,57 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	public String getTaskManagerWebShell(ResourceID resourceId, String host) {
 		if (enableWebShell) {
 			String podName = resourceId.getResourceIdString();
-			String namespace =  flinkConfig.getString(KubernetesConfigOptions.NAMESPACE);
-			return KubernetesUtils.getWebShell(podName, namespace);
+			String namespace = flinkConfig.getString(KubernetesConfigOptions.NAMESPACE);
+			if (flinkConfig.getBoolean(KubernetesConfigOptions.ARCEE_ENABLED)) {
+				try {
+					return ArceeUtils.getTMWebShell(namespace, this.clusterId, podName, KubernetesTaskManagerParameters.TASK_MANAGER_MAIN_CONTAINER_NAME);
+				} catch (Throwable t) {
+					LOG.warn("Get TaskManager web shell error.", t);
+					return super.getTaskManagerWebShell(resourceId, host);
+				}
+			} else {
+				return KubernetesUtils.getWebShell(podName, namespace);
+			}
 		} else {
 			return super.getTaskManagerWebShell(resourceId, host);
 		}
 	}
 
 	public CompletableFuture<String> requestJobManagerLogUrl(@RpcTimeout Time timeout) {
-		if (streamLogEnabled && !StringUtils.isNullOrWhitespaceOnly(streamLogDomain)) {
+		if (streamLogEnabled) {
+			CompletableFuture<String> jmLog = new CompletableFuture<>();
 			try {
-				CompletableFuture<String> jmLog = new CompletableFuture<>();
-				String jmLogStr = genLogUrl(streamLogUrlTemplate, streamLogDomain, streamLogQueryRange, streamLogQueryTemplate, jobManagerPodName, region, streamLogSearchView);
-				jmLog.complete(jmLogStr);
-				return jmLog;
+				if (flinkConfig.getBoolean(KubernetesConfigOptions.ARCEE_ENABLED)) {
+					String jmLogStr = ArceeUtils.getJMLogUrl();
+					jmLog.complete(jmLogStr);
+					return jmLog;
+				} else if (!StringUtils.isNullOrWhitespaceOnly(streamLogDomain)) {
+					String jmLogStr = genLogUrl(streamLogUrlTemplate, streamLogDomain, streamLogQueryRange, streamLogQueryTemplate, jobManagerPodName, region, streamLogSearchView);
+					jmLog.complete(jmLogStr);
+					return jmLog;
+				} else {
+					return super.requestJobManagerLogUrl(timeout);
+				}
 			} catch (Throwable t) {
 				LOG.warn("Get JobManager log url error.", t);
 				return super.requestJobManagerLogUrl(timeout);
 			}
-		} else {
-			return super.requestJobManagerLogUrl(timeout);
 		}
+		return super.requestJobManagerLogUrl(timeout);
 	}
 
 	@Override
 	public String getTaskManagerLogUrl(ResourceID resourceId, String host) {
-		if (streamLogEnabled && !StringUtils.isNullOrWhitespaceOnly(streamLogDomain)) {
+		if (streamLogEnabled) {
 			try {
-				return genLogUrl(streamLogUrlTemplate, streamLogDomain, streamLogQueryRange, streamLogQueryTemplate, resourceId.getResourceIdString(), region, streamLogSearchView);
+				if (flinkConfig.getBoolean(KubernetesConfigOptions.ARCEE_ENABLED)) {
+					String podName = resourceId.getResourceIdString();
+					return ArceeUtils.getTMLogUrl(podName);
+				} else if (!StringUtils.isNullOrWhitespaceOnly(streamLogDomain)) {
+					return genLogUrl(streamLogUrlTemplate, streamLogDomain, streamLogQueryRange,
+						streamLogQueryTemplate, resourceId.getResourceIdString(), region,
+						streamLogSearchView);
+				}
 			} catch (Throwable t) {
 				LOG.warn("Get TaskManager {} log url error.", resourceId, t);
 				return super.getTaskManagerLogUrl(resourceId, host);
@@ -713,6 +747,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		} else {
 			return super.getTaskManagerLogUrl(resourceId, host);
 		}
+		return super.getTaskManagerLogUrl(resourceId, host);
 	}
 
 	@VisibleForTesting
