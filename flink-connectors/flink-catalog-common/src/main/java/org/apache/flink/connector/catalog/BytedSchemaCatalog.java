@@ -254,9 +254,11 @@ public abstract class BytedSchemaCatalog extends AbstractReadOnlyCatalog {
 		if (subName != null) {
 			ByteSchemaField byteSchemaField = response.getByteSchemaTable().getFields()
 				.stream().filter(f -> f.getName().equals(subName)).findFirst().get();
-			return SchemaConverter.convertToTableSchema(byteSchemaField.getFields());
+			return SchemaConverter.convertToTableSchema(byteSchemaField.getFields(),
+				response.getExtraContent());
 		}
-		return SchemaConverter.convertToTableSchema(response.getByteSchemaTable().getFields());
+		return SchemaConverter.convertToTableSchema(response.getByteSchemaTable().getFields(),
+			response.getExtraContent());
 	}
 
 	private Map<String, String> generateDDLProperties(QuerySchemaResponse response) {

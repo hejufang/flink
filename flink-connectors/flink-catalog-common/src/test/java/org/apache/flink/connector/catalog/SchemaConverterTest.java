@@ -23,11 +23,15 @@ import org.apache.flink.table.api.TableSchema;
 
 import com.bytedance.schema.registry.common.table.ByteSchemaElementType;
 import com.bytedance.schema.registry.common.table.ByteSchemaField;
+import com.bytedance.schema.registry.common.util.Constants;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -74,8 +78,41 @@ public class SchemaConverterTest {
 			.field("array", DataTypes.ARRAY(DataTypes.MAP(DataTypes.INT(), DataTypes.ARRAY(DataTypes.STRING()))))
 			.build();
 
-		TableSchema schema = SchemaConverter.convertToTableSchema(byteSchemaFields);
+		TableSchema schema = SchemaConverter.convertToTableSchema(byteSchemaFields, new HashMap<>());
 
 		assertEquals(schema, actual);
+	}
+
+	@Test
+	public void testPrimaryKeysConvert() {
+		List<ByteSchemaField> byteSchemaFields = new ArrayList<>(3);
+		ByteSchemaField field = ByteSchemaField.of()
+			.setName("name")
+			.setType("STRING");
+		byteSchemaFields.add(field);
+		field = ByteSchemaField.of()
+			.setName("id")
+			.setType("BIGINT");
+		byteSchemaFields.add(field);
+		field = ByteSchemaField.of()
+			.setName("company")
+			.setType("STRING");
+		byteSchemaFields.add(field);
+
+		Map<String, Object> extraContents = new HashMap<>();
+		extraContents.put("flink.format", "json");
+		extraContents.put(Constants.PRIMARY_KEY_FIELDS_NAME, "id,name");
+
+		TableSchema actual = TableSchema.builder()
+			.field("name", DataTypes.STRING().notNull())
+			.field("id", DataTypes.BIGINT().notNull())
+			.field("company", DataTypes.STRING())
+			.primaryKey("id", "name")
+			.build();
+
+		TableSchema schema = SchemaConverter.convertToTableSchema(byteSchemaFields, extraContents);
+
+		assertArrayEquals(schema.getFieldDataTypes(), actual.getFieldDataTypes());
+		assertEquals(schema.getPrimaryKey().get().getColumns(), actual.getPrimaryKey().get().getColumns());
 	}
 }

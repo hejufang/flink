@@ -210,7 +210,9 @@ public class GeneralSchemaCatalog extends AbstractReadOnlyCatalog {
 				throw new TableNotExistException(getName(), tablePath);
 			}
 			QueryGeneralSchemaResponse schemaResponse = response.getData();
-			TableSchema tableSchema = SchemaConverter.convertToTableSchema(schemaResponse.getByteSchemaTable().getFields());
+			TableSchema tableSchema = SchemaConverter.convertToTableSchema(
+				schemaResponse.getByteSchemaTable().getFields(),
+				schemaResponse.getExtraContent());
 			Map<String, String> properties = Utils.filterFlinkProperties(schemaResponse.getExtraContent());
 			return new CatalogTableImpl(tableSchema, properties, NO_COMMENT);
 		} catch (SchemaClientException e) {

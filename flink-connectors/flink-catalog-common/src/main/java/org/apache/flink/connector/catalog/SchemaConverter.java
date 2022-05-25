@@ -24,9 +24,15 @@ import org.apache.flink.table.types.DataType;
 
 import com.bytedance.schema.registry.common.table.ByteSchemaElementType;
 import com.bytedance.schema.registry.common.table.ByteSchemaField;
+import com.bytedance.schema.registry.common.util.Constants;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -38,100 +44,144 @@ public class SchemaConverter {
 	private static final Pattern TYPE_PRECISION_PATTERN = Pattern.compile("^([A-Z]+)\\((\\d+)\\)$");
 	private static final Pattern TYPE_PRECISION_SCALE_PATTERN = Pattern.compile("^([A-Z]+)\\((\\d+),\\s*(\\d+)\\)$");
 
-	public static TableSchema convertToTableSchema(List<ByteSchemaField> byteSchemaFields) {
+	public static TableSchema convertToTableSchema(
+			List<ByteSchemaField> byteSchemaFields,
+			Map<String, Object> extraContent) {
 		TableSchema.Builder tableSchemaBuilder = TableSchema.builder();
-		byteSchemaFields.stream()
-			.map(SchemaConverter::convertToTableColumn)
-			.forEach(tableColumn -> tableSchemaBuilder.field(tableColumn.getName(), tableColumn.getType()));
+
+		Optional<String[]> optionalPks = Constants.getPrimaryKeys(extraContent);
+		Set<String> pks = new HashSet<>();
+		Constants.getPrimaryKeys(extraContent).ifPresent(strings -> pks.addAll(Arrays.asList(strings)));
+		optionalPks.ifPresent(tableSchemaBuilder::primaryKey);
+
+		for (ByteSchemaField field : byteSchemaFields) {
+			boolean isPrimaryKey = pks.contains(field.getName());
+			TableColumn column = convertToTableColumn(field, isPrimaryKey);
+			tableSchemaBuilder.field(column.getName(), column.getType());
+		}
 		return tableSchemaBuilder.build();
 	}
 
-	private static TableColumn convertToTableColumn(ByteSchemaField byteSchemaField) {
+	private static TableColumn convertToTableColumn(ByteSchemaField byteSchemaField, boolean isPrimaryKey) {
 		String fieldName = byteSchemaField.getName();
-		DataType fieldType = parseDataType(byteSchemaField);
+		DataType fieldType = parseDataType(byteSchemaField, isPrimaryKey);
 		return TableColumn.of(fieldName, fieldType);
 	}
 
-	private static DataType parseDataType(ByteSchemaField byteSchemaField) {
+	private static DataType parseDataType(ByteSchemaField byteSchemaField, boolean isPrimaryKey) {
+		DataType dataType = null;
 		String typeName = byteSchemaField.getType();
-		Matcher matcher = TYPE_PRECISION_SCALE_PATTERN.matcher(typeName);
-		if (matcher.matches()) {
-			String typeRoot = matcher.group(1);
-			int precision = Integer.parseInt(matcher.group(2));
-			int scale = Integer.parseInt(matcher.group(3));
+		Matcher matcher1 = TYPE_PRECISION_SCALE_PATTERN.matcher(typeName);
+		Matcher matcher2 = TYPE_PRECISION_PATTERN.matcher(typeName);
+		if (matcher1.matches()) {   // data type with precision and scale
+			String typeRoot = matcher1.group(1);
+			int precision = Integer.parseInt(matcher1.group(2));
+			int scale = Integer.parseInt(matcher1.group(3));
 			switch (typeRoot) {
 				case "DECIMAL":
 				case "NUMERIC":
-					return DataTypes.DECIMAL(precision, scale);
+					dataType = DataTypes.DECIMAL(precision, scale);
+					break;
+				default:
+					throw new IllegalStateException("Unsupported type: " + typeName);
 			}
-		}
-		matcher = TYPE_PRECISION_PATTERN.matcher(typeName);
-		if (matcher.matches()) {
-			String typeRoot = matcher.group(1);
-			int precision = Integer.parseInt(matcher.group(2));
+		} else if (matcher2.matches()) {   // data type with precision
+			String typeRoot = matcher2.group(1);
+			int precision = Integer.parseInt(matcher2.group(2));
 			switch (typeRoot) {
 				case "CHAR":
-					return DataTypes.CHAR(precision);
+					dataType = DataTypes.CHAR(precision);
+					break;
 				case "VARCHAR":
-					return DataTypes.VARCHAR(precision);
+					dataType = DataTypes.VARCHAR(precision);
+					break;
 				case "BINARY":
-					return DataTypes.BINARY(precision);
+					dataType = DataTypes.BINARY(precision);
+					break;
 				case "VARBINARY":
-					return DataTypes.VARBINARY(precision);
+					dataType = DataTypes.VARBINARY(precision);
+					break;
 				case "DECIMAL":
 				case "NUMERIC":
-					return DataTypes.DECIMAL(precision, 0);
+					dataType = DataTypes.DECIMAL(precision, 0);
+					break;
 				case "TIME":
-					return DataTypes.TIME(precision);
+					dataType = DataTypes.TIME(precision);
+					break;
 				case "TIMESTAMP":
 				case "TIMESTAMP WITHOUT TIME ZONE":
-					return DataTypes.TIMESTAMP(precision);
+					dataType = DataTypes.TIMESTAMP(precision);
+					break;
+				default:
+					throw new IllegalStateException("Unsupported type: " + typeName);
+			}
+		} else {   // data type without precision or scale
+			switch (typeName) {
+				case "CHAR":
+				case "VARCHAR":
+				case "STRING":
+					dataType = DataTypes.STRING();
+					break;
+				case "BINARY":
+					dataType = DataTypes.BINARY(1);
+					break;
+				case "VARBINARY":
+				case "BYTES":
+					dataType = DataTypes.BYTES();
+					break;
+				case "DECIMAL":
+				case "NUMERIC":
+					dataType = DataTypes.DECIMAL(10, 0);
+					break;
+				case "TINYINT":
+					dataType = DataTypes.TINYINT();
+					break;
+				case "SMALLINT":
+					dataType = DataTypes.SMALLINT();
+					break;
+				case "INT":
+				case "INTEGER":
+					dataType = DataTypes.INT();
+					break;
+				case "BIGINT":
+					dataType = DataTypes.BIGINT();
+					break;
+				case "FLOAT":
+					dataType = DataTypes.FLOAT();
+					break;
+				case "DOUBLE":
+					dataType = DataTypes.DOUBLE();
+					break;
+				case "DATE":
+					dataType = DataTypes.DATE();
+					break;
+				case "TIME":
+					dataType = DataTypes.TIME();
+					break;
+				case "TIMESTAMP":
+				case "TIMESTAMP WITHOUT TIME ZONE":
+					dataType = DataTypes.TIMESTAMP();
+					break;
+				case "BOOLEAN":
+					dataType = DataTypes.BOOLEAN();
+					break;
+				case "ROW":
+					dataType = parseRowType(byteSchemaField);
+					break;
+				case "MAP":
+					dataType = parseMapType(byteSchemaField);
+					break;
+				case "ARRAY":
+					dataType = parseArrayType(byteSchemaField);
+					break;
+				default:
+					throw new IllegalStateException("Unsupported type: " + typeName);
 			}
 		}
-		switch (typeName) {
-			case "CHAR":
-			case "VARCHAR":
-			case "STRING":
-				return DataTypes.STRING();
-			case "BINARY":
-				return DataTypes.BINARY(1);
-			case "VARBINARY":
-			case "BYTES":
-				return DataTypes.BYTES();
-			case "DECIMAL":
-			case "NUMERIC":
-				return DataTypes.DECIMAL(10, 0);
-			case "TINYINT":
-				return DataTypes.TINYINT();
-			case "SMALLINT":
-				return DataTypes.SMALLINT();
-			case "INT":
-			case "INTEGER":
-				return DataTypes.INT();
-			case "BIGINT":
-				return DataTypes.BIGINT();
-			case "FLOAT":
-				return DataTypes.FLOAT();
-			case "DOUBLE":
-				return DataTypes.DOUBLE();
-			case "DATE":
-				return DataTypes.DATE();
-			case "TIME":
-				return DataTypes.TIME();
-			case "TIMESTAMP":
-			case "TIMESTAMP WITHOUT TIME ZONE":
-				return DataTypes.TIMESTAMP();
-			case "BOOLEAN":
-				return DataTypes.BOOLEAN();
-			case "ROW":
-				return parseRowType(byteSchemaField);
-			case "MAP":
-				return parseMapType(byteSchemaField);
-			case "ARRAY":
-				return parseArrayType(byteSchemaField);
-			default:
-				throw new IllegalStateException("Unsupported type: " + typeName);
+		if (isPrimaryKey) {
+			dataType = dataType.notNull();
 		}
+		return dataType;
 	}
 
 	private static DataType parseRowType(ByteSchemaField byteSchemaField) {
@@ -142,7 +192,7 @@ public class SchemaConverter {
 			String innerFieldName = innerByteSchemaField.getName();
 			String innerFieldDesc = innerByteSchemaField.getDescription();
 			innerFieldDesc = innerFieldDesc == null ? "" : innerFieldDesc;
-			DataType innerFieldType = parseDataType(innerByteSchemaField);
+			DataType innerFieldType = parseDataType(innerByteSchemaField, false);
 			fields.add(DataTypes.FIELD(innerFieldName, innerFieldType, innerFieldDesc));
 		}
 		return DataTypes.ROW(fields.toArray(new DataTypes.Field[0]));
@@ -151,14 +201,14 @@ public class SchemaConverter {
 	private static DataType parseMapType(ByteSchemaField byteSchemaField) {
 		ByteSchemaElementType byteSchemaKeyType = byteSchemaField.getMapKeyType();
 		ByteSchemaElementType byteSchemaValueType = byteSchemaField.getMapValueType();
-		DataType keyType = parseDataType(wrapElementTypeIntoSchemaField(byteSchemaKeyType));
-		DataType valueType = parseDataType(wrapElementTypeIntoSchemaField(byteSchemaValueType));
+		DataType keyType = parseDataType(wrapElementTypeIntoSchemaField(byteSchemaKeyType), false);
+		DataType valueType = parseDataType(wrapElementTypeIntoSchemaField(byteSchemaValueType), false);
 		return DataTypes.MAP(keyType, valueType);
 	}
 
 	private static DataType parseArrayType(ByteSchemaField byteSchemaField) {
 		ByteSchemaElementType byteSchemaElementType = byteSchemaField.getArrayElementType();
-		DataType elementType = parseDataType(wrapElementTypeIntoSchemaField(byteSchemaElementType));
+		DataType elementType = parseDataType(wrapElementTypeIntoSchemaField(byteSchemaElementType), false);
 		return DataTypes.ARRAY(elementType);
 	}
 
