@@ -19,6 +19,6 @@
   "aggregator": "avg",
   "downsampleAggregator": "avg",
   "downsampleFillPolicy": "none",
-  "metric": "flink.taskmanager.${jobname}.${kafka_source}.KafkaConsumer.min_fetch_latency_avg",
-  "refId": "S"
+  "metric": "flink.taskmanager.${jobname}.${kafka_source}.KafkaConsumer.poll_interval",
+  "refId": "P"
 }

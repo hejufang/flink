@@ -91,8 +91,7 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumerBase<T> {
 		ImmutableMap.of(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, 60000,
 						CommonClientConfigs.START_TIMEOUT_MS, 30000,
 						CommonClientConfigs.ENABLE_ZTI_TOKEN, true,
-						ConsumerConfig.IGNORE_DC_CHECK_CONFIG, true,
-						ConsumerConfig.ENABLE_BACKGROUND_POLLING_CONFIG, true);
+						ConsumerConfig.IGNORE_DC_CHECK_CONFIG, true);
 
 	/**  Configuration key to change the polling timeout. **/
 	public static final String KEY_POLL_TIMEOUT = "flink.poll-timeout";

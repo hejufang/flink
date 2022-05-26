@@ -179,46 +179,6 @@ under the License.
 									<shadedPattern>org.apache.flink.kafka010.shaded.org.byted.security</shadedPattern>
 								</relocation>
 								<relocation>
-									<pattern>commons-io</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.commons-io</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.orbitz</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.com.orbitz</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.squareup</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.com.squareup</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>commons-net</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.commons-net</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>commons-validator</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.commons-validator</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>commons-beanutils</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.commons-beanutils</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>commons-digester</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.commons-digester</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>commons-logging</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.commons-logging</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>org.zeroturnaround</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.org.zeroturnaround</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.googlecode.java-ipv6</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.com.googlecode.java-ipv6</shadedPattern>
-								</relocation>
-								<relocation>
 									<pattern>META-INF/native/liborg_byted_security_shaded</pattern>
 									<shadedPattern>META-INF/native/liborg_apache_flink_kafka010_shaded_org_byted_security_shaded</shadedPattern>
 								</relocation>

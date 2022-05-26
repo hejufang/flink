@@ -31,9 +31,9 @@ under the License.
 	</parent>
 
 	<properties>
-		<kafka010.byted.version>0.10.1.2-bd1.7.29</kafka010.byted.version>
+		<kafka010.byted.version>0.10.1.2-bd1.7.20</kafka010.byted.version>
 		<kafka.base.version>0.10.1.1</kafka.base.version>
-		<kafka.base.byted.version>0.10.1.2-bd1.7.29</kafka.base.byted.version>
+		<kafka.base.byted.version>0.10.1.2-bd1.7.20</kafka.base.byted.version>
 		<mysql.version>1.2.6-RELEASE</mysql.version>
 		<databus.version>1.2.0-SNAPSHOT</databus.version>
 		<metrics4j.version>1.0.27</metrics4j.version>
