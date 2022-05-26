@@ -943,7 +943,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				taskManagerConfiguration.isJobLogDetailDisable(),
 				taskSubmitRunning,
 				notifyFinalStateInTaskThreadEnable,
-				taskJobResultGateway);
+				taskJobResultGateway,
+				taskManagerConfiguration.isTaskInitializeFinishEnable());
 
 		taskMetricGroup.gauge(MetricNames.IS_BACKPRESSURED, task::isBackPressured);
 

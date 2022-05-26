@@ -152,6 +152,13 @@ public interface ResultPartitionWriter extends AutoCloseable, AvailabilityProvid
 	 */
 	void finish() throws IOException;
 
+	/**
+	 * Release the production of the partition from PartitionManager.
+	 */
+	default void releaseFromPartitionManager() {
+		throw new UnsupportedOperationException();
+	}
+
 	default void broadcastEvent(AbstractEvent event) throws IOException {
 		throw new UnsupportedOperationException();
 	}

@@ -49,4 +49,10 @@ public class BenchmarkOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Task reaches termination immediately when TaskManager receive and deploy it.");
+
+	public static final ConfigOption<Boolean> TASK_INITIALIZE_THEN_FINISH_ENABLE = ConfigOptions
+		.key("benchmark.task-initialize-then-finish.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Task reaches termination immediately after initializing.");
 }

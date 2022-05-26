@@ -339,6 +339,11 @@ public class ResultPartition implements ResultPartitionWriter, BufferPoolOwner {
 		partitionManager.releasePartition(partitionId, throwable);
 	}
 
+	@Override
+	public void releaseFromPartitionManager() {
+		fail(null);
+	}
+
 	/**
 	 * Returns the requested subpartition.
 	 */

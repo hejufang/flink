@@ -23,6 +23,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.cache.DistributedCache;
+import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
@@ -80,6 +81,7 @@ import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
 import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
 import org.apache.flink.runtime.socket.PrintTaskJobResultGateway;
+import org.apache.flink.runtime.socket.SocketConstants;
 import org.apache.flink.runtime.socket.TaskJobResultGateway;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.TaskStateManager;
@@ -322,6 +324,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	/** If true, the task will notify its final status in its execution thread. */
 	private final boolean notifyFinalStateInTaskThreadEnable;
 
+	/** If true, the task reaches termination immediately after initializing. */
+	private final boolean taskInitializeFinishEnable;
+
 	private final long createTimestamp = System.currentTimeMillis();
 	private long initializeFinishTimestamp;
 	private long invokeFinishTimestamp;
@@ -437,6 +442,80 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			boolean taskSubmitRunning,
 			boolean notifyFinalStateInTaskThreadEnable,
 			TaskJobResultGateway taskJobResultGateway) {
+		this(
+			jobInformation,
+			taskInformation,
+			executionAttemptID,
+			slotAllocationId,
+			subtaskIndex,
+			attemptNumber,
+			resultPartitionDeploymentDescriptors,
+			inputGateDeploymentDescriptors,
+			targetSlotNumber,
+			memManager,
+			ioManager,
+			shuffleEnvironment,
+			kvStateService,
+			bcVarManager,
+			taskEventDispatcher,
+			externalResourceInfoProvider,
+			taskStateManager,
+			taskManagerActions,
+			inputSplitProvider,
+			checkpointResponder,
+			operatorCoordinatorEventGateway,
+			aggregateManager,
+			classLoaderHandle,
+			fileCache,
+			taskManagerConfig,
+			metricGroup,
+			resultPartitionConsumableNotifier,
+			partitionProducerStateChecker,
+			executor,
+			new NonCacheManager(),
+			false,
+			false,
+			false,
+			new PrintTaskJobResultGateway(),
+			false);
+	}
+
+	public Task(
+			JobInformation jobInformation,
+			TaskInformation taskInformation,
+			ExecutionAttemptID executionAttemptID,
+			AllocationID slotAllocationId,
+			int subtaskIndex,
+			int attemptNumber,
+			List<ResultPartitionDeploymentDescriptor> resultPartitionDeploymentDescriptors,
+			List<InputGateDeploymentDescriptor> inputGateDeploymentDescriptors,
+			int targetSlotNumber,
+			MemoryManager memManager,
+			IOManager ioManager,
+			ShuffleEnvironment<?, ?> shuffleEnvironment,
+			KvStateService kvStateService,
+			BroadcastVariableManager bcVarManager,
+			TaskEventDispatcher taskEventDispatcher,
+			ExternalResourceInfoProvider externalResourceInfoProvider,
+			TaskStateManager taskStateManager,
+			TaskManagerActions taskManagerActions,
+			InputSplitProvider inputSplitProvider,
+			CheckpointResponder checkpointResponder,
+			TaskOperatorEventGateway operatorCoordinatorEventGateway,
+			GlobalAggregateManager aggregateManager,
+			LibraryCacheManager.ClassLoaderHandle classLoaderHandle,
+			FileCache fileCache,
+			TaskManagerRuntimeInfo taskManagerConfig,
+			@Nonnull TaskMetricGroup metricGroup,
+			ResultPartitionConsumableNotifier resultPartitionConsumableNotifier,
+			PartitionProducerStateChecker partitionProducerStateChecker,
+			Executor executor,
+			CacheManager cacheManager,
+			boolean jobLogDetailDisable,
+			boolean taskSubmitRunning,
+			boolean notifyFinalStateInTaskThreadEnable,
+			TaskJobResultGateway taskJobResultGateway,
+			boolean taskInitializeFinishEnable) {
 
 		Preconditions.checkNotNull(jobInformation);
 		Preconditions.checkNotNull(taskInformation);
@@ -500,6 +579,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		this.cacheManager = cacheManager;
 		this.taskSubmitRunning = taskSubmitRunning;
 		this.notifyFinalStateInTaskThreadEnable = notifyFinalStateInTaskThreadEnable;
+
+		this.taskInitializeFinishEnable = taskInitializeFinishEnable;
 
 		this.stateTimestamps = new long[ExecutionState.values().length];
 		markTimestamp(CREATED, System.currentTimeMillis());
@@ -891,7 +972,11 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			executingThread.setContextClassLoader(userCodeClassLoader);
 
 			// now load and instantiate the task's invokable code
-			invokable = loadAndInstantiateInvokable(userCodeClassLoader, nameOfInvokableClass, env);
+			if (taskInitializeFinishEnable) {
+				invokable = loadAndInstantiateInvokable(userCodeClassLoader, "org.apache.flink.runtime.jobgraph.tasks.NoOpInvokable", env);
+			} else {
+				invokable = loadAndInstantiateInvokable(userCodeClassLoader, nameOfInvokableClass, env);
+			}
 
 			// ----------------------------------------------------------------
 			//  actual task core work
@@ -921,6 +1006,12 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 			// run the invokable
 			invokable.invoke();
+			if (taskInitializeFinishEnable) {
+				if (taskInfo.getTaskName().contains(SocketConstants.SOCKET_SINK_NAME_TAG)) {
+					taskJobResultGateway.sendResult(jobId, null, ResultStatus.COMPLETE, null);
+				}
+			}
+
 			invokeFinishTimestamp = System.currentTimeMillis();
 
 			// make sure, we enter the catch block if the task leaves the invoke() method due
@@ -1120,6 +1211,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			taskEventDispatcher.unregisterPartition(partitionWriter.getPartitionId());
 			if (isCanceledOrFailed()) {
 				partitionWriter.fail(getFailureCause());
+			} else if (taskInitializeFinishEnable) {
+				partitionWriter.releaseFromPartitionManager();
 			}
 		}
 

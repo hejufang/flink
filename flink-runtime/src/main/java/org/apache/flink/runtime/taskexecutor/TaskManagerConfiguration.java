@@ -91,6 +91,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	private final boolean taskDeployFinishEnable;
 
+	private final boolean taskInitializeFinishEnable;
+
 	private final boolean notifyFinalStateInTaskThreadEnable;
 
 	private final int resultClientCount;
@@ -118,6 +120,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			boolean releaseSlotWhenJobMasterDisconnected,
 			long waitSlotReleaseBeforeSendSlotReporterTimeoutMs,
 			boolean taskDeployFinishEnable,
+			boolean taskInitializeFinishEnable,
 			boolean notifyFinalStateInTaskThreadEnable,
 			int resultClientCount,
 			int resultConnectTimeoutMills,
@@ -141,6 +144,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		this.releaseSlotWhenJobMasterDisconnected = releaseSlotWhenJobMasterDisconnected;
 		this.waitSlotReleaseBeforeSendSlotReporterTimeoutMs = waitSlotReleaseBeforeSendSlotReporterTimeoutMs;
 		this.taskDeployFinishEnable = taskDeployFinishEnable;
+		this.taskInitializeFinishEnable = taskInitializeFinishEnable;
 		this.notifyFinalStateInTaskThreadEnable = notifyFinalStateInTaskThreadEnable;
 		this.resultClientCount = resultClientCount;
 		this.resultConnectTimeoutMills = resultConnectTimeoutMills;
@@ -227,6 +231,10 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		return taskDeployFinishEnable;
 	}
 
+	public boolean isTaskInitializeFinishEnable() {
+		return taskInitializeFinishEnable;
+	}
+
 	public boolean isNotifyFinalStateInTaskThreadEnable() {
 		return notifyFinalStateInTaskThreadEnable;
 	}
@@ -309,6 +317,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 		final boolean taskDeployFinishEnable = configuration.getBoolean(BenchmarkOptions.TASK_DEPLOY_THEN_FINISH_ENABLE);
 
+		final boolean taskInitializeFinishEnable = configuration.getBoolean(BenchmarkOptions.TASK_INITIALIZE_THEN_FINISH_ENABLE);
+
 		final boolean notifyFinalStateInTaskThreadEnable = configuration.getBoolean(TaskManagerOptions.NOTIFY_FINAL_STATE_IN_TASK_THREAD_ENABLE);
 
 		final int resultClientCount = configuration.get(TaskManagerOptions.RESULT_PUSH_CLIENT_COUNT);
@@ -334,6 +344,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			releaseSlotWhenJobMasterDisconnected,
 			waitSlotReleaseBeforeSendSlotReporterTimeout,
 			taskDeployFinishEnable,
+			taskInitializeFinishEnable,
 			notifyFinalStateInTaskThreadEnable,
 			resultClientCount,
 			resultClientConnectTimeoutMills,
