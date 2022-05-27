@@ -80,6 +80,8 @@ public class CheckpointVerifier {
 	private static final Logger LOG = LoggerFactory.getLogger(CheckpointVerifier.class);
 	private static final int MISS_OPERATOR_ID_EXIT_CODE = 2;
 	private static final int MISMATCH_PARALLELISM_EXIT_CODE = 3;
+	private static final int INVALID_SAVEPOINT_PATH_EXIT_CODE = 4;
+
 	// exit code after checkpoint verification
 	public static volatile int verifyExitCode = -1;
 
@@ -242,6 +244,9 @@ public class CheckpointVerifier {
 			case FAIL_MISMATCH_PARALLELISM:
 				verifyExitCode = MISMATCH_PARALLELISM_EXIT_CODE;
 				throw new Exception("Could not submit job, mismatch parallelism");
+			case INVALID_SAVEPOINT_PATH:
+				verifyExitCode = INVALID_SAVEPOINT_PATH_EXIT_CODE;
+				throw new Exception("Could not submit job, invalid savepoint path");
 		}
 	}
 
@@ -294,8 +299,9 @@ public class CheckpointVerifier {
 					if (savepointRestoreSettings != null && savepointRestoreSettings.restoreSavepoint()) {
 						latestOperatorStates = getOperatorStatesFromSavepointSettings(configuration, classLoader, jobID, jobUID, savepointRestoreSettings);
 						if (latestOperatorStates.isEmpty()) {
-							LOG.info("Load from savepoint restore settings failed, skip checkpoint verification");
-							return CheckpointVerifyResult.SKIP;
+							final String message = "Load from savepoint restore settings failed with restore path : " + savepointRestoreSettings.getRestorePath();
+							logAndSyserr(message);
+							return CheckpointVerifyResult.INVALID_SAVEPOINT_PATH;
 						}
 					} else {
 						LOG.info("No checkpoint store on HDFS and no savepoint settings, skip checkpoint verification");

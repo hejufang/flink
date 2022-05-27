@@ -27,7 +27,8 @@ public enum CheckpointVerifyResult {
 	FAIL_MISMATCH_PARALLELISM("mismatch parallelism"),
 	SKIP("skip"),
 	ZOOKEEPER_RETRIEVE_FAIL("Zookeeper retrieve fail"),
-	HDFS_RETRIEVE_FAIL("HDFS retrieve fail");
+	HDFS_RETRIEVE_FAIL("HDFS retrieve fail"),
+	INVALID_SAVEPOINT_PATH("invalid savepoint path");
 
 	private final String name;
 
