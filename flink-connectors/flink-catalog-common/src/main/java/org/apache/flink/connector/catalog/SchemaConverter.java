@@ -106,6 +106,7 @@ public class SchemaConverter {
 			case "SMALLINT":
 				return DataTypes.SMALLINT();
 			case "INT":
+			case "INTEGER":
 				return DataTypes.INT();
 			case "BIGINT":
 				return DataTypes.BIGINT();
