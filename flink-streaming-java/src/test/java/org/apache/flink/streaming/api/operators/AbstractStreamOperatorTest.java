@@ -18,6 +18,8 @@
 
 package org.apache.flink.streaming.api.operators;
 
+import org.apache.flink.api.common.state.StateRegistry;
+import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeutils.base.StringSerializer;
@@ -34,6 +36,8 @@ import org.apache.flink.streaming.util.KeyedOneInputStreamOperatorTestHarness;
 import org.apache.flink.streaming.util.OneInputStreamOperatorTestHarness;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +52,17 @@ import static org.hamcrest.Matchers.contains;
  * tests timers and state and whether they are correctly checkpointed/restored
  * with key-group reshuffling.
  */
+@RunWith(Parameterized.class)
 public class AbstractStreamOperatorTest {
+
+	@Parameterized.Parameter
+	public static boolean stateEagerRegister;
+
+	@Parameterized.Parameters(name = "stateEagerRegister = {0}")
+	public static Object[] data() {
+		return new Object[]{false, true};
+	}
+
 	protected KeyedOneInputStreamOperatorTestHarness<Integer, Tuple2<Integer, String>, String> createTestHarness() throws Exception {
 		return createTestHarness(1, 1, 0);
 	}
@@ -453,9 +467,15 @@ public class AbstractStreamOperatorTest {
 		private final ValueStateDescriptor<String> stateDescriptor =
 			new ValueStateDescriptor<>("state", StringSerializer.INSTANCE);
 
+		private ValueState<String> valueState;
+
 		@Override
 		public void open() throws Exception {
 			super.open();
+
+			if (!stateEagerRegister) {
+				valueState = stateRegistry.getPartitionedState(stateDescriptor);
+			}
 
 			this.timerService = getInternalTimerService(
 				"test-timers",
@@ -464,14 +484,21 @@ public class AbstractStreamOperatorTest {
 		}
 
 		@Override
+		public void registerState(StateRegistry stateRegistry) throws Exception {
+			if (stateEagerRegister) {
+				valueState = stateRegistry.getPartitionedState(stateDescriptor);
+			}
+		}
+
+		@Override
 		public void processElement(StreamRecord<Tuple2<Integer, String>> element) throws Exception {
 			String[] command = element.getValue().f1.split(":");
 			switch (command[0]) {
 				case "SET_STATE":
-					getPartitionedState(stateDescriptor).update(command[1]);
+					valueState.update(command[1]);
 					break;
 				case "DELETE_STATE":
-					getPartitionedState(stateDescriptor).clear();
+					valueState.clear();
 					break;
 				case "SET_EVENT_TIME_TIMER":
 					timerService.registerEventTimeTimer(VoidNamespace.INSTANCE, Long.parseLong(command[1]));
@@ -480,7 +507,7 @@ public class AbstractStreamOperatorTest {
 					timerService.registerProcessingTimeTimer(VoidNamespace.INSTANCE, Long.parseLong(command[1]));
 					break;
 				case "EMIT_STATE":
-					String stateValue = getPartitionedState(stateDescriptor).value();
+					String stateValue = valueState.value();
 					output.collect(new StreamRecord<>("ON_ELEMENT:" + element.getValue().f0 + ":" + stateValue));
 					break;
 				default:

@@ -24,6 +24,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.state.KeyedStateStore;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.configuration.Configuration;
@@ -160,6 +161,8 @@ public abstract class AbstractStreamOperator<OUT>
 
 	protected DebugLoggingConverter converter;
 	protected DebugLoggingLocation location;
+
+	protected transient EagerStateRegistry stateRegistry;
 
 	// ------------------------------------------------------------------------
 	//  Life Cycle
@@ -317,10 +320,12 @@ public abstract class AbstractStreamOperator<OUT>
 				metrics);
 
 		stateHandler = new StreamOperatorStateHandler(context, getExecutionConfig(), streamTaskCloseableRegistry);
+		stateRegistry = new EagerStateRegistry(runtimeContext, getKeyedStateBackend());
 		timeServiceManager = context.internalTimerServiceManager();
 		stateHandler.initializeOperatorState(this);
 		runtimeContext.setKeyedStateStore(stateHandler.getKeyedStateStore().orElse(null));
 		runtimeContext.setOperatorStateBackend(stateHandler.getOperatorStateBackend());
+		registerState(stateRegistry);
 	}
 
 	/**
@@ -414,6 +419,16 @@ public abstract class AbstractStreamOperator<OUT>
 	@Override
 	public void notifyCheckpointAborted(long checkpointId) throws Exception {
 		stateHandler.notifyCheckpointAborted(checkpointId);
+	}
+
+
+
+	// ------------------------------------------------------------------------
+	//  Eager State Declaration
+	// ------------------------------------------------------------------------
+
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
 	}
 
 	// ------------------------------------------------------------------------

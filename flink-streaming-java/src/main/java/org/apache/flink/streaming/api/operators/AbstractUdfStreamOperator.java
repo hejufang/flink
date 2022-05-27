@@ -22,6 +22,7 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.functions.Function;
 import org.apache.flink.api.common.functions.util.FunctionUtils;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.CheckpointListener;
@@ -123,6 +124,12 @@ public abstract class AbstractUdfStreamOperator<OUT, F extends Function>
 			functionsClosed = true;
 			FunctionUtils.closeFunction(userFunction);
 		}
+	}
+
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
+		super.registerState(stateRegistry);
+		FunctionUtils.registerState(userFunction, stateRegistry);
 	}
 
 	// ------------------------------------------------------------------------

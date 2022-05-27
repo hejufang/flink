@@ -221,6 +221,7 @@ public class StreamingRuntimeContext extends AbstractRuntimeUDFContext {
 		return keyedStateStore.getAggregatingState(stateProperties);
 	}
 
+	@Deprecated
 	@Override
 	public <UK, UV> MapState<UK, UV> getMapState(MapStateDescriptor<UK, UV> stateProperties) {
 		KeyedStateStore keyedStateStore = checkPreconditionsAndGetKeyedStateStore(stateProperties);
@@ -260,6 +261,10 @@ public class StreamingRuntimeContext extends AbstractRuntimeUDFContext {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	public OperatorStateBackend getOperatorStateBackend() {
+		return operatorStateBackend;
 	}
 
 	/**

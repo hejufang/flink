@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -165,4 +166,7 @@ public interface StreamOperator<OUT> extends CheckpointListener, KeyContext, Dis
 	default boolean withSameWatermarkPerBatch() {
 		return false;
 	}
+
+	default void registerState(StateRegistry stateRegistry) throws Exception {}
+
 }
