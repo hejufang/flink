@@ -18,14 +18,19 @@
 package org.apache.flink.connectors.htap.connector;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.htap.HtapPredicate;
 import com.bytedance.htap.meta.ColumnSchema;
+import com.bytedance.htap.meta.MysqlType;
 import com.bytedance.htap.meta.Schema;
 import com.bytedance.htap.meta.Type;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -106,7 +111,25 @@ public class HtapFilterInfo implements Serializable {
 				break;
 			case INT64:
 			case UNIXTIME_MICROS:
-				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (long) this.value, compatibleWithMySQL);
+				MysqlType mysqlType = column.getMysqlType();
+				long newValue;
+				if (this.value instanceof LocalDateTime) {
+					if (mysqlType == MysqlType.DATETIME) {
+						newValue = ((LocalDateTime) this.value).toInstant(ZoneOffset.UTC).toEpochMilli() * 1000;
+					} else if (mysqlType == MysqlType.TIMESTAMP) {
+						newValue = Timestamp.valueOf((LocalDateTime) this.value).getTime() * 1000;
+					} else {
+						throw new FlinkRuntimeException("mysql type must be DATETIME or TIMESTAMP when " +
+							"column.getType() is UNIXTIME_MICROS and value is instanceOf " +
+							"LocalDateTime but is: " + mysqlType);
+					}
+					predicate = HtapPredicate.newComparisonPredicate(
+						column, comparison, newValue, compatibleWithMySQL);
+				} else {
+					predicate = HtapPredicate.newComparisonPredicate(
+						column, comparison, (long) this.value, compatibleWithMySQL);
+				}
+
 				break;
 			case DOUBLE:
 				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (double) this.value);

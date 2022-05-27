@@ -51,7 +51,6 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -409,9 +408,9 @@ public class HtapTypeUtils {
 			}
 
 			if (extracted instanceof LocalDateTime) {
-				// we convert LocalDateTime to microseconds based on UTC timezone
-				// as HtapStore required.
-				return ((LocalDateTime) extracted).toInstant(ZoneOffset.UTC).toEpochMilli() * 1000;
+				// just return LocalDateTime here and convert it to long (depend on the MysqlType)
+				// in HtapFilterInfo#toPredicate as we could get the MysqlType there but not here.
+				return extracted;
 			} else if (extracted instanceof Timestamp) {
 				// We should transform `java.sql.Timestamp` to `microseconds
 				// since unix epoch` in order to push it down to the HtapStore.
