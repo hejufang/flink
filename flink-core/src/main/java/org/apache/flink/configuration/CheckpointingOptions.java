@@ -249,7 +249,7 @@ public class CheckpointingOptions {
 	public static final ConfigOption<MemorySize> FS_SMALL_FILE_THRESHOLD = ConfigOptions
 			.key("state.backend.fs.memory-threshold")
 			.memoryType()
-			.defaultValue(MemorySize.parse("2kb"))
+			.defaultValue(MemorySize.parse("10kb"))
 			.withDescription("The minimum size of state data files. All state chunks smaller than that are stored" +
 				" inline in the root checkpoint metadata file. The max memory threshold for this configuration is 1MB.");
 
