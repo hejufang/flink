@@ -61,6 +61,8 @@ import java.util.concurrent.CompletableFuture;
  * Virtual TaskManager SlotPool, there is no real slot for TaskManager.
  */
 public final class VirtualTaskManagerSlotPool implements SlotPool {
+	private static final Exception RELEASE_SLOT_SHARED_EXCEPTION = new Exception("Slot is released.");
+
 	private final Logger log = LoggerFactory.getLogger(getClass());
 
 	private final Map<ResourceID, Set<AllocationID>> slotMapping = new HashMap<>();
@@ -76,9 +78,20 @@ public final class VirtualTaskManagerSlotPool implements SlotPool {
 	private JobMasterId jobMasterId;
 	private String jobMasterAddress;
 
+	private final boolean releaseSlotShareExceptionEnable;
+
 	@VisibleForTesting
 	public VirtualTaskManagerSlotPool(JobID jobId, boolean requestSlotFromResourceManagerDirectEnable, Map<ResourceID, ResolvedTaskManagerTopology> taskManagers, int totalTaskCount) {
 		this(jobId, requestSlotFromResourceManagerDirectEnable, taskManagers, totalTaskCount, RandomTaskManagerStrategy.getInstance());
+	}
+
+	public VirtualTaskManagerSlotPool(
+		JobID jobId,
+		boolean requestSlotFromResourceManagerDirectEnable,
+		Map<ResourceID, ResolvedTaskManagerTopology> taskManagers,
+		int totalTaskCount,
+		AllocateTaskManagerStrategy allocateTaskManagerStrategy) {
+		this(jobId, requestSlotFromResourceManagerDirectEnable, taskManagers, totalTaskCount, allocateTaskManagerStrategy, false);
 	}
 
 	public VirtualTaskManagerSlotPool(
@@ -86,13 +99,15 @@ public final class VirtualTaskManagerSlotPool implements SlotPool {
 			boolean requestSlotFromResourceManagerDirectEnable,
 			Map<ResourceID, ResolvedTaskManagerTopology> taskManagers,
 			int totalTaskCount,
-			AllocateTaskManagerStrategy allocateTaskManagerStrategy) {
+			AllocateTaskManagerStrategy allocateTaskManagerStrategy,
+			boolean releaseSlotShareExceptionEnable) {
 		this.jobID = jobId;
 		this.requestSlotFromResourceManagerDirectEnable = requestSlotFromResourceManagerDirectEnable;
 		this.taskManagers = new HashMap<>(taskManagers);
 		this.totalTaskCount = totalTaskCount;
 		this.allocatedTaskManagers = new ArrayList<>();
 		this.allocateTaskManagerStrategy = allocateTaskManagerStrategy;
+		this.releaseSlotShareExceptionEnable = releaseSlotShareExceptionEnable;
 	}
 
 	public AllocatedSlot allocatedSlot(AllocationID allocationID, ResourceID resourceID) {
@@ -120,7 +135,8 @@ public final class VirtualTaskManagerSlotPool implements SlotPool {
 	public void releaseAllocatedSlot(AllocationID allocationID) {
 		AllocatedSlot removedSlot = allocatedSlots.remove(allocationID);
 		if (removedSlot != null) {
-			removedSlot.releasePayload(new Exception("Slot " + allocationID + " is released."));
+			removedSlot.releasePayload(releaseSlotShareExceptionEnable ?
+				RELEASE_SLOT_SHARED_EXCEPTION : new Exception("Slot " + allocationID + " is released."));
 			ResourceID resourceID = removedSlot.getTaskManagerLocation().getResourceID();
 			Set<AllocationID> slots = slotMapping.get(resourceID);
 			if (slots != null) {
@@ -269,13 +285,17 @@ public final class VirtualTaskManagerSlotPool implements SlotPool {
 		private final boolean requestSlotFromResourceManagerDirectEnable;
 		private final AllocateTaskManagerStrategy allocateTaskManagerStrategy;
 
+		private final boolean releaseSlotShareExceptionEnable;
+
 		public VirtualTaskManagerSlotPoolFactory(
 				Map<ResourceID, ResolvedTaskManagerTopology> taskManagers,
 				boolean requestSlotFromResourceManagerDirectEnable,
-				AllocateTaskManagerStrategy allocateTaskManagerStrategy) {
+				AllocateTaskManagerStrategy allocateTaskManagerStrategy,
+				boolean releaseSlotShareExceptionEnable) {
 			this.taskManagers = taskManagers;
 			this.requestSlotFromResourceManagerDirectEnable = requestSlotFromResourceManagerDirectEnable;
 			this.allocateTaskManagerStrategy = allocateTaskManagerStrategy;
+			this.releaseSlotShareExceptionEnable = releaseSlotShareExceptionEnable;
 		}
 
 		@Override
@@ -287,7 +307,7 @@ public final class VirtualTaskManagerSlotPool implements SlotPool {
 		@Nonnull
 		@Override
 		public SlotPool createSlotPool(@Nonnull JobID jobId, int taskCount, boolean minResourceSlotPoolSimplifyEnabled) {
-			return new VirtualTaskManagerSlotPool(jobId, requestSlotFromResourceManagerDirectEnable, this.taskManagers, taskCount, allocateTaskManagerStrategy);
+			return new VirtualTaskManagerSlotPool(jobId, requestSlotFromResourceManagerDirectEnable, this.taskManagers, taskCount, allocateTaskManagerStrategy, releaseSlotShareExceptionEnable);
 		}
 	}
 }

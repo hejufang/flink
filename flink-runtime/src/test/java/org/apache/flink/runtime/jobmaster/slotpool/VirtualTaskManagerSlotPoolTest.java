@@ -25,6 +25,7 @@ import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.dispatcher.ResolvedTaskManagerTopology;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.jobmaster.slotpool.strategy.JobSpreadTaskManagerStrategy;
+import org.apache.flink.runtime.jobmaster.slotpool.strategy.RandomTaskManagerStrategy;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGatewayBuilder;
 import org.apache.flink.runtime.taskmanager.LocalTaskManagerLocation;
@@ -154,6 +155,32 @@ public class VirtualTaskManagerSlotPoolTest {
 		}
 	}
 
+	@Test
+	public void testReleaseSlotShareExceptionEnable() throws Exception {
+		VirtualTaskManagerSlotPool slotPool;
+		slotPool = new VirtualTaskManagerSlotPool(new JobID(), true, Collections.emptyMap(), 0, RandomTaskManagerStrategy.getInstance(), true);
+		ResourceID resourceID = ResourceID.generate();
+		TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder().setAddress("127.0.0.1").createTestingTaskExecutorGateway();
+		TaskManagerLocation taskManagerLocation = new LocalTaskManagerLocation();
+		slotPool.start(JobMasterId.generate(), "foo_bar", new ComponentMainThreadExecutor.DummyComponentMainThreadExecutor("Should not use"));
+
+		slotPool.registerTaskManager(resourceID, new ResolvedTaskManagerTopology(taskExecutorGateway, taskManagerLocation));
+
+		Set<AllocationID> allocationIds = new HashSet<>();
+		for (int i = 0; i < 20; ++i) {
+			AllocationID allocationId = new AllocationID();
+			if (allocationIds.contains(allocationId)) {
+				continue;
+			}
+			allocationIds.add(allocationId);
+			AllocatedSlot slot = slotPool.allocatedSlot(allocationId, resourceID);
+			slot.tryAssignPayload(new TestReleaseSlotShareExceptionEnablePayload());
+		}
+		for (AllocationID allocationId: allocationIds) {
+			slotPool.releaseAllocatedSlot(allocationId);
+		}
+	}
+
 	private static void checkExceptionAndMsg(Throwable t, Class<?> exceptionClass, String msg) {
 		assertEquals(exceptionClass, t.getClass());
 		assertEquals(msg, t.getMessage());
@@ -176,4 +203,20 @@ public class VirtualTaskManagerSlotPoolTest {
 			return false;
 		}
 	}
+
+	private static class TestReleaseSlotShareExceptionEnablePayload implements PhysicalSlot.Payload {
+
+		public TestReleaseSlotShareExceptionEnablePayload() {}
+
+		@Override
+		public void release(Throwable cause) {
+			assertEquals("Slot is released.", cause.getMessage());
+		}
+
+		@Override
+		public boolean willOccupySlotIndefinitely() {
+			return false;
+		}
+	}
+
 }

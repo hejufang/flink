@@ -636,6 +636,12 @@ public class JobManagerOptions {
 			.withDescription("The maximum queue size for job manager to manage results for each job." +
 				" When job manager receives the job results form task, it will put them to the queue.");
 
+	public static final ConfigOption<Boolean> RELEASE_SLOT_SHARE_EXCEPTION_ENABLE =
+		key("jobmanager.release-slot-share-exception.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("When releasing slot, release a static Exception instead of a new one.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

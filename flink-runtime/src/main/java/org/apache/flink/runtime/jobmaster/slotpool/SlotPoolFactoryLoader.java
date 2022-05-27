@@ -47,7 +47,8 @@ public class SlotPoolFactoryLoader {
 					taskManagers,
 					configuration.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE),
 					configuration.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_TASK_MANAGER_JOB_SPREAD_ENABLE) ?
-						JobSpreadTaskManagerStrategy.getInstance() : RandomTaskManagerStrategy.getInstance());
+						JobSpreadTaskManagerStrategy.getInstance() : RandomTaskManagerStrategy.getInstance(),
+					configuration.getBoolean(JobManagerOptions.RELEASE_SLOT_SHARE_EXCEPTION_ENABLE));
 		}
 
 		if (scheduleMode.equals(ScheduleMode.EAGER)) {
