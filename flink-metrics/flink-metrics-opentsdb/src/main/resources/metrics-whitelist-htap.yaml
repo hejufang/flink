@@ -50,6 +50,7 @@ non-global:
         numPendingSlotRequests,
         taskSlotsTotal,
         taskSlotsAvailable,
+        completedContainer,
       # CPU
         Total,
         Cores,

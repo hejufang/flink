@@ -24,7 +24,9 @@ import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.SimpleCounter;
+import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.metrics.TagGaugeStore;
+import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
 import org.apache.flink.runtime.blob.BlobCacheService;
 import org.apache.flink.runtime.blob.PermanentBlobCache;
@@ -269,6 +271,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	private final HeartbeatManager<Void, TaskExecutorHeartbeatPayload> resourceManagerHeartbeatManager;
 
 	private final Counter heartbeatTimeoutWithRM = new SimpleCounter();
+
+	private final TagGauge completedContainerGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).build();
+
+	private final Object completedContainerGaugeLock = new Object();
 
 	private final TaskExecutorPartitionTracker partitionTracker;
 
@@ -604,6 +610,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 										.addTagValue("channelType", stringIntegerEntry.getKey())
 										.build()))
 						.collect(Collectors.toList()));
+
+		taskManagerMetricGroup.gauge(MetricNames.COMPLETED_CONTAINER, completedContainerGauge);
 	}
 
 	// ======================================================================
@@ -2377,6 +2385,14 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			log.error("Fatal error occurred in TaskExecutor {}.", getAddress(), t);
 		} catch (Throwable ignored) {}
 
+		synchronized (completedContainerGaugeLock) {
+			completedContainerGauge.addMetric(
+				1,
+				new TagGaugeStoreImpl.TagValuesBuilder()
+					.addTagValue("exit_code", String.valueOf(exitCode))
+					.build());
+		}
+
 		// The fatal error handler implementation should make sure that this call is non-blocking
 		fatalErrorHandler.onFatalError(t, exitCode);
 	}
@@ -2504,6 +2520,14 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			try {
 				log.error(message, cause);
 			} catch (Throwable ignored) {}
+
+			synchronized (completedContainerGaugeLock) {
+				completedContainerGauge.addMetric(
+					1,
+					new TagGaugeStoreImpl.TagValuesBuilder()
+						.addTagValue("exit_code", String.valueOf(exitCode))
+						.build());
+			}
 
 			// The fatal error handler implementation should make sure that this call is non-blocking
 			fatalErrorHandler.onFatalError(cause, exitCode);

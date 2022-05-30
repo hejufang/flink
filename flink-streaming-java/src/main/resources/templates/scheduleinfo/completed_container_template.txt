@@ -80,6 +80,21 @@
         "exit_code": "*",
         "jobname": "${jobname}"
       }
+    },
+    {
+      "refId": "B",
+      "hide": false,
+      "aggregator": "sum",
+      "downsampleAggregator": "avg",
+      "downsampleFillPolicy": "none",
+      "metric": "flink.taskmanager.completedContainer",
+      "alias": "$tag_exit_code",
+      "currentTagKey": "",
+      "currentTagValue": "",
+      "tags": {
+        "exit_code": "*",
+        "jobname": "${jobname}"
+      }
     }
   ],
   "thresholds": [],
@@ -188,7 +203,7 @@
         "properties": [
           {
             "id": "displayName",
-            "value": "-80006 (TM 主动退出，可能是 JM GC 过长或者用户代码 hang 住)"
+            "value": "-80006 (TM 主动退出，可能是 JM GC 过长或者用户代码 hang 住，详情请检查TM的2XX错误码)"
           }
         ]
       },
