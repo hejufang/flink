@@ -371,6 +371,11 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 			case STARTUP_MODE_GROUP:
 				offset = consumer.fetchConsumeOffset(mq, false);
 				if (offset < 0) {
+					// -1 means offset not exists in the server, other like -2 means unexpected server errors.
+					if (offset != -1) {
+						LOG.error("Subtask {} queue {} got offset {} from broker", subTaskId, mq.toString(), offset);
+						throw new FlinkRuntimeException("Rocketmq server return error code " + offset);
+					}
 					// We cannot get normal offset from RMQ.
 					// Default setting is earliest, in case of data loss.
 					String initialOffset = props.getProperty(CONSUMER_OFFSET_RESET_TO, CONSUMER_OFFSET_EARLIEST);
