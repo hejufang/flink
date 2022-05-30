@@ -29,9 +29,11 @@ import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.deployment.DefaultClusterClientServiceLoader;
 import org.apache.flink.configuration.AkkaOptions;
 import org.apache.flink.configuration.CheckpointingOptions;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.DeploymentOptions;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.MemorySize;
@@ -133,6 +135,117 @@ public class FlinkYarnSessionCliTest extends TestLogger {
 		Configuration executorConfig = cli.applyCommandLineOptionsToConfiguration(cmd);
 		assertEquals("hdfs://hdfsvip/home/byte_flink_checkpoint/1.11/flink/fs_checkpoint_dir", executorConfig.getString(
 			CheckpointingOptions.CHECKPOINTS_DIRECTORY));
+	}
+
+	/**
+	 * For streaming job, the parameter priority is:
+	 * user dynamic parameter > bytedance.streaming.XX in conf > XX in conf > XX default value.
+	 *
+	 * @throws Exception
+	 */
+	@Test
+	public void testDynamicParameterPriority() throws Exception {
+		String managedFractionKey = "taskmanager.memory.managed.fraction";
+		Configuration configuration = new Configuration();
+		configuration.setFloat(managedFractionKey, 0.25f);
+		configuration.setFloat("bytedance.streaming.taskmanager.memory.managed.fraction", 0.1f);
+
+		FlinkYarnSessionCli cli = new FlinkYarnSessionCli(
+			configuration,
+			tmp.getRoot().getAbsolutePath(),
+			"",
+			"",
+			false);
+		Options options = new Options();
+		cli.addGeneralOptions(options);
+		cli.addRunOptions(options);
+
+		// case1: user dynamic parameter is highest priority
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cmd = parser.parse(options, new String[]{"run", "-j", "fake.jar",
+			"-D", AkkaOptions.ASK_TIMEOUT.key() + "=5 min",
+			"-D" + managedFractionKey + "=0.01"});
+
+		Configuration executorConfig = cli.applyCommandLineOptionsToConfiguration(cmd);
+		assertEquals("0.01", executorConfig.get(TaskManagerOptions.MANAGED_MEMORY_FRACTION).toString());
+
+		// case2: bytedance.streaming.XX in configuration is second priority
+		cmd = parser.parse(options, new String[]{"run", "-j", "fake.jar",
+			"-D", AkkaOptions.ASK_TIMEOUT.key() + "=5 min"});
+
+		executorConfig = cli.applyCommandLineOptionsToConfiguration(cmd);
+		assertEquals("0.1", executorConfig.get(TaskManagerOptions.MANAGED_MEMORY_FRACTION).toString());
+
+		// case3: XX in configuration is third priority
+		configuration = new Configuration();
+		configuration.setFloat(managedFractionKey, 0.25f);
+		cli = new FlinkYarnSessionCli(
+			configuration,
+			tmp.getRoot().getAbsolutePath(),
+			"",
+			"",
+			false);
+		options = new Options();
+		cli.addGeneralOptions(options);
+		cli.addRunOptions(options);
+		cmd = parser.parse(options, new String[]{"run", "-j", "fake.jar",
+			"-D", AkkaOptions.ASK_TIMEOUT.key() + "=5 min"});
+
+		executorConfig = cli.applyCommandLineOptionsToConfiguration(cmd);
+		assertEquals("0.25", executorConfig.get(TaskManagerOptions.MANAGED_MEMORY_FRACTION).toString());
+
+		// case4: the default value of XX id lowest priority
+		cli = new FlinkYarnSessionCli(
+			new Configuration(),
+			tmp.getRoot().getAbsolutePath(),
+			"",
+			"",
+			false);
+		options = new Options();
+		cli.addGeneralOptions(options);
+		cli.addRunOptions(options);
+		cmd = parser.parse(options, new String[]{"run", "-j", "fake.jar",
+			"-D", AkkaOptions.ASK_TIMEOUT.key() + "=5 min"});
+
+		executorConfig = cli.applyCommandLineOptionsToConfiguration(cmd);
+		assertEquals(TaskManagerOptions.MANAGED_MEMORY_FRACTION.defaultValue().toString(), executorConfig.get(TaskManagerOptions.MANAGED_MEMORY_FRACTION).toString());
+	}
+
+	@Test
+	public void testBytedanceStreamingParamsWithBatchType() throws Exception {
+		String managedFractionKey = "taskmanager.memory.managed.fraction";
+		Configuration configuration = new Configuration();
+		configuration.setFloat(managedFractionKey, 0.25f);
+		configuration.setFloat("bytedance.streaming.taskmanager.memory.managed.fraction", 0.1f);
+
+		FlinkYarnSessionCli cli = new FlinkYarnSessionCli(
+			configuration,
+			tmp.getRoot().getAbsolutePath(),
+			"",
+			"",
+			false);
+		Options options = new Options();
+		cli.addGeneralOptions(options);
+		cli.addRunOptions(options);
+
+		// case1: XX in flink_conf.yaml take effective and bytedance.streaming.XX not take effective in batch mode
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cmd = parser.parse(options, new String[]{"run", "-j", "fake.jar",
+			"-D", AkkaOptions.ASK_TIMEOUT.key() + "=5 min",
+			"-D" + ExecutionOptions.EXECUTION_APPLICATION_TYPE.key() + "=" + ConfigConstants.FLINK_BATCH_APPLICATION_TYPE});
+
+		Configuration executorConfig = cli.applyCommandLineOptionsToConfiguration(cmd);
+		assertEquals("0.25", executorConfig.get(TaskManagerOptions.MANAGED_MEMORY_FRACTION).toString());
+
+		// case2: user dynamic parameter is highest priority
+		parser = new DefaultParser();
+		cmd = parser.parse(options, new String[]{"run", "-j", "fake.jar",
+			"-D", AkkaOptions.ASK_TIMEOUT.key() + "=5 min",
+			"-D" + managedFractionKey + "=0.01",
+			"-D" + ExecutionOptions.EXECUTION_APPLICATION_TYPE.key() + "=" + ConfigConstants.FLINK_BATCH_APPLICATION_TYPE});
+
+		executorConfig = cli.applyCommandLineOptionsToConfiguration(cmd);
+		assertEquals("0.01", executorConfig.get(TaskManagerOptions.MANAGED_MEMORY_FRACTION).toString());
 	}
 
 	@Test

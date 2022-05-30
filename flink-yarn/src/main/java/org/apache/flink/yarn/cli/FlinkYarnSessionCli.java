@@ -32,6 +32,7 @@ import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.DeploymentOptionsInternal;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.MemorySize;
@@ -382,9 +383,15 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);
 
 		// set special config for streaming job
-		String appType = properties.getProperty(
-			YarnConfigOptions.APPLICATION_TYPE.key(),
-			effectiveConfiguration.getString(YarnConfigOptions.APPLICATION_TYPE));
+		String appType;
+		if (properties.containsKey(ExecutionOptions.EXECUTION_APPLICATION_TYPE.key())) {
+			appType = properties.getProperty(ExecutionOptions.EXECUTION_APPLICATION_TYPE.key());
+		} else if (properties.containsKey(ConfigConstants.APPLICATION_TYPE)) {
+			appType = properties.getProperty(ConfigConstants.APPLICATION_TYPE);
+		} else {
+			appType = effectiveConfiguration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE);
+		}
+
 		if (appType.equals(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE)) {
 			reloadConfigWithSpecificProperties(effectiveConfiguration, ConfigConstants.STREAMING_JOB_KEY_PREFIX);
 		}

@@ -25,6 +25,7 @@ import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.configuration.TaskManagerOptions;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 import org.apache.flink.shaded.org.apache.commons.cli.Options;
@@ -113,44 +114,130 @@ public class GenericCLITest {
 		assertEquals(listValue, configuration.get(listOption));
 	}
 
+	/**
+	 * For streaming job, the parameter priority is:
+	 * user dynamic parameter > bytedance.streaming.XX in conf > XX in conf > XX default value.
+	 *
+	 * @throws Exception
+	 */
+	@Test
+	public void testDynamicParameterPriority() throws Exception {
+
+		String managedFractionKey = "taskmanager.memory.managed.fraction";
+		Configuration configuration = new Configuration();
+		configuration.setFloat(managedFractionKey, 0.25f);
+		configuration.setFloat("bytedance.streaming.taskmanager.memory.managed.fraction", 0.1f);
+
+		// case1: user dynamic parameter is highest priority
+		String[] args = {
+			"-e", "test-executor",
+			"-D" + managedFractionKey + "=0.01"
+		};
+
+		GenericCLI cliUnderTest = new GenericCLI(
+			configuration,
+			tmp.getRoot().getAbsolutePath());
+		CommandLine commandLine = CliFrontendParser.parse(testOptions, args, true);
+		Configuration effectiveConfiguration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
+		assertEquals("0.01", effectiveConfiguration.get(TaskManagerOptions.MANAGED_MEMORY_FRACTION).toString());
+
+		// case2: bytedance.streaming.XX in configuration is second priority
+		String[] args2 = {
+			"-e", "test-executor"
+		};
+
+		cliUnderTest = new GenericCLI(
+			configuration,
+			tmp.getRoot().getAbsolutePath());
+		commandLine = CliFrontendParser.parse(testOptions, args2, true);
+		effectiveConfiguration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
+		assertEquals("0.1", effectiveConfiguration.get(TaskManagerOptions.MANAGED_MEMORY_FRACTION).toString());
+
+		// case3: XX in configuration is third priority
+		configuration = new Configuration();
+		configuration.setFloat(managedFractionKey, 0.25f);
+		String[] args3 = {
+			"-e", "test-executor"
+		};
+
+		cliUnderTest = new GenericCLI(
+			configuration,
+			tmp.getRoot().getAbsolutePath());
+		commandLine = CliFrontendParser.parse(testOptions, args3, true);
+		effectiveConfiguration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
+		assertEquals("0.25", effectiveConfiguration.get(TaskManagerOptions.MANAGED_MEMORY_FRACTION).toString());
+
+		// case4: the default value of XX id lowest priority
+		String[] args4 = {
+			"-e", "test-executor"
+		};
+
+		cliUnderTest = new GenericCLI(
+			new Configuration(),
+			tmp.getRoot().getAbsolutePath());
+		commandLine = CliFrontendParser.parse(testOptions, args4, true);
+		effectiveConfiguration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
+		assertEquals(TaskManagerOptions.MANAGED_MEMORY_FRACTION.defaultValue().toString(), effectiveConfiguration.get(TaskManagerOptions.MANAGED_MEMORY_FRACTION).toString());
+	}
+
 	@Test
 	public void testBytedanceStreamingParamsWithStreamType() throws CliArgsException {
 		final String[] args = {
 			"-e", "test-executor",
-			"-D" + ExecutionOptions.EXECUTION_APPLICATION_TYPE.key() + "="
-				+ ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE,
-			"-D" + ConfigConstants.STREAMING_JOB_KEY_PREFIX + "test-config.test-sub-config=test"
+			"-D" + ExecutionOptions.EXECUTION_APPLICATION_TYPE.key() + "=" + ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE
 		};
 
+		Configuration configuration = new Configuration();
+		configuration.setString(ConfigConstants.STREAMING_JOB_KEY_PREFIX + "test-config.test-sub-config", "test");
+
 		final GenericCLI cliUnderTest = new GenericCLI(
-			new Configuration(),
+			configuration,
 			tmp.getRoot().getAbsolutePath());
 		final CommandLine commandLine = CliFrontendParser.parse(testOptions, args, true);
 
-		final Configuration configuration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
-		assertEquals("test-executor", configuration.getString(DeploymentOptions.TARGET));
-		assertEquals(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE, configuration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE));
-		assertEquals("test", configuration.getString("test-config.test-sub-config", ""));
+		final Configuration effectiveConfiguration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
+		assertEquals("test-executor", effectiveConfiguration.getString(DeploymentOptions.TARGET));
+		assertEquals(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE, effectiveConfiguration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE));
+		assertEquals("test", effectiveConfiguration.getString("test-config.test-sub-config", ""));
 	}
 
 	@Test
 	public void testBytedanceStreamingParamsWithBatchType() throws CliArgsException {
-		final String[] args = {
+		String managedFractionKey = "taskmanager.memory.managed.fraction";
+		Configuration configuration = new Configuration();
+		configuration.setFloat(managedFractionKey, 0.25f);
+		configuration.setFloat("bytedance.streaming.taskmanager.memory.managed.fraction", 0.1f);
+
+		String[] args = {
 			"-e", "test-executor",
-			"-D" + ExecutionOptions.EXECUTION_APPLICATION_TYPE.key() + "="
-				+ ConfigConstants.FLINK_BATCH_APPLICATION_TYPE,
-			"-D" + ConfigConstants.STREAMING_JOB_KEY_PREFIX + "test-config.test-sub-config=test"
+			"-D" + ExecutionOptions.EXECUTION_APPLICATION_TYPE.key() + "=" + ConfigConstants.FLINK_BATCH_APPLICATION_TYPE
 		};
 
-		final GenericCLI cliUnderTest = new GenericCLI(
-			new Configuration(),
+		GenericCLI cliUnderTest = new GenericCLI(
+			configuration,
 			tmp.getRoot().getAbsolutePath());
-		final CommandLine commandLine = CliFrontendParser.parse(testOptions, args, true);
+		CommandLine commandLine = CliFrontendParser.parse(testOptions, args, true);
 
-		final Configuration configuration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
-		assertEquals("test-executor", configuration.getString(DeploymentOptions.TARGET));
-		assertEquals(ConfigConstants.FLINK_BATCH_APPLICATION_TYPE, configuration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE));
-		assertEquals("", configuration.getString("test-config.test-sub-config", ""));
+		Configuration effectiveConfiguration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
+		assertEquals("test-executor", effectiveConfiguration.getString(DeploymentOptions.TARGET));
+		assertEquals(ConfigConstants.FLINK_BATCH_APPLICATION_TYPE, effectiveConfiguration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE));
+		assertEquals("", effectiveConfiguration.getString("test-config.test-sub-config", ""));
+		// case1: XX in flink_conf.yaml take effective and bytedance.streaming.XX not take effective in batch mode
+		assertEquals("0.25", effectiveConfiguration.get(TaskManagerOptions.MANAGED_MEMORY_FRACTION).toString());
+
+		// case2: user dynamic parameter is highest priority
+		final String[] args2 = {
+			"-e", "test-executor",
+			"-D" + ExecutionOptions.EXECUTION_APPLICATION_TYPE.key() + "=" + ConfigConstants.FLINK_BATCH_APPLICATION_TYPE,
+			"-D" + managedFractionKey + "=0.01"
+		};
+
+		cliUnderTest = new GenericCLI(
+			configuration,
+			tmp.getRoot().getAbsolutePath());
+		commandLine = CliFrontendParser.parse(testOptions, args2, true);
+		effectiveConfiguration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
+		assertEquals("0.01", effectiveConfiguration.get(TaskManagerOptions.MANAGED_MEMORY_FRACTION).toString());
 	}
 
 	@Test
