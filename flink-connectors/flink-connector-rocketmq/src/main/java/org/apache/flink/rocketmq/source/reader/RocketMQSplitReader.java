@@ -17,6 +17,7 @@
 
 package org.apache.flink.rocketmq.source.reader;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.java.tuple.Tuple1;
 import org.apache.flink.api.java.tuple.Tuple3;
@@ -94,6 +95,7 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 	private final int offsetFlushInterval;
 	private final int pullBatchSize;
 	private final long pollLatencyMs;
+	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private transient MeterView recordsNumMeterView;
 
@@ -130,6 +132,10 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 		this.jobName = jobName;
 		this.pollLatencyMs = config.getPollLatencyMs();
 		this.pullBatchSize = config.getPollBatchSize();
+		this.rateLimiter = config.getRateLimiter();
+		if (rateLimiter != null) {
+			this.rateLimiter.openWithParallel(readerContext.getReaderParallelism());
+		}
 
 		MetricGroup metricGroup = readerContext.metricGroup().addGroup(ROCKET_MQ_CONSUMER_METRICS_GROUP)
 			.addGroup(RocketMQOptions.TOPIC_METRICS_GROUP, this.topic)
@@ -170,9 +176,14 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 			MessageQueue messageQueue = createMessageQueueFromMessageQueuePb(messageExt.getMessageQueue());
 			String splitId = RocketMQSplitBase.getSplitId(
 				messageQueue.getTopic(), messageQueue.getBrokerName(), messageQueue.getQueueId());
+			if (rateLimiter != null) {
+				rateLimiter.acquire(1);
+			}
+
 			if (finishedSplit.contains(splitId)) {
 				continue;
 			}
+
 			// Get records collection by splitId. Then add the messageExt result in it.
 			Collection<Tuple3<OUT, Long, Long>> recordsForSplit =
 					recordsBySplits.recordsForSplit(splitId);

@@ -48,7 +48,12 @@ public class GuavaFlinkConnectorRateLimiter implements FlinkConnectorRateLimiter
 	@Override
 	public void open(RuntimeContext runtimeContext) {
 		this.runtimeContext = runtimeContext;
-		localRateBytesPerSecond = globalRateBytesPerSecond / runtimeContext.getNumberOfParallelSubtasks();
+		openWithParallel(runtimeContext.getNumberOfParallelSubtasks());
+	}
+
+	@Override
+	public void openWithParallel(int numberOfParallelSubtasks) {
+		localRateBytesPerSecond = globalRateBytesPerSecond / numberOfParallelSubtasks;
 		this.rateLimiter = RateLimiter.create(localRateBytesPerSecond);
 	}
 

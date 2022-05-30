@@ -40,6 +40,10 @@ public interface FlinkConnectorRateLimiter extends Serializable {
 	 */
 	void open(RuntimeContext runtimeContext);
 
+	default void openWithParallel(int numberOfParallelSubtasks) {
+		throw new UnsupportedOperationException("This method is not be implement.");
+	}
+
 	/**
 	 * Sets the desired rate for the rate limiter.
 	 * @param rate
