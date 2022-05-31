@@ -98,7 +98,7 @@ import org.apache.flink.runtime.resourcemanager.TaskExecutorSocketAddress;
 import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceRequestSlot;
 import org.apache.flink.runtime.rest.messages.LogInfo;
-import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
+import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataRequest;
 import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -140,7 +140,6 @@ import org.apache.flink.runtime.taskmanager.Task;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.taskmanager.TaskManagerActions;
 import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
-import org.apache.flink.runtime.util.JvmUtils;
 import org.apache.flink.types.SerializableOptional;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
@@ -1507,9 +1506,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	@Override
 	public CompletableFuture<ThreadDumpInfo> requestThreadDump(Time timeout) {
-		final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = JvmUtils.createThreadDumpInfos();
-
-		return CompletableFuture.completedFuture(ThreadDumpInfo.create(threadInfos));
+		return CompletableFuture.completedFuture(ThreadDumpInfo.dumpAndCreate());
 	}
 
 	@Override

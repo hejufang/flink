@@ -16,26 +16,26 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.rest.messages.taskmanager;
+package org.apache.flink.runtime.rest.messages.cluster;
 
 import org.apache.flink.runtime.rest.HttpMethodWrapper;
-import org.apache.flink.runtime.rest.handler.taskmanager.TaskManagerThreadDumpHandler;
+import org.apache.flink.runtime.rest.handler.cluster.JobManagerThreadDumpHandler;
+import org.apache.flink.runtime.rest.messages.EmptyMessageParameters;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.MessageHeaders;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
 
-/**
- * Headers for the {@link TaskManagerThreadDumpHandler}.
- */
-public class TaskManagerThreadDumpHeaders implements MessageHeaders<EmptyRequestBody, ThreadDumpInfo, TaskManagerMessageParameters> {
+/** Headers for the {@link JobManagerThreadDumpHandler}. */
+public class JobManagerThreadDumpHeaders
+	implements MessageHeaders<EmptyRequestBody, ThreadDumpInfo, EmptyMessageParameters> {
 
-	private static final TaskManagerThreadDumpHeaders INSTANCE = new TaskManagerThreadDumpHeaders();
+	private static final JobManagerThreadDumpHeaders INSTANCE = new JobManagerThreadDumpHeaders();
 
-	private static final String URL = String.format("/taskmanagers/:%s/thread-dump", TaskManagerIdPathParameter.KEY);
+	private static final String URL = "/jobmanager/thread-dump";
 
-	private TaskManagerThreadDumpHeaders() {}
+	private JobManagerThreadDumpHeaders() {}
 
 	@Override
 	public Class<EmptyRequestBody> getRequestClass() {
@@ -43,8 +43,8 @@ public class TaskManagerThreadDumpHeaders implements MessageHeaders<EmptyRequest
 	}
 
 	@Override
-	public TaskManagerMessageParameters getUnresolvedMessageParameters() {
-		return new TaskManagerMessageParameters();
+	public EmptyMessageParameters getUnresolvedMessageParameters() {
+		return EmptyMessageParameters.getInstance();
 	}
 
 	@Override
@@ -57,7 +57,7 @@ public class TaskManagerThreadDumpHeaders implements MessageHeaders<EmptyRequest
 		return URL;
 	}
 
-	public static TaskManagerThreadDumpHeaders getInstance() {
+	public static JobManagerThreadDumpHeaders getInstance() {
 		return INSTANCE;
 	}
 
@@ -73,6 +73,6 @@ public class TaskManagerThreadDumpHeaders implements MessageHeaders<EmptyRequest
 
 	@Override
 	public String getDescription() {
-		return "Returns the thread dump of the requested TaskManager.";
+		return "Returns the thread dump of the JobManager.";
 	}
 }

@@ -16,21 +16,11 @@
  * limitations under the License.
  */
 
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+export interface JobManagerThreadDump {
+    threadInfos: JobManagerThreadInfo[];
+}
 
-@Component({
-  selector: 'flink-job-manager',
-  templateUrl: './job-manager.component.html',
-  styleUrls: ['./job-manager.component.less'],
-  changeDetection: ChangeDetectionStrategy.OnPush
-})
-export class JobManagerComponent {
-  listOfNavigation = [
-    { path: 'config', title: 'Configuration' },
-    { path: 'logs', title: 'Logs' },
-    { path: 'stdout', title: 'Stdout' },
-    { path: 'log', title: 'Log List' },
-    { path: 'sr', title: 'SmartResource'},
-    { path: 'thread-dump', title: 'Thread Dump' }
-  ];
+interface JobManagerThreadInfo {
+    threadName: string;
+    stringifiedThreadInfo: string;
 }

@@ -39,6 +39,7 @@ import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
+import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.function.TriFunction;
@@ -105,6 +106,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 			Supplier<CompletableFuture<ClusterOverview>> requestClusterOverviewSupplier,
 			Supplier<CompletableFuture<Collection<String>>> requestMetricQueryServiceAddressesSupplier,
 			Supplier<CompletableFuture<Collection<Tuple2<ResourceID, String>>>> requestTaskManagerMetricQueryServiceGatewaysSupplier,
+			Supplier<CompletableFuture<ThreadDumpInfo>> requestThreadDumpSupplier,
 			BiFunction<JobID, JobVertexID, CompletableFuture<OperatorBackPressureStatsResponse>> requestOperatorBackPressureStatsFunction,
 			BiFunction<JobID, String, CompletableFuture<String>> triggerSavepointFunction,
 			BiFunction<JobID, String, CompletableFuture<String>> stopWithSavepointFunction,
@@ -131,6 +133,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 			requestClusterOverviewSupplier,
 			requestMetricQueryServiceAddressesSupplier,
 			requestTaskManagerMetricQueryServiceGatewaysSupplier,
+			requestThreadDumpSupplier,
 			requestOperatorBackPressureStatsFunction,
 			triggerSavepointFunction,
 			stopWithSavepointFunction,
@@ -287,6 +290,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 				requestClusterOverviewSupplier,
 				requestMetricQueryServiceGatewaysSupplier,
 				requestTaskManagerMetricQueryServiceGatewaysSupplier,
+				requestThreadDumpSupplier,
 				requestOperatorBackPressureStatsFunction,
 				triggerSavepointFunction,
 				stopWithSavepointFunction,

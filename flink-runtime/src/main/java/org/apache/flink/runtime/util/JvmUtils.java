@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.util;
 
-import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
+import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
@@ -37,7 +37,7 @@ public final class JvmUtils {
 	 *
 	 * @return the thread dump of current JVM
 	 */
-	private static Collection<ThreadInfo> createThreadDump() {
+	public static Collection<ThreadInfo> createThreadDump() {
 		ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
 
 		return Arrays.asList(threadMxBean.dumpAllThreads(true, true));

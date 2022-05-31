@@ -38,6 +38,7 @@ import org.apache.flink.runtime.metrics.dump.MetricQueryService;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
+import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.RpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.util.SerializedValue;
@@ -141,7 +142,7 @@ public interface RestfulGateway extends RpcGateway {
 	 * Requests the addresses of the {@link MetricQueryService} to query.
 	 *
 	 * @param timeout for the asynchronous operation
-	 * @return Future containing the collection of metric query service addresses to query
+	 * @return Future containing the collection of metric query service addresses to query`
 	 */
 	CompletableFuture<Collection<String>> requestMetricQueryServiceAddresses(@RpcTimeout Time timeout);
 
@@ -152,6 +153,14 @@ public interface RestfulGateway extends RpcGateway {
 	 * @return Future containing the collection of instance ids and the corresponding metric query service address
 	 */
 	CompletableFuture<Collection<Tuple2<ResourceID, String>>> requestTaskManagerMetricQueryServiceAddresses(@RpcTimeout Time timeout);
+
+	/**
+	 * Requests the thread dump from the JobManager.
+	 *
+	 * @param timeout timeout of the asynchronous operation
+	 * @return Future containing the thread dump information
+	 */
+	CompletableFuture<ThreadDumpInfo> requestThreadDump(@RpcTimeout Time timeout);
 
 	/**
 	 * Triggers a savepoint with the given savepoint directory as a target.

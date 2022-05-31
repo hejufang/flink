@@ -21,6 +21,7 @@ import { Injectable } from '@angular/core';
 import { BASE_URL } from 'config';
 import { map } from 'rxjs/operators';
 import { SmartResourceResponse } from "../interfaces/smart-resource";
+import { JobManagerThreadDump } from '../interfaces/job-manager';
 
 @Injectable({
   providedIn: 'root'
@@ -84,6 +85,14 @@ export class JobManagerService {
    */
   loadSr() {
     return this.httpClient.get<SmartResourceResponse>(`${BASE_URL}/sr`)
+  }
+
+  loadThreadDump() {
+    return this.httpClient.get<JobManagerThreadDump>(`${BASE_URL}/jobmanager/thread-dump`).pipe(
+        map(JobManagerThreadDump => {
+          return JobManagerThreadDump.threadInfos.map(threadInfo => threadInfo.stringifiedThreadInfo).join('');
+        })
+    );
   }
 
   constructor(private httpClient: HttpClient) {}

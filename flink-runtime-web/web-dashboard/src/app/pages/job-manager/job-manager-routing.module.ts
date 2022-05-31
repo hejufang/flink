@@ -25,6 +25,7 @@ import { JobManagerLogListComponent } from './log-list/job-manager-log-list.comp
 import { JobManagerLogsComponent } from './logs/job-manager-logs.component';
 import { JobManagerStdoutComponent } from './stdout/job-manager-stdout.component';
 import { JobManagerSmartResourceComponent } from "./sr/job-manager-sr.component";
+import { JobManagerThreadDumpComponent } from './thread-dump/job-manager-thread-dump.component';
 
 const routes: Routes = [
   {
@@ -71,6 +72,13 @@ const routes: Routes = [
         component: JobManagerSmartResourceComponent,
         data: {
           path: 'sr'
+        }
+      },
+      {
+        path: 'thread-dump',
+        component: JobManagerThreadDumpComponent,
+        data: {
+          path: 'thread-dump'
         }
       },
       {

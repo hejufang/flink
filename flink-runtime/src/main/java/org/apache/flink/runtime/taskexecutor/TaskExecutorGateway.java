@@ -42,8 +42,8 @@ import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceRequestSlot;
 import org.apache.flink.runtime.rest.messages.LogInfo;
+import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
-import org.apache.flink.runtime.rest.messages.taskmanager.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.RpcGateway;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.taskmanager.Task;
@@ -80,7 +80,6 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
 		String targetAddress,
 		ResourceManagerId resourceManagerId,
 		@RpcTimeout Time timeout);
-
 
 	default CompletableFuture<Acknowledge> requestJobSlotList(
 		JobID jobId,
