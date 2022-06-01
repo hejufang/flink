@@ -276,6 +276,8 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 	 * Closes the writer. This stops the flushing thread (if there is one).
 	 */
 	public void close() {
+		LOG.info("{} record writer idle time: {} ms", Thread.currentThread().getName(),
+				getIdleTimeMsPerSecond().getCount());
 		clearBuffers();
 		// make sure we terminate the thread in any case
 		if (outputFlusher != null) {

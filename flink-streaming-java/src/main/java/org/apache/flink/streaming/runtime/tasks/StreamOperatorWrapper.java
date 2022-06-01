@@ -102,7 +102,7 @@ public class StreamOperatorWrapper<OUT, OP extends StreamOperator<OUT>> {
 	public void endOperatorInput(int inputId) throws Exception {
 		if (operatorPerfMetricEnable) {
 			((OperatorMetricGroup) wrapped.getMetricGroup()).getTimeMetricGroup()
-				.setEndInputStartTimestampMs(System.currentTimeMillis());
+				.setEndInputStartTimestampMs(inputId, System.currentTimeMillis());
 		}
 		if (wrapped instanceof BoundedOneInput) {
 			((BoundedOneInput) wrapped).endInput();
@@ -110,7 +110,7 @@ public class StreamOperatorWrapper<OUT, OP extends StreamOperator<OUT>> {
 			((BoundedMultiInput) wrapped).endInput(inputId);
 		}
 		if (operatorPerfMetricEnable) {
-			((OperatorMetricGroup) wrapped.getMetricGroup()).getTimeMetricGroup().reportEndInputEnd();
+			((OperatorMetricGroup) wrapped.getMetricGroup()).getTimeMetricGroup().reportEndInputEnd(inputId);
 		}
 	}
 

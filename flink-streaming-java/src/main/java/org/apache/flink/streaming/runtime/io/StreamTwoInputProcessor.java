@@ -354,6 +354,8 @@ public class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProcessor {
 
 		private final boolean operatorPerfMetricEnable;
 
+		private boolean isFirstElement = true;
+
 		protected StreamTaskNetworkOutput(
 				TwoInputStreamOperator<IN1, IN2, ?> operator,
 				ThrowingConsumer<StreamRecord<T>, Exception> recordConsumer,
@@ -372,6 +374,10 @@ public class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProcessor {
 		@Override
 		public void emitRecord(StreamRecord<T> record) throws Exception {
 			if (operatorPerfMetricEnable) {
+				if (isFirstElement) {
+					isFirstElement = false;
+					((OperatorMetricGroup) ((AbstractStreamOperator) operator).getMetricGroup()).getTimeMetricGroup().setProcessStartTimestampMs(System.currentTimeMillis());
+				}
 				long startTime = System.nanoTime();
 				recordConsumer.accept(record);
 				if (inputIndex == 0) {

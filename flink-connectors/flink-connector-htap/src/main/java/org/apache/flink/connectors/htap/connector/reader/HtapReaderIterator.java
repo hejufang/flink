@@ -313,7 +313,7 @@ public class HtapReaderIterator {
 					}
 				}
 				long endTime = System.currentTimeMillis();
-				LOG.debug("{} fetched all rows from store {}-{} with {} round, cost time: {}ms," +
+				LOG.info("{} fetched all rows from store {}-{} with {} round, cost time: {}ms," +
 						"sleep time: {}ms", subTaskFullName, tableName, partitionId, scanRoundCount,
 					endTime - startTime, scanThreadTotalSleepTimeMs);
 			} catch (Throwable t) {

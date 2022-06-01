@@ -32,6 +32,7 @@ import org.apache.flink.connectors.htap.connector.reader.HtapReaderIterator;
 import org.apache.flink.connectors.htap.table.utils.HtapAggregateUtils.FlinkAggregateFunction;
 import org.apache.flink.core.io.InputSplitAssigner;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+import org.apache.flink.streaming.api.operators.util.OperatorPerfMetricUtil;
 import org.apache.flink.table.sources.TopNInfo;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.Row;
@@ -84,6 +85,8 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	// Total processed record number of this input format.
 	// Caution: This field may be reset to 0 when task failover.
 	private transient long totalReadCount = 0L;
+	private transient boolean isFirstElement = true;
+	private transient long processStartTimestamp;
 
 	public HtapRowInputFormat(
 			HtapReaderConfig readerConfig,
@@ -181,8 +184,9 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 		long totalSplitTime = System.currentTimeMillis() - splitStartTime;
 		if (currentPartition >= 0 && splitStartTime > 0) {
 			LOG.info("{} total source time for partition({}): {}ms, open spend: {}ms," +
-					" totalNextRecordTime: {}ms", subTaskFullName, currentPartition,
-				totalSplitTime, openTime, totalNextRecordTime);
+					" totalNextRecordTime: {}ms, read first element time: {}", subTaskFullName,
+				currentPartition, totalSplitTime, openTime, totalNextRecordTime,
+				OperatorPerfMetricUtil.translateTimestampMsToDateString(processStartTimestamp));
 		}
 	}
 
@@ -216,6 +220,10 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	public Row nextRecord(Row reuse) throws IOException {
 		long startTime = System.currentTimeMillis();
 		Row result;
+		if (isFirstElement) {
+			isFirstElement = false;
+			processStartTimestamp = startTime;
+		}
 		// check that current iterator has next rows
 		if (inDryRunMode || !this.resultIterator.hasNext()) {
 			endReached = true;

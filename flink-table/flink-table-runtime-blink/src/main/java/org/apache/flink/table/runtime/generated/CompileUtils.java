@@ -89,6 +89,7 @@ public final class CompileUtils {
 
 	private static <T> Class<T> doCompile(ClassLoader cl, String name, String code) {
 		checkNotNull(cl, "Classloader must not be null.");
+		long startTime = System.nanoTime();
 		CODE_LOG.debug("Compiling: {} \n\n Code:\n{}", name, code);
 		SimpleCompiler compiler = new SimpleCompiler();
 		compiler.setParentClassLoader(cl);
@@ -100,6 +101,7 @@ public final class CompileUtils {
 				"Table program cannot be compiled. This is a bug. Please file an issue.", t);
 		}
 		try {
+			CODE_LOG.info("Compiling: {}, Cost: {} ms", name, (System.nanoTime() - startTime) / 1E6);
 			//noinspection unchecked
 			return (Class<T>) compiler.getClassLoader().loadClass(name);
 		} catch (ClassNotFoundException e) {

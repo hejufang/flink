@@ -234,6 +234,7 @@ public class MailboxProcessor implements Closeable {
 				sendControlMail(() -> mailboxLoopRunning = false, "poison mail");
 			}
 		});
+		LOG.info("{} input processor idle time: {} ms", Thread.currentThread().getName(), getIdleTime().getCount());
 	}
 
 	/**

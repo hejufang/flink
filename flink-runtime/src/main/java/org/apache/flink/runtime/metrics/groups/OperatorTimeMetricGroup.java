@@ -30,6 +30,9 @@ public class OperatorTimeMetricGroup {
 	/** open cost. */
 	private long openCostMs;
 
+	/** process start timestamp. */
+	private long processStartTimestampMs;
+
 	/** end input start timestamp. */
 	private long endInputStartTimestampMs;
 
@@ -38,6 +41,18 @@ public class OperatorTimeMetricGroup {
 
 	/** end input cost. */
 	private long endInputCostMs;
+
+	/** endInput1 start timestamp. */
+	private long endInputStartTimestamp1Ms;
+
+	/** endInput1 cost. */
+	private long endInputCost1Ms;
+
+	/** endInput2 start timestamp. */
+	private long endInputStartTimestamp2Ms;
+
+	/** endInput2 cost. */
+	private long endInputCost2Ms;
 
 	/** close start timestamp. */
 	private long closeStartTimestampMs;
@@ -64,8 +79,16 @@ public class OperatorTimeMetricGroup {
 		this.openStartTimestampMs = openStartTimestampMs;
 	}
 
-	public void setEndInputStartTimestampMs(long endInputStartTimestampMs) {
-		this.endInputStartTimestampMs = endInputStartTimestampMs;
+	public void setProcessStartTimestampMs(long processStartTimestampMs) {
+		this.processStartTimestampMs = processStartTimestampMs;
+	}
+
+	public void setEndInputStartTimestampMs(int inputId, long endInputStartTimestampMs) {
+		if (inputId == 1) {
+			this.endInputStartTimestamp1Ms = endInputStartTimestampMs;
+		} else {
+			this.endInputStartTimestamp2Ms = endInputStartTimestampMs;
+		}
 	}
 
 	public void setCloseStartTimestampMs(long closeStartTimestampMs) {
@@ -76,9 +99,13 @@ public class OperatorTimeMetricGroup {
 		this.openCostMs = System.currentTimeMillis() - openStartTimestampMs;
 	}
 
-	public void reportEndInputEnd() {
-		this.endInputEndTimestampMs = System.currentTimeMillis();
-		this.endInputCostMs = endInputEndTimestampMs - endInputStartTimestampMs;
+	public void reportEndInputEnd(int inputId) {
+		long endInputEndTimestampMs = System.currentTimeMillis();
+		if (inputId == 1) {
+			this.endInputCost1Ms = endInputEndTimestampMs - endInputStartTimestamp1Ms;
+		} else {
+			this.endInputCost2Ms = endInputEndTimestampMs - endInputStartTimestamp2Ms;
+		}
 	}
 
 	public void reportCloseEnd() {
@@ -110,8 +137,20 @@ public class OperatorTimeMetricGroup {
 		return openCostMs;
 	}
 
+	public long getProcessStartTimestampMs() {
+		return processStartTimestampMs;
+	}
+
 	public long getEndInputStartTimestampMs() {
 		return endInputStartTimestampMs;
+	}
+
+	public long getEndInputStartTimestamp1Ms() {
+		return endInputStartTimestamp1Ms;
+	}
+
+	public long getEndInputStartTimestamp2Ms() {
+		return endInputStartTimestamp2Ms;
 	}
 
 	public long getEndInputEndTimestampMs() {
@@ -120,6 +159,14 @@ public class OperatorTimeMetricGroup {
 
 	public long getEndInputCostMs() {
 		return endInputCostMs;
+	}
+
+	public long getEndInputCost1Ms() {
+		return endInputCost1Ms;
+	}
+
+	public long getEndInputCost2Ms() {
+		return endInputCost2Ms;
 	}
 
 	public long getCloseTimestampMs() {

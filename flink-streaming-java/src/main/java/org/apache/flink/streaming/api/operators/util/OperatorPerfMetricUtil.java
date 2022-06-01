@@ -41,7 +41,9 @@ public class OperatorPerfMetricUtil {
 		OperatorIOMetricGroup operatorIOMetrics = metrics.getIOMetricGroup();
 		OperatorResourceMetricGroup operatorResourceMetrics = metrics.getResourceMetricGroup();
 
-		LOG.info("Operator {} open time: {}, open cost: {} ms, endInput time: {}, endInput cost: {} ms, " +
+		LOG.info("Operator {} open time: {}, open cost: {} ms, first process: {}, " +
+				"endInput time: {}, endInput cost: {} ms, " +
+				"endInput2 time: {}, endInput2 cost: {} ms, " +
 				"close time: {}, close cost: {} ms, duration: {} ms, process cost: {} ms, process cost1: {} ms, " +
 				"process cost2: {} ms, output cost: {} ms, " +
 				"input records: {}, output records: {}, " +
@@ -49,8 +51,11 @@ public class OperatorPerfMetricUtil {
 			operatorFullName,
 			translateTimestampMsToDateString(operatorTimeMetrics.getOpenTimestampMs()),
 			operatorTimeMetrics.getOpenCostMs(),
-			translateTimestampMsToDateString(operatorTimeMetrics.getEndInputStartTimestampMs()),
-			operatorTimeMetrics.getEndInputCostMs(),
+			translateTimestampMsToDateString(operatorTimeMetrics.getProcessStartTimestampMs()),
+			translateTimestampMsToDateString(operatorTimeMetrics.getEndInputStartTimestamp1Ms()),
+			operatorTimeMetrics.getEndInputCost1Ms(),
+			translateTimestampMsToDateString(operatorTimeMetrics.getEndInputStartTimestamp2Ms()),
+			operatorTimeMetrics.getEndInputCost2Ms(),
 			translateTimestampMsToDateString(operatorTimeMetrics.getCloseTimestampMs()),
 			operatorTimeMetrics.getCloseCostMs(),
 			operatorTimeMetrics.getCloseEndTimestampMs() - operatorTimeMetrics.getOpenTimestampMs(),
@@ -65,7 +70,7 @@ public class OperatorPerfMetricUtil {
 			operatorResourceMetrics.getSpillInBytes());
 	}
 
-	private static String translateTimestampMsToDateString(long timestampMs) {
-		return  new SimpleDateFormat("yyyy-MM-dd HH:mm:ss:SSS").format(new Date(timestampMs));
+	public static String translateTimestampMsToDateString(long timestampMs) {
+		return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss:SSS").format(new Date(timestampMs));
 	}
 }

@@ -156,6 +156,8 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
 
 		private final boolean operatorPerfMetricEnable;
 
+		private boolean isFirstElement = true;
+
 		private final WatermarkGauge watermarkGauge;
 		private final Counter numRecordsIn;
 
@@ -176,6 +178,10 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
 		public void emitRecord(StreamRecord<IN> record) throws Exception {
 			numRecordsIn.inc();
 			if (operatorPerfMetricEnable) {
+				if (isFirstElement) {
+					isFirstElement = false;
+					((OperatorMetricGroup) ((AbstractStreamOperator) operator).getMetricGroup()).getTimeMetricGroup().setProcessStartTimestampMs(System.currentTimeMillis());
+				}
 				long startTime = System.nanoTime();
 				operator.setKeyContextElement1(record);
 				operator.processElement(record);

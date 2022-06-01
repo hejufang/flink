@@ -40,6 +40,7 @@ import org.apache.flink.streaming.api.collector.selector.DirectedOutput;
 import org.apache.flink.streaming.api.collector.selector.OutputSelector;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.graph.StreamEdge;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.operators.StreamOperator;
@@ -586,6 +587,7 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 
 		protected final StreamStatusProvider streamStatusProvider;
 		protected final boolean operatorPerfMetricEnable;
+		protected boolean isFirstElement = true;
 
 		@Nullable
 		protected final OutputTag<T> outputTag;
@@ -644,6 +646,10 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 				numRecordsIn.inc();
 				operator.setKeyContextElement1(castRecord);
 				if (operatorPerfMetricEnable) {
+					if (isFirstElement) {
+						isFirstElement = false;
+						((OperatorMetricGroup) ((AbstractStreamOperator) operator).getMetricGroup()).getTimeMetricGroup().setProcessStartTimestampMs(System.currentTimeMillis());
+					}
 					long startTime = System.nanoTime();
 					operator.processElement(castRecord);
 					((OperatorMetricGroup) operator.getMetricGroup()).getTimeMetricGroup().accumulateProcessCost(System.nanoTime() - startTime);
@@ -741,6 +747,10 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 				StreamRecord<T> copy = castRecord.copy(serializer.copy(castRecord.getValue()));
 				operator.setKeyContextElement1(copy);
 				if (operatorPerfMetricEnable) {
+					if (isFirstElement) {
+						isFirstElement = false;
+						((OperatorMetricGroup) ((AbstractStreamOperator) operator).getMetricGroup()).getTimeMetricGroup().setProcessStartTimestampMs(System.currentTimeMillis());
+					}
 					long startTime = System.nanoTime();
 					operator.processElement(copy);
 					((OperatorMetricGroup) operator.getMetricGroup()).getTimeMetricGroup().accumulateProcessCost(System.nanoTime() - startTime);
