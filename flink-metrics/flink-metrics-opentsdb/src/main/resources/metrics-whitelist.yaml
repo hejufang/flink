@@ -58,7 +58,9 @@ global:
         checkpointWriteFileRate,
         checkpointWriteFileLatency,
         checkpointCloseFileLatency,
+      # used in dorado platform
         numberOfContinuousCheckpointFailure,
+      # used in dorado platform
         lastCheckpointDuration,
         preJobRawTotalStateSize,
         postJobRawTotalStateSize,
@@ -101,6 +103,7 @@ non-global:
         downtime,
         uptime,
         numRestarts,
+      # used in dorado platform
         fullRestarts,
         numOfRestartsAggrByBackoffTime,
         executionFailNum,
@@ -136,6 +139,7 @@ non-global:
       # Task error info
         upstreamTaskErrorNum,
       # In/Out Record Number
+      # used in dorado platform
         numRecordsInPerSecond,
         numRecordsOutPerSecond,
         numRecordsDropped,
@@ -179,9 +183,11 @@ non-global:
         Load,
         Cores,
       # Checkpoints
+      # used in dorado platform
         numberOfContinuousCheckpointFailure,
         numberOfTriggerFailedCheckpoints,
         lastCheckpointDuration,
+      # used in dorado platform
         numberOfFailedCheckpoints,
         totalNumberOfCheckpoints,
         syncDuration,
@@ -284,6 +290,7 @@ non-global:
         stateMetricsOfCompactionFlush,
         localStateSize,
       # cep
+      # used in dorado platform
         numLateRecordsDropped,
         numLateRecordsOutput,
         numStateCleanerTriggered,
