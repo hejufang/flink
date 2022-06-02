@@ -296,9 +296,9 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 					tags.put(tagName, tagValue);
 				}
 				latencyHistogram.update(latency, tags);
-			} else {
-				latencyHistogram.update(latency);
 			}
+			// Need to calculate a job latency either contain tags or not
+			latencyHistogram.update(latency);
 		} catch (Throwable throwable) {
 			LOG.error("Failed to update sink latency", throwable);
 		}
