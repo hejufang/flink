@@ -96,9 +96,9 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
 				if (!uncaughtFetcherException.compareAndSet(null, t)) {
 					// Add the exception to the exception list.
 					uncaughtFetcherException.get().addSuppressed(t);
-					// Wake up the main thread to let it know the exception.
-					futureNotifier.notifyComplete();
 				}
+				// Wake up the main thread to let it know the exception.
+				futureNotifier.notifyComplete();
 			}
 		};
 		this.splitReaderFactory = splitReaderFactory;
