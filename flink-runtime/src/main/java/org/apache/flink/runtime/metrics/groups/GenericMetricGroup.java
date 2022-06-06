@@ -58,6 +58,10 @@ public class GenericMetricGroup extends AbstractMetricGroup<AbstractMetricGroup<
 		return new String[] { name };
 	}
 
+	public boolean needReport(){
+		return parent.needReport();
+	}
+
 	@Override
 	protected String getGroupName(CharacterFilter filter) {
 		return filter.filterCharacters(name);

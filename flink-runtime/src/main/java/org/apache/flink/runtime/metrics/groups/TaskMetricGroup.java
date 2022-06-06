@@ -130,6 +130,10 @@ public class TaskMetricGroup extends ComponentMetricGroup<TaskManagerJobMetricGr
 			this.attemptNumber);
 	}
 
+	public boolean needReport() {
+		return false;
+	}
+
 	// ------------------------------------------------------------------------
 	//  operators and cleanup
 	// ------------------------------------------------------------------------

@@ -18,6 +18,10 @@
 
 package org.apache.flink.runtime.metrics;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.Sets;
+
+import java.util.Set;
+
 /**
  * Collection of metric names.
  */
@@ -39,6 +43,8 @@ public class MetricNames {
 	public static final String IO_NUM_BYTES_OUT = "numBytesOut";
 	public static final String IO_NUM_BYTES_IN_RATE = IO_NUM_BYTES_IN + SUFFIX_RATE;
 	public static final String IO_NUM_BYTES_OUT_RATE = IO_NUM_BYTES_OUT + SUFFIX_RATE;
+
+	public static final Set<String> IO_METRIC_NAMES = Sets.newHashSet(MetricNames.IO_NUM_BYTES_IN, MetricNames.IO_NUM_BYTES_OUT, MetricNames.IO_NUM_BUFFERS_IN, MetricNames.IO_NUM_BUFFERS_OUT, MetricNames.IO_NUM_RECORDS_IN, MetricNames.IO_NUM_RECORDS_OUT);
 
 	// the time unit is microsecond
 	public static final String OPERATOR_PROCESS_LATENCY = "latency";

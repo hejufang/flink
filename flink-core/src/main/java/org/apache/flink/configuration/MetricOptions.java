@@ -222,6 +222,23 @@ public class MetricOptions {
 			.defaultValue(false)
 			.withDescription("Flag indicating whether Flink should calculate the time consumption of each operator, including open, process element," +
 				"endinput and collect method. If true, the performance of Flink may be affected because each records would trigger the calculation.");
+
+	/**
+	 * This configuration parameter defining whether to report task/operator level metric.
+	 */
+	public static final ConfigOption<Boolean> METRIC_ALLOW_NOT_REPORT_ENABLED =
+		key("metrics.allow-not-report.enabled")
+			.defaultValue(false)
+			.withDescription("Flag indicating whether allow metric group not report metric if needed.");
+
+	/**
+	 * This configuration parameter defining whether to only report ioMetric in task/operator level.
+	 */
+	public static final ConfigOption<Boolean> METRIC_TASK_IO_METRIC_REGISTER_ONLY_ENABLED =
+		key("metrics.task-io-metric-register-only.enabled.enabled")
+			.defaultValue(false)
+			.withDescription("Flag indicating whether TM should only register io metrics");
+
 	private MetricOptions() {
 	}
 }

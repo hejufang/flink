@@ -23,9 +23,11 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.core.testutils.BlockerSync;
 import org.apache.flink.metrics.CharacterFilter;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.reporter.MetricReporter;
 import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.MetricRegistryConfiguration;
@@ -269,6 +271,75 @@ public class AbstractMetricGroupTest extends TestLogger {
 		public void checkScopes(Metric metric, String metricName, MetricGroup group) {
 			final String logicalScope = ((FrontMetricGroup<AbstractMetricGroup<?>>) group).getLogicalScope(this, ',');
 			assertEquals("taskmanager,B,X", logicalScope);
+		}
+	}
+
+	/**
+	 * Metric group not report metric.
+	 */
+	public static final class TestMetricGroupWithoutReport extends AbstractMetricGroup<TestMetricGroupWithoutReport> {
+
+		public TestMetricGroupWithoutReport(MetricRegistry registry, String[] scope, TestMetricGroupWithoutReport parent) {
+			super(registry, scope, parent);
+		}
+
+		@Override
+		protected String getGroupName(CharacterFilter filter) {
+			return null;
+		}
+
+		@Override
+		protected QueryScopeInfo createQueryServiceMetricInfo(CharacterFilter filter) {
+			return null;
+		}
+
+		public boolean needReport() {
+			return false;
+		}
+	}
+
+
+	/**
+	 * Reporter that verifies if reporter is reported.
+	 */
+	public static class TestReporter3 extends TestReporter {
+
+		private boolean reported;
+
+		@Override
+		public String filterCharacters(String input) {
+			return FILTER_B.filterCharacters(input);
+		}
+
+		public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group){
+			reported = true;
+		}
+
+		public boolean isReported() {
+			return reported;
+		}
+	}
+
+	@Test
+	public void testRegisterWithoutReporters() throws Exception {
+		Configuration config = new Configuration();
+		config.setBoolean(MetricOptions.METRIC_ALLOW_NOT_REPORT_ENABLED, true);
+		MetricConfig metricConfig = new MetricConfig();
+		metricConfig.setProperty(ConfigConstants.METRICS_REPORTER_SCOPE_DELIMITER, "-");
+		TestReporter3 reporter = new TestReporter3();
+		MetricRegistryImpl testRegistry = new MetricRegistryImpl(
+			MetricRegistryConfiguration.fromConfiguration(config),
+			Arrays.asList(
+				ReporterSetup.forReporter("test1", metricConfig, reporter)));
+		Counter counter = new SimpleCounter();
+		counter.inc(2);
+		try {
+			TestMetricGroupWithoutReport group = new TestMetricGroupWithoutReport(testRegistry, new String[0], null);
+			group.addMetric("test", counter);
+
+			assertTrue(!reporter.isReported());
+		} finally {
+			testRegistry.shutdown().get();
 		}
 	}
 

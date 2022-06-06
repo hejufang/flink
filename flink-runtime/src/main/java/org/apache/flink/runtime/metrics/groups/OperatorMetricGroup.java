@@ -110,6 +110,10 @@ public class OperatorMetricGroup extends ComponentMetricGroup<TaskMetricGroup> {
 		return operatorLatency;
 	}
 
+	public boolean needReport(){
+		return false;
+	}
+
 	// ------------------------------------------------------------------------
 	//  Component Metric Group Specifics
 	// ------------------------------------------------------------------------

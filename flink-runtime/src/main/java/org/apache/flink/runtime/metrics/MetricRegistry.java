@@ -54,11 +54,18 @@ public interface MetricRegistry {
 	/**
 	 * Un-registers the given {@link Metric} with this registry.
 	 *
-	 * @param metric      the metric that should be removed
-	 * @param metricName  the name of the metric
-	 * @param group       the group that contains the metric
+	 * @param metric     the metric that should be removed
+	 * @param metricName the name of the metric
+	 * @param group      the group that contains the metric
 	 */
 	void unregister(Metric metric, String metricName, AbstractMetricGroup group);
+
+	/**
+	 * Returns if only register taskIO metrics in task level metric.
+	 */
+	default boolean isTaskIOMetricRegisterOnlyEnable() {
+		return false;
+	}
 
 	/**
 	 * Returns the scope formats.

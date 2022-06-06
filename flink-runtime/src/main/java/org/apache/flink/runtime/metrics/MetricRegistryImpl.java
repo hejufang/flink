@@ -85,6 +85,10 @@ public class MetricRegistryImpl implements MetricRegistry {
 
 	private ViewUpdater viewUpdater;
 
+	private final boolean allowNotReportEnable;
+
+	private final boolean taskIOMetricRegisterOnlyEnable;
+
 	private boolean isShutdown;
 
 	public MetricRegistryImpl(MetricRegistryConfiguration config) {
@@ -98,6 +102,8 @@ public class MetricRegistryImpl implements MetricRegistry {
 		this.maximumFramesize = config.getQueryServiceMessageSizeLimit();
 		this.scopeFormats = config.getScopeFormats();
 		this.globalDelimiter = config.getDelimiter();
+		this.allowNotReportEnable = config.isAllowNotReportEnable();
+		this.taskIOMetricRegisterOnlyEnable = config.isTaskIOMetricRegisterOnlyEnable();
 		this.terminationFuture = new CompletableFuture<>();
 		this.isShutdown = false;
 
@@ -331,6 +337,12 @@ public class MetricRegistryImpl implements MetricRegistry {
 
 	@Override
 	public void register(Metric metric, String metricName, AbstractMetricGroup group) {
+
+		if (allowNotReportEnable && !group.needReport()) {
+			registerWithoutReport(metric, metricName, group);
+			return;
+		}
+
 		synchronized (lock) {
 			if (isShutdown()) {
 				LOG.warn("Cannot register metric, because the MetricRegistry has already been shut down.");
@@ -369,8 +381,38 @@ public class MetricRegistryImpl implements MetricRegistry {
 		}
 	}
 
+	private void registerWithoutReport(Metric metric, String metricName, AbstractMetricGroup group){
+		if (isShutdown()) {
+			LOG.warn("Cannot register metric, because the MetricRegistry has already been shut down.");
+			return;
+		}
+		try {
+			if (queryService != null) {
+				queryService.addMetric(metricName, metric, group);
+			}
+		} catch (Exception e) {
+			LOG.warn("Error while registering metric: {}.", metricName, e);
+		}
+		try {
+			if (metric instanceof View) {
+				if (viewUpdater == null) {
+					viewUpdater = new ViewUpdater(executor);
+				}
+				viewUpdater.notifyOfAddedView((View) metric);
+			}
+		} catch (Exception e) {
+			LOG.warn("Error while registering metric: {}.", metricName, e);
+		}
+	}
+
 	@Override
 	public void unregister(Metric metric, String metricName, AbstractMetricGroup group) {
+
+		if (allowNotReportEnable && !group.needReport()) {
+			unregisterWithoutReport(metric, metricName);
+			return;
+		}
+
 		synchronized (lock) {
 			if (isShutdown()) {
 				LOG.warn("Cannot unregister metric, because the MetricRegistry has already been shut down.");
@@ -406,6 +448,29 @@ public class MetricRegistryImpl implements MetricRegistry {
 				}
 			}
 		}
+	}
+
+	private void unregisterWithoutReport(Metric metric, String metricName){
+		try {
+			if (queryService != null) {
+				queryService.removeMetric(metric);
+			}
+		} catch (Exception e) {
+			LOG.warn("Error while unregistering metric: {}.", metricName, e);
+		}
+		try {
+			if (metric instanceof View) {
+				if (viewUpdater != null) {
+					viewUpdater.notifyOfRemovedView((View) metric);
+				}
+			}
+		} catch (Exception e) {
+			LOG.warn("Error while unregistering metric: {}", metricName, e);
+		}
+	}
+
+	public boolean isTaskIOMetricRegisterOnlyEnable(){
+		return taskIOMetricRegisterOnlyEnable;
 	}
 
 	// ------------------------------------------------------------------------

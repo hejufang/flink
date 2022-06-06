@@ -44,14 +44,22 @@ public class MetricRegistryConfiguration {
 
 	private final long queryServiceMessageSizeLimit;
 
+	private final boolean allowNotReportEnable;
+
+	private final boolean taskIOMetricRegisterOnlyEnable;
+
 	public MetricRegistryConfiguration(
 		ScopeFormats scopeFormats,
 		char delimiter,
-		long queryServiceMessageSizeLimit) {
+		long queryServiceMessageSizeLimit,
+		boolean allowNotReportEnable,
+		boolean taskIOMetricRegisterOnlyEnable) {
 
 		this.scopeFormats = Preconditions.checkNotNull(scopeFormats);
 		this.delimiter = delimiter;
 		this.queryServiceMessageSizeLimit = queryServiceMessageSizeLimit;
+		this.allowNotReportEnable = allowNotReportEnable;
+		this.taskIOMetricRegisterOnlyEnable = taskIOMetricRegisterOnlyEnable;
 	}
 
 	// ------------------------------------------------------------------------
@@ -68,6 +76,14 @@ public class MetricRegistryConfiguration {
 
 	public long getQueryServiceMessageSizeLimit() {
 		return queryServiceMessageSizeLimit;
+	}
+
+	public boolean isAllowNotReportEnable() {
+		return allowNotReportEnable;
+	}
+
+	public boolean isTaskIOMetricRegisterOnlyEnable() {
+		return taskIOMetricRegisterOnlyEnable;
 	}
 
 	// ------------------------------------------------------------------------
@@ -97,12 +113,16 @@ public class MetricRegistryConfiguration {
 			delim = '.';
 		}
 
+		final boolean allowNotReportEnable = configuration.getBoolean(MetricOptions.METRIC_ALLOW_NOT_REPORT_ENABLED);
+
+		final boolean taskIOMetricRegisterOnlyEnable = configuration.getBoolean(MetricOptions.METRIC_TASK_IO_METRIC_REGISTER_ONLY_ENABLED);
+
 		final long maximumFrameSize = AkkaRpcServiceUtils.extractMaximumFramesize(configuration);
 
 		// padding to account for serialization overhead
 		final long messageSizeLimitPadding = 256;
 
-		return new MetricRegistryConfiguration(scopeFormats, delim, maximumFrameSize - messageSizeLimitPadding);
+		return new MetricRegistryConfiguration(scopeFormats, delim, maximumFrameSize - messageSizeLimitPadding, allowNotReportEnable, taskIOMetricRegisterOnlyEnable);
 	}
 
 	public static MetricRegistryConfiguration defaultMetricRegistryConfiguration() {

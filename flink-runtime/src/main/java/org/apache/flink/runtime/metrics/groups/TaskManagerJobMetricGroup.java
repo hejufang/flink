@@ -114,6 +114,10 @@ public class TaskManagerJobMetricGroup extends JobMetricGroup<TaskManagerMetricG
 		}
 	}
 
+	public boolean needReport(){
+		return false;
+	}
+
 	// ------------------------------------------------------------------------
 	//  Component Metric Group Specifics
 	// ------------------------------------------------------------------------
