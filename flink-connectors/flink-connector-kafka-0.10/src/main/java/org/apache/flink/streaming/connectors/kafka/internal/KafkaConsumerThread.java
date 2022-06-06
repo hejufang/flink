@@ -498,15 +498,16 @@ public class KafkaConsumerThread<T> extends Thread {
 			// replace those with actual offsets, according to what the sentinel value represent.
 			for (KafkaTopicPartitionState<T, TopicPartition> newPartitionState : newPartitions) {
 				if (newPartitionState.getOffset() == KafkaTopicPartitionStateSentinel.EARLIEST_OFFSET) {
+					log.info("Reset partition {} to earliest", newPartitionState.getKafkaTopicPartition());
 					consumerTmp.seekToBeginning(Collections.singletonList(newPartitionState.getKafkaPartitionHandle()));
 					newPartitionState.setOffset(consumerTmp.position(newPartitionState.getKafkaPartitionHandle()) - 1);
 				} else if (newPartitionState.getOffset() == KafkaTopicPartitionStateSentinel.LATEST_OFFSET) {
+					log.info("Reset partition {} to latest", newPartitionState.getKafkaTopicPartition());
 					consumerTmp.seekToEnd(Collections.singletonList(newPartitionState.getKafkaPartitionHandle()));
 					newPartitionState.setOffset(consumerTmp.position(newPartitionState.getKafkaPartitionHandle()) - 1);
 				} else if (newPartitionState.getOffset() == KafkaTopicPartitionStateSentinel.GROUP_OFFSET) {
 					// the KafkaConsumer by default will automatically seek the consumer position
 					// to the committed group offset, so we do not need to do it.
-
 					newPartitionState.setOffset(consumerTmp.position(newPartitionState.getKafkaPartitionHandle()) - 1);
 				} else if (newPartitionState.getOffset() == KafkaTopicPartitionStateSentinel.RESET_TO_EARLIEST_FOR_NEW_PARTITION) {
 					OffsetAndMetadata offsetAndMetadata = consumerTmp.committed(newPartitionState.getKafkaPartitionHandle());
@@ -519,6 +520,8 @@ public class KafkaConsumerThread<T> extends Thread {
 					}
 					newPartitionState.setOffset(offset - 1);
 				} else {
+					log.info("Reset partition {} to offset {}",
+						newPartitionState.getKafkaTopicPartition(), newPartitionState.getOffset() + 1);
 					consumerTmp.seek(newPartitionState.getKafkaPartitionHandle(), newPartitionState.getOffset() + 1);
 				}
 			}
@@ -536,6 +539,7 @@ public class KafkaConsumerThread<T> extends Thread {
 					this.consumer.assign(oldPartitionAssignmentsToPosition.keySet());
 
 					for (Map.Entry<TopicPartition, Long> oldPartitionToPosition : oldPartitionAssignmentsToPosition.entrySet()) {
+						log.info("Seek partition {} to offset {}", oldPartitionToPosition.getKey(), oldPartitionToPosition.getValue());
 						this.consumer.seek(oldPartitionToPosition.getKey(), oldPartitionToPosition.getValue());
 					}
 				}

@@ -894,8 +894,12 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 		try (KafkaConsumer<?, ?> consumer = new KafkaConsumer(properties)) {
 			consumer.assign(topicPartitions);
 			if (startupMode == StartupMode.LATEST) {
+				LOG.info("Seek partitions {} latest offset",
+					topicPartitions.stream().map(TopicPartition::toString).collect(Collectors.joining()));
 				consumer.seekToEnd(topicPartitions);
 			} else if (startupMode == StartupMode.EARLIEST) {
+				LOG.info("Seek partitions {} earliest offset",
+					topicPartitions.stream().map(TopicPartition::toString).collect(Collectors.joining()));
 				consumer.seekToBeginning(topicPartitions);
 			} else if (startupMode == StartupMode.GROUP_OFFSETS) {
 				// do nothing.
