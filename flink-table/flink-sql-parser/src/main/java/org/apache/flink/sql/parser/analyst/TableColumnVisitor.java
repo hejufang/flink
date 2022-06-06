@@ -365,6 +365,9 @@ public class TableColumnVisitor implements SqlVisitor<DepRefSet> {
 		List<ColumnRefWithDep> subQueryColumnReferences =
 			sqlInsert.getSource().accept(this).getColumnReferenceList();
 		TableRefWithDep tableReference = globalDepRefSet.findTableByName(tableName);
+		if (tableReference == null && simpleCatalog != null) {
+			tableReference = simpleCatalog.getTableSchema(tableName);
+		}
 		if (tableReference == null) {
 			throw new ColumnAnalyseException(String.format("Can't find table %s", tableName));
 		}
