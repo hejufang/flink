@@ -74,6 +74,7 @@ public class RPCServiceClientWrapper implements Serializable, RPCServiceClientBa
 			options.getCluster(),
 			options.getConsulUpdateIntervalMs(),
 			options.getConsulUpdateIntervalMs());
+		serviceMeta.setEnableIpv6(true);
 		if (options.getConnectionPoolSize() > 0) {
 			serviceMeta.setCorePoolSize(options.getConnectionPoolSize());
 		}
