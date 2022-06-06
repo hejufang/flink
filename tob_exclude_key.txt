@@ -57,6 +57,9 @@ kubernetes.deployment.annotations
 kubernetes.web-shell.enabled
 kubernetes.stream-log.enabled
 kubernetes.stream-log.domain
+kubernetes.ingress.enable
+kubernetes.podgroup.enable
+kubernetes.hostnetwork.enabled
 
 # Metrics
 metrics.reporter.opentsdb_reporter.class
