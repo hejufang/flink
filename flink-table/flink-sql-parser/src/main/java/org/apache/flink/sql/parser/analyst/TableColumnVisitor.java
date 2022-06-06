@@ -55,6 +55,7 @@ import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlSetOperator;
 import org.apache.calcite.sql.SqlSnapshot;
 import org.apache.calcite.sql.SqlSpecialOperator;
+import org.apache.calcite.sql.SqlTableRef;
 import org.apache.calcite.sql.SqlWindow;
 import org.apache.calcite.sql.fun.SqlCase;
 import org.apache.calcite.sql.util.SqlVisitor;
@@ -140,6 +141,8 @@ public class TableColumnVisitor implements SqlVisitor<DepRefSet> {
 			return visitSqlWindow((SqlWindow) call);
 		} else if (call instanceof SqlOrderBy) {
 			return visitSqlOrderBy((SqlOrderBy) call);
+		} else if (call instanceof SqlTableRef) {
+			return visit((SqlIdentifier) call.operand(0));
 		} else if (call instanceof SqlCreateFunction ||
 				call instanceof SqlCreateTemporalTableFunction ||
 				call instanceof SqlAddResource ||
@@ -361,7 +364,12 @@ public class TableColumnVisitor implements SqlVisitor<DepRefSet> {
 	}
 
 	private DepRefSet visitSqlInsert(SqlInsert sqlInsert) {
-		String tableName = sqlInsert.getTargetTable().toString();
+		String tableName;
+		if (sqlInsert.getTargetTable() instanceof SqlTableRef) {
+			tableName = ((SqlTableRef) sqlInsert.getTargetTable()).operand(0).toString();
+		} else {
+			tableName = sqlInsert.getTargetTable().toString();
+		}
 		List<ColumnRefWithDep> subQueryColumnReferences =
 			sqlInsert.getSource().accept(this).getColumnReferenceList();
 		TableRefWithDep tableReference = globalDepRefSet.findTableByName(tableName);

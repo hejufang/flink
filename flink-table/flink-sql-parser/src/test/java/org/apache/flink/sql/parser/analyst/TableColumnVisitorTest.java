@@ -836,6 +836,36 @@ public class TableColumnVisitorTest {
 		analyseSql(sqlList, expects, simpleCatalog);
 	}
 
+	@Test
+	public void testWithHint() {
+		String[] sqlList = {
+			"insert into kafka.cluster2.kafka_sink /*+ OPTIONS('parallelism' = '10') */ " +
+				"select col11, col12, col13 " +
+				"from kafka.cluster1.kafka_source /*+ OPTIONS('parallelism' = '20') */"
+		};
+
+		String src = "kafka.cluster1.kafka_source";
+		String target = "kafka.cluster2.kafka_sink";
+		TableRefWithDep tableRefWithDep1 = new TableRefWithDep(src);
+		tableRefWithDep1.addColumnName("col11");
+		tableRefWithDep1.addColumnName("col12");
+		tableRefWithDep1.addColumnName("col13");
+		TableRefWithDep tableRefWithDep2 = new TableRefWithDep(target);
+		tableRefWithDep2.addColumnName("col21");
+		tableRefWithDep2.addColumnName("col22");
+		tableRefWithDep2.addColumnName("col23");
+		SimpleCatalog simpleCatalog = name -> src.equals(name) ? tableRefWithDep1 : target.equals(name) ? tableRefWithDep2 : null;
+
+		Map<TableColumn, Set<TableColumn>> expects = new HashMap<>();
+		expects.put(new TableColumn(target, "col21"),
+			newTableColumnSet(new TableColumn(src, "col11")));
+		expects.put(new TableColumn(target, "col22"),
+			newTableColumnSet(new TableColumn(src, "col12")));
+		expects.put(new TableColumn(target, "col23"),
+			newTableColumnSet(new TableColumn(src, "col13")));
+		analyseSql(sqlList, expects, simpleCatalog);
+	}
+
 	private void analyseSql(String[] sqlList, Map<TableColumn, Set<TableColumn>> tableColumnListMap) {
 		analyseSql(sqlList, tableColumnListMap, null, TableColumnVisitor.FlinkPropertyVersion.FLINK_1_11);
 	}
