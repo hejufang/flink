@@ -101,4 +101,9 @@ public interface InternalTimerService<N> {
 	default void deleteEventTimeTimer(N namespace, long time, byte[] payload) {
 		deleteEventTimeTimer(namespace, time);
 	}
+
+	/**
+	 * Trigger All the Processing timers.
+	 */
+	void triggerAllProcessingTimeTimer() throws Exception;
 }

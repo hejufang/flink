@@ -639,6 +639,49 @@ public class InternalTimerServiceImplTest {
 		Assert.assertEquals(timers, results);
 	}
 
+
+	/**
+	 * This also verifies that we iterate over all timers and set the key context on each element.
+	 */
+	@Test
+	public void testTriggerAllProcessingTimers() throws Exception {
+		Triggerable<Integer, String> mockTriggerable = mock(Triggerable.class);
+
+		TestKeyContext keyContext = new TestKeyContext();
+		TestProcessingTimeService processingTimeService = new TestProcessingTimeService();
+		InternalTimerServiceImpl<Integer, String> timerService =
+			createAndStartInternalTimerService(mockTriggerable, keyContext, processingTimeService, testKeyGroupRange, createQueueFactory());
+
+		// get two different keys
+		int key1 = getKeyInKeyGroupRange(testKeyGroupRange, maxParallelism);
+		int key2 = getKeyInKeyGroupRange(testKeyGroupRange, maxParallelism);
+		while (key2 == key1) {
+			key2 = getKeyInKeyGroupRange(testKeyGroupRange, maxParallelism);
+		}
+
+		Set<Tuple3<Integer, String, Long>> timers = new HashSet<>();
+		timers.add(Tuple3.of(key1, "ciao", 5L));
+		timers.add(Tuple3.of(key1, "hello", 7L));
+		timers.add(Tuple3.of(key2, "ciao", 9L));
+		timers.add(Tuple3.of(key2, "hello", 100L));
+		timers.add(Tuple3.of(key2, "ciao", 1000L));
+
+		for (Tuple3<Integer, String, Long> timer : timers) {
+			keyContext.setCurrentKey(timer.f0);
+			timerService.registerProcessingTimeTimer(timer.f1, timer.f2);
+		}
+
+		timerService.triggerAllProcessingTimeTimer();
+
+		verify(mockTriggerable, times(5)).onProcessingTime(anyInternalTimer());
+		verify(mockTriggerable, times(1)).onProcessingTime(eq(new TimerHeapInternalTimer<>(5, key1, "ciao")));
+		verify(mockTriggerable, times(1)).onProcessingTime(eq(new TimerHeapInternalTimer<>(7, key1, "hello")));
+		verify(mockTriggerable, times(1)).onProcessingTime(eq(new TimerHeapInternalTimer<>(9, key2, "ciao")));
+		verify(mockTriggerable, times(1)).onProcessingTime(eq(new TimerHeapInternalTimer<>(100, key2, "hello")));
+		verify(mockTriggerable, times(1)).onProcessingTime(eq(new TimerHeapInternalTimer<>(1000L, key2, "ciao")));
+
+	}
+
 	@Test
 	public void testSnapshotAndRestore() throws Exception {
 		testSnapshotAndRestore(InternalTimerServiceSerializationProxy.VERSION);

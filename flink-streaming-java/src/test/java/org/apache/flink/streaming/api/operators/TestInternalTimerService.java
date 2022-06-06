@@ -125,6 +125,11 @@ public class TestInternalTimerService<K, N> implements InternalTimerService<N> {
 		}
 	}
 
+	@Override
+	public void triggerAllProcessingTimeTimer() throws Exception {
+		advanceProcessingTime(Long.MAX_VALUE);
+	}
+
 	public Collection<Timer<K, N>> advanceProcessingTime(long time) throws Exception {
 		List<Timer<K, N>> result = new ArrayList<>();
 

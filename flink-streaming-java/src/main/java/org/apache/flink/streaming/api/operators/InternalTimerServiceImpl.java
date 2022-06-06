@@ -298,6 +298,11 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 	}
 
 	@Override
+	public void triggerAllProcessingTimeTimer() throws Exception {
+		onProcessingTime(Long.MAX_VALUE);
+	}
+
+	@Override
 	public void deleteEventTimeTimer(N namespace, long time, byte[] payload) {
 		eventTimeTimersQueue.remove(new TimerHeapInternalTimer<>(time, (K) keyContext.getCurrentKey(), namespace, payload));
 	}
