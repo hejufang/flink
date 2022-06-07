@@ -126,6 +126,7 @@ common:
   kubernetes.ingress.enable: true
   kubernetes.podgroup.enable: true
   kubernetes.hostnetwork.enabled: true
+  containerized.master.env.KUBERNETES_REQUEST_TIMEOUT: 30000
 
   pipeline.file-mounted-path: /opt/tiger/workdir
 

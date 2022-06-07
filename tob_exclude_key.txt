@@ -60,6 +60,7 @@ kubernetes.stream-log.domain
 kubernetes.ingress.enable
 kubernetes.podgroup.enable
 kubernetes.hostnetwork.enabled
+containerized.master.env.KUBERNETES_REQUEST_TIMEOUT
 
 # Metrics
 metrics.reporter.opentsdb_reporter.class
