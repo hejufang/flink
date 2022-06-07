@@ -18,9 +18,13 @@
 
 package org.apache.flink.cep;
 
+import org.apache.flink.api.common.typeinfo.TypeHint;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.cep.pattern.Pattern;
+import org.apache.flink.cep.pattern.PatternProcessor;
 import org.apache.flink.cep.pattern.parser.CepEventParserFactory;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 
 import java.util.List;
 
@@ -48,6 +52,18 @@ public class CEP {
 
 	public static <T> MultiplePatternStream<T> pattern(DataStream<T> input, DataStream<Pattern<T, T>> patternDataStream) {
 		return new MultiplePatternStream<>(input, patternDataStream);
+	}
+
+	/**
+	 * Creates a {@link DataStream} from an input data stream and na input PatternProcessor.
+	 * @param input
+	 * @param patternDataStream
+	 * @param <IN>
+	 * @return
+	 */
+	public static <IN, OUT> SingleOutputStreamOperator<OUT> patternProcess(DataStream<IN> input, DataStream<PatternProcessor<IN, ?>> patternDataStream) {
+		TypeInformation<OUT> returnType = TypeInformation.of(new TypeHint<OUT>() {});
+		return new MultiplePatternStream<>(input, patternDataStream).process(returnType);
 	}
 
 	public static <T> MultiplePatternStream<T> pattern(DataStream<T> input, DataStream<String> patternJsonStream, CepEventParserFactory factory) {

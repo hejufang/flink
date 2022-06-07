@@ -48,7 +48,7 @@ public class MultiplePatternStream<T> {
 		this.builder = checkNotNull(builder);
 	}
 
-	MultiplePatternStream(final DataStream<T> inputStream, final DataStream<Pattern<T, T>> patternDataStream) {
+	MultiplePatternStream(final DataStream<T> inputStream, final DataStream<?> patternDataStream) {
 		this(MultiplePatternStreamBuilder.forStreamAndPatternDataStream(inputStream, patternDataStream));
 	}
 
@@ -113,6 +113,10 @@ public class MultiplePatternStream<T> {
 		return builder.build(
 				outTypeInfo,
 				builder.clean(patternProcessFunction));
+	}
+
+	public  <R> SingleOutputStreamOperator<R> process(final TypeInformation<R> outTypeInfo) {
+		return builder.build(outTypeInfo);
 	}
 
 	public <R> SingleOutputStreamOperator<R> select(final MultiplePatternSelectFunction<T, R> patternSelectFunction) {

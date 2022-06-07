@@ -19,6 +19,7 @@
 package org.apache.flink.cep;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.functions.KeySelector;
@@ -28,8 +29,12 @@ import org.apache.flink.cep.functions.MultiplePatternProcessFunction;
 import org.apache.flink.cep.functions.SimpleEmptyPatternStreamFactory;
 import org.apache.flink.cep.functions.timestamps.CepTimestampExtractor;
 import org.apache.flink.cep.nfa.aftermatch.AfterMatchSkipStrategy;
+import org.apache.flink.cep.operator.CepKeyGenOperator;
 import org.apache.flink.cep.operator.CoCepOperator;
+import org.apache.flink.cep.operator.CoCepOperatorV2;
+import org.apache.flink.cep.pattern.KeyedCepEvent;
 import org.apache.flink.cep.pattern.Pattern;
+import org.apache.flink.cep.pattern.PatternProcessor;
 import org.apache.flink.cep.pattern.parser.CepEventParserFactory;
 import org.apache.flink.cep.pattern.parser.PatternConverter;
 import org.apache.flink.cep.pattern.parser.PojoStreamToPatternStreamConverter;
@@ -60,7 +65,6 @@ import java.util.Optional;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
- *
  * @param <IN>
  */
 public class MultiplePatternStreamBuilder<IN> {
@@ -70,6 +74,9 @@ public class MultiplePatternStreamBuilder<IN> {
 
 	@Nullable
 	private DataStream<Pattern<IN, IN>> patternDataStream;
+
+	@Nullable
+	private DataStream<PatternProcessor<IN, ?>> patternProcessorDataStream;
 
 	@Nullable
 	private DataStream<String> patternJsonStream;
@@ -95,19 +102,21 @@ public class MultiplePatternStreamBuilder<IN> {
 	private EmptyPatternStreamFactory emptyPatternStreamFactory;
 
 	private MultiplePatternStreamBuilder(
-			final DataStream<IN> inputStream,
-			@Nullable final DataStream<Pattern<IN, IN>> patternDataStream,
-			@Nullable final DataStream<String> patternJsonStream,
-			@Nullable final EventComparator<IN> comparator,
-			@Nullable final OutputTag<IN> lateDataOutputTag,
-			@Nullable final CepEventParserFactory cepEventParserFactory,
-			@Nullable final CepTimestampExtractor timestampExtractor,
-			final List<Pattern<IN, IN>> initialPatterns,
-			final EmptyPatternStreamFactory emptyPatternStreamFactory,
-			final Map<String, String> properties) {
-		Preconditions.checkArgument(patternDataStream != null || patternJsonStream != null || initialPatterns != null, "none streams for pattern.");
+		final DataStream<IN> inputStream,
+		@Nullable final DataStream<Pattern<IN, IN>> patternDataStream,
+		@Nullable final DataStream<PatternProcessor<IN, ?>> patternProcessorDataStream,
+		@Nullable final DataStream<String> patternJsonStream,
+		@Nullable final EventComparator<IN> comparator,
+		@Nullable final OutputTag<IN> lateDataOutputTag,
+		@Nullable final CepEventParserFactory cepEventParserFactory,
+		@Nullable final CepTimestampExtractor timestampExtractor,
+		final List<Pattern<IN, IN>> initialPatterns,
+		final EmptyPatternStreamFactory emptyPatternStreamFactory,
+		final Map<String, String> properties) {
+		Preconditions.checkArgument(patternDataStream != null || patternProcessorDataStream != null || patternJsonStream != null || initialPatterns != null, "none streams for pattern.");
 
 		if (patternDataStream != null) {
+			Preconditions.checkArgument(patternProcessorDataStream == null);
 			Preconditions.checkArgument(patternJsonStream == null);
 		}
 
@@ -115,12 +124,13 @@ public class MultiplePatternStreamBuilder<IN> {
 			Preconditions.checkArgument(cepEventParserFactory != null);
 		}
 
-		if (patternJsonStream == null && patternDataStream == null) {
+		if (patternJsonStream == null && patternProcessorDataStream == null && patternDataStream == null) {
 			Preconditions.checkArgument(initialPatterns != null);
 		}
 
 		this.inputStream = checkNotNull(inputStream);
 		this.patternDataStream = patternDataStream;
+		this.patternProcessorDataStream = patternProcessorDataStream;
 		this.patternJsonStream = patternJsonStream;
 		this.comparator = comparator;
 		this.lateDataOutputTag = lateDataOutputTag;
@@ -146,15 +156,15 @@ public class MultiplePatternStreamBuilder<IN> {
 	}
 
 	MultiplePatternStreamBuilder<IN> withProperties(final Map<String, String> properties) {
-		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, comparator, lateDataOutputTag, cepEventParserFactory, timestampExtractor, initialPatterns, emptyPatternStreamFactory, checkNotNull(properties));
+		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternProcessorDataStream, patternJsonStream, comparator, lateDataOutputTag, cepEventParserFactory, timestampExtractor, initialPatterns, emptyPatternStreamFactory, checkNotNull(properties));
 	}
 
 	MultiplePatternStreamBuilder<IN> withComparator(final EventComparator<IN> comparator) {
-		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, checkNotNull(comparator), lateDataOutputTag, cepEventParserFactory, timestampExtractor, initialPatterns, emptyPatternStreamFactory, properties);
+		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternProcessorDataStream, patternJsonStream, checkNotNull(comparator), lateDataOutputTag, cepEventParserFactory, timestampExtractor, initialPatterns, emptyPatternStreamFactory, properties);
 	}
 
 	MultiplePatternStreamBuilder<IN> withLateDataOutputTag(final OutputTag<IN> lateDataOutputTag) {
-		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, comparator, checkNotNull(lateDataOutputTag), cepEventParserFactory, timestampExtractor, initialPatterns, emptyPatternStreamFactory, properties);
+		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternProcessorDataStream, patternJsonStream, comparator, checkNotNull(lateDataOutputTag), cepEventParserFactory, timestampExtractor, initialPatterns, emptyPatternStreamFactory, properties);
 	}
 
 	MultiplePatternStreamBuilder<IN> withInitialPatternJsons(List<String> jsons) {
@@ -177,46 +187,52 @@ public class MultiplePatternStreamBuilder<IN> {
 				LOG.error("Fail to parse initial pattern {}.", json);
 			}
 		}
-		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, comparator, lateDataOutputTag, cepEventParserFactory, timestampExtractor, checkNotNull(patterns), emptyPatternStreamFactory, properties);
+		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternProcessorDataStream, patternJsonStream, comparator, lateDataOutputTag, cepEventParserFactory, timestampExtractor, checkNotNull(patterns), emptyPatternStreamFactory, properties);
 	}
 
 	MultiplePatternStreamBuilder<IN> withInitialPatterns(List<Pattern<IN, IN>> patterns) {
-		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, comparator, lateDataOutputTag, cepEventParserFactory, timestampExtractor, checkNotNull(patterns), emptyPatternStreamFactory, properties);
+		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternProcessorDataStream, patternJsonStream, comparator, lateDataOutputTag, cepEventParserFactory, timestampExtractor, checkNotNull(patterns), emptyPatternStreamFactory, properties);
 	}
 
 	MultiplePatternStreamBuilder<IN> withTimestampExtractor(CepTimestampExtractor<IN> timestampExtractor) {
-		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, comparator, lateDataOutputTag, cepEventParserFactory, checkNotNull(timestampExtractor), initialPatterns, emptyPatternStreamFactory, properties);
+		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternProcessorDataStream, patternJsonStream, comparator, lateDataOutputTag, cepEventParserFactory, checkNotNull(timestampExtractor), initialPatterns, emptyPatternStreamFactory, properties);
 	}
 
 	MultiplePatternStreamBuilder<IN> withEmptyPatternStreamFactory(EmptyPatternStreamFactory emptyPatternStreamFactory) {
-		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, comparator, lateDataOutputTag, cepEventParserFactory, timestampExtractor, initialPatterns, checkNotNull(emptyPatternStreamFactory), properties);
+		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternProcessorDataStream, patternJsonStream, comparator, lateDataOutputTag, cepEventParserFactory, timestampExtractor, initialPatterns, checkNotNull(emptyPatternStreamFactory), properties);
 	}
 
 	<OUT, K> SingleOutputStreamOperator<OUT> build(
-			final TypeInformation<OUT> outTypeInfo,
-			final MultiplePatternProcessFunction<IN, OUT> processFunction) {
+		final TypeInformation<OUT> outTypeInfo,
+		final MultiplePatternProcessFunction<IN, OUT> processFunction) {
 
 		checkNotNull(outTypeInfo);
 		checkNotNull(processFunction);
-
 		if (patternDataStream != null) {
 			return buildTwoInputStream(outTypeInfo, processFunction);
 		} else if (patternJsonStream != null) {
 			// convert json stream to pattern data stream
 			this.patternDataStream = PojoStreamToPatternStreamConverter.convert(patternJsonStream, cepEventParserFactory);
 			return buildTwoInputStream(outTypeInfo, processFunction);
-		} else if (initialPatterns != null){
+		} else if (initialPatterns != null) {
 			this.patternDataStream = emptyPatternStreamFactory.createEmptyPatternStream();
 			return buildTwoInputStream(outTypeInfo, processFunction);
+		} else {
+			throw new UnsupportedOperationException();
 		}
-		else {
+	}
+
+	<OUT, K> SingleOutputStreamOperator<OUT> build(final TypeInformation<OUT> outTypeInfo) {
+		if (patternProcessorDataStream != null){
+			return buildTwoInputStreamV2(outTypeInfo);
+		} else {
 			throw new UnsupportedOperationException();
 		}
 	}
 
 	private <OUT, K> SingleOutputStreamOperator<OUT> buildTwoInputStream(
-			final TypeInformation<OUT> outTypeInfo,
-			final MultiplePatternProcessFunction<IN, OUT> processFunction) {
+		final TypeInformation<OUT> outTypeInfo,
+		final MultiplePatternProcessFunction<IN, OUT> processFunction) {
 		Preconditions.checkState(patternDataStream != null, "cannot support dynamic update without pattern stream.");
 
 		final TypeSerializer<IN> inputSerializer = inputStream.getType().createSerializer(inputStream.getExecutionConfig());
@@ -226,15 +242,15 @@ public class MultiplePatternStreamBuilder<IN> {
 		inputStream.getExecutionEnvironment().getConfig().enableNewTimerMechanism();
 
 		final CoCepOperator<IN, K, OUT> operator = new CoCepOperator<>(
-				inputSerializer,
-				isProcessingTime,
-				comparator,
-				AfterMatchSkipStrategy.skipPastLastEvent(),
-				processFunction,
-				lateDataOutputTag,
-				timestampExtractor,
-				initialPatterns,
-				properties);
+			inputSerializer,
+			isProcessingTime,
+			comparator,
+			AfterMatchSkipStrategy.skipPastLastEvent(),
+			processFunction,
+			lateDataOutputTag,
+			timestampExtractor,
+			initialPatterns,
+			properties);
 
 		final KeyedStream keyedStream;
 
@@ -246,12 +262,12 @@ public class MultiplePatternStreamBuilder<IN> {
 		}
 
 		TwoInputTransformation<IN, Pattern<IN, IN>, OUT> transform = new TwoInputTransformation<>(
-				inputStream.getTransformation(),
-				patternDataStream.broadcast().getTransformation(),
-				"CoCepOperator",
-				operator,
-				outTypeInfo,
-				inputStream.getExecutionEnvironment().getParallelism());
+			inputStream.getTransformation(),
+			patternDataStream.broadcast().getTransformation(),
+			"CoCepOperator",
+			operator,
+			outTypeInfo,
+			inputStream.getExecutionEnvironment().getParallelism());
 
 		TypeInformation<?> keyType1 = keyedStream.getKeyType();
 		transform.setUid("cep-co-operator");
@@ -263,9 +279,69 @@ public class MultiplePatternStreamBuilder<IN> {
 
 		environment.addOperator(transform);
 
-		if (!(inputStream instanceof KeyedStream)){
+		if (!(inputStream instanceof KeyedStream)) {
 			returnStream.forceNonParallel();
 		}
+
+		return returnStream;
+	}
+
+	/**
+	 *
+	 * @param outTypeInfo
+	 * @param <OUT>
+	 * @param <K>
+	 * @return
+	 */
+	private <OUT, K> SingleOutputStreamOperator<OUT> buildTwoInputStreamV2(
+		final TypeInformation<OUT> outTypeInfo) {
+		Preconditions.checkState(patternProcessorDataStream != null, "cannot support dynamic update without patternProcessor stream.");
+
+		final TypeSerializer<IN> inputSerializer = inputStream.getType().createSerializer(inputStream.getExecutionConfig());
+		final TypeSerializer<KeyedCepEvent<IN>> keyedCepEventSerializer = TypeInformation.of(new TypeHint<KeyedCepEvent<IN>>(){}).createSerializer(inputStream.getExecutionConfig());
+		final boolean isProcessingTime = inputStream.getExecutionEnvironment().getStreamTimeCharacteristic() == TimeCharacteristic.ProcessingTime;
+
+		// enable the new Timer mechanism to use "PayLoad" feature in CoCepOperator
+		inputStream.getExecutionEnvironment().getConfig().enableNewTimerMechanism();
+
+		final CepKeyGenOperator cepKeyGenOperator = new CepKeyGenOperator<>();
+
+		final CoCepOperatorV2 operator = new CoCepOperatorV2<>(
+			inputSerializer,
+			keyedCepEventSerializer,
+			isProcessingTime,
+			AfterMatchSkipStrategy.skipPastLastEvent(),
+			lateDataOutputTag,
+			timestampExtractor,
+			properties);
+
+		TwoInputTransformation<IN, PatternProcessor<IN, ?>, KeyedCepEvent<IN>> keyGenTransform = new TwoInputTransformation<>(
+			inputStream.getTransformation(),
+			patternProcessorDataStream.broadcast().getTransformation(),
+			"CepKeyGenOperator",
+			cepKeyGenOperator,
+			outTypeInfo,
+			inputStream.getExecutionEnvironment().getParallelism());
+		keyGenTransform.setUid("cep-keygen-operator");
+		StreamExecutionEnvironment environment = inputStream.getExecutionEnvironment();
+		// Keyed Stream
+		KeyedStream<KeyedCepEvent<IN>, Object> keyedStream = new SingleOutputStreamOperator(environment, keyGenTransform).keyBy((KeySelector) value -> ((KeyedCepEvent<IN>) value).getKey());
+
+		TwoInputTransformation<KeyedCepEvent<IN>, PatternProcessor<IN, ?>, Object> transform = new TwoInputTransformation<>(
+			keyedStream.getTransformation(),
+			patternProcessorDataStream.broadcast().getTransformation(),
+			"CoCepOperatorV2",
+			operator,
+			outTypeInfo,
+			inputStream.getExecutionEnvironment().getParallelism());
+
+		TypeInformation<?> keyType = keyedStream.getKeyType();
+		transform.setUid("cep-co-operatorv2");
+		transform.setStateKeySelectors(keyedStream.getKeySelector(), null);
+		transform.setStateKeyType(keyType);
+		SingleOutputStreamOperator<OUT> returnStream = new SingleOutputStreamOperator(environment, transform);
+
+		environment.addOperator(transform);
 
 		return returnStream;
 	}
@@ -273,19 +349,25 @@ public class MultiplePatternStreamBuilder<IN> {
 	// ---------------------------------------- factory-like methods ---------------------------------------- //
 
 	static <IN> MultiplePatternStreamBuilder<IN> forStreamAndPattern(final DataStream<IN> inputStream, final Pattern<IN, ?> pattern) {
-		return new MultiplePatternStreamBuilder<>(inputStream, null, null, null, null, null, null, Collections.emptyList(), null, new HashMap<>());
+		return new MultiplePatternStreamBuilder<>(inputStream, null, null, null, null, null, null, null, Collections.emptyList(), null, new HashMap<>());
 	}
 
-	static <IN> MultiplePatternStreamBuilder<IN> forStreamAndPatternDataStream(final DataStream<IN> inputStream, final DataStream<Pattern<IN, IN>> patternDataStream) {
-		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, null, null, null, null, null, Collections.emptyList(), null, new HashMap<>());
+	static <IN> MultiplePatternStreamBuilder<IN> forStreamAndPatternDataStream(final DataStream<IN> inputStream, final DataStream<?> patternDataStream) {
+		if (patternDataStream.getType().getTypeClass() == Pattern.class) {
+			return new MultiplePatternStreamBuilder<>(inputStream, (DataStream<Pattern<IN, IN>>) patternDataStream, null, null, null, null, null, null, Collections.emptyList(), null, new HashMap<>());
+		} else if (patternDataStream.getType().getTypeClass() == PatternProcessor.class){
+			return new MultiplePatternStreamBuilder<>(inputStream, null , (DataStream<PatternProcessor<IN, ?>>) patternDataStream, null, null, null, null, null, Collections.emptyList(), null, new HashMap<>());
+		} else {
+			throw new UnsupportedOperationException("PatternDataStream data type :" + patternDataStream.getType().getTypeClass().getName() + " is unsupported");
+		}
 	}
 
 	static <IN> MultiplePatternStreamBuilder<IN> forStreamAndPatternJsonStream(final DataStream<IN> inputStream, final DataStream<String> patternJsonStream, final CepEventParserFactory factory) {
-		return new MultiplePatternStreamBuilder<>(inputStream, null, patternJsonStream, null, null, factory, null, Collections.emptyList(), null, new HashMap<>());
+		return new MultiplePatternStreamBuilder<>(inputStream, null, null, patternJsonStream, null, null, factory, null, Collections.emptyList(), null, new HashMap<>());
 	}
 
 	static <IN> MultiplePatternStreamBuilder<IN> forStreamAndPatternList(final DataStream<IN> inputStream, List<Pattern<IN, IN>> patternList) {
-		return new MultiplePatternStreamBuilder<>(inputStream, null, null, null, null, null, null, patternList, new SimpleEmptyPatternStreamFactory(), new HashMap<>());
+		return new MultiplePatternStreamBuilder<>(inputStream, null, null, null, null, null, null, null, patternList, new SimpleEmptyPatternStreamFactory(), new HashMap<>());
 	}
 
 }
