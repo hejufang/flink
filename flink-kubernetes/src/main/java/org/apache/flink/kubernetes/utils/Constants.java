@@ -136,6 +136,7 @@ public class Constants {
 	public static final String POD_GROUP_NAME_ANNOTATION_KEY = "godel.bytedance.com/pod-group-name";
 	public static final String POD_GROUP_NAME_PREFIX = "app-";
 	public static final String KUBERNETES_ANNOTATION_QUEUE_KEY = "godel.bytedance.com/queue-name";
+	public static final String ARCEE_SECRETE_TEMPLATE = "arceeapplication-%cluster-id%";
 
 	public static final String PORT0_ENV = "PORT0";
 	public static final String PORT1_ENV = "PORT1";

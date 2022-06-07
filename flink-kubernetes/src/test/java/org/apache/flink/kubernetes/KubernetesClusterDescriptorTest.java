@@ -29,6 +29,7 @@ import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesDeploymentTarget;
 import org.apache.flink.kubernetes.kubeclient.decorators.InternalServiceDecorator;
 import org.apache.flink.kubernetes.utils.Constants;
@@ -48,6 +49,7 @@ import java.util.stream.Collectors;
 import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_IP_ADDRESS;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -234,5 +236,35 @@ public class KubernetesClusterDescriptorTest extends KubernetesClientTestBase {
 		assertEquals(
 			String.valueOf(clusterSpecification.getMasterMemoryMB()),
 			jmContainer.getResources().getLimits().get(Constants.RESOURCE_NAME_MEMORY).getAmount());
+	}
+
+	@Test
+	public void testSettingCSIWhenArceeEnabled() {
+		assertNotEquals(KubernetesConfigOptions.DownloadMode.CSI, flinkConfig.get(KubernetesConfigOptions.FILE_DOWNLOAD_MODE));
+		// enable arcee
+		flinkConfig.set(KubernetesConfigOptions.ARCEE_ENABLED, true);
+		KubernetesClusterDescriptor.setCSIModeWhenArceeEnabled(flinkConfig);
+		assertEquals(KubernetesConfigOptions.DownloadMode.CSI, flinkConfig.get(KubernetesConfigOptions.FILE_DOWNLOAD_MODE));
+		assertEquals(Constants.ARCEE_SECRETE_TEMPLATE, flinkConfig.get(KubernetesConfigOptions.GDPR_SECRETE_NAME_TEMPLATE));
+	}
+
+	@Test
+	public void testSettingCSIWhenArceeAndInit_ContainerEnabled() {
+		flinkConfig.set(KubernetesConfigOptions.FILE_DOWNLOAD_MODE, KubernetesConfigOptions.DownloadMode.INIT_CONTAINER);
+	   // both enable arcee and specify download mode to init container
+		flinkConfig.set(KubernetesConfigOptions.ARCEE_ENABLED, true);
+		KubernetesClusterDescriptor.setCSIModeWhenArceeEnabled(flinkConfig);
+		assertEquals(KubernetesConfigOptions.DownloadMode.INIT_CONTAINER, flinkConfig.get(KubernetesConfigOptions.FILE_DOWNLOAD_MODE));
+		assertEquals(Constants.ARCEE_SECRETE_TEMPLATE, flinkConfig.get(KubernetesConfigOptions.GDPR_SECRETE_NAME_TEMPLATE));
+	}
+
+	@Test
+	public void testSettingCSIWhenArceeAndSecretSpecified() {
+		flinkConfig.set(KubernetesConfigOptions.GDPR_SECRETE_NAME_TEMPLATE, "secret-test");
+		// both enable arcee and specify GDPR_SECRETE_NAME_TEMPLATE
+		flinkConfig.set(KubernetesConfigOptions.ARCEE_ENABLED, true);
+		KubernetesClusterDescriptor.setCSIModeWhenArceeEnabled(flinkConfig);
+		assertEquals(KubernetesConfigOptions.DownloadMode.CSI, flinkConfig.get(KubernetesConfigOptions.FILE_DOWNLOAD_MODE));
+		assertNotEquals(Constants.ARCEE_SECRETE_TEMPLATE, flinkConfig.get(KubernetesConfigOptions.GDPR_SECRETE_NAME_TEMPLATE));
 	}
 }
