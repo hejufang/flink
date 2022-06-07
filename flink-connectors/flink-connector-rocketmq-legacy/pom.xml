@@ -30,7 +30,7 @@ under the License.
 	<artifactId>flink-connector-rocketmq-legacy</artifactId>
 
 	<properties>
-		<rocketmq.version>4.6.10-BYTEDANCE</rocketmq.version>
+		<rocketmq.version>4.6.27-BYTEDANCE</rocketmq.version>
 	</properties>
 
 	<dependencies>
@@ -82,6 +82,10 @@ under the License.
 					<groupId>io.netty</groupId>
 					<artifactId>netty-tcnative</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>log4j</groupId>
+					<artifactId>log4j</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 
@@ -115,6 +119,18 @@ under the License.
 											<include>*:*</include>
 										</includes>
 									</artifactSet>
+									<filters>
+										<filter>
+											<artifact>*</artifact>
+											<excludes>
+												<exclude>log4j.properties</exclude>
+												<exclude>log4j-test.properties</exclude>
+												<exclude>META-INF/*.SF</exclude>
+												<exclude>META-INF/*.DSA</exclude>
+												<exclude>META-INF/*.RSA</exclude>
+											</excludes>
+										</filter>
+									</filters>
 									<relocations>
 										<relocation>
 											<pattern>org.json.simple</pattern>
