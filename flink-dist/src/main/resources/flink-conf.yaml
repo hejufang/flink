@@ -1468,6 +1468,25 @@ spider:
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
 
+saola:
+  dc: sg
+  clusterName: saola
+  high-availability.zookeeper.quorum: 10.111.64.47:2181,10.111.64.48:2181,10.111.64.49:2181,10.111.64.50:2181,10.111.64.51:2181
+  hdfs.prefix: hdfs://harunasg/home/byte_flink_sg2
+  checkpoint.hdfs.prefix: hdfs://harunasg/home/byte_flink_checkpoint_sg2
+  dashboard.data_source: Bytetsd-Singapore-Central
+  grafana.domain_url: "https://grafana-i18n.byted.org"
+  register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  dtop.data_source: dtop_alisg
+  dtop.database: dtop_alisg
+  smart-resources.service-name: data.inf.sr_estimater.service.sg1
+  kafka_server_url: http://kafka-config-sg.byted.org
+  docker.server: aliyun-sin-hub.byted.org
+  docker.hub: aliyun-sin-hub.byted.org
+  docker.region: Aliyun_SG
+  jobmeta.db.name: flink_meta_sg
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
+
 icing:
   dc: i18n_gcp
   clusterName: icing
