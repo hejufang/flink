@@ -57,9 +57,6 @@ kubernetes.deployment.annotations
 kubernetes.web-shell.enabled
 kubernetes.stream-log.enabled
 kubernetes.stream-log.domain
-kubernetes.ingress.enable
-kubernetes.podgroup.enable
-kubernetes.hostnetwork.enabled
 containerized.master.env.KUBERNETES_REQUEST_TIMEOUT
 
 # Metrics

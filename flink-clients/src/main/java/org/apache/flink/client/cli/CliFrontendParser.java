@@ -327,13 +327,11 @@ public class CliFrontendParser {
 		Options options = buildGeneralOptions(new Options());
 		options.addOption(ALL_OPTION);
 		options.addOption(RUNNING_OPTION);
-		options.addOption(CLUSTER_NAME_OPTION);
 		return options.addOption(SCHEDULED_OPTION);
 	}
 
 	static Options getCancelCommandOptions() {
 		Options options = buildGeneralOptions(new Options());
-		options.addOption(CLUSTER_NAME_OPTION);
 		return options.addOption(CANCEL_WITH_SAVEPOINT_OPTION);
 	}
 

@@ -113,19 +113,11 @@ common:
   kubernetes.entry.path: /opt/tiger/flink_deploy/bin/kubernetes-entry.sh
   kubernetes.namespace: flink
   kubernetes.jobmanager.service-account: flink
-  kubernetes.deployment.annotations.pod.tce.kubernetes.io/mountHostPath: "true"
+  kubernetes.deployment.annotations: "pod.tce.kubernetes.io/mountHostPath:true"
   kubernetes.container.work.dir: /opt/tiger/workdir
   kubernetes.web-shell.enabled: true
   kubernetes.stream-log.enabled: true
   kubernetes.stream-log.domain: "cloud.bytedance.net"
-  kubernetes.rest-service.exposed.type: ClusterIP
-  kubernetes.ingress.annotations.nginx.ingress.kubernetes.io/proxy-body-size: "100m"
-  kubernetes.ingress.annotations.nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
-  kubernetes.ingress.annotations.nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
-  kubernetes.ingress.annotations.nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-  kubernetes.ingress.enable: true
-  kubernetes.podgroup.enable: true
-  kubernetes.hostnetwork.enabled: true
   containerized.master.env.KUBERNETES_REQUEST_TIMEOUT: 30000
 
   pipeline.file-mounted-path: /opt/tiger/workdir
@@ -1053,7 +1045,7 @@ vivid:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
-  
+
 macaw:
   dc: va
   clusterName: macaw
@@ -1635,12 +1627,23 @@ Gaura-LF:
   high-availability.zookeeper.quorum: 10.203.13.5:2181,10.203.22.4:2181,10.203.9.24:2181,10.203.19.4:2181,10.203.7.6:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  containerized.taskmanager.env.METRICS_USE_SOCK: true
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
+  metrics.reporter.opentsdb_reporter.use_domain_sock: true
+  taskmanager.number-initial-percentage: 1.0
   # service & ingress related
+  kubernetes.rest-service.exposed.type: ClusterIP
+  kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
+  kubernetes.ingress.enable: true
   kubernetes.ingress.host: "lf-gaura.byted.org"
+  kubernetes.podgroup.enable: true
+  kubernetes.hostnetwork.enabled: true
+  # External jars we needed, use ',' to separator different jars.
+  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
   ipv6.enabled: true
+  register-dashboard.enabled: true
   ipv6.supported.cluster: Gaura-LF
   resourcemanager.slow-container.release-timeout-enabled: true
 
@@ -1652,30 +1655,24 @@ Gaura-HL:
   high-availability.zookeeper.quorum: 10.226.110.167:2181,10.226.110.162:2181,10.226.119.168:2181,10.226.126.143:2181,10.226.122.156:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  containerized.taskmanager.env.METRICS_USE_SOCK: true
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
+  metrics.reporter.opentsdb_reporter.use_domain_sock: true
+  taskmanager.number-initial-percentage: 1.0
   # service & ingress related
+  kubernetes.rest-service.exposed.type: ClusterIP
+  kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
+  kubernetes.ingress.enable: true
   kubernetes.ingress.host: "hl-gaura.byted.org"
+  kubernetes.podgroup.enable: true
+  kubernetes.hostnetwork.enabled: true
+  # External jars we needed, use ',' to separator different jars.
+  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
   ipv6.enabled: true
+  register-dashboard.enabled: true
   ipv6.supported.cluster: Gaura-HL
-  resourcemanager.slow-container.release-timeout-enabled: true
-
-Echo-HL:
-  dc: cn
-  clusterName: Echo-HL
-  is_kubernetes: true
-  high-availability: zookeeper
-  high-availability.zookeeper.quorum: 10.226.110.167:2181,10.226.110.162:2181,10.226.119.168:2181,10.226.126.143:2181,10.226.122.156:2181
-  hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
-  # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
-  containerized.master.env.MALLOC_ARENA_MAX: 4
-  containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
-  # service & ingress related
-  kubernetes.ingress.host: "hl-echo.byted.org"
-  ipv6.enabled: true
-  ipv6.supported.cluster: Echo-HL
   resourcemanager.slow-container.release-timeout-enabled: true
 
 Gaura-LQ:
@@ -1686,29 +1683,23 @@ Gaura-LQ:
   high-availability.zookeeper.quorum: 10.248.236.172:2181,10.248.248.176:2181,10.248.234.180:2181,10.248.243.170:2181,10.248.243.148:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  containerized.taskmanager.env.METRICS_USE_SOCK: true
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
+  metrics.reporter.opentsdb_reporter.use_domain_sock: true
+  taskmanager.number-initial-percentage: 1.0
   # service & ingress related
+  kubernetes.rest-service.exposed.type: ClusterIP
+  kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
+  kubernetes.ingress.enable: true
   kubernetes.ingress.host: "lq-gaura.byted.org"
+  kubernetes.podgroup.enable: true
+  kubernetes.hostnetwork.enabled: true
+  # External jars we needed, use ',' to separator different jars.
+  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
   ipv6.enabled: true
-  ipv6.supported.cluster: Gaura-LQ
-  resourcemanager.slow-container.release-timeout-enabled: true
-
-Echo-LQ:
-  dc: cn
-  clusterName: Echo-LQ
-  is_kubernetes: true
-  high-availability: zookeeper
-  high-availability.zookeeper.quorum: 10.248.236.172:2181,10.248.248.176:2181,10.248.234.180:2181,10.248.243.170:2181,10.248.243.148:2181
-  hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
-  # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
-  containerized.master.env.MALLOC_ARENA_MAX: 4
-  containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
-  # service & ingress related
-  kubernetes.ingress.host: "lq-echo.byted.org"
-  ipv6.enabled: true
+  register-dashboard.enabled: true
   ipv6.supported.cluster: Gaura-LQ
   resourcemanager.slow-container.release-timeout-enabled: true
 
@@ -1720,16 +1711,26 @@ Gaura-YG:
   high-availability.zookeeper.quorum: fdbd:dc05:ff:ff:5131:24b1:ffda:527e:2181,fdbd:dc05:ff:ff:57d7:193a:4895:d024:2181,fdbd:dc05:ff:ff:62a4:e284:54c:7e3b:2181,fdbd:dc05:ff:ff:9ada:93c8:a89c:1374:2181,fdbd:dc05:ff:ff:ff0f:26b5:8830:aec6:2181
   hdfs.prefix: hdfs://haruna/flink_yg/flink
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
+  containerized.taskmanager.env.METRICS_USE_SOCK: true
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
+  metrics.reporter.opentsdb_reporter.use_domain_sock: true
+  taskmanager.number-initial-percentage: 1.0
   # service & ingress related
+  kubernetes.rest-service.exposed.type: ClusterIP
+  kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
+  kubernetes.ingress.enable: true
   kubernetes.ingress.host: "yg-gaura.byted.org"
+  kubernetes.podgroup.enable: true
+  kubernetes.hostnetwork.enabled: true
+  # External jars we needed, use ',' to separator different jars.
+  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
   ipv6.enabled: true
+  register-dashboard.enabled: true
   ipv6.supported.cluster: Gaura-YG
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
   configuration.flink-conf.dump-configuration-by-yaml: true
-  resourcemanager.slow-container.release-timeout-enabled: true
 
 cloudnative-lf:
   dc: cn
@@ -1744,7 +1745,13 @@ cloudnative-lf:
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
   metrics.reporter.opentsdb_reporter.use_domain_sock: true
   # service & ingress related
+  kubernetes.rest-service.exposed.type: ClusterIP
+  kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
+  kubernetes.ingress.enable: true
   kubernetes.ingress.host: "lf-cloudnative.byted.org"
+  # External jars we needed, use ',' to separator different jars.
+  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
+  register-dashboard.enabled: true
   ipv6.supported.cluster: cloudnative-lf
 
 cloudnative-lq:
@@ -1755,10 +1762,18 @@ cloudnative-lq:
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  containerized.taskmanager.env.METRICS_USE_SOCK: true
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
+  metrics.reporter.opentsdb_reporter.use_domain_sock: true
   # service & ingress related
+  kubernetes.rest-service.exposed.type: ClusterIP
+  kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
+  kubernetes.ingress.enable: true
   kubernetes.ingress.host: "lq-cloudnative.byted.org"
+  # External jars we needed, use ',' to separator different jars.
+  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
+  register-dashboard.enabled: true
   ipv6.supported.cluster: cloudnative-lq
 
 Feins-LQ:
@@ -1769,14 +1784,24 @@ Feins-LQ:
   high-availability.zookeeper.quorum: 10.248.236.172:2181,10.248.248.176:2181,10.248.234.180:2181,10.248.243.170:2181,10.248.243.148:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
+  containerized.taskmanager.env.METRICS_USE_SOCK: true
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
+  metrics.reporter.opentsdb_reporter.use_domain_sock: true
+  taskmanager.number-initial-percentage: 1.0
   # service & ingress related
+  kubernetes.rest-service.exposed.type: ClusterIP
+  kubernetes.ingress.annotations: "nginx.ingress.kubernetes.io/proxy-body-size:100m,nginx.ingress.kubernetes.io/proxy-connect-timeout:300,nginx.ingress.kubernetes.io/proxy-send-timeout:300,nginx.ingress.kubernetes.io/proxy-read-timeout:300"
+  kubernetes.ingress.enable: true
   kubernetes.ingress.host: "lq-feins.byted.org"
+  kubernetes.podgroup.enable: true
+  kubernetes.hostnetwork.enabled: true
+  # External jars we needed, use ',' to separator different jars.
+  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
   ipv6.enabled: true
+  register-dashboard.enabled: true
   ipv6.supported.cluster: Feins-LQ
-  resourcemanager.slow-container.release-timeout-enabled: true
 
 edge:
   dc: cn
