@@ -21,7 +21,7 @@ package org.apache.flink.table.planner.plan.rules.logical
 import org.apache.flink.table.api.config.OptimizerConfigOptions
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.expressions.Expression
-import org.apache.flink.table.plan.stats.TableStats
+import org.apache.flink.table.plan.stats.{ColumnStats, TableStats}
 import org.apache.flink.table.planner.calcite.FlinkContext
 import org.apache.flink.table.planner.expressions.converter.ExpressionConverter
 import org.apache.flink.table.planner.plan.schema.{FlinkPreparingTableBase, LegacyTableSourceTable}
@@ -148,9 +148,43 @@ class PushFilterIntoLegacyTableSourceScanRule extends RelOptRule(
     } else if (statistic == FlinkStatistic.UNKNOWN) {
       statistic
     } else {
-      // reuse the original filter's estimated row count
-      FlinkStatistic.builder().statistic(statistic).tableStats(new TableStats(estimatedRowCount))
-        .build()
+      // reuse the original filter's estimated row count.
+      // keep column statistics with modified NDV for subsequent join stats estimation.
+      // Note that the input parameter predicates may contain a compound expression.
+      // estimatedRowCount is the estimated row count for all expressions included in predicates.
+      // Hence we need to update Column stats for the entire predicates as a whole.
+      // TODO: Since predicates may contain compound expressions, we may estimate column statistics
+      // and row count at the same time when we evaluate the expressions of a predicate.
+      var newColStatsMap = new java.util.HashMap[String, ColumnStats]
+      val oldColStatsMap: java.util.Map[String, ColumnStats]
+        = statistic.getTableStats.getColumnStats
+      val colNameKeySet = oldColStatsMap.keySet()
+      for (aColumnName <- colNameKeySet) {
+        val aColumnStats = oldColStatsMap.get(aColumnName)
+        // A filter condition may significantly reduce the qualified row count.
+        // Hence the modified NDV and Null Count should be no more than the new row count.
+        val newNdv: java.lang.Long =
+          if (estimatedRowCount < aColumnStats.getNdv) estimatedRowCount else aColumnStats.getNdv
+
+        val newNullCount: java.lang.Long =
+          if (estimatedRowCount < aColumnStats.getNullCount) {
+            estimatedRowCount
+          } else {
+            aColumnStats.getNullCount
+          }
+
+        val newColumnStats = new ColumnStats(newNdv,
+          newNullCount,
+          aColumnStats.getAvgLen,
+          aColumnStats.getMaxLen,
+          aColumnStats.getMaxValue,
+          aColumnStats.getMinValue
+        )
+        /* add a new entry to newColStatsMap */
+        newColStatsMap.put(aColumnName, newColumnStats)
+      }
+      val newTableStats = new TableStats(estimatedRowCount, newColStatsMap)
+      FlinkStatistic.builder().statistic(statistic).tableStats(newTableStats).build()
     }
     tableSourceTable.copy(newTableSource, newStatistic)
   }
