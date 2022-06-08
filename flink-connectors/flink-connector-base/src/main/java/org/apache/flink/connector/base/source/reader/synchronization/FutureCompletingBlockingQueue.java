@@ -94,4 +94,8 @@ public class FutureCompletingBlockingQueue<T> extends LinkedBlockingQueue<T> {
 			return false;
 		}
 	}
+
+	public void notifyComplete() {
+		futureNotifier.notifyComplete();
+	}
 }

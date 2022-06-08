@@ -22,6 +22,7 @@ import org.apache.flink.api.connector.source.SourceSplit;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsChange;
+import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -49,7 +49,7 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
 	private final Map<String, SplitT> assignedSplits;
 	/** The current split assignments for this fetcher. */
 	private final Queue<SplitsChange<SplitT>> splitChanges;
-	private final BlockingQueue<RecordsWithSplitIds<E>> elementsQueue;
+	private final FutureCompletingBlockingQueue<RecordsWithSplitIds<E>> elementsQueue;
 	private final SplitReader<E, SplitT> splitReader;
 	private final Runnable shutdownHook;
 	private final AtomicBoolean wakeUp;
@@ -61,7 +61,7 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
 
 	SplitFetcher(
 			int id,
-			BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+			FutureCompletingBlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
 			SplitReader<E, SplitT> splitReader,
 			Runnable shutdownHook) {
 
@@ -314,5 +314,8 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
 
 	private void updateIsIdle() {
 		isIdle = taskQueue.isEmpty() && splitChanges.isEmpty() && assignedSplits.isEmpty();
+		if (isIdle) {
+			elementsQueue.notifyComplete();
+		}
 	}
 }
