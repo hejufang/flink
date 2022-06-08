@@ -76,9 +76,9 @@ common:
   heartbeat.timeout: 180000 # default 50000 ms
 
   ## Memory Configuration
+  taskmanager.memory.managed.fraction: 0.25
   taskmanager.memory.network.fraction: 0.3
   taskmanager.memory.network.max: 2147483648
-  taskmanager.memory.managed.fraction: 0.25
 
   ## StreamPipelineOptions
   pipeline.time-characteristic: EventTime

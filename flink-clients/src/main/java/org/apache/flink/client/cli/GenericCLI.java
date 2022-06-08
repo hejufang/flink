@@ -133,26 +133,15 @@ public class GenericCLI implements CustomCommandLine {
 			effectiveConfiguration.setString(DeploymentOptions.TARGET, targetName);
 		}
 
-		// get user dynamic properties first
-		Properties properties = getDynamicProperties(commandLine);
+		encodeDynamicProperties(commandLine, effectiveConfiguration);
 
 		/*
 		 * set special config for streaming job
 		 */
-		String appType;
-		if (properties.containsKey(ExecutionOptions.EXECUTION_APPLICATION_TYPE.key())) {
-			appType = properties.getProperty(ExecutionOptions.EXECUTION_APPLICATION_TYPE.key());
-		} else if (properties.containsKey(ConfigConstants.APPLICATION_TYPE)) {
-			appType = properties.getProperty(ConfigConstants.APPLICATION_TYPE);
-		} else {
-			appType = effectiveConfiguration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE);
-		}
-
+		String appType = effectiveConfiguration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE);
 		if (appType.equals(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE)) {
 			reloadConfigWithSpecificProperties(effectiveConfiguration, ConfigConstants.STREAMING_JOB_KEY_PREFIX);
 		}
-
-		encodeDynamicProperties(commandLine, effectiveConfiguration);
 
 		effectiveConfiguration.set(DeploymentOptionsInternal.CONF_DIR, configurationDir);
 
@@ -178,10 +167,6 @@ public class GenericCLI implements CustomCommandLine {
 						effectiveConfiguration.setString(key, "true");
 					}
 				});
-	}
-
-	private Properties getDynamicProperties(final CommandLine commandLine) {
-		return commandLine.getOptionProperties(dynamicProperties.getOpt());
 	}
 
 	private static String getExecutorFactoryNames() {
