@@ -107,6 +107,12 @@ under the License.
 		</file>
 
 		<file>
+			<source>src/main/resources/flink-conf-las.yaml</source>
+			<outputDirectory>conf</outputDirectory>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
 			<source>../LICENSE</source>
 			<outputDirectory/>
 			<fileMode>0644</fileMode>

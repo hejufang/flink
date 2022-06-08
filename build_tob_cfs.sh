@@ -35,5 +35,7 @@ mkdir output/plugins/s3-fs-presto
 cp output/opt/flink-s3-fs-presto-1.11-byted-SNAPSHOT.jar output/plugins/s3-fs-presto/
 rm -rf output/opt
 
+mv output/conf/flink-conf-las.yaml output/conf/flink-conf.yaml
+
 # common jar conflict
 bash tools/common-jar-check/common_jar_check.sh "output/"
