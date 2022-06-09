@@ -153,4 +153,13 @@ public class ClusterOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("If true, job will reuse and send event to dispatcher in task executor instead of job master gateway.");
+
+	/*
+	 * Optimized structure of submitted task list.
+	 */
+	public static final ConfigOption<Boolean> JM_OPTIMIZED_SUBMIT_TASK_STRUCTURE_ENABLED = ConfigOptions
+		.key("cluster.optimize-submit-task-structure.enabled")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Enable task deployment structure optimization.");
 }

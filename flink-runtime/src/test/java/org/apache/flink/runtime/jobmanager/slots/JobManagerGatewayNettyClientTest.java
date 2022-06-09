@@ -53,7 +53,8 @@ public class JobManagerGatewayNettyClientTest {
 					.setSubmitTaskListConsumer(tdds -> tddsFuture.complete(tdds.size()))
 					.createTestingTaskExecutorGateway(),
 				"localhost",
-				new Configuration())) {
+				new Configuration(),
+				false)) {
 			taskExecutorNettyServer.start();
 			Configuration configuration = new Configuration();
 			configuration.set(ClusterOptions.CLUSTER_DEPLOY_TASK_SOCKET_ENABLE, true);

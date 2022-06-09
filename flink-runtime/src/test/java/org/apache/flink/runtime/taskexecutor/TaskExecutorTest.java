@@ -24,6 +24,7 @@ import org.apache.flink.api.common.resources.CPUResource;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple4;
+import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
@@ -43,6 +44,10 @@ import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.Executors;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
+import org.apache.flink.runtime.deployment.JobDeploymentDescriptor;
+import org.apache.flink.runtime.deployment.JobDeploymentDescriptorBuilder;
+import org.apache.flink.runtime.deployment.JobTaskDeploymentDescriptor;
+import org.apache.flink.runtime.deployment.JobVertexDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptorBuilder;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
@@ -135,6 +140,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.rules.TestName;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 
 import javax.annotation.Nonnull;
@@ -189,6 +196,7 @@ import static org.junit.Assert.fail;
 /**
  * Tests for the {@link TaskExecutor}.
  */
+@RunWith(Parameterized.class)
 public class TaskExecutorTest extends TestLogger {
 
 	public static final HeartbeatServices HEARTBEAT_SERVICES = new HeartbeatServices(1000L, 1000L);
@@ -228,6 +236,14 @@ public class TaskExecutorTest extends TestLogger {
 
 	private NettyShuffleEnvironment nettyShuffleEnvironment;
 
+	@Parameterized.Parameter
+	public boolean optimizedJobDeploymentStructureEnable;
+
+	@Parameterized.Parameters
+	public static Collection<Boolean[]> parameters() {
+		return Arrays.asList(new Boolean[][] {{ false }, { true }});
+	}
+
 	@Before
 	public void setup() throws IOException {
 		rpc = new TestingRpcService();
@@ -238,6 +254,7 @@ public class TaskExecutorTest extends TestLogger {
 			null);
 
 		configuration = new Configuration();
+		configuration.setBoolean(ClusterOptions.JM_OPTIMIZED_SUBMIT_TASK_STRUCTURE_ENABLED, optimizedJobDeploymentStructureEnable);
 
 		unresolvedTaskManagerLocation = new LocalUnresolvedTaskManagerLocation();
 		jobId = new JobID();
@@ -2205,9 +2222,13 @@ public class TaskExecutorTest extends TestLogger {
 				.setUnresolvedTaskManagerLocation(unresolvedTaskManagerLocation)
 				.build();
 		CompletableFuture<Acknowledge> submitInternalFuture = new CompletableFuture<>();
-		Configuration configuration = new Configuration();
 		configuration.setBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE, true);
-		final TestingTaskExecutor taskManager = createTestingTaskExecutor(taskManagerServices, tuple -> submitInternalFuture.complete(Acknowledge.get()), configuration);
+		final TestingTaskExecutor taskManager;
+		if (optimizedJobDeploymentStructureEnable) {
+			taskManager = createTestingTaskExecutor(taskManagerServices, null, tuple -> submitInternalFuture.complete(Acknowledge.get()), configuration);
+		} else {
+			taskManager = createTestingTaskExecutor(taskManagerServices, tuple -> submitInternalFuture.complete(Acknowledge.get()), null, configuration);
+		}
 
 		final TestingResourceManagerGateway testingResourceManagerGateway = new TestingResourceManagerGateway();
 		rpc.registerGateway(jobMasterGateway.getAddress(), jobMasterGateway);
@@ -2220,8 +2241,14 @@ public class TaskExecutorTest extends TestLogger {
 
 			JobMasterId jobMasterId = JobMasterId.generate();
 			TaskExecutorGateway taskExecutorGateway = taskManager.getSelfGateway(TaskExecutorGateway.class);
-			TaskDeploymentDescriptor tdd = createTaskDeploymentDescriptor(jobId, TaskExecutorSubmissionTest.FutureCompletingInvokable.class, new ExecutionAttemptID());
-			CompletableFuture<Acknowledge> submitFuture = taskExecutorGateway.submitTaskList(jobMasterGateway.getAddress(), Collections.singletonList(tdd), jobMasterId, timeout);
+			CompletableFuture<Acknowledge> submitFuture;
+			if (optimizedJobDeploymentStructureEnable) {
+				JobDeploymentDescriptor jdd = createJobDeploymentDescriptor(jobId, TaskExecutorSubmissionTest.FutureCompletingInvokable.class, new ExecutionAttemptID());
+				submitFuture = taskExecutorGateway.submitTaskList(jobMasterGateway.getAddress(), jdd, jobMasterId, timeout);
+			} else {
+				TaskDeploymentDescriptor tdd = createTaskDeploymentDescriptor(jobId, TaskExecutorSubmissionTest.FutureCompletingInvokable.class, new ExecutionAttemptID());
+				submitFuture = taskExecutorGateway.submitTaskList(jobMasterGateway.getAddress(), Collections.singletonList(tdd), jobMasterId, timeout);
+			}
 			submitFuture.get(10, TimeUnit.SECONDS);
 			submitInternalFuture.get(10, TimeUnit.SECONDS);
 		} finally {
@@ -2329,7 +2356,13 @@ public class TaskExecutorTest extends TestLogger {
 		Configuration configuration = new Configuration();
 		configuration.setBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE, true);
 		configuration.setBoolean(ClusterOptions.CLUSTER_DEPLOY_TASK_SOCKET_ENABLE, true);
-		final TestingTaskExecutor taskManager = createTestingTaskExecutor(taskManagerServices, tuple -> submitInternalFuture.complete(Acknowledge.get()), configuration);
+		configuration.setBoolean(ClusterOptions.JM_OPTIMIZED_SUBMIT_TASK_STRUCTURE_ENABLED, optimizedJobDeploymentStructureEnable);
+		final TestingTaskExecutor taskManager;
+		if (optimizedJobDeploymentStructureEnable) {
+			taskManager = createTestingTaskExecutor(taskManagerServices, null, tuple -> submitInternalFuture.complete(Acknowledge.get()), configuration);
+		} else {
+			taskManager = createTestingTaskExecutor(taskManagerServices, tuple -> submitInternalFuture.complete(Acknowledge.get()), null, configuration);
+		}
 
 		final TestingResourceManagerGateway testingResourceManagerGateway = new TestingResourceManagerGateway();
 		CompletableFuture<TaskExecutorRegistration> taskExecutorRegistrationFuture = new CompletableFuture<>();
@@ -2353,10 +2386,17 @@ public class TaskExecutorTest extends TestLogger {
 					1,
 					0,
 					0,
-					0)) {
+					0,
+					optimizedJobDeploymentStructureEnable)) {
 				taskExecutorNettyClient.start();
-				TaskDeploymentDescriptor tdd = createTaskDeploymentDescriptor(jobId, TaskExecutorSubmissionTest.FutureCompletingInvokable.class, new ExecutionAttemptID());
-				CompletableFuture<Acknowledge> submitFuture = taskExecutorNettyClient.submitTaskList(jobMasterGateway.getAddress(), Collections.singletonList(tdd), JobMasterId.generate());
+				CompletableFuture<Acknowledge> submitFuture;
+				if (optimizedJobDeploymentStructureEnable) {
+					JobDeploymentDescriptor jdd = createJobDeploymentDescriptor(jobId, TaskExecutorSubmissionTest.FutureCompletingInvokable.class, new ExecutionAttemptID());
+					submitFuture = taskExecutorNettyClient.submitTaskList(jobMasterGateway.getAddress(), jdd, JobMasterId.generate());
+				} else {
+					TaskDeploymentDescriptor tdd = createTaskDeploymentDescriptor(jobId, TaskExecutorSubmissionTest.FutureCompletingInvokable.class, new ExecutionAttemptID());
+					submitFuture = taskExecutorNettyClient.submitTaskList(jobMasterGateway.getAddress(), Collections.singletonList(tdd), JobMasterId.generate());
+				}
 				submitFuture.get(10, TimeUnit.SECONDS);
 				submitInternalFuture.get(10, TimeUnit.SECONDS);
 			}
@@ -2413,7 +2453,7 @@ public class TaskExecutorTest extends TestLogger {
 		Configuration configuration = new Configuration();
 		configuration.setBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE, true);
 		configuration.setBoolean(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY, true);
-		final TestingTaskExecutor taskManager = createTestingTaskExecutor(taskManagerServices, null, configuration);
+		final TestingTaskExecutor taskManager = createTestingTaskExecutor(taskManagerServices, null, null, configuration);
 
 		final TestingResourceManagerGateway testingResourceManagerGateway = new TestingResourceManagerGateway();
 		rpc.registerGateway(jobMasterGateway.getAddress(), jobMasterGateway);
@@ -2495,7 +2535,7 @@ public class TaskExecutorTest extends TestLogger {
 		Configuration configuration = new Configuration();
 		configuration.setBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE, true);
 		configuration.setBoolean(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY, true);
-		final TestingTaskExecutor taskManager = createTestingTaskExecutor(taskManagerServices, null, configuration);
+		final TestingTaskExecutor taskManager = createTestingTaskExecutor(taskManagerServices, null, null, configuration);
 
 		final TestingResourceManagerGateway testingResourceManagerGateway = new TestingResourceManagerGateway();
 		rpc.registerGateway(jobMasterGateway.getAddress(), jobMasterGateway);
@@ -2565,6 +2605,33 @@ public class TaskExecutorTest extends TestLogger {
 					.build();
 	}
 
+	private JobDeploymentDescriptor createJobDeploymentDescriptor(
+			JobID jobId,
+			Class<? extends AbstractInvokable> invokableClass,
+			ExecutionAttemptID executionAttemptID) throws Exception {
+		JobInformation jobInformation = new JobInformation(
+			jobId, jobId.toHexString(), new SerializedValue<>(new ExecutionConfig()), new Configuration(), Collections.emptyList(), Collections.emptyList());
+		JobVertexID jobVertexID = new JobVertexID();
+		TaskInformation taskInformation = new TaskInformation(
+			jobVertexID,
+			jobVertexID.toHexString(),
+			1,
+			1,
+			invokableClass.getName(),
+			new Configuration());
+
+		return JobDeploymentDescriptorBuilder.newBuilder(jobId, jobVertexID, invokableClass)
+			.setExecutionId(executionAttemptID)
+			.setAllToAllInputGates(Collections.emptyList())
+			.setPointwiseInputGates(Collections.emptyList())
+			.setSerializedJobInformation(new TaskDeploymentDescriptor.NonOffloaded<>(
+				new SerializedValue<>(jobInformation)))
+			.setSerializedTaskInformation(
+				new TaskDeploymentDescriptor.NonOffloaded<>(
+					new SerializedValue<>(taskInformation)))
+			.build();
+	}
+
 	private TaskExecutorLocalStateStoresManager createTaskExecutorLocalStateStoresManager() throws IOException {
 		return new TaskExecutorLocalStateStoresManager(
 			false,
@@ -2618,8 +2685,9 @@ public class TaskExecutorTest extends TestLogger {
 	private TestingTaskExecutor createTestingTaskExecutor(
 			TaskManagerServices taskManagerServices,
 			Consumer<Tuple4<JobTable.Connection, TaskDeploymentDescriptor, JobInformation, TaskInformation>> submitTaskInternalConsumer,
+			Consumer<Tuple5<JobTable.Connection, JobInformation, TaskInformation, JobVertexDeploymentDescriptor, JobTaskDeploymentDescriptor>> submitJobTaskInternalConsumer,
 			Configuration configuration) {
-		return createTestingTaskExecutor(taskManagerServices, HEARTBEAT_SERVICES, submitTaskInternalConsumer, configuration);
+		return createTestingTaskExecutor(taskManagerServices, HEARTBEAT_SERVICES, submitTaskInternalConsumer, submitJobTaskInternalConsumer, configuration);
 	}
 
 	private TestingTaskExecutor createTestingTaskExecutor(TaskManagerServices taskManagerServices, HeartbeatServices heartbeatServices) {
@@ -2645,6 +2713,7 @@ public class TaskExecutorTest extends TestLogger {
 			TaskManagerServices taskManagerServices,
 			HeartbeatServices heartbeatServices,
 			Consumer<Tuple4<JobTable.Connection, TaskDeploymentDescriptor, JobInformation, TaskInformation>> submitTaskInternalConsumer,
+			Consumer<Tuple5<JobTable.Connection, JobInformation, TaskInformation, JobVertexDeploymentDescriptor, JobTaskDeploymentDescriptor>> submitJobTaskInternalConsumer,
 			Configuration configuration) {
 		return new TestingTaskExecutor(
 			rpc,
@@ -2662,7 +2731,8 @@ public class TaskExecutorTest extends TestLogger {
 			testingFatalErrorHandler,
 			new TaskExecutorPartitionTrackerImpl(taskManagerServices.getShuffleEnvironment()),
 			TaskManagerRunner.createBackPressureSampleService(configuration, rpc.getScheduledExecutor()),
-			submitTaskInternalConsumer);
+			submitTaskInternalConsumer,
+			submitJobTaskInternalConsumer);
 	}
 
 	private TaskExecutorTestingContext createTaskExecutorTestingContext(int numberOfSlots) throws IOException {

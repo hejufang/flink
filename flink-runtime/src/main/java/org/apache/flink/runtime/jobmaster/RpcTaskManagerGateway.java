@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
+import org.apache.flink.runtime.deployment.JobDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.PartitionInfo;
@@ -112,6 +113,16 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
 			}
 		} else {
 			return taskExecutorGateway.submitTaskList(tdds, jobMasterId, timeout);
+		}
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> submitTaskList(JobDeploymentDescriptor jdd, Time timeout) {
+		checkNotNull(jobMasterAddress);
+		if (taskExecutorNettyClient == null) {
+			return taskExecutorGateway.submitTaskList(jobMasterAddress, jdd, jobMasterId, timeout);
+		} else {
+			return taskExecutorNettyClient.submitTaskList(jobMasterAddress, jdd, jobMasterId);
 		}
 	}
 

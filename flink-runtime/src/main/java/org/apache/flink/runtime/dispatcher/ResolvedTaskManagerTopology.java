@@ -104,12 +104,14 @@ public class ResolvedTaskManagerTopology {
 				int connectTimeoutMills = configuration.get(JobManagerOptions.JOB_DEPLOY_SOCKET_CONNECT_TIMEOUT_MILLS);
 				int lowWaterMark = configuration.get(JobManagerOptions.JOB_DEPLOY_SOCKET_LOW_WATER_MARK);
 				int highWaterMark = configuration.get(JobManagerOptions.JOB_DEPLOY_SOCKET_HIGH_WATER_MARK);
+				boolean jobDeploymentEnabled = configuration.get(ClusterOptions.JM_OPTIMIZED_SUBMIT_TASK_STRUCTURE_ENABLED);
 				taskExecutorNettyClient = new TaskExecutorNettyClient(
 					unresolvedTaskManagerTopology.getSocketAddress(),
 					channelCount,
 					connectTimeoutMills,
 					lowWaterMark,
-					highWaterMark);
+					highWaterMark,
+					jobDeploymentEnabled);
 				taskExecutorNettyClient.start();
 			}
 			return new ResolvedTaskManagerTopology(

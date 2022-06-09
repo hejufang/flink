@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
+import org.apache.flink.runtime.deployment.JobDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.PartitionInfo;
@@ -75,6 +76,17 @@ public interface TaskManagerGateway extends TaskExecutorOperatorEventGateway {
 		Time timeout);
 
 	default CompletableFuture<Acknowledge> submitTaskList(List<TaskDeploymentDescriptor> deploymentDescriptors, Time timeout) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Submit task list with optimized deployment structure to the task manager.
+	 *
+	 * @param deploymentDescriptor describing the tasks to submit
+	 * @param timeout of the submit operation
+	 * @return Future acknowledge of the successful operation
+	 */
+	default CompletableFuture<Acknowledge> submitTaskList(JobDeploymentDescriptor deploymentDescriptor, Time timeout) {
 		throw new UnsupportedOperationException();
 	}
 

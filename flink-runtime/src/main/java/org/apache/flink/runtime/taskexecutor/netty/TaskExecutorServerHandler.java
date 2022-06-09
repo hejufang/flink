@@ -44,6 +44,13 @@ public class TaskExecutorServerHandler extends ChannelInboundHandlerAdapter {
 				jobTaskListDeployment.getDeploymentDescriptorList(),
 				jobTaskListDeployment.getJobMasterId(),
 				DEFAULT_RPC_TIMEOUT);
+		} else if (msg instanceof JobDeployment) {
+			JobDeployment jobDeployment = (JobDeployment) msg;
+			taskExecutorGateway.submitTaskList(
+				jobDeployment.getJobMasterAddress(),
+				jobDeployment.getJobDeploymentDescriptor(),
+				jobDeployment.getJobMasterId(),
+				DEFAULT_RPC_TIMEOUT);
 		} else {
 			throw new UnsupportedOperationException();
 		}

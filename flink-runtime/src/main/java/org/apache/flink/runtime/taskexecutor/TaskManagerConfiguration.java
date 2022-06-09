@@ -101,6 +101,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	private final boolean deployTaskSocketEnable;
 
+	private final boolean optimizedJobDeploymentStructureEnable;
+
 	public TaskManagerConfiguration(
 			int numberSlots,
 			ResourceProfile defaultSlotResourceProfile,
@@ -124,7 +126,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			boolean notifyFinalStateInTaskThreadEnable,
 			int resultClientCount,
 			int resultConnectTimeoutMills,
-			boolean deployTaskSocketEnable) {
+			boolean deployTaskSocketEnable,
+			boolean optimizedJobDeploymentStructureEnable) {
 
 		this.numberSlots = numberSlots;
 		this.defaultSlotResourceProfile = defaultSlotResourceProfile;
@@ -149,6 +152,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		this.resultClientCount = resultClientCount;
 		this.resultConnectTimeoutMills = resultConnectTimeoutMills;
 		this.deployTaskSocketEnable = deployTaskSocketEnable;
+		this.optimizedJobDeploymentStructureEnable = optimizedJobDeploymentStructureEnable;
 	}
 
 	public int getNumberSlots() {
@@ -251,6 +255,10 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		return deployTaskSocketEnable;
 	}
 
+	public boolean isOptimizedJobDeploymentStructureEnable() {
+		return optimizedJobDeploymentStructureEnable;
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Static factory methods
 	// --------------------------------------------------------------------------------------------
@@ -324,6 +332,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		final int resultClientCount = configuration.get(TaskManagerOptions.RESULT_PUSH_CLIENT_COUNT);
 		final int resultClientConnectTimeoutMills = configuration.get(TaskManagerOptions.RESULT_PUSH_CLIENT_CONNECT_TIMEOUT_MILLS);
 		final boolean deployTaskSocketEnable = configuration.get(ClusterOptions.CLUSTER_DEPLOY_TASK_SOCKET_ENABLE);
+		final boolean optimizedJobDeploymentStructureEnable = configuration.getBoolean(ClusterOptions.JM_OPTIMIZED_SUBMIT_TASK_STRUCTURE_ENABLED);
 
 		return new TaskManagerConfiguration(
 			numberSlots,
@@ -348,6 +357,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			notifyFinalStateInTaskThreadEnable,
 			resultClientCount,
 			resultClientConnectTimeoutMills,
-			deployTaskSocketEnable);
+			deployTaskSocketEnable,
+			optimizedJobDeploymentStructureEnable);
 	}
 }

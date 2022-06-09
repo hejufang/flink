@@ -22,6 +22,7 @@ package org.apache.flink.runtime.scheduler;
 import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
@@ -133,12 +134,17 @@ public class DefaultSchedulerTest extends TestLogger {
 	@Parameterized.Parameter(1)
 	public boolean submitNotifyRunningEnable;
 
-	@Parameterized.Parameters(name = "batchRequestSlotsEnable = {0}, submitNotifyRunningEnable = {1}")
+	@Parameterized.Parameter(2)
+	public boolean optimizedJobDeploymentStructureEnable;
+
+	@Parameterized.Parameters(name = "batchRequestSlotsEnable = {0}, submitNotifyRunningEnable = {1}, optimizedJobDeploymentStructureEnable = {2}")
 	public Boolean[][] parameters() {
 		return new Boolean[][]{
-			new Boolean[] {false, false},
-			new Boolean[] {true, false},
-			new Boolean[] {true, true},
+			new Boolean[] {false, false, false},
+			new Boolean[] {true, false, false},
+			new Boolean[] {true, true, false},
+			new Boolean[] {true, false, true},
+			new Boolean[] {true, true, true},
 		};
 	}
 
@@ -150,6 +156,7 @@ public class DefaultSchedulerTest extends TestLogger {
 		configuration = new Configuration();
 		configuration.setBoolean(JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE, batchRequestSlotsEnable);
 		configuration.setBoolean(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY, submitNotifyRunningEnable);
+		configuration.setBoolean(ClusterOptions.JM_OPTIMIZED_SUBMIT_TASK_STRUCTURE_ENABLED, optimizedJobDeploymentStructureEnable);
 
 		testRestartBackoffTimeStrategy = new TestRestartBackoffTimeStrategy(true, 0);
 

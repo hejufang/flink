@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.taskexecutor.netty;
 
+import org.apache.flink.runtime.deployment.JobDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -26,6 +27,7 @@ import org.apache.flink.runtime.socket.NettySocketClient;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFutureListener;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelPipeline;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ClassResolvers;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectDecoder;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectEncoder;
@@ -38,6 +40,7 @@ import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 /**
  * Netty client used by job master to send request to {@link TaskExecutorNettyServer} in task executor.
@@ -51,6 +54,7 @@ public class TaskExecutorNettyClient implements Closeable {
 	private final int lowWaterMark;
 	private final int highWaterMark;
 	private final List<NettySocketClient> clientList;
+	private final boolean jobDeploymentEnabled;
 
 	public TaskExecutorNettyClient(
 			TaskExecutorSocketAddress socketAddress,
@@ -58,15 +62,37 @@ public class TaskExecutorNettyClient implements Closeable {
 			int connectTimeoutMills,
 			int lowWaterMark,
 			int highWaterMark) {
+		this(socketAddress, channelCount, connectTimeoutMills, lowWaterMark, highWaterMark, false);
+	}
+
+	public TaskExecutorNettyClient(
+			TaskExecutorSocketAddress socketAddress,
+			int channelCount,
+			int connectTimeoutMills,
+			int lowWaterMark,
+			int highWaterMark,
+			boolean jobDeploymentEnabled) {
 		this.socketAddress = socketAddress;
 		this.channelCount = channelCount;
 		this.connectTimeoutMills = connectTimeoutMills;
 		this.lowWaterMark = lowWaterMark;
 		this.highWaterMark = highWaterMark;
 		this.clientList = new ArrayList<>(channelCount);
+		this.jobDeploymentEnabled = jobDeploymentEnabled;
 	}
 
 	public void start() throws Exception {
+		Consumer<ChannelPipeline> channelPipelineConsumer;
+		if (jobDeploymentEnabled) {
+			channelPipelineConsumer = channelPipeline -> channelPipeline
+				.addLast(new JobDeploymentEncoder())
+				.addLast(new JobDeploymentDecoder());
+		} else {
+			channelPipelineConsumer = channelPipeline -> channelPipeline.addLast(
+				new ObjectEncoder(),
+				new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null)));
+		}
+
 		for (int i = 0; i < channelCount; i++) {
 			NettySocketClient nettySocketClient = new NettySocketClient(
 				socketAddress.getAddress(),
@@ -74,9 +100,7 @@ public class TaskExecutorNettyClient implements Closeable {
 				connectTimeoutMills,
 				lowWaterMark,
 				highWaterMark,
-				channelPipeline -> channelPipeline.addLast(
-					new ObjectEncoder(), ///TODO should use custom serializer/deserializer by @Jyun-Sheng Kao
-					new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null))));
+				channelPipelineConsumer);
 			nettySocketClient.start();
 			clientList.add(nettySocketClient);
 		}
@@ -91,6 +115,31 @@ public class TaskExecutorNettyClient implements Closeable {
 		while (true) {
 			if (channel.isWritable()) {
 				channel.writeAndFlush(new JobTaskListDeployment(jobMasterAddress, deploymentDescriptorList, jobMasterId))
+					.addListener((ChannelFutureListener) channelFuture -> {
+						if (channelFuture.isSuccess()) {
+							submitFuture.complete(Acknowledge.get());
+						} else {
+							submitFuture.completeExceptionally(channelFuture.cause());
+						}
+					});
+				break;
+			}
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException ignored) { }
+		}
+		return submitFuture;
+	}
+
+	public CompletableFuture<Acknowledge> submitTaskList(
+			String jobMasterAddress,
+			JobDeploymentDescriptor jdd,
+			JobMasterId jobMasterId) {
+		CompletableFuture<Acknowledge> submitFuture = new CompletableFuture<>();
+		Channel channel = clientList.get(RandomUtils.nextInt(0, clientList.size())).getChannel();
+		while (true) {
+			if (channel.isWritable()) {
+				channel.writeAndFlush(new JobDeployment(jobMasterAddress, jdd, jobMasterId))
 					.addListener((ChannelFutureListener) channelFuture -> {
 						if (channelFuture.isSuccess()) {
 							submitFuture.complete(Acknowledge.get());

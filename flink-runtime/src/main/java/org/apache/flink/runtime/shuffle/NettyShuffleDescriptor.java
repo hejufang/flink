@@ -19,10 +19,17 @@
 package org.apache.flink.runtime.shuffle;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.typeutils.base.StringSerializer;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.util.Optional;
@@ -34,11 +41,14 @@ public class NettyShuffleDescriptor implements ShuffleDescriptor {
 
 	private static final long serialVersionUID = 852181945034989215L;
 
-	private final ResourceID producerLocation;
+	private ResourceID producerLocation;
 
-	private final PartitionConnectionInfo partitionConnectionInfo;
+	private PartitionConnectionInfo partitionConnectionInfo;
 
-	private final ResultPartitionID resultPartitionID;
+	private ResultPartitionID resultPartitionID;
+
+	public NettyShuffleDescriptor() {
+	}
 
 	public NettyShuffleDescriptor(
 			ResourceID producerLocation,
@@ -67,6 +77,43 @@ public class NettyShuffleDescriptor implements ShuffleDescriptor {
 		return producerLocation.equals(consumerLocation);
 	}
 
+	@Override
+	public void write(DataOutputView out) throws IOException {
+		StringSerializer.INSTANCE.serialize(producerLocation.getResourceIdString(), out);
+		if (partitionConnectionInfo instanceof NetworkPartitionConnectionInfo) {
+			out.writeBoolean(true);
+			ConnectionID connectionID = partitionConnectionInfo.getConnectionId();
+			StringSerializer.INSTANCE.serialize(connectionID.getAddress().getHostName(), out);
+			out.writeInt(connectionID.getAddress().getPort());
+			out.writeInt(connectionID.getConnectionIndex());
+		} else {
+			out.writeBoolean(false);
+		}
+		IntermediateResultPartitionID partitionId = resultPartitionID.getPartitionId();
+		out.writeLong(partitionId.getLowerPart());
+		out.writeLong(partitionId.getUpperPart());
+		out.writeInt(partitionId.getPartitionNum());
+		ExecutionAttemptID producerId = resultPartitionID.getProducerId();
+		out.writeLong(producerId.getLowerPart());
+		out.writeLong(producerId.getUpperPart());
+	}
+
+	@Override
+	public void read(DataInputView in) throws IOException {
+		producerLocation = new ResourceID(StringSerializer.INSTANCE.deserialize(in));
+		boolean isNetworkConnection = in.readBoolean();
+		if (isNetworkConnection) {
+			String hostName = StringSerializer.INSTANCE.deserialize(in);
+			int port = in.readInt();
+			int connectionIndex = in.readInt();
+			partitionConnectionInfo = new NetworkPartitionConnectionInfo(hostName, port, connectionIndex);
+		}
+		resultPartitionID = new ResultPartitionID(
+			new IntermediateResultPartitionID(new IntermediateDataSetID(in.readLong(), in.readLong()), in.readInt()),
+			new ExecutionAttemptID(in.readLong(), in.readLong())
+		);
+	}
+
 	/**
 	 * Information for connection to partition producer for shuffle exchange.
 	 */
@@ -84,11 +131,17 @@ public class NettyShuffleDescriptor implements ShuffleDescriptor {
 
 		private static final long serialVersionUID = 5992534320110743746L;
 
-		private final ConnectionID connectionID;
+		private ConnectionID connectionID;
 
 		@VisibleForTesting
 		public NetworkPartitionConnectionInfo(ConnectionID connectionID) {
 			this.connectionID = connectionID;
+		}
+
+		public NetworkPartitionConnectionInfo(String hostName, int dataPort, int connectionIndex) {
+			InetSocketAddress address =
+				new InetSocketAddress(hostName, dataPort);
+			connectionID = new ConnectionID(address, connectionIndex);
 		}
 
 		@Override

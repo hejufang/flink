@@ -27,6 +27,7 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
+import org.apache.flink.runtime.deployment.JobDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.PartitionInfo;
@@ -122,6 +123,19 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
 	 * @return Future acknowledge of the successful operation
 	 */
 	default CompletableFuture<Acknowledge> submitTaskList(String jobMasterAddress, Collection<TaskDeploymentDescriptor> tdds, JobMasterId jobMasterId, Time timeout) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Submit tasks with optimized data structure with job master address.
+	 *
+	 * @param jobMasterAddress job master address
+	 * @param jdd describing the optimized deployment descriptor of tasks in job level
+	 * @param jobMasterId job master id
+	 * @param timeout of the submit operation
+	 * @return Future acknowledge of the successful operation
+	 */
+	default CompletableFuture<Acknowledge> submitTaskList(String jobMasterAddress, JobDeploymentDescriptor jdd, JobMasterId jobMasterId, Time timeout) {
 		throw new UnsupportedOperationException();
 	}
 

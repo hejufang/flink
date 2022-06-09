@@ -18,9 +18,13 @@
 
 package org.apache.flink.runtime.shuffle;
 
+import org.apache.flink.core.io.IOReadableWritable;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Optional;
@@ -30,7 +34,7 @@ import java.util.Optional;
  *
  * <p>The descriptor is used for the deployment of the partition producer/consumer and their data exchange
  */
-public interface ShuffleDescriptor extends Serializable {
+public interface ShuffleDescriptor extends IOReadableWritable, Serializable {
 
 	ResultPartitionID getResultPartitionID();
 
@@ -66,4 +70,12 @@ public interface ShuffleDescriptor extends Serializable {
 	 * @return the resource id of the producing task executor if the partition occupies local resources there
 	 */
 	Optional<ResourceID> storesLocalResourcesOn();
+
+	@Override
+	default void write(DataOutputView out) throws IOException {
+	}
+
+	@Override
+	default void read(DataInputView in) throws IOException {
+	}
 }

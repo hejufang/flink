@@ -31,6 +31,10 @@ public class JobMasterId extends AbstractID {
 
 	private static final long serialVersionUID = -933276753644003754L;
 
+	public JobMasterId(long lowerPart, long upperPart) {
+		super(lowerPart, upperPart);
+	}
+
 	/**
 	 * Creates a JobMasterId that takes the bits from the given UUID.
 	 */

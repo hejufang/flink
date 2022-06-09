@@ -55,7 +55,7 @@ public abstract class BlobKey implements Serializable, Comparable<BlobKey> {
 	/**
 	 * BLOB type, i.e. permanent or transient.
 	 */
-	enum BlobType {
+	public enum BlobType {
 		/**
 		 * Indicates a permanent BLOB whose lifecycle is that of a job and which is made highly
 		 * available.
@@ -123,6 +123,16 @@ public abstract class BlobKey implements Serializable, Comparable<BlobKey> {
 		this.random = new AbstractID(random);
 	}
 
+	protected BlobKey(BlobType type, byte[] key, AbstractID random) {
+		if (key == null || key.length != SIZE) {
+			throw new IllegalArgumentException("BLOB key must have a size of " + SIZE + " bytes");
+		}
+
+		this.type = checkNotNull(type);
+		this.key = key;
+		this.random = random;
+	}
+
 	/**
 	 * Returns the right {@link BlobKey} subclass for the given parameters.
 	 *
@@ -183,7 +193,6 @@ public abstract class BlobKey implements Serializable, Comparable<BlobKey> {
 	 *
 	 * @return a 20 bit hash of the contents the key refers to
 	 */
-	@VisibleForTesting
 	public byte[] getHash() {
 		return key;
 	}
@@ -193,8 +202,12 @@ public abstract class BlobKey implements Serializable, Comparable<BlobKey> {
 	 *
 	 * @return BLOB type, i.e. permanent or transient
 	 */
-	BlobType getType() {
+	public BlobType getType() {
 		return type;
+	}
+
+	public AbstractID getRandom() {
+		return random;
 	}
 
 	/**

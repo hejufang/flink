@@ -18,9 +18,15 @@
 
 package org.apache.flink.runtime.shuffle;
 
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 
+import java.io.IOException;
 import java.util.Optional;
 
 /**
@@ -36,7 +42,10 @@ public final class UnknownShuffleDescriptor implements ShuffleDescriptor {
 
 	private static final long serialVersionUID = -4001330825983412431L;
 
-	private final ResultPartitionID resultPartitionID;
+	private ResultPartitionID resultPartitionID;
+
+	public UnknownShuffleDescriptor() {
+	}
 
 	public UnknownShuffleDescriptor(ResultPartitionID resultPartitionID) {
 		this.resultPartitionID = resultPartitionID;
@@ -55,5 +64,24 @@ public final class UnknownShuffleDescriptor implements ShuffleDescriptor {
 	@Override
 	public Optional<ResourceID> storesLocalResourcesOn() {
 		return Optional.empty();
+	}
+
+	@Override
+	public void write(DataOutputView out) throws IOException {
+		IntermediateResultPartitionID partitionId = resultPartitionID.getPartitionId();
+		out.writeLong(partitionId.getLowerPart());
+		out.writeLong(partitionId.getUpperPart());
+		out.writeInt(partitionId.getPartitionNum());
+		ExecutionAttemptID producerId = resultPartitionID.getProducerId();
+		out.writeLong(producerId.getLowerPart());
+		out.writeLong(producerId.getUpperPart());
+	}
+
+	@Override
+	public void read(DataInputView in) throws IOException {
+		resultPartitionID = new ResultPartitionID(
+			new IntermediateResultPartitionID(new IntermediateDataSetID(in.readLong(), in.readLong()), in.readInt()),
+			new ExecutionAttemptID(in.readLong(), in.readLong())
+		);
 	}
 }

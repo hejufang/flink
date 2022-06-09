@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.blob;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.util.AbstractID;
 
 /**
  * BLOB key referencing permanent BLOB files.
@@ -53,5 +54,9 @@ public final class PermanentBlobKey extends BlobKey {
 	 */
 	PermanentBlobKey(byte[] key, byte[] random) {
 		super(BlobType.PERMANENT_BLOB, key, random);
+	}
+
+	public PermanentBlobKey(BlobType type, byte[] key, AbstractID random) {
+		super(type, key, random);
 	}
 }

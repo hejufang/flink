@@ -23,12 +23,14 @@ import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.socket.NettySocketServer;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelPipeline;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ClassResolvers;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectDecoder;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectEncoder;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
@@ -38,18 +40,35 @@ public class TaskExecutorNettyServer implements Closeable {
 	private final NettySocketServer nettySocketServer;
 
 	public TaskExecutorNettyServer(
+		Supplier<TaskExecutorGateway> gatewaySupplier,
+		String address,
+		Configuration configuration) {
+		this(gatewaySupplier, address, configuration, false);
+	}
+
+	public TaskExecutorNettyServer(
 			Supplier<TaskExecutorGateway> gatewaySupplier,
 			String address,
-			Configuration configuration) {
+			Configuration configuration,
+			boolean jobDeploymentEnabled) {
+		Consumer<ChannelPipeline> channelPipelineConsumer;
+		if (jobDeploymentEnabled) {
+			channelPipelineConsumer = channelPipeline -> channelPipeline.addLast(
+				new JobDeploymentEncoder(),
+				new JobDeploymentDecoder(),
+				new TaskExecutorServerHandler(gatewaySupplier.get()));
+		} else {
+			channelPipelineConsumer = channelPipeline -> channelPipeline.addLast(
+				new ObjectEncoder(),
+				new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null)),
+				new TaskExecutorServerHandler(gatewaySupplier.get()));
+		}
+
 		this.nettySocketServer = new NettySocketServer(
 			"taskexecutor",
 			address,
 			"0",
-			channelPipeline -> channelPipeline.addLast(
-				new ObjectEncoder(),	///TODO should use custom serializer/deserializer with @Jyun-Sheng Kao
-				new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null)),
-				new TaskExecutorServerHandler(gatewaySupplier.get())
-			),
+			channelPipelineConsumer,
 			configuration.get(TaskManagerOptions.NETTY_SERVER_CONNECT_BACKLOG),
 			configuration.get(TaskManagerOptions.NETTY_SERVER_WORKER_THREAD_COUNT));
 	}

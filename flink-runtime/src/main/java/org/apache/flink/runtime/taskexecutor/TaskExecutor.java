@@ -42,6 +42,11 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
+import org.apache.flink.runtime.deployment.InputGateDeploymentDescriptor;
+import org.apache.flink.runtime.deployment.JobDeploymentDescriptor;
+import org.apache.flink.runtime.deployment.JobDeploymentDescriptorHelper;
+import org.apache.flink.runtime.deployment.JobTaskDeploymentDescriptor;
+import org.apache.flink.runtime.deployment.JobVertexDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.ResultPartitionDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
@@ -249,6 +254,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	private final Map<JobID, JobDeploymentManager> jobDeploymentManagers;
 
+	private final Map<JobID, JobDeploymentDescriptorManager> jobDeploymentDescriptorManagers;
+
+	private final boolean optimizedJobDeploymentStructureEnable;
+
 	private final boolean taskDeployFinishEnable;
 
 	private final TaskExecutorNettyServer taskExecutorNettyServer;
@@ -352,7 +361,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				new TaskExecutorNettyServer(
 					() -> this.getSelfGateway(TaskExecutorGateway.class),
 					NetUtils.getLocalHostLANAddress().getHostAddress(),
-					taskManagerConfiguration.getConfiguration()) : null;
+					taskManagerConfiguration.getConfiguration(),
+					taskManagerConfiguration.isOptimizedJobDeploymentStructureEnable()) : null;
 		} catch (UnknownHostException e) {
 			throw new RuntimeException(e);
 		}
@@ -374,6 +384,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		this.jobManagerHeartbeatManager = createJobManagerHeartbeatManager(heartbeatServices, resourceId);
 		this.resourceManagerHeartbeatManager = createResourceManagerHeartbeatManager(heartbeatServices, resourceId);
 		this.jobDeploymentManagers = new HashMap<>(100);
+		this.jobDeploymentDescriptorManagers = new HashMap<>(100);
+		this.optimizedJobDeploymentStructureEnable = taskManagerConfiguration.isOptimizedJobDeploymentStructureEnable();
 		this.taskDeployFinishEnable = taskManagerConfiguration.isTaskDeployFinishEnable();
 	}
 
@@ -794,6 +806,24 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		return connectAndDeployJob(jobId, jobMasterAddress);
 	}
 
+	@Override
+	public CompletableFuture<Acknowledge> submitTaskList(String jobMasterAddress, JobDeploymentDescriptor jdd, JobMasterId jobMasterId, Time timeout) {
+		final JobTable.Job job;
+		JobID jobId = Preconditions.checkNotNull(jdd).getJobId();
+		jobDeploymentDescriptorManagers.put(jobId, new JobDeploymentDescriptorManager(jobMasterId, jdd));
+		try {
+			job = jobTable.getOrCreateJob(jobId, () -> registerNewJobAndCreateServices(jobId, jobMasterAddress));
+			if (job.isConnected()) {
+				JobTable.Connection jobConnection = job.asConnection().orElseThrow(() -> new TaskSubmissionException("Can't get connection for job " + jobId));
+				deployJobDescriptorTasks(jobId, jobConnection);
+			}
+		} catch (Exception e) {
+			return FutureUtils.completedExceptionally(new SlotAllocationException("Could not create new job.", e));
+		}
+
+		return CompletableFuture.completedFuture(Acknowledge.get());
+	}
+
 	private CompletableFuture<Acknowledge> connectAndDeployJob(JobID jobId, String jobMasterAddress) {
 		final JobTable.Job job;
 		try {
@@ -854,6 +884,193 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				jobId,
 				jobDeploymentManager.getStartDeployTime() - jobDeploymentManager.getReceiveTime(),
 				System.currentTimeMillis() - jobDeploymentManager.getStartDeployTime());
+	}
+
+	private void deployJobDescriptorTasks(JobID jobId, JobTable.Connection jobManagerConnection) {
+		JobDeploymentDescriptorManager jobDeploymentDescriptorManager = jobDeploymentDescriptorManagers.get(jobId);
+		if (jobDeploymentDescriptorManager == null) {
+			return;
+		}
+
+		jobDeploymentDescriptorManager.setStartDeployTime(System.currentTimeMillis());
+		JobDeploymentDescriptor jdd = jobDeploymentDescriptorManager.getJdd();
+
+		try {
+			jdd.loadBigData(blobCacheService.getPermanentBlobService());
+			final JobInformation jobInformation = jdd
+				.getSerializedJobInformation()
+				.deserializeValue(getClass().getClassLoader());
+			for (JobVertexDeploymentDescriptor jobVertexDeploymentDescriptor: jdd.getVertexDeploymentDescriptorList()) {
+				jobVertexDeploymentDescriptor.loadBigData(jobId, blobCacheService.getPermanentBlobService());
+				final TaskInformation taskInformation = jobVertexDeploymentDescriptor
+					.getSerializedTaskInformation()
+					.deserializeValue(getClass().getClassLoader());
+				for (JobTaskDeploymentDescriptor jobTaskDeploymentDescriptor:
+					jobVertexDeploymentDescriptor.getTaskDeploymentDescriptorList()) {
+					submitTaskInternal(
+						jobManagerConnection,
+						jobInformation,
+						taskInformation,
+						jobVertexDeploymentDescriptor,
+						jobTaskDeploymentDescriptor);
+				}
+			}
+		} catch (Exception e) {
+			log.error("Submit task list failed", e);
+			throw new RuntimeException("Launch tasks for job " + jobId + " fail", e);
+		} finally {
+			jobDeploymentDescriptorManagers.remove(jobId);
+		}
+
+		log.info("Finish to deploy tasks {} for job {} submit {} connect {} deploy {}",
+			jdd.getTaskCount(),
+			jdd.getJobId(),
+			jobDeploymentDescriptorManager.getReceivedTime() - jdd.getCreateTimestamp(),
+			jobDeploymentDescriptorManager.getStartDeployTime() - jobDeploymentDescriptorManager.getReceivedTime(),
+			System.currentTimeMillis() - jobDeploymentDescriptorManager.getStartDeployTime());
+	}
+
+	protected void submitTaskInternal(
+			JobTable.Connection jobManagerConnection,
+			JobInformation jobInformation,
+			TaskInformation taskInformation,
+			JobVertexDeploymentDescriptor jobVertexDeploymentDescriptor,
+			JobTaskDeploymentDescriptor jobTaskDeploymentDescriptor) throws TaskSubmissionException {
+		final JobID jobId = jobManagerConnection.getJobId();
+		final ExecutionAttemptID executionAttemptID = jobTaskDeploymentDescriptor.getExecutionAttemptId();
+
+		TaskMetricGroup taskMetricGroup = taskManagerMetricGroup.addTaskForJob(
+			jobId,
+			MetricUtils.formatJobMetricName(jobInformation.getJobName()),
+			taskInformation.getJobVertexId(),
+			executionAttemptID,
+			MetricUtils.formatTaskMetricName(taskInformation.getTaskMetricName()),
+			jobTaskDeploymentDescriptor.getSubtaskIndex(),
+			jobTaskDeploymentDescriptor.getAttemptNumber());
+
+		InputSplitProvider inputSplitProvider = new RpcInputSplitProvider(
+			jobManagerConnection.getJobManagerGateway(),
+			taskInformation.getJobVertexId(),
+			jobTaskDeploymentDescriptor.getExecutionAttemptId(),
+			taskManagerConfiguration.getTimeout());
+
+		final TaskOperatorEventGateway taskOperatorEventGateway = new RpcTaskOperatorEventGateway(
+			jobManagerConnection.getJobManagerGateway(),
+			executionAttemptID,
+			(t) -> runAsync(() -> failTask(executionAttemptID, t)));
+
+		TaskManagerActions taskManagerActions = jobManagerConnection.getTaskManagerActions();
+		CheckpointResponder checkpointResponder = jobManagerConnection.getCheckpointResponder();
+		GlobalAggregateManager aggregateManager = jobManagerConnection.getGlobalAggregateManager();
+
+		LibraryCacheManager.ClassLoaderHandle classLoaderHandle = jobManagerConnection.getClassLoaderHandle();
+		ResultPartitionConsumableNotifier resultPartitionConsumableNotifier = jobManagerConnection.getResultPartitionConsumableNotifier();
+		PartitionProducerStateChecker partitionStateChecker = jobManagerConnection.getPartitionStateChecker();
+
+		final TaskLocalStateStore localStateStore = localStateStoresManager.localStateStoreForSubtask(
+			jobId,
+			jobTaskDeploymentDescriptor.getAllocationId(),
+			taskInformation.getJobVertexId(),
+			jobTaskDeploymentDescriptor.getSubtaskIndex(),
+			jobTaskDeploymentDescriptor.getExecutionAttemptId(),
+			taskManagerActions);
+
+		final JobManagerTaskRestore taskRestore = jobTaskDeploymentDescriptor.getTaskRestore();
+
+		final TaskStateManager taskStateManager = new TaskStateManagerImpl(
+			jobId,
+			jobTaskDeploymentDescriptor.getExecutionAttemptId(),
+			localStateStore,
+			taskRestore,
+			checkpointResponder);
+
+		MemoryManager memoryManager;
+		try {
+			memoryManager = taskSlotTable.getTaskMemoryManager(
+				jobTaskDeploymentDescriptor.getAllocationId(),
+				jobTaskDeploymentDescriptor.getTargetSlotNumber());
+		} catch (SlotNotFoundException e) {
+			throw new TaskSubmissionException("Could not submit task.", e);
+		}
+
+		List<ResultPartitionDeploymentDescriptor> producedPartitions =
+			JobDeploymentDescriptorHelper.buildResultPartitionDeploymentList(jobVertexDeploymentDescriptor, jobTaskDeploymentDescriptor);
+		List<InputGateDeploymentDescriptor> inputGates =
+			JobDeploymentDescriptorHelper.buildInputGateDeploymentList(jobVertexDeploymentDescriptor, jobTaskDeploymentDescriptor);
+		Task task = new Task(
+			jobInformation,
+			taskInformation,
+			jobTaskDeploymentDescriptor.getExecutionAttemptId(),
+			jobTaskDeploymentDescriptor.getAllocationId(),
+			jobTaskDeploymentDescriptor.getSubtaskIndex(),
+			jobTaskDeploymentDescriptor.getAttemptNumber(),
+			producedPartitions,
+			inputGates,
+			jobTaskDeploymentDescriptor.getTargetSlotNumber(),
+			memoryManager,
+			taskExecutorServices.getIOManager(),
+			taskExecutorServices.getShuffleEnvironment(),
+			taskExecutorServices.getKvStateService(),
+			taskExecutorServices.getBroadcastVariableManager(),
+			taskExecutorServices.getTaskEventDispatcher(),
+			externalResourceInfoProvider,
+			taskStateManager,
+			taskManagerActions,
+			inputSplitProvider,
+			checkpointResponder,
+			taskOperatorEventGateway,
+			aggregateManager,
+			classLoaderHandle,
+			fileCache,
+			taskManagerConfiguration,
+			taskMetricGroup,
+			resultPartitionConsumableNotifier,
+			partitionStateChecker,
+			getRpcService().getExecutor(),
+			taskExecutorServices.getCacheManager(),
+			taskManagerConfiguration.isJobLogDetailDisable(),
+			taskSubmitRunning,
+			notifyFinalStateInTaskThreadEnable,
+			taskJobResultGateway);
+
+		taskMetricGroup.gauge(MetricNames.IS_BACKPRESSURED, task::isBackPressured);
+
+		if (taskManagerConfiguration.isJobLogDetailDisable()) {
+			log.debug("Received task {}.", task.getTaskInfo().getTaskNameWithSubtasks());
+		} else {
+			log.info("Received task {} for job {}.", task.getTaskInfo().getTaskNameWithSubtasks(), jobId);
+		}
+
+		boolean taskAdded;
+
+		try {
+			taskAdded = taskSlotTable.addTask(task);
+		} catch (SlotNotFoundException | SlotNotActiveException e) {
+			throw new TaskSubmissionException("Could not submit task.", e);
+		}
+
+		if (taskAdded) {
+			if (taskDeployFinishEnable) {
+				task.transitionFinalState();
+				taskManagerActions.updateTaskExecutionState(new TaskExecutionState(jobId, executionAttemptID, ExecutionState.FINISHED));
+				if (taskInformation.getTaskName().contains(SocketConstants.SOCKET_SINK_NAME_TAG)) {
+					taskJobResultGateway.sendResult(jobId, null, ResultStatus.COMPLETE, null);
+				}
+			} else {
+				task.startTaskThread();
+			}
+
+			setupResultPartitionBookkeeping(
+				jobId,
+				producedPartitions,
+				task.getTerminationFuture());
+		} else {
+			final String message = "TaskManager already contains a task for id " +
+				task.getExecutionId() + '.';
+
+			log.debug(message);
+			throw new TaskSubmissionException(message);
+		}
 	}
 
 	protected void submitTaskInternal(
@@ -1873,7 +2090,11 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		// JobMaster request slots from resourcemanager directly and taskmanager should not offer slots to it. Taskmanager try
 		// to deploy tasks of given job when connect to jobmaster.
 		if (requestSlotFromResourceManagerDirectEnable) {
-			deployJobTasks(jobId, establishedConnection);
+			if (optimizedJobDeploymentStructureEnable) {
+				deployJobDescriptorTasks(jobId, establishedConnection);
+			} else {
+				deployJobTasks(jobId, establishedConnection);
+			}
 		} else {
 			internalOfferSlotsToJobManager(establishedConnection);
 		}

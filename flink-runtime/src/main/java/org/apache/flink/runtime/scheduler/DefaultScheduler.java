@@ -22,6 +22,7 @@ package org.apache.flink.runtime.scheduler;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.BenchmarkOptions;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
@@ -33,6 +34,8 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
+import org.apache.flink.runtime.deployment.ExecutionConsumerEntity;
+import org.apache.flink.runtime.deployment.GatewayJobDeployment;
 import org.apache.flink.runtime.deployment.GatewayTaskDeployment;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.execution.ExecutionState;
@@ -127,6 +130,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
 	private final int batchTaskCount;
 
+	private final boolean optimizedJobDeploymentStructureEnable;
+
 	private final boolean taskSubmitToRunningStatus;
 
 	private final boolean taskScheduledFinishEnable;
@@ -195,6 +200,12 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 				+ JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE.key() + " is true first.");
 		}
 		this.jobResultClientManager = jobResultClientManager;
+
+		this.optimizedJobDeploymentStructureEnable = jobMasterConfiguration.getBoolean(ClusterOptions.JM_OPTIMIZED_SUBMIT_TASK_STRUCTURE_ENABLED);
+		if (optimizedJobDeploymentStructureEnable && !batchRequestSlotsEnable) {
+			throw new IllegalArgumentException(ClusterOptions.JM_OPTIMIZED_SUBMIT_TASK_STRUCTURE_ENABLED.key() + " can be true only when "
+				+ JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE.key() + " is true first.");
+		}
 
 		final FailoverStrategy failoverStrategy = failoverStrategyFactory.create(
 			getSchedulingTopology(),
@@ -581,7 +592,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			}
 
 			if (batchRequestSlotsEnable) {
-				GatewayDeploymentManager gatewayDeploymentManager = new GatewayDeploymentManager();
+				GatewayDeploymentManager gatewayDeploymentManager = new GatewayDeploymentManager(optimizedJobDeploymentStructureEnable);
 				for (final DeploymentHandle deploymentHandle : deploymentHandles) {
 					final SlotExecutionVertexAssignment slotExecutionVertexAssignment = deploymentHandle.getSlotExecutionVertexAssignment();
 					final CompletableFuture<LogicalSlot> slotAssigned = slotExecutionVertexAssignment.getLogicalSlotFuture();
@@ -590,14 +601,27 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 					FutureUtils.assertNoException(
 						slotAssigned.handle(deployOrHandleError(deploymentHandle, gatewayDeploymentManager)));
 				}
-				for (Map.Entry<ResourceID, List<GatewayTaskDeployment>> entry : gatewayDeploymentManager.getGatewayDeploymentList().entrySet()) {
-					if (taskSubmitToRunningStatus) {
-						notifyTaskRunning(entry);
+
+				if (optimizedJobDeploymentStructureEnable) {
+					for (Map.Entry<ResourceID, GatewayJobDeployment> entry : gatewayDeploymentManager.getGatewayJobDeployment().entrySet()) {
+						if (taskSubmitToRunningStatus) {
+							notifyJobTaskRunning(entry);
+						}
+						TaskManagerGateway gateway = gatewayDeploymentManager.getTaskManagerGateway(entry.getKey());
+						getFutureExecutor().execute(() -> {
+							submitJob(entry, gateway);
+						});
 					}
-					TaskManagerGateway gateway = gatewayDeploymentManager.getTaskManagerGateway(entry.getKey());
-					getFutureExecutor().execute(() -> {
-						submitTaskList(entry, gateway);
-					});
+				} else {
+					for (Map.Entry<ResourceID, List<GatewayTaskDeployment>> entry : gatewayDeploymentManager.getGatewayDeploymentList().entrySet()) {
+						if (taskSubmitToRunningStatus) {
+							notifyTaskRunning(entry);
+						}
+						TaskManagerGateway gateway = gatewayDeploymentManager.getTaskManagerGateway(entry.getKey());
+						getFutureExecutor().execute(() -> {
+							submitTaskList(entry, gateway);
+						});
+					}
 				}
 				log.info("Deploy Task take {} ms for job {} with tasks {}.", System.currentTimeMillis() - startDeployTaskTime, getJobId(), deploymentHandles.size());
 			} else {
@@ -620,10 +644,39 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		};
 	}
 
+	private void notifyJobTaskRunning(Map.Entry<ResourceID, GatewayJobDeployment> entry) {
+		CompletableFuture.runAsync(() -> {
+				for (ExecutionConsumerEntity entity: entry.getValue().getExecutionConsumerEntityList()) {
+					updateTaskExecutionState(new TaskExecutionState(getJobId(), entity.getExecution().getAttemptId(), RUNNING));
+				}
+			},
+			getMainThreadExecutor());
+	}
+
 	private void notifyTaskRunning(Map.Entry<ResourceID, List<GatewayTaskDeployment>> entry) {
 		CompletableFuture.runAsync(() -> {
 				for (GatewayTaskDeployment gatewayTaskDeployment : entry.getValue()) {
 					updateTaskExecutionState(new TaskExecutionState(getJobId(), gatewayTaskDeployment.getExecution().getAttemptId(), RUNNING));
+				}
+			},
+			getMainThreadExecutor());
+	}
+
+	private void submitJob(Map.Entry<ResourceID, GatewayJobDeployment> entry, TaskManagerGateway gateway) {
+		gateway.submitTaskList(entry.getValue().getJobDeploymentDescriptor(), getRpcTimeout())
+			.whenCompleteAsync((acknowledge, failure) -> {
+				if (null == failure) {
+					for (ExecutionConsumerEntity entity: entry.getValue().getExecutionConsumerEntityList()) {
+						Execution execution = entity.getExecution();
+						if (entity.isUpdateConsumers()) {
+							updateConsumerIfPipelined(execution);
+						}
+					}
+				} else {
+					for (ExecutionConsumerEntity entity: entry.getValue().getExecutionConsumerEntityList()) {
+						Execution execution = entity.getExecution();
+						markExecutionFailed(execution, failure);
+					}
 				}
 			},
 			getMainThreadExecutor());
@@ -653,41 +706,48 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 							for (GatewayTaskDeployment deployment : gatewayDeploymentListEntity.getGatewayTaskDeploymentList()) {
 								Execution execution = deployment.getExecution();
 								if (deployment.isUpdateConsumers()) {
-									for (IntermediateResultPartition partition : execution.getVertex().getProducedPartitions().values()) {
-										if (partition.getIntermediateResult().getResultType().isPipelined()) {
-											for (ExecutionVertexID consumerVertexId : partition.getConsumers().get(0).getVertices()) {
-												final ExecutionVertex consumerVertex = execution.getVertex().getExecutionGraph().getVertex(consumerVertexId);
-												final Execution consumer = consumerVertex.getCurrentExecutionAttempt();
-												final ExecutionState consumerState = consumer.getState();
-
-												final PartitionInfo partitionInfo = Execution.createPartitionInfo(partition);
-
-												if (consumerState == RUNNING) {
-													consumer.sendUpdatePartitionInfoRpcCall(Collections.singleton(partitionInfo));
-												} else {
-													consumerVertex.cachePartitionInfo(partitionInfo);
-												}
-											}
-										}
-									}
+									updateConsumerIfPipelined(execution);
 								}
 							}
 						} else {
 							for (GatewayTaskDeployment deployment : entry.getValue()) {
 								Execution execution = deployment.getExecution();
-								if (failure instanceof TimeoutException) {
-									String taskname = execution.getVertex().getTaskNameWithSubtaskIndex() + " (" + execution.getAttemptId() + ')';
-
-									execution.markFailed(new Exception(
-										"Cannot deploy task " + taskname + " - TaskManager (" + execution.getAssignedResourceLocation()
-											+ ") not responding after a rpcTimeout of " + execution.getRpcTimeout(), failure));
-								} else {
-									execution.markFailed(failure);
-								}
+								markExecutionFailed(execution, failure);
 							}
 						}
 					},
 					getMainThreadExecutor());
+		}
+	}
+
+	private void updateConsumerIfPipelined(Execution execution) {
+		for (IntermediateResultPartition partition : execution.getVertex().getProducedPartitions().values()) {
+			if (partition.getIntermediateResult().getResultType().isPipelined()) {
+				for (ExecutionVertexID consumerVertexId : partition.getConsumers().get(0).getVertices()) {
+					final ExecutionVertex consumerVertex = execution.getVertex().getExecutionGraph().getVertex(consumerVertexId);
+					final Execution consumer = consumerVertex.getCurrentExecutionAttempt();
+					final ExecutionState consumerState = consumer.getState();
+
+					final PartitionInfo partitionInfo = Execution.createPartitionInfo(partition);
+					if (consumerState == RUNNING) {
+						consumer.sendUpdatePartitionInfoRpcCall(Collections.singleton(partitionInfo));
+					} else {
+						consumerVertex.cachePartitionInfo(partitionInfo);
+					}
+				}
+			}
+		}
+	}
+
+	private void markExecutionFailed(Execution execution, Throwable failure) {
+		if (failure instanceof TimeoutException) {
+			String taskName = execution.getVertex().getTaskNameWithSubtaskIndex() + " (" + execution.getAttemptId() + ')';
+
+			execution.markFailed(new Exception(
+				"Cannot deploy task " + taskName + " - TaskManager (" + execution.getAssignedResourceLocation()
+					+ ") not responding after a rpcTimeout of " + execution.getRpcTimeout(), failure));
+		} else {
+			execution.markFailed(failure);
 		}
 	}
 

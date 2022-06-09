@@ -451,6 +451,10 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		return releaseFuture;
 	}
 
+	public Map<IntermediateResultPartitionID, ResultPartitionDeploymentDescriptor> getProducedPartitions() {
+		return producedPartitions;
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Actions
 	// --------------------------------------------------------------------------------------------
@@ -902,18 +906,29 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 				return;
 			}
 
-			final TaskDeploymentDescriptor deployment = TaskDeploymentDescriptorFactory
-				.fromExecution(this, attemptNumber)
-				.createDeploymentDescriptor(
-					slot.getAllocationId(),
-					slot.getPhysicalSlotNumber(),
+			if (gatewayDeploymentManager.isOptimizedJobDeploymentStructureEnable()) {
+				gatewayDeploymentManager.addGatewayJobDeployment(
+					slot.getTaskManagerLocation().getResourceID(),
+					slot.getTaskManagerGateway(),
+					slot,
 					taskRestore,
-					producedPartitions.values());
+					updateConsumers,
+					this);
+			} else {
+				final TaskDeploymentDescriptor deployment = TaskDeploymentDescriptorFactory
+					.fromExecution(this, attemptNumber)
+					.createDeploymentDescriptor(
+						slot.getAllocationId(),
+						slot.getPhysicalSlotNumber(),
+						taskRestore,
+						producedPartitions.values());
+
+				gatewayDeploymentManager.addGatewayDeployment(slot.getTaskManagerLocation().getResourceID(), slot.getTaskManagerGateway(), new GatewayTaskDeployment(deployment, updateConsumers, this));
+			}
 
 			// null taskRestore to let it be GC'ed
 			taskRestore = null;
 
-			gatewayDeploymentManager.addGatewayDeployment(slot.getTaskManagerLocation().getResourceID(), slot.getTaskManagerGateway(), new GatewayTaskDeployment(deployment, updateConsumers, this));
 		}
 		catch (Throwable t) {
 			markFailed(t);

@@ -46,7 +46,8 @@ public class TaskExecutorNettyServerTest {
 						})
 					.createTestingTaskExecutorGateway(),
 				"localhost",
-				new Configuration())) {
+				new Configuration(),
+				false)) {
 			taskExecutorNettyServer.start();
 
 			try (TaskExecutorNettyClient taskExecutorNettyClient = new TaskExecutorNettyClient(

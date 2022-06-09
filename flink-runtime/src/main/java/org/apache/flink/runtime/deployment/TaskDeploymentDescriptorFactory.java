@@ -199,7 +199,7 @@ public class TaskDeploymentDescriptorFactory {
 			executionGraph.getIntermediateResultPartitionMapping());
 	}
 
-	private static MaybeOffloaded<JobInformation> getSerializedJobInformation(ExecutionGraph executionGraph) {
+	public static MaybeOffloaded<JobInformation> getSerializedJobInformation(ExecutionGraph executionGraph) {
 		Either<SerializedValue<JobInformation>, PermanentBlobKey> jobInformationOrBlobKey =
 			executionGraph.getJobInformationOrBlobKey();
 		if (jobInformationOrBlobKey.isLeft()) {
@@ -209,7 +209,7 @@ public class TaskDeploymentDescriptorFactory {
 		}
 	}
 
-	private static MaybeOffloaded<TaskInformation> getSerializedTaskInformation(
+	public static MaybeOffloaded<TaskInformation> getSerializedTaskInformation(
 		Either<SerializedValue<TaskInformation>,
 			PermanentBlobKey> taskInfo) {
 		return taskInfo.isLeft() ?
