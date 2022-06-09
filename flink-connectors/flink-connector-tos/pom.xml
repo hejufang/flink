@@ -30,7 +30,7 @@ under the License.
 	<artifactId>flink-connector-tos</artifactId>
 
 	<properties>
-		<tos.version>0.6.0</tos.version>
+		<tos.version>1.3.11</tos.version>
 		<shaded.prefix>org.apache.flink.connectors.tos.shaded</shaded.prefix>
 	</properties>
 
@@ -125,6 +125,10 @@ under the License.
 										<relocation>
 											<pattern>com.bytedance.commons</pattern>
 											<shadedPattern>${shaded.prefix}.com.bytedance.commons</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.jetbrains</pattern>
+											<shadedPattern>${shaded.prefix}.org.jetbrains</shadedPattern>
 										</relocation>
 									</relocations>
 								</configuration>
