@@ -40,6 +40,7 @@ import org.apache.flink.util.Collector;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.After;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -61,6 +62,7 @@ import static org.mockito.Mockito.validateMockitoUsage;
 /**
  * Tests for {@link CoCepOperatorV2}.
  */
+@Ignore
 public class CoCepOperatorV2Test extends TestLogger {
 
 	private static final Logger LOG = LoggerFactory.getLogger(CoCepOperatorV2Test.class);
