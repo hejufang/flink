@@ -25,10 +25,12 @@ import org.apache.flink.api.connector.source.SplitsAssignment;
 import org.apache.flink.connector.base.source.event.NoMoreSplitsEvent;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
 import org.apache.flink.connector.rocketmq.RocketMQConsumerFactory;
+import org.apache.flink.connector.rocketmq.RocketMQOptions;
 import org.apache.flink.connector.rocketmq.RocketMQUtils;
 import org.apache.flink.rocketmq.source.split.RocketMQSplit;
 import org.apache.flink.rocketmq.source.split.RocketMQSplitBase;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.RetryManager;
 
 import com.bytedance.mqproxy.proto.MessageQueuePb;
 import com.bytedance.rocketmq.clientv2.consumer.DefaultMQPullConsumer;
@@ -71,6 +73,7 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 	private final String jobName;
 	private final long discoveryIntervalMs;
 	private final boolean batchMode;
+	private final RetryManager.Strategy retryStrategy;
 
 	/**
 	 * Set of assigned MessageQueue. We should convert MessageQueuePb to MessageQueue here.
@@ -89,6 +92,7 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 	private transient String instanceName;
 	// it is different from context.registeredReaders(), readers in context will recover from checkpoint
 	private transient Set<Integer> currentRegisteredTasks;
+	private transient int fetchQueueFailedTimes;
 
 	public RocketMQSplitEnumerator(
 			SplitEnumeratorContext<RocketMQSplit> context,
@@ -111,6 +115,9 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 		this.batchMode = boundedness == Boundedness.BOUNDED;
 		userSpecificSplitSet = RocketMQUtils.getClusterSplitBaseSet(
 			config.getCluster(), config.getRocketMqBrokerQueueList());
+		this.retryStrategy = RetryManager.createStrategy(RetryManager.StrategyType.EXPONENTIAL_BACKOFF.name(),
+			RocketMQOptions.CONSUMER_RETRY_TIMES_DEFAULT,
+			RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 	}
 
 	@Override
@@ -125,7 +132,7 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 		if (tag != null) {
 			consumer.setSubExpr(tag);
 		}
-		consumer.start();
+		RetryManager.retry(() -> consumer.start(), retryStrategy);
 		if (userSpecificSplitSet.size() > 0) {
 			context.callAsync(this::getUserSpecificQueueList, this::handleQueueChanges);
 			LOG.info("This is a split job, queues {}", userSpecificSplitSet);
@@ -220,9 +227,14 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 	 */
 	private void handleQueueChanges(List<RocketMQSplitBase> fetchedMessageQueue, Throwable t) {
 		if (t != null) {
-			throw new FlinkRuntimeException(
+			fetchQueueFailedTimes++;
+			LOG.error("Background discovery thread failed {} times", fetchQueueFailedTimes, t);
+			if (fetchQueueFailedTimes > RocketMQOptions.CONSUMER_RETRY_TIMES_DEFAULT) {
+				throw new FlinkRuntimeException(
 					"Failed to list subscribed topic messageQueue due to: ", t);
+			}
 		}
+		fetchQueueFailedTimes = 0;
 		final RocketmqSplitBaseChange messageQueueChange = getMessageQueueChange(fetchedMessageQueue);
 		// We only handle queue added set
 		if (messageQueueChange.getAddedSplitBaseSet().isEmpty()) {

@@ -111,6 +111,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private transient Thread updateThread;
 	private transient ListState<Tuple2<MessageQueue, Long>> unionOffsetStates;
 	private transient volatile boolean running;
+	private transient Throwable backgroundException;
 	private transient boolean isRestored;
 	private transient boolean hasRun;
 	private transient Map<MessageQueue, Long> offsetTable;
@@ -253,7 +254,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		}
 		// offset sync to server interval
 		consumer.setFlushOffsetInterval(offsetFlushInterval);
-		consumer.start();
+		RetryManager.retry(() -> consumer.start(), retryStrategy);
 
 		if (userSpecificQueuePbs.isEmpty()) {
 			assignMessageQueues(this::allocFixedMessageQueue);
@@ -269,7 +270,12 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		long lastTimestamp = System.currentTimeMillis();
 		while (running) {
 			if (userSpecificQueuePbs.isEmpty() && !updateThread.isAlive()) {
-				throw new FlinkRuntimeException("Subtask " + subTaskId + " RocketMQ partition discovery thread is not alive");
+				if (!running && (backgroundException == null || backgroundException instanceof InterruptedException)) {
+					LOG.info("Not in running state, we will exit task {}", subTaskId);
+					break;
+				}
+				throw new FlinkRuntimeException(
+					"Subtask " + subTaskId + " RocketMQ partition discovery thread is not alive", backgroundException);
 			}
 
 			List<List<MessageExt>> messageExtsList = new ArrayList<>();
@@ -449,8 +455,10 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 						assignMessageQueues(() -> allocFixedMessageQueue());
 						fixRetryStrategy.clear();
 					} catch (InterruptedException e) {
+						backgroundException = e;
 						LOG.warn("Receive interrupted exception.");
 					} catch (RMQClientException e) {
+						backgroundException = e;
 						LOG.warn("Receive RocketMQ client exception in RocketMQ partition discovery thread.", e);
 					}
 				}
@@ -458,14 +466,11 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		};
 		thread.setDaemon(true);
 		thread.setName("RocketMQ_partition_discovery_thread: " + subTaskId);
-		thread.setUncaughtExceptionHandler(new ExceptionHandler());
-		return thread;
-	}
-
-	static class ExceptionHandler implements Thread.UncaughtExceptionHandler {
-		public void uncaughtException(Thread t, Throwable e) {
+		thread.setUncaughtExceptionHandler((t, e) -> {
 			LOG.error("Receive uncaught exception in RocketMQ partition discovery thread.", e);
-		}
+			backgroundException = e;
+		});
+		return thread;
 	}
 
 	@Override

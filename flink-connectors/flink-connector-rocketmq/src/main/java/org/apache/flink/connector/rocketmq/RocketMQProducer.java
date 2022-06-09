@@ -122,7 +122,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 			RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 		// TODO: use props construct producer.
 		producer = new DefaultMQProducer(cluster, group, null, getRocketMQProperties(props));
-		producer.start();
+		RetryManager.retry(() -> producer.start(), retryStrategy);
 		serializationSchema.open(() -> getRuntimeContext().getMetricGroup());
 		if (rateLimiter != null) {
 			rateLimiter.open(getRuntimeContext());
