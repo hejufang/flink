@@ -377,12 +377,20 @@ public class NettyShuffleEnvironmentOptions {
 			.defaultValue(300_000L)
 			.withDescription("The time (in ms) to keep the netty channel which isn't assign to any task.");
 
-	public static final ConfigOption<Boolean> NETWORK_BUFFER_POOL_REDISTRIBUTE_DISABLE =
-		key("taskmanager.network-buffer-pool-redistribute.disable")
+	public static final ConfigOption<Boolean> NETWORK_BUFFER_POOL_SIMPLE_REDISTRIBUTE_ENABLE =
+		key("taskmanager.network-buffer-pool-simple-redistribute.enable")
 			.booleanType()
 			.defaultValue(false)
 			.withDescription("Network buffer pool will redistribute all the local buffer pool, " +
-				"and if this flag is true, the network buffer pool won't do that.");
+				"and if this flag is true, the network buffer pool will be redistributed only when " +
+				"localBufferPool created or networkBufferPool's availableSegments not enough.");
+
+	public static final ConfigOption<Double> NETWORK_BUFFER_POOL_SIMPLE_REDISTRIBUTE_HIGN_WATERMARK =
+		key("taskmanager.network-buffer-pool-simple-redistribute.high-watermark")
+			.doubleType()
+			.defaultValue(0.8)
+			.withDescription("Network buffer pool will be set max value if used memory's proportion " +
+				"of occupancy is less than high-watermark.");
 
 	/** Not intended to be instantiated. */
 	private NettyShuffleEnvironmentOptions() {}

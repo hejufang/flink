@@ -76,6 +76,8 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 	private final Set<LocalBufferPool> allBufferPools = new HashSet<>();
 
+	private final Set<LocalBufferPool> resizableBufferPools = new HashSet<>();
+
 	private int numTotalRequiredBuffers;
 
 	private final int numberOfSegmentsToRequest;
@@ -86,7 +88,9 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 	private final long requestNetworkSegmentTimeoutMills;
 
-	private final boolean redistributeDisable;
+	private final boolean simpleRedistributeEnable;
+
+	private final double simpleRedistributeHighWaterMark;
 
 	// Track the number of segments that have been allocated.
 	private AtomicInteger numberOfAllocatedMemorySegments = new AtomicInteger(0);
@@ -125,8 +129,8 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 			requestSegmentsTimeout,
 			lazyAllocate,
 			Duration.ofMillis(0L),
-			false
-		);
+			false,
+			0);
 	}
 
 	public NetworkBufferPool(
@@ -136,10 +140,12 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 			Duration requestSegmentsTimeout,
 			boolean lazyAllocate,
 			Duration requestNetworkSegmentTimeout,
-			boolean redistributeDisable) {
+			boolean simpleRedistributeEnable,
+			double simpleRedistributeHighWaterMark) {
 		this.totalNumberOfMemorySegments = numberOfSegmentsToAllocate;
 		this.memorySegmentSize = segmentSize;
-		this.redistributeDisable = redistributeDisable;
+		this.simpleRedistributeEnable = simpleRedistributeEnable;
+		this.simpleRedistributeHighWaterMark = simpleRedistributeHighWaterMark;
 
 		checkArgument(numberOfSegmentsToRequest > 0, "The number of required buffers should be larger than 0.");
 		this.numberOfSegmentsToRequest = numberOfSegmentsToRequest;
@@ -255,14 +261,12 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 	@Override
 	public List<MemorySegment> requestMemorySegments() throws IOException {
-		if (!redistributeDisable) {
-			synchronized (factoryLock) {
-				if (isDestroyed) {
-					throw new IllegalStateException("Network buffer pool has already been destroyed.");
-				}
-
-				tryRedistributeBuffers();
+		synchronized (factoryLock) {
+			if (isDestroyed) {
+				throw new IllegalStateException("Network buffer pool has already been destroyed.");
 			}
+
+			tryRedistributeBuffers();
 		}
 
 		final List<MemorySegment> segments = new ArrayList<>(numberOfSegmentsToRequest);
@@ -339,7 +343,7 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 				numTotalRequiredBuffers -= size;
 
 				// note: if this fails, we're fine for the buffer pool since we already recycled the segments
-				if (!redistributeDisable) {
+				if (!simpleRedistributeEnable) {
 					redistributeBuffers();
 				}
 			}
@@ -384,6 +388,10 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 	public long getTotalMemory() {
 		return (long) getTotalNumberOfMemorySegments() * memorySegmentSize;
+	}
+
+	public int getNumTotalRequiredBuffers() {
+		return numTotalRequiredBuffers;
 	}
 
 	public int getNumberOfAvailableMemorySegments() {
@@ -487,23 +495,41 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 				throw new IllegalStateException("Network buffer pool has already been destroyed.");
 			}
 
+			if (simpleRedistributeEnable && numTotalRequiredBuffers + numRequiredBuffers > totalNumberOfMemorySegments) {
+				// Return excess memorySegment in resizablePools if available memorySegments not enough.
+				LOG.info("trigger return ExcessMemorySegments, numTotalRequiredBuffers: {}, numberOfSegmentsToRequest: {}, totalNumberOfMemorySegments: {}", numTotalRequiredBuffers, numRequiredBuffers, totalNumberOfMemorySegments);
+				returnExcessMemorySegments();
+			}
+
 			// Ensure that the number of required buffers can be satisfied.
 			// With dynamic memory management this should become obsolete.
 			if (numTotalRequiredBuffers + numRequiredBuffers > totalNumberOfMemorySegments) {
 				throw new IOException(String.format("Insufficient number of network buffers: " +
-								"required %d, but only %d available. %s.",
-						numRequiredBuffers,
-						totalNumberOfMemorySegments - numTotalRequiredBuffers,
-						getConfigDescription()));
+						"required %d, but only %d available. %s.",
+					numRequiredBuffers,
+					totalNumberOfMemorySegments - numTotalRequiredBuffers,
+					getConfigDescription()));
 			}
 
 			this.numTotalRequiredBuffers += numRequiredBuffers;
 
 			// We are good to go, create a new buffer pool and redistribute
 			// non-fixed size buffers.
+
+			boolean useMaxUsedBuffers = false;
+			if (simpleRedistributeEnable) {
+				final int numAvailableMemorySegment = totalNumberOfMemorySegments - numTotalRequiredBuffers;
+				int maxExcessBuffer = Math.max(maxUsedBuffers - numRequiredBuffers, 0);
+				if (1.0 * (numTotalRequiredBuffers + maxExcessBuffer) / totalNumberOfMemorySegments < simpleRedistributeHighWaterMark && numAvailableMemorySegment > maxExcessBuffer) {
+					numTotalRequiredBuffers += maxExcessBuffer;
+					useMaxUsedBuffers = true;
+				}
+			}
+			int initPoolSize = useMaxUsedBuffers ? maxUsedBuffers : numRequiredBuffers;
 			LocalBufferPool localBufferPool =
 				new LocalBufferPool(
 					this,
+					initPoolSize,
 					numRequiredBuffers,
 					maxUsedBuffers,
 					bufferPoolOwner,
@@ -512,8 +538,12 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 			allBufferPools.add(localBufferPool);
 
+			if (useMaxUsedBuffers) {
+				resizableBufferPools.add(localBufferPool);
+			}
+
 			try {
-				if (!redistributeDisable) {
+				if (!simpleRedistributeEnable) {
 					redistributeBuffers();
 				}
 			} catch (IOException e) {
@@ -537,9 +567,12 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 		synchronized (factoryLock) {
 			if (allBufferPools.remove(bufferPool)) {
-				numTotalRequiredBuffers -= bufferPool.getNumberOfRequiredMemorySegments();
-				if (!redistributeDisable) {
+				if (!simpleRedistributeEnable) {
+					numTotalRequiredBuffers -= bufferPool.getNumberOfRequiredMemorySegments();
 					redistributeBuffers();
+				} else {
+					numTotalRequiredBuffers -= bufferPool.getNumBuffers();
+					resizableBufferPools.remove(bufferPool);
 				}
 			}
 		}
@@ -569,18 +602,25 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 	private void tryRedistributeBuffers() throws IOException {
 		assert Thread.holdsLock(factoryLock);
 
+		if (simpleRedistributeEnable && numTotalRequiredBuffers + numberOfSegmentsToRequest > totalNumberOfMemorySegments) {
+			LOG.info("trigger return ExcessMemorySegments, numTotalRequiredBuffers: {}, numberOfSegmentsToRequest: {}, totalNumberOfMemorySegments: {}", numTotalRequiredBuffers, numberOfSegmentsToRequest, totalNumberOfMemorySegments);
+			returnExcessMemorySegments();
+		}
+
 		if (numTotalRequiredBuffers + numberOfSegmentsToRequest > totalNumberOfMemorySegments) {
 			throw new IOException(String.format("Insufficient number of network buffers: " +
-							"required %d, but only %d available. %s.",
-					numberOfSegmentsToRequest,
-					totalNumberOfMemorySegments - numTotalRequiredBuffers,
-					getConfigDescription()));
+					"required %d, but only %d available. %s.",
+				numberOfSegmentsToRequest,
+				totalNumberOfMemorySegments - numTotalRequiredBuffers,
+				getConfigDescription()));
 		}
 
 		this.numTotalRequiredBuffers += numberOfSegmentsToRequest;
 
 		try {
-			redistributeBuffers();
+			if (!simpleRedistributeEnable) {
+				redistributeBuffers();
+			}
 		} catch (Throwable t) {
 			this.numTotalRequiredBuffers -= numberOfSegmentsToRequest;
 
@@ -590,6 +630,22 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 				t.addSuppressed(inner);
 			}
 			ExceptionUtils.rethrowIOException(t);
+		}
+	}
+
+	public void tryResizeLocalBufferPool(LocalBufferPool localBufferPool) throws IOException {
+		if (!simpleRedistributeEnable) {
+			return;
+		}
+		synchronized (factoryLock) {
+			LOG.debug("try resize local buffer pool, numTotalRequiredBuffers: {}, totalNumberOfMemorySegments: {}", numberOfAllocatedMemorySegments, totalNumberOfMemorySegments);
+			if (1.0 * (numTotalRequiredBuffers + 1) / totalNumberOfMemorySegments > simpleRedistributeHighWaterMark) {
+				return;
+			}
+			if (localBufferPool.tryIncNumBuffers()) {
+				numTotalRequiredBuffers++;
+				resizableBufferPools.add(localBufferPool);
+			}
 		}
 	}
 
@@ -660,6 +716,31 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 		assert (totalPartsUsed == totalCapacity);
 		assert (numDistributedMemorySegment == memorySegmentsToDistribute);
+	}
+
+	@VisibleForTesting
+	public void tryReturnExcessMemorySegments() throws IOException {
+		synchronized (factoryLock){
+			returnExcessMemorySegments();
+		}
+	}
+
+	private void returnExcessMemorySegments() throws IOException {
+		assert Thread.holdsLock(factoryLock);
+
+		if (resizableBufferPools.isEmpty()) {
+			return;
+		}
+
+		// in this case, we need to redistribute buffers so that every pool gets its minimum
+		for (LocalBufferPool bufferPool : resizableBufferPools) {
+			int excess = bufferPool.getNumBuffers() - bufferPool.getNumberOfRequiredMemorySegments();
+			if (excess > 0) {
+				bufferPool.setNumBuffers(bufferPool.getNumberOfRequiredMemorySegments());
+				numTotalRequiredBuffers -= excess;
+			}
+		}
+		resizableBufferPools.clear();
 	}
 
 	private String getConfigDescription() {

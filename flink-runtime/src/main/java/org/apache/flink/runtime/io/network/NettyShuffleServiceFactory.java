@@ -136,7 +136,8 @@ public class NettyShuffleServiceFactory implements ShuffleServiceFactory<NettySh
 			config.getRequestSegmentsTimeout(),
 			config.isLazyAllocate(),
 			config.getRequestNetworkSegmentTimeout(),
-			config.isRedistributeDisable());
+			config.isSimpleRedistributeEnable(),
+			config.getSimpleRedistributeHighWatermark());
 
 		registerShuffleMetrics(metricGroup, networkBufferPool);
 

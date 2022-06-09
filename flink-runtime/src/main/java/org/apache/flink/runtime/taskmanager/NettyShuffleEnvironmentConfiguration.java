@@ -89,7 +89,9 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final long channelIdleReleaseTimeMs;
 
-	private final boolean redistributeDisable;
+	private final boolean simpleRedistributeEnable;
+
+	private final double simpleRedistributeHighWatermark;
 
 	private final boolean batchPartitionRequestEnable;
 
@@ -121,7 +123,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			Duration requestNetworkSegmentTimeout,
 			boolean channelReuseEnable,
 			long channelIdleReleaseTimeMs,
-			boolean redistributeDisable,
+			boolean simpleRedistributeEnable,
+			double simpleRedistributeHighWaterMark,
 			boolean batchPartitionRequestEnable,
 			boolean notifyPartitionRequestEnable,
 			long notifyPartitionRequestTimeout,
@@ -148,7 +151,8 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.requestNetworkSegmentTimeout = requestNetworkSegmentTimeout;
 		this.channelReuseEnable = channelReuseEnable;
 		this.channelIdleReleaseTimeMs = channelIdleReleaseTimeMs;
-		this.redistributeDisable = redistributeDisable;
+		this.simpleRedistributeEnable = simpleRedistributeEnable;
+		this.simpleRedistributeHighWatermark = simpleRedistributeHighWaterMark;
 		this.batchPartitionRequestEnable = batchPartitionRequestEnable;
 		this.notifyPartitionRequestEnable = notifyPartitionRequestEnable;
 		this.notifyPartitionRequestTimeout = notifyPartitionRequestTimeout;
@@ -241,10 +245,15 @@ public class NettyShuffleEnvironmentConfiguration {
 		return channelIdleReleaseTimeMs;
 	}
 
-	public boolean isRedistributeDisable() {
-		return redistributeDisable;
+	public boolean isSimpleRedistributeEnable() {
+		return simpleRedistributeEnable;
 	}
-// ------------------------------------------------------------------------
+
+	public double getSimpleRedistributeHighWatermark() {
+		return simpleRedistributeHighWatermark;
+	}
+
+	// ------------------------------------------------------------------------
 	public boolean isBatchPartitionRequestEnable() {
 		return batchPartitionRequestEnable;
 	}
@@ -322,7 +331,8 @@ public class NettyShuffleEnvironmentConfiguration {
 				NettyShuffleEnvironmentOptions.NETWORK_BUFFER_MEMORY_REQUEST_TIMEOUT_MILLS));
 		boolean channelReuseEnable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_CHANNEL_REUSE_ENABLE);
 		long channelIdleReleaseTimeMs = configuration.getLong(NettyShuffleEnvironmentOptions.NETWORK_CHANNEL_IDLE_TOLERANT_TIME_MS);
-		boolean redistributeDisable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BUFFER_POOL_REDISTRIBUTE_DISABLE);
+		boolean simpleRedistributeEnable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BUFFER_POOL_SIMPLE_REDISTRIBUTE_ENABLE);
+		double simpleRedistributeHighWatermark = configuration.getDouble(NettyShuffleEnvironmentOptions.NETWORK_BUFFER_POOL_SIMPLE_REDISTRIBUTE_HIGN_WATERMARK);
 		boolean batchPartitionRequestEnable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BATCH_PARTITION_REQUET_ENABLE);
 		boolean notifyPartitionRequestEnable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_PARTITION_REQUEST_NOTIFY_ENABLE);
 		long notifyPartitionRequestTimeout = configuration.getLong(NettyShuffleEnvironmentOptions.NETWORK_PARTITION_REQUEST_NOTIFY_TIMEOUT);
@@ -350,7 +360,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			requestNetworkSegmentTimeout,
 			channelReuseEnable,
 			channelIdleReleaseTimeMs,
-			redistributeDisable,
+			simpleRedistributeEnable,
+			simpleRedistributeHighWatermark,
 			batchPartitionRequestEnable,
 			notifyPartitionRequestEnable,
 			notifyPartitionRequestTimeout,
