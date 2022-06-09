@@ -123,15 +123,15 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 	private ValueState<Integer> testState1;
 	private ValueState<String> testState2;
 
-	@Parameterized.Parameters(name = "RocksDB snapshot type ={0}")
+	@Parameterized.Parameters(name = "RocksDB snapshot type ={0}, restore with sstFileWriter ={1}, optimize for seek ={2}")
 	public static Collection<Object[]> parameters() {
 		return Arrays.asList(
-			new Object[]{RocksDBStateBackendEnum.FULL, false},
-			new Object[]{RocksDBStateBackendEnum.FULL, true},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, true},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, false},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ, false},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ, true});
+			new Object[]{RocksDBStateBackendEnum.FULL, false, false},
+			new Object[]{RocksDBStateBackendEnum.FULL, true, true},
+			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, true, true},
+			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, false, false},
+			new Object[]{RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ, false, false},
+			new Object[]{RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ, true, true});
 	}
 
 	@Parameterized.Parameter
@@ -139,6 +139,9 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 
 	@Parameterized.Parameter(1)
 	public boolean restoreWithSstFileWriter;
+
+	@Parameterized.Parameter(2)
+	public boolean optimizeSeek;
 
 	enum RocksDBStateBackendEnum {
 		FULL, INCREMENTAL, INCREMENTAL_BATCH_FIX_SIZE_SEQ
@@ -185,6 +188,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 		Configuration configuration = new Configuration();
 		configuration.set(RocksDBOptions.TIMER_SERVICE_FACTORY, RocksDBStateBackend.PriorityQueueStateType.ROCKSDB);
 		configuration.setBoolean(RocksDBOptions.DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL, discardStatesIfRocksdbRecoverFail);
+		configuration.setBoolean(RocksDBOptions.ROCKSDB_OPTIMIZE_SEEK, optimizeSeek);
 		if (restoreWithSstFileWriter) {
 			configuration.set(RocksDBOptions.ROCKSDB_RESTORE_WITH_SST_FILE_WRITER, true);
 			configuration.set(RocksDBOptions.MAX_SST_SIZE_FOR_SST_FILE_WRITER, MemorySize.parse("5k"));

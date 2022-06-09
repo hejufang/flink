@@ -30,11 +30,16 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StateMigrationException;
 
 import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.Slice;
 import org.rocksdb.WriteOptions;
+
+import javax.annotation.Nonnull;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -259,5 +264,52 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
 			KVStateOperationInfo kvOperationInfo = metricReference.get().getOperationInfo();
 			kvOperationInfo.update(latency, type);
 		}
+	}
+
+	/**
+	 * Similar to decimal addition, add 1 to the last digit to calculate the upper bound.
+	 * @param prefix the starting prefix for seek.
+	 * @return end prefix for seek.
+	 */
+	final Optional<byte[]> calculateUpperBound(byte[] prefix) {
+		if (!backend.isOptimizeSeek()) {
+			return Optional.empty();
+		}
+
+		byte[] upperBound = new byte[prefix.length];
+		System.arraycopy(prefix, 0, upperBound, 0, prefix.length);
+		boolean overFlow = true;
+		for (int i = prefix.length - 1; i >= 0; i--) {
+			int unsignedValue = prefix[i] & 0xff;
+			int result = unsignedValue + 1;
+			upperBound[i] = (byte) (result & 0xff);
+			if (result >> 8 == 0) {
+				overFlow = false;
+				break;
+			}
+		}
+		return overFlow ? Optional.empty() : Optional.ofNullable(upperBound);
+	}
+
+	/**
+	 * Generates an optimized ReadOption for the seek prefix.
+	 */
+	ReadOptions optimizeForSeekWithPrefix(byte[] prefixBytes, List<AutoCloseable> closeables) {
+		Optional<byte[]> upperBound = calculateUpperBound(prefixBytes);
+		return optimizeForSeekWithUpperBound(upperBound, closeables);
+	}
+
+	/**
+	 * Generates an optimized ReadOption for the upper bound of seek.
+	 */
+	ReadOptions optimizeForSeekWithUpperBound(@Nonnull Optional<byte[]> upperBound, List<AutoCloseable> closeables) {
+		ReadOptions readOptions = backend.getReadOptions();
+		if (upperBound.isPresent()) {
+			Slice slice = new Slice(upperBound.get());
+			readOptions = new ReadOptions(backend.getReadOptions().setIterateUpperBound(slice));
+			closeables.add(readOptions);
+			closeables.add(slice);
+		}
+		return readOptions;
 	}
 }

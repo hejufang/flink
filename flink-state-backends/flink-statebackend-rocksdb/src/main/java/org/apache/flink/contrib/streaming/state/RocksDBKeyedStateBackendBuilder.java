@@ -130,6 +130,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	private long disposeTimeout;
 	private RestoreOptions restoreOptions; // for restore
 	private boolean crossNamespace = false;
+	private boolean optimizeSeek = false;
 
 	private RocksDB injectedTestDB; // for testing
 	private ColumnFamilyHandle injectedDefaultColumnFamilyHandle; // for testing
@@ -299,6 +300,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		return this;
 	}
 
+	public RocksDBKeyedStateBackendBuilder<K> setOptimizeSeek(boolean optimizeSeek) {
+		this.optimizeSeek = optimizeSeek;
+		return this;
+	}
+
 	private static void checkAndCreateDirectory(File directory) throws IOException {
 		if (directory.exists()) {
 			if (!directory.isDirectory()) {
@@ -446,7 +452,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				writeBatchSize,
 				metricGroup,
 				isDiskValid,
-				disposeTimeout);
+				disposeTimeout,
+				optimizeSeek);
 		} else {
 			return new RocksDBKeyedStateBackend(
 				this.userCodeClassLoader,
@@ -475,7 +482,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				writeBatchSize,
 				metricGroup,
 				isDiskValid,
-				disposeTimeout) {
+				disposeTimeout,
+				optimizeSeek) {
 				@Override
 				public void doDispose() {
 					injectedBeforeDispose.get();

@@ -88,6 +88,7 @@ import static org.apache.flink.contrib.streaming.state.RocksDBOptions.CHECKPOINT
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.ROCKSDB_DISPOSE_TIMEOUT;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT;
+import static org.apache.flink.contrib.streaming.state.RocksDBOptions.ROCKSDB_OPTIMIZE_SEEK;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.TIMER_SERVICE_FACTORY;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -214,6 +215,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	private long rocksdbNativeCheckpointTimeout;
 
 	private long disposeTimeout;
+
+	private boolean optimizeSeek = false;
 
 	private RestoreOptions restoreOptions;
 
@@ -408,6 +411,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 
 		this.rocksdbNativeCheckpointTimeout = config.get(ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT);
 		this.disposeTimeout = config.get(ROCKSDB_DISPOSE_TIMEOUT);
+		this.optimizeSeek = config.get(ROCKSDB_OPTIMIZE_SEEK);
 
 		this.memoryConfiguration = RocksDBMemoryConfiguration.fromOtherAndConfiguration(original.memoryConfiguration, config);
 		this.memoryConfiguration.validate();
@@ -736,6 +740,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			.setDisposeTimeout(getDisposeTimeout())
 			.setRestoreOptions(restoreOptions)
 			.setCrossNamespace(crossNamespace)
+			.setOptimizeSeek(optimizeSeek)
 			.setStatsTracker(statsTracker);
 		return builder.build();
 	}

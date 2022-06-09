@@ -184,6 +184,13 @@ public class RocksDBOptions {
 		.withDescription(String.format(
 			"The maximum time that dispose state backend may take."));
 
+	public static final ConfigOption<Boolean> ROCKSDB_OPTIMIZE_SEEK = ConfigOptions
+		.key("state.backend.rocksdb.optimize-seek")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription(String.format(
+			"Whether to enable rocksdb seek optimization."));
+
 	//--------------------------------------------------------------------------
 	// Provided configurable options for restore
 	//--------------------------------------------------------------------------

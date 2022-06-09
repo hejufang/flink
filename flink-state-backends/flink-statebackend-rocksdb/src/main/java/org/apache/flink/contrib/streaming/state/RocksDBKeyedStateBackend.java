@@ -231,6 +231,8 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 	private final long disposeTimeout;
 
+	private final boolean optimizeSeek;
+
 	public RocksDBKeyedStateBackend(
 		ClassLoader userCodeClassLoader,
 		File instanceBasePath,
@@ -258,7 +260,8 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		@Nonnegative long writeBatchSize,
 		MetricGroup metricGroup,
 		boolean isDiskValid,
-		long disposeTimeout) {
+		long disposeTimeout,
+		boolean optimizeSeek) {
 
 		super(
 			kvStateRegistry,
@@ -298,6 +301,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		this.kvStatisticView = new PeriodKVStatisticView();
 		this.isDiskValid = isDiskValid;
 		this.disposeTimeout = disposeTimeout;
+		this.optimizeSeek = optimizeSeek;
 
 		registerMetrics(metricGroup);
 	}
@@ -831,6 +835,10 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	@Nonnegative
 	long getWriteBatchSize() {
 		return writeBatchSize;
+	}
+
+	public boolean isOptimizeSeek() {
+		return optimizeSeek;
 	}
 
 	private void registerMetrics(MetricGroup metricGroup) {

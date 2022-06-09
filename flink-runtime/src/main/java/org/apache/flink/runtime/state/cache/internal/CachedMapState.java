@@ -32,6 +32,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * {@link MapState} implementation that stores state in Cache.
@@ -44,6 +46,8 @@ import java.util.Set;
 public class CachedMapState<K, N, UK, UV>
 	extends AbstractCachedKeyedState<K, N, Map<UK, UV>, UK, UV, InternalMapState<K, N, UK, UV>>
 	implements InternalMapState<K, N, UK, UV> {
+
+	private final BlockingQueue<Set<UK>> reusedPool = new LinkedBlockingQueue<>(2);
 
 	public CachedMapState(
 			CachedKeyedStateBackend<K> cachedKeyedStateBackend,
@@ -98,7 +102,7 @@ public class CachedMapState<K, N, UK, UV>
 		preIterator();
 		return () -> {
 			try {
-				return new CachedMapStateIterator<Map.Entry<UK, UV>>(getCurrentKey(), getCurrentNamespace(), cache, delegateState.iterator()) {
+				return new CachedMapStateIterator<Map.Entry<UK, UV>>(getCurrentKey(), getCurrentNamespace(), reusedPool, cache, delegateState.iterator()) {
 					@Override
 					public Map.Entry<UK, UV> next() {
 						return nextEntry();
@@ -115,7 +119,7 @@ public class CachedMapState<K, N, UK, UV>
 		preIterator();
 		return () -> {
 			try {
-				return new CachedMapStateIterator<UK>(getCurrentKey(), getCurrentNamespace(), cache, delegateState.iterator()) {
+				return new CachedMapStateIterator<UK>(getCurrentKey(), getCurrentNamespace(), reusedPool, cache, delegateState.iterator()) {
 					@Override
 					public UK next() {
 						Map.Entry<UK, UV> entry = nextEntry();
@@ -133,7 +137,7 @@ public class CachedMapState<K, N, UK, UV>
 		preIterator();
 		return () -> {
 			try {
-				return new CachedMapStateIterator<UV>(getCurrentKey(), getCurrentNamespace(), cache, delegateState.iterator()) {
+				return new CachedMapStateIterator<UV>(getCurrentKey(), getCurrentNamespace(), reusedPool, cache, delegateState.iterator()) {
 					@Override
 					public UV next() {
 						Map.Entry<UK, UV> entry = nextEntry();
@@ -215,19 +219,25 @@ public class CachedMapState<K, N, UK, UV>
 
 		private CacheEntryWrapper currentCacheEntry;
 
-		public CachedMapStateIterator(K key, N namespace, Cache<K, N, Map<UK, UV>, UK, UV> cache, Iterator<Map.Entry<UK, UV>> delegateStateIterator) {
+		private final BlockingQueue<Set<UK>> reusedPool;
+
+		public CachedMapStateIterator(K key, N namespace, BlockingQueue<Set<UK>> reusedPool, Cache<K, N, Map<UK, UV>, UK, UV> cache, Iterator<Map.Entry<UK, UV>> delegateStateIterator) {
 			this.key = key;
 			this.namespace = namespace;
 			this.cache = cache;
 			this.delegateStateIterator = delegateStateIterator;
-			this.processedKeys = new HashSet<>((int) cache.size());
+			final Set<UK> borrowedSet = reusedPool.poll();
+			this.processedKeys = borrowedSet == null ? new HashSet<>((int) cache.size()) : borrowedSet;
 			this.currentIterator = delegateStateIterator;
+			this.reusedPool = reusedPool;
 		}
 
 		@Override
 		public boolean hasNext() {
 			if (!currentIterator.hasNext() && currentIterator == delegateStateIterator) {
 				currentIterator = cache.iterator(key, namespace, processedKeys);
+				processedKeys.clear();
+				reusedPool.offer(processedKeys);
 			}
 			return currentIterator.hasNext();
 		}

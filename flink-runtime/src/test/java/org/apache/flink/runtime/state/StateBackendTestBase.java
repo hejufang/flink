@@ -2786,6 +2786,15 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 			for (int i = 0; i < stateSize; i++) {
 				state.put(i, i * 2L);
 			}
+			backend.setCurrentKey(2);
+			for (int i = 0; i < stateSize; i++) {
+				state.put(i, i * 2L);
+			}
+			backend.setCurrentKey(3);
+			for (int i = 0; i < stateSize; i++) {
+				state.put(i, i * 2L);
+			}
+			backend.setCurrentKey(2);
 			Iterator<Map.Entry<Integer, Long>> iterator = state.iterator();
 			int iteratorCount = 0;
 			while (iterator.hasNext()) {

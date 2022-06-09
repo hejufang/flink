@@ -32,10 +32,12 @@ import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.StateSnapshotTransformer;
 import org.apache.flink.runtime.state.internal.InternalMapState;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StateMigrationException;
 
 import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
@@ -49,7 +51,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -278,22 +282,28 @@ class RocksDBMapState<K, N, UK, UV>
 	@Override
 	public boolean isEmpty() {
 		final byte[] prefixBytes = serializeCurrentKeyWithGroupAndNamespace();
+		final List<AutoCloseable> closeables = new ArrayList<>(2);
+		ReadOptions readOptions = optimizeForSeekWithPrefix(prefixBytes, closeables);
 
-		try (RocksIteratorWrapper iterator = RocksDBOperationUtils.getRocksIterator(backend.db, columnFamily, backend.getReadOptions())) {
+		try (RocksIteratorWrapper iterator = RocksDBOperationUtils.getRocksIterator(backend.db, columnFamily, readOptions)) {
 
 			iterator.seek(prefixBytes);
 
 			return !iterator.isValid() || !startWithKeyPrefix(prefixBytes, iterator.key());
+		} finally {
+			IOUtils.closeAllQuietly(closeables);
 		}
 	}
 
 	@Override
 	public void clear() {
+		final byte[] keyPrefixBytes = serializeCurrentKeyWithGroupAndNamespace();
+		final List<AutoCloseable> closeables = new ArrayList<>(2);
+		ReadOptions readOptions = optimizeForSeekWithPrefix(keyPrefixBytes, closeables);
 		try {
-			try (RocksIteratorWrapper iterator = RocksDBOperationUtils.getRocksIterator(backend.db, columnFamily, backend.getReadOptions());
+			try (RocksIteratorWrapper iterator = RocksDBOperationUtils.getRocksIterator(backend.db, columnFamily, readOptions);
 				RocksDBWriteBatchWrapper rocksDBWriteBatchWrapper = new RocksDBWriteBatchWrapper(backend.db, backend.getWriteOptions(), backend.getWriteBatchSize())) {
 
-				final byte[] keyPrefixBytes = serializeCurrentKeyWithGroupAndNamespace();
 				iterator.seek(keyPrefixBytes);
 
 				while (iterator.isValid()) {
@@ -308,6 +318,8 @@ class RocksDBMapState<K, N, UK, UV>
 			}
 		} catch (Exception e) {
 			LOG.warn("Error while cleaning the state.", e);
+		} finally {
+			IOUtils.closeAllQuietly(closeables);
 		}
 	}
 
@@ -549,6 +561,7 @@ class RocksDBMapState<K, N, UK, UV>
 		/** The entry pointing to the current position which is last returned by calling {@link #nextEntry()}. */
 		private RocksDBMapEntry currentEntry;
 		private int cacheIndex = 0;
+		private Optional<byte[]> upperBound = null;
 
 		private final TypeSerializer<UK> keySerializer;
 		private final TypeSerializer<UV> valueSerializer;
@@ -611,17 +624,22 @@ class RocksDBMapState<K, N, UK, UV>
 				return;
 			}
 
+			byte[] startBytes = (currentEntry == null ? keyPrefixBytes : currentEntry.rawKeyBytes);
+			if (upperBound == null) {
+				upperBound = calculateUpperBound(startBytes);
+			}
+			final List<AutoCloseable> closeables = new ArrayList<>(2);
+			ReadOptions readOptions = optimizeForSeekWithUpperBound(upperBound, closeables);
+
 			// use try-with-resources to ensure RocksIterator can be release even some runtime exception
 			// occurred in the below code block.
-			try (RocksIteratorWrapper iterator = RocksDBOperationUtils.getRocksIterator(db, columnFamily, backend.getReadOptions())) {
+			try (RocksIteratorWrapper iterator = RocksDBOperationUtils.getRocksIterator(db, columnFamily, readOptions)) {
 
 				/*
 				 * The iteration starts from the prefix bytes at the first loading. After #nextEntry() is called,
 				 * the currentEntry points to the last returned entry, and at that time, we will start
 				 * the iterating from currentEntry if reloading cache is needed.
 				 */
-				byte[] startBytes = (currentEntry == null ? keyPrefixBytes : currentEntry.rawKeyBytes);
-
 				cacheEntries.clear();
 				cacheIndex = 0;
 
@@ -658,6 +676,8 @@ class RocksDBMapState<K, N, UK, UV>
 
 					iterator.next();
 				}
+			} finally {
+				IOUtils.closeAllQuietly(closeables);
 			}
 		}
 	}
