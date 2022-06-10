@@ -408,11 +408,12 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 
 	@Override
 	public void onFatalError(Throwable exception) {
-		final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = JvmUtils.createThreadDumpInfos();
-		LOG.error("Cluster entrypoint thread dump infos:\n{}", StringUtils.join(threadInfos, "\n"));
 
 		Throwable enrichedException = ClusterEntryPointExceptionUtils.tryEnrichClusterEntryPointError(exception);
 		LOG.error("Fatal error occurred in the cluster entrypoint.", enrichedException);
+
+		final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = JvmUtils.createThreadDumpInfos();
+		LOG.error("Cluster entrypoint thread dump infos:\n{}", StringUtils.join(threadInfos, "\n"));
 
 		System.exit(RUNTIME_FAILURE_RETURN_CODE);
 	}
