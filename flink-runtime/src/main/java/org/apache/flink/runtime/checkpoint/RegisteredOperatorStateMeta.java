@@ -21,6 +21,7 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.tracker.BackendType;
+import org.apache.flink.util.Preconditions;
 
 import java.util.Map;
 
@@ -80,6 +81,12 @@ public class RegisteredOperatorStateMeta extends RegisteredStateMetaBase {
 		return backendType.equals(that.backendType);
 	}
 
+	@Override
+	public RegisteredStateMetaBase addStateMetaData(StateMetaData stateMetaData) {
+		Preconditions.checkArgument(stateMetaData instanceof RegisteredOperatorStateMeta.OperatorStateMetaData);
+		return super.addStateMetaData(stateMetaData);
+	}
+
 	/**
 	 * A class represents a MetaData for a managing Operator state.
 	 */
@@ -89,6 +96,10 @@ public class RegisteredOperatorStateMeta extends RegisteredStateMetaBase {
 		 * {@link OperatorStateHandle.Mode} .
 		 */
 		private final OperatorStateHandle.Mode distributeMode;
+
+		public OperatorStateMetaData(OperatorStateHandle.Mode distributeMode, StateDescriptor stateDescriptor) {
+			this(distributeMode, stateDescriptor.getName(), stateDescriptor.getType(), stateDescriptor);
+		}
 
 		public OperatorStateMetaData(OperatorStateHandle.Mode distributeMode, String name, StateDescriptor.Type type, StateDescriptor stateDescriptor) {
 			super(name, type, stateDescriptor);

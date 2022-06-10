@@ -62,6 +62,12 @@ public class RegisteredKeyedStateMeta extends RegisteredStateMetaBase {
 	}
 
 	@Override
+	public RegisteredStateMetaBase addStateMetaData(StateMetaData stateMetaData) {
+		Preconditions.checkArgument(stateMetaData instanceof KeyedStateMetaData);
+		return super.addStateMetaData(stateMetaData);
+	}
+
+	@Override
 	public String toString() {
 		return "RegisteredKeyedStateMeta{" +
 				"keySerializer=" + keySerializer +
@@ -118,6 +124,14 @@ public class RegisteredKeyedStateMeta extends RegisteredStateMetaBase {
 	public static class KeyedStateMetaData extends StateMetaData {
 
 		private TypeSerializer namespaceSerializer;
+
+		public KeyedStateMetaData(StateDescriptor stateDescriptor) {
+			this(stateDescriptor, VoidNamespaceSerializer.INSTANCE);
+		}
+
+		public KeyedStateMetaData(StateDescriptor stateDescriptor, TypeSerializer namespaceSerializer) {
+			this(stateDescriptor.getName(), stateDescriptor.getType(), stateDescriptor, namespaceSerializer);
+		}
 
 		@VisibleForTesting
 		public KeyedStateMetaData(String name, StateDescriptor.Type type, StateDescriptor stateDescriptor) {

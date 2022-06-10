@@ -74,6 +74,14 @@ public abstract class RegisteredStateMetaBase implements Serializable, StateObje
 		return this;
 	}
 
+	public RegisteredStateMetaBase addStateMetaData(StateMetaData stateMetaData) {
+		if (stateMetaData != null) {
+			String stateName = stateMetaData.getName();
+			stateMetaDataMap.put(stateName, stateMetaData);
+		}
+		return this;
+	}
+
 	@Override
 	public void discardState() throws Exception { }
 

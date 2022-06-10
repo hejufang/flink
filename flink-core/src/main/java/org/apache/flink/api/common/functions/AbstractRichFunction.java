@@ -77,5 +77,5 @@ public abstract class AbstractRichFunction implements RichFunction, Serializable
 	public void close() throws Exception {}
 
 	@Override
-	public void registerState(StateRegistry stateRegistry) {}
+	public void registerState(StateRegistry stateRegistry) throws Exception {}
 }

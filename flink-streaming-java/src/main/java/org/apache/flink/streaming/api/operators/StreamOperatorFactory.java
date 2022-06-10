@@ -19,6 +19,7 @@ package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.Experimental;
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
@@ -102,4 +103,6 @@ public interface StreamOperatorFactory<OUT> extends Serializable {
 	default boolean withSameWatermarkPerBatch() {
 		return false;
 	}
+
+	default void registerState(StateRegistry stateRegistry) throws Exception {}
 }

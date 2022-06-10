@@ -19,6 +19,7 @@ package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.InputTypeConfigurable;
 import org.apache.flink.streaming.api.functions.sink.OutputFormatSinkFunction;
@@ -127,4 +128,10 @@ public class SimpleOperatorFactory<OUT> extends AbstractStreamOperatorFactory<OU
 	public boolean withSameWatermarkPerBatch() {
 		return operator.withSameWatermarkPerBatch();
 	}
+
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
+		operator.registerState(stateRegistry);
+	}
+
 }

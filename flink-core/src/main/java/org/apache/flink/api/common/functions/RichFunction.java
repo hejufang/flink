@@ -113,5 +113,5 @@ public interface RichFunction extends Function {
 	 */
 	void setRuntimeContext(RuntimeContext t);
 
-	default void registerState(StateRegistry stateRegistry) {}
+	default void registerState(StateRegistry stateRegistry) throws Exception {}
 }

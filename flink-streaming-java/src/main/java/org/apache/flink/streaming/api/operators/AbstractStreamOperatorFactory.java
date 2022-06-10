@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.Experimental;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeServiceAware;
 
@@ -59,4 +60,8 @@ public abstract class AbstractStreamOperatorFactory<OUT> implements StreamOperat
 	public void setDebugLoggingLocation(DebugLoggingLocation location) {
 		this.location = location;
 	}
+
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {}
+
 }
