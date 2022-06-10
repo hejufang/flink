@@ -26,7 +26,9 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -59,19 +61,33 @@ public class FlinkUserCodeClassLoaders {
 			URL[] urls,
 			ClassLoader parent,
 			String[] alwaysParentFirstPatterns,
-			Consumer<Throwable> classLoadingExceptionHandler) {
+			Consumer<Throwable> classLoadingExceptionHandler,
+			List<URL> externalPlugins) {
 
 		LOG.info("Create FlinkUserCodeClassLoaders resolveOrder = {}", resolveOrder);
 		LOG.info("Create FlinkUserCodeClassLoaders urls = {}", Arrays.asList(urls));
 
 		switch (resolveOrder) {
 			case CHILD_FIRST:
-				return childFirst(urls, parent, alwaysParentFirstPatterns, classLoadingExceptionHandler);
+				return childFirst(wrapWithPluginJars(urls, externalPlugins), parent, alwaysParentFirstPatterns, classLoadingExceptionHandler);
 			case PARENT_FIRST:
-				return parentFirst(urls, parent, classLoadingExceptionHandler);
+				return parentFirst(wrapWithPluginJars(urls, externalPlugins), parent, classLoadingExceptionHandler);
 			default:
 				throw new IllegalArgumentException("Unknown class resolution order: " + resolveOrder);
 		}
+	}
+
+	/**
+	 * Concat <code>urls</code> and <code>externalPlugins</code>.
+	 */
+	public static URL[] wrapWithPluginJars(URL[] urls, List<URL> externalPlugins) {
+		if (!externalPlugins.isEmpty()) {
+			LOG.info("Create FlinkUserCodeClassLoaders with plugins urls = {}", externalPlugins);
+			List<URL> totalUrls = new ArrayList<>(Arrays.asList(urls));
+			totalUrls.addAll(externalPlugins);
+			return totalUrls.toArray(new URL[0]);
+		}
+		return urls;
 	}
 
 	/**

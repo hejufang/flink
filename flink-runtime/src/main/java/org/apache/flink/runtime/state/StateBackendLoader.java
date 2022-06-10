@@ -55,6 +55,9 @@ public class StateBackendLoader {
 	/** The shortcut configuration name for the RocksDB State Backend */
 	public static final String ROCKSDB_STATE_BACKEND_NAME = "rocksdb";
 
+	/** The shortcut configuration name for the TerarkDB State Backend */
+	public static final String TERARKDB_STATE_BACKEND_NAME = "terarkdb";
+
 	// ------------------------------------------------------------------------
 	//  Loading the state backend from a configuration 
 	// ------------------------------------------------------------------------
@@ -124,6 +127,7 @@ public class StateBackendLoader {
 				return fsBackend;
 
 			case ROCKSDB_STATE_BACKEND_NAME:
+			case TERARKDB_STATE_BACKEND_NAME:
 				factoryClassName = "org.apache.flink.contrib.streaming.state.RocksDBStateBackendFactory";
 				// fall through to the 'default' case that uses reflection to load the backend
 				// that way we can keep RocksDB in a separate module

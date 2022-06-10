@@ -19,6 +19,7 @@
 package org.apache.flink.client.cli;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.client.ClientUtils;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
@@ -77,6 +78,7 @@ public class CheckpointVerifierTest {
 	private String jobName = "jobName";
 	private String namespace = "ns";
 	private File checkpointFolder;
+	private ClassLoader classLoader;
 
 	@Rule
 	public final TemporaryFolder tmp = new TemporaryFolder();
@@ -90,6 +92,11 @@ public class CheckpointVerifierTest {
 		configuration.setString(PipelineOptions.NAME, jobName);
 		configuration.setString(CheckpointingOptions.STATE_BACKEND, "filesystem");
 		configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, namespace);
+		classLoader = ClientUtils.buildUserCodeClassLoader(
+			Collections.emptyList(),
+			Collections.emptyList(),
+			ClassLoader.getSystemClassLoader(),
+			configuration);
 	}
 
 	@Test
@@ -139,7 +146,7 @@ public class CheckpointVerifierTest {
 	public void testBeforeVerifyWithoutJobUID() {
 		Configuration conf = new Configuration();
 		conf.setString(CheckpointingOptions.STATE_BACKEND, "filesystem");
-		boolean verifyResult = CheckpointVerifier.beforeVerify(conf);
+		boolean verifyResult = CheckpointVerifier.beforeVerify(classLoader, conf);
 		// exit with null jobUID
 		assertEquals(false, verifyResult);
 	}
@@ -157,7 +164,7 @@ public class CheckpointVerifierTest {
 			out.closeAndFinalizeCheckpoint();
 		}
 
-		boolean verifyResult = CheckpointVerifier.beforeVerify(configuration);
+		boolean verifyResult = CheckpointVerifier.beforeVerify(classLoader, configuration);
 
 		// Check if there exists any completed checkpoints on HDFS in advance: true
 		assertEquals(true, verifyResult);
@@ -177,7 +184,7 @@ public class CheckpointVerifierTest {
 		}
 		Map<OperatorID, OperatorState> operatorStateMap = CheckpointVerifier.getOperatorStatesFromSavepointSettings(
 			configuration,
-			ClassLoader.getSystemClassLoader(),
+			classLoader,
 			new JobID(),
 			jobUID,
 			savepointRestoreSettings
@@ -189,7 +196,6 @@ public class CheckpointVerifierTest {
 	public void testLoadOperatorStatesWithCheckpointFromSavepointRestoreSettings() throws IOException {
 		buildSuccessGraph();
 
-		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 		StateBackend stateBackend = Checkpoints.loadStateBackend(configuration, classLoader, null);
 		FsCheckpointStorage storage = (FsCheckpointStorage) stateBackend.createCheckpointStorage(new JobID(), jobUID);
 		CheckpointStorageLocation location = storage.initializeLocationForCheckpoint(1L);
@@ -202,7 +208,7 @@ public class CheckpointVerifierTest {
 
 		Map<OperatorID, OperatorState> operatorStateMap = CheckpointVerifier.getOperatorStatesFromSavepointSettings(
 			configuration,
-			ClassLoader.getSystemClassLoader(),
+			classLoader,
 			new JobID(),
 			jobUID,
 			savepointRestoreSettings

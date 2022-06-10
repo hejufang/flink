@@ -25,6 +25,7 @@ import static org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerSt
 import static org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy.REVERSE_TRIGGER_WITH_SOURCE;
 import static org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy.TRIGGER_WITHOUT_SOURCE;
 import static org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy.TRIGGER_WITH_SOURCE;
+import static org.apache.flink.configuration.ConfigOptions.key;
 
 /**
  * A collection of all configuration options that relate to checkpoints
@@ -167,6 +168,15 @@ public class CheckpointingOptions {
 			.intType()
 			.defaultValue(3)
 			.withDescription("The maximum number of retries when accessing hdfs in the checkpoint phase");
+
+	/**
+	 * Specifies the plugin for stateBackend.
+	 */
+	public static final ConfigOption<String> STATE_BACKEND_PLUGINS =
+		key("state.backend.plugins")
+			.stringType()
+			.defaultValue("flink-statebackend-rocksdb")
+			.withDescription("Specifies the plugin for StateBackend.");
 
 	// ------------------------------------------------------------------------
 	//  Options specific to the file-system-based state backends
