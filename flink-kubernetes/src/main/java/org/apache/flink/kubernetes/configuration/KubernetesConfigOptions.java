@@ -417,7 +417,7 @@ public class KubernetesConfigOptions {
 	public static final ConfigOption<String> STREAM_LOG_URL_TEMPLATE =
 		key("kubernetes.stream-log.url-template")
 			.stringType()
-			.defaultValue("https://%s/argos/streamlog/tenant_query?query=%s&region=%s&searchview=%s&start_time=%s&end_time=%s")
+			.defaultValue("https://%s/argos/streamlog/tenant_query?query=%s&region=%s&searchview=%s&showed_column=_msg")
 			.withDescription("Template of stream log platform." +
 					"it must work with STREAM_LOG_DOMAIN/STREAM_LOG_QUERY_TEMPLATE/STREAM_LOG_SEARCH_VIEW");
 
@@ -438,12 +438,6 @@ public class KubernetesConfigOptions {
 			.stringType()
 			.defaultValue("2::godel")
 			.withDescription("Search view of stream log query.");
-
-	public static final ConfigOption<Integer> STREAM_LOG_QUERY_RANGE_SECONDS =
-		key("kubernetes.stream-log.query-range-seconds")
-			.intType()
-			.defaultValue(900)
-			.withDescription("Time range to query.");
 
 	public static final ConfigOption<Boolean> KUBERNETES_HOST_NETWORK_ENABLED =
 		key("kubernetes.hostnetwork.enabled")

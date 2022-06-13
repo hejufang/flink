@@ -680,16 +680,12 @@ public class KubernetesUtils {
 		return annotations;
 	}
 
-	public static String genLogUrl(String template, String domain, long queryRange, String queryTemplate, String podName, String region, String searchView) {
+	public static String genLogUrl(String template, String domain, String queryTemplate, String podName, String region, String searchView) {
 		String queryStr = queryTemplate.replace(KubernetesConfigOptions.POD_NAME_KEY, podName);
 		List<String> args = new ArrayList<>();
 		args.add(queryStr);
 		args.add(region);
 		args.add(searchView);
-		long endTime = System.currentTimeMillis() / 1000;
-		long startTime = endTime - queryRange;
-		args.add(String.valueOf(startTime));
-		args.add(String.valueOf(endTime));
 
 		List<String> newArgs = new ArrayList<>();
 		newArgs.add(domain);

@@ -179,12 +179,11 @@ public class KubernetesUtilsTest extends TestLogger {
 		String streamLogQueryTemplate = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_QUERY_TEMPLATE);
 		String streamLogSearchView = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_SEARCH_VIEW);
 		String region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
-		int streamLogQueryRange = flinkConfig.getInteger(KubernetesConfigOptions.STREAM_LOG_QUERY_RANGE_SECONDS);
 
 		String domain = "foo.bar";
 		String podName = "JobManagerPod";
 
-		String jmLog = KubernetesUtils.genLogUrl(streamLogUrlTemplate, domain, streamLogQueryRange, streamLogQueryTemplate, podName, region, streamLogSearchView);
+		String jmLog = KubernetesUtils.genLogUrl(streamLogUrlTemplate, domain, streamLogQueryTemplate, podName, region, streamLogSearchView);
 		String jmLogWanted = "https://foo.bar/argos/streamlog/tenant_query?query=kubernetes_pod_name%3D%27JobManagerPod%27&region=cn&searchview=2%3A%3Agodel";
 		assertTrue(jmLog.startsWith(jmLogWanted));
 	}

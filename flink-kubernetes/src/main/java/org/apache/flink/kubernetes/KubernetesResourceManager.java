@@ -159,7 +159,6 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	private final String streamLogDomain;
 	private final String streamLogQueryTemplate;
 	private final String streamLogSearchView;
-	private final int streamLogQueryRange;
 
 	private final TagGauge completedContainerGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).build();
 
@@ -225,7 +224,6 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.streamLogQueryTemplate = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_QUERY_TEMPLATE);
 		this.streamLogSearchView = flinkConfig.getString(KubernetesConfigOptions.STREAM_LOG_SEARCH_VIEW);
 		this.region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
-		this.streamLogQueryRange = flinkConfig.getInteger(KubernetesConfigOptions.STREAM_LOG_QUERY_RANGE_SECONDS);
 
 		this.previousContainerAsPending = flinkConfig.getBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING);
 		this.previousContainerTimeoutMs = flinkConfig.getLong(ResourceManagerOptions.PREVIOUS_CONTAINER_TIMEOUT_MS);
@@ -714,7 +712,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 					jmLog.complete(jmLogStr);
 					return jmLog;
 				} else if (!StringUtils.isNullOrWhitespaceOnly(streamLogDomain)) {
-					String jmLogStr = genLogUrl(streamLogUrlTemplate, streamLogDomain, streamLogQueryRange, streamLogQueryTemplate, jobManagerPodName, region, streamLogSearchView);
+					String jmLogStr = genLogUrl(streamLogUrlTemplate, streamLogDomain, streamLogQueryTemplate, jobManagerPodName, region, streamLogSearchView);
 					jmLog.complete(jmLogStr);
 					return jmLog;
 				} else {
@@ -736,9 +734,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 					String podName = resourceId.getResourceIdString();
 					return ArceeUtils.getTMLogUrl(podName);
 				} else if (!StringUtils.isNullOrWhitespaceOnly(streamLogDomain)) {
-					return genLogUrl(streamLogUrlTemplate, streamLogDomain, streamLogQueryRange,
-						streamLogQueryTemplate, resourceId.getResourceIdString(), region,
-						streamLogSearchView);
+					return genLogUrl(streamLogUrlTemplate, streamLogDomain, streamLogQueryTemplate,
+						resourceId.getResourceIdString(), region, streamLogSearchView);
 				}
 			} catch (Throwable t) {
 				LOG.warn("Get TaskManager {} log url error.", resourceId, t);
