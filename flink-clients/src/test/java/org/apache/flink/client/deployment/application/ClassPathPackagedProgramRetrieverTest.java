@@ -58,6 +58,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.hamcrest.Matchers.contains;
@@ -375,6 +376,47 @@ public class ClassPathPackagedProgramRetrieverTest extends TestLogger {
 		assertArrayEquals(
 				externalFiles.toArray(),
 				program.getClasspaths().toArray());
+	}
+
+	@Test
+	public void testGenerateProgramWithPipelineClasspath() throws FlinkException, IOException {
+		final Configuration configuration = new Configuration();
+		List<URL> expectedClasspath = Arrays.asList(new URL("file:file1.jar"), new URL("file:file2.jar"));
+		configuration.set(PipelineOptions.CLASSPATHS, expectedClasspath.stream().map(URL::toString).collect(Collectors.toList()));
+		final ClassPathPackagedProgramRetriever retriever =
+				ClassPathPackagedProgramRetriever.newBuilder(PROGRAM_ARGUMENTS, configuration)
+						.setJarFile(TestJobInfo.JOB_JAR_PATH.toFile())
+						.setJobClassName(TestJobInfo.JOB_CLASS)
+						.build();
+		final PackagedProgram program = retriever.getPackagedProgram();
+		assertThat("can not find expected files in classpath", program.getClasspaths(), equalTo(expectedClasspath));
+	}
+
+	@Test
+	public void verifyExternalFilesAndClasspathInOrder() throws Exception {
+		final Configuration configuration = new Configuration();
+		// prepare lib files, otherwise can not generate job graph.
+		File usrLibDir = temporaryFolder.newFolder("usrLib2");
+		final Path file1 = usrLibDir.toPath().resolve("file1.jar");
+		final Path file2 = usrLibDir.toPath().resolve("file2.jar");
+		Files.copy(TestJobInfo.JOB_LIB_JAR_PATH, file1);
+		Files.copy(TestJobInfo.JOB_LIB_JAR_PATH, file2);
+		// prepare parameters
+		final List<URL> externalJars = Collections.singletonList(file1.toUri().toURL());
+		final List<String> pipelineJars = Collections.singletonList(file2.toUri().toURL().toString());
+		configuration.set(PipelineOptions.CLASSPATHS, pipelineJars);
+		final ClassPathPackagedProgramRetriever retriever =
+				ClassPathPackagedProgramRetriever.newBuilder(PROGRAM_ARGUMENTS, configuration)
+						.setJarFile(TestJobInfo.JOB_JAR_PATH.toFile())
+						.setJobClassName(TestJobInfo.JOB_CLASS)
+						.setExternalFiles(externalJars)
+						.build();
+		PackagedProgram program = retriever.getPackagedProgram();
+		assertThat("the external files should be in front of files in pipeline.classpath",
+				program.getClasspaths(), equalTo(Arrays.asList(file1.toUri().toURL(), file2.toUri().toURL())));
+		final JobGraph jobGraph = retrieveJobGraph(retriever, new Configuration());
+		assertThat("the external files should be in front of files in pipeline.classpath",
+				jobGraph.getClasspaths(), equalTo(Arrays.asList(file1.toUri().toURL(), file2.toUri().toURL())));
 	}
 
 	@Test

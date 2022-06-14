@@ -23,7 +23,9 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.client.program.PackagedProgramRetriever;
 import org.apache.flink.client.program.ProgramInvocationException;
+import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkException;
@@ -37,6 +39,7 @@ import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -101,15 +104,25 @@ public class ClassPathPackagedProgramRetriever implements PackagedProgramRetriev
 		this.userClassPaths = getUserClassPathsWithExternalFiles(externalFiles);
 	}
 
-	private Collection<URL> getUserClassPathsWithExternalFiles(Collection<URL> externalFiles) throws IOException {
-		Collection<URL> userClassPaths = discoverUserClassPaths(userLibDirectory);
-		if (externalFiles == null || externalFiles.isEmpty()){
-			return userClassPaths;
+	private Collection<URL> getUserClassPathsWithExternalFiles(@Nullable Collection<URL> externalFiles) throws IOException {
+		final Collection<URL> classPathsFromUserLibDir = discoverUserClassPaths(userLibDirectory);
+		final List<URL> classPathsFromConfiguration = getClasspathsFromConfiguration(configuration);
+		List<URL> urlList = new ArrayList<>();
+		if (externalFiles != null) {
+			urlList.addAll(externalFiles);
 		}
-		List<URL> urlList = new ArrayList<>(externalFiles.size() + userClassPaths.size());
-		urlList.addAll(externalFiles);
-		urlList.addAll(userClassPaths);
+		urlList.addAll(classPathsFromUserLibDir);
+		urlList.addAll(classPathsFromConfiguration);
 		return Collections.unmodifiableCollection(urlList);
+	}
+
+	private static List<URL> getClasspathsFromConfiguration(Configuration configuration)
+			throws MalformedURLException {
+		if (configuration == null) {
+			return Collections.emptyList();
+		}
+		return ConfigUtils.decodeListFromConfig(
+				configuration, PipelineOptions.CLASSPATHS, URL::new);
 	}
 
 	private Collection<URL> discoverUserClassPaths(@Nullable File jobDir) throws IOException {

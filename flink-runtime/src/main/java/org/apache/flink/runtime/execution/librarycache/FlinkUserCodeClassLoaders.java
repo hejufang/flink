@@ -20,22 +20,29 @@ package org.apache.flink.runtime.execution.librarycache;
 
 import org.apache.flink.util.ChildFirstClassLoader;
 import org.apache.flink.util.FlinkUserCodeClassLoader;
+import org.apache.flink.util.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Gives the URLClassLoader a nicer name for debugging purposes.
  */
 public class FlinkUserCodeClassLoaders {
 	private static final Logger LOG = LoggerFactory.getLogger(FlinkUserCodeClassLoaders.class);
+
+	// the pattern used to parse %ENV_VAR% in class load URLs.
+	private static final Pattern parseEnvPattern = Pattern.compile("%[a-zA-Z]\\w*%");
 
 	private FlinkUserCodeClassLoaders() {
 
@@ -64,14 +71,15 @@ public class FlinkUserCodeClassLoaders {
 			Consumer<Throwable> classLoadingExceptionHandler,
 			List<URL> externalPlugins) {
 
+		URL[] finalUrls = replaceEnvVarInUrlIfRequired(urls);
 		LOG.info("Create FlinkUserCodeClassLoaders resolveOrder = {}", resolveOrder);
-		LOG.info("Create FlinkUserCodeClassLoaders urls = {}", Arrays.asList(urls));
+		LOG.info("Create FlinkUserCodeClassLoaders urls = {}", Arrays.asList(finalUrls));
 
 		switch (resolveOrder) {
 			case CHILD_FIRST:
-				return childFirst(wrapWithPluginJars(urls, externalPlugins), parent, alwaysParentFirstPatterns, classLoadingExceptionHandler);
+				return childFirst(wrapWithPluginJars(finalUrls, externalPlugins), parent, alwaysParentFirstPatterns, classLoadingExceptionHandler);
 			case PARENT_FIRST:
-				return parentFirst(wrapWithPluginJars(urls, externalPlugins), parent, classLoadingExceptionHandler);
+				return parentFirst(wrapWithPluginJars(finalUrls, externalPlugins), parent, classLoadingExceptionHandler);
 			default:
 				throw new IllegalArgumentException("Unknown class resolution order: " + resolveOrder);
 		}
@@ -88,6 +96,36 @@ public class FlinkUserCodeClassLoaders {
 			return totalUrls.toArray(new URL[0]);
 		}
 		return urls;
+	}
+
+	/**
+	 * Replace the %ENV_VAR% to the actual env var value in URLs.
+	 * @param urls the urls waiting to parse and replace
+	 * @return the env var replaced urls
+	 */
+	private static URL[] replaceEnvVarInUrlIfRequired(URL[] urls) {
+		URL[] finalUrls = new URL[urls.length];
+		for (int i = 0; i < urls.length; i++) {
+			String replacedUrl = urls[i].toString();
+			Matcher matcher = parseEnvPattern.matcher(replacedUrl);
+			while (matcher.find()) {
+				String matchedStr = matcher.group();
+				String envVar = System.getenv(matchedStr.substring(1, matchedStr.length() - 1));
+				if (StringUtils.isNullOrWhitespaceOnly(envVar)) {
+					LOG.error("can not find given env var {} in this url {}", matchedStr, urls[i]);
+					continue;
+				}
+				replacedUrl = matcher.replaceFirst(envVar);
+				matcher = parseEnvPattern.matcher(replacedUrl);
+			}
+			try {
+				finalUrls[i] = new URL(replacedUrl);
+			} catch (MalformedURLException e) {
+				// should not be reached
+				throw new RuntimeException(e);
+			}
+		}
+		return finalUrls;
 	}
 
 	/**

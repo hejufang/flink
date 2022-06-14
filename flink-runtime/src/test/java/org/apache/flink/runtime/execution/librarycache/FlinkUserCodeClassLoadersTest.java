@@ -29,15 +29,20 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.rules.TemporaryFolder;
 
+import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Collections;
 
+import static java.lang.ClassLoader.getSystemClassLoader;
 import static org.apache.flink.util.FlinkUserCodeClassLoader.NOOP_EXCEPTION_HANDLER;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.isA;
 import static org.hamcrest.Matchers.hasItemInArray;
 import static org.hamcrest.Matchers.hasProperty;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
@@ -190,6 +195,30 @@ public class FlinkUserCodeClassLoadersTest extends TestLogger {
 		assertEquals(clazz1, clazz4);
 
 		childClassLoader.close();
+	}
+
+	@Test
+	public void testClasspathWithEnvironmentVar() throws MalformedURLException {
+		final URL[] urls = new URL[]{
+				new URL("file:file1.jar"),
+				new URL("file:%JAVA_HOME%/file2.jar"),
+				new URL("file:%JAVA_HOME%/%HOME%/file2.jar"),
+				new URL("file:%JAVA_HOME%/%HOME2%/file2.jar"),
+		};
+		String javaHome = System.getenv("JAVA_HOME");
+		String home = System.getenv("HOME");
+		final URL[] expectedUrls = new URL[]{
+				new URL("file:file1.jar"),
+				new URL("file:%JAVA_HOME%/file2.jar".replaceAll("%JAVA_HOME%", javaHome)),
+				new URL("file:%JAVA_HOME%/%HOME%/file2.jar".replaceAll("%JAVA_HOME%", javaHome).replaceAll("%HOME%", home)),
+				new URL("file:%JAVA_HOME%/%HOME2%/file2.jar".replaceAll("%JAVA_HOME%", javaHome)),
+		};
+		try (URLClassLoader urlClassLoader = FlinkUserCodeClassLoaders.create(FlinkUserCodeClassLoaders.ResolveOrder.CHILD_FIRST,
+				urls, getSystemClassLoader(), new String[0], NOOP_EXCEPTION_HANDLER, Collections.emptyList())) {
+			assertArrayEquals(expectedUrls, urlClassLoader.getURLs());
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	private static URLClassLoader createParentFirstClassLoader(URL childCodePath, ClassLoader parentClassLoader) {
