@@ -456,6 +456,8 @@ public class KubernetesUtils {
 	 * @param flinkConfig
 	 */
 	public static void uploadLocalDiskFilesToRemote(Configuration flinkConfig, Path targetDir) {
+		// we don't support uploading a folder because some downloader (e.g. CSI driver) don't support it.
+		removeFolderInExternalFiles(flinkConfig);
 		// count number of files that need to upload
 		long numOfDiskFiles = Stream.concat(
 			flinkConfig.getOptional(PipelineOptions.JARS).orElse(Collections.emptyList()).stream(),
@@ -530,6 +532,27 @@ public class KubernetesUtils {
 		flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES, resources);
 	}
 
+	private static void removeFolderInExternalFiles(Configuration flinkConfig) {
+		List<String> filesWithoutFolder = flinkConfig.getOptional(PipelineOptions.EXTERNAL_RESOURCES)
+				.orElse(Collections.emptyList())
+				.stream()
+				.filter(path -> {
+							try {
+								URI uri = PackagedProgramUtils.resolveURI(path);
+								if (uri.getScheme().equals(ConfigConstants.FILE_SCHEME) && new File(uri.getPath()).isDirectory()) {
+									LOG.warn("Remove folder in external resources: {}", uri);
+									return false;
+								}
+								return true;
+							} catch (URISyntaxException e) {
+								LOG.error("can not resolve uri from this path:{}, ignore it", path, e);
+								return false;
+							}
+						}
+				).collect(Collectors.toList());
+		flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES, filesWithoutFolder);
+	}
+
 	/**
 	 * Copy one file to target directory.
 	 * @param uri The uri of this file
@@ -539,10 +562,10 @@ public class KubernetesUtils {
 	private static String copyFileToTargetRemoteDir(URI uri, Path targetDir) {
 		Path path = new Path(uri);
 		try {
-			String targetPath = String.join("/", targetDir.toUri().toString(), path.getName());
+			Path targetPath = new Path(targetDir, path.getName());
 			LOG.info("upload local file {} into remote dir {}", path, targetPath);
-			FileUtils.copy(path, new Path(targetPath), false);
-			return targetPath;
+			FileUtils.copy(path, targetPath, false);
+			return targetPath.toString();
 		} catch (IOException e) {
 			LOG.error("upload local file {} into remote dir {} failed:", path, targetDir, e);
 		}

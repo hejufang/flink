@@ -81,9 +81,9 @@ public abstract class AbstractFileDownloadDecorator extends AbstractKubernetesSt
 		String fileMountedPath = configuration.getString(PipelineOptions.FILE_MOUNTED_PATH);
 		Map<String, String> pathToFileName = configuration.get(ApplicationConfiguration.EXTERNAL_RESOURCES_NAME_MAPPING);
 		if (pathToFileName != null && pathToFileName.containsKey(uri.toString())){
-			return String.join("/", fileMountedPath, pathToFileName.get(uri.toString()));
+			return new File(fileMountedPath, pathToFileName.get(uri.toString())).getPath();
 		}
-		return String.join("/", fileMountedPath, new File(uri.getPath()).getName());
+		return new File(fileMountedPath, new File(uri.getPath()).getName()).getPath();
 	}
 
 	private static Map<String, String> renameFileIfRequired(Set<URI> remoteFiles) {

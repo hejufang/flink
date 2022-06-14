@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -159,6 +160,27 @@ public class KubernetesUtilsTest extends TestLogger {
 		KubernetesUtils.uploadLocalDiskFilesToRemote(config, new Path(uploadDir.toURI()));
 		assertEquals("all remote files need to be added in external-resource list",
 			1, config.get(PipelineOptions.EXTERNAL_RESOURCES).size());
+	}
+
+	@Test
+	public void testUploadFolder() throws IOException {
+		final Configuration config = new Configuration();
+		File uploadDir = temporaryFolder.newFolder().getAbsoluteFile();
+		temporaryFolder.newFolder("runtime_files");
+		config.setString(PipelineOptions.JARS.key(), "hdfs:///path/of/user.jar");
+
+		// test the path with file schema
+		config.setString(PipelineOptions.EXTERNAL_RESOURCES.key(),
+				new File("file://" + temporaryFolder.getRoot().toString(), "runtime_files").getPath());
+		KubernetesUtils.uploadLocalDiskFilesToRemote(config, new Path(uploadDir.toURI()));
+		assertThat("should ignore uploading a folder",
+				config.get(PipelineOptions.EXTERNAL_RESOURCES), equalTo(Collections.singletonList("hdfs:///path/of/user.jar")));
+		// test the path without indicating schema
+		config.setString(PipelineOptions.EXTERNAL_RESOURCES.key(),
+				new File(temporaryFolder.getRoot().toString(), "runtime_files").getPath());
+		KubernetesUtils.uploadLocalDiskFilesToRemote(config, new Path(uploadDir.toURI()));
+		assertThat("should ignore uploading a folder",
+				config.get(PipelineOptions.EXTERNAL_RESOURCES), equalTo(Collections.singletonList("hdfs:///path/of/user.jar")));
 	}
 
 	private void testCheckAndUpdatePortConfigOption(String port, String fallbackPort, String expectedPort) {

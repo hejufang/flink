@@ -1491,9 +1491,9 @@ public class CliFrontend {
 			.collect(Collectors.toList());
 		for (URI uri : remoteFiles) {
 			Path path = new Path(uri);
-			String targetPath = String.join("/", targetDir, getSavedFileName(uri));
+			Path targetPath = new Path(targetDir, getSavedFileName(uri));
 			LOG.info("download remote file {} into local dir {}", uri.toString(), targetPath);
-			FileUtils.copy(path, new Path(targetPath), false);
+			FileUtils.copy(path, targetPath, false);
 		}
 	}
 
