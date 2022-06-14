@@ -1481,7 +1481,7 @@ saola:
   dtop.database: dtop_alisg
   smart-resources.service-name: data.inf.sr_estimater.service.sg1
   kafka_server_url: http://kafka-config-sg.byted.org
-  docker.server: aliyun-sin-hub.byted.org
+  docker.server: image-manager.byted.org
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
   jobmeta.db.name: flink_meta_sg
