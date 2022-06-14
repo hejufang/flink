@@ -294,6 +294,7 @@ common:
   bytedance.streaming.register-dashboard.enabled: true
 
   # hdfs conf for checkpoint
+  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   flink.checkpoint.hdfs.dfs.datanode.socket.write.timeout: 30000
   flink.checkpoint.hdfs.dfs.client.socket-timeout: 30000
   flink.checkpoint.hdfs.ipc.client.ping: false
@@ -356,7 +357,6 @@ flink:
   clusterName: flink
   high-availability.zookeeper.quorum: 10.17.58.36:2181,10.17.58.40:2181,10.17.58.44:2181,10.17.58.45:2181,10.17.58.78:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: flink
@@ -366,7 +366,6 @@ dw:
   clusterName: dw
   high-availability.zookeeper.quorum: 10.11.43.39:2184,10.11.43.66:2184,10.224.152.92:2184,10.224.71.64:2184,10.224.71.66:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: dw
@@ -376,7 +375,6 @@ lepad:
   clusterName: lepad
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: lepad
@@ -388,7 +386,6 @@ larva:
   clusterName: larva
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: larva
@@ -398,7 +395,6 @@ locst:
   clusterName: locst
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   ipv6.supported.cluster: locst
 
 oryx:
@@ -406,7 +402,6 @@ oryx:
   clusterName: oryx
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: oryx
@@ -416,7 +411,6 @@ default:
   clusterName: default
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   bytedance.streaming.yarn.check.application.name.unique.region: true
@@ -427,7 +421,6 @@ leser:
   clusterName: leser
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   yarn.provided.lib.dirs.enabled: true
   bytedance.streaming.yarn.check.application.name.unique.region: true
@@ -441,7 +434,6 @@ lupin:
   clusterName: lupin
   high-availability.zookeeper.quorum: fdbd:dc01:ff:101:d750:67ff:ac3f:fde2:2181,fdbd:dc01:ff:101:245a:b8a7:4f88:f0e4:2181,fdbd:dc01:ff:101:6ee2:9963:ea58:7f1b:2181,fdbd:dc01:ff:101:8679:f9e2:f954:d450:2181,fdbd:dc01:ff:101:75cd:2833:3c6f:3114:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   ipv6.enabled: true
   ipv6.supported.cluster: lupin
 
@@ -450,7 +442,6 @@ lobst:
   clusterName: lobst
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: lobst
@@ -460,7 +451,6 @@ lizad:
   clusterName: lizad
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   ipv6.supported.cluster: lizad
 
 lemur:
@@ -468,7 +458,6 @@ lemur:
   clusterName: lemur
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   ipv6.supported.cluster: lemur
 
 loris:
@@ -476,7 +465,6 @@ loris:
   clusterName: loris
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   ipv6.supported.cluster: loris
 
 llama:
@@ -484,7 +472,6 @@ llama:
   clusterName: llama
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   ipv6.supported.cluster: llama
 
 lionn:
@@ -492,7 +479,6 @@ lionn:
   clusterName: lionn
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   ipv6.supported.cluster: lionn
 
 lynxs:
@@ -500,7 +486,6 @@ lynxs:
   clusterName: lynxs
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   ipv6.supported.cluster: lynxs
 
 lambs:
@@ -508,7 +493,6 @@ lambs:
   clusterName: lambs
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: lambs
@@ -518,7 +502,6 @@ brain-lf:
   clusterName: brain-lf
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: brain-lf
@@ -528,7 +511,6 @@ brain-hl:
   clusterName: brain-hl
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: brain-hl
@@ -547,7 +529,6 @@ hl:
   clusterName: hl
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   blacklist.taskmanager.critical.error.enabled: true
@@ -558,7 +539,6 @@ hyrax:
   clusterName: hyrax
   high-availability.zookeeper.quorum: 10.23.72.70:2181,10.23.73.159:2181,10.23.73.222:2181,10.23.73.69:2181,10.23.73.81:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
   blacklist.taskmanager.critical.error.enabled: true
@@ -569,7 +549,6 @@ horse:
   clusterName: horse
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: horse
@@ -581,7 +560,6 @@ hibis:
   clusterName: hibis
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: hibis
@@ -591,7 +569,6 @@ topi:
   clusterName: topi
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
@@ -602,7 +579,6 @@ hippo:
   clusterName: hippo
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
@@ -613,7 +589,6 @@ heron:
   clusterName: heron
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: heron
 
@@ -622,7 +597,6 @@ herry:
   clusterName: herry
   high-availability.zookeeper.quorum: 10.226.128.110:2181,10.226.128.107:2181,10.226.107.216:2181,10.226.128.132:2181,10.226.128.118:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: herry
 
@@ -631,7 +605,6 @@ hamer:
   clusterName: hamer
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
@@ -642,7 +615,6 @@ hyena:
   clusterName: hyena
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   blacklist.taskmanager.critical.error.enabled: true
@@ -653,7 +625,6 @@ hound:
   clusterName: hound
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
@@ -664,7 +635,6 @@ hinny:
   clusterName: hinny
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: hinny
 
@@ -673,7 +643,6 @@ hamst:
   clusterName: hamst
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: hamst
 
@@ -682,7 +651,6 @@ hermt:
   clusterName: hermt
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: hermt
 
@@ -691,7 +659,6 @@ husky:
   clusterName: husky
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: husky
 
@@ -700,7 +667,6 @@ honet:
   clusterName: honet
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: honet
 
@@ -709,7 +675,6 @@ hawks:
   clusterName: hawks
   high-availability.zookeeper.quorum: 10.226.107.167:2181,10.226.118.239:2181,10.226.114.179:2181,10.226.114.177:2181,10.226.124.191:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: hawks
 
@@ -718,7 +683,6 @@ harpy:
   clusterName: harpy
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: harpy
 
@@ -727,7 +691,6 @@ hares:
   clusterName: hares
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: hares
 
@@ -736,7 +699,6 @@ hakes:
   clusterName: hakes
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   execution.cancellation.timeout.enable: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
@@ -747,7 +709,6 @@ queen:
   clusterName: queen
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: queen
@@ -757,7 +718,6 @@ quire:
   clusterName: quire
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: quire
@@ -767,7 +727,6 @@ quark:
   clusterName: quark
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   bytedance.streaming.yarn.res-lake.enabled: false
@@ -779,7 +738,6 @@ quinc:
   clusterName: quinc
   high-availability.zookeeper.quorum: fdbd:dc03:ff:f2:0:248:247:88:2181,fdbd:dc03:ff:f2:0:248:238:96:2181,fdbd:dc03:ff:f2:0:248:233:110:2181,fdbd:dc03:ff:f2:0:248:251:90:2181,fdbd:dc03:ff:f2:0:248:231:88:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
@@ -790,7 +748,6 @@ quiet:
   clusterName: quiet
   high-availability.zookeeper.quorum: fdbd:dc03:ff:2:1:227:38:118:2181,fdbd:dc03:ff:2:1:227:173:112:2181,fdbd:dc03:ff:2:1:227:173:101:2181,fdbd:dc03:ff:2:1:227:186:137:2181,fdbd:dc03:ff:2:1:227:181:113:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
@@ -803,7 +760,6 @@ quetz:
   clusterName: quetz
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: quetz
@@ -813,7 +769,6 @@ quail:
   clusterName: quail
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
@@ -826,7 +781,6 @@ quoll:
   clusterName: quoll
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
@@ -839,7 +793,6 @@ quoka:
   clusterName: quoka
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
@@ -854,7 +807,6 @@ quaga:
   clusterName: quaga
   high-availability.zookeeper.quorum: 10.227.165.243:2181,10.227.165.222:2181,10.227.178.242:2181,10.227.174.244:2181,10.227.187.245:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
@@ -865,7 +817,6 @@ quele:
   clusterName: quele
   high-availability.zookeeper.quorum: 10.227.165.243:2181,10.227.165.222:2181,10.227.178.242:2181,10.227.174.244:2181,10.227.187.245:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   blacklist.taskmanager.critical.error.enabled: true
@@ -879,7 +830,6 @@ yakow:
   clusterName: yakow
   high-availability.zookeeper.quorum: fdbd:dc05:ff:ff:1cbe:68bc:fdd8:bfe9:2181,fdbd:dc05:ff:ff:308b:d8ef:1304:521c:2181,fdbd:dc05:ff:ff:36a0:24af:475d:541e:2181,fdbd:dc05:ff:ff:39b3:fbb8:c4d1:6778:2181,fdbd:dc05:ff:ff:6743:9943:aac5:5f98:2181
   hdfs.prefix: hdfs://haruna/flink_yg/flink
-  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
@@ -892,7 +842,6 @@ koala-yg:
   clusterName: koala-yg
   high-availability.zookeeper.quorum: fdbd:dc05:ff:ff:33af:43f8:4d86:5675:2181,fdbd:dc05:ff:ff:3f33:712f:2e5c:6b15:2181,fdbd:dc05:ff:ff:8662:80af:bc6d:60a8:2181,fdbd:dc05:ff:ff:8b06:d280:734b:9722:2181,fdbd:dc05:ff:ff:f9cb:be0:a73a:41ec:2181
   hdfs.prefix: hdfs://haruna/flink_yg/flink
-  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
@@ -1569,7 +1518,6 @@ koala-lq:
   clusterName: koala-lq
   high-availability.zookeeper.quorum: fdbd:dc03:ff:f2:1::13:2181,fdbd:dc03:ff:f2:1::f:2181,fdbd:dc03:ff:f2:1::2:2181,fdbd:dc03:ff:f2:1::4:2181,fdbd:dc03:ff:f2:1::12:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
@@ -1582,7 +1530,6 @@ koala-hl:
   clusterName: koala-hl
   high-availability.zookeeper.quorum: fdbd:dc02:ff:2:1:174:65:46:2181,fdbd:dc02:ff:2:1:174:65:56:2181,fdbd:dc02:ff:2:1:174:118:41:2181,fdbd:dc02:ff:2:1:174:94:65:2181,fdbd:dc02:ff:2:1:174:120:50:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
@@ -1595,7 +1542,6 @@ koala-lf:
   clusterName: koala-lf
   high-availability.zookeeper.quorum: fdbd:dc01:ff:101:b149:6a76:e7ca:8457:2181,fdbd:dc01:ff:101:7431:239f:55f1:adae:2181,fdbd:dc01:ff:101:1aa8:4797:ae42:138f:2181,fdbd:dc01:ff:101:4e13:3e17:a524:cdb4:2181,fdbd:dc01:ff:101:acde:a044:99cc:d7f4:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
@@ -1634,7 +1580,6 @@ Gaura-LF:
   high-availability: zookeeper
   high-availability.zookeeper.quorum: 10.203.13.5:2181,10.203.22.4:2181,10.203.9.24:2181,10.203.19.4:2181,10.203.7.6:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
@@ -1652,7 +1597,6 @@ Gaura-HL:
   high-availability: zookeeper
   high-availability.zookeeper.quorum: 10.226.110.167:2181,10.226.110.162:2181,10.226.119.168:2181,10.226.126.143:2181,10.226.122.156:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
@@ -1670,7 +1614,6 @@ Echo-HL:
   high-availability: zookeeper
   high-availability.zookeeper.quorum: 10.226.110.167:2181,10.226.110.162:2181,10.226.119.168:2181,10.226.126.143:2181,10.226.122.156:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
@@ -1688,7 +1631,6 @@ Gaura-LQ:
   high-availability: zookeeper
   high-availability.zookeeper.quorum: 10.248.236.172:2181,10.248.248.176:2181,10.248.234.180:2181,10.248.243.170:2181,10.248.243.148:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
@@ -1706,7 +1648,6 @@ Echo-LQ:
   high-availability: zookeeper
   high-availability.zookeeper.quorum: 10.248.236.172:2181,10.248.248.176:2181,10.248.234.180:2181,10.248.243.170:2181,10.248.243.148:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
@@ -1724,7 +1665,6 @@ Foxtrot-LQ:
   high-availability: zookeeper
   high-availability.zookeeper.quorum: fdbd:dc03:ff:f2:0:248:236:172:2181,fdbd:dc03:ff:f2:0:248:248:176:2181,fdbd:dc03:ff:f2:0:248:234:180:2181,fdbd:dc03:ff:f2:0:248:243:170:2181,fdbd:dc03:ff:f2:0:248:243:148:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
@@ -1742,7 +1682,6 @@ Gaura-YG:
   high-availability: zookeeper
   high-availability.zookeeper.quorum: fdbd:dc05:ff:ff:5131:24b1:ffda:527e:2181,fdbd:dc05:ff:ff:57d7:193a:4895:d024:2181,fdbd:dc05:ff:ff:62a4:e284:54c:7e3b:2181,fdbd:dc05:ff:ff:9ada:93c8:a89c:1374:2181,fdbd:dc05:ff:ff:ff0f:26b5:8830:aec6:2181
   hdfs.prefix: hdfs://haruna/flink_yg/flink
-  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
@@ -1762,7 +1701,6 @@ cloudnative-lf:
   high-availability: none
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   containerized.taskmanager.env.METRICS_USE_SOCK: true
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
@@ -1779,7 +1717,6 @@ cloudnative-lq:
   high-availability: none
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
   # service & ingress related
@@ -1794,7 +1731,6 @@ Feins-LQ:
   high-availability: zookeeper
   high-availability.zookeeper.quorum: 10.248.236.172:2181,10.248.248.176:2181,10.248.234.180:2181,10.248.243.170:2181,10.248.243.148:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
@@ -1829,7 +1765,6 @@ Koryn-LQ:
   high-availability: zookeeper
   high-availability.zookeeper.quorum: 10.248.236.172:2181,10.248.248.176:2181,10.248.234.180:2181,10.248.243.170:2181,10.248.243.148:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint_20210220
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
   containerized.master.env.MALLOC_ARENA_MAX: 4
   containerized.taskmanager.env.MALLOC_ARENA_MAX: 4

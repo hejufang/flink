@@ -144,6 +144,7 @@ bytedance.streaming.yarn.gang-scheduler.container-descheduler.disk-type-enable
 bytedance.streaming.yarn.res-lake.enabled
 
 # hdfs conf for checkpoint
+checkpoint.hdfs.prefix
 flink.checkpoint.hdfs.dfs.datanode.socket.write.timeout
 flink.checkpoint.hdfs.dfs.client.socket-timeout
 flink.checkpoint.hdfs.ipc.client.ping
