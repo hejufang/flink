@@ -1071,7 +1071,7 @@ public class CliFrontend {
 			effectiveConfiguration.set(CoreOptions.DEFAULT_PARALLELISM, checkpointOptions.getParallelism());
 			effectiveConfiguration.set(CheckpointingOptions.CLIENT_CHECKPOINT_VERIFICATION_ENABLE, true);
 
-			if (CheckpointVerifier.beforeVerify(program.getUserCodeClassLoader(), effectiveConfiguration)) {
+			if (CheckpointVerifier.beforeVerify(effectiveConfiguration)) {
 				executeProgram(effectiveConfiguration, program);
 				return CheckpointVerifier.verifyExitCode;
 			} else {
@@ -1106,11 +1106,7 @@ public class CliFrontend {
 		ZooKeeperUtils.clearCheckpoints(effectiveConfiguration, jobID, jobUID, checkpointID);
 
 		// clear checkpoints on HDFS.
-		final ClassLoader classLoader = ClientUtils.buildUserCodeClassLoader(
-			Collections.emptyList(),
-			Collections.emptyList(),
-			Thread.currentThread().getContextClassLoader(),
-			configuration);
+		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 		StateBackend stateBackend = Checkpoints.loadStateBackend(effectiveConfiguration, classLoader, LOG);
 		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobUID);
 		if (checkpointID > 0) {

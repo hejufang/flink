@@ -34,15 +34,12 @@ import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureSta
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTrackerImpl;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.socket.result.JobResultClientManager;
-import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nonnull;
 
-import java.net.URL;
 import java.time.Duration;
-import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -174,7 +171,6 @@ public class JobManagerSharedServices {
 
 		final String[] alwaysParentFirstLoaderPatterns = CoreOptions.getParentFirstLoaderPatterns(config);
 
-		final List<URL> stateBackendPlugins = StateBackend.findStateBackendPlugins(config);
 		final boolean failOnJvmMetaspaceOomError = config.getBoolean(CoreOptions.FAIL_ON_USER_CLASS_LOADING_METASPACE_OOM);
 		final boolean useSystemClassLoaderWhenLibIsEmpty =
 			config.get(CoreOptions.USE_SYSTEM_CLASS_LOADER_WHEN_LIBS_OF_USER_CLASS_LOADER_ENABLED);
@@ -184,8 +180,7 @@ public class JobManagerSharedServices {
 				BlobLibraryCacheManager.defaultClassLoaderFactory(
 					FlinkUserCodeClassLoaders.ResolveOrder.fromString(classLoaderResolveOrder),
 					alwaysParentFirstLoaderPatterns,
-					failOnJvmMetaspaceOomError ? fatalErrorHandler : null,
-					stateBackendPlugins),
+					failOnJvmMetaspaceOomError ? fatalErrorHandler : null),
 				useSystemClassLoaderWhenLibIsEmpty);
 
 		final Duration akkaTimeout;

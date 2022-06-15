@@ -520,8 +520,7 @@ public class BlobLibraryCacheManagerTest extends TestLogger {
 			.defaultClassLoaderFactory(
 				FlinkUserCodeClassLoaders.ResolveOrder.CHILD_FIRST,
 				new String[0],
-				null,
-				new ArrayList<>());
+				null);
 
 		private TestingBlobLibraryCacheManagerBuilder() throws IOException {
 			final Configuration blobClientConfig = new Configuration();

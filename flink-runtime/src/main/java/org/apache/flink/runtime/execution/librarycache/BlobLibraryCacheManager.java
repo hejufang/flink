@@ -40,7 +40,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -164,17 +163,13 @@ public class BlobLibraryCacheManager implements LibraryCacheManager {
 		 */
 		private final Consumer<Throwable> classLoadingExceptionHandler;
 
-		private final List<URL> externalPlugins;
-
 		private DefaultClassLoaderFactory(
 				FlinkUserCodeClassLoaders.ResolveOrder classLoaderResolveOrder,
 				String[] alwaysParentFirstPatterns,
-				Consumer<Throwable> classLoadingExceptionHandler,
-				List<URL> externalPlugins) {
+				Consumer<Throwable> classLoadingExceptionHandler) {
 			this.classLoaderResolveOrder = classLoaderResolveOrder;
 			this.alwaysParentFirstPatterns = alwaysParentFirstPatterns;
 			this.classLoadingExceptionHandler = classLoadingExceptionHandler;
-			this.externalPlugins = externalPlugins;
 		}
 
 		@Override
@@ -184,21 +179,18 @@ public class BlobLibraryCacheManager implements LibraryCacheManager {
 				libraryURLs,
 				FlinkUserCodeClassLoaders.class.getClassLoader(),
 				alwaysParentFirstPatterns,
-				classLoadingExceptionHandler,
-				externalPlugins);
+				classLoadingExceptionHandler);
 		}
 	}
 
 	public static ClassLoaderFactory defaultClassLoaderFactory(
 			FlinkUserCodeClassLoaders.ResolveOrder classLoaderResolveOrder,
 			String[] alwaysParentFirstPatterns,
-			@Nullable FatalErrorHandler fatalErrorHandlerJvmMetaspaceOomError,
-			List<URL> externalPlugins) {
+			@Nullable FatalErrorHandler fatalErrorHandlerJvmMetaspaceOomError) {
 		return new DefaultClassLoaderFactory(
 			classLoaderResolveOrder,
 			alwaysParentFirstPatterns,
-			createClassLoadingExceptionHandler(fatalErrorHandlerJvmMetaspaceOomError),
-			externalPlugins);
+			createClassLoadingExceptionHandler(fatalErrorHandlerJvmMetaspaceOomError));
 	}
 
 	private static Consumer<Throwable> createClassLoadingExceptionHandler(

@@ -80,8 +80,7 @@ public class BlobLibraryCacheRecoveryITCase extends TestLogger {
 			final BlobLibraryCacheManager.ClassLoaderFactory classLoaderFactory = BlobLibraryCacheManager.defaultClassLoaderFactory(
 				FlinkUserCodeClassLoaders.ResolveOrder.CHILD_FIRST,
 				new String[0],
-				null,
-				new ArrayList<>());
+				null);
 
 			for (int i = 0; i < server.length; i++) {
 				server[i] = new BlobServer(config, blobStoreService);

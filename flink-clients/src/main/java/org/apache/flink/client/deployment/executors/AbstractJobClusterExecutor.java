@@ -82,7 +82,7 @@ public class AbstractJobClusterExecutor<ClusterID, ClientFactory extends Cluster
 			abstractEventRecorder.setJobId(jobGraph.getJobID().toString());
 		}
 
-		CheckpointVerifier.verify(jobGraph, Thread.currentThread().getContextClassLoader(), configuration);
+		CheckpointVerifier.verify(jobGraph, ClassLoader.getSystemClassLoader(), configuration);
 
 		if (configuration.getBoolean(RUN_WITH_CHECKPOINT_VERIFY)) {
 			CheckpointVerifier.verifyExitCode = 0;

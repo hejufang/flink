@@ -39,7 +39,6 @@ import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.util.Preconditions;
-import org.apache.flink.util.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,8 +92,6 @@ public class CheckpointConfig implements java.io.Serializable {
 
 	/** restore from latest snapshot identifier. */
 	public static final String RESTORE_FROM_LATEST = "latest";
-
-	public static final String STATE_BACKEND_PLUGIN_PREFIX = "flink-statebackend-";
 
 	// ------------------------------------------------------------------------
 
@@ -770,24 +767,6 @@ public class CheckpointConfig implements java.io.Serializable {
 		} else {
 			LOG.info("No valid CompletedCheckpoint was found, which means this job has no latest CompletedCheckpoint or " +
 				"was restored from a Savepoint, skipping the quota check.");
-		}
-	}
-
-	/**
-	 * <p>STATE_BACKEND_PLUGINS</p> is automatically set based on the stateBackend type.
-	 */
-	public static void reconfigureStateBackendPlugin(Configuration configuration) {
-		Optional<String> dynamicPluginsOptional = configuration.getOptional(CheckpointingOptions.STATE_BACKEND_PLUGINS);
-		String stateBackend = configuration.get(CheckpointingOptions.STATE_BACKEND);
-		StringBuilder stateBackendPlugins = new StringBuilder();
-		if (!StringUtils.isNullOrWhitespaceOnly(stateBackend) && dynamicPluginsOptional.isPresent()) {
-			stateBackendPlugins.append(";").append(STATE_BACKEND_PLUGIN_PREFIX + stateBackend);
-		} else if (!StringUtils.isNullOrWhitespaceOnly(stateBackend)){
-			stateBackendPlugins.append(STATE_BACKEND_PLUGIN_PREFIX + stateBackend);
-		}
-
-		if (stateBackendPlugins.length() > 0) {
-			configuration.set(CheckpointingOptions.STATE_BACKEND_PLUGINS, stateBackendPlugins.toString());
 		}
 	}
 }

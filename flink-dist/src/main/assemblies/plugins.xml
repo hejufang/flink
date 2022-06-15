@@ -28,41 +28,6 @@
 	<includeBaseDirectory>true</includeBaseDirectory>
 	<baseDirectory>flink-${project.version}</baseDirectory>
 
-	<dependencySets>
-		<dependencySet>
-			<outputDirectory>plugins/flink-statebackend-rocksdb</outputDirectory>
-			<unpack>false</unpack>
-			<includes>
-				<include>org.apache.flink:flink-statebackend-rocksdb_${scala.binary.version}:jar</include>
-			</includes>
-			<scope>provided</scope>
-		</dependencySet>
-		<dependencySet>
-			<outputDirectory>plugins/flink-statebackend-rocksdb</outputDirectory>
-			<unpack>false</unpack>
-			<includes>
-				<include>com.data-artisans:frocksdbjni:jar</include>
-			</includes>
-			<scope>provided</scope>
-		</dependencySet>
-		<dependencySet>
-			<outputDirectory>plugins/flink-statebackend-terarkdb</outputDirectory>
-			<unpack>false</unpack>
-			<includes>
-				<include>org.apache.flink:flink-statebackend-rocksdb_${scala.binary.version}:jar</include>
-			</includes>
-			<scope>provided</scope>
-		</dependencySet>
-		<dependencySet>
-			<outputDirectory>plugins/flink-statebackend-terarkdb</outputDirectory>
-			<unpack>false</unpack>
-			<includes>
-				<include>com.bytedance:fterarkdbjni:jar</include>
-			</includes>
-			<scope>provided</scope>
-		</dependencySet>
-	</dependencySets>
-
 	<files>
 		<!-- Metrics -->
 

@@ -21,33 +21,18 @@ package org.apache.flink.runtime.state;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
-import org.apache.flink.configuration.CheckpointingOptions;
-import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.CloseableRegistry;
-import org.apache.flink.core.plugin.DirectoryBasedPluginFinder;
-import org.apache.flink.core.plugin.PluginConfig;
-import org.apache.flink.core.plugin.PluginDescriptor;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
-import org.apache.flink.util.FlinkRuntimeException;
-import org.apache.flink.util.StringUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * A <b>State Backend</b> defines how the state of a streaming application is stored and
@@ -285,29 +270,5 @@ public interface StateBackend extends java.io.Serializable {
 			operatorIdentifier,
 			stateHandles,
 			cancelStreamRegistry);
-	}
-
-	/**
-	 * Use {@link org.apache.flink.core.plugin.PluginFinder} to find the
-	 * {@link StateBackend} plugin from the plugins directory.
-	 */
-	static List<URL> findStateBackendPlugins(Configuration configuration) {
-		try {
-			String pluginsString = configuration.get(CheckpointingOptions.STATE_BACKEND_PLUGINS);
-			PluginConfig pluginConfig = PluginConfig.fromConfiguration(configuration);
-			if (!StringUtils.isNullOrWhitespaceOnly(pluginsString) && pluginConfig.getPluginsPath().isPresent()) {
-				Set<String> plugins = Arrays.stream(pluginsString.split(";"))
-					.map(String::toLowerCase)
-					.collect(Collectors.toSet());
-				Collection<PluginDescriptor> pluginDescriptors = new DirectoryBasedPluginFinder(pluginConfig.getPluginsPath().get()).findPlugins();
-				return pluginDescriptors.stream()
-					.filter(p -> plugins.contains(p.getPluginId().toLowerCase()))
-					.flatMap((Function<PluginDescriptor, Stream<URL>>) pluginDescriptor -> Arrays.stream(pluginDescriptor.getPluginResourceURLs()))
-					.collect(Collectors.toList());
-			}
-			return new ArrayList<>();
-		} catch (IOException e) {
-			throw new FlinkRuntimeException("Failed to find required stateBackend plugin.", e);
-		}
 	}
 }

@@ -76,8 +76,6 @@ public class PipelineExecutorUtils {
 		jobGraph.setSavepointRestoreSettings(executionConfigAccessor.getSavepointRestoreSettings());
 		// reconfigure snapshot restore settings
 		CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
-		// reconfigure stateBackend jar
-		CheckpointConfig.reconfigureStateBackendPlugin(configuration);
 
 		return jobGraph;
 	}

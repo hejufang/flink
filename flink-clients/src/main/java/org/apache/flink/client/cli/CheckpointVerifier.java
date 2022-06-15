@@ -147,11 +147,10 @@ public class CheckpointVerifier {
 	 * Check if there exists any completed checkpoints on HDFS in advance,
 	 * if none, skip checkpoint verification at once.
 	 *
-	 * @param classLoader Used to load plugins in a plug-in fashion.
 	 * @param configuration Configuration of client.
 	 * @return true if HDFS has completed checkpoint; false if none.
 	 */
-	public static boolean beforeVerify(ClassLoader classLoader, Configuration configuration) {
+	public static boolean beforeVerify(Configuration configuration) {
 		String jobUID = configuration.getString(PipelineOptions.JOB_UID);
 		if (jobUID == null) {
 			return false;
@@ -161,7 +160,7 @@ public class CheckpointVerifier {
 			return true;
 		}
 		// use a fake JobID, just for checkpoint verification
-		checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(configuration, classLoader, new JobID(), jobUID);
+		checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(configuration, ClassLoader.getSystemClassLoader(), new JobID(), jobUID);
 		LOG.info("Pre-check checkpoints {} on HDFS, if zero: {}, exit immediately", checkpointsOnStorage.keySet(), checkpointsOnStorage.isEmpty());
 		return !checkpointsOnStorage.isEmpty();
 	}
