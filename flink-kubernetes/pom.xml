@@ -73,7 +73,7 @@ under the License.
 		<dependency>
 			<groupId>com.bytedance.openplatform</groupId>
 			<artifactId>arcee-sdk</artifactId>
-			<version>fabric8_4.9.2-1.0.0.5</version>
+			<version>fabric8_4.9.2-1.0.0.6</version>
 		</dependency>
 
 		<!-- test dependencies -->
