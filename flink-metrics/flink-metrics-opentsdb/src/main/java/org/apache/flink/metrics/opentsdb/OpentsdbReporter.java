@@ -35,6 +35,7 @@ import org.apache.flink.metrics.MetricsConstants;
 import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
+import org.apache.flink.streaming.util.LatencyStats;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.YarnConfigKeys;
 
@@ -49,6 +50,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -83,6 +85,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"taskmanager\\.(\\S+)\\.(\\d+)\\.(\\S+)");
 	private static final Pattern SQL_GATEWAY_PATTERN = Pattern.compile(
 			"(\\S+)\\.(sqlgateway\\.\\S+)");
+	private static final Pattern LATENCY_MARKER_REGEX = Pattern.compile(
+		"taskmanager\\.(\\S+)\\.latency\\.(\\S+)\\.latency");
+
 	private static final int METRICS_NAME_MAX_LENGTH = 255;
 	private static final AtomicInteger registerIdCounter = new AtomicInteger(1);
 
@@ -469,6 +474,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			if (!taskManagerMetricName.equals("")) {
 				Matcher taskAndKafkaMatcher = TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN.matcher(taskManagerMetricName);
 				Matcher taskAndRMQMatcher = TASK_MANAGER_AND_RMQ_CONSUMER_PATTERN.matcher(taskManagerMetricName);
+				Matcher latencyMarkerMatcher = LATENCY_MARKER_REGEX.matcher(taskManagerMetricName);
+
 				if (taskAndKafkaMatcher.find()) {
 					String jobAndSource = taskAndKafkaMatcher.group(1);
 					String taskId = taskAndKafkaMatcher.group(2);
@@ -510,6 +517,34 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 					String metricName =
 						"taskmanager." + jobAndSource + ".RocketMQConsumer." + quota;
 					metricName = metricName.replace("..", ".");
+					return new Tuple<>(metricName, TagKv.compositeTags(tags));
+				}
+				else if (latencyMarkerMatcher.find()) {
+					String jobName = latencyMarkerMatcher.group(1);
+					String attributes = latencyMarkerMatcher.group(2);
+					String operatorName = "";
+					String[] attributeList = attributes.split("\\.");
+					boolean isSink = false;
+					for (int i = 0; i < attributeList.length; i += 2) {
+						if (i + 1 < attributeList.length){
+							if (Objects.equals(attributeList[i], LatencyStats.OPERATOR_NAME)) {
+								operatorName = attributeList[i + 1];
+							} else {
+								if (Objects.equals(attributeList[i], LatencyStats.OPERATOR_IS_SINK)) {
+									isSink = Boolean.parseBoolean(attributeList[i + 1]);
+								} else {
+									tags.add(new TagKv(attributeList[i], attributeList[i + 1]));
+								}
+							}
+						}
+					}
+					String metricName;
+					if (isSink){
+						metricName = "taskmanager." + jobName + ".process-latency";
+						tags.add(new TagKv(LatencyStats.OPERATOR_NAME, operatorName));
+					} else {
+						metricName = "taskmanager." + jobName + "." + operatorName + ".process-latency";
+					}
 					return new Tuple<>(metricName, TagKv.compositeTags(tags));
 				} else {
 					Matcher taskMatcher = TASK_MANAGER_PATTERN_2.matcher(taskManagerMetricName);

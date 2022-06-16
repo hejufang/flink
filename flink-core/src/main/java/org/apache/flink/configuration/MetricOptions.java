@@ -156,6 +156,11 @@ public class MetricOptions {
 			.defaultValue(128)
 			.withDescription("Defines the number of measured latencies to maintain at each operator.");
 
+	public static final ConfigOption<Long> LATENCY_TIME_WINDOW_SIZE =
+		key("metrics.latency.time-window-size")
+			.defaultValue(60000L)
+			.withDescription("Defines the duration(ms) of measured latencies to maintain at each operator.");
+
 	/**
 	 * Whether Flink should report system resource metrics such as machine's CPU, memory or network usage.
 	 */

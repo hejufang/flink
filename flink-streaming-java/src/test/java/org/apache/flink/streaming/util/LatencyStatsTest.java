@@ -132,7 +132,9 @@ public class LatencyStatsTest extends TestLogger {
 		final LatencyStats latencyStats = new LatencyStats(
 			parentGroup,
 			MetricOptions.LATENCY_HISTORY_SIZE.defaultValue(),
+			MetricOptions.LATENCY_TIME_WINDOW_SIZE.defaultValue(),
 			OPERATOR_SUBTASK_INDEX,
+			"operator_name",
 			OPERATOR_ID,
 			granularity);
 

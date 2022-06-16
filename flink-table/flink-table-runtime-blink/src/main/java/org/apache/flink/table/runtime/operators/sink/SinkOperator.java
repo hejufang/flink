@@ -94,7 +94,7 @@ public class SinkOperator extends AbstractUdfStreamOperator<Object, SinkFunction
 	@Override
 	protected void reportOrForwardLatencyMarker(LatencyMarker marker) {
 		// all operators are tracking latencies
-		this.latencyStats.reportLatency(marker);
+		this.latencyStats.reportLatency(marker, true);
 
 		// sinks don't forward latency markers
 	}

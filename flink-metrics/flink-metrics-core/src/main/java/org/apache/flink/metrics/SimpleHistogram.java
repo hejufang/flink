@@ -71,7 +71,7 @@ public class SimpleHistogram implements Histogram {
 		return new com.codahale.metrics.Histogram(new SlidingTimeWindowArrayReservoir(HISTOGRAM_TIME_WINDOW, HISTOGRAM_TIME_UNIT));
 	}
 
-	public static com.codahale.metrics.Histogram buildSlidingTimeWindowReservoirHistogram(int timeWindow, TimeUnit timeUnit) {
+	public static com.codahale.metrics.Histogram buildSlidingTimeWindowReservoirHistogram(long timeWindow, TimeUnit timeUnit) {
 		return new com.codahale.metrics.Histogram(new SlidingTimeWindowArrayReservoir(timeWindow, timeUnit));
 	}
 }

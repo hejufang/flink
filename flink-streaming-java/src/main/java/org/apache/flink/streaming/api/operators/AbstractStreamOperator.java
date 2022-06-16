@@ -209,6 +209,11 @@ public abstract class AbstractStreamOperator<OUT>
 				LOG.warn("{} has been set to a value equal or below 0: {}. Using default.", MetricOptions.LATENCY_HISTORY_SIZE, historySize);
 				historySize = MetricOptions.LATENCY_HISTORY_SIZE.defaultValue();
 			}
+			long timeWindow = taskManagerConfig.getLong(MetricOptions.LATENCY_TIME_WINDOW_SIZE);
+			if (timeWindow <= 0) {
+				LOG.warn("{} has been set to a value equal or below 0: {}. Using default.", MetricOptions.LATENCY_TIME_WINDOW_SIZE, timeWindow);
+				timeWindow = MetricOptions.LATENCY_TIME_WINDOW_SIZE.defaultValue();
+			}
 
 			final String configuredGranularity = taskManagerConfig.getString(MetricOptions.LATENCY_SOURCE_GRANULARITY);
 			LatencyStats.Granularity granularity;
@@ -225,7 +230,9 @@ public abstract class AbstractStreamOperator<OUT>
 			TaskManagerJobMetricGroup jobMetricGroup = this.metrics.parent().parent();
 			this.latencyStats = new LatencyStats(jobMetricGroup.addGroup("latency"),
 				historySize,
+				timeWindow,
 				container.getIndexInSubtaskGroup(),
+				config.getOperatorMetricName(),
 				getOperatorID(),
 				granularity);
 		} catch (Exception e) {
@@ -233,7 +240,9 @@ public abstract class AbstractStreamOperator<OUT>
 			this.latencyStats = new LatencyStats(
 				UnregisteredMetricGroups.createUnregisteredTaskManagerJobMetricGroup().addGroup("latency"),
 				1,
+				MetricOptions.LATENCY_TIME_WINDOW_SIZE.defaultValue(),
 				0,
+				"operator_name",
 				new OperatorID(),
 				LatencyStats.Granularity.SINGLE);
 		}

@@ -18,47 +18,65 @@
 package org.apache.flink.streaming.util;
 
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.SimpleHistogram;
 import org.apache.flink.runtime.jobgraph.OperatorID;
-import org.apache.flink.runtime.metrics.DescriptiveStatisticsHistogram;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The {@link LatencyStats} objects are used to track and report on the behavior of latencies across measurements.
  */
 public class LatencyStats {
-	private final Map<String, DescriptiveStatisticsHistogram> latencyStats = new HashMap<>();
+
+	public static final String OPERATOR_NAME = "operator_name";
+	public static final String OPERATOR_IS_SINK = "is_sink";
+
+	private final Map<String, SimpleHistogram> latencyStats = new HashMap<>();
 	private final MetricGroup metricGroup;
 	private final int historySize;
+	private final long timeWindow;
 	private final int subtaskIndex;
+	private final String operatorName;
 	private final OperatorID operatorId;
 	private final Granularity granularity;
 
 	public LatencyStats(
 			MetricGroup metricGroup,
 			int historySize,
+			long timeWindow,
 			int subtaskIndex,
+			String operatorName,
 			OperatorID operatorID,
 			Granularity granularity) {
 		this.metricGroup = metricGroup;
 		this.historySize = historySize;
+		this.timeWindow = timeWindow;
 		this.subtaskIndex = subtaskIndex;
+		this.operatorName = operatorName;
 		this.operatorId = operatorID;
 		this.granularity = granularity;
 	}
 
-	public void reportLatency(LatencyMarker marker) {
+	public void reportLatency(LatencyMarker marker){
+		reportLatency(marker, false);
+	}
+
+	public void reportLatency(LatencyMarker marker, boolean isSink) {
 		final String uniqueName = granularity.createUniqueHistogramName(marker, operatorId, subtaskIndex);
 
-		DescriptiveStatisticsHistogram latencyHistogram = this.latencyStats.get(uniqueName);
+		SimpleHistogram latencyHistogram = this.latencyStats.get(uniqueName);
 		if (latencyHistogram == null) {
-			latencyHistogram = new DescriptiveStatisticsHistogram(this.historySize);
+			latencyHistogram = new SimpleHistogram(
+				SimpleHistogram.buildSlidingTimeWindowReservoirHistogram(timeWindow, TimeUnit.MILLISECONDS));
 			this.latencyStats.put(uniqueName, latencyHistogram);
 			granularity.createSourceMetricGroups(metricGroup, marker, operatorId, subtaskIndex)
+				.addGroup(OPERATOR_NAME, operatorName)
 				.addGroup("operator_id", String.valueOf(operatorId))
 				.addGroup("operator_subtask_index", String.valueOf(subtaskIndex))
+				.addGroup(OPERATOR_IS_SINK, String.valueOf(isSink))
 				.histogram("latency", latencyHistogram);
 		}
 
