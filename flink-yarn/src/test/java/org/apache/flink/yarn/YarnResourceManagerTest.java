@@ -20,6 +20,7 @@ package org.apache.flink.yarn;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.java.tuple.Tuple6;
 import org.apache.flink.configuration.BlacklistOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
@@ -46,12 +47,14 @@ import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.TaskExecutorRegistration;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerBuilder;
+import org.apache.flink.runtime.resourcemanager.slotmanager.TaskManagerSlot;
 import org.apache.flink.runtime.resourcemanager.slotmanager.TestingSlotManagerBuilder;
 import org.apache.flink.runtime.resourcemanager.utils.MockResourceManagerRuntimeServices;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -65,6 +68,8 @@ import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGatewayBuilder;
 import org.apache.flink.runtime.util.TestingFatalErrorHandler;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.TestLogger;
+import org.apache.flink.util.clock.Clock;
+import org.apache.flink.util.clock.SystemClock;
 import org.apache.flink.util.function.RunnableWithException;
 import org.apache.flink.yarn.entrypoint.YarnWorkerResourceSpecFactory;
 
@@ -112,6 +117,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.configuration.GlobalConfiguration.FLINK_CONF_FILENAME;
@@ -130,6 +136,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * General tests for the YARN resource manager component.
@@ -205,7 +212,8 @@ public class YarnResourceManagerTest extends TestLogger {
 				FatalErrorHandler fatalErrorHandler,
 				@Nullable String webInterfaceUrl,
 				ResourceManagerMetricGroup resourceManagerMetricGroup,
-				FailureRater failureRater) {
+				FailureRater failureRater,
+				Clock clock) {
 			super(
 				rpcService,
 				resourceId,
@@ -220,7 +228,8 @@ public class YarnResourceManagerTest extends TestLogger {
 				fatalErrorHandler,
 				webInterfaceUrl,
 				resourceManagerMetricGroup,
-				failureRater);
+				failureRater,
+				clock);
 			this.testingYarnNMClientAsync = new TestingYarnNMClientAsync(this);
 			this.testingYarnAMRMClientAsync = new TestingYarnAMRMClientAsync(this);
 		}
@@ -290,8 +299,16 @@ public class YarnResourceManagerTest extends TestLogger {
 			this(flinkConfig, null);
 		}
 
+		Context(Clock clock) throws Exception {
+			this(flinkConfig, null, 1000, 10000, clock);
+		}
+
 		Context(long heartbeatTimeout) throws Exception {
 			this(flinkConfig, null, 1000, heartbeatTimeout);
+		}
+
+		Context(long heartbeatTimeout, Clock clock) throws  Exception {
+			this(flinkConfig, null, 1000, heartbeatTimeout, clock);
 		}
 
 		Context(Configuration configuration, @Nullable SlotManager slotManager) throws  Exception {
@@ -299,6 +316,10 @@ public class YarnResourceManagerTest extends TestLogger {
 		}
 
 		Context(Configuration configuration, @Nullable SlotManager slotManager, long heartbeatInterval, long heartbeatTimeout) throws  Exception {
+			this(configuration, slotManager, heartbeatInterval, heartbeatTimeout, SystemClock.getInstance());
+		}
+
+		Context(Configuration configuration, @Nullable SlotManager slotManager, long heartbeatInterval, long heartbeatTimeout, Clock clock) throws  Exception {
 
 			workerResourceSpec = YarnWorkerResourceSpecFactory.INSTANCE.createDefaultWorkerResourceSpec(configuration);
 			if (slotManager == null) {
@@ -325,7 +346,8 @@ public class YarnResourceManagerTest extends TestLogger {
 							testingFatalErrorHandler,
 							null,
 							UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
-							failureRater
+							failureRater,
+							clock
 						);
 
 			testingYarnAMRMClientAsync = resourceManager.testingYarnAMRMClientAsync;
@@ -629,9 +651,9 @@ public class YarnResourceManagerTest extends TestLogger {
 				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
 				for (int i = 0; i < 2; i++) {
 					Container container = previousContainers.get(i);
-					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource(), true);
+					waitSlotAllocated(rmServices.slotManager, new ResourceID(container.getId().toString()), 100);
 				}
-				Thread.sleep(100);
 				assertEquals(2, rmServices.slotManager.getNumberRegisteredSlots());
 				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
 				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
@@ -683,7 +705,6 @@ public class YarnResourceManagerTest extends TestLogger {
 				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
 				Container container = previousContainers.get(0);
 				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
-				Thread.sleep(100);
 				// verify 1 recovered container is started.
 				assertEquals(2, resourceManager.getWorkerNodeMap().size());
 				assertEquals(1, resourceManager.getRecoveredWorkerNodeSet().size());
@@ -699,8 +720,8 @@ public class YarnResourceManagerTest extends TestLogger {
 
 				// register 000001.
 				container = previousContainers.get(1);
-				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
-				Thread.sleep(100);
+				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource(), true);
+				waitSlotAllocated(rmServices.slotManager, new ResourceID(container.getId().toString()), 100);
 
 				assertEquals(2, rmServices.slotManager.getNumberRegisteredSlots());
 				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
@@ -775,7 +796,7 @@ public class YarnResourceManagerTest extends TestLogger {
 				// container 000000 completed.
 				ContainerStatus testingContainerStatus = createTestingContainerStatus(previousContainers.get(0).getId());
 				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
-				Thread.sleep(100);
+				waitContainerCompleted(resourceManager, new ResourceID(testingContainerStatus.getContainerId().toString()), 100);
 				assertEquals(1, resourceManager.getWorkerNodeMap().size());
 				assertEquals(1, resourceManager.getRecoveredWorkerNodeSet().size());
 
@@ -808,9 +829,10 @@ public class YarnResourceManagerTest extends TestLogger {
 				// register 000001, 000002.
 				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
 				Container container = previousContainers.get(1);
-				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
-				registerTaskExecutor(testingContainer, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
-				Thread.sleep(100);
+				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource(), true);
+				registerTaskExecutor(testingContainer, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource(), true);
+				waitSlotAllocated(rmServices.slotManager, new ResourceID(container.getId().toString()), 100);
+				waitSlotAllocated(rmServices.slotManager, new ResourceID(testingContainer.getId().toString()), 100);
 
 				assertEquals(2, rmServices.slotManager.getNumberRegisteredSlots());
 				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
@@ -900,9 +922,9 @@ public class YarnResourceManagerTest extends TestLogger {
 				// container 000000 completed.
 				ContainerStatus testingContainerStatus = createTestingContainerStatus(previousContainers.get(0).getId());
 				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
+				waitContainerCompleted(resourceManager, new ResourceID(testingContainerStatus.getContainerId().toString()), 100);
 				verifyFutureCompleted(addContainerRequestFutures.get(0));
 				// wait to notify new work requested.
-				Thread.sleep(10);
 				assertEquals(1, resourceManager.getWorkerNodeMap().size());
 				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
 				assertEquals(1, addContainerRequestFuturesNumCompleted.get());
@@ -925,11 +947,10 @@ public class YarnResourceManagerTest extends TestLogger {
 				// register 000001, 000002.
 				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
 				Container container = previousContainers.get(1);
-				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
-				registerTaskExecutor(testingContainer, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
-				// wait registered slot offer to slotRequest.
-				Thread.sleep(100);
-
+				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource(), true);
+				registerTaskExecutor(testingContainer, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource(), true);
+				waitSlotAllocated(rmServices.slotManager, new ResourceID(container.getId().toString()), 100);
+				waitSlotAllocated(rmServices.slotManager, new ResourceID(testingContainer.getId().toString()), 100);
 				assertEquals(2, rmServices.slotManager.getNumberRegisteredSlots());
 				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
 				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
@@ -1019,8 +1040,8 @@ public class YarnResourceManagerTest extends TestLogger {
 				Container container = previousContainers.get(0);
 				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
 				container = previousContainers.get(1);
-				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
-				Thread.sleep(100);
+				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource(), true);
+				waitSlotAllocated(rmServices.slotManager, new ResourceID(container.getId().toString()), 100);
 				assertEquals(2, rmServices.slotManager.getNumberRegisteredSlots());
 				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
 				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
@@ -1031,8 +1052,7 @@ public class YarnResourceManagerTest extends TestLogger {
 				// container 000000 completed.
 				ContainerStatus testingContainerStatus = createTestingContainerStatus(previousContainers.get(0).getId());
 				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
-				// wait container completed finish.
-				Thread.sleep(100);
+				waitContainerCompleted(resourceManager, new ResourceID(testingContainerStatus.getContainerId().toString()), 100);
 				// verify not request new container.
 				assertEquals(1, resourceManager.getWorkerNodeMap().size());
 				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
@@ -1121,7 +1141,6 @@ public class YarnResourceManagerTest extends TestLogger {
 
 				// wait previous container timeout.
 				verifyFutureCompleted(addContainerRequestFutures.get(0));
-				Thread.sleep(10);
 
 				// verify 2 recovered container released and request 1 new containers.
 				assertEquals(0, resourceManager.getWorkerNodeMap().size());
@@ -1202,9 +1221,8 @@ public class YarnResourceManagerTest extends TestLogger {
 
 				// register 000000, 000001.
 				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
-				registerTaskExecutor(previousContainers.get(0), rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
-				registerTaskExecutor(previousContainers.get(1), rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
-				Thread.sleep(100);
+				registerTaskExecutor(previousContainers.get(0), rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource(), false);
+				registerTaskExecutor(previousContainers.get(1), rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource(), false);
 				assertEquals(4, resourceManager.getWorkerNodeMap().size());
 				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
 				assertEquals(0, resourceManager.getYarnBlackedHosts().size());
@@ -1218,8 +1236,7 @@ public class YarnResourceManagerTest extends TestLogger {
 				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
 				testingContainerStatus = createTestingContainerStatus(previousContainers.get(1).getId());
 				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
-				// wait container completed finish.
-				Thread.sleep(200);
+				waitContainerCompleted(resourceManager, new ResourceID(testingContainerStatus.getContainerId().toString()), 100);
 				assertEquals(2, resourceManager.getWorkerNodeMap().size());
 				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
 				assertEquals(1, resourceManager.getYarnBlackedHosts().size());
@@ -1235,7 +1252,6 @@ public class YarnResourceManagerTest extends TestLogger {
 				// verify 2 previous container in blacklist will be release and start 2 new containers.
 				verifyFutureCompleted(addContainerRequestFutures.get(0));
 				verifyFutureCompleted(addContainerRequestFutures.get(1));
-				Thread.sleep(10);
 
 				// verify no requests been sent
 				assertEquals(0, resourceManager.getWorkerNodeMap().size());
@@ -1279,7 +1295,6 @@ public class YarnResourceManagerTest extends TestLogger {
 
 				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
 				// wait for container to start
-				Thread.sleep(1000);
 				verifyFutureCompleted(addContainerRequestFutures.get(0));
 				verifyFutureCompleted(removeContainerRequestFuture);
 				verifyFutureCompleted(startContainerAsyncFuture);
@@ -1505,10 +1520,6 @@ public class YarnResourceManagerTest extends TestLogger {
 
 	@Test
 	public void testGetContainersFromPreviousAttempts() throws Exception {
-		long defaultSlowContainerTimeout = 120000;
-		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, defaultSlowContainerTimeout);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
 		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		flinkConfig.setLong(ResourceManagerOptions.PREVIOUS_CONTAINER_TIMEOUT_MS, 120000L);
 		new Context() {{
@@ -1589,10 +1600,9 @@ public class YarnResourceManagerTest extends TestLogger {
 				// register 7 previous container, 000003~000009.
 				for (int i = 3; i < 10; i++) {
 					Container container = previousContainers.get(i);
-					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource(), true);
+					waitSlotAllocated(rmServices.slotManager, new ResourceID(container.getId().toString()), 100);
 				}
-
-				Thread.sleep(1000);
 				assertEquals(10, rmServices.slotManager.getNumberPendingSlotRequests());
 				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
 				assertEquals(10, rmServices.slotManager.getNumberRegisteredSlots());
@@ -1615,14 +1625,13 @@ public class YarnResourceManagerTest extends TestLogger {
 				// 10 new TaskExecutor start
 				for (int i = 0; i < 10; i++) {
 					Container container = testContainers.get(i);
-					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource(), true);
+					waitSlotAllocated(rmServices.slotManager, new ResourceID(container.getId().toString()), 100);
 				}
-				Thread.sleep(1000);
 				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
 				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
 				assertEquals(20, rmServices.slotManager.getNumberRegisteredSlots());
 				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
-
 			});
 		}};
 	}
@@ -1647,14 +1656,31 @@ public class YarnResourceManagerTest extends TestLogger {
 			TestingRpcService rpcService,
 			HardwareDescription hardwareDescription,
 			ResourceProfile resourceProfile) throws ExecutionException, InterruptedException {
+		registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, resourceProfile, false);
+	}
+
+	protected void registerTaskExecutor(
+			Container container,
+			ResourceManagerGateway rmGateway,
+			TestingRpcService rpcService,
+			HardwareDescription hardwareDescription,
+			ResourceProfile resourceProfile,
+			boolean waitRequestSlotFinish) throws ExecutionException, InterruptedException {
 
 		String address = container.getNodeId().getHost() + ":" + container.getNodeId().getPort();
+		CompletableFuture<Acknowledge> requestSlotFuture = new CompletableFuture<>();
+
+		Function<Tuple6<SlotID, JobID, AllocationID, ResourceProfile, String, ResourceManagerId>, CompletableFuture<Acknowledge>> requestSlotFunction = ignored -> {
+			requestSlotFuture.complete(Acknowledge.get());
+			return CompletableFuture.completedFuture(Acknowledge.get());
+		};
 
 		rpcService.registerGateway(
 				address,
 				new TestingTaskExecutorGatewayBuilder()
 						.setAddress(address)
 						.setHostname(container.getNodeId().getHost())
+						.setRequestSlotFunction(requestSlotFunction)
 						.createTestingTaskExecutorGateway());
 
 		ResourceID taskManagerResourceId = new ResourceID(container.getId().toString());
@@ -1687,6 +1713,9 @@ public class YarnResourceManagerTest extends TestLogger {
 									Time.seconds(10L));
 						});
 		registerTaskExecutorFuture.get();
+		if (waitRequestSlotFinish) {
+			requestSlotFuture.get();
+		}
 	}
 
 	protected void registerSlotRequest(
@@ -1703,5 +1732,28 @@ public class YarnResourceManagerTest extends TestLogger {
 
 		// wait for the registerSlotRequest completion
 		registerSlotRequestFuture.get();
+	}
+
+	protected void waitContainerCompleted(TestingYarnResourceManager resourceManager, ResourceID resourceID, long waitTime) throws Exception {
+		boolean success = resourceManager.runInMainThread(
+						() -> !resourceManager.getTaskExecutors().containsKey(resourceID)
+								&& !resourceManager.getWorkerNodeMap().containsKey(resourceID))
+				.get(waitTime, TimeUnit.MILLISECONDS);
+
+		assertTrue("Container " + resourceID + " not completed in " + waitTime + " ms", success);
+	}
+
+	protected void waitSlotAllocated(SlotManager slotManager, ResourceID resourceID, long waitTime) {
+		long ts = System.currentTimeMillis();
+		while (System.currentTimeMillis() - ts < waitTime) {
+			long notAllocatedNumber = slotManager.getAllSlots().stream()
+					.filter(slot -> slot.getTaskManagerConnection().getResourceID().equals(resourceID))
+					.filter(slot -> !slot.getState().equals(TaskManagerSlot.State.ALLOCATED))
+					.count();
+			if (notAllocatedNumber == 0) {
+				return;
+			}
+		}
+		fail();
 	}
 }

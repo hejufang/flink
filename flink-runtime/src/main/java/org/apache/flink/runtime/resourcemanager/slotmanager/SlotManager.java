@@ -35,6 +35,7 @@ import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnect
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskmanager.TaskManagerAddressLocation;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
@@ -80,6 +81,9 @@ public interface SlotManager extends AutoCloseable {
 	ResourceProfile getDefaultResource();
 
 	WorkerResourceSpec getDefaultWorkerResourceSpec();
+
+	@VisibleForTesting
+	Collection<TaskManagerSlot> getAllSlots();
 
 	int getNumberPendingSlotRequests();
 

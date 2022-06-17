@@ -78,6 +78,8 @@ import org.apache.flink.runtime.taskexecutor.TaskExecutorMemoryConfiguration;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGatewayBuilder;
 import org.apache.flink.runtime.util.TestingFatalErrorHandlerResource;
+import org.apache.flink.util.clock.Clock;
+import org.apache.flink.util.clock.SystemClock;
 import org.apache.flink.util.function.RunnableWithException;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableList;
@@ -166,7 +168,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				ResourceManagerMetricGroup resourceManagerMetricGroup,
 				FlinkKubeClient flinkKubeClient,
 				KubernetesResourceManagerConfiguration configuration,
-				FailureRater failureRater) {
+				FailureRater failureRater,
+				Clock clock) {
 			super(
 				rpcService,
 				resourceId,
@@ -182,7 +185,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				flinkKubeClient,
 				configuration,
 				"localhost:8081",
-				failureRater
+				failureRater,
+				clock
 			);
 		}
 
@@ -881,6 +885,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 		FlinkKubeClient flinkKubeClient = null;
 		ResourceProfile registerSlotProfile = ResourceProfile.ZERO;
 
+		Clock clock = SystemClock.getInstance();
+
 		void runTest(RunnableWithException testMethod) throws Exception {
 			if (slotManager == null) {
 				WorkerResourceSpec workerResourceSpec = KubernetesWorkerResourceSpecFactory.INSTANCE
@@ -895,7 +901,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
 			}
 
-			resourceManager = createAndStartResourceManager(flinkConfig, slotManager, flinkKubeClient);
+			resourceManager = createAndStartResourceManager(flinkConfig, slotManager, flinkKubeClient, clock);
 
 			try {
 				testMethod.run();
@@ -904,7 +910,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 			}
 		}
 
-		private TestingKubernetesResourceManager createAndStartResourceManager(Configuration configuration, SlotManager slotManager, FlinkKubeClient flinkKubeClient) throws Exception {
+		private TestingKubernetesResourceManager createAndStartResourceManager(Configuration configuration, SlotManager slotManager, FlinkKubeClient flinkKubeClient, Clock clock) throws Exception {
 
 			final TestingRpcService rpcService = new TestingRpcService(configuration);
 			final MockResourceManagerRuntimeServices rmServices = new MockResourceManagerRuntimeServices(rpcService, TIMEOUT, slotManager);
@@ -922,7 +928,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
 				flinkKubeClient,
 				new KubernetesResourceManagerConfiguration(CLUSTER_ID, TESTING_POD_CREATION_RETRY_INTERVAL),
-				failureRater);
+				failureRater,
+				clock);
 			kubernetesResourceManager.start();
 			rmServices.grantLeadership();
 			return kubernetesResourceManager;

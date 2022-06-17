@@ -71,6 +71,7 @@ import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
+import org.apache.flink.util.clock.Clock;
 
 import com.bytedance.openplatform.arcee.ArceeUtils;
 import io.fabric8.kubernetes.api.model.ContainerStateTerminated;
@@ -189,7 +190,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			FlinkKubeClient kubeClient,
 			KubernetesResourceManagerConfiguration configuration,
 			String webInterfaceUrl,
-			FailureRater failureRater) {
+			FailureRater failureRater,
+			Clock clock) {
 		super(
 			flinkConfig,
 			System.getenv(),
@@ -203,7 +205,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			clusterInformation,
 			fatalErrorHandler,
 			resourceManagerMetricGroup,
-			failureRater);
+			failureRater,
+			clock);
 		this.clusterId = configuration.getClusterId();
 		this.minimalNodesNum = flinkConfig.getInteger(KubernetesConfigOptions.KUBERNETES_TASK_MANAGER_MINIMAL_NUM);
 		this.kubeClient = kubeClient;

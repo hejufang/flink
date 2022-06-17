@@ -290,6 +290,11 @@ public class SlotManagerImpl implements SlotManager {
 		return defaultWorkerResourceSpec;
 	}
 
+	@Override
+	public Collection<TaskManagerSlot> getAllSlots() {
+		return slots.values();
+	}
+
 	private ResourceProfile getResourceFromNumSlots(int numSlots) {
 		if (numSlots < 0 || defaultSlotResourceProfile == null) {
 			return ResourceProfile.UNKNOWN;

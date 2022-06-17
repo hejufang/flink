@@ -35,6 +35,7 @@ import org.apache.flink.runtime.resourcemanager.ResourceManagerRuntimeServicesCo
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.ConfigurationException;
+import org.apache.flink.util.clock.SystemClock;
 import org.apache.flink.yarn.YarnResourceManager;
 import org.apache.flink.yarn.YarnWorkerNode;
 
@@ -81,7 +82,8 @@ public class YarnResourceManagerFactory extends ActiveResourceManagerFactory<Yar
 			fatalErrorHandler,
 			webInterfaceUrl,
 			resourceManagerMetricGroup,
-			failureRater);
+			failureRater,
+			SystemClock.getInstance());
 	}
 
 	@Override

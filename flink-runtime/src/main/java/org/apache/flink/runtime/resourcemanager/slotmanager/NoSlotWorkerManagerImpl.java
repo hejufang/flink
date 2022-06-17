@@ -42,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -197,6 +198,11 @@ public class NoSlotWorkerManagerImpl implements SlotManager {
 	@Override
 	public WorkerResourceSpec getDefaultWorkerResourceSpec() {
 		return defaultWorkerResourceSpec;
+	}
+
+	@Override
+	public Collection<TaskManagerSlot> getAllSlots() {
+		return Collections.emptyList();
 	}
 
 	@Override

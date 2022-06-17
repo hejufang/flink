@@ -42,6 +42,7 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.clock.Clock;
 
 import javax.annotation.Nullable;
 
@@ -98,7 +99,8 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 			ClusterInformation clusterInformation,
 			FatalErrorHandler fatalErrorHandler,
 			ResourceManagerMetricGroup resourceManagerMetricGroup,
-			FailureRater failureRater) {
+			FailureRater failureRater,
+			Clock clock) {
 		super(
 			rpcService,
 			resourceId,
@@ -148,7 +150,8 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 					slowContainerRedundantMaxFactor,
 					slowContainerRedundantMinNumber,
 					slowContainerReleaseTimeoutEnabled,
-					slowContainerReleaseTimeoutMs);
+					slowContainerReleaseTimeoutMs,
+					clock);
 		} else {
 			this.slowContainerManager = new NoOpSlowContainerManager();
 		}
@@ -335,7 +338,12 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 
 	@Override
 	protected void startServicesOnLeadership() {
-		scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
+		if (slowContainerCheckIntervalMs > 0) {
+			log.info("Start to check slow containers with interval {} ms.", slowContainerCheckIntervalMs);
+			scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
+		} else {
+			log.info("Disable check slow containers.");
+		}
 		super.startServicesOnLeadership();
 	}
 

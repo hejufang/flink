@@ -24,6 +24,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpecCounter;
+import org.apache.flink.util.clock.Clock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +46,8 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	private final Logger log = LoggerFactory.getLogger(SlowContainerManagerImpl.class);
 
 	public static final long CONTAINER_NOT_START_TIME_MS = -1;
+
+	private final Clock clock;
 
 	private final double slowContainersQuantile;
 	private final double slowContainerThresholdFactor;
@@ -79,7 +82,8 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 			double slowContainerRedundantMaxFactor,
 			int slowContainerRedundantMinNumber,
 			boolean slowContainerReleaseTimeoutEnabled,
-			long slowContainerReleaseTimeoutMs) {
+			long slowContainerReleaseTimeoutMs,
+			Clock clock) {
 		containers = new ConcurrentHashMap<>();
 		pendingRedundantContainers = new WorkerResourceSpecCounter();
 		allRedundantContainers = new WorkerResourceSpecCounter();
@@ -87,6 +91,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 		startingRedundantContainers = new WorkerResourceSpecMap<>();
 		releaseTimeoutContainerNumber = new SimpleCounter();
 
+		this.clock = clock;
 		this.slowContainerRedundantMaxFactor = slowContainerRedundantMaxFactor;
 		this.slowContainerRedundantMinNumber = slowContainerRedundantMinNumber;
 		this.slowContainerTimeoutMs = slowContainerTimeoutMs;
@@ -119,7 +124,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	}
 
 	public void notifyWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID) {
-		long ts = System.currentTimeMillis();
+		long ts = clock.absoluteTimeMillis();
 		boolean isRedundant = false;
 
 		// RedundantContainers has the lowest priority.
@@ -137,7 +142,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	public void notifyWorkerStarted(ResourceID resourceID) {
 		if (containers.containsKey(resourceID) && !containers.get(resourceID).isRegistered()) {
 			StartingResource startingResource = containers.get(resourceID);
-			startingResource.registered(System.currentTimeMillis());
+			startingResource.registered(clock.absoluteTimeMillis());
 			WorkerResourceSpec workerResourceSpec = startingResource.getWorkerResourceSpec();
 			slowContainers.remove(workerResourceSpec, resourceID);
 			startingRedundantContainers.remove(workerResourceSpec, resourceID);
@@ -206,7 +211,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 
 	@Override
 	public void notifyRecoveredWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID) {
-		long ts = System.currentTimeMillis();
+		long ts = clock.absoluteTimeMillis();
 		containers.put(resourceID, new StartingResource(resourceID, workerResourceSpec, ts, false));
 	}
 
@@ -265,7 +270,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 		for (StartingResource startingContainer : startingResources) {
 			ResourceID resourceID = startingContainer.getResourceID();
 			WorkerResourceSpec workerResourceSpec = startingContainer.getWorkerResourceSpec();
-			long waitedTimeMillis = System.currentTimeMillis() - startingContainer.getStartTimestamp();
+			long waitedTimeMillis = clock.absoluteTimeMillis() - startingContainer.getStartTimestamp();
 			if (waitedTimeMillis > speculativeSlowContainerTimeoutMs || waitedTimeMillis > slowContainerTimeoutMs) {
 				log.info("{} not started in {} milliseconds.", resourceID, waitedTimeMillis);
 				// check slow container.

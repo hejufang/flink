@@ -41,6 +41,7 @@ import org.apache.flink.runtime.resourcemanager.ResourceManagerRuntimeServicesCo
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.ConfigurationException;
+import org.apache.flink.util.clock.SystemClock;
 
 import javax.annotation.Nullable;
 
@@ -94,7 +95,8 @@ public class KubernetesResourceManagerFactory extends ActiveResourceManagerFacto
 			KubeClientFactory.fromConfiguration(configuration),
 			kubernetesResourceManagerConfiguration,
 			webInterfaceUrl,
-			failureRater);
+			failureRater,
+			SystemClock.getInstance());
 	}
 
 	@Override

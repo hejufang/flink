@@ -28,6 +28,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.slowcontainer.SlowContainerManagerImpl;
+import org.apache.flink.util.clock.ManualClock;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
 import org.apache.hadoop.yarn.api.records.Container;
@@ -44,6 +45,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -56,6 +58,13 @@ import static org.junit.Assert.assertTrue;
  * General tests for the YARN resource manager component.
  */
 public class YarnSlowContainerTest extends YarnResourceManagerTest {
+	private void triggerCheckSlowContainer(ManualClock clock, long stepTime, TestingYarnResourceManager resourceManager) throws Exception {
+		clock.advanceTime(stepTime, TimeUnit.MILLISECONDS);
+		resourceManager.runInMainThread(() -> {
+			resourceManager.getSlowContainerManager().checkSlowContainer();
+			return null;
+		}).get();
+	}
 
 	// -------------------------
 	// ---- Slow Container -----
@@ -71,8 +80,9 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 	public void testSlowContainer() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
-		new Context() {{
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
+		ManualClock clock = new ManualClock();
+		new Context(clock) {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
 			for (int i = 0; i < 20; i++) {
@@ -146,7 +156,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(9, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(5000);
+				triggerCheckSlowContainer(clock, 5001, resourceManager);
 
 				// requests 2 container (000011,000012) for slow container(000009, 000010).
 				for (int i = 11; i < 13; i++) {
@@ -159,7 +169,6 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				verifyFutureCompleted(removeContainerRequestFutures.get(11));
 
 				// slow container started. 000010, 000011
-				Thread.sleep(1000);
 				for (int i = 10; i < 12; i++) {
 					Container container = testContainers.get(i);
 					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, resourceProfile1);
@@ -188,8 +197,9 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 	public void testContainerCompletedAfterSlowContainer() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
-		new Context() {{
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
+		ManualClock clock = new ManualClock();
+		new Context(clock) {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
 			for (int i = 0; i < 20; i++) {
@@ -262,7 +272,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(7, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(5000);
+				triggerCheckSlowContainer(clock, 5001, resourceManager);
 
 				// verify request 3 containers (000010,000011,000012) for slow container(000007, 000008,000009).
 				for (int i = 10; i < 13; i++) {
@@ -306,8 +316,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				// Mock that container 000010 is completed
 				ContainerStatus testingContainerStatus = createTestingContainerStatus(testContainers.get(10).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
-				// wait container completed.
-				Thread.sleep(500);
+				waitContainerCompleted(resourceManager, new ResourceID(testContainers.get(10).getId().toString()), 500);
 
 				// will not allocate new containers..
 				assertEquals(0, pendingRequests.size());
@@ -334,8 +343,9 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 	public void testSlowContainerCompletedAfterRedundantRegistered() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
-		new Context() {{
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
+		ManualClock clock = new ManualClock();
+		new Context(clock) {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
 			for (int i = 0; i < 20; i++) {
@@ -408,7 +418,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(7, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(5000);
+				triggerCheckSlowContainer(clock, 5001, resourceManager);
 
 				// verify request 3 containers (000010,000011,000012) for slow container(000007, 000008,000009).
 				for (int i = 10; i < 13; i++) {
@@ -438,8 +448,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				// Mock that container 000007 is completed, while the worker is still pending
 				ContainerStatus testingContainerStatus = createTestingContainerStatus(testContainers.get(7).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
-				// wait container completed.
-				Thread.sleep(500);
+				waitContainerCompleted(resourceManager, new ResourceID(testContainers.get(7).getId().toString()), 500);
 
 				// verify allocate a new container.
 				verifyFutureCompleted(addContainerRequestFutures.get(13));
@@ -487,8 +496,9 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 	public void testContainerCompletedBeforeRedundantRegistered() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
-		new Context() {{
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
+		ManualClock clock = new ManualClock();
+		new Context(clock) {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
 			for (int i = 0; i < 20; i++) {
@@ -561,7 +571,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(9, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(5000);
+				triggerCheckSlowContainer(clock, 5001, resourceManager);
 
 				// verify request 2 containers (000011,000012) for slow container(000009, 000010).
 				for (int i = 11; i < 13; i++) {
@@ -589,6 +599,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				// Mock that container 000009(slow) is completed, while the worker is still pending
 				testingContainerStatus = createTestingContainerStatus(testContainers.get(9).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
+				waitContainerCompleted(resourceManager, new ResourceID(testContainers.get(9).toString()), 500);
 
 				// verify allocate a new container.
 				verifyFutureCompleted(addContainerRequestFutures.get(13));
@@ -601,8 +612,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				// Mock that container 000011(redundant) is completed
 				testingContainerStatus = createTestingContainerStatus(testContainers.get(11).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
-				// wait container completed.
-				Thread.sleep(500);
+				waitContainerCompleted(resourceManager, new ResourceID(testContainers.get(11).toString()), 500);
 
 				// verify not allocate new container.
 				assertEquals(2, pendingRequests.size());
@@ -649,8 +659,9 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 	public void testContainerCompletedWithTooManySlowContainer() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
-		new Context() {{
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
+		ManualClock clock = new ManualClock();
+		new Context(clock) {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
 			for (int i = 0; i < 20; i++) {
@@ -723,7 +734,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(3, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(5000);
+				triggerCheckSlowContainer(clock, 5001, resourceManager);
 
 				// requests 5 container (000011,000015) for slow container(000003, 000010).
 				for (int i = 11; i < 16; i++) {
@@ -778,8 +789,9 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 		long defaultSlowContainerTimeout = 120000;
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, defaultSlowContainerTimeout);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
-		new Context() {{
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
+		ManualClock clock = new ManualClock();
+		new Context(clock) {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
 			for (int i = 0; i < 20; i++) {
@@ -852,7 +864,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(3, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(2000);
+				triggerCheckSlowContainer(clock, 2001, resourceManager);
 				// verify no redundant container request for slow container
 				assertEquals(0, pendingRequests.size());
 				SlowContainerManagerImpl slowContainerManager = (SlowContainerManagerImpl) resourceManager.getSlowContainerManager();
@@ -868,7 +880,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(9, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(2000);
+				triggerCheckSlowContainer(clock, 2001, resourceManager);
 				// verify speculative slow container timeout generated, add request one redundant container.
 				assertEquals(1, pendingRequests.size());
 				assertEquals(1, slowContainerManager.getSlowContainerTotalNum());
@@ -957,8 +969,9 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 	public void testNotifyWorkerAllocated() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
-		new Context() {{
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
+		ManualClock clock = new ManualClock();
+		new Context(clock) {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
 			for (int i = 0; i < 20; i++) {
@@ -1031,7 +1044,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(3, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(5000);
+				triggerCheckSlowContainer(clock, 5001, resourceManager);
 				// has pending request, will not request redundant containers.
 				assertEquals(6, pendingRequests.size());
 				assertEquals(0, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
@@ -1045,7 +1058,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				assertEquals(0, pendingRequests.size());
 				assertEquals(0, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
-				Thread.sleep(1000);
+				triggerCheckSlowContainer(clock, 1001, resourceManager);
 				// requests 2 container (000011 ~ 000018) for slow container(000003 ~ 000004).
 				for (int i = 11; i < 13; i++) {
 					verifyFutureCompleted(addContainerRequestFutures.get(i));
@@ -1057,8 +1070,8 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				// completed starting container 000010
 				ContainerStatus testingContainerStatus = createTestingContainerStatus(testContainers.get(10).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
-				// wait container completed.
-				Thread.sleep(100);
+				waitContainerCompleted(resourceManager, new ResourceID(testContainers.get(10).getId().toString()), 100);
+
 				// verify allocate one new container.
 				verifyFutureCompleted(addContainerRequestFutures.get(13));
 				assertEquals(3, pendingRequests.size());
@@ -1093,8 +1106,9 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 	public void testNotifyWorkerStarted() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
-		new Context() {{
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
+		ManualClock clock = new ManualClock();
+		new Context(clock) {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
 			for (int i = 0; i < 20; i++) {
@@ -1167,7 +1181,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(8, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(5000);
+				triggerCheckSlowContainer(clock, 5001, resourceManager);
 
 				// requests 3 container (000011 ~ 000013) for slow container(000008 ~ 000010).
 				for (int i = 11; i < 14; i++) {
@@ -1215,9 +1229,10 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 	public void testCheckSlowContainers() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 1000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 50);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 		flinkConfig.setLong(ResourceManagerOptions.TASK_MANAGER_TIMEOUT, 5000000);
-		new Context(500000) {{
+		ManualClock clock = new ManualClock();
+		new Context(500000, clock) {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
 			for (int i = 0; i < 20; i++) {
@@ -1290,7 +1305,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(8, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(2000);
+				triggerCheckSlowContainer(clock, 2001, resourceManager);
 
 				// requests 3 container (000011 ~ 000013) for slow container(000008 ~ 000010).
 				for (int i = 11; i < 14; i++) {
@@ -1302,7 +1317,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				assertEquals(0, resourceManager.getSlowContainerManager().getStartingRedundantContainerTotalNum());
 				assertEquals(3, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
-				Thread.sleep(2000);
+				triggerCheckSlowContainer(clock, 2001, resourceManager);
 				// has pending workers, will not request redundant container for slow redundant container.
 				assertEquals(3, pendingRequests.size());
 				assertEquals(3, resourceManager.getSlowContainerManager().getSlowContainerTotalNum());
@@ -1322,7 +1337,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				assertEquals(3, resourceManager.getSlowContainerManager().getStartingRedundantContainerTotalNum());
 				assertEquals(3, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
-				Thread.sleep(2000);
+				triggerCheckSlowContainer(clock, 2001, resourceManager);
 				// verify request redundant container for slow redundant container limited by max redundant number.
 				assertEquals(2, pendingRequests.size());
 				assertEquals(6, resourceManager.getSlowContainerManager().getSlowContainerTotalNum());
@@ -1342,8 +1357,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				// Mock that container 000011(started redundant) is completed
 				ContainerStatus testingContainerStatus = createTestingContainerStatus(testContainers.get(11).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
-				// wait container completed.
-				Thread.sleep(100);
+				waitContainerCompleted(resourceManager, new ResourceID(testContainers.get(11).getId().toString()), 100);
 				// verify not request new container for completed redundant container.
 				assertEquals(2, pendingRequests.size());
 				assertEquals(5, resourceManager.getSlowContainerManager().getSlowContainerTotalNum());
@@ -1392,9 +1406,10 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 	public void testRequestYarnContainerIfRequired() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 1000);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 		flinkConfig.setInteger(YarnConfigOptions.WAIT_TIME_BEFORE_GANG_RETRY_MS, 0);
-		new Context(500000) {{
+		ManualClock clock = new ManualClock();
+		new Context(500000, clock) {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
 			for (int i = 0; i < 40; i++) {
@@ -1467,14 +1482,14 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(2, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(5100);
+				triggerCheckSlowContainer(clock, 5100, resourceManager);
 
 				// requests 5 redundant container for slow container(000002 ~ 0000009).
 				for (int i = 10; i < 15; i++) {
 					verifyFutureCompleted(addContainerRequestFutures.get(i));
 				}
-				// wait slow container manager finish.
-				Thread.sleep(100);
+//				// wait slow container manager finish.
+//				Thread.sleep(100);
 				assertEquals(5, pendingRequests.size());
 				assertEquals(8, resourceManager.getSlowContainerManager().getSlowContainerTotalNum());
 				assertEquals(8, resourceManager.getSlowContainerManager().getStartingContainerTotalNum());
@@ -1489,8 +1504,9 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 					testingContainerStatus = createTestingContainerStatus(testContainers.get(i).getId());
 					resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
 				}
-				// wait container completed.
-				Thread.sleep(300);
+				for (int i = 2; i < 4; i++) {
+					waitContainerCompleted(resourceManager, new ResourceID(testContainers.get(i).getId().toString()), 100);
+				}
 				// verify start 2 containers and clear all pending redundant.
 				for (int i = 15; i < 17; i++) {
 					verifyFutureCompleted(addContainerRequestFutures.get(i));
@@ -1525,11 +1541,12 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 					verifyFutureCompleted(removeContainerRequestFutures.get(i));
 				}
 
+				triggerCheckSlowContainer(clock, 100, resourceManager);
+
 				// requests 5 container for slow container(000004 ~ 000009).
 				for (int i = 19; i < 24; i++) {
 					verifyFutureCompleted(addContainerRequestFutures.get(i));
 				}
-				Thread.sleep(100);
 				assertEquals(5, pendingRequests.size());
 				assertEquals(6, resourceManager.getSlowContainerManager().getSlowContainerTotalNum());
 				assertEquals(8, resourceManager.getSlowContainerManager().getStartingContainerTotalNum());
@@ -1576,8 +1593,8 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				// Mock that container 000001(started non-redundant) is completed, will not request new.
 				testingContainerStatus = createTestingContainerStatus(testContainers.get(1).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
-				// wait container completed.
-				Thread.sleep(300);
+				waitContainerCompleted(resourceManager, new ResourceID(testContainers.get(1).getId().toString()), 100);
+
 				assertEquals(3, rmServices.slotManager.getNumberRegisteredSlots());
 				assertEquals(2, pendingRequests.size());
 				assertEquals(6, resourceManager.getSlowContainerManager().getSlowContainerTotalNum());
@@ -1603,8 +1620,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				// Mock that container 0000014(starting redundant) is completed, will not request new.
 				testingContainerStatus = createTestingContainerStatus(testContainers.get(14).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
-				// wait container completed.
-				Thread.sleep(300);
+				waitContainerCompleted(resourceManager, new ResourceID(testContainers.get(14).getId().toString()), 100);
 				assertEquals(3, rmServices.slotManager.getNumberRegisteredSlots());
 				assertEquals(3, pendingRequests.size());
 				assertEquals(5, resourceManager.getSlowContainerManager().getSlowContainerTotalNum());
@@ -1616,8 +1632,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				// Mock that container 0000012(started redundant) is completed, will not request new.
 				testingContainerStatus = createTestingContainerStatus(testContainers.get(12).getId());
 				resourceManager.onContainersCompleted(Collections.singletonList(testingContainerStatus));
-				// wait container completed.
-				Thread.sleep(300);
+				waitContainerCompleted(resourceManager, new ResourceID(testContainers.get(12).getId().toString()), 100);
 				assertEquals(2, rmServices.slotManager.getNumberRegisteredSlots());
 				assertEquals(3, pendingRequests.size());
 				assertEquals(5, resourceManager.getSlowContainerManager().getSlowContainerTotalNum());
@@ -1690,10 +1705,11 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 	public void testContainerReleasedWhenTimeout() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 1500);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 50);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_RELEASE_TIMEOUT_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_RELEASE_TIMEOUT_MS, 2000);
-		new Context() {{
+		ManualClock clock = new ManualClock();
+		new Context(clock) {{
 			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
 			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
 			for (int i = 0; i < 20; i++) {
@@ -1766,7 +1782,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 				assertEquals(7, rmServices.slotManager.getNumberRegisteredSlots());
 
-				Thread.sleep(1600);
+				triggerCheckSlowContainer(clock, 1600, resourceManager);
 
 				// verify request 3 containers (000010,000011,000012) for slow container(000007, 000008,000009).
 				for (int i = 10; i < 13; i++) {
@@ -1781,7 +1797,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				}
 
 				// wait slow container timeout. will request new workers.
-				Thread.sleep(500);
+				triggerCheckSlowContainer(clock, 500, resourceManager);
 				for (int i = 13; i < 16; i++) {
 					verifyFutureCompleted(addContainerRequestFutures.get(i));
 				}
@@ -1794,7 +1810,7 @@ public class YarnSlowContainerTest extends YarnResourceManagerTest {
 				assertEquals(0, slowContainerManager.getPendingRedundantContainersTotalNum());
 
 				// wait redundant container timeout. will not request new workers.
-				Thread.sleep(1600);
+				triggerCheckSlowContainer(clock, 1600, resourceManager);
 				// verify current state.
 				assertEquals(3, pendingRequests.size());
 				assertEquals(0, slowContainerManager.getSlowContainerTotalNum());

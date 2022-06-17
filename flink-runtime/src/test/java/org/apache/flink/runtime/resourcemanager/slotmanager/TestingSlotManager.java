@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.resourcemanager.slotmanager;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.JobSlotRequestList;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
@@ -34,6 +35,8 @@ import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnect
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskmanager.TaskManagerAddressLocation;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
@@ -117,6 +120,12 @@ public class TestingSlotManager implements SlotManager {
 	@Override
 	public WorkerResourceSpec getDefaultWorkerResourceSpec() {
 		return getRequiredResourcesSupplier.get().keySet().stream().findFirst().orElse(null);
+	}
+
+	@VisibleForTesting
+	@Override
+	public Collection<TaskManagerSlot> getAllSlots() {
+		return Collections.emptyList();
 	}
 
 	@Override

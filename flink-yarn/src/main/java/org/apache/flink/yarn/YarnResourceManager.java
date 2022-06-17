@@ -67,6 +67,7 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.LoggerHelper;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
+import org.apache.flink.util.clock.Clock;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
 import org.apache.flink.yarn.exceptions.ContainerCompletedException;
@@ -257,7 +258,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			FatalErrorHandler fatalErrorHandler,
 			@Nullable String webInterfaceUrl,
 			ResourceManagerMetricGroup resourceManagerMetricGroup,
-			FailureRater failureRater) {
+			FailureRater failureRater,
+			Clock clock) {
 		super(
 			flinkConfig,
 			env,
@@ -271,7 +273,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			clusterInformation,
 			fatalErrorHandler,
 			resourceManagerMetricGroup,
-			failureRater);
+			failureRater,
+			clock);
 		this.yarnConfig = new YarnConfiguration();
 		Utils.updateYarnConfigForJobManager(this.yarnConfig, this.flinkConfig);
 

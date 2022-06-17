@@ -22,6 +22,7 @@ import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.resourcemanager.slowcontainer.SlowContainerManagerImpl;
+import org.apache.flink.util.clock.ManualClock;
 
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodList;
@@ -30,6 +31,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static junit.framework.TestCase.assertEquals;
@@ -52,8 +54,9 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 	public void testSlowContainer() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 1000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 100);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 		new Context() {{
+			clock = new ManualClock();
 			runTest(() -> {
 				List<String> podNames = new ArrayList<>();
 				for (int i = 0; i < 11; i++) {
@@ -87,7 +90,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(2, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// check slow task manager, will request 2 redundant task manager.
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(11, resourceManager.getWorkerNodes().size());
 				assertEquals(2, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(4, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
@@ -131,8 +134,9 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 	public void testContainerCompletedAfterSlowContainer() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 1000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 100);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 		new Context() {{
+			clock = new ManualClock();
 			runTest(() -> {
 				List<String> podNames = new ArrayList<>();
 				for (int i = 0; i < 20; i++) {
@@ -163,7 +167,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(3, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// check slow task manager, will request 3 redundant task manager.
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(3, slotManager.getNumberPendingSlotRequests());
 				assertEquals(10, resourceManager.getWorkerNodes().size());
@@ -235,8 +239,9 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 	public void testSlowContainerCompletedAfterRedundantRegistered() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 1000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 100);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 		new Context() {{
+			clock = new ManualClock();
 			runTest(() -> {
 				List<String> podNames = new ArrayList<>();
 				for (int i = 0; i < 20; i++) {
@@ -267,7 +272,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(3, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// check slow task manager, will request 3 redundant task manager.
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(3, slotManager.getNumberPendingSlotRequests());
 				assertEquals(10, resourceManager.getWorkerNodes().size());
@@ -345,8 +350,9 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 	public void testContainerCompletedBeforeRedundantRegistered() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 1000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 100);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 		new Context() {{
+			clock = new ManualClock();
 			runTest(() -> {
 				List<String> podNames = new ArrayList<>();
 				for (int i = 0; i < 20; i++) {
@@ -378,7 +384,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(2, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// check slow task manager, will request 2 redundant task manager (12,13).
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(2, slotManager.getNumberPendingSlotRequests());
 				assertEquals(11, resourceManager.getWorkerNodes().size());
@@ -477,8 +483,9 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 	public void testContainerCompletedWithTooManySlowContainer() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 1000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 100);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 		new Context() {{
+			clock = new ManualClock();
 			runTest(() -> {
 				List<String> podNames = new ArrayList<>();
 				for (int i = 0; i < 20; i++) {
@@ -510,7 +517,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(8, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// check slow task manager, will request 5 redundant task manager (12~16).
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(16, kubeClient.pods().list().getItems().size());
 				assertEquals(8, slotManager.getNumberPendingSlotRequests());
 				assertEquals(11, resourceManager.getWorkerNodes().size());
@@ -572,9 +579,10 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 		long defaultSlowContainerTimeout = 120000;
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, defaultSlowContainerTimeout);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 100);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 
 		new Context() {{
+			clock = new ManualClock();
 			runTest(() -> {
 				List<String> podNames = new ArrayList<>();
 				for (int i = 0; i < 20; i++) {
@@ -608,7 +616,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				SlowContainerManagerImpl slowContainerManager = (SlowContainerManagerImpl) resourceManager.getSlowContainerManager();
 
 				// check slow task manager, will not request redundant task manage.
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(10, kubeClient.pods().list().getItems().size());
 				assertEquals(7, slotManager.getNumberPendingSlotRequests());
 				assertEquals(10, resourceManager.getWorkerNodes().size());
@@ -629,7 +637,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(1, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// check slow task manager, will not request redundant task manage.
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(11, kubeClient.pods().list().getItems().size());
 				assertEquals(10, resourceManager.getWorkerNodes().size());
 				assertEquals(1, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
@@ -656,10 +664,11 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 	public void testNotifyWorkerAllocated() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 1000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 100);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 		flinkConfig.setLong(ResourceManagerOptions.TASK_MANAGER_TIMEOUT, 5000000);
 
 		new Context() {{
+			clock = new ManualClock();
 			runTest(() -> {
 				List<String> podNames = new ArrayList<>();
 				for (int i = 0; i < 20; i++) {
@@ -691,7 +700,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(8, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// check slow task manager, will not request redundant task manager.
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(11, kubeClient.pods().list().getItems().size());
 				assertEquals(8, slotManager.getNumberPendingSlotRequests());
 				assertEquals(5, resourceManager.getWorkerNodes().size());
@@ -715,7 +724,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(0, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// request 2 redundant task manager
-				Thread.sleep(200);
+				triggerCheckSlowContainer((ManualClock) clock, 200, resourceManager);
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(8, slotManager.getNumberPendingSlotRequests());
 				assertEquals(11, resourceManager.getWorkerNodes().size());
@@ -768,10 +777,11 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 	public void testCheckSlowContainers() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 1000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 100);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 		flinkConfig.setLong(ResourceManagerOptions.TASK_MANAGER_TIMEOUT, 5000000);
 
 		new Context() {{
+			clock = new ManualClock();
 			runTest(() -> {
 				List<String> podNames = new ArrayList<>();
 				for (int i = 0; i < 20; i++) {
@@ -803,7 +813,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(3, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// check slow task manager, will request 3 redundant task manager (12~14).
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(14, kubeClient.pods().list().getItems().size());
 				assertEquals(3, slotManager.getNumberPendingSlotRequests());
 				assertEquals(11, resourceManager.getWorkerNodes().size());
@@ -815,7 +825,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(3, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// has pending workers, will not request redundant container for slow redundant container.
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(14, kubeClient.pods().list().getItems().size());
 				assertEquals(3, slotManager.getNumberPendingSlotRequests());
 				assertEquals(11, resourceManager.getWorkerNodes().size());
@@ -839,7 +849,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(3, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// verify request redundant task manager(15,16) for slow redundant task manager limited by max redundant number.
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(16, kubeClient.pods().list().getItems().size());
 				assertEquals(3, slotManager.getNumberPendingSlotRequests());
 				assertEquals(14, resourceManager.getWorkerNodes().size());
@@ -909,10 +919,11 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 	public void testRequestYarnContainerIfRequired() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 1000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 100);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 		flinkConfig.setLong(ResourceManagerOptions.TASK_MANAGER_TIMEOUT, 5000000);
 
 		new Context() {{
+			clock = new ManualClock();
 			runTest(() -> {
 				List<String> podNames = new ArrayList<>();
 				for (int i = 0; i < 20; i++) {
@@ -944,7 +955,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(8, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// check slow task manager, will request 5 redundant task manager (11~15).
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(15, kubeClient.pods().list().getItems().size());
 				assertEquals(8, slotManager.getNumberPendingSlotRequests());
 				assertEquals(10, resourceManager.getWorkerNodes().size());
@@ -1097,11 +1108,12 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 	public void testContainerReleasedWhenTimeout() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_TIMEOUT_MS, 1000);
-		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 100);
+		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 0);
 		flinkConfig.setBoolean(ResourceManagerOptions.SLOW_CONTAINER_RELEASE_TIMEOUT_ENABLED, true);
 		flinkConfig.setLong(ResourceManagerOptions.SLOW_CONTAINER_RELEASE_TIMEOUT_MS, 1500);
 
 		new Context() {{
+			clock = new ManualClock();
 			runTest(() -> {
 				List<String> podNames = new ArrayList<>();
 				for (int i = 0; i < 20; i++) {
@@ -1135,7 +1147,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				SlowContainerManagerImpl slowContainerManager = (SlowContainerManagerImpl) resourceManager.getSlowContainerManager();
 
 				// check slow task manager, will request 3 redundant task manager(11~13).
-				Thread.sleep(1200);
+				triggerCheckSlowContainer((ManualClock) clock, 1200, resourceManager);
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(3, slotManager.getNumberPendingSlotRequests());
 				assertEquals(10, resourceManager.getWorkerNodes().size());
@@ -1156,7 +1168,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(6, slowContainerManager.getStartingContainerTotalNum());
 
 				// wait slow container timeout. will request new workers.
-				Thread.sleep(500);
+				triggerCheckSlowContainer((ManualClock) clock, 500, resourceManager);
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(3, slotManager.getNumberPendingSlotRequests());
 				assertEquals(10, resourceManager.getWorkerNodes().size());
@@ -1168,7 +1180,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(0, slowContainerManager.getPendingRedundantContainersTotalNum());
 
 				// wait redundant container timeout. will not request new workers
-				Thread.sleep(1700);
+				triggerCheckSlowContainer((ManualClock) clock, 1700, resourceManager);
 				assertEquals(10, kubeClient.pods().list().getItems().size());
 				assertEquals(3, slotManager.getNumberPendingSlotRequests());
 				assertEquals(7, resourceManager.getWorkerNodes().size());
@@ -1192,5 +1204,13 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 		}
 		assertEquals(pods.size(), podNames.size());
 		return pods;
+	}
+
+	private void triggerCheckSlowContainer(ManualClock clock, long stepTime, TestingKubernetesResourceManager resourceManager) throws Exception {
+		clock.advanceTime(stepTime, TimeUnit.MILLISECONDS);
+		resourceManager.runInMainThread(() -> {
+			resourceManager.getSlowContainerManager().checkSlowContainer();
+			return null;
+		}).get();
 	}
 }
