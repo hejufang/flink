@@ -21,6 +21,7 @@ package org.apache.flink.streaming.connectors.kafka.table;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaConsumerFactory;
@@ -32,9 +33,11 @@ import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkRowDataField
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
+import org.apache.flink.table.api.config.ExecutionConfigOptions;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.InstantiationUtil;
 
 import java.lang.reflect.Constructor;
@@ -353,7 +356,7 @@ public class KafkaOptions {
 		});
 	}
 
-	public static Properties getKafkaProperties(Map<String, String> tableOptions) {
+	public static Properties getKafkaProperties(Map<String, String> tableOptions, Configuration configuration) {
 		final Properties kafkaProperties = new Properties();
 
 		if (hasKafkaClientProperties(tableOptions)) {
@@ -380,6 +383,15 @@ public class KafkaOptions {
 
 		if (!kafkaProperties.containsKey(KAFKA_PSM)) {
 			kafkaProperties.put(KAFKA_PSM, String.format(ConfigConstants.FLINK_PSM_TEMPLATE, jobName));
+		}
+
+		if (configuration.contains(ExecutionConfigOptions.TABLE_MQ_SPECIFIED_GROUP_PREFIX)) {
+			String specifiedGroupPrefix = configuration.getString(ExecutionConfigOptions.TABLE_MQ_SPECIFIED_GROUP_PREFIX);
+			if (!kafkaProperties.containsKey("group.id")
+				|| !kafkaProperties.getProperty("group.id").startsWith(specifiedGroupPrefix)) {
+				throw new FlinkRuntimeException("The mq group must prefix with: " + specifiedGroupPrefix
+					+ ", maybe usage scene is session debug, means may have bug in the process.");
+			}
 		}
 
 		return kafkaProperties;

@@ -119,7 +119,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		return createKafkaTableSource(
 				producedDataType,
 				topic,
-				getKafkaProperties(context.getCatalogTable().getOptions()),
+				getKafkaProperties(context.getCatalogTable().getOptions(), (Configuration) context.getConfiguration()),
 				decodingFormat,
 				startupOptions.startupMode,
 				startupOptions.specificOffsets,
@@ -148,7 +148,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		return createKafkaTableSink(
 				consumedDataType,
 				topic,
-				getKafkaProperties(context.getCatalogTable().getOptions()),
+				getKafkaProperties(context.getCatalogTable().getOptions(), (Configuration) context.getConfiguration()),
 				getFlinkKafkaPartitioner(tableOptions, context.getClassLoader(), context.getCatalogTable().getSchema()),
 				encodingFormat,
 				getSinkOtherProperties(context.getCatalogTable().getOptions()),

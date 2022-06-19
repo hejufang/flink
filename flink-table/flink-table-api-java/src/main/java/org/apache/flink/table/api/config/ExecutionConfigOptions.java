@@ -400,6 +400,15 @@ public class ExecutionConfigOptions {
 			.defaultValue(false)
 			.withDescription("Specifies whether to enable top1 optimization.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<String> TABLE_MQ_SPECIFIED_GROUP_PREFIX =
+		key("table.properties-specified.mq.group-prefix")
+			.stringType()
+			.defaultValue("")
+			.withDescription("The mq group prefix specified by dynamic config, the priority is " +
+				"higher than table properties, will used in some scenes force determine the value," +
+				"such as session debug must make sure group will different with original value.");
+
 	// ------------------------------------------------------------------------------------------
 	// Enum option types
 	// ------------------------------------------------------------------------------------------

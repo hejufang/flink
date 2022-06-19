@@ -31,6 +31,7 @@ import org.apache.flink.connector.rocketmq.RocketMQOptions;
 import org.apache.flink.connector.rocketmq.RocketMQUtils;
 import org.apache.flink.connector.rocketmq.selector.DefaultTopicSelector;
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.api.config.ExecutionConfigOptions;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
@@ -149,7 +150,7 @@ public class RocketMQDynamicTableFactory implements
 
 		helper.validateExcept(PROPERTIES_PREFIX);
 		RocketMQOptions.validateTableOptions(helper.getOptions());
-		RocketMQConfig<RowData> rocketMQConfig = createMQConfig(context.getCatalogTable().getSchema(), helper.getOptions(), true);
+		RocketMQConfig<RowData> rocketMQConfig = createMQConfig(context.getCatalogTable().getSchema(), helper.getOptions(), (Configuration) context.getConfiguration(), true);
 		return new RocketMQDynamicSink(sinkDataType, context.getCatalogTable().getOptions(), encodingFormat, rocketMQConfig);
 	}
 
@@ -214,7 +215,7 @@ public class RocketMQDynamicTableFactory implements
 			ReadableConfig config,
 			RowType rowType,
 			Configuration configuration) {
-		RocketMQConfig<RowData> rocketMQConfig = createMQConfig(tableSchema, config, false);
+		RocketMQConfig<RowData> rocketMQConfig = createMQConfig(tableSchema, config, configuration, false);
 
 		config.getOptional(FactoryUtil.SOURCE_KEY_BY_FIELD).ifPresent(
 			keyByFields -> {
@@ -226,7 +227,7 @@ public class RocketMQDynamicTableFactory implements
 		return rocketMQConfig;
 	}
 
-	private RocketMQConfig<RowData> createMQConfig(TableSchema tableSchema, ReadableConfig config, boolean isSink) {
+	private RocketMQConfig<RowData> createMQConfig(TableSchema tableSchema, ReadableConfig config, Configuration configuration, boolean isSink) {
 		RocketMQConfig<RowData> rocketMQConfig = new RocketMQConfig<>();
 
 		rocketMQConfig.setGroup(config.get(GROUP));
@@ -360,6 +361,14 @@ public class RocketMQDynamicTableFactory implements
 				rocketMQConfig.setTag(config.get(BINLOG_TARGET_TABLE));
 			}
 			config.getOptional(SCAN_BROKER_QUEUE_LIST).ifPresent(rocketMQConfig::setRocketMqBrokerQueueList);
+			if (configuration.contains(ExecutionConfigOptions.TABLE_MQ_SPECIFIED_GROUP_PREFIX)) {
+				String specifiedGroupPrefix = configuration.getString(ExecutionConfigOptions.TABLE_MQ_SPECIFIED_GROUP_PREFIX);
+				if (StringUtils.isNullOrWhitespaceOnly(rocketMQConfig.getGroup()) ||
+					!rocketMQConfig.getGroup().startsWith(specifiedGroupPrefix)) {
+					throw new FlinkRuntimeException("The mq group must prefix with: " + specifiedGroupPrefix
+						+ ", maybe usage scene is session debug, means may have bug in the process.");
+				}
+			}
 			if (StringUtils.isNullOrWhitespaceOnly(rocketMQConfig.getGroup())) {
 				throw new FlinkRuntimeException("You have to specific group when use rocketmq consumer.");
 			}
