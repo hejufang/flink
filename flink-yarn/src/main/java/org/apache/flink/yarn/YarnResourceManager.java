@@ -758,9 +758,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 								containerStatus.getExitStatus(),
 								containerStatus.getDiagnostics());
 						recordWorkerFailure(yarnWorkerNode.getContainer().getNodeId().getHost(), resourceId, containerCompletedException);
-						// Container completed unexpectedly ~> start a new one
-						requestYarnContainerIfRequired();
-
 						completedContainerGauge.addMetric(
 								1,
 								new TagGaugeStoreImpl.TagValuesBuilder()
@@ -1356,6 +1353,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			stopWorker(workerNode, exitCode);
 		}
 		super.closeTaskManagerConnection(resourceID, cause, exitCode);
+		requestYarnContainerIfRequired();
 	}
 
 	private void registerMetrics() {

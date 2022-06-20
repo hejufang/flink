@@ -452,6 +452,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			stopWorker(workerNode, exitCode);
 		}
 		super.closeTaskManagerConnection(resourceID, cause, exitCode);
+		requestKubernetesPodIfRequired();
 	}
 
 	@Override
@@ -964,7 +965,6 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 							.build());
 		}
 		internalStopPod(pod.getName());
-		requestKubernetesPodIfRequired();
 		closeTaskManagerConnection(new ResourceID(pod.getName()), cause, exitCode);
 	}
 

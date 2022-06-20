@@ -473,15 +473,8 @@ public class YarnResourceManagerTest extends TestLogger {
 				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
 
 				final ResourceID taskManagerResourceId = new ResourceID(testingContainer.getId().toString());
-				final ResourceProfile resourceProfile = ResourceProfile.newBuilder()
-					.setCpuCores(10.0)
-					.setTaskHeapMemoryMB(1)
-					.setTaskOffHeapMemoryMB(1)
-					.setManagedMemoryMB(1)
-					.setNetworkMemoryMB(0)
-					.build();
 				final SlotReport slotReport = new SlotReport(
-					new SlotStatus(new SlotID(taskManagerResourceId, 1), resourceProfile));
+					new SlotStatus(new SlotID(taskManagerResourceId, 1), rmServices.slotManager.getDefaultResource()));
 
 				TaskExecutorRegistration taskExecutorRegistration = new TaskExecutorRegistration(
 					taskHost,
@@ -665,6 +658,75 @@ public class YarnResourceManagerTest extends TestLogger {
 				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
 				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+			});
+		}};
+	}
+
+	@Test
+	public void testPreviousContainerRegisteredNotReportSlotCompleted() throws Exception {
+		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
+		new Context() {{
+			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			testingYarnAMRMClientAsync.setAddContainerRequestConsumer(
+					(request, ignore) -> {
+						addContainerRequestFuturesNumCompleted.incrementAndGet();
+					});
+
+			// prepare 2 previous container.
+			List<Container> previousContainers = Arrays.asList(createTestingContainer(), createTestingContainer());
+			RegisterApplicationMasterResponse registerApplicationMasterResponse = RegisterApplicationMasterResponse.newInstance(
+					Resource.newInstance(0, 0),
+					Resource.newInstance(Integer.MAX_VALUE, Integer.MAX_VALUE),
+					Collections.emptyMap(),
+					null,
+					previousContainers,
+					null,
+					Collections.emptyList());
+			testingYarnAMRMClientAsync.setRegisterApplicationMasterFunction(
+					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
+
+			runTest(() -> {
+				// verify get 2 previous containers
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
+
+				// request 2 containers.
+				for (int i = 0; i < 2; i++) {
+					registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+				}
+
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+
+				// verify no requests been sent
+				assertEquals(0, addContainerRequestFuturesNumCompleted.get());
+
+				// register 2 container but not report slot, 000000~000001.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+				for (int i = 0; i < 2; i++) {
+					Container container = previousContainers.get(i);
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource(), false, false);
+				}
+				Thread.sleep(100);
+				assertEquals(0, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(2, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(2, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+				assertEquals(2, resourceManager.getWorkerNodeMap().size());
+				assertEquals(2, (int) resourceManager.getNumberOfRegisteredTaskManagers().get());
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+
+				// previous container closed by itself, verify will request new worker.
+				ResourceID resourceID = new ResourceID(previousContainers.get(0).getId().toString());
+				resourceManager.closeTaskManagerConnection(resourceID, new Exception("expected"), 0);
+				assertEquals(0, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(2, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(2, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+				assertEquals(1, resourceManager.getWorkerNodeMap().size());
+				assertEquals(1, (int) resourceManager.getNumberOfRegisteredTaskManagers().get());
 				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
 			});
 		}};
@@ -1751,6 +1813,17 @@ public class YarnResourceManagerTest extends TestLogger {
 			HardwareDescription hardwareDescription,
 			ResourceProfile resourceProfile,
 			boolean waitRequestSlotFinish) throws ExecutionException, InterruptedException {
+		registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, resourceProfile, true, waitRequestSlotFinish);
+	}
+
+	protected void registerTaskExecutor(
+			Container container,
+			ResourceManagerGateway rmGateway,
+			TestingRpcService rpcService,
+			HardwareDescription hardwareDescription,
+			ResourceProfile resourceProfile,
+			boolean reportSlots,
+			boolean waitRequestSlotFinish) throws ExecutionException, InterruptedException {
 
 		String address = container.getNodeId().getHost() + ":" + container.getNodeId().getPort();
 		CompletableFuture<Acknowledge> requestSlotFuture = new CompletableFuture<>();
@@ -1790,12 +1863,16 @@ public class YarnResourceManagerTest extends TestLogger {
 				.thenCompose(
 						(RegistrationResponse response) -> {
 							assertThat(response, instanceOf(TaskExecutorRegistrationSuccess.class));
-							final TaskExecutorRegistrationSuccess success = (TaskExecutorRegistrationSuccess) response;
-							return rmGateway.sendSlotReport(
-									taskManagerResourceId,
-									success.getRegistrationId(),
-									slotReport,
-									Time.seconds(10L));
+							if (reportSlots) {
+								final TaskExecutorRegistrationSuccess success = (TaskExecutorRegistrationSuccess) response;
+								return rmGateway.sendSlotReport(
+										taskManagerResourceId,
+										success.getRegistrationId(),
+										slotReport,
+										Time.seconds(10L));
+							} else {
+								return CompletableFuture.completedFuture(Acknowledge.get());
+							}
 						});
 		registerTaskExecutorFuture.get();
 		if (waitRequestSlotFinish) {

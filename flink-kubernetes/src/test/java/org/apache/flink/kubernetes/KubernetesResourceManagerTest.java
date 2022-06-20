@@ -791,6 +791,56 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	}
 
 	/**
+	 * Test previous pod failed after registered before report slot.
+	 * RM will request new worker since SM'pendingTaskManager is not fulfilled.
+	 */
+	@Test
+	public void testPreviousAttemptPodCompletedAfterRegisterBeforeSendSlotReport() throws Exception {
+		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
+		new Context() {{
+			runTest(() -> {
+				// Prepare pod of previous attempt
+				final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
+				final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(previewPodName, slotManager.getDefaultWorkerResourceSpec());
+				assertEquals(1, kubeClient.pods().list().getItems().size());
+
+				// Call initialize method to recover worker nodes from previous attempt.
+				resourceManager.initialize();
+
+				final String taskManagerPrefix = CLUSTER_ID + "-taskmanager-";
+
+				registerTaskExecutor(new ResourceID(previewPodName), false);
+				assertEquals(1, resourceManager.getRecoveredWorkerNodeSet().size());
+				// request new slot, will use previousWorker.
+				registerSlotRequest();
+				assertEquals(1, kubeClient.pods().list().getItems().size());
+
+				// pod deleted, will reqeust new one.
+				terminatePod(mockTaskManagerPod);
+				CompletableFuture<?> podDeleteFuture = resourceManager.runInMainThread(() -> {
+					resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(mockTaskManagerPod)));
+					return null;
+				});
+				podDeleteFuture.get();
+				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
+				assertEquals(1, kubeClient.pods().list().getItems().size());
+				assertThat(kubeClient.pods().list().getItems().stream()
+								.map(e -> e.getMetadata().getName())
+								.collect(Collectors.toList()),
+						Matchers.containsInAnyOrder(taskManagerPrefix + "2-1"));
+
+				// Register a new slot request, a new taskmanger pod will be created with attempt2
+				registerSlotRequest();
+				assertEquals(2, kubeClient.pods().list().getItems().size());
+				assertThat(kubeClient.pods().list().getItems().stream()
+								.map(e -> e.getMetadata().getName())
+								.collect(Collectors.toList()),
+						Matchers.containsInAnyOrder(taskManagerPrefix + "2-1", taskManagerPrefix + "2-2"));
+			});
+		}};
+	}
+
+	/**
 	 * Test previous pod not registered in time. These pods will be stopped.
 	 */
 	@Test
@@ -962,6 +1012,10 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 		}
 
 		void registerTaskExecutor(ResourceID resourceID) throws Exception {
+			registerTaskExecutor(resourceID, true);
+		}
+
+		void registerTaskExecutor(ResourceID resourceID, boolean sendSlotReport) throws Exception {
 			final TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder()
 				.createTestingTaskExecutorGateway();
 			((TestingRpcService) resourceManager.getRpcService()).registerGateway(resourceID.toString(), taskExecutorGateway);
@@ -989,17 +1043,25 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				.thenCompose(
 					(RegistrationResponse response) -> {
 						assertThat(response, instanceOf(TaskExecutorRegistrationSuccess.class));
-						final TaskExecutorRegistrationSuccess success = (TaskExecutorRegistrationSuccess) response;
-						return rmGateway.sendSlotReport(
-							resourceID,
-							success.getRegistrationId(),
-							slotReport,
-							TIMEOUT);
+						if (sendSlotReport) {
+							final TaskExecutorRegistrationSuccess success = (TaskExecutorRegistrationSuccess) response;
+							return rmGateway.sendSlotReport(
+									resourceID,
+									success.getRegistrationId(),
+									slotReport,
+									TIMEOUT);
+						} else {
+							return CompletableFuture.completedFuture(Acknowledge.get());
+						}
 					})
 				.handleAsync(
 					(Acknowledge ignored, Throwable throwable) -> slotManager.getNumberRegisteredSlots() - numSlotsBeforeRegistering,
 					resourceManager.getMainThreadExecutorForTesting());
-			Assert.assertEquals(1, numberRegisteredSlotsFuture.get().intValue());
+			if (sendSlotReport) {
+				Assert.assertEquals(1, numberRegisteredSlotsFuture.get().intValue());
+			} else {
+				Assert.assertEquals(0, numberRegisteredSlotsFuture.get().intValue());
+			}
 		}
 
 		void terminatePod(Pod pod) {
