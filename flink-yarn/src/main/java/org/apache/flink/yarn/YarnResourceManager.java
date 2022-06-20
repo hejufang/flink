@@ -821,24 +821,25 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			getPendingRequestsAndCheckConsistency(resource, pendingWorkerResourceSpecs.size()).iterator();
 
 		int numAccepted = 0;
+		int numBlacked = 0;
 		while (containerIterator.hasNext() && pendingWorkerSpecIterator.hasNext()) {
 			final Container container = containerIterator.next();
-			if (yarnBlackedHosts.contains(container.getNodeId().getHost())) {
-				returnBlackedContainer(container);
-				continue;
-			}
 			final WorkerResourceSpec workerResourceSpec = pendingWorkerSpecIterator.next();
 			final AMRMClient.ContainerRequest pendingRequest = pendingRequestsIterator.next();
-			final ResourceID resourceId = getContainerResourceId(container);
-			log.info("Received new container: {} on {}", container.getId(), container.getNodeId().getHost());
+			if (yarnBlackedHosts.contains(container.getNodeId().getHost())) {
+				returnBlackedContainer(container, workerResourceSpec);
+				numBlacked++;
+			} else {
+				final ResourceID resourceId = getContainerResourceId(container);
+				log.info("Received new container: {} on {}", container.getId(), container.getNodeId().getHost());
 
-			notifyNewWorkerAllocated(workerResourceSpec, resourceId);
-			startTaskExecutorInContainer(container, workerResourceSpec, resourceId);
+				notifyNewWorkerAllocated(workerResourceSpec, resourceId);
+				startTaskExecutorInContainer(container, workerResourceSpec, resourceId);
+				numAccepted++;
+			}
 			removeContainerRequest(pendingRequest, workerResourceSpec);
-
-			numAccepted++;
 		}
-		numPending -= numAccepted;
+		numPending = numPending - numAccepted - numBlacked;
 
 		int numExcess = 0;
 		while (containerIterator.hasNext()) {
@@ -846,8 +847,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			numExcess++;
 		}
 
-		log.info("Accepted {} requested containers, returned {} excess containers, {} pending container requests of resource {}.",
-			numAccepted, numExcess, numPending, resource);
+		log.info("Accepted {} requested containers, return {} blacked containers, returned {} excess containers, {} pending container requests of resource {}.",
+			numAccepted, numBlacked, numExcess, numPending, resource);
 	}
 
 	private static ResourceID getContainerResourceId(Container container) {
@@ -904,9 +905,10 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		resourceManagerClient.releaseAssignedContainer(excessContainer.getId(), WorkerExitCode.EXCESS_CONTAINER);
 	}
 
-	private void returnBlackedContainer(Container container) {
+	private void returnBlackedContainer(Container container, WorkerResourceSpec workerResourceSpec) {
 		log.info("Returning blacked container {}.", container.getId());
 		resourceManagerClient.releaseAssignedContainer(container.getId(), WorkerExitCode.IN_BLACKLIST);
+		notifyNewWorkerAllocationFailed(workerResourceSpec);
 		requestYarnContainerIfRequired();
 	}
 

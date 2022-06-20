@@ -28,6 +28,8 @@ import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.SmartResourceOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
+import org.apache.flink.runtime.blacklist.tracker.BlacklistTracker;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
@@ -260,6 +262,10 @@ public class YarnResourceManagerTest extends TestLogger {
 
 		int getNumRequestedNotRegisteredWorkersForTesting() {
 			return getNumRequestedNotRegisteredWorkers();
+		}
+
+		int getNumRequestedNotAllocatedWorkersForTesting() {
+			return getNumRequestedNotAllocatedWorkers();
 		}
 	}
 
@@ -1261,6 +1267,85 @@ public class YarnResourceManagerTest extends TestLogger {
 				assertEquals(4, rmServices.slotManager.getNumberPendingSlotRequests());
 				assertEquals(4, rmServices.slotManager.getRequiredResources().get(workerResourceSpec).intValue());
 				assertEquals(4, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+			});
+		}};
+	}
+
+	/**
+	 * Test new container in blacklist.
+	 * 1. register 1 slot.
+	 * 2. received 1 container in blocklist.
+	 * 3. verify this container will be released and request new container.
+	 */
+	@Test
+	public void testNewContainerInBlacklist() throws Exception {
+		flinkConfig.setBoolean(BlacklistOptions.TASKMANAGER_BLACKLIST_ENABLED, true);
+		new Context() {{
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				addContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			final List<CompletableFuture<Acknowledge>> removeContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				removeContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger removeContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			testingYarnAMRMClientAsync.setAddContainerRequestConsumer(
+					(request, ignore) -> {
+						pendingRequests.add(request);
+						addContainerRequestFutures.get(addContainerRequestFuturesNumCompleted.getAndIncrement()).complete(request.getCapability());
+					});
+
+			testingYarnAMRMClientAsync.setRemoveContainerRequestConsumer(
+					(r, ignore) -> {
+						pendingRequests.remove(r);
+						removeContainerRequestFutures.get(removeContainerRequestFuturesNumCompleted.getAndIncrement()).complete(Acknowledge.get());
+					});
+
+			testingYarnAMRMClientAsync.setGetMatchingRequestsFunction(
+					tuple -> Collections.singletonList(
+							pendingRequests.stream()
+									.filter(r -> r.getCapability().equals(tuple.f2))
+									.collect(Collectors.toList())));
+			runTest(() -> {
+				String host = "host1";
+				BlacklistTracker blacklistTracker = resourceManager.getBlacklistTracker();
+
+				resourceManager.runInMainThread(() -> {
+					blacklistTracker.onFailure(BlacklistUtil.FailureType.TASK_MANAGER, host, ResourceID.generate(), new Exception("expected"), System.currentTimeMillis());
+					blacklistTracker.onFailure(BlacklistUtil.FailureType.TASK_MANAGER, host, ResourceID.generate(), new Exception("expected"), System.currentTimeMillis());
+					return null;
+				}).get();
+				assertEquals(1, resourceManager.getYarnBlackedHosts().size());
+
+				// request 1 containers.
+				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+				verifyFutureCompleted(addContainerRequestFutures.get(0));
+				assertEquals(1, pendingRequests.size());
+				assertEquals(1, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(1, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+				// allocated 1 container on host1. verify container released and allocate new container.
+				List<Container> containers = Collections.singletonList(createTestingContainerWithHost(resourceManager.getContainerResource(workerResourceSpec).get(), "host1"));
+				resourceManager.onContainersAllocated(containers);
+				verifyFutureCompleted(addContainerRequestFutures.get(1));
+				verifyFutureCompleted(removeContainerRequestFutures.get(0));
+				assertEquals(1, pendingRequests.size());
+				assertEquals(1, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(1, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+				assertEquals(1, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
+				// allocated 1 container on host2.
+				containers = Collections.singletonList(createTestingContainerWithHost(resourceManager.getContainerResource(workerResourceSpec).get(), "host2"));
+				resourceManager.onContainersAllocated(containers);
+				verifyFutureCompleted(removeContainerRequestFutures.get(1));
+				assertFalse(addContainerRequestFutures.get(2).isDone());
+				assertEquals(0, pendingRequests.size());
+				assertEquals(1, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(1, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+				assertEquals(0, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 			});
 		}};
 	}

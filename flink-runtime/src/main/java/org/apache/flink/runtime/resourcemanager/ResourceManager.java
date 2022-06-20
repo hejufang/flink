@@ -1756,6 +1756,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		log.info("Received onBlacklistUpdated, but nothing can do.");
 	}
 
+	@VisibleForTesting
+	public BlacklistTracker getBlacklistTracker() {
+		return blacklistTracker;
+	}
+
 	// ------------------------------------------------------------------------
 	//  Static utility classes
 	// ------------------------------------------------------------------------
