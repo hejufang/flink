@@ -120,11 +120,6 @@ public class TestShuffleClient extends ShuffleClient {
 	}
 
 	@Override
-	public void enableHeartbeat(String s) {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
 	public void registerApplication(String s) {
 		throw new UnsupportedOperationException();
 	}

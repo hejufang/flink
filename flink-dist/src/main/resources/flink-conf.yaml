@@ -321,6 +321,7 @@ common:
   flink.cloud-shuffle-service.get-css-jar-from-coordinator: false
   flink.cloud-shuffle-service.report-job-status-to-coordinator: true
   flink.cloud-shuffle-service.css.compression.codec: lz4
+  flink.cloud-shuffle-service.css.recovery.mode: zookeeper
 
   # stateBackend cache layer
   state.backend.cache.enable: true
@@ -964,6 +965,9 @@ marmt:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
 
 vitas:
   dc: va
@@ -989,6 +993,9 @@ vitas:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
 
 vivid:
   dc: va
@@ -1013,6 +1020,9 @@ vivid:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
 
 macaw:
   dc: va
@@ -1037,6 +1047,9 @@ macaw:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
 
 mouse:
   dc: va
@@ -1061,6 +1074,9 @@ mouse:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
 
 mamba:
   dc: va
@@ -1085,6 +1101,9 @@ mamba:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
 
 maize:
   dc: va
@@ -1109,6 +1128,9 @@ maize:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
 
 momet:
   dc: va
@@ -1133,6 +1155,9 @@ momet:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
 
 giraf:
   dc: va
@@ -1157,6 +1182,9 @@ giraf:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
 
 grila:
   dc: i18n_gcp

@@ -33,7 +33,7 @@ under the License.
     <packaging>jar</packaging>
 
     <properties>
-        <css.version>1.0.2</css.version>
+        <css.version>1.0.3</css.version>
 		<dropwizard.version>3.2.6</dropwizard.version>
 		<shaded.prefix>org.apache.flink.cloud.shaded</shaded.prefix>
     </properties>

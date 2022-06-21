@@ -62,10 +62,11 @@ org.apache.flink:flink-cloud-shuffle:jar:1.11-byted-SNAPSHOT
 |  +- com.twitter:chill_2.11:jar:0.7.6:provided
 |  |  \- com.twitter:chill-java:jar:0.7.6:provided
 |  +- org.lz4:lz4-java:jar:1.6.0:compile
-|  \- org.apache.flink:flink-shaded-caffeine:jar:11.0-byted-SNAPSHOT:provided
-+- com.bytedance.inf:css-service_2.11:jar:1.0.2:compile
-|  +- com.bytedance.inf:css-common_2.11:jar:1.0.2:compile
-|  |  +- com.bytedance.inf:css-network-common:jar:1.0.2:compile
+|  +- org.apache.flink:flink-shaded-caffeine:jar:11.0-byted-SNAPSHOT:provided
+|  \- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-11.0-byted-SNAPSHOT:provided
++- com.bytedance.inf:css-service_2.11:jar:1.0.3:compile
+|  +- com.bytedance.inf:css-common_2.11:jar:1.0.3:compile
+|  |  +- com.bytedance.inf:css-network-common:jar:1.0.3:compile
 |  |  |  \- org.apache.commons:commons-crypto:jar:1.0.0:compile
 |  |  \- com.google.guava:guava:jar:14.0.1:compile
 |  +- org.apache.commons:commons-csv:jar:1.6:compile
@@ -92,8 +93,8 @@ org.apache.flink:flink-cloud-shuffle:jar:1.11-byted-SNAPSHOT
 |     |  +- commons-beanutils:commons-beanutils:jar:1.9.2:compile
 |     |  \- commons-digester:commons-digester:jar:1.8.1:compile
 |     \- com.google.code.gson:gson:jar:2.8.2:compile
-+- com.bytedance.inf:css-api:jar:1.0.2:compile
-+- com.bytedance.inf:css-client_2.11:jar:1.0.2:compile
++- com.bytedance.inf:css-api:jar:1.0.3:compile
++- com.bytedance.inf:css-client_2.11:jar:1.0.3:compile
 |  +- com.github.luben:zstd-jni:jar:1.5.0-4:compile
 |  \- com.netflix.concurrency-limits:concurrency-limits-core:jar:0.3.6:compile
 +- commons-lang:commons-lang:jar:2.6:compile
