@@ -315,12 +315,13 @@ public class MultiplePatternStreamBuilder<IN> {
 			timestampExtractor,
 			properties);
 
+		TypeInformation<KeyedCepEvent> keyedCepEventOutTypeInfo = TypeInformation.of(KeyedCepEvent.class);
 		TwoInputTransformation<IN, PatternProcessor<IN, ?>, KeyedCepEvent<IN>> keyGenTransform = new TwoInputTransformation<>(
 			inputStream.getTransformation(),
 			patternProcessorDataStream.broadcast().getTransformation(),
 			"CepKeyGenOperator",
 			cepKeyGenOperator,
-			outTypeInfo,
+			keyedCepEventOutTypeInfo,
 			inputStream.getExecutionEnvironment().getParallelism());
 		keyGenTransform.setUid("cep-keygen-operator");
 		StreamExecutionEnvironment environment = inputStream.getExecutionEnvironment();

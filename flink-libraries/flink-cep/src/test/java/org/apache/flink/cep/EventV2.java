@@ -26,6 +26,7 @@ import org.apache.flink.cep.pattern.parser.CepEvent;
 
 import java.io.Serializable;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Exemplary event for usage in tests of CEP.
@@ -73,6 +74,22 @@ public class EventV2 implements Serializable, CepEvent {
 
 	public void setEventTs(long eventTs) {
 		this.eventTs = eventTs;
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(eventId, eventName, eventTs);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof EventV2) {
+			EventV2 other = (EventV2) obj;
+
+			return eventId == other.eventId && eventName.equals(other.eventName) && eventTs == other.eventTs;
+		} else {
+			return false;
+		}
 	}
 
 	public static TypeSerializer<EventV2> createTypeSerializer() {

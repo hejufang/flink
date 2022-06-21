@@ -536,14 +536,16 @@ public class CoCepOperatorV2<IN>
 
 				Set<String> patternIds = keyedCepEvent.getPatternProcessorIds();
 				for (String patternId: patternIds) {
-					NFAState nfaState = tmpComputationStates.get(patternId);
+					if (tmpComputationStates.containsKey(patternId)) {
+						NFAState nfaState = tmpComputationStates.get(patternId);
 
-					advanceTime(nfaState, timestamp);
+						advanceTime(nfaState, timestamp);
 
-					try {
-						processEvent(nfaState, event, timestamp);
-					} catch (Exception e) {
-						throw new RuntimeException(e);
+						try {
+							processEvent(nfaState, event, timestamp);
+						} catch (Exception e) {
+							throw new RuntimeException(e);
+						}
 					}
 				}
 			}
@@ -837,5 +839,15 @@ public class CoCepOperatorV2<IN>
 	@VisibleForTesting
 	Map<String, SharedBuffer<IN>> getPartialMatches() throws Exception {
 		return partialMatches;
+	}
+
+	@VisibleForTesting
+	public BroadcastState<String, PatternProcessor> getPatternStates() {
+		return patternStates;
+	}
+
+	@VisibleForTesting
+	public Map<String, NFA<IN>> getUsingNFAs() {
+		return usingNFAs;
 	}
 }

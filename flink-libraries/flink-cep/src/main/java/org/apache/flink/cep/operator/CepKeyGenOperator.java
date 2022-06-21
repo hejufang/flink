@@ -31,6 +31,7 @@ import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.util.Preconditions;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -81,9 +82,6 @@ public class CepKeyGenOperator<IN> extends AbstractStreamOperator<KeyedCepEvent<
 
 						patternIdSet.add(patternId);
 						partitionKeyMatchedPatternIdsMap.put(key, patternIdSet);
-					} else {
-						LOG.warn("keySelector is null(pattern:id={},version={})", patternProcessor.getId(),
-								patternProcessor.getVersion());
 					}
 				}
 			}
@@ -100,19 +98,27 @@ public class CepKeyGenOperator<IN> extends AbstractStreamOperator<KeyedCepEvent<
 
 	@Override
 	public void processElement2(StreamRecord<PatternProcessor<IN, ?>> element) throws Exception {
-		PatternProcessor<IN, ?> patternProcessor = element.getValue();
-		final String patternId = patternProcessor.getId();
-		if (!patternProcessor.getIsAlive()) {
-			disableOldPattern(patternId);
-			return;
+		if (element != null) {
+			PatternProcessor<IN, ?> patternProcessor = element.getValue();
+			if (patternProcessor != null) {
+				final String patternId = patternProcessor.getId();
+				if (!patternProcessor.getIsAlive()) {
+					disableOldPattern(patternId);
+					LOG.info("disable an old pattern from upstream(id={},version={})", patternId,
+							patternProcessor.getVersion());
+					return;
+				}
+				if (this.patternStates.contains(patternId) && this.patternStates.get(patternId).getVersion()
+					== patternProcessor.getVersion()) {
+					return;
+				}
+				Preconditions.checkNotNull(patternProcessor.getEventMatcher());
+				Preconditions.checkNotNull(patternProcessor.getKeySelector());
+				LOG.info("Initialize a new pattern from upstream(id={},version={})", patternProcessor.getId(),
+					patternProcessor.getVersion());
+				initializeNewPattern(patternProcessor);
+			}
 		}
-		if (this.patternStates.contains(patternId) && this.patternStates.get(patternId).getVersion()
-			== patternProcessor.getVersion()) {
-			return;
-		}
-		LOG.info("Initialize a new pattern from upstream(id={},version={})", patternProcessor.getId(),
-			patternProcessor.getVersion());
-		initializeNewPattern(patternProcessor);
 	}
 
 	private void disableOldPattern(String patternId) throws Exception {

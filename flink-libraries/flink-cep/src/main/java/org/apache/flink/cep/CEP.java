@@ -18,7 +18,6 @@
 
 package org.apache.flink.cep;
 
-import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.PatternProcessor;
@@ -61,8 +60,7 @@ public class CEP {
 	 * @param <IN>
 	 * @return
 	 */
-	public static <IN, OUT> SingleOutputStreamOperator<OUT> patternProcess(DataStream<IN> input, DataStream<PatternProcessor<IN, ?>> patternDataStream) {
-		TypeInformation<OUT> returnType = TypeInformation.of(new TypeHint<OUT>() {});
+	public static <IN, OUT> SingleOutputStreamOperator<OUT> patternProcess(DataStream<IN> input, DataStream<PatternProcessor<IN, ?>> patternDataStream, TypeInformation<OUT> returnType) {
 		return new MultiplePatternStream<>(input, patternDataStream).process(returnType);
 	}
 

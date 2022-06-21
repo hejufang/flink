@@ -18,23 +18,33 @@
 
 package org.apache.flink.cep.operator;
 
+import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.typeutils.PojoTypeInfo;
 import org.apache.flink.cep.EventV2;
 import org.apache.flink.cep.pattern.KeyedCepEvent;
 import org.apache.flink.cep.pattern.PatternProcessor;
 import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
-import org.apache.flink.streaming.util.TwoInputStreamOperatorTestHarness;
+import org.apache.flink.streaming.util.KeyedTwoInputStreamOperatorTestHarness;
 
 /**
  * Tests for {@link CepKeyGenOperator}.
  */
 public class CepKeyGenOperatorTestUtilities {
 
-	public static TwoInputStreamOperatorTestHarness<EventV2, PatternProcessor<EventV2, ?>, KeyedCepEvent<EventV2>> getCepKeyGenOperatorTestHarness(
+	public static KeyedTwoInputStreamOperatorTestHarness<Object, EventV2, PatternProcessor<EventV2, ?>, KeyedCepEvent<EventV2>> getCepKeyGenOperatorTestHarness(
 			TwoInputStreamOperator<EventV2, PatternProcessor<EventV2, ?>, KeyedCepEvent<EventV2>> cepKeyGenOperator) throws Exception {
 
-			return new TwoInputStreamOperatorTestHarness<EventV2, PatternProcessor<EventV2, ?>, KeyedCepEvent<EventV2>>(
-					cepKeyGenOperator);
-		}
+			KeySelector<EventV2, Object> keySelector = new KeySelector<EventV2, Object>() {
+
+				@Override
+				public Object getKey(EventV2 value) throws Exception {
+					return value.getEventId();
+				}
+			};
+
+			return new KeyedTwoInputStreamOperatorTestHarness<Object, EventV2, PatternProcessor<EventV2, ?>, KeyedCepEvent<EventV2>>(
+					cepKeyGenOperator, keySelector, null, PojoTypeInfo.of(Object.class));
+	}
 
 	public static CepKeyGenOperator<EventV2> getCepKeyGenOperator() {
 		return new CepKeyGenOperator<>();
