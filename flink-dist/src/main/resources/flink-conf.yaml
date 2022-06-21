@@ -1637,6 +1637,23 @@ Echo-HL:
   ipv6.supported.cluster: Echo-HL
   resourcemanager.slow-container.release-timeout-enabled: true
 
+Foxtrot-HL:
+  dc: cn
+  clusterName: Foxtrot-HL
+  is_kubernetes: true
+  high-availability: zookeeper
+  high-availability.zookeeper.quorum: fdbd:dc02:ff:2:1:226:110:167:2181,fdbd:dc02:ff:2:1:226:110:162:2181,fdbd:dc02:ff:2:1:226:119:168:2181,fdbd:dc02:ff:2:1:226:126:143:2181,fdbd:dc02:ff:2:1:226:122:156:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
+  containerized.master.env.MALLOC_ARENA_MAX: 4
+  containerized.taskmanager.env.MALLOC_ARENA_MAX: 4
+  # service & ingress related
+  kubernetes.ingress.host: "hl-foxtrot.byted.org"
+  flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
+  ipv6.enabled: true
+  ipv6.supported.cluster: Foxtrot-HL
+  resourcemanager.slow-container.release-timeout-enabled: true
+
 Gaura-LQ:
   dc: cn
   clusterName: Gaura-LQ
