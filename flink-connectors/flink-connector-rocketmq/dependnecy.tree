@@ -17,7 +17,7 @@
  */
 
 org.apache.flink:flink-connector-rocketmq:jar:1.11-byted-SNAPSHOT
-+- com.bytedance:java-rocketmq-client2:jar:2.0.7:compile
++- com.bytedance:java-rocketmq-client2:jar:2.0.11:compile
 |  +- javax.annotation:javax.annotation-api:jar:1.2:compile
 |  +- com.google.guava:guava:jar:28.1-android:compile
 |  |  +- com.google.guava:failureaccess:jar:1.0.1:compile
@@ -79,7 +79,10 @@ org.apache.flink:flink-connector-rocketmq:jar:1.11-byted-SNAPSHOT
 |  |     \- com.github.jnr:jnr-posix:jar:3.1.4:compile
 |  +- io.dropwizard.metrics:metrics-core:jar:4.0.1:compile
 |  +- org.byted.security:zti-jwt-helper-java:jar:1.0.10:compile
-|  \- org.apache.commons:commons-lang3:jar:3.3.2:compile
+|  +- org.apache.commons:commons-lang3:jar:3.3.2:compile
+|  +- org.xerial.snappy:snappy-java:jar:1.1.4:compile
+|  +- org.lz4:lz4-java:jar:1.8.0:compile
+|  \- com.github.luben:zstd-jni:jar:1.5.2-1:compile
 +- org.apache.flink:flink-core:jar:1.11-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-annotations:jar:1.11-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-metrics-core:jar:1.11-byted-SNAPSHOT:provided
@@ -123,7 +126,7 @@ org.apache.flink:flink-connector-rocketmq:jar:1.11-byted-SNAPSHOT
 |  |  \- org.apache.commons:commons-math3:jar:3.5:provided
 |  \- org.apache.flink:flink-streaming-java_2.11:jar:1.11-byted-SNAPSHOT:provided
 |     +- com.googlecode.json-simple:json-simple:jar:1.1.1:provided
-|     +- org.apache.flink:flink-shaded-bytedance:jar:11.0-byted-SNAPSHOT:provided
+|     +- org.apache.flink:flink-shaded-bytedance-commons:jar:11.0-byted-SNAPSHOT:provided
 |     \- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-11.0-byted-SNAPSHOT:provided
 +- org.apache.flink:flink-catalog-common:jar:1.11-byted-SNAPSHOT:compile
 |  \- com.bytedance:schema-registry-rest-client:jar:0.2.0-SNAPSHOT:compile
@@ -174,10 +177,8 @@ org.apache.flink:flink-connector-rocketmq:jar:1.11-byted-SNAPSHOT
 |  |  +- com.typesafe.akka:akka-slf4j_2.11:jar:2.5.21:provided
 |  |  +- org.clapper:grizzled-slf4j_2.11:jar:1.3.2:provided
 |  |  +- com.github.scopt:scopt_2.11:jar:3.5.0:provided
-|  |  +- org.xerial.snappy:snappy-java:jar:1.1.4:provided
 |  |  +- com.twitter:chill_2.11:jar:0.7.6:provided
 |  |  |  \- com.twitter:chill-java:jar:0.7.6:provided
-|  |  +- org.lz4:lz4-java:jar:1.6.0:provided
 |  |  \- org.apache.flink:flink-shaded-caffeine:jar:11.0-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-runtime_2.11:test-jar:tests:1.11-byted-SNAPSHOT:test
 |  +- org.apache.flink:flink-clients_2.11:jar:1.11-byted-SNAPSHOT:test

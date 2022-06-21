@@ -111,6 +111,8 @@ public class DashboardTemplate {
 	public static final String ROCKETMQ_ROW_TEMPLATE = "rocketmq/rocketmq_row_template.txt";
 	public static final String ROCKETMQ_CONSUME_RATE_TARGET_TEMPLATE = "rocketmq/rocketmq_consume_rate_target_template.txt";
 	public static final String ROCKETMQ_CONSUME_RATE_TEMPLATE = "rocketmq/rocketmq_consume_rate_template.txt";
+	public static final String ROCKETMQ_POLL_LATENCY_TARGET_TEMPLATE = "rocketmq/rocketmq_poll_latency_target_template.txt";
+	public static final String ROCKETMQ_POLL_LATENCY_TEMPLATE = "rocketmq/rocketmq_poll_latency_template.txt";
 
 	/**
 	 *  Templates for schedule related metrics.

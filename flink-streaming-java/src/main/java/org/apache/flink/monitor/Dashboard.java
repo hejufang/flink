@@ -959,6 +959,37 @@ public class Dashboard {
 		return rows;
 	}
 
+	private String renderRocketMQPollLatencyRow(JSONArray rocketMQConfArray) {
+		String pollLatencyTargetTemplate;
+		String pollLatencyTemplate;
+
+		try {
+			pollLatencyTargetTemplate = renderFromResource(DashboardTemplate.ROCKETMQ_POLL_LATENCY_TARGET_TEMPLATE);
+			pollLatencyTemplate = renderFromResource(DashboardTemplate.ROCKETMQ_POLL_LATENCY_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		List<String> pollsList = new ArrayList<>();
+		for (Object o : rocketMQConfArray) {
+			JSONObject json = (JSONObject) o;
+			Map<String, String> pollLatencyTargetValues = new HashMap<>();
+			String[] clusterAndDcArray = Utils.parseClusterAndDc(json.get("cluster").toString());
+			String cluster = clusterAndDcArray[0];
+			pollLatencyTargetValues.put("cluster", cluster);
+			String topic = json.get("topic").toString();
+			pollLatencyTargetValues.put("topic", topic);
+			String consumerGroup = json.get("consumer_group").toString();
+			pollLatencyTargetValues.put("consumer_group", consumerGroup);
+			pollsList.add(renderString(pollLatencyTargetTemplate, pollLatencyTargetValues));
+		}
+		String targets = String.join(",", pollsList);
+		Map<String, String> pollLatencyValues = new HashMap<>();
+		pollLatencyValues.put("targets", targets);
+		pollLatencyValues.put("datasource", dataSource);
+		return renderString(pollLatencyTemplate, pollLatencyValues);
+	}
+
 	private String renderRocketMQConsumeRateRow(List<String> sources) {
 		String rocketMQConsumeRateTargetTemplate;
 		String rocketMQConsumeRateTemplate;
@@ -1120,6 +1151,7 @@ public class Dashboard {
 		if (!rocketmqConfigArray.isEmpty()) {
 			overViewPanels.add(renderRocketMQLagSizeRow(rocketmqConfigArray));
 			rocketMQPanels.add(renderRocketMQConsumeRateRow(sources));
+			rocketMQPanels.add(renderRocketMQPollLatencyRow(rocketmqConfigArray));
 		}
 		overViewPanels.add(renderOperatorLatencyRow(operatorsButSources));
 		overViewPanels.add(renderPoolUsageRow(tasks));

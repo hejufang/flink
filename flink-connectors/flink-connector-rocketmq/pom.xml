@@ -33,7 +33,7 @@ under the License.
 		<dependency>
 			<groupId>com.bytedance</groupId>
 			<artifactId>java-rocketmq-client2</artifactId>
-			<version>2.0.7</version>
+			<version>2.0.11</version>
 			<exclusions>
 				<exclusion>
 					<artifactId>logback-classic</artifactId>
@@ -259,6 +259,10 @@ under the License.
 											<pattern>com.bytedance.schema.registry</pattern>
 											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.com.bytedance.schema.registry</shadedPattern>
 										</relocation>
+										<!-- For compression related dependency (snappy/zstd/lz4), we should not only relocate
+										class files, but also .so files. Or we will encounter java.lang.UnsatisfiedLinkError.
+										Currently, job using different MQ connector with compression mode can work well.
+										But it still leave potential risk, need to handle relocation in the future -->
 									</relocations>
 								</configuration>
 							</execution>
