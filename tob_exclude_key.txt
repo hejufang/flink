@@ -198,3 +198,6 @@ rmq.server_url.sg
 rmq.server_url.va
 rmq.server_url.boe
 rmq.server_url.boei18n
+
+# show cpu and mem resource allocated for container, instead of showing cpu and mem of physical machine
+web.display-container-real-resource-enable

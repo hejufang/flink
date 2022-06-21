@@ -19,6 +19,10 @@
 
 package org.apache.flink.runtime.taskexecutor;
 
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.concurrent.Executors;
@@ -67,7 +71,15 @@ public class TaskExecutorToResourceManagerConnectionTest extends TestLogger {
 
 	private static final int TASK_MANAGER_DATA_PORT = 12345;
 
-	private static final HardwareDescription TASK_MANAGER_HARDWARE_DESCRIPTION = HardwareDescription.extractFromSystem(Long.MAX_VALUE);
+	static final Configuration TASK_MANAGER_CONFIGURATION = new Configuration();
+	static {
+		TASK_MANAGER_CONFIGURATION.set(TaskManagerOptions.TOTAL_PROCESS_MEMORY, MemorySize.MAX_VALUE);
+	}
+
+	private static final HardwareDescription TASK_MANAGER_HARDWARE_DESCRIPTION = HardwareDescription.extractFromSystem(
+		Long.MAX_VALUE,
+		ResourceProfile.ANY,
+		TASK_MANAGER_CONFIGURATION);
 
 	private static final TaskExecutorMemoryConfiguration TASK_MANAGER_MEMORY_CONFIGURATION = new TaskExecutorMemoryConfiguration(
 		1L,
@@ -109,6 +121,20 @@ public class TaskExecutorToResourceManagerConnectionTest extends TestLogger {
 
 		resourceManagerRegistration.start();
 		registrationSuccessFuture.get(TEST_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+	}
+
+	@Test
+	public void testTaskManagerHardwareDescription() {
+		final Configuration taskManagerConfigurationContainer = new Configuration();
+		taskManagerConfigurationContainer.set(TaskManagerOptions.TOTAL_PROCESS_MEMORY, MemorySize.MAX_VALUE);
+		taskManagerConfigurationContainer.set(WebOptions.WEB_DISPLAY_CONTAINER_REAL_RESOURCE_ENABLE, true);
+		final HardwareDescription taskManagerHardwareDescriptionContainer = HardwareDescription.extractFromSystem(
+			Long.MAX_VALUE,
+			ResourceProfile.newBuilder().setCpuCores(Integer.MAX_VALUE).build(),
+			taskManagerConfigurationContainer);
+
+		assertThat(taskManagerHardwareDescriptionContainer.getNumberOfCPUCores(), is(equalTo(Integer.MAX_VALUE)));
+		assertThat(taskManagerHardwareDescriptionContainer.getSizeOfPhysicalMemory(), is(equalTo(Long.MAX_VALUE)));
 	}
 
 	private TaskExecutorToResourceManagerConnection createTaskExecutorToResourceManagerConnection() {

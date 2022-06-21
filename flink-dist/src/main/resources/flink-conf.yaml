@@ -351,6 +351,9 @@ common:
   rmq.server_url.boe: https://mq-boe.byted.org
   rmq.server_url.boei18n: https://mq-boe.byted.org
 
+  # show cpu and mem resource allocated for container, instead of showing cpu and mem of physical machine
+  web.display-container-real-resource-enable: false
+
   # yaml
   configuration.flink-conf.dump-configuration-by-yaml: true
 
@@ -1009,7 +1012,7 @@ vivid:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
-  
+
 macaw:
   dc: va
   clusterName: macaw

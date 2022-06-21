@@ -367,7 +367,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			throw new RuntimeException(e);
 		}
 
-		this.hardwareDescription = HardwareDescription.extractFromSystem(taskExecutorServices.getManagedMemorySize());
+		this.hardwareDescription = HardwareDescription.extractFromSystem(
+			taskExecutorServices.getManagedMemorySize(),
+			taskManagerConfiguration.getTotalResourceProfile(),
+			taskManagerConfiguration.getConfiguration());
 		this.memoryConfiguration = TaskExecutorMemoryConfiguration.create(taskManagerConfiguration.getConfiguration());
 
 		this.taskJobResultGateway = new SocketTaskJobResultGateway(

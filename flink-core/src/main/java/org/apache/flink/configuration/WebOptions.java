@@ -222,6 +222,14 @@ public class WebOptions {
 			.defaultValue(true)
 			.withDescription("Whether the web ui show the dtop url or not.");
 
+	/**
+	 * The witch to control the web ui show real cpu and memory info.
+	 */
+	public static final ConfigOption<Boolean> WEB_DISPLAY_CONTAINER_REAL_RESOURCE_ENABLE =
+		key("web.display-container-real-resource-enable")
+			.defaultValue(false)
+			.withDescription("Whether the web ui shows real tm cpu and memory info or not");
+
 	// ------------------------------------------------------------------------
 
 	/** Not meant to be instantiated. */

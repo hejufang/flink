@@ -191,6 +191,7 @@ common:
   web.shell-enable: false
   web.metrics-url-enable: false
   web.dtop-url-enable: false
+  web.display-container-real-resource-enable: true
 
   #==============================================================================
   #

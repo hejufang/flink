@@ -18,6 +18,10 @@
 
 package org.apache.flink.runtime.instance;
 
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.WebOptions;
+import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
+import org.apache.flink.runtime.taskexecutor.TaskExecutorMemoryConfiguration;
 import org.apache.flink.runtime.util.Hardware;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
@@ -148,10 +152,18 @@ public final class HardwareDescription implements Serializable {
 	// Factory
 	// --------------------------------------------------------------------------------------------
 
-	public static HardwareDescription extractFromSystem(long managedMemory) {
-		final int numberOfCPUCores = Hardware.getNumberCPUCores();
+	public static HardwareDescription extractFromSystem(long managedMemory, ResourceProfile totalResourceProfile, Configuration configuration) {
+		int numberOfCPUCores;
+		long sizeOfPhysicalMemory;
 		final long sizeOfJvmHeap = Runtime.getRuntime().maxMemory();
-		final long sizeOfPhysicalMemory = Hardware.getSizeOfPhysicalMemory();
+
+		if (configuration.getBoolean(WebOptions.WEB_DISPLAY_CONTAINER_REAL_RESOURCE_ENABLE)) {
+			numberOfCPUCores = totalResourceProfile.getCpuCores().getValue().intValue();
+			sizeOfPhysicalMemory = TaskExecutorMemoryConfiguration.create(configuration).getTotalProcessMemory();
+		} else {
+			numberOfCPUCores = Hardware.getNumberCPUCores();
+			sizeOfPhysicalMemory = Hardware.getSizeOfPhysicalMemory();
+		}
 
 		return new HardwareDescription(numberOfCPUCores, sizeOfPhysicalMemory, sizeOfJvmHeap, managedMemory);
 	}
