@@ -815,6 +815,7 @@ quoka:
   blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: quoka
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
+  metrics.latency.interval: 10000
 
 quaga:
   dc: cn
