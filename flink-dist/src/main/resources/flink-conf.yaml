@@ -434,7 +434,6 @@ leser:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  yarn.provided.lib.dirs.enabled: true
   bytedance.streaming.yarn.check.application.name.unique.region: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
@@ -931,6 +930,7 @@ snipe:
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   checkpoint.client-checkpoint-verification-enable: true
+  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -956,7 +956,6 @@ marmt:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -982,7 +981,6 @@ vitas:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1007,7 +1005,6 @@ vivid:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
-  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1032,7 +1029,6 @@ macaw:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
-  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1057,7 +1053,6 @@ mouse:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
-  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1082,7 +1077,6 @@ mamba:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
-  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1107,7 +1101,6 @@ maize:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
-  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1132,7 +1125,6 @@ momet:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
-  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1157,7 +1149,6 @@ giraf:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
-  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1265,6 +1256,7 @@ otter:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  yarn.provided.lib.dirs.enabled: false
 
 octop:
   dc: us-ttp
@@ -1290,6 +1282,7 @@ octop:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  yarn.provided.lib.dirs.enabled: false
 
 ostri:
   dc: us-ttp
@@ -1315,6 +1308,7 @@ ostri:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  yarn.provided.lib.dirs.enabled: false
 
 alisg:
   dc: sg
@@ -1332,6 +1326,7 @@ alisg:
   docker.region: Aliyun_SG
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1355,6 +1350,7 @@ sloth:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
   bytedance.streaming.yarn.check.application.name.unique.region: true
+  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1378,6 +1374,7 @@ snail:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
   bytedance.streaming.yarn.check.application.name.unique.region: true
+  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1400,6 +1397,7 @@ snake:
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1422,6 +1420,7 @@ spider:
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1445,6 +1444,7 @@ saola:
   docker.region: Aliyun_SG
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
+  yarn.provided.lib.dirs.enabled: false
 
 icing:
   dc: i18n_gcp
@@ -1462,6 +1462,7 @@ icing:
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
   table.exec.hive.permission-check.gemini-server-url: http://gemini-ind.byted.org/api/query/ind/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
 
 boe:
   dc: vm
