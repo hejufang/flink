@@ -30,6 +30,7 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import com.google.protobuf.CodedStreamHelper;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
@@ -61,8 +62,11 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 	private final boolean isAdInstanceFormat;
 	private final RowType pbTypeInfo;
 	private final boolean runtimeCutPb;
+	private final boolean discardUnknownField;
+
 	private transient DeserializationRuntimeConverter runtimeConverter;
 	private transient Descriptors.Descriptor pbDescriptor;
+	private transient DynamicMessage.Builder reusedBuilder;
 
 	/** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
 	private final boolean ignoreParseErrors;
@@ -76,7 +80,8 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 			boolean withWrapper,
 			boolean isAdInstanceFormat,
 			boolean ignoreParseErrors,
-			boolean runtimeCutPb) {
+			boolean runtimeCutPb,
+			boolean discardUnknownField) {
 
 		this.resultTypeInfo = resultTypeInfo;
 		this.pbDescriptorClass = pbDescriptorClass;
@@ -92,6 +97,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 			pbTypeInfo = rowType;
 		}
 		this.runtimeCutPb = runtimeCutPb;
+		this.discardUnknownField = discardUnknownField;
 	}
 
 	@Override
@@ -104,6 +110,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 				throw new FlinkRuntimeException("cut pb descriptor failed", e);
 			}
 		}
+		reusedBuilder = DynamicMessage.newBuilder(pbDescriptor);
 		runtimeConverter = DeserializationRuntimeConverterFactory.createConverter(pbTypeInfo, pbDescriptor);
 	}
 
@@ -117,7 +124,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 				int totalHeaderSize = 8 + sortIdSize + 8;
 				if (message.length <= totalHeaderSize) {
 					throw new FlinkRuntimeException(String.format("The message length is %s, " +
-							"which is less than or equal to totalHeaderSize %s", message.length, totalHeaderSize));
+						"which is less than or equal to totalHeaderSize %s", message.length, totalHeaderSize));
 				}
 				message = Arrays.copyOfRange(message, totalHeaderSize, message.length);
 			} else if (skipBytes > 0) {
@@ -128,7 +135,13 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 				message = Arrays.copyOfRange(message, skipBytes, message.length);
 			}
 
-			DynamicMessage dynamicMessage = DynamicMessage.parseFrom(pbDescriptor, message);
+			final DynamicMessage dynamicMessage;
+			if (discardUnknownField) {
+				dynamicMessage = reusedBuilder.mergeFrom(CodedStreamHelper.discardUnknownFields(message)).build();
+				reusedBuilder.clear();
+			} else {
+				dynamicMessage = DynamicMessage.parseFrom(pbDescriptor, message);
+			}
 			GenericRowData pbRow = (GenericRowData) runtimeConverter.convert(dynamicMessage);
 			if (withWrapper) {
 				return GenericRowData.of(pbRow);
@@ -189,6 +202,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 		private boolean isAdInstanceFormat = false;
 		private boolean ignoreParseErrors = false;
 		private boolean runtimeCutPb = false;
+		private boolean discardKnownFields = true;
 
 		private Builder() {
 		}
@@ -238,6 +252,15 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 			return this;
 		}
 
+		public boolean isDiscardKnownFields() {
+			return discardKnownFields;
+		}
+
+		public Builder setDiscardKnownFields(boolean discardKnownFields) {
+			this.discardKnownFields = discardKnownFields;
+			return this;
+		}
+
 		public PbRowDataDeserializationSchema build() {
 			checkState(pbDescriptorClass != null || protoFile != null,
 				"'pbDescriptorClass' and 'protoFile' can not be null at the same time.");
@@ -253,7 +276,8 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 				this.withWrapper,
 				this.isAdInstanceFormat,
 				this.ignoreParseErrors,
-				this.runtimeCutPb);
+				this.runtimeCutPb,
+				this.discardKnownFields);
 		}
 	}
 }

@@ -26,6 +26,8 @@ import org.apache.flink.table.types.logical.RowType;
 
 import com.google.protobuf.Descriptors;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import javax.annotation.Nullable;
 
@@ -38,7 +40,25 @@ import static org.junit.Assert.assertEquals;
 /**
  * Tests for {@link PbRowDataDeserializationSchema}.
  */
+@RunWith(Parameterized.class)
 public class PbRowDataDeserializationSchemaTest {
+
+	@Parameterized.Parameter
+	public boolean discardKnownFields;
+
+	@Parameterized.Parameter(1)
+	public boolean runtimeCutPb;
+
+	@Parameterized.Parameters(name = "discardKnownFields = {0}, runtimeCutPb = {1}")
+	public static Object[] parameters() {
+		return new Object[][]{
+			new Object[]{false, false},
+			new Object[]{true, false},
+			new Object[]{false, true},
+			new Object[]{true, true}
+		};
+	}
+
 	@Test
 	public void testDeserialize() throws IOException {
 		byte[] pbBytes = PbSchemaTestUtil.generatePbBytes();
@@ -67,14 +87,17 @@ public class PbRowDataDeserializationSchemaTest {
 
 	@Test
 	public void testDeserializeSelectedFieldWithRuntimePbCut() throws IOException {
+		if (!runtimeCutPb) {
+			return;
+		}
 		byte[] pbBytes = PbSchemaTestUtil.generatePbBytes();
 		RowData rowData = PbSchemaTestUtil.generateSelectedRowData();
 		RowType rowType = PbSchemaTestUtil.generateSelectedRowType();
 
-		PbRowDataDeserializationSchema derByClass = getDeserializationSchema(false, true, true, rowType);
+		PbRowDataDeserializationSchema derByClass = getDeserializationSchema(false, true, rowType);
 		testDeserialization(derByClass, pbBytes, rowData);
 		assertEquals(rowType.getFieldCount(), derByClass.getPbDescriptor().getFields().size());
-		PbRowDataDeserializationSchema derByFile = getDeserializationSchema(false, false, true, rowType);
+		PbRowDataDeserializationSchema derByFile = getDeserializationSchema(false, false, rowType);
 		testDeserialization(derByFile, pbBytes, rowData);
 		assertEquals(rowType.getFieldCount(), derByClass.getPbDescriptor().getFields().size());
 	}
@@ -88,17 +111,18 @@ public class PbRowDataDeserializationSchemaTest {
 		assertArrayEquals(new Object[]{expectedResult}, new Object[]{deserializedResult});
 	}
 
-	private static PbRowDataDeserializationSchema getDeserializationSchema(
+	private PbRowDataDeserializationSchema getDeserializationSchema(
 			boolean withWrapper,
 			boolean withPbClassFullName,
 			@Nullable RowType selectedRowType) throws IOException {
-		return getDeserializationSchema(withWrapper, withPbClassFullName, false, selectedRowType);
+		return getDeserializationSchema(withWrapper, withPbClassFullName, runtimeCutPb, discardKnownFields, selectedRowType);
 	}
 
-	private static PbRowDataDeserializationSchema getDeserializationSchema(
+	private PbRowDataDeserializationSchema getDeserializationSchema(
 			boolean withWrapper,
 			boolean withPbClassFullName,
 			boolean runtimePbCut,
+			boolean	discardUnknownFields,
 			@Nullable RowType selectedRowType) throws IOException {
 		Descriptors.Descriptor descriptor;
 		String pbClassName = null;
@@ -121,6 +145,7 @@ public class PbRowDataDeserializationSchemaTest {
 			.setProtoFile(protoFile)
 			.setWithWrapper(withWrapper)
 			.setRuntimeCutPb(runtimePbCut)
+			.setDiscardKnownFields(discardUnknownFields)
 			.build();
 	}
 }

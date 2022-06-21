@@ -84,4 +84,10 @@ public class PbOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Optional flag whether cut proto file according to runtime rowType.");
+
+	public static final ConfigOption<Boolean> DISCARD_UNKNOWN_FIELDS = ConfigOptions
+		.key("discard-unknown-fields")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional flag whether dicard unknown fields when deserialize pb.");
 }

@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.apache.flink.formats.pb.PbFormatUtils.createDataType;
+import static org.apache.flink.formats.pb.PbOptions.DISCARD_UNKNOWN_FIELDS;
 import static org.apache.flink.formats.pb.PbOptions.ENABLE_RUNTIME_PB_CUT;
 import static org.apache.flink.formats.pb.PbOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.pb.PbOptions.IS_AD_INSTANCE_FORMAT;
@@ -84,6 +85,7 @@ public class PbFormatFactory implements
 		final boolean ignoreParseErrors = formatOptions.get(IGNORE_PARSE_ERRORS);
 		final boolean isAdInstanceFormat = formatOptions.get(IS_AD_INSTANCE_FORMAT);
 		final boolean enableRuntimePbCut = formatOptions.get(ENABLE_RUNTIME_PB_CUT);
+		final boolean discardUnknownFields = formatOptions.get(DISCARD_UNKNOWN_FIELDS);
 		final ProtoFile protoFile = new ProtoFile(pbEntryClassName, pbContent);
 
 		return new PbDecodingFormat(
@@ -93,7 +95,8 @@ public class PbFormatFactory implements
 				withWrapper,
 				isAdInstanceFormat,
 				ignoreParseErrors,
-				enableRuntimePbCut);
+				enableRuntimePbCut,
+				discardUnknownFields);
 	}
 
 	@Override
@@ -177,6 +180,7 @@ public class PbFormatFactory implements
 		options.add(SINK_WITH_SIZE_HEADER);
 		options.add(IS_AD_INSTANCE_FORMAT);
 		options.add(ENABLE_RUNTIME_PB_CUT);
+		options.add(DISCARD_UNKNOWN_FIELDS);
 		options.add(SIZE_HEADER_WITH_LITTLE_ENDIAN);
 		return options;
 	}
@@ -189,6 +193,7 @@ public class PbFormatFactory implements
 		private final boolean isAdInstanceFormat;
 		private final boolean ignoreParseErrors;
 		private final boolean enableRuntimePbCut;
+		private final boolean discardKnownFields;
 
 		public PbDecodingFormat(
 				String pbClass,
@@ -197,7 +202,8 @@ public class PbFormatFactory implements
 				boolean withWrapper,
 				boolean isAdInstanceFormat,
 				boolean ignoreParseErrors,
-				boolean enableRuntimePbCut) {
+				boolean enableRuntimePbCut,
+				boolean discardUnknownFields) {
 			this.pbClass = pbClass;
 			this.protoFile = protoFile;
 			this.skipBytes = skipBytes;
@@ -205,6 +211,7 @@ public class PbFormatFactory implements
 			this.isAdInstanceFormat = isAdInstanceFormat;
 			this.ignoreParseErrors = ignoreParseErrors;
 			this.enableRuntimePbCut = enableRuntimePbCut;
+			this.discardKnownFields = discardUnknownFields;
 		}
 
 		@Override
@@ -227,6 +234,7 @@ public class PbFormatFactory implements
 				.setAdInstanceFormat(isAdInstanceFormat)
 				.setIgnoreParseErrors(ignoreParseErrors)
 				.setRuntimeCutPb(enableRuntimePbCut)
+				.setDiscardKnownFields(discardKnownFields)
 				.build();
 		}
 
