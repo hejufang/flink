@@ -157,5 +157,13 @@ public class DashboardTemplate {
 	public static final String OPERATOR_LATENCY_TEMPLATE = "operatorlatency/operator_latency_template.txt";
 	public static final String OPERATOR_LATENCY_ROW_TEMPLATE = "operatorlatency/operator_latency_row_template.txt";
 
+	/**
+	 * Process Latency.
+	 */
+	public static final String PROCESS_LATENCY_JOB_TEMPLATE = "process-latency/process_latency_sink_template.txt";
+	//except for sink operators.
+	public static final String PROCESS_LATENCY_OPERATOR_TEMPLATE = "process-latency/process_latency_operator_template.txt";
+	public static final String PROCESS_LATENCY_OPERATOR_TARGET_TEMPLATE = "process-latency/process_latency_operator_target_template.txt";
+
 	public static final String DASHBOARD_TEMPLATE = "dashboard_template.txt";
 }

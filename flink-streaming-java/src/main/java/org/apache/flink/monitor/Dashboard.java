@@ -944,6 +944,56 @@ public class Dashboard {
 		return operatorLatencyRow;
 	}
 
+	/**
+	 * Render sink process latency. Which is provided by {@code LatencyMarker}.
+	 */
+	private String renderJobProcessLatencyRow() {
+		String jobLatencyTemplate;
+		try {
+			jobLatencyTemplate = renderFromResource(DashboardTemplate.PROCESS_LATENCY_JOB_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		Map<String, String> jobLatencyValues = new HashMap<>();
+		jobLatencyValues.put("jobname", jobName);
+		jobLatencyValues.put("datasource", dataSource);
+		return renderString(jobLatencyTemplate, jobLatencyValues);
+	}
+
+	/**
+	 * Render job process latency. Except for sink.
+	 */
+	private String renderOperatorProcessLatencyRow(List<String> operators, String measure) {
+		String processLatencyTarget;
+		String operatorLatencyTemplate;
+
+		try {
+			processLatencyTarget = renderFromResource(DashboardTemplate.PROCESS_LATENCY_OPERATOR_TARGET_TEMPLATE);
+			operatorLatencyTemplate = renderFromResource(DashboardTemplate.PROCESS_LATENCY_OPERATOR_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+
+		List<String> recordNumList = new ArrayList<>();
+		for (String operator : operators) {
+			Map<String, String> operatorLatencyTargetValues = new HashMap<>();
+			operatorLatencyTargetValues.put("operator", operator);
+			operatorLatencyTargetValues.put("jobname", jobName);
+			operatorLatencyTargetValues.put("measure", measure);
+			recordNumList.add(renderString(processLatencyTarget, operatorLatencyTargetValues));
+		}
+		String targets = String.join(",", recordNumList);
+
+		Map<String, String> operatorLatencyValues = new HashMap<>();
+		operatorLatencyValues.put("targets", targets);
+		operatorLatencyValues.put("jobname", jobName);
+		operatorLatencyValues.put("datasource", dataSource);
+		operatorLatencyValues.put("measure", measure);
+		return renderString(operatorLatencyTemplate, operatorLatencyValues);
+	}
+
 	private List<String> renderOperatorSplitRow(List<String> operators) {
 		if (operators.size() < targetLimit) {
 			return Lists.newArrayList(renderOperatorLatencyRow(operators, ""), renderOutPoolUsageRow(operators, ""));
@@ -1129,7 +1179,11 @@ public class Dashboard {
 		overViewPanels.add(renderOperatorLatencyRow(operatorsButSources));
 		overViewPanels.add(renderPoolUsageRow(tasks));
 		overViewPanels.add(renderRecordNumRow(operators));
-
+		// if latency marker is opened.
+		LOG.info("latency interval: {}", streamGraph.getExecutionConfig().getLatencyTrackingInterval());
+		if (streamGraph.getExecutionConfig().getLatencyTrackingInterval() > 0) {
+			overViewPanels.add(renderJobProcessLatencyRow());
+		}
 		// add overview row
 		rows.add(renderRowTemplate(DashboardTemplate.OVERVIEW_ROW_TEMPLATE, overViewPanels, false));
 
@@ -1145,6 +1199,10 @@ public class Dashboard {
 
 		// add network row
 		List<String> networkPanels = Lists.newArrayList();
+		if (streamGraph.getExecutionConfig().getLatencyTrackingInterval() > 0) {
+			networkPanels.add(renderOperatorProcessLatencyRow(operatorsButSources, "p99"));
+			networkPanels.add(renderOperatorProcessLatencyRow(operatorsButSources, "mean"));
+		}
 		networkPanels.addAll(renderPoolUsageSplitRow(tasks));
 		networkPanels.addAll(renderRecordNumSplitRow(operators));
 		networkPanels.add(renderNetworkMemoryRow());
