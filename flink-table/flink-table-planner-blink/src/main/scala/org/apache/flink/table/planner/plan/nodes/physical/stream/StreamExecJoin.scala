@@ -255,9 +255,9 @@ class StreamExecJoin(
     ret
   }
 
-  def getMiniBatchInputs: Seq[RelNode] = joinConfOption match {
-    case Some(_) => Seq(left)
-    case _ => getInputs
+  def getNonMiniBatchInput: Option[RelNode] = joinConfOption match {
+    case Some(_) => Some(right)
+    case _ => None
   }
 
   private def analyzeJoinInput(input: RelNode, tableConfig: TableConfig): JoinInputSideSpec = {

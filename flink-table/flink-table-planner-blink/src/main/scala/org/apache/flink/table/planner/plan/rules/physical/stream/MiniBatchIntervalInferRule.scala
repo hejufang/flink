@@ -61,13 +61,12 @@ class MiniBatchIntervalInferRule extends RelOptRule(
   override def onMatch(call: RelOptRuleCall): Unit = {
     val rel: StreamPhysicalRel = call.rel(0)
     val miniBatchIntervalTrait = rel.getTraitSet.getTrait(MiniBatchIntervalTraitDef.INSTANCE)
-    val inputs = rel match {
-      case join: StreamExecJoin => join.getMiniBatchInputs.map {
-          case hep: HepRelVertex =>
-            hep.getCurrentRel
-          case x => x
-        }
-      case _ => getInputs(rel)
+    val inputs = getInputs(rel)
+    // broadcast join right side shouldn't has mini-batch.
+    val blockInput = rel match {
+      case join: StreamExecJoin if join.getNonMiniBatchInput.isDefined =>
+        join.getNonMiniBatchInput.get.asInstanceOf[HepRelVertex].getCurrentRel
+      case _ => null
     }
     val config = FlinkRelOptUtil.getTableConfigFromContext(rel)
     val miniBatchEnabled = config.getConfiguration.getBoolean(
@@ -91,8 +90,10 @@ class MiniBatchIntervalInferRule extends RelOptRule(
 
     // propagate parent's MiniBatchInterval to children.
     val updatedInputs = inputs.map { input =>
-      // add mini-batch watermark assigner node.
-      if (shouldAppendMiniBatchAssignerNode(input, miniBatchEnableExeTableScan)) {
+      if (input == blockInput) {
+        input
+      } else if (shouldAppendMiniBatchAssignerNode(input, miniBatchEnableExeTableScan)) {
+        // add mini-batch watermark assigner node.
         new StreamExecMiniBatchAssigner(
           input.getCluster,
           input.getTraitSet,

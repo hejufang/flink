@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.plan.stream.sql.join
 
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api._
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.planner.factories.TestValuesTableFactory
 import org.apache.flink.table.planner.runtime.utils.TestData
 import org.apache.flink.table.planner.utils.{StreamTableTestUtil, TableTestBase}
@@ -371,6 +372,29 @@ class JoinTest extends TableTestBase {
         | a1, a2, BB.word, v1.word FROM
         | A LEFT JOIN BB ON A.a1 = BB.id
         |   LEFT JOIN v1 ON A.a1 = v1.id""".stripMargin)
+  }
+
+  @Test
+  def testWithMiniBatch(): Unit = {
+    val table1 = createValidBroadcastTable("BB")
+    util.getStreamEnv.setParallelism(12)
+    util.tableEnv.getConfig.getConfiguration.setBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED, true)
+    util.tableEnv.getConfig.getConfiguration
+      .setString(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ALLOW_LATENCY, "1 s")
+    util.tableEnv.getConfig.getConfiguration
+      .setLong(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE, 10L)
+    util.tableEnv.executeSql(
+      s"""
+         | create view v1 as
+         | SELECT /*+ use_broadcast_join(${broadcastHints("BB")}) */
+         | a1, a2, id FROM
+         | A LEFT JOIN BB ON A.a1 = BB.id""".stripMargin)
+
+    util.verifyTransformation(
+      s"""
+         |SELECT
+         | sum(a1), a2 FROM v1 group by a2""".stripMargin)
   }
 
   private def broadcastHints(

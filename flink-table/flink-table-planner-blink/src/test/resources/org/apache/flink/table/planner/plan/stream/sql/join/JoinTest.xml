@@ -1133,4 +1133,37 @@ OneInputTransformation{name='Calc(select=[a1, a2, word, word0])', outputType=Row
 ]]>
     </Resource>
   </TestCase>
+  <TestCase name="testWithMiniBatch">
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[EXPR$0, a2])
++- GlobalGroupAggregate(groupBy=[a2], select=[a2, SUM(sum$0) AS EXPR$0])
+   +- Exchange(distribution=[hash[a2]])
+      +- LocalGroupAggregate(groupBy=[a2], select=[a2, SUM(a1) AS sum$0])
+         +- Calc(select=[a2, a1])
+            +- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(BB,60000,60000)])
+               :- Calc(select=[a1, a2])
+               :  +- MiniBatchAssigner(interval=[1000ms], mode=[ProcTime])
+               :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, A, source: [TestTableSource(a1, a2, a3)]]], fields=[a1, a2, a3])
+               +- Calc(select=[id])
+                  +- TableSourceScan(table=[[default_catalog, default_database, BB]], fields=[id, word, cnt])
+
+OneInputTransformation{name='Calc(select=[EXPR$0, a2])', outputType=RowData(EXPR$0: INT, a2: BIGINT), parallelism=-1}
+	OneInputTransformation{name='GlobalGroupAggregate(groupBy=[a2], select=[a2, SUM(sum$0) AS EXPR$0])', outputType=RowData(a2: BIGINT, EXPR$0: INT), parallelism=-1}
+		PartitionTransformation{name='Partition', outputType=RowData(a2: BIGINT, sum$0: INT), parallelism=-1}
+			OneInputTransformation{name='LocalGroupAggregate(groupBy=[a2], select=[a2, SUM(a1) AS sum$0])', outputType=RowData(a2: BIGINT, sum$0: INT), parallelism=-1}
+				OneInputTransformation{name='Calc(select=[a2, a1])', outputType=RowData(a2: BIGINT, a1: INT), parallelism=-1}
+					TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(BB,60000,60000)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT), parallelism=-1}
+						OneInputTransformation{name='Calc(select=[a1, a2])', outputType=RowData(a1: INT, a2: BIGINT), parallelism=-1}
+							OneInputTransformation{name='MiniBatchAssigner(interval=[1000ms], mode=[ProcTime])', outputType=RowData(a1: INT, a2: BIGINT, a3: BIGINT), parallelism=-1}
+								OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.A, source: [TestTableSource(a1, a2, a3)]], fields=[a1, a2, a3])', outputType=RowData(a1: INT, a2: BIGINT, a3: BIGINT), parallelism=-1}
+									FakeTransformation{name='ChangeToDefaultParallel', outputType=Row(a1: Integer, a2: Long, a3: Long), parallelism=-1}
+										LegacySourceTransformation{name='Collection Source', outputType=Row(a1: Integer, a2: Long, a3: Long), parallelism=1}
+						PartitionTransformation{name='BroadcastPartition', outputType=RowData(id: INT), parallelism=-1}
+							OneInputTransformation{name='Calc(select=[id])', outputType=RowData(id: INT), parallelism=-1}
+								FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(id: INT, word: STRING, cnt: BIGINT), parallelism=-1}
+									LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, BB]], fields=[id, word, cnt])', outputType=RowData(id: INT, word: STRING, cnt: BIGINT), parallelism=12}
+]]>
+    </Resource>
+  </TestCase>
 </Root>
