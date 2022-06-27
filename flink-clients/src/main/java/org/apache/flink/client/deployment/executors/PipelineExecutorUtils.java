@@ -26,6 +26,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.PipelineOptionsInternal;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.state.StateBackendLoader;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 
 import org.slf4j.Logger;
@@ -76,6 +77,8 @@ public class PipelineExecutorUtils {
 		jobGraph.setSavepointRestoreSettings(executionConfigAccessor.getSavepointRestoreSettings());
 		// reconfigure snapshot restore settings
 		CheckpointConfig.reconfigureRestoreFromSnapshot(jobGraph, configuration);
+		// reconfigure stateBackend jar
+		StateBackendLoader.reconfigureStateBackendPlugin(configuration);
 
 		return jobGraph;
 	}

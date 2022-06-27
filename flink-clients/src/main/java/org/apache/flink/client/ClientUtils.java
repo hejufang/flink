@@ -34,6 +34,7 @@ import org.apache.flink.runtime.client.JobExecutionException;
 import org.apache.flink.runtime.execution.librarycache.FlinkUserCodeClassLoaders;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmaster.JobResult;
+import org.apache.flink.runtime.state.StateBackendLoader;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -43,6 +44,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -74,7 +76,11 @@ public enum ClientUtils {
 			configuration.getString(CoreOptions.CLASSLOADER_RESOLVE_ORDER);
 		FlinkUserCodeClassLoaders.ResolveOrder resolveOrder =
 			FlinkUserCodeClassLoaders.ResolveOrder.fromString(classLoaderResolveOrder);
-		return FlinkUserCodeClassLoaders.create(resolveOrder, urls, parent, alwaysParentFirstLoaderPatterns, NOOP_EXCEPTION_HANDLER);
+		Configuration cloneConfiguration = configuration.clone();
+		StateBackendLoader.reconfigureStateBackendPlugin(cloneConfiguration);
+		List<URL> stateBackendPlugins = StateBackendLoader.findStateBackendPlugins(cloneConfiguration);
+		URLClassLoader classLoader = FlinkUserCodeClassLoaders.create(resolveOrder, urls, parent, alwaysParentFirstLoaderPatterns, NOOP_EXCEPTION_HANDLER, stateBackendPlugins);
+		return classLoader;
 	}
 
 	public static JobExecutionResult submitJob(

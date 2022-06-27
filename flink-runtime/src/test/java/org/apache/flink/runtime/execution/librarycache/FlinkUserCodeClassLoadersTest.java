@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Collections;
 
 import static java.lang.ClassLoader.getSystemClassLoader;
 import static org.apache.flink.util.FlinkUserCodeClassLoader.NOOP_EXCEPTION_HANDLER;
@@ -213,7 +214,7 @@ public class FlinkUserCodeClassLoadersTest extends TestLogger {
 				new URL("file:%JAVA_HOME%/%HOME2%/file2.jar".replaceAll("%JAVA_HOME%", javaHome)),
 		};
 		try (URLClassLoader urlClassLoader = FlinkUserCodeClassLoaders.create(FlinkUserCodeClassLoaders.ResolveOrder.CHILD_FIRST,
-				urls, getSystemClassLoader(), new String[0], NOOP_EXCEPTION_HANDLER)) {
+				urls, getSystemClassLoader(), new String[0], NOOP_EXCEPTION_HANDLER, Collections.emptyList())) {
 			assertArrayEquals(expectedUrls, urlClassLoader.getURLs());
 		} catch (IOException e) {
 			throw new RuntimeException(e);

@@ -20,21 +20,42 @@ package org.apache.flink.runtime.state;
 
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.core.plugin.DirectoryBasedPluginFinder;
+import org.apache.flink.core.plugin.PluginConfig;
+import org.apache.flink.core.plugin.PluginDescriptor;
+import org.apache.flink.runtime.execution.librarycache.FlinkUserCodeClassLoaders;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.runtime.state.filesystem.FsStateBackendFactory;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.runtime.state.memory.MemoryStateBackendFactory;
 import org.apache.flink.util.DynamicCodeLoadingException;
+import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.FlinkUserCodeClassLoader;
+import org.apache.flink.util.StringUtils;
 
 import org.slf4j.Logger;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import static org.apache.flink.util.FlinkUserCodeClassLoader.NOOP_EXCEPTION_HANDLER;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -54,6 +75,11 @@ public class StateBackendLoader {
 
 	/** The shortcut configuration name for the RocksDB State Backend */
 	public static final String ROCKSDB_STATE_BACKEND_NAME = "rocksdb";
+
+	/** The shortcut configuration name for the TerarkDB State Backend */
+	public static final String TERARKDB_STATE_BACKEND_NAME = "terarkdb";
+
+	public static final String STATE_BACKEND_PLUGIN_PREFIX = "flink-statebackend-";
 
 	// ------------------------------------------------------------------------
 	//  Loading the state backend from a configuration 
@@ -95,6 +121,10 @@ public class StateBackendLoader {
 		checkNotNull(config, "config");
 		checkNotNull(classLoader, "classLoader");
 
+		if (!(classLoader instanceof FlinkUserCodeClassLoader)) {
+			classLoader = buildUserCodeClassLoader(Collections.emptyList(), Collections.emptyList(), classLoader, (Configuration) config);
+		}
+
 		final String backendName = config.get(CheckpointingOptions.STATE_BACKEND);
 		if (backendName == null) {
 			return null;
@@ -124,6 +154,7 @@ public class StateBackendLoader {
 				return fsBackend;
 
 			case ROCKSDB_STATE_BACKEND_NAME:
+			case TERARKDB_STATE_BACKEND_NAME:
 				factoryClassName = "org.apache.flink.contrib.streaming.state.RocksDBStateBackendFactory";
 				// fall through to the 'default' case that uses reflection to load the backend
 				// that way we can keep RocksDB in a separate module
@@ -231,6 +262,76 @@ public class StateBackendLoader {
 		}
 
 		return backend;
+	}
+
+	/**
+	 * The logic is consistent with that in ClientUtils for future convergence.
+	 */
+	private static ClassLoader buildUserCodeClassLoader(
+		List<URL> jars,
+		List<URL> classpaths,
+		ClassLoader parent,
+		Configuration configuration) {
+
+		URL[] urls = new URL[jars.size() + classpaths.size()];
+		for (int i = 0; i < jars.size(); i++) {
+			urls[i] = jars.get(i);
+		}
+		for (int i = 0; i < classpaths.size(); i++) {
+			urls[i + jars.size()] = classpaths.get(i);
+		}
+		final String[] alwaysParentFirstLoaderPatterns = CoreOptions.getParentFirstLoaderPatterns(configuration);
+		final String classLoaderResolveOrder =
+			configuration.get(CoreOptions.CLASSLOADER_RESOLVE_ORDER);
+		FlinkUserCodeClassLoaders.ResolveOrder resolveOrder =
+			FlinkUserCodeClassLoaders.ResolveOrder.fromString(classLoaderResolveOrder);
+		Configuration cloneConfiguration = configuration.clone();
+		reconfigureStateBackendPlugin(cloneConfiguration);
+		List<URL> stateBackendPlugins = findStateBackendPlugins(cloneConfiguration);
+		URLClassLoader classLoader = FlinkUserCodeClassLoaders.create(resolveOrder, urls, parent, alwaysParentFirstLoaderPatterns, NOOP_EXCEPTION_HANDLER, stateBackendPlugins);
+		return classLoader;
+	}
+
+	/**
+	 * <p>STATE_BACKEND_PLUGINS</p> is automatically set based on the stateBackend type.
+	 */
+	public static void reconfigureStateBackendPlugin(Configuration configuration) {
+		Optional<String> dynamicPluginsOptional = configuration.getOptional(CheckpointingOptions.STATE_BACKEND_PLUGINS);
+		String stateBackend = configuration.get(CheckpointingOptions.STATE_BACKEND);
+		StringBuilder stateBackendPlugins = new StringBuilder();
+		if (!StringUtils.isNullOrWhitespaceOnly(stateBackend) && dynamicPluginsOptional.isPresent()) {
+			stateBackendPlugins.append(";").append(STATE_BACKEND_PLUGIN_PREFIX + stateBackend);
+		} else if (!StringUtils.isNullOrWhitespaceOnly(stateBackend)){
+			stateBackendPlugins.append(STATE_BACKEND_PLUGIN_PREFIX + stateBackend);
+		}
+
+		if (stateBackendPlugins.length() > 0) {
+			configuration.set(CheckpointingOptions.STATE_BACKEND_PLUGINS, stateBackendPlugins.toString());
+		}
+	}
+
+	/**
+	 * Use {@link org.apache.flink.core.plugin.PluginFinder} to find the
+	 * {@link StateBackend} plugin from the plugins directory.
+	 */
+	public static List<URL> findStateBackendPlugins(Configuration configuration) {
+		try {
+			String pluginsString = configuration.get(CheckpointingOptions.STATE_BACKEND_PLUGINS);
+			PluginConfig pluginConfig = PluginConfig.fromConfiguration(configuration);
+			if (!StringUtils.isNullOrWhitespaceOnly(pluginsString) && pluginConfig.getPluginsPath().isPresent()) {
+				Set<String> plugins = Arrays.stream(pluginsString.split(";"))
+					.map(String::toLowerCase)
+					.collect(Collectors.toSet());
+				Collection<PluginDescriptor> pluginDescriptors = new DirectoryBasedPluginFinder(pluginConfig.getPluginsPath().get()).findPlugins();
+				return pluginDescriptors.stream()
+					.filter(p -> plugins.contains(p.getPluginId().toLowerCase()))
+					.flatMap((Function<PluginDescriptor, Stream<URL>>) pluginDescriptor -> Arrays.stream(pluginDescriptor.getPluginResourceURLs()))
+					.collect(Collectors.toList());
+			}
+			return new ArrayList<>();
+		} catch (IOException e) {
+			throw new FlinkRuntimeException("Failed to find required stateBackend plugin.", e);
+		}
 	}
 
 	// ------------------------------------------------------------------------
