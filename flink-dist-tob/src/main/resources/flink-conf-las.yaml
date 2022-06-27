@@ -111,6 +111,8 @@ common:
   # metrics
   metrics.reporters: prometheus
   metrics.reporter.prometheus.class: org.apache.flink.metrics.prometheus.PrometheusReporter
+  kubernetes.flink.jobmanager-user-ports: prometheus:9249
+  kubernetes.flink.taskmanager-user-ports: prometheus:9249
 
 edge:
   dc: cn

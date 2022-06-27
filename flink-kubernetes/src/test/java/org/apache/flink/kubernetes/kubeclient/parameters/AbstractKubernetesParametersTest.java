@@ -118,6 +118,26 @@ public class AbstractKubernetesParametersTest extends TestLogger {
 	}
 
 	@Test
+	public void getIllegalUserPorts() {
+		flinkConfig.setString(KubernetesConfigOptions.FLINK_JOBMANAGER_USER_PORTS.key(), "port1=1;port1:2");
+		assertThrows(
+				"Config of port1=1 format error.",
+				IllegalArgumentException.class,
+				testingKubernetesParameters::getJobManagerUserDefinedPorts);
+		flinkConfig.setString(KubernetesConfigOptions.FLINK_JOBMANAGER_USER_PORTS.key(), "port1:1;port1:2");
+		assertThrows(
+				"Duplicate port name of port1",
+				IllegalArgumentException.class,
+				testingKubernetesParameters::getJobManagerUserDefinedPorts);
+
+		flinkConfig.setString(KubernetesConfigOptions.FLINK_JOBMANAGER_USER_PORTS.key(), "port1:1;port2:1");
+		assertThrows(
+				"Duplicate port of 1",
+				IllegalArgumentException.class,
+				testingKubernetesParameters::getJobManagerUserDefinedPorts);
+	}
+
+	@Test
 	public void getConfigDirectoryFallbackToPodConfDir() {
 		final String confDirInPod = flinkConfig.get(KubernetesConfigOptions.FLINK_CONF_DIR);
 		assertThat(testingKubernetesParameters.getConfigDirectory(), is(confDirInPod));

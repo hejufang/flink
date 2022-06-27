@@ -27,7 +27,7 @@ import org.apache.flink.kubernetes.utils.KubernetesUtils;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
-import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
+import io.fabric8.kubernetes.api.model.ContainerPort;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
@@ -38,6 +38,7 @@ import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -116,16 +117,20 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 				.withWorkingDir(kubernetesTaskManagerParameters.getWorkingDir())
 				.withResources(resourceRequirements)
 				.addAllToVolumeMounts(volumeMountList)
-				.withPorts(new ContainerPortBuilder()
-					.withName(Constants.TASK_MANAGER_RPC_PORT_NAME)
-					.withContainerPort(kubernetesTaskManagerParameters.getRPCPort())
-					.build())
+				.withPorts(getContainerPorts())
 				.withEnv(getCustomizedEnvs())
 				.addNewEnv()
 					.withName(ENV_FLINK_POD_NAME)
 					.withValue(kubernetesTaskManagerParameters.getPodName())
 					.endEnv()
 				.build();
+	}
+
+	private List<ContainerPort> getContainerPorts() {
+		Map<String, Integer> systemPorts = new LinkedHashMap<>();
+		systemPorts.put(Constants.TASK_MANAGER_RPC_PORT_NAME, kubernetesTaskManagerParameters.getRPCPort());
+
+		return KubernetesUtils.getContainerPortsWithUserPorts(systemPorts, kubernetesTaskManagerParameters.getTaskManagerUserDefinedPorts());
 	}
 
 	private List<EnvVar> getCustomizedEnvs() {
