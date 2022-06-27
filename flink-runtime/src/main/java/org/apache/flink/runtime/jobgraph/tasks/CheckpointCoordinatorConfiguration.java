@@ -85,6 +85,8 @@ public class CheckpointCoordinatorConfiguration extends WarehouseMessage impleme
 	/** The maximum number of retries for checkpoint writing hdfs. */
 	private int transferMaxRetryAttempts;
 
+	private boolean allowPersistStateMeta;
+
 	private DiscardHistoricalCheckpointConfiguration discardHistoricalCheckpointConfiguration;
 	/**
 	 * @deprecated use {@link #builder()}.
@@ -251,6 +253,14 @@ public class CheckpointCoordinatorConfiguration extends WarehouseMessage impleme
 
 	public void setTransferMaxRetryAttempts(int transferMaxRetryAttempts) {
 		this.transferMaxRetryAttempts = transferMaxRetryAttempts;
+	}
+
+	public void setAllowPersistStateMeta(boolean allowPersistStateMeta) {
+		this.allowPersistStateMeta = allowPersistStateMeta;
+	}
+
+	public boolean getAllowPersistStateMeta() {
+		return allowPersistStateMeta;
 	}
 
 	public DiscardHistoricalCheckpointConfiguration getDiscardHistoricalCheckpointConfiguration() {

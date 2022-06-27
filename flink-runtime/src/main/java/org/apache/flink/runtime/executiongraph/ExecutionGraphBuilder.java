@@ -471,6 +471,9 @@ public class ExecutionGraphBuilder {
 			int hdfsMaxRetryAttempts = jobManagerConfig.getInteger(CheckpointingOptions.DATA_TRANSFER_MAX_RETRY_ATTEMPTS);
 			chkConfig.setTransferMaxRetryAttempts(hdfsMaxRetryAttempts);
 
+			final boolean allowPersistStateMeta = jobManagerConfig.getBoolean(CheckpointingOptions.ALLOW_PERSIST_STATE_META);
+			chkConfig.setAllowPersistStateMeta(allowPersistStateMeta);
+
 			final CheckpointTriggerStrategy triggerStrategy = jobManagerConfig.getEnum(CheckpointTriggerStrategy.class, CheckpointingOptions.CHECKPOINT_TRIGGER_STRATEGY);
 			CheckpointTriggerConfiguration triggerConfiguration = new CheckpointTriggerConfiguration(triggerStrategy, sortedTopology);
 			chkConfig.setCheckpointTriggerConfiguration(triggerConfiguration);

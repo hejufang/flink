@@ -233,6 +233,14 @@ public class CheckpointingOptions {
 					"You need to allow this if you removed an operator from your " +
 					"program that was part of the program when the checkpoint was triggered.");
 
+	/**
+	 * Allow to persist checkpoint state state when complete checkpoint.
+	 */
+	public static final ConfigOption<Boolean> ALLOW_PERSIST_STATE_META = ConfigOptions
+			.key("state.checkpoints.allow-persist-state-meta")
+			.defaultValue(false)
+			.withDescription("Allow to persist checkpoint state state when complete checkpoint.");
+
 	/** The minimum size of state data files. All state chunks smaller than that
 	 * are stored inline in the root checkpoint metadata file. */
 	@Documentation.Section(Documentation.Sections.EXPERT_STATE_BACKENDS)

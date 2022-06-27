@@ -26,6 +26,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.InputSplitSource;
 import org.apache.flink.runtime.OperatorIDPair;
+import org.apache.flink.runtime.checkpoint.OperatorStateMeta;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
@@ -35,6 +36,7 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 
 import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -142,6 +144,8 @@ public class JobVertex implements java.io.Serializable {
 
 	/** Map of each operator uid and names. */
 	private Map<OperatorID, Tuple2<String, String>> chainedOperatorUidAndNames = new HashMap<>();
+
+	private Map<OperatorID, OperatorStateMeta> chainedOperatorIdAndStateMeta = new HashMap<>();
 
 	private boolean isBounded = false;
 
@@ -637,6 +641,14 @@ public class JobVertex implements java.io.Serializable {
 
 	public Map<OperatorID, Tuple2<String, String>> getOperatorUidAndNames() {
 		return this.chainedOperatorUidAndNames;
+	}
+
+	public void setOperatorIdAndStateMeta(Map<OperatorID, OperatorStateMeta> operatorIdAndStateMeta){
+		this.chainedOperatorIdAndStateMeta = operatorIdAndStateMeta;
+	}
+
+	public Map<OperatorID, OperatorStateMeta> getChainedOperatorIdAndStateMeta(){
+		return chainedOperatorIdAndStateMeta;
 	}
 
 	// --------------------------------------------------------------------------------------------

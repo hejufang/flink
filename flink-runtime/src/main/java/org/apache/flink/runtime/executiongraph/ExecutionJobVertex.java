@@ -39,6 +39,7 @@ import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.accumulators.StringifiedAccumulatorResult;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.blob.PermanentBlobKey;
+import org.apache.flink.runtime.checkpoint.OperatorStateMeta;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.ExecutionState;
@@ -327,6 +328,10 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 
 	public boolean isBounded() {
 		return jobVertex.isBounded();
+	}
+
+	public Map<OperatorID, OperatorStateMeta> getChainedOperatorIdAndStateMeta(){
+		return getJobVertex().getChainedOperatorIdAndStateMeta();
 	}
 
 	@Override

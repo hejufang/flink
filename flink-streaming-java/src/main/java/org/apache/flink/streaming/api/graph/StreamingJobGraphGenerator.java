@@ -30,6 +30,7 @@ import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.checkpoint.CheckpointRetentionPolicy;
 import org.apache.flink.runtime.checkpoint.MasterTriggerRestoreHook;
+import org.apache.flink.runtime.checkpoint.OperatorStateMeta;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.InputOutputFormatContainer;
@@ -55,6 +56,7 @@ import org.apache.flink.streaming.api.checkpoint.WithMasterCheckpointHook;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.InputSelectable;
+import org.apache.flink.streaming.api.operators.OperatorStateMetaCollector;
 import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.UdfStreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.YieldingOperatorFactory;
@@ -490,6 +492,8 @@ public class StreamingJobGraphGenerator {
 		}
 
 		jobVertex.setOperatorUidAndNames(chainInfo.getChainedOperatorUidAndNames(streamNodeId));
+
+		jobVertex.setOperatorIdAndStateMeta(chainInfo.getChainedOperatorIdAndStateMeta(streamNodeId));
 
 		jobVertex.setMetricName(chainedMetricNames.get(streamNodeId));
 
@@ -1065,6 +1069,7 @@ public class StreamingJobGraphGenerator {
 		private final List<Map<Integer, byte[]>> legacyHashes;
 		private final Map<Integer, List<Tuple2<byte[], byte[]>>> chainedOperatorHashes;
 		private final Map<Integer, Map<OperatorID, Tuple2<String, String>>> chainedOperatorUidAndNames;
+		private final Map<Integer, Map<OperatorID, OperatorStateMeta>> chainedOperatorIdAndStateMetas;
 		private final List<OperatorCoordinator.Provider> coordinatorProviders;
 		private final StreamGraph streamGraph;
 
@@ -1078,6 +1083,7 @@ public class StreamingJobGraphGenerator {
 			this.legacyHashes = legacyHashes;
 			this.chainedOperatorHashes = new HashMap<>();
 			this.chainedOperatorUidAndNames = new HashMap<>();
+			this.chainedOperatorIdAndStateMetas = new HashMap<>();
 			this.coordinatorProviders = new ArrayList<>();
 			this.streamGraph = streamGraph;
 		}
@@ -1098,6 +1104,10 @@ public class StreamingJobGraphGenerator {
 			return chainedOperatorUidAndNames.get(startNodeId);
 		}
 
+		private Map<OperatorID, OperatorStateMeta> getChainedOperatorIdAndStateMeta(int startNodeId) {
+			return chainedOperatorIdAndStateMetas.get(startNodeId);
+		}
+
 		private List<OperatorCoordinator.Provider> getCoordinatorProviders() {
 			return coordinatorProviders;
 		}
@@ -1108,6 +1118,8 @@ public class StreamingJobGraphGenerator {
 
 			Map<OperatorID, Tuple2<String, String>> operatorUidAndNames =
 					chainedOperatorUidAndNames.computeIfAbsent(startNodeId, k -> new HashMap<>());
+			Map<OperatorID, OperatorStateMeta> operatorUidAndStateMeta =
+					chainedOperatorIdAndStateMetas.computeIfAbsent(startNodeId, k -> new HashMap<>());
 
 			byte[] primaryHashBytes = hashes.get(currentNodeId);
 
@@ -1119,6 +1131,7 @@ public class StreamingJobGraphGenerator {
 
 			StreamNode streamNode = streamGraph.getStreamNode(currentNodeId);
 			operatorUidAndNames.put(operatorID, Tuple2.of(streamNode.getTransformationUID(), streamNode.getOperatorName()));
+			operatorUidAndStateMeta.put(operatorID, OperatorStateMetaCollector.getRegisteredStateFromStreamNode(operatorID, streamNode));
 
 			streamGraph
 					.getStreamNode(currentNodeId)

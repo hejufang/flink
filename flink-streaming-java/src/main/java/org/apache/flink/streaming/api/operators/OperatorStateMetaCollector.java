@@ -45,14 +45,19 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
+import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.streaming.api.graph.StreamConfig;
+import org.apache.flink.streaming.api.graph.StreamNode;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +78,8 @@ public class OperatorStateMetaCollector implements StateRegistry {
 
 	private OperatorStateStore stateMetaCollectorStateStore;
 
+	private TypeSerializer keySerializer;
+
 	private static final Map<Class<? extends StateDescriptor>, NoOpState> NO_OP_STATE_MAP = Stream.of(
 			Tuple2.of(ValueStateDescriptor.class, new NoOpValueState()),
 			Tuple2.of(ListStateDescriptor.class, new NoOpListState()),
@@ -84,7 +91,8 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	private static final String NO_OP_STATE_EXCEPTION_PREFIX = "All Operations are NOT allowed in ";
 
 	OperatorStateMetaCollector(OperatorID operatorID, TypeSerializer keySerializer) {
-		this.operatorStateMeta = OperatorStateMeta.empty(operatorID, keySerializer);
+		this.operatorStateMeta = OperatorStateMeta.empty(operatorID);
+		this.keySerializer = keySerializer;
 		this.stateMetaCollectorStateStore = new InnerOperatorStateStore();
 	}
 
@@ -109,6 +117,7 @@ public class OperatorStateMetaCollector implements StateRegistry {
 		N namespace,
 		TypeSerializer<N> namespaceSerializer,
 		StateDescriptor<S, ?> stateDescriptor) throws Exception {
+		checkIfKeyedStateIsNull();
 		operatorStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(stateDescriptor, namespaceSerializer));
 		return (S) NO_OP_STATE_MAP.get(stateDescriptor.getClass());
 	}
@@ -120,36 +129,42 @@ public class OperatorStateMetaCollector implements StateRegistry {
 
 	@Override
 	public <T> ValueState<T> getState(ValueStateDescriptor stateProperties) {
+		checkIfKeyedStateIsNull();
 		operatorStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(stateProperties));
 		return new NoOpValueState<>();
 	}
 
 	@Override
 	public <T> ListState<T> getListState(ListStateDescriptor<T> stateProperties) {
+		checkIfKeyedStateIsNull();
 		operatorStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(stateProperties));
 		return new NoOpListState<>();
 	}
 
 	@Override
 	public <T> ReducingState<T> getReducingState(ReducingStateDescriptor<T> stateProperties) {
+		checkIfKeyedStateIsNull();
 		operatorStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(stateProperties));
 		return new NoOpReducingState<>();
 	}
 
 	@Override
 	public <IN, ACC, OUT> AggregatingState<IN, OUT> getAggregatingState(AggregatingStateDescriptor<IN, ACC, OUT> stateProperties) {
+		checkIfKeyedStateIsNull();
 		operatorStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(stateProperties));
 		return new NoOpAggregatingState<>();
 	}
 
 	@Override
 	public <UK, UV> MapState<UK, UV> getMapState(MapStateDescriptor<UK, UV> stateProperties) {
+		checkIfKeyedStateIsNull();
 		operatorStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(stateProperties));
 		return new NoOpMapState();
 	}
 
 	@Override
 	public <T> ListState<T> getOperatorListState(ListStateDescriptor<T> stateProperties) {
+		checkIfOperatorStateIsNull();
 		operatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.SPLIT_DISTRIBUTE, stateProperties));
 		return new NoOpListState<>();
 	}
@@ -157,6 +172,18 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	@Override
 	public OperatorStateStore getOperatorStateStore() {
 		return stateMetaCollectorStateStore;
+	}
+
+	private void checkIfKeyedStateIsNull(){
+		if (operatorStateMeta.getKeyedStateMeta() == null){
+			operatorStateMeta.setRegisteredKeyedStateMeta(new RegisteredKeyedStateMeta(keySerializer, BackendType.UNKOWN, new HashMap<>()));
+		}
+	}
+
+	private void checkIfOperatorStateIsNull(){
+		if (operatorStateMeta.getOperatorStateMeta() == null){
+			operatorStateMeta.setRegisteredOperatorStateMeta(new RegisteredOperatorStateMeta(BackendType.UNKOWN, new HashMap<>()));
+		}
 	}
 
 
@@ -167,18 +194,21 @@ public class OperatorStateMetaCollector implements StateRegistry {
 
 		@Override
 		public <K, V> BroadcastState<K, V> getBroadcastState(MapStateDescriptor<K, V> stateDescriptor) throws Exception {
+			checkIfOperatorStateIsNull();
 			operatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.BROADCAST, stateDescriptor));
 			return new NoOpBroadcastState<>();
 		}
 
 		@Override
 		public <S> ListState<S> getListState(ListStateDescriptor<S> stateDescriptor) throws Exception {
+			checkIfOperatorStateIsNull();
 			operatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.SPLIT_DISTRIBUTE, stateDescriptor));
 			return new NoOpListState<>();
 		}
 
 		@Override
 		public <S> ListState<S> getUnionListState(ListStateDescriptor<S> stateDescriptor) throws Exception {
+			checkIfOperatorStateIsNull();
 			operatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.UNION, stateDescriptor));
 			return new NoOpListState<>();
 		}
@@ -190,6 +220,9 @@ public class OperatorStateMetaCollector implements StateRegistry {
 
 		@Override
 		public Set<String> getRegisteredBroadcastStateNames() {
+			if (operatorStateMeta.getOperatorStateMeta() == null) {
+				return new HashSet<>();
+			}
 			return operatorStateMeta.getOperatorStateMeta().getStateMetaData().entrySet().stream()
 				.filter(entry -> ((RegisteredOperatorStateMeta.OperatorStateMetaData) entry.getValue()).getDistributeMode().equals(OperatorStateHandle.Mode.BROADCAST))
 				.map(entry -> entry.getValue().getName())
@@ -223,12 +256,29 @@ public class OperatorStateMetaCollector implements StateRegistry {
 		return stateMetas;
 	}
 
+	public static OperatorStateMeta getRegisteredStateFromStreamNode(OperatorID operatorID, StreamNode streamNode) {
+		TypeSerializer keySerializer = streamNode.getStateKeySerializer();
+		OperatorStateMetaCollector collector = new OperatorStateMetaCollector(operatorID, keySerializer);
+		OperatorStateMeta operatorStateMeta = OperatorStateMeta.empty(operatorID);
+		try {
+			streamNode.getOperatorFactory().registerState(collector);
+			operatorStateMeta = collector.getOperatorStateMeta();
+		} catch (Exception e) {
+			if (e instanceof UnsupportedOperationException && e.getMessage().startsWith(NO_OP_STATE_EXCEPTION_PREFIX)) {
+				LOG.error("Get State Meta failed because only State StateRegistry is allowed in `registerState`", e);
+			} else {
+				LOG.error("Unexpected error while get state meta from Operator [" + operatorID + "]", e);
+			}
+		}
+		return operatorStateMeta;
+	}
+
 	private interface NoOpState {}
 
 	/**
 	 * NoOpListState.
 	 */
-	public static class NoOpListState<T> implements ListState<T>, NoOpState{
+	public static class NoOpListState<T> implements ListState<T>, NoOpState, Serializable {
 
 		@Override
 		public void update(List<T> values) {
@@ -259,7 +309,7 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	/**
 	 * NoOpMapState.
 	 */
-	public static class NoOpMapState<K, V> implements MapState<K, V>, NoOpState{
+	public static class NoOpMapState<K, V> implements MapState<K, V>, NoOpState, Serializable{
 
 		@Override
 		public V get(K key) throws Exception {
@@ -320,7 +370,7 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	/**
 	 * NoOpValueState.
 	 */
-	public static class NoOpValueState<T> implements ValueState<T>, NoOpState {
+	public static class NoOpValueState<T> implements ValueState<T>, NoOpState, Serializable {
 
 		@Override
 		public void clear() {
@@ -340,7 +390,7 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	/**
 	 * NoOpBroadcastState.
 	 */
-	public static class NoOpBroadcastState<K, V> implements BroadcastState<K, V>, NoOpState {
+	public static class NoOpBroadcastState<K, V> implements BroadcastState<K, V>, NoOpState, Serializable {
 
 		@Override
 		public void put(K key, V value) throws Exception {
@@ -386,7 +436,7 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	/**
 	 * NoOpReducingState.
 	 */
-	public static class NoOpReducingState<T> implements ReducingState<T>, NoOpState{
+	public static class NoOpReducingState<T> implements ReducingState<T>, NoOpState, Serializable {
 
 		@Override
 		public T get() throws Exception {
@@ -406,7 +456,7 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	/**
 	 * NoOpAggregatingState.
 	 */
-	public static class NoOpAggregatingState<IN, OUT>  implements AggregatingState<IN, OUT>, NoOpState {
+	public static class NoOpAggregatingState<IN, OUT>  implements AggregatingState<IN, OUT>, NoOpState, Serializable {
 
 		@Override
 		public OUT get() throws Exception {

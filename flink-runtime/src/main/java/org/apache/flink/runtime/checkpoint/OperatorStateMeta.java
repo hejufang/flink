@@ -19,16 +19,13 @@
 package org.apache.flink.runtime.checkpoint;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.jobgraph.OperatorID;
-import org.apache.flink.runtime.state.tracker.BackendType;
 
 import javax.annotation.Nullable;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -209,10 +206,16 @@ public class OperatorStateMeta implements Serializable {
 		return this;
 	}
 
-	public static OperatorStateMeta empty(OperatorID operatorID, TypeSerializer keySerializer) {
-		RegisteredOperatorStateMeta registeredOperatorStateMeta = new RegisteredOperatorStateMeta(BackendType.UNKOWN, new HashMap<>());
-		RegisteredKeyedStateMeta registeredKeyedStateMeta = new RegisteredKeyedStateMeta(keySerializer, BackendType.UNKOWN, new HashMap<>());
-		return new OperatorStateMeta(operatorID, null, null, registeredOperatorStateMeta, registeredKeyedStateMeta);
+	public void setRegisteredOperatorStateMeta(RegisteredOperatorStateMeta operatorStateMeta){
+		this.registeredOperatorStateMeta = operatorStateMeta;
+	}
+
+	public void setRegisteredKeyedStateMeta(RegisteredKeyedStateMeta keyedStateMeta){
+		this.registeredKeyedStateMeta = keyedStateMeta;
+	}
+
+	public static OperatorStateMeta empty(OperatorID operatorID) {
+		return new OperatorStateMeta(operatorID, null, null, null, null);
 	}
 
 }

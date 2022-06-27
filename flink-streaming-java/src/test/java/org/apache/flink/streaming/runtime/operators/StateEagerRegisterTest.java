@@ -32,6 +32,8 @@ import org.apache.flink.runtime.checkpoint.OperatorStateMeta;
 import org.apache.flink.runtime.checkpoint.RegisteredKeyedStateMeta;
 import org.apache.flink.runtime.checkpoint.RegisteredOperatorStateMeta;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.jobgraph.JobVertex;
+import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -46,6 +48,8 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Tests for stream operator chaining behaviour.
@@ -54,7 +58,7 @@ import java.util.HashMap;
 public class StateEagerRegisterTest {
 
 	@Test
-	public void testMultiChainingWithObjectReuse() throws Exception {
+	public void testGetStateMetaWithRegisterState() throws Exception {
 
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
@@ -87,6 +91,54 @@ public class StateEagerRegisterTest {
 		Assert.assertEquals(sinkStateMeta.getAllStateMeta().size(), 0);
 
 		OperatorStateMeta sourceStateMeta = registeredStateFromJobGraph.get(2);
+		RegisteredOperatorStateMeta expectedOperatorStateMeta = new RegisteredOperatorStateMeta(BackendType.UNKOWN, new HashMap<>());
+		expectedOperatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.SPLIT_DISTRIBUTE, TestStatefulSource.listStateDescriptor));
+		expectedOperatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.UNION, TestStatefulSource.unionStateDescriptor));
+		expectedOperatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.BROADCAST, TestStatefulSource.broadcastStateDescriptor));
+
+		Assert.assertEquals(sourceStateMeta.getOperatorID().toString(), "e5a72f353fc1e6bbf3bd96a41384998c");
+		Assert.assertEquals(sourceStateMeta.getAllStateMeta().size(), 3);
+		Assert.assertEquals(sourceStateMeta.getOperatorStateMeta(), expectedOperatorStateMeta);
+	}
+
+	@Test
+	public void testGetStateMetaExactFromJobGraph() throws Exception {
+
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+		DataStream stream = env
+		.addSource(new TestStatefulSource()).uid("source")
+		.keyBy(x -> x)
+		.flatMap(new StateFulFlatMapFunction()).uid("flatMap");
+		stream.addSink(new DiscardingSink<>()).uid("sink");
+
+		// build jobGraph
+		JobGraph jobGraph = env.getStreamGraph().getJobGraph();
+
+		// get State meta from jobGraph
+
+		Map<OperatorID, OperatorStateMeta> operatorIDAndStateMeta = new LinkedHashMap<>();
+
+		for (JobVertex vertex : jobGraph.getVertices()) {
+			operatorIDAndStateMeta.putAll(vertex.getChainedOperatorIdAndStateMeta());
+		}
+		OperatorStateMeta[] operatorStateMetas = operatorIDAndStateMeta.values().toArray(new OperatorStateMeta[operatorIDAndStateMeta.size()]);
+		OperatorStateMeta flapMapStateMeta = operatorStateMetas[1];
+		RegisteredKeyedStateMeta expectedKeyedStateMeta = new RegisteredKeyedStateMeta(StringSerializer.INSTANCE, BackendType.UNKOWN, new HashMap<>());
+		expectedKeyedStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(StateFulFlatMapFunction.listStateDescriptor));
+		expectedKeyedStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(StateFulFlatMapFunction.valueStateDescriptor));
+		expectedKeyedStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(StateFulFlatMapFunction.mapStateDescriptor));
+		Assert.assertEquals(flapMapStateMeta.getOperatorID().toString(), "4cf304da7f0eed0ff91c4cb6128e1ca7");
+		Assert.assertEquals(flapMapStateMeta.getAllOperatorStateName().isEmpty(), true);
+		Assert.assertEquals(flapMapStateMeta.getAllKeyedStateName().size(), 3);
+		Assert.assertEquals(flapMapStateMeta.getKeyedStateMeta(), expectedKeyedStateMeta);
+
+		// sink state meta test
+		OperatorStateMeta sinkStateMeta = operatorStateMetas[0];
+		Assert.assertEquals(sinkStateMeta.getOperatorID().toString(), "2e588ce1c86a9d46e2e85186773ce4fd");
+		Assert.assertEquals(sinkStateMeta.getAllStateMeta().size(), 0);
+
+		OperatorStateMeta sourceStateMeta = operatorStateMetas[2];
 		RegisteredOperatorStateMeta expectedOperatorStateMeta = new RegisteredOperatorStateMeta(BackendType.UNKOWN, new HashMap<>());
 		expectedOperatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.SPLIT_DISTRIBUTE, TestStatefulSource.listStateDescriptor));
 		expectedOperatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.UNION, TestStatefulSource.unionStateDescriptor));

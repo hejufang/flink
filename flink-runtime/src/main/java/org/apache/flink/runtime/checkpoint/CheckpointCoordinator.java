@@ -36,6 +36,7 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.executiongraph.JobStatusListener;
@@ -253,6 +254,10 @@ public class CheckpointCoordinator {
 	/** Initialized HDFS expired directory. */
 	private String initializedExpiredDirectory;
 
+	private final boolean allowPersistStateMeta;
+
+	private Map<OperatorID, OperatorStateMeta> stateMetaFromJobGraph = new HashMap<>();
+
 	/** Cached to-discard expired historical directories list. */
 	private List<FileStatus> cachedToDiscardList = new ArrayList<>();
 
@@ -466,6 +471,7 @@ public class CheckpointCoordinator {
 			chkConfig.getMinPauseBetweenCheckpoints(),
 			this.pendingCheckpoints::size,
 			this.lock);
+		this.allowPersistStateMeta = chkConfig.getAllowPersistStateMeta();
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -515,6 +521,15 @@ public class CheckpointCoordinator {
 	public void setCheckpointStatsTracker(@Nullable CheckpointStatsTracker statsTracker) {
 		this.statsTracker = statsTracker;
 	}
+
+	public void setStateMetaFromJobGraph(ExecutionGraph executionGraph) {
+		if (allowPersistStateMeta) {
+			for (ExecutionJobVertex executionJobVertex : executionGraph.getAllVertices().values()) {
+				stateMetaFromJobGraph.putAll(executionJobVertex.getChainedOperatorIdAndStateMeta());
+			}
+		}
+	}
+
 
 	// --------------------------------------------------------------------------------------------
 	//  Clean shutdown
@@ -883,7 +898,9 @@ public class CheckpointCoordinator {
 			onCompletionPromise,
 			pendingTrigger,
 			checkpointStorage,
-			transferMaxRetryAttempts);
+			transferMaxRetryAttempts,
+			allowPersistStateMeta,
+			stateMetaFromJobGraph);
 
 		if (statsTracker != null) {
 			PendingCheckpointStats callback = statsTracker.reportPendingCheckpoint(

@@ -620,6 +620,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 		checkpointCoordinator.setCheckpointStatsTracker(checkpointStatsTracker);
 
+		if (chkConfig.getAllowPersistStateMeta()){
+			checkpointCoordinator.setStateMetaFromJobGraph(this);
+		}
+
 		// interval of max long value indicates disable periodic checkpoint,
 		// the CheckpointActivatorDeactivator should be created only if the interval is not max value
 		if (chkConfig.getCheckpointInterval() != Long.MAX_VALUE) {

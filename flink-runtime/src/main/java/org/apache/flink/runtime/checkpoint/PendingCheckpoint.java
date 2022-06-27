@@ -103,7 +103,9 @@ public class PendingCheckpoint {
 
 	private final Map<OperatorID, OperatorState> operatorStates;
 
-	private final Map<OperatorID, OperatorStateMeta> operatorStateMetas;
+	private final Map<OperatorID, OperatorStateMeta> operatorStateMetasFromSnapshot;
+
+	private final Map<OperatorID, OperatorStateMeta> operatorStateMetasFromJobGraph;
 
 	private final Map<ExecutionAttemptID, ExecutionVertex> totalTasks;
 
@@ -151,6 +153,8 @@ public class PendingCheckpoint {
 	private final int numNeedAcknowledgedSubtasks;
 
 	private final int transferMaxRetryAttempts;
+
+	private final boolean allowPersistStateMeta;
 
 	// --------------------------------------------------------------------------------------------
 
@@ -204,7 +208,9 @@ public class PendingCheckpoint {
 			onCompletionPromise,
 			pendingTrigger,
 			null,
-			1);
+			1,
+			false,
+			null);
 	}
 
 	public PendingCheckpoint(
@@ -220,7 +226,9 @@ public class PendingCheckpoint {
 		CompletableFuture<CompletedCheckpoint> onCompletionPromise,
 		PendingTriggerFactory.PendingTrigger pendingTrigger,
 		@Nullable CheckpointStorageCoordinatorView checkpointStorage,
-		int transferMaxRetryAttempts) {
+		int transferMaxRetryAttempts,
+		boolean allowPersistStateMeta,
+		Map<OperatorID, OperatorStateMeta> operatorStateMetasFromJobGraph) {
 
 		checkArgument(verticesToConfirm.size() > 0,
 			"Checkpoint needs at least one vertex that commits the checkpoint");
@@ -235,7 +243,7 @@ public class PendingCheckpoint {
 		this.executor = Preconditions.checkNotNull(executor);
 
 		this.operatorStates = new HashMap<>();
-		this.operatorStateMetas = new HashMap<>();
+		this.operatorStateMetasFromSnapshot = new HashMap<>();
 		this.masterStates = new ArrayList<>(masterStateIdentifiers.size());
 		this.notYetAcknowledgedMasterStates = masterStateIdentifiers.isEmpty()
 			? Collections.emptySet() : new HashSet<>(masterStateIdentifiers);
@@ -248,6 +256,8 @@ public class PendingCheckpoint {
 		this.checkpointStorage = checkpointStorage;
 		Preconditions.checkArgument(transferMaxRetryAttempts >= 1);
 		this.transferMaxRetryAttempts = transferMaxRetryAttempts;
+		this.allowPersistStateMeta = allowPersistStateMeta;
+		this.operatorStateMetasFromJobGraph = operatorStateMetasFromJobGraph;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -416,7 +426,7 @@ public class PendingCheckpoint {
 					//handle the state meta if comes a savepoint
 					try {
 						// write out the metadata
-						final CheckpointStateMetadata savepointStateMeta = new CheckpointStateMetadata(checkpointId, operatorStateMetas.values());
+						final CheckpointStateMetadata savepointStateMeta = new CheckpointStateMetadata(checkpointId, operatorStateMetasFromSnapshot.values());
 						final CompletedCheckpointStorageLocation savepointStateMetaLocation =
 						writeMetadataWithRetry(savepointStateMeta, targetLocation, CheckpointStorageLocation::createStateMetadataOutputStream, Checkpoints::storeCheckpointStateMetadata, transferMaxRetryAttempts);
 						LOG.info("StateMeta Snapshot for checkpoint {} completed successfully, store savepoint state metadata: {}", checkpointId, savepointStateMetaLocation);
@@ -429,6 +439,12 @@ public class PendingCheckpoint {
 				final CheckpointMetadata savepoint = new CheckpointMetadata(checkpointId, operatorStates.values(), masterStates);
 				final CompletedCheckpointStorageLocation finalizedLocation =
 					writeMetadataWithRetry(savepoint, targetLocation, CheckpointStorageLocation::createMetadataOutputStream, Checkpoints::storeCheckpointMetadata, transferMaxRetryAttempts);
+
+				// persist state meta in checkpoint dir
+				if (allowPersistStateMeta && !props.isSavepoint()) {
+					final CheckpointStateMetadata checkpointStateMetadata = new CheckpointStateMetadata(checkpointId, operatorStateMetasFromJobGraph.values());
+					writeMetadataWithRetry(checkpointStateMetadata, targetLocation, CheckpointStorageLocation::createStateMetadataOutputStream, Checkpoints::storeCheckpointStateMetadata, transferMaxRetryAttempts);
+				}
 
 				CompletedCheckpoint completed = new CompletedCheckpoint(
 						jobId,
@@ -658,7 +674,7 @@ public class PendingCheckpoint {
 							operatorSubtaskStateMeta = OperatorSubtaskStateMeta.empty();
 						}
 
-						OperatorStateMeta operatorStateMeta = operatorStateMetas.get(operatorID.getGeneratedOperatorID());
+						OperatorStateMeta operatorStateMeta = operatorStateMetasFromSnapshot.get(operatorID.getGeneratedOperatorID());
 
 						if (operatorStateMeta == null) {
 							Tuple2<String, String> operatorUidAndName =
@@ -669,7 +685,7 @@ public class PendingCheckpoint {
 								operatorStateMeta.setUid(operatorUidAndName.f0);
 								operatorStateMeta.setOperatorName(operatorUidAndName.f1);
 							}
-							operatorStateMetas.put(operatorID.getGeneratedOperatorID(), operatorStateMeta);
+							operatorStateMetasFromSnapshot.put(operatorID.getGeneratedOperatorID(), operatorStateMeta);
 						}
 						operatorStateMeta.mergeSubtaskStateMeta(operatorSubtaskStateMeta);
 					}
