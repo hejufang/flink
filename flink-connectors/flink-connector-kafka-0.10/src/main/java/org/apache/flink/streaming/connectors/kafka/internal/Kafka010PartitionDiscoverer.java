@@ -88,7 +88,9 @@ public class Kafka010PartitionDiscoverer extends AbstractPartitionDiscoverer {
 
 		try {
 			for (String topic : topics) {
-				final List<PartitionInfo> kafkaPartitions = kafkaConsumer.partitionsFor(topic);
+				// Currently, partitionsFor may return partial available partitions for some reason (e.g. network error)
+				// set getOnlyAvailablePartitions == false to retrieve all partitions for given topic
+				final List<PartitionInfo> kafkaPartitions = kafkaConsumer.partitionsFor(topic, false);
 
 				if (kafkaPartitions == null) {
 					throw new RuntimeException(String.format("Could not fetch partitions for %s. Make sure that the topic exists.", topic));

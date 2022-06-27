@@ -34,7 +34,7 @@ org.apache.flink:flink-connector-kafka-0.10_2.11:jar:1.11-byted-SNAPSHOT
 |  +- org.apache.commons:commons-math3:jar:3.5:provided
 |  +- org.apache.flink:flink-shaded-bytedance-commons:jar:11.0-byted-SNAPSHOT:provided
 |  \- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-11.0-byted-SNAPSHOT:provided
-+- org.apache.kafka:kafka-clients:jar:0.10.1.2-bd1.7.31:compile
++- org.apache.kafka:kafka-clients:jar:0.10.1.2-bd1.7.32:compile
 |  +- com.bytedance:commons:jar:0.0.17:compile
 |  |  +- com.google.guava:guava:jar:18.0:compile
 |  |  +- com.fasterxml.jackson.core:jackson-core:jar:2.10.1:compile

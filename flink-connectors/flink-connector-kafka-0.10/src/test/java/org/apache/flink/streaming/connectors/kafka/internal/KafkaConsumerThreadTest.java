@@ -1242,6 +1242,11 @@ public class KafkaConsumerThreadTest {
 		}
 
 		@Override
+		public List<PartitionInfo> partitionsFor(String s, boolean getOnlyAvailablePartitions) {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
 		public Map<String, List<PartitionInfo>> listTopics() {
 			throw new UnsupportedOperationException();
 		}
