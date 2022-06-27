@@ -44,7 +44,7 @@ import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -182,10 +182,10 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 					.build()
 			).collect(Collectors.toList());
 		}
-		return Collections.singletonList(new ContainerPortBuilder()
-			.withName(Constants.TASK_MANAGER_RPC_PORT_NAME)
-			.withContainerPort(kubernetesTaskManagerParameters.getRPCPort())
-			.build());
+		Map<String, Integer> systemPorts = new LinkedHashMap<>();
+		systemPorts.put(Constants.TASK_MANAGER_RPC_PORT_NAME, kubernetesTaskManagerParameters.getRPCPort());
+
+		return KubernetesUtils.getContainerPortsWithUserPorts(systemPorts, kubernetesTaskManagerParameters.getTaskManagerUserDefinedPorts());
 	}
 
 	private List<EnvVar> getCustomizedEnvs() {

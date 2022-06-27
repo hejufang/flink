@@ -78,6 +78,8 @@ public class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
 		new Toleration("NoSchedule", "key1", "Equal", null, "value1"),
 		new Toleration("NoExecute", "key2", "Exists", 6000L, null));
 
+	private static final String FLINK_USER_PORTS = "port1:1;port2:2;port3:3";
+
 	private Pod resultPod;
 	private Container resultMainContainer;
 
@@ -89,6 +91,7 @@ public class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
 		this.flinkConfig.set(KubernetesConfigOptions.CONTAINER_IMAGE_PULL_SECRETS, IMAGE_PULL_SECRETS);
 		this.flinkConfig.set(KubernetesConfigOptions.JOB_MANAGER_ANNOTATIONS, Collections.unmodifiableMap(ANNOTATIONS));
 		this.flinkConfig.setString(KubernetesConfigOptions.JOB_MANAGER_TOLERATIONS.key(), TOLERATION_STRING);
+		this.flinkConfig.setString(KubernetesConfigOptions.FLINK_JOBMANAGER_USER_PORTS.key(), FLINK_USER_PORTS);
 		ADDITIONAL_ANNOTATIONS.forEach(
 				(k, v) -> this.flinkConfig.setString(KubernetesConfigOptions.JOB_MANAGER_ANNOTATIONS.key() + "." + k, v)
 		);
@@ -153,6 +156,18 @@ public class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
 			new ContainerPortBuilder()
 				.withName(Constants.SOCKET_PORT_NAME)
 				.withContainerPort(SOCKET_PORT)
+			.build(),
+			new ContainerPortBuilder()
+				.withName("port1")
+				.withContainerPort(1)
+			.build(),
+			new ContainerPortBuilder()
+				.withName("port2")
+				.withContainerPort(2)
+			.build(),
+			new ContainerPortBuilder()
+				.withName("port3")
+				.withContainerPort(3)
 			.build());
 
 		assertEquals(expectedContainerPorts, this.resultMainContainer.getPorts());

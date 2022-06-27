@@ -281,6 +281,20 @@ public class KubernetesConfigOptions {
 				"separated by semicolon, each item contains three elements: volume name, path in host, path to be mounted in container. " +
 				"E.g. conf-volume1,/path1/in/host,/path1/in/container;conf-volume2,/path2/in/host,/path2/in/container");
 
+	public static final ConfigOption<List<String>> FLINK_JOBMANAGER_USER_PORTS =
+		key("kubernetes.flink.jobmanager-user-ports")
+			.stringType()
+			.asList()
+			.noDefaultValue()
+			.withDescription("List of user defined ports, separated by semicolon, E.g. port0:8080;port1:8081.");
+
+	public static final ConfigOption<List<String>> FLINK_TASKMANAGER_USER_PORTS =
+		key("kubernetes.flink.taskmanager-user-ports")
+			.stringType()
+			.asList()
+			.noDefaultValue()
+			.withDescription("List of user defined ports, separated by semicolon, E.g. port0:8080;port1:8081.");
+
 	public static final ConfigOption<String> FLINK_LOG_DIR =
 		key("kubernetes.flink.log.dir")
 		.stringType()

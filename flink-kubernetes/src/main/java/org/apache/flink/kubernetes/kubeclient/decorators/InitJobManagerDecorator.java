@@ -45,8 +45,8 @@ import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -185,23 +185,14 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
 					.build()
 			).collect(Collectors.toList());
 		}
-		return Arrays.asList(
-			new ContainerPortBuilder()
-				.withName(Constants.REST_PORT_NAME)
-				.withContainerPort(kubernetesJobManagerParameters.getRestPort())
-				.build(),
-			new ContainerPortBuilder()
-				.withName(Constants.JOB_MANAGER_RPC_PORT_NAME)
-				.withContainerPort(kubernetesJobManagerParameters.getRPCPort())
-				.build(),
-			new ContainerPortBuilder()
-				.withName(Constants.BLOB_SERVER_PORT_NAME)
-				.withContainerPort(kubernetesJobManagerParameters.getBlobServerPort())
-				.build(),
-			new ContainerPortBuilder()
-				.withName(Constants.SOCKET_PORT_NAME)
-				.withContainerPort(kubernetesJobManagerParameters.getSocketPort())
-				.build());
+
+		Map<String, Integer> ports = new LinkedHashMap<>();
+		ports.put(Constants.REST_PORT_NAME, kubernetesJobManagerParameters.getRestPort());
+		ports.put(Constants.JOB_MANAGER_RPC_PORT_NAME, kubernetesJobManagerParameters.getRPCPort());
+		ports.put(Constants.BLOB_SERVER_PORT_NAME, kubernetesJobManagerParameters.getBlobServerPort());
+		ports.put(Constants.SOCKET_PORT_NAME, kubernetesJobManagerParameters.getSocketPort());
+
+		return KubernetesUtils.getContainerPortsWithUserPorts(ports, kubernetesJobManagerParameters.getJobManagerUserDefinedPorts());
 	}
 
 	private List<EnvVar> getCustomizedEnvs() {

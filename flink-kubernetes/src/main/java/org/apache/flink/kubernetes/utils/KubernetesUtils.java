@@ -53,6 +53,8 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.function.FunctionUtils;
 
+import io.fabric8.kubernetes.api.model.ContainerPort;
+import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
 import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
 import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
@@ -718,6 +720,22 @@ public class KubernetesUtils {
 
 	public static boolean isHostNetworkEnabled(Configuration flinkConfig){
 		return flinkConfig.getBoolean(KubernetesConfigOptions.KUBERNETES_HOST_NETWORK_ENABLED);
+	}
+
+	public static List<ContainerPort> getContainerPortsWithUserPorts(Map<String, Integer> ports, Map<String, Integer> userDefinedPorts) {
+		for (Map.Entry<String, Integer> userPort : userDefinedPorts.entrySet()) {
+			if (ports.containsKey(userPort.getKey())) {
+				throw new IllegalArgumentException("Port name " + userPort.getKey() + " already used by system, " +
+						"Please use name other than rest/socket/blobserver/jobmanager-rpc/taskmanager-rpc.");
+			}
+			if (ports.containsValue(userPort.getValue())) {
+				throw new IllegalArgumentException("Port " + userPort.getValue() + " already used.");
+			}
+			ports.put(userPort.getKey(), userPort.getValue());
+		}
+		return ports.entrySet().stream()
+				.map(e -> new ContainerPortBuilder().withName(e.getKey()).withContainerPort(e.getValue()).build())
+				.collect(Collectors.toList());
 	}
 
 	/**
