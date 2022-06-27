@@ -62,12 +62,14 @@ public class RocketMQRestClient implements AutoCloseable {
 	private final String apiSecretKey;
 	private final String apiSecretUser;
 	private final String region;
+	private final int retryTimes;
+	private final int retryInitTimeMs;
 
 	static {
 		MAPPER.setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE);
 	}
 
-	public RocketMQRestClient(String region, String owner) {
+	public RocketMQRestClient(String region, String owner, int retryTimes, int retryInitTimeMs) {
 		this.httpClient = new OkHttpClient.Builder()
 			.connectTimeout(TIMEOUT, TimeUnit.SECONDS)
 			.writeTimeout(TIMEOUT, TimeUnit.SECONDS)
@@ -75,22 +77,29 @@ public class RocketMQRestClient implements AutoCloseable {
 			.build();
 		this.region = region;
 		this.apiSecretUser = owner;
+		this.retryTimes = retryTimes;
+		this.retryInitTimeMs = retryInitTimeMs;
 		Map<String, String> configMap = GlobalConfiguration.loadConfiguration().toMap();
 		this.apiSecretKey = configMap.get("rmq.secret_key");
 		this.serverBaseUrl = configMap.getOrDefault(
 			String.format("rmq.server_url.%s", region.toLowerCase()), DEFAULT_API_SERVER_BASE_URL);
+
+		LOG.info("RocketMQRestClient config: serverBaseUrl: {}, region: {}", serverBaseUrl, region);
 	}
 
 	public void registerToToolbox(String cluster, String topic, String group) {
 		Tuple2<Boolean, Integer> queryResult = queryTopicId(cluster, topic);
 		if (queryResult.f0) {
 			int topicId = queryResult.f1;
-			LOG.info("topic id : {}", topicId);
+			LOG.info("topic {} id : {}", topic, topicId);
 			registerConsumerGroup(topicId, group);
+		} else {
+			LOG.info("topic {} does not exist", topic);
 		}
 	}
 
 	private Tuple2<Boolean, Integer> queryTopicId(String cluster, String topic) {
+		LOG.info("RocketMQRestClient queryTopicId: region: {}, cluster: {}, topic: {}", this.region, topic, cluster);
 		QueryTopicIdRequest queryTopicIdRequest = new QueryTopicIdRequest();
 		queryTopicIdRequest.setRegion(this.region);
 		queryTopicIdRequest.setTopicName(topic);
@@ -120,6 +129,7 @@ public class RocketMQRestClient implements AutoCloseable {
 	}
 
 	private void registerConsumerGroup(int topicId, String group) {
+		LOG.info("RocketMQRestClient registerConsumerGroup: topicId: {}, group: {}", topicId, group);
 		RegisterConsumerGroupRequest registerRequest = new RegisterConsumerGroupRequest();
 		registerRequest.setGroupName(group);
 		registerRequest.setTopicId(topicId);
@@ -158,8 +168,8 @@ public class RocketMQRestClient implements AutoCloseable {
 			String payload,
 			JavaType type) {
 		RetryManager.Strategy retryStrategy = RetryManager.createStrategy(RetryManager.StrategyType.FIXED_DELAY.name(),
-			RocketMQOptions.CONSUMER_RETRY_TIMES_DEFAULT,
-			RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
+			retryTimes,
+			retryInitTimeMs);
 
 		List<RestResponse<T>> resultList = new ArrayList<>();
 		RetryManager.retry(() -> {

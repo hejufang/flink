@@ -85,7 +85,9 @@ public class RocketMQSource<OUT> implements
 		String topic = config.getTopic();
 		String dc = System.getProperty(ConfigConstants.DC_KEY, "cn").toUpperCase();
 		String user = System.getProperty(ConfigConstants.OWNER_KEY, "unknown");
-		try (RocketMQRestClient client = new RocketMQRestClient(dc, user)) {
+		int restAPIRetryTimes = config.getRestAPIRetryTimes();
+		int restAPIRetryInitTimeMs = config.getRestAPIRetryInitTimeMs();
+		try (RocketMQRestClient client = new RocketMQRestClient(dc, user, restAPIRetryTimes, restAPIRetryInitTimeMs)) {
 			client.registerToToolbox(cluster, topic, group);
 		}
 

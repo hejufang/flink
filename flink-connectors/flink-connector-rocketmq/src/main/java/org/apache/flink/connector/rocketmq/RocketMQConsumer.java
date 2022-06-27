@@ -144,7 +144,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 		String dc = System.getProperty(ConfigConstants.DC_KEY, "cn").toUpperCase();
 		String user = System.getProperty(ConfigConstants.OWNER_KEY, "unknown");
-		try (RocketMQRestClient client = new RocketMQRestClient(dc, user)) {
+		int restAPIRetryTimes = config.getRestAPIRetryTimes();
+		int restAPIRetryInitTimeMs = config.getRestAPIRetryInitTimeMs();
+		try (RocketMQRestClient client = new RocketMQRestClient(dc, user, restAPIRetryTimes, restAPIRetryInitTimeMs)) {
 			client.registerToToolbox(cluster, topic, group);
 		}
 		RocketMQUtils.saveConfigurationToSystemProperties(config);
@@ -329,13 +331,11 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			updateThread = null;
 		}
 		if (consumer != null) {
-			try {
-				RetryManager.retry(() -> consumer.commitSync(), retryStrategy);
-			} catch (Exception e) {
-				LOG.warn("Receive interrupted exception.");
-			} finally {
-				consumer.shutdown();
-				consumer = null;
+			synchronized (RocketMQConsumer.this) {
+				if (consumer != null) {
+					consumer.shutdown();
+					consumer = null;
+				}
 			}
 		}
 	}

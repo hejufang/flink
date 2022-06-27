@@ -88,6 +88,8 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_FORCE_AUT
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_OFFSET_FLUSH_INTERVAL_MS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_POLL_BATCH_SIZE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_POLL_LATENCY_MS;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_REST_RETRY_INIT_TIME_MS;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_REST_RETRY_TIMES;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_ASYNC_MODE_ENABLED;
@@ -400,6 +402,8 @@ public class RocketMQDynamicTableFactory implements
 			config.getOptional(SCAN_OFFSET_FLUSH_INTERVAL_MS).ifPresent(rocketMQConfig::setOffsetFlushInterval);
 			config.getOptional(SCAN_POLL_BATCH_SIZE).ifPresent(rocketMQConfig::setPollBatchSize);
 			config.getOptional(SCAN_POLL_LATENCY_MS).ifPresent(rocketMQConfig::setPollLatencyMs);
+			config.getOptional(SCAN_REST_RETRY_TIMES).ifPresent(rocketMQConfig::setRestAPIRetryTimes);
+			config.getOptional(SCAN_REST_RETRY_INIT_TIME_MS).ifPresent(rocketMQConfig::setRestAPIRetryInitTimeMs);
 		}
 
 		return rocketMQConfig;

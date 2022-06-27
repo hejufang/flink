@@ -271,6 +271,18 @@ public abstract class RocketMQOptions {
 		.noDefaultValue()
 		.withDescription("Binlog table name");
 
+	public static final ConfigOption<Integer> SCAN_REST_RETRY_TIMES = ConfigOptions
+		.key("scan.rest-retry-times")
+		.intType()
+		.defaultValue(2)
+		.withDescription("Optional Rest API call retry times for consumer group registration");
+
+	public static final ConfigOption<Integer> SCAN_REST_RETRY_INIT_TIME_MS = ConfigOptions
+		.key("scan.rest-retry-init-time-ms")
+		.intType()
+		.defaultValue(30_000)
+		.withDescription("Optional Rest API call retry time interval (ms) for consumer group registration");
+
 	private static final Set<String> SCAN_STARTUP_MODE_ENUMS = new HashSet<>(Arrays.asList(
 		SCAN_STARTUP_MODE_VALUE_EARLIEST,
 		SCAN_STARTUP_MODE_VALUE_LATEST,

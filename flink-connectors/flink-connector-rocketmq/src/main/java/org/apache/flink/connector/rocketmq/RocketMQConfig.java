@@ -41,6 +41,8 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_END_TIMES
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_OFFSET_FLUSH_INTERVAL_MS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_POLL_BATCH_SIZE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_POLL_LATENCY_MS;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_REST_RETRY_INIT_TIME_MS;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_REST_RETRY_TIMES;
 
 /**
  * RocketMQConfig.
@@ -80,6 +82,8 @@ public class RocketMQConfig<T> implements Serializable {
 	private long endTimestamp = SCAN_END_TIMESTAMP.defaultValue();
 	private int offsetFlushInterval = SCAN_OFFSET_FLUSH_INTERVAL_MS.defaultValue();
 	private int readerBufferSize = SourceReaderOptions.ELEMENT_QUEUE_CAPACITY.defaultValue();
+	private int restAPIRetryTimes = SCAN_REST_RETRY_TIMES.defaultValue();
+	private int restAPIRetryInitTimeMs = SCAN_REST_RETRY_INIT_TIME_MS.defaultValue();
 
 	public MsgDelayLevelSelector<T> getMsgDelayLevelSelector() {
 		return msgDelayLevelSelector;
@@ -341,5 +345,21 @@ public class RocketMQConfig<T> implements Serializable {
 
 	public void setReaderBufferSize(int readerBufferSize) {
 		this.readerBufferSize = readerBufferSize;
+	}
+
+	public int getRestAPIRetryTimes() {
+		return restAPIRetryTimes;
+	}
+
+	public void setRestAPIRetryTimes(int restAPIRetryTimes) {
+		this.restAPIRetryTimes = restAPIRetryTimes;
+	}
+
+	public int getRestAPIRetryInitTimeMs() {
+		return restAPIRetryInitTimeMs;
+	}
+
+	public void setRestAPIRetryInitTimeMs(int restAPIRetryInitTimeMs) {
+		this.restAPIRetryInitTimeMs = restAPIRetryInitTimeMs;
 	}
 }

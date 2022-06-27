@@ -349,8 +349,8 @@ common:
   rmq.server_url.cn: https://mq.byted.org/api
   rmq.server_url.sg: https://mq.byted.org/api
   rmq.server_url.va: https://mq-us.byted.org/api
-  rmq.server_url.boe: https://mq-boe.byted.org
-  rmq.server_url.boei18n: https://mq-boe.byted.org
+  rmq.server_url.boe: https://mq-boe.byted.org/api
+  rmq.server_url.boei18n: https://mq-boe.byted.org/api
 
   # show cpu and mem resource allocated for container, instead of showing cpu and mem of physical machine
   web.display-container-real-resource-enable: false
