@@ -83,7 +83,7 @@ public interface FlinkKubeClient extends AutoCloseable {
 	 * @param enableIngress whether ingress is enabled
 	 * @return Return empty if the service does not exist or could not extract the Endpoint from the service.
 	 */
-	Optional<Endpoint> getRestEndpoint(String clusterId, boolean enableIngress);
+	Optional<Endpoint> getRestEndpoint(String clusterId, boolean enableIngress, boolean isIngressSSLEnabled);
 
 	/**
 	 * Get the socket endpoint for access outside cluster.
@@ -101,7 +101,7 @@ public interface FlinkKubeClient extends AutoCloseable {
 	 * @return Return empty if the service does not exist or could not extract the Endpoint from the service.
 	 */
 	default Optional<Endpoint> getRestEndpoint(String clusterId) {
-		return getRestEndpoint(clusterId, false);
+		return getRestEndpoint(clusterId, false, false);
 	}
 
 	/**

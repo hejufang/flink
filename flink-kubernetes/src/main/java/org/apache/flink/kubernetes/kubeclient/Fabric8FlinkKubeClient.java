@@ -159,13 +159,19 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 	}
 
 	@Override
-	public Optional<Endpoint> getRestEndpoint(String clusterId, boolean enableIngress) {
+	public Optional<Endpoint> getRestEndpoint(String clusterId, boolean enableIngress, boolean isIngressSSLEnabled) {
 		if (enableIngress) {
 			Optional<Ingress> ingress = getIngress(clusterId);
 			if (ingress.isPresent()) {
-				// The port number is always 443 (https) for ingress
+				// The port number is always 443 (https) or 80 (http) for ingress
+				int port;
+				if (isIngressSSLEnabled) {
+					port = 443;
+				} else {
+					port = 80;
+				}
 				return Optional.of(
-					new Endpoint(ingress.get().getSpec().getRules().get(0).getHost(), 443));
+					new Endpoint(ingress.get().getSpec().getRules().get(0).getHost(), port));
 			} else {
 				LOG.warn("Ingress enabled but can not found corresponding ingress, try find rest endpoint from service");
 			}

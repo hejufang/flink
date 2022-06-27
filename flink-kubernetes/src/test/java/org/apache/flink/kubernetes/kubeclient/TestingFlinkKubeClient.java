@@ -117,7 +117,7 @@ public class TestingFlinkKubeClient implements FlinkKubeClient {
 	}
 
 	@Override
-	public Optional<Endpoint> getRestEndpoint(String clusterId, boolean enableIngress) {
+	public Optional<Endpoint> getRestEndpoint(String clusterId, boolean enableIngress, boolean isIngressSSLEnabled) {
 		throw new UnsupportedOperationException();
 	}
 

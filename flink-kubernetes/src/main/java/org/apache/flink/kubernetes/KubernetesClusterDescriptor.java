@@ -56,6 +56,7 @@ import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils;
 import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneClientHAServices;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
+import org.apache.flink.runtime.net.SSLUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
@@ -106,7 +107,8 @@ public class KubernetesClusterDescriptor implements ClusterDescriptor<String> {
 
 			final Optional<Endpoint> restEndpoint = client.getRestEndpoint(
 				clusterId,
-				flinkConfig.get(KubernetesConfigOptions.KUBERNETES_INGRESS_ENABLE));
+				flinkConfig.get(KubernetesConfigOptions.KUBERNETES_INGRESS_ENABLE),
+				SSLUtils.isRestSSLEnabled(configuration));
 
 			if (restEndpoint.isPresent()) {
 				configuration.setString(RestOptions.ADDRESS, restEndpoint.get().getAddress());
