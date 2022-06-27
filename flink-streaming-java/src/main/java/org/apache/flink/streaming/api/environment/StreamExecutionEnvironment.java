@@ -1841,7 +1841,9 @@ public class StreamExecutionEnvironment {
 		checkNotNull(streamGraph, "StreamGraph cannot be null.");
 		checkNotNull(configuration.get(DeploymentOptions.TARGET), "No execution.target specified in your configuration file.");
 
-		registerDashboard(streamGraph, configuration);
+		if (configuration.getBoolean(PipelineOptions.REGISTER_DASHBOARD_ENABLE)) {
+			registerDashboard(streamGraph, configuration);
+		}
 
 		PipelineExecutor pipelineExecutor;
 

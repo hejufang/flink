@@ -26,6 +26,8 @@ import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.SimpleCounter;
+import org.apache.flink.metrics.TagGauge;
+import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.metrics.util.TestHistogram;
 import org.apache.flink.metrics.util.TestMeter;
 import org.apache.flink.runtime.metrics.MetricRegistryConfiguration;
@@ -231,6 +233,17 @@ public class PrometheusReporterTest extends TestLogger {
 	}
 
 	@Test
+	public void tagGaugeGetCorrectly() {
+		TagGauge tagGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).setClearWhenFull(true).build();
+		tagGauge.addMetric(1, new TagGaugeStoreImpl.TagValuesBuilder()
+			.addTagValue("key1", "test")
+			.addTagValue("key2", "test")
+			.build());
+
+		assertThat(reporter.gaugeFrom(tagGauge).get(), equalTo(1.0));
+	}
+
+	@Test
 	public void booleanGaugeIsConvertedCorrectly() {
 		assertThat(reporter.gaugeFrom(new Gauge<Boolean>() {
 			@Override
@@ -268,6 +281,16 @@ public class PrometheusReporterTest extends TestLogger {
 		class SomeMetricType implements Metric{}
 
 		reporter.notifyOfAddedMetric(new SomeMetricType(), "name", metricGroup);
+	}
+
+	@Test
+	public void addingTagGauge() {
+		TagGauge tagGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).setClearWhenFull(true).build();
+		tagGauge.addMetric(1, new TagGaugeStoreImpl.TagValuesBuilder()
+			.addTagValue("key1", "test")
+			.addTagValue("key2", "test")
+			.build());
+		reporter.notifyOfAddedMetric(tagGauge, "name", metricGroup);
 	}
 
 	@Test

@@ -75,6 +75,10 @@ public class TagGaugeStoreImpl implements TagGaugeStore {
 		return clearAfterReport;
 	}
 
+	public TagGauge.MetricsReduceType getMetricsReduceType() {
+		return metricsReduceType;
+	}
+
 	public void reset() {
 		metricValuesList.clear();
 	}

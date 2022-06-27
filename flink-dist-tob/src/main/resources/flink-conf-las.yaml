@@ -66,9 +66,9 @@ common:
   heartbeat.timeout: 180000 # default 50000 ms
 
   ## Memory Configuration
-  taskmanager.memory.managed.fraction: 0.25
   taskmanager.memory.network.fraction: 0.3
   taskmanager.memory.network.max: 2147483648
+  taskmanager.memory.managed.fraction: 0.25
 
   ## StreamPipelineOptions
   pipeline.time-characteristic: EventTime
@@ -207,13 +207,6 @@ common:
   resourcemanager.shuffle-pending-slots: false
   jobmanager.execution.schedule-task-fairly: false
 
-  #Metrics
-  metrics.reporters: promgateway
-  metrics.reporter.promgateway.class: org.apache.flink.metrics.prometheus.PrometheusPushGatewayReporter
-  metrics.reporter.promgateway.host: prometheus-pushgateway.monitor.svc
-  metrics.reporter.promgateway.port: 9091
-  metrics.reporter.promgateway.jobName: serverlessFlinkPromgatewayJobs
-  metrics.reporter.promgateway.randomJobNameSuffix: true
-  metrics.reporter.promgateway.deleteOnShutdown: false
-  metrics.reporter.promgateway.groupingKey: k1=v1;k2=v2
-  metrics.reporter.promgateway.interval: 30 SECONDS
+  # metrics
+  metrics.reporters: prometheus
+  metrics.reporter.prometheus.class: org.apache.flink.metrics.prometheus.PrometheusReporter

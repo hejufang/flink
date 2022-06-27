@@ -29,6 +29,7 @@ import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.metrics.reporter.MetricReporter;
 import org.apache.flink.runtime.metrics.groups.AbstractMetricGroup;
 import org.apache.flink.runtime.metrics.groups.FrontMetricGroup;
@@ -235,6 +236,16 @@ public abstract class AbstractPrometheusReporter implements MetricReporter {
 				}
 				if (value instanceof Boolean) {
 					return ((Boolean) value) ? 1 : 0;
+				}
+				if (value instanceof TagGaugeStore) {
+					TagGaugeStore tagGaugeStoreValue = (TagGaugeStore) value;
+					List<TagGaugeStore.TagGaugeMetric> tagGaugeMetrics = tagGaugeStoreValue.getMetricValuesList();
+					if (tagGaugeMetrics.size() == 1) {
+						TagGaugeStore.TagGaugeMetric tagGaugeMetric = tagGaugeMetrics.get(0);
+						return tagGaugeMetric.getMetricValue();
+					} else {
+						log.debug("The reduce type of TagGauge just should just have one value now, like sum/min/max/avg.");
+					}
 				}
 				log.debug("Invalid type for Gauge {}: {}, only number types and booleans are supported by this reporter.",
 					gauge, value.getClass().getName());

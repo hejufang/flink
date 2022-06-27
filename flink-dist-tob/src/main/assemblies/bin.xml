@@ -62,6 +62,14 @@ under the License.
 			<fileMode>0644</fileMode>
 		</file>
 
+		<!-- copy python base jar -->
+		<file>
+			<source>../flink-contrib/flink-python-byted/target/flink-python-byted-${project.version}.jar</source>
+			<outputDirectory>basejar/</outputDirectory>
+			<destName>flink-python-byted.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+
 		<!-- copy bash utils -->
 		<file>
 			<source>target/bash-java-utils.jar</source>
@@ -110,6 +118,12 @@ under the License.
 		<!-- copy the config file -->
 		<file>
 			<source>src/main/resources/flink-conf.yaml</source>
+			<outputDirectory>conf</outputDirectory>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
+			<source>src/main/resources/flink-conf-las.yaml</source>
 			<outputDirectory>conf</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>

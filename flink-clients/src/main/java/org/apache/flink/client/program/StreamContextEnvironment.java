@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.execution.DetachedJobExecutionResult;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.core.execution.JobListener;
@@ -136,7 +137,10 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 	@Override
 	public JobClient executeAsync(StreamGraph streamGraph) throws Exception {
 		validateAllowedExecution();
-		registerDashboard(streamGraph, getConfiguration());
+
+		if (getConfiguration().getBoolean(PipelineOptions.REGISTER_DASHBOARD_ENABLE)) {
+			registerDashboard(streamGraph, getConfiguration());
+		}
 		final JobClient jobClient = super.executeAsync(streamGraph);
 
 		if (!suppressSysout) {

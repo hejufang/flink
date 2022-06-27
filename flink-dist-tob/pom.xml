@@ -477,6 +477,14 @@ under the License.
 			<version>${project.version}</version>
 			<scope>provided</scope>
 		</dependency>
+
+		<dependency>
+			<groupId>com.bytedance.flink</groupId>
+			<artifactId>flink-python-byted</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+		</dependency>
+
 		<!-- end optional Flink libraries -->
 
 		<dependency>
@@ -524,7 +532,8 @@ under the License.
 				<dependency>
 					<groupId>org.apache.flink</groupId>
 					<artifactId>flink-shaded-hadoop-2-uber</artifactId>
-					<version>${hadoop.version}-${flink.shaded.version}</version>
+					<!-- support a special hadoop-uber version -->
+					<version>${hadoop-uber.version}-${flink.shaded.version}</version>
 					<scope>provided</scope>
 					<exclusions>
 						<exclusion>

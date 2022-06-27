@@ -354,4 +354,10 @@ public class PipelineOptions {
 				)
 				.text("Note: This is only effective in batch mode and when table.exec.use-olap-mode is true")
 				.build());
+
+	public static final ConfigOption<Boolean> REGISTER_DASHBOARD_ENABLE =
+		key("pipeline.register-dashboard-enable")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("Whether to register dashboard.");
 }

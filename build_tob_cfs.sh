@@ -26,7 +26,7 @@ rm -rf flink-filesystems/pom.xml
 cp flink-filesystems/pom_tob.xml flink-filesystems/pom.xml
 
 # compile current branch
-mvn clean package -U -DskipTests -Pinclude-hadoop -Dhadoop.version=2.6.0-chd-5.4.4-cfs-1.0.2-online1.0.0.131 -Psql-jars -Pdocs-and-source
+mvn clean package -U -DskipTests -Pinclude-hadoop -Dhadoop.version=2.6.0-chd-5.4.4-cfs-1.0.2-online1.0.0.131 -Dhadoop-uber.version=2.6.0-chd-5.4.4-cfs-1.0.2-online1.0.0.131 -Psql-jars -Pdocs-and-source
 
 # copy flink-1.11 to output
 mkdir -p output
@@ -34,6 +34,11 @@ cp -r flink-dist/target/flink-1.11-byted-SNAPSHOT-bin/flink-1.11-byted-SNAPSHOT/
 mkdir output/plugins/s3-fs-presto
 cp output/opt/flink-s3-fs-presto-1.11-byted-SNAPSHOT.jar output/plugins/s3-fs-presto/
 rm -rf output/opt
+
+# log4j configuration
+mv output/conf/log4j-las.properties output/conf/log4j.properties
+# las yaml
+mv output/conf/flink-conf-las.yaml output/conf/flink-conf-las.yaml
 
 # common jar conflict
 bash tools/common-jar-check/common_jar_check.sh "output/"
