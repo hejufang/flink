@@ -749,6 +749,23 @@ public class FlinkSqlParserImplTest extends SqlParserTest {
 	}
 
 	@Test
+	public void testCreateTableWithLikeButWithoutLikeOptionsClause() {
+		final String sql = "create table source_table(\n" +
+			"  a int,\n" +
+			"  b bigint,\n" +
+			"  c string\n" +
+			")\n" +
+			"LIKE parent_table";
+		final String expected = "CREATE TABLE `SOURCE_TABLE` (\n" +
+			"  `A`  INTEGER,\n" +
+			"  `B`  BIGINT,\n" +
+			"  `C`  STRING\n" +
+			")\n" +
+			"LIKE `PARENT_TABLE`";
+		sql(sql).ok(expected);
+	}
+
+	@Test
 	public void testCreateTemporaryTable() {
 		final String sql = "create temporary table source_table(\n" +
 			"  a int,\n" +
