@@ -18,6 +18,9 @@
 
 package org.apache.flink.kubernetes.highavailability;
 
+import org.apache.flink.api.common.JobID;
+import org.apache.flink.kubernetes.kubeclient.TestingFlinkKubeClient;
+import org.apache.flink.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.flink.runtime.blob.VoidBlobStore;
 
 import org.junit.Test;
@@ -34,6 +37,38 @@ import static org.junit.Assert.assertThat;
  * Tests for the {@link KubernetesHaServices}.
  */
 public class KubernetesHaServicesTest extends KubernetesHighAvailabilityTestBase {
+
+	@Test
+	public void testInternalJobCleanupShouldCleanupConfigMaps() throws Exception {
+		new Context() {
+			{
+				runTest(
+					() -> {
+						final KubernetesHaServices kubernetesHaServices =
+							new KubernetesHaServices(
+								flinkKubeClient,
+								executorService,
+								configuration,
+								new VoidBlobStore());
+						JobID jobID = new JobID();
+						String configMapName =
+							kubernetesHaServices.getLeaderNameForJobManager(jobID);
+						final KubernetesConfigMap configMap =
+							new TestingFlinkKubeClient.MockKubernetesConfigMap(
+								configMapName);
+						flinkKubeClient.createConfigMap(configMap);
+						assertThat(
+							flinkKubeClient.getConfigMap(configMapName).isPresent(),
+							is(true));
+						kubernetesHaServices.internalCleanupJobData(jobID);
+						assertThat(
+							flinkKubeClient.getConfigMap(configMapName).isPresent(),
+							is(false));
+					}
+				);
+			}
+		};
+	}
 
 	@Test
 	public void testInternalCloseShouldCloseFlinkKubeClient() throws Exception {

@@ -34,10 +34,14 @@ import org.apache.flink.runtime.util.ZooKeeperUtils;
 import org.apache.flink.shaded.curator4.org.apache.curator.framework.CuratorFramework;
 import org.apache.flink.shaded.curator4.org.apache.curator.utils.ZKPaths;
 import org.apache.flink.shaded.zookeeper3.org.apache.zookeeper.KeeperException;
+import org.apache.flink.shaded.zookeeper3.org.apache.zookeeper.data.Stat;
 
 import javax.annotation.Nonnull;
 
+import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -139,6 +143,27 @@ public class ZooKeeperHaServices extends AbstractHaServices {
 	}
 
 	@Override
+	public void internalCleanupJobData(JobID jobID) throws Exception {
+		logger.info("Clean up the zookeeper high availability data for job {}.", jobID);
+
+		final List<String> paths =
+			Stream.of(
+					HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINTS_PATH,
+					HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINT_COUNTER_PATH,
+					HighAvailabilityOptions.HA_ZOOKEEPER_LATCH_PATH,
+					HighAvailabilityOptions.HA_ZOOKEEPER_LEADER_PATH)
+				.map(configuration::getString)
+				.map(parent -> parent + "/" + jobID)
+				.collect(Collectors.toList());
+		for (String path : paths) {
+			logger.info("Deleting zookeeper path {}.", path);
+			deleteZNode(path);
+		}
+
+		logger.info("Finished cleaning up the zookeeper high availability data for job {}.", jobID);
+	}
+
+	@Override
 	protected String getLeaderNameForResourceManager() {
 		return RESOURCE_MANAGER_LEADER_PATH;
 	}
@@ -170,6 +195,10 @@ public class ZooKeeperHaServices extends AbstractHaServices {
 	}
 
 	private void deleteOwnedZNode() throws Exception {
+		deleteZNode("/");
+	}
+
+	private void deleteZNode(String path) throws Exception {
 		// delete the HA_CLUSTER_ID znode which is owned by this cluster
 
 		// Since we are using Curator version 2.12 there is a bug in deleting the children
@@ -178,12 +207,17 @@ public class ZooKeeperHaServices extends AbstractHaServices {
 		// The retry logic can be removed once we upgrade to Curator version >= 4.0.1.
 		boolean zNodeDeleted = false;
 		while (!zNodeDeleted) {
+			Stat stat = client.checkExists().forPath(path);
+			if (stat == null) {
+				logger.info("Znode {} has been deleted", path);
+				return;
+			}
 			try {
-				client.delete().deletingChildrenIfNeeded().forPath("/");
+				client.delete().deletingChildrenIfNeeded().forPath(path);
 				zNodeDeleted = true;
 			} catch (KeeperException.NoNodeException ignored) {
 				// concurrent delete operation. Try again.
-				logger.debug("Retrying to delete owned znode because of other concurrent delete operation.");
+				logger.info("Retrying to delete znode because of other concurrent delete operation.");
 			}
 		}
 	}

@@ -190,6 +190,22 @@ public abstract class AbstractHaServices implements HighAvailabilityServices {
 		logger.info("Finished cleaning up the high availability data.");
 	}
 
+	@Override
+	public void cleanupJobData(JobID jobID) throws Exception {
+		logger.info("Clean up the high availability data for job {}.", jobID);
+		internalCleanupJobData(jobID);
+		logger.info("Finished cleaning up the high availability data for job {}.", jobID);
+	}
+
+	/**
+	 * Clean up the meta data in the distributed system(e.g. Zookeeper, Kubernetes ConfigMap) for
+	 * the specified Job.
+	 *
+	 * @param jobID The identifier of the job to cleanup.
+	 * @throws Exception when do the cleanup operation on external storage.
+	 */
+	protected abstract void internalCleanupJobData(JobID jobID) throws Exception;
+
 	/**
 	 * Create leader election service with specified leaderName.
 	 * @param leaderName ConfigMap name in Kubernetes or child node path in Zookeeper.

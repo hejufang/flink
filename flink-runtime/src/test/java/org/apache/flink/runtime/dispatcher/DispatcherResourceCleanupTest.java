@@ -131,6 +131,8 @@ public class DispatcherResourceCleanupTest extends TestLogger {
 	private CompletableFuture<BlobKey> storedHABlobFuture;
 	private CompletableFuture<JobID> deleteAllHABlobsFuture;
 	private CompletableFuture<JobID> cleanupJobFuture;
+
+	private CompletableFuture<JobID> cleanupJobHADataFuture;
 	private JobGraphWriter jobGraphWriter = NoOpJobGraphWriter.INSTANCE;
 
 	@BeforeClass
@@ -149,6 +151,9 @@ public class DispatcherResourceCleanupTest extends TestLogger {
 		configuration.setString(BlobServerOptions.STORAGE_DIRECTORY, temporaryFolder.newFolder().getAbsolutePath());
 
 		highAvailabilityServices = new TestingHighAvailabilityServices();
+		cleanupJobHADataFuture = new CompletableFuture<>();
+		highAvailabilityServices.setCleanupJobDataFuture(cleanupJobHADataFuture);
+
 		clearedJobLatch = new OneShotLatch();
 		runningJobsRegistry = new SingleRunningJobsRegistry(jobId, clearedJobLatch);
 		highAvailabilityServices.setRunningJobsRegistry(runningJobsRegistry);
@@ -390,6 +395,31 @@ public class DispatcherResourceCleanupTest extends TestLogger {
 		}
 
 		assertThatHABlobsHaveBeenRemoved();
+	}
+
+	@Test
+	public void testHaDataCleanupWhenJobFinished() throws Exception {
+		TestingJobManagerRunnerFactory jobManagerRunnerFactory = startDispatcherAndSubmitJob();
+		TestingJobManagerRunner jobManagerRunner =
+			jobManagerRunnerFactory.takeCreatedJobManagerRunner();
+		finishJob(jobManagerRunner);
+		JobID jobID = cleanupJobHADataFuture.get(2000, TimeUnit.MILLISECONDS);
+		assertThat(jobID, is(this.jobId));
+	}
+
+	@Test
+	public void testHaDataCleanupWhenJobNotFinished() throws Exception {
+		TestingJobManagerRunnerFactory jobManagerRunnerFactory = startDispatcherAndSubmitJob();
+		TestingJobManagerRunner jobManagerRunner =
+			jobManagerRunnerFactory.takeCreatedJobManagerRunner();
+		jobManagerRunner.completeResultFutureExceptionally(new JobNotFinishedException(jobId));
+		try {
+			cleanupJobHADataFuture.get(10L, TimeUnit.MILLISECONDS);
+			fail("We should not delete the HA data for job.");
+		} catch (TimeoutException ignored) {
+			// expected
+		}
+		assertThat(cleanupJobHADataFuture.isDone(), is(false));
 	}
 
 	private void finishJob(TestingJobManagerRunner takeCreatedJobManagerRunner) {

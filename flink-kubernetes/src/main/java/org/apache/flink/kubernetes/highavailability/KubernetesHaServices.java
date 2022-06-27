@@ -134,6 +134,13 @@ public class KubernetesHaServices extends AbstractHaServices {
 	}
 
 	@Override
+	public void internalCleanupJobData(JobID jobID) throws Exception {
+		logger.info("Clean up the k8s high availability data for job {}.", jobID);
+		kubeClient.deleteConfigMap(getLeaderNameForJobManager(jobID)).get();
+		logger.info("Finished cleaning up the k8s high availability data for job {}.", jobID);
+	}
+
+	@Override
 	protected String getLeaderNameForResourceManager() {
 		return getLeaderName(RESOURCE_MANAGER_NAME);
 	}
