@@ -37,9 +37,9 @@ under the License.
 		</file>
 
 		<file>
-			<source>../flink-connectors/flink-sql-connector-hive-1.2.2-bd57/target/flink-sql-connector-hive-1.2.2-bd57_${scala.binary.version}-${project.version}.jar</source>
+			<source>../flink-connectors/flink-sql-connector-hive-1.2.2-bd103/target/flink-sql-connector-hive-1.2.2-bd103_${scala.binary.version}-${project.version}.jar</source>
 			<outputDirectory>connectors/</outputDirectory>
-			<destName>flink-sql-connector-hive-1.2.2-bd57_${scala.binary.version}-${project.version}.jar</destName>
+			<destName>flink-sql-connector-hive-1.2.2-bd103_${scala.binary.version}-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
 
