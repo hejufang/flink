@@ -53,4 +53,8 @@ public class SocketPushJobResultListener implements SocketJobResultListener {
 			throw exceptionHolder.get();
 		}
 	}
+
+	public boolean checkRunning() {
+		return latch.getCount() > 0;
+	}
 }

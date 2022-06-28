@@ -97,7 +97,7 @@ public class JobResultThreadPoolTest {
 		}
 	}
 
-	@Test
+	@Test(timeout = 1000)
 	public void testWriteMultipleJobResults() throws InterruptedException {
 		final int jobCount = 100;
 		try (JobResultThreadPool threadPool = new JobResultThreadPool(jobCount)) {
@@ -140,7 +140,8 @@ public class JobResultThreadPoolTest {
 								.setResult(i)
 								.setResultStatus(ResultStatus.PARTIAL)
 								.build(),
-							resultTask));
+							resultTask,
+							null));
 				}
 			}
 			for (JobID jobId : jobResultsMap.keySet()) {
@@ -153,7 +154,8 @@ public class JobResultThreadPoolTest {
 							.setResult(null)
 							.setResultStatus(ResultStatus.COMPLETE)
 							.build(),
-						resultTask)
+						resultTask,
+						null)
 				);
 			}
 

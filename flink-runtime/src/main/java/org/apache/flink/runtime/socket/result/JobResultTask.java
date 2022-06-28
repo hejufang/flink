@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -39,6 +40,7 @@ public class JobResultTask implements Runnable {
 	private final JobResultThreadPool resultThreadPool;
 	private JobID owner;
 	private long lastUsedTimestamp;
+	private final Object lock;
 
 	public JobResultTask(int index, int maximumQueueSize, JobResultThreadPool resultThreadPool) {
 		this.resultQueue = new ArrayBlockingQueue<>(maximumQueueSize);
@@ -47,6 +49,7 @@ public class JobResultTask implements Runnable {
 		this.resultThreadPool = resultThreadPool;
 		this.owner = null;
 		this.lastUsedTimestamp = System.currentTimeMillis();
+		this.lock = new Object();
 	}
 
 	public void start() {
@@ -54,13 +57,15 @@ public class JobResultTask implements Runnable {
 	}
 
 	public void updateTaskStatus(JobID jobId) {
-		if (owner == null) {
-			owner = jobId;
-			lastUsedTimestamp = System.currentTimeMillis();
-		} else {
-			String message = "Fail to update task " + this.executeTask + " for job " + jobId + " because it is using by job " + jobId;
-			LOG.error(message);
-			throw new RuntimeException(message);
+		synchronized (lock) {
+			if (owner == null) {
+				owner = jobId;
+				lastUsedTimestamp = System.currentTimeMillis();
+			} else {
+				String message = "Fail to update task " + this.executeTask + " for job " + jobId + " because it is using by job " + jobId;
+				LOG.error(message);
+				throw new RuntimeException(message);
+			}
 		}
 	}
 
@@ -68,9 +73,9 @@ public class JobResultTask implements Runnable {
 		return lastUsedTimestamp;
 	}
 
-	public void addJobResultContext(JobResultContext jobResultContext) {
+	public boolean addJobResultContext(JobResultContext jobResultContext) {
 		try {
-			resultQueue.put(jobResultContext);
+			return resultQueue.offer(jobResultContext, 100L, TimeUnit.MILLISECONDS);
 		} catch (InterruptedException e) {
 			LOG.error("Fail to add result to queue for job {}", jobResultContext.getJobId(), e);
 			throw new RuntimeException(e);
@@ -82,20 +87,27 @@ public class JobResultTask implements Runnable {
 		while (running.get()) {
 			try {
 				JobResultContext jobResultContext = resultQueue.take();
-				jobResultContext.writeResult();
+				synchronized (lock){
+					if (jobResultContext.getJobId().equals(owner)){
+						jobResultContext.writeResult();
+					}
+				}
 			} catch (InterruptedException ignored) { }
 		}
 	}
 
 	public void recycle(JobID jobId) {
-		if (jobId.equals(owner)) {
-			owner = null;
-			resultThreadPool.recycleResultTask(this);
-			LOG.info("Recycle task {} by job {}", this, jobId);
-		} else {
-			String message = "Job " + jobId + " fail to recycle task because it is using by job " + owner;
-			LOG.error(message);
-			throw new RuntimeException(message);
+		synchronized (lock) {
+			if (jobId.equals(owner)) {
+				owner = null;
+				resultQueue.clear();
+				resultThreadPool.recycleResultTask(this);
+				LOG.info("Recycle task {} by job {}", this, jobId);
+			} else {
+				String message = "Job " + jobId + " fail to recycle task because it is using by job " + owner;
+				LOG.error(message);
+				throw new RuntimeException(message);
+			}
 		}
 	}
 

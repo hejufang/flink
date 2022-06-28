@@ -70,6 +70,7 @@ import org.apache.flink.streaming.api.operators.MailboxExecutor;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamTaskStateInitializer;
 import org.apache.flink.streaming.api.operators.StreamTaskStateInitializerImpl;
+import org.apache.flink.streaming.api.operators.sink.TaskPushSinkOperator;
 import org.apache.flink.streaming.runtime.io.RecordWriterOutput;
 import org.apache.flink.streaming.runtime.io.StreamInputProcessor;
 import org.apache.flink.streaming.runtime.partitioner.ConfigurableBacklogPartitioner;
@@ -364,6 +365,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	}
 
 	protected void cancelTask() throws Exception {
+
 	}
 
 	protected void cleanup() throws Exception {
@@ -738,6 +740,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		// the "cancel task" call must come first, but the cancelables must be
 		// closed no matter what
 		try {
+			cancelTaskResultPush();
 			cancelTask();
 		}
 		finally {
@@ -751,6 +754,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 						throw new CompletionException(e);
 					}
 				});
+		}
+	}
+
+	private void cancelTaskResultPush() {
+		StreamOperator<?> tailOperator = operatorChain.getTailOperator();
+		if (tailOperator instanceof TaskPushSinkOperator) {
+			TaskPushSinkOperator taskPushSinkOperator = (TaskPushSinkOperator) tailOperator;
+			taskPushSinkOperator.cancel();
 		}
 	}
 

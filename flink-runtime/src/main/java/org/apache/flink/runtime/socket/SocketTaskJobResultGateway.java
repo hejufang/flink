@@ -95,7 +95,7 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 			.build();
 		NettySocketClient nettySocketClient = clientList.get(getJobNettySocketClient(jobId));
 		Channel channel = nettySocketClient.getChannel();
-		while (true) {
+		while (listener == null || listener.checkRunning()) {
 			nettySocketClient.validateClientStatus();
 			if (channel.isWritable()) {
 				channel.writeAndFlush(jobSocketResult)
@@ -114,9 +114,15 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 					});
 				break;
 			}
+			if (!channel.isActive()) {
+				listener.fail(new RuntimeException("Job " + jobId + " result status " + resultStatus + "channel is inActive."));
+				break;
+			}
 			try {
 				Thread.sleep(10);
-			} catch (InterruptedException e) { }
+			} catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			}
 		}
 	}
 

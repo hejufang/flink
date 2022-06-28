@@ -22,6 +22,7 @@ import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.runtime.execution.CancelTaskException;
 import org.apache.flink.runtime.socket.SocketJobResultListener;
 import org.apache.flink.runtime.socket.SocketPushJobResultListener;
 import org.apache.flink.runtime.socket.TaskJobResultGateway;
@@ -102,5 +103,9 @@ public class TaskPushSinkFunction<IN> extends RichSinkFunction<IN> implements Ch
 		sendTaskResult(ResultStatus.COMPLETE);
 		listener.await();
 		super.close();
+	}
+
+	public void cancel(){
+		listener.fail(new CancelTaskException("Task cancel TaskPushSinkFunction"));
 	}
 }

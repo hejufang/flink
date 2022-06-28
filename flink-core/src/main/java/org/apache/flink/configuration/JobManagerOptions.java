@@ -548,11 +548,11 @@ public class JobManagerOptions {
 			.defaultValue(Runtime.getRuntime().availableProcessors() * 2)
 			.withDescription("Number of threads used to fetch job result.");
 
-	public static final ConfigOption<Boolean> DISPATCHER_FETCH_RESULT_THREAD_POOL_ENABLED =
-		key("jobmanager.dispatcher-fetch-result.thread-pool-enabled")
+	public static final ConfigOption<Boolean> DISPATCHER_JOB_RESULT_THREAD_POOL_ENABLED =
+		key("jobmanager.dispatcher-job-result.thread-pool-enabled")
 			.booleanType()
 			.defaultValue(false)
-			.withDescription("Whether to create thread pool in Dispatcher to fetch job result");
+			.withDescription("Whether to create thread pool in Dispatcher to send/fetch job result");
 
 	/**
 	 * Whether to record slow query or not.

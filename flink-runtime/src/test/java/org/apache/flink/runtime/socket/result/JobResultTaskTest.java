@@ -76,7 +76,8 @@ public class JobResultTaskTest {
 						.setResult(intValueList.get(i))
 						.setResultStatus(ResultStatus.PARTIAL)
 						.build(),
-					jobResultTask));
+					jobResultTask,
+					null));
 		}
 		jobResultTask.addJobResultContext(
 			new JobResultContext(
@@ -86,7 +87,8 @@ public class JobResultTaskTest {
 					.setResult(intValueList.get(intValueList.size() - 1))
 					.setResultStatus(ResultStatus.COMPLETE)
 					.build(),
-				jobResultTask));
+				jobResultTask,
+				null));
 
 		assertTrue(flushCount.await(10, TimeUnit.SECONDS));
 		assertEquals(intValueList, resultList);
@@ -184,7 +186,8 @@ public class JobResultTaskTest {
 						.setResult(valueList.get(i))
 						.setResultStatus(ResultStatus.PARTIAL)
 						.build(),
-					jobResultTask));
+					jobResultTask,
+					null));
 		}
 		if (finishFlag) {
 			jobResultTask.addJobResultContext(
@@ -195,7 +198,8 @@ public class JobResultTaskTest {
 						.setResult(valueList.get(valueList.size() - 1))
 						.setResultStatus(ResultStatus.COMPLETE)
 						.build(),
-					jobResultTask));
+					jobResultTask,
+					null));
 		}
 	}
 }

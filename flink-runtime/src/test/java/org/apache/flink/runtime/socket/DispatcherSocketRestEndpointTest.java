@@ -170,11 +170,10 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 			});
 	}
 
-	@Test
+	@Test(timeout = 5000L)
 	public void testGatewayPushCompleteResults() throws Exception {
 		List<String> valueList = Arrays.asList("a", "b", "c", "d");
 		JobResultClientManager jobResultClientManager = new JobResultClientManager(3);
-		SocketJobResultListener listener = new SocketPushJobResultListener();
 		testSocketValueResult(
 			valueList,
 			jobResultClientManager,
@@ -187,6 +186,7 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 				} catch (Exception e) {
 					throw new RuntimeException(e);
 				}
+				SocketJobResultListener listener = new SocketPushJobResultListener();
 				for (int i = 0; i < valueList.size() - 1; i++) {
 					socketTaskJobResultGateway.sendResult(graph.getJobID(), valueList.get(i).getBytes(), ResultStatus.PARTIAL, listener);
 				}
@@ -212,10 +212,11 @@ public class DispatcherSocketRestEndpointTest extends TestLogger {
 				} catch (Exception e) {
 					throw new RuntimeException(e);
 				}
+				SocketJobResultListener listener = new SocketPushJobResultListener();
 				for (String value : valueList) {
-					socketTaskJobResultGateway.sendResult(graph.getJobID(), value.getBytes(), ResultStatus.PARTIAL, null);
+					socketTaskJobResultGateway.sendResult(graph.getJobID(), value.getBytes(), ResultStatus.PARTIAL, listener);
 				}
-				socketTaskJobResultGateway.sendResult(graph.getJobID(), null, ResultStatus.COMPLETE, null);
+				socketTaskJobResultGateway.sendResult(graph.getJobID(), null, ResultStatus.COMPLETE, listener);
 				jobResultClientManager.getJobChannelManager(graph.getJobID()).finishJob();
 			},
 			(Function<byte[], String>) String::new);

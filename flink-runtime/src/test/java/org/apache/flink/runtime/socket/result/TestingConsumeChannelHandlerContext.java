@@ -41,13 +41,20 @@ import java.util.function.Consumer;
 public class TestingConsumeChannelHandlerContext implements ChannelHandlerContext {
 	private final Consumer<Object> flushConsumer;
 
+	private Channel channel = null;
+
 	private TestingConsumeChannelHandlerContext(Consumer<Object> flushConsumer) {
 		this.flushConsumer = flushConsumer;
 	}
 
+	private TestingConsumeChannelHandlerContext(Consumer<Object> flushConsumer, Channel channel) {
+		this.flushConsumer = flushConsumer;
+		this.channel = channel;
+	}
+
 	@Override
 	public Channel channel() {
-		return new TestingConsumeChannel(flushConsumer);
+		return channel == null ? new TestingConsumeChannel(flushConsumer) : channel;
 	}
 
 	@Override
@@ -261,13 +268,20 @@ public class TestingConsumeChannelHandlerContext implements ChannelHandlerContex
 	public static class TestingConsumeChannelHandlerBuilder {
 		private Consumer<Object> flushConsumer;
 
+		private Channel channel;
+
 		public TestingConsumeChannelHandlerBuilder setWriteAndFlushConsumer(Consumer<Object> flushConsumer) {
 			this.flushConsumer = flushConsumer;
 			return this;
 		}
 
+		public TestingConsumeChannelHandlerBuilder setChannel(Channel channel) {
+			this.channel = channel;
+			return this;
+		}
+
 		public TestingConsumeChannelHandlerContext build() {
-			return new TestingConsumeChannelHandlerContext(flushConsumer);
+			return new TestingConsumeChannelHandlerContext(flushConsumer, channel);
 		}
 	}
 

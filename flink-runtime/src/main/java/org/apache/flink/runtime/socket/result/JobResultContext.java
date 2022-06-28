@@ -28,6 +28,8 @@ import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
  * Job socket result with channel context.
  */
@@ -36,43 +38,64 @@ public class JobResultContext {
 	private final ChannelHandlerContext context;
 	private final JobSocketResult jobSocketResult;
 	private final JobResultTask resultTask;
+	private AtomicBoolean onError;
+	private JobChannelManager jobChannelManager;
 
-	public JobResultContext(ChannelHandlerContext context, JobSocketResult jobSocketResult, JobResultTask resultTask) {
+	public JobResultContext(ChannelHandlerContext context, JobSocketResult jobSocketResult, JobResultTask resultTask, JobChannelManager jobChannelManager) {
 		this.context = context;
 		this.jobSocketResult = jobSocketResult;
 		this.resultTask = resultTask;
+		this.onError = new AtomicBoolean(false);
+		this.jobChannelManager = jobChannelManager;
 	}
 
 	public void writeResult() {
 		Channel channel = context.channel();
-		while (true) {
+		while (!onError.get()) {
 			if (channel.isWritable()) {
 				long start = System.currentTimeMillis();
 				ChannelFuture channelFuture = channel.writeAndFlush(jobSocketResult);
-				if (jobSocketResult.isFinish()) {
-					LOG.info("Write complete result for job {}", getJobId());
-					channelFuture.addListener(future -> {
-						if (future.isSuccess()) {
-							LOG.info("Write complete result to channel for job {} failed flag {} flush cost {}",
-								jobSocketResult.getJobId(),
-								jobSocketResult.isFailed(),
-								System.currentTimeMillis() - start);
-						} else {
-							LOG.error("Fail to write complete result to channel for job {} failed flag {} flush cost {}",
-								jobSocketResult.getJobId(),
-								jobSocketResult.isFailed(),
-								System.currentTimeMillis() - start);
-							context.close().get();
-						}
+				channelFuture.addListener(future -> {
+
+					if (!future.isSuccess()) {
+						LOG.error("Fail to write complete result to channel for job {} failed flag {} flush cost {}",
+							jobSocketResult.getJobId(),
+							jobSocketResult.isFailed(),
+							System.currentTimeMillis() - start);
+						onError();
+						return;
+					}
+
+					if (jobSocketResult.isFinish()) {
+						LOG.info("Write complete result to channel for job {} failed flag {} flush cost {}",
+							jobSocketResult.getJobId(),
+							jobSocketResult.isFailed(),
+							System.currentTimeMillis() - start);
 						resultTask.recycle(jobSocketResult.getJobId());
-					});
-				}
+					}
+				});
+				break;
+			}
+			if (!channel.isActive()) {
+				onError();
 				break;
 			}
 			try {
 				Thread.sleep(10);
-			} catch (InterruptedException ignored) { }
+			} catch (InterruptedException ignored) {
+			}
 		}
+	}
+
+	private void onError() {
+		try {
+			context.close().get();
+		} catch (Exception e) {
+			LOG.error("JobResultContext context close fail", e);
+		}
+		jobChannelManager.onError();
+		resultTask.recycle(jobSocketResult.getJobId());
+		onError.set(true);
 	}
 
 	public JobID getJobId() {

@@ -21,7 +21,16 @@ package org.apache.flink.runtime.socket.result;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.socket.JobSocketResult;
 import org.apache.flink.api.common.socket.ResultStatus;
+import org.apache.flink.runtime.socket.NettySocketClient;
+import org.apache.flink.runtime.socket.NettySocketServer;
 import org.apache.flink.util.SerializedThrowable;
+
+import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdapter;
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ClassResolvers;
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectDecoder;
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectEncoder;
 
 import org.junit.Test;
 
@@ -29,7 +38,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
@@ -204,6 +216,98 @@ public class JobResultClientManagerTest {
 			assertEquals(1, resultList.size());
 			assertNotNull(resultList.get(0).getSerializedThrowable());
 			assertTrue(resultList.get(0).getSerializedThrowable().toString().contains("Fail job directly"));
+		}
+	}
+
+	@Test(timeout = 5000)
+	public void testSendResultAfterConnectionError() throws Exception {
+		CompletableFuture<JobSocketResult> receiveFuture = new CompletableFuture<>();
+		CompletableFuture<Boolean> exceptionFuture = new CompletableFuture<>();
+		ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(
+			1);
+		JobResultClientManager jobResultClientManager = new JobResultClientManager(1,
+			10000,
+			1000,
+			scheduledExecutorService);
+		JobID jobId = new JobID();
+		List<Object> resultList = new ArrayList<>();
+		final CountDownLatch latch = new CountDownLatch(1);
+		jobResultClientManager.addJobChannelManager(
+			jobId,
+			new JobChannelManager(
+				jobId,
+				TestingConsumeChannelHandlerContext.newBuilder()
+					.setWriteAndFlushConsumer(o -> {
+						JobSocketResult result = (JobSocketResult) o;
+						assertEquals(jobId, result.getJobId());
+						if (result.getResult() != null) {
+							resultList.add(result.getResult());
+						}
+						if (result.isFinish()) {
+							latch.countDown();
+						}
+					})
+					.build(),
+				1,
+				jobResultClientManager));
+		try (NettySocketServer nettySocketServer = new NettySocketServer(
+			"test",
+			"localhost",
+			"0",
+			channelPipeline -> {
+
+				channelPipeline.addLast(
+					new ObjectEncoder(),
+					new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null)),
+					new ChannelInboundHandlerAdapter() {
+						@Override
+						public void channelRead(ChannelHandlerContext ctx, Object msg) {
+							receiveFuture.complete((JobSocketResult) msg);
+						}
+					}
+				);
+			});
+		) {
+			nettySocketServer.start();
+
+			try (NettySocketClient nettySocketClient = new NettySocketClient(
+				nettySocketServer.getAddress(),
+				nettySocketServer.getPort(),
+				100000,
+				channelPipeline -> channelPipeline.addLast(
+					new ObjectEncoder(),
+					new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null))))) {
+				nettySocketClient.start();
+				Channel channel = nettySocketClient.getChannel();
+				JobChannelManager jobChannelManager = new JobChannelManager(
+					jobId,
+					TestingConsumeChannelHandlerContext.newBuilder()
+						.setChannel(channel)
+						.build(),
+					1,
+					jobResultClientManager);
+				jobResultClientManager.addJobChannelManager(
+					jobId,
+					jobChannelManager);
+				JobSocketResult jobSocketResult = new JobSocketResult.Builder()
+					.setJobId(jobId)
+					.setResult(1)
+					.setResultStatus(ResultStatus.PARTIAL)
+					.build();
+				Thread thread = new Thread(() -> {
+					while (jobChannelManager.addTaskResult(jobSocketResult)) {
+						try {
+							receiveFuture.get(1000L, TimeUnit.MILLISECONDS);
+							nettySocketServer.close();
+						} catch (Exception e) {
+						}
+					}
+					exceptionFuture.complete(true);
+				});
+				thread.start();
+				receiveFuture.get(1000L, TimeUnit.MILLISECONDS);
+				exceptionFuture.get(1000L, TimeUnit.MILLISECONDS);
+			}
 		}
 	}
 }

@@ -34,6 +34,9 @@ import org.apache.flink.util.SerializedThrowable;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdapter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -42,6 +45,9 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  * This handler can be used to submit jobs to a Flink cluster by {@link DispatcherSocketRestEndpoint}.
  */
 public class SocketJobSubmitHandler extends ChannelInboundHandlerAdapter {
+
+	private static final Logger LOG = LoggerFactory.getLogger(SocketJobSubmitHandler.class);
+
 	private final GatewayRetriever<DispatcherGateway> leaderRetriever;
 	private final JobResultClientManager jobResultClientManager;
 	private final Time timeout;
@@ -89,6 +95,7 @@ public class SocketJobSubmitHandler extends ChannelInboundHandlerAdapter {
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
 		ctx.close();
+		LOG.error("SocketJobSubmitHandler occur error: ", cause);
 		throw new IllegalStateException(cause);
 	}
 }

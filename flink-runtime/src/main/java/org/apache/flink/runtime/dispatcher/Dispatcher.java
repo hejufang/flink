@@ -248,9 +248,9 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 
 	private final boolean jobReuseDispatcherEnable;
 
-	private final boolean dispatcherFetchResultThreadPoolEnabled;
+	private final boolean dispatcherJobResultThreadPoolEnabled;
 
-	private final ExecutorService fetchResultExecutor;
+	private final ExecutorService jobResultExecutor;
 
 	private final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
 
@@ -350,11 +350,11 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			!useSocketEnable || configuration.getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED),
 			"Job reuse dispatcher in task executor flag can be turned on when `cluster.jm-resource-allocation.enabled` is true");
 
-		this.dispatcherFetchResultThreadPoolEnabled =
-			configuration.getBoolean(JobManagerOptions.DISPATCHER_FETCH_RESULT_THREAD_POOL_ENABLED);
+		this.dispatcherJobResultThreadPoolEnabled =
+			configuration.getBoolean(JobManagerOptions.DISPATCHER_JOB_RESULT_THREAD_POOL_ENABLED);
 
-		this.fetchResultExecutor =
-			this.dispatcherFetchResultThreadPoolEnabled ? Executors.newFixedThreadPool(
+		this.jobResultExecutor =
+			this.dispatcherJobResultThreadPoolEnabled ? Executors.newFixedThreadPool(
 				configuration.getInteger(JobManagerOptions.DISPATCHER_FETCH_RESULT_THREADS_NUM),
 				new ExecutorThreadFactory("dispatcher-fetch-result")) : null;
 		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(true);
@@ -886,9 +886,17 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				JobChannelManager jobChannelManager = jobResultClientManager.getJobChannelManager(jobId);
 				if (jobChannelManager != null) {
 					if (jobStatus == JobStatus.FINISHED) {
-						jobChannelManager.finishJob();
+						if (dispatcherJobResultThreadPoolEnabled) {
+							jobResultExecutor.submit(() -> jobChannelManager.finishJob());
+						} else {
+							jobChannelManager.finishJob();
+						}
 					} else {
-						jobChannelManager.failJob(throwable == null ? new Exception("Job failed with status " + jobStatus) : throwable);
+						if (dispatcherJobResultThreadPoolEnabled) {
+							jobResultExecutor.submit(() -> jobChannelManager.failJob(throwable == null ? new Exception("Job failed with status " + jobStatus) : throwable));
+						} else {
+							jobChannelManager.failJob(throwable == null ? new Exception("Job failed with status " + jobStatus) : throwable);
+						}
 					}
 				} else {
 					log.warn("Get job channel manager null for job {}", jobId);
@@ -1344,11 +1352,11 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			Time timeout) {
 		final CompletableFuture<JobMasterGateway> jobMasterGatewayFuture = getJobMasterGatewayFuture(jobId);
 
-		if (dispatcherFetchResultThreadPoolEnabled) {
+		if (dispatcherJobResultThreadPoolEnabled) {
 			return jobMasterGatewayFuture.thenComposeAsync(
 				(JobMasterGateway jobMasterGateway) ->
 					jobMasterGateway.deliverCoordinationRequestToCoordinator(operatorId, serializedRequest, timeout),
-				fetchResultExecutor);
+				jobResultExecutor);
 		} else {
 			return jobMasterGatewayFuture.thenCompose(
 				(JobMasterGateway jobMasterGateway) ->

@@ -52,4 +52,8 @@ public class TaskPushSinkOperator<IN> extends StreamSink<IN> implements Operator
 	public void handleOperatorEvent(OperatorEvent evt) {
 		// nothing to handle
 	}
+
+	public void cancel(){
+		sinkFunction.cancel();
+	}
 }

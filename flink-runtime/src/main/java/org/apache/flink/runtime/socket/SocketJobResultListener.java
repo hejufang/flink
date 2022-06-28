@@ -39,4 +39,11 @@ public interface SocketJobResultListener {
 	 * @throws Exception the thrown exception
 	 */
 	void await() throws Exception;
+
+	/**
+	 * Check SocketJobResult is still running.
+	 *
+	 * @return If SocketJobResultListener is running.
+	 */
+	boolean checkRunning();
 }
