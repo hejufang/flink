@@ -29,6 +29,7 @@ import org.apache.flink.client.deployment.ClusterClientServiceLoader;
 import org.apache.flink.client.deployment.ClusterDescriptor;
 import org.apache.flink.client.deployment.DefaultClusterClientServiceLoader;
 import org.apache.flink.client.program.ClusterClient;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
@@ -178,6 +179,10 @@ public class KubernetesSessionCli {
 	}
 
 	public static void main(String[] args) {
+		String clusterName = CliFrontend.parseArgs(args, "-cn", ConfigConstants.CLUSTER_NAME_DEFAULT);
+		LOG.info("clusterName = {}", clusterName);
+		System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
+
 		final Configuration configuration = GlobalConfiguration.loadConfiguration();
 
 		final String configDir = CliFrontend.getConfigurationDirectoryFromEnv();

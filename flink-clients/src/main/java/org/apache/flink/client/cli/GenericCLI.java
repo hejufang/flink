@@ -81,6 +81,9 @@ public class GenericCLI implements CustomCommandLine {
 					"https://ci.apache.org/projects/flink/flink-docs-stable/ops/config.html")
 			.build();
 
+	private final Option clusterNameOption = new Option("cn", "clusterName", true,
+		"Specify cluster name in order to load unique configuration from flink-conf.yaml");
+
 	private final Configuration baseConfiguration;
 
 	private final String configurationDir;
@@ -112,6 +115,7 @@ public class GenericCLI implements CustomCommandLine {
 		baseOptions.addOption(executorOption);
 		baseOptions.addOption(targetOption);
 		baseOptions.addOption(dynamicProperties);
+		baseOptions.addOption(clusterNameOption);
 	}
 
 	@Override
