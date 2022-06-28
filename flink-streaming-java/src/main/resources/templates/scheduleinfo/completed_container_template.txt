@@ -55,6 +55,11 @@
       "title": "Flink 退出码详细说明",
       "url": "https://flink.bytedance.net/1645/162846/",
       "targetBlank": true
+    },
+    {
+     "title": "K8s 退出码详细说明",
+     "url": "https://bytedance.feishu.cn/sheets/shtcnyPugmiosIRh7Ju25nNUaqc",
+     "targetBlank": true
     }
   ],
   "nullPointMode": "null",
