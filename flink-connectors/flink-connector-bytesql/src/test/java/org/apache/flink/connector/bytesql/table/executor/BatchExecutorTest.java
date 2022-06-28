@@ -71,6 +71,8 @@ public class BatchExecutorTest {
 		insertOptionsBuilder.setIgnoreNull(true);
 		insertOptionsBuilder.setBufferFlushMaxRows(Integer.MAX_VALUE);
 		insertOptionsBuilder.setKeyFields(new String[]{"id"});
+		insertOptionsBuilder.setWritableColIndices(new int[]{0, 1, 2});
+		insertOptionsBuilder.setWritableNames(fieldNames);
 
 		PartiallyUpdateStatementExecutor executor = (PartiallyUpdateStatementExecutor) ByteSQLSinkExecutorBuilder.build(
 			optionBuilder.build(),
@@ -90,6 +92,8 @@ public class BatchExecutorTest {
 		insertOptionsBuilder.setIgnoreNull(true);
 		insertOptionsBuilder.setBufferFlushMaxRows(Integer.MAX_VALUE);
 		insertOptionsBuilder.setKeyFields(new String[]{"id"});
+		insertOptionsBuilder.setWritableColIndices(new int[]{0, 1, 2});
+		insertOptionsBuilder.setWritableNames(fieldNames);
 
 		PartiallyUpdateStatementExecutor executor = (PartiallyUpdateStatementExecutor) ByteSQLSinkExecutorBuilder.build(
 			optionBuilder.build(),
@@ -112,6 +116,8 @@ public class BatchExecutorTest {
 		ByteSQLInsertOptions.Builder insertOptionsBuilder = ByteSQLInsertOptions.builder();
 		insertOptionsBuilder.setBufferFlushMaxRows(Integer.MAX_VALUE);
 		insertOptionsBuilder.setKeyFields(new String[]{"id"});
+		insertOptionsBuilder.setWritableColIndices(new int[]{0, 1, 2});
+		insertOptionsBuilder.setWritableNames(fieldNames);
 
 		BufferReduceStatementExecutor executor = (BufferReduceStatementExecutor) ByteSQLSinkExecutorBuilder.build(
 			optionBuilder.build(),
@@ -146,6 +152,8 @@ public class BatchExecutorTest {
 		insertOptionsBuilder.setIgnoreNull(true);
 		insertOptionsBuilder.setBufferFlushMaxRows(Integer.MAX_VALUE);
 		insertOptionsBuilder.setKeyFields(new String[]{"id"});
+		insertOptionsBuilder.setWritableColIndices(new int[]{0, 1, 2});
+		insertOptionsBuilder.setWritableNames(fieldNames);
 
 		PartiallyUpdateStatementExecutor executor = (PartiallyUpdateStatementExecutor) ByteSQLSinkExecutorBuilder.build(
 			optionBuilder.build(),

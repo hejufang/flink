@@ -27,7 +27,6 @@ import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.abase.options.AbaseLookupOptions;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
-import org.apache.flink.connector.abase.options.AbaseSinkMetricsOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.connector.abase.utils.AbaseValueType;
@@ -46,6 +45,8 @@ import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
+import org.apache.flink.table.metric.SinkMetricUtils;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.utils.TableSchemaUtils;
@@ -55,12 +56,9 @@ import org.apache.flink.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -147,7 +145,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		validateConfigOptions(config);
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
 		AbaseNormalOptions normalOptions = getAbaseNormalOptions(config, physicalSchema, getJobPSM(context.getConfiguration()));
-		AbaseSinkMetricsOptions metricsOptions = getAbaseSinkMetricsOptions(config, physicalSchema);
+		SinkMetricsOptions metricsOptions = SinkMetricUtils.getSinkMetricsOptions(config, physicalSchema);
 		AbaseSinkOptions sinkOptions = getAbaseSinkOptions(config, normalOptions, metricsOptions);
 		validateSinkSchema(normalOptions, sinkOptions, physicalSchema, encodingFormat != null);
 		LOG.info(metricsOptions.toString());
@@ -289,7 +287,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 	private AbaseSinkOptions getAbaseSinkOptions(
 			ReadableConfig config,
 			AbaseNormalOptions normalOptions,
-			AbaseSinkMetricsOptions metricsOptions) {
+			SinkMetricsOptions metricsOptions) {
 		// column indices that needs to be serialized with specified format
 		int[] serCol = new int[normalOptions.getArity()];
 		int serColIdx = 0;  // index of next element of serCol array
@@ -330,45 +328,6 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 			.setIgnoreNull(config.get(SINK_IGNORE_NULL))
 			.setParallelism(config.get(PARALLELISM))
 			.setTtlSeconds((int) config.get(SINK_RECORD_TTL).getSeconds());
-		return builder.build();
-	}
-
-	private AbaseSinkMetricsOptions getAbaseSinkMetricsOptions(ReadableConfig config, TableSchema schema) {
-		if (!config.getOptional(SINK_METRICS_EVENT_TS_NAME).isPresent()) {
-			return AbaseSinkMetricsOptions.builder().build();
-		}
-
-		// get and check if event-ts column name is in the schema
-		AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder builder = AbaseSinkMetricsOptions.builder();
-		String colName = config.getOptional(SINK_METRICS_EVENT_TS_NAME).get();
-		Optional<Integer> optionalIndex = schema.getFieldNameIndex(colName);
-		checkState(optionalIndex.isPresent(), "The specified event-ts column name " +
-			colName + " is not in the table!");
-		builder.setEventTsColName(colName);
-		builder.setEventTsColIndex(optionalIndex.get());
-		builder.setEventTsWriteable(config.get(SINK_METRICS_EVENT_TS_WRITEABLE));
-
-		// check tag column names are in the schema if they are configured
-		if (config.getOptional(SINK_METRICS_TAGS_NAMES).isPresent()) {
-			List<String> tagNames = config.getOptional(SINK_METRICS_TAGS_NAMES).get();
-			builder.setTagNames(tagNames);
-
-			List<Integer> tagNameIndices = new ArrayList<>(tagNames.size());
-			for (int i = 0; i < tagNames.size(); i++) {
-				String tagName = tagNames.get(i);
-				optionalIndex = schema.getFieldNameIndex(tagName);
-				checkState(optionalIndex.isPresent(), "The tag name " + tagName + " is not in the table!");
-				tagNameIndices.add(optionalIndex.get());
-			}
-			builder.setTagNameIndices(tagNameIndices);
-			builder.setTagWriteable(config.get(SINK_METRICS_TAGS_WRITEABLE));
-		}
-
-		config.getOptional(SINK_METRICS_QUANTILES).ifPresent(builder::setPercentiles);
-		config.getOptional(SINK_METRICS_PROPS).ifPresent(builder::setProps);
-		config.getOptional(SINK_METRICS_BUCKET_SIZE).ifPresent(duration -> builder.setBucketsSize(duration.getSeconds()));
-		config.getOptional(SINK_METRICS_BUCKET_NUMBER).ifPresent(builder::setBucketsNum);
-		config.getOptional(SINK_METRICS_BUCKET_SERIES).ifPresent(builder::setBuckets);
 		return builder.build();
 	}
 

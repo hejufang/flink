@@ -33,6 +33,12 @@ public class ByteSQLInsertOptions implements Serializable {
 	private final int maxRetryTimes;
 	private final int parallelism;
 	private final String[] keyFields;
+
+	// sorted indices of writable column indices,
+	// there may be columns that are not written to bytesql,
+	// such as `event-ts` or `tag` columns that are only meant to metrics reporter.
+	private final int[] writableColIndices;
+	private final String[] writableNames;
 	private final boolean ignoreNull;
 	private final boolean logFailuresOnly;
 	private final boolean ignoreDelete;
@@ -44,6 +50,8 @@ public class ByteSQLInsertOptions implements Serializable {
 			int maxRetryTimes,
 			int parallelism,
 			String[] keyFields,
+			int[] writableColIndices,
+			String[] writableNames,
 			boolean ignoreNull,
 			boolean logFailuresOnly,
 			boolean ignoreDelete,
@@ -53,6 +61,8 @@ public class ByteSQLInsertOptions implements Serializable {
 		this.maxRetryTimes = maxRetryTimes;
 		this.parallelism = parallelism;
 		this.keyFields = keyFields;
+		this.writableColIndices = writableColIndices;
+		this.writableNames = writableNames;
 		this.ignoreNull = ignoreNull;
 		this.logFailuresOnly = logFailuresOnly;
 		this.ignoreDelete = ignoreDelete;
@@ -77,6 +87,14 @@ public class ByteSQLInsertOptions implements Serializable {
 
 	public String[] getKeyFields() {
 		return keyFields;
+	}
+
+	public int[] getWritableColIndices() {
+		return writableColIndices;
+	}
+
+	public String[] getWritableNames() {
+		return writableNames;
 	}
 
 	public boolean isIgnoreNull() {
@@ -108,6 +126,8 @@ public class ByteSQLInsertOptions implements Serializable {
 				Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
 				Objects.equals(parallelism, options.parallelism) &&
 				Arrays.equals(keyFields, options.keyFields) &&
+				Arrays.equals(writableColIndices, options.writableColIndices) &&
+				Arrays.equals(writableNames, options.writableNames) &&
 				(ignoreNull == options.ignoreNull) &&
 				(logFailuresOnly == options.logFailuresOnly) &&
 				(ignoreDelete == options.ignoreDelete) &&
@@ -126,6 +146,8 @@ public class ByteSQLInsertOptions implements Serializable {
 		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
 		private int parallelism;
 		private String[] keyFields;
+		private int[] writableColIndices;
+		private String[] writableNames;
 		private boolean ignoreNull;
 		private boolean logFailuresOnly;
 		private boolean ignoreDelete = true;
@@ -166,6 +188,17 @@ public class ByteSQLInsertOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setWritableColIndices(int[] writableColIndices) {
+			Arrays.sort(writableColIndices);   // make sure array is sorted.
+			this.writableColIndices = writableColIndices;
+			return this;
+		}
+
+		public Builder setWritableNames(String[] writableNames) {
+			this.writableNames = writableNames;
+			return this;
+		}
+
 		public Builder setIgnoreNull(boolean ignoreNull) {
 			this.ignoreNull = ignoreNull;
 			return this;
@@ -193,6 +226,8 @@ public class ByteSQLInsertOptions implements Serializable {
 				maxRetryTimes,
 				parallelism,
 				keyFields,
+				writableColIndices,
+				writableNames,
 				ignoreNull,
 				logFailuresOnly,
 				ignoreDelete,

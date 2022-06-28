@@ -20,6 +20,7 @@
 package org.apache.flink.connector.bytesql.table;
 
 import org.apache.flink.api.java.tuple.Tuple4;
+import org.apache.flink.api.java.tuple.Tuple6;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
@@ -56,6 +57,16 @@ public class ByteSQLTableTestBase {
 		data.add(new Tuple4<>(6, 3L, "Luke Skywalker", Timestamp.valueOf("1970-01-01 00:00:00.006")));
 		data.add(new Tuple4<>(7, 4L, null, Timestamp.valueOf("1970-01-01 00:00:00.007")));
 		data.add(new Tuple4<>(8, 4L, "Hello", Timestamp.valueOf("1970-01-01 00:00:00.008")));
+		return env.fromCollection(data);
+	}
+
+	public static DataStream<Tuple6<String, Long, Integer, Integer, Timestamp, Long>> get6TupleDataStream(StreamExecutionEnvironment env) {
+		List<Tuple6<String, Long, Integer, Integer, Timestamp, Long>> data = new ArrayList<>();
+		data.add(new Tuple6<>("Bob", 10L, 5, 7, Timestamp.valueOf("2022-01-10 00:01:00.000"), 1641744060000L));
+		data.add(new Tuple6<>("Tom", 15L, 10, 4, Timestamp.valueOf("2022-01-10 00:02:00.000"), 1641744120000L));
+		data.add(new Tuple6<>("Bob", 20L, 5, 6, Timestamp.valueOf("2022-01-10 00:10:00.000"), 1641744600000L));
+		data.add(new Tuple6<>("Bob", 35L, 10, 3, Timestamp.valueOf("2022-01-10 00:12:00.000"), 1641744720000L));
+		data.add(new Tuple6<>("Tom", 45L, 10, 2, Timestamp.valueOf("2022-01-10 00:13:00.000"), 1641744780000L));
 		return env.fromCollection(data);
 	}
 

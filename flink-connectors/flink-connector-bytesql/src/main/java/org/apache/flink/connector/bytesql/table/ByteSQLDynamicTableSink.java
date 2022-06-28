@@ -25,6 +25,7 @@ import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkFunctionProvider;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.RowKind;
 
@@ -36,16 +37,19 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class ByteSQLDynamicTableSink implements DynamicTableSink {
 	private final ByteSQLOptions options;
 	private final ByteSQLInsertOptions insertOptions;
+	private final SinkMetricsOptions insertMetricsOptions;
 	private final TableSchema schema;
 	private boolean isAppendOnly;
 
 	public ByteSQLDynamicTableSink(
 			ByteSQLOptions options,
 			ByteSQLInsertOptions insertOptions,
+			SinkMetricsOptions insertMetricsOptions,
 			TableSchema schema) {
 		this.options = options;
 		this.insertOptions = insertOptions;
 		this.schema = schema;
+		this.insertMetricsOptions = insertMetricsOptions;
 	}
 
 	@Override
@@ -75,6 +79,7 @@ public class ByteSQLDynamicTableSink implements DynamicTableSink {
 		ByteSQLOutputFormat outputFormat = new ByteSQLOutputFormat(
 			options,
 			insertOptions,
+			insertMetricsOptions,
 			(RowType) schema.toRowDataType().getLogicalType(),
 			isAppendOnly
 		);
@@ -91,6 +96,7 @@ public class ByteSQLDynamicTableSink implements DynamicTableSink {
 		ByteSQLDynamicTableSink sink = new ByteSQLDynamicTableSink(
 			options,
 			insertOptions,
+			insertMetricsOptions,
 			schema
 		);
 		sink.isAppendOnly = this.isAppendOnly;

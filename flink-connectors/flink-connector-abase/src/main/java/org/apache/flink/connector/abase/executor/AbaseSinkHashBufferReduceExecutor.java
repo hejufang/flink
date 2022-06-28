@@ -20,12 +20,12 @@ package org.apache.flink.connector.abase.executor;
 
 import org.apache.flink.connector.abase.client.ClientPipeline;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
-import org.apache.flink.connector.abase.options.AbaseSinkMetricsOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.ByteArrayWrapper;
 import org.apache.flink.connector.abase.utils.KeyFormatterHelper;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -56,12 +56,12 @@ public class AbaseSinkHashBufferReduceExecutor extends AbaseSinkBatchExecutor<Ro
 	private final DynamicTableSink.DataStructureConverter converter;
 	private final AbaseNormalOptions normalOptions;
 	private final AbaseSinkOptions sinkOptions;
-	private final AbaseSinkMetricsOptions sinkMetricsOptions;
+	private final SinkMetricsOptions sinkMetricsOptions;
 
 	public AbaseSinkHashBufferReduceExecutor(
 			AbaseNormalOptions normalOptions,
 			AbaseSinkOptions sinkOptions,
-			AbaseSinkMetricsOptions sinkMetricsOptions,
+			SinkMetricsOptions sinkMetricsOptions,
 			DynamicTableSink.DataStructureConverter converter) {
 		super(null);
 		this.converter = converter;

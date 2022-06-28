@@ -51,8 +51,10 @@ public abstract class ByteSQLBatchStatementExecutor implements Serializable {
 		this.insertOptions = insertOptions;
 		List<String> nameList = rowType.getFieldNames();
 		this.fieldNames = nameList.toArray(new String[]{});
-		this.upsertSQL = ByteSQLUtils
-			.getUpsertStatement(options.getTableName(), fieldNames, insertOptions.getTtlSeconds());
+		this.upsertSQL = ByteSQLUtils.getUpsertStatement(
+			options.getTableName(),
+			insertOptions.getWritableNames(),
+			insertOptions.getTtlSeconds());
 		this.fieldGetters = IntStream
 			.range(0, fieldNames.length)
 			.mapToObj(pos -> RowData.createFieldGetter(rowType.getTypeAt(pos), pos))

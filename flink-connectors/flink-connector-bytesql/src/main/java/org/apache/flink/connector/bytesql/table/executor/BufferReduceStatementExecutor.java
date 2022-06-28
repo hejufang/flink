@@ -62,12 +62,13 @@ public class BufferReduceStatementExecutor extends KeyedBatchStatementExecutor<R
 	@Override
 	public void executeBatch(ByteSQLTransaction transaction) throws ByteSQLException {
 		String sql;
+		int[] writableColIndices = insertOptions.getWritableColIndices();
 		for (Map.Entry<GenericRowData, RowData> entry : reduceBuffer.entrySet()) {
 			RowData value = entry.getValue();
 			if (value != null) {
-				Object[] fields = new Object[value.getArity()];
-				for (int i = 0; i < value.getArity(); i++) {
-					fields[i] = fieldGetters[i].getFieldOrNull(value);
+				Object[] fields = new Object[writableColIndices.length];
+				for (int i = 0; i < writableColIndices.length; i++) {
+					fields[i] = fieldGetters[writableColIndices[i]].getFieldOrNull(value);
 				}
 				sql = ByteSQLUtils.generateActualSql(upsertSQL, fields);
 			} else {

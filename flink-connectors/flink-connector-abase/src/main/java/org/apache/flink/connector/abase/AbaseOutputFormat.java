@@ -28,7 +28,6 @@ import org.apache.flink.connector.abase.executor.AbaseSinkBufferReduceExecutor;
 import org.apache.flink.connector.abase.executor.AbaseSinkGenericExecutor;
 import org.apache.flink.connector.abase.executor.AbaseSinkHashBufferReduceExecutor;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
-import org.apache.flink.connector.abase.options.AbaseSinkMetricsOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.AbaseClientTableUtils;
 import org.apache.flink.connector.abase.utils.AbaseSinkMode;
@@ -43,6 +42,7 @@ import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.metric.SinkMetricUtils;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -55,11 +55,6 @@ import redis.clients.jedis.exceptions.JedisException;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -80,7 +75,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	private static final Logger LOG = LoggerFactory.getLogger(AbaseOutputFormat.class);
 	private final AbaseNormalOptions normalOptions;
 	private final AbaseSinkOptions sinkOptions;
-	private final AbaseSinkMetricsOptions sinkMetricsOptions;
+	private final SinkMetricsOptions sinkMetricsOptions;
 	private final SerializationSchema<RowData> serializationSchema;
 	private final RowData.FieldGetter[] fieldGetters;
 	private final DynamicTableSink.DataStructureConverter converter;
@@ -104,7 +99,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	public AbaseOutputFormat(
 			AbaseNormalOptions normalOptions,
 			AbaseSinkOptions sinkOptions,
-			AbaseSinkMetricsOptions sinkMetricsOptions,
+			SinkMetricsOptions sinkMetricsOptions,
 			RowType rowType,
 			@Nullable SerializationSchema<RowData> serializationSchema,
 			DynamicTableSink.DataStructureConverter converter) {
@@ -140,7 +135,10 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		converter.open(RuntimeConverter.Context.create(AbaseOutputFormat.class.getClassLoader()));
 		scheduler = Executors.newScheduledThreadPool(
 			1, new ExecutorThreadFactory(THREAD_POOL_NAME));
-		initLatencyMetrics();
+		if (sinkMetricsOptions.isCollected()) {
+			latencyHistogram = SinkMetricUtils.initLatencyMetrics(sinkMetricsOptions, getRuntimeContext().getMetricGroup());
+			timeService = AbaseClientTableUtils.getTimeService(getRuntimeContext());
+		}
 		initBatchExecutor();
 		if (sinkOptions.getBufferFlushInterval() > 0) {
 			scheduledFuture = scheduler.scheduleWithFixedDelay(() -> {
@@ -217,37 +215,6 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		}
 	}
 
-	private void initLatencyMetrics() {
-		if (!sinkMetricsOptions.isCollected()) {
-			return;
-		}
-		TagBucketHistogram.TagBucketHistogramBuilder builder = TagBucketHistogram.builder();
-		List<Double> quantiles = sinkMetricsOptions.getPercentiles();
-		if (quantiles != null && !quantiles.isEmpty()) {
-			builder.setQuantiles(quantiles);
-		}
-		if (sinkMetricsOptions.getBucketsSize() > 0 && sinkMetricsOptions.getBucketsNum() > 0) {
-			List<Long> buckets = new ArrayList<>(sinkMetricsOptions.getBucketsNum());
-			long sum = 0L;
-			for (int i = 0; i < sinkMetricsOptions.getBucketsNum(); i++) {
-				buckets.add(sum);
-				sum += sinkMetricsOptions.getBucketsSize();
-			}
-			builder.setBuckets(buckets);
-		}
-		List<Long> buckets = sinkMetricsOptions.getBuckets();
-		if (buckets != null && !buckets.isEmpty()) {
-			builder.setBuckets(buckets);
-		}
-		Map<String, String> props = sinkMetricsOptions.getProps();
-		if (props != null && !props.isEmpty()) {
-			builder.setProps(props);
-		}
-		TagBucketHistogram histogram = builder.build();
-		latencyHistogram = SinkMetricUtils.registerSinkLatency(getRuntimeContext().getMetricGroup(), histogram);
-		timeService = AbaseClientTableUtils.getTimeService(getRuntimeContext());
-	}
-
 	private void checkFlushException() {
 		if (flushException != null) {
 			throw new RuntimeException("Writing records to Abase failed.", flushException);
@@ -268,40 +235,24 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		batchExecutor.addToBatch(record);
 		batchCount++;
 		if (latencyHistogram != null) {
-			updateLatency(record);
+			SinkMetricUtils.updateLatency(
+				record,
+				sinkMetricsOptions,
+				latencyHistogram,
+				fieldGetters,
+				getRecordLatency(record)
+			);
 		}
 		if (batchCount >= sinkOptions.getBufferMaxRows()) {
 			flush();
 		}
 	}
 
-	private void updateLatency(RowData record) {
-		try {
-			int eventTsIdx = sinkMetricsOptions.getEventTsColIndex();
-			long eventTs = (long) Objects.requireNonNull(fieldGetters[eventTsIdx].getFieldOrNull(record),
-				"Get null of event ts column of index " + eventTsIdx);
-			long latency = (timeService.getCurrentProcessingTime() - eventTs) / 1000;
-			if (latency < 0) {
-				LOG.warn("Got negative latency, invalid event ts: " + eventTs);
-				return;
-			}
-			List<Integer> tagIndices = sinkMetricsOptions.getTagNameIndices();
-			if (tagIndices != null && !tagIndices.isEmpty()) {
-				Map<String, String> tags = new HashMap<>();
-				Iterator<Integer> tagIdxIter = sinkMetricsOptions.getTagNameIndices().iterator();
-				for (String tagName : sinkMetricsOptions.getTagNames()) {
-					int idx = tagIdxIter.next();
-					String tagValue = Objects.requireNonNull(fieldGetters[idx].getFieldOrNull(record),
-						"get null of tag name " + tagName).toString();
-					tags.put(tagName, tagValue);
-				}
-				latencyHistogram.update(latency, tags);
-			}
-			// Need to calculate a job latency either contain tags or not
-			latencyHistogram.update(latency);
-		} catch (Throwable throwable) {
-			LOG.error("Failed to update sink latency", throwable);
-		}
+	private long getRecordLatency(RowData record) {
+		int eventTsIdx = sinkMetricsOptions.getEventTsColIndex();
+		long eventTs = (long) Objects.requireNonNull(fieldGetters[eventTsIdx].getFieldOrNull(record),
+			"Get null of event ts column of index " + eventTsIdx);
+		return (timeService.getCurrentProcessingTime() - eventTs) / 1000;
 	}
 
 	public synchronized void flush() {

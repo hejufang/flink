@@ -19,7 +19,6 @@ package org.apache.flink.connector.abase;
 
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
-import org.apache.flink.connector.abase.options.AbaseSinkMetricsOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.table.api.TableColumn;
@@ -29,6 +28,7 @@ import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkFunctionProvider;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.RowKind;
@@ -47,7 +47,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class AbaseTableSink implements DynamicTableSink{
 	private final AbaseNormalOptions normalOptions;
 	private final AbaseSinkOptions sinkOptions;
-	private final AbaseSinkMetricsOptions sinkMetricsOptions;
+	private final SinkMetricsOptions sinkMetricsOptions;
 	private final TableSchema schema;
 	@Nullable
 	protected final EncodingFormat<SerializationSchema<RowData>> encodingFormat;
@@ -55,7 +55,7 @@ public class AbaseTableSink implements DynamicTableSink{
 	public AbaseTableSink(
 			AbaseNormalOptions normalOptions,
 			AbaseSinkOptions sinkOptions,
-			AbaseSinkMetricsOptions sinkMetricsOptions,
+			SinkMetricsOptions sinkMetricsOptions,
 			TableSchema schema,
 			@Nullable EncodingFormat<SerializationSchema<RowData>> encodingFormat) {
 		this.normalOptions = normalOptions;

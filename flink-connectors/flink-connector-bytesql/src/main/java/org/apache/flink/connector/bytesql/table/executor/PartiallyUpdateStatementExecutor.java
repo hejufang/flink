@@ -102,17 +102,18 @@ public class PartiallyUpdateStatementExecutor extends KeyedBatchStatementExecuto
 	 */
 	@VisibleForTesting
 	protected String generateUpsertSQLWithoutNull(RowData row) throws ByteSQLException {
-		List<Object> fields = new ArrayList<>(row.getArity());
-		List<String> fieldNameList = new ArrayList<>(row.getArity());
-		for (int i = 0; i < row.getArity(); i++) {
-			if (!row.isNullAt(i)) {
-				fields.add(fieldGetters[i].getFieldOrNull(row));
-				fieldNameList.add(fieldNames[i]);
+		int[] writableColIndices = insertOptions.getWritableColIndices();
+		List<Object> fields = new ArrayList<>(writableColIndices.length);
+		List<String> namesList = new ArrayList<>(writableColIndices.length);
+		for (int writableColIndex : writableColIndices) {
+			if (!row.isNullAt(writableColIndex)) {
+				fields.add(fieldGetters[writableColIndex].getFieldOrNull(row));
+				namesList.add(fieldNames[writableColIndex]);
 			}
 		}
+		String[] names = namesList.toArray(new String[0]);
 		String upsertFormatter = ByteSQLUtils
-			.getUpsertStatement(options.getTableName(),
-				fieldNameList.toArray(new String[]{}), insertOptions.getTtlSeconds());
+			.getUpsertStatement(options.getTableName(), names, insertOptions.getTtlSeconds());
 		return ByteSQLUtils.generateActualSql(upsertFormatter, fields.toArray());
 	}
 }

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.abase.options;
+package org.apache.flink.table.metric;
 
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
@@ -31,9 +31,10 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * abase metrics options of sink connector.
+ * common metrics options of sink connector.
  */
-public class AbaseSinkMetricsOptions implements Serializable {
+public class SinkMetricsOptions implements Serializable {
+
 	private static final long serialVersionUID = 1L;
 
 	// whether report metrics
@@ -120,7 +121,7 @@ public class AbaseSinkMetricsOptions implements Serializable {
 		return buckets;
 	}
 
-	private AbaseSinkMetricsOptions(
+	private SinkMetricsOptions(
 			List<Double> percentiles,
 			String eventTsColName,
 			int eventTsColIndex,
@@ -146,14 +147,14 @@ public class AbaseSinkMetricsOptions implements Serializable {
 		this.buckets = buckets;
 	}
 
-	public static AbaseSinkMetricsOptionsBuilder builder() {
-		return new AbaseSinkMetricsOptionsBuilder();
+	public static Builder builder() {
+		return new Builder();
 	}
 
 	/**
-	 * builder class of {@link AbaseSinkMetricsOptions}.
+	 * builder class of {@link SinkMetricsOptions}.
 	 */
-	public static class AbaseSinkMetricsOptionsBuilder {
+	public static class Builder {
 		private List<Double> percentiles = null;
 		private String eventTsColName = null;
 		private int eventTsColIndex = -1;
@@ -166,7 +167,7 @@ public class AbaseSinkMetricsOptions implements Serializable {
 		private int bucketsNum = 0;
 		private List<Long> buckets = null;
 
-		public AbaseSinkMetricsOptionsBuilder setPercentiles(List<Double> percentiles) {
+		public Builder setPercentiles(List<Double> percentiles) {
 			Preconditions.checkArgument(percentiles != null && percentiles.size() > 0,
 				"The percentiles can't be configured empty.");
 			Preconditions.checkArgument(isValidPercentiles(percentiles),
@@ -177,53 +178,53 @@ public class AbaseSinkMetricsOptions implements Serializable {
 			return this;
 		}
 
-		public AbaseSinkMetricsOptionsBuilder setEventTsColName(String eventTsColName) {
+		public Builder setEventTsColName(String eventTsColName) {
 			this.eventTsColName = eventTsColName;
 			return this;
 		}
 
-		public AbaseSinkMetricsOptionsBuilder setEventTsColIndex(int eventTsColIndex) {
+		public Builder setEventTsColIndex(int eventTsColIndex) {
 			this.eventTsColIndex = eventTsColIndex;
 			return this;
 		}
 
-		public AbaseSinkMetricsOptionsBuilder setEventTsWriteable(boolean eventTsWriteable) {
+		public Builder setEventTsWriteable(boolean eventTsWriteable) {
 			this.eventTsWriteable = eventTsWriteable;
 			return this;
 		}
 
-		public AbaseSinkMetricsOptionsBuilder setTagNames(List<String> tagNames) {
+		public Builder setTagNames(List<String> tagNames) {
 			Preconditions.checkArgument(isDistinct(tagNames), "Duplicate tag names are not allowed!");
 			this.tagNames = tagNames;
 			return this;
 		}
 
-		public AbaseSinkMetricsOptionsBuilder setTagNameIndices(List<Integer> tagNameIndices) {
+		public Builder setTagNameIndices(List<Integer> tagNameIndices) {
 			this.tagNameIndices = tagNameIndices;
 			return this;
 		}
 
-		public AbaseSinkMetricsOptionsBuilder setTagWriteable(boolean tagWriteable) {
+		public Builder setTagWriteable(boolean tagWriteable) {
 			this.tagWriteable = tagWriteable;
 			return this;
 		}
 
-		public AbaseSinkMetricsOptionsBuilder setProps(Map<String, String> props) {
+		public Builder setProps(Map<String, String> props) {
 			this.props = props;
 			return this;
 		}
 
-		public AbaseSinkMetricsOptionsBuilder setBucketsSize(long bucketsSize) {
+		public Builder setBucketsSize(long bucketsSize) {
 			this.bucketsSize = bucketsSize;
 			return this;
 		}
 
-		public AbaseSinkMetricsOptionsBuilder setBucketsNum(int bucketsNum) {
+		public Builder setBucketsNum(int bucketsNum) {
 			this.bucketsNum = bucketsNum;
 			return this;
 		}
 
-		public AbaseSinkMetricsOptionsBuilder setBuckets(List<Long> buckets) {
+		public Builder setBuckets(List<Long> buckets) {
 			Preconditions.checkArgument(buckets != null && buckets.size() > 0,
 				"The buckets can't be configured empty.");
 			Preconditions.checkArgument(isValidBuckets(buckets),
@@ -233,12 +234,12 @@ public class AbaseSinkMetricsOptions implements Serializable {
 			return this;
 		}
 
-		public AbaseSinkMetricsOptions build() {
+		public SinkMetricsOptions build() {
 			Preconditions.checkArgument((bucketsSize == 0 && bucketsNum == 0) || (bucketsSize > 0 && bucketsNum > 0),
 				"bucketsSize and bucketsNum should be configured simultaneously.");
 			Preconditions.checkArgument(bucketsNum < 1000, "bucketsNum should be less than 1000");
 
-			return new AbaseSinkMetricsOptions(
+			return new SinkMetricsOptions(
 				percentiles,
 				eventTsColName,
 				eventTsColIndex,
@@ -314,10 +315,10 @@ public class AbaseSinkMetricsOptions implements Serializable {
 		if (this == o) {
 			return true;
 		}
-		if (!(o instanceof AbaseSinkMetricsOptions)) {
+		if (!(o instanceof SinkMetricsOptions)) {
 			return false;
 		}
-		AbaseSinkMetricsOptions that = (AbaseSinkMetricsOptions) o;
+		SinkMetricsOptions that = (SinkMetricsOptions) o;
 		return eventTsWriteable == that.eventTsWriteable &&
 			tagWriteable == that.tagWriteable &&
 			bucketsSize == that.bucketsSize &&
@@ -349,7 +350,7 @@ public class AbaseSinkMetricsOptions implements Serializable {
 
 	@Override
 	public String toString() {
-		return "AbaseSinkMetricsOptions{" +
+		return "SinkMetricsOptions{" +
 			"collected=" + collected +
 			", percentiles=" + percentiles +
 			", eventTsColName='" + eventTsColName + '\'' +

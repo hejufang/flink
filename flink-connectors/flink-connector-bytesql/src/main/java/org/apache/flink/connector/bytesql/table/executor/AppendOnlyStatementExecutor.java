@@ -57,10 +57,11 @@ public class AppendOnlyStatementExecutor extends ByteSQLBatchStatementExecutor {
 
 	@Override
 	public void executeBatch(ByteSQLTransaction transaction) throws ByteSQLException {
+		int[] writableColIndices = insertOptions.getWritableColIndices();
 		for (RowData record: buffer) {
-			Object[] fields = new Object[record.getArity()];
-			for (int i = 0; i < record.getArity(); i++) {
-				fields[i] = fieldGetters[i].getFieldOrNull(record);
+			Object[] fields = new Object[writableColIndices.length];
+			for (int i = 0; i < writableColIndices.length; i++) {
+				fields[i] = fieldGetters[writableColIndices[i]].getFieldOrNull(record);
 			}
 			String sql = ByteSQLUtils.generateActualSql(upsertSQL, fields);
 			transaction.rawQuery(sql);

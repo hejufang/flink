@@ -17,6 +17,7 @@
 
 package org.apache.flink.connector.bytesql.table;
 
+import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.configuration.Configuration;
@@ -25,8 +26,13 @@ import org.apache.flink.connector.bytesql.table.descriptors.ByteSQLInsertOptions
 import org.apache.flink.connector.bytesql.table.descriptors.ByteSQLOptions;
 import org.apache.flink.connector.bytesql.table.executor.ByteSQLBatchStatementExecutor;
 import org.apache.flink.connector.bytesql.table.executor.ByteSQLSinkExecutorBuilder;
+import org.apache.flink.metrics.TagBucketHistogram;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
+import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.metric.SinkMetricUtils;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.RowKind;
 
@@ -39,11 +45,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 /**
  * OutputFormat for {@link ByteSQLDynamicTableSink}.
@@ -55,6 +63,7 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 
 	private final ByteSQLOptions options;
 	private final ByteSQLInsertOptions insertOptions;
+	private final SinkMetricsOptions insertMetricsOptions;
 	private final boolean isAppendOnly;
 	private final FlinkConnectorRateLimiter rateLimiter;
 	private final RowType rowType;
@@ -65,19 +74,31 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 	private transient int batchCount = 0;
 	private transient ScheduledExecutorService scheduler;
 	private transient ScheduledFuture<?> scheduledFuture;
+
+	// metrics
+	protected transient ProcessingTimeService timeService;
+	protected transient TagBucketHistogram latencyHistogram;
+	private final RowData.FieldGetter[] fieldGetters;
+
 	private transient volatile Exception flushException;
 	private transient volatile boolean closed = false;
 
 	public ByteSQLOutputFormat(
 			ByteSQLOptions options,
 			ByteSQLInsertOptions insertOptions,
+			SinkMetricsOptions insertMetricsOptions,
 			RowType rowType,
 			boolean isAppendOnly) {
 		this.options = options;
 		this.insertOptions = insertOptions;
+		this.insertMetricsOptions = insertMetricsOptions;
 		this.rowType = rowType;
 		this.isAppendOnly = isAppendOnly;
 		this.rateLimiter = options.getRateLimiter();
+		this.fieldGetters = IntStream
+			.range(0, rowType.getFieldCount())
+			.mapToObj(pos -> RowData.createFieldGetter(rowType.getTypeAt(pos), pos))
+			.toArray(RowData.FieldGetter[]::new);
 		this.byteSQLSinkExecutor = ByteSQLSinkExecutorBuilder.build(
 			options,
 			insertOptions,
@@ -98,6 +119,10 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 			.withPassword(options.getPassword())
 			.withRpcTimeoutMs(options.getConnectionTimeout());
 
+		if (insertMetricsOptions.isCollected()) {
+			latencyHistogram = SinkMetricUtils.initLatencyMetrics(insertMetricsOptions, getRuntimeContext().getMetricGroup());
+			timeService = getTimeService(getRuntimeContext());
+		}
 		try {
 			byteSQLDB = (ByteSQLDBBase) Class.forName(
 					options.getDbClassName(),
@@ -150,6 +175,15 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 		}
 		byteSQLSinkExecutor.addToBatch(record);
 		batchCount++;
+		if (latencyHistogram != null) {
+			SinkMetricUtils.updateLatency(
+				record,
+				insertMetricsOptions,
+				latencyHistogram,
+				fieldGetters,
+				getRecordLatency(record)
+			);
+		}
 		if (batchCount >= insertOptions.getBufferFlushMaxRows()) {
 			flush();
 		}
@@ -198,6 +232,20 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 				}
 			}
 		}
+	}
+
+	public static ProcessingTimeService getTimeService(RuntimeContext context) {
+		if (context instanceof StreamingRuntimeContext) {
+			return ((StreamingRuntimeContext) context).getProcessingTimeService();
+		}
+		throw new IllegalArgumentException("Failed to get processing time service of context.");
+	}
+
+	private long getRecordLatency(RowData record) {
+		int eventTsIdx = insertMetricsOptions.getEventTsColIndex();
+		long eventTs = (long) Objects.requireNonNull(fieldGetters[eventTsIdx].getFieldOrNull(record),
+			"Get null of event ts column of index " + eventTsIdx);
+		return (timeService.getCurrentProcessingTime() - eventTs) / 1000;
 	}
 
 	@Override

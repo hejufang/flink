@@ -22,7 +22,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.connector.abase.options.AbaseLookupOptions;
 import org.apache.flink.connector.abase.options.AbaseNormalOptions;
-import org.apache.flink.connector.abase.options.AbaseSinkMetricsOptions;
 import org.apache.flink.connector.abase.options.AbaseSinkOptions;
 import org.apache.flink.connector.abase.utils.AbaseSinkMode;
 import org.apache.flink.connector.abase.utils.AbaseValueType;
@@ -33,6 +32,7 @@ import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.factories.FactoryUtil;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -141,7 +141,7 @@ public class AbaseTableFactoryTest {
 		AbaseTableSink expectedSink = new AbaseTableSink(
 				options,
 				sinkOptions,
-				new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+				SinkMetricsOptions.builder().build(),
 				schema,
 				null
 		);
@@ -297,7 +297,7 @@ public class AbaseTableFactoryTest {
 		AbaseTableSink expectedSink = new AbaseTableSink(
 			options,
 			sinkOptions,
-			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			SinkMetricsOptions.builder().build(),
 			schema,
 			null);
 		assertEquals(expectedSink, createTableSink(schema, properties));
@@ -351,7 +351,7 @@ public class AbaseTableFactoryTest {
 		AbaseTableSink expectedSink = new AbaseTableSink(
 			options,
 			sinkOptions,
-			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			SinkMetricsOptions.builder().build(),
 			schema,
 			null);
 		assertEquals(expectedSink, createTableSink(schema, properties));
@@ -413,7 +413,7 @@ public class AbaseTableFactoryTest {
 		AbaseTableSink expectedSink = new AbaseTableSink(
 			options,
 			sinkOptions,
-			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			SinkMetricsOptions.builder().build(),
 			schema,
 			null);
 		assertEquals(expectedSink, createTableSink(schema, properties));
@@ -470,7 +470,7 @@ public class AbaseTableFactoryTest {
 		AbaseTableSink expectedSink = new AbaseTableSink(
 			options,
 			sinkOptions,
-			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			SinkMetricsOptions.builder().build(),
 			schema,
 			null);
 		assertEquals(expectedSink, createTableSink(schema, properties));
@@ -526,7 +526,7 @@ public class AbaseTableFactoryTest {
 		AbaseTableSink expectedSink = new AbaseTableSink(
 			options,
 			sinkOptions,
-			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			SinkMetricsOptions.builder().build(),
 			schema,
 			null);
 		assertEquals(expectedSink, createTableSink(schema, properties));
@@ -583,7 +583,7 @@ public class AbaseTableFactoryTest {
 		AbaseTableSink expectedSink = new AbaseTableSink(
 			options,
 			sinkOptions,
-			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			SinkMetricsOptions.builder().build(),
 			schema,
 			null);
 		assertEquals(expectedSink, createTableSink(schema, properties));
@@ -639,7 +639,7 @@ public class AbaseTableFactoryTest {
 		AbaseTableSink expectedSink = new AbaseTableSink(
 			options,
 			sinkOptions,
-			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			SinkMetricsOptions.builder().build(),
 			schema,
 			null);
 		assertEquals(expectedSink, createTableSink(schema, properties));
@@ -695,7 +695,7 @@ public class AbaseTableFactoryTest {
 		AbaseTableSink expectedSink = new AbaseTableSink(
 			options,
 			sinkOptions,
-			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			SinkMetricsOptions.builder().build(),
 			schema,
 			null);
 		assertEquals(expectedSink, createTableSink(schema, properties));
@@ -752,7 +752,7 @@ public class AbaseTableFactoryTest {
 		AbaseTableSink expectedSink = new AbaseTableSink(
 			options,
 			sinkOptions,
-			new AbaseSinkMetricsOptions.AbaseSinkMetricsOptionsBuilder().build(),
+			SinkMetricsOptions.builder().build(),
 			schema,
 			null);
 		assertEquals(expectedSink, createTableSink(schema, properties));

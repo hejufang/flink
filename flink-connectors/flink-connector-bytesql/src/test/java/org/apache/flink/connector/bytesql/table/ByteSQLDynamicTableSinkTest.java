@@ -20,6 +20,7 @@ package org.apache.flink.connector.bytesql.table;
 import org.apache.flink.connector.bytesql.table.descriptors.ByteSQLInsertOptions;
 import org.apache.flink.connector.bytesql.table.descriptors.ByteSQLOptions;
 import org.apache.flink.table.connector.ChangelogMode;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.types.RowKind;
 
 import org.junit.Rule;
@@ -46,9 +47,11 @@ public class ByteSQLDynamicTableSinkTest {
 	@Test
 	public void testNonAppendOnlyMode() {
 		ByteSQLInsertOptions.Builder insertOptionsBuilder = ByteSQLInsertOptions.builder();
+		SinkMetricsOptions.Builder insertMetricsOptionsBuilder = SinkMetricsOptions.builder();
 		ByteSQLDynamicTableSink sink = new ByteSQLDynamicTableSink(
 			optionBuilder.build(),
 			insertOptionsBuilder.build(),
+			insertMetricsOptionsBuilder.build(),
 			null
 		);
 		ChangelogMode upstreamChangeMode = ChangelogMode.newBuilder()
@@ -63,10 +66,12 @@ public class ByteSQLDynamicTableSinkTest {
 	@Test
 	public void testIgnoreNullMode() {
 		ByteSQLInsertOptions.Builder insertOptionsBuilder = ByteSQLInsertOptions.builder();
+		SinkMetricsOptions.Builder insertMetricsOptionsBuilder = SinkMetricsOptions.builder();
 		insertOptionsBuilder.setIgnoreNull(true);
 		ByteSQLDynamicTableSink sink = new ByteSQLDynamicTableSink(
 			optionBuilder.build(),
 			insertOptionsBuilder.build(),
+			insertMetricsOptionsBuilder.build(),
 			null
 		);
 		ChangelogMode upstreamChangeMode = ChangelogMode.newBuilder()

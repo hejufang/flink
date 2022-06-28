@@ -32,11 +32,16 @@ import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
+import org.apache.flink.table.metric.SinkMetricUtils;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.utils.TableSchemaUtils;
+import org.apache.flink.util.FlinkRuntimeException;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.CONNECTION_TIMEOUT;
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.CONSUL;
@@ -62,6 +67,15 @@ import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_MAX
 import static org.apache.flink.table.factories.FactoryUtil.SINK_IGNORE_DELETE;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONLY;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_MAX_RETRIES;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_NUMBER;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_SERIES;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_SIZE;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_EVENT_TS_NAME;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_EVENT_TS_WRITEABLE;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_PROPS;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_QUANTILES;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_TAGS_NAMES;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_TAGS_WRITEABLE;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_RECORD_TTL;
 import static org.apache.flink.table.utils.TableSchemaUtils.replacePrimaryKeyIfNotSpecified;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -82,10 +96,12 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 		ByteSQLOptions options = getByteSQLOptions(config);
 		String primaryKeyFields = config.get(PRIMARY_KEY_FIELDS);
 		TableSchema newSchema = replacePrimaryKeyIfNotSpecified(physicalSchema, primaryKeyFields);
-		ByteSQLInsertOptions insertOptions = getByteSQLInsertOptions(config, newSchema);
+		SinkMetricsOptions insertMetricsOptions = SinkMetricUtils.getSinkMetricsOptions(config, physicalSchema);
+		ByteSQLInsertOptions insertOptions = getByteSQLInsertOptions(config, newSchema, insertMetricsOptions);
 		return new ByteSQLDynamicTableSink(
 			options,
 			insertOptions,
+			insertMetricsOptions,
 			physicalSchema
 		);
 	}
@@ -147,6 +163,16 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 
 		optionalOptions.add(PRIMARY_KEY_FIELDS);
 		optionalOptions.add(RATE_LIMIT_NUM);
+
+		optionalOptions.add(SINK_METRICS_QUANTILES);
+		optionalOptions.add(SINK_METRICS_EVENT_TS_NAME);
+		optionalOptions.add(SINK_METRICS_EVENT_TS_WRITEABLE);
+		optionalOptions.add(SINK_METRICS_TAGS_NAMES);
+		optionalOptions.add(SINK_METRICS_TAGS_WRITEABLE);
+		optionalOptions.add(SINK_METRICS_PROPS);
+		optionalOptions.add(SINK_METRICS_BUCKET_SIZE);
+		optionalOptions.add(SINK_METRICS_BUCKET_NUMBER);
+		optionalOptions.add(SINK_METRICS_BUCKET_SERIES);
 		return optionalOptions;
 	}
 
@@ -187,10 +213,25 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 		return builder.build();
 	}
 
-	private static ByteSQLInsertOptions getByteSQLInsertOptions(ReadableConfig configs, TableSchema physicalSchema) {
+	private static ByteSQLInsertOptions getByteSQLInsertOptions(
+			ReadableConfig configs,
+			TableSchema physicalSchema,
+			SinkMetricsOptions metricsOptions) {
 		String[] keyFields = physicalSchema.getPrimaryKey()
 			.map(pk -> pk.getColumns().toArray(new String[0]))
 			.orElse(null);
+		int[] writableIndices = getWritableCols(physicalSchema.getFieldCount(), metricsOptions);
+
+		// check if all primary keys are in the writableIndices.
+		int[] primaryKeyIndices = physicalSchema.getPrimaryKeyIndices();
+		if (primaryKeyIndices != null && primaryKeyIndices.length > 0) {
+			Set<Integer> writableIndicesSet = Arrays.stream(writableIndices).boxed().collect(Collectors.toSet());
+			for (int pk : primaryKeyIndices) {
+				if (!writableIndicesSet.contains(pk)) {
+					throw new FlinkRuntimeException("The primary key with index " + pk + " is not writable!");
+				}
+			}
+		}
 		return ByteSQLInsertOptions.builder()
 			.setBufferFlushIntervalMills(configs.get(SINK_BUFFER_FLUSH_INTERVAL).toMillis())
 			.setBufferFlushMaxRows(configs.get(SINK_BUFFER_FLUSH_MAX_ROWS))
@@ -201,7 +242,44 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 			.setTtlSeconds((int) configs.get(SINK_RECORD_TTL).getSeconds())
 			.setParallelism(configs.get(PARALLELISM))
 			.setKeyFields(keyFields)
+			.setWritableColIndices(writableIndices)
+			.setWritableNames(getWritableColNames(writableIndices, physicalSchema))
 			.build();
+	}
+
+	private static int[] getWritableCols(int fieldCnt, SinkMetricsOptions metricsOptions) {
+		int[] indices;
+		if (!metricsOptions.isCollected()) {
+			indices = new int[fieldCnt];
+			for (int i = 0; i < fieldCnt; i++) {
+				indices[i] = i;
+			}
+		} else {
+			int[] tmp = new int[fieldCnt];
+			int idx = 0;
+			Set<Integer> tags = new HashSet<>();
+			if (metricsOptions.getTagNameIndices() != null && !metricsOptions.getTagNameIndices().isEmpty()) {
+				tags = new HashSet<>(metricsOptions.getTagNameIndices());
+			}
+			for (int i = 0; i < fieldCnt; i++) {
+				if ((!metricsOptions.isEventTsWriteable() && i == metricsOptions.getEventTsColIndex())
+					|| (!metricsOptions.isTagWriteable() && tags.contains(i))) {
+					continue;
+				}
+				tmp[idx++] = i;
+			}
+			indices = Arrays.copyOf(tmp, idx);
+		}
+		return indices;
+	}
+
+	private static String[] getWritableColNames(int[] indices, TableSchema schema) {
+		String[] names = new String[indices.length];
+		String[] fieldNames = schema.getFieldNames();
+		for (int i = 0; i < indices.length; i++) {
+			names[i] = fieldNames[indices[i]];
+		}
+		return names;
 	}
 
 }
