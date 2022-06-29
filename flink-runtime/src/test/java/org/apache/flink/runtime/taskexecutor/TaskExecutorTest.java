@@ -2206,7 +2206,7 @@ public class TaskExecutorTest extends TestLogger {
 			.setCloseRunnable(leaseReleaseLatch::trigger)
 			.build();
 
-		final TaskExecutor.TaskExecutorJobServices taskExecutorJobServices = TaskExecutor.TaskExecutorJobServices.create(
+		final TaskExecutorJobServices taskExecutorJobServices = TaskExecutorJobServices.create(
 			classLoaderLease,
 			closeHookLatch::trigger);
 
@@ -2944,7 +2944,7 @@ public class TaskExecutorTest extends TestLogger {
 		}
 	}
 
-	private static <T> T getFutureResult(CompletableFuture<T> future, long waitTimeTs, int retryTimes) throws Exception {
+	public static <T> T getFutureResult(CompletableFuture<T> future, long waitTimeTs, int retryTimes) throws Exception {
 		Exception e = new Exception("exception while get future result.");
 		for (int i = 0; i < retryTimes; i++) {
 			try {

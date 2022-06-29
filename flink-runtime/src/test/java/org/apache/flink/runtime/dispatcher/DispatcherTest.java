@@ -71,7 +71,7 @@ import org.apache.flink.runtime.state.CheckpointStorageCoordinatorView;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.StateBackend;
-import org.apache.flink.runtime.taskexecutor.DispatcherRegistration;
+import org.apache.flink.runtime.taskexecutor.DispatcherRegistrationRequest;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorMemoryConfiguration;
 import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGatewayBuilder;
@@ -124,6 +124,8 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -834,7 +836,7 @@ public class DispatcherTest extends TestLogger {
 
 		dispatcher.start();
 
-		CompletableFuture<DispatcherRegistration> registrationFuture = new CompletableFuture<>();
+		CompletableFuture<DispatcherRegistrationRequest> registrationFuture = new CompletableFuture<>();
 		TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder()
 			.setAddress("taskexecutor_test_01")
 			.setDispatcherRegistrationConsumer(registrationFuture::complete)
@@ -845,15 +847,15 @@ public class DispatcherTest extends TestLogger {
 			Collections.singleton(
 				new UnresolvedTaskManagerTopology(
 					taskExecutorGateway,
-					new UnresolvedTaskManagerLocation(ResourceID.generate(), "localhost", -1),
+					"taskexecutor_test_01", new UnresolvedTaskManagerLocation(ResourceID.generate(), "localhost", -1),
 					new TaskExecutorSocketAddress("localhost", 8091))),
 			Time.seconds(10));
 		offerFuture.get(10, TimeUnit.SECONDS);
 
-		DispatcherRegistration dispatcherRegistration = registrationFuture.get(10, TimeUnit.SECONDS);
-		assertEquals(dispatcherGateway.getAddress(), dispatcherRegistration.getAkkaAddress());
-		assertEquals(jobResultClientManager.getClusterInformation().getSocketServerAddress(), dispatcherRegistration.getSocketAddress());
-		assertEquals(jobResultClientManager.getClusterInformation().getSocketServerPort(), dispatcherRegistration.getSocketPort());
+		DispatcherRegistrationRequest dispatcherRegistrationRequest = registrationFuture.get(10, TimeUnit.SECONDS);
+		assertEquals(dispatcherGateway.getAddress(), dispatcherRegistrationRequest.getAkkaAddress());
+		assertEquals(jobResultClientManager.getClusterInformation().getSocketServerAddress(), dispatcherRegistrationRequest.getSocketAddress());
+		assertEquals(jobResultClientManager.getClusterInformation().getSocketServerPort(), dispatcherRegistrationRequest.getSocketPort());
 	}
 
 	private void notifyResourceManagerLeaderListeners(TestingResourceManagerGateway testingResourceManagerGateway) {
@@ -865,6 +867,128 @@ public class DispatcherTest extends TestLogger {
 		final TestingResourceManagerGateway testingResourceManagerGateway = new TestingResourceManagerGateway();
 		rpcService.registerGateway(testingResourceManagerGateway.getAddress(), testingResourceManagerGateway);
 		return testingResourceManagerGateway;
+	}
+
+	@Test
+	public void testRegisterTaskManager() throws Exception {
+		DispatcherId mockDispatcherId = DispatcherId.generate();
+		ResourceID mockResourceID = ResourceID.generate();
+		configuration.setBoolean(
+			ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED,
+			true);
+
+		dispatcher = new TestingDispatcherBuilder()
+			.setDispatcherId(mockDispatcherId)
+			.setHaServices(haServices)
+			.setHeartbeatServices(heartbeatServices)
+			.build();
+		dispatcher.setResourceId(mockResourceID);
+		dispatcher.setJobReuseDispatcherEnable(true);
+
+		final DispatcherGateway dispatcherGateway = dispatcher.getSelfGateway(DispatcherGateway.class);
+		ResourceID taskManagerId = ResourceID.generate();
+		TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder().setResourceID(taskManagerId).createTestingTaskExecutorGateway();
+
+		rpcService.registerGateway(taskExecutorGateway.getAddress(), taskExecutorGateway);
+		dispatcher.start();
+
+		CompletableFuture<EstablishedTaskExecutorConnection> establishedTaskExecutorConnectionCompletableFuture = dispatcherGateway.registerTaskManager(taskExecutorGateway.getAddress(), taskManagerId, TIMEOUT);
+		EstablishedTaskExecutorConnection establishedTaskExecutorConnection = establishedTaskExecutorConnectionCompletableFuture.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
+
+		// Check connection success
+		assertNotNull(establishedTaskExecutorConnection.getTaskExecutorGateway());
+	}
+
+	@Test
+	public void testReconnectTaskManager() throws Exception {
+		DispatcherId mockDispatcherId = DispatcherId.generate();
+		ResourceID mockResourceID = ResourceID.generate();
+		configuration.setBoolean(
+			ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED,
+			true);
+		dispatcher = new TestingDispatcherBuilder()
+			.setDispatcherId(mockDispatcherId)
+			.setHaServices(haServices)
+			.setHeartbeatServices(heartbeatServices)
+			.build();
+		dispatcher.setResourceId(mockResourceID);
+
+		final DispatcherGateway dispatcherGateway = dispatcher.getSelfGateway(DispatcherGateway.class);
+		ResourceID taskManagerId = ResourceID.generate();
+		TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder().setAddress("127.0.0.1:11").setResourceID(taskManagerId).createTestingTaskExecutorGateway();
+
+		rpcService.registerGateway(taskExecutorGateway.getAddress(), taskExecutorGateway);
+		dispatcher.start();
+
+		CompletableFuture<EstablishedTaskExecutorConnection> establishedTaskExecutorConnectionCompletableFuture = dispatcherGateway.registerTaskManager(taskExecutorGateway.getAddress(), taskManagerId, TIMEOUT);
+		EstablishedTaskExecutorConnection establishedTaskExecutorConnection = establishedTaskExecutorConnectionCompletableFuture.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
+		assertNotNull(establishedTaskExecutorConnection.getTaskExecutorGateway());
+
+		dispatcher.disconnectTaskExecutor(taskManagerId, new TimeoutException());
+		CompletableFuture<EstablishedTaskExecutorConnection> establishedTaskExecutorConnectionCompletableFuture2 = dispatcherGateway.registerTaskManager(taskExecutorGateway.getAddress(), taskManagerId, TIMEOUT);
+		EstablishedTaskExecutorConnection establishedTaskExecutorConnection2 = establishedTaskExecutorConnectionCompletableFuture2.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
+
+		// check reconnect success
+		assertNotNull(establishedTaskExecutorConnection2.getTaskExecutorGateway());
+		// check create new connection
+		assertNotEquals(establishedTaskExecutorConnection, establishedTaskExecutorConnection2);
+	}
+
+	@Test(timeout = 10000L)
+	public void testTimeoutHeartbeatWithTaskManager() throws Exception {
+		DispatcherId mockDispatcherId = DispatcherId.generate();
+		ResourceID mockResourceID = ResourceID.generate();
+		String taskExecutorAddress = "127.0.0.1:1234";
+		HeartbeatServices heartbeatServices = new HeartbeatServices(10L, 10L);
+		ResourceID taskManagerId = ResourceID.generate();
+		configuration.setBoolean(
+			ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED,
+			true);
+		dispatcher = new TestingDispatcherBuilder()
+			.setDispatcherId(mockDispatcherId)
+			.setHaServices(haServices)
+			.setHeartbeatServices(heartbeatServices)
+			.build();
+
+		dispatcher.setJobReuseDispatcherEnable(true);
+		dispatcher.setResourceId(mockResourceID);
+
+		TaskExecutorRegistration taskExecutorRegistration = new TaskExecutorRegistration(taskExecutorAddress, mockResourceID, 1111,
+			new HardwareDescription(1, 2L, 3L, 4L),
+			new TaskExecutorMemoryConfiguration(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L),
+			ResourceProfile.ZERO,
+			ResourceProfile.ZERO);
+		UnresolvedTaskManagerLocation unresolvedTaskManagerLocation = new UnresolvedTaskManagerLocation(
+			taskManagerId,
+			"127.0.0.1",
+			taskExecutorRegistration.getDataPort());
+		UnresolvedTaskManagerTopology unresolvedTaskManagerTopology = new UnresolvedTaskManagerTopology(null, taskExecutorRegistration.getTaskExecutorAddress(), unresolvedTaskManagerLocation, null);
+		dispatcher.addTaskExecutorLocations(taskManagerId, unresolvedTaskManagerTopology);
+
+		final CompletableFuture<ResourceID> dispatcherRegistrationFuture = new CompletableFuture<>();
+		final CompletableFuture<ResourceID> disconnectDispatcherFuture = new CompletableFuture<>();
+		final CountDownLatch registrationAttempts = new CountDownLatch(2);
+
+		final DispatcherGateway dispatcherGateway = dispatcher.getSelfGateway(DispatcherGateway.class);
+		TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder()
+			.setHeartbeatDispatcherConsumer(resourceID -> dispatcherRegistrationFuture.complete(resourceID))
+			.setDisconnectDispatcherConsumer((resourceID, throwable) -> {
+				disconnectDispatcherFuture.complete(resourceID);
+				registrationAttempts.countDown();
+			}).setResourceID(taskManagerId)
+			.setAddress(taskExecutorAddress).createTestingTaskExecutorGateway();
+		rpcService.registerGateway(taskExecutorGateway.getAddress(), taskExecutorGateway);
+		dispatcher.start();
+
+		dispatcherGateway.registerTaskManager(taskExecutorGateway.getAddress(), taskManagerId, TIMEOUT);
+
+		final ResourceID disconnectedDispatcher = disconnectDispatcherFuture.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
+
+		// heartbeat timeout should trigger disconnect Dispatcher from ResourceManager
+		MatcherAssert.assertThat(disconnectedDispatcher, Matchers.equalTo(taskManagerId));
+
+		// the Dispatcher should try to reconnect to the RM
+		registrationAttempts.await();
 	}
 
 	private static final class BlockingJobManagerRunnerFactory extends TestingJobManagerRunnerFactory {

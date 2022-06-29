@@ -55,6 +55,7 @@ public class TestingTaskSlotTable<T extends TaskSlotPayload> implements TaskSlot
 	private final Function<JobID, Iterator<T>> tasksForJobFunction;
 	private final Supplier<Set<AllocationID>> allActiveSlotAllocationIdsSupplier;
 	private final Function<JobID, Set<AllocationID>> activeSlotAllocationIdsForJobFunction;
+	private final Function<JobID, Boolean> hasAllocatedSlotsFunction;
 
 	private TestingTaskSlotTable(
 			Supplier<SlotReport> createSlotReportSupplier,
@@ -65,7 +66,8 @@ public class TestingTaskSlotTable<T extends TaskSlotPayload> implements TaskSlot
 			Supplier<CompletableFuture<Void>> closeAsyncSupplier,
 			Function<JobID, Iterator<T>> tasksForJobFunction,
 			Supplier<Set<AllocationID>> allActiveSlotAllocationIdsSupplier,
-			Function<JobID, Set<AllocationID>> activeSlotAllocationIdsForJobFunction) {
+			Function<JobID, Set<AllocationID>> activeSlotAllocationIdsForJobFunction,
+			Function<JobID, Boolean> hasAllocatedSlotsFunction) {
 		this.createSlotReportSupplier = createSlotReportSupplier;
 		this.allocateSlotSupplier = allocateSlotSupplier;
 		this.tryMarkSlotActiveBiFunction = tryMarkSlotActiveBiFunction;
@@ -75,6 +77,7 @@ public class TestingTaskSlotTable<T extends TaskSlotPayload> implements TaskSlot
 		this.tasksForJobFunction = tasksForJobFunction;
 		this.allActiveSlotAllocationIdsSupplier = allActiveSlotAllocationIdsSupplier;
 		this.activeSlotAllocationIdsForJobFunction = activeSlotAllocationIdsForJobFunction;
+		this.hasAllocatedSlotsFunction = hasAllocatedSlotsFunction;
 	}
 
 	@Override
@@ -158,7 +161,7 @@ public class TestingTaskSlotTable<T extends TaskSlotPayload> implements TaskSlot
 
 	@Override
 	public boolean hasAllocatedSlots(JobID jobId) {
-		throw new UnsupportedOperationException();
+		return hasAllocatedSlotsFunction.apply(jobId);
 	}
 
 	@Override
@@ -231,6 +234,7 @@ public class TestingTaskSlotTable<T extends TaskSlotPayload> implements TaskSlot
 		private Function<JobID, Iterator<T>> tasksForJobFunction = ignored -> Collections.emptyIterator();
 		private Supplier<Set<AllocationID>> allActiveSlotAllocationIdsSupplier = Collections::emptySet;
 		private Function<JobID, Set<AllocationID>> activeSlotAllocationIdsForJobFunction = ignored -> Collections.emptySet();
+		private Function<JobID, Boolean> hasAllocatedSlotsFunction = ignored -> null;
 
 		public TestingTaskSlotTableBuilder<T> createSlotReportSupplier(Supplier<SlotReport> createSlotReportSupplier) {
 			this.createSlotReportSupplier = createSlotReportSupplier;
@@ -277,6 +281,11 @@ public class TestingTaskSlotTable<T extends TaskSlotPayload> implements TaskSlot
 			return this;
 		}
 
+		public TestingTaskSlotTableBuilder<T> setHasAllocatedSlotsFunction(Function<JobID, Boolean> hasAllocatedSlotsFunction) {
+			this.hasAllocatedSlotsFunction = hasAllocatedSlotsFunction;
+			return this;
+		}
+
 		public TaskSlotTable<T> build() {
 			return new TestingTaskSlotTable<>(
 				createSlotReportSupplier,
@@ -287,7 +296,8 @@ public class TestingTaskSlotTable<T extends TaskSlotPayload> implements TaskSlot
 				closeAsyncSupplier,
 				tasksForJobFunction,
 				allActiveSlotAllocationIdsSupplier,
-				activeSlotAllocationIdsForJobFunction);
+				activeSlotAllocationIdsForJobFunction,
+				hasAllocatedSlotsFunction);
 		}
 	}
 }

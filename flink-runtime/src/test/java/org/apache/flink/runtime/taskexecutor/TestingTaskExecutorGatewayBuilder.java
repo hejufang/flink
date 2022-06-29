@@ -55,7 +55,9 @@ import java.util.function.Supplier;
 public class TestingTaskExecutorGatewayBuilder {
 
 	private static final BiConsumer<ResourceID, AllocatedSlotReport> NOOP_HEARTBEAT_JOBMANAGER_CONSUMER = (ignoredA, ignoredB) -> {};
+	private static final Consumer<ResourceID> NOOP_HEARTBEAT_DISPATCHER_CONSUMER = (ignored) -> {};
 	private static final BiConsumer<JobID, Throwable> NOOP_DISCONNECT_JOBMANAGER_CONSUMER = (ignoredA, ignoredB) -> {};
+	private static final BiConsumer<ResourceID, Throwable> NOOP_DISCONNECT_DISPATCHER_CONSUMER = (ignoredA, ignoredB) -> {};
 	private static final BiFunction<TaskDeploymentDescriptor, JobMasterId, CompletableFuture<Acknowledge>> NOOP_SUBMIT_TASK_CONSUMER = (ignoredA, ignoredB) -> CompletableFuture.completedFuture(Acknowledge.get());
 	private static final Function<Tuple6<SlotID, JobID, AllocationID, ResourceProfile, String, ResourceManagerId>, CompletableFuture<Acknowledge>> NOOP_REQUEST_SLOT_FUNCTION = ignored -> CompletableFuture.completedFuture(Acknowledge.get());
 	private static final BiFunction<AllocationID, Throwable, CompletableFuture<Acknowledge>> NOOP_FREE_SLOT_FUNCTION = (ignoredA, ignoredB) -> CompletableFuture.completedFuture(Acknowledge.get());
@@ -66,12 +68,14 @@ public class TestingTaskExecutorGatewayBuilder {
 	private static final TriFunction<ExecutionAttemptID, OperatorID, SerializedValue<OperatorEvent>, CompletableFuture<Acknowledge>> DEFAULT_OPERATOR_EVENT_HANDLER = (a, b, c) -> CompletableFuture.completedFuture(Acknowledge.get());
 	private static final Supplier<CompletableFuture<ThreadDumpInfo>> DEFAULT_THREAD_DUMP_SUPPLIER = () -> FutureUtils.completedExceptionally(new UnsupportedOperationException());
 	private static final Consumer<Collection<TaskDeploymentDescriptor>> NOOP_SUBMIT_TASK_LIST_CONSUMER = ignored -> {};
-	private static final Consumer<DispatcherRegistration> NOOP_DISPATCHER_REGISTER_CONSUMER = ignored -> {};
+	private static final Consumer<DispatcherRegistrationRequest> NOOP_DISPATCHER_REGISTER_CONSUMER = ignored -> {};
 
 	private String address = "foobar:1234";
 	private String hostname = "foobar";
 	private BiConsumer<ResourceID, AllocatedSlotReport> heartbeatJobManagerConsumer = NOOP_HEARTBEAT_JOBMANAGER_CONSUMER;
+	private Consumer<ResourceID> heartbeatDispatcherConsumer = NOOP_HEARTBEAT_DISPATCHER_CONSUMER;
 	private BiConsumer<JobID, Throwable> disconnectJobManagerConsumer = NOOP_DISCONNECT_JOBMANAGER_CONSUMER;
+	private BiConsumer<ResourceID, Throwable> disconnectDispatcherConsumer = NOOP_DISCONNECT_DISPATCHER_CONSUMER;
 	private BiFunction<TaskDeploymentDescriptor, JobMasterId, CompletableFuture<Acknowledge>> submitTaskConsumer = NOOP_SUBMIT_TASK_CONSUMER;
 	private Function<Tuple6<SlotID, JobID, AllocationID, ResourceProfile, String, ResourceManagerId>, CompletableFuture<Acknowledge>> requestSlotFunction = NOOP_REQUEST_SLOT_FUNCTION;
 	private BiFunction<AllocationID, Throwable, CompletableFuture<Acknowledge>> freeSlotFunction = NOOP_FREE_SLOT_FUNCTION;
@@ -84,7 +88,8 @@ public class TestingTaskExecutorGatewayBuilder {
 	private TriFunction<ExecutionAttemptID, OperatorID, SerializedValue<OperatorEvent>, CompletableFuture<Acknowledge>> operatorEventHandler = DEFAULT_OPERATOR_EVENT_HANDLER;
 	private Supplier<CompletableFuture<ThreadDumpInfo>> requestThreadDumpSupplier = DEFAULT_THREAD_DUMP_SUPPLIER;
 	private Consumer<Collection<TaskDeploymentDescriptor>> submitTaskListConsumer = NOOP_SUBMIT_TASK_LIST_CONSUMER;
-	private Consumer<DispatcherRegistration> dispatcherRegistrationConsumer = NOOP_DISPATCHER_REGISTER_CONSUMER;
+	private Consumer<DispatcherRegistrationRequest> dispatcherRegistrationConsumer = NOOP_DISPATCHER_REGISTER_CONSUMER;
+	private ResourceID resourceID = ResourceID.generate();
 
 	public TestingTaskExecutorGatewayBuilder setAddress(String address) {
 		this.address = address;
@@ -98,6 +103,11 @@ public class TestingTaskExecutorGatewayBuilder {
 
 	public TestingTaskExecutorGatewayBuilder setHeartbeatJobManagerConsumer(BiConsumer<ResourceID, AllocatedSlotReport> heartbeatJobManagerConsumer) {
 		this.heartbeatJobManagerConsumer = heartbeatJobManagerConsumer;
+		return this;
+	}
+
+	public TestingTaskExecutorGatewayBuilder setHeartbeatDispatcherConsumer(Consumer<ResourceID> heartbeatDispatcherConsumer) {
+		this.heartbeatDispatcherConsumer = heartbeatDispatcherConsumer;
 		return this;
 	}
 
@@ -165,8 +175,18 @@ public class TestingTaskExecutorGatewayBuilder {
 		return this;
 	}
 
-	public TestingTaskExecutorGatewayBuilder setDispatcherRegistrationConsumer(Consumer<DispatcherRegistration> dispatcherRegistrationConsumer) {
+	public TestingTaskExecutorGatewayBuilder setDispatcherRegistrationConsumer(Consumer<DispatcherRegistrationRequest> dispatcherRegistrationConsumer) {
 		this.dispatcherRegistrationConsumer = dispatcherRegistrationConsumer;
+		return this;
+	}
+
+	public TestingTaskExecutorGatewayBuilder setResourceID(ResourceID resourceID) {
+		this.resourceID = resourceID;
+		return this;
+	}
+
+	public TestingTaskExecutorGatewayBuilder setDisconnectDispatcherConsumer(BiConsumer<ResourceID, Throwable> disconnectDispatcherConsumer) {
+		this.disconnectDispatcherConsumer = disconnectDispatcherConsumer;
 		return this;
 	}
 
@@ -175,7 +195,9 @@ public class TestingTaskExecutorGatewayBuilder {
 			address,
 			hostname,
 			heartbeatJobManagerConsumer,
+			heartbeatDispatcherConsumer,
 			disconnectJobManagerConsumer,
+			disconnectDispatcherConsumer,
 			submitTaskConsumer,
 			requestSlotFunction,
 			freeSlotFunction,
@@ -188,6 +210,7 @@ public class TestingTaskExecutorGatewayBuilder {
 			operatorEventHandler,
 			requestThreadDumpSupplier,
 			submitTaskListConsumer,
-			dispatcherRegistrationConsumer);
+			dispatcherRegistrationConsumer,
+			resourceID);
 	}
 }

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.taskexecutor;
 
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.dispatcher.DispatcherId;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 
 import java.io.Serializable;
@@ -28,16 +29,18 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /**
  * Dispatcher register its information to task executor.
  */
-public class DispatcherRegistration implements Serializable {
+public class DispatcherRegistrationRequest implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	private final ResourceID resourceId;
+	private final DispatcherId dispatcherId;
 	private final String akkaAddress;
 	private final String socketAddress;
 	private final int socketPort;
 
-	public DispatcherRegistration(ResourceID resourceId, String akkaAddress, String socketAddress, int socketPort) {
+	public DispatcherRegistrationRequest(ResourceID resourceId, DispatcherId dispatcherId, String akkaAddress, String socketAddress, int socketPort) {
 		this.resourceId = resourceId;
+		this.dispatcherId = dispatcherId;
 		this.akkaAddress = akkaAddress;
 		this.socketAddress = socketAddress;
 		this.socketPort = socketPort;
@@ -59,15 +62,19 @@ public class DispatcherRegistration implements Serializable {
 		return socketPort;
 	}
 
-	public static DispatcherRegistration from(ResourceID resourceId, ClusterInformation clusterInformation, boolean useSocketEnable, String address, boolean jobReuseDispatcherEnable) {
+	public DispatcherId getDispatcherId() {
+		return dispatcherId;
+	}
+
+	public static DispatcherRegistrationRequest from(ResourceID resourceId, DispatcherId dispatcherId, ClusterInformation clusterInformation, boolean useSocketEnable, String address, boolean jobReuseDispatcherEnable) {
 		if (useSocketEnable && jobReuseDispatcherEnable) {
 			checkNotNull(clusterInformation);
-			return new DispatcherRegistration(resourceId, address, clusterInformation.getSocketServerAddress(), clusterInformation.getSocketServerPort());
+			return new DispatcherRegistrationRequest(resourceId, dispatcherId, address, clusterInformation.getSocketServerAddress(), clusterInformation.getSocketServerPort());
 		} else if (useSocketEnable) {
 			checkNotNull(clusterInformation);
-			return new DispatcherRegistration(resourceId, null, clusterInformation.getSocketServerAddress(), clusterInformation.getSocketServerPort());
+			return new DispatcherRegistrationRequest(resourceId, dispatcherId, null, clusterInformation.getSocketServerAddress(), clusterInformation.getSocketServerPort());
 		} else {
-			return new DispatcherRegistration(resourceId, address, null, 0);
+			return new DispatcherRegistrationRequest(resourceId, dispatcherId, address, null, 0);
 		}
 	}
 }

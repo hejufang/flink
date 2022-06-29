@@ -36,10 +36,12 @@ import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
+import org.apache.flink.runtime.jobmaster.DispatcherToTaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
+import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceRequestSlot;
 import org.apache.flink.runtime.rest.messages.LogInfo;
@@ -73,7 +75,11 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 
 	private final BiConsumer<ResourceID, AllocatedSlotReport> heartbeatJobManagerConsumer;
 
+	private final Consumer<ResourceID> heartbeatDispatcherConsumer;
+
 	private final BiConsumer<JobID, Throwable> disconnectJobManagerConsumer;
+
+	private final BiConsumer<ResourceID, Throwable> disconnectDispatcherConsumer;
 
 	private final BiFunction<TaskDeploymentDescriptor, JobMasterId, CompletableFuture<Acknowledge>> submitTaskConsumer;
 
@@ -99,13 +105,17 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 
 	private final Consumer<Collection<TaskDeploymentDescriptor>> submitTaskListConsumer;
 
-	private final Consumer<DispatcherRegistration> dispatcherRegistrationConsumer;
+	private final ResourceID resourceID;
+
+	private final Consumer<DispatcherRegistrationRequest> dispatcherRegistrationConsumer;
 
 	TestingTaskExecutorGateway(
 			String address,
 			String hostname,
 			BiConsumer<ResourceID, AllocatedSlotReport> heartbeatJobManagerConsumer,
+			Consumer<ResourceID> heartbeatDispatcherConsumer,
 			BiConsumer<JobID, Throwable> disconnectJobManagerConsumer,
+			BiConsumer<ResourceID, Throwable> disconnectDispatcherConsumer,
 			BiFunction<TaskDeploymentDescriptor, JobMasterId, CompletableFuture<Acknowledge>> submitTaskConsumer,
 			Function<Tuple6<SlotID, JobID, AllocationID, ResourceProfile, String, ResourceManagerId>, CompletableFuture<Acknowledge>> requestSlotFunction,
 			BiFunction<AllocationID, Throwable, CompletableFuture<Acknowledge>> freeSlotFunction,
@@ -118,12 +128,16 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 			TriFunction<ExecutionAttemptID, OperatorID, SerializedValue<OperatorEvent>, CompletableFuture<Acknowledge>> operatorEventHandler,
 			Supplier<CompletableFuture<ThreadDumpInfo>> requestThreadDumpSupplier,
 			Consumer<Collection<TaskDeploymentDescriptor>> submitTaskListConsumer,
-			Consumer<DispatcherRegistration> dispatcherRegistrationConsumer) {
+			Consumer<DispatcherRegistrationRequest> dispatcherRegistrationConsumer,
+			ResourceID resourceID
+	) {
 
 		this.address = Preconditions.checkNotNull(address);
 		this.hostname = Preconditions.checkNotNull(hostname);
 		this.heartbeatJobManagerConsumer = Preconditions.checkNotNull(heartbeatJobManagerConsumer);
+		this.heartbeatDispatcherConsumer = Preconditions.checkNotNull(heartbeatDispatcherConsumer);
 		this.disconnectJobManagerConsumer = Preconditions.checkNotNull(disconnectJobManagerConsumer);
+		this.disconnectDispatcherConsumer = Preconditions.checkNotNull(disconnectDispatcherConsumer);
 		this.submitTaskConsumer = Preconditions.checkNotNull(submitTaskConsumer);
 		this.requestSlotFunction = Preconditions.checkNotNull(requestSlotFunction);
 		this.freeSlotFunction = Preconditions.checkNotNull(freeSlotFunction);
@@ -136,6 +150,7 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 		this.operatorEventHandler = operatorEventHandler;
 		this.requestThreadDumpSupplier = requestThreadDumpSupplier;
 		this.submitTaskListConsumer = submitTaskListConsumer;
+		this.resourceID = resourceID;
 		this.dispatcherRegistrationConsumer = dispatcherRegistrationConsumer;
 	}
 
@@ -217,6 +232,11 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 	}
 
 	@Override
+	public void heartbeatFromDispatcher(ResourceID resourceID) {
+		heartbeatDispatcherConsumer.accept(resourceID);
+	}
+
+	@Override
 	public void heartbeatFromResourceManager(ResourceID heartbeatOrigin) {
 		heartbeatResourceManagerConsumer.accept(heartbeatOrigin);
 	}
@@ -229,6 +249,11 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 	@Override
 	public void disconnectResourceManager(Exception cause) {
 		disconnectResourceManagerConsumer.accept(cause);
+	}
+
+	@Override
+	public void disconnectDispatcher(ResourceID dispatcherId, Exception cause) {
+		disconnectDispatcherConsumer.accept(dispatcherId, cause);
 	}
 
 	@Override
@@ -270,6 +295,12 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 	}
 
 	@Override
+	public CompletableFuture<RegistrationResponse> registerDispatcher(DispatcherRegistrationRequest dispatcherRegistrationRequest, Time timeout) {
+		dispatcherRegistrationConsumer.accept(dispatcherRegistrationRequest);
+		return CompletableFuture.completedFuture(new DispatcherToTaskExecutorRegistrationSuccess(resourceID));
+	}
+
+	@Override
 	public String getAddress() {
 		return address;
 	}
@@ -282,10 +313,5 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 	@Override
 	public CompletableFuture<Collection<LogInfo>> requestLogList(Time timeout) {
 		return FutureUtils.completedExceptionally(new UnsupportedOperationException());
-	}
-
-	@Override
-	public void registerDispatcher(DispatcherRegistration dispatcherRegistration) {
-		dispatcherRegistrationConsumer.accept(dispatcherRegistration);
 	}
 }

@@ -283,6 +283,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final boolean jobMasterResourceAllocationDirectEnabled;
 
+	private final boolean jobReuseDispatcherEnable;
+
 	// for batch warehouse
 	private static final String FLINK_BATCH_JOB_INFO_METRICS = "flink_batch_info";
 	private WarehouseBatchJobInfoMessage warehouseBatchJobInfoMessage;
@@ -330,6 +332,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.useAddressAsHostNameEnable = jobMasterConfiguration.getConfiguration().getBoolean(CoreOptions.USE_ADDRESS_AS_HOSTNAME_ENABLE);
 		this.requestSlotFromResourceManagerDirectEnable = jobMasterConfiguration.getConfiguration().getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE);
 		this.jobMasterResourceAllocationDirectEnabled = jobMasterConfiguration.getConfiguration().getBoolean(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED);
+		this.jobReuseDispatcherEnable = jobMasterConfiguration.getConfiguration().getBoolean(ClusterOptions.JOB_REUSE_DISPATCHER_IN_TASKEXECUTOR_ENABLE);
 		this.useMainScheduledExecutorEnable = jobMasterConfiguration.getConfiguration().getBoolean(CoreOptions.ENDPOINT_USE_MAIN_SCHEDULED_EXECUTOR_ENABLE);
 		this.minResourceSlotPoolSimplifyEnabled = jobMasterConfiguration.getConfiguration().getBoolean(JobManagerOptions.MIN_RESOURCE_SLOT_POOL_SIMPLIFY_ENABLED);
 
@@ -587,7 +590,14 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		log.info("Stopping the JobMaster for job {}({}).", jobGraph.getName(), jobGraph.getJobID());
 
 		// disconnect from all registered TaskExecutors
-		final Set<ResourceID> taskManagerResourceIds = new HashSet<>(registeredTaskManagers.keySet());
+		final Collection<ResourceID> taskManagerResourceIds;
+
+		if (jobReuseDispatcherEnable && jobMasterResourceAllocationDirectEnabled) {
+			taskManagerResourceIds = slotPool.getAllocatedTaskManagers();
+		} else {
+			taskManagerResourceIds = new HashSet<>(registeredTaskManagers.keySet());
+		}
+
 		final FlinkException cause = new FlinkException("Stopping JobMaster for job " + jobGraph.getName() +
 			'(' + jobGraph.getJobID() + ").");
 
@@ -695,10 +705,17 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		}
 		partitionTracker.stopTrackingPartitionsFor(resourceID);
 
-		Tuple2<TaskManagerLocation, TaskExecutorGateway> taskManagerConnection = registeredTaskManagers.remove(resourceID);
+		if (jobReuseDispatcherEnable) {
+			ResolvedTaskManagerTopology resolvedTaskManagerTopology = slotPool.getResolvedTaskManagerTopology(resourceID);
+			if (resolvedTaskManagerTopology != null) {
+				resolvedTaskManagerTopology.getTaskExecutorGateway().disconnectJobManager(jobGraph.getJobID(), cause);
+			}
+		} else {
+			Tuple2<TaskManagerLocation, TaskExecutorGateway> taskManagerConnection = registeredTaskManagers.remove(resourceID);
 
-		if (taskManagerConnection != null) {
-			taskManagerConnection.f1.disconnectJobManager(jobGraph.getJobID(), cause);
+			if (taskManagerConnection != null) {
+				taskManagerConnection.f1.disconnectJobManager(jobGraph.getJobID(), cause);
+			}
 		}
 
 		return CompletableFuture.completedFuture(Acknowledge.get());
@@ -1206,11 +1223,13 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	}
 
 	private void startHeartbeatServices() {
-		taskManagerHeartbeatManager = heartbeatServices.createHeartbeatManagerSender(
-			resourceId,
-			new TaskManagerHeartbeatListener(),
-			useMainScheduledExecutorEnable ? getMainThreadExecutor().getMainScheduledExecutor() : getMainThreadExecutor(),
-			log);
+		if (!jobReuseDispatcherEnable) {
+			taskManagerHeartbeatManager = heartbeatServices.createHeartbeatManagerSender(
+				resourceId,
+				new TaskManagerHeartbeatListener(),
+				useMainScheduledExecutorEnable ? getMainThreadExecutor().getMainScheduledExecutor() : getMainThreadExecutor(),
+				log);
+		}
 
 		resourceManagerHeartbeatManager = heartbeatServices.createHeartbeatManager(
 			resourceId,

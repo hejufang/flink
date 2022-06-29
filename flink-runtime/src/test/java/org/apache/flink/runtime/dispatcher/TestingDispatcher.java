@@ -31,7 +31,7 @@ import java.util.function.Function;
 /**
  * {@link Dispatcher} implementation used for testing purposes.
  */
-class TestingDispatcher extends Dispatcher {
+class TestingDispatcher extends JobMaterProxyDispatcher {
 
 	private final CompletableFuture<Void> startFuture;
 

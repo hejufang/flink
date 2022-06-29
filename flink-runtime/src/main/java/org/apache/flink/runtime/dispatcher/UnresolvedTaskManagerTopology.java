@@ -30,6 +30,8 @@ import javax.annotation.Nullable;
 public class UnresolvedTaskManagerTopology {
 	private final TaskExecutorGateway taskExecutorGateway;
 
+	private final String taskExecutorAddress;
+
 	private final UnresolvedTaskManagerLocation unresolvedTaskManagerLocation;
 
 	private final long registrationTime;
@@ -39,10 +41,11 @@ public class UnresolvedTaskManagerTopology {
 
 	public UnresolvedTaskManagerTopology(
 			TaskExecutorGateway taskExecutorGateway,
-			UnresolvedTaskManagerLocation unresolvedTaskManagerLocation,
+			String taskExecutorAddress, UnresolvedTaskManagerLocation unresolvedTaskManagerLocation,
 			@Nullable TaskExecutorSocketAddress socketAddress) {
 		this.taskExecutorGateway = taskExecutorGateway;
 		this.unresolvedTaskManagerLocation = unresolvedTaskManagerLocation;
+		this.taskExecutorAddress = taskExecutorAddress;
 		this.socketAddress = socketAddress;
 		this.registrationTime = System.currentTimeMillis();
 	}
@@ -53,6 +56,10 @@ public class UnresolvedTaskManagerTopology {
 
 	public UnresolvedTaskManagerLocation getUnresolvedTaskManagerLocation() {
 		return unresolvedTaskManagerLocation;
+	}
+
+	public String getTaskExecutorAddress() {
+		return taskExecutorAddress;
 	}
 
 	@Nullable

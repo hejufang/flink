@@ -18,25 +18,36 @@
 
 package org.apache.flink.runtime.dispatcher;
 
-import org.apache.flink.runtime.jobgraph.JobGraph;
-import org.apache.flink.runtime.jobmaster.JobMaster;
-import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
+
+import javax.annotation.Nonnull;
 
 /**
- * Dispatcher implementation which spawns a {@link JobMaster} for each
- * submitted {@link JobGraph} within in the same process. This dispatcher
- * can be used as the default for all different session clusters.
+ * Class which contains the connection details of an established
+ * connection with the ResourceManager.
  */
-public class StandaloneDispatcher extends JobMaterProxyDispatcher {
-	public StandaloneDispatcher(
-			RpcService rpcService,
-			DispatcherId fencingToken,
-			DispatcherBootstrap dispatcherBootstrap,
-			DispatcherServices dispatcherServices) throws Exception {
-		super(
-			rpcService,
-			fencingToken,
-			dispatcherBootstrap,
-			dispatcherServices);
+public class EstablishedTaskExecutorConnection {
+	@Nonnull
+	private final TaskExecutorGateway taskExecutorGateway;
+
+	@Nonnull
+	private final ResourceID taskExecutorId;
+
+	public EstablishedTaskExecutorConnection(
+		@Nonnull TaskExecutorGateway taskExecutorGateway,
+		@Nonnull ResourceID taskExecutorId) {
+		this.taskExecutorGateway = taskExecutorGateway;
+		this.taskExecutorId = taskExecutorId;
+	}
+
+	@Nonnull
+	public TaskExecutorGateway getTaskExecutorGateway() {
+		return taskExecutorGateway;
+	}
+
+	@Nonnull
+	public ResourceID getTaskExecutorId() {
+		return taskExecutorId;
 	}
 }

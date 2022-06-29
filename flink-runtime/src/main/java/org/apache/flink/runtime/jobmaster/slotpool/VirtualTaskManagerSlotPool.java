@@ -223,6 +223,16 @@ public final class VirtualTaskManagerSlotPool implements SlotPool {
 		return slotMapping.keySet();
 	}
 
+	@Override
+	public List<ResourceID> getAllocatedTaskManagers() {
+		return allocatedTaskManagers;
+	}
+
+	@Override
+	public ResolvedTaskManagerTopology getResolvedTaskManagerTopology(ResourceID resourceID){
+		return taskManagers.get(resourceID);
+	}
+
 	public JobID getJobID() {
 		return jobID;
 	}

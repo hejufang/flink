@@ -60,7 +60,7 @@ public class JobManagerGatewayNettyClientTest {
 			configuration.set(ClusterOptions.CLUSTER_DEPLOY_TASK_SOCKET_ENABLE, true);
 			UnresolvedTaskManagerTopology unresolvedTaskManagerTopology = new UnresolvedTaskManagerTopology(
 				new ThrownTaskExecutorGateway(),
-				new UnresolvedTaskManagerLocation(ResourceID.generate(), "localhost", -1),
+				null, new UnresolvedTaskManagerLocation(ResourceID.generate(), "localhost", -1),
 				new TaskExecutorSocketAddress(taskExecutorNettyServer.getAddress(), taskExecutorNettyServer.getPort()));
 			ResolvedTaskManagerTopology resolvedTaskManagerTopology = ResolvedTaskManagerTopology
 				.fromUnresolvedTaskManagerTopology(unresolvedTaskManagerTopology, false, configuration);

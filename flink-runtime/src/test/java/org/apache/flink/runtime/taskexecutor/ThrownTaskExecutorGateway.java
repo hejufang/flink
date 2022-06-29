@@ -38,6 +38,7 @@ import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
+import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceRequestSlot;
 import org.apache.flink.runtime.rest.messages.LogInfo;
@@ -132,6 +133,11 @@ public class ThrownTaskExecutorGateway implements TaskExecutorGateway {
 	}
 
 	@Override
+	public void heartbeatFromDispatcher(ResourceID resourceID) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
 	public void heartbeatFromResourceManager(ResourceID heartbeatOrigin) {
 		throw new UnsupportedOperationException();
 	}
@@ -143,6 +149,11 @@ public class ThrownTaskExecutorGateway implements TaskExecutorGateway {
 
 	@Override
 	public void disconnectResourceManager(Exception cause) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public void disconnectDispatcher(ResourceID dispatcherId, Exception cause) {
 		throw new UnsupportedOperationException();
 	}
 
@@ -186,6 +197,11 @@ public class ThrownTaskExecutorGateway implements TaskExecutorGateway {
 
 	@Override
 	public CompletableFuture<ThreadDumpInfo> requestThreadDump(Time timeout) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public CompletableFuture<RegistrationResponse> registerDispatcher(DispatcherRegistrationRequest dispatcherRegistrationRequest, Time timeout) {
 		throw new UnsupportedOperationException();
 	}
 

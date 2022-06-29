@@ -1192,6 +1192,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 						taskExecutorResourceId,
 						new UnresolvedTaskManagerTopology(
 							taskExecutorGateway,
+							taskExecutorRegistration.getTaskExecutorAddress(),
 							unresolvedTaskManagerLocation,
 							taskExecutorRegistration.getSocketAddress()));
 

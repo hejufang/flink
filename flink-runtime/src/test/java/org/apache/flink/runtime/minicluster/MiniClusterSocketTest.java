@@ -29,6 +29,7 @@ import org.apache.flink.runtime.dispatcher.DispatcherBootstrap;
 import org.apache.flink.runtime.dispatcher.DispatcherFactory;
 import org.apache.flink.runtime.dispatcher.DispatcherId;
 import org.apache.flink.runtime.dispatcher.DispatcherServices;
+import org.apache.flink.runtime.dispatcher.JobMaterProxyDispatcher;
 import org.apache.flink.runtime.dispatcher.PartialDispatcherServicesWithJobGraphStore;
 import org.apache.flink.runtime.dispatcher.runner.DefaultDispatcherRunnerFactory;
 import org.apache.flink.runtime.dispatcher.runner.SessionDispatcherLeaderProcessFactoryFactory;
@@ -180,7 +181,7 @@ public class MiniClusterSocketTest {
 	/**
 	 * Dispatcher with given submit job consumer.
 	 */
-	private static class TestingSocketSubmitJobDispatcher extends Dispatcher {
+	private static class TestingSocketSubmitJobDispatcher extends JobMaterProxyDispatcher {
 		private final BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer;
 
 		public TestingSocketSubmitJobDispatcher(

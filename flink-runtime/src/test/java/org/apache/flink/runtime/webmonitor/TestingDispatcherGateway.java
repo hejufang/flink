@@ -26,21 +26,29 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.dispatcher.DispatcherId;
+import org.apache.flink.runtime.dispatcher.EstablishedTaskExecutorConnection;
 import org.apache.flink.runtime.dispatcher.UnresolvedTaskManagerTopology;
+import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
+import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobmaster.JobResult;
+import org.apache.flink.runtime.jobmaster.SerializedInputSplit;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.webmonitor.ClusterOverview;
 import org.apache.flink.runtime.messages.webmonitor.MultipleJobsDetails;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
+import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
 import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.rpc.RpcTimeout;
+import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.function.TriFunction;
 
@@ -48,6 +56,7 @@ import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -67,9 +76,13 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	static final Function<JobID, CompletableFuture<ArchivedExecutionGraph>> DEFAULT_REQUEST_ARCHIVED_JOB_FUNCTION = jobID -> CompletableFuture.completedFuture(null);
 	static final Function<ApplicationStatus, CompletableFuture<Acknowledge>> DEFAULT_SHUTDOWN_WITH_STATUS_FUNCTION = status -> CompletableFuture.completedFuture(Acknowledge.get());
 	static final Consumer<ResourceManagerId> DEFAULT_DISCONNECT_RESOURCE_MANAGER_CONSUMER = ignore -> {};
+	static final Consumer<ResourceID> DEFAULT_DISCONNECT_TASK_EXECUTOR_CONSUMER = ignore -> {};
 	static final Consumer<ResourceID> DEFAULT_RESOURCE_MANAGER_HEARTBEAT_CONSUMER = ignore -> {};
 	static final Function<Collection<UnresolvedTaskManagerTopology>, CompletableFuture<Acknowledge>> DEFAULT_OFFER_TASKMANAGERS_FUNCTION = taskManagerTopologies -> CompletableFuture.completedFuture(Acknowledge.get());
-	static final BiFunction<JobID, Collection<ResourceID>, CompletableFuture<Acknowledge>> DEFAULT_REPORT_TASKMANAGER_USAGE_FUNCTION = (jobID, taskManagers) -> CompletableFuture.completedFuture(Acknowledge.get());
+	static final Consumer<ResourceID> DEFAULT_TASK_EXECUTOR_HEARTBEAT_CONSUMER = ignore -> {};
+	static final Consumer<JobID> DEFAULT_REPORT_ACCUMULATOR_CONSUMER = ignore -> {};
+	static final BiFunction<String, ResourceID, CompletableFuture<EstablishedTaskExecutorConnection>> DEFAULT_REGISTER_TASKMANAGER_FUNCTION = (address, resourceID) -> CompletableFuture.completedFuture(null);
+	static final BiFunction<JobID, ResourceID, CompletableFuture<Acknowledge>> DEFAULT_DISCONNECT_TASKMANAGER_FUNCTION = (jobid, resourceID) -> CompletableFuture.completedFuture(null);
 
 	private Function<JobGraph, CompletableFuture<Acknowledge>> submitFunction;
 	private BiConsumer<JobGraph, ChannelHandlerContext> submitConsumer;
@@ -79,8 +92,13 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	private Function<JobID, CompletableFuture<ArchivedExecutionGraph>> requestArchivedJobFunction;
 	private Function<ApplicationStatus, CompletableFuture<Acknowledge>> clusterShutdownWithStatusFunction;
 	private Consumer<ResourceManagerId> disconnectResourceManagerConsumer;
+	private Consumer<ResourceID> disconnectTaskExecutorConsumer;
 	private Consumer<ResourceID> resourceManagerHeartbeatConsumer;
 	private Function<Collection<UnresolvedTaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction;
+	private Consumer<ResourceID> taskExecutorHeartbeatConsumer;
+	private Consumer<JobID> reportAccumulatorConsumer;
+	private BiFunction<String, ResourceID, CompletableFuture<EstablishedTaskExecutorConnection>> registerTaskExecutorFunction;
+	private BiFunction<JobID, ResourceID, CompletableFuture<Acknowledge>> disconnectTaskManagerFunction;
 
 	public TestingDispatcherGateway() {
 		super();
@@ -91,8 +109,13 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		requestArchivedJobFunction = DEFAULT_REQUEST_ARCHIVED_JOB_FUNCTION;
 		clusterShutdownWithStatusFunction = DEFAULT_SHUTDOWN_WITH_STATUS_FUNCTION;
 		disconnectResourceManagerConsumer = DEFAULT_DISCONNECT_RESOURCE_MANAGER_CONSUMER;
+		disconnectTaskExecutorConsumer = DEFAULT_DISCONNECT_TASK_EXECUTOR_CONSUMER;
+		registerTaskExecutorFunction = DEFAULT_REGISTER_TASKMANAGER_FUNCTION;
 		resourceManagerHeartbeatConsumer = DEFAULT_RESOURCE_MANAGER_HEARTBEAT_CONSUMER;
+		taskExecutorHeartbeatConsumer = DEFAULT_TASK_EXECUTOR_HEARTBEAT_CONSUMER;
+		reportAccumulatorConsumer = DEFAULT_REPORT_ACCUMULATOR_CONSUMER;
 		offerTaskManagersFunction = DEFAULT_OFFER_TASKMANAGERS_FUNCTION;
+		disconnectTaskManagerFunction = DEFAULT_DISCONNECT_TASKMANAGER_FUNCTION;
 	}
 
 	public TestingDispatcherGateway(
@@ -120,8 +143,14 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 			Function<ApplicationStatus, CompletableFuture<Acknowledge>> clusterShutdownWithStatusFunction,
 			TriFunction<JobID, OperatorID, SerializedValue<CoordinationRequest>, CompletableFuture<CoordinationResponse>> deliverCoordinationRequestToCoordinatorFunction,
 			Consumer<ResourceManagerId> disconnectResourceManagerConsumer,
+			Consumer<ResourceID> disconnectTaskExecutorConsumer,
 			Consumer<ResourceID> resourceManagerHeartbeatConsumer,
-			Function<Collection<UnresolvedTaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction) {
+			Function<Collection<UnresolvedTaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction,
+			BiFunction<String, ResourceID, CompletableFuture<EstablishedTaskExecutorConnection>> registerTaskExecutorFunction,
+			Consumer<ResourceID> taskExecutorHeartbeatConsumer,
+			Consumer<JobID> reportAccumulatorConsumer,
+			BiFunction<JobID, ResourceID, CompletableFuture<Acknowledge>> disconnectTaskManagerFunction
+	) {
 		super(
 			address,
 			hostname,
@@ -149,6 +178,11 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		this.disconnectResourceManagerConsumer = disconnectResourceManagerConsumer;
 		this.resourceManagerHeartbeatConsumer = resourceManagerHeartbeatConsumer;
 		this.offerTaskManagersFunction = offerTaskManagersFunction;
+		this.disconnectTaskExecutorConsumer = disconnectTaskExecutorConsumer;
+		this.registerTaskExecutorFunction = registerTaskExecutorFunction;
+		this.taskExecutorHeartbeatConsumer = taskExecutorHeartbeatConsumer;
+		this.reportAccumulatorConsumer = reportAccumulatorConsumer;
+		this.disconnectTaskManagerFunction = disconnectTaskManagerFunction;
 	}
 
 	@Override
@@ -173,7 +207,7 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 
 	@Override
 	public DispatcherId getFencingToken() {
-		return DEFAULT_FENCING_TOKEN;
+		return fencingToken;
 	}
 
 	public CompletableFuture<ArchivedExecutionGraph> requestJob(JobID jobId, @RpcTimeout Time timeout) {
@@ -191,13 +225,73 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 	}
 
 	@Override
+	public void disconnectTaskExecutor(ResourceID resourceID, Exception cause) {
+		disconnectTaskExecutorConsumer.accept(resourceID);
+	}
+
+	@Override
 	public CompletableFuture<Acknowledge> offerTaskManagers(Collection<UnresolvedTaskManagerTopology> taskManagerTopologies, Time timeout) {
 		return offerTaskManagersFunction.apply(taskManagerTopologies);
 	}
 
 	@Override
+	public CompletableFuture<EstablishedTaskExecutorConnection> registerTaskManager(String taskManagerRpcAddress, ResourceID taskManagerId, Time timeout) {
+		return registerTaskExecutorFunction.apply(taskManagerRpcAddress, taskManagerId);
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> updateTaskExecutionState(JobID jobId, TaskExecutionState taskExecutionState) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public CompletableFuture<SerializedInputSplit> requestNextInputSplit(JobID jobId, JobVertexID vertexID, ExecutionAttemptID executionAttempt) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public CompletableFuture<ExecutionState> requestPartitionState(JobID jobId, IntermediateDataSetID intermediateResultId, ResultPartitionID partitionId) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> scheduleOrUpdateConsumers(JobID jobId, ResultPartitionID partitionID, Time timeout) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> disconnectTaskManager(JobID jobId, ResourceID resourceID, Exception cause) {
+		return disconnectTaskManagerFunction.apply(jobId, resourceID);
+	}
+
+	@Override
+	public CompletableFuture<String> triggerDetachSavepoint(JobID jobId, String savepointId, boolean blockSource, long savepointTimeout, Time timeout) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public CompletableFuture<List<String>> dumpPendingSavepoints(JobID jobId) {
+		return null;
+	}
+
+	@Override
+	public CompletableFuture<Object> updateGlobalAggregate(JobID jobId, String aggregateName, Object aggregand, byte[] serializedAggregationFunction) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> sendOperatorEventToCoordinator(JobID jobId, ExecutionAttemptID task, OperatorID operatorID, SerializedValue<OperatorEvent> event) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
 	public void heartbeatFromResourceManager(ResourceID resourceID) {
 		resourceManagerHeartbeatConsumer.accept(resourceID);
+	}
+
+	@Override
+	public void heartbeatFromTaskExecutor(ResourceID resourceID, Void payload) {
+		taskExecutorHeartbeatConsumer.accept(resourceID);
 	}
 
 	/**
@@ -215,6 +309,11 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 		private Consumer<ResourceManagerId> disconnectResourceManagerConsumer = DEFAULT_DISCONNECT_RESOURCE_MANAGER_CONSUMER;
 		private Consumer<ResourceID> resourceManagerHeartbeatConsumer = DEFAULT_RESOURCE_MANAGER_HEARTBEAT_CONSUMER;
 		private Function<Collection<UnresolvedTaskManagerTopology>, CompletableFuture<Acknowledge>> offerTaskManagersFunction = DEFAULT_OFFER_TASKMANAGERS_FUNCTION;
+		private Consumer<ResourceID> disconnectTaskExecutorConsumer = DEFAULT_DISCONNECT_TASK_EXECUTOR_CONSUMER;
+		private BiFunction<String, ResourceID, CompletableFuture<EstablishedTaskExecutorConnection>> registerTaskExecutorFunction = DEFAULT_REGISTER_TASKMANAGER_FUNCTION;
+		private Consumer<ResourceID> taskExecutorHeartbeatConsumer = DEFAULT_TASK_EXECUTOR_HEARTBEAT_CONSUMER;
+		private Consumer<JobID> reportAccumulatorConsumer = DEFAULT_REPORT_ACCUMULATOR_CONSUMER;
+		private BiFunction<JobID, ResourceID, CompletableFuture<Acknowledge>> disconnectTaskManagerFunction = DEFAULT_DISCONNECT_TASKMANAGER_FUNCTION;
 
 		public Builder setSubmitFunction(Function<JobGraph, CompletableFuture<Acknowledge>> submitFunction) {
 			this.submitFunction = submitFunction;
@@ -263,6 +362,26 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 			return this;
 		}
 
+		public Builder setRegisterTaskExecutorFunction(BiFunction<String, ResourceID, CompletableFuture<EstablishedTaskExecutorConnection>> registerTaskExecutorFunction) {
+			this.registerTaskExecutorFunction = registerTaskExecutorFunction;
+			return this;
+		}
+
+		public Builder setTaskExecutorHeartbeatConsumer(Consumer<ResourceID> taskExecutorHeartbeatConsumer) {
+			this.taskExecutorHeartbeatConsumer = taskExecutorHeartbeatConsumer;
+			return this;
+		}
+
+		public Builder setDisconnectTaskExecutorConsumer(Consumer<ResourceID> disconnectTaskExecutorConsumer) {
+			this.disconnectTaskExecutorConsumer = disconnectTaskExecutorConsumer;
+			return this;
+		}
+
+		public Builder setDisconnectTaskManagerFunction(BiFunction<JobID, ResourceID, CompletableFuture<Acknowledge>> disconnectTaskManagerFunction) {
+			this.disconnectTaskManagerFunction = disconnectTaskManagerFunction;
+			return this;
+		}
+
 		@Override
 		protected Builder self() {
 			return this;
@@ -275,6 +394,11 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 
 		public Builder setFencingToken(DispatcherId fencingToken) {
 			this.fencingToken = fencingToken;
+			return this;
+		}
+
+		public Builder setReportAccumulatorConsumer(Consumer<JobID> reportAccumulatorConsumer) {
+			this.reportAccumulatorConsumer = reportAccumulatorConsumer;
 			return this;
 		}
 
@@ -304,8 +428,13 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 				clusterShutdownWithStatusFunction,
 				deliverCoordinationRequestToCoordinatorFunction,
 				disconnectResourceManagerConsumer,
+				disconnectTaskExecutorConsumer,
 				resourceManagerHeartbeatConsumer,
-				offerTaskManagersFunction);
+				offerTaskManagersFunction,
+				registerTaskExecutorFunction,
+				taskExecutorHeartbeatConsumer,
+				reportAccumulatorConsumer,
+				disconnectTaskManagerFunction);
 		}
 	}
 }

@@ -40,6 +40,7 @@ import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
+import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceRequestSlot;
 import org.apache.flink.runtime.rest.messages.LogInfo;
@@ -227,6 +228,13 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
 	void heartbeatFromJobManager(ResourceID heartbeatOrigin, AllocatedSlotReport allocatedSlotReport);
 
 	/**
+	 * Heartbeat request from the dispatcher.
+	 *
+	 * @param resourceID unique id of the dispatcher
+	 */
+	void heartbeatFromDispatcher(ResourceID resourceID);
+
+	/**
 	 * Heartbeat request from the resource manager.
 	 *
 	 * @param heartbeatOrigin unique id of the resource manager
@@ -247,6 +255,14 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
 	 * @param cause for the disconnection from the ResourceManager
 	 */
 	void disconnectResourceManager(Exception cause);
+
+	/**
+	 * Disconnects the ResourceManager from the TaskManager.
+	 *
+	 * @param dispatcherId identifying the dispatcher.
+	 * @param cause for the disconnection from the dispatcher.
+	 */
+	void disconnectDispatcher(ResourceID dispatcherId, Exception cause);
 
 	/**
 	 * Frees the slot with the given allocation ID.
@@ -326,9 +342,9 @@ public interface TaskExecutorGateway extends RpcGateway, TaskExecutorOperatorEve
 	/**
 	 * Dispatcher register its information to the given task executor.
 	 *
-	 * @param dispatcherRegistration the information of the dispatcher
+	 * @param dispatcherRegistrationRequest the information of the dispatcher
 	 */
-	default void registerDispatcher(DispatcherRegistration dispatcherRegistration) {
+	default CompletableFuture<RegistrationResponse> registerDispatcher(DispatcherRegistrationRequest dispatcherRegistrationRequest, Time timeout) {
 		throw new UnsupportedOperationException();
 	}
 }
