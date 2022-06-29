@@ -43,8 +43,8 @@ object WatermarkGeneratorCodeGenerator {
         "WatermarkGenerator only accepts output data type of TIMESTAMP," +
           " but is " + watermarkOutputType)
     }
-    val funcName = newName("WatermarkGenerator")
     val ctx = CodeGeneratorContext(config)
+    val funcName = newName("WatermarkGenerator", ctx)
     val generator = new ExprCodeGenerator(ctx, false)
       .bindInput(inputType, inputTerm = "row")
     val generatedExpr = generator.generateExpression(watermarkExpr)

@@ -115,14 +115,29 @@ object CodeGenUtils {
 
   private val nameCounter = new AtomicInteger
 
-  def newName(name: String): String = {
-    s"$name$$${nameCounter.getAndIncrement}"
+  def newName(name: String, context: CodeGeneratorContext = null): String = {
+    if (context == null || context.getNameCounter == null) {
+      s"$name$$${nameCounter.getAndIncrement}"
+    } else {
+      s"$name$$${context.getNameCounter.getAndIncrement}"
+    }
   }
 
   def newNames(names: String*): Seq[String] = {
     require(names.toSet.size == names.length, "Duplicated names")
     val newId = nameCounter.getAndIncrement
     names.map(name => s"$name$$$newId")
+  }
+
+  def newNamesWithContext(context: CodeGeneratorContext, names: String*): Seq[String] = {
+    require(names.toSet.size == names.length, "Duplicated names")
+    if (context == null || context.getNameCounter == null) {
+      val newId = nameCounter.getAndIncrement
+      names.map(name => s"$name$$$newId")
+    } else {
+      val newId = context.getNameCounter.getAndIncrement
+      names.map(name => s"$name$$$newId")
+    }
   }
 
   /**
@@ -272,7 +287,7 @@ object CodeGenUtils {
         subCtx, t, "SubHashRow", (0 until fieldCount).toArray)
       ctx.addReusableInnerClass(genHash.getClassName, genHash.getCode)
       val refs = ctx.addReusableObject(subCtx.references.toArray, "subRefs")
-      val hashFunc = newName("hashFunc")
+      val hashFunc = newName("hashFunc", ctx)
       ctx.addReusableMember(s"${classOf[HashFunction].getCanonicalName} $hashFunc;")
       ctx.addReusableInitStatement(s"$hashFunc = new ${genHash.getClassName}($refs);")
       s"$hashFunc.hashCode($term)"

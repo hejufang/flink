@@ -603,7 +603,8 @@ public class SortCodeGeneratorTest {
 			throws IllegalAccessException, InstantiationException {
 		SortCodeGenerator generator = new SortCodeGenerator(
 				new TableConfig(), keys, keyTypes, orders, nullsIsLast);
-		GeneratedNormalizedKeyComputer computer = generator.generateNormalizedKeyComputer(namePrefix + "Computer");
+		GeneratedNormalizedKeyComputer computer = generator.generateNormalizedKeyComputer(namePrefix + "Computer",
+			new CodeGeneratorContext(new TableConfig()));
 		GeneratedRecordComparator comparator = generator.generateRecordComparator(namePrefix + "Comparator");
 		ClassLoader cl = Thread.currentThread().getContextClassLoader();
 		return new Tuple2<>(computer.newInstance(cl), comparator.newInstance(cl));

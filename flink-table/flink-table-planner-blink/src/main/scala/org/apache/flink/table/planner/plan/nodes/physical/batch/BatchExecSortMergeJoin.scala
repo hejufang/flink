@@ -246,9 +246,9 @@ class BatchExecSortMergeJoin(
         CodeGeneratorContext(config), "SMJProjection", leftType, keyType, leftAllKey),
       generateProjection(
         CodeGeneratorContext(config), "SMJProjection", rightType, keyType, rightAllKey),
-      leftSortGen.generateNormalizedKeyComputer("LeftComputer"),
+      leftSortGen.generateNormalizedKeyComputer("LeftComputer", CodeGeneratorContext(config)),
       leftSortGen.generateRecordComparator("LeftComparator"),
-      rightSortGen.generateNormalizedKeyComputer("RightComputer"),
+      rightSortGen.generateNormalizedKeyComputer("RightComputer", CodeGeneratorContext(config)),
       rightSortGen.generateRecordComparator("RightComparator"),
       newSortGen(leftAllKey.indices.toArray, keyType).generateRecordComparator("KeyComparator"),
       filterNulls)

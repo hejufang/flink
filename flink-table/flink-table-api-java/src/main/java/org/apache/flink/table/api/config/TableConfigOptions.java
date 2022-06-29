@@ -82,6 +82,14 @@ public class TableConfigOptions {
 				"Whether enables the code splitter.");
 
 	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
+	public static final ConfigOption<Boolean> GENERATED_CODE_USE_SEPARATE_NAME_COUNTER_ENABLED =
+		key("table.generated-code.use-separate-name-counter-enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription(
+				"Whether enables use a separate operator name count for each CodeGeneratorContext.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
 	public static final ConfigOption<Integer> MAX_MEMBERS_GENERATED_CODE =
 		key("table.generated-code.max-members")
 			.intType()

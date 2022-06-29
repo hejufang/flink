@@ -22,6 +22,7 @@ import org.apache.flink.api.common.functions.{Function, RuntimeContext}
 import org.apache.flink.api.common.typeutils.TypeSerializer
 import org.apache.flink.table.api.TableConfig
 import org.apache.flink.table.data.GenericRowData
+import org.apache.flink.table.data.conversion.DataStructureConverter
 import org.apache.flink.table.functions.{FunctionContext, UserDefinedFunction}
 import org.apache.flink.table.planner.codegen.CodeGenUtils._
 import org.apache.flink.table.planner.codegen.GenerateUtils.generateRecordStatement
@@ -31,10 +32,11 @@ import org.apache.flink.table.runtime.util.collections._
 import org.apache.flink.table.types.logical.LogicalTypeRoot._
 import org.apache.flink.table.types.logical._
 import org.apache.flink.util.InstantiationUtil
-import org.apache.calcite.avatica.util.DateTimeUtils
 import java.util.TimeZone
+import java.util.concurrent.atomic.AtomicInteger
 
-import org.apache.flink.table.data.conversion.DataStructureConverter
+import org.apache.calcite.avatica.util.DateTimeUtils
+import org.apache.flink.table.api.config.TableConfigOptions
 
 import scala.collection.mutable
 
@@ -125,6 +127,15 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
     */
   private var operatorBaseClass: Class[_] = classOf[TableStreamOperator[_]]
 
+  private val nameCounter = if (tableConfig.getConfiguration.get(
+    TableConfigOptions.GENERATED_CODE_USE_SEPARATE_NAME_COUNTER_ENABLED)) {
+      new AtomicInteger
+    } else {
+      null
+    }
+
+  def getNameCounter: AtomicInteger = nameCounter
+
   // ---------------------------------------------------------------------------------
   // Getter
   // ---------------------------------------------------------------------------------
@@ -166,7 +177,7 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
     * @return a new generated unique field name
     */
   def addReusableLocalVariable(fieldTypeTerm: String, fieldName: String): String = {
-    val fieldTerm = newName(fieldName)
+    val fieldTerm = newName(fieldName, this)
     reusableLocalVariableStatements
     .getOrElse(currentMethodNameForLocalVariables, mutable.LinkedHashSet[String]())
     .add(s"$fieldTypeTerm $fieldTerm;")
@@ -183,7 +194,7 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
     * @return the new generated unique field names for each variable pairs
     */
   def addReusableLocalVariables(fieldTypeAndNames: (String, String)*): Seq[String] = {
-    val fieldTerms = newNames(fieldTypeAndNames.map(_._2): _*)
+    val fieldTerms = newNamesWithContext(this, fieldTypeAndNames.map(_._2): _*)
     fieldTypeAndNames.map(_._1).zip(fieldTerms).foreach { case (fieldTypeTerm, fieldTerm) =>
       reusableLocalVariableStatements
       .getOrElse(currentMethodNameForLocalVariables, mutable.LinkedHashSet[String]())
@@ -396,7 +407,7 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
     * Adds a reusable internal hash set to the member area of the generated class.
     */
   def addReusableHashSet(elements: Seq[GeneratedExpression], elementType: LogicalType): String = {
-    val fieldTerm = newName("set")
+    val fieldTerm = newName("set", this)
 
     val setTypeTerm = elementType.getTypeRoot match {
       case TINYINT => className[ByteHashSet]
@@ -557,7 +568,7 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
     * @return member variable term
     */
   def addReusableRandom(seedExpr: Option[GeneratedExpression]): String = {
-    val fieldTerm = newName("random")
+    val fieldTerm = newName("random", this)
 
     val field =
       s"""
@@ -602,7 +613,7 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
       obj: AnyRef,
       fieldNamePrefix: String,
       fieldTypeTerm: String = null): String = {
-    addReusableObjectWithName(obj, newName(fieldNamePrefix), fieldTypeTerm)
+    addReusableObjectWithName(obj, newName(fieldNamePrefix, this), fieldTypeTerm)
   }
 
   def addReusableObjectWithName(
@@ -707,7 +718,7 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
       case Some(term) => term
 
       case None =>
-        val term = newName("typeSerializer")
+        val term = newName("typeSerializer", this)
         val ser = InternalSerializers.create(t)
         addReusableObjectInternal(ser, term, ser.getClass.getCanonicalName)
         reusableTypeSerializers(t) = term
@@ -738,7 +749,7 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
       nullCheck: Boolean): GeneratedExpression = {
     require(constant.literal, "Literal expected")
 
-    val fieldTerm = newName("constant")
+    val fieldTerm = newName("constant", this)
     val nullTerm = fieldTerm + "isNull"
 
     val fieldType = primitiveTypeTermForType(constant.resultType)
@@ -769,7 +780,7 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
     reusableStringConstants.get(value) match {
       case Some(field) => field
       case None =>
-        val field = newName("str")
+        val field = newName("str", this)
         val stmt =
           s"""
              |private final $BINARY_STRING $field = $BINARY_STRING.fromString("$value");
@@ -786,7 +797,7 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
     * @return member variable term
     */
   def addReusableMessageDigest(algorithm: String): String = {
-    val fieldTerm = newName("messageDigest")
+    val fieldTerm = newName("messageDigest", this)
 
     val field = s"final java.security.MessageDigest $fieldTerm;"
     reusableMemberStatements.add(field)
@@ -811,7 +822,7 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
     */
   def addReusableSha2MessageDigest(constant: GeneratedExpression): String = {
     require(constant.literal, "Literal expected")
-    val fieldTerm = newName("messageDigest")
+    val fieldTerm = newName("messageDigest", this)
 
     val field =
       s"final java.security.MessageDigest $fieldTerm;"

@@ -91,7 +91,7 @@ object SinkCodeGenerator {
         val conversion = resultGenerator.generateConverterResultExpression(
           outputRowType,
           classOf[GenericRowData])
-        afterIndexModify = CodeGenUtils.newName("afterIndexModify")
+        afterIndexModify = CodeGenUtils.newName("afterIndexModify", ctx)
         s"""
            |${conversion.code}
            |${conversion.resultTerm}.setRowKind(${inputTerm}.getRowKind());
@@ -106,7 +106,7 @@ object SinkCodeGenerator {
     val retractProcessCode = if (withChangeFlag) {
       val flagResultTerm =
         s"${classOf[RowDataUtil].getCanonicalName}.isAccumulateMsg($afterIndexModify)"
-      val resultTerm = CodeGenUtils.newName("result")
+      val resultTerm = CodeGenUtils.newName("result", ctx)
       if (consumedDataType.getConversionClass == classOf[JTuple2[_, _]]) {
         // Java Tuple2
         val tupleClass = consumedDataType.getConversionClass.getCanonicalName
@@ -126,7 +126,7 @@ object SinkCodeGenerator {
           scalaTupleSerializer,
           "serializer",
           classOf[TupleSerializerBase[_]].getCanonicalName)
-        val fieldsTerm = CodeGenUtils.newName("fields")
+        val fieldsTerm = CodeGenUtils.newName("fields", ctx)
 
         s"""
            |Object[] $fieldsTerm = new Object[2];

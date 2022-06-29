@@ -142,7 +142,7 @@ class DistinctAggCodeGen(
       // when the distinct acc is excluded, no need to create distinct accumulator
       Seq()
     } else {
-      val Seq(mapViewTerm, accTerm) = newNames("mapview", "distinct_acc")
+      val Seq(mapViewTerm, accTerm) = newNamesWithContext(ctx, "mapview", "distinct_acc")
       val code =
         s"""
            |$MAP_VIEW $mapViewTerm = new $MAP_VIEW();
@@ -178,7 +178,7 @@ class DistinctAggCodeGen(
       // when the distinct acc is excluded, the accumulator result shouldn't include distinct acc
       Seq()
     } else {
-      val accTerm = newName("distinct_acc")
+      val accTerm = newName("distinct_acc", ctx)
       val code =
         s"""
            |$BINARY_RAW_VALUE $accTerm = ${genToInternal(ctx, externalAccType, distinctAccTerm)};
@@ -196,7 +196,7 @@ class DistinctAggCodeGen(
     val keyExpr = generateKeyExpression(ctx, generator)
     val key = keyExpr.resultTerm
     val accumulateCode = innerAggCodeGens.map(_.accumulate(generator))
-    val valueTerm = newName("value")
+    val valueTerm = newName("value", ctx)
     val valueTypeTerm = valueGenerator.valueTypeTerm
     val filterResults = filterExpressions.map {
       case None => None
@@ -257,7 +257,7 @@ class DistinctAggCodeGen(
     val keyExpr = generateKeyExpression(ctx, generator)
     val key = keyExpr.resultTerm
     val retractCodes = innerAggCodeGens.map(_.retract(generator))
-    val valueTerm = newName("value")
+    val valueTerm = newName("value", ctx)
     val valueTypeTerm = valueGenerator.valueTypeTerm
     val filterResults = filterExpressions.map {
       case None => None
@@ -309,7 +309,7 @@ class DistinctAggCodeGen(
       useStateDataView = !mergedAccOnHeap,
       useBackupDataView = true)
 
-    val keyTerm = newName(DISTINCT_KEY_TERM)
+    val keyTerm = newName(DISTINCT_KEY_TERM, ctx)
     val exprGenerator = new ExprCodeGenerator(ctx, INPUT_NOT_NULL)
       .bindInput(internalKeyType, inputTerm = keyTerm)
     val accumulateCodes = innerAggCodeGens.map(_.accumulate(exprGenerator))
@@ -322,7 +322,7 @@ class DistinctAggCodeGen(
     }
 
     val otherAccTerm = otherAccExpr.resultTerm
-    val otherEntries = newName("otherEntries")
+    val otherEntries = newName("otherEntries", ctx)
     val valueTypeTerm = valueGenerator.valueTypeTerm
     val thisValue = "thisValue"
     val otherValue = "otherValue"
@@ -394,8 +394,8 @@ class DistinctAggCodeGen(
 
     // the key expression of MapView
     if (fieldExprs.length > 1) {
-      val keyTerm = newName(DISTINCT_KEY_TERM)
-      val outRowWriter = newName(DEFAULT_OUT_RECORD_WRITER_TERM)
+      val keyTerm = newName(DISTINCT_KEY_TERM, ctx)
+      val outRowWriter = newName(DEFAULT_OUT_RECORD_WRITER_TERM, ctx)
       val valueType = RowType.of(
         fieldExprs.map(_.resultType): _*)
 
@@ -409,7 +409,7 @@ class DistinctAggCodeGen(
         reusedOutRow = false)
     } else {
       val fieldExpr = fieldExprs.head
-      val keyTerm = newName(DISTINCT_KEY_TERM)
+      val keyTerm = newName(DISTINCT_KEY_TERM, ctx)
       val bType = boxedTypeTermForType(fieldExpr.resultType)
       val code =
         s"""
@@ -480,7 +480,7 @@ class DistinctAggCodeGen(
           val expr = generateFieldAccess(ctx, inputType, inputTerm, index)
           if (useBackupDataView) {
             // this is called in the merge method
-            val otherMapViewTerm = newName("otherMapView")
+            val otherMapViewTerm = newName("otherMapView", ctx)
             ctx.addReusableMember(s"private $MAP_VIEW $otherMapViewTerm;")
             val code =
               s"""
@@ -593,7 +593,7 @@ class DistinctAggCodeGen(
         filterResults: Array[Option[String]]): String = {
 
       val codes = for (index <- filterResults.indices) yield {
-        val existedTerm = newName("existed")
+        val existedTerm = newName("existed", ctx)
         val code =
           s"""
              |long $existedTerm = ((long) $valueTerm) & (1L << $index);
@@ -632,7 +632,7 @@ class DistinctAggCodeGen(
         innerRetractCodes: Array[String] /* retract code is not used here */ ): String = {
 
       val codes = for (index <- innerAccumulateCodes.indices) yield {
-        val existedTerm = newName("existed")
+        val existedTerm = newName("existed", ctx)
         s"""
            |long $existedTerm = ((long) $thisValueTerm) & (1L << $index);
            |if ($existedTerm == 0) {  // not existed
@@ -668,7 +668,7 @@ class DistinctAggCodeGen(
         filterResults: Array[Option[String]]): String = {
 
       val codes = for (index <- filterResults.indices) yield {
-        val existedTerm = newName("existed")
+        val existedTerm = newName("existed", ctx)
         val arrayIndex = index / JLong.SIZE
         val bitIndex = index % JLong.SIZE
         val code =
@@ -708,7 +708,7 @@ class DistinctAggCodeGen(
         innerAccumulateCodes: Array[String],
         innerRetractCodes: Array[String]): String = {
       val codes = for (index <- innerAccumulateCodes.indices) yield {
-        val existedTerm = newName("thisExisted")
+        val existedTerm = newName("thisExisted", ctx)
         val arrayIndex = index / JLong.SIZE
         val bitIndex = index % JLong.SIZE
         s"""
@@ -802,7 +802,7 @@ class DistinctAggCodeGen(
         innerAccumulateCodes: Array[String],
         innerRetractCodes: Array[String]): String = {
 
-      val mergedCntTerm = newName("mergedCnt")
+      val mergedCntTerm = newName("mergedCnt", ctx)
       s"""
          |long $mergedCntTerm = $thisCountTerm + $otherCountTerm;
          |if ($mergedCntTerm == 0) {
@@ -857,7 +857,7 @@ class DistinctAggCodeGen(
       filterResults: Array[Option[String]]): String = {
 
       val codes = for (index <- filterResults.indices) yield {
-        val countTerm = newName("count")
+        val countTerm = newName("count", ctx)
         val code = if (isAccumulate) {
           s"""
              |long $countTerm = $valueTerm[$index] + 1;
@@ -909,8 +909,8 @@ class DistinctAggCodeGen(
         innerRetractCodes: Array[String]): String = {
 
       val codes = for (index <- innerAccumulateCodes.indices) yield {
-        val thisCountTerm = newName("thisCnt")
-        val mergedCntTerm = newName("mergedCnt")
+        val thisCountTerm = newName("thisCnt", ctx)
+        val mergedCntTerm = newName("mergedCnt", ctx)
         s"""
            |long $thisCountTerm = $thisValueTerm[$index];
            |long $mergedCntTerm = $thisCountTerm + $otherValueTerm[$index];

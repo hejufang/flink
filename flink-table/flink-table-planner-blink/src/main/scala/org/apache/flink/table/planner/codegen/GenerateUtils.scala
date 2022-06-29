@@ -322,7 +322,7 @@ object GenerateUtils {
         val dt = literalType.asInstanceOf[DecimalType]
         val precision = dt.getPrecision
         val scale = dt.getScale
-        val fieldTerm = newName("decimal")
+        val fieldTerm = newName("decimal", ctx)
         val decimalClass = className[DecimalData]
         val fieldDecimal =
           s"""
@@ -395,7 +395,7 @@ object GenerateUtils {
         generateNonNullLiteral(literalType, literalValue.toString, literalValue)
 
       case TIMESTAMP_WITHOUT_TIME_ZONE =>
-        val fieldTerm = newName("timestamp")
+        val fieldTerm = newName("timestamp", ctx)
         val ldt = toLocalDateTime(literalValue.asInstanceOf[TimestampString])
         val ts = TimestampData.fromLocalDateTime(ldt)
         val fieldTimestamp =
@@ -410,7 +410,7 @@ object GenerateUtils {
         throw new UnsupportedOperationException("Unsupported type: " + literalType)
 
       case TIMESTAMP_WITH_LOCAL_TIME_ZONE =>
-        val fieldTerm = newName("timestampWithLocalZone")
+        val fieldTerm = newName("timestampWithLocalZone", ctx)
         val ins =
           toLocalDateTime(literalValue.asInstanceOf[TimestampString])
             .atOffset(ZoneOffset.UTC)
@@ -745,7 +745,7 @@ object GenerateUtils {
       throw new UnsupportedOperationException() // TODO support MULTISET and MAP?
     case ARRAY =>
       val at = t.asInstanceOf[ArrayType]
-      val compareFunc = newName("compareArray")
+      val compareFunc = newName("compareArray", ctx)
       val compareCode = generateArrayCompare(
         ctx,
         SortUtil.getNullDefaultOrder(true), at, "a", "b")
@@ -769,7 +769,7 @@ object GenerateUtils {
         SortUtil.getNullDefaultOrders(orders),
         "a",
         "b")
-      val compareFunc = newName("compareRow")
+      val compareFunc = newName("compareRow", ctx)
       val funcCode: String =
         s"""
           public int $compareFunc($ROW_DATA a, $ROW_DATA b) {
@@ -825,15 +825,15 @@ object GenerateUtils {
   : String = {
     val nullIsLastRet = if (nullsIsLast) 1 else -1
     val elementType = arrayType.getElementType
-    val fieldA = newName("fieldA")
-    val isNullA = newName("isNullA")
-    val lengthA = newName("lengthA")
-    val fieldB = newName("fieldB")
-    val isNullB = newName("isNullB")
-    val lengthB = newName("lengthB")
-    val minLength = newName("minLength")
-    val i = newName("i")
-    val comp = newName("comp")
+    val fieldA = newName("fieldA", ctx)
+    val isNullA = newName("isNullA", ctx)
+    val lengthA = newName("lengthA", ctx)
+    val fieldB = newName("fieldB", ctx)
+    val isNullB = newName("isNullB", ctx)
+    val lengthB = newName("lengthB", ctx)
+    val minLength = newName("minLength", ctx)
+    val i = newName("i", ctx)
+    val comp = newName("comp", ctx)
     val typeTerm = primitiveTypeTermForType(elementType)
     s"""
         int $lengthA = a.size();
@@ -890,11 +890,11 @@ object GenerateUtils {
       val t = keyTypes(i)
 
       val typeTerm = primitiveTypeTermForType(t)
-      val fieldA = newName("fieldA")
-      val isNullA = newName("isNullA")
-      val fieldB = newName("fieldB")
-      val isNullB = newName("isNullB")
-      val comp = newName("comp")
+      val fieldA = newName("fieldA", ctx)
+      val isNullA = newName("isNullA", ctx)
+      val fieldB = newName("fieldB", ctx)
+      val isNullB = newName("isNullB", ctx)
+      val comp = newName("comp", ctx)
 
       val code =
         s"""
@@ -924,7 +924,7 @@ object GenerateUtils {
       ctx: CodeGeneratorContext,
       generatedCode: String,
       newSplitMethodName: String): String = {
-    val splitMethodName = newName(newSplitMethodName)
+    val splitMethodName = newName(newSplitMethodName, ctx)
     val method =
       s"""
          |private void $splitMethodName() throws Exception {

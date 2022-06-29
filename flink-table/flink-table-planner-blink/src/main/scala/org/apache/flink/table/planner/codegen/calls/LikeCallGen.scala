@@ -123,7 +123,7 @@ class LikeCallGen extends CallGenerator {
               s"${terms.head}.contains($field)"
             } else {
               val field = className[SqlLikeChainChecker]
-              val checker = newName("likeChainChecker")
+              val checker = newName("likeChainChecker", ctx)
               ctx.addReusableMember(s"$field $checker = new $field(${"\""}$newPattern${"\""});")
               s"$checker.check(${terms.head})"
             }
@@ -131,7 +131,7 @@ class LikeCallGen extends CallGenerator {
             // Complex
             val patternClass = className[Pattern]
             val likeClass = className[SqlLikeUtils]
-            val patternName = newName("pattern")
+            val patternName = newName("pattern", ctx)
             val escape = if (operands.size == 2) {
               "null"
             } else {

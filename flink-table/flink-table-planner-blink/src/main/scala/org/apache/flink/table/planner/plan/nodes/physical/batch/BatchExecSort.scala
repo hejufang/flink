@@ -40,6 +40,8 @@ import org.apache.calcite.rex.RexNode
 
 import java.util
 
+import org.apache.flink.table.planner.codegen.CodeGeneratorContext
+
 import scala.collection.JavaConversions._
 
 /**
@@ -115,7 +117,7 @@ class BatchExecSort(
     val codeGen = new SortCodeGenerator(conf, keys, keyTypes, orders, nullsIsLast)
 
     val operator = new SortOperator(
-      codeGen.generateNormalizedKeyComputer("BatchExecSortComputer"),
+      codeGen.generateNormalizedKeyComputer("BatchExecSortComputer", CodeGeneratorContext(conf)),
       codeGen.generateRecordComparator("BatchExecSortComparator"))
 
     val sortMemory = MemorySize.parse(conf.getConfiguration.getString(

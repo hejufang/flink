@@ -34,7 +34,7 @@ class EqualiserCodeGenerator(fieldTypes: Array[LogicalType]) {
   def generateRecordEqualiser(name: String): GeneratedRecordEqualiser = {
     // ignore time zone
     val ctx = CodeGeneratorContext(new TableConfig)
-    val className = newName(name)
+    val className = newName(name, ctx)
     val rowType = RowType.of(fieldTypes:_*)
     val left = GeneratedExpression(LEFT_INPUT, NEVER_NULL, "", rowType)
     val right = GeneratedExpression(RIGHT_INPUT, NEVER_NULL, "", rowType)

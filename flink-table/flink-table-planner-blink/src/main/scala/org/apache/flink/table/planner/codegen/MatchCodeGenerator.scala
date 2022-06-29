@@ -133,7 +133,7 @@ class MatchCodeGenerator(
   /**
     * @return term of pattern names
     */
-  private val patternNamesTerm = newName("patternNames")
+  private val patternNamesTerm = newName("patternNames", ctx)
 
   private lazy val eventTypeTerm = boxedTypeTermForType(input1Type)
 
@@ -239,7 +239,7 @@ class MatchCodeGenerator(
       clazz: Class[F],
       bodyCode: String)
     : GeneratedFunction[F] = {
-    val funcName = newName(name)
+    val funcName = newName(name, ctx)
     val collectorTypeTerm = classOf[Collector[Any]].getCanonicalName
     val (functionClass, signature, inputStatements) =
       if (clazz == classOf[RichIterativeCondition[_]]) {
@@ -421,7 +421,7 @@ class MatchCodeGenerator(
         expr
 
       case None =>
-        val nullTerm = newName("isNull")
+        val nullTerm = newName("isNull", ctx)
 
         ctx.addReusableMember(s"$eventTypeTerm $keyRowTerm;")
 
@@ -463,7 +463,7 @@ class MatchCodeGenerator(
       patternName: String,
       currentPattern: String)
     : GeneratedPatternList = {
-    val Seq(listName, eventNameTerm) = newNames("patternEvents", "event")
+    val Seq(listName, eventNameTerm) = newNamesWithContext(ctx, "patternEvents", "event")
 
     ctx.addReusableMember(s"java.util.List $listName;")
 
@@ -477,7 +477,7 @@ class MatchCodeGenerator(
 
     val listCode = if (patternName == ALL_PATTERN_VARIABLE) {
       addReusablePatternNames()
-      val patternTerm = newName("pattern")
+      val patternTerm = newName("pattern", ctx)
 
       j"""
          |$listName = new java.util.ArrayList();
@@ -509,7 +509,7 @@ class MatchCodeGenerator(
   }
 
   private def generateMeasurePatternVariableExp(patternName: String): GeneratedPatternList = {
-    val Seq(listName, patternTerm) = newNames("patternEvents", "pattern")
+    val Seq(listName, patternTerm) = newNamesWithContext(ctx, "patternEvents", "pattern")
     ctx.addReusableMember(s"java.util.List $listName;")
 
     val code = if (patternName == ALL_PATTERN_VARIABLE) {
@@ -539,7 +539,7 @@ class MatchCodeGenerator(
   }
 
   private def findEventByLogicalPosition(patternFieldAlpha: String): GeneratedExpression = {
-    val Seq(rowNameTerm, isRowNull) = newNames("row", "isRowNull")
+    val Seq(rowNameTerm, isRowNull) = newNamesWithContext(ctx, "row", "isRowNull")
 
     val listName = findEventsByPatternName(patternFieldAlpha).resultTerm
     val resultIndex = if (first) {
@@ -601,7 +601,7 @@ class MatchCodeGenerator(
 
     private val aggregates = new mutable.ListBuffer[RexCall]()
 
-    private val variableUID = newName("variable")
+    private val variableUID = newName("variable", ctx)
 
     private val calculateAggFuncName = s"calculateAgg_$variableUID"
 
@@ -620,8 +620,8 @@ class MatchCodeGenerator(
     }
 
     private def generateAggAccess(aggCall: RexCall): GeneratedExpression = {
-      val singleAggResultTerm = newName("result")
-      val singleAggNullTerm = newName("nullTerm")
+      val singleAggResultTerm = newName("result", ctx)
+      val singleAggNullTerm = newName("nullTerm", ctx)
       val singleAggResultType = FlinkTypeFactory.toLogicalType(aggCall.`type`)
       val primitiveSingleAggResultTypeTerm = primitiveTypeTermForType(singleAggResultType)
       val boxedSingleAggResultTypeTerm = boxedTypeTermForType(singleAggResultType)
@@ -773,7 +773,7 @@ class MatchCodeGenerator(
         inputExprs: Seq[RexNode],
         funcName: String): String = {
       isWithinAggExprState = true
-      val resultTerm = newName("result")
+      val resultTerm = newName("result", ctx)
       val exprs = inputExprs.zipWithIndex.map {
         case (inputExpr, outputIndex) =>
           val expr = generateExpression(inputExpr)

@@ -96,10 +96,10 @@ class SortWindowCodeGenerator(
         .map(a => ctx.addReusableFunction(a))
 
     val timeWindowType = classOf[TimeWindow].getName
-    val currentWindow = CodeGenUtils.newName("currentWindow")
+    val currentWindow = CodeGenUtils.newName("currentWindow", ctx)
     ctx.addReusableMember(s"transient $timeWindowType $currentWindow = null;")
 
-    val windowsGrouping = CodeGenUtils.newName("windowsGrouping")
+    val windowsGrouping = CodeGenUtils.newName("windowsGrouping", ctx)
     val enablePreAcc = choosePreAcc || isMerge
     val windowElementType = getWindowsGroupingElementInfo(enablePreAcc)
 
@@ -164,9 +164,9 @@ class SortWindowCodeGenerator(
 
     val inputTerm = CodeGenUtils.DEFAULT_INPUT1_TERM
 
-    val currentKey = CodeGenUtils.newName("currentKey")
-    val currentKeyWriter = CodeGenUtils.newName("currentKeyWriter")
-    val lastKey = CodeGenUtils.newName("lastKey")
+    val currentKey = CodeGenUtils.newName("currentKey", ctx)
+    val currentKeyWriter = CodeGenUtils.newName("currentKeyWriter", ctx)
+    val lastKey = CodeGenUtils.newName("lastKey", ctx)
     ctx.addReusableMember(s"transient $BINARY_ROW $lastKey = null;")
 
     val keyProjectionCode = ProjectionCodeGenerator.generateProjectionExpression(
@@ -182,10 +182,10 @@ class SortWindowCodeGenerator(
 
     // gen code to merge pre-accumulated results
     val timeWindowType = classOf[TimeWindow].getName
-    val currentWindow = CodeGenUtils.newName("currentWindow")
+    val currentWindow = CodeGenUtils.newName("currentWindow", ctx)
     ctx.addReusableMember(s"transient $timeWindowType $currentWindow = null;")
 
-    val windowsGrouping = CodeGenUtils.newName("windowsGrouping")
+    val windowsGrouping = CodeGenUtils.newName("windowsGrouping", ctx)
     val enablePreAcc = choosePreAcc || isMerge
     val windowElementType = getWindowsGroupingElementInfo(enablePreAcc)
 

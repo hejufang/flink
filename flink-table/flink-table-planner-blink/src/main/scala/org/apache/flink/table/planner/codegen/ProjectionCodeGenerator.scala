@@ -63,17 +63,17 @@ object ProjectionCodeGenerator {
         outIdxs: mutable.ArrayBuffer[Int]): String = {
       // this array contains the indices of the fields
       // whose type equals to `fieldType` in the input row
-      val inIdxArr = newName("inIdx")
+      val inIdxArr = newName("inIdx", ctx)
       ctx.addReusableMember(s"int[] $inIdxArr = null;")
       ctx.addReusableInitStatement(s"$inIdxArr = new int[] {${inIdxs.mkString(", ")}};")
 
       // this array contains the indices of the fields
       // whose type equals to `fieldType` in the output row
-      val outIdxArr = newName("outIdx")
+      val outIdxArr = newName("outIdx", ctx)
       ctx.addReusableMember(s"int[] $outIdxArr = null;")
       ctx.addReusableInitStatement(s"$outIdxArr = new int[] {${outIdxs.mkString(", ")}};")
 
-      val loopIdx = newName("i")
+      val loopIdx = newName("i", ctx)
 
       val fieldVal = CodeGenUtils.rowFieldReadAccess(
         ctx, s"$inIdxArr[$loopIdx]", inputTerm, fieldType)
@@ -182,7 +182,7 @@ object ProjectionCodeGenerator {
       outRecordWriterTerm: String = DEFAULT_OUT_RECORD_WRITER_TERM,
       reusedOutRecord: Boolean = true,
       nullCheck: Boolean = true): GeneratedProjection = {
-    val className = newName(name)
+    val className = newName(name, ctx)
     val baseClass = classOf[Projection[_, _]]
 
     val expression = generateProjectionExpression(

@@ -94,9 +94,9 @@ object HashAggCodeGenHelper {
       aggBufferType: RowType,
       outputClass: Class[_ <: RowData]): (String, String, String) = {
     // prepare iteration var terms
-    val reuseAggMapKeyTerm = CodeGenUtils.newName("reuseAggMapKey")
-    val reuseAggBufferTerm = CodeGenUtils.newName("reuseAggBuffer")
-    val reuseAggMapEntryTerm = CodeGenUtils.newName("reuseAggMapEntry")
+    val reuseAggMapKeyTerm = CodeGenUtils.newName("reuseAggMapKey", ctx)
+    val reuseAggBufferTerm = CodeGenUtils.newName("reuseAggBuffer", ctx)
+    val reuseAggMapEntryTerm = CodeGenUtils.newName("reuseAggMapEntry", ctx)
     // gen code to prepare agg output using agg buffer and key from the aggregate map
     val binaryRow = classOf[BinaryRowData].getName
     val mapEntryTypeTerm = classOf[BytesHashMap.Entry].getCanonicalName
@@ -218,8 +218,8 @@ object HashAggCodeGenHelper {
     val initAggBufferExprs = initAuxGroupingExprs ++ initAggCallBufferExprs
 
     // empty agg buffer and writer will be reused
-    val emptyAggBufferTerm = CodeGenUtils.newName("emptyAggBuffer")
-    val emptyAggBufferWriterTerm = CodeGenUtils.newName("emptyAggBufferWriterTerm")
+    val emptyAggBufferTerm = CodeGenUtils.newName("emptyAggBuffer", ctx)
+    val emptyAggBufferWriterTerm = CodeGenUtils.newName("emptyAggBufferWriterTerm", ctx)
     exprCodegen.generateResultExpression(
       initAggBufferExprs,
       aggBufferType,
@@ -304,7 +304,7 @@ object HashAggCodeGenHelper {
       }.map(_.accept(new ExpressionConverter(builder))).map(exprCodegen.generateExpression)
 
       val getValueExprs = getAuxGroupingExprs ++ getAggValueExprs
-      val aggValueTerm = CodeGenUtils.newName("aggVal")
+      val aggValueTerm = CodeGenUtils.newName("aggVal", ctx)
       val valueType = RowType.of(getValueExprs.map(_.resultType): _*)
       exprCodegen.generateResultExpression(
         getValueExprs,
@@ -504,7 +504,7 @@ object HashAggCodeGenHelper {
     val inputUnboxingCode =
       if (isFinal) s"${ctx.reuseInputUnboxingCode(reuseAggBufferTerm)}" else ""
 
-    val iteratorTerm = CodeGenUtils.newName("iterator")
+    val iteratorTerm = CodeGenUtils.newName("iterator", ctx)
     val mapEntryTypeTerm = classOf[BytesHashMap.Entry].getCanonicalName
     s"""
        |org.apache.flink.util.MutableObjectIterator<$mapEntryTypeTerm> $iteratorTerm =
@@ -677,8 +677,8 @@ object HashAggCodeGenHelper {
       groupKeyTypesTerm: String,
       aggBufferTypesTerm: String,
       sorterTerm: String): String = {
-    val keyComputerTerm = CodeGenUtils.newName("keyComputer")
-    val recordComparatorTerm = CodeGenUtils.newName("recordComparator")
+    val keyComputerTerm = CodeGenUtils.newName("keyComputer", ctx)
+    val recordComparatorTerm = CodeGenUtils.newName("recordComparator", ctx)
     val prepareSorterCode = genKVSorterPrepareCode(
       ctx, keyComputerTerm, recordComparatorTerm, groupKeyRowType)
 
@@ -716,8 +716,8 @@ object HashAggCodeGenHelper {
       aggBufferNames: Array[Array[String]],
       aggBufferTypes: Array[Array[LogicalType]]): String = {
     val (groupKeyRowType, aggBufferRowType) = mapKVRowTypes
-    val keyTerm = CodeGenUtils.newName("key")
-    val lastKeyTerm = CodeGenUtils.newName("lastKey")
+    val keyTerm = CodeGenUtils.newName("key", ctx)
+    val lastKeyTerm = CodeGenUtils.newName("lastKey", ctx)
     val keyNotEquals = AggCodeGenHelper.genGroupKeyChangedCheckCode(keyTerm, lastKeyTerm)
 
     val joinedRow = classOf[JoinedRowData].getName
@@ -745,9 +745,9 @@ object HashAggCodeGenHelper {
       outputType,
       forHashAgg = true)
 
-    val kvPairTerm = CodeGenUtils.newName("kvPair")
+    val kvPairTerm = CodeGenUtils.newName("kvPair", ctx)
     val kvPairTypeTerm = classOf[JTuple2[BinaryRowData, BinaryRowData]].getName
-    val aggBuffTerm = CodeGenUtils.newName("val")
+    val aggBuffTerm = CodeGenUtils.newName("val", ctx)
     val binaryRow = classOf[BinaryRowData].getName
 
     s"""
@@ -806,7 +806,7 @@ object HashAggCodeGenHelper {
 
     val sortCodeGenerator = new SortCodeGenerator(
       ctx.tableConfig, keys, keyFieldTypes, orders, nullsIsLast)
-    val computer = sortCodeGenerator.generateNormalizedKeyComputer("AggMapKeyComputer")
+    val computer = sortCodeGenerator.generateNormalizedKeyComputer("AggMapKeyComputer", ctx)
     val comparator = sortCodeGenerator.generateRecordComparator("AggMapValueComparator")
 
     val keyComputerTypeTerm = classOf[NormalizedKeyComputer].getName

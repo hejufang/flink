@@ -120,7 +120,7 @@ class TableFunctionCallGen(
     val wrappedInternalType = PlannerTypeUtils.toRowType(externalType)
 
     val collectorCtx = CodeGeneratorContext(ctx.tableConfig)
-    val externalTerm = newName("externalRecord")
+    val externalTerm = newName("externalRecord", ctx)
 
     // code for wrapping atomic types
     val collectorCode = if (!isCompositeType(externalType)) {
@@ -148,7 +148,7 @@ class TableFunctionCallGen(
       externalTerm,
       CodeGenUtils.genToInternal(ctx, externalDataType),
       collectorCode)
-    val resultCollectorTerm = newName("resultConverterCollector")
+    val resultCollectorTerm = newName("resultConverterCollector", ctx)
     CollectorCodeGenerator.addToContext(ctx, resultCollectorTerm, resultCollector)
     resultCollectorTerm
   }

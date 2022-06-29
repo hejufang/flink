@@ -347,7 +347,7 @@ class ExprCodeGenerator(ctx: CodeGeneratorContext, nullableInput: Boolean)
         ctx.setCodeSplit()
       }
       setFieldsCodes.map(project => {
-        val methodName = newName("split")
+        val methodName = newName("split", ctx)
         val method =
           s"""
             |private void $methodName() throws Exception {
@@ -480,7 +480,7 @@ class ExprCodeGenerator(ctx: CodeGeneratorContext, nullableInput: Boolean)
       if (!generatedExpressions.contains(index)) {
         val expr = exprs.get(index).accept(this)
         val Seq(resultTerm, nullTerm, initializedTerm) =
-          newNames("result", "isNull", "initialized")
+          newNamesWithContext(ctx, "result", "isNull", "initialized")
         ctx.addReusablePerRecordStatement(s"$initializedTerm = false;")
         ctx.addReusableMember(s"private boolean $initializedTerm;")
         val resultType = if (expr.resultNullable) {
@@ -535,8 +535,8 @@ class ExprCodeGenerator(ctx: CodeGeneratorContext, nullableInput: Boolean)
         case None =>
           val pType = primitiveTypeTermForType(value.internalType)
           val defaultValue = primitiveDefaultValue(value.internalType)
-          val resultTerm = newName("field")
-          val nullTerm = newName("isNull")
+          val resultTerm = newName("field", ctx)
+          val nullTerm = newName("isNull", ctx)
           val code =
             s"""
                |$pType $resultTerm = $defaultValue;

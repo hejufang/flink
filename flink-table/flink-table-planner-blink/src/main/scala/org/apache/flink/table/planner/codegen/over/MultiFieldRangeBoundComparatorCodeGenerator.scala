@@ -38,7 +38,8 @@ class MultiFieldRangeBoundComparatorCodeGenerator(
     isLowerBound: Boolean = true) {
 
   def generateBoundComparator(name: String): GeneratedRecordComparator = {
-    val className = newName(name)
+    val ctx = CodeGeneratorContext(conf)
+    val className = newName(name, ctx)
     val input = CodeGenUtils.DEFAULT_INPUT1_TERM
     val current = CodeGenUtils.DEFAULT_INPUT2_TERM
 
@@ -47,7 +48,6 @@ class MultiFieldRangeBoundComparatorCodeGenerator(
       if (isLowerBound) s"return $comp >= 0 ? 1 : -1;" else s"return $comp > 0 ? 1 : -1;"
     }
 
-    val ctx = CodeGeneratorContext(conf)
 
     val compareCode = GenerateUtils.generateRowCompare(
       ctx, keys, keyTypes, keyOrders, nullsIsLasts, input, current)

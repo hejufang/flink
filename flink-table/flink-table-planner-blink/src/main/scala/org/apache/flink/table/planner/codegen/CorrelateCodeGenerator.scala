@@ -176,7 +176,7 @@ object CorrelateCodeGenerator {
     if (joinType == JoinRelType.LEFT) {
       if (swallowInputOnly) {
         // and the returned row table function is empty, collect a null
-        val nullRowTerm = CodeGenUtils.newName("nullRow")
+        val nullRowTerm = CodeGenUtils.newName("nullRow", ctx)
         ctx.addReusableOutputRecord(functionResultType, classOf[GenericRowData], nullRowTerm)
         ctx.addReusableNullRow(nullRowTerm, functionResultType.getFieldCount)
         val header = if (retainHeader) {
@@ -194,7 +194,7 @@ object CorrelateCodeGenerator {
              |""".stripMargin
       } else if (projectProgram.isDefined) {
         // output partial fields of left and right
-        val outputTerm = CodeGenUtils.newName("projectOut")
+        val outputTerm = CodeGenUtils.newName("projectOut", ctx)
         ctx.addReusableOutputRecord(returnType, classOf[GenericRowData], outputTerm)
 
         val header = if (retainHeader) {
@@ -226,8 +226,8 @@ object CorrelateCodeGenerator {
         // output all fields of left and right
         // in case of left outer join and the returned row of table function is empty,
         // fill all fields of row with null
-        val joinedRowTerm = CodeGenUtils.newName("joinedRow")
-        val nullRowTerm = CodeGenUtils.newName("nullRow")
+        val joinedRowTerm = CodeGenUtils.newName("joinedRow", ctx)
+        val nullRowTerm = CodeGenUtils.newName("nullRow", ctx)
         ctx.addReusableOutputRecord(returnType, classOf[JoinedRowData], joinedRowTerm)
         ctx.addReusableNullRow(nullRowTerm, functionResultType.getFieldCount)
         val header = if (retainHeader) {
@@ -267,7 +267,7 @@ object CorrelateCodeGenerator {
     val projectExprGenerator = new ExprCodeGenerator(ctx, udtfAlwaysNull)
       .bindInput(input1Type, CodeGenUtils.DEFAULT_INPUT1_TERM)
     if (udtfAlwaysNull) {
-      val udtfNullRow = CodeGenUtils.newName("udtfNullRow")
+      val udtfNullRow = CodeGenUtils.newName("udtfNullRow", ctx)
       ctx.addReusableNullRow(udtfNullRow, functionResultType.getFieldCount)
 
       projectExprGenerator.bindSecondInput(
@@ -299,7 +299,7 @@ object CorrelateCodeGenerator {
       retainHeader: Boolean = true)
     : String = {
 
-    val correlateCollectorTerm = newName("correlateCollector")
+    val correlateCollectorTerm = newName("correlateCollector", ctx)
     val inputTerm = CodeGenUtils.DEFAULT_INPUT1_TERM
     val udtfInputTerm = CodeGenUtils.DEFAULT_INPUT2_TERM
 
@@ -319,7 +319,7 @@ object CorrelateCodeGenerator {
            |outputResult($udtfInputTerm);
         """.stripMargin
       } else {
-        val outputTerm = CodeGenUtils.newName("projectOut")
+        val outputTerm = CodeGenUtils.newName("projectOut", ctx)
         collectorCtx.addReusableOutputRecord(resultType, classOf[GenericRowData], outputTerm)
 
         val header = if (retainHeader) {
@@ -345,7 +345,7 @@ object CorrelateCodeGenerator {
       }
     } else {
       // completely output left input + right
-      val joinedRowTerm = CodeGenUtils.newName("joinedRow")
+      val joinedRowTerm = CodeGenUtils.newName("joinedRow", ctx)
       collectorCtx.addReusableOutputRecord(resultType, classOf[JoinedRowData], joinedRowTerm)
 
       val header = if (retainHeader) {

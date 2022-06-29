@@ -96,7 +96,7 @@ object AggCodeGenHelper {
       ctx: CodeGeneratorContext,
       aggsHandlerCtx: CodeGeneratorContext): String = {
     ctx.addReusableInnerClass(aggsHandler.getClassName, aggsHandler.getCode)
-    val handler = CodeGenUtils.newName("handler")
+    val handler = CodeGenUtils.newName("handler", ctx)
     ctx.addReusableMember(s"${aggsHandler.getClassName} $handler = null;")
     val aggRefers = ctx.addReusableObject(aggsHandlerCtx.references.toArray, "Object[]")
     ctx.addReusableOpenStatement(
@@ -444,7 +444,7 @@ object AggCodeGenHelper {
       aggBufferTypes: Array[Array[LogicalType]],
       aggBufferExprs: Seq[GeneratedExpression],
       outputType: RowType): GeneratedExpression = {
-    val valueRow = CodeGenUtils.newName("valueRow")
+    val valueRow = CodeGenUtils.newName("valueRow", ctx)
     val resultCodegen = new ExprCodeGenerator(ctx, false)
     if (isFinal) {
       val getValueExprs = genGetValueFromFlatAggregateBuffer(
@@ -565,7 +565,7 @@ object AggCodeGenHelper {
 
         val externalAccT = getAccumulatorTypeOfAggregateFunction(agg)
         val javaField = typeTerm(externalAccT.getConversionClass)
-        val tmpAcc = newName("tmpAcc")
+        val tmpAcc = newName("tmpAcc", ctx)
         s"""
            |final $singleIterableClass accIt$aggIndex = new  $singleIterableClass();
            |accIt$aggIndex.set(${genToExternal(ctx, externalAccT, inputExpr.resultTerm)});
@@ -641,7 +641,7 @@ object AggCodeGenHelper {
         }
 
         val javaTerm = typeTerm(externalAccType.getConversionClass)
-        val tmpAcc = newName("tmpAcc")
+        val tmpAcc = newName("tmpAcc", ctx)
         val innerCode =
           s"""
              |  $javaTerm $tmpAcc = ${

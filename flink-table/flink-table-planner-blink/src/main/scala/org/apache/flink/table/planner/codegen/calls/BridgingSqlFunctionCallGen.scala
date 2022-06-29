@@ -165,7 +165,7 @@ class BridgingSqlFunctionCallGen(call: RexCall) extends CallGenerator {
     val outputType = outputDataType.getLogicalType
 
     val collectorCtx = CodeGeneratorContext(ctx.tableConfig)
-    val externalResultTerm = newName("externalResult")
+    val externalResultTerm = newName("externalResult", ctx)
 
     // code for wrapping atomic types
     val collectorCode = if (!isCompositeType(outputType)) {
@@ -195,7 +195,7 @@ class BridgingSqlFunctionCallGen(call: RexCall) extends CallGenerator {
       // nullability is handled by the expression code generator if necessary
       genToInternalConverter(ctx, outputDataType),
       collectorCode)
-    val resultCollectorTerm = newName("resultConverterCollector")
+    val resultCollectorTerm = newName("resultConverterCollector", ctx)
     CollectorCodeGenerator.addToContext(ctx, resultCollectorTerm, resultCollector)
 
     resultCollectorTerm

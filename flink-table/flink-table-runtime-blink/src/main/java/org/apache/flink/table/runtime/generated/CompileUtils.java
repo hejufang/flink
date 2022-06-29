@@ -21,12 +21,16 @@ package org.apache.flink.table.runtime.generated;
 import org.apache.flink.api.common.InvalidProgramException;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import org.apache.flink.shaded.byted.com.bytedance.metrics.UdpMetricsClient;
 import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
 import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
 
+import org.apache.curator.shaded.com.google.common.hash.Hashing;
 import org.codehaus.janino.SimpleCompiler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Objects;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -45,10 +49,24 @@ public final class CompileUtils {
 	 * number of Meta zone GC (class unloading), resulting in performance bottlenecks. So we add
 	 * a cache to avoid this problem.
 	 */
-	protected static final Cache<String, Cache<ClassLoader, Class>> COMPILED_CACHE = CacheBuilder
+	protected static final Cache<ClassKey, Class> COMPILED_CLASS_CACHE = CacheBuilder
 		.newBuilder()
-		.maximumSize(100)   // estimated cache size
+		.maximumSize(3000)   // estimated cache size
+		.recordStats()
 		.build();
+
+	private static final String CLASS_CACHE_METRICS_PREFIX = "flink.class.cache";
+
+	private static final String CLASS_CACHE_METRICS_HIT_RATE = "hit-rate";
+
+	private static final String CLASS_CACHE_METRICS_HIT_COUNT = "hit-count";
+
+	// TODO: find a new way to write metrics in OLAP/Batch scenarios,
+	// do not use internal metrics system.
+	private static final UdpMetricsClient udpMetricsClient =
+		new UdpMetricsClient(CLASS_CACHE_METRICS_PREFIX);
+
+	private static final String FLINK_CLUSTER_NAME = System.getenv("FLINK_CLUSTER_NAME");
 
 	/**
 	 * Compiles a generated code to a Class.
@@ -61,9 +79,16 @@ public final class CompileUtils {
 	@SuppressWarnings("unchecked")
 	public static <T> Class<T> compile(ClassLoader cl, String name, String code) {
 		try {
-			Cache<ClassLoader, Class> compiledClasses = COMPILED_CACHE.get(name,
-					() -> CacheBuilder.newBuilder().maximumSize(5).weakKeys().softValues().build());
-			return compiledClasses.get(cl, () -> doCompile(cl, name, code));
+			Class<T> clz = COMPILED_CLASS_CACHE.get(
+				new ClassKey(cl.hashCode(), name, code), () -> doCompile(cl, name, code));
+
+			if (FLINK_CLUSTER_NAME != null) {
+				udpMetricsClient.emitStoreWithTag(CLASS_CACHE_METRICS_HIT_RATE,
+					COMPILED_CLASS_CACHE.stats().hitRate(), "cluster=" + FLINK_CLUSTER_NAME);
+				udpMetricsClient.emitStoreWithTag(CLASS_CACHE_METRICS_HIT_COUNT,
+					COMPILED_CLASS_CACHE.stats().hitCount(), "cluster=" + FLINK_CLUSTER_NAME);
+			}
+			return clz;
 		} catch (Exception e) {
 			throw new FlinkRuntimeException(e.getMessage(), e);
 		}
@@ -86,6 +111,51 @@ public final class CompileUtils {
 			return (Class<T>) compiler.getClassLoader().loadClass(name);
 		} catch (ClassNotFoundException e) {
 			throw new RuntimeException("Can not load class " + name, e);
+		}
+	}
+
+	/** Class to use as key for the {@link #COMPILED_CLASS_CACHE}. */
+	private static class ClassKey {
+		private final int classLoaderId;
+		private final String className;
+		private final String codeMd5;
+		private final int codeLength;
+
+		private ClassKey(int classLoaderId, String className, String code) {
+			this.classLoaderId = classLoaderId;
+			this.className = className;
+			this.codeLength = code.length();
+			this.codeMd5 = Hashing.md5().hashBytes(code.getBytes()).toString();
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			ClassKey classKey = (ClassKey) o;
+			return classLoaderId == classKey.classLoaderId &&
+				codeLength == classKey.codeLength &&
+				Objects.equals(className, classKey.className) &&
+				Objects.equals(codeMd5, classKey.codeMd5);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(classLoaderId, className, codeMd5, codeLength);
+		}
+
+		@Override
+		public String toString() {
+			return "ClassKey{" +
+				"classLoaderId=" + classLoaderId +
+				", className='" + className + '\'' +
+				", codeMd5Hex='" + codeMd5 + '\'' +
+				", codeLength=" + codeLength +
+				'}';
 		}
 	}
 

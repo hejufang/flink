@@ -50,7 +50,7 @@ object HashCodeGenerator {
       input: LogicalType,
       name: String,
       hashFields: Array[Int]): GeneratedHashFunction = {
-    val className = newName(name)
+    val className = newName(name, ctx)
     val baseClass = classOf[HashFunction]
     val inputTerm = CodeGenUtils.DEFAULT_INPUT1_TERM
 
@@ -85,7 +85,7 @@ object HashCodeGenerator {
   private def generateCodeBody(
       ctx: CodeGeneratorContext,
       accessExprs: Seq[GeneratedExpression]): (String, String) = {
-    val hashIntTerm = CodeGenUtils.newName("hashCode")
+    val hashIntTerm = CodeGenUtils.newName("hashCode", ctx)
     var i = -1
     val hashBodyCode = accessExprs.map(expr => {
       i = i + 1

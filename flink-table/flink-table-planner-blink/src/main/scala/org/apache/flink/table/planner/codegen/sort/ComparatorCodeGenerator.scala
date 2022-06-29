@@ -49,10 +49,10 @@ object ComparatorCodeGenerator {
       keyTypes: Array[LogicalType],
       orders: Array[Boolean],
       nullsIsLast: Array[Boolean]): GeneratedRecordComparator = {
-    val className = newName(name)
     val baseClass = classOf[RecordComparator]
 
     val ctx = new CodeGeneratorContext(conf)
+    val className = newName(name, ctx)
     val compareCode = GenerateUtils.generateRowCompare(
       ctx, keys, keyTypes, orders, nullsIsLast, "o1", "o2")
 

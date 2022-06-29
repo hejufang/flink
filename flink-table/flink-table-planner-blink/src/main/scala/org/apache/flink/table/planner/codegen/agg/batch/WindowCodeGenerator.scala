@@ -192,7 +192,7 @@ abstract class WindowCodeGenerator(
          |    ${generateCollect(outputWinAggResExpr.resultTerm)}
          |  }
          |}""".stripMargin
-    val functionName = CodeGenUtils.newName("triggerWindowProcess")
+    val functionName = CodeGenUtils.newName("triggerWindowProcess", ctx)
     val functionCode =
       s"""
          |private void $functionName() throws java.lang.Exception {
@@ -261,7 +261,7 @@ abstract class WindowCodeGenerator(
 
     // --------------------------------------------------------------------------------------------
     // gen code to set group window aggregate output
-    val valueRow = CodeGenUtils.newName("valueRow")
+    val valueRow = CodeGenUtils.newName("valueRow", ctx)
     val resultCodegen = new ExprCodeGenerator(ctx, false)
     val setValueResult = if (isFinal) {
       AggCodeGenHelper.genSortAggOutputExpr(
@@ -301,7 +301,7 @@ abstract class WindowCodeGenerator(
     val resultExpr = currentKey match {
       case Some(key) =>
         // generate agg result
-        val windowAggResultTerm = CodeGenUtils.newName("windowAggResult")
+        val windowAggResultTerm = CodeGenUtils.newName("windowAggResult", ctx)
         ctx.addReusableOutputRecord(outputType, classOf[JoinedRowData], windowAggResultTerm)
         val output =
           s"""
@@ -336,7 +336,7 @@ abstract class WindowCodeGenerator(
       groupKey: Option[String],
       outputType: RowType): (String, String) = {
     // gen code to do aggregate by window or pane
-    val windowElemTerm = CodeGenUtils.newName("winElement")
+    val windowElemTerm = CodeGenUtils.newName("winElement", ctx)
     val (initAggBuffCode, doAggCode, outputWinAggResExpr) = genSortWindowAggCodes(
       enablePreAcc = enablePreAcc,
       ctx,
@@ -425,15 +425,15 @@ abstract class WindowCodeGenerator(
     val assignedTsExpr = genAssignTimestampExpr(ctx, inputTerm, inputType)
 
     // gen code to do aggregate by assigned ts
-    val lastTimestampTerm = CodeGenUtils.newName("lastTimestamp")
+    val lastTimestampTerm = CodeGenUtils.newName("lastTimestamp", ctx)
     ctx.addReusableMember(s"transient long $lastTimestampTerm = -1;")
-    val preAccResult = CodeGenUtils.newName("prepareWinElement")
-    val preAccResultWriter = CodeGenUtils.newName("prepareWinElementWriter")
+    val preAccResult = CodeGenUtils.newName("prepareWinElement", ctx)
+    val preAccResultWriter = CodeGenUtils.newName("prepareWinElementWriter", ctx)
     ctx.addReusableOutputRecord(
       windowElementType, classOf[BinaryRowData], preAccResult, Some(preAccResultWriter))
 
     val timeWindowType = classOf[TimeWindow].getName
-    val currentWindow = newName("currentWindow")
+    val currentWindow = newName("currentWindow", ctx)
     ctx.addReusableMember(s"transient $timeWindowType $currentWindow = null;")
 
     // output or merge pre accumulate results by window
@@ -568,7 +568,7 @@ abstract class WindowCodeGenerator(
       preAccCode
     }
 
-    val processFuncName = CodeGenUtils.newName("preAccumulate")
+    val processFuncName = CodeGenUtils.newName("preAccumulate", ctx)
     val inputTypeTerm = boxedTypeTermForType(inputType)
     ctx.addReusableMember(
       s"""
@@ -581,7 +581,7 @@ abstract class WindowCodeGenerator(
          |}
          """.stripMargin)
 
-    val endProcessFuncName = CodeGenUtils.newName("endPreAccumulate")
+    val endProcessFuncName = CodeGenUtils.newName("endPreAccumulate", ctx)
     val setLastPaneAggResultCode =
       s"""
          | // merge paned agg results or output directly
@@ -626,9 +626,9 @@ abstract class WindowCodeGenerator(
       }
 
       // reusable row to set window property fields
-      val propTerm = CodeGenUtils.newName("windowProp")
+      val propTerm = CodeGenUtils.newName("windowProp", ctx)
       ctx.addReusableOutputRecord(propOutputType, classOf[GenericRowData], propTerm)
-      val windowAggResultWithPropTerm = CodeGenUtils.newName("windowAggResultWithProperty")
+      val windowAggResultWithPropTerm = CodeGenUtils.newName("windowAggResultWithProperty", ctx)
       ctx.addReusableOutputRecord(outputType, classOf[JoinedRowData], windowAggResultWithPropTerm)
 
       // set window start, end property according to window type

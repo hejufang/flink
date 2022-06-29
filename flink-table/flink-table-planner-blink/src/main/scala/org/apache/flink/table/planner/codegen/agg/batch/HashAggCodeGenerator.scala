@@ -68,12 +68,12 @@ class HashAggCodeGenerator(
     val className = if (isFinal) "HashAggregateWithKeys" else "LocalHashAggregateWithKeys"
 
     // add logger
-    val logTerm = CodeGenUtils.newName("LOG")
+    val logTerm = CodeGenUtils.newName("LOG", ctx)
     ctx.addReusableLogger(logTerm, className)
 
     // gen code to do group key projection from input
-    val currentKeyTerm = CodeGenUtils.newName("currentKey")
-    val currentKeyWriterTerm = CodeGenUtils.newName("currentKeyWriter")
+    val currentKeyTerm = CodeGenUtils.newName("currentKey", ctx)
+    val currentKeyWriterTerm = CodeGenUtils.newName("currentKeyWriter", ctx)
     val keyProjectionCode = ProjectionCodeGenerator.generateProjectionExpression(
       ctx,
       inputType,
@@ -85,13 +85,13 @@ class HashAggCodeGenerator(
 
     // gen code to create groupKey, aggBuffer Type array
     // it will be used in BytesHashMap and BufferedKVExternalSorter if enable fallback
-    val groupKeyTypesTerm = CodeGenUtils.newName("groupKeyTypes")
-    val aggBufferTypesTerm = CodeGenUtils.newName("aggBufferTypes")
+    val groupKeyTypesTerm = CodeGenUtils.newName("groupKeyTypes", ctx)
+    val aggBufferTypesTerm = CodeGenUtils.newName("aggBufferTypes", ctx)
     HashAggCodeGenHelper.prepareHashAggKVTypes(
       ctx, groupKeyTypesTerm, aggBufferTypesTerm, groupKeyRowType, aggBufferRowType)
 
     // gen code to aggregate and output using hash map
-    val aggregateMapTerm = CodeGenUtils.newName("aggregateMap")
+    val aggregateMapTerm = CodeGenUtils.newName("aggregateMap", ctx)
     val lookupInfo = ctx.addReusableLocalVariable(
       classOf[BytesHashMap.LookupInfo].getCanonicalName,
       "lookupInfo")
@@ -101,7 +101,7 @@ class HashAggCodeGenerator(
       aggBufferTypesTerm,
       aggregateMapTerm)
 
-    val outputTerm = CodeGenUtils.newName("hashAggOutput")
+    val outputTerm = CodeGenUtils.newName("hashAggOutput", ctx)
     val (reuseAggMapEntryTerm, reuseGroupKeyTerm, reuseAggBufferTerm) =
       HashAggCodeGenHelper.prepareTermForAggMapIteration(
         ctx,
@@ -136,7 +136,7 @@ class HashAggCodeGenerator(
       ctx, isFinal, aggregateMapTerm, reuseAggMapEntryTerm, reuseAggBufferTerm, outputExpr)
 
     // gen code to deal with hash map oom, if enable fallback we will use sort agg strategy
-    val sorterTerm = CodeGenUtils.newName("sorter")
+    val sorterTerm = CodeGenUtils.newName("sorter", ctx)
     val retryAppend = HashAggCodeGenHelper.genRetryAppendToMap(
       aggregateMapTerm, currentKeyTerm, initedAggBuffer, lookupInfo, currentAggBufferTerm)
 

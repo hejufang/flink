@@ -332,7 +332,7 @@ object ScalarOperatorGens {
         needle.code,
         resultType)
 
-      val Seq(resultTerm, nullTerm) = newNames("result", "isNull")
+      val Seq(resultTerm, nullTerm) = newNamesWithContext(ctx, "result", "isNull")
       val resultTypeTerm = primitiveTypeTermForType(new BooleanType())
       val defaultValue = primitiveDefaultValue(new BooleanType())
 
@@ -394,7 +394,7 @@ object ScalarOperatorGens {
     }
     // generic types of same type
     else if (isRaw(left.resultType) && canEqual) {
-      val Seq(resultTerm, nullTerm) = newNames("result", "isNull")
+      val Seq(resultTerm, nullTerm) = newNamesWithContext(ctx, "result", "isNull")
       val genericSer = ctx.addReusableTypeSerializer(left.resultType)
       val ser = s"$genericSer.getInnerSerializer()"
       val resultType = new BooleanType()
@@ -617,7 +617,7 @@ object ScalarOperatorGens {
       GeneratedExpression(operand.nullTerm, NEVER_NULL, operand.code, new BooleanType())
     }
     else if (!ctx.nullCheck && isReference(operand.resultType)) {
-      val resultTerm = newName("isNull")
+      val resultTerm = newName("isNull", ctx)
       val operatorCode =
         s"""
            |${operand.code}
@@ -634,7 +634,7 @@ object ScalarOperatorGens {
       ctx: CodeGeneratorContext,
       operand: GeneratedExpression): GeneratedExpression = {
     if (ctx.nullCheck) {
-      val resultTerm = newName("result")
+      val resultTerm = newName("result", ctx)
       val operatorCode =
         s"""
            |${operand.code}
@@ -643,7 +643,7 @@ object ScalarOperatorGens {
       GeneratedExpression(resultTerm, NEVER_NULL, operatorCode, new BooleanType())
     }
     else if (!ctx.nullCheck && isReference(operand.resultType)) {
-      val resultTerm = newName("result")
+      val resultTerm = newName("result", ctx)
       val operatorCode =
         s"""
            |${operand.code}
@@ -660,7 +660,7 @@ object ScalarOperatorGens {
       ctx: CodeGeneratorContext,
       left: GeneratedExpression,
       right: GeneratedExpression): GeneratedExpression = {
-    val Seq(resultTerm, nullTerm) = newNames("result", "isNull")
+    val Seq(resultTerm, nullTerm) = newNamesWithContext(ctx, "result", "isNull")
 
     val operatorCode = if (ctx.nullCheck) {
       // Three-valued logic:
@@ -725,7 +725,7 @@ object ScalarOperatorGens {
       ctx: CodeGeneratorContext,
       left: GeneratedExpression,
       right: GeneratedExpression): GeneratedExpression = {
-    val Seq(resultTerm, nullTerm) = newNames("result", "isNull")
+    val Seq(resultTerm, nullTerm) = newNamesWithContext(ctx, "result", "isNull")
 
     val operatorCode = if (ctx.nullCheck) {
       // Three-valued logic:
@@ -1346,7 +1346,7 @@ object ScalarOperatorGens {
       val trueAction = generateCast(ctx, operands(i + 1), resultType)
       val falseAction = generateIfElse(ctx, operands, resultType, i + 2)
 
-      val Seq(resultTerm, nullTerm) = newNames("result", "isNull")
+      val Seq(resultTerm, nullTerm) = newNamesWithContext(ctx, "result", "isNull")
       val resultTypeTerm = primitiveTypeTermForType(resultType)
       val defaultValue = primitiveDefaultValue(resultType)
 
@@ -1418,7 +1418,7 @@ object ScalarOperatorGens {
       operands.head.resultTerm,
       fieldIdx)
 
-    val Seq(resultTerm, nullTerm) = newNames("result", "isNull")
+    val Seq(resultTerm, nullTerm) = newNamesWithContext(ctx, "result", "isNull")
     val resultTypeTerm = primitiveTypeTermForType(access.resultType)
     val defaultValue = primitiveDefaultValue(access.resultType)
 
@@ -1527,8 +1527,8 @@ object ScalarOperatorGens {
       rowType: RowType,
       elements: Seq[GeneratedExpression]): GeneratedExpression = {
 
-    val rowTerm = newName("row")
-    val writerTerm = newName("writer")
+    val rowTerm = newName("row", ctx)
+    val writerTerm = newName("writer", ctx)
     val writerCls = className[BinaryRowWriter]
 
     val writeCode = elements.zipWithIndex.map {
@@ -1642,8 +1642,8 @@ object ScalarOperatorGens {
       elements: Seq[GeneratedExpression]): GeneratedExpression = {
 
     val elementType = arrayType.getElementType
-    val arrayTerm = newName("array")
-    val writerTerm = newName("writer")
+    val arrayTerm = newName("array", ctx)
+    val writerTerm = newName("writer", ctx)
     val writerCls = className[BinaryArrayWriter]
     val elementSize = BinaryArrayData.calculateFixLengthPartSize(elementType)
 
@@ -1684,7 +1684,7 @@ object ScalarOperatorGens {
       ctx: CodeGeneratorContext,
       array: GeneratedExpression,
       index: GeneratedExpression): GeneratedExpression = {
-    val Seq(resultTerm, nullTerm) = newNames("result", "isNull")
+    val Seq(resultTerm, nullTerm) = newNamesWithContext(ctx, "result", "isNull")
     val componentInfo = array.resultType.asInstanceOf[ArrayType].getElementType
     val resultTypeTerm = primitiveTypeTermForType(componentInfo)
     val defaultTerm = primitiveDefaultValue(componentInfo)
@@ -1714,7 +1714,7 @@ object ScalarOperatorGens {
   def generateArrayElement(
       ctx: CodeGeneratorContext,
       array: GeneratedExpression): GeneratedExpression = {
-    val Seq(resultTerm, nullTerm) = newNames("result", "isNull")
+    val Seq(resultTerm, nullTerm) = newNamesWithContext(ctx, "result", "isNull")
     val resultType = array.resultType.asInstanceOf[ArrayType].getElementType
     val resultTypeTerm = primitiveTypeTermForType(resultType)
     val defaultValue = primitiveDefaultValue(resultType)
@@ -1760,7 +1760,7 @@ object ScalarOperatorGens {
 
     checkArgument(resultType.isInstanceOf[MapType])
     val mapType = resultType.asInstanceOf[MapType]
-    val baseMap = newName("map")
+    val baseMap = newName("map", ctx)
 
     // prepare map key array
     val keyElements = elements.grouped(2).map { case Seq(key, _) => key }.toSeq
@@ -1778,15 +1778,15 @@ object ScalarOperatorGens {
     ctx.addReusableMember(s"$MAP_DATA $baseMap = null;")
 
     val code = if (isKeyFixLength && isValueFixLength) {
-      val binaryMap = newName("binaryMap")
+      val binaryMap = newName("binaryMap", ctx)
       ctx.addReusableMember(s"$BINARY_MAP $binaryMap = null;")
       // the key and value are fixed length, initialize and reuse the map in constructor
       val init =
         s"$binaryMap = $BINARY_MAP.valueOf(${keyExpr.resultTerm}, ${valueExpr.resultTerm});"
       ctx.addReusableInitStatement(init)
       // there are some non-literal primitive fields need to update
-      val keyArrayTerm = newName("keyArray")
-      val valueArrayTerm = newName("valueArray")
+      val keyArrayTerm = newName("keyArray", ctx)
+      val valueArrayTerm = newName("valueArray", ctx)
       val keyUpdate = generatePrimitiveArrayUpdateCode(
         ctx, keyArrayTerm, keyType, keyElements)
       val valueUpdate = generatePrimitiveArrayUpdateCode(
@@ -1813,14 +1813,14 @@ object ScalarOperatorGens {
       ctx: CodeGeneratorContext,
       map: GeneratedExpression,
       key: GeneratedExpression): GeneratedExpression = {
-    val Seq(resultTerm, nullTerm) = newNames("result", "isNull")
-    val tmpKey = newName("key")
-    val length = newName("length")
-    val keys = newName("keys")
-    val values = newName("values")
-    val index = newName("index")
-    val found = newName("found")
-    val tmpValue = newName("value")
+    val Seq(resultTerm, nullTerm) = newNamesWithContext(ctx, "result", "isNull")
+    val tmpKey = newName("key", ctx)
+    val length = newName("length", ctx)
+    val keys = newName("keys", ctx)
+    val values = newName("values", ctx)
+    val index = newName("index", ctx)
+    val found = newName("found", ctx)
+    val tmpValue = newName("value", ctx)
 
     val mapType = map.resultType.asInstanceOf[MapType]
     val keyType = mapType.getKeyType
@@ -1830,8 +1830,8 @@ object ScalarOperatorGens {
     val keyTypeTerm = primitiveTypeTermForType(keyType)
     val valueTypeTerm = primitiveTypeTermForType(valueType)
     val valueDefault = primitiveDefaultValue(valueType)
-    val binaryMapTerm = newName("binaryMap")
-    val genericMapTerm = newName("genericMap")
+    val binaryMapTerm = newName("binaryMap", ctx)
+    val genericMapTerm = newName("genericMap", ctx)
     val boxedValueTypeTerm = boxedTypeTermForType(valueType)
 
     val mapTerm = map.resultTerm
@@ -1925,7 +1925,7 @@ object ScalarOperatorGens {
     val rightTerm = stringLiteral.resultTerm
     val typeTerm = primitiveTypeTermForType(expectType)
     val defaultTerm = primitiveDefaultValue(expectType)
-    val term = newName("stringToTime")
+    val term = newName("stringToTime", ctx)
     val code = stringToLocalTimeCode(expectType, rightTerm, ctx)
     val stmt = s"$typeTerm $term = ${stringLiteral.nullTerm} ? $defaultTerm : $code;"
     ctx.addReusableMember(stmt)
@@ -1939,18 +1939,18 @@ object ScalarOperatorGens {
     generateStringResultCallWithStmtIfArgsNotNull(ctx, Seq(operand)) {
       terms =>
         val builderCls = classOf[JStringBuilder].getCanonicalName
-        val builderTerm = newName("builder")
+        val builderTerm = newName("builder", ctx)
         ctx.addReusableMember(s"""$builderCls $builderTerm = new $builderCls();""")
 
         val arrayTerm = terms.head
 
-        val indexTerm = newName("i")
-        val numTerm = newName("num")
+        val indexTerm = newName("i", ctx)
+        val numTerm = newName("num", ctx)
 
         val elementType = at.getElementType
         val elementCls = primitiveTypeTermForType(elementType)
-        val elementTerm = newName("element")
-        val elementNullTerm = newName("isNull")
+        val elementTerm = newName("element", ctx)
+        val elementNullTerm = newName("isNull", ctx)
         val elementCode =
           s"""
              |$elementCls $elementTerm = ${primitiveDefaultValue(elementType)};
@@ -1992,25 +1992,25 @@ object ScalarOperatorGens {
       mt: MapType): GeneratedExpression =
     generateStringResultCallWithStmtIfArgsNotNull(ctx, Seq(operand)) {
       terms =>
-        val resultTerm = newName("toStringResult")
+        val resultTerm = newName("toStringResult", ctx)
 
         val builderCls = classOf[JStringBuilder].getCanonicalName
-        val builderTerm = newName("builder")
+        val builderTerm = newName("builder", ctx)
         ctx.addReusableMember(s"$builderCls $builderTerm = new $builderCls();")
 
         val mapTerm = terms.head
-        val genericMapTerm = newName("genericMap")
-        val binaryMapTerm = newName("binaryMap")
-        val keyArrayTerm = newName("keyArray")
-        val valueArrayTerm = newName("valueArray")
+        val genericMapTerm = newName("genericMap", ctx)
+        val binaryMapTerm = newName("binaryMap", ctx)
+        val keyArrayTerm = newName("keyArray", ctx)
+        val valueArrayTerm = newName("valueArray", ctx)
 
-        val indexTerm = newName("i")
-        val numTerm = newName("num")
+        val indexTerm = newName("i", ctx)
+        val numTerm = newName("num", ctx)
 
         val keyType = mt.getKeyType
         val keyCls = primitiveTypeTermForType(keyType)
-        val keyTerm = newName("key")
-        val keyNullTerm = newName("isNull")
+        val keyTerm = newName("key", ctx)
+        val keyNullTerm = newName("isNull", ctx)
         val keyCode =
           s"""
              |$keyCls $keyTerm = ${primitiveDefaultValue(keyType)};
@@ -2025,8 +2025,8 @@ object ScalarOperatorGens {
 
         val valueType = mt.getValueType
         val valueCls = primitiveTypeTermForType(valueType)
-        val valueTerm = newName("value")
-        val valueNullTerm = newName("isNull")
+        val valueTerm = newName("value", ctx)
+        val valueNullTerm = newName("isNull", ctx)
         val valueCode =
           s"""
              |$valueCls $valueTerm = ${primitiveDefaultValue(valueType)};
@@ -2089,7 +2089,7 @@ object ScalarOperatorGens {
     generateStringResultCallWithStmtIfArgsNotNull(ctx, Seq(operand)) {
       terms =>
         val builderCls = classOf[JStringBuilder].getCanonicalName
-        val builderTerm = newName("builder")
+        val builderTerm = newName("builder", ctx)
         ctx.addReusableMember(s"""$builderCls $builderTerm = new $builderCls();""")
 
         val rowTerm = terms.head
@@ -2097,7 +2097,7 @@ object ScalarOperatorGens {
         val appendCode = brt.getChildren.zipWithIndex.map {
           case (elementType, idx) =>
             val elementCls = primitiveTypeTermForType(elementType)
-            val elementTerm = newName("element")
+            val elementTerm = newName("element", ctx)
             val elementExpr = GeneratedExpression(
               elementTerm, s"$rowTerm.isNullAt($idx)",
               s"$elementCls $elementTerm = ($elementCls) ${rowFieldReadAccess(
@@ -2133,23 +2133,23 @@ object ScalarOperatorGens {
         val leftTerm = args.head
         val rightTerm = args(1)
 
-        val resultTerm = newName("compareResult")
+        val resultTerm = newName("compareResult", ctx)
 
         val elementType = left.resultType.asInstanceOf[ArrayType].getElementType
         val elementCls = primitiveTypeTermForType(elementType)
         val elementDefault = primitiveDefaultValue(elementType)
 
         val leftElementTerm = newName("leftElement")
-        val leftElementNullTerm = newName("leftElementIsNull")
+        val leftElementNullTerm = newName("leftElementIsNull", ctx)
         val leftElementExpr =
           GeneratedExpression(leftElementTerm, leftElementNullTerm, "", elementType)
 
-        val rightElementTerm = newName("rightElement")
-        val rightElementNullTerm = newName("rightElementIsNull")
+        val rightElementTerm = newName("rightElement", ctx)
+        val rightElementNullTerm = newName("rightElementIsNull", ctx)
         val rightElementExpr =
           GeneratedExpression(rightElementTerm, rightElementNullTerm, "", elementType)
 
-        val indexTerm = newName("index")
+        val indexTerm = newName("index", ctx)
         val elementEqualsExpr = generateEquals(ctx, leftElementExpr, rightElementExpr)
 
         // For binary array and non-binary array, the behavior may differ in some cases.
@@ -2202,27 +2202,27 @@ object ScalarOperatorGens {
         val leftTerm = args.head
         val rightTerm = args(1)
 
-        val resultTerm = newName("compareResult")
+        val resultTerm = newName("compareResult", ctx)
 
         val mapType = left.resultType.asInstanceOf[MapType]
         val mapCls = classOf[java.util.Map[AnyRef, AnyRef]].getCanonicalName
         val keyCls = boxedTypeTermForType(mapType.getKeyType)
         val valueCls = boxedTypeTermForType(mapType.getValueType)
 
-        val leftMapTerm = newName("leftMap")
-        val leftKeyTerm = newName("leftKey")
+        val leftMapTerm = newName("leftMap", ctx)
+        val leftKeyTerm = newName("leftKey", ctx)
         val leftValueTerm = newName("leftValue")
-        val leftValueNullTerm = newName("leftValueIsNull")
+        val leftValueNullTerm = newName("leftValueIsNull", ctx)
         val leftValueExpr =
           GeneratedExpression(leftValueTerm, leftValueNullTerm, "", mapType.getValueType)
 
-        val rightMapTerm = newName("rightMap")
-        val rightValueTerm = newName("rightValue")
-        val rightValueNullTerm = newName("rightValueIsNull")
+        val rightMapTerm = newName("rightMap", ctx)
+        val rightValueTerm = newName("rightValue", ctx)
+        val rightValueNullTerm = newName("rightValueIsNull", ctx)
         val rightValueExpr =
           GeneratedExpression(rightValueTerm, rightValueNullTerm, "", mapType.getValueType)
 
-        val entryTerm = newName("entry")
+        val entryTerm = newName("entry", ctx)
         val entryCls = classOf[java.util.Map.Entry[AnyRef, AnyRef]].getCanonicalName
         val valueEqualsExpr = generateEquals(ctx, leftValueExpr, rightValueExpr)
 
@@ -2283,7 +2283,7 @@ object ScalarOperatorGens {
       right: GeneratedExpression): GeneratedExpression = {
     generateCallWithStmtIfArgsNotNull(ctx, new BooleanType(), Seq(left, right)) {
       args =>
-        val resultTerm = newName("result")
+        val resultTerm = newName("result", ctx)
         val leftTerm = args.head
         val rightTerm = args(1)
         val fieldTypes = left.resultType.getChildren
@@ -2300,7 +2300,7 @@ object ScalarOperatorGens {
           // As in nested rows, terms in outer row maybe the same as the inner ones.
           // we have to use newNames.
           val Seq(leftNullTerm, rightNullTerm, leftFieldTerm, rightFieldTerm) =
-          newNames(
+          newNamesWithContext(ctx, 
             "leftIsNull$" + i,
             "rightIsNull$" + i,
             "leftField$" + i,

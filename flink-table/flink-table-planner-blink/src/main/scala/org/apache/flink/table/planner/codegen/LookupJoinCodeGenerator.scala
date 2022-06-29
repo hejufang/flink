@@ -244,7 +244,7 @@ object LookupJoinCodeGenerator {
         } else {
           e.resultTerm
         }
-        val newTerm = newName("arg")
+        val newTerm = newName("arg", ctx)
         val code =
           s"""
              |$bType $newTerm = null;
@@ -284,7 +284,7 @@ object LookupJoinCodeGenerator {
     val udtfResultExpr = exprGenerator.generateConverterResultExpression(
       udtfTypeInfo, classOf[GenericRowData])
 
-    val joinedRowTerm = CodeGenUtils.newName("joinedRow")
+    val joinedRowTerm = CodeGenUtils.newName("joinedRow", ctx)
     ctx.addReusableOutputRecord(resultType, classOf[JoinedRowData], joinedRowTerm)
 
     val header = if (retainHeader) {
@@ -342,7 +342,7 @@ object LookupJoinCodeGenerator {
       collectedTerm: String = DEFAULT_INPUT2_TERM)
     : GeneratedCollector[TableFunctionCollector[RowData]] = {
 
-    val funcName = newName(name)
+    val funcName = newName(name, ctx)
     val input1TypeClass = boxedTypeTermForType(inputType)
     val input2TypeClass = boxedTypeTermForType(collectedType)
 
@@ -399,7 +399,6 @@ object LookupJoinCodeGenerator {
       condition: Option[RexNode])
     : GeneratedResultFuture[TableFunctionResultFuture[RowData]] = {
 
-    val funcName = newName(name)
     val input1TypeClass = boxedTypeTermForType(leftInputType)
     val input2TypeClass = boxedTypeTermForType(collectedType)
     val input1Term = DEFAULT_INPUT1_TERM
@@ -407,6 +406,7 @@ object LookupJoinCodeGenerator {
     val outTerm = "resultCollection"
 
     val ctx = CodeGeneratorContext(config)
+    val funcName = newName(name, ctx)
 
     val body = if (condition.isEmpty) {
       "getResultFuture().complete(records);"

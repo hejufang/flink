@@ -55,11 +55,11 @@ class RangeBoundComparatorCodeGenerator(
     isLowerBound: Boolean = true) {
 
   def generateBoundComparator(name: String): GeneratedRecordComparator = {
-    val className = newName(name)
     val input = CodeGenUtils.DEFAULT_INPUT1_TERM
     val current = CodeGenUtils.DEFAULT_INPUT2_TERM
 
     val ctx = CodeGeneratorContext(config)
+    val className = newName(name, ctx)
 
     val inputExpr = GenerateUtils.generateFieldAccess(ctx, inType, inputTerm = input, key)
     val currentExpr = GenerateUtils.generateFieldAccess(ctx, inType, inputTerm = current, key)

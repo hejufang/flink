@@ -353,13 +353,16 @@ public class TaskManagerServices {
 		final List<URL> stateBackendPlugins = StateBackendLoader.findStateBackendPlugins(taskManagerServicesConfiguration.getConfiguration());
 		final boolean failOnJvmMetaspaceOomError =
 			taskManagerServicesConfiguration.getConfiguration().getBoolean(CoreOptions.FAIL_ON_USER_CLASS_LOADING_METASPACE_OOM);
+		final boolean useSystemClassLoaderWhenLibIsEmpty = taskManagerServicesConfiguration.getConfiguration()
+			.get(CoreOptions.USE_SYSTEM_CLASS_LOADER_WHEN_LIBS_OF_USER_CLASS_LOADER_ENABLED);
 		final LibraryCacheManager libraryCacheManager = new BlobLibraryCacheManager(
 			permanentBlobService,
 			BlobLibraryCacheManager.defaultClassLoaderFactory(
 				taskManagerServicesConfiguration.getClassLoaderResolveOrder(),
 				taskManagerServicesConfiguration.getAlwaysParentFirstLoaderPatterns(),
 				failOnJvmMetaspaceOomError ? fatalErrorHandler : null,
-				stateBackendPlugins));
+				stateBackendPlugins),
+			useSystemClassLoaderWhenLibIsEmpty);
 
 		CacheConfiguration cacheConfiguration = CacheConfiguration.fromConfiguration(taskManagerServicesConfiguration.getConfiguration());
 		CacheManager cacheManager = cacheConfiguration.isEnableCache() ? new DefaultCacheManager(cacheConfiguration) : new NonCacheManager();

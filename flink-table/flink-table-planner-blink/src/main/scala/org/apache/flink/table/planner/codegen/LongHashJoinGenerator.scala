@@ -82,9 +82,12 @@ object LongHashJoinGenerator {
     s"return $term;"
   }
 
-  def genAnyNullsInKeys(keyMapping: Array[Int], rowTerm: String): (String, String) = {
+  def genAnyNullsInKeys(
+      keyMapping: Array[Int],
+      rowTerm: String,
+      ctx: CodeGeneratorContext): (String, String) = {
     val builder = new StringBuilder()
-    val anyNullTerm = newName("anyNull")
+    val anyNullTerm = newName("anyNull", ctx)
     keyMapping.foreach(key =>
       builder.append(s"$anyNullTerm |= $rowTerm.isNullAt($key);")
     )
@@ -120,8 +123,8 @@ object LongHashJoinGenerator {
     val buildSer = new BinaryRowDataSerializer(buildType.getFieldCount)
     val probeSer = new BinaryRowDataSerializer(probeType.getFieldCount)
 
-    val tableTerm = newName("LongHashTable")
     val ctx = CodeGeneratorContext(conf)
+    val tableTerm = newName("LongHashTable", ctx)
     val buildSerTerm = ctx.addReusableObject(buildSer, "buildSer")
     val probeSerTerm = ctx.addReusableObject(probeSer, "probeSer")
 
@@ -213,8 +216,8 @@ object LongHashJoinGenerator {
     ctx.addReusableMember(s"$tableTerm table;")
     ctx.addReusableOpenStatement(s"table = new $tableTerm();")
 
-    val (nullCheckBuildCode, nullCheckBuildTerm) = genAnyNullsInKeys(buildKeyMapping, "row")
-    val (nullCheckProbeCode, nullCheckProbeTerm) = genAnyNullsInKeys(probeKeyMapping, "row")
+    val (nullCheckBuildCode, nullCheckBuildTerm) = genAnyNullsInKeys(buildKeyMapping, "row", ctx)
+    val (nullCheckProbeCode, nullCheckProbeTerm) = genAnyNullsInKeys(probeKeyMapping, "row", ctx)
 
     def collectCode(term1: String, term2: String) =
       if (reverseJoinFunction) {
@@ -315,7 +318,7 @@ object LongHashJoinGenerator {
          |}
        """.stripMargin)
 
-    val buildEnd = newName("buildEnd")
+    val buildEnd = newName("buildEnd", ctx)
     ctx.addReusableMember(s"private transient boolean $buildEnd = false;")
 
     var operatorPerfMetricCode = ""

@@ -332,7 +332,7 @@ class AggsHandlerCodeGenerator(
     val mergeCode = genMerge()
     val getValueCode = genGetValue()
 
-    val functionName = newName(name)
+    val functionName = newName(name, ctx)
 
     val RUNTIME_CONTEXT = className[RuntimeContext]
 
@@ -436,10 +436,10 @@ class AggsHandlerCodeGenerator(
 
     // gen converter
     val aggExternalType = aggInfoList.getActualAggregateInfos(0).externalResultType
-    val recordInputName = newName("recordInput")
+    val recordInputName = newName("recordInput", ctx)
     val recordToRowDataCode = genRecordToRowData(aggExternalType, recordInputName)
 
-    val functionName = newName(name)
+    val functionName = newName(name, ctx)
     val functionCode =
       j"""
         public final class $functionName implements ${className[TableAggsHandleFunction]} {
@@ -580,7 +580,7 @@ class AggsHandlerCodeGenerator(
     val mergeCode = genMerge()
     val getValueCode = genGetValue()
 
-    val functionName = newName(name)
+    val functionName = newName(name, ctx)
 
     val functionCode =
       j"""
@@ -679,10 +679,10 @@ class AggsHandlerCodeGenerator(
 
     // gen converter
     val aggExternalType = aggInfoList.getActualAggregateInfos(0).externalResultType
-    val recordInputName = newName("recordInput")
+    val recordInputName = newName("recordInput", ctx)
     val recordToRowDataCode = genRecordToRowData(aggExternalType, recordInputName)
 
-    val functionName = newName(name)
+    val functionName = newName(name, ctx)
     val functionCode =
       j"""
         public final class $functionName
@@ -805,7 +805,7 @@ class AggsHandlerCodeGenerator(
     // not need to bind input for ExprCodeGenerator
     val exprGenerator = new ExprCodeGenerator(ctx, INPUT_NOT_NULL)
     val initAccExprs = aggBufferCodeGens.flatMap(_.createAccumulator(exprGenerator))
-    val accTerm = newName("acc")
+    val accTerm = newName("acc", ctx)
     val resultExpr = exprGenerator.generateResultExpression(
       initAccExprs,
       accTypeInfo,
@@ -829,7 +829,7 @@ class AggsHandlerCodeGenerator(
     // no need to bind input
     val exprGenerator = new ExprCodeGenerator(ctx, INPUT_NOT_NULL)
     val accExprs = aggBufferCodeGens.flatMap(_.getAccumulator(exprGenerator))
-    val accTerm = newName("acc")
+    val accTerm = newName("acc", ctx)
     // always create a new accumulator row
     val resultExpr = exprGenerator.generateResultExpression(
       accExprs,
@@ -1011,7 +1011,7 @@ class AggsHandlerCodeGenerator(
       valueExprs = valueExprs ++ windowExprs
     }
 
-    val aggValueTerm = newName("aggValue")
+    val aggValueTerm = newName("aggValue", ctx)
     valueType = RowType.of(valueExprs.map(_.resultType): _*)
 
     // always create a new result row
@@ -1043,7 +1043,7 @@ class AggsHandlerCodeGenerator(
         val exprGenerator = new ExprCodeGenerator(ctx, INPUT_NOT_NULL)
         var valueExprs = getWindowExpressions(windowProperties)
 
-        val aggValueTerm = newName("windowProperties")
+        val aggValueTerm = newName("windowProperties", ctx)
         valueType = RowType.of(valueExprs.map(_.resultType): _*)
 
         // always create a new result row

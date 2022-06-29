@@ -53,7 +53,7 @@ object OperatorCodeGenerator extends Logging {
       converter: String => String = a => a,
       operatorPerfMetricCode: String = ""): GeneratedOperator[OneInputStreamOperator[IN, OUT]] = {
     addReuseOutElement(ctx)
-    val operatorName = newName(name)
+    val operatorName = newName(name, ctx)
     val abstractBaseClass = ctx.getOperatorBaseClass
     val baseClass = classOf[OneInputStreamOperator[IN, OUT]]
     val inputTypeTerm = boxedTypeTermForType(inputType)
@@ -145,7 +145,7 @@ object OperatorCodeGenerator extends Logging {
       operatorPerfMetricCode: String = "")
     : GeneratedOperator[TwoInputStreamOperator[IN1, IN2, OUT]] = {
     addReuseOutElement(ctx)
-    val operatorName = newName(name)
+    val operatorName = newName(name, ctx)
     val abstractBaseClass = ctx.getOperatorBaseClass
     val baseClass = classOf[TwoInputStreamOperator[IN1, IN2, OUT]]
     val inputTypeTerm1 = boxedTypeTermForType(input1Type)

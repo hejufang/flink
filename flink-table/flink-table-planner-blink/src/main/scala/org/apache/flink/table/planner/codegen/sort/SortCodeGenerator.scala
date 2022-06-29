@@ -22,6 +22,7 @@ import org.apache.flink.table.api.TableConfig
 import org.apache.flink.table.data.{DecimalData, TimestampData}
 import org.apache.flink.table.data.binary.BinaryRowData
 import org.apache.flink.table.planner.codegen.CodeGenUtils.{ROW_DATA, SEGMENT, newName}
+import org.apache.flink.table.planner.codegen.CodeGeneratorContext
 import org.apache.flink.table.planner.codegen.Indenter.toISC
 import org.apache.flink.table.runtime.generated.{GeneratedNormalizedKeyComputer, GeneratedRecordComparator, NormalizedKeyComputer, RecordComparator}
 import org.apache.flink.table.runtime.operators.sort.SortUtil
@@ -124,9 +125,10 @@ class SortCodeGenerator(
     *             Does not need to be unique but has to be a valid Java class identifier.
     * @return A GeneratedNormalizedKeyComputer
     */
-  def generateNormalizedKeyComputer(name: String): GeneratedNormalizedKeyComputer = {
+  def generateNormalizedKeyComputer(name: String, ctx: CodeGeneratorContext = null):
+      GeneratedNormalizedKeyComputer = {
 
-    val className = newName(name)
+    val className = newName(name, ctx)
 
     val (keyFullyDetermines, numKeyBytes) = getKeyFullyDeterminesAndBytes
 
