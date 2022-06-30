@@ -397,14 +397,44 @@ class JoinTest extends TableTestBase {
          | sum(a1), a2 FROM v1 group by a2""".stripMargin)
   }
 
+  @Test
+  def testKeyByBroadcastJoin(): Unit = {
+    val table1 = createValidBroadcastTable("BB")
+    util.getStreamEnv.setParallelism(12)
+    util.verifyTransformation(
+      s"""SELECT /*+ use_broadcast_join(${broadcastHints("BB", useKeyByMode = true)}) */
+         |a1, a2, id FROM
+         |A LEFT JOIN BB ON A.a1 = BB.id""".stripMargin)
+  }
+
+  @Test
+  def testMultiKeyByBroadcastJoinWithView(): Unit = {
+    val table1 = createValidBroadcastTable("BB")
+    val table2 = createValidBroadcastTable("CC")
+
+    util.getStreamEnv.setParallelism(12)
+    util.tableEnv.executeSql(
+      s"""create view v1 as select id, word from $table2 where id > 0""".stripMargin)
+
+    util.verifyTransformation(
+      s"""SELECT
+         | /*+ use_broadcast_join(${broadcastHints(table1, useKeyByMode = true)}),
+         |     use_broadcast_join(${broadcastHints("v1", useKeyByMode = true)}) */
+         | a1, a2, BB.word, v1.word FROM
+         | A LEFT JOIN BB ON A.a1 = BB.id
+         |   LEFT JOIN v1 ON A.a1 = v1.id""".stripMargin)
+  }
+
   private def broadcastHints(
       table: String,
       latency1: String = "1 min",
-      latency2: String = "1 min"): String = {
+      latency2: String = "1 min",
+      useKeyByMode: Boolean = false): String = {
     Map(
       "table" -> table,
       "allowLatency" -> latency1,
-      "maxBuildLatency" -> latency2
+      "maxBuildLatency" -> latency2,
+      "useKeyByMode" -> useKeyByMode.toString
     ).toList.map(kv => s"'${kv._1}' = '${kv._2}'").mkString(",")
   }
 

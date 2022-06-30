@@ -39,6 +39,8 @@ public abstract class FlinkHints {
 
 	public static final String HINT_OPTION_MAX_BUILD_LATENCY = "maxBuildLatency";
 
+	public static final String HINT_OPTION_KEY_BY_MODE = "useKeyByMode";
+
 	//~ Tools ------------------------------------------------------------------
 
 	/** Returns the OPTIONS hint options from the

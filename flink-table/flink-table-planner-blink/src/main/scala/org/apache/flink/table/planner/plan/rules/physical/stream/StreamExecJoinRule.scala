@@ -129,15 +129,12 @@ class StreamExecJoinRule
     val providedTraitSet = join.getTraitSet.replace(FlinkConventions.STREAM_PHYSICAL)
 
     val (leftRequiredTrait, rightRequiredTrait) = joinConfigOption match {
-      case None =>
-        (toHashTraitByColumns(joinInfo.leftKeys, left.getTraitSet),
-          toHashTraitByColumns(joinInfo.rightKeys, right.getTraitSet))
-      case Some(_) =>
-        // TODO: Support key-by mode.
+      case Some(joinConf) if !joinConf.keyByMode =>
         (left.getTraitSet.replace(FlinkConventions.STREAM_PHYSICAL),
           right.getTraitSet.replace(FlinkConventions.STREAM_PHYSICAL))
       case _ =>
-        throw new FlinkRuntimeException("Current we only support non broadcast hash join")
+        (toHashTraitByColumns(joinInfo.leftKeys, left.getTraitSet),
+          toHashTraitByColumns(joinInfo.rightKeys, right.getTraitSet))
     }
 
     val newLeft: RelNode = RelOptRule.convert(left, leftRequiredTrait)

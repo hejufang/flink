@@ -100,7 +100,11 @@ class StreamExecJoin(
       .item("leftInputSpec", analyzeJoinInput(left, tableConfig))
       .item("rightInputSpec", analyzeJoinInput(right, tableConfig))
     if (joinConfOption.isDefined) {
-      writer.item("broadcast", joinConfOption.get.toString)
+      if (joinConfOption.get.keyByMode) {
+        writer.item("keyByBroadcast", joinConfOption.get.toString)
+      } else {
+        writer.item("broadcast", joinConfOption.get.toString)
+      }
     } else {
       writer
     }
@@ -175,9 +179,13 @@ class StreamExecJoin(
         throw new ValidationException(String.format("Currently, broadcast join's right side only" +
           " accept connectors which support `%s`", FactoryUtil.SOURCE_SCAN_INTERVAL.key()));
       }
-      rightTransform = new PartitionTransformation[RowData](
-        rightTransform, new BroadcastPartitioner[RowData]())
-      rightTransform.setName("BroadcastPartition")
+
+      if (!joinConfOption.get.keyByMode) {
+        rightTransform = new PartitionTransformation[RowData](
+          rightTransform, new BroadcastPartitioner[RowData]())
+        rightTransform.setName("BroadcastPartition")
+      }
+
       operatorPrefixName = "Broadcast"
       new BroadcastJoinOperator(
         leftType,

@@ -42,7 +42,16 @@ import scala.collection.mutable
   */
 object JoinUtil {
 
-  case class JoinConfig(table: String, allowLatencyMs: JLong, maxBuildLatencyMs: JLong)
+  case class JoinConfig(
+      table: String,
+      allowLatencyMs: JLong,
+      maxBuildLatencyMs: JLong,
+      keyByMode: Boolean) {
+    override def toString: String = {
+      s"JoinConfig(table=$table, allowLatencyMs=$allowLatencyMs, " +
+        s"maxBuildLatencyMs=$maxBuildLatencyMs, keyByMode=$keyByMode)"
+    }
+  }
 
   object JoinConfig {
     def parse(config: util.Map[String, String]): Option[JoinConfig] = {
@@ -52,7 +61,9 @@ object JoinUtil {
       val maxBuildLatencyMs = tryGetConfig(x => JLong.valueOf(TimeUtils.parseDuration(x).toMillis),
           HINT_OPTION_MAX_BUILD_LATENCY, config).get
       val tableName = tryGetConfig(x => x, HINT_OPTION_TABLE_NAME, config).get
-      Some(JoinConfig(tableName, allowLatency, maxBuildLatencyMs))
+      val useKeyBy =
+        tryGetConfig(x => x.toBoolean, HINT_OPTION_KEY_BY_MODE, config).getOrElse(false)
+      Some(JoinConfig(tableName, allowLatency, maxBuildLatencyMs, useKeyBy))
     }
 
     private def tryGetConfig[T](
