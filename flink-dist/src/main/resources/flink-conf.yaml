@@ -522,6 +522,15 @@ brain-lf:
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: brain-lf
 
+panda-lf:
+  dc: cn
+  clusterName: panda-lf
+  high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
+  ipv6.supported.cluster: panda-lf
+
 brain-hl:
   dc: cn
   clusterName: brain-hl
@@ -530,6 +539,15 @@ brain-hl:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: brain-hl
+
+panda-hl:
+  dc: cn
+  clusterName: panda-hl
+  high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
+  ipv6.supported.cluster: panda-hl
 
 wj:
   dc: cn
@@ -841,6 +859,19 @@ quele:
   ipv6.supported.cluster: quele
   flink.cloud-shuffle-service.support: true
 
+panda-lq:
+  dc: cn
+  clusterName: panda-lq
+  high-availability.zookeeper.quorum: 10.227.165.243:2181,10.227.165.222:2181,10.227.178.242:2181,10.227.174.244:2181,10.227.187.245:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  blacklist.taskmanager.critical.error.enabled: true
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
+  ipv6.supported.cluster: panda-lq
+  flink.cloud-shuffle-service.support: true
+
 yakow:
   dc: cn
   clusterName: yakow
@@ -861,6 +892,19 @@ koala-yg:
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
   ipv6.supported.cluster: koala-yg
+  flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
+
+panda-yg:
+  dc: cn
+  clusterName: panda-yg
+  high-availability.zookeeper.quorum: fdbd:dc05:ff:ff:33af:43f8:4d86:5675:2181,fdbd:dc05:ff:ff:3f33:712f:2e5c:6b15:2181,fdbd:dc05:ff:ff:8662:80af:bc6d:60a8:2181,fdbd:dc05:ff:ff:8b06:d280:734b:9722:2181,fdbd:dc05:ff:ff:f9cb:be0:a73a:41ec:2181
+  hdfs.prefix: hdfs://haruna/flink_yg/flink
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: panda-yg
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
@@ -1049,6 +1093,35 @@ macaw:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
+
+monkey:
+  dc: va
+  clusterName: monkey
+  high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_gva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  yaop_url: http://yaop-us.bytedance.net
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+  jobmeta.db.name: flink_meta_va
+  grafana.domain_url: "https://grafana-us.byted.org"
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
 
 mouse:
   dc: va
