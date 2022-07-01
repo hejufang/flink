@@ -89,7 +89,8 @@ global:
         numberOfCheckpointPlaceholderTransformed,
         numberOfTmExceedQuota,
         numberOfFailedDiscardExpiredCheckpointFolder,
-        upstreamTaskErrorNum
+        upstreamTaskErrorNum,
+        numberOfTerarkdbJobs
     ]
 
 non-global:
