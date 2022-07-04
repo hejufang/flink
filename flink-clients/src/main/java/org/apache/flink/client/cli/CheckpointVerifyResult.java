@@ -28,8 +28,8 @@ public enum CheckpointVerifyResult {
 	SKIP("skip"),
 	ZOOKEEPER_RETRIEVE_FAIL("Zookeeper retrieve fail"),
 	HDFS_RETRIEVE_FAIL("HDFS retrieve fail"),
-	INVALID_SAVEPOINT_PATH("invalid savepoint path");
-
+	INVALID_SAVEPOINT_PATH("invalid savepoint path"),
+	STATE_SERIALIZER_INCOMPATIBLE("state serializer incompatible");
 	private final String name;
 
 	CheckpointVerifyResult(String name) {

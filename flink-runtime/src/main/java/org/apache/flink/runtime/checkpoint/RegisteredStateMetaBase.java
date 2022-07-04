@@ -82,6 +82,27 @@ public abstract class RegisteredStateMetaBase implements Serializable, StateObje
 		return this;
 	}
 
+	/**
+	 * resolve the State Meta Compatibility. We only check the States with the same name in StateMeta
+	 */
+	public StateMetaCompatibility resolveCompatibility(RegisteredStateMetaBase that) {
+
+		if (that == null) {
+			return StateMetaCompatibility.compatibleAsIs();
+		}
+
+		for (Map.Entry<String, StateMetaData> entry : stateMetaDataMap.entrySet()) {
+			String stateName = entry.getKey();
+			StateMetaData otherStateMetaData = that.getStateMetaData().get(stateName);
+			StateMetaCompatibility stateMetaCompatibility = entry.getValue().resolveCompatibility(otherStateMetaData);
+			if (stateMetaCompatibility.isIncompatible()) {
+				String incompatibleMessage = "StateMetaCompatibility check failed because of state: " + stateName  + " is incompatible with message :" + stateMetaCompatibility.getMessage();
+				return StateMetaCompatibility.incompatible(incompatibleMessage);
+			}
+		}
+		return StateMetaCompatibility.compatibleAsIs();
+	}
+
 	@Override
 	public void discardState() throws Exception { }
 

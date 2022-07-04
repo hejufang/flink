@@ -214,6 +214,23 @@ public class OperatorStateMeta implements Serializable {
 		this.registeredKeyedStateMeta = keyedStateMeta;
 	}
 
+	public StateMetaCompatibility resolveCompatibility(OperatorStateMeta that) {
+		if (that == null) {
+			return StateMetaCompatibility.compatibleAsIs();
+		}
+
+		StateMetaCompatibility keyedStateMetaCompatibility = registeredKeyedStateMeta == null ? StateMetaCompatibility.compatibleAsIs() : registeredKeyedStateMeta.resolveCompatibility(that.getKeyedStateMeta());
+		StateMetaCompatibility operatorStateMetaCompatibility = registeredOperatorStateMeta == null ? StateMetaCompatibility.compatibleAsIs() : registeredOperatorStateMeta.resolveCompatibility(that.getOperatorStateMeta());
+
+		if (keyedStateMetaCompatibility.isIncompatible()){
+			return keyedStateMetaCompatibility;
+		} else if (operatorStateMetaCompatibility.isIncompatible()){
+			return operatorStateMetaCompatibility;
+		} else {
+			return StateMetaCompatibility.compatibleAsIs();
+		}
+	}
+
 	public static OperatorStateMeta empty(OperatorID operatorID) {
 		return new OperatorStateMeta(operatorID, null, null, null, null);
 	}

@@ -87,6 +87,19 @@ public class RegisteredOperatorStateMeta extends RegisteredStateMetaBase {
 		return super.addStateMetaData(stateMetaData);
 	}
 
+	@Override
+	public StateMetaCompatibility resolveCompatibility(RegisteredStateMetaBase that) {
+		if (that == null) {
+			return StateMetaCompatibility.compatibleAsIs();
+		}
+
+		if (that instanceof RegisteredKeyedStateMeta) {
+			return StateMetaCompatibility.incompatible("StateMetaType incompatible");
+		}
+
+		return super.resolveCompatibility(that);
+	}
+
 	/**
 	 * A class represents a MetaData for a managing Operator state.
 	 */
@@ -135,6 +148,19 @@ public class RegisteredOperatorStateMeta extends RegisteredStateMetaBase {
 			}
 			OperatorStateMetaData that = (OperatorStateMetaData) o;
 			return distributeMode.equals(that.distributeMode) && stateDescriptor.equals(that.stateDescriptor);
+		}
+
+		@Override
+		public StateMetaCompatibility resolveCompatibility(StateMetaData that) {
+
+			if (that instanceof RegisteredKeyedStateMeta.KeyedStateMetaData) {
+				return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state " + name + "Type if different. One is OperatorState other is KeyedState");
+			}
+
+			if (distributeMode.equals(((OperatorStateMetaData) that).getDistributeMode())) {
+				return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state distributeMode if different. One is " + distributeMode + " and the other is " + ((OperatorStateMetaData) that).getDistributeMode());
+			}
+			return super.resolveCompatibility(that);
 		}
 	}
 }

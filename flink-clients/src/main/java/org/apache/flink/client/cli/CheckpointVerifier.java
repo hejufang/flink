@@ -21,6 +21,7 @@ package org.apache.flink.client.cli;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
@@ -32,7 +33,10 @@ import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.DefaultCompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.OperatorState;
+import org.apache.flink.runtime.checkpoint.OperatorStateMeta;
+import org.apache.flink.runtime.checkpoint.StateMetaCompatibility;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
+import org.apache.flink.runtime.checkpoint.metadata.CheckpointStateMetadata;
 import org.apache.flink.runtime.concurrent.Executors;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils;
@@ -47,6 +51,8 @@ import org.apache.flink.runtime.state.CheckpointStorageCoordinatorView;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.StateBackendLoader;
 import org.apache.flink.runtime.state.StreamStateHandle;
+import org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage;
+import org.apache.flink.runtime.state.filesystem.FileStateHandle;
 import org.apache.flink.util.DynamicCodeLoadingException;
 import org.apache.flink.util.Preconditions;
 
@@ -85,25 +91,45 @@ public class CheckpointVerifier {
 	// exit code after checkpoint verification
 	public static volatile int verifyExitCode = -1;
 
-	private static List<BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, OperatorState>, CheckpointVerifyResult>> verifyStrategies;
+	private static List<BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, Tuple2<OperatorState, OperatorStateMeta>>, CheckpointVerifyResult>> verifyStrategies;
 
-	private static volatile Map<Long, Map<OperatorID, OperatorState>> checkpointsOnStorage;
+	private static volatile Map<Long, Tuple2<String, Map<OperatorID, OperatorState>>> checkpointsOnStorage;
 
 	static {
 		verifyStrategies = new ArrayList<>();
 		// Strategy 1: all OperatorID with state in OperatorState must exist in new JobGraph
-		verifyStrategies.add((tasks, operatorStates) -> {
+		verifyStrategies.add((tasks, operatorStateAndMeta) -> {
+
+			// get all OperatorIDs form jobVertex
 			Set<OperatorID> allOperatorIDs = new HashSet<>();
+			Map<OperatorID, OperatorStateMeta> allOperatorAndStateMetas = new HashMap<>();
+
 			for (JobVertex jobVertex : tasks.values()) {
+
+				Map<OperatorID, OperatorStateMeta> chainedOperatorIdAndStateMeta = jobVertex.getChainedOperatorIdAndStateMeta();
+				List<OperatorIDPair> operatorIDPairs = jobVertex.getOperatorIDs();
+				operatorIDPairs.stream().forEach(operatorIDPair -> {
+					// because chainedOperatorIdAndStateMeta is generated with GeneratedOperatorID
+					// so if set UserDefinedOperator, use it instead of GeneratedOperatorID
+					operatorIDPair.getUserDefinedOperatorID().ifPresent(
+						userDefinedOperatorID -> {
+							OperatorStateMeta operatorStateMeta = chainedOperatorIdAndStateMeta.get(operatorIDPair.getGeneratedOperatorID());
+							chainedOperatorIdAndStateMeta.put(userDefinedOperatorID, operatorStateMeta);
+						}
+					);
+				});
+				allOperatorAndStateMetas.putAll(chainedOperatorIdAndStateMeta);
+
 				allOperatorIDs.addAll(jobVertex.getOperatorIDs().stream().map(operatorIDPair -> {
 					return operatorIDPair.getUserDefinedOperatorID()
-						.filter(operatorStates::containsKey)
+						.filter(operatorStateAndMeta::containsKey)
 						.orElse(operatorIDPair.getGeneratedOperatorID());
 				}).collect(Collectors.toList()));
 			}
 
-			for (Map.Entry<OperatorID, OperatorState> operatorGroupStateEntry : operatorStates.entrySet()) {
-				OperatorState operatorState = operatorGroupStateEntry.getValue();
+			for (Map.Entry<OperatorID, Tuple2<OperatorState, OperatorStateMeta>> operatorGroupStateEntry : operatorStateAndMeta.entrySet()) {
+				OperatorState operatorState = operatorGroupStateEntry.getValue().f0;
+				OperatorStateMeta operatorStateMeta = operatorGroupStateEntry.getValue().f1;
 				//----------------------------------------find operator for state---------------------------------------------
 
 				if (!allOperatorIDs.contains(operatorGroupStateEntry.getKey()) && !Checkpoints.isEmptyState(operatorState)) {
@@ -113,6 +139,21 @@ public class CheckpointVerifier {
 						" You need to revert your changes or change state.checkpoints.namespace to start a new checkpoint.";
 					logAndSyserr(message);
 					return CheckpointVerifyResult.FAIL_MISS_OPERATOR_ID;
+				} else {
+					if (operatorStateMeta == null) {
+						continue;
+					}
+					OperatorStateMeta stateMetaFromJobGraph = allOperatorAndStateMetas.get(operatorGroupStateEntry.getKey());
+					StateMetaCompatibility compatibility = operatorStateMeta.resolveCompatibility(stateMetaFromJobGraph);
+					if (compatibility.isIncompatible()) {
+						final String message = "The state schema in " + operatorState.getOperatorID() +
+						"is incompatible because " + compatibility.getMessage() + ". If you see this, usually it means that the state schema is changed with incompatible. And " +
+						" the state in previous checkpoint cannot be used in current job !!! \n" +
+						" You need to revert your changes or change state.checkpoints.namespace to start a new checkpoint.";
+						logAndSyserr(message);
+						return CheckpointVerifyResult.STATE_SERIALIZER_INCOMPATIBLE;
+					}
+
 				}
 			}
 
@@ -127,8 +168,9 @@ public class CheckpointVerifier {
 				List<OperatorIDPair> operatorIDs = jobVertex.getOperatorIDs();
 
 				for (OperatorIDPair operatorIDPair : operatorIDs) {
-					OperatorState operatorState = operatorStates.get(operatorIDPair.getGeneratedOperatorID());
-					if (operatorState != null) {
+					Tuple2<OperatorState, OperatorStateMeta> operatorStateAndMeta = operatorStates.get(operatorIDPair.getGeneratedOperatorID());
+					if (operatorStateAndMeta != null) {
+						OperatorState operatorState = operatorStateAndMeta.f0;
 						if (operatorState.getMaxParallelism() < parallelism && containKeyedState(operatorState)) {
 							final String message = "Operator " + operatorState.getOperatorID() + " has " + parallelism +
 								" in new JobGraph, while the max parallelism in OperatorState is " + operatorState.getMaxParallelism() +
@@ -251,7 +293,7 @@ public class CheckpointVerifier {
 		}
 	}
 
-	private static CheckpointVerifyResult doVerify(
+	public static CheckpointVerifyResult doVerify(
 		JobGraph jobGraph,
 		ClassLoader classLoader,
 		CompletedCheckpointStore completedCheckpointStore,
@@ -293,12 +335,15 @@ public class CheckpointVerifier {
 				}
 				LOG.info("Find checkpoints {} on HDFS.", checkpointsOnStorage.keySet());
 				Map<OperatorID, OperatorState> latestOperatorStates;
+				Map<OperatorID, OperatorStateMeta> latestOperatorStateMetas = null;
+				Map<OperatorID, Tuple2<OperatorState, OperatorStateMeta>> latestOperatorStateAndMetas;
 				// No checkpoint found on HDFS, check savepoint restore settings and directly set latestOperatorStates once loaded correctly
 				if (checkpointsOnStorage.size() == 0) {
 					LOG.info("No checkpoint store on HDFS, check savepoint settings.");
 					SavepointRestoreSettings savepointRestoreSettings = jobGraph.getSavepointRestoreSettings();
 					if (savepointRestoreSettings != null && savepointRestoreSettings.restoreSavepoint()) {
 						latestOperatorStates = getOperatorStatesFromSavepointSettings(configuration, classLoader, jobID, jobUID, savepointRestoreSettings);
+						latestOperatorStateMetas = resolveStateMetaFromCheckpointPath(savepointRestoreSettings.getRestorePath(), classLoader);
 						if (latestOperatorStates.isEmpty()) {
 							final String message = "Load from savepoint restore settings failed with restore path : " + savepointRestoreSettings.getRestorePath();
 							logAndSyserr(message);
@@ -317,9 +362,9 @@ public class CheckpointVerifier {
 
 					// (3) merge checkpoints on HDFS to checkpoints on ZooKeeper.
 					Map<Long, Map<OperatorID, OperatorState>> extraCheckpoints = new HashMap<>();
-					for (Map.Entry<Long, Map<OperatorID, OperatorState>> checkpoint: checkpointsOnStorage.entrySet()) {
+					for (Map.Entry<Long, Tuple2<String, Map<OperatorID, OperatorState>>> checkpoint: checkpointsOnStorage.entrySet()) {
 						if (!checkpointsOnStore.containsKey(checkpoint.getKey())) {
-							extraCheckpoints.put(checkpoint.getKey(), checkpoint.getValue());
+							extraCheckpoints.put(checkpoint.getKey(), checkpoint.getValue().f1);
 						}
 					}
 
@@ -338,15 +383,23 @@ public class CheckpointVerifier {
 					long maxCheckpointID = checkpointsOnStore.keySet().stream().max(Long::compare).get();
 					latestOperatorStates = checkpointsOnStore.get(maxCheckpointID);
 					LOG.info("Latest checkpoint id {}", maxCheckpointID);
-				}
 
-				// (5) iterate verify strategies.
-				for (BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, OperatorState>, CheckpointVerifyResult> strategy: verifyStrategies) {
-					CheckpointVerifyResult result = strategy.apply(tasks, latestOperatorStates);
-					if (result == CheckpointVerifyResult.FAIL_MISMATCH_PARALLELISM || result == CheckpointVerifyResult.FAIL_MISS_OPERATOR_ID) {
-						return result;
+					// get latest snapshot state meta
+					// make sure that the last checkpoint on HDFS is valid
+					if (checkpointsOnStorage.containsKey(maxCheckpointID)) {
+						String lastCheckpointPath = checkpointsOnStorage.get(maxCheckpointID).f0;
+						latestOperatorStateMetas = resolveStateMetaFromCheckpointPath(lastCheckpointPath, classLoader);
 					}
 				}
+
+				// merge CheckpointMetaData and StateMeta
+				latestOperatorStateAndMetas = mergeLatestStateAndMetas(latestOperatorStates, latestOperatorStateMetas);
+
+				CheckpointVerifyResult checkpointVerifyResult = getCheckpointVerifyResult(tasks, latestOperatorStateAndMetas);
+				if (checkpointVerifyResult == CheckpointVerifyResult.SUCCESS) {
+					LOG.info("Checkpoint verification success");
+				}
+				return checkpointVerifyResult;
 
 			} catch (Exception e) {
 				LOG.warn("Retrieve checkpoints from HDFS fail, {}", e);
@@ -357,9 +410,6 @@ public class CheckpointVerifier {
 			LOG.warn("CompletedCheckpointStore is not running in ZooKeeper, fail to conduct checkpoint verification");
 			return CheckpointVerifyResult.ZOOKEEPER_RETRIEVE_FAIL;
 		}
-
-		LOG.info("Checkpoint verification success");
-		return CheckpointVerifyResult.SUCCESS;
 	}
 
 	/**
@@ -374,7 +424,7 @@ public class CheckpointVerifier {
 	 * @return The map of checkpoint ID to collection of operator state on HDFS.
 	 *
 	 */
-	public static Map<Long, Map<OperatorID, OperatorState>> findAllCompletedCheckpointsOnStorage(
+	public static Map<Long, Tuple2<String, Map<OperatorID, OperatorState>>> findAllCompletedCheckpointsOnStorage(
 		Configuration configuration,
 		ClassLoader classLoader,
 		JobID jobID,
@@ -386,7 +436,7 @@ public class CheckpointVerifier {
 		LOG.info("Maximum retained checkpoints {}", maxRetainCheckpoints);
 
 		// map checkpointID -> operatorStates
-		final Map<Long, Map<OperatorID, OperatorState>> result = new HashMap<>();
+		final Map<Long, Tuple2<String, Map<OperatorID, OperatorState>>> result = new HashMap<>();
 
 		try {
 			CheckpointStorageCoordinatorView checkpointStorage =
@@ -416,7 +466,7 @@ public class CheckpointVerifier {
 
 					result.put(
 						checkpointID,
-						operatorStates.stream().collect(Collectors.toMap(OperatorState::getOperatorID, Function.identity())));
+						Tuple2.of(completedCheckpointPointer, operatorStates.stream().collect(Collectors.toMap(OperatorState::getOperatorID, Function.identity()))));
 				} catch (Exception e) {
 					LOG.warn("Fail to load checkpoint on {}.", completedCheckpointPointer, e);
 				}
@@ -464,8 +514,43 @@ public class CheckpointVerifier {
 		return latestOperatorStates;
 	}
 
+	public static Map<OperatorID, OperatorStateMeta> resolveStateMetaFromCheckpointPath(String checkpointPointer, ClassLoader classLoader) throws Exception {
+
+		FileStateHandle fileStateHandle = AbstractFsCheckpointStorage
+			.resolveStateMetaFileHandle(checkpointPointer);
+
+		Map<OperatorID, OperatorStateMeta> result;
+		try (DataInputStream stream = new DataInputStream(fileStateHandle.openInputStream())) {
+			CheckpointStateMetadata checkpointStateMetadata = Checkpoints.loadCheckpointStateMetadata(stream, classLoader, checkpointPointer);
+			result = checkpointStateMetadata.getOperatorStateMetas().stream().collect(Collectors.toMap(OperatorStateMeta::getOperatorID, Function.identity()));
+		}
+		return result;
+	}
+
+	public static Map<OperatorID, Tuple2<OperatorState, OperatorStateMeta>> mergeLatestStateAndMetas(Map<OperatorID, OperatorState> operatorStates, Map<OperatorID, OperatorStateMeta> operatorStateMetas) {
+		HashMap<OperatorID, Tuple2<OperatorState, OperatorStateMeta>> operatorStateAndMetas = new HashMap<>();
+		operatorStates.forEach((operatorID, operatorState) -> {
+			OperatorStateMeta operatorStateMeta = null;
+			if (operatorStateMetas != null && operatorStateMetas.containsKey(operatorID)) {
+				operatorStateMeta = operatorStateMetas.get(operatorID);
+			}
+			operatorStateAndMetas.put(operatorID, Tuple2.of(operatorState, operatorStateMeta));
+		});
+		return operatorStateAndMetas;
+	}
+
+	public static CheckpointVerifyResult getCheckpointVerifyResult(Map<JobVertexID, JobVertex> tasks, Map<OperatorID, Tuple2<OperatorState, OperatorStateMeta>> latestOperatorStateAndMetas){
+		for (BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, Tuple2<OperatorState, OperatorStateMeta>>, CheckpointVerifyResult> strategy: verifyStrategies) {
+			CheckpointVerifyResult result = strategy.apply(tasks, latestOperatorStateAndMetas);
+			if (result != CheckpointVerifyResult.SUCCESS) {
+				return result;
+			}
+		}
+		return CheckpointVerifyResult.SUCCESS;
+	}
+
 	@VisibleForTesting
-	public static List<BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, OperatorState>, CheckpointVerifyResult>> getVerifyStrategies() {
+	public static List<BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, Tuple2<OperatorState, OperatorStateMeta>>, CheckpointVerifyResult>> getVerifyStrategies() {
 		return verifyStrategies;
 	}
 

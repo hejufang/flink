@@ -74,10 +74,9 @@ public abstract class SimpleTypeSerializerSnapshot<T> implements TypeSerializerS
 
 	@Override
 	public TypeSerializerSchemaCompatibility<T> resolveSchemaCompatibility(TypeSerializer<T> newSerializer) {
-
 		return newSerializer.getClass() == serializerSupplier.get().getClass() ?
 				TypeSerializerSchemaCompatibility.compatibleAsIs() :
-				TypeSerializerSchemaCompatibility.incompatible();
+				TypeSerializerSchemaCompatibility.incompatible("serializer type changed from " + serializerSupplier.get().getClass() + " to " + newSerializer.getClass());
 	}
 
 	@Override

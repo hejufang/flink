@@ -18,7 +18,10 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.state.StateDescriptor;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -91,6 +94,30 @@ public abstract class StateMetaData implements Serializable {
 		return Objects.equals(name, that.name) &&
 			Objects.equals(type, that.type) &&
 			Objects.equals(stateDescriptor, that.stateDescriptor);
+	}
+
+	public StateMetaCompatibility resolveCompatibility(StateMetaData that) {
+
+		if (!name.equals(that.getName())) {
+			return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state name if different. One is " + name + " and the other is " + that.getName());
+		}
+
+		if (!type.equals(that.getType())) {
+			return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state type if different. One is " + type + " and the other is " + that.getType());
+		}
+
+		stateDescriptor.initializeSerializerUnlessSet(new ExecutionConfig());
+		that.getStateDescriptor().initializeSerializerUnlessSet(new ExecutionConfig());
+		TypeSerializer stateSerializer = stateDescriptor.getSerializer();
+		TypeSerializer otherSerializer = that.getStateDescriptor().getSerializer();
+
+		TypeSerializerSchemaCompatibility stateSerializerCompatibility = stateSerializer.snapshotConfiguration().resolveSchemaCompatibility(otherSerializer);
+
+		if (stateSerializerCompatibility.isIncompatible()) {
+			return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state : " + name + " Serializer is Incompatible, " + stateSerializerCompatibility.getMessage());
+		}
+
+		return StateMetaCompatibility.compatibleAsIs();
 	}
 
 }

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
 import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.util.Preconditions;
@@ -119,6 +120,30 @@ public class RegisteredKeyedStateMeta extends RegisteredStateMetaBase {
 	}
 
 	/**
+	 * We only check StateMetaType and keySerializer Compatibility here.
+	 * @param that RegisteredKeyedStateMeta.
+	 * @return
+	 */
+	@Override
+	public StateMetaCompatibility resolveCompatibility(RegisteredStateMetaBase that) {
+		if (that == null) {
+			return StateMetaCompatibility.compatibleAsIs();
+		}
+
+		if (that instanceof RegisteredOperatorStateMeta) {
+			return StateMetaCompatibility.incompatible("StateMetaType incompatible");
+		}
+
+		TypeSerializerSchemaCompatibility keySerializerCompatibility = getKeySerializer().snapshotConfiguration().resolveSchemaCompatibility(((RegisteredKeyedStateMeta) that).getKeySerializer());
+		if (keySerializerCompatibility.isIncompatible()) {
+			String incompatibleMessage = "StateMetaCompatibility check failed because of KeySerializer incompatible with message :" + keySerializerCompatibility.getMessage();
+			return StateMetaCompatibility.incompatible(incompatibleMessage);
+		}
+
+		return super.resolveCompatibility(that);
+	}
+
+	/**
 	 * A class represents a MetaData for a managing keyed state.
 	 */
 	public static class KeyedStateMetaData extends StateMetaData {
@@ -172,6 +197,21 @@ public class RegisteredKeyedStateMeta extends RegisteredStateMetaBase {
 			}
 			RegisteredKeyedStateMeta.KeyedStateMetaData that = (RegisteredKeyedStateMeta.KeyedStateMetaData) o;
 			return namespaceSerializer.equals(that.namespaceSerializer) && stateDescriptor.equals(that.stateDescriptor);
+		}
+
+		@Override
+		public StateMetaCompatibility resolveCompatibility(StateMetaData that) {
+
+			if (that instanceof RegisteredOperatorStateMeta.OperatorStateMetaData) {
+				return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state " + name + "Type if different. One is OperatorState other is KeyedState");
+			}
+
+			TypeSerializerSchemaCompatibility namespaceSerializerCompatibility = namespaceSerializer.snapshotConfiguration().resolveSchemaCompatibility(((KeyedStateMetaData) that).getNamespaceSerializer());
+			if  (namespaceSerializerCompatibility.isIncompatible()) {
+				return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state : " + name + " namespace Serializer isIncompatible, " + namespaceSerializerCompatibility.getMessage());
+			}
+
+			return super.resolveCompatibility(that);
 		}
 	}
 }
