@@ -487,6 +487,12 @@ under the License.
 		</dependency>
 
 		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-shaded-databus4j</artifactId>
+			<version>${flink.shaded.version}</version>
+		</dependency>
+
+		<dependency>
 			<!--We deploy this dependency manually.
 				repo: git@code.byted.org:dp/hive_udf.git
 				commit: 078f6d86826a12bd99dcc84f26fe01a60e6d47df

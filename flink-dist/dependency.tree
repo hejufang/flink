@@ -152,6 +152,7 @@ org.apache.flink:flink-dist_2.11:jar:1.11-byted-SNAPSHOT
 +- org.apache.flink:flink-shaded-netty-tcnative-dynamic:jar:2.0.25.Final-11.0-byted-SNAPSHOT:provided
 +- org.apache.flink:flink-ml-uber_2.11:jar:1.11-byted-SNAPSHOT:provided
 +- com.bytedance.flink:flink-python-byted:jar:1.11-byted-SNAPSHOT:provided
++- org.apache.flink:flink-shaded-databus4j:jar:11.0-byted-SNAPSHOT:compile
 +- com.bytedance:flink-hive-udf:jar:0.0.1:provided
 |  +- com.belerweb:pinyin4j:jar:2.5.0:provided
 |  +- com.maxmind.geoip2:geoip2:jar:2.5.0:provided

@@ -33,6 +33,7 @@ under the License.
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-shaded-databus4j</artifactId>
 			<version>${flink.shaded.version}</version>
+			<scope>provided</scope>
 		</dependency>
 
 		<dependency>
@@ -100,10 +101,6 @@ under the License.
 												<!-- 3.	<exclude>com.bytedance.data.databus.*</exclude>-->
 												<exclude>com.bytedance.data.databus.**</exclude>
 											</excludes>
-										</relocation>
-										<relocation>
-											<pattern>com.codahale.metrics</pattern>
-											<shadedPattern>org.apache.flink.connector.databus.shaded.com.codahale.metrics</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>com.sun.xml</pattern>

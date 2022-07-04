@@ -19,7 +19,7 @@
 org.apache.flink:flink-metrics-databus:jar:1.11-byted-SNAPSHOT
 +- org.apache.flink:flink-metrics-core:jar:1.11-byted-SNAPSHOT:provided
 |  \- io.dropwizard.metrics:metrics-core:jar:3.2.6:provided
-+- org.apache.flink:flink-shaded-databus4j:jar:11.0-byted-SNAPSHOT:compile
++- org.apache.flink:flink-shaded-databus4j:jar:11.0-byted-SNAPSHOT:provided
 +- org.apache.flink:flink-shaded-jackson:jar:2.10.1-11.0-byted-SNAPSHOT:provided
 +- org.apache.flink:flink-annotations:jar:1.11-byted-SNAPSHOT:provided
 +- org.apache.flink:flink-core:jar:1.11-byted-SNAPSHOT:provided
