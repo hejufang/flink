@@ -29,7 +29,7 @@
       "y": ${rowOrder}
     },
   "id": ${id},
-  "description": "1.downtime\n作业failed或者是recover的时间长度。0 表示running , -1 表示complete, 单位 ms。  \n2.fullRestarts\n作业重启次数  \n3.restartingTime\n作业重启花费的时间，或者当前重启用了多少时间，单位 ms.",
+  "description": "1.downtime\n作业failed或者是recover的时间长度。0 表示running , -1 表示complete, 单位 ms。  \n2.numRestarts\n作业重启次数  \n3.restartingTime\n作业重启花费的时间，或者当前重启用了多少时间，单位 ms.",
   "legend": {
     "alignAsTable": true,
     "avg": true,
@@ -59,15 +59,21 @@
       "aggregator": "max",
       "downsampleAggregator": "avg",
       "downsampleFillPolicy": "none",
-      "metric": "flink.jobmanager.${jobname}.downtime",
-      "refId": "A"
+      "metric": "flink.job.downtime",
+      "refId": "A",
+      "tags": {
+        "jobname": "${jobname}"
+      }
     },
     {
       "aggregator": "max",
       "downsampleAggregator": "avg",
       "downsampleFillPolicy": "none",
-      "metric": "flink.jobmanager.${jobname}.fullRestarts",
-      "refId": "B"
+      "metric": "flink.job.numRestarts",
+      "refId": "B",
+      "tags": {
+        "jobname": "${jobname}"
+      }
     },
     {
       "aggregator": "max",
@@ -93,8 +99,11 @@
       "aggregator": "max",
       "downsampleAggregator": "avg",
       "downsampleFillPolicy": "none",
-      "metric": "flink.jobmanager.${jobname}.restartingTime",
-      "refId": "E"
+      "metric": "flink.job.restartingTime",
+      "refId": "E",
+      "tags": {
+        "jobname": "${jobname}"
+      }
     }
   ],
   "thresholds": [],

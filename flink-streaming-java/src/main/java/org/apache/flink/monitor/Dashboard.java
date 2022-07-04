@@ -92,7 +92,7 @@ public class Dashboard {
 			return "";
 		}
 		Map<String, String> jobInfoValues = new HashMap<>();
-		jobInfoValues.put("jobname", formatJobName);
+		jobInfoValues.put("jobname", jobName);
 		jobInfoValues.put("datasource", dataSource);
 		String jobInfoRow = renderString(jobInfoTemplate, jobInfoValues);
 		return jobInfoRow;
