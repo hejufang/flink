@@ -68,14 +68,14 @@ org.apache.flink:flink-metrics-databus:jar:1.11-byted-SNAPSHOT
 |  |  +- org.apache.flink:flink-optimizer_2.11:jar:1.11-byted-SNAPSHOT:provided
 |  |  \- org.apache.flink:flink-streaming-java_2.11:jar:1.11-byted-SNAPSHOT:provided
 |  |     \- com.googlecode.json-simple:json-simple:jar:1.1.1:provided
-|  +- org.apache.hadoop:hadoop-yarn-client:jar:2.6.0-cdh5.4.4-bd203:provided
+|  +- org.apache.hadoop:hadoop-yarn-client:jar:2.6.0-cdh5.4.4-bd244:provided
 |  |  +- commons-logging:commons-logging:jar:1.1.3:runtime
 |  |  +- commons-lang:commons-lang:jar:2.6:provided
 |  |  +- commons-cli:commons-cli:jar:1.2:provided
-|  |  \- org.apache.hadoop:hadoop-annotations:jar:2.6.0-cdh5.4.4-bd203:provided
+|  |  \- org.apache.hadoop:hadoop-annotations:jar:2.6.0-cdh5.4.4-bd244:provided
 |  +- com.bytedance.sr:sr-estimater-client:jar:1.0-SNAPSHOT:provided
 |  +- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-11.0-byted-SNAPSHOT:provided
-|  \- org.apache.flink:flink-shaded-bytedance:jar:11.0-byted-SNAPSHOT:provided
+|  \- org.apache.flink:flink-shaded-bytedance-commons:jar:11.0-byted-SNAPSHOT:provided
 +- org.apache.logging.log4j:log4j-core:jar:2.15.0:provided
 +- org.apache.logging.log4j:log4j-api:jar:2.15.0:provided
 +- org.apache.flink:flink-shaded-guava:jar:18.0-11.0-byted-SNAPSHOT:provided
@@ -114,16 +114,18 @@ org.apache.flink:flink-metrics-databus:jar:1.11-byted-SNAPSHOT
 |  \- com.bytedance:env-conf-core:jar:2.0.12-rc.2:runtime
 |     +- commons-net:commons-net:jar:3.6:runtime
 |     +- com.bytedance:consul-lang-core:jar:2.0.12-rc.1:runtime
-|     |  \- com.orbitz.consul:consul-client:jar:1.0.2-bd-SNAPSHOT:runtime
-|     |     +- com.squareup.retrofit2:retrofit:jar:2.3.0:runtime
-|     |     +- com.squareup.retrofit2:converter-jackson:jar:2.3.0:runtime
-|     |     +- com.squareup.okhttp3:okhttp:jar:3.9.0:runtime
-|     |     |  \- com.squareup.okio:okio:jar:1.13.0:runtime
-|     |     +- com.fasterxml.jackson.core:jackson-annotations:jar:2.10.1:runtime
-|     |     +- com.fasterxml.jackson.core:jackson-core:jar:2.10.1:runtime
-|     |     +- com.fasterxml.jackson.core:jackson-databind:jar:2.10.1:runtime
-|     |     +- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:jar:2.10.1:runtime
-|     |     \- com.fasterxml.jackson.datatype:jackson-datatype-guava:jar:2.10.1:runtime
+|     |  +- com.orbitz.consul:consul-client:jar:1.0.2-bd-SNAPSHOT:runtime
+|     |  |  +- com.squareup.retrofit2:retrofit:jar:2.3.0:runtime
+|     |  |  +- com.squareup.retrofit2:converter-jackson:jar:2.3.0:runtime
+|     |  |  +- com.squareup.okhttp3:okhttp:jar:3.9.0:runtime
+|     |  |  |  \- com.squareup.okio:okio:jar:1.13.0:runtime
+|     |  |  +- com.fasterxml.jackson.core:jackson-annotations:jar:2.10.1:runtime
+|     |  |  +- com.fasterxml.jackson.core:jackson-core:jar:2.10.1:runtime
+|     |  |  +- com.fasterxml.jackson.core:jackson-databind:jar:2.10.1:runtime
+|     |  |  +- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:jar:2.10.1:runtime
+|     |  |  \- com.fasterxml.jackson.datatype:jackson-datatype-guava:jar:2.10.1:runtime
+|     |  \- com.bytedance:version-collector-core:jar:2.1.0-4-SNAPSHOT:runtime
+|     |     \- com.bytedance:env-conf-core-shadow:jar:2.0.12-rc.3-shadow-SNAPSHOT:runtime
 |     +- org.zeroturnaround:zt-exec:jar:1.10:runtime
 |     +- commons-validator:commons-validator:jar:1.6:runtime
 |     |  +- commons-beanutils:commons-beanutils:jar:1.9.2:runtime
