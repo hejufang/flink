@@ -176,6 +176,7 @@ under the License.
 		<japicmp.outputDir>tools/japicmp-output</japicmp.outputDir>
 		<snakeyaml.version>1.24</snakeyaml.version>
 		<rocksdb.jni.version>5.18.3-bytedance-terark-5.0</rocksdb.jni.version>
+		<dist.shading.prefix>org.apache.flink.dist.shaded</dist.shading.prefix>
 	</properties>
 
 	<dependencies>

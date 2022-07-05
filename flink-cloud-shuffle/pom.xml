@@ -187,7 +187,7 @@ under the License.
 								</relocation>
 								<relocation>
 									<pattern>com.codahale.metrics</pattern>
-									<shadedPattern>org.apache.flink.dist.shaded.com.codahale.metrics</shadedPattern>
+									<shadedPattern>${dist.shading.prefix}.com.codahale.metrics</shadedPattern>
 								</relocation>
                             </relocations>
                         </configuration>

@@ -35,7 +35,6 @@ under the License.
 
 	<properties>
 		<zookeeper.optional.version>3.5.6</zookeeper.optional.version>
-		<shading.prefix>org.apache.flink.dist.shaded</shading.prefix>
 	</properties>
 
 	<dependencies>
@@ -825,31 +824,31 @@ under the License.
 							<relocations>
 								<relocation>
 									<pattern>com.alibaba</pattern>
-									<shadedPattern>${shading.prefix}.com.alibaba</shadedPattern>
+									<shadedPattern>${dist.shading.prefix}.com.alibaba</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>org.yaml</pattern>
-									<shadedPattern>${shading.prefix}.org.yaml</shadedPattern>
+									<shadedPattern>${dist.shading.prefix}.org.yaml</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>com.codahale.metrics</pattern>
-									<shadedPattern>${shading.prefix}.com.codahale.metrics</shadedPattern>
+									<shadedPattern>${dist.shading.prefix}.com.codahale.metrics</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>com.fasterxml.jackson</pattern>
-									<shadedPattern>${shading.prefix}.com.fasterxml.jackson</shadedPattern>
+									<shadedPattern>${dist.shading.prefix}.com.fasterxml.jackson</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>okhttp3</pattern>
-									<shadedPattern>${shading.prefix}.okhttp3</shadedPattern>
+									<shadedPattern>${dist.shading.prefix}.okhttp3</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>org.json.simple</pattern>
-									<shadedPattern>${shading.prefix}.org.json.simple</shadedPattern>
+									<shadedPattern>${dist.shading.prefix}.org.json.simple</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>okio</pattern>
-									<shadedPattern>${shading.prefix}.okio</shadedPattern>
+									<shadedPattern>${dist.shading.prefix}.okio</shadedPattern>
 								</relocation>
 							</relocations>
 						</configuration>

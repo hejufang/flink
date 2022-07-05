@@ -103,6 +103,7 @@ under the License.
 									<include>org.apache.flink:flink-table-api-scala-bridge_${scala.binary.version}</include>
 									<include>org.apache.flink:flink-table-planner_${scala.binary.version}</include>
 									<include>org.apache.flink:flink-cep_${scala.binary.version}</include>
+									<include>org.apache.flink:flink-metrics-dropwizard</include>
 								</includes>
 							</artifactSet>
 							<relocations>
@@ -110,6 +111,21 @@ under the License.
 									<!-- icu4j's dependencies -->
 									<pattern>com.ibm.icu</pattern>
 									<shadedPattern>org.apache.flink.table.shaded.com.ibm.icu</shadedPattern>
+								</relocation>
+								<relocation>
+									<!-- metrics-dropwizard dependencies, we need relocation this jar to avoid conflict with user. -->
+									<!-- flink-table-common -> flink-metrics-dropwizard -> metrics-core. -->
+									<!-- flink-table-common -> metrics-core. -->
+									<!-- we relocate metrics-core in flink-dist, so if flink-table want to use the relocated metrics-core,
+									we need relocate metrics-core for flink-metrics-dropwizard. But flink-metrics-dropwizard maybe used by user-jar,
+									we could not change the rule of flink-metrics-dropwizard. So, we include flink-metrics-dropwizard in flink-table and relocate it. -->
+									<pattern>org.apache.flink.dropwizard</pattern>
+									<shadedPattern>org.apache.flink.table.shaded.org.apache.flink.dropwizard</shadedPattern>
+								</relocation>
+								<relocation>
+									<!-- metrics dependencies, relocation these in flink-dist, we need keep the same relocation rule. -->
+									<pattern>com.codahale.metrics</pattern>
+									<shadedPattern>${dist.shading.prefix}.com.codahale.metrics</shadedPattern>
 								</relocation>
 							</relocations>
 						</configuration>
