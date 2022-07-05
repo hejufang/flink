@@ -19,6 +19,7 @@
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
 import org.apache.flink.configuration.PipelineOptions;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.kubeclient.KubernetesJobManagerTestBase;
 
 import org.junit.Assert;
@@ -87,6 +88,36 @@ public class CSIFileDownloadDecoratorTest extends KubernetesJobManagerTestBase {
 						+ ", \"0_AppMaster2.jar\": {\"path\": \"hdfs://haruna/0_AppMaster2.jar\", \"timestamp\": " + timestamp + ", \"resourceType\": 1}"
 						+ ", \"1_AppMaster2.jar\": {\"path\": \"hdfs://haruna/flink/AppMaster2.jar\", \"timestamp\": " + timestamp + ", \"resourceType\": 1}"
 						+ "}");
+		Map<String, String> actual = csiFileDownloadDecorator.getCsiVolumeAttributes(timestamp);
+		Assert.assertEquals(expected, actual);
+	}
+
+	@Test
+	public void testGetCsiVolumeAttributesForS3() {
+		this.flinkConfig.set(
+				PipelineOptions.EXTERNAL_RESOURCES, Collections.singletonList("s3://foo-bucket/AppMaster.jar"));
+		this.flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_REPLACE_S3_SCHEMA_BY_TOS_ENABLED, false);
+		CSIFileDownloadDecorator csiFileDownloadDecorator = new CSIFileDownloadDecorator(kubernetesJobManagerParameters);
+		Map<String, String> expected = getCommonVolumeAttributesMap();
+		long timestamp = System.currentTimeMillis();
+		expected.put(
+				"resourceList",
+				"{\"AppMaster.jar\": {\"path\": \"s3://foo-bucket/AppMaster.jar\", \"timestamp\": " + timestamp + ", \"resourceType\": 1}}");
+		Map<String, String> actual = csiFileDownloadDecorator.getCsiVolumeAttributes(timestamp);
+		Assert.assertEquals(expected, actual);
+	}
+
+	@Test
+	public void testGetCsiVolumeAttributesForTOS() {
+		this.flinkConfig.set(
+				PipelineOptions.EXTERNAL_RESOURCES, Collections.singletonList("s3://foo-bucket/AppMaster.jar"));
+		this.flinkConfig.setBoolean(KubernetesConfigOptions.KUBERNETES_REPLACE_S3_SCHEMA_BY_TOS_ENABLED, true);
+		CSIFileDownloadDecorator csiFileDownloadDecorator = new CSIFileDownloadDecorator(kubernetesJobManagerParameters);
+		Map<String, String> expected = getCommonVolumeAttributesMap();
+		long timestamp = System.currentTimeMillis();
+		expected.put(
+				"resourceList",
+				"{\"AppMaster.jar\": {\"path\": \"tos://foo-bucket/AppMaster.jar\", \"timestamp\": " + timestamp + ", \"resourceType\": 1}}");
 		Map<String, String> actual = csiFileDownloadDecorator.getCsiVolumeAttributes(timestamp);
 		Assert.assertEquals(expected, actual);
 	}

@@ -267,6 +267,10 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 		return flinkConfig.get(KubernetesConfigOptions.KUBERNETES_HOST_NETWORK_ENABLED);
 	}
 
+	public boolean isReplaceS3SchemaByTos() {
+		return flinkConfig.getBoolean(KubernetesConfigOptions.KUBERNETES_REPLACE_S3_SCHEMA_BY_TOS_ENABLED);
+	}
+
 	public String getDnsPolicy() {
 		// only set to DNS_POLICY_HOSTNETWORK when its necessary because the coreDNS may be unavailable
 		if (flinkConfig.get(KubernetesConfigOptions.KUBERNETES_HOST_NETWORK_ENABLED)) {

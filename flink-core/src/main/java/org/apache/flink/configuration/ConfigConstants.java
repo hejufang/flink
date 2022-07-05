@@ -2224,6 +2224,11 @@ public final class ConfigConstants {
 	public static final String FILE_SCHEME = "file";
 	public static final String LOCAL_SCHEME = "local";
 
+	public static final String S3_SCHEME = "s3";
+	public static final String S3P_SCHEME = "s3p";
+	public static final String S3A_SCHEME = "s3a";
+	public static final String TOS_SCHEME = "tos";
+
 	/**
 	 * Cloud shuffle service.
 	 */

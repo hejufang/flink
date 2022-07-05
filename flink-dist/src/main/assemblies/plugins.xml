@@ -64,6 +64,14 @@
 	</dependencySets>
 
 	<files>
+		<!-- s3 -->
+		<file>
+			<source>../flink-filesystems/flink-s3-fs-presto/target/flink-s3-fs-presto-${project.version}.jar</source>
+			<outputDirectory>plugins/s3-fs-presto</outputDirectory>
+			<destName>flink-s3-fs-presto-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+
 		<!-- Metrics -->
 
 		<file>

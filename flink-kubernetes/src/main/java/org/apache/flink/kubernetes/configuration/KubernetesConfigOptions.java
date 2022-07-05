@@ -465,6 +465,14 @@ public class KubernetesConfigOptions {
 					.defaultValue(DownloadMode.INIT_CONTAINER)
 					.withDescription("The way to download user external files to Job manager and task manager container.");
 
+	public static final ConfigOption<Boolean> KUBERNETES_REPLACE_S3_SCHEMA_BY_TOS_ENABLED =
+			key("kubernetes.replace-s3-schema-by-tos.enabled")
+					.booleanType()
+					.defaultValue(true)
+					.withDescription("whether to enable replace s3 schema by tos schema, only for this scenario:" +
+							" upload user jar with s3 sdk by flink client, and download user jar with tos sdk by csi downloader." +
+							" csi downloader does not support s3 sdk, so this config is enabled by default.");
+
 	public static final ConfigOption<String> GDPR_SECRETE_NAME_TEMPLATE =
 			key("kubernetes.gdpr-secret.name-template")
 					.stringType()
