@@ -129,8 +129,8 @@ public class Kafka010DynamicTableSourceTest {
 		Kafka010DynamicSource tableSource = createSource(baseTableSchema, basicSourceOptions);
 		assertTrue(tableSource.hasMetaDataColumn());
 
-		int[][] projectionContainsMetadataColumn = {{0}, {2}, {3}, {4}};
-		int[][] projectionDoNotContainMetadataColumn = {{0}};
+		int[][] projectionContainsMetadataColumn = {{1}, {2}, {3}, {4}};
+		int[][] projectionDoNotContainMetadataColumn = {{1}};
 		tableSource.applyProjection(projectionContainsMetadataColumn);
 
 		assertTrue(tableSource.hasMetaDataColumn());

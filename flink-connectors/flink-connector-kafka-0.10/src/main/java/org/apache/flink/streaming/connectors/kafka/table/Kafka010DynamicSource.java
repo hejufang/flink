@@ -104,7 +104,7 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 				if (metadata != null) {
 					metadataMapBuilder.put(i, metadata);
 				} else {
-					projectedFieldsExceptMetaData.add(projectedFields[i]);
+					projectedFieldsExceptMetaData.add(new int[]{i});
 				}
 			}
 			ImmutableMap<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> newMetadataMap = metadataMapBuilder.build();
