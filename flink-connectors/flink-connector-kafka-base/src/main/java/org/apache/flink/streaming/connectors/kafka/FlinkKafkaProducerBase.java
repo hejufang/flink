@@ -28,6 +28,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.MetricsConstants;
+import org.apache.flink.metrics.TagBucketHistogram;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
@@ -38,10 +39,15 @@ import org.apache.flink.streaming.connectors.kafka.internals.KafkaProducerFactor
 import org.apache.flink.streaming.connectors.kafka.internals.KeyedSerializationSchemaWrapper;
 import org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaMetricWrapper;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
+import org.apache.flink.streaming.connectors.kafka.utils.KafkaUtils;
+import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.functions.DeleteNormalizer;
 import org.apache.flink.table.functions.RowKindSinkFilter;
+import org.apache.flink.table.metric.SinkMetricUtils;
+import org.apache.flink.table.metric.SinkMetricsGetter;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.SerializableObject;
 
@@ -189,6 +195,17 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	protected final Map<String, Set<Integer>> historyTopicPartitionMap = new HashMap<>();
 
 	/**
+	 * A set of properties used to calculate the SLA metrics.
+	 */
+	protected SinkMetricsOptions metricsOptions;
+
+	protected SinkMetricsGetter<IN> sinkMetricsGetter;
+
+	protected TagBucketHistogram latencyHistogram;
+
+	protected ProcessingTimeService timeService;
+
+	/**
 	 * The main constructor for creating a FlinkKafkaProducer.
 	 *
 	 * @param defaultTopicId The default topic to write data to
@@ -264,6 +281,11 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 		this.flushOnCheckpoint = flush;
 	}
 
+	public void setMetricsOptions(SinkMetricsOptions metricsOptions, SinkMetricsGetter<IN> sinkMetricsGetter) {
+		this.metricsOptions = metricsOptions;
+		this.sinkMetricsGetter = sinkMetricsGetter;
+	}
+
 	/**
 	 * Used for testing only.
 	 */
@@ -297,6 +319,11 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 		LOG.info("Starting FlinkKafkaProducer ({}/{}) to produce into default topic {}",
 				ctx.getIndexOfThisSubtask() + 1, ctx.getNumberOfParallelSubtasks(), defaultTopicId);
+
+		if (metricsOptions != null && metricsOptions.isCollected()) {
+			latencyHistogram = SinkMetricUtils.initLatencyMetrics(metricsOptions, getRuntimeContext().getMetricGroup());
+			timeService = KafkaUtils.getTimeService(getRuntimeContext());
+		}
 
 		// register Kafka metrics to Flink accumulators
 		if (!Boolean.parseBoolean(producerConfig.getProperty(KEY_DISABLE_METRICS, "false"))) {

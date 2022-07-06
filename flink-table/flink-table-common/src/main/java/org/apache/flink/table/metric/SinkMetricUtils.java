@@ -22,17 +22,13 @@ import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.TagBucketHistogram;
 import org.apache.flink.table.api.TableSchema;
-import org.apache.flink.table.data.RowData;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_NUMBER;
@@ -124,29 +120,11 @@ public class SinkMetricUtils {
 	}
 
 	public static void updateLatency(
-			RowData record,
-			SinkMetricsOptions sinkMetricsOptions,
 			TagBucketHistogram latencyHistogram,
-			RowData.FieldGetter[] fieldGetters,
+			Map<String, String> tags,
 			long latency) {
 		try {
-			int eventTsIdx = sinkMetricsOptions.getEventTsColIndex();
-			long eventTs = (long) Objects.requireNonNull(fieldGetters[eventTsIdx].getFieldOrNull(record),
-				"Get null of event ts column of index " + eventTsIdx);
-			if (latency < 0) {
-				LOG.warn("Got negative latency, invalid event ts: " + eventTs);
-				return;
-			}
-			List<Integer> tagIndices = sinkMetricsOptions.getTagNameIndices();
-			if (tagIndices != null && !tagIndices.isEmpty()) {
-				Map<String, String> tags = new HashMap<>();
-				Iterator<Integer> tagIdxIter = sinkMetricsOptions.getTagNameIndices().iterator();
-				for (String tagName : sinkMetricsOptions.getTagNames()) {
-					int idx = tagIdxIter.next();
-					String tagValue = Objects.requireNonNull(fieldGetters[idx].getFieldOrNull(record),
-						"get null of tag name " + tagName).toString();
-					tags.put(tagName, tagValue);
-				}
+			if (tags != null && !tags.isEmpty()) {
 				latencyHistogram.update(latency, tags);
 			}
 			// need to calculate a connector overall latency either tags are configured or not

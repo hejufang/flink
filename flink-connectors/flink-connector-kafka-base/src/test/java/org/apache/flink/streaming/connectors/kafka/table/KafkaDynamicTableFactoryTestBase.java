@@ -44,6 +44,7 @@ import org.apache.flink.table.connector.source.SourceFunctionProvider;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.TestFormatFactory;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.runtime.connector.sink.SinkRuntimeProviderContext;
 import org.apache.flink.table.runtime.connector.source.ScanRuntimeProviderContext;
 import org.apache.flink.table.types.DataType;
@@ -87,6 +88,8 @@ public abstract class KafkaDynamicTableFactoryTestBase extends TestLogger {
 	private static final String COMPUTED_COLUMN_NAME = "computed-column";
 	private static final String COMPUTED_COLUMN_EXPRESSION = COUNT + " + 1.0";
 	private static final DataType COMPUTED_COLUMN_DATATYPE = DataTypes.DECIMAL(10, 3);
+
+	protected SinkMetricsOptions metricsOptions = SinkMetricsOptions.builder().build();
 
 	private static final Properties KAFKA_PROPERTIES = new Properties();
 	static {

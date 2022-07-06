@@ -32,11 +32,15 @@ import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.functions.RowDataSinkFilter;
+import org.apache.flink.table.metric.DynamicTableSlaMetricsGetter;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.RowKind;
 
 import java.util.Optional;
 import java.util.Properties;
+import java.util.stream.IntStream;
 
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_IN_FLIGHT_BATCH_SIZE_FACTOR;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_IN_FLIGHT_MAX_NUM;
@@ -58,14 +62,16 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 			Optional<FlinkKafkaPartitioner<RowData>> partitioner,
 			EncodingFormat<SerializationSchema<RowData>> encodingFormat,
 			Properties otherProperties,
-			KafkaSinkConfig sinkConfig) {
+			KafkaSinkConfig sinkConfig,
+			SinkMetricsOptions metricsOptions) {
 		super(
 			consumedDataType,
 			topic,
 			properties,
 			partitioner,
 			encodingFormat,
-			otherProperties);
+			otherProperties,
+			metricsOptions);
 		this.sinkConfig = sinkConfig;
 	}
 
@@ -81,6 +87,10 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 			serializationSchema,
 			properties,
 			partitioner.orElse(null));
+		flinkKafkaProducerBase.setMetricsOptions(
+			metricsOptions,
+			new DynamicTableSlaMetricsGetter(metricsOptions, getFieldGetter(consumedDataType)));
+
 		boolean logFailureOnly = Boolean.parseBoolean(otherProperties.getProperty(SINK_LOG_FAILURE_ONLY.key(), "false"));
 		int inFlightIndex = Integer.parseInt(otherProperties.getProperty(SINK_IN_FLIGHT_BATCH_SIZE_FACTOR.key(), "0"));
 		int maxInFlightNum = Integer.parseInt(otherProperties.getProperty(SINK_IN_FLIGHT_MAX_NUM.key(), "0"));
@@ -111,6 +121,14 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 		return flinkKafkaProducerBase;
 	}
 
+	private static RowData.FieldGetter[] getFieldGetter(DataType dataType) {
+		final RowType rowType = (RowType) dataType.getLogicalType();
+		return IntStream
+			.range(0, rowType.getFieldCount())
+			.mapToObj(pos -> RowData.createFieldGetter(rowType.getTypeAt(pos), pos))
+			.toArray(RowData.FieldGetter[]::new);
+	}
+
 	@Override
 	public DynamicTableSink copy() {
 		return new Kafka010DynamicSink(
@@ -120,7 +138,8 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 				this.partitioner,
 				this.encodingFormat,
 				this.otherProperties,
-				this.sinkConfig);
+				this.sinkConfig,
+				this.metricsOptions);
 	}
 
 	@Override

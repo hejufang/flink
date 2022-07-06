@@ -42,7 +42,7 @@ import java.util.concurrent.CompletableFuture;
 public class AbaseSinkMetricsTest extends AbaseTestBase {
 
 	@Test
-	public void testGeneralTypeWithFormat() throws Exception {
+	public void testMetricsReport() throws Exception {
 		tEnv.executeSql(
 			"CREATE TABLE sink (\n" +
 				"  `name`     VARCHAR,\n" +

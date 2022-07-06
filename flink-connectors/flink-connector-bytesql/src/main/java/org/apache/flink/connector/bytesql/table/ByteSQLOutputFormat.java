@@ -31,7 +31,9 @@ import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.metric.DynamicTableSlaMetricsGetter;
 import org.apache.flink.table.metric.SinkMetricUtils;
+import org.apache.flink.table.metric.SinkMetricsGetter;
 import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.RowKind;
@@ -79,6 +81,7 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 	protected transient ProcessingTimeService timeService;
 	protected transient TagBucketHistogram latencyHistogram;
 	private final RowData.FieldGetter[] fieldGetters;
+	private final SinkMetricsGetter<RowData> sinkMetricsGetter;
 
 	private transient volatile Exception flushException;
 	private transient volatile boolean closed = false;
@@ -104,6 +107,7 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 			insertOptions,
 			rowType,
 			isAppendOnly);
+		this.sinkMetricsGetter = new DynamicTableSlaMetricsGetter(this.insertMetricsOptions, fieldGetters);
 	}
 
 	@Override
@@ -176,13 +180,13 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 		byteSQLSinkExecutor.addToBatch(record);
 		batchCount++;
 		if (latencyHistogram != null) {
-			SinkMetricUtils.updateLatency(
-				record,
-				insertMetricsOptions,
-				latencyHistogram,
-				fieldGetters,
-				getRecordLatency(record)
-			);
+			long eventTs = sinkMetricsGetter.getEventTs(record);
+			long latency = (timeService.getCurrentProcessingTime() - eventTs) / 1000;
+			if (latency < 0) {
+				LOG.warn("Got negative latency, invalid event ts: " + eventTs);
+			} else {
+				SinkMetricUtils.updateLatency(latencyHistogram, sinkMetricsGetter.getTags(record), latency);
+			}
 		}
 		if (batchCount >= insertOptions.getBufferFlushMaxRows()) {
 			flush();

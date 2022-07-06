@@ -27,6 +27,7 @@ import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkFunctionProvider;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.Preconditions;
@@ -62,19 +63,24 @@ public abstract class KafkaDynamicSinkBase implements DynamicTableSink {
 	/** Properties that not for kafka client . */
 	protected final Properties otherProperties;
 
+	/** metrics options. */
+	protected final SinkMetricsOptions metricsOptions;
+
 	protected KafkaDynamicSinkBase(
 			DataType consumedDataType,
 			String topic,
 			Properties properties,
 			Optional<FlinkKafkaPartitioner<RowData>> partitioner,
 			EncodingFormat<SerializationSchema<RowData>> encodingFormat,
-			Properties otherProperties) {
+			Properties otherProperties,
+			SinkMetricsOptions metricsOptions) {
 		this.consumedDataType = Preconditions.checkNotNull(consumedDataType, "Consumed data type must not be null.");
 		this.topic = Preconditions.checkNotNull(topic, "Topic must not be null.");
 		this.properties = Preconditions.checkNotNull(properties, "Properties must not be null.");
 		this.partitioner = Preconditions.checkNotNull(partitioner, "Partitioner must not be null.");
 		this.encodingFormat = Preconditions.checkNotNull(encodingFormat, "Encoding format must not be null.");
 		this.otherProperties = otherProperties;
+		this.metricsOptions = metricsOptions;
 	}
 
 	@Override

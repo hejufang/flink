@@ -185,6 +185,7 @@ org.apache.flink:flink-connector-kafka-0.10_2.11:jar:1.11-byted-SNAPSHOT
 |        |  \- org.apache.kerby:kerb-identity:jar:1.0.1:test
 |        \- org.apache.kerby:kerby-xdr:jar:1.0.1:test
 +- com.github.stefanbirkner:system-rules:jar:1.19.0:test
++- org.apache.flink:flink-metrics-databus:jar:1.11-byted-SNAPSHOT:test
 +- org.slf4j:slf4j-api:jar:1.7.15:provided
 +- com.google.code.findbugs:jsr305:jar:1.3.9:provided
 +- org.apache.flink:flink-test-utils-junit:jar:1.11-byted-SNAPSHOT:test

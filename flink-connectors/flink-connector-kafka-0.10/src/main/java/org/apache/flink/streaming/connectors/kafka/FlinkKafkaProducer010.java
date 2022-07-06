@@ -27,6 +27,7 @@ import org.apache.flink.streaming.api.transformations.SinkTransformation;
 import org.apache.flink.streaming.connectors.kafka.internals.KeyedSerializationSchemaWrapper;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
+import org.apache.flink.table.metric.SinkMetricUtils;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
 
@@ -34,6 +35,8 @@ import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.internals.BatchRandomPartitioner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -49,6 +52,8 @@ import java.util.stream.Collectors;
 public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 
 	private static final long serialVersionUID = 1L;
+
+	private static final Logger LOG = LoggerFactory.getLogger(FlinkKafkaProducer010.class);
 
 	/**
 	 * Flag controlling whether we are writing the Flink record's timestamp into Kafka.
@@ -308,6 +313,16 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 
 		if (!filter(value)) {
 			return;
+		}
+
+		if (latencyHistogram != null && sinkMetricsGetter != null && timeService != null) {
+			long eventTs = sinkMetricsGetter.getEventTs(value);
+			long latency = (timeService.getCurrentProcessingTime() - eventTs) / 1000;
+			if (latency < 0) {
+				LOG.warn("Got negative latency, invalid event ts: " + eventTs);
+			} else {
+				SinkMetricUtils.updateLatency(latencyHistogram, sinkMetricsGetter.getTags(value), latency);
+			}
 		}
 		acquireRateLimit();
 		inFlightWaitFinished();

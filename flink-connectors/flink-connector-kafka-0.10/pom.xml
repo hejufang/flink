@@ -255,6 +255,14 @@ under the License.
 			<scope>test</scope>
 		</dependency>
 
+		<!-- Kafka sink metrics testing -->
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-metrics-databus</artifactId>
+			<version>${project.version}</version>
+			<scope>test</scope>
+		</dependency>
+
 	</dependencies>
 
 	<profiles>

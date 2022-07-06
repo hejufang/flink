@@ -41,7 +41,9 @@ import org.apache.flink.table.connector.RuntimeConverter;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.metric.DynamicTableSlaMetricsGetter;
 import org.apache.flink.table.metric.SinkMetricUtils;
+import org.apache.flink.table.metric.SinkMetricsGetter;
 import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.RowKind;
@@ -79,6 +81,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	private final SerializationSchema<RowData> serializationSchema;
 	private final RowData.FieldGetter[] fieldGetters;
 	private final DynamicTableSink.DataStructureConverter converter;
+	private final SinkMetricsGetter<RowData> sinkMetricsGetter;
 	private AbaseSinkBatchExecutor batchExecutor;
 	private transient Counter writeFailed;
 	// Client only needs to be initialized once throughout the life cycle.
@@ -112,6 +115,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 			.mapToObj(pos -> RowData.createFieldGetter(rowType.getTypeAt(pos), pos))
 			.toArray(RowData.FieldGetter[]::new);
 		this.converter = converter;
+		this.sinkMetricsGetter = new DynamicTableSlaMetricsGetter(this.sinkMetricsOptions, fieldGetters);
 	}
 
 	@Override
@@ -235,24 +239,17 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		batchExecutor.addToBatch(record);
 		batchCount++;
 		if (latencyHistogram != null) {
-			SinkMetricUtils.updateLatency(
-				record,
-				sinkMetricsOptions,
-				latencyHistogram,
-				fieldGetters,
-				getRecordLatency(record)
-			);
+			long eventTs = sinkMetricsGetter.getEventTs(record);
+			long latency = (timeService.getCurrentProcessingTime() - eventTs) / 1000;
+			if (latency < 0) {
+				LOG.warn("Got negative latency, invalid event ts: " + eventTs);
+			} else {
+				SinkMetricUtils.updateLatency(latencyHistogram, sinkMetricsGetter.getTags(record), latency);
+			}
 		}
 		if (batchCount >= sinkOptions.getBufferMaxRows()) {
 			flush();
 		}
-	}
-
-	private long getRecordLatency(RowData record) {
-		int eventTsIdx = sinkMetricsOptions.getEventTsColIndex();
-		long eventTs = (long) Objects.requireNonNull(fieldGetters[eventTsIdx].getFieldOrNull(record),
-			"Get null of event ts column of index " + eventTsIdx);
-		return (timeService.getCurrentProcessingTime() - eventTs) / 1000;
 	}
 
 	public synchronized void flush() {

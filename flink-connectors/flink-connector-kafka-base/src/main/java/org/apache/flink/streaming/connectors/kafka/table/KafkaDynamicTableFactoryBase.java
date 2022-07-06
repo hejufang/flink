@@ -43,6 +43,8 @@ import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.functions.ChangeNonPrimaryFieldsNullNormalizer;
+import org.apache.flink.table.metric.SinkMetricUtils;
+import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.planner.plan.utils.KeySelectorUtil;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.table.types.DataType;
@@ -84,6 +86,13 @@ import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.get
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.validateTableOptions;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_DELETE_NORMALIZE;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_NUMBER;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_SERIES;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_SIZE;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_EVENT_TS_NAME;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_PROPS;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_QUANTILES;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_TAGS_NAMES;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_PARTITIONER_FIELD;
 
 /**
@@ -145,6 +154,9 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		KafkaSinkConfig sinkConfig = getSinkConfig(tableOptions, context.getCatalogTable().getSchema());
 
 		DataType consumedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
+
+		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
+		SinkMetricsOptions metricsOptions = SinkMetricUtils.getSinkMetricsOptions(tableOptions, physicalSchema);
 		return createKafkaTableSink(
 				consumedDataType,
 				topic,
@@ -152,7 +164,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 				getFlinkKafkaPartitioner(tableOptions, context.getClassLoader(), context.getCatalogTable().getSchema()),
 				encodingFormat,
 				getSinkOtherProperties(context.getCatalogTable().getOptions()),
-				sinkConfig);
+				sinkConfig,
+				metricsOptions);
 	}
 
 	/**
@@ -192,7 +205,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 			Optional<FlinkKafkaPartitioner<RowData>> partitioner,
 			EncodingFormat<SerializationSchema<RowData>> encodingFormat,
 			Properties otherProperties,
-			KafkaSinkConfig sinkConfig);
+			KafkaSinkConfig sinkConfig,
+			SinkMetricsOptions metricsOptions);
 
 	@Override
 	public Set<ConfigOption<?>> requiredOptions() {
@@ -233,6 +247,17 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(FactoryUtil.SOURCE_METADATA_COLUMNS);
 		options.add(FactoryUtil.PARALLELISM);
 		options.add(FactoryUtil.SOURCE_KEY_BY_FIELD);
+
+		// metrics
+		options.add(SINK_METRICS_QUANTILES);
+		options.add(SINK_METRICS_EVENT_TS_NAME);
+		// options.add(SINK_METRICS_EVENT_TS_WRITEABLE); not supported yet
+		options.add(SINK_METRICS_TAGS_NAMES);
+		// options.add(SINK_METRICS_TAGS_WRITEABLE);  not supported yet
+		options.add(SINK_METRICS_PROPS);
+		options.add(SINK_METRICS_BUCKET_SIZE);
+		options.add(SINK_METRICS_BUCKET_NUMBER);
+		options.add(SINK_METRICS_BUCKET_SERIES);
 		return options;
 	}
 

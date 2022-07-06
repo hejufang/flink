@@ -128,7 +128,6 @@ public class ByteSQLInsertMetricsTest extends ByteSQLTableTestBase {
 				"  `rank`     INT," +
 				"  `time`     timestamp," +
 				"  `event_ts` BIGINT " +
-//				"  PRIMARY KEY (`name`, `score`) NOT ENFORCED" +
 				") WITH (" +
 				"  'connector' = 'bytesql'," +
 				"  'consul' = 'test', " +

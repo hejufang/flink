@@ -89,6 +89,7 @@ public class Kafka011DynamicTableFactoryTest extends KafkaDynamicTableFactoryTes
 				properties,
 				partitioner,
 				encodingFormat,
-				new Properties());
+				new Properties(),
+				metricsOptions);
 	}
 }
