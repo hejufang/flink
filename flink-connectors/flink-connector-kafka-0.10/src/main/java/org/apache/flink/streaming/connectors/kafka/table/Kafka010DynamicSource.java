@@ -33,6 +33,7 @@ import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.table.types.DataType;
@@ -189,6 +190,8 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 					return record.timestamp();
 				case PARTITION:
 					return (long) record.partition();
+				case KEY:
+					return StringData.fromBytes(record.key());
 				default:
 					throw new FlinkRuntimeException("Unsupported metadata.");
 			}

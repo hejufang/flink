@@ -19,6 +19,7 @@ package org.apache.flink.streaming.connectors.kafka.config;
 
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.types.logical.BigIntType;
+import org.apache.flink.table.types.logical.VarCharType;
 
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -29,7 +30,8 @@ import java.util.stream.Stream;
 public enum Metadata implements DynamicSourceMetadataFactory.DynamicSourceMetadata {
 	PARTITION("partition", BigIntType.class),
 	OFFSET("offset", BigIntType.class),
-	TIMESTAMP("timestamp", BigIntType.class);
+	TIMESTAMP("timestamp", BigIntType.class),
+	KEY("key", VarCharType.class);
 
 	private final String metadata;
 
