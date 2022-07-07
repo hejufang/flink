@@ -103,6 +103,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	private final boolean optimizedJobDeploymentStructureEnable;
 
+	private final boolean batchUpdateJobStateEnable;
+
 	public TaskManagerConfiguration(
 			int numberSlots,
 			ResourceProfile defaultSlotResourceProfile,
@@ -127,7 +129,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			int resultClientCount,
 			int resultConnectTimeoutMills,
 			boolean deployTaskSocketEnable,
-			boolean optimizedJobDeploymentStructureEnable) {
+			boolean optimizedJobDeploymentStructureEnable,
+			boolean batchUpdateJobStateEnable) {
 
 		this.numberSlots = numberSlots;
 		this.defaultSlotResourceProfile = defaultSlotResourceProfile;
@@ -153,6 +156,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		this.resultConnectTimeoutMills = resultConnectTimeoutMills;
 		this.deployTaskSocketEnable = deployTaskSocketEnable;
 		this.optimizedJobDeploymentStructureEnable = optimizedJobDeploymentStructureEnable;
+		this.batchUpdateJobStateEnable = batchUpdateJobStateEnable;
 	}
 
 	public int getNumberSlots() {
@@ -259,6 +263,10 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		return optimizedJobDeploymentStructureEnable;
 	}
 
+	public boolean isBatchUpdateJobStateEnable() {
+		return batchUpdateJobStateEnable;
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Static factory methods
 	// --------------------------------------------------------------------------------------------
@@ -328,6 +336,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		final boolean taskInitializeFinishEnable = configuration.getBoolean(BenchmarkOptions.TASK_INITIALIZE_THEN_FINISH_ENABLE);
 
 		final boolean notifyFinalStateInTaskThreadEnable = configuration.getBoolean(TaskManagerOptions.NOTIFY_FINAL_STATE_IN_TASK_THREAD_ENABLE);
+		final boolean batchUpdateJobStateEnable = configuration.getBoolean(TaskManagerOptions.TASKMANAGER_BATCH_UPDATE_JOB_TASK_STATE_ENABLE);
 
 		final int resultClientCount = configuration.get(TaskManagerOptions.RESULT_PUSH_CLIENT_COUNT);
 		final int resultClientConnectTimeoutMills = configuration.get(TaskManagerOptions.RESULT_PUSH_CLIENT_CONNECT_TIMEOUT_MILLS);
@@ -358,6 +367,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			resultClientCount,
 			resultClientConnectTimeoutMills,
 			deployTaskSocketEnable,
-			optimizedJobDeploymentStructureEnable);
+			optimizedJobDeploymentStructureEnable,
+			batchUpdateJobStateEnable);
 	}
 }

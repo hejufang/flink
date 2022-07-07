@@ -661,6 +661,11 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	}
 
 	@Override
+	public CompletableFuture<Acknowledge> batchUpdateTaskExecutionState(final BatchTaskExecutionState batchTaskExecutionState) {
+		return batchTaskExecutionState.batchUpdateTaskExecutionState(this);
+	}
+
+	@Override
 	public CompletableFuture<SerializedInputSplit> requestNextInputSplit(
 			final JobVertexID vertexID,
 			final ExecutionAttemptID executionAttempt) {

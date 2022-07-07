@@ -81,6 +81,7 @@ public class TestingJobMasterGatewayBuilder {
 	private String hostname = "localhost";
 	private Supplier<CompletableFuture<Acknowledge>> cancelFunction = () -> CompletableFuture.completedFuture(Acknowledge.get());
 	private Function<TaskExecutionState, CompletableFuture<Acknowledge>> updateTaskExecutionStateFunction = ignored -> CompletableFuture.completedFuture(Acknowledge.get());
+	private Runnable updateTaskExecutionStateListRunnable = () -> {};
 	private BiFunction<JobVertexID, ExecutionAttemptID, CompletableFuture<SerializedInputSplit>> requestNextInputSplitFunction = (ignoredA, ignoredB) -> CompletableFuture.completedFuture(new SerializedInputSplit(null));
 	private BiFunction<IntermediateDataSetID, ResultPartitionID, CompletableFuture<ExecutionState>> requestPartitionStateFunction = (ignoredA, ignoredB) -> CompletableFuture.completedFuture(ExecutionState.RUNNING);
 	private Function<ResultPartitionID, CompletableFuture<Acknowledge>> scheduleOrUpdateConsumersFunction = ignored -> CompletableFuture.completedFuture(Acknowledge.get());
@@ -125,6 +126,11 @@ public class TestingJobMasterGatewayBuilder {
 
 	public TestingJobMasterGatewayBuilder setUpdateTaskExecutionStateFunction(Function<TaskExecutionState, CompletableFuture<Acknowledge>> updateTaskExecutionStateFunction) {
 		this.updateTaskExecutionStateFunction = updateTaskExecutionStateFunction;
+		return this;
+	}
+
+	public TestingJobMasterGatewayBuilder setUpdateTaskExecutionListRunnable(Runnable updateTaskExecutionStateListRunnable) {
+		this.updateTaskExecutionStateListRunnable = updateTaskExecutionStateListRunnable;
 		return this;
 	}
 
@@ -264,6 +270,7 @@ public class TestingJobMasterGatewayBuilder {
 			hostname,
 			cancelFunction,
 			updateTaskExecutionStateFunction,
+			updateTaskExecutionStateListRunnable,
 			requestNextInputSplitFunction,
 			requestPartitionStateFunction,
 			scheduleOrUpdateConsumersFunction,

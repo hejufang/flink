@@ -34,6 +34,7 @@ import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.jobmaster.BatchTaskExecutionState;
 import org.apache.flink.runtime.jobmaster.JobMaster;
 import org.apache.flink.runtime.jobmaster.SerializedInputSplit;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -179,6 +180,14 @@ public interface DispatcherGateway extends FencedRpcGateway<DispatcherId>, Restf
 	CompletableFuture<Acknowledge> updateTaskExecutionState(
 		final JobID jobId,
 		final TaskExecutionState taskExecutionState);
+
+	/**
+	 * Batch update task execution states.
+	 *
+	 * @param batchTaskExecutionState batch task execution state
+	 * @return Future flag of the batch execution state update result
+	 */
+	CompletableFuture<Acknowledge> batchUpdateTaskExecutionState(final BatchTaskExecutionState batchTaskExecutionState);
 
 	/**
 	 * Requests the next input split for the {@link ExecutionJobVertex}.

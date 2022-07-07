@@ -100,6 +100,11 @@ public class JobMasterDispatcherProxyGateway implements JobMasterGateway {
 	}
 
 	@Override
+	public CompletableFuture<Acknowledge> batchUpdateTaskExecutionState(BatchTaskExecutionState batchTaskExecutionState) {
+		return dispatcherGateway.batchUpdateTaskExecutionState(batchTaskExecutionState);
+	}
+
+	@Override
 	public CompletableFuture<SerializedInputSplit> requestNextInputSplit(JobVertexID vertexID, ExecutionAttemptID executionAttempt) {
 		return dispatcherGateway.requestNextInputSplit(jobId, vertexID, executionAttempt);
 	}

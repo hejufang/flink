@@ -36,6 +36,7 @@ import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.jobmaster.BatchTaskExecutionState;
 import org.apache.flink.runtime.jobmaster.JobResult;
 import org.apache.flink.runtime.jobmaster.SerializedInputSplit;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -241,6 +242,11 @@ public final class TestingDispatcherGateway extends TestingRestfulGateway implem
 
 	@Override
 	public CompletableFuture<Acknowledge> updateTaskExecutionState(JobID jobId, TaskExecutionState taskExecutionState) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> batchUpdateTaskExecutionState(BatchTaskExecutionState batchTaskExecutionState) {
 		throw new UnsupportedOperationException();
 	}
 

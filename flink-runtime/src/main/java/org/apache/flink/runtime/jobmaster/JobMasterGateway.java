@@ -87,6 +87,14 @@ public interface JobMasterGateway extends
 			final TaskExecutionState taskExecutionState);
 
 	/**
+	 * Updates the task execution state list for the given job.
+	 *
+	 * @param batchTaskExecutionState the task execution state list
+	 * @return future flag of the task execution state update result
+	 */
+	CompletableFuture<Acknowledge> batchUpdateTaskExecutionState(final BatchTaskExecutionState batchTaskExecutionState);
+
+	/**
 	 * Requests the next input split for the {@link ExecutionJobVertex}.
 	 * The next input split is sent back to the sender as a
 	 * {@link SerializedInputSplit} message.

@@ -36,6 +36,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.jobmaster.BatchTaskExecutionState;
 import org.apache.flink.runtime.jobmaster.JobMasterGateway;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.jobmaster.SerializedInputSplit;
@@ -89,6 +90,9 @@ public class TestingJobMasterGateway implements JobMasterGateway {
 
 	@Nonnull
 	private final Function<TaskExecutionState, CompletableFuture<Acknowledge>> updateTaskExecutionStateFunction;
+
+	@Nonnull
+	private final Runnable updateTaskExecutionStateListRunnable;
 
 	@Nonnull
 	private final BiFunction<JobVertexID, ExecutionAttemptID, CompletableFuture<SerializedInputSplit>> requestNextInputSplitFunction;
@@ -173,6 +177,7 @@ public class TestingJobMasterGateway implements JobMasterGateway {
 			@Nonnull String hostname,
 			@Nonnull Supplier<CompletableFuture<Acknowledge>> cancelFunction,
 			@Nonnull Function<TaskExecutionState, CompletableFuture<Acknowledge>> updateTaskExecutionStateFunction,
+			@Nonnull Runnable updateTaskExecutionStateListRunnable,
 			@Nonnull BiFunction<JobVertexID, ExecutionAttemptID, CompletableFuture<SerializedInputSplit>> requestNextInputSplitFunction,
 			@Nonnull BiFunction<IntermediateDataSetID, ResultPartitionID, CompletableFuture<ExecutionState>> requestPartitionStateFunction,
 			@Nonnull Function<ResultPartitionID, CompletableFuture<Acknowledge>> scheduleOrUpdateConsumersFunction,
@@ -203,6 +208,7 @@ public class TestingJobMasterGateway implements JobMasterGateway {
 		this.hostname = hostname;
 		this.cancelFunction = cancelFunction;
 		this.updateTaskExecutionStateFunction = updateTaskExecutionStateFunction;
+		this.updateTaskExecutionStateListRunnable = updateTaskExecutionStateListRunnable;
 		this.requestNextInputSplitFunction = requestNextInputSplitFunction;
 		this.requestPartitionStateFunction = requestPartitionStateFunction;
 		this.scheduleOrUpdateConsumersFunction = scheduleOrUpdateConsumersFunction;
@@ -239,6 +245,12 @@ public class TestingJobMasterGateway implements JobMasterGateway {
 	@Override
 	public CompletableFuture<Acknowledge> updateTaskExecutionState(TaskExecutionState taskExecutionState) {
 		return updateTaskExecutionStateFunction.apply(taskExecutionState);
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> batchUpdateTaskExecutionState(BatchTaskExecutionState batchTaskExecutionState) {
+		updateTaskExecutionStateListRunnable.run();
+		return batchTaskExecutionState.batchUpdateTaskExecutionState(this);
 	}
 
 	@Override

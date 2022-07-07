@@ -51,7 +51,6 @@ import org.apache.flink.runtime.deployment.JobVertexDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptorBuilder;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
-import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.execution.librarycache.TestingClassLoaderLease;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
@@ -1820,7 +1819,7 @@ public class TaskExecutorTest extends TestLogger {
 			assertThat(offeredSlotsFuture.get(), is(1));
 
 			// submit task.
-			submitTask(allocationID, jobMasterGateway, taskExecutorGateway, BlockingNoOpCancelableInvokable.class);
+			submitTask(allocationID, jobMasterGateway, taskExecutorGateway, TaskExecutorTestUtils.BlockingNoOpCancelableInvokable.class);
 			taskRunningFuture.get();
 
 			// notify loss of leadership
@@ -1929,7 +1928,7 @@ public class TaskExecutorTest extends TestLogger {
 			assertThat(offeredSlotsFuture.get(), is(1));
 
 			// submit task.
-			submitTask(allocationID, jobMasterGateway, taskExecutorGateway, BlockingNoOpCancelableInvokable.class);
+			submitTask(allocationID, jobMasterGateway, taskExecutorGateway, TaskExecutorTestUtils.BlockingNoOpCancelableInvokable.class);
 			taskRunningFuture.get();
 
 			// notify loss of leadership
@@ -2269,6 +2268,19 @@ public class TaskExecutorTest extends TestLogger {
 	}
 
 	@Test
+	public void testSubmitOptimizeTaskListWithBatchUpdateJobState() throws Exception {
+		executeSubmitOptimizeTaskList(
+			new TaskGlobalMemoryManager(
+				MemoryManager.MIN_PAGE_SIZE * 1024 * 32,
+				MemoryManager.MIN_PAGE_SIZE,
+				Duration.ofSeconds(10),
+				true,
+				1,
+				false),
+			true);
+	}
+
+	@Test
 	public void testSubmitOptimizeTaskListSlotMemoryManager() throws Exception {
 		executeSubmitOptimizeTaskList(
 			new TaskSlotMemoryManager(
@@ -2406,14 +2418,23 @@ public class TaskExecutorTest extends TestLogger {
 	}
 
 	private void executeSubmitOptimizeTaskList(TaskMemoryManager taskMemoryManager) throws Exception {
+		executeSubmitOptimizeTaskList(taskMemoryManager, false);
+	}
+
+	private void executeSubmitOptimizeTaskList(TaskMemoryManager taskMemoryManager, boolean batchUpdateJobStateEnable) throws Exception {
 		final CompletableFuture<TaskExecutionState> stateFuture = new CompletableFuture<>();
+		final CompletableFuture<Void> stateListFuture = new CompletableFuture<>();
 		final TestingJobMasterGateway jobMasterGateway = new TestingJobMasterGatewayBuilder()
 			.setUpdateTaskExecutionStateFunction(state -> {
 				if (state.getExecutionState().isTerminal()) {
 					stateFuture.complete(state);
 				}
 				return CompletableFuture.completedFuture(Acknowledge.get());
-			}).build();
+			})
+			.setUpdateTaskExecutionListRunnable(() -> {
+				stateListFuture.complete(null);
+			})
+			.build();
 
 		CompletableFuture<Acknowledge> closeFuture = new CompletableFuture<>();
 		CompletableFuture<Acknowledge> addTaskFuture = new CompletableFuture<>();
@@ -2452,7 +2473,9 @@ public class TaskExecutorTest extends TestLogger {
 			.build();
 		Configuration configuration = new Configuration();
 		configuration.setBoolean(JobManagerOptions.JOBMANAGER_REQUEST_SLOT_FROM_RESOURCEMANAGER_ENABLE, true);
+		configuration.setBoolean(TaskManagerOptions.TASKMANAGER_BATCH_UPDATE_JOB_TASK_STATE_ENABLE, batchUpdateJobStateEnable);
 		configuration.setBoolean(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY, true);
+		configuration.setBoolean(ClusterOptions.JM_OPTIMIZED_SUBMIT_TASK_STRUCTURE_ENABLED, optimizedJobDeploymentStructureEnable);
 		final TestingTaskExecutor taskManager = createTestingTaskExecutor(taskManagerServices, null, null, configuration);
 
 		final TestingResourceManagerGateway testingResourceManagerGateway = new TestingResourceManagerGateway();
@@ -2466,10 +2489,20 @@ public class TaskExecutorTest extends TestLogger {
 
 			JobMasterId jobMasterId = JobMasterId.generate();
 			TaskExecutorGateway taskExecutorGateway = taskManager.getSelfGateway(TaskExecutorGateway.class);
-			TaskDeploymentDescriptor tdd = createTaskDeploymentDescriptor(jobId, TaskExecutorSubmissionTest.FutureCompletingInvokable.class, new ExecutionAttemptID());
-			CompletableFuture<Acknowledge> submitFuture = taskExecutorGateway.submitTaskList(jobMasterGateway.getAddress(), Collections.singletonList(tdd), jobMasterId, timeout);
+
+			final CompletableFuture<Acknowledge> submitFuture;
+			if (optimizedJobDeploymentStructureEnable) {
+				JobDeploymentDescriptor jdd = createJobDeploymentDescriptor(jobId, TaskExecutorSubmissionTest.FutureCompletingInvokable.class, new ExecutionAttemptID());
+				submitFuture = taskExecutorGateway.submitTaskList(jobMasterGateway.getAddress(), jdd, jobMasterId, timeout);
+			} else {
+				TaskDeploymentDescriptor tdd = createTaskDeploymentDescriptor(jobId, TaskExecutorSubmissionTest.FutureCompletingInvokable.class, new ExecutionAttemptID());
+				submitFuture = taskExecutorGateway.submitTaskList(jobMasterGateway.getAddress(), Collections.singletonList(tdd), jobMasterId, timeout);
+			}
 
 			submitFuture.get(10, TimeUnit.SECONDS);
+			if (batchUpdateJobStateEnable) {
+				stateListFuture.get(10, TimeUnit.SECONDS);
+			}
 			TaskExecutionState taskExecutionState = stateFuture.get(10, TimeUnit.SECONDS);
 			assertTrue(taskExecutionState.getExecutionState().isTerminal());
 
@@ -2481,6 +2514,7 @@ public class TaskExecutorTest extends TestLogger {
 			assertTrue(removeJobFuture.isDone());
 			assertTrue(addTaskFuture.isDone());
 			assertTrue(removeTaskFuture.isDone());
+			taskManager.checkJobDeploymentRemoved(jobId);
 		} finally {
 			RpcUtils.terminateRpcEndpoint(taskManager, timeout);
 		}
@@ -2954,34 +2988,5 @@ public class TaskExecutorTest extends TestLogger {
 			}
 		}
 		throw e;
-	}
-
-	/**
-	 * Task that block running until task canceled 1 seconds.
-	 */
-	public static class BlockingNoOpCancelableInvokable extends AbstractInvokable {
-		private boolean isCanceled = false;
-		public BlockingNoOpCancelableInvokable(Environment environment) {
-			super(environment);
-		}
-
-		@Override
-		public void invoke() throws Exception {
-			final Object o = new Object();
-			synchronized (o) {
-				while (!isCanceled) {
-					o.wait();
-				}
-			}
-		}
-
-		@Override
-		public void cancel() throws Exception {
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException ie) {
-			}
-			isCanceled = true;
-		}
 	}
 }

@@ -174,6 +174,10 @@ public class TaskExecutionState implements Serializable {
 		return ioMetrics;
 	}
 
+	public SerializedThrowable getThrowable() {
+		return throwable;
+	}
+
 	// --------------------------------------------------------------------------------------------
 
 	@Override

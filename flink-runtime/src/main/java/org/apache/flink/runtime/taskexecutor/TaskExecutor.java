@@ -83,7 +83,6 @@ import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
 import org.apache.flink.runtime.jobmaster.DispatcherToTaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.jobmaster.ExecutionGraphException;
 import org.apache.flink.runtime.jobmaster.JMTMRegistrationSuccess;
-import org.apache.flink.runtime.jobmaster.JobMasterDispatcherProxyGateway;
 import org.apache.flink.runtime.jobmaster.JobMasterGateway;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.jobmaster.ResourceManagerAddress;
@@ -259,9 +258,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	private final LeaderRetrievalService resourceManagerLeaderRetriever;
 
-	private CompletableFuture<DispatcherGateway> dispatcherGatewayFuture;
-
-	private  DispatcherRegistration dispatcherRegistration;
+	private final TaskExecutorDispatcherManager taskExecutorDispatcherManager;
 
 	// --------- job deploys tasks manager -----------
 
@@ -272,6 +269,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	private final boolean optimizedJobDeploymentStructureEnable;
 
 	private final boolean taskDeployFinishEnable;
+
+	private final boolean batchUpdateJobStateEnable;
 
 	private final TaskExecutorNettyServer taskExecutorNettyServer;
 
@@ -410,6 +409,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		this.heartbeatServices = heartbeatServices;
 		this.jobManagerHeartbeatManager = jobReuseDispatcherEnable ? NoOpHeartbeatManager.getInstance() : createJobManagerHeartbeatManager(heartbeatServices, resourceId);
 		this.dispatcherHeartbeatManager = NoOpHeartbeatManager.getInstance();
+		this.batchUpdateJobStateEnable = taskManagerConfiguration.isBatchUpdateJobStateEnable();
+		this.taskExecutorDispatcherManager = new TaskExecutorDispatcherManager(this);
 	}
 
 	private HeartbeatManager<Void, TaskExecutorHeartbeatPayload> createResourceManagerHeartbeatManager(HeartbeatServices heartbeatServices, ResourceID resourceId) {
@@ -468,15 +469,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	}
 
 	protected void closeDispatcherConnection(ResourceID dispatcherId, Exception cause) {
-		if (dispatcherRegistration != null) {
-			final DispatcherGateway dispatcherGateway = dispatcherRegistration.getDispatcherGateway();
-			log.info("Disconnect dispatcher {}@{}", dispatcherGateway.getFencingToken(), dispatcherGateway.getAddress());
-			dispatcherHeartbeatManager.unmonitorTarget(dispatcherRegistration.getDispatcherResourceID());
-			// tell the dispatcher about the disconnect
-			dispatcherGateway.disconnectTaskExecutor(getResourceID(), cause);
-		} else {
-			log.debug("There was no registered dispatcher {}.", dispatcherId);
-		}
+		taskExecutorDispatcherManager.closeDispatcherConnection(dispatcherId, cause, dispatcherHeartbeatManager);
 	}
 
 	@Override
@@ -864,8 +857,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 		TaskDeploymentDescriptor taskDeploymentDescriptor = tdds.iterator().next();
 		JobID jobId = taskDeploymentDescriptor.getJobId();
-		JobDeploymentManager jobDeploymentManager = jobDeploymentManagers.computeIfAbsent(jobId, key -> new JobDeploymentManager(jobMasterId));
-		jobDeploymentManager.getTdds().addAll(tdds);
+		JobDeploymentManager jobDeploymentManager = jobDeploymentManagers.computeIfAbsent(jobId, key -> new JobDeploymentManager(jobId, jobMasterId));
+		jobDeploymentManager.addTdds(tdds);
+
 		return connectAndDeployJob(jobId, jobMasterAddress);
 	}
 
@@ -874,6 +868,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		final JobTable.Job job;
 		JobID jobId = Preconditions.checkNotNull(jdd).getJobId();
 		jobDeploymentDescriptorManagers.put(jobId, new JobDeploymentDescriptorManager(jobMasterId, jdd));
+		JobDeploymentManager jobDeploymentManager = jobDeploymentManagers.computeIfAbsent(jobId, key -> new JobDeploymentManager(jdd.getJobId(), jobMasterId));
+		jobDeploymentManager.addDeployTaskCount(jdd.getTaskCount());
 		try {
 			job = createJob(jobMasterAddress, jobId);
 			if (job.isConnected()) {
@@ -911,11 +907,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	}
 
 	private void connectToJobMasterByDispatcher(JobID jobID) {
-		log.info("connect to jobmaster, jobID:{}", jobID);
-		if (dispatcherRegistration != null) {
-			jobTable.getJob(jobID).ifPresent(
-				job -> establishJobManagerConnectionByDispatcher(job, new JobMasterDispatcherProxyGateway(jobID, dispatcherRegistration.getDispatcherGateway()), new JMTMRegistrationSuccess(dispatcherRegistration.getDispatcherResourceID())));
-		}
+		taskExecutorDispatcherManager.connectToJobMasterByDispatcher(jobID, jobTable);
 	}
 
 	private CompletableFuture<Acknowledge> connectAndDeployJob(JobID jobId, String jobMasterAddress) {
@@ -935,7 +927,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	}
 
 	private void deployJobTasks(JobID jobId, JobTable.Connection jobManagerConnection) {
-		JobDeploymentManager jobDeploymentManager = jobDeploymentManagers.remove(jobId);
+		JobDeploymentManager jobDeploymentManager = jobDeploymentManagers.get(jobId);
 		if (jobDeploymentManager == null) {
 			return;
 		}
@@ -1105,7 +1097,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			taskManagerConfiguration.isJobLogDetailDisable(),
 			taskSubmitRunning,
 			notifyFinalStateInTaskThreadEnable,
-			taskJobResultGateway);
+			taskJobResultGateway,
+			taskManagerConfiguration.isTaskInitializeFinishEnable());
 
 		taskStart(taskInformation, jobId, executionAttemptID, taskMetricGroup, jobManagerConnection.getTaskManagerActions(), producedPartitions, task);
 	}
@@ -2129,7 +2122,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		}
 	}
 
-	private void establishJobManagerConnectionByDispatcher(JobTable.Job job, final JobMasterGateway jobMasterGateway, JMTMRegistrationSuccess registrationSuccess) {
+	void establishJobManagerConnectionByDispatcher(JobTable.Job job, final JobMasterGateway jobMasterGateway, JMTMRegistrationSuccess registrationSuccess) {
 
 		final JobID jobId = job.getJobId();
 		final Optional<JobTable.Connection> connection = job.asConnection();
@@ -2323,28 +2316,28 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		final JobID jobID = taskExecutionState.getJobID();
 
 		try {
+			JobDeploymentManager jobDeploymentManager = jobDeploymentManagers.get(taskExecutionState.getJobID());
+			if (jobDeploymentManager == null) {
+				log.error("Cant found job {} in job deployment managers for task {}", taskExecutionState.getJobID(), taskExecutionState.getID());
+			} else {
+				if (jobDeploymentManager.finishJobTask(taskExecutionState)) {
+					jobDeploymentManagers.remove(taskExecutionState.getJobID());
+					if (batchUpdateJobStateEnable) {
+						jobMasterGateway.batchUpdateTaskExecutionState(jobDeploymentManager.getBatchTaskExecutionState())
+							.whenCompleteAsync(
+								updateJobTaskStateFail(jobMasterGateway, executionAttemptID, jobID),
+								getMainThreadExecutor());
+						return;
+					}
+				} else if (taskExecutionState.getExecutionState().isTerminal() && batchUpdateJobStateEnable) {
+					return;
+				}
+			}
+
 			CompletableFuture<Acknowledge> futureAcknowledge = jobMasterGateway.updateTaskExecutionState(taskExecutionState);
 
 			futureAcknowledge.whenCompleteAsync(
-				(ack, throwable) -> {
-					if (throwable != null) {
-						if (ExceptionUtils.findThrowable(throwable, ExecutionGraphException.class).isPresent()) {
-							failTask(executionAttemptID, throwable);
-						} else {
-							final JobMasterGateway currentJobMasterGateway = jobTable.getConnection(jobID).map(JobTable.Connection::getJobManagerGateway).orElse(null);
-							if (currentJobMasterGateway != null && currentJobMasterGateway == jobMasterGateway) {
-								// we should always let JM know tasks' state, otherwise there might occur some serious problem.
-								// For example, a task fails but JM didn't receive the notification so that the task will never be
-								// redeployed.
-								log.error("Catch exception when send update task execution state message to job master, ", throwable);
-								onFatalError(throwable, WorkerExitCode.TASKMANAGER_UPDATE_STATE_ERROR);
-							} else {
-								log.info("Update task state for {} failed, but JobMaster has changed, ignore this.", executionAttemptID);
-								failTask(executionAttemptID, throwable);
-							}
-						}
-					}
-				},
+				updateJobTaskStateFail(jobMasterGateway, executionAttemptID, jobID),
 				getMainThreadExecutor());
 		} catch (Throwable t) {
 			// we should always let JM know tasks' state, otherwise there might occur some serious problem.
@@ -2353,6 +2346,31 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			log.error("Catch exception when send update task execution state message to job master, ", t);
 			onFatalError(t, WorkerExitCode.TASKMANAGER_UPDATE_STATE_RPC_ERROR);
 		}
+	}
+
+	private BiConsumer<Acknowledge, Throwable> updateJobTaskStateFail(
+			JobMasterGateway jobMasterGateway,
+			ExecutionAttemptID executionAttemptID,
+			JobID jobID) {
+		return (ack, throwable) -> {
+			if (throwable != null) {
+				if (ExceptionUtils.findThrowable(throwable, ExecutionGraphException.class).isPresent()) {
+					failTask(executionAttemptID, throwable);
+				} else {
+					final JobMasterGateway currentJobMasterGateway = jobTable.getConnection(jobID).map(JobTable.Connection::getJobManagerGateway).orElse(null);
+					if (currentJobMasterGateway != null && currentJobMasterGateway == jobMasterGateway) {
+						// we should always let JM know tasks' state, otherwise there might occur some serious problem.
+						// For example, a task fails but JM didn't receive the notification so that the task will never be
+						// redeployed.
+						log.error("Catch exception when send update task execution state message to job master, ", throwable);
+						onFatalError(throwable, WorkerExitCode.TASKMANAGER_UPDATE_STATE_ERROR);
+					} else {
+						log.info("Update task state for {} failed, but JobMaster has changed, ignore this.", executionAttemptID);
+						failTask(executionAttemptID, throwable);
+					}
+				}
+			}
+		};
 	}
 
 	private void unregisterTaskAndNotifyFinalState(
@@ -2614,6 +2632,12 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		return unresolvedTaskManagerLocation.getResourceID();
 	}
 
+	@VisibleForTesting
+	public void checkJobDeploymentRemoved(JobID jobId) {
+		checkArgument(!jobDeploymentManagers.containsKey(jobId));
+		checkArgument(!jobDeploymentDescriptorManagers.containsKey(jobId));
+	}
+
 	// ------------------------------------------------------------------------
 	//  Error Handling
 	// ------------------------------------------------------------------------
@@ -2656,7 +2680,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	@VisibleForTesting
 	DispatcherRegistration getDispatcherRegistration() {
-		return dispatcherRegistration;
+		return taskExecutorDispatcherManager.getDispatcherRegistration();
 	}
 
 	// ------------------------------------------------------------------------
@@ -2914,16 +2938,21 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			if (dispatcherAddress != null) {
 				final CompletableFuture<DispatcherGateway> dispatcherGatewayFuture = getRpcService()
 					.connect(dispatcherAddress, dispatcherId, DispatcherGateway.class);
-				this.dispatcherGatewayFuture = dispatcherGatewayFuture;
+				taskExecutorDispatcherManager.setDispatcherGatewayFuture(dispatcherGatewayFuture);
 				log.info("start register dispatcher,id:{} address: {}", dispatcherId, dispatcherAddress);
 				return dispatcherGatewayFuture.handleAsync(
 					(DispatcherGateway dispatcherGateway, Throwable throwable) -> {
-						if (dispatcherGatewayFuture == this.dispatcherGatewayFuture) {
-							this.dispatcherGatewayFuture = null;
+						if (dispatcherGatewayFuture == taskExecutorDispatcherManager.getDispatcherGatewayFuture()) {
+							taskExecutorDispatcherManager.setDispatcherGatewayFuture(null);
 							if (throwable != null) {
 								return new RegistrationResponse.Decline(throwable.getMessage());
 							} else {
-								return registerDispatcherInternal(dispatcherGateway, dispatcherResourceId, dispatcherAddress);
+								return taskExecutorDispatcherManager.registerDispatcher(
+									dispatcherGateway,
+									dispatcherResourceId,
+									dispatcherAddress,
+									dispatcherHeartbeatManager,
+									jobTable);
 							}
 						} else {
 							log.debug("Ignoring outdated DispatcherGateway connection for {}.", dispatcherId);
@@ -2938,60 +2967,5 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
-	}
-
-	private RegistrationResponse registerDispatcherInternal(
-			DispatcherGateway dispatcherGateway,
-			ResourceID dispatcherResourceId,
-			String dispatcherAddress) {
-		log.info("register dispatcher: {}, address: {}", dispatcherResourceId, dispatcherAddress);
-		if (dispatcherRegistration != null) {
-			DispatcherRegistration oldDispatcherRegistration = dispatcherRegistration;
-
-			if (Objects.equals(oldDispatcherRegistration.getDispatcherId(), dispatcherGateway.getFencingToken())) {
-				// same registration
-				log.debug("Dispatcher {}@{} was already registered.", dispatcherGateway.getFencingToken(), dispatcherAddress);
-			} else {
-				// tell old dispatcher that he is no longer the leader
-				closeDispatcherConnection(
-					dispatcherResourceId,
-					new Exception("New dispatcher " + dispatcherResourceId + " found."));
-
-				DispatcherRegistration dispatcherRegistration = new DispatcherRegistration(
-					dispatcherGateway.getFencingToken(),
-					dispatcherResourceId,
-					dispatcherGateway);
-				this.dispatcherRegistration = dispatcherRegistration;
-			}
-		} else {
-			DispatcherRegistration dispatcherRegistration = new DispatcherRegistration(
-				dispatcherGateway.getFencingToken(),
-				dispatcherResourceId,
-				dispatcherGateway);
-			this.dispatcherRegistration = dispatcherRegistration;
-		}
-		// connect to jobMaster.
-		Optional.ofNullable(jobTable.getJobs()).ifPresent(jobs -> jobs.forEach(job -> {
-			connectToJobMasterByDispatcher(job.getJobId());
-		}));
-		log.info("Registered dispatcher {}@{} at TaskExecutor.", dispatcherGateway.getFencingToken(), dispatcherAddress);
-
-		dispatcherHeartbeatManager.monitorTarget(dispatcherResourceId, new HeartbeatTarget<Void>() {
-			@Override
-			public void receiveHeartbeat(ResourceID resourceID, Void payload) {
-			}
-
-			@Override
-			public void requestHeartbeat(ResourceID resourceID, Void payload) {
-				try {
-					dispatcherGateway.heartbeatFromTaskExecutor(resourceID, null);
-				} catch (Exception e) {
-					log.error("request dispatcher heartbeat error", e);
-				}
-			}
-		});
-
-		return new DispatcherToTaskExecutorRegistrationSuccess(
-			getResourceID());
 	}
 }

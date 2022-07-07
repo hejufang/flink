@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.jobmaster.BatchTaskExecutionState;
 import org.apache.flink.runtime.jobmaster.JobMasterGateway;
 import org.apache.flink.runtime.jobmaster.SerializedInputSplit;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -52,6 +53,12 @@ public abstract class JobMaterProxyDispatcher extends Dispatcher {
 	public CompletableFuture<Acknowledge> updateTaskExecutionState(final JobID jobId, final TaskExecutionState taskExecutionState) {
 		return getJobMasterGatewayFuture(jobId).thenCompose((JobMasterGateway jobMasterGateway)
 			-> jobMasterGateway.updateTaskExecutionState(taskExecutionState));
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> batchUpdateTaskExecutionState(final BatchTaskExecutionState batchTaskExecutionState) {
+		return getJobMasterGatewayFuture(batchTaskExecutionState.getJobId()).thenCompose((JobMasterGateway jobMasterGateway)
+			-> jobMasterGateway.batchUpdateTaskExecutionState(batchTaskExecutionState));
 	}
 
 	@Override
