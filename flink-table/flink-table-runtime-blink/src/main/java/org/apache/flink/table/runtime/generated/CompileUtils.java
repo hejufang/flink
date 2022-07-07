@@ -21,11 +21,10 @@ package org.apache.flink.table.runtime.generated;
 import org.apache.flink.api.common.InvalidProgramException;
 import org.apache.flink.util.FlinkRuntimeException;
 
-import org.apache.flink.shaded.byted.com.bytedance.metrics.UdpMetricsClient;
 import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
 import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
+import org.apache.flink.shaded.guava18.com.google.common.hash.Hashing;
 
-import org.apache.curator.shaded.com.google.common.hash.Hashing;
 import org.codehaus.janino.SimpleCompiler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,18 +54,9 @@ public final class CompileUtils {
 		.recordStats()
 		.build();
 
-	private static final String CLASS_CACHE_METRICS_PREFIX = "flink.class.cache";
+	private static volatile long lastPrintCacheStatsTime = -1;
 
-	private static final String CLASS_CACHE_METRICS_HIT_RATE = "hit-rate";
-
-	private static final String CLASS_CACHE_METRICS_HIT_COUNT = "hit-count";
-
-	// TODO: find a new way to write metrics in OLAP/Batch scenarios,
-	// do not use internal metrics system.
-	private static final UdpMetricsClient udpMetricsClient =
-		new UdpMetricsClient(CLASS_CACHE_METRICS_PREFIX);
-
-	private static final String FLINK_CLUSTER_NAME = System.getenv("FLINK_CLUSTER_NAME");
+	private static final long PRINT_CACHE_STATS_INTERVAL = 5 * 60 * 1000;
 
 	/**
 	 * Compiles a generated code to a Class.
@@ -82,15 +72,18 @@ public final class CompileUtils {
 			Class<T> clz = COMPILED_CLASS_CACHE.get(
 				new ClassKey(cl.hashCode(), name, code), () -> doCompile(cl, name, code));
 
-			if (FLINK_CLUSTER_NAME != null) {
-				udpMetricsClient.emitStoreWithTag(CLASS_CACHE_METRICS_HIT_RATE,
-					COMPILED_CLASS_CACHE.stats().hitRate(), "cluster=" + FLINK_CLUSTER_NAME);
-				udpMetricsClient.emitStoreWithTag(CLASS_CACHE_METRICS_HIT_COUNT,
-					COMPILED_CLASS_CACHE.stats().hitCount(), "cluster=" + FLINK_CLUSTER_NAME);
-			}
+			tryPrintCacheStats();
 			return clz;
 		} catch (Exception e) {
 			throw new FlinkRuntimeException(e.getMessage(), e);
+		}
+	}
+
+	private static void tryPrintCacheStats() {
+		long currentTime = System.currentTimeMillis();
+		if (currentTime - lastPrintCacheStatsTime > PRINT_CACHE_STATS_INTERVAL) {
+			lastPrintCacheStatsTime = currentTime;
+			CODE_LOG.info("Compile cache stats: {}", COMPILED_CLASS_CACHE.stats());
 		}
 	}
 
