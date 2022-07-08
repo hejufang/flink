@@ -1755,6 +1755,7 @@ Foxtrot-HL:
   flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
   ipv6.enabled: true
   ipv6.supported.cluster: Foxtrot-HL
+  flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
   resourcemanager.slow-container.release-timeout-enabled: true
   containerized.taskmanager.env.use_ss_lib: false
 
@@ -1810,6 +1811,7 @@ Foxtrot-LQ:
   flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
   ipv6.enabled: true
   ipv6.supported.cluster: Foxtrot-LQ
+  flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
   resourcemanager.slow-container.release-timeout-enabled: true
   containerized.taskmanager.env.use_ss_lib: false
 
