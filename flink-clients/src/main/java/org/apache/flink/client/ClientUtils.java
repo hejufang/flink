@@ -76,9 +76,7 @@ public enum ClientUtils {
 			configuration.getString(CoreOptions.CLASSLOADER_RESOLVE_ORDER);
 		FlinkUserCodeClassLoaders.ResolveOrder resolveOrder =
 			FlinkUserCodeClassLoaders.ResolveOrder.fromString(classLoaderResolveOrder);
-		Configuration cloneConfiguration = configuration.clone();
-		StateBackendLoader.reconfigureStateBackendPlugin(cloneConfiguration);
-		List<URL> stateBackendPlugins = StateBackendLoader.findStateBackendPlugins(cloneConfiguration);
+		List<URL> stateBackendPlugins = StateBackendLoader.findStateBackendPlugins(configuration);
 		URLClassLoader classLoader = FlinkUserCodeClassLoaders.create(resolveOrder, urls, parent, alwaysParentFirstLoaderPatterns, NOOP_EXCEPTION_HANDLER, stateBackendPlugins);
 		return classLoader;
 	}

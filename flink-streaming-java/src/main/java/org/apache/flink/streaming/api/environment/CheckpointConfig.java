@@ -648,8 +648,8 @@ public class CheckpointConfig implements java.io.Serializable {
 	public static void reconfigureRestoreFromSnapshot(JobGraph jobGraph, final Configuration configuration) throws IOException {
 		setUpNewSnapshotFeature(configuration);
 
-		final String savepointPath = configuration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
-		if (jobGraph.getCheckpointingSettings() != null) {
+		if (jobGraph.getCheckpointingSettings() != null && shouldFindSavepointPath(configuration)) {
+			final String savepointPath = configuration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
 			if (RESTORE_FROM_LATEST.equals(savepointPath)) {
 				Tuple3<String, Boolean, CheckpointMetadata> latestSnapshotPathAndNamespaceEmpty = findLatestSnapshotCrossNamespaces(configuration, jobGraph.getJobUID());
 				checkStateSizeExceedQuota(jobGraph, configuration, latestSnapshotPathAndNamespaceEmpty.f2);
@@ -679,14 +679,7 @@ public class CheckpointConfig implements java.io.Serializable {
 	}
 
 	private static void setUpNewSnapshotFeature(Configuration configuration) {
-		if (configuration.contains(CheckpointingOptions.CHECKPOINTS_NAMESPACE)) {
-			if (configuration.contains(CheckpointingOptions.SNAPSHOT_NAMESPACE)) {
-				// disable new feature if user sets state.checkpoints.namespace
-				configuration.removeConfig(CheckpointingOptions.SNAPSHOT_NAMESPACE);
-				if (RESTORE_FROM_LATEST.equals(configuration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH))) {
-					configuration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
-				}
-			}
+		if (configuration.containsKey(CheckpointingOptions.CHECKPOINTS_NAMESPACE.key())) {
 			return;
 		}
 
@@ -697,11 +690,11 @@ public class CheckpointConfig implements java.io.Serializable {
 				throw new IllegalStateException("Dorado should set snapshot.namespace when restoring from latest snapshot.");
 			}
 		}
+	}
 
-		final String snapshotNamespace = configuration.getString(CheckpointingOptions.SNAPSHOT_NAMESPACE);
-		if (snapshotNamespace != null) {
-			configuration.setString(CheckpointingOptions.CHECKPOINTS_NAMESPACE, snapshotNamespace);
-		}
+	private static boolean shouldFindSavepointPath(Configuration configuration) {
+		return !configuration.containsKey(CheckpointingOptions.CHECKPOINTS_NAMESPACE.key())
+			|| !configuration.containsKey(CheckpointingOptions.SNAPSHOT_NAMESPACE.key());
 	}
 
 	private static Tuple3<String, Boolean, CheckpointMetadata> findLatestSnapshotCrossNamespaces (

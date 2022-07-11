@@ -49,7 +49,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -284,29 +283,9 @@ public class StateBackendLoader {
 			configuration.get(CoreOptions.CLASSLOADER_RESOLVE_ORDER);
 		FlinkUserCodeClassLoaders.ResolveOrder resolveOrder =
 			FlinkUserCodeClassLoaders.ResolveOrder.fromString(classLoaderResolveOrder);
-		Configuration cloneConfiguration = configuration.clone();
-		reconfigureStateBackendPlugin(cloneConfiguration);
-		List<URL> stateBackendPlugins = findStateBackendPlugins(cloneConfiguration);
+		List<URL> stateBackendPlugins = findStateBackendPlugins(configuration);
 		URLClassLoader classLoader = FlinkUserCodeClassLoaders.create(resolveOrder, urls, parent, alwaysParentFirstLoaderPatterns, NOOP_EXCEPTION_HANDLER, stateBackendPlugins);
 		return classLoader;
-	}
-
-	/**
-	 * <p>STATE_BACKEND_PLUGINS</p> is automatically set based on the stateBackend type.
-	 */
-	public static void reconfigureStateBackendPlugin(Configuration configuration) {
-		Optional<String> dynamicPluginsOptional = configuration.getOptional(CheckpointingOptions.STATE_BACKEND_PLUGINS);
-		String stateBackend = configuration.get(CheckpointingOptions.STATE_BACKEND);
-		StringBuilder stateBackendPlugins = new StringBuilder();
-		if (!StringUtils.isNullOrWhitespaceOnly(stateBackend) && dynamicPluginsOptional.isPresent()) {
-			stateBackendPlugins.append(";").append(STATE_BACKEND_PLUGIN_PREFIX + stateBackend);
-		} else if (!StringUtils.isNullOrWhitespaceOnly(stateBackend)){
-			stateBackendPlugins.append(STATE_BACKEND_PLUGIN_PREFIX + stateBackend);
-		}
-
-		if (stateBackendPlugins.length() > 0) {
-			configuration.set(CheckpointingOptions.STATE_BACKEND_PLUGINS, stateBackendPlugins.toString());
-		}
 	}
 
 	/**
@@ -315,7 +294,8 @@ public class StateBackendLoader {
 	 */
 	public static List<URL> findStateBackendPlugins(Configuration configuration) {
 		try {
-			String pluginsString = configuration.get(CheckpointingOptions.STATE_BACKEND_PLUGINS);
+			String stateBackend = configuration.get(CheckpointingOptions.STATE_BACKEND);
+			String pluginsString = StringUtils.isNullOrWhitespaceOnly(stateBackend) ? null : STATE_BACKEND_PLUGIN_PREFIX + stateBackend;
 			PluginConfig pluginConfig = PluginConfig.fromConfiguration(configuration);
 			if (!StringUtils.isNullOrWhitespaceOnly(pluginsString) && pluginConfig.getPluginsPath().isPresent()) {
 				Set<String> plugins = Arrays.stream(pluginsString.split(";"))
