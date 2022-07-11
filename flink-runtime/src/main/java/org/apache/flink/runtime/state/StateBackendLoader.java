@@ -121,10 +121,6 @@ public class StateBackendLoader {
 		checkNotNull(config, "config");
 		checkNotNull(classLoader, "classLoader");
 
-		if (!(classLoader instanceof FlinkUserCodeClassLoader)) {
-			classLoader = buildUserCodeClassLoader(Collections.emptyList(), Collections.emptyList(), classLoader, (Configuration) config);
-		}
-
 		final String backendName = config.get(CheckpointingOptions.STATE_BACKEND);
 		if (backendName == null) {
 			return null;
@@ -155,6 +151,9 @@ public class StateBackendLoader {
 
 			case ROCKSDB_STATE_BACKEND_NAME:
 			case TERARKDB_STATE_BACKEND_NAME:
+				if (!(classLoader instanceof FlinkUserCodeClassLoader)) {
+					classLoader = buildUserCodeClassLoader(Collections.emptyList(), Collections.emptyList(), classLoader, (Configuration) config);
+				}
 				factoryClassName = "org.apache.flink.contrib.streaming.state.RocksDBStateBackendFactory";
 				// fall through to the 'default' case that uses reflection to load the backend
 				// that way we can keep RocksDB in a separate module
