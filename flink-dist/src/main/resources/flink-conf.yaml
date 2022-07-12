@@ -739,6 +739,17 @@ hakes:
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: hakes
 
+hover:
+  dc: cn
+  clusterName: hover
+  # ipv6 of zk cluster zk_flink_hl3
+  high-availability.zookeeper.quorum: fdbd:dc02:ff:5:1:226:128:46:2181,fdbd:dc02:ff:5:1:226:128:80:2181,fdbd:dc02:ff:5:1:226:128:67:2181,fdbd:dc02:ff:5:1:226:128:74:2181,fdbd:dc02:ff:5:1:226:128:64:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  execution.cancellation.timeout.enable: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: hover
+
+
 queen:
   dc: cn
   clusterName: queen
