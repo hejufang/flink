@@ -408,6 +408,42 @@ class JoinTest extends TableTestBase {
   }
 
   @Test
+  def testSelectHintIsNull(): Unit = {
+    util.verifyPlan(
+      """
+        |SELECT  web.item, web.return_ratio
+        |FROM  (
+        |      SELECT  item, return_ratio
+        |      FROM  (
+        |            SELECT  ws.a1 AS item,
+        |                (CAST(SUM(COALESCE(wr.b, 0)) AS dec(15, 4))) AS return_ratio
+        |            FROM  A ws
+        |            LEFT OUTER JOIN
+        |                t wr
+        |            ON    ws.a1 = wr.a
+        |            GROUP BY  ws.a1
+        |          ) in_web
+        |    ) web
+        |UNION
+        |SELECT  catalog.item, catalog.return_ratio
+        |FROM  (
+        |      SELECT  item, return_ratio
+        |      FROM  (
+        |            SELECT
+        |              cs.b1 AS item,
+        |              CAST(SUM(COALESCE(cr.x, 0)) AS dec(15, 4)) AS return_ratio
+        |            FROM  B cs
+        |            LEFT OUTER JOIN
+        |                s cr
+        |            ON    cs.b1 = cr.z
+        |            GROUP BY cs.b1
+        |          ) in_cat
+        |    ) catalog
+        |ORDER BY 1,2 LIMIT 100
+        |""".stripMargin)
+  }
+
+  @Test
   def testMultiKeyByBroadcastJoinWithView(): Unit = {
     val table1 = createValidBroadcastTable("BB")
     val table2 = createValidBroadcastTable("CC")

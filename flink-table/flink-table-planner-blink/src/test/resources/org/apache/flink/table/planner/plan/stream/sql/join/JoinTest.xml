@@ -1229,4 +1229,37 @@ OneInputTransformation{name='Calc(select=[a1, a2, word, word0])', outputType=Row
 ]]>
     </Resource>
   </TestCase>
+  <TestCase name="testSelectHintIsNull">
+    <Resource name="planAfter">
+      <![CDATA[
+SortLimit(orderBy=[item ASC, return_ratio ASC], offset=[0], fetch=[100], strategy=[RetractStrategy])
++- Exchange(distribution=[single])
+   +- GroupAggregate(groupBy=[item, return_ratio], select=[item, return_ratio])
+      +- Exchange(distribution=[hash[item, return_ratio]])
+         +- Union(all=[true], union=[item, return_ratio])
+            :- Calc(select=[item, CAST($f1) AS return_ratio])
+            :  +- GroupAggregate(groupBy=[item], select=[item, SUM_RETRACT($f1) AS $f1])
+            :     +- Exchange(distribution=[hash[item]])
+            :        +- Calc(select=[a1 AS item, CASE(IS NOT NULL(b), CAST(b), 0:BIGINT) AS $f1])
+            :           +- Join(joinType=[LeftOuterJoin], where=[=(a1, a)], select=[a1, a, b], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey])
+            :              :- Exchange(distribution=[hash[a1]])
+            :              :  +- Calc(select=[a1])
+            :              :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, A, source: [TestTableSource(a1, a2, a3)]]], fields=[a1, a2, a3])
+            :              +- Exchange(distribution=[hash[a]])
+            :                 +- Calc(select=[a, b])
+            :                    +- LegacyTableSourceScan(table=[[default_catalog, default_database, t, source: [TestTableSource(a, b, c)]]], fields=[a, b, c])
+            +- Calc(select=[item, CAST($f1) AS return_ratio])
+               +- GroupAggregate(groupBy=[item], select=[item, SUM_RETRACT($f1) AS $f1])
+                  +- Exchange(distribution=[hash[item]])
+                     +- Calc(select=[b1 AS item, CASE(IS NOT NULL(x), CAST(x), 0:BIGINT) AS $f1])
+                        +- Join(joinType=[LeftOuterJoin], where=[=(b1, z)], select=[b1, x, z], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey])
+                           :- Exchange(distribution=[hash[b1]])
+                           :  +- Calc(select=[b1])
+                           :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, B, source: [TestTableSource(b1, b2, b3)]]], fields=[b1, b2, b3])
+                           +- Exchange(distribution=[hash[z]])
+                              +- Calc(select=[x, z])
+                                 +- LegacyTableSourceScan(table=[[default_catalog, default_database, s, source: [TestTableSource(x, y, z)]]], fields=[x, y, z])
+]]>
+    </Resource>
+  </TestCase>
 </Root>

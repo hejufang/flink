@@ -106,6 +106,11 @@ public abstract class FlinkHintStrategies {
 			return relNode;
 		}
 
+		SqlSelect sqlSelect = (SqlSelect) sqlNode;
+		if (!sqlSelect.hasHints()) {
+			return relNode;
+		}
+
 		List<SqlHint> sqlHints = ((SqlSelect) sqlNode).getHints().getList().stream()
 			.filter(n -> n instanceof SqlHint)
 			.map(n -> (SqlHint) n)
