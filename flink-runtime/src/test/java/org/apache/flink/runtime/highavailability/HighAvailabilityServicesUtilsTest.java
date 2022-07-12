@@ -85,6 +85,21 @@ public class HighAvailabilityServicesUtilsTest extends TestLogger {
 		assertSame(clientHAServices, actualClientHAServices);
 	}
 
+	@Test
+	public void testCreateCustomSharedClientHAServices() throws Exception {
+		Configuration config = new Configuration();
+		SharedClientHAServices sharedClientHAServices = TestingSharedClientHAServices.createSharedClientHAServices();
+		TestShareClientHAFactory.clientHAServices = sharedClientHAServices;
+
+		config.setString(HighAvailabilityOptions.HA_MODE, TestShareClientHAFactory.class.getName());
+
+		// when
+		SharedClientHAServices actualClientHAServices = HighAvailabilityServicesUtils.createSharedClientHAService(config);
+
+		// then
+		assertSame(sharedClientHAServices, actualClientHAServices);
+	}
+
 	@Test(expected = Exception.class)
 	public void testCustomHAServicesFactoryNotDefined() throws Exception {
 		Configuration config = new Configuration();
@@ -127,6 +142,21 @@ public class HighAvailabilityServicesUtilsTest extends TestLogger {
 
 		@Override
 		public ClientHighAvailabilityServices createClientHAServices(Configuration configuration) throws Exception {
+			return clientHAServices;
+		}
+	}
+
+	public static class TestShareClientHAFactory implements SharedClientHAServicesFactory {
+
+		static SharedClientHAServices clientHAServices;
+
+		@Override
+		public HighAvailabilityServices createHAServices(Configuration configuration, Executor executor) throws Exception {
+			return null;
+		}
+
+		@Override
+		public SharedClientHAServices createSharedClientHAServices(Configuration configuration) throws Exception {
 			return clientHAServices;
 		}
 	}

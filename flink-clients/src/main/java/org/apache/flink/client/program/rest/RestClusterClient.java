@@ -38,6 +38,7 @@ import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.highavailability.ClientHighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils;
+import org.apache.flink.runtime.highavailability.SharedClientHAServices;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobmaster.JobResult;
@@ -157,7 +158,7 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 
 	private final LeaderRetrievalService webMonitorRetrievalService;
 
-	private final LeaderRetriever webMonitorLeaderRetriever = new LeaderRetriever();
+	private LeaderRetriever webMonitorLeaderRetriever = new LeaderRetriever();
 
 	private final AtomicBoolean running = new AtomicBoolean(true);
 
@@ -186,10 +187,10 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 
 	@VisibleForTesting
 	RestClusterClient(
-		Configuration configuration,
-		@Nullable RestClient restClient,
-		T clusterId,
-		WaitStrategy waitStrategy) throws Exception {
+			Configuration configuration,
+			@Nullable RestClient restClient,
+			T clusterId,
+			WaitStrategy waitStrategy) throws Exception {
 		this(
 			configuration,
 			restClient,
@@ -199,11 +200,11 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 	}
 
 	protected RestClusterClient(
-		Configuration configuration,
-		@Nullable RestClient restClient,
-		T clusterId,
-		WaitStrategy waitStrategy,
-		ClientHighAvailabilityServices clientHAServices) throws Exception {
+			Configuration configuration,
+			@Nullable RestClient restClient,
+			T clusterId,
+			WaitStrategy waitStrategy,
+			ClientHighAvailabilityServices clientHAServices) throws Exception {
 		this.configuration = checkNotNull(configuration);
 
 		this.restClusterClientConfiguration = RestClusterClientConfiguration.fromConfiguration(configuration);
@@ -224,6 +225,32 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 		startLeaderRetrievers();
 	}
 
+	protected RestClusterClient(
+			Configuration configuration,
+			@Nullable RestClient restClient,
+			T clusterId,
+			WaitStrategy waitStrategy,
+			SharedClientHAServices sharedClientHAServices) throws Exception {
+		this.configuration = checkNotNull(configuration);
+
+		this.restClusterClientConfiguration = RestClusterClientConfiguration.fromConfiguration(configuration);
+
+		if (restClient != null) {
+			this.restClient = restClient;
+		} else {
+			this.restClient = new RestClient(restClusterClientConfiguration.getRestClientConfiguration(), executorService);
+		}
+
+		this.waitStrategy = checkNotNull(waitStrategy);
+		this.clusterId = checkNotNull(clusterId);
+
+		this.clientHAServices = checkNotNull(sharedClientHAServices);
+
+		this.webMonitorRetrievalService = sharedClientHAServices.getClusterRestEndpointLeaderRetriever();
+		this.webMonitorLeaderRetriever = sharedClientHAServices.getLeaderRetriever();
+		this.retryExecutorService = Executors.newSingleThreadScheduledExecutor(new ExecutorThreadFactory("Flink-RestClusterClient-Retry"));
+	}
+
 	private void startLeaderRetrievers() throws Exception {
 		this.webMonitorRetrievalService.start(webMonitorLeaderRetriever);
 	}
@@ -241,16 +268,19 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 			this.restClient.shutdown(Time.seconds(5));
 			ExecutorUtils.gracefulShutdown(5, TimeUnit.SECONDS, this.executorService);
 
-			try {
-				webMonitorRetrievalService.stop();
-			} catch (Exception e) {
-				LOG.error("An error occurred during stopping the WebMonitorRetrievalService", e);
-			}
+			// not close SharedClientHAServices since it is shared across different RestClusterClient.
+			if (!(clientHAServices instanceof SharedClientHAServices)) {
+				try {
+					webMonitorRetrievalService.stop();
+				} catch (Exception e) {
+					LOG.error("An error occurred during stopping the WebMonitorRetrievalService", e);
+				}
 
-			try {
-				clientHAServices.close();
-			} catch (Exception e) {
-				LOG.error("An error occurred during stopping the ClientHighAvailabilityServices", e);
+				try {
+					clientHAServices.close();
+				} catch (Exception e) {
+					LOG.error("An error occurred during stopping the ClientHighAvailabilityServices", e);
+				}
 			}
 		}
 	}

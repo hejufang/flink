@@ -26,6 +26,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.runtime.highavailability.ClientHighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils;
+import org.apache.flink.runtime.highavailability.SharedClientHAServices;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.socket.SocketClient;
 import org.apache.flink.runtime.socket.SocketRestLeaderAddress;
@@ -43,13 +44,30 @@ public class SocketRestClusterClient<T> extends RestClusterClient<T> {
 		this(
 			config,
 			clusterId,
-			HighAvailabilityServicesUtils.createClientHAService(config));
+			HighAvailabilityServicesUtils.createSharedClientHAService(config));
 	}
 
 	public SocketRestClusterClient(
 			Configuration config,
 			T clusterId,
 			ClientHighAvailabilityServices clientHAServices) throws Exception {
+		super(
+			config,
+			null,
+			clusterId,
+			new ExponentialWaitStrategy(config.getLong(RestOptions.CLUSTER_CLIENT_RETRY_INIT_DELAY),
+				config.getLong(RestOptions.CLUSTER_CLIENT_RETRY_MAX_DELAY)),
+			clientHAServices);
+
+		this.connectTimeoutMills = config.getLong(RestOptions.CONNECTION_TIMEOUT);
+		this.queueSize = config.getInteger(ClusterOptions.CLUSTER_CLIENT_RESULT_QUEUE_MAX_SIZE);
+		refreshSocketClient();
+	}
+
+	public SocketRestClusterClient(
+			Configuration config,
+			T clusterId,
+			SharedClientHAServices clientHAServices) throws Exception {
 		super(
 			config,
 			null,
