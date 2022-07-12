@@ -17,7 +17,7 @@
  */
 
 org.apache.flink:flink-connector-rocketmq:jar:1.11-byted-SNAPSHOT
-+- com.bytedance:java-rocketmq-client2:jar:2.0.13:compile
++- com.bytedance:java-rocketmq-client2:jar:2.0.13-2:compile
 |  +- javax.annotation:javax.annotation-api:jar:1.2:compile
 |  +- com.google.guava:guava:jar:28.1-android:compile
 |  |  +- com.google.guava:failureaccess:jar:1.0.1:compile
@@ -82,7 +82,7 @@ org.apache.flink:flink-connector-rocketmq:jar:1.11-byted-SNAPSHOT
 |  +- org.apache.commons:commons-lang3:jar:3.3.2:compile
 |  +- org.xerial.snappy:snappy-java:jar:1.1.4:compile
 |  +- org.lz4:lz4-java:jar:1.8.0:compile
-|  \- com.github.luben:zstd-jni:jar:1.5.2-1:compile
+|  \- com.github.luben:zstd-jni:jar:1.4.4-12-bd:compile
 +- org.apache.flink:flink-core:jar:1.11-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-annotations:jar:1.11-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-metrics-core:jar:1.11-byted-SNAPSHOT:provided
@@ -148,6 +148,7 @@ org.apache.flink:flink-connector-rocketmq:jar:1.11-byted-SNAPSHOT
 |  +- org.apache.flink:flink-table-runtime-blink_2.11:jar:1.11-byted-SNAPSHOT:provided
 |  |  +- org.codehaus.janino:janino:jar:3.0.9:provided
 |  |  +- org.apache.flink:flink-table-code-splitter:jar:1.11-byted-SNAPSHOT:provided
+|  |  +- org.apache.flink:flink-shaded-metrics4j:jar:1.0.39-11.0-byted-SNAPSHOT:provided
 |  |  \- org.apache.calcite.avatica:avatica-core:jar:1.16.0:provided
 |  \- org.reflections:reflections:jar:0.9.10:test
 |     \- org.javassist:javassist:jar:3.24.0-GA:provided
