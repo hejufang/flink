@@ -317,13 +317,6 @@ under the License.
 
 		<dependency>
 			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-metrics-gcs-log</artifactId>
-			<version>${project.version}</version>
-			<scope>provided</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-metrics-gas-log</artifactId>
 			<version>${project.version}</version>
 			<scope>provided</scope>

@@ -38,7 +38,7 @@ rm -rf output/opt
 # log4j configuration
 mv output/conf/log4j-las.properties output/conf/log4j.properties
 # las yaml
-mv output/conf/flink-conf-las.yaml output/conf/flink-conf-las.yaml
+mv output/conf/flink-conf-las.yaml output/conf/flink-conf.yaml
 
 # common jar conflict
 bash tools/common-jar-check/common_jar_check.sh "output/"

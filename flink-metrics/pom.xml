@@ -49,7 +49,6 @@ under the License.
 		<module>flink-metrics-slf4j</module>
 		<module>flink-metrics-opentsdb</module>
         <module>flink-metrics-databus</module>
-		<module>flink-metrics-gcs-log</module>
 		<module>flink-metrics-gas-log</module>
     </modules>
 
