@@ -611,6 +611,18 @@ public class TaskManagerOptions {
 			.defaultValue(false)
 			.withDescription("If true, use the memory pool manager.");
 
+	public static final ConfigOption<Integer> MEMORY_POOL_MANAGER_BATCH_SIZE = ConfigOptions
+		.key("taskmanager.memory-pool-manager-batch-size")
+		.intType()
+		.defaultValue(-1)
+		.withDescription("If is greater than 1, the memory pool manager will pack several number of segments into a batch.");
+
+	public static final ConfigOption<Boolean> MEMORY_BATCH_POOL_MANAGER_RELEASE_SEGMENTS_FINALLY_ENABLE = ConfigOptions
+		.key("taskmanager.memory-batch-pool-manager-release-segments-finally-enable")
+		.booleanType()
+		.defaultValue(true)
+		.withDescription("If this is set, the memory batch pool will only actually release segments after the task invoke is finished.");
+
 	public static final ConfigOption<Boolean> MEMORY_POOL_SEGMENT_OWNER_CHECKER_ENABLE = ConfigOptions
 			.key("taskmanager.memory-pool-segment-owner-checker.enable")
 			.booleanType()

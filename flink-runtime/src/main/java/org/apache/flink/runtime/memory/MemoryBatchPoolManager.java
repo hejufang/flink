@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -47,8 +48,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Cache memory manager for heap and off heap.
  */
-public class MemoryPoolManager extends MemoryManager {
-	private static final Logger LOG = LoggerFactory.getLogger(MemoryPoolManager.class);
+public class MemoryBatchPoolManager extends MemoryManager {
+	private static final Logger LOG = LoggerFactory.getLogger(MemoryBatchPoolManager.class);
 
 	/** If the segment can be lazy allocated. */
 	private final boolean lazyAllocate;
@@ -59,20 +60,38 @@ public class MemoryPoolManager extends MemoryManager {
 	/** The total number of segments the memory manager can allocate. */
 	private final int totalNumberOfMemorySegments;
 
+	/** The total number of segment batches the memory manager can allocate. */
+	private final int totalNumberOfMemorySegmentBatches;
+
+	/** The total number of segment fragments the memory manager can allocate. */
+	private final int totalNumberOfMemorySegmentFragments;
+
 	/** The memory pool should be split to buckets for operator, the bucket count is slot count for global memory pool. */
 	private final int memoryPoolBucketCount;
 
 	/** Whether check owner in segment. */
 	private final boolean checkOwnerInSegment;
 
-	/** Track the number of segments that have been allocated. */
-	private final AtomicInteger numberOfAllocatedMemorySegments = new AtomicInteger(0);
+	/** Track the number of segment batches that have been allocated. */
+	private final AtomicInteger numberOfAllocatedMemorySegmentBatches = new AtomicInteger(0);
 
-	/** Track the number of available segments in availableMemorySegments. */
-	private final AtomicInteger numberOfAvailableMemorySegments = new AtomicInteger(0);
+	/** Track the number of segment fragments that have been allocated. */
+	private final AtomicInteger numberOfAllocatedMemorySegmentFragments = new AtomicInteger(0);
 
-	/** The segments queue managed by the memory manager. */
-	private final Queue<MemorySegment> availableMemorySegments;
+	/** Track the number of available segment batches in {@link #availableMemorySegmentBatches}. */
+	private final AtomicInteger numberOfAvailableMemorySegmentBatches = new AtomicInteger(0);
+
+	/** The segment batches queue managed by the memory manager. */
+	private final Queue<Queue<MemorySegment>> availableMemorySegmentBatches;
+
+	/**
+	 * The segment fragments queue managed by the memory manager.
+	 * Whenever we want to add/poll from here, we need a block, to ensure that when we unpack a batch, the number of
+	 * segment fragments will not be larger than batch size.
+	 * */
+	private Queue<MemorySegment> availableMemorySegmentFragments;
+
+	private final Object segmentFragmentsLock = new Object();
 
 	/** Memory segments allocated per memory owner. */
 	private final Map<Object, Set<MemorySegment>> allocatedSegments;
@@ -80,15 +99,13 @@ public class MemoryPoolManager extends MemoryManager {
 	/** The timeout for request memory segments. */
 	private final Duration requestMemorySegmentsTimeout;
 
-	@VisibleForTesting
-	public MemoryPoolManager(
-			long memorySize,
-			int pageSize,
-			Duration requestMemorySegmentsTimeout,
-			boolean lazyAllocate,
-			int memoryPoolBucketCount) {
-		this(memorySize, pageSize, requestMemorySegmentsTimeout, lazyAllocate, memoryPoolBucketCount, true);
-	}
+	/** The number of memory segment to form a batch, and this should always be larger than 1. */
+	private final int batchSize;
+
+	/** If this is set, the memory batch pool will only actually release segments after the task invoke is
+	 * finished, i.e. {@link #releaseAll(Object)}.
+	 */
+	private final boolean releaseSegmentsFinallyEnable;
 
 	/**
 	 * Creates a memory manager with the given capacity and given page size.
@@ -97,22 +114,29 @@ public class MemoryPoolManager extends MemoryManager {
 	 * @param pageSize                   The size of the pages handed out by the memory manager.
 	 * @param lazyAllocate               The memory manager allocate segments by lazy.
 	 */
-	public MemoryPoolManager(
+	@VisibleForTesting
+	public MemoryBatchPoolManager(
 			long memorySize,
 			int pageSize,
 			Duration requestMemorySegmentsTimeout,
 			boolean lazyAllocate,
 			int memoryPoolBucketCount,
-			boolean checkOwnerInSegment) {
+			boolean checkOwnerInSegment,
+			int batchSize,
+			boolean releaseSegmentsFinallyEnable) {
 		super(memorySize, pageSize, UnsafeMemoryBudget.MAX_SLEEPS_VERIFY_EMPTY);
 		this.requestMemorySegmentsTimeout = requestMemorySegmentsTimeout;
 		this.lazyAllocate = lazyAllocate;
 		this.memoryPoolBucketCount = memoryPoolBucketCount;
 		this.checkOwnerInSegment = checkOwnerInSegment;
+		this.batchSize = batchSize;
 
 		this.memorySize = memorySize;
 		this.totalNumberOfMemorySegments = (int) (memorySize / pageSize);
-		this.availableMemorySegments = new ConcurrentLinkedQueue<>();
+		this.totalNumberOfMemorySegmentBatches = totalNumberOfMemorySegments / batchSize;
+		this.totalNumberOfMemorySegmentFragments = totalNumberOfMemorySegments % batchSize;
+		this.availableMemorySegmentBatches = new ConcurrentLinkedQueue<>();
+		this.availableMemorySegmentFragments = new ArrayDeque<>(batchSize);
 		if (!lazyAllocate) {
 			allocateMemorySegmentsEager();
 		} else {
@@ -122,23 +146,35 @@ public class MemoryPoolManager extends MemoryManager {
 				maxNetworkBufferMB, totalNumberOfMemorySegments, pageSize);
 		}
 		this.allocatedSegments = new ConcurrentHashMap<>();
+		this.releaseSegmentsFinallyEnable = releaseSegmentsFinallyEnable;
 	}
 
 	private void allocateMemorySegmentsEager() {
 		try {
-			for (int i = 0; i < totalNumberOfMemorySegments; i++) {
-				availableMemorySegments.add(MemorySegmentFactory.allocateOffHeapUnsafeMemory(getPageSize()));
+			for (int i = 0; i < totalNumberOfMemorySegmentBatches; ++i) {
+				Queue<MemorySegment> batch = new ArrayDeque<>(batchSize);
+				for (int j = 0; j < batchSize; ++j) {
+					batch.add(MemorySegmentFactory.allocateOffHeapUnsafeMemory(getPageSize()));
+				}
+				availableMemorySegmentBatches.add(batch);
 			}
-			numberOfAllocatedMemorySegments.set(totalNumberOfMemorySegments);
-			numberOfAvailableMemorySegments.set(totalNumberOfMemorySegments);
+			numberOfAllocatedMemorySegmentBatches.set(totalNumberOfMemorySegmentBatches);
+			numberOfAvailableMemorySegmentBatches.set(totalNumberOfMemorySegmentBatches);
+			for (int i = 0; i < totalNumberOfMemorySegmentFragments; ++i) {
+				availableMemorySegmentFragments.add(MemorySegmentFactory.allocateOffHeapUnsafeMemory(getPageSize()));
+			}
+			numberOfAllocatedMemorySegmentFragments.set(totalNumberOfMemorySegmentFragments);
 		}
 		catch (OutOfMemoryError err) {
-			int allocated = availableMemorySegments.size();
+			int allocated = availableMemorySegmentBatches.size() * batchSize + availableMemorySegmentFragments.size();
 
 			// free some memory
-			availableMemorySegments.clear();
-			numberOfAllocatedMemorySegments.set(0);
-			numberOfAvailableMemorySegments.set(0);
+			availableMemorySegmentBatches.clear();
+			numberOfAllocatedMemorySegmentBatches.set(0);
+			numberOfAvailableMemorySegmentBatches.set(0);
+
+			availableMemorySegmentFragments.clear();
+			numberOfAllocatedMemorySegmentFragments.set(0);
 
 			long requiredMb = ((long) getPageSize() * totalNumberOfMemorySegments) >> 20;
 			long allocatedMb = ((long) getPageSize() * allocated) >> 20;
@@ -150,26 +186,26 @@ public class MemoryPoolManager extends MemoryManager {
 				", missing (Mb): " + missingMb + "). Cause: " + err.getMessage());
 		}
 
-		long allocatedMb = ((long) getPageSize() * availableMemorySegments.size()) >> 20;
+		long allocatedMb = ((long) getPageSize() * totalNumberOfMemorySegments) >> 20;
 
 		LOG.info("Allocated {} MB for cache memory manager (number of memory segments: {}, bytes per segment: {}).",
-			allocatedMb, availableMemorySegments.size(), memorySize);
+			allocatedMb, totalNumberOfMemorySegments, memorySize);
 	}
 
 	private MemorySegment allocateSegmentLazy() {
-		if (numberOfAllocatedMemorySegments.get() < totalNumberOfMemorySegments) {
-			if (numberOfAllocatedMemorySegments.incrementAndGet() <= totalNumberOfMemorySegments) {
+		if (numberOfAllocatedMemorySegmentFragments.get() < totalNumberOfMemorySegmentFragments) {
+			if (numberOfAllocatedMemorySegmentFragments.incrementAndGet() <= totalNumberOfMemorySegmentFragments) {
 				try {
 					MemorySegment segment = null;
 					segment = MemorySegmentFactory.allocateOffHeapUnsafeMemory(getPageSize());
 					LOG.debug("Allocated a segment success with memorySegmentSize: {}.", getPageSize());
 					return segment;
 				} catch (OutOfMemoryError err) {
-					numberOfAllocatedMemorySegments.decrementAndGet();
+					numberOfAllocatedMemorySegmentFragments.decrementAndGet();
 
 					long sizeInLong = (long) getPageSize();
 					long configedMb = sizeInLong * totalNumberOfMemorySegments >> 20;
-					long allocatedMb = sizeInLong * numberOfAllocatedMemorySegments.get() >> 20;
+					long allocatedMb = sizeInLong * (numberOfAllocatedMemorySegmentBatches.get() * batchSize + numberOfAllocatedMemorySegmentFragments.get()) >> 20;
 					long missingMb = configedMb - allocatedMb;
 					throw new OutOfMemoryError("Could not allocate enough memory segments for CacheMemoryManager " +
 						"(configed (Mb): " + configedMb +
@@ -177,7 +213,37 @@ public class MemoryPoolManager extends MemoryManager {
 						", missing (Mb): " + missingMb + "). Cause: " + err.getMessage());
 				}
 			} else {
-				numberOfAllocatedMemorySegments.decrementAndGet();
+				numberOfAllocatedMemorySegmentFragments.decrementAndGet();
+			}
+		}
+
+		return null;
+	}
+
+	private Queue<MemorySegment> allocateSegmentBatchLazy() {
+		if (numberOfAllocatedMemorySegmentBatches.get() < totalNumberOfMemorySegmentBatches) {
+			if (numberOfAllocatedMemorySegmentBatches.incrementAndGet() <= totalNumberOfMemorySegmentBatches) {
+				try {
+					Queue<MemorySegment> batch = new ArrayDeque<>(batchSize);
+					for (int i = 0; i < batchSize; ++i) {
+						batch.add(MemorySegmentFactory.allocateOffHeapUnsafeMemory(getPageSize()));
+					}
+					LOG.debug("Allocated {} segments success with memorySegmentSize: {}.", batchSize, getPageSize());
+					return batch;
+				} catch (OutOfMemoryError err) {
+					numberOfAllocatedMemorySegmentBatches.decrementAndGet();
+
+					long sizeInLong = (long) getPageSize();
+					long configedMb = sizeInLong * totalNumberOfMemorySegments >> 20;
+					long allocatedMb = sizeInLong * (numberOfAllocatedMemorySegmentBatches.get() * batchSize + numberOfAllocatedMemorySegmentFragments.get()) >> 20;
+					long missingMb = configedMb - allocatedMb;
+					throw new OutOfMemoryError("Could not allocate enough memory segments for CacheMemoryManager " +
+						"(configed (Mb): " + configedMb +
+						", allocated (Mb): " + allocatedMb +
+						", missing (Mb): " + missingMb + "). Cause: " + err.getMessage());
+				}
+			} else {
+				numberOfAllocatedMemorySegmentBatches.decrementAndGet();
 			}
 		}
 
@@ -218,24 +284,57 @@ public class MemoryPoolManager extends MemoryManager {
 			Object owner,
 			Collection<MemorySegment> target,
 			int numberOfPages) throws MemoryAllocationException {
+		int numberOfSegmentBatchToAllocate = numberOfPages / batchSize;
+		int numberOfSegmentFragmentToAllocate = numberOfPages % batchSize;
 		try {
 			final Deadline deadline = Deadline.fromNow(requestMemorySegmentsTimeout);
 			while (true) {
-				MemorySegment segment = null;
-				if ((segment = internalRequestMemorySegment()) == null) {
-					if (lazyAllocate) {
-						segment = allocateSegmentLazy();
-						if (segment == null) {
+				if (numberOfSegmentBatchToAllocate > 0) {
+					Queue<MemorySegment> batch = null;
+					if ((batch = internalRequestMemorySegmentBatch()) == null) {
+						if (lazyAllocate) {
+							batch = allocateSegmentBatchLazy();
+							if (batch == null) {
+								Thread.sleep(10);
+							}
+						} else {
 							Thread.sleep(10);
 						}
-					} else {
-						Thread.sleep(10);
+					}
+
+					if (batch != null) {
+						MemorySegment segment = null;
+						while ((segment = batch.poll()) != null) {
+							segment.assignOwner(owner);
+							target.add(checkOwnerInSegment ? new MemorySegmentDelegate(owner, segment) : segment);
+						}
+						--numberOfSegmentBatchToAllocate;
 					}
 				}
 
-				if (segment != null) {
-					segment.assignOwner(owner);
-					target.add(checkOwnerInSegment ? new MemorySegmentDelegate(owner, segment) : segment);
+				if (numberOfSegmentFragmentToAllocate > 0) {
+					MemorySegment segment = null;
+
+					synchronized (segmentFragmentsLock) {
+						if ((segment = internalRequestMemorySegment()) == null) {
+							if (lazyAllocate) {
+								if ((segment = allocateSegmentLazy()) == null) {
+									segment = internalUnpackMemorySegmentBatch();
+								}
+								if (segment == null) {
+									Thread.sleep(10);
+								}
+							} else if ((segment = internalUnpackMemorySegmentBatch()) == null) {
+								Thread.sleep(10);
+							}
+						}
+					}
+
+					if (segment != null) {
+						segment.assignOwner(owner);
+						target.add(checkOwnerInSegment ? new MemorySegmentDelegate(owner, segment) : segment);
+						--numberOfSegmentFragmentToAllocate;
+					}
 				}
 
 				if (target.size() >= numberOfPages) {
@@ -253,10 +352,12 @@ public class MemoryPoolManager extends MemoryManager {
 		} catch (Throwable e) {
 			LOG.error("Allocate {} segments from pool manager failed", numberOfPages, e);
 			// Release the allocated pages to the pool.
+			ArrayDeque<MemorySegment> segmentsToRecycle = new ArrayDeque<>(target.size());
 			for (MemorySegment segment : target) {
-				cleanupSegment(segment);
+				segmentsToRecycle.add(cleanupSegment(segment));
 			}
 			target.clear();
+			internalRecycleMemorySegments(segmentsToRecycle);
 			throw new MemoryAllocationException(e);
 		}
 
@@ -265,12 +366,88 @@ public class MemoryPoolManager extends MemoryManager {
 	}
 
 	@Nullable
-	private MemorySegment internalRequestMemorySegment() {
-		MemorySegment segment = availableMemorySegments.poll();
-		if (segment != null) {
-			numberOfAvailableMemorySegments.decrementAndGet();
+	private Queue<MemorySegment> internalRequestMemorySegmentBatch() {
+		Queue<MemorySegment> batch = availableMemorySegmentBatches.poll();
+		if (batch != null) {
+			numberOfAvailableMemorySegmentBatches.decrementAndGet();
 		}
+		return batch;
+	}
+
+	@Nullable
+	private MemorySegment internalRequestMemorySegment() {
+		assert Thread.holdsLock(segmentFragmentsLock);
+
+		MemorySegment segment = availableMemorySegmentFragments.poll();
+
 		return segment;
+	}
+
+	private void internalRecycleMemorySegment(MemorySegment segment) {
+		synchronized (segmentFragmentsLock) {
+			availableMemorySegmentFragments.add(segment);
+			if (availableMemorySegmentFragments.size() == batchSize) {
+				internalPackMemorySegmentBatch();
+			}
+		}
+	}
+
+	private void internalRecycleMemorySegments(Queue<MemorySegment> segments) {
+		while (segments.size() >= batchSize) {
+			Queue<MemorySegment> batch = new ArrayDeque<>(batchSize);
+			for (int i = 0; i < batchSize; ++i) {
+				batch.add(segments.poll());
+			}
+			availableMemorySegmentBatches.add(batch);
+			numberOfAvailableMemorySegmentBatches.getAndIncrement();
+		}
+		synchronized (segmentFragmentsLock) {
+			MemorySegment segment = null;
+			while ((segment = segments.poll()) != null) {
+				availableMemorySegmentFragments.add(segment);
+				if (availableMemorySegmentFragments.size() == batchSize) {
+					internalPackMemorySegmentBatch();
+				}
+			}
+		}
+	}
+
+	/**
+	 * If we need a memory segment, and {@link #availableMemorySegmentFragments} is empty, we can try to
+	 * unpack a batch from {@link #availableMemorySegmentBatches} for that.
+	 *
+	 * @return A memory segment, or null is no batch is available.
+	 */
+	@Nullable
+	private MemorySegment internalUnpackMemorySegmentBatch() {
+		assert Thread.holdsLock(segmentFragmentsLock);
+
+		Queue<MemorySegment> batch = internalRequestMemorySegmentBatch();
+
+		if (batch == null && lazyAllocate) {
+			batch = allocateSegmentBatchLazy();
+		}
+
+		if (batch == null) {
+			return null;
+		}
+
+		MemorySegment resultSegment = batch.poll();
+		MemorySegment segment = null;
+		while ((segment = batch.poll()) != null) {
+			availableMemorySegmentFragments.add(segment);
+		}
+
+		return resultSegment;
+	}
+
+	private void internalPackMemorySegmentBatch() {
+		assert Thread.holdsLock(segmentFragmentsLock);
+
+		availableMemorySegmentBatches.add(availableMemorySegmentFragments);
+		numberOfAvailableMemorySegmentBatches.getAndIncrement();
+
+		availableMemorySegmentFragments = new ArrayDeque<>(batchSize);
 	}
 
 	/**
@@ -284,27 +461,28 @@ public class MemoryPoolManager extends MemoryManager {
 	 */
 	@Override
 	public void release(MemorySegment segment) {
+		if (releaseSegmentsFinallyEnable) {
+			return;
+		}
 		allocatedSegments.computeIfPresent(segment.getOwner(), (o, segsForOwner) -> {
-				if (segsForOwner.remove(segment)) {
-					cleanupSegment(segment);
-				}
-				return segsForOwner.isEmpty() ? null : segsForOwner;
-			});
+			if (segsForOwner.remove(segment)) {
+				internalRecycleMemorySegment(cleanupSegment(segment));
+			}
+			return segsForOwner.isEmpty() ? null : segsForOwner;
+		});
 	}
 
-	private void cleanupSegment(MemorySegment segment) {
+	private MemorySegment cleanupSegment(MemorySegment segment) {
 		if (checkOwnerInSegment) {
 			MemorySegmentDelegate delegate = (MemorySegmentDelegate) segment;
 			MemorySegment realSegment = delegate.getSegment();
 			delegate.clear();
 			delegate.freeOwner();
-			availableMemorySegments.add(realSegment);
-		} else {
-			segment.clear();
-			segment.freeOwner();
-			availableMemorySegments.add(segment);
+			return realSegment;
 		}
-		numberOfAvailableMemorySegments.incrementAndGet();
+		segment.clear();
+		segment.freeOwner();
+		return segment;
 	}
 
 	/**
@@ -315,9 +493,12 @@ public class MemoryPoolManager extends MemoryManager {
 	 */
 	@Override
 	public void release(Object owner, MemorySegment segment) {
+		if (releaseSegmentsFinallyEnable) {
+			return;
+		}
 		allocatedSegments.computeIfPresent(owner, (o, segsForOwner) -> {
 			if (segsForOwner.remove(segment)) {
-				cleanupSegment(segment);
+				internalRecycleMemorySegment(cleanupSegment(segment));
 			}
 
 			return segsForOwner.isEmpty() ? null : segsForOwner;
@@ -334,10 +515,21 @@ public class MemoryPoolManager extends MemoryManager {
 	 */
 	@Override
 	public void release(Collection<MemorySegment> segments) {
+		if (releaseSegmentsFinallyEnable) {
+			segments.clear();
+			return;
+		}
+		Queue<MemorySegment> segmentsToRecycle = new ArrayDeque<>(segments.size());
 		for (MemorySegment segment : segments) {
-			release(segment);
+			allocatedSegments.computeIfPresent(segment.getOwner(), (o, segsForOwner) -> {
+				if (segsForOwner.remove(segment)) {
+					segmentsToRecycle.add(cleanupSegment(segment));
+				}
+				return segsForOwner.isEmpty() ? null : segsForOwner;
+			});
 		}
 		segments.clear();
+		internalRecycleMemorySegments(segmentsToRecycle);
 	}
 
 	/**
@@ -348,10 +540,21 @@ public class MemoryPoolManager extends MemoryManager {
 	 */
 	@Override
 	public void release(Object owner, Collection<MemorySegment> segments) {
+		if (releaseSegmentsFinallyEnable) {
+			segments.clear();
+			return;
+		}
+		Queue<MemorySegment> segmentsToRecycle = new ArrayDeque<>(segments.size());
 		for (MemorySegment segment : segments) {
-			release(owner, segment);
+			allocatedSegments.computeIfPresent(owner, (o, segsForOwner) -> {
+				if (segsForOwner.remove(segment)) {
+					segmentsToRecycle.add(cleanupSegment(segment));
+				}
+				return segsForOwner.isEmpty() ? null : segsForOwner;
+			});
 		}
 		segments.clear();
+		internalRecycleMemorySegments(segmentsToRecycle);
 	}
 
 	/**
@@ -363,9 +566,12 @@ public class MemoryPoolManager extends MemoryManager {
 	public void releaseAll(Object owner) {
 		Set<MemorySegment> segments = allocatedSegments.remove(owner);
 		if (segments != null) {
+			Queue<MemorySegment> segmentsToRecycle = new ArrayDeque<>(segments.size());
 			for (MemorySegment segment : segments) {
-				cleanupSegment(segment);
+				segmentsToRecycle.add(cleanupSegment(segment));
 			}
+			segments.clear();
+			internalRecycleMemorySegments(segmentsToRecycle);
 		}
 	}
 
@@ -409,8 +615,8 @@ public class MemoryPoolManager extends MemoryManager {
 	 */
 	@Override
 	public <T extends AutoCloseable> OpaqueMemoryResource<T> getSharedMemoryResourceForManagedMemory(
-			String type,
-			LongFunctionWithException<T, Exception> initializer) throws Exception {
+		String type,
+		LongFunctionWithException<T, Exception> initializer) throws Exception {
 		throw new UnsupportedOperationException();
 	}
 
@@ -435,9 +641,9 @@ public class MemoryPoolManager extends MemoryManager {
 	 */
 	@Override
 	public <T extends AutoCloseable> OpaqueMemoryResource<T> getSharedMemoryResourceForManagedMemory(
-			String type,
-			LongFunctionWithException<T, Exception> initializer,
-			double fractionToInitializeWith) throws Exception {
+		String type,
+		LongFunctionWithException<T, Exception> initializer,
+		double fractionToInitializeWith) throws Exception {
 		throw new UnsupportedOperationException();
 	}
 
@@ -453,9 +659,9 @@ public class MemoryPoolManager extends MemoryManager {
 	 */
 	@Override
 	public <T extends AutoCloseable> OpaqueMemoryResource<T> getExternalSharedMemoryResource(
-			String type,
-			LongFunctionWithException<T, Exception> initializer,
-			long numBytes) throws Exception {
+		String type,
+		LongFunctionWithException<T, Exception> initializer,
+		long numBytes) throws Exception {
 		throw new UnsupportedOperationException();
 	}
 
@@ -466,7 +672,8 @@ public class MemoryPoolManager extends MemoryManager {
 	 */
 	@Override
 	public boolean verifyEmpty() {
-		return numberOfAvailableMemorySegments.get() == numberOfAllocatedMemorySegments.get();
+		return numberOfAvailableMemorySegmentBatches.get() == numberOfAllocatedMemorySegmentBatches.get()
+				&& availableMemorySegmentFragments.size() == numberOfAllocatedMemorySegmentFragments.get();
 	}
 
 	/**
@@ -479,9 +686,12 @@ public class MemoryPoolManager extends MemoryManager {
 	public void shutdown() {
 		super.shutdown();
 
-		availableMemorySegments.clear();
-		numberOfAvailableMemorySegments.set(0);
-		numberOfAllocatedMemorySegments.set(0);
+		availableMemorySegmentBatches.clear();
+		numberOfAllocatedMemorySegmentBatches.set(0);
+		numberOfAvailableMemorySegmentBatches.set(0);
+
+		availableMemorySegmentFragments.clear();
+		numberOfAllocatedMemorySegmentFragments.set(0);
 
 		allocatedSegments.clear();
 	}
@@ -518,7 +728,8 @@ public class MemoryPoolManager extends MemoryManager {
 	@Override
 	public long availableMemory() {
 		return memorySize -
-			(((long) (numberOfAllocatedMemorySegments.get() - numberOfAvailableMemorySegments.get()))
+			(((long) ((numberOfAllocatedMemorySegmentBatches.get() - numberOfAvailableMemorySegmentBatches.get()) * batchSize
+				+ numberOfAllocatedMemorySegmentFragments.get() - availableMemorySegmentFragments.size()))
 				* getPageSize());
 	}
 
@@ -552,5 +763,10 @@ public class MemoryPoolManager extends MemoryManager {
 			"The fraction of memory to allocate must within (0, 1], was: %s", fraction);
 
 		return (long) Math.floor((memorySize / memoryPoolBucketCount) * fraction);
+	}
+
+	@VisibleForTesting
+	public Map<Object, Set<MemorySegment>> getAllocatedSegments() {
+		return allocatedSegments;
 	}
 }

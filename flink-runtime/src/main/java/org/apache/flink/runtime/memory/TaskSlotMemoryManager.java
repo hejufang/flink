@@ -43,7 +43,7 @@ public class TaskSlotMemoryManager implements TaskMemoryManager {
 			Duration requestMemorySegmentsTimeout,
 			boolean lazyAllocate,
 			boolean cacheEnable) {
-		this(memorySize, pageSize, slotCount, requestMemorySegmentsTimeout, lazyAllocate, cacheEnable, false);
+		this(memorySize, pageSize, slotCount, requestMemorySegmentsTimeout, lazyAllocate, cacheEnable, false, 0, false);
 	}
 
 	public TaskSlotMemoryManager(
@@ -53,19 +53,24 @@ public class TaskSlotMemoryManager implements TaskMemoryManager {
 			Duration requestMemorySegmentsTimeout,
 			boolean lazyAllocate,
 			boolean cacheEnable,
-			boolean checkSegmentOwnerEnable) {
+			boolean checkSegmentOwnerEnable,
+			int batchSize,
+			boolean releaseSegmentsFinallyEnable) {
 		this.slotCount = slotCount;
 		long slotMemorySize = memorySize / slotCount;
 		for (int i = 0; i < slotCount; i++) {
 			slotMemoryManagers.put(
 				i,
-				cacheEnable ? new MemoryPoolManager(
+				MemoryManager.create(
+					cacheEnable,
 					slotMemorySize,
 					pageSize,
 					requestMemorySegmentsTimeout,
 					lazyAllocate,
 					1,
-					checkSegmentOwnerEnable) : MemoryManager.create(slotMemorySize, pageSize));
+					checkSegmentOwnerEnable,
+					batchSize,
+					releaseSegmentsFinallyEnable));
 		}
 	}
 

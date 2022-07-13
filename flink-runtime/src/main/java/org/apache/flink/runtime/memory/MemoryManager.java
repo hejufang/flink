@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.ConcurrentModificationException;
@@ -659,5 +660,24 @@ public class MemoryManager {
 	 */
 	public static MemoryManager create(long memorySize, int pageSize) {
 		return new MemoryManager(memorySize, pageSize, UnsafeMemoryBudget.MAX_SLEEPS_VERIFY_EMPTY);
+	}
+
+	public static MemoryManager create(
+			boolean cacheEnable,
+			long memorySize,
+			int pageSize,
+			Duration requestMemorySegmentsTimeout,
+			boolean lazyAllocate,
+			int memoryPoolBucketCount,
+			boolean checkOwnerInSegment,
+			int batchSize,
+			boolean releaseSegmentsFinallyEnable) {
+		if (cacheEnable) {
+			if (batchSize > 1) {
+				return new MemoryBatchPoolManager(memorySize, pageSize, requestMemorySegmentsTimeout, lazyAllocate, memoryPoolBucketCount, checkOwnerInSegment, batchSize, releaseSegmentsFinallyEnable);
+			}
+			return new MemoryPoolManager(memorySize, pageSize, requestMemorySegmentsTimeout, lazyAllocate, memoryPoolBucketCount, checkOwnerInSegment);
+		}
+		return create(memorySize, pageSize);
 	}
 }

@@ -35,6 +35,8 @@ public class TaskMemoryManagerFactory {
 	private final boolean lazyAllocate;
 	private final boolean cacheEnable;
 	private final boolean checkSegmentOwnerEnable;
+	private final int batchSize;
+	private final boolean releaseSegmentsFinallyEnable;
 
 	private TaskMemoryManagerFactory(
 			boolean slotBasedEnable,
@@ -44,7 +46,9 @@ public class TaskMemoryManagerFactory {
 			Duration requestMemorySegmentsTimeout,
 			boolean lazyAllocate,
 			boolean cacheEnable,
-			boolean checkSegmentOwnerEnable) {
+			boolean checkSegmentOwnerEnable,
+			int batchSize,
+			boolean releaseSegmentsFinallyEnable) {
 		this.slotBasedEnable = slotBasedEnable;
 		this.managedMemorySize = managedMemorySize;
 		this.pageSize = pageSize;
@@ -53,13 +57,15 @@ public class TaskMemoryManagerFactory {
 		this.lazyAllocate = lazyAllocate;
 		this.cacheEnable = cacheEnable;
 		this.checkSegmentOwnerEnable = checkSegmentOwnerEnable;
+		this.batchSize = batchSize;
+		this.releaseSegmentsFinallyEnable = releaseSegmentsFinallyEnable;
 	}
 
 	public TaskMemoryManager buildTaskMemoryManager() {
 		if (slotBasedEnable) {
-			return new TaskSlotMemoryManager(managedMemorySize, pageSize, slotCount, requestMemorySegmentsTimeout, lazyAllocate, cacheEnable, checkSegmentOwnerEnable);
+			return new TaskSlotMemoryManager(managedMemorySize, pageSize, slotCount, requestMemorySegmentsTimeout, lazyAllocate, cacheEnable, checkSegmentOwnerEnable, batchSize, releaseSegmentsFinallyEnable);
 		} else {
-			return new TaskGlobalMemoryManager(managedMemorySize, pageSize, requestMemorySegmentsTimeout, lazyAllocate, slotCount, cacheEnable, checkSegmentOwnerEnable);
+			return new TaskGlobalMemoryManager(managedMemorySize, pageSize, requestMemorySegmentsTimeout, lazyAllocate, slotCount, cacheEnable, checkSegmentOwnerEnable, batchSize, releaseSegmentsFinallyEnable);
 		}
 	}
 
@@ -72,6 +78,8 @@ public class TaskMemoryManagerFactory {
 			configuration.get(TaskManagerOptions.ALLOCATE_MEMORY_SEGMENTS_TIMEOUT),
 			configuration.getBoolean(TaskManagerOptions.MEMORY_POOL_MANAGER_SEGMENT_ALLOCATE_LAZY_ENABLE),
 			configuration.getBoolean(TaskManagerOptions.MEMORY_POOL_MANAGER_ENABLE),
-			configuration.getBoolean(TaskManagerOptions.MEMORY_POOL_SEGMENT_OWNER_CHECKER_ENABLE));
+			configuration.getBoolean(TaskManagerOptions.MEMORY_POOL_SEGMENT_OWNER_CHECKER_ENABLE),
+			configuration.getInteger(TaskManagerOptions.MEMORY_POOL_MANAGER_BATCH_SIZE),
+			configuration.getBoolean(TaskManagerOptions.MEMORY_BATCH_POOL_MANAGER_RELEASE_SEGMENTS_FINALLY_ENABLE));
 	}
 }

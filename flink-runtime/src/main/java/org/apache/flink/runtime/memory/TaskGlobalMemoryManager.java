@@ -38,7 +38,7 @@ public class TaskGlobalMemoryManager implements TaskMemoryManager {
 			boolean lazyAllocate,
 			int slotCount,
 			boolean cacheEnable) {
-		this(memorySize, pageSize, requestMemorySegmentsTimeout, lazyAllocate, slotCount, cacheEnable, false);
+		this(memorySize, pageSize, requestMemorySegmentsTimeout, lazyAllocate, slotCount, cacheEnable, false, 0, false);
 	}
 
 	public TaskGlobalMemoryManager(
@@ -48,14 +48,19 @@ public class TaskGlobalMemoryManager implements TaskMemoryManager {
 			boolean lazyAllocate,
 			int slotCount,
 			boolean cacheEnable,
-			boolean checkSegmentOwnerEnable) {
-		memoryManager = cacheEnable ? new MemoryPoolManager(
+			boolean checkSegmentOwnerEnable,
+			int batchSize,
+			boolean releaseSegmentsFinallyEnable) {
+		memoryManager = MemoryManager.create(
+							cacheEnable,
 							memorySize,
 							pageSize,
 							requestMemorySegmentsTimeout,
 							lazyAllocate,
 							slotCount,
-							checkSegmentOwnerEnable) : MemoryManager.create(memorySize, pageSize);
+							checkSegmentOwnerEnable,
+							batchSize,
+							releaseSegmentsFinallyEnable);
 	}
 
 	@Override
