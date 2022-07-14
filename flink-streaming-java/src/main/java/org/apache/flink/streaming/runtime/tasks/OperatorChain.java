@@ -287,7 +287,9 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 	protected void initializeStateAndOpenOperators(StreamTaskStateInitializer streamTaskStateInitializer) throws Exception {
 		for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators(true)) {
 			StreamOperator<?> operator = operatorWrapper.getStreamOperator();
-			operator.initializeState(streamTaskStateInitializer);
+			if (streamTaskStateInitializer != null) {
+				operator.initializeState(streamTaskStateInitializer);
+			}
 			if (operator.getOperatorPerfMetricEnable()) {
 				((OperatorMetricGroup) operator.getMetricGroup()).getTimeMetricGroup()
 					.setOpenStartTimestampMs(System.currentTimeMillis());

@@ -526,6 +526,17 @@ public class TaskManagerOptions {
 	// ------------------------------------------------------------------------
 
 	/**
+	 * Enable state related initialization or not.
+	 */
+	@Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER)
+	public static final ConfigOption<Boolean> TASK_STATE_INIT_ENABLED =
+			key("task.state-init.enabled")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("Enable state related initialization or not. In batch/olap mode, we suggest to set " +
+				"false to disable these useless state initialization in stream task.");
+
+	/**
 	 * Time interval in milliseconds between two successive task cancellation
 	 * attempts.
 	 */

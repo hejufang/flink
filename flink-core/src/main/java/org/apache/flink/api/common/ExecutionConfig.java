@@ -163,6 +163,11 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 	 */
 	private long taskCancellationTimeoutMillis = -1;
 
+	/**
+	 * Enable state related initialization or not.
+	 */
+	private boolean stateInitEnabled = TaskManagerOptions.TASK_STATE_INIT_ENABLED.defaultValue();
+
 	/** This flag defines if we use compression for the state snapshot data or not. Default: false */
 	private boolean useSnapshotCompression = false;
 
@@ -437,6 +442,23 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 	public ExecutionConfig setTaskCancellationTimeout(long timeout) {
 		checkArgument(timeout >= 0, "Timeout needs to be >= 0.");
 		this.taskCancellationTimeoutMillis = timeout;
+		return this;
+	}
+
+	/**
+	 * Returns whether state related initialization is enabled or not.
+	 */
+	@PublicEvolving
+	public boolean getStateInitEnabled() {
+		return this.stateInitEnabled;
+	}
+
+	/**
+	 * Sets whether state related initialization is enabled or not.
+	 */
+	@PublicEvolving
+	public ExecutionConfig setStateInitEnabled(boolean stateInitEnabled) {
+		this.stateInitEnabled = stateInitEnabled;
 		return this;
 	}
 
@@ -1290,6 +1312,8 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 			.ifPresent(this::setTaskCancellationInterval);
 		configuration.getOptional(TaskManagerOptions.TASK_CANCELLATION_TIMEOUT)
 			.ifPresent(this::setTaskCancellationTimeout);
+		configuration.getOptional(TaskManagerOptions.TASK_STATE_INIT_ENABLED)
+			.ifPresent(this::setStateInitEnabled);
 		configuration.getOptional(ExecutionOptions.SNAPSHOT_COMPRESSION)
 			.ifPresent(this::setUseSnapshotCompression);
 		RestartStrategies.fromConfiguration(configuration)

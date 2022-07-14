@@ -221,6 +221,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	private boolean disposedOperators;
 
+	private final boolean stateInitEnabled;
+
 	/** Thread pool for async snapshot workers. */
 	private final ExecutorService asyncOperationsThreadPool;
 
@@ -314,33 +316,47 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		this.mailboxProcessor = new MailboxProcessor(this::processInput, mailbox, actionExecutor);
 		this.mailboxProcessor.initMetric(environment.getMetricGroup());
 		this.mainMailboxExecutor = mailboxProcessor.getMainMailboxExecutor();
-		this.asyncExceptionHandler = new StreamTaskAsyncExceptionHandler(environment);
-		this.asyncOperationsThreadPool = Executors.newCachedThreadPool(
-			new ExecutorThreadFactory("AsyncOperations", uncaughtExceptionHandler));
 		this.cacheManager = environment.getCacheManager();
 
-		this.stateBackend = createStateBackend();
+		this.stateInitEnabled = getEnvironment().getExecutionConfig().getStateInitEnabled();
+		LOG.debug("Enable state related initialization: {}", stateInitEnabled);
 
-		this.subtaskCheckpointCoordinator = new SubtaskCheckpointCoordinatorImpl(
-			stateBackend.createCheckpointStorage(getEnvironment().getJobID(), getEnvironment().getJobUID(), getEnvironment().getMetricGroup()),
-			getName(),
-			actionExecutor,
-			getCancelables(),
-			getAsyncOperationsThreadPool(),
-			getEnvironment(),
-			this,
-			configuration.isUnalignedCheckpointsEnabled(),
-			this::prepareInputSnapshot);
+		if (stateInitEnabled) {
+			this.asyncExceptionHandler = new StreamTaskAsyncExceptionHandler(environment);
+			this.asyncOperationsThreadPool = Executors.newCachedThreadPool(
+				new ExecutorThreadFactory("AsyncOperations", uncaughtExceptionHandler));
 
-		// if the clock is not already set, then assign a default TimeServiceProvider
-		if (timerService == null) {
-			ThreadFactory timerThreadFactory = new DispatcherThreadFactory(TRIGGER_THREAD_GROUP, "Time Trigger for " + getName());
-			this.timerService = new SystemProcessingTimeService(this::handleTimerException, timerThreadFactory, getEnvironment().getMetricGroup());
+			this.stateBackend = createStateBackend();
+
+			this.subtaskCheckpointCoordinator = new SubtaskCheckpointCoordinatorImpl(
+				stateBackend.createCheckpointStorage(getEnvironment().getJobID(), getEnvironment().getJobUID(), getEnvironment().getMetricGroup()),
+				getName(),
+				actionExecutor,
+				getCancelables(),
+				getAsyncOperationsThreadPool(),
+				getEnvironment(),
+				this,
+				configuration.isUnalignedCheckpointsEnabled(),
+				this::prepareInputSnapshot);
+
+			// if the clock is not already set, then assign a default TimeServiceProvider
+			if (timerService == null) {
+				ThreadFactory timerThreadFactory = new DispatcherThreadFactory(TRIGGER_THREAD_GROUP, "Time Trigger for " + getName());
+				this.timerService = new SystemProcessingTimeService(this::handleTimerException, timerThreadFactory, getEnvironment().getMetricGroup());
+			} else {
+				this.timerService = timerService;
+			}
+
+			this.channelIOExecutor = Executors.newSingleThreadExecutor(new ExecutorThreadFactory("channel-state-unspilling"));
+
 		} else {
-			this.timerService = timerService;
+			this.asyncExceptionHandler = null;
+			this.asyncOperationsThreadPool = null;
+			this.stateBackend = null;
+			this.subtaskCheckpointCoordinator = null;
+			this.timerService = null;
+			this.channelIOExecutor = null;
 		}
-
-		this.channelIOExecutor = Executors.newSingleThreadExecutor(new ExecutorThreadFactory("channel-state-unspilling"));
 	}
 
 	private CompletableFuture<Void> prepareInputSnapshot(ChannelStateWriter channelStateWriter, long checkpointId) throws IOException {
@@ -529,7 +545,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			// both the following operations are protected by the lock
 			// so that we avoid race conditions in the case that initializeState()
 			// registers a timer, that fires before the open() is called.
-			operatorChain.initializeStateAndOpenOperators(createStreamTaskStateInitializer());
+			if (stateInitEnabled) {
+				operatorChain.initializeStateAndOpenOperators(createStreamTaskStateInitializer());
+			} else {
+				operatorChain.initializeStateAndOpenOperators(null);
+			}
 
 			readRecoveredChannelState();
 		});
@@ -645,7 +665,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		actionExecutor.runThrowing(() -> {
 
 			// make sure no new timers can come
-			FutureUtils.forward(timerService.quiesce(), timersFinishedFuture);
+			if (timerService != null) {
+				FutureUtils.forward(timerService.quiesce(), timersFinishedFuture);
+			} else {
+				timersFinishedFuture.complete(null);
+			}
 
 			// let mailbox execution reject all new letters from this point
 			mailboxProcessor.prepareClose();
@@ -687,12 +711,16 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		Thread.interrupted();
 
 		// stop all timers and threads
-		tryShutdownTimerService();
+		if (timerService != null) {
+			tryShutdownTimerService();
+		}
 
 		// stop all asynchronous checkpoint threads
 		try {
 			cancelables.close();
-			shutdownAsyncThreads();
+			if (asyncOperationsThreadPool != null) {
+				shutdownAsyncThreads();
+			}
 		} catch (Throwable t) {
 			// catch and log the exception to not replace the original exception
 			LOG.error("Could not shut down async checkpoint threads", t);
@@ -720,7 +748,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		}
 
 		try {
-			channelIOExecutor.shutdown();
+			if (channelIOExecutor != null) {
+				channelIOExecutor.shutdown();
+			}
 		} catch (Throwable t) {
 			LOG.error("Error during shutdown the channel state unspill executor", t);
 		}
