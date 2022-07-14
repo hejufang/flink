@@ -26,6 +26,7 @@ import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer010;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducerBase;
 import org.apache.flink.streaming.connectors.kafka.config.KafkaSinkConfig;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaProducerFactory;
+import org.apache.flink.streaming.connectors.kafka.internals.KeyedRowDataSerializationSchemaWrapper;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
@@ -82,11 +83,23 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 			SerializationSchema<RowData> serializationSchema,
 			Optional<FlinkKafkaPartitioner<RowData>> partitioner,
 			Properties otherProperties) {
-		FlinkKafkaProducerBase<RowData> flinkKafkaProducerBase = new FlinkKafkaProducer010<>(
-			topic,
-			serializationSchema,
-			properties,
-			partitioner.orElse(null));
+		FlinkKafkaProducerBase<RowData> flinkKafkaProducerBase;
+		if (sinkConfig.getSinkMsgKeyIndex() != null){
+			flinkKafkaProducerBase = new FlinkKafkaProducer010<>(
+				topic,
+				new KeyedRowDataSerializationSchemaWrapper(
+					serializationSchema,
+					sinkConfig.getSinkMsgKeyIndex(),
+					sinkConfig.getSinkMsgKeyLogicalType()),
+				properties,
+				partitioner.orElse(null));
+		} else {
+			flinkKafkaProducerBase = new FlinkKafkaProducer010<>(
+				topic,
+				serializationSchema,
+				properties,
+				partitioner.orElse(null));
+		}
 		flinkKafkaProducerBase.setMetricsOptions(
 			metricsOptions,
 			new DynamicTableSlaMetricsGetter(metricsOptions, getFieldGetter(consumedDataType)));

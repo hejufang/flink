@@ -19,6 +19,7 @@ package org.apache.flink.streaming.connectors.kafka.config;
 
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.functions.DeleteNormalizer;
+import org.apache.flink.table.types.logical.LogicalType;
 
 /**
  * KafkaSinkConf.
@@ -26,8 +27,25 @@ import org.apache.flink.table.functions.DeleteNormalizer;
 public class KafkaSinkConfig {
 	private final DeleteNormalizer<RowData> deleteNormalizer;
 
-	private KafkaSinkConfig(DeleteNormalizer<RowData> deleteNormalizer) {
+	private final Integer sinkMsgKeyIndex;
+
+	private final LogicalType sinkMsgKeyLogicalType;
+
+	public Integer getSinkMsgKeyIndex() {
+		return sinkMsgKeyIndex;
+	}
+
+	public LogicalType getSinkMsgKeyLogicalType() {
+		return sinkMsgKeyLogicalType;
+	}
+
+	private KafkaSinkConfig(
+			DeleteNormalizer<RowData> deleteNormalizer,
+			Integer sinkMsgKeyIndex,
+			LogicalType sinkMsgKeyLogicalType) {
 		this.deleteNormalizer = deleteNormalizer;
+		this.sinkMsgKeyIndex = sinkMsgKeyIndex;
+		this.sinkMsgKeyLogicalType = sinkMsgKeyLogicalType;
 	}
 
 	public DeleteNormalizer<RowData> getDeleteNormalizer() {
@@ -44,6 +62,10 @@ public class KafkaSinkConfig {
 	public static class Builder {
 		private DeleteNormalizer<RowData> deleteNormalizer;
 
+		private Integer sinkMsgKeyIndex;
+
+		private LogicalType sinkMsgKeyLogicalType;
+
 		private Builder() {
 		}
 
@@ -52,8 +74,17 @@ public class KafkaSinkConfig {
 			return this;
 		}
 
+		public Builder withSinkMsgKeyInformation(Integer sinkMsgKeyIndex, LogicalType sinkMsgKeyLogicalType) {
+			this.sinkMsgKeyIndex = sinkMsgKeyIndex;
+			this.sinkMsgKeyLogicalType = sinkMsgKeyLogicalType;
+			return this;
+		}
+
 		public KafkaSinkConfig build() {
-			return new KafkaSinkConfig(deleteNormalizer);
+			return new KafkaSinkConfig(
+					deleteNormalizer,
+					sinkMsgKeyIndex,
+					sinkMsgKeyLogicalType);
 		}
 	}
 }

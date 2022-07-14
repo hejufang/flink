@@ -48,6 +48,7 @@ import org.apache.flink.table.metric.SinkMetricsOptions;
 import org.apache.flink.table.planner.plan.utils.KeySelectorUtil;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -76,6 +77,7 @@ import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCA
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_IN_FLIGHT_BATCH_SIZE_FACTOR;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_IN_FLIGHT_MAX_NUM;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_LOG_FAILURE_ONLY;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_MSG_KEY;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PARTITIONER;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PARTITIONER_CLASS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PRODUCER_FACTORY_CLASS;
@@ -247,6 +249,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(FactoryUtil.SOURCE_METADATA_COLUMNS);
 		options.add(FactoryUtil.PARALLELISM);
 		options.add(FactoryUtil.SOURCE_KEY_BY_FIELD);
+		options.add(SINK_MSG_KEY);
 
 		// metrics
 		options.add(SINK_METRICS_QUANTILES);
@@ -316,6 +319,17 @@ public abstract class KafkaDynamicTableFactoryBase implements
 			default:
 				// do not set, leave it as null
 		}
+		readableConfig.getOptional(SINK_MSG_KEY).ifPresent(
+			sinkMsgKey -> {
+				int[] fields = tableSchema.getIndexListFromFieldNames(sinkMsgKey);
+				if (fields.length > 1) {
+					throw new IllegalArgumentException(
+						String.format("Kafka sink message key field is limited to one table field."));
+				}
+				LogicalType sinkMsgKeyLogicalType = tableSchema.getFieldDataType(fields[0]).get().getLogicalType();
+				builder.withSinkMsgKeyInformation(fields[0], sinkMsgKeyLogicalType);
+			}
+		);
 		return builder.build();
 	}
 

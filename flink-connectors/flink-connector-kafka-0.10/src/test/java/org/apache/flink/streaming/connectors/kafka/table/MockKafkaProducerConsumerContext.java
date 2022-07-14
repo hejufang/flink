@@ -132,6 +132,12 @@ public class MockKafkaProducerConsumerContext {
 			.collect(Collectors.toList());
 	}
 
+	public List<String> getSinkMsgKeyResults() {
+		return producerRecords.stream()
+			.map(record -> new String(record.key()))
+			.collect(Collectors.toList());
+	}
+
 	private ConsumerRecords<byte[], byte[]> consumerPollMockAction(InvocationOnMock invocationOnMock) {
 		synchronized (consumerLock) {
 			int index = consumedIndex.incrementAndGet();

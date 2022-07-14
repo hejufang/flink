@@ -208,6 +208,12 @@ public class KafkaOptions {
 		.defaultValue(KafkaProducerFactory.DefaultKafkaProducerFactory.class.getName())
 		.withDescription("Factory class used to build kafka producer.");
 
+	public static final ConfigOption<String> SINK_MSG_KEY = ConfigOptions
+		.key("sink.msg-key")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional sink message key field which only supports one table field.");
+
 
 	// --------------------------------------------------------------------------------------------
 	// Option enumerations
