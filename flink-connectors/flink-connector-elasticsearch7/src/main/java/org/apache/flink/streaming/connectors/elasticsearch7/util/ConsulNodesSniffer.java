@@ -56,7 +56,7 @@ public class ConsulNodesSniffer implements NodesSniffer {
 	@Override
 	public List<Node> sniff() throws IOException {
 		List<Node> nodes = new ArrayList<>();
-		List<ServiceNode> serviceNodes = DISCOVERY.translateOne(psm);
+		List<ServiceNode> serviceNodes = DISCOVERY.lookupName(psm);
 		for (ServiceNode node : serviceNodes) {
 			String tag = node.getTags().getOrDefault("cluster", "default");
 			if (tag.equals(cluster)) {
