@@ -62,6 +62,10 @@ import java.lang.management.ThreadMXBean;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -89,6 +93,15 @@ public class MetricUtils {
 	@VisibleForTesting
 	static final String METRIC_GROUP_MANAGED_MEMORY = "Managed";
 
+	private static final int DEFAULT_MONITOR_INTERVAL = 30_000;
+
+	private static final ReentrantLock PROCESS_CPU_LOAD_LOCK = new ReentrantLock();
+	private static double processCpuLoad;
+	private static long currentCpuTime;
+	private static long prevCpuTime;
+	private static long currentTimestamp;
+	private static long prevTimestamp;
+
 	private MetricUtils() {
 	}
 
@@ -96,9 +109,18 @@ public class MetricUtils {
 			final MetricRegistry metricRegistry,
 			final String hostname,
 			final Optional<Time> systemResourceProbeInterval) {
+		return instantiateProcessMetricGroup(metricRegistry, hostname, systemResourceProbeInterval, false, DEFAULT_MONITOR_INTERVAL);
+	}
+
+	public static ProcessMetricGroup instantiateProcessMetricGroup(
+			final MetricRegistry metricRegistry,
+			final String hostname,
+			final Optional<Time> systemResourceProbeInterval,
+			boolean cpuFineGrainedMonitorEnabled,
+			int cpuFineGrainedMonitorInterval) {
 		final ProcessMetricGroup processMetricGroup = ProcessMetricGroup.create(metricRegistry, hostname);
 
-		createAndInitializeStatusMetricGroup(processMetricGroup);
+		createAndInitializeStatusMetricGroup(processMetricGroup, cpuFineGrainedMonitorEnabled, cpuFineGrainedMonitorInterval);
 
 		systemResourceProbeInterval.ifPresent(interval -> instantiateSystemMetrics(processMetricGroup, interval));
 
@@ -120,12 +142,23 @@ public class MetricUtils {
 			String hostName,
 			ResourceID resourceID,
 			Optional<Time> systemResourceProbeInterval) {
+		return instantiateTaskManagerMetricGroup(metricRegistry, hostName, resourceID, systemResourceProbeInterval,
+			false, DEFAULT_MONITOR_INTERVAL);
+	}
+
+	public static Tuple2<TaskManagerMetricGroup, MetricGroup> instantiateTaskManagerMetricGroup(
+			MetricRegistry metricRegistry,
+			String hostName,
+			ResourceID resourceID,
+			Optional<Time> systemResourceProbeInterval,
+			boolean cpuFineGrainedMonitorEnabled,
+			int cpuFineGrainedMonitorInterval) {
 		final TaskManagerMetricGroup taskManagerMetricGroup = new TaskManagerMetricGroup(
 			metricRegistry,
 			hostName,
 			resourceID.toString());
 
-		MetricGroup statusGroup = createAndInitializeStatusMetricGroup(taskManagerMetricGroup);
+		MetricGroup statusGroup = createAndInitializeStatusMetricGroup(taskManagerMetricGroup, cpuFineGrainedMonitorEnabled, cpuFineGrainedMonitorInterval);
 
 		if (systemResourceProbeInterval.isPresent()) {
 			instantiateSystemMetrics(taskManagerMetricGroup, systemResourceProbeInterval.get());
@@ -137,20 +170,36 @@ public class MetricUtils {
 			final MetricRegistry metricRegistry,
 			final String hostName,
 			final Optional<Time> systemResourceProbeInterval) {
+		return instantiateSqlGatewayMetricGroup(metricRegistry, hostName, systemResourceProbeInterval, false, DEFAULT_MONITOR_INTERVAL);
+	}
+
+	public static SqlGatewayMetricGroup instantiateSqlGatewayMetricGroup(
+			final MetricRegistry metricRegistry,
+			final String hostName,
+			final Optional<Time> systemResourceProbeInterval,
+			boolean cpuFineGrainedMonitorEnabled,
+			int cpuFineGrainedMonitorInterval) {
 		final SqlGatewayMetricGroup sqlGatewayMetricGroup = new SqlGatewayMetricGroup(
-				metricRegistry,
-				hostName
+			metricRegistry,
+			hostName
 		);
-		createAndInitializeStatusMetricGroup(sqlGatewayMetricGroup);
+		createAndInitializeStatusMetricGroup(sqlGatewayMetricGroup, cpuFineGrainedMonitorEnabled, cpuFineGrainedMonitorInterval);
 		systemResourceProbeInterval.ifPresent(
-				interval -> instantiateSystemMetrics(sqlGatewayMetricGroup, interval));
+			interval -> instantiateSystemMetrics(sqlGatewayMetricGroup, interval));
 		return sqlGatewayMetricGroup;
 	}
 
 	private static MetricGroup createAndInitializeStatusMetricGroup(AbstractMetricGroup<?> parentMetricGroup) {
+		return createAndInitializeStatusMetricGroup(parentMetricGroup, false, DEFAULT_MONITOR_INTERVAL);
+	}
+
+	private static MetricGroup createAndInitializeStatusMetricGroup(
+			AbstractMetricGroup<?> parentMetricGroup,
+			boolean cpuFineGrainedMonitorEnabled,
+			int cpuFineGrainedMonitorInterval) {
 		MetricGroup statusGroup = parentMetricGroup.addGroup(METRIC_GROUP_STATUS_NAME);
 
-		instantiateStatusMetrics(statusGroup);
+		instantiateStatusMetrics(statusGroup, cpuFineGrainedMonitorEnabled, cpuFineGrainedMonitorInterval);
 		return statusGroup;
 	}
 
@@ -165,13 +214,20 @@ public class MetricUtils {
 
 	public static void instantiateStatusMetrics(
 			MetricGroup metricGroup) {
+		instantiateStatusMetrics(metricGroup, false, DEFAULT_MONITOR_INTERVAL);
+	}
+
+	public static void instantiateStatusMetrics(
+			MetricGroup metricGroup,
+			boolean cpuFineGrainedMonitorEnabled,
+			int cpuFineGrainedMonitorInterval) {
 		MetricGroup jvm = metricGroup.addGroup("JVM");
 
 		instantiateClassLoaderMetrics(jvm.addGroup("ClassLoader"));
 		instantiateGarbageCollectorMetrics(jvm.addGroup("GarbageCollector"));
 		instantiateMemoryMetrics(jvm.addGroup(METRIC_GROUP_MEMORY));
 		instantiateThreadMetrics(jvm.addGroup("Threads"));
-		instantiateCPUMetrics(jvm.addGroup("CPU"));
+		instantiateCPUMetrics(jvm.addGroup("CPU"), cpuFineGrainedMonitorEnabled, cpuFineGrainedMonitorInterval);
 	}
 
 	public static void instantiateFlinkMemoryMetricGroup(
@@ -329,18 +385,69 @@ public class MetricUtils {
 	}
 
 	private static void instantiateCPUMetrics(MetricGroup metrics) {
+		instantiateCPUMetrics(metrics, false, DEFAULT_MONITOR_INTERVAL);
+	}
+
+	private static void instantiateCPUMetrics(MetricGroup metrics, boolean cpuFineGrainedMonitorEnabled, int cpuFineGrainedMonitorInterval) {
 		try {
 			final com.sun.management.OperatingSystemMXBean mxBean = (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
 			final int cpuCores = Runtime.getRuntime().availableProcessors();
 			//getProcessCpuLoad returns the "recent cpu usage" for the JVM process. This value is a double in the [0.0,1.0] interval
 			//getProcessCpuLoad * cpuCores means nums of Cpus JVM used.
-			metrics.<Double, Gauge<Double>>gauge("Cores", () -> mxBean.getProcessCpuLoad() * cpuCores);
+			LOG.info("cpuFineGrainedMonitorEnabled: {}, cpuFineGrainedMonitorInterval: {}", cpuFineGrainedMonitorEnabled, cpuFineGrainedMonitorInterval);
+			if (cpuFineGrainedMonitorEnabled) {
+				monitorProcessCpuLoad(mxBean, cpuFineGrainedMonitorInterval);
+				metrics.<Double, Gauge<Double>>gauge("Cores", () -> getProcessCpuLoad());
+			} else {
+				metrics.<Double, Gauge<Double>>gauge("Cores", () -> mxBean.getProcessCpuLoad() * cpuCores);
+			}
 			metrics.<Double, Gauge<Double>>gauge("Load", () -> mxBean.getProcessCpuLoad());
 			metrics.<Long, Gauge<Long>>gauge("Time", mxBean::getProcessCpuTime);
 		} catch (Exception e) {
 			LOG.warn("Cannot access com.sun.management.OperatingSystemMXBean.getProcessCpuLoad()" +
 				" - CPU load metrics will not be available.", e);
 		}
+	}
+
+	private static double getProcessCpuLoad() {
+		double maxProcessCpuLoad;
+		try {
+			PROCESS_CPU_LOAD_LOCK.lock();
+			maxProcessCpuLoad = processCpuLoad;
+			processCpuLoad = 0.0;
+		} finally {
+			PROCESS_CPU_LOAD_LOCK.unlock();
+		}
+		return maxProcessCpuLoad;
+	}
+
+	private static void monitorProcessCpuLoad(com.sun.management.OperatingSystemMXBean mxBean, int cpuFineGrainedMonitorInterval) {
+		ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+		prevTimestamp = System.currentTimeMillis();
+		prevCpuTime = mxBean.getProcessCpuTime();
+
+		Runnable runnable = () -> {
+			currentCpuTime = mxBean.getProcessCpuTime();
+			currentTimestamp = System.currentTimeMillis();
+			long interval = currentTimestamp - prevTimestamp;
+			if (interval == 0) {
+				return;
+			}
+			double cpuLoad = (currentCpuTime - prevCpuTime) / 1E9 / interval * 1000.0;
+			try {
+				PROCESS_CPU_LOAD_LOCK.lock();
+				processCpuLoad = Math.max(cpuLoad, processCpuLoad);
+			} finally {
+				PROCESS_CPU_LOAD_LOCK.unlock();
+			}
+			prevCpuTime = currentCpuTime;
+			prevTimestamp = currentTimestamp;
+		};
+		executor.scheduleWithFixedDelay(
+			runnable,
+			0,
+			cpuFineGrainedMonitorInterval,
+			TimeUnit.MILLISECONDS);
 	}
 
 	private static final class AttributeGauge<T> implements Gauge<T> {

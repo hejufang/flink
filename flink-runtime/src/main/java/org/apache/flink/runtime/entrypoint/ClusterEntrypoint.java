@@ -29,6 +29,7 @@ import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.core.fs.FileSystem;
@@ -299,7 +300,9 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 			processMetricGroup = MetricUtils.instantiateProcessMetricGroup(
 				metricRegistry,
 				hostname,
-				ConfigurationUtils.getSystemResourceMetricsProbingInterval(configuration));
+				ConfigurationUtils.getSystemResourceMetricsProbingInterval(configuration),
+				configuration.getBoolean(MetricOptions.METRIC_CPU_FINE_GRAINED_MONITOR_ENABLED),
+				configuration.getInteger(MetricOptions.METRIC_CPU_FINE_GRAINED_MONITOR_INTERVAL));
 
 			archivedExecutionGraphStore = createSerializableExecutionGraphStore(configuration, commonRpcService.getScheduledExecutor());
 		}

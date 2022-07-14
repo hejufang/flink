@@ -219,6 +219,17 @@ public class MetricOptions {
 			.withDescription("Flag indicating whether Metric store should maintain task/operator level metric which not use in UI." +
 				"Main some useful metric, such like ioMetric");
 
+	public static final ConfigOption<Boolean> METRIC_CPU_FINE_GRAINED_MONITOR_ENABLED =
+		key("metrics.cpu.fine-grained-monitor.enabled")
+			.defaultValue(false)
+			.withDescription("Whether to monitor fine grained cpu load or not, mainly used in olap.");
+
+	public static final ConfigOption<Integer> METRIC_CPU_FINE_GRAINED_MONITOR_INTERVAL =
+		key("metrics.cpu.fine-grained-monitor.interval")
+			.defaultValue(1000)
+			.withDescription("The interval to monitor fine grained cpu load, the unit is milliseconds. " +
+				"This is mainly use in olap.");
+
 	/**
 	 * This configuration parameter defining whether to enable the operator performance metrics, mainly includes time consumption metrics.
 	 */

@@ -22,6 +22,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.core.fs.FileSystem;
@@ -406,7 +407,9 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 			metricRegistry,
 			externalAddress,
 			resourceID,
-			taskManagerServicesConfiguration.getSystemResourceMetricsProbingInterval());
+			taskManagerServicesConfiguration.getSystemResourceMetricsProbingInterval(),
+			configuration.getBoolean(MetricOptions.METRIC_CPU_FINE_GRAINED_MONITOR_ENABLED),
+			configuration.getInteger(MetricOptions.METRIC_CPU_FINE_GRAINED_MONITOR_INTERVAL));
 
 		final ExecutorService ioExecutor = Executors.newFixedThreadPool(
 			taskManagerServicesConfiguration.getNumIoThreads(),
