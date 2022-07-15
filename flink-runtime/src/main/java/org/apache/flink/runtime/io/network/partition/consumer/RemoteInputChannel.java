@@ -154,16 +154,26 @@ public class RemoteInputChannel extends InputChannel {
 	@VisibleForTesting
 	@Override
 	public void requestSubpartition(int subpartitionIndex) throws IOException, InterruptedException {
-		if (partitionRequestClient == null) {
-			// Create a client and request the partition
-			try {
-				partitionRequestClient = connectionManager.createPartitionRequestClient(connectionId);
-			} catch (IOException e) {
-				// IOExceptions indicate that we could not open a connection to the remote TaskExecutor
-				throw new PartitionConnectionException(partitionId, e);
-			}
 
-			partitionRequestClient.requestSubpartition(partitionId, subpartitionIndex, this, 0);
+		try {
+			if (partitionRequestClient == null) {
+				// Create a client and request the partition
+				try {
+					partitionRequestClient = connectionManager.createPartitionRequestClient(connectionId);
+				} catch (IOException e) {
+					// IOExceptions indicate that we could not open a connection to the remote TaskExecutor
+					throw new PartitionConnectionException(partitionId, e);
+				}
+
+				partitionRequestClient.requestSubpartition(partitionId, subpartitionIndex, this, 0);
+			}
+		} catch (Exception e) {
+			if (isRecoverable) {
+				LOG.error("{}: new channel request partition failed", this);
+				onError(e);
+			} else {
+				throw e;
+			}
 		}
 	}
 
@@ -188,9 +198,18 @@ public class RemoteInputChannel extends InputChannel {
 	void retriggerSubpartitionRequest(int subpartitionIndex) throws IOException {
 		checkPartitionRequestQueueInitialized();
 
-		if (increaseBackoff()) {
-			partitionRequestClient.requestSubpartition(
-				partitionId, subpartitionIndex, this, getCurrentBackoff());
+		if (increaseBackoff() && isChannelAvailable()) {
+			try {
+				partitionRequestClient.requestSubpartition(
+					partitionId, subpartitionIndex, this, getCurrentBackoff());
+			} catch (Exception e) {
+				if (isRecoverable) {
+					LOG.error("{}: new channel retrigger request partition failed", this);
+					onError(e);
+				} else {
+					throw e;
+				}
+			}
 		} else {
 			failPartitionRequest();
 		}
@@ -311,7 +330,7 @@ public class RemoteInputChannel extends InputChannel {
 	}
 
 	private void failPartitionRequest() {
-		setError(new PartitionNotFoundException(partitionId));
+		onError(new PartitionNotFoundException(partitionId));
 	}
 
 	@Override
@@ -562,7 +581,16 @@ public class RemoteInputChannel extends InputChannel {
 	}
 
 	public void onFailedPartitionRequest() {
-		inputGate.triggerPartitionStateCheck(partitionId);
+		try {
+			inputGate.triggerPartitionStateCheck(partitionId, this);
+		} catch (Exception e) {
+			if (isRecoverable) {
+				LOG.error("{}: new channel request partition on failed", this);
+				onError(e);
+			} else {
+				throw e;
+			}
+		}
 	}
 
 	public void onError(Throwable cause) {
@@ -594,7 +622,7 @@ public class RemoteInputChannel extends InputChannel {
 
 	private void checkPartitionRequestQueueInitialized() throws IOException {
 		checkError();
-		checkState(partitionRequestClient != null,
+		checkState(partitionRequestClient != null || !isChannelAvailable(),
 				"Bug: partitionRequestClient is not initialized before processing data and no error is detected.");
 	}
 

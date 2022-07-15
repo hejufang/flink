@@ -57,7 +57,7 @@ public class RemoteChannelStateChecker {
 			if (isProducerConsumerReady) {
 				return true;
 			} else {
-				abortConsumptionOrIgnoreCheckResult(responseHandle);
+				abortConsumptionOrIgnoreCheckResult(responseHandle, forcePartitionRecoverable);
 			}
 		} else {
 			handleFailedCheckResult(responseHandle, forcePartitionRecoverable);
@@ -83,7 +83,7 @@ public class RemoteChannelStateChecker {
 			producerState == ExecutionState.FINISHED;
 	}
 
-	private void abortConsumptionOrIgnoreCheckResult(ResponseHandle responseHandle) {
+	private void abortConsumptionOrIgnoreCheckResult(ResponseHandle responseHandle, boolean forcePartitionRecoverable) {
 		ExecutionState producerState = getProducerState(responseHandle);
 		if (producerState == ExecutionState.CANCELING ||
 			producerState == ExecutionState.CANCELED ||
@@ -102,7 +102,11 @@ public class RemoteChannelStateChecker {
 					resultPartitionId.getProducerId(),
 					resultPartitionId.getPartitionId(),
 					producerState);
-			responseHandle.failConsumption(new Exception(msg));
+			IllegalStateException cause = new IllegalStateException(msg);
+			if (forcePartitionRecoverable) {
+				throw cause;
+			}
+			responseHandle.failConsumption(cause);
 		} else {
 			// Any other execution state is unexpected. Currently, only
 			// state CREATED is left out of the checked states. If we
@@ -112,8 +116,11 @@ public class RemoteChannelStateChecker {
 				resultPartitionId.getProducerId(),
 				resultPartitionId.getPartitionId(),
 				producerState);
-
-			responseHandle.failConsumption(new IllegalStateException(msg));
+			IllegalStateException cause = new IllegalStateException(msg);
+			if (forcePartitionRecoverable) {
+				throw cause;
+			}
+			responseHandle.failConsumption(cause);
 		}
 	}
 
@@ -126,7 +133,10 @@ public class RemoteChannelStateChecker {
 		Throwable throwable = responseHandle.getProducerExecutionState().right();
 		// if use force-partition-recoverable, task will not full-restart.
 		// So switch state to failed when PartitionProducerDisposedException occur with force-partition-recoverable enable.
-		if (throwable instanceof PartitionProducerDisposedException && !forcePartitionRecoverable) {
+		if (forcePartitionRecoverable) {
+			throw new RuntimeException(throwable);
+		}
+		if (throwable instanceof PartitionProducerDisposedException) {
 			String msg = String.format(
 				"Producer %s of partition %s disposed. Cancelling execution.",
 				resultPartitionId.getProducerId(),

@@ -63,10 +63,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
@@ -604,11 +606,13 @@ public class TaskTest extends TestLogger {
 			when(partitionChecker.requestPartitionProducerState(eq(task.getJobID()), eq(resultId), eq(partitionId))).thenReturn(promise);
 
 			task.requestPartitionProducerState(resultId, partitionId, checkResult ->
-				assertThat(remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult, true), is(false))
+				{
+					assertThrows("has already been disposed",RuntimeException.class, ()->remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult, true));
+				}
 			);
 
 			promise.completeExceptionally(new PartitionProducerDisposedException(partitionId));
-			assertEquals(ExecutionState.FAILED, task.getExecutionState());
+			assertEquals(ExecutionState.RUNNING, task.getExecutionState());
 		}
 
 		{

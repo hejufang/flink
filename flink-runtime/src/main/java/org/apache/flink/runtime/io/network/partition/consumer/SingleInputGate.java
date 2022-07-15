@@ -901,18 +901,33 @@ public class SingleInputGate extends IndexedInputGate {
 		queueChannel(checkNotNull(channel));
 	}
 
-	void triggerPartitionStateCheck(ResultPartitionID partitionId) {
+	void triggerPartitionStateCheck(ResultPartitionID partitionId, RemoteInputChannel remoteInputChannel) {
 		partitionProducerStateProvider.requestPartitionProducerState(
 			consumedResultId,
 			partitionId,
 			((PartitionProducerStateProvider.ResponseHandle responseHandle) -> {
-				boolean isProducingState = new RemoteChannelStateChecker(partitionId, owningTaskName)
-					.isProducerReadyOrAbortConsumption(responseHandle, channelProvider != null);
+
+				boolean forcePartitionRecoverable = channelProvider != null;
+				boolean isProducingState = false;
+				try {
+					isProducingState = new RemoteChannelStateChecker(partitionId, owningTaskName)
+						.isProducerReadyOrAbortConsumption(responseHandle, forcePartitionRecoverable);
+				} catch (Exception e) {
+					if (forcePartitionRecoverable) {
+						remoteInputChannel.onError(e);
+					} else {
+						responseHandle.failConsumption(e);
+					}
+				}
 				if (isProducingState) {
 					try {
 						retriggerPartitionRequest(partitionId.getPartitionId());
 					} catch (IOException t) {
-						responseHandle.failConsumption(t);
+						if (forcePartitionRecoverable) {
+							remoteInputChannel.onError(t);
+						} else {
+							responseHandle.failConsumption(t);
+						}
 					}
 				}
 			}));

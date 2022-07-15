@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition;
 
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.network.ConnectionID;
+import org.apache.flink.runtime.io.network.ConnectionManager;
 import org.apache.flink.runtime.io.network.partition.consumer.ChannelProvider;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelBuilder;
@@ -39,8 +40,18 @@ public class TestChannelProvider implements ChannelProvider {
 
 	private final Map<Integer, PartitionInfo> cachedPartitionInfos;
 
+	private ConnectionManager connectionManager = null;
+
+	private boolean isRecoverable = false;
+
 	public TestChannelProvider() {
 		this.cachedPartitionInfos = new HashMap<>();
+	}
+
+	public TestChannelProvider(ConnectionManager connectionManager, boolean isRecoverable) {
+		this();
+		this.connectionManager = connectionManager;
+		this.isRecoverable = isRecoverable;
 	}
 
 	@Override
@@ -49,8 +60,11 @@ public class TestChannelProvider implements ChannelProvider {
 			InputChannel current,
 			ConnectionID newConnectionID,
 			ResultPartitionID newPartitionID) throws IOException {
-		return InputChannelBuilder.newBuilder()
-			.buildRemoteChannel(inputGate);
+		InputChannelBuilder inputChannelBuilder = InputChannelBuilder.newBuilder().setRecoverable(isRecoverable);
+		if (connectionManager != null) {
+			inputChannelBuilder.setConnectionManager(connectionManager);
+		}
+		return inputChannelBuilder.buildRemoteChannel(inputGate);
 	}
 
 	@Override

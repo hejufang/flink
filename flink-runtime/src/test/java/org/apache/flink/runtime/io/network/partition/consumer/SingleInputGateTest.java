@@ -31,11 +31,14 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.deployment.InputGateDeploymentDescriptor;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironmentBuilder;
+import org.apache.flink.runtime.io.network.PartitionRequestClient;
 import org.apache.flink.runtime.io.network.TaskEventDispatcher;
 import org.apache.flink.runtime.io.network.TaskEventPublisher;
 import org.apache.flink.runtime.io.network.TestingConnectionManager;
+import org.apache.flink.runtime.io.network.TestingPartitionRequestClient;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.api.UnavailableChannelEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
@@ -101,6 +104,7 @@ import static org.apache.flink.runtime.io.network.partition.consumer.RemoteInput
 import static org.apache.flink.runtime.io.network.util.TestBufferFactory.createBuffer;
 import static org.apache.flink.runtime.util.NettyShuffleDescriptorBuilder.createRemoteWithIdAndLocation;
 import static org.apache.flink.util.ExceptionUtils.rethrow;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -937,6 +941,106 @@ public class SingleInputGateTest extends InputGateTestBase {
 
 		future1.get(10, TimeUnit.SECONDS);
 		future2.get(10, TimeUnit.SECONDS);
+	}
+
+	@Test
+	public void testUpdateChannelFromChannelProviderIfPartitionRequestFailed() throws IOException, InterruptedException, TimeoutException, ExecutionException {
+		// Setup
+		final NettyShuffleEnvironment network = createNettyShuffleEnvironment();
+
+		CompletableFuture<Void> finishFuture = new CompletableFuture<>();
+		TestAvailablePartitionRequestClient client = new TestAvailablePartitionRequestClient(finishFuture);
+		TestAvailablePartitionConnectionManager connectionManager = new TestAvailablePartitionConnectionManager(client);
+		final SingleInputGate inputGate =
+			new SingleInputGateBuilder()
+				.setNumberOfChannels(1)
+				.setSingleInputGateIndex(gateIndex++)
+				.setResultPartitionType(ResultPartitionType.PIPELINED)
+				.setupBufferPoolFactory(network)
+				.setChannelProvider(new TestChannelProvider(connectionManager, true))
+				.build();
+
+		final RemoteInputChannel remoteInputChannel = InputChannelBuilder.newBuilder()
+			.setChannelIndex(0)
+			.setupFromNettyShuffleEnvironment(network)
+			.setConnectionManager(connectionManager)
+			.buildRemoteChannel(inputGate);
+		inputGate.setInputChannels(remoteInputChannel);
+		client.setAvailable(false);
+		try {
+			inputGate.updateInputChannel(ResourceID.generate(),
+				new NettyShuffleDescriptorBuilder()
+					.setConnectionIndex(0)
+					.setId(remoteInputChannel.getPartitionId())
+					.buildRemote());
+		} catch (Throwable t) {
+			throw new RuntimeException(t);
+		}
+		try {
+			remoteInputChannel.onError(new RuntimeException());
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+		try {
+			inputGate.tryUpdateInputChannelFromChannelProviderCache(remoteInputChannel);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		assertTrue(!finishFuture.isDone());
+		try {
+			inputGate.updateInputChannel(ResourceID.generate(),
+				new NettyShuffleDescriptorBuilder()
+					.setConnectionIndex(0)
+					.setId(remoteInputChannel.getPartitionId())
+					.buildRemote());
+		} catch (Throwable t) {
+			throw new RuntimeException(t);
+		}
+		client.setAvailable(true);
+		try {
+			inputGate.tryUpdateInputChannelFromChannelProviderCache(inputGate.getChannel(remoteInputChannel.getChannelIndex()));
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+
+		assertTrue(finishFuture.isDone());
+	}
+
+	private static final class TestAvailablePartitionConnectionManager extends TestingConnectionManager {
+		private final PartitionRequestClient client;
+
+		TestAvailablePartitionConnectionManager(TestingPartitionRequestClient client) {
+			this.client = checkNotNull(client);
+		}
+
+		@Override
+		public PartitionRequestClient createPartitionRequestClient(ConnectionID connectionId) {
+			return client;
+		}
+	}
+
+	private static final class TestAvailablePartitionRequestClient extends TestingPartitionRequestClient {
+		private boolean available;
+
+		private CompletableFuture<Void> finish;
+
+		public TestAvailablePartitionRequestClient(CompletableFuture<Void> finish) {
+			this.finish = finish;
+		}
+
+		@Override
+		public void requestSubpartition(ResultPartitionID partitionId, int subpartitionIndex, RemoteInputChannel channel, int delayMs) {
+			if (!available) {
+				throw new RuntimeException("not available");
+			} else {
+				finish.complete(null);
+			}
+		}
+
+		public TestAvailablePartitionRequestClient setAvailable(boolean available) {
+			this.available = available;
+			return this;
+		}
 	}
 
 	private List<Object> getIds(Collection<BufferOrEvent> buffers) {

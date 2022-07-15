@@ -51,6 +51,7 @@ public class InputChannelBuilder {
 	private int initialBackoff = 0;
 	private int maxBackoff = 0;
 	private InputChannelMetrics metrics = InputChannelTestUtils.newUnregisteredInputChannelMetrics();
+	private boolean isRecoverable = false;
 
 	public static InputChannelBuilder newBuilder() {
 		return new InputChannelBuilder();
@@ -104,6 +105,11 @@ public class InputChannelBuilder {
 		return this;
 	}
 
+	public InputChannelBuilder setRecoverable(boolean recoverable) {
+		isRecoverable = recoverable;
+		return this;
+	}
+
 	UnknownInputChannel buildUnknownChannel(SingleInputGate inputGate) {
 		return new UnknownInputChannel(
 			inputGate,
@@ -117,7 +123,7 @@ public class InputChannelBuilder {
 			metrics,
 			5,
 			Executors.newSingleThreadScheduledExecutor(),
-			false);
+			isRecoverable);
 	}
 
 	public LocalInputChannel buildLocalChannel(SingleInputGate inputGate) {
@@ -133,7 +139,7 @@ public class InputChannelBuilder {
 			metrics.getNumBuffersInLocalCounter(),
 			5,
 			Executors.newSingleThreadScheduledExecutor(),
-			false);
+			isRecoverable);
 	}
 
 	public RemoteInputChannel buildRemoteChannel(SingleInputGate inputGate) {
@@ -150,7 +156,7 @@ public class InputChannelBuilder {
 			metrics.getNumBuffersInDropped(),
 			5,
 			Executors.newSingleThreadScheduledExecutor(),
-			false);
+			isRecoverable);
 	}
 
 	public LocalRecoveredInputChannel buildLocalRecoveredChannel(SingleInputGate inputGate) {
@@ -165,7 +171,7 @@ public class InputChannelBuilder {
 			metrics,
 			5,
 			null,
-			false);
+			isRecoverable);
 	}
 
 	public RemoteInputChannel buildRemoteAndSetToGate(SingleInputGate inputGate, boolean isRecoverable) {
@@ -197,6 +203,6 @@ public class InputChannelBuilder {
 			metrics,
 			5,
 			Executors.newSingleThreadScheduledExecutor(),
-			false);
+			isRecoverable);
 	}
 }
