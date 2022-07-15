@@ -183,15 +183,19 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 				}
 			}
 		} else {
-			List<SendResult> sendResultList = new ArrayList<>();
-			RetryManager.retry(() -> sendResultList.add(producer.send(message)), retryStrategy);
-			SendResult sendResult = sendResultList.get(0);
-			LOG.debug("Send message id: {}", sendResult.getMsgId());
+			synchronized (messageList) {
+				if (producer != null) {
+					List<SendResult> sendResultList = new ArrayList<>();
+					RetryManager.retry(() -> sendResultList.add(producer.send(message)), retryStrategy);
+					SendResult sendResult = sendResultList.get(0);
+					LOG.debug("Send message id: {}", sendResult.getMsgId());
+				}
+			}
 		}
 	}
 
 	private void flushMessages() {
-		if (messageList.size() > 0) {
+		if (messageList.size() > 0 && producer != null) {
 			try {
 				if (hasPartitionKey) {
 					List<List<SendResult>> sendResultsList = new ArrayList<>();
@@ -279,9 +283,11 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		if (producer != null) {
 			synchronized (messageList) {
 				flushMessages();
+				if (producer != null) {
+					producer.shutdown();
+					producer = null;
+				}
 			}
-			producer.shutdown();
-			producer = null;
 		}
 	}
 

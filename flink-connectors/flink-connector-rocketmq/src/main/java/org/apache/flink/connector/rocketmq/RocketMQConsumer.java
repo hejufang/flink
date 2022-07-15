@@ -252,11 +252,19 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		running = true;
 		hasRun = true;
 		if (tag != null) {
-			consumer.setSubExpr(tag);
+			synchronized (RocketMQConsumer.class) {
+				if (consumer != null) {
+					consumer.setSubExpr(tag);
+				}
+			}
 		}
-		// offset sync to server interval
-		consumer.setFlushOffsetInterval(offsetFlushInterval);
-		RetryManager.retry(() -> consumer.start(), retryStrategy);
+		synchronized (RocketMQConsumer.class) {
+			if (consumer != null) {
+				// offset sync to server interval
+				consumer.setFlushOffsetInterval(offsetFlushInterval);
+				RetryManager.retry(() -> consumer.start(), retryStrategy);
+			}
+		}
 
 		if (userSpecificQueuePbs.isEmpty()) {
 			assignMessageQueues(this::allocFixedMessageQueue);
@@ -286,9 +294,11 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					ctx.markAsTemporarilyIdle();
 					this.wait();
 				}
-				RetryManager.retry(() -> messageExtsList.add(consumer.poll(pollBatchSize, pollLatencyMs)), retryStrategy);
+				if (consumer != null) {
+					RetryManager.retry(() -> messageExtsList.add(consumer.poll(pollBatchSize, pollLatencyMs)), retryStrategy);
+				}
 			}
-			List<MessageExt> messageExts = messageExtsList.get(0);
+			List<MessageExt> messageExts = messageExtsList.isEmpty() ? Collections.emptyList() : messageExtsList.get(0);
 			for (MessageExt messageExt: messageExts) {
 				if (rateLimiter != null) {
 					rateLimiter.acquire(1);
@@ -307,7 +317,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				ctx.collect(rowData);
 				// need ack every msg
 				synchronized (RocketMQConsumer.this) {
-					RetryManager.retry(() -> consumer.ack(messageExt), retryStrategy);
+					if (consumer != null) {
+						RetryManager.retry(() -> consumer.ack(messageExt), retryStrategy);
+					}
 				}
 				this.recordsNumMeterView.markEvent();
 			}
@@ -360,7 +372,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					this.notifyAll();
 				}
 				resetAllOffset();
-				RetryManager.retry(() -> consumer.assign(assignedMessageQueuePbs), retryStrategy);
+				if (consumer != null) {
+					RetryManager.retry(() -> consumer.assign(assignedMessageQueuePbs), retryStrategy);
+				}
 				for (MessageQueuePb messageQueuePb: assignedMessageQueuePbs) {
 					topicAndQueuesGauge.addTopicAndQueue(
 						messageQueuePb.getTopic(),
@@ -372,7 +386,13 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 	private List<MessageQueuePb> allocFixedMessageQueue() throws InterruptedException {
 		List<QueryTopicQueuesResult> queryTopicQueuesResultList = new ArrayList<>();
-		RetryManager.retry(() -> queryTopicQueuesResultList.add(consumer.queryTopicQueues(topic)), retryStrategy);
+		synchronized (RocketMQConsumer.class) {
+			if (consumer != null) {
+				RetryManager.retry(() -> queryTopicQueuesResultList.add(consumer.queryTopicQueues(topic)), retryStrategy);
+			} else {
+				return Collections.emptyList();
+			}
+		}
 		QueryTopicQueuesResult queryTopicQueuesResult = queryTopicQueuesResultList.get(0);
 		validateResponse(queryTopicQueuesResult.getErrorCode(), queryTopicQueuesResult.getErrorMsg());
 		List<MessageQueuePb> messageQueuePbList = new ArrayList<>();
@@ -409,6 +429,10 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		Long offset = offsetTable.get(messageQueue);
 		if (offset != null) {
 			LOG.info("Queue {} use cache offset {}", queueName, offset);
+			return;
+		}
+
+		if (consumer == null) {
 			return;
 		}
 
