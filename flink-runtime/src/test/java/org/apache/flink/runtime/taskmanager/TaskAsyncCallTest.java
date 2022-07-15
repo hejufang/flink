@@ -233,7 +233,9 @@ public class TaskAsyncCallTest extends TestLogger {
 			submitNotifyRunningEnable,
 			false,
 			new PrintTaskJobResultGateway(),
-			false);
+			false,
+			null,
+			null);
 	}
 
 	/**

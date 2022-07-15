@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.taskexecutor;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.time.Time;
@@ -31,6 +32,7 @@ import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
 import org.apache.flink.runtime.blob.BlobCacheService;
 import org.apache.flink.runtime.blob.PermanentBlobCache;
+import org.apache.flink.runtime.blob.PermanentBlobKey;
 import org.apache.flink.runtime.blob.TransientBlobCache;
 import org.apache.flink.runtime.blob.TransientBlobKey;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
@@ -174,6 +176,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -986,6 +989,13 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			final JobInformation jobInformation = jdd
 				.getSerializedJobInformation()
 				.deserializeValue(getClass().getClassLoader());
+
+			LibraryCacheManager.ClassLoaderHandle classLoaderHandle = jobManagerConnection.getClassLoaderHandle();
+			Collection<PermanentBlobKey> requiredJarFiles = jobInformation.getRequiredJarFileBlobKeys();
+			Collection<URL> requiredClasspaths = jobInformation.getRequiredClasspathURLs();
+			ClassLoader userCodeClassLoader = classLoaderHandle.getOrResolveClassLoader(requiredJarFiles, requiredClasspaths);
+			ExecutionConfig executionConfig = jobInformation.getSerializedExecutionConfig().deserializeValue(userCodeClassLoader);
+
 			for (JobVertexDeploymentDescriptor jobVertexDeploymentDescriptor: jdd.getVertexDeploymentDescriptorList()) {
 				jobVertexDeploymentDescriptor.loadBigData(jobId, blobCacheService.getPermanentBlobService());
 				final TaskInformation taskInformation = jobVertexDeploymentDescriptor
@@ -993,7 +1003,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 					.deserializeValue(getClass().getClassLoader());
 				for (JobTaskDeploymentDescriptor jobTaskDeploymentDescriptor:
 					jobVertexDeploymentDescriptor.getTaskDeploymentDescriptorList()) {
-					submitTaskInternal(jobManagerConnection, jobInformation, taskInformation, jobVertexDeploymentDescriptor, jobTaskDeploymentDescriptor);
+					submitTaskInternal(jobManagerConnection, jobInformation, taskInformation, jobVertexDeploymentDescriptor, jobTaskDeploymentDescriptor, userCodeClassLoader, executionConfig);
 				}
 			}
 		} catch (Exception e) {
@@ -1016,7 +1026,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			JobInformation jobInformation,
 			TaskInformation taskInformation,
 			JobVertexDeploymentDescriptor jobVertexDeploymentDescriptor,
-			JobTaskDeploymentDescriptor jobTaskDeploymentDescriptor) throws TaskSubmissionException {
+			JobTaskDeploymentDescriptor jobTaskDeploymentDescriptor,
+			ClassLoader userCodeClassLoader,
+			ExecutionConfig executionConfig) throws TaskSubmissionException {
 		final JobID jobId = jobManagerConnection.getJobId();
 		final ExecutionAttemptID executionAttemptID = jobTaskDeploymentDescriptor.getExecutionAttemptId();
 
@@ -1098,7 +1110,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			taskSubmitRunning,
 			notifyFinalStateInTaskThreadEnable,
 			taskJobResultGateway,
-			taskManagerConfiguration.isTaskInitializeFinishEnable());
+			taskManagerConfiguration.isTaskInitializeFinishEnable(),
+			userCodeClassLoader,
+			executionConfig);
 
 		taskStart(taskInformation, jobId, executionAttemptID, taskMetricGroup, jobManagerConnection.getTaskManagerActions(), producedPartitions, task);
 	}
@@ -1242,7 +1256,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				taskSubmitRunning,
 				notifyFinalStateInTaskThreadEnable,
 				taskJobResultGateway,
-				taskManagerConfiguration.isTaskInitializeFinishEnable());
+				taskManagerConfiguration.isTaskInitializeFinishEnable(),
+				null,
+				null);
 
 		taskStart(taskInformation, jobId, executionAttemptID, taskMetricGroup, taskManagerActions, tdd.getProducedPartitions(), task);
 	}

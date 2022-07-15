@@ -208,6 +208,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	/** The classpaths used by this task. */
 	private final Collection<URL> requiredClasspaths;
 
+	/** If this is null, then task need to deserialize {@link #serializedExecutionConfig} to get it.*/
+	private ExecutionConfig executionConfig;
+
 	/** The name of the class that holds the invokable code. */
 	private final String nameOfInvokableClass;
 
@@ -405,7 +408,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			false,
 			false,
 			new PrintTaskJobResultGateway(),
-			false);
+			false,
+			null,
+			null);
 	}
 
 	public Task(
@@ -443,7 +448,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			boolean taskSubmitRunning,
 			boolean notifyFinalStateInTaskThreadEnable,
 			TaskJobResultGateway taskJobResultGateway,
-			boolean taskInitializeFinishEnable) {
+			boolean taskInitializeFinishEnable,
+			@Nullable ClassLoader userCodeClassLoader,
+			@Nullable ExecutionConfig executionConfig) {
 
 		Preconditions.checkNotNull(jobInformation);
 		Preconditions.checkNotNull(taskInformation);
@@ -476,6 +483,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		this.requiredClasspaths = jobInformation.getRequiredClasspathURLs();
 		this.nameOfInvokableClass = taskInformation.getInvokableClassName();
 		this.serializedExecutionConfig = jobInformation.getSerializedExecutionConfig();
+		this.userCodeClassLoader = userCodeClassLoader;
+		this.executionConfig = executionConfig;
 
 		Configuration tmConfig = taskManagerConfig.getConfiguration();
 		this.taskCancellationInterval = tmConfig.getLong(TaskManagerOptions.TASK_CANCELLATION_INTERVAL);
@@ -803,8 +812,12 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				LOG.info("Loading JAR files for task {}.", this);
 			}
 
-			userCodeClassLoader = createUserCodeClassloader();
-			final ExecutionConfig executionConfig = serializedExecutionConfig.deserializeValue(userCodeClassLoader);
+			if (userCodeClassLoader == null) {
+				userCodeClassLoader = createUserCodeClassloader();
+			}
+			if (executionConfig == null) {
+				executionConfig = serializedExecutionConfig.deserializeValue(userCodeClassLoader);
+			}
 
 			if (executionConfig.getTaskCancellationInterval() >= 0) {
 				// override task cancellation interval from Flink config if set in ExecutionConfig

@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.taskexecutor;
 
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.java.tuple.Tuple4;
 import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.runtime.blob.BlobCacheService;
@@ -170,14 +171,18 @@ class TestingTaskExecutor extends TaskExecutor {
 			JobInformation jobInformation,
 			TaskInformation taskInformation,
 			JobVertexDeploymentDescriptor jobVertexDeploymentDescriptor,
-			JobTaskDeploymentDescriptor jobTaskDeploymentDescriptor) throws TaskSubmissionException {
+			JobTaskDeploymentDescriptor jobTaskDeploymentDescriptor,
+			ClassLoader userCodeClassLoader,
+			ExecutionConfig executionConfig) throws TaskSubmissionException {
 		if (submitJobTaskInternalConsumer == null) {
 			super.submitTaskInternal(
 				jobManagerConnection,
 				jobInformation,
 				taskInformation,
 				jobVertexDeploymentDescriptor,
-				jobTaskDeploymentDescriptor);
+				jobTaskDeploymentDescriptor,
+				userCodeClassLoader,
+				executionConfig);
 		} else {
 			submitJobTaskInternalConsumer.accept(Tuple5.of(jobManagerConnection,
 				jobInformation,
