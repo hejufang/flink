@@ -82,6 +82,12 @@ class PushLimitIntoLegacyTableSourceScanRule extends RelOptRule(
     val newTableSource = newRelOptTable.unwrap(classOf[LegacyTableSourceTable[_]]).tableSource
     val oldTableSource = tableSourceTable.unwrap(classOf[LegacyTableSourceTable[_]]).tableSource
 
+    val isLimitPushedDown = newTableSource.asInstanceOf[LimitableTableSource[_]].isLimitPushedDown
+    if (!isLimitPushedDown) {
+      // no limit pushed down, do nothing
+      return
+    }
+
     if (newTableSource.asInstanceOf[LimitableTableSource[_]].isLimitPushedDown
         && newTableSource.explainSource().equals(oldTableSource.explainSource)) {
       throw new TableException("Failed to push limit into table source! "
@@ -99,6 +105,10 @@ class PushLimitIntoLegacyTableSourceScanRule extends RelOptRule(
     val tableSourceTable = relOptTable.unwrap(classOf[LegacyTableSourceTable[Any]])
     val limitedSource = tableSourceTable.tableSource.asInstanceOf[LimitableTableSource[Any]]
     val newTableSource = limitedSource.applyLimit(limit)
+    if (!newTableSource.asInstanceOf[LimitableTableSource[_]].isLimitPushedDown) {
+      // no limit pushed down, do nothing
+      return tableSourceTable
+    }
 
     val statistic = relOptTable.getStatistic
     val newRowCount = if (statistic.getRowCount != null) {

@@ -59,6 +59,7 @@ import _root_.java.util.Collections
 import _root_.java.util.function.BiConsumer
 
 import java.sql.Timestamp
+import java.util.Comparator
 
 import org.apache.calcite.avatica.util.DateTimeUtils
 
@@ -754,6 +755,164 @@ class TestLegacyFilterableTableSourceFactory extends StreamTableSourceFactory[Ro
     val supported = new JArrayList[String]()
     supported.add("*")
     supported
+  }
+}
+
+class TestTopNableTableSource(
+    override val isBounded: Boolean,
+    schema: TableSchema,
+    data: Seq[Row],
+    producedDataType: DataType,
+    topNInfo: TopNInfo)
+  extends StreamTableSource[Row] with TopNableTableSource[Row] {
+  /**
+   * Returns the data of the table as a {@link DataStream}.
+   *
+   * <p>NOTE: This method is for internal use only for defining a {@link TableSource}.
+   * Do not use it in Table API programs.
+   */
+  override def getDataStream(execEnv: StreamExecutionEnvironment): DataStream[Row] = {
+    execEnv.fromCollection[Row](
+      applyTopNToRows(data).asJava,
+      fromDataTypeToTypeInfo(getProducedDataType).asInstanceOf[RowTypeInfo])
+      .setParallelism(1).setMaxParallelism(1)
+  }
+
+  override def getProducedDataType: DataType = producedDataType
+
+  def applyTopNToRows(rows: Seq[Row]): Seq[Row] = {
+    if (topNInfo == null) {
+      return rows
+    }
+    val orderByColumns: util.List[String]  = topNInfo.getOrderByColumns
+    val sortDirections = topNInfo.getSortDirections
+    if (orderByColumns.size != 1 || sortDirections.size() != 1) {
+      throw new RuntimeException("Only support one order by columns!")
+    }
+    val limit = topNInfo.getLimit
+    val orderByColIndex = schema.getFieldNameIndex(orderByColumns.get(0)).get()
+    val sortDirection = sortDirections.get(0)
+    if (limit >= rows.size) {
+      return rows
+    }
+    val data = new util.ArrayList(rows)
+    Collections.sort(data, new Comparator[Row] {
+      override def compare(o1: Row, o2: Row): Int = {
+        val orderByCol1 = o1.getField(orderByColIndex)
+        val orderByCol2 = o2.getField(orderByColIndex)
+        if (!orderByCol1.isInstanceOf[Comparable[_]]
+            || !orderByCol1.isInstanceOf[Comparable[_]]) {
+          throw new RuntimeException("Order by column must be instance of Comparable!")
+        }
+        var result = orderByCol1.asInstanceOf[Comparable[AnyVal]]
+          .compareTo(orderByCol2.asInstanceOf[AnyVal])
+
+        if (!sortDirection) {
+          result *= -1
+        }
+        result
+      }
+    })
+    data.subList(0, limit)
+  }
+
+  /**
+   * Return the flag to indicate whether topN push down has been tried. Must return true on
+   * the returned instance of {@link #applyTopN(TopNInfo topN)}.
+   */
+  override def isTopNPushedDown: Boolean = topNInfo != null
+
+  /**
+   * Check and push down the topN to the table source.
+   *
+   * @param topN TopNInfo.
+   * @return A new cloned instance of { @link TableSource}.
+   */
+  override def applyTopN(topN: TopNInfo): TableSource[Row] = {
+   new TestTopNableTableSource(isBounded, schema, data, producedDataType, topN)
+  }
+
+  /**
+   * Returns the schema of the produced table.
+   *
+   * @return The { @link TableSchema} of the produced table.
+   * @deprecated Table schema is a logical description of a table and should not be part of
+   *             the physical TableSource. Define schema when registering a Table
+   *             either in DDL or in { @code TableEnvironment#connect(...)}.
+   */
+  override def getTableSchema: TableSchema = schema
+
+  override def explainSource(): String = {
+    s"isTopNPushedDown=[$isTopNPushedDown], topNInfo=[$topNInfo]"
+  }
+}
+
+/** Table source factory to find and create [[TestTopNableTableSource]]. */
+class TestTopNTableSourceFactory extends StreamTableSourceFactory[Row] {
+  override def createStreamTableSource(properties: JMap[String, String])
+  : StreamTableSource[Row] = {
+    val descriptorProps = new DescriptorProperties()
+    descriptorProps.putProperties(properties)
+    val isBounded = descriptorProps.getOptionalBoolean("is-bounded").orElse(true)
+    val schema = descriptorProps.getTableSchema(Schema.SCHEMA)
+    val serializedRows = descriptorProps.getOptionalString("data").orElse(null)
+    val rows = if (serializedRows != null) {
+      EncodingUtils.decodeStringToObject(serializedRows, classOf[List[Row]])
+    } else {
+      TestTopNableTableSource.defaultRows
+    }
+
+    new TestTopNableTableSource(isBounded, schema, rows, schema.toRowDataType, null)
+  }
+
+  override def requiredContext(): JMap[String, String] = {
+    val context = new util.HashMap[String, String]()
+    context.put(CONNECTOR_TYPE, "TestTopNSource")
+    context
+  }
+
+  override def supportedProperties(): JList[String] = {
+    val supported = new JArrayList[String]()
+    supported.add("*")
+    supported
+  }
+}
+
+object TestTopNableTableSource {
+  val defaultSchema: TableSchema = TableSchema.builder()
+    .field("name", DataTypes.STRING)
+    .field("id", DataTypes.BIGINT)
+    .field("amount", DataTypes.INT)
+    .field("price", DataTypes.DOUBLE)
+    .build()
+
+  val defaultRows: Seq[Row] = {
+    Seq(
+      row("Apple", 1L, 2, 0.5),
+      row("Apple", 2L, 4, 0.6),
+      row("Apple", 3L, 1, 0.7),
+      row("banana", 4L, 3, 0.8),
+      row("banana", 5L, 6, 0.9),
+      row("banana", 6L, 5, 1.0))
+  }
+
+  def createTemporaryTable(
+      tEnv: TableEnvironment,
+      schema: TableSchema,
+      tableName: String,
+      data: List[Row] = null): Unit = {
+
+    val desc = new CustomConnectorDescriptor("TestTopNSource", 1, false)
+    desc.property("is-bounded", "true")
+    if (data != null && data.nonEmpty) {
+      desc.property("data", EncodingUtils.encodeObjectToString(data))
+    }
+    desc.property("order-by-column", "amount")
+    desc.property("topn-limit", "3")
+
+    tEnv.connect(desc)
+      .withSchema(new Schema().schema(schema))
+      .createTemporaryTable(tableName)
   }
 }
 

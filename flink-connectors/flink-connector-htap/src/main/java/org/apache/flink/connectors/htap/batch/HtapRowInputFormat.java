@@ -32,6 +32,7 @@ import org.apache.flink.connectors.htap.connector.reader.HtapReaderIterator;
 import org.apache.flink.connectors.htap.table.utils.HtapAggregateUtils.FlinkAggregateFunction;
 import org.apache.flink.core.io.InputSplitAssigner;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+import org.apache.flink.table.sources.TopNInfo;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.Row;
 
@@ -68,6 +69,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private final long limit;
 	private final Set<Integer> pushedDownPartitions;
 	private final boolean inDryRunMode;
+	private final TopNInfo topNInfo;
 
 	private boolean endReached;
 
@@ -94,7 +96,8 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 			DataType outputDataType,
 			long limit,
 			Set<Integer> pushedDownPartitions,
-			boolean inDryRunMode) {
+			boolean inDryRunMode,
+			TopNInfo topNInfo) {
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
 		this.htapClusterName = checkNotNull(htapClusterName, "htapClusterName could not be null");
 		this.table = checkNotNull(table, "table could not be null");
@@ -109,6 +112,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 		this.limit = limit;
 		this.pushedDownPartitions = pushedDownPartitions;
 		this.inDryRunMode = inDryRunMode;
+		this.topNInfo = topNInfo;
 	}
 
 	@Override
@@ -153,7 +157,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private void createHtapReader() throws IOException {
 		htapReader = new HtapReader(table, readerConfig, tableFilters, tableProjections,
 			tableAggregates, groupByColumns, aggregateFunctions, outputDataType, limit,
-			pushedDownPartitions, htapClusterName, subTaskFullName);
+			pushedDownPartitions, htapClusterName, subTaskFullName, topNInfo);
 	}
 
 	@Override

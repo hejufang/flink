@@ -471,6 +471,7 @@ object FlinkBatchRuleSets {
     EnforceLocalHashAggRule.INSTANCE,
     EnforceLocalSortAggRule.INSTANCE,
     PushLocalAggWithoutSortIntoLegacyTableSourceScanRule.INSTANCE,
-    PushLocalAggWithSortIntoLegacyTableSourceScanRule.INSTANCE
+    PushLocalAggWithSortIntoLegacyTableSourceScanRule.INSTANCE,
+    PushLocalTopNIntoLegacyTableSourceScanRule.INSTANCE
   )
 }

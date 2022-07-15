@@ -66,7 +66,7 @@ class TestLegacyLimitableTableSource(
   }
 
   override def applyLimit(limit: Long): TableSource[Row] = {
-    new TestLegacyLimitableTableSource(data, rowType, limit, limitablePushedDown)
+    new TestLegacyLimitableTableSource(data, rowType, limit, true)
   }
 
   override def isLimitPushedDown: Boolean = limitablePushedDown

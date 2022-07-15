@@ -112,6 +112,22 @@ public class OptimizerConfigOptions {
 			.withDescription("When it is true, the optimizer will push down the local aggregates into " +
 				"the AggregatableTableSource. Default value is false.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
+	public static final ConfigOption<Boolean> TABLE_OPTIMIZER_SOURCE_TOPN_PUSHDOWN_ENABLED =
+		key("table.optimizer.source.topn-pushdown.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("When it is true, the optimizer will push down the local " +
+				"BatchExecSortLimit into the AggregatableTableSource. Default value is false.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
+	public static final ConfigOption<Integer> TABLE_OPTIMIZER_SOURCE_TOPN_PUSHDOWN_THRESHOLD =
+		key("table.optimizer.source.topn-pushdown.threshold")
+			.intType()
+			.defaultValue(1000)
+			.withDescription("If the fetch size is large than this threshold, we will not " +
+				"push down the topN");
+
 	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
 	public static final ConfigOption<Boolean> TABLE_OPTIMIZER_JOIN_REORDER_ENABLED =
 		key("table.optimizer.join-reorder-enabled")

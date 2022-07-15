@@ -18,6 +18,7 @@ org.apache.flink.table.planner.runtime.batch.sql.TestPartitionableSinkFactory
 org.apache.flink.table.planner.utils.TestAggregatableTableSourceFactory
 org.apache.flink.table.planner.utils.TestPartitionableSourceFactory
 org.apache.flink.table.planner.utils.TestPartitionableFilterableTableSourceFactory
+org.apache.flink.table.planner.utils.TestTopNTableSourceFactory
 org.apache.flink.table.planner.utils.TestLegacyFilterableTableSourceFactory
 org.apache.flink.table.planner.utils.TestLegacyProjectableTableSourceFactory
 org.apache.flink.table.planner.utils.TestOptionsTableFactory

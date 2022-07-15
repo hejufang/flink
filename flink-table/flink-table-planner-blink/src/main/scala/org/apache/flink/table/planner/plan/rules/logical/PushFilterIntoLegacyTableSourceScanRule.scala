@@ -110,8 +110,15 @@ class PushFilterIntoLegacyTableSourceScanRule extends RelOptRule(
     val newTableSource = newRelOptTable.unwrap(classOf[LegacyTableSourceTable[_]]).tableSource
     val oldTableSource = relOptTable.unwrap(classOf[LegacyTableSourceTable[_]]).tableSource
 
-    if (newTableSource.asInstanceOf[FilterableTableSource[_]].isFilterPushedDown
-      && newTableSource.explainSource().equals(oldTableSource.explainSource)) {
+    val isFilterPushedDown =
+      newTableSource.asInstanceOf[FilterableTableSource[_]].isFilterPushedDown
+
+    if (!isFilterPushedDown) {
+      // no predicates pushed down, do nothing
+      return
+    }
+
+    if (newTableSource.explainSource().equals(oldTableSource.explainSource)) {
       throw new TableException("Failed to push filter into table source! "
         + "table source with pushdown capability must override and change "
         + "explainSource() API to explain the pushdown applied!")

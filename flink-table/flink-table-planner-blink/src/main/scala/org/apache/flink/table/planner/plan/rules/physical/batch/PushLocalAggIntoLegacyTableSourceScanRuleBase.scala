@@ -141,8 +141,7 @@ extends RelOptRule(operand, description) {
       return
     }
 
-    if (newTableSource.asInstanceOf[AggregatableTableSource[_]].isAggregatePushedDown
-      && newTableSource.explainSource().equals(oldTableSource.explainSource)) {
+    if (newTableSource.explainSource().equals(oldTableSource.explainSource)) {
       throw new TableException("Failed to push aggregate into table source! "
         + "table source with pushdown capability must override and change "
         + "explainSource() API to explain the pushdown applied!")

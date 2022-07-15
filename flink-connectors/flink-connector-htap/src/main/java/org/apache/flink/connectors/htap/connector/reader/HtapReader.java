@@ -22,11 +22,14 @@ import org.apache.flink.connectors.htap.connector.HtapAggregateInfo;
 import org.apache.flink.connectors.htap.connector.HtapFilterInfo;
 import org.apache.flink.connectors.htap.exception.HtapConnectorException;
 import org.apache.flink.connectors.htap.table.utils.HtapAggregateUtils.FlinkAggregateFunction;
+import org.apache.flink.table.sources.TopNInfo;
 import org.apache.flink.table.types.DataType;
 
 import com.bytedance.htap.HtapScanToken;
+import com.bytedance.htap.HtapTopN;
 import com.bytedance.htap.client.HtapStorageClient;
 import com.bytedance.htap.exception.HtapException;
+import com.bytedance.htap.meta.ColumnSchema;
 import com.bytedance.htap.meta.HtapTable;
 import org.apache.commons.collections.CollectionUtils;
 import org.slf4j.Logger;
@@ -36,6 +39,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -60,6 +64,7 @@ public class HtapReader implements AutoCloseable {
 	private final Set<Integer> pushedDownPartitions;
 	private final String htapClusterName;
 	private final String subTaskFullName;
+	private final TopNInfo topNInfo;
 
 	public HtapReader(
 			HtapTable table,
@@ -73,7 +78,8 @@ public class HtapReader implements AutoCloseable {
 			long limit,
 			Set<Integer> pushedDownPartitions,
 			String htapClusterName,
-			String subTaskFullName) throws IOException {
+			String subTaskFullName,
+			TopNInfo topNInfo) throws IOException {
 		this.table = checkNotNull(table, "table could not be null");
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
 		this.tableFilters = checkNotNull(tableFilters, "tableFilters could not be null");
@@ -89,6 +95,7 @@ public class HtapReader implements AutoCloseable {
 		this.limit = limit;
 		this.pushedDownPartitions = pushedDownPartitions;
 		this.subTaskFullName = subTaskFullName;
+		this.topNInfo = topNInfo;
 	}
 
 	private HtapStorageClient obtainStorageClient() throws IOException {
@@ -133,7 +140,8 @@ public class HtapReader implements AutoCloseable {
 			List<String> groupByColumns,
 			List<HtapAggregateInfo> tableAggregates,
 			int rowLimit,
-			Set<Integer> pushedDownPartitions) {
+			Set<Integer> pushedDownPartitions,
+			TopNInfo topNInfo) {
 		HtapScanToken.HtapScanTokenBuilder tokenBuilder =
 			new HtapScanToken.HtapScanTokenBuilder(table);
 
@@ -167,14 +175,29 @@ public class HtapReader implements AutoCloseable {
 			tokenBuilder.partitions(pushedDownPartitions);
 		}
 
+		if (topNInfo != null) {
+			tokenBuilder.topN(convertToHtapTopN(topNInfo));
+		}
+
 		tokenBuilder.batchSizeBytes(readerConfig.getBatchSizeBytes());
 
 		return tokenBuilder.build();
 	}
 
+	private HtapTopN convertToHtapTopN(TopNInfo topNInfo) {
+		List<ColumnSchema> orderByColumns = topNInfo.getOrderByColumns().stream()
+			.map(colName -> table.getSchema().getColumn(colName))
+			.collect(Collectors.toList());
+
+		List<Boolean> descendingList = topNInfo.getSortDirections().stream()
+			.map(b -> !b)
+			.collect(Collectors.toList());
+		return new HtapTopN(orderByColumns, descendingList, topNInfo.getNullsIsLast(), topNInfo.getLimit());
+	}
+
 	public HtapInputSplit[] createInputSplits(int minNumSplits) throws IOException {
 		List<HtapScanToken> tokens = scanTokens(tableFilters, tableProjections, groupByColumns,
-			tableAggregates, (int) limit, pushedDownPartitions);
+			tableAggregates, (int) limit, pushedDownPartitions, topNInfo);
 		HtapInputSplit[] splits = new HtapInputSplit[tokens.size()];
 
 		for (int i = 0; i < tokens.size(); i++) {
