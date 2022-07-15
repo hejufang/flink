@@ -49,6 +49,7 @@ import java.util.stream.Collectors;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
@@ -291,5 +292,25 @@ public class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
 	@Test
 	public void testPodTolerations() {
 		assertThat(this.resultPod.getSpec().getTolerations(), Matchers.containsInAnyOrder(TOLERATION.toArray()));
+	}
+
+	@Test
+	public void testDisableServiceLinks() {
+		flinkConfig.setBoolean(KubernetesConfigOptions.SERVICE_LINK_ENABLE, false);
+		final InitJobManagerDecorator initJobManagerDecorator =
+				new InitJobManagerDecorator(kubernetesJobManagerParameters);
+		final FlinkPod resultFlinkPod = initJobManagerDecorator.decorateFlinkPod(this.baseFlinkPod);
+		this.resultPod = resultFlinkPod.getPod();
+		assertFalse(resultPod.getSpec().getEnableServiceLinks());
+	}
+
+	@Test
+	public void testEnableServiceLinks() {
+		flinkConfig.setBoolean(KubernetesConfigOptions.SERVICE_LINK_ENABLE, true);
+		final InitJobManagerDecorator initJobManagerDecorator =
+				new InitJobManagerDecorator(kubernetesJobManagerParameters);
+		final FlinkPod resultFlinkPod = initJobManagerDecorator.decorateFlinkPod(this.baseFlinkPod);
+		this.resultPod = resultFlinkPod.getPod();
+		assertTrue(resultPod.getSpec().getEnableServiceLinks());
 	}
 }

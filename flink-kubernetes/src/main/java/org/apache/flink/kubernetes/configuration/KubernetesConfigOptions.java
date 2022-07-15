@@ -500,6 +500,13 @@ public class KubernetesConfigOptions {
 					.withDescription("The value to indicate the disk resource for container. 1 means enable the " +
 							"disk resource guarantee and 0 means disable.");
 
+	public static final ConfigOption<Boolean> SERVICE_LINK_ENABLE =
+			key("kubernetes.service_link.enable")
+					.booleanType()
+					.defaultValue(Boolean.FALSE)
+					.withDescription("whether to enable service link. If it is true, then kubernetes will inject the " +
+							"service related environment variables for all the service.");
+
 	public static final ConfigOption<Boolean> ARCEE_ENABLED =
 		key("kubernetes.arcee.enabled")
 			.booleanType()

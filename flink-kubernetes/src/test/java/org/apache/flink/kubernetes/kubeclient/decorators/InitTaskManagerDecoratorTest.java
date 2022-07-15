@@ -52,6 +52,7 @@ import static org.apache.flink.kubernetes.utils.Constants.LABEL_COMPONENT_TASK_M
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
@@ -348,5 +349,25 @@ public class InitTaskManagerDecoratorTest extends KubernetesTaskManagerTestBase 
 	@Test
 	public void testPodTolerations() {
 		assertThat(this.resultPod.getSpec().getTolerations(), Matchers.containsInAnyOrder(TOLERATION.toArray()));
+	}
+
+	@Test
+	public void testDisableServiceLinks() {
+		flinkConfig.setBoolean(KubernetesConfigOptions.SERVICE_LINK_ENABLE, false);
+		final InitTaskManagerDecorator initTaskManagerDecorator =
+				new InitTaskManagerDecorator(kubernetesTaskManagerParameters);
+		final FlinkPod resultFlinkPod = initTaskManagerDecorator.decorateFlinkPod(this.baseFlinkPod);
+		this.resultPod = resultFlinkPod.getPod();
+		assertFalse(resultPod.getSpec().getEnableServiceLinks());
+	}
+
+	@Test
+	public void testEnableServiceLinks() {
+		flinkConfig.setBoolean(KubernetesConfigOptions.SERVICE_LINK_ENABLE, true);
+		final InitTaskManagerDecorator initTaskManagerDecorator =
+				new InitTaskManagerDecorator(kubernetesTaskManagerParameters);
+		final FlinkPod resultFlinkPod = initTaskManagerDecorator.decorateFlinkPod(this.baseFlinkPod);
+		this.resultPod = resultFlinkPod.getPod();
+		assertTrue(resultPod.getSpec().getEnableServiceLinks());
 	}
 }

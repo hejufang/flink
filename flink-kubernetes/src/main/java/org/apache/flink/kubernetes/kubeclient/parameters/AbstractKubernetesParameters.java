@@ -321,4 +321,8 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 		return Collections.emptyMap();
 	}
 
+	public boolean isServiceLinkEnable() {
+		return flinkConfig.getBoolean(KubernetesConfigOptions.SERVICE_LINK_ENABLE);
+	}
+
 }
