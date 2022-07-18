@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilderTestUtils;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.buffer.SimpleNetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionBuilder;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
@@ -61,7 +62,7 @@ public class RecordWriterDelegateTest extends TestLogger {
 
 	@Before
 	public void setup() {
-		globalPool = new NetworkBufferPool(numberOfBuffers, memorySegmentSize, numberOfSegmentsToRequest);
+		globalPool = new SimpleNetworkBufferPool(numberOfBuffers, memorySegmentSize, numberOfSegmentsToRequest);
 	}
 
 	@After

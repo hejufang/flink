@@ -125,7 +125,7 @@ public class InputChannelTest {
 			int maxBackoff) {
 
 			super(inputGate, channelIndex, partitionId, initialBackoff, maxBackoff, new SimpleCounter(),
-					new SimpleCounter(), 5, null, false);
+					new SimpleCounter(), 5, null, false, false);
 		}
 
 		@Override

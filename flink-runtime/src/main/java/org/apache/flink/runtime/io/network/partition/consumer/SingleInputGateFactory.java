@@ -97,6 +97,8 @@ public class SingleInputGateFactory {
 
 	private final boolean batchPartitionRequestEnable;
 
+	private final boolean memorySegmentPackageEnable;
+
 	public SingleInputGateFactory(
 			@Nonnull ResourceID taskExecutorResourceId,
 			@Nonnull NettyShuffleEnvironmentConfiguration networkConfig,
@@ -105,7 +107,8 @@ public class SingleInputGateFactory {
 			@Nonnull TaskEventPublisher taskEventPublisher,
 			@Nonnull NetworkBufferPool networkBufferPool,
 			long maxDelayTimeMs,
-			boolean isRecoverable) {
+			boolean isRecoverable,
+			boolean memorySegmentPackageEnable) {
 		this.taskExecutorResourceId = taskExecutorResourceId;
 		this.partitionRequestInitialBackoff = networkConfig.partitionRequestInitialBackoff();
 		this.partitionRequestMaxBackoff = networkConfig.partitionRequestMaxBackoff();
@@ -122,6 +125,7 @@ public class SingleInputGateFactory {
 		this.networkBufferPool = networkBufferPool;
 		this.isRecoverable = isRecoverable;
 		this.maxDelayTimeMs = maxDelayTimeMs;
+		this.memorySegmentPackageEnable = memorySegmentPackageEnable;
 		this.executor = Executors.unconfigurableScheduledExecutorService(
 				new ScheduledThreadPoolExecutor(1, new ThreadPoolExecutor.DiscardPolicy()));
 	}
@@ -230,7 +234,8 @@ public class SingleInputGateFactory {
 					metrics,
 					maxDelayTimeMs,
 					executor,
-					isRecoverable);
+					isRecoverable,
+					memorySegmentPackageEnable);
 			},
 			nettyShuffleDescriptor ->
 				createKnownInputChannel(
@@ -265,7 +270,8 @@ public class SingleInputGateFactory {
 				metrics,
 				maxDelayTimeMs,
 				executor,
-				isRecoverable);
+				isRecoverable,
+				memorySegmentPackageEnable);
 		} else {
 			// Different instances => remote
 			channelStatistics.numRemoteChannels++;
@@ -280,7 +286,8 @@ public class SingleInputGateFactory {
 				metrics,
 				maxDelayTimeMs,
 				executor,
-				isRecoverable);
+				isRecoverable,
+				memorySegmentPackageEnable);
 		}
 	}
 

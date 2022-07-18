@@ -67,11 +67,12 @@ public abstract class RecoveredInputChannel extends InputChannel {
 			Counter numBuffersIn,
 			long maxDelayTimeMs,
 			ScheduledExecutorService executor,
-			boolean isRecoverable) {
+			boolean isRecoverable,
+			boolean memorySegmentPackageEnable) {
 		super(inputGate, channelIndex, partitionId, initialBackoff, maxBackoff, numBytesIn, numBuffersIn,
-			maxDelayTimeMs, executor, isRecoverable);
+			maxDelayTimeMs, executor, isRecoverable, memorySegmentPackageEnable);
 
-		bufferManager = new BufferManager(inputGate.getMemorySegmentProvider(), this, 0);
+		bufferManager = new BufferManager(inputGate.getMemorySegmentProvider(), this, 0, memorySegmentPackageEnable);
 	}
 
 	public abstract InputChannel toInputChannel() throws IOException;

@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferListener;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.LocalBufferPackagePool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -66,15 +67,19 @@ public class BufferManager implements BufferListener, BufferRecycler {
 	@GuardedBy("bufferQueue")
 	private int numRequiredBuffers;
 
+	private final boolean memorySegmentPackageEnable;
+
 	public BufferManager(
 		MemorySegmentProvider globalPool,
 		InputChannel inputChannel,
-		int numRequiredBuffers) {
+		int numRequiredBuffers,
+		boolean memorySegmentPackageEnable) {
 
 		this.globalPool = checkNotNull(globalPool);
 		this.inputChannel = checkNotNull(inputChannel);
 		checkArgument(numRequiredBuffers >= 0);
 		this.numRequiredBuffers = numRequiredBuffers;
+		this.memorySegmentPackageEnable = memorySegmentPackageEnable;
 	}
 
 	// ------------------------------------------------------------------------
@@ -128,7 +133,14 @@ public class BufferManager implements BufferListener, BufferRecycler {
 	 * Requests exclusive buffers from the provider and returns the number of requested amount.
 	 */
 	int requestExclusiveBuffers() throws IOException {
-		Collection<MemorySegment> segments = globalPool.requestMemorySegments();
+		Collection<MemorySegment> segments;
+		if (memorySegmentPackageEnable) {
+			// In OLAP, now localPool is certain not null.
+			LocalBufferPackagePool localPool = (LocalBufferPackagePool) inputChannel.inputGate.getBufferPool();
+			segments = localPool.requestExclusiveSegments();
+		} else {
+			segments = globalPool.requestMemorySegments();
+		}
 		checkArgument(!segments.isEmpty(), "The number of exclusive buffers per channel should be larger than 0.");
 
 		synchronized (bufferQueue) {
@@ -187,7 +199,12 @@ public class BufferManager implements BufferListener, BufferRecycler {
 				// Similar to notifyBufferAvailable(), make sure that we never add a buffer
 				// after channel released all buffers via releaseAllResources().
 				if (inputChannel.isReleased()) {
-					globalPool.recycleMemorySegments(Collections.singletonList(segment));
+					if (memorySegmentPackageEnable) {
+						LocalBufferPackagePool localPool = (LocalBufferPackagePool) inputChannel.inputGate.getBufferPool();
+						localPool.recycleExclusiveSegments(Collections.singletonList(segment));
+					} else {
+						globalPool.recycleMemorySegments(Collections.singletonList(segment));
+					}
 				} else {
 					numAddedBuffers = bufferQueue.addExclusiveBuffer(new NetworkBuffer(segment, this), numRequiredBuffers);
 				}
@@ -234,7 +251,12 @@ public class BufferManager implements BufferListener, BufferRecycler {
 		}
 
 		if (exclusiveRecyclingSegments.size() > 0) {
-			globalPool.recycleMemorySegments(exclusiveRecyclingSegments);
+			if (memorySegmentPackageEnable) {
+				LocalBufferPackagePool localPool = (LocalBufferPackagePool) inputChannel.inputGate.getBufferPool();
+				localPool.recycleExclusiveSegments(exclusiveRecyclingSegments);
+			} else {
+				globalPool.recycleMemorySegments(exclusiveRecyclingSegments);
+			}
 		}
 	}
 

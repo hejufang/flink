@@ -30,6 +30,9 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -38,26 +41,16 @@ import java.util.concurrent.TimeoutException;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
- * A buffer pool used to manage a number of {@link Buffer} instances from the
- * {@link SimpleNetworkBufferPool}.
- *
- * <p>Buffer requests are mediated to the network buffer pool to ensure dead-lock
- * free operation of the network stack by limiting the number of buffers per
- * local buffer pool. It also implements the default mechanism for buffer
- * recycling, which ensures that every buffer is ultimately returned to the
- * network buffer pool.
- *
- * <p>The size of this pool can be dynamically changed at runtime ({@link #setNumBuffers(int)}. It
- * will then lazily return the required number of buffers to the {@link SimpleNetworkBufferPool} to
- * match its new size.
+ * Request/recycle memory segment packages with {@link NetworkBufferPackagePool}.
+ * Only work in OLAP.
  */
-class LocalBufferPool implements BufferPool {
-	private static final Logger LOG = LoggerFactory.getLogger(LocalBufferPool.class);
+public class LocalBufferPackagePool implements BufferPool {
+	private static final Logger LOG = LoggerFactory.getLogger(LocalBufferPackagePool.class);
 
 	private static final int UNKNOWN_CHANNEL = -1;
 
-	/** Global network buffer pool to get buffers from. */
-	private final NetworkBufferPool networkBufferPool;
+	/** Global network buffer package pool to get buffers from. */
+	private final NetworkBufferPackagePool networkBufferPackagePool;
 
 	/** The minimum number of required segments for this pool. */
 	private final int numberOfRequiredMemorySegments;
@@ -72,7 +65,7 @@ class LocalBufferPool implements BufferPool {
 	 * {@link org.apache.flink.runtime.io.network.partition.consumer.BufferManager#bufferQueue}
 	 * via the {@link #registeredListeners} callback.
 	 */
-	private final ArrayDeque<MemorySegment> availableMemorySegments = new ArrayDeque<MemorySegment>();
+	private final ArrayDeque<MemorySegment> availableMemorySegments = new ArrayDeque<>();
 
 	/**
 	 * Buffer availability listeners, which need to be notified when a Buffer becomes available.
@@ -100,6 +93,9 @@ class LocalBufferPool implements BufferPool {
 
 	private int unavailableSubpartitionsCount = 0;
 
+	/**
+	 * If this is set, that means others cannot request from {@link LocalBufferPackagePool}, but can still recycle.
+	 */
 	private boolean isDestroyed;
 
 	@Nullable
@@ -107,54 +103,56 @@ class LocalBufferPool implements BufferPool {
 
 	private final AvailabilityHelper availabilityHelper = new AvailabilityHelper();
 
-	/**
-	 * Local buffer pool based on the given <tt>networkBufferPool</tt> with a minimal number of
-	 * network buffers being available.
-	 *
-	 * @param networkBufferPool
-	 * 		global network buffer pool to get buffers from
-	 * @param numberOfRequiredMemorySegments
-	 * 		minimum number of network buffers
+
+	/** These are for {@link org.apache.flink.configuration.NettyShuffleEnvironmentOptions#NETWORK_BUFFER_POOL_SEGMENT_PACKAGE_ENABLE},
+	 * at this time, {@link LocalBufferPackagePool} will request/recycle packages consisting of memory segments whit {@link NetworkBufferPackagePool}.
 	 */
-	LocalBufferPool(NetworkBufferPool networkBufferPool, int numberOfRequiredMemorySegments) {
-		this(
-			networkBufferPool,
-			numberOfRequiredMemorySegments,
-			Integer.MAX_VALUE,
-			null,
-			0,
-			Integer.MAX_VALUE);
-	}
+	private final int numberOfSegmentsToRequest;
+
+	private final int numberOfMemorySegmentsPerPackage;
 
 	/**
-	 * Local buffer pool based on the given <tt>networkBufferPool</tt> with a minimal and maximal
-	 * number of network buffers being available.
-	 *
-	 * @param networkBufferPool
-	 * 		global network buffer pool to get buffers from
-	 * @param numberOfRequiredMemorySegments
-	 * 		minimum number of network buffers
-	 * @param maxNumberOfMemorySegments
-	 * 		maximum number of network buffers to allocate
+	 * When we recycle some memory segments, maybe it is not enough to form a package, so just store it.
 	 */
-	LocalBufferPool(NetworkBufferPool networkBufferPool, int numberOfRequiredMemorySegments,
-			int maxNumberOfMemorySegments) {
-		this(
-			networkBufferPool,
-			numberOfRequiredMemorySegments,
-			maxNumberOfMemorySegments,
-			null,
-			0,
-			Integer.MAX_VALUE);
-	}
+	private final LinkedList<MemorySegment> segmentsToRecycle;
+
+	// ------------------------------------------------------------------------
+	//  Only make sense when this buffer pool is for InputGate in OLAP.
+	// ------------------------------------------------------------------------
 
 	/**
-	 * Local buffer pool based on the given <tt>networkBufferPool</tt> and <tt>bufferPoolOwner</tt>
+	 * The segments requested from {@link NetworkBufferPackagePool} that will be used as exclusive buffers.
+	 */
+	private ArrayDeque<MemorySegment> availableExclusiveSegments;
+
+	/**
+	 * The recycled exclusive buffers, may not be enough to form a package, so just sore it.
+	 */
+	private LinkedList<MemorySegment> exclusiveSegmentsToRecycle;
+
+	/**
+	 * Track the total number of {@link org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel}.
+	 * Note this value is only correct when in OLAP, others will cause error.
+	 */
+
+
+	private int numTotalRemoteChannels = 0;
+
+	/**
+	 * Track the number of {@link org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel} that has not
+	 * assigned exclusive buffers yet.
+	 * Note this value is only correct when in OLAP, others will cause error.
+	 */
+
+	private int numLeftRemoteChannels = 0;
+
+	/**
+	 * Local buffer pool based on the given <tt>networkBufferPackagePool</tt> and <tt>bufferPoolOwner</tt>
 	 * with a minimal and maximal number of network buffers being available.
 	 *
-	 * @param networkBufferPool
+	 * @param networkBufferPackagePool
 	 * 		global network buffer pool to get buffers from
-	 * @param poolSize
+	 * @param currentPoolSize
 	 * 		current pool size
 	 * @param numberOfRequiredMemorySegments
 	 * 		minimum number of network buffers
@@ -166,15 +164,21 @@ class LocalBufferPool implements BufferPool {
 	 * 		number of subpartitions
 	 * @param maxBuffersPerChannel
 	 * 		maximum number of buffers to use for each channel
+	 * @param numberOfSegmentsToRequest
+	 * 		the number of memory segments to form exclusive buffers
+	 * @param numberOfMemorySegmentsPerPackage
+	 * 		the number of memory segment to form a package
 	 */
-	LocalBufferPool(
-			NetworkBufferPool networkBufferPool,
-			int poolSize,
+	LocalBufferPackagePool(
+			NetworkBufferPackagePool networkBufferPackagePool,
+			int currentPoolSize,
 			int numberOfRequiredMemorySegments,
 			int maxNumberOfMemorySegments,
 			@Nullable BufferPoolOwner bufferPoolOwner,
 			int numberOfSubpartitions,
-			int maxBuffersPerChannel) {
+			int maxBuffersPerChannel,
+			int numberOfSegmentsToRequest,
+			int numberOfMemorySegmentsPerPackage) {
 		checkArgument(maxNumberOfMemorySegments >= numberOfRequiredMemorySegments,
 			"Maximum number of memory segments (%s) should not be smaller than minimum (%s).",
 			maxNumberOfMemorySegments, numberOfRequiredMemorySegments);
@@ -186,10 +190,12 @@ class LocalBufferPool implements BufferPool {
 		LOG.debug("Using a local buffer pool with {}-{} buffers",
 			numberOfRequiredMemorySegments, maxNumberOfMemorySegments);
 
-		this.networkBufferPool = networkBufferPool;
-		this.numberOfRequiredMemorySegments = numberOfRequiredMemorySegments;
-		this.currentPoolSize = poolSize;
-		this.maxNumberOfMemorySegments = maxNumberOfMemorySegments;
+		this.networkBufferPackagePool = networkBufferPackagePool;
+		this.numberOfRequiredMemorySegments = (numberOfRequiredMemorySegments + numberOfMemorySegmentsPerPackage - 1) / numberOfMemorySegmentsPerPackage * numberOfMemorySegmentsPerPackage;
+		this.maxNumberOfMemorySegments = (maxNumberOfMemorySegments + numberOfMemorySegmentsPerPackage - 1) / numberOfMemorySegmentsPerPackage * numberOfMemorySegmentsPerPackage;
+		this.currentPoolSize = (currentPoolSize + numberOfMemorySegmentsPerPackage - 1) / numberOfMemorySegmentsPerPackage * numberOfMemorySegmentsPerPackage;
+		this.segmentsToRecycle = new LinkedList<>();
+
 		this.bufferPoolOwner = bufferPoolOwner;
 
 		if (numberOfSubpartitions > 0) {
@@ -204,34 +210,9 @@ class LocalBufferPool implements BufferPool {
 			subpartitionBufferRecyclers[i] = new SubpartitionBufferRecycler(i, this);
 		}
 		this.maxBuffersPerChannel = maxBuffersPerChannel;
-	}
 
-	/**
-	 * Local buffer pool based on the given <tt>networkBufferPool</tt> and <tt>bufferPoolOwner</tt>
-	 * with a minimal and maximal number of network buffers being available.
-	 *
-	 * @param networkBufferPool
-	 * 		global network buffer pool to get buffers from
-	 * @param numberOfRequiredMemorySegments
-	 * 		minimum number of network buffers
-	 * @param maxNumberOfMemorySegments
-	 * 		maximum number of network buffers to allocate
-	 * @param bufferPoolOwner
-	 * 		the owner of this buffer pool to release memory when needed
-	 * @param numberOfSubpartitions
-	 * 		number of subpartitions
-	 * @param maxBuffersPerChannel
-	 * 		maximum number of buffers to use for each channel
-	 */
-	LocalBufferPool(
-		NetworkBufferPool networkBufferPool,
-		int numberOfRequiredMemorySegments,
-		int maxNumberOfMemorySegments,
-		@Nullable BufferPoolOwner bufferPoolOwner,
-		int numberOfSubpartitions,
-		int maxBuffersPerChannel) {
-		this(networkBufferPool, numberOfRequiredMemorySegments, numberOfRequiredMemorySegments,
-			maxNumberOfMemorySegments, bufferPoolOwner, numberOfSubpartitions, maxBuffersPerChannel);
+		this.numberOfSegmentsToRequest = numberOfSegmentsToRequest;
+		this.numberOfMemorySegmentsPerPackage = numberOfMemorySegmentsPerPackage;
 	}
 
 	// ------------------------------------------------------------------------
@@ -320,7 +301,7 @@ class LocalBufferPool implements BufferPool {
 
 	private MemorySegment requestMemorySegmentBlocking(int targetChannel) throws InterruptedException, IOException {
 		MemorySegment segment;
-		long networkSegmentTimeoutMills = networkBufferPool.getRequestNetworkSegmentTimeoutMills();
+		long networkSegmentTimeoutMills = networkBufferPackagePool.getRequestNetworkSegmentTimeoutMills();
 		while ((segment = requestMemorySegment(targetChannel)) == null) {
 			try {
 				if (networkSegmentTimeoutMills > 0) {
@@ -366,13 +347,13 @@ class LocalBufferPool implements BufferPool {
 					availabilityHelper.resetUnavailable();
 				}
 			}
-			if (segment == null && numberOfRequestedMemorySegments + 1 > currentPoolSize && numberOfRequestedMemorySegments + 1 < maxNumberOfMemorySegments) {
+			if (segment == null && numberOfRequestedMemorySegments + numberOfMemorySegmentsPerPackage > currentPoolSize && numberOfRequestedMemorySegments + numberOfMemorySegmentsPerPackage < maxNumberOfMemorySegments) {
 				needResizePool = true;
 			}
 		}
 
 		if (needResizePool) {
-			networkBufferPool.tryResizeLocalBufferPool(this);
+			networkBufferPackagePool.tryResizeLocalBufferPool(this);
 		}
 
 		return segment;
@@ -392,11 +373,17 @@ class LocalBufferPool implements BufferPool {
 		}
 
 		if (numberOfRequestedMemorySegments < currentPoolSize) {
-			final MemorySegment segment = networkBufferPool.requestMemorySegment();
-			if (segment != null) {
-				numberOfRequestedMemorySegments++;
-				return segment;
+			final ArrayDeque<MemorySegment> segmentPackage = networkBufferPackagePool.requestMemorySegmentPackage();
+			if (segmentPackage != null) {
+				// This may be always true? And since package size > 1, after polling a segment it is still not empty.
+				if (availableMemorySegments.isEmpty() && unavailableSubpartitionsCount == 0) {
+					availabilityHelper.getUnavailableToResetAvailable();
+				}
+				numberOfRequestedMemorySegments += segmentPackage.size();
+				availableMemorySegments.addAll(segmentPackage);
 			}
+			// If we return null, then it will still try to poll from availableMemorySegments, so it's ok.
+			return null;
 		}
 
 		if (bufferPoolOwner != null) {
@@ -494,7 +481,7 @@ class LocalBufferPool implements BufferPool {
 		mayNotifyAvailable(toNotify);
 
 		try {
-			networkBufferPool.destroyBufferPool(this);
+			networkBufferPackagePool.destroyBufferPool(this);
 		} catch (IOException e) {
 			ExceptionUtils.rethrow(e);
 		}
@@ -518,8 +505,8 @@ class LocalBufferPool implements BufferPool {
 		CompletableFuture<?> toNotify = null;
 		synchronized (availableMemorySegments) {
 			checkArgument(numBuffers >= numberOfRequiredMemorySegments,
-					"Buffer pool needs at least %s buffers, but tried to set to %s",
-					numberOfRequiredMemorySegments, numBuffers);
+				"Buffer pool needs at least %s buffers, but tried to set to %s",
+				numberOfRequiredMemorySegments, numBuffers);
 
 			if (numBuffers > maxNumberOfMemorySegments) {
 				currentPoolSize = maxNumberOfMemorySegments;
@@ -528,9 +515,12 @@ class LocalBufferPool implements BufferPool {
 			}
 
 			returnExcessMemorySegments();
+			// PoolSize may be increased, and there may be some segments that need to be recycled, but not
+			// enough to form a package, we can now take it back.
+			takeExcessMemorySegments();
 
 			numExcessBuffers = numberOfRequestedMemorySegments - currentPoolSize;
-			if (numExcessBuffers < 0 && availableMemorySegments.isEmpty() && networkBufferPool.isAvailable()) {
+			if (numExcessBuffers < 0 && availableMemorySegments.isEmpty() && networkBufferPackagePool.isAvailable()) {
 				toNotify = availabilityHelper.getUnavailableToResetUnavailable();
 			}
 		}
@@ -544,12 +534,12 @@ class LocalBufferPool implements BufferPool {
 		}
 	}
 
-	public boolean tryIncNumBuffers() throws IOException {
+	public boolean tryIncNumPackages() throws IOException {
 		synchronized (availableMemorySegments) {
 			if (currentPoolSize >= maxNumberOfMemorySegments || currentPoolSize < numberOfRequestedMemorySegments) {
 				return false;
 			}
-			setNumBuffers(currentPoolSize + 1);
+			setNumBuffers(currentPoolSize + numberOfMemorySegmentsPerPackage);
 			return true;
 		}
 	}
@@ -558,10 +548,10 @@ class LocalBufferPool implements BufferPool {
 	public CompletableFuture<?> getAvailableFuture() {
 		if (numberOfRequestedMemorySegments >= currentPoolSize || unavailableSubpartitionsCount > 0) {
 			return availabilityHelper.getAvailableFuture();
-		} else if (availabilityHelper.isApproximatelyAvailable() || networkBufferPool.isApproximatelyAvailable()) {
+		} else if (availabilityHelper.isApproximatelyAvailable() || networkBufferPackagePool.isApproximatelyAvailable()) {
 			return AVAILABLE;
 		} else {
-			return CompletableFuture.anyOf(availabilityHelper.getAvailableFuture(), networkBufferPool.getAvailableFuture());
+			return CompletableFuture.anyOf(availabilityHelper.getAvailableFuture(), networkBufferPackagePool.getAvailableFuture());
 		}
 	}
 
@@ -570,10 +560,10 @@ class LocalBufferPool implements BufferPool {
 		synchronized (availableMemorySegments) {
 			return String.format(
 				"[size: %d, required: %d, requested: %d, available: %d, max: %d, listeners: %d," +
-						"subpartitions: %d, maxBuffersPerChannel: %d, destroyed: %s]",
+					"subpartitions: %d, maxBuffersPerChannel: %d, destroyed: %s]",
 				currentPoolSize, numberOfRequiredMemorySegments, numberOfRequestedMemorySegments,
 				availableMemorySegments.size(), maxNumberOfMemorySegments, registeredListeners.size(),
-					subpartitionBuffersCount.length, maxBuffersPerChannel, isDestroyed);
+				subpartitionBuffersCount.length, maxBuffersPerChannel, isDestroyed);
 		}
 	}
 
@@ -592,8 +582,15 @@ class LocalBufferPool implements BufferPool {
 	private void returnMemorySegment(MemorySegment segment) {
 		assert Thread.holdsLock(availableMemorySegments);
 
-		numberOfRequestedMemorySegments--;
-		networkBufferPool.recycle(segment);
+		--numberOfRequestedMemorySegments;
+		segmentsToRecycle.add(segment);
+		while (segmentsToRecycle.size() >= numberOfMemorySegmentsPerPackage) {
+			ArrayDeque<MemorySegment> segmentPackage = new ArrayDeque<>(numberOfMemorySegmentsPerPackage);
+			for (int i = 0; i < numberOfMemorySegmentsPerPackage; ++i) {
+				segmentPackage.add(segmentsToRecycle.poll());
+			}
+			networkBufferPackagePool.recyclePackage(segmentPackage);
+		}
 	}
 
 	private void returnExcessMemorySegments() {
@@ -609,6 +606,23 @@ class LocalBufferPool implements BufferPool {
 		}
 	}
 
+	private void takeExcessMemorySegments() {
+		assert Thread.holdsLock(availableMemorySegments);
+
+		while (numberOfRequestedMemorySegments < currentPoolSize) {
+			MemorySegment segment = segmentsToRecycle.poll();
+			if (segment == null) {
+				return;
+			}
+
+			++numberOfRequestedMemorySegments;
+			if (availableMemorySegments.isEmpty() && unavailableSubpartitionsCount == 0) {
+				availabilityHelper.getUnavailableToResetAvailable();
+			}
+			availableMemorySegments.add(segment);
+		}
+	}
+
 	@VisibleForTesting
 	@Override
 	public BufferRecycler[] getSubpartitionBufferRecyclers() {
@@ -618,9 +632,9 @@ class LocalBufferPool implements BufferPool {
 	private static class SubpartitionBufferRecycler implements BufferRecycler {
 
 		private int channel;
-		private LocalBufferPool bufferPool;
+		private LocalBufferPackagePool bufferPool;
 
-		SubpartitionBufferRecycler(int channel, LocalBufferPool bufferPool) {
+		SubpartitionBufferRecycler(int channel, LocalBufferPackagePool bufferPool) {
 			this.channel = channel;
 			this.bufferPool = bufferPool;
 		}
@@ -628,6 +642,110 @@ class LocalBufferPool implements BufferPool {
 		@Override
 		public void recycle(MemorySegment memorySegment) {
 			bufferPool.recycle(memorySegment, channel);
+		}
+	}
+
+	/**
+	 * That means this buffer pool is for {@link org.apache.flink.runtime.io.network.partition.consumer.InputGate},
+	 * now the exclusive segments will make sense.
+	 */
+	public void setNumRemoteChannels(int numRemoteChannels) {
+		this.availableExclusiveSegments = new ArrayDeque<>(numberOfMemorySegmentsPerPackage);
+		this.exclusiveSegmentsToRecycle = new LinkedList<>();
+		this.numLeftRemoteChannels = numRemoteChannels;
+		this.numTotalRemoteChannels = numRemoteChannels;
+	}
+
+	/**
+	 * This should only be used by input channel to assign exclusive buffers,
+	 * when {@link org.apache.flink.configuration.NettyShuffleEnvironmentOptions#NETWORK_BUFFER_POOL_SEGMENT_PACKAGE_ENABLE}
+	 * is set.
+	 */
+	public List<MemorySegment> requestExclusiveSegments() throws IOException {
+		if (numLeftRemoteChannels == 0) {
+			throw new IllegalStateException("Buffer buffer receive exclusive segments segments, but the number" +
+				"of remote channels larger than expected, make sure this is used in OLAP mode.");
+		}
+
+		List<MemorySegment> segments = new ArrayList<>(numberOfSegmentsToRequest);
+
+		synchronized (availableExclusiveSegments) {
+			if (numLeftRemoteChannels == 0) {
+				throw new IllegalStateException("Buffer buffer receive exclusive segments segments, but the number" +
+					"of remote channels larger than expected, make sure this is used in OLAP mode.");
+			}
+			--numLeftRemoteChannels;
+			int numOfExtraPackageToRequest = (Math.max(0, numberOfSegmentsToRequest - availableExclusiveSegments.size()) + numberOfMemorySegmentsPerPackage - 1) / numberOfMemorySegmentsPerPackage;
+
+			int segmentsToRequest = numberOfSegmentsToRequest;
+			if (numOfExtraPackageToRequest > 0) {
+				ArrayDeque<ArrayDeque<MemorySegment>> packages = networkBufferPackagePool.requestMemorySegmentPackages(numOfExtraPackageToRequest);
+				ArrayDeque<MemorySegment> segmentPackage;
+				MemorySegment segment;
+				while ((segmentPackage = packages.poll()) != null) {
+					while ((segment = segmentPackage.poll()) != null) {
+						if (segmentsToRequest > 0) {
+							segments.add(segment);
+							--segmentsToRequest;
+						} else {
+							availableExclusiveSegments.add(segment);
+						}
+					}
+				}
+			}
+
+			// We now should have enough exclusive segments.
+			while (segmentsToRequest > 0) {
+				segments.add(availableExclusiveSegments.poll());
+				--segmentsToRequest;
+			}
+
+			// There is no more remote channels to use the left segments.
+			if (numLeftRemoteChannels == 0) {
+				MemorySegment segment;
+				while ((segment = availableExclusiveSegments.poll()) != null) {
+					exclusiveSegmentsToRecycle.add(segment);
+				}
+			}
+
+		}
+		return segments;
+	}
+
+	public void recycleExclusiveSegments(List<MemorySegment> segments) throws IOException {
+		synchronized (availableExclusiveSegments) {
+			exclusiveSegmentsToRecycle.addAll(segments);
+			if (exclusiveSegmentsToRecycle.size() >= numberOfMemorySegmentsPerPackage) {
+				List<ArrayDeque<MemorySegment>> packages = new ArrayList<>(exclusiveSegmentsToRecycle.size() / numberOfMemorySegmentsPerPackage);
+				while (exclusiveSegmentsToRecycle.size() >= numberOfMemorySegmentsPerPackage) {
+					ArrayDeque<MemorySegment> segmentPackage = new ArrayDeque<>(numberOfMemorySegmentsPerPackage);
+					for (int i = 0; i < numberOfMemorySegmentsPerPackage; ++i) {
+						segmentPackage.add(exclusiveSegmentsToRecycle.poll());
+					}
+					packages.add(segmentPackage);
+				}
+				networkBufferPackagePool.recycleMemorySegmentPackages(packages);
+			}
+		}
+	}
+
+	public int getNumTotalRemoteChannels() {
+		return numTotalRemoteChannels;
+	}
+
+	public int getNumLeftRemoteChannels() {
+		return numLeftRemoteChannels;
+	}
+
+	public int getNumAvailableExclusiveSegments() {
+		synchronized (availableExclusiveSegments) {
+			return availableExclusiveSegments.size();
+		}
+	}
+
+	public int getNumExclusiveSegmentsToRecycle() {
+		synchronized (availableExclusiveSegments) {
+			return exclusiveSegmentsToRecycle.size();
 		}
 	}
 }

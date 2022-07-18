@@ -67,9 +67,10 @@ class UnknownInputChannel extends InputChannel {
 			InputChannelMetrics metrics,
 			long maxDelayTimeMs,
 			ScheduledExecutorService executor,
-			boolean isRecoverable) {
+			boolean isRecoverable,
+			boolean memorySegmentPackageEnable) {
 
-		super(gate, channelIndex, partitionId, initialBackoff, maxBackoff, null, null, maxDelayTimeMs, executor, isRecoverable);
+		super(gate, channelIndex, partitionId, initialBackoff, maxBackoff, null, null, maxDelayTimeMs, executor, isRecoverable, memorySegmentPackageEnable);
 
 		this.partitionManager = checkNotNull(partitionManager);
 		this.taskEventPublisher = checkNotNull(taskEventPublisher);
@@ -147,7 +148,8 @@ class UnknownInputChannel extends InputChannel {
 			metrics.getNumBuffersInDropped(),
 			maxDelayTimeMs,
 			executor,
-			isRecoverable);
+			isRecoverable,
+			memorySegmentPackageEnable);
 	}
 
 	public LocalInputChannel toLocalInputChannel() {
@@ -163,6 +165,7 @@ class UnknownInputChannel extends InputChannel {
 			metrics.getNumBuffersInRemoteCounter(),
 			maxDelayTimeMs,
 			executor,
-			isRecoverable);
+			isRecoverable,
+			memorySegmentPackageEnable);
 	}
 }

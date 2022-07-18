@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferPoolOwner;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.buffer.SimpleNetworkBufferPool;
 import org.apache.flink.util.function.FunctionWithException;
 
 import java.io.IOException;
@@ -50,7 +51,7 @@ public class ResultPartitionBuilder {
 
 	private FileChannelManager channelManager = NoOpFileChannelManager.INSTANCE;
 
-	private NetworkBufferPool networkBufferPool = new NetworkBufferPool(1, 1, 1);
+	private NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(1, 1, 1);
 
 	private int networkBuffersPerChannel = 1;
 

@@ -106,6 +106,9 @@ public abstract class InputChannel {
 	private volatile Integer channelStatus = CHANNEL_AVAILABLE;
 	private volatile Boolean readyToUpdate = false;
 
+	/** If true, exclusive buffers will request/recycle by LocalBufferPool. */
+	protected final boolean memorySegmentPackageEnable;
+
 	protected InputChannel(
 			SingleInputGate inputGate,
 			int channelIndex,
@@ -116,7 +119,8 @@ public abstract class InputChannel {
 			Counter numBuffersIn,
 			long maxDelayTimeMs,
 			ScheduledExecutorService executor,
-			boolean isRecoverable) {
+			boolean isRecoverable,
+			boolean memorySegmentPackageEnable) {
 
 		checkArgument(channelIndex >= 0);
 
@@ -140,6 +144,8 @@ public abstract class InputChannel {
 		this.executor = executor;
 		this.isRecoverable = isRecoverable;
 		this.maxDelayTimeMs = maxDelayTimeMs;
+
+		this.memorySegmentPackageEnable = memorySegmentPackageEnable;
 	}
 
 	public long getInBytes() {

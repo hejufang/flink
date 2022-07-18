@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition;
 import org.apache.flink.runtime.deployment.ResultPartitionDeploymentDescriptor;
 import org.apache.flink.runtime.io.disk.FileChannelManager;
 import org.apache.flink.runtime.io.disk.FileChannelManagerImpl;
-import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.buffer.SimpleNetworkBufferPool;
 import org.apache.flink.runtime.shuffle.PartitionDescriptorBuilder;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.NettyShuffleDescriptorBuilder;
@@ -93,7 +93,7 @@ public class ResultPartitionFactoryTest extends TestLogger {
 		ResultPartitionFactory factory = new ResultPartitionFactory(
 			new ResultPartitionManager(),
 			fileChannelManager,
-			new NetworkBufferPool(1, SEGMENT_SIZE, 1),
+			new SimpleNetworkBufferPool(1, SEGMENT_SIZE, 1),
 			BoundedBlockingSubpartitionType.AUTO,
 			1,
 			1,

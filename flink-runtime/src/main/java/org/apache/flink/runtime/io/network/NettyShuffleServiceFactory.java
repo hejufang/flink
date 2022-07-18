@@ -25,7 +25,9 @@ import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.disk.FileChannelManager;
 import org.apache.flink.runtime.io.disk.FileChannelManagerImpl;
+import org.apache.flink.runtime.io.network.buffer.NetworkBufferPackagePool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.buffer.SimpleNetworkBufferPool;
 import org.apache.flink.runtime.io.network.netty.NettyConfig;
 import org.apache.flink.runtime.io.network.netty.NettyConnectionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartition;
@@ -129,15 +131,30 @@ public class NettyShuffleServiceFactory implements ShuffleServiceFactory<NettySh
 				config.getChannelIdleReleaseTimeMs()) :
 			new LocalConnectionManager();
 
-		NetworkBufferPool networkBufferPool = new NetworkBufferPool(
-			config.numNetworkBuffers(),
-			config.networkBufferSize(),
-			config.networkBuffersPerChannel(),
-			config.getRequestSegmentsTimeout(),
-			config.isLazyAllocate(),
-			config.getRequestNetworkSegmentTimeout(),
-			config.isSimpleRedistributeEnable(),
-			config.getSimpleRedistributeHighWatermark());
+		NetworkBufferPool networkBufferPool;
+		if (config.isMemorySegmentPackageEnable()) {
+			networkBufferPool = new NetworkBufferPackagePool(
+				config.numNetworkBuffers(),
+				config.networkBufferSize(),
+				config.networkBuffersPerChannel(),
+				config.getRequestSegmentsTimeout(),
+				config.isLazyAllocate(),
+				config.getRequestNetworkSegmentTimeout(),
+				config.isSimpleRedistributeEnable(),
+				config.getSimpleRedistributeHighWatermark(),
+				config.getMemorySegmentsPerPackage()
+			);
+		} else {
+			networkBufferPool = new SimpleNetworkBufferPool(
+				config.numNetworkBuffers(),
+				config.networkBufferSize(),
+				config.networkBuffersPerChannel(),
+				config.getRequestSegmentsTimeout(),
+				config.isLazyAllocate(),
+				config.getRequestNetworkSegmentTimeout(),
+				config.isSimpleRedistributeEnable(),
+				config.getSimpleRedistributeHighWatermark());
+		}
 
 		registerShuffleMetrics(metricGroup, networkBufferPool);
 
@@ -165,7 +182,8 @@ public class NettyShuffleServiceFactory implements ShuffleServiceFactory<NettySh
 			taskEventPublisher,
 			networkBufferPool,
 			maxDelayTimeMs,
-			config.isRecoverable());
+			config.isRecoverable(),
+			config.isMemorySegmentPackageEnable());
 
 		return new NettyShuffleEnvironment(
 			taskExecutorResourceId,

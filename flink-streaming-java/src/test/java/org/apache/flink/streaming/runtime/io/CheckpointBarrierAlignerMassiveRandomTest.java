@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferReceivedListener;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.buffer.SimpleNetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
@@ -57,8 +58,8 @@ public class CheckpointBarrierAlignerMassiveRandomTest {
 		NetworkBufferPool networkBufferPool1 = null;
 		NetworkBufferPool networkBufferPool2 = null;
 		try {
-			networkBufferPool1 = new NetworkBufferPool(100, PAGE_SIZE, 1);
-			networkBufferPool2 = new NetworkBufferPool(100, PAGE_SIZE, 1);
+			networkBufferPool1 = new SimpleNetworkBufferPool(100, PAGE_SIZE, 1);
+			networkBufferPool2 = new SimpleNetworkBufferPool(100, PAGE_SIZE, 1);
 			BufferPool pool1 = networkBufferPool1.createBufferPool(100, 100);
 			BufferPool pool2 = networkBufferPool2.createBufferPool(100, 100);
 

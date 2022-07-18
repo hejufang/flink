@@ -52,7 +52,8 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
 			InputChannelMetrics metrics,
 			long maxDelayTimeMs,
 			ScheduledExecutorService executor,
-			boolean isRecoverable) {
+			boolean isRecoverable,
+			boolean memorySegmentPackageEnable) {
 		super(inputGate,
 				channelIndex,
 				partitionId,
@@ -62,7 +63,8 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
 				metrics.getNumBuffersInRemoteCounter(),
 				maxDelayTimeMs,
 				executor,
-				isRecoverable);
+				isRecoverable,
+				memorySegmentPackageEnable);
 
 		this.connectionId = checkNotNull(connectionId);
 		this.connectionManager = checkNotNull(connectionManager);
@@ -83,7 +85,8 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
 			new SimpleCounter(),
 			maxDelayTimeMs,
 			executor,
-			isRecoverable);
+			isRecoverable,
+			memorySegmentPackageEnable);
 		remoteInputChannel.assignExclusiveSegments();
 		return remoteInputChannel;
 	}
@@ -91,7 +94,10 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
 	void assignExclusiveSegments() throws IOException {
 		checkState(!exclusiveBuffersAssigned, "Exclusive buffers should be assigned only once.");
 
-		bufferManager.requestExclusiveBuffers();
+		// This option is for OLAP, where {@link RecoveredInputChannel} will make no use, so actually don't need to assign buffers.
+		if (!memorySegmentPackageEnable) {
+			bufferManager.requestExclusiveBuffers();
+		}
 		exclusiveBuffersAssigned = true;
 	}
 }

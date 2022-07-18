@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.buffer.SimpleNetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelBuilder;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
@@ -80,7 +81,7 @@ public class NettyMessageClientDecoderDelegateTest extends TestLogger {
 	@Before
 	public void setup() throws IOException, InterruptedException {
 		CreditBasedPartitionRequestClientHandler handler = new CreditBasedPartitionRequestClientHandler();
-		networkBufferPool = new NetworkBufferPool(
+		networkBufferPool = new SimpleNetworkBufferPool(
 			NUMBER_OF_BUFFER_RESPONSES,
 			BUFFER_SIZE,
 			NUMBER_OF_BUFFER_RESPONSES);

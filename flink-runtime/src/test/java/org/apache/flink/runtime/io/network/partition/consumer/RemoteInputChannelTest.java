@@ -34,6 +34,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferListener.NotificationResult;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.buffer.SimpleNetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.InputChannelTestUtils;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
@@ -360,7 +361,7 @@ public class RemoteInputChannelTest {
 	@Test
 	public void testAvailableBuffersLessThanRequiredBuffers() throws Exception {
 		// Setup
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(16, 32, 2);
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(16, 32, 2);
 		final int numFloatingBuffers = 14;
 
 		final SingleInputGate inputGate = createSingleInputGate(1, networkBufferPool);
@@ -499,7 +500,7 @@ public class RemoteInputChannelTest {
 	@Test
 	public void testAvailableBuffersEqualToRequiredBuffers() throws Exception {
 		// Setup
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(16, 32, 2);
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(16, 32, 2);
 		final int numFloatingBuffers = 14;
 
 		final SingleInputGate inputGate = createSingleInputGate(1, networkBufferPool);
@@ -574,7 +575,7 @@ public class RemoteInputChannelTest {
 	@Test
 	public void testAvailableBuffersMoreThanRequiredBuffers() throws Exception {
 		// Setup
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(16, 32, 2);
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(16, 32, 2);
 		final int numFloatingBuffers = 14;
 
 		final SingleInputGate inputGate = createSingleInputGate(1, networkBufferPool);
@@ -664,7 +665,7 @@ public class RemoteInputChannelTest {
 	public void testFairDistributionFloatingBuffers() throws Exception {
 		// Setup
 		final int numExclusiveBuffers = 2;
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(12, 32, numExclusiveBuffers);
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(12, 32, numExclusiveBuffers);
 		final int numFloatingBuffers = 3;
 
 		final SingleInputGate inputGate = createSingleInputGate(3, networkBufferPool);
@@ -727,7 +728,7 @@ public class RemoteInputChannelTest {
 		final int numExclusiveBuffers = 1;
 		final int numFloatingBuffers = 1;
 		final int numTotalBuffers = numExclusiveBuffers + numFloatingBuffers;
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(
 			numTotalBuffers, 32, numExclusiveBuffers);
 
 		final SingleInputGate inputGate = createSingleInputGate(1);
@@ -786,7 +787,7 @@ public class RemoteInputChannelTest {
 	@Test
 	public void testConcurrentOnSenderBacklogAndRelease() throws Exception {
 		// Setup
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(130, 32, 2);
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(130, 32, 2);
 		final int numFloatingBuffers = 128;
 
 		final ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -847,7 +848,7 @@ public class RemoteInputChannelTest {
 	public void testConcurrentOnSenderBacklogAndRecycle() throws Exception {
 		// Setup
 		final int numExclusiveSegments = 120;
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(248, 32, numExclusiveSegments);
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(248, 32, numExclusiveSegments);
 		final int numFloatingBuffers = 128;
 		final int backlog = 128;
 
@@ -899,7 +900,7 @@ public class RemoteInputChannelTest {
 	public void testConcurrentRecycleAndRelease() throws Exception {
 		// Setup
 		final int numExclusiveSegments = 120;
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(248, 32, numExclusiveSegments);
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(248, 32, numExclusiveSegments);
 		final int numFloatingBuffers = 128;
 
 		final ExecutorService executor = Executors.newFixedThreadPool(3);
@@ -953,7 +954,7 @@ public class RemoteInputChannelTest {
 		final int numExclusiveBuffers = 2;
 		final int numFloatingBuffers = 2;
 		final int numTotalBuffers = numExclusiveBuffers + numFloatingBuffers;
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(
 			numTotalBuffers, 32, numExclusiveBuffers);
 
 		final ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -1028,7 +1029,7 @@ public class RemoteInputChannelTest {
 		final int numTotalBuffers  = 1_000;
 		final int numExclusiveBuffers = 2;
 		final int numFloatingBuffers = 998;
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(numTotalBuffers, 32, numExclusiveBuffers);
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(numTotalBuffers, 32, numExclusiveBuffers);
 		final SingleInputGate inputGate = createSingleInputGate(1, networkBufferPool);
 		final RemoteInputChannel inputChannel = createRemoteInputChannel(inputGate);
 		inputGate.setInputChannels(inputChannel);

@@ -27,11 +27,13 @@ import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.buffer.SimpleNetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
-import org.apache.flink.shaded.netty4.io.netty.channel.embedded.EmbeddedChannel;
 import org.apache.flink.util.TestLogger;
+
+import org.apache.flink.shaded.netty4.io.netty.channel.embedded.EmbeddedChannel;
 
 import org.junit.After;
 import org.junit.Before;
@@ -77,7 +79,7 @@ public class NettyMessageClientSideSerializationTest extends TestLogger {
 
 	@Before
 	public void setup() throws IOException, InterruptedException {
-		networkBufferPool = new NetworkBufferPool(8, BUFFER_SIZE, 8);
+		networkBufferPool = new SimpleNetworkBufferPool(8, BUFFER_SIZE, 8);
 		inputGate = createSingleInputGate(1, networkBufferPool);
 		RemoteInputChannel inputChannel = createRemoteInputChannel(
 			inputGate,

@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.buffer.SimpleNetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpResultSubpartitionView;
@@ -184,7 +185,7 @@ public class PartitionRequestQueueTest {
 		ResultPartitionID resultPartitionId2 = new ResultPartitionID();
 		CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(new InputChannelID(0, 0), 10, queue, resultPartitionId, partitionManager, true);
 		CreditBasedSequenceNumberingViewReader reader2 = new CreditBasedSequenceNumberingViewReader(new InputChannelID(1, 1), 10, queue, resultPartitionId2, partitionManager, true);
-		final NetworkBufferPool globalPool = new NetworkBufferPool(10, 128, 2);
+		final NetworkBufferPool globalPool = new SimpleNetworkBufferPool(10, 128, 2);
 		final BufferPool localPool = globalPool.createBufferPool(1, 1, null, 1, Integer.MAX_VALUE);
 		final ResultPartitionWriter resultPartition = new ResultPartitionBuilder()
 			.setBufferPoolFactory(p -> localPool)

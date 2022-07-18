@@ -101,6 +101,10 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final long notifyPartitionRequestTimeoutInterval;
 
+	private final boolean memorySegmentPackageEnable;
+
+	private final int memorySegmentsPerPackage;
+
 	public NettyShuffleEnvironmentConfiguration(
 			int numNetworkBuffers,
 			int networkBufferSize,
@@ -128,7 +132,9 @@ public class NettyShuffleEnvironmentConfiguration {
 			boolean batchPartitionRequestEnable,
 			boolean notifyPartitionRequestEnable,
 			long notifyPartitionRequestTimeout,
-			long notifyPartitionRequestTimeoutInterval) {
+			long notifyPartitionRequestTimeoutInterval,
+			boolean memorySegmentPackageEnable,
+			int memorySegmentsPerPackage) {
 
 		this.numNetworkBuffers = numNetworkBuffers;
 		this.networkBufferSize = networkBufferSize;
@@ -157,6 +163,8 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.notifyPartitionRequestEnable = notifyPartitionRequestEnable;
 		this.notifyPartitionRequestTimeout = notifyPartitionRequestTimeout;
 		this.notifyPartitionRequestTimeoutInterval = notifyPartitionRequestTimeoutInterval;
+		this.memorySegmentPackageEnable = memorySegmentPackageEnable;
+		this.memorySegmentsPerPackage = memorySegmentsPerPackage;
 	}
 
 	// ------------------------------------------------------------------------
@@ -270,6 +278,14 @@ public class NettyShuffleEnvironmentConfiguration {
 		return notifyPartitionRequestTimeoutInterval;
 	}
 
+	public boolean isMemorySegmentPackageEnable() {
+		return memorySegmentPackageEnable;
+	}
+
+	public int getMemorySegmentsPerPackage() {
+		return memorySegmentsPerPackage;
+	}
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -338,6 +354,9 @@ public class NettyShuffleEnvironmentConfiguration {
 		long notifyPartitionRequestTimeout = configuration.getLong(NettyShuffleEnvironmentOptions.NETWORK_PARTITION_REQUEST_NOTIFY_TIMEOUT);
 		long notifyPartitionRequestTimeoutInterval = configuration.getLong(NettyShuffleEnvironmentOptions.NETWORK_PARTITION_REQUEST_NOTIFY_TIMEOUT_INTERVAL);
 
+		boolean memorySegmentPackageEnable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BUFFER_POOL_SEGMENT_PACKAGE_ENABLE);
+		int memorySegmentsPerPackage = configuration.getInteger(NettyShuffleEnvironmentOptions.NETWORK_MEMORY_SEGMENTS_PER_PACKAGE);
+
 		return new NettyShuffleEnvironmentConfiguration(
 			numberOfNetworkBuffers,
 			pageSize,
@@ -365,7 +384,9 @@ public class NettyShuffleEnvironmentConfiguration {
 			batchPartitionRequestEnable,
 			notifyPartitionRequestEnable,
 			notifyPartitionRequestTimeout,
-			notifyPartitionRequestTimeoutInterval);
+			notifyPartitionRequestTimeoutInterval,
+			memorySegmentPackageEnable,
+			memorySegmentsPerPackage);
 	}
 
 	/**

@@ -35,6 +35,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferProvider;
 import org.apache.flink.runtime.io.network.buffer.BufferReceivedListener;
+import org.apache.flink.runtime.io.network.buffer.LocalBufferPackagePool;
 import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
 import org.apache.flink.runtime.io.network.netty.PartitionRequestChannel;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
@@ -299,6 +300,19 @@ public class SingleInputGate extends IndexedInputGate {
 
 		BufferPool bufferPool = bufferPoolFactory.get();
 		setBufferPool(bufferPool);
+
+		// This should only in OLAP, and thus now all the channels should be RecoveredInputChannel.
+		if (bufferPool instanceof LocalBufferPackagePool) {
+			int numRemoteChannels = 0;
+			for (InputChannel inputChannel : inputChannels.values()) {
+				if (inputChannel instanceof RemoteRecoveredInputChannel) {
+					++numRemoteChannels;
+				}
+			}
+			if (numRemoteChannels > 0) {
+				((LocalBufferPackagePool) bufferPool).setNumRemoteChannels(numRemoteChannels);
+			}
+		}
 	}
 
 	@Override

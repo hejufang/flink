@@ -392,6 +392,31 @@ public class NettyShuffleEnvironmentOptions {
 			.withDescription("Network buffer pool will be set max value if used memory's proportion " +
 				"of occupancy is less than high-watermark.");
 
+	// ------------------------------------------------------------------------
+	//  NetworkBufferPool options
+	// ------------------------------------------------------------------------
+
+	/**
+	 * This option is for OLAP, and will speed up the request/recycle between
+	 * LocalBufferPool and NetworkBufferPool by transferring several MemorySegment as a package at once.
+	 * For this, exclusive buffers will be request/recycle by LocalBufferPool instead of NetworkBufferPool.
+	 */
+	public static final ConfigOption<Boolean> NETWORK_BUFFER_POOL_SEGMENT_PACKAGE_ENABLE = ConfigOptions
+		.key("taskmanager.network-buffer-pool-segment-package.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("If true, network buffer pool will use segment package as the unit" +
+				"consisting of several memory segments to manage all available memory segments.");
+
+	public static final ConfigOption<Integer> NETWORK_MEMORY_SEGMENTS_PER_PACKAGE = ConfigOptions
+		.key("taskmanager.network.memory.memory-segments-per-package")
+			.intType()
+			.defaultValue(5)
+			.withDescription("The number of memory segments to form a package, this will work only if" +
+				"NETWORK_BUFFER_POOL_SEGMENT_PACKAGE_ENABLE is set.");
+
+	// ------------------------------------------------------------------------
+
 	/** Not intended to be instantiated. */
 	private NettyShuffleEnvironmentOptions() {}
 }

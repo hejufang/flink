@@ -38,7 +38,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
 /**
- * Tests for the creation of {@link LocalBufferPool} instances from the {@link NetworkBufferPool}
+ * Tests for the creation of {@link LocalBufferPool} instances from the {@link SimpleNetworkBufferPool}
  * factory.
  */
 public class BufferPoolFactoryTest {
@@ -54,7 +54,7 @@ public class BufferPoolFactoryTest {
 
 	@Before
 	public void setupNetworkBufferPool() {
-		networkBufferPool = new NetworkBufferPool(numBuffers, memorySegmentSize, 1);
+		networkBufferPool = new SimpleNetworkBufferPool(numBuffers, memorySegmentSize, 1);
 	}
 
 	@After
@@ -95,7 +95,7 @@ public class BufferPoolFactoryTest {
 
 	/**
 	 * Tests creating two buffer pools which together require as many buffers as available but where
-	 * there are less buffers available to the {@link NetworkBufferPool} at the time of the second
+	 * there are less buffers available to the {@link SimpleNetworkBufferPool} at the time of the second
 	 * {@link LocalBufferPool} creation.
 	 */
 	@Test
@@ -244,7 +244,7 @@ public class BufferPoolFactoryTest {
 
 	@Test
 	public void testUniformDistributionBounded3() throws IOException {
-		NetworkBufferPool globalPool = new NetworkBufferPool(3, 128, 1);
+		NetworkBufferPool globalPool = new SimpleNetworkBufferPool(3, 128, 1);
 		try {
 			BufferPool first = globalPool.createBufferPool(0, 10);
 			assertEquals(3, first.getNumBuffers());
@@ -277,7 +277,7 @@ public class BufferPoolFactoryTest {
 	 */
 	@Test
 	public void testUniformDistributionBounded4() throws IOException {
-		NetworkBufferPool globalPool = new NetworkBufferPool(10, 128, 2);
+		NetworkBufferPool globalPool = new SimpleNetworkBufferPool(10, 128, 2);
 		try {
 			BufferPool first = globalPool.createBufferPool(0, 10);
 			assertEquals(10, first.getNumBuffers());

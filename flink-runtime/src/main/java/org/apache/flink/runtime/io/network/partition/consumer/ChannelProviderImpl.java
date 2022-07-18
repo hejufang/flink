@@ -106,7 +106,8 @@ public class ChannelProviderImpl implements ChannelProvider {
 				metrics.getNumBuffersInDropped(),
 				maxDelayTimeMs,
 				executor,
-				isRecoverable);
+				isRecoverable,
+				current.memorySegmentPackageEnable);
 	}
 
 	@Override
@@ -127,7 +128,8 @@ public class ChannelProviderImpl implements ChannelProvider {
 				metrics.getNumBuffersInRemoteCounter(),
 				maxDelayTimeMs,
 				executor,
-				isRecoverable);
+				isRecoverable,
+				current.memorySegmentPackageEnable);
 	}
 
 	@Override

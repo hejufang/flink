@@ -57,6 +57,7 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
 			taskEventPublisher,
 			networkBufferPool,
 			5,
+			false,
 			false);
 	}
 
@@ -120,6 +121,7 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
 				metrics.getNumBuffersInLocalCounter(),
 				5,
 				null,
+				false,
 				false);
 		}
 
@@ -168,6 +170,7 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
 				metrics.getNumBuffersInDropped(),
 				5,
 				null,
+				false,
 				false);
 		}
 

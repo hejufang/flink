@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.NetworkClientHandler;
 import org.apache.flink.runtime.io.network.PartitionRequestClient;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.buffer.SimpleNetworkBufferPool;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.PartitionRequest;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.ResumeConsumption;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelBuilder;
@@ -63,7 +64,7 @@ public class NettyPartitionRequestClientTest {
 		final PartitionRequestClient client = createPartitionRequestClient(channel, handler);
 
 		final int numExclusiveBuffers = 2;
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(10, 32, numExclusiveBuffers);
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(10, 32, numExclusiveBuffers);
 		final SingleInputGate inputGate = createSingleInputGate(1, networkBufferPool);
 		final RemoteInputChannel inputChannel = InputChannelBuilder.newBuilder()
 			.setConnectionManager(mockConnectionManagerWithPartitionRequestClient(client))
@@ -121,7 +122,7 @@ public class NettyPartitionRequestClientTest {
 		final PartitionRequestClient client = createPartitionRequestClient(channel, handler);
 
 		final int numExclusiveBuffers = 2;
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(10, 32, numExclusiveBuffers);
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(10, 32, numExclusiveBuffers);
 		final SingleInputGate inputGate = createSingleInputGate(1, networkBufferPool);
 		final RemoteInputChannel inputChannel = createRemoteInputChannel(inputGate, client);
 
@@ -156,7 +157,7 @@ public class NettyPartitionRequestClientTest {
 		final PartitionRequestClient client = createPartitionRequestClient(channel, handler);
 
 		final int numExclusiveBuffers = 2;
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(10, 32, numExclusiveBuffers);
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(10, 32, numExclusiveBuffers);
 		final SingleInputGate inputGate = new SingleInputGateBuilder()
 			.setNumberOfChannels(1)
 			.setSegmentProvider(networkBufferPool)
@@ -195,7 +196,7 @@ public class NettyPartitionRequestClientTest {
 		final EmbeddedChannel channel = new EmbeddedChannel(handler);
 		final PartitionRequestClient client = createPartitionRequestClient(channel, handler);
 
-		final NetworkBufferPool networkBufferPool = new NetworkBufferPool(10, 32, 2);
+		final NetworkBufferPool networkBufferPool = new SimpleNetworkBufferPool(10, 32, 2);
 		final SingleInputGate inputGate = createSingleInputGate(1, networkBufferPool);
 		final RemoteInputChannel inputChannel = createRemoteInputChannel(inputGate, client);
 

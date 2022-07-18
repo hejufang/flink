@@ -47,9 +47,10 @@ public class LocalRecoveredInputChannel extends RecoveredInputChannel {
 			InputChannelMetrics metrics,
 			long maxDelayTimeMs,
 			ScheduledExecutorService executor,
-			boolean isRecoverable) {
+			boolean isRecoverable,
+			boolean memorySegmentPackageEnable) {
 		super(inputGate, channelIndex, partitionId, initialBackOff, maxBackoff, metrics.getNumBytesInLocalCounter(),
-				metrics.getNumBuffersInLocalCounter(), maxDelayTimeMs, executor, isRecoverable);
+				metrics.getNumBuffersInLocalCounter(), maxDelayTimeMs, executor, isRecoverable, memorySegmentPackageEnable);
 
 		this.partitionManager = checkNotNull(partitionManager);
 		this.taskEventPublisher = checkNotNull(taskEventPublisher);
@@ -69,6 +70,7 @@ public class LocalRecoveredInputChannel extends RecoveredInputChannel {
 			numBytesIn,
 			maxDelayTimeMs,
 			executor,
-			isRecoverable);
+			isRecoverable,
+			memorySegmentPackageEnable);
 	}
 }

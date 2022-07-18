@@ -34,6 +34,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilderTestUtils;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.buffer.SimpleNetworkBufferPool;
 import org.apache.flink.runtime.taskmanager.ConsumableNotifyingResultPartitionWriterDecorator;
 import org.apache.flink.runtime.taskmanager.NoOpTaskActions;
 import org.apache.flink.runtime.taskmanager.TaskActions;
@@ -403,7 +404,7 @@ public class ResultPartitionTest {
 		//setup
 		final int networkBuffersPerChannel = 2;
 		final int floatingNetworkBuffersPerGate = 8;
-		final NetworkBufferPool globalPool = new NetworkBufferPool(20, 1, 1);
+		final NetworkBufferPool globalPool = new SimpleNetworkBufferPool(20, 1, 1);
 		final ResultPartition partition = new ResultPartitionBuilder()
 			.setResultPartitionType(type)
 			.setFileChannelManager(fileChannelManager)
@@ -449,7 +450,7 @@ public class ResultPartitionTest {
 	@Test
 	public void testInitializeEmptyState() throws Exception {
 		final int totalBuffers = 2;
-		final NetworkBufferPool globalPool = new NetworkBufferPool(totalBuffers, 1, 1);
+		final NetworkBufferPool globalPool = new SimpleNetworkBufferPool(totalBuffers, 1, 1);
 		final ResultPartition partition = new ResultPartitionBuilder()
 			.setNetworkBufferPool(globalPool)
 			.build();
@@ -480,7 +481,7 @@ public class ResultPartitionTest {
 		final int[] states = {1, 2, 3, 4};
 		final int bufferSize = states.length * Integer.BYTES;
 
-		final NetworkBufferPool globalPool = new NetworkBufferPool(totalBuffers, bufferSize, 1);
+		final NetworkBufferPool globalPool = new SimpleNetworkBufferPool(totalBuffers, bufferSize, 1);
 		final ChannelStateReader stateReader = new FiniteChannelStateReader(totalStates, states);
 		final ResultPartition partition = new ResultPartitionBuilder()
 			.setNetworkBufferPool(globalPool)
@@ -540,7 +541,7 @@ public class ResultPartitionTest {
 	@Test
 	public void testReadRecoveredStateWithException() throws Exception {
 		final int totalBuffers = 2;
-		final NetworkBufferPool globalPool = new NetworkBufferPool(totalBuffers, 1, 1);
+		final NetworkBufferPool globalPool = new SimpleNetworkBufferPool(totalBuffers, 1, 1);
 		final ResultPartition partition = new ResultPartitionBuilder()
 			.setNetworkBufferPool(globalPool)
 			.build();

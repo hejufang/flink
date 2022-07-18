@@ -22,6 +22,7 @@ import org.apache.flink.runtime.checkpoint.channel.ChannelStateReader;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilderAndConsumerTest;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.buffer.SimpleNetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionTest;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
 
@@ -104,7 +105,7 @@ public class RecoveredInputChannelTest {
 	private void testReadEmptyStateOrThrowException(boolean isRemote, ChannelStateReader reader) throws Exception {
 		// setup
 		final int totalBuffers = 10;
-		final NetworkBufferPool globalPool = new NetworkBufferPool(totalBuffers, 32, 2);
+		final NetworkBufferPool globalPool = new SimpleNetworkBufferPool(totalBuffers, 32, 2);
 		final SingleInputGate inputGate = createInputGate(globalPool);
 		final RecoveredInputChannel inputChannel = createRecoveredChannel(isRemote, inputGate);
 
@@ -137,7 +138,7 @@ public class RecoveredInputChannelTest {
 	private void testConcurrentReadStateAndProcess(boolean isRemote) throws Exception {
 		// setup
 		final int totalBuffers = 10;
-		final NetworkBufferPool globalPool = new NetworkBufferPool(totalBuffers, 32, 2);
+		final NetworkBufferPool globalPool = new SimpleNetworkBufferPool(totalBuffers, 32, 2);
 		final SingleInputGate inputGate = createInputGate(globalPool);
 		final RecoveredInputChannel inputChannel = createRecoveredChannel(isRemote, inputGate);
 
@@ -167,7 +168,7 @@ public class RecoveredInputChannelTest {
 	private void testConcurrentReadStateAndRelease(boolean isRemote) throws Exception {
 		// setup
 		final int totalBuffers = 10;
-		final NetworkBufferPool globalPool = new NetworkBufferPool(totalBuffers, 32, 2);
+		final NetworkBufferPool globalPool = new SimpleNetworkBufferPool(totalBuffers, 32, 2);
 		final SingleInputGate inputGate = createInputGate(globalPool);
 		final RecoveredInputChannel inputChannel = createRecoveredChannel(isRemote, inputGate);
 
@@ -196,7 +197,7 @@ public class RecoveredInputChannelTest {
 	private void testConcurrentReadStateAndProcessAndRelease(boolean isRemote) throws Exception {
 		// setup
 		final int totalBuffers = 10;
-		final NetworkBufferPool globalPool = new NetworkBufferPool(totalBuffers, 32, 2);
+		final NetworkBufferPool globalPool = new SimpleNetworkBufferPool(totalBuffers, 32, 2);
 		final SingleInputGate inputGate = createInputGate(globalPool);
 		final RecoveredInputChannel inputChannel = createRecoveredChannel(isRemote, inputGate);
 

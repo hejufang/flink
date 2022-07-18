@@ -97,7 +97,7 @@ public class JobResultThreadPoolTest {
 		}
 	}
 
-	@Test(timeout = 1000)
+	@Test(timeout = 10000)
 	public void testWriteMultipleJobResults() throws InterruptedException {
 		final int jobCount = 100;
 		try (JobResultThreadPool threadPool = new JobResultThreadPool(jobCount)) {

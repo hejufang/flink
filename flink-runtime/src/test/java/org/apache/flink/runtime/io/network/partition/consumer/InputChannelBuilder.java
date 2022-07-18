@@ -123,7 +123,8 @@ public class InputChannelBuilder {
 			metrics,
 			5,
 			Executors.newSingleThreadScheduledExecutor(),
-			isRecoverable);
+			isRecoverable,
+			false);
 	}
 
 	public LocalInputChannel buildLocalChannel(SingleInputGate inputGate) {
@@ -139,7 +140,8 @@ public class InputChannelBuilder {
 			metrics.getNumBuffersInLocalCounter(),
 			5,
 			Executors.newSingleThreadScheduledExecutor(),
-			isRecoverable);
+			isRecoverable,
+			false);
 	}
 
 	public RemoteInputChannel buildRemoteChannel(SingleInputGate inputGate) {
@@ -156,7 +158,8 @@ public class InputChannelBuilder {
 			metrics.getNumBuffersInDropped(),
 			5,
 			Executors.newSingleThreadScheduledExecutor(),
-			isRecoverable);
+			isRecoverable,
+			false);
 	}
 
 	public LocalRecoveredInputChannel buildLocalRecoveredChannel(SingleInputGate inputGate) {
@@ -171,7 +174,8 @@ public class InputChannelBuilder {
 			metrics,
 			5,
 			null,
-			isRecoverable);
+			isRecoverable,
+			false);
 	}
 
 	public RemoteInputChannel buildRemoteAndSetToGate(SingleInputGate inputGate, boolean isRecoverable) {
@@ -188,7 +192,8 @@ public class InputChannelBuilder {
 				metrics.getNumBuffersInDropped(),
 				5,
 			Executors.newSingleThreadScheduledExecutor(),
-				isRecoverable);
+				isRecoverable,
+				false);
 	}
 
 	public RemoteRecoveredInputChannel buildRemoteRecoveredChannel(SingleInputGate inputGate) {
@@ -203,6 +208,7 @@ public class InputChannelBuilder {
 			metrics,
 			5,
 			Executors.newSingleThreadScheduledExecutor(),
-			isRecoverable);
+			isRecoverable,
+			false);
 	}
 }
