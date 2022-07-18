@@ -59,6 +59,10 @@ public class JobDeploymentDescriptor implements DeploymentReadableWritable, Seri
 
 	private long createTimestamp;
 
+	private long serializeTimestamp;
+
+	private long deserializeTimestamp;
+
 	public JobDeploymentDescriptor() {
 	}
 
@@ -133,6 +137,14 @@ public class JobDeploymentDescriptor implements DeploymentReadableWritable, Seri
 		return createTimestamp;
 	}
 
+	public long getSerializeTimestamp() {
+		return serializeTimestamp;
+	}
+
+	public long getDeserializeTimestamp() {
+		return deserializeTimestamp;
+	}
+
 	public static JobDeploymentDescriptor from(ExecutionGraph executionGraph) {
 		return new JobDeploymentDescriptor(
 			executionGraph.getJobID(),
@@ -170,6 +182,7 @@ public class JobDeploymentDescriptor implements DeploymentReadableWritable, Seri
 			vertexDeploymentDescriptor.write(out);
 		}
 		out.writeLong(createTimestamp);
+		out.writeLong(System.currentTimeMillis());
 	}
 
 	@Override
@@ -208,5 +221,7 @@ public class JobDeploymentDescriptor implements DeploymentReadableWritable, Seri
 		}
 
 		createTimestamp = in.readLong();
+		serializeTimestamp = in.readLong();
+		deserializeTimestamp = System.currentTimeMillis();
 	}
 }

@@ -1037,10 +1037,12 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			jobDeploymentDescriptorManagers.remove(jobId);
 		}
 
-		log.info("Finish to deploy tasks {} for job {} submit {} connect {} deploy {}",
+		log.info("Finish to deploy tasks {} for job {} deployWait {} network {} akkaWait {} connect {} deploy {}",
 			jdd.getTaskCount(),
 			jdd.getJobId(),
-			jobDeploymentDescriptorManager.getReceivedTime() - jdd.getCreateTimestamp(),
+			jdd.getSerializeTimestamp() - jdd.getCreateTimestamp(),
+			jdd.getDeserializeTimestamp() - jdd.getSerializeTimestamp(),
+			jobDeploymentDescriptorManager.getReceivedTime() - jdd.getDeserializeTimestamp(),
 			jobDeploymentDescriptorManager.getStartDeployTime() - jobDeploymentDescriptorManager.getReceivedTime(),
 			System.currentTimeMillis() - jobDeploymentDescriptorManager.getStartDeployTime());
 	}
