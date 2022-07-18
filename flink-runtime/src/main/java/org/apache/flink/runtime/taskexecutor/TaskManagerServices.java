@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.blob.PermanentBlobService;
 import org.apache.flink.runtime.broadcast.BroadcastVariableManager;
@@ -49,7 +50,9 @@ import org.apache.flink.runtime.taskexecutor.slot.TaskSlotTable;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotTableImpl;
 import org.apache.flink.runtime.taskexecutor.slot.TimerService;
 import org.apache.flink.runtime.taskmanager.Task;
+import org.apache.flink.runtime.taskmanager.TaskThreadPoolExecutor;
 import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
+import org.apache.flink.runtime.util.FatalExitExceptionHandler;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
@@ -92,6 +95,8 @@ public class TaskManagerServices {
 	private final LibraryCacheManager libraryCacheManager;
 	private final CacheManager cacheManager;
 	private final boolean taskSubmitRunning;
+	private final TaskThreadPoolExecutor taskExecutor;
+	private final TaskThreadPoolExecutor taskMonitorExecutor;
 
 	TaskManagerServices(
 			UnresolvedTaskManagerLocation unresolvedTaskManagerLocation,
@@ -106,6 +111,8 @@ public class TaskManagerServices {
 			TaskExecutorLocalStateStoresManager taskManagerStateStore,
 			TaskEventDispatcher taskEventDispatcher,
 			ExecutorService ioExecutor,
+			TaskThreadPoolExecutor taskExecutor,
+			TaskThreadPoolExecutor taskMonitorExecutor,
 			LibraryCacheManager libraryCacheManager,
 			CacheManager cacheManager,
 			boolean taskSubmitRunning) {
@@ -123,6 +130,8 @@ public class TaskManagerServices {
 		this.taskEventDispatcher = Preconditions.checkNotNull(taskEventDispatcher);
 		this.ioExecutor = Preconditions.checkNotNull(ioExecutor);
 		this.libraryCacheManager = Preconditions.checkNotNull(libraryCacheManager);
+		this.taskExecutor = taskExecutor;
+		this.taskMonitorExecutor = taskMonitorExecutor;
 		this.cacheManager = cacheManager;
 		this.taskSubmitRunning = taskSubmitRunning;
 	}
@@ -191,7 +200,15 @@ public class TaskManagerServices {
 		return taskSubmitRunning;
 	}
 
-	// --------------------------------------------------------------------------------------------
+	public TaskThreadPoolExecutor getTaskExecutor() {
+		return taskExecutor;
+	}
+
+	public TaskThreadPoolExecutor getTaskMonitorExecutor() {
+		return taskMonitorExecutor;
+	}
+
+// --------------------------------------------------------------------------------------------
 	//  Shut down method
 	// --------------------------------------------------------------------------------------------
 
@@ -370,6 +387,11 @@ public class TaskManagerServices {
 		CacheConfiguration cacheConfiguration = CacheConfiguration.fromConfiguration(taskManagerServicesConfiguration.getConfiguration());
 		CacheManager cacheManager = cacheConfiguration.isEnableCache() ? new DefaultCacheManager(cacheConfiguration) : new NonCacheManager();
 		boolean taskSubmitRunning = taskManagerServicesConfiguration.getConfiguration().getBoolean(CoreOptions.FLINK_SUBMIT_RUNNING_NOTIFY);
+		boolean useTaskThreadPool = taskManagerServicesConfiguration
+			.getConfiguration()
+			.getBoolean(TaskManagerOptions.TASK_THREAD_POOL_ENABLE);
+		TaskThreadPoolExecutor taskExecutor = useTaskThreadPool ? TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task ", false, null)) : null;
+		TaskThreadPoolExecutor taskMonitorExecutor = useTaskThreadPool ? TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task Monitor", true, FatalExitExceptionHandler.INSTANCE)) : null;
 
 		return new TaskManagerServices(
 			unresolvedTaskManagerLocation,
@@ -384,6 +406,8 @@ public class TaskManagerServices {
 			taskStateManager,
 			taskEventDispatcher,
 			ioExecutor,
+			taskExecutor,
+			taskMonitorExecutor,
 			libraryCacheManager,
 			cacheManager,
 			taskSubmitRunning);

@@ -250,6 +250,8 @@ public class SynchronousCheckpointITCase {
 				0,
 				mock(MemoryManager.class),
 				mock(IOManager.class),
+				null,
+				null,
 				shuffleEnvironment,
 				new KvStateService(new KvStateRegistry(), null, null),
 				mock(BroadcastVariableManager.class),

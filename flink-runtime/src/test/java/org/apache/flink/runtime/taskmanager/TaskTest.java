@@ -43,6 +43,7 @@ import org.apache.flink.runtime.shuffle.PartitionDescriptorBuilder;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.taskexecutor.PartitionProducerStateChecker;
+import org.apache.flink.runtime.util.FatalExitExceptionHandler;
 import org.apache.flink.runtime.util.NettyShuffleDescriptorBuilder;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.TestLogger;
@@ -418,6 +419,118 @@ public class TaskTest extends TestLogger {
 
 		taskManagerActions.validateListenerMessage(ExecutionState.RUNNING, task, null);
 		taskManagerActions.validateListenerMessage(ExecutionState.CANCELED, task, null);
+	}
+
+	@Test(timeout = 5000)
+	public void testExecutionCancelBeforeInvokeInThreadPool() throws Exception {
+		final QueuedNoOpTaskManagerActions taskManagerActions = new QueuedNoOpTaskManagerActions();
+		TaskThreadPoolExecutor taskExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task ", false, null));
+		TaskThreadPoolExecutor taskMonitorExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task Monitor", true, FatalExitExceptionHandler.INSTANCE));
+
+		final Configuration config = new Configuration();
+		config.setBoolean(TaskManagerOptions.TASK_THREAD_POOL_ENABLE, true);
+		try {
+			final Task task = createTaskBuilder()
+				.setInvokable(InvokableBlockingInInvoke.class)
+				.setTaskManagerActions(taskManagerActions)
+				.setTaskExecutorService(taskExecutor)
+				.setTaskMonitorExecutor(taskMonitorExecutor)
+				.setTaskManagerConfig(config)
+				.build();
+
+			task.cancelExecution();
+			assertEquals(ExecutionState.CANCELING, task.getExecutionState());
+			task.run();
+
+			// we should still be in state canceled
+			assertEquals(ExecutionState.CANCELED, task.getExecutionState());
+			assertTrue(task.isCanceledOrFailed());
+			assertNull(task.getFailureCause());
+
+			taskManagerActions.validateListenerMessage(ExecutionState.CANCELED, task, null);
+		} finally {
+			taskExecutor.shutdown();
+			taskMonitorExecutor.shutdown();
+		}
+	}
+
+	@Test(timeout = 5000)
+	public void testExecutionCancelInThreadPool() throws Exception {
+		final QueuedNoOpTaskManagerActions taskManagerActions = new QueuedNoOpTaskManagerActions();
+		TaskThreadPoolExecutor taskExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task ", false, null));
+		TaskThreadPoolExecutor taskMonitorExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task Monitor", true, FatalExitExceptionHandler.INSTANCE));
+
+		final Configuration config = new Configuration();
+		config.setBoolean(TaskManagerOptions.TASK_THREAD_POOL_ENABLE, true);
+		try {
+			final Task task = createTaskBuilder()
+				.setInvokable(InvokableBlockingInInvoke.class)
+				.setTaskManagerActions(taskManagerActions)
+				.setTaskExecutorService(taskExecutor)
+				.setTaskMonitorExecutor(taskMonitorExecutor)
+				.setTaskManagerConfig(config)
+				.build();
+
+			// run the task asynchronous
+			task.startTaskThread();
+
+			// wait till the task is in invoke
+			awaitLatch.await();
+
+			task.cancelExecution();
+			assertEquals(ExecutionState.CANCELING, task.getExecutionState());
+
+			// this causes an exception
+			triggerLatch.trigger();
+
+			task.getExecutingThreadFuture().join();
+
+			// we should still be in state canceled
+			assertEquals(ExecutionState.CANCELED, task.getExecutionState());
+			assertTrue(task.isCanceledOrFailed());
+			assertNull(task.getFailureCause());
+
+			taskManagerActions.validateListenerMessage(ExecutionState.RUNNING, task, null);
+			taskManagerActions.validateListenerMessage(ExecutionState.CANCELED, task, null);
+		} finally {
+			taskExecutor.shutdown();
+			taskMonitorExecutor.shutdown();
+		}
+	}
+
+	@Test(timeout = 5000)
+	public void testExecutionCancelAfterInvokeInThreadPool() throws Exception {
+		final QueuedNoOpTaskManagerActions taskManagerActions = new QueuedNoOpTaskManagerActions();
+		TaskThreadPoolExecutor taskExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task ", false, null));
+		TaskThreadPoolExecutor taskMonitorExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task Monitor", true, FatalExitExceptionHandler.INSTANCE));
+
+		final Configuration config = new Configuration();
+		config.setBoolean(TaskManagerOptions.TASK_THREAD_POOL_ENABLE, true);
+		try {
+			final Task task = createTaskBuilder()
+				.setInvokable(InvokableWithExceptionInInvoke.class)
+				.setTaskManagerActions(taskManagerActions)
+				.setTaskExecutorService(taskExecutor)
+				.setTaskMonitorExecutor(taskMonitorExecutor)
+				.setTaskManagerConfig(config)
+				.build();
+
+			// run the task asynchronous
+			task.run();
+
+			task.cancelExecution();
+
+			// we should still be in state canceled
+			assertEquals(ExecutionState.FAILED, task.getExecutionState());
+			assertTrue(task.isCanceledOrFailed());
+			assertTrue(task.getFailureCause().getMessage().contains("test"));
+
+			taskManagerActions.validateListenerMessage(ExecutionState.RUNNING, task, null);
+			taskManagerActions.validateListenerMessage(ExecutionState.FAILED, task, new Exception("test"));
+		} finally {
+			taskExecutor.shutdown();
+			taskMonitorExecutor.shutdown();
+		}
 	}
 
 	@Test

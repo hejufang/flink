@@ -691,6 +691,12 @@ public class TaskManagerOptions {
 		.defaultValue(0)
 		.withDescription("Worker thread count of netty server in task executor.");
 
+	public static final ConfigOption<Boolean> TASK_THREAD_POOL_ENABLE = ConfigOptions
+		.key("taskmanager.task-thread-pool.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Use thread pool to manager task execute thread and related cancel thread.");
+
 	public static final ConfigOption<Boolean> TASKMANAGER_BATCH_UPDATE_JOB_TASK_STATE_ENABLE = ConfigOptions
 			.key("taskmanager.batch-update-job-task-state.enable")
 			.booleanType()

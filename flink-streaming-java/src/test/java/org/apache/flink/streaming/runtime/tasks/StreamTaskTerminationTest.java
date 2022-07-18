@@ -169,6 +169,8 @@ public class StreamTaskTerminationTest extends TestLogger {
 			0,
 			MemoryManagerBuilder.newBuilder().setMemorySize(32L * 1024L).build(),
 			new IOManagerAsync(),
+			null,
+			null,
 			shuffleEnvironment,
 			new KvStateService(new KvStateRegistry(), null, null),
 			mock(BroadcastVariableManager.class),

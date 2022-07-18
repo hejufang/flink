@@ -28,9 +28,13 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataRequest;
 import org.apache.flink.runtime.rest.messages.taskmanager.preview.PreviewDataResponse;
+import org.apache.flink.runtime.taskmanager.Task;
+import org.apache.flink.runtime.taskmanager.TaskThreadPoolExecutor;
+import org.apache.flink.runtime.util.FatalExitExceptionHandler;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.function.ThrowingRunnable;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,7 +80,9 @@ public abstract class AbstractInvokable {
 	/** Flag whether cancellation should interrupt the executing thread. */
 	private volatile boolean shouldInterruptOnCancel = true;
 
-	private Thread cancelWatchDogThread = null;
+	private Task.TaskCancelerWatchDog cancelWatchDog = null;
+
+	private TaskThreadPoolExecutor taskMonitorExecutor = null;
 
 	/**
 	 * Create an Invokable task and set its environment.
@@ -128,8 +134,13 @@ public abstract class AbstractInvokable {
 		this.shouldInterruptOnCancel = shouldInterruptOnCancel;
 	}
 
-	public void setCancelWatchDogThread(Thread cancelWatchDogThread){
-		this.cancelWatchDogThread = cancelWatchDogThread;
+	public void setCancelWatchDog(Task.TaskCancelerWatchDog cancelWatchDog){
+		this.cancelWatchDog = cancelWatchDog;
+	}
+
+	public AbstractInvokable setTaskMonitorExecutor(TaskThreadPoolExecutor taskMonitorExecutor) {
+		this.taskMonitorExecutor = taskMonitorExecutor;
+		return this;
 	}
 
 	/**
@@ -324,9 +335,16 @@ public abstract class AbstractInvokable {
 	 * Trigger triggerCancelWatchDog thread to check cancel timeout.
 	 */
 	protected void triggerCancelWatchDog() {
-		if (cancelWatchDogThread != null && !cancelWatchDogThread.isAlive()) {
-			LOG.info("task: {} start cancel watch dog", this.toString());
-			cancelWatchDogThread.start();
+		if (taskMonitorExecutor != null) {
+			taskMonitorExecutor.submit(cancelWatchDog, cancelWatchDog.getThreadName());
+		} else {
+			Thread watchDogThread = new Thread(
+				cancelWatchDog.getExecuterThread().getThreadGroup(),
+				cancelWatchDog,
+				cancelWatchDog.getThreadName());
+			watchDogThread.setDaemon(true);
+			watchDogThread.setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE);
+			watchDogThread.start();
 		}
 	}
 }

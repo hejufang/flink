@@ -86,6 +86,8 @@ public final class TestTaskBuilder {
 	private JobID jobId = new JobID();
 	private AllocationID allocationID = new AllocationID();
 	private ExecutionAttemptID executionAttemptId = new ExecutionAttemptID();
+	private TaskThreadPoolExecutor taskExecutorService = null;
+	private TaskThreadPoolExecutor taskMonitorExecutor = null;
 	private ExternalResourceInfoProvider externalResourceInfoProvider = ExternalResourceInfoProvider.NO_EXTERNAL_RESOURCES;
 
 	public TestTaskBuilder(ShuffleEnvironment<?, ?> shuffleEnvironment) {
@@ -177,6 +179,16 @@ public final class TestTaskBuilder {
 		return this;
 	}
 
+	public TestTaskBuilder setTaskExecutorService(TaskThreadPoolExecutor taskExecutorService) {
+		this.taskExecutorService = taskExecutorService;
+		return this;
+	}
+
+	public TestTaskBuilder setTaskMonitorExecutor(TaskThreadPoolExecutor taskMonitorExecutor) {
+		this.taskMonitorExecutor = taskMonitorExecutor;
+		return this;
+	}
+
 	public Task build() throws Exception {
 		final JobVertexID jobVertexId = new JobVertexID();
 
@@ -212,6 +224,8 @@ public final class TestTaskBuilder {
 			0,
 			MemoryManagerBuilder.newBuilder().setMemorySize(1024 * 1024).build(),
 			mock(IOManager.class),
+			taskExecutorService,
+			taskMonitorExecutor,
 			shuffleEnvironment,
 			kvStateService,
 			new BroadcastVariableManager(),

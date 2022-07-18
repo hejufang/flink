@@ -205,6 +205,8 @@ public class JvmExitOnFatalErrorTest {
 						0,       // targetSlotNumber
 						memoryManager,
 						ioManager,
+						null,
+						null,
 						shuffleEnvironment,
 						new KvStateService(new KvStateRegistry(), null, null),
 						new BroadcastVariableManager(),
