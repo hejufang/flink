@@ -18,7 +18,6 @@
 
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
-import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.parameters.AbstractKubernetesParameters;
 import org.apache.flink.kubernetes.utils.Constants;
@@ -32,11 +31,8 @@ import io.fabric8.kubernetes.api.model.ResourceRequirements;
 import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -46,13 +42,9 @@ import java.util.stream.Collectors;
  * And then the csi driver deployed in Kubernetes cluster can download the files from remote storage.
  */
 public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
-	private static final Logger LOG = LoggerFactory.getLogger(CSIFileDownloadDecorator.class);
-
-	private final boolean replaceS3SchemaByTos;
 
 	public CSIFileDownloadDecorator(AbstractKubernetesParameters kubernetesParameters) {
 		super(kubernetesParameters);
-		replaceS3SchemaByTos = kubernetesParameters.isReplaceS3SchemaByTos();
 	}
 
 	@Override
@@ -124,8 +116,7 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
 		String resourceList = "{" + remoteFiles.stream()
 				.map(uri -> new LocalResource(uri, LocalResource.FILE))
 				.map(localResource -> String.format("\"%s\": %s",
-						localResource.getFileDownloadPath(pathToFileName),
-						localResource.toJsonString(fileTimestamp, replaceS3SchemaByTos)))
+						localResource.getFileDownloadPath(pathToFileName), localResource.toJsonString(fileTimestamp)))
 				.collect(Collectors.joining(", ")) +
 				"}";
 		volumeAttributes.put("resourceList", resourceList);
@@ -151,26 +142,10 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
 			return pathToFileName.get(this.path.toString());
 		}
 
-		public String toJsonString(long timestamp, boolean replaceS3SchemaByTos) {
-			URI newPath = path;
-			if (replaceS3SchemaByTos &&
-					(path.getScheme().equals(ConfigConstants.S3_SCHEME) ||
-							path.getScheme().equals(ConfigConstants.S3A_SCHEME) ||
-							path.getScheme().equals(ConfigConstants.S3P_SCHEME))) {
-				newPath = tryReplaceSchema(ConfigConstants.TOS_SCHEME);
-			}
+		public String toJsonString(long timestamp) {
 			return String.format(
 					"{\"path\": \"%s\", \"timestamp\": %d, \"resourceType\": %d}",
-					newPath, timestamp, resourceType);
-		}
-
-		private URI tryReplaceSchema(String newSchema) {
-			try {
-				return new URI(newSchema + ":" + path.getSchemeSpecificPart());
-			} catch (URISyntaxException e) {
-				LOG.error("Failed replace schema to {} for {}.", newSchema, path);
-				return path;
-			}
+					path, timestamp, resourceType);
 		}
 	}
 
