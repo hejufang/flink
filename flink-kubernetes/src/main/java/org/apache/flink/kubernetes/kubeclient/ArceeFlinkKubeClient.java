@@ -21,11 +21,11 @@ package org.apache.flink.kubernetes.kubeclient;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.flink.kubernetes.utils.Constants;
+import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 
 import com.bytedance.openplatform.arcee.ArceeClient;
 import com.bytedance.openplatform.arcee.ArceeClientImpl;
 import com.bytedance.openplatform.arcee.resources.v1alpha1.ArceeApplication;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
@@ -33,7 +33,8 @@ import io.fabric8.kubernetes.client.NamespacedKubernetesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
+import javax.annotation.Nullable;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -77,7 +78,7 @@ public class ArceeFlinkKubeClient extends Fabric8FlinkKubeClient {
 		try {
 			LOG.debug("Start to create arcee application with spec {}", application);
 			this.masterApplication = this.arceeClient.createArceeApplication(super.namespace, application);
-		} catch (IOException e) {
+		} catch (Exception e) {
 			LOG.error("catch exception while creating application {}",
 				application.getMetadata().getName(), e);
 			return;
@@ -91,7 +92,7 @@ public class ArceeFlinkKubeClient extends Fabric8FlinkKubeClient {
 		if (this.masterApplication == null){
 			try {
 				this.masterApplication = this.arceeClient.getArceeApplication(super.namespace, super.clusterId);
-			} catch (JsonProcessingException e) {
+			} catch (Exception e) {
 				LOG.error("failed to get application " + super.clusterId + " in namespace " + super.namespace, e);
 			}
 		}
@@ -132,8 +133,40 @@ public class ArceeFlinkKubeClient extends Fabric8FlinkKubeClient {
 	public void stopAndCleanupCluster(String clusterId) {
 		try {
 			this.arceeClient.killArceeApplication(super.namespace, super.clusterId);
-		} catch (IOException e) {
+		} catch (Exception e) {
 			LOG.error("failed to stop and cleanup cluster " + clusterId, e);
+		}
+	}
+
+	@Override
+	public void reportApplicationStatus(String clusterId, ApplicationStatus finalStatus, @Nullable String diagnostics) {
+		try {
+			if (finalStatus.equals(ApplicationStatus.SUCCEEDED)) {
+				this.arceeClient.reportApplicationFinishedStatus(
+					super.namespace,
+					super.clusterId,
+					finalStatus.processExitCode(),
+					finalStatus.name(),
+					diagnostics);
+			} else if (finalStatus.equals(ApplicationStatus.CANCELED)) {
+				this.arceeClient.reportApplicationKilledStatus(
+					super.namespace,
+					super.clusterId,
+					finalStatus.processExitCode(),
+					finalStatus.name(),
+					diagnostics);
+			} else {
+				this.arceeClient.reportApplicationFailedStatus(
+					super.namespace,
+					super.clusterId,
+					finalStatus.processExitCode(),
+					finalStatus.name(),
+					diagnostics);
+				LOG.warn("Report failed status of cluster {} to arcee, real status is {}, exit code is {}",
+					clusterId, finalStatus.name(), finalStatus.processExitCode());
+			}
+		} catch (Exception e) {
+			LOG.error("failed to report status of cluster " + clusterId, e);
 		}
 	}
 

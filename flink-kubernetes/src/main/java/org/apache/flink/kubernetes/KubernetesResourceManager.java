@@ -354,6 +354,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			diagnostics == null ? "" : diagnostics);
 		// TODO: 2021/9/15 here change the behavior of register application in k8s, but not changed in yarn, we need to look with the community at how to fix it better
 		//kubeClient.stopAndCleanupCluster(clusterId);
+		kubeClient.reportApplicationStatus(clusterId, finalStatus, diagnostics);
 	}
 
 	@Override
@@ -736,7 +737,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			try {
 				if (flinkConfig.getBoolean(KubernetesConfigOptions.ARCEE_ENABLED)) {
 					String podName = resourceId.getResourceIdString();
-					return ArceeUtils.getTMLogUrl(podName);
+					return ArceeUtils.getTMLogUrl(podName, host);
 				} else if (!StringUtils.isNullOrWhitespaceOnly(streamLogDomain)) {
 					return genLogUrl(streamLogUrlTemplate, streamLogDomain, streamLogQueryTemplate,
 						resourceId.getResourceIdString(), region, streamLogSearchView);

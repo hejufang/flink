@@ -243,6 +243,10 @@ public class KubernetesJobManagerParameters extends AbstractKubernetesParameters
 		return flinkConfig.getInteger(KubernetesConfigOptions.ARCEE_RESTART_POLICY_MAX_RETRIES);
 	}
 
+	public int getArceeRestartPolicyMaxScheduleFailures() {
+		return flinkConfig.getInteger(KubernetesConfigOptions.ARCEE_RESTART_POLICY_MAX_SCHEDULE_FAILURES);
+	}
+
 	public long getArceeRestartPolicyInterval() {
 		return flinkConfig.getLong(KubernetesConfigOptions.ARCEE_RESTART_POLICY_INTERVAL);
 	}

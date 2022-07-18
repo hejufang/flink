@@ -83,7 +83,7 @@ org.apache.flink:flink-kubernetes_2.11:jar:1.11-byted-SNAPSHOT
 |  +- io.fabric8:zjsonpatch:jar:0.3.0:compile
 |  \- com.github.mifmif:generex:jar:1.0.2:compile
 |     \- dk.brics.automaton:automaton:jar:1.11-8:compile
-+- com.bytedance.openplatform:arcee-sdk:jar:fabric8_4.9.2-1.0.0.6:compile
++- com.bytedance.openplatform:arcee-sdk:jar:fabric8_4.9.2-1.0.0.7:compile
 +- io.fabric8:kubernetes-server-mock:jar:4.9.2:test
 |  \- io.fabric8:mockwebserver:jar:0.1.8:test
 |     +- com.squareup.okhttp3:mockwebserver:jar:3.12.6:test

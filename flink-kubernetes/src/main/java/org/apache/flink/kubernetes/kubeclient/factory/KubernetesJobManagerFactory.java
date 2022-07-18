@@ -172,6 +172,7 @@ public class KubernetesJobManagerFactory {
 			.type(RestartPolicyType.valueOf(kubernetesJobManagerParameters.getArceeRestartPolicyType()))
 			.maxRetries(kubernetesJobManagerParameters.getArceeRestartPolicyMaxRetries())
 			.retryIntervalSecond(kubernetesJobManagerParameters.getArceeRestartPolicyInterval())
+			.maxScheduleFail(kubernetesJobManagerParameters.getArceeRestartPolicyMaxScheduleFailures())
 			.build();
 
 		AppMasterSpec amSpec = AppMasterSpec.builder()

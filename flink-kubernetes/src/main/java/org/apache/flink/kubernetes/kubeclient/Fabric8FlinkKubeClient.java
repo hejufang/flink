@@ -32,6 +32,7 @@ import org.apache.flink.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesWatch;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
+import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
@@ -55,6 +56,8 @@ import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.NamespacedKubernetesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -249,6 +252,10 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 			.withName(KubernetesUtils.getDeploymentName(clusterId))
 			.cascading(true)
 			.delete();
+	}
+
+	@Override
+	public void reportApplicationStatus(String clusterId, ApplicationStatus finalStatus, @Nullable String diagnostics) {
 	}
 
 	@Override

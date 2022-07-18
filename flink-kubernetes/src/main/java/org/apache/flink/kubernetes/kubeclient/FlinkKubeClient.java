@@ -24,6 +24,9 @@ import org.apache.flink.kubernetes.kubeclient.resources.KubernetesLeaderElector;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesWatch;
+import org.apache.flink.runtime.clusterframework.ApplicationStatus;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -67,6 +70,15 @@ public interface FlinkKubeClient extends AutoCloseable {
 	 * @param clusterId cluster id
 	 */
 	void stopAndCleanupCluster(String clusterId);
+
+	/**
+	 * Report the application final status to operator.
+	 *
+	 * @param clusterId cluster id.
+	 * @param finalStatus the application status to report.
+	 * @param diagnostics a diagnostics message or {@code null}.
+	 */
+	void reportApplicationStatus(String clusterId, ApplicationStatus finalStatus, @Nullable String diagnostics);
 
 	/**
 	 * Get the kubernetes rest service of the given flink clusterId.

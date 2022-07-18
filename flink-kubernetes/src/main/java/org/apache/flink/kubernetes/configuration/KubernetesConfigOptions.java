@@ -563,9 +563,16 @@ public class KubernetesConfigOptions {
 	public static final ConfigOption<Integer> ARCEE_RESTART_POLICY_MAX_RETRIES =
 		key("kubernetes.arcee.restart-policy.max-retries")
 			.intType()
-			.defaultValue(-1)
+			.defaultValue(0)
 			.withDescription("The number of times to retry running an application before giving up, "
-				+ "the default is -1 which means the restarting times is unlimited.");
+				+ "the default is 0 which means the restarting times is unlimited.");
+
+	public static final ConfigOption<Integer> ARCEE_RESTART_POLICY_MAX_SCHEDULE_FAILURES =
+		key("kubernetes.arcee.restart-policy.max-schedule-failures")
+			.intType()
+			.defaultValue(0)
+			.withDescription("The number of times to retry scheduling an application before giving up, "
+				+ "the default is 0 which means the scheduling retry times is unlimited.");
 
 	public static final ConfigOption<Long> ARCEE_RESTART_POLICY_INTERVAL =
 		key("kubernetes.arcee.restart-policy.interval-second")
