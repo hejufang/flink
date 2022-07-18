@@ -20,6 +20,7 @@ package org.apache.flink.runtime.deployment;
 
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
@@ -27,6 +28,7 @@ import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.UnknownShuffleDescriptor;
 
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  * Container for all-to-all input gate deployment information.
@@ -40,7 +42,10 @@ public class JobVertexInputGateDeploymentDescriptor implements DeploymentReadabl
 
 	private ShuffleDescriptor[] inputChannels;
 
-	public JobVertexInputGateDeploymentDescriptor() {
+	private transient Map<ResourceID, String> connectionInfoMap;
+
+	public JobVertexInputGateDeploymentDescriptor(Map<ResourceID, String> connectionInfoMap) {
+		this.connectionInfoMap = connectionInfoMap;
 	}
 
 	public JobVertexInputGateDeploymentDescriptor(IntermediateDataSetID consumedResultId, ResultPartitionType consumedPartitionType, ShuffleDescriptor[] inputChannels) {
@@ -89,7 +94,7 @@ public class JobVertexInputGateDeploymentDescriptor implements DeploymentReadabl
 			if (isUnknown) {
 				inputChannels[i] = new UnknownShuffleDescriptor();
 			} else {
-				inputChannels[i] = new NettyShuffleDescriptor();
+				inputChannels[i] = new NettyShuffleDescriptor(connectionInfoMap);
 			}
 			inputChannels[i].read(in);
 		}

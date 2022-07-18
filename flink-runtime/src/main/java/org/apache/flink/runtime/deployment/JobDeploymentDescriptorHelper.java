@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.deployment;
 
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
@@ -29,6 +30,7 @@ import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
+import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.PartitionDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.UnknownShuffleDescriptor;
@@ -176,6 +178,37 @@ public class JobDeploymentDescriptorHelper {
 			}
 		}
 		return taskInputGateDeploymentList.isEmpty() ? null : taskInputGateDeploymentList;
+	}
+
+	public static Map<ResourceID, String> getConnectionInfo(ExecutionVertex executionVertex) {
+		final ExecutionGraph executionGraph = executionVertex.getExecutionGraph();
+		final List<ConsumedPartitionGroup> consumedPartitions = executionVertex.getAllConsumedPartitions();
+		final Map<IntermediateResultPartitionID, IntermediateResultPartition> resultPartitionsById = executionGraph.getIntermediateResultPartitionMapping();
+		final boolean allowUnknownPartitions = executionGraph.getScheduleMode().allowLazyDeployment() || executionGraph.isRecoverable();
+
+		Map<ResourceID, String> connectionInfoMap = new HashMap<>();
+		for (ConsumedPartitionGroup partitions: consumedPartitions) {
+			if (partitions.getResultPartitions().size() > 0) {
+				IntermediateResult consumedIntermediateResult = resultPartitionsById
+					.get(partitions.getResultPartitions().get(0))
+					.getIntermediateResult();
+
+				ShuffleDescriptor[] shuffleDescriptors = getConsumedPartitionShuffleDescriptors(
+					consumedIntermediateResult,
+					partitions,
+					resultPartitionsById,
+					allowUnknownPartitions);
+
+				for (ShuffleDescriptor shuffleDescriptor: shuffleDescriptors) {
+					if (!shuffleDescriptor.isUnknown()) {
+						NettyShuffleDescriptor nettyShuffleDescriptor = (NettyShuffleDescriptor) shuffleDescriptor;
+						connectionInfoMap.put(nettyShuffleDescriptor.getProducerLocation(),
+							nettyShuffleDescriptor.getConnectionId().getAddress().getHostName());
+					}
+				}
+			}
+		}
+		return connectionInfoMap;
 	}
 
 	private static void createJobVertexInputGateDeployment(

@@ -32,6 +32,7 @@ import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetSocketAddress;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -47,7 +48,10 @@ public class NettyShuffleDescriptor implements ShuffleDescriptor {
 
 	private ResultPartitionID resultPartitionID;
 
-	public NettyShuffleDescriptor() {
+	private transient Map<ResourceID, String> connectionInfoMap;
+
+	public NettyShuffleDescriptor(Map<ResourceID, String> connectionInfoMap) {
+		this.connectionInfoMap = connectionInfoMap;
 	}
 
 	public NettyShuffleDescriptor(
@@ -57,6 +61,10 @@ public class NettyShuffleDescriptor implements ShuffleDescriptor {
 		this.producerLocation = producerLocation;
 		this.partitionConnectionInfo = partitionConnectionInfo;
 		this.resultPartitionID = resultPartitionID;
+	}
+
+	public ResourceID getProducerLocation() {
+		return producerLocation;
 	}
 
 	public ConnectionID getConnectionId() {
@@ -83,7 +91,6 @@ public class NettyShuffleDescriptor implements ShuffleDescriptor {
 		if (partitionConnectionInfo instanceof NetworkPartitionConnectionInfo) {
 			out.writeBoolean(true);
 			ConnectionID connectionID = partitionConnectionInfo.getConnectionId();
-			StringSerializer.INSTANCE.serialize(connectionID.getAddress().getHostName(), out);
 			out.writeInt(connectionID.getAddress().getPort());
 			out.writeInt(connectionID.getConnectionIndex());
 		} else {
@@ -103,7 +110,7 @@ public class NettyShuffleDescriptor implements ShuffleDescriptor {
 		producerLocation = new ResourceID(StringSerializer.INSTANCE.deserialize(in));
 		boolean isNetworkConnection = in.readBoolean();
 		if (isNetworkConnection) {
-			String hostName = StringSerializer.INSTANCE.deserialize(in);
+			String hostName = connectionInfoMap.get(producerLocation);
 			int port = in.readInt();
 			int connectionIndex = in.readInt();
 			partitionConnectionInfo = new NetworkPartitionConnectionInfo(hostName, port, connectionIndex);

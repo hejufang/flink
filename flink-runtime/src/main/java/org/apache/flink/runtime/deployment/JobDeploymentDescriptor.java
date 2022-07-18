@@ -19,11 +19,13 @@
 package org.apache.flink.runtime.deployment;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.blob.BlobKey;
 import org.apache.flink.runtime.blob.PermanentBlobKey;
 import org.apache.flink.runtime.blob.PermanentBlobService;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.JobInformation;
 import org.apache.flink.util.AbstractID;
@@ -37,7 +39,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A job deployment descriptor contains deployment information of task list for one job.
@@ -51,6 +55,8 @@ public class JobDeploymentDescriptor implements DeploymentReadableWritable, Seri
 
 	private List<JobVertexDeploymentDescriptor> vertexDeploymentDescriptorList;
 
+	private transient Map<ResourceID, String> connectionInfoMap;
+
 	private long createTimestamp;
 
 	public JobDeploymentDescriptor() {
@@ -62,6 +68,7 @@ public class JobDeploymentDescriptor implements DeploymentReadableWritable, Seri
 		this.jobId = jobId;
 		this.serializedJobInformation = serializedJobInformation;
 		this.vertexDeploymentDescriptorList = new ArrayList<>();
+		this.connectionInfoMap = new HashMap<>();
 		this.createTimestamp = System.currentTimeMillis();
 	}
 
@@ -83,6 +90,10 @@ public class JobDeploymentDescriptor implements DeploymentReadableWritable, Seri
 			count += jobVertexDeploymentDescriptor.getTaskDeploymentDescriptorList().size();
 		}
 		return count;
+	}
+
+	public void appendConnection(Map<ResourceID, String> newConnectionInfo) {
+		connectionInfoMap.putAll(newConnectionInfo);
 	}
 
 	public SerializedValue<JobInformation> getSerializedJobInformation() {
@@ -149,6 +160,11 @@ public class JobDeploymentDescriptor implements DeploymentReadableWritable, Seri
 			out.writeLong(jobInfoKey.getRandom().getLowerPart());
 			out.writeLong(jobInfoKey.getRandom().getUpperPart());
 		}
+		out.writeInt(connectionInfoMap.size());
+		for (Map.Entry<ResourceID, String> connectionInfo: connectionInfoMap.entrySet()) {
+			StringSerializer.INSTANCE.serialize(connectionInfo.getKey().getResourceIdString(), out);
+			StringSerializer.INSTANCE.serialize(connectionInfo.getValue(), out);
+		}
 		out.writeInt(vertexDeploymentDescriptorList.size());
 		for (JobVertexDeploymentDescriptor vertexDeploymentDescriptor: vertexDeploymentDescriptorList) {
 			vertexDeploymentDescriptor.write(out);
@@ -175,10 +191,18 @@ public class JobDeploymentDescriptor implements DeploymentReadableWritable, Seri
 			serializedJobInformation = new TaskDeploymentDescriptor.Offloaded<>(jobInfoKey);
 		}
 
+		int connectionInfoMapSize = in.readInt();
+		connectionInfoMap = new HashMap<>();
+		for (int i = 0; i < connectionInfoMapSize; i++) {
+			connectionInfoMap.put(
+				new ResourceID(StringSerializer.INSTANCE.deserialize(in)),
+				StringSerializer.INSTANCE.deserialize(in));
+		}
+
 		int vertexDeploymentListSize = in.readInt();
 		vertexDeploymentDescriptorList = new ArrayList<>();
 		for (int i = 0; i < vertexDeploymentListSize; i++) {
-			JobVertexDeploymentDescriptor jvdd = new JobVertexDeploymentDescriptor();
+			JobVertexDeploymentDescriptor jvdd = new JobVertexDeploymentDescriptor(connectionInfoMap);
 			jvdd.read(in);
 			vertexDeploymentDescriptorList.add(jvdd);
 		}

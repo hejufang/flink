@@ -24,6 +24,7 @@ import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.blob.BlobKey;
 import org.apache.flink.runtime.blob.PermanentBlobKey;
 import org.apache.flink.runtime.blob.PermanentBlobService;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.TaskInformation;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -39,6 +40,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A job vertex deployment descriptor contains deployment information for the same task.
@@ -56,7 +58,10 @@ public class JobVertexDeploymentDescriptor implements DeploymentReadableWritable
 
 	private List<JobVertexInputGateDeploymentDescriptor> allToAllInputGates;
 
-	public JobVertexDeploymentDescriptor() {
+	private transient Map<ResourceID, String> connectionInfoMap;
+
+	public JobVertexDeploymentDescriptor(Map<ResourceID, String> connectionInfoMap) {
+		this.connectionInfoMap = connectionInfoMap;
 	}
 
 	public JobVertexDeploymentDescriptor(
@@ -193,7 +198,7 @@ public class JobVertexDeploymentDescriptor implements DeploymentReadableWritable
 		int taskDeploymentListSize = in.readInt();
 		taskDeploymentDescriptorList = new ArrayList<>();
 		for (int i = 0; i < taskDeploymentListSize; i++) {
-			JobTaskDeploymentDescriptor taskDeploymentDescriptor = new JobTaskDeploymentDescriptor();
+			JobTaskDeploymentDescriptor taskDeploymentDescriptor = new JobTaskDeploymentDescriptor(connectionInfoMap);
 			taskDeploymentDescriptor.read(in);
 			taskDeploymentDescriptorList.add(taskDeploymentDescriptor);
 		}
@@ -210,7 +215,7 @@ public class JobVertexDeploymentDescriptor implements DeploymentReadableWritable
 			allToAllInputGates = new ArrayList<>();
 			for (int i = 0; i < inputGateListSize; i++) {
 				JobVertexInputGateDeploymentDescriptor vertexInputGateDeploymentDescriptor =
-					new JobVertexInputGateDeploymentDescriptor();
+					new JobVertexInputGateDeploymentDescriptor(connectionInfoMap);
 				vertexInputGateDeploymentDescriptor.read(in);
 				allToAllInputGates.add(vertexInputGateDeploymentDescriptor);
 			}

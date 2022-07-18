@@ -77,6 +77,8 @@ public class GatewayJobDeployment {
 					slot,
 					execution));
 		}
+
+		jobDeploymentDescriptor.appendConnection(JobDeploymentDescriptorHelper.getConnectionInfo(execution.getVertex()));
 	}
 
 	public JobDeploymentDescriptor getJobDeploymentDescriptor() {

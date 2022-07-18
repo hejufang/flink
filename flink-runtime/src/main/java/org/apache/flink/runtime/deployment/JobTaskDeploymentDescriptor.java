@@ -22,6 +22,7 @@ import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.checkpoint.JobManagerTaskRestore;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.jobmaster.LogicalSlot;
@@ -36,6 +37,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Deployment descriptor for execution subtask.
@@ -63,7 +65,10 @@ public class JobTaskDeploymentDescriptor implements DeploymentReadableWritable, 
 	@Nullable
 	private JobManagerTaskRestore taskRestore;
 
-	public JobTaskDeploymentDescriptor() {
+	private transient Map<ResourceID, String> connectionInfoMap;
+
+	public JobTaskDeploymentDescriptor(Map<ResourceID, String> connectionInfoMap) {
+		this.connectionInfoMap = connectionInfoMap;
 	}
 
 	public JobTaskDeploymentDescriptor(
@@ -198,7 +203,8 @@ public class JobTaskDeploymentDescriptor implements DeploymentReadableWritable, 
 		if (inputGateListSize > 0) {
 			inputGates = new ArrayList<>();
 			for (int i = 0; i < inputGateListSize; i++) {
-				JobTaskInputGateDeploymentDescriptor inputGateDeploymentDescriptor = new JobTaskInputGateDeploymentDescriptor();
+				JobTaskInputGateDeploymentDescriptor inputGateDeploymentDescriptor =
+					new JobTaskInputGateDeploymentDescriptor(connectionInfoMap);
 				inputGateDeploymentDescriptor.read(in);
 				inputGates.add(inputGateDeploymentDescriptor);
 			}

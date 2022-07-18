@@ -20,6 +20,7 @@ package org.apache.flink.runtime.deployment;
 
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
@@ -29,6 +30,7 @@ import org.apache.flink.runtime.shuffle.UnknownShuffleDescriptor;
 import javax.annotation.Nonnegative;
 
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  * Container for pointwise input gate deployment information.
@@ -45,7 +47,10 @@ public class JobTaskInputGateDeploymentDescriptor implements DeploymentReadableW
 
 	private ShuffleDescriptor[] inputChannels;
 
-	public JobTaskInputGateDeploymentDescriptor() {
+	private transient Map<ResourceID, String> connectionInfoMap;
+
+	public JobTaskInputGateDeploymentDescriptor(Map<ResourceID, String> connectionInfoMap) {
+		this.connectionInfoMap = connectionInfoMap;
 	}
 
 	public JobTaskInputGateDeploymentDescriptor(
@@ -105,7 +110,7 @@ public class JobTaskInputGateDeploymentDescriptor implements DeploymentReadableW
 			if (isUnknown) {
 				inputChannels[i] = new UnknownShuffleDescriptor();
 			} else {
-				inputChannels[i] = new NettyShuffleDescriptor();
+				inputChannels[i] = new NettyShuffleDescriptor(connectionInfoMap);
 			}
 			inputChannels[i].read(in);
 		}

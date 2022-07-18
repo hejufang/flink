@@ -51,7 +51,9 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 
@@ -98,7 +100,7 @@ public class JobDeploymentITCases {
 			jobId,
 			new TaskDeploymentDescriptor.NonOffloaded<>(new SerializedValue<>(jobInformation)));
 		jobDeploymentDescriptor.addJobVertexDeploymentDescriptor(generateSourceVertex(12));
-		jobDeploymentDescriptor.addJobVertexDeploymentDescriptor(generateAggregateVertex(12));
+		jobDeploymentDescriptor.addJobVertexDeploymentDescriptor(generateAggregateVertex(jobDeploymentDescriptor, 12, 10));
 
 		List<TaskDeploymentDescriptor> tdds = generateSourceVertexTdd(jobId, jobInformation, 12);
 		tdds.addAll(generateAggregateVertexTdd(jobId, jobInformation, 12));
@@ -124,9 +126,9 @@ public class JobDeploymentITCases {
 		jobDeploymentDescriptor.addJobVertexDeploymentDescriptor(generateSourceVertex(5));
 		jobDeploymentDescriptor.addJobVertexDeploymentDescriptor(generateSourceVertex(5));
 		jobDeploymentDescriptor.addJobVertexDeploymentDescriptor(generateSourceVertex(5));
-		jobDeploymentDescriptor.addJobVertexDeploymentDescriptor(generateJoinVertex());
-		jobDeploymentDescriptor.addJobVertexDeploymentDescriptor(generateJoinVertex());
-		jobDeploymentDescriptor.addJobVertexDeploymentDescriptor(generateAggregateVertex(5));
+		jobDeploymentDescriptor.addJobVertexDeploymentDescriptor(generateJoinVertex(jobDeploymentDescriptor));
+		jobDeploymentDescriptor.addJobVertexDeploymentDescriptor(generateJoinVertex(jobDeploymentDescriptor));
+		jobDeploymentDescriptor.addJobVertexDeploymentDescriptor(generateAggregateVertex(jobDeploymentDescriptor, 5, 25));
 
 		List<TaskDeploymentDescriptor> tdds = generateSourceVertexTdd(jobId, jobInformation, 5);
 		tdds.addAll(generateSourceVertexTdd(jobId, jobInformation, 5));
@@ -254,7 +256,10 @@ public class JobDeploymentITCases {
 		return source;
 	}
 
-	private JobVertexDeploymentDescriptor generateAggregateVertex(int taskCount) throws java.io.IOException {
+	private JobVertexDeploymentDescriptor generateAggregateVertex(
+			JobDeploymentDescriptor jobDeploymentDescriptor,
+			int taskCount,
+			int numOfTaskManagers) throws java.io.IOException {
 		List<JobVertexResultPartitionDeploymentDescriptor> resultPartitionList = new ArrayList<>();
 		JobVertexResultPartitionDeploymentDescriptor vertexResultPartitionDeploymentRequest =
 			new JobVertexResultPartitionDeploymentDescriptor(
@@ -271,9 +276,16 @@ public class JobDeploymentITCases {
 
 		List<JobVertexInputGateDeploymentDescriptor> inputGateList = new ArrayList<>();
 		List<ShuffleDescriptor> inputShuffleList = new ArrayList<>();
+		Map<ResourceID, String> connectionInfo = new HashMap<>();
+		List<ResourceID> taskManagerIds = new ArrayList<>();
+		for (int i = 0; i < numOfTaskManagers; i++) {
+			ResourceID producerLocation = ResourceID.generate();
+			connectionInfo.put(producerLocation, "localhost");
+			taskManagerIds.add(producerLocation);
+		}
 		for (int i = 0; i < 128; i++) {
 			inputShuffleList.add(new NettyShuffleDescriptor(
-				ResourceID.generate(),
+				taskManagerIds.get(i % numOfTaskManagers),
 				new NettyShuffleDescriptor.NetworkPartitionConnectionInfo("localhost", i, i),
 				new ResultPartitionID(new IntermediateResultPartitionID(new IntermediateDataSetID(), i), new ExecutionAttemptID())));
 		}
@@ -281,6 +293,7 @@ public class JobDeploymentITCases {
 			new IntermediateDataSetID(),
 			ResultPartitionType.PIPELINED,
 			inputShuffleList.toArray(new ShuffleDescriptor[0])));
+		jobDeploymentDescriptor.appendConnection(connectionInfo);
 
 		JobVertexID jobVertexId = new JobVertexID();
 		TaskInformation taskInformation = new TaskInformation(
@@ -318,7 +331,7 @@ public class JobDeploymentITCases {
 		return vertex;
 	}
 
-	private JobVertexDeploymentDescriptor generateJoinVertex() throws Exception {
+	private JobVertexDeploymentDescriptor generateJoinVertex(JobDeploymentDescriptor jobDeploymentDescriptor) throws Exception {
 		List<JobVertexResultPartitionDeploymentDescriptor> resultPartitionList = new ArrayList<>();
 		JobVertexResultPartitionDeploymentDescriptor vertexResultPartitionDeploymentRequest =
 			new JobVertexResultPartitionDeploymentDescriptor(
@@ -335,16 +348,24 @@ public class JobDeploymentITCases {
 
 		List<JobVertexInputGateDeploymentDescriptor> inputGateList = new ArrayList<>();
 		List<ShuffleDescriptor> input1ShuffleList = new ArrayList<>();
+		Map<ResourceID, String> connectionInfo = new HashMap<>();
+		int numOfTaskManagers = 25;
+		List<ResourceID> taskManagerIds = new ArrayList<>();
+		for (int i = 0; i < numOfTaskManagers; i++) {
+			ResourceID producerLocation = ResourceID.generate();
+			connectionInfo.put(producerLocation, "localhost");
+			taskManagerIds.add(producerLocation);
+		}
 		for (int i = 0; i < 128; i++) {
 			input1ShuffleList.add(new NettyShuffleDescriptor(
-				ResourceID.generate(),
+				taskManagerIds.get(i % taskManagerIds.size()),
 				new NettyShuffleDescriptor.NetworkPartitionConnectionInfo("localhost", i, i),
 				new ResultPartitionID(new IntermediateResultPartitionID(new IntermediateDataSetID(), i), new ExecutionAttemptID())));
 		}
 		List<ShuffleDescriptor> input2ShuffleList = new ArrayList<>();
 		for (int i = 0; i < 128; i++) {
 			input2ShuffleList.add(new NettyShuffleDescriptor(
-				ResourceID.generate(),
+				taskManagerIds.get(i % taskManagerIds.size()),
 				new NettyShuffleDescriptor.NetworkPartitionConnectionInfo("localhost", i, i),
 				new ResultPartitionID(new IntermediateResultPartitionID(new IntermediateDataSetID(), i), new ExecutionAttemptID())));
 		}
@@ -356,6 +377,7 @@ public class JobDeploymentITCases {
 			new IntermediateDataSetID(),
 			ResultPartitionType.PIPELINED,
 			input2ShuffleList.toArray(new ShuffleDescriptor[0])));
+		jobDeploymentDescriptor.appendConnection(connectionInfo);
 
 		JobVertexID jobVertexId = new JobVertexID();
 		TaskInformation taskInformation = new TaskInformation(
