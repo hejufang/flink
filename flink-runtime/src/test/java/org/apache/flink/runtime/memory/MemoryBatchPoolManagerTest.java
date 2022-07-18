@@ -22,7 +22,6 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.operators.testutils.DummyInvokable;
 
-import javafx.util.Pair;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -272,20 +271,18 @@ public class MemoryBatchPoolManagerTest {
 	@Test
 	public void testMultipleAllocateBatchAndRelease() throws Exception {
 		final int numLocalPool = 4;
-		List<Pair<AbstractInvokable, List<MemorySegment>>> localPools = new ArrayList<>(numLocalPool);
-		for (int i = 0; i < numLocalPool; ++i) {
-			localPools.add(new Pair<>(new DummyInvokable(), new ArrayList<>()));
-		}
+		List<List<MemorySegment>> invokableSegments = new ArrayList<>(numLocalPool);
 		ExecutorService executorService = Executors.newFixedThreadPool(numLocalPool + 1);
 		CountDownLatch latch = new CountDownLatch(numLocalPool);
-		for (Pair<AbstractInvokable, List<MemorySegment>> localPool : localPools) {
-			final AbstractInvokable mockInvoke = localPool.getKey();
-			final List<MemorySegment> segments = localPool.getValue();
+		for (int i = 0; i < numLocalPool; ++i) {
+			AbstractInvokable mockInvoke = new DummyInvokable();
+			List<MemorySegment> segments = new ArrayList<>();
+			invokableSegments.add(segments);
 			executorService.submit(() -> {
 				try {
-					for (int i = 0; i < 2; ++i) {
+					for (int j = 0; j < 2; ++j) {
 						segments.addAll(memoryManager.allocatePages(mockInvoke, 2 * BATCH_SIZE + BATCH_SIZE / 4));
-						for (int j = 0; j < BATCH_SIZE / 4; ++j) {
+						for (int k = 0; k < BATCH_SIZE / 4; ++k) {
 							segments.addAll(memoryManager.allocatePages(mockInvoke, 1));
 						}
 					}
@@ -314,8 +311,7 @@ public class MemoryBatchPoolManagerTest {
 			}
 		});
 
-		for (Pair<AbstractInvokable, List<MemorySegment>> localPool : localPools) {
-			final List<MemorySegment> segments = localPool.getValue();
+		for (List<MemorySegment> segments : invokableSegments) {
 			executorService.submit(() -> memoryManager.release(segments));
 		}
 		latch2.await();
