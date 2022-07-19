@@ -71,6 +71,7 @@ public class YarnEntrypointUtils {
 
 		configuration.setString(JobManagerOptions.ADDRESS, hostname);
 		configuration.setString(RestOptions.ADDRESS, hostname);
+		configuration.setString(RestOptions.SOCKET_ADDRESS, hostname);
 
 		if (zooKeeperNamespace != null) {
 			configuration.setString(HighAvailabilityOptions.HA_CLUSTER_ID, zooKeeperNamespace);

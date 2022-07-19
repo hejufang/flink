@@ -101,6 +101,7 @@ public class RestOptions {
 		key("socket.address")
 			.stringType()
 			.noDefaultValue()
+			.withFallbackKeys(JobManagerOptions.ADDRESS.key())
 			.withDescription("The address that should be used by clients to connect to the socket server.");
 
 	public static final ConfigOption<Integer> SOCKET_PORT =

@@ -459,6 +459,12 @@ public class KubernetesConfigOptions {
 			.defaultValue(Boolean.FALSE)
 			.withDescription("whether to enable using host network for clusters in Kubernetes.");
 
+	public static final ConfigOption<Boolean> KUBERNETES_HOSTNAME_AS_ADDRESS_ENABLED =
+		key("kubernetes.hostname-as-address.enabled")
+			.booleanType()
+			.defaultValue(Boolean.FALSE)
+			.withDescription("whether to enable using hostname as rpc/rest address in Kubernetes.");
+
 	public static final ConfigOption<DownloadMode> FILE_DOWNLOAD_MODE =
 			key("kubernetes.file-download-mode")
 					.enumType(DownloadMode.class)

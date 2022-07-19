@@ -27,15 +27,23 @@ import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.kubernetes.KubernetesClusterDescriptor;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.util.Preconditions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
 /**
  * This class contains utility methods for the {@link KubernetesSessionClusterEntrypoint}.
  */
 class KubernetesEntrypointUtils {
+	private static final Logger LOG = LoggerFactory.getLogger(KubernetesEntrypointUtils.class);
 
 	/**
 	 * For non-HA cluster, {@link JobManagerOptions#ADDRESS} has be set to Kubernetes service name on client side. See
@@ -71,16 +79,33 @@ class KubernetesEntrypointUtils {
 		}
 
 		if (HighAvailabilityMode.isHighAvailabilityModeActivated(configuration)) {
-			final String ipAddress = System.getenv().get(Constants.ENV_FLINK_POD_IP_ADDRESS);
-			Preconditions.checkState(
-				ipAddress != null,
-				"JobManager ip address environment variable %s not set",
-				Constants.ENV_FLINK_POD_IP_ADDRESS);
-			configuration.setString(JobManagerOptions.ADDRESS, ipAddress);
-			configuration.setString(RestOptions.ADDRESS, ipAddress);
+			final String hostnameOrIp = getCanonicalHostNameOrIp(configuration);
+
+			configuration.setString(JobManagerOptions.ADDRESS, hostnameOrIp);
+			configuration.setString(RestOptions.ADDRESS, hostnameOrIp);
+			configuration.setString(RestOptions.SOCKET_ADDRESS, hostnameOrIp);
 		}
 
 		return configuration;
+	}
+
+	static String getCanonicalHostNameOrIp(Configuration configuration) {
+		final String ipAddress = System.getenv().get(Constants.ENV_FLINK_POD_IP_ADDRESS);
+		Preconditions.checkState(
+				ipAddress != null,
+				"JobManager ip address environment variable %s not set",
+				Constants.ENV_FLINK_POD_IP_ADDRESS);
+
+		if (configuration.getBoolean(KubernetesConfigOptions.KUBERNETES_HOSTNAME_AS_ADDRESS_ENABLED)) {
+			try {
+				return InetAddress.getLocalHost().getCanonicalHostName();
+			} catch (UnknownHostException e) {
+				LOG.error("Get local hostname failed, fallback to use ip address.", e);
+				return ipAddress;
+			}
+		} else {
+			return ipAddress;
+		}
 	}
 
 	private KubernetesEntrypointUtils() {}
