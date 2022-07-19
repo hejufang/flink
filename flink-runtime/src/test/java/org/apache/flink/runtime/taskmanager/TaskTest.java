@@ -478,7 +478,8 @@ public class TaskTest extends TestLogger {
 			awaitLatch.await();
 
 			task.cancelExecution();
-			assertEquals(ExecutionState.CANCELING, task.getExecutionState());
+			assertTrue(task.getExecutionState() == ExecutionState.CANCELING ||
+				task.getExecutionState() == ExecutionState.CANCELED);
 
 			// this causes an exception
 			triggerLatch.trigger();
