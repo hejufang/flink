@@ -21,6 +21,7 @@ package org.apache.flink.table.planner.plan.rules
 import org.apache.flink.table.planner.plan.nodes.logical._
 import org.apache.flink.table.planner.plan.rules.logical._
 import org.apache.flink.table.planner.plan.rules.physical.FlinkExpandConversionRule
+import org.apache.flink.table.planner.plan.rules.physical.common.StreamExecHiveDistributionRule
 import org.apache.flink.table.planner.plan.rules.physical.stream._
 
 import org.apache.calcite.rel.core.RelFactories
@@ -325,6 +326,7 @@ object FlinkStreamRuleSets {
     FlinkLogicalTableAggregate.CONVERTER,
     FlinkLogicalOverAggregate.CONVERTER,
     FlinkLogicalCalc.CONVERTER,
+    FlinkLogicalHiveDistribution.CONVERTER,
     FlinkLogicalCorrelate.CONVERTER,
     FlinkLogicalJoin.CONVERTER,
     FlinkLogicalSort.STREAM_CONVERTER,
@@ -412,6 +414,8 @@ object FlinkStreamRuleSets {
     StreamExecLimitRule.INSTANCE,
     StreamExecSortLimitRule.INSTANCE,
     StreamExecTemporalSortRule.INSTANCE,
+    // exchange
+    StreamExecHiveDistributionRule.INSTANCE,
     // rank
     StreamExecRankRule.INSTANCE,
     StreamExecDeduplicateRule.RANK_INSTANCE,

@@ -16,9 +16,9 @@
  * limitations under the License.
  */
 
-package org.apache.flink.table.planner.plan.rules.physical.batch
+package org.apache.flink.table.planner.plan.rules.physical.common
 
-import org.apache.calcite.plan.RelOptRule
+import org.apache.calcite.plan.{RelOptRule, RelTrait}
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.convert.ConverterRule
 import org.apache.flink.table.planner.plan.nodes.FlinkConventions
@@ -29,18 +29,18 @@ import org.apache.flink.table.planner.plan.nodes.physical.batch.BatchExecSort
  * Rule that matches [[FlinkLogicalHiveDistribution]] which represents
  * Hive's SORT BY, DISTRIBUTE BY, and CLUSTER BY semantics.
  */
-class BatchExecHiveDistributionRule extends ConverterRule(
+class CommonExecHiveDistributionRule(out: RelTrait) extends ConverterRule(
   classOf[FlinkLogicalHiveDistribution],
   FlinkConventions.LOGICAL,
-  FlinkConventions.BATCH_PHYSICAL,
+  out,
   "BatchExecHiveDistributionRule") {
 
   override def convert(rel: RelNode): RelNode = {
     val hiveDistribution = rel.asInstanceOf[FlinkLogicalHiveDistribution]
 
     val input = hiveDistribution.getInput
-    val requiredTraitSet = hiveDistribution.getTraitSet.replace(FlinkConventions.BATCH_PHYSICAL)
-    val providedTraitSet = hiveDistribution.getTraitSet.replace(FlinkConventions.BATCH_PHYSICAL)
+    val requiredTraitSet = hiveDistribution.getTraitSet.replace(out)
+    val providedTraitSet = hiveDistribution.getTraitSet.replace(out)
 
     val newInput = RelOptRule.convert(input, requiredTraitSet)
     if (hiveDistribution.collation.getFieldCollations.isEmpty) {
@@ -71,9 +71,27 @@ class BatchExecHiveDistributionRule extends ConverterRule(
         hiveDistribution.collation)
     }
   }
+}
 
+/**
+ * Rule that matches [[FlinkLogicalHiveDistribution]] which represents
+ * Hive's SORT BY, DISTRIBUTE BY, and CLUSTER BY semantics.
+ */
+class BatchExecHiveDistributionRule extends CommonExecHiveDistributionRule(
+  FlinkConventions.BATCH_PHYSICAL) {
 }
 
 object BatchExecHiveDistributionRule {
   val INSTANCE: RelOptRule = new BatchExecHiveDistributionRule
 }
+
+class StreamExecHiveDistributionRule extends CommonExecHiveDistributionRule(
+  FlinkConventions.STREAM_PHYSICAL) {
+}
+
+object StreamExecHiveDistributionRule {
+  val INSTANCE: RelOptRule = new StreamExecHiveDistributionRule
+}
+
+
+

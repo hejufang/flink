@@ -22,6 +22,7 @@ import org.apache.flink.table.api.{TableException, ValidationException}
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory._
 import org.apache.flink.table.planner.functions.sql.FlinkSqlOperatorTable
 import org.apache.flink.table.planner.plan.nodes.calcite._
+import org.apache.flink.table.planner.plan.nodes.hive.HiveDistribution
 import org.apache.flink.table.planner.plan.schema.TimeIndicatorRelDataType
 import org.apache.flink.table.planner.plan.utils.TemporalJoinUtil
 import org.apache.flink.table.types.logical.TimestampType
@@ -184,6 +185,9 @@ class RelTimeIndicatorConverter(rexBuilder: RexBuilder) extends RelShuttle {
         sink.sinkName,
         sink.catalogTable,
         sink.staticPartitions)
+
+    case hiveDistribution: HiveDistribution =>
+      hiveDistribution
 
     case _ =>
       throw new TableException(s"Unsupported logical operator: ${other.getClass.getSimpleName}")

@@ -43,7 +43,7 @@ class FlinkLogicalHiveDistribution(
     new FlinkLogicalHiveDistribution(getCluster, traitSet, inputs.get(0), collation, distKeys)
 }
 
-class FlinkLogicalHiveDistributionBatchConverter extends ConverterRule(
+class FlinkLogicalHiveDistributionConverter extends ConverterRule(
   classOf[HiveDistribution],
   Convention.NONE,
   FlinkConventions.LOGICAL,
@@ -58,7 +58,7 @@ class FlinkLogicalHiveDistributionBatchConverter extends ConverterRule(
 }
 
 object FlinkLogicalHiveDistribution {
-  val BATCH_CONVERTER: RelOptRule = new FlinkLogicalHiveDistributionBatchConverter
+  val CONVERTER: RelOptRule = new FlinkLogicalHiveDistributionConverter
 
   def create(
     input: RelNode,

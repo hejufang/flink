@@ -23,7 +23,6 @@ import org.apache.flink.sql.parser.ExtendedSqlNode
 import org.apache.flink.sql.parser.dql.{SqlRichDescribeTable, SqlShowCatalogs, SqlShowDatabases, SqlShowFunctions, SqlShowTables, SqlShowViews}
 import org.apache.flink.table.api.{TableException, ValidationException}
 import org.apache.flink.table.planner.plan.FlinkCalciteCatalogReader
-
 import com.google.common.collect.ImmutableList
 import org.apache.calcite.config.NullCollation
 import org.apache.calcite.plan._
@@ -33,13 +32,12 @@ import org.apache.calcite.rel.hint.RelHint
 import org.apache.calcite.rel.{RelFieldCollation, RelRoot}
 import org.apache.calcite.sql.advise.{SqlAdvisor, SqlAdvisorValidator}
 import org.apache.calcite.sql.{SqlExplain, SqlKind, SqlNode, SqlOperatorTable}
-import org.apache.calcite.sql2rel.{SqlRexConvertletTable, SqlToRelConverter}
+import org.apache.calcite.sql2rel.{FlinkSqlToRelConverter, SqlRexConvertletTable, SqlToRelConverter}
 import org.apache.calcite.tools.{FrameworkConfig, RelConversionException}
 
 import java.lang.{Boolean => JBoolean}
 import java.util
 import java.util.function.{Function => JFunction}
-
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
@@ -156,7 +154,7 @@ class FlinkPlannerImpl(
   private def rel(validatedSqlNode: SqlNode, sqlValidator: FlinkCalciteSqlValidator) = {
     try {
       assert(validatedSqlNode != null)
-      val sqlToRelConverter: SqlToRelConverter = new SqlToRelConverter(
+      val sqlToRelConverter: SqlToRelConverter = new FlinkSqlToRelConverter(
         createToRelContext(),
         sqlValidator,
         sqlValidator.getCatalogReader.unwrap(classOf[CalciteCatalogReader]),
