@@ -282,6 +282,7 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 			interval -> builder.setScanIntervalMs(interval.toMillis())
 		);
 		readableConfig.getOptional(SOURCE_SCAN_COUNT_OF_SCAN_TIMES).ifPresent(builder::setCountOfScanTimes);
+		readableConfig.getOptional(PARALLELISM).ifPresent(builder::setParallelism);
 		return builder.build();
 	}
 

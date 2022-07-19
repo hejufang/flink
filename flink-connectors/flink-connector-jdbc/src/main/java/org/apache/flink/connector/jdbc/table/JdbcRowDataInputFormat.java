@@ -35,6 +35,7 @@ import org.apache.flink.connector.jdbc.split.JdbcParameterValuesProvider;
 import org.apache.flink.core.io.GenericInputSplit;
 import org.apache.flink.core.io.InputSplit;
 import org.apache.flink.core.io.InputSplitAssigner;
+import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.util.Preconditions;
 
@@ -58,7 +59,7 @@ import java.util.Arrays;
  */
 @Internal
 public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
-	implements ResultTypeQueryable<RowData>, PeriodScanInputFormat {
+	implements ResultTypeQueryable<RowData>, PeriodScanInputFormat, SpecificParallelism {
 
 	private static final long serialVersionUID = 1L;
 	private static final Logger LOG = LoggerFactory.getLogger(JdbcRowDataInputFormat.class);
@@ -74,6 +75,7 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 	private TypeInformation<RowData> rowDataTypeInfo;
 	private final long scanIntervalMs;
 	private final int countOfReadTimes;
+	private final int parallelism;
 
 	private transient Connection dbConn;
 	private transient PreparedStatement statement;
@@ -91,7 +93,8 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 			JdbcRowConverter rowConverter,
 			TypeInformation<RowData> rowDataTypeInfo,
 			long scanIntervalMs,
-			int countOfReadTimes) {
+			int countOfReadTimes,
+			int parallelism) {
 		this.connectionOptions = connectionOptions;
 		this.fetchSize = fetchSize;
 		this.autoCommit = autoCommit;
@@ -103,6 +106,7 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 		this.rowDataTypeInfo = rowDataTypeInfo;
 		this.scanIntervalMs = scanIntervalMs;
 		this.countOfReadTimes = countOfReadTimes;
+		this.parallelism = parallelism;
 	}
 
 	@Override
@@ -325,6 +329,7 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 		private int resultSetConcurrency = ResultSet.CONCUR_READ_ONLY;
 		private long formatScanIntervalMs = -1L;
 		private int countOfReadTimes = -1;
+		private int parallelism = -1;
 
 		public Builder() {
 			this.connOptionsBuilder = new JdbcConnectionOptions.JdbcConnectionOptionsBuilder();
@@ -412,6 +417,11 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 			return this;
 		}
 
+		public Builder setParallelism(int parallelism) {
+			this.parallelism = parallelism;
+			return this;
+		}
+
 		public JdbcRowDataInputFormat build() {
 			if (this.queryTemplate == null) {
 				throw new IllegalArgumentException("No query supplied");
@@ -433,7 +443,8 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 				this.rowConverter,
 				this.rowDataTypeInfo,
 				this.formatScanIntervalMs,
-				this.countOfReadTimes);
+				this.countOfReadTimes,
+				this.parallelism);
 		}
 	}
 
@@ -445,5 +456,10 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 	@Override
 	public int getCountOfLoop() {
 		return countOfReadTimes;
+	}
+
+	@Override
+	public int getParallelism() {
+		return parallelism;
 	}
 }

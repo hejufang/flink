@@ -34,6 +34,7 @@ public class JdbcReadOptions implements Serializable {
 	private final Integer numPartitions;
 	private final Long scanIntervalMs;
 	private final Integer countOfScanTimes;
+	private final Integer parallelism;
 
 	private final int fetchSize;
 
@@ -45,7 +46,8 @@ public class JdbcReadOptions implements Serializable {
 			Integer numPartitions,
 			int fetchSize,
 			Long scanIntervalMs,
-			Integer countOfScanTimes) {
+			Integer countOfScanTimes,
+			Integer parallelism) {
 		this.query = query;
 		this.partitionColumnName = partitionColumnName;
 		this.partitionLowerBound = partitionLowerBound;
@@ -53,6 +55,7 @@ public class JdbcReadOptions implements Serializable {
 		this.numPartitions = numPartitions;
 		this.scanIntervalMs = scanIntervalMs;
 		this.countOfScanTimes = countOfScanTimes;
+		this.parallelism = parallelism;
 
 		this.fetchSize = fetchSize;
 	}
@@ -75,6 +78,10 @@ public class JdbcReadOptions implements Serializable {
 
 	public Optional<Integer> getNumPartitions() {
 		return Optional.ofNullable(numPartitions);
+	}
+
+	public Optional<Integer> getParallelism() {
+		return Optional.ofNullable(parallelism);
 	}
 
 	public Optional<Long> getScanIntervalMs() {
@@ -102,6 +109,9 @@ public class JdbcReadOptions implements Serializable {
 					Objects.equals(partitionLowerBound, options.partitionLowerBound) &&
 					Objects.equals(partitionUpperBound, options.partitionUpperBound) &&
 					Objects.equals(numPartitions, options.numPartitions) &&
+					Objects.equals(scanIntervalMs, options.scanIntervalMs) &&
+					Objects.equals(countOfScanTimes, options.countOfScanTimes) &&
+					Objects.equals(parallelism, options.parallelism) &&
 					Objects.equals(fetchSize, options.fetchSize);
 		} else {
 			return false;
@@ -119,6 +129,7 @@ public class JdbcReadOptions implements Serializable {
 		protected Integer numPartitions;
 		protected Long scanIntervalMs;
 		private Integer countOfScanTimes;
+		private Integer parallelism;
 
 		protected int fetchSize = 0;
 
@@ -181,9 +192,15 @@ public class JdbcReadOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setParallelism(Integer parallelism) {
+			this.parallelism = parallelism;
+			return this;
+		}
+
 		public JdbcReadOptions build() {
 			return new JdbcReadOptions(query, partitionColumnName, partitionLowerBound,
-				partitionUpperBound, numPartitions, fetchSize, scanIntervalMs, countOfScanTimes);
+				partitionUpperBound, numPartitions, fetchSize, scanIntervalMs,
+				countOfScanTimes, parallelism);
 		}
 	}
 }

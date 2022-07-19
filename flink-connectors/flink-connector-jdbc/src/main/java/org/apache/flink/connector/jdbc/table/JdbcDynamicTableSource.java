@@ -101,6 +101,7 @@ public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSourc
 			.setFormatScanIntervalMs(scanIntervalMs)
 			.setCountOfReadTimes(countOfReadTimes);
 
+		readOptions.getParallelism().ifPresent(builder::setParallelism);
 		if (readOptions.getFetchSize() != 0) {
 			builder.setFetchSize(readOptions.getFetchSize());
 		}
