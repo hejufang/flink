@@ -116,6 +116,16 @@ public class SourceCoordinatorContextTest extends SourceCoordinatorTestBase {
 		testAssignSplitToUnregisterdReader(false);
 	}
 
+	@Test
+	public void testCallAsyncFailed() {
+		context.callAsync(() -> {
+			throw new RuntimeException("Test async failed");
+		}, (res, t) -> {
+			throw new RuntimeException(t);
+		});
+		assertTrue(operatorCoordinatorContext.isJobFailed());
+	}
+
 	private void testAssignSplitToUnregisterdReader(boolean fromCoordinatorExecutor) {
 		// Assign splits to the readers.
 		SplitsAssignment<MockSourceSplit> splitsAssignment = getSplitsAssignment(2, 0);

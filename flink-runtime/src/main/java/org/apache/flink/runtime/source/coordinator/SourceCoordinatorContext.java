@@ -124,7 +124,15 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
 					private int index = 0;
 					@Override
 					public Thread newThread(Runnable r) {
-						return new Thread(r, coordinatorThreadName + "-worker-" + index++);
+						Thread thread = new Thread(r, coordinatorThreadName + "-worker-" + index++);
+						thread.setUncaughtExceptionHandler((t, e) -> {
+							LOG.error(
+								"Thread '{}' produced an uncaught exception. Failing the job.",
+								t.getName(),
+								e);
+							operatorCoordinatorContext.failJob(e);
+						});
+						return thread;
 					}
 				}),
 				coordinatorExecutor);
