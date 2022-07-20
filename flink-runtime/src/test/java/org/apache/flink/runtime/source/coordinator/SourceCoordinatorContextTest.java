@@ -34,6 +34,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 import static org.apache.flink.runtime.source.coordinator.CoordinatorTestUtils.getSplitsAssignment;
 import static org.apache.flink.runtime.source.coordinator.CoordinatorTestUtils.verifyAssignment;
@@ -117,12 +118,28 @@ public class SourceCoordinatorContextTest extends SourceCoordinatorTestBase {
 	}
 
 	@Test
-	public void testCallAsyncFailed() {
+	public void testCallAsyncFailed() throws Exception {
+		CountDownLatch countDownLatch = new CountDownLatch(1);
+		operatorCoordinatorContext.setFailedCallBack(t -> countDownLatch.countDown());
 		context.callAsync(() -> {
 			throw new RuntimeException("Test async failed");
 		}, (res, t) -> {
 			throw new RuntimeException(t);
 		});
+		countDownLatch.await();
+		assertTrue(operatorCoordinatorContext.isJobFailed());
+	}
+
+	@Test
+	public void testCallAsyncWithPeriodFailed() throws Exception {
+		CountDownLatch countDownLatch = new CountDownLatch(1);
+		operatorCoordinatorContext.setFailedCallBack(t -> countDownLatch.countDown());
+		context.callAsync(() -> {
+			throw new RuntimeException("Test async failed");
+		}, (res, t) -> {
+			throw new RuntimeException(t);
+		}, 0, 1);
+		countDownLatch.await();
 		assertTrue(operatorCoordinatorContext.isJobFailed());
 	}
 

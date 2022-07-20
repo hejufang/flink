@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 public class MockOperatorCoordinatorContext implements OperatorCoordinator.Context {
 	private final OperatorID operatorID;
@@ -35,6 +36,7 @@ public class MockOperatorCoordinatorContext implements OperatorCoordinator.Conte
 
 	private final Map<Integer, List<OperatorEvent>> eventsToOperator;
 	private boolean jobFailed;
+	private Consumer<Throwable> failedConsumer;
 
 	public MockOperatorCoordinatorContext(OperatorID operatorID, int numSubtasks) {
 		this(operatorID, numSubtasks, true);
@@ -70,6 +72,9 @@ public class MockOperatorCoordinatorContext implements OperatorCoordinator.Conte
 	@Override
 	public void failJob(Throwable cause) {
 		jobFailed = true;
+		if (failedConsumer != null) {
+			failedConsumer.accept(cause);
+		}
 	}
 
 	@Override
@@ -89,5 +94,9 @@ public class MockOperatorCoordinatorContext implements OperatorCoordinator.Conte
 
 	public boolean isJobFailed() {
 		return jobFailed;
+	}
+
+	public void setFailedCallBack(Consumer<Throwable> consumer) {
+		this.failedConsumer = consumer;
 	}
 }

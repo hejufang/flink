@@ -33,6 +33,7 @@ import org.apache.flink.runtime.operators.coordination.TaskNotRunningException;
 import org.apache.flink.runtime.source.event.AddSplitEvent;
 import org.apache.flink.runtime.source.event.SourceEventWrapper;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.ThrowableCatchingRunnable;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +48,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -119,6 +121,12 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
 		this.registeredReaders = new ConcurrentHashMap<>();
 		this.assignmentTracker = splitAssignmentTracker;
 		this.coordinatorThreadName = coordinatorThreadFactory.getCoordinatorThreadName();
+		final Executor workerExecutor = runnable -> {
+			coordinatorExecutor.execute(new ThrowableCatchingRunnable(t -> {
+				LOG.error("Worker got an uncaught exception. Failing the job.", t);
+				operatorCoordinatorContext.failJob(t);
+			}, runnable));
+		};
 		this.notifier = new ExecutorNotifier(
 				Executors.newScheduledThreadPool(numWorkerThreads, new ThreadFactory() {
 					private int index = 0;
@@ -135,7 +143,7 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
 						return thread;
 					}
 				}),
-				coordinatorExecutor);
+				workerExecutor);
 	}
 
 	@Override
