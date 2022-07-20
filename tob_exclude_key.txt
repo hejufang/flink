@@ -133,8 +133,6 @@ job.work.dir
 # ipv6
 ipv6.enabled
 ipv6.supported.cluster
-kubernetes.hostname-as-address.enabled
-taskmanager.network.bind-policy
 
 # bytedance streaming default config
 bytedance.streaming.yarn.check.application.name.unique

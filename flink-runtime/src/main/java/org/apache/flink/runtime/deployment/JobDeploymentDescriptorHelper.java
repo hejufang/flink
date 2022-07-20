@@ -203,7 +203,7 @@ public class JobDeploymentDescriptorHelper {
 					if (!shuffleDescriptor.isUnknown()) {
 						NettyShuffleDescriptor nettyShuffleDescriptor = (NettyShuffleDescriptor) shuffleDescriptor;
 						connectionInfoMap.put(nettyShuffleDescriptor.getProducerLocation(),
-							nettyShuffleDescriptor.getConnectionId().getAddress().getAddress().getCanonicalHostName());
+							nettyShuffleDescriptor.getConnectionId().getAddress().getHostName());
 					}
 				}
 			}

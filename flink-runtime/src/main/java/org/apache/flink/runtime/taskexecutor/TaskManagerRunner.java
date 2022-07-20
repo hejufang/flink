@@ -513,9 +513,9 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 			lookupTimeout);
 
 		LOG.info("TaskManager will use hostname/address '{}' ({}) for communication.",
-			taskManagerAddress.getCanonicalHostName(), taskManagerAddress.getHostAddress());
+			taskManagerAddress.getHostName(), taskManagerAddress.getHostAddress());
 
 		HostBindPolicy bindPolicy = HostBindPolicy.fromString(configuration.getString(TaskManagerOptions.HOST_BIND_POLICY));
-		return bindPolicy == HostBindPolicy.IP ? taskManagerAddress.getHostAddress() : taskManagerAddress.getCanonicalHostName();
+		return bindPolicy == HostBindPolicy.IP ? taskManagerAddress.getHostAddress() : taskManagerAddress.getHostName();
 	}
 }

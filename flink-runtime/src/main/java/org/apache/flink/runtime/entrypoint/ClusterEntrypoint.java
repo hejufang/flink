@@ -281,9 +281,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 			// update the configuration used to create the high availability services
 			configuration.setString(JobManagerOptions.ADDRESS, commonRpcService.getAddress());
 			configuration.setInteger(JobManagerOptions.PORT, commonRpcService.getPort());
-			if (!configuration.contains(RestOptions.SOCKET_ADDRESS)) {
-				configuration.setString(RestOptions.SOCKET_ADDRESS, NetUtils.getLocalHostLANAddress().getHostAddress());
-			}
+			configuration.setString(RestOptions.SOCKET_ADDRESS, NetUtils.getLocalHostLANAddress().getHostAddress());
 
 			ioExecutor = Executors.newFixedThreadPool(
 				ClusterEntrypointUtils.getPoolSize(configuration),
@@ -532,8 +530,6 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 
 		if (hostname != null) {
 			configuration.setString(JobManagerOptions.ADDRESS, hostname);
-			configuration.setString(RestOptions.ADDRESS, hostname);
-			configuration.setString(RestOptions.SOCKET_ADDRESS, hostname);
 		}
 
 		return configuration;

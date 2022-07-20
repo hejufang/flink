@@ -273,8 +273,6 @@ common:
 
   # ipv6
   ipv6.enabled: false
-  kubernetes.hostname-as-address.enabled: true
-  taskmanager.network.bind-policy: name
 
   # bytedance streaming default config
   bytedance.streaming.yarn.check.application.name.unique: true

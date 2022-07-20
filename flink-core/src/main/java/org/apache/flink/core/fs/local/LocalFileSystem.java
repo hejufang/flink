@@ -89,7 +89,7 @@ public class LocalFileSystem extends FileSystem {
 
 		String tmp = "unknownHost";
 		try {
-			tmp = InetAddress.getLocalHost().getCanonicalHostName();
+			tmp = InetAddress.getLocalHost().getHostName();
 		} catch (UnknownHostException e) {
 			LOG.error("Could not resolve local host", e);
 		}
