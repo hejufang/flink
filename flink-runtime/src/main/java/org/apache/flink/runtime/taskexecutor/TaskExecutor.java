@@ -25,6 +25,7 @@ import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.metrics.TagGaugeStore;
@@ -78,6 +79,7 @@ import org.apache.flink.runtime.io.network.partition.TaskExecutorPartitionTracke
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.jobgraph.tasks.TaskOperatorEventGateway;
 import org.apache.flink.runtime.jobmaster.AllocatedSlotInfo;
@@ -164,6 +166,8 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.StringUtils;
 
+import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
+import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
 import org.apache.flink.shaded.guava18.com.google.common.collect.Sets;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -175,6 +179,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.net.UnknownHostException;
@@ -315,6 +320,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	private HeartbeatManager<Void, Void> dispatcherHeartbeatManager;
 
+	/** Cache for invokable class constructor. */
+	private final Cache<String, Constructor<? extends AbstractInvokable>> constructorCache;
+
 	// --------- resource manager --------
 
 	@Nullable
@@ -414,6 +422,18 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		this.dispatcherHeartbeatManager = NoOpHeartbeatManager.getInstance();
 		this.batchUpdateJobStateEnable = taskManagerConfiguration.isBatchUpdateJobStateEnable();
 		this.taskExecutorDispatcherManager = new TaskExecutorDispatcherManager(this);
+
+		if (taskManagerConfiguration.isTaskInvokableConstructorCacheEnabled()) {
+			constructorCache = CacheBuilder
+				.newBuilder()
+				.maximumSize(taskManagerConfiguration.getTaskInvokableConstructorCacheMaxSize())
+				.expireAfterWrite(taskManagerConfiguration.getTaskInvokableConstructorCacheExpiredMs(), TimeUnit.MILLISECONDS)
+				.softValues()
+				.recordStats()
+				.build();
+		} else {
+			constructorCache = null;
+		}
 	}
 
 	private HeartbeatManager<Void, TaskExecutorHeartbeatPayload> createResourceManagerHeartbeatManager(HeartbeatServices heartbeatServices, ResourceID resourceId) {
@@ -696,6 +716,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 						.collect(Collectors.toList()));
 
 		taskManagerMetricGroup.gauge(MetricNames.COMPLETED_CONTAINER, completedContainerGauge);
+
+		if (constructorCache != null) {
+			taskManagerMetricGroup.gauge(MetricNames.TM_CONSTRUCTOR_CACHE_HIT_RATE,  (Gauge<Double>) () -> constructorCache.stats().hitRate());
+		}
 	}
 
 	// ======================================================================
@@ -1114,7 +1138,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			taskJobResultGateway,
 			taskManagerConfiguration.isTaskInitializeFinishEnable(),
 			userCodeClassLoader,
-			executionConfig);
+			executionConfig,
+			constructorCache);
 
 		taskStart(taskInformation, jobId, executionAttemptID, taskMetricGroup, jobManagerConnection.getTaskManagerActions(), producedPartitions, task);
 	}
@@ -1262,7 +1287,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				taskJobResultGateway,
 				taskManagerConfiguration.isTaskInitializeFinishEnable(),
 				null,
-				null);
+				null,
+				constructorCache);
 
 		taskStart(taskInformation, jobId, executionAttemptID, taskMetricGroup, taskManagerActions, tdd.getProducedPartitions(), task);
 	}

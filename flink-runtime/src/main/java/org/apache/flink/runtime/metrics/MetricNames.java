@@ -158,4 +158,6 @@ public class MetricNames {
 	public static final String PENDING_MEMORY = "pendingMemory";
 	public static final String PENDING_PHASE_PODS = "pendingPhasePods";
 	public static final String COMPLETED_CONTAINER = "completedContainer";
+
+	public static final String TM_CONSTRUCTOR_CACHE_HIT_RATE = "constructorCacheHitRate";
 }

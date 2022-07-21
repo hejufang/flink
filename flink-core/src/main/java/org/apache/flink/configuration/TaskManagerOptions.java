@@ -703,6 +703,33 @@ public class TaskManagerOptions {
 			.defaultValue(false)
 			.withDescription("Job tasks in one task manager will batch update task states");
 
+	/**
+	 * Option for enabling invokable constructor cache in Task.
+	 */
+	public static final ConfigOption<Boolean> TASK_INVOKABLE_CONSTRUCTOR_CACHE_ENABLED = ConfigOptions
+		.key("taskmanager.task-invokable-constructor-cache.enabled")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("If true, Task will cache constructor of invokable class instead of creating each time.");
+
+	/**
+	 * Max size of invokable constructor cache in Task.
+	 */
+	public static final ConfigOption<Long> TASK_INVOKABLE_CONSTRUCTOR_CACHE_MAX_SIZE = ConfigOptions
+		.key("taskmanager.task-invokable-constructor-cache.max-size")
+		.longType()
+		.defaultValue(100L)
+		.withDescription("Optional. Max size of constructor of invokable cache.");
+
+	/**
+	 * Time to live of invokable constructor cache in Task.
+	 */
+	public static final ConfigOption<Duration> TASK_INVOKABLE_CONSTRUCTOR_CACHE_TTL = ConfigOptions
+		.key("taskmanager.task-invokable-constructor-cache.ttl")
+		.durationType()
+		.defaultValue(Duration.ofMillis(300_000))
+		.withDescription("Optional. Time to live for constructor of invokable class cache.");
+
 	// ------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */

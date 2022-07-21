@@ -103,6 +103,8 @@ import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.TaskManagerExceptionUtils;
 import org.apache.flink.util.WrappingRuntimeException;
 
+import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -349,6 +351,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	private WarehouseTaskShuffleInfoMessage warehouseTaskShuffleInfoMessage;
 	private MessageSet<WarehouseTaskShuffleInfoMessage> taskShuffleInfoMessageMessageSet;
 
+	/** Cache for invokable class constructor. */
+	private final Cache<String, Constructor<? extends AbstractInvokable>> constructorCache;
+
 	/**
 	 * <p><b>IMPORTANT:</b> This constructor may not start any work that would need to
 	 * be undone in the case of a failing task deployment.</p>
@@ -424,6 +429,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			new PrintTaskJobResultGateway(),
 			false,
 			null,
+			null,
 			null);
 	}
 
@@ -466,7 +472,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			TaskJobResultGateway taskJobResultGateway,
 			boolean taskInitializeFinishEnable,
 			@Nullable ClassLoader userCodeClassLoader,
-			@Nullable ExecutionConfig executionConfig) {
+			@Nullable ExecutionConfig executionConfig,
+			Cache<String, Constructor<? extends AbstractInvokable>> constructorCache) {
 
 		Preconditions.checkNotNull(jobInformation);
 		Preconditions.checkNotNull(taskInformation);
@@ -606,6 +613,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 		this.jobLogDetailDisable = jobLogDetailDisable;
 		this.taskJobResultGateway = taskJobResultGateway;
+		this.constructorCache = constructorCache;
 	}
 
 	// ------------------------------------------------------------------------
@@ -1715,26 +1723,11 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	 * @throws Throwable Forwards all exceptions that happen during initialization of the task.
 	 *                   Also throws an exception if the task class misses the necessary constructor.
 	 */
-	private static AbstractInvokable loadAndInstantiateInvokable(
-		ClassLoader classLoader,
-		String className,
-		Environment environment) throws Throwable {
-
-		final Class<? extends AbstractInvokable> invokableClass;
-		try {
-			invokableClass = Class.forName(className, true, classLoader)
-				.asSubclass(AbstractInvokable.class);
-		} catch (Throwable t) {
-			throw new Exception("Could not load the task's invokable class.", t);
-		}
-
-		Constructor<? extends AbstractInvokable> statelessCtor;
-
-		try {
-			statelessCtor = invokableClass.getConstructor(Environment.class);
-		} catch (NoSuchMethodException ee) {
-			throw new FlinkException("Task misses proper constructor", ee);
-		}
+	private AbstractInvokable loadAndInstantiateInvokable(
+			ClassLoader classLoader,
+			String className,
+			Environment environment) throws Throwable {
+		Constructor<? extends AbstractInvokable> statelessCtor = getInvokableClassConstructor(classLoader, className);
 
 		// instantiate the class
 		try {
@@ -1746,6 +1739,39 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		} catch (Exception e) {
 			throw new FlinkException("Could not instantiate the task's invokable class.", e);
 		}
+	}
+
+	private Constructor<? extends AbstractInvokable> getInvokableClassConstructor(
+			ClassLoader classLoader,
+			String className) throws Throwable {
+		Constructor<? extends AbstractInvokable> statelessCtor;
+
+		if (constructorCache != null) {
+			statelessCtor = constructorCache.getIfPresent(className);
+			if (statelessCtor != null) {
+				return statelessCtor;
+			}
+		}
+
+		final Class<? extends AbstractInvokable> invokableClass;
+		try {
+			invokableClass = Class.forName(className, true, classLoader)
+				.asSubclass(AbstractInvokable.class);
+		} catch (Throwable t) {
+			throw new Exception("Could not load the task's invokable class.", t);
+		}
+
+		try {
+			statelessCtor = invokableClass.getConstructor(Environment.class);
+		} catch (NoSuchMethodException ee) {
+			throw new FlinkException("Task misses proper constructor", ee);
+		}
+
+		if (constructorCache != null) {
+			constructorCache.put(className, statelessCtor);
+		}
+
+		return statelessCtor;
 	}
 
 	// ------------------------------------------------------------------------

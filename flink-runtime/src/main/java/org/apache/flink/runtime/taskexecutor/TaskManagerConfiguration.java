@@ -105,6 +105,12 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	private final boolean batchUpdateJobStateEnable;
 
+	private final boolean taskInvokableConstructorCacheEnabled;
+
+	private final long taskInvokableConstructorCacheMaxSize;
+
+	private final long taskInvokableConstructorCacheExpiredMs;
+
 	public TaskManagerConfiguration(
 			int numberSlots,
 			ResourceProfile defaultSlotResourceProfile,
@@ -130,7 +136,10 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			int resultConnectTimeoutMills,
 			boolean deployTaskSocketEnable,
 			boolean optimizedJobDeploymentStructureEnable,
-			boolean batchUpdateJobStateEnable) {
+			boolean batchUpdateJobStateEnable,
+			boolean taskInvokableConstructorCacheEnabled,
+			long taskInvokableConstructorCacheMaxSize,
+			long taskInvokableConstructorCacheExpiredMs) {
 
 		this.numberSlots = numberSlots;
 		this.defaultSlotResourceProfile = defaultSlotResourceProfile;
@@ -157,6 +166,9 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		this.deployTaskSocketEnable = deployTaskSocketEnable;
 		this.optimizedJobDeploymentStructureEnable = optimizedJobDeploymentStructureEnable;
 		this.batchUpdateJobStateEnable = batchUpdateJobStateEnable;
+		this.taskInvokableConstructorCacheEnabled = taskInvokableConstructorCacheEnabled;
+		this.taskInvokableConstructorCacheMaxSize = taskInvokableConstructorCacheMaxSize;
+		this.taskInvokableConstructorCacheExpiredMs = taskInvokableConstructorCacheExpiredMs;
 	}
 
 	public int getNumberSlots() {
@@ -267,6 +279,18 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		return batchUpdateJobStateEnable;
 	}
 
+	public boolean isTaskInvokableConstructorCacheEnabled() {
+		return taskInvokableConstructorCacheEnabled;
+	}
+
+	public long getTaskInvokableConstructorCacheMaxSize() {
+		return taskInvokableConstructorCacheMaxSize;
+	}
+
+	public long getTaskInvokableConstructorCacheExpiredMs() {
+		return taskInvokableConstructorCacheExpiredMs;
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Static factory methods
 	// --------------------------------------------------------------------------------------------
@@ -342,6 +366,9 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		final int resultClientConnectTimeoutMills = configuration.get(TaskManagerOptions.RESULT_PUSH_CLIENT_CONNECT_TIMEOUT_MILLS);
 		final boolean deployTaskSocketEnable = configuration.get(ClusterOptions.CLUSTER_DEPLOY_TASK_SOCKET_ENABLE);
 		final boolean optimizedJobDeploymentStructureEnable = configuration.getBoolean(ClusterOptions.JM_OPTIMIZED_SUBMIT_TASK_STRUCTURE_ENABLED);
+		final boolean taskInvokableConstructorCacheEnabled = configuration.getBoolean(TaskManagerOptions.TASK_INVOKABLE_CONSTRUCTOR_CACHE_ENABLED);
+		final long taskInvokableConstructorCacheMaxSize = configuration.getLong(TaskManagerOptions.TASK_INVOKABLE_CONSTRUCTOR_CACHE_MAX_SIZE);
+		final long taskInvokableConstructorCacheExpiredMs = configuration.get(TaskManagerOptions.TASK_INVOKABLE_CONSTRUCTOR_CACHE_TTL).toMillis();
 
 		return new TaskManagerConfiguration(
 			numberSlots,
@@ -368,6 +395,9 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			resultClientConnectTimeoutMills,
 			deployTaskSocketEnable,
 			optimizedJobDeploymentStructureEnable,
-			batchUpdateJobStateEnable);
+			batchUpdateJobStateEnable,
+			taskInvokableConstructorCacheEnabled,
+			taskInvokableConstructorCacheMaxSize,
+			taskInvokableConstructorCacheExpiredMs);
 	}
 }

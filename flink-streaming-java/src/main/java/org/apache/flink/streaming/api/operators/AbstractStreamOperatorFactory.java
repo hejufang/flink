@@ -29,6 +29,7 @@ import org.apache.flink.streaming.runtime.tasks.ProcessingTimeServiceAware;
  */
 @Experimental
 public abstract class AbstractStreamOperatorFactory<OUT> implements StreamOperatorFactory<OUT>, ProcessingTimeServiceAware {
+	private static final long serialVersionUID = 1L;
 
 	protected ChainingStrategy chainingStrategy = ChainingStrategy.ALWAYS;
 

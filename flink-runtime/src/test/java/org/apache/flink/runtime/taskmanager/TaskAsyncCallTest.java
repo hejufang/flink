@@ -237,6 +237,7 @@ public class TaskAsyncCallTest extends TestLogger {
 			new PrintTaskJobResultGateway(),
 			false,
 			null,
+			null,
 			null);
 	}
 
