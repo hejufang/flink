@@ -179,4 +179,7 @@ under the License.
 	<suppress
 		files="(.*)StateBackendTestBase.java"
 		checks="FileLength"/>
+	<suppress
+		files="(.*)TaskExecutor.java"
+		checks="FileLength"/>
 </suppressions>
