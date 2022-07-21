@@ -75,7 +75,7 @@ public class SourceMetadataHandler extends AbstractRestHandler<RestfulGateway, E
 				final Map<String, MetricStore.TaskMetricStore> taskMetricsStores = jobStore.getAllTaskMetricStores();
 				for (Map.Entry<String, MetricStore.TaskMetricStore> taskMetricStoreEntry : taskMetricsStores.entrySet()) {
 					final MetricStore.TaskMetricStore taskStore = taskMetricStoreEntry.getValue();
-					final Collection<MetricStore.SubtaskMetricStore> subtaskMetricStores = taskStore.getAllSubtaskMetricStores();
+					final Collection<MetricStore.SubtaskMetricStore> subtaskMetricStores = taskStore.getAllSubtaskMetricStores().values();
 					for (MetricStore.SubtaskMetricStore subtaskMetricStore : subtaskMetricStores) {
 						list.add(SourceMetaMetrics.parseConsumerMetaInfo(subtaskMetricStore.metrics));
 					}

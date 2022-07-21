@@ -211,6 +211,11 @@ public class TaskManagerDetailsHandlerTest extends TestLogger {
 		public void update() {
 			// nothing to do
 		}
+
+		@Override
+		public long getLastUpdateTime() {
+			return 0;
+		}
 	}
 
 }

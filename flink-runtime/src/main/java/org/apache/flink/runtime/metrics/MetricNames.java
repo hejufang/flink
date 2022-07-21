@@ -123,7 +123,7 @@ public class MetricNames {
 
 	public static final String SOURCE_TOPIC_PARTITIONS = "sourceTopicPartitions";
 
-	public static final String IS_BACKPRESSURED = "isBackPressured";
+	public static final String IS_BACK_PRESSURED = "isBackPressured";
 
 	public static final String CHECKPOINT_ALIGNMENT_TIME = "checkpointAlignmentTime";
 	public static final String CHECKPOINT_START_DELAY_TIME = "checkpointStartDelayNanos";
@@ -133,6 +133,8 @@ public class MetricNames {
 	}
 
 	public static final String TASK_IDLE_TIME = "idleTimeMs" + SUFFIX_RATE;
+	public static final String TASK_BUSY_TIME = "busyTimeMs" + SUFFIX_RATE;
+	public static final String TASK_BACK_PRESSURED_TIME = "backPressuredTimeMs" + SUFFIX_RATE;
 
 	public static final String NUM_PENDING_IO_TASK = "numPendingIOTask";
 	public static final String NUM_RUNNING_IO_TASK = "numRunningIOTask";

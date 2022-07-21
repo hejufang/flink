@@ -21,8 +21,6 @@ package org.apache.flink.runtime.io.network.api.writer;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.metrics.Counter;
-import org.apache.flink.metrics.Meter;
-import org.apache.flink.metrics.MeterView;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.AvailabilityProvider;
@@ -32,6 +30,7 @@ import org.apache.flink.runtime.io.network.api.serialization.SpanningRecordSeria
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.metrics.MetricNames;
+import org.apache.flink.runtime.metrics.TimerGauge;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.XORShiftRandom;
 
@@ -83,7 +82,7 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 
 	protected Counter numRecordsDropped = new SimpleCounter();
 
-	protected Meter idleTimeMsPerSecond = new MeterView(new SimpleCounter());
+	protected TimerGauge backPressuredTimeMsPerSecond = new TimerGauge();
 
 	private final boolean flushAlways;
 
@@ -212,7 +211,7 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 	public void setMetricGroup(TaskIOMetricGroup metrics) {
 		numBytesOut = metrics.getNumBytesOutCounter();
 		numBuffersOut = metrics.getNumBuffersOutCounter();
-		idleTimeMsPerSecond = metrics.getIdleTimeMsPerSecond();
+		backPressuredTimeMsPerSecond = metrics.getBackPressuredTimePerSecond();
 		numRecordsDropped = metrics.getNumRecordsDropped();
 		metrics.getParentMetricGroup().gauge(MetricNames.UPSTREAM_TASK_ERROR_NUM, targetPartition::getErrorNum);
 	}
@@ -318,16 +317,16 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 	public BufferBuilder requestNewBufferBuilder(int targetChannel) throws IOException, InterruptedException {
 		BufferBuilder builder = targetPartition.tryGetBufferBuilder(targetChannel);
 		if (builder == null) {
-			long start = System.currentTimeMillis();
+			backPressuredTimeMsPerSecond.markStart();
 			builder = targetPartition.getBufferBuilder(targetChannel);
-			idleTimeMsPerSecond.markEvent(System.currentTimeMillis() - start);
+			backPressuredTimeMsPerSecond.markEnd();
 		}
 		return builder;
 	}
 
 	@VisibleForTesting
-	public Meter getIdleTimeMsPerSecond() {
-		return idleTimeMsPerSecond;
+	public TimerGauge getBackPressuredTimeMsPerSecond() {
+		return backPressuredTimeMsPerSecond;
 	}
 
 	// ------------------------------------------------------------------------

@@ -1010,6 +1010,12 @@
                 "alignment_buffered" : {
                   "type" : "integer"
                 },
+                "processed_data" : {
+                  "type" : "integer"
+                },
+                "persisted_data" : {
+                  "type" : "integer"
+                },
                 "num_subtasks" : {
                   "type" : "integer"
                 },
@@ -1089,6 +1095,12 @@
                   "type" : "integer"
                 },
                 "alignment_buffered" : {
+                  "type" : "integer"
+                },
+                "processed_data" : {
+                  "type" : "integer"
+                },
+                "persisted_data" : {
                   "type" : "integer"
                 },
                 "num_subtasks" : {
@@ -1280,6 +1292,12 @@
         "alignment_buffered" : {
           "type" : "integer"
         },
+        "processed_data" : {
+          "type" : "integer"
+        },
+        "persisted_data" : {
+          "type" : "integer"
+        },
         "num_subtasks" : {
           "type" : "integer"
         },
@@ -1363,6 +1381,12 @@
           "type" : "integer"
         },
         "alignment_buffered" : {
+          "type" : "integer"
+        },
+        "processed_data" : {
+          "type" : "integer"
+        },
+        "persisted_data" : {
           "type" : "integer"
         },
         "num_subtasks" : {
@@ -2003,6 +2027,12 @@
                 "enum" : [ "ok", "low", "high" ]
               },
               "ratio" : {
+                "type" : "number"
+              },
+              "idleRatio" : {
+                "type" : "number"
+              },
+              "busyRatio" : {
                 "type" : "number"
               }
             }

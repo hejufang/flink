@@ -35,4 +35,9 @@ public enum VoidMetricFetcher implements MetricFetcher {
 	public void update() {
 		// noop
 	}
+
+	@Override
+	public long getLastUpdateTime() {
+		return 0;
+	}
 }

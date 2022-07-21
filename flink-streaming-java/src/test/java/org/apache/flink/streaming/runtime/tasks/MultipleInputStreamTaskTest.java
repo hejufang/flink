@@ -20,7 +20,6 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
-import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Metric;
@@ -304,9 +303,6 @@ public class MultipleInputStreamTaskTest {
 			testHarness.process();
 			testHarness.endInput(2);
 			testHarness.process();
-			assertEquals(
-				true,
-				testHarness.getStreamTask().getInputOutputJointFuture(InputStatus.NOTHING_AVAILABLE).isDone());
 
 			testHarness.waitForTaskCompletion();
 		}
