@@ -121,6 +121,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	/** The interval between each time the error being logged. As logging all errors may cost a lot. */
 	private final long logErrorInterval;
 	private long lastLogErrorTimestamp;
+	private boolean booleanNumberConversion;
 
 	public JsonRowDataDeserializationSchema(
 			RowType rowType,
@@ -137,7 +138,8 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			false,
 			timestampFormat,
 			LOG_ERROR_RECORDS_INTERVAL.defaultValue().toMillis(),
-			new HashMap<>());
+			new HashMap<>(),
+			false);
 	}
 
 	public JsonRowDataDeserializationSchema(
@@ -158,7 +160,8 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			byteAsJsonNode,
 			timestampFormat,
 			logErrorInterval,
-			jsonParserFeatureMap);
+			jsonParserFeatureMap,
+			false);
 	}
 
 	public JsonRowDataDeserializationSchema(
@@ -177,7 +180,8 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			false,
 			timestampFormat,
 			LOG_ERROR_RECORDS_INTERVAL.defaultValue().toMillis(),
-			new HashMap<>());
+			new HashMap<>(),
+			false);
 	}
 
 	public JsonRowDataDeserializationSchema(
@@ -189,7 +193,8 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			boolean byteAsJsonNode,
 			TimestampFormat timestampFormat,
 			long logErrorInterval,
-			Map<JsonParser.Feature, Boolean> jsonParserFeatureMap) {
+			Map<JsonParser.Feature, Boolean> jsonParserFeatureMap,
+			boolean booleanNumberConversion) {
 		if (ignoreParseErrors && failOnMissingField) {
 			throw new IllegalArgumentException(
 				"JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.");
@@ -203,6 +208,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 		this.timestampFormat = timestampFormat;
 		this.logErrorInterval = logErrorInterval;
 		jsonParserFeatureMap.forEach(objectMapper::configure);
+		this.booleanNumberConversion = booleanNumberConversion;
 	}
 
 	@Override
@@ -361,7 +367,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	}
 
 	private boolean convertToBoolean(JsonNode jsonNode) {
-		if (jsonNode.isBoolean()) {
+		if (jsonNode.isBoolean() || (booleanNumberConversion && (jsonNode.isShort() || jsonNode.isInt() || jsonNode.isLong() || jsonNode.isBigInteger()))) {
 			// avoid redundant toString and parseBoolean, for better performance
 			return jsonNode.asBoolean();
 		} else {
@@ -370,7 +376,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	}
 
 	private int convertToInt(JsonNode jsonNode) {
-		if (jsonNode.canConvertToInt()) {
+		if (jsonNode.canConvertToInt() || (jsonNode.isBoolean() && booleanNumberConversion)) {
 			// avoid redundant toString and parseInt, for better performance
 			return jsonNode.asInt();
 		} else {
@@ -379,7 +385,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	}
 
 	private long convertToLong(JsonNode jsonNode) {
-		if (jsonNode.canConvertToLong()) {
+		if (jsonNode.canConvertToLong() || (jsonNode.isBoolean() && booleanNumberConversion)) {
 			// avoid redundant toString and parseLong, for better performance
 			return jsonNode.asLong();
 		} else {
@@ -388,7 +394,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	}
 
 	private double convertToDouble(JsonNode jsonNode) {
-		if (jsonNode.isDouble()) {
+		if (jsonNode.isDouble() || (jsonNode.isBoolean() && booleanNumberConversion)) {
 			// avoid redundant toString and parseDouble, for better performance
 			return jsonNode.asDouble();
 		} else {

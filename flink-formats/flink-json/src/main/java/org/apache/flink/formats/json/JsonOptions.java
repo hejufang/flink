@@ -90,4 +90,10 @@ public class JsonOptions {
 			.noDefaultValue()
 			.withDescription("Optional flag to unwrap row/map during encoding.");
 
+	public static final ConfigOption<Boolean> BOOLEAN_NUMBER_CONVERSION = ConfigOptions
+			.key("boolean-number-conversion")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Optional flag to support boolean number conversion");
+
 }

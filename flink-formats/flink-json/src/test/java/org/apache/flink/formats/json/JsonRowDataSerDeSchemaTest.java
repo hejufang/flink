@@ -35,6 +35,7 @@ import org.junit.rules.ExpectedException;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -45,6 +46,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static org.apache.flink.formats.json.JsonOptions.LOG_ERROR_RECORDS_INTERVAL;
 import static org.apache.flink.table.api.DataTypes.ARRAY;
 import static org.apache.flink.table.api.DataTypes.BIGINT;
 import static org.apache.flink.table.api.DataTypes.BOOLEAN;
@@ -657,6 +659,50 @@ public class JsonRowDataSerDeSchemaTest {
 		rowData = deserializationSchema.deserialize(serializedJson);
 		actualBytes = serializationSchema.serialize(rowData);
 		assertEquals(new String(actualJson), new String(actualBytes));
+	}
+
+	@Test
+	public void testBooleanNumberConversion() throws IOException {
+		// Root
+		ObjectMapper objectMapper = new ObjectMapper();
+		ObjectNode root = objectMapper.createObjectNode();
+
+		root.put("bool1", false);
+		root.put("bool2", (short) 0);
+		root.put("bool3", 1);
+		root.put("bool4", 1L);
+		root.put("bool5", new BigInteger("1"));
+		root.put("int", true);
+		root.put("long", true);
+		root.put("double", false);
+		byte[] serializedJson = objectMapper.writeValueAsBytes(root);
+
+		DataType dataType = ROW(
+			FIELD("bool1", BOOLEAN()),
+			FIELD("bool2", BOOLEAN()),
+			FIELD("bool3", BOOLEAN()),
+			FIELD("bool4", BOOLEAN()),
+			FIELD("bool5", BOOLEAN()),
+			FIELD("int", INT()),
+			FIELD("long", BIGINT()),
+			FIELD("double", DOUBLE()));
+		RowType schema = (RowType) dataType.getLogicalType();
+		// pass on missing field
+		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
+			schema, new RowDataTypeInfo(schema), false, true, false, false, TimestampFormat.ISO_8601, LOG_ERROR_RECORDS_INTERVAL.defaultValue().toMillis(), new HashMap<>(), true);
+
+		Row expected = new Row(8);
+		expected.setField(0, false);
+		expected.setField(1, false);
+		expected.setField(2, true);
+		expected.setField(3, true);
+		expected.setField(4, true);
+		expected.setField(5, 1);
+		expected.setField(6, 1L);
+		expected.setField(7, 0.0);
+		Row actual = convertToExternal(deserializationSchema.deserialize(serializedJson), dataType);
+		assertEquals(expected, actual);
+
 	}
 
 	private void testIgnoreParseErrors(TestSpec spec) throws Exception {

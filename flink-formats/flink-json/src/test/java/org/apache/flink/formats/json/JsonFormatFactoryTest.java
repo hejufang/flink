@@ -112,6 +112,16 @@ public class JsonFormatFactoryTest extends TestLogger {
 			"enum class org.apache.flink.formats.json.TimestampFormat. Expected one of: [[SQL, ISO_8601, RFC_3339]]")));
 		testSchemaDeserializationSchema(tableOptions);
 	}
+
+	@Test
+	public void testBooleanNumberConversion() {
+		final Map<String, String> tableOptions = getModifyOptions(
+			options -> options.put("json.boolean-number-conversion", "1"));
+
+		thrown.expect(ValidationException.class);
+		thrown.expect(containsCause(new IllegalArgumentException("Unrecognized option for boolean: 1. Expected either true or false(case insensitive)")));
+		testSchemaDeserializationSchema(tableOptions);
+	}
 	// ------------------------------------------------------------------------
 	//  Utilities
 	// ------------------------------------------------------------------------
@@ -177,6 +187,7 @@ public class JsonFormatFactoryTest extends TestLogger {
 		options.put("json.fail-on-missing-field", "false");
 		options.put("json.ignore-parse-errors", "true");
 		options.put("json.timestamp-format.standard", "ISO_8601");
+		options.put("json.boolean-number-conversion", "false");
 		return options;
 	}
 

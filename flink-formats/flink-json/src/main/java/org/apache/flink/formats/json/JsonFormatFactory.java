@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.flink.formats.json.JsonOptions.BOOLEAN_NUMBER_CONVERSION;
 import static org.apache.flink.formats.json.JsonOptions.BYTES_AS_JSON_NODE;
 import static org.apache.flink.formats.json.JsonOptions.DEFAULT_ON_MISSING_FIELD;
 import static org.apache.flink.formats.json.JsonOptions.ENCODE_IGNORE_NULL_VALUES;
@@ -81,6 +82,7 @@ public class JsonFormatFactory implements
 		final boolean ignoreParseErrors = formatOptions.get(IGNORE_PARSE_ERRORS);
 		final boolean byteAsJsonNode = formatOptions.get(BYTES_AS_JSON_NODE);
 		final long logParseErrorsInterval = formatOptions.get(LOG_ERROR_RECORDS_INTERVAL).toMillis();
+		final boolean booleanNumberConversion = formatOptions.get(BOOLEAN_NUMBER_CONVERSION);
 		Map<Feature, Boolean> parserFeature = getParserFeatureMap(context.getCatalogTable().getOptions());
 		TimestampFormat timestampOption = formatOptions.get(TIMESTAMP_FORMAT);
 
@@ -91,7 +93,8 @@ public class JsonFormatFactory implements
 				byteAsJsonNode,
 				timestampOption,
 				logParseErrorsInterval,
-				parserFeature);
+				parserFeature,
+				booleanNumberConversion);
 	}
 
 	@Override
@@ -151,6 +154,7 @@ public class JsonFormatFactory implements
 		options.add(ENCODE_IGNORE_NULL_VALUES);
 		options.add(BYTES_AS_JSON_NODE);
 		options.add(UNWRAPPED_FIELD_NAMES);
+		options.add(BOOLEAN_NUMBER_CONVERSION);
 		return options;
 	}
 
@@ -198,6 +202,7 @@ public class JsonFormatFactory implements
 		private final TimestampFormat timestampOption;
 		private final long logParseErrorsInterval;
 		private final Map<Feature, Boolean> parserFeature;
+		private final boolean booleanNumberConversion;
 
 		public JsonDeserializationSchemaDecodingFormat(
 				boolean failOnMissingField,
@@ -206,7 +211,8 @@ public class JsonFormatFactory implements
 				boolean byteAsJsonNode,
 				TimestampFormat timestampOption,
 				long logParseErrorsInterval,
-				Map<Feature, Boolean> parserFeature) {
+				Map<Feature, Boolean> parserFeature,
+				boolean booleanNumberConversion) {
 			this.failOnMissingField = failOnMissingField;
 			this.defaultOnMissingField = defaultOnMissingField;
 			this.ignoreParseErrors = ignoreParseErrors;
@@ -214,6 +220,7 @@ public class JsonFormatFactory implements
 			this.timestampOption = timestampOption;
 			this.logParseErrorsInterval = logParseErrorsInterval;
 			this.parserFeature = parserFeature;
+			this.booleanNumberConversion = booleanNumberConversion;
 		}
 
 		@Override
@@ -232,7 +239,8 @@ public class JsonFormatFactory implements
 				byteAsJsonNode,
 				timestampOption,
 				logParseErrorsInterval,
-				parserFeature
+				parserFeature,
+				booleanNumberConversion
 			);
 		}
 
