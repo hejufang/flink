@@ -20,6 +20,7 @@ package org.apache.flink.runtime.executiongraph.failover.flip1;
 
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.AggregatedFailureRateRestartStrategyConfiguration;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies.AggregatedFixedDelayRestartStrategyConfiguration;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.FailureRateRestartStrategyConfiguration;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.FallbackRestartStrategyConfiguration;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.FixedDelayRestartStrategyConfiguration;
@@ -116,6 +117,13 @@ public final class RestartBackoffTimeStrategyFactoryLoader {
 					failureRateConfig.getMaxFailureRate(),
 					failureRateConfig.getFailureInterval().toMilliseconds(),
 					failureRateConfig.getDelayBetweenAttemptsInterval().toMilliseconds()));
+		} else if (restartStrategyConfiguration instanceof AggregatedFixedDelayRestartStrategyConfiguration) {
+			final AggregatedFixedDelayRestartStrategyConfiguration failureRateConfig =
+				(AggregatedFixedDelayRestartStrategyConfiguration) restartStrategyConfiguration;
+
+			return Optional.of(new AggregatedFixedDelayRestartBackoffTimeStrategy.AggregatedFailureFixedRestartBackoffTimeStrategyFactory(
+				failureRateConfig.getMaxFailure(),
+				failureRateConfig.getDelayBetweenAttemptsInterval().toMilliseconds()));
 		} else if (restartStrategyConfiguration instanceof FallbackRestartStrategyConfiguration) {
 			return Optional.empty();
 		} else {
@@ -145,6 +153,8 @@ public final class RestartBackoffTimeStrategyFactoryLoader {
 				return Optional.of(FailureRateRestartBackoffTimeStrategy.createFactory(clusterConfiguration));
 			case "aggregated-failure-rate":
 				return Optional.of(AggregatedFailureRateRestartBackoffTimeStrategy.createFactory(clusterConfiguration));
+			case "aggregated-fixed-delay":
+				return Optional.of(AggregatedFixedDelayRestartBackoffTimeStrategy.createFactory(clusterConfiguration));
 			default:
 				throw new IllegalArgumentException("Unknown restart strategy " + restartStrategyName + ".");
 		}

@@ -98,6 +98,18 @@ public class RestartStrategies {
 	}
 
 	/**
+	 * Generates a AggregatedFixedDelayRestartStrategyConfiguration.
+	 *
+	 * @param failureMax Maximum number of restarts in given interval {@code failureInterval} before failing a job
+	 * @param delayInterval Delay in-between restart attempts
+	 */
+	public static AggregatedFixedDelayRestartStrategyConfiguration aggregatedFailureFixedRestart(
+		int failureMax, Time delayInterval) {
+		return new AggregatedFixedDelayRestartStrategyConfiguration(failureMax, delayInterval);
+	}
+
+
+	/**
 	 * Abstract configuration for restart strategies.
 	 */
 	public abstract static class RestartStrategyConfiguration implements Serializable {
@@ -314,6 +326,58 @@ public class RestartStrategies {
 	}
 
 	/**
+	 * Configuration representing a aggregated failure fixed restart strategy.
+	 */
+	public static final class AggregatedFixedDelayRestartStrategyConfiguration extends RestartStrategyConfiguration {
+
+		private static final long serialVersionUID = -96830829851932559L;
+		private final int maxFailure;
+
+		private final Time delayBetweenAttemptsInterval;
+
+		public AggregatedFixedDelayRestartStrategyConfiguration(
+			int maxFailureRate,
+			Time delayBetweenAttemptsInterval) {
+			this.maxFailure = maxFailureRate;
+			this.delayBetweenAttemptsInterval = delayBetweenAttemptsInterval;
+		}
+
+		public int getMaxFailure() {
+			return maxFailure;
+		}
+
+		public Time getDelayBetweenAttemptsInterval() {
+			return delayBetweenAttemptsInterval;
+		}
+
+		@Override
+		public String getDescription() {
+			return String.format(
+				"Aggregated Failure restart with maximum of %d and fixed delay %s.",
+				maxFailure,
+				delayBetweenAttemptsInterval.toString());
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			AggregatedFixedDelayRestartStrategyConfiguration that = (AggregatedFixedDelayRestartStrategyConfiguration) o;
+			return maxFailure == that.maxFailure &&
+				Objects.equals(delayBetweenAttemptsInterval, that.delayBetweenAttemptsInterval);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(maxFailure, delayBetweenAttemptsInterval);
+		}
+	}
+
+	/**
 	 * Restart strategy configuration that could be used by jobs to use cluster level restart
 	 * strategy. Useful especially when one has a custom implementation of restart strategy set via
 	 * flink-conf.yaml.
@@ -381,6 +445,12 @@ public class RestartStrategies {
 						maxAggregatedFailures,
 						Time.milliseconds(aggregatedFailureRateInterval.toMillis()),
 						Time.milliseconds(aggregatedFailureRateDelay.toMillis()));
+			case "aggregated-fixed-delay":
+				int maxAggregatedFixedFailures = configuration.get(RestartStrategyOptions.RESTART_STRATEGY_AGGREGATED_FAILURE_FIXED_MAX_FAILURES);
+				Duration aggregatedFixedFailureRateDelay = configuration.get(RestartStrategyOptions.RESTART_STRATEGY_AGGREGATED_FAILURE_FIXED_DELAY);
+				return aggregatedFailureFixedRestart(
+					maxAggregatedFixedFailures,
+					Time.milliseconds(aggregatedFixedFailureRateDelay.toMillis()));
 			default:
 				throw new IllegalArgumentException("Unknown restart strategy " + restartstrategyKind + ".");
 		}

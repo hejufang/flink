@@ -21,20 +21,26 @@
 common:
 
   ## Fault Tolerance
+  ### Restart-strategy
+  #### Default restart-strategy
   restart-strategy: aggregated-failure-rate
-  restart-strategy.failure-rate.max-failures-per-interval: 100
-  restart-strategy.failure-rate.failure-rate-interval: 40 min
-  restart-strategy.failure-rate.delay: 20 s
-
   restart-strategy.aggregated-failure-rate.max-failures-per-interval: 100
   restart-strategy.aggregated-failure-rate.failure-rate-interval: 40 min
   restart-strategy.aggregated-failure-rate.delay: 20 s
+  #### Default restart-strategy configure for Batch
+  restart-strategy.aggregated-fixed-delay.max-failures: 8
+  restart-strategy.aggregated-fixed-delay.delay: 10 s
+  #### Config for previous default restart-strategy
+  restart-strategy.failure-rate.max-failures-per-interval: 100
+  restart-strategy.failure-rate.failure-rate-interval: 40 min
+  restart-strategy.failure-rate.delay: 20 s
+  #### Config for Recoverable failover
+  restart-strategy.recoverable-failure-rate.fallback-global-restart: true
+  restart-strategy.recoverable-failure-rate.enable: true
+  ### Default failover strategy
   # TODO(zoudan):add region restart monitor
   jobmanager.execution.failover-strategy: region
   jobmanager.execution.status-dutation-ms: 30000
-
-  restart-strategy.recoverable-failure-rate.fallback-global-restart: true
-  restart-strategy.recoverable-failure-rate.enable: true
 
   ## Checkpoints and State Backends
   #  io.tmp.dirs: /opt/tmp/flink
@@ -158,6 +164,7 @@ common:
   bytedance.streaming.slot-pool.round-robin: true
   bytedance.streaming.slot-pool.min-resource.simplify-enabled: true
   bytedance.streaming.register-dashboard.enabled: true
+  bytedance.streaming.restart-strategy: aggregated-failure-rate
 
   # hdfs conf for slow node
   flink.hdfs.dfs.datanode.socket.write.timeout: 30000

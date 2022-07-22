@@ -19,20 +19,25 @@
 common:
   # Common Setup Options
   ## Fault Tolerance
+  ### Restart-strategy
+  #### Default restart-strategy
   restart-strategy: aggregated-failure-rate
-  restart-strategy.failure-rate.max-failures-per-interval: 100
-  restart-strategy.failure-rate.failure-rate-interval: 40 min
-  restart-strategy.failure-rate.delay: 20 s
-
   restart-strategy.aggregated-failure-rate.max-failures-per-interval: 100
   restart-strategy.aggregated-failure-rate.failure-rate-interval: 40 min
   restart-strategy.aggregated-failure-rate.delay: 20 s
-
-  jobmanager.execution.failover-strategy: region
-  jobmanager.execution.status-dutation-ms: 30000
-
+  #### Default restart-strategy configure for Batch
+  restart-strategy.aggregated-fixed-delay.max-failures: 8
+  restart-strategy.aggregated-fixed-delay.delay: 10 s
+  #### Config for previous default restart-strategy
+  restart-strategy.failure-rate.max-failures-per-interval: 100
+  restart-strategy.failure-rate.failure-rate-interval: 40 min
+  restart-strategy.failure-rate.delay: 20 s
+  #### Config for Recoverable failover
   restart-strategy.recoverable-failure-rate.fallback-global-restart: true
   restart-strategy.recoverable-failure-rate.enable: true
+  ### Default failover strategy
+  jobmanager.execution.failover-strategy: region
+  jobmanager.execution.status-dutation-ms: 30000
 
   ## Checkpoints and State Backends
   state.backend: rocksdb
@@ -292,6 +297,7 @@ common:
   bytedance.streaming.slot-pool.min-resource.simplify-enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   bytedance.streaming.register-dashboard.enabled: true
+  bytedance.streaming.restart-strategy: aggregated-failure-rate
 
   # hdfs conf for checkpoint
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
@@ -758,6 +764,7 @@ queen:
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: queen
+  restart-strategy: aggregated-fixed-delay
 
 quire:
   dc: cn
@@ -767,6 +774,7 @@ quire:
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: quire
+  restart-strategy: aggregated-fixed-delay
 
 quark:
   dc: cn
@@ -808,6 +816,7 @@ quetz:
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: quetz
+  restart-strategy: aggregated-fixed-delay
 
 quail:
   dc: cn
@@ -820,6 +829,7 @@ quail:
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: quail
   flink.cloud-shuffle-service.support: true
+  restart-strategy: aggregated-fixed-delay
 
 quoll:
   dc: cn
@@ -832,6 +842,7 @@ quoll:
   blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: quoll
   flink.cloud-shuffle-service.support: true
+  restart-strategy: aggregated-fixed-delay
 
 quoka:
   dc: cn
@@ -856,6 +867,7 @@ quaga:
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   ipv6.supported.cluster: quaga
+  restart-strategy: aggregated-fixed-delay
 
 quele:
   dc: cn
@@ -869,6 +881,7 @@ quele:
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: quele
   flink.cloud-shuffle-service.support: true
+  restart-strategy: aggregated-fixed-delay
 
 panda-lq:
   dc: cn

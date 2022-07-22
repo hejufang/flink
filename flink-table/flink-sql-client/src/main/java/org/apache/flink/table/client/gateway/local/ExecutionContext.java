@@ -20,6 +20,7 @@ package org.apache.flink.table.client.gateway.local;
 
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.AggregatedFailureRateRestartStrategyConfiguration;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies.AggregatedFixedDelayRestartStrategyConfiguration;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.FailureRateRestartStrategyConfiguration;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.FallbackRestartStrategyConfiguration;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.FixedDelayRestartStrategyConfiguration;
@@ -586,6 +587,13 @@ public class ExecutionContext<ClusterID> {
 					Duration.ofMillis(failureRate.getFailureInterval().toMilliseconds()));
 			conf.set(RestartStrategyOptions.RESTART_STRATEGY_AGGREGATED_FAILURE_RATE_DELAY,
 					Duration.ofMillis(failureRate.getDelayBetweenAttemptsInterval().toMilliseconds()));
+		} else if (restartStrategy instanceof AggregatedFixedDelayRestartStrategyConfiguration) {
+			conf.set(RestartStrategyOptions.RESTART_STRATEGY, "aggregated-fixed-delay");
+			AggregatedFixedDelayRestartStrategyConfiguration fixedDelay = (AggregatedFixedDelayRestartStrategyConfiguration) restartStrategy;
+			conf.set(RestartStrategyOptions.RESTART_STRATEGY_AGGREGATED_FAILURE_FIXED_MAX_FAILURES,
+				fixedDelay.getMaxFailure());
+			conf.set(RestartStrategyOptions.RESTART_STRATEGY_AGGREGATED_FAILURE_FIXED_DELAY,
+				Duration.ofMillis(fixedDelay.getDelayBetweenAttemptsInterval().toMilliseconds()));
 		} else if (restartStrategy instanceof FallbackRestartStrategyConfiguration) {
 			// default is FallbackRestartStrategyConfiguration
 			// see ExecutionConfig.restartStrategyConfiguration

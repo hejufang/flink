@@ -62,7 +62,11 @@ public class RestartStrategyOptions {
 					text(
 						"%s: Aggregated Failure rate restart strategy, Similar to the failure-rate, " +
 								"but will aggregate failures in backoff time.",
-						code("aggregated-failure-rate"))
+						code("aggregated-failure-rate")),
+					text(
+						"%s: Aggregated Failure fixed restart strategy, Similar to the fixed-delay, " +
+							"but will aggregate failures in backoff time.",
+						code("aggregated-fixed-delay"))
 				)
 				.text(
 					"If checkpointing is disabled, the default value is %s. " +
@@ -172,6 +176,30 @@ public class RestartStrategyOptions {
 						"It can be specified using notation: \"1 min\", \"20 s\"",
 					code(RESTART_STRATEGY.key()),
 					code("aggregated-failure-rate"))
+				.build());
+
+	public static final ConfigOption<Integer> RESTART_STRATEGY_AGGREGATED_FAILURE_FIXED_MAX_FAILURES = ConfigOptions
+		.key("restart-strategy.aggregated-fixed-delay.max-failures")
+		.defaultValue(8)
+		.withDescription(
+			Description.builder()
+				.text(
+					"Maximum number of restarts before failing a job if %s has been set to %s.",
+					code(RESTART_STRATEGY.key()),
+					code("aggregated-fixed-delay"))
+				.build());
+
+	public static final ConfigOption<Duration> RESTART_STRATEGY_AGGREGATED_FAILURE_FIXED_DELAY = ConfigOptions
+		.key("restart-strategy.aggregated-fixed-delay.delay")
+		.durationType()
+		.defaultValue(Duration.ofSeconds(1))
+		.withDescription(
+			Description.builder()
+				.text(
+					"Delay between two consecutive restart attempts if %s has been set to %s. " +
+						"It can be specified using notation: \"1 min\", \"20 s\"",
+					code(RESTART_STRATEGY.key()),
+					code("aggregated-fixed-delay"))
 				.build());
 
 	public static final ConfigOption<Boolean> RESTART_STRATEGY_RECOVERABL_FAILURE_RATE_ENABLE = ConfigOptions
