@@ -180,7 +180,7 @@ public class JobDeploymentDescriptorHelper {
 		return taskInputGateDeploymentList.isEmpty() ? null : taskInputGateDeploymentList;
 	}
 
-	public static Map<ResourceID, String> getConnectionInfo(ExecutionVertex executionVertex) {
+	public static Map<ResourceID, String> getConnectionInfo(ExecutionVertex executionVertex, boolean useAddressAsHostNameEnable) {
 		final ExecutionGraph executionGraph = executionVertex.getExecutionGraph();
 		final List<ConsumedPartitionGroup> consumedPartitions = executionVertex.getAllConsumedPartitions();
 		final Map<IntermediateResultPartitionID, IntermediateResultPartition> resultPartitionsById = executionGraph.getIntermediateResultPartitionMapping();
@@ -202,8 +202,11 @@ public class JobDeploymentDescriptorHelper {
 				for (ShuffleDescriptor shuffleDescriptor: shuffleDescriptors) {
 					if (!shuffleDescriptor.isUnknown()) {
 						NettyShuffleDescriptor nettyShuffleDescriptor = (NettyShuffleDescriptor) shuffleDescriptor;
+						String hostAddress = useAddressAsHostNameEnable ?
+							nettyShuffleDescriptor.getConnectionId().getAddress().getAddress().getHostAddress()
+							: nettyShuffleDescriptor.getConnectionId().getAddress().getHostName();
 						connectionInfoMap.put(nettyShuffleDescriptor.getProducerLocation(),
-							nettyShuffleDescriptor.getConnectionId().getAddress().getHostName());
+							hostAddress);
 					}
 				}
 			}

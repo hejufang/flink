@@ -44,10 +44,11 @@ public class GatewayJobDeployment {
 	}
 
 	public void addJobVertexDeploymentDescriptor(
-			LogicalSlot slot,
-			JobManagerTaskRestore taskRestore,
-			boolean updateConsumers,
-			Execution execution) throws IOException {
+		LogicalSlot slot,
+		JobManagerTaskRestore taskRestore,
+		boolean updateConsumers,
+		Execution execution,
+		boolean useAddressAsHostNameEnable) throws IOException {
 		executionConsumerEntityList.add(new ExecutionConsumerEntity(execution, updateConsumers));
 		JobVertexDeploymentDescriptor jobVertexDeploymentDescriptor = vertexDeploymentDescriptorMap.get(execution.getVertex().getJobvertexId());
 		if (jobVertexDeploymentDescriptor == null) {
@@ -78,7 +79,7 @@ public class GatewayJobDeployment {
 					execution));
 		}
 
-		jobDeploymentDescriptor.appendConnection(JobDeploymentDescriptorHelper.getConnectionInfo(execution.getVertex()));
+		jobDeploymentDescriptor.appendConnection(JobDeploymentDescriptorHelper.getConnectionInfo(execution.getVertex(), useAddressAsHostNameEnable));
 	}
 
 	public JobDeploymentDescriptor getJobDeploymentDescriptor() {

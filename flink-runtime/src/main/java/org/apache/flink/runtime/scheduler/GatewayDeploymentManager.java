@@ -41,12 +41,14 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class GatewayDeploymentManager {
 	private final boolean optimizedJobDeploymentStructureEnable;
+	private final boolean useAddressAsHostNameEnable;
 	private final Map<ResourceID, TaskManagerGateway> resourceGatewayMap;
 	private final Map<ResourceID, List<GatewayTaskDeployment>> gatewayDeploymentList;
 	private final Map<ResourceID, GatewayJobDeployment> gatewayJobDeployment;
 
-	public GatewayDeploymentManager(boolean optimizedJobDeploymentStructureEnable) {
+	public GatewayDeploymentManager(boolean optimizedJobDeploymentStructureEnable, boolean useAddressAsHostNameEnable) {
 		this.optimizedJobDeploymentStructureEnable = optimizedJobDeploymentStructureEnable;
+		this.useAddressAsHostNameEnable = useAddressAsHostNameEnable;
 		this.resourceGatewayMap = new HashMap<>();
 		this.gatewayDeploymentList = new HashMap<>();
 		this.gatewayJobDeployment = new HashMap<>();
@@ -71,7 +73,7 @@ public class GatewayDeploymentManager {
 		GatewayJobDeployment jobDeployment = gatewayJobDeployment.computeIfAbsent(
 			resourceId,
 			key -> new GatewayJobDeployment(JobDeploymentDescriptor.from(execution.getVertex().getExecutionGraph())));
-		jobDeployment.addJobVertexDeploymentDescriptor(slot, taskRestore, updateConsumer, execution);
+		jobDeployment.addJobVertexDeploymentDescriptor(slot, taskRestore, updateConsumer, execution, useAddressAsHostNameEnable);
 	}
 
 	public Map<ResourceID, List<GatewayTaskDeployment>> getGatewayDeploymentList() {

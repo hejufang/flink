@@ -107,11 +107,11 @@ public class JobDeploymentDescriptorTest extends TestLogger {
 	@Test
 	public void testTaskDeploymentDescriptorEqual() throws Exception {
 		Execution execution = createExecution();
-		GatewayDeploymentManager gatewayDeploymentManager = new GatewayDeploymentManager(true);
+		GatewayDeploymentManager gatewayDeploymentManager = new GatewayDeploymentManager(true, false);
 		execution.deploy(true, gatewayDeploymentManager);
 
 		execution.transitionState(ExecutionState.CREATED);
-		GatewayDeploymentManager gatewayDeploymentManager1 = new GatewayDeploymentManager(false);
+		GatewayDeploymentManager gatewayDeploymentManager1 = new GatewayDeploymentManager(false, false);
 		execution.deploy(true, gatewayDeploymentManager1);
 
 		assertEquals(1, gatewayDeploymentManager.getGatewayJobDeployment().size());
@@ -151,7 +151,7 @@ public class JobDeploymentDescriptorTest extends TestLogger {
 	@Test
 	public void testSerialize() throws Exception {
 		Execution execution = createExecution();
-		GatewayDeploymentManager gatewayDeploymentManager = new GatewayDeploymentManager(true);
+		GatewayDeploymentManager gatewayDeploymentManager = new GatewayDeploymentManager(true, false);
 		execution.deploy(true, gatewayDeploymentManager);
 		JobDeploymentDescriptor jdd =
 			gatewayDeploymentManager.getGatewayJobDeployment().entrySet().iterator().next().getValue().getJobDeploymentDescriptor();

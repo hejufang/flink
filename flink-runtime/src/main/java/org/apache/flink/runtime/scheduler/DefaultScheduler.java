@@ -132,6 +132,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
 	private final boolean optimizedJobDeploymentStructureEnable;
 
+	private final boolean useAddressAsHostNameEnable;
+
 	private final boolean taskSubmitToRunningStatus;
 
 	private final boolean taskScheduledFinishEnable;
@@ -206,6 +208,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			throw new IllegalArgumentException(ClusterOptions.JM_OPTIMIZED_SUBMIT_TASK_STRUCTURE_ENABLED.key() + " can be true only when "
 				+ JobManagerOptions.JOBMANAGER_BATCH_REQUEST_SLOTS_ENABLE.key() + " is true first.");
 		}
+		this.useAddressAsHostNameEnable = jobMasterConfiguration.getBoolean(CoreOptions.USE_ADDRESS_AS_HOSTNAME_ENABLE);
 
 		final FailoverStrategy failoverStrategy = failoverStrategyFactory.create(
 			getSchedulingTopology(),
@@ -592,7 +595,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			}
 
 			if (batchRequestSlotsEnable) {
-				GatewayDeploymentManager gatewayDeploymentManager = new GatewayDeploymentManager(optimizedJobDeploymentStructureEnable);
+				GatewayDeploymentManager gatewayDeploymentManager = new GatewayDeploymentManager(optimizedJobDeploymentStructureEnable, useAddressAsHostNameEnable);
 				for (final DeploymentHandle deploymentHandle : deploymentHandles) {
 					final SlotExecutionVertexAssignment slotExecutionVertexAssignment = deploymentHandle.getSlotExecutionVertexAssignment();
 					final CompletableFuture<LogicalSlot> slotAssigned = slotExecutionVertexAssignment.getLogicalSlotFuture();
