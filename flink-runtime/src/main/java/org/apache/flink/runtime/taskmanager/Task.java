@@ -694,15 +694,14 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 	@Override
 	public boolean isBackPressured() {
-		if (invokable == null || consumableNotifyingPartitionWriters.length == 0 || executionState != ExecutionState.RUNNING) {
+		if (invokable == null || consumableNotifyingPartitionWriters.length == 0 || !isRunning()) {
 			return false;
 		}
-		for (int i = 0; i < consumableNotifyingPartitionWriters.length; ++i) {
-			if (!consumableNotifyingPartitionWriters[i].isAvailable()) {
-				return true;
-			}
+		final CompletableFuture<?>[] outputFutures = new CompletableFuture[consumableNotifyingPartitionWriters.length];
+		for (int i = 0; i < outputFutures.length; ++i) {
+			outputFutures[i] = consumableNotifyingPartitionWriters[i].getAvailableFuture();
 		}
-		return false;
+		return !CompletableFuture.allOf(outputFutures).isDone();
 	}
 
 	// ------------------------------------------------------------------------

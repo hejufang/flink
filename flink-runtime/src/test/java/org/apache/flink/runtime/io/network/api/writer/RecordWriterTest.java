@@ -88,7 +88,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.flink.runtime.io.network.buffer.BufferBuilderTestUtils.buildSingleBuffer;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -507,7 +506,7 @@ public class RecordWriterTest {
 	}
 
 	@Test
-	public void testIdleAndBackPressuredTime() throws IOException, InterruptedException {
+	public void testIdleTime() throws IOException, InterruptedException {
 		// setup
 		final NetworkBufferPool globalPool = new SimpleNetworkBufferPool(10, 128, 2);
 		final BufferPool localPool = globalPool.createBufferPool(1, 1, null, 1, Integer.MAX_VALUE);
@@ -526,8 +525,8 @@ public class RecordWriterTest {
 		ResultSubpartitionView readView = resultPartition.getSubpartition(0).createReadView(new NoOpBufferAvailablityListener());
 		Buffer buffer = readView.getNextBuffer().buffer();
 
-		// back-pressured time is zero when there is buffer available.
-		assertThat(recordWriter.getBackPressuredTimeMsPerSecond().getValue(), equalTo(0L));
+		// idle time is zero when there is buffer available.
+		assertEquals(0, recordWriter.getIdleTimeMsPerSecond().getCount());
 
 		CountDownLatch syncLock = new CountDownLatch(1);
 		AtomicReference<BufferBuilder> asyncRequestResult = new AtomicReference<>();
@@ -554,7 +553,7 @@ public class RecordWriterTest {
 		buffer.recycleBuffer();
 		requestThread.join();
 
-		assertThat(recordWriter.getBackPressuredTimeMsPerSecond().getCount(), Matchers.greaterThan(0L));
+		assertThat(recordWriter.getIdleTimeMsPerSecond().getCount(), Matchers.greaterThan(0L));
 		assertNotNull(asyncRequestResult.get());
 	}
 

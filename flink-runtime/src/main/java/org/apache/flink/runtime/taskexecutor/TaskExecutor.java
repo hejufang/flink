@@ -1158,7 +1158,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	}
 
 	private void taskStart(TaskInformation taskInformation, JobID jobId, ExecutionAttemptID executionAttemptID, TaskMetricGroup taskMetricGroup, TaskManagerActions taskManagerActions, List<ResultPartitionDeploymentDescriptor> producedPartitions, Task task) throws TaskSubmissionException {
-		taskMetricGroup.gauge(MetricNames.IS_BACK_PRESSURED, task::isBackPressured);
+		taskMetricGroup.gauge(MetricNames.IS_BACKPRESSURED, task::isBackPressured);
 
 		if (taskManagerConfiguration.isJobLogDetailDisable()) {
 			log.debug("Received task {}.", task.getTaskInfo().getTaskNameWithSubtasks());

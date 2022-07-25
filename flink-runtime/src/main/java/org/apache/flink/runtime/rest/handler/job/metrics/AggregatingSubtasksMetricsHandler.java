@@ -72,7 +72,7 @@ public class AggregatingSubtasksMetricsHandler extends AbstractAggregatingMetric
 		if (subtaskRanges.isEmpty()) {
 			MetricStore.TaskMetricStore taskMetricStore = store.getTaskMetricStore(jobID.toString(), taskID.toString());
 			if (taskMetricStore != null) {
-				return taskMetricStore.getAllSubtaskMetricStores().values();
+				return taskMetricStore.getAllSubtaskMetricStores();
 			} else {
 				return Collections.emptyList();
 			}

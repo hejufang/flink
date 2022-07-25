@@ -27,6 +27,4 @@ export interface JobBackpressureSubtaskInterface {
   subtask: number;
   'backpressure-level': string;
   ratio: number;
-  idleRatio: number;
-  busyRatio: number;
 }

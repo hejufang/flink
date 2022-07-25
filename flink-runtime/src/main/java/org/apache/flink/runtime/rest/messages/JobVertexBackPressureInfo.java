@@ -129,9 +129,7 @@ public class JobVertexBackPressureInfo implements ResponseBody {
 
 		public static final String FIELD_NAME_SUBTASK = "subtask";
 		public static final String FIELD_NAME_BACKPRESSURE_LEVEL = "backpressure-level";
-		public static final String FIELD_NAME_BACK_PRESSURED_RATIO = "ratio";
-		public static final String FIELD_NAME_IDLE_RATIO = "idleRatio";
-		public static final String FIELD_NAME_BUSY_RATIO = "busyRatio";
+		public static final String FIELD_NAME_RATIO = "ratio";
 
 		@JsonProperty(FIELD_NAME_SUBTASK)
 		private final int subtask;
@@ -139,27 +137,16 @@ public class JobVertexBackPressureInfo implements ResponseBody {
 		@JsonProperty(FIELD_NAME_BACKPRESSURE_LEVEL)
 		private final VertexBackPressureLevel backpressureLevel;
 
-		@JsonProperty(FIELD_NAME_BACK_PRESSURED_RATIO)
-		private final double backPressuredRatio;
-
-		@JsonProperty(FIELD_NAME_IDLE_RATIO)
-		private final double idleRatio;
-
-		@JsonProperty(FIELD_NAME_BUSY_RATIO)
-		private final double busyRatio;
+		@JsonProperty(FIELD_NAME_RATIO)
+		private final double ratio;
 
 		public SubtaskBackPressureInfo(
 			@JsonProperty(FIELD_NAME_SUBTASK) int subtask,
-			@JsonProperty(FIELD_NAME_BACKPRESSURE_LEVEL)
-			VertexBackPressureLevel backpressureLevel,
-			@JsonProperty(FIELD_NAME_BACK_PRESSURED_RATIO) double backPressuredRatio,
-			@JsonProperty(FIELD_NAME_IDLE_RATIO) double idleRatio,
-			@JsonProperty(FIELD_NAME_BUSY_RATIO) double busyRatio) {
+			@JsonProperty(FIELD_NAME_BACKPRESSURE_LEVEL) VertexBackPressureLevel backpressureLevel,
+			@JsonProperty(FIELD_NAME_RATIO) double ratio) {
 			this.subtask = subtask;
 			this.backpressureLevel = checkNotNull(backpressureLevel);
-			this.backPressuredRatio = backPressuredRatio;
-			this.idleRatio = idleRatio;
-			this.busyRatio = busyRatio;
+			this.ratio = ratio;
 		}
 
 		@Override
@@ -171,16 +158,14 @@ public class JobVertexBackPressureInfo implements ResponseBody {
 				return false;
 			}
 			SubtaskBackPressureInfo that = (SubtaskBackPressureInfo) o;
-			return subtask == that.subtask
-				&& backPressuredRatio == that.backPressuredRatio
-				&& idleRatio == that.idleRatio
-				&& busyRatio == that.busyRatio
-				&& Objects.equals(backpressureLevel, that.backpressureLevel);
+			return subtask == that.subtask &&
+				ratio == that.ratio &&
+				Objects.equals(backpressureLevel, that.backpressureLevel);
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(subtask, backpressureLevel, backPressuredRatio, idleRatio, busyRatio);
+			return Objects.hash(subtask, backpressureLevel, ratio);
 		}
 
 		public int getSubtask() {
@@ -191,16 +176,8 @@ public class JobVertexBackPressureInfo implements ResponseBody {
 			return backpressureLevel;
 		}
 
-		public double getBackPressuredRatio() {
-			return backPressuredRatio;
-		}
-
-		public double getIdleRatio() {
-			return idleRatio;
-		}
-
-		public double getBusyRatio() {
-			return busyRatio;
+		public double getRatio() {
+			return ratio;
 		}
 	}
 

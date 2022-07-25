@@ -48,9 +48,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.metrics.MetricNames;
-import org.apache.flink.runtime.metrics.TimerGauge;
 import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
-import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
@@ -114,7 +112,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE;
-import static org.apache.flink.runtime.concurrent.FutureUtils.assertNoException;
 
 /**
  * Base class for all streaming tasks. A task is the unit of local processing that is deployed
@@ -317,6 +314,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		this.recordWriter = createRecordWriterDelegate(configuration, environment);
 		this.actionExecutor = Preconditions.checkNotNull(actionExecutor);
 		this.mailboxProcessor = new MailboxProcessor(this::processInput, mailbox, actionExecutor);
+		this.mailboxProcessor.initMetric(environment.getMetricGroup());
 		this.mainMailboxExecutor = mailboxProcessor.getMainMailboxExecutor();
 		this.cacheManager = environment.getCacheManager();
 
@@ -359,8 +357,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			this.timerService = null;
 			this.channelIOExecutor = null;
 		}
-
-		environment.getMetricGroup().getIOMetricGroup().setEnableBusyTime(true);
 	}
 
 	private CompletableFuture<Void> prepareInputSnapshot(ChannelStateWriter channelStateWriter, long checkpointId) throws IOException {
@@ -410,18 +406,26 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			controller.allActionsCompleted();
 			return;
 		}
-		TaskIOMetricGroup ioMetrics = getEnvironment().getMetricGroup().getIOMetricGroup();
-		TimerGauge timer;
-		CompletableFuture<?> resumeFuture;
-		if (!recordWriter.isAvailable()) {
-			timer = ioMetrics.getBackPressuredTimePerSecond();
-			resumeFuture = recordWriter.getAvailableFuture();
+		CompletableFuture<?> jointFuture = getInputOutputJointFuture(status);
+		MailboxDefaultAction.Suspension suspendedDefaultAction = controller.suspendDefaultAction();
+		jointFuture.thenRun(suspendedDefaultAction::resume);
+	}
+
+	/**
+	 * Considers three scenarios to combine input and output futures:
+	 * 1. Both input and output are unavailable.
+	 * 2. Only input is unavailable.
+	 * 3. Only output is unavailable.
+	 */
+	@VisibleForTesting
+	CompletableFuture<?> getInputOutputJointFuture(InputStatus status) {
+		if (status == InputStatus.NOTHING_AVAILABLE && !recordWriter.isAvailable()) {
+			return CompletableFuture.allOf(inputProcessor.getAvailableFuture(), recordWriter.getAvailableFuture());
+		} else if (status == InputStatus.NOTHING_AVAILABLE) {
+			return inputProcessor.getAvailableFuture();
 		} else {
-			timer = ioMetrics.getIdleTimeMsPerSecond();
-			resumeFuture = inputProcessor.getAvailableFuture();
+			return recordWriter.getAvailableFuture();
 		}
-		assertNoException(
-			resumeFuture.thenRun(new ResumeWrapper(controller.suspendDefaultAction(), timer)));
 	}
 
 	private void resetSynchronousSavepointId() {
@@ -1381,22 +1385,5 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	protected long getAsyncCheckpointStartDelayNanos() {
 		return latestAsyncCheckpointStartDelayNanos;
-	}
-
-	private static class ResumeWrapper implements Runnable {
-		private final MailboxDefaultAction.Suspension suspendedDefaultAction;
-		private final TimerGauge timer;
-
-		public ResumeWrapper(MailboxDefaultAction.Suspension suspendedDefaultAction, TimerGauge timer) {
-			this.suspendedDefaultAction = suspendedDefaultAction;
-			timer.markStart();
-			this.timer = timer;
-		}
-
-		@Override
-		public void run() {
-			timer.markEnd();
-			suspendedDefaultAction.resume();
-		}
 	}
 }
