@@ -121,6 +121,8 @@ public class FlinkUserCodeClassLoaders {
 			List<URL> totalUrls = new ArrayList<>(Arrays.asList(urls));
 			totalUrls.addAll(externalPlugins);
 			return totalUrls.toArray(new URL[0]);
+		} else {
+			LOG.info("External plugins is empty.");
 		}
 		return urls;
 	}

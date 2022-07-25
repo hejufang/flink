@@ -1064,12 +1064,12 @@ public class CliFrontend {
 	private int verifyCheckpoint(Configuration effectiveConfiguration, CheckpointOptions checkpointOptions) {
 		PackagedProgram program = null;
 		try {
-			LOG.info("Building ghost program from JAR file");
-			program = buildGhostProgram(checkpointOptions);
-
 			effectiveConfiguration.set(RUN_WITH_CHECKPOINT_VERIFY, true);
 			effectiveConfiguration.set(CoreOptions.DEFAULT_PARALLELISM, checkpointOptions.getParallelism());
 			effectiveConfiguration.set(CheckpointingOptions.CLIENT_CHECKPOINT_VERIFICATION_ENABLE, true);
+
+			LOG.info("Building ghost program from JAR file");
+			program = buildGhostProgram(checkpointOptions, effectiveConfiguration);
 
 			if (CheckpointVerifier.beforeVerify(program.getUserCodeClassLoader(), effectiveConfiguration)) {
 				executeProgram(effectiveConfiguration, program);
@@ -1169,7 +1169,7 @@ public class CliFrontend {
 	 *
 	 * @return A PackagedProgram (upon success)
 	 */
-	PackagedProgram buildGhostProgram(final CheckpointOptions checkpointOptions) throws FileNotFoundException, ProgramInvocationException {
+	PackagedProgram buildGhostProgram(final CheckpointOptions checkpointOptions, final Configuration configuration) throws FileNotFoundException, ProgramInvocationException {
 		String jarFilePath = checkpointOptions.getJarFilePath();
 
 		// Get assembler class
@@ -1178,6 +1178,7 @@ public class CliFrontend {
 
 		return PackagedProgram.newBuilder()
 			.setJarFile(jarFile)
+			.setConfiguration(configuration)
 			.setEntryPointClassName(entryPointClass)
 			.setArguments(checkpointOptions.getProgramArgs())
 			.build();

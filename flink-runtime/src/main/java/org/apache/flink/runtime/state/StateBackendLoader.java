@@ -38,6 +38,7 @@ import org.apache.flink.util.FlinkUserCodeClassLoader;
 import org.apache.flink.util.StringUtils;
 
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -61,6 +62,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * This class contains utility methods to load state backends from configurations.
  */
 public class StateBackendLoader {
+	private static final Logger LOG = LoggerFactory.getLogger(StateBackendLoader.class);
 
 	// ------------------------------------------------------------------------
 	//  Configuration shortcut names
@@ -301,6 +303,7 @@ public class StateBackendLoader {
 				Set<String> plugins = Arrays.stream(pluginsString.split(";"))
 					.map(String::toLowerCase)
 					.collect(Collectors.toSet());
+				LOG.info("find plugins from {}", pluginConfig.getPluginsPath().get());
 				Collection<PluginDescriptor> pluginDescriptors = new DirectoryBasedPluginFinder(pluginConfig.getPluginsPath().get()).findPlugins();
 				return pluginDescriptors.stream()
 					.filter(p -> plugins.contains(p.getPluginId().toLowerCase()))
