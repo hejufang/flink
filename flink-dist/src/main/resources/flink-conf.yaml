@@ -544,6 +544,16 @@ panda-lf:
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: panda-lf
 
+ies-lf:
+  dc: cn
+  clusterName: ies-lf
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:101:b149:6a76:e7ca:8457:2181,fdbd:dc01:ff:101:7431:239f:55f1:adae:2181,fdbd:dc01:ff:101:1aa8:4797:ae42:138f:2181,fdbd:dc01:ff:101:4e13:3e17:a524:cdb4:2181,fdbd:dc01:ff:101:acde:a044:99cc:d7f4:2181
+  hdfs.prefix: hdfs://haruna/flink_lf
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: ies-lf
+
 brain-hl:
   dc: cn
   clusterName: brain-hl
@@ -563,6 +573,16 @@ panda-hl:
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: panda-hl
   ipv6.enabled: true
+
+ies-hl:
+  dc: cn
+  clusterName: ies-hl
+  high-availability.zookeeper.quorum: fdbd:dc02:ff:2:1:174:65:46:2181,fdbd:dc02:ff:2:1:174:65:56:2181,fdbd:dc02:ff:2:1:174:118:41:2181,fdbd:dc02:ff:2:1:174:94:65:2181,fdbd:dc02:ff:2:1:174:120:50:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: ies-hl
 
 wj:
   dc: cn
@@ -933,6 +953,16 @@ panda-lq:
   ipv6.supported.cluster: panda-lq
   ipv6.enabled: true
   flink.cloud-shuffle-service.support: true
+
+ies-lq:
+  dc: cn
+  clusterName: ies-lq
+  high-availability.zookeeper.quorum: fdbd:dc03:ff:f2:1::13:2181,fdbd:dc03:ff:f2:1::f:2181,fdbd:dc03:ff:f2:1::2:2181,fdbd:dc03:ff:f2:1::4:2181,fdbd:dc03:ff:f2:1::12:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: ies-lq
 
 yakow:
   dc: cn
