@@ -17,11 +17,15 @@
 
 package com.bytedance.flink.utils;
 
+import org.apache.flink.util.StringUtils;
+
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,29 +39,46 @@ public class KafkaUtils {
 
 	private static Map<String, KafkaProducer> kafkaProducerMap = new HashMap<>();
 
-	private static Properties getKafkaClusterProperties(String cluster) {
+	private static Properties getKafkaClusterProperties(String cluster, String bootstrapServers) {
 		Properties properties = new Properties();
-		properties.put(ProducerConfig.CLUSTER_NAME_CONFIG, cluster);
+		if (!StringUtils.isNullOrWhitespaceOnly(bootstrapServers)) {
+			LOG.info("use bootstrapServers");
+			properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, Arrays.asList(bootstrapServers.split(",")));
+			properties.put(CommonClientConfigs.ENABLE_DEFAULT_CONFIG_CLIENT, true);
+		} else if (cluster != null){
+			LOG.info("use cluster");
+			properties.put(ProducerConfig.CLUSTER_NAME_CONFIG, cluster);
+		}
 		properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
 		properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
 		return properties;
 	}
 
-	public static int getPartitionNum(String cluster, String topic) {
+	public static int getPartitionNum(String cluster, String topic, String bootstrapServers) {
 		int maxRetryTimes = 3;
 		int partitions = -1;
 		for (int i = 0; i < maxRetryTimes; i++) {
 			try {
-				KafkaProducer producer = kafkaProducerMap.get(cluster);
-				if (cluster == null || topic == null) {
-					throw new RuntimeException("Cluster or topic can't be NULL.");
+				KafkaProducer producer = null;
+				if (StringUtils.isNullOrWhitespaceOnly(cluster) && !StringUtils.isNullOrWhitespaceOnly(bootstrapServers)) {
+					producer = kafkaProducerMap.get(bootstrapServers);
+				} else if (!StringUtils.isNullOrWhitespaceOnly(cluster)) {
+					producer = kafkaProducerMap.get(cluster);
+				}
+				if ((StringUtils.isNullOrWhitespaceOnly(cluster) && StringUtils.isNullOrWhitespaceOnly(bootstrapServers))
+					|| topic == null) {
+					throw new RuntimeException("Cluster/BootStrapServers or topic can't be NULL.");
 				}
 
 				if (producer == null) {
-					Properties properties = getKafkaClusterProperties(cluster);
+					Properties properties = getKafkaClusterProperties(cluster, bootstrapServers);
 					properties.setProperty("request.timeout.ms", "100000");
 					producer = new KafkaProducer(properties);
-					kafkaProducerMap.put(cluster, producer);
+					if (StringUtils.isNullOrWhitespaceOnly(cluster) && !StringUtils.isNullOrWhitespaceOnly(bootstrapServers)) {
+						kafkaProducerMap.put(bootstrapServers, producer);
+					} else if (!StringUtils.isNullOrWhitespaceOnly(cluster)) {
+						kafkaProducerMap.put(cluster, producer);
+					}
 				}
 
 				List partitionInfoList = producer.partitionsFor(topic);

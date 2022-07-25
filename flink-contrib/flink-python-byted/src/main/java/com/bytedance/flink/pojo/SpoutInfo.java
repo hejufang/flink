@@ -17,6 +17,8 @@
 
 package com.bytedance.flink.pojo;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +46,8 @@ public class SpoutInfo implements Serializable {
 	private Map<String, Object> args;
 	private String slotShareGroup;
 	private String consumerGroup;
+	@Nullable
+	private String bootstrapServers;
 
 	public SpoutInfo() {
 	}
@@ -198,6 +202,14 @@ public class SpoutInfo implements Serializable {
 
 	public void setConsumerGroup(String consumerGroup) {
 		this.consumerGroup = consumerGroup;
+	}
+
+	public String getBootstrapServers() {
+		return bootstrapServers;
+	}
+
+	public void setBootstrapServers(String bootstrapServers) {
+		this.bootstrapServers = bootstrapServers;
 	}
 
 	@Override
