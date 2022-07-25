@@ -469,7 +469,7 @@ public class CepOperator<IN, KEY, OUT>
 	private void advanceTime(NFAState nfaState, long timestamp) throws Exception {
 		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.getAccessor()) {
 			Collection<Tuple2<Map<String, List<IN>>, Long>> timedOut =
-					nfa.advanceTime(sharedBufferAccessor, nfaState, timestamp);
+					nfa.advanceTime(sharedBufferAccessor, nfaState, timestamp).f1;
 			if (!timedOut.isEmpty()) {
 				processTimedOutSequences(timedOut);
 			}

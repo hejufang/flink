@@ -105,7 +105,7 @@ public class NFAITCase extends TestLogger {
 		NFATestHarness nfaTestHarness = NFATestHarness.forNFA(nfa).withNFAState(nfaState).withSharedBuffer(sharedBuffer).build();
 
 		nfaTestHarness.feedRecord(new StreamRecord<>(new Event(1, "a", 1.0), 1));
-		Collection<Map<String, List<Event>>> output = nfa.pendingStateMatches(sharedBufferAccessor, nfaState, 12);
+		Collection<Map<String, List<Event>>> output = nfa.advanceTime(sharedBufferAccessor, nfaState, 12).f0;
 
 		assertEquals(1, nfaState.getPartialMatches().size());
 		assertEquals("start", nfaState.getPartialMatches().poll().getCurrentStateName());
@@ -451,7 +451,7 @@ public class NFAITCase extends TestLogger {
 		for (StreamRecord<Event> event: events) {
 
 			Collection<Tuple2<Map<String, List<Event>>, Long>> timeoutPatterns =
-				nfa.advanceTime(sharedBufferAccessor, nfaState, event.getTimestamp());
+				nfa.advanceTime(sharedBufferAccessor, nfaState, event.getTimestamp()).f1;
 			Collection<Map<String, List<Event>>> matchedPatterns =
 				nfa.process(sharedBufferAccessor,
 					nfaState,

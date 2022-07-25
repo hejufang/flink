@@ -303,19 +303,44 @@ public class NFA<T> {
 		}
 	}
 
-	public Collection<Map<String, List<T>>> pendingStateMatches(
+	/**
+	 * Prunes states assuming there will be no events with timestamp <b>lower</b> than the given one.
+	 * It clears the sharedBuffer and also emits all timed out partial matches.
+	 *
+	 * @param sharedBufferAccessor the accessor to SharedBuffer object that we need to work upon while processing
+	 * @param nfaState     The NFAState object that we need to affect while processing
+	 * @param timestamp    timestamp that indicates that there will be no more events with lower timestamp
+     * @return An tuple of pendingMatches and timeoutResults.
+	 * @throws Exception Thrown if the system cannot access the state.
+	 */
+	public Tuple2<Collection<Map<String, List<T>>>, Collection<Tuple2<Map<String, List<T>>, Long>>> advanceTime(
 			final SharedBufferAccessor<T> sharedBufferAccessor,
 			final NFAState nfaState,
 			final long timestamp) throws Exception {
+
+		final Collection<Tuple2<Map<String, List<T>>, Long>> timeoutResult = new ArrayList<>();
 		final Collection<Map<String, List<T>>> pendingMatches = new ArrayList<>();
+
 		final PriorityQueue<ComputationState> newPartialMatches = new PriorityQueue<>(NFAState.COMPUTATION_STATE_COMPARATOR);
 
 		for (ComputationState computationState : nfaState.getPartialMatches()) {
-			if (isStateTimedOut(computationState, timestamp) && getState(computationState).isPending()) {
-				Map<String, List<T>> pendingPattern = sharedBufferAccessor.materializeMatch(extractCurrentMatches(
+			if (isStateTimedOut(computationState, timestamp)) {
+
+				if (getState(computationState).isPending()) {
+
+					Map<String, List<T>> pendingPattern = sharedBufferAccessor.materializeMatch(extractCurrentMatches(
+							sharedBufferAccessor,
+							computationState));
+					pendingMatches.add(pendingPattern);
+
+				} else if (handleTimeout) {
+					// extract the timed out event pattern
+
+					Map<String, List<T>> timedOutPattern = sharedBufferAccessor.materializeMatch(extractCurrentMatches(
 						sharedBufferAccessor,
 						computationState));
-				pendingMatches.add(pendingPattern);
+					timeoutResult.add(Tuple2.of(timedOutPattern, computationState.getStartTimestamp() + windowTime));
+				}
 
 				sharedBufferAccessor.releaseNode(computationState.getPreviousBufferEntry());
 				sharedBufferAccessor.removeAccumulator(computationState);
@@ -334,51 +359,7 @@ public class NFA<T> {
 
 		sharedBufferAccessor.advanceTime(timestamp);
 
-		return pendingMatches;
-	}
-
-	/**
-	 * Prunes states assuming there will be no events with timestamp <b>lower</b> than the given one.
-	 * It clears the sharedBuffer and also emits all timed out partial matches.
-	 *
-	 * @param sharedBufferAccessor the accessor to SharedBuffer object that we need to work upon while processing
-	 * @param nfaState     The NFAState object that we need to affect while processing
-	 * @param timestamp    timestamp that indicates that there will be no more events with lower timestamp
-	 * @return all timed outed partial matches
-	 * @throws Exception Thrown if the system cannot access the state.
-	 */
-	public Collection<Tuple2<Map<String, List<T>>, Long>> advanceTime(
-			final SharedBufferAccessor<T> sharedBufferAccessor,
-			final NFAState nfaState,
-			final long timestamp) throws Exception {
-
-		final Collection<Tuple2<Map<String, List<T>>, Long>> timeoutResult = new ArrayList<>();
-		final PriorityQueue<ComputationState> newPartialMatches = new PriorityQueue<>(NFAState.COMPUTATION_STATE_COMPARATOR);
-
-		for (ComputationState computationState : nfaState.getPartialMatches()) {
-			if (isStateTimedOut(computationState, timestamp)) {
-				if (handleTimeout) {
-					// extract the timed out event pattern
-					Map<String, List<T>> timedOutPattern = sharedBufferAccessor.materializeMatch(extractCurrentMatches(
-						sharedBufferAccessor,
-						computationState));
-					timeoutResult.add(Tuple2.of(timedOutPattern, computationState.getStartTimestamp() + windowTime));
-				}
-
-				sharedBufferAccessor.releaseNode(computationState.getPreviousBufferEntry());
-				sharedBufferAccessor.removeAccumulator(computationState);
-
-				nfaState.setStateChanged();
-			} else {
-				newPartialMatches.add(computationState);
-			}
-		}
-
-		nfaState.setNewPartialMatches(newPartialMatches);
-
-		sharedBufferAccessor.advanceTime(timestamp);
-
-		return timeoutResult;
+		return Tuple2.of(pendingMatches, timeoutResult);
 	}
 
 	private boolean isStateTimedOut(final ComputationState state, final long timestamp) {

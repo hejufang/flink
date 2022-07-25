@@ -703,14 +703,18 @@ public class CoCepOperator<IN, KEY, OUT>
 		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.get(nfaState.getPatternId()).getAccessor()) {
 			// output pending states matches
 			sharedBufferAccessor.setCurrentNamespace(nfaState.getPatternId());
-			Collection<Map<String, List<IN>>> pendingMatches = usingNFAs.get(nfaState.getPatternId()).pendingStateMatches(sharedBufferAccessor, nfaState, timestamp);
+
+			// output timeout patterns
+			Tuple2<Collection<Map<String, List<IN>>>, Collection<Tuple2<Map<String, List<IN>>, Long>>> pendingMatchesAndTimeout =
+				usingNFAs.get(nfaState.getPatternId()).advanceTime(sharedBufferAccessor, nfaState, timestamp);
+
+			Collection<Map<String, List<IN>>> pendingMatches = pendingMatchesAndTimeout.f0;
+			Collection<Tuple2<Map<String, List<IN>>, Long>> timedOut = pendingMatchesAndTimeout.f1;
+
 			if (!pendingMatches.isEmpty()) {
 				processMatchedSequences(nfaState.getPatternId(), pendingMatches, timestamp);
 			}
 
-			// output timeout patterns
-			Collection<Tuple2<Map<String, List<IN>>, Long>> timedOut =
-					usingNFAs.get(nfaState.getPatternId()).advanceTime(sharedBufferAccessor, nfaState, timestamp);
 			if (!timedOut.isEmpty()) {
 				this.numTimeOutSequences.inc();
 				processTimedOutSequences(nfaState.getPatternId(), timedOut);
