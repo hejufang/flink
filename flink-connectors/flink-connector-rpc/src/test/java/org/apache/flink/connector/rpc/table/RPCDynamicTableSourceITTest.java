@@ -33,10 +33,13 @@ import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.planner.factories.TestValuesTableFactory;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import org.junit.Before;
 import org.junit.ComparisonFailure;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
@@ -56,6 +59,9 @@ public class RPCDynamicTableSourceITTest {
 	private final Base commonBase = new Base("", "test", "", "");
 	private Field baseField;
 	private Field logIDField;
+
+	@Rule
+	public ExpectedException thrown = ExpectedException.none();
 
 	private static DataStream<Tuple4<Integer, Long, String, Timestamp>> get4TupleDataStream(StreamExecutionEnvironment env) {
 		List<Tuple4<Integer, Long, String, Timestamp>> data = new ArrayList<>();
@@ -444,6 +450,32 @@ public class RPCDynamicTableSourceITTest {
 		assertEquals(expectedOutput, TestValuesTableFactory.getResults("print_sink"));
 	}
 
+	@Test
+	public void testMethodNotFound() {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		EnvironmentSettings envSettings = EnvironmentSettings.newInstance()
+			.useBlinkPlanner()
+			.inStreamingMode()
+			.build();
+		env.getConfig().setParallelism(1);
+		StreamTableEnvironment tEnv = StreamTableEnvironment.create(env, envSettings);
+		tEnv.getConfig().getConfiguration()
+			.setString("table.exec.resource.default-parallelism", "1");
+		thrown.expect(FlinkRuntimeException.class);
+		thrown.expectMessage("Service method TestFunc2 not found.");
+		tEnv.sql("CREATE TABLE rpc_table\n" +
+			"        WITH(\n" +
+			"            'connector' = 'rpc',\n" +
+			"            'psm' = 'test',\n" +
+			"            'cluster' = 'default',\n" +
+			"            'consul' = 'test',\n" +
+			"            'service-client-impl.class' = 'org.apache.flink.connector.rpc.thrift.client.RPCServiceClientMock',\n" +
+			"            'thrift.service-class' = 'org.apache.flink.connector.rpc.thrift.generated.TestService',\n" +
+			"            'thrift.method' = 'TestFunc2'\n" +
+			"        );\n"
+		);
+	}
 
 	/**
 	 * Used to compare requests. Note that non-deterministic fields like generated logID will be ignored.

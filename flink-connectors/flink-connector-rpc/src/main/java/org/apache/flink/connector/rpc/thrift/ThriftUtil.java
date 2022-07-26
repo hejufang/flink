@@ -72,6 +72,8 @@ public class ThriftUtil {
 		}
 		if (params.length == 1) {
 			parameterClass = params[0].getType();
+		} else if (params.length == 0) {
+			throw new FlinkRuntimeException(String.format("Service method %s not found.", methodName));
 		} else {
 			throw new FlinkRuntimeException("Service method should have only one parameter.");
 		}
