@@ -398,6 +398,7 @@ dw:
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: dw
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
+  metrics.latency.interval: 10000
 
 lepad:
   dc: cn
