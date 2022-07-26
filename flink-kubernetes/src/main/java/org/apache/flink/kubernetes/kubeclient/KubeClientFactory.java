@@ -92,7 +92,7 @@ public class KubeClientFactory {
 				client,
 				() -> KubeClientFactory.createThreadPoolForAsyncIO(poolSize));
 		} else {
-			flinkKubeClient = new Fabric8FlinkKubeClient(
+			flinkKubeClient = new NativeFlinkKubeClient(
 				flinkConfig,
 				client,
 				() -> KubeClientFactory.createThreadPoolForAsyncIO(poolSize));

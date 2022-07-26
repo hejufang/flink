@@ -30,8 +30,8 @@ import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesResourceManagerConfiguration;
 import org.apache.flink.kubernetes.entrypoint.KubernetesWorkerResourceSpecFactory;
-import org.apache.flink.kubernetes.kubeclient.Fabric8FlinkKubeClient;
 import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
+import org.apache.flink.kubernetes.kubeclient.NativeFlinkKubeClient;
 import org.apache.flink.kubernetes.kubeclient.factory.KubernetesTaskManagerFactory;
 import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesTaskManagerParameters;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesPod;
@@ -1118,7 +1118,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 			AtomicInteger retries,
 			OneShotLatch podCreated) {
 		ExecutorService kubeClientExecutorService = Executors.newDirectExecutorService();
-		return new Fabric8FlinkKubeClient(flinkConfig, kubeClient, () -> kubeClientExecutorService) {
+		return new NativeFlinkKubeClient(flinkConfig, kubeClient, () -> kubeClientExecutorService) {
 			@Override
 			public CompletableFuture<Void> createTaskManagerPod(KubernetesPod kubernetesPod) {
 				if (retries.getAndIncrement() < numberOfRetries) {
@@ -1133,7 +1133,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	private FlinkKubeClient createTestingFlinkKubeClientCompleteCreateTaskManagerPodFutureOnTriggered(
 			CompletableFuture<Void> trigger) {
 		ExecutorService kubeClientExecutorService = Executors.newDirectExecutorService();
-		return new Fabric8FlinkKubeClient(flinkConfig, kubeClient, () -> kubeClientExecutorService) {
+		return new NativeFlinkKubeClient(flinkConfig, kubeClient, () -> kubeClientExecutorService) {
 			@Override
 			public CompletableFuture<Void> createTaskManagerPod(KubernetesPod kubernetesPod) {
 				return super.createTaskManagerPod(kubernetesPod).runAfterBoth(trigger, () -> {});

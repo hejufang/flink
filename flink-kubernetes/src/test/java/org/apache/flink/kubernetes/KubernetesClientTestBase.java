@@ -200,4 +200,12 @@ public class KubernetesClientTestBase extends KubernetesTestBase {
 
 		return serviceBuilder.build();
 	}
+
+	protected void mockGetDeploymentWithError() {
+		final String path =
+				String.format(
+						"/apis/apps/v1/namespaces/%s/deployments/%s",
+						NAMESPACE, KubernetesTestBase.CLUSTER_ID);
+		server.expect().get().withPath(path).andReturn(500, "Expected error").always();
+	}
 }

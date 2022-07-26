@@ -24,8 +24,8 @@ import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.core.testutils.CommonTestUtils;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
-import org.apache.flink.kubernetes.kubeclient.Fabric8FlinkKubeClient;
 import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
+import org.apache.flink.kubernetes.kubeclient.NativeFlinkKubeClient;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.concurrent.Executors;
@@ -96,7 +96,7 @@ public class KubernetesTestBase extends TestLogger {
 		writeFlinkConfiguration();
 
 		kubeClient = server.getClient().inNamespace(NAMESPACE);
-		flinkKubeClient = new Fabric8FlinkKubeClient(flinkConfig, kubeClient, Executors::newDirectExecutorService);
+		flinkKubeClient = new NativeFlinkKubeClient(flinkConfig, kubeClient, Executors::newDirectExecutorService);
 
 		onSetup();
 	}

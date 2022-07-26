@@ -172,13 +172,7 @@ public class Fabric8FlinkKubeClientTest extends KubernetesClientTestBase {
 	public void testCreateFlinkTaskManagerPod() throws Exception {
 		this.flinkKubeClient.createJobManagerComponent(this.kubernetesJobManagerSpecification);
 
-		final KubernetesPod kubernetesPod = new KubernetesPod(new PodBuilder()
-			.editOrNewMetadata()
-			.withName("mock-task-manager-pod")
-			.endMetadata()
-			.editOrNewSpec()
-			.endSpec()
-			.build());
+		final KubernetesPod kubernetesPod = buildKubernetesPod("mock-task-manager-pod");
 		this.flinkKubeClient.createTaskManagerPod(kubernetesPod).get();
 
 		final Pod resultTaskManagerPod =
@@ -187,6 +181,31 @@ public class Fabric8FlinkKubeClientTest extends KubernetesClientTestBase {
 		assertEquals(
 			this.kubeClient.apps().deployments().inNamespace(NAMESPACE).list().getItems().get(0).getMetadata().getUid(),
 			resultTaskManagerPod.getMetadata().getOwnerReferences().get(0).getUid());
+	}
+
+	@Test
+	public void testCreateTwoTaskManagerPods() throws Exception {
+		flinkKubeClient.createJobManagerComponent(this.kubernetesJobManagerSpecification);
+		flinkKubeClient.createTaskManagerPod(buildKubernetesPod("mock-task-manager-pod1")).get();
+		mockGetDeploymentWithError();
+		try {
+			flinkKubeClient
+					.createTaskManagerPod(buildKubernetesPod("mock-task-manager-pod2"))
+					.get();
+		} catch (Exception e) {
+			fail("should only get the master deployment once");
+		}
+	}
+
+	private KubernetesPod buildKubernetesPod(String name) {
+		return new KubernetesPod(
+				new PodBuilder()
+						.editOrNewMetadata()
+						.withName(name)
+						.endMetadata()
+						.editOrNewSpec()
+						.endSpec()
+						.build());
 	}
 
 	@Test

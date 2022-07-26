@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.bytedance.openplatform.arcee.Constants.ARCEE_ANNOTATION_APPLICATION_NAME_KEY;
@@ -55,8 +56,8 @@ public class ArceeFlinkKubeClient extends Fabric8FlinkKubeClient {
 	private static final Logger LOG = LoggerFactory.getLogger(ArceeFlinkKubeClient.class);
 
 	private final ArceeClient arceeClient;
-
-	private ArceeApplication masterApplication = null;
+	// save the master deployment atomic reference for setting owner reference of task manager pods
+	private final AtomicReference<ArceeApplication> masterApplicationRef;
 
 	public ArceeFlinkKubeClient(Configuration flinkConfig,
 		NamespacedKubernetesClient client,
@@ -64,6 +65,7 @@ public class ArceeFlinkKubeClient extends Fabric8FlinkKubeClient {
 		super(flinkConfig, client, asyncExecutorFactory);
 
 		arceeClient = new ArceeClientImpl(client);
+		masterApplicationRef = new AtomicReference<>();
 	}
 
 	@Override
@@ -77,7 +79,8 @@ public class ArceeFlinkKubeClient extends Fabric8FlinkKubeClient {
 
 		try {
 			LOG.debug("Start to create arcee application with spec {}", application);
-			this.masterApplication = this.arceeClient.createArceeApplication(super.namespace, application);
+			final ArceeApplication masterApplication = this.arceeClient.createArceeApplication(super.namespace, application);
+			masterApplicationRef.set(masterApplication);
 		} catch (Exception e) {
 			LOG.error("catch exception while creating application {}",
 				application.getMetadata().getName(), e);
@@ -89,13 +92,6 @@ public class ArceeFlinkKubeClient extends Fabric8FlinkKubeClient {
 
 	@Override
 	public CompletableFuture<Void> createTaskManagerPod(KubernetesPod kubernetesPod) {
-		if (this.masterApplication == null){
-			try {
-				this.masterApplication = this.arceeClient.getArceeApplication(super.namespace, super.clusterId);
-			} catch (Exception e) {
-				LOG.error("failed to get application " + super.clusterId + " in namespace " + super.namespace, e);
-			}
-		}
 		return CompletableFuture.runAsync(
 			() -> {
 				Map<String, String> labels = kubernetesPod.getInternalResource().getMetadata().getLabels();
@@ -113,10 +109,20 @@ public class ArceeFlinkKubeClient extends Fabric8FlinkKubeClient {
 					Constants.POD_GROUP_NAME_PREFIX + super.clusterId);
 				addMinMemberAnnotations(annotations);
 
-				if (this.masterApplication != null) {
-					setOwnerReference(this.masterApplication, Collections.singletonList(
-						kubernetesPod.getInternalResource()));
+				if (this.masterApplicationRef.get() == null) {
+					ArceeApplication masterApplication = null;
+					try {
+						masterApplication = this.arceeClient.getArceeApplication(super.namespace, super.clusterId);
+					} catch (Exception e) {
+						LOG.error("failed to get application " + super.clusterId + " in namespace " + super.namespace, e);
+					}
+					if (masterApplication == null) {
+						throw new RuntimeException(
+								"Failed to find Arcee application named " + clusterId + " in namespace " + this.namespace);
+					}
+					masterApplicationRef.compareAndSet(null, masterApplication);
 				}
+				setOwnerReference(this.masterApplicationRef.get(), Collections.singletonList(kubernetesPod.getInternalResource()));
 
 				LOG.debug("Start to create pod with metadata {}, spec {}",
 					kubernetesPod.getInternalResource().getMetadata(),
@@ -171,7 +177,7 @@ public class ArceeFlinkKubeClient extends Fabric8FlinkKubeClient {
 	}
 
 	private void createAccompanyingResources(List<HasMetadata> resources) {
-		if (resources == null || this.masterApplication == null) {
+		if (resources == null || this.masterApplicationRef.get() == null) {
 			return;
 		}
 
@@ -185,7 +191,7 @@ public class ArceeFlinkKubeClient extends Fabric8FlinkKubeClient {
 		);
 
 		// Note that we should use the uid of the created Application for the OwnerReference.
-		setOwnerReference(this.masterApplication, resources);
+		setOwnerReference(this.masterApplicationRef.get(), resources);
 
 		this.internalClient
 			.resourceList(resources)

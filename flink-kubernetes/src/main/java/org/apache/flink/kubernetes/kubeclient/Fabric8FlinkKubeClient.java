@@ -31,8 +31,6 @@ import org.apache.flink.kubernetes.kubeclient.resources.KubernetesPodsWatcher;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesWatch;
 import org.apache.flink.kubernetes.utils.Constants;
-import org.apache.flink.kubernetes.utils.KubernetesUtils;
-import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
@@ -41,26 +39,19 @@ import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.EndpointPort;
 import io.fabric8.kubernetes.api.model.EndpointSubset;
 import io.fabric8.kubernetes.api.model.Endpoints;
-import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.LoadBalancerStatus;
-import io.fabric8.kubernetes.api.model.OwnerReference;
-import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.ServicePort;
-import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.extensions.Ingress;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.NamespacedKubernetesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
-
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,7 +68,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /**
  * The implementation of {@link FlinkKubeClient}.
  */
-public class Fabric8FlinkKubeClient implements FlinkKubeClient {
+public abstract class Fabric8FlinkKubeClient implements FlinkKubeClient {
 
 	private static final Logger LOG = LoggerFactory.getLogger(Fabric8FlinkKubeClient.class);
 
@@ -86,8 +77,6 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 	protected final String namespace;
 	protected final int maxRetryAttempts;
 	protected final ExecutorService kubeClientExecutorService;
-
-	private Deployment masterDeployment = null;
 
 	public Fabric8FlinkKubeClient(
 			Configuration flinkConfig,
@@ -102,56 +91,6 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 			KubernetesConfigOptions.KUBERNETES_TRANSACTIONAL_OPERATION_MAX_RETRIES);
 
 		this.kubeClientExecutorService = asyncExecutorFactory.get();
-	}
-
-	@Override
-	public void createJobManagerComponent(KubernetesJobManagerSpecification kubernetesJMSpec) {
-		final Deployment deployment = kubernetesJMSpec.getDeployment();
-		final List<HasMetadata> accompanyingResources = kubernetesJMSpec.getAccompanyingResources();
-
-		// create Deployment
-		LOG.debug("Start to create deployment with spec {}", deployment.getSpec().toString());
-		final Deployment createdDeployment = this.internalClient
-			.apps()
-			.deployments()
-			.create(deployment);
-
-		// Note that we should use the uid of the created Deployment for the OwnerReference.
-		setOwnerReference(createdDeployment, accompanyingResources);
-
-		this.internalClient
-			.resourceList(accompanyingResources)
-			.createOrReplace();
-	}
-
-	@Override
-	public CompletableFuture<Void> createTaskManagerPod(KubernetesPod kubernetesPod) {
-		if (masterDeployment == null){
-			masterDeployment = this.internalClient
-				.apps()
-				.deployments()
-				.withName(KubernetesUtils.getDeploymentName(clusterId))
-				.get();
-		}
-		return CompletableFuture.runAsync(
-			() -> {
-				if (masterDeployment == null) {
-					throw new RuntimeException(
-						"Failed to find Deployment named " + clusterId + " in namespace " + this.namespace);
-				}
-
-				// Note that we should use the uid of the master Deployment for the OwnerReference.
-				setOwnerReference(masterDeployment, Collections.singletonList(kubernetesPod.getInternalResource()));
-
-				LOG.debug("Start to create pod with metadata {}, spec {}",
-					kubernetesPod.getInternalResource().getMetadata(),
-					kubernetesPod.getInternalResource().getSpec());
-
-				this.internalClient
-					.pods()
-					.create(kubernetesPod.getInternalResource());
-				},
-			kubeClientExecutorService);
 	}
 
 	@Override
@@ -242,20 +181,6 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 			.stream()
 			.map(KubernetesPod::new)
 			.collect(Collectors.toList());
-	}
-
-	@Override
-	public void stopAndCleanupCluster(String clusterId) {
-		this.internalClient
-			.apps()
-			.deployments()
-			.withName(KubernetesUtils.getDeploymentName(clusterId))
-			.cascading(true)
-			.delete();
-	}
-
-	@Override
-	public void reportApplicationStatus(String clusterId, ApplicationStatus finalStatus, @Nullable String diagnostics) {
 	}
 
 	@Override
@@ -435,19 +360,6 @@ public class Fabric8FlinkKubeClient implements FlinkKubeClient {
 	public void close() {
 		this.internalClient.close();
 		ExecutorUtils.gracefulShutdown(5, TimeUnit.SECONDS, this.kubeClientExecutorService);
-	}
-
-	private void setOwnerReference(Deployment deployment, List<HasMetadata> resources) {
-		final OwnerReference deploymentOwnerReference = new OwnerReferenceBuilder()
-			.withName(deployment.getMetadata().getName())
-			.withApiVersion(deployment.getApiVersion())
-			.withUid(deployment.getMetadata().getUid())
-			.withKind(deployment.getKind())
-			.withController(true)
-			.withBlockOwnerDeletion(true)
-			.build();
-		resources.forEach(resource ->
-			resource.getMetadata().setOwnerReferences(Collections.singletonList(deploymentOwnerReference)));
 	}
 
 	/**
