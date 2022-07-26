@@ -34,7 +34,7 @@ under the License.
 	<version>1.11-byted-SNAPSHOT</version>
 
 	<properties>
-		<kafka.client.version>0.10.1.2-bd1.7.32</kafka.client.version>
+		<kafka.client.version>0.10.1.2-bd1.7.20</kafka.client.version>
 		<msgpack.version>0.6.12</msgpack.version>
 		<process.tree.version>0.9.6</process.tree.version>
 	</properties>

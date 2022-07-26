@@ -60,7 +60,6 @@ public class Constants {
 	public static final String ARGS = "args";
 	public static final String TOPIC_NAME = "topic_name";
 	public static final String KAFKA_CLUSTER = "kafka_cluster";
-	public static final String BOOTSTRAP_SERVERS = 	"bootstrap_servers";
 	public static final String KAFKA_SOURCE = "kafka_sources";
 	public static final String KAFKA_PARTITION_RANGE = "partition_range";
 	public static final String NSQ_THREADS = "nsq_threads";
