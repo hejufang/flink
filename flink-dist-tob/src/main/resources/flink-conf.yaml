@@ -94,6 +94,11 @@ common:
   kubernetes.service-account: gts
   kubernetes.rest-service.exposed.type: ClusterIP
 
+  # Arcee configuration
+  kubernetes.arcee.scheduling-config.schedule-timeout-seconds: 120
+  kubernetes.arcee.restart-policy.max-retries: 5
+  kubernetes.arcee.restart-policy.interval-second: 5
+  kubernetes.arcee.restart-policy.type: Never
 
   # REST endpoint and Client
   rest.await-leader-timeout: 300000
@@ -165,6 +170,7 @@ common:
   bytedance.streaming.slot-pool.min-resource.simplify-enabled: true
   bytedance.streaming.register-dashboard.enabled: true
   bytedance.streaming.restart-strategy: aggregated-failure-rate
+  bytedance.streaming.kubernetes.arcee.restart-policy.type: OnFailure
 
   # hdfs conf for slow node
   flink.hdfs.dfs.datanode.socket.write.timeout: 30000

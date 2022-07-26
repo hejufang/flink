@@ -133,6 +133,12 @@ common:
   kubernetes.hostnetwork.enabled: true
   containerized.master.env.KUBERNETES_REQUEST_TIMEOUT: 30000
 
+  # Arcee configuration
+  kubernetes.arcee.scheduling-config.schedule-timeout-seconds: 120
+  kubernetes.arcee.restart-policy.max-retries: 5
+  kubernetes.arcee.restart-policy.interval-second: 5
+  kubernetes.arcee.restart-policy.type: Never
+
   pipeline.file-mounted-path: /opt/tiger/workdir
 
   # Metrics
@@ -298,6 +304,7 @@ common:
   bytedance.streaming.yarn.res-lake.enabled: false
   bytedance.streaming.register-dashboard.enabled: true
   bytedance.streaming.restart-strategy: aggregated-failure-rate
+  bytedance.streaming.kubernetes.arcee.restart-policy.type: Always
 
   # hdfs conf for checkpoint
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
