@@ -60,6 +60,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.DataInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -515,11 +516,16 @@ public class CheckpointVerifier {
 	}
 
 	public static Map<OperatorID, OperatorStateMeta> resolveStateMetaFromCheckpointPath(String checkpointPointer, ClassLoader classLoader) throws Exception {
+		Map<OperatorID, OperatorStateMeta> result = new HashMap<>();
+		FileStateHandle fileStateHandle;
+		try {
+			fileStateHandle = AbstractFsCheckpointStorage
+				.resolveStateMetaFileHandle(checkpointPointer);
+		} catch (FileNotFoundException exception) {
+			LOG.warn("Could not found stateMeta file in dir : " + checkpointPointer);
+			return result;
+		}
 
-		FileStateHandle fileStateHandle = AbstractFsCheckpointStorage
-			.resolveStateMetaFileHandle(checkpointPointer);
-
-		Map<OperatorID, OperatorStateMeta> result;
 		try (DataInputStream stream = new DataInputStream(fileStateHandle.openInputStream())) {
 			CheckpointStateMetadata checkpointStateMetadata = Checkpoints.loadCheckpointStateMetadata(stream, classLoader, checkpointPointer);
 			result = checkpointStateMetadata.getOperatorStateMetas().stream().collect(Collectors.toMap(OperatorStateMeta::getOperatorID, Function.identity()));
