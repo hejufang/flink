@@ -117,6 +117,10 @@ public class MetricNames {
 	public static final String NUM_TM_HEARTBEAT_TIMOUT_FROM_RM = "TMHeartbeatTimeoutFromRM";
 	public static final String NUM_TM_HEARTBEAT_TIMOUT_FROM_JM = "TMHeartbeatTimeoutFromJM";
 
+	public static final String SUBMIT_TWICE_DC_DIFF = "submitTwiceDcDiff";
+	public static final String SUBMIT_TWICE_CLUSTER_DIFF = "submitTwiceClusterDiff";
+	public static final String SUBMIT_TWICE_APP_NUM = "submitTwiceAppNum";
+
 	public static final String MEMORY_USED = "Used";
 	public static final String MEMORY_COMMITTED = "Committed";
 	public static final String MEMORY_MAX = "Max";

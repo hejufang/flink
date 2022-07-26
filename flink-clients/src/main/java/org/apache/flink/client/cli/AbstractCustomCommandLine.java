@@ -23,6 +23,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.UnmodifiableConfiguration;
+import org.apache.flink.runtime.metrics.groups.ClientMetricGroup;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.Preconditions;
@@ -53,7 +54,7 @@ public abstract class AbstractCustomCommandLine implements CustomCommandLine {
 		"Address of the JobManager to which to connect. " +
 			"Use this flag to connect to a different JobManager than the one specified in the configuration.");
 
-	protected final Configuration configuration;
+	protected Configuration configuration;
 
 	protected AbstractCustomCommandLine(Configuration configuration) {
 		this.configuration = new UnmodifiableConfiguration(Preconditions.checkNotNull(configuration));
@@ -126,4 +127,7 @@ public abstract class AbstractCustomCommandLine implements CustomCommandLine {
 		t.printStackTrace();
 		return 1;
 	}
+
+	@Override
+	public void setMetricGroup(ClientMetricGroup clientMetricGroup){}
 }

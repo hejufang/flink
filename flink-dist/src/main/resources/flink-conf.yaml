@@ -303,6 +303,7 @@ common:
   bytedance.streaming.slot-pool.min-resource.simplify-enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   bytedance.streaming.register-dashboard.enabled: true
+  bytedance.streaming.yarn.cluster.auto-detect.enable: false
   bytedance.streaming.restart-strategy: aggregated-failure-rate
   bytedance.streaming.kubernetes.arcee.restart-policy.type: Always
 
@@ -475,6 +476,7 @@ lobst:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: lobst
+  yarn.cluster.auto-detect.enable: true
 
 lizad:
   dc: cn
@@ -482,6 +484,7 @@ lizad:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lizad
+  yarn.cluster.auto-detect.enable: true
 
 lemur:
   dc: cn
@@ -489,6 +492,7 @@ lemur:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lemur
+  yarn.cluster.auto-detect.enable: true
 
 loris:
   dc: cn
@@ -496,6 +500,7 @@ loris:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: loris
+  yarn.cluster.auto-detect.enable: true
 
 llama:
   dc: cn
@@ -503,6 +508,7 @@ llama:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: llama
+  yarn.cluster.auto-detect.enable: true
 
 lionn:
   dc: cn
@@ -526,6 +532,7 @@ lambs:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: lambs
+  yarn.cluster.auto-detect.enable: true
 
 brain-lf:
   dc: cn
@@ -535,6 +542,7 @@ brain-lf:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: brain-lf
+  yarn.cluster.auto-detect.enable: true
 
 panda-lf:
   dc: cn
@@ -563,6 +571,7 @@ brain-hl:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: brain-hl
+  yarn.cluster.auto-detect.enable: true
   ipv6.enabled: true
 
 panda-hl:
@@ -828,6 +837,7 @@ quire:
   ipv6.supported.cluster: quire
   ipv6.enabled: true
   restart-strategy: aggregated-fixed-delay
+  yarn.cluster.auto-detect.enable: true
 
 quark:
   dc: cn
@@ -839,6 +849,7 @@ quark:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: quark
+  yarn.cluster.auto-detect.enable: true
   ipv6.enabled: true
 
 quinc:
@@ -872,6 +883,7 @@ quetz:
   ipv6.supported.cluster: quetz
   ipv6.enabled: true
   restart-strategy: aggregated-fixed-delay
+  yarn.cluster.auto-detect.enable: true
 
 quail:
   dc: cn
@@ -900,6 +912,7 @@ quoll:
   ipv6.enabled: true
   flink.cloud-shuffle-service.support: true
   restart-strategy: aggregated-fixed-delay
+  yarn.cluster.auto-detect.enable: true
 
 quoka:
   dc: cn
@@ -940,6 +953,7 @@ quele:
   ipv6.enabled: true
   flink.cloud-shuffle-service.support: true
   restart-strategy: aggregated-fixed-delay
+  yarn.cluster.auto-detect.enable: true
 
 panda-lq:
   dc: cn

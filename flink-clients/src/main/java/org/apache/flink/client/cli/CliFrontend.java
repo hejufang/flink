@@ -148,9 +148,9 @@ public class CliFrontend {
 
 	private final Options customCommandLineOptions;
 
-	private final Duration clientTimeout;
+	private Duration clientTimeout;
 
-	private final int defaultParallelism;
+	private int defaultParallelism;
 
 	private final ClusterClientServiceLoader clusterClientServiceLoader;
 
@@ -324,7 +324,7 @@ public class CliFrontend {
 			clientMetricGroup = createClientMetricGroup(metricRegistry);
 			registerMetrics();
 		}
-
+		activeCommandLine.setMetricGroup(clientMetricGroup);
 		warehouseJobStartEventMessageRecorder.buildProgramStart();
 		final PackagedProgram program = getPackagedProgram(programOptions, effectiveConfiguration);
 		warehouseJobStartEventMessageRecorder.buildProgramFinish();
@@ -517,6 +517,12 @@ public class CliFrontend {
 
 		final Configuration executorConfig = checkNotNull(activeCustomCommandLine)
 				.applyCommandLineOptionsToConfiguration(commandLine);
+
+		if (executorConfig.getBoolean(CoreOptions.IS_CLUSTER_CHANGED)) {
+			FileSystem.initialize(executorConfig, PluginUtils.createPluginManagerFromRootFolder(executorConfig));
+			this.clientTimeout = executorConfig.get(ClientOptions.CLIENT_TIMEOUT);
+			this.defaultParallelism = executorConfig.getInteger(CoreOptions.DEFAULT_PARALLELISM);
+		}
 
 		final Configuration effectiveConfiguration = new Configuration(executorConfig);
 

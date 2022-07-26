@@ -504,7 +504,20 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		// ------------------ Check if the YARN ClusterClient has the requested resources --------------
 
 		// Create application via yarnClient
-		final YarnClientApplication yarnApplication = yarnClient.createApplication();
+		YarnClientApplication yarnApplication = null;
+		if (flinkConfiguration.getBoolean(YarnConfigOptions.YARN_CLUSTER_AUTO_DETECT_ENABLE)
+			&& flinkConfiguration.getInteger(YarnConfigOptions.YARN_CLUSTER_AUTO_DETECT_APPID_ID) != 0) {
+			LOG.info("app Timestamp is {}", flinkConfiguration.getLong(YarnConfigOptions.YARN_CLUSTER_AUTO_DETECT_APPID_TIMESTAMP));
+			LOG.info("app id is {}", flinkConfiguration.getInteger(YarnConfigOptions.YARN_CLUSTER_AUTO_DETECT_APPID_ID));
+			ApplicationSubmissionContext applicationsubmissioncontext = Records.newRecord(
+				ApplicationSubmissionContext.class);
+			ApplicationId applicationId = ApplicationId.newInstance(flinkConfiguration.getLong(YarnConfigOptions.YARN_CLUSTER_AUTO_DETECT_APPID_TIMESTAMP),
+				flinkConfiguration.getInteger(YarnConfigOptions.YARN_CLUSTER_AUTO_DETECT_APPID_ID));
+			applicationsubmissioncontext.setApplicationId(applicationId);
+			yarnApplication = yarnClient.createApplication(applicationsubmissioncontext);
+		} else {
+			yarnApplication = yarnClient.createApplication();
+		}
 		final ClusterEntrypoint.ExecutionMode executionMode = detached ?
 				ClusterEntrypoint.ExecutionMode.DETACHED
 				: ClusterEntrypoint.ExecutionMode.NORMAL;

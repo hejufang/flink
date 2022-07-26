@@ -19,6 +19,7 @@
 package org.apache.flink.client.cli;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.metrics.groups.ClientMetricGroup;
 import org.apache.flink.util.FlinkException;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
@@ -66,6 +67,8 @@ public interface CustomCommandLine {
 	 * @return the effective configuration with the overridden configuration settings
 	 */
 	Configuration applyCommandLineOptionsToConfiguration(CommandLine commandLine) throws FlinkException;
+
+	void setMetricGroup(ClientMetricGroup clientMetricGroup);
 
 	default CommandLine parseCommandLineOptions(String[] args, boolean stopAtNonOptions) throws CliArgsException {
 		final Options options = new Options();

@@ -318,7 +318,12 @@ non-global:
       # smart resource
         smartResourcesEnable,
         srContainerUpdateSuccessCounter,
-        srContainerUpdateFailedCounter
+        srContainerUpdateFailedCounter,
+
+      # submit twice
+        submitTwiceDcDiff,
+        submitTwiceClusterDiff,
+        submitTwiceAppNum
     ]
 
 report-during-unregister:

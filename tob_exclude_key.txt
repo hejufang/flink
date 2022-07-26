@@ -142,6 +142,7 @@ bytedance.streaming.yarn.gang-scheduler.jobmanager.enable
 bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable
 bytedance.streaming.yarn.gang-scheduler.container-descheduler.disk-type-enable
 bytedance.streaming.yarn.res-lake.enabled
+bytedance.streaming.yarn.cluster.auto-detect.enable
 
 # hdfs conf for checkpoint
 checkpoint.hdfs.prefix

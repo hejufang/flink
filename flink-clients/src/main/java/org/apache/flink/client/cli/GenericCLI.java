@@ -27,6 +27,7 @@ import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.UnmodifiableConfiguration;
 import org.apache.flink.core.execution.DefaultExecutorServiceLoader;
 import org.apache.flink.core.execution.PipelineExecutor;
+import org.apache.flink.runtime.metrics.groups.ClientMetricGroup;
 import org.apache.flink.util.FlinkException;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
@@ -178,4 +179,7 @@ public class GenericCLI implements CustomCommandLine {
 				.map(name -> String.format("\"%s\"", name))
 				.collect(Collectors.joining(", "));
 	}
+
+	@Override
+	public void setMetricGroup(ClientMetricGroup clientMetricGroup){}
 }

@@ -30,20 +30,26 @@ import org.apache.flink.client.program.ClusterClientProvider;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.DeploymentOptionsInternal;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.configuration.UnmodifiableConfiguration;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
+import org.apache.flink.runtime.metrics.MetricNames;
+import org.apache.flink.runtime.metrics.groups.ClientMetricGroup;
 import org.apache.flink.runtime.security.SecurityConfiguration;
 import org.apache.flink.runtime.security.SecurityUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.ShutdownHookUtil;
+import org.apache.flink.yarn.Utils;
 import org.apache.flink.yarn.YarnClusterDescriptor;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnDeploymentTarget;
@@ -56,12 +62,17 @@ import org.apache.flink.shaded.org.apache.commons.cli.Options;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
+import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
+import org.apache.hadoop.yarn.client.api.YarnClientApplication;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
+import org.apache.hadoop.yarn.util.Records;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -135,6 +146,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 	private final Option name;
 	private final Option applicationType;
 
+	@Nullable private ClientMetricGroup clientMetricGroup = null;
 	private final Options allOptions;
 
 	/**
@@ -157,6 +169,10 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 
 	@Nullable
 	private String dynamicPropertiesEncoded = null;
+
+	private long isSubmitTwiceApp = 0;
+	private long isDcchange = 0;
+	private long isClusterchange = 0;
 
 	public FlinkYarnSessionCli(
 			Configuration configuration,
@@ -335,7 +351,115 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 	}
 
 	@Override
-	public Configuration applyCommandLineOptionsToConfiguration(CommandLine commandLine) throws FlinkException {
+	public void setMetricGroup(ClientMetricGroup clientMetricGroup){
+		if (clientMetricGroup != null) {
+			this.clientMetricGroup = clientMetricGroup;
+			registerMetrics();
+		}
+	}
+
+	@Override
+	public Configuration applyCommandLineOptionsToConfiguration(CommandLine commandLine) throws FlinkException{
+		Configuration effectiveConfiguration = applyCommandLineOptionsToConfigurationInternal(commandLine);
+		String cluster = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY);
+		String dc = System.getProperty(ConfigConstants.DC_KEY);
+
+		if (!StringUtils.equals(effectiveConfiguration.getString(ExecutionOptions.EXECUTION_APPLICATION_TYPE),
+				ConfigConstants.FLINK_BATCH_APPLICATION_TYPE)) {
+			return effectiveConfiguration;
+		}
+		if (effectiveConfiguration.getBoolean(YarnConfigOptions.YARN_CLUSTER_AUTO_DETECT_ENABLE)) {
+			try (YarnClient yarnClient = YarnClient.createClient(YarnClient.ClientType.RESLAKE)){
+
+				org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
+				conf.set(ConfigConstants.YARN_CLUSTER_NAME_KEY, cluster);
+				YarnConfiguration yarnConfiguration = new YarnConfiguration(conf);
+				LOG.info("Set {} to {}", ConfigConstants.YARN_CLUSTER_NAME_KEY, cluster);
+
+				if (effectiveConfiguration.getBoolean(YarnConfigOptions.YARN_CONF_CLUSTER_QUEUE_NAME_ENABLE)) {
+					String queueName = effectiveConfiguration.getString(YarnConfigOptions.APPLICATION_QUEUE, "");
+					if (!org.apache.flink.util.StringUtils.isNullOrWhitespaceOnly(queueName)) {
+						yarnConfiguration.set(YarnConfiguration.APP_QUEUE_NAME, queueName);
+						LOG.info("Set app queue to {}", queueName);
+					}
+				}
+
+				Utils.updateYarnConfigForClient(yarnConfiguration, configuration);
+
+				yarnClient.init(yarnConfiguration);
+				yarnClient.start();
+
+				ApplicationSubmissionContext applicationsubmissioncontext = Records.newRecord(
+					ApplicationSubmissionContext.class);
+				applicationsubmissioncontext.setApplicationType(ConfigConstants.FLINK_BATCH_APPLICATION_TYPE);
+				YarnClientApplication yarnApplication = yarnClient.createApplication(applicationsubmissioncontext);
+				GetNewApplicationResponse appResponse = yarnApplication.getNewApplicationResponse();
+				String newCluster = appResponse.getCluster();
+				String newDc = appResponse.getDc();
+				String appId = appResponse.getApplicationId().toString();
+				LOG.info("new app dc: {}, cluster {}, appid{}", newDc, newCluster, appId);
+				recordMetric(effectiveConfiguration, newDc, newCluster);
+				if (newCluster != null && !StringUtils.equals(cluster, newCluster)) {
+					if (!StringUtils.equals(cluster, newCluster)) {
+						System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, newCluster);
+					}
+					if (!StringUtils.equals(dc, newDc)) {
+						System.setProperty(ConfigConstants.DC_KEY, newDc);
+					}
+					Configuration newConf = GlobalConfiguration.loadConfiguration(CliFrontend.getConfigurationDirectoryFromEnv());
+					newConf.setInteger(YarnConfigOptions.YARN_CLUSTER_AUTO_DETECT_APPID_ID, appResponse.getApplicationId().getId());
+					newConf.setLong(YarnConfigOptions.YARN_CLUSTER_AUTO_DETECT_APPID_TIMESTAMP, appResponse.getApplicationId().getClusterTimestamp());
+					newConf.setBoolean(CoreOptions.IS_CLUSTER_CHANGED, true);
+					configuration = new UnmodifiableConfiguration(newConf);
+					return applyCommandLineOptionsToConfigurationInternal(commandLine);
+				}
+			} catch (Exception e) {
+				LOG.error("something wrong while reloading config during submit twice, message {}", e.getMessage());
+				throw new FlinkException(e);
+			}
+		}
+		return effectiveConfiguration;
+	}
+
+	public void registerMetrics(){
+		if (clientMetricGroup != null) {
+			clientMetricGroup.gauge(MetricNames.SUBMIT_TWICE_APP_NUM, () -> this.isSubmitTwiceApp);
+			clientMetricGroup.gauge(MetricNames.SUBMIT_TWICE_DC_DIFF, () -> this.isDcchange);
+			clientMetricGroup.gauge(MetricNames.SUBMIT_TWICE_CLUSTER_DIFF, () -> this.isClusterchange);
+		}
+	}
+
+	private void recordMetric(Configuration configuration, String newDc, String newCluster) {
+		checkSubmitAppTwiceApp(configuration);
+		checkSubmitTwiceDc(newDc);
+		checkSubmitTwiceCluster(newCluster);
+	}
+
+	private void checkSubmitAppTwiceApp(Configuration configuration) {
+		if (configuration.getBoolean(YarnConfigOptions.YARN_CLUSTER_AUTO_DETECT_ENABLE)) {
+			this.isSubmitTwiceApp = 1L;
+		} else {
+			this.isSubmitTwiceApp = 0L;
+		}
+	}
+
+	private void checkSubmitTwiceDc(String newDc) {
+		if (!StringUtils.equals(newDc, System.getProperty(ConfigConstants.DC_KEY))) {
+			this.isDcchange = 1L;
+		} else {
+			this.isDcchange = 0L;
+		}
+	}
+
+	private void checkSubmitTwiceCluster(String newCluster) {
+		if (!StringUtils.equals(newCluster, System.getProperty(ConfigConstants.CLUSTER_NAME_KEY))) {
+			this.isClusterchange = 1L;
+		} else {
+			this.isClusterchange = 0L;
+		}
+	}
+
+	public Configuration applyCommandLineOptionsToConfigurationInternal(CommandLine commandLine) throws FlinkException {
 		// we ignore the addressOption because it can only contain "yarn-cluster"
 		final Configuration effectiveConfiguration = new Configuration(configuration);
 
@@ -388,7 +512,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 		if (appType.equals(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE)) {
 			reloadConfigWithSpecificProperties(effectiveConfiguration, ConfigConstants.STREAMING_JOB_KEY_PREFIX);
 		}
-
+		effectiveConfiguration.setString(ExecutionOptions.EXECUTION_APPLICATION_TYPE, appType);
 		dynamicPropertiesEncoded = encodeDynamicProperties(effectiveConfiguration, commandLine);
 		if (!dynamicPropertiesEncoded.isEmpty()) {
 			Map<String, String> dynProperties = getDynamicProperties(dynamicPropertiesEncoded);

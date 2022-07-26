@@ -496,4 +496,11 @@ public class CoreOptions {
 					.defaultValue(false)
 					.withDescription("Whether dump flink-conf by yaml, " +
 							"If ture, it will use snakeYaml to dump the configuration directly.");
+
+	public static final ConfigOption<Boolean> IS_CLUSTER_CHANGED =
+		key("flink.submit-twice.is-cluster-changed")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether app's cluster is changed,  " +
+				"when the app need to be submitted twice.");
 }

@@ -21,6 +21,7 @@ package org.apache.flink.client.cli.util;
 import org.apache.flink.client.cli.CustomCommandLine;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
+import org.apache.flink.runtime.metrics.groups.ClientMetricGroup;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 import org.apache.flink.shaded.org.apache.commons.cli.Options;
@@ -56,4 +57,7 @@ public class DummyCustomCommandLine implements CustomCommandLine {
 		configuration.setString(DeploymentOptions.TARGET, DummyClusterClientFactory.ID);
 		return configuration;
 	}
+
+	@Override
+	public void setMetricGroup(ClientMetricGroup clientMetricGroup){}
 }

@@ -533,6 +533,24 @@ public class YarnConfigOptions {
 					.defaultValue(false)
 					.withDescription("Whether use ResLake to submit job.");
 
+	public static final ConfigOption<Boolean> YARN_CLUSTER_AUTO_DETECT_ENABLE =
+			key("yarn.cluster.auto-detect.enable")
+				.booleanType()
+				.defaultValue(false)
+				.withDescription("Whether to auto-detect yarn cluster.");
+
+	public static final ConfigOption<Integer> YARN_CLUSTER_AUTO_DETECT_APPID_ID =
+			key("yarn.cluster.auto-detect.appId")
+				.intType()
+				.defaultValue(0)
+				.withDescription("auto-detect yarn cluster job's id.");
+
+	public static final ConfigOption<Long> YARN_CLUSTER_AUTO_DETECT_APPID_TIMESTAMP =
+			key("yarn.cluster.auto-detect.timestamp")
+				.longType()
+				.defaultValue(0L)
+				.withDescription("auto-detect yarn cluster job's timestamp.");
+
 	/** This class is not meant to be instantiated. */
 	private YarnConfigOptions() {}
 
