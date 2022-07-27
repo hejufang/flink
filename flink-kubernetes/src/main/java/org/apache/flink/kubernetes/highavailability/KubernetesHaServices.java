@@ -28,6 +28,7 @@ import org.apache.flink.runtime.blob.BlobStoreService;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.highavailability.AbstractHaServices;
 import org.apache.flink.runtime.highavailability.RunningJobsRegistry;
+import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneRunningJobsRegistry;
 import org.apache.flink.runtime.jobmanager.JobGraphStore;
 import org.apache.flink.runtime.leaderelection.DefaultLeaderElectionService;
 import org.apache.flink.runtime.leaderelection.LeaderElectionService;
@@ -119,7 +120,10 @@ public class KubernetesHaServices extends AbstractHaServices {
 
 	@Override
 	public RunningJobsRegistry createRunningJobsRegistry() {
-		return new KubernetesRunningJobsRegistry(kubeClient, getLeaderNameForDispatcher(), lockIdentity);
+		if (useJobMasterHA) {
+			return new KubernetesRunningJobsRegistry(kubeClient, getLeaderNameForDispatcher(), lockIdentity);
+		}
+		return new StandaloneRunningJobsRegistry();
 	}
 
 	@Override
@@ -136,7 +140,9 @@ public class KubernetesHaServices extends AbstractHaServices {
 	@Override
 	public void internalCleanupJobData(JobID jobID) throws Exception {
 		logger.info("Clean up the k8s high availability data for job {}.", jobID);
-		kubeClient.deleteConfigMap(getLeaderNameForJobManager(jobID)).get();
+		if (useJobMasterHA) {
+			kubeClient.deleteConfigMap(getLeaderNameForJobManager(jobID)).get();
+		}
 		logger.info("Finished cleaning up the k8s high availability data for job {}.", jobID);
 	}
 

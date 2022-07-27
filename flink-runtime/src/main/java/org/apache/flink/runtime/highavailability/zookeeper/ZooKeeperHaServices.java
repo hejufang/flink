@@ -26,6 +26,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.checkpoint.ZooKeeperCheckpointRecoveryFactory;
 import org.apache.flink.runtime.highavailability.AbstractHaServices;
 import org.apache.flink.runtime.highavailability.RunningJobsRegistry;
+import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneRunningJobsRegistry;
 import org.apache.flink.runtime.jobmanager.JobGraphStore;
 import org.apache.flink.runtime.leaderelection.LeaderElectionService;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
@@ -119,7 +120,11 @@ public class ZooKeeperHaServices extends AbstractHaServices {
 
 	@Override
 	public RunningJobsRegistry createRunningJobsRegistry() {
-		return new ZooKeeperRunningJobsRegistry(client, configuration);
+		if (useJobMasterHA) {
+			return new ZooKeeperRunningJobsRegistry(client, configuration);
+		} else {
+			return new StandaloneRunningJobsRegistry();
+		}
 	}
 
 	@Override
@@ -146,18 +151,20 @@ public class ZooKeeperHaServices extends AbstractHaServices {
 	public void internalCleanupJobData(JobID jobID) throws Exception {
 		logger.info("Clean up the zookeeper high availability data for job {}.", jobID);
 
-		final List<String> paths =
-			Stream.of(
-					HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINTS_PATH,
-					HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINT_COUNTER_PATH,
-					HighAvailabilityOptions.HA_ZOOKEEPER_LATCH_PATH,
-					HighAvailabilityOptions.HA_ZOOKEEPER_LEADER_PATH)
-				.map(configuration::getString)
-				.map(parent -> parent + "/" + jobID)
-				.collect(Collectors.toList());
-		for (String path : paths) {
-			logger.info("Deleting zookeeper path {}.", path);
-			deleteZNode(path);
+		if (useJobMasterHA) {
+			final List<String> paths =
+				Stream.of(
+						HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINTS_PATH,
+						HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINT_COUNTER_PATH,
+						HighAvailabilityOptions.HA_ZOOKEEPER_LATCH_PATH,
+						HighAvailabilityOptions.HA_ZOOKEEPER_LEADER_PATH)
+					.map(configuration::getString)
+					.map(parent -> parent + "/" + jobID)
+					.collect(Collectors.toList());
+			for (String path : paths) {
+				logger.info("Deleting zookeeper path {}.", path);
+				deleteZNode(path);
+			}
 		}
 
 		logger.info("Finished cleaning up the zookeeper high availability data for job {}.", jobID);

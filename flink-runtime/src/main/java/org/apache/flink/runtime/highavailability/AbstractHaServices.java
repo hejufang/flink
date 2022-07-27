@@ -20,12 +20,15 @@ package org.apache.flink.runtime.highavailability;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.runtime.blob.BlobStore;
 import org.apache.flink.runtime.blob.BlobStoreService;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.jobmanager.JobGraphStore;
 import org.apache.flink.runtime.leaderelection.LeaderElectionService;
+import org.apache.flink.runtime.leaderelection.StandaloneLeaderElectionService;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
+import org.apache.flink.runtime.leaderretrieval.StandaloneLeaderRetrievalService;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -57,6 +60,11 @@ public abstract class AbstractHaServices implements HighAvailabilityServices {
 	/** The runtime configuration. */
 	protected final Configuration configuration;
 
+	/**
+	 * If use jobMaster ha.
+	 */
+	protected final boolean useJobMasterHA;
+
 	/** Store for arbitrary blobs. */
 	private final BlobStoreService blobStoreService;
 
@@ -68,6 +76,7 @@ public abstract class AbstractHaServices implements HighAvailabilityServices {
 		this.configuration = checkNotNull(config);
 		this.ioExecutor = checkNotNull(ioExecutor);
 		this.blobStoreService = checkNotNull(blobStoreService);
+		this.useJobMasterHA = configuration.getBoolean(HighAvailabilityOptions.HA_JOBMASTER_ENABLE);
 	}
 
 	@Override
@@ -82,12 +91,18 @@ public abstract class AbstractHaServices implements HighAvailabilityServices {
 
 	@Override
 	public LeaderRetrievalService getJobManagerLeaderRetriever(JobID jobID) {
-		return createLeaderRetrievalService(getLeaderNameForJobManager(jobID));
+		if (useJobMasterHA) {
+			return createLeaderRetrievalService(getLeaderNameForJobManager(jobID));
+		}
+		return new StandaloneLeaderRetrievalService("UNKNOWN", DEFAULT_LEADER_ID);
 	}
 
 	@Override
 	public LeaderRetrievalService getJobManagerLeaderRetriever(JobID jobID, String defaultJobManagerAddress) {
-		return getJobManagerLeaderRetriever(jobID);
+		if (useJobMasterHA) {
+			return getJobManagerLeaderRetriever(jobID);
+		}
+		return new StandaloneLeaderRetrievalService(defaultJobManagerAddress, DEFAULT_LEADER_ID);
 	}
 
 	@Override
@@ -107,7 +122,10 @@ public abstract class AbstractHaServices implements HighAvailabilityServices {
 
 	@Override
 	public LeaderElectionService getJobManagerLeaderElectionService(JobID jobID) {
-		return createLeaderElectionService(getLeaderNameForJobManager(jobID));
+		if (useJobMasterHA) {
+			return createLeaderElectionService(getLeaderNameForJobManager(jobID));
+		}
+		return new StandaloneLeaderElectionService();
 	}
 
 	@Override

@@ -59,6 +59,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
 /**
@@ -200,6 +201,38 @@ public class ZooKeeperHaServicesTest extends TestLogger {
 			});
 	}
 
+	@Test
+	public void testCleanupJobDataWithJobMasterNonHA() throws Exception {
+		String rootPath = "/foo/bar/flink";
+		final Configuration configuration = createConfiguration(rootPath);
+		String namespace = configuration.getValue(HighAvailabilityOptions.HA_CLUSTER_ID);
+		configuration.setBoolean(HighAvailabilityOptions.HA_JOBMASTER_ENABLE, false);
+
+		final List<String> paths =
+			Stream.of(
+				HighAvailabilityOptions.HA_ZOOKEEPER_LATCH_PATH,
+				HighAvailabilityOptions.HA_ZOOKEEPER_LEADER_PATH)
+				.map(configuration::getString)
+				.map(path -> rootPath + namespace + path)
+				.collect(Collectors.toList());
+
+		final TestingBlobStoreService blobStoreService = new TestingBlobStoreService();
+
+		JobID jobID = new JobID();
+		runCleanupTestWithJob(
+			configuration,
+			blobStoreService,
+			jobID,
+			haServices -> {
+				for (String path : paths) {
+					final List<String> children = client.getChildren().forPath(path);
+					assertThat(children, not(hasItem(jobID.toString())));
+				}
+				RunningJobsRegistry runningJobsRegistry = haServices.getRunningJobsRegistry();
+				assertEquals(runningJobsRegistry.getJobSchedulingStatus(jobID), RunningJobsRegistry.JobSchedulingStatus.PENDING);
+			});
+	}
+
 	private static CuratorFramework startCuratorFramework() {
 		return CuratorFrameworkFactory.builder()
 				.connectString(ZOO_KEEPER_RESOURCE.getConnectString())
@@ -253,6 +286,8 @@ public class ZooKeeperHaServicesTest extends TestLogger {
 			runningJobsRegistry.setJobRunning(jobId);
 
 			listener.getLeaderConnectionInfoFuture().join();
+
+			assertEquals(runningJobsRegistry.getJobSchedulingStatus(jobId), RunningJobsRegistry.JobSchedulingStatus.RUNNING);
 
 			resourceManagerLeaderRetriever.stop();
 			resourceManagerLeaderElectionService.stop();

@@ -77,6 +77,15 @@ public class HighAvailabilityOptions {
 			key("high-availability.complete-checkpoint.storageDir")
 			.noDefaultValue()
 			.withDescription("File system path (URI) where Flink persists metadata in high-availability setups.");
+
+	/**
+	 * Enable JobMaster HA.
+	 */
+	@Documentation.Section(Documentation.Sections.COMMON_HIGH_AVAILABILITY)
+	public static final ConfigOption<Boolean> HA_JOBMASTER_ENABLE =
+		key("high-availability.jobmaster.enable")
+			.defaultValue(true)
+			.withDescription("Enable JobMaster HA.");
 	// ------------------------------------------------------------------------
 	//  Recovery Options
 	// ------------------------------------------------------------------------
