@@ -48,6 +48,7 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -60,6 +61,8 @@ public class KubernetesSessionCli {
 	private static final Logger LOG = LoggerFactory.getLogger(KubernetesSessionCli.class);
 
 	private static final long CLIENT_POLLING_INTERVAL_MS = 3000L;
+
+	private static final String STOP_COMMAND = "stop";
 
 	private static final String KUBERNETES_CLUSTER_HELP = "Available commands:\n" +
 		"help - show these commands\n" +
@@ -90,6 +93,7 @@ public class KubernetesSessionCli {
 
 	private int run(String[] args) throws FlinkException, CliArgsException {
 		final Configuration configuration = getEffectiveConfiguration(args);
+		boolean stop = isStopCommand(args);
 
 		final ClusterClientFactory<String> kubernetesClusterClientFactory =
 			clusterClientServiceLoader.getClusterClientFactory(configuration);
@@ -98,15 +102,32 @@ public class KubernetesSessionCli {
 			kubernetesClusterClientFactory.createClusterDescriptor(configuration);
 
 		try {
-			final ClusterClient<String> clusterClient;
 			String clusterId = kubernetesClusterClientFactory.getClusterId(configuration);
 			final boolean detached = !configuration.get(DeploymentOptions.ATTACHED);
 			final FlinkKubeClient kubeClient = KubeClientFactory.fromConfiguration(configuration);
 
+			final ClusterClient<String> clusterClient;
 			// Retrieve or create a session cluster.
 			if (clusterId != null && kubeClient.getRestService(clusterId).isPresent()) {
+				if (stop) {
+					try {
+						kubeClient.stopAndCleanupCluster(clusterId);
+						kubeClient.close();
+						kubernetesClusterDescriptor.close();
+						return 0;
+					} catch (Exception e) {
+						LOG.error("Could not properly shutdown cluster client.", e);
+						return 1;
+					}
+				}
 				clusterClient = kubernetesClusterDescriptor.retrieve(clusterId).getClusterClient();
 			} else {
+				if (stop) {
+					LOG.info("Cluster not exist");
+					kubeClient.close();
+					kubernetesClusterDescriptor.close();
+					return 0;
+				}
 				clusterClient = kubernetesClusterDescriptor
 						.deploySessionCluster(
 								kubernetesClusterClientFactory.getClusterSpecification(configuration))
@@ -142,6 +163,16 @@ public class KubernetesSessionCli {
 		}
 
 		return 0;
+	}
+
+	private boolean isStopCommand(String[] args) throws CliArgsException {
+		final CommandLine commandLine = cli.parseCommandLineOptions(args, true);
+		List<String> argList = commandLine.getArgList();
+		int size = argList.size();
+		if (size > 0) {
+			return STOP_COMMAND.equalsIgnoreCase(argList.get(size - 1));
+		}
+		return false;
 	}
 
 	/**
