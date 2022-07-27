@@ -49,7 +49,7 @@ com.bytedance.flink:flink-python-byted:jar:1.11-byted-SNAPSHOT
 |  +- org.apache.flink:flink-shaded-guava:jar:18.0-11.0-byted-SNAPSHOT:provided
 |  +- org.apache.commons:commons-math3:jar:3.5:provided
 |  +- com.googlecode.json-simple:json-simple:jar:1.1.1:compile
-|  +- org.apache.flink:flink-shaded-bytedance:jar:11.0-byted-SNAPSHOT:provided
+|  +- org.apache.flink:flink-shaded-bytedance-commons:jar:11.0-byted-SNAPSHOT:provided
 |  \- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-11.0-byted-SNAPSHOT:provided
 +- org.apache.flink:flink-core:jar:1.11-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-annotations:jar:1.11-byted-SNAPSHOT:provided
@@ -58,11 +58,11 @@ com.bytedance.flink:flink-python-byted:jar:1.11-byted-SNAPSHOT
 |  +- org.apache.commons:commons-lang3:jar:3.3.2:compile
 |  +- com.esotericsoftware.kryo:kryo:jar:2.24.0:provided
 |  |  \- com.esotericsoftware.minlog:minlog:jar:1.2:provided
-|  +- commons-collections:commons-collections:jar:3.2.2:provided
+|  +- commons-collections:commons-collections:jar:3.2.2:compile
 |  \- org.apache.commons:commons-compress:jar:1.20:provided
 +- org.yaml:snakeyaml:jar:1.24:compile
-+- org.apache.kafka:kafka-clients:jar:0.10.1.2-bd1.7.20:compile
-|  +- com.bytedance:commons:jar:0.0.14:compile
++- org.apache.kafka:kafka-clients:jar:0.10.1.2-bd1.7.32:compile
+|  +- com.bytedance:commons:jar:0.0.17:compile
 |  |  +- com.google.guava:guava:jar:18.0:compile
 |  |  +- com.squareup.okhttp3:okhttp:jar:3.8.0:compile
 |  |  |  \- com.squareup.okio:okio:jar:1.13.0:compile
@@ -93,11 +93,25 @@ com.bytedance.flink:flink-python-byted:jar:1.11-byted-SNAPSHOT
 |  |  +- org.apache.parquet:parquet-common:jar:1.8.3-bd2:compile
 |  |  +- org.apache.parquet:parquet-encoding:jar:1.8.3-bd2:compile
 |  |  \- commons-codec:commons-codec:jar:1.10:compile
-|  \- org.apache.parquet:parquet-hadoop:jar:1.8.3-bd2:compile
-|     +- org.apache.parquet:parquet-format:jar:2.3.1-bd1:compile
-|     +- org.apache.parquet:parquet-jackson:jar:1.8.3-bd2:compile
-|     +- org.codehaus.jackson:jackson-mapper-asl:jar:1.9.11:compile
-|     \- org.codehaus.jackson:jackson-core-asl:jar:1.9.11:compile
+|  +- org.apache.parquet:parquet-hadoop:jar:1.8.3-bd2:compile
+|  |  +- org.apache.parquet:parquet-format:jar:2.3.1-bd1:compile
+|  |  +- org.apache.parquet:parquet-jackson:jar:1.8.3-bd2:compile
+|  |  +- org.codehaus.jackson:jackson-mapper-asl:jar:1.9.11:compile
+|  |  \- org.codehaus.jackson:jackson-core-asl:jar:1.9.11:compile
+|  \- com.bytedance:env-conf-core:jar:1.0.12-rc.8:compile
+|     +- com.bytedance:consul-lang-core:jar:1.0.4-rc.3:compile
+|     |  \- com.orbitz.consul:consul-client:jar:1.0.2-bd-SNAPSHOT:compile
+|     |     +- com.squareup.retrofit2:retrofit:jar:2.3.0:compile
+|     |     +- com.squareup.retrofit2:converter-jackson:jar:2.3.0:compile
+|     |     +- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:jar:2.10.1:compile
+|     |     \- com.fasterxml.jackson.datatype:jackson-datatype-guava:jar:2.10.1:compile
+|     +- org.apache.commons:commons-collections4:jar:4.1:compile
+|     +- commons-net:commons-net:jar:3.6:compile
+|     +- commons-validator:commons-validator:jar:1.6:compile
+|     |  +- commons-beanutils:commons-beanutils:jar:1.9.2:compile
+|     |  \- commons-digester:commons-digester:jar:1.8.1:compile
+|     +- org.zeroturnaround:zt-exec:jar:1.10:compile
+|     \- com.googlecode.java-ipv6:java-ipv6:jar:0.17:compile
 +- org.msgpack:msgpack:jar:0.6.12:compile
 |  \- org.javassist:javassist:jar:3.24.0-GA:compile
 +- org.apache.storm:process-tree:jar:0.9.6:compile

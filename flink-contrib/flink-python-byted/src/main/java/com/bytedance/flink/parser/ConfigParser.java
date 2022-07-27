@@ -317,7 +317,8 @@ public class ConfigParser {
 					(List<Map<String, Object>>) spoutArgs.get(Constants.KAFKA_SOURCE)) {
 					int partition = KafkaUtils.getPartitionNum(
 						(String) kafkaSource.get(Constants.KAFKA_CLUSTER),
-						(String) kafkaSource.get(Constants.TOPIC_NAME));
+						(String) kafkaSource.get(Constants.TOPIC_NAME),
+						(String) kafkaSource.getOrDefault(Constants.BOOTSTRAP_SERVERS, null));
 					kafkaSource.put(Constants.TOTAL_PARTITION, partition);
 				}
 				isAutoPartition = false;
@@ -351,11 +352,18 @@ public class ConfigParser {
 				isAutoPartition = false;
 			}
 
+			LOG.info("spoutArgs is {}", spoutArgs.toString());
+			if (spoutArgs.get(Constants.BOOTSTRAP_SERVERS) == null) {
+				spoutInfo.setBootstrapServers(null);
+			} else {
+				spoutInfo.setBootstrapServers(String.valueOf(spoutArgs.get(Constants.BOOTSTRAP_SERVERS)));
+			}
 			spoutInfo.setAutoPartition(isAutoPartition);
 			if (isAutoPartition) {
 				// We fetch the partition number from kafka if it is configured to be auto partition.
 				int partitionNum =
-					KafkaUtils.getPartitionNum(spoutInfo.getKafkaCluster(), spoutInfo.getKafkaTopic());
+					KafkaUtils.getPartitionNum(spoutInfo.getKafkaCluster(), spoutInfo.getKafkaTopic(),
+						spoutInfo.getBootstrapServers());
 				LOG.info("Adjust kafka partition num to {}", partitionNum);
 				spoutInfo.setTotalPartition(partitionNum);
 				spoutInfo.getArgs().put(Constants.TOTAL_PARTITION, partitionNum);
