@@ -32,6 +32,7 @@ import org.apache.flink.runtime.dispatcher.Dispatcher;
 import org.apache.flink.runtime.highavailability.nonha.embedded.EmbeddedHaServices;
 import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneClientHAServices;
 import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneHaServices;
+import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneSharedClientHAServices;
 import org.apache.flink.runtime.highavailability.zookeeper.ZooKeeperClientHAServices;
 import org.apache.flink.runtime.highavailability.zookeeper.ZooKeeperHaServices;
 import org.apache.flink.runtime.highavailability.zookeeper.ZooKeeperSharedClientHAServicesFactory;
@@ -154,6 +155,9 @@ public class HighAvailabilityServicesUtils {
 	public static SharedClientHAServices createSharedClientHAService(Configuration configuration) throws Exception {
 		HighAvailabilityMode highAvailabilityMode = HighAvailabilityMode.fromConfig(configuration);
 		switch (highAvailabilityMode) {
+			case NONE:
+				final String webMonitorAddress = getLeaderAddress(configuration, AddressResolution.TRY_ADDRESS_RESOLUTION);
+				return new StandaloneSharedClientHAServices(webMonitorAddress);
 			case ZOOKEEPER:
 				ZooKeeperSharedClientHAServicesFactory factory = new ZooKeeperSharedClientHAServicesFactory();
 				return factory.createSharedClientHAServices(configuration);
