@@ -68,6 +68,10 @@ class BatchExecSortLimit(
   private val (keys, orders, nullsIsLast) = SortUtil.getKeysAndOrders(
     sortCollation.getFieldCollations)
 
+  def getIsGlobal: Boolean = {
+    isGlobal
+  }
+
   override def copy(
       traitSet: RelTraitSet,
       newInput: RelNode,

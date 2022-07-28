@@ -113,6 +113,15 @@ public class OptimizerConfigOptions {
 				"the AggregatableTableSource. Default value is false.");
 
 	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
+	public static final ConfigOption<Boolean> TABLE_OPTIMIZER_PUSH_ACROSS_UNION_ALL_ENABLED =
+		key("table.optimizer.push-across-union-all.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("When it is true, the optimizer will push down the operators, " +
+				"such as BatchExecSortLimit or BatchExecLimit, below the union-all operator. " +
+				"Default value is false.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
 	public static final ConfigOption<Boolean> TABLE_OPTIMIZER_SOURCE_TOPN_PUSHDOWN_ENABLED =
 		key("table.optimizer.source.topn-pushdown.enabled")
 			.booleanType()
