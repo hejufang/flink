@@ -155,6 +155,10 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 		return String.format("%s_%s(%s/%s)", jobId, taskName, subtaskId, parallel);
 	}
 
+	public HtapTable getHtapTable() {
+		return table;
+	}
+
 	private void createHtapReader() throws IOException {
 		htapReader = new HtapReader(table, readerConfig, tableFilters, tableProjections,
 			tableAggregates, groupByColumns, aggregateFunctions, outputDataType, limit,

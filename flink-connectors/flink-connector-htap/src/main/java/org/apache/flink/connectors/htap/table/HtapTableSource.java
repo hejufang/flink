@@ -49,7 +49,6 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.types.Row;
-import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
@@ -62,7 +61,6 @@ import com.bytedance.htap.metaclient.partition.PartitionID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -248,18 +246,10 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 	private int inferParallelismWithPartitionNumber(
 			HtapRowInputFormat inputFormat,
 			ReadableConfig flinkConf) {
-		try {
-			long startMs = System.currentTimeMillis();
-			int partitionNumber = inputFormat.createInputSplits(0).length;
-			long endMs = System.currentTimeMillis();
-			LOG.debug("Htap source({}) createInputSplits use time: {} ms, splitNum = {}",
-				tablePath, (endMs - startMs), partitionNumber);
-			int partitionNumberPerSubtask =
-				flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_PARTITION_NUMBER_PER_SUBTASK);
-			return (int) Math.ceil(((double) partitionNumber) / partitionNumberPerSubtask);
-		} catch (IOException e) {
-			throw new FlinkRuntimeException(e);
-		}
+		int partitionNumber = inputFormat.getHtapTable().getNumPartitions();
+		int partitionNumberPerSubtask =
+			flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_PARTITION_NUMBER_PER_SUBTASK);
+		return (int) Math.ceil(((double) partitionNumber) / partitionNumberPerSubtask);
 	}
 
 	private int inferParallelismWithRowNumber(
