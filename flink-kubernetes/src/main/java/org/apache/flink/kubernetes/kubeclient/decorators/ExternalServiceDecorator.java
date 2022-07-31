@@ -25,12 +25,12 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
-import io.fabric8.kubernetes.api.model.extensions.HTTPIngressRuleValueBuilder;
-import io.fabric8.kubernetes.api.model.extensions.Ingress;
-import io.fabric8.kubernetes.api.model.extensions.IngressBackendBuilder;
-import io.fabric8.kubernetes.api.model.extensions.IngressBuilder;
-import io.fabric8.kubernetes.api.model.extensions.IngressRule;
-import io.fabric8.kubernetes.api.model.extensions.IngressRuleBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1beta1.HTTPIngressRuleValueBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1beta1.Ingress;
+import io.fabric8.kubernetes.api.model.networking.v1beta1.IngressBackendBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1beta1.IngressBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1beta1.IngressRule;
+import io.fabric8.kubernetes.api.model.networking.v1beta1.IngressRuleBuilder;
 
 import java.io.IOException;
 import java.util.Arrays;

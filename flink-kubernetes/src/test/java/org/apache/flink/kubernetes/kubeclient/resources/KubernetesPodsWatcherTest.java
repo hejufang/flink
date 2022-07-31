@@ -22,8 +22,8 @@ import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.util.TestLogger;
 
-import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.Watcher;
+import io.fabric8.kubernetes.client.WatcherException;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -57,7 +57,7 @@ public class KubernetesPodsWatcherTest extends TestLogger {
 		final AtomicBoolean called = new AtomicBoolean(false);
 		final KubernetesPodsWatcher podsWatcher = new KubernetesPodsWatcher(
 			new TestingCallbackHandler(e -> called.set(true)));
-		podsWatcher.onClose(new KubernetesClientException("exception"));
+		podsWatcher.onClose(new WatcherException("exception"));
 		assertThat(called.get(), is(true));
 	}
 

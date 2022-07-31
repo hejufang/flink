@@ -45,7 +45,7 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.ServicePort;
-import io.fabric8.kubernetes.api.model.extensions.Ingress;
+import io.fabric8.kubernetes.api.model.networking.v1beta1.Ingress;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.NamespacedKubernetesClient;
 import org.slf4j.Logger;
@@ -214,7 +214,7 @@ public abstract class Fabric8FlinkKubeClient implements FlinkKubeClient {
 		final String ingressName = ExternalServiceDecorator.getIngressName(clusterId);
 
 		final Ingress ingress = this.internalClient
-			.extensions()
+			.network()
 			.ingresses()
 			.withName(ingressName)
 			.fromServer()

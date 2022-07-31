@@ -34,7 +34,7 @@ org.apache.flink:flink-kubernetes_2.11:jar:1.11-byted-SNAPSHOT
 |  +- org.apache.flink:flink-shaded-commons-cli:jar:1.3.1-11.0-byted-SNAPSHOT:provided
 |  \- org.apache.flink:flink-streaming-java_2.11:jar:1.11-byted-SNAPSHOT:provided
 |     +- com.googlecode.json-simple:json-simple:jar:1.1.1:provided
-|     \- org.apache.flink:flink-shaded-bytedance:jar:11.0-byted-SNAPSHOT:provided
+|     \- org.apache.flink:flink-shaded-bytedance-commons:jar:11.0-byted-SNAPSHOT:provided
 +- org.apache.flink:flink-runtime_2.11:jar:1.11-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-queryable-state-client-java:jar:1.11-byted-SNAPSHOT:provided
 |  +- org.apache.flink:flink-hadoop-fs:jar:1.11-byted-SNAPSHOT:provided
@@ -66,31 +66,50 @@ org.apache.flink:flink-kubernetes_2.11:jar:1.11-byted-SNAPSHOT
 |  +- org.lz4:lz4-java:jar:1.6.0:provided
 |  +- org.apache.flink:flink-shaded-caffeine:jar:11.0-byted-SNAPSHOT:provided
 |  \- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-11.0-byted-SNAPSHOT:provided
-+- io.fabric8:kubernetes-client:jar:4.9.2:compile
-|  +- io.fabric8:kubernetes-model:jar:4.9.2:compile
-|  |  +- io.fabric8:kubernetes-model-common:jar:4.9.2:compile
-|  |  \- com.fasterxml.jackson.module:jackson-module-jaxb-annotations:jar:2.10.1:compile
-|  |     +- jakarta.xml.bind:jakarta.xml.bind-api:jar:2.3.2:provided
-|  |     \- jakarta.activation:jakarta.activation-api:jar:1.2.1:provided
++- io.fabric8:kubernetes-client:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-core:jar:5.5.0:compile
+|  |  +- io.fabric8:kubernetes-model-common:jar:5.5.0:compile
+|  |  \- com.fasterxml.jackson.core:jackson-annotations:jar:2.10.1:compile
+|  +- io.fabric8:kubernetes-model-rbac:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-admissionregistration:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-apps:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-autoscaling:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-apiextensions:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-batch:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-certificates:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-coordination:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-discovery:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-events:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-extensions:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-flowcontrol:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-networking:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-metrics:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-policy:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-scheduling:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-storageclass:jar:5.5.0:compile
+|  +- io.fabric8:kubernetes-model-node:jar:5.5.0:compile
 |  +- com.squareup.okhttp3:okhttp:jar:3.12.1:compile
 |  |  \- com.squareup.okio:okio:jar:1.15.0:compile
-|  +- com.squareup.okhttp3:logging-interceptor:jar:3.12.6:compile
+|  +- com.squareup.okhttp3:logging-interceptor:jar:3.12.12:compile
 |  +- com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:jar:2.10.1:compile
 |  +- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:jar:2.10.1:compile
-|  |  \- com.fasterxml.jackson.core:jackson-annotations:jar:2.10.1:compile
 |  +- com.fasterxml.jackson.core:jackson-databind:jar:2.10.1:compile
 |  +- com.fasterxml.jackson.core:jackson-core:jar:2.10.1:compile
 |  +- io.fabric8:zjsonpatch:jar:0.3.0:compile
 |  \- com.github.mifmif:generex:jar:1.0.2:compile
 |     \- dk.brics.automaton:automaton:jar:1.11-8:compile
 +- com.bytedance.openplatform:arcee-sdk:jar:fabric8_4.9.2-1.0.0.7:compile
-+- io.fabric8:kubernetes-server-mock:jar:4.9.2:test
-|  \- io.fabric8:mockwebserver:jar:0.1.8:test
-|     +- com.squareup.okhttp3:mockwebserver:jar:3.12.6:test
-|     \- io.sundr:builder-annotations:jar:0.13.1:test
-|        +- io.sundr:sundr-core:jar:0.13.1:test
-|        +- io.sundr:sundr-codegen:jar:0.13.1:test
-|        \- io.sundr:resourcecify-annotations:jar:0.13.1:test
++- io.fabric8:kubernetes-server-mock:jar:5.5.0:test
+|  +- io.fabric8:mockwebserver:jar:0.1.8:test
+|  |  +- com.squareup.okhttp3:mockwebserver:jar:3.12.6:test
+|  |  \- io.sundr:builder-annotations:jar:0.13.1:test
+|  |     +- io.sundr:sundr-core:jar:0.13.1:test
+|  |     +- io.sundr:sundr-codegen:jar:0.13.1:test
+|  |     \- io.sundr:resourcecify-annotations:jar:0.13.1:test
+|  \- org.junit.jupiter:junit-jupiter-api:jar:5.7.2:test
+|     +- org.apiguardian:apiguardian-api:jar:1.1.0:test
+|     +- org.opentest4j:opentest4j:jar:1.2.0:test
+|     \- org.junit.platform:junit-platform-commons:jar:1.7.2:test
 +- org.apache.flink:flink-runtime_2.11:test-jar:tests:1.11-byted-SNAPSHOT:test
 +- org.apache.flink:flink-clients_2.11:test-jar:tests:1.11-byted-SNAPSHOT:test
 +- org.apache.flink:flink-test-utils_2.11:jar:1.11-byted-SNAPSHOT:test

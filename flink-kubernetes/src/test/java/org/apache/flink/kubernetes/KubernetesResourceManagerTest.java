@@ -467,23 +467,20 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	@Test
 	public void testPreviousAttemptPodRegistered() throws Exception {
 		new Context() {{
+			flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
+			final String previousAttemptPodName = CLUSTER_ID + "-taskmanager-1-1";
+			final Pod previousAttemptPod = createPreviousAttemptPodWithIndex(previousAttemptPodName);
+			// Prepare previous attempt pod
+			assertEquals(1, kubeClient.pods().list().getItems().size());
+
 			runTest(() -> {
-				// Prepare previous attempt pod
-				final String previousAttemptPodName = CLUSTER_ID + "-taskmanager-1-1";
-				final Pod previousAttemptPod = createPreviousAttemptPodWithIndex(previousAttemptPodName);
-				assertEquals(1, kubeClient.pods().list().getItems().size());
-
-				// Call initialize method to recover worker nodes from previous attempt.
-				resourceManager.initialize();
-
 				registerSlotRequest();
-				assertThat(resourceManager.getNumRequestedNotAllocatedWorkersForTesting(), is(1));
 				assertThat(resourceManager.getNumRequestedNotRegisteredWorkersForTesting(), is(1));
 
 				// adding previous attempt pod should not decrease pending worker count
 				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(previousAttemptPod)));
+				waitPodAdded(resourceManager, new ResourceID(previousAttemptPodName), 10);
 				registerTaskExecutor(new ResourceID(previousAttemptPodName));
-				assertThat(resourceManager.getNumRequestedNotAllocatedWorkersForTesting(), is(1));
 				assertThat(resourceManager.getNumRequestedNotRegisteredWorkersForTesting(), is(1));
 
 				final Optional<Pod> currentAttemptPodOpt = kubeClient.pods().list().getItems().stream()
@@ -494,11 +491,25 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 				// adding current attempt pod should decrease the pending worker count
 				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(currentAttemptPod)));
+				ResourceID currentAttemptResourceID = new ResourceID(currentAttemptPod.getMetadata().getName());
+				waitPodAdded(resourceManager, currentAttemptResourceID, 10);
+				assertTrue(resourceManager.getWorkerNodes().containsKey(currentAttemptResourceID));
 				registerTaskExecutor(new ResourceID(currentAttemptPod.getMetadata().getName()));
 				assertThat(resourceManager.getNumRequestedNotAllocatedWorkersForTesting(), is(0));
 				assertThat(resourceManager.getNumRequestedNotRegisteredWorkersForTesting(), is(0));
 			});
 		}};
+	}
+
+	private void waitPodAdded(TestingKubernetesResourceManager resourceManager, ResourceID resourceID, int maxRetryTimes) throws InterruptedException {
+		int retryTimes = 0;
+		while (retryTimes < maxRetryTimes) {
+			if (resourceManager.getWorkerNodes().containsKey(resourceID)) {
+				break;
+			}
+			Thread.sleep(10);
+			retryTimes++;
+		}
 	}
 
 	@Test
@@ -507,21 +518,18 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 			runTest(() -> {
 				registerSlotRequest();
 				registerSlotRequest();
-				assertThat(resourceManager.getNumRequestedNotAllocatedWorkersForTesting(), is(2));
+				assertThat(resourceManager.getNumRequestedNotRegisteredWorkersForTesting(), is(2));
 
 				assertThat(kubeClient.pods().list().getItems().size(), is(2));
 				final Pod pod1 = kubeClient.pods().list().getItems().get(0);
 				final Pod pod2 = kubeClient.pods().list().getItems().get(1);
 
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod1)));
-				assertThat(resourceManager.getNumRequestedNotAllocatedWorkersForTesting(), is(1));
-
 				// Adding duplicated pod should not increase pending worker count
 				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod1)));
-				assertThat(resourceManager.getNumRequestedNotAllocatedWorkersForTesting(), is(1));
-
 				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod2)));
-				assertThat(resourceManager.getNumRequestedNotAllocatedWorkersForTesting(), is(0));
+
+				assertThat(resourceManager.getNumRequestedNotRegisteredWorkersForTesting(), is(2));
+				assertThat(resourceManager.getWorkerNodes().size(), is(2));
 			});
 		}};
 	}
@@ -915,11 +923,19 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 			runTest(() -> {
 				registerSlotRequest();
-				assertThat(resourceManager.getNumRequestedNotAllocatedWorkersForTesting(), is(1));
 				assertThat(resourceManager.getNumRequestedNotRegisteredWorkersForTesting(), is(1));
 
+				// wait pod added.
+				int waitTime = 0;
+				while (resourceManager.getNumRequestedNotAllocatedWorkersForTesting() != 0) {
+					Thread.sleep(5);
+					waitTime++;
+					if (waitTime > 10) {
+						break;
+					}
+				}
+				assertThat(resourceManager.getNumRequestedNotAllocatedWorkersForTesting(), is(0));
 				final Pod pod = kubeClient.pods().list().getItems().get(0);
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod)));
 				trigger.complete(null);
 
 				registerTaskExecutor(new ResourceID(pod.getMetadata().getName()));

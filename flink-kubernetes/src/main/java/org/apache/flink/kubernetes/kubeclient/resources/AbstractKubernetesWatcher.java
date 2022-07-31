@@ -21,12 +21,10 @@ package org.apache.flink.kubernetes.kubeclient.resources;
 import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
-import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.Watcher;
+import io.fabric8.kubernetes.client.WatcherException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static java.net.HttpURLConnection.HTTP_GONE;
 
 /**
  * Watcher for resources in Kubernetes.
@@ -42,8 +40,8 @@ public abstract class AbstractKubernetesWatcher<T extends HasMetadata, K extends
 	}
 
 	@Override
-	public void onClose(KubernetesClientException cause) {
-		// null means the watcher is closed by expected.
+	public void onClose(WatcherException cause) {
+		// null means the watcher is closed by normally.
 		if (cause == null) {
 			logger.info("The pods watcher is closing.");
 		} else {
@@ -51,7 +49,7 @@ public abstract class AbstractKubernetesWatcher<T extends HasMetadata, K extends
 			// status code, so this should be handled by the caller. Refer to
 			// https://github.com/fabric8io/kubernetes-client/blob/v4.9.2/kubernetes-client/src/main/java/io/fabric8/kubernetes/client/dsl/internal/WatchConnectionManager.java#L255
 			// for more information about the implementation.
-			if (cause.getCode() == HTTP_GONE) {
+			if (cause.isHttpGone()) {
 				logger.debug(
 					"Got a http code 'HTTP_GONE' which means the Kubernetes client has the "
 						+ "too old resource version.",

@@ -105,7 +105,7 @@ public class KubernetesClientTestBase extends KubernetesTestBase {
 			.withNewTargetPort(SOCKET_PORT)
 			.build();
 		final ServiceStatus serviceStatus = new ServiceStatusBuilder()
-			.withLoadBalancer(new LoadBalancerStatus(Collections.singletonList(new LoadBalancerIngress(hostname, ip))))
+			.withLoadBalancer(new LoadBalancerStatus(Collections.singletonList(new LoadBalancerIngress(hostname, ip, new ArrayList<>()))))
 			.build();
 
 		return buildExternalService(

@@ -32,7 +32,7 @@ under the License.
 	<packaging>jar</packaging>
 
 	<properties>
-		<kubernetes.client.version>4.9.2</kubernetes.client.version>
+		<kubernetes.client.version>5.5.0</kubernetes.client.version>
 	</properties>
 
 	<!-- Set dependency version for transitive dependencies -->
@@ -132,10 +132,7 @@ under the License.
 						<configuration combine.children="append">
 							<artifactSet>
 								<includes combine.children="append">
-									<include>io.fabric8:kubernetes-client</include>
-									<include>io.fabric8:kubernetes-model</include>
-									<include>io.fabric8:kubernetes-model-common</include>
-									<include>io.fabric8:zjsonpatch</include>
+									<include>io.fabric8:*</include>
 
 									<!-- Shade all the dependencies of kubernetes client  -->
 									<include>com.fasterxml.jackson.core:jackson-core</include>
@@ -173,8 +170,8 @@ under the License.
 							</filters>
 							<relocations>
 								<relocation>
-									<pattern>io.fabric8.kubernetes</pattern>
-									<shadedPattern>org.apache.flink.kubernetes.shaded.io.fabric8.kubernetes</shadedPattern>
+									<pattern>io.fabric8</pattern>
+									<shadedPattern>org.apache.flink.kubernetes.shaded.io.fabric8</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>com.fasterxml.jackson</pattern>
