@@ -237,6 +237,10 @@ under the License.
 											<shadedPattern>org.apache.flink.connector.bmq.shaded.com.google.common</shadedPattern>
 										</relocation>
 										<relocation>
+											<pattern>com.google.protobuf</pattern>
+											<shadedPattern>org.apache.flink.connector.bmq.shaded.com.google.protobuf</shadedPattern>
+										</relocation>
+										<relocation>
 											<pattern>okhttp3</pattern>
 											<shadedPattern>org.apache.flink.connector.bmq.shaded.okhttp3</shadedPattern>
 										</relocation>
