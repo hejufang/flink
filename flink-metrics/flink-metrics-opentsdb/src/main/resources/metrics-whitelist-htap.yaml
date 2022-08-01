@@ -81,8 +81,12 @@ non-global:
         result_count,
         instance_count,
         query_count,
+        slow_query_count,
         query_phase_latency,
         latency,
+        query_latency,
+        query_fetch_duration,
+        query_fetch_cost,
       # jm threadPool usage
         numPendingIOTask,
         numRunningIOTask,
