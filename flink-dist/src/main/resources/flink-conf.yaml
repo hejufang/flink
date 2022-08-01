@@ -1680,7 +1680,7 @@ boe:
   checkpoint.hdfs.prefix: hdfs://westeros/flink_boe
   dtop.database: inf_yarn_dtop_boe
   dtop.data_source: dtop_boe
-  dashboard.data_source: bytetsd_boe
+  dashboard.data_source: Bytetsd-China-BOE
   kafka_server_url: http://kafka-config-boe.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_boe
   yaop_url: https://yaop-boe.bytedance.net
@@ -1774,7 +1774,7 @@ boei18n:
   high-availability.zookeeper.quorum: 10.231.8.12:2181,10.231.8.51:2181,10.231.8.25:2181,10.231.8.21:2181,10.231.8.29:2181
   hdfs.prefix: hdfs://essos/flink_boei18n
   checkpoint.hdfs.prefix: hdfs://essos/flink_boei18n
-  dashboard.data_source: bytetsd_boei18n
+  dashboard.data_source: Bytetsd-US-BOE
   kafka_server_url: http://kafka-config-boei18n.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_boei18n
   yaop_url: http://yaop-boei18n.bytedance.net
@@ -2041,7 +2041,7 @@ Seif-BOE:
   hdfs.prefix: hdfs://westeros/flink_boe
   checkpoint.hdfs.prefix: hdfs://westeros/flink_boe
   # todo only add MALLOC_ARENA_MAX in k8s now, because YARN already set this env which will cause overlapping problem
-  dashboard.data_source: bytetsd_boe
+  dashboard.data_source: Bytetsd-China-BOE
   kafka_server_url: http://kafka-config-boe.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_boe
   grafana.domain_url: "https://grafana-boe.byted.org"
