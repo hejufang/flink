@@ -19,6 +19,7 @@
 state.savepoint.location-prefix
 state.checkpoints.expired.location-prefix
 savepoint.scheduler.default.interval
+state.checkpoints.allow-persist-state-meta
 
 ## High Availability
 high-availability

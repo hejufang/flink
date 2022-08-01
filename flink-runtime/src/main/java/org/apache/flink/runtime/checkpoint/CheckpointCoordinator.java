@@ -522,11 +522,17 @@ public class CheckpointCoordinator {
 		this.statsTracker = statsTracker;
 	}
 
+	/**
+	 * set StateMetaFromJobGraph to CheckpointCoordinator and filter the empty StateMeta.
+	 * @param executionGraph
+	 */
 	public void setStateMetaFromJobGraph(ExecutionGraph executionGraph) {
-		if (allowPersistStateMeta) {
-			for (ExecutionJobVertex executionJobVertex : executionGraph.getAllVertices().values()) {
-				stateMetaFromJobGraph.putAll(executionJobVertex.getChainedOperatorIdAndStateMeta());
-			}
+		for (ExecutionJobVertex executionJobVertex : executionGraph.getAllVertices().values()) {
+			executionJobVertex.getChainedOperatorIdAndStateMeta().forEach((operatorID, operatorStateMeta) -> {
+				if (operatorStateMeta != null && !operatorStateMeta.isEmpty()) {
+					stateMetaFromJobGraph.put(operatorID, operatorStateMeta);
+				}
+			});
 		}
 	}
 

@@ -128,6 +128,7 @@ public class StateEagerRegisterTest {
 		expectedKeyedStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(StateFulFlatMapFunction.listStateDescriptor));
 		expectedKeyedStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(StateFulFlatMapFunction.valueStateDescriptor));
 		expectedKeyedStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(StateFulFlatMapFunction.mapStateDescriptor));
+		Assert.assertEquals(flapMapStateMeta.isEmpty(), false);
 		Assert.assertEquals(flapMapStateMeta.getOperatorID().toString(), "4cf304da7f0eed0ff91c4cb6128e1ca7");
 		Assert.assertEquals(flapMapStateMeta.getAllOperatorStateName().isEmpty(), true);
 		Assert.assertEquals(flapMapStateMeta.getAllKeyedStateName().size(), 3);
@@ -135,10 +136,12 @@ public class StateEagerRegisterTest {
 
 		// sink state meta test
 		OperatorStateMeta sinkStateMeta = operatorStateMetas[0];
+		Assert.assertEquals(sinkStateMeta.isEmpty(), true);
 		Assert.assertEquals(sinkStateMeta.getOperatorID().toString(), "2e588ce1c86a9d46e2e85186773ce4fd");
 		Assert.assertEquals(sinkStateMeta.getAllStateMeta().size(), 0);
 
 		OperatorStateMeta sourceStateMeta = operatorStateMetas[2];
+		Assert.assertEquals(sourceStateMeta.isEmpty(), false);
 		RegisteredOperatorStateMeta expectedOperatorStateMeta = new RegisteredOperatorStateMeta(BackendType.UNKOWN, new HashMap<>());
 		expectedOperatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.SPLIT_DISTRIBUTE, TestStatefulSource.listStateDescriptor));
 		expectedOperatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.UNION, TestStatefulSource.unionStateDescriptor));

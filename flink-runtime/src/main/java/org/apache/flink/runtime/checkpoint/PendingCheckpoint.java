@@ -441,7 +441,7 @@ public class PendingCheckpoint {
 					writeMetadataWithRetry(savepoint, targetLocation, CheckpointStorageLocation::createMetadataOutputStream, Checkpoints::storeCheckpointMetadata, transferMaxRetryAttempts);
 
 				// persist state meta in checkpoint dir
-				if (allowPersistStateMeta && !props.isSavepoint()) {
+				if (allowPersistStateMeta && !props.isSavepoint() && !operatorStateMetasFromJobGraph.isEmpty()) {
 					final CheckpointStateMetadata checkpointStateMetadata = new CheckpointStateMetadata(checkpointId, operatorStateMetasFromJobGraph.values());
 					writeMetadataWithRetry(checkpointStateMetadata, targetLocation, CheckpointStorageLocation::createStateMetadataOutputStream, Checkpoints::storeCheckpointStateMetadata, transferMaxRetryAttempts);
 				}

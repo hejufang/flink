@@ -131,6 +131,10 @@ public abstract class RegisteredStateMetaBase implements Serializable, StateObje
 		return stateMetaDataMap.values();
 	}
 
+	public boolean isEmpty() {
+		return stateMetaDataMap.isEmpty();
+	}
+
 	@Override
 	public String toString(){
 		return stateMetaDataMap.toString();

@@ -231,8 +231,15 @@ public class OperatorStateMeta implements Serializable {
 		}
 	}
 
+	public boolean isEmpty() {
+		return isStateMetaEmpty(registeredKeyedStateMeta) && isStateMetaEmpty(registeredOperatorStateMeta);
+	}
+
+	private static boolean isStateMetaEmpty(RegisteredStateMetaBase stateMeta) {
+		return stateMeta == null || stateMeta.isEmpty();
+	}
+
 	public static OperatorStateMeta empty(OperatorID operatorID) {
 		return new OperatorStateMeta(operatorID, null, null, null, null);
 	}
-
 }
