@@ -508,7 +508,7 @@ public class SmartResourceManager {
 			// api addrs was configed by service name
 			Discovery discovery = new Discovery();
 			String serviceName = uriPieces[2].replace("{", "").replace("}", "");
-			List<ServiceNode> nodes = discovery.translateOne(serviceName);
+			List<ServiceNode> nodes = discovery.lookupName(serviceName);
 			if (nodes.size() == 0) {
 				throw new Exception("Build SR check url error, no available nodes.");
 			}
