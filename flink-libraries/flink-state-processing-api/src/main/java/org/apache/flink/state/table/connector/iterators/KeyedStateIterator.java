@@ -20,6 +20,8 @@ package org.apache.flink.state.table.connector.iterators;
 
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
+import org.apache.flink.api.common.state.StateTtlConfig;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
@@ -72,7 +74,7 @@ public class KeyedStateIterator<K, N, S extends State, T> implements CloseableIt
 
 				curKeyAndNamespace = keysAndNamespaces.next();
 				try {
-					S state = backend.getPartitionedState(curKeyAndNamespace.f1, namespaceSerializer, descriptor);
+					S state = backend.getPartitionedState(curKeyAndNamespace.f1, namespaceSerializer, reconfigureTtlConfig(descriptor));
 					context.setKey(curKeyAndNamespace.f0);
 					context.setNamespace(curKeyAndNamespace.f1);
 					backend.setCurrentKey(curKeyAndNamespace.f0);
@@ -95,6 +97,17 @@ public class KeyedStateIterator<K, N, S extends State, T> implements CloseableIt
 	@Override
 	public void close() throws Exception {
 		resource.close();
+	}
+
+	private StateDescriptor<S, T> reconfigureTtlConfig(StateDescriptor<S, T> descriptor) {
+		if (descriptor.getTtlConfig() != null && descriptor.getTtlConfig().isEnabled()) {
+			StateTtlConfig newTtlConfig = StateTtlConfig
+				.newBuilder(Time.milliseconds(Long.MAX_VALUE - 1))
+				.setUpdateType(StateTtlConfig.UpdateType.OnCreateAndWrite)
+				.build();
+			descriptor.enableTimeToLive(newTtlConfig);
+		}
+		return descriptor;
 	}
 
 }
