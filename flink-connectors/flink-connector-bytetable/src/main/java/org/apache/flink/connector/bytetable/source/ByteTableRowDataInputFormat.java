@@ -22,6 +22,7 @@ import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.bytetable.util.ByteTableSchema;
 import org.apache.flink.connector.bytetable.util.ByteTableSerde;
+import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.table.data.RowData;
 
 import com.bytedance.bytetable.hbase.BytetableConnection;
@@ -38,13 +39,14 @@ import java.io.IOException;
 /**
  * {@link InputFormat} subclass that wraps the access for HTables. Returns the result as {@link RowData}
  */
-public class ByteTableRowDataInputFormat extends AbstractTableInputFormat<RowData> {
+public class ByteTableRowDataInputFormat extends AbstractTableInputFormat<RowData> implements SpecificParallelism {
 	private static final long serialVersionUID = 1L;
 	private static final Logger LOG = LoggerFactory.getLogger(ByteTableRowDataInputFormat.class);
 
 	private final String tableName;
 	private final ByteTableSchema schema;
 	private final String nullStringLiteral;
+	private final int parallelism;
 
 	private transient ByteTableSerde serde;
 
@@ -52,11 +54,13 @@ public class ByteTableRowDataInputFormat extends AbstractTableInputFormat<RowDat
 			org.apache.hadoop.conf.Configuration conf,
 			String tableName,
 			ByteTableSchema schema,
-			String nullStringLiteral) {
+			String nullStringLiteral,
+			int parallelism) {
 		super(conf);
 		this.tableName = tableName;
 		this.schema = schema;
 		this.nullStringLiteral = nullStringLiteral;
+		this.parallelism = parallelism;
 	}
 
 	@Override
@@ -97,5 +101,10 @@ public class ByteTableRowDataInputFormat extends AbstractTableInputFormat<RowDat
 			LOG.error("Exception while creating connection to ByteTable: " + tableName, ioe);
 			throw new RuntimeException("Cannot create connection to ByteTable: " + tableName, ioe);
 		}
+	}
+
+	@Override
+	public int getParallelism() {
+		return parallelism;
 	}
 }

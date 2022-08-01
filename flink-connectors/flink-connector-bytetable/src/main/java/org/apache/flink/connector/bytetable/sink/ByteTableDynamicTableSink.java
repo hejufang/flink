@@ -33,6 +33,8 @@ import org.apache.flink.types.RowKind;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 
+import java.util.Objects;
+
 /**
  * Bytetable table sink implementation.
  */
@@ -77,7 +79,8 @@ public class ByteTableDynamicTableSink implements DynamicTableSink {
 			writeOptions.getBufferFlushIntervalMillis(),
 			writeOptions.isIgnoreDelete(),
 			byteTableOptions.getRateLimiter(),
-			byteTableSchema.getCellVersionIndex());
+			byteTableSchema.getCellVersionIndex(),
+			byteTableOptions.getParallelism());
 		return SinkFunctionProvider.of(sinkFunction);
 	}
 
@@ -118,5 +121,25 @@ public class ByteTableDynamicTableSink implements DynamicTableSink {
 	@VisibleForTesting
 	public ByteTableWriteOptions getByteTableWriteOptions() {
 		return writeOptions;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		ByteTableDynamicTableSink sink = (ByteTableDynamicTableSink) o;
+		return Objects.equals(byteTableSchema, sink.byteTableSchema)
+			&& Objects.equals(byteTableOptions, sink.byteTableOptions)
+			&& Objects.equals(writeOptions, sink.writeOptions)
+			&& Objects.equals(nullStringLiteral, sink.nullStringLiteral);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(byteTableSchema, byteTableOptions, writeOptions, nullStringLiteral);
 	}
 }

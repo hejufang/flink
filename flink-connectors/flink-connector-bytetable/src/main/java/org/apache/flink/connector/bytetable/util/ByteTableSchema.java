@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.apache.flink.table.types.utils.TypeConversions.fromLogicalToDataType;
@@ -398,7 +399,26 @@ public class ByteTableSchema implements Serializable {
 		return byteTableSchema;
 	}
 
-	// ------------------------------------------------------------------------------------
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		ByteTableSchema schema = (ByteTableSchema) o;
+		return cellVersionIndex == schema.cellVersionIndex
+			&& Objects.equals(familyMap, schema.familyMap)
+			&& Objects.equals(rowKeyInfo, schema.rowKeyInfo)
+			&& Objects.equals(charset, schema.charset);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(familyMap, rowKeyInfo, cellVersionIndex, charset);
+	}
+// ------------------------------------------------------------------------------------
 
 	/**
 	 * An class contains information about rowKey, such as rowKeyName, rowKeyType, rowKeyIndex.
@@ -413,6 +433,25 @@ public class ByteTableSchema implements Serializable {
 			this.rowKeyName = rowKeyName;
 			this.rowKeyType = rowKeyType;
 			this.rowKeyIndex = rowKeyIndex;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			RowKeyInfo rowKeyInfo = (RowKeyInfo) o;
+			return rowKeyIndex == rowKeyInfo.rowKeyIndex
+				&& Objects.equals(rowKeyName, rowKeyInfo.rowKeyName)
+				&& Objects.equals(rowKeyType, rowKeyInfo.rowKeyType);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(rowKeyName, rowKeyType, rowKeyIndex);
 		}
 	}
 }

@@ -30,6 +30,7 @@ import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
+import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.types.RowKind;
@@ -69,7 +70,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@code bufferFlushMaxMutations} and {@code bufferFlushIntervalMillis}.</p>
  */
 @Internal
-public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements CheckpointedFunction, BufferedMutator.ExceptionListener {
+public class ByteTableSinkFunction<T> extends RichSinkFunction<T>
+	implements CheckpointedFunction, BufferedMutator.ExceptionListener, SpecificParallelism {
 
 	private static final long serialVersionUID = 1L;
 	private static final Logger LOG = LoggerFactory.getLogger(ByteTableSinkFunction.class);
@@ -98,6 +100,8 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 
 	private transient volatile boolean closed = false;
 
+	private final int parallelism;
+
 	/**
 	 * This is set from inside the {@link BufferedMutator.ExceptionListener} if a {@link Throwable}
 	 * was thrown.
@@ -123,6 +127,7 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 			bufferFlushIntervalMillis,
 			true,
 			null,
+			-1,
 			-1
 		);
 	}
@@ -137,7 +142,8 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 			long bufferFlushIntervalMillis,
 			boolean ignoreDelete,
 			FlinkConnectorRateLimiter rateLimiter,
-			int cellVersionIndex) {
+			int cellVersionIndex,
+			int parallelism) {
 		this.byteTableName = byteTableName;
 		// Configuration is not serializable
 		this.serializedConfig = ByteTableConfigurationUtil.serializeConfiguration(conf);
@@ -150,6 +156,7 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 		this.rateLimiter = rateLimiter;
 		this.cellVersionIndex = cellVersionIndex;
 		this.mutatorFun = getMutateFunction(byteTableOptions);
+		this.parallelism = parallelism;
 	}
 
 	@Override
@@ -296,6 +303,11 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T> implements Che
 		options.database = byteTableOptions.getDatabase();
 		options.tableName = byteTableOptions.getTableName();
 		bytetableTable = bytetableClient.openTable(options);
+	}
+
+	@Override
+	public int getParallelism() {
+		return parallelism;
 	}
 
 	/**

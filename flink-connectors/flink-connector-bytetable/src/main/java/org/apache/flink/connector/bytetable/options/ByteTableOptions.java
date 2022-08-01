@@ -47,6 +47,7 @@ public class ByteTableOptions implements Serializable {
 	private final int reqTimeoutMs;
 	private final ByteTableMutateType mutateType;
 	@Nullable private final FlinkConnectorRateLimiter rateLimiter;
+	private final int parallelism;
 
 	private ByteTableOptions(
 			String database,
@@ -58,7 +59,8 @@ public class ByteTableOptions implements Serializable {
 			int chanTimeoutMs,
 			int reqTimeoutMs,
 			ByteTableMutateType mutateType,
-			@Nullable FlinkConnectorRateLimiter rateLimiter) {
+			@Nullable FlinkConnectorRateLimiter rateLimiter,
+			int parallelism) {
 		this.database = database;
 		this.tableName = tableName;
 		this.psm = psm;
@@ -69,6 +71,7 @@ public class ByteTableOptions implements Serializable {
 		this.reqTimeoutMs = reqTimeoutMs;
 		this.mutateType = mutateType;
 		this.rateLimiter = rateLimiter;
+		this.parallelism = parallelism;
 	}
 
 	public String getDatabase() {
@@ -112,6 +115,10 @@ public class ByteTableOptions implements Serializable {
 		return rateLimiter;
 	}
 
+	public int getParallelism() {
+		return parallelism;
+	}
+
 	@Override
 	public String toString() {
 		return "ByteTableOptions{" +
@@ -124,6 +131,8 @@ public class ByteTableOptions implements Serializable {
 			", chanTimeoutMs='" + chanTimeoutMs + '\'' +
 			", reqTimeoutMs='" + reqTimeoutMs + '\'' +
 			", mutateType='" + mutateType + '\'' +
+			", rateLimiter='" + (rateLimiter == null ? 0 : rateLimiter.getRate()) + '\'' +
+			", parallelism='" + parallelism + '\'' +
 			'}';
 	}
 
@@ -136,16 +145,17 @@ public class ByteTableOptions implements Serializable {
 			return false;
 		}
 		ByteTableOptions that = (ByteTableOptions) o;
-		return Objects.equals(database, that.database) &&
-			Objects.equals(tableName, that.tableName) &&
-			Objects.equals(psm, that.psm) &&
-			Objects.equals(cluster, that.cluster) &&
-			Objects.equals(service, that.service) &&
-			Objects.equals(connTimeoutMs, that.connTimeoutMs) &&
-			Objects.equals(chanTimeoutMs, that.chanTimeoutMs) &&
-			Objects.equals(reqTimeoutMs, that.reqTimeoutMs) &&
-			Objects.equals(mutateType, that.mutateType) &&
-			Objects.equals(rateLimiter, that.rateLimiter);
+		return connTimeoutMs == that.connTimeoutMs
+			&& chanTimeoutMs == that.chanTimeoutMs
+			&& reqTimeoutMs == that.reqTimeoutMs
+			&& parallelism == that.parallelism
+			&& Objects.equals(database, that.database)
+			&& Objects.equals(tableName, that.tableName)
+			&& Objects.equals(psm, that.psm)
+			&& Objects.equals(cluster, that.cluster)
+			&& Objects.equals(service, that.service)
+			&& Objects.equals(mutateType, that.mutateType)
+			&& Objects.equals(rateLimiter, that.rateLimiter);
 	}
 
 	@Override
@@ -160,7 +170,8 @@ public class ByteTableOptions implements Serializable {
 			chanTimeoutMs,
 			reqTimeoutMs,
 			mutateType,
-			rateLimiter);
+			rateLimiter,
+			parallelism);
 	}
 
 	/**
@@ -186,6 +197,7 @@ public class ByteTableOptions implements Serializable {
 		// default single row mutate.
 		private ByteTableMutateType mutateType = ByteTableMutateType.MUTATE_SINGLE;
 		private FlinkConnectorRateLimiter rateLimiter;
+		private int parallelism;
 
 		/**
 		 * Required. Sets the ByteTable database name.
@@ -260,6 +272,11 @@ public class ByteTableOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setParallelism(int parallelism) {
+			this.parallelism = parallelism;
+			return this;
+		}
+
 		/**
 		 * Creates an instance of {@link ByteTableOptions}.
 		 */
@@ -279,7 +296,8 @@ public class ByteTableOptions implements Serializable {
 				chanTimeoutMs,
 				reqTimeoutMs,
 				mutateType,
-				rateLimiter);
+				rateLimiter,
+				parallelism);
 		}
 	}
 }

@@ -34,6 +34,8 @@ import org.apache.flink.table.utils.TableSchemaUtils;
 
 import org.apache.hadoop.conf.Configuration;
 
+import java.util.Objects;
+
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
@@ -47,23 +49,26 @@ public class ByteTableDynamicTableSource implements ScanTableSource, LookupTable
 	private ByteTableSchema byteTableSchema;
 	private final String nullStringLiteral;
 	private final FlinkConnectorRateLimiter rateLimiter;
+	private final int parallelism;
 
 	public ByteTableDynamicTableSource(
 			Configuration conf,
 			String tableName,
 			ByteTableSchema byteTableSchema,
 			String nullStringLiteral,
-			FlinkConnectorRateLimiter rateLimiter) {
+			FlinkConnectorRateLimiter rateLimiter,
+			int parallelism) {
 		this.conf = conf;
 		this.tableName = tableName;
 		this.byteTableSchema = byteTableSchema;
 		this.nullStringLiteral = nullStringLiteral;
 		this.rateLimiter = rateLimiter;
+		this.parallelism = parallelism;
 	}
 
 	@Override
 	public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
-		return InputFormatProvider.of(new ByteTableRowDataInputFormat(conf, tableName, byteTableSchema, nullStringLiteral));
+		return InputFormatProvider.of(new ByteTableRowDataInputFormat(conf, tableName, byteTableSchema, nullStringLiteral, parallelism));
 	}
 
 	@Override
@@ -106,7 +111,7 @@ public class ByteTableDynamicTableSource implements ScanTableSource, LookupTable
 
 	@Override
 	public DynamicTableSource copy() {
-		return new ByteTableDynamicTableSource(conf, tableName, byteTableSchema, nullStringLiteral, rateLimiter);
+		return new ByteTableDynamicTableSource(conf, tableName, byteTableSchema, nullStringLiteral, rateLimiter, parallelism);
 	}
 
 	@Override
@@ -119,6 +124,26 @@ public class ByteTableDynamicTableSource implements ScanTableSource, LookupTable
 	@VisibleForTesting
 	public ByteTableSchema getByteTableSchema() {
 		return this.byteTableSchema;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		ByteTableDynamicTableSource source = (ByteTableDynamicTableSource) o;
+		return parallelism == source.parallelism
+			&& Objects.equals(tableName, source.tableName)
+			&& Objects.equals(byteTableSchema, source.byteTableSchema)
+			&& Objects.equals(nullStringLiteral, source.nullStringLiteral);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(tableName, byteTableSchema, nullStringLiteral, parallelism);
 	}
 }
 

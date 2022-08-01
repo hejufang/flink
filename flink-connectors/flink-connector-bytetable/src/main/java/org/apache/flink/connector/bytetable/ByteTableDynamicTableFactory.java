@@ -50,6 +50,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.apache.flink.configuration.PipelineOptions.JOB_PSM_PREFIX;
+import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_IGNORE_DELETE;
 import static org.apache.flink.table.factories.FactoryUtil.createTableFactoryHelper;
@@ -190,7 +191,8 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 			byteTableName,
 			byteTableSchema,
 			nullStringLiteral,
-			rateLimiter);
+			rateLimiter,
+			helper.getOptions().get(PARALLELISM));
 	}
 
 	@Override
@@ -210,6 +212,7 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 		bytetableOptionsBuilder.setChanTimeoutMs(helper.getOptions().get(BYTETABLE_CHAN_TIMEOUT));
 		bytetableOptionsBuilder.setReqTimeoutMs(helper.getOptions().get(BYTETABLE_REQ_TIMEOUT));
 		bytetableOptionsBuilder.setMutateType(helper.getOptions().get(BYTETABLE_MUTATE_TYPE));
+		bytetableOptionsBuilder.setParallelism(helper.getOptions().get(PARALLELISM));
 
 		Optional<Long> rateLimitNum = helper.getOptions().getOptional(RATE_LIMIT_NUM);
 		if (rateLimitNum.isPresent()) {
@@ -264,6 +267,7 @@ public class ByteTableDynamicTableFactory implements DynamicTableSourceFactory, 
 		set.add(BYTETABLE_MUTATE_TYPE);
 		set.add(SINK_IGNORE_DELETE);
 		set.add(PSM);
+		set.add(PARALLELISM);
 		return set;
 	}
 

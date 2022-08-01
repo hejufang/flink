@@ -149,8 +149,9 @@ public class ByteTableWriteOptions implements Serializable {
 			return this;
 		}
 
-		public void setCellTTLMicroSeconds(long cellTTLMicroSeconds) {
+		public Builder setCellTTLMicroSeconds(long cellTTLMicroSeconds) {
 			this.cellTTLMicroSeconds = cellTTLMicroSeconds;
+			return this;
 		}
 
 		/**
