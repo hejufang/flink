@@ -71,7 +71,7 @@ public class YarnConfigKeys {
 	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY =
 		"YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS";
 	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_DEFAULT =
-		"/opt/tiger/ss_conf:/opt/tiger/ss_conf;/opt/tiger/ss_lib:/opt/tiger/ss_lib";
+		"/opt/tiger/ss_lib:/opt/tiger/ss_lib";
 	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_KEY =
 		"ENV_DOCKER_CONTAINER_LOG_DIR_MOUNT";
 	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_DEFAULT =
