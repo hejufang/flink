@@ -770,8 +770,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		// the "cancel task" call must come first, but the cancelables must be
 		// closed no matter what
 		try {
-			cancelTaskResultPush();
 			cancelTask();
+			cancelTaskResultPush();
 		}
 		finally {
 			getCompletionFuture()
@@ -788,10 +788,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	}
 
 	private void cancelTaskResultPush() {
-		StreamOperator<?> tailOperator = operatorChain.getTailOperator();
-		if (tailOperator instanceof TaskPushSinkOperator) {
-			TaskPushSinkOperator taskPushSinkOperator = (TaskPushSinkOperator) tailOperator;
-			taskPushSinkOperator.cancel();
+		if (operatorChain != null) {
+			StreamOperator<?> tailOperator = operatorChain.getTailOperator();
+			if (tailOperator instanceof TaskPushSinkOperator) {
+				TaskPushSinkOperator taskPushSinkOperator = (TaskPushSinkOperator) tailOperator;
+				taskPushSinkOperator.cancel();
+			}
 		}
 	}
 
