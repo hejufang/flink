@@ -26,8 +26,8 @@ import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.io.InputSplitAssigner;
 import org.apache.flink.runtime.checkpoint.OperatorState;
@@ -41,7 +41,7 @@ import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.StateBackend;
-import org.apache.flink.runtime.state.filesystem.FsStateBackend;
+import org.apache.flink.runtime.state.StateBackendLoader;
 import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.state.api.input.splits.KeyGroupRangeInputSplit;
 import org.apache.flink.state.api.runtime.NeverFireProcessingTimeService;
@@ -56,9 +56,12 @@ import org.apache.flink.streaming.api.operators.StreamTaskStateInitializerImpl;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.CollectionUtil;
+import org.apache.flink.util.DynamicCodeLoadingException;
 import org.apache.flink.util.IOUtils;
 
 import org.apache.commons.collections.IteratorUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
@@ -76,6 +79,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  * KeyedStateInputFormatV2.
  */
 public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInputFormat<RowData, KeyGroupRangeInputSplit> implements KeyContext {
+
+	private static final Logger LOG = LoggerFactory.getLogger(KeyedStateInputFormatV2.class);
 
 	private OperatorState operatorState;
 	private StateBackend stateBackend;
@@ -294,7 +299,7 @@ public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInpu
 			if (stateBackend == null) {
 				try {
 					stateBackend = getStateBackendFromStateMeta(registeredKeyedStateMeta.getBackendType());
-				} catch (IOException e) {
+				} catch (Exception e) {
 					throw new RuntimeException("create StateBackend failed with " + registeredKeyedStateMeta.getBackendType() + ".", e);
 
 				}
@@ -325,18 +330,21 @@ public class KeyedStateInputFormatV2<K, N , S extends State, T> extends RichInpu
 			this.stateBackend = stateBackend;
 		}
 
-		private StateBackend getStateBackendFromStateMeta(BackendType backendType) throws IOException {
-
-			switch (backendType){
+		private StateBackend getStateBackendFromStateMeta(BackendType backendType) throws IOException, DynamicCodeLoadingException {
+			Configuration configuration = new Configuration();
+			configuration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, savepointPath);
+			switch (backendType) {
 				case HEAP_STATE_BACKEND:
-					return new FsStateBackend(savepointPath);
+					configuration.setString(CheckpointingOptions.STATE_BACKEND, "filesystem");
+					break;
 				case FULL_ROCKSDB_STATE_BACKEND:
-					return new RocksDBStateBackend(savepointPath, false);
 				case INCREMENTAL_ROCKSDB_STATE_BACKEND:
-					return new RocksDBStateBackend(savepointPath, true);
+					configuration.setString(CheckpointingOptions.STATE_BACKEND, "rocksdb");
+					break;
 				default:
 					throw new RuntimeException("UnSupported StateBackend Type");
 			}
+			return StateBackendLoader.loadStateBackendFromConfig(configuration, StateBackendLoader.class.getClassLoader(), LOG);
 		}
 	}
 }
