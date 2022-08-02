@@ -99,7 +99,11 @@ import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -124,11 +128,20 @@ import static org.junit.Assert.assertTrue;
 /**
  * Test cases for {@link KubernetesResourceManager}.
  */
+@RunWith(Parameterized.class)
 public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 	private static final Time TIMEOUT = Time.seconds(10L);
 	private static final String JOB_MANAGER_HOST = "jm-host1";
 	private static final Time TESTING_POD_CREATION_RETRY_INTERVAL = Time.milliseconds(50L);
+
+	@Parameterized.Parameter
+	public boolean podSyncerEnabled;
+
+	@Parameterized.Parameters
+	public static Collection data() {
+		return Arrays.asList(false, true);
+	}
 
 	@Rule
 	public final TestingFatalErrorHandlerResource testingFatalErrorHandlerResource = new TestingFatalErrorHandlerResource();
@@ -139,6 +152,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 		flinkConfig.set(TaskManagerOptions.TOTAL_PROCESS_MEMORY, MemorySize.parse("1024m"));
 		flinkConfig.setString(TaskManagerOptions.RPC_PORT, String.valueOf(Constants.TASK_MANAGER_RPC_PORT));
+		flinkConfig.setBoolean(KubernetesConfigOptions.POD_SYNCER_ENABLED, podSyncerEnabled);
 	}
 
 	@Override

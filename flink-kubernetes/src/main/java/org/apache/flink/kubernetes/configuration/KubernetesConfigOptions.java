@@ -27,6 +27,7 @@ import org.apache.flink.configuration.description.Description;
 import org.apache.flink.configuration.description.TextElement;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -579,6 +580,25 @@ public class KubernetesConfigOptions {
 			.longType()
 			.defaultValue(5L)
 			.withDescription("the interval in seconds between retries runs, the default value is 5(s)");
+
+	public static final ConfigOption<Boolean> POD_SYNCER_ENABLED =
+		key("kubernetes.pod-syncer.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether use PodSyncer(informer) to watch pod events from kubernetes," +
+				" otherwise will use watch direct to receive events.");
+
+	public static final ConfigOption<Duration> POD_SYNCER_CHECK_INTERVAL =
+		key("kubernetes.pod-syncer.check-interval")
+			.durationType()
+			.defaultValue(Duration.ofMinutes(1))
+			.withDescription("The interval to check whether informer is watching.");
+
+	public static final ConfigOption<Duration> POD_SYNCER_MAX_OUT_OF_SYNC_TIME =
+		key("kubernetes.pod-syncer.max-out-of-sync-time")
+			.durationType()
+			.defaultValue(Duration.ofMinutes(60))
+			.withDescription("Wait time to trigger FatalError when pod synchronizer is out of sync");
 
 	private static String getDefaultFlinkImage() {
 		// The default container image that ties to the exact needed versions of both Flink and Scala.

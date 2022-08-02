@@ -30,6 +30,7 @@ import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesResourceManagerConfiguration;
 import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
+import org.apache.flink.kubernetes.kubeclient.KubePodSyncer;
 import org.apache.flink.kubernetes.kubeclient.decorators.ExternalServiceDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.InternalServiceDecorator;
 import org.apache.flink.kubernetes.kubeclient.factory.KubernetesTaskManagerFactory;
@@ -69,9 +70,11 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.OptionalConsumer;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.clock.Clock;
+import org.apache.flink.util.clock.SystemClock;
 
 import com.bytedance.openplatform.arcee.ArceeUtils;
 import io.fabric8.kubernetes.api.model.ContainerStateTerminated;
@@ -81,6 +84,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -100,6 +104,7 @@ import java.util.stream.Stream;
 
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NAME;
 import static org.apache.flink.kubernetes.utils.KubernetesUtils.genLogUrl;
+import static org.apache.flink.kubernetes.utils.KubernetesUtils.getTaskManagerLabels;
 
 /**
  * Kubernetes specific implementation of the {@link ResourceManager}.
@@ -135,6 +140,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	private final int minimalNodesNum;
 
 	private Optional<KubernetesWatch> podsWatchOpt;
+	private final Optional<KubePodSyncer> kubePodSyncerOpt;
 
 	private volatile boolean running;
 
@@ -233,6 +239,26 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.recoveredWorkerNodeSet = new HashMap<>();
 
 		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(jobManagerPodName, false);
+
+		boolean podSyncerEnabled = flinkConfig.getBoolean(KubernetesConfigOptions.POD_SYNCER_ENABLED);
+		if (podSyncerEnabled) {
+			// Use informer to watch pod events. The informer will auto-reconnect with ApiServer when watch resource version is too old.
+			// And we will ignore the reconnection failed with ApiServer and retry to create new informer unless the out-of-sync time is too long.
+			Duration maxOutOfSyncTime = flinkConfig.get(KubernetesConfigOptions.POD_SYNCER_MAX_OUT_OF_SYNC_TIME);
+			Duration checkIntervalTime = flinkConfig.get(KubernetesConfigOptions.POD_SYNCER_CHECK_INTERVAL);
+			this.kubePodSyncerOpt = Optional.of(
+					new KubePodSyncer(
+							SystemClock.getInstance(),
+							kubeClient,
+							getTaskManagerLabels(clusterId),
+							new KubernetesPodSyncerCallbackImpl(),
+							maxOutOfSyncTime.toMillis(),
+							checkIntervalTime.toMillis()));
+		} else {
+			// Will use pod watcher to watch pod events, will reconnect to ApiServer when watch resource version is too old.
+			// will trigger Fatal error if reconnect failed.
+			this.kubePodSyncerOpt = Optional.empty();
+		}
 	}
 
 	@Override
@@ -246,7 +272,9 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		updateServiceTargetPortIfNecessary();
 		recoverWorkerNodesFromPreviousAttempts();
 
-		podsWatchOpt = watchTaskManagerPods();
+		OptionalConsumer.of(kubePodSyncerOpt)
+				.ifPresent(KubePodSyncer::start)
+				.ifNotPresent(() -> podsWatchOpt = watchTaskManagerPods());
 		this.running = true;
 	}
 
@@ -315,7 +343,9 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		Throwable throwable = null;
 
 		try {
-			podsWatchOpt.ifPresent(KubernetesWatch::close);
+			OptionalConsumer.of(kubePodSyncerOpt)
+					.ifPresent(KubePodSyncer::close)
+					.ifNotPresent(() -> podsWatchOpt.ifPresent(KubernetesWatch::close));
 		} catch (Throwable t) {
 			throwable = t;
 		}
@@ -664,6 +694,10 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		resourceManagerMetricGroup.gauge(MetricNames.COMPLETED_CONTAINER, completedContainerGauge);
 
 		resourceManagerMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
+
+		kubePodSyncerOpt.ifPresent(
+				kubePodSyncer ->
+						resourceManagerMetricGroup.gauge(MetricNames.POD_OUT_OF_SYNC_TIME, kubePodSyncer::getOutOfSyncTime));
 	}
 
 	public CompletableFuture<String> requestJMWebShell(@RpcTimeout Time timeout) {
@@ -1026,5 +1060,28 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	 */
 	private synchronized boolean canStopWorker() {
 		return getTaskExecutors().size() > minimalNodesNum;
+	}
+
+	private class KubernetesPodSyncerCallbackImpl implements KubePodSyncer.KubernetesPodSyncerCallback {
+		@Override
+		public void onAdded(List<KubernetesPod> pods) {
+			KubernetesResourceManager.this.onAdded(pods);
+		}
+
+		@Override
+		public void onModified(List<KubernetesPod> pods) {
+			KubernetesResourceManager.this.onModified(pods);
+		}
+
+		@Override
+		public void onDeleted(List<KubernetesPod> pods) {
+			KubernetesResourceManager.this.onDeleted(pods);
+		}
+
+		@Override
+		public void onFatalError(Throwable t) {
+			// This method is not run in main thread, So it should not contain too heavy logic, only fatal exit.
+			KubernetesResourceManager.this.onFatalError(t);
+		}
 	}
 }

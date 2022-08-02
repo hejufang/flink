@@ -93,6 +93,9 @@ common:
   kubernetes.jobmanager.cpu: 1.0
   kubernetes.service-account: gts
   kubernetes.rest-service.exposed.type: ClusterIP
+  kubernetes.pod-syncer.enabled: true
+  kubernetes.pod-syncer.max-out-of-sync-time: "180 min"
+  kubernetes.pod-syncer.check-interval: "5 min"
 
   # Arcee configuration
   kubernetes.arcee.scheduling-config.schedule-timeout-seconds: 120

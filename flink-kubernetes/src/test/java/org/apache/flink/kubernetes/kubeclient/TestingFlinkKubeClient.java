@@ -28,6 +28,8 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.util.Preconditions;
 
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.client.dsl.Informable;
 import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
 
 import javax.annotation.Nullable;
@@ -60,6 +62,7 @@ public class TestingFlinkKubeClient implements FlinkKubeClient {
 	private final Function<String, CompletableFuture<Void>> deleteConfigMapFunction;
 	private final Consumer<Void> closeConsumer;
 	private final BiFunction<KubernetesLeaderElectionConfiguration, KubernetesLeaderElector.LeaderCallbackHandler, KubernetesLeaderElector> createLeaderElectorFunction;
+	private Function<Map<String, String>, Informable<Pod>> getInformableFunction;
 
 	private TestingFlinkKubeClient(
 			Function<KubernetesPod, CompletableFuture<Void>> createTaskManagerPodFunction,
@@ -151,6 +154,15 @@ public class TestingFlinkKubeClient implements FlinkKubeClient {
 	@Override
 	public KubernetesWatch watchPodsAndDoCallback(Map<String, String> labels, WatchCallbackHandler<KubernetesPod> podCallbackHandler) {
 		return watchPodsAndDoCallbackFunction.apply(labels, podCallbackHandler);
+	}
+
+	@Override
+	public Informable<Pod> getInformable(Map<String, String> labels) {
+		if (getInformableFunction != null) {
+			return getInformableFunction.apply(labels);
+		} else {
+			return null;
+		}
 	}
 
 	@Override

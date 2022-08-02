@@ -48,6 +48,7 @@ import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.api.model.networking.v1beta1.Ingress;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.NamespacedKubernetesClient;
+import io.fabric8.kubernetes.client.dsl.Informable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -236,6 +237,10 @@ public abstract class Fabric8FlinkKubeClient implements FlinkKubeClient {
 			this.internalClient.pods()
 				.withLabels(labels)
 				.watch(new KubernetesPodsWatcher(podCallbackHandler)));
+	}
+
+	public Informable<Pod> getInformable(Map<String, String> labels) {
+		return this.internalClient.pods().withLabels(labels);
 	}
 
 	@Override

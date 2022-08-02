@@ -26,6 +26,9 @@ import org.apache.flink.kubernetes.kubeclient.resources.KubernetesService;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesWatch;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.client.dsl.Informable;
+
 import javax.annotation.Nullable;
 
 import java.util.List;
@@ -149,6 +152,14 @@ public interface FlinkKubeClient extends AutoCloseable {
 	KubernetesWatch watchPodsAndDoCallback(
 		Map<String, String> labels,
 		WatchCallbackHandler<KubernetesPod> podCallbackHandler);
+
+	/**
+	 * get Informable of pods selected by labels, which used to create informer.
+	 *
+	 * @param labels labels to filter the pods to watch
+	 * @return Return a Informable for pods.
+	 */
+	Informable<Pod> getInformable(Map<String, String> labels);
 
 	/**
 	 * Create a leader elector service based on Kubernetes api.

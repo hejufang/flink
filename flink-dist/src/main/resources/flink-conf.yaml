@@ -132,6 +132,9 @@ common:
   kubernetes.ingress.enable: true
   kubernetes.podgroup.enable: true
   kubernetes.hostnetwork.enabled: true
+  kubernetes.pod-syncer.enabled: true
+  kubernetes.pod-syncer.max-out-of-sync-time: "180 min"
+  kubernetes.pod-syncer.check-interval: "5 min"
   containerized.master.env.KUBERNETES_REQUEST_TIMEOUT: 30000
 
   # Arcee configuration

@@ -237,6 +237,7 @@ non-global:
         speculativeSlowContainerTimeoutMs,
         releaseTimeoutContainerNum,
         pendingPhasePods,
+        podOutOfSyncTime,
       # gang
         gangFailedNum,
         gangDowngradeNum,
