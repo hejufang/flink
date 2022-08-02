@@ -38,6 +38,9 @@ import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesTaskManagerPa
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesTooOldResourceVersionException;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesWatch;
+import org.apache.flink.kubernetes.kubeclient.resources.MinResourcePodMatchingStrategyImpl;
+import org.apache.flink.kubernetes.kubeclient.resources.PodMatchingStrategy;
+import org.apache.flink.kubernetes.kubeclient.resources.StrictPodMatchingStrategyImpl;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.metrics.TagGauge;
@@ -79,6 +82,7 @@ import org.apache.flink.util.clock.SystemClock;
 import com.bytedance.openplatform.arcee.ArceeUtils;
 import io.fabric8.kubernetes.api.model.ContainerStateTerminated;
 import io.fabric8.kubernetes.api.model.PodStatus;
+import io.fabric8.kubernetes.api.model.ResourceRequirements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -181,6 +185,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	/** Timeout to wait previous container register. */
 	private final Long previousContainerTimeoutMs;
 
+	private final PodMatchingStrategy podMatchingStrategy;
+
 	public KubernetesResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -258,6 +264,23 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			// Will use pod watcher to watch pod events, will reconnect to ApiServer when watch resource version is too old.
 			// will trigger Fatal error if reconnect failed.
 			this.kubePodSyncerOpt = Optional.empty();
+		}
+
+		PodMatchingStrategy.StrategyType podMatchingStrategyType = flinkConfig.get(KubernetesConfigOptions.KUBERNETES_POD_MATCHING_STRATEGY);
+		switch (podMatchingStrategyType) {
+			case STRICT:
+				this.podMatchingStrategy = new StrictPodMatchingStrategyImpl();
+				break;
+			case MIN_RESOURCE:
+				this.podMatchingStrategy = new MinResourcePodMatchingStrategyImpl();
+				break;
+			default:
+				throw new IllegalArgumentException(
+						"Unknown pod matching strategy, only support \""
+								+ PodMatchingStrategy.StrategyType.MIN_RESOURCE.toString()
+								+ "\" and \""
+								+ PodMatchingStrategy.StrategyType.STRICT.toString()
+								+ "\"");
 		}
 	}
 
@@ -893,7 +916,12 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			ResourceID resourceID = worker.getKey();
 			KubernetesPod pod = worker.getValue();
 			if (workerNodes.containsKey(resourceID)) {
-				if (requestedKubernetesTaskManagerParameters.matchKubernetesPod(pod)) {
+				final ResourceRequirements requestedResourceRequirements = KubernetesUtils.getResourceRequirements(
+						requestedKubernetesTaskManagerParameters.getTaskManagerMemoryMB(),
+						requestedKubernetesTaskManagerParameters.getTaskManagerCPU(),
+						requestedKubernetesTaskManagerParameters.getTaskManagerExternalResources());
+				Map<String, String> requestedNodeSelector = requestedKubernetesTaskManagerParameters.getNodeSelector();
+				if (podMatchingStrategy.isMatching(requestedResourceRequirements, requestedNodeSelector, pod)) {
 					remainingRequestedWorkerNumber--;
 					workerIterator.remove();
 					notifyRecoveredWorkerAllocated(workerResourceSpec, resourceID);

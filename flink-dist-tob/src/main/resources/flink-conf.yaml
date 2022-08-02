@@ -96,6 +96,7 @@ common:
   kubernetes.pod-syncer.enabled: true
   kubernetes.pod-syncer.max-out-of-sync-time: "180 min"
   kubernetes.pod-syncer.check-interval: "5 min"
+  kubernetes.pod-matching.strategy: MIN_RESOURCE
 
   # Arcee configuration
   kubernetes.arcee.scheduling-config.schedule-timeout-seconds: 120

@@ -25,6 +25,7 @@ import org.apache.flink.configuration.ExternalResourceOptions;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.description.Description;
 import org.apache.flink.configuration.description.TextElement;
+import org.apache.flink.kubernetes.kubeclient.resources.PodMatchingStrategy;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 
 import java.time.Duration;
@@ -599,6 +600,15 @@ public class KubernetesConfigOptions {
 			.durationType()
 			.defaultValue(Duration.ofMinutes(60))
 			.withDescription("Wait time to trigger FatalError when pod synchronizer is out of sync");
+
+	public static final ConfigOption<PodMatchingStrategy.StrategyType> KUBERNETES_POD_MATCHING_STRATEGY =
+		key("kubernetes.pod-matching.strategy")
+			.enumType(PodMatchingStrategy.StrategyType.class)
+			.defaultValue(PodMatchingStrategy.StrategyType.MIN_RESOURCE)
+			.withDescription("Kubernetes pod matching strategy, currently support \"" + PodMatchingStrategy.StrategyType.STRICT
+				+ "\" and \"" + PodMatchingStrategy.StrategyType.MIN_RESOURCE + "\"," +
+				"strict need all pod resource properties in same." +
+				"min-resource need the required resource is matching with pod, but the pod can has more properties.");
 
 	private static String getDefaultFlinkImage() {
 		// The default container image that ties to the exact needed versions of both Flink and Scala.

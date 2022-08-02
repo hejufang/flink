@@ -21,13 +21,10 @@ package org.apache.flink.kubernetes.kubeclient.parameters;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
-import org.apache.flink.kubernetes.kubeclient.resources.KubernetesPod;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 
-import io.fabric8.kubernetes.api.model.Container;
-import io.fabric8.kubernetes.api.model.ResourceRequirements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -149,55 +146,6 @@ public class KubernetesTaskManagerParameters extends AbstractKubernetesParameter
 
 	public ContaineredTaskManagerParameters getContaineredTaskManagerParameters() {
 		return containeredTaskManagerParameters;
-	}
-
-	/**
-	 * Check that the provided POD meets the current requirements.
-	 * This method is to find some available previous pods.
-	 * @param pod KubernetesPod already exist.
-	 * @return Whether this pod is match current requirements.
-	 */
-	public boolean matchKubernetesPod(KubernetesPod pod) {
-		// check main container exists
-		Container mainContainer = null;
-		for (Container c : pod.getInternalResource().getSpec().getContainers()) {
-			if (TASK_MANAGER_MAIN_CONTAINER_NAME.equals(c.getName())) {
-				mainContainer = c;
-				break;
-			}
-		}
-		if (mainContainer == null) {
-			log.error("pod {} not match request because of no main container", pod.getInternalResource());
-			return false;
-		}
-
-		// check main container resource requirements.
-		final ResourceRequirements requestResourceRequirements = KubernetesUtils.getResourceRequirements(
-				getTaskManagerMemoryMB(),
-				getTaskManagerCPU(),
-				getTaskManagerExternalResources());
-		final ResourceRequirements podResourceRequirements = mainContainer.getResources();
-		if (!requestResourceRequirements.equals(podResourceRequirements)) {
-			log.info("pod {} not match request because of resource not match. pod resource: {}, request resource {}",
-					pod.getName(),
-					podResourceRequirements,
-					requestResourceRequirements);
-			return false;
-		}
-
-		// check node selectors.
-		Map<String, String> podNodeSelectors = pod.getInternalResource().getSpec().getNodeSelector();
-		Map<String, String> requestNodeSelector = getNodeSelector();
-		if (!podNodeSelectors.entrySet().containsAll(requestNodeSelector.entrySet())) {
-			log.info("pod {} not match request because of node selector. pod selector: {}, request selector {}",
-					pod.getName(),
-					podNodeSelectors,
-					requestNodeSelector);
-			return false;
-		}
-
-		// all check passed.
-		return true;
 	}
 
 	@Override
