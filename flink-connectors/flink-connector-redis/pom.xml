@@ -53,6 +53,20 @@ under the License.
 				</exclusion>
 			</exclusions>
 		</dependency>
+
+		<!-- override commons version in com.bytedance:java-redis-client -->
+		<dependency>
+			<groupId>com.bytedance</groupId>
+			<artifactId>commons</artifactId>
+			<version>${commons.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.scala-lang</groupId>
+					<artifactId>scala-library</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-core</artifactId>

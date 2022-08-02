@@ -68,6 +68,19 @@ under the License.
 				</exclusion>
 			</exclusions>
 		</dependency>
+
+		<!-- override commons version in com.bytedance:metrics4j -->
+		<dependency>
+			<groupId>com.bytedance</groupId>
+			<artifactId>commons</artifactId>
+			<version>${commons.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.scala-lang</groupId>
+					<artifactId>scala-library</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 	</dependencies>
 
 	<profiles>

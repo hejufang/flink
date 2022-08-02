@@ -54,6 +54,19 @@ under the License.
 			</exclusions>
 		</dependency>
 
+		<!-- override commons version in com.bytedance.storage:tos-core -->
+		<dependency>
+			<groupId>com.bytedance</groupId>
+			<artifactId>commons</artifactId>
+			<version>${commons.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.scala-lang</groupId>
+					<artifactId>scala-library</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-json</artifactId>
