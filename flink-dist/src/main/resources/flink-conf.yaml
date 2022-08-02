@@ -1661,6 +1661,26 @@ saola:
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
 
+stoat:
+  dc: sg
+  clusterName: stoat
+  high-availability.zookeeper.quorum: 10.126.194.48:2181,10.126.194.84:2181,10.126.194.34:2181,10.126.194.78:2181,10.126.194.97:2181
+  hdfs.prefix: hdfs://harunajpsaas/home/byte_flink_jpsaas
+  checkpoint.hdfs.prefix: hdfs://harunajpsaas/home/byte_flink_jpsaas_checkpoints
+  dashboard.data_source: Bytetsd-Asia-SaaS
+  grafana.domain_url: "https://grafana-i18n.byted.org"
+  register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  dtop.data_source: dtop_alisg
+  dtop.database: dtop_alisg
+  kafka_server_url: http://kafka-config-sg.byted.org
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-sin-hub.byted.org
+  docker.region: Aliyun_SG
+  save-meta.enabled: false
+  yarn.provided.lib.dirs.enabled: false
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-jp-lark.byted.org/api/query/jp_lark/verifyUsersPrivilege
+
 icing:
   dc: i18n_gcp
   clusterName: icing
