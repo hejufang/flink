@@ -49,6 +49,7 @@ import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
 
 import java.util.Map;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * The Environment gives the code executed in a task access to the task's properties
@@ -197,6 +198,10 @@ public interface Environment {
 	 * @return the task result gateway
 	 */
 	default TaskJobResultGateway getTaskResultGateway() {
+		throw new UnsupportedOperationException();
+	}
+
+	default ScheduledExecutorService getTaskCheckStuckExecutor() {
 		throw new UnsupportedOperationException();
 	}
 

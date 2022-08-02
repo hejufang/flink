@@ -171,6 +171,7 @@ public class StreamTaskTerminationTest extends TestLogger {
 			new IOManagerAsync(),
 			null,
 			null,
+			null,
 			shuffleEnvironment,
 			new KvStateService(new KvStateRegistry(), null, null),
 			mock(BroadcastVariableManager.class),

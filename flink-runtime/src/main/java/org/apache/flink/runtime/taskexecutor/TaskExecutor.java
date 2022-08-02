@@ -24,6 +24,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.socket.ResultStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ClusterOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.SimpleCounter;
@@ -155,6 +156,7 @@ import org.apache.flink.runtime.taskmanager.Task;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.taskmanager.TaskManagerActions;
 import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
+import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.types.SerializableOptional;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
@@ -199,6 +201,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
@@ -281,6 +285,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	private final boolean batchUpdateJobStateEnable;
 
 	private final TaskExecutorNettyServer taskExecutorNettyServer;
+
+	private final ScheduledExecutorService taskCheckStuckExecutor;
 
 	// ------------------------------------------------------------------------
 
@@ -422,6 +428,17 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		this.dispatcherHeartbeatManager = NoOpHeartbeatManager.getInstance();
 		this.batchUpdateJobStateEnable = taskManagerConfiguration.isBatchUpdateJobStateEnable();
 		this.taskExecutorDispatcherManager = new TaskExecutorDispatcherManager(this);
+		boolean enableCheckTaskStuck = taskManagerConfiguration
+			.getConfiguration()
+			.getLong(TaskManagerOptions.TASKMANAGER_TASK_STUCK_CHECK_THREAD_INTERVAL) > 0;
+		if (enableCheckTaskStuck) {
+			int cpuCores = Math.max(taskManagerConfiguration.getTotalResourceProfile().getCpuCores().getValue().intValue(), 1);
+			taskCheckStuckExecutor = Executors.newScheduledThreadPool(
+				cpuCores,
+				new ExecutorThreadFactory("task-check-stuck"));
+		} else {
+			taskCheckStuckExecutor = null;
+		}
 
 		if (taskManagerConfiguration.isTaskInvokableConstructorCacheEnabled()) {
 			constructorCache = CacheBuilder
@@ -1115,6 +1132,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			taskExecutorServices.getIOManager(),
 			taskExecutorServices.getTaskExecutor(),
 			taskExecutorServices.getTaskMonitorExecutor(),
+			taskCheckStuckExecutor,
 			taskExecutorServices.getShuffleEnvironment(),
 			taskExecutorServices.getKvStateService(),
 			taskExecutorServices.getBroadcastVariableManager(),
@@ -1264,6 +1282,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				taskExecutorServices.getIOManager(),
 				taskExecutorServices.getTaskExecutor(),
 				taskExecutorServices.getTaskMonitorExecutor(),
+				taskCheckStuckExecutor,
 				taskExecutorServices.getShuffleEnvironment(),
 				taskExecutorServices.getKvStateService(),
 				taskExecutorServices.getBroadcastVariableManager(),

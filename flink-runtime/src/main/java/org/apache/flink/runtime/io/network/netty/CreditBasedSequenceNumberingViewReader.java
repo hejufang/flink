@@ -21,7 +21,6 @@ package org.apache.flink.runtime.io.network.netty;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.ExternalBlockSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.PartitionRequestNotifierTimeout;
 import org.apache.flink.runtime.io.network.partition.ResultPartition;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -106,10 +105,7 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 					subPartitionIndex,
 					this);
 
-				// This is tricky to avoid add interface.
-				if (this.subpartitionView instanceof ExternalBlockSubpartitionView) {
-					((ExternalBlockSubpartitionView) subpartitionView).addCredit(numCreditsAvailable);
-				}
+				subpartitionView.addCredit(numCreditsAvailable);
 			} else {
 				throw new IllegalStateException("Subpartition already requested");
 			}
@@ -132,11 +128,7 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 				if (subpartitionView == null) {
 					return;
 				}
-
-				// This is tricky to avoid add interface.
-				if (this.subpartitionView instanceof ExternalBlockSubpartitionView) {
-					((ExternalBlockSubpartitionView) subpartitionView).addCredit(numCreditsAvailable);
-				}
+				subpartitionView.addCredit(numCreditsAvailable);
 			} else {
 				throw new IllegalStateException("Subpartition already requested");
 			}
@@ -156,11 +148,7 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 					requestQueue.removeFromAllReader(this);
 					throw e;
 				}
-
-				// This is tricky to avoid add interface.
-				if (this.subpartitionView instanceof ExternalBlockSubpartitionView) {
-					((ExternalBlockSubpartitionView) subpartitionView).addCredit(numCreditsAvailable);
-				}
+				subpartitionView.addCredit(numCreditsAvailable);
 			} else {
 				throw new IllegalStateException("Subpartition already requested");
 			}
@@ -170,10 +158,7 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 	@Override
 	public void addCredit(int creditDeltas) {
 		numCreditsAvailable += creditDeltas;
-		// This is tricky to avoid add interface.
-		if (this.subpartitionView instanceof ExternalBlockSubpartitionView) {
-			((ExternalBlockSubpartitionView) subpartitionView).addCredit(creditDeltas);
-		}
+		subpartitionView.addCredit(creditDeltas);
 	}
 
 	@Override
@@ -257,8 +242,12 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 		if (next != null) {
 			sequenceNumber++;
 
-			if (next.buffer().isBuffer() && --numCreditsAvailable < 0) {
-				throw new IllegalStateException("no credit available");
+			if (next.buffer().isBuffer()) {
+				--numCreditsAvailable;
+				subpartitionView.minusCredit(1);
+				if (numCreditsAvailable < 0) {
+					throw new IllegalStateException("no credit available");
+				}
 			}
 
 			return new BufferAndAvailability(

@@ -631,6 +631,7 @@ hyrax:
   ipv6.supported.cluster: hyrax
   ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
+  taskmanager.task-stuck-check.interval: 60000
 
 horse:
   dc: cn
@@ -932,6 +933,7 @@ quoka:
   ipv6.supported.cluster: quoka
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
   metrics.latency.interval: 10000
+  taskmanager.task-stuck-check.interval: 60000
 
 quaga:
   dc: cn

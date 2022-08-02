@@ -23,6 +23,7 @@ global:
   name:
     [
         numRestarts,
+        isTaskStuck,
         numOfRestartsAggrByBackoffTime,
         numOfFailFilteredByAggregatedStrategy,
         fullRestarts,
@@ -104,6 +105,7 @@ non-global:
         downtime,
         uptime,
         numRestarts,
+        isTaskStuck,
       # used in dorado platform
         fullRestarts,
         numOfRestartsAggrByBackoffTime,

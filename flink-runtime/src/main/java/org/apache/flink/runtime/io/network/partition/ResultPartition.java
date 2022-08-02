@@ -402,6 +402,11 @@ public class ResultPartition implements ResultPartitionWriter, BufferPoolOwner {
 		return errorNum;
 	}
 
+	@Override
+	public int getMaxBufferChannelIndex(){
+		return bufferPool.getMaxBufferChannelIndex();
+	}
+
 	/**
 	 * Whether this partition is released.
 	 *

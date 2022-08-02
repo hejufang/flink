@@ -41,10 +41,13 @@ public class PipelinedSubpartitionView implements ResultSubpartitionView {
 	/** Flag indicating whether this view has been released. */
 	protected final AtomicBoolean isReleased;
 
+	private volatile long numCreditsAvailable;
+
 	public PipelinedSubpartitionView(PipelinedSubpartition parent, BufferAvailabilityListener listener) {
 		this.parent = checkNotNull(parent);
 		this.availabilityListener = checkNotNull(listener);
 		this.isReleased = new AtomicBoolean();
+		this.numCreditsAvailable = 0;
 	}
 
 	@Nullable
@@ -90,6 +93,20 @@ public class PipelinedSubpartitionView implements ResultSubpartitionView {
 	@Override
 	public int unsynchronizedGetNumberOfQueuedBuffers() {
 		return parent.unsynchronizedGetNumberOfQueuedBuffers();
+	}
+
+	@Override
+	public void addCredit(int credit) {
+		this.numCreditsAvailable += credit;
+	}
+
+	@Override
+	public void minusCredit(int credit){
+		this.numCreditsAvailable -= credit;
+	}
+
+	public long getNumCreditsAvailable() {
+		return numCreditsAvailable;
 	}
 
 	@Override

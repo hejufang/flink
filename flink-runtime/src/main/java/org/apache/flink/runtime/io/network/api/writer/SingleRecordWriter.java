@@ -21,7 +21,10 @@ package org.apache.flink.runtime.io.network.api.writer;
 import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.runtime.event.AbstractEvent;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
+
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -48,6 +51,11 @@ public class SingleRecordWriter<T extends IOReadableWritable> implements RecordW
 		checkArgument(outputIndex == 0, "The index should always be 0 for the single record writer delegate.");
 
 		return recordWriter;
+	}
+
+	@Override
+	public List<ResultPartitionWriter> getPartitions(){
+		return Lists.newArrayList(recordWriter.getTargetPartition());
 	}
 
 	@Override

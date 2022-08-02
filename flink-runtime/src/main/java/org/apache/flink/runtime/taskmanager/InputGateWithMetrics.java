@@ -131,6 +131,10 @@ public class InputGateWithMetrics extends IndexedInputGate {
 		inputGate.registerBufferReceivedListener(listener);
 	}
 
+	public long getNumBytesIn() {
+		return numBytesIn.getCount();
+	}
+
 	private BufferOrEvent updateMetrics(BufferOrEvent bufferOrEvent) {
 		numBytesIn.inc(bufferOrEvent.getSize());
 		return bufferOrEvent;

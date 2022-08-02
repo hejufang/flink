@@ -378,6 +378,16 @@ class LocalBufferPool implements BufferPool {
 		return segment;
 	}
 
+	@Override
+	public int getMaxBufferChannelIndex() {
+		for (int i = 0; i < subpartitionBuffersCount.length; i++) {
+			if (subpartitionBuffersCount[i] > maxBuffersPerChannel) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
 	@Nullable
 	private MemorySegment requestMemorySegment() throws IOException {
 		return requestMemorySegment(UNKNOWN_CHANNEL);

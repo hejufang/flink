@@ -175,6 +175,7 @@ common:
   bytedance.streaming.register-dashboard.enabled: true
   bytedance.streaming.restart-strategy: aggregated-failure-rate
   bytedance.streaming.kubernetes.arcee.restart-policy.type: OnFailure
+  bytedance.streaming.taskmanager.task-stuck-check.interval: 60000
 
   # hdfs conf for slow node
   flink.hdfs.dfs.datanode.socket.write.timeout: 30000

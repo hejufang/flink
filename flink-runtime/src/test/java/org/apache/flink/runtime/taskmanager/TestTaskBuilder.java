@@ -226,6 +226,7 @@ public final class TestTaskBuilder {
 			mock(IOManager.class),
 			taskExecutorService,
 			taskMonitorExecutor,
+			null,
 			shuffleEnvironment,
 			kvStateService,
 			new BroadcastVariableManager(),

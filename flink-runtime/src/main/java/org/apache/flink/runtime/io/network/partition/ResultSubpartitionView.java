@@ -54,6 +54,10 @@ public interface ResultSubpartitionView {
 
 	Throwable getFailureCause();
 
+	default void addCredit(int credit){}
+
+	default void minusCredit(int credit){}
+
 	boolean isAvailable(int numCreditsAvailable);
 
 	int unsynchronizedGetNumberOfQueuedBuffers();

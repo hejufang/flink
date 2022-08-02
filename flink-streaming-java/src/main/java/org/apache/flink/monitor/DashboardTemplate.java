@@ -90,6 +90,8 @@ public class DashboardTemplate {
 	public static final String NETWORK_ROW_TEMPLATE = "network/network_row_template.txt";
 	public static final String IN_POOL_USAGE_TARGET_TEMPLATE = "network/in_pool_usage_target_template.txt";
 	public static final String IN_POOL_USAGE_TEMPLATE = "network/in_pool_usage_template.txt";
+	public static final String TASK_STUCK_TARGET_TEMPLATE = "network/task_stuck_target_template.txt";
+	public static final String TASK_STUCK_TEMPLATE = "network/task_stuck_template.txt";
 	public static final String NETWORK_MEMORY_TEMPLATE = "network/network_memory_template.txt";
 	public static final String OUT_POOL_USAGE_TARGET_TEMPLATE = "network/out_pool_usage_target_template.txt";
 	public static final String OUT_POOL_USAGE_TEMPLATE = "network/out_pool_usage_template.txt";

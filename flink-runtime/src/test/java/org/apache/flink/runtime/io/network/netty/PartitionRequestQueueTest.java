@@ -72,6 +72,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
 
 /**
  * Tests for {@link PartitionRequestQueue}.
@@ -426,6 +427,35 @@ public class PartitionRequestQueueTest {
 			assertThat(channel.readOutbound(), instanceOf(NettyMessage.BufferResponse.class));
 		}
 		assertNull(channel.readOutbound());
+	}
+
+	/**
+	 * Tests {@link PartitionRequestQueue#addCreditOrResumeConsumption(NetworkSequenceViewReader)},
+	 * verifying the SubpartitionView's credit would be added after viewReader addCredit.
+	 */
+	@Test
+	public void testNotifyingBufferAndCreditInPipelinedSubpartition() throws Exception {
+		// setup
+		PipelinedSubpartition subpartition = mock(PipelinedSubpartition.class);
+		final PipelinedSubpartitionView view =  new PipelinedSubpartitionView(
+			subpartition, mock(BufferAvailabilityListener.class));
+		ResultPartitionProvider partitionProvider =
+			(partitionId, index, availabilityListener) -> view;
+
+		final InputChannelID receiverId = new InputChannelID();
+		final PartitionRequestQueue queue = new PartitionRequestQueue();
+		final CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(receiverId, 0, queue, new ResultPartitionID(), partitionProvider, false);
+
+		reader.requestSubpartitionView(0);
+		queue.notifyReaderCreated(reader);
+
+		final int notifyNumCredits = 3;
+		for (int i = 1; i <= notifyNumCredits; i++) {
+			queue.addCreditOrResumeConsumption(receiverId, viewReader -> viewReader.addCredit(1));
+
+			assertEquals(i, reader.getNumCreditsAvailable());
+			assertEquals(i, view.getNumCreditsAvailable());
+		}
 	}
 
 	/**

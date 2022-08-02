@@ -23,6 +23,7 @@ import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -67,6 +68,15 @@ public class MultipleRecordWriters<T extends IOReadableWritable> implements Reco
 	@Override
 	public RecordWriter<T> getRecordWriter(int outputIndex) {
 		return recordWriters.get(outputIndex);
+	}
+
+	@Override
+	public List<ResultPartitionWriter> getPartitions() {
+		List<ResultPartitionWriter> resultPartitionWriters = new ArrayList<>(recordWriters.size());
+		for (RecordWriter recordWriter : recordWriters) {
+			resultPartitionWriters.add(recordWriter.getTargetPartition());
+		}
+		return resultPartitionWriters;
 	}
 
 	@Override

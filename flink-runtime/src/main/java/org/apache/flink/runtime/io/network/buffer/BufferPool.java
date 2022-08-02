@@ -75,4 +75,8 @@ public interface BufferPool extends BufferProvider, BufferRecycler {
 	int bestEffortGetNumOfUsedBuffers();
 
 	BufferRecycler[] getSubpartitionBufferRecyclers();
+
+	default int getMaxBufferChannelIndex() {
+		return -1;
+	}
 }

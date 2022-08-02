@@ -170,6 +170,10 @@ public class PipelinedSubpartition extends ResultSubpartition {
 		return getBuffersInBacklog();
 	}
 
+	public PipelinedSubpartitionView getReadView() {
+		return readView;
+	}
+
 	private void handleAddingBarrier(BufferConsumer bufferConsumer, boolean insertAsHead) {
 		assert Thread.holdsLock(buffers);
 		if (insertAsHead) {

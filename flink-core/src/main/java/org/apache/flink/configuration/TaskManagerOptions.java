@@ -730,6 +730,18 @@ public class TaskManagerOptions {
 		.defaultValue(Duration.ofMillis(300_000))
 		.withDescription("Optional. Time to live for constructor of invokable class cache.");
 
+	public static final ConfigOption<Long> TASKMANAGER_TASK_STUCK_CHECK_THREAD_INTERVAL = ConfigOptions
+		.key("taskmanager.task-stuck-check.interval")
+		.longType()
+		.defaultValue(-1L)
+		.withDescription("Time between two task stuck check, -1 means check not enable.");
+
+	public static final ConfigOption<Long> TASKMANAGER_TASK_STUCK_CHECK_DURATION = ConfigOptions
+		.key("taskmanager.task-stuck-check.duration")
+		.longType()
+		.defaultValue(600000L)
+		.withDescription("How long the task does not send data downstream is considered stuck.");
+
 	// ------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */

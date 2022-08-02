@@ -212,6 +212,7 @@ public class TaskCheckpointingBehaviourTest extends TestLogger {
 				mock(IOManager.class),
 				null,
 				null,
+				null,
 				shuffleEnvironment,
 				new KvStateService(new KvStateRegistry(), null, null),
 				mock(BroadcastVariableManager.class),

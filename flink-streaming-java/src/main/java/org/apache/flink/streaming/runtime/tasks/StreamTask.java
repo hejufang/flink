@@ -44,6 +44,10 @@ import org.apache.flink.runtime.io.network.api.writer.RecordWriterBuilder;
 import org.apache.flink.runtime.io.network.api.writer.RecordWriterDelegate;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.io.network.api.writer.SingleRecordWriter;
+import org.apache.flink.runtime.io.network.partition.PipelinedSubpartition;
+import org.apache.flink.runtime.io.network.partition.PipelinedSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
+import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
@@ -51,6 +55,7 @@ import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
+import org.apache.flink.runtime.rest.messages.ThreadDumpInfo;
 import org.apache.flink.runtime.shuffle.ShuffleServiceOptions;
 import org.apache.flink.runtime.state.CheckpointStorageWorkerView;
 import org.apache.flink.runtime.state.StateBackend;
@@ -61,8 +66,10 @@ import org.apache.flink.runtime.state.cache.CacheManager;
 import org.apache.flink.runtime.state.cache.CachedStateBackend;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.runtime.taskmanager.DispatcherThreadFactory;
+import org.apache.flink.runtime.taskmanager.InputGateWithMetrics;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.util.FatalExitExceptionHandler;
+import org.apache.flink.runtime.util.JvmUtils;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.graph.StreamEdge;
@@ -90,6 +97,7 @@ import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.function.RunnableWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,6 +105,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -108,7 +117,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE;
@@ -216,8 +228,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	/** Flag to mark this task as canceled. */
 	private volatile boolean canceled;
 
-	/** Flag to mark this task as failing, i.e. if an exception has occurred inside {@link #invoke()}. */
+	/**
+	 * Flag to mark this task as failing, i.e. if an exception has occurred inside {@link #invoke()}.
+	 */
 	private volatile boolean failing;
+
+	private AtomicBoolean isStuck = new AtomicBoolean();
 
 	private boolean disposedOperators;
 
@@ -236,6 +252,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	 * TODO it might be replaced by the global IO executor on TaskManager level future.
 	 */
 	private final ExecutorService channelIOExecutor;
+	private final ScheduledExecutorService stuckCheckExecutor;
 
 	private final CacheManager cacheManager;
 
@@ -253,6 +270,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	private volatile long startFailTime = 0;
 
+	private AtomicLong lastInputUnAvailableTime = new AtomicLong(-1);
+	private AtomicLong lastOutputUnAvailableTime = new AtomicLong(-1);
+
+	private volatile long numBytesInUpdateTime = 0;
+	private volatile long numBytesIn = 0;
+
+	private final long checkStuckInterval;
+	private final long checkStuckDuration;
 	// ------------------------------------------------------------------------
 
 	/**
@@ -357,6 +382,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			this.timerService = null;
 			this.channelIOExecutor = null;
 		}
+		this.checkStuckInterval = environment.getTaskManagerInfo().getConfiguration().get(TaskManagerOptions.TASKMANAGER_TASK_STUCK_CHECK_THREAD_INTERVAL);
+		this.checkStuckDuration = environment.getTaskManagerInfo().getConfiguration().get(TaskManagerOptions.TASKMANAGER_TASK_STUCK_CHECK_DURATION);
+		this.stuckCheckExecutor = this.checkStuckInterval > 0 ? environment.getTaskCheckStuckExecutor() : null;
 	}
 
 	private CompletableFuture<Void> prepareInputSnapshot(ChannelStateWriter channelStateWriter, long checkpointId) throws IOException {
@@ -378,6 +406,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	protected void registerMetric(){
 		getEnvironment().getMetricGroup().gauge(MetricNames.TASK_FAILING_TIME, this::getFailingTime);
+		getEnvironment().getMetricGroup().gauge(MetricNames.IS_TASK_STUCK, this::isStuck);
 	}
 
 	protected void cancelTask() throws Exception {
@@ -409,6 +438,133 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		CompletableFuture<?> jointFuture = getInputOutputJointFuture(status);
 		MailboxDefaultAction.Suspension suspendedDefaultAction = controller.suspendDefaultAction();
 		jointFuture.thenRun(suspendedDefaultAction::resume);
+	}
+
+	private long getBuffersIn() {
+		long numRecordIn = 0L;
+		IndexedInputGate[] allInputGates = getEnvironment().getAllInputGates();
+		for (IndexedInputGate inputGate : allInputGates) {
+			if (inputGate instanceof InputGateWithMetrics) {
+				InputGateWithMetrics inputGateWithMetrics = (InputGateWithMetrics) inputGate;
+				numRecordIn += inputGateWithMetrics.getNumBytesIn();
+			}
+		}
+		return numRecordIn;
+	}
+
+	private void checkStuck() {
+		if (!isRunning()) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		if (numBytesInUpdateTime == 0) {
+			numBytesInUpdateTime = now;
+		}
+		// Check inputData is available
+		if (!inputProcessor.isAvailable()) {
+			if (lastInputUnAvailableTime.compareAndSet(-1, now)) {
+				CompletableFuture<?> processorAvailableFuture = inputProcessor.getAvailableFuture();
+				processorAvailableFuture.thenRun(() ->
+					lastInputUnAvailableTime.set(-1)
+				);
+			}
+		}
+		// Check backPressure.
+		if (!recordWriter.isAvailable()) {
+			// Update last backPressure time.
+			if (lastOutputUnAvailableTime.compareAndSet(-1, now)) {
+				CompletableFuture<?> recordWriterAvailableFuture = recordWriter.getAvailableFuture();
+				recordWriterAvailableFuture.thenRun(() ->
+					lastOutputUnAvailableTime.set(-1)
+				);
+			}
+		}
+		long numBytesIn = getBuffersIn();
+		if (numBytesIn != this.numBytesIn) {
+			this.numBytesIn = numBytesIn;
+			this.numBytesInUpdateTime = now;
+			stuckCheckExecutor.schedule(this::checkStuck, checkStuckInterval, TimeUnit.MILLISECONDS);
+			return;
+		}
+
+		long lastInputUnavailableTimeValue = lastInputUnAvailableTime.get();
+		long lastOutputUnavailableTimeValue = lastOutputUnAvailableTime.get();
+		// If the input is always Unavailable and the numBytesIn not increase, it indicates that no data are available upstream.
+		// So this task is not root cause, return directly.
+		if (lastInputUnavailableTimeValue != -1 && (now - lastInputUnavailableTimeValue) > checkStuckDuration) {
+			LOG.debug("Task: {} has no upStream data in {} ms.", this.getName(), checkStuckDuration);
+			isStuck.set(false);
+			stuckCheckExecutor.schedule(this::checkStuck, checkStuckInterval, TimeUnit.MILLISECONDS);
+			return;
+		}
+
+		if (lastOutputUnavailableTimeValue != -1 && (now - lastOutputUnavailableTimeValue) > checkStuckDuration) {
+			// There is backpressure, check subpartition status.
+			if (!checkResultSubpartitionStates()) {
+				if (isStuck.compareAndSet(false, true)) {
+					LOG.warn("Task: {} is stuck and ResultSubpartitionStates has error.", this.getName());
+					final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = JvmUtils.createThreadDumpInfos();
+					LOG.error("TaskManager thread dump infos:\n{}", StringUtils.join(threadInfos, "\n"));
+				}
+			}
+		} else if (now - numBytesInUpdateTime > checkStuckDuration) {
+			if (isStuck.compareAndSet(false, true)) {
+				LOG.warn("Task: {} is stuck and recordWriter is available", this.getName());
+				final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = JvmUtils.createThreadDumpInfos();
+				LOG.error("TaskManager thread dump infos:\n{}", StringUtils.join(threadInfos, "\n"));
+			}
+		} else {
+			isStuck.set(false);
+		}
+		stuckCheckExecutor.schedule(this::checkStuck, checkStuckInterval, TimeUnit.MILLISECONDS);
+	}
+
+	private boolean checkResultSubpartitionStates() {
+		boolean result = true;
+		List<ResultPartitionWriter> partitions = recordWriter.getPartitions();
+		for (ResultPartitionWriter partition : partitions) {
+			int maxBufferChannelIndex = partition.getMaxBufferChannelIndex();
+			ResultSubpartition[] subpartitions = partition.getSubpartitions();
+			if (maxBufferChannelIndex != -1) {
+				ResultSubpartition subpartition = subpartitions[maxBufferChannelIndex];
+				return checkSubpartitionStatus(subpartition);
+			}
+			for (ResultSubpartition resultSubpartition : subpartitions) {
+				result = checkSubpartitionStatus(resultSubpartition);
+			}
+		}
+
+		return result;
+	}
+
+	/**
+	 * Check pipelinedSubpartition status, if there already released, or credit is large than 0.
+	 * If the task is in the back pressure state, but the credit is greater than 0, it means
+	 * that there is a problem with the communication between the task and the downstream.
+	 * @param resultSubpartition
+	 * @return return true if there already resultSubpartition is released, or resultSubpartition's
+	 * credit is large than 0.
+	 */
+	private boolean checkSubpartitionStatus(ResultSubpartition resultSubpartition) {
+		boolean result = true;
+		if (resultSubpartition instanceof PipelinedSubpartition) {
+			PipelinedSubpartition pipelinedSubpartition = (PipelinedSubpartition) resultSubpartition;
+
+			if (pipelinedSubpartition.isReleased()) {
+				LOG.error("pipelinedSubpartition: {} is already released, but task is still running", pipelinedSubpartition);
+				result = false;
+			}
+			PipelinedSubpartitionView readView = pipelinedSubpartition.getReadView();
+			if (readView == null) {
+				LOG.error("task: {}, readView: {} is already released, but task is still running", this.getName(), pipelinedSubpartition);
+				result = false;
+			}
+			if (readView.getNumCreditsAvailable() > 0) {
+				LOG.error("task: {}, readView: {} credit is larger than 0, but recordWriter is not available", this.getName(), readView);
+				result = false;
+			}
+		}
+		return result;
 	}
 
 	/**
@@ -555,6 +711,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		});
 
 		isRunning = true;
+		if (checkStuckInterval > 0) {
+			stuckCheckExecutor.schedule(this::checkStuck, checkStuckInterval, TimeUnit.MILLISECONDS);
+		}
 	}
 
 	private void readRecoveredChannelState() throws IOException, InterruptedException {
@@ -811,6 +970,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	public final boolean isFailing() {
 		return failing;
+	}
+
+	public int isStuck() {
+		return isStuck.get() ? 1 : 0;
 	}
 
 	private void shutdownAsyncThreads() throws Exception {

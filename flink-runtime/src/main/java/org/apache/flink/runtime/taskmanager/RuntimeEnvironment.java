@@ -49,6 +49,7 @@ import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 
 import java.util.Map;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -101,6 +102,8 @@ public class RuntimeEnvironment implements Environment {
 	private final CacheManager cacheManager;
 
 	private final TaskJobResultGateway taskJobResultGateway;
+
+	private final ScheduledExecutorService taskCheckStuckExecutor;
 
 	// ------------------------------------------------------------------------
 
@@ -164,7 +167,8 @@ public class RuntimeEnvironment implements Environment {
 			containingTask,
 			externalResourceInfoProvider,
 			new NonCacheManager(),
-			new PrintTaskJobResultGateway());
+			new PrintTaskJobResultGateway(),
+			null);
 	}
 
 	public RuntimeEnvironment(
@@ -197,7 +201,8 @@ public class RuntimeEnvironment implements Environment {
 			Task containingTask,
 			ExternalResourceInfoProvider externalResourceInfoProvider,
 			CacheManager cacheManager,
-			TaskJobResultGateway taskJobResultGateway) {
+			TaskJobResultGateway taskJobResultGateway,
+			ScheduledExecutorService taskCheckStuckExecutor) {
 
 		this.jobId = checkNotNull(jobId);
 		this.jobName = jobName;
@@ -229,6 +234,7 @@ public class RuntimeEnvironment implements Environment {
 		this.externalResourceInfoProvider = checkNotNull(externalResourceInfoProvider);
 		this.cacheManager = cacheManager;
 		this.taskJobResultGateway = taskJobResultGateway;
+		this.taskCheckStuckExecutor = taskCheckStuckExecutor;
 	}
 
 	// ------------------------------------------------------------------------
@@ -376,6 +382,10 @@ public class RuntimeEnvironment implements Environment {
 	@Override
 	public CacheManager getCacheManager() {
 		return cacheManager;
+	}
+
+	public ScheduledExecutorService getTaskCheckStuckExecutor() {
+		return taskCheckStuckExecutor;
 	}
 
 	@Override

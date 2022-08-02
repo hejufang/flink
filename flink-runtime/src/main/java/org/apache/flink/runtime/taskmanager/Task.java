@@ -123,6 +123,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.function.Consumer;
@@ -300,6 +301,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 	private final TaskThreadPoolExecutor taskMonitorExecutor;
 
+	private final ScheduledExecutorService taskCheckStuckExecutor;
+
 	// ------------------------------------------------------------------------
 	//  Fields that control the task execution. All these fields are volatile
 	//  (which means that they introduce memory barriers), to establish
@@ -372,6 +375,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		IOManager ioManager,
 		TaskThreadPoolExecutor taskExecutorService,
 		TaskThreadPoolExecutor taskMonitorExecutor,
+		ScheduledExecutorService taskCheckStuckExecutor,
 		ShuffleEnvironment<?, ?> shuffleEnvironment,
 		KvStateService kvStateService,
 		BroadcastVariableManager bcVarManager,
@@ -404,6 +408,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			ioManager,
 			taskExecutorService,
 			taskMonitorExecutor,
+			taskCheckStuckExecutor,
 			shuffleEnvironment,
 			kvStateService,
 			bcVarManager,
@@ -447,6 +452,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			IOManager ioManager,
 			TaskThreadPoolExecutor taskExecutorService,
 			TaskThreadPoolExecutor taskMonitorExecutor,
+			ScheduledExecutorService taskCheckStuckExecutor,
 			ShuffleEnvironment<?, ?> shuffleEnvironment,
 			KvStateService kvStateService,
 			BroadcastVariableManager bcVarManager,
@@ -534,6 +540,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		this.taskManagerConfig = Preconditions.checkNotNull(taskManagerConfig);
 		this.taskExecutorService = taskExecutorService;
 		this.taskMonitorExecutor = taskMonitorExecutor;
+		this.taskCheckStuckExecutor = taskCheckStuckExecutor;
 
 		this.metrics = metricGroup;
 
@@ -948,7 +955,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				this,
 				externalResourceInfoProvider,
 				cacheManager,
-				taskJobResultGateway);
+				taskJobResultGateway,
+				taskCheckStuckExecutor);
 
 			// Make sure the user code classloader is accessible thread-locally.
 			// We are setting the correct context class loader before instantiating the invokable

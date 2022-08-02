@@ -176,4 +176,8 @@ public interface ResultPartitionWriter extends AutoCloseable, AvailabilityProvid
 	default long getErrorNum() {
 		return 0;
 	}
+
+	default int getMaxBufferChannelIndex() {
+		return -1;
+	}
 }
