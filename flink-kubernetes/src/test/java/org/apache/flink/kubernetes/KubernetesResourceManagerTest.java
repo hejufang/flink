@@ -390,15 +390,13 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	@Test
 	public void testGetWorkerNodesFromPreviousAttempts() throws Exception {
 		new Context() {{
+			flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
+			final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
+			final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndex(previewPodName);
+			// Prepare previous attempt pod
+			assertEquals(1, kubeClient.pods().list().getItems().size());
+
 			runTest(() -> {
-				// Prepare pod of previous attempt
-				final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
-				final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndex(previewPodName);
-				assertEquals(1, kubeClient.pods().list().getItems().size());
-
-				// Call initialize method to recover worker nodes from previous attempt.
-				resourceManager.initialize();
-
 				final String taskManagerPrefix = CLUSTER_ID + "-taskmanager-";
 				// Register the previous taskmanager, no new pod should be created
 				registerTaskExecutor(new ResourceID(previewPodName));
@@ -576,21 +574,18 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	@Test
 	public void testPreviousAttemptPodTerminatedBeforeAdded() throws Exception{
 		new Context() {{
+			flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
+			// Prepare previous attempt pod
+			final String podName1 = CLUSTER_ID + "-taskmanager-1-1";
+			final String podName2 = CLUSTER_ID + "-taskmanager-1-2";
+			final String podName3 = CLUSTER_ID + "-taskmanager-1-3";
+
+			final Pod pod1 = createPreviousAttemptPodWithIndex(podName1);
+			final Pod pod2 = createPreviousAttemptPodWithIndex(podName2);
+			final Pod pod3 = createPreviousAttemptPodWithIndex(podName3);
+
+			assertThat(kubeClient.pods().list().getItems().size(), is(3));
 			runTest(() -> {
-				// Prepare previous attempt pod
-				final String podName1 = CLUSTER_ID + "-taskmanager-1-1";
-				final String podName2 = CLUSTER_ID + "-taskmanager-1-2";
-				final String podName3 = CLUSTER_ID + "-taskmanager-1-3";
-
-				final Pod pod1 = createPreviousAttemptPodWithIndex(podName1);
-				final Pod pod2 = createPreviousAttemptPodWithIndex(podName2);
-				final Pod pod3 = createPreviousAttemptPodWithIndex(podName3);
-
-				assertThat(kubeClient.pods().list().getItems().size(), is(3));
-
-				// Call initialize method to recover worker nodes from previous attempt.
-				resourceManager.initialize();
-
 				// Should not request new pods when previous attempt pods are terminated
 
 				terminatePod(pod1);
@@ -616,15 +611,15 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	public void testPreviousAttemptPodUsedForRequest() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		new Context() {{
+			flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
+			// Prepare pod of previous attempt
+			final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
+			final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(
+					previewPodName,
+					KubernetesWorkerResourceSpecFactory.INSTANCE.createDefaultWorkerResourceSpec(flinkConfig));
+			assertEquals(1, kubeClient.pods().list().getItems().size());
+
 			runTest(() -> {
-				// Prepare pod of previous attempt
-				final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
-				final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(previewPodName, slotManager.getDefaultWorkerResourceSpec());
-				assertEquals(1, kubeClient.pods().list().getItems().size());
-
-				// Call initialize method to recover worker nodes from previous attempt.
-				resourceManager.initialize();
-
 				final String taskManagerPrefix = CLUSTER_ID + "-taskmanager-";
 
 				// request new slot, will use previousWorker.
@@ -650,15 +645,15 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	public void testPreviousAttemptPodRegisteredBeforeUse() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		new Context() {{
+			flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
+			// Prepare pod of previous attempt
+			final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
+			final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(
+					previewPodName,
+					KubernetesWorkerResourceSpecFactory.INSTANCE.createDefaultWorkerResourceSpec(flinkConfig));
+			assertEquals(1, kubeClient.pods().list().getItems().size());
+
 			runTest(() -> {
-				// Prepare pod of previous attempt
-				final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
-				final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(previewPodName, slotManager.getDefaultWorkerResourceSpec());
-				assertEquals(1, kubeClient.pods().list().getItems().size());
-
-				// Call initialize method to recover worker nodes from previous attempt.
-				resourceManager.initialize();
-
 				final String taskManagerPrefix = CLUSTER_ID + "-taskmanager-";
 
 				registerTaskExecutor(new ResourceID(previewPodName));
@@ -686,15 +681,15 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	public void testPreviousAttemptPodCompletedBeforeUse() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		new Context() {{
+			flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
+			// Prepare pod of previous attempt
+			final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
+			final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(
+					previewPodName,
+					KubernetesWorkerResourceSpecFactory.INSTANCE.createDefaultWorkerResourceSpec(flinkConfig));
+			assertEquals(1, kubeClient.pods().list().getItems().size());
+
 			runTest(() -> {
-				// Prepare pod of previous attempt
-				final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
-				final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(previewPodName, slotManager.getDefaultWorkerResourceSpec());
-				assertEquals(1, kubeClient.pods().list().getItems().size());
-
-				// Call initialize method to recover worker nodes from previous attempt.
-				resourceManager.initialize();
-
 				final String taskManagerPrefix = CLUSTER_ID + "-taskmanager-";
 
 				terminatePod(mockTaskManagerPod);
@@ -729,15 +724,15 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	public void testPreviousAttemptPodCompletedAfterUse() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		new Context() {{
+			flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
+			// Prepare pod of previous attempt
+			final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
+			final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(
+					previewPodName,
+					KubernetesWorkerResourceSpecFactory.INSTANCE.createDefaultWorkerResourceSpec(flinkConfig));
+			assertEquals(1, kubeClient.pods().list().getItems().size());
+
 			runTest(() -> {
-				// Prepare pod of previous attempt
-				final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
-				final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(previewPodName, slotManager.getDefaultWorkerResourceSpec());
-				assertEquals(1, kubeClient.pods().list().getItems().size());
-
-				// Call initialize method to recover worker nodes from previous attempt.
-				resourceManager.initialize();
-
 				final String taskManagerPrefix = CLUSTER_ID + "-taskmanager-";
 
 				// request new slot, will use previous.
@@ -774,15 +769,15 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	public void testPreviousAttemptPodCompletedAfterRegister() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		new Context() {{
+			flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
+			// Prepare pod of previous attempt
+			final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
+			final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(
+					previewPodName,
+					KubernetesWorkerResourceSpecFactory.INSTANCE.createDefaultWorkerResourceSpec(flinkConfig));
+			assertEquals(1, kubeClient.pods().list().getItems().size());
+
 			runTest(() -> {
-				// Prepare pod of previous attempt
-				final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
-				final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(previewPodName, slotManager.getDefaultWorkerResourceSpec());
-				assertEquals(1, kubeClient.pods().list().getItems().size());
-
-				// Call initialize method to recover worker nodes from previous attempt.
-				resourceManager.initialize();
-
 				final String taskManagerPrefix = CLUSTER_ID + "-taskmanager-";
 
 				registerTaskExecutor(new ResourceID(previewPodName));
@@ -820,15 +815,15 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	public void testPreviousAttemptPodCompletedAfterRegisterBeforeSendSlotReport() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		new Context() {{
+			flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
+			// Prepare pod of previous attempt
+			final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
+			final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(
+					previewPodName,
+					KubernetesWorkerResourceSpecFactory.INSTANCE.createDefaultWorkerResourceSpec(flinkConfig));
+			assertEquals(1, kubeClient.pods().list().getItems().size());
+
 			runTest(() -> {
-				// Prepare pod of previous attempt
-				final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
-				final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(previewPodName, slotManager.getDefaultWorkerResourceSpec());
-				assertEquals(1, kubeClient.pods().list().getItems().size());
-
-				// Call initialize method to recover worker nodes from previous attempt.
-				resourceManager.initialize();
-
 				final String taskManagerPrefix = CLUSTER_ID + "-taskmanager-";
 
 				registerTaskExecutor(new ResourceID(previewPodName), false);
@@ -870,14 +865,15 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		flinkConfig.setLong(ResourceManagerOptions.PREVIOUS_CONTAINER_TIMEOUT_MS, 500L);
 		new Context() {{
-			runTest(() -> {
-				// Prepare pod of previous attempt
-				final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
-				final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(previewPodName, slotManager.getDefaultWorkerResourceSpec());
-				assertEquals(1, kubeClient.pods().list().getItems().size());
+			flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
+			// Prepare pod of previous attempt
+			final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
+			final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(
+					previewPodName,
+					KubernetesWorkerResourceSpecFactory.INSTANCE.createDefaultWorkerResourceSpec(flinkConfig));
+			assertEquals(1, kubeClient.pods().list().getItems().size());
 
-				// Call initialize method to recover worker nodes from previous attempt.
-				resourceManager.initialize();
+			runTest(() -> {
 				CompletableFuture<?> startServiceFuture = resourceManager.runInMainThread(() -> {
 					resourceManager.startServicesOnLeadership();
 					return null;
@@ -913,14 +909,15 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	public void testGetPodMainContainerResource() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
 		new Context() {{
-			runTest(() -> {
-				// Prepare pod of previous attempt
-				final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
-				final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(previewPodName, slotManager.getDefaultWorkerResourceSpec());
-				assertEquals(1, kubeClient.pods().list().getItems().size());
+			flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
+			// Prepare pod of previous attempt
+			final String previewPodName = CLUSTER_ID + "-taskmanager-1-1";
+			final Pod mockTaskManagerPod = createPreviousAttemptPodWithIndexAndWorkerSpec(
+					previewPodName,
+					KubernetesWorkerResourceSpecFactory.INSTANCE.createDefaultWorkerResourceSpec(flinkConfig));
+			assertEquals(1, kubeClient.pods().list().getItems().size());
 
-				// Call initialize method to recover worker nodes from previous attempt.
-				resourceManager.initialize();
+			runTest(() -> {
 				assertEquals(1, resourceManager.getRecoveredWorkerNodeSet().size());
 				KubernetesPod pod = resourceManager.getRecoveredWorkerNodeSet().get(new ResourceID(previewPodName));
 				assertEquals(1.0, pod.getMainContainerResource().getCpu());
