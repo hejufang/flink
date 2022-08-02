@@ -517,6 +517,10 @@ under the License.
 					<groupId>jline</groupId>
 					<artifactId>jline</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>com.bytedance</groupId>
+					<artifactId>commons</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<!-- end optional Flink libraries -->
