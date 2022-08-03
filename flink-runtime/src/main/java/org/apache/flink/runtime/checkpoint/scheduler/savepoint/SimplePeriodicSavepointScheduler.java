@@ -70,19 +70,27 @@ public class SimplePeriodicSavepointScheduler implements PeriodicSavepointSchedu
 	 */
 	private final CheckpointCoordinator coordinator;
 
+	/**
+	 * The maximum time that a savepoint may take before being discarded, will be
+	 * set to CheckpointTimeout if not configured.
+	 */
+	private final long timeout;
+
 	public SimplePeriodicSavepointScheduler(
 			@Nullable String namespace,
 			String jobUID,
 			@Nullable String savepointLocationPrefix,
 			long baseInterval,
 			long minPauseMillis,
-			CheckpointCoordinator coordinator) {
+			CheckpointCoordinator coordinator,
+			long timeout) {
 		this.namespace = namespace;
 		this.jobUID = jobUID;
 		this.savepointLocationPrefix = savepointLocationPrefix;
 		this.baseInterval = baseInterval;
 		this.minPauseMillis = minPauseMillis;
 		this.coordinator = coordinator;
+		this.timeout = timeout;
 	}
 
 	@Override
@@ -100,7 +108,7 @@ public class SimplePeriodicSavepointScheduler implements PeriodicSavepointSchedu
 			}
 			try {
 				LOG.info("On triggering periodic savepoint at {}", periodicSavepointPath);
-				coordinator.triggerSavepoint(periodicSavepointPath);
+				coordinator.triggerSavepoint(periodicSavepointPath, timeout);
 			} catch (Exception e) {
 				LOG.error("Exception while triggering savepoint for job {}.", jobUID, e);
 			}

@@ -92,12 +92,12 @@ public final class CheckpointSchedulingStrategies {
 	public static SavepointSchedulerConfiguration resolveSavepointCliConfig(String savepointSchedulingStrategy, Configuration cliConfig) {
 		switch (savepointSchedulingStrategy) {
 			case "default":
-				final int defaultInterval = cliConfig.getInteger(CheckpointingOptions.SAVEPOINT_SCHEDULING_DEFAULT_INTERVAL);
-
+				long defaultInterval = cliConfig.getLong(CheckpointingOptions.SAVEPOINT_SCHEDULING_DEFAULT_INTERVAL);
+				long timeout = cliConfig.get(CheckpointingOptions.SAVEPOINT_SCHEDULING_DEFAULT_TIMEOUT).toMillis();
 				if (defaultInterval == -1 || !("default".equals(cliConfig.getString(CheckpointingOptions.CHECKPOINT_TRIGGER_STRATEGY, "default")))) {
-					return defaultSavepointStrategy();
+					defaultInterval = Long.MAX_VALUE;
 				}
-				return defaultSavepointStrategy(defaultInterval);
+				return defaultSavepointStrategy(defaultInterval, timeout);
 			default:
 				final String message = "Undefined value for argument: " + CheckpointingOptions.SAVEPOINT_SCHEDULING_STRATEGY.key() + ".";
 				throw new IllegalArgumentException(message);
@@ -139,6 +139,10 @@ public final class CheckpointSchedulingStrategies {
 
 	public static SavepointSchedulerConfiguration defaultSavepointStrategy(long interval) {
 		return new DefaultSavepointSchedulerConfiguration(SavepointStrategy.DEFAULT, interval);
+	}
+
+	public static SavepointSchedulerConfiguration defaultSavepointStrategy(long interval, long timeout) {
+		return new DefaultSavepointSchedulerConfiguration(SavepointStrategy.DEFAULT, interval, timeout);
 	}
 
 	// ------------------------------------------------------------------------
@@ -276,20 +280,35 @@ public final class CheckpointSchedulingStrategies {
 		 */
 		public final long interval;
 
+		public final long timeout;
+
 		// Use the global interval
 		private DefaultSavepointSchedulerConfiguration(SavepointStrategy strategy) {
 			super(strategy);
 			this.interval = Long.MAX_VALUE;
+			this.timeout = -1;
 		}
 
-		// Do all configuration here, recommended.
+		// Only interval is configured
 		private DefaultSavepointSchedulerConfiguration(SavepointStrategy strategy, long interval) {
 			super(strategy);
 			this.interval = interval;
+			this.timeout = -1;
+		}
+
+		// Do all configuration here, recommended.
+		private DefaultSavepointSchedulerConfiguration(SavepointStrategy strategy, long interval, long timeout) {
+			super(strategy);
+			this.interval = interval;
+			this.timeout = timeout;
 		}
 
 		public boolean isIntervalSet() {
 			return interval != Long.MAX_VALUE;
+		}
+
+		public long getTimeout() {
+			return timeout;
 		}
 	}
 }

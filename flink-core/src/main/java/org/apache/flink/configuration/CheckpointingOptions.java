@@ -20,6 +20,8 @@ package org.apache.flink.configuration;
 
 import org.apache.flink.annotation.docs.Documentation;
 
+import java.time.Duration;
+
 import static org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy.DEFAULT;
 import static org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy.REVERSE_TRIGGER_WITHOUT_SOURCE;
 import static org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy.REVERSE_TRIGGER_WITH_SOURCE;
@@ -297,11 +299,17 @@ public class CheckpointingOptions {
 		.withDescription("The scheduling strategy to be used to trigger savepoint.");
 
 	/** The interval between two consecutive savepoints under the default fixed rate strategy. */
-	public static final ConfigOption<Integer> SAVEPOINT_SCHEDULING_DEFAULT_INTERVAL = ConfigOptions
+	public static final ConfigOption<Long> SAVEPOINT_SCHEDULING_DEFAULT_INTERVAL = ConfigOptions
 		.key("savepoint.scheduler.default.interval")
-		.defaultValue(-1)
+		.defaultValue(-1L)
 		.withDescription("The interval between two consecutive checkpoints under the default fixed rate strategy.");
 
+	/** The maximum time that a savepoint may take before being discarded under the default fixed rate strategy. */
+	public static final ConfigOption<Duration> SAVEPOINT_SCHEDULING_DEFAULT_TIMEOUT =
+		ConfigOptions.key("savepoint.scheduler.default.timeout")
+			.durationType()
+			.defaultValue(Duration.ofMinutes(10))
+			.withDescription("The maximum time that a savepoint may take before being discarded under the default fixed rate strategy.");
 	// ------------------------------------------------------------------------
 	// Checkpoint discard options
 	// ------------------------------------------------------------------------

@@ -607,7 +607,7 @@ public class CheckpointCoordinator {
 
 	/**
 	 * Trigger a detach savepoint with the given savepoint directory as a target. Different from
-	 * {@link #triggerSavepoint(String)}, this targetLocation will not create a random subdir to
+	 * {@link #triggerSavepoint(String, long)}, this targetLocation will not create a random subdir to
 	 * hold the new savepoint, while directly accommodating all savepoint data and meta files.
 	 *
 	 * @param targetLocation format %detach_savepoint_prefix%/%date%/%jobUID%/%UUID%.
@@ -922,7 +922,7 @@ public class CheckpointCoordinator {
 			pendingCheckpoints.put(checkpointID, checkpoint);
 
 			ScheduledFuture<?> cancellerHandle = null;
-			if (props.isSavepoint() && props.isSynchronous() && savepointTimeout > 0) {
+			if (props.isSavepoint() && savepointTimeout > 0) {
 				cancellerHandle = checkpointScheduler.scheduleTimeoutCanceller(savepointTimeout, new CheckpointCanceller(checkpoint));
 			} else {
 				cancellerHandle = checkpointScheduler.scheduleTimeoutCanceller(new CheckpointCanceller(checkpoint));

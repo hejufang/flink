@@ -123,7 +123,7 @@ public final class CheckpointSchedulerUtils {
 			CheckpointCoordinatorConfiguration chkConfig) {
 
 		// time between savepoints
-		long baseInterval;
+		long baseInterval, timeout;
 
 		// max "in between duration" can be one year - this is to prevent numeric overflows
 		long minPauseBetweenCheckpoints = chkConfig.getMinPauseBetweenCheckpoints();
@@ -145,8 +145,11 @@ public final class CheckpointSchedulerUtils {
 						baseInterval = minPauseBetweenCheckpoints;
 					}
 
-					scheduler.setPeriodSavepointScheduler(new SimplePeriodicSavepointScheduler(namespace, jobUID, chkConfig.getSavepointLocationPrefix(), baseInterval, minPauseBetweenCheckpoints, coordinator));
-					LOG.info("Setup savepoint scheduler with interval {}, minPause {}, prefix {}", baseInterval, minPauseBetweenCheckpoints, chkConfig.getSavepointLocationPrefix());
+					// savepoint timeout should be greater than or equals to checkpoint timeout
+					timeout = Math.max(savepointSchedulerConfiguration.getTimeout(), chkConfig.getCheckpointTimeout());
+
+					scheduler.setPeriodSavepointScheduler(new SimplePeriodicSavepointScheduler(namespace, jobUID, chkConfig.getSavepointLocationPrefix(), baseInterval, minPauseBetweenCheckpoints, coordinator, timeout));
+					LOG.info("Setup savepoint scheduler with interval {}, minPause {}, prefix {}, timeout {}", baseInterval, minPauseBetweenCheckpoints, chkConfig.getSavepointLocationPrefix(), timeout);
 				} else {
 					LOG.warn("Inconsistent savepoint scheduler configuration. A configuration with class {} has been recognized as Default strategy.",
 						chkConfig.getSavepointSchedulerConfiguration().getClass());
