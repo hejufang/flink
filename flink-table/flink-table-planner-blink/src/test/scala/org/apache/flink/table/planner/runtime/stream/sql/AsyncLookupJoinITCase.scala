@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.runtime.stream.sql
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api.{TableSchema, Types}
 import org.apache.flink.table.api.bridge.scala._
+import org.apache.flink.table.api.config.OptimizerConfigOptions.TABLE_OPTIMIZER_LOOKUP_JOIN_FILTER_PUSH_DOWN_ENABLED
 import org.apache.flink.table.planner.factories.TestValuesTableFactory
 import org.apache.flink.table.planner.runtime.utils.StreamingWithStateTestBase.{HEAP_BACKEND, ROCKSDB_BACKEND, StateBackendMode}
 import org.apache.flink.table.planner.runtime.utils.UserDefinedFunctionTestUtils._
@@ -32,12 +33,15 @@ import org.junit.runners.Parameterized
 import org.junit.{After, Before, Test}
 
 import java.lang.{Boolean => JBoolean}
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Collection => JCollection}
-
 import scala.collection.JavaConversions._
 
 @RunWith(classOf[Parameterized])
-class AsyncLookupJoinITCase(legacyTableSource: Boolean, backend: StateBackendMode)
+class AsyncLookupJoinITCase(
+    legacyTableSource: Boolean,
+    backend: StateBackendMode,
+    lookupFilterPushDown: Boolean)
   extends StreamingWithStateTestBase(backend) {
 
   val data = List(
@@ -58,6 +62,9 @@ class AsyncLookupJoinITCase(legacyTableSource: Boolean, backend: StateBackendMod
     // TODO: remove this until [FLINK-12351] is fixed.
     //  currently AsyncWaitOperator doesn't copy input element which is a bug
     env.getConfig.disableObjectReuse()
+
+    tEnv.getConfig.getConfiguration.setBoolean(
+      TABLE_OPTIMIZER_LOOKUP_JOIN_FILTER_PUSH_DOWN_ENABLED, lookupFilterPushDown)
     
     createScanTable("src", data)
     createLookupTable("user_table", userData)
@@ -71,6 +78,7 @@ class AsyncLookupJoinITCase(legacyTableSource: Boolean, backend: StateBackendMod
     } else {
       assertEquals(0, TestValuesTableFactory.RESOURCE_COUNTER.get())
     }
+    getAccessCounter().set(0)
   }
 
   private def createLookupTable(tableName: String, data: List[Row]): Unit = {
@@ -113,6 +121,14 @@ class AsyncLookupJoinITCase(legacyTableSource: Boolean, backend: StateBackendMod
          |  'data-id' = '$dataId'
          |)
          |""".stripMargin)
+  }
+
+  private def getAccessCounter(): AtomicInteger = {
+    if (legacyTableSource) {
+      InMemoryLookupableTableSource.ACCESS_COUNTER
+    } else {
+      TestValuesTableFactory.ACCESS_COUNTER
+    }
   }
 
   @Test
@@ -295,6 +311,29 @@ class AsyncLookupJoinITCase(legacyTableSource: Boolean, backend: StateBackendMod
   }
 
   @Test
+  def testAsyncLeftJoinLookupFilterTemporalTable(): Unit = {
+    val sql = "SELECT T.id, T.len, D.name, D.age FROM src AS T LEFT JOIN user_table " +
+      "for system_time as of T.proctime AS D ON T.id = D.id and T.id > 1"
+
+    val sink = new TestingAppendSink
+    tEnv.sqlQuery(sql).toAppendStream[Row].addSink(sink)
+    env.execute()
+
+    val expected = Seq(
+      "1,12,null,null",
+      "2,15,Jark,22",
+      "3,15,Fabian,33",
+      "8,11,null,null",
+      "9,12,null,null")
+    assertEquals(expected.sorted, sink.getAppendResults.sorted)
+    if (lookupFilterPushDown) {
+      assertEquals(4, getAccessCounter().get())
+    } else {
+      assertEquals(5, getAccessCounter().get())
+    }
+  }
+
+  @Test
   def testExceptionThrownFromAsyncJoinTemporalTable(): Unit = {
     tEnv.registerFunction("errorFunc", TestExceptionThrown)
 
@@ -320,13 +359,17 @@ class AsyncLookupJoinITCase(legacyTableSource: Boolean, backend: StateBackendMod
 }
 
 object AsyncLookupJoinITCase {
-  @Parameterized.Parameters(name = "LegacyTableSource={0}, StateBackend={1}")
+  @Parameterized.Parameters(name = "LegacyTableSource={0}, StateBackend={1}, joinPushDown = {2}")
   def parameters(): JCollection[Array[Object]] = {
     Seq[Array[AnyRef]](
-      Array(JBoolean.TRUE, HEAP_BACKEND),
-      Array(JBoolean.TRUE, ROCKSDB_BACKEND),
-      Array(JBoolean.FALSE, HEAP_BACKEND),
-      Array(JBoolean.FALSE, ROCKSDB_BACKEND)
+      Array(JBoolean.TRUE, HEAP_BACKEND, JBoolean.TRUE),
+      Array(JBoolean.TRUE, ROCKSDB_BACKEND, JBoolean.TRUE),
+      Array(JBoolean.FALSE, HEAP_BACKEND, JBoolean.TRUE),
+      Array(JBoolean.FALSE, ROCKSDB_BACKEND, JBoolean.TRUE),
+      Array(JBoolean.TRUE, HEAP_BACKEND, JBoolean.FALSE),
+      Array(JBoolean.TRUE, ROCKSDB_BACKEND, JBoolean.FALSE),
+      Array(JBoolean.FALSE, HEAP_BACKEND, JBoolean.FALSE),
+      Array(JBoolean.FALSE, ROCKSDB_BACKEND, JBoolean.FALSE)
     )
   }
 }

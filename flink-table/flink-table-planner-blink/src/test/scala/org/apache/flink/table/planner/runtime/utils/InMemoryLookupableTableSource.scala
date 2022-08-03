@@ -26,7 +26,7 @@ import org.apache.flink.table.descriptors.{CustomConnectorDescriptor, Descriptor
 import org.apache.flink.table.descriptors.Schema.SCHEMA
 import org.apache.flink.table.factories.TableSourceFactory
 import org.apache.flink.table.functions.{AsyncTableFunction, FunctionContext, TableFunction}
-import org.apache.flink.table.planner.runtime.utils.InMemoryLookupableTableSource.{InMemoryAsyncLookupFunction, InMemoryLookupFunction, RESOURCE_COUNTER}
+import org.apache.flink.table.planner.runtime.utils.InMemoryLookupableTableSource.{ACCESS_COUNTER, InMemoryAsyncLookupFunction, InMemoryLookupFunction, RESOURCE_COUNTER}
 import org.apache.flink.table.sources._
 import org.apache.flink.table.types.DataType
 import org.apache.flink.table.utils.EncodingUtils
@@ -55,11 +55,12 @@ class InMemoryLookupableTableSource(
   with StreamTableSource[Row] {
 
   override def getLookupFunction(lookupKeys: Array[String]): TableFunction[Row] = {
-    new InMemoryLookupFunction(convertDataToMap(lookupKeys), RESOURCE_COUNTER)
+    new InMemoryLookupFunction(convertDataToMap(lookupKeys), RESOURCE_COUNTER, _ => ACCESS_COUNTER)
   }
 
   override def getAsyncLookupFunction(lookupKeys: Array[String]): AsyncTableFunction[Row] = {
-    new InMemoryAsyncLookupFunction(convertDataToMap(lookupKeys), RESOURCE_COUNTER)
+    new InMemoryAsyncLookupFunction(
+      convertDataToMap(lookupKeys), RESOURCE_COUNTER, _ => ACCESS_COUNTER)
   }
 
   private def convertDataToMap(lookupKeys: Array[String]): Map[Row, List[Row]] = {
@@ -125,6 +126,7 @@ class InMemoryLookupableTableFactory extends TableSourceFactory[Row] {
 object InMemoryLookupableTableSource {
 
   val RESOURCE_COUNTER = new AtomicInteger()
+  val ACCESS_COUNTER = new AtomicInteger()
 
   def createTemporaryTable(
       tEnv: TableEnvironment,
@@ -147,7 +149,8 @@ object InMemoryLookupableTableSource {
     */
   private class InMemoryLookupFunction(
       data: Map[Row, List[Row]],
-      resourceCounter: AtomicInteger)
+      resourceCounter: AtomicInteger,
+      counterGet: Unit => AtomicInteger)
     extends TableFunction[Row] {
 
     override def open(context: FunctionContext): Unit = {
@@ -156,6 +159,7 @@ object InMemoryLookupableTableSource {
 
     @varargs
     def eval(inputs: AnyRef*): Unit = {
+      counterGet().incrementAndGet()
       val key = Row.of(inputs: _*)
       Preconditions.checkArgument(!inputs.contains(null),
         s"Lookup key %s contains null value, which would not happen.", key)
@@ -177,6 +181,7 @@ object InMemoryLookupableTableSource {
   private class InMemoryAsyncLookupFunction(
       data: Map[Row, List[Row]],
       resourceCounter: AtomicInteger,
+      counterGet: Unit => AtomicInteger,
       delayedReturn: Int = 0)
     extends AsyncTableFunction[Row] {
 
@@ -190,6 +195,7 @@ object InMemoryLookupableTableSource {
 
     @varargs
     def eval(resultFuture: CompletableFuture[util.Collection[Row]], inputs: AnyRef*): Unit = {
+      counterGet().incrementAndGet()
       val key = Row.of(inputs: _*)
       Preconditions.checkArgument(!inputs.contains(null),
         s"Lookup key %s contains null value, which would not happen.", key)

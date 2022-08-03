@@ -24,7 +24,7 @@ import org.apache.flink.streaming.api.datastream.AsyncDataStream.OutputMode
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.operators.async.AsyncWaitOperatorFactory
 import org.apache.flink.streaming.api.operators.{ProcessOperator, SimpleOperatorFactory}
-import org.apache.flink.table.api.config.ExecutionConfigOptions
+import org.apache.flink.table.api.config.{ExecutionConfigOptions, OptimizerConfigOptions}
 import org.apache.flink.table.api.{TableConfig, TableException, TableSchema}
 import org.apache.flink.table.catalog.ObjectIdentifier
 import org.apache.flink.table.connector.source.{AsyncTableFunctionProvider, LookupTableSource, TableFunctionProvider}
@@ -40,7 +40,7 @@ import org.apache.flink.table.planner.plan.schema.{LegacyTableSourceTable, Table
 import org.apache.flink.table.planner.plan.utils.LookupJoinUtil._
 import org.apache.flink.table.planner.plan.utils.PythonUtil.containsPythonCall
 import org.apache.flink.table.planner.plan.utils.RelExplainUtil.preferExpressionFormat
-import org.apache.flink.table.planner.plan.utils.{JoinTypeUtil, PhysicalPlanUtil, RelExplainUtil}
+import org.apache.flink.table.planner.plan.utils.{FlinkFilterSplitter, JoinTypeUtil, PhysicalPlanUtil, RelExplainUtil}
 import org.apache.flink.table.planner.utils.TableConfigUtils.getMillisecondFromConfigDuration
 import org.apache.flink.table.runtime.connector.source.LookupRuntimeProviderContext
 import org.apache.flink.table.runtime.operators.join.lookup.{AsyncLookupJoinRunner, AsyncLookupJoinWithCalcRunner, LookupJoinBundleFunction, LookupJoinBundleWithCalcFunction, LookupJoinRunner, LookupJoinWithCalcRetryRunner, LookupJoinWithCalcRunner, LookupJoinWithRetryRunner}
@@ -66,9 +66,9 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable
 import org.apache.calcite.sql.validate.SqlValidatorUtil
 import org.apache.calcite.tools.RelBuilder
 import org.apache.calcite.util.mapping.IntPair
+
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
-
 import org.apache.flink.table.api.config.ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE
 import org.apache.flink.table.factories.FactoryUtil
 import org.apache.flink.table.runtime.operators.bundle.ListBundleOperator
@@ -289,6 +289,15 @@ abstract class CommonLookupJoin(
 
     val leftOuterJoin = joinType == JoinRelType.LEFT
     var hasState = false
+    val enabledFilterPushDown = config.getConfiguration.getBoolean(
+      OptimizerConfigOptions.TABLE_OPTIMIZER_LOOKUP_JOIN_FILTER_PUSH_DOWN_ENABLED)
+    val (filterBeforeJoin, filterAfterJoin) = remainingCondition match {
+      case Some(condition) if enabledFilterPushDown =>
+        FlinkFilterSplitter.splitFilter(
+          condition, inputRowType.getFieldCount, cluster.getRexBuilder)
+      case _ =>
+        (None, remainingCondition)
+    }
 
     val operatorFactory = if (isAsyncEnabled) {
       val asyncBufferCapacity= config.getConfiguration
@@ -323,7 +332,8 @@ abstract class CommonLookupJoin(
         producedTypeInfo,
         lookupKeyIndicesInOrder,
         allLookupKeys,
-        asyncLookupFunction)
+        asyncLookupFunction,
+        filterBeforeJoin)
 
       val asyncFunc = if (calcOnTemporalTable.isDefined) {
         // a projection or filter after table source scan
@@ -334,7 +344,7 @@ abstract class CommonLookupJoin(
           "TableFunctionResultFuture",
           inputRowType,
           rightRowType,
-          remainingCondition)
+          filterAfterJoin)
         val generatedCalc = generateCalcMapFunction(
           config,
           calcOnTemporalTable,
@@ -356,7 +366,7 @@ abstract class CommonLookupJoin(
           "TableFunctionResultFuture",
           inputRowType,
           rightRowType,
-          remainingCondition)
+          filterAfterJoin)
         new AsyncLookupJoinRunner(
           generatedFetcher,
           generatedResultFuture,
@@ -407,7 +417,8 @@ abstract class CommonLookupJoin(
           lookupKeyIndicesInOrder,
           allLookupKeys,
           syncLookupFunction,
-          env.getConfig.isObjectReuseEnabled)
+          env.getConfig.isObjectReuseEnabled,
+          filterBeforeJoin)
 
         val processFunc = if (calcOnTemporalTable.isDefined) {
           // a projection or filter after table source scan

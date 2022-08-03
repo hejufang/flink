@@ -85,6 +85,12 @@ public class OptimizerConfigOptions {
 				"'hash_code(distinct_key) % BUCKET_NUM' which is used as an additional group key after splitting.");
 
 	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
+	public static final ConfigOption<Boolean> TABLE_OPTIMIZER_LOOKUP_JOIN_FILTER_PUSH_DOWN_ENABLED =
+		key("table.optimizer.lookup-join-filter-pushdown-enabled")
+			.defaultValue(false)
+			.withDescription("When it is true, the optimizer will try to push left side filter down.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
 	public static final ConfigOption<Boolean> TABLE_OPTIMIZER_REUSE_SUB_PLAN_ENABLED =
 		key("table.optimizer.reuse-sub-plan-enabled")
 			.defaultValue(true)

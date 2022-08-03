@@ -194,6 +194,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 
 	public static final AtomicInteger RESOURCE_COUNTER = new AtomicInteger();
 
+	public static final AtomicInteger ACCESS_COUNTER = new AtomicInteger();
 	private static final String IDENTIFIER = "values";
 
 	private static final ConfigOption<String> DATA_ID = ConfigOptions

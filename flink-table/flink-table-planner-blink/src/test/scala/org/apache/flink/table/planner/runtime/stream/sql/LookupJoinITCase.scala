@@ -20,23 +20,25 @@ package org.apache.flink.table.planner.runtime.stream.sql
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api._
 import org.apache.flink.table.api.bridge.scala._
+import org.apache.flink.table.api.config.OptimizerConfigOptions.TABLE_OPTIMIZER_LOOKUP_JOIN_FILTER_PUSH_DOWN_ENABLED
 import org.apache.flink.table.planner.factories.TestValuesTableFactory
 import org.apache.flink.table.planner.runtime.utils.UserDefinedFunctionTestUtils.TestAddWithOpen
 import org.apache.flink.table.planner.runtime.utils.{InMemoryLookupableTableSource, StreamingTestBase, TestingAppendSink}
 import org.apache.flink.types.Row
-
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.{After, Before, Test}
 
 import java.lang.{Boolean => JBoolean}
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Collection => JCollection}
-
 import scala.collection.JavaConversions._
 
 @RunWith(classOf[Parameterized])
-class LookupJoinITCase(legacyTableSource: Boolean) extends StreamingTestBase {
+class LookupJoinITCase(
+   legacyTableSource: Boolean,
+   lookupFilterPushDown: Boolean) extends StreamingTestBase {
 
   val data = List(
     rowOf(1L, 12, "Julian"),
@@ -71,14 +73,26 @@ class LookupJoinITCase(legacyTableSource: Boolean) extends StreamingTestBase {
     createScanTable("nullable_src", dataWithNull)
     createLookupTable("user_table", userData)
     createLookupTable("nullable_user_table", userDataWithNull)
+    tEnv.getConfig.getConfiguration.setBoolean(
+      TABLE_OPTIMIZER_LOOKUP_JOIN_FILTER_PUSH_DOWN_ENABLED, lookupFilterPushDown)
   }
-  
+
   @After
   override def after(): Unit = {
     if (legacyTableSource) {
       assertEquals(0, InMemoryLookupableTableSource.RESOURCE_COUNTER.get())
+      InMemoryLookupableTableSource.ACCESS_COUNTER.set(0)
     } else {
       assertEquals(0, TestValuesTableFactory.RESOURCE_COUNTER.get())
+      TestValuesTableFactory.ACCESS_COUNTER.set(0)
+    }
+  }
+
+  private def getAccessCounter(): AtomicInteger = {
+    if (legacyTableSource) {
+      InMemoryLookupableTableSource.ACCESS_COUNTER
+    } else {
+      TestValuesTableFactory.ACCESS_COUNTER
     }
   }
 
@@ -137,6 +151,27 @@ class LookupJoinITCase(legacyTableSource: Boolean) extends StreamingTestBase {
       "2,15,Hello,Jark",
       "3,15,Fabian,Fabian")
     assertEquals(expected.sorted, sink.getAppendResults.sorted)
+  }
+
+  @Test
+  def testJoinTemporalTableWithLookupFilterPushDown(): Unit = {
+    val sql = "SELECT T.id, T.len, T.content, D.name FROM src AS T left JOIN user_table " +
+      "for system_time as of T.proctime AS D ON T.id = D.id and T.id > 1 where T.id <= 3"
+
+    val sink = new TestingAppendSink
+    tEnv.sqlQuery(sql).toAppendStream[Row].addSink(sink)
+    env.execute()
+
+    val expected = Seq(
+      "1,12,Julian,null",
+      "2,15,Hello,Jark",
+      "3,15,Fabian,Fabian")
+    assertEquals(expected.sorted, sink.getAppendResults.sorted)
+    if (lookupFilterPushDown) {
+      assertEquals(2, getAccessCounter().get())
+    } else {
+      assertEquals(3, getAccessCounter().get())
+    }
   }
 
   @Test
@@ -435,8 +470,12 @@ class LookupJoinITCase(legacyTableSource: Boolean) extends StreamingTestBase {
 }
 
 object LookupJoinITCase {
-  @Parameterized.Parameters(name = "LegacyTableSource={0}")
+  @Parameterized.Parameters(name = "LegacyTableSource={0}, FilterPushDown={1}")
   def parameters(): JCollection[Array[Object]] = {
-    Seq[Array[AnyRef]](Array(JBoolean.TRUE), Array(JBoolean.FALSE))
+    Seq[Array[AnyRef]](
+      Array(JBoolean.TRUE, JBoolean.TRUE),
+      Array(JBoolean.TRUE, JBoolean.FALSE),
+      Array(JBoolean.FALSE, JBoolean.TRUE),
+      Array(JBoolean.FALSE, JBoolean.FALSE))
   }
 }

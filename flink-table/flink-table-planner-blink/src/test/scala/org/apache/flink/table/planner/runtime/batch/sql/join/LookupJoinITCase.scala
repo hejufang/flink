@@ -17,9 +17,10 @@
  */
 package org.apache.flink.table.planner.runtime.batch.sql.join
 
+import org.apache.flink.table.api.config.OptimizerConfigOptions.TABLE_OPTIMIZER_LOOKUP_JOIN_FILTER_PUSH_DOWN_ENABLED
 import org.apache.flink.table.api.{TableSchema, Types}
 import org.apache.flink.table.planner.factories.TestValuesTableFactory
-import org.apache.flink.table.planner.runtime.utils.{BatchTestBase, InMemoryLookupableTableSource}
+import org.apache.flink.table.planner.runtime.utils.{BatchTestBase, InMemoryLookupableTableSource, TestingAppendSink}
 import org.apache.flink.types.Row
 import org.junit.Assert.assertEquals
 import org.junit.runner.RunWith
@@ -28,11 +29,14 @@ import org.junit.{After, Before, Test}
 
 import java.lang.{Boolean => JBoolean}
 import java.util
-
+import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.JavaConversions._
 
 @RunWith(classOf[Parameterized])
-class LookupJoinITCase(legacyTableSource: Boolean, isAsyncMode: Boolean) extends BatchTestBase {
+class LookupJoinITCase(
+    legacyTableSource: Boolean,
+    isAsyncMode: Boolean,
+    lookupFilterPushDown: Boolean) extends BatchTestBase {
 
   val data = List(
     rowOf(1L, 12L, "Julian"),
@@ -67,8 +71,18 @@ class LookupJoinITCase(legacyTableSource: Boolean, isAsyncMode: Boolean) extends
     createLookupTable("userTable", userData)
     createLookupTable("userTableWithNull", userDataWithNull)
 
+    conf.getConfiguration.setBoolean(
+      TABLE_OPTIMIZER_LOOKUP_JOIN_FILTER_PUSH_DOWN_ENABLED, lookupFilterPushDown)
     // TODO: enable object reuse until [FLINK-12351] is fixed.
     env.getConfig.disableObjectReuse()
+  }
+
+  private def getAccessCounter(): AtomicInteger = {
+    if (legacyTableSource) {
+      InMemoryLookupableTableSource.ACCESS_COUNTER
+    } else {
+      TestValuesTableFactory.ACCESS_COUNTER
+    }
   }
 
   @After
@@ -78,6 +92,7 @@ class LookupJoinITCase(legacyTableSource: Boolean, isAsyncMode: Boolean) extends
     } else {
       assertEquals(0, TestValuesTableFactory.RESOURCE_COUNTER.get())
     }
+    getAccessCounter().set(0)
   }
 
   private def createLookupTable(tableName: String, data: List[Row]): Unit = {
@@ -87,8 +102,8 @@ class LookupJoinITCase(legacyTableSource: Boolean, isAsyncMode: Boolean) extends
         .field("id", Types.LONG)
         .field("name", Types.STRING)
         .build()
-      InMemoryLookupableTableSource.createTemporaryTable(
-        tEnv, isAsyncMode, data, userSchema, tableName, isBounded = true)
+      InMemoryLookupableTableSource.createTemporaryTable(tEnv, isAsyncMode, data, userSchema,
+        tableName, isBounded = true)
     } else {
       val dataId = TestValuesTableFactory.registerData(data)
       tEnv.executeSql(
@@ -149,6 +164,23 @@ class LookupJoinITCase(legacyTableSource: Boolean, isAsyncMode: Boolean) extends
       BatchTestBase.row(2, 15, "Hello", "Jark"),
       BatchTestBase.row(3, 15, "Fabian", "Fabian"))
     checkResult(sql, expected)
+  }
+
+  @Test
+  def testJoinTemporalTableWithLookupFilterPushDown(): Unit = {
+    val sql = s"SELECT T.id, T.len, T.content, D.name FROM T left JOIN userTable " +
+      "for system_time as of T.proctime AS D ON T.id = D.id and T.id > 1 where T.id <= 3"
+
+    val expected = Seq(
+      BatchTestBase.row(1, 12, "Julian", null),
+      BatchTestBase.row(2, 15, "Hello", "Jark"),
+      BatchTestBase.row(3, 15, "Fabian", "Fabian"))
+    checkResult(sql, expected)
+    if (lookupFilterPushDown) {
+      assertEquals(2, getAccessCounter().get())
+    } else {
+      assertEquals(3, getAccessCounter().get())
+    }
   }
 
   @Test
@@ -261,13 +293,18 @@ class LookupJoinITCase(legacyTableSource: Boolean, isAsyncMode: Boolean) extends
 
 object LookupJoinITCase {
 
-  @Parameterized.Parameters(name = "LegacyTableSource={0}, isAsyncMode = {1}")
+  @Parameterized.Parameters(
+    name = "LegacyTableSource={0}, isAsyncMode = {1}, lookupFilterPushDown = {2}")
   def parameters(): util.Collection[Array[java.lang.Object]] = {
     Seq[Array[AnyRef]](
-      Array(JBoolean.TRUE, JBoolean.TRUE),
-      Array(JBoolean.TRUE, JBoolean.FALSE),
-      Array(JBoolean.FALSE, JBoolean.TRUE),
-      Array(JBoolean.FALSE, JBoolean.FALSE)
+      Array(JBoolean.TRUE, JBoolean.TRUE, JBoolean.TRUE),
+      Array(JBoolean.TRUE, JBoolean.FALSE, JBoolean.TRUE),
+      Array(JBoolean.FALSE, JBoolean.TRUE, JBoolean.TRUE),
+      Array(JBoolean.FALSE, JBoolean.FALSE, JBoolean.TRUE),
+      Array(JBoolean.TRUE, JBoolean.TRUE, JBoolean.FALSE),
+      Array(JBoolean.TRUE, JBoolean.FALSE, JBoolean.FALSE),
+      Array(JBoolean.FALSE, JBoolean.TRUE, JBoolean.FALSE),
+      Array(JBoolean.FALSE, JBoolean.FALSE, JBoolean.FALSE)
     )
   }
 }

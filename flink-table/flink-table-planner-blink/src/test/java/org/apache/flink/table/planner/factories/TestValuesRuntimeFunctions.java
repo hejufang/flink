@@ -48,6 +48,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static org.apache.flink.table.planner.factories.TestValuesTableFactory.ACCESS_COUNTER;
 import static org.apache.flink.table.planner.factories.TestValuesTableFactory.RESOURCE_COUNTER;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -406,6 +407,7 @@ final class TestValuesRuntimeFunctions {
 		}
 
 		public void eval(Object... inputs) {
+			ACCESS_COUNTER.incrementAndGet();
 			checkArgument(isOpenCalled, "open() is not called.");
 			Row key = Row.of(inputs);
 			if (Arrays.asList(inputs).contains(null)) {
@@ -447,6 +449,7 @@ final class TestValuesRuntimeFunctions {
 		}
 
 		public void eval(CompletableFuture<Collection<Row>> resultFuture, Object... inputs) {
+			ACCESS_COUNTER.incrementAndGet();
 			checkArgument(isOpenCalled, "open() is not called.");
 			final Row key = Row.of(inputs);
 			if (Arrays.asList(inputs).contains(null)) {

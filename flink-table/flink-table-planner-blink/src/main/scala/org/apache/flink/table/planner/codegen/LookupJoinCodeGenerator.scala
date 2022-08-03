@@ -62,10 +62,12 @@ object LookupJoinCodeGenerator {
       // index field position -> lookup key
       allLookupFields: Map[Int, LookupKey],
       lookupFunction: TableFunction[_],
-      enableObjectReuse: Boolean)
+      enableObjectReuse: Boolean,
+      conditionOp: Option[RexNode])
     : GeneratedFunction[FlatMapFunction[RowData, RowData]] = {
 
     val ctx = CodeGeneratorContext(config)
+    val filterCode = generatePreFilterCode(ctx, inputType, conditionOp)
     val (prepareCode, parameters, nullInParameters) = prepareParameters(
       ctx,
       typeFactory,
@@ -81,6 +83,7 @@ object LookupJoinCodeGenerator {
         val converterCollector = new RowToRowDataCollector(rt)
         val term = ctx.addReusableObject(converterCollector, "collector")
         s"""
+           |$filterCode
            |$term.setCollector($DEFAULT_COLLECTOR_TERM);
            |$lookupFunctionTerm.setCollector($term);
          """.stripMargin
@@ -161,7 +164,8 @@ object LookupJoinCodeGenerator {
       tableReturnTypeInfo: TypeInformation[_],
       lookupKeyInOrder: Array[Int],
       allLookupFields: Map[Int, LookupKey],
-      asyncLookupFunction: AsyncTableFunction[_])
+      asyncLookupFunction: AsyncTableFunction[_],
+      conditionOp: Option[RexNode])
     : GeneratedFunction[AsyncFunction[RowData, AnyRef]] = {
 
     val ctx = CodeGeneratorContext(config)
@@ -176,11 +180,14 @@ object LookupJoinCodeGenerator {
 
     val lookupFunctionTerm = ctx.addReusableFunction(asyncLookupFunction)
     val DELEGATE = className[DelegatingResultFuture[_]]
+    val filterCode = generatePreFilterCode(ctx, inputType, conditionOp,
+      s"$DEFAULT_COLLECTOR_TERM.complete(java.util.Collections.emptyList());")
 
     // TODO: filter all records when there is any nulls on the join key, because
     //  "IS NOT DISTINCT FROM" is not supported yet.
     val body =
       s"""
+         |$filterCode
          |$prepareCode
          |if ($nullInParameters) {
          |  $DEFAULT_COLLECTOR_TERM.complete(java.util.Collections.emptyList());
@@ -326,6 +333,29 @@ object LookupJoinCodeGenerator {
       udtfTypeInfo,
       inputTerm = inputTerm,
       collectedTerm = udtfInputTerm)
+  }
+
+  private def generatePreFilterCode(
+      ctx: CodeGeneratorContext,
+      inputType: LogicalType,
+      conditionOp: Option[RexNode],
+      exeCodeBeforeReturn: String = ""): String = {
+    conditionOp match {
+      case Some(condition) =>
+        val filterGenerator = new ExprCodeGenerator(ctx, nullableInput = false)
+          .bindInput(inputType, DEFAULT_INPUT1_TERM)
+        //.bindSecondInput(udtfTypeInfo, udtfInputTerm, pojoFieldMapping)
+        val filterCondition = filterGenerator.generateExpression(condition)
+        s"""
+           |${filterCondition.code}
+           |if (!${filterCondition.resultTerm}) {
+           |  $exeCodeBeforeReturn
+           |  return;
+           |}
+           |""".stripMargin
+      case _ =>
+        ""
+    }
   }
 
   /**
