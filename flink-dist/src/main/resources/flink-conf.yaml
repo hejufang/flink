@@ -423,6 +423,7 @@ larva:
   hdfs.prefix: hdfs://haruna/flink_lf
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
+  bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: larva
 
 locst:
@@ -430,6 +431,7 @@ locst:
   clusterName: locst
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
+  bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: locst
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
 
@@ -691,6 +693,7 @@ herry:
   high-availability.zookeeper.quorum: 10.226.128.110:2181,10.226.128.107:2181,10.226.107.216:2181,10.226.128.132:2181,10.226.128.118:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   blacklist.taskmanager.critical.error.enabled: true
+  bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: herry
   ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
@@ -874,6 +877,7 @@ quiet:
   high-availability.zookeeper.quorum: fdbd:dc03:ff:2:1:227:38:118:2181,fdbd:dc03:ff:2:1:227:173:112:2181,fdbd:dc03:ff:2:1:227:173:101:2181,fdbd:dc03:ff:2:1:227:186:137:2181,fdbd:dc03:ff:2:1:227:181:113:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  bytedance.streaming.yarn.check.application.name.unique.region: true
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
   ipv6.supported.cluster: quiet
@@ -941,6 +945,7 @@ quaga:
   high-availability.zookeeper.quorum: 10.227.165.243:2181,10.227.165.222:2181,10.227.178.242:2181,10.227.174.244:2181,10.227.187.245:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
+  bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   ipv6.supported.cluster: quaga
@@ -955,6 +960,7 @@ quele:
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
+  bytedance.streaming.yarn.check.application.name.unique.region: true
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: quele
   ipv6.enabled: true
@@ -1030,6 +1036,7 @@ camel:
   hdfs.prefix: hdfs://haruna/flink_cr
   checkpoint.hdfs.prefix: hdfs://haruna/flink_cr
   ipv6.supported.cluster: camel
+  bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.enabled: true
 
 stork:
@@ -1311,6 +1318,7 @@ maize:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
+  bytedance.streaming.yarn.check.application.name.unique.region: true
   # local state quota limit
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
@@ -1660,6 +1668,7 @@ saola:
   docker.region: Aliyun_SG
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
+  bytedance.streaming.yarn.check.application.name.unique.region: true
 
 stoat:
   dc: sg
