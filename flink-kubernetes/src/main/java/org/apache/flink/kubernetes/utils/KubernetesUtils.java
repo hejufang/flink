@@ -367,7 +367,7 @@ public class KubernetesUtils {
 		startCommandValues.put("jvmopts", jvmOpts);
 
 		startCommandValues.put("logging",
-			getLogging(logDirectory + "/" + logFileName + ".log", configDirectory, hasLogback, hasLog4j, flinkConfig));
+			getLogging(logDirectory + "/" + logFileName + ".log", configDirectory, hasLogback, hasLog4j, flinkConfig, mode));
 
 		startCommandValues.put("class", mainClass);
 
@@ -639,7 +639,7 @@ public class KubernetesUtils {
 		return baseJavaOpts;
 	}
 
-	private static String getLogging(String logFile, String confDir, boolean hasLogback, boolean hasLog4j, Configuration flinkConfig) {
+	private static String getLogging(String logFile, String confDir, boolean hasLogback, boolean hasLog4j, Configuration flinkConfig, ClusterComponent mode) {
 		StringBuilder logging = new StringBuilder();
 		if (hasLogback || hasLog4j) {
 			logging.append("-Dlog.file=").append(logFile);
@@ -656,11 +656,17 @@ public class KubernetesUtils {
 			// databus channel configuration for log collection.
 			String databusChannel = flinkConfig.getString(ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_KEY,
 					ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_DEFAULT);
-			String databusLevel = flinkConfig.getString(ConfigConstants.FLINK_LOG_DATABUS_LEVEL_KEY,
-					ConfigConstants.FLINK_LOG_DATABUS_LEVEL_DEFAULT);
 			Long permitsPerSecond = flinkConfig.getLong(ConfigConstants.FLINK_LOG_DATABUS_PERMITS_PER_SECOND_KEY,
 					ConfigConstants.FLINK_LOG_DATABUS_PERMITS_PER_SECOND_DEFAULT);
 			logging.append(" -Dlog.databus.channel=").append(databusChannel);
+			String databusLevel;
+			if (mode == ClusterComponent.JOB_MANAGER) {
+				databusLevel = flinkConfig.getString(ConfigConstants.FLINK_JOBMANAGER_LOG_DATABUS_LEVEL_KEY,
+					ConfigConstants.FLINK_JOBMANAGER_LOG_DATABUS_LEVEL_DEFAULT);
+			} else {
+				databusLevel = flinkConfig.getString(ConfigConstants.FLINK_TASKMANAGER_LOG_DATABUS_LEVEL_KEY,
+					ConfigConstants.FLINK_TASKMANAGER_LOG_DATABUS_LEVEL_DEFAULT);
+			}
 			logging.append(" -Dlog.databus.level=").append(databusLevel);
 			logging.append(" -Dlog.databus.permitsPerSecond=").append(permitsPerSecond);
 

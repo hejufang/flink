@@ -67,7 +67,7 @@ public class JavaCmdTaskManagerDecoratorTest extends KubernetesTaskManagerTestBa
 	private static final String tmLogfile =
 			String.format("-Dlog.file=%s/taskmanager.log", FLINK_LOG_DIR_IN_POD);
 	private static final String logLevel = "-Dlog.level=INFO";
-	private static final String defaultLogSetting = "-Dlog.databus.channel=flink_error_log -Dlog.databus.level=WARN -Dlog.databus.permitsPerSecond=1000 -Dlog.streamlog.level=OFF";
+	private static final String defaultLogSetting = "-Dlog.databus.channel=flink_error_log -Dlog.databus.level=FATAL -Dlog.databus.permitsPerSecond=1000 -Dlog.streamlog.level=OFF";
 	private static final String tmLogRedirects = String.format(
 			"1> %s/taskmanager.out 2> %s/taskmanager.err",
 		FLINK_LOG_DIR_IN_POD,

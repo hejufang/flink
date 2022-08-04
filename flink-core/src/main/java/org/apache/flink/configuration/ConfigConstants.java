@@ -2182,9 +2182,6 @@ public final class ConfigConstants {
 	public static final String FLINK_LOG_DATABUS_CHANNEL_KEY = "log4j.appender.databus.channel";
 	public static final String FLINK_LOG_DATABUS_CHANNEL_DEFAULT = "flink_error_log";
 
-	public static final String FLINK_LOG_DATABUS_LEVEL_KEY = "log4j.appender.databus.level";
-	public static final String FLINK_LOG_DATABUS_LEVEL_DEFAULT = "WARN";
-
 	public static final String FLINK_JOBMANAGER_LOG_DATABUS_LEVEL_KEY = "jobmanager.log4j.appender.databus.level";
 	public static final String FLINK_JOBMANAGER_LOG_DATABUS_LEVEL_DEFAULT = "WARN";
 
