@@ -72,7 +72,7 @@ public class RocksDBWriteBatchPerformanceTest extends TestLogger {
 
 	private static final String VALUE = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ7890654321";
 
-	@Test(timeout = 2000)
+	@Test(timeout = 30000)
 	@RetryOnFailure(times = 3)
 	public void benchMark() throws Exception {
 

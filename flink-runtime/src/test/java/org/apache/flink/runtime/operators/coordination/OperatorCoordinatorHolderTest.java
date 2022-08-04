@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.operators.coordination;
 
+import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.concurrent.ManuallyTriggeredScheduledExecutorService;
@@ -468,6 +469,8 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
 	private static final class FutureCompletedAfterSendingEventsCoordinator extends CheckpointEventOrderTestBaseCoordinator {
 
+		private final OneShotLatch checkpointCompleted = new OneShotLatch();
+
 		@Nullable
 		private CompletableFuture<byte[]> checkpoint;
 
@@ -493,7 +496,14 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 			if (checkpoint != null) {
 				checkpoint.complete(intToBytes(num));
 				checkpoint = null;
+				checkpointCompleted.trigger();
 			}
+		}
+
+		@Override
+		public void close() throws Exception {
+			checkpointCompleted.await();
+			super.close();
 		}
 	}
 
