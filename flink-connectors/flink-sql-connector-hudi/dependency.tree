@@ -17,24 +17,83 @@
  */
 
 org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
-+- org.apache.hudi:hudi-bms:jar:0.7.0-bd25:compile
++- org.apache.hudi:hudi-bms:jar:0.7.0-bd32-rc7:compile
 |  +- org.scala-lang:scala-library:jar:2.11.12:compile
 |  +- org.apache.thrift:libthrift:jar:0.9.3:compile
 |  +- io.dropwizard.metrics:metrics-core:jar:4.1.1:compile
-|  +- org.apache.hadoop:hadoop-common:jar:2.6.0-cdh5.4.4-bd203:compile
-|  |  +- org.apache.hadoop:hadoop-annotations:jar:2.6.0-cdh5.4.4-bd203:compile
+|  +- org.apache.hadoop:hadoop-common:jar:2.6.0-cdh5.4.4-bd252:compile
+|  |  +- org.apache.hadoop:hadoop-annotations:jar:2.6.0-cdh5.4.4-bd252:compile
 |  |  +- com.google.guava:guava:jar:11.0.2:compile
 |  |  +- org.apache.commons:commons-math3:jar:3.5:compile
 |  |  +- xmlenc:xmlenc:jar:0.52:compile
 |  |  +- commons-net:commons-net:jar:3.1:compile
+|  |  +- com.bytedance:commons:jar:0.0.17:compile
 |  |  +- org.byted.infsec:dps:jar:2.0.5:compile
 |  |  |  +- org.bouncycastle:bcprov-jdk16:jar:1.46:compile
 |  |  |  +- com.auth0:java-jwt:jar:3.11.0:compile
 |  |  |  +- com.github.ben-manes.caffeine:caffeine:jar:2.6.2:compile
 |  |  |  \- org.byted.infsec:thrift-client-pool-java:jar:1.3.1:compile
-|  |  +- org.byted.security:zti-jwt-helper-java:jar:1.0.10:compile
-|  |  +- org.byted.security:zti-jwt-java:jar:1.0.18:compile
-|  |  +- org.byted.security:zti-issuer-helper-java:jar:1.0.7:compile
+|  |  +- io.fabric8:kubernetes-client:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-core:jar:yodel-5.10.3:compile
+|  |  |  |  \- io.fabric8:kubernetes-model-common:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-rbac:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-admissionregistration:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-apps:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-autoscaling:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-apiextensions:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-batch:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-certificates:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-coordination:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-discovery:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-events:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-extensions:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-flowcontrol:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-networking:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-metrics:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-policy:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-scheduling:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-storageclass:jar:yodel-5.10.3:compile
+|  |  |  +- io.fabric8:kubernetes-model-node:jar:yodel-5.10.3:compile
+|  |  |  +- com.squareup.okhttp3:logging-interceptor:jar:3.12.12:compile
+|  |  |  +- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:jar:2.10.1:compile
+|  |  |  +- io.fabric8:zjsonpatch:jar:0.3.0:compile
+|  |  |  \- com.github.mifmif:generex:jar:1.0.2:compile
+|  |  |     \- dk.brics.automaton:automaton:jar:1.11-8:compile
+|  |  +- org.byted.security:zti-jwt-helper-java:jar:1.0.12:compile
+|  |  |  +- com.nimbusds:nimbus-jose-jwt:jar:9.1.1:runtime
+|  |  |  |  \- com.github.stephenc.jcip:jcip-annotations:jar:1.0-1:runtime
+|  |  |  +- org.byted.security:java-spiffe-core:jar:0.7.0-7:runtime
+|  |  |  |  \- commons-validator:commons-validator:jar:1.7:runtime
+|  |  |  \- org.byted.security:grpc-netty-linux:jar:0.7.0-7:runtime
+|  |  +- org.byted.security:zti-jwt-java:jar:1.0.23:compile
+|  |  |  +- dnsjava:dnsjava:jar:3.3.1:runtime
+|  |  |  +- io.grpc:grpc-protobuf:jar:1.33.1:runtime
+|  |  |  |  +- io.grpc:grpc-api:jar:1.33.1:runtime
+|  |  |  |  |  \- io.grpc:grpc-context:jar:1.33.1:runtime
+|  |  |  |  +- com.google.api.grpc:proto-google-common-protos:jar:1.17.0:runtime
+|  |  |  |  +- io.grpc:grpc-protobuf-lite:jar:1.33.1:runtime
+|  |  |  |  +- com.google.errorprone:error_prone_annotations:jar:2.3.4:compile
+|  |  |  |  \- org.codehaus.mojo:animal-sniffer-annotations:jar:1.18:runtime
+|  |  |  +- io.grpc:grpc-stub:jar:1.33.1:runtime
+|  |  |  +- io.grpc:grpc-netty-shaded:jar:1.33.1:runtime
+|  |  |  |  \- io.grpc:grpc-core:jar:1.33.1:runtime (version selected from constraint [1.33.1,1.33.1])
+|  |  |  |     +- com.google.android:annotations:jar:4.1.1.4:runtime
+|  |  |  |     \- io.perfmark:perfmark-api:jar:0.19.0:runtime
+|  |  |  +- org.codehaus.jackson:jackson-jaxrs:jar:1.8.3:compile
+|  |  |  \- com.bytedance:env-conf:jar:1.0.12-rc.5:runtime
+|  |  |     +- org.apache.commons:commons-collections4:jar:4.1:compile
+|  |  |     +- com.orbitz.consul:consul-client:jar:1.0.2-bd-SNAPSHOT:runtime
+|  |  |     |  +- com.squareup.retrofit2:retrofit:jar:2.3.0:runtime
+|  |  |     |  +- com.squareup.retrofit2:converter-jackson:jar:2.3.0:runtime
+|  |  |     |  +- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:jar:2.10.1:runtime
+|  |  |     |  \- com.fasterxml.jackson.datatype:jackson-datatype-guava:jar:2.10.1:runtime
+|  |  |     +- com.bytedance:consul-lang:jar:1.0.4-rc.2:runtime
+|  |  |     |  \- com.bytedance:version-collector-core:jar:1.1.0-6-SNAPSHOT:runtime
+|  |  |     |     \- com.bytedance:env-conf-core-shadow:jar:1.0.12-rc.9-shadow-SNAPSHOT:runtime
+|  |  |     |        \- com.googlecode.java-ipv6:java-ipv6:jar:0.17:runtime
+|  |  |     \- org.zeroturnaround:zt-exec:jar:1.10:runtime
+|  |  +- org.byted.security:zti-issuer-helper-java:jar:1.0.17:compile
+|  |  |  \- com.bytedance:kmsv2:jar:1.1.44:runtime
 |  |  +- org.mortbay.jetty:jetty:jar:6.1.26.cloudera.4:compile
 |  |  +- tomcat:jasper-compiler:jar:5.5.23:runtime
 |  |  +- commons-el:commons-el:jar:1.0:compile
@@ -47,7 +106,7 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |  |  +- org.apache.curator:curator-client:jar:2.7.1:compile
 |  |  +- com.bytedance:btrace:jar:1.0.3:compile
 |  |  \- org.htrace:htrace-core:jar:3.0.4:compile
-|  +- org.apache.hadoop:hadoop-hdfs:jar:2.6.0-cdh5.4.4-bd203:compile
+|  +- org.apache.hadoop:hadoop-hdfs:jar:2.6.0-cdh5.4.4-bd252:compile
 |  |  +- com.sun.jersey:jersey-core:jar:1.9:compile
 |  |  +- com.sun.jersey:jersey-server:jar:1.9:compile
 |  |  +- commons-daemon:commons-daemon:jar:1.0.13:compile
@@ -56,8 +115,12 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |  |  +- tomcat:jasper-runtime:jar:5.5.23:compile
 |  |  +- io.netty:netty:jar:3.6.10.Final:compile
 |  |  +- org.fusesource.leveldbjni:leveldbjni-all:jar:1.8:compile
-|  |  +- com.bytedance:java-redis-client:jar:2.1.6-HADOOP-SNAPSHOT:compile
-|  |  \- org.apache.mina:mina-core:jar:2.0.10:compile
+|  |  +- com.bytedance:java-redis-client:jar:2.3.10:compile
+|  |  |  +- org.bytedance:jedis:jar:3.1.7:compile
+|  |  |  \- cglib:cglib:jar:3.2.5:compile
+|  |  |     \- org.ow2.asm:asm:jar:5.2:compile
+|  |  +- org.apache.mina:mina-core:jar:2.0.10:compile
+|  |  \- org.apache.hadoop:hadoop-qlimiter-client:jar:2.6.0-cdh5.4.4-bd252:compile
 |  +- org.apache.hadoop:hadoop-client:jar:2.6.0-cdh5.4.4-bd198:compile
 |  |  +- org.apache.hadoop:hadoop-mapreduce-client-app:jar:2.6.0-cdh5.4.4-bd198:compile
 |  |  |  \- org.apache.hadoop:hadoop-mapreduce-client-shuffle:jar:2.6.0-cdh5.4.4-bd198:compile
@@ -72,20 +135,19 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |  |  |  \- org.apache.directory.api:api-util:jar:1.0.0-M20:compile
 |  |  \- com.sun:tools:jar:1.8:system
 |  +- org.apache.hadoop:hadoop-mapreduce-client-common:jar:2.6.0-cdh5.4.4-bd198:compile
-|  |  +- org.apache.hadoop:hadoop-yarn-common:jar:2.6.0-cdh5.4.4-bd203:compile
+|  |  +- org.apache.hadoop:hadoop-yarn-common:jar:2.6.0-cdh5.4.4-bd252:compile
 |  |  |  +- javax.xml.bind:jaxb-api:jar:2.3.1:compile
 |  |  |  |  \- javax.activation:javax.activation-api:jar:1.2.0:compile
 |  |  |  +- com.sun.jersey:jersey-client:jar:1.9:compile
-|  |  |  +- org.codehaus.jackson:jackson-jaxrs:jar:1.8.8:compile
 |  |  |  +- org.codehaus.jackson:jackson-xc:jar:1.8.8:compile
 |  |  |  +- com.google.inject:guice:jar:3.0:compile
 |  |  |  |  +- javax.inject:javax.inject:jar:1:compile
 |  |  |  |  \- aopalliance:aopalliance:jar:1.0:compile
 |  |  |  \- com.sun.jersey.contribs:jersey-guice:jar:1.9:compile
-|  |  +- org.apache.hadoop:hadoop-yarn-client:jar:2.6.0-cdh5.4.4-bd203:compile
+|  |  +- org.apache.hadoop:hadoop-yarn-client:jar:2.6.0-cdh5.4.4-bd252:compile
 |  |  +- org.apache.hadoop:hadoop-yarn-server-common:jar:2.6.0-cdh5.4.4-bd198:compile
 |  |  \- com.google.inject.extensions:guice-servlet:jar:3.0:compile
-|  +- org.apache.hadoop:hadoop-mapreduce-client-core:jar:2.6.0-cdh5.4.4-bd203:compile
+|  +- org.apache.hadoop:hadoop-mapreduce-client-core:jar:2.6.0-cdh5.4.4-bd252:compile
 |  |  +- com.codahale.metrics:metrics-core:jar:3.0.1:compile
 |  |  \- com.hadoop.fourmc:hadoop-4mc:jar:2.0.0-bd2-SNAPSHOT:compile
 |  +- com.bytedance:metrics4j:jar:1.0.40:compile
@@ -94,7 +156,6 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |  |     +- com.github.jnr:jnr-ffi:jar:2.2.1:compile
 |  |     |  +- com.github.jnr:jffi:jar:1.3.1:compile
 |  |     |  +- com.github.jnr:jffi:jar:native:1.3.1:runtime
-|  |     |  +- org.ow2.asm:asm:jar:9.0:compile
 |  |     |  +- org.ow2.asm:asm-commons:jar:9.0:compile
 |  |     |  +- org.ow2.asm:asm-analysis:jar:9.0:compile
 |  |     |  +- org.ow2.asm:asm-tree:jar:9.0:compile
@@ -117,26 +178,28 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |  |     \- com.squareup.okio:okio:jar:1.13.0:compile
 |  +- org.codehaus.jackson:jackson-mapper-asl:jar:1.9.13:compile
 |  +- io.netty:netty-all:jar:4.1.47.Final:compile
-|  +- org.apache.hive:hive-shims:jar:1.2.2-bd93:compile
-|  |  +- org.apache.hive.shims:hive-shims-common:jar:1.2.2-bd93:compile
-|  |  +- org.apache.hive.shims:hive-shims-0.20S:jar:1.2.2-bd93:runtime
-|  |  +- org.apache.hive.shims:hive-shims-0.23:jar:1.2.2-bd93:runtime
+|  +- org.apache.hive:hive-exec:jar:core:1.2.2-bd110:compile
+|  +- org.apache.hive:hive-serde:jar:1.2.2-bd110:compile
+|  |  \- net.sf.opencsv:opencsv:jar:2.3:compile
+|  +- org.apache.hive:hive-shims:jar:1.2.2-bd110:compile
+|  |  +- org.apache.hive.shims:hive-shims-common:jar:1.2.2-bd110:compile
+|  |  +- org.apache.hive.shims:hive-shims-0.20S:jar:1.2.2-bd110:runtime
+|  |  +- org.apache.hive.shims:hive-shims-0.23:jar:1.2.2-bd110:runtime
 |  |  |  \- org.apache.hadoop:hadoop-yarn-server-resourcemanager:jar:2.6.0-cdh5.4.4-bd1:runtime
 |  |  |     +- org.apache.hadoop:hadoop-yarn-server-applicationhistoryservice:jar:2.6.0-cdh5.4.4-bd1:runtime
 |  |  |     \- org.apache.hadoop:hadoop-yarn-server-web-proxy:jar:2.6.0-cdh5.4.4-bd1:runtime
-|  |  \- org.apache.hive.shims:hive-shims-scheduler:jar:1.2.2-bd93:runtime
+|  |  \- org.apache.hive.shims:hive-shims-scheduler:jar:1.2.2-bd110:runtime
 |  +- com.h2database:h2:jar:1.4.200:compile
 |  \- com.bytedance.base:logging-starter:jar:0.0.3-SNAPSHOT:compile
 |     +- com.bytedance.base:logback-ext:jar:0.0.3-SNAPSHOT:compile
 |     |  +- com.bytedance.base:logging-agent:jar:0.0.3-SNAPSHOT:compile
 |     |  |  +- com.bytedance.base:logging-common:jar:0.0.3-SNAPSHOT:compile
-|     |  |  |  \- org.apache.commons:commons-collections4:jar:4.1:compile
 |     |  |  \- com.bytedance.base:logging-transport:jar:0.0.3-SNAPSHOT:compile
 |     |  +- ch.qos.logback:logback-classic:jar:1.1.11:compile
 |     |  \- ch.qos.logback:logback-core:jar:1.1.11:compile
 |     \- com.bytedance.base:logging-pbv2:jar:0.0.3-SNAPSHOT:compile
 |        \- com.squareup.wire:wire-runtime:jar:2.2.0:compile
-+- org.apache.hudi:hudi-common:jar:0.7.0-bd25:compile
++- org.apache.hudi:hudi-common:jar:0.7.0-bd32-rc7:compile
 |  +- org.apache.parquet:parquet-columnfamily:jar:1.10.1-bd1.0.10:compile
 |  +- org.apache.httpcomponents:fluent-hc:jar:4.4.1:compile
 |  +- org.apache.httpcomponents:httpclient:jar:4.5.3:compile
@@ -153,7 +216,7 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |     +- org.apache.commons:commons-math:jar:2.2:compile
 |     +- org.jamon:jamon-runtime:jar:2.4.1:compile
 |     \- com.lmax:disruptor:jar:3.4.2:compile
-+- org.apache.hudi:hudi-client-common:jar:0.7.0-bd25:compile
++- org.apache.hudi:hudi-client-common:jar:0.7.0-bd32-rc7:compile
 |  +- io.dropwizard.metrics:metrics-graphite:jar:4.1.1:compile
 |  +- io.dropwizard.metrics:metrics-jmx:jar:4.1.1:compile
 |  +- io.prometheus:simpleclient:jar:0.8.0:compile
@@ -177,7 +240,6 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |     |  +- com.alibaba:fastjson:jar:1.2.75:compile
 |     |  +- org.projectlombok:lombok:jar:1.18.20:compile
 |     |  +- com.google.protobuf:protobuf-java-util:jar:3.12.4:compile
-|     |  |  \- com.google.errorprone:error_prone_annotations:jar:2.3.4:compile
 |     |  \- com.github.rholder:guava-retrying:jar:2.0.0:compile
 |     +- software.amazon.awssdk:s3:jar:2.17.57:compile
 |     |  +- software.amazon.awssdk:aws-xml-protocol:jar:2.17.57:compile
@@ -209,13 +271,13 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |     |  |  \- software.amazon.awssdk:third-party-jackson-core:jar:2.17.57:compile
 |     |  \- software.amazon.eventstream:eventstream:jar:1.0.1:compile
 |     \- software.amazon.awssdk:apache-client:jar:2.17.57:compile
-+- org.apache.hudi:hudi-flink-client:jar:0.7.0-bd25:compile
-+- org.apache.hudi:hudi-flink_2.11:jar:0.7.0-bd25:compile
++- org.apache.hudi:hudi-flink-client:jar:0.7.0-bd32-rc7:compile
++- org.apache.hudi:hudi-flink_2.11:jar:0.7.0-bd32-rc7:compile
 |  \- com.beust:jcommander:jar:1.72:compile
-+- org.apache.hudi:hudi-hadoop-mr:jar:0.7.0-bd25:compile
-+- org.apache.hudi:hudi-hive-sync:jar:0.7.0-bd25:compile
-|  \- org.apache.hudi:hudi-sync-common:jar:0.7.0-bd25:compile
-+- org.apache.hudi:hudi-timeline-service:jar:0.7.0-bd25:compile
++- org.apache.hudi:hudi-hadoop-mr:jar:0.7.0-bd32-rc7:compile
++- org.apache.hudi:hudi-hive-sync:jar:0.7.0-bd32-rc7:compile
+|  \- org.apache.hudi:hudi-sync-common:jar:0.7.0-bd32-rc7:compile
++- org.apache.hudi:hudi-timeline-service:jar:0.7.0-bd32-rc7:compile
 |  \- io.javalin:javalin:jar:2.8.0:compile
 |     +- org.jetbrains.kotlin:kotlin-stdlib-jdk8:jar:1.2.71:compile
 |     |  +- org.jetbrains.kotlin:kotlin-stdlib:jar:1.2.71:compile
@@ -255,7 +317,7 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |  |  |  +- org.apache.flink:flink-metrics-core:jar:1.11-byted-SNAPSHOT:provided
 |  |  |  +- com.esotericsoftware.kryo:kryo:jar:2.24.0:provided
 |  |  |  |  \- com.esotericsoftware.minlog:minlog:jar:1.2:provided
-|  |  |  \- org.yaml:snakeyaml:jar:1.24:runtime
+|  |  |  \- org.yaml:snakeyaml:jar:1.24:compile
 |  |  +- org.apache.flink:flink-metrics-dropwizard:jar:1.11-byted-SNAPSHOT:provided
 |  |  \- org.apache.flink:flink-shaded-asm-7:jar:7.1-11.0-byted-SNAPSHOT:provided
 |  \- org.apache.calcite:calcite-core:jar:1.22.0-byted-1.05:compile
@@ -264,7 +326,7 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |     |  \- org.apache.calcite.avatica:avatica-metrics:jar:1.16.0:compile
 |     +- org.apiguardian:apiguardian-api:jar:1.1.0:compile
 |     +- com.esri.geometry:esri-geometry-api:jar:2.2.0:runtime
-|     +- com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:jar:2.10.1:runtime
+|     +- com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:jar:2.10.1:compile
 |     +- com.jayway.jsonpath:json-path:jar:2.4.0:runtime
 |     |  \- net.minidev:json-smart:jar:2.3:runtime
 |     |     \- net.minidev:accessors-smart:jar:1.2:runtime
@@ -305,7 +367,7 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |     |  \- org.apache.flink:flink-shaded-caffeine:jar:11.0-byted-SNAPSHOT:provided
 |     +- org.apache.flink:flink-shaded-guava:jar:18.0-11.0-byted-SNAPSHOT:provided
 |     +- com.googlecode.json-simple:json-simple:jar:1.1.1:provided
-|     +- org.apache.flink:flink-shaded-bytedance:jar:11.0-byted-SNAPSHOT:provided
+|     +- org.apache.flink:flink-shaded-bytedance-commons:jar:11.0-byted-SNAPSHOT:provided
 |     \- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-11.0-byted-SNAPSHOT:provided
 +- org.apache.avro:avro:jar:1.8.2:compile
 |  +- org.codehaus.jackson:jackson-core-asl:jar:1.9.13:compile
@@ -313,7 +375,7 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |  +- org.xerial.snappy:snappy-java:jar:1.1.4:compile
 |  +- org.apache.commons:commons-compress:jar:1.20:compile
 |  \- org.tukaani:xz:jar:1.5:compile
-+- org.apache.hive:hive-service:jar:1.2.2-bd93:compile
++- org.apache.hive:hive-service:jar:1.2.2-bd110:compile
 |  +- commons-codec:commons-codec:jar:1.10:compile
 |  +- commons-cli:commons-cli:jar:1.2:compile
 |  +- net.sf.jpam:jpam:jar:1.1:compile
@@ -331,8 +393,8 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |  +- org.apache.thrift:libfb303:jar:0.9.3:compile
 |  +- org.apache.curator:curator-framework:jar:2.6.0:compile
 |  \- org.apache.curator:curator-recipes:jar:2.6.0:compile
-+- org.apache.hive:hive-exec:jar:1.2.2-bd93:compile
-|  +- org.apache.hive:hive-ant:jar:1.2.2-bd93:compile
++- org.apache.hive:hive-exec:jar:1.2.2-bd110:compile
+|  +- org.apache.hive:hive-ant:jar:1.2.2-bd110:compile
 |  |  \- org.apache.velocity:velocity:jar:1.5:compile
 |  |     \- oro:oro:jar:2.0.8:compile
 |  +- commons-httpclient:commons-httpclient:jar:3.0.1:compile
@@ -355,10 +417,7 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |  +- stax:stax-api:jar:1.0.1:compile
 |  +- jline:jline:jar:2.12:compile
 |  \- com.bytedance.data:databus4j:jar:1.0.1:compile
-+- org.apache.hive:hive-metastore:jar:1.2.2-bd93:compile
-|  +- org.apache.hive:hive-serde:jar:1.2.2-bd93:compile
-|  |  +- net.sf.opencsv:opencsv:jar:2.3:compile
-|  |  \- org.apache.parquet:parquet-hadoop-bundle:jar:1.10.1-bd1.0.9:compile
++- org.apache.hive:hive-metastore:jar:1.2.2-bd110:compile
 |  +- com.jolbox:bonecp:jar:0.8.0.RELEASE:compile
 |  +- org.apache.derby:derby:jar:10.10.2.0:compile
 |  +- org.datanucleus:datanucleus-api-jdo:jar:3.2.6:compile
@@ -366,12 +425,11 @@ org.apache.flink:flink-sql-connector-hudi_2.11:jar:1.11-byted-SNAPSHOT
 |  +- commons-dbcp:commons-dbcp:jar:1.4:compile
 |  +- javax.jdo:jdo-api:jar:3.0.1:compile
 |  |  \- javax.transaction:jta:jar:1.1:compile
-|  +- com.bytedance:commons:jar:0.0.14:compile
 |  \- org.byted.infsec:infsecclient:jar:1.1.0:compile
 |     \- org.byted.infsec:jwt:jar:1.0.0:compile
-+- org.apache.hive:hive-jdbc:jar:1.2.2-bd93:compile
++- org.apache.hive:hive-jdbc:jar:1.2.2-bd110:compile
 |  \- org.apache.httpcomponents:httpcore:jar:4.4.6:compile
-+- org.apache.hive:hive-common:jar:1.2.2-bd93:compile
++- org.apache.hive:hive-common:jar:1.2.2-bd110:compile
 |  \- org.json:json:jar:20090211:compile
 +- joda-time:joda-time:jar:2.5:compile
 +- com.esotericsoftware:kryo-shaded:jar:4.0.2:compile
