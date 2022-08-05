@@ -566,4 +566,25 @@ public class NetworkBufferPackagePoolTest {
 			assertEquals(numBuffers, globalPool.getNumberOfAvailableMemorySegments());
 		}
 	}
+
+	@Test
+	public void testUnboundedBufferPoolFactory() throws Exception {
+		final int numBuffers = 100;
+		final int numberOfSegmentsToRequest = 10;
+		final int minSize = 10;
+		final int maxSize = Integer.MAX_VALUE;
+		final Duration requestSegmentsTimeout = Duration.ofMillis(50L);
+		NetworkBufferPackagePool globalPool = new NetworkBufferPackagePool(
+			numBuffers,
+			128,
+			numberOfSegmentsToRequest,
+			requestSegmentsTimeout,
+			false,
+			Duration.ofMillis(0L),
+			true,
+			0.8,
+			10);
+		LocalBufferPackagePool localPool = (LocalBufferPackagePool) globalPool.createBufferPool(minSize, maxSize);
+		assertTrue(localPool.getMaxNumberOfMemorySegments() > 0);
+	}
 }

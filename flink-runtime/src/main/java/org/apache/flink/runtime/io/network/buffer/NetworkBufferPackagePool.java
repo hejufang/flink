@@ -523,6 +523,11 @@ public class NetworkBufferPackagePool implements NetworkBufferPool {
 
 			// Note in LocalBufferPackagePool, it will set the min/max size to adapt the package size,
 			// that is (min/max size >= package size && min/max size % package size == 0) will always hold.
+			// Since maxUsedBuffers may be Integer.MAX_VALUE and will cause overflow, we need long to calculate and an extra check.
+			// If this happens, we try to adapt the max size of LocalBufferPackagePool lower to multiple of packageSize, instead of upper.
+			if (((long) maxUsedBuffers + numberOfMemorySegmentsPerPackage) > Integer.MAX_VALUE) {
+				maxUsedBuffers -= numberOfMemorySegmentsPerPackage;
+			}
 			int numRequiredPackages = (numRequiredBuffers + numberOfMemorySegmentsPerPackage - 1) / numberOfMemorySegmentsPerPackage;
 			int maxUsedPackages = (maxUsedBuffers + numberOfMemorySegmentsPerPackage - 1) / numberOfMemorySegmentsPerPackage;
 			if (simpleRedistributeEnable && numTotalRequiredPackages + numRequiredPackages > totalNumberOfMemorySegmentPackages) {
