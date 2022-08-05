@@ -58,6 +58,7 @@ import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionAssigner;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionStateSentinel;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicsDescriptor;
+import org.apache.flink.streaming.connectors.kafka.utils.KafkaUtils;
 import org.apache.flink.streaming.runtime.operators.util.AssignerWithPeriodicWatermarksAdapter;
 import org.apache.flink.streaming.runtime.operators.util.AssignerWithPunctuatedWatermarksAdapter;
 import org.apache.flink.table.factories.FactoryUtil;
@@ -206,6 +207,9 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	/** User-supplied properties for Kafka. **/
 	protected final Properties properties;
 
+	/** The owner of the current job. */
+	private final String owner;
+
 	/** The fetcher implements the connections to the Kafka brokers. */
 	private transient volatile AbstractFetcher<T, ?> kafkaFetcher;
 
@@ -314,6 +318,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 		this.discoveryIntervalMillis = discoveryIntervalMillis;
 		this.properties = props != null ? props : new Properties();
 		this.useMetrics = useMetrics;
+		this.owner = System.getProperty(ConfigConstants.OWNER_KEY, "unknown");
 	}
 
 	/**
@@ -601,6 +606,18 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	@Override
 	public void open(Configuration configuration) throws Exception {
+		// report the kafka version metrics
+		if (getRuntimeContext().getIndexOfThisSubtask() == 0) {
+			KafkaUtils.addKafkaVersionMetrics(
+				getRuntimeContext().getMetricGroup(),
+				this.owner,
+				this.topicsDescriptor.getFixedTopics().toString(),
+				this.properties.getProperty("cluster"),
+				"consumer",
+				this.properties.getProperty("group.id"),
+				() -> KafkaUtils.KAFKA_CONNECTOR_VERSION);
+		}
+
 		// determine the offset commit mode
 		this.offsetCommitMode = OffsetCommitModes.fromConfiguration(
 				getIsAutoCommitEnabled(),

@@ -105,6 +105,9 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	 */
 	protected final Properties producerConfig;
 
+	/** The owner of the current job. */
+	private final String owner;
+
 	/**
 	 * The name of the default topic this producer is writing data to.
 	 */
@@ -224,6 +227,7 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 		this.schema = serializationSchema;
 		this.producerConfig = producerConfig;
 		this.flinkKafkaPartitioner = customPartitioner;
+		this.owner = System.getProperty(ConfigConstants.OWNER_KEY, "unknown");
 
 		// set the producer configuration properties for kafka record key value serializers.
 		if (!producerConfig.containsKey(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG)) {
@@ -308,6 +312,17 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 		producer = getKafkaProducer(this.producerConfig);
 
 		RuntimeContext ctx = getRuntimeContext();
+
+		if (ctx.getIndexOfThisSubtask() == 0) {
+			KafkaUtils.addKafkaVersionMetrics(
+				ctx.getMetricGroup(),
+				this.owner,
+				this.defaultTopicId,
+				this.producerConfig.getProperty("cluster"),
+				"producer",
+				"none",
+				() -> KafkaUtils.KAFKA_CONNECTOR_VERSION);
+		}
 
 		if (rateLimiter != null) {
 			rateLimiter.open(ctx);

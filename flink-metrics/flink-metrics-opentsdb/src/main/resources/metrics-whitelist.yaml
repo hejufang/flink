@@ -166,6 +166,8 @@ non-global:
       # kafka latency
         fetch-latency-avg,
         fetch-latency-max,
+      # kafka connector verison
+        kafkaConnectorVersion,
       # Network Memory
         TotalMemorySegments,
         AllocatedMemorySegments,

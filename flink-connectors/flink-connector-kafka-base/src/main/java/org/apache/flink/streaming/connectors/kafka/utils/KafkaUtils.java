@@ -19,6 +19,8 @@
 package org.apache.flink.streaming.connectors.kafka.utils;
 
 import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 
@@ -26,11 +28,28 @@ import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
  * Utilities.
  */
 public class KafkaUtils {
+	public static final int KAFKA_CONNECTOR_VERSION = 1;
 
 	public static ProcessingTimeService getTimeService(RuntimeContext context) {
 		if (context instanceof StreamingRuntimeContext) {
 			return ((StreamingRuntimeContext) context).getProcessingTimeService();
 		}
 		throw new IllegalArgumentException("Failed to get processing time service of context.");
+	}
+
+	public static void addKafkaVersionMetrics(
+		MetricGroup metricGroup,
+		String owner,
+		String topic,
+		String cluster,
+		String connectorType,
+		String consumerGroup,
+		Gauge gauge) {
+			metricGroup.addGroup("owner", owner)
+				.addGroup("topic", topic)
+				.addGroup("cluster", cluster)
+				.addGroup("connectorType", connectorType)
+				.addGroup("consumerGroup", consumerGroup)
+				.gauge("kafkaConnectorVersion", gauge);
 	}
 }
