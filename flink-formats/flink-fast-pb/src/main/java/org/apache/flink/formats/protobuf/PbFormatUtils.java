@@ -27,37 +27,13 @@ import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.ProtobufInternalUtils;
 import org.apache.commons.lang3.StringUtils;
 
 /**
  * Protobuf function util.
  */
 public class PbFormatUtils {
-
-	/**
-	 * protobuf code has a bug that, f_abc_7d will be convert to fAbc7d in {@code
-	 * com.google.protobuf.Descriptors.FileDescriptor.getJsonName()}, but actually we need fAbc7D.
-	 */
-	public static String fieldNameToJsonName(String name) {
-		final int length = name.length();
-		StringBuilder result = new StringBuilder(length);
-		boolean isNextUpperCase = false;
-		for (int i = 0; i < length; i++) {
-			char ch = name.charAt(i);
-			if (ch == '_') {
-				isNextUpperCase = true;
-			} else if (isNextUpperCase) {
-				if ('a' <= ch && ch <= 'z') {
-					ch = (char) (ch - 'a' + 'A');
-					isNextUpperCase = false;
-				}
-				result.append(ch);
-			} else {
-				result.append(ch);
-			}
-		}
-		return result.toString();
-	}
 
 	private static String getJavaPackageFromProtoFile(Descriptors.Descriptor descriptor) {
 		boolean hasJavaPackage = descriptor.getFile().getOptions().hasJavaPackage();
@@ -142,12 +118,7 @@ public class PbFormatUtils {
 	}
 
 	public static String getStrongCamelCaseJsonName(String name) {
-		String jsonName = fieldNameToJsonName(name);
-		if (jsonName.length() == 1) {
-			return jsonName.toUpperCase();
-		} else {
-			return jsonName.substring(0, 1).toUpperCase() + jsonName.substring(1);
-		}
+		return ProtobufInternalUtils.underScoreToCamelCase(name, true);
 	}
 
 	public static Descriptors.Descriptor getDescriptor(String className) {
