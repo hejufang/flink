@@ -266,6 +266,8 @@ public class HiveTableSource implements
 			switch (inferParallelismStrategy) {
 				case BYTE_SIZE_STRATEGY:
 					long totalPartitionBytes = getTotalPartitionBytes(allHivePartitions);
+					LOG.info("Hive source({}) total partitions: {}, total bytes: {}",
+						tablePath, allHivePartitions.size(), totalPartitionBytes);
 					if (totalPartitionBytes < 0) {
 						LOG.warn("Failed to get total byte size of all used partitions of table {}, " +
 							"use split number to infer source parallelism.", tablePath);
@@ -286,6 +288,7 @@ public class HiveTableSource implements
 			parallelism = limit > 0 ? Math.min(parallelism, (int) limit / 1000) : parallelism;
 			parallelism = Math.max(min, parallelism);
 		}
+		LOG.info("Hive source({}) final parallelism: {}", tablePath, parallelism);
 		source.setParallelism(parallelism);
 		return source.name(explainSource());
 	}
@@ -297,7 +300,7 @@ public class HiveTableSource implements
 			long nano1 = System.nanoTime();
 			int splitNumber = inputFormat.createInputSplits(0).length;
 			long nano2 = System.nanoTime();
-			LOG.debug("Hive source({}) createInputSplits use time: {} ms, splitNum = {}",
+			LOG.info("Hive source({}) createInputSplits use time: {} ms, splitNum = {}",
 				tablePath, (nano2 - nano1) / 1_000_000, splitNumber);
 			int splitNumberPerSubtask =
 				flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_SPLIT_NUMBER_PER_SUBTASK);
@@ -310,7 +313,7 @@ public class HiveTableSource implements
 	private int inferParallelismWithByteSize(
 			long totalPartitionBytes,
 			ReadableConfig flinkConf) {
-		int byteSizePerSubtask =
+		long byteSizePerSubtask =
 			flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_BYTE_SIZE_PER_SUBTASK);
 		return (int) Math.ceil(((double) totalPartitionBytes) / byteSizePerSubtask);
 	}

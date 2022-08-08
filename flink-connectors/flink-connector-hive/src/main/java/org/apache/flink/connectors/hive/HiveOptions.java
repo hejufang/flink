@@ -68,10 +68,10 @@ public class HiveOptions {
 					"parallelism with partition number. This is effective only when " +
 					"'table.exec.hive.infer-source-parallelism-strategy' = 'split-number'.");
 
-	public static final ConfigOption<Integer> TABLE_EXEC_HIVE_BYTE_SIZE_PER_SUBTASK =
+	public static final ConfigOption<Long> TABLE_EXEC_HIVE_BYTE_SIZE_PER_SUBTASK =
 		key("table.exec.hive.byte-size-per-subtask")
-			.intType()
-			.defaultValue(1024 * 1024 * 1024)
+			.longType()
+			.defaultValue(1024L * 1024L * 1024L)
 			.withDescription(
 				"This configs the partition number for each subtask when infer table source " +
 					"parallelism with partition number. This is effective only when " +
