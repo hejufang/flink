@@ -25,6 +25,7 @@ import org.apache.flink.streaming.api.operators.KeyedProcessOperator
 import org.apache.flink.streaming.api.transformations.OneInputTransformation
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.api.config.ExecutionConfigOptions
+import org.apache.flink.table.api.config.ExecutionConfigOptions.TABLE_EXEC_TOP_N_IGNORE_RETRACT_ERROR
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.codegen.EqualiserCodeGenerator
@@ -249,7 +250,9 @@ class StreamExecRank(
           rankRange,
           generatedEqualiser,
           generateUpdateBefore,
-          outputRankNumber)
+          outputRankNumber,
+          tableConfig.getConfiguration.getBoolean(TABLE_EXEC_TOP_N_IGNORE_RETRACT_ERROR)
+        )
     }
     val operator = new KeyedProcessOperator(processFunction)
     processFunction.setKeyContext(operator)

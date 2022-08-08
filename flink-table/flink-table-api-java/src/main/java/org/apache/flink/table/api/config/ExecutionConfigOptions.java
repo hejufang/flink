@@ -401,6 +401,13 @@ public class ExecutionConfigOptions {
 			.withDescription("Specifies whether to enable top1 optimization.");
 
 	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_TOP_N_IGNORE_RETRACT_ERROR =
+		key("table.exec.ignore-topN-retract-not-exist-error")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Specifies whether to ignore topN retract not exists error.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
 	public static final ConfigOption<String> TABLE_MQ_SPECIFIED_GROUP_PREFIX =
 		key("table.properties-specified.mq.group-prefix")
 			.stringType()

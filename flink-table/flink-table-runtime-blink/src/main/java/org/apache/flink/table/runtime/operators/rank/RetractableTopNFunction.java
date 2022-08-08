@@ -56,7 +56,7 @@ import java.util.TreeMap;
  */
 public class RetractableTopNFunction extends AbstractTopNFunction {
 
-	private static final long serialVersionUID = 1365312180599454479L;
+	private static final long serialVersionUID = 2L;
 
 	private static final Logger LOG = LoggerFactory.getLogger(RetractableTopNFunction.class);
 
@@ -68,6 +68,8 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 
 	// flag to skip records with non-exist error instead to fail, true by default.
 	private final boolean lenient = true;
+
+	private final boolean ignoreRetractError;
 
 	// a map state stores mapping from sort key to records list
 	private transient MapState<RowData, List<RowData>> dataState;
@@ -91,12 +93,14 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 			RankRange rankRange,
 			GeneratedRecordEqualiser generatedEqualiser,
 			boolean generateUpdateBefore,
-			boolean outputRankNumber) {
+			boolean outputRankNumber,
+			boolean ignoreRetractError) {
 		super(minRetentionTime, maxRetentionTime, inputRowType, generatedRecordComparator, sortKeySelector, rankType,
 				rankRange, generateUpdateBefore, outputRankNumber);
 		this.sortKeyType = sortKeySelector.getProducedType();
 		this.serializableComparator = new ComparatorWrapper(generatedRecordComparator);
 		this.generatedEqualiser = generatedEqualiser;
+		this.ignoreRetractError = ignoreRetractError;
 	}
 
 	@Override
@@ -182,8 +186,12 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 						throw new RuntimeException(STATE_CLEARED_WARN_MSG);
 					}
 				} else {
-					throw new RuntimeException(
-						"Can not retract a non-existent record. This should never happen.");
+					if (ignoreRetractError) {
+						LOG.warn("We retract a non-existent record");
+					} else {
+						throw new RuntimeException("Can not retract a non-existent record. " +
+							"Set `table.exec.ignore-topN-retract-not-exist-error` as true to fix this error.");
+					}
 				}
 			}
 

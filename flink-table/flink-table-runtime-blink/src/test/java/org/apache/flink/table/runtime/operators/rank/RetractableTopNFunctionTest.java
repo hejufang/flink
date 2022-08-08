@@ -40,6 +40,15 @@ public class RetractableTopNFunctionTest extends TopNFunctionTestBase {
 	@Override
 	protected AbstractTopNFunction createFunction(RankType rankType, RankRange rankRange,
 			boolean generateUpdateBefore, boolean outputRankNumber) {
+		return createFunction(rankType, rankRange, generateUpdateBefore, outputRankNumber, false);
+	}
+
+	protected AbstractTopNFunction createFunction(
+			RankType rankType,
+			RankRange rankRange,
+			boolean generateUpdateBefore,
+			boolean outputRankNumber,
+			boolean ignoreRetractError) {
 		return new RetractableTopNFunction(
 			minTime.toMilliseconds(),
 			maxTime.toMilliseconds(),
@@ -50,7 +59,8 @@ public class RetractableTopNFunctionTest extends TopNFunctionTestBase {
 			rankRange,
 			generatedEqualiser,
 			generateUpdateBefore,
-			outputRankNumber);
+			outputRankNumber,
+			ignoreRetractError);
 	}
 
 	@Test
@@ -526,5 +536,16 @@ public class RetractableTopNFunctionTest extends TopNFunctionTestBase {
 		expectedOutput.add(updateAfterRecord("a", 3L, 2, 1L));
 		expectedOutput.add(updateAfterRecord("a", 5L, 4, 2L));
 		assertorWithRowNumber.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+	}
+
+	@Test
+	public void testRetractANotExistRecord() throws Exception {
+		AbstractTopNFunction func = createFunction(RankType.ROW_NUMBER, new ConstantRankRange(1, 2), false,
+			true, true);
+		OneInputStreamOperatorTestHarness<RowData, RowData> testHarness = createTestHarness(func);
+		testHarness.open();
+		testHarness.processElement(deleteRecord("a", 4L, 4));
+		testHarness.close();
+		assertorWithRowNumber.assertOutputEquals("output wrong", new ArrayList<>(), testHarness.getOutput());
 	}
 }
