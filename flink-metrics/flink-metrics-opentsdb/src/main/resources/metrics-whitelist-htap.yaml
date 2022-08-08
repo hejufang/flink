@@ -87,6 +87,8 @@ non-global:
         query_latency,
         query_fetch_duration,
         query_fetch_cost,
+        plan_cache_total,
+        plan_cache_hit,
       # jm threadPool usage
         numPendingIOTask,
         numRunningIOTask,
