@@ -30,6 +30,7 @@ import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
+import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
 import org.apache.flink.runtime.state.BatchStateHandle;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
@@ -91,7 +92,9 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RunnableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -166,7 +169,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 
 		ArrayList<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>(1);
 		db = RocksDBOperationUtils.openDB(dbPath, Collections.emptyList(),
-			columnFamilyHandles, columnOptions, optionsContainer.getDbOptions());
+			columnFamilyHandles, columnOptions, optionsContainer.getDbOptions(), false);
 		defaultCFHandle = columnFamilyHandles.remove(0);
 	}
 
@@ -885,29 +888,35 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 		}
 	}
 
-	@Test
+	@Test(timeout = 10000)
 	public void testDisposeTimeout() throws Exception {
-		RocksDBKeyedStateBackend<Integer> test = null;
 		final ColumnFamilyOptions columnFamilyOptions = spy(new ColumnFamilyOptions());
+		final AtomicBoolean taskIsMarkedAsFailed = new AtomicBoolean(false);
 
 		prepareRocksDB();
-		test = RocksDBTestUtils.builderForTestDB(
-			tempFolder.newFolder(),
-			IntSerializer.INSTANCE,
-			db,
-			defaultCFHandle,
-			columnFamilyOptions)
+		final RocksDBKeyedStateBackend<Integer> testDB = RocksDBTestUtils.builderForTestDB(
+				tempFolder.newFolder(),
+				IntSerializer.INSTANCE,
+				db,
+				defaultCFHandle,
+				columnFamilyOptions,
+				throwable -> taskIsMarkedAsFailed.set(true))
 			.setNumberOfTransferingThreads(2)
 			.setEnableIncrementalCheckpointing(isEnableIncrementalCheckpointing())
 			// set timeout to 1 millis
-			.setDisposeTimeout(1)
+			.setDBOperationTimeout(1)
 			.build();
 
 		try {
-			test.dispose();
-			fail("Expect TimeoutException here");
+			FutureUtils.orTimeout(CompletableFuture.runAsync(testDB::dispose), 10, TimeUnit.MILLISECONDS).get();
 		} catch (Exception e) {
-			Assert.assertEquals(e.getMessage(), "Failed to dispose RocksdbKeyedStateBackend.");
+			if (!(e.getCause() instanceof TimeoutException)) {
+				fail();
+			}
+		}
+
+		while (!taskIsMarkedAsFailed.get()) {
+			Thread.sleep(100);
 		}
 	}
 

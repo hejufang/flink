@@ -24,6 +24,7 @@ import org.apache.flink.contrib.streaming.state.RocksDBNativeMetricMonitor;
 import org.apache.flink.contrib.streaming.state.RocksDBNativeMetricOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBOperationUtils;
 import org.apache.flink.contrib.streaming.state.ttl.RocksDbTtlCompactFiltersManager;
+import org.apache.flink.contrib.streaming.state.watchdog.RocksDBWatchdogProvider;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.metrics.MetricGroup;
@@ -88,6 +89,7 @@ public abstract class AbstractRocksDBRestoreOperation<K> extends RestoreOperatio
 	//   - data ingestion after db open: #getOrRegisterStateColumnFamilyHandle before creating column family
 	protected final RocksDbTtlCompactFiltersManager ttlCompactFiltersManager;
 	protected final RestoreOptions restoreOptions;
+	protected final RocksDBWatchdogProvider watchdogProvider;
 
 	protected RocksDB db;
 	protected ColumnFamilyHandle defaultColumnFamilyHandle;
@@ -111,7 +113,8 @@ public abstract class AbstractRocksDBRestoreOperation<K> extends RestoreOperatio
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
 		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager,
 		BackendType backendType,
-		RestoreOptions restoreOptions) {
+		RestoreOptions restoreOptions,
+		RocksDBWatchdogProvider watchdogProvider) {
 		super(backendType);
 		this.keyGroupRange = keyGroupRange;
 		this.keyGroupPrefixBytes = keyGroupPrefixBytes;
@@ -133,6 +136,7 @@ public abstract class AbstractRocksDBRestoreOperation<K> extends RestoreOperatio
 		this.columnFamilyDescriptors = Collections.emptyList();
 		this.numberOfRestoreTransferThreads = numberOfTransferringThreads;
 		this.restoreOptions = restoreOptions;
+		this.watchdogProvider = watchdogProvider;
 	}
 
 	void openDB() throws IOException {
@@ -141,7 +145,9 @@ public abstract class AbstractRocksDBRestoreOperation<K> extends RestoreOperatio
 			columnFamilyDescriptors,
 			columnFamilyHandles,
 			RocksDBOperationUtils.createColumnFamilyOptions(columnFamilyOptionsFactory, "default"),
-			dbOptions);
+			dbOptions,
+			false,
+			watchdogProvider);
 		// remove the default column family which is located at the first index
 		defaultColumnFamilyHandle = columnFamilyHandles.remove(0);
 		// init native metrics monitor if configured

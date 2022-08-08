@@ -20,6 +20,8 @@ package org.apache.flink.contrib.streaming.state;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.contrib.streaming.state.restore.RestoreOptions;
 import org.apache.flink.contrib.streaming.state.ttl.RocksDbTtlCompactFiltersManager;
+import org.apache.flink.contrib.streaming.state.watchdog.RocksDBWatchdog;
+import org.apache.flink.contrib.streaming.state.watchdog.RocksDBWatchdogProvider;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.memory.OpaqueMemoryResource;
 import org.apache.flink.runtime.state.KeyGroupRange;
@@ -77,13 +79,21 @@ public class RocksDBOperationUtils {
 	public static final String DB_LOG_FILE_PREFIX = "job_";
 	public static final String DB_LOG_FILE_UUID = "_uuid_";
 	public static final String DB_LOG_FILE_OP = "_op_";
+
+	/** Open RocksDB with timeout. */
 	public static RocksDB openDB(
 		String path,
 		List<ColumnFamilyDescriptor> stateColumnFamilyDescriptors,
 		List<ColumnFamilyHandle> stateColumnFamilyHandles,
 		ColumnFamilyOptions columnFamilyOptions,
-		DBOptions dbOptions) throws IOException {
-		return openDB(path, stateColumnFamilyDescriptors, stateColumnFamilyHandles, columnFamilyOptions, dbOptions, false);
+		DBOptions dbOptions,
+		boolean readOnly,
+		RocksDBWatchdogProvider watchdogProvider) throws IOException {
+		try (final RocksDBWatchdog watchdog = watchdogProvider.provide()) {
+			watchdog.watch();
+			return openDB(
+				path, stateColumnFamilyDescriptors, stateColumnFamilyHandles, columnFamilyOptions, dbOptions, readOnly);
+		}
 	}
 
 	public static RocksDB openDB(
@@ -102,7 +112,6 @@ public class RocksDBOperationUtils {
 		columnFamilyDescriptors.addAll(stateColumnFamilyDescriptors);
 
 		RocksDB dbRef;
-
 		try {
 			dbRef = readOnly ?
 				RocksDB.openReadOnly(

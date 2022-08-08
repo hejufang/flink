@@ -26,6 +26,7 @@ import org.apache.flink.contrib.streaming.state.RocksDBNativeMetricOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBOperationUtils;
 import org.apache.flink.contrib.streaming.state.RocksDBWriteBatchWrapper;
 import org.apache.flink.contrib.streaming.state.ttl.RocksDbTtlCompactFiltersManager;
+import org.apache.flink.contrib.streaming.state.watchdog.RocksDBWatchdogProvider;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.FSDataInputStream;
 import org.apache.flink.core.memory.DataInputView;
@@ -135,7 +136,8 @@ public class RocksDBFullRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 		@Nonnull Collection<KeyedStateHandle> restoreStateHandles,
 		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager,
 		@Nonnegative long writeBatchSize,
-		RestoreOptions restoreOptions) {
+		RestoreOptions restoreOptions,
+		RocksDBWatchdogProvider watchdogProvider) {
 		super(
 			keyGroupRange,
 			keyGroupPrefixBytes,
@@ -153,7 +155,8 @@ public class RocksDBFullRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 			restoreStateHandles,
 			ttlCompactFiltersManager,
 			BackendType.FULL_ROCKSDB_STATE_BACKEND,
-			restoreOptions);
+			restoreOptions,
+			watchdogProvider);
 		checkArgument(writeBatchSize >= 0, "Write batch size have to be no negative.");
 		this.writeBatchSize = writeBatchSize;
 	}

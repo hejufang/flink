@@ -32,6 +32,8 @@ import org.apache.flink.contrib.streaming.state.snapshot.RocksDBSnapshotStrategy
 import org.apache.flink.contrib.streaming.state.snapshot.RocksFullSnapshotStrategy;
 import org.apache.flink.contrib.streaming.state.snapshot.RocksIncrementalSnapshotStrategy;
 import org.apache.flink.contrib.streaming.state.ttl.RocksDbTtlCompactFiltersManager;
+import org.apache.flink.contrib.streaming.state.watchdog.RocksDBWatchdog;
+import org.apache.flink.contrib.streaming.state.watchdog.RocksDBWatchdogProvider;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
@@ -111,6 +113,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	private final MetricGroup metricGroup;
 
+	private final RocksDBWatchdog.TimeoutHandler dbOperationTimeoutHandler;
+
 	/** True if incremental checkpointing is enabled. */
 	private boolean enableIncrementalCheckpointing;
 
@@ -127,7 +131,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	private long writeBatchSize = RocksDBConfigurableOptions.WRITE_BATCH_SIZE.defaultValue().getBytes();
 	private int maxRetryTimes;
 	private long dbNativeCheckpointTimeout;
-	private long disposeTimeout;
+	private long dbOperationTimeoutMillis;
 	private RestoreOptions restoreOptions; // for restore
 	private boolean crossNamespace = false;
 	private boolean optimizeSeek = false;
@@ -154,8 +158,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
 		StreamCompressionDecorator keyGroupCompressionDecorator,
-		CloseableRegistry cancelStreamRegistry) {
-
+		CloseableRegistry cancelStreamRegistry,
+		RocksDBWatchdog.TimeoutHandler dbOperationTimeoutHandler) {
 		super(
 			kvStateRegistry,
 			keySerializer,
@@ -183,8 +187,9 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		this.maxRetryTimes = CheckpointingOptions.DATA_TRANSFER_MAX_RETRY_ATTEMPTS.defaultValue();
 		this.batchConfig = RocksDBStateBatchConfig.createNoBatchingConfig();
 		this.dbNativeCheckpointTimeout = RocksDBOptions.ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT.defaultValue();
-		this.disposeTimeout = RocksDBOptions.ROCKSDB_DISPOSE_TIMEOUT.defaultValue();
+		this.dbOperationTimeoutMillis = RocksDBOptions.ROCKSDB_OPERATION_TIMEOUT.defaultValue();
 		this.restoreOptions = new RestoreOptions.Builder().build();
+		this.dbOperationTimeoutHandler = dbOperationTimeoutHandler;
 	}
 
 	@VisibleForTesting
@@ -208,8 +213,10 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		RocksDB injectedTestDB,
 		ColumnFamilyHandle injectedDefaultColumnFamilyHandle,
 		CloseableRegistry cancelStreamRegistry,
+		RocksDBWatchdog.TimeoutHandler dbOperationTimeoutHandler,
 		Consumer beforeTakeDBNativeCheckpoint,
-		Supplier beforeDispose) {
+		Supplier beforeDispose
+	) {
 		this(
 			operatorIdentifier,
 			userCodeClassLoader,
@@ -227,7 +234,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 			metricGroup,
 			stateHandles,
 			keyGroupCompressionDecorator,
-			cancelStreamRegistry
+			cancelStreamRegistry,
+			dbOperationTimeoutHandler
 		);
 		this.injectedTestDB = injectedTestDB;
 		this.injectedDefaultColumnFamilyHandle = injectedDefaultColumnFamilyHandle;
@@ -285,8 +293,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		return this;
 	}
 
-	public RocksDBKeyedStateBackendBuilder<K> setDisposeTimeout(long disposeTimeout) {
-		this.disposeTimeout = disposeTimeout;
+	public RocksDBKeyedStateBackendBuilder<K> setDBOperationTimeout(long dbOperationTimeout) {
+		this.dbOperationTimeoutMillis = dbOperationTimeout;
 		return this;
 	}
 
@@ -452,8 +460,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				writeBatchSize,
 				metricGroup,
 				isDiskValid,
-				disposeTimeout,
-				optimizeSeek);
+				optimizeSeek,
+				createRocksDBWatchdogProvider());
 		} else {
 			return new RocksDBKeyedStateBackend(
 				this.userCodeClassLoader,
@@ -482,8 +490,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				writeBatchSize,
 				metricGroup,
 				isDiskValid,
-				disposeTimeout,
-				optimizeSeek) {
+				optimizeSeek,
+				createRocksDBWatchdogProvider()) {
 				@Override
 				public void doDispose() {
 					injectedBeforeDispose.get();
@@ -516,7 +524,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				metricGroup,
 				restoreStateHandles,
 				ttlCompactFiltersManager,
-				restoreOptions);
+				restoreOptions,
+				createRocksDBWatchdogProvider());
 		}
 		KeyedStateHandle firstStateHandle = restoreStateHandles.iterator().next();
 		if (firstStateHandle instanceof IncrementalKeyedStateHandle) {
@@ -539,7 +548,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				ttlCompactFiltersManager,
 				writeBatchSize,
 				discardStatesIfRocksdbRecoverFail,
-				restoreOptions);
+				restoreOptions,
+				createRocksDBWatchdogProvider());
 		} else {
 			return new RocksDBFullRestoreOperation<>(
 				keyGroupRange,
@@ -558,7 +568,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				restoreStateHandles,
 				ttlCompactFiltersManager,
 				writeBatchSize,
-				restoreOptions);
+				restoreOptions,
+				createRocksDBWatchdogProvider());
 		}
 	}
 
@@ -674,6 +685,10 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 			// in case something crashed and the backend never reached dispose()
 			FileUtils.deleteDirectory(instanceBasePath);
 		}
+	}
+
+	private RocksDBWatchdogProvider createRocksDBWatchdogProvider() {
+		return new RocksDBWatchdogProvider(dbOperationTimeoutMillis, dbOperationTimeoutHandler);
 	}
 
 	static final class SnapshotStrategy<K> {

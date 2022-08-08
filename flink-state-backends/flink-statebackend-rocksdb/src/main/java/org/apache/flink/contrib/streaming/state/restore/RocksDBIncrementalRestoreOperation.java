@@ -30,6 +30,7 @@ import org.apache.flink.contrib.streaming.state.RocksDBStateDownloader;
 import org.apache.flink.contrib.streaming.state.RocksDBWriteBatchWrapper;
 import org.apache.flink.contrib.streaming.state.RocksIteratorWrapper;
 import org.apache.flink.contrib.streaming.state.ttl.RocksDbTtlCompactFiltersManager;
+import org.apache.flink.contrib.streaming.state.watchdog.RocksDBWatchdogProvider;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
@@ -139,7 +140,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager,
 		@Nonnegative long writeBatchSize,
 		boolean discardStatesIfRocksdbRecoverFail,
-		RestoreOptions restoreOptions) {
+		RestoreOptions restoreOptions,
+		RocksDBWatchdogProvider watchdogProvider) {
 		super(keyGroupRange,
 			keyGroupPrefixBytes,
 			numberOfTransferringThreads,
@@ -156,7 +158,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			restoreStateHandles,
 			ttlCompactFiltersManager,
 			BackendType.INCREMENTAL_ROCKSDB_STATE_BACKEND,
-			restoreOptions);
+			restoreOptions,
+			watchdogProvider);
 		this.operatorIdentifier = operatorIdentifier;
 		this.restoredSstFiles = new TreeMap<>();
 		this.lastCompletedCheckpointId = -1L;
@@ -752,7 +755,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			columnFamilyHandles,
 			RocksDBOperationUtils.createColumnFamilyOptions(columnFamilyOptionsFactory, "default"),
 			dbOptions,
-			readOnly);
+			readOnly,
+			watchdogProvider);
 
 		return new RestoredDBInstance(restoreDb, columnFamilyHandles, columnFamilyDescriptors, stateMetaInfoSnapshots);
 	}
@@ -775,7 +779,9 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			columnFamilyDescriptors,
 			columnFamilyHandles,
 			RocksDBOperationUtils.createColumnFamilyOptions(columnFamilyOptionsFactory, "default"),
-			dbOptions);
+			dbOptions,
+			false,
+			watchdogProvider);
 
 		return new RestoredDBInstance(restoreDb, columnFamilyHandles, columnFamilyDescriptors, stateMetaInfoSnapshots);
 	}

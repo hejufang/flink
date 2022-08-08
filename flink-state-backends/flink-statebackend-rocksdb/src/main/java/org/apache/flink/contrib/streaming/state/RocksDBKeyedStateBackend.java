@@ -39,6 +39,8 @@ import org.apache.flink.contrib.streaming.state.iterator.RocksStateKeysIterator;
 import org.apache.flink.contrib.streaming.state.snapshot.RocksDBSnapshotStrategyBase;
 import org.apache.flink.contrib.streaming.state.snapshot.RocksIncrementalSnapshotStrategy;
 import org.apache.flink.contrib.streaming.state.ttl.RocksDbTtlCompactFiltersManager;
+import org.apache.flink.contrib.streaming.state.watchdog.RocksDBWatchdog;
+import org.apache.flink.contrib.streaming.state.watchdog.RocksDBWatchdogProvider;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
@@ -49,7 +51,6 @@ import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.metrics.View;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
-import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
@@ -96,10 +97,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Spliterator;
 import java.util.Spliterators;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RunnableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -229,9 +228,9 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 	private final boolean isDiskValid;
 
-	private final long disposeTimeout;
-
 	private final boolean optimizeSeek;
+
+	private final RocksDBWatchdogProvider rocksDBWatchdogProvider;
 
 	public RocksDBKeyedStateBackend(
 		ClassLoader userCodeClassLoader,
@@ -260,8 +259,8 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		@Nonnegative long writeBatchSize,
 		MetricGroup metricGroup,
 		boolean isDiskValid,
-		long disposeTimeout,
-		boolean optimizeSeek) {
+		boolean optimizeSeek,
+		RocksDBWatchdogProvider rocksDBWatchdogProvider) {
 
 		super(
 			kvStateRegistry,
@@ -300,8 +299,8 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		this.priorityQueueFactory = priorityQueueFactory;
 		this.kvStatisticView = new PeriodKVStatisticView();
 		this.isDiskValid = isDiskValid;
-		this.disposeTimeout = disposeTimeout;
 		this.optimizeSeek = optimizeSeek;
+		this.rocksDBWatchdogProvider = rocksDBWatchdogProvider;
 
 		registerMetrics(metricGroup);
 	}
@@ -382,12 +381,9 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	 */
 	@Override
 	public void dispose() {
-		try {
-			FutureUtils.orTimeout(CompletableFuture.runAsync(() -> {
-				doDispose();
-			}), disposeTimeout, TimeUnit.MILLISECONDS).get();
-		} catch (Exception e) {
-			throw new FlinkRuntimeException("Failed to dispose RocksdbKeyedStateBackend.", e);
+		try (final RocksDBWatchdog watchdog = rocksDBWatchdogProvider.provide()){
+			watchdog.watch();
+			doDispose();
 		}
 	}
 

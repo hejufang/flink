@@ -177,12 +177,12 @@ public class RocksDBOptions {
 		.withDescription(String.format(
 			"The maximum time that a native checkpoint may take."));
 
-	public static final ConfigOption<Long> ROCKSDB_DISPOSE_TIMEOUT = ConfigOptions
-		.key("state.backend.rocksdb.dispose.timeout")
+	public static final ConfigOption<Long> ROCKSDB_OPERATION_TIMEOUT = ConfigOptions
+		.key("state.backend.rocksdb.operation.timeout")
 		.longType()
-		.defaultValue(60000L)
-		.withDescription(String.format(
-			"The maximum time that dispose state backend may take."));
+		.defaultValue(10 * 60 * 1000L)
+		.withDescription(
+			"The maximum time that the openDB/dispose operation may take.");
 
 	public static final ConfigOption<Boolean> ROCKSDB_OPTIMIZE_SEEK = ConfigOptions
 		.key("state.backend.rocksdb.optimize-seek")

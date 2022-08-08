@@ -1072,7 +1072,7 @@ public class FutureUtils {
 	 *
 	 * <p>This class creates a singleton scheduler used to run the provided actions.
 	 */
-	private enum Delayer {
+	public enum Delayer {
 		;
 		static final ScheduledThreadPoolExecutor DELAYER = new ScheduledThreadPoolExecutor(
 			1,
@@ -1086,7 +1086,7 @@ public class FutureUtils {
 		 * @param timeUnit time unit of the delay
 		 * @return Future of the scheduled action
 		 */
-		private static ScheduledFuture<?> delay(Runnable runnable, long delay, TimeUnit timeUnit) {
+		public static ScheduledFuture<?> delay(Runnable runnable, long delay, TimeUnit timeUnit) {
 			checkNotNull(runnable);
 			checkNotNull(timeUnit);
 

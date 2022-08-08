@@ -21,6 +21,7 @@ package org.apache.flink.contrib.streaming.state;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.contrib.streaming.state.watchdog.RocksDBWatchdog;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.runtime.execution.Environment;
@@ -31,6 +32,7 @@ import org.apache.flink.runtime.state.TestLocalRecoveryConfig;
 import org.apache.flink.runtime.state.UncompressedStreamCompressionDecorator;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 
+import org.junit.Assert;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.RocksDB;
@@ -67,7 +69,8 @@ public final class RocksDBTestUtils {
 			new UnregisteredMetricsGroup(),
 			Collections.emptyList(),
 			UncompressedStreamCompressionDecorator.INSTANCE,
-			new CloseableRegistry());
+			new CloseableRegistry(),
+			(throwable) -> Assert.fail(throwable.getMessage()));
 	}
 
 	public static <K> RocksDBKeyedStateBackendBuilder<K> builderForTestDB(
@@ -99,6 +102,7 @@ public final class RocksDBTestUtils {
 				db,
 				defaultCFHandle,
 				new CloseableRegistry(),
+				throwable -> Assert.fail(throwable.getMessage()),
 				outputDirectory -> {
 					try {
 						Thread.sleep(10L);
@@ -108,12 +112,60 @@ public final class RocksDBTestUtils {
 				},
 				() -> {
 					try {
-						Thread.sleep(10L);
+						Thread.sleep(1000L);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
 					return null;
 				});
+	}
+
+	public static <K> RocksDBKeyedStateBackendBuilder<K> builderForTestDB(
+		File instanceBasePath,
+		TypeSerializer<K> keySerializer,
+		RocksDB db,
+		ColumnFamilyHandle defaultCFHandle,
+		ColumnFamilyOptions columnFamilyOptions,
+		RocksDBWatchdog.TimeoutHandler timeoutHandler) {
+
+		final RocksDBResourceContainer optionsContainer = new RocksDBResourceContainer();
+
+		return new RocksDBKeyedStateBackendBuilder<>(
+			"no-op",
+			ClassLoader.getSystemClassLoader(),
+			instanceBasePath,
+			optionsContainer,
+			stateName -> columnFamilyOptions,
+			new KvStateRegistry().createTaskRegistry(new JobID(), new JobVertexID()),
+			keySerializer,
+			2,
+			new KeyGroupRange(0, 1),
+			new ExecutionConfig(),
+			TestLocalRecoveryConfig.disabled(),
+			RocksDBStateBackend.PriorityQueueStateType.HEAP,
+			TtlTimeProvider.DEFAULT,
+			new UnregisteredMetricsGroup(),
+			Collections.emptyList(),
+			UncompressedStreamCompressionDecorator.INSTANCE,
+			db,
+			defaultCFHandle,
+			new CloseableRegistry(),
+			timeoutHandler,
+			outputDirectory -> {
+				try {
+					Thread.sleep(10L);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			},
+			() -> {
+				try {
+					Thread.sleep(1000L);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				return null;
+			});
 	}
 
 	public static <K> RocksDBKeyedStateBackend<K> createKeyedStateBackend(

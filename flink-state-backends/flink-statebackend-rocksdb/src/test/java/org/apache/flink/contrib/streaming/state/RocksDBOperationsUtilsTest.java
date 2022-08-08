@@ -75,11 +75,14 @@ public class RocksDBOperationsUtilsTest {
 		try (DBOptions dbOptions = new DBOptions().setCreateIfMissing(true);
 			ColumnFamilyOptions colOptions = new ColumnFamilyOptions()) {
 
-			RocksDB rocks = RocksDBOperationUtils.openDB(
+			RocksDB rocks =
+				RocksDBOperationUtils.openDB(
 					rocksDir.getAbsolutePath(),
 					Collections.emptyList(),
 					Collections.emptyList(),
-					colOptions, dbOptions);
+					colOptions,
+					dbOptions,
+					false);
 			rocks.close();
 
 			// do not provoke a test failure if this passes, because some setups may actually

@@ -53,6 +53,7 @@ import org.apache.flink.runtime.state.heap.HeapPriorityQueueSetFactory;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.IOUtils;
 
+import org.junit.Assert;
 import org.rocksdb.RocksDBException;
 
 import java.io.File;
@@ -158,7 +159,8 @@ public class StateBackendBenchmarkUtils {
 			new UnregisteredMetricsGroup(),
 			keyedStateHandles,
 			AbstractStateBackend.getCompressionDecorator(executionConfig),
-			new CloseableRegistry());
+			new CloseableRegistry(),
+			(throwable) -> Assert.fail(throwable.getMessage()));
 		return builder;
 	}
 
