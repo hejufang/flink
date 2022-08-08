@@ -19,8 +19,10 @@
 package org.apache.flink.table.runtime.operators.join.interval;
 
 import org.apache.flink.api.common.functions.FlatJoinFunction;
+import org.apache.flink.api.common.functions.StatefulFunction;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
@@ -52,7 +54,8 @@ import java.util.Map;
  * "L.time between R.time + X and R.time + Y" or "R.time between L.time - Y and L.time - X"
  * X and Y might be negative or positive and X <= Y.
  */
-abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData, RowData, RowData> {
+abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData, RowData, RowData>
+		implements StatefulFunction {
 	private static final Logger LOGGER = LoggerFactory.getLogger(TimeIntervalJoin.class);
 	private static final String LATE_ELEMENTS_LEFT_DROPPED_METRIC_NAME = "numLeftSideRecordsDropped";
 	private static final String LATE_ELEMENTS_RIGHT_DROPPED_METRIC_NAME = "numRightSideRecordsDropped";
@@ -62,9 +65,6 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 	private final FlinkJoinType joinType;
 	protected final long leftRelativeSize;
 	protected final long rightRelativeSize;
-
-	// Minimum interval by which state is cleaned up
-	private final long minCleanUpInterval;
 	protected final long allowedLateness;
 	private final RowDataTypeInfo leftType;
 	private final RowDataTypeInfo rightType;
@@ -110,7 +110,6 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 		this.joinType = joinType;
 		this.leftRelativeSize = -leftLowerBound;
 		this.rightRelativeSize = leftUpperBound;
-		minCleanUpInterval = (leftRelativeSize + rightRelativeSize) / 2;
 		if (allowedLateness < 0) {
 			throw new IllegalArgumentException("The allowed lateness must be non-negative.");
 		}
@@ -129,39 +128,42 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 
 		joinCollector = new EmitAwareCollector();
 
-		// Initialize the data caches.
-		ListTypeInfo<Tuple2<RowData, Boolean>> leftRowListTypeInfo = new ListTypeInfo<>(
-				new TupleTypeInfo<>(leftType, BasicTypeInfo.BOOLEAN_TYPE_INFO));
-		MapStateDescriptor<Long, List<Tuple2<RowData, Boolean>>> leftMapStateDescriptor = new MapStateDescriptor<>(
-				"IntervalJoinLeftCache",
-				BasicTypeInfo.LONG_TYPE_INFO,
-				leftRowListTypeInfo);
-		leftCache = getRuntimeContext().getMapState(leftMapStateDescriptor);
-
-		ListTypeInfo<Tuple2<RowData, Boolean>> rightRowListTypeInfo = new ListTypeInfo<>(
-				new TupleTypeInfo<>(rightType, BasicTypeInfo.BOOLEAN_TYPE_INFO));
-		MapStateDescriptor<Long, List<Tuple2<RowData, Boolean>>> rightMapStateDescriptor = new MapStateDescriptor<>(
-				"IntervalJoinRightCache",
-				BasicTypeInfo.LONG_TYPE_INFO,
-				rightRowListTypeInfo);
-		rightCache = getRuntimeContext().getMapState(rightMapStateDescriptor);
-
-		// Initialize the timer states.
-		ValueStateDescriptor<Long> leftValueStateDescriptor = new ValueStateDescriptor<>(
-				"IntervalJoinLeftTimerState",
-				Long.class);
-		leftTimerState = getRuntimeContext().getState(leftValueStateDescriptor);
-
-		ValueStateDescriptor<Long> rightValueStateDescriptor = new ValueStateDescriptor<>(
-				"IntervalJoinRightTimerState",
-				Long.class);
-		rightTimerState = getRuntimeContext().getState(rightValueStateDescriptor);
-
 		paddingUtil = new OuterJoinPaddingUtil(leftType.getArity(), rightType.getArity());
 		leftSideDropped = getRuntimeContext().getMetricGroup().counter(LATE_ELEMENTS_LEFT_DROPPED_METRIC_NAME);
 		rightSideDropped = getRuntimeContext().getMetricGroup().counter(LATE_ELEMENTS_RIGHT_DROPPED_METRIC_NAME);
 		leftExpireDropped = getRuntimeContext().getMetricGroup().counter(LEFT_TIMEOUT_DROPPED_METRIC_NAME);
 		rightExpireDropped = getRuntimeContext().getMetricGroup().counter(RIGHT_TIMEOUT_DROPPED_METRIC_NAME);
+	}
+
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
+		// Initialize the data caches.
+		ListTypeInfo<Tuple2<RowData, Boolean>> leftRowListTypeInfo = new ListTypeInfo<>(
+			new TupleTypeInfo<>(leftType, BasicTypeInfo.BOOLEAN_TYPE_INFO));
+		MapStateDescriptor<Long, List<Tuple2<RowData, Boolean>>> leftMapStateDescriptor = new MapStateDescriptor<>(
+			"IntervalJoinLeftCache",
+			BasicTypeInfo.LONG_TYPE_INFO,
+			leftRowListTypeInfo);
+		leftCache = stateRegistry.getMapState(leftMapStateDescriptor);
+
+		ListTypeInfo<Tuple2<RowData, Boolean>> rightRowListTypeInfo = new ListTypeInfo<>(
+			new TupleTypeInfo<>(rightType, BasicTypeInfo.BOOLEAN_TYPE_INFO));
+		MapStateDescriptor<Long, List<Tuple2<RowData, Boolean>>> rightMapStateDescriptor = new MapStateDescriptor<>(
+			"IntervalJoinRightCache",
+			BasicTypeInfo.LONG_TYPE_INFO,
+			rightRowListTypeInfo);
+		rightCache = stateRegistry.getMapState(rightMapStateDescriptor);
+
+		// Initialize the timer states.
+		ValueStateDescriptor<Long> leftValueStateDescriptor = new ValueStateDescriptor<>(
+			"IntervalJoinLeftTimerState",
+			Long.class);
+		leftTimerState = stateRegistry.getState(leftValueStateDescriptor);
+
+		ValueStateDescriptor<Long> rightValueStateDescriptor = new ValueStateDescriptor<>(
+			"IntervalJoinRightTimerState",
+			Long.class);
+		rightTimerState = stateRegistry.getState(rightValueStateDescriptor);
 	}
 
 	@Override

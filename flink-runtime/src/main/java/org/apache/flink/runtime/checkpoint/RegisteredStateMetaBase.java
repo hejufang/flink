@@ -94,10 +94,14 @@ public abstract class RegisteredStateMetaBase implements Serializable, StateObje
 		for (Map.Entry<String, StateMetaData> entry : stateMetaDataMap.entrySet()) {
 			String stateName = entry.getKey();
 			StateMetaData otherStateMetaData = that.getStateMetaData().get(stateName);
-			StateMetaCompatibility stateMetaCompatibility = entry.getValue().resolveCompatibility(otherStateMetaData);
-			if (stateMetaCompatibility.isIncompatible()) {
-				String incompatibleMessage = "StateMetaCompatibility check failed because of state: " + stateName  + " is incompatible with message :" + stateMetaCompatibility.getMessage();
-				return StateMetaCompatibility.incompatible(incompatibleMessage);
+			// Ignore some states can not be registered via registerState API yet.
+			// todo: remove this check util all states can be registered.
+			if (otherStateMetaData != null) {
+				StateMetaCompatibility stateMetaCompatibility = entry.getValue().resolveCompatibility(otherStateMetaData);
+				if (stateMetaCompatibility.isIncompatible()) {
+					String incompatibleMessage = "StateMetaCompatibility check failed because of state: " + stateName + " is incompatible with message :" + stateMetaCompatibility.getMessage();
+					return StateMetaCompatibility.incompatible(incompatibleMessage);
+				}
 			}
 		}
 		return StateMetaCompatibility.compatibleAsIs();

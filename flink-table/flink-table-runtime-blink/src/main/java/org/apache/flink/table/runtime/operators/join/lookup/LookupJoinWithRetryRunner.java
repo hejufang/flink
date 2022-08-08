@@ -19,13 +19,14 @@
 package org.apache.flink.table.runtime.operators.join.lookup;
 
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.functions.StatefulFunction;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.typeutils.TupleTypeInfo;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.runtime.collector.TableFunctionCollector;
 import org.apache.flink.table.runtime.generated.GeneratedCollector;
@@ -41,7 +42,8 @@ import java.util.List;
 /**
  * The join runner to lookup the dimension table with retry.
  */
-public class LookupJoinWithRetryRunner extends LookupJoinRunner {
+public class LookupJoinWithRetryRunner extends LookupJoinRunner
+		implements StatefulFunction {
 	private static final long serialVersionUID = 1L;
 	private static final long NO_CACHE_STATE = Long.MAX_VALUE;
 
@@ -68,20 +70,20 @@ public class LookupJoinWithRetryRunner extends LookupJoinRunner {
 	@Override
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
+		Iterable<Tuple3<RowData, Long, Integer>> tuple3Iterable = listState.get();
+		if (tuple3Iterable == null || !tuple3Iterable.iterator().hasNext()) {
+			minTriggerTimestamp = NO_CACHE_STATE;
+		} else {
+			minTriggerTimestamp = tuple3Iterable.iterator().next().f1;
+		}
+	}
+
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
 		TupleTypeInfo<Tuple3<RowData, Long, Integer>> tupleTypeInfo =
 			new TupleTypeInfo<>(leftTypeInfo, BasicTypeInfo.LONG_TYPE_INFO, BasicTypeInfo.INT_TYPE_INFO);
-		if (getRuntimeContext() instanceof StreamingRuntimeContext) {
-			listState = ((StreamingRuntimeContext) getRuntimeContext())
-				.getOperatorListState(new ListStateDescriptor<>("LookUpJoinList", tupleTypeInfo));
-			Iterable<Tuple3<RowData, Long, Integer>> tuple3Iterable = listState.get();
-			if (tuple3Iterable == null || !tuple3Iterable.iterator().hasNext()) {
-				minTriggerTimestamp = NO_CACHE_STATE;
-			} else {
-				minTriggerTimestamp = tuple3Iterable.iterator().next().f1;
-			}
-		} else {
-			throw new RuntimeException("Lookup join with retry only support streaming runtime context.");
-		}
+		listState = stateRegistry
+			.getOperatorListState(new ListStateDescriptor<>("LookUpJoinList", tupleTypeInfo));
 	}
 
 	@Override

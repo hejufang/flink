@@ -19,7 +19,6 @@
 package org.apache.flink.api.common.functions;
 
 import org.apache.flink.annotation.Public;
-import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.configuration.Configuration;
 
 /**
@@ -112,6 +111,4 @@ public interface RichFunction extends Function {
 	 * @param t The runtime context.
 	 */
 	void setRuntimeContext(RuntimeContext t);
-
-	default void registerState(StateRegistry stateRegistry) throws Exception {}
 }

@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.runtime.operators.join.stream;
 
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.util.RowDataUtil;
@@ -59,22 +60,25 @@ public class StreamingSemiAntiJoinOperator extends AbstractStreamingJoinOperator
 	}
 
 	@Override
-	public void open() throws Exception {
-		super.open();
-
+	public void registerState(StateRegistry stateRegistry) throws Exception {
 		this.leftRecordStateView = OuterJoinRecordStateViews.create(
-			getRuntimeContext(),
+			stateRegistry,
 			LEFT_RECORDS_STATE_NAME,
 			leftInputSideSpec,
 			leftType,
 			stateRetentionTime);
 
 		this.rightRecordStateView = JoinRecordStateViews.create(
-			getRuntimeContext(),
+			stateRegistry,
 			RIGHT_RECORDS_STATE_NAME,
 			rightInputSideSpec,
 			rightType,
 			stateRetentionTime);
+	}
+
+	@Override
+	public void open() throws Exception {
+		super.open();
 	}
 
 	/**

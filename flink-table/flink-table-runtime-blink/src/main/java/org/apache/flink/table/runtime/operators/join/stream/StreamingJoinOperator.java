@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.runtime.operators.join.stream;
 
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.JoinedRowData;
@@ -69,24 +70,17 @@ public class StreamingJoinOperator extends AbstractStreamingJoinOperator {
 	}
 
 	@Override
-	public void open() throws Exception {
-		super.open();
-
-		this.outRow = new JoinedRowData();
-		this.leftNullRow = new GenericRowData(leftType.getArity());
-		this.rightNullRow = new GenericRowData(rightType.getArity());
-
-		// initialize states
+	public void registerState(StateRegistry stateRegistry) throws Exception {
 		if (leftIsOuter) {
 			this.leftRecordStateView = OuterJoinRecordStateViews.create(
-				getRuntimeContext(),
+				stateRegistry,
 				"left-records",
 				leftInputSideSpec,
 				leftType,
 				stateRetentionTime);
 		} else {
 			this.leftRecordStateView = JoinRecordStateViews.create(
-				getRuntimeContext(),
+				stateRegistry,
 				"left-records",
 				leftInputSideSpec,
 				leftType,
@@ -95,19 +89,28 @@ public class StreamingJoinOperator extends AbstractStreamingJoinOperator {
 
 		if (rightIsOuter) {
 			this.rightRecordStateView = OuterJoinRecordStateViews.create(
-				getRuntimeContext(),
+				stateRegistry,
 				"right-records",
 				rightInputSideSpec,
 				rightType,
 				stateRetentionTime);
 		} else {
 			this.rightRecordStateView = JoinRecordStateViews.create(
-				getRuntimeContext(),
+				stateRegistry,
 				"right-records",
 				rightInputSideSpec,
 				rightType,
 				stateRetentionTime);
 		}
+	}
+
+	@Override
+	public void open() throws Exception {
+		super.open();
+
+		this.outRow = new JoinedRowData();
+		this.leftNullRow = new GenericRowData(leftType.getArity());
+		this.rightNullRow = new GenericRowData(rightType.getArity());
 	}
 
 	@Override

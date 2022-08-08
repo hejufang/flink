@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.runtime.operators.rank;
 
+import org.apache.flink.api.common.functions.StatefulFunction;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.Types;
@@ -48,7 +50,8 @@ import java.util.function.Function;
 /**
  * Base class for TopN Function.
  */
-public abstract class AbstractTopNFunction extends KeyedProcessFunctionWithCleanupState<RowData, RowData, RowData> {
+public abstract class AbstractTopNFunction extends KeyedProcessFunctionWithCleanupState<RowData, RowData, RowData>
+		implements StatefulFunction {
 
 	private static final Logger LOG = LoggerFactory.getLogger(AbstractTopNFunction.class);
 
@@ -136,15 +139,18 @@ public abstract class AbstractTopNFunction extends KeyedProcessFunctionWithClean
 	}
 
 	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
+		if (!isConstantRankEnd) {
+			ValueStateDescriptor<Long> rankStateDesc = new ValueStateDescriptor<>("rankEnd", Types.LONG);
+			rankEndState = stateRegistry.getState(rankStateDesc);
+		}
+	}
+
+	@Override
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
 		initCleanupTimeState("RankFunctionCleanupTime");
 		outputRow = new JoinedRowData();
-
-		if (!isConstantRankEnd) {
-			ValueStateDescriptor<Long> rankStateDesc = new ValueStateDescriptor<>("rankEnd", Types.LONG);
-			rankEndState = getRuntimeContext().getState(rankStateDesc);
-		}
 		// compile comparator
 		sortKeyComparator = generatedSortKeyComparator.newInstance(getRuntimeContext().getUserCodeClassLoader());
 		generatedSortKeyComparator = null;

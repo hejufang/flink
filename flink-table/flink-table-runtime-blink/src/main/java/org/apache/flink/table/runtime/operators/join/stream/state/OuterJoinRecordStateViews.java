@@ -18,9 +18,9 @@
 
 package org.apache.flink.table.runtime.operators.join.stream.state;
 
-import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
@@ -49,7 +49,7 @@ public final class OuterJoinRecordStateViews {
 	 * Creates a {@link OuterJoinRecordStateView} depends on {@link JoinInputSideSpec}.
 	 */
 	public static OuterJoinRecordStateView create(
-			RuntimeContext ctx,
+			StateRegistry stateRegistry,
 			String stateName,
 			JoinInputSideSpec inputSideSpec,
 			RowDataTypeInfo recordType,
@@ -57,10 +57,10 @@ public final class OuterJoinRecordStateViews {
 		StateTtlConfig ttlConfig = createTtlConfig(retentionTime);
 		if (inputSideSpec.hasUniqueKey()) {
 			if (inputSideSpec.joinKeyContainsUniqueKey()) {
-				return new OuterJoinRecordStateViews.JoinKeyContainsUniqueKey(ctx, stateName, recordType, ttlConfig);
+				return new OuterJoinRecordStateViews.JoinKeyContainsUniqueKey(stateRegistry, stateName, recordType, ttlConfig);
 			} else {
 				return new OuterJoinRecordStateViews.InputSideHasUniqueKey(
-					ctx,
+					stateRegistry,
 					stateName,
 					recordType,
 					inputSideSpec.getUniqueKeyType(),
@@ -68,7 +68,7 @@ public final class OuterJoinRecordStateViews {
 					ttlConfig);
 			}
 		} else {
-			return new OuterJoinRecordStateViews.InputSideHasNoUniqueKey(ctx, stateName, recordType, ttlConfig);
+			return new OuterJoinRecordStateViews.InputSideHasNoUniqueKey(stateRegistry, stateName, recordType, ttlConfig);
 		}
 	}
 
@@ -80,7 +80,11 @@ public final class OuterJoinRecordStateViews {
 		private final List<RowData> reusedRecordList;
 		private final List<Tuple2<RowData, Integer>> reusedTupleList;
 
-		private JoinKeyContainsUniqueKey(RuntimeContext ctx, String stateName, RowDataTypeInfo recordType, StateTtlConfig ttlConfig) {
+		private JoinKeyContainsUniqueKey(
+				StateRegistry stateRegistry,
+				String stateName,
+				RowDataTypeInfo recordType,
+				StateTtlConfig ttlConfig) {
 			TupleTypeInfo<Tuple2<RowData, Integer>> valueTypeInfo = new TupleTypeInfo<>(recordType, Types.INT);
 			ValueStateDescriptor<Tuple2<RowData, Integer>> recordStateDesc = new ValueStateDescriptor<>(
 				stateName,
@@ -88,7 +92,7 @@ public final class OuterJoinRecordStateViews {
 			if (ttlConfig.isEnabled()) {
 				recordStateDesc.enableTimeToLive(ttlConfig);
 			}
-			this.recordState = ctx.getState(recordStateDesc);
+			this.recordState = stateRegistry.getState(recordStateDesc);
 			// the result records always not more than 1
 			this.reusedRecordList = new ArrayList<>(1);
 			this.reusedTupleList = new ArrayList<>(1);
@@ -143,7 +147,7 @@ public final class OuterJoinRecordStateViews {
 		private final KeySelector<RowData, RowData> uniqueKeySelector;
 
 		private InputSideHasUniqueKey(
-				RuntimeContext ctx,
+				StateRegistry stateRegistry,
 				String stateName,
 				RowDataTypeInfo recordType,
 				RowDataTypeInfo uniqueKeyType,
@@ -159,7 +163,7 @@ public final class OuterJoinRecordStateViews {
 			if (ttlConfig.isEnabled()) {
 				recordStateDesc.enableTimeToLive(ttlConfig);
 			}
-			this.recordState = ctx.getMapState(recordStateDesc);
+			this.recordState = stateRegistry.getMapState(recordStateDesc);
 			this.uniqueKeySelector = uniqueKeySelector;
 		}
 
@@ -203,7 +207,7 @@ public final class OuterJoinRecordStateViews {
 		private final MapState<RowData, Tuple2<Integer, Integer>> recordState;
 
 		private InputSideHasNoUniqueKey(
-				RuntimeContext ctx,
+				StateRegistry stateRegistry,
 				String stateName,
 				RowDataTypeInfo recordType,
 				StateTtlConfig ttlConfig) {
@@ -215,7 +219,7 @@ public final class OuterJoinRecordStateViews {
 			if (ttlConfig.isEnabled()) {
 				recordStateDesc.enableTimeToLive(ttlConfig);
 			}
-			this.recordState = ctx.getMapState(recordStateDesc);
+			this.recordState = stateRegistry.getMapState(recordStateDesc);
 		}
 
 		@Override

@@ -19,6 +19,7 @@
 package org.apache.flink.table.runtime.operators.rank;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
@@ -96,6 +97,17 @@ public class FastTop1Function extends AbstractTopNFunction implements Checkpoint
 	}
 
 	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
+		super.registerState(stateRegistry);
+		ValueStateDescriptor<RowData> valueStateDescriptor =
+			new ValueStateDescriptor<>("Top1-Rank-State", inputRowType);
+		if (ttlConfig.isEnabled()) {
+			valueStateDescriptor.enableTimeToLive(ttlConfig);
+		}
+		dataState = stateRegistry.getState(valueStateDescriptor);
+	}
+
+	@Override
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
 		int lruCacheSize = Math.max(1, (int) (cacheSize / getDefaultTopNSize()));
@@ -110,13 +122,6 @@ public class FastTop1Function extends AbstractTopNFunction implements Checkpoint
 						.removalListener(new CacheRemovalListener())
 						.build();
 		LOG.info("Top-1 operator is using LRU caches key-size: {}", lruCacheSize);
-
-		ValueStateDescriptor<RowData> valueStateDescriptor =
-				new ValueStateDescriptor<>("Top1-Rank-State", inputRowType);
-		if (ttlConfig.isEnabled()) {
-			valueStateDescriptor.enableTimeToLive(ttlConfig);
-		}
-		dataState = getRuntimeContext().getState(valueStateDescriptor);
 
 		// metrics
 		registerMetric(kvCache.size() * getDefaultTopNSize());

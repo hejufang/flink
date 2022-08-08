@@ -21,6 +21,7 @@ package org.apache.flink.table.runtime.operators.rank;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
@@ -110,16 +111,20 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 		// compile equaliser
 		equaliser = generatedEqualiser.newInstance(getRuntimeContext().getUserCodeClassLoader());
 		generatedEqualiser = null;
+	}
 
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
+		super.registerState(stateRegistry);
 		ListTypeInfo<RowData> valueTypeInfo = new ListTypeInfo<>(inputRowType);
 		MapStateDescriptor<RowData, List<RowData>> mapStateDescriptor = new MapStateDescriptor<>(
-				"data-state", sortKeyType, valueTypeInfo);
-		dataState = getRuntimeContext().getMapState(mapStateDescriptor);
+			"data-state", sortKeyType, valueTypeInfo);
+		dataState = stateRegistry.getMapState(mapStateDescriptor);
 
 		ValueStateDescriptor<SortedMap<RowData, Long>> valueStateDescriptor = new ValueStateDescriptor<>(
-				"sorted-map",
-				new SortedMapTypeInfo<>(sortKeyType, BasicTypeInfo.LONG_TYPE_INFO, serializableComparator));
-		treeMap = getRuntimeContext().getState(valueStateDescriptor);
+			"sorted-map",
+			new SortedMapTypeInfo<>(sortKeyType, BasicTypeInfo.LONG_TYPE_INFO, serializableComparator));
+		treeMap = stateRegistry.getState(valueStateDescriptor);
 	}
 
 	@Override

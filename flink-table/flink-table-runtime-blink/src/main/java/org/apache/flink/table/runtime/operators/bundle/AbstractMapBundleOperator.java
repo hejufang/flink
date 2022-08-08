@@ -19,6 +19,7 @@
 package org.apache.flink.table.runtime.operators.bundle;
 
 import org.apache.flink.api.common.functions.util.FunctionUtils;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
@@ -76,6 +77,12 @@ public abstract class AbstractMapBundleOperator<K, V, IN, OUT>
 		chainingStrategy = ChainingStrategy.ALWAYS;
 		this.function = checkNotNull(function, "function is null");
 		this.bundleTrigger = checkNotNull(bundleTrigger, "bundleTrigger is null");
+	}
+
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
+		super.registerState(stateRegistry);
+		FunctionUtils.registerState(function, stateRegistry);
 	}
 
 	@Override

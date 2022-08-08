@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.runtime.operators.aggregate;
 
+import org.apache.flink.api.common.functions.StatefulFunction;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
@@ -52,7 +54,8 @@ import static org.apache.flink.table.runtime.util.StateTtlConfigUtil.createTtlCo
  *
  * <p>This function buffers input row in heap HashMap, and aggregates them when minibatch invoked.
  */
-public class MiniBatchGroupAggFunction extends MapBundleFunction<RowData, List<RowData>, RowData, RowData> {
+public class MiniBatchGroupAggFunction extends MapBundleFunction<RowData, List<RowData>, RowData, RowData>
+		implements StatefulFunction {
 
 	private static final long serialVersionUID = 7455939331036508477L;
 
@@ -87,9 +90,9 @@ public class MiniBatchGroupAggFunction extends MapBundleFunction<RowData, List<R
 	private final boolean generateUpdateBefore;
 
 	/**
-	 * State idle retention time which unit is MILLISECONDS.
+	 * Config for ttl of the states.
 	 */
-	private final long stateRetentionTime;
+	private final StateTtlConfig ttlConfig;
 
 	/**
 	 * Reused output row.
@@ -135,31 +138,32 @@ public class MiniBatchGroupAggFunction extends MapBundleFunction<RowData, List<R
 		this.accTypes = accTypes;
 		this.inputType = inputType;
 		this.generateUpdateBefore = generateUpdateBefore;
-		this.stateRetentionTime = stateRetentionTime;
+		this.ttlConfig = createTtlConfig(stateRetentionTime);
 	}
 
 	@Override
 	public void open(ExecutionContext ctx) throws Exception {
 		super.open(ctx);
 		// instantiate function
-		StateTtlConfig ttlConfig = createTtlConfig(stateRetentionTime);
 		function = genAggsHandler.newInstance(ctx.getRuntimeContext().getUserCodeClassLoader());
 		function.open(new PerKeyStateDataViewStore(ctx.getRuntimeContext(), ttlConfig));
 		// instantiate equaliser
 		equaliser = genRecordEqualiser.newInstance(ctx.getRuntimeContext().getUserCodeClassLoader());
-
-		RowDataTypeInfo accTypeInfo = new RowDataTypeInfo(accTypes);
-		ValueStateDescriptor<RowData> accDesc = new ValueStateDescriptor<>("accState", accTypeInfo);
-		if (ttlConfig.isEnabled()){
-			accDesc.enableTimeToLive(ttlConfig);
-		}
-		accState = ctx.getRuntimeContext().getState(accDesc);
-
 		//noinspection unchecked
 		inputRowSerializer = (TypeSerializer<RowData>) InternalSerializers.create(
 				inputType, ctx.getRuntimeContext().getExecutionConfig());
 
 		resultRow = new JoinedRowData();
+	}
+
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
+		RowDataTypeInfo accTypeInfo = new RowDataTypeInfo(accTypes);
+		ValueStateDescriptor<RowData> accDesc = new ValueStateDescriptor<>("accState", accTypeInfo);
+		if (ttlConfig.isEnabled()){
+			accDesc.enableTimeToLive(ttlConfig);
+		}
+		accState = stateRegistry.getState(accDesc);
 	}
 
 	@Override

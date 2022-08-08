@@ -203,7 +203,7 @@ public class RegisteredKeyedStateMeta extends RegisteredStateMetaBase {
 		public StateMetaCompatibility resolveCompatibility(StateMetaData that) {
 
 			if (that instanceof RegisteredOperatorStateMeta.OperatorStateMetaData) {
-				return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state " + name + "Type if different. One is OperatorState other is KeyedState");
+				return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state " + name + "type is different. One is OperatorState other is KeyedState");
 			}
 
 			TypeSerializerSchemaCompatibility namespaceSerializerCompatibility = namespaceSerializer.snapshotConfiguration().resolveSchemaCompatibility(((KeyedStateMetaData) that).getNamespaceSerializer());

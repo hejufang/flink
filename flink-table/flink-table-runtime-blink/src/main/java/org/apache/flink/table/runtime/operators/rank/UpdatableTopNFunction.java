@@ -21,6 +21,7 @@ package org.apache.flink.table.runtime.operators.rank;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.functions.KeySelector;
@@ -119,13 +120,17 @@ public class UpdatableTopNFunction extends AbstractTopNFunction implements Check
 
 		LOG.info("Top{} operator is using LRU caches key-size: {}", getDefaultTopNSize(), lruCacheSize);
 
-		TupleTypeInfo<Tuple2<RowData, Integer>> valueTypeInfo = new TupleTypeInfo<>(inputRowType, Types.INT);
-		MapStateDescriptor<RowData, Tuple2<RowData, Integer>> mapStateDescriptor = new MapStateDescriptor<>(
-				"data-state-with-update", rowKeyType, valueTypeInfo);
-		dataState = getRuntimeContext().getMapState(mapStateDescriptor);
-
 		// metrics
 		registerMetric(kvSortedMap.size() * getDefaultTopNSize());
+	}
+
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
+		super.registerState(stateRegistry);
+		TupleTypeInfo<Tuple2<RowData, Integer>> valueTypeInfo = new TupleTypeInfo<>(inputRowType, Types.INT);
+		MapStateDescriptor<RowData, Tuple2<RowData, Integer>> mapStateDescriptor = new MapStateDescriptor<>(
+			"data-state-with-update", rowKeyType, valueTypeInfo);
+		dataState = stateRegistry.getMapState(mapStateDescriptor);
 	}
 
 	@Override

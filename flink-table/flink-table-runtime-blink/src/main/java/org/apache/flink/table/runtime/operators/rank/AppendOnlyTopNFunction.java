@@ -21,6 +21,7 @@ package org.apache.flink.table.runtime.operators.rank;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.typeutils.ListTypeInfo;
 import org.apache.flink.configuration.Configuration;
@@ -82,17 +83,20 @@ public class AppendOnlyTopNFunction extends AbstractTopNFunction {
 		this.cacheSize = cacheSize;
 	}
 
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
+		super.registerState(stateRegistry);
+		ListTypeInfo<RowData> valueTypeInfo = new ListTypeInfo<>(inputRowType);
+		MapStateDescriptor<RowData, List<RowData>> mapStateDescriptor = new MapStateDescriptor<>(
+			"data-state-with-append", sortKeyType, valueTypeInfo);
+		dataState = stateRegistry.getMapState(mapStateDescriptor);
+	}
+
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
 		int lruCacheSize = Math.max(1, (int) (cacheSize / getDefaultTopNSize()));
 		kvSortedMap = new LRUMap<>(lruCacheSize);
 		LOG.info("Top{} operator is using LRU caches key-size: {}", getDefaultTopNSize(), lruCacheSize);
-
-		ListTypeInfo<RowData> valueTypeInfo = new ListTypeInfo<>(inputRowType);
-		MapStateDescriptor<RowData, List<RowData>> mapStateDescriptor = new MapStateDescriptor<>(
-				"data-state-with-append", sortKeyType, valueTypeInfo);
-		dataState = getRuntimeContext().getMapState(mapStateDescriptor);
-
 		// metrics
 		registerMetric(kvSortedMap.size() * getDefaultTopNSize());
 	}

@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.functions.Function;
 import org.apache.flink.api.common.functions.RichFunction;
 import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.functions.StatefulFunction;
 import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.configuration.Configuration;
 
@@ -45,10 +46,10 @@ public final class FunctionUtils {
 		}
 	}
 
-	public static void registerState(Function function, StateRegistry stateRegistry) throws Exception{
-		if (function instanceof RichFunction) {
-			RichFunction richFunction = (RichFunction) function;
-			richFunction.registerState(stateRegistry);
+	public static void registerState(Function function, StateRegistry stateRegistry) throws Exception {
+		if (function instanceof StatefulFunction) {
+			StatefulFunction statefulFunction = (StatefulFunction) function;
+			statefulFunction.registerState(stateRegistry);
 		}
 	}
 

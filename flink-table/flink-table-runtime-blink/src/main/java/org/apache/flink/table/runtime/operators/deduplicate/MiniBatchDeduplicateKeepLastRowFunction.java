@@ -18,12 +18,13 @@
 
 package org.apache.flink.table.runtime.operators.deduplicate;
 
+import org.apache.flink.api.common.functions.StatefulFunction;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.runtime.context.ExecutionContext;
 import org.apache.flink.table.runtime.operators.bundle.MapBundleFunction;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.util.Collector;
@@ -39,7 +40,8 @@ import static org.apache.flink.table.runtime.util.StateTtlConfigUtil.createTtlCo
  * This function is used to get the last row for every key partition in miniBatch mode.
  */
 public class MiniBatchDeduplicateKeepLastRowFunction
-		extends MapBundleFunction<RowData, RowData, RowData, RowData> {
+		extends MapBundleFunction<RowData, RowData, RowData, RowData>
+		implements StatefulFunction {
 
 	private static final long serialVersionUID = -8981813609115029119L;
 
@@ -47,7 +49,7 @@ public class MiniBatchDeduplicateKeepLastRowFunction
 	private final boolean generateUpdateBefore;
 	private final boolean generateInsert;
 	private final TypeSerializer<RowData> typeSerializer;
-	private final long minRetentionTime;
+	private final StateTtlConfig ttlConfig;
 	// state stores complete row.
 	private ValueState<RowData> state;
 
@@ -57,7 +59,7 @@ public class MiniBatchDeduplicateKeepLastRowFunction
 			boolean generateInsert,
 			TypeSerializer<RowData> typeSerializer,
 			long minRetentionTime) {
-		this.minRetentionTime = minRetentionTime;
+		this.ttlConfig = createTtlConfig(minRetentionTime);
 		this.rowTypeInfo = rowTypeInfo;
 		this.generateUpdateBefore = generateUpdateBefore;
 		this.generateInsert = generateInsert;
@@ -65,14 +67,12 @@ public class MiniBatchDeduplicateKeepLastRowFunction
 	}
 
 	@Override
-	public void open(ExecutionContext ctx) throws Exception {
-		super.open(ctx);
+	public void registerState(StateRegistry stateRegistry) throws Exception {
 		ValueStateDescriptor<RowData> stateDesc = new ValueStateDescriptor<>("preRowState", rowTypeInfo);
-		StateTtlConfig ttlConfig = createTtlConfig(minRetentionTime);
 		if (ttlConfig.isEnabled()) {
 			stateDesc.enableTimeToLive(ttlConfig);
 		}
-		state = ctx.getRuntimeContext().getState(stateDesc);
+		state = stateRegistry.getState(stateDesc);
 	}
 
 	@Override

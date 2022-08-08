@@ -94,6 +94,7 @@ import java.util.stream.Collectors;
 import scala.collection.Seq;
 
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_ENABLE_INPUT_KEYBY;
+import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LATENCY;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
@@ -118,6 +119,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 	 */
 	public interface TableSourceWithData {
 		void setTableSourceData(Collection<Row> rows);
+
+		default void setChangelog(ChangelogMode changelogMode) {}
 	}
 
 	/**
@@ -307,6 +310,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
 		boolean isBooleanKeySupported = helper.getOptions().get(BOOLEAN_LOOKUP_KEY_SUPPORTED);
 		boolean isApplicableToPushDownProjection = helper.getOptions().get(IS_APPLICABLE_TO_PUSHDOWN_PROJECTION);
+		long laterRetryMs = helper.getOptions().get(LOOKUP_LATER_JOIN_LATENCY).toMillis();
 
 		if (sourceClass.equals("DEFAULT")) {
 			Collection<Row> data = registeredData.getOrDefault(dataId, Collections.emptyList());
@@ -340,7 +344,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				isInputKeyByEnable,
 				producedDataType,
 				isBooleanKeySupported,
-				isApplicableToPushDownProjection);
+				isApplicableToPushDownProjection,
+				laterRetryMs);
 		} else {
 			try {
 				DynamicTableSource dynamicTableSource = InstantiationUtil.instantiate(
@@ -350,6 +355,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				if (dynamicTableSource instanceof TableSourceWithData) {
 					((TableSourceWithData) dynamicTableSource).setTableSourceData(
 						registeredData.getOrDefault(dataId, Collections.emptyList()));
+					((TableSourceWithData) dynamicTableSource).setChangelog(changelogMode);
 				}
 				return dynamicTableSource;
 			} catch (FlinkException e) {
@@ -398,7 +404,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 			PARTITION_LIST,
 			LOOKUP_ENABLE_INPUT_KEYBY,
 			BOOLEAN_LOOKUP_KEY_SUPPORTED,
-			IS_APPLICABLE_TO_PUSHDOWN_PROJECTION));
+			IS_APPLICABLE_TO_PUSHDOWN_PROJECTION,
+			LOOKUP_LATER_JOIN_LATENCY));
 	}
 
 	private static List<Map<String, String>> parsePartitionList(List<String> stringPartitions) {
@@ -507,25 +514,27 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		private DataType producedDataType;
 		private final Boolean isBooleanKeySupported;
 		private final boolean isApplicableToPushDownProjection;
+		private final long laterRetryMs;
 
 		private TestValuesTableSource(
-			TableSchema physicalSchema,
-			ChangelogMode changelogMode,
-			boolean bounded,
-			String runtimeSource,
-			Map<Map<String, String>, Collection<Row>> data,
-			boolean isAsync,
-			@Nullable String lookupFunctionClass,
-			boolean nestedProjectionSupported,
-			int[] projectedFields,
-			List<ResolvedExpression> filterPredicates,
-			Set<String> filterableFields,
-			long limit,
-			List<Map<String, String>> allPartitions,
-			Boolean isInputKeyByEnable,
-			DataType producedDataType,
-			boolean isBooleanKeySupported,
-			boolean isApplicableToPushDownProjection) {
+				TableSchema physicalSchema,
+				ChangelogMode changelogMode,
+				boolean bounded,
+				String runtimeSource,
+				Map<Map<String, String>, Collection<Row>> data,
+				boolean isAsync,
+				@Nullable String lookupFunctionClass,
+				boolean nestedProjectionSupported,
+				int[] projectedFields,
+				List<ResolvedExpression> filterPredicates,
+				Set<String> filterableFields,
+				long limit,
+				List<Map<String, String>> allPartitions,
+				Boolean isInputKeyByEnable,
+				DataType producedDataType,
+				boolean isBooleanKeySupported,
+				boolean isApplicableToPushDownProjection,
+				long laterRetryMs) {
 			this.physicalSchema = physicalSchema;
 			this.changelogMode = changelogMode;
 			this.bounded = bounded;
@@ -543,6 +552,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 			this.producedDataType = producedDataType;
 			this.isBooleanKeySupported = isBooleanKeySupported;
 			this.isApplicableToPushDownProjection = isApplicableToPushDownProjection;
+			this.laterRetryMs = laterRetryMs;
 		}
 
 		@Override
@@ -646,6 +656,11 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		}
 
 		@Override
+		public long getLaterJoinMs() {
+			return laterRetryMs;
+		}
+
+		@Override
 		public boolean supportsNestedProjection() {
 			return nestedProjectionSupported;
 		}
@@ -712,7 +727,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				isInputKeyByEnable,
 				producedDataType,
 				isBooleanKeySupported,
-				isApplicableToPushDownProjection);
+				isApplicableToPushDownProjection,
+				laterRetryMs);
 		}
 
 		@Override

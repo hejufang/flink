@@ -99,11 +99,11 @@ public abstract class StateMetaData implements Serializable {
 	public StateMetaCompatibility resolveCompatibility(StateMetaData that) {
 
 		if (!name.equals(that.getName())) {
-			return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state name if different. One is " + name + " and the other is " + that.getName());
+			return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state name is different. One is " + name + " and the other is " + that.getName());
 		}
 
 		if (!type.equals(that.getType())) {
-			return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state type if different. One is " + type + " and the other is " + that.getType());
+			return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state type is different. One is " + type + " and the other is " + that.getType());
 		}
 
 		stateDescriptor.initializeSerializerUnlessSet(new ExecutionConfig());

@@ -45,6 +45,11 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
+import org.apache.flink.runtime.state.internal.InternalAggregatingState;
+import org.apache.flink.runtime.state.internal.InternalListState;
+import org.apache.flink.runtime.state.internal.InternalMapState;
+import org.apache.flink.runtime.state.internal.InternalReducingState;
+import org.apache.flink.runtime.state.internal.InternalValueState;
 import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.graph.StreamNode;
@@ -81,12 +86,12 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	private TypeSerializer keySerializer;
 
 	private static final Map<Class<? extends StateDescriptor>, NoOpState> NO_OP_STATE_MAP = Stream.of(
-			Tuple2.of(ValueStateDescriptor.class, new NoOpValueState()),
-			Tuple2.of(ListStateDescriptor.class, new NoOpListState()),
-			Tuple2.of(MapStateDescriptor.class, new NoOpMapState()),
-			Tuple2.of(ReducingStateDescriptor.class, new NoOpReducingState()),
-			Tuple2.of(AggregatingStateDescriptor.class, new NoOpAggregatingState())
-		).collect(Collectors.toMap(t -> t.f0, t -> t.f1));
+		Tuple2.of(ValueStateDescriptor.class, new NoOpValueState()),
+		Tuple2.of(ListStateDescriptor.class, new NoOpKeyedListState()),
+		Tuple2.of(MapStateDescriptor.class, new NoOpMapState()),
+		Tuple2.of(ReducingStateDescriptor.class, new NoOpReducingState()),
+		Tuple2.of(AggregatingStateDescriptor.class, new NoOpAggregatingState())
+	).collect(Collectors.toMap(t -> t.f0, t -> t.f1));
 
 	private static final String NO_OP_STATE_EXCEPTION_PREFIX = "All Operations are NOT allowed in ";
 
@@ -108,6 +113,7 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	public <N, S extends State, V> S getOrCreateKeyedState(
 		final TypeSerializer<N> namespaceSerializer,
 		StateDescriptor<S, V> stateDescriptor) {
+		checkIfKeyedStateIsNull();
 		operatorStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(stateDescriptor, namespaceSerializer));
 		return (S) NO_OP_STATE_MAP.get(stateDescriptor.getClass());
 	}
@@ -138,7 +144,7 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	public <T> ListState<T> getListState(ListStateDescriptor<T> stateProperties) {
 		checkIfKeyedStateIsNull();
 		operatorStateMeta.addStateMetaData(new RegisteredKeyedStateMeta.KeyedStateMetaData(stateProperties));
-		return new NoOpListState<>();
+		return new NoOpKeyedListState<>();
 	}
 
 	@Override
@@ -166,7 +172,7 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	public <T> ListState<T> getOperatorListState(ListStateDescriptor<T> stateProperties) {
 		checkIfOperatorStateIsNull();
 		operatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.SPLIT_DISTRIBUTE, stateProperties));
-		return new NoOpListState<>();
+		return new NoOpOperatorListState<>();
 	}
 
 	@Override
@@ -203,14 +209,14 @@ public class OperatorStateMetaCollector implements StateRegistry {
 		public <S> ListState<S> getListState(ListStateDescriptor<S> stateDescriptor) throws Exception {
 			checkIfOperatorStateIsNull();
 			operatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.SPLIT_DISTRIBUTE, stateDescriptor));
-			return new NoOpListState<>();
+			return new NoOpOperatorListState<>();
 		}
 
 		@Override
 		public <S> ListState<S> getUnionListState(ListStateDescriptor<S> stateDescriptor) throws Exception {
 			checkIfOperatorStateIsNull();
 			operatorStateMeta.addStateMetaData(new RegisteredOperatorStateMeta.OperatorStateMetaData(OperatorStateHandle.Mode.UNION, stateDescriptor));
-			return new NoOpListState<>();
+			return new NoOpOperatorListState<>();
 		}
 
 		@Override
@@ -275,10 +281,11 @@ public class OperatorStateMetaCollector implements StateRegistry {
 
 	private interface NoOpState {}
 
+
 	/**
 	 * NoOpListState.
 	 */
-	public static class NoOpListState<T> implements ListState<T>, NoOpState, Serializable {
+	public static class NoOpOperatorListState<T> implements ListState<T>, NoOpState, Serializable {
 
 		@Override
 		public void update(List<T> values) {
@@ -307,52 +314,129 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	}
 
 	/**
+	 * NoOpListState.
+	 */
+	public static class NoOpKeyedListState<K, N, T> implements InternalListState<K, N, T>, NoOpState, Serializable {
+
+		@Override
+		public Iterable<T> get() throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void add(T value) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void clear() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public List<T> getInternal() throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void updateInternal(List<T> valueToStore) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<K> getKeySerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<N> getNamespaceSerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<List<T>> getValueSerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void setCurrentNamespace(N namespace) {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public byte[] getSerializedValue(byte[] serializedKeyAndNamespace, TypeSerializer<K> safeKeySerializer, TypeSerializer<N> safeNamespaceSerializer, TypeSerializer<List<T>> safeValueSerializer) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public StateIncrementalVisitor<K, N, List<T>> getStateIncrementalVisitor(int recommendedMaxNumberOfReturnedRecords) {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void update(List<T> values) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void addAll(List<T> values) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void mergeNamespaces(N target, Collection<N> sources) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+	}
+
+
+	/**
 	 * NoOpMapState.
 	 */
-	public static class NoOpMapState<K, V> implements MapState<K, V>, NoOpState, Serializable{
+	public static class NoOpMapState<K, N, UK, UV> implements InternalMapState<K, N, UK, UV>, NoOpState, Serializable{
 
 		@Override
-		public V get(K key) throws Exception {
+		public UV get(UK key) throws Exception {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
 
 		@Override
-		public void put(K key, V value) throws Exception {
+		public void put(UK key, UV value) throws Exception {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
 
 		@Override
-		public void putAll(Map<K, V> map) throws Exception {
+		public void putAll(Map<UK, UV> map) throws Exception {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
 
 		@Override
-		public void remove(K key) throws Exception {
+		public void remove(UK key) throws Exception {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
 
 		@Override
-		public boolean contains(K key) throws Exception {
+		public boolean contains(UK key) throws Exception {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
 
 		@Override
-		public Iterable<Map.Entry<K, V>> entries() throws Exception {
+		public Iterable<Map.Entry<UK, UV>> entries() throws Exception {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
 
 		@Override
-		public Iterable<K> keys() throws Exception {
+		public Iterable<UK> keys() throws Exception {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
 
 		@Override
-		public Iterable<V> values() throws Exception {
+		public Iterable<UV> values() throws Exception {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
 
 		@Override
-		public Iterator<Map.Entry<K, V>> iterator() throws Exception {
+		public Iterator<Map.Entry<UK, UV>> iterator() throws Exception {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
 
@@ -365,12 +449,42 @@ public class OperatorStateMetaCollector implements StateRegistry {
 		public void clear() {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
+
+		@Override
+		public TypeSerializer<K> getKeySerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<N> getNamespaceSerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<Map<UK, UV>> getValueSerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void setCurrentNamespace(N namespace) {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public byte[] getSerializedValue(byte[] serializedKeyAndNamespace, TypeSerializer<K> safeKeySerializer, TypeSerializer<N> safeNamespaceSerializer, TypeSerializer<Map<UK, UV>> safeValueSerializer) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public StateIncrementalVisitor<K, N, Map<UK, UV>> getStateIncrementalVisitor(int recommendedMaxNumberOfReturnedRecords) {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
 	}
 
 	/**
 	 * NoOpValueState.
 	 */
-	public static class NoOpValueState<T> implements ValueState<T>, NoOpState, Serializable {
+	public static class NoOpValueState<K, N, T> implements InternalValueState<K, N, T>, NoOpState, Serializable {
 
 		@Override
 		public void clear() {
@@ -383,6 +497,36 @@ public class OperatorStateMetaCollector implements StateRegistry {
 
 		@Override
 		public void update(T value) throws IOException {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<K> getKeySerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<N> getNamespaceSerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<T> getValueSerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void setCurrentNamespace(N namespace) {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public byte[] getSerializedValue(byte[] serializedKeyAndNamespace, TypeSerializer<K> safeKeySerializer, TypeSerializer<N> safeNamespaceSerializer, TypeSerializer<T> safeValueSerializer) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public StateIncrementalVisitor<K, N, T> getStateIncrementalVisitor(int recommendedMaxNumberOfReturnedRecords) {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
 	}
@@ -436,11 +580,12 @@ public class OperatorStateMetaCollector implements StateRegistry {
 	/**
 	 * NoOpReducingState.
 	 */
-	public static class NoOpReducingState<T> implements ReducingState<T>, NoOpState, Serializable {
+	public static class NoOpReducingState<K, N, T> implements InternalReducingState<K, N, T>, NoOpState, Serializable {
 
 		@Override
 		public T get() throws Exception {
-			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());		}
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
 
 		@Override
 		public void add(T value) throws Exception {
@@ -451,16 +596,62 @@ public class OperatorStateMetaCollector implements StateRegistry {
 		public void clear() {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
+
+		@Override
+		public T getInternal() throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void updateInternal(T valueToStore) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<K> getKeySerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<N> getNamespaceSerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<T> getValueSerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void setCurrentNamespace(N namespace) {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public byte[] getSerializedValue(byte[] serializedKeyAndNamespace, TypeSerializer<K> safeKeySerializer, TypeSerializer<N> safeNamespaceSerializer, TypeSerializer<T> safeValueSerializer) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public StateIncrementalVisitor<K, N, T> getStateIncrementalVisitor(int recommendedMaxNumberOfReturnedRecords) {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void mergeNamespaces(N target, Collection<N> sources) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
 	}
 
 	/**
 	 * NoOpAggregatingState.
 	 */
-	public static class NoOpAggregatingState<IN, OUT>  implements AggregatingState<IN, OUT>, NoOpState, Serializable {
+	public static class NoOpAggregatingState<K, N, IN, SV, OUT>  implements InternalAggregatingState<K, N, IN, SV, OUT>, NoOpState, Serializable {
 
 		@Override
 		public OUT get() throws Exception {
-			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());		}
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
 
 		@Override
 		public void add(IN value) throws Exception {
@@ -469,6 +660,51 @@ public class OperatorStateMetaCollector implements StateRegistry {
 
 		@Override
 		public void clear() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public SV getInternal() throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void updateInternal(SV valueToStore) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<K> getKeySerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<N> getNamespaceSerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public TypeSerializer<SV> getValueSerializer() {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void setCurrentNamespace(N namespace) {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public byte[] getSerializedValue(byte[] serializedKeyAndNamespace, TypeSerializer<K> safeKeySerializer, TypeSerializer<N> safeNamespaceSerializer, TypeSerializer<SV> safeValueSerializer) throws Exception {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public StateIncrementalVisitor<K, N, SV> getStateIncrementalVisitor(int recommendedMaxNumberOfReturnedRecords) {
+			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
+		}
+
+		@Override
+		public void mergeNamespaces(N target, Collection<N> sources) throws Exception {
 			throw new UnsupportedOperationException(NO_OP_STATE_EXCEPTION_PREFIX + getClass().getName());
 		}
 	}

@@ -451,7 +451,11 @@ public abstract class AbstractStreamOperator<OUT>
 	 * @return The job's execution config.
 	 */
 	public ExecutionConfig getExecutionConfig() {
-		return container.getExecutionConfig();
+		if (container != null) {
+			return container.getExecutionConfig();
+		}
+		// For state register.
+		return new ExecutionConfig();
 	}
 
 	public StreamConfig getOperatorConfig() {

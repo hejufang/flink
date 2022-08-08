@@ -297,6 +297,13 @@ object TestData {
     row(21, 6L, "Comment#15", unixTimestampToLocalDateTime(21000L))
   )
 
+  lazy val data4WithTimestamp: Seq[Row] = Seq(
+    row( "Hello", 2, 2L, 1.2f, unixTimestampToLocalDateTime(2000L)),
+    row("Hi", 1, 1L, 2.2f, unixTimestampToLocalDateTime(1000L)),
+    row("Hello world", 3, 2L, 1.3f, unixTimestampToLocalDateTime(3000L)),
+    row("Hello world, how are you?", 4, 3L, 2.4f, unixTimestampToLocalDateTime(4000L))
+  )
+
   lazy val smallNestedTupleData: Seq[((Int, Int), String)] = {
       val data = new mutable.MutableList[((Int, Int), String)]
       data.+=(((1, 1), "one"))

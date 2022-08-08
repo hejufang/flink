@@ -19,102 +19,44 @@
 
 package org.apache.flink.test.checkpointing;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.functions.RichMapFunction;
+import org.apache.flink.api.common.functions.StatefulFunction;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.base.IntSerializer;
 import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.api.java.functions.KeySelector;
-import org.apache.flink.client.ClientUtils;
-import org.apache.flink.client.cli.CheckpointVerifier;
 import org.apache.flink.client.cli.CheckpointVerifyResult;
-import org.apache.flink.client.program.ClusterClient;
-import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.MemorySize;
-import org.apache.flink.runtime.checkpoint.Checkpoints;
-import org.apache.flink.runtime.checkpoint.OperatorState;
-import org.apache.flink.runtime.checkpoint.OperatorStateMeta;
 import org.apache.flink.runtime.jobgraph.JobGraph;
-import org.apache.flink.runtime.jobgraph.JobVertex;
-import org.apache.flink.runtime.jobgraph.JobVertexID;
-import org.apache.flink.runtime.jobgraph.OperatorID;
-import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
-import org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage;
-import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
-import org.apache.flink.test.util.MiniClusterWithClientResource;
-import org.apache.flink.util.TestLogger;
 
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.DataInputStream;
-import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-import static org.junit.Assert.fail;
 
 /**
  * CheckpointVerifyITCase.
  */
-public class CheckpointVerifyITCase extends TestLogger {
-
-	private static final Logger LOG = LoggerFactory.getLogger(SavepointITCase.class);
+public class CheckpointVerifyITCase extends CheckpointVerifyTestBase {
 	private static final String JOB_NAME = "savepoint-job";
 
-	@Rule
-	public final TemporaryFolder folder = new TemporaryFolder();
-
-	private File checkpointDir;
-
-	private File savepointDir;
-
-	private Configuration config = new Configuration();
-
-	private MiniClusterResourceFactory clusterFactory;
-
-	private KeySelector defaultKeySelector = new KeySelector<Integer, String>() {
-		@Override
-		public String getKey(Integer value) throws Exception {
-			return value.toString();
-		}
-	};
+	private KeySelector defaultKeySelector = (KeySelector<Integer, String>) value -> value.toString();
 
 	private ValueStateDescriptor defaultValueStateDescriptor = new ValueStateDescriptor("state", StringSerializer.INSTANCE);
 
-	@Before
-	public void setUp() throws Exception {
-		final File testRoot = folder.newFolder();
-
-		checkpointDir = new File(testRoot, "checkpoints");
-		savepointDir = new File(testRoot, "savepoints");
-
-		if (!checkpointDir.mkdir() || !savepointDir.mkdirs()) {
-			fail("Test setup failed: failed to create temporary directories.");
-		}
-
-		config.setString(CheckpointingOptions.STATE_BACKEND, "filesystem");
-		config.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointDir.toURI().toString());
-		config.set(CheckpointingOptions.FS_SMALL_FILE_THRESHOLD, MemorySize.ZERO);
-		config.setString(CheckpointingOptions.SAVEPOINT_DIRECTORY, savepointDir.toURI().toString());
-		config.setBoolean(CheckpointingOptions.ALLOW_PERSIST_STATE_META, true);
-		clusterFactory = new MiniClusterResourceFactory(1, 1, config);
+	private JobGraph createJobGraph(KeySelector keySelector, ValueStateDescriptor stateDescriptor) {
+		StatefulMap statefulMap = new StatefulMap(stateDescriptor);
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setParallelism(1);
+		env.addSource(new InfiniteTestSource()).uid("source")
+			.keyBy(keySelector)
+			.map(statefulMap).uid("map");
+		return env.getStreamGraph(JOB_NAME).getJobGraph();
 	}
 
 	@Test
@@ -127,92 +69,11 @@ public class CheckpointVerifyITCase extends TestLogger {
 
 	@Test
 	public void testKeyedSerializerIncompatible() throws Exception {
-		KeySelector keySelector = new KeySelector<Integer, Integer>() {
-			@Override
-			public Integer getKey(Integer value) throws Exception {
-				return value;
-			}
-		};
+		KeySelector keySelector = (KeySelector<Integer, Integer>) value -> value;
 
 		final String savepointPath = submitJobAndTakeSavepoint(clusterFactory, createJobGraph(defaultKeySelector, defaultValueStateDescriptor));
 		CheckpointVerifyResult checkpointVerifyResult = verifyCheckpoint(savepointPath, createJobGraph(keySelector, defaultValueStateDescriptor));
 		Assert.assertEquals(checkpointVerifyResult, CheckpointVerifyResult.STATE_SERIALIZER_INCOMPATIBLE);
-	}
-
-	private JobGraph createJobGraph(KeySelector keySelector, ValueStateDescriptor stateDescriptor) {
-		StatefulMap statefulMap = new StatefulMap(stateDescriptor);
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-				env.setParallelism(1);
-				env.addSource(new InfiniteTestSource()).uid("source")
-					.keyBy(keySelector)
-					.map(statefulMap).uid("map");
-				return env.getStreamGraph(JOB_NAME).getJobGraph();
-
-	}
-
-	private String submitJobAndTakeSavepoint(
-		MiniClusterResourceFactory clusterFactory,
-		JobGraph jobGraph) throws Exception {
-		final JobID jobId = jobGraph.getJobID();
-
-		MiniClusterWithClientResource cluster = clusterFactory.get();
-		cluster.before();
-		ClusterClient<?> client = cluster.getClusterClient();
-
-		try {
-			ClientUtils.submitJob(client, jobGraph);
-			client.waitAllTaskRunningOrClusterFailed(jobId, 60000).get(10, TimeUnit.SECONDS);
-			return client.cancelWithSavepoint(jobId, savepointDir.getAbsolutePath()).get();
-		} finally {
-			cluster.after();
-		}
-	}
-
-	private CheckpointVerifyResult verifyCheckpoint(
-		String savepointPath,
-		JobGraph jobGraph) throws Exception {
-
-		Map<JobVertexID, JobVertex> tasks = new HashMap<>();
-
-		jobGraph.getVertices().forEach(jobVertex -> {
-			tasks.put(jobVertex.getID(), jobVertex);
-		});
-		CompletedCheckpointStorageLocation location = AbstractFsCheckpointStorage
-			.resolveCheckpointPointer(savepointPath);
-
-		Map<OperatorID, OperatorState> operatorIDAndOperatorState;
-		try (DataInputStream stream = new DataInputStream(location.getMetadataHandle().openInputStream())) {
-			operatorIDAndOperatorState = Checkpoints.loadCheckpointMetadata(stream, Thread.currentThread().getContextClassLoader(), savepointPath)
-				.getOperatorStates().stream().collect(Collectors.toMap(OperatorState::getOperatorID, Function.identity()));
-		}
-
-		Map<OperatorID, OperatorStateMeta> operatorIDOperatorStateMetas = CheckpointVerifier.resolveStateMetaFromCheckpointPath(savepointPath, Thread.currentThread().getContextClassLoader());
-		return CheckpointVerifier.getCheckpointVerifyResult(tasks, CheckpointVerifier.mergeLatestStateAndMetas(operatorIDAndOperatorState, operatorIDOperatorStateMetas));
-	}
-
-	// ------------------------------------------------------------------------
-	// Utilities
-	// ------------------------------------------------------------------------
-
-	private static class MiniClusterResourceFactory {
-		private final int numTaskManagers;
-		private final int numSlotsPerTaskManager;
-		private final Configuration config;
-
-		private MiniClusterResourceFactory(int numTaskManagers, int numSlotsPerTaskManager, Configuration config) {
-			this.numTaskManagers = numTaskManagers;
-			this.numSlotsPerTaskManager = numSlotsPerTaskManager;
-			this.config = config;
-		}
-
-		MiniClusterWithClientResource get() {
-			return new MiniClusterWithClientResource(
-				new MiniClusterResourceConfiguration.Builder()
-					.setConfiguration(config)
-					.setNumberTaskManagers(numTaskManagers)
-					.setNumberSlotsPerTaskManager(numSlotsPerTaskManager)
-					.build());
-		}
 	}
 
 	private static class InfiniteTestSource implements SourceFunction<Integer> {
@@ -237,7 +98,7 @@ public class CheckpointVerifyITCase extends TestLogger {
 	}
 
 	private static class StatefulMap extends RichMapFunction<Integer, Integer>
-		implements CheckpointedFunction {
+		implements CheckpointedFunction, StatefulFunction {
 
 		private ValueStateDescriptor stateDescriptor;
 

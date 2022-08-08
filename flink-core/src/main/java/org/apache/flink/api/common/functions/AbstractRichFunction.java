@@ -19,7 +19,6 @@ c * Licensed to the Apache Software Foundation (ASF) under one
 package org.apache.flink.api.common.functions;
 
 import org.apache.flink.annotation.Public;
-import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.configuration.Configuration;
 
 import java.io.Serializable;
@@ -75,7 +74,4 @@ public abstract class AbstractRichFunction implements RichFunction, Serializable
 
 	@Override
 	public void close() throws Exception {}
-
-	@Override
-	public void registerState(StateRegistry stateRegistry) throws Exception {}
 }

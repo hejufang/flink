@@ -18,9 +18,9 @@
 
 package org.apache.flink.table.runtime.operators.join.stream.state;
 
-import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
@@ -47,7 +47,7 @@ public final class JoinRecordStateViews {
 	 * Creates a {@link JoinRecordStateView} depends on {@link JoinInputSideSpec}.
 	 */
 	public static JoinRecordStateView create(
-			RuntimeContext ctx,
+			StateRegistry stateRegistry,
 			String stateName,
 			JoinInputSideSpec inputSideSpec,
 			RowDataTypeInfo recordType,
@@ -55,10 +55,10 @@ public final class JoinRecordStateViews {
 		StateTtlConfig ttlConfig = createTtlConfig(retentionTime);
 		if (inputSideSpec.hasUniqueKey()) {
 			if (inputSideSpec.joinKeyContainsUniqueKey()) {
-				return new JoinKeyContainsUniqueKey(ctx, stateName, recordType, ttlConfig);
+				return new JoinKeyContainsUniqueKey(stateRegistry, stateName, recordType, ttlConfig);
 			} else {
 				return new InputSideHasUniqueKey(
-					ctx,
+					stateRegistry,
 					stateName,
 					recordType,
 					inputSideSpec.getUniqueKeyType(),
@@ -66,7 +66,7 @@ public final class JoinRecordStateViews {
 					ttlConfig);
 			}
 		} else {
-			return new InputSideHasNoUniqueKey(ctx, stateName, recordType, ttlConfig);
+			return new InputSideHasNoUniqueKey(stateRegistry, stateName, recordType, ttlConfig);
 		}
 	}
 
@@ -78,7 +78,7 @@ public final class JoinRecordStateViews {
 		private final List<RowData> reusedList;
 
 		private JoinKeyContainsUniqueKey(
-				RuntimeContext ctx,
+				StateRegistry stateRegistry,
 				String stateName,
 				RowDataTypeInfo recordType,
 				StateTtlConfig ttlConfig) {
@@ -88,7 +88,7 @@ public final class JoinRecordStateViews {
 			if (ttlConfig.isEnabled()) {
 				recordStateDesc.enableTimeToLive(ttlConfig);
 			}
-			this.recordState = ctx.getState(recordStateDesc);
+			this.recordState = stateRegistry.getState(recordStateDesc);
 			// the result records always not more than 1
 			this.reusedList = new ArrayList<>(1);
 		}
@@ -121,7 +121,7 @@ public final class JoinRecordStateViews {
 		private final KeySelector<RowData, RowData> uniqueKeySelector;
 
 		private InputSideHasUniqueKey(
-				RuntimeContext ctx,
+				StateRegistry stateRegistry,
 				String stateName,
 				RowDataTypeInfo recordType,
 				RowDataTypeInfo uniqueKeyType,
@@ -136,7 +136,7 @@ public final class JoinRecordStateViews {
 			if (ttlConfig.isEnabled()) {
 				recordStateDesc.enableTimeToLive(ttlConfig);
 			}
-			this.recordState = ctx.getMapState(recordStateDesc);
+			this.recordState = stateRegistry.getMapState(recordStateDesc);
 			this.uniqueKeySelector = uniqueKeySelector;
 		}
 
@@ -163,7 +163,7 @@ public final class JoinRecordStateViews {
 		private final MapState<RowData, Integer> recordState;
 
 		private InputSideHasNoUniqueKey(
-				RuntimeContext ctx,
+				StateRegistry stateRegistry,
 				String stateName,
 				RowDataTypeInfo recordType,
 				StateTtlConfig ttlConfig) {
@@ -174,7 +174,7 @@ public final class JoinRecordStateViews {
 			if (ttlConfig.isEnabled()) {
 				recordStateDesc.enableTimeToLive(ttlConfig);
 			}
-			this.recordState = ctx.getMapState(recordStateDesc);
+			this.recordState = stateRegistry.getMapState(recordStateDesc);
 		}
 
 		@Override

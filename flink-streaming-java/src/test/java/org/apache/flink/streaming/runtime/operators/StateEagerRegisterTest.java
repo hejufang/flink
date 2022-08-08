@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.runtime.operators;
 
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
+import org.apache.flink.api.common.functions.StatefulFunction;
 import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
@@ -152,7 +153,8 @@ public class StateEagerRegisterTest {
 		Assert.assertEquals(sourceStateMeta.getOperatorStateMeta(), expectedOperatorStateMeta);
 	}
 
-	private static class TestStatefulSource extends RichSourceFunction<String> {
+	private static class TestStatefulSource extends RichSourceFunction<String>
+			implements StatefulFunction {
 
 		public static ListStateDescriptor<Integer> listStateDescriptor = new ListStateDescriptor<>(
 		"LIST_STATE", Integer.TYPE);
@@ -182,7 +184,8 @@ public class StateEagerRegisterTest {
 		}
 	}
 
-	private static class StateFulFlatMapFunction extends RichFlatMapFunction<String, String> {
+	private static class StateFulFlatMapFunction extends RichFlatMapFunction<String, String>
+			implements StatefulFunction{
 
 		public static ValueStateDescriptor<Integer> valueStateDescriptor = new ValueStateDescriptor<>("VAULE_STAET", Integer.TYPE);
 		public static ListStateDescriptor<Integer> listStateDescriptor = new ListStateDescriptor<>(

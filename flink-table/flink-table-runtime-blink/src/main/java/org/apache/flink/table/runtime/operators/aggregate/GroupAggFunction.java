@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.runtime.operators.aggregate;
 
+import org.apache.flink.api.common.functions.StatefulFunction;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
@@ -42,7 +44,8 @@ import static org.apache.flink.table.runtime.util.StateTtlConfigUtil.createTtlCo
 /**
  * Aggregate Function used for the groupby (without window) aggregate.
  */
-public class GroupAggFunction extends KeyedProcessFunction<RowData, RowData, RowData> {
+public class GroupAggFunction extends KeyedProcessFunction<RowData, RowData, RowData>
+		implements StatefulFunction {
 
 	private static final long serialVersionUID = -4767158666069797704L;
 
@@ -72,9 +75,9 @@ public class GroupAggFunction extends KeyedProcessFunction<RowData, RowData, Row
 	private final boolean generateUpdateBefore;
 
 	/**
-	 * State idle retention time which unit is MILLISECONDS.
+	 * Config for ttl of the states.
 	 */
-	private final long stateRetentionTime;
+	private final StateTtlConfig ttlConfig;
 
 	/**
 	 * Reused output row.
@@ -114,27 +117,28 @@ public class GroupAggFunction extends KeyedProcessFunction<RowData, RowData, Row
 		this.accTypes = accTypes;
 		this.recordCounter = RecordCounter.of(indexOfCountStar);
 		this.generateUpdateBefore = generateUpdateBefore;
-		this.stateRetentionTime = stateRetentionTime;
+		this.ttlConfig = createTtlConfig(stateRetentionTime);
 	}
 
 	@Override
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
 		// instantiate function
-		StateTtlConfig ttlConfig = createTtlConfig(stateRetentionTime);
 		function = genAggsHandler.newInstance(getRuntimeContext().getUserCodeClassLoader());
 		function.open(new PerKeyStateDataViewStore(getRuntimeContext(), ttlConfig));
 		// instantiate equaliser
 		equaliser = genRecordEqualiser.newInstance(getRuntimeContext().getUserCodeClassLoader());
+		resultRow = new JoinedRowData();
+	}
 
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
 		RowDataTypeInfo accTypeInfo = new RowDataTypeInfo(accTypes);
 		ValueStateDescriptor<RowData> accDesc = new ValueStateDescriptor<>("accState", accTypeInfo);
 		if (ttlConfig.isEnabled()){
 			accDesc.enableTimeToLive(ttlConfig);
 		}
-		accState = getRuntimeContext().getState(accDesc);
-
-		resultRow = new JoinedRowData();
+		accState = stateRegistry.getState(accDesc);
 	}
 
 	@Override
@@ -182,7 +186,7 @@ public class GroupAggFunction extends KeyedProcessFunction<RowData, RowData, Row
 
 			// if this was not the first row and we have to emit retractions
 			if (!firstRow) {
-				if (stateRetentionTime <= 0 && equaliser.equals(prevAggValue, newAggValue)) {
+				if (!ttlConfig.isEnabled() && equaliser.equals(prevAggValue, newAggValue)) {
 					// newRow is the same as before and state cleaning is not enabled.
 					// We do not emit retraction and acc message.
 					// If state cleaning is enabled, we have to emit messages to prevent too early

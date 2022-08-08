@@ -154,11 +154,11 @@ public class RegisteredOperatorStateMeta extends RegisteredStateMetaBase {
 		public StateMetaCompatibility resolveCompatibility(StateMetaData that) {
 
 			if (that instanceof RegisteredKeyedStateMeta.KeyedStateMetaData) {
-				return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state " + name + "Type if different. One is OperatorState other is KeyedState");
+				return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state " + name + "type is different. One is OperatorState other is KeyedState");
 			}
 
-			if (distributeMode.equals(((OperatorStateMetaData) that).getDistributeMode())) {
-				return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state distributeMode if different. One is " + distributeMode + " and the other is " + ((OperatorStateMetaData) that).getDistributeMode());
+			if (!distributeMode.equals(((OperatorStateMetaData) that).getDistributeMode())) {
+				return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state distributeMode is different. One is " + distributeMode + " and the other is " + ((OperatorStateMetaData) that).getDistributeMode());
 			}
 			return super.resolveCompatibility(that);
 		}

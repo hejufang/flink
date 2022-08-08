@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.runtime.operators.aggregate;
 
+import org.apache.flink.api.common.functions.StatefulFunction;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
@@ -44,8 +46,8 @@ import static org.apache.flink.table.runtime.util.StateTtlConfigUtil.createTtlCo
 /**
  * Aggregate Function used for the global groupby (without window) aggregate in miniBatch mode.
  */
-public class MiniBatchGlobalGroupAggFunction extends MapBundleFunction<RowData, RowData, RowData, RowData> {
-
+public class MiniBatchGlobalGroupAggFunction extends MapBundleFunction<RowData, RowData, RowData, RowData>
+		implements StatefulFunction {
 
 	private static final long serialVersionUID = 8349579876002001744L;
 
@@ -80,9 +82,9 @@ public class MiniBatchGlobalGroupAggFunction extends MapBundleFunction<RowData, 
 	private final boolean generateUpdateBefore;
 
 	/**
-	 * State idle retention time which unit is MILLISECONDS.
+	 * Config for ttl of the states.
 	 */
-	private final long stateRetentionTime;
+	private final StateTtlConfig ttlConfig;
 
 	/**
 	 * Reused output row.
@@ -128,29 +130,29 @@ public class MiniBatchGlobalGroupAggFunction extends MapBundleFunction<RowData, 
 		this.accTypes = accTypes;
 		this.recordCounter = RecordCounter.of(indexOfCountStar);
 		this.generateUpdateBefore = generateUpdateBefore;
-		this.stateRetentionTime = stateRetentionTime;
+		this.ttlConfig = createTtlConfig(stateRetentionTime);
 	}
 
 	@Override
 	public void open(ExecutionContext ctx) throws Exception {
 		super.open(ctx);
-		StateTtlConfig ttlConfig = createTtlConfig(stateRetentionTime);
 		localAgg = genLocalAggsHandler.newInstance(ctx.getRuntimeContext().getUserCodeClassLoader());
 		localAgg.open(new PerKeyStateDataViewStore(ctx.getRuntimeContext(), ttlConfig));
 
 		globalAgg = genGlobalAggsHandler.newInstance(ctx.getRuntimeContext().getUserCodeClassLoader());
 		globalAgg.open(new PerKeyStateDataViewStore(ctx.getRuntimeContext(), ttlConfig));
-
 		equaliser = genRecordEqualiser.newInstance(ctx.getRuntimeContext().getUserCodeClassLoader());
+		resultRow = new JoinedRowData();
+	}
 
+	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
 		RowDataTypeInfo accTypeInfo = new RowDataTypeInfo(accTypes);
 		ValueStateDescriptor<RowData> accDesc = new ValueStateDescriptor<>("accState", accTypeInfo);
 		if (ttlConfig.isEnabled()){
 			accDesc.enableTimeToLive(ttlConfig);
 		}
-		accState = ctx.getRuntimeContext().getState(accDesc);
-
-		resultRow = new JoinedRowData();
+		accState = stateRegistry.getState(accDesc);
 	}
 
 	/**

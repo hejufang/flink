@@ -18,13 +18,14 @@
 
 package org.apache.flink.table.runtime.operators.deduplicate;
 
+import org.apache.flink.api.common.functions.StatefulFunction;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.runtime.context.ExecutionContext;
 import org.apache.flink.table.runtime.operators.bundle.MapBundleFunction;
 import org.apache.flink.util.Collector;
 
@@ -39,31 +40,33 @@ import static org.apache.flink.table.runtime.util.StateTtlConfigUtil.createTtlCo
  * This function is used to get the first row for every key partition in miniBatch mode.
  */
 public class MiniBatchDeduplicateKeepFirstRowFunction
-		extends MapBundleFunction<RowData, RowData, RowData, RowData> {
+		extends MapBundleFunction<RowData, RowData, RowData, RowData>
+		implements StatefulFunction {
 
 	private static final long serialVersionUID = -7994602893547654994L;
 
 	private final TypeSerializer<RowData> typeSerializer;
-	private final long minRetentionTime;
+	/**
+	 * Config for ttl of the states.
+	 */
+	private final StateTtlConfig ttlConfig;
 	// state stores a boolean flag to indicate whether key appears before.
 	private ValueState<Boolean> state;
 
 	public MiniBatchDeduplicateKeepFirstRowFunction(
 			TypeSerializer<RowData> typeSerializer,
 			long minRetentionTime) {
-		this.minRetentionTime = minRetentionTime;
+		this.ttlConfig = createTtlConfig(minRetentionTime);
 		this.typeSerializer = typeSerializer;
 	}
 
 	@Override
-	public void open(ExecutionContext ctx) throws Exception {
-		super.open(ctx);
+	public void registerState(StateRegistry stateRegistry) throws Exception {
 		ValueStateDescriptor<Boolean> stateDesc = new ValueStateDescriptor<>("existsState", Types.BOOLEAN);
-		StateTtlConfig ttlConfig = createTtlConfig(minRetentionTime);
 		if (ttlConfig.isEnabled()) {
 			stateDesc.enableTimeToLive(ttlConfig);
 		}
-		state = ctx.getRuntimeContext().getState(stateDesc);
+		state = stateRegistry.getState(stateDesc);
 	}
 
 	@Override

@@ -21,6 +21,7 @@ package org.apache.flink.table.runtime.operators.window;
 import org.apache.flink.api.common.state.MergingState;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
+import org.apache.flink.api.common.state.StateRegistry;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
@@ -249,6 +250,21 @@ public abstract class WindowOperator<K, W extends Window>
 	}
 
 	@Override
+	public void registerState(StateRegistry stateRegistry) throws Exception {
+		StateDescriptor<ValueState<RowData>, RowData> windowStateDescriptor = new ValueStateDescriptor<>(
+			"window-aggs",
+			new RowDataSerializer(getExecutionConfig(), accumulatorTypes));
+		this.windowState = (InternalValueState<K, W, RowData>) stateRegistry.getOrCreateKeyedState(windowSerializer, windowStateDescriptor);
+		if (produceUpdates) {
+			LogicalType[] valueTypes = ArrayUtils.addAll(aggResultTypes, windowPropertyTypes);
+			StateDescriptor<ValueState<RowData>, RowData> previousStateDescriptor = new ValueStateDescriptor<>(
+				"previous-aggs",
+				new RowDataSerializer(getExecutionConfig(), valueTypes));
+			this.previousState = (InternalValueState<K, W, RowData>) stateRegistry.getOrCreateKeyedState(windowSerializer, previousStateDescriptor);
+		}
+	}
+
+	@Override
 	public void open() throws Exception {
 		super.open();
 
@@ -261,19 +277,6 @@ public abstract class WindowOperator<K, W extends Window>
 
 		triggerContext = new TriggerContext();
 		triggerContext.open();
-
-		StateDescriptor<ValueState<RowData>, RowData> windowStateDescriptor = new ValueStateDescriptor<>(
-				"window-aggs",
-				new RowDataSerializer(getExecutionConfig(), accumulatorTypes));
-		this.windowState = (InternalValueState<K, W, RowData>) getOrCreateKeyedState(windowSerializer, windowStateDescriptor);
-
-		if (produceUpdates) {
-			LogicalType[] valueTypes = ArrayUtils.addAll(aggResultTypes, windowPropertyTypes);
-			StateDescriptor<ValueState<RowData>, RowData> previousStateDescriptor = new ValueStateDescriptor<>(
-					"previous-aggs",
-					new RowDataSerializer(getExecutionConfig(), valueTypes));
-			this.previousState = (InternalValueState<K, W, RowData>) getOrCreateKeyedState(windowSerializer, previousStateDescriptor);
-		}
 
 		compileGeneratedCode();
 
