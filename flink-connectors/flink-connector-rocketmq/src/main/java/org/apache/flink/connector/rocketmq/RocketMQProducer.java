@@ -18,7 +18,9 @@
 package org.apache.flink.connector.rocketmq;
 
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.connector.rocketmq.selector.DefaultTopicSelector;
 import org.apache.flink.connector.rocketmq.selector.DeferLoopSelector;
 import org.apache.flink.connector.rocketmq.selector.DeferMillisSelector;
 import org.apache.flink.connector.rocketmq.selector.MsgDelayLevelSelector;
@@ -83,6 +85,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	private final RowKindSinkFilter<T> rowKindSinkFilter;
 	private boolean batchFlushEnable;
 	private final boolean hasPartitionKey;
+	private final String user;
 
 	private transient DefaultMQProducer producer;
 	private transient ScheduledExecutorService scheduler;
@@ -111,6 +114,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		this.flushIntervalMs = rocketMQConfig.getFlushIntervalMs();
 		this.rowKindSinkFilter = rocketMQConfig.getRowKindSinkFilter();
 		this.hasPartitionKey = rocketMQConfig.getSinkKeyByFields() != null;
+		this.user = System.getProperty(ConfigConstants.OWNER_KEY, "unknown");
 	}
 
 	@Override
@@ -146,6 +150,18 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 					}
 				}
 			}, flushIntervalMs, flushIntervalMs, TimeUnit.MILLISECONDS);
+		}
+
+		if (getRuntimeContext().getIndexOfThisSubtask() == 0) {
+			RocketMQUtils.addRocketmqVersionMetrics(
+				getRuntimeContext().getMetricGroup(),
+				this.user,
+				(this.topicSelector instanceof DefaultTopicSelector) ? this.topicSelector.getTopic(null) : "unknown",
+				this.cluster,
+				"producer",
+				this.group,
+				() -> RocketMQUtils.ROCKETMQ_CONNECTOR_VERSION
+			);
 		}
 	}
 

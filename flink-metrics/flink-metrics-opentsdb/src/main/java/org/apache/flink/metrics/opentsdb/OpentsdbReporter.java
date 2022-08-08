@@ -78,7 +78,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"(.+)\\.KafkaConsumer\\.(.+)\\.([^-]+)_(\\d+)");
 
 	private static final Pattern CONNECTOR_VERSION_PATTERN = Pattern.compile(
-			"(\\S+)\\.owner\\.(\\S+)\\.topic\\.(\\S+)\\.cluster\\.(\\S+)\\.connectorType\\.(\\S+)\\.consumerGroup\\.(\\S+)\\.(\\S+)");
+			"(\\S+)\\.owner\\.(\\S+)\\.topic\\.(\\S+)\\.cluster\\.(\\S+)\\.connectorType\\.(\\S+)\\.(\\S+)\\.(\\S+)\\.(\\S+)");
 
 	private static final Pattern JOB_MANAGER_PATTERN = Pattern.compile(
 			"(\\S+)\\.(jobmanager\\.\\S+)");
@@ -462,7 +462,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		 * for example
 		 * input: n11-174-201.byted.org.taskmanager.container_e532_1658218935117_137333_01_000006.kafka2kafkatest.Sink_Sink_table_defa.0.flinkCommitId.f9a13c1.owner.owner.jobName.jobname.topic.test.cluster.bmq_data.connectorType.producer.consumerGroup.none.kafkaConnectorVersion
 		 * output: metric=flink.version.kafkaConnectorVersion
-		 *         tags="flinkCommitId=f9a13c1|flinkCommitDate=2022-07-26T11:56:38+02:00|owner=owner|jobName=jobname|topic=test|cluster=bmq_data|connectorType=producer|consumerGroup=none"
+		 *         tags="flinkCommitId=f9a13c1|flinkCommitDate=2022-07-26T11:56:38+02:00|owner=owner|jobName=jobname|topic=test|mqCluster=bmq_data|connectorType=producer|consumerGroup=none"
 		 * */
 		if (key.contains("ConnectorVersion")) {
 			Matcher connectorVersionMatcher = CONNECTOR_VERSION_PATTERN.matcher(key);
@@ -473,25 +473,26 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				String flinkCommitDate = EnvironmentInformation.getRevisionInformation().commitDate;
 				String owner = connectorVersionMatcher.group(2);
 				String topic = connectorVersionMatcher.group(3);
-				String kafkaCluster = connectorVersionMatcher.group(4);
+				String mqCluster = connectorVersionMatcher.group(4);
 				String connectorType = connectorVersionMatcher.group(5);
-				String consumerGroup = connectorVersionMatcher.group(6);
-				String connector = connectorVersionMatcher.group(7);
+				String group = connectorVersionMatcher.group(7);
+				String connector = connectorVersionMatcher.group(8);
 
 				tags.add(new TagKv("flinkCommitId", flinkCommitId));
 				tags.add(new TagKv("flinkCommitDate", flinkCommitDate));
 				tags.add(new TagKv("owner", owner));
 				tags.add(new TagKv("jobName", this.jobName));
 				tags.add(new TagKv("topic", topic));
-				tags.add(new TagKv("kafkaCluster", kafkaCluster));
+				tags.add(new TagKv("mqCluster", mqCluster));
 				tags.add(new TagKv("connectorType", connectorType));
-				tags.add(new TagKv("consumerGroup", consumerGroup));
 
 				String metricName = "version.";
 				if (connector.equals("kafkaConnectorVersion")) {
+					tags.add(new TagKv("consumerGroup", group));
 					metricName += "kafkaConnectorVersion";
-				} else if (connector.equals("rmqConnectorVersion")) {
-					metricName += "rmqConnectorVersion";
+				} else if (connector.equals("rocketmqConnectorVersion")) {
+					tags.add(new TagKv("group", group));
+					metricName += "rocketmqConnectorVersion";
 				} else {
 					metricName += "unknownConnectorVersion";
 				}

@@ -95,6 +95,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private final FlinkConnectorRateLimiter rateLimiter;
 	private final long sourceIdleTimeMs;
 	private final String jobName;
+	private final String user;
 	private final RocketMQConsumerFactory consumerFactory;
 	private int parallelism;
 	private final int offsetFlushInterval;
@@ -143,7 +144,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.pollLatencyMs = config.getPollLatencyMs();
 
 		String dc = System.getProperty(ConfigConstants.DC_KEY, "cn").toUpperCase();
-		String user = System.getProperty(ConfigConstants.OWNER_KEY, "unknown");
+		user = System.getProperty(ConfigConstants.OWNER_KEY, "unknown");
 		int restAPIRetryTimes = config.getRestAPIRetryTimes();
 		int restAPIRetryInitTimeMs = config.getRestAPIRetryInitTimeMs();
 		try (RocketMQRestClient client = new RocketMQRestClient(dc, user, restAPIRetryTimes, restAPIRetryInitTimeMs)) {
@@ -167,6 +168,16 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			.addGroup(RocketMQOptions.CONSUMER_GROUP_METRICS_GROUP, this.group)
 			.addGroup(MetricsConstants.METRICS_CONNECTOR_TYPE, RocketMQOptions.CONNECTOR_TYPE_VALUE_ROCKETMQ)
 			.addGroup(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE);
+		if (subTaskId == 0) {
+			RocketMQUtils.addRocketmqVersionMetrics(
+				getRuntimeContext().getMetricGroup(),
+				this.user,
+				this.topic,
+				this.cluster,
+				"consumer",
+				this.group,
+				() -> RocketMQUtils.ROCKETMQ_CONNECTOR_VERSION);
+		}
 
 		this.recordsNumMeterView = metricGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
 		this.topicAndQueuesGauge = metricGroup.gauge(CONSUMER_TOPIC_QUEUES, new TopicAndQueuesGauge(cluster, group));

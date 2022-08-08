@@ -86,6 +86,7 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 	private final RocketMQConsumerFactory consumerFactory;
 	private final Map<String, String> props;
 	private final String jobName;
+	private final String user;
 
 	private final String cluster;
 	private final String topic;
@@ -115,7 +116,8 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 			Map<String, String> props,
 			RocketMQConfig<OUT> config,
 			String jobName,
-			SourceReaderContext readerContext) {
+			SourceReaderContext readerContext,
+			String user) {
 		this.schema = schema;
 		this.props = props;
 		this.cluster = config.getCluster();
@@ -130,6 +132,7 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 		this.sourceReaderContext = readerContext;
 		this.consumerFactory = config.getConsumerFactory();
 		this.jobName = jobName;
+		this.user = user;
 		this.pollLatencyMs = config.getPollLatencyMs();
 		this.pullBatchSize = config.getPollBatchSize();
 		this.rateLimiter = config.getRateLimiter();
@@ -144,6 +147,17 @@ public class RocketMQSplitReader<OUT> implements SplitReader<Tuple3<OUT, Long, L
 			.addGroup(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE);
 		recordsNumMeterView = metricGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
 		initialRocketMQSplitReader();
+		if (readerContext.getSubTaskId() == 0) {
+			RocketMQUtils.addRocketmqVersionMetrics(
+				readerContext.metricGroup(),
+				this.user,
+				this.topic,
+				this.cluster,
+				"consumer-flip27",
+				this.group,
+				() -> RocketMQUtils.ROCKETMQ_CONNECTOR_VERSION
+			);
+		}
 	}
 
 	@Override

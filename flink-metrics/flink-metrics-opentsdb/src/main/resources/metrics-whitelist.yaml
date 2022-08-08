@@ -168,6 +168,8 @@ non-global:
         fetch-latency-max,
       # kafka connector verison
         kafkaConnectorVersion,
+      # rocketmq connector verison
+        rocketmqConnectorVersion,
       # Network Memory
         TotalMemorySegments,
         AllocatedMemorySegments,

@@ -24,6 +24,8 @@ import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.rocketmq.source.split.RocketMQSplitBase;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -70,6 +72,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_T
 public final class RocketMQUtils {
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQUtils.class);
 	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
+	public static final int ROCKETMQ_CONNECTOR_VERSION = 1;
 
 	public static int getInteger(Properties props, String key, int defaultValue) {
 		return Integer.parseInt(props.getProperty(key, String.valueOf(defaultValue)));
@@ -336,5 +339,21 @@ public final class RocketMQUtils {
 		legacyUnionOffsetStates.clear();
 		// ************************* DTS State Compatibility *******************************
 		return tuple2List;
+	}
+
+	public static void addRocketmqVersionMetrics(
+			MetricGroup metricGroup,
+			String owner,
+			String topic,
+			String cluster,
+			String connectorType,
+			String group,
+			Gauge gauge) {
+		metricGroup.addGroup("owner", owner)
+			.addGroup("topic", topic)
+			.addGroup("cluster", cluster)
+			.addGroup("connectorType", connectorType)
+			.addGroup("group", group)
+			.gauge("rocketmqConnectorVersion", gauge);
 	}
 }

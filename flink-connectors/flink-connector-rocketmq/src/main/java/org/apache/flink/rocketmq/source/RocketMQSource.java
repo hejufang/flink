@@ -68,6 +68,8 @@ public class RocketMQSource<OUT> implements
 
 	private final String jobName;
 
+	private final String user;
+
 	public RocketMQSource(
 			Boundedness boundedness,
 			RocketMQDeserializationSchema<OUT> deserializationSchema,
@@ -84,7 +86,7 @@ public class RocketMQSource<OUT> implements
 		String group = config.getGroup();
 		String topic = config.getTopic();
 		String dc = System.getProperty(ConfigConstants.DC_KEY, "cn").toUpperCase();
-		String user = System.getProperty(ConfigConstants.OWNER_KEY, "unknown");
+		user = System.getProperty(ConfigConstants.OWNER_KEY, "unknown");
 		int restAPIRetryTimes = config.getRestAPIRetryTimes();
 		int restAPIRetryInitTimeMs = config.getRestAPIRetryInitTimeMs();
 		try (RocketMQRestClient client = new RocketMQRestClient(dc, user, restAPIRetryTimes, restAPIRetryInitTimeMs)) {
@@ -112,7 +114,8 @@ public class RocketMQSource<OUT> implements
 								props,
 								config,
 								jobName,
-								readerContext);
+								readerContext,
+								user);
 		RocketMQRecordEmitter<OUT> recordEmitter = new RocketMQRecordEmitter<>();
 		return new RocketMQSourceReader(
 			futureNotifier,
