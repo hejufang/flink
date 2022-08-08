@@ -1184,6 +1184,8 @@ vivid:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
 
 fed01:
   dc: va
@@ -1299,6 +1301,8 @@ macaw:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
 
 monkey:
   dc: va
@@ -1355,6 +1359,8 @@ mouse:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
 
 mamba:
   dc: va
@@ -1437,6 +1443,8 @@ momet:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
 
 giraf:
   dc: va
