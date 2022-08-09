@@ -88,7 +88,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * Factory for creating configured instances of {@link RedisDynamicTableSource}.
  */
 public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFactory, DynamicTableSinkFactory {
-	private static final String IDENTIFIER = "redis";
+	private static final String IDENTIFIER = "redis-bk";
 	@Override
 	public DynamicTableSink createDynamicTableSink(Context context) {
 		final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);

@@ -16,16 +16,17 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.abase.utils;
+package org.apache.flink.connector.abase;
+
+import org.apache.flink.connector.abase.utils.Constants;
 
 /**
- * constants of abase/redis connector.
+ * Factory for abase source/sink with {@value org.apache.flink.connector.abase.utils.Constants#ABASE_IDENTIFIER2}.
  */
-public class Constants {
+public class AbaseTableFactory2 extends AbaseTableFactory {
 
-	public static final String ABASE_IDENTIFIER = "byte-abase";
-	public static final String ABASE_IDENTIFIER2 = "abase";
-
-	public static final String REDIS_IDENTIFIER = "byte-redis";
-	public static final String REDIS_IDENTIFIER2 = "redis";
+	@Override
+	public String factoryIdentifier() {
+		return Constants.ABASE_IDENTIFIER2;
+	}
 }

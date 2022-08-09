@@ -53,6 +53,9 @@ import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_MOD
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.SINK_RECORD_TTL;
 import static org.apache.flink.connector.abase.descriptors.AbaseConfigs.VALUE_TYPE;
 import static org.apache.flink.connector.abase.utils.Constants.ABASE_IDENTIFIER;
+import static org.apache.flink.connector.abase.utils.Constants.ABASE_IDENTIFIER2;
+import static org.apache.flink.connector.abase.utils.Constants.REDIS_IDENTIFIER;
+import static org.apache.flink.connector.abase.utils.Constants.REDIS_IDENTIFIER2;
 import static org.apache.flink.core.testutils.FlinkMatchers.containsCause;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_MAX_ROWS;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_NULL_VALUE;
@@ -81,12 +84,17 @@ public class AbaseTableFactoryTest {
 
 	@Test
 	public void testAbaseClusterName() {
+		testAbaseClusterName(ABASE_IDENTIFIER);
+		testAbaseClusterName(ABASE_IDENTIFIER2);
+	}
+
+	private void testAbaseClusterName(String identifier) {
 		TableSchema schema = TableSchema.builder()
 				.field("int_field", DataTypes.INT().notNull())
 				.field("string_field", DataTypes.STRING())
 				.primaryKey("int_field")
 				.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(identifier);
 		properties.put("cluster", ABASE_CLUSTER_NAME + ".service");
 
 		// validation for source
@@ -94,7 +102,7 @@ public class AbaseTableFactoryTest {
 		AbaseNormalOptions options = AbaseNormalOptions.builder()
 				.setCluster(ABASE_CLUSTER_NAME)
 				.setTable(ABASE_TABLE_NAME)
-				.setStorage(ABASE_IDENTIFIER)
+				.setStorage(identifier)
 				.setPsm(JOB_PSM_PREFIX + ABASE_JOB_NAME)
 				.setTimeout((int) CONNECTION_TIMEOUT.defaultValue().toMillis())
 				.setMinIdleConnections(CONNECTION_MIN_IDLE_NUM.defaultValue())
@@ -150,6 +158,13 @@ public class AbaseTableFactoryTest {
 
 	@Test
 	public void testEmptyKeyFormatterException() {
+		testEmptyKeyFormatterException(ABASE_IDENTIFIER);
+		testEmptyKeyFormatterException(ABASE_IDENTIFIER2);
+		testEmptyKeyFormatterException(REDIS_IDENTIFIER);
+		testEmptyKeyFormatterException(REDIS_IDENTIFIER2);
+	}
+
+	private void testEmptyKeyFormatterException(String identifier) {
 		thrown.expect(containsCause(new IllegalArgumentException("The 'key_format' must specified if multiple primary keys exist.")));
 		TableSchema schema = TableSchema.builder()
 			.field("int_field", DataTypes.INT().notNull())
@@ -159,12 +174,19 @@ public class AbaseTableFactoryTest {
 			.field("timestamp_field", DataTypes.TIMESTAMP(3))
 			.primaryKey("int_field", "string_field")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(identifier);
 		createTableSource(schema, properties);
 	}
 
 	@Test
 	public void testHashTypeMapSchema() {
+		testHashTypeMapSchema(ABASE_IDENTIFIER);
+		testHashTypeMapSchema(ABASE_IDENTIFIER2);
+		testHashTypeMapSchema(REDIS_IDENTIFIER);
+		testHashTypeMapSchema(REDIS_IDENTIFIER2);
+	}
+
+	private void testHashTypeMapSchema(String identifier) {
 		TableSchema schema = TableSchema.builder()
 			.field("id", DataTypes.INT().notNull())
 			.field("region", DataTypes.STRING().notNull())
@@ -172,7 +194,7 @@ public class AbaseTableFactoryTest {
 			.field("value", DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()))
 			.primaryKey("region", "community", "id")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(identifier);
 		properties.put("value-type", "hash");
 		properties.put("key_format", "location:${region}:${community}:${id}");
 		createTableSource(schema, properties);
@@ -208,7 +230,7 @@ public class AbaseTableFactoryTest {
 			.field("element", DataTypes.STRING())
 			.primaryKey("key")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(ABASE_IDENTIFIER);
 		properties.put("value-type", "list");
 
 		thrown.expect(containsCause(new IllegalStateException("No array data is defined or it should be defined " +
@@ -225,7 +247,7 @@ public class AbaseTableFactoryTest {
 			.field("element", DataTypes.STRING())
 			.primaryKey("key")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(ABASE_IDENTIFIER);
 		properties.put("value-type", "zset");
 
 		thrown.expect(containsCause(new IllegalStateException("No array data is defined or it should be defined " +
@@ -242,7 +264,7 @@ public class AbaseTableFactoryTest {
 			.field("vals", DataTypes.ARRAY(DataTypes.STRING()))
 			.primaryKey("key")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(ABASE_IDENTIFIER);
 		properties.put("value-type", "zset");
 
 		thrown.expect(containsCause(new IllegalStateException("The score value column of zadd should be a number " +
@@ -260,7 +282,7 @@ public class AbaseTableFactoryTest {
 			.field("event_ts", DataTypes.BIGINT())
 			.primaryKey("key1", "key2")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(ABASE_IDENTIFIER);
 		addMetricsOpts(properties);
 		properties.put("key_format", "prefix:${key2}:${key1}");
 
@@ -313,7 +335,7 @@ public class AbaseTableFactoryTest {
 			.field("event_ts", DataTypes.BIGINT())
 			.primaryKey("key1", "key2")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(ABASE_IDENTIFIER);
 		addMetricsOpts(properties);
 		properties.put("key_format", "prefix:${key2}:${key1}");
 		properties.put("sink.mode", "incr");
@@ -371,7 +393,7 @@ public class AbaseTableFactoryTest {
 			.field("field4", DataTypes.STRING())
 			.primaryKey("key3", "key1", "key2")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(ABASE_IDENTIFIER);
 		addMetricsOpts(properties);
 		properties.put("key_format", "prefix:${key2}:${key1}:${key3}");
 		properties.put("value-type", "hash");
@@ -431,7 +453,7 @@ public class AbaseTableFactoryTest {
 			.field("key3", DataTypes.TIMESTAMP().notNull())
 			.primaryKey("key3", "key1", "key2")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(ABASE_IDENTIFIER);
 		addMetricsOpts(properties);
 		properties.put("key_format", "prefix:${key1}:${key3}:${key2}");
 		properties.put("value-type", "hash");
@@ -487,7 +509,7 @@ public class AbaseTableFactoryTest {
 			.field("key3", DataTypes.TIMESTAMP().notNull())
 			.primaryKey("key3", "key1", "key2")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(ABASE_IDENTIFIER);
 		addMetricsOpts(properties);
 		properties.put("key_format", "prefix:${key3}:${key2}:${key1}");
 		properties.put("value-type", "hash");
@@ -544,7 +566,7 @@ public class AbaseTableFactoryTest {
 			.field("key3", DataTypes.TIMESTAMP().notNull())
 			.primaryKey("key3", "key1", "key2")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(ABASE_IDENTIFIER);
 		addMetricsOpts(properties);
 		properties.put("key_format", "prefix:${key1}:${key3}:${key2}");
 		properties.put("value-type", "hash");
@@ -601,7 +623,7 @@ public class AbaseTableFactoryTest {
 			.field("key3", DataTypes.TIMESTAMP().notNull())
 			.primaryKey("key3", "key1", "key2")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(ABASE_IDENTIFIER);
 		addMetricsOpts(properties);
 		properties.put("key_format", "prefix:${key1}:${key3}:${key2}");
 		properties.put("value-type", "list");
@@ -657,7 +679,7 @@ public class AbaseTableFactoryTest {
 			.field("key3", DataTypes.TIMESTAMP().notNull())
 			.primaryKey("key3", "key1", "key2")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(ABASE_IDENTIFIER);
 		addMetricsOpts(properties);
 		properties.put("key_format", "prefix:${key1}:${key3}:${key2}");
 		properties.put("value-type", "set");
@@ -714,7 +736,7 @@ public class AbaseTableFactoryTest {
 			.field("key3", DataTypes.TIMESTAMP().notNull())
 			.primaryKey("key3", "key1", "key2")
 			.build();
-		Map<String, String> properties = getBasicOptions();
+		Map<String, String> properties = getBasicOptions(ABASE_IDENTIFIER);
 		addMetricsOpts(properties);
 		properties.put("key_format", "prefix:${key1}:${key3}:${key2}");
 		properties.put("value-type", "zset");
@@ -776,9 +798,9 @@ public class AbaseTableFactoryTest {
 			AbaseTableFactoryTest.class.getClassLoader());
 	}
 
-	private static Map<String, String> getBasicOptions() {
+	private static Map<String, String> getBasicOptions(String identifier) {
 		Map<String, String> options = new HashMap<>();
-		options.put("connector", ABASE_IDENTIFIER);
+		options.put("connector", identifier);
 		options.put("cluster", ABASE_CLUSTER_NAME);
 		options.put("table", ABASE_TABLE_NAME);
 		return options;

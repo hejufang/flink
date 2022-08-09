@@ -45,7 +45,7 @@ import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.TA
  * todo: urge abase team to provide a sdk which enables GDPR by default instead of depending on environment variable.
  */
 public class AbaseDynamicTableSourceSinkFactory extends RedisDynamicTableSourceSinkFactory {
-	private static final String IDENTIFIER = "abase";
+	private static final String IDENTIFIER = "abase-bk";
 	@Override
 	public String factoryIdentifier() {
 		return IDENTIFIER;

@@ -15,3 +15,5 @@
 
 org.apache.flink.connector.abase.AbaseTableFactory
 org.apache.flink.connector.abase.RedisTableFactory
+org.apache.flink.connector.abase.AbaseTableFactory2
+org.apache.flink.connector.abase.RedisTableFactory2
