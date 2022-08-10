@@ -52,7 +52,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -85,8 +85,8 @@ public class HtapReaderIterator {
 
 	private final StoreScanThread storeScanThread;
 	private final Queue<RowResultIterator> iteratorLinkBuffer = new ConcurrentLinkedQueue<>();
-	// As ConcurrentLinkedQueue.size() is O(n), we use this to record buffered iterator count.
-	private final AtomicInteger iteratorBufferCount;
+
+	private final AtomicLong totalSizeInBuffer;
 
 	private List<String> colNameList;
 	private List<Integer> colPosList;
@@ -106,7 +106,7 @@ public class HtapReaderIterator {
 		this.tableName = scanner.getTable().getName();
 		this.subTaskFullName = subTaskFullName;
 		this.partitionId = scanner.getPartitionID();
-		this.iteratorBufferCount = new AtomicInteger(0);
+		this.totalSizeInBuffer = new AtomicLong(0);
 		this.storeScanThread = new StoreScanThread();
 		this.rowType = outputDataType != null ? (RowType) outputDataType.getLogicalType() : null;
 		try {
@@ -176,7 +176,7 @@ public class HtapReaderIterator {
 		if (storeScanThread.scanException != null) {
 			throw storeScanThread.scanException;
 		} else {
-			iteratorBufferCount.getAndDecrement();
+			totalSizeInBuffer.getAndAdd(-1 * currentRowIterator.length());
 			// if scan is finished, will poll a null element from iteratorLinkBuffer
 			this.currentRowIterator = iteratorLinkBuffer.poll();
 		}
@@ -294,21 +294,22 @@ public class HtapReaderIterator {
 		public void run() {
 			try {
 				long startTime = System.currentTimeMillis();
+				RowResultIterator rowResultIterator;
 				while (isRunning && scanner.hasMoreRows()) {
-					if (iteratorBufferCount.get() * scanner.getBatchSizeBytes() <
-							MAX_BUFFER_SIZE) {
+					if (totalSizeInBuffer.get() < MAX_BUFFER_SIZE) {
 						scanRoundCount++;
-						iteratorBufferCount.getAndIncrement();
 						LOG.debug("{} before fetch rows from store {}-{} in round[{}]",
 							subTaskFullName, tableName, partitionId, scanRoundCount);
-						iteratorLinkBuffer.add(scanner.nextRows());
+						rowResultIterator = scanner.nextRows();
+						iteratorLinkBuffer.add(rowResultIterator);
+						totalSizeInBuffer.getAndAdd(rowResultIterator.length());
 						LOG.debug("{} after fetch rows from store {}-{} in round[{}]",
 							subTaskFullName, tableName, partitionId, scanRoundCount);
 					} else {
 						LOG.debug("Subtask({}) buffer is full for {}-{} in round[{}] with max {} Bytes, " +
-								"current buffer iterator count {}, scan batch bytes {}",
+								"current total size in buffer {}, scan batch bytes {}",
 							subTaskFullName, tableName, partitionId, scanRoundCount,
-							MAX_BUFFER_SIZE, iteratorBufferCount.get(), scanner.getBatchSizeBytes());
+							MAX_BUFFER_SIZE, totalSizeInBuffer.get(), scanner.getBatchSizeBytes());
 						Thread.sleep(10);
 						scanThreadTotalSleepTimeMs += 10;
 					}
