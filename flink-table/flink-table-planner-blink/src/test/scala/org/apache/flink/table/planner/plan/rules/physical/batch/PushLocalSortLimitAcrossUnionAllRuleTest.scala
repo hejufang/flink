@@ -81,4 +81,32 @@ class PushLocalSortLimitAcrossUnionAllRuleTest extends TableTestBase  {
          |""".stripMargin)
   }
 
+  @Test
+  def testCanPushLocalLimitAcrossOneUnionAll(): Unit = {
+    util.verifyPlan(
+      s"""
+         |SELECT * FROM (
+         |  SELECT * FROM MyTable1
+         |  UNION ALL
+         |  SELECT * FROM MyTable2
+         |) as T
+         |LIMIT 4
+         |""".stripMargin)
+  }
+
+  @Test
+  def testCanPushLocalLimitAcrossMultipleUnionAll(): Unit = {
+    util.verifyPlan(
+      s"""
+         |SELECT * FROM (
+         |  SELECT * FROM MyTable1
+         |  UNION ALL
+         |  SELECT * FROM MyTable2
+         |  UNION ALL
+         |  SELECT * FROM MyTable3
+         |) as T
+         |LIMIT 4
+         |""".stripMargin)
+  }
+
 }

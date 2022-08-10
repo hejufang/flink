@@ -21,13 +21,13 @@ package org.apache.flink.table.planner.plan.rules.physical.batch
 import org.apache.calcite.plan.RelOptRule.{any, operand}
 import org.apache.calcite.plan.RelOptRuleCall
 import org.apache.calcite.rel.RelNode
-import org.apache.flink.table.planner.plan.nodes.physical.batch.{BatchExecSortLimit, BatchExecUnion}
+import org.apache.flink.table.planner.plan.nodes.physical.batch.{BatchExecLimit, BatchExecUnion}
 
 /**
-  * A [[PushLocalSortLimitAcrossUnionAllRule]] tries to push a local SortLimit across the union
+  * A [[PushLocalLimitAcrossUnionAllRule]] tries to push a local SortLimit across the union
   * all operator so that we can reduce records on both of union's input subsets.  If a local
-  * SortLimit operator is immediately above a Union-All operator, this rule transforms the query
-  * tree so that the SortLimit operator moves to a position immediately below the Union-All
+  * Limit operator is immediately above a Union-All operator, this rule transforms the query
+  * tree so that the Limit operator moves to a position immediately below the Union-All
   * operator.
   *
   * for example:
@@ -36,50 +36,50 @@ import org.apache.flink.table.planner.plan.nodes.physical.batch.{BatchExecSortLi
   *   UNION ALL
   *   SELECT * FROM MyTable2
   * ) as T
-  * ORDER BY id LIMIT 4
+  * LIMIT 4
   *
   * The physical plan
   *
   * {{{
-  * SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[true])
-  * +- Exchange(distribution=[single])
-  *   +- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[false])
-  *     +- Union(all=[true], union=[name, id, amount, price])
-  *        :- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, .....
-  *        +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, .....
+  *Limit(offset=[0], fetch=[4], global=[true])
+  *+- Exchange(distribution=[single])
+  *   +- Limit(offset=[0], fetch=[4], global=[false])
+  *      +- Union(all=[true], union=[name, id, amount, price])
+  *         +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, ....
+  *         +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, ....
   * }}}
   *
   * will be rewritten to
   *
   * {{{
-  *SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[true])
+  *Limit(offset=[0], fetch=[4], global=[true])
   *+- Exchange(distribution=[single])
   *   +- Union(all=[true], union=[name, id, amount, price])
-  *      :- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[false])
-  *      :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, .....
-  *      +- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[false])
-  *         +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, .....
+  *      :- Limit(offset=[0], fetch=[4], global=[false])
+  *      :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, ....
+  *      +- Limit(offset=[0], fetch=[4], global=[false])
+  *         +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, ....
   * }}}
   */
-class PushLocalSortLimitAcrossUnionAllRule
+class PushLocalLimitAcrossUnionAllRule
   extends PushLocalLimitAcrossUnionAllRuleBase(
     operand(classOf[RelNode],
-      operand(classOf[BatchExecSortLimit],
+      operand(classOf[BatchExecLimit],
         operand(classOf[BatchExecUnion], any))),
-  "PushLocalSortLimitAcrossUnionAllRule") {
+  "PushLocalLimitAcrossUnionAllRule") {
 
   override def matches(call: RelOptRuleCall): Boolean = {
     isMatch(call)
   }
 
   override def onMatch(call: RelOptRuleCall): Unit = {
-    // this method transforms the query tree so that the SortLimit operator moves to a position
+    // this method transforms the query tree so that the Limit operator moves to a position
     // immediately below the Union-All operator.
     pushDownLocalLimit(call)
   }
 
 }
 
-object PushLocalSortLimitAcrossUnionAllRule {
-  val INSTANCE = new PushLocalSortLimitAcrossUnionAllRule
+object PushLocalLimitAcrossUnionAllRule {
+  val INSTANCE = new PushLocalLimitAcrossUnionAllRule
 }

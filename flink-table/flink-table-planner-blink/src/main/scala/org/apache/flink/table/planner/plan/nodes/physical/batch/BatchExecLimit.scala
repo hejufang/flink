@@ -66,6 +66,10 @@ class BatchExecLimit(
   private lazy val limitStart: Long = SortUtil.getLimitStart(offset)
   private lazy val limitEnd: Long = SortUtil.getLimitEnd(offset, fetch)
 
+  def getIsGlobal: Boolean = {
+    isGlobal
+  }
+
   override def copy(
       traitSet: RelTraitSet,
       newInput: RelNode,

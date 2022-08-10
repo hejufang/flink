@@ -92,96 +92,79 @@ SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[true])
 ]]>
     </Resource>
   </TestCase>
-  <TestCase name="testCannotPushLocalSortLimitAcrossOneUnionAll">
+  <TestCase name="testCanPushLocalLimitAcrossOneUnionAll">
     <Resource name="sql">
       <![CDATA[
 SELECT * FROM (
-  ( SELECT * FROM MyTable1 ORDER BY id LIMIT 4 )
-  UNION ALL 
-  ( SELECT * FROM MyTable2 ORDER BY id LIMIT 4 )
+  SELECT * FROM MyTable1
+  UNION ALL
+  SELECT * FROM MyTable2
 ) as T
-ORDER BY id LIMIT 4
+LIMIT 4
 ]]>
     </Resource>
     <Resource name="planBefore">
       <![CDATA[
-LogicalSort(sort0=[$1], dir0=[ASC-nulls-first], fetch=[4])
+LogicalSort(fetch=[4])
 +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
    +- LogicalUnion(all=[true])
-      :- LogicalSort(sort0=[$1], dir0=[ASC-nulls-first], fetch=[4])
-      :  +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
-      :     +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
-      +- LogicalSort(sort0=[$1], dir0=[ASC-nulls-first], fetch=[4])
-         +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
-            +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+      :- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+      :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+      +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
 ]]>
     </Resource>
     <Resource name="planAfter">
       <![CDATA[
-SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[true])
+Limit(offset=[0], fetch=[4], global=[true])
 +- Exchange(distribution=[single])
-   +- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[false])
-      +- Union(all=[true], union=[name, id, amount, price])
-         :- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[true])
-         :  +- Exchange(distribution=[single])
-         :     +- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[false])
-         :        +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
-         +- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[true])
-            +- Exchange(distribution=[single])
-               +- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[false])
-                  +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+   +- Union(all=[true], union=[name, id, amount, price])
+      :- Limit(offset=[0], fetch=[4], global=[false])
+      :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- Limit(offset=[0], fetch=[4], global=[false])
+         +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
 ]]>
     </Resource>
   </TestCase>
-  <TestCase name="testCannotPushLocalSortLimitAcrossMultipleUnionAll">
+  <TestCase name="testCanPushLocalLimitAcrossMultipleUnionAll">
     <Resource name="sql">
       <![CDATA[
 SELECT * FROM (
-  ( SELECT * FROM MyTable1 ORDER BY id LIMIT 4 )
+  SELECT * FROM MyTable1
   UNION ALL
-  ( SELECT * FROM MyTable2 ORDER BY id LIMIT 4 )
+  SELECT * FROM MyTable2
   UNION ALL
-  ( SELECT * FROM MyTable3 ORDER BY id LIMIT 4 )
+  SELECT * FROM MyTable3
 ) as T
-ORDER BY id LIMIT 4
+LIMIT 4
 ]]>
     </Resource>
     <Resource name="planBefore">
       <![CDATA[
-LogicalSort(sort0=[$1], dir0=[ASC-nulls-first], fetch=[4])
+LogicalSort(fetch=[4])
 +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
    +- LogicalUnion(all=[true])
       :- LogicalUnion(all=[true])
-      :  :- LogicalSort(sort0=[$1], dir0=[ASC-nulls-first], fetch=[4])
-      :  :  +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
-      :  :     +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
-      :  +- LogicalSort(sort0=[$1], dir0=[ASC-nulls-first], fetch=[4])
-      :     +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
-      :        +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
-      +- LogicalSort(sort0=[$1], dir0=[ASC-nulls-first], fetch=[4])
-         +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
-            +- LogicalTableScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+      :  :- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+      :  :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+      :  +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+      :     +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+      +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
 ]]>
     </Resource>
     <Resource name="planAfter">
       <![CDATA[
-SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[true])
+Limit(offset=[0], fetch=[4], global=[true])
 +- Exchange(distribution=[single])
-   +- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[false])
-      +- Union(all=[true], union=[name, id, amount, price])
-         :- Union(all=[true], union=[name, id, amount, price])
-         :  :- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[true])
-         :  :  +- Exchange(distribution=[single])
-         :  :     +- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[false])
-         :  :        +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
-         :  +- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[true])
-         :     +- Exchange(distribution=[single])
-         :        +- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[false])
-         :           +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
-         +- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[true])
-            +- Exchange(distribution=[single])
-               +- SortLimit(orderBy=[id ASC], offset=[0], fetch=[4], global=[false])
-                  +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+   +- Union(all=[true], union=[name, id, amount, price])
+      :- Union(all=[true], union=[name, id, amount, price])
+      :  :- Limit(offset=[0], fetch=[4], global=[false])
+      :  :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      :  +- Limit(offset=[0], fetch=[4], global=[false])
+      :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- Limit(offset=[0], fetch=[4], global=[false])
+         +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
 ]]>
     </Resource>
   </TestCase>
