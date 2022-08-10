@@ -20,13 +20,16 @@ package org.apache.flink.runtime.socket.handler;
 
 import org.apache.flink.api.common.socket.JobSocketResult;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdapter;
+import org.apache.flink.shaded.netty4.io.netty.channel.socket.nio.NioSocketChannel;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Socket job result handler.
@@ -43,7 +46,14 @@ public class SocketJobResultHandler extends ChannelInboundHandlerAdapter {
 
 	@Override
 	public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-		resultList.put((JobSocketResult) msg);
+		boolean blocked = true;
+		Channel channel = ctx.channel();
+		while (blocked) {
+			blocked = !resultList.offer((JobSocketResult) msg, 10L, TimeUnit.MILLISECONDS);
+			if (blocked) {
+				LOG.warn("Channel id {}, local address {}, remote address {}, is blocked.", channel.id().toString(), channel.localAddress().toString(), channel.remoteAddress().toString());
+			}
+		}
 	}
 
 	@Override
@@ -53,4 +63,20 @@ public class SocketJobResultHandler extends ChannelInboundHandlerAdapter {
 		throw new RuntimeException(cause);
 	}
 
+	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+		Channel channel = ctx.channel();
+		String channelId = channel.id().toString();
+		LOG.warn("Channel id {}, local address {}, remote address {}, active status {}.",
+			channelId, channel.localAddress().toString(), channel.remoteAddress().toString(), channel.isActive());
+		ctx.fireChannelInactive();
+	}
+
+	public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
+		long outBoundBufSize = ((NioSocketChannel) ctx.channel()).unsafe().outboundBuffer().totalPendingWriteBytes();
+		Channel channel = ctx.channel();
+		String channelId = channel.id().toString();
+		LOG.warn("Channel id {}, local address {}, remote address {}, writable status {}, outbound buffer size {}",
+			channelId, channel.localAddress().toString(), channel.remoteAddress().toString(), channel.isWritable(), outBoundBufSize);
+		ctx.fireChannelWritabilityChanged();
+	}
 }

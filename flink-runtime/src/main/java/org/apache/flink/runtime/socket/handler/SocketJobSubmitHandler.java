@@ -31,8 +31,10 @@ import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.OptionalConsumer;
 import org.apache.flink.util.SerializedThrowable;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdapter;
+import org.apache.flink.shaded.netty4.io.netty.channel.socket.nio.NioSocketChannel;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,5 +99,15 @@ public class SocketJobSubmitHandler extends ChannelInboundHandlerAdapter {
 		LOG.error("SocketJobSubmitHandler occur error: ", cause);
 		ctx.close();
 		throw new IllegalStateException(cause);
+	}
+
+	public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
+		Channel channel = ctx.channel();
+
+		long outBoundBufSize = ((NioSocketChannel) channel).unsafe().outboundBuffer().totalPendingWriteBytes();
+		String channelId = channel.id().toString();
+		LOG.warn("Channel id {}, local address {}, remote address {}, writable status {}, outbound buffer size {}",
+			channelId, channel.localAddress().toString(), channel.remoteAddress().toString(), channel.isWritable(), outBoundBufSize);
+		ctx.fireChannelWritabilityChanged();
 	}
 }

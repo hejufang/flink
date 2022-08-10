@@ -81,6 +81,7 @@ public class JobResultContext {
 				break;
 			}
 			try {
+				LOG.info("Channel id {}, local address {}, remote address {}, writable status {}", channel.id().toString(), channel.localAddress().toString(), channel.remoteAddress().toString(), channel.isWritable());
 				Thread.sleep(10);
 			} catch (InterruptedException ignored) {
 			}
