@@ -143,13 +143,13 @@ public class HtapReaderIterator {
 		}
 	}
 
-	public Row next() {
+	public Row next(Row reuse) {
 		long beforeConvert = System.currentTimeMillis();
-		Row flinkRow = toFlinkRow(this.currentRowIterator.next());
+		reuse = toFlinkRow(this.currentRowIterator.next(), reuse);
 		long afterConvert = System.currentTimeMillis();
 		oneRoundConversionCostMs += (afterConvert - beforeConvert);
 		oneRoundRowCount++;
-		return flinkRow;
+		return reuse;
 	}
 
 	// Poll new row iterator from iteratorLinkBuffer or wait for background scan thread
@@ -199,13 +199,14 @@ public class HtapReaderIterator {
 			schema.getColumnCount() == groupByColumnSize + aggregateFunctions.size();
 	}
 
-	private Row toFlinkRow(RowResult row) {
+	private Row toFlinkRow(RowResult row, Row reuse) {
 		if (colNameList == null) {
 			initNamePosListAndAgg(row.getColumnProjection());
 		}
 		int cur = 0;
-
-		Row values = new Row(colNameList.size());
+		if (reuse == null) {
+			reuse = new Row(colNameList.size());
+		}
 		for (int i = 0; i < colNameList.size(); i++) {
 			String name = colNameList.get(i);
 			int pos = colPosList.get(i);
@@ -271,9 +272,9 @@ public class HtapReaderIterator {
 					throw new IllegalArgumentException("Conversion Error in column: " + name, e);
 				}
 			}
-			values.setField(pos, value);
+			reuse.setField(pos, value);
 		}
-		return values;
+		return reuse;
 	}
 
 	/**

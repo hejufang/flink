@@ -227,12 +227,12 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 		// check that current iterator has next rows
 		if (inDryRunMode || !this.resultIterator.hasNext()) {
 			endReached = true;
-			result = null;
+			reuse = null;
 		} else {
-			result = resultIterator.next();
+			reuse = resultIterator.next(reuse);
 			totalReadCount++;
 		}
 		totalNextRecordTime += (System.currentTimeMillis() - startTime);
-		return result;
+		return reuse;
 	}
 }
