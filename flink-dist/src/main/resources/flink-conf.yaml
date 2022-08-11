@@ -621,6 +621,7 @@ hl:
   blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: hl
   ipv6.enabled: true
+  restart-strategy: aggregated-fixed-delay
 
 hyrax:
   dc: cn
@@ -666,6 +667,7 @@ topi:
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: topi
   ipv6.enabled: true
+  restart-strategy: aggregated-fixed-delay
 
 hippo:
   dc: cn
