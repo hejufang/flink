@@ -1189,6 +1189,94 @@ vivid:
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
 
+fed01:
+  dc: va
+  clusterName: fed01
+  high-availability.zookeeper.quorum: fdbd:dc61:ff:1:0:231:162:149:2181,fdbd:dc61:ff:1:0:231:167:167:2181,fdbd:dc61:ff:1:0:231:167:180:2181,fdbd:dc61:ff:1:0:231:167:181:2181,fdbd:dc61:ff:1:0:231:169:144:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_gva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  yaop_url: http://yaop-us.bytedance.net
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+  jobmeta.db.name: flink_meta_va
+  grafana.domain_url: "https://grafana-us.byted.org"
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
+  ipv6.enabled: true
+  ipv6.supported.cluster: fed01
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
+
+
+fed02:
+  dc: va
+  clusterName: fed02
+  high-availability.zookeeper.quorum: fdbd:dc61:ff:1:0:231:162:149:2181,fdbd:dc61:ff:1:0:231:167:167:2181,fdbd:dc61:ff:1:0:231:167:180:2181,fdbd:dc61:ff:1:0:231:167:181:2181,fdbd:dc61:ff:1:0:231:169:144:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_gva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  yaop_url: http://yaop-us.bytedance.net
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+  jobmeta.db.name: flink_meta_va
+  grafana.domain_url: "https://grafana-us.byted.org"
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
+  ipv6.enabled: true
+  ipv6.supported.cluster: fed02
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
+
+fed03:
+  dc: va
+  clusterName: fed03
+  high-availability.zookeeper.quorum: fdbd:dc61:ff:1:0:231:162:149:2181,fdbd:dc61:ff:1:0:231:167:167:2181,fdbd:dc61:ff:1:0:231:167:180:2181,fdbd:dc61:ff:1:0:231:167:181:2181,fdbd:dc61:ff:1:0:231:169:144:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_gva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  yaop_url: http://yaop-us.bytedance.net
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+  jobmeta.db.name: flink_meta_va
+  grafana.domain_url: "https://grafana-us.byted.org"
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
+  ipv6.enabled: true
+  ipv6.supported.cluster: fed03
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
+  # local state quota limit
+  state.backend.local-state.expected-max-size: 50g
+  state.backend.local-state.actual-max-size: 60g
+  state.backend.fail-exceed-quota-task.enable: false
+  # css
+  flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
+  flink.cloud-shuffle-service.support: true
+
 macaw:
   dc: va
   clusterName: macaw
