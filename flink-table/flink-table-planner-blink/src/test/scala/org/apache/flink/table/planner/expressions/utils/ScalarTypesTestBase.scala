@@ -31,7 +31,7 @@ import java.nio.charset.StandardCharsets
 abstract class ScalarTypesTestBase extends ExpressionTestBase {
 
   override def testData: Row = {
-    val testData = new Row(59)
+    val testData = new Row(64)
     testData.setField(0, "This is a test String.")
     testData.setField(1, true)
     testData.setField(2, 42.toByte)
@@ -91,6 +91,11 @@ abstract class ScalarTypesTestBase extends ExpressionTestBase {
     testData.setField(56, 2)
     testData.setField(57, 1)
     testData.setField(58, "5L2g5aW9".getBytes(StandardCharsets.UTF_8))
+    testData.setField(59, 0.0.toFloat)
+    testData.setField(60, 0.0)
+    testData.setField(61, DecimalDataUtils.castFrom("0.0", 38, 1))
+    testData.setField(62, 0)
+    testData.setField(63, 0.toByte)
     testData
   }
 
@@ -154,6 +159,11 @@ abstract class ScalarTypesTestBase extends ExpressionTestBase {
       /* 55 */ new GenericTypeInfo[Integer](classOf[Integer]),
       /* 56 */ new GenericTypeInfo[Integer](classOf[Integer]),
       /* 57 */ new GenericTypeInfo[Integer](classOf[Integer]),
-      /* 58 */ Types.PRIMITIVE_ARRAY(Types.BYTE))
+      /* 58 */ Types.PRIMITIVE_ARRAY(Types.BYTE),
+      /* 59 */ Types.FLOAT,
+      /* 60 */ Types.DOUBLE,
+      /* 61 */ DecimalDataTypeInfo.of(38, 19),
+      /* 62 */ Types.INT,
+      /* 63 */ Types.BYTE)
   }
 }

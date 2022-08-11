@@ -27,6 +27,7 @@ import org.apache.commons.lang3.StringEscapeUtils
 import org.apache.flink.api.common.ExecutionConfig
 import org.apache.flink.api.common.typeinfo.{AtomicType => AtomicTypeInfo}
 import org.apache.flink.api.java.typeutils.GenericTypeInfo
+import org.apache.flink.table.api.config.TableConfigOptions
 import org.apache.flink.table.data._
 import org.apache.flink.table.data.binary.BinaryRowData
 import org.apache.flink.table.data.writer.BinaryRowWriter
@@ -59,9 +60,15 @@ object GenerateUtils {
       ctx: CodeGeneratorContext,
       returnType: LogicalType,
       operands: Seq[GeneratedExpression],
-      resultNullable: Boolean = false)
+      resultNullable: Boolean = false,
+      operator: String = null)
       (call: Seq[String] => String): GeneratedExpression = {
-    generateCallWithStmtIfArgsNotNull(ctx, returnType, operands, resultNullable) {
+    generateCallWithStmtIfArgsNotNull(
+      ctx,
+      returnType,
+      operands,
+      resultNullable,
+      operator = operator) {
       args => ("", call(args))
     }
   }
@@ -73,7 +80,8 @@ object GenerateUtils {
       ctx: CodeGeneratorContext,
       returnType: LogicalType,
       operands: Seq[GeneratedExpression],
-      resultNullable: Boolean = false)
+      resultNullable: Boolean = false,
+      operator: String = null)
       (call: Seq[String] => (String, String)): GeneratedExpression = {
     val resultTypeTerm = if (resultNullable) {
       boxedTypeTermForType(returnType)
@@ -90,6 +98,26 @@ object GenerateUtils {
       ""
     }
 
+    val returnNullForZeroDivisor: Boolean = ctx.tableConfig.getConfiguration
+      .getBoolean(TableConfigOptions.TABLE_HIVE_COMPATIBILITY_RETURN_NULL_FOR_ZERO_DIVISOR_ENABLED)
+    val zeroDivisorCheckCode = if (operator == "/" && returnNullForZeroDivisor) {
+      if (operands(1).resultType.isInstanceOf[DecimalType]) {
+        s"""
+           |if ($DECIMAL_UTIL.isZero(${operands(1).resultTerm})) {
+           |  $nullTerm = true;
+           |}
+           |""".stripMargin
+      } else {
+        s"""
+           |if (${operands(1).resultTerm} == 0) {
+           |  $nullTerm = true;
+           |}
+           |""".stripMargin
+      }
+    } else {
+      ""
+    }
+
     val (stmt, result) = call(operands.map(_.resultTerm))
 
     val resultCode = if (ctx.nullCheck && operands.nonEmpty) {
@@ -97,6 +125,7 @@ object GenerateUtils {
          |${operands.map(_.code).mkString("\n")}
          |$nullTerm = ${operands.map(_.nullTerm).mkString(" || ")};
          |$resultTerm = $defaultValue;
+         |$zeroDivisorCheckCode
          |if (!$nullTerm) {
          |  $stmt
          |  $resultTerm = $result;

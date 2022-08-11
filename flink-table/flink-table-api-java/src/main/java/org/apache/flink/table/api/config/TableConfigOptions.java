@@ -55,6 +55,15 @@ public class TableConfigOptions {
 					"Currently supported dialects are: default and hive");
 
 	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
+	public static final ConfigOption<Boolean> TABLE_HIVE_COMPATIBILITY_RETURN_NULL_FOR_ZERO_DIVISOR_ENABLED =
+			key("table.hive-compatibility.return-null-for-zero-divisor.enabled")
+				.booleanType()
+				.defaultValue(false)
+				.withDescription("Whether enabling return null for zero divisor behaviour. " +
+						"If enabled, it's the same behaviour as Hive/Spark. If disabled, it returns NaN if 0/0, " +
+						"(+/-)Infinity if (+/-)number/0. It's disabled by default.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
 	public static final ConfigOption<String> LOCAL_TIME_ZONE = key("table.local-time-zone")
 			.stringType()
 			// special value to decide whether to use ZoneId.systemDefault() in TableConfig.getLocalTimeZone()

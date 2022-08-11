@@ -38,6 +38,7 @@ import static org.apache.flink.table.data.DecimalDataUtils.floor;
 import static org.apache.flink.table.data.DecimalDataUtils.is32BitDecimal;
 import static org.apache.flink.table.data.DecimalDataUtils.is64BitDecimal;
 import static org.apache.flink.table.data.DecimalDataUtils.isByteArrayDecimal;
+import static org.apache.flink.table.data.DecimalDataUtils.isZero;
 import static org.apache.flink.table.data.DecimalDataUtils.mod;
 import static org.apache.flink.table.data.DecimalDataUtils.multiply;
 import static org.apache.flink.table.data.DecimalDataUtils.negate;
@@ -47,6 +48,7 @@ import static org.apache.flink.table.data.DecimalDataUtils.sround;
 import static org.apache.flink.table.data.DecimalDataUtils.subtract;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -124,6 +126,9 @@ public class DecimalDataTest {
 
 		assertEquals(6, sround(castFrom(5.555, 5, 0), 1).toUnscaledLong());
 		assertEquals(56, sround(castFrom(5.555, 5, 3), 1).toUnscaledLong());
+
+		assertTrue(isZero(DecimalData.zero(5, 2)));
+		assertFalse(isZero(DecimalData.fromUnscaledLong(2, 5, 0)));
 	}
 
 	@SuppressWarnings("ConstantConditions")

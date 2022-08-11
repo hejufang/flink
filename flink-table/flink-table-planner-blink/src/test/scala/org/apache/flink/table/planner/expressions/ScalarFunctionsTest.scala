@@ -1536,6 +1536,212 @@ class ScalarFunctionsTest extends ScalarTypesTestBase {
   @Test
   def testDivide(): Unit = {
 
+    testDivideWithNonZeroDivisor()
+
+    // test case for different type's zero divisor are separately below
+
+  }
+
+  @Test(expected = classOf[ArithmeticException])
+  def testDivideWithIntegerZeroDivisor(): Unit = {
+
+    setAssertRuntimeException(true)
+    testAllApis(
+      'f62 / 'f62,
+      "f62 / f62",
+      "f62 / f62",
+      "FAIL")
+
+  }
+
+  @Test(expected = classOf[ArithmeticException])
+  def testDivideWithLongZeroDivisor(): Unit = {
+
+    setAssertRuntimeException(true)
+    testAllApis(
+      'f27 / 'f27,
+      "f27 / f27",
+      "f27 / f27",
+      "FAIL")
+
+  }
+
+  @Test(expected = classOf[ArithmeticException])
+  def testDivideWithDecimalZeroDivisor(): Unit = {
+
+    setAssertRuntimeException(true)
+    testAllApis(
+      'f61 / 'f61,
+      "f61 / f61",
+      "f61 / f61",
+      "FAIL")
+
+  }
+
+  @Test
+  def testDivideWithHiveCompatibility(): Unit = {
+
+    setReturnNullForZeroDivisor(true)
+    testDivideWithZeroDivisorForHive()
+    // make sure enable this flag does not affect previous test cases
+    testDivideWithNonZeroDivisor()
+
+  }
+
+  def testDivideWithZeroDivisorForHive(): Unit = {
+
+    // test int zero divisor
+    testSqlApi(
+      "0 / 0",
+      "null"
+    )
+
+    testSqlApi(
+      "1 / 0",
+      "null"
+    )
+
+    testSqlApi(
+      "-2 / 0",
+      "null"
+    )
+
+    testAllApis(
+      'f62 / 'f62,
+      "f62 / f62",
+      "f62 / f62",
+      "null")
+
+    testAllApis(
+      'f7 / 'f62,
+      "f7 / f62",
+      "f7 / f62",
+      "null")
+
+    testAllApis(
+      'f14 / 'f62,
+      "f14 / f62",
+      "f14 / f62",
+      "null")
+
+    // test tinyint zero divisor
+    testAllApis(
+      'f63 / 'f63,
+      "f63 / f63",
+      "f63 / f63",
+      "null")
+
+    testAllApis(
+      'f7 / 'f63,
+      "f7 / f63",
+      "f7 / f63",
+      "null")
+
+    testAllApis(
+      'f14 / 'f63,
+      "f14 / f63",
+      "f14 / f63",
+      "null")
+
+    // test short zero divisor
+    testAllApis(
+      'f26 / 'f26,
+      "f26 / f26",
+      "f26 / f26",
+      "null")
+
+    testAllApis(
+      'f7 / 'f26,
+      "f7 / f26",
+      "f7 / f26",
+      "null")
+
+    testAllApis(
+      'f14 / 'f26,
+      "f14 / f26",
+      "f14 / f26",
+      "null")
+
+    // test long zero divisor
+    testAllApis(
+      'f27 / 'f27,
+      "f27 / f27",
+      "f27 / f27",
+      "null")
+
+    testAllApis(
+      'f7 / 'f27,
+      "f7 / f27",
+      "f7 / f27",
+      "null")
+
+    testAllApis(
+      'f14 / 'f27,
+      "f14 / f27",
+      "f14 / f27",
+      "null")
+
+    // test float zero divisor
+    testAllApis(
+      'f59 / 'f59,
+      "f59 / f59",
+      "f59 / f59",
+      "null")
+
+    testAllApis(
+      'f7 / 'f59,
+      "f7 / f59",
+      "f7 / f59",
+      "null")
+
+    testAllApis(
+      'f14 / 'f59,
+      "f14 / f59",
+      "f14 / f59",
+      "null")
+
+    // test double zero divisor
+    testAllApis(
+      'f60 / 'f60,
+      "f60 / f60",
+      "f60 / f60",
+      "null")
+
+    testAllApis(
+      'f7 / 'f60,
+      "f7 / f60",
+      "f7 / f60",
+      "null")
+
+    testAllApis(
+      'f14 / 'f60,
+      "f14 / f60",
+      "f14 / f60",
+      "null")
+
+    // test decimal zero divisor
+    testAllApis(
+      'f61 / 'f61,
+      "f61 / f61",
+      "f61 / f61",
+      "null")
+
+    testAllApis(
+      'f7 / 'f61,
+      "f7 / f61",
+      "f7 / f61",
+      "null")
+
+    testAllApis(
+      'f14 / 'f61,
+      "f14 / f61",
+      "f14 / f61",
+      "null")
+
+  }
+
+  def testDivideWithNonZeroDivisor(): Unit = {
+
     testAllApis(
       1514356320000L / 60000, // the `/` is Scala operator, not Flink TableApi operator
       "1514356320000L / 60000",

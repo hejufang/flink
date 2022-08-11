@@ -46,6 +46,7 @@ import org.apache.calcite.rel.logical.{LogicalCalc, LogicalTableScan}
 import org.apache.calcite.rel.rules._
 import org.apache.calcite.rex.RexNode
 import org.apache.calcite.sql.`type`.SqlTypeName.VARCHAR
+import org.apache.flink.table.api.config.TableConfigOptions
 
 import org.junit.Assert.{assertEquals, fail}
 import org.junit.rules.ExpectedException
@@ -70,6 +71,8 @@ abstract class ExpressionTestBase {
   private val relBuilder = planner.getRelBuilder
   private val calcitePlanner = planner.createFlinkPlanner
   private val parser = planner.plannerContext.createCalciteParser()
+  private var returnNullForZeroDivisor = false
+  private var assertRuntimeException = false
 
   // setup test utils
   private val tableName = "testTable"
@@ -99,6 +102,16 @@ abstract class ExpressionTestBase {
 
   @After
   def evaluateExprs(): Unit = {
+    if (!assertRuntimeException) {
+      evaluateExprsInternal()
+    }
+  }
+
+  def evaluateExprsInternal(): Unit = {
+    // returnNullForZeroDivisor is only used in expression codegen process
+    config.getConfiguration.setBoolean(
+      TableConfigOptions.TABLE_HIVE_COMPATIBILITY_RETURN_NULL_FOR_ZERO_DIVISOR_ENABLED,
+      returnNullForZeroDivisor)
     val ctx = CodeGeneratorContext(config)
     val inputType = fromTypeInfoToLogicalType(typeInfo)
     val exprGenerator = new ExprCodeGenerator(ctx, nullableInput = false).bindInput(inputType)
@@ -176,6 +189,8 @@ abstract class ExpressionTestBase {
             expected,
             if (actual == null) "null" else actual)
       }
+
+    testExprs.clear();
   }
 
   private def addSqlTestExpr(sqlExpr: String, expected: String): Unit = {
@@ -199,6 +214,10 @@ abstract class ExpressionTestBase {
     }
 
     testExprs += ((summaryString, extractRexNode(optimized), expected))
+
+    if (assertRuntimeException) {
+      evaluateExprsInternal()
+    }
   }
 
   private def extractRexNode(node: RelNode): RexNode = {
@@ -206,6 +225,14 @@ abstract class ExpressionTestBase {
       .asInstanceOf[LogicalCalc]
       .getProgram
     calcProgram.expandLocalRef(calcProgram.getProjectList.get(0))
+  }
+
+  def setReturnNullForZeroDivisor(flag: Boolean): Unit = {
+    returnNullForZeroDivisor = flag
+  }
+
+  def setAssertRuntimeException(flag: Boolean): Unit = {
+    assertRuntimeException = flag
   }
 
   def testAllApis(

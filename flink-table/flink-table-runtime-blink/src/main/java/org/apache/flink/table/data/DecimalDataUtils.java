@@ -294,6 +294,10 @@ public final class DecimalDataUtils {
 		return POW10[n];
 	}
 
+	public static boolean isZero(DecimalData dec) {
+		return dec.toBigDecimal().compareTo(BigDecimal.ZERO) == 0;
+	}
+
 	public static boolean is32BitDecimal(int precision) {
 		return precision <= MAX_INT_DIGITS;
 	}

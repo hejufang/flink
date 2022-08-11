@@ -91,7 +91,7 @@ object ScalarOperatorGens {
     val rightCasting = numericCasting(right.resultType, resultType)
     val resultTypeTerm = primitiveTypeTermForType(resultType)
 
-    generateOperatorIfNotNull(ctx, resultType, left, right) {
+    generateOperatorIfNotNull(ctx, resultType, left, right, operator = operator) {
       (leftTerm, rightTerm) =>
         s"($resultTypeTerm) (${leftCasting(leftTerm)} $operator ${rightCasting(rightTerm)})"
     }
@@ -121,7 +121,7 @@ object ScalarOperatorGens {
       "/" -> "divide",
       "%" -> "mod")
 
-    generateOperatorIfNotNull(ctx, resultType, left, right) {
+    generateOperatorIfNotNull(ctx, resultType, left, right, operator = operator) {
       (leftTerm, rightTerm) => {
         val method = methods(operator)
         val leftCasted = castToDec(left.resultType)(leftTerm)
@@ -2367,10 +2367,16 @@ object ScalarOperatorGens {
       returnType: LogicalType,
       left: GeneratedExpression,
       right: GeneratedExpression,
-      resultNullable: Boolean = false)
+      resultNullable: Boolean = false,
+      operator: String = null)
       (expr: (String, String) => String)
     : GeneratedExpression = {
-    generateCallIfArgsNotNull(ctx, returnType, Seq(left, right), resultNullable) {
+    generateCallIfArgsNotNull(
+      ctx,
+      returnType,
+      Seq(left, right),
+      resultNullable,
+      operator = operator) {
       args => expr(args.head, args(1))
     }
   }
