@@ -483,7 +483,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		if (numBytesIn != this.numBytesIn) {
 			this.numBytesIn = numBytesIn;
 			this.numBytesInUpdateTime = now;
-			isStuck.set(false);
 			stuckCheckExecutor.schedule(this::checkStuck, checkStuckInterval, TimeUnit.MILLISECONDS);
 			return;
 		}

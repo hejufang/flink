@@ -85,6 +85,7 @@ import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.jobgraph.tasks.TaskOperatorEventGateway;
 import org.apache.flink.runtime.jobmaster.AllocatedSlotInfo;
 import org.apache.flink.runtime.jobmaster.AllocatedSlotReport;
+import org.apache.flink.runtime.jobmaster.BatchTaskExecutionState;
 import org.apache.flink.runtime.jobmaster.DispatcherToTaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.jobmaster.ExecutionGraphException;
 import org.apache.flink.runtime.jobmaster.JMTMRegistrationSuccess;
@@ -2387,13 +2388,25 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			if (jobDeploymentManager == null) {
 				log.error("Cant found job {} in job deployment managers for task {}", taskExecutionState.getJobID(), taskExecutionState.getID());
 			} else {
+				if (batchUpdateJobStateEnable && taskExecutionState.isDownStreamBlocked()) {
+					CompletableFuture<Acknowledge> futureAcknowledge = jobMasterGateway.updateTaskExecutionState(taskExecutionState);
+
+					futureAcknowledge.whenCompleteAsync(
+						updateJobTaskStateFail(jobMasterGateway, executionAttemptID, jobID),
+						getMainThreadExecutor());
+				}
+
 				if (jobDeploymentManager.finishJobTask(taskExecutionState)) {
 					jobDeploymentManagers.remove(taskExecutionState.getJobID());
+
 					if (batchUpdateJobStateEnable) {
-						jobMasterGateway.batchUpdateTaskExecutionState(jobDeploymentManager.getBatchTaskExecutionState())
-							.whenCompleteAsync(
-								updateJobTaskStateFail(jobMasterGateway, executionAttemptID, jobID),
-								getMainThreadExecutor());
+						BatchTaskExecutionState batchTaskExecutionState = jobDeploymentManager.getBatchTaskExecutionState();
+						if (batchTaskExecutionState.getExecutionStateList().size() > 0) {
+							jobMasterGateway.batchUpdateTaskExecutionState(batchTaskExecutionState)
+								.whenCompleteAsync(
+									updateJobTaskStateFail(jobMasterGateway, executionAttemptID, jobID),
+									getMainThreadExecutor());
+						}
 						return;
 					}
 				} else if (taskExecutionState.getExecutionState().isTerminal() && batchUpdateJobStateEnable) {
@@ -2472,7 +2485,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 						task.getExecutionState(),
 						task.getFailureCause(),
 						accumulatorSnapshot,
-						task.getMetricGroup().getIOMetricGroup().createSnapshot()));
+						task.getMetricGroup().getIOMetricGroup().createSnapshot(),
+						task.isDownStreamBlocked()));
 
 			localStateStoresManager.updateLocalStateSizeAfterTaskInFinalState(
 				task.getAllocationId(),

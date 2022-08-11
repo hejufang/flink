@@ -65,6 +65,22 @@ public class JobDeploymentManagerTest {
 	}
 
 	@Test
+	public void testBlockTask() {
+		final int taskCount = 100;
+		final JobID jobId = new JobID();
+		JobDeploymentManager jobDeploymentManager = new JobDeploymentManager(jobId, JobMasterId.generate());
+		jobDeploymentManager.addDeployTaskCount(taskCount);
+		for (int i = 0; i < taskCount - 1; i++) {
+			assertFalse(jobDeploymentManager.finishJobTask(new TaskExecutionState(jobId, new ExecutionAttemptID(), ExecutionState.FINISHED)));
+		}
+		assertTrue(jobDeploymentManager.finishJobTask(new TaskExecutionState(jobId, new ExecutionAttemptID(), ExecutionState.FINISHED, null, null, null, true)));
+
+		BatchTaskExecutionState batchTaskExecutionState = jobDeploymentManager.getBatchTaskExecutionState();
+		assertEquals(jobId, batchTaskExecutionState.getJobId());
+		assertEquals(taskCount - 1, batchTaskExecutionState.getExecutionStateList().size());
+	}
+
+	@Test
 	public void testFailTask() {
 		final int taskCount = 100;
 		final JobID jobId = new JobID();

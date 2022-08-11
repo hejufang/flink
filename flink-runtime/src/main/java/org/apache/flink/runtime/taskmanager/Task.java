@@ -61,6 +61,7 @@ import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionConsumableNotifier;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -302,6 +303,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	private final TaskThreadPoolExecutor taskMonitorExecutor;
 
 	private final ScheduledExecutorService taskCheckStuckExecutor;
+
+	private final boolean downStreamBlocked;
 
 	// ------------------------------------------------------------------------
 	//  Fields that control the task execution. All these fields are volatile
@@ -621,6 +624,10 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		this.jobLogDetailDisable = jobLogDetailDisable;
 		this.taskJobResultGateway = taskJobResultGateway;
 		this.constructorCache = constructorCache;
+
+		this.downStreamBlocked = resultPartitionDeploymentDescriptors.stream()
+			.map(ResultPartitionDeploymentDescriptor::getPartitionType)
+			.anyMatch(ResultPartitionType::isBlocking);
 	}
 
 	// ------------------------------------------------------------------------
@@ -697,6 +704,10 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	@VisibleForTesting
 	AbstractInvokable getInvokable() {
 		return invokable;
+	}
+
+	public boolean isDownStreamBlocked() {
+		return downStreamBlocked;
 	}
 
 	@Override

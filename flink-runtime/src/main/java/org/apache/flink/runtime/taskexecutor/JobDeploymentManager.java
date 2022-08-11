@@ -45,6 +45,7 @@ public class JobDeploymentManager {
 
 	// The total tasks count which have been deployed.
 	private int deployTaskCount;
+	private int blockTaskCount;
 	private long startDeployTime;
 
 	public JobDeploymentManager(JobID jobId, JobMasterId jobMasterId) {
@@ -101,10 +102,14 @@ public class JobDeploymentManager {
 				+ taskExecutionState.getJobID() + " execution " + taskExecutionState.getID());
 		}
 		if (taskExecutionState.getExecutionState().isTerminal()) {
-			updateJobStates.put(taskExecutionState.getID(), taskExecutionState);
+			if (taskExecutionState.isDownStreamBlocked()) {
+				blockTaskCount++;
+			} else {
+				updateJobStates.put(taskExecutionState.getID(), taskExecutionState);
+			}
 			return (taskExecutionState.getExecutionState().isTerminal() &&
 				!taskExecutionState.getExecutionState().isFinished()) ||
-				deployTaskCount == updateJobStates.size();
+				(deployTaskCount - blockTaskCount) == updateJobStates.size();
 		}
 		return false;
 	}

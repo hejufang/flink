@@ -54,6 +54,8 @@ public class TaskExecutionState implements Serializable {
 
 	private final IOMetrics ioMetrics;
 
+	private final boolean downStreamBlocked;
+
 	/**
 	 * Creates a new task execution state update, with no attached exception and no accumulators.
 	 *
@@ -65,7 +67,7 @@ public class TaskExecutionState implements Serializable {
 	 *        the execution state to be reported
 	 */
 	public TaskExecutionState(JobID jobID, ExecutionAttemptID executionId, ExecutionState executionState) {
-		this(jobID, executionId, executionState, null, null, null);
+		this(jobID, executionId, executionState, null, null, null, false);
 	}
 
 	/**
@@ -80,27 +82,27 @@ public class TaskExecutionState implements Serializable {
 	 */
 	public TaskExecutionState(JobID jobID, ExecutionAttemptID executionId,
 							ExecutionState executionState, Throwable error) {
-		this(jobID, executionId, executionState, error, null, null);
+		this(jobID, executionId, executionState, error, null, null, false);
 	}
 
 	/**
 	 * Creates a new task execution state update, with an attached exception.
 	 * This constructor may never throw an exception.
-	 *
-	 * @param jobID
+	 *  @param jobID
 	 *        the ID of the job the task belongs to
 	 * @param executionId
 	 *        the ID of the task execution whose state is to be reported
 	 * @param executionState
-	 *        the execution state to be reported
+ *        the execution state to be reported
 	 * @param error
-	 *        an optional error
+*        an optional error
 	 * @param accumulators
-	 *        The flink and user-defined accumulators which may be null.
+	 * @param downStreamBlocked
 	 */
 	public TaskExecutionState(JobID jobID, ExecutionAttemptID executionId,
-			ExecutionState executionState, Throwable error,
-			AccumulatorSnapshot accumulators, IOMetrics ioMetrics) {
+							  ExecutionState executionState, Throwable error,
+							  AccumulatorSnapshot accumulators, IOMetrics ioMetrics,
+							  boolean downStreamBlocked) {
 
 		if (jobID == null || executionId == null || executionState == null) {
 			throw new NullPointerException();
@@ -116,6 +118,7 @@ public class TaskExecutionState implements Serializable {
 		}
 		this.accumulators = accumulators;
 		this.ioMetrics = ioMetrics;
+		this.downStreamBlocked = downStreamBlocked;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -176,6 +179,10 @@ public class TaskExecutionState implements Serializable {
 
 	public SerializedThrowable getThrowable() {
 		return throwable;
+	}
+
+	public boolean isDownStreamBlocked() {
+		return downStreamBlocked;
 	}
 
 	// --------------------------------------------------------------------------------------------

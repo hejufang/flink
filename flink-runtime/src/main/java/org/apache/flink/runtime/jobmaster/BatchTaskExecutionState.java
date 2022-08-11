@@ -53,7 +53,8 @@ public class BatchTaskExecutionState implements Serializable {
 				taskExecutionState.getExecutionState(),
 				taskExecutionState.getThrowable(),
 				taskExecutionState.getAccumulators(),
-				taskExecutionState.getIOMetrics()));
+				taskExecutionState.getIOMetrics(),
+				taskExecutionState.isDownStreamBlocked()));
 	}
 
 	public JobID getJobId() {
@@ -69,7 +70,8 @@ public class BatchTaskExecutionState implements Serializable {
 				singleTaskExecutionState.executionState,
 				singleTaskExecutionState.throwable,
 				singleTaskExecutionState.accumulators,
-				singleTaskExecutionState.ioMetrics));
+				singleTaskExecutionState.ioMetrics,
+				singleTaskExecutionState.isDownStreamBlocked));
 		}
 		return taskExecutionStateList;
 	}
@@ -88,17 +90,21 @@ public class BatchTaskExecutionState implements Serializable {
 
 		private final IOMetrics ioMetrics;
 
+		private final boolean isDownStreamBlocked;
+
 		public SingleTaskExecutionState(
 				ExecutionAttemptID executionId,
 				ExecutionState executionState,
 				SerializedThrowable throwable,
 				AccumulatorSnapshot accumulators,
-				IOMetrics ioMetrics) {
+				IOMetrics ioMetrics,
+				boolean isDownStreamBlocked) {
 			this.executionId = executionId;
 			this.executionState = executionState;
 			this.throwable = throwable;
 			this.accumulators = accumulators;
 			this.ioMetrics = ioMetrics;
+			this.isDownStreamBlocked = isDownStreamBlocked;
 		}
 	}
 
