@@ -33,7 +33,7 @@ This template aims:
 ## Reviewers and Due (need to assign one more person)
 (make sure everyone below approves before merging, so usually don't write everyone here)
 
-Reviewers: @liaojiayi,@?
+Reviewers: @?
 Due(date): 
 
 
