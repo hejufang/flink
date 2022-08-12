@@ -57,7 +57,7 @@ public class MockConnection implements Connection {
 
 	@Override
 	public PreparedStatement prepareStatement(String sql) throws SQLException {
-		return null;
+		return new MockPreparedStatement(dataId, sql);
 	}
 
 	@Override

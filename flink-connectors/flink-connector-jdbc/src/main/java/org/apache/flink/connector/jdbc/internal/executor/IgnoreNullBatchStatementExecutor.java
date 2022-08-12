@@ -27,14 +27,15 @@ import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableSet;
 import org.apache.flink.shaded.guava18.com.google.common.primitives.Ints;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -50,11 +51,11 @@ public class IgnoreNullBatchStatementExecutor implements JdbcBatchStatementExecu
 	private final String[] fieldNames;
 	private final DynamicTableSink.DataStructureConverter dataStructureConverter;
 
-	private transient Statement statement;
-
+	private transient Connection connection;
 	private transient List<String> notNullColumnsNames;
-	private transient List<String> notNullColumnValues;
+	private transient List<Object> notNullColumnValues;
 	private transient List<String> notNullNotPrimaryColumnNames;
+	private transient Map<String, PreparedStatement> preparedStatements;
 
 	IgnoreNullBatchStatementExecutor(
 			Function<RowData, RowData> valueTransformer,
@@ -128,10 +129,11 @@ public class IgnoreNullBatchStatementExecutor implements JdbcBatchStatementExecu
 
 	@Override
 	public void prepareStatements(Connection connection) throws SQLException {
-		this.statement = connection.createStatement();
+		this.connection = connection;
 		this.notNullColumnsNames = new ArrayList<>(fieldNames.length);
 		this.notNullColumnValues = new ArrayList<>(fieldNames.length);
 		this.notNullNotPrimaryColumnNames = new ArrayList<>(fieldNames.length);
+		this.preparedStatements = new HashMap<>();
 	}
 
 	@Override
@@ -153,34 +155,73 @@ public class IgnoreNullBatchStatementExecutor implements JdbcBatchStatementExecu
 						continue;
 					}
 					notNullColumnsNames.add(fieldNames[i]);
-					notNullColumnValues.add(field.toString());
+					notNullColumnValues.add(field);
 					if (!pks.contains(i)) {
 						notNullNotPrimaryColumnNames.add(fieldNames[i]);
 					}
 				}
-				String notNullInsertSql = String.format(
-					"INSERT INTO %s(%s) VALUES(%s) ON DUPLICATE KEY UPDATE %s",
-					tableName,
-					String.join(", ", notNullColumnsNames),
-					String.join(", ", notNullColumnValues),
-					notNullNotPrimaryColumnNames.stream()
-						.map(s -> String.format("%s=VALUES(%s)", s, s))
-						.collect(Collectors.joining(", ")));
-				statement.addBatch(notNullInsertSql);
+
+				final String sql = constructInsertSqlTemplate();
+				PreparedStatement statement = preparedStatements.get(sql);
+				if (statement == null) {
+					statement = connection.prepareStatement(sql);
+					preparedStatements.put(sql, statement);
+				}
+				for (int i = 0; i < notNullColumnValues.size(); ++i) {
+					statement.setObject(i + 1, notNullColumnValues.get(i));
+				}
+				statement.addBatch();
+
 				notNullColumnsNames.clear();
 				notNullColumnValues.clear();
 				notNullNotPrimaryColumnNames.clear();
 			}
-			statement.executeBatch();
+			for (PreparedStatement statement : preparedStatements.values()) {
+				statement.executeBatch();
+				statement.close();
+			}
+			preparedStatements.clear();
 			batch.clear();
 		}
 	}
 
+	private String constructInsertSqlTemplate() {
+		final StringBuilder columnNameBuilder = new StringBuilder();
+		final StringBuilder valuesBuilder = new StringBuilder();
+		for (int i = 0; i < notNullColumnValues.size(); ++i) {
+			if (i != 0) {
+				columnNameBuilder.append(", ");
+				valuesBuilder.append(", ");
+			}
+			columnNameBuilder.append(notNullColumnsNames.get(i));
+			valuesBuilder.append("?");
+		}
+
+		final StringBuilder updateBuilder = new StringBuilder();
+		for (int i = 0; i < notNullNotPrimaryColumnNames.size(); ++i) {
+			if (i != 0) {
+				updateBuilder.append(", ");
+			}
+			updateBuilder.append(notNullNotPrimaryColumnNames.get(i));
+			updateBuilder.append("=VALUES(");
+			updateBuilder.append(notNullNotPrimaryColumnNames.get(i));
+			updateBuilder.append(")");
+		}
+
+		return String.format("INSERT INTO %s(%s) VALUES(%s) ON DUPLICATE KEY UPDATE %s",
+			tableName,
+			columnNameBuilder,
+			valuesBuilder,
+			updateBuilder);
+	}
+
 	@Override
 	public void closeStatements() throws SQLException {
-		if (statement != null) {
-			statement.close();
-			statement = null;
+		if (preparedStatements != null) {
+			for (PreparedStatement statement : preparedStatements.values()) {
+				statement.executeBatch();
+				statement.close();
+			}
 		}
 	}
 }

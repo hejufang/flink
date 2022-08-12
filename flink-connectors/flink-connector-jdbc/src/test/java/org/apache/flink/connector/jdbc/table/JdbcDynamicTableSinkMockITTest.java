@@ -19,7 +19,7 @@
 package org.apache.flink.connector.jdbc.table;
 
 import org.apache.flink.connector.jdbc.mock.MockDriver;
-import org.apache.flink.connector.jdbc.mock.MockStatement;
+import org.apache.flink.connector.jdbc.mock.MockPreparedStatement;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.EnvironmentSettings;
@@ -30,9 +30,10 @@ import org.apache.flink.test.util.AbstractTestBase;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The ITCase for {@link JdbcDynamicTableSink}.
@@ -74,19 +75,30 @@ public class JdbcDynamicTableSinkMockITTest extends AbstractTestBase {
 			"(VALUES (1, 'Tom', 18, 'Street 1'),\n" +
 			"  (2, 'Lily', cast(null as int), 'Street 2'),\n" +
 			"  (3, cast(null as varchar), 20, cast(null as varchar)),\n" +
-			"  (4, cast(null as varchar), cast(null as int), cast(null as varchar)))\n" +
+			"  (4, 'a', cast(null as int), cast(null as varchar)),\n" +
+			"  (4, 'b', cast(null as int), cast(null as varchar)),\n" +
+			"  (4, 'c', cast(null as int), cast(null as varchar)))\n" +
 			"AS T(id, name, age, street)");
 		// wait to finish
 		tableResult.getJobClient().get().getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
 
-		List<String> expected = Arrays.asList(
-			"INSERT INTO `REAL_TABLE`(`id`, `name`, `age`, `street`) VALUES(1, Tom, 18, Street 1) ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `age`=VALUES(`age`), `street`=VALUES(`street`)",
-			"INSERT INTO `REAL_TABLE`(`id`, `name`, `street`) VALUES(2, Lily, Street 2) ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `street`=VALUES(`street`)",
-			"INSERT INTO `REAL_TABLE`(`id`, `age`) VALUES(3, 20) ON DUPLICATE KEY UPDATE `age`=VALUES(`age`)",
-			"INSERT INTO `REAL_TABLE`(`id`) VALUES(4) ON DUPLICATE KEY UPDATE "
-		);
-		Collections.sort(expected);
-		Collections.sort(MockStatement.DATA.get(mockDataId));
-		Assert.assertEquals(expected, MockStatement.DATA.get(mockDataId));
+		Map<String, List<Object[]>> expected = new HashMap<>(4);
+		expected.put("INSERT INTO `REAL_TABLE`(`id`, `name`, `street`) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `street`=VALUES(`street`)",
+			Collections.singletonList(new Object[]{2L, "Lily", "Street 2"}));
+		expected.put("INSERT INTO `REAL_TABLE`(`id`, `age`) VALUES(?, ?) ON DUPLICATE KEY UPDATE `age`=VALUES(`age`)",
+			Collections.singletonList(new Object[]{3L, 20}));
+		expected.put("INSERT INTO `REAL_TABLE`(`id`, `name`) VALUES(?, ?) ON DUPLICATE KEY UPDATE `name`=VALUES(`name`)",
+			Collections.singletonList(new Object[]{4L, "c"}));
+		expected.put("INSERT INTO `REAL_TABLE`(`id`, `name`, `age`, `street`) VALUES(?, ?, ?, ?) ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `age`=VALUES(`age`), `street`=VALUES(`street`)",
+			Collections.singletonList(new Object[]{1L, "Tom", 18, "Street 1"}));
+
+		for (Map.Entry<String, List<Object[]>> entry : expected.entrySet()) {
+			List<Object[]> result = MockPreparedStatement.DATA.get(mockDataId).get(entry.getKey());
+			Assert.assertNotNull(result);
+			Assert.assertEquals(result.size(), entry.getValue().size());
+			for (int i = 0; i < result.size(); ++i) {
+				Assert.assertArrayEquals(entry.getValue().get(i), result.get(i));
+			}
+		}
 	}
 }
