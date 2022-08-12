@@ -46,8 +46,15 @@ public class JsonOptions {
 			.key("ignore-parse-errors")
 			.booleanType()
 			.defaultValue(false)
-			.withDescription("Optional flag to skip fields and rows with parse errors instead of failing;\n"
+			.withDescription("Optional flag to skip parse errors of any kind instead of failing;\n"
 					+ "fields are set to null in case of errors, false by default");
+
+	public static final ConfigOption<Boolean> IGNORE_FIELD_PARSE_ERRORS = ConfigOptions
+		.key("ignore-field-parse-errors")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional flag to skip fields with parse errors instead of failing;\n"
+			+ "fields are set to null in case of errors, false by default");
 
 	public static final ConfigOption<Duration> LOG_ERROR_RECORDS_INTERVAL = ConfigOptions
 			.key("log-error-records-interval")

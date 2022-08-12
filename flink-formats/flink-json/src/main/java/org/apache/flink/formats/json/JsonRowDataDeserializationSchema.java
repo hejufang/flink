@@ -98,6 +98,9 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	/** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
 	private final boolean ignoreParseErrors;
 
+	/** Flag indicating whether to ignore fields (default: throw an exception). */
+	private final boolean ignoreFieldParseErrors;
+
 	/** Flag indicating whether to decode a json node to varbinary. */
 	private final boolean byteAsJsonNode;
 
@@ -123,6 +126,10 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	private long lastLogErrorTimestamp;
 	private boolean booleanNumberConversion;
 
+	/**
+	 * @deprecated use {@link JsonRowDataDeserializationSchema.Builder} instead
+	 */
+	@Deprecated
 	public JsonRowDataDeserializationSchema(
 			RowType rowType,
 			TypeInformation<RowData> resultTypeInfo,
@@ -136,12 +143,17 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			false,
 			ignoreParseErrors,
 			false,
+			false,
 			timestampFormat,
 			LOG_ERROR_RECORDS_INTERVAL.defaultValue().toMillis(),
 			new HashMap<>(),
 			false);
 	}
 
+	/**
+	 * @deprecated use {@link JsonRowDataDeserializationSchema.Builder} instead
+	 */
+	@Deprecated
 	public JsonRowDataDeserializationSchema(
 			RowType rowType,
 			TypeInformation<RowData> resultTypeInfo,
@@ -157,6 +169,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			failOnMissingField,
 			false,
 			ignoreParseErrors,
+			false,
 			byteAsJsonNode,
 			timestampFormat,
 			logErrorInterval,
@@ -164,6 +177,10 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			false);
 	}
 
+	/**
+	 * @deprecated use {@link JsonRowDataDeserializationSchema.Builder} instead
+	 */
+	@Deprecated
 	public JsonRowDataDeserializationSchema(
 			RowType rowType,
 			TypeInformation<RowData> resultTypeInfo,
@@ -178,12 +195,17 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			defaultOnMissingField,
 			ignoreParseErrors,
 			false,
+			false,
 			timestampFormat,
 			LOG_ERROR_RECORDS_INTERVAL.defaultValue().toMillis(),
 			new HashMap<>(),
 			false);
 	}
 
+	/**
+	 * @deprecated use {@link JsonRowDataDeserializationSchema.Builder} instead
+	 */
+	@Deprecated
 	public JsonRowDataDeserializationSchema(
 			RowType rowType,
 			TypeInformation<RowData> resultTypeInfo,
@@ -195,20 +217,142 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			long logErrorInterval,
 			Map<JsonParser.Feature, Boolean> jsonParserFeatureMap,
 			boolean booleanNumberConversion) {
+		this(
+			rowType,
+			resultTypeInfo,
+			failOnMissingField,
+			defaultOnMissingField,
+			ignoreParseErrors,
+			false,
+			byteAsJsonNode,
+			timestampFormat,
+			logErrorInterval,
+			jsonParserFeatureMap,
+			booleanNumberConversion);
+	}
+
+	private JsonRowDataDeserializationSchema(
+			RowType rowType,
+			TypeInformation<RowData> resultTypeInfo,
+			boolean failOnMissingField,
+			boolean defaultOnMissingField,
+			boolean ignoreParseErrors,
+			boolean ignoreFieldParseErrors,
+			boolean byteAsJsonNode,
+			TimestampFormat timestampFormat,
+			long logErrorInterval,
+			Map<JsonParser.Feature, Boolean> jsonParserFeatureMap,
+			boolean booleanNumberConversion) {
 		if (ignoreParseErrors && failOnMissingField) {
 			throw new IllegalArgumentException(
 				"JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.");
+		}
+		if (ignoreFieldParseErrors && failOnMissingField) {
+			throw new IllegalArgumentException(
+				"JSON format doesn't support failOnMissingField and ignoreFieldParseErrors are both enabled.");
 		}
 		this.resultTypeInfo = checkNotNull(resultTypeInfo);
 		this.failOnMissingField = failOnMissingField;
 		this.defaultOnMissingField = defaultOnMissingField;
 		this.ignoreParseErrors = ignoreParseErrors;
+		this.ignoreFieldParseErrors = ignoreFieldParseErrors;
 		this.byteAsJsonNode = byteAsJsonNode;
 		this.runtimeConverter = createRowConverter(checkNotNull(rowType));
 		this.timestampFormat = timestampFormat;
 		this.logErrorInterval = logErrorInterval;
 		jsonParserFeatureMap.forEach(objectMapper::configure);
 		this.booleanNumberConversion = booleanNumberConversion;
+	}
+
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	/**
+	 * Builder class of {@link JsonRowDataDeserializationSchema}.
+	 */
+	public static class Builder {
+		private RowType rowType;
+		private TypeInformation<RowData> resultTypeInfo;
+		private boolean failOnMissingField;
+		private boolean defaultOnMissingField;
+		private boolean ignoreParseErrors;
+		private boolean ignoreFieldParseErrors;
+		private boolean byteAsJsonNode;
+		private TimestampFormat timestampFormat = TimestampFormat.SQL;
+		private long logErrorInterval;
+		private Map<JsonParser.Feature, Boolean> jsonParserFeatureMap = new HashMap<>();
+		private boolean booleanNumberConversion;
+
+		public Builder setRowType(RowType rowType) {
+			this.rowType = rowType;
+			return this;
+		}
+
+		public Builder setResultTypeInfo(TypeInformation<RowData> resultTypeInfo) {
+			this.resultTypeInfo = resultTypeInfo;
+			return this;
+		}
+
+		public Builder setFailOnMissingField(boolean failOnMissingField) {
+			this.failOnMissingField = failOnMissingField;
+			return this;
+		}
+
+		public Builder setDefaultOnMissingField(boolean defaultOnMissingField) {
+			this.defaultOnMissingField = defaultOnMissingField;
+			return this;
+		}
+
+		public Builder setIgnoreParseErrors(boolean ignoreParseErrors) {
+			this.ignoreParseErrors = ignoreParseErrors;
+			return this;
+		}
+
+		public Builder setIgnoreFieldParseErrors(boolean ignoreFieldParseErrors) {
+			this.ignoreFieldParseErrors = ignoreFieldParseErrors;
+			return this;
+		}
+
+		public Builder setByteAsJsonNode(boolean byteAsJsonNode) {
+			this.byteAsJsonNode = byteAsJsonNode;
+			return this;
+		}
+
+		public Builder setTimestampFormat(TimestampFormat timestampFormat) {
+			this.timestampFormat = timestampFormat;
+			return this;
+		}
+
+		public Builder setLogErrorInterval(long logErrorInterval) {
+			this.logErrorInterval = logErrorInterval;
+			return this;
+		}
+
+		public Builder setJsonParserFeatureMap(Map<JsonParser.Feature, Boolean> jsonParserFeatureMap) {
+			this.jsonParserFeatureMap = jsonParserFeatureMap;
+			return this;
+		}
+
+		public Builder setBooleanNumberConversion(boolean booleanNumberConversion) {
+			this.booleanNumberConversion = booleanNumberConversion;
+			return this;
+		}
+
+		public JsonRowDataDeserializationSchema build() {
+			return new JsonRowDataDeserializationSchema(
+				rowType,
+				resultTypeInfo,
+				failOnMissingField,
+				defaultOnMissingField,
+				ignoreParseErrors,
+				ignoreFieldParseErrors,
+				byteAsJsonNode,
+				timestampFormat,
+				logErrorInterval,
+				jsonParserFeatureMap,
+				booleanNumberConversion);
+		}
 	}
 
 	@Override
@@ -307,7 +451,14 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			if (jsonNode.isNull()) {
 				return null;
 			}
-			return baseConverter.convert(jsonNode);
+			try {
+				return baseConverter.convert(jsonNode);
+			} catch (Throwable t) {
+				if (!ignoreFieldParseErrors) {
+					throw t;
+				}
+				return null;
+			}
 		};
 	}
 

@@ -515,6 +515,40 @@ public class JsonRowDataSerDeSchemaTest {
 	}
 
 	@Test
+	public void testJsonFieldParse() throws Exception {
+		ObjectMapper objectMapper = new ObjectMapper();
+		ObjectNode root = objectMapper.createObjectNode();
+		root.put("bool", true);
+		root.put("int", "abc");
+		root.put("name", "flink");
+
+		byte[] serializedJson = objectMapper.writeValueAsBytes(root);
+
+		DataType dataType = ROW(
+			FIELD("bool", BOOLEAN()),
+			FIELD("int", INT()),
+			FIELD("name", STRING()));
+		RowType schema = (RowType) dataType.getLogicalType();
+		RowDataTypeInfo resultTypeInfo = new RowDataTypeInfo(schema);
+
+		JsonRowDataDeserializationSchema deserializationSchema = JsonRowDataDeserializationSchema.builder()
+			.setRowType(schema)
+			.setResultTypeInfo(resultTypeInfo)
+			.setFailOnMissingField(false)
+			.setIgnoreFieldParseErrors(true)
+			.build();
+
+		Row expected = new Row(3);
+		expected.setField(0, true);
+		expected.setField(1, null);
+		expected.setField(2, "flink");
+
+		RowData rowData = deserializationSchema.deserialize(serializedJson);
+		Row actual = convertToExternal(rowData, dataType);
+		assertEquals(expected, actual);
+	}
+
+	@Test
 	public void testSerUnwrappedFileds() throws Exception {
 		String[] unwrappedNames = {"unwrapped_map", "unwrapped_row"};
 
@@ -688,8 +722,19 @@ public class JsonRowDataSerDeSchemaTest {
 			FIELD("double", DOUBLE()));
 		RowType schema = (RowType) dataType.getLogicalType();
 		// pass on missing field
-		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
-			schema, new RowDataTypeInfo(schema), false, true, false, false, TimestampFormat.ISO_8601, LOG_ERROR_RECORDS_INTERVAL.defaultValue().toMillis(), new HashMap<>(), true);
+		JsonRowDataDeserializationSchema deserializationSchema = JsonRowDataDeserializationSchema.builder()
+			.setRowType(schema)
+			.setResultTypeInfo(new RowDataTypeInfo(schema))
+			.setFailOnMissingField(false)
+			.setDefaultOnMissingField(true)
+			.setIgnoreParseErrors(false)
+			.setIgnoreFieldParseErrors(false)
+			.setByteAsJsonNode(false)
+			.setTimestampFormat(TimestampFormat.ISO_8601)
+			.setLogErrorInterval(LOG_ERROR_RECORDS_INTERVAL.defaultValue().toMillis())
+			.setJsonParserFeatureMap(new HashMap<>())
+			.setBooleanNumberConversion(true)
+			.build();
 
 		Row expected = new Row(8);
 		expected.setField(0, false);

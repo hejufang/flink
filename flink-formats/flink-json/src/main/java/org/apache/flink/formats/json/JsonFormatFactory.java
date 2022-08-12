@@ -53,6 +53,7 @@ import static org.apache.flink.formats.json.JsonOptions.DEFAULT_ON_MISSING_FIELD
 import static org.apache.flink.formats.json.JsonOptions.ENCODE_IGNORE_NULL_VALUES;
 import static org.apache.flink.formats.json.JsonOptions.ENFORCE_UTF8_ENCODING;
 import static org.apache.flink.formats.json.JsonOptions.FAIL_ON_MISSING_FIELD;
+import static org.apache.flink.formats.json.JsonOptions.IGNORE_FIELD_PARSE_ERRORS;
 import static org.apache.flink.formats.json.JsonOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.json.JsonOptions.LOG_ERROR_RECORDS_INTERVAL;
 import static org.apache.flink.formats.json.JsonOptions.TIMESTAMP_FORMAT;
@@ -80,6 +81,7 @@ public class JsonFormatFactory implements
 		final boolean failOnMissingField = formatOptions.get(FAIL_ON_MISSING_FIELD);
 		final boolean defaultOnMissingField = formatOptions.get(DEFAULT_ON_MISSING_FIELD);
 		final boolean ignoreParseErrors = formatOptions.get(IGNORE_PARSE_ERRORS);
+		final boolean ignoreFieldParseErrors = formatOptions.get(IGNORE_FIELD_PARSE_ERRORS);
 		final boolean byteAsJsonNode = formatOptions.get(BYTES_AS_JSON_NODE);
 		final long logParseErrorsInterval = formatOptions.get(LOG_ERROR_RECORDS_INTERVAL).toMillis();
 		final boolean booleanNumberConversion = formatOptions.get(BOOLEAN_NUMBER_CONVERSION);
@@ -90,6 +92,7 @@ public class JsonFormatFactory implements
 				failOnMissingField,
 				defaultOnMissingField,
 				ignoreParseErrors,
+				ignoreFieldParseErrors,
 				byteAsJsonNode,
 				timestampOption,
 				logParseErrorsInterval,
@@ -148,6 +151,7 @@ public class JsonFormatFactory implements
 		options.add(FAIL_ON_MISSING_FIELD);
 		options.add(DEFAULT_ON_MISSING_FIELD);
 		options.add(IGNORE_PARSE_ERRORS);
+		options.add(IGNORE_FIELD_PARSE_ERRORS);
 		options.add(LOG_ERROR_RECORDS_INTERVAL);
 		options.add(TIMESTAMP_FORMAT);
 		options.add(ENFORCE_UTF8_ENCODING);
@@ -198,6 +202,7 @@ public class JsonFormatFactory implements
 		private final boolean failOnMissingField;
 		private final boolean defaultOnMissingField;
 		private final boolean ignoreParseErrors;
+		private final boolean ignoreFieldParseErrors;
 		private final boolean byteAsJsonNode;
 		private final TimestampFormat timestampOption;
 		private final long logParseErrorsInterval;
@@ -208,6 +213,7 @@ public class JsonFormatFactory implements
 				boolean failOnMissingField,
 				boolean defaultOnMissingField,
 				boolean ignoreParseErrors,
+				boolean ignoreFieldParseErrors,
 				boolean byteAsJsonNode,
 				TimestampFormat timestampOption,
 				long logParseErrorsInterval,
@@ -216,6 +222,7 @@ public class JsonFormatFactory implements
 			this.failOnMissingField = failOnMissingField;
 			this.defaultOnMissingField = defaultOnMissingField;
 			this.ignoreParseErrors = ignoreParseErrors;
+			this.ignoreFieldParseErrors = ignoreFieldParseErrors;
 			this.byteAsJsonNode = byteAsJsonNode;
 			this.timestampOption = timestampOption;
 			this.logParseErrorsInterval = logParseErrorsInterval;
@@ -230,18 +237,19 @@ public class JsonFormatFactory implements
 			final RowType rowType = (RowType) producedDataType.getLogicalType();
 			final TypeInformation<RowData> rowDataTypeInfo =
 				(TypeInformation<RowData>) context.createTypeInformation(producedDataType);
-			return new JsonRowDataDeserializationSchema(
-				rowType,
-				rowDataTypeInfo,
-				failOnMissingField,
-				defaultOnMissingField,
-				ignoreParseErrors,
-				byteAsJsonNode,
-				timestampOption,
-				logParseErrorsInterval,
-				parserFeature,
-				booleanNumberConversion
-			);
+			return JsonRowDataDeserializationSchema.builder()
+				.setRowType(rowType)
+				.setResultTypeInfo(rowDataTypeInfo)
+				.setFailOnMissingField(failOnMissingField)
+				.setDefaultOnMissingField(defaultOnMissingField)
+				.setIgnoreParseErrors(ignoreParseErrors)
+				.setIgnoreFieldParseErrors(ignoreFieldParseErrors)
+				.setByteAsJsonNode(byteAsJsonNode)
+				.setTimestampFormat(timestampOption)
+				.setLogErrorInterval(logParseErrorsInterval)
+				.setJsonParserFeatureMap(parserFeature)
+				.setBooleanNumberConversion(booleanNumberConversion)
+				.build();
 		}
 
 		@Override
