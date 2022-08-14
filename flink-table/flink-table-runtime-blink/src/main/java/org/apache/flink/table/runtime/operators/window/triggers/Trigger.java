@@ -188,6 +188,11 @@ public abstract class Trigger<W extends Window> implements Serializable {
 		 *                                       function (function is not part os a KeyedStream).
 		 */
 		<S extends State> S getPartitionedState(StateDescriptor<S, ?> stateDescriptor);
+
+		/**
+		 * Returns whether the WindowOperator is closed.
+		 */
+		boolean closing();
 	}
 
 	/**

@@ -163,6 +163,10 @@ public abstract class WindowOperator<K, W extends Window>
 	/** Flag to prevent duplicate function.close() calls in close() and dispose(). */
 	private transient boolean functionsClosed = false;
 
+	/** Flag to indicate that function is in closing state, we'll still need to do some more work
+	 * such as triggering all processing timers. */
+	private transient boolean closing = false;
+
 	private transient InternalTimerService<W> internalTimerService;
 
 	private transient InternalValueState<K, W, RowData> windowState;
@@ -269,6 +273,7 @@ public abstract class WindowOperator<K, W extends Window>
 		super.open();
 
 		functionsClosed = false;
+		closing = false;
 
 		collector = new TimestampedCollector<>(output);
 		collector.eraseTimestamp();
@@ -329,6 +334,10 @@ public abstract class WindowOperator<K, W extends Window>
 	public void close() throws Exception {
 		if (bundleTrigger != null) {
 			finishBundle();
+		}
+		closing = true;
+		if (internalTimerService != null) {
+			internalTimerService.triggerAllProcessingTimeTimer();
 		}
 		super.close();
 		collector = null;
@@ -769,6 +778,11 @@ public abstract class WindowOperator<K, W extends Window>
 					throw new RuntimeException("Error while merging state.", e);
 				}
 			}
+		}
+
+		@Override
+		public boolean closing() {
+			return closing;
 		}
 	}
 

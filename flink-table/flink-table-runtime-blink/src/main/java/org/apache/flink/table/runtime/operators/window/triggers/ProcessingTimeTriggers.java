@@ -97,7 +97,7 @@ public class ProcessingTimeTriggers {
 		@Override
 		public boolean onElement(Object element, long timestamp, W window) throws Exception {
 			ReducingState<Long> nextFiring = ctx.getPartitionedState(nextFiringStateDesc);
-			if (nextFiring.get() == null) {
+			if (nextFiring.get() == null && !ctx.closing()) {
 				long nextTimer = ctx.getCurrentProcessingTime() + interval;
 				ctx.registerProcessingTimeTimer(nextTimer);
 				nextFiring.add(nextTimer);
@@ -110,10 +110,12 @@ public class ProcessingTimeTriggers {
 			ReducingState<Long> nextFiring = ctx.getPartitionedState(nextFiringStateDesc);
 			Long timer = nextFiring.get();
 			if (timer != null && timer == time) {
-				long newTimer = time + interval;
-				ctx.registerProcessingTimeTimer(newTimer);
-				nextFiring.clear();
-				nextFiring.add(newTimer);
+				if (!ctx.closing()) {
+					long newTimer = time + interval;
+					ctx.registerProcessingTimeTimer(newTimer);
+					nextFiring.clear();
+					nextFiring.add(newTimer);
+				}
 				return true;
 			} else {
 				return false;

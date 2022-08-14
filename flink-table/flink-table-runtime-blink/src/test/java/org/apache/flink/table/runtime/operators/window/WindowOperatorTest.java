@@ -664,6 +664,46 @@ public class WindowOperatorTest {
 
 	@Test
 	@SuppressWarnings("unchecked")
+	public void testTriggeringAllProcessingTimersWhenClose() throws Exception {
+		closeCalled.set(0);
+
+		WindowOperator operator = WindowOperatorBuilder.builder()
+			.withInputFields(inputFieldTypes)
+			.tumble(Duration.ofSeconds(10))
+			.withProcessingTime()
+			.aggregateAndBuild(getTimeWindowAggFunction(), equaliser, accTypes, aggResultTypes, windowTypes);
+
+		OneInputStreamOperatorTestHarness<RowData, RowData> testHarness = createTestHarness(operator);
+
+		ConcurrentLinkedQueue<Object> expectedOutput = new ConcurrentLinkedQueue<>();
+
+		testHarness.open();
+
+		testHarness.setProcessingTime(3);
+
+		// timestamp is ignored in processing time
+		testHarness.processElement(insertRecord("key2", 1, Long.MAX_VALUE));
+		testHarness.processElement(insertRecord("key2", 1, 7000L));
+		testHarness.processElement(insertRecord("key2", 1, 7000L));
+
+		testHarness.processElement(insertRecord("key1", 1, 7000L));
+		testHarness.processElement(insertRecord("key1", 1, 7000L));
+
+		testHarness.processElement(insertRecord("key1", 1, 7000L));
+		testHarness.processElement(insertRecord("key1", 1, 7000L));
+		testHarness.processElement(insertRecord("key1", 1, 7000L));
+
+		// should trigger all existing processing windows
+		testHarness.close();
+
+		expectedOutput.addAll(doubleRecord(isTableAggregate, insertRecord("key1", 5L, 5L, 0L, 10000L, 9999L)));
+		expectedOutput.addAll(doubleRecord(isTableAggregate, insertRecord("key2", 3L, 3L, 0L, 10000L, 9999L)));
+
+		assertor.assertOutputEqualsSorted("Output was not correct.", expectedOutput, testHarness.getOutput());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
 	public void testEventTimeSessionWindows() throws Exception {
 		closeCalled.set(0);
 
