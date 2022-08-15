@@ -171,6 +171,9 @@ state.backend.fail-exceed-quota-task.enable
 containerized.master.env.COREDUMP_CTL_NEED_CORE
 containerized.taskmanager.env.COREDUMP_CTL_NEED_CORE
 
+#abase SEC_KV_AUTH
+containerized.master.env.SEC_KV_AUTH
+containerized.taskmanager.env.SEC_KV_AUTH
 
 #####################################
 #### may be added in the future #####

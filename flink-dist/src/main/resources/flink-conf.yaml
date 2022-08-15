@@ -365,6 +365,10 @@ common:
   containerized.master.env.COREDUMP_CTL_NEED_CORE: "false"
   containerized.taskmanager.env.COREDUMP_CTL_NEED_CORE: "false"
 
+  #abase SEC_KV_AUTH
+  containerized.master.env.SEC_KV_AUTH: "1"
+  containerized.taskmanager.env.SEC_KV_AUTH: "1"
+
   # rocketmq api
   rmq.secret_key: urV6WxXdMo
   rmq.server_url.cn: https://mq.byted.org/api
