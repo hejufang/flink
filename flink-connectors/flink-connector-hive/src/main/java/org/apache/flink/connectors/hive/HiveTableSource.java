@@ -23,6 +23,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.connectors.hive.read.BucketHiveInputFormat;
 import org.apache.flink.connectors.hive.read.HiveContinuousMonitoringFunction;
 import org.apache.flink.connectors.hive.read.HiveTableFileInputFormat;
 import org.apache.flink.connectors.hive.read.HiveTableInputFormat;
@@ -37,6 +38,7 @@ import org.apache.flink.streaming.api.functions.source.FileProcessingMode;
 import org.apache.flink.streaming.api.functions.source.TimestampedFileInputSplit;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.config.ExecutionConfigOptions;
+import org.apache.flink.table.api.config.TableConfigOptions;
 import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.table.catalog.hive.client.HiveMetastoreClientFactory;
@@ -59,6 +61,7 @@ import org.apache.flink.table.functions.AsyncTableFunction;
 import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
 import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.functions.hive.conversion.HiveInspectors;
+import org.apache.flink.table.planner.plan.utils.HiveUtils$;
 import org.apache.flink.table.runtime.types.TypeInfoDataTypeConverter;
 import org.apache.flink.table.sources.FilterableTableSource;
 import org.apache.flink.table.sources.LimitableTableSource;
@@ -72,6 +75,7 @@ import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.table.validate.Validatable;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.MathUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.TimeUtils;
 
@@ -287,10 +291,45 @@ public class HiveTableSource implements
 			parallelism = Math.min(parallelism, max);
 			parallelism = limit > 0 ? Math.min(parallelism, (int) limit / 1000) : parallelism;
 			parallelism = Math.max(min, parallelism);
+			int bucketNum = getBucketNum();
+			if (bucketNum > 0) {
+				// Bucket number can greater than max.
+				if (bucketNum < min) {
+					throw new IllegalArgumentException(String.format(
+						"Table %s has %s bucket should greater than `%s` value %s", tablePath, bucketNum,
+						HiveOptions.TABLE_EXEC_HIVE_INFER_SOURCE_PARALLELISM_MIN.key(), min));
+				}
+				// Source max parallelism is bucket number.
+				parallelism = Math.min(parallelism, bucketNum);
+				if (!MathUtils.isPowerOf2(parallelism)) {
+					parallelism = bucketParallelism(parallelism, min, max);
+				}
+			}
 		}
 		LOG.info("Hive source({}) final parallelism: {}", tablePath, parallelism);
 		source.setParallelism(parallelism);
 		return source.name(explainSource());
+	}
+
+	/**
+	 *
+	 * @param parallelism Current parallelism, it must in range [min, max].
+	 * @param min Required min parallelism.
+	 * @param max Required max parallelism.
+	 * @return bucket parallelism between [min, max], and it is power of 2.
+	 */
+	private int bucketParallelism(int parallelism, int min, int max) {
+		int baseTmp = MathUtils.roundUpToPowerOfTwo(parallelism);
+		assert baseTmp > 0;
+		if (baseTmp <= max && baseTmp >= min) {
+			return baseTmp;
+		}
+		baseTmp = baseTmp >> 1;
+		if (baseTmp <= max && baseTmp >= min) {
+			return baseTmp;
+		}
+		throw new IllegalArgumentException(String.format(
+			"Range [%s, %s] is too small for bucket %s", min, max, parallelism));
 	}
 
 	private int inferParallelismWithSplitNumber(
@@ -403,6 +442,18 @@ public class HiveTableSource implements
 			List<HiveTablePartition> allHivePartitions,
 			boolean useMapRedReader,
 			boolean createSplitInParallel) {
+		if (isEnableBucket()) {
+			return new BucketHiveInputFormat(
+				jobConf,
+				catalogTable,
+				allHivePartitions,
+				projectedFields,
+				limit,
+				hiveVersion,
+				useMapRedReader,
+				createSplitInParallel
+			);
+		}
 		return new HiveTableInputFormat(
 				jobConf,
 				catalogTable,
@@ -895,5 +946,16 @@ public class HiveTableSource implements
 	private static boolean isOrExpression(Expression expression) {
 		return expression instanceof CallExpression
 			&& ((CallExpression) expression).getFunctionDefinition() == BuiltInFunctionDefinitions.OR;
+	}
+
+	private int getBucketNum() {
+		if (flinkConf.get(TableConfigOptions.TABLE_EXEC_SUPPORT_HIVE_BUCKET)) {
+			return HiveUtils$.MODULE$.getBucketNum(catalogTable.getOptions());
+		}
+		return -1;
+	}
+
+	private boolean isEnableBucket() {
+		return getBucketNum() > 0;
 	}
 }

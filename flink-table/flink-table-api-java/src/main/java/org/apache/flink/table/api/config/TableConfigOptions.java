@@ -123,6 +123,21 @@ public class TableConfigOptions {
 				"be reused, default value is 2, which means that any expression that is used " +
 				"more than once, it will be reused.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
+	public static final ConfigOption<Boolean> TABLE_EXEC_USE_HIVE_HASH =
+		key("table.exec.use-hive-hash")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether use hive hash mode when shuffle");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
+	public static final ConfigOption<Boolean> TABLE_EXEC_SUPPORT_HIVE_BUCKET =
+		key("table.exec.enable-hive-bucket-support")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether enable hive bucket support. If enable hive bucket support, " +
+				"we will regard hive bucket table as a pre shuffle data.");
+
 	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
 	public static final ConfigOption<Boolean> OPERATOR_DEBUG_LOGGING_ENABLED =
 		key("table.operator-debug-logging.enabled")

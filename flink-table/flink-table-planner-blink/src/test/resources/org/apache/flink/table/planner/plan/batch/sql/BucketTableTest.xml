@@ -1,0 +1,130 @@
+<?xml version="1.0" ?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to you under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<Root>
+	<TestCase name="testBucketGroupByBucketCol">
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[EXPR$0])
++- HashAggregate(isMerge=[false], groupBy=[bucketColA1, bucketColA2], select=[bucketColA1, bucketColA2, SUM(a1) AS EXPR$0])
+   +- LegacyTableSourceScan(table=[[default_catalog, default_database, bucketTableA, source: [TestSource(physical fields: bucketColA1, bucketColA2, a1)]]], fields=[bucketColA1, bucketColA2, a1])
+
+OneInputTransformation{name='Calc(select=[EXPR$0])', outputType=RowData(EXPR$0: INT), parallelism=1}
+	OneInputTransformation{name='HashAggregate(isMerge=[false], groupBy=[bucketColA1, bucketColA2], select=[bucketColA1, bucketColA2, SUM(a1) AS EXPR$0])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT, EXPR$0: INT), parallelism=1}
+		OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.bucketTableA, source: [TestSource(physical fields: bucketColA1, bucketColA2, a1)]], fields=[bucketColA1, bucketColA2, a1])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT, a1: INT), parallelism=1}
+			LegacySourceTransformation{name='Collection Source', outputType=Row(bucketColA1: Long, bucketColA2: Long, a1: Integer), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testBucketGroupByWithNonBucketCol">
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[EXPR$0])
++- HashAggregate(isMerge=[false], groupBy=[bucketColA1, bucketColA2, a3], select=[bucketColA1, bucketColA2, a3, SUM(a1) AS EXPR$0])
+   +- LegacyTableSourceScan(table=[[default_catalog, default_database, bucketTableA, source: [TestSource(physical fields: bucketColA1, bucketColA2, a3, a1)]]], fields=[bucketColA1, bucketColA2, a3, a1])
+
+OneInputTransformation{name='Calc(select=[EXPR$0])', outputType=RowData(EXPR$0: INT), parallelism=1}
+	OneInputTransformation{name='HashAggregate(isMerge=[false], groupBy=[bucketColA1, bucketColA2, a3], select=[bucketColA1, bucketColA2, a3, SUM(a1) AS EXPR$0])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT, a3: STRING, EXPR$0: INT), parallelism=1}
+		OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.bucketTableA, source: [TestSource(physical fields: bucketColA1, bucketColA2, a3, a1)]], fields=[bucketColA1, bucketColA2, a3, a1])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT, a3: STRING, a1: INT), parallelism=1}
+			LegacySourceTransformation{name='Collection Source', outputType=Row(bucketColA1: Long, bucketColA2: Long, a3: String, a1: Integer), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testBucketJoin">
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[bucketColA1, bucketColB2, +(a1, 1) AS EXPR$2, +(b1, 1) AS EXPR$3])
++- HashJoin(joinType=[InnerJoin], where=[AND(=(bucketColA1, bucketColB1), =(bucketColA2, bucketColB2))], select=[a1, bucketColA1, bucketColA2, b1, bucketColB1, bucketColB2], build=[left])
+   :- Calc(select=[a1, bucketColA1, bucketColA2], where=[>(a1, 0)])
+   :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, bucketTableA, source: [TestSource(physical fields: a1, bucketColA1, bucketColA2)]]], fields=[a1, bucketColA1, bucketColA2])
+   +- Calc(select=[b1, bucketColB1, bucketColB2], where=[>(b1, 0)])
+      +- LegacyTableSourceScan(table=[[default_catalog, default_database, bucketTableB, source: [TestSource(physical fields: b1, bucketColB1, bucketColB2)]]], fields=[b1, bucketColB1, bucketColB2])
+
+OneInputTransformation{name='Calc(select=[bucketColA1, bucketColB2, (a1 + 1) AS EXPR$2, (b1 + 1) AS EXPR$3])', outputType=RowData(bucketColA1: BIGINT, bucketColB2: BIGINT, EXPR$2: INT, EXPR$3: INT), parallelism=1}
+	TwoInputTransformation{name='HashJoin(joinType=[InnerJoin], where=[((bucketColA1 = bucketColB1) AND (bucketColA2 = bucketColB2))], select=[a1, bucketColA1, bucketColA2, b1, bucketColB1, bucketColB2], build=[left])', outputType=RowData(a1: INT, bucketColA1: BIGINT, bucketColA2: BIGINT, b1: INT, bucketColB1: BIGINT, bucketColB2: BIGINT), parallelism=1}
+		OneInputTransformation{name='Calc(select=[a1, bucketColA1, bucketColA2], where=[(a1 > 0)])', outputType=RowData(a1: INT, bucketColA1: BIGINT, bucketColA2: BIGINT), parallelism=1}
+			OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.bucketTableA, source: [TestSource(physical fields: a1, bucketColA1, bucketColA2)]], fields=[a1, bucketColA1, bucketColA2])', outputType=RowData(a1: INT, bucketColA1: BIGINT, bucketColA2: BIGINT), parallelism=1}
+				LegacySourceTransformation{name='Collection Source', outputType=Row(a1: Integer, bucketColA1: Long, bucketColA2: Long), parallelism=1}
+		OneInputTransformation{name='Calc(select=[b1, bucketColB1, bucketColB2], where=[(b1 > 0)])', outputType=RowData(b1: INT, bucketColB1: BIGINT, bucketColB2: BIGINT), parallelism=1}
+			OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.bucketTableB, source: [TestSource(physical fields: b1, bucketColB1, bucketColB2)]], fields=[b1, bucketColB1, bucketColB2])', outputType=RowData(b1: INT, bucketColB1: BIGINT, bucketColB2: BIGINT), parallelism=1}
+				LegacySourceTransformation{name='Collection Source', outputType=Row(b1: Integer, bucketColB1: Long, bucketColB2: Long), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testBucketJoinWithGroupBy">
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[bucketColA1, bucketColA2])
++- HashJoin(joinType=[InnerJoin], where=[AND(=(bucketColA1, e), =(bucketColA2, h))], select=[bucketColA1, bucketColA2, e, h], build=[left])
+   :- HashAggregate(isMerge=[false], groupBy=[bucketColA1, bucketColA2], select=[bucketColA1, bucketColA2])
+   :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, bucketTableA, source: [TestSource(physical fields: bucketColA1, bucketColA2, a1)]]], fields=[bucketColA1, bucketColA2, a1])
+   +- Exchange(distribution=[hash[e, h]])
+      +- Calc(select=[e, h])
+         +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [TestTableSource(d, e, f, g, h)]]], fields=[d, e, f, g, h])
+
+OneInputTransformation{name='Calc(select=[bucketColA1, bucketColA2])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT), parallelism=-1}
+	TwoInputTransformation{name='HashJoin(joinType=[InnerJoin], where=[((bucketColA1 = e) AND (bucketColA2 = h))], select=[bucketColA1, bucketColA2, e, h], build=[left])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT, e: BIGINT, h: BIGINT), parallelism=-1}
+		OneInputTransformation{name='HashAggregate(isMerge=[false], groupBy=[bucketColA1, bucketColA2], select=[bucketColA1, bucketColA2])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT), parallelism=1}
+			OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.bucketTableA, source: [TestSource(physical fields: bucketColA1, bucketColA2, a1)]], fields=[bucketColA1, bucketColA2, a1])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT, a1: INT), parallelism=1}
+				LegacySourceTransformation{name='Collection Source', outputType=Row(bucketColA1: Long, bucketColA2: Long, a1: Integer), parallelism=1}
+		PartitionTransformation{name='Partition', outputType=RowData(e: BIGINT, h: BIGINT), parallelism=-1}
+			OneInputTransformation{name='Calc(select=[e, h])', outputType=RowData(e: BIGINT, h: BIGINT), parallelism=1}
+				OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.MyTable2, source: [TestTableSource(d, e, f, g, h)]], fields=[d, e, f, g, h])', outputType=RowData(d: INT, e: BIGINT, f: INT, g: STRING, h: BIGINT), parallelism=1}
+					LegacySourceTransformation{name='Collection Source', outputType=Row(d: Integer, e: Long, f: Integer, g: String, h: Long), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testBucketJoinWithGroupBy2">
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[b1, b2, f, g, a1, a4, CASE(IS NULL(b1), 0, 1) AS case_when])
++- HashJoin(joinType=[LeftOuterJoin], where=[AND(=(bucketColA1, b1), =(bucketColA2, b2))], select=[bucketColA1, a1, a4, bucketColA2, b1, b2, f, g], build=[left])
+   :- Calc(select=[bucketColA1, a1, a4, bucketColA2])
+   :  +- HashAggregate(isMerge=[false], groupBy=[bucketColA1, bucketColA2], select=[bucketColA1, bucketColA2, SUM(a1) AS a1, SUM(a4) AS a4])
+   :     +- Calc(select=[bucketColA1, bucketColA2, IF(OR(>(a1, 0), <(a4, 1)), 1, 0) AS a1, IF(OR(>(a4, 0), >(a1, 1)), 1, 0) AS a4])
+   :        +- LegacyTableSourceScan(table=[[default_catalog, default_database, bucketTableA, source: [TestSource(physical fields: bucketColA1, bucketColA2, a1, a4)]]], fields=[bucketColA1, bucketColA2, a1, a4])
+   +- Exchange(distribution=[hash[b1, b2]])
+      +- Calc(select=[e AS b1, h AS b2, f, g], where=[>(f, 0)])
+         +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [TestTableSource(d, e, f, g, h)]]], fields=[d, e, f, g, h])
+
+OneInputTransformation{name='Calc(select=[b1, b2, f, g, a1, a4, (b1 IS NULL CASE 0 CASE 1) AS case_when])', outputType=RowData(b1: BIGINT, b2: BIGINT, f: INT, g: STRING, a1: INT, a4: INT, case_when: INT NOT NULL), parallelism=-1}
+	TwoInputTransformation{name='HashJoin(joinType=[LeftOuterJoin], where=[((bucketColA1 = b1) AND (bucketColA2 = b2))], select=[bucketColA1, a1, a4, bucketColA2, b1, b2, f, g], build=[left])', outputType=RowData(bucketColA1: BIGINT, a1: INT, a4: INT, bucketColA2: BIGINT, b1: BIGINT, b2: BIGINT, f: INT, g: STRING), parallelism=-1}
+		OneInputTransformation{name='Calc(select=[bucketColA1, a1, a4, bucketColA2])', outputType=RowData(bucketColA1: BIGINT, a1: INT, a4: INT, bucketColA2: BIGINT), parallelism=1}
+			OneInputTransformation{name='HashAggregate(isMerge=[false], groupBy=[bucketColA1, bucketColA2], select=[bucketColA1, bucketColA2, SUM(a1) AS a1, SUM(a4) AS a4])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT, a1: INT, a4: INT), parallelism=1}
+				OneInputTransformation{name='Calc(select=[bucketColA1, bucketColA2, (((a1 > 0) OR (a4 < 1)) IF 1 IF 0) AS a1, (((a4 > 0) OR (a1 > 1)) IF 1 IF 0) AS a4])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT, a1: INT, a4: INT), parallelism=1}
+					OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.bucketTableA, source: [TestSource(physical fields: bucketColA1, bucketColA2, a1, a4)]], fields=[bucketColA1, bucketColA2, a1, a4])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT, a1: INT, a4: BIGINT), parallelism=1}
+						LegacySourceTransformation{name='Collection Source', outputType=Row(bucketColA1: Long, bucketColA2: Long, a1: Integer, a4: Long), parallelism=1}
+		PartitionTransformation{name='Partition', outputType=RowData(b1: BIGINT, b2: BIGINT, f: INT, g: STRING), parallelism=-1}
+			OneInputTransformation{name='Calc(select=[e AS b1, h AS b2, f, g], where=[(f > 0)])', outputType=RowData(b1: BIGINT, b2: BIGINT, f: INT, g: STRING), parallelism=1}
+				OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.MyTable2, source: [TestTableSource(d, e, f, g, h)]], fields=[d, e, f, g, h])', outputType=RowData(d: INT, e: BIGINT, f: INT, g: STRING, h: BIGINT), parallelism=1}
+					LegacySourceTransformation{name='Collection Source', outputType=Row(d: Integer, e: Long, f: Integer, g: String, h: Long), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testSortAgg">
+		<Resource name="planAfter">
+			<![CDATA[
+SortAggregate(isMerge=[false], groupBy=[bucketColA1, bucketColA2], select=[bucketColA1, bucketColA2, SUM(a1) AS EXPR$2])
++- LegacyTableSourceScan(table=[[default_catalog, default_database, bucketTableA, source: [TestSource(physical fields: bucketColA1, bucketColA2, a1)]]], fields=[bucketColA1, bucketColA2, a1])
+
+OneInputTransformation{name='SortAggregate(isMerge=[false], groupBy=[bucketColA1, bucketColA2], select=[bucketColA1, bucketColA2, SUM(a1) AS EXPR$2])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT, EXPR$2: INT), parallelism=1}
+	OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.bucketTableA, source: [TestSource(physical fields: bucketColA1, bucketColA2, a1)]], fields=[bucketColA1, bucketColA2, a1])', outputType=RowData(bucketColA1: BIGINT, bucketColA2: BIGINT, a1: INT), parallelism=1}
+		LegacySourceTransformation{name='Collection Source', outputType=Row(bucketColA1: Long, bucketColA2: Long, a1: Integer), parallelism=1}
+]]>
+		</Resource>
+	</TestCase>
+</Root>

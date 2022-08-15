@@ -249,6 +249,11 @@ object FlinkRelDistribution {
       RelDistribution.Type.RANGE_DISTRIBUTED, keys, Some(fieldCollations)))
   }
 
+  def createHiveBucketDistribution(bucketColumns: Seq[_ <: Number]): FlinkRelDistribution = {
+    canonize(new FlinkRelDistribution(RelDistribution.Type.HASH_DISTRIBUTED,
+      ImmutableIntList.copyOf(bucketColumns), None))
+  }
+
   /**
     * NOTE: All creation of FlinkRelDistribution should be canonized
     */

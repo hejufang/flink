@@ -659,6 +659,12 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
 		testCaseInsensitive("parquet");
 	}
 
+	@Test
+	public void testBucketJoin() throws Exception {
+		System.out.println(this.getClass().getClassLoader()
+			.getResource("qtest/data/bucket").toString());
+	}
+
 	private void testCaseInsensitive(String format) throws Exception {
 		TableEnvironment tEnv = createTableEnvWithHiveCatalog(hiveCatalog);
 		String folderURI = TEMPORARY_FOLDER.newFolder().toURI().toString();

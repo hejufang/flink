@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -302,32 +303,40 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 	@Override
 	public HiveTableInputSplit[] createInputSplits(int minNumSplits)
 			throws IOException {
-		return createInputSplits(minNumSplits, partitions, jobConf, createSplitInParallel);
+		return createInputSplits(minNumSplits, s -> s);
 	}
 
 	public static HiveTableInputSplit[] createInputSplits(
 			int minNumSplits,
 			List<HiveTablePartition> partitions,
 			JobConf jobConf) throws IOException {
-		return createInputSplits(minNumSplits, partitions, jobConf, false);
+		return createInputSplits(minNumSplits, partitions, jobConf, false, s -> s);
+	}
+
+	protected HiveTableInputSplit[] createInputSplits(
+			int minNumSplits,
+			Function<InputSplit[], InputSplit[]> sortFunction) throws IOException {
+		return createInputSplits(minNumSplits, partitions, jobConf, createSplitInParallel, sortFunction);
 	}
 
 	private static HiveTableInputSplit[] createInputSplits(
 			int minNumSplits,
 			List<HiveTablePartition> partitions,
 			JobConf jobConf,
-			boolean createSplitInParallel) throws IOException {
+			boolean createSplitInParallel,
+			Function<InputSplit[], InputSplit[]> sortFunction) throws IOException {
 		if (createSplitInParallel) {
-			return createInputSplitsInParallel(minNumSplits, partitions, jobConf);
+			return createInputSplitsInParallel(minNumSplits, partitions, jobConf, sortFunction);
 		} else {
-			return createInputSplitsSerially(minNumSplits, partitions, jobConf);
+			return createInputSplitsSerially(minNumSplits, partitions, jobConf, sortFunction);
 		}
 	}
 
 	private static HiveTableInputSplit[] createInputSplitsSerially(
 			int minNumSplits,
 			List<HiveTablePartition> partitions,
-			JobConf jobConf) throws IOException {
+			JobConf jobConf,
+			Function<InputSplit[], InputSplit[]> sortFunction) throws IOException {
 		List<HiveTableInputSplit> hiveSplits = new ArrayList<>();
 		int splitNum = 0;
 		AtomicReference<FileSystem> fsRef = new AtomicReference<>();
@@ -340,7 +349,8 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 			ReflectionUtils.setConf(format, jobConf);
 			jobConf.set(INPUT_DIR, sd.getLocation());
 			//TODO: we should consider how to calculate the splits according to minNumSplits in the future.
-			org.apache.hadoop.mapred.InputSplit[] splitArray = format.getSplits(jobConf, minNumSplits);
+			org.apache.hadoop.mapred.InputSplit[] splitArray =
+				sortFunction.apply(format.getSplits(jobConf, minNumSplits));
 			for (org.apache.hadoop.mapred.InputSplit inputSplit : splitArray) {
 				hiveSplits.add(new HiveTableInputSplit(splitNum++, inputSplit, jobConf, partition));
 			}
@@ -352,7 +362,8 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 	private static HiveTableInputSplit[] createInputSplitsInParallel(
 			int minNumSplits,
 			List<HiveTablePartition> partitions,
-			JobConf jobConf) throws IOException {
+			JobConf jobConf,
+			Function<InputSplit[], InputSplit[]> sortFunction) throws IOException {
 		List<HiveTableInputSplit> hiveSplits = new ArrayList<>();
 		int splitNum = 0;
 		List<CompletableFuture<Tuple3<HiveTablePartition, InputSplit[], IOException>>> futureList = new ArrayList<>();
@@ -385,7 +396,7 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 					throw tuple3.f2;
 				}
 				HiveTablePartition partition = tuple3.f0;
-				InputSplit[] splitArray = tuple3.f1;
+				InputSplit[] splitArray = sortFunction.apply(tuple3.f1);
 
 				if (splitArray != null) {
 					for (org.apache.hadoop.mapred.InputSplit inputSplit : splitArray) {

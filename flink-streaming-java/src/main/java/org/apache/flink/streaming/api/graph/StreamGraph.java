@@ -23,6 +23,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.InvalidProgramException;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.cache.DistributedCache;
+import org.apache.flink.api.common.io.BucketInputFormat;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.io.OutputFormat;
 import org.apache.flink.api.common.operators.ResourceSpec;
@@ -55,6 +56,7 @@ import org.apache.flink.streaming.runtime.tasks.SourceStreamTask;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationHead;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationTail;
 import org.apache.flink.streaming.runtime.tasks.TwoInputStreamTask;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.OutputTag;
 import org.apache.flink.util.StringUtils;
 
@@ -82,6 +84,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
 
+import static org.apache.flink.configuration.PipelineOptions.USE_MAX_SOURCE_PARALLELISM_AS_DEFAULT_PARALLELISM;
 import static org.apache.flink.streaming.api.graph.PlanGraphProperty.OPERATOR_ID_OF_STATEFUL_OP;
 import static org.apache.flink.streaming.api.graph.PlanGraphProperty.PARALLELISM;
 import static org.apache.flink.streaming.api.graph.PlanGraphProperty.USER_PROVIDED_HASH;
@@ -952,6 +955,12 @@ public class StreamGraph implements Pipeline {
 	 * Gets the assembled {@link JobGraph} with a specified {@link JobID}.
 	 */
 	public JobGraph getJobGraph(@Nullable JobID jobID) {
+		if (existsBucketSource() &&
+				!executionConfig.isUseMaxSourceParallelismAsDefaultParallelism()) {
+			throw new FlinkRuntimeException(String.format("Bucket source enable must with %s",
+				USE_MAX_SOURCE_PARALLELISM_AS_DEFAULT_PARALLELISM.key()));
+		}
+
 		if (executionConfig.isUseMaxSourceParallelismAsDefaultParallelism()) {
 			overwriteDefaultParallelismForNonSourceNode();
 		}
@@ -968,8 +977,33 @@ public class StreamGraph implements Pipeline {
 	 */
 	private void overwriteDefaultParallelismForNonSourceNode() {
 		int maxParallelismOfSource = -1;
+		int maxBucketParallelismOfSource = -1;
+		List<BucketInputFormat> bucketInputFormats = new ArrayList<>();
 		for (int i : getSourceIDs()) {
-			maxParallelismOfSource = Math.max(maxParallelismOfSource, getStreamNode(i).getParallelism());
+			StreamNode curStreamNode = getStreamNode(i);
+			InputFormat<?, ?> inputFormat = curStreamNode.getInputFormat();
+			if (inputFormat != null && inputFormat instanceof BucketInputFormat) {
+				// All the bucket number is power of 2, it is a guarantee in HiveUtils.
+				BucketInputFormat bucketInputFormat = (BucketInputFormat) inputFormat;
+				bucketInputFormats.add(bucketInputFormat);
+				int curBucketNum = ((BucketInputFormat) inputFormat).getBucketNum();
+				LOG.info("Find operator {} has bucket {}", curStreamNode.getOperatorName(), curBucketNum);
+				maxBucketParallelismOfSource =
+					Math.max(maxBucketParallelismOfSource, curStreamNode.getParallelism());
+				// Find the biggest parallelism that can divisible by all bucket number.
+				if (maxBucketParallelismOfSource > bucketInputFormat.getBucketNum()) {
+					LOG.info("Max parallelism {} greater than {} bucket num {}",
+						maxBucketParallelismOfSource, curStreamNode.getOperatorName(), curBucketNum);
+					maxBucketParallelismOfSource = bucketInputFormat.getBucketNum();
+				}
+			}
+			maxParallelismOfSource = Math.max(maxParallelismOfSource, curStreamNode.getParallelism());
+		}
+		if (maxBucketParallelismOfSource > 0) {
+			maxParallelismOfSource = maxBucketParallelismOfSource;
+			LOG.info("Use maxBucketParallelismOfSource {}", maxBucketParallelismOfSource);
+			final int bucketNextParallelism = maxBucketParallelismOfSource;
+			bucketInputFormats.forEach(format -> format.setOperatorParallelism(bucketNextParallelism));
 		}
 		if (maxParallelismOfSource > 0) {
 			Collection<Integer> sourceIDs = getSourceIDs();
@@ -983,6 +1017,11 @@ public class StreamGraph implements Pipeline {
 				}
 			}
 		}
+	}
+
+	private boolean existsBucketSource() {
+		return sources.stream().anyMatch(
+			i -> getStreamNode(i).getInputFormat() instanceof BucketInputFormat);
 	}
 
 	public String getStreamingPlanAsJSON() {

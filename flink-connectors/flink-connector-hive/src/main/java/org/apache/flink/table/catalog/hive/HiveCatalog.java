@@ -73,6 +73,7 @@ import org.apache.flink.table.expressions.Expression;
 import org.apache.flink.table.factories.Factory;
 import org.apache.flink.table.factories.FunctionDefinitionFactory;
 import org.apache.flink.table.factories.TableFactory;
+import org.apache.flink.table.planner.plan.utils.HiveUtils$;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
@@ -644,7 +645,12 @@ public class HiveCatalog extends AbstractCatalog {
 		}
 
 		String comment = properties.remove(HiveCatalogConfig.COMMENT);
-
+		if (hiveTable.getSd().getNumBuckets() > 0) {
+			HiveUtils$.MODULE$.addBucketProperties(hiveTable.getSd().getNumBuckets(),
+				hiveTable.getSd().getBucketCols(),
+				hiveTable.getSd().getSortCols().stream().map(o -> o.getCol()).collect(Collectors.toList()),
+				properties);
+		}
 		if (isView) {
 			return new CatalogViewImpl(
 					hiveTable.getViewOriginalText(),

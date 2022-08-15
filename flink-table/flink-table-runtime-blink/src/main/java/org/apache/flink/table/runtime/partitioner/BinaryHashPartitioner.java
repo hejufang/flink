@@ -55,7 +55,7 @@ public class BinaryHashPartitioner extends StreamPartitioner<RowData> {
 				getHashFunc().hashCode(record.getInstance().getValue())) % numberOfChannels;
 	}
 
-	private HashFunction getHashFunc() {
+	protected HashFunction getHashFunc() {
 		if (hashFunc == null) {
 			try {
 				hashFunc = genHashFunc.newInstance(Thread.currentThread().getContextClassLoader());

@@ -22,9 +22,10 @@ import org.apache.flink.api.common.ExecutionConfig
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.runtime.operators.DamBehavior
+import org.apache.flink.streaming.api.graph.GlobalDataExchangeMode
 import org.apache.flink.streaming.api.transformations.{PartitionTransformation, ShuffleMode}
 import org.apache.flink.streaming.runtime.partitioner.{BroadcastPartitioner, GlobalPartitioner, RebalancePartitioner}
-import org.apache.flink.table.api.config.ExecutionConfigOptions
+import org.apache.flink.table.api.config.{ExecutionConfigOptions, TableConfigOptions}
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.codegen.{CodeGeneratorContext, HashCodeGenerator}
@@ -32,7 +33,7 @@ import org.apache.flink.table.planner.delegation.BatchPlanner
 import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalExchange
 import org.apache.flink.table.planner.plan.nodes.exec.{BatchExecNode, ExecNode}
 import org.apache.flink.table.planner.plan.utils.FlinkRelOptUtil
-import org.apache.flink.table.runtime.partitioner.BinaryHashPartitioner
+import org.apache.flink.table.runtime.partitioner.{BinaryHashPartitioner, BucketHashPartitioner}
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
 import org.apache.flink.table.types.logical.RowType
 
@@ -40,8 +41,6 @@ import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
 import org.apache.calcite.rel.{RelDistribution, RelNode, RelWriter}
 
 import java.util
-
-import org.apache.flink.streaming.api.graph.GlobalDataExchangeMode
 
 import scala.collection.JavaConversions._
 
@@ -139,6 +138,8 @@ class BatchExecExchange(
 
     val conf = planner.getTableConfig
     val shuffleMode = getShuffleMode(conf.getConfiguration)
+    val useHiveHash =
+      conf.getConfiguration.getBoolean(TableConfigOptions.TABLE_EXEC_SUPPORT_HIVE_BUCKET)
 
     relDistribution.getType match {
       case RelDistribution.Type.ANY =>
@@ -180,14 +181,18 @@ class BatchExecExchange(
       case RelDistribution.Type.HASH_DISTRIBUTED =>
         // TODO Eliminate duplicate keys
         val keys = relDistribution.getKeys
-        val partitioner = new BinaryHashPartitioner(
-          HashCodeGenerator.generateRowHash(
+        val hashFunction = HashCodeGenerator.generateRowHash(
             CodeGeneratorContext(planner.getTableConfig),
             RowType.of(inputType.getLogicalTypes: _*),
             "HashPartitioner",
-            keys.map(_.intValue()).toArray),
-          keys.map(getInput.getRowType.getFieldNames.get(_)).toArray
-        )
+            keys.map(_.intValue()).toArray,
+            useHiveHash)
+        val hashFieldNames = keys.map(getInput.getRowType.getFieldNames.get(_)).toArray
+        val partitioner = if (useHiveHash) {
+          new BucketHashPartitioner(hashFunction, hashFieldNames)
+        } else {
+          new BinaryHashPartitioner(hashFunction, hashFieldNames)
+        }
         val transformation = new PartitionTransformation(
           input,
           partitioner,

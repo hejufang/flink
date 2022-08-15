@@ -49,7 +49,8 @@ object HashCodeGenerator {
       ctx: CodeGeneratorContext,
       input: LogicalType,
       name: String,
-      hashFields: Array[Int]): GeneratedHashFunction = {
+      hashFields: Array[Int],
+      useHiveHash: Boolean = false): GeneratedHashFunction = {
     val className = newName(name, ctx)
     val baseClass = classOf[HashFunction]
     val inputTerm = CodeGenUtils.DEFAULT_INPUT1_TERM
@@ -57,7 +58,22 @@ object HashCodeGenerator {
     val accessExprs = hashFields.map(
       idx => GenerateUtils.generateFieldAccess(ctx, input, inputTerm, idx))
 
-    val (hashBody, resultTerm) = generateCodeBody(ctx, accessExprs)
+    val hashOperator = if (useHiveHash) {
+      /**
+       * Currently we only support bigint, int, smallInt, tinyInt as bucket key.
+       * And it is a guarantee for the function getColIndexList
+       * in [[org.apache.flink.table.planner.plan.utils.HiveUtils]].
+       * Hive hash: items.map(_.hashCode).reduce((x, y) => x * 31 + y) & Integer.MAX_VALUE.
+       * <pre>
+       * See <a href="https://github.com/apache/spark/blob/v3.0.2/common/unsafe/src/main/java
+         /org/apache/spark/sql/catalyst/expressions/HiveHasher.java"> HiveHash </a>
+       * </pre>
+       */
+      " & Integer.MAX_VALUE"
+    } else {
+      ""
+    }
+    val (hashBody, resultTerm) = generateCodeBody(ctx, accessExprs, useHiveHash)
     val code =
       j"""
       public class $className implements ${baseClass.getCanonicalName} {
@@ -72,7 +88,7 @@ object HashCodeGenerator {
         public int hashCode($ROW_DATA $inputTerm) {
           ${ctx.reuseLocalVariableCode()}
           $hashBody
-          return $resultTerm;
+          return $resultTerm$hashOperator;
         }
 
         ${ctx.reuseInnerClassDefinitionCode()}
@@ -84,13 +100,19 @@ object HashCodeGenerator {
 
   private def generateCodeBody(
       ctx: CodeGeneratorContext,
-      accessExprs: Seq[GeneratedExpression]): (String, String) = {
+      accessExprs: Seq[GeneratedExpression],
+      useHiveHash: Boolean): (String, String) = {
     val hashIntTerm = CodeGenUtils.newName("hashCode", ctx)
     var i = -1
     val hashBodyCode = accessExprs.map(expr => {
       i = i + 1
+      val hashCalStr = if (useHiveHash) {
+        "31"
+      } else {
+        s"${HASH_SALT(i & 0x1F)};"
+      }
       s"""
-         |$hashIntTerm *= ${HASH_SALT(i & 0x1F)};
+         |$hashIntTerm *= $hashCalStr;
          |${expr.code}
          |if (!${expr.nullTerm}) {
          | $hashIntTerm += ${hashCodeForType(ctx, expr.resultType, expr.resultTerm)};

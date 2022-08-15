@@ -52,6 +52,25 @@ class HashCodeGeneratorTest {
     Assert.assertEquals(136516167, hashFunc2.hashCode(row))
   }
 
+  @Test
+  def testHiveHash(): Unit = {
+    val hashFunc1 = HashCodeGenerator.generateRowHash(
+      new CodeGeneratorContext(new TableConfig),
+      RowType.of(new IntType(), new BigIntType(), new VarBinaryType(VarBinaryType.MAX_LENGTH)),
+      "name",
+      Array(1, 0),
+      true
+    ).newInstance(classLoader)
+
+    val row = GenericRowData.of(ji(5), jl(8), Array[Byte](1, 5, 6))
+    // Array(1, 0) map to Array(jl(8), ji(5))
+    Assert.assertEquals(hiveHashCode(Array(jl(8), ji(5))), hashFunc1.hashCode(row))
+  }
+
+  private def hiveHashCode(data: Array[_]): Int = {
+    Integer.MAX_VALUE & data.map(_.hashCode()).reduce((x, y) => x * 31 + y)
+  }
+
   def ji(i: Int): Integer = {
     new Integer(i)
   }
