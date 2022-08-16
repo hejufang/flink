@@ -32,7 +32,8 @@ public enum RocketMQMetadata implements DynamicSourceMetadataFactory.DynamicSour
 	OFFSET("offset", BigIntType.class),
 	TIMESTAMP("timestamp", BigIntType.class),
 	BROKER_NAME("broker_name", VarCharType.class),
-	MESSAGE_ID("message_id", VarCharType.class);
+	MESSAGE_ID("message_id", VarCharType.class),
+	TAG("tag", VarCharType.class);
 
 	private final String metadata;
 

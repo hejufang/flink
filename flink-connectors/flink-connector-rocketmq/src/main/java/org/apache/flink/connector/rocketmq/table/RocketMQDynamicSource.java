@@ -201,6 +201,8 @@ public class RocketMQDynamicSource implements ScanTableSource {
 					return StringData.fromString(record.getMessageQueue().getBrokerName());
 				case MESSAGE_ID:
 					return StringData.fromString(record.getMsgId());
+				case TAG:
+					return StringData.fromString(record.getMsg().getTags());
 				default:
 					throw new FlinkRuntimeException("Unsupported metadata: " + metadata.getMetadata());
 			}
