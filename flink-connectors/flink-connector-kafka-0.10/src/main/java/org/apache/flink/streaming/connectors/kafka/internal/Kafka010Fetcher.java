@@ -90,6 +90,8 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 
 	private final boolean forceManuallyCommitOffsets;
 
+	private long consumeLatency = -1L;
+
 	public Kafka010Fetcher(
 			SourceContext<T> sourceContext,
 			Map<KafkaTopicPartition, Long> assignedPartitionsWithInitialOffsets,
@@ -149,6 +151,8 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 			}
 		};
 		this.forceManuallyCommitOffsets = bytedKafkaConfig.isForceManuallyCommitOffsets();
+
+		consumerMetricGroup.gauge("consume-latency", () -> this.consumeLatency);
 	}
 
 	// ------------------------------------------------------------------------
@@ -183,6 +187,8 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 								partition.getTopic(), partition.getPartition(), partition.getOffset());
 							skipDirtyCounter.inc();
 						}
+
+						this.consumeLatency = System.currentTimeMillis() - record.timestamp();
 
 						// emit the actual records. this also updates offset state atomically and emits
 						// watermarks
