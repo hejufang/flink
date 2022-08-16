@@ -242,6 +242,7 @@ common:
   blacklist.taskmanager-blacklist-max-length: 50
   blacklist.failure-timeout: "20 min"
   blacklist.check-interval: "1 min"
+  blacklist.taskmanager.critical.error.enabled: true
 
   # am failover recovery
   yarn.previous-container.as-pending-container: true
@@ -626,7 +627,6 @@ wj:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
-  blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: wj
   ipv6.enabled: true
 
@@ -637,7 +637,6 @@ hl:
   hdfs.prefix: hdfs://haruna/flink_hl
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
-  blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: hl
   ipv6.enabled: true
   restart-strategy: aggregated-fixed-delay
@@ -649,7 +648,6 @@ hyrax:
   hdfs.prefix: hdfs://haruna/flink_hl
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: hyrax
   ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
@@ -681,7 +679,6 @@ topi:
   clusterName: topi
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: topi
@@ -693,7 +690,6 @@ hippo:
   clusterName: hippo
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: hippo
@@ -704,7 +700,6 @@ heron:
   clusterName: heron
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: heron
   ipv6.enabled: true
 
@@ -713,7 +708,6 @@ herry:
   clusterName: herry
   high-availability.zookeeper.quorum: 10.226.128.110:2181,10.226.128.107:2181,10.226.107.216:2181,10.226.128.132:2181,10.226.128.118:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: herry
   ipv6.enabled: true
@@ -724,7 +718,6 @@ hamer:
   clusterName: hamer
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: hamer
@@ -737,7 +730,6 @@ hyena:
   hdfs.prefix: hdfs://haruna/flink_hl
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
-  blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: hyena
   ipv6.enabled: true
 
@@ -746,7 +738,6 @@ hound:
   clusterName: hound
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: hound
@@ -922,7 +913,6 @@ quail:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: quail
@@ -938,7 +928,6 @@ quoll:
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
-  blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: quoll
   ipv6.enabled: true
   flink.cloud-shuffle-service.support: true
@@ -954,7 +943,6 @@ quoka:
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  blacklist.taskmanager.critical.error.enabled: true
   ipv6.supported.cluster: quoka
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
   metrics.latency.interval: 10000
@@ -979,7 +967,6 @@ quele:
   hdfs.prefix: hdfs://haruna/flink_lq
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   bytedance.streaming.yarn.check.application.name.unique.region: true
   yarn.res-lake.enabled: true
@@ -996,7 +983,6 @@ panda-lq:
   hdfs.prefix: hdfs://haruna/flink_lq
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  blacklist.taskmanager.critical.error.enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: panda-lq

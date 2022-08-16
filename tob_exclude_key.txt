@@ -193,6 +193,7 @@ blacklist.task-blacklist-max-length
 blacklist.taskmanager-blacklist-max-length
 blacklist.failure-timeout
 blacklist.check-interval
+blacklist.taskmanager.critical.error.enabled
 
 # rmq
 rmq.secret_key
