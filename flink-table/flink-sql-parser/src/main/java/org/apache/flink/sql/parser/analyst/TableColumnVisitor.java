@@ -26,6 +26,7 @@ import org.apache.flink.sql.parser.ddl.SqlCreateTable;
 import org.apache.flink.sql.parser.ddl.SqlCreateTemporalTableFunction;
 import org.apache.flink.sql.parser.ddl.SqlCreateView;
 import org.apache.flink.sql.parser.ddl.SqlTableColumn;
+import org.apache.flink.sql.parser.ddl.SqlTableLike;
 import org.apache.flink.sql.parser.ddl.SqlTableOption;
 import org.apache.flink.sql.parser.ddl.SqlWatermark;
 import org.apache.flink.sql.parser.type.ExtendedSqlRowTypeNameSpec;
@@ -322,16 +323,32 @@ public class TableColumnVisitor implements SqlVisitor<DepRefSet> {
 	private DepRefSet visitSqlCreateTable(SqlCreateTable sqlCreateTable) {
 		String tableName = sqlCreateTable.getTableName().toString();
 		TableRefWithDep tableReference = new TableRefWithDep(tableName);
+
+		// handle sql table like
 		if (sqlCreateTable.getTableLike().isPresent()) {
-			// 处理SQLLike
-			throw new ColumnAnalyseException("Not support sql like currently.");
+			SqlTableLike sqlTableLike = sqlCreateTable.getTableLike().get();
+			if (sqlTableLike.getOptions() != null && !sqlTableLike.getOptions().isEmpty()) {
+				throw new ColumnAnalyseException("Sql like options are not supported currently.");
+			}
+
+			SqlIdentifier sourceTable = sqlTableLike.getSourceTable();
+
+			tableReference = findTableIdentifier(sourceTable);
+			if (tableReference == null && simpleCatalog != null) {
+				tableReference = simpleCatalog.getTableSchema(sourceTable.toString());
+			}
+			if (tableReference == null) {
+				throw new ColumnAnalyseException(String.format("Can't find table %s", sourceTable.toString()));
+			}
+			tableReference = tableReference.asAlias(tableName);
 		}
 
 		DepRefSet depRefSet = DepRefSet.singleReferenceSet(tableReference);
 		setLocalReferenceSetAndQueryType(depRefSet, QueryType.PREFER_COLUMN);
+
+		// 遍历非计算列，那么是依赖这个table本身，直接加到依赖信息即可
 		for (SqlNode sqlNode: sqlCreateTable.getColumnList().getList()) {
 			if (sqlNode instanceof SqlTableColumn) {
-				// 非计算列，那么是依赖这个table本身，直接加到依赖信息即可
 				SqlTableColumn tableColumn = (SqlTableColumn) sqlNode;
 				String columnName = tableColumn.getName().toString();
 				if (tableColumn.getType().getTypeNameSpec() instanceof ExtendedSqlRowTypeNameSpec) {
@@ -342,8 +359,12 @@ public class TableColumnVisitor implements SqlVisitor<DepRefSet> {
 					ColumnDependencies columnDependencies = ColumnDependencies.singleColumnDeps(tableName, columnName);
 					tableReference.addColumnReference(new ColumnRefWithDep(columnName, columnDependencies));
 				}
-			} else {
-				// 遍历计算列子节点
+			}
+		}
+
+		// 遍历计算列子节点, 需要在遍历计算列完成之后
+		for (SqlNode sqlNode: sqlCreateTable.getColumnList().getList()) {
+			if (!(sqlNode instanceof SqlTableColumn)) {
 				DepRefSet subDepRefSet = sqlNode.accept(this);
 				tableReference.addColumnReference(subDepRefSet.getSingleColumnReference());
 			}
@@ -431,9 +452,9 @@ public class TableColumnVisitor implements SqlVisitor<DepRefSet> {
 		String tableName = tableRefWithDep.getName();
 		if (sqlNodeOptional.isPresent()) {
 			String formatName = sqlNodeOptional.get().getValueString();
-			if ("pb".equals(formatName)) {
+			if ("pb".equals(formatName) || "fast-pb".equals(formatName)) {
 				if (simpleCatalog == null) {
-					throw new ColumnAnalyseException("Catalog can't be null in pb format table " + tableName);
+					throw new ColumnAnalyseException("Catalog can't be null in " + formatName + " format table " + tableName);
 				}
 				return simpleCatalog.getTableSchema(tableName);
 			} else if ("binlog".equals(formatName)) {

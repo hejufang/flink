@@ -866,6 +866,100 @@ public class TableColumnVisitorTest {
 		analyseSql(sqlList, expects, simpleCatalog);
 	}
 
+	@Test
+	public void testWithGeneratedColumn() {
+		String[] sqlList = {
+			"create table src(s1 int, s2 as s1 + s3, s3 int)",
+			SQL_SINK_TABLE_3,
+			"insert into sink_table3 select s1, s2, s3 from src"
+		};
+
+		Map<TableColumn, Set<TableColumn>> expects = new HashMap<>();
+		expects.put(new TableColumn("sink_table3", "sk1"),
+			newTableColumnSet(new TableColumn("src", "s1")));
+		expects.put(new TableColumn("sink_table3", "sk2"),
+			newTableColumnSet(
+				new TableColumn("src", "s1"),
+				new TableColumn("src", "s3")));
+		expects.put(new TableColumn("sink_table3", "sk3"),
+			newTableColumnSet(new TableColumn("src", "s3")));
+		analyseSql(sqlList, expects);
+	}
+
+	/**
+	 * Test of create table like clause.
+	 */
+	@Test
+	public void testWithTableLike() {
+		String[] sqlList = {
+			SQL_SOURCE_TABLE_3,
+			SQL_SINK_TABLE_3,
+			"create table src (s4 as s1 + s2) with ('k' = 'v') like source_table3",
+			"create table sink1 with ('k1' = 'v1', 'k2' = 'v2') like sink_table3",
+			"create table sink2 with ('k3' = 'v3') like sink1",
+			"create table sink3 with ('k1' = 'v4') like sink2",
+			"insert into sink3 select s1, s2, s4 from src"
+		};
+
+		Map<TableColumn, Set<TableColumn>> expects = new HashMap<>();
+		expects.put(new TableColumn("sink3", "sk1"),
+			newTableColumnSet(new TableColumn("source_table3", "s1")));
+		expects.put(new TableColumn("sink3", "sk2"),
+			newTableColumnSet(new TableColumn("source_table3", "s2")));
+		expects.put(new TableColumn("sink3", "sk3"),
+			newTableColumnSet(
+				new TableColumn("source_table3", "s1"),
+				new TableColumn("source_table3", "s2")));
+		analyseSql(sqlList, expects);
+	}
+
+	@Test
+	public void testWithTableLike2() {
+		String[] sqlList = {
+			SQL_SOURCE_TABLE_3,
+			SQL_SINK_TABLE_3,
+			"create table src (s4 as s1 + s2, s5 int) with ('k' = 'v') like source_table3",
+			"create table sink (sk4 int) with ('k1' = 'v1', 'k2' = 'v2') like sink_table3",
+			"insert into sink select s1, s2, s4, s5 from src"
+		};
+
+		Map<TableColumn, Set<TableColumn>> expects = new HashMap<>();
+		expects.put(new TableColumn("sink", "sk1"),
+			newTableColumnSet(new TableColumn("source_table3", "s1")));
+		expects.put(new TableColumn("sink", "sk2"),
+			newTableColumnSet(new TableColumn("source_table3", "s2")));
+		expects.put(new TableColumn("sink", "sk3"),
+			newTableColumnSet(
+				new TableColumn("source_table3", "s1"),
+				new TableColumn("source_table3", "s2")));
+		expects.put(new TableColumn("sink", "sk4"),
+			newTableColumnSet(new TableColumn("src", "s5")));
+		analyseSql(sqlList, expects);
+	}
+
+	@Test
+	public void testWithTableLike3() {
+		String[] sqlList = {
+			SQL_SOURCE_TABLE_3,
+			SQL_SINK_TABLE_3,
+			"create table src1 (s4 as s1 + s2, s5 int) with ('k' = 'v') like source_table3",
+			"create table src2 (s4 int, s5 as s2 + s3) with ('k1' = 'v1', 'k2' = 'v2') like source_table3",
+			"create table sink with ('k1' = 'v1', 'k2' = 'v2') like sink_table3",
+			"insert into sink select s1, s2, s5 from src2"
+		};
+
+		Map<TableColumn, Set<TableColumn>> expects = new HashMap<>();
+		expects.put(new TableColumn("sink", "sk1"),
+			newTableColumnSet(new TableColumn("source_table3", "s1")));
+		expects.put(new TableColumn("sink", "sk2"),
+			newTableColumnSet(new TableColumn("source_table3", "s2")));
+		expects.put(new TableColumn("sink", "sk3"),
+			newTableColumnSet(
+				new TableColumn("source_table3", "s2"),
+				new TableColumn("source_table3", "s3")));
+		analyseSql(sqlList, expects);
+	}
+
 	private void analyseSql(String[] sqlList, Map<TableColumn, Set<TableColumn>> tableColumnListMap) {
 		analyseSql(sqlList, tableColumnListMap, null, TableColumnVisitor.FlinkPropertyVersion.FLINK_1_11);
 	}
