@@ -41,7 +41,7 @@ public class AbaseClientTableUtils {
 	private static final Logger LOG = LoggerFactory.getLogger(AbaseClientTableUtils.class);
 
 	public static BaseClient getClientWrapper(AbaseNormalOptions normalOptions) {
-		if (normalOptions.getStorage().equals(Constants.ABASE_IDENTIFIER)) {
+		if (isAbase(normalOptions.getStorage())) {
 			return new AbaseClientWrapper(normalOptions);
 		} else {
 			return new RedisClientWrapper(normalOptions);
@@ -87,5 +87,9 @@ public class AbaseClientTableUtils {
 			return ((StreamingRuntimeContext) context).getProcessingTimeService();
 		}
 		throw new IllegalArgumentException("Failed to get processing time service of context.");
+	}
+
+	private static boolean isAbase(String type) {
+		return type.equals(Constants.ABASE_IDENTIFIER) || type.equals(Constants.ABASE_IDENTIFIER2);
 	}
 }
