@@ -61,6 +61,7 @@ kubernetes.stream-log.domain
 kubernetes.ingress.enable
 kubernetes.podgroup.enable
 kubernetes.hostnetwork.enabled
+kubernetes.sidecar.databus.image
 containerized.master.env.KUBERNETES_REQUEST_TIMEOUT
 
 # Metrics

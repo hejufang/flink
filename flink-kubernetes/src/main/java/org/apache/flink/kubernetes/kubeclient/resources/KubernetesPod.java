@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.kubeclient.resources;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesTaskManagerParameters;
 import org.apache.flink.kubernetes.utils.Constants;
 
@@ -28,9 +29,11 @@ import io.fabric8.kubernetes.api.model.Quantity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Represent KubernetesPod resource in kubernetes.
@@ -46,11 +49,15 @@ public class KubernetesPod extends KubernetesResource<Pod> {
 		return this.getInternalResource().getMetadata().getName();
 	}
 
-	public Optional<ContainerStateTerminated> getContainerStateTerminated() {
+	public List<Tuple2<String, ContainerStateTerminated>> getContainerStateTerminated() {
 		try {
-			return getInternalResource().getStatus().getContainerStatuses().stream().map(cs -> cs.getState().getTerminated()).filter(Objects::nonNull).findFirst();
+			return getInternalResource().getStatus().getContainerStatuses().stream()
+					.filter(cs -> cs.getState().getTerminated() != null)
+					.map(cs -> new Tuple2<>(cs.getName(), cs.getState().getTerminated()))
+					.collect(Collectors.toList());
 		} catch (Exception e) {
-			return Optional.empty();
+			log.warn("Get pod {} terminated status failed,", getName(), e);
+			return Collections.emptyList();
 		}
 	}
 

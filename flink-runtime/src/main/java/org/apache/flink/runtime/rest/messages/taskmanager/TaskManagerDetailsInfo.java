@@ -57,7 +57,9 @@ public class TaskManagerDetailsInfo extends TaskManagerInfo {
 			@JsonProperty(FIELD_NAME_MEMORY) TaskExecutorMemoryConfiguration memoryConfiguration,
 			@JsonProperty(FIELD_NAME_METRICS) TaskManagerMetricsInfo taskManagerMetrics,
 			@JsonProperty(FIELD_NAME_WEB_SHELL) String webShell,
-			@JsonProperty(FIELD_NAME_TM_LOG) String tmLog) {
+			@JsonProperty(FIELD_NAME_TM_LOG) String tmLog,
+			@JsonProperty(FIELD_NAME_SIDECAR_ENABLED) boolean sidecarEnabled,
+			@JsonProperty(FIELD_NAME_SIDECAR_WEB_SHELL) String sidecarWebShell) {
 		super(
 			resourceId,
 			address,
@@ -70,7 +72,9 @@ public class TaskManagerDetailsInfo extends TaskManagerInfo {
 			hardwareDescription,
 			memoryConfiguration,
 			webShell,
-			tmLog);
+			tmLog,
+			sidecarEnabled,
+			sidecarWebShell);
 		this.taskManagerMetrics = Preconditions.checkNotNull(taskManagerMetrics);
 	}
 
@@ -88,7 +92,9 @@ public class TaskManagerDetailsInfo extends TaskManagerInfo {
 			taskManagerInfo.getMemoryConfiguration(),
 			taskManagerMetrics,
 			taskManagerInfo.getWebShell(),
-			taskManagerInfo.getTmLog());
+			taskManagerInfo.getTmLog(),
+			taskManagerInfo.isSidecarEnabled(),
+			taskManagerInfo.getSidecarWebShell());
 	}
 
 	@JsonProperty(FIELD_NAME_METRICS)

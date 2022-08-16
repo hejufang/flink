@@ -32,6 +32,8 @@ export interface TaskManagerDetailInterface {
   memoryConfiguration: MemoryConfiguration;
   tmLog: string;
   webShell: string;
+  sidecarWebShell: string;
+  sidecarEnabled: boolean;
 }
 
 export interface TaskManagerLogInterface {
@@ -46,6 +48,10 @@ export interface TaskmanagersItemInterface {
   slotsNumber: number;
   freeSlots: number;
   hardware: Hardware;
+  tmLog: string;
+  webShell: string;
+  sidecarWebShell: string;
+  sidecarEnabled: boolean;
 }
 
 interface Hardware {

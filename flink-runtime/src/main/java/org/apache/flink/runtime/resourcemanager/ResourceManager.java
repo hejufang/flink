@@ -809,6 +809,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			String host = taskExecutor.getTaskExecutorGateway().getHostname();
 			String webShell = getTaskManagerWebShell(resourceId, host);
 			String tmLog = getTaskManagerLogUrl(resourceId, host);
+			boolean sidecarEnabled = isSidecarEnabled();
+			String sidecarWebShell = getTaskManagerSidecarWebshell(resourceId, host);
 			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
 
 			taskManagerInfos.add(
@@ -824,13 +826,23 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 					taskExecutor.getHardwareDescription(),
 					taskExecutor.getMemoryConfiguration(),
 					webShell,
-					tmLog));
+					tmLog,
+					sidecarEnabled,
+					sidecarWebShell));
 		}
 
 		return CompletableFuture.completedFuture(taskManagerInfos);
 	}
 
 	public String getTaskManagerWebShell(ResourceID resourceId, String host) {
+		return "";
+	}
+
+	public boolean isSidecarEnabled() {
+		return false;
+	}
+
+	public String getTaskManagerSidecarWebshell(ResourceID resourceId, String host) {
 		return "";
 	}
 
@@ -850,6 +862,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			String host = taskExecutor.getTaskExecutorGateway().getHostname();
 			String webShell = getTaskManagerWebShell(resourceId, host);
 			String tmLog = getTaskManagerLogUrl(resourceId, host);
+			boolean sidecarEnabled = isSidecarEnabled();
+			String sidecarWebShell = getTaskManagerSidecarWebshell(resourceId, host);
 			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
 
 			final TaskManagerInfo taskManagerInfo = new TaskManagerInfo(
@@ -864,7 +878,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				taskExecutor.getHardwareDescription(),
 				taskExecutor.getMemoryConfiguration(),
 				webShell,
-				tmLog);
+				tmLog,
+				sidecarEnabled,
+				sidecarWebShell);
 
 			return CompletableFuture.completedFuture(taskManagerInfo);
 		}

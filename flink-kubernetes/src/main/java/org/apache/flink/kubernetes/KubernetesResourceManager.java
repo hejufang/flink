@@ -20,6 +20,7 @@ package org.apache.flink.kubernetes;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.BlobServerOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
@@ -31,6 +32,7 @@ import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesResourceManagerConfiguration;
 import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
 import org.apache.flink.kubernetes.kubeclient.KubePodSyncer;
+import org.apache.flink.kubernetes.kubeclient.decorators.DatabusSideCarContainerDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.ExternalServiceDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.InternalServiceDecorator;
 import org.apache.flink.kubernetes.kubeclient.factory.KubernetesTaskManagerFactory;
@@ -90,6 +92,7 @@ import javax.annotation.Nullable;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -187,6 +190,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	private final PodMatchingStrategy podMatchingStrategy;
 
+	private final boolean databusSidecarEnabled;
+
 	public KubernetesResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -243,6 +248,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.previousContainerAsPending = flinkConfig.getBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING);
 		this.previousContainerTimeoutMs = flinkConfig.getLong(ResourceManagerOptions.PREVIOUS_CONTAINER_TIMEOUT_MS);
 		this.recoveredWorkerNodeSet = new HashMap<>();
+
+		this.databusSidecarEnabled = flinkConfig.getBoolean(KubernetesConfigOptions.SIDECAR_DATABUS_ENABLED);
 
 		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(jobManagerPodName, false);
 
@@ -351,7 +358,11 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	@Override
 	public void onStart() throws Exception {
 		super.onStart();
-		registerMetrics();
+		try {
+			registerMetrics();
+		} catch (Exception e) {
+			LOG.error("register metric error.", e);
+		}
 	}
 
 	@Override
@@ -721,6 +732,25 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		kubePodSyncerOpt.ifPresent(
 				kubePodSyncer ->
 						resourceManagerMetricGroup.gauge(MetricNames.POD_OUT_OF_SYNC_TIME, kubePodSyncer::getOutOfSyncTime));
+
+		// databus sidecar
+		if (isSidecarEnabled()) {
+			String databusSidecarImage = flinkConfig.getString(KubernetesConfigOptions.SIDECAR_DATABUS_IMAGE);
+			resourceManagerMetricGroup.gauge(MetricNames.DATABUS_SIDECAR_INFO, () -> (TagGaugeStore) () ->
+					Collections.singletonList(new TagGaugeStore.TagGaugeMetric(
+							1,
+							new TagGaugeStore.TagValuesBuilder()
+									.addTagValue("databus_image", databusSidecarImage)
+									.addTagValue("databus_enabled", String.valueOf(databusSidecarEnabled))
+									.build())));
+
+			double databusSidecarCpu = flinkConfig.getDouble(KubernetesConfigOptions.SIDECAR_DATABUS_CPU);
+			int databusSidecarMemoryMB = flinkConfig.get(KubernetesConfigOptions.SIDECAR_DATABUS_MEMORY).getMebiBytes();
+			resourceManagerMetricGroup.gauge(MetricNames.DATABUS_SIDECAR_ALLOCATED_CPU, () -> databusSidecarCpu * getNumAllocatedWorkers());
+			resourceManagerMetricGroup.gauge(MetricNames.DATABUS_SIDECAR_ALLOCATED_MEMORY, () -> databusSidecarMemoryMB * getNumAllocatedWorkers());
+			resourceManagerMetricGroup.gauge(MetricNames.DATABUS_SIDECAR_PENDING_CPU, () -> databusSidecarCpu * getNumRequestedNotAllocatedWorkers());
+			resourceManagerMetricGroup.gauge(MetricNames.DATABUS_SIDECAR_PENDING_MEMORY, () -> databusSidecarMemoryMB * getNumRequestedNotAllocatedWorkers());
+		}
 	}
 
 	public CompletableFuture<String> requestJMWebShell(@RpcTimeout Time timeout) {
@@ -762,6 +792,29 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			}
 		} else {
 			return super.getTaskManagerWebShell(resourceId, host);
+		}
+	}
+
+	@Override
+	public boolean isSidecarEnabled() {
+		return databusSidecarEnabled;
+	}
+
+	@Override
+	public String getTaskManagerSidecarWebshell(ResourceID resourceId, String host) {
+		if (enableWebShell &&
+				flinkConfig.getBoolean(KubernetesConfigOptions.ARCEE_ENABLED) &&
+				isSidecarEnabled()) {
+			String podName = resourceId.getResourceIdString();
+			String namespace = flinkConfig.getString(KubernetesConfigOptions.NAMESPACE);
+			try {
+				return ArceeUtils.getTMWebShell(namespace, this.clusterId, podName, DatabusSideCarContainerDecorator.CONTAINER_NAME);
+			} catch (Throwable t) {
+				LOG.warn("Get TaskManager web shell error.", t);
+				return super.getTaskManagerWebShell(resourceId, host);
+			}
+		} else {
+			return super.getTaskManagerSidecarWebshell(resourceId, host);
 		}
 	}
 
@@ -1010,14 +1063,19 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	private void recordWorkerFailureAndStop(KubernetesPod pod, Exception cause, int exitCode) {
 		recordWorkerFailure();
+		int containerExitCode = exitCode;
 		if (podWorkerResources.containsKey(pod.getName())) {
-			Optional<ContainerStateTerminated> containerStateTerminatedOptional = pod.getContainerStateTerminated();
-			int containerExitCode = exitCode;
-			if (containerStateTerminatedOptional.isPresent()) {
-				if (containerStateTerminatedOptional.get().getExitCode() != null) {
-					containerExitCode = containerStateTerminatedOptional.get().getExitCode();
+			List<Tuple2<String, ContainerStateTerminated>> terminatedContainers = pod.getContainerStateTerminated();
+			for (Tuple2<String, ContainerStateTerminated> terminatedContainer : terminatedContainers) {
+				if (terminatedContainer.f1.getExitCode() != null) {
+					if (containerExitCode != terminatedContainer.f1.getExitCode()) {
+						log.info("pod {} container {} exit code update from {} to {}.",
+								pod.getName(), terminatedContainer.f0, containerExitCode, terminatedContainer.f1.getExitCode());
+						containerExitCode = terminatedContainer.f1.getExitCode();
+					}
 				}
-				log.error("Pod {} failed with container terminated: {}", pod.getName(), containerStateTerminatedOptional.get());
+				log.error("Pod {} failed with container {} terminated: {}",
+						pod.getName(), terminatedContainer.f0, terminatedContainer.f1);
 			}
 			completedContainerGauge.addMetric(
 					1,
@@ -1028,7 +1086,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 							.build());
 		}
 		internalStopPod(pod.getName());
-		closeTaskManagerConnection(new ResourceID(pod.getName()), cause, exitCode);
+		closeTaskManagerConnection(new ResourceID(pod.getName()), cause, containerExitCode);
 	}
 
 	private void internalStopPod(String podName) {

@@ -41,6 +41,9 @@
         <ng-container *ngIf="statusService.configuration['webShellEnable']">
           <th nzRight="0px" nzShowSort nzSortKey="webShell" [nzWidth]="'160px'">WebShell</th>
         </ng-container>
+        <ng-container *ngIf="listOfTaskManager.some(checkSidecarEnabled)">
+          <th nzRight="0px" nzShowSort nzSortKey="SidecarWebShell" [nzWidth]="'160px'">SidecarWebShell</th>
+        </ng-container>
       </tr>
     </thead>
     <tbody>
@@ -64,6 +67,9 @@
           </ng-container>
           <ng-container *ngIf="statusService.configuration['webShellEnable']">
             <td><a (click)="navigateToUrl(manager.webShell, $event)">WebShell</a></td>
+          </ng-container>
+          <ng-container *ngIf="manager.sidecarEnabled">
+            <td><a (click)="navigateToUrl(manager.sidecarWebShell, $event)">SideCarWebShell</a></td>
           </ng-container>
         </tr>
       </ng-container>

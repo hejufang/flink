@@ -73,6 +73,13 @@
         <span>WebShell: </span>
         <span><a (click)="navigateToUrl(taskManagerDetail.webShell, $event)">WebShell</a></span>
       </div>
+      <ng-container *ngIf="taskManagerDetail.sidecarEnabled">
+        <nz-divider [nzType]="'vertical'"></nz-divider>
+        <div class="field">
+          <span>sidecarWebShell: </span>
+          <span><a (click)="navigateToUrl(taskManagerDetail.sidecarWebShell, $event)">WebShell</a></span>
+        </div>
+      </ng-container>
     </ng-container>
   </div>
   <flink-navigation [listOfNavigation]="listOfNavigation"></flink-navigation>

@@ -165,4 +165,11 @@ public class MetricNames {
 	public static final String POD_OUT_OF_SYNC_TIME = "podOutOfSyncTime";
 
 	public static final String TM_CONSTRUCTOR_CACHE_HIT_RATE = "constructorCacheHitRate";
+
+	// databus sidecar
+	public static final String DATABUS_SIDECAR_INFO = "databusSidecarInfo";
+	public static final String DATABUS_SIDECAR_ALLOCATED_CPU = "databusSidecarAllocatedCPU";
+	public static final String DATABUS_SIDECAR_ALLOCATED_MEMORY = "databusSidecarAllocatedMemory";
+	public static final String DATABUS_SIDECAR_PENDING_CPU = "databusSidecarPendingCPU";
+	public static final String DATABUS_SIDECAR_PENDING_MEMORY = "databusSidecarPendingMemory";
 }

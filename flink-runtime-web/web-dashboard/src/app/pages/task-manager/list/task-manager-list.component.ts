@@ -43,6 +43,10 @@ export class TaskManagerListComponent implements OnInit, OnDestroy {
     this.search();
   }
 
+  checkSidecarEnabled(taskmanager: TaskmanagersItemInterface) {
+    return taskmanager.sidecarEnabled;
+  }
+
   search() {
     if (this.sortName) {
       this.listOfTaskManager = [

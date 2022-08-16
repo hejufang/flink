@@ -22,6 +22,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptionsInternal;
+import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptionsInternal;
 import org.apache.flink.kubernetes.entrypoint.KubernetesApplicationClusterEntrypoint;
@@ -315,6 +316,45 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 			return diskResource;
 		}
 		return Collections.emptyMap();
+	}
+
+
+	// databus sidecar
+	public boolean isDatabusSideCarEnabled() {
+		return flinkConfig.getBoolean(KubernetesConfigOptions.SIDECAR_DATABUS_ENABLED);
+	}
+
+	public String getDatabusSidecarImage() {
+		if (flinkConfig.contains(KubernetesConfigOptions.SIDECAR_DATABUS_IMAGE)) {
+			return flinkConfig.getString(KubernetesConfigOptions.SIDECAR_DATABUS_IMAGE);
+		} else {
+			throw new IllegalArgumentException(KubernetesConfigOptions.SIDECAR_DATABUS_IMAGE.key() + " must be configured.");
+		}
+	}
+
+	public double getDatabusSidecarCpu() {
+		if (flinkConfig.contains(KubernetesConfigOptions.SIDECAR_DATABUS_CPU)) {
+			return flinkConfig.getDouble(KubernetesConfigOptions.SIDECAR_DATABUS_CPU);
+		} else {
+			throw new IllegalArgumentException(KubernetesConfigOptions.SIDECAR_DATABUS_CPU.key() + " must be configured.");
+		}
+	}
+
+	public int getDatabusSidecarMemoryInMB() {
+		if (flinkConfig.contains(KubernetesConfigOptions.SIDECAR_DATABUS_MEMORY)) {
+			return flinkConfig.get(KubernetesConfigOptions.SIDECAR_DATABUS_MEMORY).getMebiBytes();
+		} else {
+			throw new IllegalArgumentException(KubernetesConfigOptions.SIDECAR_DATABUS_MEMORY.key() + " must be configured.");
+		}
+	}
+
+	public int getDatabusSidecarShmSizeInMB() {
+		int shmSizeImMB = flinkConfig
+				.getOptional(KubernetesConfigOptions.SIDECAR_DATABUS_SHARED_MEMORY_SIZE)
+				.map(MemorySize::getMebiBytes)
+				.orElse(getDatabusSidecarMemoryInMB() * 2 / 3);
+		checkArgument(shmSizeImMB < getDatabusSidecarMemoryInMB(), "shared memory size must less than databus memory.");
+		return shmSizeImMB;
 	}
 
 	public boolean isServiceLinkEnable() {

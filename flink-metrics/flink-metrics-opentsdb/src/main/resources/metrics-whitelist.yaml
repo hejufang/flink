@@ -330,7 +330,13 @@ non-global:
       # submit twice
         submitTwiceDcDiff,
         submitTwiceClusterDiff,
-        submitTwiceAppNum
+        submitTwiceAppNum,
+      # databus sidecar
+        databusSidecarInfo,
+        databusSidecarAllocatedCPU,
+        databusSidecarAllocatedMemory,
+        databusSidecarPendingCPU,
+        databusSidecarPendingMemory
     ]
 
 report-during-unregister:

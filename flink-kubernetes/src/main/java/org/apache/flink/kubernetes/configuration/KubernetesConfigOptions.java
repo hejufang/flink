@@ -22,6 +22,7 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.docs.Documentation;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ExternalResourceOptions;
+import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.description.Description;
 import org.apache.flink.configuration.description.TextElement;
@@ -609,6 +610,37 @@ public class KubernetesConfigOptions {
 				+ "\" and \"" + PodMatchingStrategy.StrategyType.MIN_RESOURCE + "\"," +
 				"strict need all pod resource properties in same." +
 				"min-resource need the required resource is matching with pod, but the pod can has more properties.");
+
+	// databus sidecar container.
+	public static final ConfigOption<Boolean> SIDECAR_DATABUS_ENABLED =
+		key("kubernetes.sidecar.databus.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("whether enable databus sidecar.");
+
+	public static final ConfigOption<String> SIDECAR_DATABUS_IMAGE =
+		key("kubernetes.sidecar.databus.image")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("container image for databus sidecar");
+
+	public static final ConfigOption<Double> SIDECAR_DATABUS_CPU =
+		key("kubernetes.sidecar.databus.cpu")
+			.doubleType()
+			.noDefaultValue()
+			.withDescription("cores for databus sidecar.");
+
+	public static final ConfigOption<MemorySize> SIDECAR_DATABUS_MEMORY =
+		key("kubernetes.sidecar.databus.memory")
+			.memoryType()
+			.noDefaultValue()
+			.withDescription("memory size for databus sidecar.");
+
+	public static final ConfigOption<MemorySize> SIDECAR_DATABUS_SHARED_MEMORY_SIZE =
+		key("kubernetes.sidecar.databus.shared-memory-size")
+			.memoryType()
+			.noDefaultValue()
+			.withDescription("shared memory size for databus sidecar, default value is 2/3 of SIDECAR_DATABUS_MEMORY.");
 
 	private static String getDefaultFlinkImage() {
 		// The default container image that ties to the exact needed versions of both Flink and Scala.

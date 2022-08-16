@@ -64,6 +64,9 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 
 	public static final String FIELD_NAME_WEB_SHELL = "webShell";
 
+	public static final String FIELD_NAME_SIDECAR_WEB_SHELL = "sidecarWebShell";
+	public static final String FIELD_NAME_SIDECAR_ENABLED = "sidecarEnabled";
+
 	public static final String FIELD_NAME_TM_LOG = "tmLog";
 
 	private static final long serialVersionUID = 1L;
@@ -102,6 +105,12 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 	@JsonProperty(FIELD_NAME_WEB_SHELL)
 	private final String webShell;
 
+	@JsonProperty(FIELD_NAME_SIDECAR_WEB_SHELL)
+	private final String sidecarWebShell;
+
+	@JsonProperty(FIELD_NAME_SIDECAR_ENABLED)
+	private final boolean sidecarEnabled;
+
 	@JsonProperty(FIELD_NAME_TM_LOG)
 	private final String tmLog;
 
@@ -118,7 +127,9 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			@JsonProperty(FIELD_NAME_HARDWARE) HardwareDescription hardwareDescription,
 			@JsonProperty(FIELD_NAME_MEMORY) TaskExecutorMemoryConfiguration memoryConfiguration,
 			@JsonProperty(FIELD_NAME_WEB_SHELL) String webShell,
-			@JsonProperty(FIELD_NAME_TM_LOG) String tmLog) {
+			@JsonProperty(FIELD_NAME_TM_LOG) String tmLog,
+			@JsonProperty(FIELD_NAME_SIDECAR_ENABLED) boolean sidecarEnabled,
+			@JsonProperty(FIELD_NAME_SIDECAR_WEB_SHELL) String sidecarWebShell) {
 		this.resourceId = Preconditions.checkNotNull(resourceId);
 		this.address = Preconditions.checkNotNull(address);
 		this.dataPort = dataPort;
@@ -131,6 +142,8 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 		this.memoryConfiguration = Preconditions.checkNotNull(memoryConfiguration);
 		this.webShell = (webShell == null) ? "NoWebShell" : webShell;
 		this.tmLog = (tmLog == null) ? "TmLog" : tmLog;
+		this.sidecarEnabled = sidecarEnabled;
+		this.sidecarWebShell = sidecarWebShell;
 	}
 
 	public TaskManagerInfo(
@@ -145,7 +158,9 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			HardwareDescription hardwareDescription,
 			TaskExecutorMemoryConfiguration memoryConfiguration,
 			String webShell,
-			String tmLog) {
+			String tmLog,
+			boolean sidecarEnabled,
+			String sidecarWebShell) {
 		this(resourceId,
 				address,
 				dataPort,
@@ -157,7 +172,9 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 				hardwareDescription,
 				memoryConfiguration,
 				webShell,
-				tmLog);
+				tmLog,
+				sidecarEnabled,
+				sidecarWebShell);
 	}
 
 	public TaskManagerInfo(
@@ -182,6 +199,8 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			hardwareDescription,
 			memoryConfiguration,
 			null,
+			null,
+			false,
 			null);
 	}
 
@@ -233,6 +252,14 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 		return tmLog;
 	}
 
+	public String getSidecarWebShell() {
+		return sidecarWebShell;
+	}
+
+	public boolean isSidecarEnabled() {
+		return sidecarEnabled;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -253,7 +280,9 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			Objects.equals(hardwareDescription, that.hardwareDescription) &&
 			Objects.equals(memoryConfiguration, that.memoryConfiguration) &&
 			Objects.equals(webShell, that.webShell) &&
-			Objects.equals(tmLog, that.tmLog);
+			Objects.equals(tmLog, that.tmLog) &&
+			Objects.equals(sidecarEnabled, that.sidecarEnabled) &&
+			Objects.equals(sidecarWebShell, that.sidecarWebShell);
 	}
 
 	@Override
@@ -270,6 +299,8 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			hardwareDescription,
 			memoryConfiguration,
 			webShell,
-			tmLog);
+			tmLog,
+			sidecarEnabled,
+			sidecarWebShell);
 	}
 }

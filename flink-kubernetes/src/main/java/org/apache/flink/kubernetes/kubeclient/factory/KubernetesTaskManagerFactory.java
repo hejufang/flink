@@ -20,6 +20,7 @@ package org.apache.flink.kubernetes.kubeclient.factory;
 
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.decorators.AbstractFileDownloadDecorator;
+import org.apache.flink.kubernetes.kubeclient.decorators.DatabusSideCarContainerDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.EnvSecretsDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.FlinkConfMountDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.HadoopConfMountDecorator;
@@ -58,6 +59,11 @@ public class KubernetesTaskManagerFactory {
 
 		for (KubernetesStepDecorator stepDecorator: stepDecorators) {
 			flinkPod = stepDecorator.decorateFlinkPod(flinkPod);
+		}
+
+		if (kubernetesTaskManagerParameters.isDatabusSideCarEnabled()) {
+			KubernetesStepDecorator databusSideCarContainerDecorator = new DatabusSideCarContainerDecorator(kubernetesTaskManagerParameters);
+			flinkPod = databusSideCarContainerDecorator.decorateFlinkPod(flinkPod);
 		}
 
 		final Pod resolvedPod;
