@@ -1,0 +1,180 @@
+<?xml version="1.0" ?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to you under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<Root>
+	<TestCase name="testPushLocalHashAggregateCountAcrossOneUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT id, COUNT(1) FROM (
+  SELECT * FROM MyTable1
+  UNION ALL
+  SELECT * FROM MyTable2
+) as T
+GROUP BY id
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{0}], EXPR$1=[COUNT()])
++- LogicalProject(id=[$1], $f1=[1])
+   +- LogicalUnion(all=[true])
+      :- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+      :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+      +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+HashAggregate(isMerge=[true], groupBy=[id], select=[id, Final_COUNT(count1$0) AS EXPR$1])
++- Exchange(distribution=[hash[id]])
+   +- Union(all=[true], union=[id, $f1])
+      :- LocalHashAggregate(groupBy=[id], select=[id, Partial_COUNT(*) AS count1$0])
+      :  +- Calc(select=[id, 1 AS $f1])
+      :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalHashAggregate(groupBy=[id], select=[id, Partial_COUNT(*) AS count1$0])
+         +- Calc(select=[id, 1 AS $f1])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testPushLocalHashAggregateCountAcrossMultipleUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT id, COUNT(1) FROM (
+  SELECT * FROM MyTable1
+  UNION ALL
+  SELECT * FROM MyTable2
+  UNION ALL
+  SELECT * FROM MyTable3
+) as T
+GROUP BY id
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{0}], EXPR$1=[COUNT()])
++- LogicalProject(id=[$1], $f1=[1])
+   +- LogicalUnion(all=[true])
+      :- LogicalUnion(all=[true])
+      :  :- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+      :  :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+      :  +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+      :     +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+      +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+HashAggregate(isMerge=[true], groupBy=[id], select=[id, Final_COUNT(count1$0) AS EXPR$1])
++- Exchange(distribution=[hash[id]])
+   +- Union(all=[true], union=[id, $f1])
+      :- Union(all=[true], union=[id, $f1])
+      :  :- LocalHashAggregate(groupBy=[id], select=[id, Partial_COUNT(*) AS count1$0])
+      :  :  +- Calc(select=[id, 1 AS $f1])
+      :  :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      :  +- LocalHashAggregate(groupBy=[id], select=[id, Partial_COUNT(*) AS count1$0])
+      :     +- Calc(select=[id, 1 AS $f1])
+      :        +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalHashAggregate(groupBy=[id], select=[id, Partial_COUNT(*) AS count1$0])
+         +- Calc(select=[id, 1 AS $f1])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testPushLocalHashAggregateSumAcrossOneUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT id, SUM(amount) FROM (
+  SELECT id, amount FROM MyTable1
+  UNION ALL
+  SELECT id, amount FROM MyTable2
+) as T
+GROUP BY id
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{0}], EXPR$1=[SUM($1)])
++- LogicalUnion(all=[true])
+   :- LogicalProject(id=[$1], amount=[$2])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   +- LogicalProject(id=[$1], amount=[$2])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+HashAggregate(isMerge=[true], groupBy=[id], select=[id, Final_SUM(sum$0) AS EXPR$1])
++- Exchange(distribution=[hash[id]])
+   +- Union(all=[true], union=[id, amount])
+      :- LocalHashAggregate(groupBy=[id], select=[id, Partial_SUM(amount) AS sum$0])
+      :  +- Calc(select=[id, amount])
+      :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalHashAggregate(groupBy=[id], select=[id, Partial_SUM(amount) AS sum$0])
+         +- Calc(select=[id, amount])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testPushLocalHashAggregateSumAcrossMultipleUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT id, SUM(amount) FROM (
+  SELECT id, amount FROM MyTable1
+  UNION ALL
+  SELECT id, amount FROM MyTable2
+  UNION ALL
+  SELECT id, amount FROM MyTable3
+) as T
+GROUP BY id
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{0}], EXPR$1=[SUM($1)])
++- LogicalUnion(all=[true])
+   :- LogicalUnion(all=[true])
+   :  :- LogicalProject(id=[$1], amount=[$2])
+   :  :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   :  +- LogicalProject(id=[$1], amount=[$2])
+   :     +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   +- LogicalProject(id=[$1], amount=[$2])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+HashAggregate(isMerge=[true], groupBy=[id], select=[id, Final_SUM(sum$0) AS EXPR$1])
++- Exchange(distribution=[hash[id]])
+   +- Union(all=[true], union=[id, amount])
+      :- Union(all=[true], union=[id, amount])
+      :  :- LocalHashAggregate(groupBy=[id], select=[id, Partial_SUM(amount) AS sum$0])
+      :  :  +- Calc(select=[id, amount])
+      :  :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      :  +- LocalHashAggregate(groupBy=[id], select=[id, Partial_SUM(amount) AS sum$0])
+      :     +- Calc(select=[id, amount])
+      :        +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalHashAggregate(groupBy=[id], select=[id, Partial_SUM(amount) AS sum$0])
+         +- Calc(select=[id, amount])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+</Root>
+

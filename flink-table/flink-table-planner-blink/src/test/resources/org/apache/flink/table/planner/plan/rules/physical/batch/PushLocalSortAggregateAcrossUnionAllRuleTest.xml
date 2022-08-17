@@ -1,0 +1,364 @@
+<?xml version="1.0" ?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to you under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<Root>
+	<TestCase name="testPushLocalSortAggregateCountAcrossOneUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT COUNT(*) FROM (
+  SELECT * FROM MyTable1
+  UNION ALL
+  SELECT * FROM MyTable2
+) as T
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{}], EXPR$0=[COUNT()])
++- LogicalProject($f0=[0])
+   +- LogicalUnion(all=[true])
+      :- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+      :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+      +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+SortAggregate(isMerge=[true], select=[Final_COUNT(count1$0) AS EXPR$0])
++- Exchange(distribution=[single])
+   +- Union(all=[true], union=[$f0])
+      :- LocalSortAggregate(select=[Partial_COUNT(*) AS count1$0])
+      :  +- Calc(select=[0 AS $f0])
+      :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalSortAggregate(select=[Partial_COUNT(*) AS count1$0])
+         +- Calc(select=[0 AS $f0])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testPushLocalSortAggregateCountAcrossMultipleUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT COUNT(*) FROM (
+  SELECT * FROM MyTable1
+  UNION ALL
+  SELECT * FROM MyTable2
+  UNION ALL
+  SELECT * FROM MyTable3
+) as T
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{}], EXPR$0=[COUNT()])
++- LogicalProject($f0=[0])
+   +- LogicalUnion(all=[true])
+      :- LogicalUnion(all=[true])
+      :  :- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+      :  :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+      :  +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+      :     +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+      +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+SortAggregate(isMerge=[true], select=[Final_COUNT(count1$0) AS EXPR$0])
++- Exchange(distribution=[single])
+   +- Union(all=[true], union=[$f0])
+      :- Union(all=[true], union=[$f0])
+      :  :- LocalSortAggregate(select=[Partial_COUNT(*) AS count1$0])
+      :  :  +- Calc(select=[0 AS $f0])
+      :  :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      :  +- LocalSortAggregate(select=[Partial_COUNT(*) AS count1$0])
+      :     +- Calc(select=[0 AS $f0])
+      :        +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalSortAggregate(select=[Partial_COUNT(*) AS count1$0])
+         +- Calc(select=[0 AS $f0])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testPushLocalSortAggregateMaxAcrossOneUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT MAX(id) FROM (
+  SELECT id FROM MyTable1
+  UNION ALL
+  SELECT id FROM MyTable2
+) as T
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{}], EXPR$0=[MAX($0)])
++- LogicalUnion(all=[true])
+   :- LogicalProject(id=[$1])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   +- LogicalProject(id=[$1])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+SortAggregate(isMerge=[true], select=[Final_MAX(max$0) AS EXPR$0])
++- Exchange(distribution=[single])
+   +- Union(all=[true], union=[id])
+      :- LocalSortAggregate(select=[Partial_MAX(id) AS max$0])
+      :  +- Calc(select=[id])
+      :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalSortAggregate(select=[Partial_MAX(id) AS max$0])
+         +- Calc(select=[id])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testPushLocalSortAggregateMaxAcrossMultipleUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT MAX(id) FROM (
+  SELECT id FROM MyTable1
+  UNION ALL
+  SELECT id FROM MyTable2
+  UNION ALL
+  SELECT id FROM MyTable3
+) as T
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{}], EXPR$0=[MAX($0)])
++- LogicalUnion(all=[true])
+   :- LogicalUnion(all=[true])
+   :  :- LogicalProject(id=[$1])
+   :  :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   :  +- LogicalProject(id=[$1])
+   :     +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   +- LogicalProject(id=[$1])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+SortAggregate(isMerge=[true], select=[Final_MAX(max$0) AS EXPR$0])
++- Exchange(distribution=[single])
+   +- Union(all=[true], union=[id])
+      :- Union(all=[true], union=[id])
+      :  :- LocalSortAggregate(select=[Partial_MAX(id) AS max$0])
+      :  :  +- Calc(select=[id])
+      :  :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      :  +- LocalSortAggregate(select=[Partial_MAX(id) AS max$0])
+      :     +- Calc(select=[id])
+      :        +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalSortAggregate(select=[Partial_MAX(id) AS max$0])
+         +- Calc(select=[id])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testPushLocalSortAggregateMinAcrossOneUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT MIN(id) FROM (
+  SELECT id FROM MyTable1
+  UNION ALL
+  SELECT id FROM MyTable2
+) as T
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{}], EXPR$0=[MIN($0)])
++- LogicalUnion(all=[true])
+   :- LogicalProject(id=[$1])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   +- LogicalProject(id=[$1])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+SortAggregate(isMerge=[true], select=[Final_MIN(min$0) AS EXPR$0])
++- Exchange(distribution=[single])
+   +- Union(all=[true], union=[id])
+      :- LocalSortAggregate(select=[Partial_MIN(id) AS min$0])
+      :  +- Calc(select=[id])
+      :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalSortAggregate(select=[Partial_MIN(id) AS min$0])
+         +- Calc(select=[id])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testPushLocalSortAggregateMinAcrossMultipleUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT MIN(id) FROM (
+  SELECT id FROM MyTable1
+  UNION ALL
+  SELECT id FROM MyTable2
+  UNION ALL
+  SELECT id FROM MyTable3
+) as T
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{}], EXPR$0=[MIN($0)])
++- LogicalUnion(all=[true])
+   :- LogicalUnion(all=[true])
+   :  :- LogicalProject(id=[$1])
+   :  :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   :  +- LogicalProject(id=[$1])
+   :     +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   +- LogicalProject(id=[$1])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+SortAggregate(isMerge=[true], select=[Final_MIN(min$0) AS EXPR$0])
++- Exchange(distribution=[single])
+   +- Union(all=[true], union=[id])
+      :- Union(all=[true], union=[id])
+      :  :- LocalSortAggregate(select=[Partial_MIN(id) AS min$0])
+      :  :  +- Calc(select=[id])
+      :  :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      :  +- LocalSortAggregate(select=[Partial_MIN(id) AS min$0])
+      :     +- Calc(select=[id])
+      :        +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalSortAggregate(select=[Partial_MIN(id) AS min$0])
+         +- Calc(select=[id])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testPushLocalSortAggregateSumAcrossOneUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT SUM(amount) FROM (
+  SELECT amount FROM MyTable1
+  UNION ALL
+  SELECT amount FROM MyTable2
+) as T
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{}], EXPR$0=[SUM($0)])
++- LogicalUnion(all=[true])
+   :- LogicalProject(amount=[$2])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   +- LogicalProject(amount=[$2])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+SortAggregate(isMerge=[true], select=[Final_SUM(sum$0) AS EXPR$0])
++- Exchange(distribution=[single])
+   +- Union(all=[true], union=[amount])
+      :- LocalSortAggregate(select=[Partial_SUM(amount) AS sum$0])
+      :  +- Calc(select=[amount])
+      :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalSortAggregate(select=[Partial_SUM(amount) AS sum$0])
+         +- Calc(select=[amount])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testPushLocalSortAggregateSumAcrossMultipleUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT SUM(amount) FROM (
+  SELECT amount FROM MyTable1
+  UNION ALL
+  SELECT amount FROM MyTable2
+  UNION ALL
+  SELECT amount FROM MyTable3
+) as T
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{}], EXPR$0=[SUM($0)])
++- LogicalUnion(all=[true])
+   :- LogicalUnion(all=[true])
+   :  :- LogicalProject(amount=[$2])
+   :  :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   :  +- LogicalProject(amount=[$2])
+   :     +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   +- LogicalProject(amount=[$2])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+SortAggregate(isMerge=[true], select=[Final_SUM(sum$0) AS EXPR$0])
++- Exchange(distribution=[single])
+   +- Union(all=[true], union=[amount])
+      :- Union(all=[true], union=[amount])
+      :  :- LocalSortAggregate(select=[Partial_SUM(amount) AS sum$0])
+      :  :  +- Calc(select=[amount])
+      :  :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      :  +- LocalSortAggregate(select=[Partial_SUM(amount) AS sum$0])
+      :     +- Calc(select=[amount])
+      :        +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalSortAggregate(select=[Partial_SUM(amount) AS sum$0])
+         +- Calc(select=[amount])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable3, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testPushLocalSortAggregateMaxMinAcrossOneUnionAll">
+		<Resource name="sql">
+			<![CDATA[
+SELECT MAX(id), MIN(amount) FROM (
+  SELECT id, amount FROM MyTable1
+  UNION ALL
+  SELECT id, amount FROM MyTable2
+) as T
+]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalAggregate(group=[{}], EXPR$0=[MAX($0)], EXPR$1=[MIN($1)])
++- LogicalUnion(all=[true])
+   :- LogicalProject(id=[$1], amount=[$2])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+   +- LogicalProject(id=[$1], amount=[$2])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+SortAggregate(isMerge=[true], select=[Final_MAX(max$0) AS EXPR$0, Final_MIN(min$1) AS EXPR$1])
++- Exchange(distribution=[single])
+   +- Union(all=[true], union=[id, amount])
+      :- LocalSortAggregate(select=[Partial_MAX(id) AS max$0, Partial_MIN(amount) AS min$1])
+      :  +- Calc(select=[id, amount])
+      :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable1, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+      +- LocalSortAggregate(select=[Partial_MAX(id) AS max$0, Partial_MIN(amount) AS min$1])
+         +- Calc(select=[id, amount])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable2, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+		</Resource>
+	</TestCase>
+</Root>
+
