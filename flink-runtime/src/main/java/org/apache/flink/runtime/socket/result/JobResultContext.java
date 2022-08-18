@@ -89,7 +89,7 @@ public class JobResultContext {
 
 	private void onError() {
 		try {
-			context.close().get();
+			context.close();
 		} catch (Exception e) {
 			LOG.error("JobResultContext context close fail", e);
 		}
