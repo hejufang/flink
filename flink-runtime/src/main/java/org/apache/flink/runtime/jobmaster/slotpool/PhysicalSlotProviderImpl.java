@@ -24,6 +24,7 @@ import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotProfile;
 import org.apache.flink.runtime.jobmaster.SlotRequestId;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
@@ -31,8 +32,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -51,10 +55,13 @@ public class PhysicalSlotProviderImpl implements PhysicalSlotProvider {
 
 	private final Counter allocateFromAvailableFailedCounter = new SimpleCounter();
 
+	private final Set<SlotRequestId> pendingSlotRequests;
+
 	public PhysicalSlotProviderImpl(SlotSelectionStrategy slotSelectionStrategy, SlotPool slotPool, JobManagerJobMetricGroup jobManagerJobMetricGroup) {
 		this.slotSelectionStrategy = checkNotNull(slotSelectionStrategy);
 		this.slotPool = checkNotNull(slotPool);
 		this.jobManagerJobMetricGroup = checkNotNull(jobManagerJobMetricGroup);
+		this.pendingSlotRequests = new HashSet<>();
 		registerMetrics();
 	}
 
@@ -68,6 +75,7 @@ public class PhysicalSlotProviderImpl implements PhysicalSlotProvider {
 		SlotRequestId slotRequestId = physicalSlotRequest.getSlotRequestId();
 		SlotProfile slotProfile = physicalSlotRequest.getSlotProfile();
 		ResourceProfile resourceProfile = slotProfile.getPhysicalSlotResourceProfile();
+		pendingSlotRequests.add(slotRequestId);
 
 		LOG.debug("Received slot request [{}] with resource requirements: {}", slotRequestId, resourceProfile);
 
@@ -84,12 +92,23 @@ public class PhysicalSlotProviderImpl implements PhysicalSlotProvider {
 								physicalSlotRequest.willSlotBeOccupiedIndefinitely(),
 								timeout)));
 
-		return slotFuture.thenApply(physicalSlot -> new PhysicalSlotRequest.Result(slotRequestId, physicalSlot));
+		return slotFuture.thenApply(physicalSlot -> {
+			pendingSlotRequests.remove(slotRequestId);
+			return new PhysicalSlotRequest.Result(slotRequestId, physicalSlot);
+		});
 	}
 
 	private CompletableFuture<Optional<PhysicalSlot>> tryAllocateFromAvailable(SlotRequestId slotRequestId, SlotProfile slotProfile, Time timeout) {
-		return slotPool.getRequiredResourceSatisfiedFutureWithTimeout(timeout).thenApply(
-				ignore -> tryAllocateFromAvailableInternal(slotRequestId, slotProfile));
+		return slotPool.getRequiredResourceSatisfiedFutureWithTimeout(timeout).thenCompose(
+				ignore -> {
+					if (pendingSlotRequests.contains(slotRequestId)) {
+						return CompletableFuture.completedFuture(Acknowledge.get());
+					} else {
+						LOG.info("{} already canceled, ignore allocate.", slotRequestId);
+						throw new CancellationException("slot request already canceled.");
+					}})
+				.thenApply(
+						ignore -> tryAllocateFromAvailableInternal(slotRequestId, slotProfile));
 	}
 
 	private Optional<PhysicalSlot> tryAllocateFromAvailableInternal(SlotRequestId slotRequestId, SlotProfile slotProfile) {
@@ -122,6 +141,7 @@ public class PhysicalSlotProviderImpl implements PhysicalSlotProvider {
 
 	@Override
 	public void cancelSlotRequest(SlotRequestId slotRequestId, Throwable cause) {
+		pendingSlotRequests.remove(slotRequestId);
 		slotPool.releaseSlot(slotRequestId, cause);
 	}
 

@@ -24,6 +24,7 @@ import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.jobmaster.SlotRequestId;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.clock.Clock;
 import org.apache.flink.util.clock.SystemClock;
@@ -38,6 +39,8 @@ import java.util.concurrent.CompletableFuture;
 public class TestingSlotPoolImpl extends SlotPoolImpl {
 
 	private ResourceProfile lastRequestedSlotResourceProfile;
+
+	private CompletableFuture<Acknowledge> requiredResourceSatisfiedFuture;
 
 	public TestingSlotPoolImpl(JobID jobId, boolean batchRequestSlotsEnable) {
 		this(
@@ -76,6 +79,10 @@ public class TestingSlotPoolImpl extends SlotPoolImpl {
 		runAsync(this::checkBatchSlotTimeout);
 	}
 
+	void setRequiredResourceSatisfiedFuture(CompletableFuture<Acknowledge> requiredResourceSatisfiedFuture) {
+		this.requiredResourceSatisfiedFuture = requiredResourceSatisfiedFuture;
+	}
+
 	@Override
 	public CompletableFuture<PhysicalSlot> requestNewAllocatedSlot(
 			final SlotRequestId slotRequestId,
@@ -86,6 +93,15 @@ public class TestingSlotPoolImpl extends SlotPoolImpl {
 		this.lastRequestedSlotResourceProfile = resourceProfile;
 
 		return super.requestNewAllocatedSlot(slotRequestId, resourceProfile, bannedLocations, timeout);
+	}
+
+	@Override
+	public CompletableFuture<Acknowledge> getRequiredResourceSatisfiedFutureWithTimeout(Time timeout) {
+		if (requiredResourceSatisfiedFuture != null) {
+			return requiredResourceSatisfiedFuture;
+		} else {
+			return super.getRequiredResourceSatisfiedFutureWithTimeout(timeout);
+		}
 	}
 
 	public ResourceProfile getLastRequestedSlotResourceProfile() {

@@ -24,6 +24,7 @@ import org.apache.flink.runtime.clusterframework.types.SlotProfile;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.jobmaster.SlotRequestId;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 
 import org.junit.After;
@@ -48,6 +49,7 @@ import java.util.function.Function;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests for {@link PhysicalSlotProviderImpl}.
@@ -111,6 +113,17 @@ public class PhysicalSlotProviderImplTest {
 		assertThat(slotFuture.isDone(), is(false));
 		addSlotToSlotPool();
 		slotFuture.get();
+	}
+
+	@Test
+	public void testBulkSlotAllocationCanceled() {
+		PhysicalSlotRequest request = createPhysicalSlotRequest();
+		CompletableFuture<Acknowledge> future = new CompletableFuture<>();
+		slotPool.setRequiredResourceSatisfiedFuture(future);
+		CompletableFuture<PhysicalSlotRequest.Result> slotFuture = allocateSlot(request);
+		CompletableFuture.runAsync(() -> physicalSlotProvider.cancelSlotRequest(request.getSlotRequestId(), new Exception("excepted")), mainThreadExecutor).join();
+		future.complete(Acknowledge.get());
+		assertTrue(slotFuture.isCompletedExceptionally());
 	}
 
 	@Test
