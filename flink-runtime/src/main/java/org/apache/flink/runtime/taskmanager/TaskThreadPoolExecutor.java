@@ -70,6 +70,7 @@ public class TaskThreadPoolExecutor extends ThreadPoolExecutor {
 				TaskExecuteThread thread = (TaskExecuteThread) Thread.currentThread();
 				String oriThreadName = thread.getName();
 				thread.setTaskExecuteThreadName(threadName);
+				thread.setExecutingThreadFuture(future);
 				if (classLoader != null) {
 					thread.setContextClassLoader(classLoader);
 				}
@@ -114,6 +115,7 @@ public class TaskThreadPoolExecutor extends ThreadPoolExecutor {
 
 	static class TaskExecuteThread extends Thread {
 		private final Object lock = new Object();
+		private volatile CompletableFuture<Void> executingThreadFuture;
 
 		public TaskExecuteThread(ThreadGroup group, Runnable target, String name, long stackSize) {
 			super(group, target, name, stackSize);
@@ -130,6 +132,20 @@ public class TaskThreadPoolExecutor extends ThreadPoolExecutor {
 		public void setTaskExecuteThreadName(String name){
 			synchronized (lock){
 				super.setName(name);
+			}
+		}
+
+		public TaskExecuteThread setExecutingThreadFuture(CompletableFuture<Void> executingThreadFuture) {
+			this.executingThreadFuture = executingThreadFuture;
+			return this;
+		}
+
+		public CompletableFuture<Void> getExecutingThreadFuture(String name) {
+			synchronized (lock){
+				if (getName().equals(name)) {
+					return executingThreadFuture;
+				}
+				return CompletableFuture.completedFuture(null);
 			}
 		}
 	}

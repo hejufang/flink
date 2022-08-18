@@ -992,9 +992,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				invokable.setCancelWatchDog(new TaskCancelerWatchDog(
 					executingThread,
 					taskManagerActions,
-					null,
 					String.format("Cancellation Watchdog for %s (%s).",
 						taskThreadName, executionId),
+					taskThreadName,
 					taskCancellationTimeout));
 				if (useTaskThreadPool) {
 					invokable.setTaskMonitorExecutor(taskMonitorExecutor);
@@ -1438,10 +1438,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 								Runnable cancelWatchdog = new TaskCancelerWatchDog(
 									executingThread,
 									taskManagerActions,
-									executingThreadFuture,
 									threadName,
-									taskCancellationTimeout
-									);
+									taskThreadName,
+									taskCancellationTimeout);
 								if (useTaskThreadPool) {
 									taskMonitorExecutor.submit(cancelWatchdog, threadName);
 								} else {
@@ -1959,7 +1958,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		/** The TaskManager to notify if cancellation does not happen in time. */
 		private final TaskManagerActions taskManager;
 
-		private final CompletableFuture<Void> executingThreadFuture;
+		private CompletableFuture<Void> executingThreadFuture;
 
 		private final String threadName;
 
@@ -1967,11 +1966,11 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		private final long timeoutMillis;
 
 		TaskCancelerWatchDog(
-				Thread executerThread,
-				TaskManagerActions taskManager,
-				CompletableFuture<Void> executingThreadFuture,
-				String threadName,
-				long timeoutMillis) {
+			Thread executerThread,
+			TaskManagerActions taskManager,
+			String threadName,
+			String taskThreadName,
+			long timeoutMillis) {
 
 			checkArgument(timeoutMillis > 0);
 
@@ -1979,7 +1978,12 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			this.taskManager = taskManager;
 			this.threadName = threadName;
 			this.timeoutMillis = timeoutMillis;
-			this.executingThreadFuture = executingThreadFuture;
+			if (executerThread instanceof TaskThreadPoolExecutor.TaskExecuteThread) {
+				TaskThreadPoolExecutor.TaskExecuteThread taskExecuteThread = (TaskThreadPoolExecutor.TaskExecuteThread) executerThread;
+				this.executingThreadFuture = taskExecuteThread.getExecutingThreadFuture(taskThreadName);
+			} else {
+				this.executingThreadFuture = null;
+			}
 		}
 
 		public Thread getExecuterThread() {
