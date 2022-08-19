@@ -98,7 +98,7 @@ public class CachedStateBackendITCase {
 
 		processRecords(testHarness, false);
 
-		testHarness.process();
+		testHarness.processWhileAvailable();
 		testHarness.waitForTaskCompletion();
 		testHarness.close();
 		TestHarnessUtil.assertOutputEquals("Output was not correct.", expectedOutput, testHarness.getOutput());
@@ -119,7 +119,7 @@ public class CachedStateBackendITCase {
 
 		processRecords(testHarness, false);
 
-		testHarness.process();
+		testHarness.processWhileAvailable();
 		testHarness.waitForTaskCompletion();
 		testHarness.close();
 		TestHarnessUtil.assertOutputEquals("Output was not correct.", expectedOutput, testHarness.getOutput());
@@ -140,7 +140,7 @@ public class CachedStateBackendITCase {
 
 		processRecords(testHarness, false);
 
-		testHarness.process();
+		testHarness.processWhileAvailable();
 		testHarness.waitForTaskCompletion();
 		testHarness.close();
 		TestHarnessUtil.assertOutputEquals("Output was not correct.", expectedOutput, testHarness.getOutput());
@@ -161,7 +161,7 @@ public class CachedStateBackendITCase {
 
 		processRecords(testHarness, true);
 
-		testHarness.process();
+		testHarness.processWhileAvailable();
 		testHarness.waitForTaskCompletion();
 		testHarness.close();
 
@@ -178,7 +178,7 @@ public class CachedStateBackendITCase {
 		testHarness = createTestHarness(OPERATOR_ID, operator, Optional.of(jobManagerTaskRestore));
 		processRecords(testHarness, false);
 
-		testHarness.process();
+		testHarness.processWhileAvailable();
 		testHarness.waitForTaskCompletion();
 		testHarness.close();
 		TestHarnessUtil.assertOutputEquals("Output was not correct.", expectedOutput, testHarness.getOutput());

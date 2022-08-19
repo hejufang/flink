@@ -73,6 +73,10 @@ public class SourceStreamTask<OUT, SRC extends SourceFunction<OUT>, OP extends S
 		super(env, null, FatalExitExceptionHandler.INSTANCE, StreamTaskActionExecutor.synchronizedExecutor(lock));
 		this.lock = Preconditions.checkNotNull(lock);
 		this.sourceThread = new LegacySourceFunctionThread();
+
+		// Since source does not have InputGate, then the computation of busy time is meaning-less, since
+		// that computation procedure depends on idle time, and idle time comes from the status of InputGate
+		getEnvironment().getMetricGroup().getIOMetricGroup().setEnableBusyTime(false);
 	}
 
 	@Override
