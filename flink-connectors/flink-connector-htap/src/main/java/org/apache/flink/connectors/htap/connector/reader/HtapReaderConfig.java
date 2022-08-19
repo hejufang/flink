@@ -23,6 +23,8 @@ import org.apache.flink.connectors.htap.batch.HtapRowInputFormat;
 import com.bytedance.htap.metaclient.catalog.Snapshot;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -57,7 +59,7 @@ public class HtapReaderConfig implements Serializable {
 			String logStoreLogDir,
 			String pageStoreLogDir,
 			int batchSizeBytes,
-			Snapshot snapshot) {
+			@Nullable Snapshot snapshot) {
 		this.metaSvcRegion = checkNotNull(metaSvcRegion, "Htap MetaService region cannot be null");
 		this.metaSvcCluster = checkNotNull(metaSvcCluster, "Htap MetaService cluster cannot be null");
 		this.dbCluster = checkNotNull(dbCluster, "Htap dbCluster cannot be null");
@@ -66,7 +68,7 @@ public class HtapReaderConfig implements Serializable {
 		this.logStoreLogDir = checkNotNull(logStoreLogDir, "LogStore LogDir cannot be null");
 		this.pageStoreLogDir = checkNotNull(pageStoreLogDir, "PageStore LogDir cannot be null");
 		this.batchSizeBytes = checkNotNull(batchSizeBytes, "BatchSizeBytes cannot be null");
-		this.snapshot = checkNotNull(snapshot, "snapshot cannot be null");
+		this.snapshot = snapshot;
 	}
 
 	public String getMetaSvcRegion() {
