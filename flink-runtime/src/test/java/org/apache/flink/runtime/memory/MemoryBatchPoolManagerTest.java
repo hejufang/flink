@@ -20,7 +20,7 @@ package org.apache.flink.runtime.memory;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
-import org.apache.flink.runtime.operators.testutils.DummyInvokable;
+import org.apache.flink.runtime.operators.testutils.DummyStreamTaskInvokable;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -79,7 +79,7 @@ public class MemoryBatchPoolManagerTest {
 	@Test
 	public void allocateAllSingle() {
 		try {
-			final AbstractInvokable mockInvoke = new DummyInvokable();
+			final AbstractInvokable mockInvoke = new DummyStreamTaskInvokable();
 			List<MemorySegment> segments = new ArrayList<MemorySegment>();
 
 			try {
@@ -102,7 +102,7 @@ public class MemoryBatchPoolManagerTest {
 	@Test
 	public void allocateAllMulti() {
 		try {
-			final AbstractInvokable mockInvoke = new DummyInvokable();
+			final AbstractInvokable mockInvoke = new DummyStreamTaskInvokable();
 			final List<MemorySegment> segments = new ArrayList<MemorySegment>();
 
 			try {
@@ -132,7 +132,7 @@ public class MemoryBatchPoolManagerTest {
 			List<MemorySegment>[] mems = (List<MemorySegment>[]) new List<?>[numOwners];
 
 			for (int i = 0; i < numOwners; i++) {
-				owners[i] = new DummyInvokable();
+				owners[i] = new DummyStreamTaskInvokable();
 				mems[i] = new ArrayList<>(64);
 			}
 
@@ -153,7 +153,7 @@ public class MemoryBatchPoolManagerTest {
 			}
 
 			for (int i = 0; i < numOwners; i++) {
-				owners[i] = new DummyInvokable();
+				owners[i] = new DummyStreamTaskInvokable();
 				mems[i] = new ArrayList<>(64);
 			}
 			// allocate all memory to the different owners again
@@ -183,7 +183,7 @@ public class MemoryBatchPoolManagerTest {
 	 */
 	@Test
 	public void testMultipleFreeSameSegmentList() throws Exception {
-		final AbstractInvokable mockInvoke = new DummyInvokable();
+		final AbstractInvokable mockInvoke = new DummyStreamTaskInvokable();
 		List<MemorySegment> segments1 = memoryManager.allocatePages(mockInvoke, 10);
 		List<MemorySegment> segments2 = new ArrayList<>(segments1);
 
@@ -200,7 +200,7 @@ public class MemoryBatchPoolManagerTest {
 	 */
 	@Test
 	public void testMultipleFreeSameSegment() throws Exception {
-		final AbstractInvokable mockInvoke = new DummyInvokable();
+		final AbstractInvokable mockInvoke = new DummyStreamTaskInvokable();
 		MemorySegment segment = memoryManager.allocatePages(mockInvoke, 1).iterator().next();
 
 		memoryManager.release(mockInvoke, segment);
@@ -216,7 +216,7 @@ public class MemoryBatchPoolManagerTest {
 	 */
 	@Test
 	public void testMultipleFreeSameOwner() throws Exception {
-		final AbstractInvokable mockInvoke = new DummyInvokable();
+		final AbstractInvokable mockInvoke = new DummyStreamTaskInvokable();
 		memoryManager.allocatePages(mockInvoke, 1).iterator().next();
 
 		memoryManager.releaseAll(mockInvoke);
@@ -234,8 +234,8 @@ public class MemoryBatchPoolManagerTest {
 	 */
 	@Test
 	public void testMultipleOwnerModifySegment() throws Exception {
-		final AbstractInvokable mockInvoke1 = new DummyInvokable();
-		final AbstractInvokable mockInvoke2 = new DummyInvokable();
+		final AbstractInvokable mockInvoke1 = new DummyStreamTaskInvokable();
+		final AbstractInvokable mockInvoke2 = new DummyStreamTaskInvokable();
 
 		List<MemorySegment> segmentList1 = memoryManager.allocatePages(mockInvoke1, NUM_PAGES);
 		MemorySegment segment = segmentList1.iterator().next();
@@ -253,8 +253,8 @@ public class MemoryBatchPoolManagerTest {
 	public void testAllocatePagesTimeout() throws Exception {
 		MemoryBatchPoolManager pool = new MemoryBatchPoolManager(MEMORY_SIZE, PAGE_SIZE, Duration.ofMillis(100), true, 1, true, BATCH_SIZE, false);
 
-		final AbstractInvokable mockInvoke1 = new DummyInvokable();
-		final AbstractInvokable mockInvoke2 = new DummyInvokable();
+		final AbstractInvokable mockInvoke1 = new DummyStreamTaskInvokable();
+		final AbstractInvokable mockInvoke2 = new DummyStreamTaskInvokable();
 		List<MemorySegment> segmentList = pool.allocatePages(mockInvoke1, NUM_PAGES / 2);
 
 		assertThrows(
@@ -275,7 +275,7 @@ public class MemoryBatchPoolManagerTest {
 		ExecutorService executorService = Executors.newFixedThreadPool(numLocalPool + 1);
 		CountDownLatch latch = new CountDownLatch(numLocalPool);
 		for (int i = 0; i < numLocalPool; ++i) {
-			AbstractInvokable mockInvoke = new DummyInvokable();
+			AbstractInvokable mockInvoke = new DummyStreamTaskInvokable();
 			List<MemorySegment> segments = new ArrayList<>();
 			invokableSegments.add(segments);
 			executorService.submit(() -> {
@@ -296,7 +296,7 @@ public class MemoryBatchPoolManagerTest {
 		}
 		latch.await();
 		assertEquals(0, memoryManager.availableMemory());
-		AbstractInvokable mockInvoke = new DummyInvokable();
+		AbstractInvokable mockInvoke = new DummyStreamTaskInvokable();
 		List<MemorySegment> totSegments = new ArrayList<>();
 		CountDownLatch latch2 = new CountDownLatch(1);
 
@@ -325,8 +325,8 @@ public class MemoryBatchPoolManagerTest {
 		MemoryBatchPoolManager pool = new MemoryBatchPoolManager(MEMORY_SIZE, PAGE_SIZE, Duration.ofMillis(100), true, 1, true, BATCH_SIZE, true);
 		Map<Object, Set<MemorySegment>> allocatedSegments = pool.getAllocatedSegments();
 
-		final AbstractInvokable mockInvoke1 = new DummyInvokable();
-		final AbstractInvokable mockInvoke2 = new DummyInvokable();
+		final AbstractInvokable mockInvoke1 = new DummyStreamTaskInvokable();
+		final AbstractInvokable mockInvoke2 = new DummyStreamTaskInvokable();
 
 		List<MemorySegment> segmentList1 = pool.allocatePages(mockInvoke1, NUM_PAGES / 2);
 		pool.release(segmentList1);
@@ -358,7 +358,7 @@ public class MemoryBatchPoolManagerTest {
 		assertThrows(
 			"Timeout triggered when requesting memory segments",
 			MemoryAllocationException.class,
-			() -> pool.allocatePages(new DummyInvokable(), 1));
+			() -> pool.allocatePages(new DummyStreamTaskInvokable(), 1));
 
 		pool.releaseAll(mockInvoke1);
 		assertEquals(1, allocatedSegments.size());

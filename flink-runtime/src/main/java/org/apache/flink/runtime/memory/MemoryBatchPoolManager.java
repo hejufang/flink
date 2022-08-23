@@ -24,6 +24,7 @@ import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentDelegate;
 import org.apache.flink.core.memory.MemorySegmentFactory;
+import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.LongFunctionWithException;
 
@@ -462,7 +463,10 @@ public class MemoryBatchPoolManager extends MemoryManager {
 	@Override
 	public void release(MemorySegment segment) {
 		if (releaseSegmentsFinallyEnable) {
-			return;
+			Object owner = segment.getOwner();
+			if (owner instanceof AbstractInvokable && ((AbstractInvokable) owner).isStreamTask()) {
+				return;
+			}
 		}
 		allocatedSegments.computeIfPresent(segment.getOwner(), (o, segsForOwner) -> {
 			if (segsForOwner.remove(segment)) {
@@ -494,7 +498,9 @@ public class MemoryBatchPoolManager extends MemoryManager {
 	@Override
 	public void release(Object owner, MemorySegment segment) {
 		if (releaseSegmentsFinallyEnable) {
-			return;
+			if (owner instanceof AbstractInvokable && ((AbstractInvokable) owner).isStreamTask()) {
+				return;
+			}
 		}
 		allocatedSegments.computeIfPresent(owner, (o, segsForOwner) -> {
 			if (segsForOwner.remove(segment)) {
@@ -515,12 +521,14 @@ public class MemoryBatchPoolManager extends MemoryManager {
 	 */
 	@Override
 	public void release(Collection<MemorySegment> segments) {
-		if (releaseSegmentsFinallyEnable) {
-			segments.clear();
-			return;
-		}
 		Queue<MemorySegment> segmentsToRecycle = new ArrayDeque<>(segments.size());
 		for (MemorySegment segment : segments) {
+			if (releaseSegmentsFinallyEnable) {
+				Object owner = segment.getOwner();
+				if (owner instanceof AbstractInvokable && ((AbstractInvokable) owner).isStreamTask()) {
+					continue;
+				}
+			}
 			allocatedSegments.computeIfPresent(segment.getOwner(), (o, segsForOwner) -> {
 				if (segsForOwner.remove(segment)) {
 					segmentsToRecycle.add(cleanupSegment(segment));
@@ -541,8 +549,10 @@ public class MemoryBatchPoolManager extends MemoryManager {
 	@Override
 	public void release(Object owner, Collection<MemorySegment> segments) {
 		if (releaseSegmentsFinallyEnable) {
-			segments.clear();
-			return;
+			if (owner instanceof AbstractInvokable && ((AbstractInvokable) owner).isStreamTask()) {
+				segments.clear();
+				return;
+			}
 		}
 		Queue<MemorySegment> segmentsToRecycle = new ArrayDeque<>(segments.size());
 		for (MemorySegment segment : segments) {

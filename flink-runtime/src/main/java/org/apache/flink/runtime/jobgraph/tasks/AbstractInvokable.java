@@ -347,4 +347,8 @@ public abstract class AbstractInvokable {
 			watchDogThread.start();
 		}
 	}
+
+	public boolean isStreamTask() {
+		return false;
+	}
 }

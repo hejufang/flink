@@ -1569,4 +1569,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			suspendedDefaultAction.resume();
 		}
 	}
+
+	@Override
+	public boolean isStreamTask() {
+		return true;
+	}
 }

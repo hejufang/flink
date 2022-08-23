@@ -87,7 +87,7 @@ public class BufferDataOverWindowOperator extends TableStreamOperator<RowData>
 
 		MemoryManager memManager = getContainingTask().getEnvironment().getMemoryManager();
 		LazyMemorySegmentPool pool = new LazyMemorySegmentPool(
-			this,
+			getContainingTask(),
 			memManager,
 			(int) (computeMemorySize() / memManager.getPageSize()),
 			perRequestMemorySize);
