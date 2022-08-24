@@ -88,6 +88,7 @@ public class CheckpointVerifier {
 	private static final int MISS_OPERATOR_ID_EXIT_CODE = 2;
 	private static final int MISMATCH_PARALLELISM_EXIT_CODE = 3;
 	private static final int INVALID_SAVEPOINT_PATH_EXIT_CODE = 4;
+	private static final int STATE_SERIALIZER_INCOMPATIBLE_EXIT_CODE = 5;
 
 	// exit code after checkpoint verification
 	public static volatile int verifyExitCode = -1;
@@ -154,10 +155,8 @@ public class CheckpointVerifier {
 						logAndSyserr(message);
 						return CheckpointVerifyResult.STATE_SERIALIZER_INCOMPATIBLE;
 					}
-
 				}
 			}
-
 			return CheckpointVerifyResult.SUCCESS;
 		});
 
@@ -291,6 +290,9 @@ public class CheckpointVerifier {
 			case INVALID_SAVEPOINT_PATH:
 				verifyExitCode = INVALID_SAVEPOINT_PATH_EXIT_CODE;
 				throw new Exception("Could not submit job, invalid savepoint path");
+			case STATE_SERIALIZER_INCOMPATIBLE:
+				verifyExitCode = STATE_SERIALIZER_INCOMPATIBLE_EXIT_CODE;
+				throw new Exception("Could not submit job, state serializer incompatible");
 		}
 	}
 

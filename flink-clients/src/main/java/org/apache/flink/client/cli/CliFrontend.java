@@ -1088,7 +1088,7 @@ public class CliFrontend {
 			// Note: we compulsively capture exception here, in case that the user's code may rethrow the
 			// exception which may confuse the result of checkpoint verification.
 			if (CheckpointVerifier.verifyExitCode == -1) {
-				// checkpoint verification do not run successfully. verifyExitCode ought to be 0,2,3.
+				// checkpoint verification do not run successfully. verifyExitCode ought to be 0,2,3,4,5.
 				CheckpointVerifier.verifyExitCode = 1;
 			}
 			logAndSyserr("Checkpoint verification error: " + e);
