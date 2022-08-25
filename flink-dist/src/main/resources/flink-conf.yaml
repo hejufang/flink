@@ -1506,6 +1506,8 @@ grila:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  ipv6.enabled: true
+  ipv6.supported.cluster: grila
 
 gavia:
   dc: i18n_gcp
@@ -1532,6 +1534,8 @@ gavia:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  ipv6.enabled: true
+  ipv6.supported.cluster: gavia
 
 gazel:
   dc: i18n_gcp
@@ -1770,6 +1774,8 @@ saola:
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   bytedance.streaming.yarn.check.application.name.unique.region: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: saola
 
 stoat:
   dc: sg
