@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.kubeclient;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesLeaderElectionConfiguration;
@@ -78,6 +79,8 @@ public abstract class Fabric8FlinkKubeClient implements FlinkKubeClient {
 	protected final String namespace;
 	protected final int maxRetryAttempts;
 	protected final ExecutorService kubeClientExecutorService;
+	protected final boolean uniquenessNameCheck;
+	protected final String region;
 
 	public Fabric8FlinkKubeClient(
 			Configuration flinkConfig,
@@ -92,6 +95,10 @@ public abstract class Fabric8FlinkKubeClient implements FlinkKubeClient {
 			KubernetesConfigOptions.KUBERNETES_TRANSACTIONAL_OPERATION_MAX_RETRIES);
 
 		this.kubeClientExecutorService = asyncExecutorFactory.get();
+
+		this.uniquenessNameCheck = flinkConfig.getBoolean(
+			ConfigConstants.UNIQUENESS_NAME_CHECK_ENABLE_KEY, true);
+		this.region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
 	}
 
 	@Override

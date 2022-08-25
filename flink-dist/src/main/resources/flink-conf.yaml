@@ -1952,6 +1952,7 @@ Gaura-LF:
   ipv6.supported.cluster: Gaura-LF
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
+  uniqueness-name-check.enabled: true
 
 Gaura-HL:
   dc: cn
@@ -1970,6 +1971,7 @@ Gaura-HL:
   ipv6.supported.cluster: Gaura-HL
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
+  uniqueness-name-check.enabled: true
 
 Echo-HL:
   dc: cn
@@ -1987,6 +1989,7 @@ Echo-HL:
   ipv6.enabled: true
   ipv6.supported.cluster: Echo-HL
   resourcemanager.slow-container.release-timeout-enabled: true
+  uniqueness-name-check.enabled: true
 
 Foxtrot-HL:
   dc: cn
@@ -2005,6 +2008,7 @@ Foxtrot-HL:
   ipv6.supported.cluster: Foxtrot-HL
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
   resourcemanager.slow-container.release-timeout-enabled: true
+  uniqueness-name-check.enabled: true
 
 Gaura-LQ:
   dc: cn
@@ -2026,6 +2030,7 @@ Gaura-LQ:
   resourcemanager.slow-container.blacklist-enabled: true
   blacklist.taskmanager.enabled: true
   blacklist.task.enabled: true
+  uniqueness-name-check.enabled: true
 
 Echo-LQ:
   dc: cn
@@ -2043,6 +2048,7 @@ Echo-LQ:
   ipv6.enabled: true
   ipv6.supported.cluster: Gaura-LQ
   resourcemanager.slow-container.release-timeout-enabled: true
+  uniqueness-name-check.enabled: true
 
 Foxtrot-LQ:
   dc: cn
@@ -2061,6 +2067,7 @@ Foxtrot-LQ:
   ipv6.supported.cluster: Foxtrot-LQ
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
   resourcemanager.slow-container.release-timeout-enabled: true
+  uniqueness-name-check.enabled: true
 
 Gaura-YG:
   dc: cn
@@ -2079,6 +2086,7 @@ Gaura-YG:
   ipv6.supported.cluster: Gaura-YG
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
   resourcemanager.slow-container.release-timeout-enabled: true
+  uniqueness-name-check.enabled: true
 
 cloudnative-lf:
   dc: cn
@@ -2097,6 +2105,7 @@ cloudnative-lf:
   ipv6.supported.cluster: cloudnative-lf
   ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
+  uniqueness-name-check.enabled: true
 
 cloudnative-lq:
   dc: cn
@@ -2113,6 +2122,7 @@ cloudnative-lq:
   ipv6.supported.cluster: cloudnative-lq
   ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
+  uniqueness-name-check.enabled: true
 
 Feins-LQ:
   dc: cn
@@ -2133,6 +2143,7 @@ Feins-LQ:
   resourcemanager.slow-container.blacklist-enabled: true
   blacklist.taskmanager.enabled: true
   blacklist.task.enabled: true
+  uniqueness-name-check.enabled: true
 
 Feins-HL:
   dc: cn
@@ -2151,6 +2162,7 @@ Feins-HL:
   ipv6.supported.cluster: Feins-HL
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
+  uniqueness-name-check.enabled: true
 
 Feins-LF:
   dc: cn
@@ -2169,6 +2181,7 @@ Feins-LF:
   ipv6.supported.cluster: Feins-LF
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
+  uniqueness-name-check.enabled: true
 
 Seif-BOE:
   dc: vm
@@ -2193,6 +2206,7 @@ Seif-BOE:
   ipv6.supported.cluster: Seif-BOE
   yarn.res-lake.enabled: false
   yarn.cluster.auto-detect.enable: false
+  uniqueness-name-check.enabled: true
 
 Koryn-LQ:
   dc: cn
@@ -2210,6 +2224,7 @@ Koryn-LQ:
   register-dashboard.enabled: true
   ipv6.supported.cluster: Koryn-LQ
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
+  uniqueness-name-check.enabled: true
 
 edge:
   dc: cn
