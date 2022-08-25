@@ -402,6 +402,7 @@ flink:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: flink
+  ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
 
 dw:
@@ -412,6 +413,7 @@ dw:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: dw
+  ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
   metrics.latency.interval: 10000
 
@@ -423,6 +425,7 @@ lepad:
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: lepad
+  ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
 
 larva:
@@ -434,6 +437,7 @@ larva:
   yarn.res-lake.enabled: true
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: larva
+  ipv6.enabled: true
 
 locst:
   dc: cn
@@ -442,6 +446,7 @@ locst:
   hdfs.prefix: hdfs://haruna/flink_lf
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: locst
+  ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
 
 oryx:
@@ -452,6 +457,7 @@ oryx:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: oryx
+  ipv6.enabled: true
 
 default:
   dc: cn
@@ -462,6 +468,7 @@ default:
   yarn.res-lake.enabled: true
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: default
+  ipv6.enabled: true
 
 leser:
   dc: cn
@@ -473,6 +480,7 @@ leser:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: leser
+  ipv6.enabled: true
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
 
@@ -492,6 +500,7 @@ lobst:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: lobst
+  ipv6.enabled: true
   yarn.cluster.auto-detect.enable: true
 
 lizad:
@@ -500,6 +509,7 @@ lizad:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lizad
+  ipv6.enabled: true
   yarn.cluster.auto-detect.enable: true
 
 lemur:
@@ -508,6 +518,7 @@ lemur:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lemur
+  ipv6.enabled: true
   yarn.cluster.auto-detect.enable: true
 
 loris:
@@ -516,6 +527,7 @@ loris:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: loris
+  ipv6.enabled: true
   yarn.cluster.auto-detect.enable: true
 
 llama:
@@ -524,6 +536,7 @@ llama:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: llama
+  ipv6.enabled: true
   yarn.cluster.auto-detect.enable: true
 
 lionn:
@@ -532,6 +545,7 @@ lionn:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lionn
+  ipv6.enabled: true
 
 lynxs:
   dc: cn
@@ -539,6 +553,7 @@ lynxs:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lynxs
+  ipv6.enabled: true
 
 lambs:
   dc: cn
@@ -548,6 +563,7 @@ lambs:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: lambs
+  ipv6.enabled: true
   yarn.cluster.auto-detect.enable: true
 
 brain-lf:
@@ -558,6 +574,7 @@ brain-lf:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: brain-lf
+  ipv6.enabled: true
   yarn.cluster.auto-detect.enable: true
 
 panda-lf:
@@ -568,6 +585,7 @@ panda-lf:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
   ipv6.supported.cluster: panda-lf
+  ipv6.enabled: true
 
 ies-lf:
   dc: cn
@@ -1818,6 +1836,8 @@ boe:
   register-dashboard.token: "Bearer eyJrIjoiTURSV01QeWNDZXJXYUNBdEhkSU94U2tKajU2M1BVM24iLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
+  ipv6.supported.cluster: boe
+  ipv6.enabled: true
 
 cof:
   dc: vm
@@ -2085,6 +2105,7 @@ cloudnative-lf:
   kubernetes.ingress.host: "lf-cloudnative.byted.org"
   flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
   ipv6.supported.cluster: cloudnative-lf
+  ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
   containerized.taskmanager.env.use_ss_lib: false
 
@@ -2101,6 +2122,7 @@ cloudnative-lq:
   kubernetes.ingress.host: "lq-cloudnative.byted.org"
   flink.external.jar.dependencies: "connectors/flink-connector-bmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-databus-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-doris-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-jdbc_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-loghouse-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-metrics-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-redis-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-rocketmq-1.11-byted-SNAPSHOT.jar,connectors/flink-connector-tos-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-kafka-0.10_2.11-1.11-byted-SNAPSHOT.jar,formats/flink-binlog-1.11-byted-SNAPSHOT.jar,formats/flink-bytes-1.11-byted-SNAPSHOT.jar,formats/flink-json-1.11-byted-SNAPSHOT.jar,formats/flink-pb-1.11-byted-SNAPSHOT.jar,formats/flink-sequence-file-1.11-byted-SNAPSHOT.jar"
   ipv6.supported.cluster: cloudnative-lq
+  ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
   containerized.taskmanager.env.use_ss_lib: false
 
