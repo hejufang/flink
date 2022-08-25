@@ -22,8 +22,12 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
+import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.InstantiationUtil;
+import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
+import java.lang.ref.WeakReference;
 import java.util.Objects;
 
 /**
@@ -39,12 +43,22 @@ public abstract class StateMetaData implements Serializable {
 	protected StateDescriptor.Type type;
 
 	/** The StateDescriptor used for creating partitioned state. */
-	protected StateDescriptor stateDescriptor;
+	protected transient WeakReference<StateDescriptor> stateDescriptor;
+
+	protected final byte[] serializedStateDescriptor;
 
 	public StateMetaData(String name, StateDescriptor.Type type, StateDescriptor stateDescriptor) {
 		this.name = name;
 		this.type = type;
-		this.stateDescriptor = stateDescriptor;
+		byte[] serialized;
+		try {
+				serialized = InstantiationUtil.serializeObject(stateDescriptor);
+			}
+			catch (Throwable t) {
+				serialized = null;
+			}
+		this.stateDescriptor = new WeakReference<>(stateDescriptor);
+		this.serializedStateDescriptor = serialized;
 	}
 
 	public String getName() {
@@ -64,21 +78,32 @@ public abstract class StateMetaData implements Serializable {
 	}
 
 	public StateDescriptor getStateDescriptor() {
-		return stateDescriptor;
+		return getStateDescriptor(Thread.currentThread().getContextClassLoader());
 	}
 
-	public void setStateDescriptor(StateDescriptor stateDescriptor) {
-			this.stateDescriptor = stateDescriptor;
+	public StateDescriptor getStateDescriptor(ClassLoader classLoader) {
+		Preconditions.checkNotNull(serializedStateDescriptor);
+
+		StateDescriptor cachedStateDescriptor = stateDescriptor == null ? null : stateDescriptor.get();
+		if (cachedStateDescriptor == null) {
+			try {
+				cachedStateDescriptor = InstantiationUtil.deserializeObject(serializedStateDescriptor, classLoader);
+			} catch (Throwable t) {
+				// something went wrong and we just throw the exception
+				throw new FlinkRuntimeException(t);
+			}
 		}
+		return cachedStateDescriptor;
+	}
 
 	@Override
 	public String toString(){
-		return stateDescriptor.toString();
+		return getStateDescriptor().toString();
 	}
 
 	@Override
 	public int hashCode() {
-		return stateDescriptor.hashCode();
+		return getStateDescriptor().hashCode();
 	}
 
 	@Override
@@ -93,7 +118,7 @@ public abstract class StateMetaData implements Serializable {
 		StateMetaData that = (StateMetaData) o;
 		return Objects.equals(name, that.name) &&
 			Objects.equals(type, that.type) &&
-			Objects.equals(stateDescriptor, that.stateDescriptor);
+			Objects.equals(getStateDescriptor(), that.getStateDescriptor());
 	}
 
 	public StateMetaCompatibility resolveCompatibility(StateMetaData that) {
@@ -106,9 +131,9 @@ public abstract class StateMetaData implements Serializable {
 			return StateMetaCompatibility.incompatible("StateMetaCompatibility check failed because of state type is different. One is " + type + " and the other is " + that.getType());
 		}
 
-		stateDescriptor.initializeSerializerUnlessSet(new ExecutionConfig());
+		getStateDescriptor().initializeSerializerUnlessSet(new ExecutionConfig());
 		that.getStateDescriptor().initializeSerializerUnlessSet(new ExecutionConfig());
-		TypeSerializer stateSerializer = stateDescriptor.getSerializer();
+		TypeSerializer stateSerializer = getStateDescriptor().getSerializer();
 		TypeSerializer otherSerializer = that.getStateDescriptor().getSerializer();
 
 		TypeSerializerSchemaCompatibility stateSerializerCompatibility = stateSerializer.snapshotConfiguration().resolveSchemaCompatibility(otherSerializer);

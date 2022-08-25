@@ -127,14 +127,14 @@ public class RegisteredOperatorStateMeta extends RegisteredStateMetaBase {
 		public String toString(){
 			return "OperatorStateMetaData{" +
 				"distributeMode=" + distributeMode + "," +
-				"stateDescriptor=" + stateDescriptor +
+				"stateDescriptor=" + getStateDescriptor() +
 				'}';
 		}
 
 		@Override
 		public int hashCode() {
 			int result = distributeMode.hashCode();
-			result = 31 * result + stateDescriptor.hashCode();
+			result = 31 * result + getStateDescriptor().hashCode();
 			return result;
 		}
 
@@ -147,7 +147,7 @@ public class RegisteredOperatorStateMeta extends RegisteredStateMetaBase {
 				return false;
 			}
 			OperatorStateMetaData that = (OperatorStateMetaData) o;
-			return distributeMode.equals(that.distributeMode) && stateDescriptor.equals(that.stateDescriptor);
+			return distributeMode.equals(that.distributeMode) && getStateDescriptor().equals(that.getStateDescriptor());
 		}
 
 		@Override

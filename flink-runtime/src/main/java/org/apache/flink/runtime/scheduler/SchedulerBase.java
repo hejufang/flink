@@ -114,6 +114,7 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.IterableUtils;
+import org.apache.flink.util.TemporaryClassLoaderContext;
 import org.apache.flink.util.function.FunctionUtils;
 
 import org.slf4j.Logger;
@@ -1043,7 +1044,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 		if (checkpointCoordinator != null) {
 			futureExecutor.execute(() -> {
-				try {
+				try (TemporaryClassLoaderContext ignored = TemporaryClassLoaderContext.of(userCodeLoader)) {
 					checkpointCoordinator.receiveAcknowledgeMessage(ackMessage, taskManagerLocationInfo);
 				} catch (Throwable t) {
 					log.warn("Error while processing checkpoint acknowledgement message", t);

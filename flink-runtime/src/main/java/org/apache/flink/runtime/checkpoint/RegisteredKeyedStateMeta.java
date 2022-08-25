@@ -176,14 +176,14 @@ public class RegisteredKeyedStateMeta extends RegisteredStateMetaBase {
 		public String toString(){
 			return "KeyedStateMetaData{" +
 				"namespaceSerializer=" + namespaceSerializer.toString() + "," +
-				"stateDescriptor=" + stateDescriptor +
+				"stateDescriptor=" + getStateDescriptor() +
 				'}';
 		}
 
 		@Override
 		public int hashCode() {
 			int result = namespaceSerializer.hashCode();
-			result = 31 * result + stateDescriptor.hashCode();
+			result = 31 * result + getStateDescriptor().hashCode();
 			return result;
 		}
 
@@ -196,7 +196,7 @@ public class RegisteredKeyedStateMeta extends RegisteredStateMetaBase {
 				return false;
 			}
 			RegisteredKeyedStateMeta.KeyedStateMetaData that = (RegisteredKeyedStateMeta.KeyedStateMetaData) o;
-			return namespaceSerializer.equals(that.namespaceSerializer) && stateDescriptor.equals(that.stateDescriptor);
+			return namespaceSerializer.equals(that.namespaceSerializer) && getStateDescriptor().equals(that.getStateDescriptor());
 		}
 
 		@Override
