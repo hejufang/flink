@@ -54,6 +54,7 @@ public class NettySocketClient implements AutoCloseableAsync {
 	private final int lowWaterMark;
 	private final int highWaterMark;
 	private final Consumer<ChannelPipeline> channelPipelineConsumer;
+	private final Consumer<NettySocketClient> socketClientClosedConsumer;
 	private final AtomicBoolean running;
 
 	private Bootstrap bootstrap;
@@ -64,7 +65,7 @@ public class NettySocketClient implements AutoCloseableAsync {
 			int port,
 			int connectTimeoutMills,
 			Consumer<ChannelPipeline> channelPipelineConsumer) {
-		this(address, port, connectTimeoutMills, 0, 0, channelPipelineConsumer);
+		this(address, port, connectTimeoutMills, 0, 0, ignored -> {}, channelPipelineConsumer);
 	}
 
 	public NettySocketClient(
@@ -73,12 +74,14 @@ public class NettySocketClient implements AutoCloseableAsync {
 			int connectTimeoutMills,
 			int lowWaterMark,
 			int highWaterMark,
+			Consumer<NettySocketClient> socketClientClosedConsumer,
 			Consumer<ChannelPipeline> channelPipelineConsumer) {
 		this.address = address;
 		this.port = port;
 		this.connectTimeoutMills = connectTimeoutMills;
 		this.lowWaterMark = lowWaterMark;
 		this.highWaterMark = highWaterMark;
+		this.socketClientClosedConsumer = socketClientClosedConsumer;
 		this.channelPipelineConsumer = channelPipelineConsumer;
 		this.running = new AtomicBoolean(true);
 	}
@@ -111,6 +114,7 @@ public class NettySocketClient implements AutoCloseableAsync {
 		channel.closeFuture().addListener((ChannelFutureListener) channelFuture -> {
 			LOG.warn("Channel {} is closed", channelFuture.channel(), channelFuture.cause());
 			running.set(false);
+			socketClientClosedConsumer.accept(this);
 		});
 	}
 
@@ -145,6 +149,7 @@ public class NettySocketClient implements AutoCloseableAsync {
 							terminationFuture.complete(null);
 							running.set(false);
 						} else {
+							LOG.warn("Connection to {}:{} bootstrap shutdown fail", address, port, finished.cause());
 							terminationFuture.completeExceptionally(finished.cause());
 						}
 					});

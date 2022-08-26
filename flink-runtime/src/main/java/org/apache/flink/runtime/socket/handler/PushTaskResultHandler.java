@@ -24,10 +24,16 @@ import org.apache.flink.runtime.socket.result.JobResultClientManager;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdapter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Receive job result from task and transfer it to the socket client of the given job.
  */
 public class PushTaskResultHandler extends ChannelInboundHandlerAdapter {
+
+	private static final Logger LOG = LoggerFactory.getLogger(PushTaskResultHandler.class);
+
 	private final JobResultClientManager jobResultClientManager;
 
 	public PushTaskResultHandler(JobResultClientManager jobResultClientManager) {
@@ -47,6 +53,7 @@ public class PushTaskResultHandler extends ChannelInboundHandlerAdapter {
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+		LOG.error("PushTaskResultHandler occur error: ", cause);
 		ctx.close();
 		throw new IllegalStateException(cause);
 	}

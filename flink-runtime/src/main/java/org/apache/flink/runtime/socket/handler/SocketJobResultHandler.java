@@ -23,12 +23,18 @@ import org.apache.flink.api.common.socket.JobSocketResult;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdapter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.concurrent.BlockingQueue;
 
 /**
  * Socket job result handler.
  */
 public class SocketJobResultHandler extends ChannelInboundHandlerAdapter {
+
+	private static final Logger LOG = LoggerFactory.getLogger(SocketJobSubmitHandler.class);
+
 	private final BlockingQueue<JobSocketResult> resultList;
 
 	public SocketJobResultHandler(BlockingQueue<JobSocketResult> resultList) {
@@ -42,6 +48,7 @@ public class SocketJobResultHandler extends ChannelInboundHandlerAdapter {
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+		LOG.error("SocketJobResultHandler occur error: ", cause);
 		ctx.close();
 		throw new RuntimeException(cause);
 	}

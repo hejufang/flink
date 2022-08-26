@@ -40,6 +40,7 @@ import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 /**
@@ -55,6 +56,8 @@ public class TaskExecutorNettyClient implements Closeable {
 	private final int highWaterMark;
 	private final List<NettySocketClient> clientList;
 	private final boolean jobDeploymentEnabled;
+	private final Object lock = new Object();
+	private boolean closed;
 
 	public TaskExecutorNettyClient(
 			TaskExecutorSocketAddress socketAddress,
@@ -77,7 +80,7 @@ public class TaskExecutorNettyClient implements Closeable {
 		this.connectTimeoutMills = connectTimeoutMills;
 		this.lowWaterMark = lowWaterMark;
 		this.highWaterMark = highWaterMark;
-		this.clientList = new ArrayList<>(channelCount);
+		this.clientList = new CopyOnWriteArrayList<>();
 		this.jobDeploymentEnabled = jobDeploymentEnabled;
 	}
 
@@ -93,6 +96,7 @@ public class TaskExecutorNettyClient implements Closeable {
 				new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null)));
 		}
 
+		List<NettySocketClient> newClientList = new ArrayList<>(channelCount);
 		for (int i = 0; i < channelCount; i++) {
 			NettySocketClient nettySocketClient = new NettySocketClient(
 				socketAddress.getAddress(),
@@ -100,9 +104,40 @@ public class TaskExecutorNettyClient implements Closeable {
 				connectTimeoutMills,
 				lowWaterMark,
 				highWaterMark,
+				closedNettySocketClient -> updateConnectionList(closedNettySocketClient),
 				channelPipelineConsumer);
 			nettySocketClient.start();
-			clientList.add(nettySocketClient);
+			newClientList.add(nettySocketClient);
+		}
+		clientList.addAll(newClientList);
+	}
+
+	private void updateConnectionList(NettySocketClient oldNettySocketClient) {
+		synchronized (lock) {
+			if (closed) {
+				return;
+			}
+			int index = clientList.indexOf(oldNettySocketClient);
+			if (index < 0) {
+				return;
+			}
+			NettySocketClient nettySocketClient = new NettySocketClient(
+				oldNettySocketClient.getAddress(),
+				oldNettySocketClient.getPort(),
+				connectTimeoutMills,
+				lowWaterMark,
+				highWaterMark,
+				closedNettySocketClient -> updateConnectionList(closedNettySocketClient),
+				channelPipeline -> channelPipeline.addLast(
+					new ObjectEncoder(),
+					new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null))));
+			try {
+				nettySocketClient.start();
+			} catch (Exception e) {
+				LOG.error("nettySocketClient start fail", e);
+				throw new RuntimeException(e);
+			}
+			clientList.set(index, nettySocketClient);
 		}
 	}
 
@@ -157,11 +192,16 @@ public class TaskExecutorNettyClient implements Closeable {
 	}
 
 	public void close() {
-		for (NettySocketClient nettySocketClient : clientList) {
-			try {
-				nettySocketClient.closeAsync().get();
-			} catch (Exception e) {
-				LOG.error("Close the connection to {}:{} failed", socketAddress.getAddress(), socketAddress.getPort(), e);
+		synchronized (lock) {
+			if (!closed) {
+				closed = true;
+				for (NettySocketClient nettySocketClient : clientList) {
+					try {
+						nettySocketClient.closeAsync();
+					} catch (Exception e) {
+						LOG.error("Close the connection to {}:{} failed", socketAddress.getAddress(), socketAddress.getPort(), e);
+					}
+				}
 			}
 		}
 	}

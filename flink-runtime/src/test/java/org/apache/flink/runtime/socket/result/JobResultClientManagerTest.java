@@ -174,13 +174,16 @@ public class JobResultClientManagerTest {
 						.build());
 			}
 			for (int i = jobTaskCount / 2; i < jobTaskCount; i++) {
-				jobResultClientManager.writeJobResult(
-					new JobSocketResult.Builder()
-						.setJobId(jobId)
-						.setResult(i)
-						.setResultStatus(ResultStatus.FAIL)
-						.setSerializedThrowable(new SerializedThrowable(new RuntimeException("Failed")))
-						.build());
+				try {
+					jobResultClientManager.writeJobResult(
+						new JobSocketResult.Builder()
+							.setJobId(jobId)
+							.setResult(i)
+							.setResultStatus(ResultStatus.FAIL)
+							.setSerializedThrowable(new SerializedThrowable(new RuntimeException("Failed")))
+							.build());
+				} catch (Exception e) {
+				}
 			}
 
 			assertTrue(latch.await(10, TimeUnit.SECONDS));

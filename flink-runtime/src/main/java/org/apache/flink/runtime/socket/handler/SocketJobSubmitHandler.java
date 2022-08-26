@@ -94,8 +94,8 @@ public class SocketJobSubmitHandler extends ChannelInboundHandlerAdapter {
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-		ctx.close();
 		LOG.error("SocketJobSubmitHandler occur error: ", cause);
+		ctx.close();
 		throw new IllegalStateException(cause);
 	}
 }

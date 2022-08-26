@@ -38,6 +38,7 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -51,7 +52,9 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 	private final int connectTimeoutMills;
 	private final int lowWriteMark;
 	private final int highWriteMark;
+	private final Object lock = new Object();
 	private List<NettySocketClient> clientList;
+	private boolean closed;
 
 	public SocketTaskJobResultGateway(int clientCount, int connectTimeoutMills) {
 		this(clientCount, connectTimeoutMills, new Configuration());
@@ -63,7 +66,7 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 		this.connectTimeoutMills = connectTimeoutMills;
 		this.lowWriteMark = configuration.getInteger(TaskManagerOptions.RESULT_PUSH_NETTY_LOW_WRITER_BUFFER_MARK);
 		this.highWriteMark = configuration.getInteger(TaskManagerOptions.RESULT_PUSH_NETTY_HIGH_WRITER_BUFFER_MARK);
-		this.clientList = new ArrayList<>(clientCount);
+		this.clientList = new CopyOnWriteArrayList<>();
 	}
 
 	@Override
@@ -76,14 +79,47 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 				connectTimeoutMills,
 				lowWriteMark,
 				highWriteMark,
+				closedNettySocketClient -> updateConnectionList(closedNettySocketClient),
 				channelPipeline -> channelPipeline.addLast(
 					new ObjectEncoder(),
 					new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null))));
 			nettySocketClient.start();
 			newConnectionList.add(nettySocketClient);
 		}
-		this.close();
-		this.clientList = newConnectionList;
+		synchronized (lock) {
+			this.closeClients();
+			this.clientList.clear();
+			this.clientList.addAll(newConnectionList);
+		}
+	}
+
+	private void updateConnectionList(NettySocketClient oldNettySocketClient) {
+		synchronized (lock) {
+			if (closed) {
+				return;
+			}
+			int index = clientList.indexOf(oldNettySocketClient);
+			if (index < 0) {
+				return;
+			}
+			NettySocketClient nettySocketClient = new NettySocketClient(
+				oldNettySocketClient.getAddress(),
+				oldNettySocketClient.getPort(),
+				connectTimeoutMills,
+				lowWriteMark,
+				highWriteMark,
+				closedNettySocketClient -> updateConnectionList(closedNettySocketClient),
+				channelPipeline -> channelPipeline.addLast(
+					new ObjectEncoder(),
+					new ObjectDecoder(Integer.MAX_VALUE, ClassResolvers.cacheDisabled(null))));
+			try {
+				nettySocketClient.start();
+			} catch (Exception e) {
+				LOG.error("nettySocketClient start fail", e);
+				throw new RuntimeException(e);
+			}
+			clientList.set(index, nettySocketClient);
+		}
 	}
 
 	@Override
@@ -139,6 +175,17 @@ public class SocketTaskJobResultGateway implements TaskJobResultGateway {
 
 	@Override
 	public void close() {
+		synchronized (lock) {
+			if (!closed) {
+				closeClients();
+				closed = true;
+			} else {
+				LOG.warn("SocketTaskJobResultGateway already closed");
+			}
+		}
+	}
+
+	private void closeClients() {
 		for (NettySocketClient socketClient : clientList) {
 			socketClient.closeAsync();
 		}
