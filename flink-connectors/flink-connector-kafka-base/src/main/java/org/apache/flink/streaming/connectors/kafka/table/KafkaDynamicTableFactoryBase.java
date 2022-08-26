@@ -92,6 +92,7 @@ import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_N
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_SERIES;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_SIZE;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_EVENT_TS_NAME;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_LOG_ERROR_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_PROPS;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_QUANTILES;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_TAGS_NAMES;
@@ -261,6 +262,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SINK_METRICS_BUCKET_SIZE);
 		options.add(SINK_METRICS_BUCKET_NUMBER);
 		options.add(SINK_METRICS_BUCKET_SERIES);
+		options.add(SINK_METRICS_LOG_ERROR_INTERVAL);
 		return options;
 	}
 

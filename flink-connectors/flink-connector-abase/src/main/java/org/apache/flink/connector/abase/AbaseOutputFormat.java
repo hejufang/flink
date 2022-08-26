@@ -95,6 +95,7 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 	// metrics
 	protected transient ProcessingTimeService timeService;
 	protected transient TagBucketHistogram latencyHistogram;
+	protected long lastLogErrorTimestamp;
 
 	public static final String WRITE_FAILED_METRIC_NAME = "writeFailed";
 	public static final String THREAD_POOL_NAME = "abase-sink-function";
@@ -238,13 +239,21 @@ public class AbaseOutputFormat extends RichOutputFormat<RowData> {
 		}
 		batchExecutor.addToBatch(record);
 		batchCount++;
-		if (latencyHistogram != null) {
-			long eventTs = sinkMetricsGetter.getEventTs(record);
-			long latency = (timeService.getCurrentProcessingTime() - eventTs) / 1000;
-			if (latency < 0) {
-				LOG.warn("Got negative latency, invalid event ts: " + eventTs);
-			} else {
-				SinkMetricUtils.updateLatency(latencyHistogram, sinkMetricsGetter.getTags(record), latency);
+		try {
+			if (latencyHistogram != null) {
+				long eventTs = sinkMetricsGetter.getEventTs(record);
+				long latency = (timeService.getCurrentProcessingTime() - eventTs) / 1000;
+				if (latency < 0) {
+					LOG.warn("Got negative latency, invalid event ts: " + eventTs);
+				} else {
+					SinkMetricUtils.updateLatency(latencyHistogram, sinkMetricsGetter.getTags(record), latency);
+				}
+			}
+		} catch (Throwable throwable) {
+			long currentTime = System.currentTimeMillis();
+			if (currentTime - lastLogErrorTimestamp > sinkMetricsOptions.getLogErrorInterval()) {
+				lastLogErrorTimestamp = currentTime;
+				LOG.error("Fail to report sla", throwable);
 			}
 		}
 		if (batchCount >= sinkOptions.getBufferMaxRows()) {

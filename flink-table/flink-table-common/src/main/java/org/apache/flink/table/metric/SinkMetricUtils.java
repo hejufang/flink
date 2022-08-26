@@ -36,6 +36,7 @@ import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_S
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_SIZE;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_EVENT_TS_NAME;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_EVENT_TS_WRITEABLE;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_LOG_ERROR_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_PROPS;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_QUANTILES;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_TAGS_NAMES;
@@ -89,6 +90,7 @@ public class SinkMetricUtils {
 		config.getOptional(SINK_METRICS_BUCKET_SIZE).ifPresent(duration -> builder.setBucketsSize(duration.getSeconds()));
 		config.getOptional(SINK_METRICS_BUCKET_NUMBER).ifPresent(builder::setBucketsNum);
 		config.getOptional(SINK_METRICS_BUCKET_SERIES).ifPresent(builder::setBuckets);
+		builder.setLogErrorInterval(config.get(SINK_METRICS_LOG_ERROR_INTERVAL).toMillis());
 		return builder.build();
 	}
 

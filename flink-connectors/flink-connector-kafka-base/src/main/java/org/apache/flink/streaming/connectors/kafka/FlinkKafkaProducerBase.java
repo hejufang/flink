@@ -208,6 +208,8 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 	protected ProcessingTimeService timeService;
 
+	protected long lastLogErrorTimestamp;
+
 	/**
 	 * The main constructor for creating a FlinkKafkaProducer.
 	 *

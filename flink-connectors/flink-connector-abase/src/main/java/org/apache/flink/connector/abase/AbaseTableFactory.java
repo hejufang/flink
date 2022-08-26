@@ -101,6 +101,7 @@ import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_S
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_BUCKET_SIZE;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_EVENT_TS_NAME;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_EVENT_TS_WRITEABLE;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_LOG_ERROR_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_PROPS;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_QUANTILES;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_METRICS_TAGS_NAMES;
@@ -214,6 +215,7 @@ public class AbaseTableFactory implements DynamicTableSourceFactory, DynamicTabl
 		optionalOptions.add(SINK_METRICS_BUCKET_SIZE);
 		optionalOptions.add(SINK_METRICS_BUCKET_NUMBER);
 		optionalOptions.add(SINK_METRICS_BUCKET_SERIES);
+		optionalOptions.add(SINK_METRICS_LOG_ERROR_INTERVAL);
 		return optionalOptions;
 	}
 

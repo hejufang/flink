@@ -73,6 +73,8 @@ public class SinkMetricsOptions implements Serializable {
 	// the series of buckets division points
 	private final List<Long> buckets;
 
+	private final long logErrorInterval;
+
 	public boolean isCollected() {
 		return collected;
 	}
@@ -121,6 +123,10 @@ public class SinkMetricsOptions implements Serializable {
 		return buckets;
 	}
 
+	public long getLogErrorInterval() {
+		return logErrorInterval;
+	}
+
 	private SinkMetricsOptions(
 			List<Double> percentiles,
 			String eventTsColName,
@@ -132,7 +138,8 @@ public class SinkMetricsOptions implements Serializable {
 			Map<String, String> props,
 			long bucketsSize,
 			int bucketsNum,
-			List<Long> buckets) {
+			List<Long> buckets,
+			long logErrorInterval) {
 		this.collected = !StringUtils.isNullOrWhitespaceOnly(eventTsColName);
 		this.percentiles = percentiles;
 		this.eventTsColName = eventTsColName;
@@ -145,6 +152,7 @@ public class SinkMetricsOptions implements Serializable {
 		this.bucketsSize = bucketsSize;
 		this.bucketsNum = bucketsNum;
 		this.buckets = buckets;
+		this.logErrorInterval = logErrorInterval;
 	}
 
 	public static Builder builder() {
@@ -166,6 +174,7 @@ public class SinkMetricsOptions implements Serializable {
 		private long bucketsSize = 0;
 		private int bucketsNum = 0;
 		private List<Long> buckets = null;
+		private long logErrorInterval;
 
 		public Builder setPercentiles(List<Double> percentiles) {
 			Preconditions.checkArgument(percentiles != null && percentiles.size() > 0,
@@ -234,6 +243,13 @@ public class SinkMetricsOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setLogErrorInterval(long logErrorInterval) {
+			Preconditions.checkArgument(logErrorInterval >= 0,
+				"The sink.metrics.log.error.interval can't be configured less than zero.");
+			this.logErrorInterval = logErrorInterval;
+			return this;
+		}
+
 		public SinkMetricsOptions build() {
 			Preconditions.checkArgument((bucketsSize == 0 && bucketsNum == 0) || (bucketsSize > 0 && bucketsNum > 0),
 				"bucketsSize and bucketsNum should be configured simultaneously.");
@@ -250,7 +266,8 @@ public class SinkMetricsOptions implements Serializable {
 				props,
 				bucketsSize,
 				bucketsNum,
-				buckets);
+				buckets,
+				logErrorInterval);
 		}
 
 		private static boolean isDistinct(List<String> list) {
@@ -323,6 +340,7 @@ public class SinkMetricsOptions implements Serializable {
 			tagWriteable == that.tagWriteable &&
 			bucketsSize == that.bucketsSize &&
 			bucketsNum == that.bucketsNum &&
+			logErrorInterval == that.logErrorInterval &&
 			Objects.equals(percentiles, that.percentiles) &&
 			eventTsColName.equals(that.eventTsColName) &&
 			eventTsColIndex == that.eventTsColIndex &&
@@ -345,7 +363,8 @@ public class SinkMetricsOptions implements Serializable {
 			props,
 			bucketsSize,
 			bucketsNum,
-			buckets);
+			buckets,
+			logErrorInterval);
 	}
 
 	@Override

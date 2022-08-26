@@ -92,4 +92,35 @@ public class AbaseSinkMetricsTest extends AbaseTestBase {
 		}
 	}
 
+	@Test
+	public void testMetricsReportWithException() throws Exception {
+		tEnv.executeSql(
+			"CREATE TABLE sink (\n" +
+				"  `name`     VARCHAR,\n" +
+				"  `score`    BIGINT,\n" +
+				"  `bonus`    INT,\n" +
+				"  `rank`     INT,\n" +
+				"  `time`     timestamp,\n" +
+				"  `event_ts` VARCHAR\n" +
+				") WITH (\n" +
+				"  'connector' = 'byte-abase',\n" +
+				"  'cluster' = 'test',\n" +
+				"  'table' = 'test',\n" +
+				"  'format' = 'json',\n" +
+				"  'sink.buffer-flush.max-rows' = '5',\n" +
+				"  'sink.buffer-flush.interval' = '5 min',\n" +
+				"  'sink.metrics.event-ts.name' = 'event_ts',\n" +
+				"  'sink.metrics.props' = 'k1:v1,k2:v2,k3:v3'\n" +
+				")");
+
+		TableResult tableResult = tEnv.executeSql("INSERT INTO sink\n" +
+			"SELECT `name`, `score`, `bonus`, `rank`, `time`, `event_ts`\n" +
+			"FROM T6");
+
+		// wait to finish
+		Assert.assertTrue(tableResult.getJobClient().isPresent());
+		JobClient jobClient = tableResult.getJobClient().get();
+		CompletableFuture<JobExecutionResult> jobExecutionResult = jobClient.getJobExecutionResult(Thread.currentThread().getContextClassLoader());
+		jobExecutionResult.get();
+	}
 }

@@ -315,13 +315,21 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 			return;
 		}
 
-		if (latencyHistogram != null && sinkMetricsGetter != null && timeService != null) {
-			long eventTs = sinkMetricsGetter.getEventTs(value);
-			long latency = (timeService.getCurrentProcessingTime() - eventTs) / 1000;
-			if (latency < 0) {
-				LOG.warn("Got negative latency, invalid event ts: " + eventTs);
-			} else {
-				SinkMetricUtils.updateLatency(latencyHistogram, sinkMetricsGetter.getTags(value), latency);
+		try {
+			if (latencyHistogram != null && sinkMetricsGetter != null && timeService != null) {
+				long eventTs = sinkMetricsGetter.getEventTs(value);
+				long latency = (timeService.getCurrentProcessingTime() - eventTs) / 1000;
+				if (latency < 0) {
+					LOG.warn("Got negative latency, invalid event ts: " + eventTs);
+				} else {
+					SinkMetricUtils.updateLatency(latencyHistogram, sinkMetricsGetter.getTags(value), latency);
+				}
+			}
+		} catch (Throwable throwable) {
+			long currentTime = System.currentTimeMillis();
+			if (currentTime - lastLogErrorTimestamp > metricsOptions.getLogErrorInterval()) {
+				lastLogErrorTimestamp = currentTime;
+				LOG.error("Fail to report sla", throwable);
 			}
 		}
 		acquireRateLimit();

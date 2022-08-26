@@ -152,6 +152,10 @@ public abstract class AbaseTestBase {
 		Table t5 = tEnv.fromDataStream(get5TupleDataStream3(env),
 			$("name"), $("score"), $("bonus"), $("rank"), $("time"));
 		tEnv.createTemporaryView("T5", t5);
+
+		Table t6 = tEnv.fromDataStream(get6TupleDataStream2(env),
+			$("name"), $("score"), $("bonus"), $("rank"), $("time"), $("event_ts"));
+		tEnv.createTemporaryView("T6", t6);
 	}
 
 	private static void setMetricsReporter(Configuration config) {
@@ -215,6 +219,12 @@ public abstract class AbaseTestBase {
 		data.add(new Tuple5<>("Bob", 20L, 5, 6, Timestamp.valueOf("2022-01-10 00:10:00.000")));
 		data.add(new Tuple5<>("Bob", 35L, 10, 3, Timestamp.valueOf("2022-01-10 00:12:00.000")));
 		data.add(new Tuple5<>("Tom", 45L, 10, 2, Timestamp.valueOf("2022-01-10 00:13:00.000")));
+		return env.fromCollection(data);
+	}
+
+	private static DataStream<Tuple6<String, Long, Integer, Integer, Timestamp, String>> get6TupleDataStream2(StreamExecutionEnvironment env) {
+		List<Tuple6<String, Long, Integer, Integer, Timestamp, String>> data = new ArrayList<>();
+		data.add(new Tuple6<>("Bob", 10L, 5, 7, Timestamp.valueOf("2022-01-10 00:01:00.000"), "1641744060000L"));
 		return env.fromCollection(data);
 	}
 }

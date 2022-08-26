@@ -82,6 +82,7 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 	protected transient TagBucketHistogram latencyHistogram;
 	private final RowData.FieldGetter[] fieldGetters;
 	private final SinkMetricsGetter<RowData> sinkMetricsGetter;
+	private long lastLogErrorTimestamp;
 
 	private transient volatile Exception flushException;
 	private transient volatile boolean closed = false;
@@ -179,13 +180,21 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 		}
 		byteSQLSinkExecutor.addToBatch(record);
 		batchCount++;
-		if (latencyHistogram != null) {
-			long eventTs = sinkMetricsGetter.getEventTs(record);
-			long latency = (timeService.getCurrentProcessingTime() - eventTs) / 1000;
-			if (latency < 0) {
-				LOG.warn("Got negative latency, invalid event ts: " + eventTs);
-			} else {
-				SinkMetricUtils.updateLatency(latencyHistogram, sinkMetricsGetter.getTags(record), latency);
+		try {
+			if (latencyHistogram != null) {
+				long eventTs = sinkMetricsGetter.getEventTs(record);
+				long latency = (timeService.getCurrentProcessingTime() - eventTs) / 1000;
+				if (latency < 0) {
+					LOG.warn("Got negative latency, invalid event ts: " + eventTs);
+				} else {
+					SinkMetricUtils.updateLatency(latencyHistogram, sinkMetricsGetter.getTags(record), latency);
+				}
+			}
+		} catch (Throwable throwable) {
+			long currentTime = System.currentTimeMillis();
+			if (currentTime - lastLogErrorTimestamp > insertMetricsOptions.getLogErrorInterval()) {
+				lastLogErrorTimestamp = currentTime;
+				LOG.error("Fail to report sla", throwable);
 			}
 		}
 		if (batchCount >= insertOptions.getBufferFlushMaxRows()) {

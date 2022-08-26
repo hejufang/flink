@@ -350,6 +350,13 @@ public final class FactoryUtil {
 			"series is seconds. For example, if the series is 30;60;120;300, then the buckets are " +
 			"[0, 30s), [30s, 60s), [60s, 120s), [120s, 300s) and [300s, +infinity).");
 
+	public static final ConfigOption<Duration> SINK_METRICS_LOG_ERROR_INTERVAL = ConfigOptions
+		.key("sink.metrics.log.error.interval")
+		.durationType()
+		.defaultValue(Duration.of(10, ChronoUnit.SECONDS))
+		.withDescription("When sink.metrics.log.error.interval is true, this config controls the frequency of logging when " +
+			"records cannot be parsed correctly.");
+
 	private static final String FORMAT_KEY = "format";
 
 	private static final String FORMAT_SUFFIX = ".format";
