@@ -62,7 +62,6 @@ public class JobResultClientManager implements Closeable {
 			jobChannelManager.addTaskResult(taskSocketResult);
 		} else {
 			LOG.warn("Get non job result client manager for {}", taskSocketResult.getJobId());
-			throw new IllegalStateException("Get non job result client manager for " + taskSocketResult.getJobId());
 		}
 	}
 
