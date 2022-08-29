@@ -324,13 +324,17 @@ public class FsCheckpointStreamFactory implements CheckpointStreamFactory {
 				if (outStream == null) {
 					createStream();
 				}
-
 				if (pos > 0) {
 					long startTimeNs = System.nanoTime();
 					long writeBytes = pos;
 					try {
 						outStream.write(writeBuffer, 0, pos);
 						pos = 0;
+					} catch (IOException e) {
+						if (statePath != null) {
+							LOG.warn("Failed to write file: {}", statePath);
+						}
+						throw e;
 					} finally {
 						long elapsedNs = System.nanoTime() - startTimeNs;
 						updateWriteStatistic(writeBytes, elapsedNs, false);
