@@ -75,6 +75,7 @@ import static org.apache.flink.formats.binlog.BinlogOptions.ENTRY;
 import static org.apache.flink.formats.binlog.BinlogOptions.FLOAT;
 import static org.apache.flink.formats.binlog.BinlogOptions.HEADER;
 import static org.apache.flink.formats.binlog.BinlogOptions.INT;
+import static org.apache.flink.formats.binlog.BinlogOptions.JSON;
 import static org.apache.flink.formats.binlog.BinlogOptions.LONGBLOB;
 import static org.apache.flink.formats.binlog.BinlogOptions.LONGTEXT;
 import static org.apache.flink.formats.binlog.BinlogOptions.MEDIUMBLOB;
@@ -269,6 +270,7 @@ public class RuntimeConverterFactory {
 		map.put(DATETIME, TimestampType.class);
 		map.put(LONGTEXT, VarCharType.class);
 		map.put(MEDIUMTEXT, VarCharType.class);
+		map.put(JSON, VarCharType.class);
 		map.put(DECIMAL, DecimalType.class);
 		map.put(BINARY, VarBinaryType.class);
 		map.put(VARBINARY, VarBinaryType.class);

@@ -72,6 +72,7 @@ public class BinlogOptions {
 	public static final String MEDIUMBLOB = "mediumblob";
 	public static final String BLOB = "blob";
 	public static final String LONGBLOB = "longblob";
+	public static final String JSON = "json";
 
 	// --------------- values in binlog end --------------------
 	public static final ConfigOption<String> TARGET_TABLE = ConfigOptions
