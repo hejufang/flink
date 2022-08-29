@@ -334,7 +334,11 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T>
 		for (Map.Entry<ByteArrayWrapper, T> entry : rowReduceMap.entrySet()) {
 			T row = entry.getValue();
 			RowMutation mutation = mutationConverter.convertToMutation(row);
-			this.bytetableTable.mutate(mutation);
+			try {
+				this.bytetableTable.mutate(mutation);
+			} finally {
+				mutation.free();
+			}
 		}
 	}
 
@@ -345,7 +349,13 @@ public class ByteTableSinkFunction<T> extends RichSinkFunction<T>
 			RowMutation mutation = mutationConverter.convertToMutation(row);
 			mutationList.add(mutation);
 		}
-		this.bytetableTable.mutateMultiRow(mutationList);
+		try {
+			this.bytetableTable.mutateMultiRow(mutationList);
+		} finally {
+			for (RowMutation mutation : mutationList) {
+				mutation.free();
+			}
+		}
 	}
 
 	private void mutateReduce(
