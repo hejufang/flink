@@ -285,8 +285,7 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 
 		// In case of the Metaspace OutOfMemoryError, we expect that the graceful shutdown is possible,
 		// as it does not usually require more class loading to fail again with the Metaspace OutOfMemoryError.
-		if (ExceptionUtils.isJvmFatalOrOutOfMemoryError(enrichedException) &&
-				!ExceptionUtils.isMetaspaceOutOfMemoryError(enrichedException)) {
+		if (ExceptionUtils.isJvmFatalOrOutOfMemoryError(enrichedException)) {
 			if (ExceptionUtils.isJvmFatalError(enrichedException)) {
 				// Only print ThreadInfo in first time.
 				try {
