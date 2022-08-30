@@ -156,6 +156,7 @@ common:
   metrics.reporter.opentsdb_reporter.interval: 20 SECONDS
   metrics.reporter.databus_reporter.class: org.apache.flink.metrics.databus.DatabusReporter
   metrics.reporter.databus_reporter.interval: 60 SECONDS
+  metrics.latency.interval: 10000
 
   # Grafana
   save-meta.enabled: true
@@ -415,7 +416,6 @@ dw:
   ipv6.supported.cluster: dw
   ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
-  metrics.latency.interval: 10000
 
 lepad:
   dc: cn
@@ -952,7 +952,6 @@ quoka:
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: quoka
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
-  metrics.latency.interval: 10000
   taskmanager.task-stuck-check.interval: 60000
 
 quaga:

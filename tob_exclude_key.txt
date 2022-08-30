@@ -69,6 +69,7 @@ metrics.reporter.opentsdb_reporter.class
 metrics.reporter.opentsdb_reporter.interval
 metrics.reporter.databus_reporter.class
 metrics.reporter.databus_reporter.interval
+metrics.latency.interval
 
 # Grafana
 save-meta.enabled
