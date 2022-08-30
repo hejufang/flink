@@ -26,6 +26,8 @@ import org.apache.flink.connector.base.source.reader.SingleThreadMultiplexSource
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureNotifier;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -53,6 +55,11 @@ public class MockSourceReader
 	@Override
 	protected AtomicInteger initializedState(MockSourceSplit split) {
 		return new AtomicInteger(split.index());
+	}
+
+	@Override
+	protected Counter getRecordsOutMetric() {
+		return new SimpleCounter();
 	}
 
 	@Override

@@ -31,6 +31,7 @@ import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureNotifier;
 import org.apache.flink.core.io.InputStatus;
+import org.apache.flink.metrics.Counter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,6 +88,9 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 	/** Indicating whether the SourceReader will be assigned more splits or not.*/
 	private boolean noMoreSplitsAssignment;
 
+	/** Source Operator RecordsOut Metric.*/
+	private Counter recordsOutMetric;
+
 	public SourceReaderBase(
 			FutureNotifier futureNotifier,
 			FutureCompletingBlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
@@ -104,6 +108,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 		this.config = config;
 		this.context = context;
 		this.noMoreSplitsAssignment = false;
+		recordsOutMetric = getRecordsOutMetric();
 	}
 
 	@Override
@@ -134,6 +139,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 			// Process one record.
 			if (splitIter.hasNext()) {
 				// emit the record.
+				recordsOutMetric.inc();
 				final E record = splitIter.next();
 				final SplitContext<T, SplitStateT> splitContext = splitStates.get(splitIter.currentSplitId());
 				final SourceOutput<T> splitOutput = splitContext.getOrCreateSplitOutput(output);
@@ -221,6 +227,8 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 	 * @param split a newly added split.
 	 */
 	protected abstract SplitStateT initializedState(SplitT split);
+
+	protected abstract Counter getRecordsOutMetric();
 
 	/**
 	 * Convert a mutable SplitStateT to immutable SplitT.

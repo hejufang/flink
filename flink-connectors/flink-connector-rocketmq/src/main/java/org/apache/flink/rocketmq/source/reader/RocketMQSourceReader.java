@@ -34,9 +34,12 @@ import org.apache.flink.connector.base.source.reader.synchronization.FutureCompl
 import org.apache.flink.connector.base.source.reader.synchronization.FutureNotifier;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
 import org.apache.flink.connector.rocketmq.RocketMQUtils;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.rocketmq.source.split.RocketMQSplit;
 import org.apache.flink.rocketmq.source.split.RocketMQSplitBase;
 import org.apache.flink.rocketmq.source.split.RocketMQSplitState;
+import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.rocketmq.clientv2.message.MessageQueue;
@@ -219,5 +222,16 @@ public class RocketMQSourceReader<OUT>
 	private RocketMQSplitBase createRocketMQSplitBase(MessageQueue messageQueue) {
 		return new RocketMQSplitBase(
 			messageQueue.getTopic(), messageQueue.getBrokerName(), messageQueue.getQueueId());
+	}
+
+	protected Counter getRecordsOutMetric() {
+		try {
+			LOG.info("initial RMQConnector-FLIP27 source reader recordsOut Metric");
+			Counter recordsOutMetric = ((OperatorMetricGroup) context.metricGroup()).getIOMetricGroup().getNumRecordsOutCounter();
+			return recordsOutMetric;
+		} catch (Exception e) {
+			LOG.error("An exception occurred during the metrics setup.", e);
+			return new SimpleCounter();
+		}
 	}
 }
