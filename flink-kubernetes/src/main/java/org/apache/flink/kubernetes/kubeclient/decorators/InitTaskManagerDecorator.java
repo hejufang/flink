@@ -169,6 +169,7 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
 					.withName(ConfigConstants.FLINK_ENV_TYPE_KEY)
 					.withValue(ConfigConstants.FLINK_ENV_TYPE_KUBERNETES)
 					.endEnv()
+				.addToEnv(KubernetesUtils.getPartitionListEnv(kubernetesTaskManagerParameters))
 				.build();
 	}
 

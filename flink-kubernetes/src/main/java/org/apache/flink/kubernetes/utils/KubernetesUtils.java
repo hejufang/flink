@@ -34,6 +34,7 @@ import org.apache.flink.kubernetes.highavailability.KubernetesJobGraphStoreUtil;
 import org.apache.flink.kubernetes.highavailability.KubernetesStateHandleStore;
 import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
 import org.apache.flink.kubernetes.kubeclient.decorators.AbstractFileDownloadDecorator;
+import org.apache.flink.kubernetes.kubeclient.parameters.AbstractKubernetesParameters;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesConfigMap;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
@@ -55,6 +56,8 @@ import org.apache.flink.util.function.FunctionUtils;
 
 import io.fabric8.kubernetes.api.model.ContainerPort;
 import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
+import io.fabric8.kubernetes.api.model.EnvVar;
+import io.fabric8.kubernetes.api.model.EnvVarBuilder;
 import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
 import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
@@ -742,6 +745,31 @@ public class KubernetesUtils {
 		return ports.entrySet().stream()
 				.map(e -> new ContainerPortBuilder().withName(e.getKey()).withContainerPort(e.getValue()).build())
 				.collect(Collectors.toList());
+	}
+
+	/**
+	 * We use environment:partition_list to tell kafka/rmq consumers which partition to consume.
+	 */
+	public static EnvVar[] getPartitionListEnv(AbstractKubernetesParameters kubernetesParameters) {
+		List<EnvVar> envs = new ArrayList<>();
+		String kafkaPartitionList = kubernetesParameters.getKafkaPartitionList();
+		if (!StringUtils.isNullOrWhitespaceOnly(kafkaPartitionList)) {
+			envs.add(
+					new EnvVarBuilder()
+							.withName(ConfigConstants.PARTITION_LIST_KEY)
+							.withValue(kubernetesParameters.getKafkaPartitionList())
+							.build());
+		}
+
+		String rmqPartitionList = kubernetesParameters.getRMQPartitionList();
+		if (!StringUtils.isNullOrWhitespaceOnly(rmqPartitionList)) {
+			envs.add(
+					new EnvVarBuilder()
+							.withName(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY)
+							.withValue(rmqPartitionList)
+							.build());
+		}
+		return envs.toArray(new EnvVar[0]);
 	}
 
 	/**

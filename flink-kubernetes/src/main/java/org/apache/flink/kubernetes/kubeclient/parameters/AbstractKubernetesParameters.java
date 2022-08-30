@@ -19,6 +19,7 @@
 package org.apache.flink.kubernetes.kubeclient.parameters;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptionsInternal;
@@ -359,6 +360,16 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 
 	public boolean isServiceLinkEnable() {
 		return flinkConfig.getBoolean(KubernetesConfigOptions.SERVICE_LINK_ENABLE);
+	}
+
+	public String getKafkaPartitionList() {
+		return flinkConfig.getString(
+				ConfigConstants.PARTITION_LIST_KEY,
+				flinkConfig.getString(ConfigConstants.PARTITION_OLD_LIST_KEY, null));
+	}
+
+	public String getRMQPartitionList() {
+		return flinkConfig.getString(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, null);
 	}
 
 }

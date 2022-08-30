@@ -172,6 +172,7 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
 					.withName(ConfigConstants.FLINK_ENV_TYPE_KEY)
 					.withValue(ConfigConstants.FLINK_ENV_TYPE_KUBERNETES)
 					.endEnv()
+				.addToEnv(KubernetesUtils.getPartitionListEnv(kubernetesJobManagerParameters))
 				.build();
 	}
 
