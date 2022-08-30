@@ -207,7 +207,8 @@ public class HiveTableSource implements
 		HiveTableInputFormat inputFormat = getInputFormat(
 				allHivePartitions,
 				flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_FALLBACK_MAPRED_READER),
-				flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_CREATE_SPLITS_IN_PARALLEL));
+				flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_CREATE_SPLITS_IN_PARALLEL),
+				flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_USE_FLINK_GET_SPLITS));
 
 		if (isStreamingSource()) {
 			if (catalogTable.getPartitionKeys().isEmpty()) {
@@ -441,7 +442,8 @@ public class HiveTableSource implements
 	HiveTableInputFormat getInputFormat(
 			List<HiveTablePartition> allHivePartitions,
 			boolean useMapRedReader,
-			boolean createSplitInParallel) {
+			boolean createSplitInParallel,
+			boolean useFastGetSplits) {
 		if (isEnableBucket()) {
 			return new BucketHiveInputFormat(
 				jobConf,
@@ -462,7 +464,8 @@ public class HiveTableSource implements
 				limit,
 				hiveVersion,
 				useMapRedReader,
-				createSplitInParallel);
+				createSplitInParallel,
+				useFastGetSplits);
 	}
 
 	@Override
@@ -717,7 +720,8 @@ public class HiveTableSource implements
 				getInputFormat(
 					allPartitions,
 					flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_FALLBACK_MAPRED_READER),
-					flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_CREATE_SPLITS_IN_PARALLEL)),
+					flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_CREATE_SPLITS_IN_PARALLEL),
+					flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_USE_FLINK_GET_SPLITS)),
 				lookupKeys,
 				producedSchema.getFieldNames(),
 				producedSchema.getFieldDataTypes(),

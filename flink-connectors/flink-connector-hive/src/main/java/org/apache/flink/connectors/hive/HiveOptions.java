@@ -101,4 +101,10 @@ public class HiveOptions {
 			.stringType()
 			.noDefaultValue()
 			.withDescription("Url of hive gemini server.\n");
+
+	public static final ConfigOption<Boolean> TABLE_EXEC_HIVE_USE_FLINK_GET_SPLITS =
+		key("table.exec.hive.use-flink-get-splits")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Use flink get splits to speed up get splits information.");
 }

@@ -73,7 +73,7 @@ import static org.apache.hadoop.mapreduce.lib.input.FileInputFormat.INPUT_DIR;
 public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, HiveTableInputSplit>
 		implements CheckpointableInputFormat<HiveTableInputSplit, Long> {
 
-	private static final long serialVersionUID = 2L;
+	private static final long serialVersionUID = 3L;
 
 	private static final Logger LOG = LoggerFactory.getLogger(HiveTableInputFormat.class);
 
@@ -109,6 +109,7 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 	private transient long totalReadCount = 0L;
 
 	private boolean createSplitInParallel;
+	private final boolean useFastGetSplits;
 
 	@VisibleForTesting
 	protected transient SplitReader reader;
@@ -121,7 +122,8 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 			long limit,
 			String hiveVersion,
 			boolean useMapRedReader,
-			boolean createSplitInParallel) {
+			boolean createSplitInParallel,
+			boolean useFastGetSplits) {
 		super(jobConf.getCredentials());
 		this.partitionKeys = catalogTable.getPartitionKeys();
 		this.fieldTypes = catalogTable.getSchema().getFieldDataTypes();
@@ -135,7 +137,9 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 		selectedFields = projectedFields != null ? projectedFields : IntStream.range(0, rowArity).toArray();
 		this.useMapRedReader = useMapRedReader;
 		this.createSplitInParallel = createSplitInParallel;
-		LOG.info("Create split in parallel: {}", createSplitInParallel);
+		this.useFastGetSplits = useFastGetSplits;
+		LOG.info("Create split in parallel: {}, useFastGetSplits {} ",
+			createSplitInParallel, useFastGetSplits);
 	}
 
 	public JobConf getJobConf() {
@@ -234,9 +238,7 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 	}
 
 	private boolean useParquetVectorizedRead(HiveTablePartition partition) {
-		boolean isParquet = partition.getStorageDescriptor().getSerdeInfo().getSerializationLib()
-				.toLowerCase().contains("parquet");
-		if (!isParquet) {
+		if (!isParquet(partition.getStorageDescriptor())) {
 			return false;
 		}
 
@@ -252,9 +254,7 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 	}
 
 	private boolean useOrcVectorizedRead(HiveTablePartition partition) {
-		boolean isOrc = partition.getStorageDescriptor().getSerdeInfo().getSerializationLib()
-				.toLowerCase().contains("orc");
-		if (!isOrc) {
+		if (!isOrc(partition.getStorageDescriptor())) {
 			return false;
 		}
 
@@ -310,13 +310,14 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 			int minNumSplits,
 			List<HiveTablePartition> partitions,
 			JobConf jobConf) throws IOException {
-		return createInputSplits(minNumSplits, partitions, jobConf, false, s -> s);
+		return createInputSplits(minNumSplits, partitions, jobConf, false, s -> s, false);
 	}
 
 	protected HiveTableInputSplit[] createInputSplits(
 			int minNumSplits,
 			Function<InputSplit[], InputSplit[]> sortFunction) throws IOException {
-		return createInputSplits(minNumSplits, partitions, jobConf, createSplitInParallel, sortFunction);
+		return createInputSplits(minNumSplits, partitions, jobConf,
+			createSplitInParallel, sortFunction, useFastGetSplits);
 	}
 
 	private static HiveTableInputSplit[] createInputSplits(
@@ -324,11 +325,12 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 			List<HiveTablePartition> partitions,
 			JobConf jobConf,
 			boolean createSplitInParallel,
-			Function<InputSplit[], InputSplit[]> sortFunction) throws IOException {
+			Function<InputSplit[], InputSplit[]> sortFunction,
+			boolean useFastGetSplits) throws IOException {
 		if (createSplitInParallel) {
-			return createInputSplitsInParallel(minNumSplits, partitions, jobConf, sortFunction);
+			return createInputSplitsInParallel(minNumSplits, partitions, jobConf, sortFunction, useFastGetSplits);
 		} else {
-			return createInputSplitsSerially(minNumSplits, partitions, jobConf, sortFunction);
+			return createInputSplitsSerially(minNumSplits, partitions, jobConf, sortFunction, useFastGetSplits);
 		}
 	}
 
@@ -336,13 +338,14 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 			int minNumSplits,
 			List<HiveTablePartition> partitions,
 			JobConf jobConf,
-			Function<InputSplit[], InputSplit[]> sortFunction) throws IOException {
+			Function<InputSplit[], InputSplit[]> sortFunction,
+			boolean useFastGetSplits) throws IOException {
 		List<HiveTableInputSplit> hiveSplits = new ArrayList<>();
 		int splitNum = 0;
 		AtomicReference<FileSystem> fsRef = new AtomicReference<>();
 		for (HiveTablePartition partition : partitions) {
 			StorageDescriptor sd = partition.getStorageDescriptor();
-			InputFormat format = prepareInputFormat(fsRef, sd, jobConf);
+			InputFormat format = prepareInputFormat(fsRef, sd, jobConf, useFastGetSplits);
 			if (format == null) {
 				continue;
 			}
@@ -363,7 +366,8 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 			int minNumSplits,
 			List<HiveTablePartition> partitions,
 			JobConf jobConf,
-			Function<InputSplit[], InputSplit[]> sortFunction) throws IOException {
+			Function<InputSplit[], InputSplit[]> sortFunction,
+			boolean useFastGetSplits) throws IOException {
 		List<HiveTableInputSplit> hiveSplits = new ArrayList<>();
 		int splitNum = 0;
 		List<CompletableFuture<Tuple3<HiveTablePartition, InputSplit[], IOException>>> futureList = new ArrayList<>();
@@ -371,7 +375,7 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 		for (HiveTablePartition partition : partitions) {
 			StorageDescriptor sd = partition.getStorageDescriptor();
 			JobConf newJobConf = new JobConf(jobConf);
-			InputFormat format = prepareInputFormat(fsRef, sd, newJobConf);
+			InputFormat format = prepareInputFormat(fsRef, sd, newJobConf, useFastGetSplits);
 			if (format == null) {
 				continue;
 			}
@@ -414,7 +418,8 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 	private static InputFormat prepareInputFormat(
 			AtomicReference<FileSystem> fsRef,
 			StorageDescriptor sd,
-			JobConf jobConf) throws IOException {
+			JobConf jobConf,
+			boolean useFastFileFormat) throws IOException {
 		Path inputPath = new Path(sd.getLocation());
 		if (fsRef.get() == null) {
 			fsRef.set(inputPath.getFileSystem(jobConf));
@@ -422,6 +427,16 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 		// it's possible a partition exists in metastore but the data has been removed
 		if (!fsRef.get().exists(inputPath)) {
 			return null;
+		}
+		if (useFastFileFormat) {
+			if (isOrc(sd) || isParquet(sd)) {
+				LOG.info("We will use FastFileInputFormat instead of {} to get splits.",
+					sd.getSerdeInfo().getSerializationLib());
+				return new FastFileInputFormat();
+			} else {
+				LOG.warn("Current we only use FastFileInputFormat in parquet and orc source, " +
+					"current source is {}", sd.getSerdeInfo().getSerializationLib());
+			}
 		}
 		try {
 			return (InputFormat) Class.forName(sd.getInputFormat(), true,
@@ -440,6 +455,14 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 	@Override
 	public InputSplitAssigner getInputSplitAssigner(HiveTableInputSplit[] inputSplits) {
 		return new LocatableInputSplitAssigner(inputSplits);
+	}
+
+	private static boolean isOrc(StorageDescriptor sd) {
+		return sd.getSerdeInfo().getSerializationLib().toLowerCase().contains("orc");
+	}
+
+	private static boolean isParquet(StorageDescriptor sd) {
+		return sd.getSerdeInfo().getSerializationLib().toLowerCase().contains("parquet");
 	}
 
 	// --------------------------------------------------------------------------------------------

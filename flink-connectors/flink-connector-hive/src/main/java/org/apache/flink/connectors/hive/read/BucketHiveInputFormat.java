@@ -53,7 +53,7 @@ public class BucketHiveInputFormat extends HiveTableInputFormat implements Bucke
 			boolean useMapRedReader,
 			boolean createSplitInParallel) {
 		super(jobConf, catalogTable, partitions, projectedFields, limit,
-			hiveVersion, useMapRedReader, createSplitInParallel);
+			hiveVersion, useMapRedReader, createSplitInParallel, true);
 		this.bucketNum = HiveUtils$.MODULE$.getBucketNum(catalogTable.getOptions());
 	}
 
