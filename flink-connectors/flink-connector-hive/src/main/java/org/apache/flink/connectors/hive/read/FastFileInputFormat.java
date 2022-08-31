@@ -24,7 +24,6 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
-import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputSplit;
@@ -132,10 +131,9 @@ public class FastFileInputFormat<K, V> extends FileInputFormat<K, V> {
 			} else {
 				for (FileStatus globStat: matches) {
 					if (globStat.isDirectory()) {
-						RemoteIterator<FileStatus> iter =
-							fs.listStatusIterator(globStat.getPath());
-						while (iter.hasNext()) {
-							FileStatus stat = iter.next();
+						FileStatus[] fileStatuses =
+							fs.listStatus(globStat.getPath());
+						for (FileStatus stat: fileStatuses) {
 							if (inputFilter.accept(stat.getPath())) {
 								if (recursive && stat.isDirectory()) {
 									addInputPathRecursively(result, fs, stat.getPath(),
