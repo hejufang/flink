@@ -195,7 +195,7 @@ org.apache.flink:flink-dist_2.11:jar:1.11-byted-SNAPSHOT
 |  |  |  \- org.apache.avro:avro-ipc:jar:tests:1.7.7:provided
 |  |  +- org.apache.xbean:xbean-asm5-shaded:jar:4.4:provided
 |  |  +- org.apache.hadoop:hadoop-client:jar:2.6.5:provided
-|  |  |  +- org.apache.hadoop:hadoop-common:jar:2.6.0-cdh5.4.4-bd258:provided
+|  |  |  +- org.apache.hadoop:hadoop-common:jar:2.6.0-cdh5.4.4-bd259:provided
 |  |  |  |  +- commons-cli:commons-cli:jar:1.2:provided
 |  |  |  |  +- xmlenc:xmlenc:jar:0.52:provided
 |  |  |  |  +- commons-httpclient:commons-httpclient:jar:3.1:provided
@@ -231,18 +231,13 @@ org.apache.flink:flink-dist_2.11:jar:1.11-byted-SNAPSHOT
 |  |  |  |  |  +- io.fabric8:zjsonpatch:jar:0.3.0:provided
 |  |  |  |  |  \- com.github.mifmif:generex:jar:1.0.2:provided
 |  |  |  |  |     \- dk.brics.automaton:automaton:jar:1.11-8:provided
-|  |  |  |  +- org.byted.security:zti-jwt-helper-java:jar:1.0.12:provided
-|  |  |  |  |  +- com.nimbusds:nimbus-jose-jwt:jar:9.1.1:provided
-|  |  |  |  |  |  \- com.github.stephenc.jcip:jcip-annotations:jar:1.0-1:provided
-|  |  |  |  |  +- org.byted.security:java-spiffe-core:jar:0.7.0-7:provided
-|  |  |  |  |  \- org.byted.security:grpc-netty-linux:jar:0.7.0-7:provided
-|  |  |  |  +- org.byted.security:zti-jwt-java:jar:1.0.23:provided
-|  |  |  |  +- org.byted.security:zti-issuer-helper-java:jar:1.0.17:provided
-|  |  |  |  |  \- dnsjava:dnsjava:jar:3.3.1:provided
+|  |  |  |  +- org.byted.security:zti-jwt-helper-java:jar:1.0.14:provided
+|  |  |  |  +- org.byted.security:zti-jwt-java:jar:1.0.25:provided
+|  |  |  |  +- org.byted.security:zti-issuer-helper-java:jar:1.0.20:provided
 |  |  |  |  +- commons-configuration:commons-configuration:jar:1.7:provided
 |  |  |  |  |  +- commons-digester:commons-digester:jar:1.8.1:provided
 |  |  |  |  |  \- commons-beanutils:commons-beanutils:jar:1.8.3:provided
-|  |  |  |  +- org.apache.hadoop:hadoop-auth:jar:2.6.0-cdh5.4.4-bd258:provided
+|  |  |  |  +- org.apache.hadoop:hadoop-auth:jar:2.6.0-cdh5.4.4-bd259:provided
 |  |  |  |  |  \- org.apache.directory.server:apacheds-kerberos-codec:jar:2.0.0-M15:provided
 |  |  |  |  |     +- org.apache.directory.server:apacheds-i18n:jar:2.0.0-M15:provided
 |  |  |  |  |     +- org.apache.directory.api:api-asn1-api:jar:1.0.0-M20:provided
@@ -250,18 +245,18 @@ org.apache.flink:flink-dist_2.11:jar:1.11-byted-SNAPSHOT
 |  |  |  |  +- com.bytedance:btrace:jar:1.0.3:provided
 |  |  |  |  |  \- com.bytedance.data:databus4j:jar:1.0.1:provided
 |  |  |  |  \- org.htrace:htrace-core:jar:3.0.4:provided
-|  |  |  +- org.apache.hadoop:hadoop-hdfs:jar:2.6.0-cdh5.4.4-bd258:provided
+|  |  |  +- org.apache.hadoop:hadoop-hdfs:jar:2.6.0-cdh5.4.4-bd259:provided
 |  |  |  |  +- org.mortbay.jetty:jetty-util:jar:6.1.26.cloudera.4:provided
 |  |  |  |  +- org.apache.mina:mina-core:jar:2.0.10:provided
-|  |  |  |  \- org.apache.hadoop:hadoop-qlimiter-client:jar:2.6.0-cdh5.4.4-bd258:provided
+|  |  |  |  \- org.apache.hadoop:hadoop-qlimiter-client:jar:2.6.0-cdh5.4.4-bd259:provided
 |  |  |  +- org.apache.hadoop:hadoop-mapreduce-client-app:jar:2.6.5:provided
 |  |  |  |  +- org.apache.hadoop:hadoop-mapreduce-client-common:jar:2.6.5:provided
-|  |  |  |  |  +- org.apache.hadoop:hadoop-yarn-client:jar:2.6.0-cdh5.4.4-bd258:provided
+|  |  |  |  |  +- org.apache.hadoop:hadoop-yarn-client:jar:2.6.0-cdh5.4.4-bd259:provided
 |  |  |  |  |  \- org.apache.hadoop:hadoop-yarn-server-common:jar:2.6.5:provided
 |  |  |  |  \- org.apache.hadoop:hadoop-mapreduce-client-shuffle:jar:2.6.5:provided
 |  |  |  +- org.apache.hadoop:hadoop-yarn-api:jar:2.6.5:provided
-|  |  |  +- org.apache.hadoop:hadoop-mapreduce-client-core:jar:2.6.0-cdh5.4.4-bd258:provided
-|  |  |  |  +- org.apache.hadoop:hadoop-yarn-common:jar:2.6.0-cdh5.4.4-bd258:provided
+|  |  |  +- org.apache.hadoop:hadoop-mapreduce-client-core:jar:2.6.0-cdh5.4.4-bd259:provided
+|  |  |  |  +- org.apache.hadoop:hadoop-yarn-common:jar:2.6.0-cdh5.4.4-bd259:provided
 |  |  |  |  +- com.codahale.metrics:metrics-core:jar:3.0.1:provided
 |  |  |  |  \- com.hadoop.fourmc:hadoop-4mc:jar:2.0.0-bd2-SNAPSHOT:provided
 |  |  |  +- org.apache.hadoop:hadoop-mapreduce-client-jobclient:jar:2.6.5:provided
