@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 
+import static java.util.Arrays.asList;
 import static org.apache.flink.runtime.checkpoint.CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -120,6 +121,31 @@ public class StandaloneCompletedCheckpointStoreTest extends CompletedCheckpointS
 			store.addCheckpoint(checkpointToAdd);
 		}
 		discardAttempted.await();
+	}
+
+	/**
+	 * Tests that when subsume a CompletedCheckpointPlaceHolder, there exists an exception thrown during the transform.
+	 */
+	@Test
+	public void testAddCheckpointWithPlaceHolderTransformFails() throws Exception {
+		final int numCheckpointsToRetain = 1;
+		CompletedCheckpointStore store = createCompletedCheckpoints(numCheckpointsToRetain);
+
+		CompletedCheckpoint pl1 = getCheckpointPlaceHolderWithException(1);
+		store.addCheckpoint(pl1);
+
+		CompletedCheckpoint pl2 = getCheckpointPlaceHolderWithException(2);
+		// When add pl2, pl1 will be subsumed and an exception thrown during the transform process.
+		store.addCheckpoint(pl2);
+
+		// pl1 will be removed despite the exception
+		assertEquals(asList(pl2), store.getAllCheckpoints());
+	}
+
+	private CompletedCheckpoint getCheckpointPlaceHolderWithException(long id) {
+		return new CompletedCheckpointPlaceHolder<>(id, null, unused -> {
+			throw new Exception("cannot transform placeholder");
+		});
 	}
 
 	@Test

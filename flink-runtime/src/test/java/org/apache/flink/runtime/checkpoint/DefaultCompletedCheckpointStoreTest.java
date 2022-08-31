@@ -37,6 +37,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -46,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.util.Arrays.asList;
 import static org.apache.flink.runtime.checkpoint.CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION;
@@ -82,35 +84,35 @@ public class DefaultCompletedCheckpointStoreTest extends TestLogger {
 
 	@Test
 	public void testAtLeastOneCheckpointRetained() throws Exception {
-		CompletedCheckpoint cp1 = getCheckpoint(false, 1L);
-		CompletedCheckpoint cp2 = getCheckpoint(false, 2L);
-		CompletedCheckpoint sp1 = getCheckpoint(true, 3L);
-		CompletedCheckpoint sp2 = getCheckpoint(true, 4L);
-		CompletedCheckpoint sp3 = getCheckpoint(true, 5L);
+		CompletedCheckpoint cp1 = getCheckpoint(1L, false);
+		CompletedCheckpoint cp2 = getCheckpoint(2L, false);
+		CompletedCheckpoint sp1 = getCheckpoint(3L, true);
+		CompletedCheckpoint sp2 = getCheckpoint(4L, true);
+		CompletedCheckpoint sp3 = getCheckpoint(5L, true);
 		testCheckpointRetention(1, asList(cp1, cp2, sp1, sp2, sp3), asList(cp2, sp3));
 	}
 
 	@Test
 	public void testOlderSavepointSubsumed() throws Exception {
-		CompletedCheckpoint cp1 = getCheckpoint(false, 1L);
-		CompletedCheckpoint sp1 = getCheckpoint(true, 2L);
-		CompletedCheckpoint cp2 = getCheckpoint(false, 3L);
+		CompletedCheckpoint cp1 = getCheckpoint(1L, false);
+		CompletedCheckpoint sp1 = getCheckpoint(2L, true);
+		CompletedCheckpoint cp2 = getCheckpoint(3L, false);
 		testCheckpointRetention(1, asList(cp1, sp1, cp2), asList(cp2));
 	}
 
 	@Test
 	public void testSubsumeAfterStoppingWithSavepoint() throws Exception {
-		CompletedCheckpoint cp1 = getCheckpoint(false, 1L);
-		CompletedCheckpoint sp1 = getCheckpoint(true, 2L);
+		CompletedCheckpoint cp1 = getCheckpoint(1L, false);
+		CompletedCheckpoint sp1 = getCheckpoint(2L, true);
 		CompletedCheckpoint stop = getCheckpoint(CheckpointProperties.forSyncSavepoint(false), 3L);
 		testCheckpointRetention(1, asList(cp1, sp1, stop), asList(stop));
 	}
 
 	@Test
 	public void testNotSubsumedIfNotNeeded() throws Exception {
-		CompletedCheckpoint cp1 = getCheckpoint(false, 1L);
-		CompletedCheckpoint cp2 = getCheckpoint(false, 2L);
-		CompletedCheckpoint cp3 = getCheckpoint(false, 3L);
+		CompletedCheckpoint cp1 = getCheckpoint(1L, false);
+		CompletedCheckpoint cp2 = getCheckpoint(2L, false);
+		CompletedCheckpoint cp3 = getCheckpoint(3L, false);
 		testCheckpointRetention(3, asList(cp1, cp2, cp3), asList(cp1, cp2, cp3));
 	}
 
@@ -131,15 +133,15 @@ public class DefaultCompletedCheckpointStoreTest extends TestLogger {
 	}
 
 	/**
-	 * We have three completed checkpoints(1, 2, 3) in the state handle store. We expect that {@link
-	 * DefaultCompletedCheckpointStore#recover()} should recover the sorted checkpoints by name.
+	 * We have three completed checkpoints(1, 2, 3) in the state handle store. We expect that
+	 * {@link DefaultCompletedCheckpointStore#recover()} should recover the sorted checkpoints by name.
 	 */
 	@Test
 	public void testRecoverSortedCheckpoints() throws Exception {
-		final TestingStateHandleStore<CompletedCheckpoint> stateHandleStore =
-			builder.setGetAllSupplier(() -> createStateHandles(3)).build();
-		final CompletedCheckpointStore completedCheckpointStore =
-			createCompletedCheckpointStore(stateHandleStore);
+		final TestingStateHandleStore<CompletedCheckpoint> stateHandleStore = builder
+			.setGetAllSupplier(() -> createStateHandles(3))
+			.build();
+		final CompletedCheckpointStore completedCheckpointStore = createCompletedCheckpointStore(stateHandleStore);
 
 		completedCheckpointStore.recover();
 
@@ -351,6 +353,186 @@ public class DefaultCompletedCheckpointStoreTest extends TestLogger {
 		assertThat(completedCheckpointStore.getAllCheckpoints().size(), is(0));
 	}
 
+	@Test
+	public void testSubsumeAfterRecoverWithNoCheckpointInStore() throws Exception {
+		int numRetain = 3;
+		// no checkpoints in recover list
+		List<CompletedCheckpoint> recoveredList = generateRecoveredCheckpointList(
+			0,
+			2,
+			3,
+			4);
+
+		testCheckpointRetentionWithRecoveredList(numRetain, recoveredList);
+	}
+
+	@Test
+	public void testSubsumeAfterRecoverWithCheckpointInStore() throws Exception {
+		int numRetain = 3;
+		// 1 checkpoint in recover list
+		List<CompletedCheckpoint> recoveredList = generateRecoveredCheckpointList(
+			1,
+			2,
+			3,
+			4);
+		testCheckpointRetentionWithRecoveredList(numRetain, recoveredList);
+	}
+
+	/**
+	 * Test the retained completed checkpoints with recovered list.
+	 * The size of the completedList is numRetain,
+	 * i.e. the number of the checkpoint in the completedList is from 0 to numRetain,
+	 * while the number of savepoint is numRetain - numOfCheckpoint
+	 *
+	 * @param numRetain The max number of retained checkpoints.
+	 * @param recoveredList The completed checkpoint list recovered from zk and hdfs.
+	 */
+	private void testCheckpointRetentionWithRecoveredList(int numRetain, List<CompletedCheckpoint> recoveredList) throws Exception {
+		// The offset of completed checkpointIds
+		int baseId = recoveredList.size();
+		// test of CheckpointRetention with 0 ~ numRetain checkpoint(s) in completed list after job recovery
+		for (int numOfCheckpoint = 0; numOfCheckpoint <= numRetain; numOfCheckpoint++) {
+			List<CompletedCheckpoint> completedList =
+				generateCompletedCheckpointList(baseId, numOfCheckpoint, numRetain - numOfCheckpoint);
+			testCheckpointRetentionWithRecoveredList(numRetain, recoveredList, completedList);
+		}
+	}
+
+	/**
+	 * Get the expected completed checkpoint list based on the recoveredList and completedList .
+	 *
+	 * @param numRetain The max number of retained checkpoints.
+	 * @param recoveredList The completed checkpoint list recovered from zk and hdfs.
+	 * @param completedList The completed checkpoint list made afer the job start.
+	 * @return The expected completed checkpoint list of the checkpoint store.
+	 */
+	private List<CompletedCheckpoint> getExpectedRetainedCheckpointList(int numRetain, List<CompletedCheckpoint> recoveredList, List<CompletedCheckpoint> completedList) {
+		List<CompletedCheckpoint> appendList = Stream.of(recoveredList, completedList).flatMap(Collection::stream).collect(Collectors.toList());
+
+		// get the latest CHECKPOINT index of the appendList
+		// latestCheckpointIndex is maintained -1 if no CHECKPOINT in the list
+		int latestCheckpointIndex = -1;
+		for (int i = appendList.size() - 1; i >= 0; i--) {
+			if (appendList.get(i).isCheckpoint()) {
+				latestCheckpointIndex = i;
+				break;
+			}
+		}
+
+		int n = appendList.size();
+		// Case 1: the index of the latest checkpoint is in [0, n - numRetain)
+		if (latestCheckpointIndex >= 0 && latestCheckpointIndex < n - numRetain) {
+			List<CompletedCheckpoint> res = new ArrayList<>(appendList.subList(n - numRetain + 1, n));
+			// add CHECKPOINT to the head of the list
+			res.add(0, appendList.get(latestCheckpointIndex));
+			return res;
+		}
+		// Other cases:
+		// 1. the index of the latest checkpoint is in [n - numRetain, n)
+		// 2. no checkpoint in the list, i.e. latestCheckpointIndex = -1
+		else {
+			return appendList.subList(n - numRetain, n);
+		}
+	}
+
+	/**
+	 * Test the retained completed checkpoints with recovered list.
+	 *
+	 * @param numRetain The max number of retained checkpoints.
+	 * @param recoveredList The completed checkpoint list recovered from zk and hdfs.
+	 * @param completedList The completed checkpoint list made afer the job start.
+	 */
+	private void testCheckpointRetentionWithRecoveredList(
+		int numRetain,
+		List<CompletedCheckpoint> recoveredList,
+		List<CompletedCheckpoint> completedList)
+		throws Exception {
+		final TestingStateHandleStore<CompletedCheckpoint> stateHandleStore =
+			builder.setGetAllSupplier(() -> createStateHandles(3)).build();
+		final CompletedCheckpointStore completedCheckpointStore =
+			createCompletedCheckpointStore(stateHandleStore, numRetain);
+
+		for (CompletedCheckpoint c : recoveredList) {
+			completedCheckpointStore.addCheckpointInOrder(c);
+		}
+
+		for (CompletedCheckpoint c : completedList) {
+			completedCheckpointStore.addCheckpoint(c);
+		}
+
+		List<CompletedCheckpoint> expectedRetainedList = getExpectedRetainedCheckpointList(numRetain, recoveredList, completedList);
+		assertEquals(expectedRetainedList, completedCheckpointStore.getAllCheckpoints());
+	}
+
+	/**
+	 * Mock user makes a list of completed checkpoints after the job restart.
+	 * We ignore the order of savepoint and checkpoint but keep the num of them.
+	 *
+	 * @param baseId           The base checkpoint id in the completed checkpoint list.
+	 * @param numOfCheckpoints The number of checkpoints after the job restart.
+	 * @param numOfSavepoints  The number of savepoints.
+	 * @return A CompletedCheckpoint list with numOfCheckpoints checkpoints and numOfSavepoints savepoints, and the checkpoint id starts from baseId.
+	 */
+	private List<CompletedCheckpoint> generateCompletedCheckpointList(int baseId, int numOfCheckpoints, int numOfSavepoints) {
+		int totalCompletedCheckpoints = numOfCheckpoints + numOfSavepoints;
+		List<CompletedCheckpoint> result = new ArrayList<>(totalCompletedCheckpoints);
+		List<Integer> list = new ArrayList<>();
+		for (int i = 0; i < totalCompletedCheckpoints; i++) {
+			list.add(i);
+		}
+		Collections.shuffle(list);
+		for (int i = 0; i < totalCompletedCheckpoints; i++) {
+			// keep the checkpoint id in increasing order
+			result.add(getCheckpoint(baseId + i + 1, list.get(i) >= numOfCheckpoints));
+		}
+		assertEquals(totalCompletedCheckpoints, result.size());
+		return result;
+	}
+
+	/**
+	 * Mock the completed checkpoint list which is recovered from hdfs and zk.
+	 * We alse ignore the order of savepoint, checkpoint and placeholder but keep the num of them.
+	 *
+	 * @param numOfCheckpoints  The number of checkpoints after the job restart.
+	 * @param numOfSavepoints   The number of savepoints.
+	 * @param numOfPlaceholders The number of placeholders.
+	 * @param numOfPlaceholders The number of placeholders with exception.
+	 * @return A recovered CompletedCheckpoint list with checkpoints, savepoints and placeholders, and the checkpoint id starts from 0.
+	 */
+	private List<CompletedCheckpoint> generateRecoveredCheckpointList(int numOfCheckpoints, int numOfSavepoints, int numOfPlaceholders, int numPlaceholdersWithException) {
+		int totalCompletedCheckpoints = numOfCheckpoints + numOfSavepoints + numOfPlaceholders + numPlaceholdersWithException;
+		List<CompletedCheckpoint> result = new ArrayList<>(totalCompletedCheckpoints);
+		List<Integer> list = new ArrayList<>();
+		for (int i = 0; i < totalCompletedCheckpoints; i++) {
+			list.add(i);
+		}
+		Collections.shuffle(list);
+		for (int i = 0; i < totalCompletedCheckpoints; i++) {
+			// keep the checkpoint id in increasing order
+			if (list.get(i) < numOfCheckpoints) {    // add checkpoint
+				result.add(getCheckpoint(i + 1, false));
+			} else if (list.get(i) < (numOfCheckpoints + numOfSavepoints)) {    // add savepoint
+				result.add(getCheckpoint(i + 1, true));
+			} else if (list.get(i) < (numOfCheckpoints + numOfSavepoints + numOfPlaceholders)) {    // add placeholder
+				result.add(getCheckpointPlaceHolder(i + 1, false));
+			} else {        // add placeholder with exception
+				result.add(getCheckpointPlaceHolderWithException(i + 1));
+			}
+		}
+		assertEquals(totalCompletedCheckpoints, result.size());
+		return result;
+	}
+
+	private CompletedCheckpoint getCheckpointPlaceHolder(long id, boolean isSavepoint) {
+		return new CompletedCheckpointPlaceHolder<>(id, getCheckpoint(id, isSavepoint), value -> value);
+	}
+
+	private CompletedCheckpoint getCheckpointPlaceHolderWithException(long id) {
+		return new CompletedCheckpointPlaceHolder<>(id, null, unused -> {
+			throw new Exception("cannot transform placeholder");
+		});
+	}
+
 	private  List<Tuple2<RetrievableStateHandle<CompletedCheckpoint>, String>> createStateHandles(int num) {
 		final List<Tuple2<RetrievableStateHandle<CompletedCheckpoint>, String>> stateHandles =
 			new ArrayList<>();
@@ -388,7 +570,7 @@ public class DefaultCompletedCheckpointStoreTest extends TestLogger {
 			executorService);
 	}
 
-	private CompletedCheckpoint getCheckpoint(boolean isSavepoint, long id) {
+	private CompletedCheckpoint getCheckpoint(long id, boolean isSavepoint) {
 		return getCheckpoint(
 			isSavepoint
 				? CheckpointProperties.forSavepoint(false)

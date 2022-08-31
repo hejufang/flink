@@ -74,7 +74,8 @@ class CheckpointSubsumeHelper {
 		Iterator<CompletedCheckpoint> descendingIterator = completed.descendingIterator();
 		while (descendingIterator.hasNext()) {
 			CompletedCheckpoint next = descendingIterator.next();
-			if (!next.getProperties().isSavepoint()) {
+			// next should not be a placeholder under normal circumstances
+			if (!(next instanceof CompletedCheckpointPlaceHolder) && !next.getProperties().isSavepoint()) {
 				return Optional.of(next);
 			}
 		}
@@ -85,22 +86,39 @@ class CheckpointSubsumeHelper {
 		CompletedCheckpoint next,
 		CompletedCheckpoint latest,
 		Optional<CompletedCheckpoint> latestNonSavepoint) {
-		if (next == latest) {
-			return false;
-		} else if (next.getProperties().isSavepoint()) {
+		try {
+			if (next == latest) {
+				return false;
+			} else if (next instanceof CompletedCheckpointPlaceHolder || next.isSavepoint()) {
+				// if next is a placeholder, then it can be subsumed since no future cp will refer to a placeholder's state
+				// savepoint can be subsumed since a savepoint will never refer to a shared state
+				return true;
+			} else if (latest.getProperties().isSynchronous()) {
+				// If the job has stopped with a savepoint then it's safe to subsume because no future
+				// snapshots will be taken during this run
+				return true;
+			} else if (!latestNonSavepoint.isPresent()) {
+				// if latestNonSavepoint is empty, means that the task is recovered from sp, all cp can be subsumed
+				return true;
+			} else {
+				// Don't remove the latest non-savepoint lest invalidate future incremental snapshots
+				return latestNonSavepoint.filter(checkpoint -> checkpoint != next).isPresent();
+			}
+		} catch (Exception e) {
+			// ignore this exception, and just mark the completed checkpoint can be subsumed
+			LOG.warn("Fail to judge whether the completed checkpoint {} can be subsumed.", next, e);
 			return true;
-		} else if (latest.getProperties().isSynchronous()) {
-			// If the job has stopped with a savepoint then it's safe to subsume because no future
-			// snapshots will be taken during this run
-			return true;
-		} else {
-			// Don't remove the latest non-savepoint lest invalidate future incremental snapshots
-			return latestNonSavepoint.filter(checkpoint -> checkpoint != next).isPresent();
 		}
 	}
 
 	@FunctionalInterface
 	interface SubsumeAction {
+		/**
+		 * subsume the completed checkpoint.
+		 *
+		 * @param checkpoint checkpoint that needs to be subsumed
+		 * @throws Exception on errors during subsume
+		 */
 		void subsume(CompletedCheckpoint checkpoint) throws Exception;
 	}
 }
