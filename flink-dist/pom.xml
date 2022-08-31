@@ -521,6 +521,14 @@ under the License.
 					<groupId>com.bytedance</groupId>
 					<artifactId>commons</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>com.bytedance</groupId>
+					<artifactId>consul-lang</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.bytedance</groupId>
+					<artifactId>java-redis-client</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<!-- end optional Flink libraries -->
