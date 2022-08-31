@@ -53,7 +53,8 @@ class BatchExecNestedLoopJoin(
     // true if LHS is build side, else RHS is build side
     val leftIsBuild: Boolean,
     // true if one side returns single row, else false
-    val singleRowJoin: Boolean)
+    val singleRowJoin: Boolean,
+    val mockedRowCount: Double = -1)
   extends BatchExecJoinBase(cluster, traitSet, leftRel, rightRel, condition, joinType) {
 
   override def copy(
@@ -81,6 +82,12 @@ class BatchExecNestedLoopJoin(
   }
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
+    val costFactory = planner.getCostFactory.asInstanceOf[FlinkCostFactory]
+    if (mockedRowCount > 0) {
+      return costFactory.makeCost(
+        mockedRowCount, mockedRowCount * mockedRowCount, 0, 0, mockedRowCount * 100)
+    }
+
     val leftRowCnt = mq.getRowCount(getLeft)
     val rightRowCnt = mq.getRowCount(getRight)
     if (leftRowCnt == null || rightRowCnt == null) {
@@ -93,7 +100,6 @@ class BatchExecNestedLoopJoin(
     val memoryCost = buildRows *
       (buildRowSize + BinaryRowDataSerializer.LENGTH_SIZE_IN_BYTES) * shuffleBuildCount(mq)
     val cpuCost = leftRowCnt * rightRowCnt
-    val costFactory = planner.getCostFactory.asInstanceOf[FlinkCostFactory]
     costFactory.makeCost(mq.getRowCount(this), cpuCost, 0, 0, memoryCost)
   }
 

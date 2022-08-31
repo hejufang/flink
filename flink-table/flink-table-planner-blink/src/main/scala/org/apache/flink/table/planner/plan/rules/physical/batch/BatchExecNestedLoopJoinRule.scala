@@ -17,6 +17,7 @@
  */
 package org.apache.flink.table.planner.plan.rules.physical.batch
 
+import org.apache.flink.table.api.config.OptimizerConfigOptions
 import org.apache.flink.table.planner.calcite.FlinkContext
 import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalJoin
 import org.apache.flink.table.planner.plan.nodes.physical.batch.BatchExecNestedLoopJoin
@@ -61,7 +62,12 @@ class BatchExecNestedLoopJoinRule
       case _ => join.getRight
     }
     val leftIsBuild = isLeftBuild(join, left, right)
-    val newJoin = createNestedLoopJoin(join, left, right, leftIsBuild, singleRowJoin = false)
+    val config = call.getPlanner.getContext.unwrap(classOf[FlinkContext]).getTableConfig
+    val mockedRowCount = config.getConfiguration.getDouble(
+      OptimizerConfigOptions.TABLE_OPTIMIZER_MOCKED_ROW_COUNT_FOR_NESTED_LOOP_JOIN)
+
+    val newJoin = createNestedLoopJoin(join, left, right, leftIsBuild,
+      singleRowJoin = false, mockedRowCount)
     call.transformTo(newJoin)
   }
 

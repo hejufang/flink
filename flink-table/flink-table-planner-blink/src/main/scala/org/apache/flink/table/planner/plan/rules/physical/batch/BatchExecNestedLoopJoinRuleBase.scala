@@ -33,7 +33,8 @@ trait BatchExecNestedLoopJoinRuleBase {
       left: RelNode,
       right: RelNode,
       leftIsBuild: Boolean,
-      singleRowJoin: Boolean): RelNode = {
+      singleRowJoin: Boolean,
+      mockedRowCount: Double = -1): RelNode = {
     var leftRequiredTrait = join.getTraitSet.replace(BATCH_PHYSICAL)
     var rightRequiredTrait = join.getTraitSet.replace(BATCH_PHYSICAL)
 
@@ -60,6 +61,7 @@ trait BatchExecNestedLoopJoinRuleBase {
       join.getCondition,
       join.getJoinType,
       leftIsBuild,
-      singleRowJoin)
+      singleRowJoin,
+      mockedRowCount)
   }
 }

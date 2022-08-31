@@ -182,4 +182,12 @@ public class OptimizerConfigOptions {
 			.defaultValue(false)
 			.withDescription("When it is true, the optimizer will " +
 				"use former flawed ReduceExpressionsRule of cast for state compatibility consideration.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
+	public static final ConfigOption<Double> TABLE_OPTIMIZER_MOCKED_ROW_COUNT_FOR_NESTED_LOOP_JOIN =
+		key("table.optimizer.mocked-row-count-for-nested-loop-join")
+			.doubleType()
+			.defaultValue(-1d)
+			.withDescription("When this value is bigger than zero, we will replace estimated row " +
+				"count with this value.");
 }
