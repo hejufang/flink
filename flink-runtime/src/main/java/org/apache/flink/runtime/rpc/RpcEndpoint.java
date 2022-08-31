@@ -175,6 +175,14 @@ public abstract class RpcEndpoint implements RpcGateway, AutoCloseableAsync {
 		return isRunning;
 	}
 
+	/**
+	 * get current main thread, only for unit test.
+	 */
+	@VisibleForTesting
+	protected Thread getCurrentMainThread() {
+		return currentMainThread.get();
+	}
+
 	// ------------------------------------------------------------------------
 	//  Start & shutdown & lifecycle callbacks
 	// ------------------------------------------------------------------------

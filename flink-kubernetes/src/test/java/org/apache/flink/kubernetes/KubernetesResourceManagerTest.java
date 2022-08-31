@@ -224,6 +224,39 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 		int getNumRequestedNotRegisteredWorkersForTesting() {
 			return getNumRequestedNotRegisteredWorkers();
 		}
+
+		private void runIfInMainThread(Runnable runnable) {
+			// Mock ApiServer will trigger onAdded/onModified/onDelete/onError by itself,
+			// These behaviors make it difficult to guarantee the execution order of the ResourceManager,
+			// and make the unit tests unstable. So we will filter all event callback from Mock APIServer
+			// and then trigger these by unit test manually.
+			Thread actual = Thread.currentThread();
+			if (actual == getCurrentMainThread()) {
+				runnable.run();
+			} else {
+				log.info("ignore runnable from thread {}", actual.getName());
+			}
+		}
+
+		@Override
+		public void onAdded(List<KubernetesPod> pods) {
+			runIfInMainThread(() -> super.onAdded(pods));
+		}
+
+		@Override
+		public void onModified(List<KubernetesPod> pods) {
+			runIfInMainThread(() -> super.onModified(pods));
+		}
+
+		@Override
+		public void onDeleted(List<KubernetesPod> pods) {
+			runIfInMainThread(() -> super.onDeleted(pods));
+		}
+
+		@Override
+		public void onError(List<KubernetesPod> pods) {
+			runIfInMainThread(() -> super.onError(pods));
+		}
 	}
 
 	@Test
@@ -265,7 +298,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				final String confDirOption = "--configDir " + flinkConfig.getString(KubernetesConfigOptions.FLINK_CONF_DIR);
 				assertTrue(tmContainer.getArgs().get(2).contains(confDirOption));
 
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod)));
+				addPods(Collections.singletonList(new KubernetesPod(pod)));
 				final ResourceID resourceID = new ResourceID(podName);
 				assertThat(resourceManager.getWorkerNodes().keySet(), Matchers.contains(resourceID));
 
@@ -292,16 +325,16 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				final Pod pod1 = kubeClient.pods().list().getItems().get(0);
 				final String taskManagerPrefix = CLUSTER_ID + "-taskmanager-1-";
 
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod1)));
+				addPods(Collections.singletonList(new KubernetesPod(pod1)));
 
 				// General modification event
-				resourceManager.onModified(Collections.singletonList(new KubernetesPod(pod1)));
+				modifyPods(Collections.singletonList(new KubernetesPod(pod1)));
 				assertEquals(1, kubeClient.pods().list().getItems().size());
 				assertEquals(taskManagerPrefix + 1, kubeClient.pods().list().getItems().get(0).getMetadata().getName());
 
 				// Terminate the pod.
 				terminatePod(pod1);
-				resourceManager.onModified(Collections.singletonList(new KubernetesPod(pod1)));
+				modifyPods(Collections.singletonList(new KubernetesPod(pod1)));
 
 				// Old pod should be deleted and a new task manager should be created
 				assertEquals(1, kubeClient.pods().list().getItems().size());
@@ -309,16 +342,15 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				assertEquals(taskManagerPrefix + 2, pod2.getMetadata().getName());
 
 				// Error happens in the pod.
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod2)));
+				addPods(Collections.singletonList(new KubernetesPod(pod2)));
 				terminatePod(pod2);
-				resourceManager.onError(Collections.singletonList(new KubernetesPod(pod2)));
+				errorPods(Collections.singletonList(new KubernetesPod(pod2)));
 				final Pod pod3 = kubeClient.pods().list().getItems().get(0);
 				assertEquals(taskManagerPrefix + 3, pod3.getMetadata().getName());
 
 				// Delete the pod.
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod3)));
-				terminatePod(pod3);
-				resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(pod3)));
+				addPods(Collections.singletonList(new KubernetesPod(pod3)));
+				terminateAndDeletePods(Collections.singletonList(new KubernetesPod(pod3)));
 				assertEquals(taskManagerPrefix + 4, kubeClient.pods().list().getItems().get(0).getMetadata().getName());
 			});
 		}};
@@ -330,16 +362,12 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 			runTest(() -> {
 				registerSlotRequest();
 				final Pod pod = kubeClient.pods().list().getItems().get(0);
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod)));
+				addPods(Collections.singletonList(new KubernetesPod(pod)));
 				registerTaskExecutor(new ResourceID(pod.getMetadata().getName()));
 
 				// Terminate the pod. Should not request a new pod.
 				terminatePod(pod);
-				CompletableFuture<?> podModifyFuture = resourceManager.runInMainThread(() -> {
-					resourceManager.onModified(Collections.singletonList(new KubernetesPod(pod)));
-					return null;
-				});
-				podModifyFuture.get();
+				modifyPods(Collections.singletonList(new KubernetesPod(pod)));
 				assertEquals(0, kubeClient.pods().list().getItems().size());
 			});
 		}};
@@ -351,16 +379,12 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 			runTest(() -> {
 				registerSlotRequest();
 				final Pod pod = kubeClient.pods().list().getItems().get(0);
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod)));
+				addPods(Collections.singletonList(new KubernetesPod(pod)));
 				registerTaskExecutor(new ResourceID(pod.getMetadata().getName()));
 
 				// Error happens in the pod. Should not request a new pod.
 				terminatePod(pod);
-				CompletableFuture<?> podErrorFuture = resourceManager.runInMainThread(() -> {
-					resourceManager.onError(Collections.singletonList(new KubernetesPod(pod)));
-					return null;
-				});
-				podErrorFuture.get();
+				errorPods(Collections.singletonList(new KubernetesPod(pod)));
 				assertEquals(0, kubeClient.pods().list().getItems().size());
 			});
 		}};
@@ -372,16 +396,11 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 			runTest(() -> {
 				registerSlotRequest();
 				final Pod pod = kubeClient.pods().list().getItems().get(0);
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod)));
+				addPods(Collections.singletonList(new KubernetesPod(pod)));
 				registerTaskExecutor(new ResourceID(pod.getMetadata().getName()));
 
 				// Delete the pod. Should not request a new pod.
-				terminatePod(pod);
-				CompletableFuture<?> podDeleteFuture = resourceManager.runInMainThread(() -> {
-					resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(pod)));
-					return null;
-				});
-				podDeleteFuture.get();
+				terminateAndDeletePods(Collections.singletonList(new KubernetesPod(pod)));
 				assertEquals(0, kubeClient.pods().list().getItems().size());
 			});
 		}};
@@ -459,11 +478,11 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				// Notify resource manager about pods added.
 				final KubernetesPod initialKubernetesPod1 = new KubernetesPod(initialPod1);
 				final KubernetesPod initialKubernetesPod2 = new KubernetesPod(initialPod2);
-				resourceManager.onAdded(ImmutableList.of(initialKubernetesPod1, initialKubernetesPod2));
+				addPods(ImmutableList.of(initialKubernetesPod1, initialKubernetesPod2));
 
 				// Terminate pod1.
 				terminatePod(initialPod1);
-				resourceManager.onModified(Collections.singletonList(initialKubernetesPod1));
+				modifyPods(Collections.singletonList(initialKubernetesPod1));
 
 				// Verify original pod1 is removed, a new pod1 with the same worker resource is requested.
 				// Meantime, pod2 is not changes.
@@ -490,8 +509,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				assertThat(resourceManager.getNumRequestedNotRegisteredWorkersForTesting(), is(1));
 
 				// adding previous attempt pod should not decrease pending worker count
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(previousAttemptPod)));
-				waitPodAdded(resourceManager, new ResourceID(previousAttemptPodName), 10);
+				addPods(Collections.singletonList(new KubernetesPod(previousAttemptPod)));
 				registerTaskExecutor(new ResourceID(previousAttemptPodName));
 				assertThat(resourceManager.getNumRequestedNotRegisteredWorkersForTesting(), is(1));
 
@@ -502,26 +520,14 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				final Pod currentAttemptPod = currentAttemptPodOpt.get();
 
 				// adding current attempt pod should decrease the pending worker count
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(currentAttemptPod)));
+				addPods(Collections.singletonList(new KubernetesPod(currentAttemptPod)));
 				ResourceID currentAttemptResourceID = new ResourceID(currentAttemptPod.getMetadata().getName());
-				waitPodAdded(resourceManager, currentAttemptResourceID, 10);
 				assertTrue(resourceManager.getWorkerNodes().containsKey(currentAttemptResourceID));
 				registerTaskExecutor(new ResourceID(currentAttemptPod.getMetadata().getName()));
 				assertThat(resourceManager.getNumRequestedNotAllocatedWorkersForTesting(), is(0));
 				assertThat(resourceManager.getNumRequestedNotRegisteredWorkersForTesting(), is(0));
 			});
 		}};
-	}
-
-	private void waitPodAdded(TestingKubernetesResourceManager resourceManager, ResourceID resourceID, int maxRetryTimes) throws InterruptedException {
-		int retryTimes = 0;
-		while (retryTimes < maxRetryTimes) {
-			if (resourceManager.getWorkerNodes().containsKey(resourceID)) {
-				break;
-			}
-			Thread.sleep(10);
-			retryTimes++;
-		}
 	}
 
 	@Test
@@ -537,8 +543,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				final Pod pod2 = kubeClient.pods().list().getItems().get(1);
 
 				// Adding duplicated pod should not increase pending worker count
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod1)));
-				resourceManager.onAdded(Collections.singletonList(new KubernetesPod(pod2)));
+				addPods(Collections.singletonList(new KubernetesPod(pod1)));
+				addPods(Collections.singletonList(new KubernetesPod(pod2)));
 
 				assertThat(resourceManager.getNumRequestedNotRegisteredWorkersForTesting(), is(2));
 				assertThat(resourceManager.getWorkerNodes().size(), is(2));
@@ -554,17 +560,16 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				final Pod pod1 = kubeClient.pods().list().getItems().get(0);
 
 				terminatePod(pod1);
-				resourceManager.onModified(Collections.singletonList(new KubernetesPod(pod1)));
+				modifyPods(Collections.singletonList(new KubernetesPod(pod1)));
 				final Pod pod2 = kubeClient.pods().list().getItems().get(0);
 				assertThat(pod2, not(pod1));
 
-				terminatePod(pod2);
-				resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(pod2)));
+				terminateAndDeletePods(Collections.singletonList(new KubernetesPod(pod2)));
 				final Pod pod3 = kubeClient.pods().list().getItems().get(0);
 				assertThat(pod3, not(pod2));
 
 				terminatePod(pod3);
-				resourceManager.onError(Collections.singletonList(new KubernetesPod(pod3)));
+				errorPods(Collections.singletonList(new KubernetesPod(pod3)));
 				final Pod pod4 = kubeClient.pods().list().getItems().get(0);
 				assertThat(pod4, not(pod3));
 			});
@@ -589,15 +594,14 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				// Should not request new pods when previous attempt pods are terminated
 
 				terminatePod(pod1);
-				resourceManager.onModified(Collections.singletonList(new KubernetesPod(pod1)));
+				modifyPods(Collections.singletonList(new KubernetesPod(pod1)));
 				assertThat(kubeClient.pods().list().getItems().size(), is(2));
 
-				terminatePod(pod2);
-				resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(pod2)));
+				terminateAndDeletePods(Collections.singletonList(new KubernetesPod(pod2)));
 				assertThat(kubeClient.pods().list().getItems().size(), is(1));
 
 				terminatePod(pod3);
-				resourceManager.onError(Collections.singletonList(new KubernetesPod(pod3)));
+				errorPods(Collections.singletonList(new KubernetesPod(pod3)));
 				assertThat(kubeClient.pods().list().getItems().size(), is(0));
 			});
 		}};
@@ -692,12 +696,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 			runTest(() -> {
 				final String taskManagerPrefix = CLUSTER_ID + "-taskmanager-";
 
-				terminatePod(mockTaskManagerPod);
-				CompletableFuture<?> podDeleteFuture = resourceManager.runInMainThread(() -> {
-					resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(mockTaskManagerPod)));
-					return null;
-				});
-				podDeleteFuture.get();
+				terminateAndDeletePods(Collections.singletonList(new KubernetesPod(mockTaskManagerPod)));
 				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
 				assertEquals(0, kubeClient.pods().list().getItems().size());
 
@@ -741,12 +740,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				assertEquals(1, kubeClient.pods().list().getItems().size());
 
 				// pod deleted, will reqeust new one.
-				terminatePod(mockTaskManagerPod);
-				CompletableFuture<?> podDeleteFuture = resourceManager.runInMainThread(() -> {
-					resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(mockTaskManagerPod)));
-					return null;
-				});
-				podDeleteFuture.get();
+				terminateAndDeletePods(Collections.singletonList(new KubernetesPod(mockTaskManagerPod)));
 				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
 				assertEquals(1, kubeClient.pods().list().getItems().size());
 
@@ -787,12 +781,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				assertEquals(1, kubeClient.pods().list().getItems().size());
 
 				// pod deleted, will not reqeust new one.
-				terminatePod(mockTaskManagerPod);
-				CompletableFuture<?> podDeleteFuture = resourceManager.runInMainThread(() -> {
-					resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(mockTaskManagerPod)));
-					return null;
-				});
-				podDeleteFuture.get();
+				terminateAndDeletePods(Collections.singletonList(new KubernetesPod(mockTaskManagerPod)));
 				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
 				assertEquals(0, kubeClient.pods().list().getItems().size());
 
@@ -833,12 +822,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				assertEquals(1, kubeClient.pods().list().getItems().size());
 
 				// pod deleted, will reqeust new one.
-				terminatePod(mockTaskManagerPod);
-				CompletableFuture<?> podDeleteFuture = resourceManager.runInMainThread(() -> {
-					resourceManager.onDeleted(Collections.singletonList(new KubernetesPod(mockTaskManagerPod)));
-					return null;
-				});
-				podDeleteFuture.get();
+				terminateAndDeletePods(Collections.singletonList(new KubernetesPod(mockTaskManagerPod)));
 				assertEquals(0, resourceManager.getRecoveredWorkerNodeSet().size());
 				assertEquals(1, kubeClient.pods().list().getItems().size());
 				assertThat(kubeClient.pods().list().getItems().stream()
@@ -863,7 +847,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 	@Test
 	public void testPreviousAttemptPodTimeout() throws Exception {
 		flinkConfig.setBoolean(ResourceManagerOptions.PREVIOUS_CONTAINER_AS_PENDING, true);
-		flinkConfig.setLong(ResourceManagerOptions.PREVIOUS_CONTAINER_TIMEOUT_MS, 500L);
+		flinkConfig.setLong(ResourceManagerOptions.PREVIOUS_CONTAINER_TIMEOUT_MS, 200L);
 		new Context() {{
 			flinkKubeClient = KubernetesResourceManagerTest.this.flinkKubeClient;
 			// Prepare pod of previous attempt
@@ -934,19 +918,11 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 			runTest(() -> {
 				registerSlotRequest();
+				assertThat(resourceManager.getNumRequestedNotAllocatedWorkersForTesting(), is(1));
 				assertThat(resourceManager.getNumRequestedNotRegisteredWorkersForTesting(), is(1));
 
-				// wait pod added.
-				int waitTime = 0;
-				while (resourceManager.getNumRequestedNotAllocatedWorkersForTesting() != 0) {
-					Thread.sleep(5);
-					waitTime++;
-					if (waitTime > 10) {
-						break;
-					}
-				}
-				assertThat(resourceManager.getNumRequestedNotAllocatedWorkersForTesting(), is(0));
 				final Pod pod = kubeClient.pods().list().getItems().get(0);
+				addPods(Collections.singletonList(new KubernetesPod(pod)));
 				trigger.complete(null);
 
 				registerTaskExecutor(new ResourceID(pod.getMetadata().getName()));
@@ -1021,7 +997,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 			registerSlotRequestFuture.get();
 		}
 
-		void addWorker(List<KubernetesPod> pods) throws Exception {
+		void addPods(List<KubernetesPod> pods) throws Exception {
 			CompletableFuture<?> addPodsFuture = resourceManager.runInMainThread(() -> {
 				resourceManager.onAdded(pods);
 				return null;
@@ -1029,13 +1005,29 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 			addPodsFuture.get();
 		}
 
-		void deleteWorker(List<KubernetesPod> pods) throws Exception {
+		void terminateAndDeletePods(List<KubernetesPod> pods) throws Exception {
 			CompletableFuture<?> deletePodsFuture = resourceManager.runInMainThread(() -> {
 				pods.forEach(p -> terminatePod(p.getInternalResource()));
 				resourceManager.onDeleted(pods);
 				return null;
 			});
 			deletePodsFuture.get();
+		}
+
+		void modifyPods(List<KubernetesPod> pods) throws Exception {
+			CompletableFuture<?> modifyPodsFuture = resourceManager.runInMainThread(() -> {
+				resourceManager.onModified(pods);
+				return null;
+			});
+			modifyPodsFuture.get();
+		}
+
+		void errorPods(List<KubernetesPod> pods) throws Exception {
+			CompletableFuture<?> errorPodsFuture = resourceManager.runInMainThread(() -> {
+				resourceManager.onError(pods);
+				return null;
+			});
+			errorPodsFuture.get();
 		}
 
 		void registerTaskExecutor(ResourceID resourceID) throws Exception {

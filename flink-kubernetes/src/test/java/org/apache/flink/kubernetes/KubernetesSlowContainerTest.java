@@ -74,7 +74,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 					pods.add(new KubernetesPod(pod));
 				}
 
-				addWorker(pods);
+				addPods(pods);
 
 				assertEquals(11, resourceManager.getWorkerNodes().size());
 				assertEquals(0, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
@@ -103,7 +103,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 					}
 				}
 				assertNotNull(pod);
-				addWorker(Collections.singletonList(new KubernetesPod(pod)));
+				addPods(Collections.singletonList(new KubernetesPod(pod)));
 				assertEquals(12, resourceManager.getWorkerNodes().size());
 				assertEquals(1, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(4, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
@@ -152,7 +152,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(10, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(10, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 				// allocated 10 pod. pending -> allocated.
-				addWorker(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
+				addPods(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
 				assertEquals(10, resourceManager.getWorkerNodes().size());
 				assertEquals(0, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(10, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
@@ -174,7 +174,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(3, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(6, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
-				addWorker(getPods(podNames.subList(10, 13)));
+				addPods(getPods(podNames.subList(10, 13)));
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(3, slotManager.getNumberPendingSlotRequests());
 				assertEquals(13, resourceManager.getWorkerNodes().size());
@@ -208,7 +208,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(0, slowContainerManager.getPendingRedundantContainersTotalNum());
 
 				// Mock that container 000010 is completed
-				deleteWorker(getPods(podNames.subList(10, 11)));
+				terminateAndDeletePods(getPods(podNames.subList(10, 11)));
 
 				// will not allocate new containers..
 				assertEquals(9, kubeClient.pods().list().getItems().size());
@@ -257,7 +257,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(10, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(10, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 				// allocated 10 pod. pending -> allocated.
-				addWorker(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
+				addPods(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
 				assertEquals(10, resourceManager.getWorkerNodes().size());
 				assertEquals(0, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(10, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
@@ -280,7 +280,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(6, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// allocated 3 redundant.
-				addWorker(getPods(podNames.subList(10, 13)));
+				addPods(getPods(podNames.subList(10, 13)));
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(3, slotManager.getNumberPendingSlotRequests());
 				assertEquals(13, resourceManager.getWorkerNodes().size());
@@ -303,7 +303,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(0, slowContainerManager.getPendingRedundantContainersTotalNum());
 
 				// starting worker deleted.
-				deleteWorker(getPods(podNames.subList(7, 8)));
+				terminateAndDeletePods(getPods(podNames.subList(7, 8)));
 				// verify will request new one.
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(1, slotManager.getNumberPendingSlotRequests());
@@ -369,7 +369,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(11, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// allocated 11 pod(1~11). pending -> allocated.
-				addWorker(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
+				addPods(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
 				assertEquals(11, resourceManager.getWorkerNodes().size());
 				assertEquals(0, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(11, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
@@ -392,7 +392,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(4, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// allocated 1 redundant(12).
-				addWorker(getPods(podNames.subList(11, 12)));
+				addPods(getPods(podNames.subList(11, 12)));
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(2, slotManager.getNumberPendingSlotRequests());
 				assertEquals(12, resourceManager.getWorkerNodes().size());
@@ -401,7 +401,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 
 				SlowContainerManagerImpl slowContainerManager = (SlowContainerManagerImpl) resourceManager.getSlowContainerManager();
 				// Mock that container 1 (started) is completed
-				deleteWorker(getPods(podNames.subList(0, 1)));
+				terminateAndDeletePods(getPods(podNames.subList(0, 1)));
 				// verify not request new worker
 				assertEquals(12, kubeClient.pods().list().getItems().size());
 				assertEquals(2, slotManager.getNumberPendingSlotRequests());
@@ -414,7 +414,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(1, slowContainerManager.getPendingRedundantContainersTotalNum());
 
 				// Mock that container 9(slow) is completed, while the worker is still starting
-				deleteWorker(getPods(podNames.subList(9, 10)));
+				terminateAndDeletePods(getPods(podNames.subList(9, 10)));
 				// verify request a new worker.
 				assertEquals(12, kubeClient.pods().list().getItems().size());
 				assertEquals(2, slotManager.getNumberPendingSlotRequests());
@@ -427,7 +427,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(1, slowContainerManager.getPendingRedundantContainersTotalNum());
 
 				// Mock that container 11(redundant) is completed
-				deleteWorker(getPods(podNames.subList(11, 12)));
+				terminateAndDeletePods(getPods(podNames.subList(11, 12)));
 				// verify not allocate new container.
 				assertEquals(11, kubeClient.pods().list().getItems().size());
 				assertEquals(2, slotManager.getNumberPendingSlotRequests());
@@ -441,7 +441,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(1, slowContainerManager.getRedundantContainerTotalNum());
 
 				// allocated 1 container(14)
-				addWorker(getPods(podNames.subList(13, 14)));
+				addPods(getPods(podNames.subList(13, 14)));
 				assertEquals(11, kubeClient.pods().list().getItems().size());
 				assertEquals(2, slotManager.getNumberPendingSlotRequests());
 				assertEquals(10, resourceManager.getWorkerNodes().size());
@@ -502,7 +502,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(11, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// allocated 11 pod(1~11). pending -> allocated.
-				addWorker(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
+				addPods(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
 				assertEquals(11, resourceManager.getWorkerNodes().size());
 				assertEquals(0, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(11, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
@@ -525,7 +525,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(13, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// allocated 1 redundant(12).
-				addWorker(getPods(podNames.subList(11, 12)));
+				addPods(getPods(podNames.subList(11, 12)));
 				assertEquals(16, kubeClient.pods().list().getItems().size());
 				assertEquals(8, slotManager.getNumberPendingSlotRequests());
 				assertEquals(12, resourceManager.getWorkerNodes().size());
@@ -535,7 +535,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				SlowContainerManagerImpl slowContainerManager = (SlowContainerManagerImpl) resourceManager.getSlowContainerManager();
 
 				// Mock that container 1 (started) is completed
-				deleteWorker(getPods(podNames.subList(0, 1)));
+				terminateAndDeletePods(getPods(podNames.subList(0, 1)));
 				// verify not request new worker
 				assertEquals(15, kubeClient.pods().list().getItems().size());
 				assertEquals(8, slotManager.getNumberPendingSlotRequests());
@@ -549,7 +549,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(5, slowContainerManager.getRedundantContainerTotalNum());
 
 				// Mock that container 9(slow) is completed, while the worker is still starting
-				deleteWorker(getPods(podNames.subList(9, 10)));
+				terminateAndDeletePods(getPods(podNames.subList(9, 10)));
 				// verify request a new worker.
 				assertEquals(15, kubeClient.pods().list().getItems().size());
 				assertEquals(8, slotManager.getNumberPendingSlotRequests());
@@ -599,7 +599,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(10, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// allocated 10 pod(1~10). pending -> allocated.
-				addWorker(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
+				addPods(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
 				assertEquals(10, resourceManager.getWorkerNodes().size());
 				assertEquals(0, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(10, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
@@ -685,7 +685,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(11, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// allocated 5 pod(1~5). pending -> allocated.
-				addWorker(getPods(podNames.subList(0, 5)));
+				addPods(getPods(podNames.subList(0, 5)));
 				assertEquals(5, resourceManager.getWorkerNodes().size());
 				assertEquals(6, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(11, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
@@ -712,7 +712,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(0, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// allocated 6 task manager,
-				addWorker(getPods(podNames.subList(5, 11)));
+				addPods(getPods(podNames.subList(5, 11)));
 				assertEquals(11, kubeClient.pods().list().getItems().size());
 				assertEquals(8, slotManager.getNumberPendingSlotRequests());
 				assertEquals(11, resourceManager.getWorkerNodes().size());
@@ -736,7 +736,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(2, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// delete starting task manager, will request new.
-				deleteWorker(getPods(podNames.subList(10, 11)));
+				terminateAndDeletePods(getPods(podNames.subList(10, 11)));
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(10, resourceManager.getWorkerNodes().size());
 				assertEquals(3, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
@@ -747,7 +747,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(2, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// allocated 2 container, will fulfill only 1 redundant.
-				addWorker(getPods(podNames.subList(11, 13)));
+				addPods(getPods(podNames.subList(11, 13)));
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(12, resourceManager.getWorkerNodes().size());
 				assertEquals(1, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
@@ -798,7 +798,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(11, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// allocated 11 pod(1~11). pending -> allocated.
-				addWorker(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
+				addPods(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
 				assertEquals(11, resourceManager.getWorkerNodes().size());
 				assertEquals(0, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(11, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
@@ -837,7 +837,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(3, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// allocated 3 redundant (12~14)
-				addWorker(getPods(podNames.subList(11, 14)));
+				addPods(getPods(podNames.subList(11, 14)));
 				assertEquals(14, kubeClient.pods().list().getItems().size());
 				assertEquals(3, slotManager.getNumberPendingSlotRequests());
 				assertEquals(14, resourceManager.getWorkerNodes().size());
@@ -873,7 +873,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(5, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum()); // 2 pending + 2 starting + 1 started
 
 				// started redundant (12) completed.
-				deleteWorker(getPods(podNames.subList(11, 12)));
+				terminateAndDeletePods(getPods(podNames.subList(11, 12)));
 				assertEquals(15, kubeClient.pods().list().getItems().size());
 				assertEquals(2, slotManager.getNumberPendingSlotRequests());
 				assertEquals(13, resourceManager.getWorkerNodes().size());
@@ -940,7 +940,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(10, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// allocated 11 pod(1~10). pending -> allocated.
-				addWorker(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
+				addPods(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
 				assertEquals(10, resourceManager.getWorkerNodes().size());
 				assertEquals(0, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(10, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
@@ -967,7 +967,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(5, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// allocated 4 redundant task manager(11~14)
-				addWorker(getPods(podNames.subList(10, 14)));
+				addPods(getPods(podNames.subList(10, 14)));
 				assertEquals(15, kubeClient.pods().list().getItems().size());
 				assertEquals(8, slotManager.getNumberPendingSlotRequests());
 				assertEquals(14, resourceManager.getWorkerNodes().size());
@@ -998,7 +998,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				// pending redundant (15)
 
 				// started task manager deleted(0), will not request new.
-				deleteWorker(getPods(podNames.subList(0, 1)));
+				terminateAndDeletePods(getPods(podNames.subList(0, 1)));
 				assertEquals(14, kubeClient.pods().list().getItems().size());
 				assertEquals(6, slotManager.getNumberPendingSlotRequests());
 				assertEquals(13, resourceManager.getWorkerNodes().size());
@@ -1010,7 +1010,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(5, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// starting task manager deleted(3), will request new (16).
-				deleteWorker(getPods(podNames.subList(2, 3)));
+				terminateAndDeletePods(getPods(podNames.subList(2, 3)));
 				assertEquals(14, kubeClient.pods().list().getItems().size());
 				assertEquals(6, slotManager.getNumberPendingSlotRequests());
 				assertEquals(12, resourceManager.getWorkerNodes().size());
@@ -1022,7 +1022,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(5, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// started redundant task manager deleted(11), will not request new
-				deleteWorker(getPods(podNames.subList(10, 11)));
+				terminateAndDeletePods(getPods(podNames.subList(10, 11)));
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(6, slotManager.getNumberPendingSlotRequests());
 				assertEquals(11, resourceManager.getWorkerNodes().size());
@@ -1034,7 +1034,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(4, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// starting redundant task manager deleted(13), will not request new
-				deleteWorker(getPods(podNames.subList(12, 13)));
+				terminateAndDeletePods(getPods(podNames.subList(12, 13)));
 				assertEquals(12, kubeClient.pods().list().getItems().size());
 				assertEquals(6, slotManager.getNumberPendingSlotRequests());
 				assertEquals(10, resourceManager.getWorkerNodes().size());
@@ -1046,7 +1046,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(3, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// allocated starting task manager(16)
-				addWorker(getPods(podNames.subList(15, 16)));
+				addPods(getPods(podNames.subList(15, 16)));
 				assertEquals(12, kubeClient.pods().list().getItems().size());
 				assertEquals(6, slotManager.getNumberPendingSlotRequests());
 				assertEquals(11, resourceManager.getWorkerNodes().size());
@@ -1058,7 +1058,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(3, resourceManager.getSlowContainerManager().getRedundantContainerTotalNum());
 
 				// starting task manager(16)(not redundant, not slow) deleted, will not request new.
-				deleteWorker(getPods(podNames.subList(15, 16)));
+				terminateAndDeletePods(getPods(podNames.subList(15, 16)));
 				assertEquals(11, kubeClient.pods().list().getItems().size());
 				assertEquals(6, slotManager.getNumberPendingSlotRequests());
 				assertEquals(10, resourceManager.getWorkerNodes().size());
@@ -1130,7 +1130,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(10, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
 
 				// allocated 10 pod(1~10). pending -> allocated.
-				addWorker(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
+				addPods(list.getItems().stream().map(KubernetesPod::new).collect(Collectors.toList()));
 				assertEquals(10, resourceManager.getWorkerNodes().size());
 				assertEquals(0, resourceManager.getNumRequestedNotAllocatedWorkersForTesting());
 				assertEquals(10, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
@@ -1157,7 +1157,7 @@ public class KubernetesSlowContainerTest extends KubernetesResourceManagerTest {
 				assertEquals(3, slowContainerManager.getRedundantContainerTotalNum());
 				assertEquals(3, slowContainerManager.getStartingContainerTotalNum());
 				// allocated 3 container(11~13)
-				addWorker(getPods(podNames.subList(10, 13)));
+				addPods(getPods(podNames.subList(10, 13)));
 				assertEquals(13, kubeClient.pods().list().getItems().size());
 				assertEquals(3, slotManager.getNumberPendingSlotRequests());
 				assertEquals(13, resourceManager.getWorkerNodes().size());
