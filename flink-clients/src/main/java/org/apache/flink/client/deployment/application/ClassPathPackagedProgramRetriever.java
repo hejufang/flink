@@ -20,16 +20,16 @@ package org.apache.flink.client.deployment.application;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.client.deployment.application.classpath.DefaultClasspathConstructor;
+import org.apache.flink.client.deployment.application.classpath.UserClasspathConstructor;
 import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.client.program.PackagedProgramRetriever;
 import org.apache.flink.client.program.ProgramInvocationException;
-import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.FlinkException;
-import org.apache.flink.util.function.FunctionUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,14 +39,11 @@ import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.function.Supplier;
 import java.util.jar.JarEntry;
@@ -93,7 +90,7 @@ public class ClassPathPackagedProgramRetriever implements PackagedProgramRetriev
 		@Nonnull Supplier<Iterable<File>> jarsOnClassPath,
 		@Nullable File userLibDirectory,
 		@Nullable File jarFile,
-		@Nullable Collection<URL> externalFiles,
+		@Nonnull UserClasspathConstructor userClasspathConstructor,
 		@Nonnull Configuration configuration) throws IOException {
 		this.userLibDirectory = userLibDirectory;
 		this.programArguments = requireNonNull(programArguments, "programArguments");
@@ -101,47 +98,26 @@ public class ClassPathPackagedProgramRetriever implements PackagedProgramRetriev
 		this.jarsOnClassPath = requireNonNull(jarsOnClassPath);
 		this.jarFile = jarFile;
 		this.configuration = configuration;
-		this.userClassPaths = getUserClassPathsWithExternalFiles(externalFiles);
-	}
-
-	private Collection<URL> getUserClassPathsWithExternalFiles(@Nullable Collection<URL> externalFiles) throws IOException {
-		final Collection<URL> classPathsFromUserLibDir = discoverUserClassPaths(userLibDirectory);
-		final List<URL> classPathsFromConfiguration = getClasspathsFromConfiguration(configuration);
-		List<URL> urlList = new ArrayList<>();
-		if (externalFiles != null) {
-			urlList.addAll(externalFiles);
-		}
-		urlList.addAll(classPathsFromUserLibDir);
-		urlList.addAll(classPathsFromConfiguration);
-		return Collections.unmodifiableCollection(urlList);
-	}
-
-	private static List<URL> getClasspathsFromConfiguration(Configuration configuration)
-			throws MalformedURLException {
-		if (configuration == null) {
-			return Collections.emptyList();
-		}
-		return ConfigUtils.decodeListFromConfig(
-				configuration, PipelineOptions.CLASSPATHS, URL::new);
-	}
-
-	private Collection<URL> discoverUserClassPaths(@Nullable File jobDir) throws IOException {
-		if (jobDir == null) {
-			return Collections.emptyList();
-		}
-
-		final Path workingDirectory = FileUtils.getCurrentWorkingDirectory();
-		final Collection<URL> relativeJarURLs = FileUtils.listFilesInDirectory(jobDir.toPath(), FileUtils::isJarFile)
-				.stream()
-				.map(path -> FileUtils.relativizePath(workingDirectory, path))
-				.map(FunctionUtils.uncheckedFunction(FileUtils::toURL))
-				.collect(Collectors.toList());
-		return Collections.unmodifiableCollection(relativeJarURLs);
+		this.userClassPaths = UserClasspathConstructor.getFlinkUserClasspath(userClasspathConstructor, configuration, userLibDirectory, null);
 	}
 
 	@Override
 	public PackagedProgram getPackagedProgram() throws FlinkException {
 		try {
+			if (configuration.getBoolean(PipelineOptions.USER_CLASSPATH_COMPATIBLE)) {
+				// need to make the user classpath setting as same as yarn per job mode
+				// in this mode, all jars including user jar, external jars, connector should be in the system classpath
+				// so the classpath as well as the jar file in packaged program is empty.
+				LOG.warn("user classpath compatible mode enabled, set the jar file and classpath in packaged program to null");
+				final String entryClassName = jarFile != null ? jobClassName : getJobClassNameOrScanClassPath();
+				return PackagedProgram.newBuilder()
+						.setUserClassPaths(Collections.emptyList())
+						.setArguments(programArguments)
+						.setJarFile(null)
+						.setConfiguration(configuration)
+						.setEntryPointClassName(entryClassName)
+						.build();
+			}
 			if (jarFile != null) {
 				return PackagedProgram.newBuilder()
 					.setUserClassPaths(new ArrayList<>(userClassPaths))
@@ -274,10 +250,10 @@ public class ClassPathPackagedProgramRetriever implements PackagedProgramRetriev
 		private File jarFile;
 
 		/**
-		 * the external files that will be downloaded into container and need to be added to user classpath in order.
+		 * this constructor is used to get all type of jar files including user jar, user lib jars, external resources, connectors etc.
 		 */
-		@Nullable
-		private Collection<URL> externalFiles;
+		@Nonnull
+		private UserClasspathConstructor userClasspathConstructor = DefaultClasspathConstructor.INSTANCE;
 
 		private final Configuration configuration;
 
@@ -306,8 +282,8 @@ public class ClassPathPackagedProgramRetriever implements PackagedProgramRetriev
 			return this;
 		}
 
-		public Builder setExternalFiles(@Nullable Collection<URL> externalFiles) {
-			this.externalFiles = externalFiles;
+		public Builder setUserClasspathConstructor(@Nonnull UserClasspathConstructor userClasspathConstructor) {
+			this.userClasspathConstructor = userClasspathConstructor;
 			return this;
 		}
 
@@ -318,7 +294,7 @@ public class ClassPathPackagedProgramRetriever implements PackagedProgramRetriev
 				jarsOnClassPath,
 				userLibDirectory,
 				jarFile,
-				externalFiles,
+				userClasspathConstructor,
 				configuration);
 		}
 	}

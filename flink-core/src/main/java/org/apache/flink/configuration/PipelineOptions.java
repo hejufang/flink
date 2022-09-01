@@ -360,4 +360,12 @@ public class PipelineOptions {
 			.booleanType()
 			.defaultValue(true)
 			.withDescription("Whether to register dashboard.");
+
+	public static final ConfigOption<Boolean> USER_CLASSPATH_COMPATIBLE =
+			key("pipeline.user-classpath-compatible")
+					.booleanType()
+					.defaultValue(Boolean.FALSE)
+					.withDescription("Whether to keep the user classpath settings compatible to yarn per job mode. " +
+							"If that mode is on, the user classpath setting will be in the order: user jar, external jar, " +
+							"and files in classpath. Noted that the usrlib is not supported in this compatible mode.");
 }

@@ -20,6 +20,7 @@ package org.apache.flink.client.deployment.application;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.dag.Pipeline;
+import org.apache.flink.client.deployment.application.classpath.UserClasspathConstructor;
 import org.apache.flink.client.deployment.executors.PipelineExecutorUtils;
 import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.client.program.PackagedProgramUtils;
@@ -51,6 +52,7 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -364,18 +366,18 @@ public class ClassPathPackagedProgramRetrieverTest extends TestLogger {
 		final Path file2 = downloadedDir.toPath().resolve("file2.jar");
 		Files.copy(TestJobInfo.JOB_LIB_JAR_PATH, file1);
 		Files.copy(TestJobInfo.JOB_LIB_JAR_PATH, file2);
-		Collection<URL> externalFiles = Arrays.asList(file1.toUri().toURL(), file2.toUri().toURL());
-
+		List<String> externalFiles = Arrays.asList(file1.toUri().toURL().toString(), file2.toUri().toURL().toString());
+		configuration.set(PipelineOptions.EXTERNAL_RESOURCES, externalFiles);
 		final ClassPathPackagedProgramRetriever retriever =
 				ClassPathPackagedProgramRetriever.newBuilder(PROGRAM_ARGUMENTS, configuration)
 						.setJarFile(TestJobInfo.JOB_JAR_PATH.toFile())
 						.setJobClassName(TestJobInfo.JOB_CLASS)
-						.setExternalFiles(externalFiles)
+						.setUserClasspathConstructor(ExternalResourceUserClasspathConstructor.INSTANCE)
 						.build();
 		final PackagedProgram program = retriever.getPackagedProgram();
 		assertArrayEquals(
 				externalFiles.toArray(),
-				program.getClasspaths().toArray());
+				program.getClasspaths().stream().map(URL::toString).toArray());
 	}
 
 	@Test
@@ -402,14 +404,15 @@ public class ClassPathPackagedProgramRetrieverTest extends TestLogger {
 		Files.copy(TestJobInfo.JOB_LIB_JAR_PATH, file1);
 		Files.copy(TestJobInfo.JOB_LIB_JAR_PATH, file2);
 		// prepare parameters
-		final List<URL> externalJars = Collections.singletonList(file1.toUri().toURL());
+		final List<String> externalJars = Collections.singletonList(file1.toUri().toURL().toString());
 		final List<String> pipelineJars = Collections.singletonList(file2.toUri().toURL().toString());
 		configuration.set(PipelineOptions.CLASSPATHS, pipelineJars);
+		configuration.set(PipelineOptions.EXTERNAL_RESOURCES, externalJars);
 		final ClassPathPackagedProgramRetriever retriever =
 				ClassPathPackagedProgramRetriever.newBuilder(PROGRAM_ARGUMENTS, configuration)
 						.setJarFile(TestJobInfo.JOB_JAR_PATH.toFile())
 						.setJobClassName(TestJobInfo.JOB_CLASS)
-						.setExternalFiles(externalJars)
+						.setUserClasspathConstructor(ExternalResourceUserClasspathConstructor.INSTANCE)
 						.build();
 		PackagedProgram program = retriever.getPackagedProgram();
 		assertThat("the external files should be in front of files in pipeline.classpath",
@@ -429,19 +432,19 @@ public class ClassPathPackagedProgramRetrieverTest extends TestLogger {
 		final Path file2 = downloadedDir.toPath().resolve("file2.jar");
 		Files.copy(TestJobInfo.JOB_LIB_JAR_PATH, file1);
 		Files.copy(TestJobInfo.JOB_LIB_JAR_PATH, file2);
-		Collection<URL> externalFiles = Arrays.asList(file1.toUri().toURL(), file2.toUri().toURL());
-
+		List<String> externalFiles = Arrays.asList(file1.toUri().toURL().toString(), file2.toUri().toURL().toString());
+		configuration.set(PipelineOptions.EXTERNAL_RESOURCES, externalFiles);
 		final ClassPathPackagedProgramRetriever retriever =
 				ClassPathPackagedProgramRetriever.newBuilder(PROGRAM_ARGUMENTS, configuration)
 						.setJarFile(TestJobInfo.JOB_JAR_PATH.toFile())
 						.setJobClassName(TestJobInfo.JOB_CLASS)
-						.setExternalFiles(externalFiles)
+						.setUserClasspathConstructor(ExternalResourceUserClasspathConstructor.INSTANCE)
 						.build();
 		try {
 			final JobGraph jobGraph = retrieveJobGraph(retriever, configuration);
 			assertArrayEquals(
 					externalFiles.toArray(),
-					jobGraph.getClasspaths().toArray());
+					jobGraph.getClasspaths().stream().map(URL::toString).toArray());
 		} catch (ProgramInvocationException e) {
 			fail("can not generate job graph" + e);
 		}
@@ -494,6 +497,25 @@ public class ClassPathPackagedProgramRetrieverTest extends TestLogger {
 		} finally {
 			// Reset property
 			System.setProperty(ClassPathPackagedProgramRetriever.JarsOnClassPath.JAVA_CLASS_PATH, originalClassPath);
+		}
+	}
+
+	private enum ExternalResourceUserClasspathConstructor implements UserClasspathConstructor {
+
+		INSTANCE;
+
+		@Override
+		public List<URL> getUserJar(Configuration flinkConfiguration) {
+			return Collections.emptyList();
+		}
+
+		@Override
+		public List<URL> getExternalJars(Configuration flinkConfiguration) {
+			try {
+				return ConfigUtils.decodeListFromConfig(flinkConfiguration, PipelineOptions.EXTERNAL_RESOURCES, URL::new);
+			} catch (MalformedURLException e) {
+				throw new RuntimeException(e);
+			}
 		}
 	}
 }

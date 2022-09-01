@@ -210,3 +210,6 @@ rmq.server_url.boei18n
 
 # show cpu and mem resource allocated for container, instead of showing cpu and mem of physical machine
 web.display-container-real-resource-enable
+
+# tob should follow the default user classpath setting pattern
+pipeline.user-classpath-compatible

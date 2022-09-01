@@ -22,9 +22,13 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.client.deployment.application.ApplicationClusterEntryPoint;
 import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.client.deployment.application.ClassPathPackagedProgramRetriever;
+import org.apache.flink.client.deployment.application.classpath.NoOpClasspathConstructor;
+import org.apache.flink.client.deployment.application.classpath.UserClasspathConstructor;
 import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.client.program.PackagedProgramRetriever;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
+import org.apache.flink.kubernetes.kubeclient.classpath.KubernetesUserClasspathConstructor;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
 import org.apache.flink.runtime.util.EnvironmentInformation;
@@ -37,8 +41,6 @@ import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
-import java.util.Collection;
 import java.util.List;
 
 import static org.apache.flink.runtime.util.ClusterEntrypointUtils.tryFindUserLibDirectory;
@@ -105,14 +107,17 @@ public final class KubernetesApplicationClusterEntrypoint extends ApplicationClu
 		Preconditions.checkArgument(pipelineJars.size() == 1, "Should only have one jar");
 
 		final File userLibDir = tryFindUserLibDirectory().orElse(null);
-		final Collection<URL> externalFiles = KubernetesUtils.getExternalFiles(configuration);
+		// when user classpath compatible on, we choose NoOpClasspathConstructor because all the classpath setting has been
+		// done in the client. So ClassPathPackagedProgramRetriever which is run in job manager just do nothing.
+		final UserClasspathConstructor userClasspathConstructor = configuration.getBoolean(PipelineOptions.USER_CLASSPATH_COMPATIBLE) ?
+				NoOpClasspathConstructor.INSTANCE : KubernetesUserClasspathConstructor.INSTANCE;
 
 		final ClassPathPackagedProgramRetriever.Builder retrieverBuilder =
 			ClassPathPackagedProgramRetriever
 				.newBuilder(programArguments, configuration)
 				.setUserLibDirectory(userLibDir)
 				.setJarFile(pipelineJars.get(0))
-				.setExternalFiles(externalFiles)
+				.setUserClasspathConstructor(userClasspathConstructor)
 				.setJobClassName(jobClassName);
 		return retrieverBuilder.build();
 	}

@@ -33,6 +33,14 @@ if [ "$DYNAMIC_FILES" != "" ]; then
         DYNAMIC_FILES=${DYNAMIC_FILES//;/:}
         FLINK_CLASSPATH=$DYNAMIC_FILES:$FLINK_CLASSPATH
 fi
+
+# add user classpath to the beginning of flink classpath, the environment variable: FLINK_USER_CLASSPATH should be
+# set in somewhere
+if [ "$FLINK_USER_CLASSPATH" != "" ]; then
+  echo "FLINK_USER_CLASSPATH = $FLINK_USER_CLASSPATH"
+  FLINK_CLASSPATH=$FLINK_USER_CLASSPATH:$FLINK_CLASSPATH;
+fi
+
 echo "FLINK_CLASSPATH = $FLINK_CLASSPATH"
 
 # FLINK_CLASSPATH will be used by KubernetesUtils.java to generate jobmanager and taskmanager start command.

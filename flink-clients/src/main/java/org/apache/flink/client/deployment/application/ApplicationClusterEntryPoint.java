@@ -37,6 +37,7 @@ import org.apache.flink.runtime.rest.JobRestEndpointFactory;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -87,14 +88,20 @@ public class ApplicationClusterEntryPoint extends ClusterEntrypoint {
 	}
 
 	private static List<URL> getClasspath(final Configuration configuration, final PackagedProgram program) throws MalformedURLException {
-		final List<URL> classpath = program.getClasspaths();
-		List<URL> classpathInConfig = ConfigUtils.decodeListFromConfig(
+		final List<URL> programClassPaths = program.getClasspaths();
+		final List<URL> classpathInConfig = ConfigUtils.decodeListFromConfig(
 			configuration,
 			PipelineOptions.CLASSPATHS,
 			URL::new);
+		final List<URL> classpath = new ArrayList<>(programClassPaths.size() + classpathInConfig.size());
 		// We need to guarantee the order, the classpath of package program contains external files.
 		// And the external files should be in front of pipeline.classpath.
-		classpath.addAll(classpathInConfig);
+		classpath.addAll(programClassPaths);
+		// in classpath compatible mode, we need to ignore the classpath settings in configuration because all the jar
+		// has been in the system classpath already.
+		if (!configuration.getBoolean(PipelineOptions.USER_CLASSPATH_COMPATIBLE)) {
+			classpath.addAll(classpathInConfig);
+		}
 		return Collections.unmodifiableList(classpath.stream().distinct().collect(Collectors.toList()));
 	}
 }

@@ -174,4 +174,6 @@ public class Constants {
 		FLINK_PORT_NAME_TO_ENV_NAME.put(Constants.TASK_MANAGER_NETTY_SERVER_NAME, PORT2_ENV);
 	}
 
+	public static final String FLINK_USER_CLASSPATH_ENV_KEY = "FLINK_USER_CLASSPATH";
+
 }

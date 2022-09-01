@@ -24,6 +24,7 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptionsInternal;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptionsInternal;
 import org.apache.flink.kubernetes.entrypoint.KubernetesApplicationClusterEntrypoint;
@@ -372,4 +373,7 @@ public abstract class AbstractKubernetesParameters implements KubernetesParamete
 		return flinkConfig.getString(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, null);
 	}
 
+	public boolean keepUserClasspathCompatible() {
+		return flinkConfig.getBoolean(PipelineOptions.USER_CLASSPATH_COMPATIBLE);
+	}
 }

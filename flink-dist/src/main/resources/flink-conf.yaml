@@ -89,6 +89,7 @@ common:
 
   ## StreamPipelineOptions
   pipeline.time-characteristic: EventTime
+  pipeline.user-classpath-compatible: true
 
   # Security
   ## Auth with External Systems
