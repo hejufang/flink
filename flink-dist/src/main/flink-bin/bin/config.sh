@@ -221,6 +221,40 @@ getJarDependencies() {
     echo $jar_dependencies_classpath
 }
 
+getDynamicClientSettings() {
+    local found=0
+    local prefix="env.java.opts.client="
+    for arg in "$@" ; do
+      if [[ $found = 1 && "$arg" =~ $prefix ]]; then
+        length=${#prefix}
+        echo ${arg:$length}
+        break
+      fi
+      found=0
+
+      if [[ $arg == "-yD" ]]; then
+        found=1;
+      fi
+    done
+}
+
+getDynamicClientSettingsForGeneric() {
+    local found=0
+    local prefix="env.java.opts.client="
+    for arg in "$@" ; do
+      if [[ $found = 1 && "$arg" =~ $prefix ]]; then
+        length=${#prefix}
+        echo ${arg:$length}
+        break
+      fi
+      found=0
+
+      if [[ $arg == "-D" ]]; then
+        found=1;
+      fi
+    done
+}
+
 getClientIncludeUserJar() {
     local clientIncludeUserJar=$(readFromConfig "flink-client-classpath-include-user-jar" "" "${YAML_CONF}")
     for arg in $* ; do
@@ -506,6 +540,12 @@ if [ -z "${FLINK_ENV_JAVA_OPTS_CLI}" ]; then
     FLINK_ENV_JAVA_OPTS_CLI=$(readFromConfig ${KEY_ENV_JAVA_OPTS_CLI} "${DEFAULT_ENV_JAVA_OPTS_CLI}" "${YAML_CONF}")
     # Remove leading and ending double quotes (if present) of value
     FLINK_ENV_JAVA_OPTS_CLI="$( echo "${FLINK_ENV_JAVA_OPTS_CLI}" | sed -e 's/^"//'  -e 's/"$//' )"
+    if [ -z "${FLINK_ENV_JAVA_OPTS_CLI}" ]; then
+      FLINK_ENV_JAVA_OPTS_CLI=$(getDynamicClientSettings "$@")
+    fi
+    if [ -z "${FLINK_ENV_JAVA_OPTS_CLI}" ]; then
+      FLINK_ENV_JAVA_OPTS_CLI=$(getDynamicClientSettingsForGeneric "$@")
+    fi
 fi
 
 if [ -z "${FLINK_SSH_OPTS}" ]; then
