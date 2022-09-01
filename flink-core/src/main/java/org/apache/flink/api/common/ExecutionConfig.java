@@ -177,6 +177,9 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 	@Deprecated
 	private boolean failTaskOnCheckpointError = true;
 
+	/** See {@link org.apache.flink.configuration.ConfigConstants#CONFIGURATION_NEW_NUMS_IN_MAIN_METHOD} */
+	private int configurationNewNumsInMainMethod = 0;
+
 	/** The default input dependency constraint to schedule tasks. */
 	private InputDependencyConstraint defaultInputDependencyConstraint = InputDependencyConstraint.ANY;
 
@@ -1078,6 +1081,14 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 
 	public void setDefaultPartitioner(DefaultPartitioner defaultPartitioner) {
 		this.defaultPartitioner = defaultPartitioner;
+	}
+
+	public int getConfigurationNewNumsInMainMethod() {
+		return configurationNewNumsInMainMethod;
+	}
+
+	public void setConfigurationNewNumsInMainMethod(int configurationNewNumsInMainMethod) {
+		this.configurationNewNumsInMainMethod = configurationNewNumsInMainMethod;
 	}
 
 	@Override

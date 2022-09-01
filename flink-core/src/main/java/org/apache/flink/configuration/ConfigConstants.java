@@ -2230,6 +2230,11 @@ public final class ConfigConstants {
 	public static final String CLOUD_SHUFFLE_SERVICE_TYPE = "flink";
 
 	/**
+	 * Record the size of add/update configuration in main method for datastream job.
+	 */
+	public static final String CONFIGURATION_NEW_NUMS_IN_MAIN_METHOD = "configuration.new-nums-in-main-method";
+
+	/**
 	 * Not instantiable.
 	 */
 	private ConfigConstants() {}

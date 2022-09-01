@@ -40,7 +40,9 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -63,6 +65,8 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 
 	private int jobCounter;
 
+	private Map<String, String> initConfigurationMap;
+
 	public StreamContextEnvironment(
 			final PipelineExecutorServiceLoader executorServiceLoader,
 			final Configuration configuration,
@@ -71,6 +75,7 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 			final boolean suppressSysout,
 			@Nullable final AbstractEventRecorder abstractEventRecorder) {
 		super(executorServiceLoader, configuration, userCodeClassLoader, abstractEventRecorder);
+		this.initConfigurationMap = super.getConfiguration().toMap();
 		this.suppressSysout = suppressSysout;
 		this.enforceSingleJobExecution = enforceSingleJobExecution;
 
@@ -79,6 +84,9 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 
 	@Override
 	public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
+		int configurationNewNumsInMainMethod = logNewConfiguration(getConfiguration(), initConfigurationMap);
+		streamGraph.getExecutionConfig().setConfigurationNewNumsInMainMethod(configurationNewNumsInMainMethod);
+
 		final JobClient jobClient = executeAsync(streamGraph);
 		final List<JobListener> jobListeners = getJobListeners();
 
@@ -101,6 +109,29 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 				jobClient.shutDown().get();
 			}
 		}
+	}
+
+	/**
+	 * Get the size of configurations which are add or update in main method.
+	 */
+	private static int logNewConfiguration(Configuration configuration, Map<String, String> initConfigurationMap) {
+		Map<String, String> addMap = new HashMap<>();
+		Map<String, String> updateMap = new HashMap<>();
+
+		Map<String, String> newConfigurationMap = configuration.toMap();
+
+		for (String key : newConfigurationMap.keySet()) {
+			if (!initConfigurationMap.containsKey(key)) {
+				addMap.put(key, newConfigurationMap.get(key));
+			} else if (!newConfigurationMap.get(key).equals(initConfigurationMap.get(key))) {
+				updateMap.put(key, newConfigurationMap.get(key));
+			}
+		}
+		if (addMap.size() + updateMap.size() > 0) {
+			LOG.info("The new/update configuration size of main method is {}, new configuration details is: {}, update configuration details is: {}.",
+				addMap.size() + updateMap.size(), addMap, updateMap);
+		}
+		return addMap.size() + updateMap.size();
 	}
 
 	private JobExecutionResult getJobExecutionResult(final JobClient jobClient) throws Exception {

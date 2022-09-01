@@ -417,6 +417,10 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 				checkpointConfigMessageSet.addMessage(new Message<>(checkpointCoordinatorConfiguration));
 			}
 
+			// new-configuration-nums for datastream job
+			int configurationNewNumsInMainMethod = jobGraph.getSerializedExecutionConfig().deserializeValue(userCodeLoader).getConfigurationNewNumsInMainMethod();
+			jobManagerJobMetricGroup.gauge(MetricNames.CONFIGURATION_NEW_NUMS_IN_MAIN_METHOD_METRICS, () -> configurationNewNumsInMainMethod);
+
 			// job version metrics
 			TagGauge jobVersionTagGauge = new TagGauge.TagGaugeBuilder().build();
 			jobVersionTagGauge.addMetric(1, createVersionTagValues());
