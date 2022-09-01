@@ -21,7 +21,9 @@ package org.apache.flink.table.planner.plan.reuse
 import org.apache.flink.runtime.operators.DamBehavior
 import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.streaming.api.transformations.ShuffleMode
+import org.apache.flink.table.api.TableConfig
 import org.apache.flink.table.api.TableException
+import org.apache.flink.table.api.config.ExecutionConfigOptions.TABLE_EXEC_USE_OLAP_MODE
 import org.apache.flink.table.planner.plan.`trait`.FlinkRelDistribution
 import org.apache.flink.table.planner.plan.nodes.exec.{BatchExecNode, ExecNode, ExecNodeVisitorImpl}
 import org.apache.flink.table.planner.plan.nodes.physical.batch._
@@ -92,7 +94,8 @@ class DeadlockBreakupProcessor extends DAGProcessor {
     }
     val finder = new ReuseNodeFinder()
     rootNodes.foreach(finder.visit)
-    rootNodes.foreach(_.asInstanceOf[BatchExecNode[_]].accept(new DeadlockBreakupVisitor(finder)))
+    rootNodes.foreach(_.asInstanceOf[BatchExecNode[_]]
+      .accept(new DeadlockBreakupVisitor(finder, context.getPlanner.getTableConfig)))
     rootNodes
   }
 
@@ -144,7 +147,9 @@ class DeadlockBreakupProcessor extends DAGProcessor {
     }
   }
 
-  class DeadlockBreakupVisitor(finder: ReuseNodeFinder) extends ExecNodeVisitorImpl {
+  class DeadlockBreakupVisitor(
+    finder: ReuseNodeFinder,
+    tableConfig: TableConfig) extends ExecNodeVisitorImpl {
 
     private def rewriteJoin(
         join: BatchExecJoinBase,
@@ -162,22 +167,34 @@ class DeadlockBreakupProcessor extends DAGProcessor {
       // 3. check whether all input paths have a barrier node (e.g. agg, sort)
       if (inputPathsOfProbeSide.nonEmpty && !hasBarrierNodeInInputPaths(inputPathsOfProbeSide)) {
         // 4. sets Exchange node(if does not exist, add one) as BATCH mode to break up the deadlock
-        probeNode match {
-          case e: BatchExecExchange =>
-            // TODO create a cloned BatchExecExchange for PIPELINE output
-            e.setRequiredShuffleMode(ShuffleMode.BATCH)
-          case _ =>
-            val probeRel = probeNode.asInstanceOf[RelNode]
-            val traitSet = probeRel.getTraitSet.replace(distribution)
-            val e = new BatchExecExchange(
-              probeRel.getCluster,
-              traitSet,
-              probeRel,
-              distribution)
-            e.setRequiredShuffleMode(ShuffleMode.BATCH)
-            // replace join node's input
-            join.replaceInputNode(probeSideIndex, e)
+        setBatchModeForJoinInput(join, probeNode, distribution, probeSideIndex)
+        val useOlapMode = tableConfig.getConfiguration.get(TABLE_EXEC_USE_OLAP_MODE)
+        if (useOlapMode) {
+          // Also set batch mode for build side to avoid deadlock in olap mode.
+          setBatchModeForJoinInput(join, buildNode, distribution, buildSideIndex)
         }
+      }
+    }
+
+    private def setBatchModeForJoinInput(
+        join: BatchExecJoinBase,
+        joinInput: ExecNode[_, _],
+        distribution: FlinkRelDistribution,
+        index: Int): Unit = {
+      joinInput match {
+        case e: BatchExecExchange =>
+          // TODO create a cloned BatchExecExchange for PIPELINE output
+          e.setRequiredShuffleMode(ShuffleMode.BATCH)
+        case _ =>
+          val probeRel = joinInput.asInstanceOf[RelNode]
+          val traitSet = probeRel.getTraitSet.replace(distribution)
+          val e = new BatchExecExchange(
+            probeRel.getCluster,
+            traitSet,
+            probeRel,
+            distribution)
+          e.setRequiredShuffleMode(ShuffleMode.BATCH)
+          join.replaceInputNode(index, e)
       }
     }
 

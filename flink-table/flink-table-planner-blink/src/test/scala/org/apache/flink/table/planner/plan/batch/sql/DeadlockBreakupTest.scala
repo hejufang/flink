@@ -181,4 +181,14 @@ class DeadlockBreakupTest extends TableTestBase {
     util.verifyPlan(sqlQuery)
   }
 
+  @Test
+  def testDataStreamReuse_AddExchangeAsBatchForBothSide_HashJoin(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setBoolean(
+      OptimizerConfigOptions.TABLE_OPTIMIZER_REUSE_SUB_PLAN_ENABLED, false)
+    util.tableEnv.getConfig.getConfiguration.setBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_USE_OLAP_MODE, true)
+    val sqlQuery = "SELECT * FROM t INTERSECT SELECT * FROM t"
+    util.verifyPlan(sqlQuery)
+  }
+
 }
