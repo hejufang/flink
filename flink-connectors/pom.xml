@@ -46,7 +46,6 @@ under the License.
 
 	<modules>
 		<module>flink-hadoop-compatibility</module>
-		<module>flink-hcatalog</module>
 		<module>flink-connector-kafka-base</module>
 		<module>flink-connector-kafka-0.10</module>
 		<module>flink-connector-kafka-0.11</module>
