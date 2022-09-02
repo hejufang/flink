@@ -2386,7 +2386,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		try {
 			JobDeploymentManager jobDeploymentManager = jobDeploymentManagers.get(taskExecutionState.getJobID());
 			if (jobDeploymentManager == null) {
-				log.error("Cant found job {} in job deployment managers for task {}", taskExecutionState.getJobID(), taskExecutionState.getID());
+				log.warn("Cant found job {} in job deployment managers for task {}", taskExecutionState.getJobID(), taskExecutionState.getID());
 			} else {
 				if (batchUpdateJobStateEnable && taskExecutionState.isDownStreamBlocked()) {
 					CompletableFuture<Acknowledge> futureAcknowledge = jobMasterGateway.updateTaskExecutionState(taskExecutionState);
