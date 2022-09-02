@@ -537,14 +537,16 @@ if [ -z "${FLINK_ENV_JAVA_OPTS_HS}" ]; then
 fi
 
 if [ -z "${FLINK_ENV_JAVA_OPTS_CLI}" ]; then
-    FLINK_ENV_JAVA_OPTS_CLI=$(readFromConfig ${KEY_ENV_JAVA_OPTS_CLI} "${DEFAULT_ENV_JAVA_OPTS_CLI}" "${YAML_CONF}")
-    # Remove leading and ending double quotes (if present) of value
-    FLINK_ENV_JAVA_OPTS_CLI="$( echo "${FLINK_ENV_JAVA_OPTS_CLI}" | sed -e 's/^"//'  -e 's/"$//' )"
+    # The priority of parameter source is -D > -yD > config file. Pick only one of them.
+    # We don't concatenate parameters from different sources as such behavior is undefined.
+    FLINK_ENV_JAVA_OPTS_CLI=$(getDynamicClientSettingsForGeneric "$@")
     if [ -z "${FLINK_ENV_JAVA_OPTS_CLI}" ]; then
       FLINK_ENV_JAVA_OPTS_CLI=$(getDynamicClientSettings "$@")
     fi
     if [ -z "${FLINK_ENV_JAVA_OPTS_CLI}" ]; then
-      FLINK_ENV_JAVA_OPTS_CLI=$(getDynamicClientSettingsForGeneric "$@")
+      FLINK_ENV_JAVA_OPTS_CLI=$(readFromConfig ${KEY_ENV_JAVA_OPTS_CLI} "${DEFAULT_ENV_JAVA_OPTS_CLI}" "${YAML_CONF}")
+      # Remove leading and ending double quotes (if present) of value
+      FLINK_ENV_JAVA_OPTS_CLI="$( echo "${FLINK_ENV_JAVA_OPTS_CLI}" | sed -e 's/^"//'  -e 's/"$//' )"
     fi
 fi
 
