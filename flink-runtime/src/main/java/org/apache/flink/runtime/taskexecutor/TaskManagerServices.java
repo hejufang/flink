@@ -39,7 +39,6 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironmentContext;
 import org.apache.flink.runtime.shuffle.ShuffleServiceLoader;
-import org.apache.flink.runtime.state.StateBackendLoader;
 import org.apache.flink.runtime.state.TaskExecutorLocalStateStoresManager;
 import org.apache.flink.runtime.state.cache.CacheConfiguration;
 import org.apache.flink.runtime.state.cache.CacheManager;
@@ -62,8 +61,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
-import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -370,7 +367,6 @@ public class TaskManagerServices {
 			taskManagerServicesConfiguration.getLocalStateManageConfig(),
 			ioExecutor);
 
-		final List<URL> stateBackendPlugins = StateBackendLoader.findStateBackendPlugins(taskManagerServicesConfiguration.getConfiguration());
 		final boolean failOnJvmMetaspaceOomError =
 			taskManagerServicesConfiguration.getConfiguration().getBoolean(CoreOptions.FAIL_ON_USER_CLASS_LOADING_METASPACE_OOM);
 		final boolean useSystemClassLoaderWhenLibIsEmpty = taskManagerServicesConfiguration.getConfiguration()
@@ -380,8 +376,7 @@ public class TaskManagerServices {
 			BlobLibraryCacheManager.defaultClassLoaderFactory(
 				taskManagerServicesConfiguration.getClassLoaderResolveOrder(),
 				taskManagerServicesConfiguration.getAlwaysParentFirstLoaderPatterns(),
-				failOnJvmMetaspaceOomError ? fatalErrorHandler : null,
-				stateBackendPlugins),
+				failOnJvmMetaspaceOomError ? fatalErrorHandler : null),
 			useSystemClassLoaderWhenLibIsEmpty);
 
 		CacheConfiguration cacheConfiguration = CacheConfiguration.fromConfiguration(taskManagerServicesConfiguration.getConfiguration());
