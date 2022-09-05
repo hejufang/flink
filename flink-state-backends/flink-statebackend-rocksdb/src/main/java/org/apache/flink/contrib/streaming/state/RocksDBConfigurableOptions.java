@@ -122,12 +122,6 @@ public class RocksDBConfigurableOptions implements Serializable {
 			.noDefaultValue()
 			.withDescription("Period of rocksdb dump status statistics.");
 
-	public static final ConfigOption<Integer> MAX_SUB_COMPACTIONS =
-		key("state.backend.rocksdb.max-sub-compactions")
-			.intType()
-			.defaultValue(1)
-			.withDescription("The maximum number of concurrent sub-compactions of compaction.");
-
 	//--------------------------------------------------------------------------
 	// Provided configurable ColumnFamilyOptions within Flink
 	//--------------------------------------------------------------------------
@@ -227,20 +221,14 @@ public class RocksDBConfigurableOptions implements Serializable {
 			.defaultValue(true)
 			.withDeprecatedKeys("Whether enable auto compaction.");
 
+	public static final ConfigOption<MemorySize> FIFO_COMPACTION_MAX_TABLE_SIZE =
+		key("state.backend.rocksdb.fifo-compaction.max-table-files-size")
+			.memoryType()
+			.defaultValue(MemorySize.parse("40gb"))
+			.withDeprecatedKeys("");
+
 	public static final ConfigOption<Integer> LEVEL0_FILE_NUMBER_COMPACTION_TRIGGER =
 		key("state.backend.rocksdb.compaction.level0-file-num-compaction-trigger")
 			.defaultValue(4)
 			.withDeprecatedKeys("");
-
-	public static final ConfigOption<MemorySize> BLOB_SIZE =
-		key("state.backend.rocksdb.blob.size")
-			.memoryType()
-			.defaultValue(MemorySize.ZERO)
-			.withDeprecatedKeys("KV separation starts when the value size exceeds the size of the blob.");
-
-	public static final ConfigOption<MemorySize> BLOB_FILE_SIZE =
-		key("state.backend.rocksdb.blob-file.size")
-			.memoryType()
-			.defaultValue(MemorySize.ZERO)
-			.withDeprecatedKeys("The size of the blob file.");
 }

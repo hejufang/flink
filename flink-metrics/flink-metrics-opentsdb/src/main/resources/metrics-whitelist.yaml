@@ -91,7 +91,6 @@ global:
         numberOfTmExceedQuota,
         numberOfFailedDiscardExpiredCheckpointFolder,
         upstreamTaskErrorNum,
-        numberOfTerarkdbJobs,
         configurationNewNums
     ]
 

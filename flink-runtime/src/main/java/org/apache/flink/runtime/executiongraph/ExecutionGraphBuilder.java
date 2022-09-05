@@ -30,7 +30,6 @@ import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.event.AbstractEventRecorder;
-import org.apache.flink.metrics.GlobalGauge;
 import org.apache.flink.metrics.MeterView;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.JobException;
@@ -520,9 +519,6 @@ public class ExecutionGraphBuilder {
 		executionGraph.getFailoverStrategy().registerMetrics(metrics);
 		executionGraph.getSpeculationStrategy().registerMetrics(metrics);
 
-		if (StateBackendLoader.TERARKDB_STATE_BACKEND_NAME.equals(jobManagerConfig.get(CheckpointingOptions.STATE_BACKEND))) {
-			metrics.gauge("numberOfTerarkdbJobs", (GlobalGauge<Integer>) (() -> 1));
-		}
 		log.info("Successfully ran buildExecutionGraph on master in {} ms.",
 				(System.nanoTime() - initMasterStart) / 1_000_000);
 
