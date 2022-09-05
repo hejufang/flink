@@ -23,10 +23,12 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.dispatcher.DefaultJobManagerRunnerFactory;
 import org.apache.flink.runtime.dispatcher.Dispatcher;
 import org.apache.flink.runtime.dispatcher.DispatcherBootstrap;
 import org.apache.flink.runtime.dispatcher.DispatcherFactory;
+import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.dispatcher.DispatcherId;
 import org.apache.flink.runtime.dispatcher.DispatcherServices;
 import org.apache.flink.runtime.dispatcher.JobMaterProxyDispatcher;
@@ -54,6 +56,8 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
 import static org.apache.flink.core.testutils.CommonTestUtils.assertThrows;
@@ -156,6 +160,9 @@ public class MiniClusterSocketTest {
 		try (MiniCluster miniCluster = new TestingDispatcherMiniClusterSocket(configuration, consumer, jobResultClientManager)) {
 			miniCluster.start();
 
+			CompletableFuture<DispatcherGateway> dispatcherGatewayFuture = miniCluster.getDispatcherGatewayFuture();
+			dispatcherGatewayFuture.get(5000L, TimeUnit.MILLISECONDS);
+
 			JobGraph jobGraph = new JobGraph();
 			JobVertex vertex = new JobVertex("v");
 			vertex.setParallelism(1);
@@ -174,6 +181,7 @@ public class MiniClusterSocketTest {
 		configuration.setString(RestOptions.BIND_PORT, "0");
 		configuration.setBoolean(ClusterOptions.CLUSTER_SOCKET_ENDPOINT_ENABLE, true);
 		configuration.set(ClusterOptions.JM_RESOURCE_ALLOCATION_ENABLED, true);
+		configuration.setInteger(TaskManagerOptions.RESULT_PUSH_CLIENT_COUNT, 1);
 
 		return configuration;
 	}
