@@ -2225,12 +2225,18 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		final FlinkException failureCause = new FlinkException("JobManager responsible for " + jobId +
 			" lost the leadership.", cause);
 
+		Set<ExecutionAttemptID> removedExecutionId = new HashSet<>();
+
 		while (tasks.hasNext()) {
 			Task task = tasks.next();
 			task.failExternally(failureCause);
 			if (requestSlotFromResourceManagerDirectEnable) {
-				taskSlotTable.removeTask(task.getExecutionId());
+				removedExecutionId.add(task.getExecutionId());
 			}
+		}
+
+		for (ExecutionAttemptID executionAttemptID : removedExecutionId) {
+			taskSlotTable.removeTask(executionAttemptID);
 		}
 
 		// 2. Move the active slots to state allocated (possible to time out again)
