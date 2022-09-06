@@ -216,7 +216,8 @@ public class JdbcDynamicTableSourceITCase extends AbstractTestBase {
 		);
 
 		Iterator<Row> collected = tEnv.executeSql("select " +
-			"/*+ use_broadcast_join('table' = '" + INPUT_TABLE + "', 'allowLatency' = '1 min') */" +
+			"/*+ use_broadcast_join('table' = '" + INPUT_TABLE + "', " +
+			"'allowLatency' = '1 min', 'maxBuildLatency' = '1 min') */" +
 			" a_id, a_word, id, timestamp6_col from A left join " + INPUT_TABLE +
 			" on A.a_id = " + INPUT_TABLE + ".id").collect();
 		List<String> result = Lists.newArrayList(collected).stream()
