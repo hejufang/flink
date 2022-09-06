@@ -30,7 +30,7 @@ under the License.
 	<artifactId>flink-connector-tos</artifactId>
 
 	<properties>
-		<tos.version>1.4.2</tos.version>
+		<tos.version>1.4.5</tos.version>
 		<shaded.prefix>org.apache.flink.connectors.tos.shaded</shaded.prefix>
 	</properties>
 

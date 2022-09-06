@@ -51,7 +51,7 @@ org.apache.flink:flink-connector-tos:jar:1.11-byted-SNAPSHOT
 |     +- com.googlecode.json-simple:json-simple:jar:1.1.1:provided
 |     +- org.apache.flink:flink-shaded-bytedance-commons:jar:11.0-byted-SNAPSHOT:provided
 |     \- org.apache.flink:flink-shaded-httpclient:jar:4.5.3-11.0-byted-SNAPSHOT:provided
-+- com.bytedance.storage:tos-core:jar:1.4.2:compile
++- com.bytedance.storage:tos-core:jar:1.4.5:compile
 |  +- com.bytedance:env-conf-core:jar:2.0.12-rc.3:compile
 |  |  +- com.bytedance:consul-lang-core:jar:2.0.12-rc.2:compile
 |  |  |  +- com.orbitz.consul:consul-client:jar:1.0.2-bd-SNAPSHOT:compile
