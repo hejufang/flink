@@ -73,6 +73,8 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	private final String group;
 	private final int batchSize;
 	private transient List<Message> messageList;
+	private final long bufferSize;
+	private int currentBufferSize;
 	private Map<String, String> props;
 	private final TopicSelector<T> topicSelector;
 	private int messageDelayLevel;
@@ -104,6 +106,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		this.group = rocketMQConfig.getGroup();
 		this.messageDelayLevel = rocketMQConfig.getDelayLevel();
 		this.batchSize = rocketMQConfig.getSendBatchSize();
+		this.bufferSize = rocketMQConfig.getSendBufferSize();
 		this.topicSelector = rocketMQConfig.getTopicSelector();
 		this.msgDelayLevelSelector = rocketMQConfig.getMsgDelayLevelSelector();
 		this.parallelism = rocketMQConfig.getParallelism();
@@ -121,6 +124,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
 		messageList = new ArrayList<>();
+		currentBufferSize = 0;
 		this.retryStrategy = RetryManager.createStrategy(RetryManager.StrategyType.EXPONENTIAL_BACKOFF.name(),
 			RocketMQOptions.CONSUMER_RETRY_TIMES_DEFAULT,
 			RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
@@ -194,7 +198,11 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		if (batchFlushEnable) {
 			synchronized (messageList) {
 				messageList.add(message);
-				if (messageList.size() >= batchSize) {
+				if (message.getBody() != null && message.getBody().length > 0) {
+					currentBufferSize += message.getBody().length;
+				}
+				if (messageList.size() >= batchSize || currentBufferSize >= bufferSize) {
+					LOG.info("flushMessage to rmq batchSize is {} , bufferSize is {}", messageList.size(), currentBufferSize);
 					flushMessages();
 				}
 			}
@@ -232,6 +240,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 				throw new FlinkRuntimeException("Rocketmq flush exception", e);
 			}
 			messageList.clear();
+			currentBufferSize = 0;
 		}
 	}
 

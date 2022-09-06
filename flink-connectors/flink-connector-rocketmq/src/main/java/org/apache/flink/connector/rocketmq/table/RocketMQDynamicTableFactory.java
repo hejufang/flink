@@ -23,6 +23,7 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
 import org.apache.flink.connector.rocketmq.RocketMQConsumerFactory;
@@ -95,6 +96,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_T
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_ASYNC_MODE_ENABLED;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_BATCH_FLUSH_ENABLE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_BATCH_SIZE;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_BUFFER_SIZE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_DEFER_LOOP;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_DEFER_LOOP_FIELD;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_DEFER_MILLIS;
@@ -180,6 +182,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SCAN_ASSIGN_QUEUE_STRATEGY);
 		options.add(SCAN_FORCE_AUTO_COMMIT);
 		options.add(SINK_BATCH_SIZE);
+		options.add(SINK_BUFFER_SIZE);
 		options.add(SINK_DELAY_LEVEL_FIELD);
 		options.add(SINK_DEFER_MILLIS);
 		options.add(SINK_DEFER_MILLIS_FIELD);
@@ -353,6 +356,7 @@ public class RocketMQDynamicTableFactory implements
 					LOG.warn("Param {} not supported in current version.", SINK_ASYNC_MODE_ENABLED.key())
 			);
 			rocketMQConfig.setSendBatchSize(config.get(SINK_BATCH_SIZE));
+			rocketMQConfig.setSendBufferSize(MemorySize.parseBytes(config.get(SINK_BUFFER_SIZE)));
 		} else {
 			rocketMQConfig.setTopic(config.getOptional(TOPIC).orElseThrow(
 				() -> new FlinkRuntimeException(

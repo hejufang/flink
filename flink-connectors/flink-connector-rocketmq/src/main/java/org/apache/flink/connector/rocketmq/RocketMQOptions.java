@@ -201,7 +201,13 @@ public abstract class RocketMQOptions {
 		.key("sink.batch-size")
 		.intType()
 		.defaultValue(1000)
-		.withDescription("Optional producer batch size.");
+		.withDescription("Optional producer batch size.(batch messages lengths) ");
+
+	public static final ConfigOption<String> SINK_BUFFER_SIZE = ConfigOptions
+			.key("sink.buffer-size")
+			.stringType()
+			.defaultValue("1MB")
+			.withDescription("Optional producer buffer size.(batch messages sizes)");
 
 	public static final ConfigOption<Integer> SINK_MESSAGE_DELAY_LEVEL = ConfigOptions
 		.key("sink.msg-delay-level")

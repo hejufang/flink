@@ -60,6 +60,7 @@ public class RocketMQConfig<T> implements Serializable {
 	private DeferLoopSelector<T> deferLoopSelector;
 	private String tag;
 	private int sendBatchSize;
+	private Long sendBufferSize;
 	private AssignQueueStrategy assignQueueStrategy = AssignQueueStrategy.FIXED;
 	private int[] sinkKeyByFields;
 	private int[] sinkMsgKeyByFields;
@@ -150,6 +151,14 @@ public class RocketMQConfig<T> implements Serializable {
 
 	public void setSendBatchSize(int sendBatchSize) {
 		this.sendBatchSize = sendBatchSize;
+	}
+
+	public Long getSendBufferSize() {
+		return sendBufferSize;
+	}
+
+	public void setSendBufferSize(Long sendBufferSize) {
+		this.sendBufferSize = sendBufferSize;
 	}
 
 	public long getFlushIntervalMs() {
