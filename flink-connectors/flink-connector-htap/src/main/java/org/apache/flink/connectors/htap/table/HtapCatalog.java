@@ -518,7 +518,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 
 	@Override
 	public List<String> listDatabases() throws CatalogException {
-		return new ArrayList<>(HtapTableUtils.extractDatabaseName(metaClient.listTables()));
+		return metaClient.listDatabases();
 	}
 
 	@Override
@@ -533,7 +533,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 
 	@Override
 	public boolean databaseExists(String databaseName) throws CatalogException {
-		return listDatabases().contains(databaseName);
+		return metaClient.databaseExists(databaseName);
 	}
 
 	@Override
