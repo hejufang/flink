@@ -1310,13 +1310,12 @@ public class CheckpointCoordinator {
 	private void completePendingCheckpoint(PendingCheckpoint pendingCheckpoint) throws CheckpointException {
 		final long checkpointId = pendingCheckpoint.getCheckpointId();
 		final CompletedCheckpoint completedCheckpoint;
-
-		// As a first step to complete the checkpoint, we register its state with the registry
 		Map<OperatorID, OperatorState> operatorStates = pendingCheckpoint.getOperatorStates();
-		sharedStateRegistry.registerAll(operatorStates.values());
 
 		try {
 			try {
+				// As a first step to complete the checkpoint, we register its state with the registry
+				sharedStateRegistry.registerAll(operatorStates.values());
 				completedCheckpoint = pendingCheckpoint.finalizeCheckpoint();
 				failureManager.handleCheckpointSuccess(pendingCheckpoint.getCheckpointId());
 			}
