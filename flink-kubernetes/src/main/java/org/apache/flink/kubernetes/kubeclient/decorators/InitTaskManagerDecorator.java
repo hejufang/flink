@@ -18,6 +18,8 @@
 
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
+import java.util.Map;
+
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
@@ -39,6 +41,7 @@ import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -206,11 +209,10 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
         if (kubernetesTaskManagerParameters.isHostNetworkEnabled()) {
             return Collections.emptyList();
         }
-        return Collections.singletonList(
-                new ContainerPortBuilder()
-                        .withName(Constants.TASK_MANAGER_RPC_PORT_NAME)
-                        .withContainerPort(kubernetesTaskManagerParameters.getRPCPort())
-                        .build());
+        Map<String, Integer> systemPorts = new LinkedHashMap<>();
+        systemPorts.put(Constants.TASK_MANAGER_RPC_PORT_NAME, kubernetesTaskManagerParameters.getRPCPort());
+
+        return KubernetesUtils.getContainerPortsWithUserPorts(systemPorts, kubernetesTaskManagerParameters.getTaskManagerUserDefinedPorts());
     }
 
     private List<EnvVar> getCustomizedEnvs() {
