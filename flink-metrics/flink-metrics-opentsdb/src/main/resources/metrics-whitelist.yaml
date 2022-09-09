@@ -167,6 +167,7 @@ non-global:
       # kafka latency
         fetch-latency-avg,
         fetch-latency-max,
+        consume-latency,
       # kafka connector verison
         kafkaConnectorVersion,
       # rocketmq connector verison
