@@ -140,46 +140,6 @@ public class CheckpointCoordinatorTest extends TestLogger {
 	}
 
 	@Test
-	public void testMinCheckpointPause() throws Exception {
-		// will use a different thread to allow checkpoint triggering before exiting from receiveAcknowledgeMessage
-		ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-		try {
-			int pause = 1000;
-			JobID jobId = new JobID();
-			ExecutionAttemptID attemptId = new ExecutionAttemptID();
-			ExecutionVertex vertex = mockExecutionVertex(attemptId);
-
-			CheckpointCoordinator coordinator = new CheckpointCoordinatorBuilder()
-				.setTimer(new ScheduledExecutorServiceAdapter(executorService))
-					.setCheckpointCoordinatorConfiguration(CheckpointCoordinatorConfiguration.builder()
-						.setCheckpointInterval(pause)
-						.setCheckpointTimeout(Long.MAX_VALUE)
-						.setMaxConcurrentCheckpoints(1)
-						.setMinPauseBetweenCheckpoints(pause)
-						.build())
-					.setTasksToTrigger(new ExecutionVertex[]{vertex})
-					.setTasksToWaitFor(new ExecutionVertex[]{vertex})
-					.setTasksToCommitTo(new ExecutionVertex[]{vertex})
-					.setJobId(jobId)
-				.build();
-			coordinator.startCheckpointScheduler();
-
-			coordinator.triggerCheckpoint(true); // trigger, execute, and later complete by receiveAcknowledgeMessage
-			coordinator.triggerCheckpoint(true); // enqueue and later see if it gets executed in the middle of receiveAcknowledgeMessage
-			while (coordinator.getNumberOfPendingCheckpoints() == 0) { // wait for at least 1 request to be fully processed
-				Thread.sleep(10);
-			}
-			coordinator.receiveAcknowledgeMessage(new AcknowledgeCheckpoint(jobId, attemptId, 1L), TASK_MANAGER_LOCATION_INFO);
-			Thread.sleep(pause / 2);
-			assertEquals(0, coordinator.getNumberOfPendingCheckpoints());
-			Thread.sleep(pause);
-			assertEquals(1, coordinator.getNumberOfPendingCheckpoints());
-		} finally {
-			executorService.shutdownNow();
-		}
-	}
-
-	@Test
 	public void testCheckpointAbortsIfTriggerTasksAreNotExecuted() {
 		try {
 
@@ -2823,6 +2783,123 @@ public class CheckpointCoordinatorTest extends TestLogger {
 			}
 		} finally {
 			coord.shutdown(JobStatus.FINISHED);
+		}
+	}
+
+	@Test
+	public void testMinCheckpointPause() throws Exception {
+		int pause = 1000;
+		JobID jobId = new JobID();
+		ExecutionAttemptID attemptId = new ExecutionAttemptID();
+		ExecutionVertex vertex = mockExecutionVertex(attemptId);
+
+		CheckpointCoordinator coordinator = new CheckpointCoordinatorBuilder()
+			.setTimer(manuallyTriggeredScheduledExecutor)
+			.setCheckpointCoordinatorConfiguration(CheckpointCoordinatorConfiguration.builder()
+				.setCheckpointInterval(pause)
+				.setCheckpointTimeout(Long.MAX_VALUE)
+				.setMaxConcurrentCheckpoints(1)
+				.setMinPauseBetweenCheckpoints(pause)
+				.build())
+			.setTasksToTrigger(new ExecutionVertex[]{vertex})
+			.setTasksToWaitFor(new ExecutionVertex[]{vertex})
+			.setTasksToCommitTo(new ExecutionVertex[]{vertex})
+			.setJobId(jobId)
+			.build();
+		coordinator.startCheckpointScheduler();
+
+		// trigger, execute, and later complete by receiveAcknowledgeMessage
+		manuallyTriggeredScheduledExecutor.triggerPeriodicScheduledTasks();
+		manuallyTriggeredScheduledExecutor.triggerAll();
+
+		CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+			try {
+				// wait for at least 1 request to be fully processed
+				while (coordinator.getNumberOfPendingCheckpoints() == 0) {
+					Thread.sleep(10);
+				}
+				coordinator.receiveAcknowledgeMessage(new AcknowledgeCheckpoint(jobId, attemptId, 1L), TASK_MANAGER_LOCATION_INFO);
+			} catch (CheckpointException | InterruptedException e) {
+				throw new RuntimeException(e);
+			}
+		});
+
+		try {
+			future.get();
+		} catch (Exception e) {
+			coordinator.shutdown(JobStatus.FINISHED);
+			fail(e.getMessage());
+		}
+
+		// see if it gets executed within min pause
+		final CompletableFuture<CompletedCheckpoint> checkpointFuture1 = coordinator.triggerCheckpoint(true);
+		manuallyTriggeredScheduledExecutor.triggerAll();
+		assertTrue(checkpointFuture1.isCompletedExceptionally());
+		Thread.sleep(pause);
+
+		final CompletableFuture<CompletedCheckpoint> checkpointFuture2 = coordinator.triggerCheckpoint(true);
+		manuallyTriggeredScheduledExecutor.triggerAll();
+		assertFalse(checkpointFuture2.isCompletedExceptionally());
+		coordinator.shutdown(JobStatus.FINISHED);
+	}
+
+	@Test
+	public void testMinCheckpointPauseWhenCpDelayExceedsCpInterval() throws Exception {
+		// use a executorService to allow checkpoint triggering periodically
+		ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+		try {
+			int pause = 1000;
+			JobID jobId = new JobID();
+			ExecutionAttemptID attemptId = new ExecutionAttemptID();
+			ExecutionVertex vertex = mockExecutionVertex(attemptId);
+
+			CheckpointCoordinator coordinator = new CheckpointCoordinatorBuilder()
+				.setTimer(new ScheduledExecutorServiceAdapter(executorService))
+				.setCheckpointCoordinatorConfiguration(CheckpointCoordinatorConfiguration.builder()
+					.setCheckpointInterval(pause)	// trigger checkpoint periodically
+					.setCheckpointTimeout(Long.MAX_VALUE)
+					.setMaxConcurrentCheckpoints(1)
+					.setMinPauseBetweenCheckpoints(pause)
+					.build())
+				.setTasksToTrigger(new ExecutionVertex[]{vertex})
+				.setTasksToWaitFor(new ExecutionVertex[]{vertex})
+				.setTasksToCommitTo(new ExecutionVertex[]{vertex})
+				.setJobId(jobId)
+				.build();
+			coordinator.startCheckpointScheduler();
+
+			// trigger, execute, and later complete by receiveAcknowledgeMessage
+			coordinator.triggerCheckpoint(true);
+
+			// complete the triggering checkpoint with delay
+			CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+				try {
+					// wait for at least 1 request to be fully processed
+					while (coordinator.getNumberOfPendingCheckpoints() == 0) {
+						Thread.sleep(10);
+					}
+					// checkpoint delay is more than checkpoint interval
+					Thread.sleep(pause + 10);
+					coordinator.receiveAcknowledgeMessage(new AcknowledgeCheckpoint(jobId, attemptId, 1L), TASK_MANAGER_LOCATION_INFO);
+				} catch (CheckpointException | InterruptedException e) {
+					throw new RuntimeException(e);
+				}
+			});
+
+			try {
+				future.get();
+			} catch (Exception e) {
+				coordinator.shutdown(JobStatus.FINISHED);
+				fail(e.getMessage());
+			}
+			Thread.sleep(pause / 2);
+			// cannot trigger the next checkpoint within min pause
+			assertEquals(0, coordinator.getNumberOfPendingCheckpoints());
+			Thread.sleep(pause);
+			// the next checkpoint can be triggered
+			assertEquals(1, coordinator.getNumberOfPendingCheckpoints());
+		} finally {
+			executorService.shutdownNow();
 		}
 	}
 }

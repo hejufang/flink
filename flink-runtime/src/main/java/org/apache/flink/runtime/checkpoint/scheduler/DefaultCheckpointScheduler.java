@@ -20,8 +20,6 @@ package org.apache.flink.runtime.checkpoint.scheduler;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
-import org.apache.flink.runtime.checkpoint.CheckpointException;
-import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -122,21 +120,12 @@ public class DefaultCheckpointScheduler extends AbstractCheckpointScheduler {
 	}
 
 	@Override
-	public void checkMinPauseSinceLastCheckpoint(long lastCompletionNanos) throws CheckpointException {
-		final long elapsedTimeMillis = (System.nanoTime() - lastCompletionNanos) / 1_000_000L;
-
-		// this will never be triggered by early checkpoint, so we just check regular ones
-		if (elapsedTimeMillis < minPauseMillis) {
-			// ensure that there is enough delay
-			if (currentPeriodicTrigger != null) {
-				currentPeriodicTrigger.cancel(false);
-			}
-			// postpone next checkpoint
-			currentPeriodicTrigger = timer.scheduleAtFixedRate(regularCheckpointTask, minPauseMillis - elapsedTimeMillis, baseInterval, TimeUnit.MILLISECONDS);
-
-			// abort current checkpoint
-			throw new CheckpointException(CheckpointFailureReason.MINIMUM_TIME_BETWEEN_CHECKPOINTS);
+	public void rescheduleNextCheckpointTrigger(long tillNextMillis) {
+		if (currentPeriodicTrigger != null) {
+			currentPeriodicTrigger.cancel(false);
 		}
+		// postpone next checkpoint
+		currentPeriodicTrigger = timer.scheduleAtFixedRate(regularCheckpointTask, tillNextMillis, baseInterval, TimeUnit.MILLISECONDS);
 	}
 
 	@Override

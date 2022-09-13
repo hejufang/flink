@@ -2071,7 +2071,9 @@ public class CheckpointCoordinator {
 		}
 	}
 
-	private void rescheduleTrigger(long tillNextMillis) {}
+	private void rescheduleTrigger(long tillNextMillis) {
+		checkpointScheduler.rescheduleNextCheckpointTrigger(tillNextMillis);
+	}
 
 	private void restoreStateToCoordinators(final Map<OperatorID, OperatorState> operatorStates) throws Exception {
 		for (OperatorCoordinatorCheckpointContext coordContext : coordinatorsToCheckpoint) {

@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.checkpoint.scheduler;
 
-import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.scheduler.savepoint.PeriodicSavepointScheduler;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 
@@ -62,10 +61,9 @@ public interface CheckpointScheduler {
 	 * Adjust scheduling time to ensure the time between the last and next checkpoint is
 	 * greater than a predefined value (in ns for exact measurement of time).
 	 *
-	 * @param lastCompletionNanos last completion time (in ns)
-	 * @throws CheckpointException if the time difference is too small
+	 * @param tillNextMillis should wait for the tillNextMillis to trigger the next checkpoint (in ms)
 	 */
-	void checkMinPauseSinceLastCheckpoint(long lastCompletionNanos) throws CheckpointException;
+	void rescheduleNextCheckpointTrigger(long tillNextMillis);
 
 	/**
 	 * Returns whether periodic checkpointing has been configured.
