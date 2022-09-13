@@ -1087,6 +1087,8 @@ shark:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  ipv6.enabled: true
+  ipv6.supported.cluster: shark
 
 snipe:
   dc: sg
@@ -1138,6 +1140,8 @@ marmt:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: marmt
 
 vitas:
   dc: va
@@ -1166,6 +1170,8 @@ vitas:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: vitas
 
 vivid:
   dc: va
@@ -1195,6 +1201,8 @@ vivid:
   flink.cloud-shuffle-service.support: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: vivid
 
 fed01:
   dc: va
@@ -1312,6 +1320,8 @@ macaw:
   flink.cloud-shuffle-service.support: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: macaw
 
 monkey:
   dc: va
@@ -1341,6 +1351,8 @@ monkey:
   flink.cloud-shuffle-service.support: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: monkey
 
 mouse:
   dc: va
@@ -1370,6 +1382,8 @@ mouse:
   flink.cloud-shuffle-service.support: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: mouse
 
 mamba:
   dc: va
@@ -1425,6 +1439,8 @@ maize:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: maize
 
 momet:
   dc: va
@@ -1454,6 +1470,8 @@ momet:
   flink.cloud-shuffle-service.support: true
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: momet
 
 giraf:
   dc: va
@@ -1685,6 +1703,8 @@ sloth:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  ipv6.enabled: true
+  ipv6.supported.cluster: sloth
 
 snail:
   dc: sg
@@ -1708,6 +1728,8 @@ snail:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  ipv6.enabled: true
+  ipv6.supported.cluster: snail
 
 snake:
   dc: sg
@@ -1731,6 +1753,8 @@ snake:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  ipv6.enabled: true
+  ipv6.supported.cluster: snake
 
 spider:
   dc: sg
@@ -1754,6 +1778,8 @@ spider:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  ipv6.enabled: true
+  ipv6.supported.cluster: spider
 
 saola:
   dc: sg
@@ -1796,6 +1822,8 @@ stoat:
   yarn.provided.lib.dirs.enabled: false
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   table.exec.hive.permission-check.gemini-server-url: http://gemini-jp-lark.byted.org/api/query/jp_lark/verifyUsersPrivilege
+  ipv6.enabled: true
+  ipv6.supported.cluster: stoat
 
 icing:
   dc: i18n_gcp
