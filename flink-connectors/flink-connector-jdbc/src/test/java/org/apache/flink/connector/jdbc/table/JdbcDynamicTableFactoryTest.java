@@ -84,7 +84,8 @@ public class JdbcDynamicTableFactoryTest {
 			options,
 			JdbcReadOptions.builder().build(),
 			lookupOptions,
-			schema);
+			schema,
+			null);
 		assertEquals(expectedSource, actualSource);
 
 		// validation for sink
@@ -143,7 +144,8 @@ public class JdbcDynamicTableFactoryTest {
 			options,
 			readOptions,
 			lookupOptions,
-			schema);
+			schema,
+			null);
 
 		assertEquals(expected, actual);
 	}
@@ -173,7 +175,8 @@ public class JdbcDynamicTableFactoryTest {
 			options,
 			JdbcReadOptions.builder().build(),
 			lookupOptions,
-			schema);
+			schema,
+			null);
 
 		assertEquals(expected, actual);
 	}

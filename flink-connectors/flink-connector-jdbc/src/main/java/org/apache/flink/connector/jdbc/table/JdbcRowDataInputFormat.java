@@ -31,6 +31,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.jdbc.JdbcConnectionOptions;
 import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.flink.connector.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.flink.connector.jdbc.predicate.Predicate;
 import org.apache.flink.connector.jdbc.split.JdbcParameterValuesProvider;
 import org.apache.flink.core.io.GenericInputSplit;
 import org.apache.flink.core.io.InputSplit;
@@ -52,6 +53,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 
 /**
@@ -61,13 +65,14 @@ import java.util.Arrays;
 public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 	implements ResultTypeQueryable<RowData>, PeriodScanInputFormat, SpecificParallelism {
 
-	private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = 2L;
 	private static final Logger LOG = LoggerFactory.getLogger(JdbcRowDataInputFormat.class);
 
 	private JdbcConnectionOptions connectionOptions;
 	private int fetchSize;
 	private Boolean autoCommit;
 	private Object[][] parameterValues;
+	private final Predicate predicate;
 	private String queryTemplate;
 	private int resultSetType;
 	private int resultSetConcurrency;
@@ -94,7 +99,8 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 			TypeInformation<RowData> rowDataTypeInfo,
 			long scanIntervalMs,
 			int countOfReadTimes,
-			int parallelism) {
+			int parallelism,
+			Predicate predicate) {
 		this.connectionOptions = connectionOptions;
 		this.fetchSize = fetchSize;
 		this.autoCommit = autoCommit;
@@ -107,6 +113,7 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 		this.scanIntervalMs = scanIntervalMs;
 		this.countOfReadTimes = countOfReadTimes;
 		this.parallelism = parallelism;
+		this.predicate = predicate;
 	}
 
 	@Override
@@ -178,9 +185,21 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 	@Override
 	public void open(InputSplit inputSplit) throws IOException {
 		try {
-			if (inputSplit != null && parameterValues != null) {
-				for (int i = 0; i < parameterValues[inputSplit.getSplitNumber()].length; i++) {
-					Object param = parameterValues[inputSplit.getSplitNumber()][i];
+			Object[] params = null;
+			if (parameterValues != null && predicate == null) {
+				params = parameterValues[inputSplit.getSplitNumber()];
+			} else if (parameterValues == null && predicate != null) {
+				params = predicate.getParams();
+			} else if (parameterValues != null && predicate != null) {
+				Object[] paramsFromParameterValues = parameterValues[inputSplit.getSplitNumber()];
+				Object[] paramsFromPredicate = predicate.getParams();
+				params = new Object[paramsFromParameterValues.length + paramsFromPredicate.length];
+				System.arraycopy(paramsFromParameterValues, 0, params, 0, paramsFromParameterValues.length);
+				System.arraycopy(paramsFromPredicate, 0, params, paramsFromParameterValues.length, paramsFromPredicate.length);
+			}
+			if (inputSplit != null && params != null) {
+				for (int i = 0; i < params.length; i++) {
+					Object param = params[i];
 					if (param instanceof String) {
 						statement.setString(i + 1, (String) param);
 					} else if (param instanceof Long) {
@@ -207,6 +226,12 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 						statement.setTimestamp(i + 1, (Timestamp) param);
 					} else if (param instanceof Array) {
 						statement.setArray(i + 1, (Array) param);
+					} else if (param instanceof LocalDate) {
+						statement.setDate(i + 1, Date.valueOf((LocalDate) param));
+					} else if (param instanceof LocalTime) {
+						statement.setTime(i + 1, Time.valueOf((LocalTime) param));
+					} else if (param instanceof LocalDateTime) {
+						statement.setTimestamp(i + 1, Timestamp.valueOf((LocalDateTime) param));
 					} else {
 						//extends with other types if needed
 						throw new IllegalArgumentException("open() failed. Parameter " + i + " of type " + param.getClass() + " is not handled (yet).");
@@ -322,6 +347,7 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 		private int fetchSize;
 		private Boolean autoCommit;
 		private Object[][] parameterValues;
+		private Predicate predicate;
 		private String queryTemplate;
 		private JdbcRowConverter rowConverter;
 		private TypeInformation<RowData> rowDataTypeInfo;
@@ -422,6 +448,11 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 			return this;
 		}
 
+		public Builder setPredicate(Predicate predicate) {
+			this.predicate = predicate;
+			return this;
+		}
+
 		public JdbcRowDataInputFormat build() {
 			if (this.queryTemplate == null) {
 				throw new IllegalArgumentException("No query supplied");
@@ -444,7 +475,8 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 				this.rowDataTypeInfo,
 				this.formatScanIntervalMs,
 				this.countOfReadTimes,
-				this.parallelism);
+				this.parallelism,
+				this.predicate);
 		}
 	}
 

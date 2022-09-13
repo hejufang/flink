@@ -24,6 +24,8 @@ import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
 import org.apache.flink.connector.jdbc.internal.options.JdbcLookupOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcReadOptions;
+import org.apache.flink.connector.jdbc.predicate.Predicate;
+import org.apache.flink.connector.jdbc.predicate.PredicateBuilder;
 import org.apache.flink.connector.jdbc.split.JdbcNumericBetweenParametersProvider;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -32,37 +34,55 @@ import org.apache.flink.table.connector.source.InputFormatProvider;
 import org.apache.flink.table.connector.source.LookupTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.TableFunctionProvider;
+import org.apache.flink.table.connector.source.abilities.SupportsFilterPushDown;
 import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.expressions.ResolvedExpression;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.util.Preconditions;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * A {@link DynamicTableSource} for JDBC.
  */
 @Internal
-public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSource, SupportsProjectionPushDown {
+public class JdbcDynamicTableSource implements
+		ScanTableSource,
+		LookupTableSource,
+		SupportsProjectionPushDown,
+		SupportsFilterPushDown {
 
 	private final JdbcOptions options;
 	private final JdbcReadOptions readOptions;
 	private final JdbcLookupOptions lookupOptions;
 	private TableSchema physicalSchema;
 	private final String dialectName;
+	private final PredicateBuilder predicateBuilder;
+	private List<Predicate> predicates = new ArrayList<>();
 
 	public JdbcDynamicTableSource(
 			JdbcOptions options,
 			JdbcReadOptions readOptions,
 			JdbcLookupOptions lookupOptions,
-			TableSchema physicalSchema) {
+			TableSchema physicalSchema,
+			List<Predicate> predicates) {
 		this.options = options;
 		this.readOptions = readOptions;
 		this.lookupOptions = lookupOptions;
 		this.physicalSchema = physicalSchema;
 		this.dialectName = options.getDialect().dialectName();
+		this.predicateBuilder = options.getDialect().getPredicateBuilder();
+		if (predicates == null) {
+			this.predicates = new ArrayList<>();
+		} else {
+			this.predicates = predicates;
+		}
 	}
 
 	@Override
@@ -108,6 +128,7 @@ public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSourc
 		final JdbcDialect dialect = options.getDialect();
 		String query = dialect.getSelectFromStatement(
 			options.getTableName(), physicalSchema.getFieldNames(), new String[0]);
+		boolean hasWhere = false;
 		if (readOptions.getPartitionColumnName().isPresent()) {
 			long lowerBound = readOptions.getPartitionLowerBound().get();
 			long upperBound = readOptions.getPartitionUpperBound().get();
@@ -117,14 +138,42 @@ public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSourc
 			query += " WHERE " +
 				dialect.quoteIdentifier(readOptions.getPartitionColumnName().get()) +
 				" BETWEEN ? AND ?";
+			hasWhere = true;
 		}
-		builder.setQuery(query);
 		final RowType rowType = (RowType) physicalSchema.toRowDataType().getLogicalType();
 		builder.setRowConverter(dialect.getRowConverter(rowType, options));
 		builder.setRowDataTypeInfo((TypeInformation<RowData>) runtimeProviderContext
 			.createTypeInformation(physicalSchema.toRowDataType()));
-
+		final Predicate predicate = getMergedPredicate();
+		builder.setPredicate(predicate);
+		if (predicate != null) {
+			if (!hasWhere) {
+				query += " WHERE ";
+			} else {
+				query += " AND ";
+			}
+			query += predicate.getPred();
+		}
+		builder.setQuery(query);
 		return InputFormatProvider.of(builder.build(), scanIntervalMs < 0 || countOfReadTimes > 0);
+	}
+
+	private Predicate getMergedPredicate() {
+		if (predicates.size() == 0) {
+			return null;
+		}
+		if (predicates.size() == 1) {
+			return predicates.get(0);
+		}
+
+		Object[] params = predicates.get(0).plus(
+			predicates.stream()
+				.skip(1)
+				.toArray(Predicate[]::new));
+		String pred = predicates.stream()
+			.map(Predicate::getPred)
+			.collect(Collectors.joining(" AND "));
+		return new Predicate(pred, params);
 	}
 
 	@Override
@@ -155,7 +204,7 @@ public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSourc
 
 	@Override
 	public DynamicTableSource copy() {
-		return new JdbcDynamicTableSource(options, readOptions, lookupOptions, physicalSchema);
+		return new JdbcDynamicTableSource(options, readOptions, lookupOptions, physicalSchema, predicates);
 	}
 
 	@Override
@@ -176,7 +225,8 @@ public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSourc
 			Objects.equals(readOptions, that.readOptions) &&
 			Objects.equals(lookupOptions, that.lookupOptions) &&
 			Objects.equals(physicalSchema, that.physicalSchema) &&
-			Objects.equals(dialectName, that.dialectName);
+			Objects.equals(dialectName, that.dialectName) &&
+			Objects.equals(predicates, that.predicates);
 	}
 
 	@Override
@@ -187,5 +237,25 @@ public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSourc
 	@Override
 	public Optional<Boolean> isInputKeyByEnabled() {
 		return Optional.ofNullable(lookupOptions.isInputKeyByEnabled());
+	}
+
+	@Override
+	public Result applyFilters(List<ResolvedExpression> filters) {
+		List<Predicate> predicates = new ArrayList<>();
+		List<ResolvedExpression> accepted = new ArrayList<>();
+		List<ResolvedExpression> remaining = new ArrayList<>();
+		for (ResolvedExpression filter : filters) {
+			Optional<Predicate> predicate = filter.accept(predicateBuilder);
+			if (predicate.isPresent()) {
+				predicates.add(predicate.get());
+				accepted.add(filter);
+			} else {
+				remaining.add(filter);
+			}
+		}
+
+		this.predicates.addAll(predicates);
+
+		return Result.of(accepted, remaining);
 	}
 }

@@ -40,6 +40,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -65,6 +66,7 @@ public class JdbcDynamicTableSourceITCase extends AbstractTestBase {
 			Connection conn = DriverManager.getConnection(DB_URL + ";create=true");
 			Statement statement = conn.createStatement()) {
 			statement.executeUpdate("CREATE TABLE " + INPUT_TABLE + " (" +
+				"name VARCHAR(100)," +
 				"id BIGINT NOT NULL," +
 				"timestamp6_col TIMESTAMP, " +
 				"timestamp9_col TIMESTAMP, " +
@@ -73,10 +75,10 @@ public class JdbcDynamicTableSourceITCase extends AbstractTestBase {
 				"double_col FLOAT(24)," +   // A precision of 24 or greater makes FLOAT equivalent to DOUBLE PRECISION.
 				"decimal_col DECIMAL(10, 4))");
 			statement.executeUpdate("INSERT INTO " + INPUT_TABLE + " VALUES (" +
-				"1, TIMESTAMP('2020-01-01 15:35:00.123456'), TIMESTAMP('2020-01-01 15:35:00.123456789'), " +
+				"'hello', 1, TIMESTAMP('2020-01-01 15:35:00.123456'), TIMESTAMP('2020-01-01 15:35:00.123456789'), " +
 				"TIME('15:35:00'), 1.175E-37, 1.79769E+308, 100.1234)");
 			statement.executeUpdate("INSERT INTO " + INPUT_TABLE + " VALUES (" +
-				"2, TIMESTAMP('2020-01-01 15:36:01.123456'), TIMESTAMP('2020-01-01 15:36:01.123456789'), " +
+				"'world', 2, TIMESTAMP('2020-01-01 15:36:01.123456'), TIMESTAMP('2020-01-01 15:36:01.123456789'), " +
 				"TIME('15:36:01'), -1.175E-37, -1.79769E+308, 101.1234)");
 		}
 	}
@@ -128,6 +130,51 @@ public class JdbcDynamicTableSourceITCase extends AbstractTestBase {
 				"1,2020-01-01T15:35:00.123456,2020-01-01T15:35:00.123456789,15:35,1.175E-37,1.79769E308,100.1234",
 				"2,2020-01-01T15:36:01.123456,2020-01-01T15:36:01.123456789,15:36:01,-1.175E-37,-1.79769E308,101.1234")
 			.sorted().collect(Collectors.toList());
+		assertEquals(expected, result);
+	}
+
+	@Test
+	public void testJdbcSourceWithFilter() throws Exception {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		EnvironmentSettings envSettings = EnvironmentSettings.newInstance()
+			.useBlinkPlanner()
+			.inStreamingMode()
+			.build();
+		StreamTableEnvironment tEnv = StreamTableEnvironment.create(env, envSettings);
+
+		tEnv.executeSql(
+			"CREATE TABLE " + INPUT_TABLE + "(" +
+				"name VARCHAR," +
+				"id BIGINT," +
+				"timestamp6_col TIMESTAMP(6)," +
+				"timestamp9_col TIMESTAMP(9)," +
+				"time_col TIME," +
+				"real_col FLOAT," +
+				"double_col DOUBLE," +
+				"decimal_col DECIMAL(10, 4)" +
+				") WITH (" +
+				"  'connector'='jdbc'," +
+				"  'url'='" + DB_URL + "'," +
+				"  'use-bytedance-mysql'='false'," +
+				"  'table-name'='" + INPUT_TABLE + "'" +
+				")"
+		);
+
+		Iterator<Row> collected = tEnv.executeSql("SELECT * FROM " + INPUT_TABLE +
+			" WHERE id IN (1,3,5,7,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30)" +
+			" AND name = 'hello'" +
+			" AND real_col >= 0.0" +
+			" AND time_col BETWEEN TIME '15:30:00' AND TIME '15:35:05'" +
+			" AND (decimal_col >= 100 OR decimal_col < 0)" +
+			" AND timestamp6_col > TIMESTAMP '2020-01-01 00:00:00'" +
+			" AND time_col IS NOT NULL"
+		).collect();
+		List<String> result = Lists.newArrayList(collected).stream()
+			.map(Row::toString)
+			.sorted()
+			.collect(Collectors.toList());
+		List<String> expected = Collections.singletonList(
+			"hello,1,2020-01-01T15:35:00.123456,2020-01-01T15:35:00.123456789,15:35,1.175E-37,1.79769E308,100.1234");
 		assertEquals(expected, result);
 	}
 

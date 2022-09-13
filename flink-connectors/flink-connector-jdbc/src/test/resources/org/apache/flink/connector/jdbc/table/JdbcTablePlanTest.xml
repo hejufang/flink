@@ -16,7 +16,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <Root>
-  <TestCase name="testProjectionPushDown">
+	<TestCase name="testFilterPushDown1">
+		<Resource name="planAfter">
+			<![CDATA[
+TableSourceScan(table=[[default_catalog, default_database, jdbc, filter=[and(and(and(in(id, 1, 2, 3, 4, 5, 6), greaterThanOrEqual(double_col, 0.0)), lessThanOrEqual(double_col, 1.0)), or(greaterThan(decimal_col, 10), lessThan(decimal_col, 10)))], project=[decimal_col, timestamp9_col, id]]], fields=[decimal_col, timestamp9_col, id])
+
+FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(decimal_col: DECIMAL(10, 4), timestamp9_col: TIMESTAMP(9), id: BIGINT), parallelism=-1}
+	LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, jdbc, filter=[and(and(and(in(id, 1, 2, 3, 4, 5, 6), greaterThanOrEqual(double_col, 0.0)), lessThanOrEqual(double_col, 1.0)), or(greaterThan(decimal_col, 10), lessThan(decimal_col, 10)))], project=[decimal_col, timestamp9_col, id]]], fields=[decimal_col, timestamp9_col, id])', outputType=RowData(decimal_col: DECIMAL(10, 4), timestamp9_col: TIMESTAMP(9), id: BIGINT), parallelism=12}
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testFilterPushDown2">
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[decimal_col, timestamp9_col, id], where=[AND(=(CAST(id), _UTF-16LE'1':VARCHAR(2147483647) CHARACTER SET "UTF-16LE"), =(IF(>(double_col, 0.0:DECIMAL(2, 1)), 1, 0), 1))])
++- TableSourceScan(table=[[default_catalog, default_database, jdbc, filter=[greaterThan(decimal_col, 10)], project=[id, timestamp9_col, double_col, decimal_col]]], fields=[id, timestamp9_col, double_col, decimal_col])
+
+OneInputTransformation{name='Calc(select=[decimal_col, timestamp9_col, id], where=[((CAST(id) = _UTF-16LE'1':VARCHAR(2147483647) CHARACTER SET "UTF-16LE") AND (((double_col > 0.0:DECIMAL(2, 1)) IF 1 IF 0) = 1))])', outputType=RowData(decimal_col: DECIMAL(10, 4), timestamp9_col: TIMESTAMP(9), id: BIGINT), parallelism=-1}
+	FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(id: BIGINT, timestamp9_col: TIMESTAMP(9), double_col: DOUBLE, decimal_col: DECIMAL(10, 4)), parallelism=-1}
+		LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, jdbc, filter=[greaterThan(decimal_col, 10)], project=[id, timestamp9_col, double_col, decimal_col]]], fields=[id, timestamp9_col, double_col, decimal_col])', outputType=RowData(id: BIGINT, timestamp9_col: TIMESTAMP(9), double_col: DOUBLE, decimal_col: DECIMAL(10, 4)), parallelism=12}
+]]>
+		</Resource>
+	</TestCase>
+	<TestCase name="testProjectionPushDown">
     <Resource name="sql">
       <![CDATA[SELECT decimal_col, timestamp9_col, id FROM jdbc]]>
     </Resource>

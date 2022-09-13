@@ -21,6 +21,7 @@ package org.apache.flink.connector.jdbc.dialect;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.connector.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
+import org.apache.flink.connector.jdbc.predicate.PredicateBuilder;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.types.logical.RowType;
@@ -183,5 +184,16 @@ public interface JdbcDialect extends Serializable {
 				.collect(Collectors.joining(" AND "));
 		return "SELECT " + selectExpressions + " FROM " +
 				quoteIdentifier(tableName) + (conditionFields.length > 0 ? " WHERE " + fieldExpressions : "");
+	}
+
+	/**
+	 * Get {@link PredicateBuilder} to build {@link org.apache.flink.connector.jdbc.predicate.Predicate}
+	 * which is pushed down from the query.
+	 */
+	default PredicateBuilder getPredicateBuilder() {
+		return PredicateBuilder.builder()
+			.withQuoting(this::quoteIdentifier)
+			.withStandardConverters()
+			.build();
 	}
 }

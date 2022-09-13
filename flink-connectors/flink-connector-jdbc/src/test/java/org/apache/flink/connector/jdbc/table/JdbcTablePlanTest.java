@@ -51,4 +51,50 @@ public class JdbcTablePlanTest extends TableTestBase {
 		util.verifyPlan("SELECT decimal_col, timestamp9_col, id FROM jdbc");
 	}
 
+	@Test
+	public void testFilterPushDown1() {
+		util.getStreamEnv().setParallelism(12);
+		util.tableEnv().executeSql(
+			"CREATE TABLE jdbc (" +
+				"id BIGINT," +
+				"timestamp6_col TIMESTAMP(6)," +
+				"timestamp9_col TIMESTAMP(9)," +
+				"time_col TIME," +
+				"real_col FLOAT," +
+				"double_col DOUBLE," +
+				"decimal_col DECIMAL(10, 4)" +
+				") WITH (" +
+				"  'connector'='jdbc'," +
+				"  'url'='jdbc:derby:memory:test'," +
+				"  'table-name'='test_table'" +
+				")"
+		);
+		util.verifyTransformation("SELECT decimal_col, timestamp9_col, id FROM jdbc" +
+			" WHERE id IN (1,2,3,4,5,6) AND double_col BETWEEN 0.0 AND 1.0 AND (decimal_col > 10 OR decimal_col < 10)");
+	}
+
+	@Test
+	public void testFilterPushDown2() {
+		util.getStreamEnv().setParallelism(12);
+		util.tableEnv().executeSql(
+			"CREATE TABLE jdbc (" +
+				"id BIGINT," +
+				"timestamp6_col TIMESTAMP(6)," +
+				"timestamp9_col TIMESTAMP(9)," +
+				"time_col TIME," +
+				"real_col FLOAT," +
+				"double_col DOUBLE," +
+				"decimal_col DECIMAL(10, 4)" +
+				") WITH (" +
+				"  'connector'='jdbc'," +
+				"  'url'='jdbc:derby:memory:test'," +
+				"  'table-name'='test_table'" +
+				")"
+		);
+		util.verifyTransformation("SELECT decimal_col, timestamp9_col, id FROM jdbc" +
+			" WHERE cast(id as varchar) = '1'" +
+			" AND IF(double_col > 0.0, 1, 0) = 1" +
+			" AND decimal_col > 10");
+	}
+
 }

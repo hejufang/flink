@@ -236,7 +236,8 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 			getJdbcOptions(helper.getOptions()),
 			getJdbcReadOptions(helper.getOptions()),
 			getJdbcLookupOptions(helper.getOptions()),
-			physicalSchema);
+			physicalSchema,
+			null);
 	}
 
 	private JdbcOptions getJdbcOptions(ReadableConfig readableConfig) {
