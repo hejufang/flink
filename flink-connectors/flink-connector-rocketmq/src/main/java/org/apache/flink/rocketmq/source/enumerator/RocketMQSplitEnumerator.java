@@ -114,7 +114,7 @@ public class RocketMQSplitEnumerator implements SplitEnumerator<RocketMQSplit, R
 		this.assignedSplitBase = new HashSet<>();
 		this.batchMode = boundedness == Boundedness.BOUNDED;
 		userSpecificSplitSet = RocketMQUtils.getClusterSplitBaseSet(
-			config.getCluster(), config.getRocketMqBrokerQueueList());
+			config.getCluster(), config.getTopic(), config.getRocketMqBrokerQueueList());
 		this.retryStrategy = RetryManager.createStrategy(RetryManager.StrategyType.EXPONENTIAL_BACKOFF.name(),
 			RocketMQOptions.CONSUMER_RETRY_TIMES_DEFAULT,
 			RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);

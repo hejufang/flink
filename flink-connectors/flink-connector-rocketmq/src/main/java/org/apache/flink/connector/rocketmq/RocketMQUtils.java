@@ -86,7 +86,7 @@ public final class RocketMQUtils {
 		return Boolean.parseBoolean(props.getProperty(key, String.valueOf(defaultValue)));
 	}
 
-	public static Set<RocketMQSplitBase> getClusterSplitBaseSet(String cluster, String brokerQueueList) {
+	public static Set<RocketMQSplitBase> getClusterSplitBaseSet(String cluster, String topic, String brokerQueueList) {
 		Map<String, List<MessageQueue>> map = parseCluster2QueueList(brokerQueueList);
 		if (map.isEmpty()) {
 			return Collections.emptySet();
@@ -96,8 +96,13 @@ public final class RocketMQUtils {
 			throw new FlinkRuntimeException(String.format(
 				"Cluster: %s not in specific cluster set %s", cluster, map.keySet()));
 		}
-
-		return queues.stream()
+		List<MessageQueue> messageQueues = queues.stream().filter(p -> topic.equals(p.getTopic())).collect(Collectors.toList());
+		if (messageQueues.isEmpty()) {
+			String errorMsg = String.format("Job specific rocketmq queues, but topic %s: not in this job", topic);
+			LOG.error(errorMsg);
+			throw new FlinkRuntimeException(errorMsg);
+		}
+		return messageQueues.stream()
 				.map(q -> new RocketMQSplitBase(q.getTopic(), q.getBrokerName(), q.getQueueId()))
 				.collect(Collectors.toSet());
 	}

@@ -521,8 +521,8 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private List<MessageQueue> parseMessageQueueSet() {
 		Map<String, List<MessageQueue>> queueMap =
 			RocketMQUtils.parseCluster2QueueList(this.brokerQueueList);
-		List<MessageQueue> messageQueues = queueMap.get(cluster);
-		if (messageQueues == null) {
+		List<MessageQueue> queues = queueMap.get(cluster);
+		if (queues == null) {
 			if (!queueMap.isEmpty()) {
 				String errorMsg = String.format("Job specific rocketmq queues, but [cluster: %s, topic: %s] not in %s",
 					cluster, topic, String.join(",", queueMap.keySet()));
@@ -532,6 +532,12 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			return Collections.emptyList();
 		}
 
+		List<MessageQueue> messageQueues = queues.stream().filter(p -> topic.equals(p.getTopic())).collect(Collectors.toList());
+		if (messageQueues.isEmpty() && !queueMap.isEmpty()) {
+			String errorMsg = String.format("Job specific rocketmq queues, but topic %s: not in this job", topic);
+			LOG.error(errorMsg);
+			throw new FlinkRuntimeException(errorMsg);
+		}
 		List<MessageQueue> sortedQueues = messageQueues.stream().sorted().collect(Collectors.toList());
 		List<MessageQueue> queueWithThisTasks = new ArrayList<>();
 		for (int i = 0; i < sortedQueues.size(); i++) {
