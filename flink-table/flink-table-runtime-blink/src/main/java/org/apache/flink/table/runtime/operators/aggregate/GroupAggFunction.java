@@ -151,6 +151,9 @@ public class GroupAggFunction extends KeyedProcessFunction<RowData, RowData, Row
 			// might happen if the retraction message is the first message for the
 			// key or after a state clean up.
 			if (isRetractMsg(input)) {
+				// The acc has been expired, and we should clear all the states for current key
+				// to be consistent, especially the MapView state.
+				function.cleanup();
 				return;
 			}
 			firstRow = true;

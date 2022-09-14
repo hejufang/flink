@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.runtime.harness
 
 import org.apache.flink.api.common.time.Time
 import org.apache.flink.api.scala._
+import org.apache.flink.streaming.api.watermark.Watermark
 import org.apache.flink.table.api._
 import org.apache.flink.table.api.bridge.scala._
 import org.apache.flink.table.api.bridge.scala.internal.StreamTableEnvironmentImpl
@@ -135,4 +136,113 @@ class GroupAggregateHarnessTest(mode: StateBackendMode) extends HarnessTestBase(
     testHarness.close()
   }
 
+  @Test
+  def testMiniBatchAggregateWithRetraction(): Unit = {
+    val data = new mutable.MutableList[(String, String, Long)]
+    tEnv.getConfig.getConfiguration.setString("table.exec.mini-batch.enabled", "true")
+    tEnv.getConfig.getConfiguration.setString("table.exec.mini-batch.allow-latency", "3 min")
+    tEnv.getConfig.getConfiguration.setString("table.exec.mini-batch.size", "1000")
+    tEnv.getConfig.getConfiguration.setString("table.optimizer.agg-phase-strategy", "ONE_PHASE")
+    val t = env.fromCollection(data).toTable(tEnv, 'a, 'b, 'c)
+    tEnv.createTemporaryView("T", t)
+
+    val sql =
+      """
+        |SELECT a, SUM(c), MAX(c)
+        |FROM (
+        |  SELECT a, b, SUM(c) as c
+        |  FROM T GROUP BY a, b
+        |)GROUP BY a
+      """.stripMargin
+    val t1 = tEnv.sqlQuery(sql)
+
+    tEnv.getConfig.setIdleStateRetentionTime(Time.seconds(2), Time.seconds(3))
+    val testHarness = createHarnessTester(t1.toRetractStream[Row], "GroupAggregate")
+    val assertor = new RowDataHarnessAssertor(Array( Types.STRING, Types.LONG, Types.LONG))
+
+    testHarness.open()
+
+    val expectedOutput = new ConcurrentLinkedQueue[Object]()
+
+    // set TtlTimeProvider with 1
+    testHarness.setStateTtlProcessingTime(1)
+
+    // insertion
+    testHarness.processElement(binaryRecord(INSERT,"aaa", 1L: JLong))
+    expectedOutput.add(binaryRecord(INSERT, "aaa", 1L: JLong, 1L: JLong))
+    testHarness.processWatermark(1) // trigger mini-batch
+    expectedOutput.add(new Watermark(1))
+
+    // insertion
+    testHarness.processElement(binaryRecord(INSERT, "bbb", 1L: JLong))
+    expectedOutput.add(binaryRecord(INSERT, "bbb", 1L: JLong, 1L: JLong))
+    testHarness.processWatermark(1) // trigger mini-batch
+    expectedOutput.add(new Watermark(1))
+
+    // update for insertion
+    testHarness.processElement(binaryRecord(INSERT, "aaa", 2L: JLong))
+    expectedOutput.add(binaryRecord(UPDATE_BEFORE, "aaa", 1L: JLong, 1L: JLong))
+    expectedOutput.add(binaryRecord(UPDATE_AFTER, "aaa", 3L: JLong, 2L: JLong))
+    testHarness.processWatermark(1) // trigger mini-batch
+    expectedOutput.add(new Watermark(1))
+
+    // retract for deletion
+    testHarness.processElement(binaryRecord(DELETE, "aaa", 2L: JLong))
+    expectedOutput.add(binaryRecord(UPDATE_BEFORE, "aaa", 3L: JLong, 2L: JLong))
+    expectedOutput.add(binaryRecord(UPDATE_AFTER, "aaa", 1L: JLong, 1L: JLong))
+    testHarness.processWatermark(1) // trigger mini-batch
+    expectedOutput.add(new Watermark(1))
+
+    // insertion
+    testHarness.processElement(binaryRecord(INSERT, "ccc", 3L: JLong))
+    expectedOutput.add(binaryRecord(INSERT, "ccc", 3L: JLong, 3L: JLong))
+    testHarness.processWatermark(1) // trigger mini-batch
+    expectedOutput.add(new Watermark(1))
+
+    // set TtlTimeProvider with 3002 to trigger expired state cleanup
+    testHarness.setStateTtlProcessingTime(3002)
+
+    // retract after clean up
+    testHarness.processElement(binaryRecord(UPDATE_BEFORE, "aaa", 3L: JLong))
+    // not output
+
+    // accumulate
+    testHarness.processElement(binaryRecord(INSERT, "aaa", 4L: JLong))
+    expectedOutput.add(binaryRecord(INSERT, "aaa", 4L: JLong, 4: JLong)) // missing
+    testHarness.processElement(binaryRecord(INSERT, "bbb", 2L: JLong))
+    expectedOutput.add(binaryRecord(INSERT, "bbb", 2L: JLong, 2: JLong))
+    testHarness.processWatermark(1) // trigger mini-batch
+    expectedOutput.add(new Watermark(1))
+
+    // retract
+    testHarness.processElement(binaryRecord(INSERT, "aaa", 5L: JLong))
+    expectedOutput.add(binaryRecord(UPDATE_BEFORE, "aaa", 4L: JLong, 4: JLong)) // missing
+    expectedOutput.add(binaryRecord(UPDATE_AFTER, "aaa", 9L: JLong, 5: JLong))
+    testHarness.processWatermark(1) // trigger mini-batch
+    expectedOutput.add(new Watermark(1))
+
+    // accumulate
+    testHarness.processElement(binaryRecord(INSERT, "eee", 6L: JLong))
+    expectedOutput.add(binaryRecord(INSERT, "eee", 6L: JLong, 6: JLong))
+    testHarness.processWatermark(1) // trigger mini-batch
+    expectedOutput.add(new Watermark(1))
+
+    // retract
+    testHarness.processElement(binaryRecord(INSERT,"aaa", 7L: JLong))
+    expectedOutput.add(binaryRecord(UPDATE_BEFORE, "aaa", 9L: JLong, 5L: JLong))
+    expectedOutput.add(binaryRecord(UPDATE_AFTER, "aaa", 16L: JLong, 7L: JLong))
+    testHarness.processWatermark(1) // trigger mini-batch
+    expectedOutput.add(new Watermark(1))
+    testHarness.processElement(binaryRecord(INSERT, "bbb", 3L: JLong))
+    expectedOutput.add(binaryRecord(UPDATE_BEFORE, "bbb", 2L: JLong, 2L: JLong))
+    expectedOutput.add(binaryRecord(UPDATE_AFTER, "bbb", 5L: JLong, 3L: JLong))
+    testHarness.processWatermark(1) // trigger mini-batch
+    expectedOutput.add(new Watermark(1))
+
+    val result = testHarness.getOutput
+
+    assertor.assertOutputEqualsSorted("result mismatch", expectedOutput, result)
+
+    testHarness.close()
+  }
 }

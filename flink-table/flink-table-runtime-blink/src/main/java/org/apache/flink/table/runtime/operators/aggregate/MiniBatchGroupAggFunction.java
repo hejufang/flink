@@ -190,8 +190,10 @@ public class MiniBatchGroupAggFunction extends MapBundleFunction<RowData, List<R
 			// set current key to access state under the key
 			ctx.setCurrentKey(currentKey);
 			RowData acc = accState.value();
+			boolean accExists = true;
 			if (acc == null) {
 				acc = function.createAccumulators();
+				accExists = false;
 				firstRow = true;
 			}
 
@@ -204,9 +206,21 @@ public class MiniBatchGroupAggFunction extends MapBundleFunction<RowData, List<R
 			for (RowData input : inputRows) {
 				if (isAccumulateMsg(input)) {
 					function.accumulate(input);
+					accExists = true;
 				} else {
+					if (!accExists) {
+						// The acc has been expired, and we should clear all the states for current key
+						// to be consistent, especially the MapView state.
+						function.cleanup();
+						continue;
+					}
 					function.retract(input);
 				}
+			}
+
+			// There is no accumulate record, and the state has been expired.
+			if (!accExists) {
+				continue;
 			}
 
 			// get current aggregate result
