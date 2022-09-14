@@ -85,6 +85,8 @@ public class Constants {
 
     public static final String POD_IP_FIELD_PATH = "status.podIP";
 
+    public static final String ENV_FLINK_COMPONENT = "_FLINK_COMPONENT";
+
     public static final String ENV_FLINK_POD_NODE_ID = "_POD_NODE_ID";
 
     public static final String POD_NODE_ID_FIELD_PATH = "spec.nodeName";

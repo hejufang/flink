@@ -45,6 +45,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_COMPONENT;
+import static org.apache.flink.kubernetes.utils.Constants.LABEL_COMPONENT_TASK_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** General tests for the {@link InitJobManagerDecorator}. */
@@ -196,6 +198,7 @@ class InitTaskManagerDecoratorTest extends KubernetesTaskManagerTestBase {
     @Test
     void testMainContainerEnv() {
         final Map<String, String> expectedEnvVars = new HashMap<>(customizedEnvs);
+        expectedEnvVars.put(ENV_FLINK_COMPONENT, LABEL_COMPONENT_TASK_MANAGER);
         final Map<String, String> resultEnvVars = new HashMap<>();
         this.resultMainContainer
                 .getEnv()

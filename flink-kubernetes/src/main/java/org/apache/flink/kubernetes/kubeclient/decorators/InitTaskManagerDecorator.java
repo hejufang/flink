@@ -51,7 +51,9 @@ import java.util.stream.Collectors;
 import static org.apache.flink.kubernetes.utils.Constants.API_VERSION;
 import static org.apache.flink.kubernetes.utils.Constants.DNS_PLOICY_DEFAULT;
 import static org.apache.flink.kubernetes.utils.Constants.DNS_PLOICY_HOSTNETWORK;
+import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_COMPONENT;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NODE_ID;
+import static org.apache.flink.kubernetes.utils.Constants.LABEL_COMPONENT_TASK_MANAGER;
 import static org.apache.flink.kubernetes.utils.Constants.POD_NODE_ID_FIELD_PATH;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -199,6 +201,10 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
                         new EnvVarSourceBuilder()
                                 .withNewFieldRef(API_VERSION, POD_NODE_ID_FIELD_PATH)
                                 .build())
+                .endEnv()
+                .addNewEnv()
+                .withName(ENV_FLINK_COMPONENT)
+                .withValue(LABEL_COMPONENT_TASK_MANAGER)
                 .endEnv();
         getFlinkLogDirEnv().ifPresent(mainContainerBuilder::addToEnv);
 
