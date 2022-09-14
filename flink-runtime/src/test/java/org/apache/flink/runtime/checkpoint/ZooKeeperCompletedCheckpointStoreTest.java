@@ -24,9 +24,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.runtime.concurrent.Executors;
-import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.testutils.ExpectedTestException;
-import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.RetrievableStateHandle;
 import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.apache.flink.runtime.state.testutils.TestCompletedCheckpointStorageLocation;
@@ -44,13 +42,11 @@ import org.junit.ClassRule;
 import org.junit.Test;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -278,7 +274,7 @@ public class ZooKeeperCompletedCheckpointStoreTest extends TestLogger {
 		CountDownLatch discardAttempted = new CountDownLatch(1);
 		for (long i = 0; i < numCheckpointsToRetain + 1; ++i) {
 			CompletedCheckpoint checkpointToAdd =
-				new TestCompletedCheckpoint(
+				new CompletedCheckpoint(
 					new JobID(),
 					i,
 					i,
@@ -286,44 +282,19 @@ public class ZooKeeperCompletedCheckpointStoreTest extends TestLogger {
 					Collections.emptyMap(),
 					Collections.emptyList(),
 					CheckpointProperties.forCheckpoint(NEVER_RETAIN_AFTER_TERMINATION),
-					new TestCompletedCheckpointStorageLocation(),
-					discardAttempted);
+					new TestCompletedCheckpointStorageLocation());
 			// shouldn't fail despite the exception
-			store.addCheckpoint(checkpointToAdd);
+			CompletableFuture.runAsync(() -> {
+				try {
+					store.addCheckpoint(checkpointToAdd);
+				} catch (Exception e) {
+					throw new RuntimeException(e);
+				}
+			}).thenRun(() -> {
+				discardAttempted.countDown();
+				throw new RuntimeException();
+			});
 		}
 		discardAttempted.await();
-	}
-
-	static class TestCompletedCheckpoint extends CompletedCheckpoint {
-		private transient CountDownLatch countDownLatch;
-
-		public TestCompletedCheckpoint(
-			JobID job,
-			long checkpointId,
-			long timestamp,
-			long completionTimestamp,
-			Map<OperatorID, OperatorState> operatorStates,
-			@Nullable Collection<MasterState> masterHookStates,
-			CheckpointProperties props,
-			CompletedCheckpointStorageLocation storageLocation,
-			CountDownLatch countDownLatch) {
-			super(
-				job,
-				checkpointId,
-				timestamp,
-				completionTimestamp,
-				operatorStates,
-				masterHookStates,
-				props,
-				storageLocation);
-			this.countDownLatch = countDownLatch;
-		}
-
-		@Override
-		public boolean discardOnSubsume() throws Exception {
-			countDownLatch.countDown();
-			super.discardOnSubsume();
-			throw new RuntimeException();
-		}
 	}
 }

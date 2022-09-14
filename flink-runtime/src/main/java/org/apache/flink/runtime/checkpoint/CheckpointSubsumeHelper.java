@@ -101,12 +101,6 @@ class CheckpointSubsumeHelper {
 
 	@FunctionalInterface
 	interface SubsumeAction {
-		/**
-		 * subsume the completed checkpoint.
-		 *
-		 * @param checkpoint checkpoint that needs to be subsumed
-		 * @throws Exception on errors during subsume
-		 */
 		void subsume(CompletedCheckpoint checkpoint) throws Exception;
 	}
 }
