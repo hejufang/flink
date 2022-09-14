@@ -222,13 +222,11 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 
 		completedCheckpoints.addLast(checkpoint);
 
-		CheckpointSubsumeHelper.subsume(
-			completedCheckpoints,
-			maxNumberOfCheckpointsToRetain,
-			completedCheckpoint ->
-				tryRemoveCompletedCheckpoint(
-					completedCheckpoint,
-					CompletedCheckpoint::discardOnSubsume));
+		// Everything worked, let's remove a previous checkpoint if necessary.
+		while (completedCheckpoints.size() > maxNumberOfCheckpointsToRetain) {
+			final CompletedCheckpoint completedCheckpoint = completedCheckpoints.removeFirst();
+			tryRemoveCompletedCheckpoint(completedCheckpoint, CompletedCheckpoint::discardOnSubsume);
+		}
 
 		LOG.debug("Added {} to {}.", checkpoint, path);
 	}
@@ -310,13 +308,9 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 			boolean allDeleted = true;
 			for (CompletedCheckpoint checkpoint : completedCheckpoints) {
 				if (checkpoint.isDiscardOnShutdown(jobStatus)) {
-					try {
-						tryRemoveCompletedCheckpoint(
-							checkpoint,
-							completedCheckpoint -> completedCheckpoint.discardOnShutdown(jobStatus));
-					} catch (Exception e) {
-						LOG.warn("Fail to remove checkpoint during shutdown.", e);
-					}
+					tryRemoveCompletedCheckpoint(
+						checkpoint,
+						completedCheckpoint -> completedCheckpoint.discardOnShutdown(jobStatus));
 				} else {
 					allDeleted = false;
 					checkpointStateHandleStore.release(
