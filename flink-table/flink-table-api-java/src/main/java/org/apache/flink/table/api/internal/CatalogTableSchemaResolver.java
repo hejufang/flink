@@ -73,6 +73,7 @@ public class CatalogTableSchemaResolver {
 
 		String[] fieldNames = tableSchema.getFieldNames();
 		DataType[] fieldTypes = tableSchema.getFieldDataTypes();
+		String[] rawTypes = tableSchema.getFieldRawTypes();
 
 		TableSchema.Builder builder = TableSchema.builder();
 		for (int i = 0; i < tableSchema.getFieldCount(); ++i) {
@@ -98,9 +99,11 @@ public class CatalogTableSchemaResolver {
 			}
 
 			if (tableColumn.isGenerated()) {
-				builder.field(fieldNames[i], fieldType, tableColumn.getExpr().get());
+				builder.add(TableColumn.of(fieldNames[i], fieldType, tableColumn.getExpr().get())
+					.withRawType(rawTypes[i]));
 			} else {
-				builder.field(fieldNames[i], fieldType);
+				builder.add(TableColumn.of(fieldNames[i], fieldType)
+					.withRawType(rawTypes[i]));
 			}
 		}
 

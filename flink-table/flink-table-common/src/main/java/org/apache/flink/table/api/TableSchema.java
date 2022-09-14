@@ -110,6 +110,15 @@ public class TableSchema {
 	}
 
 	/**
+	 * Returns all field raw types as an array.
+	 */
+	public String[] getFieldRawTypes() {
+		return columns.stream()
+			.map(TableColumn::getRawType)
+			.toArray(String[]::new);
+	}
+
+	/**
 	 * @deprecated This method will be removed in future versions as it uses the old type system. It
 	 *             is recommended to use {@link #getFieldDataTypes()} instead which uses the new type
 	 *             system based on {@link DataTypes}. Please make sure to use either the old or the new
@@ -448,6 +457,24 @@ public class TableSchema {
 		}
 	}
 
+	/**
+	 * Validate the field names {@code fieldNames} and field types {@code fieldTypes}
+	 * have equal number.
+	 *
+	 * @param fieldNames Field names
+	 * @param fieldTypes Field raw data types
+	 */
+	private static void validateNameRawTypeNumberEqual(String[] fieldNames, String[] fieldTypes) {
+		if (fieldNames.length != fieldTypes.length) {
+			throw new ValidationException(
+				"Number of field names and field raw data types must be equal.\n" +
+					"Number of names is " + fieldNames.length + ", " +
+					"number of raw data types is " + fieldTypes.length + ".\n" +
+					"List of field names: " + Arrays.toString(fieldNames) + "\n" +
+					"List of field raw data types: " + Arrays.toString(fieldTypes));
+		}
+	}
+
 	/** Table column and watermark specification sanity check. */
 	private static void validateColumnsAndWatermarkSpecs(
 			List<TableColumn> columns,
@@ -670,6 +697,24 @@ public class TableSchema {
 			validateNameTypeNumberEqual(names, dataTypes);
 			List<TableColumn> columns = IntStream.range(0, names.length)
 				.mapToObj(idx -> TableColumn.of(names[idx], dataTypes[idx]))
+				.collect(Collectors.toList());
+			this.columns.addAll(columns);
+			return this;
+		}
+
+		/**
+		 * Add an array of fields with names, data types and external system's data types.
+		 *
+		 * <p>The call order of this method determines the order of fields in the schema.
+		 */
+		public Builder fields(String[] names, DataType[] dataTypes, String[] rawTypes) {
+			Preconditions.checkNotNull(names);
+			Preconditions.checkNotNull(dataTypes);
+			Preconditions.checkNotNull(rawTypes);
+			validateNameTypeNumberEqual(names, dataTypes);
+			validateNameRawTypeNumberEqual(names, rawTypes);
+			List<TableColumn> columns = IntStream.range(0, names.length)
+				.mapToObj(idx -> TableColumn.of(names[idx], dataTypes[idx]).withRawType(rawTypes[idx]))
 				.collect(Collectors.toList());
 			this.columns.addAll(columns);
 			return this;

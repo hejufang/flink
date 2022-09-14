@@ -40,6 +40,8 @@ public class TableColumn {
 	private final DataType type;
 	@Nullable
 	private final String expr;
+	@Nullable
+	private final String rawType;
 
 	//~ Constructors -----------------------------------------------------------
 
@@ -49,14 +51,17 @@ public class TableColumn {
 	 * @param name Column name
 	 * @param type Column data type
 	 * @param expr Column computation expression if it is a computed column
+	 * @param rawType Column raw data type
 	 */
 	private TableColumn(
 			String name,
 			DataType type,
-			@Nullable String expr) {
+			@Nullable String expr,
+			@Nullable String rawType) {
 		this.name = name;
 		this.type = type;
 		this.expr = expr;
+		this.rawType = rawType;
 	}
 
 	//~ Methods ----------------------------------------------------------------
@@ -67,7 +72,7 @@ public class TableColumn {
 	public static TableColumn of(String name, DataType type) {
 		Preconditions.checkNotNull(name, "Column name can not be null!");
 		Preconditions.checkNotNull(type, "Column type can not be null!");
-		return new TableColumn(name, type, null);
+		return new TableColumn(name, type, null, null);
 	}
 
 	/**
@@ -80,7 +85,14 @@ public class TableColumn {
 		Preconditions.checkNotNull(name, "Column name can not be null!");
 		Preconditions.checkNotNull(type, "Column type can not be null!");
 		Preconditions.checkNotNull(expression, "Column expression can not be null!");
-		return new TableColumn(name, type, expression);
+		return new TableColumn(name, type, expression, null);
+	}
+
+	/**
+	 * Add current TableColumn's raw type.
+	 */
+	public TableColumn withRawType(String rawType) {
+		return new TableColumn(this.name, this.type, this.expr, rawType);
 	}
 
 	@Override
@@ -94,12 +106,13 @@ public class TableColumn {
 		TableColumn that = (TableColumn) o;
 		return Objects.equals(this.name, that.name)
 			&& Objects.equals(this.type, that.type)
-			&& Objects.equals(this.expr, that.expr);
+			&& Objects.equals(this.expr, that.expr)
+			&& Objects.equals(this.rawType, that.rawType);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(this.name, this.type, this.expr);
+		return Objects.hash(this.name, this.type, this.expr, this.rawType);
 	}
 
 	//~ Getter/Setter ----------------------------------------------------------
@@ -118,6 +131,12 @@ public class TableColumn {
 	 * is not a computed column. */
 	public Optional<String> getExpr() {
 		return Optional.ofNullable(this.expr);
+	}
+
+	/** Returns raw data type of this column. */
+	@Nullable
+	public String getRawType() {
+		return rawType;
 	}
 
 	/**
