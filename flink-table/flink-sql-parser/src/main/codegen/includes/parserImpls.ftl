@@ -386,15 +386,39 @@ SqlShowViews SqlShowViews() :
 }
 
 /**
-* Parse a "Show Tables" metadata query command.
+* Support SQL call: SHOW TABLES FROM [catalog.] database
 */
 SqlShowTables SqlShowTables() :
 {
+    SqlIdentifier databaseName = null;
+    SqlCharStringLiteral likeLiteral = null;
+    String preposition = null;
+    boolean notLike = false;
+    SqlParserPos pos;
 }
 {
     <SHOW> <TABLES>
+    { pos = getPos(); }
+    [
+        ( <FROM> { preposition = "FROM"; } | <IN> { preposition = "IN"; } )
+        { pos = getPos(); }
+        databaseName = CompoundIdentifier()
+    ]
+    [
+        [
+            <NOT>
+            {
+                notLike = true;
+            }
+        ]
+        <LIKE>  <QUOTED_STRING>
+        {
+            String likeCondition = SqlParserUtil.parseString(token.image);
+            likeLiteral = SqlLiteral.createCharString(likeCondition, getPos());
+        }
+    ]
     {
-        return new SqlShowTables(getPos());
+        return new SqlShowTables(pos, preposition, databaseName, notLike, likeLiteral);
     }
 }
 

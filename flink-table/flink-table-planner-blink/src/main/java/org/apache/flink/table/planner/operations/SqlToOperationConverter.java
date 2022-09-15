@@ -715,6 +715,14 @@ public class SqlToOperationConverter {
 
 	/** Convert SHOW TABLES statement. */
 	private Operation convertShowTables(SqlShowTables sqlShowTables) {
+		if (!StringUtils.isNullOrWhitespaceOnly(sqlShowTables.getPreposition())) {
+			throw new ValidationException(
+				"from/in is not supported for current Flink version");
+		}
+		if (!StringUtils.isNullOrWhitespaceOnly(sqlShowTables.getLikeSqlPattern())) {
+			throw new ValidationException(
+				"like pattern is not supported for current Flink version");
+		}
 		return new ShowTablesOperation();
 	}
 
