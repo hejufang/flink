@@ -21,6 +21,9 @@ package org.apache.flink.runtime.rpc.messages;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.Preconditions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -34,6 +37,7 @@ import java.io.Serializable;
  * non-serializable object, then an {@link IOException} is thrown.
  */
 public class RemoteRpcInvocation implements RpcInvocation, Serializable {
+	public static final Logger LOG = LoggerFactory.getLogger(RemoteRpcInvocation.class);
 	private static final long serialVersionUID = 1L;
 
 	// Wrap the invocation information to ease the serialization.
@@ -195,6 +199,7 @@ public class RemoteRpcInvocation implements RpcInvocation, Serializable {
 					e.addSuppressed(new ClassNotFoundException("Could not deserialize " + i + "th " +
 						"parameter type of method " + incompleteMethod + ". This indicates that the parameter " +
 						"type is not part of the system class loader."));
+					LOG.error("deserialize MethodInvocation failed, ", e);
 					throw e;
 				}
 			}
@@ -219,6 +224,7 @@ public class RemoteRpcInvocation implements RpcInvocation, Serializable {
 						e.addSuppressed(new ClassNotFoundException("Could not deserialize " + i + "th " +
 							"argument of method " + incompleteMethod + ". This indicates that the argument " +
 							"type is not part of the system class loader."));
+						LOG.error("deserialize MethodInvocation failed, ", e);
 						throw e;
 					}
 				}
