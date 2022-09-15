@@ -46,7 +46,7 @@ import static org.apache.flink.table.types.utils.TypeConversions.fromLogicalToDa
  * Implementation of a {@link DataTypeFactory}.
  */
 @Internal
-final class DataTypeFactoryImpl implements DataTypeFactory {
+public final class DataTypeFactoryImpl implements DataTypeFactory {
 
 	private final LogicalTypeResolver resolver = new LogicalTypeResolver();
 
@@ -54,7 +54,7 @@ final class DataTypeFactoryImpl implements DataTypeFactory {
 
 	private final Supplier<ExecutionConfig> executionConfig;
 
-	DataTypeFactoryImpl(
+	public DataTypeFactoryImpl(
 			ClassLoader classLoader,
 			ReadableConfig config,
 			@Nullable ExecutionConfig executionConfig) {

@@ -62,11 +62,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * all available catalogs and stores temporary objects.
  */
 @Internal
-public final class CatalogManager {
+public class CatalogManager {
 	private static final Logger LOG = LoggerFactory.getLogger(CatalogManager.class);
 
 	// A map between names and catalogs.
-	private Map<String, Catalog> catalogs;
+	protected Map<String, Catalog> catalogs;
 
 	// Those tables take precedence over corresponding permanent tables, thus they shadow
 	// tables coming from catalogs.
@@ -86,7 +86,7 @@ public final class CatalogManager {
 
 	private final ReadableConfig flinkConf;
 
-	private CatalogManager(
+	protected CatalogManager(
 			String defaultCatalogName,
 			Catalog defaultCatalog,
 			DataTypeFactory typeFactory,
@@ -222,7 +222,18 @@ public final class CatalogManager {
 	 * @return the requested catalog or empty if it does not exist
 	 */
 	public Optional<Catalog> getCatalog(String catalogName) {
-		return Optional.ofNullable(catalogs.get(catalogName));
+		return Optional.ofNullable(getCatalogInternal(catalogName));
+	}
+
+	/**
+	 * Get a catalog by name.
+	 * The only getter of the local catalog map, and could be overridden if necessary.
+	 *
+	 * @param catalogName name of the catalog to retrieve
+	 * @return the requested catalog or null if it does not exist
+	 */
+	protected Catalog getCatalogInternal(String catalogName) {
+		return catalogs.get(catalogName);
 	}
 
 	/**
@@ -245,7 +256,7 @@ public final class CatalogManager {
 	public void setCurrentCatalog(String catalogName) throws CatalogNotExistException {
 		checkArgument(!StringUtils.isNullOrWhitespaceOnly(catalogName), "Catalog name cannot be null or empty.");
 
-		Catalog potentialCurrentCatalog = catalogs.get(catalogName);
+		Catalog potentialCurrentCatalog = getCatalogInternal(catalogName);
 		if (potentialCurrentCatalog == null) {
 			throw new CatalogException(format("A catalog with name [%s] does not exist.", catalogName));
 		}
@@ -283,7 +294,7 @@ public final class CatalogManager {
 	public void setCurrentDatabase(String databaseName) {
 		checkArgument(!StringUtils.isNullOrWhitespaceOnly(databaseName), "The database name cannot be null or empty.");
 
-		if (!catalogs.get(currentCatalogName).databaseExists(databaseName)) {
+		if (!getCatalogInternal(currentCatalogName).databaseExists(databaseName)) {
 			throw new CatalogException(format(
 				"A database with name [%s] does not exist in the catalog: [%s].",
 				databaseName,
@@ -318,7 +329,7 @@ public final class CatalogManager {
 	 */
 	public String getBuiltInDatabaseName() {
 		// The default database of the built-in catalog is also the built-in database.
-		return catalogs.get(getBuiltInCatalogName()).getDefaultDatabase();
+		return getCatalogInternal(getBuiltInCatalogName()).getDefaultDatabase();
 	}
 
 	/**
@@ -394,7 +405,7 @@ public final class CatalogManager {
 	 * @return partition in the table.
 	 */
 	public Optional<CatalogPartition> getPartition(ObjectIdentifier tableIdentifier, CatalogPartitionSpec partitionSpec) {
-		Catalog catalog = catalogs.get(tableIdentifier.getCatalogName());
+		Catalog catalog = getCatalogInternal(tableIdentifier.getCatalogName());
 		if (catalog != null) {
 			try {
 				return Optional.of(catalog.getPartition(tableIdentifier.toObjectPath(), partitionSpec));
@@ -405,7 +416,7 @@ public final class CatalogManager {
 	}
 
 	private Optional<TableLookupResult> getPermanentTable(ObjectIdentifier objectIdentifier) {
-		Catalog currentCatalog = catalogs.get(objectIdentifier.getCatalogName());
+		Catalog currentCatalog = getCatalogInternal(objectIdentifier.getCatalogName());
 		ObjectPath objectPath = objectIdentifier.toObjectPath();
 		if (currentCatalog != null) {
 			try {
@@ -445,7 +456,7 @@ public final class CatalogManager {
 	 * @return names of all registered tables
 	 */
 	public Set<String> listTables(String catalogName, String databaseName) {
-		Catalog currentCatalog = catalogs.get(getCurrentCatalog());
+		Catalog currentCatalog = getCatalogInternal(getCurrentCatalog());
 
 		try {
 			return Stream.concat(
@@ -511,7 +522,7 @@ public final class CatalogManager {
 	 * @return names of registered views
 	 */
 	public Set<String> listViews(String catalogName, String databaseName) {
-		Catalog currentCatalog = catalogs.get(getCurrentCatalog());
+		Catalog currentCatalog = getCatalogInternal(getCurrentCatalog());
 
 		try {
 			return Stream.concat(
@@ -557,7 +568,7 @@ public final class CatalogManager {
 	 */
 	public Set<String> listSchemas(String catalogName) {
 		return Stream.concat(
-			Optional.ofNullable(catalogs.get(catalogName))
+			Optional.ofNullable(getCatalogInternal(catalogName))
 				.map(Catalog::listDatabases)
 				.orElse(Collections.emptyList())
 				.stream(),
