@@ -260,6 +260,7 @@ object FlinkStreamRuleSets {
     PushProjectIntoLegacyTableSourceScanRule.INSTANCE,
     PushFilterIntoTableSourceScanRule.INSTANCE,
     PushFilterIntoLegacyTableSourceScanRule.INSTANCE,
+    PushLimitIntoTableSourceScanRule.INSTANCE,
 
     // reorder sort and projection
     SortProjectTransposeRule.INSTANCE,

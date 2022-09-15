@@ -97,4 +97,23 @@ public class JdbcTablePlanTest extends TableTestBase {
 			" AND decimal_col > 10");
 	}
 
+	@Test
+	public void testLimitPushDown() {
+		util.tableEnv()
+			.executeSql(
+				"CREATE TABLE jdbc ("
+					+ "id BIGINT,"
+					+ "timestamp6_col TIMESTAMP(6),"
+					+ "timestamp9_col TIMESTAMP(9),"
+					+ "time_col TIME,"
+					+ "real_col FLOAT,"
+					+ "double_col DOUBLE,"
+					+ "decimal_col DECIMAL(10, 4)"
+					+ ") WITH ("
+					+ "  'connector'='jdbc',"
+					+ "  'url'='jdbc:derby:memory:test',"
+					+ "  'table-name'='test_table'"
+					+ ")");
+		util.verifyPlan("SELECT id, time_col FROM jdbc LIMIT 3");
+	}
 }

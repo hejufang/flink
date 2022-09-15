@@ -68,6 +68,13 @@ public interface JdbcDialect extends Serializable {
 	}
 
 	/**
+	 * Get limit clause to limit the number of emitted row from the jdbc source.
+	 * @param limit number of row to emit. The value of the parameter should be non-negative.
+	 * @return the limit clause.
+	 */
+	String getLimitClause(long limit);
+
+	/**
 	 * Check if this dialect instance support a specific data type in table schema.
 	 * @param schema the table schema.
 	 * @exception ValidationException in case of the table schema contains unsupported type.

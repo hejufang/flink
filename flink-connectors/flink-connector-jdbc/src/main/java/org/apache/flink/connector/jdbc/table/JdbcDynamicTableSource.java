@@ -35,6 +35,7 @@ import org.apache.flink.table.connector.source.LookupTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.TableFunctionProvider;
 import org.apache.flink.table.connector.source.abilities.SupportsFilterPushDown;
+import org.apache.flink.table.connector.source.abilities.SupportsLimitPushDown;
 import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.expressions.ResolvedExpression;
@@ -56,7 +57,8 @@ public class JdbcDynamicTableSource implements
 		ScanTableSource,
 		LookupTableSource,
 		SupportsProjectionPushDown,
-		SupportsFilterPushDown {
+		SupportsFilterPushDown,
+		SupportsLimitPushDown {
 
 	private final JdbcOptions options;
 	private final JdbcReadOptions readOptions;
@@ -65,6 +67,7 @@ public class JdbcDynamicTableSource implements
 	private final String dialectName;
 	private final PredicateBuilder predicateBuilder;
 	private List<Predicate> predicates = new ArrayList<>();
+	private long limit = -1;
 
 	public JdbcDynamicTableSource(
 			JdbcOptions options,
@@ -154,6 +157,9 @@ public class JdbcDynamicTableSource implements
 			}
 			query += predicate.getPred();
 		}
+		if (limit >= 0) {
+			query = String.format("%s %s", query, dialect.getLimitClause(limit));
+		}
 		builder.setQuery(query);
 		return InputFormatProvider.of(builder.build(), scanIntervalMs < 0 || countOfReadTimes > 0);
 	}
@@ -226,12 +232,18 @@ public class JdbcDynamicTableSource implements
 			Objects.equals(lookupOptions, that.lookupOptions) &&
 			Objects.equals(physicalSchema, that.physicalSchema) &&
 			Objects.equals(dialectName, that.dialectName) &&
-			Objects.equals(predicates, that.predicates);
+			Objects.equals(predicates, that.predicates) &&
+			Objects.equals(limit, that.limit);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(options, readOptions, lookupOptions, physicalSchema, dialectName);
+		return Objects.hash(options, readOptions, lookupOptions, physicalSchema, dialectName, predicates, limit);
+	}
+
+	@Override
+	public void applyLimit(long limit) {
+		this.limit = limit;
 	}
 
 	@Override
