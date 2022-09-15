@@ -170,6 +170,20 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		return snapshot;
 	}
 
+	/**
+	 * updateSnapshot
+	 * Update the global snapshot with a prescribed Snapshot, remain the latest one.
+	 * @param prescribedSnapShot a manual input Snapshot
+	 */
+	public void updateSnapshot(Snapshot prescribedSnapShot) {
+		if (snapshot == null) {
+			snapshot = prescribedSnapShot;
+		} else {
+			// if exists, merge the overlaps (reserve the latest)
+			snapshot = Snapshot.merge(snapshot, prescribedSnapShot);
+		}
+	}
+
 	@Override
 	public long getVersionID() {
 		return snapshot == null ? 0 : snapshot.hashCode();
