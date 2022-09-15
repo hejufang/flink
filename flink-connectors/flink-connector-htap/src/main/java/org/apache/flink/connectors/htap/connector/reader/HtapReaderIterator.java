@@ -176,7 +176,9 @@ public class HtapReaderIterator {
 		if (storeScanThread.scanException != null) {
 			throw storeScanThread.scanException;
 		} else {
-			totalSizeInBuffer.getAndAdd(-1 * currentRowIterator.length());
+			if (currentRowIterator != null) {
+				totalSizeInBuffer.getAndAdd(-1 * currentRowIterator.length());
+			}
 			// if scan is finished, will poll a null element from iteratorLinkBuffer
 			this.currentRowIterator = iteratorLinkBuffer.poll();
 		}

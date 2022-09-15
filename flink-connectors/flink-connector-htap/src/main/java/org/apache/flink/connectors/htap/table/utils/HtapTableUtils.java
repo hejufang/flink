@@ -321,8 +321,12 @@ public class HtapTableUtils {
 				List<Object> values = new ArrayList<>();
 				for (Expression expr : valueExprs) {
 					if (isValueLiteralExpression(expr)) {
-						values.add(
-							extractValueLiteral(fieldReferenceExpression, (ValueLiteralExpression) expr));
+						Object value =
+							extractValueLiteral(fieldReferenceExpression, (ValueLiteralExpression) expr);
+						if (value == null) {
+							return Optional.empty();
+						}
+						values.add(value);
 					} else {
 						return Optional.empty();
 					}
@@ -442,6 +446,9 @@ public class HtapTableUtils {
 		}
 		String fieldName = fieldReferenceExpression.getName();
 		Object value = extractValueLiteral(fieldReferenceExpression, valueLiteralExpression);
+		if (value == null) {
+			return Optional.empty();
+		}
 		return Optional.of(Tuple2.of(fieldName, Collections.singleton(value.toString())));
 	}
 
@@ -463,6 +470,9 @@ public class HtapTableUtils {
 			if (expr instanceof ValueLiteralExpression) {
 				Object value =
 					extractValueLiteral(fieldReferenceExpression, (ValueLiteralExpression) expr);
+				if (value == null) {
+					return Optional.empty();
+				}
 				values.add(value.toString());
 			} else {
 				return Optional.empty();
