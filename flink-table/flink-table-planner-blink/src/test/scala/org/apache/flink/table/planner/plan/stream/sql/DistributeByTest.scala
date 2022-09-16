@@ -29,6 +29,7 @@ import org.junit.Test
 class DistributeByTest extends TableTestBase {
   private val util = streamTestUtil()
   util.addTableSource[(Long, Int, String, Long)]("MyTable", 'a, 'b, 'c, 'd)
+  util.addTableSource[(Long, Int, String, Long)]("TableWithProc", 'a, 'b, 'c, 'd, 'proc.proctime())
 
   @Test
   def testDistributeBy(): Unit = {
@@ -43,5 +44,21 @@ class DistributeByTest extends TableTestBase {
         |select a + 1 as a, b - 1 as b, c from MyTable where d > 0
         |""".stripMargin)
     util.verifyPlan("SELECT b, a, c FROM v distribute by b")
+  }
+
+  @Test
+  def testWithTimeAttribute(): Unit = {
+    util.tableEnv.executeSql(
+      """
+        |create view v as
+        |select c, sum(a) a, sum(b) b, avg(d) d
+        |from TableWithProc
+        |group by c, tumble(proc, INTERVAL '2' MINUTE)
+        |""".stripMargin)
+    util.tableEnv.executeSql(
+      """
+        |create view v1 as select a, b, c, d from v DISTRIBUTE BY c, a
+        |""".stripMargin)
+    util.verifyPlan("""select a + 1, c, b, d from v1""")
   }
 }

@@ -50,4 +50,27 @@ Exchange(distribution=[hash[b]])
 ]]>
     </Resource>
   </TestCase>
+  <TestCase name="testWithTimeAttribute">
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(EXPR$0=[+($0, 1)], c=[$2], b=[$1], d=[$3])
++- HiveDistribution(collation=[[]], dist=[[2, 0]])
+   +- LogicalProject(a=[$1], b=[$2], c=[$0], d=[$3])
+      +- LogicalProject(c=[$0], a=[$2], b=[$3], d=[$4])
+         +- LogicalAggregate(group=[{0, 1}], a=[SUM($2)], b=[SUM($3)], d=[AVG($4)])
+            +- LogicalProject(c=[$2], $f1=[$TUMBLE($4, 120000:INTERVAL MINUTE)], a=[$0], b=[$1], d=[$3])
+               +- LogicalTableScan(table=[[default_catalog, default_database, TableWithProc, source: [TestTableSource(a, b, c, d, proc)]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[+(a, 1) AS EXPR$0, c, b, d])
++- Exchange(distribution=[hash[c, a]])
+   +- Calc(select=[a, b, c, d])
+      +- GroupWindowAggregate(groupBy=[c], window=[TumblingGroupWindow('w$, proc, 120000)], select=[c, SUM(a) AS a, SUM(b) AS b, AVG(d) AS d])
+         +- Exchange(distribution=[hash[c]])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, TableWithProc, source: [TestTableSource(a, b, c, d, proc)]]], fields=[a, b, c, d, proc])
+]]>
+    </Resource>
+  </TestCase>
 </Root>

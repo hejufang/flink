@@ -77,4 +77,8 @@ public class HiveDistribution extends SingleRel {
 		pw.item("dist", distKeys);
 		return pw;
 	}
+
+	public HiveDistribution copy(RelNode input) {
+		return new HiveDistribution(getCluster(), traitSet, input, collation, distKeys);
+	}
 }

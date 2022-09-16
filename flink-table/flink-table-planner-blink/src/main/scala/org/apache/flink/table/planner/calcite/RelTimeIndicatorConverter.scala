@@ -187,7 +187,7 @@ class RelTimeIndicatorConverter(rexBuilder: RexBuilder) extends RelShuttle {
         sink.staticPartitions)
 
     case hiveDistribution: HiveDistribution =>
-      hiveDistribution
+      hiveDistribution.copy(hiveDistribution.getInput.accept(this))
 
     case _ =>
       throw new TableException(s"Unsupported logical operator: ${other.getClass.getSimpleName}")
