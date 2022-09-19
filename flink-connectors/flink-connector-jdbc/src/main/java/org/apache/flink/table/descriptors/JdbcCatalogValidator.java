@@ -19,6 +19,9 @@
 package org.apache.flink.table.descriptors;
 
 import org.apache.flink.connector.jdbc.catalog.JdbcCatalog;
+import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
+import org.apache.flink.connector.jdbc.dialect.JdbcDialects;
+import org.apache.flink.connector.jdbc.dialect.MySQLDialect;
 
 /**
  * Validator for {@link JdbcCatalog}.
@@ -30,14 +33,26 @@ public class JdbcCatalogValidator extends CatalogDescriptorValidator {
 	public static final String CATALOG_JDBC_USERNAME = "username";
 	public static final String CATALOG_JDBC_PASSWORD = "password";
 	public static final String CATALOG_JDBC_BASE_URL = "base-url";
+	public static final String CATALOG_JDBC_FETCH_SIZE = "fetch-size";
 
 	@Override
 	public void validate(DescriptorProperties properties) {
 		super.validate(properties);
 		properties.validateValue(CATALOG_TYPE, CATALOG_TYPE_VALUE_JDBC, false);
-		properties.validateString(CATALOG_JDBC_BASE_URL, false, 1);
-		properties.validateString(CATALOG_JDBC_USERNAME, false, 1);
-		properties.validateString(CATALOG_JDBC_PASSWORD, false, 1);
 		properties.validateString(CATALOG_DEFAULT_DATABASE, false, 1);
+		properties.validateInt(CATALOG_JDBC_FETCH_SIZE, true);
+		properties.validateString(CATALOG_JDBC_BASE_URL, false, 1);
+
+		JdbcDialect dialect = null;
+		if (JdbcDialects.get(properties.getString(CATALOG_JDBC_BASE_URL)).isPresent()) {
+			dialect = JdbcDialects.get(properties.getString(CATALOG_JDBC_BASE_URL)).get();
+		}
+		if (dialect instanceof MySQLDialect) {
+			properties.validateString(CATALOG_JDBC_USERNAME, true, 1);
+			properties.validateString(CATALOG_JDBC_PASSWORD, true, 1);
+		} else {
+			properties.validateString(CATALOG_JDBC_USERNAME, false, 1);
+			properties.validateString(CATALOG_JDBC_PASSWORD, false, 1);
+		}
 	}
 }

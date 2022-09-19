@@ -25,8 +25,10 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
+import org.apache.flink.connector.jdbc.catalog.MySQLURL;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialects;
+import org.apache.flink.connector.jdbc.dialect.MySQLDialect;
 import org.apache.flink.connector.jdbc.internal.options.JdbcDmlOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcLookupOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
@@ -44,9 +46,11 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.apache.flink.configuration.PipelineOptions.GLOBAL_JOB_PARAMETERS;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_NULL_VALUE;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_ENABLE_INPUT_KEYBY;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LATENCY;
@@ -118,6 +122,11 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		.stringType()
 		.noDefaultValue()
 		.withDescription("init sql which will be executed when create a db connection.");
+	public static final ConfigOption<String> CATALOG_NAME = ConfigOptions
+		.key("catalog-name")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("the catalog name.");
 	public static final ConfigOption<Boolean> COMPATIBLE_MODE = ConfigOptions
 		.key("compatible-mode")
 		.booleanType()
@@ -147,7 +156,7 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		.longType()
 		.noDefaultValue()
 		.withDescription("the largest value of the last partition.");
-	private static final ConfigOption<Integer> SCAN_FETCH_SIZE = ConfigOptions
+	public static final ConfigOption<Integer> SCAN_FETCH_SIZE = ConfigOptions
 		.key("scan.fetch-size")
 		.intType()
 		.defaultValue(0)
@@ -211,9 +220,10 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 	public DynamicTableSink createDynamicTableSink(Context context) {
 		final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
 		final ReadableConfig config = helper.getOptions();
+		final Optional<Map<String, String>> jobParameters = context.getConfiguration().getOptional(GLOBAL_JOB_PARAMETERS);
 
 		helper.validate();
-		JdbcOptions jdbcOptions = getJdbcOptions(config);
+		JdbcOptions jdbcOptions = getJdbcOptions(config, jobParameters);
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
 		validateConfigOptions(config, physicalSchema);
 
@@ -228,26 +238,33 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 	public DynamicTableSource createDynamicTableSource(Context context) {
 		final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
 		final ReadableConfig config = helper.getOptions();
+		final Optional<Map<String, String>> jobParameters = context.getConfiguration().getOptional(GLOBAL_JOB_PARAMETERS);
 
 		helper.validate();
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
 		validateConfigOptions(config, physicalSchema);
 		return new JdbcDynamicTableSource(
-			getJdbcOptions(helper.getOptions()),
+			getJdbcOptions(helper.getOptions(), jobParameters),
 			getJdbcReadOptions(helper.getOptions()),
 			getJdbcLookupOptions(helper.getOptions()),
 			physicalSchema,
 			null);
 	}
 
-	private JdbcOptions getJdbcOptions(ReadableConfig readableConfig) {
+	private JdbcOptions getJdbcOptions(ReadableConfig readableConfig, Optional<Map<String, String>> jobParameters) {
 		Optional<String> url = readableConfig.getOptional(URL);
 
 		final JdbcOptions.Builder builder = JdbcOptions.builder()
 			.setTableName(readableConfig.get(TABLE_NAME));
 
 		if (url.isPresent()) {
-			builder.setDBUrl(url.get()).setDialect(JdbcDialects.get(url.get()).get());
+			JdbcDialect dialect = JdbcDialects.get(url.get()).get();
+			if (dialect instanceof MySQLDialect) {
+				builder.setDBUrl(MySQLURL.fromJobParameters(readableConfig.get(CATALOG_NAME), url.get(), jobParameters));
+				builder.setDialect(dialect);
+			} else {
+				builder.setDBUrl(url.get()).setDialect(dialect);
+			}
 		} else {
 			builder.setDBUrl(null).setDialect(JdbcDialects.get("jdbc:mysql:").get());
 		}
@@ -349,6 +366,7 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		optionalOptions.add(DBNAME);
 		optionalOptions.add(PSM);
 		optionalOptions.add(INIT_SQL);
+		optionalOptions.add(CATALOG_NAME);
 		optionalOptions.add(SCAN_PARTITION_COLUMN);
 		optionalOptions.add(SCAN_PARTITION_LOWER_BOUND);
 		optionalOptions.add(SCAN_PARTITION_UPPER_BOUND);

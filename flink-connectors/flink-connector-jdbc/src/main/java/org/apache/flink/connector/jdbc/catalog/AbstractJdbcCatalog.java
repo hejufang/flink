@@ -18,6 +18,9 @@
 
 package org.apache.flink.connector.jdbc.catalog;
 
+import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
+import org.apache.flink.connector.jdbc.dialect.JdbcDialects;
+import org.apache.flink.connector.jdbc.dialect.MySQLDialect;
 import org.apache.flink.connector.jdbc.table.JdbcDynamicTableFactory;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.api.constraints.UniqueConstraint;
@@ -60,6 +63,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -79,11 +83,20 @@ public abstract class AbstractJdbcCatalog extends AbstractCatalog {
 	public AbstractJdbcCatalog(String catalogName, String defaultDatabase, String username, String pwd, String baseUrl) {
 		super(catalogName, defaultDatabase);
 
-		checkArgument(!StringUtils.isNullOrWhitespaceOnly(username));
-		checkArgument(!StringUtils.isNullOrWhitespaceOnly(pwd));
 		checkArgument(!StringUtils.isNullOrWhitespaceOnly(baseUrl));
 
-		JdbcCatalogUtils.validateJdbcUrl(baseUrl);
+		JdbcDialect dialect = null;
+		if (JdbcDialects.get(baseUrl).isPresent()) {
+			dialect = JdbcDialects.get(baseUrl).get();
+		}
+		if (dialect instanceof MySQLDialect) {
+			checkArgument((username == null && pwd == null) ||
+				(!Objects.requireNonNull(username).isEmpty() && !Objects.requireNonNull(pwd).isEmpty()));
+		} else {
+			checkArgument(!StringUtils.isNullOrWhitespaceOnly(username));
+			checkArgument(!StringUtils.isNullOrWhitespaceOnly(pwd));
+			JdbcCatalogUtils.validateJdbcUrl(baseUrl);
+		}
 
 		this.username = username;
 		this.pwd = pwd;

@@ -80,9 +80,11 @@ public class JdbcDynamicTableFactoryTest {
 			.setCacheExpireMs(10_000)
 			.setMaxRetryTimes(3)
 			.build();
+		JdbcReadOptions readOptions = JdbcReadOptions.builder()
+			.build();
 		JdbcDynamicTableSource expectedSource = new JdbcDynamicTableSource(
 			options,
-			JdbcReadOptions.builder().build(),
+			readOptions,
 			lookupOptions,
 			schema,
 			null);
@@ -171,9 +173,11 @@ public class JdbcDynamicTableFactoryTest {
 			.setCacheExpireMs(10_000)
 			.setMaxRetryTimes(10)
 			.build();
+		JdbcReadOptions readOptions = JdbcReadOptions.builder()
+			.build();
 		JdbcDynamicTableSource expected = new JdbcDynamicTableSource(
 			options,
-			JdbcReadOptions.builder().build(),
+			readOptions,
 			lookupOptions,
 			schema,
 			null);

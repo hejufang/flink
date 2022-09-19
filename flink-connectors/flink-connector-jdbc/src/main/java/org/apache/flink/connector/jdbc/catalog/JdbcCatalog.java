@@ -42,10 +42,16 @@ public class JdbcCatalog extends AbstractJdbcCatalog {
 
 	private final AbstractJdbcCatalog internal;
 
-	public JdbcCatalog(String catalogName, String defaultDatabase, String username, String pwd, String baseUrl) {
+	public JdbcCatalog(
+			String catalogName,
+			String defaultDatabase,
+			String username,
+			String pwd,
+			String baseUrl,
+			String fetchSize) {
 		super(catalogName, defaultDatabase, username, pwd, baseUrl);
 
-		internal = JdbcCatalogUtils.createCatalog(catalogName, defaultDatabase, username, pwd, baseUrl);
+		internal = JdbcCatalogUtils.createCatalog(catalogName, defaultDatabase, username, pwd, baseUrl, fetchSize);
 	}
 
 	// ------ databases -----
@@ -80,6 +86,11 @@ public class JdbcCatalog extends AbstractJdbcCatalog {
 		} catch (DatabaseNotExistException e) {
 			return false;
 		}
+	}
+
+	@Override
+	public void open() throws CatalogException {
+		internal.open();
 	}
 
 	// ------ getters ------
