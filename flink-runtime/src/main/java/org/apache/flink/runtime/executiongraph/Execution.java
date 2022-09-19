@@ -1597,7 +1597,17 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 				getVertex().getExecutionGraph().getJobMasterMainThreadExecutor();
 
 			CompletableFuture<Acknowledge> cancelResultFuture = FutureUtils.retry(
-				() -> taskManagerGateway.cancelTask(attemptId, rpcTimeout),
+				() -> {
+					switch (this.state){
+						case FAILED:
+						case CANCELED:
+							LOG.info("No need retry cancel task: {}, current state: {}", this.toString(), this.state);
+							return CompletableFuture.completedFuture(Acknowledge.get());
+						default:
+							break;
+					}
+					return taskManagerGateway.cancelTask(attemptId, rpcTimeout);
+				},
 				numberRetries,
 				jobMasterMainThreadExecutor);
 
