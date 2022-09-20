@@ -85,9 +85,15 @@ class StreamExecJoinRule
     val remainingPredsAccessTime = remainingPreds.isDefined &&
       IntervalJoinUtil.accessesTimeAttribute(remainingPreds.get, joinRowType)
 
+    val isBroadcastJoin = join.getHints.size() match {
+      case 1 if HINT_NAME_USE_BROADCAST_JOIN.equals(join.getHints.get(0).hintName) => true
+      case _ => false
+    }
+
     val rowTimeAttrInOutput = joinRowType.getFieldList
       .exists(f => FlinkTypeFactory.isRowtimeIndicatorType(f.getType))
-    if (rowTimeAttrInOutput) {
+
+    if (rowTimeAttrInOutput && !isBroadcastJoin) {
       throw new TableException(
         "Rowtime attributes must not be in the input rows of a regular join. " +
           "As a workaround you can cast the time attributes of input tables to TIMESTAMP before.")

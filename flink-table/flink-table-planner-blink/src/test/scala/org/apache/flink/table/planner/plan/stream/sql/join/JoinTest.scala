@@ -408,6 +408,45 @@ class JoinTest extends TableTestBase {
   }
 
   @Test
+  def testBroadcastJoinWithEventTimeAttribute(): Unit = {
+    util.getStreamEnv.setParallelism(12)
+    val testDataList = TestData.data3WithTimestamp
+    val sourceId1: String = TestValuesTableFactory.registerData(testDataList)
+    util.tableEnv.executeSql(
+      s"""
+         | CREATE TABLE SS (
+         | id int,
+         | long_field bigint,
+         | word varchar,
+         | ts timestamp,
+         | WATERMARK FOR ts as ts - INTERVAL '3' second
+         |) WITH (
+         | 'connector' = 'values',
+         | 'data-id' = '$sourceId1',
+         | 'table-source-class'='${classOf[TestData.ScanTableSourceWithTimestamp].getName}'
+         |)
+         |""".stripMargin)
+
+    val table1 = createValidBroadcastTable("BB")
+
+    util.tableEnv.executeSql(
+      s"""
+         | CREATE VIEW v1 AS
+         | SELECT /*+ use_broadcast_join(${broadcastHints("BB")}) */
+         | *
+         | FROM SS LEFT JOIN BB
+         | ON SS.id = BB.id
+         |""".stripMargin)
+
+    util.verifyTransformation(
+      s"""
+         | SELECT COUNT(*)
+         | FROM v1
+         | GROUP BY TUMBLE(ts, INTERVAL '1' MINUTE)
+         |""".stripMargin)
+  }
+
+  @Test
   def testSelectHintIsNull(): Unit = {
     util.verifyPlan(
       """

@@ -1262,4 +1262,33 @@ SortLimit(orderBy=[item ASC, return_ratio ASC], offset=[0], fetch=[100], strateg
 ]]>
     </Resource>
   </TestCase>
+	<TestCase name="testBroadcastJoinWithEventTimeAttribute">
+		<Resource name="planAfter">
+			<![CDATA[
+GroupWindowAggregate(window=[TumblingGroupWindow('w$, ts, 60000)], select=[COUNT(*) AS EXPR$0])
++- Exchange(distribution=[single])
+   +- Calc(select=[ts])
+      +- Join(joinType=[LeftOuterJoin], where=[=(id, id0)], select=[id, ts, id0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false)])
+         :- Calc(select=[id, ts])
+         :  +- WatermarkAssigner(rowtime=[ts], watermark=[-(ts, 3000:INTERVAL SECOND)])
+         :     +- TableSourceScan(table=[[default_catalog, default_database, SS]], fields=[id, long_field, word, ts])
+         +- Calc(select=[id])
+            +- TableSourceScan(table=[[default_catalog, default_database, BB]], fields=[id, word, cnt])
+
+OneInputTransformation{name='GroupWindowAggregate(window=[TumblingGroupWindow('w$, ts, 60000)], select=[COUNT(*) AS EXPR$0])', outputType=RowData(EXPR$0: BIGINT NOT NULL), parallelism=1}
+	PartitionTransformation{name='Partition', outputType=RowData(ts: TIMESTAMP(3) *ROWTIME*), parallelism=1}
+		OneInputTransformation{name='Calc(select=[ts])', outputType=RowData(ts: TIMESTAMP(3) *ROWTIME*), parallelism=-1}
+			TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(id = id0)], select=[id, ts, id0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false)])', outputType=RowData(id: INT, ts: TIMESTAMP(3) *ROWTIME*, id0: INT), parallelism=-1}
+				OneInputTransformation{name='Calc(select=[id, ts])', outputType=RowData(id: INT, ts: TIMESTAMP(3) *ROWTIME*), parallelism=-1}
+					OneInputTransformation{name='WatermarkAssigner(rowtime=[ts], watermark=[(ts - 3000:INTERVAL SECOND)])', outputType=RowData(id: INT, long_field: BIGINT, word: STRING, ts: TIMESTAMP(3) *ROWTIME*), parallelism=-1}
+						FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(id: INT, long_field: BIGINT, word: STRING, ts: TIMESTAMP(3)), parallelism=-1}
+							LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, SS]], fields=[id, long_field, word, ts])', outputType=RowData(id: INT, long_field: BIGINT, word: STRING, ts: TIMESTAMP(3)), parallelism=12}
+				PartitionTransformation{name='BroadcastPartition', outputType=RowData(id: INT), parallelism=-1}
+					OneInputTransformation{name='Calc(select=[id])', outputType=RowData(id: INT), parallelism=-1}
+						FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(id: INT, word: STRING, cnt: BIGINT), parallelism=-1}
+							LegacySourceTransformation{name='TableSourceScan(table=[[default_catalog, default_database, BB]], fields=[id, word, cnt])', outputType=RowData(id: INT, word: STRING, cnt: BIGINT), parallelism=12}
+]]>
+		</Resource>
+	</TestCase>
+
 </Root>
