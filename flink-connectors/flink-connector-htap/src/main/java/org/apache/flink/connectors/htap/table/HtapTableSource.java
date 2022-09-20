@@ -110,6 +110,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 	private boolean isLimitPushedDown = false;
 	private boolean partitionPruned = false;
 	private long limit = -1;
+	private long estimatedCost = -1;
 
 	public HtapTableSource(
 			HtapReaderConfig readerConfig,
@@ -201,7 +202,8 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			limit,
 			pushedDownPartitions,
 			inDryRunMode,
-			topNInfo);
+			topNInfo,
+			estimatedCost);
 		int parallelism = flinkConf.get(ExecutionConfigOptions.TABLE_EXEC_RESOURCE_DEFAULT_PARALLELISM);
 		if (flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM)) {
 			int max = flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM_MAX);
@@ -241,6 +243,12 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 		return env.createInput(inputFormat,
 			(TypeInformation<Row>) TypeConversions.fromDataTypeToLegacyInfo(getProducedDataType()))
 			.name(explainSource()).setParallelism(parallelism);
+	}
+
+	@Override
+	public void setEstimatedCost(double estimatedCost) {
+		this.estimatedCost = (long) estimatedCost;
+		LOG.debug("Set estimatedCost: {} for scan table: {}", this.estimatedCost, tableInfo.getFullName());
 	}
 
 	private int inferParallelismWithPartitionNumber(

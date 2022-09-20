@@ -124,11 +124,13 @@ public class HtapReader implements AutoCloseable {
 			byte[] token,
 			PartitionID partitionId,
 			String subTaskFullName,
-			boolean compatibleWithMySQL) throws IOException {
+			boolean compatibleWithMySQL,
+			long estimatedCost) throws IOException {
 		try {
+			LOG.debug("New HtapReaderIterator with estimatedCost: {}", estimatedCost);
 			return new HtapReaderIterator(
 				HtapScanToken.deserializeIntoScanner(token, partitionId, client, table,
-					htapClusterName, compatibleWithMySQL),
+					htapClusterName, compatibleWithMySQL, estimatedCost),
 				aggregateFunctions, outputDataType, groupByColumns.size(), subTaskFullName);
 		} catch (Exception e) {
 			throw new IOException(subTaskFullName + " build HtapReaderIterator error", e);

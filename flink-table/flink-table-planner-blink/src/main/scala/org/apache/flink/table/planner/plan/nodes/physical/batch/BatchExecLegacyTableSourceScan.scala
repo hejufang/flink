@@ -59,19 +59,22 @@ import scala.collection.JavaConversions._
 class BatchExecLegacyTableSourceScan(
     cluster: RelOptCluster,
     traitSet: RelTraitSet,
-    tableSourceTable: LegacyTableSourceTable[_])
+    tableSourceTable: LegacyTableSourceTable[_],
+    inputCost: Double)
   extends PhysicalLegacyTableSourceScan(cluster, traitSet, tableSourceTable)
           with BatchPhysicalRel
           with BatchExecNode[RowData]{
 
+  private var estimatedCost = -1.0;
+
   def copy(
       traitSet: RelTraitSet,
       tableSourceTable: LegacyTableSourceTable[_]): BatchExecLegacyTableSourceScan = {
-    new BatchExecLegacyTableSourceScan(cluster, traitSet, tableSourceTable)
+    new BatchExecLegacyTableSourceScan(cluster, traitSet, tableSourceTable, estimatedCost)
   }
 
   override def copy(traitSet: RelTraitSet, inputs: util.List[RelNode]): RelNode = {
-    new BatchExecLegacyTableSourceScan(cluster, traitSet, tableSourceTable)
+    new BatchExecLegacyTableSourceScan(cluster, traitSet, tableSourceTable, estimatedCost)
   }
 
   override def computeSelfCost(planner: RelOptPlanner, mq: RelMetadataQuery): RelOptCost = {
@@ -82,6 +85,7 @@ class BatchExecLegacyTableSourceScan(
     val cpu = 0
     val rowSize = mq.getAverageRowSize(this)
     val size = rowCnt * rowSize
+    estimatedCost = size;
     planner.getCostFactory.makeCost(rowCnt, cpu, size)
   }
 
@@ -100,7 +104,16 @@ class BatchExecLegacyTableSourceScan(
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
     val config = planner.getTableConfig
-    val inputTransform = getSourceTransformation(planner.getExecEnv, isStreaming = false)
+
+    var finalEstimatedCost = estimatedCost
+    // estimatedCost may not set in copy BatchExecLegacyTableSourceScan, use inputCost
+    if (finalEstimatedCost < 0) {
+      finalEstimatedCost = inputCost
+    }
+    val inputTransform = getSourceTransformation(
+      planner.getExecEnv,
+      isStreaming = false,
+      finalEstimatedCost)
 
     val fieldIndexes = computeIndexMapping()
 

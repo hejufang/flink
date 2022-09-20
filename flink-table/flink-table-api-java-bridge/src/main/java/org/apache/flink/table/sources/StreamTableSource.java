@@ -42,4 +42,11 @@ public interface StreamTableSource<T> extends TableSource<T> {
 	 *       Do not use it in Table API programs.
 	 */
 	DataStream<T> getDataStream(StreamExecutionEnvironment execEnv);
+
+	/**
+	 * Set estimated scan cost. It will always be called in plan stage.
+	 * You can implement it if you need to use the cost
+	 */
+	default void setEstimatedCost(double estimatedCost) {
+	}
 }

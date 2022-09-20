@@ -39,6 +39,7 @@ import org.apache.flink.types.Row;
 
 import com.bytedance.htap.meta.HtapTable;
 import com.bytedance.htap.metaclient.partition.PartitionID;
+import org.apache.commons.collections.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,6 +73,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private final Set<PartitionID> pushedDownPartitions;
 	private final boolean inDryRunMode;
 	private final TopNInfo topNInfo;
+	private final long estimatedCost;
 
 	private boolean endReached;
 
@@ -101,7 +103,8 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 			long limit,
 			Set<PartitionID> pushedDownPartitions,
 			boolean inDryRunMode,
-			TopNInfo topNInfo) {
+			TopNInfo topNInfo,
+			long estimatedCost) {
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
 		this.htapClusterName = checkNotNull(htapClusterName, "htapClusterName could not be null");
 		this.table = checkNotNull(table, "table could not be null");
@@ -117,6 +120,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 		this.pushedDownPartitions = pushedDownPartitions;
 		this.inDryRunMode = inDryRunMode;
 		this.topNInfo = topNInfo;
+		this.estimatedCost = estimatedCost;
 	}
 
 	@Override
@@ -133,8 +137,18 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 		endReached = false;
 		createHtapReader();
 		boolean compatibleWithMySQL = readerConfig.isCompatibleWithMySQL();
+
+		long partitionEstimatedCost = 0;
+		if (estimatedCost > 0) {
+			if (CollectionUtils.isNotEmpty(pushedDownPartitions) && pushedDownPartitions.size() > 0) {
+				partitionEstimatedCost = estimatedCost / pushedDownPartitions.size();
+			} else if (table.getNumPartitions() > 0) {
+				partitionEstimatedCost = estimatedCost / table.getNumPartitions();
+			}
+		}
+
 		resultIterator = htapReader.scanner(split.getScanToken(), split.getPartitionID(),
-			subTaskFullName, compatibleWithMySQL);
+			subTaskFullName, compatibleWithMySQL, partitionEstimatedCost);
 		currentPartition = split.getSplitNumber();
 
 		openTime = System.currentTimeMillis() - splitStartTime;

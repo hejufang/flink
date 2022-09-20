@@ -59,7 +59,8 @@ class BatchExecLegacyTableSourceScanRule
     new BatchExecLegacyTableSourceScan(
       rel.getCluster,
       newTrait,
-      scan.getTable.asInstanceOf[LegacyTableSourceTable[_]]
+      scan.getTable.asInstanceOf[LegacyTableSourceTable[_]],
+      -1.0
     )
   }
 }

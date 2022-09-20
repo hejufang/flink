@@ -80,7 +80,8 @@ abstract class PhysicalLegacyTableSourceScan(
 
   def getSourceTransformation(
       env: StreamExecutionEnvironment,
-      isStreaming: Boolean): Transformation[_] = {
+      isStreaming: Boolean,
+      estimatedCost: Double): Transformation[_] = {
     if (sourceTransform == null) {
       val optionalHybridSourceInfo = relOptTable.catalogTable.getTableHybridSourceInfo
       if (optionalHybridSourceInfo.isPresent) {
@@ -106,7 +107,9 @@ abstract class PhysicalLegacyTableSourceScan(
             env,
             format.getInputFormat.asInstanceOf[InputFormat[Any, _ <: InputSplit]],
             typeInfo.asInstanceOf[TypeInformation[Any]])
-        case s: StreamTableSource[_] => s.getDataStream(env).getTransformation
+        case s: StreamTableSource[_] =>
+          s.setEstimatedCost(estimatedCost)
+          s.getDataStream(env).getTransformation
       }
 
       if (optionalHybridSourceInfo.isPresent) {
