@@ -1963,8 +1963,8 @@ boei18n:
   docker.hub: aliyun-va-hub.byted.org
   docker.namespace: yarn
   docker.region: Aliyun_VA
-  grafana.domain_url: "https://grafana-boei18n.byted.org"
-  register-dashboard.token: "Bearer eyJrIjoicndEUGRnNHpUZE9Gcm04VE5QSDdDV3JzbG8wWFZYa3IiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  grafana.domain_url: "https://grafana-boe.byted.org"
+  register-dashboard.token: "Bearer eyJrIjoiTURSV01QeWNDZXJXYUNBdEhkSU94U2tKajU2M1BVM24iLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
   # local state quota limit
