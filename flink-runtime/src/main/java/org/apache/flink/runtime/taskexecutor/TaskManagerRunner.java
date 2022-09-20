@@ -80,7 +80,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -154,7 +156,10 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 			ReporterSetup.fromConfiguration(configuration, pluginManager));
 
 		final RpcService metricQueryServiceRpcService = MetricUtils.startRemoteMetricsRpcService(configuration, rpcService.getAddress());
-		metricRegistry.startQueryService(metricQueryServiceRpcService, resourceId);
+		Boolean enableMetricFilter = configuration.get(MetricOptions.METRIC_FILTER_ENABLED);
+		Set<String> legalMetrics = new HashSet<>(configuration.get(MetricOptions.METRIC_FILTER_WHITE_LIST));
+		metricRegistry.startQueryService(metricQueryServiceRpcService, resourceId, enableMetricFilter,
+			legalMetrics);
 
 		blobCacheService = new BlobCacheService(
 			configuration, highAvailabilityServices.createBlobStore(), null

@@ -38,7 +38,9 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -74,7 +76,8 @@ public class MetricQueryServiceTest extends TestLogger {
 
 	@Test
 	public void testCreateDump() throws Exception {
-		MetricQueryService queryService = MetricQueryService.createMetricQueryService(rpcService, ResourceID.generate(), Long.MAX_VALUE);
+		MetricQueryService queryService = MetricQueryService.createMetricQueryService(rpcService, ResourceID.generate(), Long.MAX_VALUE,
+			false, new HashSet<>());
 		queryService.start();
 
 		final Counter c = new SimpleCounter();
@@ -112,7 +115,7 @@ public class MetricQueryServiceTest extends TestLogger {
 	@Test
 	public void testHandleOversizedMetricMessage() throws Exception {
 		final long sizeLimit = 200L;
-		MetricQueryService queryService = MetricQueryService.createMetricQueryService(rpcService, ResourceID.generate(), sizeLimit);
+		MetricQueryService queryService = MetricQueryService.createMetricQueryService(rpcService, ResourceID.generate(), sizeLimit, false, new HashSet<>());
 		queryService.start();
 
 		final TaskManagerMetricGroup tm = UnregisteredMetricGroups.createUnregisteredTaskManagerMetricGroup();
@@ -158,5 +161,35 @@ public class MetricQueryServiceTest extends TestLogger {
 		assertTrue(recoveredDump.serializedHistograms.length > 0);
 		assertEquals(1, recoveredDump.numHistograms);
 
+	}
+
+	@Test
+	public void testFilterMetricMessage() throws Exception {
+		boolean enableFilter = true;
+		Set<String> metricsWhiteList = new HashSet<>();
+		metricsWhiteList.add("counter");
+		metricsWhiteList.add("gauge");
+		MetricQueryService queryService = MetricQueryService.createMetricQueryService(rpcService, ResourceID.generate(), Long.MAX_VALUE,
+			enableFilter, metricsWhiteList);
+		queryService.start();
+
+		final Counter c = new SimpleCounter();
+		final Gauge<String> g = () -> "Hello";
+		final Histogram h = new TestHistogram();
+		final Meter m = new TestMeter();
+
+		final TaskManagerMetricGroup tm = UnregisteredMetricGroups.createUnregisteredTaskManagerMetricGroup();
+
+		queryService.addMetric("counter", c, tm);
+		queryService.addMetric("gauge", g, tm);
+		queryService.addMetric("histogram", h, tm);
+		queryService.addMetric("meter", m, tm);
+
+		MetricDumpSerialization.MetricSerializationResult dump = queryService.queryMetrics(TIMEOUT).get();
+
+		assertTrue(dump.serializedCounters.length > 0);
+		assertTrue(dump.serializedGauges.length > 0);
+		assertEquals(0, dump.serializedHistograms.length);
+		assertEquals(0, dump.serializedMeters.length);
 	}
 }

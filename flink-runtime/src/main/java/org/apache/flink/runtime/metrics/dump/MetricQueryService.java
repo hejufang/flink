@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.runtime.metrics.dump.MetricDumpSerialization.MetricDumpSerializer;
@@ -71,9 +72,16 @@ public class MetricQueryService extends RpcEndpoint implements MetricQueryServic
 
 	private final long messageSizeLimit;
 
-	public MetricQueryService(RpcService rpcService, String endpointId, long messageSizeLimit) {
+	private final boolean enableFilterMetric;
+
+	private final Set<String> legalMetricNameSet;
+
+	public MetricQueryService(RpcService rpcService, String endpointId, long messageSizeLimit,
+		boolean enableFilterMetric, Set<String> legalMetricNameSet) {
 		super(rpcService, endpointId);
 		this.messageSizeLimit = messageSizeLimit;
+		this.enableFilterMetric = enableFilterMetric;
+		this.legalMetricNameSet = legalMetricNameSet;
 	}
 
 	@Override
@@ -85,6 +93,11 @@ public class MetricQueryService extends RpcEndpoint implements MetricQueryServic
 	public void addMetric(String metricName, Metric metric, AbstractMetricGroup group) {
 		runAsync(() -> {
 			QueryScopeInfo info = group.getQueryServiceMetricInfo(FILTER);
+			if (enableFilterMetric && !legalMetricNameSet.contains(metricName)) {
+				LOG.debug("enable filter metric, filtered metric: {}", metricName);
+				return;
+			}
+			LOG.debug("legal metrics: {}", metricName);
 
 			if (metric instanceof Counter) {
 				counters.put((Counter) metric, new Tuple2<>(info, FILTER.filterCharacters(metricName)));
@@ -243,12 +256,14 @@ public class MetricQueryService extends RpcEndpoint implements MetricQueryServic
 	public static MetricQueryService createMetricQueryService(
 		RpcService rpcService,
 		ResourceID resourceID,
-		long maximumFrameSize) {
+		long maximumFrameSize,
+		boolean enableFilterMetric,
+		Set<String> legalMetricNameSet) {
 
 		String endpointId = resourceID == null
 			? METRIC_QUERY_SERVICE_NAME
 			: METRIC_QUERY_SERVICE_NAME + "_" + resourceID.getResourceIdString();
 
-		return new MetricQueryService(rpcService, endpointId, maximumFrameSize);
+		return new MetricQueryService(rpcService, endpointId, maximumFrameSize, enableFilterMetric, legalMetricNameSet);
 	}
 }

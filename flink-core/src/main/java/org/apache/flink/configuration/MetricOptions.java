@@ -23,6 +23,7 @@ import org.apache.flink.annotation.docs.Documentation;
 import org.apache.flink.configuration.description.Description;
 
 import java.time.Duration;
+import java.util.List;
 
 import static org.apache.flink.configuration.ConfigOptions.key;
 import static org.apache.flink.configuration.description.TextElement.text;
@@ -254,6 +255,18 @@ public class MetricOptions {
 		key("metrics.task-io-metric-register-only.enabled.enabled")
 			.defaultValue(false)
 			.withDescription("Flag indicating whether TM should only register io metrics");
+
+	public static final ConfigOption<Boolean> METRIC_FILTER_ENABLED =
+		key("metrics.filter.enabled")
+			.defaultValue(false)
+			.withDescription("Flag indicating whether should filter metrics by whitelist metrics.");
+
+	public static final ConfigOption<List<String>> METRIC_FILTER_WHITE_LIST =
+		key("metrics.filter.white-list")
+			.stringType()
+			.asList()
+			.defaultValues()
+			.withDescription("A semicolon-separated list of the legal metric names.");
 
 	private MetricOptions() {
 	}

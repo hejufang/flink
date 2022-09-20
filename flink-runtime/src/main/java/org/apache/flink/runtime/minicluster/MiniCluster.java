@@ -28,6 +28,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
+import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.blob.BlobCacheService;
 import org.apache.flink.runtime.blob.BlobClient;
@@ -105,7 +106,9 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -316,7 +319,10 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 						commonRpcService.getAddress());
 				}
 
-				metricRegistry.startQueryService(metricQueryServiceRpcService, null);
+				Boolean enableMetricFilter = configuration.get(MetricOptions.METRIC_FILTER_ENABLED);
+				Set<String> legalMetrics = new HashSet<>(configuration.get(MetricOptions.METRIC_FILTER_WHITE_LIST));
+				metricRegistry.startQueryService(metricQueryServiceRpcService, null, enableMetricFilter,
+					legalMetrics);
 
 				processMetricGroup = MetricUtils.instantiateProcessMetricGroup(
 					metricRegistry,

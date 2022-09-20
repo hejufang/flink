@@ -158,6 +158,8 @@ common:
   metrics.reporter.databus_reporter.class: org.apache.flink.metrics.databus.DatabusReporter
   metrics.reporter.databus_reporter.interval: 60 SECONDS
   metrics.latency.interval: 10000
+  metrics.filter.white-list: numRecordsIn;numRecordsOut;numRecordsInPerSecond;numRecordsOutPerSecond;numRecordsDropped;numBuffersInDropped;numBytesIn;numBytesOut;numBytesInPerSecond;numBytesOutPerSecond;numBuffersIn;numBuffersOut;numBuffersOutPerSecond;currentInputWatermark;Used;Committed;Max;isBackPressured;idleTimeMsPerSecond;busyTimeMsPerSecond;backPressuredTimeMsPerSecond;sourceTopicPartitions
+
 
   # Grafana
   save-meta.enabled: true
@@ -876,6 +878,7 @@ quark:
   ipv6.supported.cluster: quark
   yarn.cluster.auto-detect.enable: true
   ipv6.enabled: true
+  metrics.filter.enabled: true
 
 quinc:
   dc: cn
@@ -898,6 +901,7 @@ quiet:
   ipv6.enabled: true
   ipv6.supported.cluster: quiet
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
+  metrics.filter.enabled: true
 
 quetz:
   dc: cn
@@ -947,6 +951,7 @@ quoka:
   ipv6.supported.cluster: quoka
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
   taskmanager.task-stuck-check.interval: 60000
+  metrics.filter.enabled: true
 
 quaga:
   dc: cn
@@ -958,6 +963,7 @@ quaga:
   ipv6.enabled: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   ipv6.supported.cluster: quaga
+  metrics.filter.enabled: true
 
 quele:
   dc: cn
@@ -973,6 +979,7 @@ quele:
   ipv6.enabled: true
   flink.cloud-shuffle-service.support: true
   yarn.cluster.auto-detect.enable: true
+  metrics.filter.enabled: true
 
 panda-lq:
   dc: cn

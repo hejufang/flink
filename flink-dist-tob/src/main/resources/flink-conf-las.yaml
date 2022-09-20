@@ -217,3 +217,5 @@ common:
   metrics.reporter.prometheus.class: org.apache.flink.metrics.prometheus.PrometheusReporter
   kubernetes.flink.jobmanager-user-ports: prometheus:9249
   kubernetes.flink.taskmanager-user-ports: prometheus:9249
+  metrics.filter.enabled: true
+  metrics.filter.white-list: numRecordsIn;numRecordsOut;numRecordsInPerSecond;numRecordsOutPerSecond;numRecordsDropped;numBuffersInDropped;numBytesIn;numBytesOut;numBytesInPerSecond;numBytesOutPerSecond;numBuffersIn;numBuffersOut;numBuffersOutPerSecond;currentInputWatermark;Used;Committed;Max;isBackPressured;idleTimeMsPerSecond;busyTimeMsPerSecond;backPressuredTimeMsPerSecond;sourceTopicPartitions

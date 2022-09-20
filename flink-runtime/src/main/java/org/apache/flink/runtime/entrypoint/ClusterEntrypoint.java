@@ -89,7 +89,9 @@ import java.lang.reflect.UndeclaredThrowableException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -294,7 +296,11 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 			metricRegistry = createMetricRegistry(configuration, pluginManager);
 
 			final RpcService metricQueryServiceRpcService = MetricUtils.startRemoteMetricsRpcService(configuration, commonRpcService.getAddress());
-			metricRegistry.startQueryService(metricQueryServiceRpcService, null);
+
+			Boolean enableMetricFilter = configuration.get(MetricOptions.METRIC_FILTER_ENABLED);
+			Set<String> legalMetrics = new HashSet<>(configuration.get(MetricOptions.METRIC_FILTER_WHITE_LIST));
+			metricRegistry.startQueryService(metricQueryServiceRpcService, null, enableMetricFilter,
+				legalMetrics);
 
 			final String hostname = RpcUtils.getHostname(commonRpcService);
 

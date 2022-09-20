@@ -48,6 +48,7 @@ import org.junit.Test;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -91,7 +92,7 @@ public class MetricRegistryImplTest extends TestLogger {
 
 		Assert.assertNull(metricRegistry.getMetricQueryServiceGatewayRpcAddress());
 
-		metricRegistry.startQueryService(new TestingRpcService(), new ResourceID("mqs"));
+		metricRegistry.startQueryService(new TestingRpcService(), new ResourceID("mqs"), false, new HashSet<>());
 
 		MetricQueryServiceGateway metricQueryServiceGateway = metricRegistry.getMetricQueryServiceGateway();
 		Assert.assertNotNull(metricQueryServiceGateway);
@@ -373,7 +374,7 @@ public class MetricRegistryImplTest extends TestLogger {
 
 		final RpcService rpcService = new TestingRpcService();
 
-		registry.startQueryService(rpcService, null);
+		registry.startQueryService(rpcService, null, false, new HashSet<>());
 
 		MetricQueryService queryService = checkNotNull(registry.getQueryService());
 

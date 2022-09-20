@@ -236,3 +236,5 @@ common:
   metrics.reporter.promgateway.deleteOnShutdown: false
   metrics.reporter.promgateway.groupingKey: k1=v1;k2=v2
   metrics.reporter.promgateway.interval: 30 SECONDS
+  metrics.filter.enabled: true
+  metrics.filter.white-list: numRecordsIn;numRecordsOut;numRecordsInPerSecond;numRecordsOutPerSecond;numRecordsDropped;numBuffersInDropped;numBytesIn;numBytesOut;numBytesInPerSecond;numBytesOutPerSecond;numBuffersIn;numBuffersOut;numBuffersOutPerSecond;currentInputWatermark;Used;Committed;Max;isBackPressured;idleTimeMsPerSecond;busyTimeMsPerSecond;backPressuredTimeMsPerSecond;sourceTopicPartitions

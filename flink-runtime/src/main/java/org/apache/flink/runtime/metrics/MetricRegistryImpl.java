@@ -49,8 +49,10 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -179,13 +181,15 @@ public class MetricRegistryImpl implements MetricRegistry {
 	 * @param rpcService RpcService to create the MetricQueryService on
 	 * @param resourceID resource ID used to disambiguate the actor name
      */
-	public void startQueryService(RpcService rpcService, ResourceID resourceID) {
+	public void startQueryService(RpcService rpcService, ResourceID resourceID, boolean enableFilterMetric,
+		Set<String> legalMetricNameSet) {
 		synchronized (lock) {
 			Preconditions.checkState(!isShutdown(), "The metric registry has already been shut down.");
-
+			LOG.info("enableFilterMetric: {}, legalMetricNameSet: {}", enableFilterMetric, legalMetricNameSet);
 			try {
 				metricQueryServiceRpcService = rpcService;
-				queryService = MetricQueryService.createMetricQueryService(rpcService, resourceID, maximumFramesize);
+				queryService = MetricQueryService.createMetricQueryService(rpcService, resourceID, maximumFramesize,
+					enableFilterMetric, Optional.ofNullable(legalMetricNameSet).orElse(new HashSet<>()));
 				queryService.start();
 			} catch (Exception e) {
 				LOG.warn("Could not start MetricDumpActor. No metrics will be submitted to the WebInterface.", e);

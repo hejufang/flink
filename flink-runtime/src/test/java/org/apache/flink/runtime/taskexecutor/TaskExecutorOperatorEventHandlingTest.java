@@ -49,6 +49,7 @@ import org.junit.Test;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -69,7 +70,7 @@ public class TaskExecutorOperatorEventHandlingTest extends TestLogger {
 	public void setup() {
 		rpcService = new TestingRpcService();
 		metricRegistry = new MetricRegistryImpl(MetricRegistryConfiguration.defaultMetricRegistryConfiguration());
-		metricRegistry.startQueryService(rpcService, new ResourceID("mqs"));
+		metricRegistry.startQueryService(rpcService, new ResourceID("mqs"), false, new HashSet<>());
 	}
 
 	@After
