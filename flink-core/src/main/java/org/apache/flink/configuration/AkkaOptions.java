@@ -185,6 +185,15 @@ public class AkkaOptions {
 		.defaultValue(50L)
 		.withDescription("Milliseconds a gate should be closed for after a remote connection was disconnected.");
 
+	public static final ConfigOption<Integer> MONITOR_INTERVAL = ConfigOptions
+		.key("akka.monitor.interval.sec")
+		.defaultValue(0)
+		.withDescription(Description.builder()
+			.text("If the value is larger than 0, monitor mailbox will be used as default mailbox for actors "
+				+ "which are created by supervisorActor. Monitor mailbox will report current size of message queue "
+				+ "every interval. Less than 0 will not use monitor mailbox")
+			.build());
+
 	// ==================================================
 	// Configurations for fork-join-executor.
 	// ==================================================

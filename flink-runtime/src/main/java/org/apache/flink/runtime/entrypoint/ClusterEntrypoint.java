@@ -21,6 +21,7 @@ package org.apache.flink.runtime.entrypoint;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.BlobServerOptions;
 import org.apache.flink.configuration.ClusterOptions;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
@@ -168,7 +169,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 
 	public void startCluster() throws ClusterEntrypointException {
 		LOG.info("Starting {}.", getClass().getSimpleName());
-
+		System.setProperty(ConfigConstants.COMPONENT_NAME, ConfigConstants.COMPONENT_JOBMANAGER);
 		try {
 			PluginManager pluginManager = PluginUtils.createPluginManagerFromRootFolder(configuration);
 			configureFileSystems(configuration, pluginManager);

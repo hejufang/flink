@@ -2238,4 +2238,7 @@ public final class ConfigConstants {
 	 * Not instantiable.
 	 */
 	private ConfigConstants() {}
+
+	public static final String COMPONENT_NAME = "componentName";
+	public static final String COMPONENT_JOBMANAGER = "jobManager";
 }

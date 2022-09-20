@@ -38,6 +38,7 @@ import org.jboss.netty.channel.ChannelException
 import org.jboss.netty.logging.{InternalLoggerFactory, Slf4JLoggerFactory}
 import org.slf4j.{Logger, LoggerFactory}
 
+import java.util.Objects
 import scala.annotation.tailrec
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -261,6 +262,20 @@ object AkkaUtils {
   private def getBasicAkkaConfig(configuration: Configuration): Config = {
     val akkaThroughput = configuration.getInteger(AkkaOptions.DISPATCHER_THROUGHPUT)
     val lifecycleEvents = configuration.getBoolean(AkkaOptions.LOG_LIFECYCLE_EVENTS)
+    val monitorInterval = configuration.getInteger(AkkaOptions.MONITOR_INTERVAL)
+    val componentName = System.getProperty(ConfigConstants.COMPONENT_NAME)
+    /*
+     * if monitorInterval is larger than 0 and current component is JobManager,
+     * we will use MonitorMailBox for supervisor-mailbox as mailbox.
+     * Otherwise, we will use default mailbox: UnboundedMailbox.
+     */
+    val mailboxClass =
+      if (monitorInterval > 0 &&
+        Objects.equals(componentName, ConfigConstants.COMPONENT_JOBMANAGER)) {
+        "org.apache.flink.runtime.rpc.akka.MonitorMailBox"
+      } else {
+        "akka.dispatch.UnboundedMailbox"
+      }
 
     val jvmExitOnFatalError = if (
       configuration.getBoolean(AkkaOptions.JVM_EXIT_ON_FATAL_ERROR)){
@@ -311,6 +326,10 @@ object AkkaUtils {
         |       core-pool-size-min = 1
         |       core-pool-size-max = 1
         |     }
+        |   }
+        |   supervisor-mailbox{
+        |     mailbox-type = $mailboxClass
+        |     monitor-interval = $monitorInterval
         |   }
         | }
         |}

@@ -103,9 +103,16 @@ class SupervisorActor extends AbstractActor {
 		final String endpointId = startAkkaRpcActor.getEndpointId();
 		final AkkaRpcActorRegistration akkaRpcActorRegistration = new AkkaRpcActorRegistration(endpointId);
 
-		final Props akkaRpcActorProps = startAkkaRpcActor.getPropsFactory().create(akkaRpcActorRegistration.getInternalTerminationFuture());
+		/*
+		 * use akka.actor.supervisor-mailbox for all actors created by supervisor actor.
+		 * the attributes of akka.actor.supervisor-mailbox is defined in AkkaUtils.getBasicAkkaConfig.
+		 */
+		Props akkaRpcActorProps = startAkkaRpcActor.getPropsFactory()
+			.create(akkaRpcActorRegistration.getInternalTerminationFuture())
+			.withMailbox("akka.actor.supervisor-mailbox");
 
-		LOG.debug("Starting {} with name {}.", akkaRpcActorProps.actorClass().getSimpleName(), endpointId);
+		LOG.debug("Starting {} with name {} with mailbox {}.", akkaRpcActorProps.actorClass().getSimpleName(),
+			endpointId, akkaRpcActorProps.mailbox());
 
 		try {
 			final ActorRef actorRef = getContext().actorOf(akkaRpcActorProps, endpointId);
