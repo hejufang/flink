@@ -57,6 +57,9 @@ public class StateBackendLoader {
 	/** The shortcut configuration name for the RocksDB State Backend */
 	public static final String ROCKSDB_STATE_BACKEND_NAME = "rocksdb";
 
+	/** The shortcut configuration name for the RocksDB State Backend */
+	public static final String TERARKDB_STATE_BACKEND_NAME = "terarkdb";
+
 	// ------------------------------------------------------------------------
 	//  Loading the state backend from a configuration 
 	// ------------------------------------------------------------------------
@@ -71,8 +74,9 @@ public class StateBackendLoader {
 	 * {@link StateBackendFactory#createFromConfig(ReadableConfig, ClassLoader)} method is called.
 	 *
 	 * <p>Recognized shortcut names are '{@value StateBackendLoader#MEMORY_STATE_BACKEND_NAME}',
-	 * '{@value StateBackendLoader#FS_STATE_BACKEND_NAME}', and
-	 * '{@value StateBackendLoader#ROCKSDB_STATE_BACKEND_NAME}'.
+	 * '{@value StateBackendLoader#FS_STATE_BACKEND_NAME}',
+	 * '{@value StateBackendLoader#ROCKSDB_STATE_BACKEND_NAME}', and
+	 * '{@value StateBackendLoader#TERARKDB_STATE_BACKEND_NAME}'.
 	 *
 	 * @param config The configuration to load the state backend from
 	 * @param classLoader The class loader that should be used to load the state backend
@@ -127,35 +131,40 @@ public class StateBackendLoader {
 
 			case ROCKSDB_STATE_BACKEND_NAME:
 				factoryClassName = "org.apache.flink.contrib.streaming.state.RocksDBStateBackendFactory";
+				break;
+			case TERARKDB_STATE_BACKEND_NAME:
+				factoryClassName = "org.apache.flink.contrib.streaming.factory.TerarkDBStateBackendFactory";
+				break;
+			default:
 				// fall through to the 'default' case that uses reflection to load the backend
 				// that way we can keep RocksDB in a separate module
-
-			default:
-				if (logger != null) {
-					logger.info("Loading state backend via factory {}", factoryClassName);
-				}
-
-				StateBackendFactory<?> factory;
-				try {
-					@SuppressWarnings("rawtypes")
-					Class<? extends StateBackendFactory> clazz =
-							Class.forName(factoryClassName, false, classLoader)
-									.asSubclass(StateBackendFactory.class);
-
-					factory = clazz.newInstance();
-				}
-				catch (ClassNotFoundException e) {
-					throw new DynamicCodeLoadingException(
-							"Cannot find configured state backend factory class: " + backendName, e);
-				}
-				catch (ClassCastException | InstantiationException | IllegalAccessException e) {
-					throw new DynamicCodeLoadingException("The class configured under '" +
-							CheckpointingOptions.STATE_BACKEND.key() + "' is not a valid state backend factory (" +
-							backendName + ')', e);
-				}
-
-				return factory.createFromConfig(config, classLoader);
+				break;
 		}
+
+		if (logger != null) {
+			logger.info("Loading state backend via factory {}", factoryClassName);
+		}
+
+		StateBackendFactory<?> factory;
+		try {
+			@SuppressWarnings("rawtypes")
+			Class<? extends StateBackendFactory> clazz =
+					Class.forName(factoryClassName, false, classLoader)
+							.asSubclass(StateBackendFactory.class);
+
+			factory = clazz.newInstance();
+		}
+		catch (ClassNotFoundException e) {
+			throw new DynamicCodeLoadingException(
+					"Cannot find configured state backend factory class: " + backendName, e);
+		}
+		catch (ClassCastException | InstantiationException | IllegalAccessException e) {
+			throw new DynamicCodeLoadingException("The class configured under '" +
+					CheckpointingOptions.STATE_BACKEND.key() + "' is not a valid state backend factory (" +
+					backendName + ')', e);
+		}
+
+		return factory.createFromConfig(config, classLoader);
 	}
 
 	/**
