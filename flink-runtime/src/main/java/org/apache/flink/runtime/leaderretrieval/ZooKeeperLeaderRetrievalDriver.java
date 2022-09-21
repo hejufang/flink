@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.leaderelection.LeaderInformation;
 import org.apache.flink.runtime.leaderelection.ZooKeeperLeaderElectionDriver;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
+import org.apache.flink.runtime.util.ZooKeeperUtils;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.apache.flink.shaded.curator4.org.apache.curator.framework.CuratorFramework;
@@ -57,11 +58,13 @@ public class ZooKeeperLeaderRetrievalDriver implements LeaderRetrievalDriver, No
 	/** Curator recipe to watch changes of a specific ZooKeeper node. */
 	private final NodeCache cache;
 
-	private final String retrievalPath;
+	private final String connectionInformationPath;
 
 	private final ConnectionStateListener connectionStateListener = (client, newState) -> handleStateChange(newState);
 
 	private final LeaderRetrievalEventHandler leaderRetrievalEventHandler;
+
+	private final LeaderInformationClearancePolicy leaderInformationClearancePolicy;
 
 	private final FatalErrorHandler fatalErrorHandler;
 
@@ -71,19 +74,23 @@ public class ZooKeeperLeaderRetrievalDriver implements LeaderRetrievalDriver, No
 	 * Creates a leader retrieval service which uses ZooKeeper to retrieve the leader information.
 	 *
 	 * @param client Client which constitutes the connection to the ZooKeeper quorum
-	 * @param retrievalPath Path of the ZooKeeper node which contains the leader information
+	 * @param path Path of the ZooKeeper node which contains the leader information
 	 * @param leaderRetrievalEventHandler Handler to notify the leader changes.
 	 * @param fatalErrorHandler Fatal error handler
 	 */
 	public ZooKeeperLeaderRetrievalDriver(
 			CuratorFramework client,
-			String retrievalPath,
+			String path,
 			LeaderRetrievalEventHandler leaderRetrievalEventHandler,
+			LeaderInformationClearancePolicy leaderInformationClearancePolicy,
 			FatalErrorHandler fatalErrorHandler) throws Exception {
+
+		LOG.debug("Create ZooKeeperLeaderRetrievalDriver with path {}.", path);
 		this.client = checkNotNull(client, "CuratorFramework client");
-		this.cache = new NodeCache(client, retrievalPath);
-		this.retrievalPath = checkNotNull(retrievalPath);
+		this.connectionInformationPath = ZooKeeperUtils.generateConnectionInformationPath(path);
+		this.cache = new NodeCache(client, connectionInformationPath);
 		this.leaderRetrievalEventHandler = checkNotNull(leaderRetrievalEventHandler);
+		this.leaderInformationClearancePolicy = leaderInformationClearancePolicy;
 		this.fatalErrorHandler = checkNotNull(fatalErrorHandler);
 
 		client.getUnhandledErrorListenable().addListener(this);
@@ -155,6 +162,9 @@ public class ZooKeeperLeaderRetrievalDriver implements LeaderRetrievalDriver, No
 			case SUSPENDED:
 				LOG.warn("Connection to ZooKeeper suspended. Can no longer retrieve the leader from " +
 					"ZooKeeper.");
+				if (leaderInformationClearancePolicy == LeaderInformationClearancePolicy.ON_SUSPENDED_CONNECTION) {
+					notifyNoLeader();
+				}
 				break;
 			case RECONNECTED:
 				LOG.info("Connection to ZooKeeper was reconnected. Leader retrieval can be restarted.");
@@ -163,19 +173,18 @@ public class ZooKeeperLeaderRetrievalDriver implements LeaderRetrievalDriver, No
 			case LOST:
 				LOG.warn("Connection to ZooKeeper lost. Can no longer retrieve the leader from " +
 					"ZooKeeper.");
-				leaderRetrievalEventHandler.notifyLeaderAddress(LeaderInformation.empty());
+				notifyNoLeader();
 				break;
 		}
+	}
+
+	private void notifyNoLeader() {
+		leaderRetrievalEventHandler.notifyLeaderAddress(LeaderInformation.empty());
 	}
 
 	private void onReconnectedConnectionState() {
 		// check whether we find some new leader information in ZooKeeper
 		retrieveLeaderInformationFromZooKeeper();
-	}
-
-	@VisibleForTesting
-	public String getRetrievalPath() {
-		return retrievalPath;
 	}
 
 	@Override
@@ -187,7 +196,21 @@ public class ZooKeeperLeaderRetrievalDriver implements LeaderRetrievalDriver, No
 	@Override
 	public String toString() {
 		return "ZookeeperLeaderRetrievalDriver{" +
-			"retrievalPath='" + retrievalPath + '\'' +
+			"connectionInformationPath='" + connectionInformationPath + '\'' +
 			'}';
+	}
+
+	@VisibleForTesting
+	public String getConnectionInformationPath() {
+		return connectionInformationPath;
+	}
+
+	/** Policy when to clear the leader information and to notify the listener about it. */
+	public enum LeaderInformationClearancePolicy {
+		// clear the leader information as soon as the ZK connection is suspended
+		ON_SUSPENDED_CONNECTION,
+
+		// clear the leader information only once the ZK connection is lost
+		ON_LOST_CONNECTION
 	}
 }

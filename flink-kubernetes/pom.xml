@@ -41,7 +41,7 @@ under the License.
 			<dependency>
 				<groupId>com.squareup.okhttp3</groupId>
 				<artifactId>okhttp</artifactId>
-				<version>3.12.1</version>
+				<version>${okhttp.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
@@ -49,7 +49,6 @@ under the License.
 	<dependencies>
 
 		<!-- core dependencies  -->
-
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-clients_${scala.binary.version}</artifactId>

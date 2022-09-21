@@ -52,7 +52,7 @@ public class KubernetesHaServicesTest extends KubernetesHighAvailabilityTestBase
 								new VoidBlobStore());
 						JobID jobID = new JobID();
 						String configMapName =
-							kubernetesHaServices.getLeaderNameForJobManager(jobID);
+							kubernetesHaServices.getLeaderPathForJobManager(jobID);
 						final KubernetesConfigMap configMap =
 							new TestingFlinkKubeClient.MockKubernetesConfigMap(
 								configMapName);

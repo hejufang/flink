@@ -25,6 +25,7 @@ import org.apache.flink.configuration.BlobServerOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.event.WarehouseJobStartEventMessageRecorder;
@@ -192,6 +193,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	private final boolean databusSidecarEnabled;
 
+	private final boolean fastRecovery;
+
 	public KubernetesResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -289,6 +292,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 								+ PodMatchingStrategy.StrategyType.STRICT.toString()
 								+ "\"");
 		}
+		this.fastRecovery = flinkConfig.getBoolean(HighAvailabilityOptions.FAST_RECOVERY);
 	}
 
 	@Override
@@ -385,9 +389,13 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		}
 
 		return getStopTerminationFutureOrCompletedExceptionally(throwable).whenComplete((ignored, t) -> {
-			kubeClient.stopAndCleanupCluster(clusterId);
-			LOG.info("delete the cluster {}", clusterId);
-
+			/**
+			 * For fast recovery mode like OLAP cluster, RM shutdown need not delete the whole cluster.
+			 */
+			if (!fastRecovery) {
+				kubeClient.stopAndCleanupCluster(clusterId);
+				LOG.info("delete the cluster {}", clusterId);
+			}
 			try {
 				kubeClient.close();
 			} catch (Throwable t1) {

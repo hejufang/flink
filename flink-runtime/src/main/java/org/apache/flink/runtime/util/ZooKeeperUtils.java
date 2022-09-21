@@ -42,6 +42,7 @@ import org.apache.flink.runtime.jobmanager.ZooKeeperJobGraphStoreUtil;
 import org.apache.flink.runtime.jobmanager.ZooKeeperJobGraphStoreWatcher;
 import org.apache.flink.runtime.leaderelection.DefaultLeaderElectionService;
 import org.apache.flink.runtime.leaderelection.LeaderElectionDriverFactory;
+import org.apache.flink.runtime.leaderelection.LeaderInformation;
 import org.apache.flink.runtime.leaderelection.ZooKeeperLeaderElectionDriver;
 import org.apache.flink.runtime.leaderelection.ZooKeeperLeaderElectionDriverFactory;
 import org.apache.flink.runtime.leaderretrieval.DefaultLeaderRetrievalService;
@@ -52,26 +53,43 @@ import org.apache.flink.runtime.persistence.RetrievableStateStorageHelper;
 import org.apache.flink.runtime.persistence.filesystem.FileSystemStateStorageHelper;
 import org.apache.flink.runtime.zookeeper.ZooKeeperStateHandleStore;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.function.RunnableWithException;
 
 import org.apache.flink.shaded.curator4.org.apache.curator.framework.CuratorFramework;
 import org.apache.flink.shaded.curator4.org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.flink.shaded.curator4.org.apache.curator.framework.api.ACLProvider;
 import org.apache.flink.shaded.curator4.org.apache.curator.framework.imps.DefaultACLProvider;
 import org.apache.flink.shaded.curator4.org.apache.curator.framework.recipes.cache.PathChildrenCache;
+import org.apache.flink.shaded.curator4.org.apache.curator.framework.recipes.cache.TreeCache;
+import org.apache.flink.shaded.curator4.org.apache.curator.framework.recipes.cache.TreeCacheListener;
+import org.apache.flink.shaded.curator4.org.apache.curator.framework.recipes.cache.TreeCacheSelector;
 import org.apache.flink.shaded.curator4.org.apache.curator.framework.state.SessionConnectionStateErrorPolicy;
 import org.apache.flink.shaded.curator4.org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.flink.shaded.curator4.org.apache.curator.utils.EnsurePath;
+import org.apache.flink.shaded.zookeeper3.org.apache.zookeeper.CreateMode;
+import org.apache.flink.shaded.zookeeper3.org.apache.zookeeper.KeeperException;
 import org.apache.flink.shaded.zookeeper3.org.apache.zookeeper.ZooDefs;
 import org.apache.flink.shaded.zookeeper3.org.apache.zookeeper.data.ACL;
+import org.apache.flink.shaded.zookeeper3.org.apache.zookeeper.data.Stat;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -87,6 +105,88 @@ public class ZooKeeperUtils {
 
 	/** The prefix of the completed checkpoint file. */
 	public static final String HA_STORAGE_COMPLETED_CHECKPOINT = "completedCheckpoint";
+
+	private static final String RESOURCE_MANAGER_LEADER = "resource_manager";
+
+	private static final String DISPATCHER_LEADER = "dispatcher";
+
+	private static final String LEADER_NODE = "leader";
+
+	private static final String REST_SERVER_LEADER = "rest_server";
+
+	private static final String LEADER_LATCH_NODE = "latch";
+
+	public static final String CONNECTION_INFO_NODE = "connection_info";
+
+	public static String getLeaderPathForResourceManager() {
+		return getLeaderPath(RESOURCE_MANAGER_LEADER);
+	}
+
+	public static String getLeaderPathForDispatcher() {
+		return getLeaderPath(DISPATCHER_LEADER);
+	}
+
+	public static String getLeaderPathForRestServer() {
+		return getLeaderPath(REST_SERVER_LEADER);
+	}
+
+	public static String getLeaderPathForJobManager(JobID jobId) {
+		return generateZookeeperPath(getLeaderPathForJob(jobId), LEADER_NODE);
+	}
+
+	public static String getSingleLeaderElectionPathForJobManager(JobID jobId) {
+		return getLeaderPath(jobId.toString());
+	}
+
+	@Nonnull
+	public static String getLeaderPathForJob(JobID jobId) {
+		return generateZookeeperPath(getJobsPath(), getPathForJob(jobId));
+	}
+
+	public static String getJobsPath() {
+		return "/jobs";
+	}
+
+	private static String getCheckpointsPath() {
+		return "/checkpoints";
+	}
+
+	public static String getCheckpointIdCounterPath() {
+		return "/checkpoint_id_counter";
+	}
+
+	public static String getLeaderPath() {
+		return generateZookeeperPath(LEADER_NODE);
+	}
+
+	public static String getDispatcherNode() {
+		return DISPATCHER_LEADER;
+	}
+
+	public static String getResourceManagerNode() {
+		return RESOURCE_MANAGER_LEADER;
+	}
+
+	public static String getRestServerNode() {
+		return REST_SERVER_LEADER;
+	}
+
+	public static String getLeaderLatchPath() {
+		return generateZookeeperPath(LEADER_LATCH_NODE);
+	}
+
+	private static String getLeaderPath(String suffix) {
+		return generateZookeeperPath(LEADER_NODE, suffix);
+	}
+
+	@Nonnull
+	public static String generateConnectionInformationPath(String path) {
+		return generateZookeeperPath(path, CONNECTION_INFO_NODE);
+	}
+
+	public static String generateLeaderLatchPath(String path) {
+		return generateZookeeperPath(path, LEADER_LATCH_NODE);
+	}
 
 	/**
 	 * Starts a {@link CuratorFramework} instance and connects it to the given ZooKeeper
@@ -142,20 +242,34 @@ public class ZooKeeperUtils {
 
 		LOG.info("Using '{}' as Zookeeper namespace.", rootWithNamespace);
 
-		CuratorFramework cf = CuratorFrameworkFactory.builder()
+		final CuratorFrameworkFactory.Builder curatorFrameworkBuilder = CuratorFrameworkFactory.builder()
 				.connectString(zkQuorum)
 				.sessionTimeoutMs(sessionTimeout)
 				.connectionTimeoutMs(connectionTimeout)
 				.retryPolicy(new ExponentialBackoffRetry(retryWait, maxRetryAttempts))
-				.connectionStateErrorPolicy(new SessionConnectionStateErrorPolicy())
 				// Curator prepends a '/' manually and throws an Exception if the
 				// namespace starts with a '/'.
-				.namespace(rootWithNamespace.startsWith("/") ? rootWithNamespace.substring(1) : rootWithNamespace)
-				.aclProvider(aclProvider)
-				.build();
+				.namespace(trimStartingSlash(rootWithNamespace))
+				.aclProvider(aclProvider);
 
+		if (configuration.get(HighAvailabilityOptions.ZOOKEEPER_TOLERATE_SUSPENDED_CONNECTIONS)) {
+			curatorFrameworkBuilder.connectionStateErrorPolicy(new SessionConnectionStateErrorPolicy());
+		}
+
+		return startCuratorFramework(curatorFrameworkBuilder);
+	}
+
+	/**
+	 * Starts a {@link CuratorFramework} instance and connects it to the given ZooKeeper quorum from
+	 * a builder.
+	 *
+	 * @param builder {@link CuratorFrameworkFactory.Builder} A builder for curatorFramework.
+	 * @return {@link CuratorFramework} instance
+	 */
+	@VisibleForTesting
+	public static CuratorFramework startCuratorFramework(CuratorFrameworkFactory.Builder builder) {
+		CuratorFramework cf = builder.build();
 		cf.start();
-
 		return cf;
 	}
 
@@ -186,59 +300,71 @@ public class ZooKeeperUtils {
 	}
 
 	/**
-	 * Creates a {@link DefaultLeaderRetrievalService} instance with {@link ZooKeeperLeaderRetrievalDriver}.
+	 * Creates a {@link DefaultLeaderRetrievalService} instance with {@link
+	 * ZooKeeperLeaderRetrievalDriver}.
 	 *
-	 * @param client        The {@link CuratorFramework} ZooKeeper client to use
-	 * @param configuration {@link Configuration} object containing the configuration values
+	 * @param client The {@link CuratorFramework} ZooKeeper client to use
 	 * @return {@link DefaultLeaderRetrievalService} instance.
 	 */
 	public static DefaultLeaderRetrievalService createLeaderRetrievalService(
 			final CuratorFramework client,
 			final Configuration configuration) {
-		return createLeaderRetrievalService(client, configuration, "");
+		return createLeaderRetrievalService(client, "", new Configuration());
 	}
 
 	/**
-	 * Creates a {@link DefaultLeaderRetrievalService} instance with {@link ZooKeeperLeaderRetrievalDriver}.
+	 * Creates a {@link DefaultLeaderRetrievalService} instance with {@link
+	 * ZooKeeperLeaderRetrievalDriver}.
 	 *
-	 * @param client        The {@link CuratorFramework} ZooKeeper client to use
-	 * @param configuration {@link Configuration} object containing the configuration values
-	 * @param pathSuffix    The path suffix which we want to append
+	 * @param client The {@link CuratorFramework} ZooKeeper client to use
+	 * @param path The path for the leader retrieval
+	 * @param configuration configuration for further config options
 	 * @return {@link DefaultLeaderRetrievalService} instance.
 	 */
 	public static DefaultLeaderRetrievalService createLeaderRetrievalService(
-			final CuratorFramework client,
-			final Configuration configuration,
-			final String pathSuffix) {
-		return new DefaultLeaderRetrievalService(createLeaderRetrievalDriverFactory(client, configuration, pathSuffix));
+		final CuratorFramework client, final String path, final Configuration configuration) {
+		LOG.info("Create leader retrievalService with path {}.", path);
+		return new DefaultLeaderRetrievalService(
+				createLeaderRetrievalDriverFactory(client, path, configuration));
 	}
 
 	/**
 	 * Creates a {@link LeaderRetrievalDriverFactory} implemented by ZooKeeper.
-	 * @param client        The {@link CuratorFramework} ZooKeeper client to use
-	 * @param configuration {@link Configuration} object containing the configuration values
+	 *
+	 * @param client The {@link CuratorFramework} ZooKeeper client to use
+	 * @return {@link LeaderRetrievalDriverFactory} instance.
+	 */
+	public static ZooKeeperLeaderRetrievalDriverFactory createLeaderRetrievalDriverFactory(
+		final CuratorFramework client) {
+		return createLeaderRetrievalDriverFactory(client, "", new Configuration());
+	}
+
+	/**
+	 * Creates a {@link LeaderRetrievalDriverFactory} implemented by ZooKeeper.
+	 *
+	 * @param client The {@link CuratorFramework} ZooKeeper client to use
+	 * @param path The path for the leader zNode
+	 * @param configuration configuration for further config options
 	 * @return {@link LeaderRetrievalDriverFactory} instance.
 	 */
 	public static ZooKeeperLeaderRetrievalDriverFactory createLeaderRetrievalDriverFactory(
 			final CuratorFramework client,
+			final String path,
 			final Configuration configuration) {
-		return createLeaderRetrievalDriverFactory(client, configuration, "");
-	}
+		final ZooKeeperLeaderRetrievalDriver.LeaderInformationClearancePolicy
+			leaderInformationClearancePolicy;
 
-	/**
-	 * Creates a {@link LeaderRetrievalDriverFactory} implemented by ZooKeeper.
-	 * @param client        The {@link CuratorFramework} ZooKeeper client to use
-	 * @param configuration {@link Configuration} object containing the configuration values
-	 * @param pathSuffix    The path suffix which we want to append
-	 * @return {@link LeaderRetrievalDriverFactory} instance.
-	 */
-	public static ZooKeeperLeaderRetrievalDriverFactory createLeaderRetrievalDriverFactory(
-			final CuratorFramework client,
-			final Configuration configuration,
-			final String pathSuffix) {
-		final String leaderPath = configuration.getString(
-			HighAvailabilityOptions.HA_ZOOKEEPER_LEADER_PATH) + pathSuffix;
-		return new ZooKeeperLeaderRetrievalDriverFactory(client, leaderPath);
+		if (configuration.get(HighAvailabilityOptions.ZOOKEEPER_TOLERATE_SUSPENDED_CONNECTIONS)) {
+			leaderInformationClearancePolicy =
+				ZooKeeperLeaderRetrievalDriver.LeaderInformationClearancePolicy
+					.ON_LOST_CONNECTION;
+		} else {
+			leaderInformationClearancePolicy =
+				ZooKeeperLeaderRetrievalDriver.LeaderInformationClearancePolicy
+					.ON_SUSPENDED_CONNECTION;
+		}
+
+		return new ZooKeeperLeaderRetrievalDriverFactory(client, path, leaderInformationClearancePolicy);
 	}
 
 	/**
@@ -252,56 +378,127 @@ public class ZooKeeperUtils {
 			CuratorFramework client,
 			Configuration configuration) {
 
-		return createLeaderElectionService(client, configuration, "");
+		return createLeaderElectionService(client, "");
 	}
 
 	/**
 	 * Creates a {@link DefaultLeaderElectionService} instance with {@link ZooKeeperLeaderElectionDriver}.
 	 *
-	 * @param client        The {@link CuratorFramework} ZooKeeper client to use
-	 * @param configuration {@link Configuration} object containing the configuration values
-	 * @param pathSuffix    The path suffix which we want to append
+	 * @param client  The {@link CuratorFramework} ZooKeeper client to use
+	 * @param path    The path suffix which we want to append
 	 * @return {@link DefaultLeaderElectionService} instance.
 	 */
 	public static DefaultLeaderElectionService createLeaderElectionService(
 			final CuratorFramework client,
-			final Configuration configuration,
-			final String pathSuffix) {
+			final String path) {
+		LOG.info("Create leader electionService with path {}.", path);
 		return new DefaultLeaderElectionService(
-			createLeaderElectionDriverFactory(client, configuration, pathSuffix));
+			createLeaderElectionDriverFactory(client, path));
 	}
 
 	/**
 	 * Creates a {@link LeaderElectionDriverFactory} implemented by ZooKeeper.
 	 *
 	 * @param client        The {@link CuratorFramework} ZooKeeper client to use
-	 * @param configuration {@link Configuration} object containing the configuration values
 	 * @return {@link LeaderElectionDriverFactory} instance.
 	 */
 	public static ZooKeeperLeaderElectionDriverFactory createLeaderElectionDriverFactory(
-			final CuratorFramework client,
-			final Configuration configuration) {
-		return createLeaderElectionDriverFactory(client, configuration, "");
+			final CuratorFramework client) {
+		return createLeaderElectionDriverFactory(client, "");
 	}
 
 	/**
 	 * Creates a {@link LeaderElectionDriverFactory} implemented by ZooKeeper.
 	 *
 	 * @param client        The {@link CuratorFramework} ZooKeeper client to use
-	 * @param configuration {@link Configuration} object containing the configuration values
-	 * @param pathSuffix    The path suffix which we want to append
+	 * @param path    The path suffix which we want to append
 	 * @return {@link LeaderElectionDriverFactory} instance.
 	 */
 	public static ZooKeeperLeaderElectionDriverFactory createLeaderElectionDriverFactory(
 			final CuratorFramework client,
-			final Configuration configuration,
-			final String pathSuffix) {
-		final String latchPath = configuration.getString(
-			HighAvailabilityOptions.HA_ZOOKEEPER_LATCH_PATH) + pathSuffix;
-		final String leaderPath = configuration.getString(
-			HighAvailabilityOptions.HA_ZOOKEEPER_LEADER_PATH) + pathSuffix;
+			final String path) {
+		return new ZooKeeperLeaderElectionDriverFactory(client, path);
+	}
 
-		return new ZooKeeperLeaderElectionDriverFactory(client, latchPath, leaderPath);
+	public static void writeLeaderInformationToZooKeeper(
+		LeaderInformation leaderInformation,
+		CuratorFramework curatorFramework,
+		BooleanSupplier hasLeadershipCheck,
+		String connectionInformationPath)
+		throws Exception {
+		final byte[] data;
+
+		if (leaderInformation.isEmpty()) {
+			data = null;
+		} else {
+			final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			final ObjectOutputStream oos = new ObjectOutputStream(baos);
+
+			oos.writeUTF(leaderInformation.getLeaderAddress());
+			oos.writeObject(leaderInformation.getLeaderSessionID());
+
+			oos.close();
+
+			data = baos.toByteArray();
+		}
+
+		boolean dataWritten = false;
+
+		while (!dataWritten && hasLeadershipCheck.getAsBoolean()) {
+			Stat stat = curatorFramework.checkExists().forPath(connectionInformationPath);
+
+			if (stat != null) {
+				long owner = stat.getEphemeralOwner();
+				long sessionId =
+					curatorFramework.getZookeeperClient().getZooKeeper().getSessionId();
+
+				if (owner == sessionId) {
+					try {
+						curatorFramework.setData().forPath(connectionInformationPath, data);
+
+						dataWritten = true;
+					} catch (KeeperException.NoNodeException noNode) {
+						// node was deleted in the meantime
+					}
+				} else {
+					try {
+						curatorFramework.delete().forPath(connectionInformationPath);
+					} catch (KeeperException.NoNodeException noNode) {
+						// node was deleted in the meantime --> try again
+					}
+				}
+			} else {
+				try {
+					curatorFramework
+						.create()
+						.creatingParentsIfNeeded()
+						.withMode(CreateMode.EPHEMERAL)
+						.forPath(connectionInformationPath, data);
+
+					dataWritten = true;
+				} catch (KeeperException.NodeExistsException nodeExists) {
+					// node has been created in the meantime --> try again
+				}
+			}
+		}
+	}
+
+	public static LeaderInformation readLeaderInformation(byte[] data)
+		throws IOException, ClassNotFoundException {
+		if (data != null && data.length > 0) {
+			final ByteArrayInputStream bais = new ByteArrayInputStream(data);
+			final String leaderAddress;
+			final UUID leaderSessionId;
+
+			try (final ObjectInputStream ois = new ObjectInputStream(bais)) {
+				leaderAddress = ois.readUTF();
+				leaderSessionId = (UUID) ois.readObject();
+			}
+
+			return LeaderInformation.known(leaderSessionId, leaderAddress);
+		} else {
+			return LeaderInformation.empty();
+		}
 	}
 
 	/**
@@ -521,20 +718,48 @@ public class ZooKeeperUtils {
 		return new FileSystemStateStorageHelper<>(HighAvailabilityServicesUtils.getClusterHighAvailableCompletedCheckpointStoragePath(configuration), prefix);
 	}
 
-	public static String generateZookeeperPath(String root, String namespace) {
-		if (!namespace.startsWith("/")) {
-			namespace = '/' + namespace;
+	/** Creates a ZooKeeper path of the form "/a/b/.../z". */
+	public static String generateZookeeperPath(String... paths) {
+		final String result =
+			Arrays.stream(paths)
+				.map(ZooKeeperUtils::trimSlashes)
+				.filter(s -> !s.isEmpty())
+				.collect(Collectors.joining("/", "/", ""));
+
+		return result;
+	}
+
+	/**
+	 * Splits the given ZooKeeper path into its parts.
+	 *
+	 * @param path path to split
+	 * @return splited path
+	 */
+	public static String[] splitZooKeeperPath(String path) {
+		return path.split("/");
+	}
+
+	public static String trimStartingSlash(String path) {
+		return path.startsWith("/") ? path.substring(1) : path;
+	}
+
+	private static String trimSlashes(String input) {
+		int left = 0;
+		int right = input.length() - 1;
+
+		while (left <= right && input.charAt(left) == '/') {
+			left++;
 		}
 
-		if (namespace.endsWith("/")) {
-			namespace = namespace.substring(0, namespace.length() - 1);
+		while (right >= left && input.charAt(right) == '/') {
+			right--;
 		}
 
-		if (root.endsWith("/")) {
-			root = root.substring(0, root.length() - 1);
+		if (left <= right) {
+			return input.substring(left, right + 1);
+		} else {
+			return "";
 		}
-
-		return root + namespace;
 	}
 
 	/**
@@ -547,15 +772,77 @@ public class ZooKeeperUtils {
 	 * @throws Exception ZK errors
 	 */
 	public static CuratorFramework useNamespaceAndEnsurePath(final CuratorFramework client, final String path) throws Exception {
-		Preconditions.checkNotNull(client, "client must not be null");
-		Preconditions.checkNotNull(path, "path must not be null");
+		checkNotNull(client, "client must not be null");
+		checkNotNull(path, "path must not be null");
 
 		// Ensure that the checkpoints path exists
-		client.newNamespaceAwareEnsurePath(path)
-			.ensure(client.getZookeeperClient());
+		client.newNamespaceAwareEnsurePath(path).ensure(client.getZookeeperClient());
 
 		// All operations will have the path as root
-		return client.usingNamespace(generateZookeeperPath(client.getNamespace(), path));
+		final String newNamespace = generateZookeeperPath(client.getNamespace(), path);
+		return client.usingNamespace(
+			// Curator prepends a '/' manually and throws an Exception if the
+			// namespace starts with a '/'.
+			trimStartingSlash(newNamespace));
+	}
+
+	/**
+	 * Creates a {@link TreeCache} that only observes a specific node.
+	 *
+	 * @param client ZK client
+	 * @param pathToNode full path of the node to observe
+	 * @param nodeChangeCallback callback to run if the node has changed
+	 * @return tree cache
+	 */
+	public static TreeCache createTreeCache(
+		final CuratorFramework client,
+		final String pathToNode,
+		final RunnableWithException nodeChangeCallback) {
+		final TreeCache cache =
+			TreeCache.newBuilder(client, pathToNode)
+				.setCacheData(true)
+				.setCreateParentNodes(false)
+				.setSelector(ZooKeeperUtils.treeCacheSelectorForPath(pathToNode))
+				.setExecutor(org.apache.flink.util.concurrent.Executors.newDirectExecutorService())
+				.build();
+
+		cache.getListenable().addListener(createTreeCacheListener(nodeChangeCallback));
+
+		return cache;
+	}
+
+	@VisibleForTesting
+	static TreeCacheListener createTreeCacheListener(RunnableWithException nodeChangeCallback) {
+		return (ignored, event) -> {
+			// only notify listener if nodes have changed
+			// connection issues are handled separately from the cache
+			switch (event.getType()) {
+				case NODE_ADDED:
+				case NODE_UPDATED:
+				case NODE_REMOVED:
+					nodeChangeCallback.run();
+			}
+		};
+	}
+
+	/**
+	 * Returns a {@link TreeCacheSelector} that only accepts a specific node.
+	 *
+	 * @param fullPath node to accept
+	 * @return tree cache selector
+	 */
+	private static TreeCacheSelector treeCacheSelectorForPath(String fullPath) {
+		return new TreeCacheSelector() {
+			@Override
+			public boolean traverseChildren(String childPath) {
+				return false;
+			}
+
+			@Override
+			public boolean acceptChild(String childPath) {
+				return fullPath.equals(childPath);
+			}
+		};
 	}
 
 	/**
@@ -633,6 +920,29 @@ public class ZooKeeperUtils {
 		String namespace = createNamespace(configuration, jobUID);
 		checkpointsPath = new Path(checkpointsPath, jobUID);
 		return (new Path(namespace, checkpointsPath)).getPath();
+	}
+
+	public static void deleteZNode(CuratorFramework curatorFramework, String path)
+		throws Exception {
+		// Since we are using Curator version 2.12 there is a bug in deleting the children
+		// if there is a concurrent delete operation. Therefore we need to add this retry
+		// logic. See https://issues.apache.org/jira/browse/CURATOR-430 for more information.
+		// The retry logic can be removed once we upgrade to Curator version >= 4.0.1.
+		boolean zNodeDeleted = false;
+		while (!zNodeDeleted) {
+			Stat stat = curatorFramework.checkExists().forPath(path);
+			if (stat == null) {
+				LOG.debug("znode {} has been deleted", path);
+				return;
+			}
+			try {
+				curatorFramework.delete().deletingChildrenIfNeeded().forPath(path);
+				zNodeDeleted = true;
+			} catch (KeeperException.NoNodeException ignored) {
+				// concurrent delete operation. Try again.
+				LOG.debug("Retrying to delete znode because of other concurrent delete operation.");
+			}
+		}
 	}
 
 	/**

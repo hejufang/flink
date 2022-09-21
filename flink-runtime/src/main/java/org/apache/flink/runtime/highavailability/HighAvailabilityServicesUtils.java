@@ -35,10 +35,12 @@ import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneHaSe
 import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneSharedClientHAServices;
 import org.apache.flink.runtime.highavailability.zookeeper.ZooKeeperClientHAServices;
 import org.apache.flink.runtime.highavailability.zookeeper.ZooKeeperHaServices;
+import org.apache.flink.runtime.highavailability.zookeeper.ZooKeeperMultipleComponentLeaderElectionHaServices;
 import org.apache.flink.runtime.highavailability.zookeeper.ZooKeeperSharedClientHAServicesFactory;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.net.SSLUtils;
 import org.apache.flink.runtime.resourcemanager.ResourceManager;
+import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
 import org.apache.flink.runtime.socket.SocketRestLeaderAddress;
 import org.apache.flink.runtime.util.ZooKeeperUtils;
@@ -87,10 +89,34 @@ public class HighAvailabilityServicesUtils {
 		}
 	}
 
+	private static HighAvailabilityServices createZooKeeperHaServices(
+		Configuration configuration, Executor executor, FatalErrorHandler fatalErrorHandler)
+		throws Exception {
+		final boolean useOldHaServices =
+			configuration.get(HighAvailabilityOptions.USE_OLD_HA_SERVICES);
+
+		BlobStoreService blobStoreService = BlobUtils.createBlobStoreFromConfig(configuration);
+
+		CuratorFramework curator = ZooKeeperUtils.startCuratorFramework(configuration);
+
+		if (useOldHaServices) {
+			return new ZooKeeperHaServices(
+				curator, executor, configuration, blobStoreService);
+		} else {
+			return new ZooKeeperMultipleComponentLeaderElectionHaServices(
+				curator,
+				executor,
+				configuration,
+				blobStoreService,
+				fatalErrorHandler);
+		}
+	}
+
 	public static HighAvailabilityServices createHighAvailabilityServices(
 		Configuration configuration,
 		Executor executor,
-		AddressResolution addressResolution) throws Exception {
+		AddressResolution addressResolution,
+		FatalErrorHandler fatalErrorHandler) throws Exception {
 
 		HighAvailabilityMode highAvailabilityMode = HighAvailabilityMode.fromConfig(configuration);
 
@@ -119,13 +145,7 @@ public class HighAvailabilityServicesUtils {
 					dispatcherRpcUrl,
 					webMonitorAddress);
 			case ZOOKEEPER:
-				BlobStoreService blobStoreService = BlobUtils.createBlobStoreFromConfig(configuration);
-
-				return new ZooKeeperHaServices(
-					ZooKeeperUtils.startCuratorFramework(configuration),
-					executor,
-					configuration,
-					blobStoreService);
+				return createZooKeeperHaServices(configuration, executor, fatalErrorHandler);
 
 			case FACTORY_CLASS:
 				return createCustomHAServices(configuration, executor);

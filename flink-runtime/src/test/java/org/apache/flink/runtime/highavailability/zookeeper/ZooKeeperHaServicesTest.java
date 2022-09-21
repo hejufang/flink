@@ -38,6 +38,7 @@ import org.apache.flink.shaded.curator4.org.apache.curator.framework.CuratorFram
 import org.apache.flink.shaded.curator4.org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.flink.shaded.curator4.org.apache.curator.retry.RetryNTimes;
 
+import org.hamcrest.Matchers;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -49,10 +50,8 @@ import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.concurrent.TimeUnit;
 
-import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -162,6 +161,7 @@ public class ZooKeeperHaServicesTest extends TestLogger {
 
 		assertThat(blobStoreService.isClosedAndCleanedUpAllData(), is(true));
 
+		TimeUnit.MILLISECONDS.sleep(500L);
 		assertThat(client.checkExists().forPath(flinkPath), is(nullValue()));
 		assertThat(client.checkExists().forPath(unclePath), is(notNullValue()));
 	}
@@ -173,31 +173,25 @@ public class ZooKeeperHaServicesTest extends TestLogger {
 		final Configuration configuration = createConfiguration(rootPath);
 		String namespace = configuration.getValue(HighAvailabilityOptions.HA_CLUSTER_ID);
 
-		final List<String> paths =
-			Stream.of(
-					HighAvailabilityOptions.HA_ZOOKEEPER_LATCH_PATH,
-					HighAvailabilityOptions.HA_ZOOKEEPER_LEADER_PATH)
-				.map(configuration::getString)
-				.map(path -> rootPath + namespace + path)
-				.collect(Collectors.toList());
+		JobID jobID = new JobID();
+		final String path = rootPath + namespace + ZooKeeperUtils.getJobsPath();
 
 		final TestingBlobStoreService blobStoreService = new TestingBlobStoreService();
 
-		JobID jobID = new JobID();
 		runCleanupTestWithJob(
 			configuration,
 			blobStoreService,
 			jobID,
 			haServices -> {
-				for (String path : paths) {
-					final List<String> children = client.getChildren().forPath(path);
-					assertThat(children, hasItem(jobID.toString()));
-				}
+				TimeUnit.MILLISECONDS.sleep(100L);
+				final List<String> childrenBefore = client.getChildren().forPath(path);
+
 				haServices.cleanupJobData(jobID);
-				for (String path : paths) {
-					final List<String> children = client.getChildren().forPath(path);
-					assertThat(children, not(hasItem(jobID.toString())));
-				}
+
+				final List<String> childrenAfter = client.getChildren().forPath(path);
+
+				assertThat(childrenBefore, Matchers.hasItem(jobID.toString()));
+				assertThat(childrenAfter, not(Matchers.hasItem(jobID.toString())));
 			});
 	}
 
@@ -206,30 +200,25 @@ public class ZooKeeperHaServicesTest extends TestLogger {
 		String rootPath = "/foo/bar/flink";
 		final Configuration configuration = createConfiguration(rootPath);
 		String namespace = configuration.getValue(HighAvailabilityOptions.HA_CLUSTER_ID);
-		configuration.setBoolean(HighAvailabilityOptions.HA_JOBMASTER_ENABLE, false);
-
-		final List<String> paths =
-			Stream.of(
-				HighAvailabilityOptions.HA_ZOOKEEPER_LATCH_PATH,
-				HighAvailabilityOptions.HA_ZOOKEEPER_LEADER_PATH)
-				.map(configuration::getString)
-				.map(path -> rootPath + namespace + path)
-				.collect(Collectors.toList());
-
-		final TestingBlobStoreService blobStoreService = new TestingBlobStoreService();
 
 		JobID jobID = new JobID();
+		final String path = rootPath + namespace + ZooKeeperUtils.getJobsPath();
+		final TestingBlobStoreService blobStoreService = new TestingBlobStoreService();
+
 		runCleanupTestWithJob(
 			configuration,
 			blobStoreService,
 			jobID,
 			haServices -> {
-				for (String path : paths) {
-					final List<String> children = client.getChildren().forPath(path);
-					assertThat(children, not(hasItem(jobID.toString())));
-				}
-				RunningJobsRegistry runningJobsRegistry = haServices.getRunningJobsRegistry();
-				assertEquals(runningJobsRegistry.getJobSchedulingStatus(jobID), RunningJobsRegistry.JobSchedulingStatus.PENDING);
+				TimeUnit.MILLISECONDS.sleep(100L);
+				final List<String> childrenBefore = client.getChildren().forPath(path);
+
+				haServices.cleanupJobData(jobID);
+
+				final List<String> childrenAfter = client.getChildren().forPath(path);
+
+				assertThat(childrenBefore, Matchers.hasItem(jobID.toString()));
+				assertThat(childrenAfter, not(Matchers.hasItem(jobID.toString())));
 			});
 	}
 
@@ -284,8 +273,6 @@ public class ZooKeeperHaServicesTest extends TestLogger {
 			jobManagerLeaderRetriever.start(new LeaderRetrievalUtils.LeaderConnectionInfoListener());
 
 			runningJobsRegistry.setJobRunning(jobId);
-
-			listener.getLeaderConnectionInfoFuture().join();
 
 			assertEquals(runningJobsRegistry.getJobSchedulingStatus(jobId), RunningJobsRegistry.JobSchedulingStatus.RUNNING);
 

@@ -268,6 +268,12 @@ public class KubernetesConfigOptions {
 		.withDescription("The entrypoint script of kubernetes in the image. It will be used as command for jobmanager " +
 			"and taskmanager container.");
 
+	public static final ConfigOption<Integer> KUBERNETES_JOBMANAGER_NUM =
+		key("kubernetes.jobmanager.num")
+			.intType()
+			.defaultValue(1)
+			.withDescription("The number of jobmanager deployed in this kubernetes cluster.");
+
 	public static final ConfigOption<String> FLINK_CONF_DIR =
 		key("kubernetes.flink.conf.dir")
 		.stringType()

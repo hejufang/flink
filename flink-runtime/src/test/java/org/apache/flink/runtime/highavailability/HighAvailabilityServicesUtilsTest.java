@@ -64,7 +64,7 @@ public class HighAvailabilityServicesUtilsTest extends TestLogger {
 
 		// when
 		actualHaServices = HighAvailabilityServicesUtils.createHighAvailabilityServices(config, executor,
-			HighAvailabilityServicesUtils.AddressResolution.NO_ADDRESS_RESOLUTION);
+			HighAvailabilityServicesUtils.AddressResolution.NO_ADDRESS_RESOLUTION, null);
 		// then
 		assertSame(haServices, actualHaServices);
 	}

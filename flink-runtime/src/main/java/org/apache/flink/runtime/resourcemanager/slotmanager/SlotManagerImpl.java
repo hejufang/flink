@@ -445,7 +445,6 @@ public class SlotManagerImpl implements SlotManager {
 		for (InstanceID registeredTaskManager : registeredTaskManagers) {
 			unregisterTaskManager(registeredTaskManager, new SlotManagerException("The slot manager is being suspended."), false);
 		}
-
 		resourceManagerId = null;
 		resourceActions = null;
 		started = false;

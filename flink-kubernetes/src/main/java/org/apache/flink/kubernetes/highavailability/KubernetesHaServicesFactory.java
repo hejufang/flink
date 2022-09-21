@@ -19,25 +19,55 @@
 package org.apache.flink.kubernetes.highavailability;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.HighAvailabilityOptions;
+import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
 import org.apache.flink.kubernetes.kubeclient.KubeClientFactory;
 import org.apache.flink.runtime.blob.BlobUtils;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServicesFactory;
+import org.apache.flink.runtime.highavailability.SharedClientHAServices;
+import org.apache.flink.runtime.highavailability.SharedClientHAServicesFactory;
+import org.apache.flink.runtime.util.FatalExitExceptionHandler;
 
 import java.util.concurrent.Executor;
 
 /**
  * Factory for creating Kubernetes high availability services.
  */
-public class KubernetesHaServicesFactory implements HighAvailabilityServicesFactory {
+public class KubernetesHaServicesFactory implements SharedClientHAServicesFactory {
 
 	@Override
 	public HighAvailabilityServices createHAServices(Configuration configuration, Executor executor) throws Exception {
-		final KubeClientFactory kubeClientFactory = new KubeClientFactory();
-		return new KubernetesHaServices(
-			kubeClientFactory.fromConfiguration(configuration),
-			executor,
-			configuration,
-			BlobUtils.createBlobStoreFromConfig(configuration));
+		final boolean useOldHaServices =
+			configuration.get(HighAvailabilityOptions.USE_OLD_HA_SERVICES);
+
+		if (useOldHaServices) {
+			return new KubernetesHaServices(
+				KubeClientFactory.fromConfiguration(configuration),
+				executor,
+				configuration,
+				BlobUtils.createBlobStoreFromConfig(configuration));
+		} else {
+			return new KubernetesMultipleComponentLeaderElectionHaServices(
+				KubeClientFactory.fromConfiguration(configuration),
+				executor,
+				configuration,
+				BlobUtils.createBlobStoreFromConfig(configuration),
+				error ->
+					FatalExitExceptionHandler.INSTANCE.uncaughtException(
+						Thread.currentThread(), error));
+		}
+	}
+
+	/**
+	 * Kubernetes client high availability service, used by flink-sql-gateway to discover flink service.
+	 * @param configuration configuration
+	 * @return SharedClientHAServices
+	 * @throws Exception
+	 */
+	@Override
+	public SharedClientHAServices createSharedClientHAServices(Configuration configuration) throws Exception {
+		FlinkKubeClient kubeClient = KubeClientFactory.fromConfiguration(configuration);
+
+		return new KubernetesSharedClientHAServices(kubeClient, configuration);
 	}
 }

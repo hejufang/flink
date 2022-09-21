@@ -29,22 +29,20 @@ public class ZooKeeperLeaderElectionDriverFactory implements LeaderElectionDrive
 
 	private final CuratorFramework client;
 
-	private final String latchPath;
+	private final String path;
 
-	private final String leaderPath;
-
-	public ZooKeeperLeaderElectionDriverFactory(CuratorFramework client, String latchPath, String leaderPath) {
+	public ZooKeeperLeaderElectionDriverFactory(CuratorFramework client, String path) {
 		this.client = client;
-		this.latchPath = latchPath;
-		this.leaderPath = leaderPath;
+		this.path = path;
 	}
 
 	@Override
 	public ZooKeeperLeaderElectionDriver createLeaderElectionDriver(
-			LeaderElectionEventHandler leaderEventHandler,
-			FatalErrorHandler fatalErrorHandler,
-			String leaderContenderDescription) throws Exception {
+		LeaderElectionEventHandler leaderEventHandler,
+		FatalErrorHandler fatalErrorHandler,
+		String leaderContenderDescription)
+		throws Exception {
 		return new ZooKeeperLeaderElectionDriver(
-			client, latchPath, leaderPath, leaderEventHandler, fatalErrorHandler, leaderContenderDescription);
+			client, path, leaderEventHandler, fatalErrorHandler, leaderContenderDescription);
 	}
 }

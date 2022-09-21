@@ -33,7 +33,6 @@ import org.junit.Test;
 
 import java.util.UUID;
 
-import static org.apache.flink.kubernetes.highavailability.KubernetesHighAvailabilityTestBase.LEADER_CONFIGMAP_NAME;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertThat;
@@ -45,6 +44,8 @@ import static org.junit.Assert.assertThat;
  * {@link org.apache.flink.runtime.checkpoint.CompletedCheckpointStore} implementation for Kubernetes.
  */
 public class KubernetesStateHandleStoreITCase extends TestLogger {
+
+	private static final String LEADER_CONFIGMAP_NAME = "leader-test-cluster";
 
 	@ClassRule
 	public static KubernetesResource kubernetesResource = new KubernetesResource();

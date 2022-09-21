@@ -7,7 +7,7 @@
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,13 +32,14 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Tests for the {@link ZooKeeperUtils}.
- */
-public class ZooKeeperUtilTest extends TestLogger {
+/** Tests for {@link ZooKeeperUtils}. */
+public class ZooKeeperUtilsTest extends TestLogger {
+
 	private static ZooKeeperTestEnvironment zooKeeper;
 
 	@Rule
@@ -59,6 +60,19 @@ public class ZooKeeperUtilTest extends TestLogger {
 		if (zooKeeper != null) {
 			zooKeeper.shutdown();
 		}
+	}
+
+	@Test
+	public void testZookeeperPathGeneration() {
+		runZookeeperPathGenerationTest("/root/namespace", "root", "namespace");
+		runZookeeperPathGenerationTest("/root/namespace", "/root/", "/namespace/");
+		runZookeeperPathGenerationTest("/root/namespace", "//root//", "//namespace//");
+		runZookeeperPathGenerationTest("/namespace", "////", "namespace");
+		runZookeeperPathGenerationTest("/a/b", "//a//", "/b/");
+		runZookeeperPathGenerationTest("/", "", "");
+		runZookeeperPathGenerationTest("/root", "root", "////");
+		runZookeeperPathGenerationTest("/", "");
+		runZookeeperPathGenerationTest("/a/b/c/d", "a", "b", "c", "d");
 	}
 
 	@Test
@@ -104,6 +118,17 @@ public class ZooKeeperUtilTest extends TestLogger {
 		}
 	}
 
+	private void runZookeeperPathGenerationTest(String expectedValue, String... paths) {
+		final String result = ZooKeeperUtils.generateZookeeperPath(paths);
+
+		assertThat(result, is(expectedValue));
+	}
+
+	private Configuration setQuorum(Configuration conf, String quorum) {
+		conf.setString(HighAvailabilityOptions.HA_ZOOKEEPER_QUORUM, quorum);
+		return conf;
+	}
+
 	@Test
 	public void testCreateZKNamespace() throws Exception{
 		String snapshotNamespace = "snapshot_namespace";
@@ -114,10 +139,5 @@ public class ZooKeeperUtilTest extends TestLogger {
 		configuration.setString(CheckpointingOptions.SNAPSHOT_NAMESPACE, snapshotNamespace);
 		String path = ZooKeeperUtils.generateCheckpointsPath(configuration, jobUID);
 		assertTrue(path.contains(snapshotNamespace));
-	}
-
-	private Configuration setQuorum(Configuration conf, String quorum) {
-		conf.setString(HighAvailabilityOptions.HA_ZOOKEEPER_QUORUM, quorum);
-		return conf;
 	}
 }

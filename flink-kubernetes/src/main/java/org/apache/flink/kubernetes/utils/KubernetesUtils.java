@@ -31,8 +31,11 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.highavailability.KubernetesCheckpointStoreUtil;
 import org.apache.flink.kubernetes.highavailability.KubernetesJobGraphStoreUtil;
+import org.apache.flink.kubernetes.highavailability.KubernetesLeaderRetrievalDriverFactory;
+import org.apache.flink.kubernetes.highavailability.KubernetesMultipleComponentLeaderRetrievalDriverFactory;
 import org.apache.flink.kubernetes.highavailability.KubernetesStateHandleStore;
 import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
+import org.apache.flink.kubernetes.kubeclient.KubernetesConfigMapSharedWatcher;
 import org.apache.flink.kubernetes.kubeclient.decorators.AbstractFileDownloadDecorator;
 import org.apache.flink.kubernetes.kubeclient.parameters.AbstractKubernetesParameters;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesConfigMap;
@@ -46,14 +49,20 @@ import org.apache.flink.runtime.jobmanager.DefaultJobGraphStore;
 import org.apache.flink.runtime.jobmanager.JobGraphStore;
 import org.apache.flink.runtime.jobmanager.NoOpJobGraphStoreWatcher;
 import org.apache.flink.runtime.leaderelection.LeaderInformation;
+import org.apache.flink.runtime.leaderretrieval.DefaultLeaderRetrievalService;
+import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.persistence.RetrievableStateStorageHelper;
 import org.apache.flink.runtime.persistence.filesystem.FileSystemStateStorageHelper;
 import org.apache.flink.runtime.util.IPv6Util;
+import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
+import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.function.FunctionUtils;
 
+import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.ContainerPort;
 import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
 import io.fabric8.kubernetes.api.model.EnvVar;
@@ -78,7 +87,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -89,8 +100,10 @@ import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOG4J_NAME
 import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOGBACK_NAME;
 import static org.apache.flink.kubernetes.utils.Constants.JOB_GRAPH_STORE_KEY_PREFIX;
 import static org.apache.flink.kubernetes.utils.Constants.JVM_HS_ERROR_PATH;
+import static org.apache.flink.kubernetes.utils.Constants.LABEL_CONFIGMAP_TYPE_HIGH_AVAILABILITY;
 import static org.apache.flink.kubernetes.utils.Constants.LEADER_ADDRESS_KEY;
 import static org.apache.flink.kubernetes.utils.Constants.LEADER_SESSION_ID_KEY;
+import static org.apache.flink.kubernetes.utils.Constants.NAME_SEPARATOR;
 import static org.apache.flink.kubernetes.utils.Constants.SUBMITTED_JOBGRAPH_FILE_PREFIX;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -100,6 +113,13 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class KubernetesUtils {
 
 	private static final Logger LOG = LoggerFactory.getLogger(KubernetesUtils.class);
+
+	private static final String LEADER_SUFFIX = "leader";
+
+	private static final String REST_SERVER_NAME = "restserver";
+
+	private static final String LEADER_PREFIX = "org.apache.flink.k8s.leader.";
+	private static final char LEADER_INFORMATION_SEPARATOR = ',';
 
 	/**
 	 * Check whether the port config option is a fixed port. If not, the fallback port will be set to configuration.
@@ -293,7 +313,7 @@ public class KubernetesUtils {
 			FlinkKubeClient kubeClient,
 			Executor executor,
 			String configMapName,
-			String lockIdentity,
+			@Nullable String lockIdentity,
 			int maxNumberOfCheckpointsToRetain) throws Exception {
 
 		final RetrievableStateStorageHelper<CompletedCheckpoint> stateStorage =
@@ -789,11 +809,140 @@ public class KubernetesUtils {
 	}
 
 	/**
+	 * Creates a config map with the given name if it does not exist.
+	 *
+	 * @param flinkKubeClient to use for creating the config map
+	 * @param configMapName name of the config map
+	 * @param clusterId clusterId to which the map belongs
+	 * @throws FlinkException if the config map could not be created
+	 */
+	public static void createConfigMapIfItDoesNotExist(
+		FlinkKubeClient flinkKubeClient, String configMapName, String clusterId)
+		throws FlinkException {
+
+		int attempt = 0;
+		CompletionException lastException = null;
+
+		final int maxAttempts = 10;
+		final KubernetesConfigMap configMap =
+			new KubernetesConfigMap(
+				new ConfigMapBuilder()
+					.withNewMetadata()
+					.withName(configMapName)
+					.withLabels(
+						getConfigMapLabels(
+							clusterId, LABEL_CONFIGMAP_TYPE_HIGH_AVAILABILITY))
+					.endMetadata()
+					.build());
+
+		while (!flinkKubeClient.getConfigMap(configMapName).isPresent() && attempt < maxAttempts) {
+			try {
+				flinkKubeClient.createConfigMap(configMap).join();
+			} catch (CompletionException e) {
+				// retrying
+				lastException = ExceptionUtils.firstOrSuppressed(e, lastException);
+			}
+
+			attempt++;
+		}
+
+		if (attempt >= maxAttempts && lastException != null) {
+			throw new FlinkException(
+				String.format("Could not create the config map %s.", configMapName),
+				lastException);
+		}
+	}
+
+	/**
 	 * Cluster components.
 	 */
 	public enum ClusterComponent {
 		JOB_MANAGER,
 		TASK_MANAGER
+	}
+
+	public static String encodeLeaderInformation(LeaderInformation leaderInformation) {
+		Preconditions.checkArgument(leaderInformation.getLeaderSessionID() != null);
+		Preconditions.checkArgument(leaderInformation.getLeaderAddress() != null);
+
+		return leaderInformation.getLeaderSessionID().toString()
+			+ LEADER_INFORMATION_SEPARATOR
+			+ leaderInformation.getLeaderAddress();
+	}
+
+	public static Optional<LeaderInformation> parseLeaderInformationSafely(String value) {
+		try {
+			return Optional.of(parseLeaderInformation(value));
+		} catch (Throwable throwable) {
+			LOG.debug("Could not parse value {} into LeaderInformation.", value, throwable);
+			return Optional.empty();
+		}
+	}
+
+	private static LeaderInformation parseLeaderInformation(String value) {
+		final int splitIndex = value.indexOf(LEADER_INFORMATION_SEPARATOR);
+
+		Preconditions.checkState(
+			splitIndex >= 0,
+			String.format(
+				"Expecting '<session_id>%c<leader_address>'",
+				LEADER_INFORMATION_SEPARATOR));
+
+		final UUID leaderSessionId = UUID.fromString(value.substring(0, splitIndex));
+		final String leaderAddress = value.substring(splitIndex + 1);
+
+		return LeaderInformation.known(leaderSessionId, leaderAddress);
+	}
+
+	public static String createSingleLeaderKey(String componentId) {
+		return LEADER_PREFIX + componentId;
+	}
+
+	public static boolean isSingleLeaderKey(String key) {
+		return key.startsWith(LEADER_PREFIX);
+	}
+
+	public static String extractLeaderName(String key) {
+		return key.substring(LEADER_PREFIX.length());
+	}
+
+	public static String getLeaderPathForRestServer(String clusterId, boolean useOldHaServices) {
+		if (useOldHaServices) {
+			return getLeaderName(clusterId, REST_SERVER_NAME);
+		}
+
+		return "restserver";
+	}
+
+	public static String getLeaderName(String clusterId, String component) {
+		return clusterId + NAME_SEPARATOR + component + NAME_SEPARATOR + LEADER_SUFFIX;
+	}
+
+	public static LeaderRetrievalService createLeaderRetrievalService(
+		FlinkKubeClient kubeClient,
+		KubernetesConfigMapSharedWatcher configMapSharedWatcher,
+		Executor watchExecutorService,
+		String configMapName,
+		String leaderPath,
+		boolean useOldHaServices) {
+
+		if (useOldHaServices) {
+			return new DefaultLeaderRetrievalService(
+				new KubernetesLeaderRetrievalDriverFactory(
+					kubeClient, configMapSharedWatcher, watchExecutorService, leaderPath));
+		} else {
+			return new DefaultLeaderRetrievalService(
+				new KubernetesMultipleComponentLeaderRetrievalDriverFactory(
+					kubeClient,
+					configMapSharedWatcher,
+					watchExecutorService,
+					configMapName,
+					leaderPath));
+		}
+	}
+
+	public static String getClusterConfigMap(String clusterId) {
+		return clusterId + NAME_SEPARATOR + "cluster-config-map";
 	}
 
 	private KubernetesUtils() {}

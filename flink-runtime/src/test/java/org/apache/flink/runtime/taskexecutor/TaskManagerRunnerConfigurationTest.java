@@ -219,7 +219,8 @@ public class TaskManagerRunnerConfigurationTest extends TestLogger {
 		return HighAvailabilityServicesUtils.createHighAvailabilityServices(
 			config,
 			Executors.directExecutor(),
-			HighAvailabilityServicesUtils.AddressResolution.NO_ADDRESS_RESOLUTION);
+			HighAvailabilityServicesUtils.AddressResolution.NO_ADDRESS_RESOLUTION,
+			null);
 	}
 
 	private static ServerSocket openServerSocket() {

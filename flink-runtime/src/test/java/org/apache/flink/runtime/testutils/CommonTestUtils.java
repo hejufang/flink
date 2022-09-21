@@ -115,6 +115,19 @@ public class CommonTestUtils {
 		}
 	}
 
+	public static void waitUntilCondition(SupplierWithException<Boolean, Exception> condition)
+		throws Exception {
+		waitUntilCondition(condition, RETRY_INTERVAL);
+	}
+
+	public static void waitUntilCondition(
+		SupplierWithException<Boolean, Exception> condition, long retryIntervalMillis)
+		throws Exception {
+		while (!condition.get()) {
+			Thread.sleep(retryIntervalMillis);
+		}
+	}
+
 	public static void waitUntilCondition(SupplierWithException<Boolean, Exception> condition, Deadline timeout) throws Exception {
 		waitUntilCondition(condition, timeout, RETRY_INTERVAL);
 	}

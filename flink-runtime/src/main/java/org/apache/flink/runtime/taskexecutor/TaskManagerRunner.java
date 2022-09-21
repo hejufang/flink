@@ -145,7 +145,8 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 		highAvailabilityServices = HighAvailabilityServicesUtils.createHighAvailabilityServices(
 			configuration,
 			executor,
-			HighAvailabilityServicesUtils.AddressResolution.NO_ADDRESS_RESOLUTION);
+			HighAvailabilityServicesUtils.AddressResolution.NO_ADDRESS_RESOLUTION,
+			this);
 
 		rpcService = createRpcService(configuration, highAvailabilityServices);
 

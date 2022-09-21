@@ -34,18 +34,15 @@ import javax.annotation.Nonnull;
  */
 public class ZooKeeperSharedClientHAServices implements SharedClientHAServices {
 
-	private static final String REST_SERVER_LEADER_PATH = "/rest_server_lock";
-
 	private final CuratorFramework client;
-
 	private final LeaderRetriever leaderRetriever = new LeaderRetriever();
 	private final DefaultLeaderRetrievalService leaderRetrievalService;
 
 	public ZooKeeperSharedClientHAServices(
 		@Nonnull CuratorFramework client,
 		@Nonnull Configuration configuration) throws Exception {
-		this.client = client;
-		this.leaderRetrievalService = ZooKeeperUtils.createLeaderRetrievalService(client, configuration, REST_SERVER_LEADER_PATH);
+		this.client = ZooKeeperUtils.useNamespaceAndEnsurePath(client, ZooKeeperUtils.getLeaderPath());
+		this.leaderRetrievalService = ZooKeeperUtils.createLeaderRetrievalService(client, ZooKeeperUtils.getLeaderPathForRestServer(), configuration);
 		startLeaderRetrievers();
 	}
 

@@ -131,7 +131,7 @@ public class KubernetesJobManagerFactory {
 				.withAnnotations(kubernetesJobManagerParameters.getDeploymentAnnotations())
 				.endMetadata()
 			.editOrNewSpec()
-				.withReplicas(1)
+				.withReplicas(kubernetesJobManagerParameters.getJobManagerNum())
 				.editOrNewTemplate()
 					.withMetadata(resolvedPod.getMetadata())
 					.withSpec(resolvedPod.getSpec())

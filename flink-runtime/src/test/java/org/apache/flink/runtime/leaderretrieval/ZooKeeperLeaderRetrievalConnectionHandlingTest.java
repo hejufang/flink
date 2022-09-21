@@ -100,7 +100,7 @@ public class ZooKeeperLeaderRetrievalConnectionHandlingTest extends TestLogger {
 		LeaderRetrievalDriver leaderRetrievalDriver = null;
 		try {
 			leaderRetrievalDriver =
-				ZooKeeperUtils.createLeaderRetrievalDriverFactory(zooKeeperClient, config)
+				ZooKeeperUtils.createLeaderRetrievalDriverFactory(zooKeeperClient)
 					.createLeaderRetrievalDriver(
 						queueLeaderElectionListener,
 						fatalErrorHandlerResource.getFatalErrorHandler());
@@ -131,7 +131,7 @@ public class ZooKeeperLeaderRetrievalConnectionHandlingTest extends TestLogger {
 	}
 
 	@Test
-	public void testSuspendedConnectionDoesNotClearLeaderInformation()
+	public void testSuspendedConnectionDoesNotClearLeaderInformationOnLostConnection()
 		throws Exception {
 		final String retrievalPath = "/testConnectionSuspendedHandling";
 		final String leaderAddress = "localhost";
@@ -145,10 +145,12 @@ public class ZooKeeperLeaderRetrievalConnectionHandlingTest extends TestLogger {
 					zooKeeperClient,
 					retrievalPath,
 					queueLeaderElectionListener,
+					ZooKeeperLeaderRetrievalDriver.LeaderInformationClearancePolicy
+						.ON_LOST_CONNECTION,
 					fatalErrorHandlerResource.getFatalErrorHandler());
 
 			writeLeaderInformationToZooKeeper(
-				leaderRetrievalDriver.getRetrievalPath(),
+				leaderRetrievalDriver.getConnectionInformationPath(),
 				leaderAddress,
 				UUID.randomUUID());
 
@@ -185,10 +187,12 @@ public class ZooKeeperLeaderRetrievalConnectionHandlingTest extends TestLogger {
 					zooKeeperClient,
 					retrievalPath,
 					queueLeaderElectionListener,
+					ZooKeeperLeaderRetrievalDriver.LeaderInformationClearancePolicy
+						.ON_LOST_CONNECTION,
 					fatalErrorHandlerResource.getFatalErrorHandler());
 
 			writeLeaderInformationToZooKeeper(
-				leaderRetrievalDriver.getRetrievalPath(),
+				leaderRetrievalDriver.getConnectionInformationPath(),
 				leaderAddress,
 				UUID.randomUUID());
 

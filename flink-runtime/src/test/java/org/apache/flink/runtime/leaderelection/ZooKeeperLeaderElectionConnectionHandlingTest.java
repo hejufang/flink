@@ -43,7 +43,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -51,9 +50,7 @@ import static org.junit.Assert.assertTrue;
  */
 public class ZooKeeperLeaderElectionConnectionHandlingTest extends TestLogger {
 
-	private static final String LATCH_PATH = "/latch_path";
-
-	private static final String LEADER_PATH = "/leader_path";
+	private static final String PATH = "/path";
 
 	private TestingServer testingServer;
 
@@ -96,8 +93,7 @@ public class ZooKeeperLeaderElectionConnectionHandlingTest extends TestLogger {
 		runTestWithBrieflySuspendedZooKeeperConnection(
 			(connectionStateListener, contender) -> {
 				connectionStateListener.awaitSuspendedConnection();
-				connectionStateListener.awaitReconnectedConnection();
-				assertFalse(contender.hasRevokeLeadershipBeenTriggered());
+				contender.awaitRevokeLeadership(Duration.ofSeconds(10L));
 			});
 	}
 
@@ -107,7 +103,7 @@ public class ZooKeeperLeaderElectionConnectionHandlingTest extends TestLogger {
 		runTestWithLostZooKeeperConnection(
 			(connectionStateListener, contender) -> {
 				connectionStateListener.awaitLostConnection();
-				contender.awaitRevokeLeadership(Duration.ofSeconds(1L));
+				contender.awaitRevokeLeadership(Duration.ofSeconds(10L));
 				assertTrue(contender.hasRevokeLeadershipBeenTriggered());
 			});
 	}
@@ -137,7 +133,7 @@ public class ZooKeeperLeaderElectionConnectionHandlingTest extends TestLogger {
 		Problem problem)
 		throws Exception {
 		LeaderElectionDriverFactory leaderElectionDriverFactory =
-			new ZooKeeperLeaderElectionDriverFactory(zooKeeperClient, LATCH_PATH, LEADER_PATH);
+			new ZooKeeperLeaderElectionDriverFactory(zooKeeperClient, PATH);
 		DefaultLeaderElectionService leaderElectionService =
 			new DefaultLeaderElectionService(leaderElectionDriverFactory);
 
@@ -166,6 +162,7 @@ public class ZooKeeperLeaderElectionConnectionHandlingTest extends TestLogger {
 			validationLogic.accept(connectionStateListener, contender);
 		} finally {
 			leaderElectionService.stop();
+			zooKeeperClient.close();
 
 			if (problem == Problem.LOST_CONNECTION) {
 				// in case of lost connections we accept that some unhandled error can occur

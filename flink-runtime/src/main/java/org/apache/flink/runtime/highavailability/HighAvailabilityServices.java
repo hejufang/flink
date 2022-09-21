@@ -159,7 +159,7 @@ public interface HighAvailabilityServices extends ClientHighAvailabilityServices
 	 *
 	 * @return Checkpoint recovery factory
 	 */
-	CheckpointRecoveryFactory getCheckpointRecoveryFactory();
+	CheckpointRecoveryFactory getCheckpointRecoveryFactory() throws Exception;
 
 	/**
 	 * Gets the submitted job graph store for the job manager.

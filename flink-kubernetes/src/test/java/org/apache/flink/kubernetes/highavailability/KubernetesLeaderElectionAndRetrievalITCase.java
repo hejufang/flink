@@ -18,19 +18,28 @@
 
 package org.apache.flink.kubernetes.highavailability;
 
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.KubernetesResource;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesLeaderElectionConfiguration;
+import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
+import org.apache.flink.kubernetes.kubeclient.KubernetesConfigMapSharedWatcher;
+import org.apache.flink.kubernetes.utils.KubernetesUtils;
+import org.apache.flink.runtime.leaderelection.LeaderInformation;
 import org.apache.flink.runtime.leaderelection.TestingLeaderElectionEventHandler;
 import org.apache.flink.runtime.leaderretrieval.TestingLeaderRetrievalEventHandler;
+import org.apache.flink.util.ExecutorUtils;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.ClassRule;
 import org.junit.Test;
 
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.kubernetes.highavailability.KubernetesHighAvailabilityTestBase.LEADER_CONFIGMAP_NAME;
-import static org.apache.flink.kubernetes.highavailability.KubernetesHighAvailabilityTestBase.LEADER_INFORMATION;
+import static org.apache.flink.kubernetes.utils.Constants.LABEL_CONFIGMAP_TYPE_HIGH_AVAILABILITY;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
@@ -40,6 +49,9 @@ import static org.junit.Assert.assertThat;
  * retrieve the leader address from Kubernetes.
  */
 public class KubernetesLeaderElectionAndRetrievalITCase extends TestLogger {
+	private static final String LEADER_CONFIGMAP_NAME = "leader-test-cluster";
+	private static final String LEADER_ADDRESS =
+		"akka.tcp://flink@172.20.1.21:6123/user/rpc/dispatcher";
 
 	@ClassRule
 	public static KubernetesResource kubernetesResource = new KubernetesResource();
@@ -52,32 +64,49 @@ public class KubernetesLeaderElectionAndRetrievalITCase extends TestLogger {
 		KubernetesLeaderElectionDriver leaderElectionDriver = null;
 		KubernetesLeaderRetrievalDriver leaderRetrievalDriver = null;
 
+		final FlinkKubeClient flinkKubeClient = kubernetesResource.getFlinkKubeClient();
+		final Configuration configuration = kubernetesResource.getConfiguration();
+
+		final String clusterId = configuration.getString(KubernetesConfigOptions.CLUSTER_ID);
+		final KubernetesConfigMapSharedWatcher configMapSharedWatcher =
+			flinkKubeClient.createConfigMapSharedWatcher(
+				KubernetesUtils.getConfigMapLabels(
+					clusterId, LABEL_CONFIGMAP_TYPE_HIGH_AVAILABILITY));
+		final ExecutorService watchExecutorService = Executors.newCachedThreadPool();
+
 		try {
 			final TestingLeaderElectionEventHandler electionEventHandler =
-				new TestingLeaderElectionEventHandler(LEADER_INFORMATION);
+				new TestingLeaderElectionEventHandler(LEADER_ADDRESS);
 			leaderElectionDriver = new KubernetesLeaderElectionDriver(
-				kubernetesResource.getFlinkKubeClient(),
+				flinkKubeClient,
+				configMapSharedWatcher,
+				watchExecutorService,
 				new KubernetesLeaderElectionConfiguration(
-					configMapName, UUID.randomUUID().toString(), kubernetesResource.getConfiguration()),
+					configMapName, UUID.randomUUID().toString(), configuration),
 				electionEventHandler,
 				electionEventHandler::handleError);
 			electionEventHandler.init(leaderElectionDriver);
 
 			final TestingLeaderRetrievalEventHandler retrievalEventHandler = new TestingLeaderRetrievalEventHandler();
 			leaderRetrievalDriver = new KubernetesLeaderRetrievalDriver(
-				kubernetesResource.getFlinkKubeClient(),
+				flinkKubeClient,
+				configMapSharedWatcher,
+				watchExecutorService,
 				configMapName,
 				retrievalEventHandler,
+				KubernetesUtils::getLeaderInformationFromConfigMap,
 				retrievalEventHandler::handleError);
 
 			electionEventHandler.waitForLeader(TIMEOUT);
 			// Check the new leader is confirmed
-			assertThat(electionEventHandler.getConfirmedLeaderInformation(), is(LEADER_INFORMATION));
+			final LeaderInformation confirmedLeaderInformation =
+				electionEventHandler.getConfirmedLeaderInformation();
+			assertThat(confirmedLeaderInformation.getLeaderAddress(), is(LEADER_ADDRESS));
 
 			// Check the leader retrieval driver should be notified the leader address
 			retrievalEventHandler.waitForNewLeader(TIMEOUT);
-			assertThat(retrievalEventHandler.getLeaderSessionID(), is(LEADER_INFORMATION.getLeaderSessionID()));
-			assertThat(retrievalEventHandler.getAddress(), is(LEADER_INFORMATION.getLeaderAddress()));
+			assertThat(retrievalEventHandler.getLeaderSessionID(), is(confirmedLeaderInformation.getLeaderSessionID()));
+			assertThat(retrievalEventHandler.getAddress(), is(confirmedLeaderInformation.getLeaderAddress()));
 		} finally {
 			if (leaderElectionDriver != null) {
 				leaderElectionDriver.close();
@@ -85,7 +114,9 @@ public class KubernetesLeaderElectionAndRetrievalITCase extends TestLogger {
 			if (leaderRetrievalDriver != null) {
 				leaderRetrievalDriver.close();
 			}
-			kubernetesResource.getFlinkKubeClient().deleteConfigMap(configMapName).get();
+			flinkKubeClient.deleteConfigMap(configMapName).get();
+			configMapSharedWatcher.close();
+			ExecutorUtils.gracefulShutdown(5, TimeUnit.SECONDS, watchExecutorService);
 		}
 	}
 }

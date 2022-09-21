@@ -335,7 +335,8 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 		return HighAvailabilityServicesUtils.createHighAvailabilityServices(
 			configuration,
 			executor,
-			HighAvailabilityServicesUtils.AddressResolution.NO_ADDRESS_RESOLUTION);
+			HighAvailabilityServicesUtils.AddressResolution.NO_ADDRESS_RESOLUTION,
+			this);
 	}
 
 	protected HeartbeatServices createHeartbeatServices(Configuration configuration) {

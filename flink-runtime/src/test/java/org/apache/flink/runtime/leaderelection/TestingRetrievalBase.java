@@ -61,6 +61,32 @@ public class TestingRetrievalBase {
 		return leader.getLeaderAddress();
 	}
 
+	public String waitForNewLeader() throws Exception {
+		throwExceptionIfNotNull();
+
+		CommonTestUtils.waitUntilCondition(
+			() -> {
+				leader = leaderEventQueue.take();
+				return !leader.isEmpty() && !leader.getLeaderAddress().equals(oldAddress);
+			});
+
+		oldAddress = leader.getLeaderAddress();
+
+		return leader.getLeaderAddress();
+	}
+
+	public void waitForEmptyLeaderInformation() throws Exception {
+		throwExceptionIfNotNull();
+
+		CommonTestUtils.waitUntilCondition(
+			() -> {
+				leader = leaderEventQueue.take();
+				return leader.isEmpty();
+			});
+
+		oldAddress = null;
+	}
+
 	public void waitForEmptyLeaderInformation(long timeout) throws Exception {
 		throwExceptionIfNotNull();
 

@@ -134,6 +134,10 @@ public class KubernetesJobManagerParameters extends AbstractKubernetesParameters
 		return KubernetesUtils.getAnnotations(flinkConfig, KubernetesConfigOptions.KUBERNETES_INGRESS_ANNOTATIONS);
 	}
 
+	public Integer getJobManagerNum() {
+		return flinkConfig.getInteger(KubernetesConfigOptions.KUBERNETES_JOBMANAGER_NUM);
+	}
+
 	public String getIngressHost() {
 		final String host = flinkConfig.getString(KubernetesConfigOptions.KUBERNETES_INGRESS_HOST);
 		if (StringUtils.isNullOrWhitespaceOnly(host)) {

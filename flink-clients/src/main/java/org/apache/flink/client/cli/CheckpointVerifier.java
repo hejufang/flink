@@ -254,7 +254,8 @@ public class CheckpointVerifier {
 		try (HighAvailabilityServices haService = HighAvailabilityServicesUtils.createHighAvailabilityServices(
 			configuration,
 			Executors.directExecutor(),
-			HighAvailabilityServicesUtils.AddressResolution.TRY_ADDRESS_RESOLUTION)) {
+			HighAvailabilityServicesUtils.AddressResolution.TRY_ADDRESS_RESOLUTION,
+			null)) {
 
 			// construct CompletedCheckpointStore (ZooKeeper)
 			try {

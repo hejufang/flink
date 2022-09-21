@@ -23,6 +23,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesLeaderElectionConfiguration;
 import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
+import org.apache.flink.kubernetes.kubeclient.KubernetesConfigMapSharedWatcher;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.blob.BlobStoreService;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
@@ -32,11 +33,15 @@ import org.apache.flink.runtime.highavailability.nonha.standalone.StandaloneRunn
 import org.apache.flink.runtime.jobmanager.JobGraphStore;
 import org.apache.flink.runtime.leaderelection.DefaultLeaderElectionService;
 import org.apache.flink.runtime.leaderelection.LeaderElectionService;
-import org.apache.flink.runtime.leaderretrieval.DefaultLeaderRetrievalService;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
+import org.apache.flink.runtime.util.ExecutorThreadFactory;
+import org.apache.flink.util.ExecutorUtils;
 
 import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.kubernetes.utils.Constants.LABEL_CONFIGMAP_TYPE_HIGH_AVAILABILITY;
 import static org.apache.flink.kubernetes.utils.Constants.NAME_SEPARATOR;
@@ -56,7 +61,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * e.g. k8s-ha-app1-restserver-leader, k8s-ha-app1-00000000000000000000000000000000-jobmanager-leader
  *
  * <p>Note that underline("_") is not allowed in Kubernetes ConfigMap name.
+ *
+ * @deprecated in favour of {@link KubernetesMultipleComponentLeaderElectionHaServices}
  */
+
+@Deprecated
 public class KubernetesHaServices extends AbstractHaServices {
 
 	private final String clusterId;
@@ -64,15 +73,15 @@ public class KubernetesHaServices extends AbstractHaServices {
 	/** Kubernetes client. */
 	private final FlinkKubeClient kubeClient;
 
+	private final KubernetesConfigMapSharedWatcher configMapSharedWatcher;
+
+	private final ExecutorService watchExecutorService;
+
 	private static final String RESOURCE_MANAGER_NAME = "resourcemanager";
 
 	private static final String DISPATCHER_NAME = "dispatcher";
 
 	private static final String JOB_MANAGER_NAME = "jobmanager";
-
-	private static final String REST_SERVER_NAME = "restserver";
-
-	private static final String LEADER_SUFFIX = "leader";
 
 	/**
 	 * Each {@link KubernetesHaServices} will have a dedicated lock identity for all the components above. Different
@@ -90,6 +99,14 @@ public class KubernetesHaServices extends AbstractHaServices {
 		this.kubeClient = checkNotNull(kubeClient);
 		this.clusterId = checkNotNull(config.get(KubernetesConfigOptions.CLUSTER_ID));
 
+		this.configMapSharedWatcher =
+			this.kubeClient.createConfigMapSharedWatcher(
+				KubernetesUtils.getConfigMapLabels(
+					clusterId, LABEL_CONFIGMAP_TYPE_HIGH_AVAILABILITY));
+		this.watchExecutorService =
+			Executors.newCachedThreadPool(
+				new ExecutorThreadFactory("config-map-watch-handler"));
+
 		lockIdentity = UUID.randomUUID().toString();
 	}
 
@@ -98,37 +115,46 @@ public class KubernetesHaServices extends AbstractHaServices {
 		final KubernetesLeaderElectionConfiguration leaderConfig = new KubernetesLeaderElectionConfiguration(
 			leaderName, lockIdentity, configuration);
 		return new DefaultLeaderElectionService(
-			new KubernetesLeaderElectionDriverFactory(kubeClient, leaderConfig));
+			new KubernetesLeaderElectionDriverFactory(
+				kubeClient, configMapSharedWatcher, watchExecutorService, leaderConfig));
 	}
 
 	@Override
 	public LeaderRetrievalService createLeaderRetrievalService(String leaderName) {
-		return new DefaultLeaderRetrievalService(new KubernetesLeaderRetrievalDriverFactory(kubeClient, leaderName));
+		return KubernetesUtils.createLeaderRetrievalService(
+			kubeClient,
+			configMapSharedWatcher,
+			watchExecutorService,
+			leaderName,
+			"",
+			true);
 	}
 
 	@Override
 	public CheckpointRecoveryFactory createCheckpointRecoveryFactory() {
-		return new KubernetesCheckpointRecoveryFactory(
-			kubeClient, configuration, ioExecutor, this::getLeaderNameForJobManager, lockIdentity);
+		return KubernetesCheckpointRecoveryFactory.withLeadershipValidation(
+			kubeClient, configuration, ioExecutor,  clusterId, this::getLeaderPathForJobManager, lockIdentity);
 	}
 
 	@Override
 	public JobGraphStore createJobGraphStore() throws Exception {
 		return KubernetesUtils.createJobGraphStore(
-			configuration, kubeClient, getLeaderNameForDispatcher(), lockIdentity);
+			configuration, kubeClient, getLeaderPathForDispatcher(), lockIdentity);
 	}
 
 	@Override
 	public RunningJobsRegistry createRunningJobsRegistry() {
 		if (useJobMasterHA) {
-			return new KubernetesRunningJobsRegistry(kubeClient, getLeaderNameForDispatcher(), lockIdentity);
+			return new KubernetesRunningJobsRegistry(kubeClient, getLeaderPathForDispatcher(), lockIdentity);
 		}
 		return new StandaloneRunningJobsRegistry();
 	}
 
 	@Override
 	public void internalClose() {
+		configMapSharedWatcher.close();
 		kubeClient.close();
+		ExecutorUtils.gracefulShutdown(5, TimeUnit.SECONDS, this.watchExecutorService);
 	}
 
 	@Override
@@ -141,32 +167,29 @@ public class KubernetesHaServices extends AbstractHaServices {
 	public void internalCleanupJobData(JobID jobID) throws Exception {
 		logger.info("Clean up the k8s high availability data for job {}.", jobID);
 		if (useJobMasterHA) {
-			kubeClient.deleteConfigMap(getLeaderNameForJobManager(jobID)).get();
+			kubeClient.deleteConfigMap(getLeaderPathForJobManager(jobID)).get();
 		}
 		logger.info("Finished cleaning up the k8s high availability data for job {}.", jobID);
 	}
 
 	@Override
-	protected String getLeaderNameForResourceManager() {
-		return getLeaderName(RESOURCE_MANAGER_NAME);
+	protected String getLeaderPathForResourceManager() {
+		return KubernetesUtils.getLeaderName(clusterId, RESOURCE_MANAGER_NAME);
 	}
 
 	@Override
-	protected String getLeaderNameForDispatcher() {
-		return getLeaderName(DISPATCHER_NAME);
+	protected String getLeaderPathForDispatcher() {
+		return KubernetesUtils.getLeaderName(clusterId, DISPATCHER_NAME);
 	}
 
-	public String getLeaderNameForJobManager(final JobID jobID) {
-		return getLeaderName(jobID.toString() + NAME_SEPARATOR + JOB_MANAGER_NAME);
+	public String getLeaderPathForJobManager(final JobID jobId) {
+		return KubernetesUtils.getLeaderName(clusterId, jobId.toString() + NAME_SEPARATOR + JOB_MANAGER_NAME);
 	}
 
 	@Override
-	protected String getLeaderNameForRestServer() {
-		return getLeaderName(REST_SERVER_NAME);
+	protected String getLeaderPathForRestServer() {
+		return KubernetesUtils.getLeaderPathForRestServer(clusterId, true);
 	}
 
-	private String getLeaderName(String component) {
-		return clusterId + NAME_SEPARATOR + component + NAME_SEPARATOR + LEADER_SUFFIX;
-	}
 }
 

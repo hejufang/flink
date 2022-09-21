@@ -135,7 +135,7 @@ public class ProcessFailureCancelingITCase extends TestLogger {
 		final HighAvailabilityServices haServices = HighAvailabilityServicesUtils.createHighAvailabilityServices(
 			config,
 			ioExecutor,
-			HighAvailabilityServicesUtils.AddressResolution.NO_ADDRESS_RESOLUTION);
+			HighAvailabilityServicesUtils.AddressResolution.NO_ADDRESS_RESOLUTION, null);
 
 		try {
 

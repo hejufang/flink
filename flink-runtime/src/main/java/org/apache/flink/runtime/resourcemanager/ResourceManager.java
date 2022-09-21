@@ -26,6 +26,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.SimpleCounter;
@@ -99,6 +100,7 @@ import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.LoggerHelper;
+import org.apache.flink.util.ShutdownHookUtil;
 import org.apache.flink.util.clock.SystemClock;
 
 import javax.annotation.Nullable;
@@ -223,6 +225,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	private boolean waitingFatal;
 	private String fatalMessage;
 
+	private Thread shutDownHook;
+
 	public ResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -310,6 +314,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.requestWorkerDirectlyEnable = flinkConfig.getBoolean(JobManagerOptions.JOBMANAGER_REQUEST_WORKER_DIRECTLY_ENABLE);
 		this.maxTasksPerWorker = flinkConfig.getInteger(JobManagerOptions.JOBMANAGER_MAX_TASKS_PER_JOB);
 		this.minWorkersPerJob = flinkConfig.getInteger(JobManagerOptions.JOBMANAGER_MIN_WORKERS_PER_JOB);
+		boolean fastRecovery = flinkConfig.getBoolean(HighAvailabilityOptions.FAST_RECOVERY);
+		if (fastRecovery) {
+			this.shutDownHook = ShutdownHookUtil.addShutdownHook(this, getClass().getSimpleName(), log);
+		}
 	}
 
 	// ------------------------------------------------------------------------
@@ -362,6 +370,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				new FlinkException("Could not properly shut down the ResourceManager.", exception));
 		}
 
+		if (shutDownHook != null) {
+			ShutdownHookUtil.removeShutdownHook(shutDownHook, getClass().getSimpleName(), log);
+		}
 		return CompletableFuture.completedFuture(null);
 	}
 

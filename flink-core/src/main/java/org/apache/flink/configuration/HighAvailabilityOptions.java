@@ -21,6 +21,7 @@ package org.apache.flink.configuration;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.docs.Documentation;
 import org.apache.flink.configuration.description.Description;
+import org.apache.flink.configuration.description.TextElement;
 
 import static org.apache.flink.configuration.ConfigOptions.key;
 
@@ -86,6 +87,15 @@ public class HighAvailabilityOptions {
 		key("high-availability.jobmaster.enable")
 			.defaultValue(true)
 			.withDescription("Enable JobMaster HA.");
+
+	/**
+	 * Enable ha cluster fast recovery mode.
+	 */
+	@Documentation.Section(Documentation.Sections.COMMON_HIGH_AVAILABILITY)
+	public static final ConfigOption<Boolean> FAST_RECOVERY =
+		key("high-availability.fast-recovery")
+			.defaultValue(false)
+			.withDescription("Enable fast recovery mode.");
 	// ------------------------------------------------------------------------
 	//  Recovery Options
 	// ------------------------------------------------------------------------
@@ -234,6 +244,21 @@ public class HighAvailabilityOptions {
 				" set to “creator” if the ZooKeeper server configuration has the “authProvider” property mapped to use" +
 				" SASLAuthenticationProvider and the cluster is configured to run in secure mode (Kerberos).");
 
+	@Documentation.Section(Documentation.Sections.EXPERT_ZOOKEEPER_HIGH_AVAILABILITY)
+	public static final ConfigOption<Boolean> ZOOKEEPER_TOLERATE_SUSPENDED_CONNECTIONS =
+		key("high-availability.zookeeper.client.tolerate-suspended-connections")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription(
+				Description.builder()
+					.text(
+						"Defines whether a suspended ZooKeeper connection will be treated as an error that causes the leader "
+							+ "information to be invalidated or not. In case you set this option to %s, Flink will wait until a "
+							+ "ZooKeeper connection is marked as lost before it revokes the leadership of components. This has the "
+							+ "effect that Flink is more resilient against temporary connection instabilities at the cost of running "
+							+ "more likely into timing issues with ZooKeeper.",
+						TextElement.code("true"))
+					.build());
 	// ------------------------------------------------------------------------
 	//  Deprecated options
 	// ------------------------------------------------------------------------
@@ -249,6 +274,25 @@ public class HighAvailabilityOptions {
 			.noDefaultValue()
 			.withDeprecatedKeys("recovery.job.delay")
 			.withDescription("The time before a JobManager after a fail over recovers the current jobs.");
+
+	/**
+	 * Safety hatch to fallback to the old ha services implementations.
+	 *
+	 * <p>Ideally, we can remove this option together with the old implementations in the next
+	 * release.
+	 *
+	 * @see <a href="https://issues.apache.org/jira/browse/FLINK-25806">FLINK-25806</a>
+	 */
+	@Documentation.Section(Documentation.Sections.EXPERT_HIGH_AVAILABILITY)
+	public static final ConfigOption<Boolean> USE_OLD_HA_SERVICES =
+		key("high-availability.use-old-ha-services")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription(
+				Description.builder()
+					.text(
+						"Use this option to disable the new HA service implementations for ZooKeeper and K8s. This is a safety hatch in case that the new ha services are buggy.")
+					.build());
 
 	// ------------------------------------------------------------------------
 

@@ -29,6 +29,8 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -49,14 +51,14 @@ public class KubernetesCheckpointIDCounter implements CheckpointIDCounter {
 
 	private final String configMapName;
 
-	private final String lockIdentity;
+	@Nullable private final String lockIdentity;
 
 	private boolean running;
 
-	public KubernetesCheckpointIDCounter(FlinkKubeClient kubeClient, String configMapName, String lockIdentity) {
+	public KubernetesCheckpointIDCounter(FlinkKubeClient kubeClient, String configMapName, @Nullable String lockIdentity) {
 		this.kubeClient = checkNotNull(kubeClient);
 		this.configMapName = checkNotNull(configMapName);
-		this.lockIdentity = checkNotNull(lockIdentity);
+		this.lockIdentity = lockIdentity;
 
 		this.running = false;
 	}
@@ -81,7 +83,7 @@ public class KubernetesCheckpointIDCounter implements CheckpointIDCounter {
 			kubeClient.checkAndUpdateConfigMap(
 				configMapName,
 				configMap -> {
-					if (KubernetesLeaderElector.hasLeadership(configMap, lockIdentity)) {
+					if (isValidOperation(configMap)) {
 						configMap.getData().remove(CHECKPOINT_COUNTER_KEY);
 						return Optional.of(configMap);
 					}
@@ -90,13 +92,18 @@ public class KubernetesCheckpointIDCounter implements CheckpointIDCounter {
 		}
 	}
 
+	private boolean isValidOperation(KubernetesConfigMap configMap) {
+		return lockIdentity == null
+			|| KubernetesLeaderElector.hasLeadership(configMap, lockIdentity);
+	}
+
 	@Override
 	public long getAndIncrement() throws Exception {
 		final AtomicLong current = new AtomicLong();
 		final boolean updated = kubeClient.checkAndUpdateConfigMap(
 			configMapName,
 			configMap -> {
-				if (KubernetesLeaderElector.hasLeadership(configMap, lockIdentity)) {
+				if (isValidOperation(configMap)) {
 					final long currentValue = getCurrentCounter(configMap);
 					current.set(currentValue);
 					configMap.getData().put(CHECKPOINT_COUNTER_KEY, String.valueOf(currentValue + 1));
@@ -127,7 +134,7 @@ public class KubernetesCheckpointIDCounter implements CheckpointIDCounter {
 		kubeClient.checkAndUpdateConfigMap(
 			configMapName,
 			configMap -> {
-				if (KubernetesLeaderElector.hasLeadership(configMap, lockIdentity)) {
+				if (isValidOperation(configMap)) {
 					final String existing = configMap.getData().get(CHECKPOINT_COUNTER_KEY);
 					final String newValue = String.valueOf(newCount);
 					if (existing == null || !existing.equals(newValue)) {

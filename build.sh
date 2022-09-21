@@ -33,3 +33,5 @@ rm -rf flink-dist/target/flink-1.11-byted-SNAPSHOT-bin/flink-1.11-byted-SNAPSHOT
 cp -r flink-dist/target/flink-1.11-byted-SNAPSHOT-bin/flink-1.11-byted-SNAPSHOT/* output/
 # common jar conflict
 bash tools/common-jar-check/common_jar_check.sh "output/"
+
+
