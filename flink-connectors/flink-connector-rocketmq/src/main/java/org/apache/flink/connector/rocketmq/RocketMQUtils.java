@@ -114,6 +114,9 @@ public final class RocketMQUtils {
 			 * and set it to container system in org.apache.flink.yarn.Utils
 			 */
 			brokerQueueList = System.getProperty(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY);
+			if (brokerQueueList == null) {
+				brokerQueueList = System.getenv(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY);
+			}
 			LOG.info("Got broker queue list {}", brokerQueueList);
 		}
 		try {
