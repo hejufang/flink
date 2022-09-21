@@ -27,10 +27,12 @@ import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
 import org.apache.flink.runtime.execution.ExecutionState;
+import org.apache.flink.runtime.executiongraph.AccessExecution;
 import org.apache.flink.runtime.executiongraph.AccessExecutionGraph;
 import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
+import org.apache.flink.runtime.messages.webmonitor.JobDetails.CurrentAttempts;
 import org.apache.flink.runtime.rest.handler.legacy.files.StaticFileServerHandler;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.FlinkException;
@@ -53,8 +55,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 /**
  * Utilities for the web runtime monitor. This class contains for example methods to build
@@ -240,15 +244,32 @@ public final class WebMonitorUtils {
 		int[] countsPerStatus = new int[ExecutionState.values().length];
 		long lastChanged = 0;
 		int numTotalTasks = 0;
+		Map<String, Map<Integer, CurrentAttempts>> currentExecutionAttempts = new HashMap<>();
 
 		for (AccessExecutionJobVertex ejv : job.getVerticesTopologically()) {
 			AccessExecutionVertex[] vertices = ejv.getTaskVertices();
 			numTotalTasks += vertices.length;
+			Map<Integer, CurrentAttempts> vertexAttempts = new HashMap<>();
 
 			for (AccessExecutionVertex vertex : vertices) {
 				ExecutionState state = vertex.getExecutionState();
 				countsPerStatus[state.ordinal()]++;
 				lastChanged = Math.max(lastChanged, vertex.getStateTimestamp(state));
+
+				Set<Integer> allAttemptNumbers = vertex.getCopyExecutions().stream()
+					.map(AccessExecution::getAttemptNumber)
+					.collect(Collectors.toSet());
+				allAttemptNumbers.add(vertex.getCurrentExecutionAttempt().getAttemptNumber());
+
+				vertexAttempts.put(
+					vertex.getParallelSubtaskIndex(),
+					new CurrentAttempts(
+						vertex.getCurrentExecutionAttempt().getAttemptNumber(),
+						allAttemptNumbers));
+			}
+
+			if (!vertexAttempts.isEmpty()) {
+				currentExecutionAttempts.put(String.valueOf(ejv.getJobVertexId()), vertexAttempts);
 			}
 		}
 
@@ -268,7 +289,8 @@ public final class WebMonitorUtils {
 			countsPerStatus,
 			numTotalTasks,
 			metric,
-			dtop);
+			dtop,
+			currentExecutionAttempts);
 	}
 
 	/**

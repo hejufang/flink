@@ -36,6 +36,10 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ser.std.S
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -81,6 +85,16 @@ public class JobDetails implements Serializable {
 
 	private final String dtop;
 
+	/**
+	 * The map holds the attempt number of the current execution attempt in the Execution, which is
+	 * considered as the representing execution for the subtask of the vertex. The keys and values
+	 * are JobVertexID -> SubtaskIndex -> CurrenAttempts info.
+	 *
+	 * <p>The field is excluded from the json. Any usage from the web UI and the history server is
+	 * not allowed.
+	 */
+	private final Map<String, Map<Integer, CurrentAttempts>> currentExecutionAttempts;
+
 	public JobDetails(
 			JobID jobId,
 			String jobName,
@@ -92,7 +106,7 @@ public class JobDetails implements Serializable {
 			int[] tasksPerState,
 			int numTasks) {
 		this(jobId, jobName, startTime, endTime, duration, status,
-			lastUpdateTime, tasksPerState, numTasks, null, null);
+			lastUpdateTime, tasksPerState, numTasks, null, null, new HashMap<>());
 	}
 
 	public JobDetails(
@@ -106,7 +120,8 @@ public class JobDetails implements Serializable {
 		int[] tasksPerState,
 		int numTasks,
 		String metric,
-		String dtop) {
+		String dtop,
+		Map<String, Map<Integer, CurrentAttempts>> currentExecutionAttempts) {
 		this.jobId = checkNotNull(jobId);
 		this.jobName = checkNotNull(jobName);
 		this.startTime = startTime;
@@ -120,6 +135,7 @@ public class JobDetails implements Serializable {
 		this.numTasks = numTasks;
 		this.metric = (metric == null) ? "NoMetric" : metric;
 		this.dtop = (dtop == null) ? "NoDtop" : dtop;
+		this.currentExecutionAttempts = checkNotNull(currentExecutionAttempts);
 	}
 	// ------------------------------------------------------------------------
 
@@ -167,6 +183,9 @@ public class JobDetails implements Serializable {
 		return dtop;
 	}
 
+	public Map<String, Map<Integer, CurrentAttempts>> getCurrentExecutionAttempts() {
+		return currentExecutionAttempts;
+	}
 	// ------------------------------------------------------------------------
 
 	@Override
@@ -186,7 +205,8 @@ public class JobDetails implements Serializable {
 					this.jobName.equals(that.jobName) &&
 					Arrays.equals(this.tasksPerState, that.tasksPerState) &&
 					this.metric.equals(that.metric) &&
-					this.dtop.equals(that.dtop);
+					this.dtop.equals(that.dtop)  &&
+					this.currentExecutionAttempts.equals(that.currentExecutionAttempts);
 		}
 		else {
 			return false;
@@ -205,6 +225,7 @@ public class JobDetails implements Serializable {
 		result = 31 * result + numTasks;
 		result = 31 * result + metric.hashCode();
 		result = 31 * result + dtop.hashCode();
+		result = 31 * result + currentExecutionAttempts.hashCode();
 		return result;
 	}
 
@@ -306,6 +327,29 @@ public class JobDetails implements Serializable {
 				lastUpdateTime,
 				numVerticesPerExecutionState,
 				numTasks);
+		}
+	}
+
+	/**
+	 * The CurrentAttempts holds the attempt number of the current representative execution attempt,
+	 * and the attempt numbers of all the running attempts.
+	 */
+	public static final class CurrentAttempts implements Serializable {
+		private final int representativeAttempt;
+
+		private final Set<Integer> currentAttempts;
+
+		public CurrentAttempts(int representativeAttempt, Set<Integer> currentAttempts) {
+			this.representativeAttempt = representativeAttempt;
+			this.currentAttempts = Collections.unmodifiableSet(currentAttempts);
+		}
+
+		public int getRepresentativeAttempt() {
+			return representativeAttempt;
+		}
+
+		public Set<Integer> getCurrentAttempts() {
+			return currentAttempts;
 		}
 	}
 }

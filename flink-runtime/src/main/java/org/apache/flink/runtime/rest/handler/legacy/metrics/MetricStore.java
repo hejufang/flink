@@ -19,6 +19,8 @@
 package org.apache.flink.runtime.rest.handler.legacy.metrics;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.runtime.messages.webmonitor.JobDetails;
+import org.apache.flink.runtime.messages.webmonitor.JobDetails.CurrentAttempts;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.dump.MetricDump;
 import org.apache.flink.runtime.metrics.dump.QueryScopeInfo;
@@ -28,8 +30,11 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -57,6 +62,14 @@ public class MetricStore {
 	private final Map<String, TaskManagerMetricStore> taskManagers = new ConcurrentHashMap<>();
 	private final Map<String, JobMetricStore> jobs = new ConcurrentHashMap<>();
 
+	/**
+	 * The map holds the attempt number of the representing execution for each subtask of each
+	 * vertex. The keys and values are JobID -> JobVertexID -> SubtaskIndex ->
+	 * CurrentExecutionAttemptNumber. When a metric of an execution attempt is added, the metric can
+	 * also be added to the SubtaskMetricStore when it is of the representing execution.
+	 */
+	private final Map<String, Map<String, Map<Integer, Integer>>> representativeAttempts = new ConcurrentHashMap<>();
+
 	private final boolean filterTaskOperatorMetric;
 
 	public MetricStore() {
@@ -83,6 +96,36 @@ public class MetricStore {
 	 */
 	synchronized void retainJobs(List<String> activeJobs) {
 		jobs.keySet().retainAll(activeJobs);
+		representativeAttempts.keySet().retainAll(activeJobs);
+	}
+
+	public synchronized void updateCurrentExecutionAttempts(Collection<JobDetails> jobs) {
+		long start = System.nanoTime();
+		for (JobDetails job : jobs) {
+			String jobId = job.getJobId().toString();
+			Map<String, Map<Integer, CurrentAttempts>> currentAttempts = job.getCurrentExecutionAttempts();
+			Map<String, Map<Integer, Integer>> jobRepresentativeAttempts = representativeAttempts.compute(
+					jobId, (k, overwritten) -> new HashMap<>(currentAttempts.size())
+			);
+			currentAttempts.forEach((vertexId, subtaskAttempts) -> {
+				Map<Integer, Integer> vertexAttempts =
+					jobRepresentativeAttempts.compute(vertexId, (k, overwritten) -> new HashMap<>());
+				TaskMetricStore taskMetricStore = getTaskMetricStore(jobId, vertexId);
+				subtaskAttempts.forEach((subtaskIndex, attempts) -> {
+					// Updates representative attempts
+					vertexAttempts.put(subtaskIndex, attempts.getRepresentativeAttempt());
+					// Retains current attempt metrics to avoid memory leak
+					taskMetricStore
+						.getSubtaskMetricStore(subtaskIndex)
+						.retainAttempts(attempts.getCurrentAttempts());
+				});
+			});
+		}
+		LOG.info("update attempts costs {}ns", System.nanoTime() - start);
+	}
+
+	public Map<String, Map<String, Map<Integer, Integer>>> getRepresentativeAttempts() {
+		return representativeAttempts;
 	}
 
 	/**
@@ -197,6 +240,7 @@ public class MetricStore {
 			TaskMetricStore task;
 			SubtaskMetricStore subtask;
 			ComponentMetricStore attempt;
+			boolean isRepresentativeAttempt;
 
 			String name = info.scope.isEmpty()
 				? metric.name
@@ -233,16 +277,29 @@ public class MetricStore {
 					task = job.tasks.computeIfAbsent(taskInfo.vertexID, k -> new TaskMetricStore());
 					subtask = task.subtasks.computeIfAbsent(taskInfo.subtaskIndex, k -> new SubtaskMetricStore());
 					attempt = subtask.attempts.computeIfAbsent(taskInfo.attemptNumber, k -> new ComponentMetricStore());
-
-					/**
-					 * The duplication is intended. Metrics scoped by subtask are useful for several job/task handlers,
-					 * while the WebInterface task metric queries currently do not account for subtasks, so we don't
-					 * divide by subtask and instead use the concatenation of subtask index and metric name as the name
-					 * for those.
-					 */
 					addMetric(attempt.metrics, name, metric);
-					addMetric(subtask.metrics, name, metric);
-					addMetric(task.metrics, taskInfo.subtaskIndex + "." + name, metric);
+
+					// The attempt is the representative one if the current execution attempt
+					// number for the subtask is not present in the representativeAttempts,
+					// which means there should be only one execution
+					isRepresentativeAttempt = isRepresentativeAttempt(
+							taskInfo.jobID,
+							taskInfo.vertexID,
+							taskInfo.subtaskIndex,
+							taskInfo.attemptNumber);
+					// If the attempt is representative one, its metrics can be updated to the
+					// subtask and task metric store.
+					if (isRepresentativeAttempt) {
+						/**
+						 * The duplication is intended. Metrics scoped by subtask are useful for
+						 * several job/task handlers, while the WebInterface task metric queries
+						 * currently do not account for subtasks, so we don't divide by subtask and
+						 * instead use the concatenation of subtask index and metric name as the
+						 * name for those.
+						 */
+						addMetric(subtask.metrics, name, metric);
+						addMetric(task.metrics, taskInfo.subtaskIndex + "." + name, metric);
+					}
 					break;
 				case INFO_CATEGORY_OPERATOR:
 					if (filterTaskOperatorMetric && !MetricNames.IO_METRIC_NAMES.contains(name)) {
@@ -266,6 +323,19 @@ public class MetricStore {
 		} catch (Exception e) {
 			LOG.debug("Malformed metric dump.", e);
 		}
+	}
+
+	// Returns whether the attempt is the representative one. It's also true if the current
+	// execution attempt number for the subtask is not present in the representativeAttempts,
+	// which means there should be only one execution
+	private boolean isRepresentativeAttempt(
+		String jobID, String vertexID, int subtaskIndex, int attemptNumber) {
+		return Optional.of(representativeAttempts)
+			.map(m -> m.get(jobID))
+			.map(m -> m.get(vertexID))
+			.map(m -> m.get(subtaskIndex))
+			.orElse(attemptNumber)
+			== attemptNumber;
 	}
 
 	private void addMetric(Map<String, String> target, String name, MetricDump metric) {
@@ -427,9 +497,9 @@ public class MetricStore {
 			this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
 		}
 
-		private SubtaskMetricStore(Map<String, String> metrics, Map<Integer, ComponentMetricStore> attemps) {
+		private SubtaskMetricStore(Map<String, String> metrics, Map<Integer, ComponentMetricStore> attempts) {
 			super(metrics);
-			this.attempts = attemps;
+			this.attempts = attempts;
 		}
 
 		public ComponentMetricStore getAttemptMetricStore(int attempt) {
@@ -441,6 +511,17 @@ public class MetricStore {
 				return null;
 			}
 			return new SubtaskMetricStore(unmodifiableMap(source.metrics), unmodifiableMap(source.attempts));
+		}
+
+		void retainAttempts(Set<Integer> currentAttempts) {
+			int latestAttempt = currentAttempts.stream().mapToInt(i -> i).max().orElse(0);
+			attempts.keySet().removeIf(attempt -> {
+				boolean remove = attempt < latestAttempt && !currentAttempts.contains(attempt);
+				if (remove) {
+					LOG.info("remove attempt: {}, currentAttempts: {}", attempt, currentAttempts);
+				}
+				return remove;
+			});
 		}
 	}
 }
