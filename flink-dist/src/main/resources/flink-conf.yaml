@@ -320,6 +320,7 @@ common:
   bytedance.streaming.yarn.cluster.auto-detect.enable: false
   bytedance.streaming.restart-strategy: aggregated-failure-rate
   bytedance.streaming.kubernetes.arcee.restart-policy.type: Always
+  bytedance.streaming.table.exec.hive.infer-source-parallelism: false
 
   # hdfs conf for checkpoint
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
