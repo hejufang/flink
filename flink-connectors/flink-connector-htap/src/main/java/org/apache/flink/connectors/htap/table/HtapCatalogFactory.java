@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.DEFAULT_HTAP_BATCH_SIZE_BYTES;
+import static org.apache.flink.connectors.htap.table.HtapTableFactory.DEFAULT_HTAP_SCAN_RETRY_TIMES;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BATCH_SIZE_BYTES;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BYTESTORE_DATAPATH;
@@ -39,9 +40,12 @@ import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_CLUST
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_DB_CLUSTER;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_DB_NAME;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_LOGSTORE_LOGDIR;
+import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_MAX_SCAN_THREAD;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_META_CLUSTER;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_META_REGION;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_PAGESTORE_LOGDIR;
+import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_SCAN_RETRY_TIMES;
+import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_SCAN_THREAD_POOL_ENABLE;
 import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_CACHE_ASYNC_RELOAD;
 import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_CACHE_ENABLE;
 import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_CACHE_EXECUTOR_SIZE;
@@ -84,6 +88,9 @@ public class HtapCatalogFactory implements CatalogFactory {
 		properties.add(HTAP_LOGSTORE_LOGDIR);
 		properties.add(HTAP_PAGESTORE_LOGDIR);
 		properties.add(HTAP_BATCH_SIZE_BYTES);
+		properties.add(HTAP_SCAN_THREAD_POOL_ENABLE);
+		properties.add(HTAP_MAX_SCAN_THREAD);
+		properties.add(HTAP_SCAN_RETRY_TIMES);
 		properties.add(CATALOG_CACHE_ENABLE);
 		properties.add(CATALOG_CACHE_ASYNC_RELOAD);
 		properties.add(CATALOG_CACHE_EXECUTOR_SIZE);
@@ -112,7 +119,13 @@ public class HtapCatalogFactory implements CatalogFactory {
 			descriptorProperties.getString(HTAP_LOGSTORE_LOGDIR),
 			descriptorProperties.getString(HTAP_PAGESTORE_LOGDIR),
 			descriptorProperties.getOptionalInt(HTAP_BATCH_SIZE_BYTES)
-					.orElse(DEFAULT_HTAP_BATCH_SIZE_BYTES));
+					.orElse(DEFAULT_HTAP_BATCH_SIZE_BYTES),
+			descriptorProperties.getOptionalBoolean(HTAP_SCAN_THREAD_POOL_ENABLE)
+				.orElse(Boolean.TRUE),
+			descriptorProperties.getOptionalInt(HTAP_MAX_SCAN_THREAD)
+				.orElse(Runtime.getRuntime().availableProcessors() * 4),
+			descriptorProperties.getOptionalInt(HTAP_SCAN_RETRY_TIMES)
+				.orElse(DEFAULT_HTAP_SCAN_RETRY_TIMES));
 
 		if (cacheEnable) {
 			int executorSize = descriptorProperties.getOptionalInt(CATALOG_CACHE_EXECUTOR_SIZE)
@@ -143,6 +156,9 @@ public class HtapCatalogFactory implements CatalogFactory {
 		descriptorProperties.validateString(HTAP_LOGSTORE_LOGDIR, false);
 		descriptorProperties.validateString(HTAP_PAGESTORE_LOGDIR, false);
 		descriptorProperties.validateInt(HTAP_BATCH_SIZE_BYTES, true);
+		descriptorProperties.validateBoolean(HTAP_SCAN_THREAD_POOL_ENABLE, true);
+		descriptorProperties.validateInt(HTAP_MAX_SCAN_THREAD, true);
+		descriptorProperties.validateInt(HTAP_SCAN_RETRY_TIMES, true);
 		return descriptorProperties;
 	}
 }

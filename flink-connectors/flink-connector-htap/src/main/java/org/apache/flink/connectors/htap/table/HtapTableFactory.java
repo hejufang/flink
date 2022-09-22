@@ -72,8 +72,14 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 	public static final String HTAP_LOGSTORE_LOGDIR = "htap.logstore-logdir";
 	public static final String HTAP_PAGESTORE_LOGDIR = "htap.pagestore-logdir";
 	public static final String HTAP_BATCH_SIZE_BYTES = "htap.batch-size-bytes";
+	public static final String HTAP_SCAN_THREAD_POOL_ENABLE = "htap.scan-thread-pool-enable";
+	public static final String HTAP_MAX_SCAN_THREAD = "htap.max-scan-thread";
+	public static final String HTAP_SCAN_RETRY_TIMES = "htap.scan-retry-times";
 
 	public static final int DEFAULT_HTAP_BATCH_SIZE_BYTES = 1 << 20;
+	// Storage does not support retry one round of scan yet!
+	// So please always keep htap.scan-retry-times as 0 currently!
+	public static final int DEFAULT_HTAP_SCAN_RETRY_TIMES = 0;
 
 	private final Snapshot snapshot;
 
@@ -102,6 +108,9 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 		properties.add(HTAP_LOGSTORE_LOGDIR);
 		properties.add(HTAP_PAGESTORE_LOGDIR);
 		properties.add(HTAP_BATCH_SIZE_BYTES);
+		properties.add(HTAP_SCAN_THREAD_POOL_ENABLE);
+		properties.add(HTAP_MAX_SCAN_THREAD);
+		properties.add(HTAP_SCAN_RETRY_TIMES);
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_DATA_TYPE);
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -142,11 +151,14 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 		String logStoreLogDir = options.get(HTAP_LOGSTORE_LOGDIR);
 		String pageStoreLogDir = options.get(HTAP_PAGESTORE_LOGDIR);
 		int batchSizeBytes = Integer.parseInt(options.get(HTAP_BATCH_SIZE_BYTES));
+		boolean scanThreadPoolEnable = Boolean.parseBoolean(options.get(HTAP_SCAN_THREAD_POOL_ENABLE));
+		int maxScanThread = Integer.parseInt(options.get(HTAP_MAX_SCAN_THREAD));
+		int scanRetryTimes = Integer.parseInt(options.get(HTAP_SCAN_RETRY_TIMES));
 		HtapTableInfo tableInfo = HtapTableUtils.createTableInfo(
 			tablePath.getDatabaseName(), tablePath.getObjectName(), schema, options);
 		HtapReaderConfig readerConfig = new HtapReaderConfig(metaSvcRegion, metaSvcCluster, dbCluster,
 			byteStoreLogPath, byteStoreDataPath, logStoreLogDir,
-			pageStoreLogDir, batchSizeBytes, snapshot);
+			pageStoreLogDir, batchSizeBytes, snapshot, scanThreadPoolEnable, maxScanThread, scanRetryTimes);
 		return new HtapTableSource(readerConfig, tableInfo, schema, flinkConf, tablePath);
 	}
 }

@@ -120,7 +120,7 @@ public class HtapReader implements AutoCloseable {
 		return Integer.parseInt(ManagementFactory.getRuntimeMXBean().getName().split("@")[0]);
 	}
 
-	public HtapReaderIterator scanner(
+	public HtapResultIterator scanner(
 			byte[] token,
 			PartitionID partitionId,
 			String subTaskFullName,
@@ -128,10 +128,25 @@ public class HtapReader implements AutoCloseable {
 			long estimatedCost) throws IOException {
 		try {
 			LOG.debug("New HtapReaderIterator with estimatedCost: {}", estimatedCost);
-			return new HtapReaderIterator(
-				HtapScanToken.deserializeIntoScanner(token, partitionId, client, table,
-					htapClusterName, compatibleWithMySQL, estimatedCost),
-				aggregateFunctions, outputDataType, groupByColumns.size(), subTaskFullName);
+			if (!readerConfig.isScanThreadPoolEnable()) {
+				return new HtapReaderIterator(
+					HtapScanToken.deserializeIntoScanner(
+						token, partitionId, client, table, htapClusterName, compatibleWithMySQL, estimatedCost),
+					aggregateFunctions,
+					outputDataType,
+					groupByColumns.size(),
+					subTaskFullName);
+			} else {
+				return new HtapThreadPoolReaderIterator(
+					HtapScanToken.deserializeIntoScanner(
+						token, partitionId, client, table, htapClusterName, compatibleWithMySQL, estimatedCost),
+					aggregateFunctions,
+					outputDataType,
+					groupByColumns.size(),
+					subTaskFullName,
+					readerConfig.getMaxScanThread(),
+					readerConfig.getScanRetryTimes());
+			}
 		} catch (Exception e) {
 			throw new IOException(subTaskFullName + " build HtapReaderIterator error", e);
 		}

@@ -93,6 +93,9 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 	private final String logStoreLogDir;
 	private final String pageStoreLogDir;
 	private final int batchSizeBytes;
+	private final boolean scanThreadPoolEnable;
+	private final int maxScanThread;
+	private final int scanRetryTimes;
 
 	// The currentCheckPointLSN binding with a single SQL statement life cycle,
 	// each HTAP SQL need to call updateCurrentCheckPointLSN explicitly prior to actutal execution.
@@ -109,7 +112,10 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 			String dbCluster,
 			String logStoreLogDir,
 			String pageStoreLogDir,
-			int batchSizeBytes) throws CatalogException {
+			int batchSizeBytes,
+			boolean scanThreadPoolEnable,
+			int maxScanThread,
+			int scanRetryTimes) throws CatalogException {
 		super(catalogName, db);
 		this.metaSvcRegion = metaSvcRegion;
 		this.metaSvcCluster = metaSvcCluster;
@@ -122,6 +128,9 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		Preconditions.checkNotNull(clusterInfo, "clusterInfo cannot be null");
 		this.byteStoreLogPath = clusterInfo.getLogPath();
 		this.byteStoreDataPath = clusterInfo.getDataPath();
+		this.scanThreadPoolEnable = scanThreadPoolEnable;
+		this.maxScanThread = maxScanThread;
+		this.scanRetryTimes = scanRetryTimes;
 	}
 
 	public Optional<TableFactory> getTableFactory() {
@@ -214,6 +223,9 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		props.put(HtapTableFactory.HTAP_DB_NAME, tablePath.getDatabaseName());
 		props.put(HtapTableFactory.HTAP_TABLE, tablePath.getObjectName());
 		props.put(HtapTableFactory.HTAP_BATCH_SIZE_BYTES, String.valueOf(batchSizeBytes));
+		props.put(HtapTableFactory.HTAP_SCAN_THREAD_POOL_ENABLE, String.valueOf(scanThreadPoolEnable));
+		props.put(HtapTableFactory.HTAP_MAX_SCAN_THREAD, String.valueOf(maxScanThread));
+		props.put(HtapTableFactory.HTAP_SCAN_RETRY_TIMES, String.valueOf(scanRetryTimes));
 		return props;
 	}
 

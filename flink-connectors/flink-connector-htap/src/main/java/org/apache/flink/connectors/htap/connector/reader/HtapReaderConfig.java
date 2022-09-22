@@ -49,6 +49,9 @@ public class HtapReaderConfig implements Serializable {
 
 	private final Snapshot snapshot;
 	private boolean compatibleWithMySQL = false;
+	private final boolean scanThreadPoolEnable;
+	private final int maxScanThread;
+	private final int scanRetryTimes;
 
 	public HtapReaderConfig(
 			String metaSvcRegion,
@@ -59,7 +62,10 @@ public class HtapReaderConfig implements Serializable {
 			String logStoreLogDir,
 			String pageStoreLogDir,
 			int batchSizeBytes,
-			@Nullable Snapshot snapshot) {
+			@Nullable Snapshot snapshot,
+			boolean scanThreadPoolEnable,
+			int maxScanThread,
+			int scanRetryTimes) {
 		this.metaSvcRegion = checkNotNull(metaSvcRegion, "Htap MetaService region cannot be null");
 		this.metaSvcCluster = checkNotNull(metaSvcCluster, "Htap MetaService cluster cannot be null");
 		this.dbCluster = checkNotNull(dbCluster, "Htap dbCluster cannot be null");
@@ -69,6 +75,9 @@ public class HtapReaderConfig implements Serializable {
 		this.pageStoreLogDir = checkNotNull(pageStoreLogDir, "PageStore LogDir cannot be null");
 		this.batchSizeBytes = checkNotNull(batchSizeBytes, "BatchSizeBytes cannot be null");
 		this.snapshot = snapshot;
+		this.scanThreadPoolEnable = scanThreadPoolEnable;
+		this.maxScanThread = maxScanThread;
+		this.scanRetryTimes = scanRetryTimes;
 	}
 
 	public String getMetaSvcRegion() {
@@ -115,6 +124,18 @@ public class HtapReaderConfig implements Serializable {
 		this.compatibleWithMySQL = compatibleWithMySQL;
 	}
 
+	public boolean isScanThreadPoolEnable() {
+		return scanThreadPoolEnable;
+	}
+
+	public int getMaxScanThread() {
+		return maxScanThread;
+	}
+
+	public int getScanRetryTimes() {
+		return scanRetryTimes;
+	}
+
 	@Override
 	public String toString() {
 		return new ToStringBuilder(this)
@@ -128,6 +149,9 @@ public class HtapReaderConfig implements Serializable {
 				.append("batchSizeBytes", batchSizeBytes)
 				.append("snapshot", snapshot)
 				.append("compatibleWithMySQL", compatibleWithMySQL)
+				.append("scanThreadPoolEnable", scanThreadPoolEnable)
+				.append("maxScanThread", maxScanThread)
+				.append("scanRetryTimes", scanRetryTimes)
 				.toString();
 	}
 }

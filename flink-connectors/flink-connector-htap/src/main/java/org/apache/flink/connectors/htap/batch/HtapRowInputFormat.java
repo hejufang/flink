@@ -28,7 +28,7 @@ import org.apache.flink.connectors.htap.connector.HtapFilterInfo;
 import org.apache.flink.connectors.htap.connector.reader.HtapInputSplit;
 import org.apache.flink.connectors.htap.connector.reader.HtapReader;
 import org.apache.flink.connectors.htap.connector.reader.HtapReaderConfig;
-import org.apache.flink.connectors.htap.connector.reader.HtapReaderIterator;
+import org.apache.flink.connectors.htap.connector.reader.HtapResultIterator;
 import org.apache.flink.connectors.htap.table.utils.HtapAggregateUtils.FlinkAggregateFunction;
 import org.apache.flink.core.io.InputSplitAssigner;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
@@ -78,7 +78,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private boolean endReached;
 
 	private transient HtapReader htapReader;
-	private transient HtapReaderIterator resultIterator;
+	private transient HtapResultIterator resultIterator;
 	private transient String subTaskFullName;
 	private transient long splitStartTime = -1;
 	private transient int currentPartition = -1;
@@ -87,7 +87,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	// Total processed record number of this input format.
 	// Caution: This field may be reset to 0 when task failover.
 	private transient long totalReadCount = 0L;
-	private transient boolean isFirstElement = true;
+	private transient boolean isFirstElement;
 	private transient long processStartTimestamp;
 
 	public HtapRowInputFormat(
@@ -150,6 +150,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 		resultIterator = htapReader.scanner(split.getScanToken(), split.getPartitionID(),
 			subTaskFullName, compatibleWithMySQL, partitionEstimatedCost);
 		currentPartition = split.getSplitNumber();
+		isFirstElement = true;
 
 		openTime = System.currentTimeMillis() - splitStartTime;
 	}
@@ -233,7 +234,6 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	@Override
 	public Row nextRecord(Row reuse) throws IOException {
 		long startTime = System.currentTimeMillis();
-		Row result;
 		if (isFirstElement) {
 			isFirstElement = false;
 			processStartTimestamp = startTime;
