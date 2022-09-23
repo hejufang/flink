@@ -19,9 +19,11 @@
 package org.apache.flink.kubernetes.kubeclient.decorators;
 
 import org.apache.flink.configuration.PipelineOptions;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.parameters.AbstractKubernetesParameters;
 import org.apache.flink.kubernetes.utils.Constants;
+import org.apache.flink.util.StringUtils;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
@@ -55,11 +57,24 @@ public class InitContainerFileDownloadDecorator extends AbstractFileDownloadDeco
 	private FlinkPod downloadFilesByFlink(FlinkPod flinkPod) {
 		final Container basicMainContainer = decorateMainContainer(flinkPod.getMainContainer());
 		// emptyDir type volume
-		final Volume emptyDirVolume = new VolumeBuilder()
+		String fileDownloadVolumeSize = kubernetesParameters.getFlinkConfiguration()
+			.getString(KubernetesConfigOptions.FILE_DOWNLOAD_VOLUME_SIZE);
+
+		final Volume emptyDirVolume;
+		if (StringUtils.isNullOrWhitespaceOnly(fileDownloadVolumeSize)) {
+			emptyDirVolume = new VolumeBuilder()
 				.withName(Constants.FILE_DOWNLOAD_VOLUME)
 				.withNewEmptyDir()
 				.endEmptyDir()
 				.build();
+		} else {
+			emptyDirVolume = new VolumeBuilder()
+				.withName(Constants.FILE_DOWNLOAD_VOLUME)
+				.withNewEmptyDir()
+				.withNewSizeLimit(fileDownloadVolumeSize)
+				.endEmptyDir()
+				.build();
+		}
 		// init container to download remote files
 		final Container initContainer = createInitContainer(basicMainContainer);
 		final Pod basicPod = new PodBuilder(flinkPod.getPod())

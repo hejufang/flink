@@ -26,6 +26,7 @@ bin=`cd "$bin"; pwd`
 # get Flink config
 . "$bin"/config.sh
 
+mkdir -p $FLINK_LOG_DIR
 FLINK_CLASSPATH=`manglePathList $(constructFlinkClassPath):$INTERNAL_HADOOP_CLASSPATHS`
 
 DYNAMIC_FILES=`getDynamicFilesFromFlinkConf`

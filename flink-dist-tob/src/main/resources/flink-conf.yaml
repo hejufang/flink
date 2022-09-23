@@ -66,6 +66,7 @@ common:
   state.backend.rocksdb.max-disk-size-in-progress: 30gb
   state.backend.rocksdb.max-sst-size-for-sstWriter: 64mb
   state.backend.rocksdb.memory.managed: false
+  state.backend.rocksdb.localdir: /opt/tiger/workdir/state
 
   ## Heartbeat Services
   heartbeat.interval: 40000 # default 10000 ms
@@ -84,7 +85,7 @@ common:
   configuration.flink-conf.dump-configuration-by-yaml: true
 
   # kubernetes configuration
-  kubernetes.flink.log.dir: /opt/tiger/flink_deploy/log
+  kubernetes.flink.log.dir: /opt/tiger/workdir/log
   kubernetes.flink.conf.dir: /opt/tiger/flink_deploy/conf
   kubernetes.entry.path: /opt/tiger/flink_deploy/bin/kubernetes-entry.sh
   kubernetes.namespace: gts
@@ -225,6 +226,7 @@ common:
   flink.lib.path: lib_new_conf
   resourcemanager.shuffle-pending-slots: false
   jobmanager.execution.schedule-task-fairly: false
+  kubernetes.file-download-volume.size: 20G
 
   #Metrics
   metrics.reporters: promgateway

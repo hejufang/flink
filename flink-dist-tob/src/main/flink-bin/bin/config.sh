@@ -330,6 +330,7 @@ KEY_ENV_JAVA_OPTS_CLI="env.java.opts.client"
 KEY_ENV_SSH_OPTS="env.ssh.opts"
 KEY_HIGH_AVAILABILITY="high-availability"
 KEY_ZK_HEAP_MB="zookeeper.heap.mb"
+KEY_ENV_KUBERNETES_LOG="kubernetes.flink.log.dir"
 
 ########################################################################################################################
 # PATHS AND CONFIG
@@ -451,7 +452,9 @@ if [ -z "${MAX_LOG_FILE_NUMBER}" ]; then
 fi
 
 if [ -z "${FLINK_LOG_DIR}" ]; then
-    FLINK_LOG_DIR=$(readFromConfig ${KEY_ENV_LOG_DIR} "${DEFAULT_FLINK_LOG_DIR}" "${YAML_CONF}")
+    FLINK_ENV_LOG_DIR_DEFAULT=$(readFromConfig ${KEY_ENV_LOG_DIR} "${DEFAULT_FLINK_LOG_DIR}" "${YAML_CONF}")
+
+    FLINK_LOG_DIR=$(readFromConfig ${KEY_ENV_KUBERNETES_LOG} "${FLINK_ENV_LOG_DIR_DEFAULT}" "${YAML_CONF}")
 fi
 
 if [ -z "${YARN_CONF_DIR}" ]; then

@@ -474,6 +474,12 @@ public class KubernetesConfigOptions {
 					.defaultValue(DownloadMode.INIT_CONTAINER)
 					.withDescription("The way to download user external files to Job manager and task manager container.");
 
+	public static final ConfigOption<String> FILE_DOWNLOAD_VOLUME_SIZE =
+			key("kubernetes.file-download-volume.size")
+				.stringType()
+				.noDefaultValue()
+				.withDescription("The volume size for user downloaded resources.");
+
 	public static final ConfigOption<String> GDPR_SECRETE_NAME_TEMPLATE =
 			key("kubernetes.gdpr-secret.name-template")
 					.stringType()
