@@ -27,12 +27,14 @@ import org.apache.flink.formats.parquet.vector.ParquetSplitReaderUtil;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.util.DataFormatConverters;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.BooleanType;
 import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.DoubleType;
 import org.apache.flink.table.types.logical.FloatType;
 import org.apache.flink.table.types.logical.IntType;
+import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.SmallIntType;
 import org.apache.flink.table.types.logical.TimestampType;
@@ -42,26 +44,36 @@ import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.types.Row;
 
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.util.Utf8;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.parquet.avro.AvroParquetReader;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
+import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.apache.parquet.io.InputFile;
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
-/**
- * Test for {@link ParquetRowDataBuilder} and {@link ParquetRowDataWriter}.
- */
+import static org.junit.Assert.assertEquals;
+
+/** Test for {@link ParquetRowDataBuilder} and {@link ParquetRowDataWriter}. */
 public class ParquetRowDataWriterTest {
 
 	@ClassRule
@@ -82,24 +94,63 @@ public class ParquetRowDataWriterTest {
 			new DecimalType(15, 0),
 			new DecimalType(20, 0));
 
+	private static final RowType ROW_TYPE_COMPLEX =
+		RowType.of(
+					new ArrayType(true, new IntType()),
+					new MapType(
+							true,
+							new VarCharType(VarCharType.MAX_LENGTH),
+							new VarCharType(VarCharType.MAX_LENGTH)),
+					RowType.of(new VarCharType(VarCharType.MAX_LENGTH), new IntType()));
+
+	private static final RowType ROW_TYPE_COMPLEX_NESTED =
+		RowType.of(
+			new ArrayType(true, new MapType(
+				true,
+				new VarCharType(VarCharType.MAX_LENGTH),
+				new IntType())),
+			new MapType(
+				true,
+				new VarCharType(VarCharType.MAX_LENGTH),
+				new ArrayType(true, new VarCharType(VarCharType.MAX_LENGTH))),
+			new ArrayType(RowType.of(new IntType())));
+
+	@SuppressWarnings("unchecked")
+	private static final DataFormatConverters.DataFormatConverter<RowData, Row> CONVERTER_COMPLEX =
+			DataFormatConverters.getConverterForDataType(
+					TypeConversions.fromLogicalToDataType(ROW_TYPE_COMPLEX));
+
+	@SuppressWarnings("unchecked")
+	private static final DataFormatConverters.DataFormatConverter<RowData, Row> CONVERTER_COMPLEX_NESTED =
+		DataFormatConverters.getConverterForDataType(
+			TypeConversions.fromLogicalToDataType(ROW_TYPE_COMPLEX_NESTED));
+
 	@SuppressWarnings("unchecked")
 	private static final DataFormatConverters.DataFormatConverter<RowData, Row> CONVERTER =
 			DataFormatConverters.getConverterForDataType(
 					TypeConversions.fromLogicalToDataType(ROW_TYPE));
 
 	@Test
-	public void testTypes() throws IOException {
+	public void testTypes() throws Exception {
 		Configuration conf = new Configuration();
 		innerTest(conf, true);
 		innerTest(conf, false);
+		complexTypeTest(conf, true);
+		complexTypeTest(conf, false);
+		nestedComplexTypeTest(conf, true);
+		nestedComplexTypeTest(conf, false);
 	}
 
 	@Test
-	public void testCompression() throws IOException {
+	public void testCompression() throws Exception {
 		Configuration conf = new Configuration();
 		conf.set(ParquetOutputFormat.COMPRESSION, "GZIP");
 		innerTest(conf, true);
 		innerTest(conf, false);
+		complexTypeTest(conf, true);
+		complexTypeTest(conf, false);
+		nestedComplexTypeTest(conf, true);
+		nestedComplexTypeTest(conf, false);
 	}
 
 	private void innerTest(
@@ -158,6 +209,190 @@ public class ParquetRowDataWriterTest {
 			cnt++;
 		}
 		Assert.assertEquals(number, cnt);
+	}
+
+	/**
+	 * Test for complex type, including array/map/row types.
+	 * @param conf configurations used by {@link ParquetWriterFactory}, such as parquet.block.size.
+	 * @param utcTimestamp time zone used, true using utc, false using local time zone.
+	 * @throws Exception the thrown exception
+	 */
+	public void complexTypeTest(Configuration conf, boolean utcTimestamp) throws Exception {
+		Path path = new Path(TEMPORARY_FOLDER.newFolder().getPath(), UUID.randomUUID().toString());
+		int number = 1000;
+		List<Row> rows = new ArrayList<>(number);
+		Map<String, String> mapData = new HashMap<>();
+		mapData.put("k1", "v1");
+		mapData.put(null, "v2");
+		mapData.put("k2", null);
+
+		for (int i = 0; i < number; i++) {
+			Integer v = i;
+			rows.add(Row.of(new Integer[] {v}, mapData, Row.of(String.valueOf(v), v)));
+		}
+
+		ParquetWriterFactory<RowData> factory =
+			ParquetRowDataBuilder.createWriterFactory(ROW_TYPE_COMPLEX, conf, utcTimestamp);
+		BulkWriter<RowData> writer =
+			factory.create(path.getFileSystem().create(path, FileSystem.WriteMode.OVERWRITE));
+		for (int i = 0; i < number; i++) {
+			writer.addElement(CONVERTER_COMPLEX.toInternal(rows.get(i)));
+		}
+		writer.flush();
+		writer.finish();
+
+		File file = new File(path.getPath());
+		final List<Row> fileContent = readParquetFile(file);
+		assertEquals(rows, fileContent);
+	}
+
+	/**
+	 * Test for nested complex type, including nested combination of array/map/row and primitive types.
+	 * @param conf configurations used by {@link ParquetWriterFactory}, such as parquet.block.size.
+	 * @param utcTimestamp time zone used, true using utc, false using local time zone.
+	 * @throws Exception the thrown exception
+	 */
+	public void nestedComplexTypeTest(Configuration conf, boolean utcTimestamp) throws Exception {
+		Path path = new Path(TEMPORARY_FOLDER.newFolder().getPath(), UUID.randomUUID().toString());
+		int number = 1000;
+		List<Row> rows = new ArrayList<>(number);
+
+		// first complex type: array<map<string,int>>
+		Map<String, Integer> mapData = new HashMap<>();
+		Map[] nestedArray = new Map[1];
+		nestedArray[0] = mapData;
+		mapData.put("1", 2);
+		mapData.put("3", 4);
+
+		// second complex type: map<string,array<string>>
+		Map<String, String[]> mapData2 = new HashMap<>();
+		mapData2.put("k1", new String[] {"v1", "v2"});
+		mapData2.put(null, new String[] {"v2"});
+		mapData2.put("k2", null);
+
+		// third complex type: array<row<int>>
+		Row[] nestedArray2 = new Row[1];
+		nestedArray2[0] = Row.of(1);
+
+		for (int i = 0; i < number; i++) {
+			rows.add(Row.of(nestedArray, mapData2, nestedArray2));
+		}
+
+		ParquetWriterFactory<RowData> factory =
+				ParquetRowDataBuilder.createWriterFactory(ROW_TYPE_COMPLEX_NESTED, conf, utcTimestamp);
+		BulkWriter<RowData> writer =
+				factory.create(path.getFileSystem().create(path, FileSystem.WriteMode.OVERWRITE));
+		for (int i = 0; i < number; i++) {
+			writer.addElement(CONVERTER_COMPLEX_NESTED.toInternal(rows.get(i)));
+		}
+		writer.flush();
+		writer.finish();
+
+		File file = new File(path.getPath());
+		final List<Row> fileContent = readParquetFileForNestedComplexType(file);
+		convertToComparableRow(rows);
+		convertToComparableRow(fileContent);
+		assertEquals(rows, fileContent);
+	}
+
+	/**
+	 * Convert String[] to List&lt;String&gt; in rows to enable array compare using Assert.assertEquals.
+	 * This is because String[]'s equals method is Object.equals, so it doesn't compare the element.
+	 * @param rows rows to be converted
+	 */
+	private static void convertToComparableRow(List<Row> rows) {
+		for (Row row : rows) {
+			HashMap<String, String[]> hashMap = (HashMap<String, String[]>) row.getField(1);
+			HashMap<String, List<String>> convertedMap = new HashMap<>();
+			for (String key : hashMap.keySet()) {
+				String[] value = hashMap.get(key);
+				if (value == null) {
+					convertedMap.put(key, null);
+				} else {
+					convertedMap.put(key, Arrays.asList(value));
+				}
+			}
+			row.setField(1, convertedMap);
+		}
+	}
+
+	private static List<Row> readParquetFile(File file) throws IOException {
+		InputFile inFile =
+				HadoopInputFile.fromPath(
+						new org.apache.hadoop.fs.Path(file.toURI()), new Configuration());
+
+		ArrayList<Row> results = new ArrayList<>();
+		try (ParquetReader<GenericRecord> reader =
+				AvroParquetReader.<GenericRecord>builder(inFile).build()) {
+			GenericRecord next;
+			while ((next = reader.read()) != null) {
+				Integer c0 = (Integer) ((ArrayList<GenericData.Record>) next.get(0)).get(0).get(0);
+				HashMap<Utf8, Utf8> map = ((HashMap<Utf8, Utf8>) next.get(1));
+				String c21 = ((GenericData.Record) next.get(2)).get(0).toString();
+				Integer c22 = (Integer) ((GenericData.Record) next.get(2)).get(1);
+
+				Map<String, String> c1 = new HashMap<>();
+				for (Utf8 key : map.keySet()) {
+					String k = key == null ? null : key.toString();
+					String v = map.get(key) == null ? null : map.get(key).toString();
+					c1.put(k, v);
+				}
+
+				Row row = Row.of(new Integer[] {c0}, c1, Row.of(c21, c22));
+				results.add(row);
+			}
+		}
+
+		return results;
+	}
+
+	private static List<Row> readParquetFileForNestedComplexType(File file) throws IOException {
+		InputFile inFile =
+			HadoopInputFile.fromPath(
+				new org.apache.hadoop.fs.Path(file.toURI()), new Configuration());
+
+		ArrayList<Row> results = new ArrayList<>();
+		try (ParquetReader<GenericRecord> reader =
+				AvroParquetReader.<GenericRecord>builder(inFile).build()) {
+			GenericRecord next;
+			while ((next = reader.read()) != null) {
+				// first complex type: array<map<string,int>>
+				HashMap<Utf8, Integer> map0 = (HashMap<Utf8, Integer>) ((ArrayList<GenericData.Record>) next.get(0)).get(0).get(0);
+				Map<String, Integer> c0 = new HashMap<>();
+				for (Utf8 key : map0.keySet()) {
+					String k = key == null ? null : key.toString();
+					Integer value = map0.get(key);
+					c0.put(k, value);
+				}
+
+				// second complex type: map<string,array<string>>
+				HashMap<Utf8, List<GenericData.Record>> map = ((HashMap<Utf8, List<GenericData.Record>>) next.get(1));
+				Map<String, String[]> c1 = new HashMap<>();
+				for (Utf8 key : map.keySet()) {
+					String k = key == null ? null : key.toString();
+					List<GenericData.Record> listValue = map.get(key);
+					if (listValue == null) {
+						c1.put(k, null);
+					} else {
+						List<String> listValueString = new ArrayList<>();
+						for (GenericData.Record value : listValue) {
+							listValueString.add(value.get(0).toString());
+						}
+						c1.put(k, listValueString.toArray(new String[0]));
+					}
+				}
+
+				// third complex type: array<row<int>>
+				Integer c21 = (Integer) ((GenericData.Record) ((ArrayList<GenericData.Record>) next.get(2)).get(0).get(0)).get(0);
+				Row[] nestedArray2 = new Row[1];
+				nestedArray2[0] = Row.of(c21);
+
+				Row row = Row.of(new Map[] {c0}, c1, nestedArray2);
+				results.add(row);
+			}
+		}
+
+		return results;
 	}
 
 	private LocalDateTime toDateTime(Integer v) {
