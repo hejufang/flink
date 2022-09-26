@@ -104,7 +104,13 @@ public abstract class AbstractHtapResultIterator implements HtapResultIterator {
 			initNamePosListAndAgg(row.getColumnProjection());
 		}
 		int cur = 0;
-		if (reuse == null) {
+		if (reuse == null || reuse.getArity() == 0) {
+			// When the project fields is empty, for example:
+			// - select id from t1 where id = 5
+			// - select count(*) from t1 -- and disable agg pushdown
+			// the arity of reuse will be 0 (because HtapTableSource#getProducedDataType return empty row)
+			// but jclient will return full row of a table, which should be adjusted.
+			// We just create a new full row for the scan result for a temporary fix.
 			reuse = new Row(colNameList.size());
 		}
 		for (int i = 0; i < colNameList.size(); i++) {
