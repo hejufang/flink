@@ -642,25 +642,6 @@ under the License.
 							<outputDirectory>${project.build.directory}/temporary/java11_exclusive</outputDirectory>
 						</configuration>
 					</execution>
-					<execution>
-						<id>copy-zk-jars</id>
-						<phase>process-resources</phase>
-						<goals>
-							<goal>copy</goal>
-						</goals>
-						<configuration>
-							<artifactItems>
-								<artifactItem>
-									<groupId>org.apache.flink</groupId>
-									<artifactId>flink-shaded-zookeeper-3</artifactId>
-									<version>${zookeeper.optional.version}-${flink.shaded.version}</version>
-									<type>jar</type>
-									<overWrite>true</overWrite>
-								</artifactItem>
-							</artifactItems>
-							<outputDirectory>${project.build.directory}/temporary</outputDirectory>
-						</configuration>
-					</execution>
 				</executions>
 			</plugin>
 

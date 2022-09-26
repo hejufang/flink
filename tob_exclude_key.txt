@@ -15,3 +15,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ################################################################################
+
+## kubernetes
+kubernetes.hostnetwork.enabled
+
+## High Availability
+high-availability
+high-availability.zookeeper.quorum
+high-availability.storageDir
+high-availability.zookeeper.path.root

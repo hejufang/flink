@@ -20,6 +20,7 @@ set -eo pipefail
 
 rm -rf output
 
+mvn spotless:apply
 mvn clean package -U -DskipTests -Psql-jars -Pdocs-and-source
 
 # copy flink-1.11 to output
