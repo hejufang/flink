@@ -69,7 +69,7 @@ common:
   jobmanager.execution.failover-strategy: region
 
   # Classes pre-loaded when JM/TM starts, use ';' to separator different classes.
-  flink.preload.class: org.apache.flink.htap.shaded.com.bytedance.htap.client.HtapStorageClient
+  flink.preload.class: com.bytedance.htap.client.HtapStorageClient
   # External jars we needed, use ',' to separator different jars.
   flink.external.jar.dependencies: connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,hive/flink-hive-udf-0.0.1.jar
 
