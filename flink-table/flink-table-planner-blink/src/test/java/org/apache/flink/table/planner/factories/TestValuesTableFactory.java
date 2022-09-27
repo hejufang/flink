@@ -120,6 +120,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 	public interface TableSourceWithData {
 		void setTableSourceData(Collection<Row> rows);
 
+		default void setTableLookupSourceData(Map<Row, List<Row>> rowListMap) {}
+
 		default void setChangelog(ChangelogMode changelogMode) {}
 	}
 
@@ -609,21 +611,6 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		@SuppressWarnings({"unchecked", "rawtypes"})
 		@Override
 		public LookupRuntimeProvider getLookupRuntimeProvider(LookupContext context) {
-			if (lookupFunctionClass != null) {
-				// use the specified lookup function
-				try {
-					Class<?> clazz = Class.forName(lookupFunctionClass);
-					Object udtf = InstantiationUtil.instantiate(clazz);
-					if (udtf instanceof TableFunction) {
-						return TableFunctionProvider.of((TableFunction) udtf);
-					} else {
-						return AsyncTableFunctionProvider.of((AsyncTableFunction) udtf);
-					}
-				} catch (ClassNotFoundException e) {
-					throw new IllegalArgumentException("Could not instantiate class: " + lookupFunctionClass);
-				}
-			}
-
 			int[] lookupIndices = Arrays.stream(context.getKeys())
 				.mapToInt(k -> k[0])
 				.toArray();
@@ -648,6 +635,24 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 					mapping.put(key, list);
 				}
 			});
+
+			if (lookupFunctionClass != null) {
+				// use the specified lookup function
+				try {
+					Class<?> clazz = Class.forName(lookupFunctionClass);
+					Object udtf = InstantiationUtil.instantiate(clazz);
+					if (udtf instanceof TableSourceWithData) {
+						((TableSourceWithData) udtf).setTableLookupSourceData(mapping);
+					}
+					if (udtf instanceof TableFunction) {
+						return TableFunctionProvider.of((TableFunction) udtf);
+					} else {
+						return AsyncTableFunctionProvider.of((AsyncTableFunction) udtf);
+					}
+				} catch (ClassNotFoundException e) {
+					throw new IllegalArgumentException("Could not instantiate class: " + lookupFunctionClass);
+				}
+			}
 			if (isAsync) {
 				return AsyncTableFunctionProvider.of(new AsyncTestValueLookupFunction(mapping));
 			} else {

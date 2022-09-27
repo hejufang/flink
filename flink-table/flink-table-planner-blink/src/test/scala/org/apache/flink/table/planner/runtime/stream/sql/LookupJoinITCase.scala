@@ -23,7 +23,7 @@ import org.apache.flink.table.api.bridge.scala._
 import org.apache.flink.table.api.config.OptimizerConfigOptions.TABLE_OPTIMIZER_LOOKUP_JOIN_FILTER_PUSH_DOWN_ENABLED
 import org.apache.flink.table.planner.factories.TestValuesTableFactory
 import org.apache.flink.table.planner.runtime.utils.UserDefinedFunctionTestUtils.TestAddWithOpen
-import org.apache.flink.table.planner.runtime.utils.{InMemoryLookupableTableSource, StreamingTestBase, TestingAppendSink}
+import org.apache.flink.table.planner.runtime.utils.{InMemoryLookupableTableSource, StreamingTestBase, TestData, TestingAppendSink}
 import org.apache.flink.types.Row
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.runner.RunWith
@@ -71,7 +71,12 @@ class LookupJoinITCase(
     super.before()
     createScanTable("src", data)
     createScanTable("nullable_src", dataWithNull)
-    createLookupTable("user_table", userData)
+    if (lookupFilterPushDown) {
+      createLookupTable("user_table", userData,
+        Some(classOf[TestData.TestLookupSource].getName))
+    } else {
+      createLookupTable("user_table", userData)
+    }
     createLookupTable("nullable_user_table", userDataWithNull)
     tEnv.getConfig.getConfiguration.setBoolean(
       TABLE_OPTIMIZER_LOOKUP_JOIN_FILTER_PUSH_DOWN_ENABLED, lookupFilterPushDown)
@@ -97,6 +102,13 @@ class LookupJoinITCase(
   }
 
   private def createLookupTable(tableName: String, data: List[Row]): Unit = {
+    createLookupTable(tableName, data, None)
+  }
+
+  private def createLookupTable(
+      tableName: String,
+      data: List[Row],
+      funNameOp: Option[String]): Unit = {
     if (legacyTableSource) {
       val userSchema = TableSchema.builder()
         .field("age", Types.INT)
@@ -107,6 +119,12 @@ class LookupJoinITCase(
         tEnv, isAsync = false, data, userSchema, tableName)
     } else {
       val dataId = TestValuesTableFactory.registerData(data)
+      val funcStr = funNameOp match {
+        case Some(funcName) =>
+          s"'lookup-function-class' = '$funcName',"
+        case _ =>
+          ""
+      }
       tEnv.executeSql(
         s"""
            |CREATE TABLE $tableName (
@@ -114,6 +132,7 @@ class LookupJoinITCase(
            |  `id` BIGINT,
            |  `name` STRING
            |) WITH (
+           |  $funcStr
            |  'connector' = 'values',
            |  'data-id' = '$dataId'
            |)

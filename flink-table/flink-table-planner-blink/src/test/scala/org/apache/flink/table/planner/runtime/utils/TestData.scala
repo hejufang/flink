@@ -27,6 +27,7 @@ import org.apache.flink.streaming.api.watermark.Watermark
 import org.apache.flink.table.connector.ChangelogMode
 import org.apache.flink.table.connector.source.{DynamicTableSource, ScanTableSource, SourceFunctionProvider}
 import org.apache.flink.table.data.{GenericRowData, RowData, StringData}
+import org.apache.flink.table.functions.TableFunction
 import org.apache.flink.table.planner.factories.TestValuesTableFactory
 import org.apache.flink.table.planner.factories.TestValuesTableFactory.changelogRow
 import org.apache.flink.table.planner.{JHashMap, JInt, JLong}
@@ -34,12 +35,14 @@ import org.apache.flink.table.planner.runtime.utils.BatchTestBase.row
 import org.apache.flink.table.planner.utils.DateTimeTestUtil._
 import org.apache.flink.table.runtime.functions.SqlDateTimeUtils.unixTimestampToLocalDateTime
 import org.apache.flink.types.Row
+import org.apache.flink.util.FlinkRuntimeException
 
 import java.lang.{Integer => JInt, Long => JLong}
 import java.math.{BigDecimal => JBigDecimal}
 import java.time.{Instant, LocalDate, LocalDateTime, LocalTime, ZoneId}
 import java.util
 
+import scala.annotation.varargs
 import scala.collection.{Seq, mutable}
 import scala.collection.JavaConverters._
 
@@ -685,17 +688,6 @@ object TestData {
       }
     }
 
-    private def row2GenericRowData(row: Row): RowData = {
-      val rowData = new GenericRowData(row.getArity)
-      (0 until row.getArity).foreach(i => {
-        row.getField(i) match {
-          case s: String => rowData.setField(i, StringData.fromString(s))
-          case x => rowData.setField(i, x)
-        }
-      })
-      rowData
-    }
-
     override def cancel(): Unit = {
     }
 
@@ -737,4 +729,37 @@ object TestData {
     }
   }
 
+  class TestLookupSource() extends TableFunction[RowData]
+    with TestValuesTableFactory.TableSourceWithData {
+    var rowMap: util.Map[Row, util.List[Row]] = _
+    override def setTableSourceData(rows: util.Collection[Row]): Unit = {
+      throw new FlinkRuntimeException("Should never reach here")
+    }
+
+    override def setTableLookupSourceData(rowListMap: util.Map[Row, util.List[Row]]): Unit = {
+      rowMap = rowListMap
+    }
+
+    @varargs
+    def eval(obj: Object*): Unit = {
+      TestValuesTableFactory.ACCESS_COUNTER.incrementAndGet()
+      val r = Row.of(obj: _*)
+      val matches = rowMap.get(r)
+      if (matches != null) {
+        matches.asScala.foreach(r => collect(row2GenericRowData(r)))
+      }
+    }
+  }
+
+  def row2GenericRowData(row: Row): RowData = {
+    val rowData = new GenericRowData(row.getArity)
+    (0 until row.getArity).foreach(i => {
+      row.getField(i) match {
+        case s: String => rowData.setField(i, StringData.fromString(s))
+        case x => rowData.setField(i, x)
+      }
+    })
+    rowData
+  }
 }
+

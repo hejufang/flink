@@ -88,7 +88,10 @@ object LookupJoinCodeGenerator {
            |$lookupFunctionTerm.setCollector($term);
          """.stripMargin
       case _ =>
-        s"$lookupFunctionTerm.setCollector($DEFAULT_COLLECTOR_TERM);"
+        s"""
+           |$filterCode
+           |$lookupFunctionTerm.setCollector($DEFAULT_COLLECTOR_TERM);
+        """.stripMargin
     }
 
     // TODO: filter all records when there is any nulls on the join key, because
