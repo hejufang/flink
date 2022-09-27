@@ -126,10 +126,7 @@
 											<pattern>com.bytedance</pattern>
 											<shadedPattern>org.apache.flink.htap.shaded.com.bytedance</shadedPattern>
 											<excludes>
-												<exclude>com.bytedance.htap.storage.**</exclude>
-												<exclude>com.bytedance.htap.meta.**</exclude>
-												<exclude>com.bytedance.htap.metaclient.**</exclude>
-												<exclude>com.bytedance.htap.exception.**</exclude>
+												<exclude>com.bytedance.htap.**</exclude>
 											</excludes>
 										</relocation>
 										<relocation>
