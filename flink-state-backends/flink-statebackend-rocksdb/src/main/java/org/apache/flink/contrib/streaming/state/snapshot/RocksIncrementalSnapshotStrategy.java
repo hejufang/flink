@@ -76,6 +76,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -92,6 +93,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.SST_FILE_SUFFIX;
+import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.WAL_FILE_SUFFIX;
 
 /**
  * Snapshot strategy for {@link org.apache.flink.contrib.streaming.state.RocksDBKeyedStateBackend} that is based
@@ -662,11 +664,16 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 			Map<StateHandleID, StreamStateHandle> sstFiles,
 			Map<StateHandleID, Path> sstFilePaths,
 			Map<StateHandleID, Path> miscFilePaths) throws IOException {
+			String walBeingWritten = findWalBeingWritten(files);
 			for (Path filePath : files) {
 				final String fileName = filePath.getFileName().toString();
 				final StateHandleID stateHandleID = new StateHandleID(fileName);
 
-				if (fileName.endsWith(SST_FILE_SUFFIX)) {
+				// The wal file currently being written cannot use the incremental mode because it is mutable,
+				// and it will only be marked as unmodifiable when a new wal file is generated. Therefore,
+				// the wal file being written can only be used as private state.
+				if (fileName.endsWith(SST_FILE_SUFFIX) ||
+						(fileName.endsWith(WAL_FILE_SUFFIX) && walBeingWritten != null && !fileName.equals(walBeingWritten))) {
 					final boolean existsAlready = baseSstFilesToHandles != null && baseSstFilesToHandles.containsKey(stateHandleID);
 
 					if (existsAlready) {
@@ -730,6 +737,17 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 					}
 				}
 			}
+		}
+
+		private String findWalBeingWritten(Path[] files) {
+			return Arrays.stream(files)
+					.map(path -> path.getFileName().toString())
+					.filter(file -> file.endsWith(WAL_FILE_SUFFIX))
+					.max((file1, file2) -> {
+						long logId1 = Long.parseLong(file1.replace(WAL_FILE_SUFFIX, ""));
+						long logId2 = Long.parseLong(file2.replace(WAL_FILE_SUFFIX, ""));
+						return Long.compare(logId1, logId2);
+					}).orElse(null);
 		}
 	}
 

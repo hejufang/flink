@@ -42,16 +42,29 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 /**
  * Tests to guard rescaling from checkpoint.
  */
+@RunWith(Parameterized.class)
 public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 
 	@Rule
 	public TemporaryFolder rootFolder = new TemporaryFolder();
+
+	@Parameterized.Parameters(name = "RocksDB enable wal ={0}")
+	public static Collection<Boolean> parameters() {
+		return Arrays.asList(false, true);
+	}
+
+	@Parameterized.Parameter
+	public boolean enableWal;
 
 	private final int maxParallelism = 10;
 
@@ -403,7 +416,9 @@ public class RocksIncrementalCheckpointRescalingTest extends TestLogger {
 		if (useSstFileWriter) {
 			stateBackend.setRestoreOptions(new RestoreOptions.Builder().setUseSstFileWriter(true).build());
 		}
-		return stateBackend;
+		Configuration configuration = new Configuration();
+		configuration.set(TerarkDBConfigurableOptions.ENABLE_WAL, enableWal);
+		return stateBackend.configure(configuration, Thread.currentThread().getContextClassLoader());
 	}
 
 	private StateBackend getStateBackend() throws Exception {

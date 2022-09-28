@@ -58,6 +58,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -125,15 +126,15 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<TerarkDBStateB
 	private ValueState<Integer> testState1;
 	private ValueState<String> testState2;
 
-	@Parameterized.Parameters(name = "RocksDB snapshot type ={0}, restore with sstFileWriter ={1}, optimize for seek ={2}")
+	@Parameterized.Parameters(name = "RocksDB snapshot type ={0}, restore with sstFileWriter ={1}, optimize for seek ={2}, enable wal ={3}")
 	public static Collection<Object[]> parameters() {
 		return Arrays.asList(
-			new Object[]{RocksDBStateBackendEnum.FULL, false, false},
-			new Object[]{RocksDBStateBackendEnum.FULL, true, true},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, true, true},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, false, false},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ, false, false},
-			new Object[]{RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ, true, true});
+			new Object[]{RocksDBStateBackendEnum.FULL, false, false, false},
+			new Object[]{RocksDBStateBackendEnum.FULL, true, true, true},
+			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, true, true, false},
+			new Object[]{RocksDBStateBackendEnum.INCREMENTAL, false, false, true},
+			new Object[]{RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ, false, false, false},
+			new Object[]{RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ, true, true, true});
 	}
 
 	@Parameterized.Parameter
@@ -144,6 +145,9 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<TerarkDBStateB
 
 	@Parameterized.Parameter(2)
 	public boolean optimizeSeek;
+
+	@Parameterized.Parameter(3)
+	public boolean enableWal;
 
 	enum RocksDBStateBackendEnum {
 		FULL, INCREMENTAL, INCREMENTAL_BATCH_FIX_SIZE_SEQ
@@ -157,7 +161,12 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<TerarkDBStateB
 	private String dbPath;
 	private RocksDB db = null;
 	private ColumnFamilyHandle defaultCFHandle = null;
-	private final RocksDBResourceContainer optionsContainer = new RocksDBResourceContainer();
+	private final RocksDBResourceContainer optionsContainer;
+	{
+		DefaultTerarkDBConfigurableOptionsFactory optionsFactory = new DefaultTerarkDBConfigurableOptionsFactory(new DefaultConfigurableOptionsFactory());
+		optionsFactory.setWalEnabled(enableWal);
+		optionsContainer = new RocksDBResourceContainer(PredefinedOptions.DEFAULT, optionsFactory);
+	}
 
 	// Config added to configuration
 	private boolean discardStatesIfRocksdbRecoverFail;
@@ -191,6 +200,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<TerarkDBStateB
 		configuration.set(RocksDBOptions.TIMER_SERVICE_FACTORY, RocksDBStateBackend.PriorityQueueStateType.ROCKSDB);
 		configuration.setBoolean(RocksDBOptions.DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL, discardStatesIfRocksdbRecoverFail);
 		configuration.setBoolean(RocksDBOptions.ROCKSDB_OPTIMIZE_SEEK, optimizeSeek);
+		configuration.set(TerarkDBConfigurableOptions.ENABLE_WAL, enableWal);
 		if (restoreWithSstFileWriter) {
 			configuration.set(RocksDBOptions.ROCKSDB_RESTORE_WITH_SST_FILE_WRITER, true);
 			configuration.set(RocksDBOptions.MAX_SST_SIZE_FOR_SST_FILE_WRITER, MemorySize.parse("5k"));
@@ -705,9 +715,21 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<TerarkDBStateB
 
 				backend.dispose();
 
-				assertEquals(1, snapshot1.getSharedState().size());
-				Map.Entry<StateHandleID, StreamStateHandle> entry = snapshot1.getSharedState().entrySet().stream().findFirst().orElse(null);
-				assertTrue(entry != null && (entry.getValue() instanceof ByteStreamStateHandle || entry.getValue() instanceof BatchStateHandle));
+				Map.Entry<StateHandleID, StreamStateHandle> entry;
+				if (enableWal) {
+					entry = snapshot1.getPrivateState().entrySet().stream().findFirst().orElse(null);
+					assertEquals(0, snapshot1.getSharedState().size());
+					int expectedPrivateStates =
+							rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ ? 1 : 4;
+					assertEquals(expectedPrivateStates, snapshot1.getPrivateState().size());
+				} else {
+					entry = snapshot1.getSharedState().entrySet().stream().findFirst().orElse(null);
+					assertEquals(1, snapshot1.getSharedState().size());
+					int expectedPrivateStates =
+							rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ ? 1 : 3;
+					assertEquals(expectedPrivateStates, snapshot1.getPrivateState().size());
+					assertTrue(entry != null && (entry.getValue() instanceof ByteStreamStateHandle || entry.getValue() instanceof BatchStateHandle));
+				}
 
 				//verify recover success.
 				backend = restoreKeyedBackend(IntSerializer.INSTANCE, snapshot1);
@@ -1142,6 +1164,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<TerarkDBStateB
 
 	@Test
 	public void testIncrementalRecoverWithCrossNamespace() throws Exception {
+		Assume.assumeFalse(enableWal);
 		if (rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL ||
 			rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ) {
 			try {
@@ -1180,7 +1203,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<TerarkDBStateB
 				sharedStateRegistry.registerReference(registryKey, stateHandle);
 				UUID oldBackendIdentifier = snapshot1.getBackendIdentifier();
 
-				//verify recover success with out cross namespace.
+				//verify recover success without cross namespace.
 				backend = restoreKeyedBackend(IntSerializer.INSTANCE, snapshot1);
 				state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
 
@@ -1236,6 +1259,103 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<TerarkDBStateB
 			} finally {
 				discardStatesIfRocksdbRecoverFail = false;
 			}
+		}
+	}
+
+	@Test
+	public void testIncrementalRecoverWithCrossNamespaceAndEnableWal() throws Exception {
+		Assume.assumeTrue(enableWal);
+		Assume.assumeTrue(rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL ||
+				rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ);
+		try {
+			CheckpointStreamFactory streamFactory = createStreamFactory();
+
+			SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
+
+			// use an IntSerializer at first
+			AbstractKeyedStateBackend<Integer> backend = createKeyedBackend(IntSerializer.INSTANCE);
+
+			ValueStateDescriptor<String> kvId = new ValueStateDescriptor<>("id", String.class);
+
+			ValueState<String> state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+			// write some state
+			backend.setCurrentKey(1);
+			state.update("1");
+			backend.setCurrentKey(2);
+			state.update("2");
+
+			// draw a snapshot
+			IncrementalRemoteKeyedStateHandle snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
+					backend.snapshot(1, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					sharedStateRegistry);
+
+			backend.dispose();
+
+			assertEquals(0, snapshot1.getSharedState().size());
+
+			UUID oldBackendIdentifier = snapshot1.getBackendIdentifier();
+
+			//verify recover success without cross namespace.
+			backend = restoreKeyedBackend(IntSerializer.INSTANCE, snapshot1);
+			state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+			backend.setCurrentKey(1);
+			assertEquals("1", state.value());
+			backend.setCurrentKey(2);
+			assertEquals("2", state.value());
+			assertEquals(2, backend.numKeyValueStateEntries());
+
+			IncrementalRemoteKeyedStateHandle snapshot2 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
+					backend.snapshot(2, 4, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					sharedStateRegistry);
+			backend.dispose();
+
+			// make sure backendIdentifier is equal
+			assertEquals(oldBackendIdentifier, snapshot2.getBackendIdentifier());
+			assertEquals(1, snapshot2.getSharedState().size());
+
+			// make sure shared state can be register success
+			Map.Entry<StateHandleID, StreamStateHandle> entry = snapshot2.getSharedState().entrySet().stream().findFirst().orElse(null);
+			SharedStateRegistryKey registryKey = snapshot2.createSharedStateRegistryKeyFromFileName(entry.getKey());
+			StreamStateHandle stateHandle = entry.getValue();
+			SharedStateRegistry.Result result = sharedStateRegistry.unregisterReference(registryKey);
+			assertNull(result.getReference());
+			assertEquals(0, result.getReferenceCount());
+
+			sharedStateRegistry.registerReference(registryKey, stateHandle);
+
+			//verify recover success with cross namespace.
+			backend = restoreKeyedBackend(IntSerializer.INSTANCE, snapshot1, true);
+			state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+			backend.setCurrentKey(1);
+			assertEquals("1", state.value());
+			backend.setCurrentKey(2);
+			assertEquals("2", state.value());
+			assertEquals(2, backend.numKeyValueStateEntries());
+
+			IncrementalRemoteKeyedStateHandle snapshot3 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
+					backend.snapshot(3L, 6, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					sharedStateRegistry);
+			backend.dispose();
+
+			// make sure backendIdentifier is not equal
+			Assert.assertNotEquals(oldBackendIdentifier, snapshot3.getBackendIdentifier());
+
+			// make sure we have different shared state
+			assertEquals(1, snapshot3.getSharedState().size());
+			result = sharedStateRegistry.unregisterReference(registryKey);
+			assertNull(result.getReference());
+			assertEquals(0, result.getReferenceCount());
+
+			entry = snapshot3.getSharedState().entrySet().stream().findFirst().orElse(null);
+			registryKey = snapshot3.createSharedStateRegistryKeyFromFileName(entry.getKey());
+			result = sharedStateRegistry.unregisterReference(registryKey);
+			assertNull(result.getReference());
+			assertEquals(0, result.getReferenceCount());
+		} finally {
+			discardStatesIfRocksdbRecoverFail = false;
 		}
 	}
 

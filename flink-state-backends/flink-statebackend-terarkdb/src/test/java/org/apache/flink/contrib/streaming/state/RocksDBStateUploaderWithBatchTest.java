@@ -19,7 +19,7 @@
 package org.apache.flink.contrib.streaming.state;
 
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.contrib.streaming.state.snapshot.RocksIncrementalSnapshotStrategy;
+import org.apache.flink.contrib.streaming.state.snapshot.TerarkDBIncrementalSnapshotStrategy;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.FSDataInputStream;
 import org.apache.flink.core.fs.FileSystem;
@@ -131,8 +131,8 @@ public class RocksDBStateUploaderWithBatchTest extends TestLogger {
 			}
 
 			// (4) test transfer miscFiles, only one batch
-			RocksIncrementalSnapshotStrategy.FilesMappingToBatchesMapping mapping =
-				new RocksIncrementalSnapshotStrategy.FilesMappingToBatchesMapping(Collections.emptyMap(), Collections.emptyMap(), miscFiles);
+			TerarkDBIncrementalSnapshotStrategy.FilesMappingToBatchesMapping mapping =
+				new TerarkDBIncrementalSnapshotStrategy.FilesMappingToBatchesMapping(Collections.emptyMap(), Collections.emptyMap(), miscFiles);
 			Map<StateHandleID, StreamStateHandle> batchFileIdToStateHandle = mapping.getMiscBatchIdToBatchHandles();
 			assertEquals(batchFileIdToStateHandle, batches);
 		}
@@ -204,8 +204,8 @@ public class RocksDBStateUploaderWithBatchTest extends TestLogger {
 				batches.put(batchFileId, new PlaceholderStreamStateHandle());
 			}
 
-			RocksIncrementalSnapshotStrategy.FilesMappingToBatchesMapping mapping =
-				new RocksIncrementalSnapshotStrategy.FilesMappingToBatchesMapping(baseSstFiles, sstFiles, Collections.emptyMap());
+			TerarkDBIncrementalSnapshotStrategy.FilesMappingToBatchesMapping mapping =
+				new TerarkDBIncrementalSnapshotStrategy.FilesMappingToBatchesMapping(baseSstFiles, sstFiles, Collections.emptyMap());
 			Map<StateHandleID, StreamStateHandle> batchFileIdToStateHandle = mapping.getSstBatchIdToBatchHandles();
 			Map<StateHandleID, List<StateHandleID>> usedSstFiles = mapping.getUsedSstFiles();
 			Map<StateHandleID, StreamStateHandle> sstFilesToRealHandles = mapping.getSstFilesToBatchHandles();

@@ -28,6 +28,8 @@ import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.contrib.streaming.state.restore.RestoreOptions;
+import org.apache.flink.contrib.streaming.state.snapshot.CheckpointStrategyFactory;
+import org.apache.flink.contrib.streaming.state.snapshot.RocksDBCheckpointStrategyFactory;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.DiskUtils;
 import org.apache.flink.core.fs.Path;
@@ -219,6 +221,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 
 	private RestoreOptions restoreOptions;
 
+	private CheckpointStrategyFactory checkpointStrategyFactory;
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -404,6 +408,12 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 				.setCompressionType(compressionType)
 				.setNumberOfVCoresPerSlot((int) Math.ceil(config.get(RocksDBOptions.VCORES) / config.get(TaskManagerOptions.NUM_TASK_SLOTS)))
 				.build();
+		}
+
+		if (original.checkpointStrategyFactory != null) {
+			this.checkpointStrategyFactory = original.checkpointStrategyFactory;
+		} else {
+			this.checkpointStrategyFactory = new RocksDBCheckpointStrategyFactory();
 		}
 
 		this.maxRetryTimes = config.get(CheckpointingOptions.DATA_TRANSFER_MAX_RETRY_ATTEMPTS);
@@ -741,6 +751,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			.setRestoreOptions(restoreOptions)
 			.setCrossNamespace(crossNamespace)
 			.setOptimizeSeek(optimizeSeek)
+			.setCheckpointStrategyFactory(getCheckpointStrategyFactory())
 			.setStatsTracker(statsTracker);
 		return builder.build();
 	}
@@ -1122,6 +1133,15 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 
 	public void setDiscardStatesIfRocksdbRecoverFail(boolean discardStatesIfRocksdbRecoverFail) {
 		this.discardStatesIfRocksdbRecoverFail = TernaryBoolean.fromBoolean(discardStatesIfRocksdbRecoverFail);
+	}
+
+	public CheckpointStrategyFactory getCheckpointStrategyFactory() {
+		return checkpointStrategyFactory == null ?
+				new RocksDBCheckpointStrategyFactory() : checkpointStrategyFactory;
+	}
+
+	public void setCheckpointStrategyFactory(CheckpointStrategyFactory checkpointStrategyFactory) {
+		this.checkpointStrategyFactory = checkpointStrategyFactory;
 	}
 
 	// ------------------------------------------------------------------------

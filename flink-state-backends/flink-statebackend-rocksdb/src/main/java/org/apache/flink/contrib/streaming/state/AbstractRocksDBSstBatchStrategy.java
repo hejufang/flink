@@ -36,7 +36,9 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.MANIFEST_FILE_PREFIX;
 import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.SST_FILE_SUFFIX;
+import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.WAL_FILE_SUFFIX;
 
 /**
  * Basic utility functions for state file strategies.
@@ -75,14 +77,17 @@ public abstract class AbstractRocksDBSstBatchStrategy implements RocksDBSstBatch
 	protected List<RocksDBFileMeta> extractStateFiles(Map<StateHandleID, Path> files) throws Exception {
 		List<RocksDBFileMeta> fileMetas = new ArrayList<>(files.size());
 
+		boolean isPrivateFiles = files.keySet().stream()
+				.anyMatch(stateHandleID -> stateHandleID.getKeyString().startsWith(MANIFEST_FILE_PREFIX));
 		for (Map.Entry<StateHandleID, Path> entry : files.entrySet()) {
 			Path localFilePath = entry.getValue();
 			String localFileName = entry.getKey().getKeyString();
 
 			boolean isSstFile = localFileName.endsWith(SST_FILE_SUFFIX);
+			boolean isWalFile = localFileName.endsWith(WAL_FILE_SUFFIX);
 			try {
 				long fileSize = Files.size(localFilePath);
-				fileMetas.add(new RocksDBFileMeta(entry.getKey(), isSstFile, fileSize, localFilePath));
+				fileMetas.add(new RocksDBFileMeta(entry.getKey(), isSstFile, isWalFile, isPrivateFiles, fileSize, localFilePath));
 			} catch (IOException e) {
 				String message = "Could not find local state file: " + localFileName + ", locate at " + localFilePath;
 				LOG.error(message);
@@ -135,21 +140,21 @@ public abstract class AbstractRocksDBSstBatchStrategy implements RocksDBSstBatch
 	 * Validate the type of all state files. They should have a same type, i.e., either sst or misc.
 	 *
 	 * @param fileMetas file meta infos.
-	 * @return true if all sst files, false if all misc files.
+	 * @return true if all shared files, such as sst/wal, false if all misc files.
 	 */
 	private boolean validateFilesType(Iterable<RocksDBFileMeta> fileMetas) {
-		boolean isSstFile = false;
+		boolean isSharedFile = false;
 		boolean isMiscFile = false;
 
 		for (RocksDBFileMeta fileMeta : fileMetas) {
-			if (fileMeta.isSstFile()){
-				isSstFile = true;
+			if (fileMeta.isSharedFile()){
+				isSharedFile = true;
 			} else {
 				isMiscFile = true;
 			}
-			Preconditions.checkState(!(isMiscFile && isSstFile),
-				"Batching state files contains both sst files and misc files");
 		}
-		return isSstFile;
+		Preconditions.checkState(!(isMiscFile & isSharedFile),
+				"Batching state files contains both sst files and misc files");
+		return isSharedFile & !isMiscFile;
 	}
 }

@@ -24,7 +24,6 @@ import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
-import org.rocksdb.WriteOptions;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -120,9 +119,7 @@ public class RocksDBIncrementalCheckpointUtils {
 		for (ColumnFamilyHandle columnFamilyHandle : columnFamilyHandles) {
 			try (ReadOptions readOptions = RocksDBOperationUtils.createTotalOrderSeekReadOptions();
 				RocksIteratorWrapper iteratorWrapper = RocksDBOperationUtils.getRocksIterator(db, columnFamilyHandle, readOptions);
-				WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
-				RocksDBWriteBatchWrapper writeBatchWrapper = new RocksDBWriteBatchWrapper(db, writeOptions, writeBatchSize)) {
-
+				RocksDBWriteBatchWrapper writeBatchWrapper = new RocksDBWriteBatchWrapper(db, writeBatchSize)) {
 				iteratorWrapper.seek(beginKeyBytes);
 
 				while (iteratorWrapper.isValid()) {

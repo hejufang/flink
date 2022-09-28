@@ -22,8 +22,6 @@ import org.apache.flink.runtime.state.StateHandleID;
 
 import java.nio.file.Path;
 
-import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.SST_FILE_SUFFIX;
-
 /**
  * Meta information of a RocksDB sst file.
  */
@@ -34,15 +32,21 @@ public class RocksDBFileMeta {
 
 	private final boolean isSstFile;
 
-	private final long sstFileSize;
+	private final boolean isWalFile;
+
+	private final boolean isMutable;
+
+	private final long fileSize;
 
 	private final Path filePath;
 
-	public RocksDBFileMeta(StateHandleID shId, boolean isSstFile, long sstFileSize, Path filePath) {
+	public RocksDBFileMeta(StateHandleID shId, boolean isSstFile, boolean isWalFile, boolean isMutable, long fileSize, Path filePath) {
 		this.shId = shId;
-		shIdInt = isSstFile ? Integer.parseInt(shId.getKeyString().substring(0, shId.getKeyString().indexOf(SST_FILE_SUFFIX))) : -1;
 		this.isSstFile = isSstFile;
-		this.sstFileSize = sstFileSize;
+		this.isWalFile = isWalFile;
+		this.isMutable = isMutable;
+		shIdInt = isSharedFile() ? Integer.parseInt(shId.getKeyString().substring(0, shId.getKeyString().length() - 4)) : -1;
+		this.fileSize = fileSize;
 		this.filePath = filePath;
 	}
 
@@ -62,21 +66,36 @@ public class RocksDBFileMeta {
 		return isSstFile;
 	}
 
-	public long getSstFileSize() {
-		return sstFileSize;
+	public boolean isWalFile() {
+		return isWalFile;
+	}
+
+	public boolean isMutable() {
+		return isMutable;
+	}
+
+	public long getFileSize() {
+		return fileSize;
 	}
 
 	public Path getFilePath() {
 		return filePath;
 	}
 
+	public boolean isSharedFile() {
+		return (isSstFile || isWalFile) & !isMutable;
+	}
+
 	@Override
 	public String toString() {
 		return "RocksDBFileMeta{" +
-			"shId=" + shId +
-			", isSstFile=" + isSstFile +
-			", sstFileSize=" + sstFileSize +
-			", filePath=" + filePath +
-			'}';
+				"shId=" + shId +
+				", shIdInt=" + shIdInt +
+				", isSstFile=" + isSstFile +
+				", isWalFile=" + isWalFile +
+				", isMutable=" + isMutable +
+				", fileSize=" + fileSize +
+				", filePath=" + filePath +
+				'}';
 	}
 }

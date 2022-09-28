@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.contrib.streaming.factory.TerarkDBCheckpointStrategyFactory;
 import org.apache.flink.contrib.streaming.state.restore.RestoreOptions;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.metrics.MetricGroup;
@@ -190,8 +191,10 @@ public class TerarkDBStateBackend extends AbstractStateBackend implements Config
 		if (stateBackend.getRocksDBOptions() instanceof DefaultConfigurableOptionsFactory) {
 			DefaultTerarkDBConfigurableOptionsFactory optionsFactory =
 					new DefaultTerarkDBConfigurableOptionsFactory((DefaultConfigurableOptionsFactory) stateBackend.getRocksDBOptions());
-			this.stateBackend.setRocksDBOptions(optionsFactory);
+			this.stateBackend.setRocksDBOptions(optionsFactory.configure(config));
 		}
+		boolean enableWal = this.stateBackend.isIncrementalCheckpointsEnabled() && config.get(TerarkDBConfigurableOptions.ENABLE_WAL);
+		this.stateBackend.setCheckpointStrategyFactory(new TerarkDBCheckpointStrategyFactory(enableWal));
 		return this;
 	}
 

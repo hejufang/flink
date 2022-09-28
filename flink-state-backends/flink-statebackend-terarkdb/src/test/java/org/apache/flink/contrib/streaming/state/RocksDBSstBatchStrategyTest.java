@@ -20,6 +20,7 @@ package org.apache.flink.contrib.streaming.state;
 
 import org.apache.flink.runtime.state.StateHandleID;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -31,6 +32,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,28 +62,48 @@ public class RocksDBSstBatchStrategyTest {
 	public void testSstMetaExtract() throws Exception {
 		File sstFile = temporaryFolder.newFile("00011.sst");
 		generateRandomFileContent(sstFile.getPath(), 1024);
+		File walFile1 = temporaryFolder.newFile("00012.log");
+		generateRandomFileContent(walFile1.getPath(), 1024);
+		File walFile2 = temporaryFolder.newFile("00013.log");
+		generateRandomFileContent(walFile2.getPath(), 1024);
 		File miscFile = temporaryFolder.newFile("CURRENT");
 		generateRandomFileContent(miscFile.getPath(), 100);
 
-		Map<StateHandleID, Path> filePaths = new HashMap<>(4);
+		Map<StateHandleID, Path> filePaths = new LinkedHashMap<>(4);
 		filePaths.put(new StateHandleID("00011.sst"), sstFile.toPath());
+		filePaths.put(new StateHandleID("00012.log"), walFile1.toPath());
+		filePaths.put(new StateHandleID("00013.log"), walFile2.toPath());
 		filePaths.put(new StateHandleID("CURRENT"), miscFile.toPath());
 
 		RocksDBSstBatchStrategy batchStrategy = createFixSizeSeqStrategy();
 		List<RocksDBFileMeta> fileMatas = ((AbstractRocksDBSstBatchStrategy) batchStrategy).extractStateFiles(filePaths);
 
-		RocksDBFileMeta sstFileMeta = fileMatas.get(0).isSstFile() ? fileMatas.get(0) : fileMatas.get(1);
-		RocksDBFileMeta miscFileMeta = !fileMatas.get(0).isSstFile() ? fileMatas.get(0) : fileMatas.get(1);
+		RocksDBFileMeta sstFileMeta = fileMatas.get(0);
+		RocksDBFileMeta walFileMeta1 = fileMatas.get(1);
+		RocksDBFileMeta walFileMeta2 = fileMatas.get(2);
+		RocksDBFileMeta miscFileMeta = fileMatas.get(3);
 
 		// validate sst file meta
-		assertTrue(sstFileMeta.isSstFile());
-		assertEquals(sstFileMeta.getSstFileSize(), 1024);
+		assertTrue(sstFileMeta.isSharedFile());
+		assertEquals(sstFileMeta.getFileSize(), 1024);
 		assertEquals(sstFileMeta.getFilePath(), sstFile.toPath());
 		assertEquals(sstFileMeta.getShIdInt(), 11);
 
+		// validate wal file1 meta
+		assertTrue(walFileMeta1.isSharedFile());
+		assertEquals(walFileMeta1.getFileSize(), 1024);
+		assertEquals(walFileMeta1.getFilePath(), walFile1.toPath());
+		assertEquals(walFileMeta1.getShIdInt(), 12);
+
+		// validate wal file2 meta
+		assertTrue(walFileMeta2.isSharedFile());
+		assertEquals(walFileMeta2.getFileSize(), 1024);
+		assertEquals(walFileMeta2.getFilePath(), walFile2.toPath());
+		assertEquals(walFileMeta2.getShIdInt(), 13);
+
 		// validate misc file meta
-		assertFalse(miscFileMeta.isSstFile());
-		assertEquals(miscFileMeta.getSstFileSize(), 100);
+		assertFalse(miscFileMeta.isSharedFile());
+		assertEquals(miscFileMeta.getFileSize(), 100);
 		assertEquals(miscFileMeta.getFilePath(), miscFile.toPath());
 		assertEquals(miscFileMeta.getShIdInt(), -1);
 	}
@@ -96,8 +118,8 @@ public class RocksDBSstBatchStrategyTest {
 		List<RocksDBFileMeta> files2 = new ArrayList<>();
 
 		for (int i = 1; i <= 10; i++) {
-			RocksDBFileMeta file1 = new RocksDBFileMeta(new StateHandleID(i + ".sst"), true, 10, sstFile.toPath());
-			RocksDBFileMeta file2 = new RocksDBFileMeta(new StateHandleID(i + ".sst"), true, 10, sstFile.toPath());
+			RocksDBFileMeta file1 = new RocksDBFileMeta(new StateHandleID(i + ".sst"), true, false, false, 10, sstFile.toPath());
+			RocksDBFileMeta file2 = new RocksDBFileMeta(new StateHandleID(i + ".sst"), true, false, false, 10, sstFile.toPath());
 			files1.add(file1);
 			files2.add(file2);
 		}
@@ -123,31 +145,36 @@ public class RocksDBSstBatchStrategyTest {
 	public void testBatchSstFileWithFixSizeSeqCorrectness() throws Exception {
 		RocksDBSstBatchStrategy batchStrategy = createFixSizeSeqStrategy();
 
-		Map<StateHandleID, Path> sstFiles = createSstFiles(
-			10 * 1024 * 1024,
-			512 * 1024 * 1024,
-			256 * 1024 * 1024,
-			256 * 1024 * 1024
+		Map<StateHandleID, Path> sharedFiles = createSharedFiles(
+				10 * 1024 * 1024,
+				512 * 1024 * 1024,
+				256 * 1024 * 1024,
+				256 * 1024 * 1024
 		);
 
-		Map<StateHandleID, List<RocksDBFileMeta>> batches = batchStrategy.batch(sstFiles);
+		Map<StateHandleID, List<RocksDBFileMeta>> batches = batchStrategy.batch(sharedFiles);
 		assertEquals(batches.size(), 3);
 
-		Set<StateHandleID> sstFileNames = sstFiles.keySet();
+		Set<StateHandleID> sstFileNames = sharedFiles.keySet();
 		Set<StateHandleID> batchSstFileName = new HashSet<>();
 		for (Map.Entry<StateHandleID, List<RocksDBFileMeta>> entry : batches.entrySet()) {
 			batchSstFileName.addAll(entry.getValue().stream().map(RocksDBFileMeta::getShId).collect(Collectors.toList()));
 		}
 		assertEquals(sstFileNames, batchSstFileName);
 
+		List<String> fileNames = sharedFiles.values()
+				.stream()
+				.map(path -> path.getFileName().toString())
+				.collect(Collectors.toList());
+
 		// check each batch
 		Set<StateHandleID> batch1 = new HashSet<>();
-		batch1.add(new StateHandleID("1.sst"));
+		batch1.add(new StateHandleID(fileNames.get(0)));
 		Set<StateHandleID> batch2 = new HashSet<>();
-		batch2.add(new StateHandleID("2.sst"));
+		batch2.add(new StateHandleID(fileNames.get(1)));
 		Set<StateHandleID> batch3 = new HashSet<>();
-		batch3.add(new StateHandleID("3.sst"));
-		batch3.add(new StateHandleID("4.sst"));
+		batch3.add(new StateHandleID(fileNames.get(2)));
+		batch3.add(new StateHandleID(fileNames.get(3)));
 
 		List<Set<StateHandleID>> expectedBatches = new ArrayList<>();
 		expectedBatches.add(batch1);
@@ -161,32 +188,32 @@ public class RocksDBSstBatchStrategyTest {
 	public void testBatchSstFileWithFixSizeSeqOrder() throws Exception {
 		RocksDBSstBatchStrategy batchStrategy = createFixSizeSeqStrategy();
 
-		Map<StateHandleID, Path> sstFiles = createSstFiles(
-			64 * 1024 * 1024,
-			62 * 1024 * 1024,
-			61 * 1024 * 1024,
-			63 * 1024 * 1024,
-			62 * 1024 * 1024,
-			61 * 1024 * 1024,
-			62 * 1024 * 1024,
-			62 * 1024 * 1024,
-			61 * 1024 * 1024,
-			62 * 1024 * 1024,
-			61 * 1024 * 1024,
-			63 * 1024 * 1024,
-			62 * 1024 * 1024,
-			61 * 1024 * 1024,
-			62 * 1024 * 1024,
-			62 * 1024 * 1024,
-			61 * 1024 * 1024,
-			62 * 1024 * 1024,
-			61 * 1024 * 1024,
-			63 * 1024 * 1024,
-			62 * 1024 * 1024,
-			61 * 1024 * 1024,
-			62 * 1024 * 1024,
-			62 * 1024 * 1024,
-			61 * 1024 * 1024
+		Map<StateHandleID, Path> sstFiles = createSharedFiles(
+				64 * 1024 * 1024,
+				62 * 1024 * 1024,
+				61 * 1024 * 1024,
+				63 * 1024 * 1024,
+				62 * 1024 * 1024,
+				61 * 1024 * 1024,
+				62 * 1024 * 1024,
+				62 * 1024 * 1024,
+				61 * 1024 * 1024,
+				62 * 1024 * 1024,
+				61 * 1024 * 1024,
+				63 * 1024 * 1024,
+				62 * 1024 * 1024,
+				61 * 1024 * 1024,
+				62 * 1024 * 1024,
+				62 * 1024 * 1024,
+				61 * 1024 * 1024,
+				62 * 1024 * 1024,
+				61 * 1024 * 1024,
+				63 * 1024 * 1024,
+				62 * 1024 * 1024,
+				61 * 1024 * 1024,
+				62 * 1024 * 1024,
+				62 * 1024 * 1024,
+				61 * 1024 * 1024
 		);
 
 		Map<StateHandleID, List<RocksDBFileMeta>> batches = batchStrategy.batch(sstFiles);
@@ -226,31 +253,36 @@ public class RocksDBSstBatchStrategyTest {
 	public void testBatchingExcessiveLargeFile() throws Exception {
 		RocksDBSstBatchStrategy batchStrategy = createFixSizeSeqStrategy();
 
-		Map<StateHandleID, Path> sstFiles = createSstFiles(
-			10 * 1024 * 1024,
-			600 * 1024 * 1024,
-			256 * 1024 * 1024,
-			256 * 1024 * 1024
+		Map<StateHandleID, Path> sharedFiles = createSharedFiles(
+				10 * 1024 * 1024,
+				600 * 1024 * 1024,
+				256 * 1024 * 1024,
+				256 * 1024 * 1024
 		);
 
-		Map<StateHandleID, List<RocksDBFileMeta>> batches = batchStrategy.batch(sstFiles);
+		Map<StateHandleID, List<RocksDBFileMeta>> batches = batchStrategy.batch(sharedFiles);
 		assertEquals(batches.size(), 3);
 
-		Set<StateHandleID> sstFileNames = sstFiles.keySet();
+		Set<StateHandleID> sstFileNames = sharedFiles.keySet();
 		Set<StateHandleID> batchSstFileName = new HashSet<>();
 		for (Map.Entry<StateHandleID, List<RocksDBFileMeta>> entry : batches.entrySet()) {
 			batchSstFileName.addAll(entry.getValue().stream().map(RocksDBFileMeta::getShId).collect(Collectors.toList()));
 		}
 		assertEquals(sstFileNames, batchSstFileName);
 
+		List<String> fileNames = sharedFiles.values()
+				.stream()
+				.map(path -> path.getFileName().toString())
+				.collect(Collectors.toList());
+
 		// check each batch
 		Set<StateHandleID> batch1 = new HashSet<>();
-		batch1.add(new StateHandleID("1.sst"));
+		batch1.add(new StateHandleID(fileNames.get(0)));
 		Set<StateHandleID> batch2 = new HashSet<>();
-		batch2.add(new StateHandleID("2.sst"));
+		batch2.add(new StateHandleID(fileNames.get(1)));
 		Set<StateHandleID> batch3 = new HashSet<>();
-		batch3.add(new StateHandleID("3.sst"));
-		batch3.add(new StateHandleID("4.sst"));
+		batch3.add(new StateHandleID(fileNames.get(2)));
+		batch3.add(new StateHandleID(fileNames.get(3)));
 
 		List<Set<StateHandleID>> expectedBatches = new ArrayList<>();
 		expectedBatches.add(batch1);
@@ -266,15 +298,8 @@ public class RocksDBSstBatchStrategyTest {
 			actualBatches.add(fileMetas.stream().map(RocksDBFileMeta::getShId).collect(Collectors.toSet()));
 		}
 
-		for (Set<StateHandleID> correctFiles : expectedBatches) {
-			boolean hasBatch = false;
-			for (Set<StateHandleID> actualFiles : actualBatches) {
-				if (actualFiles.equals(correctFiles)) {
-					hasBatch = true;
-				}
-			}
-			assertTrue("Batch result is wrong, actual: " + actualBatches + ", expected: " + expectedBatches, hasBatch);
-		}
+		assertTrue("Batch result is wrong, actual: " + actualBatches + ", expected: " + expectedBatches,
+				CollectionUtils.isEqualCollection(actualBatches, expectedBatches));
 	}
 
 	private void generateRandomFileContent(String filePath, int fileLength) throws IOException {
@@ -312,11 +337,12 @@ public class RocksDBSstBatchStrategyTest {
 		return filePaths;
 	}
 
-	private Map<StateHandleID, Path> createSstFiles(long... sizes) throws IOException {
-		Map<StateHandleID, Path> filePaths = new HashMap<>(4);
+	private LinkedHashMap<StateHandleID, Path> createSharedFiles(long... sizes) throws IOException {
+		LinkedHashMap<StateHandleID, Path> filePaths = new LinkedHashMap<>(4);
 
 		for (int i = 0; i < sizes.length; i++) {
-			String fileName = (i + 1) + ".sst";
+			String suffix = ThreadLocalRandom.current().nextInt() % 2 == 0 ? ".sst" : ".log";
+			String fileName = (i + 1) + suffix;
 			File sstFile = temporaryFolder.newFile(fileName);
 			generateRandomFileContent(sstFile.getPath(), (int) sizes[i]);
 			filePaths.put(new StateHandleID(fileName), sstFile.toPath());

@@ -39,7 +39,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -78,6 +80,9 @@ public class RocksDBResource extends ExternalResource {
 
 	/** Resources to close. */
 	private ArrayList<AutoCloseable> handlesToClose = new ArrayList<>();
+
+	/** Map of registered columnFamilies. */
+	private Map<String, ColumnFamilyHandle> columnFamilyHandleMap;
 
 	public RocksDBResource() {
 		this(new RocksDBOptionsFactory() {
@@ -131,6 +136,10 @@ public class RocksDBResource extends ExternalResource {
 		return batchWrapper;
 	}
 
+	public ColumnFamilyHandle getColumnFamily(String name) {
+		return columnFamilyHandleMap.get(name);
+	}
+
 	/**
 	 * Creates and returns a new column family with the given name.
 	 */
@@ -139,6 +148,7 @@ public class RocksDBResource extends ExternalResource {
 			final ColumnFamilyHandle columnFamily = rocksDB.createColumnFamily(
 				new ColumnFamilyDescriptor(name.getBytes(), columnFamilyOptions));
 			columnFamilyHandles.add(columnFamily);
+			columnFamilyHandleMap.put(name, columnFamily);
 			return columnFamily;
 		} catch (Exception ex) {
 			throw new FlinkRuntimeException("Could not create column family.", ex);
@@ -158,12 +168,16 @@ public class RocksDBResource extends ExternalResource {
 		this.writeOptions.disableWAL();
 		this.readOptions = RocksDBOperationUtils.createTotalOrderSeekReadOptions();
 		this.columnFamilyHandles = new ArrayList<>(1);
+		this.columnFamilyHandleMap = new HashMap<>();
 		this.rocksDB = RocksDB.open(
-			dbOptions.setCheckPointFakeFlush(false),
+			dbOptions,
 			rocksFolder.getAbsolutePath(),
 			Collections.singletonList(new ColumnFamilyDescriptor("default".getBytes(), columnFamilyOptions)),
 			columnFamilyHandles);
 		this.batchWrapper = new RocksDBWriteBatchWrapper(rocksDB, writeOptions);
+		for (ColumnFamilyHandle columnFamilyHandle : columnFamilyHandles) {
+			columnFamilyHandleMap.put(new String(columnFamilyHandle.getName()), columnFamilyHandle);
+		}
 	}
 
 	@Override

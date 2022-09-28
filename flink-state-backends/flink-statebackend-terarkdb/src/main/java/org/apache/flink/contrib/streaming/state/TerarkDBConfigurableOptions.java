@@ -21,6 +21,8 @@ package org.apache.flink.contrib.streaming.state;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.MemorySize;
 
+import org.terarkdb.WALRecoveryMode;
+
 import static org.apache.flink.configuration.ConfigOptions.key;
 
 /**
@@ -43,11 +45,38 @@ public class TerarkDBConfigurableOptions extends RocksDBConfigurableOptions {
 			key("state.backend.rocksdb.blob.size")
 					.memoryType()
 					.defaultValue(MemorySize.ZERO)
-					.withDeprecatedKeys("KV separation starts when the value size exceeds the size of the blob.");
+					.withDescription("KV separation starts when the value size exceeds the size of the blob.");
 
 	public static final ConfigOption<MemorySize> BLOB_FILE_SIZE =
 			key("state.backend.rocksdb.blob-file.size")
 					.memoryType()
 					.defaultValue(MemorySize.ZERO)
-					.withDeprecatedKeys("The size of the blob file.");
+					.withDescription("The size of the blob file.");
+
+	public static final ConfigOption<Double> BLOB_GC_RATIO =
+			key("state.backend.rocksdb.blob.gc-ratio")
+					.doubleType()
+					.defaultValue(0.05)
+					.withDescription("The gc ratio of the blob file.");
+
+	public static final ConfigOption<Boolean> ENABLE_WAL =
+			key("state.backend.rocksdb.enable-wal")
+					.booleanType()
+					.defaultValue(false)
+					.withDescription("Whether enable wal.");
+
+	public static final ConfigOption<MemorySize> MAX_WAL_TOTAL_SIZE =
+			key("state.backend.rocksdb.max-wal-total-size")
+					.memoryType()
+					.defaultValue(MemorySize.parse("256m"))
+					.withDescription("The max total size of the wal files.");
+
+	public static final ConfigOption<String> WAL_RECOVER_MODE =
+			key("state.backend.rocksdb.wal-recover-mode")
+					.stringType()
+					.defaultValue(WALRecoveryMode.AbsoluteConsistency.name())
+					.withDescription(String.format("The different WAL recovery modes define the behavior of WAL replay. " +
+							"Candidate recover mode is %s, %s, %s and %s", WALRecoveryMode.AbsoluteConsistency.name(),
+							WALRecoveryMode.PointInTimeRecovery.name(), WALRecoveryMode.TolerateCorruptedTailRecords.name(),
+							WALRecoveryMode.SkipAnyCorruptedRecords.name()));
 }

@@ -26,6 +26,7 @@ import org.apache.flink.util.Preconditions;
 import org.terarkdb.ColumnFamilyOptions;
 import org.terarkdb.DBOptions;
 import org.terarkdb.ReadOptions;
+import org.terarkdb.WALRecoveryMode;
 import org.terarkdb.WriteOptions;
 
 import java.util.Arrays;
@@ -53,19 +54,23 @@ public class DefaultTerarkDBConfigurableOptionsFactory implements ConfigurableRo
 	private static final ConfigOption<?>[] TERARKDB_CANDIDATE_CONFIGS = new ConfigOption<?>[] {
 			TerarkDBConfigurableOptions.MAX_SUB_COMPACTIONS,
 			TerarkDBConfigurableOptions.BLOB_SIZE,
-			TerarkDBConfigurableOptions.BLOB_FILE_SIZE
+			TerarkDBConfigurableOptions.BLOB_FILE_SIZE,
+			TerarkDBConfigurableOptions.BLOB_GC_RATIO,
+			TerarkDBConfigurableOptions.ENABLE_WAL,
+			TerarkDBConfigurableOptions.MAX_WAL_TOTAL_SIZE,
+			TerarkDBConfigurableOptions.WAL_RECOVER_MODE
 	};
 
 	private static final Set<ConfigOption<?>> TERARKDB_POSITIVE_INT_CONFIG_SET = new HashSet<>();
 
 	private static final Set<ConfigOption<?>> TERARKDB_SIZE_CONFIG_SET = new HashSet<>(Arrays.asList(
 			TerarkDBConfigurableOptions.BLOB_SIZE,
-			TerarkDBConfigurableOptions.BLOB_FILE_SIZE
+			TerarkDBConfigurableOptions.BLOB_FILE_SIZE,
+			TerarkDBConfigurableOptions.MAX_WAL_TOTAL_SIZE
 	));
 
 	@Override
 	public DefaultTerarkDBConfigurableOptionsFactory configure(ReadableConfig configuration) {
-		this.defaultConfigurableOptionsFactory.configure(configuration);
 		for (ConfigOption<?> option : TERARKDB_CANDIDATE_CONFIGS) {
 			Optional<?> newValue = configuration.getOptional(option);
 
@@ -95,13 +100,27 @@ public class DefaultTerarkDBConfigurableOptionsFactory implements ConfigurableRo
 			columnFamilyOptions.setMaxSubcompactions(1);
 		}
 
+		if (isOptionConfigured(TerarkDBConfigurableOptions.BLOB_GC_RATIO)) {
+			columnFamilyOptions.setBlobGcRatio(getBlobGCRatio());
+		}
+
 		return columnFamilyOptions;
 	}
 
 	@Override
 	public DBOptions createDBOptions(DBOptions currentOptions, Collection<AutoCloseable> handlesToClose) {
 		DBOptions dbOptions = defaultConfigurableOptionsFactory.createDBOptions(currentOptions, handlesToClose);
-		dbOptions.setCheckPointFakeFlush(false);
+
+		if (isOptionConfigured(TerarkDBConfigurableOptions.MAX_WAL_TOTAL_SIZE)) {
+			currentOptions.setMaxTotalWalSize(getMaxWalTotalSize());
+		}
+
+		if (isOptionConfigured(TerarkDBConfigurableOptions.WAL_RECOVER_MODE)) {
+			dbOptions.setWalRecoveryMode(getWalRecoveryMode());
+		} else {
+			dbOptions.setWalRecoveryMode(WALRecoveryMode.valueOf(TerarkDBConfigurableOptions.WAL_RECOVER_MODE.defaultValue()));
+		}
+
 		return dbOptions;
 	}
 
@@ -112,7 +131,11 @@ public class DefaultTerarkDBConfigurableOptionsFactory implements ConfigurableRo
 
 	@Override
 	public WriteOptions createWriteOptions(WriteOptions currentOptions, Collection<AutoCloseable> handlesToClose) {
-		return defaultConfigurableOptionsFactory.createWriteOptions(currentOptions, handlesToClose);
+		WriteOptions writeOptions = defaultConfigurableOptionsFactory.createWriteOptions(currentOptions, handlesToClose);
+		if (isOptionConfigured(TerarkDBConfigurableOptions.ENABLE_WAL)) {
+			currentOptions.setDisableWAL(!getWalEnabled());
+		}
+		return writeOptions;
 	}
 
 	@Override
@@ -154,6 +177,51 @@ public class DefaultTerarkDBConfigurableOptionsFactory implements ConfigurableRo
 				"Invalid configuration " + blobFileSize + " for blob file size.");
 		setInternal(TerarkDBConfigurableOptions.BLOB_FILE_SIZE.key(), blobFileSize);
 
+		return this;
+	}
+
+	private double getBlobGCRatio() {
+		return Double.parseDouble(getInternal(TerarkDBConfigurableOptions.BLOB_GC_RATIO.key()));
+	}
+
+	public DefaultTerarkDBConfigurableOptionsFactory setBlobGCRatio(double blobGCRatio) {
+		Preconditions.checkArgument(blobGCRatio > 0,
+				"Invalid configuration " + blobGCRatio + " for blob gc ratio.");
+		setInternal(TerarkDBConfigurableOptions.BLOB_GC_RATIO.key(), String.valueOf(blobGCRatio));
+
+		return this;
+	}
+
+	//--------------------------------------------------------------------------
+	// WAL.
+	//--------------------------------------------------------------------------
+
+	private boolean getWalEnabled() {
+		return Boolean.parseBoolean(getInternal(TerarkDBConfigurableOptions.ENABLE_WAL.key()));
+	}
+
+	public DefaultTerarkDBConfigurableOptionsFactory setWalEnabled(boolean enabled) {
+		setInternal(TerarkDBConfigurableOptions.ENABLE_WAL.key(), String.valueOf(enabled));
+		return this;
+	}
+
+	private long getMaxWalTotalSize() {
+		return MemorySize.parseBytes(getInternal(TerarkDBConfigurableOptions.MAX_WAL_TOTAL_SIZE.key()));
+	}
+
+	public DefaultTerarkDBConfigurableOptionsFactory setMaxWalTotalSize(String maxWalTotalSize) {
+		Preconditions.checkArgument(MemorySize.parseBytes(maxWalTotalSize) >= 0,
+				"Invalid configuration " + maxWalTotalSize + " for max wal total size.");
+		setInternal(TerarkDBConfigurableOptions.MAX_WAL_TOTAL_SIZE.key(), maxWalTotalSize);
+		return this;
+	}
+
+	private WALRecoveryMode getWalRecoveryMode() {
+		return WALRecoveryMode.valueOf(getInternal(TerarkDBConfigurableOptions.WAL_RECOVER_MODE.key()));
+	}
+
+	public DefaultTerarkDBConfigurableOptionsFactory setWalRecoveryMode(WALRecoveryMode walRecoveryMode) {
+		setInternal(TerarkDBConfigurableOptions.WAL_RECOVER_MODE.key(), walRecoveryMode.name());
 		return this;
 	}
 

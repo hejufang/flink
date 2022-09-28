@@ -34,13 +34,20 @@ import java.util.Collection;
 @RunWith(Parameterized.class)
 public class RocksDBStateBackendMigrationTest extends StateBackendMigrationTestBase<TerarkDBStateBackend> {
 
-	@Parameterized.Parameters(name = "Incremental checkpointing: {0}")
-	public static Collection<Boolean> parameters() {
-		return Arrays.asList(false, true);
+	@Parameterized.Parameters(name = "Incremental checkpointing: {0}, enable wal: {1}")
+	public static Collection<Boolean[]> parameters() {
+		return Arrays.asList(
+				new Boolean[]{false, false},
+				new Boolean[]{false, true},
+				new Boolean[]{true, true},
+				new Boolean[]{true, true});
 	}
 
 	@Parameterized.Parameter
 	public boolean enableIncrementalCheckpointing;
+
+	@Parameterized.Parameter(1)
+	public boolean enableWal;
 
 	// Store it because we need it for the cleanup test.
 	private String dbPath;
@@ -53,6 +60,7 @@ public class RocksDBStateBackendMigrationTest extends StateBackendMigrationTestB
 
 		Configuration configuration = new Configuration();
 		configuration.set(RocksDBOptions.TIMER_SERVICE_FACTORY, RocksDBStateBackend.PriorityQueueStateType.ROCKSDB);
+		configuration.set(TerarkDBConfigurableOptions.ENABLE_WAL, enableWal);
 		backend = backend.configure(configuration, Thread.currentThread().getContextClassLoader());
 		backend.setDbStoragePath(dbPath);
 		return backend;

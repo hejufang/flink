@@ -40,7 +40,7 @@ public class RocksDBFixSizeSequentialFileNumberBatchStrategy extends AbstractRoc
 	protected List<List<RocksDBFileMeta>> doBatch(List<RocksDBFileMeta> filesMetas) {
 		// sort sst files by sst file number
 		Collections.sort(filesMetas, (o1, o2) -> {
-			Preconditions.checkState(o1.isSstFile() && o2.isSstFile());
+			Preconditions.checkState(o1.isSharedFile() && o2.isSharedFile());
 			return o1.getShIdInt() - o2.getShIdInt();
 		});
 
@@ -53,7 +53,7 @@ public class RocksDBFixSizeSequentialFileNumberBatchStrategy extends AbstractRoc
 		for (RocksDBFileMeta fileMeta : filesMetas) {
 
 			// check if current tmp batch is full
-			if (tmpBatchSize + fileMeta.getSstFileSize() > maxFileSize) {
+			if (tmpBatchSize + fileMeta.getFileSize() > maxFileSize) {
 				resultBatches.add(tmpBatch);
 				tmpBatch = new LinkedList<>();
 				tmpBatchSize = 0;
@@ -61,7 +61,7 @@ public class RocksDBFixSizeSequentialFileNumberBatchStrategy extends AbstractRoc
 
 			// put current file
 			tmpBatch.add(fileMeta);
-			tmpBatchSize += fileMeta.getSstFileSize();
+			tmpBatchSize += fileMeta.getFileSize();
 		}
 
 		if (!tmpBatch.isEmpty()) {

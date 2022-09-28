@@ -28,9 +28,9 @@ import org.apache.flink.contrib.streaming.state.restore.RocksDBFullRestoreOperat
 import org.apache.flink.contrib.streaming.state.restore.RocksDBIncrementalRestoreOperation;
 import org.apache.flink.contrib.streaming.state.restore.RocksDBNoneRestoreOperation;
 import org.apache.flink.contrib.streaming.state.restore.RocksDBRestoreResult;
-import org.apache.flink.contrib.streaming.state.snapshot.RocksDBSnapshotStrategyBase;
-import org.apache.flink.contrib.streaming.state.snapshot.RocksFullSnapshotStrategy;
-import org.apache.flink.contrib.streaming.state.snapshot.RocksIncrementalSnapshotStrategy;
+import org.apache.flink.contrib.streaming.state.snapshot.CheckpointStrategyConfig;
+import org.apache.flink.contrib.streaming.state.snapshot.CheckpointStrategyFactory;
+import org.apache.flink.contrib.streaming.state.snapshot.RocksDBCheckpointStrategyFactory;
 import org.apache.flink.contrib.streaming.state.ttl.RocksDbTtlCompactFiltersManager;
 import org.apache.flink.contrib.streaming.state.watchdog.RocksDBWatchdog;
 import org.apache.flink.contrib.streaming.state.watchdog.RocksDBWatchdogProvider;
@@ -44,14 +44,12 @@ import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.LocalRecoveryConfig;
 import org.apache.flink.runtime.state.PriorityQueueSetFactory;
-import org.apache.flink.runtime.state.SnapshotDirectory;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueSetFactory;
 import org.apache.flink.runtime.state.heap.InternalKeyContext;
 import org.apache.flink.runtime.state.heap.InternalKeyContextImpl;
-import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.IOUtils;
@@ -96,8 +94,6 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	/** String that identifies the operator that owns this backend. */
 	private final String operatorIdentifier;
 	private final RocksDBStateBackend.PriorityQueueStateType priorityQueueStateType;
-	/** The configuration of local recovery. */
-	private final LocalRecoveryConfig localRecoveryConfig;
 
 	/** Factory function to create column family options from state name. */
 	private final Function<String, ColumnFamilyOptions> columnFamilyOptionsFactory;
@@ -115,8 +111,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	private final RocksDBWatchdog.TimeoutHandler dbOperationTimeoutHandler;
 
-	/** True if incremental checkpointing is enabled. */
-	private boolean enableIncrementalCheckpointing;
+	/** Configuration of checkpoint strategy. */
+	private final CheckpointStrategyConfig<K> checkpointStrategyConfig;
+
+	/** Checkpoint strategy's factory. */
+	private CheckpointStrategyFactory checkpointStrategyFactory;
 
 	/** Configuration for state file batching. */
 	private RocksDBStateBatchConfig batchConfig;
@@ -130,7 +129,6 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	private int numberOfTransferingThreads;
 	private long writeBatchSize = RocksDBConfigurableOptions.WRITE_BATCH_SIZE.defaultValue().getBytes();
 	private int maxRetryTimes;
-	private long dbNativeCheckpointTimeout;
 	private long dbOperationTimeoutMillis;
 	private RestoreOptions restoreOptions; // for restore
 	private boolean crossNamespace = false;
@@ -138,7 +136,6 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	private RocksDB injectedTestDB; // for testing
 	private ColumnFamilyHandle injectedDefaultColumnFamilyHandle; // for testing
-	private Consumer injectedBeforeTakeDBNativeCheckpoint; // for testing
 	private Supplier injectedBeforeDispose; // for testing
 
 	public RocksDBKeyedStateBackendBuilder(
@@ -174,22 +171,27 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 		this.operatorIdentifier = operatorIdentifier;
 		this.priorityQueueStateType = priorityQueueStateType;
-		this.localRecoveryConfig = localRecoveryConfig;
 		// ensure that we use the right merge operator, because other code relies on this
 		this.columnFamilyOptionsFactory = Preconditions.checkNotNull(columnFamilyOptionsFactory);
 		this.optionsContainer = optionsContainer;
 		this.instanceBasePath = instanceBasePath;
 		this.instanceRocksDBPath = new File(instanceBasePath, DB_INSTANCE_DIR_STRING);
 		this.metricGroup = metricGroup;
-		this.enableIncrementalCheckpointing = false;
 		this.nativeMetricOptions = new RocksDBNativeMetricOptions();
 		this.numberOfTransferingThreads = RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM.defaultValue();
 		this.maxRetryTimes = CheckpointingOptions.DATA_TRANSFER_MAX_RETRY_ATTEMPTS.defaultValue();
 		this.batchConfig = RocksDBStateBatchConfig.createNoBatchingConfig();
-		this.dbNativeCheckpointTimeout = RocksDBOptions.ROCKSDB_NATIVE_CHECKPOINT_TIMEOUT.defaultValue();
 		this.dbOperationTimeoutMillis = RocksDBOptions.ROCKSDB_OPERATION_TIMEOUT.defaultValue();
 		this.restoreOptions = new RestoreOptions.Builder().build();
+		this.checkpointStrategyFactory = new RocksDBCheckpointStrategyFactory();
 		this.dbOperationTimeoutHandler = dbOperationTimeoutHandler;
+		this.checkpointStrategyConfig = new CheckpointStrategyConfig<>(
+				keyGroupRange,
+				keySerializerProvider,
+				localRecoveryConfig,
+				instanceBasePath,
+				keyGroupCompressionDecorator,
+				null);
 	}
 
 	@VisibleForTesting
@@ -239,13 +241,13 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		);
 		this.injectedTestDB = injectedTestDB;
 		this.injectedDefaultColumnFamilyHandle = injectedDefaultColumnFamilyHandle;
-		this.injectedBeforeTakeDBNativeCheckpoint = beforeTakeDBNativeCheckpoint;
+		this.checkpointStrategyConfig.setInjectedBeforeTakeDBNativeCheckpoint(beforeTakeDBNativeCheckpoint);
 		this.injectedBeforeDispose = beforeDispose;
 	}
 
 	@VisibleForTesting
 	public RocksDBKeyedStateBackendBuilder<K> setEnableIncrementalCheckpointing(boolean enableIncrementalCheckpointing) {
-		this.enableIncrementalCheckpointing = enableIncrementalCheckpointing;
+		this.checkpointStrategyConfig.setEnableIncrementalCheckpointing(enableIncrementalCheckpointing);
 		return this;
 	}
 
@@ -289,7 +291,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	}
 
 	public RocksDBKeyedStateBackendBuilder<K> setDBNativeCheckpointTimeout(long dbNativeCheckpointTimeout) {
-		this.dbNativeCheckpointTimeout = dbNativeCheckpointTimeout;
+		this.checkpointStrategyConfig.setDbNativeCheckpointTimeout(dbNativeCheckpointTimeout);
 		return this;
 	}
 
@@ -310,6 +312,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	public RocksDBKeyedStateBackendBuilder<K> setOptimizeSeek(boolean optimizeSeek) {
 		this.optimizeSeek = optimizeSeek;
+		return this;
+	}
+
+	public RocksDBKeyedStateBackendBuilder<K> setCheckpointStrategyFactory(CheckpointStrategyFactory checkpointStrategyFactory) {
+		this.checkpointStrategyFactory = checkpointStrategyFactory;
 		return this;
 	}
 
@@ -336,7 +343,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 			new RocksDbTtlCompactFiltersManager(ttlTimeProvider);
 
 		ResourceGuard rocksDBResourceGuard = new ResourceGuard();
-		SnapshotStrategy<K> snapshotStrategy;
+		CheckpointStrategyFactory.SnapshotStrategy<K> snapshotStrategy;
 		PriorityQueueSetFactory priorityQueueFactory;
 		RocksDBSerializedCompositeKeyBuilder<K> sharedRocksKeyBuilder;
 		// Number of bytes required to prefix the key groups.
@@ -385,8 +392,21 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				keyGroupPrefixBytes,
 				32);
 			// init snapshot strategy after db is assured to be initialized
-			snapshotStrategy = initializeSavepointAndCheckpointStrategies(cancelStreamRegistryForBackend, rocksDBResourceGuard,
-				kvStateInformation, keyGroupPrefixBytes, db, backendUID, materializedSstFiles, lastCompletedCheckpointId, statsTracker);
+			snapshotStrategy = checkpointStrategyFactory.initializeSavepointAndCheckpointStrategies(
+					checkpointStrategyConfig,
+					batchConfig,
+					numberOfTransferingThreads,
+					maxRetryTimes,
+					cancelStreamRegistryForBackend,
+					rocksDBResourceGuard,
+					kvStateInformation,
+					keyGroupPrefixBytes,
+					db,
+					backendUID,
+					materializedSstFiles,
+					lastCompletedCheckpointId,
+					statsTracker);
+
 			// init priority queue factory
 			priorityQueueFactory = initPriorityQueueFactory(
 				keyGroupPrefixBytes,
@@ -573,81 +593,6 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		}
 	}
 
-	private SnapshotStrategy<K> initializeSavepointAndCheckpointStrategies(
-		CloseableRegistry cancelStreamRegistry,
-		ResourceGuard rocksDBResourceGuard,
-		LinkedHashMap<String, RocksDBKeyedStateBackend.RocksDbKvStateInfo> kvStateInformation,
-		int keyGroupPrefixBytes,
-		RocksDB db,
-		UUID backendUID,
-		SortedMap<Long, Map<StateHandleID, StreamStateHandle>> materializedSstFiles,
-		long lastCompletedCheckpointId,
-		StateStatsTracker statsTracker) {
-		RocksDBSnapshotStrategyBase<K> savepointSnapshotStrategy = new RocksFullSnapshotStrategy<>(
-			db,
-			rocksDBResourceGuard,
-			keySerializerProvider.currentSchemaSerializer(),
-			kvStateInformation,
-			keyGroupRange,
-			keyGroupPrefixBytes,
-			localRecoveryConfig,
-			cancelStreamRegistry,
-			keyGroupCompressionDecorator,
-			statsTracker);
-		RocksDBSnapshotStrategyBase<K> checkpointSnapshotStrategy;
-		if (enableIncrementalCheckpointing) {
-			// TODO eventually we might want to separate savepoint and snapshot strategy, i.e. having 2 strategies.
-			if (injectedBeforeTakeDBNativeCheckpoint == null){
-				checkpointSnapshotStrategy = new RocksIncrementalSnapshotStrategy<>(
-				db,
-				rocksDBResourceGuard,
-				keySerializerProvider.currentSchemaSerializer(),
-				kvStateInformation,
-				keyGroupRange,
-				keyGroupPrefixBytes,
-				localRecoveryConfig,
-				cancelStreamRegistry,
-				instanceBasePath,
-				backendUID,
-				materializedSstFiles,
-				lastCompletedCheckpointId,
-				numberOfTransferingThreads,
-				maxRetryTimes,
-				dbNativeCheckpointTimeout,
-				statsTracker,
-				batchConfig);
-			} else {
-				checkpointSnapshotStrategy = new RocksIncrementalSnapshotStrategy<K>(
-					db,
-					rocksDBResourceGuard,
-					keySerializerProvider.currentSchemaSerializer(),
-					kvStateInformation,
-					keyGroupRange,
-					keyGroupPrefixBytes,
-					localRecoveryConfig,
-					cancelStreamRegistry,
-					instanceBasePath,
-					backendUID,
-					materializedSstFiles,
-					lastCompletedCheckpointId,
-					numberOfTransferingThreads,
-					maxRetryTimes,
-					dbNativeCheckpointTimeout,
-					statsTracker,
-					batchConfig) {
-					@Override
-					public void takeDBNativeCheckpoint(@Nonnull SnapshotDirectory outputDirectory) throws Exception {
-						injectedBeforeTakeDBNativeCheckpoint.accept(outputDirectory);
-						super.takeDBNativeCheckpoint(outputDirectory);
-					}
-				};
-			}
-		} else {
-			checkpointSnapshotStrategy = savepointSnapshotStrategy;
-		}
-		return new SnapshotStrategy<>(checkpointSnapshotStrategy, savepointSnapshotStrategy);
-	}
-
 	private PriorityQueueSetFactory initPriorityQueueFactory(
 		int keyGroupPrefixBytes,
 		Map<String, RocksDBKeyedStateBackend.RocksDbKvStateInfo> kvStateInformation,
@@ -689,16 +634,5 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	private RocksDBWatchdogProvider createRocksDBWatchdogProvider() {
 		return new RocksDBWatchdogProvider(dbOperationTimeoutMillis, dbOperationTimeoutHandler);
-	}
-
-	static final class SnapshotStrategy<K> {
-		final RocksDBSnapshotStrategyBase<K> checkpointSnapshotStrategy;
-		final RocksDBSnapshotStrategyBase<K> savepointSnapshotStrategy;
-
-		SnapshotStrategy(RocksDBSnapshotStrategyBase<K> checkpointSnapshotStrategy,
-						RocksDBSnapshotStrategyBase<K> savepointSnapshotStrategy) {
-			this.checkpointSnapshotStrategy = checkpointSnapshotStrategy;
-			this.savepointSnapshotStrategy = savepointSnapshotStrategy;
-		}
 	}
 }

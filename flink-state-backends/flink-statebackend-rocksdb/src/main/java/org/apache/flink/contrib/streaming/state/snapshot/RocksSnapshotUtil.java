@@ -29,6 +29,10 @@ public class RocksSnapshotUtil {
 	 */
 	public static final String SST_FILE_SUFFIX = ".sst";
 
+	public static final String WAL_FILE_SUFFIX = ".log";
+
+	public static final String MANIFEST_FILE_PREFIX = "MANIFEST";
+
 	public static final int FIRST_BIT_IN_BYTE_MASK = 0x80;
 
 	public static final int END_OF_KEY_GROUP_MARK = 0xFFFF;
