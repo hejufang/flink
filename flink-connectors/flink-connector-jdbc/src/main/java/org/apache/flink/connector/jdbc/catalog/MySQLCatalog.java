@@ -392,6 +392,6 @@ public class MySQLCatalog extends AbstractJdbcCatalog {
 				String.format("Failed connecting to %s via JDBC.", defaultUrl, e));
 		}
 
-		LOG.info("Catalog {} established connection to {}", getName(), defaultUrl);
+		LOG.info("Catalog {} established connection already", getName());
 	}
 }
