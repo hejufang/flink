@@ -183,14 +183,19 @@ public interface JdbcDialect extends Serializable {
 	 * Get select fields statement by condition fields. Default use SELECT.
 	 */
 	default String getSelectFromStatement(String tableName, String[] selectFields, String[] conditionFields) {
-		String selectExpressions = Arrays.stream(selectFields)
+		String selectExpressions;
+		if (null == selectFields || selectFields.length == 0) {
+			selectExpressions = "1";
+		} else {
+			selectExpressions = Arrays.stream(selectFields)
 				.map(this::quoteIdentifier)
 				.collect(Collectors.joining(", "));
+		}
 		String fieldExpressions = Arrays.stream(conditionFields)
-				.map(f -> quoteIdentifier(f) + "=?")
-				.collect(Collectors.joining(" AND "));
+			.map(f -> quoteIdentifier(f) + "=?")
+			.collect(Collectors.joining(" AND "));
 		return "SELECT " + selectExpressions + " FROM " +
-				quoteIdentifier(tableName) + (conditionFields.length > 0 ? " WHERE " + fieldExpressions : "");
+			quoteIdentifier(tableName) + (conditionFields.length > 0 ? " WHERE " + fieldExpressions : "");
 	}
 
 	/**

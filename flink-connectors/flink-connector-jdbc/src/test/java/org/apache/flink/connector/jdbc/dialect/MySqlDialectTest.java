@@ -53,4 +53,24 @@ public class MySqlDialectTest {
 			"WHERE col2 = ?, col4 = ?";
 		Assert.assertEquals(expected, upsertStatement);
 	}
+
+	@Test
+	public void testSelectFromStatementWithoutProjection() {
+		MySQLDialect mySQLDialect = new MySQLDialect();
+		String selectStatement = mySQLDialect.getSelectFromStatement(
+			"my_table",
+			null,
+			new String[]{"col2", "col4"}
+		);
+		String selectStatement2 = mySQLDialect.getSelectFromStatement(
+			"my_table",
+			new String[]{},
+			new String[]{"col2", "col4"}
+		);
+
+		String expected = "SELECT 1 FROM `my_table` " +
+			"WHERE `col2`=? AND `col4`=?";
+		Assert.assertEquals(expected, selectStatement);
+		Assert.assertEquals(expected, selectStatement2);
+	}
 }
