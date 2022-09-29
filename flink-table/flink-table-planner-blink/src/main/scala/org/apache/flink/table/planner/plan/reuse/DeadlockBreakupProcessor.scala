@@ -25,6 +25,7 @@ import org.apache.flink.table.api.TableConfig
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.api.config.ExecutionConfigOptions.TABLE_EXEC_USE_OLAP_MODE
 import org.apache.flink.table.planner.plan.`trait`.FlinkRelDistribution
+import org.apache.flink.table.planner.plan.`trait`.FlinkRelDistributionTraitDef
 import org.apache.flink.table.planner.plan.nodes.exec.{BatchExecNode, ExecNode, ExecNodeVisitorImpl}
 import org.apache.flink.table.planner.plan.nodes.physical.batch._
 import org.apache.flink.table.planner.plan.nodes.process.{DAGProcessContext, DAGProcessor}
@@ -154,7 +155,8 @@ class DeadlockBreakupProcessor extends DAGProcessor {
     private def rewriteJoin(
         join: BatchExecJoinBase,
         leftIsBuild: Boolean,
-        distribution: FlinkRelDistribution): Unit = {
+        probeDistribution: FlinkRelDistribution,
+        buildDistribution: FlinkRelDistribution): Unit = {
       val (buildSideIndex, probeSideIndex) = if (leftIsBuild) (0, 1) else (1, 0)
       val buildNode = join.getInputNodes.get(buildSideIndex)
       val probeNode = join.getInputNodes.get(probeSideIndex)
@@ -167,11 +169,11 @@ class DeadlockBreakupProcessor extends DAGProcessor {
       // 3. check whether all input paths have a barrier node (e.g. agg, sort)
       if (inputPathsOfProbeSide.nonEmpty && !hasBarrierNodeInInputPaths(inputPathsOfProbeSide)) {
         // 4. sets Exchange node(if does not exist, add one) as BATCH mode to break up the deadlock
-        setBatchModeForJoinInput(join, probeNode, distribution, probeSideIndex)
+        setBatchModeForJoinInput(join, probeNode, probeDistribution, probeSideIndex)
         val useOlapMode = tableConfig.getConfiguration.get(TABLE_EXEC_USE_OLAP_MODE)
         if (useOlapMode) {
           // Also set batch mode for build side to avoid deadlock in olap mode.
-          setBatchModeForJoinInput(join, buildNode, distribution, buildSideIndex)
+          setBatchModeForJoinInput(join, buildNode, buildDistribution, buildSideIndex)
         }
       }
     }
@@ -186,12 +188,12 @@ class DeadlockBreakupProcessor extends DAGProcessor {
           // TODO create a cloned BatchExecExchange for PIPELINE output
           e.setRequiredShuffleMode(ShuffleMode.BATCH)
         case _ =>
-          val probeRel = joinInput.asInstanceOf[RelNode]
-          val traitSet = probeRel.getTraitSet.replace(distribution)
+          val inputRel = joinInput.asInstanceOf[RelNode]
+          val traitSet = inputRel.getTraitSet.replace(distribution)
           val e = new BatchExecExchange(
-            probeRel.getCluster,
+            inputRel.getCluster,
             traitSet,
-            probeRel,
+            inputRel,
             distribution)
           e.setRequiredShuffleMode(ShuffleMode.BATCH)
           join.replaceInputNode(index, e)
@@ -203,11 +205,16 @@ class DeadlockBreakupProcessor extends DAGProcessor {
       node match {
         case hashJoin: BatchExecHashJoin =>
           val joinInfo = hashJoin.getJoinInfo
-          val columns = if (hashJoin.leftIsBuild) joinInfo.rightKeys else joinInfo.leftKeys
-          val distribution = FlinkRelDistribution.hash(columns)
-          rewriteJoin(hashJoin, hashJoin.leftIsBuild, distribution)
+          val probeKeys = if (hashJoin.leftIsBuild) joinInfo.rightKeys else joinInfo.leftKeys
+          val buildKeys = if (hashJoin.leftIsBuild) joinInfo.leftKeys else joinInfo.rightKeys
+          val probeDistribution = FlinkRelDistribution.hash(probeKeys)
+          val buildDistribution = FlinkRelDistribution.hash(buildKeys)
+          rewriteJoin(hashJoin, hashJoin.leftIsBuild, probeDistribution, buildDistribution)
         case nestedLoopJoin: BatchExecNestedLoopJoin =>
-          rewriteJoin(nestedLoopJoin, nestedLoopJoin.leftIsBuild, FlinkRelDistribution.ANY)
+          val build =
+            if (nestedLoopJoin.leftIsBuild) nestedLoopJoin.getLeft else nestedLoopJoin.getRight
+          rewriteJoin(nestedLoopJoin, nestedLoopJoin.leftIsBuild, FlinkRelDistribution.ANY,
+            build.getTraitSet.getTrait(FlinkRelDistributionTraitDef.INSTANCE))
         case _ => // do nothing
       }
     }

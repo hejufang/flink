@@ -64,6 +64,68 @@ HashAggregate(isMerge=[false], groupBy=[a, b, c], select=[a, b, c])
 ]]>
     </Resource>
   </TestCase>
+  <TestCase name="testDataStreamReuse_AddExchangeAsBatchForBothSide_HashJoin2">
+    <Resource name="sql">
+      <![CDATA[SELECT t.a, t.b, t.c, t1.b FROM t JOIN (SELECT b FROM t group by b) t1 ON t.a = t1.b]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(a=[$0], b=[$1], c=[$2], b0=[$4])
++- LogicalJoin(condition=[=($3, $4)], joinType=[inner])
+   :- LogicalProject(a=[$0], b=[$1], c=[$2], a0=[CAST($0):BIGINT])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, t]])
+   +- LogicalAggregate(group=[{0}])
+      +- LogicalProject(b=[$1])
+         +- LogicalTableScan(table=[[default_catalog, default_database, t]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[a, b, c, b0])
++- HashJoin(joinType=[InnerJoin], where=[=(a0, b0)], select=[a, b, c, a0, b0], build=[right])
+   :- Exchange(distribution=[hash[a0]], shuffle_mode=[BATCH])
+   :  +- Calc(select=[a, b, c, CAST(a) AS a0])
+   :     +- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
+   +- Exchange(distribution=[hash[b]], shuffle_mode=[BATCH])
+      +- HashAggregate(isMerge=[true], groupBy=[b], select=[b])
+         +- Exchange(distribution=[hash[b]])
+            +- LocalHashAggregate(groupBy=[b], select=[b])
+               +- Calc(select=[b])
+                  +- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testDataStreamReuse_AddExchangeAsBatchForBothSide_NestedLoopJoin">
+    <Resource name="sql">
+      <![CDATA[SELECT t.a, t.b, t.c, t1.b FROM t JOIN (SELECT b FROM t group by b order by b) t1 ON t.a = t1.b]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(a=[$0], b=[$1], c=[$2], b0=[$4])
++- LogicalJoin(condition=[=($3, $4)], joinType=[inner])
+   :- LogicalProject(a=[$0], b=[$1], c=[$2], a0=[CAST($0):BIGINT])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, t]])
+   +- LogicalAggregate(group=[{0}])
+      +- LogicalProject(b=[$1])
+         +- LogicalTableScan(table=[[default_catalog, default_database, t]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[a, b, c, b0])
++- NestedLoopJoin(joinType=[InnerJoin], where=[=(a0, b0)], select=[a, b, c, a0, b0], build=[right])
+   :- Exchange(distribution=[any], shuffle_mode=[BATCH])
+   :  +- Calc(select=[a, b, c, CAST(a) AS a0])
+   :     +- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
+   +- Exchange(distribution=[broadcast], shuffle_mode=[BATCH])
+      +- HashAggregate(isMerge=[true], groupBy=[b], select=[b])
+         +- Exchange(distribution=[hash[b]])
+            +- LocalHashAggregate(groupBy=[b], select=[b])
+               +- Calc(select=[b])
+                  +- BoundedStreamScan(table=[[default_catalog, default_database, t]], fields=[a, b, c])
+]]>
+    </Resource>
+  </TestCase>
   <TestCase name="testDataStreamReuse_AddExchangeAsBatch_NestedLoopJoin">
     <Resource name="sql">
       <![CDATA[SELECT * FROM t t1, t t2 WHERE t1.a = t2.b]]>

@@ -191,4 +191,27 @@ class DeadlockBreakupTest extends TableTestBase {
     util.verifyPlan(sqlQuery)
   }
 
+  @Test
+  def testDataStreamReuse_AddExchangeAsBatchForBothSide_HashJoin2(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setBoolean(
+      OptimizerConfigOptions.TABLE_OPTIMIZER_REUSE_SUB_PLAN_ENABLED, false)
+    util.tableEnv.getConfig.getConfiguration.setBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_USE_OLAP_MODE, true)
+    val sqlQuery = "SELECT t.a, t.b, t.c, t1.b FROM t JOIN (SELECT b FROM t group by b) t1" +
+      " ON t.a = t1.b"
+    util.verifyPlan(sqlQuery)
+  }
+
+  @Test
+  def testDataStreamReuse_AddExchangeAsBatchForBothSide_NestedLoopJoin(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setBoolean(
+      OptimizerConfigOptions.TABLE_OPTIMIZER_REUSE_SUB_PLAN_ENABLED, false)
+    util.tableEnv.getConfig.getConfiguration.setBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_USE_OLAP_MODE, true)
+    util.tableEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_DISABLED_OPERATORS, "HashJoin,SortMergeJoin")
+    val sqlQuery = "SELECT t.a, t.b, t.c, t1.b FROM t JOIN" +
+      " (SELECT b FROM t group by b order by b) t1 ON t.a = t1.b"
+    util.verifyPlan(sqlQuery)
+  }
 }
