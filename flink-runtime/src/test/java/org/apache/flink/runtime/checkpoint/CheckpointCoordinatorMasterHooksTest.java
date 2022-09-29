@@ -490,6 +490,7 @@ public class CheckpointCoordinatorMasterHooksTest {
         Executor executor = Executors.directExecutor();
         return new CheckpointCoordinator(
                 graph.getJobID(),
+                "test",
                 chkConfig,
                 Collections.emptyList(),
                 new StandaloneCheckpointIDCounter(),

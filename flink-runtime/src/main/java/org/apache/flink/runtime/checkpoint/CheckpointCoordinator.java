@@ -229,6 +229,7 @@ public class CheckpointCoordinator {
 
     public CheckpointCoordinator(
             JobID job,
+            String jobName,
             CheckpointCoordinatorConfiguration chkConfig,
             Collection<OperatorCoordinatorCheckpointContext> coordinatorsToCheckpoint,
             CheckpointIDCounter checkpointIDCounter,
@@ -244,6 +245,7 @@ public class CheckpointCoordinator {
 
         this(
                 job,
+                jobName,
                 chkConfig,
                 coordinatorsToCheckpoint,
                 checkpointIDCounter,
@@ -263,6 +265,7 @@ public class CheckpointCoordinator {
     @VisibleForTesting
     public CheckpointCoordinator(
             JobID job,
+            String jobName,
             CheckpointCoordinatorConfiguration chkConfig,
             Collection<OperatorCoordinatorCheckpointContext> coordinatorsToCheckpoint,
             CheckpointIDCounter checkpointIDCounter,
@@ -327,7 +330,7 @@ public class CheckpointCoordinator {
                 CheckpointProperties.forCheckpoint(chkConfig.getCheckpointRetentionPolicy());
 
         try {
-            this.checkpointStorageView = checkpointStorage.createCheckpointStorage(job);
+            this.checkpointStorageView = checkpointStorage.createCheckpointStorage(job, jobName);
 
             if (isPeriodicCheckpointingConfigured()) {
                 checkpointStorageView.initializeBaseLocationsForCheckpoint();
