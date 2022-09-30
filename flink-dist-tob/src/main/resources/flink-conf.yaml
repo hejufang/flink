@@ -90,6 +90,7 @@ state.backend.rocksdb.checkpoint.transfer.thread.num: 4
 state.backend.rocksdb.memory.managed: false
 execution.checkpointing.mode: EXACTLY_ONCE
 execution.checkpointing.timeout: 10 min
+execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION
 
 #==============================================================================
 # Rest & web frontend
