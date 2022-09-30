@@ -175,5 +175,6 @@ public class Constants {
 	}
 
 	public static final String FLINK_USER_CLASSPATH_ENV_KEY = "FLINK_USER_CLASSPATH";
+	public static final String JAR_FILE_EXTENSION = ".jar";
 
 }

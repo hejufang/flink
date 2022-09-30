@@ -58,7 +58,6 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
 	private FlinkPod downloadFilesByCsi(FlinkPod flinkPod) {
 		final Container basicMainContainer = decorateMainContainer(flinkPod.getMainContainer());
 		// csi type volume
-		long fileTimestamp = System.currentTimeMillis();
 		final Volume csiVolume = new VolumeBuilder()
 				.withName(Constants.FILE_DOWNLOAD_VOLUME)
 				.withNewCsi()
@@ -66,7 +65,7 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
 				.withNewNodePublishSecretRef()
 				.withName(kubernetesParameters.getSecretName())
 				.endNodePublishSecretRef()
-				.withVolumeAttributes(getCsiVolumeAttributes(fileTimestamp))
+				.withVolumeAttributes(getCsiVolumeAttributes(0))
 				.endCsi()
 				.build();
 		final Pod basicPod = new PodBuilder(flinkPod.getPod())
@@ -104,9 +103,11 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
 	 * 3. resourceList: Json representation of Map:String -> LocalResource where the key is th saving path of
 	 *  one LocalResource, the value "LocalResource" has three field: remote file path, timestamp for this file,
 	 *  and the resource type (ARCHIVE, FILE, PATTERN).
+	 *  The CSI driver uses (path, timestamp) to identify the file version, for timestamp of a file, set it to zero
+	 *  if you can guarantee the path will never be overridden so one path always represent one version.
 	 *
 	 * @param fileTimestamp the file timestamp for all remote files. Using same timestamp means they all belong to
-	 *                      the same version.
+	 *                      the same version. 0 means all file in this path belongs to the same version.
 	 * @return the created csi volume attribute map
 	 */
 	public Map<String, String> getCsiVolumeAttributes(long fileTimestamp) {
@@ -114,7 +115,7 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
 		volumeAttributes.put("volumeType", "Data");
 		volumeAttributes.put("ssdAffinity", "Prefer");
 		String resourceList = "{" + remoteFiles.stream()
-				.map(uri -> new LocalResource(uri, LocalResource.FILE))
+				.map(LocalResource::new)
 				.map(localResource -> String.format("\"%s\": %s",
 						localResource.getFileDownloadPath(pathToFileName), localResource.toJsonString(fileTimestamp)))
 				.collect(Collectors.joining(", ")) +
@@ -123,7 +124,10 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
 		return volumeAttributes;
 	}
 
-	private static class LocalResource {
+	/**
+	 * Class to represent a local resource in CSI volume definition.
+	 */
+	public static class LocalResource {
 
 		public static final int ARCHIVE = 0;
 		public static final int FILE = 1;
@@ -132,9 +136,14 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
 		private final URI path;
 		private final int resourceType;
 
-		public LocalResource(URI path, int resourceType) {
+		private LocalResource(URI path) {
 			this.path = path;
-			this.resourceType = resourceType;
+			if (path.getPath().endsWith(Constants.JAR_FILE_EXTENSION)) {
+				// if this is a jar file, we shouldn't mark it as ARCHIVE because we don't want to extract it in containers.
+				this.resourceType = LocalResource.FILE;
+			} else {
+				this.resourceType = LocalResource.ARCHIVE;
+			}
 		}
 
 		public String getFileDownloadPath(Map<String, String> pathToFileName) {
