@@ -439,7 +439,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
             CheckpointStorageAccess checkpointStorageAccess =
                     checkpointStorage.createCheckpointStorage(
-                            getEnvironment().getJobID(), getEnvironment().getJobName());
+                            getEnvironment().getJobID(), getEnvironment().getJobUID());
 
             environment.setCheckpointStorageAccess(checkpointStorageAccess);
 

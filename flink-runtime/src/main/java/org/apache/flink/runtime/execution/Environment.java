@@ -74,11 +74,11 @@ public interface Environment {
     JobID getJobID();
 
     /**
-     * Returns the Name of the job that the task belongs to.
+     * Returns the job-uid of the job that the task belongs to.
      *
-     * @return the Name of the job from the original job graph
+     * @return the job-uid of the job from the original job graph
      */
-    default String getJobName() {
+    default String getJobUID() {
         return "Environment";
     }
 

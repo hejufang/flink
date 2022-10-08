@@ -85,6 +85,13 @@ public class JobGraph implements Serializable {
     /** Name of this job. */
     private final String jobName;
 
+    /**
+     * UID of the job, which is unique and stable across restarts. It identifies an application (or
+     * task), a concept desired by some upper development platforms for task management. Each
+     * running instance of an application is a Flink job.
+     */
+    private String jobUID;
+
     private JobType jobType = JobType.BATCH;
 
     /**
@@ -194,6 +201,20 @@ public class JobGraph implements Serializable {
      */
     public String getName() {
         return this.jobName;
+    }
+
+    /**
+     * Returns the UID of the job, which is unique and stable across restarts.
+     *
+     * @return the UID of the job, which is unique and stable across restarts
+     */
+    public String getJobUID() {
+        return this.jobUID;
+    }
+
+    /** Sets the UID of the job, which is unique and stable across restarts. */
+    public void setJobUID(String jobUID) {
+        this.jobUID = jobUID;
     }
 
     /**

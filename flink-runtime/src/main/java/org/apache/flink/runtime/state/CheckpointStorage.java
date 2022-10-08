@@ -88,7 +88,8 @@ public interface CheckpointStorage extends java.io.Serializable {
      */
     CheckpointStorageAccess createCheckpointStorage(JobID jobId) throws IOException;
 
-    default CheckpointStorageAccess createCheckpointStorage(JobID jobId, String jobName) throws IOException {
+    default CheckpointStorageAccess createCheckpointStorage(JobID jobId, String jobUID)
+            throws IOException {
         return this.createCheckpointStorage(jobId);
     }
 }

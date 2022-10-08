@@ -327,7 +327,7 @@ public class FileSystemCheckpointStorage
     }
 
     @Override
-    public CheckpointStorageAccess createCheckpointStorage(JobID jobId, String jobName)
+    public CheckpointStorageAccess createCheckpointStorage(JobID jobId, String jobUID)
             throws IOException {
         checkNotNull(jobId, "jobId");
         return new FsCheckpointStorageAccess(
@@ -335,7 +335,7 @@ public class FileSystemCheckpointStorage
                 location.getBaseCheckpointPath(),
                 location.getBaseSavepointPath(),
                 jobId,
-                jobName,
+                jobUID,
                 namespace,
                 getMinFileSizeThreshold(),
                 getWriteBufferSize());

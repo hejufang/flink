@@ -60,7 +60,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class RuntimeEnvironment implements Environment {
 
     private final JobID jobId;
-    private final String jobName;
+    private final String jobUID;
     private final JobVertexID jobVertexId;
     private final ExecutionAttemptID executionId;
 
@@ -109,7 +109,7 @@ public class RuntimeEnvironment implements Environment {
 
     public RuntimeEnvironment(
             JobID jobId,
-            String jobName,
+            String jobUID,
             JobVertexID jobVertexId,
             ExecutionAttemptID executionId,
             ExecutionConfig executionConfig,
@@ -137,7 +137,7 @@ public class RuntimeEnvironment implements Environment {
             ExternalResourceInfoProvider externalResourceInfoProvider) {
 
         this.jobId = checkNotNull(jobId);
-        this.jobName = jobName;
+        this.jobUID = jobUID;
         this.jobVertexId = checkNotNull(jobVertexId);
         this.executionId = checkNotNull(executionId);
         this.taskInfo = checkNotNull(taskInfo);
@@ -177,8 +177,8 @@ public class RuntimeEnvironment implements Environment {
         return jobId;
     }
 
-    public String getJobName() {
-        return jobName;
+    public String getJobUID() {
+        return jobUID;
     }
 
     @Override

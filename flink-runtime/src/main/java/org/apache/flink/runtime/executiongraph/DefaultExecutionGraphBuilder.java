@@ -99,11 +99,13 @@ public class DefaultExecutionGraphBuilder {
 
         final String jobName = jobGraph.getName();
         final JobID jobId = jobGraph.getJobID();
+        final String jobUID = jobGraph.getJobUID();
 
         final JobInformation jobInformation =
                 new JobInformation(
                         jobId,
                         jobName,
+                        jobUID,
                         jobGraph.getSerializedExecutionConfig(),
                         jobGraph.getJobConfiguration(),
                         jobGraph.getUserJarBlobKeys(),

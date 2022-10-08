@@ -23,6 +23,7 @@ import org.apache.flink.api.dag.Pipeline;
 import org.apache.flink.client.FlinkPipelineTranslationUtil;
 import org.apache.flink.client.cli.ExecutionConfigAccessor;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.PipelineOptionsInternal;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 
@@ -59,6 +60,11 @@ public class PipelineExecutorUtils {
         configuration
                 .getOptional(PipelineOptionsInternal.PIPELINE_FIXED_JOB_ID)
                 .ifPresent(strJobID -> jobGraph.setJobID(JobID.fromHexString(strJobID)));
+
+        configuration.getOptional(PipelineOptions.JOB_UID).ifPresent(jobGraph::setJobUID);
+        if (jobGraph.getJobUID() == null) {
+            jobGraph.setJobUID(jobGraph.getName());
+        }
 
         jobGraph.addJars(executionConfigAccessor.getJars());
         jobGraph.setClasspaths(executionConfigAccessor.getClasspaths());

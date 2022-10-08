@@ -497,7 +497,7 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
         checkpointCoordinator =
                 new CheckpointCoordinator(
                         jobInformation.getJobId(),
-                        jobInformation.getJobName(),
+                        jobInformation.getJobUID(),
                         chkConfig,
                         operatorCoordinators,
                         checkpointIDCounter,

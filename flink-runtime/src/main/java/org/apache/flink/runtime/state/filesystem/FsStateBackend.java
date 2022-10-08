@@ -544,18 +544,18 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
     }
 
     @Override
-    public CheckpointStorageAccess createCheckpointStorage(JobID jobId, @Nullable String jobName)
+    public CheckpointStorageAccess createCheckpointStorage(JobID jobId, @Nullable String jobUID)
             throws IOException {
-        LOG.info("createCheckpointStorage, jobId {}, jobName, {}", jobId, jobName);
+        LOG.info("createCheckpointStorage, jobId {}, jobUID, {}", jobId, jobUID);
         if (config != null) {
             checkNotNull(jobId, "jobId");
-            checkNotNull(jobName, "jobName");
+            checkNotNull(jobUID, "jobName");
             return new FsCheckpointStorageAccess(
                     getCheckpointPath().getFileSystem(),
                     getCheckpointPath(),
                     getSavepointPath(),
                     jobId,
-                    jobName,
+                    jobUID,
                     config.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE),
                     getMinFileSizeThreshold(),
                     getWriteBufferSize());

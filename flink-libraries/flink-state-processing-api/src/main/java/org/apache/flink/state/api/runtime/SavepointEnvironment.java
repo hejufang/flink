@@ -141,7 +141,7 @@ public class SavepointEnvironment implements Environment {
         return jobID;
     }
 
-    public String getJobName() {
+    public String getJobUID() {
         return "savepointEnvironment";
     }
 
