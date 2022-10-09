@@ -25,21 +25,17 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.failurerate.FailureRaterUtil;
-import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.highavailability.TestingHighAvailabilityServices;
 import org.apache.flink.runtime.instance.HardwareDescription;
 import org.apache.flink.runtime.instance.InstanceID;
-import org.apache.flink.runtime.io.network.partition.NoOpResourceManagerPartitionTracker;
-import org.apache.flink.runtime.leaderelection.LeaderElectionService;
-import org.apache.flink.runtime.leaderelection.TestingLeaderElectionService;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.slotmanager.NoSlotWorkerManagerBuilder;
 import org.apache.flink.runtime.resourcemanager.slotmanager.NoSlotWorkerManagerImpl;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
+import org.apache.flink.runtime.resourcemanager.utils.MockResourceManagerRuntimeServices;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
-import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcUtils;
 import org.apache.flink.runtime.rpc.TestingRpcService;
 import org.apache.flink.runtime.rpc.exceptions.FencingTokenException;
@@ -87,8 +83,6 @@ public class ResourceManagerTaskExecutorWithoutSlotTest extends TestLogger {
 
 	private static final Time TIMEOUT = Time.seconds(10L);
 
-	private static final long HEARTBEAT_TIMEOUT = 5000;
-
 	private static TestingRpcService rpcService;
 
 	private static final WorkerResourceSpec WORKER_RESOURCE_SPEC = new WorkerResourceSpec.Builder()
@@ -110,15 +104,13 @@ public class ResourceManagerTaskExecutorWithoutSlotTest extends TestLogger {
 
 	private ResourceID taskExecutorResourceID;
 
-	private ResourceID resourceManagerResourceID;
-
 	private StandaloneResourceManager resourceManager;
 
 	private ResourceManagerGateway rmGateway;
 
 	private ResourceManagerGateway wronglyFencedGateway;
 
-	private TestingFatalErrorHandler testingFatalErrorHandler;
+	private TestingFatalErrorHandler fatalErrorHandler = new TestingFatalErrorHandler();
 
 	@BeforeClass
 	public static void setupClass() {
@@ -131,15 +123,10 @@ public class ResourceManagerTaskExecutorWithoutSlotTest extends TestLogger {
 
 		createAndRegisterTaskExecutorGateway();
 		taskExecutorResourceID = ResourceID.generate();
-		resourceManagerResourceID = ResourceID.generate();
-		testingFatalErrorHandler = new TestingFatalErrorHandler();
-		TestingLeaderElectionService rmLeaderElectionService = new TestingLeaderElectionService();
-		resourceManager = createAndStartResourceManager(rmLeaderElectionService, testingFatalErrorHandler);
+		resourceManager = createAndStartResourceManager(Time.milliseconds(1L));
 		rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
 		wronglyFencedGateway = rpcService.connect(resourceManager.getAddress(), ResourceManagerId.generate(), ResourceManagerGateway.class)
 			.get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
-
-		grantLeadership(rmLeaderElectionService).get(TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
 	}
 
 	private void createAndRegisterTaskExecutorGateway() {
@@ -147,47 +134,37 @@ public class ResourceManagerTaskExecutorWithoutSlotTest extends TestLogger {
 		rpcService.registerGateway(taskExecutorGateway.getAddress(), taskExecutorGateway);
 	}
 
-	private CompletableFuture<UUID> grantLeadership(TestingLeaderElectionService leaderElectionService) {
-		UUID leaderSessionId = UUID.randomUUID();
-		return leaderElectionService.isLeader(leaderSessionId);
-	}
-
-	private StandaloneResourceManager createAndStartResourceManager(LeaderElectionService rmLeaderElectionService, FatalErrorHandler fatalErrorHandler) throws Exception {
-		TestingHighAvailabilityServices highAvailabilityServices = new TestingHighAvailabilityServices();
-		HeartbeatServices heartbeatServices = new HeartbeatServices(1000L, HEARTBEAT_TIMEOUT);
-		highAvailabilityServices.setResourceManagerLeaderElectionService(rmLeaderElectionService);
-
+	private TestingStandaloneResourceManager createAndStartResourceManager(Time startupPeriod) throws Exception {
 		SlotManager slotManager = NoSlotWorkerManagerBuilder.newBuilder()
 			.setDefaultWorkerResourceSpec(WORKER_RESOURCE_SPEC)
 			.setMinWorkerNum(MIN_WORKER_NUM)
 			.setMaxWorkerNum(MAX_WORKER_NUM)
 			.build();
 
-		JobLeaderIdService jobLeaderIdService = new JobLeaderIdService(
-			highAvailabilityServices,
-			rpcService.getScheduledExecutor(),
-			Time.minutes(5L));
+		final MockResourceManagerRuntimeServices rmServices = new MockResourceManagerRuntimeServices(
+			rpcService,
+			TIMEOUT,
+			slotManager);
 
-		StandaloneResourceManager resourceManager =
-			new StandaloneResourceManager(
-				rpcService,
-				resourceManagerResourceID,
-				highAvailabilityServices,
-				heartbeatServices,
-				slotManager,
-				NoOpResourceManagerPartitionTracker::get,
-				jobLeaderIdService,
-				new ClusterInformation("localhost", 1234, 12345),
-				fatalErrorHandler,
-				UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
-				Time.minutes(5L),
-				RpcUtils.INF_TIMEOUT,
-				FailureRaterUtil.createFailureRater(new Configuration()));
+		final FailureRater failureRater = FailureRaterUtil.createFailureRater(new Configuration());
 
-		resourceManager.setJmResourceAllocationEnabled(true);
-		resourceManager.start();
+		final TestingStandaloneResourceManager rm = new TestingStandaloneResourceManager(
+			rmServices.rpcService,
+			ResourceID.generate(),
+			UUID.randomUUID(),
+			rmServices.heartbeatServices,
+			slotManager,
+			rmServices.jobLeaderIdService,
+			new ClusterInformation("localhost", 1234, 8081, "localhost", 8091),
+			fatalErrorHandler,
+			UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
+			startupPeriod,
+			failureRater);
 
-		return resourceManager;
+		rm.start();
+		rm.getStartedFuture().get(TIMEOUT.getSize(), TIMEOUT.getUnit());
+
+		return rm;
 	}
 
 	@After
@@ -196,8 +173,8 @@ public class ResourceManagerTaskExecutorWithoutSlotTest extends TestLogger {
 			RpcUtils.terminateRpcEndpoint(resourceManager, TIMEOUT);
 		}
 
-		if (testingFatalErrorHandler != null && testingFatalErrorHandler.hasExceptionOccurred()) {
-			testingFatalErrorHandler.rethrowError();
+		if (fatalErrorHandler != null && fatalErrorHandler.hasExceptionOccurred()) {
+			fatalErrorHandler.rethrowError();
 		}
 	}
 

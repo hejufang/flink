@@ -28,7 +28,6 @@ import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerImpl;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -39,6 +38,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+
+import java.util.UUID;
 
 /**
  * {@link ResourceManagerFactory} which creates a {@link StandaloneResourceManager}.
@@ -60,7 +61,7 @@ public final class StandaloneResourceManagerFactory extends ResourceManagerFacto
 		Configuration configuration,
 		ResourceID resourceId,
 		RpcService rpcService,
-		HighAvailabilityServices highAvailabilityServices,
+		UUID leaderSessionId,
 		HeartbeatServices heartbeatServices,
 		FatalErrorHandler fatalErrorHandler,
 		ClusterInformation clusterInformation,
@@ -74,7 +75,7 @@ public final class StandaloneResourceManagerFactory extends ResourceManagerFacto
 		return new StandaloneResourceManager(
 			rpcService,
 			resourceId,
-			highAvailabilityServices,
+			leaderSessionId,
 			heartbeatServices,
 			resourceManagerRuntimeServices.getSlotManager(),
 			ResourceManagerPartitionTrackerImpl::new,

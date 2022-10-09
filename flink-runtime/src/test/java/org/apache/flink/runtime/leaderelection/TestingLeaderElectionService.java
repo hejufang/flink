@@ -121,4 +121,8 @@ public class TestingLeaderElectionService implements LeaderElectionService {
 		return startFuture;
 	}
 
+	public synchronized boolean isStopped() {
+		return contender == null;
+	}
+
 }

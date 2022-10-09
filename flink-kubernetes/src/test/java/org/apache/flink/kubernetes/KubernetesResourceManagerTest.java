@@ -51,7 +51,6 @@ import org.apache.flink.runtime.externalresource.ExternalResourceUtils;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.instance.HardwareDescription;
 import org.apache.flink.runtime.io.network.partition.NoOpResourceManagerPartitionTracker;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -108,6 +107,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -173,7 +173,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				RpcService rpcService,
 				ResourceID resourceId,
 				Configuration flinkConfig,
-				HighAvailabilityServices highAvailabilityServices,
+				UUID leaderSessionId,
 				HeartbeatServices heartbeatServices,
 				SlotManager slotManager,
 				JobLeaderIdService jobLeaderIdService,
@@ -187,8 +187,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 			super(
 				rpcService,
 				resourceId,
+				leaderSessionId,
 				flinkConfig,
-				highAvailabilityServices,
 				heartbeatServices,
 				slotManager,
 				NoOpResourceManagerPartitionTracker::get,
@@ -860,7 +860,6 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 			runTest(() -> {
 				CompletableFuture<?> startServiceFuture = resourceManager.runInMainThread(() -> {
-					resourceManager.startServicesOnLeadership();
 					return null;
 				});
 				startServiceFuture.get();
@@ -903,6 +902,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 			assertEquals(1, kubeClient.pods().list().getItems().size());
 
 			runTest(() -> {
+				Thread.sleep(1000);
 				assertEquals(1, resourceManager.getRecoveredWorkerNodeSet().size());
 				KubernetesPod pod = resourceManager.getRecoveredWorkerNodeSet().get(new ResourceID(previewPodName));
 				assertEquals(1.0, pod.getMainContainerResource().getCpu());
@@ -973,7 +973,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				rpcService,
 				ResourceID.generate(),
 				configuration,
-				rmServices.highAvailabilityServices,
+				UUID.randomUUID(),
 				rmServices.heartbeatServices,
 				rmServices.slotManager,
 				rmServices.jobLeaderIdService,
@@ -985,7 +985,6 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				failureRater,
 				clock);
 			kubernetesResourceManager.start();
-			rmServices.grantLeadership();
 			return kubernetesResourceManager;
 		}
 

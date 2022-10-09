@@ -30,9 +30,6 @@ import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerBuilder;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.testutils.DirectScheduledExecutorService;
 
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -73,14 +70,5 @@ public class MockResourceManagerRuntimeServices {
 			highAvailabilityServices,
 			rpcService.getScheduledExecutor(),
 			Time.minutes(5L));
-	}
-
-	public void grantLeadership() throws Exception {
-		UUID rmLeaderSessionId = UUID.randomUUID();
-		rmLeaderElectionService.isLeader(rmLeaderSessionId).get(timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
-	}
-
-	public void revokeLeadership() {
-		rmLeaderElectionService.notLeader();
 	}
 }

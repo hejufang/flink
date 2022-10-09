@@ -24,7 +24,6 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
@@ -35,6 +34,7 @@ import org.apache.flink.runtime.rpc.RpcUtils;
 
 import javax.annotation.Nullable;
 
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
@@ -46,7 +46,7 @@ public class TestingResourceManager extends ResourceManager<ResourceID> {
 	public TestingResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
-			HighAvailabilityServices highAvailabilityServices,
+			UUID leaderSessionId,
 			HeartbeatServices heartbeatServices,
 			SlotManager slotManager,
 			ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
@@ -57,7 +57,7 @@ public class TestingResourceManager extends ResourceManager<ResourceID> {
 		super(
 			rpcService,
 			resourceId,
-			highAvailabilityServices,
+			leaderSessionId,
 			heartbeatServices,
 			slotManager,
 			clusterPartitionTrackerFactory,

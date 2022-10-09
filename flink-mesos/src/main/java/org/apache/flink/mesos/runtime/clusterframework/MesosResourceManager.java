@@ -48,7 +48,6 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
@@ -86,6 +85,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -152,7 +152,7 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 			// base class
 			RpcService rpcService,
 			ResourceID resourceId,
-			HighAvailabilityServices highAvailabilityServices,
+			UUID leaderSessionId,
 			HeartbeatServices heartbeatServices,
 			SlotManager slotManager,
 			ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
@@ -171,7 +171,7 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 		super(
 			rpcService,
 			resourceId,
-			highAvailabilityServices,
+			leaderSessionId,
 			heartbeatServices,
 			slotManager,
 			clusterPartitionTrackerFactory,
@@ -277,9 +277,10 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 		catch (IOException e) {
 			throw new ResourceManagerException("Unable to configure the artifact server with TaskManager artifacts.", e);
 		}
+
+		prepareLeadershipAsync();
 	}
 
-	@Override
 	protected CompletableFuture<Void> prepareLeadershipAsync() {
 		Preconditions.checkState(initializedMesosConfig != null);
 
@@ -306,7 +307,6 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 		}, getMainThreadExecutor());
 	}
 
-	@Override
 	protected CompletableFuture<Void> clearStateAsync() {
 		schedulerDriver.stop(true);
 

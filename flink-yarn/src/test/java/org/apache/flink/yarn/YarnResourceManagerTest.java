@@ -43,7 +43,6 @@ import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.instance.HardwareDescription;
 import org.apache.flink.runtime.io.network.partition.NoOpResourceManagerPartitionTracker;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -117,6 +116,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -209,7 +209,7 @@ public class YarnResourceManagerTest extends TestLogger {
 				ResourceID resourceId,
 				Configuration flinkConfig,
 				Map<String, String> env,
-				HighAvailabilityServices highAvailabilityServices,
+				UUID leaderSessionId,
 				HeartbeatServices heartbeatServices,
 				SlotManager slotManager,
 				JobLeaderIdService jobLeaderIdService,
@@ -224,7 +224,7 @@ public class YarnResourceManagerTest extends TestLogger {
 				resourceId,
 				flinkConfig,
 				env,
-				highAvailabilityServices,
+				leaderSessionId,
 				heartbeatServices,
 				slotManager,
 				NoOpResourceManagerPartitionTracker::get,
@@ -347,7 +347,7 @@ public class YarnResourceManagerTest extends TestLogger {
 							rmResourceID,
 							configuration,
 							env,
-							rmServices.highAvailabilityServices,
+							UUID.randomUUID(),
 							rmServices.heartbeatServices,
 							rmServices.slotManager,
 							rmServices.jobLeaderIdService,
@@ -366,11 +366,10 @@ public class YarnResourceManagerTest extends TestLogger {
 		}
 
 		/**
-		 * Start the resource manager and grant leadership to it.
+		 * Start the resource manager.
 		 */
 		void startResourceManager() throws Exception {
 			resourceManager.start();
-			rmServices.grantLeadership();
 		}
 
 		/**
@@ -634,6 +633,7 @@ public class YarnResourceManagerTest extends TestLogger {
 					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
 
 			runTest(() -> {
+				Thread.sleep(100);
 				// verify get 2 previous containers
 				assertEquals(2, resourceManager.getWorkerNodeMap().size());
 				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
@@ -691,6 +691,7 @@ public class YarnResourceManagerTest extends TestLogger {
 					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
 
 			runTest(() -> {
+				Thread.sleep(100);
 				// verify get 2 previous containers
 				assertEquals(2, resourceManager.getWorkerNodeMap().size());
 				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
@@ -768,6 +769,7 @@ public class YarnResourceManagerTest extends TestLogger {
 					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
 
 			runTest(() -> {
+				Thread.sleep(100);
 				// verify get 2 previous containers
 				assertEquals(2, resourceManager.getWorkerNodeMap().size());
 				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
@@ -860,6 +862,7 @@ public class YarnResourceManagerTest extends TestLogger {
 					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
 
 			runTest(() -> {
+				Thread.sleep(100);
 				// verify get 2 previous containers
 				assertEquals(2, resourceManager.getWorkerNodeMap().size());
 				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
@@ -971,6 +974,7 @@ public class YarnResourceManagerTest extends TestLogger {
 					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
 
 			runTest(() -> {
+				Thread.sleep(100);
 				// verify get 2 previous containers
 				assertEquals(2, resourceManager.getWorkerNodeMap().size());
 				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
@@ -1087,6 +1091,7 @@ public class YarnResourceManagerTest extends TestLogger {
 					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
 
 			runTest(() -> {
+				Thread.sleep(100);
 				// verify get 2 previous containers
 				assertEquals(2, resourceManager.getWorkerNodeMap().size());
 				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
@@ -1193,6 +1198,7 @@ public class YarnResourceManagerTest extends TestLogger {
 					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
 
 			runTest(() -> {
+				Thread.sleep(50L);
 				// verify get 2 previous containers
 				assertEquals(2, resourceManager.getWorkerNodeMap().size());
 				assertEquals(2, resourceManager.getRecoveredWorkerNodeSet().size());
@@ -1212,6 +1218,7 @@ public class YarnResourceManagerTest extends TestLogger {
 
 				// wait previous container timeout.
 				verifyFutureCompleted(addContainerRequestFutures.get(0));
+				Thread.sleep(50L);
 
 				// verify 2 recovered container released and request 1 new containers.
 				assertEquals(0, resourceManager.getWorkerNodeMap().size());
@@ -1285,6 +1292,7 @@ public class YarnResourceManagerTest extends TestLogger {
 					(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
 
 			runTest(() -> {
+				Thread.sleep(100);
 				// verify get 2 previous containers
 				assertEquals(4, resourceManager.getWorkerNodeMap().size());
 				assertEquals(4, resourceManager.getRecoveredWorkerNodeSet().size());
@@ -1406,6 +1414,8 @@ public class YarnResourceManagerTest extends TestLogger {
 					executor.triggerNonPeriodicScheduledTask();
 					return null;
 				}).get();
+
+				Thread.sleep(100);
 				assertEquals(1, resourceManager.getYarnBlackedHosts().size());
 
 				// request 1 containers.
@@ -1571,6 +1581,7 @@ public class YarnResourceManagerTest extends TestLogger {
 			});
 
 			runTest(() -> {
+				Thread.sleep(100);
 				// Make sure two worker resource spec will be normalized to the same container resource
 				assertEquals(containerResource, resourceManager.getContainerResource(workerResourceSpec2).get());
 
@@ -1659,6 +1670,7 @@ public class YarnResourceManagerTest extends TestLogger {
 			});
 
 			runTest(() -> {
+				Thread.sleep(100L);
 				// Make sure two worker resource spec will be normalized to different container resources
 				assertNotEquals(containerResource1, containerResource2);
 

@@ -24,7 +24,6 @@ import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerImpl;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ActiveResourceManagerFactory;
@@ -40,6 +39,8 @@ import org.apache.flink.yarn.YarnResourceManager;
 import org.apache.flink.yarn.YarnWorkerNode;
 
 import javax.annotation.Nullable;
+
+import java.util.UUID;
 
 /**
  * {@link ResourceManagerFactory} implementation which creates a {@link YarnResourceManager}.
@@ -59,7 +60,7 @@ public class YarnResourceManagerFactory extends ActiveResourceManagerFactory<Yar
 			Configuration configuration,
 			ResourceID resourceId,
 			RpcService rpcService,
-			HighAvailabilityServices highAvailabilityServices,
+			UUID leaderSessionId,
 			HeartbeatServices heartbeatServices,
 			FatalErrorHandler fatalErrorHandler,
 			ClusterInformation clusterInformation,
@@ -73,7 +74,7 @@ public class YarnResourceManagerFactory extends ActiveResourceManagerFactory<Yar
 			resourceId,
 			configuration,
 			System.getenv(),
-			highAvailabilityServices,
+			leaderSessionId,
 			heartbeatServices,
 			resourceManagerRuntimeServices.getSlotManager(),
 			ResourceManagerPartitionTrackerImpl::new,

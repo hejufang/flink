@@ -64,7 +64,6 @@ import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.externalresource.ExternalResourceUtils;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.metrics.MetricNames;
@@ -107,6 +106,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -208,8 +208,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	public KubernetesResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
+			UUID leaderSessionId,
 			Configuration flinkConfig,
-			HighAvailabilityServices highAvailabilityServices,
 			HeartbeatServices heartbeatServices,
 			SlotManager slotManager,
 			ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
@@ -227,7 +227,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			System.getenv(),
 			rpcService,
 			resourceId,
-			highAvailabilityServices,
+			leaderSessionId,
 			heartbeatServices,
 			slotManager,
 			clusterPartitionTrackerFactory,
@@ -319,6 +319,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		OptionalConsumer.of(kubePodSyncerOpt)
 				.ifPresent(KubePodSyncer::start)
 				.ifNotPresent(() -> podsWatchOpt = watchTaskManagerPods());
+
 		this.running = true;
 	}
 
@@ -377,6 +378,15 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		} catch (Exception e) {
 			LOG.error("register metric error.", e);
 		}
+
+		if (!recoveredWorkerNodeSet.isEmpty() && previousContainerTimeoutMs > 0) {
+			log.info("Will check {} previous container timeout in {} ms.", recoveredWorkerNodeSet.size(), previousContainerTimeoutMs);
+			Set<ResourceID> workersToCheckTimeout = new HashSet<>(recoveredWorkerNodeSet.keySet());
+			scheduleRunAsync(
+				() -> releasePreviousContainer(workersToCheckTimeout),
+				previousContainerTimeoutMs,
+				TimeUnit.MILLISECONDS);
+		}
 	}
 
 	@Override
@@ -413,19 +423,6 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			}
 			LOG.info("kubeClient closed.");
 		});
-	}
-
-	@Override
-	protected void startServicesOnLeadership() {
-		if (!recoveredWorkerNodeSet.isEmpty() && previousContainerTimeoutMs > 0) {
-			log.info("Will check {} previous container timeout in {} ms.", recoveredWorkerNodeSet.size(), previousContainerTimeoutMs);
-			Set<ResourceID> workersToCheckTimeout = new HashSet<>(recoveredWorkerNodeSet.keySet());
-			scheduleRunAsync(
-					() -> releasePreviousContainer(workersToCheckTimeout),
-					previousContainerTimeoutMs,
-					TimeUnit.MILLISECONDS);
-		}
-		super.startServicesOnLeadership();
 	}
 
 	@Override

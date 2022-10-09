@@ -45,7 +45,6 @@ import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.externalresource.ExternalResourceUtils;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
 import org.apache.flink.runtime.messages.webmonitor.SmartResourcesStats;
 import org.apache.flink.runtime.metrics.MetricNames;
@@ -122,6 +121,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -247,7 +247,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			ResourceID resourceId,
 			Configuration flinkConfig,
 			Map<String, String> env,
-			HighAvailabilityServices highAvailabilityServices,
+			UUID leaderSessionId,
 			HeartbeatServices heartbeatServices,
 			SlotManager slotManager,
 			ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
@@ -263,7 +263,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			env,
 			rpcService,
 			resourceId,
-			highAvailabilityServices,
+			leaderSessionId,
 			heartbeatServices,
 			slotManager,
 			clusterPartitionTrackerFactory,
@@ -504,19 +504,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	}
 
 	@Override
-	protected void startServicesOnLeadership() {
-		if (!recoveredWorkerNodeSet.isEmpty() && this.yarnPreviousContainerTimeoutMs > 0) {
-			log.info("Will check {} previous container timeout in {} ms.", recoveredWorkerNodeSet.size(), yarnPreviousContainerTimeoutMs);
-			Set<ResourceID> workerToCheckTimeout = new HashSet<>(recoveredWorkerNodeSet);
-			scheduleRunAsync(
-					() -> releasePreviousContainer(workerToCheckTimeout),
-					this.yarnPreviousContainerTimeoutMs,
-					TimeUnit.MILLISECONDS);
-		}
-		super.startServicesOnLeadership();
-	}
-
-	@Override
 	protected Optional<String> getTaskManagerNodeName(ResourceID resourceID) {
 		return Optional.ofNullable(workerNodeMap.get(resourceID))
 				.map(w -> w.getContainer().getNodeId().getHost());
@@ -555,6 +542,15 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		super.onStart();
 		initTargetContainerResources();
 		registerMetrics();
+
+		if (!recoveredWorkerNodeSet.isEmpty() && this.yarnPreviousContainerTimeoutMs > 0) {
+			log.info("Will check {} previous container timeout in {} ms.", recoveredWorkerNodeSet.size(), yarnPreviousContainerTimeoutMs);
+			Set<ResourceID> workerToCheckTimeout = new HashSet<>(recoveredWorkerNodeSet);
+			scheduleRunAsync(
+				() -> releasePreviousContainer(workerToCheckTimeout),
+				this.yarnPreviousContainerTimeoutMs,
+				TimeUnit.MILLISECONDS);
+		}
 	}
 
 	@Override

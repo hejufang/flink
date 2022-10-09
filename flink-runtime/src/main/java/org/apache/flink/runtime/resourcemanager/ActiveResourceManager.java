@@ -29,7 +29,6 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
@@ -50,6 +49,7 @@ import javax.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -93,7 +93,7 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 			Map<String, String> env,
 			RpcService rpcService,
 			ResourceID resourceId,
-			HighAvailabilityServices highAvailabilityServices,
+			UUID leaderSessionId,
 			HeartbeatServices heartbeatServices,
 			SlotManager slotManager,
 			ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
@@ -103,10 +103,11 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 			ResourceManagerMetricGroup resourceManagerMetricGroup,
 			FailureRater failureRater,
 			Clock clock) {
+
 		super(
 			rpcService,
 			resourceId,
-			highAvailabilityServices,
+			leaderSessionId,
 			heartbeatServices,
 			slotManager,
 			clusterPartitionTrackerFactory,
@@ -333,22 +334,18 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	public void onStart() throws Exception {
 		super.onStart();
 		registerMetrics();
-	}
 
-	@Override
-	protected void initialize() throws ResourceManagerException {
-		slowContainerManager.setSlowContainerActions(new SlowContainerActionsImpl());
-	}
-
-	@Override
-	protected void startServicesOnLeadership() {
 		if (slowContainerCheckIntervalMs > 0) {
 			log.info("Start to check slow containers with interval {} ms.", slowContainerCheckIntervalMs);
 			scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
 		} else {
 			log.info("Disable check slow containers.");
 		}
-		super.startServicesOnLeadership();
+	}
+
+	@Override
+	protected void initialize() throws ResourceManagerException {
+		slowContainerManager.setSlowContainerActions(new SlowContainerActionsImpl());
 	}
 
 	public SlowContainerManager getSlowContainerManager() {

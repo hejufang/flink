@@ -25,7 +25,6 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
@@ -36,6 +35,7 @@ import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
 
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -52,7 +52,7 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 	public StandaloneResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
-			HighAvailabilityServices highAvailabilityServices,
+			UUID leaderSessionId,
 			HeartbeatServices heartbeatServices,
 			SlotManager slotManager,
 			ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
@@ -66,7 +66,7 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 		this(
 			rpcService,
 			resourceId,
-			highAvailabilityServices,
+			leaderSessionId,
 			heartbeatServices,
 			slotManager,
 			clusterPartitionTrackerFactory,
@@ -83,7 +83,7 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 	public StandaloneResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
-			HighAvailabilityServices highAvailabilityServices,
+			UUID leaderSessionId,
 			HeartbeatServices heartbeatServices,
 			SlotManager slotManager,
 			ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
@@ -98,7 +98,7 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 		super(
 			rpcService,
 			resourceId,
-			highAvailabilityServices,
+			leaderSessionId,
 			heartbeatServices,
 			slotManager,
 			clusterPartitionTrackerFactory,
@@ -114,7 +114,7 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 
 	@Override
 	protected void initialize() throws ResourceManagerException {
-		// nothing to initialize
+		startStartupPeriod();
 	}
 
 	@Override
@@ -147,12 +147,6 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 	@Override
 	protected ResourceID workerStarted(ResourceID resourceID) {
 		return resourceID;
-	}
-
-	@Override
-	protected void startServicesOnLeadership() {
-		super.startServicesOnLeadership();
-		startStartupPeriod();
 	}
 
 	private void startStartupPeriod() {

@@ -31,6 +31,7 @@ import org.apache.flink.runtime.jobmaster.JobResult;
 import org.apache.flink.runtime.jobmaster.utils.JobResultUtils;
 import org.apache.flink.runtime.minicluster.TestingMiniCluster;
 import org.apache.flink.runtime.minicluster.TestingMiniClusterConfiguration;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerServiceImpl;
 import org.apache.flink.runtime.testingUtils.TestingUtils;
 import org.apache.flink.runtime.testutils.CommonTestUtils;
 import org.apache.flink.runtime.util.LeaderRetrievalUtils;
@@ -43,6 +44,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.time.Duration;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -66,12 +68,17 @@ public class LeaderChangeClusterComponentsTest extends TestLogger {
 
 	private static TestingEmbeddedHaServices highAvailabilityServices;
 
+	private static Properties sysProps;
+
 	private JobGraph jobGraph;
 
 	private JobID jobId;
 
 	@BeforeClass
 	public static void setupClass() throws Exception  {
+		sysProps = System.getProperties();
+		System.setProperty(ResourceManagerServiceImpl.ENABLE_MULTI_LEADER_SESSION_PROPERTY, "");
+
 		highAvailabilityServices = new TestingEmbeddedHaServices(TestingUtils.defaultExecutor());
 
 		miniCluster = new TestingMiniCluster(
@@ -82,6 +89,8 @@ public class LeaderChangeClusterComponentsTest extends TestLogger {
 			() -> highAvailabilityServices);
 
 		miniCluster.start();
+
+		System.setProperties(sysProps);
 	}
 
 	@Before

@@ -24,10 +24,12 @@ import org.apache.flink.runtime.dispatcher.Dispatcher;
 import org.apache.flink.runtime.dispatcher.runner.DispatcherRunner;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.resourcemanager.ResourceManager;
-import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerService;
+import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.webmonitor.WebMonitorEndpoint;
 import org.apache.flink.util.AutoCloseableAsync;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FlinkException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +54,7 @@ public class DispatcherResourceManagerComponent implements AutoCloseableAsync {
 	private final DispatcherRunner dispatcherRunner;
 
 	@Nonnull
-	private final ResourceManager<?> resourceManager;
+	private final ResourceManagerService resourceManagerService;
 
 	@Nonnull
 	private final LeaderRetrievalService dispatcherLeaderRetrievalService;
@@ -69,22 +71,41 @@ public class DispatcherResourceManagerComponent implements AutoCloseableAsync {
 
 	private final AtomicBoolean isRunning = new AtomicBoolean(true);
 
+	private final FatalErrorHandler fatalErrorHandler;
+
 	DispatcherResourceManagerComponent(
 			@Nonnull DispatcherRunner dispatcherRunner,
-			@Nonnull ResourceManager<?> resourceManager,
+			@Nonnull ResourceManagerService resourceManagerService,
 			@Nonnull LeaderRetrievalService dispatcherLeaderRetrievalService,
 			@Nonnull LeaderRetrievalService resourceManagerRetrievalService,
-			@Nonnull WebMonitorEndpoint<?> webMonitorEndpoint) {
+			@Nonnull WebMonitorEndpoint<?> webMonitorEndpoint,
+			@Nonnull FatalErrorHandler fatalErrorHandler) {
 		this.dispatcherRunner = dispatcherRunner;
-		this.resourceManager = resourceManager;
+		this.resourceManagerService = resourceManagerService;
 		this.dispatcherLeaderRetrievalService = dispatcherLeaderRetrievalService;
 		this.resourceManagerRetrievalService = resourceManagerRetrievalService;
 		this.webMonitorEndpoint = webMonitorEndpoint;
+		this.fatalErrorHandler = fatalErrorHandler;
 
 		this.terminationFuture = new CompletableFuture<>();
 		this.shutDownFuture = new CompletableFuture<>();
 
 		registerShutDownFuture();
+		handleUnexpectedResourceManagerTermination();
+	}
+
+	private void handleUnexpectedResourceManagerTermination() {
+		resourceManagerService
+			.getTerminationFuture()
+			.whenComplete(
+				(ignored, throwable) -> {
+					if (isRunning.get()) {
+						fatalErrorHandler.onFatalError(
+							new FlinkException(
+								"Unexpected termination of ResourceManagerService.",
+								throwable));
+					}
+				});
 	}
 
 	private void registerShutDownFuture() {
@@ -109,19 +130,11 @@ public class DispatcherResourceManagerComponent implements AutoCloseableAsync {
 
 		if (isRunning.compareAndSet(true, false)) {
 			final CompletableFuture<Void> closeWebMonitorAndDeregisterAppFuture =
-				FutureUtils.composeAfterwards(webMonitorEndpoint.closeAsync(), () -> deregisterApplication(applicationStatus, diagnostics));
+				FutureUtils.composeAfterwards(webMonitorEndpoint.closeAsync(), () -> resourceManagerService.deregisterApplication(applicationStatus, diagnostics));
 			return FutureUtils.composeAfterwards(closeWebMonitorAndDeregisterAppFuture, this::closeAsyncInternal);
 		} else {
 			return terminationFuture;
 		}
-	}
-
-	private CompletableFuture<Void> deregisterApplication(
-			final ApplicationStatus applicationStatus,
-			final @Nullable String diagnostics) {
-
-		final ResourceManagerGateway selfGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
-		return selfGateway.deregisterApplication(applicationStatus, diagnostics).thenApply(ack -> null);
 	}
 
 	private CompletableFuture<Void> closeAsyncInternal() {
@@ -149,7 +162,7 @@ public class DispatcherResourceManagerComponent implements AutoCloseableAsync {
 			} else {
 				LOG.info("closing the dispatcherRunner success.");
 			}
-			resourceManager.closeAsync();
+			resourceManagerService.closeAsync();
 		}));
 
 		if (exception != null) {

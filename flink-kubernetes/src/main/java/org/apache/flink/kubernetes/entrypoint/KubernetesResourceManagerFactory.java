@@ -30,7 +30,6 @@ import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
-import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerImpl;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ActiveResourceManagerFactory;
@@ -44,6 +43,8 @@ import org.apache.flink.util.ConfigurationException;
 import org.apache.flink.util.clock.SystemClock;
 
 import javax.annotation.Nullable;
+
+import java.util.UUID;
 
 /**
  * {@link ResourceManagerFactory} implementation which creates a {@link KubernetesResourceManager}.
@@ -65,7 +66,7 @@ public class KubernetesResourceManagerFactory extends ActiveResourceManagerFacto
 			Configuration configuration,
 			ResourceID resourceId,
 			RpcService rpcService,
-			HighAvailabilityServices highAvailabilityServices,
+			UUID leaderSessionId,
 			HeartbeatServices heartbeatServices,
 			FatalErrorHandler fatalErrorHandler,
 			ClusterInformation clusterInformation,
@@ -83,8 +84,8 @@ public class KubernetesResourceManagerFactory extends ActiveResourceManagerFacto
 		return new KubernetesResourceManager(
 			rpcService,
 			resourceId,
+			leaderSessionId,
 			configuration,
-			highAvailabilityServices,
 			heartbeatServices,
 			resourceManagerRuntimeServices.getSlotManager(),
 			ResourceManagerPartitionTrackerImpl::new,
