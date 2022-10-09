@@ -2725,4 +2725,61 @@ public class CheckpointCoordinatorTest extends TestLogger {
 			// ignore
 		}
 	}
+
+	private static class TestingCheckpointIDCounterForTaskFailed extends StandaloneCheckpointIDCounter {
+		private ExecutionVertex failedTask;
+
+		@Override
+		public long getAndIncrement() throws Exception {
+			checkNotNull(failedTask);
+			when(failedTask.getCurrentExecutionAttempt().getAttemptId()).thenReturn(new ExecutionAttemptID());
+			return super.getAndIncrement();
+		}
+
+		void setFailedTask(ExecutionVertex failedTask) {
+			this.failedTask = checkNotNull(failedTask);
+		}
+	}
+
+	/**
+	 * Tests that when trigger checkpoint and task fail occur at the same time, checkpoint will trigger failure.
+	 */
+	@Test
+	public void testTaskFailedDuringTriggerCheckpoint() throws Exception {
+		// set up the coordinator
+		TestingCheckpointIDCounterForTaskFailed idCounter = new TestingCheckpointIDCounterForTaskFailed();
+		ExecutionVertex executionVertex = mockExecutionVertex(new ExecutionAttemptID());
+		CheckpointCoordinator coord =
+				new CheckpointCoordinatorBuilder()
+						.setCheckpointIDCounter(idCounter)
+						.setTimer(manuallyTriggeredScheduledExecutor)
+						.setTasks(new ExecutionVertex[] { executionVertex })
+						.build();
+		idCounter.setFailedTask(executionVertex);
+
+		try {
+			// start the coordinator
+			coord.startCheckpointScheduler();
+			final CompletableFuture<CompletedCheckpoint> onCompletionPromise =
+					coord.triggerCheckpoint(
+							CheckpointProperties
+									.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
+							null,
+							true,
+							false);
+			manuallyTriggeredScheduledExecutor.triggerAll();
+			try {
+				onCompletionPromise.get();
+				fail("trigger checkpoint should fail after the trigger checkpoint and task fail occur at the same time.");
+			} catch (ExecutionException e) {
+				final Optional<CheckpointException> checkpointExceptionOptional =
+						ExceptionUtils.findThrowable(e, CheckpointException.class);
+				assertTrue(checkpointExceptionOptional.isPresent());
+				assertEquals(CheckpointFailureReason.NOT_ALL_REQUIRED_TASKS_IN_RIGHT_STATE,
+						checkpointExceptionOptional.get().getCheckpointFailureReason());
+			}
+		} finally {
+			coord.shutdown(JobStatus.FINISHED);
+		}
+	}
 }

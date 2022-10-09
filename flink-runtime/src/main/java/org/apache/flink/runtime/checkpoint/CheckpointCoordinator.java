@@ -766,10 +766,27 @@ public class CheckpointCoordinator {
 							pendingTrigger),
 						timer);
 
-			final CompletableFuture<?> masterStatesComplete = pendingCheckpointCompletableFuture
+			final CompletableFuture<PendingCheckpoint> doubleCheckTaskStatus =
+					pendingCheckpointCompletableFuture.thenApply(checkpoint -> {
+						for (Map.Entry<ExecutionAttemptID, ExecutionVertex> entry : ackTasks.entrySet()) {
+							if (!entry.getKey().equals(entry.getValue().getCurrentExecutionAttempt().getAttemptId())) {
+								LOG.warn("Task {} is not in the correct state, it should have failed. " +
+										"ExecutionAttemptID change from {} to {}",
+										entry.getValue().getTaskNameWithSubtaskIndex(), entry.getKey(),
+										entry.getValue().getCurrentExecutionAttempt().getAttemptId());
+								throw new CompletionException(new CheckpointException(
+										String.format("The task %s is not in the correct state, it should have failed.",
+												entry.getValue().getTaskNameWithSubtaskIndex()),
+										CheckpointFailureReason.NOT_ALL_REQUIRED_TASKS_IN_RIGHT_STATE));
+							}
+						}
+						return checkpoint;
+					});
+
+			final CompletableFuture<?> masterStatesComplete = doubleCheckTaskStatus
 					.thenCompose(this::snapshotMasterState);
 
-			final CompletableFuture<?> coordinatorCheckpointsComplete = pendingCheckpointCompletableFuture
+			final CompletableFuture<?> coordinatorCheckpointsComplete = doubleCheckTaskStatus
 					.thenComposeAsync((pendingCheckpoint) ->
 							OperatorCoordinatorCheckpoints.triggerAndAcknowledgeAllCoordinatorCheckpointsWithCompletion(
 									coordinatorsToCheckpoint, pendingCheckpoint, timer),
