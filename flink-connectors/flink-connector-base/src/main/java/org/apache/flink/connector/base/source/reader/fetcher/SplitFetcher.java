@@ -315,7 +315,7 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
 	private void updateIsIdle() {
 		isIdle = taskQueue.isEmpty() && splitChanges.isEmpty() && assignedSplits.isEmpty();
 		if (isIdle) {
-			elementsQueue.notifyComplete();
+			elementsQueue.finalNotifyComplete();
 		}
 	}
 }

@@ -168,6 +168,7 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
 		closed = true;
 		fetchers.values().forEach(SplitFetcher::shutdown);
 		executors.shutdown();
+		elementsQueue.close();
 		if (!executors.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS)) {
 			LOG.warn("Failed to close the source reader in {} ms. There are still {} split fetchers running",
 				timeoutMs, fetchers.size());

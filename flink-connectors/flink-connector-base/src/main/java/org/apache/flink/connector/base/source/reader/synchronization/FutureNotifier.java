@@ -63,4 +63,13 @@ public class FutureNotifier {
 			futureRef.compareAndSet(future, null);
 		}
 	}
+
+	/*
+	 * if SpliteFetcher is idle so CompletableFuture needs be completed, streamtask get completed CompletabelFuture.
+	 */
+	public void finalNotifyComplete() {
+		CompletableFuture completableFuture = future();
+		completableFuture.complete("final notify complete");
+	}
+
 }

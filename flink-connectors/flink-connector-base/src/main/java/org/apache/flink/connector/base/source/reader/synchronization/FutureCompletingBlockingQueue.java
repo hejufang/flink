@@ -20,6 +20,9 @@ package org.apache.flink.connector.base.source.reader.synchronization;
 
 import org.apache.flink.connector.base.source.reader.SourceReaderOptions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Collection;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -38,15 +41,19 @@ import java.util.concurrent.TimeUnit;
  * @param <T> the type of the elements in the queue.
  */
 public class FutureCompletingBlockingQueue<T> extends LinkedBlockingQueue<T> {
+	private static final Logger LOG = LoggerFactory.getLogger(FutureCompletingBlockingQueue.class);
+
 	private final FutureNotifier futureNotifier;
 
 	public FutureCompletingBlockingQueue(FutureNotifier futureNotifier) {
 		this(futureNotifier, SourceReaderOptions.ELEMENT_QUEUE_CAPACITY.defaultValue());
+		LOG.info("new version FutureCompletingBlockingQueue");
 	}
 
 	public FutureCompletingBlockingQueue(FutureNotifier futureNotifier, int capacity) {
 		super(capacity);
 		this.futureNotifier = futureNotifier;
+		LOG.info("new version FutureCompletingBlockingQueue");
 	}
 
 	@Override
@@ -97,5 +104,15 @@ public class FutureCompletingBlockingQueue<T> extends LinkedBlockingQueue<T> {
 
 	public void notifyComplete() {
 		futureNotifier.notifyComplete();
+	}
+
+	public void finalNotifyComplete() {
+		futureNotifier.finalNotifyComplete();
+	}
+
+	public void close() {
+		if (this.size() > 0) {
+			LOG.error("block queue is not empty , task should not to stop");
+		}
 	}
 }
