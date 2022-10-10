@@ -19,6 +19,7 @@ package org.apache.flink.connector.rocketmq;
 
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.connector.base.source.reader.SourceReaderOptions;
 import org.apache.flink.connector.rocketmq.RocketMQOptions.AssignQueueStrategy;
 import org.apache.flink.connector.rocketmq.selector.DeferLoopSelector;
@@ -43,6 +44,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_POLL_BATC
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_POLL_LATENCY_MS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_REST_RETRY_INIT_TIME_MS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_REST_RETRY_TIMES;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_BUFFER_SIZE;
 
 /**
  * RocketMQConfig.
@@ -60,7 +62,7 @@ public class RocketMQConfig<T> implements Serializable {
 	private DeferLoopSelector<T> deferLoopSelector;
 	private String tag;
 	private int sendBatchSize;
-	private Long sendBufferSize;
+	private Long sendBufferSize = MemorySize.parseBytes(SINK_BUFFER_SIZE.defaultValue());
 	private AssignQueueStrategy assignQueueStrategy = AssignQueueStrategy.FIXED;
 	private int[] sinkKeyByFields;
 	private int[] sinkMsgKeyByFields;
