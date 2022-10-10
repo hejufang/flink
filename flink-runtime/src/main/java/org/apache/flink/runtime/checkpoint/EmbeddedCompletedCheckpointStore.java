@@ -103,7 +103,7 @@ public class EmbeddedCompletedCheckpointStore extends AbstractCompleteCheckpoint
                                 cc -> {
                                     cc.markAsDiscardedOnSubsume();
                                     checkpointsCleaner.addSubsumedCheckpoint(cc);
-                                })
+                                }, true)
                         .orElse(null);
 
         findLowest(checkpoints)

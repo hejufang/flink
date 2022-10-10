@@ -224,7 +224,6 @@ public class CheckpointCoordinator {
     private boolean baseLocationsForCheckpointInitialized = false;
 
     private boolean forceFullSnapshot;
-
     // --------------------------------------------------------------------------------------------
 
     public CheckpointCoordinator(
@@ -241,7 +240,8 @@ public class CheckpointCoordinator {
             CheckpointFailureManager failureManager,
             CheckpointPlanCalculator checkpointPlanCalculator,
             ExecutionAttemptMappingProvider attemptMappingProvider,
-            CheckpointStatsTracker statsTracker) {
+            CheckpointStatsTracker statsTracker,
+            ClassLoader userCodeClassLoader) {
 
         this(
                 job,
@@ -259,7 +259,8 @@ public class CheckpointCoordinator {
                 attemptMappingProvider,
                 SystemClock.getInstance(),
                 statsTracker,
-                VertexFinishedStateChecker::new);
+                VertexFinishedStateChecker::new,
+                userCodeClassLoader);
     }
 
     @VisibleForTesting
@@ -283,7 +284,8 @@ public class CheckpointCoordinator {
                             Set<ExecutionJobVertex>,
                             Map<OperatorID, OperatorState>,
                             VertexFinishedStateChecker>
-                    vertexFinishedStateCheckerFactory) {
+                    vertexFinishedStateCheckerFactory,
+            ClassLoader userCodeClassLoader) {
 
         // sanity checks
         checkNotNull(checkpointStorage);
@@ -339,6 +341,15 @@ public class CheckpointCoordinator {
         } catch (IOException e) {
             throw new FlinkRuntimeException(
                     "Failed to create checkpoint storage at checkpoint coordinator side.", e);
+        }
+        // update completed checkpoint store from storage
+        // Use checkpoint properties to load checkpoint, because it won't generate regular savepoints under checkpoint path at current version
+
+        try {
+            Checkpoints.loadCheckpointOnStorage(completedCheckpointStore, job, checkpointStorageView, checkpointProperties, userCodeClassLoader);
+        } catch (Exception e) {
+            throw new FlinkRuntimeException(
+                    "Failed to load checkpoint on storage when creating checkpoint coordinator.", e);
         }
 
         try {
@@ -1674,6 +1685,11 @@ public class CheckpointCoordinator {
                 }
 
                 return OptionalLong.empty();
+            }
+
+            // reset checkpointIdCounter if latest checkpoint updated from storage
+            if (checkpointIdCounter.get() <= latest.getCheckpointID()) {
+                checkpointIdCounter.setCount(latest.getCheckpointID() + 1);
             }
 
             LOG.info("Restoring job {} from {}.", job, latest);
