@@ -130,7 +130,7 @@ public class Elasticsearch7ApiCallBridge implements ElasticsearchApiCallBridge<R
 		}
 
 		// find all nodes by consul
-		List<HttpHost> nodes = DISCOVERY.translateOne(psm).stream()
+		List<HttpHost> nodes = DISCOVERY.lookupName(psm).stream()
 			.map(serviceNode -> new HttpHost(serviceNode.getHost(), serviceNode.getPort(), ES_HTTP_SCHEMA))
 			.collect(Collectors.toList());
 		if (nodes.size() <= 0) {
