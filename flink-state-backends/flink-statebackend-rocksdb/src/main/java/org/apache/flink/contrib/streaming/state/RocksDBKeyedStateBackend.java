@@ -434,7 +434,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			}
 
 			// ... copy rocksdb log before close ...
-			RocksDBOperationUtils.copyDbLogToContainerLogDir(instanceBasePath);
+			// RocksDBOperationUtils.copyDbLogToContainerLogDir(instanceBasePath);
 
 			// ... and finally close the DB instance ...
 			IOUtils.closeQuietly(db);
