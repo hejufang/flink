@@ -1042,6 +1042,19 @@ panda-yg:
   bytedance.streaming.yarn.res-lake.enabled: false
   yarn.res-lake.enabled: true
 
+peter-yg:
+  dc: cn
+  clusterName: peter-yg
+  high-availability.zookeeper.quorum: fdbd:dc05:ff:ff:33af:43f8:4d86:5675:2181,fdbd:dc05:ff:ff:3f33:712f:2e5c:6b15:2181,fdbd:dc05:ff:ff:8662:80af:bc6d:60a8:2181,fdbd:dc05:ff:ff:8b06:d280:734b:9722:2181,fdbd:dc05:ff:ff:f9cb:be0:a73a:41ec:2181
+  hdfs.prefix: hdfs://haruna/flink_yg/flink
+  flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
+  execution.cancellation.timeout.enable: true
+  ipv6.enabled: true
+  ipv6.supported.cluster: peter-yg
+  flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
+  bytedance.streaming.yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
+
 camel:
   dc: cn
   clusterName: camel
