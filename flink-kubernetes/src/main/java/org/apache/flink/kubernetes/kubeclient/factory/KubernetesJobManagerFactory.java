@@ -20,6 +20,7 @@ package org.apache.flink.kubernetes.kubeclient.factory;
 
 import org.apache.flink.kubernetes.kubeclient.FlinkPod;
 import org.apache.flink.kubernetes.kubeclient.KubernetesJobManagerSpecification;
+import org.apache.flink.kubernetes.kubeclient.decorators.AbstractFileDownloadDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.CmdJobManagerDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.EnvSecretsDecorator;
 import org.apache.flink.kubernetes.kubeclient.decorators.ExternalServiceDecorator;
@@ -77,6 +78,7 @@ public class KubernetesJobManagerFactory {
                     new HadoopConfMountDecorator(kubernetesJobManagerParameters),
                     new KerberosMountDecorator(kubernetesJobManagerParameters),
                     new FlinkConfMountDecorator(kubernetesJobManagerParameters),
+                    AbstractFileDownloadDecorator.create(kubernetesJobManagerParameters),
                     new PodTemplateMountDecorator(kubernetesJobManagerParameters)
                 };
 

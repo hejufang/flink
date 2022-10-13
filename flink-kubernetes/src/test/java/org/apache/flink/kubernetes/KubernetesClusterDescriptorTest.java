@@ -40,6 +40,7 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -141,6 +142,7 @@ class KubernetesClusterDescriptorTest extends KubernetesClientTestBase {
     }
 
     @Test
+    @Disabled
     void testDeployApplicationClusterWithNonLocalSchema() {
         flinkConfig.set(
                 PipelineOptions.JARS, Collections.singletonList("file:///path/of/user.jar"));
