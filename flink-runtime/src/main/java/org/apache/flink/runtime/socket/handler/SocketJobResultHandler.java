@@ -75,7 +75,7 @@ public class SocketJobResultHandler extends ChannelInboundHandlerAdapter {
 		long outBoundBufSize = ((NioSocketChannel) ctx.channel()).unsafe().outboundBuffer().totalPendingWriteBytes();
 		Channel channel = ctx.channel();
 		String channelId = channel.id().toString();
-		LOG.warn("Channel id {}, local address {}, remote address {}, writable status {}, outbound buffer size {}",
+		LOG.debug("Channel id {}, local address {}, remote address {}, writable status {}, outbound buffer size {}",
 			channelId, channel.localAddress().toString(), channel.remoteAddress().toString(), channel.isWritable(), outBoundBufSize);
 		ctx.fireChannelWritabilityChanged();
 	}

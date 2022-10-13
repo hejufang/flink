@@ -46,12 +46,14 @@ public class JobChannelManager {
 	private int finishedTaskCount;
 	private AtomicBoolean jobFinished;
 	private AtomicBoolean isFailed;
+	private long blockTimeout;
 
 	public JobChannelManager(
 			JobID jobId,
 			ChannelHandlerContext context,
 			int expectTaskCount,
-			JobResultClientManager jobResultClientManager) {
+			JobResultClientManager jobResultClientManager,
+			long blockTimeout) {
 		this.jobId = jobId;
 		this.context = context;
 		this.expectTaskCount = expectTaskCount;
@@ -60,6 +62,7 @@ public class JobChannelManager {
 		this.isFailed = new AtomicBoolean();
 		this.jobFinished = new AtomicBoolean();
 		this.resultTask = null;
+		this.blockTimeout = blockTimeout;
 	}
 
 	/**
@@ -197,5 +200,9 @@ public class JobChannelManager {
 		isFailed.compareAndSet(false, true);
 		jobFinished.compareAndSet(false, true);
 		jobResultClientManager.finishJob(jobId);
+	}
+
+	public long getBlockTimeout() {
+		return blockTimeout;
 	}
 }

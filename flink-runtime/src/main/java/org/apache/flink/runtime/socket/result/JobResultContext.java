@@ -40,6 +40,8 @@ public class JobResultContext {
 	private final JobResultTask resultTask;
 	private AtomicBoolean onError;
 	private JobChannelManager jobChannelManager;
+	private long lastBlockTime;
+	private long blockTimeout;
 
 	public JobResultContext(ChannelHandlerContext context, JobSocketResult jobSocketResult, JobResultTask resultTask, JobChannelManager jobChannelManager) {
 		this.context = context;
@@ -47,6 +49,8 @@ public class JobResultContext {
 		this.resultTask = resultTask;
 		this.onError = new AtomicBoolean(false);
 		this.jobChannelManager = jobChannelManager;
+		this.lastBlockTime = -1;
+		this.blockTimeout = jobChannelManager != null ? jobChannelManager.getBlockTimeout() : -1;
 	}
 
 	public void writeResult() {
@@ -81,9 +85,19 @@ public class JobResultContext {
 				break;
 			}
 			try {
-				LOG.info("Channel id {}, local address {}, remote address {}, writable status {}", channel.id().toString(), channel.localAddress().toString(), channel.remoteAddress().toString(), channel.isWritable());
+				LOG.debug("Channel id {}, local address {}, remote address {}, writable status {}, active status {}", channel.id().toString(), channel.localAddress().toString(), channel.remoteAddress().toString(), channel.isWritable(), channel.isActive());
 				Thread.sleep(10);
 			} catch (InterruptedException ignored) {
+			}
+
+			if (blockTimeout > 0) {
+				if (lastBlockTime < 0) {
+					lastBlockTime = System.currentTimeMillis();
+					continue;
+				}
+				if (System.currentTimeMillis() - lastBlockTime > blockTimeout) {
+					onError();
+				}
 			}
 		}
 	}

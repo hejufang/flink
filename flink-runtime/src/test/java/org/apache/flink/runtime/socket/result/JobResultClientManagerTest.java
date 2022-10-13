@@ -84,7 +84,8 @@ public class JobResultClientManagerTest {
 							})
 							.build(),
 						jobTaskCount,
-						jobResultClientManager));
+						jobResultClientManager,
+						-1));
 			}
 
 			List<Object> sendResultList = new ArrayList<>();
@@ -152,7 +153,8 @@ public class JobResultClientManagerTest {
 						})
 						.build(),
 					jobTaskCount,
-					jobResultClientManager));
+					jobResultClientManager,
+					-1));
 
 			List<Object> sendResultList = new ArrayList<>();
 			for (int i = 0; i < 10; i++) {
@@ -213,7 +215,8 @@ public class JobResultClientManagerTest {
 						})
 						.build(),
 					jobTaskCount,
-					jobResultClientManager));
+					jobResultClientManager,
+					-1));
 			jobResultClientManager.getJobChannelManager(jobId).failJob(new Exception("Fail job directly"));
 			assertTrue(latch.await(10, TimeUnit.SECONDS));
 			assertEquals(1, resultList.size());
@@ -252,7 +255,8 @@ public class JobResultClientManagerTest {
 					})
 					.build(),
 				1,
-				jobResultClientManager));
+				jobResultClientManager,
+				-1));
 		try (NettySocketServer nettySocketServer = new NettySocketServer(
 			"test",
 			"localhost",
@@ -288,7 +292,8 @@ public class JobResultClientManagerTest {
 						.setChannel(channel)
 						.build(),
 					1,
-					jobResultClientManager);
+					jobResultClientManager,
+					-1);
 				jobResultClientManager.addJobChannelManager(
 					jobId,
 					jobChannelManager);

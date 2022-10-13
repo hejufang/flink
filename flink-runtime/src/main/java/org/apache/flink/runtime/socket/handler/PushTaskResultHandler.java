@@ -21,8 +21,10 @@ package org.apache.flink.runtime.socket.handler;
 import org.apache.flink.api.common.socket.JobSocketResult;
 import org.apache.flink.runtime.socket.result.JobResultClientManager;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdapter;
+import org.apache.flink.shaded.netty4.io.netty.channel.socket.nio.NioSocketChannel;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,5 +58,25 @@ public class PushTaskResultHandler extends ChannelInboundHandlerAdapter {
 		LOG.error("PushTaskResultHandler occur error: ", cause);
 		ctx.close();
 		throw new IllegalStateException(cause);
+	}
+
+	@Override
+	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+		Channel channel = ctx.channel();
+		String channelId = channel.id().toString();
+		LOG.warn("Channel id {}, local address {}, remote address {}, active status {}.",
+			channelId, channel.localAddress().toString(), channel.remoteAddress().toString(), channel.isActive());
+		ctx.fireChannelInactive();
+	}
+
+	@Override
+	public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
+		Channel channel = ctx.channel();
+
+		long outBoundBufSize = ((NioSocketChannel) channel).unsafe().outboundBuffer().totalPendingWriteBytes();
+		String channelId = channel.id().toString();
+		LOG.debug("Channel id {}, local address {}, remote address {}, writable status {}, outbound buffer size {}",
+			channelId, channel.localAddress().toString(), channel.remoteAddress().toString(), channel.isWritable(), outBoundBufSize);
+		ctx.fireChannelWritabilityChanged();
 	}
 }

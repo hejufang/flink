@@ -37,8 +37,10 @@ import org.apache.flink.runtime.socket.SocketRestLeaderAddress;
 import org.apache.flink.runtime.socket.handler.PushTaskResultHandler;
 import org.apache.flink.runtime.socket.handler.SocketJobSubmitHandler;
 import org.apache.flink.runtime.socket.result.JobResultClientManager;
+import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 
+import org.apache.flink.shaded.netty4.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ClassResolvers;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectDecoder;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.serialization.ObjectEncoder;
@@ -81,6 +83,8 @@ public class DispatcherSocketRestEndpoint extends DispatcherRestEndpoint {
 			executionGraphCache,
 			fatalErrorHandler);
 		this.jobResultClientManager = jobResultClientManager;
+		// Add exclusive eventLoopGroup to push socket result.
+		NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(0, new ExecutorThreadFactory("flink-socket-push-result-server-netty-worker"));
 		this.nettySocketServer = new NettySocketServer(
 			"dispatcher",
 			clusterConfiguration.getString(RestOptions.SOCKET_ADDRESS),
@@ -91,9 +95,9 @@ public class DispatcherSocketRestEndpoint extends DispatcherRestEndpoint {
 				new SocketJobSubmitHandler(
 					leaderRetriever,
 					jobResultClientManager,
-					Time.milliseconds(clusterConfiguration.getLong(WebOptions.TIMEOUT))),
-				new PushTaskResultHandler(jobResultClientManager)
-			),
+					Time.milliseconds(clusterConfiguration.getLong(WebOptions.TIMEOUT)),
+					clusterConfiguration.getLong(JobManagerOptions.JOB_RESULT_PUSH_BLOCK_TIMEOUT_MS))
+			).addLast(eventLoopGroup, new PushTaskResultHandler(jobResultClientManager)),
 			clusterConfiguration.getInteger(RestOptions.DISPATCHER_CONNECT_BACKLOG),
 			clusterConfiguration.getInteger(JobManagerOptions.JOB_PUSH_RESULTS_WRITER_WATER_LOW_MARK),
 			clusterConfiguration.getInteger(JobManagerOptions.JOB_PUSH_RESULTS_WRITER_WATER_HIGH_MARK)

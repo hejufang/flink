@@ -53,14 +53,17 @@ public class SocketJobSubmitHandler extends ChannelInboundHandlerAdapter {
 	private final GatewayRetriever<DispatcherGateway> leaderRetriever;
 	private final JobResultClientManager jobResultClientManager;
 	private final Time timeout;
+	private final long blockTimeout;
 
 	public SocketJobSubmitHandler(
-			GatewayRetriever<DispatcherGateway> leaderRetriever,
-			JobResultClientManager jobResultClientManager,
-			Time timeout) {
+		GatewayRetriever<DispatcherGateway> leaderRetriever,
+		JobResultClientManager jobResultClientManager,
+		Time timeout,
+		long blockTimeout) {
 		this.leaderRetriever = leaderRetriever;
 		this.jobResultClientManager = jobResultClientManager;
 		this.timeout = timeout;
+		this.blockTimeout = blockTimeout;
 	}
 
 	@Override
@@ -69,7 +72,7 @@ public class SocketJobSubmitHandler extends ChannelInboundHandlerAdapter {
 			JobGraph jobGraph = (JobGraph) msg;
 			jobResultClientManager.addJobChannelManager(
 				jobGraph.getJobID(),
-				new JobChannelManager(jobGraph.getJobID(), ctx, computeFinishTaskCount(jobGraph), jobResultClientManager));
+				new JobChannelManager(jobGraph.getJobID(), ctx, computeFinishTaskCount(jobGraph), jobResultClientManager, blockTimeout));
 
 			OptionalConsumer<DispatcherGateway> optLeaderConsumer = OptionalConsumer.of(leaderRetriever.getNow());
 			optLeaderConsumer.ifPresent(
@@ -101,12 +104,20 @@ public class SocketJobSubmitHandler extends ChannelInboundHandlerAdapter {
 		throw new IllegalStateException(cause);
 	}
 
+	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+		Channel channel = ctx.channel();
+		String channelId = channel.id().toString();
+		LOG.warn("Channel id {}, local address {}, remote address {}, active status {}.",
+			channelId, channel.localAddress().toString(), channel.remoteAddress().toString(), channel.isActive());
+		ctx.fireChannelInactive();
+	}
+
 	public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
 		Channel channel = ctx.channel();
 
 		long outBoundBufSize = ((NioSocketChannel) channel).unsafe().outboundBuffer().totalPendingWriteBytes();
 		String channelId = channel.id().toString();
-		LOG.warn("Channel id {}, local address {}, remote address {}, writable status {}, outbound buffer size {}",
+		LOG.debug("Channel id {}, local address {}, remote address {}, writable status {}, outbound buffer size {}",
 			channelId, channel.localAddress().toString(), channel.remoteAddress().toString(), channel.isWritable(), outBoundBufSize);
 		ctx.fireChannelWritabilityChanged();
 	}

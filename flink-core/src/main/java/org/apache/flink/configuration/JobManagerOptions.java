@@ -636,6 +636,12 @@ public class JobManagerOptions {
 			.withDescription("The maximum queue size for job manager to manage results for each job." +
 				" When job manager receives the job results form task, it will put them to the queue.");
 
+	public static final ConfigOption<Long> JOB_RESULT_PUSH_BLOCK_TIMEOUT_MS =
+		key("jobmanager.push-results-block.timeout")
+			.longType()
+			.defaultValue(180000L)
+			.withDescription("The timeout in milliseconds for jobmanager block in send result to client.");
+
 	public static final ConfigOption<Boolean> RELEASE_SLOT_SHARE_EXCEPTION_ENABLE =
 		key("jobmanager.release-slot-share-exception.enable")
 			.booleanType()
