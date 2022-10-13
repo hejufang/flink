@@ -65,20 +65,25 @@ public class KubernetesTaskManagerFactory {
 
         final Pod resolvedPod;
 
-        if (StringUtils.isNullOrWhitespaceOnly(kubernetesTaskManagerParameters.getSchedulerName())) {
-            resolvedPod = new PodBuilder(flinkPod.getPodWithoutMainContainer())
-                    .editOrNewSpec()
-                    .addToContainers(flinkPod.getMainContainer())
-                    .endSpec()
-                    .build();
+        if (StringUtils.isNullOrWhitespaceOnly(
+                kubernetesTaskManagerParameters.getSchedulerName())) {
+            resolvedPod =
+                    new PodBuilder(flinkPod.getPodWithoutMainContainer())
+                            .editOrNewSpec()
+                            .addToContainers(flinkPod.getMainContainer())
+                            .endSpec()
+                            .build();
         } else {
-            LOG.info("Set the schedulerName of TM pod to {}.", kubernetesTaskManagerParameters.getSchedulerName());
-            resolvedPod = new PodBuilder(flinkPod.getPodWithoutMainContainer())
-                    .editOrNewSpec()
-                    .addToContainers(flinkPod.getMainContainer())
-                    .withSchedulerName(kubernetesTaskManagerParameters.getSchedulerName())
-                    .endSpec()
-                    .build();
+            LOG.info(
+                    "Set the schedulerName of TM pod to {}.",
+                    kubernetesTaskManagerParameters.getSchedulerName());
+            resolvedPod =
+                    new PodBuilder(flinkPod.getPodWithoutMainContainer())
+                            .editOrNewSpec()
+                            .addToContainers(flinkPod.getMainContainer())
+                            .withSchedulerName(kubernetesTaskManagerParameters.getSchedulerName())
+                            .endSpec()
+                            .build();
         }
 
         return new KubernetesPod(resolvedPod);

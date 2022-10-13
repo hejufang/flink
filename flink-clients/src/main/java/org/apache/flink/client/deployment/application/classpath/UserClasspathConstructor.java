@@ -37,9 +37,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * The interface used to construct user classpath.
- */
+/** The interface used to construct user classpath. */
 public interface UserClasspathConstructor {
 
     List<URL> getUserJar(Configuration flinkConfiguration);
@@ -51,14 +49,14 @@ public interface UserClasspathConstructor {
             return Collections.emptyList();
         }
         final Path workingDirectory = FileUtils.getCurrentWorkingDirectory();
-        return FileUtils.listFilesInDirectory(jobDir.toPath(), FileUtils::isJarFile)
-                .stream()
+        return FileUtils.listFilesInDirectory(jobDir.toPath(), FileUtils::isJarFile).stream()
                 .map(path -> FileUtils.relativizePath(workingDirectory, path))
                 .map(FunctionUtils.uncheckedFunction(FileUtils::toURL))
                 .collect(Collectors.toList());
     }
 
-    default List<URL> getClasspathInConfig(Configuration flinkConfiguration, @Nullable String flinkHome) {
+    default List<URL> getClasspathInConfig(
+            Configuration flinkConfiguration, @Nullable String flinkHome) {
         // get classpath in configurations from pipeline.classpath.
         // usually the connector & format jar is set in this parameter
         if (flinkConfiguration == null) {
@@ -66,11 +64,11 @@ public interface UserClasspathConstructor {
         }
         try {
             if (StringUtils.isNullOrWhitespaceOnly(flinkHome)) {
-                return ConfigUtils
-                        .decodeListFromConfig(flinkConfiguration, PipelineOptions.CLASSPATHS, URL::new);
+                return ConfigUtils.decodeListFromConfig(
+                        flinkConfiguration, PipelineOptions.CLASSPATHS, URL::new);
             }
-            return ConfigUtils
-                    .decodeListFromConfig(flinkConfiguration, PipelineOptions.CLASSPATHS, URL::new)
+            return ConfigUtils.decodeListFromConfig(
+                            flinkConfiguration, PipelineOptions.CLASSPATHS, URL::new)
                     .stream()
                     .map(url -> url.toString().replace("%FLINK_HOME%", flinkHome))
                     .map(FunctionUtils.uncheckedFunction(URL::new))
@@ -81,9 +79,11 @@ public interface UserClasspathConstructor {
     }
 
     /**
-     * Get flink user classpath from the configuration.
-     * The classpath will follow the order:  user jar, files in usr lib, external jar, pipeline.classpath.
-     * @param userClasspathConstructor the constructor used to get user jar, external jar, user lib, and files in pipeline.classpath
+     * Get flink user classpath from the configuration. The classpath will follow the order: user
+     * jar, files in usr lib, external jar, pipeline.classpath.
+     *
+     * @param userClasspathConstructor the constructor used to get user jar, external jar, user lib,
+     *     and files in pipeline.classpath
      * @param flinkConfig The flink configuration
      * @param jobDir The user lib directory in container.
      * @param flinkHome The flink home path
@@ -93,7 +93,8 @@ public interface UserClasspathConstructor {
             UserClasspathConstructor userClasspathConstructor,
             Configuration flinkConfig,
             @Nullable File jobDir,
-            @Nullable String flinkHome) throws IOException {
+            @Nullable String flinkHome)
+            throws IOException {
         List<URL> userClasspathList = new LinkedList<>();
         // get user jar
         userClasspathList.addAll(userClasspathConstructor.getUserJar(flinkConfig));
@@ -102,7 +103,8 @@ public interface UserClasspathConstructor {
         // get external files
         userClasspathList.addAll(userClasspathConstructor.getExternalJars(flinkConfig));
         // get pipeline.classpath in config
-        userClasspathList.addAll(userClasspathConstructor.getClasspathInConfig(flinkConfig, flinkHome));
+        userClasspathList.addAll(
+                userClasspathConstructor.getClasspathInConfig(flinkConfig, flinkHome));
         return userClasspathList;
     }
 }

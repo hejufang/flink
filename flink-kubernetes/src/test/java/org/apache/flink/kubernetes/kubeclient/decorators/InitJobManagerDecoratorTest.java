@@ -81,7 +81,8 @@ class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
         this.flinkConfig.setString(
                 KubernetesConfigOptions.JOB_MANAGER_TOLERATIONS.key(), TOLERATION_STRING);
         this.flinkConfig.set(KubernetesConfigOptions.FLINK_LOG_DIR, USER_DEFINED_FLINK_LOG_DIR);
-        this.flinkConfig.setString(KubernetesConfigOptions.FLINK_JOBMANAGER_USER_PORTS.key(), FLINK_USER_PORTS);
+        this.flinkConfig.setString(
+                KubernetesConfigOptions.FLINK_JOBMANAGER_USER_PORTS.key(), FLINK_USER_PORTS);
     }
 
     @Override
@@ -147,18 +148,9 @@ class InitJobManagerDecoratorTest extends KubernetesJobManagerTestBase {
                                 .withName(Constants.BLOB_SERVER_PORT_NAME)
                                 .withContainerPort(BLOB_SERVER_PORT)
                                 .build(),
-                        new ContainerPortBuilder()
-                                .withName("port1")
-                                .withContainerPort(1)
-                                .build(),
-                        new ContainerPortBuilder()
-                                .withName("port2")
-                                .withContainerPort(2)
-                                .build(),
-                        new ContainerPortBuilder()
-                                .withName("port3")
-                                .withContainerPort(3)
-                                .build());
+                        new ContainerPortBuilder().withName("port1").withContainerPort(1).build(),
+                        new ContainerPortBuilder().withName("port2").withContainerPort(2).build(),
+                        new ContainerPortBuilder().withName("port3").withContainerPort(3).build());
 
         assertThat(this.resultMainContainer.getPorts()).isEqualTo(expectedContainerPorts);
     }

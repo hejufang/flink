@@ -176,9 +176,12 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
         Map<String, Integer> ports = new LinkedHashMap<>();
         ports.put(Constants.REST_PORT_NAME, kubernetesJobManagerParameters.getRestPort());
         ports.put(Constants.JOB_MANAGER_RPC_PORT_NAME, kubernetesJobManagerParameters.getRPCPort());
-        ports.put(Constants.BLOB_SERVER_PORT_NAME, kubernetesJobManagerParameters.getBlobServerPort());
+        ports.put(
+                Constants.BLOB_SERVER_PORT_NAME,
+                kubernetesJobManagerParameters.getBlobServerPort());
 
-        return KubernetesUtils.getContainerPortsWithUserPorts(ports, kubernetesJobManagerParameters.getJobManagerUserDefinedPorts());
+        return KubernetesUtils.getContainerPortsWithUserPorts(
+                ports, kubernetesJobManagerParameters.getJobManagerUserDefinedPorts());
     }
 
     private List<EnvVar> getCustomizedEnvs() {

@@ -108,8 +108,8 @@ public final class StandaloneApplicationClusterEntryPoint extends ApplicationClu
                         userLibDir,
                         clusterConfiguration.getJobClassName(),
                         clusterConfiguration.getArgs(),
-                        flinkConfiguration, DefaultClasspathConstructor.INSTANCE
-                );
+                        flinkConfiguration,
+                        DefaultClasspathConstructor.INSTANCE);
         return programRetriever.getPackagedProgram();
     }
 

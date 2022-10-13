@@ -390,49 +390,48 @@ public class Checkpoints {
     private Checkpoints() {}
 
     public static void loadCheckpointOnStorage(
-        CompletedCheckpointStore completedCheckpointStore,
-        JobID job,
-        CheckpointStorageCoordinatorView checkpointStorageView,
-        CheckpointProperties checkpointProperties,
-        ClassLoader userCodeClassLoader) throws Exception {
+            CompletedCheckpointStore completedCheckpointStore,
+            JobID job,
+            CheckpointStorageCoordinatorView checkpointStorageView,
+            CheckpointProperties checkpointProperties,
+            ClassLoader userCodeClassLoader)
+            throws Exception {
         Long latestCheckpointIdOnStore = completedCheckpointStore.getLatestCheckpointId();
-        final Set<CompletedCheckpoint> checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(job, checkpointStorageView, checkpointProperties, userCodeClassLoader);
+        final Set<CompletedCheckpoint> checkpointsOnStorage =
+                findAllCompletedCheckpointsOnStorage(
+                        job, checkpointStorageView, checkpointProperties, userCodeClassLoader);
         LOG.info("Find {} checkpoints on storage.", checkpointsOnStorage.size());
-        final Set<CompletedCheckpoint> extraCheckpoints = checkpointsOnStorage.stream()
-                .filter(checkpoint -> checkpoint.getCheckpointID() > latestCheckpointIdOnStore)
-                .collect(Collectors.toSet());
+        final Set<CompletedCheckpoint> extraCheckpoints =
+                checkpointsOnStorage.stream()
+                        .filter(
+                                checkpoint ->
+                                        checkpoint.getCheckpointID() > latestCheckpointIdOnStore)
+                        .collect(Collectors.toSet());
         // checkpoints on storage but not on HA!!!
         LOG.info("There are {} checkpoints are on storage but not on HA.", extraCheckpoints.size());
         if (extraCheckpoints.size() > 0) {
-            List<CompletedCheckpoint> oriCompletedCheckpoints = completedCheckpointStore.getAllCheckpoints();
+            List<CompletedCheckpoint> oriCompletedCheckpoints =
+                    completedCheckpointStore.getAllCheckpoints();
             LOG.info(
                     "The completed checkpoint store has changed, and the shared state needs to be re-registered. "
-                            +
-                            "Previous checkpoints are {}, restored extra checkpoints are: {}.",
-                    oriCompletedCheckpoints
-                            .stream()
+                            + "Previous checkpoints are {}, restored extra checkpoints are: {}.",
+                    oriCompletedCheckpoints.stream()
                             .map(CompletedCheckpoint::getCheckpointID)
                             .collect(Collectors.toSet()),
-                    extraCheckpoints
-                            .stream()
+                    extraCheckpoints.stream()
                             .map(CompletedCheckpoint::getCheckpointID)
                             .collect(Collectors.toSet()));
-            final List<CompletedCheckpoint> extraCheckpointsSortedList = new ArrayList<>(
-                    extraCheckpoints);
-            extraCheckpointsSortedList.sort((o1, o2) -> new Long(
-                    o1.getCheckpointID() - o2.getCheckpointID()).intValue());
+            final List<CompletedCheckpoint> extraCheckpointsSortedList =
+                    new ArrayList<>(extraCheckpoints);
+            extraCheckpointsSortedList.sort(
+                    (o1, o2) -> new Long(o1.getCheckpointID() - o2.getCheckpointID()).intValue());
             // Only re-register shared state of extra checkpoints on storage
             try (CheckpointsCleaner runner = new CheckpointsCleaner()) {
                 for (CompletedCheckpoint checkpoint : extraCheckpointsSortedList) {
                     checkpoint.registerSharedStatesAfterRestored(
-                            completedCheckpointStore.getSharedStateRegistry(),
-                            RestoreMode.CLAIM);
+                            completedCheckpointStore.getSharedStateRegistry(), RestoreMode.CLAIM);
                     completedCheckpointStore.addCheckpointAndSubsumeOldestOne(
-                            checkpoint,
-                            runner,
-                            () -> {
-                            },
-                            false);
+                            checkpoint, runner, () -> {}, false);
                 }
             }
         }
@@ -443,19 +442,25 @@ public class Checkpoints {
             JobID job,
             CheckpointStorageCoordinatorView checkpointStorageView,
             CheckpointProperties checkpointProperties,
-            @Nullable ClassLoader userClassLoader) throws IOException {
+            @Nullable ClassLoader userClassLoader)
+            throws IOException {
         final Set<CompletedCheckpoint> result = new HashSet<>();
         if (userClassLoader != null) {
-            for (String completedCheckpointPointer : checkpointStorageView.findCompletedCheckpointPointer()) {
+            for (String completedCheckpointPointer :
+                    checkpointStorageView.findCompletedCheckpointPointer()) {
                 try {
-                    final CompletedCheckpointStorageLocation checkpointStorageLocation = checkpointStorageView.resolveCheckpoint(completedCheckpointPointer);
+                    final CompletedCheckpointStorageLocation checkpointStorageLocation =
+                            checkpointStorageView.resolveCheckpoint(completedCheckpointPointer);
 
-                    final StreamStateHandle metadataHandle = checkpointStorageLocation.getMetadataHandle();
+                    final StreamStateHandle metadataHandle =
+                            checkpointStorageLocation.getMetadataHandle();
 
                     final CheckpointMetadata checkpointMetadata;
                     try (InputStream in = metadataHandle.openInputStream();
-                         DataInputStream dis = new DataInputStream(in)) {
-                        checkpointMetadata = Checkpoints.loadCheckpointMetadata(dis, userClassLoader, completedCheckpointPointer);
+                            DataInputStream dis = new DataInputStream(in)) {
+                        checkpointMetadata =
+                                Checkpoints.loadCheckpointMetadata(
+                                        dis, userClassLoader, completedCheckpointPointer);
                     }
                     HashMap<OperatorID, OperatorState> operatorStates =
                             new HashMap<>(checkpointMetadata.getOperatorStates().size());
@@ -465,20 +470,24 @@ public class Checkpoints {
                     if (checkpointMetadata.getCheckpointProperties() != null) {
                         checkpointProperties = checkpointMetadata.getCheckpointProperties();
                     }
-                    CompletedCheckpoint completedCheckpoint = new CompletedCheckpoint(
-                            job,
-                            checkpointMetadata.getCheckpointId(),
-                            0L,
-                            0L,
-                            operatorStates,
-                            checkpointMetadata.getMasterStates(),
-                            checkpointProperties,
-                            checkpointStorageLocation,
-                            null,
-                            checkpointMetadata.getCheckpointProperties());
+                    CompletedCheckpoint completedCheckpoint =
+                            new CompletedCheckpoint(
+                                    job,
+                                    checkpointMetadata.getCheckpointId(),
+                                    0L,
+                                    0L,
+                                    operatorStates,
+                                    checkpointMetadata.getMasterStates(),
+                                    checkpointProperties,
+                                    checkpointStorageLocation,
+                                    null,
+                                    checkpointMetadata.getCheckpointProperties());
                     result.add(completedCheckpoint);
                 } catch (Exception e) {
-                    LOG.warn("Failed to find checkpoints on storage {}. ", completedCheckpointPointer, e);
+                    LOG.warn(
+                            "Failed to find checkpoints on storage {}. ",
+                            completedCheckpointPointer,
+                            e);
                 }
             }
         }

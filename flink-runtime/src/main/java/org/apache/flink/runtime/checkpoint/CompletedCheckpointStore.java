@@ -54,7 +54,8 @@ public interface CompletedCheckpointStore {
             CompletedCheckpoint checkpoint,
             CheckpointsCleaner checkpointsCleaner,
             Runnable postCleanup,
-            boolean cleanUp) throws Exception {
+            boolean cleanUp)
+            throws Exception {
         return addCheckpointAndSubsumeOldestOne(checkpoint, checkpointsCleaner, postCleanup);
     }
 

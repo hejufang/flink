@@ -120,5 +120,4 @@ public class Constants {
 
     public static final String FILE_DOWNLOAD_VOLUME = "file-download-volume";
     public static final String JAR_FILE_EXTENSION = ".jar";
-
 }

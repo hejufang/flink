@@ -76,7 +76,8 @@ public class DefaultPackagedProgramRetriever implements PackagedProgramRetriever
             Configuration configuration,
             @Nullable UserClasspathConstructor classpathConstructor)
             throws FlinkException {
-        return create(userLibDir, null, jobClassName, programArgs, configuration, classpathConstructor);
+        return create(
+                userLibDir, null, jobClassName, programArgs, configuration, classpathConstructor);
     }
 
     /**
@@ -115,7 +116,9 @@ public class DefaultPackagedProgramRetriever implements PackagedProgramRetriever
 
                 userClasspaths = Collections.unmodifiableList(classpaths);
             } else {
-                userClasspaths = UserClasspathConstructor.getFlinkUserClasspath(classpathConstructor, configuration, userLibDir, null);
+                userClasspaths =
+                        UserClasspathConstructor.getFlinkUserClasspath(
+                                classpathConstructor, configuration, userLibDir, null);
             }
         } catch (IOException e) {
             throw new FlinkException("An error occurred while extracting the user classpath.", e);

@@ -26,16 +26,14 @@ import java.net.URL;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * The user classpath constructor in kubernetes application mode.
- */
+/** The user classpath constructor in kubernetes application mode. */
 public enum KubernetesUserClasspathConstructor implements UserClasspathConstructor {
-
     INSTANCE;
 
     @Override
     public List<URL> getUserJar(Configuration flinkConfiguration) {
-        // the user jar will not be added to user classpath but to the field "jar files" in job graph.
+        // the user jar will not be added to user classpath but to the field "jar files" in job
+        // graph.
         return Collections.emptyList();
     }
 

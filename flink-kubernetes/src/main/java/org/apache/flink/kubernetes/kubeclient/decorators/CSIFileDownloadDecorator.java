@@ -38,8 +38,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * The file download decorator using csi drive to download files. This decorator will add a csi volume to pod.
- * And then the csi driver deployed in Kubernetes cluster can download the files from remote storage.
+ * The file download decorator using csi drive to download files. This decorator will add a csi
+ * volume to pod. And then the csi driver deployed in Kubernetes cluster can download the files from
+ * remote storage.
  */
 public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
 
@@ -58,21 +59,23 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
     private FlinkPod downloadFilesByCsi(FlinkPod flinkPod) {
         final Container basicMainContainer = decorateMainContainer(flinkPod.getMainContainer());
         // csi type volume
-        final Volume csiVolume = new VolumeBuilder()
-                .withName(Constants.FILE_DOWNLOAD_VOLUME)
-                .withNewCsi()
-                .withDriver(kubernetesParameters.getCsiDriverName())
-                .withNewNodePublishSecretRef()
-                .withName(kubernetesParameters.getSecretName())
-                .endNodePublishSecretRef()
-                .withVolumeAttributes(getCsiVolumeAttributes(0))
-                .endCsi()
-                .build();
-        final Pod basicPod = new PodBuilder(flinkPod.getPodWithoutMainContainer())
-                .editOrNewSpec()
-                .addToVolumes(csiVolume)
-                .endSpec()
-                .build();
+        final Volume csiVolume =
+                new VolumeBuilder()
+                        .withName(Constants.FILE_DOWNLOAD_VOLUME)
+                        .withNewCsi()
+                        .withDriver(kubernetesParameters.getCsiDriverName())
+                        .withNewNodePublishSecretRef()
+                        .withName(kubernetesParameters.getSecretName())
+                        .endNodePublishSecretRef()
+                        .withVolumeAttributes(getCsiVolumeAttributes(0))
+                        .endCsi()
+                        .build();
+        final Pod basicPod =
+                new PodBuilder(flinkPod.getPodWithoutMainContainer())
+                        .editOrNewSpec()
+                        .addToVolumes(csiVolume)
+                        .endSpec()
+                        .build();
         return new FlinkPod.Builder(flinkPod)
                 .withPod(basicPod)
                 .withMainContainer(basicMainContainer)
@@ -80,12 +83,15 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
     }
 
     private Container decorateMainContainer(Container mainContainer) {
-        // csi driver want to be allocated a proper disk otherwise the downloading will be very slow.
-        Map<String, Quantity> diskRequirement = kubernetesParameters.getCsiDiskResourceRequirement();
-        final ResourceRequirements resourceRequirements = new ResourceRequirementsBuilder(mainContainer.getResources())
-                .addToRequests(diskRequirement)
-                .addToLimits(diskRequirement)
-                .build();
+        // csi driver want to be allocated a proper disk otherwise the downloading will be very
+        // slow.
+        Map<String, Quantity> diskRequirement =
+                kubernetesParameters.getCsiDiskResourceRequirement();
+        final ResourceRequirements resourceRequirements =
+                new ResourceRequirementsBuilder(mainContainer.getResources())
+                        .addToRequests(diskRequirement)
+                        .addToLimits(diskRequirement)
+                        .build();
         return new ContainerBuilder(mainContainer)
                 .addNewVolumeMount()
                 .withName(Constants.FILE_DOWNLOAD_VOLUME)
@@ -96,37 +102,42 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
     }
 
     /**
-     * Get the csi volume attribute map required by csi driver.
-     * The attribute map should contain three items:
-     * 1. volumeType: Data or LOG; Here we use data for file downloading
-     * 2. ssdAffinity: Prefer; Means we prefer use ssd to download file
-     * 3. resourceList: Json representation of Map:String -> LocalResource where the key is th saving path of
-     *  one LocalResource, the value "LocalResource" has three field: remote file path, timestamp for this file,
-     *  and the resource type (ARCHIVE, FILE, PATTERN).
-     *  The CSI driver uses (path, timestamp) to identify the file version, for timestamp of a file, set it to zero
-     *  if you can guarantee the path will never be overridden so one path always represent one version.
+     * Get the csi volume attribute map required by csi driver. The attribute map should contain
+     * three items: 1. volumeType: Data or LOG; Here we use data for file downloading 2.
+     * ssdAffinity: Prefer; Means we prefer use ssd to download file 3. resourceList: Json
+     * representation of Map:String -> LocalResource where the key is th saving path of one
+     * LocalResource, the value "LocalResource" has three field: remote file path, timestamp for
+     * this file, and the resource type (ARCHIVE, FILE, PATTERN). The CSI driver uses (path,
+     * timestamp) to identify the file version, for timestamp of a file, set it to zero if you can
+     * guarantee the path will never be overridden so one path always represent one version.
      *
-     * @param fileTimestamp the file timestamp for all remote files. Using same timestamp means they all belong to
-     *                      the same version. 0 means all file in this path belongs to the same version.
+     * @param fileTimestamp the file timestamp for all remote files. Using same timestamp means they
+     *     all belong to the same version. 0 means all file in this path belongs to the same
+     *     version.
      * @return the created csi volume attribute map
      */
     public Map<String, String> getCsiVolumeAttributes(long fileTimestamp) {
         Map<String, String> volumeAttributes = new HashMap<>();
         volumeAttributes.put("volumeType", "Data");
         volumeAttributes.put("ssdAffinity", "Prefer");
-        String resourceList = "{" + remoteFiles.stream()
-                .map(LocalResource::new)
-                .map(localResource -> String.format("\"%s\": %s",
-                        localResource.getFileDownloadPath(pathToFileName), localResource.toJsonString(fileTimestamp)))
-                .collect(Collectors.joining(", ")) +
-                "}";
+        String resourceList =
+                "{"
+                        + remoteFiles.stream()
+                                .map(LocalResource::new)
+                                .map(
+                                        localResource ->
+                                                String.format(
+                                                        "\"%s\": %s",
+                                                        localResource.getFileDownloadPath(
+                                                                pathToFileName),
+                                                        localResource.toJsonString(fileTimestamp)))
+                                .collect(Collectors.joining(", "))
+                        + "}";
         volumeAttributes.put("resourceList", resourceList);
         return volumeAttributes;
     }
 
-    /**
-     * Class to represent a local resource in CSI volume definition.
-     */
+    /** Class to represent a local resource in CSI volume definition. */
     public static class LocalResource {
 
         public static final int ARCHIVE = 0;
@@ -139,7 +150,8 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
         private LocalResource(URI path) {
             this.path = path;
             if (path.getPath().endsWith(Constants.JAR_FILE_EXTENSION)) {
-                // if this is a jar file, we shouldn't mark it as ARCHIVE because we don't want to extract it in containers.
+                // if this is a jar file, we shouldn't mark it as ARCHIVE because we don't want to
+                // extract it in containers.
                 this.resourceType = LocalResource.FILE;
             } else {
                 this.resourceType = LocalResource.ARCHIVE;
@@ -157,5 +169,4 @@ public class CSIFileDownloadDecorator extends AbstractFileDownloadDecorator {
                     path, timestamp, resourceType);
         }
     }
-
 }

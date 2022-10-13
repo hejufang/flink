@@ -481,44 +481,59 @@ class KubernetesJobManagerFactoryTest extends KubernetesJobManagerTestBase {
                 KubernetesJobManagerFactory.buildKubernetesJobManagerSpecification(
                         flinkPod, kubernetesJobManagerParameters);
 
-        final PodSpec podSpec = kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
+        final PodSpec podSpec =
+                kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
 
         assertThat(podSpec.getSchedulerName()).isEqualTo(schedulerName);
     }
 
     @Test
     public void testInitContainerWithRemoteJar() throws IOException {
-        flinkConfig.set(PipelineOptions.JARS, Collections.singletonList("local:///path/of/user.jar"));
-        flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES,
-                Arrays.asList("hdfs:///path/of/file1.jar", "hdfs:///path/file2.jar", "hdfs:///path/file3.jar"));
+        flinkConfig.set(
+                PipelineOptions.JARS, Collections.singletonList("local:///path/of/user.jar"));
+        flinkConfig.set(
+                PipelineOptions.EXTERNAL_RESOURCES,
+                Arrays.asList(
+                        "hdfs:///path/of/file1.jar",
+                        "hdfs:///path/file2.jar",
+                        "hdfs:///path/file3.jar"));
         flinkConfig.set(DeploymentOptions.TARGET, KubernetesDeploymentTarget.APPLICATION.getName());
 
         KubernetesJobManagerSpecification kubernetesJobManagerSpecification =
-                KubernetesJobManagerFactory.buildKubernetesJobManagerSpecification(flinkPod, kubernetesJobManagerParameters);
+                KubernetesJobManagerFactory.buildKubernetesJobManagerSpecification(
+                        flinkPod, kubernetesJobManagerParameters);
 
-        final PodSpec podSpec = kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
-        assertFalse("should use init container to download hdfs file", podSpec.getInitContainers().isEmpty());
-        assertTrue("should use init container to download hdfs file",
-                podSpec.getInitContainers().get(0).getArgs().stream().anyMatch(
-                        arg -> arg.contains("hdfs:///path/of/file1.jar")
-                ));
-        assertTrue("hdfs file should be downloaded to emptyDir type volume",
-                podSpec.getVolumes().stream().anyMatch(volume -> volume.getEmptyDir() != null)
-        );
+        final PodSpec podSpec =
+                kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
+        assertFalse(
+                "should use init container to download hdfs file",
+                podSpec.getInitContainers().isEmpty());
+        assertTrue(
+                "should use init container to download hdfs file",
+                podSpec.getInitContainers().get(0).getArgs().stream()
+                        .anyMatch(arg -> arg.contains("hdfs:///path/of/file1.jar")));
+        assertTrue(
+                "hdfs file should be downloaded to emptyDir type volume",
+                podSpec.getVolumes().stream().anyMatch(volume -> volume.getEmptyDir() != null));
     }
 
     @Test
     public void testInitContainerWithLocalJar() throws IOException {
-        flinkConfig.set(PipelineOptions.JARS, Collections.singletonList("local:///path/of/user.jar"));
+        flinkConfig.set(
+                PipelineOptions.JARS, Collections.singletonList("local:///path/of/user.jar"));
         flinkConfig.set(DeploymentOptions.TARGET, KubernetesDeploymentTarget.APPLICATION.getName());
 
         KubernetesJobManagerSpecification kubernetesJobManagerSpecification =
-                KubernetesJobManagerFactory.buildKubernetesJobManagerSpecification(flinkPod, kubernetesJobManagerParameters);
+                KubernetesJobManagerFactory.buildKubernetesJobManagerSpecification(
+                        flinkPod, kubernetesJobManagerParameters);
 
-        final PodSpec podSpec = kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
-        assertTrue("should not use init container for local file", podSpec.getInitContainers().isEmpty());
-        assertTrue("should not create emptyDir volume",
-                podSpec.getVolumes().stream().allMatch(volume -> volume.getEmptyDir() == null)
-        );
+        final PodSpec podSpec =
+                kubernetesJobManagerSpecification.getDeployment().getSpec().getTemplate().getSpec();
+        assertTrue(
+                "should not use init container for local file",
+                podSpec.getInitContainers().isEmpty());
+        assertTrue(
+                "should not create emptyDir volume",
+                podSpec.getVolumes().stream().allMatch(volume -> volume.getEmptyDir() == null));
     }
 }

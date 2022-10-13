@@ -100,19 +100,23 @@ public class KubernetesJobManagerFactory {
         final Pod resolvedPod;
 
         if (StringUtils.isNullOrWhitespaceOnly(kubernetesJobManagerParameters.getSchedulerName())) {
-            resolvedPod = new PodBuilder(flinkPod.getPodWithoutMainContainer())
-                    .editOrNewSpec()
-                    .addToContainers(resolvedMainContainer)
-                    .endSpec()
-                    .build();
+            resolvedPod =
+                    new PodBuilder(flinkPod.getPodWithoutMainContainer())
+                            .editOrNewSpec()
+                            .addToContainers(resolvedMainContainer)
+                            .endSpec()
+                            .build();
         } else {
-            LOG.info("Set the schedulerName of JM pod to {}.", kubernetesJobManagerParameters.getSchedulerName());
-            resolvedPod = new PodBuilder(flinkPod.getPodWithoutMainContainer())
-                    .editOrNewSpec()
-                    .addToContainers(resolvedMainContainer)
-                    .withSchedulerName(kubernetesJobManagerParameters.getSchedulerName())
-                    .endSpec()
-                    .build();
+            LOG.info(
+                    "Set the schedulerName of JM pod to {}.",
+                    kubernetesJobManagerParameters.getSchedulerName());
+            resolvedPod =
+                    new PodBuilder(flinkPod.getPodWithoutMainContainer())
+                            .editOrNewSpec()
+                            .addToContainers(resolvedMainContainer)
+                            .withSchedulerName(kubernetesJobManagerParameters.getSchedulerName())
+                            .endSpec()
+                            .build();
         }
 
         return new DeploymentBuilder()

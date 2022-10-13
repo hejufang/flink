@@ -255,10 +255,17 @@ class KubernetesUtilsTest extends KubernetesTestBase {
         final Configuration config = new Configuration();
 
         config.setString(PipelineOptions.JARS.key(), "hdfs:///path/of/user.jar");
-        config.set(PipelineOptions.EXTERNAL_RESOURCES,
-                Arrays.asList("hdfs:///path/of/file1.jar", "hdfs:///path/file2.jar", "hdfs:///path/file3.jar"));
+        config.set(
+                PipelineOptions.EXTERNAL_RESOURCES,
+                Arrays.asList(
+                        "hdfs:///path/of/file1.jar",
+                        "hdfs:///path/file2.jar",
+                        "hdfs:///path/file3.jar"));
         KubernetesUtils.uploadLocalDiskFilesToRemote(config, "hdfs:///upload");
-        Assertions.assertEquals(4, config.get(PipelineOptions.EXTERNAL_RESOURCES).size(), "all remote files need to be added in external-resource list");
+        Assertions.assertEquals(
+                4,
+                config.get(PipelineOptions.EXTERNAL_RESOURCES).size(),
+                "all remote files need to be added in external-resource list");
     }
 
     @Test
@@ -274,12 +281,20 @@ class KubernetesUtilsTest extends KubernetesTestBase {
         String userJar = new File(resourceFolder, "user.jar").toString();
         String file1 = new File(resourceFolder, "file1.jar").toString();
         config.setString(PipelineOptions.JARS.key(), userJar);
-        config.set(PipelineOptions.EXTERNAL_RESOURCES,
+        config.set(
+                PipelineOptions.EXTERNAL_RESOURCES,
                 Arrays.asList(file1, "hdfs:///path/file2.jar", "hdfs:///path/file3.jar"));
         KubernetesUtils.uploadLocalDiskFilesToRemote(config, uploadDir.getPath());
-        Assertions.assertEquals(4, config.get(PipelineOptions.EXTERNAL_RESOURCES).size(), "all remote files need to be added in external-resource list");
-        Assertions.assertFalse(config.get(PipelineOptions.EXTERNAL_RESOURCES).contains(userJar), "disk file should be uploaded");
-        Assertions.assertFalse(config.get(PipelineOptions.EXTERNAL_RESOURCES).contains(file1), "disk file should be uploaded");
+        Assertions.assertEquals(
+                4,
+                config.get(PipelineOptions.EXTERNAL_RESOURCES).size(),
+                "all remote files need to be added in external-resource list");
+        Assertions.assertFalse(
+                config.get(PipelineOptions.EXTERNAL_RESOURCES).contains(userJar),
+                "disk file should be uploaded");
+        Assertions.assertFalse(
+                config.get(PipelineOptions.EXTERNAL_RESOURCES).contains(file1),
+                "disk file should be uploaded");
     }
 
     @Test
@@ -294,8 +309,13 @@ class KubernetesUtilsTest extends KubernetesTestBase {
 
         config.setString(PipelineOptions.JARS.key(), userJar);
         KubernetesUtils.uploadLocalDiskFilesToRemote(config, uploadDir.getPath());
-        Assertions.assertEquals(1, config.get(PipelineOptions.EXTERNAL_RESOURCES).size(), "all remote files need to be added in external-resource list");
-        Assertions.assertFalse(config.get(PipelineOptions.EXTERNAL_RESOURCES).contains(userJar), "disk file should be uploaded");
+        Assertions.assertEquals(
+                1,
+                config.get(PipelineOptions.EXTERNAL_RESOURCES).size(),
+                "all remote files need to be added in external-resource list");
+        Assertions.assertFalse(
+                config.get(PipelineOptions.EXTERNAL_RESOURCES).contains(userJar),
+                "disk file should be uploaded");
     }
 
     @Test
@@ -304,7 +324,10 @@ class KubernetesUtilsTest extends KubernetesTestBase {
 
         config.setString(PipelineOptions.JARS.key(), "hdfs:///path/of/user.jar");
         KubernetesUtils.uploadLocalDiskFilesToRemote(config, "hdfs:///upload");
-        Assertions.assertEquals(1, config.get(PipelineOptions.EXTERNAL_RESOURCES).size(), "all remote files need to be added in external-resource list");
+        Assertions.assertEquals(
+                1,
+                config.get(PipelineOptions.EXTERNAL_RESOURCES).size(),
+                "all remote files need to be added in external-resource list");
     }
 
     @Test
@@ -317,15 +340,19 @@ class KubernetesUtilsTest extends KubernetesTestBase {
         config.setString(PipelineOptions.JARS.key(), "hdfs:///path/of/user.jar");
 
         // test the path with file schema
-        config.setString(PipelineOptions.EXTERNAL_RESOURCES.key(), new File("file://" + resourceFolder.getPath()).getPath());
+        config.setString(
+                PipelineOptions.EXTERNAL_RESOURCES.key(),
+                new File("file://" + resourceFolder.getPath()).getPath());
         KubernetesUtils.uploadLocalDiskFilesToRemote(config, uploadDir.getPath());
         // should ignore uploading a folder
-        assertThat(config.get(PipelineOptions.EXTERNAL_RESOURCES)).isEqualTo(Collections.singletonList("hdfs:///path/of/user.jar"));
+        assertThat(config.get(PipelineOptions.EXTERNAL_RESOURCES))
+                .isEqualTo(Collections.singletonList("hdfs:///path/of/user.jar"));
         // test the path without indicating schema
         config.setString(PipelineOptions.EXTERNAL_RESOURCES.key(), resourceFolder.getPath());
         KubernetesUtils.uploadLocalDiskFilesToRemote(config, uploadDir.getPath());
         // should ignore uploading a folder
-        assertThat(config.get(PipelineOptions.EXTERNAL_RESOURCES)).isEqualTo(Collections.singletonList("hdfs:///path/of/user.jar"));
+        assertThat(config.get(PipelineOptions.EXTERNAL_RESOURCES))
+                .isEqualTo(Collections.singletonList("hdfs:///path/of/user.jar"));
     }
 
     @Test
@@ -333,19 +360,20 @@ class KubernetesUtilsTest extends KubernetesTestBase {
         Configuration flinkConfig = new Configuration();
         flinkConfig.setString(PipelineOptions.FILE_MOUNTED_PATH, "/opt/tiger/workdir");
         flinkConfig.set(PipelineOptions.JARS, Collections.singletonList("hdfs://job/user.jar"));
-        flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES, Arrays.asList("hdfs://job/file1.jar", "hdfs://job/file2.jar"));
+        flinkConfig.set(
+                PipelineOptions.EXTERNAL_RESOURCES,
+                Arrays.asList("hdfs://job/file1.jar", "hdfs://job/file2.jar"));
         List<URL> urls = KubernetesUtils.getExternalFiles(flinkConfig);
-        String[] expectedPath = new String[] {
-                "/opt/tiger/workdir/file1.jar",
-                "/opt/tiger/workdir/file2.jar"
-        };
+        String[] expectedPath =
+                new String[] {"/opt/tiger/workdir/file1.jar", "/opt/tiger/workdir/file2.jar"};
         assertArrayEquals(expectedPath, urls.stream().map(URL::getPath).toArray());
     }
 
     @Test
     public void testGetExternalFilesWithEmptyParameter() {
         Configuration flinkConfig = new Configuration();
-        flinkConfig.set(PipelineOptions.JARS, Collections.singletonList("local:///opt/usrlib/user.jar"));
+        flinkConfig.set(
+                PipelineOptions.JARS, Collections.singletonList("local:///opt/usrlib/user.jar"));
         List<URL> urls = KubernetesUtils.getExternalFiles(flinkConfig);
         String[] expectedPath = new String[] {};
         assertArrayEquals(expectedPath, urls.stream().map(URL::getPath).toArray());
@@ -356,13 +384,13 @@ class KubernetesUtilsTest extends KubernetesTestBase {
         Configuration flinkConfig = new Configuration();
         flinkConfig.setString(PipelineOptions.FILE_MOUNTED_PATH, "/opt/tiger/workdir");
         flinkConfig.set(PipelineOptions.JARS, Collections.singletonList("hdfs://job/user.jar"));
-        flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES,
-                Arrays.asList("hdfs://job/file1.jar", "hdfs://job/file2.jar", "hdfs://job/user.jar"));
+        flinkConfig.set(
+                PipelineOptions.EXTERNAL_RESOURCES,
+                Arrays.asList(
+                        "hdfs://job/file1.jar", "hdfs://job/file2.jar", "hdfs://job/user.jar"));
         List<URL> urls = KubernetesUtils.getExternalFiles(flinkConfig);
-        String[] expectedPath = new String[] {
-                "/opt/tiger/workdir/file1.jar",
-                "/opt/tiger/workdir/file2.jar"
-        };
+        String[] expectedPath =
+                new String[] {"/opt/tiger/workdir/file1.jar", "/opt/tiger/workdir/file2.jar"};
         assertArrayEquals(expectedPath, urls.stream().map(URL::getPath).toArray());
     }
 
@@ -370,7 +398,8 @@ class KubernetesUtilsTest extends KubernetesTestBase {
     public void testGetExternalFilesWithSameNameFiles() {
         Configuration flinkConfig = new Configuration();
         flinkConfig.setString(PipelineOptions.FILE_MOUNTED_PATH, "/opt/tiger/workdir");
-        flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES,
+        flinkConfig.set(
+                PipelineOptions.EXTERNAL_RESOURCES,
                 Arrays.asList("hdfs://job/file1.jar", "hdfs://job/flink/file1.jar"));
 
         Map<String, String> pathToFileName = new HashMap<>();
@@ -378,10 +407,8 @@ class KubernetesUtilsTest extends KubernetesTestBase {
         pathToFileName.put("hdfs://job/flink/file1.jar", "0_file1.jar");
         flinkConfig.set(ApplicationConfiguration.EXTERNAL_RESOURCES_NAME_MAPPING, pathToFileName);
         List<URL> urls = KubernetesUtils.getExternalFiles(flinkConfig);
-        String[] expectedPath = new String[] {
-                "/opt/tiger/workdir/file1.jar",
-                "/opt/tiger/workdir/0_file1.jar"
-        };
+        String[] expectedPath =
+                new String[] {"/opt/tiger/workdir/file1.jar", "/opt/tiger/workdir/0_file1.jar"};
         assertArrayEquals(expectedPath, urls.stream().map(URL::getPath).toArray());
     }
 
@@ -389,17 +416,17 @@ class KubernetesUtilsTest extends KubernetesTestBase {
     public void testGetExternalFilesWithNonJarFiles() {
         Configuration flinkConfig = new Configuration();
         flinkConfig.setString(PipelineOptions.FILE_MOUNTED_PATH, "/opt/tiger/workdir");
-        flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES,
-                Arrays.asList("hdfs://job/file1.jar", "hdfs://job/file2.jar", "hdfs://job/sqlFile"));
+        flinkConfig.set(
+                PipelineOptions.EXTERNAL_RESOURCES,
+                Arrays.asList(
+                        "hdfs://job/file1.jar", "hdfs://job/file2.jar", "hdfs://job/sqlFile"));
 
         Map<String, String> pathToFileName = new HashMap<>();
         pathToFileName.put("hdfs://job/file1.jar", "file1.jar");
         flinkConfig.set(ApplicationConfiguration.EXTERNAL_RESOURCES_NAME_MAPPING, pathToFileName);
         List<URL> urls = KubernetesUtils.getExternalFiles(flinkConfig);
-        String[] expectedPath = new String[] {
-                "/opt/tiger/workdir/file1.jar",
-                "/opt/tiger/workdir/file2.jar"
-        };
+        String[] expectedPath =
+                new String[] {"/opt/tiger/workdir/file1.jar", "/opt/tiger/workdir/file2.jar"};
         assertArrayEquals(expectedPath, urls.stream().map(URL::getPath).toArray());
     }
 }

@@ -304,14 +304,16 @@ public class KubernetesConfigOptions {
                     .stringType()
                     .asList()
                     .noDefaultValue()
-                    .withDescription("List of user defined ports, separated by semicolon, E.g. port0:8080;port1:8081.");
+                    .withDescription(
+                            "List of user defined ports, separated by semicolon, E.g. port0:8080;port1:8081.");
 
     public static final ConfigOption<List<String>> FLINK_TASKMANAGER_USER_PORTS =
             key("kubernetes.flink.taskmanager-user-ports")
                     .stringType()
                     .asList()
                     .noDefaultValue()
-                    .withDescription("List of user defined ports, separated by semicolon, E.g. port0:8080;port1:8081.");
+                    .withDescription(
+                            "List of user defined ports, separated by semicolon, E.g. port0:8080;port1:8081.");
 
     public static final ConfigOption<String> FLINK_LOG_DIR =
             key("kubernetes.flink.log.dir")
@@ -333,7 +335,8 @@ public class KubernetesConfigOptions {
             key("kubernetes.scheduler-name")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The user-specified scheduler name that will be used into Flink Pod, including the JM and the TM pod.");
+                    .withDescription(
+                            "The user-specified scheduler name that will be used into Flink Pod, including the JM and the TM pod.");
 
     public static final ConfigOption<Map<String, String>> JOB_MANAGER_ANNOTATIONS =
             key("kubernetes.jobmanager.annotations")
@@ -542,7 +545,8 @@ public class KubernetesConfigOptions {
             key("kubernetes.file-download-mode")
                     .enumType(DownloadMode.class)
                     .defaultValue(DownloadMode.INIT_CONTAINER)
-                    .withDescription("The way to download user external files to Job manager and task manager container.");
+                    .withDescription(
+                            "The way to download user external files to Job manager and task manager container.");
 
     public static final ConfigOption<String> FILE_DOWNLOAD_VOLUME_SIZE =
             key("kubernetes.file-download-volume.size")
@@ -554,28 +558,32 @@ public class KubernetesConfigOptions {
             key("kubernetes.gdpr-secret.name-template")
                     .stringType()
                     .defaultValue("deployment-%cluster-id%")
-                    .withDescription("The name template for GDPR secret. The secret should be created by Arcee or Kubernetes." +
-                            "The name of the secret must follow this template.");
+                    .withDescription(
+                            "The name template for GDPR secret. The secret should be created by Arcee or Kubernetes."
+                                    + "The name of the secret must follow this template.");
 
     public static final ConfigOption<String> CSI_DRIVER =
             key("kubernetes.csi-driver")
                     .stringType()
                     .defaultValue("localpath.csi.bytedance.com")
-                    .withDescription("The driver name required by csi volume to download resources.");
+                    .withDescription(
+                            "The driver name required by csi volume to download resources.");
 
     public static final ConfigOption<String> CSI_DISK_RESOURCE_KEY =
             key("kubernetes.csi-disk-resource-key")
                     .stringType()
                     .defaultValue("bytedance.com/local-disk")
-                    .withDescription("The key to indicate the disk resource for container. CSI driver need to set this" +
-                            " key to let device plugin allocate special disk for file downloading.");
+                    .withDescription(
+                            "The key to indicate the disk resource for container. CSI driver need to set this"
+                                    + " key to let device plugin allocate special disk for file downloading.");
 
     public static final ConfigOption<String> CSI_DISK_RESOURCE_VALUE =
             key("kubernetes.csi-disk-resource-value")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The value to indicate the disk resource for container. 1 means enable the " +
-                            "disk resource guarantee and 0 means disable.");
+                    .withDescription(
+                            "The value to indicate the disk resource for container. 1 means enable the "
+                                    + "disk resource guarantee and 0 means disable.");
 
     private static String getDefaultFlinkImage() {
         // The default container image that ties to the exact needed versions of both Flink and
@@ -629,17 +637,13 @@ public class KubernetesConfigOptions {
         Never
     }
 
-    /**
-     * File Download Mode for job external resources.
-     */
+    /** File Download Mode for job external resources. */
     public enum DownloadMode {
-        /**
-         * Download external files by csi driver to a csi type volume and mount it to container.
-         */
+        /** Download external files by csi driver to a csi type volume and mount it to container. */
         CSI,
         /**
-         * Download external files by flink use init container to a emptyDir type volume. And then this volume
-         * will be shared to main container.
+         * Download external files by flink use init container to a emptyDir type volume. And then
+         * this volume will be shared to main container.
          */
         INIT_CONTAINER
     }

@@ -42,9 +42,7 @@ import java.util.stream.Collectors;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/**
- * This decorator set up the pod to download remote file from HTTP/HDFS/S3 etc.
- */
+/** This decorator set up the pod to download remote file from HTTP/HDFS/S3 etc. */
 public abstract class AbstractFileDownloadDecorator extends AbstractKubernetesStepDecorator {
 
     protected final String fileMountedPath;
@@ -54,12 +52,20 @@ public abstract class AbstractFileDownloadDecorator extends AbstractKubernetesSt
 
     public AbstractFileDownloadDecorator(AbstractKubernetesParameters kubernetesParameters) {
         this.kubernetesParameters = checkNotNull(kubernetesParameters);
-        this.fileMountedPath = kubernetesParameters.getFlinkConfiguration().getString(PipelineOptions.FILE_MOUNTED_PATH);
-        List<URI> uris = getRemoteFilesForApplicationMode(kubernetesParameters.getFlinkConfiguration());
+        this.fileMountedPath =
+                kubernetesParameters
+                        .getFlinkConfiguration()
+                        .getString(PipelineOptions.FILE_MOUNTED_PATH);
+        List<URI> uris =
+                getRemoteFilesForApplicationMode(kubernetesParameters.getFlinkConfiguration());
         this.remoteFiles.addAll(uris);
         pathToFileName = renameFileIfRequired(remoteFiles);
-        checkState(new HashSet<>(pathToFileName.values()).size() == pathToFileName.size(), "exists multiple files with same name");
-        this.kubernetesParameters.getFlinkConfiguration().set(ApplicationConfiguration.EXTERNAL_RESOURCES_NAME_MAPPING, pathToFileName);
+        checkState(
+                new HashSet<>(pathToFileName.values()).size() == pathToFileName.size(),
+                "exists multiple files with same name");
+        this.kubernetesParameters
+                .getFlinkConfiguration()
+                .set(ApplicationConfiguration.EXTERNAL_RESOURCES_NAME_MAPPING, pathToFileName);
     }
 
     private static List<URI> getRemoteFilesForApplicationMode(Configuration configuration) {
@@ -67,30 +73,30 @@ public abstract class AbstractFileDownloadDecorator extends AbstractKubernetesSt
             return Collections.emptyList();
         }
         return configuration.get(PipelineOptions.EXTERNAL_RESOURCES).stream()
-                .map(
-                        FunctionUtils.uncheckedFunction(
-                                PackagedProgramUtils::resolveURI))
-                .filter(uri -> !uri.getScheme().equals(ConfigConstants.LOCAL_SCHEME) && !uri.getScheme().equals(ConfigConstants.FILE_SCHEME))
+                .map(FunctionUtils.uncheckedFunction(PackagedProgramUtils::resolveURI))
+                .filter(
+                        uri ->
+                                !uri.getScheme().equals(ConfigConstants.LOCAL_SCHEME)
+                                        && !uri.getScheme().equals(ConfigConstants.FILE_SCHEME))
                 .collect(Collectors.toList());
     }
 
-    /**
-     * The save path of remote file downloaded should be obtained from this method.
-     */
+    /** The save path of remote file downloaded should be obtained from this method. */
     public static String getDownloadedPath(URI uri, Configuration configuration) {
         String fileMountedPath = configuration.getString(PipelineOptions.FILE_MOUNTED_PATH);
-        Map<String, String> pathToFileName = configuration.get(ApplicationConfiguration.EXTERNAL_RESOURCES_NAME_MAPPING);
-        if (pathToFileName != null && pathToFileName.containsKey(uri.toString())){
+        Map<String, String> pathToFileName =
+                configuration.get(ApplicationConfiguration.EXTERNAL_RESOURCES_NAME_MAPPING);
+        if (pathToFileName != null && pathToFileName.containsKey(uri.toString())) {
             return new File(fileMountedPath, pathToFileName.get(uri.toString())).getPath();
         }
         return new File(fileMountedPath, new File(uri.getPath()).getName()).getPath();
     }
 
     private static Map<String, String> renameFileIfRequired(Set<URI> remoteFiles) {
-        Map<String, String>  pathToFileName = new HashMap<>();
+        Map<String, String> pathToFileName = new HashMap<>();
         Set<String> fileNameSet = new HashSet<>();
         List<String> sameNameFiles = new ArrayList<>();
-        for (URI uri : remoteFiles){
+        for (URI uri : remoteFiles) {
             String fileName = new File(uri.getPath()).getName();
             if (fileNameSet.contains(fileName)) {
                 sameNameFiles.add(uri.toString());
@@ -99,11 +105,11 @@ public abstract class AbstractFileDownloadDecorator extends AbstractKubernetesSt
                 pathToFileName.put(uri.toString(), fileName);
             }
         }
-        for (String files: sameNameFiles){
+        for (String files : sameNameFiles) {
             int prefix = 0;
             String fileName = new File(files).getName();
             String newFileName = fileName;
-            while (fileNameSet.contains(newFileName)){
+            while (fileNameSet.contains(newFileName)) {
                 // if there exists multiple files with the same name, we need to rename files.
                 // try choosing a number and set it to prefix of the original file name
                 newFileName = String.format("%d_%s", prefix, fileName);
@@ -115,10 +121,12 @@ public abstract class AbstractFileDownloadDecorator extends AbstractKubernetesSt
         return pathToFileName;
     }
 
-    public static AbstractFileDownloadDecorator create(AbstractKubernetesParameters kubernetesParameters) {
-        KubernetesConfigOptions.DownloadMode downloadMode = kubernetesParameters
-                .getFlinkConfiguration()
-                .get(KubernetesConfigOptions.FILE_DOWNLOAD_MODE);
+    public static AbstractFileDownloadDecorator create(
+            AbstractKubernetesParameters kubernetesParameters) {
+        KubernetesConfigOptions.DownloadMode downloadMode =
+                kubernetesParameters
+                        .getFlinkConfiguration()
+                        .get(KubernetesConfigOptions.FILE_DOWNLOAD_MODE);
         switch (downloadMode) {
             case CSI:
                 return new CSIFileDownloadDecorator(kubernetesParameters);

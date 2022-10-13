@@ -334,21 +334,30 @@ public class FlinkUserCodeClassLoadersTest extends TestLogger {
 
     @Test
     public void testClasspathWithEnvironmentVar() throws MalformedURLException {
-        final URL[] urls = new URL[]{
-                new URL("file:file1.jar"),
-                new URL("file:%JAVA_HOME%/file2.jar"),
-                new URL("file:%JAVA_HOME%/%HOME%/file2.jar"),
-                new URL("file:%JAVA_HOME%/%HOME2%/file2.jar"),
-        };
+        final URL[] urls =
+                new URL[] {
+                    new URL("file:file1.jar"),
+                    new URL("file:%JAVA_HOME%/file2.jar"),
+                    new URL("file:%JAVA_HOME%/%HOME%/file2.jar"),
+                    new URL("file:%JAVA_HOME%/%HOME2%/file2.jar"),
+                };
         String javaHome = System.getenv("JAVA_HOME");
         String home = System.getenv("HOME");
-        final URL[] expectedUrls = new URL[]{
-                new URL("file:file1.jar"),
-                new URL("file:%JAVA_HOME%/file2.jar".replaceAll("%JAVA_HOME%", javaHome)),
-                new URL("file:%JAVA_HOME%/%HOME%/file2.jar".replaceAll("%JAVA_HOME%", javaHome).replaceAll("%HOME%", home)),
-                new URL("file:%JAVA_HOME%/%HOME2%/file2.jar".replaceAll("%JAVA_HOME%", javaHome)),
-        };
-        try (URLClassLoader urlClassLoader = FlinkUserCodeClassLoaders.create(urls, getClass().getClassLoader(), new Configuration())) {
+        final URL[] expectedUrls =
+                new URL[] {
+                    new URL("file:file1.jar"),
+                    new URL("file:%JAVA_HOME%/file2.jar".replaceAll("%JAVA_HOME%", javaHome)),
+                    new URL(
+                            "file:%JAVA_HOME%/%HOME%/file2.jar"
+                                    .replaceAll("%JAVA_HOME%", javaHome)
+                                    .replaceAll("%HOME%", home)),
+                    new URL(
+                            "file:%JAVA_HOME%/%HOME2%/file2.jar"
+                                    .replaceAll("%JAVA_HOME%", javaHome)),
+                };
+        try (URLClassLoader urlClassLoader =
+                FlinkUserCodeClassLoaders.create(
+                        urls, getClass().getClassLoader(), new Configuration())) {
             assertArrayEquals(expectedUrls, urlClassLoader.getURLs());
         } catch (IOException e) {
             throw new RuntimeException(e);

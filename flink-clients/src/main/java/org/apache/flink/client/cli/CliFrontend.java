@@ -127,7 +127,8 @@ public class CliFrontend {
         this.configuration = checkNotNull(configuration);
         this.customCommandLines = checkNotNull(customCommandLines);
         this.clusterClientServiceLoader = checkNotNull(clusterClientServiceLoader);
-        // the file system initialization should be called after getting the final effective configuration, but to ensure
+        // the file system initialization should be called after getting the final effective
+        // configuration, but to ensure
         // no additional issue happened, we keep this initialization here.
         FileSystem.initialize(
                 configuration, PluginUtils.createPluginManagerFromRootFolder(configuration));
@@ -287,7 +288,8 @@ public class CliFrontend {
         effectiveConfiguration.addAll(commandLineConfiguration);
         LOG.info("reinitialize file system with effective configuration");
         FileSystem.initialize(
-                effectiveConfiguration, PluginUtils.createPluginManagerFromRootFolder(effectiveConfiguration));
+                effectiveConfiguration,
+                PluginUtils.createPluginManagerFromRootFolder(effectiveConfiguration));
         return effectiveConfiguration;
     }
 
@@ -312,7 +314,8 @@ public class CliFrontend {
                 effectiveConfiguration);
         LOG.info("reinitialize file system with effective configuration");
         FileSystem.initialize(
-                effectiveConfiguration, PluginUtils.createPluginManagerFromRootFolder(effectiveConfiguration));
+                effectiveConfiguration,
+                PluginUtils.createPluginManagerFromRootFolder(effectiveConfiguration));
         return effectiveConfiguration;
     }
 
@@ -809,9 +812,10 @@ public class CliFrontend {
         final DownloadOptions downloadOptions = new DownloadOptions(commandLine);
         downloadOptions.validate();
         String targetDir = downloadOptions.getSavePath();
-        List<URI> remoteFiles = downloadOptions.getRemoteFiles().stream()
-                .map(FunctionUtils.uncheckedFunction(PackagedProgramUtils::resolveURI))
-                .collect(Collectors.toList());
+        List<URI> remoteFiles =
+                downloadOptions.getRemoteFiles().stream()
+                        .map(FunctionUtils.uncheckedFunction(PackagedProgramUtils::resolveURI))
+                        .collect(Collectors.toList());
         for (URI uri : remoteFiles) {
             Path path = new Path(uri);
             Path targetPath = new Path(targetDir, getSavedFileName(uri));
@@ -821,8 +825,9 @@ public class CliFrontend {
     }
 
     private String getSavedFileName(URI uri) {
-        Map<String, String> pathToFileName = configuration.get(ApplicationConfiguration.EXTERNAL_RESOURCES_NAME_MAPPING);
-        if (pathToFileName != null && pathToFileName.containsKey(uri.toString())){
+        Map<String, String> pathToFileName =
+                configuration.get(ApplicationConfiguration.EXTERNAL_RESOURCES_NAME_MAPPING);
+        if (pathToFileName != null && pathToFileName.containsKey(uri.toString())) {
             return pathToFileName.get(uri.toString());
         }
         return new File(uri.getPath()).getName();

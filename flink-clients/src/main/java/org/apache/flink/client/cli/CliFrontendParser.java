@@ -283,14 +283,14 @@ public class CliFrontendParser {
                     "src",
                     "sources",
                     true,
-            "File list that need to be download. Each files are separated by semicolon. Directory is not supported");
+                    "File list that need to be download. Each files are separated by semicolon. Directory is not supported");
 
     public static final Option DOWNLOAD_DEST_OPTION =
             new Option(
                     "dest",
                     "destination",
                     true,
-            "The saved path of downloading files. This must be a directory.");
+                    "The saved path of downloading files. This must be a directory.");
 
     static {
         HELP_OPTION.setRequired(false);

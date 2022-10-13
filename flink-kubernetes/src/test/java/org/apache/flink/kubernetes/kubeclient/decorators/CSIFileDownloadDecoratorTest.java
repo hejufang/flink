@@ -30,10 +30,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-
-/**
- * Test for FileDownloaderDecorator.
- */
+/** Test for FileDownloaderDecorator. */
 public class CSIFileDownloadDecoratorTest extends KubernetesJobManagerTestBase {
 
     @Override
@@ -49,13 +46,16 @@ public class CSIFileDownloadDecoratorTest extends KubernetesJobManagerTestBase {
     @Test
     public void testGetCsiVolumeAttributes() {
         this.flinkConfig.set(
-                PipelineOptions.EXTERNAL_RESOURCES, Collections.singletonList("hdfs://haruna/AppMaster.jar"));
-        CSIFileDownloadDecorator csiFileDownloadDecorator = new CSIFileDownloadDecorator(kubernetesJobManagerParameters);
+                PipelineOptions.EXTERNAL_RESOURCES,
+                Collections.singletonList("hdfs://haruna/AppMaster.jar"));
+        CSIFileDownloadDecorator csiFileDownloadDecorator =
+                new CSIFileDownloadDecorator(kubernetesJobManagerParameters);
         Map<String, String> expected = getCommonVolumeAttributesMap();
         long timestamp = System.currentTimeMillis();
         expected.put(
                 "resourceList",
-                String.format("{\"AppMaster.jar\": {\"path\": \"hdfs://haruna/AppMaster.jar\", \"timestamp\": %d, \"resourceType\": %d}}",
+                String.format(
+                        "{\"AppMaster.jar\": {\"path\": \"hdfs://haruna/AppMaster.jar\", \"timestamp\": %d, \"resourceType\": %d}}",
                         timestamp, CSIFileDownloadDecorator.LocalResource.FILE));
         Map<String, String> actual = csiFileDownloadDecorator.getCsiVolumeAttributes(timestamp);
         assertThat(actual).isEqualTo(expected);
@@ -64,17 +64,23 @@ public class CSIFileDownloadDecoratorTest extends KubernetesJobManagerTestBase {
     @Test
     public void testGetCsiVolumeAttributesForTwoFiles() {
         this.flinkConfig.set(
-                PipelineOptions.EXTERNAL_RESOURCES, Arrays.asList("hdfs://haruna/AppMaster1.jar", "hdfs://haruna/AppMaster2.jar"));
-        CSIFileDownloadDecorator csiFileDownloadDecorator = new CSIFileDownloadDecorator(kubernetesJobManagerParameters);
+                PipelineOptions.EXTERNAL_RESOURCES,
+                Arrays.asList("hdfs://haruna/AppMaster1.jar", "hdfs://haruna/AppMaster2.jar"));
+        CSIFileDownloadDecorator csiFileDownloadDecorator =
+                new CSIFileDownloadDecorator(kubernetesJobManagerParameters);
         Map<String, String> expected = getCommonVolumeAttributesMap();
         long timestamp = System.currentTimeMillis();
         expected.put(
                 "resourceList",
-                "{" + String.join(", ",
-                        String.format("\"AppMaster1.jar\": {\"path\": \"hdfs://haruna/AppMaster1.jar\", \"timestamp\": %d, \"resourceType\": %d}",
-                                timestamp, CSIFileDownloadDecorator.LocalResource.FILE),
-                        String.format("\"AppMaster2.jar\": {\"path\": \"hdfs://haruna/AppMaster2.jar\", \"timestamp\": %d, \"resourceType\": %d}",
-                                timestamp, CSIFileDownloadDecorator.LocalResource.FILE))
+                "{"
+                        + String.join(
+                                ", ",
+                                String.format(
+                                        "\"AppMaster1.jar\": {\"path\": \"hdfs://haruna/AppMaster1.jar\", \"timestamp\": %d, \"resourceType\": %d}",
+                                        timestamp, CSIFileDownloadDecorator.LocalResource.FILE),
+                                String.format(
+                                        "\"AppMaster2.jar\": {\"path\": \"hdfs://haruna/AppMaster2.jar\", \"timestamp\": %d, \"resourceType\": %d}",
+                                        timestamp, CSIFileDownloadDecorator.LocalResource.FILE))
                         + "}");
         Map<String, String> actual = csiFileDownloadDecorator.getCsiVolumeAttributes(timestamp);
         assertThat(actual).isEqualTo(expected);
@@ -82,20 +88,30 @@ public class CSIFileDownloadDecoratorTest extends KubernetesJobManagerTestBase {
 
     @Test
     public void testGetCsiVolumeAttributesForSameNameFiles() {
-        this.flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES,
-                Arrays.asList("hdfs://haruna/AppMaster2.jar", "hdfs://haruna/0_AppMaster2.jar", "hdfs://haruna/flink/AppMaster2.jar"));
-        CSIFileDownloadDecorator csiFileDownloadDecorator = new CSIFileDownloadDecorator(kubernetesJobManagerParameters);
+        this.flinkConfig.set(
+                PipelineOptions.EXTERNAL_RESOURCES,
+                Arrays.asList(
+                        "hdfs://haruna/AppMaster2.jar",
+                        "hdfs://haruna/0_AppMaster2.jar",
+                        "hdfs://haruna/flink/AppMaster2.jar"));
+        CSIFileDownloadDecorator csiFileDownloadDecorator =
+                new CSIFileDownloadDecorator(kubernetesJobManagerParameters);
         Map<String, String> expected = getCommonVolumeAttributesMap();
         long timestamp = System.currentTimeMillis();
         expected.put(
                 "resourceList",
-                "{" + String.join(", ",
-                        String.format("\"AppMaster2.jar\": {\"path\": \"hdfs://haruna/AppMaster2.jar\", \"timestamp\": %d, \"resourceType\": %d}",
-                                timestamp, CSIFileDownloadDecorator.LocalResource.FILE),
-                        String.format("\"0_AppMaster2.jar\": {\"path\": \"hdfs://haruna/0_AppMaster2.jar\", \"timestamp\": %d, \"resourceType\": %d}",
-                                timestamp, CSIFileDownloadDecorator.LocalResource.FILE),
-                        String.format("\"1_AppMaster2.jar\": {\"path\": \"hdfs://haruna/flink/AppMaster2.jar\", \"timestamp\": %d, \"resourceType\": %d}",
-                                timestamp, CSIFileDownloadDecorator.LocalResource.FILE))
+                "{"
+                        + String.join(
+                                ", ",
+                                String.format(
+                                        "\"AppMaster2.jar\": {\"path\": \"hdfs://haruna/AppMaster2.jar\", \"timestamp\": %d, \"resourceType\": %d}",
+                                        timestamp, CSIFileDownloadDecorator.LocalResource.FILE),
+                                String.format(
+                                        "\"0_AppMaster2.jar\": {\"path\": \"hdfs://haruna/0_AppMaster2.jar\", \"timestamp\": %d, \"resourceType\": %d}",
+                                        timestamp, CSIFileDownloadDecorator.LocalResource.FILE),
+                                String.format(
+                                        "\"1_AppMaster2.jar\": {\"path\": \"hdfs://haruna/flink/AppMaster2.jar\", \"timestamp\": %d, \"resourceType\": %d}",
+                                        timestamp, CSIFileDownloadDecorator.LocalResource.FILE))
                         + "}");
         Map<String, String> actual = csiFileDownloadDecorator.getCsiVolumeAttributes(timestamp);
         assertThat(actual).isEqualTo(expected);
@@ -103,18 +119,24 @@ public class CSIFileDownloadDecoratorTest extends KubernetesJobManagerTestBase {
 
     @Test
     public void testGetCsiVolumeAttributesForMixZipAndJar() {
-        this.flinkConfig.set(PipelineOptions.EXTERNAL_RESOURCES,
+        this.flinkConfig.set(
+                PipelineOptions.EXTERNAL_RESOURCES,
                 Arrays.asList("hdfs://haruna/AppMaster1.jar", "hdfs://haruna/AppMaster2.zip"));
-        CSIFileDownloadDecorator csiFileDownloadDecorator = new CSIFileDownloadDecorator(kubernetesJobManagerParameters);
+        CSIFileDownloadDecorator csiFileDownloadDecorator =
+                new CSIFileDownloadDecorator(kubernetesJobManagerParameters);
         Map<String, String> expected = getCommonVolumeAttributesMap();
         long timestamp = System.currentTimeMillis();
         expected.put(
                 "resourceList",
-                "{" + String.join(", ",
-                        String.format("\"AppMaster1.jar\": {\"path\": \"hdfs://haruna/AppMaster1.jar\", \"timestamp\": %d, \"resourceType\": %d}",
-                                timestamp, CSIFileDownloadDecorator.LocalResource.FILE),
-                        String.format("\"AppMaster2.zip\": {\"path\": \"hdfs://haruna/AppMaster2.zip\", \"timestamp\": %d, \"resourceType\": %d}",
-                                timestamp, CSIFileDownloadDecorator.LocalResource.ARCHIVE))
+                "{"
+                        + String.join(
+                                ", ",
+                                String.format(
+                                        "\"AppMaster1.jar\": {\"path\": \"hdfs://haruna/AppMaster1.jar\", \"timestamp\": %d, \"resourceType\": %d}",
+                                        timestamp, CSIFileDownloadDecorator.LocalResource.FILE),
+                                String.format(
+                                        "\"AppMaster2.zip\": {\"path\": \"hdfs://haruna/AppMaster2.zip\", \"timestamp\": %d, \"resourceType\": %d}",
+                                        timestamp, CSIFileDownloadDecorator.LocalResource.ARCHIVE))
                         + "}");
         Map<String, String> actual = csiFileDownloadDecorator.getCsiVolumeAttributes(timestamp);
         assertThat(actual).isEqualTo(expected);

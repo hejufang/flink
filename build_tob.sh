@@ -26,7 +26,6 @@ rm -rf pom.xml
 cp pom_tob.xml pom.xml
 
 # compile current branch
-mvn spotless:apply
 mvn clean package -U -DskipTests -Psql-jars -Pdocs-and-source
 
 # copy flink-1.11 to output

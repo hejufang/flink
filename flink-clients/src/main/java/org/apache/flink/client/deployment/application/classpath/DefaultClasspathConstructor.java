@@ -24,23 +24,22 @@ import java.net.URL;
 import java.util.Collections;
 import java.util.List;
 
-/**
- *  The default user classpath constructor (for yarn and standalone application mode).
- */
+/** The default user classpath constructor (for yarn and standalone application mode). */
 public enum DefaultClasspathConstructor implements UserClasspathConstructor {
-
     INSTANCE;
 
     @Override
     public List<URL> getUserJar(Configuration flinkConfiguration) {
-        // by default (yarn application, standalone application mode), the user jar will not be added to user classpath
+        // by default (yarn application, standalone application mode), the user jar will not be
+        // added to user classpath
         // but to the field "jar files" in job graph.
         return Collections.emptyList();
     }
 
     @Override
     public List<URL> getExternalJars(Configuration flinkConfiguration) {
-        // by default (yarn application, standalone application mode), the external resource is not supported.
+        // by default (yarn application, standalone application mode), the external resource is not
+        // supported.
         return Collections.emptyList();
     }
 }

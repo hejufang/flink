@@ -205,9 +205,17 @@ public class KubernetesClusterDescriptor implements ClusterDescriptor<String> {
         String uploadPath = flinkConfig.getString(PipelineOptions.UPLOAD_REMOTE_DIR);
         if (StringUtils.isNullOrWhitespaceOnly(uploadPath)) {
             String jobWorkDir = flinkConfig.getString(CoreOptions.JOB_WORK_DIR);
-            uploadPath = new File(jobWorkDir, String.format(".flink/%s/%d/", clusterId, System.currentTimeMillis())).toString();
+            uploadPath =
+                    new File(
+                                    jobWorkDir,
+                                    String.format(
+                                            ".flink/%s/%d/", clusterId, System.currentTimeMillis()))
+                            .toString();
             flinkConfig.set(PipelineOptions.UPLOAD_REMOTE_DIR, uploadPath);
-            LOG.warn("{} is not set, set it to {}", PipelineOptions.UPLOAD_REMOTE_DIR.key(), uploadPath);
+            LOG.warn(
+                    "{} is not set, set it to {}",
+                    PipelineOptions.UPLOAD_REMOTE_DIR.key(),
+                    uploadPath);
         }
         KubernetesUtils.uploadLocalDiskFilesToRemote(flinkConfig, uploadPath);
 

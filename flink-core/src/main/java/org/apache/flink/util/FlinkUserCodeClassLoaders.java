@@ -40,7 +40,7 @@ import static org.apache.flink.util.FlinkUserCodeClassLoader.NOOP_EXCEPTION_HAND
 @Internal
 public class FlinkUserCodeClassLoaders {
 
-    private final static Logger LOG = LoggerFactory.getLogger(FlinkUserCodeClassLoaders.class);
+    private static final Logger LOG = LoggerFactory.getLogger(FlinkUserCodeClassLoaders.class);
     // the pattern used to parse %ENV_VAR% in class load URLs.
     private static final Pattern parseEnvPattern = Pattern.compile("%[a-zA-Z]\\w*%");
 
@@ -93,7 +93,10 @@ public class FlinkUserCodeClassLoaders {
             Consumer<Throwable> classLoadingExceptionHandler,
             boolean checkClassLoaderLeak) {
         URL[] finalUrls = replaceEnvVarInUrlIfRequired(urls);
-        LOG.info("created classloader with url: {} and resolveOrder: {}", Arrays.toString(finalUrls), resolveOrder);
+        LOG.info(
+                "created classloader with url: {} and resolveOrder: {}",
+                Arrays.toString(finalUrls),
+                resolveOrder);
         switch (resolveOrder) {
             case CHILD_FIRST:
                 return childFirst(
@@ -120,6 +123,7 @@ public class FlinkUserCodeClassLoaders {
 
     /**
      * Replace the %ENV_VAR% to the actual env var value in URLs.
+     *
      * @param urls the urls waiting to parse and replace
      * @return the env var replaced urls
      */

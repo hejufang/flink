@@ -140,11 +140,20 @@ public final class YarnApplicationClusterEntryPoint extends ApplicationClusterEn
                 || PackagedProgramUtils.isPython(programArguments))) {
             final File userApplicationJar = getUserApplicationJar(userLibDir, configuration);
             return DefaultPackagedProgramRetriever.create(
-                    userLibDir, userApplicationJar, jobClassName, programArguments, configuration, DefaultClasspathConstructor.INSTANCE);
+                    userLibDir,
+                    userApplicationJar,
+                    jobClassName,
+                    programArguments,
+                    configuration,
+                    DefaultClasspathConstructor.INSTANCE);
         }
 
         return DefaultPackagedProgramRetriever.create(
-                userLibDir, jobClassName, programArguments, configuration, DefaultClasspathConstructor.INSTANCE);
+                userLibDir,
+                jobClassName,
+                programArguments,
+                configuration,
+                DefaultClasspathConstructor.INSTANCE);
     }
 
     private static File getUserApplicationJar(

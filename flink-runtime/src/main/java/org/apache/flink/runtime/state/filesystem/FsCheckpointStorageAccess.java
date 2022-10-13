@@ -226,27 +226,44 @@ public class FsCheckpointStorageAccess extends AbstractFsCheckpointStorageAccess
     @Override
     public List<String> findCompletedCheckpointPointer() throws IOException {
         return Arrays.stream(fileSystem.listStatus(checkpointsDirectory))
-                .filter(fileStatus -> {
-                    try {
-                        return fileStatus.getPath().getName().startsWith(CHECKPOINT_DIR_PREFIX)
-                                && fileSystem.exists(new Path(fileStatus.getPath(), METADATA_FILE_NAME));
-                    } catch (IOException e) {
-                        LOG.info("Exception when checking {} is completed checkpoint.", fileStatus.getPath(), e);
-                        return false;
-                    }
-                })
-                .sorted(Comparator.comparingInt(
-                        (FileStatus fileStatus) -> {
+                .filter(
+                        fileStatus -> {
                             try {
-                                return Integer.parseInt(
-                                        fileStatus.getPath().getName().substring(CHECKPOINT_DIR_PREFIX.length()));
-                            } catch (Exception e) {
-                                LOG.info("Exception when parsing checkpoint {} id.", fileStatus.getPath(), e);
-                                return Integer.MIN_VALUE;
+                                return fileStatus
+                                                .getPath()
+                                                .getName()
+                                                .startsWith(CHECKPOINT_DIR_PREFIX)
+                                        && fileSystem.exists(
+                                                new Path(fileStatus.getPath(), METADATA_FILE_NAME));
+                            } catch (IOException e) {
+                                LOG.info(
+                                        "Exception when checking {} is completed checkpoint.",
+                                        fileStatus.getPath(),
+                                        e);
+                                return false;
                             }
-                        }).reversed())
+                        })
+                .sorted(
+                        Comparator.comparingInt(
+                                        (FileStatus fileStatus) -> {
+                                            try {
+                                                return Integer.parseInt(
+                                                        fileStatus
+                                                                .getPath()
+                                                                .getName()
+                                                                .substring(
+                                                                        CHECKPOINT_DIR_PREFIX
+                                                                                .length()));
+                                            } catch (Exception e) {
+                                                LOG.info(
+                                                        "Exception when parsing checkpoint {} id.",
+                                                        fileStatus.getPath(),
+                                                        e);
+                                                return Integer.MIN_VALUE;
+                                            }
+                                        })
+                                .reversed())
                 .map(fileStatus -> fileStatus.getPath().toString())
                 .collect(Collectors.toList());
     }
-
 }

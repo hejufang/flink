@@ -47,7 +47,10 @@ class CheckpointSubsumeHelper {
     private static final Logger LOG = LoggerFactory.getLogger(CheckpointSubsumeHelper.class);
 
     public static Optional<CompletedCheckpoint> subsume(
-            Deque<CompletedCheckpoint> checkpoints, int numRetain, SubsumeAction subsumeAction, boolean remove)
+            Deque<CompletedCheckpoint> checkpoints,
+            int numRetain,
+            SubsumeAction subsumeAction,
+            boolean remove)
             throws Exception {
         if (checkpoints.isEmpty() || checkpoints.size() <= numRetain) {
             return Optional.empty();

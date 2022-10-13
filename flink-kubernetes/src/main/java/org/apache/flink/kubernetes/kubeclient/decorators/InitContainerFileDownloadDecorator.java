@@ -37,8 +37,8 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 /**
- * The file download decorator using init container. This decorator will add an init-container to pod
- * which use flink native file system to download files from remote storage.
+ * The file download decorator using init container. This decorator will add an init-container to
+ * pod which use flink native file system to download files from remote storage.
  */
 public class InitContainerFileDownloadDecorator extends AbstractFileDownloadDecorator {
 
@@ -57,32 +57,37 @@ public class InitContainerFileDownloadDecorator extends AbstractFileDownloadDeco
     private FlinkPod downloadFilesByFlink(FlinkPod flinkPod) {
         final Container basicMainContainer = decorateMainContainer(flinkPod.getMainContainer());
         // emptyDir type volume
-        String fileDownloadVolumeSize = kubernetesParameters.getFlinkConfiguration()
-                .getString(KubernetesConfigOptions.FILE_DOWNLOAD_VOLUME_SIZE);
+        String fileDownloadVolumeSize =
+                kubernetesParameters
+                        .getFlinkConfiguration()
+                        .getString(KubernetesConfigOptions.FILE_DOWNLOAD_VOLUME_SIZE);
 
         final Volume emptyDirVolume;
         if (StringUtils.isNullOrWhitespaceOnly(fileDownloadVolumeSize)) {
-            emptyDirVolume = new VolumeBuilder()
-                    .withName(Constants.FILE_DOWNLOAD_VOLUME)
-                    .withNewEmptyDir()
-                    .endEmptyDir()
-                    .build();
+            emptyDirVolume =
+                    new VolumeBuilder()
+                            .withName(Constants.FILE_DOWNLOAD_VOLUME)
+                            .withNewEmptyDir()
+                            .endEmptyDir()
+                            .build();
         } else {
-            emptyDirVolume = new VolumeBuilder()
-                    .withName(Constants.FILE_DOWNLOAD_VOLUME)
-                    .withNewEmptyDir()
-                    .withNewSizeLimit(fileDownloadVolumeSize)
-                    .endEmptyDir()
-                    .build();
+            emptyDirVolume =
+                    new VolumeBuilder()
+                            .withName(Constants.FILE_DOWNLOAD_VOLUME)
+                            .withNewEmptyDir()
+                            .withNewSizeLimit(fileDownloadVolumeSize)
+                            .endEmptyDir()
+                            .build();
         }
         // init container to download remote files
         final Container initContainer = createInitContainer(basicMainContainer);
-        final Pod basicPod = new PodBuilder(flinkPod.getPodWithoutMainContainer())
-                .editOrNewSpec()
-                .addToInitContainers(initContainer)
-                .addToVolumes(emptyDirVolume)
-                .endSpec()
-                .build();
+        final Pod basicPod =
+                new PodBuilder(flinkPod.getPodWithoutMainContainer())
+                        .editOrNewSpec()
+                        .addToInitContainers(initContainer)
+                        .addToVolumes(emptyDirVolume)
+                        .endSpec()
+                        .build();
         return new FlinkPod.Builder(flinkPod)
                 .withPod(basicPod)
                 .withMainContainer(basicMainContainer)
@@ -90,13 +95,17 @@ public class InitContainerFileDownloadDecorator extends AbstractFileDownloadDeco
     }
 
     private Container createInitContainer(Container basicMainContainer) {
-        String remoteFiles = this.remoteFiles.stream()
-                .map(URI::toString)
-                .collect(Collectors.joining(";"));
+        String remoteFiles =
+                this.remoteFiles.stream().map(URI::toString).collect(Collectors.joining(";"));
         // By default, use command `bin/flink download [source file list] [target directory]`
-        String downloadTemplate = kubernetesParameters.getFlinkConfiguration().getString(PipelineOptions.DOWNLOAD_TEMPLATE);
-        String downloadCommand = downloadTemplate.replace("%files%", remoteFiles)
-                .replace("%target%", fileMountedPath);
+        String downloadTemplate =
+                kubernetesParameters
+                        .getFlinkConfiguration()
+                        .getString(PipelineOptions.DOWNLOAD_TEMPLATE);
+        String downloadCommand =
+                downloadTemplate
+                        .replace("%files%", remoteFiles)
+                        .replace("%target%", fileMountedPath);
         return new ContainerBuilder(basicMainContainer)
                 .withName("downloader")
                 .withArgs(Arrays.asList("/bin/bash", "-c", downloadCommand))

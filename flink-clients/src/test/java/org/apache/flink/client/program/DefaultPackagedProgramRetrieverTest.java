@@ -180,8 +180,7 @@ class DefaultPackagedProgramRetrieverTest {
                         singleEntryClassClasspathProvider.getJobClassName(),
                         new String[0],
                         new Configuration(),
-                        null
-                );
+                        null);
 
         // the right information is picked up without any error
         assertThat(retriever.getPackagedProgram().getMainClassName())
@@ -204,8 +203,7 @@ class DefaultPackagedProgramRetrieverTest {
                         testJobEntryClassClasspathProvider.getJobClassName(),
                         ClasspathProviderExtension.parametersForTestJob(expectedSuffix),
                         new Configuration(),
-                        null
-                );
+                        null);
 
         final JobGraph jobGraph = retrieveJobGraph(retriever, configuration);
 
@@ -231,8 +229,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         ClasspathProviderExtension.parametersForTestJob(expectedSuffix),
                         new Configuration(),
-                        null
-                );
+                        null);
 
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
 
@@ -255,8 +252,7 @@ class DefaultPackagedProgramRetrieverTest {
                         testJobEntryClassClasspathProvider.getJobClassName(),
                         ClasspathProviderExtension.parametersForTestJob(expectedSuffix),
                         new Configuration(),
-                        null
-                );
+                        null);
 
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
 
@@ -282,8 +278,7 @@ class DefaultPackagedProgramRetrieverTest {
                         testJobEntryClassClasspathProvider.getJobClassName(),
                         ClasspathProviderExtension.parametersForTestJob(expectedSuffix),
                         new Configuration(),
-                        null
-                );
+                        null);
 
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, configuration);
 
@@ -380,8 +375,7 @@ class DefaultPackagedProgramRetrieverTest {
                         multipleEntryClassesClasspathProvider.getJobClassName(),
                         new String[0],
                         new Configuration(),
-                        null
-                );
+                        null);
         assertThat(retriever.getPackagedProgram().getMainClassName())
                 .isEqualTo(multipleEntryClassesClasspathProvider.getJobClassName());
     }
@@ -397,8 +391,7 @@ class DefaultPackagedProgramRetrieverTest {
                         multipleEntryClassesClasspathProvider.getJobClassName(),
                         new String[0],
                         new Configuration(),
-                        null
-                );
+                        null);
         assertThat(retriever.getPackagedProgram().getMainClassName())
                 .isEqualTo(multipleEntryClassesClasspathProvider.getJobClassName());
     }
@@ -412,8 +405,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         ClasspathProviderExtension.parametersForTestJob("suffix"),
                         new Configuration(),
-                        null
-                );
+                        null);
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
         final List<String> actualClasspath =
                 jobGraph.getClasspaths().stream().map(URL::toString).collect(Collectors.toList());
@@ -434,8 +426,7 @@ class DefaultPackagedProgramRetrieverTest {
                         singleEntryClassClasspathProvider.getJobClassName(),
                         ClasspathProviderExtension.parametersForTestJob("suffix"),
                         new Configuration(),
-                        null
-                );
+                        null);
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
         final List<String> actualClasspath =
                 jobGraph.getClasspaths().stream().map(URL::toString).collect(Collectors.toList());
@@ -464,8 +455,7 @@ class DefaultPackagedProgramRetrieverTest {
                         singleEntryClassClasspathProvider.getJobClassName(),
                         ClasspathProviderExtension.parametersForTestJob("suffix"),
                         configuration,
-                        null
-                );
+                        null);
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
         assertThat(jobGraph.getClasspaths()).isEqualTo(expectedMergedURLs);
     }
@@ -480,8 +470,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         ClasspathProviderExtension.parametersForTestJob("suffix"),
                         new Configuration(),
-                        null
-                );
+                        null);
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
 
         assertThat(jobGraph.getUserJars())
@@ -502,8 +491,7 @@ class DefaultPackagedProgramRetrieverTest {
                         null,
                         ClasspathProviderExtension.parametersForTestJob("suffix"),
                         new Configuration(),
-                        null
-                );
+                        null);
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
 
         assertThat(jobGraph.getUserJars())
@@ -534,8 +522,7 @@ class DefaultPackagedProgramRetrieverTest {
                         singleEntryClassClasspathProvider.getJobClassName(),
                         new String[0],
                         configuration,
-                        null
-                );
+                        null);
 
         assertThat(retriever.getPackagedProgram().getUserCodeClassLoader())
                 .isInstanceOf(ChildFirstClassLoader.class);
@@ -570,7 +557,9 @@ class DefaultPackagedProgramRetrieverTest {
     @Test
     public void testGenerateProgramWithExternalFiles() throws FlinkException, IOException {
         final Configuration configuration = new Configuration();
-        List<String> externalFiles = Arrays.asList("file:/opt/tiger/workdir/file1.jar", "file:/opt/tiger/workdir/file2.jar");
+        List<String> externalFiles =
+                Arrays.asList(
+                        "file:/opt/tiger/workdir/file1.jar", "file:/opt/tiger/workdir/file2.jar");
         configuration.set(PipelineOptions.EXTERNAL_RESOURCES, externalFiles);
         final PackagedProgramRetriever retrieverUnderTest =
                 DefaultPackagedProgramRetriever.create(
@@ -590,8 +579,11 @@ class DefaultPackagedProgramRetrieverTest {
     @Test
     public void testGenerateProgramWithPipelineClasspath() throws FlinkException, IOException {
         final Configuration configuration = new Configuration();
-        List<URL> expectedClasspath = Arrays.asList(new URL("file:file1.jar"), new URL("file:file2.jar"));
-        configuration.set(PipelineOptions.CLASSPATHS, expectedClasspath.stream().map(URL::toString).collect(Collectors.toList()));
+        List<URL> expectedClasspath =
+                Arrays.asList(new URL("file:file1.jar"), new URL("file:file2.jar"));
+        configuration.set(
+                PipelineOptions.CLASSPATHS,
+                expectedClasspath.stream().map(URL::toString).collect(Collectors.toList()));
         final PackagedProgramRetriever retrieverUnderTest =
                 DefaultPackagedProgramRetriever.create(
                         null,
@@ -625,10 +617,12 @@ class DefaultPackagedProgramRetrieverTest {
                         ExternalResourceUserClasspathConstructor.INSTANCE);
         PackagedProgram program = retrieverUnderTest.getPackagedProgram();
         // the external files should be in front of files in pipeline.classpath
-        assertThat(program.getClasspaths()).isEqualTo(Arrays.asList(new URL("file:file1.jar"), new URL("file:file2.jar")));
+        assertThat(program.getClasspaths())
+                .isEqualTo(Arrays.asList(new URL("file:file1.jar"), new URL("file:file2.jar")));
         final JobGraph jobGraph = retrieveJobGraph(retrieverUnderTest, new Configuration());
         // the external files should be in front of files in pipeline.classpath
-        assertThat(jobGraph.getClasspaths()).isEqualTo(Arrays.asList(new URL("file:file1.jar"), new URL("file:file2.jar")));
+        assertThat(jobGraph.getClasspaths())
+                .isEqualTo(Arrays.asList(new URL("file:file1.jar"), new URL("file:file2.jar")));
     }
 
     @Test
@@ -701,7 +695,6 @@ class DefaultPackagedProgramRetrieverTest {
     }
 
     private enum ExternalResourceUserClasspathConstructor implements UserClasspathConstructor {
-
         INSTANCE;
 
         @Override
@@ -712,7 +705,8 @@ class DefaultPackagedProgramRetrieverTest {
         @Override
         public List<URL> getExternalJars(Configuration flinkConfiguration) {
             try {
-                return ConfigUtils.decodeListFromConfig(flinkConfiguration, PipelineOptions.EXTERNAL_RESOURCES, URL::new);
+                return ConfigUtils.decodeListFromConfig(
+                        flinkConfiguration, PipelineOptions.EXTERNAL_RESOURCES, URL::new);
             } catch (MalformedURLException e) {
                 throw new RuntimeException(e);
             }

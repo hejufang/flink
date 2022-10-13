@@ -392,7 +392,8 @@ public class CoreOptions {
             ConfigOptions.key("job.work.dir")
                     .stringType()
                     .defaultValue("hdfs://haruna/flink/")
-                    .withDescription("The base folder used as job work dir. Flink application will create its own folder under this directory.");
+                    .withDescription(
+                            "The base folder used as job work dir. Flink application will create its own folder under this directory.");
 
     // ------------------------------------------------------------------------
     //  file systems

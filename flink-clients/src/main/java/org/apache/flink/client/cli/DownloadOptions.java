@@ -29,9 +29,7 @@ import java.util.List;
 import static org.apache.flink.client.cli.CliFrontendParser.DOWNLOAD_DEST_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.DOWNLOAD_SRC_OPTION;
 
-/**
- * Class for command line options that refer to download files.
- */
+/** Class for command line options that refer to download files. */
 public class DownloadOptions extends CommandLineOptions {
 
     private List<String> remoteFiles;
@@ -39,12 +37,18 @@ public class DownloadOptions extends CommandLineOptions {
 
     protected DownloadOptions(CommandLine line) {
         super(line);
-        String remoteFiles = line.hasOption(DOWNLOAD_SRC_OPTION.getOpt()) ?
-                line.getOptionValue(DOWNLOAD_SRC_OPTION.getOpt()) : null;
-        this.remoteFiles = StringUtils.isNullOrWhitespaceOnly(remoteFiles) ? Collections.emptyList()
-                : Arrays.asList(remoteFiles.split(";"));
-        this.savePath = line.hasOption(DOWNLOAD_DEST_OPTION.getOpt()) ?
-                line.getOptionValue(DOWNLOAD_DEST_OPTION.getOpt()) : null;
+        String remoteFiles =
+                line.hasOption(DOWNLOAD_SRC_OPTION.getOpt())
+                        ? line.getOptionValue(DOWNLOAD_SRC_OPTION.getOpt())
+                        : null;
+        this.remoteFiles =
+                StringUtils.isNullOrWhitespaceOnly(remoteFiles)
+                        ? Collections.emptyList()
+                        : Arrays.asList(remoteFiles.split(";"));
+        this.savePath =
+                line.hasOption(DOWNLOAD_DEST_OPTION.getOpt())
+                        ? line.getOptionValue(DOWNLOAD_DEST_OPTION.getOpt())
+                        : null;
     }
 
     public void validate() throws CliArgsException {
@@ -66,5 +70,4 @@ public class DownloadOptions extends CommandLineOptions {
     public String getSavePath() {
         return savePath;
     }
-
 }

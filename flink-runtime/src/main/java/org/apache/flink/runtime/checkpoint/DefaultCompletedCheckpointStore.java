@@ -31,7 +31,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -125,7 +124,8 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>>
     public CompletedCheckpoint addCheckpointAndSubsumeOldestOne(
             final CompletedCheckpoint checkpoint,
             CheckpointsCleaner checkpointsCleaner,
-            Runnable postCleanup) throws Exception {
+            Runnable postCleanup)
+            throws Exception {
         return addCheckpointAndSubsumeOldestOne(checkpoint, checkpointsCleaner, postCleanup, true);
     }
 
@@ -155,7 +155,8 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>>
                         completedCheckpoint -> {
                             tryRemove(completedCheckpoint.getCheckpointID());
                             checkpointsCleaner.addSubsumedCheckpoint(completedCheckpoint);
-                        }, cleanUp);
+                        },
+                        cleanUp);
 
         findLowest(completedCheckpoints)
                 .ifPresent(

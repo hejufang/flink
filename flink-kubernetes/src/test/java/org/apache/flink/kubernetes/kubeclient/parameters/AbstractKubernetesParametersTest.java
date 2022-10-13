@@ -82,19 +82,25 @@ public class AbstractKubernetesParametersTest {
 
     @Test
     public void getIllegalUserPorts() {
-        flinkConfig.setString(KubernetesConfigOptions.FLINK_JOBMANAGER_USER_PORTS.key(), "port1=1;port1:2");
+        flinkConfig.setString(
+                KubernetesConfigOptions.FLINK_JOBMANAGER_USER_PORTS.key(), "port1=1;port1:2");
         assertThrows(
                 IllegalArgumentException.class,
-                testingKubernetesParameters::getJobManagerUserDefinedPorts, "Config of port1=1 format error.");
-        flinkConfig.setString(KubernetesConfigOptions.FLINK_JOBMANAGER_USER_PORTS.key(), "port1:1;port1:2");
+                testingKubernetesParameters::getJobManagerUserDefinedPorts,
+                "Config of port1=1 format error.");
+        flinkConfig.setString(
+                KubernetesConfigOptions.FLINK_JOBMANAGER_USER_PORTS.key(), "port1:1;port1:2");
         assertThrows(
                 IllegalArgumentException.class,
-                testingKubernetesParameters::getJobManagerUserDefinedPorts, "Duplicate port name of port1");
+                testingKubernetesParameters::getJobManagerUserDefinedPorts,
+                "Duplicate port name of port1");
 
-        flinkConfig.setString(KubernetesConfigOptions.FLINK_JOBMANAGER_USER_PORTS.key(), "port1:1;port2:1");
+        flinkConfig.setString(
+                KubernetesConfigOptions.FLINK_JOBMANAGER_USER_PORTS.key(), "port1:1;port2:1");
         assertThrows(
                 IllegalArgumentException.class,
-                testingKubernetesParameters::getJobManagerUserDefinedPorts, "Duplicate port of 1");
+                testingKubernetesParameters::getJobManagerUserDefinedPorts,
+                "Duplicate port of 1");
     }
 
     @Test
