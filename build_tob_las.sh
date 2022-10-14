@@ -16,15 +16,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ################################################################################
-set -eo pipefail
+set -e
+bash tob_config_check.sh
 
 rm -rf output
+rm -rf flink-dist
+cp -r flink-dist-tob flink-dist
+rm -rf pom.xml
+cp pom_tob.xml pom.xml
 
-mvn clean package -U -DskipTests -Pinclude-hadoop -Dflink.hadoop.version=3.2.1 -Psql-jars -Pdocs-and-source
+# compile current branch
+mvn clean package -U -DskipTests  -Pinclude-hadoop -Dflink.hadoop.version=2.6.0-cdh5.4.4-cfs-1.1.0 -Dhadoop-uber.version=2.6.0-cdh5.4.4-cfs-1.1.0-cfs-1.1.13 -Psql-jars -Pdocs-and-source
 
 # copy flink-1.11 to output
 mkdir -p output
 rm -rf flink-dist/target/flink-1.16-byted-SNAPSHOT-bin/flink-1.16-byted-SNAPSHOT/opt
 cp -r flink-dist/target/flink-1.16-byted-SNAPSHOT-bin/flink-1.16-byted-SNAPSHOT/* output/
+
 # common jar conflict
 bash tools/common-jar-check/common_jar_check.sh "output/"

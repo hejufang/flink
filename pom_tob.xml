@@ -118,7 +118,8 @@ under the License.
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-		<flink.hadoop.version>2.8.5</flink.hadoop.version>
+		<flink.hadoop.version>3.2.1</flink.hadoop.version>
+		<hadoop-uber.version>3.2.1-cfs-1.3.4</hadoop-uber.version>
 		<flink.XmxMax>3072m</flink.XmxMax>
 		<!-- XmxMax / forkCountITCase -->
 		<flink.XmxITCase>1536m</flink.XmxITCase>
