@@ -33,6 +33,8 @@ public class ZooKeeperLeaderRetrievalDriverFactory implements LeaderRetrievalDri
 
 	private final ZooKeeperLeaderRetrievalDriver.LeaderInformationClearancePolicy leaderInformationClearancePolicy;
 
+	private boolean absolutePath = false;
+
 	public ZooKeeperLeaderRetrievalDriverFactory(
 			CuratorFramework client,
 			String retrievalPath,
@@ -43,10 +45,22 @@ public class ZooKeeperLeaderRetrievalDriverFactory implements LeaderRetrievalDri
 		this.leaderInformationClearancePolicy = leaderInformationClearancePolicy;
 	}
 
+	public ZooKeeperLeaderRetrievalDriverFactory(
+			CuratorFramework client,
+			String retrievalPath,
+			ZooKeeperLeaderRetrievalDriver.LeaderInformationClearancePolicy
+					leaderInformationClearancePolicy,
+			boolean absolutePath) {
+		this.absolutePath = absolutePath;
+		this.client = client;
+		this.retrievalPath = retrievalPath;
+		this.leaderInformationClearancePolicy = leaderInformationClearancePolicy;
+	}
+
 	@Override
 	public ZooKeeperLeaderRetrievalDriver createLeaderRetrievalDriver(
 			LeaderRetrievalEventHandler leaderEventHandler,
 			FatalErrorHandler fatalErrorHandler) throws Exception {
-		return new ZooKeeperLeaderRetrievalDriver(client, retrievalPath, leaderEventHandler, leaderInformationClearancePolicy, fatalErrorHandler);
+		return new ZooKeeperLeaderRetrievalDriver(client, retrievalPath, leaderEventHandler, leaderInformationClearancePolicy, fatalErrorHandler, absolutePath);
 	}
 }

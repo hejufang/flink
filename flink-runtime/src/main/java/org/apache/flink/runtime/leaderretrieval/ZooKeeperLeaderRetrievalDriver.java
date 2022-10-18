@@ -102,6 +102,40 @@ public class ZooKeeperLeaderRetrievalDriver implements LeaderRetrievalDriver, No
 		running = true;
 	}
 
+	/**
+	 * Creates a leader retrieval service which uses ZooKeeper to retrieve the leader information.
+	 *
+	 * @param client Client which constitutes the connection to the ZooKeeper quorum
+	 * @param path Path of the ZooKeeper node which contains the leader information
+	 * @param leaderRetrievalEventHandler Handler to notify the leader changes.
+	 * @param fatalErrorHandler Fatal error handler
+	 * @param absolutePath Compatible with previous version leader path
+	 */
+	public ZooKeeperLeaderRetrievalDriver(
+			CuratorFramework client,
+			String path,
+			LeaderRetrievalEventHandler leaderRetrievalEventHandler,
+			LeaderInformationClearancePolicy leaderInformationClearancePolicy,
+			FatalErrorHandler fatalErrorHandler,
+			boolean absolutePath) throws Exception {
+
+		LOG.debug("Create ZooKeeperLeaderRetrievalDriver with path {}.", path);
+		this.client = checkNotNull(client, "CuratorFramework client");
+		this.connectionInformationPath = absolutePath ? path : ZooKeeperUtils.generateConnectionInformationPath(path);
+		this.cache = new NodeCache(client, connectionInformationPath);
+		this.leaderRetrievalEventHandler = checkNotNull(leaderRetrievalEventHandler);
+		this.leaderInformationClearancePolicy = leaderInformationClearancePolicy;
+		this.fatalErrorHandler = checkNotNull(fatalErrorHandler);
+
+		client.getUnhandledErrorListenable().addListener(this);
+		cache.getListenable().addListener(this);
+		cache.start();
+
+		client.getConnectionStateListenable().addListener(connectionStateListener);
+
+		running = true;
+	}
+
 	@Override
 	public void close() throws Exception {
 		if (!running) {

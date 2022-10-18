@@ -44,7 +44,13 @@ public class ZooKeeperClientHAServices implements ClientHighAvailabilityServices
 
 	@Override
 	public LeaderRetrievalService getClusterRestEndpointLeaderRetriever() {
-		return ZooKeeperUtils.createLeaderRetrievalService(client, ZooKeeperUtils.getLeaderPathForRestServer(), configuration);
+		// for new version of zk path, the leader path of rest server is stored under '/{root-path}/{cluster-id}/leader/rest_server/connection_information'
+		if (ZooKeeperUtils.checkPathExist(client, ZooKeeperUtils.getConnectionInformationForRestServer())) {
+			return ZooKeeperUtils.createLeaderRetrievalService(client, ZooKeeperUtils.getLeaderPathForRestServer(), configuration);
+		}
+
+		// for old version of zk path, the leader path of rest server is stored under '/{root-path}/{cluster-id}/leader/rest_server_lock'
+		return ZooKeeperUtils.createLeaderRetrievalService(client, ZooKeeperUtils.getOldLeaderPathForRestServer(), configuration, true);
 	}
 
 	@Override

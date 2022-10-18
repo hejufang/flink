@@ -114,9 +114,16 @@ public class ZooKeeperUtils {
 
 	private static final String REST_SERVER_LEADER = "rest_server";
 
+
+	private static final String REST_SERVER_LOCK = "rest_server_lock";
+
 	private static final String LEADER_LATCH_NODE = "latch";
 
 	public static final String CONNECTION_INFO_NODE = "connection_info";
+
+	public static String getConnectionInformationForRestServer() {
+		return generateZookeeperPath(getLeaderPathForRestServer(), CONNECTION_INFO_NODE);
+	}
 
 	public static String getLeaderPathForResourceManager() {
 		return getLeaderPath(RESOURCE_MANAGER_LEADER);
@@ -169,6 +176,10 @@ public class ZooKeeperUtils {
 
 	public static String getRestServerNode() {
 		return REST_SERVER_LEADER;
+	}
+
+	public static String getOldLeaderPathForRestServer() {
+		return getLeaderPath(REST_SERVER_LOCK);
 	}
 
 	public static String getLeaderLatchPath() {
@@ -325,7 +336,24 @@ public class ZooKeeperUtils {
 		final CuratorFramework client, final String path, final Configuration configuration) {
 		LOG.info("Create leader retrievalService with path {}.", path);
 		return new DefaultLeaderRetrievalService(
-				createLeaderRetrievalDriverFactory(client, path, configuration));
+			createLeaderRetrievalDriverFactory(client, path, configuration));
+	}
+
+	/**
+	 * Creates a {@link DefaultLeaderRetrievalService} instance with {@link
+	 * ZooKeeperLeaderRetrievalDriver}.
+	 *
+	 * @param client The {@link CuratorFramework} ZooKeeper client to use
+	 * @param path The path for the leader retrieval
+	 * @param configuration configuration for further config options
+	 * @param absolutePath Compatible with previous version leader path
+	 * @return {@link DefaultLeaderRetrievalService} instance.
+	 */
+	public static DefaultLeaderRetrievalService createLeaderRetrievalService(
+		final CuratorFramework client, final String path, final Configuration configuration, boolean absolutePath) {
+		LOG.info("Create leader retrievalService with path {}.", path);
+		return new DefaultLeaderRetrievalService(
+				createLeaderRetrievalDriverFactory(client, path, configuration, absolutePath));
 	}
 
 	/**
@@ -365,6 +393,36 @@ public class ZooKeeperUtils {
 		}
 
 		return new ZooKeeperLeaderRetrievalDriverFactory(client, path, leaderInformationClearancePolicy);
+	}
+
+	/**
+	 * Creates a {@link LeaderRetrievalDriverFactory} implemented by ZooKeeper.
+	 *
+	 * @param client The {@link CuratorFramework} ZooKeeper client to use
+	 * @param path The path for the leader zNode
+	 * @param configuration configuration for further config options
+	 * @param absolutePath Compatible with previous version leader path
+	 * @return {@link LeaderRetrievalDriverFactory} instance.
+	 */
+	public static ZooKeeperLeaderRetrievalDriverFactory createLeaderRetrievalDriverFactory(
+		final CuratorFramework client,
+		final String path,
+		final Configuration configuration,
+		boolean absolutePath) {
+		final ZooKeeperLeaderRetrievalDriver.LeaderInformationClearancePolicy
+			leaderInformationClearancePolicy;
+
+		if (configuration.get(HighAvailabilityOptions.ZOOKEEPER_TOLERATE_SUSPENDED_CONNECTIONS)) {
+			leaderInformationClearancePolicy =
+				ZooKeeperLeaderRetrievalDriver.LeaderInformationClearancePolicy
+					.ON_LOST_CONNECTION;
+		} else {
+			leaderInformationClearancePolicy =
+				ZooKeeperLeaderRetrievalDriver.LeaderInformationClearancePolicy
+					.ON_SUSPENDED_CONNECTION;
+		}
+
+		return new ZooKeeperLeaderRetrievalDriverFactory(client, path, leaderInformationClearancePolicy, absolutePath);
 	}
 
 	/**
@@ -943,6 +1001,25 @@ public class ZooKeeperUtils {
 				LOG.debug("Retrying to delete znode because of other concurrent delete operation.");
 			}
 		}
+	}
+
+	public static boolean checkPathExist(CuratorFramework curatorFramework, String path) {
+		Stat stat = null;
+
+		try {
+			stat = curatorFramework.checkExists().forPath(path);
+		} catch (Exception e) {
+			LOG.error("Check path {} error.", path, e);
+			throw new RuntimeException(e);
+		}
+
+		if (stat == null) {
+			LOG.debug("znode {} is not existed.", path);
+			return false;
+		}
+
+		LOG.debug("znode {} is existed.", path);
+		return true;
 	}
 
 	/**
