@@ -161,7 +161,7 @@ public class ZooKeeperHaServicesTest extends TestLogger {
 
 		assertThat(blobStoreService.isClosedAndCleanedUpAllData(), is(true));
 
-		TimeUnit.MILLISECONDS.sleep(500L);
+		TimeUnit.MILLISECONDS.sleep(1000L);
 		assertThat(client.checkExists().forPath(flinkPath), is(nullValue()));
 		assertThat(client.checkExists().forPath(unclePath), is(notNullValue()));
 	}
