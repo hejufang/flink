@@ -18,8 +18,8 @@ specific language governing permissions and limitations
 under the License.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>flink-parent</artifactId>
         <groupId>org.apache.flink</groupId>
@@ -35,6 +35,7 @@ under the License.
     <properties>
         <css.version>1.0.6</css.version>
 		<dropwizard.version>3.2.6</dropwizard.version>
+		<curator-css.version>2.7.1</curator-css.version>
 		<shaded.prefix>org.apache.flink.cloud.shaded</shaded.prefix>
     </properties>
 
@@ -58,12 +59,12 @@ under the License.
                     <groupId>org.slf4j</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
-                <exclusion>
+				<exclusion>
                     <groupId>io.dropwizard.metrics</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>org.apache.curator</groupId>
+				<exclusion>
+                    <groupId>io.netty</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
                 <exclusion>
@@ -125,6 +126,17 @@ under the License.
 			<artifactId>commons-lang</artifactId>
 			<version>2.6</version>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.curator</groupId>
+			<artifactId>curator-recipes</artifactId>
+			<version>${curator-css.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>io.netty</groupId>
+					<artifactId>*</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
     </dependencies>
 
     <build>
@@ -166,16 +178,16 @@ under the License.
 									<shadedPattern>${shaded.prefix}.com.bytedance.commons</shadedPattern>
 								</relocation>
 								<relocation>
-									<pattern>com.google.common</pattern>
-									<shadedPattern>${shaded.prefix}.com.google.common</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.google.gson</pattern>
-									<shadedPattern>${shaded.prefix}.com.google.gson</shadedPattern>
+									<pattern>com.google</pattern>
+									<shadedPattern>${shaded.prefix}.com.google</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>org.springframework</pattern>
 									<shadedPattern>${shaded.prefix}.org.springframework</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.http</pattern>
+									<shadedPattern>${shaded.prefix}.org.apache.http</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>okhttp3</pattern>
@@ -188,6 +200,18 @@ under the License.
 								<relocation>
 									<pattern>com.codahale.metrics</pattern>
 									<shadedPattern>${dist.shading.prefix}.com.codahale.metrics</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.zookeeper</pattern>
+									<shadedPattern>${shaded.prefix}.org.apache.zookeeper</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.curator</pattern>
+									<shadedPattern>${shaded.prefix}.org.apache.curator</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.springframework</pattern>
+									<shadedPattern>${shaded.prefix}.org.springframework</shadedPattern>
 								</relocation>
                             </relocations>
                         </configuration>
