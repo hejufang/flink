@@ -155,6 +155,15 @@ public class TableConfigOptions {
 			.withDescription("");
 
 	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> OPERATOR_DEBUG_IGNORE_SOURCE =
+		key("table.operator-debug-logging.ignore-source")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether to enable ignore source in operator debugging. " +
+				"This is useful when data volume is large, and there is a filter right " +
+				"after the source.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
 	public static final ConfigOption<Boolean> WINDOW_ALLOW_RETRACT =
 		key("table.exec.window.allow-retract-input")
 			.booleanType()

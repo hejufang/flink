@@ -27,6 +27,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.functions.{AssignerWithPeriodicWatermarks, AssignerWithPunctuatedWatermarks}
 import org.apache.flink.streaming.api.watermark.Watermark
 import org.apache.flink.table.api.{DataTypes, TableException}
+import org.apache.flink.table.api.config.TableConfigOptions
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.data.util.DataFormatConverters
 import org.apache.flink.table.data.util.DataFormatConverters.DataFormatConverter
@@ -55,7 +56,6 @@ import org.apache.calcite.rex.RexNode
 
 import java.util
 import java.util.function.{Function => JFunction}
-
 import scala.collection.JavaConversions._
 
 /**
@@ -157,7 +157,9 @@ class StreamExecLegacyTableSourceScan(
       inputTransform.asInstanceOf[Transformation[RowData]]
     }
 
-    PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, streamTransformation)
+    if (!config.getConfiguration.getBoolean(TableConfigOptions.OPERATOR_DEBUG_IGNORE_SOURCE)) {
+      PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, streamTransformation)
+    }
 
     val ingestedTable = new DataStream(planner.getExecEnv, streamTransformation)
 

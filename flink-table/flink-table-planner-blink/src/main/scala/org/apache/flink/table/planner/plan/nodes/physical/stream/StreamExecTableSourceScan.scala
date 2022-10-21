@@ -23,6 +23,7 @@ import org.apache.flink.api.common.io.InputFormat
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.transformations.FakeTransformation
+import org.apache.flink.table.api.config.TableConfigOptions
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalTableSourceScan
@@ -97,7 +98,10 @@ class StreamExecTableSourceScan(
       planner: StreamPlanner): Transformation[RowData] = {
     val source = createSourceTransformation(
       planner.getExecEnv, getRelDetailedDescription, planner.getTableConfig)
-    PhysicalPlanUtil.setDebugLoggingConverter(planner.getTableConfig, getRowType, source)
+    val config = planner.getTableConfig
+    if (!config.getConfiguration.getBoolean(TableConfigOptions.OPERATOR_DEBUG_IGNORE_SOURCE)) {
+      PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, source)
+    }
     // Different connectors vary in behaviors, we temporarily believe they all use states.
     // todo: make this property specified by connector itself.
     source.setHasState(true)
