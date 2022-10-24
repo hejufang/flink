@@ -725,9 +725,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	}
 
 	@Override
-	public void cancelSlotRequest(AllocationID allocationID) {
+	public CompletableFuture<Acknowledge> cancelSlotRequest(AllocationID allocationID) {
 		// As the slot allocations are async, it can not avoid all redundant slots, but should best effort.
 		slotManager.unregisterSlotRequest(allocationID);
+		return CompletableFuture.completedFuture(Acknowledge.get());
 	}
 
 	@Override

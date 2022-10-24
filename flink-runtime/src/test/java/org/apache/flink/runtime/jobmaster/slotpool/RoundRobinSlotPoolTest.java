@@ -288,6 +288,11 @@ public class RoundRobinSlotPoolTest extends TestLogger {
 		// verify request 10 new slots.
 		FutureUtils.waitForAll(allocationIds.subList(0, 20)).get();
 		assertEquals(20, allocatedNum.get());
+
+		// verify SlotRequest has canceled
+		for (SlotPoolImpl.PendingRequest request : requests) {
+			assertTrue(request.getCancelSlotFuture().isDone());
+		}
 	}
 
 	@Test(timeout = 5000)

@@ -246,12 +246,14 @@ public class MinResourceSlotPoolImpl extends SlotPoolImpl {
 		requestNewAllocatedSlot(pendingRequest, slotRequestTimeout);
 		log.debug("Request new slot request {} for required resources.", pendingRequest);
 		pendingRequiredResources.computeIfAbsent(resourceProfile, r -> new HashSet<>()).add(pendingRequest);
-		pendingRequest.getAllocatedSlotFuture().whenComplete((allocatedSlot, throwable) -> {
-			componentMainThreadExecutor.assertRunningInMainThread();
-			if (throwable != null) {
-				log.debug("PendingRequest {} failed, try allocate new slots.", pendingRequest, throwable);
-				pendingRequiredResources.get(resourceProfile).remove(pendingRequest);
-				requestNewAllocatedSlotForRequiredResourceAndUpdateFutures(resourceProfile);
+		pendingRequest.getAllocatedSlotFuture().whenComplete((allocatedSlot, t) -> {
+			if (t != null) {
+				pendingRequest.getCancelSlotFuture().whenComplete((ignore1, ignore2) -> {
+					componentMainThreadExecutor.assertRunningInMainThread();
+					log.debug("PendingRequest {} failed, try allocate new slots.", pendingRequest, t);
+					pendingRequiredResources.get(resourceProfile).remove(pendingRequest);
+					requestNewAllocatedSlotForRequiredResourceAndUpdateFutures(resourceProfile);
+				});
 			}
 		});
 	}

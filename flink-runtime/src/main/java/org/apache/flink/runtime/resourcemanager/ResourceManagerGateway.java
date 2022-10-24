@@ -128,7 +128,7 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 	 *
 	 * @param allocationID The slot to request
 	 */
-	void cancelSlotRequest(AllocationID allocationID);
+	CompletableFuture<Acknowledge> cancelSlotRequest(AllocationID allocationID);
 
 	/**
 	 * Register a {@link TaskExecutor} at the resource manager.
