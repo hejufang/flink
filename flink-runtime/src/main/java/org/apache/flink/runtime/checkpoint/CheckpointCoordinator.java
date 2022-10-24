@@ -346,17 +346,19 @@ public class CheckpointCoordinator {
         // Use checkpoint properties to load checkpoint, because it won't generate regular
         // savepoints under checkpoint path at current version
 
-        try {
-            Checkpoints.loadCheckpointOnStorage(
-                    completedCheckpointStore,
-                    job,
-                    checkpointStorageView,
-                    checkpointProperties,
-                    userCodeClassLoader);
-        } catch (Exception e) {
-            throw new FlinkRuntimeException(
-                    "Failed to load checkpoint on storage when creating checkpoint coordinator.",
-                    e);
+        if (isPeriodicCheckpointingConfigured()) { // only load checkpoint on storage when checkpointing is enabled
+            try {
+                Checkpoints.loadCheckpointOnStorage(
+                        completedCheckpointStore,
+                        job,
+                        checkpointStorageView,
+                        checkpointProperties,
+                        userCodeClassLoader);
+            } catch (Exception e) {
+                throw new FlinkRuntimeException(
+                        "Failed to load checkpoint on storage when creating checkpoint coordinator.",
+                        e);
+            }
         }
 
         try {
