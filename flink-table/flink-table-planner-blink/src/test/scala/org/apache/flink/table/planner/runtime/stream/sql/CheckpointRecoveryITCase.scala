@@ -261,6 +261,131 @@ class CheckpointRecoveryITCase(stateBackend: String)
     testWithSQL(beforeSQL, afterSQL, beforeExpectedOutput, afterExpectedOutput, config)
   }
 
+  @Test
+  def testChangeAccType(): Unit = {
+    val beforeSQL =
+      """
+        |select
+        |    `string`,
+        |    max(`int`),
+        |    sum(`double`),
+        |    count(distinct `double`)
+        |from
+        |    T1
+        |group by
+        |    `string`
+        |""".stripMargin
+    val afterSQL =
+      """
+        |select
+        |    `string`,
+        |    max(`bigint`),
+        |    sum(`bigdec`),
+        |    count(distinct `double`)
+        |from
+        |    T1
+        |group by
+        |    `string`
+        |""".stripMargin
+
+    val beforeExpectedOutput = List(
+      "(true,Hi,1,1.0,1)",
+      "(true,Hallo,2,2.0,1)",
+      "(true,Hello,2,2.0,1)",
+      "(false,Hello,2,2.0,1)",
+      "(true,Hello,5,7.0,2)",
+      "(false,Hello,5,7.0,2)",
+      "(true,Hello,5,10.0,3)",
+      "(false,Hello,5,10.0,3)",
+      "(true,Hello,5,15.0,3)",
+      "(true,Hello world,3,3.0,1)",
+      "(false,Hello world,3,3.0,1)",
+      "(true,Hello world,4,7.0,2)"
+    )
+    val afterExpectedOutput = List(
+      "(false,Hi,1,1.000000000000000000,1)",
+      "(true,Hi,1,2.000000000000000000,1)",
+      "(false,Hallo,2,2.000000000000000000,1)",
+      "(true,Hallo,2,4.000000000000000000,1)",
+      "(false,Hello,5,15.000000000000000000,3)",
+      "(true,Hello,5,17.000000000000000000,3)",
+      "(false,Hello,5,17.000000000000000000,3)",
+      "(true,Hello,5,22.000000000000000000,3)",
+      "(false,Hello,5,22.000000000000000000,3)",
+      "(true,Hello,5,25.000000000000000000,3)",
+      "(false,Hello,5,25.000000000000000000,3)",
+      "(true,Hello,5,30.000000000000000000,3)",
+      "(false,Hello world,4,7.000000000000000000,2)",
+      "(true,Hello world,6,10.000000000000000000,2)",
+      "(false,Hello world,6,10.000000000000000000,2)",
+      "(true,Hello world,6,14.000000000000000000,2)"
+    )
+    testWithSQL(beforeSQL, afterSQL, beforeExpectedOutput, afterExpectedOutput, new Configuration)
+  }
+
+  @Test
+  def testChangeAccTypeAndAddNonDistinct(): Unit = {
+    val beforeSQL =
+      """
+        |select
+        |    `string`,
+        |    max(`int`),
+        |    sum(`double`),
+        |    count(distinct `double`)
+        |from
+        |    T1
+        |group by
+        |    `string`
+        |""".stripMargin
+    val afterSQL =
+      """
+        |select
+        |    `string`,
+        |    max(`bigint`),
+        |    sum(`bigdec`),
+        |    count(distinct `double`),
+        |    last_value(`float`)
+        |from
+        |    T1
+        |group by
+        |    `string`
+        |""".stripMargin
+
+    val beforeExpectedOutput = List(
+      "(true,Hi,1,1.0,1)",
+      "(true,Hallo,2,2.0,1)",
+      "(true,Hello,2,2.0,1)",
+      "(false,Hello,2,2.0,1)",
+      "(true,Hello,5,7.0,2)",
+      "(false,Hello,5,7.0,2)",
+      "(true,Hello,5,10.0,3)",
+      "(false,Hello,5,10.0,3)",
+      "(true,Hello,5,15.0,3)",
+      "(true,Hello world,3,3.0,1)",
+      "(false,Hello world,3,3.0,1)",
+      "(true,Hello world,4,7.0,2)"
+    )
+    val afterExpectedOutput = List(
+      "(false,Hi,1,1.000000000000000000,1,null)",
+      "(true,Hi,1,2.000000000000000000,1,1.0)",
+      "(false,Hallo,2,2.000000000000000000,1,null)",
+      "(true,Hallo,2,4.000000000000000000,1,2.0)",
+      "(false,Hello,5,15.000000000000000000,3,null)",
+      "(true,Hello,5,17.000000000000000000,3,2.0)",
+      "(false,Hello,5,17.000000000000000000,3,2.0)",
+      "(true,Hello,5,22.000000000000000000,3,5.0)",
+      "(false,Hello,5,22.000000000000000000,3,5.0)",
+      "(true,Hello,5,25.000000000000000000,3,3.0)",
+      "(false,Hello,5,25.000000000000000000,3,3.0)",
+      "(true,Hello,5,30.000000000000000000,3,5.0)",
+      "(false,Hello world,4,7.000000000000000000,2,null)",
+      "(true,Hello world,6,10.000000000000000000,2,3.0)",
+      "(false,Hello world,6,10.000000000000000000,2,3.0)",
+      "(true,Hello world,6,14.000000000000000000,2,4.0)"
+    )
+    testWithSQL(beforeSQL, afterSQL, beforeExpectedOutput, afterExpectedOutput, new Configuration)
+  }
+
   def testWithSQL(
       beforeSQL: String,
       afterSQL: String,
@@ -294,6 +419,7 @@ class CheckpointRecoveryITCase(stateBackend: String)
     }
     assertEquals(firstExpected.sorted, TestSink.results.sorted)
 
+
     log.warn("===================== Start a new job ====================", savepointPath)
     val sink2 = new TestSink[(Boolean, Row)]
     TestSink.reset()
@@ -316,13 +442,13 @@ class CheckpointRecoveryITCase(stateBackend: String)
     val tEnv = StreamTableEnvironment.create(env, setting)
     tEnv.getConfig.getConfiguration.setString("table.exec.state.ttl", "10min")
     tEnv.getConfig.addConfiguration(tableConfigs)
-    val mapper = new LatchMapper[(Long, Int, Double, Float, BigDecimal, String, String)]()
+    val mapper = new LatchMapper[(Long, Long, Int, Double, Float, BigDecimal, String, String)]()
     val stream = env.addSource(new TestSource(false)).map(mapper)
       .assignTimestampsAndWatermarks(
         new TimestampAndWatermarkWithOffset
-          [(Long, Int, Double, Float, BigDecimal, String, String)](1000L))
+          [(Long, Long, Int, Double, Float, BigDecimal, String, String)](1000L))
     val table = stream.toTable(tEnv,
-      'rowtime.rowtime, 'int, 'double, 'float, 'bigdec, 'string, 'name)
+      'rowtime.rowtime, 'bigint, 'int, 'double, 'float, 'bigdec, 'string, 'name)
     tEnv.registerTable("T1", table)
 
     val beforeTable = tEnv.sqlQuery(beforeSQL)
@@ -346,13 +472,13 @@ class CheckpointRecoveryITCase(stateBackend: String)
     val tEnv = StreamTableEnvironment.create(env, setting)
     tEnv.getConfig.getConfiguration.setString("table.exec.state.ttl", "10min")
     tEnv.getConfig.addConfiguration(tableConfigs)
-    val mapper = new LatchMapper[(Long, Int, Double, Float, BigDecimal, String, String)]()
+    val mapper = new LatchMapper[(Long, Long, Int, Double, Float, BigDecimal, String, String)]()
     val stream = env.addSource(new TestSource(true)).map(mapper)
       .assignTimestampsAndWatermarks(
         new TimestampAndWatermarkWithOffset
-          [(Long, Int, Double, Float, BigDecimal, String, String)](1000L))
+          [(Long, Long, Int, Double, Float, BigDecimal, String, String)](1000L))
     val table2 = stream.toTable(tEnv,
-      'rowtime.rowtime, 'int, 'double, 'float, 'bigdec, 'string, 'name)
+      'rowtime.rowtime, 'bigint, 'int, 'double, 'float, 'bigdec, 'string, 'name)
     tEnv.registerTable("T1", table2)
     val afterTable = tEnv.sqlQuery(afterSQL)
     afterTable.toRetractStream[Row].addSink(sink)

@@ -79,6 +79,22 @@ public abstract class LogicalType implements Serializable {
 	}
 
 	/**
+	 * Returns whether some other LogicalType is compatible with this one.
+	 * Compatible means it's 'safe' to assign values of this LogicalType to variables of the input one.
+	 * For example, it's safe to assign a IntType value to a BigIntType one.
+	 * There fore, for IntType, this method will return true if input is BigIntType.
+	 */
+	public boolean isCompatibleWith(LogicalType o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null) {
+			return false;
+		}
+		return LogicalTypeCasts.supportsImplicitCast(this, o);
+	}
+
+	/**
 	 * Returns a deep copy of this type with possibly different nullability.
 	 *
 	 * @param isNullable the intended nullability of the copied type

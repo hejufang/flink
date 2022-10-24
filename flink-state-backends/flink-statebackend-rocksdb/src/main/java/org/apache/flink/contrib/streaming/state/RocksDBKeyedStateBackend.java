@@ -697,7 +697,9 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		}
 
 		TypeSerializer priorSerializer = stateMetaInfo.f1.getPreviousStateSerializer();
-		TypeSerializer newSerializer = stateMetaInfo.f1.getStateSerializer();
+		// Duplicate must be called here to make sure that priorSerializer is only set
+		// in state migration period. For more details please refer to RowDataSerializer#priorRowDataSerializer.
+		TypeSerializer newSerializer = stateMetaInfo.f1.getStateSerializer().duplicate();
 		newSerializer.setPriorSerializer(priorSerializer);
 
 		@SuppressWarnings("unchecked")
@@ -718,8 +720,8 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 				rocksDBState.migrateSerializedValue(
 					serializedValueInput,
 					migratedSerializedValueOutput,
-					stateMetaInfo.f1.getPreviousStateSerializer(),
-					stateMetaInfo.f1.getStateSerializer());
+					priorSerializer,
+					newSerializer);
 
 				batchWriter.put(stateMetaInfo.f0, iterator.key(), migratedSerializedValueOutput.getCopyOfBuffer());
 
