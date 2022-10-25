@@ -199,6 +199,8 @@ public class SingleInputGate extends IndexedInputGate {
 
 	private final ChannelProvider channelProvider;
 
+	private final boolean isRecoverable;
+
 	@Nullable
 	private final ScheduledExecutorService executor;
 
@@ -239,6 +241,7 @@ public class SingleInputGate extends IndexedInputGate {
 			metrics,
 			channelProvider,
 			executor,
+			false,
 			false);
 	}
 
@@ -256,7 +259,8 @@ public class SingleInputGate extends IndexedInputGate {
 			InputChannelMetrics metrics,
 			@Nullable ChannelProvider channelProvider,
 			@Nullable ScheduledExecutorService executor,
-			boolean batchRequestPartitionEnable) {
+			boolean batchRequestPartitionEnable,
+			boolean isRecoverable) {
 
 		this.owningTaskName = checkNotNull(owningTaskName);
 		Preconditions.checkArgument(0 <= gateIndex, "The gate index must be positive.");
@@ -285,6 +289,8 @@ public class SingleInputGate extends IndexedInputGate {
 		this.closeFuture = new CompletableFuture<>();
 
 		this.channelProvider = channelProvider;
+		this.isRecoverable = isRecoverable;
+
 		this.executor = executor;
 
 		this.numChannelsUpdatedByJM = metrics.getNumChannelsUpdatedByJM();
@@ -586,13 +592,27 @@ public class SingleInputGate extends IndexedInputGate {
 				UnknownInputChannel unknownChannel = (UnknownInputChannel) current;
 				boolean isLocal = shuffleDescriptor.isLocalTo(localLocation);
 				InputChannel newChannel;
-				if (isLocal) {
-					newChannel = unknownChannel.toLocalInputChannel();
+				// In the recoverable recovery, because of task may fail in jm, there may be inconsistencies
+				// between the execution of the producerId and the current inputChannel. So we use
+				// the shuffleDescriptor producerId directly.
+				if ((!isRecoverable || shuffleDescriptor.getResultPartitionID().getProducerId().equals(current.partitionId.getProducerId()))) {
+					if (isLocal) {
+						newChannel = unknownChannel.toLocalInputChannel();
+					} else {
+						RemoteInputChannel remoteInputChannel =
+							unknownChannel.toRemoteInputChannel(shuffleDescriptor.getConnectionId());
+						remoteInputChannel.assignExclusiveSegments();
+						newChannel = remoteInputChannel;
+					}
 				} else {
-					RemoteInputChannel remoteInputChannel =
-						unknownChannel.toRemoteInputChannel(shuffleDescriptor.getConnectionId());
-					remoteInputChannel.assignExclusiveSegments();
-					newChannel = remoteInputChannel;
+					if (isLocal) {
+						newChannel = channelProvider.transformToLocalInputChannel(this, current, shuffleDescriptor.getResultPartitionID());
+					} else {
+						RemoteInputChannel remoteInputChannel = channelProvider.transformToRemoteInputChannel(
+							this, current, shuffleDescriptor.getConnectionId(), shuffleDescriptor.getResultPartitionID());
+						remoteInputChannel.assignExclusiveSegments();
+						newChannel = remoteInputChannel;
+					}
 				}
 				LOG.info("{}: Updated unknown input channel to {}.", owningTaskName, newChannel);
 
@@ -629,11 +649,11 @@ public class SingleInputGate extends IndexedInputGate {
 			if (channelProvider != null) {
 				final ChannelProvider.PartitionInfo partitionInfo = channelProvider.getPartitionInfoAndRemove(current.channelIndex);
 				if (partitionInfo == null) {
-					LOG.info("Unable to find PartitionInfo from cache. (index={})", current.channelIndex);
+					LOG.info("{} Unable to find PartitionInfo from cache. (index={})", owningTaskName, current.channelIndex);
 					return;
 				}
 
-				LOG.info("Find PartitionInfo from cache. (index={}, timestamp={})", current.channelIndex, partitionInfo.timestamp);
+				LOG.info("{} Find PartitionInfo from cache. (index={}, timestamp={})", owningTaskName, current.channelIndex, partitionInfo.timestamp);
 
 				transformChannel(current, partitionInfo.shuffleDescriptor, partitionInfo.localLocation);
 				numChannelsUpdatedByTask.inc();

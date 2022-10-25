@@ -82,6 +82,8 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 
 	protected Counter numRecordsDropped = new SimpleCounter();
 
+	protected volatile long numDownStreamTaskConnectTimeout = 0;
+
 	protected TimerGauge backPressuredTimeMsPerSecond = new TimerGauge();
 
 	private final boolean flushAlways;
@@ -130,6 +132,12 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 			// abandon records if the targetChannel is not available
 			numRecordsDropped.inc();
 			return;
+		}
+
+		if (targetPartition.isSubpartitionStuck(targetChannel)) {
+			// abandon records if the targetChannel is not available
+			numDownStreamTaskConnectTimeout++;
+			throw new RuntimeException("Downstream task connect timeout");
 		}
 
 		serializer.serializeRecord(record);
@@ -214,6 +222,11 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 		backPressuredTimeMsPerSecond = metrics.getBackPressuredTimePerSecond();
 		numRecordsDropped = metrics.getNumRecordsDropped();
 		metrics.getParentMetricGroup().gauge(MetricNames.UPSTREAM_TASK_ERROR_NUM, targetPartition::getErrorNum);
+		metrics.getParentMetricGroup().gauge(MetricNames.DOWNSTREAM_TASK_CONNECT_TIMEOUT, this::getNumDownStreamTaskConnectTimeout);
+	}
+
+	public long getNumDownStreamTaskConnectTimeout() {
+		return numDownStreamTaskConnectTimeout;
 	}
 
 	protected void finishBufferBuilder(BufferBuilder bufferBuilder) {

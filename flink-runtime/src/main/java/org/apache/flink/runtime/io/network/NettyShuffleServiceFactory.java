@@ -170,7 +170,8 @@ public class NettyShuffleServiceFactory implements ShuffleServiceFactory<NettySh
 			config.isBlockingShuffleCompressionEnabled(),
 			config.getCompressionCodec(),
 			config.getMaxBuffersPerChannel(),
-			config.isRecoverable());
+			config.isRecoverable(),
+			config.getDownStreamTaskConnectTimeoutMs());
 
 		long maxDelayTimeMs = config.getMaxDelayTimeMs();
 

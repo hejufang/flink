@@ -85,6 +85,10 @@ public abstract class ResultSubpartition {
 		return true;
 	}
 
+	public boolean isStuck() {
+		return false;
+	}
+
 	public boolean needToCleanBufferBuilder() {
 		return false;
 	}

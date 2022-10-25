@@ -69,19 +69,22 @@ public class ResultPartitionFactory {
 
 	private final boolean isRecoverable;
 
+	private final long downStreamTaskConnectTimeoutMs;
+
 	public ResultPartitionFactory(
-		ResultPartitionManager partitionManager,
-		FileChannelManager channelManager,
-		BufferPoolFactory bufferPoolFactory,
-		BoundedBlockingSubpartitionType blockingSubpartitionType,
-		int networkBuffersPerChannel,
-		int floatingNetworkBuffersPerGate,
-		int networkBufferSize,
-		boolean forcePartitionReleaseOnConsumption,
-		boolean blockingShuffleCompressionEnabled,
-		String compressionCodec,
-		int maxBuffersPerChannel,
-		boolean isRecoverable) {
+			ResultPartitionManager partitionManager,
+			FileChannelManager channelManager,
+			BufferPoolFactory bufferPoolFactory,
+			BoundedBlockingSubpartitionType blockingSubpartitionType,
+			int networkBuffersPerChannel,
+			int floatingNetworkBuffersPerGate,
+			int networkBufferSize,
+			boolean forcePartitionReleaseOnConsumption,
+			boolean blockingShuffleCompressionEnabled,
+			String compressionCodec,
+			int maxBuffersPerChannel,
+			boolean isRecoverable,
+			long downStreamTaskConnectTimeoutMs) {
 
 		this.partitionManager = partitionManager;
 		this.channelManager = channelManager;
@@ -95,6 +98,7 @@ public class ResultPartitionFactory {
 		this.compressionCodec = compressionCodec;
 		this.maxBuffersPerChannel = maxBuffersPerChannel;
 		this.isRecoverable = isRecoverable;
+		this.downStreamTaskConnectTimeoutMs = downStreamTaskConnectTimeoutMs;
 	}
 
 	public ResultPartition create(
@@ -170,14 +174,14 @@ public class ResultPartitionFactory {
 				networkBufferSize,
 				channelManager);
 		} else {
-			initializePipedlinedPartitions(subpartitions, partition, isRecoverable);
+			initializePipelinedPartitions(subpartitions, partition, isRecoverable, downStreamTaskConnectTimeoutMs);
 		}
 	}
 
-	private static void initializePipedlinedPartitions(ResultSubpartition[] subpartitions, ResultPartition parent, boolean isRecoverable) {
+	private static void initializePipelinedPartitions(ResultSubpartition[] subpartitions, ResultPartition parent, boolean isRecoverable, long downStreamTaskConnectTimeoutMs) {
 		if (isRecoverable) {
 			for (int i = 0; i < subpartitions.length; i++) {
-				subpartitions[i] = new RecoverablePipelinedSubpartition(i, parent);
+				subpartitions[i] = new RecoverablePipelinedSubpartition(i, parent, downStreamTaskConnectTimeoutMs);
 			}
 		} else {
 			for (int i = 0; i < subpartitions.length; i++) {

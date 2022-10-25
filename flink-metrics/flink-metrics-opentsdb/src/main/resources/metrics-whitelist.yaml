@@ -91,8 +91,12 @@ global:
         numberOfTmExceedQuota,
         numberOfFailedDiscardExpiredCheckpointFolder,
         upstreamTaskErrorNum,
+        numberOfTerarkdbJobs,
         configurationNewNums,
-        numberOfTerarkdbJobs
+      # Single failover
+        numRecordsDroppedInRecoverableFailover,
+        numBuffersInDroppedInRecoverableFailover,
+        downStreamConnectTimeout
     ]
 
 non-global:
@@ -146,8 +150,8 @@ non-global:
       # used in dorado platform
         numRecordsInPerSecond,
         numRecordsOutPerSecond,
-        numRecordsDropped,
-        numBuffersInDropped,
+        numRecordsDroppedInRecoverableFailover,
+        numBuffersInDroppedInRecoverableFailover,
         numChannelsUpdatedByJM,
         numChannelsUpdatedByTask,
         numChannelsInjectedError,

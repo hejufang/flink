@@ -105,6 +105,8 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final int memorySegmentsPerPackage;
 
+	private final long downStreamTaskConnectTimeoutMs;
+
 	public NettyShuffleEnvironmentConfiguration(
 			int numNetworkBuffers,
 			int networkBufferSize,
@@ -134,7 +136,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			long notifyPartitionRequestTimeout,
 			long notifyPartitionRequestTimeoutInterval,
 			boolean memorySegmentPackageEnable,
-			int memorySegmentsPerPackage) {
+			int memorySegmentsPerPackage,
+			long downStreamTaskConnectTimeoutMs) {
 
 		this.numNetworkBuffers = numNetworkBuffers;
 		this.networkBufferSize = networkBufferSize;
@@ -165,6 +168,7 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.notifyPartitionRequestTimeoutInterval = notifyPartitionRequestTimeoutInterval;
 		this.memorySegmentPackageEnable = memorySegmentPackageEnable;
 		this.memorySegmentsPerPackage = memorySegmentsPerPackage;
+		this.downStreamTaskConnectTimeoutMs = downStreamTaskConnectTimeoutMs;
 	}
 
 	// ------------------------------------------------------------------------
@@ -286,6 +290,10 @@ public class NettyShuffleEnvironmentConfiguration {
 		return memorySegmentsPerPackage;
 	}
 
+	public long getDownStreamTaskConnectTimeoutMs() {
+		return downStreamTaskConnectTimeoutMs;
+	}
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -356,6 +364,7 @@ public class NettyShuffleEnvironmentConfiguration {
 
 		boolean memorySegmentPackageEnable = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BUFFER_POOL_SEGMENT_PACKAGE_ENABLE);
 		int memorySegmentsPerPackage = configuration.getInteger(NettyShuffleEnvironmentOptions.NETWORK_MEMORY_SEGMENTS_PER_PACKAGE);
+		long downStreamTaskConnectTimeoutMs = configuration.getLong(NettyShuffleEnvironmentOptions.DOWNSTREAM_TASK_CONNECT_TIMEOUT_MS);
 
 		return new NettyShuffleEnvironmentConfiguration(
 			numberOfNetworkBuffers,
@@ -386,7 +395,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			notifyPartitionRequestTimeout,
 			notifyPartitionRequestTimeoutInterval,
 			memorySegmentPackageEnable,
-			memorySegmentsPerPackage);
+			memorySegmentsPerPackage,
+			downStreamTaskConnectTimeoutMs);
 	}
 
 	/**

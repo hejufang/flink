@@ -350,6 +350,12 @@ public class NettyShuffleEnvironmentOptions {
 		key("taskmanager.network.partition.force-release-on-consumption")
 			.defaultValue(false);
 
+	public static final ConfigOption<Long> DOWNSTREAM_TASK_CONNECT_TIMEOUT_MS =
+		key("taskmanager.network.partition.downStreamTaskConnectTimeoutMs")
+			.longType()
+			.defaultValue(-1L)
+			.withDeprecatedKeys("Upstream task will fail if downstream task not request partition after downStreamTaskConnectTimeoutMs");
+
 	public static final ConfigOption<Boolean> FORCE_PARTITION_RECOVERABLE =
 		key("taskmanager.network.partition.force-partition-recoverable")
 			.defaultValue(false);

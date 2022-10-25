@@ -192,6 +192,7 @@ public class NettyShuffleEnvironmentBuilder {
 				-1,
 				-1,
 				false,
+				-1,
 				-1),
 			taskManagerLocation,
 			new TaskEventDispatcher(),

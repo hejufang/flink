@@ -595,6 +595,33 @@ public class Dashboard {
 		return poolUsageRow;
 	}
 
+	private String renderSingleFailoverDataDropStuckRow(List<String> operators) {
+		String targetTemplate;
+		String template;
+
+		try {
+			targetTemplate = renderFromResource(DashboardTemplate.SINGLE_FAILOVER_DATA_DROP_TARGET_TEMPLATE);
+			template = renderFromResource(DashboardTemplate.SINGLE_FAILOVER_DATA_DROP_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		List<String> poolUsageList = new ArrayList<>();
+		for (int i = 0; i < operators.size(); i++) {
+			Map<String, String> targetValues = new HashMap<>();
+			targetValues.put("operator", operators.get(i));
+			targetValues.put("jobname", formatJobName);
+			targetValues.put("hide", i > targetLimit / 2 ? "true" : "false");
+			poolUsageList.add(renderString(targetTemplate, targetValues));
+		}
+		String targets = String.join(",", poolUsageList);
+		Map<String, String> poolUsageValues = new HashMap<>();
+		poolUsageValues.put("targets", targets);
+		poolUsageValues.put("datasource", dataSource);
+		String poolUsageRow = renderString(template, poolUsageValues);
+		return poolUsageRow;
+	}
+
 	private String renderPoolUsageRow(List<String> operators) {
 		String inPoolUsageTargetTemplate;
 		String outPoolUsageTargetTemplate;
@@ -1233,6 +1260,7 @@ public class Dashboard {
 		networkPanels.addAll(renderPoolUsageSplitRow(tasks));
 		networkPanels.addAll(renderRecordNumSplitRow(operators));
 		networkPanels.add(renderTaskStuckRow(tasks));
+		networkPanels.add(renderSingleFailoverDataDropStuckRow(tasks));
 		networkPanels.add(renderNetworkMemoryRow());
 		rows.add(renderRowTemplate(DashboardTemplate.NETWORK_ROW_TEMPLATE, networkPanels));
 

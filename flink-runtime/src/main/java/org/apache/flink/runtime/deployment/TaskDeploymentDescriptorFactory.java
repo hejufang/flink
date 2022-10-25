@@ -66,6 +66,7 @@ public class TaskDeploymentDescriptorFactory {
 	private final ExecutionVertexID executionVertexId;
 	private final List<ConsumedPartitionGroup> consumedPartitions;
 	private final Map<IntermediateResultPartitionID, IntermediateResultPartition> resultPartitionsById;
+	private final boolean isRecoverable;
 	private static boolean isCopy;
 
 	private TaskDeploymentDescriptorFactory(
@@ -78,7 +79,8 @@ public class TaskDeploymentDescriptorFactory {
 			ExecutionVertexID executionVertexId,
 			boolean isCopy,
 			List<ConsumedPartitionGroup> consumedPartitions,
-			Map<IntermediateResultPartitionID, IntermediateResultPartition> resultPartitionsById) {
+			Map<IntermediateResultPartitionID, IntermediateResultPartition> resultPartitionsById,
+			boolean isRecoverable) {
 		this.executionId = executionId;
 		this.attemptNumber = attemptNumber;
 		this.serializedJobInformation = serializedJobInformation;
@@ -88,6 +90,7 @@ public class TaskDeploymentDescriptorFactory {
 		this.executionVertexId = executionVertexId;
 		this.consumedPartitions = consumedPartitions;
 		this.resultPartitionsById = resultPartitionsById;
+		this.isRecoverable = isRecoverable;
 
 		TaskDeploymentDescriptorFactory.isCopy = isCopy;
 	}
@@ -143,12 +146,23 @@ public class TaskDeploymentDescriptorFactory {
 		}
 		ShuffleDescriptor[] cachedShuffleDescriptors = intermediateResult.getCachedShuffleDescriptors(consumedPartitionGroup);
 		if (cachedShuffleDescriptors != null) {
+			if (isRecoverable) {
+				for (ShuffleDescriptor shuffleDescriptor : cachedShuffleDescriptors) {
+					if (shuffleDescriptor.isUnknown()) {
+						return buildAndCacheShuffleDescriptors(intermediateResult, consumedPartitionGroup);
+					}
+				}
+			}
 			return cachedShuffleDescriptors;
 		} else {
-			final ShuffleDescriptor[] shuffleDescriptors = buildConsumedPartitionShuffleDescriptrs(consumedPartitionGroup.getResultPartitions());
-			intermediateResult.cacheShuffleDescriptors(consumedPartitionGroup, shuffleDescriptors);
-			return shuffleDescriptors;
+			return buildAndCacheShuffleDescriptors(intermediateResult, consumedPartitionGroup);
 		}
+	}
+
+	private ShuffleDescriptor[] buildAndCacheShuffleDescriptors(IntermediateResult intermediateResult, ConsumedPartitionGroup consumedPartitionGroup) {
+		final ShuffleDescriptor[] shuffleDescriptors = buildConsumedPartitionShuffleDescriptrs(consumedPartitionGroup.getResultPartitions());
+		intermediateResult.cacheShuffleDescriptors(consumedPartitionGroup, shuffleDescriptors);
+		return shuffleDescriptors;
 	}
 
 	private ShuffleDescriptor[] buildConsumedPartitionShuffleDescriptrs(
@@ -178,7 +192,8 @@ public class TaskDeploymentDescriptorFactory {
 			executionVertex.getID(),
 			false,
 			executionVertex.getAllConsumedPartitions(),
-			executionGraph.getIntermediateResultPartitionMapping());
+			executionGraph.getIntermediateResultPartitionMapping(),
+			executionGraph.isRecoverable());
 	}
 
 	public static TaskDeploymentDescriptorFactory fromExecution(
@@ -196,7 +211,8 @@ public class TaskDeploymentDescriptorFactory {
 			execution.getVertex().getID(),
 			execution.isCopy(),
 			executionVertex.getAllConsumedPartitions(),
-			executionGraph.getIntermediateResultPartitionMapping());
+			executionGraph.getIntermediateResultPartitionMapping(),
+			executionGraph.isRecoverable());
 	}
 
 	public static MaybeOffloaded<JobInformation> getSerializedJobInformation(ExecutionGraph executionGraph) {

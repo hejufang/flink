@@ -179,7 +179,8 @@ public class ResultPartitionBuilder {
 			blockingShuffleCompressionEnabled,
 			compressionCodec,
 			maxBuffersPerChannel,
-			isRecoverable);
+			isRecoverable,
+			-1);
 
 		FunctionWithException<BufferPoolOwner, BufferPool, IOException> factory = bufferPoolFactory.orElseGet(() ->
 			resultPartitionFactory.createBufferPoolFactory(numberOfSubpartitions, partitionType));

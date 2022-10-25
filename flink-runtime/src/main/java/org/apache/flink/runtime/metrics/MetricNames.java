@@ -36,8 +36,8 @@ public class MetricNames {
 	public static final String IO_NUM_RECORDS_IN_RATE = IO_NUM_RECORDS_IN + SUFFIX_RATE;
 	public static final String IO_NUM_RECORDS_OUT_RATE = IO_NUM_RECORDS_OUT + SUFFIX_RATE;
 
-	public static final String IO_NUM_RECORDS_DROPPED = "numRecordsDropped";
-	public static final String IO_NUM_BUFFERS_DROPPED = "numBuffersInDropped";
+	public static final String IO_NUM_RECORDS_DROPPED = "numRecordsDroppedInRecoverableFailover";
+	public static final String IO_NUM_BUFFERS_DROPPED = "numBuffersInDroppedInRecoverableFailover";
 
 	public static final String IO_NUM_BYTES_IN = "numBytesIn";
 	public static final String IO_NUM_BYTES_OUT = "numBytesOut";
@@ -97,6 +97,7 @@ public class MetricNames {
 	public static final String EXECUTION_STATE_TAG_SUBTASK_ID_NAME = "subtaskId";
 	public static final String EXECUTION_STATE_TIME = "executionStateTime";
 	public static final String UPSTREAM_TASK_ERROR_NUM = "upstreamTaskErrorNum";
+	public static final String DOWNSTREAM_TASK_CONNECT_TIMEOUT = "downStreamConnectTimeout";
 	public static final String TASK_EXECUTOR_EXECUTION_STATE_TIME = "taskExecutorExecutionStateTime";
 	public static final String TASK_FAILING_TIME = "taskFailingTime";
 	public static final String IS_TASK_STUCK = "isTaskStuck";

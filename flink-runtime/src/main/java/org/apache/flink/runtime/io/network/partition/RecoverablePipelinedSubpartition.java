@@ -42,17 +42,39 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 	private static final AtomicReferenceFieldUpdater<RecoverablePipelinedSubpartition, Boolean> needCleanBufferBuilderUpdater =
 			AtomicReferenceFieldUpdater.newUpdater(RecoverablePipelinedSubpartition.class, Boolean.class, "needCleanBufferBuilder");
 
+	private static final AtomicReferenceFieldUpdater<RecoverablePipelinedSubpartition, Boolean> stuckUpdater =
+		AtomicReferenceFieldUpdater.newUpdater(RecoverablePipelinedSubpartition.class, Boolean.class, "stuck");
+
 	private volatile Integer status = SUBPARTITION_UNAVAILABLE;
 
 	private volatile Boolean needCleanBufferBuilder = true;
+	private volatile Boolean stuck = false;
+	private volatile long unavailableTime;
 
-	RecoverablePipelinedSubpartition(int index, ResultPartition parent) {
+	private final long downStreamTaskConnectTimeoutMs;
+
+	RecoverablePipelinedSubpartition(int index, ResultPartition parent, long downStreamTaskConnectTimeoutMs) {
 		super(index, parent);
+		this.downStreamTaskConnectTimeoutMs = downStreamTaskConnectTimeoutMs;
+		this.unavailableTime = System.currentTimeMillis();
 	}
 
 	@Override
 	public boolean isSubpartitionAvailable() {
-		return status == SUBPARTITION_AVAILABLE;
+		final boolean isSubpartitionAvailable = status == SUBPARTITION_AVAILABLE;
+		if (isSubpartitionAvailable) {
+			return true;
+		}
+		if (downStreamTaskConnectTimeoutMs > 0 && System.currentTimeMillis() - unavailableTime > downStreamTaskConnectTimeoutMs) {
+			LOG.error("Subpartition {} is still unavailable in {} ms", this, downStreamTaskConnectTimeoutMs);
+			stuckUpdater.compareAndSet(this, false, true);
+		}
+		return false;
+	}
+
+	@Override
+	public boolean isStuck() {
+		return stuck;
 	}
 
 	@Override
@@ -77,6 +99,9 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 		synchronized (buffers) {
 
 			// step1. reset status
+			if (downStreamTaskConnectTimeoutMs > 0){
+				unavailableTime = System.currentTimeMillis();
+			}
 			if (statusUpdater.compareAndSet(this, SUBPARTITION_AVAILABLE, SUBPARTITION_UNAVAILABLE)) {
 				LOG.info("{} {}: Status updated to unavailable.", parent.getOwningTaskName(), this);
 			}

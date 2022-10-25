@@ -118,6 +118,10 @@ public interface ResultPartitionWriter extends AutoCloseable, AvailabilityProvid
 		return true;
 	}
 
+	default boolean isSubpartitionStuck(int subpartitionIndex) {
+		return false;
+	}
+
 	default boolean needToCleanBufferBuilder(int subpartitionIndex) {
 		return false;
 	}

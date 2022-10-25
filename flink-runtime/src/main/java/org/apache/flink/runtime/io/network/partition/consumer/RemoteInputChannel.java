@@ -170,7 +170,7 @@ public class RemoteInputChannel extends InputChannel {
 			}
 		} catch (Exception e) {
 			if (isRecoverable) {
-				LOG.error("{}: new channel request partition failed", this);
+				LOG.error("{}: new channel request partition failed", this, e);
 				onError(e);
 			} else {
 				throw e;
@@ -242,7 +242,7 @@ public class RemoteInputChannel extends InputChannel {
 		if (!isChannelAvailable()) {
 			LOG.info("{} : This channel is unavailable, will return unavailable channelEvent.", this);
 			return Optional.of(new BufferAndAvailability(
-				EventSerializer.toBuffer(UnavailableChannelEvent.INSTANCE), false, 0));
+				EventSerializer.toBuffer(UnavailableChannelEvent.INSTANCE), moreAvailable, 0));
 		}
 
 		if (next == null) {

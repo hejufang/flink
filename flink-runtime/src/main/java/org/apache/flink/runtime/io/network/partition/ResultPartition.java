@@ -258,6 +258,11 @@ public class ResultPartition implements ResultPartitionWriter, BufferPoolOwner {
 	}
 
 	@Override
+	public boolean isSubpartitionStuck(int subpartitionIndex) {
+		return subpartitions[subpartitionIndex].isStuck();
+	}
+
+	@Override
 	public boolean needToCleanBufferBuilder(int subpartitionIndex) {
 		return subpartitions[subpartitionIndex].needToCleanBufferBuilder();
 	}

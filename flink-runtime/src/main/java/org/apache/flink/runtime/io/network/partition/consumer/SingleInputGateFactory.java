@@ -177,7 +177,8 @@ public class SingleInputGateFactory {
 			metrics,
 			channelProvider,
 			executor,
-			batchPartitionRequestEnable);
+			batchPartitionRequestEnable,
+			isRecoverable);
 
 		createInputChannels(owningTaskName, igdd, inputGate, metrics);
 		return inputGate;
