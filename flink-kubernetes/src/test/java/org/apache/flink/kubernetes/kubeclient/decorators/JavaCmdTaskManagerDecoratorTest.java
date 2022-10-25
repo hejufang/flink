@@ -148,6 +148,21 @@ public class JavaCmdTaskManagerDecoratorTest extends KubernetesTaskManagerTestBa
 	}
 
 	@Test
+	public void testStartCommandWithLog4jAndTmpDir() throws IOException {
+		KubernetesTestUtils.createTemporyFile("some data", flinkConfDir, CONFIG_FILE_LOG4J_NAME);
+		flinkConfig.setString(CoreOptions.TMP_DIRS, "./tmp");
+
+		final Container resultMainContainer =
+				javaCmdTaskManagerDecorator.decorateFlinkPod(this.baseFlinkPod).getMainContainer();
+
+		assertEquals(Collections.singletonList(KUBERNETES_ENTRY_PATH), resultMainContainer.getCommand());
+
+		final String expectedCommand = getTaskManagerExpectedCommand("-Djava.io.tmpdir=./tmp", log4j);
+		final List<String> expectedArgs = Arrays.asList("/bin/bash", "-c", expectedCommand);
+		assertEquals(expectedArgs, resultMainContainer.getArgs());
+	}
+
+	@Test
 	public void testStartCommandWithLogback() throws IOException {
 		KubernetesTestUtils.createTemporyFile("some data", flinkConfDir, CONFIG_FILE_LOGBACK_NAME);
 

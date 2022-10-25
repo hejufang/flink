@@ -473,7 +473,11 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			}
 
 			if (rocksdbLocalPaths == null) {
-				rocksdbLocalPaths = ((Configuration) config).getString(ConfigConstants.CONTAINER_CURRENT_WORKING_DIR, null);
+				rocksdbLocalPaths = ((Configuration) config).getString(ConfigConstants.YARN_CONTAINER_CURRENT_WORKING_DIR, null);
+			}
+
+			if (rocksdbLocalPaths == null) {
+				rocksdbLocalPaths = ((Configuration) config).getString(ConfigConstants.TASK_MANAGER_CURRENT_WORKING_DIR, null);
 			}
 
 			LOG.info("Using {} as rocksdb local directory.", rocksdbLocalPaths);

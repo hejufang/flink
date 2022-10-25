@@ -174,6 +174,6 @@ public class YarnTaskExecutorRunner {
 		}
 
 		// set curernt working dir
-		configuration.setString(ConfigConstants.CONTAINER_CURRENT_WORKING_DIR, currDir);
+		configuration.setString(ConfigConstants.TASK_MANAGER_CURRENT_WORKING_DIR, currDir);
 	}
 }

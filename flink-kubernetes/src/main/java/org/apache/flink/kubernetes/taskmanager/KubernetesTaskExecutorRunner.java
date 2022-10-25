@@ -18,6 +18,7 @@
 
 package org.apache.flink.kubernetes.taskmanager;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
@@ -25,6 +26,7 @@ import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.plugin.PluginManager;
 import org.apache.flink.core.plugin.PluginUtils;
+import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.utils.Constants;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
@@ -85,6 +87,11 @@ public class KubernetesTaskExecutorRunner {
 				configuration.setInteger(NettyShuffleEnvironmentOptions.DATA_BIND_PORT, Integer.parseInt(nettyPort));
 				configuration.setString(MetricOptions.QUERY_SERVICE_PORT, metricsPort);
 			}
+
+			// This current dir is used by RocksDBStateBackend
+			configuration.getOptional(KubernetesConfigOptions.CONTAINER_WORK_DIR)
+					.ifPresent(dir -> configuration.setString(ConfigConstants.TASK_MANAGER_CURRENT_WORKING_DIR, dir));
+
 			SecurityUtils.getInstalledContext().runSecured(() -> {
 				TaskManagerRunner.runTaskManager(configuration, resourceID, pluginManager);
 				return null;

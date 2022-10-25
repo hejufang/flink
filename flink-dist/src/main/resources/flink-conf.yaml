@@ -199,6 +199,7 @@ common:
   flink.gc.g1: false
   flink.parallel.gc.thread.use.cores: true
   flink.enable-async-logger: true
+  io.tmp.dirs: ./tmp
 
   # Env
   dc: cn

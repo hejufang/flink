@@ -160,6 +160,9 @@ public class JaasModule implements SecurityModule {
 		final File jaasConfFile;
 		try {
 			Path path = Paths.get(workingDir);
+			if (!Files.exists(path)) {
+				Files.createDirectory(path);
+			}
 			Path jaasConfPath = Files.createTempFile(path, "jaas-", ".conf");
 			try (InputStream resourceStream = JaasModule.class.getClassLoader().getResourceAsStream(JAAS_CONF_RESOURCE_NAME)) {
 				Files.copy(resourceStream, jaasConfPath, StandardCopyOption.REPLACE_EXISTING);

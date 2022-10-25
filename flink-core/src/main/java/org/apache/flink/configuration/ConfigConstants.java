@@ -2042,7 +2042,11 @@ public final class ConfigConstants {
 
 	// ------------------- Yarn Container Local Directories ------------------------
 	public static final String CONTAINER_LOCAL_DIRS = "flink.yarn.container.local.dir";
-	public static final String CONTAINER_CURRENT_WORKING_DIR = "flink.yarn.container.current.dir";
+
+	// Compatible with some unexpected user configurations, remove this in future version (1.16).
+	@Deprecated
+	public static final String YARN_CONTAINER_CURRENT_WORKING_DIR = "flink.yarn.container.current.dir";
+	public static final String TASK_MANAGER_CURRENT_WORKING_DIR = "flink.taskmanager.current.dir";
 	public static final String CONTAINER_ID = "flink.yarn.container.id";
 
 	// ---------------------------- Encoding ------------------------------

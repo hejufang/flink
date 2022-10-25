@@ -659,6 +659,13 @@ public class KubernetesUtils {
 				baseJavaOpts += " -DLog4jContextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector";
 			}
 		}
+
+		if (!baseJavaOpts.contains("-Djava.io.tmpdir=")) {
+			if (flinkConfig.containsKey(CoreOptions.TMP_DIRS.key())) {
+				baseJavaOpts = baseJavaOpts + " -Djava.io.tmpdir=" + flinkConfig.getString(CoreOptions.TMP_DIRS);
+			}
+		}
+
 		return baseJavaOpts;
 	}
 

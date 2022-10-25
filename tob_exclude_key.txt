@@ -80,6 +80,7 @@ register-dashboard.token
 # JVM and Logging Options
 containerized.master.env.LD_LIBRARY_PATH
 containerized.taskmanager.env.LD_LIBRARY_PATH
+io.tmp.dirs
 
 # Env
 dc
