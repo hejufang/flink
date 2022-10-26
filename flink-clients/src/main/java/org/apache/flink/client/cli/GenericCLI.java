@@ -29,6 +29,7 @@ import org.apache.flink.core.execution.DefaultExecutorServiceLoader;
 import org.apache.flink.core.execution.PipelineExecutor;
 import org.apache.flink.runtime.metrics.groups.ClientMetricGroup;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.StringUtils;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 import org.apache.flink.shaded.org.apache.commons.cli.Option;
@@ -138,15 +139,10 @@ public class GenericCLI implements CustomCommandLine {
 			effectiveConfiguration.setString(DeploymentOptions.TARGET, targetName);
 		}
 
-		encodeDynamicProperties(commandLine, effectiveConfiguration);
-
 		/*
-		 * set special config for streaming job
+		 * Load dynamic properties.
 		 */
-		String appType = effectiveConfiguration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE);
-		if (appType.equals(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE)) {
-			reloadConfigWithSpecificProperties(effectiveConfiguration, ConfigConstants.STREAMING_JOB_KEY_PREFIX);
-		}
+		encodeDynamicProperties(commandLine, effectiveConfiguration);
 
 		effectiveConfiguration.set(DeploymentOptionsInternal.CONF_DIR, configurationDir);
 
@@ -163,6 +159,21 @@ public class GenericCLI implements CustomCommandLine {
 		// reload config by dynamic properties. support config DC,hdfs.prefix... by dynamic properties.
 		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);
 
+		/*
+		 * set special config for streaming job.
+		 */
+		String appType = properties.getProperty(ExecutionOptions.EXECUTION_APPLICATION_TYPE.key());
+		if (StringUtils.isNullOrWhitespaceOnly(appType)) {
+			appType = effectiveConfiguration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE);
+		}
+		if (ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE.equals(appType)) {
+			reloadConfigWithSpecificProperties(effectiveConfiguration, ConfigConstants.STREAMING_JOB_KEY_PREFIX);
+		}
+
+		/*
+		 * Set dynamic properties at Last.
+		 * dynamic properties have the highest priority.
+		 */
 		properties.stringPropertyNames()
 				.forEach(key -> {
 					final String value = properties.getProperty(key);

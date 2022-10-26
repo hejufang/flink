@@ -119,18 +119,31 @@ public class GenericCLITest {
 			"-e", "test-executor",
 			"-D" + ExecutionOptions.EXECUTION_APPLICATION_TYPE.key() + "="
 				+ ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE,
-			"-D" + ConfigConstants.STREAMING_JOB_KEY_PREFIX + "test-config.test-sub-config=test"
+			"-D" + ConfigConstants.STREAMING_JOB_KEY_PREFIX + "will.not.use=test",
+			"-Din.useB=dpInUseB"
 		};
 
+		/*
+		 * mock config in flink-conf.yaml.
+		 */
+		final Configuration configuration = new Configuration();
+		configuration.setString("in.useA", "inUseA");
+		configuration.setString("in.useB", "inUseB");
+		configuration.setString(ConfigConstants.STREAMING_JOB_KEY_PREFIX + "in.useA", "Streaming.inUseA");
+		configuration.setString(ConfigConstants.STREAMING_JOB_KEY_PREFIX + "in.useB", "Streaming.inUseB");
+
 		final GenericCLI cliUnderTest = new GenericCLI(
-			new Configuration(),
+			configuration,
 			tmp.getRoot().getAbsolutePath());
 		final CommandLine commandLine = CliFrontendParser.parse(testOptions, args, true);
 
-		final Configuration configuration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
-		assertEquals("test-executor", configuration.getString(DeploymentOptions.TARGET));
-		assertEquals(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE, configuration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE));
-		assertEquals("test", configuration.getString("test-config.test-sub-config", ""));
+		final Configuration targetConfiguration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
+		assertEquals("test-executor", targetConfiguration.getString(DeploymentOptions.TARGET));
+		assertEquals(ConfigConstants.FLINK_STREAMING_APPLICATION_TYPE,
+			targetConfiguration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE));
+		assertEquals("", targetConfiguration.getString("will.not.use", ""));
+		assertEquals("Streaming.inUseA", targetConfiguration.getString("in.useA", ""));
+		assertEquals("dpInUseB", targetConfiguration.getString("in.useB", ""));
 	}
 
 	@Test
@@ -139,18 +152,31 @@ public class GenericCLITest {
 			"-e", "test-executor",
 			"-D" + ExecutionOptions.EXECUTION_APPLICATION_TYPE.key() + "="
 				+ ConfigConstants.FLINK_BATCH_APPLICATION_TYPE,
-			"-D" + ConfigConstants.STREAMING_JOB_KEY_PREFIX + "test-config.test-sub-config=test"
+			"-D" + ConfigConstants.STREAMING_JOB_KEY_PREFIX + "will.not.use=test",
+			"-Din.useB=dpInUseB"
 		};
 
+		/*
+		 * mock config in flink-conf.yaml.
+		 */
+		final Configuration configuration = new Configuration();
+		configuration.setString("in.useA", "inUseA");
+		configuration.setString("in.useB", "inUseB");
+		configuration.setString(ConfigConstants.STREAMING_JOB_KEY_PREFIX + "in.useA", "Streaming.inUseA");
+		configuration.setString(ConfigConstants.STREAMING_JOB_KEY_PREFIX + "in.useB", "Streaming.inUseB");
+
 		final GenericCLI cliUnderTest = new GenericCLI(
-			new Configuration(),
+			configuration,
 			tmp.getRoot().getAbsolutePath());
 		final CommandLine commandLine = CliFrontendParser.parse(testOptions, args, true);
 
-		final Configuration configuration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
-		assertEquals("test-executor", configuration.getString(DeploymentOptions.TARGET));
-		assertEquals(ConfigConstants.FLINK_BATCH_APPLICATION_TYPE, configuration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE));
-		assertEquals("", configuration.getString("test-config.test-sub-config", ""));
+		final Configuration targetConfiguration = cliUnderTest.applyCommandLineOptionsToConfiguration(commandLine);
+		assertEquals("test-executor", targetConfiguration.getString(DeploymentOptions.TARGET));
+		assertEquals(ConfigConstants.FLINK_BATCH_APPLICATION_TYPE,
+			targetConfiguration.get(ExecutionOptions.EXECUTION_APPLICATION_TYPE));
+		assertEquals("", targetConfiguration.getString("will.not.use", ""));
+		assertEquals("inUseA", targetConfiguration.getString("in.useA", ""));
+		assertEquals("dpInUseB", targetConfiguration.getString("in.useB", ""));
 	}
 
 	@Test
