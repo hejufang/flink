@@ -105,6 +105,8 @@ public class RuntimeEnvironment implements Environment {
 
 	private final ScheduledExecutorService taskCheckStuckExecutor;
 
+	private final TaskThreadPoolExecutor taskDaemonExecutor;
+
 	// ------------------------------------------------------------------------
 
 	public RuntimeEnvironment(
@@ -168,6 +170,7 @@ public class RuntimeEnvironment implements Environment {
 			externalResourceInfoProvider,
 			new NonCacheManager(),
 			new PrintTaskJobResultGateway(),
+			null,
 			null);
 	}
 
@@ -202,8 +205,8 @@ public class RuntimeEnvironment implements Environment {
 			ExternalResourceInfoProvider externalResourceInfoProvider,
 			CacheManager cacheManager,
 			TaskJobResultGateway taskJobResultGateway,
-			ScheduledExecutorService taskCheckStuckExecutor) {
-
+			ScheduledExecutorService taskCheckStuckExecutor,
+			TaskThreadPoolExecutor taskDaemonExecutor) {
 		this.jobId = checkNotNull(jobId);
 		this.jobName = jobName;
 		this.jobUID = jobUID;
@@ -235,6 +238,7 @@ public class RuntimeEnvironment implements Environment {
 		this.cacheManager = cacheManager;
 		this.taskJobResultGateway = taskJobResultGateway;
 		this.taskCheckStuckExecutor = taskCheckStuckExecutor;
+		this.taskDaemonExecutor = taskDaemonExecutor;
 	}
 
 	// ------------------------------------------------------------------------
@@ -386,6 +390,11 @@ public class RuntimeEnvironment implements Environment {
 
 	public ScheduledExecutorService getTaskCheckStuckExecutor() {
 		return taskCheckStuckExecutor;
+	}
+
+	@Override
+	public TaskThreadPoolExecutor getTaskDaemonExecutor() {
+		return taskDaemonExecutor;
 	}
 
 	@Override

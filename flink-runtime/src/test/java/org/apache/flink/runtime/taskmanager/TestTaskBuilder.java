@@ -87,7 +87,7 @@ public final class TestTaskBuilder {
 	private AllocationID allocationID = new AllocationID();
 	private ExecutionAttemptID executionAttemptId = new ExecutionAttemptID();
 	private TaskThreadPoolExecutor taskExecutorService = null;
-	private TaskThreadPoolExecutor taskMonitorExecutor = null;
+	private TaskThreadPoolExecutor taskDaemonExecutor = null;
 	private ExternalResourceInfoProvider externalResourceInfoProvider = ExternalResourceInfoProvider.NO_EXTERNAL_RESOURCES;
 
 	public TestTaskBuilder(ShuffleEnvironment<?, ?> shuffleEnvironment) {
@@ -184,8 +184,8 @@ public final class TestTaskBuilder {
 		return this;
 	}
 
-	public TestTaskBuilder setTaskMonitorExecutor(TaskThreadPoolExecutor taskMonitorExecutor) {
-		this.taskMonitorExecutor = taskMonitorExecutor;
+	public TestTaskBuilder setTaskDaemonExecutor(TaskThreadPoolExecutor taskDaemonExecutor) {
+		this.taskDaemonExecutor = taskDaemonExecutor;
 		return this;
 	}
 
@@ -225,7 +225,7 @@ public final class TestTaskBuilder {
 			MemoryManagerBuilder.newBuilder().setMemorySize(1024 * 1024).build(),
 			mock(IOManager.class),
 			taskExecutorService,
-			taskMonitorExecutor,
+			taskDaemonExecutor,
 			null,
 			shuffleEnvironment,
 			kvStateService,

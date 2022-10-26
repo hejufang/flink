@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.api.writer;
 
 import org.apache.flink.core.io.IOReadableWritable;
+import org.apache.flink.runtime.taskmanager.TaskThreadPoolExecutor;
 
 /**
  * Utility class to encapsulate the logic of building a {@link RecordWriter} instance.
@@ -34,6 +35,8 @@ public class RecordWriterBuilder<T extends IOReadableWritable> {
 	private boolean cloudShuffleMode = false;
 
 	private boolean isRecoverable = false;
+
+	private TaskThreadPoolExecutor taskDaemonExecutor = null;
 
 	public RecordWriterBuilder<T> setChannelSelector(ChannelSelector<T> selector) {
 		this.selector = selector;
@@ -60,6 +63,11 @@ public class RecordWriterBuilder<T extends IOReadableWritable> {
 		return this;
 	}
 
+	public RecordWriterBuilder<T> setTaskDaemonExecutor(TaskThreadPoolExecutor taskDaemonExecutor) {
+		this.taskDaemonExecutor = taskDaemonExecutor;
+		return this;
+	}
+
 	public RecordWriter<T> build(ResultPartitionWriter writer) {
 		if (selector.isBroadcast()) {
 			if (cloudShuffleMode) {
@@ -67,13 +75,13 @@ public class RecordWriterBuilder<T extends IOReadableWritable> {
 			} else if (isRecoverable) {
 				return new RecoverableBroadcastRecordWriter<>(writer, selector, timeout, taskName);
 			} else {
-				return new BroadcastRecordWriter<>(writer, timeout, taskName);
+				return new BroadcastRecordWriter<>(writer, timeout, taskName, taskDaemonExecutor);
 			}
 		} else {
 			if (cloudShuffleMode) {
 				return new CloudShuffleChannelSelectorRecordWriter<>(writer, selector, timeout, taskName);
 			} else {
-				return new ChannelSelectorRecordWriter<>(writer, selector, timeout, taskName);
+				return new ChannelSelectorRecordWriter<>(writer, selector, timeout, taskName, taskDaemonExecutor);
 			}
 		}
 	}

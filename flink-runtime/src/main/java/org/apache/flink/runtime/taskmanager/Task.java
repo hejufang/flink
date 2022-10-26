@@ -300,7 +300,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 	private final TaskThreadPoolExecutor taskExecutorService;
 
-	private final TaskThreadPoolExecutor taskMonitorExecutor;
+	private final TaskThreadPoolExecutor taskDaemonExecutor;
 
 	private final ScheduledExecutorService taskCheckStuckExecutor;
 
@@ -377,7 +377,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		MemoryManager memManager,
 		IOManager ioManager,
 		TaskThreadPoolExecutor taskExecutorService,
-		TaskThreadPoolExecutor taskMonitorExecutor,
+		TaskThreadPoolExecutor taskDaemonExecutor,
 		ScheduledExecutorService taskCheckStuckExecutor,
 		ShuffleEnvironment<?, ?> shuffleEnvironment,
 		KvStateService kvStateService,
@@ -410,7 +410,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			memManager,
 			ioManager,
 			taskExecutorService,
-			taskMonitorExecutor,
+			taskDaemonExecutor,
 			taskCheckStuckExecutor,
 			shuffleEnvironment,
 			kvStateService,
@@ -454,7 +454,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 			MemoryManager memManager,
 			IOManager ioManager,
 			TaskThreadPoolExecutor taskExecutorService,
-			TaskThreadPoolExecutor taskMonitorExecutor,
+			TaskThreadPoolExecutor taskDaemonExecutor,
 			ScheduledExecutorService taskCheckStuckExecutor,
 			ShuffleEnvironment<?, ?> shuffleEnvironment,
 			KvStateService kvStateService,
@@ -542,7 +542,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		this.kvStateService = Preconditions.checkNotNull(kvStateService);
 		this.taskManagerConfig = Preconditions.checkNotNull(taskManagerConfig);
 		this.taskExecutorService = taskExecutorService;
-		this.taskMonitorExecutor = taskMonitorExecutor;
+		this.taskDaemonExecutor = taskDaemonExecutor;
 		this.taskCheckStuckExecutor = taskCheckStuckExecutor;
 
 		this.metrics = metricGroup;
@@ -968,7 +968,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				externalResourceInfoProvider,
 				cacheManager,
 				taskJobResultGateway,
-				taskCheckStuckExecutor);
+				taskCheckStuckExecutor,
+				taskDaemonExecutor);
 
 			// Make sure the user code classloader is accessible thread-locally.
 			// We are setting the correct context class loader before instantiating the invokable
@@ -997,9 +998,6 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 						taskThreadName, executionId),
 					taskThreadName,
 					taskCancellationTimeout));
-				if (useTaskThreadPool) {
-					invokable.setTaskMonitorExecutor(taskMonitorExecutor);
-				}
 			}
 
 			// switch to the RUNNING state, if that fails, we have been canceled/failed in the meantime
@@ -1443,7 +1441,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 									taskThreadName,
 									taskCancellationTimeout);
 								if (useTaskThreadPool) {
-									taskMonitorExecutor.submit(cancelWatchdog, threadName);
+									taskDaemonExecutor.submit(cancelWatchdog, threadName);
 								} else {
 									Thread watchDogThread = new Thread(
 										executingThread.getThreadGroup(),
@@ -1467,7 +1465,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 						Runnable canceler = new TaskCanceler(LOG, this::closeNetworkResources, invokable, executingThread, taskThreadName);
 
 						if (useTaskThreadPool) {
-							taskMonitorExecutor.submit(canceler, String.format("Canceler for %s (%s).", taskThreadName, executionId));
+							taskDaemonExecutor.submit(canceler, String.format("Canceler for %s (%s).", taskThreadName, executionId));
 						} else {
 							Thread cancelThread = new Thread(
 								executingThread.getThreadGroup(),
@@ -1490,7 +1488,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 									taskCancellationInterval);
 
 							if (useTaskThreadPool) {
-								taskMonitorExecutor.submit(interrupter, String.format("Canceler/Interrupts for %s (%s).", taskThreadName, executionId));
+								taskDaemonExecutor.submit(interrupter, String.format("Canceler/Interrupts for %s (%s).", taskThreadName, executionId));
 							} else {
 								Thread interruptingThread = new Thread(
 									executingThread.getThreadGroup(),

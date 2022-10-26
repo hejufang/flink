@@ -82,7 +82,7 @@ public abstract class AbstractInvokable {
 
 	private Task.TaskCancelerWatchDog cancelWatchDog = null;
 
-	private TaskThreadPoolExecutor taskMonitorExecutor = null;
+	protected final TaskThreadPoolExecutor taskDaemonExecutor;
 
 	/**
 	 * Create an Invokable task and set its environment.
@@ -91,6 +91,7 @@ public abstract class AbstractInvokable {
 	 */
 	public AbstractInvokable(Environment environment) {
 		this.environment = checkNotNull(environment);
+		this.taskDaemonExecutor = environment.getTaskDaemonExecutor();
 	}
 
 	// ------------------------------------------------------------------------
@@ -136,11 +137,6 @@ public abstract class AbstractInvokable {
 
 	public void setCancelWatchDog(Task.TaskCancelerWatchDog cancelWatchDog){
 		this.cancelWatchDog = cancelWatchDog;
-	}
-
-	public AbstractInvokable setTaskMonitorExecutor(TaskThreadPoolExecutor taskMonitorExecutor) {
-		this.taskMonitorExecutor = taskMonitorExecutor;
-		return this;
 	}
 
 	/**
@@ -335,8 +331,8 @@ public abstract class AbstractInvokable {
 	 * Trigger triggerCancelWatchDog thread to check cancel timeout.
 	 */
 	protected void triggerCancelWatchDog() {
-		if (taskMonitorExecutor != null) {
-			taskMonitorExecutor.submit(cancelWatchDog, cancelWatchDog.getThreadName());
+		if (taskDaemonExecutor != null) {
+			taskDaemonExecutor.submit(cancelWatchDog, cancelWatchDog.getThreadName());
 		} else {
 			Thread watchDogThread = new Thread(
 				cancelWatchDog.getExecuterThread().getThreadGroup(),

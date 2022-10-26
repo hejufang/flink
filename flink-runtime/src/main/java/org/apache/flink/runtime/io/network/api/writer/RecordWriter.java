@@ -32,6 +32,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.TimerGauge;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
+import org.apache.flink.runtime.taskmanager.TaskThreadPoolExecutor;
 import org.apache.flink.util.XORShiftRandom;
 
 import org.slf4j.Logger;
@@ -88,6 +89,8 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 
 	private final boolean flushAlways;
 
+	private TaskThreadPoolExecutor taskDaemonExecutor;
+
 	/** The thread that periodically flushes the output, to give an upper latency bound. */
 	@Nullable
 	private final OutputFlusher outputFlusher;
@@ -95,13 +98,14 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 	/** To avoid synchronization overhead on the critical path, best-effort error tracking is enough here.*/
 	private Throwable flusherException;
 
-	RecordWriter(ResultPartitionWriter writer, long timeout, String taskName) {
+	RecordWriter(ResultPartitionWriter writer, long timeout, String taskName, TaskThreadPoolExecutor taskThreadPoolExecutor) {
 		this.targetPartition = writer;
 		this.numberOfChannels = writer.getNumberOfSubpartitions();
 
 		this.serializer = new SpanningRecordSerializer<T>();
 
 		checkArgument(timeout >= -1);
+		this.taskDaemonExecutor = taskThreadPoolExecutor;
 		this.flushAlways = (timeout == 0);
 		if (timeout == -1 || timeout == 0) {
 			outputFlusher = null;
@@ -111,7 +115,11 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 				DEFAULT_OUTPUT_FLUSH_THREAD_NAME + " for " + taskName;
 
 			outputFlusher = new OutputFlusher(threadName, timeout);
-			outputFlusher.start();
+			if (null != taskThreadPoolExecutor) {
+				taskDaemonExecutor.submit(outputFlusher, threadName);
+			} else {
+				outputFlusher.start();
+			}
 		}
 	}
 

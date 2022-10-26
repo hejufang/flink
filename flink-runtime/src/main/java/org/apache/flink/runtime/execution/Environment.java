@@ -46,6 +46,7 @@ import org.apache.flink.runtime.state.cache.NonCacheManager;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
+import org.apache.flink.runtime.taskmanager.TaskThreadPoolExecutor;
 
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -214,6 +215,10 @@ public interface Environment {
 
 	default CacheManager getCacheManager() {
 		return new NonCacheManager();
+	}
+
+	default TaskThreadPoolExecutor getTaskDaemonExecutor() {
+		return null;
 	}
 
 	/**

@@ -1513,6 +1513,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			.setTaskName(taskName)
 			.setCloudShuffleMode(cloudShuffleMode)
 			.setRecoverable(isRecoverable)
+			.setTaskDaemonExecutor(environment.getTaskDaemonExecutor())
 			.build(bufferWriter);
 		output.setMetricGroup(environment.getMetricGroup().getIOMetricGroup());
 		return output;

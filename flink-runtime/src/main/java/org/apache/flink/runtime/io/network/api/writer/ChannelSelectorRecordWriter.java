@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.api.writer;
 
 import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
+import org.apache.flink.runtime.taskmanager.TaskThreadPoolExecutor;
 
 import java.io.IOException;
 
@@ -46,8 +47,9 @@ public class ChannelSelectorRecordWriter<T extends IOReadableWritable> extends R
 			ResultPartitionWriter writer,
 			ChannelSelector<T> channelSelector,
 			long timeout,
-			String taskName) {
-		super(writer, timeout, taskName);
+			String taskName,
+			TaskThreadPoolExecutor taskThreadPoolExecutor) {
+		super(writer, timeout, taskName, taskThreadPoolExecutor);
 
 		this.channelSelector = checkNotNull(channelSelector);
 		this.channelSelector.setup(numberOfChannels, writer.getSubpartitions());

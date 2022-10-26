@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
+import org.apache.flink.runtime.taskmanager.TaskThreadPoolExecutor;
 
 import javax.annotation.Nullable;
 
@@ -55,8 +56,9 @@ public final class BroadcastRecordWriter<T extends IOReadableWritable> extends R
 	BroadcastRecordWriter(
 			ResultPartitionWriter writer,
 			long timeout,
-			String taskName) {
-		super(writer, timeout, taskName);
+			String taskName,
+			TaskThreadPoolExecutor taskThreadPoolExecutor) {
+		super(writer, timeout, taskName, taskThreadPoolExecutor);
 	}
 
 	@Override

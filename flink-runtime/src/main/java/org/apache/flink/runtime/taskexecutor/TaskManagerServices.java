@@ -93,7 +93,7 @@ public class TaskManagerServices {
 	private final CacheManager cacheManager;
 	private final boolean taskSubmitRunning;
 	private final TaskThreadPoolExecutor taskExecutor;
-	private final TaskThreadPoolExecutor taskMonitorExecutor;
+	private final TaskThreadPoolExecutor taskDaemonExecutor;
 
 	TaskManagerServices(
 			UnresolvedTaskManagerLocation unresolvedTaskManagerLocation,
@@ -109,7 +109,7 @@ public class TaskManagerServices {
 			TaskEventDispatcher taskEventDispatcher,
 			ExecutorService ioExecutor,
 			TaskThreadPoolExecutor taskExecutor,
-			TaskThreadPoolExecutor taskMonitorExecutor,
+			TaskThreadPoolExecutor taskDaemonExecutor,
 			LibraryCacheManager libraryCacheManager,
 			CacheManager cacheManager,
 			boolean taskSubmitRunning) {
@@ -128,7 +128,7 @@ public class TaskManagerServices {
 		this.ioExecutor = Preconditions.checkNotNull(ioExecutor);
 		this.libraryCacheManager = Preconditions.checkNotNull(libraryCacheManager);
 		this.taskExecutor = taskExecutor;
-		this.taskMonitorExecutor = taskMonitorExecutor;
+		this.taskDaemonExecutor = taskDaemonExecutor;
 		this.cacheManager = cacheManager;
 		this.taskSubmitRunning = taskSubmitRunning;
 	}
@@ -201,8 +201,8 @@ public class TaskManagerServices {
 		return taskExecutor;
 	}
 
-	public TaskThreadPoolExecutor getTaskMonitorExecutor() {
-		return taskMonitorExecutor;
+	public TaskThreadPoolExecutor getTaskDaemonExecutor() {
+		return taskDaemonExecutor;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -386,7 +386,7 @@ public class TaskManagerServices {
 			.getConfiguration()
 			.getBoolean(TaskManagerOptions.TASK_THREAD_POOL_ENABLE);
 		TaskThreadPoolExecutor taskExecutor = useTaskThreadPool ? TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task ", false, null)) : null;
-		TaskThreadPoolExecutor taskMonitorExecutor = useTaskThreadPool ? TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task Monitor", true, FatalExitExceptionHandler.INSTANCE)) : null;
+		TaskThreadPoolExecutor taskDaemonExecutor = useTaskThreadPool ? TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task Monitor", true, FatalExitExceptionHandler.INSTANCE)) : null;
 
 		return new TaskManagerServices(
 			unresolvedTaskManagerLocation,
@@ -402,7 +402,7 @@ public class TaskManagerServices {
 			taskEventDispatcher,
 			ioExecutor,
 			taskExecutor,
-			taskMonitorExecutor,
+			taskDaemonExecutor,
 			libraryCacheManager,
 			cacheManager,
 			taskSubmitRunning);

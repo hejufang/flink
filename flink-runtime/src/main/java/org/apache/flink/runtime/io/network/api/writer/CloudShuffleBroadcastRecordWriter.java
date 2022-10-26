@@ -34,7 +34,7 @@ public class CloudShuffleBroadcastRecordWriter<T extends IOReadableWritable> ext
 		ResultPartitionWriter writer,
 		long timeout,
 		String taskName) {
-		super(writer, timeout, taskName);
+		super(writer, timeout, taskName, null);
 	}
 
 	@Override

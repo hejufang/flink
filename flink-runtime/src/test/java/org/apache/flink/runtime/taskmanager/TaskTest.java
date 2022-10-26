@@ -64,7 +64,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -425,7 +424,7 @@ public class TaskTest extends TestLogger {
 	public void testExecutionCancelBeforeInvokeInThreadPool() throws Exception {
 		final QueuedNoOpTaskManagerActions taskManagerActions = new QueuedNoOpTaskManagerActions();
 		TaskThreadPoolExecutor taskExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task ", false, null));
-		TaskThreadPoolExecutor taskMonitorExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task Monitor", true, FatalExitExceptionHandler.INSTANCE));
+		TaskThreadPoolExecutor taskDaemonExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task Monitor", true, FatalExitExceptionHandler.INSTANCE));
 
 		final Configuration config = new Configuration();
 		config.setBoolean(TaskManagerOptions.TASK_THREAD_POOL_ENABLE, true);
@@ -434,7 +433,7 @@ public class TaskTest extends TestLogger {
 				.setInvokable(InvokableBlockingInInvoke.class)
 				.setTaskManagerActions(taskManagerActions)
 				.setTaskExecutorService(taskExecutor)
-				.setTaskMonitorExecutor(taskMonitorExecutor)
+				.setTaskDaemonExecutor(taskDaemonExecutor)
 				.setTaskManagerConfig(config)
 				.build();
 
@@ -450,7 +449,7 @@ public class TaskTest extends TestLogger {
 			taskManagerActions.validateListenerMessage(ExecutionState.CANCELED, task, null);
 		} finally {
 			taskExecutor.shutdown();
-			taskMonitorExecutor.shutdown();
+			taskDaemonExecutor.shutdown();
 		}
 	}
 
@@ -458,7 +457,7 @@ public class TaskTest extends TestLogger {
 	public void testExecutionCancelInThreadPool() throws Exception {
 		final QueuedNoOpTaskManagerActions taskManagerActions = new QueuedNoOpTaskManagerActions();
 		TaskThreadPoolExecutor taskExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task ", false, null));
-		TaskThreadPoolExecutor taskMonitorExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task Monitor", true, FatalExitExceptionHandler.INSTANCE));
+		TaskThreadPoolExecutor taskDaemonExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task Monitor", true, FatalExitExceptionHandler.INSTANCE));
 
 		final Configuration config = new Configuration();
 		config.setBoolean(TaskManagerOptions.TASK_THREAD_POOL_ENABLE, true);
@@ -467,7 +466,7 @@ public class TaskTest extends TestLogger {
 				.setInvokable(InvokableBlockingInInvoke.class)
 				.setTaskManagerActions(taskManagerActions)
 				.setTaskExecutorService(taskExecutor)
-				.setTaskMonitorExecutor(taskMonitorExecutor)
+				.setTaskDaemonExecutor(taskDaemonExecutor)
 				.setTaskManagerConfig(config)
 				.build();
 
@@ -495,7 +494,7 @@ public class TaskTest extends TestLogger {
 			taskManagerActions.validateListenerMessage(ExecutionState.CANCELED, task, null);
 		} finally {
 			taskExecutor.shutdown();
-			taskMonitorExecutor.shutdown();
+			taskDaemonExecutor.shutdown();
 		}
 	}
 
@@ -503,7 +502,7 @@ public class TaskTest extends TestLogger {
 	public void testExecutionCancelAfterInvokeInThreadPool() throws Exception {
 		final QueuedNoOpTaskManagerActions taskManagerActions = new QueuedNoOpTaskManagerActions();
 		TaskThreadPoolExecutor taskExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task ", false, null));
-		TaskThreadPoolExecutor taskMonitorExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task Monitor", true, FatalExitExceptionHandler.INSTANCE));
+		TaskThreadPoolExecutor taskDaemonExecutor = TaskThreadPoolExecutor.newCachedThreadPool(new TaskThreadPoolExecutor.TaskThreadFactory(Task.TASK_THREADS_GROUP, "Task Monitor", true, FatalExitExceptionHandler.INSTANCE));
 
 		final Configuration config = new Configuration();
 		config.setBoolean(TaskManagerOptions.TASK_THREAD_POOL_ENABLE, true);
@@ -512,7 +511,7 @@ public class TaskTest extends TestLogger {
 				.setInvokable(InvokableWithExceptionInInvoke.class)
 				.setTaskManagerActions(taskManagerActions)
 				.setTaskExecutorService(taskExecutor)
-				.setTaskMonitorExecutor(taskMonitorExecutor)
+				.setTaskDaemonExecutor(taskDaemonExecutor)
 				.setTaskManagerConfig(config)
 				.build();
 
@@ -530,7 +529,7 @@ public class TaskTest extends TestLogger {
 			taskManagerActions.validateListenerMessage(ExecutionState.FAILED, task, new Exception("test"));
 		} finally {
 			taskExecutor.shutdown();
-			taskMonitorExecutor.shutdown();
+			taskDaemonExecutor.shutdown();
 		}
 	}
 
@@ -719,9 +718,8 @@ public class TaskTest extends TestLogger {
 			final CompletableFuture<ExecutionState> promise = new CompletableFuture<>();
 			when(partitionChecker.requestPartitionProducerState(eq(task.getJobID()), eq(resultId), eq(partitionId))).thenReturn(promise);
 
-			task.requestPartitionProducerState(resultId, partitionId, checkResult ->
-				{
-					assertThrows("has already been disposed",RuntimeException.class, ()->remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult, true));
+			task.requestPartitionProducerState(resultId, partitionId, checkResult -> {
+					assertThrows("has already been disposed", RuntimeException.class, () -> remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult, true));
 				}
 			);
 
