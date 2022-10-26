@@ -164,6 +164,7 @@ public class MetricNames {
 	public static final String PENDING_MEMORY = "pendingMemory";
 	public static final String PENDING_PHASE_PODS = "pendingPhasePods";
 	public static final String COMPLETED_CONTAINER = "completedContainer";
+	public static final String UNRECOGNIZED_POD = "unrecognizedPod";
 
 	public static final String POD_OUT_OF_SYNC_TIME = "podOutOfSyncTime";
 

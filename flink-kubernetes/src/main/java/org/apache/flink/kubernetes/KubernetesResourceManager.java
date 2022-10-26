@@ -177,6 +177,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	private final TagGauge completedContainerGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).build();
 
+	private final TagGauge unrecognizedPodGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).build();
+
 	private static final String EVENT_METRIC_NAME = "resourceManagerEvent";
 	private final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
 
@@ -548,6 +550,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	public void onAdded(List<KubernetesPod> pods) {
 		runAsync(() -> {
 			int duplicatePodNum = 0;
+			int unrecognizedPodNum = 0;
 			for (KubernetesPod pod : pods) {
 				final String podName = pod.getName();
 				final ResourceID resourceID = new ResourceID(podName);
@@ -558,9 +561,16 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 					continue;
 				}
 
-				final WorkerResourceSpec workerResourceSpec = Preconditions.checkNotNull(
-					podWorkerResources.get(podName),
-					"Unrecognized pod " + podName + ". Pods from previous attempt should have already been added.");
+				final WorkerResourceSpec workerResourceSpec = podWorkerResources.get(podName);
+				if (workerResourceSpec == null) {
+					log.warn("Unrecognized pod {}. Pods from previous attempt should have already been added.", podName);
+					++unrecognizedPodNum;
+					unrecognizedPodGauge.addMetric(1,
+							new TagGaugeStoreImpl.TagValuesBuilder()
+									.addTagValue("pod_name", prunePodName(podName))
+									.build());
+					continue;
+				}
 
 				final int pendingNum = getNumRequestedNotAllocatedWorkersFor(workerResourceSpec);
 				Preconditions.checkState(pendingNum > 0, "Should not receive more workers than requested.");
@@ -572,8 +582,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 				log.info("Received new TaskManager pod: {}", podName);
 			}
-			log.info("Received {} new TaskManager pods. Remaining pending pod requests: {}",
-				pods.size() - duplicatePodNum, getNumRequestedNotAllocatedWorkers());
+			log.info("Received {} new TaskManager pods, {} duplicated pods, {} unrecognized pods. Remaining pending pod requests: {}",
+				pods.size() - duplicatePodNum - unrecognizedPodNum, duplicatePodNum, unrecognizedPodNum, getNumRequestedNotAllocatedWorkers());
 		});
 	}
 
@@ -734,6 +744,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 					.collect(Collectors.toList()); });
 
 		resourceManagerMetricGroup.gauge(MetricNames.COMPLETED_CONTAINER, completedContainerGauge);
+		resourceManagerMetricGroup.gauge(MetricNames.UNRECOGNIZED_POD, unrecognizedPodGauge);
 
 		resourceManagerMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
 

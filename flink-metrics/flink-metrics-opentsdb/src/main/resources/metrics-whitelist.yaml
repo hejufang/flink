@@ -259,6 +259,7 @@ non-global:
         numberOfRecoverableJobs,
         blackedHost,
         completedContainer,
+        unrecognizedPod,
       # container descheduler
         descheduledContainers,
         deschedulerReceivedInfo,
