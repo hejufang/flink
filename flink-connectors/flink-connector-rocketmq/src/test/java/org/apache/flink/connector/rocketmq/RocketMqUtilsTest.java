@@ -24,6 +24,7 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.rocketmq.clientv2.message.MessageQueue;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -70,6 +71,13 @@ public class RocketMqUtilsTest {
 		// Will throw exception.
 		new RocketMQSource<>(Boundedness.CONTINUOUS_UNBOUNDED, null,
 			new HashMap<>(), rocketMQConfig);
+	}
+
+	@AfterClass
+	public static void afterClass() {
+		if (System.getProperties().containsKey(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY)){
+			System.getProperties().remove(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY);
+		}
 	}
 
 	private Set<MessageQueue> createQueues(String topic, String broker, int start, int end) {
