@@ -349,6 +349,19 @@ public class HtapTableUtilsTest {
 			.orElse(null);
 		Assert.assertNotNull(info);
 
+		// <>(`literal`, `filed`)
+		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
+			BuiltInFunctionDefinitions.NOT_EQUALS,
+			childrenBeginWithLiteral,
+			DataTypes.BOOLEAN()))
+			.orElse(null);
+
+		expected = HtapFilterInfo.Builder.create("int_test")
+			.notEqualTo(1)
+			.build();
+
+		Assert.assertEquals(expected, info);
+
 		// >=(`field`, `field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.GREATER_THAN_OR_EQUAL,

@@ -242,6 +242,10 @@ public class HtapFilterInfo implements Serializable {
 			return filter(FilterType.EQUAL, value);
 		}
 
+		public Builder notEqualTo(final Object value) {
+			return filter(FilterType.NOT_EQUAL, value);
+		}
+
 		public Builder greaterOrEqualTo(final Object value) {
 			return filter(FilterType.GREATER_EQUAL, value);
 		}

@@ -241,6 +241,8 @@ public class HtapTableUtils {
 			return Optional.of(builder.greaterOrEqualTo(value).build());
 		} else if (functionDefinition.equals(BuiltInFunctionDefinitions.EQUALS)) {
 			return Optional.of(builder.equalTo(value).build());
+		}  else if (functionDefinition.equals(BuiltInFunctionDefinitions.NOT_EQUALS)) {
+			return Optional.of(builder.notEqualTo(value).build());
 		} else if (functionDefinition.equals(BuiltInFunctionDefinitions.LESS_THAN)) {
 			return Optional.of(builder.lessThan(value).build());
 		} else if (functionDefinition.equals(BuiltInFunctionDefinitions.LESS_THAN_OR_EQUAL)) {
