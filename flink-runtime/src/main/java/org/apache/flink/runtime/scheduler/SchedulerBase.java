@@ -638,6 +638,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 			if (isNotifiable(getExecutionVertexId(execution.get()), taskExecutionState, isCopyExecution)) {
 				updateTaskExecutionStateInternal(getExecutionVertexId(execution.get()), taskExecutionState, execution.get().getAssignedResourceLocation());
+			} else if (taskExecutionState.getExecutionState() == ExecutionState.FAILED) {
+				remoteBlacklistReporter.onFailureWithLimiter(execution.get().getAssignedResourceLocation(), taskExecutionState, userCodeLoader);
 			}
 			return true;
 		} else {

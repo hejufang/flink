@@ -30,6 +30,7 @@ import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.execution.librarycache.TestingClassLoaderLease;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironmentBuilder;
+import org.apache.flink.runtime.io.network.partition.IllegalProducerStateException;
 import org.apache.flink.runtime.io.network.partition.NoOpResultPartitionConsumableNotifier;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionConsumableNotifier;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -695,7 +696,13 @@ public class TaskTest extends TestLogger {
 			when(partitionChecker.requestPartitionProducerState(eq(task.getJobID()), eq(resultId), eq(partitionId))).thenReturn(promise);
 
 			task.requestPartitionProducerState(resultId, partitionId, checkResult ->
-				assertThat(remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult), is(false))
+					{
+						try {
+							assertThat(remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult), is(false));
+						} catch (IllegalProducerStateException e) {
+							throw new RuntimeException(e);
+						}
+					}
 			);
 
 			promise.completeExceptionally(new PartitionProducerDisposedException(partitionId));
@@ -718,9 +725,8 @@ public class TaskTest extends TestLogger {
 			final CompletableFuture<ExecutionState> promise = new CompletableFuture<>();
 			when(partitionChecker.requestPartitionProducerState(eq(task.getJobID()), eq(resultId), eq(partitionId))).thenReturn(promise);
 
-			task.requestPartitionProducerState(resultId, partitionId, checkResult -> {
-					assertThrows("has already been disposed", RuntimeException.class, () -> remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult, true));
-				}
+			task.requestPartitionProducerState(resultId, partitionId, checkResult ->
+					assertThrows("has already been disposed", RuntimeException.class, () -> remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult, true))
 			);
 
 			promise.completeExceptionally(new PartitionProducerDisposedException(partitionId));
@@ -743,8 +749,12 @@ public class TaskTest extends TestLogger {
 			final CompletableFuture<ExecutionState> promise = new CompletableFuture<>();
 			when(partitionChecker.requestPartitionProducerState(eq(task.getJobID()), eq(resultId), eq(partitionId))).thenReturn(promise);
 
-			task.requestPartitionProducerState(resultId, partitionId, checkResult ->
-				assertThat(remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult), is(false))
+			task.requestPartitionProducerState(resultId, partitionId, checkResult -> {
+						try {
+							assertThat(remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult), is(false));
+						} catch (IllegalProducerStateException e) {
+							throw new RuntimeException(e);
+						}}
 			);
 
 			promise.completeExceptionally(new RuntimeException("Any other exception"));
@@ -775,8 +785,12 @@ public class TaskTest extends TestLogger {
 				when(partitionChecker.requestPartitionProducerState(eq(task.getJobID()), eq(resultId), eq(partitionId))).thenReturn(promise);
 
 				task.requestPartitionProducerState(resultId, partitionId, checkResult -> {
-					if (remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult)) {
-						callCount.incrementAndGet();
+					try {
+						if (remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult)) {
+							callCount.incrementAndGet();
+						}
+					} catch (IllegalProducerStateException e) {
+						throw new RuntimeException(e);
 					}
 				});
 
@@ -813,8 +827,12 @@ public class TaskTest extends TestLogger {
 				when(partitionChecker.requestPartitionProducerState(eq(task.getJobID()), eq(resultId), eq(partitionId))).thenReturn(promise);
 
 				task.requestPartitionProducerState(resultId, partitionId, checkResult -> {
-					if (remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult)) {
-						callCount.incrementAndGet();
+					try {
+						if (remoteChannelStateChecker.isProducerReadyOrAbortConsumption(checkResult)) {
+							callCount.incrementAndGet();
+						}
+					} catch (IllegalProducerStateException e) {
+						throw new RuntimeException(e);
 					}
 				});
 

@@ -14,6 +14,7 @@
 package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.runtime.execution.ExecutionState;
+import org.apache.flink.runtime.io.network.partition.IllegalProducerStateException;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider.ResponseHandle;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -44,7 +45,7 @@ public class RemoteChannelStateChecker {
 		this.taskNameWithSubtask = taskNameWithSubtask;
 	}
 
-	public boolean isProducerReadyOrAbortConsumption(ResponseHandle responseHandle, boolean forcePartitionRecoverable){
+	public boolean isProducerReadyOrAbortConsumption(ResponseHandle responseHandle, boolean forcePartitionRecoverable) throws IllegalProducerStateException {
 		Either<ExecutionState, Throwable> result = responseHandle.getProducerExecutionState();
 		ExecutionState consumerExecutionState = responseHandle.getConsumerExecutionState();
 		if (!isConsumerStateValidForConsumption(consumerExecutionState)) {
@@ -65,7 +66,7 @@ public class RemoteChannelStateChecker {
 		return false;
 	}
 
-	public boolean isProducerReadyOrAbortConsumption(ResponseHandle responseHandle) {
+	public boolean isProducerReadyOrAbortConsumption(ResponseHandle responseHandle) throws IllegalProducerStateException {
 		return isProducerReadyOrAbortConsumption(responseHandle, false);
 	}
 
@@ -83,7 +84,7 @@ public class RemoteChannelStateChecker {
 			producerState == ExecutionState.FINISHED;
 	}
 
-	private void abortConsumptionOrIgnoreCheckResult(ResponseHandle responseHandle, boolean forcePartitionRecoverable) {
+	private void abortConsumptionOrIgnoreCheckResult(ResponseHandle responseHandle, boolean forcePartitionRecoverable) throws IllegalProducerStateException {
 		ExecutionState producerState = getProducerState(responseHandle);
 		if (producerState == ExecutionState.CANCELING ||
 			producerState == ExecutionState.CANCELED ||
@@ -102,7 +103,7 @@ public class RemoteChannelStateChecker {
 					resultPartitionId.getProducerId(),
 					resultPartitionId.getPartitionId(),
 					producerState);
-			IllegalStateException cause = new IllegalStateException(msg);
+			IllegalProducerStateException cause = new IllegalProducerStateException(msg);
 			if (forcePartitionRecoverable) {
 				throw cause;
 			}
@@ -116,7 +117,7 @@ public class RemoteChannelStateChecker {
 				resultPartitionId.getProducerId(),
 				resultPartitionId.getPartitionId(),
 				producerState);
-			IllegalStateException cause = new IllegalStateException(msg);
+			IllegalProducerStateException cause = new IllegalProducerStateException(msg);
 			if (forcePartitionRecoverable) {
 				throw cause;
 			}

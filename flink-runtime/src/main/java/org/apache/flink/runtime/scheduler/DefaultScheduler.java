@@ -325,7 +325,9 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	}
 
 	private void handleTaskFailure(final ExecutionVertexID executionVertexId, @Nullable final Throwable error, @Nullable final TaskManagerLocation taskManagerLocation) {
-		tryReportBlacklist(taskManagerLocation, error);
+		if (error != null) {
+			tryReportBlacklist(taskManagerLocation, error);
+		}
 		setGlobalFailureCause(error);
 		notifyCoordinatorsAboutTaskFailure(executionVertexId, error);
 		final FailureHandlingResult failureHandlingResult = executionFailureHandler.getFailureHandlingResult(executionVertexId, error);

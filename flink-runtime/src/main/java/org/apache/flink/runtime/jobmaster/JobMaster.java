@@ -67,6 +67,7 @@ import org.apache.flink.runtime.heartbeat.HeartbeatTarget;
 import org.apache.flink.runtime.heartbeat.NoOpHeartbeatManager;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportException;
+import org.apache.flink.runtime.io.network.partition.IllegalProducerStateException;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.io.network.partition.PartitionException;
 import org.apache.flink.runtime.io.network.partition.PartitionTrackerFactory;
@@ -380,6 +381,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 				rpcTimeout);
 		this.remoteBlacklistReporter.addIgnoreExceptionClass(RemoteTransportException.class);
 		this.remoteBlacklistReporter.addIgnoreExceptionClass(PartitionException.class);
+		this.remoteBlacklistReporter.addIgnoreExceptionClass(IllegalProducerStateException.class);
 
 		this.jobManagerJobMetricGroup = jobMetricGroupFactory.create(jobGraph);
 		this.schedulerNG = createScheduler(jobManagerJobMetricGroup);

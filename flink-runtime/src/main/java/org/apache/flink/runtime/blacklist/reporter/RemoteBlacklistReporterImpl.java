@@ -23,12 +23,15 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
+import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
+import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.apache.flink.util.clock.Clock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,10 +39,12 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * Implement of Blacklist Reporter.
@@ -63,10 +68,14 @@ public class RemoteBlacklistReporterImpl implements RemoteBlacklistReporter {
 
 	@Nullable
 	private ExecutionGraph executionGraph;
+	private final Clock clock;
+	private final FailureRateReportLimiter failureRateReportLimiter;
 
-	public RemoteBlacklistReporterImpl(JobID jobId, Time rpcTimeout) {
+	public RemoteBlacklistReporterImpl(JobID jobId, Time rpcTimeout, Duration limiterFailureInterval, int limiterMaxFailuresPerInterval, Clock clock) {
 		this.jobID = jobId;
 		this.rpcTimeout = rpcTimeout;
+		this.clock = clock;
+		this.failureRateReportLimiter = new FailureRateReportLimiter(limiterFailureInterval, limiterMaxFailuresPerInterval, clock);
 		this.cachedExceptionClass = new ArrayList<>();
 	}
 
@@ -94,7 +103,21 @@ public class RemoteBlacklistReporterImpl implements RemoteBlacklistReporter {
 			final TaskManagerLocation location = executionGraph.getRegisteredExecutions().get(attemptID).getAssignedResourceLocation();
 			onFailure(location.getFQDNHostname(), location.getResourceID(), t, timestamp);
 		} else {
-			throw new UnsupportedOperationException("Should report failure after executionGraph is initialized.");
+			throw new IllegalStateException("Should report failure after executionGraph is initialized.");
+		}
+	}
+
+	@Override
+	public void onFailureWithLimiter(TaskManagerLocation taskManagerLocation, TaskExecutionState taskExecutionState, ClassLoader userCodeLoader) {
+		checkState(taskExecutionState.getExecutionState() == ExecutionState.FAILED);
+		if (failureRateReportLimiter.canReport()) {
+			failureRateReportLimiter.notifyReport();
+			final Throwable error = taskExecutionState.getError(userCodeLoader);
+			if (error != null) {
+				onFailure(taskManagerLocation.getFQDNHostname(), taskManagerLocation.getResourceID(), error, clock.absoluteTimeMillis());
+			}
+		} else {
+			LOG.debug("Exceed rate limit, will not report this failure.");
 		}
 	}
 

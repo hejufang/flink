@@ -30,6 +30,7 @@ import org.apache.flink.runtime.blacklist.tracker.BlacklistTracker;
 import org.apache.flink.runtime.blacklist.tracker.BlacklistTrackerImpl;
 import org.apache.flink.runtime.blacklist.tracker.NoOpBlacklistTrackerImpl;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
+import org.apache.flink.util.clock.SystemClock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +71,12 @@ public class BlacklistUtil {
 		if (blacklistConfiguration.isTaskBlacklistEnabled()) {
 			LOG.info("Create RemoteBlacklistReporter with jobId {}, rpcTimeout {}.",
 					jobID, rpcTimeout);
-			return new RemoteBlacklistReporterImpl(jobID, rpcTimeout);
+			return new RemoteBlacklistReporterImpl(
+					jobID,
+					rpcTimeout,
+					blacklistConfiguration.getLimiterFailureInterval(),
+					blacklistConfiguration.getLimiterMaxFailuresPerInterval(),
+					SystemClock.getInstance());
 		} else {
 			return createNoOpRemoteBlacklistReporter();
 		}

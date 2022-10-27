@@ -23,6 +23,8 @@ import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
+import org.apache.flink.runtime.taskmanager.TaskExecutionState;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
 import javax.annotation.Nonnull;
 
@@ -32,6 +34,8 @@ import javax.annotation.Nonnull;
 public interface RemoteBlacklistReporter extends BlacklistReporter, AutoCloseable {
 
 	void reportFailure(ExecutionAttemptID attemptID, Throwable t, long timestamp);
+
+	void onFailureWithLimiter(TaskManagerLocation taskManagerLocation, TaskExecutionState taskExecutionState, ClassLoader userCodeLoader);
 
 	void setExecutionGraph(ExecutionGraph executionGraph);
 

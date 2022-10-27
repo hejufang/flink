@@ -20,6 +20,8 @@ package org.apache.flink.configuration;
 
 import org.apache.flink.annotation.PublicEvolving;
 
+import java.time.Duration;
+
 /**
  * The set of configuration options relating to the BlacklistTracker.
  */
@@ -83,6 +85,18 @@ public class BlacklistOptions {
 			.defaultValue("5 min")
 			.withDescription("Interval to check failure is timeout." +
 					"the timeout value requires a time-unit specifier (ms/s/min/h/d).");
+
+	public static final ConfigOption<Duration> REPORTER_LIMITER_FAILURE_INTERVAL = ConfigOptions
+			.key("blacklist.reporter-limiter.failure-interval")
+			.durationType()
+			.defaultValue(Duration.ofMinutes(20))
+			.withDescription("Failure interval of reporter limiter.");
+
+	public static final ConfigOption<Integer> REPORTER_LIMITER_MAX_FAILURES_PER_INTERVAL = ConfigOptions
+			.key("blacklist.reporter-limiter.max-failures-per-interval")
+			.intType()
+			.defaultValue(100)
+			.withDescription("Failures number exceed this value will stop report to blacklist tracker.");
 
 	// ---------------------------------------------------------------------------------------------
 

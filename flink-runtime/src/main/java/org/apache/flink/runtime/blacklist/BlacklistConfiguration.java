@@ -22,7 +22,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.BlacklistOptions;
 import org.apache.flink.configuration.Configuration;
 
-import scala.concurrent.duration.Duration;
+import java.time.Duration;
 
 /**
  * Configuration for blacklist.
@@ -37,6 +37,8 @@ public class BlacklistConfiguration {
 	private final int taskManagerBlacklistMaxLength;
 	private final Time failureTimeout;
 	private final Time checkInterval;
+	private final Duration limiterFailureInterval;
+	private final int limiterMaxFailuresPerInterval;
 
 	public BlacklistConfiguration(
 			boolean taskManagerBlacklistEnabled,
@@ -47,7 +49,9 @@ public class BlacklistConfiguration {
 			int taskBlacklistMaxLength,
 			int taskManagerBlacklistMaxLength,
 			Time failureTimeout,
-			Time checkInterval) {
+			Time checkInterval,
+			Duration limiterFailureInterval,
+			int limiterMaxFailuresPerInterval) {
 		this.taskManagerBlacklistEnabled = taskManagerBlacklistEnabled;
 		this.taskBlacklistEnabled = taskBlacklistEnabled;
 		this.blacklistCriticalEnable = blacklistCriticalEnable;
@@ -57,6 +61,8 @@ public class BlacklistConfiguration {
 		this.taskManagerBlacklistMaxLength = taskManagerBlacklistMaxLength;
 		this.failureTimeout = failureTimeout;
 		this.checkInterval = checkInterval;
+		this.limiterFailureInterval = limiterFailureInterval;
+		this.limiterMaxFailuresPerInterval = limiterMaxFailuresPerInterval;
 	}
 
 	public boolean isTaskManagerBlacklistEnabled() {
@@ -65,10 +71,6 @@ public class BlacklistConfiguration {
 
 	public boolean isTaskBlacklistEnabled() {
 		return taskBlacklistEnabled;
-	}
-
-	public boolean getCriticalErrorEnabled() {
-		return blacklistCriticalEnable;
 	}
 
 	public int getMaxTaskFailureNumPerHost() {
@@ -93,6 +95,18 @@ public class BlacklistConfiguration {
 
 	public Time getCheckInterval() {
 		return checkInterval;
+	}
+
+	public boolean isBlacklistCriticalEnable() {
+		return blacklistCriticalEnable;
+	}
+
+	public Duration getLimiterFailureInterval() {
+		return limiterFailureInterval;
+	}
+
+	public int getLimiterMaxFailuresPerInterval() {
+		return limiterMaxFailuresPerInterval;
 	}
 
 	@Override
@@ -126,9 +140,11 @@ public class BlacklistConfiguration {
 		int taskManagerBlacklistMaxLength = configuration.getInteger(
 				BlacklistOptions.TASKMANAGER_BLACKLIST_MAX_LENGTH);
 		Time failureTimeout = Time.milliseconds(
-				Duration.apply(configuration.getString(BlacklistOptions.FAILURE_TIMEOUT)).toMillis());
+				scala.concurrent.duration.Duration.apply(configuration.getString(BlacklistOptions.FAILURE_TIMEOUT)).toMillis());
 		Time checkInterval = Time.milliseconds(
-				Duration.apply(configuration.getString(BlacklistOptions.CHECK_INTERVAL)).toMillis());
+				scala.concurrent.duration.Duration.apply(configuration.getString(BlacklistOptions.CHECK_INTERVAL)).toMillis());
+		Duration limiterFailureInterval = configuration.get(BlacklistOptions.REPORTER_LIMITER_FAILURE_INTERVAL);
+		int limiterMaxFailuresPerInterval = configuration.getInteger(BlacklistOptions.REPORTER_LIMITER_MAX_FAILURES_PER_INTERVAL);
 		return new BlacklistConfiguration(
 				taskManagerBlacklistEnabled,
 				taskBlacklistEnabled,
@@ -138,6 +154,8 @@ public class BlacklistConfiguration {
 				taskBlacklistMaxLength,
 				taskManagerBlacklistMaxLength,
 				failureTimeout,
-				checkInterval);
+				checkInterval,
+				limiterFailureInterval,
+				limiterMaxFailuresPerInterval);
 	}
 }

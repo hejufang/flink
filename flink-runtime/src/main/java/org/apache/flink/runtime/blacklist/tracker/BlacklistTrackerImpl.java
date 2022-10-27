@@ -101,7 +101,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				blacklistConfiguration.getTaskManagerBlacklistMaxLength(),
 				blacklistConfiguration.getFailureTimeout(),
 				blacklistConfiguration.getCheckInterval(),
-				blacklistConfiguration.getCriticalErrorEnabled(),
+				blacklistConfiguration.isBlacklistCriticalEnable(),
 				jobManagerMetricGroup);
 	}
 
