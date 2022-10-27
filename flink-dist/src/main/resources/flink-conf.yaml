@@ -403,7 +403,7 @@ common:
 flink:
   dc: cn
   clusterName: flink
-  high-availability.zookeeper.quorum: 10.17.58.36:2181,10.17.58.40:2181,10.17.58.44:2181,10.17.58.45:2181,10.17.58.78:2181
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:106:a430:ed03:46c2:a9cc:2181,fdbd:dc01:ff:115:9b1:2352:b932:ad6a:2181,fdbd:dc01:ff:118:cbe7:e71a:8d08:cfac:2181,fdbd:dc01:ff:119:2d18:53ef:b6e:403e:2181,fdbd:dc01:ff:11d:9e03:bd59:e1d5:9129:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
@@ -414,7 +414,7 @@ flink:
 dw:
   dc: cn
   clusterName: dw
-  high-availability.zookeeper.quorum: 10.11.43.39:2184,10.11.43.66:2184,10.224.152.92:2184,10.224.71.64:2184,10.224.71.66:2184
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:104:2851:b20e:f933:70b7:2181,fdbd:dc01:ff:106:8999:9980:a0b9:ebbe:2181,fdbd:dc01:ff:109:ace9:b3fc:9405:2100:2181,fdbd:dc01:ff:113:bf15:535d:1e42:8f9c:2181,fdbd:dc01:ff:117:6e97:1a90:fde:51fe:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
@@ -425,7 +425,7 @@ dw:
 lepad:
   dc: cn
   clusterName: lepad
-  high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
+  high-availability.zookeeper.quorum: fdbd:dc01:ff:105:b957:68c5:4cec:6c7b:2181,fdbd:dc01:ff:113:5d10:af67:350b:2f53:2181,fdbd:dc01:ff:114:3b16:e433:4354:6b05:2181,fdbd:dc01:ff:11b:e5c4:8c7e:5527:4ba4:2181,fdbd:dc01:ff:11c:9400:88fb:b74f:7e50:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
@@ -944,7 +944,7 @@ quoll:
 quoka:
   dc: cn
   clusterName: quoka
-  high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
+  high-availability.zookeeper.quorum: fdbd:dc03:ff:100:9611:30bb:e8b0:610d:2181,fdbd:dc03:ff:100:ff8f:a769:7d6b:2bae:2181,fdbd:dc03:ff:100:e16:6a94:97d5:351b:2181,fdbd:dc03:ff:100:938:b559:d223:55b5:2181,fdbd:dc03:ff:100:c572:9f92:dfa7:31d5:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   ipv6.enabled: true
