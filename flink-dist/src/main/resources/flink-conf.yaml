@@ -2231,7 +2231,7 @@ Feins-LF:
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
 
 Seif-BOE:
-  dc: cn
+  dc: vm
   clusterName: Seif-BOE
   is_kubernetes: true
   high-availability: zookeeper
