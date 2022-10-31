@@ -89,8 +89,8 @@ public class CheckpointVerifyTestBase {
 	}
 
 	protected String submitJobAndTakeSavepoint(
-		MiniClusterResourceFactory clusterFactory,
-		JobGraph jobGraph) throws Exception {
+			MiniClusterResourceFactory clusterFactory,
+			JobGraph jobGraph) throws Exception {
 		final JobID jobId = jobGraph.getJobID();
 
 		MiniClusterWithClientResource cluster = clusterFactory.get();
@@ -107,9 +107,8 @@ public class CheckpointVerifyTestBase {
 	}
 
 	protected CheckpointVerifyResult verifyCheckpoint(
-		String savepointPath,
-		JobGraph jobGraph) throws Exception {
-
+			String savepointPath,
+			JobGraph jobGraph) throws Exception {
 		Map<JobVertexID, JobVertex> tasks = new HashMap<>();
 
 		jobGraph.getVertices().forEach(jobVertex -> {

@@ -47,6 +47,7 @@ public class GroupAggFunctionTest extends GroupAggFunctionTestBase {
 			function,
 			equaliser,
 			accTypes,
+			digests,
 			-1,
 			generateUpdateBefore,
 			minTime.toMilliseconds());

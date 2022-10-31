@@ -29,6 +29,7 @@ import org.apache.flink.table.api.{TableConfig, TableException, TableSchema}
 import org.apache.flink.table.catalog.ObjectIdentifier
 import org.apache.flink.table.connector.source.{AsyncTableFunctionProvider, LookupTableSource, TableFunctionProvider}
 import org.apache.flink.table.data.RowData
+import org.apache.flink.table.factories.FactoryUtil
 import org.apache.flink.table.functions.{AsyncTableFunction, MiniBatchTableFunction, TableFunction, UserDefinedFunction}
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.codegen.LookupJoinCodeGenerator._
@@ -40,9 +41,11 @@ import org.apache.flink.table.planner.plan.schema.{LegacyTableSourceTable, Table
 import org.apache.flink.table.planner.plan.utils.LookupJoinUtil._
 import org.apache.flink.table.planner.plan.utils.PythonUtil.containsPythonCall
 import org.apache.flink.table.planner.plan.utils.RelExplainUtil.preferExpressionFormat
-import org.apache.flink.table.planner.plan.utils.{FlinkFilterSplitter, JoinTypeUtil, PhysicalPlanUtil, RelExplainUtil}
+import org.apache.flink.table.planner.plan.utils.{FieldDigestUtil, FlinkFilterSplitter, JoinTypeUtil, PhysicalPlanUtil, RelExplainUtil}
 import org.apache.flink.table.planner.utils.TableConfigUtils.getMillisecondFromConfigDuration
 import org.apache.flink.table.runtime.connector.source.LookupRuntimeProviderContext
+import org.apache.flink.table.runtime.operators.bundle.ListBundleOperator
+import org.apache.flink.table.runtime.operators.bundle.trigger.CountBundleTrigger
 import org.apache.flink.table.runtime.operators.join.lookup.{AsyncLookupJoinRunner, AsyncLookupJoinWithCalcRunner, LookupJoinBundleFunction, LookupJoinBundleWithCalcFunction, LookupJoinRunner, LookupJoinWithCalcRetryRunner, LookupJoinWithCalcRunner, LookupJoinWithRetryRunner}
 import org.apache.flink.table.runtime.types.ClassLogicalTypeConverter
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.{fromDataTypeToLogicalType, fromLogicalTypeToDataType}
@@ -54,7 +57,7 @@ import org.apache.flink.table.types.DataType
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils.toInternalConversionClass
 import org.apache.flink.table.types.logical.{BooleanType, LogicalType, RowType, TypeInformationRawType}
 import org.apache.flink.types.Row
-import com.google.common.primitives.Primitives
+
 import org.apache.calcite.plan.{RelOptCluster, RelOptTable, RelTraitSet}
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeField}
 import org.apache.calcite.rel.core.{JoinInfo, JoinRelType}
@@ -67,12 +70,10 @@ import org.apache.calcite.sql.validate.SqlValidatorUtil
 import org.apache.calcite.tools.RelBuilder
 import org.apache.calcite.util.mapping.IntPair
 
+import com.google.common.primitives.Primitives
+
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
-import org.apache.flink.table.api.config.ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE
-import org.apache.flink.table.factories.FactoryUtil
-import org.apache.flink.table.runtime.operators.bundle.ListBundleOperator
-import org.apache.flink.table.runtime.operators.bundle.trigger.CountBundleTrigger
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -419,7 +420,13 @@ abstract class CommonLookupJoin(
           syncLookupFunction,
           env.getConfig.isObjectReuseEnabled,
           filterBeforeJoin)
-
+        val isDigestsInvolved = config.getConfiguration.getBoolean(
+          ExecutionConfigOptions.TABLE_EXEC_INVOLVE_DIGEST_IN_STATE_ENABLED)
+        var leftRowDataTypeInfo = inputTransformation.getOutputType.asInstanceOf[RowDataTypeInfo]
+        if (isDigestsInvolved) {
+          leftRowDataTypeInfo = FieldDigestUtil
+            .generateRowDataTypeInfoWithDigest(leftRowDataTypeInfo)
+        }
         val processFunc = if (calcOnTemporalTable.isDefined) {
           // a projection or filter after table source scan
           val rightRowType = FlinkTypeFactory
@@ -449,7 +456,7 @@ abstract class CommonLookupJoin(
               generatedFetcher,
               generatedCalc,
               generatedCollector,
-              inputTransformation.getOutputType.asInstanceOf[RowDataTypeInfo],
+              leftRowDataTypeInfo,
               leftOuterJoin,
               rightRowType.getFieldCount,
               laterJoinMs,
@@ -474,10 +481,11 @@ abstract class CommonLookupJoin(
               rightRowType.getFieldCount)
           } else {
             hasState = true
+
             new LookupJoinWithRetryRunner(
               generatedFetcher,
               generatedCollector,
-              inputTransformation.getOutputType.asInstanceOf[RowDataTypeInfo],
+              leftRowDataTypeInfo,
               leftOuterJoin,
               rightRowType.getFieldCount,
               laterJoinMs,
@@ -1012,10 +1020,10 @@ object CommonLookupJoin {
       miniBatchFunc.batchSize()
     } else {
       //fun.batchSize() <= 0, reply on global table conf table.exec.mini-batch.enabled
-      val size = config.getConfiguration.getLong(TABLE_EXEC_MINIBATCH_SIZE)
+      val size = config.getConfiguration.getLong(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE)
       if (size <= 0) {
-        throw new IllegalArgumentException(
-          TABLE_EXEC_MINIBATCH_SIZE.key() + " must be greater than zero when mini batch is enabled")
+        throw new IllegalArgumentException(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE.key() +
+            " must be greater than zero when mini batch is enabled")
       }
       size
     }

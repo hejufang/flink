@@ -45,11 +45,11 @@ import org.apache.flink.table.planner.plan.`trait`.{ModifyKindSetTraitDef, RelMo
 import org.apache.flink.table.runtime.operators.bundle.trigger.CountBundleTrigger
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.{fromDataTypeToLogicalType, fromLogicalTypeToDataType}
 import org.apache.flink.table.runtime.types.TypeInfoDataTypeConverter.fromDataTypeToTypeInfo
-import org.apache.flink.table.types.DataType
+import org.apache.flink.table.types.{DataType, FieldDigest, StringFieldDigest}
 import org.apache.flink.table.types.logical.LogicalTypeRoot._
 import org.apache.flink.table.types.logical.utils.LogicalTypeChecks
 import org.apache.flink.table.types.logical.utils.LogicalTypeChecks.hasRoot
-import org.apache.flink.table.types.logical.{LogicalTypeRoot, _}
+import org.apache.flink.table.types.logical.{LogicalTypeRoot, RowType, _}
 import org.apache.flink.table.types.utils.TypeConversions.fromLegacyInfoToDataType
 
 import org.apache.calcite.rel.`type`._
@@ -67,6 +67,9 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 object AggregateUtil extends Enumeration {
+
+  val indexStyleDistinctMapviewName: String = "distinctAcc_%s"
+  val digestStyleDistinctMapviewName: String = "_$distinct_%s$_"
 
   /**
     * Returns whether any of the aggregates are accurate DISTINCT.
@@ -159,7 +162,9 @@ object AggregateUtil extends Enumeration {
       needInputCount = false,
       isStateBackedDataViews = false,
       needDistinctInfo = false,
-      isStreaming = false).aggInfos
+      isStreaming = false,
+      // Set it false just because digests don't matter here.
+      isDigestsInvolve = false).aggInfos
 
     val map = new util.HashMap[Integer, Integer]()
     var outputIndex = 0
@@ -178,7 +183,8 @@ object AggregateUtil extends Enumeration {
   def deriveAggregateInfoList(
       aggNode: StreamPhysicalRel,
       aggCalls: Seq[AggregateCall],
-      grouping: Array[Int]): AggregateInfoList = {
+      grouping: Array[Int],
+      isDigestsInvolve: Boolean = false): AggregateInfoList = {
     val input = aggNode.getInput(0)
     // need to call `retract()` if input contains update or delete
     val modifyKindSetTrait = input.getTraitSet.getTrait(ModifyKindSetTraitDef.INSTANCE)
@@ -198,7 +204,8 @@ object AggregateUtil extends Enumeration {
       input.getRowType,
       needRetractionArray,
       needInputCount = needRetraction,
-      isStateBackendDataViews = true)
+      isStateBackendDataViews = true,
+      isDigestsInvolve = true)
   }
 
   def deriveSumAndCountFromAvg(
@@ -236,7 +243,8 @@ object AggregateUtil extends Enumeration {
       needInputCount = false,
       isStateBackedDataViews = false,
       needDistinctInfo = false,
-      isStreaming = false).aggInfos
+      isStreaming = false,
+      isDigestsInvolve = false).aggInfos
 
     val aggFields = aggInfos.map(_.argIndexes)
     val bufferTypes = aggInfos.map(_.externalAccTypes)
@@ -265,7 +273,8 @@ object AggregateUtil extends Enumeration {
       needInputCount = false,
       isStateBackedDataViews = false,
       needDistinctInfo = false,
-      isStreaming = false)
+      isStreaming = false,
+      isDigestsInvolve = false)
   }
 
   def transformToStreamAggregateInfoList(
@@ -274,7 +283,8 @@ object AggregateUtil extends Enumeration {
       needRetraction: Array[Boolean],
       needInputCount: Boolean,
       isStateBackendDataViews: Boolean,
-      needDistinctInfo: Boolean = true): AggregateInfoList = {
+      needDistinctInfo: Boolean = true,
+      isDigestsInvolve: Boolean = false): AggregateInfoList = {
     transformToAggregateInfoList(
       aggregateCalls,
       inputRowType,
@@ -283,7 +293,31 @@ object AggregateUtil extends Enumeration {
       needInputCount,
       isStateBackendDataViews,
       needDistinctInfo,
-      isStreaming = true)
+      isStreaming = true,
+      isDigestsInvolve)
+  }
+
+  /**
+   * Extract LogicalTypes and FieldDigests of accumulators from aggInfos.
+   */
+  def extractAccTypesAndDigests(aggInfoList: AggregateInfoList, input: RowType):
+      (Array[DataType], Array[FieldDigest]) = {
+    val typeBuffer = ArrayBuffer[DataType]()
+    val digestBuffer = ArrayBuffer[FieldDigest]()
+    aggInfoList.aggInfos.foreach{ aggInfo =>
+      aggInfo.externalAccTypes.zipWithIndex.foreach{ case (dataType, idx) =>
+        typeBuffer.add(dataType)
+        digestBuffer.add(new StringFieldDigest(aggInfo.agg.getName + idx))
+      }
+    }
+    aggInfoList.distinctInfos.filter(!_.excludeAcc).zipWithIndex
+      .foreach{ case (distinctInfo, idx) =>
+        typeBuffer.add(distinctInfo.accType)
+        val distinctDigest = digestStyleDistinctMapviewName.format(
+          distinctInfo.argIndexes.map(input.getFieldNames.get).mkString("_"))
+        digestBuffer.add(new StringFieldDigest(distinctDigest))
+      }
+    (typeBuffer.toArray, digestBuffer.toArray)
   }
 
   /**
@@ -298,6 +332,7 @@ object AggregateUtil extends Enumeration {
     *                         insert a count(1) aggregate into the agg list.
     * @param isStateBackedDataViews   whether the dataview in accumulator use state or heap
     * @param needDistinctInfo  whether need to extract distinct information
+    * @param isDigestsInvolve  whether to involve field digests in name of data view.
     */
   private def transformToAggregateInfoList(
       aggregateCalls: Seq[AggregateCall],
@@ -307,7 +342,8 @@ object AggregateUtil extends Enumeration {
       needInputCount: Boolean,
       isStateBackedDataViews: Boolean,
       needDistinctInfo: Boolean,
-      isStreaming: Boolean): AggregateInfoList = {
+      isStreaming: Boolean,
+      isDigestsInvolve: Boolean): AggregateInfoList = {
 
     // Step-1:
     // if need inputCount, find count1 in the existed aggregate calls first,
@@ -323,7 +359,8 @@ object AggregateUtil extends Enumeration {
       aggCalls,
       inputRowType,
       isStateBackedDataViews,
-      needInputCount) // needInputCount means whether the aggregate consume retractions
+      needInputCount, // needInputCount means whether the aggregate consume retractions
+      isDigestsInvolve)
 
     // Step-3:
     // create aggregate information
@@ -350,9 +387,11 @@ object AggregateUtil extends Enumeration {
           val externalAccType = getAccumulatorTypeOfAggregateFunction(a, implicitAccType)
           val (newExternalAccType, specs) = useNullSerializerForStateViewFieldsFromAccType(
             index,
+            call.name,
             a,
             externalAccType,
-            isStateBackedDataViews)
+            isStateBackedDataViews,
+            isDigestsInvolve)
           (Array(newExternalAccType), specs,
             getResultTypeOfAggregateFunction(a, implicitResultType))
         case _ => throw new TableException(s"Unsupported function: $function")
@@ -372,7 +411,6 @@ object AggregateUtil extends Enumeration {
 
     AggregateInfoList(aggInfos, indexOfCountStar, countStarInserted, distinctInfos)
   }
-
 
   /**
     * Inserts an COUNT(*) aggregate call if needed. The COUNT(*) aggregate call is used
@@ -441,7 +479,8 @@ object AggregateUtil extends Enumeration {
       aggCalls: Seq[AggregateCall],
       inputType: RelDataType,
       isStateBackedDataViews: Boolean,
-      consumeRetraction: Boolean): (Array[DistinctInfo], Seq[AggregateCall]) = {
+      consumeRetraction: Boolean,
+      isDigestsInvolve: Boolean): (Array[DistinctInfo], Seq[AggregateCall]) = {
 
     if (!needDistinctInfo) {
       return (Array(), aggCalls)
@@ -513,10 +552,12 @@ object AggregateUtil extends Enumeration {
         true)
 
       val accDataType = fromLegacyInfoToDataType(accTypeInfo)
-
       val distinctMapViewSpec = if (isStateBackedDataViews) {
+        val stateName = if (isDigestsInvolve) digestStyleDistinctMapviewName.format(
+            d.argIndexes.map(inputType.getFieldNames.get).mkString("_"))
+          else indexStyleDistinctMapviewName.format(index)
         Some(MapViewSpec(
-          s"distinctAcc_$index",
+          stateName,
           -1, // the field index will not be used
           accTypeInfo))
       } else {

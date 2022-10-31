@@ -20,10 +20,12 @@ package org.apache.flink.configuration;
 
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.ExecutionConfig.ClosureCleanerLevel;
+import org.apache.flink.api.common.typeinfo.RowDataSchemaCompatibilityResolveStrategy;
 import org.apache.flink.configuration.description.Description;
 import org.apache.flink.configuration.description.TextElement;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -306,6 +308,16 @@ public class PipelineOptions {
 					" is eventually serialized as a POJO, then the type is registered with the POJO serializer. If the" +
 					" type ends up being serialized with Kryo, then it will be registered at Kryo to make" +
 					" sure that only tags are written.")
+				.build());
+
+	public static final ConfigOption<RowDataSchemaCompatibilityResolveStrategy> ROW_DATA_SCHEMA_COMPATIBILITY_RESOLVE_STRATEGY =
+		key("pipeline.rowdata-schema-compatibility-resolve-strategy")
+			.enumType(RowDataSchemaCompatibilityResolveStrategy.class)
+			.defaultValue(RowDataSchemaCompatibilityResolveStrategy.STRONG_RESTRICTIVE)
+			.withDescription(Description.builder()
+				.text(String.format("Strategy for resolving schema compatibility of RowData serializers. Options are %s",
+					String.join(",", Arrays.stream(RowDataSchemaCompatibilityResolveStrategy.values())
+						.map(Enum::name).toArray(String[]::new))))
 				.build());
 
 	public static final ConfigOption<Boolean> OPERATOR_CHAINING =

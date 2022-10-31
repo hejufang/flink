@@ -19,12 +19,15 @@
 package org.apache.flink.table.runtime.typeutils;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeinfo.RowDataSchemaCompatibilityResolveStrategy;
 import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
 import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.FieldDigest;
+import org.apache.flink.table.types.StringFieldDigest;
 import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.BinaryType;
@@ -46,6 +49,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -90,6 +94,118 @@ public class RowDataSerializerSnapshotTest {
 			snapshotAndGetSchemaCompatibilityAfterRestore(oldSerializer, newSerializer);
 
 		assertTrue(result.getMessage(), result.isCompatibleAfterMigration());
+	}
+
+	@Test
+	public void testCompatibilityInStrongRestrictiveStrategy() throws IOException {
+		FieldDigest[] oldDigests = new FieldDigest[]{
+			new StringFieldDigest("f1"),
+			new StringFieldDigest("f2"),
+			new StringFieldDigest("f3")};
+		RowDataTypeInfo oldTypeInfo = new RowDataTypeInfo(oldDigests,
+			new IntType(),
+			new TinyIntType(),
+			new FloatType());
+		RowDataSerializer oldSerializer = oldTypeInfo.createSerializer(new ExecutionConfig());
+
+		FieldDigest[] newDigests = new FieldDigest[]{
+			new StringFieldDigest("f3"),
+			new StringFieldDigest("f4"),
+			new StringFieldDigest("f2"),
+			new StringFieldDigest("f5")};
+		RowDataTypeInfo newTypeInfo = new RowDataTypeInfo(newDigests,
+			new FloatType(),
+			new CharType(),
+			new IntType(),
+			new FloatType());
+		RowDataSerializer newSerializer = newTypeInfo.createSerializer(new ExecutionConfig());
+		TypeSerializerSchemaCompatibility<RowData> result =
+			snapshotAndGetSchemaCompatibilityAfterRestore(oldSerializer, newSerializer);
+		assertTrue(result.getMessage(), result.isCompatibleAfterMigration());
+	}
+
+	@Test
+	public void testIncompatibilityInStrongRestrictiveStrategy() throws IOException {
+		FieldDigest[] oldDigests = new FieldDigest[]{
+			new StringFieldDigest("f1"),
+			new StringFieldDigest("f2"),
+			new StringFieldDigest("f3")};
+		RowDataTypeInfo oldTypeInfo = new RowDataTypeInfo(oldDigests,
+			new IntType(),
+			new TinyIntType(),
+			new FloatType());
+		RowDataSerializer oldSerializer = oldTypeInfo.createSerializer(new ExecutionConfig());
+
+		FieldDigest[] newDigests = new FieldDigest[]{
+			new StringFieldDigest("f1"),
+			new StringFieldDigest("f3")};
+		RowDataTypeInfo newTypeInfo = new RowDataTypeInfo(newDigests,
+			new IntType(),
+			new CharType());
+		RowDataSerializer newSerializer = newTypeInfo.createSerializer(new ExecutionConfig());
+		TypeSerializerSchemaCompatibility<RowData> result =
+			snapshotAndGetSchemaCompatibilityAfterRestore(oldSerializer, newSerializer);
+		assertTrue(result.isIncompatible());
+		String message = "The new type of f3 is CHAR(1), but previous type of it is FLOAT, new types are f1[INT], f3[CHAR(1)], " +
+			"but previous types are f1[INT], f2[TINYINT], f3[FLOAT].";
+		assertEquals(message, result.getMessage());
+	}
+
+	@Test
+	public void testCompatibilityInWeakRestrictiveStrategy() throws IOException {
+		FieldDigest[] oldDigests = new FieldDigest[]{
+			new StringFieldDigest("f1"),
+			new StringFieldDigest("f2"),
+			new StringFieldDigest("f3")};
+		RowDataTypeInfo oldTypeInfo = new RowDataTypeInfo(oldDigests,
+			new IntType(),
+			new TinyIntType(),
+			new FloatType());
+		RowDataSerializer oldSerializer = oldTypeInfo.createSerializer(new ExecutionConfig());
+
+		FieldDigest[] newDigests = new FieldDigest[]{
+			new StringFieldDigest("f1"),
+			new StringFieldDigest("f3")};
+		RowDataTypeInfo newTypeInfo = new RowDataTypeInfo(newDigests,
+			new IntType(),
+			new CharType());
+		ExecutionConfig config = new ExecutionConfig();
+		config.setSchemaCompatibilityResolveStrategy(RowDataSchemaCompatibilityResolveStrategy.WEAK_RESTRICTIVE);
+		RowDataSerializer newSerializer = newTypeInfo.createSerializer(config);
+		TypeSerializerSchemaCompatibility<RowData> result =
+			snapshotAndGetSchemaCompatibilityAfterRestore(oldSerializer, newSerializer);
+		assertTrue(result.getMessage(), result.isCompatibleAfterMigration());
+	}
+
+	@Test
+	public void testIncompatibilityInWeakRestrictiveStrategy() throws IOException {
+		FieldDigest[] oldDigests = new FieldDigest[]{
+			new StringFieldDigest("f1"),
+			new StringFieldDigest("f2"),
+			new StringFieldDigest("f3")};
+		RowDataTypeInfo oldTypeInfo = new RowDataTypeInfo(oldDigests,
+			new IntType(),
+			new TinyIntType(),
+			new FloatType());
+		RowDataSerializer oldSerializer = oldTypeInfo.createSerializer(new ExecutionConfig());
+
+		FieldDigest[] newDigests = new FieldDigest[]{
+			new StringFieldDigest("f1"),
+			new StringFieldDigest("f2"),
+			new StringFieldDigest("f3")};
+		RowDataTypeInfo newTypeInfo = new RowDataTypeInfo(newDigests,
+			new CharType(),
+			new CharType(),
+			new CharType());
+		ExecutionConfig config = new ExecutionConfig();
+		config.setSchemaCompatibilityResolveStrategy(RowDataSchemaCompatibilityResolveStrategy.WEAK_RESTRICTIVE);
+		RowDataSerializer newSerializer = newTypeInfo.createSerializer(config);
+		TypeSerializerSchemaCompatibility<RowData> result =
+			snapshotAndGetSchemaCompatibilityAfterRestore(oldSerializer, newSerializer);
+		assertTrue(result.isIncompatible());
+		String message = "The new types are f1[CHAR(1)], f2[CHAR(1)], f3[CHAR(1)], but previous types are f1[INT], " +
+			"f2[TINYINT], f3[FLOAT].";
+		assertEquals(message, result.getMessage());
 	}
 
 	private TypeSerializerSchemaCompatibility<RowData> snapshotAndGetSchemaCompatibilityAfterRestore(
