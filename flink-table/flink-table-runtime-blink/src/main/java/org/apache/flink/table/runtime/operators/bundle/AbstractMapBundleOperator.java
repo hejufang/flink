@@ -26,6 +26,7 @@ import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.streaming.util.functions.StreamingFunctionUtils;
 import org.apache.flink.table.runtime.context.ExecutionContextImpl;
 import org.apache.flink.table.runtime.operators.bundle.trigger.BundleTrigger;
 import org.apache.flink.table.runtime.operators.bundle.trigger.BundleTriggerCallback;
@@ -154,6 +155,7 @@ public abstract class AbstractMapBundleOperator<K, V, IN, OUT>
 	@Override
 	public void prepareSnapshotPreBarrier(long checkpointId) throws Exception {
 		finishBundle();
+		StreamingFunctionUtils.prepareFunctionSnapshotPreBarrier(checkpointId, function);
 	}
 
 	@Override

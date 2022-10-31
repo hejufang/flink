@@ -38,7 +38,6 @@ import org.apache.flink.table.runtime.typeutils.BinaryRowDataSerializer;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.LogicalType;
-import org.apache.flink.util.Collector;
 import org.apache.flink.util.MutableObjectIterator;
 
 import java.io.EOFException;
@@ -239,10 +238,6 @@ public class SumHashAggTestOperator extends AbstractStreamOperator<RowData>
 
 	Object getOwner() {
 		return getContainingTask();
-	}
-
-	Collector<StreamRecord<RowData>> getOutput() {
-		return output;
 	}
 
 	MemoryManager getMemoryManager() {

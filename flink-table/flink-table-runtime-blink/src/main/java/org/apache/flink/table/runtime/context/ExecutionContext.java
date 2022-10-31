@@ -19,6 +19,7 @@
 package org.apache.flink.table.runtime.context;
 
 import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.table.data.RowData;
 
 /**
@@ -40,4 +41,6 @@ public interface ExecutionContext {
 	void setCurrentKey(RowData key);
 
 	RuntimeContext getRuntimeContext();
+
+	Output<?> getOutput();
 }

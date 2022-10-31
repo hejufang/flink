@@ -75,15 +75,23 @@ abstract class GroupAggFunctionTestBase {
 		}
 	};
 
+	GeneratedAggsHandleFunction localFunction =
+		new GeneratedAggsHandleFunction("LocalFunction", "", new Object[0]) {
+			@Override
+			public AggsHandleFunction newInstance(ClassLoader classLoader) {
+				return new SumAndCountLocalAgg();
+			}
+		};
+
 	RowDataHarnessAssertor assertor = new RowDataHarnessAssertor(
 		outputType.getFieldTypes(),
 		new GenericRowRecordSortComparator(0, new VarCharType(VarCharType.MAX_LENGTH)));
 
-	static final class SumAndCountAgg implements AggsHandleFunction {
-		private long sum;
-		private boolean sumIsNull;
-		private long count;
-		private boolean countIsNull;
+	static class SumAndCountAgg implements AggsHandleFunction {
+		protected long sum;
+		protected boolean sumIsNull;
+		protected long count;
+		protected boolean countIsNull;
 
 		@Override
 		public void open(StateDataViewStore store) throws Exception {
@@ -174,6 +182,25 @@ abstract class GroupAggFunctionTestBase {
 		@Override
 		public void close() throws Exception {
 
+		}
+	}
+
+	static final class SumAndCountLocalAgg extends SumAndCountAgg {
+		/**
+		 * The input of local agg is a row in &lt;key, accumulator&gt; schema,
+		 * so that projecting the {@code input} to accumulator should be done in merge method.
+		 */
+		@Override
+		public void merge(RowData otherAcc) throws Exception {
+			boolean sumIsNullOther = otherAcc.isNullAt(1);
+			if (!sumIsNullOther) {
+				sum += otherAcc.getLong(1);
+			}
+
+			boolean countIsNullOther = otherAcc.isNullAt(2);
+			if (!countIsNullOther) {
+				count += otherAcc.getLong(2);
+			}
 		}
 	}
 

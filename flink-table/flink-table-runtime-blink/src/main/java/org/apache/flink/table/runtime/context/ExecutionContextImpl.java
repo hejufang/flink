@@ -20,6 +20,7 @@ package org.apache.flink.table.runtime.context;
 
 import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
+import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.util.Preconditions;
 
@@ -52,5 +53,10 @@ public final class ExecutionContextImpl implements ExecutionContext {
 	@Override
 	public RuntimeContext getRuntimeContext() {
 		return runtimeContext;
+	}
+
+	@Override
+	public Output<?> getOutput() {
+		return operator.getOutput();
 	}
 }

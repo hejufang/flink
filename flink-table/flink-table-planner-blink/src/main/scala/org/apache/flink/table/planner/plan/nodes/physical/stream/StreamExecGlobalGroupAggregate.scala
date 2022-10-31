@@ -30,7 +30,7 @@ import org.apache.flink.table.planner.plan.PartialFinalType
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.utils.{KeySelectorUtil, _}
 import org.apache.flink.table.runtime.generated.GeneratedAggsHandleFunction
-import org.apache.flink.table.runtime.operators.aggregate.MiniBatchGlobalGroupAggFunction
+import org.apache.flink.table.runtime.operators.aggregate.{MiniBatchGlobalGroupAggFunction, MiniBatchInMemoryGlobalGroupAggFunction}
 import org.apache.flink.table.runtime.operators.bundle.KeyedMapBundleOperator
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
@@ -156,15 +156,24 @@ class StreamExecGlobalGroupAggregate(
 
     val operator = if (tableConfig.getConfiguration.getBoolean(
       ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED)) {
-      val aggFunction = new MiniBatchGlobalGroupAggFunction(
-        localAggsHandler,
-        globalAggsHandler,
-        recordEqualiser,
-        globalAccTypes,
-        indexOfCountStar,
-        generateUpdateBefore,
-        tableConfig.getMinIdleStateRetentionTime)
-
+      val aggFunction =
+      if (tableConfig.getConfiguration.getBoolean(
+        ExecutionConfigOptions.TABLE_EXEC_STATELESS_AGG_ENABLED)) {
+        new MiniBatchInMemoryGlobalGroupAggFunction(
+          localAggsHandler,
+          globalAggsHandler,
+          indexOfCountStar
+        )
+      } else {
+        new MiniBatchGlobalGroupAggFunction(
+          localAggsHandler,
+          globalAggsHandler,
+          recordEqualiser,
+          globalAccTypes,
+          indexOfCountStar,
+          generateUpdateBefore,
+          tableConfig.getMinIdleStateRetentionTime)
+      }
       new KeyedMapBundleOperator(
         aggFunction,
         AggregateUtil.createMiniBatchTrigger(tableConfig))

@@ -503,6 +503,10 @@ public abstract class AbstractStreamOperator<OUT>
 		return runtimeContext;
 	}
 
+	public Output<StreamRecord<OUT>> getOutput() {
+		return output;
+	}
+
 	@VisibleForTesting
 	public <K> KeyedStateBackend<K> getKeyedStateBackend() {
 		return stateHandler.getKeyedStateBackend();

@@ -23,10 +23,13 @@ import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.disk.iomanager.IOManagerAsync;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.memory.MemoryManagerBuilder;
+import org.apache.flink.streaming.api.operators.Output;
+import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.util.Collector;
+import org.apache.flink.util.OutputTag;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -64,8 +67,20 @@ public class HashAggTest {
 			}
 
 			@Override
-			Collector<StreamRecord<RowData>> getOutput() {
-				return new Collector<StreamRecord<RowData>>() {
+			public Output<StreamRecord<RowData>> getOutput() {
+				return new Output<StreamRecord<RowData>>() {
+					@Override
+					public void emitWatermark(Watermark mark) {
+					}
+
+					@Override
+					public <X> void collect(OutputTag<X> outputTag, StreamRecord<X> record) {
+					}
+
+					@Override
+					public void emitLatencyMarker(LatencyMarker latencyMarker) {
+					}
+
 					@Override
 					public void collect(StreamRecord<RowData> record) {
 						RowData row = record.getValue();
