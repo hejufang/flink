@@ -1943,7 +1943,6 @@ Gaura-LF:
   ipv6.supported.cluster: Gaura-LF
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
-  containerized.taskmanager.env.use_ss_lib: false
 
 Gaura-HL:
   dc: cn
@@ -1962,7 +1961,6 @@ Gaura-HL:
   ipv6.supported.cluster: Gaura-HL
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
-  containerized.taskmanager.env.use_ss_lib: false
 
 Echo-HL:
   dc: cn
@@ -1980,7 +1978,6 @@ Echo-HL:
   ipv6.enabled: true
   ipv6.supported.cluster: Echo-HL
   resourcemanager.slow-container.release-timeout-enabled: true
-  containerized.taskmanager.env.use_ss_lib: false
 
 Foxtrot-HL:
   dc: cn
@@ -1999,7 +1996,6 @@ Foxtrot-HL:
   ipv6.supported.cluster: Foxtrot-HL
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
   resourcemanager.slow-container.release-timeout-enabled: true
-  containerized.taskmanager.env.use_ss_lib: false
 
 Gaura-LQ:
   dc: cn
@@ -2018,7 +2014,6 @@ Gaura-LQ:
   ipv6.supported.cluster: Gaura-LQ
   resourcemanager.slow-container.release-timeout-enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
-  containerized.taskmanager.env.use_ss_lib: false
 
 Echo-LQ:
   dc: cn
@@ -2036,7 +2031,6 @@ Echo-LQ:
   ipv6.enabled: true
   ipv6.supported.cluster: Gaura-LQ
   resourcemanager.slow-container.release-timeout-enabled: true
-  containerized.taskmanager.env.use_ss_lib: false
 
 Foxtrot-LQ:
   dc: cn
@@ -2055,7 +2049,6 @@ Foxtrot-LQ:
   ipv6.supported.cluster: Foxtrot-LQ
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
   resourcemanager.slow-container.release-timeout-enabled: true
-  containerized.taskmanager.env.use_ss_lib: false
 
 Gaura-YG:
   dc: cn
@@ -2074,7 +2067,6 @@ Gaura-YG:
   ipv6.supported.cluster: Gaura-YG
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
   resourcemanager.slow-container.release-timeout-enabled: true
-  containerized.taskmanager.env.use_ss_lib: false
 
 cloudnative-lf:
   dc: cn
@@ -2093,7 +2085,6 @@ cloudnative-lf:
   ipv6.supported.cluster: cloudnative-lf
   ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
-  containerized.taskmanager.env.use_ss_lib: false
 
 cloudnative-lq:
   dc: cn
@@ -2110,7 +2101,6 @@ cloudnative-lq:
   ipv6.supported.cluster: cloudnative-lq
   ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
-  containerized.taskmanager.env.use_ss_lib: false
 
 Feins-LQ:
   dc: cn
@@ -2127,7 +2117,6 @@ Feins-LQ:
   ipv6.enabled: true
   ipv6.supported.cluster: Feins-LQ
   resourcemanager.slow-container.release-timeout-enabled: true
-  containerized.taskmanager.env.use_ss_lib: false
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
 
 Feins-HL:
@@ -2146,7 +2135,6 @@ Feins-HL:
   ipv6.enabled: true
   ipv6.supported.cluster: Feins-HL
   resourcemanager.slow-container.release-timeout-enabled: true
-  containerized.taskmanager.env.use_ss_lib: false
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
 
 Feins-LF:
@@ -2165,7 +2153,6 @@ Feins-LF:
   ipv6.enabled: true
   ipv6.supported.cluster: Feins-LF
   resourcemanager.slow-container.release-timeout-enabled: true
-  containerized.taskmanager.env.use_ss_lib: false
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc01:fe:100e::1]:65212"
 
 Seif-BOE:
@@ -2189,7 +2176,6 @@ Seif-BOE:
   kubernetes.ingress.host: "boe-seif.byted.org"
   ipv6.enabled: true
   ipv6.supported.cluster: Seif-BOE
-  containerized.taskmanager.env.use_ss_lib: false
   yarn.res-lake.enabled: false
   yarn.cluster.auto-detect.enable: false
 
@@ -2209,7 +2195,6 @@ Koryn-LQ:
   register-dashboard.enabled: true
   ipv6.supported.cluster: Koryn-LQ
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
-  containerized.taskmanager.env.use_ss_lib: false
 
 edge:
   dc: cn
@@ -2218,4 +2203,3 @@ edge:
   high-availability: none
   execution.checkpointing.enable: false
   state.checkpoints.dir: "file:///opt/tiger/flink_deploy/logs/"
-  containerized.taskmanager.env.use_ss_lib: false
