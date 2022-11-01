@@ -64,7 +64,7 @@ public class JavaCmdJobManagerDecoratorTest extends KubernetesJobManagerTestBase
 	private static final String logLevel = "-Dlog.level=INFO";
 	private static final String defaultLogSetting = "-Dlog.databus.channel=flink_error_log -Dlog.databus.level=WARN -Dlog.databus.permitsPerSecond=1000 -Dlog.streamlog.level=OFF";
 	private static final String jmLogRedirects =
-			String.format("1> %s/jobmanager.out 2> %s/jobmanager.err",
+			String.format("1>> %s/jobmanager.out 2>> %s/jobmanager.err",
 					FLINK_LOG_DIR_IN_POD, FLINK_LOG_DIR_IN_POD);
 
 	// Memory variables

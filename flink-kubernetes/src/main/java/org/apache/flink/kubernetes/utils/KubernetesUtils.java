@@ -397,8 +397,8 @@ public class KubernetesUtils {
 		startCommandValues.put("args", mainArgs != null ? mainArgs : "");
 
 		startCommandValues.put("redirects",
-			"1> " + logDirectory + "/" + logFileName + ".out " +
-			"2> " + logDirectory + "/" + logFileName + ".err");
+			"1>> " + logDirectory + "/" + logFileName + ".out " +
+			"2>> " + logDirectory + "/" + logFileName + ".err");
 
 		final String commandTemplate = flinkConfig.getString(KubernetesConfigOptions.CONTAINER_START_COMMAND_TEMPLATE);
 		String startCommand = BootstrapTools.getStartCommand(commandTemplate, startCommandValues);
