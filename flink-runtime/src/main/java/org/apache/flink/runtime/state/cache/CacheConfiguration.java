@@ -81,7 +81,7 @@ public class CacheConfiguration {
 			long incrementalRemoveCount) {
 		this.enableCache = enableCache;
 		this.cacheStrategy = cacheStrategy;
-		this.cacheInitialSize = cacheInitialSize;
+		this.cacheInitialSize = cacheInitialSize.compareTo(cacheMaxSize) > 0 ? cacheMaxSize : cacheInitialSize;
 		this.sampleCount = sampleCount;
 		this.maxHeapSize = maxHeapSize;
 		this.blockSize = blockSize;
@@ -90,7 +90,7 @@ public class CacheConfiguration {
 		this.heapMonitorInterval = heapMonitorInterval;
 		this.enableScale = enableScale;
 		this.scaleNum = scaleNum;
-		this.cacheMinSize = cacheMinSize;
+		this.cacheMinSize = cacheMinSize.compareTo(cacheMaxSize) > 0 ? cacheMaxSize : cacheMinSize;
 		this.cacheMaxSize = cacheMaxSize;
 		this.scaleCondition = scaleCondition;
 		this.scaleUpRetainedSizeWeight = scaleUpRetainedSizeWeight;
