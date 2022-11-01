@@ -109,7 +109,7 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 	private transient long totalReadCount = 0L;
 
 	private boolean createSplitInParallel;
-	private final boolean useFastGetSplits;
+	private boolean useFastGetSplits;
 
 	@VisibleForTesting
 	protected transient SplitReader reader;
@@ -481,6 +481,8 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 		out.writeObject(hiveVersion);
 		out.writeBoolean(useMapRedReader);
 		out.writeBoolean(createSplitInParallel);
+		out.writeBoolean(useFastGetSplits);
+		writeExtraField(out);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -504,5 +506,13 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 		hiveVersion = (String) in.readObject();
 		useMapRedReader = in.readBoolean();
 		createSplitInParallel = in.readBoolean();
+		useFastGetSplits = in.readBoolean();
+		readExtraField(in);
+	}
+
+	protected void readExtraField(ObjectInputStream in) throws IOException {
+	}
+
+	protected void writeExtraField(ObjectOutputStream out) throws IOException {
 	}
 }

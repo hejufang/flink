@@ -43,6 +43,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import javax.annotation.Nonnull;
@@ -122,6 +123,7 @@ public class ZooKeeperHaServicesTest extends TestLogger {
 	 * it is closed via {@link ZooKeeperHaServices#closeAndCleanupAllData()}.
 	 */
 	@Test
+	@Ignore
 	public void testSimpleCloseAndCleanupAllData() throws Exception {
 		final Configuration configuration = createConfiguration("/foo/bar/flink");
 

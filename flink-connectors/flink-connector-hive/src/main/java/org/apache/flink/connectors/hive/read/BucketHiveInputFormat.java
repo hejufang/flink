@@ -31,6 +31,8 @@ import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -40,7 +42,7 @@ import java.util.List;
  */
 public class BucketHiveInputFormat extends HiveTableInputFormat implements BucketInputFormat {
 	private static final long serialVersionUID = 1L;
-	private final int bucketNum;
+	private int bucketNum;
 	private int nextOperatorParallelism = -1;
 
 	public BucketHiveInputFormat(
@@ -95,5 +97,17 @@ public class BucketHiveInputFormat extends HiveTableInputFormat implements Bucke
 	@Override
 	public void setOperatorParallelism(int parallelism) {
 		this.nextOperatorParallelism = parallelism;
+	}
+
+	@Override
+	protected void writeExtraField(ObjectOutputStream out) throws IOException {
+		out.writeInt(bucketNum);
+		out.writeInt(nextOperatorParallelism);
+	}
+
+	@Override
+	protected void readExtraField(ObjectInputStream in) throws IOException {
+		bucketNum = in.readInt();
+		nextOperatorParallelism = in.readInt();
 	}
 }

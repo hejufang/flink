@@ -601,6 +601,15 @@ public class HiveCatalog extends AbstractCatalog {
 		}
 	}
 
+	protected void tryAddBucketInfo(Table hiveTable, Map<String, String> properties) {
+		if (hiveTable.getSd().getNumBuckets() > 0) {
+			HiveUtils$.MODULE$.addBucketProperties(hiveTable.getSd().getNumBuckets(),
+				hiveTable.getSd().getBucketCols(),
+				hiveTable.getSd().getSortCols().stream().map(o -> o.getCol()).collect(Collectors.toList()),
+				properties);
+		}
+	}
+
 	private CatalogBaseTable instantiateCatalogTable(Table hiveTable, HiveConf hiveConf) {
 		boolean isView = TableType.valueOf(hiveTable.getTableType()) == TableType.VIRTUAL_VIEW;
 
@@ -645,12 +654,7 @@ public class HiveCatalog extends AbstractCatalog {
 		}
 
 		String comment = properties.remove(HiveCatalogConfig.COMMENT);
-		if (hiveTable.getSd().getNumBuckets() > 0) {
-			HiveUtils$.MODULE$.addBucketProperties(hiveTable.getSd().getNumBuckets(),
-				hiveTable.getSd().getBucketCols(),
-				hiveTable.getSd().getSortCols().stream().map(o -> o.getCol()).collect(Collectors.toList()),
-				properties);
-		}
+		tryAddBucketInfo(hiveTable, properties);
 		if (isView) {
 			return new CatalogViewImpl(
 					hiveTable.getViewOriginalText(),

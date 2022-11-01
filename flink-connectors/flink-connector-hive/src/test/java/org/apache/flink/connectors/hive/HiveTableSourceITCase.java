@@ -83,6 +83,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.flink.configuration.PipelineOptions.USE_MAX_SOURCE_PARALLELISM_AS_DEFAULT_PARALLELISM;
+import static org.apache.flink.table.api.config.TableConfigOptions.TABLE_EXEC_SUPPORT_HIVE_BUCKET;
 import static org.apache.flink.table.catalog.hive.HiveTestUtils.createTableEnvWithHiveCatalog;
 import static org.apache.flink.table.catalog.hive.HiveTestUtils.waitForJobFinish;
 import static org.apache.flink.table.planner.utils.JavaScalaConversionUtil.toScala;
@@ -191,6 +193,34 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
 				.addRow(new Object[]{"2015", 2})
 				.addRow(new Object[]{"2015", 5})
 				.commit("pt=1");
+		Table src = tEnv.sqlQuery("select * from hive.source_db.test_table_pt");
+		List<Row> rows = Lists.newArrayList(src.execute().collect());
+
+		assertEquals(4, rows.size());
+		Object[] rowStrings = rows.stream().map(Row::toString).sorted().toArray();
+		assertArrayEquals(new String[]{"2014,3,0", "2014,4,0", "2015,2,1", "2015,5,1"}, rowStrings);
+	}
+
+	@Test
+	public void testReadPartitionBucketTable() throws Exception {
+		final String dbName = "source_db";
+		final String tblName = "test_table_pt";
+		TableEnvironment tEnv = createTableEnv();
+		tEnv.getConfig().getConfiguration().setBoolean(USE_MAX_SOURCE_PARALLELISM_AS_DEFAULT_PARALLELISM, true);
+		tEnv.getConfig().getConfiguration().setBoolean(TABLE_EXEC_SUPPORT_HIVE_BUCKET, true);
+		List<String> cols = Arrays.asList("value");
+		TestHiveCatalog testHiveCatalog = (TestHiveCatalog) tEnv.getCatalog(tEnv.getCurrentCatalog()).get();
+		testHiveCatalog.addBucketInfo("source_db.test_table_pt", 1, cols, cols);
+		tEnv.executeSql("CREATE TABLE source_db.test_table_pt " +
+			"(`year` bigint, `value` INT) partitioned by (pt int)");
+		HiveTestUtils.createTextTableInserter(hiveShell, dbName, tblName)
+			.addRow(new Object[]{"2014", 3})
+			.addRow(new Object[]{"2014", 4})
+			.commit("pt=0");
+		HiveTestUtils.createTextTableInserter(hiveShell, dbName, tblName)
+			.addRow(new Object[]{"2015", 2})
+			.addRow(new Object[]{"2015", 5})
+			.commit("pt=1");
 		Table src = tEnv.sqlQuery("select * from hive.source_db.test_table_pt");
 		List<Row> rows = Lists.newArrayList(src.execute().collect());
 
