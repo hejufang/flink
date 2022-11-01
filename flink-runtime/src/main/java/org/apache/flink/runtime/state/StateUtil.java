@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage.CHECKPOINT_DIR_PREFIX;
+import static org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage.SAVEPOINT_DIR_PREFIX;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
@@ -398,6 +399,26 @@ public class StateUtil {
 		} catch (Exception e) {
 			LOG.info("Exception when parsing checkpoint {} id.", fileStatus.getPath(), e);
 			return Long.MIN_VALUE;
+		}
+		return checkpointId;
+	}
+
+	// parse checkpoint id from the chk-xxx dir or sp-xxx dir
+	// if we cannot parse the id from a dir, return 0
+	public static long getCheckpointIDFromFileStatusIncludingSavepointId(FileStatus fileStatus) {
+		long checkpointId;
+		try {
+			String dirName = fileStatus.getPath().getName();
+			if (dirName.startsWith(CHECKPOINT_DIR_PREFIX)) {
+				checkpointId = Long.parseLong(dirName.substring(CHECKPOINT_DIR_PREFIX.length()));
+			} else if (dirName.startsWith(SAVEPOINT_DIR_PREFIX)) {
+				checkpointId = Long.parseLong(dirName.substring(SAVEPOINT_DIR_PREFIX.length()));
+			} else {
+				checkpointId = 0L;
+			}
+		} catch (Exception e) {
+			LOG.info("Exception when parsing checkpoint {} id.", fileStatus.getPath(), e);
+			return 0L;
 		}
 		return checkpointId;
 	}

@@ -160,4 +160,8 @@ public interface CheckpointStorageCoordinatorView {
 	default List<FileStatus> listCheckpointPointers() throws IOException {
 		return Collections.emptyList();
 	}
+
+	default List<FileStatus> listAllCheckpointPointers() throws IOException {
+		return Collections.emptyList();
+	}
 }

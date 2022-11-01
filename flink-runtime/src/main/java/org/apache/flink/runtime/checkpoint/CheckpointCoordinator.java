@@ -102,6 +102,7 @@ import java.util.stream.Collectors;
 import static org.apache.flink.runtime.checkpoint.scheduler.CheckpointSchedulerUtils.createCheckpointScheduler;
 import static org.apache.flink.runtime.checkpoint.scheduler.CheckpointSchedulerUtils.setupSavepointScheduler;
 import static org.apache.flink.runtime.state.StateUtil.getCheckpointIDFromFileStatus;
+import static org.apache.flink.runtime.state.StateUtil.getCheckpointIDFromFileStatusIncludingSavepointId;
 import static org.apache.flink.util.ExceptionUtils.findThrowable;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -1676,8 +1677,16 @@ public class CheckpointCoordinator {
 				}
 			}
 
-			long latestCheckpointIdOnStore = checkpointsOnStore.stream().max(Long::compareTo).orElse(-1L);
-			long latestCheckpointIdOnStorage = checkpointsOnStorage.stream().map(CompletedCheckpoint::getCheckpointID).max(Long::compareTo).orElse(-1L);
+			// latestUsedIdOnStorage = 0 means that no checkpoint id is used before
+			long latestUsedIdOnStorage = 0L;
+			// if we should recover cp from storage, get the latest used checkpoint id from storage
+			if (fromStorage) {
+				latestUsedIdOnStorage = checkpointStorage.listAllCheckpointPointers().stream()
+					.map(fileStatus -> getCheckpointIDFromFileStatusIncludingSavepointId(fileStatus))
+					.filter(id -> id > 0)
+					.max(Long::compareTo)
+					.orElse(0L);
+			}
 
 			// checkpoints on HDFS but not on zookeeper!!!
 			LOG.info("There are {} checkpoints are on HDFS but not on Zookeeper.", extraCheckpoints.size());
@@ -1723,8 +1732,9 @@ public class CheckpointCoordinator {
 
 			// Restore from the latest checkpoint
 			latest = completedCheckpointStore.getLatestCheckpoint(isPreferCheckpointForRecovery);
-			if (latest != null && latestCheckpointIdOnStorage > latestCheckpointIdOnStore) {
-				checkpointIdCounter.setCount(latest.getCheckpointID() + 1);
+			if (latestUsedIdOnStorage + 1 > checkpointIdCounter.get()) {
+				checkpointIdCounter.setCount(latestUsedIdOnStorage + 1);
+				LOG.info("Reset the checkpoint ID of job {} to {}.", job, latestUsedIdOnStorage + 1);
 			}
 
 			if (latest == null) {

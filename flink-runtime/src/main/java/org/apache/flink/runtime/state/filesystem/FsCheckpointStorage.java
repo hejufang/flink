@@ -762,4 +762,16 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 			.filter(fileStatus -> fileStatus.getPath().getName().startsWith(CHECKPOINT_DIR_PREFIX))
 			.collect(Collectors.toList());
 	}
+
+	@Override
+	public List<FileStatus> listAllCheckpointPointers() throws IOException {
+		FileStatus[] statuses = fileSystem.listStatus(checkpointsDirectory);
+		if (statuses == null) {
+			return Collections.emptyList();
+		}
+		return Arrays.stream(statuses)
+			.filter(fileStatus -> fileStatus.getPath().getName().startsWith(CHECKPOINT_DIR_PREFIX)
+					|| fileStatus.getPath().getName().startsWith(SAVEPOINT_DIR_PREFIX))
+			.collect(Collectors.toList());
+	}
 }
