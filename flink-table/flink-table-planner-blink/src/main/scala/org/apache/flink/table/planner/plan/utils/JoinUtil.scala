@@ -46,10 +46,11 @@ object JoinUtil {
       table: String,
       allowLatencyMs: JLong,
       maxBuildLatencyMs: JLong,
-      keyByMode: Boolean) {
+      keyByMode: Boolean,
+      timeOffset: JLong) {
     override def toString: String = {
       s"JoinConfig(table=$table, allowLatencyMs=$allowLatencyMs, " +
-        s"maxBuildLatencyMs=$maxBuildLatencyMs, keyByMode=$keyByMode)"
+        s"maxBuildLatencyMs=$maxBuildLatencyMs, keyByMode=$keyByMode, timeOffset=$timeOffset)"
     }
   }
 
@@ -63,7 +64,15 @@ object JoinUtil {
       val tableName = tryGetConfig(x => x, HINT_OPTION_TABLE_NAME, config).get
       val useKeyBy =
         tryGetConfig(x => x.toBoolean, HINT_OPTION_KEY_BY_MODE, config).getOrElse(false)
-      Some(JoinConfig(tableName, allowLatency, maxBuildLatencyMs, useKeyBy))
+      val timeOffset: JLong = tryGetConfig(x =>
+          x.charAt(0) match {
+            case '+' => JLong.valueOf(TimeUtils.parseDuration(x.substring(1)).toMillis)
+            case '-' => -JLong.valueOf(TimeUtils.parseDuration(x.substring(1)).toMillis)
+            case _ => JLong.valueOf(TimeUtils.parseDuration(x).toMillis)
+          },
+          HINT_OPTION_TIME_OFFSET,
+          config).getOrElse(0L).asInstanceOf[JLong]
+      Some(JoinConfig(tableName, allowLatency, maxBuildLatencyMs, useKeyBy, timeOffset))
     }
 
     private def tryGetConfig[T](

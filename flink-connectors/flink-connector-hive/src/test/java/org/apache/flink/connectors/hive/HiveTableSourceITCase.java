@@ -22,6 +22,7 @@ import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connectors.hive.read.HiveTableInputFormat;
 import org.apache.flink.core.execution.JobClient;
+import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -29,11 +30,13 @@ import org.apache.flink.streaming.api.transformations.OneInputTransformation;
 import org.apache.flink.streaming.api.transformations.PartitionTransformation;
 import org.apache.flink.table.HiveVersionTestUtil;
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.SqlDialect;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.api.config.ExecutionConfigOptions;
+import org.apache.flink.table.api.config.TableConfigOptions;
 import org.apache.flink.table.api.internal.TableEnvironmentImpl;
 import org.apache.flink.table.catalog.CatalogPartitionSpec;
 import org.apache.flink.table.catalog.CatalogTable;
@@ -46,9 +49,11 @@ import org.apache.flink.table.catalog.hive.HiveTestUtils;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.TableSourceFactory;
 import org.apache.flink.table.planner.delegation.PlannerBase;
+import org.apache.flink.table.planner.factories.TestValuesTableFactory;
 import org.apache.flink.table.planner.plan.nodes.exec.ExecNode;
 import org.apache.flink.table.planner.runtime.utils.BatchAbstractTestBase;
 import org.apache.flink.table.planner.runtime.utils.StreamTestSink;
+import org.apache.flink.table.planner.runtime.utils.TestData;
 import org.apache.flink.table.planner.runtime.utils.TestingAppendRowDataSink;
 import org.apache.flink.table.planner.runtime.utils.TestingAppendSink;
 import org.apache.flink.table.planner.utils.JavaScalaConversionUtil;
@@ -75,13 +80,18 @@ import org.junit.runner.RunWith;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.configuration.PipelineOptions.USE_MAX_SOURCE_PARALLELISM_AS_DEFAULT_PARALLELISM;
 import static org.apache.flink.table.api.config.TableConfigOptions.TABLE_EXEC_SUPPORT_HIVE_BUCKET;
@@ -533,7 +543,6 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
 				.commit("ts='2020-05-06 00:00:00'");
 
 		Table src = tEnv.from("hive.source_db.stream_test");
-
 		TestingAppendRowDataSink sink = new TestingAppendRowDataSink(new RowDataTypeInfo(
 				DataTypes.INT().getLogicalType(),
 				DataTypes.STRING().getLogicalType(),
@@ -580,6 +589,105 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
 		results.sort(String::compareTo);
 		assertEquals(expected, results);
 		job.cancel();
+		StreamTestSink.clear();
+	}
+
+	@Test(timeout = 120000)
+	public void testStreamPartitionReadForBroadcastJoin() throws Exception {
+
+		final String catalogName = "hive";
+		final String dbName = "source_db";
+		final String tblName = "stream_test";
+
+		EnvironmentSettings streamEnvSettings = EnvironmentSettings.newInstance()
+			.useBlinkPlanner()
+			.inStreamingMode()
+			.build();
+		StreamExecutionEnvironment senv = StreamExecutionEnvironment.getExecutionEnvironment();
+		senv.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		StreamTableEnvironment tsEnv = StreamTableEnvironment.create(senv, streamEnvSettings);
+
+		tsEnv.getConfig().getConfiguration().setBoolean(TableConfigOptions.TABLE_DYNAMIC_TABLE_OPTIONS_ENABLED, true);
+
+		tsEnv.registerCatalog(catalogName, hiveCatalog);
+		tsEnv.getConfig().setSqlDialect(SqlDialect.HIVE);
+		tsEnv.useCatalog(catalogName);
+		tsEnv.executeSql(
+			"CREATE TABLE source_db.stream_test (" +
+				" a INT," +
+				" b STRING" +
+				") PARTITIONED BY (p_date STRING, hour STRING, level STRING) TBLPROPERTIES (" +
+				"'streaming-source.enable'='true'," +
+				"'scan.input-format-read-interval' = '5s'," +
+				"'scan.count-of-scan-times' = '2'," +
+				"'scan.hive.date-partition-pattern' = 'p_date=yyyyMMdd'," +
+				"'scan.hive.hour-partition-pattern' = 'hour=HH'," +
+				"'scan.hive.forward-partition-num' = '2'," +
+				"'scan.hive.partition-filter' = \"level='City' or level='Province'\"" +
+				")"
+		);
+
+		Calendar cal = Calendar.getInstance();
+		Date currentDate = new Date();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd HH");
+		dateFormat.setLenient(false);
+
+		Date formattedCurrentDate = dateFormat.parse(dateFormat.format(currentDate));
+		String formattedDate = null;
+		for (int i = -1; i <= 1; i++) {
+			cal.setTime(formattedCurrentDate);
+			cal.add(Calendar.HOUR, i);
+			formattedDate = dateFormat.format(cal.getTime());
+
+			HiveTestUtils.createTextTableInserter(hiveShell, dbName, tblName)
+			.addRow(new Object[]{0, "0"})
+			.commit("p_date='" + formattedDate.split(" ")[0] + "',hour='" + formattedDate.split(" ")[1] + "',level='City'");
+
+			HiveTestUtils.createTextTableInserter(hiveShell, dbName, tblName)
+				.addRow(new Object[]{0, "0"})
+				.commit("p_date='" + formattedDate.split(" ")[0] + "',hour='" + formattedDate.split(" ")[1] + "',level='Province'");
+		}
+
+		tsEnv.getConfig().setSqlDialect(SqlDialect.DEFAULT);
+		tsEnv.useCatalog("default_catalog");
+		// simulate the watermark in stream side is 5h ahead of hive side, use timeOffset to adjust the stream side
+		long curTime = System.currentTimeMillis() + 18000000L;
+		List<Row> testDataList = new ArrayList<>();
+		testDataList.addAll(TestData.genIdAndDataListAsJava(0, 2, "A", curTime));
+		String sourceId1 = TestValuesTableFactory.registerData(testDataList);
+
+		tsEnv.executeSql(
+			"CREATE TABLE A (\n" +
+				"    a_id int,\n" +
+				"    a_word varchar\n" +
+				") WITH (\n" +
+				" 'connector' = 'values',\n" +
+				" 'data-id' = '" + sourceId1 + "',\n" +
+				" 'table-source-class'='" + TestData.ScanTableSourceWithTimestamp.class.getName() + "'\n" +
+				")"
+		);
+
+		Iterator<Row> collected = tsEnv.executeSql(
+			"select\n" +
+				"/*+ use_broadcast_join('table' = 'stream_test', 'allowLatency' = '1 min', 'maxBuildLatency' = '5 min', 'timeOffset' = '-5h') */\n" +
+				"*\n" +
+				"from A a left join hive.source_db.stream_test " +
+				"h on a.a_id = h.a\n"
+		).collect();
+
+		List<String> results = Lists.newArrayList(collected).stream()
+			.map(Row::toString)
+			.sorted()
+			.collect(Collectors.toList());
+
+		List<String> expected = Arrays.asList(
+				"0,A0,0,0," + formattedDate.split(" ")[0] + "," + formattedDate.split(" ")[1] + ",City",
+				"0,A0,0,0," + formattedDate.split(" ")[0] + "," + formattedDate.split(" ")[1] + ",Province",
+				"1,A1,null,null,null,null,null",
+				"2,A2,null,null,null,null,null"
+		);
+
+		assertEquals(expected, results);
 		StreamTestSink.clear();
 	}
 

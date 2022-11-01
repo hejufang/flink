@@ -48,17 +48,18 @@ import java.util.List;
  * BroadcastJoinOperator.
  */
 public class BroadcastJoinOperator extends AbstractStreamingJoinOperator implements InputSelectionOperator {
-	private static final long serialVersionUID = 0;
+	private static final long serialVersionUID = 1;
 
 	// whether left side is outer side, e.g. left is outer but right is not when LEFT OUTER JOIN
 	private final boolean leftIsOuter;
 	private final long maxBuildLatency;
 	private final Long allowLatency;
+	private final long timeOffset;
 	private final RowDataKeySelector leftKeySelector;
 	private final RowDataKeySelector rightKeySelector;
 	private final String tableName;
 	private PriorityTwoInputSelectionHandler inputSelectionHandler;
-
+	private long allowLatencyWithOffset;
 	private transient long curBuildLatency;
 	private transient String logName;
 	private transient JoinedRowData outRow;
@@ -83,14 +84,16 @@ public class BroadcastJoinOperator extends AbstractStreamingJoinOperator impleme
 			long stateRetentionTime,
 			Long allowLatency,
 			long maxBuildLatency,
-			String tableName) {
+			String tableName,
+			long timeOffset) {
 		super(leftType, rightType, generatedJoinCondition, leftInputSideSpec, rightInputSideSpec, filterNullKeys, stateRetentionTime);
 		this.leftIsOuter = leftIsOuter;
 		this.leftKeySelector = leftKeySelector;
 		this.rightKeySelector = rightKeySelector;
-		this.allowLatency = allowLatency;
+		this.allowLatency = allowLatency == null ? 0L : allowLatency;
 		this.maxBuildLatency = maxBuildLatency;
 		this.tableName = tableName;
+		this.timeOffset = timeOffset;
 	}
 
 	@Override
@@ -178,6 +181,8 @@ public class BroadcastJoinOperator extends AbstractStreamingJoinOperator impleme
 		stateViewAndTime = tmpStateViewAndTime;
 		tmpStateViewAndTime = createTuple2State();
 		inputSelectionHandler.unsetPriorityInputSide();
+		this.allowLatencyWithOffset = stateViewAndTime.f1 + this.allowLatency - this.timeOffset;
+		LOG.info("State view size for broadcast join is: {}", stateViewAndTime.f0.stateViewSizeToString());
 
 		processCacheRow();
 	}
@@ -233,8 +238,7 @@ public class BroadcastJoinOperator extends AbstractStreamingJoinOperator impleme
 
 	private boolean processLeft(RowData leftInput, long recordTimestamp) throws Exception {
 		// state is null or is timeout.
-		if ((stateViewAndTime.f1 == null) ||
-				(allowLatency != null && recordTimestamp > (stateViewAndTime.f1 + allowLatency))) {
+		if ((stateViewAndTime.f1 == null) || recordTimestamp > this.allowLatencyWithOffset) {
 			return false;
 		}
 

@@ -41,6 +41,8 @@ public abstract class FlinkHints {
 
 	public static final String HINT_OPTION_KEY_BY_MODE = "useKeyByMode";
 
+	public static final String HINT_OPTION_TIME_OFFSET = "timeOffset";
+
 	//~ Tools ------------------------------------------------------------------
 
 	/** Returns the OPTIONS hint options from the

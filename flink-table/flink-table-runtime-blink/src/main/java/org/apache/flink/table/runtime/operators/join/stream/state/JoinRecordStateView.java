@@ -44,4 +44,12 @@ public interface JoinRecordStateView {
 	 * Gets all the records under the current context (i.e. join key).
 	 */
 	Iterable<RowData> getRecords() throws Exception;
+
+	/**
+	 * Return the state view size as string.
+	 */
+	default String stateViewSizeToString() throws Exception {
+		return "";
+	}
+
 }

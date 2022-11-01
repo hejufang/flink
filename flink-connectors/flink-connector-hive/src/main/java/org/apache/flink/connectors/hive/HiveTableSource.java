@@ -20,11 +20,13 @@ package org.apache.flink.connectors.hive;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connectors.hive.read.BucketHiveInputFormat;
 import org.apache.flink.connectors.hive.read.HiveContinuousMonitoringFunction;
+import org.apache.flink.connectors.hive.read.HiveContinuousMonitoringNewestPartitionFunction;
 import org.apache.flink.connectors.hive.read.HiveTableFileInputFormat;
 import org.apache.flink.connectors.hive.read.HiveTableInputFormat;
 import org.apache.flink.connectors.hive.read.TimestampedHiveInputSplit;
@@ -35,6 +37,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.ContinuousFileMonitoringFunction;
 import org.apache.flink.streaming.api.functions.source.ContinuousFileReaderOperatorFactory;
 import org.apache.flink.streaming.api.functions.source.FileProcessingMode;
+import org.apache.flink.streaming.api.functions.source.RichSourceFunction;
 import org.apache.flink.streaming.api.functions.source.TimestampedFileInputSplit;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.config.ExecutionConfigOptions;
@@ -95,6 +98,7 @@ import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Duration;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -108,7 +112,17 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.connectors.hive.HiveOptions.SCAN_HIVE_CLIENT_RETRY_TIMES;
+import static org.apache.flink.connectors.hive.HiveOptions.SCAN_HIVE_DATE_PARTITION;
+import static org.apache.flink.connectors.hive.HiveOptions.SCAN_HIVE_FORWARD_PARTITION_NUM;
+import static org.apache.flink.connectors.hive.HiveOptions.SCAN_HIVE_HOUR_PARTITION;
+import static org.apache.flink.connectors.hive.HiveOptions.SCAN_HIVE_PARTITION_FILTER;
+import static org.apache.flink.connectors.hive.HiveOptions.SCAN_HIVE_PARTITION_PENDING_RANGE_BACKWARD;
+import static org.apache.flink.connectors.hive.HiveOptions.SCAN_HIVE_PARTITION_PENDING_RANGE_FORWARD;
+import static org.apache.flink.connectors.hive.HiveOptions.SCAN_HIVE_PARTITION_PENDING_TIMEOUT;
 import static org.apache.flink.table.catalog.hive.util.HivePermissionUtils.PermissionType.SELECT;
+import static org.apache.flink.table.factories.FactoryUtil.SOURCE_SCAN_COUNT_OF_SCAN_TIMES;
+import static org.apache.flink.table.factories.FactoryUtil.SOURCE_SCAN_INTERVAL;
 import static org.apache.flink.table.filesystem.DefaultPartTimeExtractor.toLocalDateTime;
 import static org.apache.flink.table.filesystem.FileSystemOptions.PARTITION_TIME_EXTRACTOR_CLASS;
 import static org.apache.flink.table.filesystem.FileSystemOptions.PARTITION_TIME_EXTRACTOR_KIND;
@@ -372,8 +386,11 @@ public class HiveTableSource implements
 		String extractorClass = configuration.get(PARTITION_TIME_EXTRACTOR_CLASS);
 		String extractorPattern = configuration.get(PARTITION_TIME_EXTRACTOR_TIMESTAMP_PATTERN);
 		Duration monitorInterval = configuration.get(STREAMING_SOURCE_MONITOR_INTERVAL);
+		Duration scanInterval = configuration.get(SOURCE_SCAN_INTERVAL);
 
-		HiveContinuousMonitoringFunction monitoringFunction = new HiveContinuousMonitoringFunction(
+		RichSourceFunction monitoringFunction;
+		if (scanInterval == null) {
+			monitoringFunction = new HiveContinuousMonitoringFunction(
 				hiveShim,
 				jobConf,
 				tablePath,
@@ -385,9 +402,58 @@ public class HiveTableSource implements
 				extractorClass,
 				extractorPattern,
 				monitorInterval.toMillis());
+		} else {
+			long scanIntervalMs = scanInterval.toMillis();
 
-		ContinuousFileReaderOperatorFactory<RowData, TimestampedHiveInputSplit> factory =
-				new ContinuousFileReaderOperatorFactory<>(inputFormat);
+			Integer countOfScanTime = configuration.get(SOURCE_SCAN_COUNT_OF_SCAN_TIMES);
+			int countOfScanTimes = countOfScanTime == null ? -1 : countOfScanTime;
+
+			String[] datePartitionArr = configuration.get(SCAN_HIVE_DATE_PARTITION).split("=");
+			if (datePartitionArr.length != 2) {
+				throw new IllegalArgumentException("The input date partition is illegal. Please check the parameter table.exec.hive.date-partition-pattern.");
+			}
+			DateTimeFormatter.ofPattern(datePartitionArr[1]);
+			Tuple2<String, String> datePartition = new Tuple2<>(datePartitionArr[0], datePartitionArr[1]);
+
+			Tuple2<String, String> hourPartition = null;
+			if (configuration.get(SCAN_HIVE_HOUR_PARTITION) != null) {
+				String[] hourPartitionArr = configuration.get(SCAN_HIVE_HOUR_PARTITION).split("=");
+				if (hourPartitionArr.length != 2){
+					throw new IllegalArgumentException("The input hour partition is illegal. Please check the parameter table.exec.hive.hour-partition-pattern.");
+				}
+				DateTimeFormatter.ofPattern(hourPartitionArr[1]);
+				hourPartition = new Tuple2<>(hourPartitionArr[0], hourPartitionArr[1]);
+			}
+
+			Integer forwardPartitionNum = configuration.get(SCAN_HIVE_FORWARD_PARTITION_NUM);
+			String partitionFilter = configuration.get(SCAN_HIVE_PARTITION_FILTER);
+
+			Tuple2<Integer, Integer> partitionPendingRange = new Tuple2<>(
+				configuration.get(SCAN_HIVE_PARTITION_PENDING_RANGE_FORWARD),
+				configuration.get(SCAN_HIVE_PARTITION_PENDING_RANGE_BACKWARD)
+				);
+			long partitionPendingTimeout = configuration.get(SCAN_HIVE_PARTITION_PENDING_TIMEOUT).toMillis();
+			int hiveClientRetryTimes = configuration.get(SCAN_HIVE_CLIENT_RETRY_TIMES);
+
+			monitoringFunction = new HiveContinuousMonitoringNewestPartitionFunction(
+				hiveShim,
+				jobConf,
+				tablePath,
+				catalogTable,
+				execEnv.getParallelism(),
+				scanIntervalMs,
+				countOfScanTimes,
+				datePartition,
+				hourPartition,
+				forwardPartitionNum,
+				partitionFilter,
+				partitionPendingRange,
+				partitionPendingTimeout,
+				hiveClientRetryTimes);
+		}
+
+		boolean isSync = scanInterval != null;
+		ContinuousFileReaderOperatorFactory<RowData, TimestampedHiveInputSplit> factory = new ContinuousFileReaderOperatorFactory<>(inputFormat, isSync);
 
 		String sourceName = "HiveMonitoringFunction";
 		SingleOutputStreamOperator<RowData> source = execEnv

@@ -1082,13 +1082,13 @@ Join(joinType=[LeftOuterJoin], where=[=(key, key0)], select=[key, v, key0, v0], 
   <TestCase name="testBroadcastJoin">
     <Resource name="planAfter">
       <![CDATA[
-Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false)])
+Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false, timeOffset=0)])
 :- Calc(select=[a1, a2])
 :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, A, source: [TestTableSource(a1, a2, a3)]]], fields=[a1, a2, a3])
 +- Calc(select=[id])
    +- TableSourceScan(table=[[default_catalog, default_database, BB]], fields=[id, word, cnt])
 
-TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT), parallelism=-1}
+TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false, timeOffset=0)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT), parallelism=-1}
 	OneInputTransformation{name='Calc(select=[a1, a2])', outputType=RowData(a1: INT, a2: BIGINT), parallelism=-1}
 		OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.A, source: [TestTableSource(a1, a2, a3)]], fields=[a1, a2, a3])', outputType=RowData(a1: INT, a2: BIGINT, a3: BIGINT), parallelism=-1}
 			FakeTransformation{name='ChangeToDefaultParallel', outputType=Row(a1: Integer, a2: Long, a3: Long), parallelism=-1}
@@ -1104,9 +1104,9 @@ TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 
     <Resource name="planAfter">
       <![CDATA[
 Calc(select=[a1, a2, word, word0])
-+- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, word, id, word0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=v1, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false)])
++- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, word, id, word0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=v1, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false, timeOffset=0)])
    :- Calc(select=[a1, a2, word])
-   :  +- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id, word], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false)])
+   :  +- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id, word], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false, timeOffset=0)])
    :     :- Calc(select=[a1, a2])
    :     :  +- LegacyTableSourceScan(table=[[default_catalog, default_database, A, source: [TestTableSource(a1, a2, a3)]]], fields=[a1, a2, a3])
    :     +- Calc(select=[id, word])
@@ -1115,9 +1115,9 @@ Calc(select=[a1, a2, word, word0])
       +- TableSourceScan(table=[[default_catalog, default_database, CC]], fields=[id, word, cnt])
 
 OneInputTransformation{name='Calc(select=[a1, a2, word, word0])', outputType=RowData(a1: INT, a2: BIGINT, word: STRING, word0: STRING), parallelism=-1}
-	TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, word, id, word0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=v1, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false)])', outputType=RowData(a1: INT, a2: BIGINT, word: STRING, id: INT, word0: STRING), parallelism=-1}
+	TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, word, id, word0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=v1, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false, timeOffset=0)])', outputType=RowData(a1: INT, a2: BIGINT, word: STRING, id: INT, word0: STRING), parallelism=-1}
 		OneInputTransformation{name='Calc(select=[a1, a2, word])', outputType=RowData(a1: INT, a2: BIGINT, word: STRING), parallelism=-1}
-			TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id, word], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT, word: STRING), parallelism=-1}
+			TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id, word], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false, timeOffset=0)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT, word: STRING), parallelism=-1}
 				OneInputTransformation{name='Calc(select=[a1, a2])', outputType=RowData(a1: INT, a2: BIGINT), parallelism=-1}
 					OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.A, source: [TestTableSource(a1, a2, a3)]], fields=[a1, a2, a3])', outputType=RowData(a1: INT, a2: BIGINT, a3: BIGINT), parallelism=-1}
 						FakeTransformation{name='ChangeToDefaultParallel', outputType=Row(a1: Integer, a2: Long, a3: Long), parallelism=-1}
@@ -1141,7 +1141,7 @@ Calc(select=[EXPR$0, a2])
    +- Exchange(distribution=[hash[a2]])
       +- LocalGroupAggregate(groupBy=[a2], select=[a2, SUM(a1) AS sum$0])
          +- Calc(select=[a2, a1])
-            +- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false)])
+            +- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false, timeOffset=0)])
                :- Calc(select=[a1, a2])
                :  +- MiniBatchAssigner(interval=[1000ms], mode=[ProcTime])
                :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, A, source: [TestTableSource(a1, a2, a3)]]], fields=[a1, a2, a3])
@@ -1153,7 +1153,7 @@ OneInputTransformation{name='Calc(select=[EXPR$0, a2])', outputType=RowData(EXPR
 		PartitionTransformation{name='Partition', outputType=RowData(a2: BIGINT, sum$0: INT), parallelism=-1}
 			OneInputTransformation{name='LocalGroupAggregate(groupBy=[a2], select=[a2, SUM(a1) AS sum$0])', outputType=RowData(a2: BIGINT, sum$0: INT), parallelism=-1}
 				OneInputTransformation{name='Calc(select=[a2, a1])', outputType=RowData(a2: BIGINT, a1: INT), parallelism=-1}
-					TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT), parallelism=-1}
+					TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false, timeOffset=0)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT), parallelism=-1}
 						OneInputTransformation{name='Calc(select=[a1, a2])', outputType=RowData(a1: INT, a2: BIGINT), parallelism=-1}
 							OneInputTransformation{name='MiniBatchAssigner(interval=[1000ms], mode=[ProcTime])', outputType=RowData(a1: INT, a2: BIGINT, a3: BIGINT), parallelism=-1}
 								OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.A, source: [TestTableSource(a1, a2, a3)]], fields=[a1, a2, a3])', outputType=RowData(a1: INT, a2: BIGINT, a3: BIGINT), parallelism=-1}
@@ -1169,7 +1169,7 @@ OneInputTransformation{name='Calc(select=[EXPR$0, a2])', outputType=RowData(EXPR
   <TestCase name="testKeyByBroadcastJoin">
     <Resource name="planAfter">
       <![CDATA[
-Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], keyByBroadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=true)])
+Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], keyByBroadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=true, timeOffset=0)])
 :- Exchange(distribution=[hash[a1]])
 :  +- Calc(select=[a1, a2])
 :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, A, source: [TestTableSource(a1, a2, a3)]]], fields=[a1, a2, a3])
@@ -1177,7 +1177,7 @@ Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id], leftInput
    +- Calc(select=[id])
       +- TableSourceScan(table=[[default_catalog, default_database, BB]], fields=[id, word, cnt])
 
-TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], keyByBroadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=true)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT), parallelism=-1}
+TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], keyByBroadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=true, timeOffset=0)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT), parallelism=-1}
 	PartitionTransformation{name='Partition', outputType=RowData(a1: INT, a2: BIGINT), parallelism=-1}
 		OneInputTransformation{name='Calc(select=[a1, a2])', outputType=RowData(a1: INT, a2: BIGINT), parallelism=-1}
 			OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.A, source: [TestTableSource(a1, a2, a3)]], fields=[a1, a2, a3])', outputType=RowData(a1: INT, a2: BIGINT, a3: BIGINT), parallelism=-1}
@@ -1194,10 +1194,10 @@ TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 
     <Resource name="planAfter">
       <![CDATA[
 Calc(select=[a1, a2, word, word0])
-+- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, word, id, word0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], keyByBroadcast=[JoinConfig(table=v1, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=true)])
++- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, word, id, word0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], keyByBroadcast=[JoinConfig(table=v1, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=true, timeOffset=0)])
    :- Exchange(distribution=[hash[a1]])
    :  +- Calc(select=[a1, a2, word])
-   :     +- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id, word], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], keyByBroadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=true)])
+   :     +- Join(joinType=[LeftOuterJoin], where=[=(a1, id)], select=[a1, a2, id, word], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], keyByBroadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=true, timeOffset=0)])
    :        :- Exchange(distribution=[hash[a1]])
    :        :  +- Calc(select=[a1, a2])
    :        :     +- LegacyTableSourceScan(table=[[default_catalog, default_database, A, source: [TestTableSource(a1, a2, a3)]]], fields=[a1, a2, a3])
@@ -1209,10 +1209,10 @@ Calc(select=[a1, a2, word, word0])
          +- TableSourceScan(table=[[default_catalog, default_database, CC]], fields=[id, word, cnt])
 
 OneInputTransformation{name='Calc(select=[a1, a2, word, word0])', outputType=RowData(a1: INT, a2: BIGINT, word: STRING, word0: STRING), parallelism=-1}
-	TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, word, id, word0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], keyByBroadcast=[JoinConfig(table=v1, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=true)])', outputType=RowData(a1: INT, a2: BIGINT, word: STRING, id: INT, word0: STRING), parallelism=-1}
+	TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, word, id, word0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], keyByBroadcast=[JoinConfig(table=v1, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=true, timeOffset=0)])', outputType=RowData(a1: INT, a2: BIGINT, word: STRING, id: INT, word0: STRING), parallelism=-1}
 		PartitionTransformation{name='Partition', outputType=RowData(a1: INT, a2: BIGINT, word: STRING), parallelism=-1}
 			OneInputTransformation{name='Calc(select=[a1, a2, word])', outputType=RowData(a1: INT, a2: BIGINT, word: STRING), parallelism=-1}
-				TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id, word], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], keyByBroadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=true)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT, word: STRING), parallelism=-1}
+				TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(a1 = id)], select=[a1, a2, id, word], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], keyByBroadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=true, timeOffset=0)])', outputType=RowData(a1: INT, a2: BIGINT, id: INT, word: STRING), parallelism=-1}
 					PartitionTransformation{name='Partition', outputType=RowData(a1: INT, a2: BIGINT), parallelism=-1}
 						OneInputTransformation{name='Calc(select=[a1, a2])', outputType=RowData(a1: INT, a2: BIGINT), parallelism=-1}
 							OneInputTransformation{name='SourceConversion(table=[default_catalog.default_database.A, source: [TestTableSource(a1, a2, a3)]], fields=[a1, a2, a3])', outputType=RowData(a1: INT, a2: BIGINT, a3: BIGINT), parallelism=-1}
@@ -1268,7 +1268,7 @@ SortLimit(orderBy=[item ASC, return_ratio ASC], offset=[0], fetch=[100], strateg
 GroupWindowAggregate(window=[TumblingGroupWindow('w$, ts, 60000)], select=[COUNT(*) AS EXPR$0])
 +- Exchange(distribution=[single])
    +- Calc(select=[ts])
-      +- Join(joinType=[LeftOuterJoin], where=[=(id, id0)], select=[id, ts, id0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false)])
+      +- Join(joinType=[LeftOuterJoin], where=[=(id, id0)], select=[id, ts, id0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false, timeOffset=0)])
          :- Calc(select=[id, ts])
          :  +- WatermarkAssigner(rowtime=[ts], watermark=[-(ts, 3000:INTERVAL SECOND)])
          :     +- TableSourceScan(table=[[default_catalog, default_database, SS]], fields=[id, long_field, word, ts])
@@ -1278,7 +1278,7 @@ GroupWindowAggregate(window=[TumblingGroupWindow('w$, ts, 60000)], select=[COUNT
 OneInputTransformation{name='GroupWindowAggregate(window=[TumblingGroupWindow('w$, ts, 60000)], select=[COUNT(*) AS EXPR$0])', outputType=RowData(EXPR$0: BIGINT NOT NULL), parallelism=1}
 	PartitionTransformation{name='Partition', outputType=RowData(ts: TIMESTAMP(3) *ROWTIME*), parallelism=1}
 		OneInputTransformation{name='Calc(select=[ts])', outputType=RowData(ts: TIMESTAMP(3) *ROWTIME*), parallelism=-1}
-			TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(id = id0)], select=[id, ts, id0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false)])', outputType=RowData(id: INT, ts: TIMESTAMP(3) *ROWTIME*, id0: INT), parallelism=-1}
+			TwoInputTransformation{name='BroadcastJoin(joinType=[LeftOuterJoin], where=[(id = id0)], select=[id, ts, id0], leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey], broadcast=[JoinConfig(table=BB, allowLatencyMs=60000, maxBuildLatencyMs=60000, keyByMode=false, timeOffset=0)])', outputType=RowData(id: INT, ts: TIMESTAMP(3) *ROWTIME*, id0: INT), parallelism=-1}
 				OneInputTransformation{name='Calc(select=[id, ts])', outputType=RowData(id: INT, ts: TIMESTAMP(3) *ROWTIME*), parallelism=-1}
 					OneInputTransformation{name='WatermarkAssigner(rowtime=[ts], watermark=[(ts - 3000:INTERVAL SECOND)])', outputType=RowData(id: INT, long_field: BIGINT, word: STRING, ts: TIMESTAMP(3) *ROWTIME*), parallelism=-1}
 						FakeTransformation{name='ChangeToDefaultParallel', outputType=RowData(id: INT, long_field: BIGINT, word: STRING, ts: TIMESTAMP(3)), parallelism=-1}

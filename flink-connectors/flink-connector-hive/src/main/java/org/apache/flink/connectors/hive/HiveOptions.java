@@ -20,6 +20,8 @@ package org.apache.flink.connectors.hive;
 
 import org.apache.flink.configuration.ConfigOption;
 
+import java.time.Duration;
+
 import static org.apache.flink.configuration.ConfigOptions.key;
 
 /**
@@ -107,4 +109,66 @@ public class HiveOptions {
 			.booleanType()
 			.defaultValue(false)
 			.withDescription("Use flink get splits to speed up get splits information.");
+
+	public static final ConfigOption<String> SCAN_HIVE_DATE_PARTITION =
+		key("scan.hive.date-partition-pattern")
+			.stringType()
+			.defaultValue("date=yyyyMMdd")
+			.withDescription(
+				"Specify the date partition name pattern of hive. " +
+					"This config is only used for hive broadcast join and the value must conform to date format. The default value is date=yyyyMMdd.");
+
+	public static final ConfigOption<String> SCAN_HIVE_HOUR_PARTITION =
+		key("scan.hive.hour-partition-pattern")
+			.stringType()
+			.noDefaultValue()
+			.withDescription(
+				"Specify the hour partition name pattern of hive. " +
+					"This config is only used for hive broadcast join and the value must conform to date format. The expected value is hour=HH.");
+
+	public static final ConfigOption<Integer> SCAN_HIVE_FORWARD_PARTITION_NUM =
+		key("scan.hive.forward-partition-num")
+			.intType()
+			.defaultValue(1)
+			.withDescription(
+				"Specify the number of hive partition which need to forward downstream and satisfied the time requirement.");
+
+	public static final ConfigOption<String> SCAN_HIVE_PARTITION_FILTER =
+		key("scan.hive.partition-filter")
+			.stringType()
+			.noDefaultValue()
+			.withDescription(
+				"The filter query condition used to obtain the specific partitions.");
+
+	public static final ConfigOption<Integer> SCAN_HIVE_PARTITION_PENDING_RANGE_FORWARD =
+		key("scan.hive.partition-pending-range-forward")
+			.intType()
+			.defaultValue(3)
+			.withDescription(
+				"Specifies that only partitions within this range would be discovered in case the partition was generated delayed. " +
+					"This config is only used for hive broadcast join and only supports integer type which represents the hour.\n");
+
+	public static final ConfigOption<Integer> SCAN_HIVE_PARTITION_PENDING_RANGE_BACKWARD =
+		key("scan.hive.partition-pending-range-backward")
+			.intType()
+			.defaultValue(10)
+			.withDescription(
+				"Specifies that only partitions within this range would be discovered in case the partition was generated delayed. " +
+					"This config is only used for hive broadcast join and only supports integer type which represents the hour.\n");
+
+	public static final ConfigOption<Duration> SCAN_HIVE_PARTITION_PENDING_TIMEOUT =
+		key("scan.hive.partition-pending-timeout")
+			.durationType()
+			.defaultValue(Duration.ofHours(72))
+			.withDescription(
+				"Specifies the timeout for partition pending generation. If no new partition is found after this time range, " +
+					"an exception will be thrown because the program cannot continue to advance. The default value remains empty, " +
+					"which means no exception would be thrown and the program is stuck and does not advance until a partition within the range is generated.");
+
+	public static final ConfigOption<Integer> SCAN_HIVE_CLIENT_RETRY_TIMES =
+		key("scan.hive.client-retry-times")
+			.intType()
+			.defaultValue(60)
+			.withDescription(
+				"Specifies that client retry times to obtain information from metastore when the first time is failed.");
 }

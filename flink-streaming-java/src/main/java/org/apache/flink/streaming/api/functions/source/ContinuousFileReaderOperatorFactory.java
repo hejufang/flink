@@ -20,6 +20,7 @@ package org.apache.flink.streaming.api.functions.source;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.MailboxExecutor;
@@ -39,9 +40,15 @@ public class ContinuousFileReaderOperatorFactory<OUT, T extends TimestampedInput
 	private TypeInformation<OUT> type;
 	private ExecutionConfig executionConfig;
 	private transient MailboxExecutor mailboxExecutor;
+	private boolean isSync = false;
 
 	public ContinuousFileReaderOperatorFactory(InputFormat<OUT, ? super T> inputFormat) {
 		this(inputFormat, null, null);
+	}
+
+	public ContinuousFileReaderOperatorFactory(InputFormat<OUT, ? super T> inputFormat, boolean isSync) {
+		this(inputFormat, null, null);
+		this.isSync = isSync;
 	}
 
 	public ContinuousFileReaderOperatorFactory(InputFormat<OUT, ? super T> inputFormat, TypeInformation<OUT> type, ExecutionConfig executionConfig) {
@@ -58,11 +65,17 @@ public class ContinuousFileReaderOperatorFactory<OUT, T extends TimestampedInput
 
 	@Override
 	public <O extends StreamOperator<OUT>> O createStreamOperator(StreamOperatorParameters<OUT> parameters) {
-		ContinuousFileReaderOperator<OUT, T> operator = new ContinuousFileReaderOperator<>(inputFormat, processingTimeService, mailboxExecutor);
+		AbstractStreamOperator operator;
+		if (isSync) {
+			operator = new ContinuousFileSyncReaderOperator<OUT, T>(inputFormat, processingTimeService);
+			((ContinuousFileSyncReaderOperator<OUT, T>) operator).setOutputType(type, executionConfig);
+		} else {
+			operator = new ContinuousFileReaderOperator<OUT, T>(inputFormat, processingTimeService, mailboxExecutor);
+			((ContinuousFileReaderOperator<OUT, T>) operator).setOutputType(type, executionConfig);
+		}
 		operator.setDebugLoggingConverter(converter);
 		operator.setDebugLoggingLocation(location);
 		operator.setup(parameters.getContainingTask(), parameters.getStreamConfig(), parameters.getOutput());
-		operator.setOutputType(type, executionConfig);
 		return (O) operator;
 	}
 

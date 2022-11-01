@@ -89,16 +89,16 @@ public class HiveContinuousMonitoringFunction
 	private static final Logger LOG = LoggerFactory.getLogger(HiveContinuousMonitoringFunction.class);
 
 	/** The parallelism of the downstream readers. */
-	private final int readerParallelism;
+	protected final int readerParallelism;
 
 	/** The interval between consecutive path scans. */
 	private final long interval;
 
 	private final HiveShim hiveShim;
 
-	private final JobConfWrapper conf;
+	protected final JobConfWrapper conf;
 
-	private final ObjectPath tablePath;
+	protected final ObjectPath tablePath;
 
 	private final List<String> partitionKeys;
 
@@ -130,7 +130,7 @@ public class HiveContinuousMonitoringFunction
 
 	private transient ListState<List<List<String>>> distinctPartsState;
 
-	private transient IMetaStoreClient client;
+	protected transient IMetaStoreClient client;
 
 	private transient Properties tableProps;
 
@@ -312,7 +312,7 @@ public class HiveContinuousMonitoringFunction
 		}
 	}
 
-	private HiveTablePartition toHiveTablePartition(Partition p) {
+	protected HiveTablePartition toHiveTablePartition(Partition p) {
 		return HiveTableSource.toHiveTablePartition(
 				partitionKeys, fieldNames, fieldTypes, hiveShim, tableProps, defaultPartitionName, p);
 	}

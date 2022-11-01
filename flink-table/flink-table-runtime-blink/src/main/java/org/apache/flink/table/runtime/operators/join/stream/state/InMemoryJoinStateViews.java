@@ -119,14 +119,21 @@ public class InMemoryJoinStateViews {
 				return EmptyIterator.get();
 			}
 		}
+
+		@Override
+		public String stateViewSizeToString() throws Exception {
+			return "Key size and value size: " + rowDataMap.size();
+		}
 	}
 
 	private static class InputSideHasNoUniqueKey extends AbstractInMemoryStateView {
 		private final Map<RowData, List<RowData>> rowDataMap;
+		private long rowDataMapValueSize;
 
 		private InputSideHasNoUniqueKey(KeyContext keyContext, RowDataSerializer rowDataSerializer) {
 			super(keyContext, rowDataSerializer);
 			this.rowDataMap = new HashMap<>();
+			this.rowDataMapValueSize = 0;
 		}
 
 		@Override
@@ -136,6 +143,7 @@ public class InMemoryJoinStateViews {
 					v = new ArrayList<>();
 				}
 				v.add(record);
+				this.rowDataMapValueSize++;
 				return v;
 			});
 		}
@@ -144,6 +152,7 @@ public class InMemoryJoinStateViews {
 		public void retractRecord(RowData record) throws Exception {
 			rowDataMap.compute(getCurrentKey(), (k, v) -> {
 				if (v != null && v.remove(record)) {
+					this.rowDataMapValueSize--;
 					return v;
 				}
 				throw createRecordNotExistException(record);
@@ -158,5 +167,11 @@ public class InMemoryJoinStateViews {
 			}
 			return list;
 		}
+
+		@Override
+		public String stateViewSizeToString() throws Exception {
+			return "Key size: " + rowDataMap.keySet().size() + " Value size: " + this.rowDataMapValueSize;
+		}
+
 	}
 }

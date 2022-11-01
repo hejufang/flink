@@ -18,7 +18,9 @@
 
 package org.apache.flink.connectors.hive;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.connectors.hive.read.HiveContinuousMonitoringNewestPartitionFunction;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.catalog.CatalogDatabaseImpl;
@@ -41,10 +43,14 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -119,6 +125,67 @@ public class HiveTableFactoryTest {
 		TableSource tableSource = tableFactory.createTableSource(new TableSourceFactoryContextImpl(
 				ObjectIdentifier.of("mycatalog", "mydb", "mytable"), table, new Configuration()));
 		assertTrue(tableSource instanceof HiveTableSource);
+	}
+
+	// test for obtaining correct hive partition filter string when continuously monitoring newest partition
+	@Test(timeout = 30000)
+	public void testGetPartitionFilterStr() throws Exception {
+		Tuple2<String, String> datePartition = new Tuple2<>("p_date", "yyyyMMdd");
+		Tuple2<String, String> hourPartition = new Tuple2<>("hour", "HH");
+		String partitionFilter = "level='City' or level='Province'";
+		Tuple2<Integer, Integer> partitionPendingRange = new Tuple2<>(3, 10);
+		int lowerBounds = -partitionPendingRange.f1;
+		int probeLevel = Calendar.HOUR;
+
+		// use current date to construct partition filter string
+		Calendar cal = Calendar.getInstance();
+		SimpleDateFormat dateFormat = new SimpleDateFormat(datePartition.f1 + " " + hourPartition.f1);
+		Date currentDate = new Date();
+
+		// make sure the date format satisfy the specific format
+		Date newestPartitionDate = dateFormat.parse(dateFormat.format(currentDate));
+
+		// the return result would be like
+		// (p_date='20221026' and hour>='00') or ('20221026'<p_date and p_date<'20221026') or (p_date='20221026' and hour<='13') and (level='City' or level='Province')
+		String result = HiveContinuousMonitoringNewestPartitionFunction.getPartitionFilterStr(
+			datePartition,
+			hourPartition,
+			partitionFilter,
+			partitionPendingRange,
+			lowerBounds,
+			probeLevel,
+			newestPartitionDate,
+			cal,
+			dateFormat);
+
+		// construct the expected filter string
+		String expected = "";
+
+		int range = lowerBounds;
+		cal.setTime(newestPartitionDate);
+		cal.add(probeLevel, range);
+
+		// lower bound filter condition
+		String probePartitionDateStr = dateFormat.format(cal.getTime());
+		expected += "(" + datePartition.f0 + "='" + probePartitionDateStr.split(" ")[0] + "'";
+		expected += " and " + hourPartition.f0 + ">='" + probePartitionDateStr.split(" ")[1] + "'";
+		expected += ") or ('" + probePartitionDateStr.split(" ")[0] + "'<" + datePartition.f0;
+
+		range += partitionPendingRange.f0 - lowerBounds;
+		cal.setTime(newestPartitionDate);
+		cal.add(probeLevel, range);
+		probePartitionDateStr = dateFormat.format(cal.getTime());
+
+		// upper bound filter condition
+		expected += " and " + datePartition.f0 + "<'" + probePartitionDateStr.split(" ")[0] + "')";
+		expected += " or (" + datePartition.f0 + "='" + probePartitionDateStr.split(" ")[0] + "'";
+		expected += " and " + hourPartition.f0 + "<='" + probePartitionDateStr.split(" ")[1] + "'";
+		expected += ")";
+
+		// other filter condition
+		expected += " and (" + partitionFilter + ")";
+
+		assertEquals(expected, result);
 	}
 
 }

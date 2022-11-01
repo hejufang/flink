@@ -208,7 +208,8 @@ class StreamExecJoin(
         minRetentionTime,
         joinConfOption.get.allowLatencyMs,
         joinConfOption.get.maxBuildLatencyMs,
-        joinConfOption.get.table)
+        joinConfOption.get.table,
+        joinConfOption.get.timeOffset)
     } else if (joinType == JoinRelType.ANTI || joinType == JoinRelType.SEMI) {
       new StreamingSemiAntiJoinOperator(
         joinType == JoinRelType.ANTI,
