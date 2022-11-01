@@ -92,7 +92,27 @@ public class BlacklistUtil {
 	 */
 	public enum FailureType {
 		TASK_MANAGER,
-		TASK
+		TASK,
+		CRITICAL_EXCEPTION,
+		UNKNOWN
+	}
+
+	/**
+	 * Failure action type, how BlacklistAction deal with this BlackedRecord.
+	 */
+	public enum FailureActionType {
+		/**
+		 * not release resources, only not schedule to this host.
+		 */
+		NO_SCHEDULE,
+		/**
+		 * release the blacked resource and not schedule to this host.
+		 */
+		RELEASE_BLACKED_RESOURCE,
+		/**
+		 * release all resources in this host and not schedule to this host.
+		 */
+		RELEASE_BLACKED_HOST
 	}
 
 	/**

@@ -18,26 +18,34 @@
 
 package org.apache.flink.runtime.blacklist.tracker;
 
-import org.apache.flink.runtime.blacklist.BlacklistActions;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.blacklist.BlacklistRecord;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
-import org.apache.flink.runtime.clusterframework.types.ResourceID;
-import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
-
-import java.util.Set;
+import org.apache.flink.runtime.blacklist.HostFailure;
 
 /**
- * Interface for Blacklist tracker.
+ * handle failures and provide blacked records.
  */
-public interface BlacklistTracker extends AutoCloseable {
+interface FailureHandler {
+	@VisibleForTesting
+	int getMaxHostPerException();
 
-	void start(ComponentMainThreadExecutor mainThreadExecutor, BlacklistActions blacklistActions);
+	@VisibleForTesting
+	int getFilteredExceptionNumber();
 
-	void clearAll();
+	boolean addFailure(HostFailure hostFailure);
 
-	void onFailure(BlacklistUtil.FailureType failureType, String hostname, ResourceID resourceID, Throwable cause, long timestamp);
+	BlacklistUtil.FailureType getFailureType();
 
-	Set<BlacklistRecord> getBlackedRecords();
+	BlacklistUtil.FailureActionType getFailureActionType();
 
-	void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass);
+	BlacklistRecord getBlackedRecord();
+
+	void updateBlackedHostInternal();
+
+	BlackedExceptionAccuracy getBlackedRecordAccuracy();
+
+	void tryUpdateMaxHostPerExceptionThreshold(int totalWorkerNumber);
+
+	void clear();
 }

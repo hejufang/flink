@@ -33,8 +33,7 @@ import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.metrics.TagGaugeStoreImpl;
-import org.apache.flink.runtime.blacklist.BlacklistUtil;
-import org.apache.flink.runtime.blacklist.HostFailure;
+import org.apache.flink.runtime.blacklist.BlacklistRecord;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
@@ -641,35 +640,42 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	@Override
 	public void onBlacklistUpdated() {
-		Map<String, HostFailure> newBlackedHosts = blacklistTracker.getBlackedHosts();
-		Map<String, HostFailure> blackedCriticalHosts = blacklistTracker.getBlackedCriticalErrorHosts();
-		log.info("newBlackedHosts size is {}, blackedCriticalHosts size is {}", newBlackedHosts.size(), blackedCriticalHosts.size());
-		Set<String> blacklistAddition = new HashSet<>(newBlackedHosts.keySet());
+		Set<BlacklistRecord> blackedRecords = blacklistTracker.getBlackedRecords();
+
+		Set<String> newBlackedHosts = blackedRecords.stream().flatMap(r -> r.getBlackedHosts().stream()).collect(Collectors.toSet());
+		Set<String> blacklistRemoval = new HashSet<>(yarnBlackedHosts);
+		blacklistRemoval.removeAll(newBlackedHosts);
+
+		Set<String> blacklistAddition = new HashSet<>(newBlackedHosts);
 		blacklistAddition.removeAll(yarnBlackedHosts);
 
-		Set<String> blacklistRemoval = new HashSet<>(yarnBlackedHosts);
-		blacklistRemoval.removeAll(newBlackedHosts.keySet());
-
 		yarnBlackedHosts.clear();
-		yarnBlackedHosts.addAll(newBlackedHosts.keySet());
+		yarnBlackedHosts.addAll(newBlackedHosts);
 		resourceManagerClient.updateBlacklist(new ArrayList<>(blacklistAddition), new ArrayList<>(blacklistRemoval));
 		log.info("BlacklistUpdated, yarnBlackedHosts: {}, blacklistAddition: {}, blacklistRemoval: {}",
 				yarnBlackedHosts, blacklistAddition, blacklistRemoval);
-
-		// release all blacked containers.
-		newBlackedHosts.keySet().forEach(hostname -> {
-			Set<ResourceID> resourceIDS = blacklistTracker.getBlackedResources(BlacklistUtil.FailureType.TASK, hostname);
-			resourceIDS.forEach(resourceID -> {
-				if (workerNodeMap.containsKey(resourceID)) {
-					releaseBlackedResource(resourceID, WorkerExitCode.IN_BLACKLIST);
-				}
-			});
-		});
-
-		for (Map.Entry<ResourceID, YarnWorkerNode> entry : workerNodeMap.entrySet()){
-			if (blackedCriticalHosts.containsKey(entry.getValue().getContainer().getNodeId().getHost())) {
-				log.info("release resource {} ,host {}, because of critical error", entry.getKey(), entry.getValue().getContainer().getNodeId().getHost());
-				releaseBlackedResource(entry.getKey(), WorkerExitCode.IN_BLACKLIST_BECAUSE_CRITICAL_ERROR);
+		for (BlacklistRecord record : blackedRecords) {
+			switch (record.getActionType()) {
+				case RELEASE_BLACKED_RESOURCE:
+					record.getBlackedResources().forEach(
+							resourceID -> {
+								if (workerNodeMap.containsKey(resourceID)) {
+									releaseBlackedResource(resourceID, WorkerExitCode.IN_BLACKLIST);
+								}});
+					break;
+				case RELEASE_BLACKED_HOST:
+					Set<String> blackedHosts = record.getBlackedHosts();
+					for (Map.Entry<ResourceID, YarnWorkerNode> entry : workerNodeMap.entrySet()){
+						String hostname = entry.getValue().getContainer().getNodeId().getHost();
+						if (blackedHosts.contains(hostname)) {
+							log.info("release resource {} ,host {}, because of critical error", entry.getKey(), hostname);
+							releaseBlackedResource(entry.getKey(), WorkerExitCode.IN_BLACKLIST_BECAUSE_CRITICAL_ERROR);
+						}
+					}
+					break;
+				case NO_SCHEDULE:
+				default:
+					break;
 			}
 		}
 	}

@@ -19,8 +19,6 @@
 package org.apache.flink.runtime.blacklist;
 
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
-import org.apache.flink.runtime.throwable.ThrowableClassifier;
-import org.apache.flink.runtime.throwable.ThrowableType;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 
@@ -39,7 +37,6 @@ public class HostFailure {
 	private final ResourceID resourceID;
 	private final Throwable exception;
 	private final long timestamp;
-	private final boolean isCrtialError;
 
 	public HostFailure(
 			BlacklistUtil.FailureType failureType,
@@ -56,12 +53,6 @@ public class HostFailure {
 		}
 		this.exception = t;
 		this.timestamp = timestamp;
-		if (ThrowableClassifier.findThrowableOfThrowableType(
-			exception, ThrowableType.CriticalError).isPresent()) {
-			isCrtialError = true;
-		} else {
-			isCrtialError = false;
-		}
 	}
 
 	public BlacklistUtil.FailureType getFailureType() {
@@ -82,10 +73,6 @@ public class HostFailure {
 
 	public long getTimestamp() {
 		return timestamp;
-	}
-
-	public boolean isCrtialError() {
-		return isCrtialError;
 	}
 
 	@Override

@@ -62,7 +62,7 @@ public class RemoteBlacklistReporterImpl implements RemoteBlacklistReporter {
 
 	private ComponentMainThreadExecutor componentMainThreadExecutor;
 
-	private final BlacklistUtil.FailureType failureType = BlacklistUtil.FailureType.TASK;
+	private final BlacklistUtil.FailureType failureType = BlacklistUtil.FailureType.UNKNOWN;
 
 	private final List<Class<? extends Throwable>> cachedExceptionClass;
 

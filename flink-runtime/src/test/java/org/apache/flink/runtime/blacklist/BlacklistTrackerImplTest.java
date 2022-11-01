@@ -35,6 +35,8 @@ import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
+
 /**
  * Test for blacklist tracker.
  */
@@ -47,15 +49,14 @@ public class BlacklistTrackerImplTest {
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				2, 2, 3, 3,
 				Time.seconds(60), Time.seconds(1), false, 100, 3, 0.05, UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
-		blacklistTracker.start(
-				mainThreadExecutor,
-				createTestingBlacklistActions());
+		blacklistTracker.start(mainThreadExecutor, createTestingBlacklistActions());
 		BlacklistReporter blacklistReporter = new LocalBlacklistReporterImpl(blacklistTracker);
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host1", new ResourceID("resource2"), new RuntimeException("exception2"), clock.absoluteTimeMillis());
-		Assert.assertTrue(blacklistTracker.getBlackedHosts().containsKey("host1"));
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 1);
-		Assert.assertEquals(blacklistTracker.getBlackedResources(BlacklistUtil.FailureType.TASK_MANAGER, "host1").size(), 2);
+		BlacklistRecord blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertTrue(blacklistRecord.getBlackedHosts().contains("host1"));
+		Assert.assertEquals(1, blacklistRecord.getBlackedHosts().size());
+		Assert.assertEquals(2, blacklistRecord.getBlackedResources().size());
 		blacklistTracker.close();
 	}
 
@@ -73,12 +74,14 @@ public class BlacklistTrackerImplTest {
 		BlacklistReporter blacklistReporter = new LocalBlacklistReporterImpl(blacklistTracker);
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host1", new ResourceID("resource2"), new RuntimeException("exception2"), clock.absoluteTimeMillis() + 2000);
-		Assert.assertTrue(blacklistTracker.getBlackedHosts().containsKey("host1"));
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 1);
+		BlacklistRecord blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertTrue(blacklistRecord.getBlackedHosts().contains("host1"));
+		Assert.assertEquals(1, blacklistRecord.getBlackedHosts().size());
 		clock.advanceTime(2000, TimeUnit.MILLISECONDS);
 
 		executor.triggerNonPeriodicScheduledTask();
-		Assert.assertTrue(blacklistTracker.getBlackedHosts().isEmpty());
+		blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertTrue(blacklistRecord.getBlackedHosts().isEmpty());
 		blacklistTracker.close();
 	}
 
@@ -97,11 +100,12 @@ public class BlacklistTrackerImplTest {
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host2", new ResourceID("resource2"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host2", new ResourceID("resource3"), new RuntimeException("exception2"), clock.absoluteTimeMillis());
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 2);
-		Assert.assertTrue(blacklistTracker.getBlackedHosts().containsKey("host1") && blacklistTracker.getBlackedHosts().containsKey("host2"));
+		BlacklistRecord blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertThat(blacklistRecord.getBlackedHosts(), containsInAnyOrder("host1", "host2"));
 		blacklistReporter.onFailure("host3", new ResourceID("resource3"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 2);
-		Assert.assertTrue(blacklistTracker.getBlackedHosts().containsKey("host2") && blacklistTracker.getBlackedHosts().containsKey("host3"));
+		blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertEquals(2, blacklistRecord.getBlackedHosts().size());
+		Assert.assertThat(blacklistRecord.getBlackedHosts(), containsInAnyOrder("host2", "host3"));
 		blacklistTracker.close();
 	}
 
@@ -120,25 +124,27 @@ public class BlacklistTrackerImplTest {
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host2", new ResourceID("resource2"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host2", new ResourceID("resource3"), new RuntimeException("exception2"), clock.absoluteTimeMillis());
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 2);
-		Assert.assertTrue(blacklistTracker.getBlackedHosts().containsKey("host1") && blacklistTracker.getBlackedHosts().containsKey("host2"));
+		BlacklistRecord blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertEquals(2, blacklistRecord.getBlackedHosts().size());
+		Assert.assertThat(blacklistRecord.getBlackedHosts(), containsInAnyOrder("host1", "host2"));
+
 		blacklistReporter.onFailure("host3", new ResourceID("resource3"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 2);
-		Assert.assertTrue(blacklistTracker.getBlackedHosts().containsKey("host2") && blacklistTracker.getBlackedHosts().containsKey("host3"));
+		blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertEquals(2, blacklistRecord.getBlackedHosts().size());
+		Assert.assertThat(blacklistRecord.getBlackedHosts(), containsInAnyOrder("host2", "host3"));
 
-		BlacklistReporter taskBlacklistReporter = new BlacklistReporter() {
-			@Override
-			public void onFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp) {
-				blacklistTracker.onFailure(BlacklistUtil.FailureType.TASK, hostname, resourceID, t, timestamp);
-			}
+		BlacklistReporter taskBlacklistReporter = createBlacklistReporter(blacklistTracker, BlacklistUtil.FailureType.UNKNOWN);
 
-			@Override
-			public void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass) { }
-		};
 		taskBlacklistReporter.onFailure("host4", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 3);
+		BlacklistRecord taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK, blacklistTracker);
+		Assert.assertEquals(1, taskBlacklistRecord.getBlackedHosts().size());
+		Assert.assertThat(taskBlacklistRecord.getBlackedHosts(), containsInAnyOrder("host4"));
+
+		clock.advanceTime(1, TimeUnit.MILLISECONDS);
 		taskBlacklistReporter.onFailure("host5", new ResourceID("resource2"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 3);
+		taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK, blacklistTracker);
+		Assert.assertEquals(1, taskBlacklistRecord.getBlackedHosts().size());
+		Assert.assertThat(taskBlacklistRecord.getBlackedHosts(), containsInAnyOrder("host5"));
 
 		blacklistTracker.close();
 	}
@@ -151,13 +157,16 @@ public class BlacklistTrackerImplTest {
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 			3, 3, 1, 2,
 			Time.seconds(60), Time.seconds(1), true, 100, 3, 0.05, UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
-		blacklistTracker.start(
-				mainThreadExecutor,
-			createTestingBlacklistActions());
-		BlacklistReporter blacklistReporter = new LocalBlacklistReporterImpl(blacklistTracker);
+		blacklistTracker.start(mainThreadExecutor, createTestingBlacklistActions());
+
+		BlacklistReporter blacklistReporter = createBlacklistReporter(blacklistTracker, BlacklistUtil.FailureType.UNKNOWN);
+
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new CriticalExceptionTest("exception1"), clock.absoluteTimeMillis());
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 1);
-		Assert.assertEquals(blacklistTracker.getBlackedCriticalErrorHosts().size(), 1);
+
+		BlacklistRecord taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.CRITICAL_EXCEPTION, blacklistTracker);
+		Assert.assertEquals(BlacklistUtil.FailureActionType.RELEASE_BLACKED_HOST, taskBlacklistRecord.getActionType());
+		Assert.assertEquals(1, taskBlacklistRecord.getBlackedHosts().size());
+		Assert.assertThat(taskBlacklistRecord.getBlackedHosts(), containsInAnyOrder("host1"));
 
 		blacklistTracker.close();
 	}
@@ -176,9 +185,13 @@ public class BlacklistTrackerImplTest {
 		BlacklistReporter blacklistReporter = new LocalBlacklistReporterImpl(blacklistTracker);
 		blacklistReporter.addIgnoreExceptionClass(RuntimeException.class);
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
-		Assert.assertTrue(blacklistTracker.getBlackedHosts().isEmpty());
+
+		BlacklistRecord taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertEquals(0, taskBlacklistRecord.getBlackedHosts().size());
+
 		blacklistReporter.onFailure("host2", new ResourceID("resource1"), new Exception("exception1"), clock.absoluteTimeMillis());
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 1);
+		taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertEquals(1, taskBlacklistRecord.getBlackedHosts().size());
 		blacklistTracker.close();
 	}
 
@@ -236,7 +249,10 @@ public class BlacklistTrackerImplTest {
 		blacklistReporter.onFailure("host1", new ResourceID("resource2"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host2", new ResourceID("resource3"), new Exception("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host2", new ResourceID("resource4"), new Exception("exception1"), clock.absoluteTimeMillis());
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 2);
+
+		BlacklistRecord taskBlacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertEquals(2, taskBlacklistRecord.getBlackedHosts().size());
+		Assert.assertThat(taskBlacklistRecord.getBlackedHosts(), containsInAnyOrder("host1", "host2"));
 
 		// check these two exception is unknown.
 		BlackedExceptionAccuracy blackedExceptionAccuracy = blacklistTracker.getBlackedExceptionAccuracies().get(BlacklistUtil.FailureType.TASK_MANAGER);
@@ -282,7 +298,9 @@ public class BlacklistTrackerImplTest {
 		blacklistReporter.onFailure("host2", new ResourceID("resource2"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host3", new ResourceID("resource3"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host4", new ResourceID("resource4"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 0);
+
+		BlacklistRecord blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertEquals(0, blacklistRecord.getBlackedHosts().size());
 		Assert.assertEquals(1, (long) blacklistTracker.getFilteredExceptionNumber().get(BlacklistUtil.FailureType.TASK_MANAGER));
 
 		// failure timeout.
@@ -291,7 +309,8 @@ public class BlacklistTrackerImplTest {
 		executor.triggerNonPeriodicScheduledTask();
 		executor.triggerNonPeriodicScheduledTask();
 
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 0);
+		blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertEquals(0, blacklistRecord.getBlackedHosts().size());
 		Assert.assertEquals(0, (long) blacklistTracker.getFilteredExceptionNumber().get(BlacklistUtil.FailureType.TASK_MANAGER));
 
 		blacklistTracker.close();
@@ -316,7 +335,8 @@ public class BlacklistTrackerImplTest {
 		blacklistReporter.onFailure("host2", new ResourceID("resource2"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host3", new ResourceID("resource3"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
 		blacklistReporter.onFailure("host4", new ResourceID("resource4"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 0);
+		BlacklistRecord blacklistRecord = getBlacklistRecordByType(BlacklistUtil.FailureType.TASK_MANAGER, blacklistTracker);
+		Assert.assertEquals(0, blacklistRecord.getBlackedHosts().size());
 		Assert.assertEquals(1, (long) blacklistTracker.getFilteredExceptionNumber().get(BlacklistUtil.FailureType.TASK_MANAGER));
 
 		// renew filtered exception.
@@ -325,14 +345,13 @@ public class BlacklistTrackerImplTest {
 		executor.triggerNonPeriodicScheduledTask();
 		executor.triggerNonPeriodicScheduledTask();
 		executor.triggerNonPeriodicScheduledTask();
+		Assert.assertEquals(1, (long) blacklistTracker.getFilteredExceptionNumber().get(BlacklistUtil.FailureType.TASK_MANAGER));
 
 		// failure(resource1~4) timeout, left failure(resource5)
 		clock.advanceTime(301_000L, TimeUnit.MILLISECONDS);
 		executor.triggerNonPeriodicScheduledTask();
 		executor.triggerNonPeriodicScheduledTask();
 		executor.triggerNonPeriodicScheduledTask();
-
-		Assert.assertEquals(blacklistTracker.getBlackedHosts().size(), 0);
 		Assert.assertEquals(1, (long) blacklistTracker.getFilteredExceptionNumber().get(BlacklistUtil.FailureType.TASK_MANAGER));
 
 		blacklistTracker.close();
@@ -347,6 +366,22 @@ public class BlacklistTrackerImplTest {
 		return new ComponentMainThreadExecutorServiceAdapter(
 				manuallyTriggeredScheduledExecutor,
 				main);
+	}
+
+	public BlacklistReporter createBlacklistReporter(BlacklistTrackerImpl blacklistTracker, BlacklistUtil.FailureType failureType) {
+		return new BlacklistReporter() {
+			@Override
+			public void onFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp) {
+				blacklistTracker.onFailure(failureType, hostname, resourceID, t, timestamp);
+			}
+
+			@Override
+			public void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass) { }
+		};
+	}
+
+	public BlacklistRecord getBlacklistRecordByType(BlacklistUtil.FailureType failureType, BlacklistTrackerImpl blacklistTracker) {
+		return blacklistTracker.getBlackedRecords().stream().filter(r -> r.getFailureType().equals(failureType)).findFirst().get();
 	}
 
 }

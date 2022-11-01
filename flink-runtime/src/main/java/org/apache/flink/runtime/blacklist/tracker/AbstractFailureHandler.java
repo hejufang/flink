@@ -18,33 +18,29 @@
 
 package org.apache.flink.runtime.blacklist.tracker;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.HostFailure;
 import org.apache.flink.runtime.blacklist.WarehouseBlacklistFailureMessage;
-import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.util.clock.Clock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
- * maintain all failures and blacked hosts for one kind of {@link org.apache.flink.runtime.blacklist.BlacklistUtil.FailureType}.
+ * the abstract implement of {@link FailureHandler}.
+ * maintain all failures and filtered exceptions.
  */
-public class HostFailures {
-	private static final Logger LOG = LoggerFactory.getLogger(HostFailures.class);
+public abstract class AbstractFailureHandler implements FailureHandler {
+	private static final Logger LOG = LoggerFactory.getLogger(AbstractFailureHandler.class);
 
 	// Exceptions within this time period will be ignored after the blacked record. These exceptions may cause by old failover.
 	private final Long failureTolerateTime = 60_000L;
@@ -52,8 +48,6 @@ public class HostFailures {
 	private final Long accuracyCheckingTime = 360_000L;
 	private final LinkedList<HostFailure> hostFailureQueue;
 	private final Map<Class<? extends Throwable>, Long> filteredExceptions;
-	private final Map<String, HostFailure> blackedHosts;
-	private final Map<String, HostFailure> criticalBlackedHosts;
 	private final int maxFailureNum;
 	private final double maxHostPerExceptionRatio;
 	private final int maxHostPerExceptionMinNumber;
@@ -63,8 +57,10 @@ public class HostFailures {
 	private final int blacklistMaxLength;
 	private final MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet;
 	private final Clock clock;
+	private final BlacklistUtil.FailureActionType failureActionType;
+	private final BlacklistUtil.FailureType failureType;
 
-	public HostFailures(
+	public AbstractFailureHandler(
 			int maxFailureNumPerHost,
 			Time failureTimeout,
 			int blacklistMaxLength,
@@ -72,11 +68,11 @@ public class HostFailures {
 			double maxHostPerExceptionRatio,
 			int maxHostPerExceptionMinNumber,
 			Clock clock,
-			MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet) {
+			MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet,
+			BlacklistUtil.FailureActionType failureActionType,
+			BlacklistUtil.FailureType failureType) {
 		this.hostFailureQueue = new LinkedList<>();
 		this.filteredExceptions = new HashMap<>();
-		this.blackedHosts = new HashMap<>();
-		this.criticalBlackedHosts = new HashMap<>();
 		this.maxFailureNumPerHost = maxFailureNumPerHost;
 		this.failureTimeout = failureTimeout;
 		this.blacklistMaxLength = blacklistMaxLength;
@@ -86,18 +82,51 @@ public class HostFailures {
 		this.maxHostPerExceptionMinNumber = maxHostPerExceptionMinNumber;
 		this.maxHostPerException = maxHostPerExceptionMinNumber;
 		this.clock = clock;
+		this.failureActionType = failureActionType;
+		this.failureType = failureType;
 	}
 
-	@VisibleForTesting
-	public int getMaxHostPerExceptionNumber() {
+	/*
+	 * Getters.
+	 */
+
+	public LinkedList<HostFailure> getHostFailureQueue() {
+		return hostFailureQueue;
+	}
+
+	public int getMaxFailureNumPerHost() {
+		return maxFailureNumPerHost;
+	}
+
+	public int getBlacklistMaxLength() {
+		return blacklistMaxLength;
+	}
+
+	/*
+	 * Overrides.
+	 */
+
+	@Override
+	public int getMaxHostPerException() {
 		return maxHostPerException;
 	}
 
-	@VisibleForTesting
+	@Override
 	public int getFilteredExceptionNumber() {
 		return filteredExceptions.size();
 	}
 
+	@Override
+	public BlacklistUtil.FailureActionType getFailureActionType() {
+		return failureActionType;
+	}
+
+	@Override
+	public BlacklistUtil.FailureType getFailureType() {
+		return failureType;
+	}
+
+	@Override
 	public boolean addFailure(HostFailure hostFailure) {
 		blacklistFailureMessageSet.addMessage(
 				new Message<>(WarehouseBlacklistFailureMessage.fromHostFailure(hostFailure)));
@@ -118,43 +147,68 @@ public class HostFailures {
 		}
 	}
 
-	public void tryRemoveOutdatedFailure() {
-		// remove excess failures.
-		while (hostFailureQueue.size() > maxFailureNum) {
-			LOG.debug("Failure queue too long {}, remove the first one", hostFailureQueue.size());
-			hostFailureQueue.removeFirst();
-		}
+	@Override
+	public BlackedExceptionAccuracy getBlackedRecordAccuracy() {
+		Set<Class<? extends Throwable>> unknownBlackedException = new HashSet<>();
+		Set<Class<? extends Throwable>> wrongBlackedException = new HashSet<>();
+		Set<Class<? extends Throwable>> rightBlackedException = new HashSet<>();
 
 		long currentTs = clock.absoluteTimeMillis();
-		// remove outdated failures.
-		hostFailureQueue.removeIf(hostFailure -> (currentTs - hostFailure.getTimestamp()) > failureTimeout.toMilliseconds());
-		// remove outdated filtered exceptions.
-		filteredExceptions.entrySet().removeIf(filterException -> {
-			boolean r = currentTs - filterException.getValue() > failureTimeout.toMilliseconds();
-			if (r) {
-				LOG.info("filtered exception {} at {} removed", filterException.getKey(), filterException.getValue());
+		for (HostFailure latestBlackedFailure : getBlackedRecord().getLatestBlackedFailure()) {
+			Class<? extends Throwable> exception = latestBlackedFailure.getException().getClass();
+			if (latestBlackedFailure.getTimestamp() > currentTs - accuracyCheckingTime) {
+				// not exceed accuracyMarkRightTimeout, this record is unknown or wrong.
+				unknownBlackedException.add(exception);
+			} else {
+				rightBlackedException.add(exception);
 			}
-			return r;
-		});
+
+			for (HostFailure hostFailure : hostFailureQueue) {
+				if (exception.equals(hostFailure.getException().getClass()) &&
+						hostFailure.getTimestamp() > latestBlackedFailure.getTimestamp() + failureTolerateTime && hostFailure.getTimestamp() < latestBlackedFailure.getTimestamp() + accuracyCheckingTime) {
+					wrongBlackedException.add(exception);
+				}
+			}
+		}
+
+		unknownBlackedException.removeAll(wrongBlackedException);
+		rightBlackedException.removeAll(unknownBlackedException);
+		rightBlackedException.removeAll(wrongBlackedException);
+		LOG.debug("rightBlackedException: {}, wrongBlackedException: {}, unknownBlackedException: {}", rightBlackedException, wrongBlackedException, unknownBlackedException);
+		return new BlackedExceptionAccuracy(unknownBlackedException, wrongBlackedException, rightBlackedException);
 	}
 
-	public Set<ResourceID> getResources(String hostname) {
-		return hostFailureQueue.stream()
-				.filter(hostFailure -> hostFailure.getHostname().equals(hostname))
-				.map(HostFailure::getResourceID)
-				.collect(Collectors.toSet());
+	@Override
+	public void tryUpdateMaxHostPerExceptionThreshold(int totalWorkerNumber) {
+		int newMaxHostPerException = Math.max(maxHostPerExceptionMinNumber, (int) Math.ceil(totalWorkerNumber * maxHostPerExceptionRatio));
+		if (newMaxHostPerException != maxHostPerException) {
+			LOG.info("Update maxHostPerException from {} to {}.", maxHostPerException, newMaxHostPerException);
+			maxHostPerException = newMaxHostPerException;
+		}
 	}
 
-	public Map<String, HostFailure> getBlackedHosts() {
-		tryRemoveOutdatedFailure();
+	@Override
+	public void clear() {
+		this.hostFailureQueue.clear();
+		this.filteredExceptions.clear();
+	}
 
+	/*
+	 * Internal methods
+	 */
+
+	public boolean isExceptionFiltered(Class<? extends Throwable> exceptionClass) {
+		return filteredExceptions.containsKey(exceptionClass);
+	}
+
+	public void tryUpdateFilteredException() {
+		if (maxHostPerException <= 0) {
+			return;
+		}
 		// add new filtered exceptions.
 		Map<Class<? extends Throwable>, Set<String>> exceptions = new HashMap<>();
 		Map<Class<? extends Throwable>, Long> exceptionLastTimestamp = new HashMap<>();
-		for (HostFailure hostFailure : hostFailureQueue) {
-			if (hostFailure.isCrtialError()) {
-				continue;
-			}
+		for (HostFailure hostFailure : getHostFailureQueue()) {
 			Class<? extends Throwable> exceptionClass = hostFailure.getException().getClass();
 			exceptions.computeIfAbsent(exceptionClass, ignore -> new HashSet<>()).add(hostFailure.getHostname());
 			exceptionLastTimestamp.put(exceptionClass, hostFailure.getTimestamp());
@@ -173,101 +227,25 @@ public class HostFailures {
 				}
 			}
 		}
-
-		// check blacked host.
-		Map<String, LinkedList<HostFailure>> tmpHostFailures = new HashMap<>();
-		blackedHosts.clear();
-		criticalBlackedHosts.clear();
-		for (HostFailure hostFailure : hostFailureQueue) {
-			if (hostFailure.isCrtialError()) {
-				LOG.debug("Add Critical blacked host {}", hostFailure.getHostname());
-				criticalBlackedHosts.put(hostFailure.getHostname(), hostFailure);
-			}
-			if (!filteredExceptions.containsKey(hostFailure.getException().getClass())) {
-				tmpHostFailures.computeIfAbsent(hostFailure.getHostname(), ignore -> new LinkedList<>()).add(hostFailure);
-			}
-		}
-
-		if (criticalBlackedHosts.size() > blacklistMaxLength) {
-			// too many blacked host, shortcut to return.
-			return criticalBlackedHosts;
-		}
-
-		for (Map.Entry<String, LinkedList<HostFailure>> hostFailuresEntry : tmpHostFailures.entrySet()) {
-			String host = hostFailuresEntry.getKey();
-			LinkedList<HostFailure> failures = hostFailuresEntry.getValue();
-			if (criticalBlackedHosts.containsKey(host)) {
-				// critical failure already marked.
-				continue;
-			}
-			if (failures.size() >= maxFailureNumPerHost) {
-				LOG.debug("Add normal blacked host {}", host);
-				blackedHosts.put(host, failures.getLast());
-			}
-		}
-
-		int remainingBlacklistLength = blacklistMaxLength - criticalBlackedHosts.size();
-		if (blackedHosts.size() > remainingBlacklistLength) {
-			List<String> keyList = new ArrayList<>(blackedHosts.keySet());
-			keyList.sort(Comparator.comparingLong(o -> blackedHosts.get(o).getTimestamp()));
-			for (String host : keyList) {
-				if (blackedHosts.size() > remainingBlacklistLength) {
-					LOG.debug("Remove normal blacked host {} because exceed blacklist max length", host);
-					blackedHosts.remove(host);
-				} else {
-					break;
-				}
-			}
-		}
-
-		Map<String, HostFailure> allBlackedHosts = new HashMap<>();
-		allBlackedHosts.putAll(criticalBlackedHosts);
-		allBlackedHosts.putAll(blackedHosts);
-		return allBlackedHosts;
 	}
 
-	public BlackedExceptionAccuracy getBlackedRecordAccuracy() {
-		Set<Class<? extends Throwable>> unknownBlackedException = new HashSet<>();
-		Set<Class<? extends Throwable>> wrongBlackedException = new HashSet<>();
-		Set<Class<? extends Throwable>> rightBlackedException = new HashSet<>();
+	public void tryRemoveOutdatedFailure() {
+		// remove excess failures.
+		while (hostFailureQueue.size() > maxFailureNum) {
+			LOG.info("Failure queue too long {}, remove the first one", hostFailureQueue.size());
+			hostFailureQueue.removeFirst();
+		}
 
 		long currentTs = clock.absoluteTimeMillis();
-		for (HostFailure blackedRecord : blackedHosts.values()) {
-			Class<? extends Throwable> exception = blackedRecord.getException().getClass();
-			if (blackedRecord.getTimestamp() > currentTs - accuracyCheckingTime) {
-				// not exceed accuracyMarkRightTimeout, this record is unknown or wrong.
-				unknownBlackedException.add(exception);
-			} else {
-				rightBlackedException.add(exception);
+		// remove outdated failures.
+		hostFailureQueue.removeIf(hostFailure -> (currentTs - hostFailure.getTimestamp()) > failureTimeout.toMilliseconds());
+		// remove outdated filtered exceptions.
+		filteredExceptions.entrySet().removeIf(filterException -> {
+			boolean r = currentTs - filterException.getValue() > failureTimeout.toMilliseconds();
+			if (r) {
+				LOG.info("filtered exception {} at {} removed", filterException.getKey(), filterException.getValue());
 			}
-
-			for (HostFailure hostFailure : hostFailureQueue) {
-				if (exception.equals(hostFailure.getException().getClass()) &&
-						hostFailure.getTimestamp() > blackedRecord.getTimestamp() + failureTolerateTime && hostFailure.getTimestamp() < blackedRecord.getTimestamp() + accuracyCheckingTime) {
-					wrongBlackedException.add(exception);
-				}
-			}
-		}
-
-		unknownBlackedException.removeAll(wrongBlackedException);
-		rightBlackedException.removeAll(unknownBlackedException);
-		rightBlackedException.removeAll(wrongBlackedException);
-		LOG.debug("rightBlackedException: {}, wrongBlackedException: {}, unknownBlackedException: {}", rightBlackedException, wrongBlackedException, unknownBlackedException);
-		return new BlackedExceptionAccuracy(unknownBlackedException, wrongBlackedException, rightBlackedException);
-	}
-
-	public void tryUpdateMaxHostPerExceptionThreshold(int totalWorkerNumber) {
-		int newMaxHostPerException = Math.max(maxHostPerExceptionMinNumber, (int) Math.ceil(totalWorkerNumber * maxHostPerExceptionRatio));
-		if (newMaxHostPerException != maxHostPerException) {
-			LOG.info("Update maxHostPerException from {} to {}.", maxHostPerException, newMaxHostPerException);
-			maxHostPerException = newMaxHostPerException;
-		}
-	}
-
-	public void clear() {
-		this.hostFailureQueue.clear();
-		this.filteredExceptions.clear();
-		this.blackedHosts.clear();
-		this.criticalBlackedHosts.clear();
+			return r;
+		});
 	}
 }

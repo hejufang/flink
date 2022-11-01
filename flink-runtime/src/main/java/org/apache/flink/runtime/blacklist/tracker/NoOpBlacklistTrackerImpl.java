@@ -19,13 +19,12 @@
 package org.apache.flink.runtime.blacklist.tracker;
 
 import org.apache.flink.runtime.blacklist.BlacklistActions;
+import org.apache.flink.runtime.blacklist.BlacklistRecord;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
-import org.apache.flink.runtime.blacklist.HostFailure;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 
 import java.util.Collections;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -42,17 +41,7 @@ public class NoOpBlacklistTrackerImpl implements BlacklistTracker {
 	public void onFailure(BlacklistUtil.FailureType failureType, String hostname, ResourceID resourceID, Throwable cause, long timestamp) { }
 
 	@Override
-	public Map<String, HostFailure> getBlackedHosts() {
-		return Collections.emptyMap();
-	}
-
-	@Override
-	public Map<String, HostFailure> getBlackedCriticalErrorHosts() {
-		return Collections.emptyMap();
-	}
-
-	@Override
-	public Set<ResourceID> getBlackedResources(BlacklistUtil.FailureType failureType, String hostname) {
+	public Set<BlacklistRecord> getBlackedRecords() {
 		return Collections.emptySet();
 	}
 
