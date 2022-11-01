@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
 
 import java.io.IOException;
@@ -54,4 +55,6 @@ public interface ResultPartitionProvider {
 	default void cancelSubpartitionRequestNotify(NetworkSequenceViewReader networkSequenceViewReader){
 
 	}
+
+	default void registerMetric(MetricGroup metricGroup){}
 }

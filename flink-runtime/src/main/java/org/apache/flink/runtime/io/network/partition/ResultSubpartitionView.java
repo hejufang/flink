@@ -58,6 +58,8 @@ public interface ResultSubpartitionView {
 
 	default void minusCredit(int credit){}
 
+	default void updateLatency(long sendTime, long lastReceiveTime){}
+
 	boolean isAvailable(int numCreditsAvailable);
 
 	int unsynchronizedGetNumberOfQueuedBuffers();

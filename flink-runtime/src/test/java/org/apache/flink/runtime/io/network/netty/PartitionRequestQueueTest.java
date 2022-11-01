@@ -107,8 +107,8 @@ public class PartitionRequestQueueTest {
 		PartitionRequestQueue queue = new PartitionRequestQueue();
 		EmbeddedChannel channel = new EmbeddedChannel(queue);
 
-		CreditBasedSequenceNumberingViewReader reader1 = new CreditBasedSequenceNumberingViewReader(new InputChannelID(0, 0), 10, queue, new ResultPartitionID(), (partitionId, index, availabilityListener) -> new EmptyAlwaysAvailableResultSubpartitionView(), false);
-		CreditBasedSequenceNumberingViewReader reader2 = new CreditBasedSequenceNumberingViewReader(new InputChannelID(1, 1), 10, queue, new ResultPartitionID(), (partitionId, index, availabilityListener) -> new DefaultBufferResultSubpartitionView(buffersToWrite), false);
+		CreditBasedSequenceNumberingViewReader reader1 = new CreditBasedSequenceNumberingViewReader(new InputChannelID(0, 0), 10, queue, new ResultPartitionID(), (partitionId, index, availabilityListener) -> new EmptyAlwaysAvailableResultSubpartitionView(), null, false);
+		CreditBasedSequenceNumberingViewReader reader2 = new CreditBasedSequenceNumberingViewReader(new InputChannelID(1, 1), 10, queue, new ResultPartitionID(), (partitionId, index, availabilityListener) -> new DefaultBufferResultSubpartitionView(buffersToWrite), null, false);
 
 		reader1.requestSubpartitionView(0);
 		reader1.notifyDataAvailable();
@@ -145,7 +145,7 @@ public class PartitionRequestQueueTest {
 
 		EmbeddedChannel ch = new EmbeddedChannel(queue);
 
-		CreditBasedSequenceNumberingViewReader seqView = new CreditBasedSequenceNumberingViewReader(new InputChannelID(), 2, queue, new ResultPartitionID(), partitionProvider, false);
+		CreditBasedSequenceNumberingViewReader seqView = new CreditBasedSequenceNumberingViewReader(new InputChannelID(), 2, queue, new ResultPartitionID(), partitionProvider, null, false);
 		seqView.requestSubpartitionView(0);
 		// Add available buffer to trigger enqueue the erroneous view
 		seqView.notifyDataAvailable();
@@ -184,8 +184,8 @@ public class PartitionRequestQueueTest {
 		final ResultPartitionManager partitionManager = new ResultPartitionManager();
 		ResultPartitionID resultPartitionId = new ResultPartitionID();
 		ResultPartitionID resultPartitionId2 = new ResultPartitionID();
-		CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(new InputChannelID(0, 0), 10, queue, resultPartitionId, partitionManager, true);
-		CreditBasedSequenceNumberingViewReader reader2 = new CreditBasedSequenceNumberingViewReader(new InputChannelID(1, 1), 10, queue, resultPartitionId2, partitionManager, true);
+		CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(new InputChannelID(0, 0), 10, queue, resultPartitionId, partitionManager, null, true);
+		CreditBasedSequenceNumberingViewReader reader2 = new CreditBasedSequenceNumberingViewReader(new InputChannelID(1, 1), 10, queue, resultPartitionId2, partitionManager, null, true);
 		final NetworkBufferPool globalPool = new SimpleNetworkBufferPool(10, 128, 2);
 		final BufferPool localPool = globalPool.createBufferPool(1, 1, null, 1, Integer.MAX_VALUE);
 		final ResultPartitionWriter resultPartition = new ResultPartitionBuilder()
@@ -223,7 +223,7 @@ public class PartitionRequestQueueTest {
 			queue,
 			new ResultPartitionID(),
 			partitionProvider,
-			false);
+			null, false);
 		final EmbeddedChannel channel = new EmbeddedChannel(queue);
 
 		reader.requestSubpartitionView(0);
@@ -328,7 +328,7 @@ public class PartitionRequestQueueTest {
 
 		final InputChannelID receiverId = new InputChannelID();
 		final PartitionRequestQueue queue = new PartitionRequestQueue();
-		final CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(receiverId, 0, queue, new ResultPartitionID(), partitionProvider, false);
+		final CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(receiverId, 0, queue, new ResultPartitionID(), partitionProvider, null, false);
 		final EmbeddedChannel channel = new EmbeddedChannel(queue);
 
 		reader.requestSubpartitionView(0);
@@ -376,7 +376,7 @@ public class PartitionRequestQueueTest {
 
 		final InputChannelID receiverId = new InputChannelID();
 		final PartitionRequestQueue queue = new PartitionRequestQueue();
-		final CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(receiverId, 0, queue, new ResultPartitionID(), partitionProvider, false);
+		final CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(receiverId, 0, queue, new ResultPartitionID(), partitionProvider, null, false);
 		final EmbeddedChannel channel = new EmbeddedChannel(queue);
 
 		reader.requestSubpartitionView(0);
@@ -444,7 +444,7 @@ public class PartitionRequestQueueTest {
 
 		final InputChannelID receiverId = new InputChannelID();
 		final PartitionRequestQueue queue = new PartitionRequestQueue();
-		final CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(receiverId, 0, queue, new ResultPartitionID(), partitionProvider, false);
+		final CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(receiverId, 0, queue, new ResultPartitionID(), partitionProvider, null, false);
 
 		reader.requestSubpartitionView(0);
 		queue.notifyReaderCreated(reader);
@@ -477,7 +477,7 @@ public class PartitionRequestQueueTest {
 
 		InputChannelID receiverId = new InputChannelID();
 		PartitionRequestQueue queue = new PartitionRequestQueue();
-		CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(receiverId, 0, queue, new ResultPartitionID(), partitionProvider, false);
+		CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(receiverId, 0, queue, new ResultPartitionID(), partitionProvider, null, false);
 		EmbeddedChannel channel = new EmbeddedChannel(queue);
 
 		reader.requestSubpartitionView(0);
@@ -518,7 +518,7 @@ public class PartitionRequestQueueTest {
 		final InputChannelID receiverId = new InputChannelID();
 		final PartitionRequestQueue queue = new PartitionRequestQueue();
 		final EmbeddedChannel channel = new EmbeddedChannel(queue);
-		final CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(receiverId, 0, queue, partition.getPartitionId(), partitionManager, false);
+		final CreditBasedSequenceNumberingViewReader reader = new CreditBasedSequenceNumberingViewReader(receiverId, 0, queue, partition.getPartitionId(), partitionManager, null, false);
 
 		reader.requestSubpartitionView(0);
 		// add this reader into allReaders queue
@@ -564,7 +564,7 @@ public class PartitionRequestQueueTest {
 		manager.registerResultPartition(partition);
 		EmbeddedChannel channel = new EmbeddedChannel(queue);
 
-		CreditBasedSequenceNumberingViewReader seqView = new CreditBasedSequenceNumberingViewReader(new InputChannelID(), 2, queue, resultPartitionId, manager, false);
+		CreditBasedSequenceNumberingViewReader seqView = new CreditBasedSequenceNumberingViewReader(new InputChannelID(), 2, queue, resultPartitionId, manager, null, false);
 		seqView.requestSubpartitionView(0);
 		queue.notifyReaderCreated(seqView);
 		queue.exceptionCaught(queue.getCtx(), new Exception("For test"));

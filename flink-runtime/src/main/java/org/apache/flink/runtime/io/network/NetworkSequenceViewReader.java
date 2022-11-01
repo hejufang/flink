@@ -101,4 +101,6 @@ public interface NetworkSequenceViewReader {
 	ResultPartitionID getResultPartitionID();
 
 	default void onError(Throwable throwable){}
+
+	default void updateLatency(long sendTime, long lastReceiveTime){}
 }

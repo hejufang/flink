@@ -69,8 +69,8 @@ public class NettyConnectionManager implements ConnectionManager {
 			channelReuseEnable,
 			channelIdleReleaseTimeMs);
 
-		this.nettyProtocol = new NettyProtocol(checkNotNull(partitionProvider), checkNotNull(taskEventPublisher), channelReuseEnable, nettyConfig.isNotifyPartitionRequestEnable());
 		this.channelReuseEnable = channelReuseEnable;
+		this.nettyProtocol = new NettyProtocol(checkNotNull(partitionProvider), checkNotNull(taskEventPublisher), nettyConfig, channelReuseEnable);
 	}
 
 	public NettyConnectionManager(

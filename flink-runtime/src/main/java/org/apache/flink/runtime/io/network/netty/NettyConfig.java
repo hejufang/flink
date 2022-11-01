@@ -149,6 +149,14 @@ public class NettyConfig {
 		}
 	}
 
+	public long getLatencyCheckInterval() {
+		return config.getLong(NettyShuffleEnvironmentOptions.NETWORK_LATENCY_CHECK_INTERVAL_MS);
+	}
+
+	public boolean isLatencyCheckEnabled() {
+		return config.getLong(NettyShuffleEnvironmentOptions.NETWORK_LATENCY_CHECK_INTERVAL_MS) > 0;
+	}
+
 	@Nullable
 	public SSLHandlerFactory createClientSSLEngineFactory() throws Exception {
 		return getSSLEnabled() ?

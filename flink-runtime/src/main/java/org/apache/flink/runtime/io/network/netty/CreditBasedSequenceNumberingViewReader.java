@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.SocketAddress;
 
 /**
  * Simple wrapper for the subpartition view used in the new network credit-based mode.
@@ -42,7 +43,7 @@ import java.io.IOException;
  * <p>It also keeps track of available buffers and notifies the outbound
  * handler about non-emptiness, similar to the {@link LocalInputChannel}.
  */
-class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListener, NetworkSequenceViewReader {
+public class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListener, NetworkSequenceViewReader {
 
 	private static final Logger LOG = LoggerFactory.getLogger(CreditBasedSequenceNumberingViewReader.class);
 
@@ -57,6 +58,8 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 	private final ResultPartitionID resultPartitionID;
 
 	private final ResultPartitionProvider resultPartitionProvider;
+
+	private final SocketAddress remoteSocketAddress;
 
 	private final boolean notifyPartitionRequestEnable;
 
@@ -82,6 +85,7 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 		PartitionRequestQueue requestQueue,
 		ResultPartitionID resultPartitionID,
 		ResultPartitionProvider resultPartitionProvider,
+		SocketAddress remoteSocketAddress,
 		boolean notifyPartitionRequestEnable) {
 
 		this.receiverId = receiverId;
@@ -89,6 +93,7 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 		this.requestQueue = requestQueue;
 		this.resultPartitionID = resultPartitionID;
 		this.resultPartitionProvider = resultPartitionProvider;
+		this.remoteSocketAddress = remoteSocketAddress;
 		this.notifyPartitionRequestEnable = notifyPartitionRequestEnable;
 	}
 
@@ -315,6 +320,15 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 	@Override
 	public void onError(Throwable throwable){
 		subpartitionView.onError(throwable);
+	}
+
+	@Override
+	public void updateLatency(long sendTime, long receiveTime) {
+		subpartitionView.updateLatency(sendTime, receiveTime);
+	}
+
+	public SocketAddress getRemoteSocketAddress() {
+		return remoteSocketAddress;
 	}
 
 	@Override

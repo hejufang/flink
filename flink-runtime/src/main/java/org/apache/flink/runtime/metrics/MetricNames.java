@@ -101,6 +101,8 @@ public class MetricNames {
 	public static final String TASK_EXECUTOR_EXECUTION_STATE_TIME = "taskExecutorExecutionStateTime";
 	public static final String TASK_FAILING_TIME = "taskFailingTime";
 	public static final String IS_TASK_STUCK = "isTaskStuck";
+	public static final String TASK_STUCK_TYPE = "taskStuckType";
+	public static final String NETWORK_LATENCY = "networkLatency";
 	public static final String NUMBER_TASK_PER_TASK_EXECUTOR = "numberOfTasks";
 	public static final String METRIC_INPUT_CHANNEL_NUMBER = "numberOfInputChannels";
 

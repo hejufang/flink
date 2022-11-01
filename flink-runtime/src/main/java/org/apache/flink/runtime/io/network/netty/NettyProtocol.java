@@ -24,10 +24,15 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionProvider;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandler;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Defines the server and client channel handlers, i.e. the protocol, used by netty.
  */
 public class NettyProtocol {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(NettyProtocol.class);
 
 	private final NettyMessage.NettyMessageEncoder
 		messageEncoder = new NettyMessage.NettyMessageEncoder();
@@ -36,16 +41,22 @@ public class NettyProtocol {
 	private final TaskEventPublisher taskEventPublisher;
 	private final boolean channelReuseEnable;
 	private final boolean notifyPartitionRequestEnable;
+	private final boolean latencyCheckEnabled;
+	private final long latencyCheckInterval;
 
 	NettyProtocol(ResultPartitionProvider partitionProvider, TaskEventPublisher taskEventPublisher) {
-		this(partitionProvider, taskEventPublisher, false, false);
+		this(partitionProvider, taskEventPublisher, new NettyConfig(), false);
 	}
 
-	NettyProtocol(ResultPartitionProvider partitionProvider, TaskEventPublisher taskEventPublisher, boolean channelReuseEnable, boolean notifyPartitionRequestEnable) {
+	NettyProtocol(ResultPartitionProvider partitionProvider, TaskEventPublisher taskEventPublisher, NettyConfig nettyConfig, boolean channelReuseEnable) {
 		this.partitionProvider = partitionProvider;
 		this.taskEventPublisher = taskEventPublisher;
 		this.channelReuseEnable = channelReuseEnable;
-		this.notifyPartitionRequestEnable = notifyPartitionRequestEnable;
+		this.notifyPartitionRequestEnable = nettyConfig.isNotifyPartitionRequestEnable();
+		this.latencyCheckEnabled = nettyConfig.isLatencyCheckEnabled();
+		this.latencyCheckInterval = nettyConfig.getLatencyCheckInterval();
+		LOGGER.debug("readTimeoutEnable = {}, latency check Interval = {}",
+			this.latencyCheckEnabled, this.latencyCheckInterval);
 	}
 
 	/**
@@ -82,11 +93,12 @@ public class NettyProtocol {
 	 * @return channel handlers
 	 */
 	public ChannelHandler[] getServerChannelHandlers() {
-		PartitionRequestQueue queueOfPartitionQueues = new PartitionRequestQueue(channelReuseEnable);
+		PartitionRequestQueue queueOfPartitionQueues = new PartitionRequestQueue(latencyCheckInterval, channelReuseEnable);
 		PartitionRequestServerHandler serverHandler = new PartitionRequestServerHandler(
 			partitionProvider,
 			taskEventPublisher,
 			queueOfPartitionQueues,
+			latencyCheckInterval,
 			notifyPartitionRequestEnable);
 
 		return new ChannelHandler[] {
@@ -113,6 +125,12 @@ public class NettyProtocol {
 	 * |    +----------+----------+            +-----------+----------+    |
 	 * |              /|\                                 \|/              |
 	 * |               |                                   |               |
+	 * |               |                                   |               |
+	 * |    +----------+------------+                      |               |
+	 * |    | CheckLatency Handler  |                      |               |
+	 * |    +----------+------------+                      |               |
+	 * |               |                                   |               |
+	 * |               |                                   |               |
 	 * |    +----------+------------+                      |               |
 	 * |    | Message+Frame decoder |                      |               |
 	 * |    +----------+------------+                      |               |
@@ -132,10 +150,18 @@ public class NettyProtocol {
 	public ChannelHandler[] getClientChannelHandlers() {
 		NetworkClientHandler networkClientHandler = new CreditBasedPartitionRequestClientHandler();
 
-		return new ChannelHandler[]{
-			messageEncoder,
-			new NettyMessageClientDecoderDelegate(networkClientHandler),
-			networkClientHandler};
+		if (latencyCheckEnabled) {
+			return new ChannelHandler[]{
+				messageEncoder,
+				new NettyMessageClientDecoderDelegate(networkClientHandler),
+				new CheckLatencyHandler(),
+				networkClientHandler};
+		} else {
+			return new ChannelHandler[]{
+				messageEncoder,
+				new NettyMessageClientDecoderDelegate(networkClientHandler),
+				networkClientHandler};
+		}
 	}
 
 }

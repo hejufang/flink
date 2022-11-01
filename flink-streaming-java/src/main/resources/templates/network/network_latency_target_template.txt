@@ -20,8 +20,7 @@
   "aggregator": "max",
   "downsampleAggregator": "avg",
   "downsampleFillPolicy": "none",
-  "metric": "flink.taskmanager.${jobname}.${operator}.numRecordsDroppedInRecoverableFailover",
+  "metric": "flink.taskmanager.${jobname}.${operator}.networkLatency",
   "hide": ${hide},
-  "refId": "I",
-  "shouldComputeRate": true
+  "refId": "I"
 }

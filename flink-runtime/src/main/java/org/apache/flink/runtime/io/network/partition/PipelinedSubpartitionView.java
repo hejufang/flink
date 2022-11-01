@@ -19,11 +19,13 @@
 package org.apache.flink.runtime.io.network.partition;
 
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
+import org.apache.flink.runtime.io.network.netty.CreditBasedSequenceNumberingViewReader;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.net.SocketAddress;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -42,6 +44,9 @@ public class PipelinedSubpartitionView implements ResultSubpartitionView {
 	protected final AtomicBoolean isReleased;
 
 	private volatile long numCreditsAvailable;
+
+	private volatile long latency;
+	private volatile long lastReceiveTime;
 
 	public PipelinedSubpartitionView(PipelinedSubpartition parent, BufferAvailabilityListener listener) {
 		this.parent = checkNotNull(parent);
@@ -107,6 +112,28 @@ public class PipelinedSubpartitionView implements ResultSubpartitionView {
 
 	public long getNumCreditsAvailable() {
 		return numCreditsAvailable;
+	}
+
+	@Override
+	public void updateLatency(long sendTime, long receiveTime){
+		this.latency = receiveTime - sendTime;
+		this.lastReceiveTime = receiveTime;
+	}
+
+	public long getLatency() {
+		return latency;
+	}
+
+	public long getLastReceiveTime() {
+		return lastReceiveTime;
+	}
+
+	public SocketAddress getRemoteAddress() {
+		if (availabilityListener instanceof CreditBasedSequenceNumberingViewReader) {
+			CreditBasedSequenceNumberingViewReader creditBasedSequenceNumberingViewReader = (CreditBasedSequenceNumberingViewReader) this.availabilityListener;
+			return creditBasedSequenceNumberingViewReader.getRemoteSocketAddress();
+		}
+		return null;
 	}
 
 	@Override

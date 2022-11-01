@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.TaskEventPublisher;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.AddCredit;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.CancelPartitionRequest;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.CloseRequest;
+import org.apache.flink.runtime.io.network.netty.NettyMessage.LatencyCheck;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.ResumeConsumption;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionProvider;
@@ -37,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.runtime.io.network.netty.NettyMessage.PartitionRequest;
 import static org.apache.flink.runtime.io.network.netty.NettyMessage.TaskEventRequest;
@@ -54,6 +56,10 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 
 	private final PartitionRequestQueue outboundQueue;
 
+	private final long latencyInterval;
+
+	private long lastReceiveCheckIntervalTime;
+
 	private final boolean notifyPartitionRequestEnable;
 
 	@VisibleForTesting
@@ -61,24 +67,30 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 		ResultPartitionProvider partitionProvider,
 		TaskEventPublisher taskEventPublisher,
 		PartitionRequestQueue outboundQueue) {
-		this(partitionProvider, taskEventPublisher, outboundQueue, false);
+		this(partitionProvider, taskEventPublisher, outboundQueue, -1, false);
 	}
 
 	PartitionRequestServerHandler(
 		ResultPartitionProvider partitionProvider,
 		TaskEventPublisher taskEventPublisher,
 		PartitionRequestQueue outboundQueue,
+		long latencyInterval,
 		boolean notifyPartitionRequestEnable) {
 
 		this.partitionProvider = partitionProvider;
 		this.taskEventPublisher = taskEventPublisher;
 		this.outboundQueue = outboundQueue;
+		this.latencyInterval = latencyInterval;
 		this.notifyPartitionRequestEnable = notifyPartitionRequestEnable;
 	}
 
 	@Override
 	public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
 		super.channelRegistered(ctx);
+		if (latencyInterval > 0) {
+			ctx.writeAndFlush(new LatencyCheck(System.currentTimeMillis(), -1));
+			checkLongLatency(ctx);
+		}
 	}
 
 	@Override
@@ -124,12 +136,28 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 			} else if (msgClazz == ResumeConsumption.class) {
 				ResumeConsumption request = (ResumeConsumption) msg;
 				outboundQueue.addCreditOrResumeConsumption(request.receiverId, NetworkSequenceViewReader::resumeConsumption);
+			} else if (msgClazz == LatencyCheck.class) {
+				LatencyCheck request = (LatencyCheck) msg;
+				lastReceiveCheckIntervalTime = request.receiveTime;
+				outboundQueue.updateLatency(request.sendTime, request.receiveTime);
+				checkLongLatency(ctx);
+				LOG.debug("receive latency check :{}", request);
 			} else {
 				LOG.warn("Received unexpected client request: {}", msg);
 			}
 		} catch (Throwable t) {
 			respondWithError(ctx, t);
 		}
+	}
+
+	private void checkLongLatency(ChannelHandlerContext ctx) {
+		ctx.executor().schedule(() -> {
+			long latency = System.currentTimeMillis() - lastReceiveCheckIntervalTime;
+			LOG.warn("start check {}, latency: {}", ctx.channel().remoteAddress(), latency);
+			if (latency > 2 * latencyInterval) {
+				LOG.warn("connect with {} network latency: {} is too long.", ctx.channel().remoteAddress(), latency);
+			}
+		}, 3 * latencyInterval, TimeUnit.MILLISECONDS);
 	}
 
 	private void processPartitionRequest(ChannelHandlerContext ctx, PartitionRequest request) throws IOException {
@@ -141,6 +169,7 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 				outboundQueue,
 				request.partitionId,
 				partitionProvider,
+				ctx.channel().remoteAddress(),
 				true);
 			reader.requestSubpartitionViewOrNotify(request.queueIndex);
 			outboundQueue.notifyReaderCreated(reader);
@@ -153,6 +182,7 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 					outboundQueue,
 					request.partitionId,
 					partitionProvider,
+					ctx.channel().remoteAddress(),
 					false);
 
 				reader.requestSubpartitionView(request.queueIndex);

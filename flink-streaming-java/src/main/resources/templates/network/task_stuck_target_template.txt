@@ -22,6 +22,5 @@
   "downsampleFillPolicy": "none",
   "metric": "flink.taskmanager.${jobname}.${operator}.isTaskStuck",
   "hide": ${hide},
-  "refId": "I",
-  "shouldComputeRate": true
+  "refId": "I"
 }

@@ -165,6 +165,7 @@ non-global:
         lookupRequestDelay,
       # latency
         latency,
+        networkLatency,
       # kafka offset
         currentOffsets,
         commit-rate,

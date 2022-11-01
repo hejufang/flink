@@ -21,6 +21,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.io.InputStatus;
@@ -106,6 +107,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -236,6 +238,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	private volatile boolean failing;
 
 	private AtomicBoolean isStuck = new AtomicBoolean();
+	private volatile StuckType stuckType = StuckType.NONE;
 
 	private boolean disposedOperators;
 
@@ -257,6 +260,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	private final ScheduledExecutorService stuckCheckExecutor;
 
 	private final CacheManager cacheManager;
+
+	private final boolean isSourceTask;
 
 	private Long syncSavepointId = null;
 
@@ -280,6 +285,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	private final long checkStuckInterval;
 	private final long checkStuckDuration;
+	private final long checkLatencyInterval;
+	private final boolean taskFailInNetworkStuck;
 	// ------------------------------------------------------------------------
 
 	/**
@@ -343,7 +350,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		this.mailboxProcessor = new MailboxProcessor(this::processInput, mailbox, actionExecutor);
 		this.mainMailboxExecutor = mailboxProcessor.getMainMailboxExecutor();
 		this.cacheManager = environment.getCacheManager();
-
+		this.isSourceTask = environment.getAllInputGates().length == 0;
 		this.stateInitEnabled = getEnvironment().getExecutionConfig().getStateInitEnabled();
 		LOG.debug("Enable state related initialization: {}", stateInitEnabled);
 
@@ -387,7 +394,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		environment.getMetricGroup().getIOMetricGroup().setEnableBusyTime(true);
 		this.checkStuckInterval = environment.getTaskManagerInfo().getConfiguration().get(TaskManagerOptions.TASKMANAGER_TASK_STUCK_CHECK_THREAD_INTERVAL);
 		this.checkStuckDuration = environment.getTaskManagerInfo().getConfiguration().get(TaskManagerOptions.TASKMANAGER_TASK_STUCK_CHECK_DURATION);
+		this.taskFailInNetworkStuck = environment.getTaskManagerInfo().getConfiguration().getBoolean(TaskManagerOptions.TASKMANAGER_TASK_FAIL_IN_NETWORK_STUCK_ENABLE);
 		this.stuckCheckExecutor = this.checkStuckInterval > 0 ? environment.getTaskCheckStuckExecutor() : null;
+		this.checkLatencyInterval = environment.getTaskManagerInfo().getConfiguration().get(NettyShuffleEnvironmentOptions.NETWORK_LATENCY_CHECK_INTERVAL_MS);
+
 	}
 
 	private CompletableFuture<Void> prepareInputSnapshot(ChannelStateWriter channelStateWriter, long checkpointId) throws IOException {
@@ -410,6 +420,38 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	protected void registerMetric(){
 		getEnvironment().getMetricGroup().gauge(MetricNames.TASK_FAILING_TIME, this::getFailingTime);
 		getEnvironment().getMetricGroup().gauge(MetricNames.IS_TASK_STUCK, this::isStuck);
+
+		if (checkLatencyInterval > 0) {
+			getEnvironment().getMetricGroup().gauge(MetricNames.NETWORK_LATENCY, () -> {
+				long maxLatency = 0;
+				List<ResultPartitionWriter> partitions = recordWriter.getPartitions();
+				for (ResultPartitionWriter partition : partitions) {
+					ResultSubpartition[] subpartitions = partition.getSubpartitions();
+					for (ResultSubpartition resultSubpartition : subpartitions) {
+						if (resultSubpartition instanceof PipelinedSubpartition) {
+
+							PipelinedSubpartition pipelinedSubpartition = (PipelinedSubpartition) resultSubpartition;
+							PipelinedSubpartitionView readView = pipelinedSubpartition.getReadView();
+							if (readView != null) {
+								SocketAddress remoteAddress = readView.getRemoteAddress();
+								if (remoteAddress == null) {
+									continue;
+								}
+								long lastReceiveTime = readView.getLastReceiveTime();
+								long latency = readView.getLatency();
+								if (latency < checkLatencyInterval && (System.currentTimeMillis() - lastReceiveTime) > 2 * checkLatencyInterval) {
+									latency = System.currentTimeMillis() - lastReceiveTime;
+								}
+								if (latency > maxLatency) {
+									maxLatency = latency;
+								}
+							}
+						}
+					}
+				}
+				return maxLatency;
+			});
+		}
 	}
 
 	protected void cancelTask() throws Exception {
@@ -465,71 +507,95 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		return numRecordIn;
 	}
 
+	public void stuckRecover() {
+		LOG.info("task {} stuck recover", this.getName());
+		stuckType = StuckType.NONE;
+		isStuck.set(false);
+	}
+
+	public boolean setStuck(StuckType stuckType) {
+		this.stuckType = stuckType;
+		return isStuck.compareAndSet(false, true);
+	}
+
 	private void checkStuck() {
-		if (!isRunning()) {
-			return;
-		}
-		long now = System.currentTimeMillis();
-		if (numBytesInUpdateTime == 0) {
-			numBytesInUpdateTime = now;
-		}
-		// Check inputData is available
-		if (!inputProcessor.isAvailable()) {
-			if (lastInputUnAvailableTime.compareAndSet(-1, now)) {
-				CompletableFuture<?> processorAvailableFuture = inputProcessor.getAvailableFuture();
-				processorAvailableFuture.thenRun(() ->
-					lastInputUnAvailableTime.set(-1)
-				);
+		try {
+			if (!isRunning()) {
+				return;
 			}
-		}
-		// Check backPressure.
-		if (!recordWriter.isAvailable()) {
-			// Update last backPressure time.
-			if (lastOutputUnAvailableTime.compareAndSet(-1, now)) {
-				CompletableFuture<?> recordWriterAvailableFuture = recordWriter.getAvailableFuture();
-				recordWriterAvailableFuture.thenRun(() ->
-					lastOutputUnAvailableTime.set(-1)
-				);
+			long now = System.currentTimeMillis();
+			if (numBytesInUpdateTime == 0) {
+				numBytesInUpdateTime = now;
 			}
-		}
-		long numBytesIn = getBuffersIn();
-		if (numBytesIn != this.numBytesIn) {
-			this.numBytesIn = numBytesIn;
-			this.numBytesInUpdateTime = now;
-			stuckCheckExecutor.schedule(this::checkStuck, checkStuckInterval, TimeUnit.MILLISECONDS);
-			return;
-		}
+			// Check inputData is available
+			if (inputProcessor != null && !inputProcessor.isAvailable()) {
+				if (lastInputUnAvailableTime.compareAndSet(-1, now)) {
+					CompletableFuture<?> processorAvailableFuture = inputProcessor.getAvailableFuture();
+					processorAvailableFuture.thenRun(() ->
+						lastInputUnAvailableTime.set(-1)
+					);
+				}
+			}
+			// Check backPressure.
+			if (!recordWriter.isAvailable()) {
+				// Update last backPressure time.
+				LOG.debug("{} recordWriter is unavailable", getName());
+				if (lastOutputUnAvailableTime.compareAndSet(-1, now)) {
+					CompletableFuture<?> recordWriterAvailableFuture = recordWriter.getAvailableFuture();
+					recordWriterAvailableFuture.thenRun(() -> {
+							LOG.debug("{} recordWriter is available", getName());
+							lastOutputUnAvailableTime.set(-1);
+						}
+					);
+				}
+			}
+			long numBytesIn = getBuffersIn();
+			if (!isSourceTask && (numBytesIn != this.numBytesIn || numBytesIn == 0)) {
+				this.numBytesIn = numBytesIn;
+				this.numBytesInUpdateTime = now;
+				stuckRecover();
+				stuckCheckExecutor.schedule(this::checkStuck, checkStuckInterval, TimeUnit.MILLISECONDS);
+				return;
+			}
 
-		long lastInputUnavailableTimeValue = lastInputUnAvailableTime.get();
-		long lastOutputUnavailableTimeValue = lastOutputUnAvailableTime.get();
-		// If the input is always Unavailable and the numBytesIn not increase, it indicates that no data are available upstream.
-		// So this task is not root cause, return directly.
-		if (lastInputUnavailableTimeValue != -1 && (now - lastInputUnavailableTimeValue) > checkStuckDuration) {
-			LOG.debug("Task: {} has no upStream data in {} ms.", this.getName(), checkStuckDuration);
-			isStuck.set(false);
-			stuckCheckExecutor.schedule(this::checkStuck, checkStuckInterval, TimeUnit.MILLISECONDS);
-			return;
-		}
+			long lastInputUnavailableTimeValue = lastInputUnAvailableTime.get();
+			long lastOutputUnavailableTimeValue = lastOutputUnAvailableTime.get();
+			// If the input is always Unavailable and the numBytesIn not increase, it indicates that no data are available upstream.
+			// So this task is not root cause, return directly.
+			if (lastInputUnavailableTimeValue != -1 && (now - lastInputUnavailableTimeValue) > checkStuckDuration) {
+				LOG.debug("Task: {} has no upStream data in {} ms.", this.getName(), checkStuckDuration);
+				stuckRecover();
+				stuckCheckExecutor.schedule(this::checkStuck, checkStuckInterval, TimeUnit.MILLISECONDS);
+				return;
+			}
 
-		if (lastOutputUnavailableTimeValue != -1 && (now - lastOutputUnavailableTimeValue) > checkStuckDuration) {
-			// There is backpressure, check subpartition status.
-			if (!checkResultSubpartitionStates()) {
-				if (isStuck.compareAndSet(false, true)) {
-					LOG.warn("Task: {} is stuck and ResultSubpartitionStates has error.", this.getName());
+			if (lastOutputUnavailableTimeValue != -1 && (now - lastOutputUnavailableTimeValue) > checkStuckDuration) {
+				LOG.warn("Task: {} is stuck and ResultSubpartitionStates has error.", this.getName());
+				// There is backpressure, check subpartition status.
+				if (!checkResultSubpartitionStates()) {
+					if (setStuck(StuckType.NETWORK)) {
+						LOG.warn("Task: {} is stuck and ResultSubpartitionStates has error.", this.getName());
+						final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = JvmUtils.createThreadDumpInfos();
+						LOG.error("TaskManager thread dump infos:\n{}", StringUtils.join(threadInfos, "\n"));
+						if (taskFailInNetworkStuck) {
+							getEnvironment().failExternally(new RuntimeException("Task stuck in network"));
+						}
+					}
+				}
+			} else if (now - numBytesInUpdateTime > checkStuckDuration && !isSourceTask) {
+				LOG.debug("Task: {} is stuck and recordWriter is available", this.getName());
+				if (setStuck(StuckType.DEFAULT)) {
+					LOG.warn("Task: {} is stuck and recordWriter is available", this.getName());
 					final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = JvmUtils.createThreadDumpInfos();
 					LOG.error("TaskManager thread dump infos:\n{}", StringUtils.join(threadInfos, "\n"));
 				}
+			} else {
+				stuckRecover();
 			}
-		} else if (now - numBytesInUpdateTime > checkStuckDuration) {
-			if (isStuck.compareAndSet(false, true)) {
-				LOG.warn("Task: {} is stuck and recordWriter is available", this.getName());
-				final Collection<ThreadDumpInfo.ThreadInfo> threadInfos = JvmUtils.createThreadDumpInfos();
-				LOG.error("TaskManager thread dump infos:\n{}", StringUtils.join(threadInfos, "\n"));
-			}
-		} else {
-			isStuck.set(false);
+			stuckCheckExecutor.schedule(this::checkStuck, checkStuckInterval, TimeUnit.MILLISECONDS);
+		} catch (Exception e) {
+			LOG.error("{} check stuck fail", getName(), e);
 		}
-		stuckCheckExecutor.schedule(this::checkStuck, checkStuckInterval, TimeUnit.MILLISECONDS);
 	}
 
 	private boolean checkResultSubpartitionStates() {
@@ -543,7 +609,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				return checkSubpartitionStatus(subpartition);
 			}
 			for (ResultSubpartition resultSubpartition : subpartitions) {
-				result = checkSubpartitionStatus(resultSubpartition);
+				boolean subResult = checkSubpartitionStatus(resultSubpartition);
+				if (!subResult) {
+					result = false;
+				}
 			}
 		}
 
@@ -559,25 +628,33 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	 * credit is large than 0.
 	 */
 	private boolean checkSubpartitionStatus(ResultSubpartition resultSubpartition) {
-		boolean result = true;
 		if (resultSubpartition instanceof PipelinedSubpartition) {
 			PipelinedSubpartition pipelinedSubpartition = (PipelinedSubpartition) resultSubpartition;
 
 			if (pipelinedSubpartition.isReleased()) {
 				LOG.error("pipelinedSubpartition: {} is already released, but task is still running", pipelinedSubpartition);
-				result = false;
+				return false;
 			}
 			PipelinedSubpartitionView readView = pipelinedSubpartition.getReadView();
 			if (readView == null) {
 				LOG.error("task: {}, readView: {} is already released, but task is still running", this.getName(), pipelinedSubpartition);
-				result = false;
+				return false;
+			}
+			SocketAddress remoteAddress = readView.getRemoteAddress();
+			if (remoteAddress == null) {
+				return true;
 			}
 			if (readView.getNumCreditsAvailable() > 0) {
 				LOG.error("task: {}, readView: {} credit is larger than 0, but recordWriter is not available", this.getName(), readView);
-				result = false;
+				return false;
+			}
+			long lastReceiveTime = readView.getLastReceiveTime();
+			if (lastReceiveTime > 0 && (System.currentTimeMillis() - lastReceiveTime > checkStuckDuration)) {
+				LOG.error("task: {}, readView: {}, remoteAddress: {} lastReceiveTime is larger than checkStuckDuration", this.getName(), readView, remoteAddress);
+				return false;
 			}
 		}
-		return result;
+		return true;
 	}
 
 	private void resetSynchronousSavepointId() {
@@ -914,7 +991,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		} catch (Throwable t) {
 			LOG.error("Error during shutdown the channel state unspill executor", t);
 		}
-
 		mailboxProcessor.close();
 	}
 
@@ -1569,6 +1645,25 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			timer.markEnd();
 			suspendedDefaultAction.resume();
 		}
+	}
+
+	/**
+	 * Type of task stuck.
+	 */
+	private enum StuckType {
+
+		/**
+		 * Task not stuck.
+		 */
+		NONE,
+		/**
+		 * Task stuck in task thread, but the rootCause cannot be determined.
+		 */
+		DEFAULT,
+		/**
+		 * Task stuck because of network problems.
+		 */
+		NETWORK
 	}
 
 	@Override

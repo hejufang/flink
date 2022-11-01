@@ -622,6 +622,33 @@ public class Dashboard {
 		return poolUsageRow;
 	}
 
+	private String renderNetworkLatencyRow(List<String> operators) {
+		String networkLatencyTargetTemplate;
+		String networkLatencyTemplate;
+
+		try {
+			networkLatencyTargetTemplate = renderFromResource(DashboardTemplate.NETWORK_LATENCY_TARGET_TEMPLATE);
+			networkLatencyTemplate = renderFromResource(DashboardTemplate.NETWORK_LATENCY_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render row template.", e);
+			return "";
+		}
+		List<String> poolUsageList = new ArrayList<>();
+		for (int i = 0; i < operators.size(); i++) {
+			Map<String, String> targetValues = new HashMap<>();
+			targetValues.put("operator", operators.get(i));
+			targetValues.put("jobname", formatJobName);
+			targetValues.put("hide", i > targetLimit / 2 ? "true" : "false");
+			poolUsageList.add(renderString(networkLatencyTargetTemplate, targetValues));
+		}
+		String targets = String.join(",", poolUsageList);
+		Map<String, String> poolUsageValues = new HashMap<>();
+		poolUsageValues.put("targets", targets);
+		poolUsageValues.put("datasource", dataSource);
+		String poolUsageRow = renderString(networkLatencyTemplate, poolUsageValues);
+		return poolUsageRow;
+	}
+
 	private String renderPoolUsageRow(List<String> operators) {
 		String inPoolUsageTargetTemplate;
 		String outPoolUsageTargetTemplate;
@@ -1260,6 +1287,7 @@ public class Dashboard {
 		networkPanels.addAll(renderPoolUsageSplitRow(tasks));
 		networkPanels.addAll(renderRecordNumSplitRow(operators));
 		networkPanels.add(renderTaskStuckRow(tasks));
+		networkPanels.add(renderNetworkLatencyRow(tasks));
 		networkPanels.add(renderSingleFailoverDataDropStuckRow(tasks));
 		networkPanels.add(renderNetworkMemoryRow());
 		rows.add(renderRowTemplate(DashboardTemplate.NETWORK_ROW_TEMPLATE, networkPanels));

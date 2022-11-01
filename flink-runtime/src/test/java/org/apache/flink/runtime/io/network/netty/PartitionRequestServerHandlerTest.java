@@ -96,7 +96,7 @@ public class PartitionRequestServerHandlerTest extends TestLogger {
 		private boolean consumptionResumed = false;
 
 		public TestViewReader(InputChannelID receiverId, int initialCredit, PartitionRequestQueue requestQueue) {
-			super(receiverId, initialCredit, requestQueue, null, null, false);
+			super(receiverId, initialCredit, requestQueue, null, null, null, false);
 		}
 
 		@Override

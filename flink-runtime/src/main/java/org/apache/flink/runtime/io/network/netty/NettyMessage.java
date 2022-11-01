@@ -251,6 +251,9 @@ public abstract class NettyMessage {
 					case PartitionRequestList.ID:
 						decodedMsg = PartitionRequestList.readFrom(msg);
 						break;
+					case LatencyCheck.ID:
+						decodedMsg = LatencyCheck.readFrom(msg);
+						break;
 					default:
 						throw new ProtocolException(
 							"Received unknown message from producer: " + msg);
@@ -832,6 +835,55 @@ public abstract class NettyMessage {
 		@Override
 		public String toString() {
 			return String.format("PartitionRequestList(%s)", partitionRequests);
+		}
+	}
+
+	static class LatencyCheck extends NettyMessage {
+		static final byte ID = 9;
+
+		long sendTime;
+
+		long receiveTime;
+
+		public LatencyCheck() {
+		}
+
+		public LatencyCheck(long sendTime, long receiveTime) {
+			this.sendTime = sendTime;
+			this.receiveTime = receiveTime;
+		}
+
+		@Override
+		ByteBuf write(ByteBufAllocator allocator) throws IOException {
+			ByteBuf result = null;
+
+			try {
+				result = allocateBuffer(allocator, ID, 16);
+				result.writeLong(sendTime);
+				result.writeLong(receiveTime);
+				return result;
+			}
+			catch (Throwable t) {
+				if (result != null) {
+					result.release();
+				}
+
+				throw new IOException(t);
+			}
+		}
+
+		static LatencyCheck readFrom(ByteBuf buffer) {
+			long sendTime = buffer.readLong();
+			long receiveTime = buffer.readLong();
+			return new LatencyCheck(sendTime, receiveTime);
+		}
+
+		@Override
+		public String toString() {
+			return "LatencyCheck{" +
+				"sendTime=" + sendTime +
+				", receiveTime=" + receiveTime +
+				'}';
 		}
 	}
 }

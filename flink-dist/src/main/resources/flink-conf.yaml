@@ -186,6 +186,7 @@ common:
   taskmanager.network.netty.sendReceiveBufferSize: 4194304
   taskmanager.serializer.prune.buffer.threshold: 262144
   taskmanager.network.netty.connection.tcp-user-timeout-seconds: 600
+  taskmanager.task-stuck-check.interval: 60000
 
   # RPC / Akka
   akka.ask.timeout: 180 s # default 10 s
@@ -629,7 +630,6 @@ hyrax:
   ipv6.supported.cluster: hyrax
   ipv6.enabled: true
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc02:fe:1016::1]:65212"
-  taskmanager.task-stuck-check.interval: 60000
 
 horse:
   dc: cn
@@ -895,9 +895,9 @@ quoka:
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: quoka
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc03:fe:1019::1]:65212"
-  taskmanager.task-stuck-check.interval: 60000
   metrics.filter.enabled: true
   taskmanager.network.partition.downStreamTaskConnectTimeoutMs: 600000
+  taskmanager.network.netty.client.latency-check-interval-ms: 5000
 
 quaga:
   dc: cn

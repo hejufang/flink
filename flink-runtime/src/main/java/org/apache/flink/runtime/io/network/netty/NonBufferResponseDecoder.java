@@ -25,6 +25,7 @@ import java.net.ProtocolException;
 
 import static org.apache.flink.runtime.io.network.netty.NettyMessage.BufferResponse;
 import static org.apache.flink.runtime.io.network.netty.NettyMessage.ErrorResponse;
+import static org.apache.flink.runtime.io.network.netty.NettyMessage.LatencyCheck;
 
 /**
  * The decoder for messages other than {@link BufferResponse}.
@@ -61,6 +62,8 @@ class NonBufferResponseDecoder extends NettyMessageDecoder {
 		}
 
 		switch (msgId) {
+			case LatencyCheck.ID:
+				return DecodingResult.fullMessage(LatencyCheck.readFrom(fullFrameHeaderBuf));
 			case ErrorResponse.ID:
 				return DecodingResult.fullMessage(ErrorResponse.readFrom(fullFrameHeaderBuf));
 			default:

@@ -423,6 +423,12 @@ public class NettyShuffleEnvironmentOptions {
 
 	// ------------------------------------------------------------------------
 
+	public static final ConfigOption<Long> NETWORK_LATENCY_CHECK_INTERVAL_MS = ConfigOptions
+		.key("taskmanager.network.netty.client.latency-check-interval-ms")
+		.longType()
+		.defaultValue(-1L)
+		.withDescription("The netty check latency interval");
+
 	/** Not intended to be instantiated. */
 	private NettyShuffleEnvironmentOptions() {}
 }

@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.ErrorResponse;
+import org.apache.flink.runtime.io.network.netty.NettyMessage.LatencyCheck;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.PartitionRequestNotifier;
 import org.apache.flink.runtime.io.network.partition.PartitionRequestNotifierTimeout;
@@ -44,6 +45,7 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.io.network.netty.NettyMessage.BufferResponse;
@@ -68,14 +70,17 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 
 	private ChannelHandlerContext ctx;
 
+	private final long latencyCheckInterval;
+
 	private final boolean channelReuseEnable;
 
 	public PartitionRequestQueue() {
-		this(false);
+		this(-1L, false);
 	}
 
-	public PartitionRequestQueue(boolean channelReuseEnable) {
+	public PartitionRequestQueue(long latencyCheckInterval, boolean channelReuseEnable) {
 		super();
+		this.latencyCheckInterval = latencyCheckInterval;
 		this.channelReuseEnable = channelReuseEnable;
 	}
 
@@ -207,6 +212,14 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 		}
 	}
 
+	void updateLatency(long sendTime, long receiveTime){
+		for (NetworkSequenceViewReader reader : allReaders.values()) {
+			reader.updateLatency(sendTime, receiveTime);
+		}
+		LatencyCheck latencyCheck = new LatencyCheck();
+		ctx.executor().schedule((() -> ctx.pipeline().fireUserEventTriggered(latencyCheck)), latencyCheckInterval, TimeUnit.MILLISECONDS);
+	}
+
 	@Override
 	public void userEventTriggered(ChannelHandlerContext ctx, Object msg) throws Exception {
 		// The user event triggered event loop callback is used for thread-safe
@@ -263,6 +276,10 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 			ctx.writeAndFlush(new NettyMessage.ErrorResponse(
 				new PartitionNotFoundException(partitionRequestNotifier.getResultPartitionID()),
 				partitionRequestNotifier.getReceiverId()));
+		} else if (msg instanceof LatencyCheck) {
+			LatencyCheck latencyCheck = (LatencyCheck) msg;
+			latencyCheck.sendTime = System.currentTimeMillis();
+			ctx.writeAndFlush(latencyCheck);
 		} else {
 			ctx.fireUserEventTriggered(msg);
 		}

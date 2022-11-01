@@ -742,6 +742,12 @@ public class TaskManagerOptions {
 		.defaultValue(600000L)
 		.withDescription("How long the task does not send data downstream is considered stuck.");
 
+	public static final ConfigOption<Boolean> TASKMANAGER_TASK_FAIL_IN_NETWORK_STUCK_ENABLE = ConfigOptions
+		.key("taskmanager.task-fail-in-network-stuck.enable")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("If Task fail in network stuck.");
+
 	// ------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */
