@@ -346,7 +346,8 @@ public class CheckpointCoordinator {
         // Use checkpoint properties to load checkpoint, because it won't generate regular
         // savepoints under checkpoint path at current version
 
-        if (isPeriodicCheckpointingConfigured()) { // only load checkpoint on storage when checkpointing is enabled
+        if (isPeriodicCheckpointingConfigured()) { // only load checkpoint on storage when
+            // checkpointing is enabled
             try {
                 Checkpoints.loadCheckpointOnStorage(
                         completedCheckpointStore,
