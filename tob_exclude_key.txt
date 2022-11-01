@@ -42,7 +42,6 @@ yarn.conf.cluster_queue_name.enable
 yarn.check.application.name.unique
 yarn.check.application.name.unique.region
 yarn.runtime-conf.qos-level
-yarn.res-lake.enabled
 flink.jobmanager.yarn.config.yarn.client.failover-max-attempts
 flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms
 flink.jobmanager.yarn.config.yarn.resourcemanager.connect.retry-interval.ms

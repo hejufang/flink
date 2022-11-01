@@ -84,6 +84,11 @@ common:
   # configuration
   configuration.flink-conf.dump-configuration-by-yaml: true
 
+  # yarn related
+  # these configurations only workers on yodel (never supported for TOB).
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
+
   # kubernetes configuration
   kubernetes.flink.log.dir: /opt/tiger/workdir/log
   kubernetes.flink.conf.dir: /opt/tiger/flink_deploy/conf

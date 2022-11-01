@@ -105,7 +105,8 @@ common:
   yarn.check.application.name.unique: false
   yarn.check.application.name.unique.region: false
   yarn.runtime-conf.qos-level: share
-  yarn.res-lake.enabled: false
+  yarn.res-lake.enabled: true
+  yarn.cluster.auto-detect.enable: true
   flink.jobmanager.yarn.config.yarn.client.failover-max-attempts: -1
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 60000
   flink.jobmanager.yarn.config.yarn.resourcemanager.connect.retry-interval.ms: 1000
@@ -317,8 +318,8 @@ common:
   bytedance.streaming.slot-pool.round-robin: true
   bytedance.streaming.slot-pool.min-resource.simplify-enabled: true
   bytedance.streaming.yarn.res-lake.enabled: false
-  bytedance.streaming.register-dashboard.enabled: true
   bytedance.streaming.yarn.cluster.auto-detect.enable: false
+  bytedance.streaming.register-dashboard.enabled: true
   bytedance.streaming.restart-strategy: aggregated-failure-rate
   bytedance.streaming.kubernetes.arcee.restart-policy.type: Always
   bytedance.streaming.table.exec.hive.infer-source-parallelism: false
@@ -438,8 +439,6 @@ larva:
   clusterName: larva
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: larva
   ipv6.enabled: true
@@ -459,8 +458,6 @@ oryx:
   clusterName: oryx
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: oryx
   ipv6.enabled: true
 
@@ -469,8 +466,6 @@ default:
   clusterName: default
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   bytedance.streaming.yarn.check.application.name.unique.region: true
   ipv6.supported.cluster: default
   ipv6.enabled: true
@@ -482,8 +477,6 @@ leser:
   hdfs.prefix: hdfs://haruna/flink_lf
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: leser
   ipv6.enabled: true
   resourcemanager.slow-container.release-timeout-enabled: true
@@ -502,11 +495,8 @@ lobst:
   clusterName: lobst
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: lobst
   ipv6.enabled: true
-  yarn.cluster.auto-detect.enable: true
 
 lizad:
   dc: cn
@@ -515,7 +505,6 @@ lizad:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lizad
   ipv6.enabled: true
-  yarn.cluster.auto-detect.enable: true
 
 lemur:
   dc: cn
@@ -524,7 +513,6 @@ lemur:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: lemur
   ipv6.enabled: true
-  yarn.cluster.auto-detect.enable: true
 
 loris:
   dc: cn
@@ -533,7 +521,6 @@ loris:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: loris
   ipv6.enabled: true
-  yarn.cluster.auto-detect.enable: true
 
 llama:
   dc: cn
@@ -542,7 +529,6 @@ llama:
   hdfs.prefix: hdfs://haruna/flink_lf
   ipv6.supported.cluster: llama
   ipv6.enabled: true
-  yarn.cluster.auto-detect.enable: true
 
 lionn:
   dc: cn
@@ -565,30 +551,22 @@ lambs:
   clusterName: lambs
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: lambs
   ipv6.enabled: true
-  yarn.cluster.auto-detect.enable: true
 
 brain-lf:
   dc: cn
   clusterName: brain-lf
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: brain-lf
   ipv6.enabled: true
-  yarn.cluster.auto-detect.enable: true
 
 panda-lf:
   dc: cn
   clusterName: panda-lf
   high-availability.zookeeper.quorum: fdbd:dc01:ff:101:b149:6a76:e7ca:8457:2181,fdbd:dc01:ff:101:7431:239f:55f1:adae:2181,fdbd:dc01:ff:101:1aa8:4797:ae42:138f:2181,fdbd:dc01:ff:101:4e13:3e17:a524:cdb4:2181,fdbd:dc01:ff:101:acde:a044:99cc:d7f4:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: panda-lf
   ipv6.enabled: true
 
@@ -597,8 +575,6 @@ ies-lf:
   clusterName: ies-lf
   high-availability.zookeeper.quorum: fdbd:dc01:ff:101:b149:6a76:e7ca:8457:2181,fdbd:dc01:ff:101:7431:239f:55f1:adae:2181,fdbd:dc01:ff:101:1aa8:4797:ae42:138f:2181,fdbd:dc01:ff:101:4e13:3e17:a524:cdb4:2181,fdbd:dc01:ff:101:acde:a044:99cc:d7f4:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.enabled: true
   ipv6.supported.cluster: ies-lf
 
@@ -607,10 +583,7 @@ brain-hl:
   clusterName: brain-hl
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: brain-hl
-  yarn.cluster.auto-detect.enable: true
   ipv6.enabled: true
 
 panda-hl:
@@ -618,8 +591,6 @@ panda-hl:
   clusterName: panda-hl
   high-availability.zookeeper.quorum: fdbd:dc02:ff:2:1:174:65:46:2181,fdbd:dc02:ff:2:1:174:65:56:2181,fdbd:dc02:ff:2:1:174:118:41:2181,fdbd:dc02:ff:2:1:174:94:65:2181,fdbd:dc02:ff:2:1:174:120:50:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: panda-hl
   ipv6.enabled: true
 
@@ -628,8 +599,6 @@ ies-hl:
   clusterName: ies-hl
   high-availability.zookeeper.quorum: fdbd:dc02:ff:2:1:174:65:46:2181,fdbd:dc02:ff:2:1:174:65:56:2181,fdbd:dc02:ff:2:1:174:118:41:2181,fdbd:dc02:ff:2:1:174:94:65:2181,fdbd:dc02:ff:2:1:174:120:50:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.enabled: true
   ipv6.supported.cluster: ies-hl
 
@@ -647,8 +616,6 @@ hl:
   clusterName: hl
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: hl
   ipv6.enabled: true
 
@@ -680,8 +647,6 @@ hibis:
   clusterName: hibis
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: hibis
   ipv6.enabled: true
 
@@ -690,8 +655,6 @@ topi:
   clusterName: topi
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: topi
   ipv6.enabled: true
 
@@ -700,8 +663,6 @@ hippo:
   clusterName: hippo
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: hippo
   ipv6.enabled: true
 
@@ -728,8 +689,6 @@ hamer:
   clusterName: hamer
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: hamer
   ipv6.enabled: true
 
@@ -738,8 +697,6 @@ hyena:
   clusterName: hyena
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: hyena
   ipv6.enabled: true
 
@@ -748,8 +705,6 @@ hound:
   clusterName: hound
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: hound
   ipv6.enabled: true
 
@@ -831,8 +786,6 @@ hakes:
   high-availability.zookeeper.quorum: 10.226.128.46:2181,10.226.128.80:2181,10.226.128.67:2181,10.226.128.74:2181,10.226.128.64:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   execution.cancellation.timeout.enable: true
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: hakes
   ipv6.enabled: true
 
@@ -866,7 +819,6 @@ quire:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: quire
   ipv6.enabled: true
-  yarn.cluster.auto-detect.enable: true
 
 quark:
   dc: cn
@@ -875,10 +827,7 @@ quark:
   hdfs.prefix: hdfs://haruna/flink_lq
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
   execution.cancellation.timeout.enable: true
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: quark
-  yarn.cluster.auto-detect.enable: true
   ipv6.enabled: true
   metrics.filter.enabled: true
 
@@ -914,7 +863,6 @@ quetz:
   execution.cancellation.timeout.enable: true
   ipv6.supported.cluster: quetz
   ipv6.enabled: true
-  yarn.cluster.auto-detect.enable: true
 
 quail:
   dc: cn
@@ -922,8 +870,6 @@ quail:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: quail
   ipv6.enabled: true
   flink.cloud-shuffle-service.support: true
@@ -934,12 +880,9 @@ quoll:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: quoll
   ipv6.enabled: true
   flink.cloud-shuffle-service.support: true
-  yarn.cluster.auto-detect.enable: true
 
 quoka:
   dc: cn
@@ -975,13 +918,10 @@ quele:
   hdfs.prefix: hdfs://haruna/flink_lq
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  bytedance.streaming.yarn.res-lake.enabled: false
   bytedance.streaming.yarn.check.application.name.unique.region: true
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: quele
   ipv6.enabled: true
   flink.cloud-shuffle-service.support: true
-  yarn.cluster.auto-detect.enable: true
   metrics.filter.enabled: true
 
 panda-lq:
@@ -991,8 +931,6 @@ panda-lq:
   hdfs.prefix: hdfs://haruna/flink_lq
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   flink.jobmanager.yarn.config.yarn.client.nodemanager-connect.max-wait-ms: 10000
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.supported.cluster: panda-lq
   ipv6.enabled: true
   flink.cloud-shuffle-service.support: true
@@ -1002,8 +940,6 @@ ies-lq:
   clusterName: ies-lq
   high-availability.zookeeper.quorum: fdbd:dc03:ff:f2:1::13:2181,fdbd:dc03:ff:f2:1::f:2181,fdbd:dc03:ff:f2:1::2:2181,fdbd:dc03:ff:f2:1::4:2181,fdbd:dc03:ff:f2:1::12:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.enabled: true
   ipv6.supported.cluster: ies-lq
 
@@ -1028,8 +964,6 @@ koala-yg:
   ipv6.enabled: true
   ipv6.supported.cluster: koala-yg
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
 
 panda-yg:
   dc: cn
@@ -1041,8 +975,6 @@ panda-yg:
   ipv6.enabled: true
   ipv6.supported.cluster: panda-yg
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
 
 peter-yg:
   dc: cn
@@ -1054,8 +986,6 @@ peter-yg:
   ipv6.enabled: true
   ipv6.supported.cluster: peter-yg
   flink.checkpoint.hdfs.dfs.vip.ipPort: "[fdbd:dc05:fe:1007::1]:65212"
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
 
 camel:
   dc: cn
@@ -1222,8 +1152,6 @@ vivid:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.enabled: true
   ipv6.supported.cluster: vivid
 
@@ -1341,8 +1269,6 @@ macaw:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.enabled: true
   ipv6.supported.cluster: macaw
 
@@ -1372,8 +1298,6 @@ monkey:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.enabled: true
   ipv6.supported.cluster: monkey
 
@@ -1403,8 +1327,6 @@ mouse:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.enabled: true
   ipv6.supported.cluster: mouse
 
@@ -1491,8 +1413,6 @@ momet:
   # css
   flink.cloud-shuffle-service.coordinator.url: http://css-coordinator-va.byted.org
   flink.cloud-shuffle-service.support: true
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
   ipv6.enabled: true
   ipv6.supported.cluster: momet
 
@@ -1549,6 +1469,8 @@ grila:
   state.backend.fail-exceed-quota-task.enable: false
   ipv6.enabled: true
   ipv6.supported.cluster: grila
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 gavia:
   dc: i18n_gcp
@@ -1577,6 +1499,8 @@ gavia:
   state.backend.fail-exceed-quota-task.enable: false
   ipv6.enabled: true
   ipv6.supported.cluster: gavia
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 gazel:
   dc: i18n_gcp
@@ -1603,6 +1527,8 @@ gazel:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 otter:
   dc: us-ttp
@@ -1629,6 +1555,8 @@ otter:
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
   yarn.provided.lib.dirs.enabled: false
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 octop:
   dc: us-ttp
@@ -1655,6 +1583,8 @@ octop:
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
   yarn.provided.lib.dirs.enabled: false
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 ostri:
   dc: us-ttp
@@ -1681,6 +1611,8 @@ ostri:
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
   yarn.provided.lib.dirs.enabled: false
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 alisg:
   dc: sg
@@ -1865,6 +1797,8 @@ icing:
   docker.region: Aliyun_SG
   table.exec.hive.permission-check.gemini-server-url: http://gemini-ind.byted.org/api/query/ind/verifyUsersPrivilege
   yarn.provided.lib.dirs.enabled: false
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 boe:
   dc: vm
@@ -1886,6 +1820,8 @@ boe:
   yarn.provided.lib.dirs.enabled: false
   ipv6.supported.cluster: boe
   ipv6.enabled: true
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 cof:
   dc: vm
@@ -1901,6 +1837,8 @@ cof:
   cluster.evenly-spread-out-slots: true
   table.exec.hive.permission-check.enabled: false
   yarn.provided.lib.dirs.enabled: false
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 swan:
   dc: ka
@@ -1914,6 +1852,8 @@ swan:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 koala:
   dc: ka2
@@ -1927,6 +1867,8 @@ koala:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 koala-lq:
   dc: cn
@@ -1937,8 +1879,6 @@ koala-lq:
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
   ipv6.supported.cluster: koala-lq
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
 
 koala-hl:
   dc: cn
@@ -1949,8 +1889,6 @@ koala-hl:
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
   ipv6.supported.cluster: koala-hl
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
 
 koala-lf:
   dc: cn
@@ -1961,8 +1899,6 @@ koala-lf:
   execution.cancellation.timeout.enable: true
   ipv6.enabled: true
   ipv6.supported.cluster: koala-lf
-  bytedance.streaming.yarn.res-lake.enabled: false
-  yarn.res-lake.enabled: true
 
 boei18n:
   dc: vm
@@ -1986,6 +1922,8 @@ boei18n:
   state.backend.local-state.expected-max-size: 50g
   state.backend.local-state.actual-max-size: 60g
   state.backend.fail-exceed-quota-task.enable: false
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 # kubernetes clusters
 Gaura-LF:
@@ -2252,6 +2190,8 @@ Seif-BOE:
   ipv6.enabled: true
   ipv6.supported.cluster: Seif-BOE
   containerized.taskmanager.env.use_ss_lib: false
+  yarn.res-lake.enabled: false
+  yarn.cluster.auto-detect.enable: false
 
 Koryn-LQ:
   dc: cn
