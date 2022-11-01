@@ -232,9 +232,6 @@ non-global:
         processingTimerTriggerCount,
         processingTimerLatencyMax,
         processingTimerLatencyMin,
-      # Blacklist
-        numTaskManagersInBlacklist,
-        criticalErrorNum,
       # number of skipped records in source
         skipDirty,
       # number of write failed in sink
@@ -263,9 +260,12 @@ non-global:
         numberOfTaskRecoveries,
         numberOfGlobalFailures,
         numberOfRecoverableJobs,
-        blackedHost,
         completedContainer,
         unrecognizedPod,
+      # blacklist
+        blackedHost,
+        hasWrongBlackedException,
+        blackedExceptionAccuracy,
       # container descheduler
         descheduledContainers,
         deschedulerReceivedInfo,

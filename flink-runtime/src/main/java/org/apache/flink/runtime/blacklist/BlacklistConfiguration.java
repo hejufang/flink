@@ -39,6 +39,9 @@ public class BlacklistConfiguration {
 	private final Time checkInterval;
 	private final Duration limiterFailureInterval;
 	private final int limiterMaxFailuresPerInterval;
+	private final int maxFailureNum;
+	private final int maxHostPerExceptionMinNumber;
+	private final double maxHostPerExceptionRatio;
 
 	public BlacklistConfiguration(
 			boolean taskManagerBlacklistEnabled,
@@ -51,7 +54,10 @@ public class BlacklistConfiguration {
 			Time failureTimeout,
 			Time checkInterval,
 			Duration limiterFailureInterval,
-			int limiterMaxFailuresPerInterval) {
+			int limiterMaxFailuresPerInterval,
+			int maxFailureNum,
+			int maxHostPerExceptionMinNumber,
+			double maxHostPerExceptionRatio) {
 		this.taskManagerBlacklistEnabled = taskManagerBlacklistEnabled;
 		this.taskBlacklistEnabled = taskBlacklistEnabled;
 		this.blacklistCriticalEnable = blacklistCriticalEnable;
@@ -63,6 +69,9 @@ public class BlacklistConfiguration {
 		this.checkInterval = checkInterval;
 		this.limiterFailureInterval = limiterFailureInterval;
 		this.limiterMaxFailuresPerInterval = limiterMaxFailuresPerInterval;
+		this.maxFailureNum = maxFailureNum;
+		this.maxHostPerExceptionMinNumber = maxHostPerExceptionMinNumber;
+		this.maxHostPerExceptionRatio = maxHostPerExceptionRatio;
 	}
 
 	public boolean isTaskManagerBlacklistEnabled() {
@@ -109,19 +118,36 @@ public class BlacklistConfiguration {
 		return limiterMaxFailuresPerInterval;
 	}
 
+	public int getMaxFailureNum() {
+		return maxFailureNum;
+	}
+
+	public int getMaxHostPerExceptionMinNumber() {
+		return maxHostPerExceptionMinNumber;
+	}
+
+	public double getMaxHostPerExceptionRatio() {
+		return maxHostPerExceptionRatio;
+	}
+
 	@Override
 	public String toString() {
-		return "BlacklistConfiguration { " +
-				"taskManagerBlacklistEnabled: " + taskManagerBlacklistEnabled +
-				", taskBlacklistEnabled: " + taskBlacklistEnabled +
-				", criticalErrorEnabled: " + blacklistCriticalEnable +
-				", maxTaskFailureNumPerHost: " + maxTaskFailureNumPerHost +
-				", maxTaskManagerFailureNumPerHost: " + maxTaskManagerFailureNumPerHost +
-				", taskBlacklistMaxLength: " + taskBlacklistMaxLength +
-				", taskManagerBlacklistMaxLength: " + taskManagerBlacklistMaxLength +
-				", failureTimeout: " + failureTimeout +
-				", checkInterval: " + checkInterval +
-				"}";
+		return "BlacklistConfiguration{" +
+				"taskManagerBlacklistEnabled=" + taskManagerBlacklistEnabled +
+				", taskBlacklistEnabled=" + taskBlacklistEnabled +
+				", blacklistCriticalEnable=" + blacklistCriticalEnable +
+				", maxTaskFailureNumPerHost=" + maxTaskFailureNumPerHost +
+				", maxTaskManagerFailureNumPerHost=" + maxTaskManagerFailureNumPerHost +
+				", taskBlacklistMaxLength=" + taskBlacklistMaxLength +
+				", taskManagerBlacklistMaxLength=" + taskManagerBlacklistMaxLength +
+				", failureTimeout=" + failureTimeout +
+				", checkInterval=" + checkInterval +
+				", limiterFailureInterval=" + limiterFailureInterval +
+				", limiterMaxFailuresPerInterval=" + limiterMaxFailuresPerInterval +
+				", maxFailureNum=" + maxFailureNum +
+				", maxHostPerExceptionMinNumber=" + maxHostPerExceptionMinNumber +
+				", maxHostPerExceptionRatio=" + maxHostPerExceptionRatio +
+				'}';
 	}
 
 	public static BlacklistConfiguration fromConfiguration(Configuration configuration) {
@@ -145,6 +171,11 @@ public class BlacklistConfiguration {
 				scala.concurrent.duration.Duration.apply(configuration.getString(BlacklistOptions.CHECK_INTERVAL)).toMillis());
 		Duration limiterFailureInterval = configuration.get(BlacklistOptions.REPORTER_LIMITER_FAILURE_INTERVAL);
 		int limiterMaxFailuresPerInterval = configuration.getInteger(BlacklistOptions.REPORTER_LIMITER_MAX_FAILURES_PER_INTERVAL);
+
+		int maxFailureNum = configuration.getInteger(BlacklistOptions.MAX_FAILURE_NUM);
+		int maxHostPerExceptionMinNumber = configuration.getInteger(BlacklistOptions.MAX_HOST_PER_EXCEPTION_MIN_NUMBER);
+		double maxHostPerExceptionRatio = configuration.getDouble(BlacklistOptions.MAX_HOST_PER_EXCEPTION_RATIO);
+
 		return new BlacklistConfiguration(
 				taskManagerBlacklistEnabled,
 				taskBlacklistEnabled,
@@ -156,6 +187,9 @@ public class BlacklistConfiguration {
 				failureTimeout,
 				checkInterval,
 				limiterFailureInterval,
-				limiterMaxFailuresPerInterval);
+				limiterMaxFailuresPerInterval,
+				maxFailureNum,
+				maxHostPerExceptionMinNumber,
+				maxHostPerExceptionRatio);
 	}
 }

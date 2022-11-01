@@ -747,6 +747,9 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 					final YarnWorkerNode yarnWorkerNode = workerNodeMap.remove(resourceId);
 
 					notifyAllocatedWorkerStopped(resourceId);
+					ContainerCompletedException containerCompletedException = ContainerCompletedException.fromExitCode(
+							containerStatus.getExitStatus(),
+							containerStatus.getDiagnostics());
 
 					if (yarnWorkerNode != null) {
 						log.error("Container {} on {} completed with exit code {}, {}",
@@ -754,9 +757,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 								LoggerHelper.secMark("host", yarnWorkerNode.getContainer().getNodeId().getHost()),
 								LoggerHelper.secMark("exitStatus", containerStatus.getExitStatus()),
 								LoggerHelper.secMark("diagnostics", containerStatus.getDiagnostics()));
-						ContainerCompletedException containerCompletedException = ContainerCompletedException.fromExitCode(
-								containerStatus.getExitStatus(),
-								containerStatus.getDiagnostics());
 						recordWorkerFailure(yarnWorkerNode.getContainer().getNodeId().getHost(), resourceId, containerCompletedException);
 						completedContainerGauge.addMetric(
 								1,
@@ -767,7 +767,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 										.build());
 					}
 					// Eagerly close the connection with task manager.
-					closeTaskManagerConnection(resourceId, new Exception(containerStatus.getDiagnostics()), containerStatus.getExitStatus());
+					closeTaskManagerConnection(resourceId, containerCompletedException, containerStatus.getExitStatus());
 				}
 			}
 		);

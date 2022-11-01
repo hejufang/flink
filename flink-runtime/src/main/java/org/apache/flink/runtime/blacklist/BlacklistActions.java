@@ -28,4 +28,6 @@ public interface BlacklistActions {
 	 * Notifies that blacklist has updated.
 	 */
 	void notifyBlacklistUpdated();
+
+	int getRegisteredWorkerNumber();
 }

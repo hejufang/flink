@@ -98,6 +98,25 @@ public class BlacklistOptions {
 			.defaultValue(100)
 			.withDescription("Failures number exceed this value will stop report to blacklist tracker.");
 
+	public static final ConfigOption<Integer> MAX_FAILURE_NUM = ConfigOptions
+			.key("blacklist.max-failures-number")
+			.intType()
+			.defaultValue(100)
+			.withDescription("Max maintained failures for one kind of FailureType." +
+					"Earliest failure will dropped when exceed the max number.");
+
+	public static final ConfigOption<Integer> MAX_HOST_PER_EXCEPTION_MIN_NUMBER = ConfigOptions
+			.key("blacklist.exception-filter.max-host-per-exception.min-number")
+			.intType()
+			.defaultValue(5)
+			.withDescription("The min number to judge whether exception occurs in too many hosts and should be filtered.");
+
+	public static final ConfigOption<Double> MAX_HOST_PER_EXCEPTION_RATIO = ConfigOptions
+			.key("blacklist.exception-filter.max-host-per-exception.ratio")
+			.doubleType()
+			.defaultValue(0.05)
+			.withDescription("The ratio of total register task manager to judge whether exception occurs in too many hosts and should be filtered.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */

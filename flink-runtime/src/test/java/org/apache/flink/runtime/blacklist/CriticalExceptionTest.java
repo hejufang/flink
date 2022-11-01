@@ -28,19 +28,7 @@ import org.apache.flink.runtime.throwable.ThrowableType;
 public class CriticalExceptionTest extends Exception {
 	static final long serialVersionUID = -7034897190745766930L;
 
-	public CriticalExceptionTest() {
-		super();
-	}
-
 	public CriticalExceptionTest(String message) {
 		super(message);
-	}
-
-	public CriticalExceptionTest(String message, Throwable cause) {
-		super(message, cause);
-	}
-
-	public CriticalExceptionTest(Throwable cause) {
-		super(cause);
 	}
 }

@@ -94,4 +94,26 @@ public class BlacklistUtil {
 		TASK_MANAGER,
 		TASK
 	}
+
+	/**
+	 * State of Blacked Exception.
+	 */
+	public enum BlackedExceptionState {
+		/**
+		 * The exception doesn't occur within the period, 1 to 6 minutes after the blockage.
+		 * And now is in the period.
+		 */
+		UNKNOWN,
+
+		/**
+		 * The exception doesn't occur within the period, 1 to 6 minutes after the blockage.
+		 * And now is after the period.
+		 */
+		RIGHT,
+
+		/**
+		 * When we block the relative hosts, the exception occurs within the period, 1 to 6 minutes after the blockage.
+		 */
+		WRONG
+	}
 }

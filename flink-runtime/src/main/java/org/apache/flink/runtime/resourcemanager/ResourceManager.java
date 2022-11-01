@@ -1832,6 +1832,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			validateRunsInMainThread();
 			onBlacklistUpdated();
 		}
+
+		@Override
+		public int getRegisteredWorkerNumber() {
+			return taskExecutors.size();
+		}
 	}
 
 	private class JobLeaderIdActionsImpl implements JobLeaderIdActions {

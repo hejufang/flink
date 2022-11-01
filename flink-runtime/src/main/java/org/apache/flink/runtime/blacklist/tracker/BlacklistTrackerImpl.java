@@ -18,11 +18,11 @@
 
 package org.apache.flink.runtime.blacklist.tracker;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
-import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.blacklist.BlacklistActions;
@@ -34,24 +34,18 @@ import org.apache.flink.runtime.blacklist.WarehouseBlacklistRecordMessage;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
-import org.apache.flink.util.LoggerHelper;
+import org.apache.flink.util.clock.Clock;
+import org.apache.flink.util.clock.SystemClock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -63,17 +57,18 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 	private static final Logger LOG = LoggerFactory.getLogger(BlacklistTrackerImpl.class);
 
 	private static final String BLACKLIST_METRIC_NAME = "blackedHost";
+	private static final String BLACKLIST_EXCEPTION_ACCURACY_METRIC_NAME = "blackedExceptionAccuracy";
+	private static final String HAS_WRONG_BLACKED_EXCEPTION_METRIC_NAME = "hasWrongBlackedException";
 	private static final String WAREHOUSE_BLACKLIST_FAILURES = "warehouseBlacklistFailures";
 	private static final String WAREHOUSE_BLACKLIST_RECORDS = "warehouseBlacklistRecords";
-	private static final String CRITICAL_ERROR_NUM = "criticalErrorNum";
 
 	private final TagGauge blacklistGauge = new TagGauge.TagGaugeBuilder().build();
+	private final TagGauge blackedExceptionAccuracyGauge = new TagGauge.TagGaugeBuilder().build();
+	private final TagGauge hasWrongBlackedExceptionGauge = new TagGauge.TagGaugeBuilder().build();
 	private final MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet =
 			new MessageSet<>(MessageType.BLACKLIST);
 	private final MessageSet<WarehouseBlacklistRecordMessage> blacklistRecordMessageSet =
 			new MessageSet<>(MessageType.BLACKLIST);
-	private static SimpleCounter criticalErrorCounter = new SimpleCounter();
-
 	private final ResourceManagerMetricGroup jobManagerMetricGroup;
 	/**
 	 * Host already added to blacklist. key: host, value: latest failure timestamp.
@@ -89,7 +84,8 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 	private final Time checkInterval;
 
 	private final Set<Class<? extends Throwable>> ignoreExceptionClasses;
-	private boolean isCriticalErrorEnable;
+	private final boolean isCriticalErrorEnable;
+	private final Clock clock;
 
 	public BlacklistTrackerImpl(
 			BlacklistConfiguration blacklistConfiguration,
@@ -102,7 +98,11 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				blacklistConfiguration.getFailureTimeout(),
 				blacklistConfiguration.getCheckInterval(),
 				blacklistConfiguration.isBlacklistCriticalEnable(),
-				jobManagerMetricGroup);
+				blacklistConfiguration.getMaxFailureNum(),
+				blacklistConfiguration.getMaxHostPerExceptionMinNumber(),
+				blacklistConfiguration.getMaxHostPerExceptionRatio(),
+				jobManagerMetricGroup,
+				SystemClock.getInstance());
 	}
 
 	public BlacklistTrackerImpl(
@@ -113,17 +113,37 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 			Time failureTimeout,
 			Time checkInterval,
 			boolean isCriticalErrorEnable,
-			ResourceManagerMetricGroup jobManagerMetricGroup) {
+			int maxFailureNum,
+			int maxHostPerExceptionMinNumber,
+			double maxHostPerExceptionRatio,
+			ResourceManagerMetricGroup jobManagerMetricGroup,
+			Clock clock) {
 
 		this.blackedHosts = new HashMap<>();
 		this.checkInterval = checkInterval;
 		this.jobManagerMetricGroup = checkNotNull(jobManagerMetricGroup);
-
+		this.clock = clock;
 		this.allFailures = new HashMap<>();
 		this.allFailures.put(BlacklistUtil.FailureType.TASK_MANAGER,
-				new HostFailures(maxTaskManagerFailureNumPerHost, failureTimeout, taskManagerBlacklistMaxLength, blacklistFailureMessageSet));
+				new HostFailures(
+						maxTaskManagerFailureNumPerHost,
+						failureTimeout,
+						taskManagerBlacklistMaxLength,
+						maxFailureNum,
+						maxHostPerExceptionRatio,
+						maxHostPerExceptionMinNumber,
+						clock,
+						blacklistFailureMessageSet));
 		this.allFailures.put(BlacklistUtil.FailureType.TASK,
-				new HostFailures(maxTaskFailureNumPerHost, failureTimeout, taskBlacklistMaxLength, blacklistFailureMessageSet));
+				new HostFailures(
+						maxTaskFailureNumPerHost,
+						failureTimeout,
+						taskBlacklistMaxLength,
+						maxFailureNum,
+						maxHostPerExceptionRatio,
+						maxHostPerExceptionMinNumber,
+						clock,
+						blacklistFailureMessageSet));
 		this.isCriticalErrorEnable = isCriticalErrorEnable;
 
 		this.ignoreExceptionClasses = new HashSet<>();
@@ -137,6 +157,14 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		this.mainThreadExecutor = mainThreadExecutor;
 		this.mainThreadExecutor.schedule(
 				this::checkFailureExceedTimeout,
+				checkInterval.toMilliseconds(),
+				TimeUnit.MILLISECONDS);
+		this.mainThreadExecutor.schedule(
+				this::reportBlackedRecordAccuracy,
+				checkInterval.toMilliseconds(),
+				TimeUnit.MILLISECONDS);
+		this.mainThreadExecutor.schedule(
+				this::tryUpdateMaxHostPerExceptionThreshold,
 				checkInterval.toMilliseconds(),
 				TimeUnit.MILLISECONDS);
 		tryUpdateBlacklist();
@@ -183,6 +211,27 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		}
 	}
 
+	@VisibleForTesting
+	public Map<BlacklistUtil.FailureType, Integer> getMaxHostPerExceptionNumber() {
+		Map<BlacklistUtil.FailureType, Integer> result = new HashMap<>();
+		allFailures.forEach((key, value) -> result.put(key, value.getMaxHostPerExceptionNumber()));
+		return result;
+	}
+
+	@VisibleForTesting
+	public Map<BlacklistUtil.FailureType, BlackedExceptionAccuracy> getBlackedExceptionAccuracies() {
+		Map<BlacklistUtil.FailureType, BlackedExceptionAccuracy> result = new HashMap<>();
+		allFailures.forEach((key, value) -> result.put(key, value.getBlackedRecordAccuracy()));
+		return result;
+	}
+
+	@VisibleForTesting
+	public Map<BlacklistUtil.FailureType, Integer> getFilteredExceptionNumber() {
+		Map<BlacklistUtil.FailureType, Integer> result = new HashMap<>();
+		allFailures.forEach((key, value) -> result.put(key, value.getFilteredExceptionNumber()));
+		return result;
+	}
+
 	@Override
 	public void clearAll() {
 		this.blackedHosts.clear();
@@ -214,9 +263,10 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 
 	private void registerMetrics() {
 		jobManagerMetricGroup.gauge(BLACKLIST_METRIC_NAME, blacklistGauge);
+		jobManagerMetricGroup.gauge(BLACKLIST_EXCEPTION_ACCURACY_METRIC_NAME, blackedExceptionAccuracyGauge);
+		jobManagerMetricGroup.gauge(HAS_WRONG_BLACKED_EXCEPTION_METRIC_NAME, hasWrongBlackedExceptionGauge);
 		jobManagerMetricGroup.gauge(WAREHOUSE_BLACKLIST_FAILURES, blacklistFailureMessageSet);
 		jobManagerMetricGroup.gauge(WAREHOUSE_BLACKLIST_RECORDS, blacklistRecordMessageSet);
-		jobManagerMetricGroup.counter(CRITICAL_ERROR_NUM, criticalErrorCounter);
 	}
 
 	public void tryUpdateBlacklist() {
@@ -240,7 +290,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 			blackedHosts = tempBlackedHost;
 
 			blacklistGauge.reset();
-			long ts = System.currentTimeMillis();
+			long ts = clock.absoluteTimeMillis();
 			for (Map.Entry<String, HostFailure> entry : blackedHosts.entrySet()) {
 				String host = entry.getKey();
 				Throwable exception = entry.getValue().getException();
@@ -255,6 +305,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 							.addTagValue("blackedHost", host)
 							.addTagValue("exception", exception.getClass().getName())
 							.addTagValue("reason", reason)
+							.addTagValue("isCritical", String.valueOf(entry.getValue().isCrtialError() ? 1 : 0))
 							.addTagValue("type", failureType.name())
 							.build()
 				);
@@ -271,9 +322,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 
 	public void checkFailureExceedTimeout() {
 		try {
-			for (HostFailures hostFailures : allFailures.values()) {
-				hostFailures.checkOutdatedFailure();
-			}
+			LOG.debug("Start to checkFailureExceedTimeout");
 			tryUpdateBlacklist();
 		} catch (Exception e) {
 			LOG.error("checkFailureExceedTimeout error", e);
@@ -285,138 +334,74 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				TimeUnit.MILLISECONDS);
 	}
 
-	static class HostFailures {
-		private final Map<String, LinkedList<HostFailure>> hostFailures;
-		private final int maxFailureNumPerHost;
-		private final Time failureTimeout;
-		private final int blacklistMaxLength;
-		private final MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet;
+	public void reportBlackedRecordAccuracy() {
+		try {
+			LOG.debug("Start to reportBlackedRecordAccuracy.");
+			hasWrongBlackedExceptionGauge.reset();
+			blackedExceptionAccuracyGauge.reset();
 
-		public HostFailures(
-				int maxFailureNumPerHost,
-				Time failureTimeout,
-				int blacklistMaxLength,
-				MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet) {
-			this.hostFailures = new HashMap<>();
-			this.maxFailureNumPerHost = maxFailureNumPerHost;
-			this.failureTimeout = failureTimeout;
-			this.blacklistMaxLength = blacklistMaxLength;
-			this.blacklistFailureMessageSet = blacklistFailureMessageSet;
-		}
+			for (Map.Entry<BlacklistUtil.FailureType, HostFailures> allFailuresEntry : allFailures.entrySet()) {
+				BlackedExceptionAccuracy blackedExceptionAccuracy = allFailuresEntry.getValue().getBlackedRecordAccuracy();
+				hasWrongBlackedExceptionGauge.addMetric(
+						blackedExceptionAccuracy.hasWrongBlackedException() ? 1 : 0,
+						new TagGaugeStoreImpl.TagValuesBuilder()
+								.addTagValue("type", allFailuresEntry.getKey().name())
+								.build());
 
-		public boolean addFailure(HostFailure hostFailure) {
-			Class<? extends Throwable> t = hostFailure.getException().getClass();
-			int numberOfExceptionHost = calculateHosts(t);
-			if (numberOfExceptionHost > blacklistMaxLength) {
-				LOG.info("{} occur on too many hosts {}, ignore this failure.", LoggerHelper.secMark("errMsg", t), LoggerHelper.secMark("numberOfExceptionHost", numberOfExceptionHost));
-				return false;
-			}
-
-			hostFailures.putIfAbsent(hostFailure.getHostname(), new LinkedList<>());
-			hostFailures.get(hostFailure.getHostname()).add(hostFailure);
-			checkOutdatedFailure();
-
-			blacklistFailureMessageSet.addMessage(
-					new Message<>(WarehouseBlacklistFailureMessage.fromHostFailure(hostFailure)));
-			return true;
-		}
-
-		public int calculateHosts(Class<? extends Throwable> t) {
-			return hostFailures
-					.values()
-					.stream()
-					.mapToInt(value -> {
-						for (HostFailure hostFailure : value) {
-							if (hostFailure.getException().getClass() == t) {
-								return 1;
-							}
-						}
-						return 0;
-					})
-					.sum();
-		}
-
-		public void checkOutdatedFailure() {
-			Iterator<Map.Entry<String, LinkedList<HostFailure>>> hostFailuresIterator = hostFailures.entrySet().iterator();
-			while (hostFailuresIterator.hasNext()) {
-				Map.Entry<String, LinkedList<HostFailure>> entry = hostFailuresIterator.next();
-				LinkedList<HostFailure> failures = entry.getValue();
-
-				// remove excess failures.
-				while (failures.size() > maxFailureNumPerHost) {
-					failures.removeFirst();
+				for (Class<? extends Throwable> e : blackedExceptionAccuracy.getUnknownBlackedException()) {
+					blackedExceptionAccuracyGauge.addMetric(
+							1,
+							new TagGaugeStoreImpl.TagValuesBuilder()
+									.addTagValue("type", allFailuresEntry.getKey().name())
+									.addTagValue("exception", e.getName())
+									.addTagValue("blacked_exception_state", BlacklistUtil.BlackedExceptionState.UNKNOWN.name())
+									.build());
 				}
-
-				// remove outdated failures.
-				Iterator<HostFailure> iterator = failures.iterator();
-				while (iterator.hasNext()) {
-					if ((System.currentTimeMillis() - iterator.next().getTimestamp())
-							> failureTimeout.toMilliseconds()) {
-						iterator.remove();
-					} else {
-						break;
-					}
+				for (Class<? extends Throwable> e : blackedExceptionAccuracy.getWrongBlackedException()) {
+					blackedExceptionAccuracyGauge.addMetric(
+							1,
+							new TagGaugeStoreImpl.TagValuesBuilder()
+									.addTagValue("type", allFailuresEntry.getKey().name())
+									.addTagValue("exception", e.getName())
+									.addTagValue("blacked_exception_state", BlacklistUtil.BlackedExceptionState.WRONG.name())
+									.build());
 				}
-
-				if (failures.isEmpty()) {
-					hostFailuresIterator.remove();
+				for (Class<? extends Throwable> e : blackedExceptionAccuracy.getRightBlackedException()) {
+					blackedExceptionAccuracyGauge.addMetric(
+							1,
+							new TagGaugeStoreImpl.TagValuesBuilder()
+									.addTagValue("type", allFailuresEntry.getKey().name())
+									.addTagValue("exception", e.getName())
+									.addTagValue("blacked_exception_state", BlacklistUtil.BlackedExceptionState.RIGHT.name())
+									.build());
 				}
 			}
+		} catch (Exception e) {
+			LOG.error("reportBlackedRecordAccuracy error", e);
 		}
 
-		public Set<ResourceID> getResources(String hostname) {
-			LinkedList<HostFailure> failures = hostFailures.get(hostname);
-			if (failures != null) {
-				return failures
-						.stream()
-						.map(HostFailure::getResourceID)
-						.collect(Collectors.toSet());
-			} else {
-				return Collections.emptySet();
-			}
+		this.mainThreadExecutor.schedule(
+				this::reportBlackedRecordAccuracy,
+				checkInterval.toMilliseconds(),
+				TimeUnit.MILLISECONDS);
+	}
 
-		}
-
-		public Map<String, HostFailure> getBlackedHosts() {
-			Map<String, HostFailure> blackedHosts = new TreeMap<>();
-			for (Map.Entry<String, LinkedList<HostFailure>> hostFailuresEntry : hostFailures.entrySet()) {
-				String host = hostFailuresEntry.getKey();
-				LinkedList<HostFailure> failures = hostFailuresEntry.getValue();
-				HostFailure criticalFailure = checkCriticalError(failures);
-				if (criticalFailure != null) {
-					LOG.info("add a CriticalError host {}", host);
-					blackedHosts.put(host, criticalFailure);
-					criticalErrorCounter.inc();
-				} else if (failures.size() >= maxFailureNumPerHost) {
-					blackedHosts.put(host, failures.getLast());
+	public void tryUpdateMaxHostPerExceptionThreshold() {
+		try {
+			LOG.debug("Start to updateMaxHostPerExceptionThreshold.");
+			int totalWorkerNumber = blacklistActions.getRegisteredWorkerNumber();
+			if (totalWorkerNumber > 0) {
+				for (HostFailures hostFailures : allFailures.values()) {
+					hostFailures.tryUpdateMaxHostPerExceptionThreshold(totalWorkerNumber);
 				}
 			}
-			if (blackedHosts.size() > blacklistMaxLength) {
-				List<String> keyList = new ArrayList<>(blackedHosts.keySet());
-				keyList.sort(Comparator.comparingLong(o -> blackedHosts.get(o).getTimestamp()));
-				for (String host : keyList) {
-					if (blackedHosts.size() > blacklistMaxLength) {
-						blackedHosts.remove(host);
-					} else {
-						break;
-					}
-				}
-			}
-
-			return blackedHosts;
+		} catch (Exception e) {
+			LOG.error("updateMaxHostPerExceptionThreshold error", e);
 		}
 
-		private HostFailure checkCriticalError(LinkedList<HostFailure> failures) {
-			for (HostFailure failure : failures) {
-				if (failure.isCrtialError()) {
-					return failure;
-				}
-			}
-			return null;
-		}
-
-		public void clear() {
-			this.hostFailures.clear();
-		}
+		this.mainThreadExecutor.schedule(
+				this::tryUpdateMaxHostPerExceptionThreshold,
+				checkInterval.toMilliseconds(),
+				TimeUnit.MILLISECONDS);
 	}
 }
