@@ -33,6 +33,7 @@ import org.apache.flink.util.clock.ManualClock;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -48,7 +49,7 @@ public class BlacklistTrackerImplTest {
 		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				2, 2, 3, 3,
-				Time.seconds(60), Time.seconds(1), false, 100, 3, 0.05, UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
+				Time.seconds(60), Time.seconds(1), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(mainThreadExecutor, createTestingBlacklistActions());
 		BlacklistReporter blacklistReporter = new LocalBlacklistReporterImpl(blacklistTracker);
 		blacklistReporter.onFailure("host1", new ResourceID("resource1"), new RuntimeException("exception1"), clock.absoluteTimeMillis());
@@ -65,7 +66,7 @@ public class BlacklistTrackerImplTest {
 		ManualClock clock = new ManualClock();
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				2, 2, 3, 3,
-				Time.milliseconds(1000), Time.milliseconds(250), false, 100, 3, 0.05, UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
+				Time.milliseconds(1000), Time.milliseconds(250), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		ManuallyTriggeredScheduledExecutor executor = new ManuallyTriggeredScheduledExecutor();
 		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
 		blacklistTracker.start(
@@ -92,7 +93,7 @@ public class BlacklistTrackerImplTest {
 		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 1, 1, 2,
-				Time.seconds(60), Time.seconds(1), false, 100, 5, 0.05, UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
+				Time.seconds(60), Time.seconds(1), false, 100, 5, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
 				mainThreadExecutor,
 				createTestingBlacklistActions());
@@ -116,7 +117,7 @@ public class BlacklistTrackerImplTest {
 		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 1, 1, 2,
-				Time.seconds(60), Time.seconds(1), false, 100, 10, 0.05, UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
+				Time.seconds(60), Time.seconds(1), false, 100, 10, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
 				mainThreadExecutor,
 				createTestingBlacklistActions());
@@ -156,7 +157,7 @@ public class BlacklistTrackerImplTest {
 		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 			3, 3, 1, 2,
-			Time.seconds(60), Time.seconds(1), true, 100, 3, 0.05, UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
+			Time.seconds(60), Time.seconds(1), true, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(mainThreadExecutor, createTestingBlacklistActions());
 
 		BlacklistReporter blacklistReporter = createBlacklistReporter(blacklistTracker, BlacklistUtil.FailureType.UNKNOWN);
@@ -178,7 +179,7 @@ public class BlacklistTrackerImplTest {
 		ComponentMainThreadExecutor mainThreadExecutor = createManuallyTriggeredMainThreadExecutor(executor);
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 1, 1, 2,
-				Time.seconds(60), Time.seconds(1), false, 100, 3, 0.05, UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
+				Time.seconds(60), Time.seconds(1), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
 				mainThreadExecutor,
 				createTestingBlacklistActions());
@@ -207,7 +208,7 @@ public class BlacklistTrackerImplTest {
 
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 1, 1, 2,
-				Time.seconds(60), Time.seconds(1), false, 100, 3, 0.05, UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
+				Time.seconds(60), Time.seconds(1), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
 				mainThreadExecutor,
 				testingBlacklistActions);
@@ -238,7 +239,7 @@ public class BlacklistTrackerImplTest {
 
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 2, 2, 3,
-				Time.seconds(600), Time.seconds(1), false, 100, 3, 0.05, UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
+				Time.seconds(600), Time.seconds(1), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
 				mainThreadExecutor,
 				testingBlacklistActions);
@@ -287,7 +288,7 @@ public class BlacklistTrackerImplTest {
 
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 2, 1, 2,
-				Time.seconds(600), Time.seconds(1), false, 100, 3, 0.05, UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
+				Time.seconds(600), Time.seconds(1), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
 				mainThreadExecutor,
 				createTestingBlacklistActions());
@@ -324,7 +325,7 @@ public class BlacklistTrackerImplTest {
 
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 2, 1, 2,
-				Time.seconds(600), Time.seconds(1), false, 100, 3, 0.05, UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
+				Time.seconds(600), Time.seconds(1), false, 100, 3, 0.05, Collections.emptyList(), UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(), clock);
 		blacklistTracker.start(
 				mainThreadExecutor,
 				createTestingBlacklistActions());

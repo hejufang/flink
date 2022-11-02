@@ -257,6 +257,7 @@ common:
   blacklist.failure-timeout: "20 min"
   blacklist.check-interval: "1 min"
   blacklist.taskmanager.critical.error.enabled: true
+  blacklist.ignored-exception-class-names: "java.lang.OutOfMemoryError;org.apache.kafka.common.errors.TopicAuthorizationException;org.apache.hadoop.hdfs.protocol.DSQuotaExceededException"
 
   # am failover recovery
   yarn.previous-container.as-pending-container: true

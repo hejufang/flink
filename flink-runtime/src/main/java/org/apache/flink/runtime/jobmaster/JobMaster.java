@@ -66,12 +66,14 @@ import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.heartbeat.HeartbeatTarget;
 import org.apache.flink.runtime.heartbeat.NoOpHeartbeatManager;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
+import org.apache.flink.runtime.io.network.netty.exception.LocalTransportException;
 import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportException;
 import org.apache.flink.runtime.io.network.partition.IllegalProducerStateException;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
-import org.apache.flink.runtime.io.network.partition.PartitionException;
+import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.PartitionTrackerFactory;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.consumer.PartitionConnectionException;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
@@ -380,7 +382,9 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 				jobGraph.getJobID(),
 				rpcTimeout);
 		this.remoteBlacklistReporter.addIgnoreExceptionClass(RemoteTransportException.class);
-		this.remoteBlacklistReporter.addIgnoreExceptionClass(PartitionException.class);
+		this.remoteBlacklistReporter.addIgnoreExceptionClass(LocalTransportException.class);
+		this.remoteBlacklistReporter.addIgnoreExceptionClass(PartitionNotFoundException.class);
+		this.remoteBlacklistReporter.addIgnoreExceptionClass(PartitionConnectionException.class);
 		this.remoteBlacklistReporter.addIgnoreExceptionClass(IllegalProducerStateException.class);
 
 		this.jobManagerJobMetricGroup = jobMetricGroupFactory.create(jobGraph);

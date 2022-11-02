@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -78,7 +79,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 	private BlacklistActions blacklistActions;
 	private final Time checkInterval;
 
-	private final Set<Class<? extends Throwable>> ignoreExceptionClasses;
+	private final Set<String> ignoreExceptionClassNames;
 	private final Clock clock;
 
 	private final FailureHandlerRouter router;
@@ -97,6 +98,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				blacklistConfiguration.getMaxFailureNum(),
 				blacklistConfiguration.getMaxHostPerExceptionMinNumber(),
 				blacklistConfiguration.getMaxHostPerExceptionRatio(),
+				blacklistConfiguration.getIgnoredExceptionClassNames(),
 				jobManagerMetricGroup,
 				SystemClock.getInstance());
 	}
@@ -112,6 +114,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 			int maxFailureNum,
 			int maxHostPerExceptionMinNumber,
 			double maxHostPerExceptionRatio,
+			List<String> ignoredExceptions,
 			ResourceManagerMetricGroup jobManagerMetricGroup,
 			Clock clock) {
 
@@ -120,7 +123,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		this.checkInterval = checkInterval;
 		this.jobManagerMetricGroup = checkNotNull(jobManagerMetricGroup);
 		this.clock = clock;
-		this.ignoreExceptionClasses = new HashSet<>();
+		this.ignoreExceptionClassNames = new HashSet<>(ignoredExceptions);
 
 		FailureHandler taskFailoverHandler = new CountBasedFailureHandler(
 				maxTaskFailureNumPerHost,
@@ -197,7 +200,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 
 	@Override
 	public void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass) {
-		this.ignoreExceptionClasses.add(exceptionClass);
+		this.ignoreExceptionClassNames.add(exceptionClass.getName());
 		LOG.info("Add ignore Exception class {}.", exceptionClass.getName());
 	}
 
@@ -240,7 +243,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 
 	@Override
 	public void onFailure(BlacklistUtil.FailureType failureType, String hostname, ResourceID resourceID, Throwable cause, long timestamp) {
-		if (this.ignoreExceptionClasses.contains(cause.getClass())) {
+		if (this.ignoreExceptionClassNames.contains(cause.getClass().getName())) {
 			return;
 		}
 

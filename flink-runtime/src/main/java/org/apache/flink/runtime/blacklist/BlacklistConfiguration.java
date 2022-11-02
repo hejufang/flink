@@ -23,6 +23,8 @@ import org.apache.flink.configuration.BlacklistOptions;
 import org.apache.flink.configuration.Configuration;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Configuration for blacklist.
@@ -43,6 +45,8 @@ public class BlacklistConfiguration {
 	private final int maxHostPerExceptionMinNumber;
 	private final double maxHostPerExceptionRatio;
 
+	private final List<String> ignoredExceptionClassNames;
+
 	public BlacklistConfiguration(
 			boolean taskManagerBlacklistEnabled,
 			boolean taskBlacklistEnabled,
@@ -57,7 +61,8 @@ public class BlacklistConfiguration {
 			int limiterMaxFailuresPerInterval,
 			int maxFailureNum,
 			int maxHostPerExceptionMinNumber,
-			double maxHostPerExceptionRatio) {
+			double maxHostPerExceptionRatio,
+			List<String> ignoredExceptionClassNames) {
 		this.taskManagerBlacklistEnabled = taskManagerBlacklistEnabled;
 		this.taskBlacklistEnabled = taskBlacklistEnabled;
 		this.blacklistCriticalEnable = blacklistCriticalEnable;
@@ -72,6 +77,7 @@ public class BlacklistConfiguration {
 		this.maxFailureNum = maxFailureNum;
 		this.maxHostPerExceptionMinNumber = maxHostPerExceptionMinNumber;
 		this.maxHostPerExceptionRatio = maxHostPerExceptionRatio;
+		this.ignoredExceptionClassNames = ignoredExceptionClassNames;
 	}
 
 	public boolean isTaskManagerBlacklistEnabled() {
@@ -130,6 +136,10 @@ public class BlacklistConfiguration {
 		return maxHostPerExceptionRatio;
 	}
 
+	public List<String> getIgnoredExceptionClassNames() {
+		return ignoredExceptionClassNames;
+	}
+
 	@Override
 	public String toString() {
 		return "BlacklistConfiguration{" +
@@ -147,6 +157,7 @@ public class BlacklistConfiguration {
 				", maxFailureNum=" + maxFailureNum +
 				", maxHostPerExceptionMinNumber=" + maxHostPerExceptionMinNumber +
 				", maxHostPerExceptionRatio=" + maxHostPerExceptionRatio +
+				", ignoredExceptionClassNames=" + ignoredExceptionClassNames +
 				'}';
 	}
 
@@ -176,6 +187,12 @@ public class BlacklistConfiguration {
 		int maxHostPerExceptionMinNumber = configuration.getInteger(BlacklistOptions.MAX_HOST_PER_EXCEPTION_MIN_NUMBER);
 		double maxHostPerExceptionRatio = configuration.getDouble(BlacklistOptions.MAX_HOST_PER_EXCEPTION_RATIO);
 
+		final List<String> ignoredExceptionClassNames = configuration.get(BlacklistOptions.IGNORED_EXCEPTION_CLASS_NAMES);
+		final List<String> additionalIgnoredExceptionClassNames = configuration.get(BlacklistOptions.ADDITIONAL_IGNORED_EXCEPTION_CLASS_NAMES);
+		final List<String> allIgnoredExceptionClassNames = new ArrayList<>(ignoredExceptionClassNames.size() + additionalIgnoredExceptionClassNames.size());
+		allIgnoredExceptionClassNames.addAll(ignoredExceptionClassNames);
+		allIgnoredExceptionClassNames.addAll(additionalIgnoredExceptionClassNames);
+
 		return new BlacklistConfiguration(
 				taskManagerBlacklistEnabled,
 				taskBlacklistEnabled,
@@ -190,6 +207,7 @@ public class BlacklistConfiguration {
 				limiterMaxFailuresPerInterval,
 				maxFailureNum,
 				maxHostPerExceptionMinNumber,
-				maxHostPerExceptionRatio);
+				maxHostPerExceptionRatio,
+				allIgnoredExceptionClassNames);
 	}
 }

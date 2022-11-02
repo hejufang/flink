@@ -21,6 +21,7 @@ package org.apache.flink.configuration;
 import org.apache.flink.annotation.PublicEvolving;
 
 import java.time.Duration;
+import java.util.List;
 
 /**
  * The set of configuration options relating to the BlacklistTracker.
@@ -116,6 +117,20 @@ public class BlacklistOptions {
 			.doubleType()
 			.defaultValue(0.05)
 			.withDescription("The ratio of total register task manager to judge whether exception occurs in too many hosts and should be filtered.");
+
+	public static final ConfigOption<List<String>> IGNORED_EXCEPTION_CLASS_NAMES = ConfigOptions
+			.key("blacklist.ignored-exception-class-names")
+			.stringType()
+			.asList()
+			.noDefaultValue()
+			.withDescription("List of ignored exception class name, split by ';'.");
+
+	public static final ConfigOption<List<String>> ADDITIONAL_IGNORED_EXCEPTION_CLASS_NAMES = ConfigOptions
+			.key("blacklist.ignored-exception-class-names.additional")
+			.stringType()
+			.asList()
+			.noDefaultValue()
+			.withDescription("List of additional ignored exception class name, split by ';'.");
 
 	// ---------------------------------------------------------------------------------------------
 
