@@ -37,7 +37,6 @@ import org.apache.flink.table.runtime.operators.window.{CountWindow, TimeWindow,
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
 import org.apache.flink.table.types.logical.LogicalType
-import org.apache.flink.table.types.{DataType, FieldDigest, StringFieldDigest}
 
 import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
 import org.apache.calcite.rel.`type`.RelDataType
@@ -149,16 +148,12 @@ abstract class StreamExecGroupWindowAggregateBase(
     }
 
     val needRetraction = !ChangelogPlanUtils.inputInsertOnly(this)
-    val tableConfig = planner.getTableConfig
-    val isDigestsInvolved = tableConfig.getConfiguration.getBoolean(
-      ExecutionConfigOptions.TABLE_EXEC_INVOLVE_DIGEST_IN_STATE_ENABLED)
     val aggInfoList = transformToStreamAggregateInfoList(
       aggCalls,
       inputRowType,
       Array.fill(aggCalls.size)(needRetraction),
       needInputCount = needRetraction,
-      isStateBackendDataViews = true,
-      isDigestsInvolve = isDigestsInvolved)
+      isStateBackendDataViews = true)
 
     val aggCodeGenerator = createAggsHandler(
       aggInfoList,
@@ -173,26 +168,7 @@ abstract class StreamExecGroupWindowAggregateBase(
     val equaliser = generator.generateRecordEqualiser("WindowValueEqualiser")
 
     val aggValueTypes = aggInfoList.getActualValueTypes.map(fromDataTypeToLogicalType)
-
-    var accDataTypes: Array[DataType] = null
-    var accumulatorDigests : Array[FieldDigest] = null
-    var aggResultDigests : Array[FieldDigest] = null
-    if (isDigestsInvolved) {
-      val result = AggregateUtil.extractAccTypesAndDigests(aggInfoList,
-        FlinkTypeFactory.toLogicalRowType(inputRowType))
-      accDataTypes = result._1
-      accumulatorDigests = result._2
-      aggResultDigests = aggInfoList.aggInfos.map(
-        aggInfo => new StringFieldDigest(aggInfo.agg.name))
-      if (windowPropertyTypes.length > 0) {
-        throw new TableException("This is a bug and should not happen. Please file an issue.")
-      }
-    } else {
-      accDataTypes = aggInfoList.getAccTypes
-    }
-
-    val accTypes = accDataTypes.map(fromDataTypeToLogicalType)
-
+    val accTypes = aggInfoList.getAccTypes.map(fromDataTypeToLogicalType)
     val operator = createWindowOperator(
       config,
       aggCodeGenerator,
@@ -200,8 +176,6 @@ abstract class StreamExecGroupWindowAggregateBase(
       accTypes,
       windowPropertyTypes,
       aggValueTypes,
-      accumulatorDigests,
-      aggResultDigests,
       inputRowTypeInfo.getLogicalTypes,
       timeIdx)
 
@@ -286,8 +260,6 @@ abstract class StreamExecGroupWindowAggregateBase(
       accTypes: Array[LogicalType],
       windowPropertyTypes: Array[LogicalType],
       aggValueTypes: Array[LogicalType],
-      accumulatorDigests: Array[FieldDigest],
-      aggResultDigests: Array[_ <: FieldDigest],
       inputFields: Seq[LogicalType],
       timeIdx: Int): WindowOperator[_, _] = {
 
@@ -374,8 +346,6 @@ abstract class StreamExecGroupWindowAggregateBase(
     aggsHandler match {
       case agg: GeneratedNamespaceAggsHandleFunction[_] =>
         newBuilder
-          .withAccumulatorDigest(accumulatorDigests)
-          .withAggResultDigest(aggResultDigests.asInstanceOf[Array[FieldDigest]])
           .aggregate(agg, recordEqualiser, accTypes, aggValueTypes, windowPropertyTypes)
           .build()
       case tableAgg: GeneratedNamespaceTableAggsHandleFunction[_] =>

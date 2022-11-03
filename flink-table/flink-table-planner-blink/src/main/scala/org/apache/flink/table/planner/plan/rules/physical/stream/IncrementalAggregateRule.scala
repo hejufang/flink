@@ -20,7 +20,6 @@ package org.apache.flink.table.planner.plan.rules.physical.stream
 import org.apache.flink.annotation.Experimental
 import org.apache.flink.configuration.ConfigOption
 import org.apache.flink.configuration.ConfigOptions.key
-import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkTypeFactory}
 import org.apache.flink.table.planner.plan.PartialFinalType
 import org.apache.flink.table.planner.plan.nodes.physical.stream.{StreamExecExchange, StreamExecGlobalGroupAggregate, StreamExecIncrementalGroupAggregate, StreamExecLocalGroupAggregate}
@@ -142,9 +141,6 @@ class IncrementalAggregateRule
         needInputCount = false,
         // the local agg is not works on state
         isStateBackendDataViews = false)
-      val isDigestsInvolved = call.getPlanner.getContext.unwrap(classOf[FlinkContext])
-        .getTableConfig.getConfiguration
-        .getBoolean(ExecutionConfigOptions.TABLE_EXEC_INVOLVE_DIGEST_IN_STATE_ENABLED)
       val globalAggInfoList = AggregateUtil.transformToStreamAggregateInfoList(
         aggCalls,
         // the final agg input is partial agg
@@ -154,9 +150,7 @@ class IncrementalAggregateRule
         // also do not need count*
         needInputCount = false,
         // the global agg is works on state
-        isStateBackendDataViews = true,
-        needDistinctInfo = true,
-        isDigestsInvolved)
+        isStateBackendDataViews = true)
 
       // check whether the global agg required input row type equals the incr agg output row type
       val globalAggInputAccType = AggregateUtil.inferLocalAggRowType(

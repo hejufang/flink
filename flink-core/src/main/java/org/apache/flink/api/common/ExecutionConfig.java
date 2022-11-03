@@ -22,7 +22,6 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.Public;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
-import org.apache.flink.api.common.typeinfo.RowDataSchemaCompatibilityResolveStrategy;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.ExecutionOptions;
@@ -155,9 +154,7 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 
 	private RestartStrategies.RestartStrategyConfiguration restartStrategyConfiguration =
 		new RestartStrategies.FallbackRestartStrategyConfiguration();
-
-	private RowDataSchemaCompatibilityResolveStrategy schemaCompatibilityResolveStrategy =
-		PipelineOptions.ROW_DATA_SCHEMA_COMPATIBILITY_RESOLVE_STRATEGY.defaultValue();
+	
 	private long taskCancellationIntervalMillis = -1;
 
 	/**
@@ -486,10 +483,6 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 		this.restartStrategyConfiguration = Preconditions.checkNotNull(restartStrategyConfiguration);
 	}
 
-	public void setSchemaCompatibilityResolveStrategy(RowDataSchemaCompatibilityResolveStrategy strategy) {
-		this.schemaCompatibilityResolveStrategy = strategy;
-	}
-
 	/**
 	 * Returns the restart strategy which has been set for the current job.
 	 *
@@ -510,10 +503,6 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 		} else {
 			return restartStrategyConfiguration;
 		}
-	}
-
-	public RowDataSchemaCompatibilityResolveStrategy getSchemaCompatibilityResolveStrategy() {
-		return schemaCompatibilityResolveStrategy;
 	}
 
 	/**
@@ -1340,8 +1329,6 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 			.ifPresent(this::setUseSnapshotCompression);
 		RestartStrategies.fromConfiguration(configuration)
 			.ifPresent(this::setRestartStrategy);
-		configuration.getOptional(PipelineOptions.ROW_DATA_SCHEMA_COMPATIBILITY_RESOLVE_STRATEGY)
-			.ifPresent(this::setSchemaCompatibilityResolveStrategy);
 		configuration.getOptional(PipelineOptions.KRYO_DEFAULT_SERIALIZERS)
 			.map(s -> parseKryoSerializersWithExceptionHandling(classLoader, s))
 			.ifPresent(s -> this.defaultKryoSerializerClasses = s);

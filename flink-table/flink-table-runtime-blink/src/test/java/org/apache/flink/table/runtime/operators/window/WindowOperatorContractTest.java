@@ -212,8 +212,6 @@ public class WindowOperatorContractTest {
 					outputTypeWithoutKeys,
 					accTypes,
 					windowTypes,
-					null,
-					null,
 					2,
 					sendRetraction,
 					allowedLateness,

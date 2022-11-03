@@ -73,8 +73,6 @@ public class TableAggregateWindowOperator<K, W extends Window> extends WindowOpe
 			accumulatorTypes,
 			aggResultTypes,
 			windowPropertyTypes,
-			null,
-			null,
 			rowtimeIndex,
 			produceUpdates,
 			allowedLateness);
@@ -100,8 +98,6 @@ public class TableAggregateWindowOperator<K, W extends Window> extends WindowOpe
 			accumulatorTypes,
 			aggResultTypes,
 			windowPropertyTypes,
-			null,
-			null,
 			rowtimeIndex,
 			sendRetraction,
 			allowedLateness);

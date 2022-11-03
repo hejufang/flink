@@ -40,7 +40,6 @@ import org.apache.flink.table.runtime.operators.window.triggers.ElementTriggers;
 import org.apache.flink.table.runtime.operators.window.triggers.EventTimeTriggers;
 import org.apache.flink.table.runtime.operators.window.triggers.ProcessingTimeTriggers;
 import org.apache.flink.table.runtime.operators.window.triggers.Trigger;
-import org.apache.flink.table.types.FieldDigest;
 import org.apache.flink.table.types.logical.LogicalType;
 
 import java.time.Duration;
@@ -71,8 +70,6 @@ public class WindowOperatorBuilder {
 	protected LogicalType[] accumulatorTypes;
 	protected LogicalType[] aggResultTypes;
 	protected LogicalType[] windowPropertyTypes;
-	protected FieldDigest[] accumulatorDigests;
-	protected FieldDigest[] aggResultDigests;
 	protected long allowedLateness = 0L;
 	protected boolean produceUpdates = false;
 	private boolean emitUnchanged = false;
@@ -144,16 +141,6 @@ public class WindowOperatorBuilder {
 	public WindowOperatorBuilder triggering(Trigger<?> trigger) {
 		checkNotNull(trigger);
 		this.trigger = trigger;
-		return this;
-	}
-
-	public WindowOperatorBuilder withAccumulatorDigest(FieldDigest[] digest) {
-		this.accumulatorDigests = digest;
-		return this;
-	}
-
-	public WindowOperatorBuilder withAggResultDigest(FieldDigest[] digest) {
-		this.aggResultDigests = digest;
 		return this;
 	}
 
@@ -370,8 +357,6 @@ public class WindowOperatorBuilder {
 					windowOperatorBuilder.accumulatorTypes,
 					windowOperatorBuilder.aggResultTypes,
 					windowOperatorBuilder.windowPropertyTypes,
-					windowOperatorBuilder.accumulatorDigests,
-					windowOperatorBuilder.aggResultDigests,
 					windowOperatorBuilder.rowtimeIndex,
 					windowOperatorBuilder.produceUpdates,
 					windowOperatorBuilder.allowedLateness,
@@ -388,8 +373,6 @@ public class WindowOperatorBuilder {
 					windowOperatorBuilder.accumulatorTypes,
 					windowOperatorBuilder.aggResultTypes,
 					windowOperatorBuilder.windowPropertyTypes,
-					windowOperatorBuilder.accumulatorDigests,
-					windowOperatorBuilder.aggResultDigests,
 					windowOperatorBuilder.rowtimeIndex,
 					windowOperatorBuilder.produceUpdates,
 					windowOperatorBuilder.allowedLateness,

@@ -416,14 +416,6 @@ public class ExecutionConfigOptions {
 				"higher than table properties, will used in some scenes force determine the value," +
 				"such as session debug must make sure group will different with original value.");
 
-	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
-	public static final ConfigOption<Boolean> TABLE_EXEC_INVOLVE_DIGEST_IN_STATE_ENABLED =
-		key("table.exec.involve-digest-in-state.enabled")
-			.booleanType()
-			.defaultValue(false)
-			.withDescription("Specifies whether to use state field digests to name data view and fields of" +
-				"RowData in states.");
-
 	// ------------------------------------------------------------------------------------------
 	// Enum option types
 	// ------------------------------------------------------------------------------------------

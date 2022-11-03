@@ -32,8 +32,6 @@ import java.util.Map;
 
 /**
  * Test for {@link DatabusAppender}.
- * All tests are marked as ignore because they will produce NPE in CI occasionally.
- * todo: should be fixed in future.
  */
 public class DatabusAppenderTest {
 
@@ -49,7 +47,6 @@ public class DatabusAppenderTest {
 	}
 
 	@Test
-	@Ignore
 	public void testLogging() {
 
 		testDatabusAppender.refresh();
@@ -63,7 +60,6 @@ public class DatabusAppenderTest {
 	}
 
 	@Test
-	@Ignore
 	public void testLogMetrics() {
 
 		testDatabusAppender.refresh();

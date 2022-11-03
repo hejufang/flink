@@ -33,8 +33,6 @@ import org.apache.flink.table.runtime.operators.aggregate.{GroupAggFunction, InM
 import org.apache.flink.table.runtime.operators.bundle.KeyedMapBundleOperator
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
-import org.apache.flink.table.types.{DataType, FieldDigest}
-
 import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core.AggregateCall
@@ -62,7 +60,6 @@ class StreamExecGroupAggregate(
   extends StreamExecGroupAggregateBase(cluster, traitSet, inputRel)
   with StreamExecNode[RowData] {
 
-  // Only used for explainTerms.
   val aggInfoList: AggregateInfoList = AggregateUtil.deriveAggregateInfoList(
     this,
     aggCalls,
@@ -141,29 +138,10 @@ class StreamExecGroupAggregate(
       generator.needRetract()
     }
 
-    val isDigestsInvolved = tableConfig.getConfiguration.getBoolean(
-      ExecutionConfigOptions.TABLE_EXEC_INVOLVE_DIGEST_IN_STATE_ENABLED)
-    val aggInfoList: AggregateInfoList = AggregateUtil.deriveAggregateInfoList(
-      this,
-      aggCalls,
-      grouping,
-      isDigestsInvolved)
-
     val aggsHandler = generator
       .needAccumulate()
       .generateAggsHandler("GroupAggsHandler", aggInfoList)
-
-    var accDataTypes: Array[DataType] = null
-    var digests : Array[FieldDigest] = null
-    if (isDigestsInvolved) {
-      val result = AggregateUtil.extractAccTypesAndDigests(aggInfoList, inputRowType)
-      accDataTypes = result._1
-      digests = result._2
-    } else {
-      accDataTypes = aggInfoList.getAccTypes
-    }
-    val accTypes = accDataTypes.map(fromDataTypeToLogicalType)
-
+    val accTypes = aggInfoList.getAccTypes.map(fromDataTypeToLogicalType)
     val aggValueTypes = aggInfoList.getActualValueTypes.map(fromDataTypeToLogicalType)
     val recordEqualiser = new EqualiserCodeGenerator(aggValueTypes)
       .generateRecordEqualiser("GroupAggValueEqualiser")
@@ -180,7 +158,6 @@ class StreamExecGroupAggregate(
         aggsHandler,
         recordEqualiser,
         accTypes,
-        digests,
         inputRowType,
         inputCountIndex,
         generateUpdateBefore,
@@ -198,7 +175,6 @@ class StreamExecGroupAggregate(
         aggsHandler,
         recordEqualiser,
         accTypes,
-        digests,
         inputCountIndex,
         generateUpdateBefore,
         tableConfig.getMinIdleStateRetentionTime)

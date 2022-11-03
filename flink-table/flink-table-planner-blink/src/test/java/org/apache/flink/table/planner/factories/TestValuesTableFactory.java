@@ -123,8 +123,6 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		default void setTableLookupSourceData(Map<Row, List<Row>> rowListMap) {}
 
 		default void setChangelog(ChangelogMode changelogMode) {}
-
-		default void setBounded(boolean isBounded) {}
 	}
 
 	/**
@@ -360,7 +358,6 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 					((TableSourceWithData) dynamicTableSource).setTableSourceData(
 						registeredData.getOrDefault(dataId, Collections.emptyList()));
 					((TableSourceWithData) dynamicTableSource).setChangelog(changelogMode);
-					((TableSourceWithData) dynamicTableSource).setBounded(isBounded);
 				}
 				return dynamicTableSource;
 			} catch (FlinkException e) {

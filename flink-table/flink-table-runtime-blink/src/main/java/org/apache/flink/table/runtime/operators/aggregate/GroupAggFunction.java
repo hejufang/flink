@@ -33,7 +33,6 @@ import org.apache.flink.table.runtime.generated.GeneratedAggsHandleFunction;
 import org.apache.flink.table.runtime.generated.GeneratedRecordEqualiser;
 import org.apache.flink.table.runtime.generated.RecordEqualiser;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
-import org.apache.flink.table.types.FieldDigest;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.Collector;
@@ -64,11 +63,6 @@ public class GroupAggFunction extends KeyedProcessFunction<RowData, RowData, Row
 	 * The accumulator types.
 	 */
 	private final LogicalType[] accTypes;
-
-	/**
-	 * The field digests of accumulators.
-	 */
-	private final FieldDigest[] digests;
 
 	/**
 	 * Used to count the number of added and retracted input records.
@@ -115,14 +109,12 @@ public class GroupAggFunction extends KeyedProcessFunction<RowData, RowData, Row
 			GeneratedAggsHandleFunction genAggsHandler,
 			GeneratedRecordEqualiser genRecordEqualiser,
 			LogicalType[] accTypes,
-			FieldDigest[] digests,
 			int indexOfCountStar,
 			boolean generateUpdateBefore,
 			long stateRetentionTime) {
 		this.genAggsHandler = genAggsHandler;
 		this.genRecordEqualiser = genRecordEqualiser;
 		this.accTypes = accTypes;
-		this.digests = digests;
 		this.recordCounter = RecordCounter.of(indexOfCountStar);
 		this.generateUpdateBefore = generateUpdateBefore;
 		this.ttlConfig = createTtlConfig(stateRetentionTime);
@@ -141,7 +133,7 @@ public class GroupAggFunction extends KeyedProcessFunction<RowData, RowData, Row
 
 	@Override
 	public void registerState(StateRegistry stateRegistry) throws Exception {
-		RowDataTypeInfo accTypeInfo = new RowDataTypeInfo(digests, accTypes);
+		RowDataTypeInfo accTypeInfo = new RowDataTypeInfo(accTypes);
 		ValueStateDescriptor<RowData> accDesc = new ValueStateDescriptor<>("accState", accTypeInfo);
 		if (ttlConfig.isEnabled()){
 			accDesc.enableTimeToLive(ttlConfig);

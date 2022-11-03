@@ -34,7 +34,7 @@ import org.apache.flink.table.runtime.operators.aggregate.{MiniBatchGlobalGroupA
 import org.apache.flink.table.runtime.operators.bundle.KeyedMapBundleOperator
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
-import org.apache.flink.table.types.{DataType, FieldDigest}
+import org.apache.flink.table.types.DataType
 
 import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
 import org.apache.calcite.rel.`type`.RelDataType
@@ -147,21 +147,7 @@ class StreamExecGlobalGroupAggregate(
       inputFieldCopy = true)
 
     val indexOfCountStar = globalAggInfoList.getIndexOfCountStar
-
-    val isDigestsInvolved = tableConfig.getConfiguration.getBoolean(
-      ExecutionConfigOptions.TABLE_EXEC_INVOLVE_DIGEST_IN_STATE_ENABLED)
-    var globalAccDataTypes: Array[DataType] = null
-    var globalDigests: Array[FieldDigest] = null
-    if (isDigestsInvolved) {
-      val result = AggregateUtil.extractAccTypesAndDigests(globalAggInfoList,
-        FlinkTypeFactory.toLogicalRowType(inputRowType))
-      globalAccDataTypes = result._1
-      globalDigests = result._2
-    } else {
-      globalAccDataTypes = globalAggInfoList.getAccTypes
-    }
-    val globalAccTypes = globalAccDataTypes.map(fromDataTypeToLogicalType)
-
+    val globalAccTypes = globalAggInfoList.getAccTypes.map(fromDataTypeToLogicalType)
     val globalAggValueTypes = globalAggInfoList
       .getActualValueTypes
       .map(fromDataTypeToLogicalType)
@@ -184,7 +170,6 @@ class StreamExecGlobalGroupAggregate(
           globalAggsHandler,
           recordEqualiser,
           globalAccTypes,
-          globalDigests,
           indexOfCountStar,
           generateUpdateBefore,
           tableConfig.getMinIdleStateRetentionTime)

@@ -24,7 +24,6 @@ import org.apache.flink.api.java.typeutils.ResultTypeQueryable
 import org.apache.flink.streaming.api.operators.co.KeyedCoProcessOperator
 import org.apache.flink.streaming.api.operators.{StreamFlatMap, StreamMap, TwoInputStreamOperator}
 import org.apache.flink.streaming.api.transformations.{OneInputTransformation, TwoInputTransformation, UnionTransformation}
-import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.{TableConfig, TableException}
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
@@ -32,7 +31,7 @@ import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.utils.PythonUtil.containsPythonCall
 import org.apache.flink.table.planner.plan.utils.RelExplainUtil.preferExpressionFormat
-import org.apache.flink.table.planner.plan.utils.{FieldDigestUtil, IntervalJoinUtil, JoinTypeUtil, KeySelectorUtil, PhysicalPlanUtil}
+import org.apache.flink.table.planner.plan.utils.{IntervalJoinUtil, JoinTypeUtil, KeySelectorUtil, PhysicalPlanUtil}
 import org.apache.flink.table.runtime.generated.GeneratedFunction
 import org.apache.flink.table.runtime.operators.join.interval.{ProcTimeIntervalJoin, RowTimeIntervalJoin}
 import org.apache.flink.table.runtime.operators.join.{FlinkJoinType, KeyedCoProcessOperatorWithWatermarkDelay, OuterJoinPaddingUtil}
@@ -117,7 +116,7 @@ class StreamExecIntervalJoin(
   override def getInputNodes: util.List[ExecNode[StreamPlanner, _]] = {
     getInputs.map(_.asInstanceOf[ExecNode[StreamPlanner, _]])
   }
-
+  
   override def replaceInputNode(
       ordinalInParent: Int, newInputNode: ExecNode[StreamPlanner, _]): Unit = {
     replaceInput(ordinalInParent, newInputNode.asInstanceOf[RelNode])
@@ -284,14 +283,8 @@ class StreamExecIntervalJoin(
       leftKeys: Array[Int],
       rightKeys: Array[Int],
       tableConfig: TableConfig): Transformation[RowData] = {
-    val isDigestsInvolved = tableConfig.getConfiguration.getBoolean(
-      ExecutionConfigOptions.TABLE_EXEC_INVOLVE_DIGEST_IN_STATE_ENABLED)
-    var leftTypeInfo = leftPlan.getOutputType.asInstanceOf[RowDataTypeInfo]
-    var rightTypeInfo = rightPlan.getOutputType.asInstanceOf[RowDataTypeInfo]
-    if (isDigestsInvolved) {
-      leftTypeInfo = FieldDigestUtil.generateRowDataTypeInfoWithDigest(leftTypeInfo)
-      rightTypeInfo = FieldDigestUtil.generateRowDataTypeInfoWithDigest(rightTypeInfo)
-    }
+    val leftTypeInfo = leftPlan.getOutputType.asInstanceOf[RowDataTypeInfo]
+    val rightTypeInfo = rightPlan.getOutputType.asInstanceOf[RowDataTypeInfo]
     val procJoinFunc = new ProcTimeIntervalJoin(
       flinkJoinType,
       leftLowerBound,
@@ -332,14 +325,8 @@ class StreamExecIntervalJoin(
       rightKeys: Array[Int],
       tableConfig: TableConfig
   ): Transformation[RowData] = {
-    val isDigestsInvolved = tableConfig.getConfiguration.getBoolean(
-      ExecutionConfigOptions.TABLE_EXEC_INVOLVE_DIGEST_IN_STATE_ENABLED)
-    var leftTypeInfo = leftPlan.getOutputType.asInstanceOf[RowDataTypeInfo]
-    var rightTypeInfo = rightPlan.getOutputType.asInstanceOf[RowDataTypeInfo]
-    if (isDigestsInvolved) {
-      leftTypeInfo = FieldDigestUtil.generateRowDataTypeInfoWithDigest(leftTypeInfo)
-      rightTypeInfo = FieldDigestUtil.generateRowDataTypeInfoWithDigest(rightTypeInfo)
-    }
+    val leftTypeInfo = leftPlan.getOutputType.asInstanceOf[RowDataTypeInfo]
+    val rightTypeInfo = rightPlan.getOutputType.asInstanceOf[RowDataTypeInfo]
     val rowJoinFunc = new RowTimeIntervalJoin(
       flinkJoinType,
       leftLowerBound,

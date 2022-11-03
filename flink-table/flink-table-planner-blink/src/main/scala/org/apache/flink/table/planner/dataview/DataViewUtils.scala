@@ -50,11 +50,9 @@ object DataViewUtils {
     */
   def useNullSerializerForStateViewFieldsFromAccType(
       index: Int,
-      aggName: String,
       aggFun: UserDefinedAggregateFunction[_, _],
       externalAccType: DataType,
-      isStateBackedDataViews: Boolean,
-      isDigestsInvolve: Boolean): (DataType, Array[DataViewSpec]) = {
+      isStateBackedDataViews: Boolean): (DataType, Array[DataViewSpec]) = {
 
     val acc = aggFun.createAccumulator()
     val accumulatorSpecs = new mutable.ArrayBuffer[DataViewSpec]
@@ -77,7 +75,7 @@ object DataViewUtils {
                   pojoField.getTypeInformation,
                   instance,
                   isStateBackedDataViews,
-                  if (isDigestsInvolve) aggName else index.toString,
+                  index,
                   i,
                   fieldName)
 
@@ -101,7 +99,7 @@ object DataViewUtils {
                   fieldTypes(i),
                   fieldInstance,
                   isStateBackedDataViews,
-                  if (isDigestsInvolve) aggName else index.toString,
+                  index,
                   i,
                   fieldName)
               if (spec.isDefined) {
@@ -141,7 +139,7 @@ object DataViewUtils {
       info: TypeInformation[_],
       instance: AnyRef,
       isStateBackedDataViews: Boolean,
-      aggIdentifier: String,
+      aggIndex: Int,
       fieldIndex: Int,
       fieldName: String): (TypeInformation[_], Option[DataViewSpec]) = {
     var spec: Option[DataViewSpec] = None
@@ -175,7 +173,7 @@ object DataViewUtils {
 
           // create map view specs with unique id (used as state name)
           spec = Some(MapViewSpec(
-            "agg" + aggIdentifier + "$" + fieldName,
+            "agg" + aggIndex + "$" + fieldName,
             fieldIndex, // dataview field index in pojo
             newTypeInfo))
         }
@@ -203,7 +201,7 @@ object DataViewUtils {
 
           // create list view specs with unique is (used as state name)
           spec = Some(ListViewSpec(
-            "agg" + aggIdentifier + "$" + fieldName,
+            "agg" + aggIndex + "$" + fieldName,
             fieldIndex, // dataview field index in pojo
             newTypeInfo))
         }

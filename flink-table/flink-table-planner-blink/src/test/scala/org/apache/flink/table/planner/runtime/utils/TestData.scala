@@ -301,10 +301,10 @@ object TestData {
   )
 
   lazy val data4WithTimestamp: Seq[Row] = Seq(
-    row( "Hello", 2, 2L, 1.2f, 1.1, unixTimestampToLocalDateTime(2000L)),
-    row("Hi", 1, 1L, 2.2f, 2.2, unixTimestampToLocalDateTime(1000L)),
-    row("Hello world", 3, 2L, 1.3f, 2.4, unixTimestampToLocalDateTime(3000L)),
-    row("Hello world", 4, 3L, 2.4f, 3.3, unixTimestampToLocalDateTime(4000L))
+    row( "Hello", 2, 2L, 1.2f, unixTimestampToLocalDateTime(2000L)),
+    row("Hi", 1, 1L, 2.2f, unixTimestampToLocalDateTime(1000L)),
+    row("Hello world", 3, 2L, 1.3f, unixTimestampToLocalDateTime(3000L)),
+    row("Hello world, how are you?", 4, 3L, 2.4f, unixTimestampToLocalDateTime(4000L))
   )
 
   lazy val smallNestedTupleData: Seq[((Int, Int), String)] = {

@@ -33,7 +33,6 @@ import org.apache.flink.table.runtime.generated.GeneratedRecordEqualiser;
 import org.apache.flink.table.runtime.generated.RecordEqualiser;
 import org.apache.flink.table.runtime.operators.bundle.MapBundleFunction;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
-import org.apache.flink.table.types.FieldDigest;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.Collector;
@@ -71,11 +70,6 @@ public class MiniBatchGlobalGroupAggFunction extends MapBundleFunction<RowData, 
 	 * The accumulator types.
 	 */
 	private final LogicalType[] accTypes;
-
-	/**
-	 * The field digests of accumulators.
-	 */
-	private final FieldDigest[] digests;
 
 	/**
 	 * Used to count the number of added and retracted input records.
@@ -127,7 +121,6 @@ public class MiniBatchGlobalGroupAggFunction extends MapBundleFunction<RowData, 
 			GeneratedAggsHandleFunction genGlobalAggsHandler,
 			GeneratedRecordEqualiser genRecordEqualiser,
 			LogicalType[] accTypes,
-			FieldDigest[] digests,
 			int indexOfCountStar,
 			boolean generateUpdateBefore,
 			long stateRetentionTime) {
@@ -135,7 +128,6 @@ public class MiniBatchGlobalGroupAggFunction extends MapBundleFunction<RowData, 
 		this.genGlobalAggsHandler = genGlobalAggsHandler;
 		this.genRecordEqualiser = genRecordEqualiser;
 		this.accTypes = accTypes;
-		this.digests = digests;
 		this.recordCounter = RecordCounter.of(indexOfCountStar);
 		this.generateUpdateBefore = generateUpdateBefore;
 		this.ttlConfig = createTtlConfig(stateRetentionTime);
@@ -155,7 +147,7 @@ public class MiniBatchGlobalGroupAggFunction extends MapBundleFunction<RowData, 
 
 	@Override
 	public void registerState(StateRegistry stateRegistry) throws Exception {
-		RowDataTypeInfo accTypeInfo = new RowDataTypeInfo(digests, accTypes);
+		RowDataTypeInfo accTypeInfo = new RowDataTypeInfo(accTypes);
 		ValueStateDescriptor<RowData> accDesc = new ValueStateDescriptor<>("accState", accTypeInfo);
 		if (ttlConfig.isEnabled()){
 			accDesc.enableTimeToLive(ttlConfig);

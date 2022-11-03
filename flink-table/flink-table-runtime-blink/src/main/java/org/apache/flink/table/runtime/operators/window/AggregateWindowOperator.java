@@ -28,7 +28,6 @@ import org.apache.flink.table.runtime.generated.NamespaceAggsHandleFunction;
 import org.apache.flink.table.runtime.generated.RecordEqualiser;
 import org.apache.flink.table.runtime.operators.window.assigners.WindowAssigner;
 import org.apache.flink.table.runtime.operators.window.triggers.Trigger;
-import org.apache.flink.table.types.FieldDigest;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.types.RowKind;
 
@@ -80,8 +79,6 @@ public class AggregateWindowOperator<K, W extends Window> extends WindowOperator
 			LogicalType[] accumulatorTypes,
 			LogicalType[] aggResultTypes,
 			LogicalType[] windowPropertyTypes,
-			FieldDigest[] accumulatorDigests,
-			FieldDigest[] aggResultDigests,
 			int rowtimeIndex,
 			boolean produceUpdates,
 			long allowedLateness,
@@ -94,8 +91,6 @@ public class AggregateWindowOperator<K, W extends Window> extends WindowOperator
 			accumulatorTypes,
 			aggResultTypes,
 			windowPropertyTypes,
-			accumulatorDigests,
-			aggResultDigests,
 			rowtimeIndex,
 			produceUpdates,
 			allowedLateness);
@@ -114,8 +109,6 @@ public class AggregateWindowOperator<K, W extends Window> extends WindowOperator
 			LogicalType[] accumulatorTypes,
 			LogicalType[] aggResultTypes,
 			LogicalType[] windowPropertyTypes,
-			FieldDigest[] accumulatorDigests,
-			FieldDigest[] aggResultDigests,
 			int rowtimeIndex,
 			boolean sendRetraction,
 			long allowedLateness,
@@ -127,8 +120,6 @@ public class AggregateWindowOperator<K, W extends Window> extends WindowOperator
 			accumulatorTypes,
 			aggResultTypes,
 			windowPropertyTypes,
-			accumulatorDigests,
-			aggResultDigests,
 			rowtimeIndex,
 			sendRetraction,
 			allowedLateness);

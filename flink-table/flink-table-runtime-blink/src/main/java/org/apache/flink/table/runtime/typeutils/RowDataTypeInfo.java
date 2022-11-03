@@ -27,7 +27,6 @@ import org.apache.flink.api.common.typeutils.TypeComparator;
 import org.apache.flink.api.java.typeutils.TupleTypeInfoBase;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.runtime.types.TypeInfoLogicalTypeConverter;
-import org.apache.flink.table.types.FieldDigest;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 
@@ -56,7 +55,6 @@ public class RowDataTypeInfo extends TupleTypeInfoBase<RowData> {
 
 	private final String[] fieldNames;
 	private final LogicalType[] logicalTypes;
-	private final FieldDigest[] fieldDigests;
 
 	public RowDataTypeInfo(RowType rowType) {
 		this(
@@ -68,15 +66,7 @@ public class RowDataTypeInfo extends TupleTypeInfoBase<RowData> {
 		this(logicalTypes, generateDefaultFieldNames(logicalTypes.length));
 	}
 
-	public RowDataTypeInfo(FieldDigest[] fieldDigests, LogicalType... logicalTypes) {
-		this(logicalTypes, generateDefaultFieldNames(logicalTypes.length), fieldDigests);
-	}
-
 	public RowDataTypeInfo(LogicalType[] logicalTypes, String[] fieldNames) {
-		this(logicalTypes, fieldNames, null);
-	}
-
-	public RowDataTypeInfo(LogicalType[] logicalTypes, String[] fieldNames, FieldDigest[] fieldDigests) {
 		super(RowData.class, Arrays.stream(logicalTypes)
 			.map(TypeInfoLogicalTypeConverter::fromLogicalTypeToTypeInfo)
 			.toArray(TypeInformation[]::new));
@@ -87,7 +77,6 @@ public class RowDataTypeInfo extends TupleTypeInfoBase<RowData> {
 		checkArgument(!hasDuplicateFieldNames(fieldNames),
 			"Field names are not unique.");
 		this.fieldNames = Arrays.copyOf(fieldNames, fieldNames.length);
-		this.fieldDigests = fieldDigests;
 	}
 
 	public static String[] generateDefaultFieldNames(int length) {
@@ -212,7 +201,7 @@ public class RowDataTypeInfo extends TupleTypeInfoBase<RowData> {
 
 	@Override
 	public RowDataSerializer createSerializer(ExecutionConfig config) {
-		return new RowDataSerializer(config, fieldDigests, logicalTypes);
+		return new RowDataSerializer(config, logicalTypes);
 	}
 
 	public LogicalType[] getLogicalTypes() {

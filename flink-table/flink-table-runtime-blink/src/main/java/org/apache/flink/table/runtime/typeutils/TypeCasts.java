@@ -56,7 +56,7 @@ public class TypeCasts {
 			//case 1: identity
 			return source;
 		} else if (isBasicType(targetType) && LogicalTypeUtils.toInternalConversionClass(sourceType)
-				.equals(LogicalTypeUtils.toInternalConversionClass(targetType))) {
+			.equals(LogicalTypeUtils.toInternalConversionClass(targetType))) {
 			//case 2: when the source and target type have same internal representation.
 			return source;
 		} else if (TypeCheckUtils.isNumeric(targetType)) {
