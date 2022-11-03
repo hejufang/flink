@@ -623,7 +623,7 @@ hl:
 hyrax:
   dc: cn
   clusterName: hyrax
-  high-availability.zookeeper.quorum: fdbd:dc02:ff:206:24a9:547b:3192:fdd8:2181,fdbd:dc02:ff:21f:2428:2b26:558f:7207:2181,fdbd:dc02:ff:212:71c4:5ebb:b7ad:136d:2181,fdbd:dc02:ff:205:d87d:607e:3817:cb56:2181,fdbd:dc02:ff:216:a343:3541:93da:569d:2181
+  high-availability.zookeeper.quorum: 10.23.72.70:2181,10.23.73.159:2181,10.23.73.222:2181,10.23.73.69:2181,10.23.73.81:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
@@ -634,7 +634,7 @@ hyrax:
 horse:
   dc: cn
   clusterName: horse
-  high-availability.zookeeper.quorum: fdbd:dc02:ff:209:1522:15e8:ea93:7a18:2181,fdbd:dc02:ff:20f:bb8:f28f:3cb4:86b2:2181,fdbd:dc02:ff:211:fb8d:8375:9683:585e:2181,fdbd:dc02:ff:202:385f:eb08:8d47:a8d5:2181,fdbd:dc02:ff:217:3f7c:bbe7:5e4:cbb5:2181
+  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   bytedance.streaming.yarn.check.application.name.unique.region: true
@@ -1069,7 +1069,7 @@ snipe:
 marmt:
   dc: va
   clusterName: marmt
-  high-availability.zookeeper.quorum: fdbd:dc61:ff:1:0:231:129:51:2181,fdbd:dc61:ff:1:0:231:140:152:2181,fdbd:dc61:ff:1:0:231:144:124:2181,fdbd:dc61:ff:1:0:231:144:147:2181,fdbd:dc61:ff:1:0:231:144:148:2181
+  high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
   hdfs.prefix: hdfs://harunavaali/flink_maliva
   checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
   dashboard.data_source: bytetsd_gva
@@ -1360,7 +1360,7 @@ mamba:
 maize:
   dc: va
   clusterName: maize
-  high-availability.zookeeper.quorum: fdbd:dc61:ff:1:0:231:129:38:2181,fdbd:dc61:ff:1:0:231:129:45:2181,fdbd:dc61:ff:1:0:231:129:50:2181,fdbd:dc61:ff:1:0:231:129:59:2181,fdbd:dc61:ff:1:0:231:131:189:2181
+  high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
   hdfs.prefix: hdfs://harunavaali/flink_maliva
   checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
   dashboard.data_source: bytetsd_gva
@@ -1446,7 +1446,7 @@ giraf:
 grila:
   dc: i18n_gcp
   clusterName: grila
-  high-availability.zookeeper.quorum: fdbd:dccd:cdc2:110d:0:1f64:2181,fdbd:dccd:cdc2:110d:0:1f67:2181,fdbd:dccd:cdc2:110d:0:1f43:2181,fdbd:dccd:cdc2:110d:0:1f3a:2181,fdbd:dccd:cdc2:110d:0:1f5e:2181
+  high-availability.zookeeper.quorum: 10.99.53.218:2181,10.99.53.219:2181,10.99.53.220:2181,10.99.53.221:2181,10.99.53.222
   fs.defaultFS: hdfs://harunava
   hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
   checkpoint.hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
@@ -1561,7 +1561,7 @@ otter:
 octop:
   dc: us-ttp
   clusterName: octop
-  high-availability.zookeeper.quorum: 10.113.204.230:2183,10.113.203.188:2183,10.113.214.146:2183,10.113.89.122:2183,10.113.89.121:2183
+  high-availability.zookeeper.quorum: 10.113.156.88:2187,10.113.156.226:2187,10.113.156.244:2187,10.113.156.4:2187,10.113.156.42:2187
   hdfs.prefix: hdfs://harunaoci/flink_oci
   checkpoint.hdfs.prefix: hdfs://harunaoci/home/byte_flink_checkpoint
   dashboard.data_source: bytetsd_us_ttp
@@ -1639,7 +1639,7 @@ alisg:
 sloth:
   dc: sg
   clusterName: sloth
-  high-availability.zookeeper.quorum: fdbd:dc51:ff:1:1:251:56:238:2181,fdbd:dc51:ff:1:1:251:59:112:2181,fdbd:dc51:ff:1:1:251:59:44:2181,fdbd:dc51:ff:1:1:251:59:57:2181,fdbd:dc51:ff:1:1:251:59:92:2181
+  high-availability.zookeeper.quorum: 10.245.24.23:2181,10.245.30.27:2181,10.245.30.47:2181,10.245.9.27:2181,10.245.9.34:2181
   hdfs.prefix: hdfs://harunasg/flink_sg_sg1
   checkpoint.hdfs.prefix: hdfs://harunasg/home/byte_flink_checkpoint_alisg
   dashboard.data_source: bytetsd_alisg
@@ -1664,7 +1664,7 @@ sloth:
 snail:
   dc: sg
   clusterName: snail
-  high-availability.zookeeper.quorum: fdbd:dc51:ff:1:1:251:59:95:2181,fdbd:dc51:ff:1:1:245:3:104:2181,fdbd:dc51:ff:1:1:245:3:233:2181,fdbd:dc51:ff:1:1:245:61:236:2181,fdbd:dc51:ff:1:1:251:56:214:2181
+  high-availability.zookeeper.quorum: 10.245.24.23:2181,10.245.30.27:2181,10.245.30.47:2181,10.245.9.27:2181,10.245.9.34:2181
   hdfs.prefix: hdfs://harunasg/flink_sg_sg1
   checkpoint.hdfs.prefix: hdfs://harunasg/home/byte_flink_checkpoint_alisg
   dashboard.data_source: bytetsd_alisg
