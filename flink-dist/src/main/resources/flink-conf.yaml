@@ -58,7 +58,7 @@ common:
   execution.checkpointing.ignore-checkpoints-on-checkpoint-disabled: true
   state.savepoint.location-prefix: ${checkpoint.hdfs.prefix}/savepoints
   state.checkpoints.expired.location-prefix: ${checkpoint.hdfs.prefix}/expire
-  checkpoint.discard.historical.num: 3
+  checkpoint.discard.historical.num: 0
   checkpoint.discard.delay.time: 1800000
   state.backend.rocksdb.restore-with-sstWriter: true
   state.backend.rocksdb.max-disk-size-in-progress: 30gb
