@@ -61,14 +61,14 @@ class DAGEditCheckpointRecoveryITCase(stateBackend: String) extends
         withLatch: Boolean): Table = {
     var stream = env.addSource(new TestSource(exitAfterSendData))
     if (withLatch) {
-      val mapper = new LatchMapper[(Long, Long, Int, Double, Float, BigDecimal, String, String)]()
+      val mapper = new LatchMapper[(Long, Int, Double, Float, BigDecimal, String, String)]()
       stream = stream.map(mapper)
     }
     stream = stream.assignTimestampsAndWatermarks(
       new TimestampAndWatermarkWithOffset
-        [(Long, Long, Int, Double, Float, BigDecimal, String, String)](1000L))
+        [(Long, Int, Double, Float, BigDecimal, String, String)](1000L))
     stream.toTable(tEnv,
-      'rowtime.rowtime, 'bigint ,'int, 'double, 'float, 'bigdec, 'string, 'name)
+      'rowtime.rowtime, 'int, 'double, 'float, 'bigdec, 'string, 'name)
   }
 
   @Test

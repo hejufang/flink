@@ -79,22 +79,22 @@ object CheckpointRecoveryTestBase {
 }
 
 class TestSource(exitAfterSendData: Boolean) extends RichSourceFunction[
-  (Long, Long, Int, Double, Float, BigDecimal, String, String)] {
+  (Long, Int, Double, Float, BigDecimal, String, String)] {
 
   val data = List(
-    (1L, 1L, 1, 1d, 1f, new BigDecimal("1"), "Hi", "a"),
-    (2L, 1L, 2, 2d, 2f, new BigDecimal("2"), "Hallo", "a"),
-    (3L, 3L, 2, 2d, 2f, new BigDecimal("2"), "Hello", "a"),
-    (4L, 2L, 5, 5d, 5f, new BigDecimal("5"), "Hello", "a"),
-    (7L, 1L, 3, 3d, 3f, new BigDecimal("3"), "Hello", "b"),
-    (6L, 4L, 5, 5d, 5f, new BigDecimal("5"), "Hello", "a"),
-    (8L, 6L, 3, 3d, 3f, new BigDecimal("3"), "Hello world", "a"),
-    (16L, 1L, 4, 4d, 4f, new BigDecimal("4"), "Hello world", "b"))
+    (1L, 1, 1d, 1f, new BigDecimal("1"), "Hi", "a"),
+    (2L, 2, 2d, 2f, new BigDecimal("2"), "Hallo", "a"),
+    (3L, 2, 2d, 2f, new BigDecimal("2"), "Hello", "a"),
+    (4L, 5, 5d, 5f, new BigDecimal("5"), "Hello", "a"),
+    (7L, 3, 3d, 3f, new BigDecimal("3"), "Hello", "b"),
+    (6L, 5, 5d, 5f, new BigDecimal("5"), "Hello", "a"),
+    (8L, 3, 3d, 3f, new BigDecimal("3"), "Hello world", "a"),
+    (16L, 4, 4d, 4f, new BigDecimal("4"), "Hello world", "b"))
   var running = true
   var emitted = false
 
   override def run(ctx: SourceFunction.SourceContext[
-    (Long, Long, Int, Double, Float, BigDecimal, String, String)]): Unit = {
+    (Long, Int, Double, Float, BigDecimal, String, String)]): Unit = {
     while (running) {
       if (!emitted) {
         emitted = true
