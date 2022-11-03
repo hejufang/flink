@@ -41,6 +41,7 @@ import org.apache.flink.table.runtime.types.InternalSerializers;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.TypeInformationRawType;
+import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
 import org.apache.flink.util.InstantiationUtil;
 
 import javax.annotation.Nullable;
@@ -63,7 +64,11 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 
 	private transient BinaryRowData reuseRow;
 	private transient BinaryRowWriter reuseWriter;
-
+	/**
+	 * Will be set exactly before performing state migration. In other scenario, it's always null.
+	 * Therefore it's also an implicit flag for {@link RowDataSerializer#serialize(RowData, DataOutputView)}
+	 * to distinguish call in state writing period from call in state migration.
+	 */
 	private RowDataSerializer priorRowDataSerializer;
 	private transient List<LogicalType> priorNonDistinctTypes = new ArrayList<>();
 	private transient List<LogicalType> priorDistinctTypes = new ArrayList<>();
@@ -126,30 +131,35 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 
 	@Override
 	public void serialize(RowData row, DataOutputView target) throws IOException {
-		if (priorRowDataSerializer != null && row.getArity() == priorRowDataSerializer.getArity()) {
-			// mapping the fields from prior row to new row
-			GenericRowData newRow = new GenericRowData(this.getArity());
-
-			for (int i = 0; i < newNonDistinctTypes.size(); i++) {
-				if (i >= priorNonDistinctTypes.size()) {
-					setValueFromRestoredRow(null, newRow, -1, i, newNonDistinctTypes.get(i));
-				} else {
-					setValueFromRestoredRow(row, newRow, i, i, newNonDistinctTypes.get(i));
-				}
-			}
-
-			for (int i = 0; i < newDistinctTypes.size(); i++) {
-				if (i >= priorDistinctTypes.size()) {
-					setValueFromRestoredRow(null, newRow, -1, newNonDistinctTypes.size() + i, newDistinctTypes.get(i));
-				} else {
-					setValueFromRestoredRow(row, newRow, priorNonDistinctTypes.size() + i, newNonDistinctTypes.size() + i, newDistinctTypes.get(i));
-				}
-			}
-
-			binarySerializer.serialize(toBinaryRow(newRow), target);
+		if (priorRowDataSerializer != null) {
+			serializeInMigration(row, target);
 		} else {
 			binarySerializer.serialize(toBinaryRow(row), target);
 		}
+	}
+
+	private void serializeInMigration(RowData record, DataOutputView target) throws IOException {
+		GenericRowData newRow = new GenericRowData(this.getArity());
+		for (int i = 0; i < newNonDistinctTypes.size(); i++) {
+			if (i >= priorNonDistinctTypes.size()) {
+				newRow.setField(i, null);
+			} else {
+				setValueFromRestoredRowWithCast(record, newRow, i, i, priorNonDistinctTypes.get(i),
+					newNonDistinctTypes.get(i));
+			}
+		}
+
+		for (int i = 0; i < newDistinctTypes.size(); i++) {
+			int currentIndex = newNonDistinctTypes.size() + i;
+			int oldIndex = priorNonDistinctTypes.size() + i;
+			if (i >= priorDistinctTypes.size()) {
+				newRow.setField(currentIndex, null);
+			} else {
+				setValueFromRestoredRowWithCast(record, newRow, oldIndex, currentIndex, priorDistinctTypes.get(i),
+					newDistinctTypes.get(i));
+			}
+		}
+		binarySerializer.serialize(toBinaryRow(newRow), target);
 	}
 
 	@Override
@@ -321,19 +331,17 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 		return types;
 	}
 
-	private void setValueFromRestoredRow(
+	private void setValueFromRestoredRowWithCast(
 			@Nullable RowData priorRow,
 			GenericRowData currentRow,
 			int priorIndex,
 			int currentIndex,
-			LogicalType type) {
-		if (priorRow == null) {
-			currentRow.setField(currentIndex, null);
-			return;
-		}
-
-		currentRow.setField(currentIndex, RowData.get(priorRow, priorIndex, type));
+			LogicalType priorType,
+			LogicalType currentType) {
+		Object oldValue = RowData.get(priorRow, priorIndex, priorType);
+		currentRow.setField(currentIndex, TypeCasts.implicitCast(oldValue, priorType, currentType));
 	}
+
 
 	/**
 	 * {@link TypeSerializerSnapshot} for {@link BinaryRowDataSerializer}.
@@ -413,40 +421,53 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 			// generate types string
 			final String newTypesString = RowType.of(newRowSerializer.types).asSummaryString();
 			final String previousTypesString = RowType.of(previousTypes).asSummaryString();
+			boolean isStrictlyEqual = true;
 
-			if (!Arrays.equals(previousTypes, newRowSerializer.types)) {
-				if (newRowSerializer.types.length > previousTypes.length) {
-					List<LogicalType> priorNonDistinctTypes = new ArrayList<>();
-					List<LogicalType> priorDistinctTypes = new ArrayList<>();
-					List<LogicalType> newNonDistinctTypes = new ArrayList<>();
-					List<LogicalType> newDistinctTypes = new ArrayList<>();
+			if (newRowSerializer.types.length > previousTypes.length) {
+				List<LogicalType> priorNonDistinctTypes = new ArrayList<>();
+				List<LogicalType> priorDistinctTypes = new ArrayList<>();
+				List<LogicalType> newNonDistinctTypes = new ArrayList<>();
+				List<LogicalType> newDistinctTypes = new ArrayList<>();
 
-					parseDistinctTypes(previousTypes, priorNonDistinctTypes, priorDistinctTypes);
-					parseDistinctTypes(((RowDataSerializer) newSerializer).getTypes(), newNonDistinctTypes, newDistinctTypes);
+				parseDistinctTypes(previousTypes, priorNonDistinctTypes, priorDistinctTypes);
+				parseDistinctTypes(((RowDataSerializer) newSerializer).getTypes(), newNonDistinctTypes, newDistinctTypes);
 
-					for (int i = 0; i < priorNonDistinctTypes.size(); i++) {
-						if (!previousTypes[i].equals(newRowSerializer.types[i])) {
+				for (int i = 0; i < priorNonDistinctTypes.size(); i++) {
+					if (!LogicalTypeUtils.isCompatibleWith(previousTypes[i], newRowSerializer.types[i])) {
+						String message = String.format("new type[%s] is %s, but previous type[%s] is %s, new types are %s, but previous types are %s.",
+							i, newRowSerializer.types[i].asSummaryString(), i, previousTypes[i].asSummaryString(), newTypesString, previousTypesString);
+						return TypeSerializerSchemaCompatibility.incompatible(message);
+					}
+				}
+
+				for (int i = 0; i < priorDistinctTypes.size(); i++) {
+					int priorIndex = priorNonDistinctTypes.size() + i;
+					int newIndex = newNonDistinctTypes.size() + i;
+					if (!LogicalTypeUtils.isCompatibleWith(previousTypes[priorIndex], newRowSerializer.types[newIndex])) {
+						String message = String.format("new type[%s] is %s, but previous type[%s] is %s, new types are %s, but previous types are %s.",
+							newIndex, newRowSerializer.types[newIndex].asSummaryString(), priorIndex, previousTypes[priorIndex].asSummaryString(), newTypesString, previousTypesString);
+						return TypeSerializerSchemaCompatibility.incompatible(message);
+					}
+				}
+				return TypeSerializerSchemaCompatibility.compatibleAfterMigration();
+			} else if (newRowSerializer.types.length < previousTypes.length) {
+				String message = String.format("new types are %s, but previous types are %s.", newTypesString,
+					previousTypesString);
+				return TypeSerializerSchemaCompatibility.incompatible(message);
+			} else if (!Arrays.equals(previousTypes, newRowSerializer.types)) {
+				for (int i = 0; i < previousTypes.length; i++) {
+					if (!previousTypes[i].equals(newRowSerializer.types[i])) {
+						if (!LogicalTypeUtils.isCompatibleWith(previousTypes[i], newRowSerializer.types[i])) {
 							String message = String.format("new type[%s] is %s, but previous type[%s] is %s, new types are %s, but previous types are %s.",
 								i, newRowSerializer.types[i].asSummaryString(), i, previousTypes[i].asSummaryString(), newTypesString, previousTypesString);
 							return TypeSerializerSchemaCompatibility.incompatible(message);
 						}
+						isStrictlyEqual = false;
 					}
-
-					for (int i = 0; i < priorDistinctTypes.size(); i++) {
-						int priorIndex = priorNonDistinctTypes.size() + i;
-						int newIndex = newNonDistinctTypes.size() + i;
-						if (!previousTypes[priorIndex].equals(newRowSerializer.types[newIndex])) {
-							String message = String.format("new type[%s] is %s, but previous type[%s] is %s, new types are %s, but previous types are %s.",
-								newIndex, newRowSerializer.types[newIndex].asSummaryString(), priorIndex, previousTypes[priorIndex].asSummaryString(), newTypesString, previousTypesString);
-							return TypeSerializerSchemaCompatibility.incompatible(message);
-						}
-					}
-
+				}
+				if (!isStrictlyEqual) {
 					return TypeSerializerSchemaCompatibility.compatibleAfterMigration();
 				}
-
-				String message = String.format("new types are %s, but previous types are %s.", newTypesString, previousTypesString);
-				return TypeSerializerSchemaCompatibility.incompatible(message);
 			}
 
 			CompositeTypeSerializerUtil.IntermediateCompatibilityResult<RowData> intermediateResult =

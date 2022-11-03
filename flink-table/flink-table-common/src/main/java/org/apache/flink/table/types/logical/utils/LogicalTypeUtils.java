@@ -130,6 +130,22 @@ public final class LogicalTypeUtils {
 		}
 	}
 
+	/**
+	 * Returns whether some other LogicalType is compatible with this one.
+	 * Compatible means it's 'safe' to assign values of this LogicalType to variables of the input one.
+	 * For example, it's safe to assign a IntType value to a BigIntType one.
+	 * There fore, for IntType as `sourceType`, this method will return true if `targetType` is BigIntType.
+	 */
+	public static boolean isCompatibleWith(LogicalType sourceType, LogicalType targetType) {
+		if (sourceType == targetType) {
+			return true;
+		}
+		if (targetType == null || sourceType == null) {
+			return false;
+		}
+		return LogicalTypeCasts.supportsImplicitCast(sourceType, targetType);
+	}
+
 	private LogicalTypeUtils() {
 		// no instantiation
 	}
