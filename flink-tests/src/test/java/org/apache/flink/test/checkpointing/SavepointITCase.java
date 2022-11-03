@@ -290,9 +290,8 @@ public class SavepointITCase extends TestLogger {
 
 		try {
 			ClientUtils.submitJob(client, jobGraph);
-
 			StatefulCounter.getProgressLatch().await();
-
+			client.waitAllTaskRunningOrClusterFailed(jobId, 60000).get(10, TimeUnit.SECONDS);
 			return client.cancelWithSavepoint(jobId, null).get();
 		} finally {
 			cluster.after();
