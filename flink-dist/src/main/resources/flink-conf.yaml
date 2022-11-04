@@ -60,7 +60,7 @@ common:
   state.checkpoints.expired.location-prefix: ${checkpoint.hdfs.prefix}/expire
   checkpoint.discard.historical.num: 0
   checkpoint.discard.delay.time: 1800000
-  state.backend.rocksdb.restore-with-sstWriter: true
+  state.backend.rocksdb.restore-with-sstWriter: false
   state.backend.rocksdb.max-disk-size-in-progress: 30gb
   state.backend.rocksdb.max-sst-size-for-sstWriter: 64mb
 

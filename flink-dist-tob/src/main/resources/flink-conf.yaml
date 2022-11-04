@@ -62,7 +62,7 @@ common:
   execution.checkpointing.ignore-checkpoints-on-checkpoint-disabled: true
   checkpoint.discard.historical.num: 3
   checkpoint.discard.delay.time: 1800000
-  state.backend.rocksdb.restore-with-sstWriter: true
+  state.backend.rocksdb.restore-with-sstWriter: false
   state.backend.rocksdb.max-disk-size-in-progress: 30gb
   state.backend.rocksdb.max-sst-size-for-sstWriter: 64mb
   state.backend.rocksdb.memory.managed: false
