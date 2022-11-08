@@ -396,7 +396,8 @@ public class EnvironmentInformation {
 			log.info(" Starting " + componentName + " (Version: " + version + ", Scala: " + scalaVersion + ", "
 					+ "Rev:" + rev.commitId + ", " + "Date:" + rev.commitDate + ")");
 			log.info(" OS current user: " + System.getProperty("user.name"));
-			log.info(" Current Hadoop/Kerberos user: " + getHadoopUser());
+			// this method is not necessary to flink job, but will waste a lot of time, so remove this logic here.
+			//log.info(" Current Hadoop/Kerberos user: " + getHadoopUser());
 			log.info(" JVM: " + jvmVersion);
 			log.info(" Maximum heap size: " + maxHeapMegabytes + " MiBytes");
 			log.info(" JAVA_HOME: " + (javaHome == null ? "(not set)" : javaHome));

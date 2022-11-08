@@ -132,6 +132,26 @@ getDynamicFiles() {
     done
 }
 
+# get the clusterName
+getClusterName() {
+    local found=0
+    for arg in $* ; do
+        if [[ $found = 1 ]]; then
+            echo ${arg}
+            break
+        fi
+        found=0
+
+        if [[ $arg == "-cn" ]]; then
+            found=1
+        fi
+    done
+
+    if [[ $found = 0 ]]; then
+        echo "flink"
+    fi
+}
+
 getDynamicFilesFromFlinkConf() {
     local dynamics_files_output
     dynamics_files_output=$(${JAVA_RUN} -classpath "${FLINK_BIN_DIR}/bash-java-utils.jar:$(findFlinkDistJar)" org.apache.flink.runtime.util.bash.FlinkConfigLoader --configDir "${FLINK_CONF_DIR}" "files" 2>&1)
@@ -177,6 +197,57 @@ getDynamicsExternalJarDependenciesForGeneric() {
     done
 }
 
+# Get the value of config key from yaml, the cluster level priority than common level.
+# 1. yaml path; 2. cluster name to support cluster configuration; 3. the key.
+function get_value_from_config_yaml() {
+    local clusterName=$2
+    local configKey=$3
+    # used in regex match: match space
+    local s='[[:space:]]*'
+    # used in regex match: match word
+    local w='[a-zA-Z0-9_\.\-]*'
+    #field-separator
+    local fs=$(echo @|tr @ '\034')
+    keys=$(
+        # set fs between fields we want to separate
+        sed -ne "s|^\($s\):|\1|" \
+        -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
+        -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p" $1 |
+
+        # use awk to separate the line by fs
+        # $1(field_1) is space, which is used to judge the level of current param
+        # $2(field_2) is key of the param
+        # $3(field_3) is the value of the param
+        awk -F$fs \
+        '{
+            # get the position by the number of space
+            indent = length($1)/2;
+            nameLevel[indent] = $2;
+            # clear nameLevel
+            for (i in nameLevel) {
+                if (i > indent ) {
+                    delete nameLevel[i]
+                }
+            }
+            # if has value and top-level is common/cluster
+            if (length($3) > 0 && (nameLevel[0] == "'$checkDomain'" || nameLevel[0] == "'$clusterName'" || nameLevel[0] == "common")) {
+                key="";
+                # do not need top-level
+                for (i=1; i<indent; i++) {
+                    key=(key)(nameLevel[i])(".")
+                }
+                key=(key)$2;
+                if ("'$configKey'" == $2) {
+                  value=$3
+                  printf(";;;%s", value);
+                }
+            }
+       }'
+    )
+    # get the last value, if this configuration set both in cluster and common level, the value of cluster value will print in the last
+    echo "${keys##*;;;}"
+}
+
 getJarDependencies() {
     local jar_dependencies_from_dynamics_parameters
     jar_dependencies_from_dynamics_parameters=$(getDynamicsExternalJarDependencies "$*")
@@ -185,7 +256,7 @@ getJarDependencies() {
     jar_dependencies_from_generic_dynamics_parameters=$(getDynamicsExternalJarDependenciesForGeneric "$*")
     # get jarDependencies from config file
     local jar_dependencies_from_flink_config_output
-    jar_dependencies_from_flink_config_output=$(${JAVA_RUN} -classpath "${FLINK_BIN_DIR}/bash-java-utils.jar:$(findFlinkDistJar)" org.apache.flink.runtime.util.bash.FlinkConfigLoader --configDir "${FLINK_CONF_DIR}" "flink.external.jar.dependencies" 2>&1)
+    jar_dependencies_from_flink_config_output=$(get_value_from_config_yaml "${YAML_CONF}" "${clusterName}" "flink.external.jar.dependencies")
     # extract result
     local jar_dependencies_from_flink_config
     jar_dependencies_from_flink_config=$(extractExecutionResults "${jar_dependencies_from_flink_config_output}" 1)
@@ -365,6 +436,7 @@ FLINK_LIB_DIR=$FLINK_HOME/lib
 FLINK_PLUGINS_DIR=$FLINK_HOME/plugins
 FLINK_OPT_DIR=$FLINK_HOME/opt
 
+clusterName=`getClusterName $*`
 
 # These need to be mangled because they are directly passed to java.
 # The above lib path is used by the shell script to retrieve jars in a
@@ -578,7 +650,7 @@ fi
 
 # export hadoop env explicitly otherwise JM/TM can't find it (only for standalone)
 export HADOOP_CONF_DIR
-if [ -f "$HADOOP_HOME/bin/hadoop" ]; then
+if [ -f "$HADOOP_HOME/bin/hadoop" ] && [ -z "$HADOOP_CLASSPATH" ]; then
     export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
 fi
 
