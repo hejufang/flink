@@ -4,7 +4,7 @@ trigger:
     branches: [ "flink-1.16" ]
 jobs:
   build:
-    image: hub.byted.org/yarn/flink_bet_maven:d2a30895a84daad65a4171985fd64440
+    image: hub.byted.org/compile/flink_compile_icm:c68ccc99b92586abf14afa19202ea7d5
     steps:
       - uses: actions/checkout@v1
         inputs:
@@ -19,15 +19,6 @@ jobs:
         inputs:
           paths:
             - pom.xml
-      - id: cache
-        uses: actions/cache
-        inputs:
-          key: maven-${{Steps.checksum.Outputs.hash}}
-          paths:
-            - /home/tiger/.m2/repository  # m2 对应的目录
-          restore_keys:
-            - maven-${{Steps.checksum.Outputs.hash}}
-            - maven-
       # - uses: actions/setup-proxy
       - name: build
         commands:

@@ -26,7 +26,7 @@ rm -rf pom.xml
 cp pom_tob.xml pom.xml
 
 # compile current branch
-mvn clean package -U -DskipTests  -Pinclude-hadoop -Dflink.hadoop.version=2.6.0-cdh5.4.4-cfs-1.1.0 -Dhadoop-uber.version=2.6.0-cdh5.4.4-cfs-1.1.0-cfs-1.1.13 -Psql-jars -Pdocs-and-source
+mvn clean package -U -DskipTests  -Pinclude-hadoop -Dflink.hadoop.version=2.6.0-cdh5.4.4-cfs-1.1.0 -Dhadoop-uber.version=2.6.0-cdh5.4.4-cfs-1.1.0-cfs-1.1.13 -Psql-jars -Pdocs-and-source | grep -v "Progress"
 
 # copy flink-1.11 to output
 mkdir -p output

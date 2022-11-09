@@ -47,8 +47,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.kubernetes.utils.Constants.API_VERSION;
-import static org.apache.flink.kubernetes.utils.Constants.DNS_PLOICY_DEFAULT;
-import static org.apache.flink.kubernetes.utils.Constants.DNS_PLOICY_HOSTNETWORK;
+import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_DEFAULT;
+import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_HOSTNETWORK;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_COMPONENT;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_NODE_ID;
 import static org.apache.flink.kubernetes.utils.Constants.LABEL_COMPONENT_TASK_MANAGER;
@@ -96,8 +96,8 @@ public class InitTaskManagerDecorator extends AbstractKubernetesStepDecorator {
                 .withHostNetwork(kubernetesTaskManagerParameters.isHostNetworkEnabled())
                 .withDnsPolicy(
                         kubernetesTaskManagerParameters.isHostNetworkEnabled()
-                                ? DNS_PLOICY_HOSTNETWORK
-                                : DNS_PLOICY_DEFAULT)
+                                ? DNS_POLICY_HOSTNETWORK
+                                : DNS_POLICY_DEFAULT)
                 .endSpec();
 
         // Merge fields

@@ -18,9 +18,11 @@
 ################################################################################
 set -eo pipefail
 
+bash tob_config_check.sh
+
 rm -rf output
 
-mvn clean package -U -DskipTests -Pinclude-hadoop -Dflink.hadoop.version=3.2.1 -Psql-jars -Pdocs-and-source
+mvn clean package -U -DskipTests -Dflink.hadoop.version=3.2.1 -Psql-jars -Pdocs-and-source | grep -v "Progress"
 
 # copy flink-1.11 to output
 mkdir -p output

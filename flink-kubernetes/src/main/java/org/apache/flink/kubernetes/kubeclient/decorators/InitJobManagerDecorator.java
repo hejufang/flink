@@ -43,8 +43,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.kubernetes.utils.Constants.API_VERSION;
-import static org.apache.flink.kubernetes.utils.Constants.DNS_PLOICY_DEFAULT;
-import static org.apache.flink.kubernetes.utils.Constants.DNS_PLOICY_HOSTNETWORK;
+import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_DEFAULT;
+import static org.apache.flink.kubernetes.utils.Constants.DNS_POLICY_HOSTNETWORK;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_COMPONENT;
 import static org.apache.flink.kubernetes.utils.Constants.ENV_FLINK_POD_IP_ADDRESS;
 import static org.apache.flink.kubernetes.utils.Constants.LABEL_COMPONENT_JOB_MANAGER;
@@ -87,8 +87,8 @@ public class InitJobManagerDecorator extends AbstractKubernetesStepDecorator {
                 .withHostNetwork(kubernetesJobManagerParameters.isHostNetworkEnabled())
                 .withDnsPolicy(
                         kubernetesJobManagerParameters.isHostNetworkEnabled()
-                                ? DNS_PLOICY_HOSTNETWORK
-                                : DNS_PLOICY_DEFAULT)
+                                ? DNS_POLICY_HOSTNETWORK
+                                : DNS_POLICY_DEFAULT)
                 .endSpec();
 
         // Merge fields

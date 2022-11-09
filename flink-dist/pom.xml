@@ -508,6 +508,7 @@ under the License.
 	<profiles>
 		<profile>
 			<!-- Copies that shaded Hadoop uber jar to the dist folder. -->
+			<!-- Just use in tob, export Hadoop_classpath in internal. -->
 			<id>include-hadoop</id>
 			<activation>
 				<property>
@@ -523,7 +524,7 @@ under the License.
 					<groupId>org.apache.flink</groupId>
 					<artifactId>flink-shaded-hadoop-2-uber</artifactId>
 					<!-- support a special hadoop-uber version -->
-					<version>${hadoop.version}-${flink.shaded.version}</version>
+					<version>${flink.hadoop.version}-${flink.shaded.version}</version>
 					<scope>provided</scope>
 					<exclusions>
 						<exclusion>
